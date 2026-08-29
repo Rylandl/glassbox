@@ -11,6 +11,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import numpy as np
+
 from glassbox.data import Trajectory, save_trajectory_npz
 from glassbox.px4_ulog import PX4IngestConfig, inspect_ulog, load_px4_trajectory
 
@@ -104,6 +106,57 @@ def _reference_metadata(recording: ARPRecording) -> dict[str, Any]:
     }
 
 
+def _longest_powered_interval(
+    trajectory: Trajectory,
+    *,
+    minimum_mean_motor_command: float = 0.1,
+    minimum_duration_s: float = 0.5,
+) -> Trajectory:
+    """Select the longest powered interval when arming topics are unavailable."""
+
+    if not 0.0 < minimum_mean_motor_command < 1.0:
+        raise ValueError("minimum_mean_motor_command must lie in (0, 1)")
+    if minimum_duration_s <= 0.0:
+        raise ValueError("minimum_duration_s must be positive")
+    powered = np.mean(trajectory.controls, axis=1) > minimum_mean_motor_command
+    transitions = np.flatnonzero(
+        np.diff(np.concatenate(([False], powered, [False])).astype(np.int8))
+    )
+    runs = [
+        (int(start), int(stop))
+        for start, stop in transitions.reshape(-1, 2)
+        if (stop - start) * trajectory.nominal_dt_s >= minimum_duration_s
+    ]
+    if not runs:
+        raise ValueError("ARP reference trajectory has no sustained powered interval")
+    start, stop = max(runs, key=lambda run: run[1] - run[0])
+    start_offset_s = float(trajectory.time_s[start] - trajectory.time_s[0])
+    selected_time = trajectory.time_s[start : stop + 1]
+    provenance = dict(trajectory.provenance)
+    provenance["reference_powered_interval"] = {
+        "selection": "longest_contiguous_mean_motor_command_above_threshold",
+        "minimum_mean_motor_command": minimum_mean_motor_command,
+        "minimum_duration_s": minimum_duration_s,
+        "candidate_interval_count": len(runs),
+        "start_offset_s": start_offset_s,
+        "duration_s": float(selected_time[-1] - selected_time[0]),
+        "discarded_duration_s": float(
+            trajectory.time_s[-1]
+            - trajectory.time_s[0]
+            - (selected_time[-1] - selected_time[0])
+        ),
+    }
+    return Trajectory(
+        time_s=selected_time - selected_time[0],
+        states=trajectory.states[start : stop + 1],
+        controls=trajectory.controls[start:stop],
+        spec=trajectory.spec,
+        exogenous=trajectory.exogenous[start : stop + 1],
+        labels=trajectory.labels,
+        provenance=provenance,
+    )
+
+
 @dataclass(frozen=True)
 class ARPReferenceAdapter:
     """Convert one pinned ARP PX4 ULog into a canonical trajectory."""
@@ -156,6 +209,7 @@ class ARPReferenceAdapter:
                 vehicle_id=ARP_CONFIGURATION_ID,
             ),
         )
+        trajectory = _longest_powered_interval(trajectory)
         provenance = dict(trajectory.provenance)
         provenance.update(
             {
@@ -174,6 +228,9 @@ class ARPReferenceAdapter:
                 **trajectory.labels,
                 "benchmark": ARP_REFERENCE_NAME,
                 "recording_date": "2024-01-08",
+                "source_group": (
+                    f"{ARP_REFERENCE_NAME}:{recording.relative_path}"
+                ),
             },
             provenance=provenance,
         )

@@ -86,4 +86,5 @@ def test_angular_authority_selection_uses_only_held_out_train_profiles(
     )
 
     assert decision["selected_authority"] == 1.0
-    assert decision["decision_scope"]["uses_public_melon_test_data"] is False
+    assert decision["decision_scope"]["uses_protected_evaluation_data"] is False
+    assert decision["decision_scope"]["required_benchmark_split"] == "train"

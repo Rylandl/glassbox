@@ -110,6 +110,8 @@ def benchmark_source_groups(
     model_class: str = "structured",
     endpoint_weight: float = 3.0,
     stability_regularization: float = 0.01,
+    instantaneous_rotational_response: bool = True,
+    diagonal_angular_control: bool = True,
 ) -> dict[str, Any]:
     """Fit one fold per independent source group and summarize robustness."""
 
@@ -166,6 +168,15 @@ def benchmark_source_groups(
             ),
             "endpoint_weight": endpoint_weight,
             "stability_regularization": stability_regularization,
+            "rotational_response": (
+                "not_applicable_fixedwing"
+                if reference_spec.vehicle.family != "multirotor"
+                else "instantaneous_diagonal_reference"
+                if instantaneous_rotational_response
+                else "learned_latent_diagonal"
+                if diagonal_angular_control
+                else "learned_latent_cross_coupled"
+            ),
             "optimization_policy": OPTIMIZATION_POLICY_VERSION,
             "maximum_optimization_windows_per_horizon": (
                 MAX_OPTIMIZATION_WINDOWS_PER_HORIZON
@@ -244,6 +255,10 @@ def benchmark_source_groups(
                 model_class=model_class,
                 endpoint_weight=endpoint_weight,
                 stability_regularization=stability_regularization,
+                instantaneous_rotational_response=(
+                    instantaneous_rotational_response
+                ),
+                diagonal_angular_control=diagonal_angular_control,
             )
             if report["split"]["validation_source_groups"] != [group]:
                 raise RuntimeError(
@@ -334,6 +349,15 @@ def benchmark_source_groups(
             ),
             "endpoint_weight": endpoint_weight,
             "stability_regularization": stability_regularization,
+            "rotational_response": (
+                "not_applicable_fixedwing"
+                if reference_spec.vehicle.family != "multirotor"
+                else "instantaneous_diagonal_reference"
+                if instantaneous_rotational_response
+                else "learned_latent_diagonal"
+                if diagonal_angular_control
+                else "learned_latent_cross_coupled"
+            ),
             "control_size": trajectories[0].control_size,
             "control_names": list(reference_spec.control_names),
             "exogenous_size": trajectories[0].exogenous_size,
