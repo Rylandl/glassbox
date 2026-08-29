@@ -4,10 +4,14 @@ import numpy as np
 import pytest
 
 from glassbox.observation_compatibility import (
+    MAXIMUM_TIME_CONSTANT_S,
     MAXIMUM_SCALE,
+    FirstOrderObservationFilter,
     StateObservationCorrection,
     apply_state_observation_correction,
+    evaluate_first_order_observation_filter,
     evaluate_state_observation_correction,
+    fit_first_order_observation_filter,
     fit_state_observation_correction,
 )
 from glassbox.synthetic import generate_trajectory
@@ -29,6 +33,32 @@ def _affine_corrupted_trajectory():
         angular_scale,
         angular_bias,
     )
+
+
+def _low_pass(values: np.ndarray, dt_s: float, time_constant_s: float):
+    filtered = np.empty_like(values)
+    filtered[0] = values[0]
+    decay = np.exp(-dt_s / time_constant_s)
+    for index in range(1, len(values)):
+        filtered[index] = (
+            decay * filtered[index - 1] + (1.0 - decay) * values[index]
+        )
+    return filtered
+
+
+def _temporally_filtered_trajectory(
+    *, seed: int, time_constant_s: float, duration_s: float = 3.0
+):
+    dt_s = 0.02
+    trajectory = generate_trajectory(
+        seed=seed, duration_s=duration_s, dt_s=dt_s
+    )
+    states = trajectory.states.copy()
+    states[:, 3:6] = _low_pass(states[:, 3:6], dt_s, time_constant_s)
+    states[:, 10:13] = _low_pass(
+        states[:, 10:13], dt_s, time_constant_s
+    )
+    return replace(trajectory, states=states)
 
 
 def test_affine_correction_recovers_known_state_measurement_errors() -> None:
@@ -130,3 +160,106 @@ def test_application_preserves_arrays_and_records_observation_semantics() -> Non
     )
     with pytest.raises(ValueError, match="already has"):
         apply_state_observation_correction(corrected, correction)
+
+
+def test_first_order_filter_recovers_temporal_observation_response() -> None:
+    time_constant_s = 0.08
+    training = _temporally_filtered_trajectory(
+        seed=8, time_constant_s=time_constant_s
+    )
+    held_out = _temporally_filtered_trajectory(
+        seed=9, time_constant_s=time_constant_s
+    )
+
+    result = fit_first_order_observation_filter([training])
+    evaluation = evaluate_first_order_observation_filter(
+        result.candidate,
+        result.instantaneous_reference,
+        [held_out],
+    )
+
+    np.testing.assert_allclose(
+        result.candidate.velocity_time_constant_s,
+        time_constant_s,
+        atol=0.02,
+    )
+    np.testing.assert_allclose(
+        result.candidate.angular_rate_time_constant_s,
+        time_constant_s,
+        atol=0.02,
+    )
+    assert all(
+        ratio < 0.1
+        for ratio in evaluation["candidate_over_reference"].values()
+    )
+    assert evaluation["gate"]["passes"] is True
+
+
+def test_temporal_fit_rejects_protected_data_and_boundary_is_not_promoted() -> None:
+    slow = _temporally_filtered_trajectory(
+        seed=10, time_constant_s=2.0, duration_s=4.0
+    )
+
+    result = fit_first_order_observation_filter([slow])
+
+    np.testing.assert_allclose(
+        result.candidate.velocity_time_constant_s, MAXIMUM_TIME_CONSTANT_S
+    )
+    np.testing.assert_allclose(
+        result.candidate.angular_rate_time_constant_s,
+        MAXIMUM_TIME_CONSTANT_S,
+    )
+    assert result.report["training_comparison"]["gate"][
+        "time_constants_interior"
+    ] is False
+    assert result.report["training_comparison"]["gate"]["passes"] is False
+    protected = replace(
+        slow,
+        labels={**slow.labels, "benchmark_split": "validation"},
+    )
+    with pytest.raises(ValueError, match="protected benchmark splits"):
+        fit_first_order_observation_filter([protected])
+
+
+def test_temporal_filter_validates_maintained_time_constant_bounds() -> None:
+    with pytest.raises(ValueError, match="maintained bounds"):
+        FirstOrderObservationFilter(
+            velocity_time_constant_s=np.asarray([0.0, 0.1, 0.6]),
+            velocity_scale=np.ones(3),
+            velocity_bias_m_s=np.zeros(3),
+            angular_rate_time_constant_s=np.zeros(3),
+            angular_rate_scale=np.ones(3),
+            angular_rate_bias_rad_s=np.zeros(3),
+        )
+
+
+def test_temporal_fit_weights_source_groups_instead_of_segment_count() -> None:
+    first = replace(
+        _temporally_filtered_trajectory(seed=11, time_constant_s=0.04),
+        labels={"source_group": "first"},
+    )
+    second = replace(
+        _temporally_filtered_trajectory(seed=12, time_constant_s=0.15),
+        labels={"source_group": "second"},
+    )
+
+    balanced = fit_first_order_observation_filter([first, second])
+    duplicated_segment = fit_first_order_observation_filter(
+        [first, first, second]
+    )
+
+    for name in (
+        "velocity_time_constant_s",
+        "velocity_scale",
+        "velocity_bias_m_s",
+        "angular_rate_time_constant_s",
+        "angular_rate_scale",
+        "angular_rate_bias_rad_s",
+    ):
+        np.testing.assert_allclose(
+            getattr(balanced.candidate, name),
+            getattr(duplicated_segment.candidate, name),
+            atol=1e-12,
+        )
+    assert duplicated_segment.report["source_group_count"] == 2
+    assert duplicated_segment.report["fit_weighting"] == "equal_source_group"

@@ -600,6 +600,15 @@ closed-loop feedback, and incompatible state channels can produce them without
 implying a missing aerodynamic term. The policy is maintained internally and
 adds no CLI knobs.
 
+A research-only compatibility utility also tests whether reported velocity and
+body rate behave like bounded first-order observations of pose-consistent
+motion. It fits development flights only and compares against an equally
+flexible zero-memory reference on complete held-out flights. This diagnostic
+found transferable body-rate memory on ARP, X8, and IDF, but failed the joint
+cross-platform state-group gate, so it is not applied by the fitter and adds no
+user-facing configuration. The frozen result is documented in
+[`docs/temporal-observation-filter-results.json`](docs/temporal-observation-filter-results.json).
+
 ### Scaling across logs
 
 Canonical trajectory artifacts now carry a typed, versioned semantic contract:

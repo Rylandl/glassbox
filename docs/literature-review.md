@@ -243,6 +243,46 @@ provenance, but it is not imported by the normal Glassbox interface or applied
 by fitting. The evidence is recorded in
 [`state-observation-correction-results.json`](state-observation-correction-results.json).
 
+#### Temporal observation-filter result (2026-08-29)
+
+The next bounded experiment tested a causal first-order observation response,
+motivated by the explicit treatment of filtering, time delay, and output error in
+NASA flight-identification workflows. Each pose-implied velocity and angular-rate
+axis was passed through one independently selected time constant, followed by the
+same bounded scale and bias available to an instantaneous reference. Zero memory
+was a candidate, the largest permitted time constant was 0.5 s, and the policy
+introduced no public configuration. A 0.5 s/10%-of-flight warm-up cap prevented
+filter initialization from determining the score.
+
+Synthetic recovery selected 0.081 s on every axis for an injected 0.080 s
+response and reduced held-out error to about 1.9% of the instantaneous model. A
+deliberately out-of-range 2 s response selected the 0.5 s boundary and was
+rejected, establishing both positive and negative test sensitivity.
+
+Frozen real-data transfer produced this result:
+
+| Corpus | Position/velocity ratio | Attitude/rate ratio | Corpus gate |
+| --- | ---: | ---: | --- |
+| Nano | 0.943 | 1.000 | fail |
+| ARP | 0.983 | 0.632 | fail |
+| X8 | 1.000 (already consistent) | 0.599 | pass |
+| IDF | 0.933 | 0.840 | fail |
+
+Values are candidate/instantaneous-reference RMSE. ARP, X8, and IDF provide
+strong evidence that their reported body rates have useful temporal semantics;
+Nano selected zero angular-rate memory. The position channel did not meet the
+10% material-improvement requirement on Nano, ARP, or IDF, and one Nano held-out
+flight regressed by 14.3%, beyond the 5% per-flight guardrail.
+
+Only X8 passed its corpus gate, so the cross-platform gate failed and no rollout
+refit was run. This is a more specific result than the static-correction failure:
+observation dynamics explain a substantial fraction of attitude/body-rate
+incompatibility on three distinct platforms, but a single first-order state
+observation layer does not explain the full canonical-state mismatch. The model
+remains a research utility rather than becoming another fitting option. Complete
+coefficients and split sizes are recorded in
+[`temporal-observation-filter-results.json`](temporal-observation-filter-results.json).
+
 ### Phase B: structured history encoder
 
 If Phase A improves parameter stability or held-out error, add one small causal

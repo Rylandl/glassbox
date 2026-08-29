@@ -1,0 +1,151 @@
+{
+  "date": "2026-08-29",
+  "hypothesis": "Reported world velocity and body angular rate are bounded first-order observations of pose-consistent motion, and that temporal model transfers better than an otherwise identical instantaneous affine observation model.",
+  "policy": "bounded_first_order_observation_filter_v1",
+  "selection": {
+    "time_constant_candidates_s": "zero plus 32 logarithmically spaced values from 0.003 to 0.5",
+    "warmup_s": 0.5,
+    "warmup_maximum_flight_fraction": 0.1,
+    "scale_bounds": [0.8, 1.2],
+    "velocity_bias_bounds_m_s": [-1.0, 1.0],
+    "angular_rate_bias_bounds_rad_s": [-0.5, 0.5],
+    "material_improvement_ratio": 0.9,
+    "maximum_regression_ratio": 1.05,
+    "fit_weighting": "equal_source_group",
+    "fit_data": "development trajectories only",
+    "evaluation_data": "complete held-out trajectories",
+    "public_configuration_added": false
+  },
+  "synthetic_recovery": {
+    "injected_time_constant_s": 0.08,
+    "selected_time_constant_s": [0.08139019, 0.08139019, 0.08139019],
+    "held_out_candidate_over_instantaneous_reference": {
+      "position_velocity_vector_rmse_m_s": 0.01886674637439351,
+      "attitude_rate_vector_rmse_rad_s": 0.01891417013890712
+    },
+    "boundary_test": "A 2.0 s injected response selected the maintained 0.5 s upper bound on every axis and was rejected as non-interior."
+  },
+  "decision": {
+    "cross_platform_transfer_gate_passed": false,
+    "rollout_ab_authorized": false,
+    "production_application_authorized": false,
+    "research_utility_retained": true,
+    "reason": "Only X8 passed its corpus gate. ARP and IDF showed transferable body-rate memory but less than 10 percent position/velocity improvement; Nano selected zero body-rate memory and one held-out flight exceeded the position/velocity regression guard."
+  },
+  "datasets": {
+    "nano": {
+      "development_trajectories": 12,
+      "development_intervals": 55587,
+      "development_source_groups": 12,
+      "held_out_trajectories": 3,
+      "held_out_intervals": 19494,
+      "selected_time_constant_s": {
+        "velocity": [0.0356623008453892, 0.04206122332103921, 0.04206122332103921],
+        "angular_rate": [0.0, 0.0, 0.0]
+      },
+      "selected_scale": {
+        "velocity": [1.079781654533724, 1.0775714016973392, 0.9531582896654601],
+        "angular_rate": [0.9996016604468293, 0.9897950723906342, 0.9691430230872233]
+      },
+      "selected_bias": {
+        "velocity_m_s": [-0.001823458697024451, -0.005497708399490081, -0.00500901497228503],
+        "angular_rate_rad_s": [-0.0006418078836842254, -0.005449955548435244, -0.007041165279650662]
+      },
+      "held_out_candidate_over_instantaneous_reference": {
+        "position_velocity_vector_rmse_m_s": 0.9426406682887761,
+        "attitude_rate_vector_rmse_rad_s": 1.0
+      },
+      "maximum_single_flight_ratio": {
+        "position_velocity_vector_rmse_m_s": 1.1428707102465683,
+        "attitude_rate_vector_rmse_rad_s": 1.0
+      },
+      "all_groups_improve_materially": false,
+      "no_group_regresses": false,
+      "corpus_gate_passed": false
+    },
+    "arp": {
+      "development_trajectories": 3,
+      "development_intervals": 6980,
+      "development_source_groups": 3,
+      "held_out_trajectories": 1,
+      "held_out_intervals": 3819,
+      "selected_time_constant_s": {
+        "velocity": [0.01562595818560635, 0.018429739564461825, 0.018429739564461825],
+        "angular_rate": [0.013248725971643881, 0.013248725971643881, 0.06900801268182138]
+      },
+      "selected_scale": {
+        "velocity": [1.0021699145569818, 0.9983569798917384, 1.013490506525826],
+        "angular_rate": [0.9992275243550031, 0.9990326878384832, 0.9353821861342587]
+      },
+      "selected_bias": {
+        "velocity_m_s": [0.010021186613258857, -0.003061381366513717, -0.001539210582896966],
+        "angular_rate_rad_s": [0.0003082762726151986, 0.00030006489618868354, 0.0002896540853501532]
+      },
+      "held_out_candidate_over_instantaneous_reference": {
+        "position_velocity_vector_rmse_m_s": 0.9831327915726034,
+        "attitude_rate_vector_rmse_rad_s": 0.6317945217265567
+      },
+      "all_groups_improve_materially": false,
+      "no_group_regresses": true,
+      "corpus_gate_passed": false
+    },
+    "x8": {
+      "development_trajectories": 13,
+      "development_intervals": 5185,
+      "development_source_groups": 13,
+      "held_out_trajectories": 4,
+      "held_out_intervals": 1625,
+      "selected_time_constant_s": {
+        "velocity": [0.0, 0.0, 0.0],
+        "angular_rate": [0.03023686904871564, 0.03023686904871564, 0.0356623008453892]
+      },
+      "selected_scale": {
+        "velocity": [1.0000000000000002, 1.0000000000000002, 1.0000000000000004],
+        "angular_rate": [0.9800774971471164, 0.998663916973686, 0.9759283803358928]
+      },
+      "selected_bias": {
+        "velocity_m_s": [3.825999346400539e-15, -4.372570681600617e-15, -1.3664283380001927e-16],
+        "angular_rate_rad_s": [-4.8343747152273645e-05, -0.0011497794878698726, -0.0012063688319265504]
+      },
+      "held_out_candidate_over_instantaneous_reference": {
+        "position_velocity_vector_rmse_m_s": 1.0,
+        "attitude_rate_vector_rmse_rad_s": 0.5993468050869427
+      },
+      "already_consistent_groups": ["position_velocity_vector_rmse_m_s"],
+      "all_groups_improve_materially": true,
+      "no_group_regresses": true,
+      "corpus_gate_passed": true
+    },
+    "idf": {
+      "development_trajectories": 111,
+      "development_intervals": 1616660,
+      "development_source_groups": 12,
+      "held_out_trajectories": 8,
+      "held_out_intervals": 128818,
+      "selected_time_constant_s": {
+        "velocity": [0.018429739564461825, 0.018429739564461825, 0.018429739564461825],
+        "angular_rate": [0.013248725971643881, 0.013248725971643881, 0.02173660625348137]
+      },
+      "selected_scale": {
+        "velocity": [0.9996033351328665, 1.0019839277220726, 1.0027287731295498],
+        "angular_rate": [1.0094810330628645, 1.0038734848933386, 0.9990552848656169]
+      },
+      "selected_bias": {
+        "velocity_m_s": [0.003599885067294432, 0.004897139550107877, 0.009024021963967557],
+        "angular_rate_rad_s": [-9.190210131322741e-05, 3.641604017585547e-05, 0.0001648510517734334]
+      },
+      "held_out_candidate_over_instantaneous_reference": {
+        "position_velocity_vector_rmse_m_s": 0.9325860007967298,
+        "attitude_rate_vector_rmse_rad_s": 0.8401866112943996
+      },
+      "maximum_single_flight_ratio": {
+        "position_velocity_vector_rmse_m_s": 0.9762721072717185,
+        "attitude_rate_vector_rmse_rad_s": 0.8538476373644334
+      },
+      "all_groups_improve_materially": false,
+      "no_group_regresses": true,
+      "corpus_gate_passed": false
+    }
+  },
+  "legacy_artifact_note": "X8 format-v2 and IDF format-v1 artifacts were decoded in memory for this one-time comparison. No compatibility loader or migrated artifact was added."
+}
