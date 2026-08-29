@@ -212,6 +212,11 @@ def test_multi_flight_fit_reserves_complete_final_flight(tmp_path) -> None:
     assert "0.1s" in report["models"]["learned_lag"]["validation"][
         "aggregate"
     ]["horizon_rollouts"]
+    innovation = report["models"]["learned_lag"]["validation"]
+    assert innovation["aggregate"]["one_step_innovation"]["status"] == "ok"
+    assert innovation["per_flight"][0]["one_step_innovation"]["policy"] == (
+        "measured_state_reset_innovation_v1"
+    )
     assert np.isfinite(
         report["comparison"]["aggregate_full_rollout"]["position_rmse_m"]
     )

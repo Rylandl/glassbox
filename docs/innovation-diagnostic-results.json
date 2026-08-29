@@ -1,0 +1,119 @@
+{
+  "date": "2026-08-29",
+  "decision": {
+    "architecture_change_authorized": false,
+    "reason": "Held-out innovations are structured, but state-channel incompatibility and closed-loop feedback prevent causal attribution to omitted vehicle dynamics.",
+    "retain_diagnostics": true
+  },
+  "evaluation": {
+    "innovation_policy": "measured_state_reset_innovation_v1",
+    "kinematic_compatibility_policy": "trapezoidal_state_kinematic_compatibility_v1",
+    "maximum_correlation_lag_s": 0.5,
+    "simultaneous_screen_alpha": 0.05,
+    "position_rate_materiality_floor_m_s": 0.001,
+    "attitude_rate_materiality_floor_rad_s": 0.001,
+    "legacy_artifact_note": "Maintained pre-format-bump model parameters were decoded in-memory for this one-time comparison; no compatibility loader was added. Future fit reports emit these diagnostics directly."
+  },
+  "datasets": {
+    "nano_melon": {
+      "airframe": "nano_quadrotor",
+      "held_out_flights": 3,
+      "model_artifact": "artifacts/nanodrone_v2/rotation_selected_model.json",
+      "structured_innovation_flight_fraction": 1.0,
+      "mean_maximum_abs_autocorrelation": {
+        "position": 0.9518708725815994,
+        "velocity": 0.9203069213858227,
+        "attitude": 0.9089805612843889,
+        "angular_velocity": 0.9338759793659027
+      },
+      "mean_maximum_abs_past_or_current_input_correlation": {
+        "position": 0.31030514373225565,
+        "velocity": 0.3490652281431355,
+        "attitude": 0.23427648982322125,
+        "angular_velocity": 0.2883885791636613
+      },
+      "kinematic_compatibility": {
+        "inconsistent_flight_fraction": 1.0,
+        "position_velocity_colored_flight_fraction": 1.0,
+        "attitude_rate_colored_flight_fraction": 1.0,
+        "mean_position_velocity_vector_rmse_m_s": 0.19831376430973843,
+        "mean_attitude_rate_vector_rmse_rad_s": 0.16735955470740968
+      }
+    },
+    "arp_log66": {
+      "airframe": "large_quadrotor",
+      "held_out_flights": 1,
+      "model_artifact": "artifacts/arp_reference/authority_selection/promoted_candidate_model.json",
+      "structured_innovation_flight_fraction": 1.0,
+      "mean_maximum_abs_autocorrelation": {
+        "position": 0.9550178605674695,
+        "velocity": 0.9175410384522503,
+        "attitude": 0.36630761021918495,
+        "angular_velocity": 0.5897271174170057
+      },
+      "mean_maximum_abs_past_or_current_input_correlation": {
+        "position": 0.30700711327380464,
+        "velocity": 0.6259695434114918,
+        "attitude": 0.32924004683040065,
+        "angular_velocity": 0.4355610015608351
+      },
+      "kinematic_compatibility": {
+        "inconsistent_flight_fraction": 1.0,
+        "position_velocity_colored_flight_fraction": 1.0,
+        "attitude_rate_colored_flight_fraction": 1.0,
+        "mean_position_velocity_vector_rmse_m_s": 0.14104764365241243,
+        "mean_attitude_rate_vector_rmse_rad_s": 0.13614904221299076
+      }
+    },
+    "x8_validation": {
+      "airframe": "x8_flying_wing",
+      "held_out_flights": 4,
+      "model_artifact": "artifacts/x8_reference/residual_model.json",
+      "structured_innovation_flight_fraction": 1.0,
+      "mean_maximum_abs_autocorrelation": {
+        "position": 0.4543488210845754,
+        "velocity": 0.4440898866569751,
+        "attitude": 0.35409342882085293,
+        "angular_velocity": 0.9046857470548917
+      },
+      "mean_maximum_abs_past_or_current_input_correlation": {
+        "position": 0.39885330657799,
+        "velocity": 0.4017616479414437,
+        "attitude": 0.42532663150848543,
+        "angular_velocity": 0.6236085853366545
+      },
+      "kinematic_compatibility": {
+        "inconsistent_flight_fraction": 1.0,
+        "position_velocity_colored_flight_fraction": 0.0,
+        "attitude_rate_colored_flight_fraction": 1.0,
+        "mean_position_velocity_vector_rmse_m_s": 2.6126666894783753e-13,
+        "mean_attitude_rate_vector_rmse_rad_s": 0.2559913629345326
+      }
+    },
+    "idf_session13": {
+      "airframe": "conventional_fixed_wing",
+      "held_out_flights": 8,
+      "model_artifact": "artifacts/idf_reference/source_benchmark_lateral_cross_coupling_residual_v3/fold_13_idf_session_13_model.json",
+      "structured_innovation_flight_fraction": 1.0,
+      "mean_maximum_abs_autocorrelation": {
+        "position": 0.9487962049123562,
+        "velocity": 0.9970877817347881,
+        "attitude": 0.9053240308277544,
+        "angular_velocity": 0.9618225349751834
+      },
+      "mean_maximum_abs_past_or_current_input_correlation": {
+        "position": 0.359954134157241,
+        "velocity": 0.43717718860177096,
+        "attitude": 0.32832794085423955,
+        "angular_velocity": 0.37735774383522663
+      },
+      "kinematic_compatibility": {
+        "inconsistent_flight_fraction": 1.0,
+        "position_velocity_colored_flight_fraction": 1.0,
+        "attitude_rate_colored_flight_fraction": 1.0,
+        "mean_position_velocity_vector_rmse_m_s": 0.1561571074779738,
+        "mean_attitude_rate_vector_rmse_rad_s": 0.04628228312542368
+      }
+    }
+  }
+}

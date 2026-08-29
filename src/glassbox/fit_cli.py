@@ -28,7 +28,9 @@ from glassbox.dynamics import (
     with_response_time_constant,
 )
 from glassbox.evaluation import (
+    aggregate_innovation_diagnostics,
     aggregate_rollout_metrics,
+    one_step_innovation_diagnostics,
     parameter_dict,
     rollout_metrics,
     windowed_rollout_metrics,
@@ -459,6 +461,18 @@ def fit_trajectory_artifact(
                 control_history=training.controls,
             ),
         },
+        "validation_innovation": {
+            "initial": one_step_innovation_diagnostics(
+                initial_params,
+                validation,
+                control_history=training.controls,
+            ),
+            "fitted": one_step_innovation_diagnostics(
+                fitted_params,
+                validation,
+                control_history=training.controls,
+            ),
+        },
         "excitation": _excitation_diagnostics(
             training.controls,
             training.control_names,
@@ -671,6 +685,7 @@ def _evaluate_model(
 ) -> dict[str, Any]:
     per_flight: list[dict[str, Any]] = []
     full_metrics: list[dict[str, Any]] = []
+    innovation_diagnostics: list[dict[str, Any]] = []
     horizon_metrics: dict[str, list[dict[str, Any]]] = {
         f"{seconds:g}s": [] for seconds in horizon_seconds
     }
@@ -683,6 +698,12 @@ def _evaluate_model(
             control_history=flight.control_history,
         )
         full_metrics.append(full)
+        innovation = one_step_innovation_diagnostics(
+            params,
+            trajectory,
+            control_history=flight.control_history,
+        )
+        innovation_diagnostics.append(innovation)
         per_horizon: dict[str, Any] = {}
         for seconds in horizon_seconds:
             label = f"{seconds:g}s"
@@ -706,6 +727,7 @@ def _evaluate_model(
                 "duration_s": float(trajectory.time_s[-1]),
                 "full_rollout": full,
                 "horizon_rollouts": per_horizon,
+                "one_step_innovation": innovation,
             }
         )
 
@@ -726,6 +748,9 @@ def _evaluate_model(
                 for label, items in horizon_metrics.items()
                 if items
             },
+            "one_step_innovation": aggregate_innovation_diagnostics(
+                innovation_diagnostics
+            ),
         },
         "sample_weighted_aggregate": {
             "flight_count": len(flights),

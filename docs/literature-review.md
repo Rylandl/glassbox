@@ -175,6 +175,42 @@ complexity.
 The machine-readable comparison is retained in
 [`observation-spike-results.json`](observation-spike-results.json).
 
+#### Post-freeze innovation diagnostic (2026-08-29)
+
+Glassbox now performs the next lower-risk step from the classical system-
+identification workflow: it checks whether held-out one-step innovations are
+white and independent of current or past controls before attributing rollout
+error to model capacity. NASA's
+[aircraft parameter-uncertainty work](https://ntrs.nasa.gov/citations/20160007740)
+shows why this matters: colored residuals are routine in flight identification
+and invalidate uncertainty calculations that assume white errors. Each interval
+resets the rigid-body state to the measurement while carrying the latent
+actuator state causally. The report uses one maintained 0.5 s correlation
+horizon and a conservative simultaneous screen; it adds no fitting controls.
+
+All evaluated held-out flights--three Nano Melon flights, ARP log 66, four X8
+validation flights, and eight segments from protected IDF session 13--contained
+temporally colored and input-correlated innovations. That alone is not evidence
+for a history model because every real corpus is closed loop: controller
+feedback can correlate commands with estimator and process errors.
+
+A model-independent data-compatibility check made the result more specific.
+Nano, ARP, and IDF pose increments disagree systematically with their reported
+velocities, with mean trapezoidal compatibility residuals of 0.198, 0.141, and
+0.156 m/s. X8 position is constructed consistently with velocity to numerical
+precision, but all four corpora have colored attitude/body-rate incompatibility;
+their mean rotation-rate residuals are 0.167, 0.136, 0.256, and 0.046 rad/s for
+Nano, ARP, X8, and IDF respectively.
+
+This supports preserving an explicit observation boundary, but it does not
+reverse the Phase A promotion failure or authorize Phase B. The current models
+are being scored against state channels that do not describe one exactly sampled
+rigid-body trajectory. A future observation-model experiment must first show
+that it reduces these compatibility defects without using protected rollout
+targets, then pass the unchanged cross-platform rollout gates. The complete
+machine-readable result is in
+[`innovation-diagnostic-results.json`](innovation-diagnostic-results.json).
+
 ### Phase B: structured history encoder
 
 If Phase A improves parameter stability or held-out error, add one small causal

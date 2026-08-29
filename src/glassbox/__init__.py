@@ -43,8 +43,11 @@ from glassbox.identification import (
     rollout_loss_configuration,
 )
 from glassbox.evaluation import (
+    aggregate_innovation_diagnostics,
     kinematic_persistence_windowed_metrics,
+    one_step_innovation_diagnostics,
     rollout_divergence_metrics,
+    state_kinematic_compatibility_diagnostics,
 )
 from glassbox.idf_reference import (
     IDFFixedWingAdapter,
@@ -107,6 +110,7 @@ __all__ = [
     "X8ReferenceAdapter",
     "control_state_after_history",
     "actuator_observation_alignment",
+    "aggregate_innovation_diagnostics",
     "compare_fixedwing_gates",
     "dynamic_envelope_penalty",
     "fixed_wing_trim_control",
@@ -137,6 +141,8 @@ __all__ = [
     "initial_residual_parameters",
     "kinematic_persistence_windowed_metrics",
     "model_family",
+    "one_step_innovation_diagnostics",
+    "state_kinematic_compatibility_diagnostics",
     "rollout",
     "rollout_divergence_metrics",
     "rollout_with_latent",

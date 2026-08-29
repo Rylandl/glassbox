@@ -589,6 +589,17 @@ The SITL recorder currently uses a 2-second training horizon. This substantially
 
 By default, the command fits both the learned-lag model and an otherwise identical near-zero-lag ablation. The report contains aggregate and per-flight metrics for the complete rollout and each requested horizon. When `--model` is provided, the ablation is written beside it with `_no_motor_lag` appended. Use `--holdout-count` to reserve more than one final source group—or more than one trajectory when groups are unlabeled—or `--skip-no-lag-ablation` when the comparison is not needed. When every multirotor training trajectory carries typed specific force, the command automatically runs a chronological sensor-residual diagnostic for thrust, timing, and rotational response. It records identifiability and boundary diagnostics without adding user-facing controls. This stage remains diagnostic-only because its initializer failed the maintained Nano and ARP rollout gates; rollout optimization still starts from the stable reference parameters. Model files contain effective predictive coefficients, the exact runtime prediction contract, the training-only observation schema, and fitting provenance. They explicitly do not claim that those coefficients are uniquely recovered physical parameters.
 
+Held-out evaluation also reports measured-state-reset one-step innovations. The
+latent actuator state is carried causally, but the 13-element rigid-body state is
+reset at every interval so temporal autocorrelation and current/past-control
+correlation can be inspected without complete-rollout drift. A companion
+model-independent compatibility check compares position increments with reported
+world velocity and attitude increments with reported body rate. Correlation
+flags are diagnostic rather than promotion criteria: estimator filtering,
+closed-loop feedback, and incompatible state channels can produce them without
+implying a missing aerodynamic term. The policy is maintained internally and
+adds no CLI knobs.
+
 ### Scaling across logs
 
 Canonical trajectory artifacts now carry a typed, versioned semantic contract:
