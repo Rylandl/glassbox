@@ -49,6 +49,16 @@ from glassbox.identification import (
     rollout_loss_configuration,
 )
 from glassbox.model_io import load_dynamics_model, save_dynamics_model
+from glassbox.nmpc import (
+    NMPCController,
+    NMPCDiagnostics,
+    NMPCResult,
+    NMPCWarmStart,
+    ReferenceTrajectory,
+    SafetyEnvelope,
+    SolveStatus,
+    TrackingTolerances,
+)
 from glassbox.runtime import (
     ActuationMap,
     DirectActuationMap,
@@ -72,12 +82,20 @@ __all__ = [
     "FixedWingDynamicsParams",
     "ModelParams",
     "ModelValidityEnvelope",
+    "NMPCController",
+    "NMPCDiagnostics",
+    "NMPCResult",
+    "NMPCWarmStart",
     "NonActionableModelError",
     "ObservationChannel",
+    "ReferenceTrajectory",
     "ResidualDynamicsParams",
     "RolloutLossConfiguration",
     "RuntimeDynamicsModel",
     "RuntimeModelSpec",
+    "SafetyEnvelope",
+    "SolveStatus",
+    "TrackingTolerances",
     "Trajectory",
     "TrajectoryAdapter",
     "TrajectorySpec",
