@@ -24,8 +24,9 @@ from glassbox.dynamics import (
     structured_parameters,
 )
 from glassbox.evaluation import parameter_dict
+from glassbox.runtime import RuntimeModelSpec
 
-MODEL_FORMAT_VERSION = 2
+MODEL_FORMAT_VERSION = 3
 MODEL_TYPE = "effective_quadrotor_command_offset_rotational_response_v3"
 RESIDUAL_MODEL_TYPE = "structured_acceleration_residual_v1"
 FIXED_WING_MODEL_TYPE = "effective_fixedwing_role_aerodynamic_lag_v3"
@@ -35,6 +36,7 @@ def model_payload(
     params: ModelParams,
     *,
     input_spec: TrajectorySpec,
+    runtime_spec: RuntimeModelSpec,
     provenance: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Return a JSON-compatible differentiable-model artifact."""
@@ -104,6 +106,7 @@ def model_payload(
             "angular_velocity_xyz",
         ],
         "input_spec": input_spec.to_dict(),
+        "runtime_spec": runtime_spec.to_dict(),
         "identification_observations": [
             channel.to_dict() for channel in identification_observations
         ],
@@ -179,6 +182,7 @@ def save_dynamics_model(
     path: str | Path,
     *,
     input_spec: TrajectorySpec,
+    runtime_spec: RuntimeModelSpec,
     provenance: Mapping[str, Any] | None = None,
 ) -> None:
     """Write a fitted dynamics model as readable JSON."""
@@ -188,7 +192,10 @@ def save_dynamics_model(
     output_path.write_text(
         json.dumps(
             model_payload(
-                params, input_spec=input_spec, provenance=provenance
+                params,
+                input_spec=input_spec,
+                runtime_spec=runtime_spec,
+                provenance=provenance,
             ),
             indent=2,
         )
@@ -261,6 +268,7 @@ def load_dynamics_model(path: str | Path) -> tuple[ModelParams, dict[str, Any]]:
     version = payload.get("format_version")
     model_type = payload.get("model_type")
     input_spec = TrajectorySpec.from_dict(payload["input_spec"])
+    RuntimeModelSpec.from_dict(payload["runtime_spec"])
     if version == MODEL_FORMAT_VERSION and model_type == MODEL_TYPE:
         params: ModelParams = _physics_from_payload(payload["parameters"])
     elif version == MODEL_FORMAT_VERSION and model_type == FIXED_WING_MODEL_TYPE:

@@ -14,7 +14,20 @@ from glassbox.fixedwing_synthetic import (
 )
 from glassbox.model_io import load_dynamics_model, model_payload, save_dynamics_model
 from glassbox.nanodrone_benchmark import nanodrone_trajectory_spec
+from glassbox.runtime import ModelValidityEnvelope, RuntimeModelSpec
 from glassbox.synthetic import generate_trajectory, true_parameters
+
+
+def _runtime_spec() -> RuntimeModelSpec:
+    return RuntimeModelSpec(
+        sample_period_s=0.01,
+        validity_envelope=ModelValidityEnvelope(
+            body_velocity_center_m_s=(0.0, 0.0, 0.0),
+            body_velocity_half_width_m_s=(5.0, 5.0, 5.0),
+            angular_velocity_center_rad_s=(0.0, 0.0, 0.0),
+            angular_velocity_half_width_rad_s=(2.0, 2.0, 2.0),
+        ),
+    )
 
 
 def test_model_json_round_trip(tmp_path) -> None:
@@ -26,6 +39,7 @@ def test_model_json_round_trip(tmp_path) -> None:
         original,
         path,
         input_spec=input_spec,
+        runtime_spec=_runtime_spec(),
         provenance={"flight": "fixture"},
     )
     restored, payload = load_dynamics_model(path)
@@ -41,7 +55,7 @@ def test_model_json_round_trip(tmp_path) -> None:
     assert payload["parameters"]["thrust_command_offset"] == pytest.approx(
         -0.12
     )
-    assert payload["format_version"] == 2
+    assert payload["format_version"] == 3
     assert payload["provenance"] == {"flight": "fixture"}
     assert payload["input_spec"] == input_spec.prediction_spec().to_dict()
 
@@ -54,6 +68,7 @@ def test_residual_model_json_round_trip(tmp_path) -> None:
         original,
         path,
         input_spec=generate_trajectory(seed=0, duration_s=0.1).spec,
+        runtime_spec=_runtime_spec(),
     )
     restored, payload = load_dynamics_model(path)
 
@@ -68,13 +83,15 @@ def test_residual_model_json_round_trip(tmp_path) -> None:
     assert payload["parameters"]["base_model_type"] == (
         "effective_quadrotor_command_offset_rotational_response_v3"
     )
-    assert payload["format_version"] == 2
+    assert payload["format_version"] == 3
 
 
 def test_physical_rotor_thrust_proxy_requires_identity_offset() -> None:
     input_spec = nanodrone_trajectory_spec()
 
-    payload = model_payload(true_parameters(), input_spec=input_spec)
+    payload = model_payload(
+        true_parameters(), input_spec=input_spec, runtime_spec=_runtime_spec()
+    )
 
     assert payload["multirotor_thrust_mapping"] == (
         "identity_physical_thrust_proxy"
@@ -87,6 +104,7 @@ def test_physical_rotor_thrust_proxy_requires_identity_offset() -> None:
         model_payload(
             with_thrust_command_offset(true_parameters(), -0.1),
             input_spec=input_spec,
+            runtime_spec=_runtime_spec(),
         )
 
 
@@ -112,7 +130,9 @@ def test_residual_model_serializes_typed_exogenous_features(tmp_path) -> None:
         true_parameters(), hidden_units=4, exogenous_size=2
     )
 
-    save_dynamics_model(original, path, input_spec=input_spec)
+    save_dynamics_model(
+        original, path, input_spec=input_spec, runtime_spec=_runtime_spec()
+    )
     restored, payload = load_dynamics_model(path)
 
     assert restored.feature_mean.shape == (12,)
@@ -128,7 +148,9 @@ def test_fixed_wing_residual_model_json_round_trip(tmp_path) -> None:
     original = initial_residual_parameters(base, hidden_units=4)
     input_spec = generate_fixed_wing_trajectory(seed=1, duration_s=0.1).spec
 
-    save_dynamics_model(original, path, input_spec=input_spec)
+    save_dynamics_model(
+        original, path, input_spec=input_spec, runtime_spec=_runtime_spec()
+    )
     restored, payload = load_dynamics_model(path)
 
     assert restored.base.__class__ is base.__class__
@@ -148,13 +170,15 @@ def test_fixed_wing_model_json_round_trip(tmp_path) -> None:
     original = true_fixed_wing_parameters()
 
     input_spec = generate_fixed_wing_trajectory(seed=0, duration_s=0.1).spec
-    save_dynamics_model(original, path, input_spec=input_spec)
+    save_dynamics_model(
+        original, path, input_spec=input_spec, runtime_spec=_runtime_spec()
+    )
     restored, payload = load_dynamics_model(path)
 
     for original_leaf, restored_leaf in zip(original, restored, strict=True):
         np.testing.assert_allclose(restored_leaf, original_leaf, rtol=1e-6)
     assert payload["model_type"] == "effective_fixedwing_role_aerodynamic_lag_v3"
-    assert payload["format_version"] == 2
+    assert payload["format_version"] == 3
     assert payload["platform"] == "fixedwing"
     assert payload["control_order"] == [
         "throttle",
@@ -175,6 +199,7 @@ def test_rejects_noncurrent_model_format(tmp_path) -> None:
         input_spec=generate_fixed_wing_trajectory(
             seed=0, duration_s=0.1
         ).spec,
+        runtime_spec=_runtime_spec(),
     )
     payload["format_version"] = 1
     path.write_text(json.dumps(payload))

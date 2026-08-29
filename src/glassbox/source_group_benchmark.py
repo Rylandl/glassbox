@@ -30,6 +30,7 @@ from glassbox.model_io import (
     RESIDUAL_MODEL_TYPE,
     save_dynamics_model,
 )
+from glassbox.runtime import runtime_spec_from_fit_report
 
 _DISTRIBUTION_METRICS = (
     "position_rmse_m",
@@ -293,6 +294,7 @@ def benchmark_source_groups(
                 learned,
                 model_path,
                 input_spec=reference_spec,
+                runtime_spec=runtime_spec_from_fit_report(report),
                 provenance={
                     "evaluation": "leave_one_source_group_out",
                     "held_out_source_group": group,
@@ -306,6 +308,9 @@ def benchmark_source_groups(
                     baseline,
                     baseline_path,
                     input_spec=reference_spec,
+                    runtime_spec=runtime_spec_from_fit_report(
+                        report, model_name="no_lag"
+                    ),
                     provenance={
                         "evaluation": "leave_one_source_group_out",
                         "held_out_source_group": group,

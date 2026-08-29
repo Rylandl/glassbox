@@ -25,6 +25,7 @@ from glassbox.nanodrone_evaluation import (
     evaluate_nanodrone_model_artifact,
     save_nanodrone_benchmark_report,
 )
+from glassbox.runtime import runtime_spec_from_trajectory
 from glassbox.synthetic import initial_parameter_guess
 
 
@@ -231,7 +232,10 @@ def test_saved_model_benchmark_report_round_trip(tmp_path) -> None:
     report_path = tmp_path / "report.json"
     save_trajectory_npz(trajectory, trajectory_path)
     save_dynamics_model(
-        initial_parameter_guess(), model_path, input_spec=trajectory.spec
+        initial_parameter_guess(),
+        model_path,
+        input_spec=trajectory.spec,
+        runtime_spec=runtime_spec_from_trajectory(trajectory),
     )
 
     report = evaluate_nanodrone_model_artifact(

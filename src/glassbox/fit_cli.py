@@ -51,6 +51,7 @@ from glassbox.observation_identification import (
     ObservationFitResult,
     fit_multirotor_observations,
 )
+from glassbox.runtime import runtime_spec_from_fit_report
 from glassbox.synthetic import initial_parameter_guess
 
 _MAX_TRAINING_WINDOWS_PER_HORIZON = 8_192
@@ -1595,11 +1596,14 @@ def main() -> None:
     if args.model is not None:
         input_spec = TrajectorySpec.from_dict(
             report["dataset"]["trajectory_spec"]
+            if "dataset" in report
+            else report["source"]["spec"]
         )
         save_dynamics_model(
             params,
             args.model,
             input_spec=input_spec,
+            runtime_spec=runtime_spec_from_fit_report(report),
             provenance={
                 "training_trajectories": training_paths,
                 "validation_trajectories": validation_paths,
@@ -1613,6 +1617,9 @@ def main() -> None:
                 baseline_params,
                 baseline_path,
                 input_spec=input_spec,
+                runtime_spec=runtime_spec_from_fit_report(
+                    report, model_name="no_lag"
+                ),
                 provenance={
                     "training_trajectories": training_paths,
                     "validation_trajectories": validation_paths,

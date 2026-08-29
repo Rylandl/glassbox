@@ -9,6 +9,7 @@ import glassbox.x8_reference as x8_module
 from glassbox.data import Trajectory, save_trajectory_npz
 from glassbox.fixedwing_synthetic import true_fixed_wing_parameters
 from glassbox.model_io import save_dynamics_model
+from glassbox.runtime import runtime_spec_from_trajectory
 from glassbox.x8_evaluation import evaluate_x8_reference_models
 from glassbox.x8_reference import (
     X8Recording,
@@ -146,6 +147,7 @@ def test_x8_evaluation_requires_and_scores_upstream_validation(tmp_path) -> None
         true_fixed_wing_parameters(),
         model_path,
         input_spec=x8_trajectory_spec(),
+        runtime_spec=runtime_spec_from_trajectory(trajectory),
     )
 
     report = evaluate_x8_reference_models(

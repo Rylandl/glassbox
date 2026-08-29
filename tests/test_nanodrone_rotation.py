@@ -7,6 +7,7 @@ from glassbox.nanodrone_rotation import (
     select_nanodrone_angular_authority,
     select_nanodrone_rotation_candidate,
 )
+from glassbox.runtime import runtime_spec_from_trajectory
 from glassbox.synthetic import generate_trajectory, true_parameters
 
 
@@ -74,7 +75,10 @@ def test_angular_authority_selection_uses_only_held_out_train_profiles(
         model_path = tmp_path / f"{profile}.json"
         save_trajectory_npz(trajectory, trajectory_path)
         save_dynamics_model(
-            true_parameters(), model_path, input_spec=trajectory.spec
+            true_parameters(),
+            model_path,
+            input_spec=trajectory.spec,
+            runtime_spec=runtime_spec_from_trajectory(trajectory),
         )
         trajectory_paths.append(trajectory_path)
         model_paths[profile] = model_path

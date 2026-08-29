@@ -12,6 +12,7 @@ from glassbox.data import load_trajectory_npz
 from glassbox.evaluation import aggregate_rollout_metrics
 from glassbox.fit_cli import fit_trajectory_artifacts
 from glassbox.model_io import save_dynamics_model
+from glassbox.runtime import runtime_spec_from_fit_report
 
 
 def _horizons(value: str) -> tuple[float, ...]:
@@ -114,6 +115,7 @@ def benchmark_profiles(
             learned,
             model_path,
             input_spec=trajectories[0].spec,
+            runtime_spec=runtime_spec_from_fit_report(report),
             provenance={
                 "held_out_profile": profile,
                 "fit_report": str(report_path),
@@ -127,6 +129,9 @@ def benchmark_profiles(
                 baseline,
                 baseline_path,
                 input_spec=trajectories[0].spec,
+                runtime_spec=runtime_spec_from_fit_report(
+                    report, model_name="no_lag"
+                ),
                 provenance={
                     "held_out_profile": profile,
                     "fit_report": str(report_path),
