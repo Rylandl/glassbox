@@ -1,0 +1,15 @@
+# Glassbox dynamics-identification signals at their full publication rate.
+actuator_armed 0 0
+actuator_motors 0 0
+actuator_servos 0 0
+actuator_outputs 0 0
+actuator_outputs_sim 0 0
+airspeed_validated 0 0
+vehicle_air_data 0 0
+vehicle_land_detected 0 0
+vehicle_local_position 0 0
+vehicle_local_position_groundtruth 0 0
+vehicle_attitude 0 0
+vehicle_attitude_groundtruth 0 0
+vehicle_angular_velocity 0 0
+vehicle_angular_velocity_groundtruth 0 0

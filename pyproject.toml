@@ -1,0 +1,40 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "glassbox"
+version = "0.1.0"
+description = "Telemetry-driven differentiable vehicle dynamics identification"
+readme = "README.md"
+requires-python = ">=3.11,<3.14"
+dependencies = [
+    "jax>=0.4.35",
+    "numpy>=1.26",
+    "pymavlink>=2.4.49",
+    "pyulog>=1.2.2",
+    "rosbags>=0.11.5",
+]
+
+[project.scripts]
+glassbox-fit = "glassbox.fit_cli:main"
+glassbox-synthetic = "glassbox.demo:main"
+glassbox-ulog = "glassbox.ulog_cli:main"
+glassbox-sitl-profile = "glassbox.sitl_profile:main"
+glassbox-profile-benchmark = "glassbox.profile_benchmark:main"
+glassbox-source-benchmark = "glassbox.source_group_benchmark:main"
+glassbox-fixedwing-synthetic = "glassbox.fixedwing_cli:main"
+glassbox-fixedwing-gate = "glassbox.fixedwing_gate:main"
+glassbox-fixedwing-sitl-profile = "glassbox.fixedwing_sitl_profile:main"
+glassbox-nanodrone = "glassbox.nanodrone_cli:main"
+glassbox-x8 = "glassbox.x8_cli:main"
+glassbox-epfl = "glassbox.epfl_cli:main"
+glassbox-select-policy = "glassbox.policy_selection:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
