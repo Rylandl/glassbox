@@ -42,6 +42,20 @@ def test_source_group_benchmark_moves_every_segment_into_the_same_fold(
     assert summary["configuration"]["exogenous_size"] == 0
     assert summary["configuration"]["exogenous_names"] == []
     assert summary["configuration"]["exogenous_roles"] == []
+    assert summary["configuration"]["multirotor_thrust_command_offset"] == (
+        "not_applicable_fixedwing"
+    )
+    assert "0.1s" in summary["aggregate"][
+        "kinematic_persistence_horizon_rollouts"
+    ]
+    assert set(
+        summary["aggregate"]["model_over_kinematic_persistence"]["0.1s"]
+    ) == {
+        "position_rmse_m",
+        "velocity_rmse_m_s",
+        "attitude_rmse_deg",
+        "angular_velocity_rmse_rad_s",
+    }
     position_distribution = summary["distribution"]["horizon_rollouts"][
         "0.1s"
     ]["position_rmse_m"]

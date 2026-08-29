@@ -13,6 +13,12 @@ import numpy.typing as npt
 
 STATE_SIZE = 13
 RIGID_BODY_STATE_SCHEMA = "rigid_body_13_nwu_flu_wxyz_v1"
+NORMALIZED_MOTOR_COMMAND_SEMANTICS = frozenset(
+    {"normalized_command", "normalized_actuator_output"}
+)
+PHYSICAL_MOTOR_THRUST_SEMANTICS = frozenset(
+    {"squared_rotor_speed_ratio"}
+)
 
 
 def duration_to_steps(duration_s: float, dt_s: float) -> int:
@@ -238,6 +244,10 @@ class TrajectorySpec:
     @property
     def control_roles(self) -> tuple[str, ...]:
         return tuple(channel.role for channel in self.controls)
+
+    @property
+    def control_semantics(self) -> tuple[str, ...]:
+        return tuple(channel.semantic for channel in self.controls)
 
     @property
     def exogenous_names(self) -> tuple[str, ...]:
@@ -468,6 +478,7 @@ class TrajectoryWindows:
     selection_policy: str = "all_candidates"
     control_names: tuple[str, ...] | None = None
     control_roles: tuple[str, ...] | None = None
+    control_semantics: tuple[str, ...] | None = None
     exogenous_names: tuple[str, ...] | None = None
     exogenous_roles: tuple[str, ...] | None = None
 
@@ -539,6 +550,18 @@ class TrajectoryWindows:
         if len(set(control_roles)) != len(control_roles):
             raise ValueError("control_roles must be unique")
         object.__setattr__(self, "control_roles", control_roles)
+        control_semantics = self.control_semantics
+        if control_semantics is None:
+            control_semantics = tuple("unspecified" for _ in control_names)
+        else:
+            control_semantics = tuple(control_semantics)
+        if len(control_semantics) != self.controls.shape[2]:
+            raise ValueError(
+                "control_semantics must contain one semantic per control channel"
+            )
+        if any(not semantic.strip() for semantic in control_semantics):
+            raise ValueError("control_semantics cannot contain empty values")
+        object.__setattr__(self, "control_semantics", control_semantics)
         exogenous_names = (
             tuple(f"exogenous_{index}" for index in range(initial_exogenous.shape[1]))
             if self.exogenous_names is None
@@ -805,6 +828,7 @@ def trajectory_windows(
     control_size = trajectories[0].control_size
     control_names = trajectories[0].control_names
     control_roles = trajectories[0].spec.control_roles
+    control_semantics = trajectories[0].spec.control_semantics
     exogenous_names = trajectories[0].spec.exogenous_names
     exogenous_roles = trajectories[0].spec.exogenous_roles
     history_ratio = motor_history_s / dt_s
@@ -828,6 +852,10 @@ def trajectory_windows(
         if trajectory.spec.control_roles != control_roles:
             raise ValueError(
                 "all trajectories must have the same ordered control_roles"
+            )
+        if trajectory.spec.control_semantics != control_semantics:
+            raise ValueError(
+                "all trajectories must have the same ordered control_semantics"
             )
         if trajectory.spec.exogenous_names != exogenous_names:
             raise ValueError(
@@ -921,6 +949,7 @@ def trajectory_windows(
         selection_policy=selection_policy,
         control_names=control_names,
         control_roles=control_roles,
+        control_semantics=control_semantics,
         exogenous_names=exogenous_names,
         exogenous_roles=exogenous_roles,
     )

@@ -4,7 +4,10 @@ import numpy as np
 from dataclasses import replace
 
 from glassbox.data import make_trajectory_spec, trajectory_windows
-from glassbox.dynamics import initial_residual_parameters
+from glassbox.dynamics import (
+    initial_residual_parameters,
+    with_thrust_command_offset,
+)
 from glassbox.identification import (
     MAX_OPTIMIZATION_WINDOWS_PER_HORIZON,
     OPTIMIZATION_POLICY_VERSION,
@@ -12,12 +15,15 @@ from glassbox.identification import (
     deterministic_weighted_batch_schedule,
     dynamic_envelope_penalty,
     fit_dynamics,
+    supports_multirotor_thrust_command_offset,
     residual_initialization_statistics,
     rollout_loss_configuration,
 )
+from glassbox.nanodrone_benchmark import nanodrone_trajectory_spec
 from glassbox.synthetic import (
     generate_trajectory,
     initial_parameter_guess,
+    true_parameters,
 )
 
 
@@ -145,6 +151,66 @@ def test_motor_time_constant_can_be_held_fixed() -> None:
     assert float(result.params.physical()["motor_time_constant"]) == pytest.approx(
         0.001
     )
+
+
+def test_normalized_motor_commands_support_shared_thrust_offset() -> None:
+    windows = trajectory_windows(
+        [generate_trajectory(seed=15, duration_s=0.5)],
+        horizon=5,
+        stride=5,
+    )
+
+    assert supports_multirotor_thrust_command_offset(
+        initial_parameter_guess(), windows
+    ) is True
+
+    result = fit_dynamics(
+        windows,
+        initial_parameter_guess(),
+        steps=3,
+    )
+
+    assert float(result.params.physical()["thrust_command_offset"]) == 0.0
+
+
+def test_normalized_motor_command_offset_is_recoverable() -> None:
+    hidden = with_thrust_command_offset(true_parameters(), -0.1)
+    windows = trajectory_windows(
+        [generate_trajectory(seed=30, duration_s=2.0, params=hidden)],
+        horizon=10,
+        stride=10,
+    )
+
+    result = fit_dynamics(
+        windows,
+        initial_parameter_guess(),
+        steps=20,
+        learning_rate=0.03,
+        learn_thrust_command_offset=True,
+    )
+
+    assert float(result.params.physical()["thrust_command_offset"]) < -0.05
+    assert result.final_loss < 0.05 * result.initial_loss
+
+
+def test_squared_rotor_speed_proxy_fixes_thrust_offset_to_zero() -> None:
+    trajectory = replace(
+        generate_trajectory(seed=16, duration_s=0.5),
+        spec=nanodrone_trajectory_spec(),
+    )
+    windows = trajectory_windows([trajectory], horizon=5, stride=5)
+
+    assert supports_multirotor_thrust_command_offset(
+        initial_parameter_guess(), windows
+    ) is False
+
+    result = fit_dynamics(
+        windows,
+        initial_parameter_guess(),
+        steps=3,
+    )
+
+    assert float(result.params.physical()["thrust_command_offset"]) == 0.0
 
 
 def test_rotational_response_ablation_is_held_instantaneous_and_diagonal() -> None:

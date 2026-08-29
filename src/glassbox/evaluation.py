@@ -28,6 +28,21 @@ DIVERGENCE_ERROR_THRESHOLDS = {
     "attitude_error_deg": 45.0,
     "angular_velocity_error_rad_s": 1.0,
 }
+ROLLOUT_METRICS = (
+    "position_rmse_m",
+    "velocity_rmse_m_s",
+    "attitude_rmse_deg",
+    "angular_velocity_rmse_rad_s",
+)
+
+# Ratios below these small, physically meaningful floors are treated as equal.
+# This prevents numerical noise around zero from becoming a large regression.
+METRIC_FLOORS = {
+    "position_rmse_m": 1e-3,
+    "velocity_rmse_m_s": 1e-3,
+    "attitude_rmse_deg": 1e-2,
+    "angular_velocity_rmse_rad_s": 1e-3,
+}
 
 
 def parameter_dict(params: ModelParams) -> dict[str, Any]:
@@ -86,6 +101,9 @@ def parameter_dict(params: ModelParams) -> dict[str, Any]:
         physical = physics_parameters(params).physical()
         result = {
             "thrust_accel": float(physical["thrust_accel"]),
+            "thrust_command_offset": float(
+                physical["thrust_command_offset"]
+            ),
             "angular_accel": np.asarray(physical["angular_accel"]).tolist(),
             "linear_drag": float(physical["linear_drag"]),
             "angular_drag": np.asarray(physical["angular_drag"]).tolist(),

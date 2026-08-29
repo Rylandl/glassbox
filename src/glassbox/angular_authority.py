@@ -17,6 +17,8 @@ from glassbox.dynamics import (
     with_angular_dynamics_authority,
 )
 from glassbox.evaluation import (
+    METRIC_FLOORS,
+    ROLLOUT_METRICS,
     aggregate_rollout_metrics,
     kinematic_persistence_windowed_metrics,
     rollout_divergence_metrics,
@@ -24,7 +26,7 @@ from glassbox.evaluation import (
     windowed_rollout_metrics,
 )
 from glassbox.model_io import load_dynamics_model
-from glassbox.policy_selection import METRIC_FLOORS, score_policy_candidates
+from glassbox.policy_selection import score_policy_candidates
 
 
 ANGULAR_AUTHORITY_CANDIDATES = (0.0, 0.25, 0.5, 0.75, 1.0)
@@ -127,6 +129,34 @@ def select_angular_dynamics_authority(
     fold_collection_key = (
         "per_profile" if fold_axis == "profile" else "per_source_group"
     )
+    persistence_by_fold: dict[str, Any] = {}
+    for fold in folds:
+        held_out = [
+            trajectory
+            for trajectory, value in zip(trajectories, fold_values)
+            if value == fold
+        ]
+        horizon_rollouts = {}
+        for seconds in ANGULAR_AUTHORITY_HORIZONS_S:
+            metrics = []
+            for trajectory in held_out:
+                horizon_steps = duration_to_steps(
+                    seconds, trajectory.nominal_dt_s
+                )
+                metrics.append(
+                    kinematic_persistence_windowed_metrics(
+                        trajectory,
+                        horizon_steps=horizon_steps,
+                        stride_steps=horizon_steps,
+                    )
+                )
+            horizon_rollouts[f"{seconds:g}s"] = aggregate_rollout_metrics(
+                metrics, weighting="equal"
+            )
+        persistence_by_fold[fold] = {
+            "validation_trajectory_count": len(held_out),
+            "horizon_rollouts": horizon_rollouts,
+        }
     candidate_summaries: dict[str, dict[str, dict[str, Any]]] = {}
     candidate_evaluation: dict[str, dict[str, Any]] = {}
     for authority in ANGULAR_AUTHORITY_CANDIDATES:
@@ -191,6 +221,39 @@ def select_angular_dynamics_authority(
     authorities_by_id = {
         _authority_id(value): value for value in ANGULAR_AUTHORITY_CANDIDATES
     }
+    selected_folds = candidate_evaluation[selected][fold_collection_key]
+    aggregate_vs_persistence = {}
+    selected_persistence_ratios = []
+    for seconds in ANGULAR_AUTHORITY_HORIZONS_S:
+        label = f"{seconds:g}s"
+        candidate = aggregate_rollout_metrics(
+            [
+                selected_folds[fold]["horizon_rollouts"][label]
+                for fold in folds
+            ],
+            weighting="equal",
+        )
+        persistence = aggregate_rollout_metrics(
+            [
+                persistence_by_fold[fold]["horizon_rollouts"][label]
+                for fold in folds
+            ],
+            weighting="equal",
+        )
+        ratios = {
+            metric: max(float(candidate[metric]), METRIC_FLOORS[metric])
+            / max(float(persistence[metric]), METRIC_FLOORS[metric])
+            for metric in ROLLOUT_METRICS
+        }
+        selected_persistence_ratios.extend(ratios.values())
+        aggregate_vs_persistence[label] = {
+            "candidate": candidate,
+            "kinematic_persistence": persistence,
+            "candidate_over_kinematic_persistence": ratios,
+        }
+    selected_persistence_geometric_ratio = math.exp(
+        float(np.mean(np.log(np.asarray(selected_persistence_ratios))))
+    )
     decision = {
         "format_version": 1,
         "evaluation": "train_only_angular_dynamics_authority",
@@ -219,6 +282,18 @@ def select_angular_dynamics_authority(
         "selected_candidate": selected,
         "selected_authority": authorities_by_id[selected],
         "candidate_evaluation": candidate_evaluation,
+        "kinematic_persistence_evaluation": {
+            "platform": "multirotor",
+            "fold_axis": fold_axis,
+            "folds": list(folds),
+            fold_collection_key: persistence_by_fold,
+        },
+        "selected_candidate_vs_kinematic_persistence": {
+            "geometric_ratio": selected_persistence_geometric_ratio,
+            "maximum_individual_ratio": max(selected_persistence_ratios),
+            "aggregate_horizon_rollouts": aggregate_vs_persistence,
+            "selection_criterion": False,
+        },
     }
     destination = Path(output_path)
     destination.parent.mkdir(parents=True, exist_ok=True)

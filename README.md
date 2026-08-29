@@ -84,6 +84,11 @@ the typed spec; it is not an assumed motor limit. Consequently, a fitted
 control time constant describes any residual alignment/filtering response in
 measured RPM, not command-to-motor physical lag.
 
+The v3 multirotor model can represent one bounded shared normalized-command
+offset in its collective thrust map. NanoDrone's typed
+`squared_rotor_speed_ratio` inputs are already physical thrust proxies, so this
+parameter is held exactly at zero and cannot be enabled for that dataset.
+
 For individual files, use `glassbox-nanodrone inspect` or
 `glassbox-nanodrone extract`. Checksum verification is strict by default so an
 upstream revision cannot silently change a benchmark run.
@@ -199,6 +204,26 @@ second they were 2.03x and 2.39x. The promotion result is therefore
 The rotational structure transfers as a useful hypothesis, while normalized
 motor-command-to-translational-acceleration modeling is now the clearest
 multirotor limitation to address on development data.
+
+The next development-only comparison added one shared bounded command offset to
+the v3 multirotor force law. The zero-offset map remains the normal fitting
+default, and the experimental parameter is available only through maintainer
+evaluation code; there is no new CLI knob. Control semantics enforce the
+boundary: normalized motor commands may fit the offset, while measured
+squared-rotor-speed thrust proxies must use the identity map.
+
+On leave-one-recording-out folds over logs 63--65, the offset alone was rejected:
+it improved the aggregate score by only 0.40% and its worst individual metric
+regressed 79.0%. Jointly scoring the fixed authority grid against the original
+zero-offset reference instead selected offset plus 0.5 angular authority. That
+composite improved the reference by 6.27%, with a 19.32% worst individual
+regression, and beat kinematic persistence by 27.85% geometrically; its worst
+persistence cell was 4.19% higher. The three held-out fits learned consistent
+offsets of -0.111, -0.105, and -0.072 normalized command. This is useful
+development evidence for the more expressive force law, but it is not promoted:
+log 66 was already consumed by the preceding one-shot evaluation, so an
+untouched second normalized-command airframe is required for a valid promotion
+decision.
 
 ### IDF-DS fixed-wing telemetry
 

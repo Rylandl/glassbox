@@ -13,25 +13,9 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from glassbox.data import load_trajectory_npz
+from glassbox.evaluation import METRIC_FLOORS, ROLLOUT_METRICS
 from glassbox.profile_benchmark import benchmark_profiles
 from glassbox.source_group_benchmark import benchmark_source_groups
-
-
-ROLLOUT_METRICS = (
-    "position_rmse_m",
-    "velocity_rmse_m_s",
-    "attitude_rmse_deg",
-    "angular_velocity_rmse_rad_s",
-)
-
-# Ratios below these small, physically meaningful floors are treated as equal.
-# This prevents numerical noise around zero from becoming a large regression.
-METRIC_FLOORS = {
-    "position_rmse_m": 1e-3,
-    "velocity_rmse_m_s": 1e-3,
-    "attitude_rmse_deg": 1e-2,
-    "angular_velocity_rmse_rad_s": 1e-3,
-}
 
 
 @dataclass(frozen=True)

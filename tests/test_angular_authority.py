@@ -73,6 +73,11 @@ def test_source_group_authority_selection_is_train_only(tmp_path, monkeypatch) -
             1.0 + abs(authority - 0.75)
         ),
     )
+    monkeypatch.setattr(
+        authority_module,
+        "kinematic_persistence_windowed_metrics",
+        lambda trajectory, **kwargs: _metrics(1.1),
+    )
 
     decision = select_angular_dynamics_authority(
         models,
@@ -85,6 +90,9 @@ def test_source_group_authority_selection_is_train_only(tmp_path, monkeypatch) -
     assert decision["selected_authority"] == 0.75
     assert decision["decision_scope"]["uses_protected_evaluation_data"] is False
     assert decision["folds"] == ["flight-a", "flight-b", "flight-c"]
+    assert decision["selected_candidate_vs_kinematic_persistence"][
+        "geometric_ratio"
+    ] < 1.0
 
 
 def test_candidate_gate_requires_reference_and_persistence_improvement(

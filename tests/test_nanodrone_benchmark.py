@@ -231,7 +231,7 @@ def test_saved_model_benchmark_report_round_trip(tmp_path) -> None:
     save_nanodrone_benchmark_report(report, report_path)
 
     assert report["model_artifact"]["model_type"] == (
-        "effective_quadrotor_rotational_response_v2"
+        "effective_quadrotor_command_offset_rotational_response_v3"
     )
     assert report["constant_angular_rate_diagnostic"]["window_count"] > 0
     assert report["test_artifacts"] == [str(trajectory_path)]

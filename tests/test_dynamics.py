@@ -16,6 +16,7 @@ from glassbox.dynamics import (
     with_angular_dynamics_authority,
     with_constant_angular_rate,
     with_instantaneous_rotational_response,
+    with_thrust_command_offset,
 )
 from glassbox.evaluation import rollout_metrics
 from glassbox.synthetic import generate_trajectory
@@ -28,6 +29,24 @@ def test_hover_is_an_equilibrium() -> None:
     next_state = step(params, state, hover_control(params), 0.02)
 
     np.testing.assert_allclose(next_state, state, atol=1e-6)
+
+
+def test_shared_thrust_command_offset_preserves_hover_equilibrium() -> None:
+    params = with_thrust_command_offset(true_parameters(), -0.15)
+    state = jnp.asarray(resting_state())
+
+    next_state = step(params, state, hover_control(params), 0.02)
+
+    np.testing.assert_allclose(next_state, state, atol=1e-6)
+    assert float(hover_control(params)[0]) == pytest.approx(
+        float(hover_control(true_parameters())[0]) - 0.15,
+        abs=1e-6,
+    )
+
+
+def test_thrust_command_offset_is_bounded() -> None:
+    with pytest.raises(ValueError, match="strictly within"):
+        with_thrust_command_offset(true_parameters(), 0.3)
 
 
 def test_rollout_is_differentiable_with_respect_to_controls() -> None:

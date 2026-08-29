@@ -164,6 +164,7 @@ def _fit_on_windows(
     platform: str = "multirotor",
     endpoint_weight: float = 3.0,
     stability_regularization: float = 0.01,
+    learn_thrust_command_offset: bool = False,
     instantaneous_rotational_response: bool = True,
     diagonal_angular_control: bool = True,
 ) -> tuple[ModelParams, dict[str, Any]]:
@@ -202,6 +203,7 @@ def _fit_on_windows(
             steps=steps,
             learning_rate=learning_rate,
             fixed_motor_time_constant_s=fixed_motor_time_constant_s,
+            learn_thrust_command_offset=learn_thrust_command_offset,
             instantaneous_rotational_response=instantaneous_rotational_response,
             diagonal_angular_control=diagonal_angular_control,
             endpoint_weight=endpoint_weight,
@@ -214,6 +216,7 @@ def _fit_on_windows(
             steps=steps,
             learning_rate=learning_rate,
             fixed_motor_time_constant_s=fixed_motor_time_constant_s,
+            learn_thrust_command_offset=learn_thrust_command_offset,
             instantaneous_rotational_response=instantaneous_rotational_response,
             diagonal_angular_control=diagonal_angular_control,
             endpoint_weight=endpoint_weight,
@@ -557,6 +560,9 @@ def _dataset_contract(
         "control_roles": [
             channel["role"] for channel in spec_payload["controls"]
         ],
+        "control_semantics": [
+            channel["semantic"] for channel in spec_payload["controls"]
+        ],
         "exogenous_size": len(spec_payload["exogenous"]),
         "exogenous_names": [
             channel["name"] for channel in spec_payload["exogenous"]
@@ -717,6 +723,7 @@ def fit_trajectory_artifacts(
     model_class: str = "structured",
     endpoint_weight: float = 3.0,
     stability_regularization: float = 0.01,
+    learn_thrust_command_offset: bool = False,
     instantaneous_rotational_response: bool = True,
     diagonal_angular_control: bool = True,
 ) -> tuple[ModelParams, ModelParams | None, dict[str, Any]]:
@@ -974,6 +981,7 @@ def fit_trajectory_artifacts(
         platform=platform,
         endpoint_weight=endpoint_weight,
         stability_regularization=stability_regularization,
+        learn_thrust_command_offset=learn_thrust_command_offset,
         instantaneous_rotational_response=instantaneous_rotational_response,
         diagonal_angular_control=diagonal_angular_control,
     )
@@ -997,6 +1005,7 @@ def fit_trajectory_artifacts(
             platform=platform,
             endpoint_weight=endpoint_weight,
             stability_regularization=stability_regularization,
+            learn_thrust_command_offset=learn_thrust_command_offset,
             instantaneous_rotational_response=instantaneous_rotational_response,
             diagonal_angular_control=diagonal_angular_control,
         )
@@ -1113,6 +1122,13 @@ def fit_trajectory_artifacts(
             "learning_rate": learning_rate,
             "endpoint_weight": endpoint_weight,
             "stability_regularization": stability_regularization,
+            "multirotor_thrust_command_offset": (
+                "not_applicable_fixedwing"
+                if platform != "multirotor"
+                else "learned"
+                if learn_thrust_command_offset
+                else "fixed_zero_reference"
+            ),
             "rotational_response": (
                 "not_applicable_fixedwing"
                 if platform != "multirotor"

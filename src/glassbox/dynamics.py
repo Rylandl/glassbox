@@ -26,6 +26,7 @@ WIND_EXOGENOUS_ROLES = ("wind_north", "wind_west")
 MAX_INTERNAL_INTEGRATION_STEP_S = 0.025
 MULTIROTOR_ROTATIONAL_STATE_SIZE = 3
 MAX_ANGULAR_CONTROL_CROSS_COUPLING = 0.5
+MAX_THRUST_COMMAND_OFFSET = 0.3
 
 # Motor order: front-left, front-right, rear-right, rear-left.
 # Each row maps motor commands to a roll, pitch, or yaw differential.
@@ -42,10 +43,12 @@ class DynamicsParams(NamedTuple):
     """Unconstrained parameters for the effective vehicle dynamics.
 
     Positive physical values are stored in log space so gradient-based fitting
-    cannot produce negative thrust, acceleration, or damping coefficients.
+    cannot produce negative thrust, acceleration, or damping coefficients. The
+    shared normalized-command offset uses a bounded signed parameterization.
     """
 
     log_thrust_accel: Array
+    thrust_command_offset_unconstrained: Array
     log_angular_accel: Array
     log_linear_drag: Array
     log_angular_drag: Array
@@ -58,6 +61,7 @@ class DynamicsParams(NamedTuple):
         cls,
         *,
         thrust_accel: float,
+        thrust_command_offset: float = 0.0,
         angular_accel: tuple[float, float, float],
         linear_drag: float,
         angular_drag: tuple[float, float, float],
@@ -77,6 +81,15 @@ class DynamicsParams(NamedTuple):
             (0.0, 0.0, 0.0),
         ),
     ) -> "DynamicsParams":
+        if (
+            not math.isfinite(thrust_command_offset)
+            or abs(thrust_command_offset) >= MAX_THRUST_COMMAND_OFFSET
+        ):
+            raise ValueError(
+                "thrust_command_offset must be finite and strictly within "
+                f"{-MAX_THRUST_COMMAND_OFFSET:g} and "
+                f"{MAX_THRUST_COMMAND_OFFSET:g}"
+            )
         cross_coupling = jnp.asarray(angular_control_cross_coupling)
         if cross_coupling.shape != (3, 3):
             raise ValueError(
@@ -90,6 +103,11 @@ class DynamicsParams(NamedTuple):
         )
         return cls(
             log_thrust_accel=jnp.log(jnp.asarray(thrust_accel)),
+            thrust_command_offset_unconstrained=jnp.arctanh(
+                jnp.asarray(
+                    thrust_command_offset / MAX_THRUST_COMMAND_OFFSET
+                )
+            ),
             log_angular_accel=jnp.log(jnp.asarray(angular_accel)),
             log_linear_drag=jnp.log(jnp.asarray(linear_drag)),
             log_angular_drag=jnp.log(jnp.asarray(angular_drag)),
@@ -110,6 +128,9 @@ class DynamicsParams(NamedTuple):
         cross_coupling = cross_coupling.at[jnp.diag_indices(3)].set(0.0)
         return {
             "thrust_accel": jnp.exp(self.log_thrust_accel),
+            "thrust_command_offset": MAX_THRUST_COMMAND_OFFSET * jnp.tanh(
+                self.thrust_command_offset_unconstrained
+            ),
             "angular_accel": angular_accel,
             "linear_drag": jnp.exp(self.log_linear_drag),
             "angular_drag": jnp.exp(self.log_angular_drag),
@@ -442,6 +463,35 @@ def with_response_time_constant(
     return updated
 
 
+def with_thrust_command_offset(
+    params: ModelParams, thrust_command_offset: float
+) -> ModelParams:
+    """Return a multirotor model with one shared collective command offset."""
+
+    if (
+        not math.isfinite(thrust_command_offset)
+        or abs(thrust_command_offset) >= MAX_THRUST_COMMAND_OFFSET
+    ):
+        raise ValueError(
+            "thrust_command_offset must be finite and strictly within "
+            f"{-MAX_THRUST_COMMAND_OFFSET:g} and "
+            f"{MAX_THRUST_COMMAND_OFFSET:g}"
+        )
+    base = structured_parameters(params)
+    if isinstance(base, FixedWingDynamicsParams):
+        raise TypeError("fixed-wing models do not have a motor command offset")
+    updated = base._replace(
+        thrust_command_offset_unconstrained=jnp.arctanh(
+            jnp.asarray(
+                thrust_command_offset / MAX_THRUST_COMMAND_OFFSET
+            )
+        )
+    )
+    if isinstance(params, ResidualDynamicsParams):
+        return params._replace(base=updated)
+    return updated
+
+
 def zero_response_time_gradient(params: ModelParams) -> ModelParams:
     """Zero only the family-specific response-time leaf in a gradient tree."""
 
@@ -458,6 +508,22 @@ def zero_response_time_gradient(params: ModelParams) -> ModelParams:
                 base.log_motor_time_constant
             )
         )
+    if isinstance(params, ResidualDynamicsParams):
+        return params._replace(base=updated)
+    return updated
+
+
+def zero_thrust_command_offset_gradient(params: ModelParams) -> ModelParams:
+    """Freeze the multirotor command offset for physical thrust-proxy inputs."""
+
+    base = structured_parameters(params)
+    if isinstance(base, FixedWingDynamicsParams):
+        return params
+    updated = base._replace(
+        thrust_command_offset_unconstrained=jnp.zeros_like(
+            base.thrust_command_offset_unconstrained
+        )
+    )
     if isinstance(params, ResidualDynamicsParams):
         return params._replace(base=updated)
     return updated
@@ -971,8 +1037,15 @@ def state_derivative(
         quaternion = state[6:10]
         angular_velocity = state[10:13]
 
+        effective_motor_thrust = jnp.maximum(
+            applied_motor_state - physical["thrust_command_offset"], 0.0
+        )
         body_thrust = jnp.asarray(
-            [0.0, 0.0, physical["thrust_accel"] * jnp.sum(applied_motor_state)]
+            [
+                0.0,
+                0.0,
+                physical["thrust_accel"] * jnp.sum(effective_motor_thrust),
+            ]
         )
         world_acceleration = (
             jnp.asarray([0.0, 0.0, -GRAVITY_M_S2])
@@ -1294,6 +1367,9 @@ def hover_control(params: ModelParams) -> Array:
     motor_command = GRAVITY_M_S2 / (
         4.0 * jnp.exp(physics_parameters(params).log_thrust_accel)
     )
+    motor_command += physics_parameters(params).physical()[
+        "thrust_command_offset"
+    ]
     return jnp.full((QUADROTOR_CONTROL_SIZE,), motor_command)
 
 

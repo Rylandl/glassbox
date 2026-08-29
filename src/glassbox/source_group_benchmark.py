@@ -11,8 +11,13 @@ from typing import Any, Mapping
 
 import numpy as np
 
-from glassbox.data import Trajectory, load_trajectory_npz
-from glassbox.evaluation import aggregate_rollout_metrics
+from glassbox.data import Trajectory, duration_to_steps, load_trajectory_npz
+from glassbox.evaluation import (
+    METRIC_FLOORS,
+    ROLLOUT_METRICS,
+    aggregate_rollout_metrics,
+    kinematic_persistence_windowed_metrics,
+)
 from glassbox.fit_cli import fit_trajectory_artifacts
 from glassbox.identification import (
     MAX_OPTIMIZATION_WINDOWS_PER_HORIZON,
@@ -110,6 +115,7 @@ def benchmark_source_groups(
     model_class: str = "structured",
     endpoint_weight: float = 3.0,
     stability_regularization: float = 0.01,
+    learn_thrust_command_offset: bool = False,
     instantaneous_rotational_response: bool = True,
     diagonal_angular_control: bool = True,
 ) -> dict[str, Any]:
@@ -168,6 +174,13 @@ def benchmark_source_groups(
             ),
             "endpoint_weight": endpoint_weight,
             "stability_regularization": stability_regularization,
+            "multirotor_thrust_command_offset": (
+                "not_applicable_fixedwing"
+                if reference_spec.vehicle.family != "multirotor"
+                else "learned"
+                if learn_thrust_command_offset
+                else "fixed_zero_reference"
+            ),
             "rotational_response": (
                 "not_applicable_fixedwing"
                 if reference_spec.vehicle.family != "multirotor"
@@ -196,6 +209,9 @@ def benchmark_source_groups(
     fold_horizon_metrics: dict[str, list[dict[str, Any]]] = {
         f"{seconds:g}s": [] for seconds in evaluation_horizons_s
     }
+    fold_persistence_metrics: dict[str, list[dict[str, Any]]] = {
+        f"{seconds:g}s": [] for seconds in evaluation_horizons_s
+    }
 
     for fold_index, (group, display_name) in enumerate(
         zip(groups, display_names), start=1
@@ -209,6 +225,13 @@ def benchmark_source_groups(
         validation_paths = [
             path
             for path, path_group in zip(paths, groups_by_trajectory)
+            if path_group == group
+        ]
+        validation_trajectories = [
+            trajectory
+            for trajectory, path_group in zip(
+                trajectories, groups_by_trajectory
+            )
             if path_group == group
         ]
         fold_paths = [*training_paths, *validation_paths]
@@ -255,6 +278,7 @@ def benchmark_source_groups(
                 model_class=model_class,
                 endpoint_weight=endpoint_weight,
                 stability_regularization=stability_regularization,
+                learn_thrust_command_offset=learn_thrust_command_offset,
                 instantaneous_rotational_response=(
                     instantaneous_rotational_response
                 ),
@@ -299,6 +323,36 @@ def benchmark_source_groups(
         fold_full_metrics.append(full_metrics)
         for label, metrics in horizon_rollouts.items():
             fold_horizon_metrics[label].append(metrics)
+        persistence_horizons = {}
+        model_over_persistence = {}
+        for seconds in evaluation_horizons_s:
+            label = f"{seconds:g}s"
+            persistence_metrics = []
+            for trajectory in validation_trajectories:
+                horizon_steps = duration_to_steps(
+                    seconds, trajectory.nominal_dt_s
+                )
+                persistence_metrics.append(
+                    kinematic_persistence_windowed_metrics(
+                        trajectory,
+                        horizon_steps=horizon_steps,
+                        stride_steps=horizon_steps,
+                    )
+                )
+            persistence = aggregate_rollout_metrics(
+                persistence_metrics,
+                weighting="equal",
+            )
+            persistence_horizons[label] = persistence
+            fold_persistence_metrics[label].append(persistence)
+            model_over_persistence[label] = {
+                metric: max(
+                    float(horizon_rollouts[label][metric]),
+                    METRIC_FLOORS[metric],
+                )
+                / max(float(persistence[metric]), METRIC_FLOORS[metric])
+                for metric in ROLLOUT_METRICS
+            }
         per_source_group[display_name] = {
             "source_group": group,
             "validation_trajectory_count": len(validation_paths),
@@ -308,6 +362,8 @@ def benchmark_source_groups(
             ),
             "full_rollout": full_metrics,
             "horizon_rollouts": horizon_rollouts,
+            "kinematic_persistence_horizon_rollouts": persistence_horizons,
+            "model_over_kinematic_persistence": model_over_persistence,
             "fit": report["models"]["learned_lag"]["fit"],
             "training_window_selection": report["configuration"][
                 "training_window_selection"
@@ -324,6 +380,11 @@ def benchmark_source_groups(
     aggregate_horizons = {
         label: aggregate_rollout_metrics(metrics, weighting="equal")
         for label, metrics in fold_horizon_metrics.items()
+        if metrics
+    }
+    aggregate_persistence_horizons = {
+        label: aggregate_rollout_metrics(metrics, weighting="equal")
+        for label, metrics in fold_persistence_metrics.items()
         if metrics
     }
     summary = {
@@ -349,6 +410,13 @@ def benchmark_source_groups(
             ),
             "endpoint_weight": endpoint_weight,
             "stability_regularization": stability_regularization,
+            "multirotor_thrust_command_offset": (
+                "not_applicable_fixedwing"
+                if reference_spec.vehicle.family != "multirotor"
+                else "learned"
+                if learn_thrust_command_offset
+                else "fixed_zero_reference"
+            ),
             "rotational_response": (
                 "not_applicable_fixedwing"
                 if reference_spec.vehicle.family != "multirotor"
@@ -360,6 +428,7 @@ def benchmark_source_groups(
             ),
             "control_size": trajectories[0].control_size,
             "control_names": list(reference_spec.control_names),
+            "control_semantics": list(reference_spec.control_semantics),
             "exogenous_size": trajectories[0].exogenous_size,
             "exogenous_names": list(reference_spec.exogenous_names),
             "exogenous_roles": list(reference_spec.exogenous_roles),
@@ -371,12 +440,31 @@ def benchmark_source_groups(
                 fold_full_metrics, weighting="equal"
             ),
             "horizon_rollouts": aggregate_horizons,
+            "kinematic_persistence_horizon_rollouts": (
+                aggregate_persistence_horizons
+            ),
+            "model_over_kinematic_persistence": {
+                label: {
+                    metric: max(
+                        float(aggregate_horizons[label][metric]),
+                        METRIC_FLOORS[metric],
+                    )
+                    / max(float(persistence[metric]), METRIC_FLOORS[metric])
+                    for metric in ROLLOUT_METRICS
+                }
+                for label, persistence in aggregate_persistence_horizons.items()
+            },
         },
         "distribution": {
             "full_rollout": _metric_distribution(fold_full_metrics),
             "horizon_rollouts": {
                 label: _metric_distribution(metrics)
                 for label, metrics in fold_horizon_metrics.items()
+                if metrics
+            },
+            "kinematic_persistence_horizon_rollouts": {
+                label: _metric_distribution(metrics)
+                for label, metrics in fold_persistence_metrics.items()
                 if metrics
             },
         },

@@ -8,7 +8,11 @@ from typing import Any, Mapping
 
 import jax.numpy as jnp
 
-from glassbox.data import TrajectorySpec
+from glassbox.data import (
+    NORMALIZED_MOTOR_COMMAND_SEMANTICS,
+    PHYSICAL_MOTOR_THRUST_SEMANTICS,
+    TrajectorySpec,
+)
 from glassbox.dynamics import (
     DynamicsParams,
     FixedWingDynamicsParams,
@@ -22,7 +26,7 @@ from glassbox.evaluation import parameter_dict
 
 
 MODEL_FORMAT_VERSION = 1
-MODEL_TYPE = "effective_quadrotor_rotational_response_v2"
+MODEL_TYPE = "effective_quadrotor_command_offset_rotational_response_v3"
 RESIDUAL_MODEL_TYPE = "structured_acceleration_residual_v1"
 FIXED_WING_MODEL_TYPE = "effective_fixedwing_role_aerodynamic_lag_v3"
 
@@ -47,6 +51,23 @@ def model_payload(
     family.validate_control_schema(
         input_spec.control_names, input_spec.control_roles
     )
+    thrust_mapping = None
+    if not fixed_wing:
+        semantics = frozenset(input_spec.control_semantics)
+        if semantics <= NORMALIZED_MOTOR_COMMAND_SEMANTICS:
+            thrust_mapping = "shared_normalized_command_offset"
+        elif semantics <= PHYSICAL_MOTOR_THRUST_SEMANTICS:
+            thrust_mapping = "identity_physical_thrust_proxy"
+            offset = float(base.physical()["thrust_command_offset"])
+            if abs(offset) > 1e-7:
+                raise ValueError(
+                    "physical multirotor thrust proxies require zero command offset"
+                )
+        else:
+            raise ValueError(
+                "unsupported multirotor control semantics: "
+                + ", ".join(sorted(semantics))
+            )
     if residual:
         expected_feature_size = (
             6 + len(input_spec.controls) + len(input_spec.exogenous)
@@ -71,7 +92,7 @@ def model_payload(
             if residual
             else "effective_quadratic_aerodynamics"
             if fixed_wing
-            else "effective_positive_coefficients"
+            else "effective_positive_coefficients_with_bounded_command_offset"
         ),
         "coordinate_frames": {"world": "NWU", "body": "FLU"},
         "state_order": [
@@ -99,6 +120,7 @@ def model_payload(
             "required_roles": list(family.required_control_roles),
             "optional_roles": list(family.optional_control_roles),
         },
+        "multirotor_thrust_mapping": thrust_mapping,
         "provenance": dict(provenance or {}),
     }
     if residual:
@@ -172,6 +194,7 @@ def save_dynamics_model(
 def _physics_from_payload(parameters: Mapping[str, Any]) -> DynamicsParams:
     return DynamicsParams.from_physical(
         thrust_accel=float(parameters["thrust_accel"]),
+        thrust_command_offset=float(parameters["thrust_command_offset"]),
         angular_accel=tuple(parameters["angular_accel"]),
         linear_drag=float(parameters["linear_drag"]),
         angular_drag=tuple(parameters["angular_drag"]),

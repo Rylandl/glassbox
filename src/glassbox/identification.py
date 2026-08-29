@@ -11,21 +11,28 @@ import numpy as np
 import numpy.typing as npt
 from jax import Array
 
-from glassbox.data import TrajectoryWindows
+from glassbox.data import (
+    NORMALIZED_MOTOR_COMMAND_SEMANTICS,
+    PHYSICAL_MOTOR_THRUST_SEMANTICS,
+    TrajectoryWindows,
+)
 from glassbox.dynamics import (
     ModelParams,
     ResidualDynamicsParams,
     control_state_after_history,
+    model_family,
     quaternion_to_rotation,
     rollout_with_latent,
     validate_control_schema,
     with_diagonal_angular_control,
     with_instantaneous_rotational_response,
     with_response_time_constant,
+    with_thrust_command_offset,
     zero_angular_cross_coupling_gradient,
     zero_residual_configuration_gradient,
     zero_rotational_response_gradient,
     zero_response_time_gradient,
+    zero_thrust_command_offset_gradient,
 )
 
 
@@ -616,6 +623,7 @@ def _fit_objective(
     learning_rate: float,
     gradient_clip_norm: float,
     fixed_motor_time_constant: bool,
+    fixed_thrust_command_offset: bool,
     fixed_rotational_response: bool = False,
     fixed_angular_cross_coupling: bool = False,
     loss_configuration: RolloutLossConfiguration,
@@ -662,6 +670,8 @@ def _fit_objective(
         gradients = zero_residual_configuration_gradient(gradients)
         if fixed_motor_time_constant:
             gradients = zero_response_time_gradient(gradients)
+        if fixed_thrust_command_offset:
+            gradients = zero_thrust_command_offset_gradient(gradients)
         if fixed_rotational_response:
             gradients = zero_rotational_response_gradient(gradients)
         elif fixed_angular_cross_coupling:
@@ -761,6 +771,48 @@ def _validate_window_schema(
     )
 
 
+def supports_multirotor_thrust_command_offset(
+    params: ModelParams,
+    windows: TrajectoryWindows,
+) -> bool:
+    """Resolve the thrust-map policy from typed control semantics."""
+
+    if model_family(params).platform != "multirotor":
+        return False
+    semantics = frozenset(windows.control_semantics)
+    if semantics <= NORMALIZED_MOTOR_COMMAND_SEMANTICS:
+        return True
+    if semantics <= PHYSICAL_MOTOR_THRUST_SEMANTICS:
+        return False
+    raise ValueError(
+        "multirotor controls must all be normalized motor commands or "
+        "physical squared-rotor-speed thrust proxies; got "
+        + ", ".join(sorted(semantics))
+    )
+
+
+def _resolved_thrust_command_offset_policy(
+    params: ModelParams,
+    windows: tuple[TrajectoryWindows, ...],
+    requested: bool,
+) -> bool:
+    semantic_policies = {
+        supports_multirotor_thrust_command_offset(params, item)
+        for item in windows
+    }
+    if len(semantic_policies) != 1:
+        raise ValueError(
+            "all training horizons must use one motor-control semantic policy"
+        )
+    semantic_policy = semantic_policies.pop()
+    if requested is True and not semantic_policy:
+        raise ValueError(
+            "a thrust command offset can only be learned from normalized "
+            "multirotor motor commands"
+        )
+    return requested
+
+
 def _residual_regularization(params: ModelParams) -> Array:
     if not isinstance(params, ResidualDynamicsParams):
         return jnp.asarray(0.0)
@@ -818,6 +870,7 @@ def fit_dynamics(
     learning_rate: float = 0.03,
     gradient_clip_norm: float = 10.0,
     fixed_motor_time_constant_s: float | None = None,
+    learn_thrust_command_offset: bool = False,
     instantaneous_rotational_response: bool = False,
     diagonal_angular_control: bool = False,
     loss_configuration: RolloutLossConfiguration | None = None,
@@ -831,9 +884,17 @@ def fit_dynamics(
     if learning_rate <= 0.0:
         raise ValueError("learning_rate must be positive")
     _validate_window_schema(initial_params, windows)
+    learn_thrust_command_offset = _resolved_thrust_command_offset_policy(
+        initial_params, (windows,), learn_thrust_command_offset
+    )
     initial_params = _configured_initial_params(
         initial_params, fixed_motor_time_constant_s
     )
+    if (
+        not learn_thrust_command_offset
+        and model_family(initial_params).platform == "multirotor"
+    ):
+        initial_params = with_thrust_command_offset(initial_params, 0.0)
     if instantaneous_rotational_response:
         initial_params = with_instantaneous_rotational_response(initial_params)
     elif diagonal_angular_control:
@@ -876,6 +937,7 @@ def fit_dynamics(
         learning_rate=learning_rate,
         gradient_clip_norm=gradient_clip_norm,
         fixed_motor_time_constant=fixed_motor_time_constant_s is not None,
+        fixed_thrust_command_offset=not learn_thrust_command_offset,
         fixed_rotational_response=instantaneous_rotational_response,
         fixed_angular_cross_coupling=diagonal_angular_control,
         loss_configuration=loss_configuration,
@@ -897,6 +959,7 @@ def fit_dynamics_multi_horizon(
     learning_rate: float = 0.03,
     gradient_clip_norm: float = 10.0,
     fixed_motor_time_constant_s: float | None = None,
+    learn_thrust_command_offset: bool = False,
     instantaneous_rotational_response: bool = False,
     diagonal_angular_control: bool = False,
     horizon_weights: tuple[float, ...] | list[float] | None = None,
@@ -914,6 +977,9 @@ def fit_dynamics_multi_horizon(
         raise ValueError("learning_rate must be positive")
     for windows in window_sets:
         _validate_window_schema(initial_params, windows)
+    learn_thrust_command_offset = _resolved_thrust_command_offset_policy(
+        initial_params, tuple(window_sets), learn_thrust_command_offset
+    )
     if horizon_weights is None:
         weights = jnp.full((len(window_sets),), 1.0 / len(window_sets))
     else:
@@ -927,6 +993,11 @@ def fit_dynamics_multi_horizon(
     initial_params = _configured_initial_params(
         initial_params, fixed_motor_time_constant_s
     )
+    if (
+        not learn_thrust_command_offset
+        and model_family(initial_params).platform == "multirotor"
+    ):
+        initial_params = with_thrust_command_offset(initial_params, 0.0)
     if instantaneous_rotational_response:
         initial_params = with_instantaneous_rotational_response(initial_params)
     elif diagonal_angular_control:
@@ -986,6 +1057,7 @@ def fit_dynamics_multi_horizon(
         learning_rate=learning_rate,
         gradient_clip_norm=gradient_clip_norm,
         fixed_motor_time_constant=fixed_motor_time_constant_s is not None,
+        fixed_thrust_command_offset=not learn_thrust_command_offset,
         fixed_rotational_response=instantaneous_rotational_response,
         fixed_angular_cross_coupling=diagonal_angular_control,
         loss_configuration=loss_configuration,
