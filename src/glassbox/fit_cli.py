@@ -24,6 +24,7 @@ from glassbox.dynamics import (
     MOTOR_MIXER,
     ModelParams,
     initial_residual_parameters,
+    model_family,
     with_response_time_constant,
 )
 from glassbox.evaluation import (
@@ -42,6 +43,10 @@ from glassbox.identification import (
 )
 from glassbox.model_io import save_dynamics_model
 from glassbox.model_family import MULTIROTOR_FAMILY, family_for_platform
+from glassbox.observation_identification import (
+    ObservationFitResult,
+    fit_multirotor_observations,
+)
 from glassbox.fixedwing_synthetic import initial_fixed_wing_parameter_guess
 from glassbox.synthetic import initial_parameter_guess
 
@@ -133,12 +138,21 @@ def _configured_initial_params(
     fixed_motor_time_constant_s: float | None,
     *,
     platform: str,
+    observation_initializer: ModelParams | None = None,
 ) -> ModelParams:
-    params: ModelParams = (
-        initial_fixed_wing_parameter_guess()
-        if platform == "fixedwing"
-        else initial_parameter_guess()
-    )
+    params: ModelParams
+    if observation_initializer is not None:
+        if model_family(observation_initializer).platform != platform:
+            raise ValueError(
+                "observation initializer does not match the requested platform"
+            )
+        params = observation_initializer
+    else:
+        params = (
+            initial_fixed_wing_parameter_guess()
+            if platform == "fixedwing"
+            else initial_parameter_guess()
+        )
     if fixed_motor_time_constant_s is not None:
         params = with_response_time_constant(params, fixed_motor_time_constant_s)
     return params
@@ -167,9 +181,16 @@ def _fit_on_windows(
     learn_thrust_command_offset: bool = False,
     instantaneous_rotational_response: bool = True,
     diagonal_angular_control: bool = True,
+    observation_initializer: ModelParams | None = None,
 ) -> tuple[ModelParams, dict[str, Any]]:
     physics_params = _configured_initial_params(
-        fixed_motor_time_constant_s, platform=platform
+        fixed_motor_time_constant_s,
+        platform=platform,
+        observation_initializer=observation_initializer,
+    )
+    normalization_physics_params = _configured_initial_params(
+        fixed_motor_time_constant_s,
+        platform=platform,
     )
     instantaneous_rotational_response = (
         instantaneous_rotational_response and platform == "multirotor"
@@ -186,8 +207,15 @@ def _fit_on_windows(
             exogenous_size=window_sets[0].initial_exogenous.shape[1],
             **residual_statistics,
         )
+        normalization_params: ModelParams = initial_residual_parameters(
+            normalization_physics_params,
+            control_size=window_sets[0].control_size,
+            exogenous_size=window_sets[0].initial_exogenous.shape[1],
+            **residual_statistics,
+        )
     else:
         initial_params = physics_params
+        normalization_params = normalization_physics_params
     if horizon_labels is None:
         horizon_labels = tuple(
             f"{item.controls.shape[1] * item.dt_s:g}s" for item in window_sets
@@ -221,6 +249,7 @@ def _fit_on_windows(
             diagonal_angular_control=diagonal_angular_control,
             endpoint_weight=endpoint_weight,
             stability_regularization=stability_regularization,
+            loss_normalization_params=normalization_params,
         )
     wall_time_s = perf_counter() - start
     component_losses = {}
@@ -295,6 +324,38 @@ def _fit_on_windows(
     }
 
 
+def _observation_fit(
+    trajectories: list[Trajectory] | tuple[Trajectory, ...],
+    *,
+    platform: str,
+) -> ObservationFitResult | None:
+    """Return the automatic typed-observation stage when the data supports it."""
+
+    if platform != "multirotor" or not trajectories:
+        return None
+    required = {f"specific_force_{axis}" for axis in "xyz"}
+    if any(
+        not required.issubset(trajectory.spec.observation_roles)
+        for trajectory in trajectories
+    ):
+        return None
+    result = fit_multirotor_observations(trajectories)
+    return ObservationFitResult(
+        params=result.params,
+        report={
+            **result.report,
+            "rollout_initializer": {
+                "applied": False,
+                "status": "diagnostic_only",
+                "reason": (
+                    "direct sensor residuals have not passed the maintained "
+                    "cross-platform rollout promotion gate"
+                ),
+            },
+        },
+    )
+
+
 def fit_trajectory_artifact(
     trajectory_path: str | Path,
     *,
@@ -324,6 +385,9 @@ def fit_trajectory_artifact(
         stride=horizon if stride is None else stride,
         maximum_windows=maximum_windows,
     )
+    observation_fit = _observation_fit(
+        [training], platform=platform
+    )
     fitted_params, model_report = _fit_on_windows(
         windows,
         steps=steps,
@@ -334,7 +398,8 @@ def fit_trajectory_artifact(
         stability_regularization=stability_regularization,
     )
     initial_params = _configured_initial_params(
-        fixed_motor_time_constant_s, platform=platform
+        fixed_motor_time_constant_s,
+        platform=platform,
     )
 
     report = {
@@ -378,6 +443,9 @@ def fit_trajectory_artifact(
             },
         },
         "fit": model_report["fit"],
+        "observation_identification": (
+            None if observation_fit is None else observation_fit.report
+        ),
         "parameters": model_report["parameters"],
         "validation_rollout": {
             "initial": rollout_metrics(
@@ -569,6 +637,13 @@ def _dataset_contract(
         ],
         "exogenous_roles": [
             channel["role"] for channel in spec_payload["exogenous"]
+        ],
+        "observation_size": len(spec_payload["observations"]),
+        "observation_names": [
+            channel["name"] for channel in spec_payload["observations"]
+        ],
+        "observation_roles": [
+            channel["role"] for channel in spec_payload["observations"]
         ],
         "platform": platform,
         "source_type": (
@@ -972,6 +1047,7 @@ def fit_trajectory_artifacts(
     )
     fitting_windows: TrajectoryWindows | tuple[TrajectoryWindows, ...]
     fitting_windows = window_sets[0] if len(window_sets) == 1 else window_sets
+    observation_fit = _observation_fit(training, platform=platform)
     learned_params, learned_report = _fit_on_windows(
         fitting_windows,
         steps=steps,
@@ -984,6 +1060,9 @@ def fit_trajectory_artifacts(
         learn_thrust_command_offset=learn_thrust_command_offset,
         instantaneous_rotational_response=instantaneous_rotational_response,
         diagonal_angular_control=diagonal_angular_control,
+    )
+    learned_report["observation_identification"] = (
+        None if observation_fit is None else observation_fit.report
     )
     learned_report["validation"] = _evaluate_model(
         learned_params,
@@ -1008,6 +1087,9 @@ def fit_trajectory_artifacts(
             learn_thrust_command_offset=learn_thrust_command_offset,
             instantaneous_rotational_response=instantaneous_rotational_response,
             diagonal_angular_control=diagonal_angular_control,
+        )
+        baseline_report["observation_identification"] = (
+            None if observation_fit is None else observation_fit.report
         )
         baseline_report["validation"] = _evaluate_model(
             baseline_params,

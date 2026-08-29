@@ -397,7 +397,7 @@ def evaluate_nanodrone_model_artifact(
     trajectories = [load_trajectory_npz(path) for path in trajectory_paths]
     model_spec = payload["input_spec"]
     for path, trajectory in zip(trajectory_paths, trajectories):
-        if trajectory.spec.to_dict() != model_spec:
+        if trajectory.spec.prediction_spec().to_dict() != model_spec:
             raise ValueError(
                 f"model input spec does not match benchmark trajectory {path}"
             )

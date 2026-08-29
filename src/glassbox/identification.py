@@ -966,6 +966,7 @@ def fit_dynamics_multi_horizon(
     loss_configuration: RolloutLossConfiguration | None = None,
     endpoint_weight: float = 3.0,
     stability_regularization: float = 0.01,
+    loss_normalization_params: ModelParams | None = None,
 ) -> FitResult:
     """Fit one model to normalized rollout losses at several horizons."""
 
@@ -1002,6 +1003,25 @@ def fit_dynamics_multi_horizon(
         initial_params = with_instantaneous_rotational_response(initial_params)
     elif diagonal_angular_control:
         initial_params = with_diagonal_angular_control(initial_params)
+    if loss_normalization_params is not None:
+        loss_normalization_params = _configured_initial_params(
+            loss_normalization_params, fixed_motor_time_constant_s
+        )
+        if (
+            not learn_thrust_command_offset
+            and model_family(loss_normalization_params).platform == "multirotor"
+        ):
+            loss_normalization_params = with_thrust_command_offset(
+                loss_normalization_params, 0.0
+            )
+        if instantaneous_rotational_response:
+            loss_normalization_params = with_instantaneous_rotational_response(
+                loss_normalization_params
+            )
+        elif diagonal_angular_control:
+            loss_normalization_params = with_diagonal_angular_control(
+                loss_normalization_params
+            )
     if loss_configuration is None:
         loss_configuration = rollout_loss_configuration(
             window_sets,
@@ -1017,7 +1037,11 @@ def fit_dynamics_multi_horizon(
             ]
         )
 
-    initial_component_losses = component_objective(initial_params)
+    initial_component_losses = component_objective(
+        initial_params
+        if loss_normalization_params is None
+        else loss_normalization_params
+    )
     normalizers = jax.lax.stop_gradient(
         jnp.maximum(initial_component_losses, 1e-12)
     )

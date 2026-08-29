@@ -87,6 +87,14 @@ def test_adapter_emits_strict_canonical_trajectory(tmp_path) -> None:
     assert trajectory.spec.observation_source == (
         "processed_mocap_and_onboard_sensors"
     )
+    assert trajectory.spec.observation_roles == (
+        "specific_force_x",
+        "specific_force_y",
+        "specific_force_z",
+    )
+    np.testing.assert_allclose(
+        trajectory.observations, np.tile([0.0, 0.0, 9.81], (4, 1))
+    )
     assert trajectory.spec.vehicle.fixed_states["rotor_speed_reference_rad_s"] == 2500.0
     assert trajectory.labels == {
         "profile": "chirp",
@@ -113,6 +121,7 @@ def test_inspection_reports_source_quality(tmp_path) -> None:
     assert inspection["rows"] == 4
     assert inspection["intervals"] == 3
     assert inspection["duration_s"] == pytest.approx(0.03)
+    assert inspection["adapter"]["schema_version"] == 2
     assert inspection["quality"]["sample_rate_hz"] == pytest.approx(100.0)
     assert inspection["labels"]["benchmark_split"] == "test"
     assert inspection["checksum_matches_pinned_snapshot"] is False

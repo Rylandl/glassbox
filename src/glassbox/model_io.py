@@ -25,7 +25,7 @@ from glassbox.dynamics import (
 from glassbox.evaluation import parameter_dict
 
 
-MODEL_FORMAT_VERSION = 1
+MODEL_FORMAT_VERSION = 2
 MODEL_TYPE = "effective_quadrotor_command_offset_rotational_response_v3"
 RESIDUAL_MODEL_TYPE = "structured_acceleration_residual_v1"
 FIXED_WING_MODEL_TYPE = "effective_fixedwing_role_aerodynamic_lag_v3"
@@ -40,6 +40,8 @@ def model_payload(
     """Return a JSON-compatible differentiable-model artifact."""
 
     residual = isinstance(params, ResidualDynamicsParams)
+    identification_observations = input_spec.observations
+    input_spec = input_spec.prediction_spec()
     base = structured_parameters(params)
     fixed_wing = isinstance(base, FixedWingDynamicsParams)
     family = model_family(params)
@@ -102,6 +104,9 @@ def model_payload(
             "angular_velocity_xyz",
         ],
         "input_spec": input_spec.to_dict(),
+        "identification_observations": [
+            channel.to_dict() for channel in identification_observations
+        ],
         "latent_state_order": [
             *[f"applied_{channel.name}" for channel in input_spec.controls],
             *(

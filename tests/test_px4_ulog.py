@@ -67,6 +67,21 @@ def make_datasets(*, disarmed_until_s: float | None = None) -> list[FakeDataset]
             "timestamp": angular_timestamp + 1_000,
             "timestamp_sample": angular_timestamp,
             **array_fields("xyz", angular_values),
+            **array_fields(
+                "xyz_derivative", np.tile([0.4, 0.5, 0.6], (26, 1))
+            ),
+        },
+    )
+
+    acceleration_timestamp = start_us + np.arange(21) * 50_000
+    acceleration = FakeDataset(
+        "vehicle_acceleration",
+        {
+            "timestamp": acceleration_timestamp + 1_000,
+            "timestamp_sample": acceleration_timestamp,
+            **array_fields(
+                "xyz", np.tile([1.0, 2.0, -9.0], (21, 1))
+            ),
         },
     )
 
@@ -100,7 +115,15 @@ def make_datasets(*, disarmed_until_s: float | None = None) -> list[FakeDataset]
             "ground_contact": np.zeros(11, dtype=bool),
         },
     )
-    return [position, attitude, angular_velocity, actuator, armed, land]
+    return [
+        position,
+        attitude,
+        angular_velocity,
+        acceleration,
+        actuator,
+        armed,
+        land,
+    ]
 
 
 def make_fixed_wing_datasets(*, split_ailerons: bool = False) -> list[FakeDataset]:
@@ -243,6 +266,18 @@ def test_px4_topics_are_aligned_and_converted_to_nwu_flu() -> None:
     )
     np.testing.assert_allclose(
         trajectory.controls, np.tile([0.4, 0.3, 0.2, 0.1], (10, 1))
+    )
+    assert trajectory.spec.observation_roles == (
+        "specific_force_x",
+        "specific_force_y",
+        "specific_force_z",
+        "angular_acceleration_x",
+        "angular_acceleration_y",
+        "angular_acceleration_z",
+    )
+    np.testing.assert_allclose(
+        trajectory.observations,
+        np.tile([1.0, -2.0, 9.0, 0.4, -0.5, -0.6], (11, 1)),
     )
     px4 = trajectory.provenance["px4"]
     mapping = px4["actuator_mapping"]
@@ -436,7 +471,7 @@ def test_fixed_wing_topics_are_joined_using_px4_surface_effectiveness() -> None:
     assert trajectory.labels["vehicle_id"] == "standard-plane-01"
     assert trajectory.provenance["adapter"] == {
         "name": "px4_ulog",
-        "schema_version": 1,
+        "schema_version": 2,
     }
     assert trajectory.provenance["px4"]["actuator_mapping"][
         "surface_indices"

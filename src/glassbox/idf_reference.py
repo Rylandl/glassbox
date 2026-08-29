@@ -246,7 +246,7 @@ class IDFFixedWingAdapter:
         inventory = inspect_ulog(source_path)
         inventory.update(
             {
-                "adapter": {"name": self.name, "schema_version": 1},
+                "adapter": {"name": self.name, "schema_version": 2},
                 "reference_dataset": _reference_metadata(recording),
                 "crc32": f"{checksum:08x}",
                 "checksum_matches_pinned_snapshot": checksum == recording.crc32,
@@ -288,7 +288,7 @@ class IDFFixedWingAdapter:
             provenance.update(
                 {
                     "source_crc32": f"{checksum:08x}",
-                    "adapter": {"name": self.name, "schema_version": 1},
+                    "adapter": {"name": self.name, "schema_version": 2},
                     "reference_dataset": _reference_metadata(recording),
                 }
             )
@@ -298,6 +298,7 @@ class IDFFixedWingAdapter:
                     states=trajectory.states,
                     controls=trajectory.controls,
                     spec=replace(trajectory.spec, exogenous=()),
+                    observations=trajectory.observations,
                     labels={
                         **trajectory.labels,
                         "benchmark": IDF_REFERENCE_NAME,

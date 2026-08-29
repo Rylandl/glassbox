@@ -1,0 +1,69 @@
+{
+  "format_version": 1,
+  "date": "2026-08-29",
+  "decision": "retain_typed_observations_and_diagnostics_do_not_promote_initializer",
+  "policy": {
+    "material_improvement_required": 0.1,
+    "rollout_initializer_applied_by_default": false,
+    "history_encoder_authorized": false
+  },
+  "direct_sensor_fit": {
+    "nanodrone": {
+      "training_flights": 12,
+      "force_validation_rmse_m_s2": 0.19330853777950205,
+      "force_constant_baseline_rmse_m_s2": 4.96075720700702,
+      "selected_motor_time_constant_s": 0.0001,
+      "control_interpretation": "measured_thrust_proxy"
+    },
+    "arp": {
+      "training_flights": 3,
+      "force_validation_rmse_m_s2": 1.4946166336969664,
+      "force_constant_baseline_rmse_m_s2": 4.918923940506008,
+      "unconstrained_selected_motor_time_constant_s": 0.25,
+      "selected_motor_time_constant_s_after_boundary_fallback": 0.06506433518397114,
+      "observed_command_to_accelerometer_delay_range_s": [
+        0.06,
+        0.08
+      ],
+      "control_interpretation": "normalized_command"
+    }
+  },
+  "rollout_ablation": {
+    "common_configuration": {
+      "training_horizons_s": [
+        0.1,
+        0.5,
+        1.0
+      ],
+      "optimization_steps": 400,
+      "learning_rate": 0.02,
+      "model_class": "structured_residual",
+      "rotational_response": "instantaneous_diagonal_reference",
+      "stable_reference_loss_normalization": true
+    },
+    "nanodrone": {
+      "holdout_profile": "melon",
+      "cumulative_error_geometric_ratio_observation_over_maintained_reference": 1.087233180189437,
+      "cumulative_error_geometric_ratio_observation_over_previous_best": 1.1312633122211055,
+      "observation_candidate_horizon_0_5_s": {
+        "position_mae_m": 0.13639365474189025,
+        "velocity_mae_m_s": 0.6287737403256584,
+        "attitude_mae_rad": 0.25797811850741437,
+        "angular_velocity_mae_rad_s": 0.8642114445731086
+      }
+    },
+    "arp": {
+      "holdout_source": "log_66_2024-1-8-16-42-48.ulg",
+      "error_geometric_ratio_observation_over_maintained_reference": {
+        "0.1s": 1.0534171115764304,
+        "0.5s": 1.1435576131091019,
+        "1s": 1.1146167884381704
+      },
+      "error_geometric_ratio_observation_over_previous_best": {
+        "0.1s": 1.1276971857098386,
+        "0.5s": 1.28693505029604,
+        "1s": 1.3442388712203466
+      }
+    }
+  }
+}

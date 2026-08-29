@@ -41,9 +41,9 @@ def test_model_json_round_trip(tmp_path) -> None:
     assert payload["parameters"]["thrust_command_offset"] == pytest.approx(
         -0.12
     )
-    assert payload["format_version"] == 1
+    assert payload["format_version"] == 2
     assert payload["provenance"] == {"flight": "fixture"}
-    assert payload["input_spec"] == input_spec.to_dict()
+    assert payload["input_spec"] == input_spec.prediction_spec().to_dict()
 
 
 def test_residual_model_json_round_trip(tmp_path) -> None:
@@ -68,7 +68,7 @@ def test_residual_model_json_round_trip(tmp_path) -> None:
     assert payload["parameters"]["base_model_type"] == (
         "effective_quadrotor_command_offset_rotational_response_v3"
     )
-    assert payload["format_version"] == 1
+    assert payload["format_version"] == 2
 
 
 def test_physical_rotor_thrust_proxy_requires_identity_offset() -> None:
@@ -79,6 +79,10 @@ def test_physical_rotor_thrust_proxy_requires_identity_offset() -> None:
     assert payload["multirotor_thrust_mapping"] == (
         "identity_physical_thrust_proxy"
     )
+    assert payload["input_spec"]["observations"] == []
+    assert [
+        channel["role"] for channel in payload["identification_observations"]
+    ] == ["specific_force_x", "specific_force_y", "specific_force_z"]
     with pytest.raises(ValueError, match="require zero command offset"):
         model_payload(
             with_thrust_command_offset(true_parameters(), -0.1),
@@ -150,7 +154,7 @@ def test_fixed_wing_model_json_round_trip(tmp_path) -> None:
     for original_leaf, restored_leaf in zip(original, restored, strict=True):
         np.testing.assert_allclose(restored_leaf, original_leaf, rtol=1e-6)
     assert payload["model_type"] == "effective_fixedwing_role_aerodynamic_lag_v3"
-    assert payload["format_version"] == 1
+    assert payload["format_version"] == 2
     assert payload["platform"] == "fixedwing"
     assert payload["control_order"] == [
         "throttle",
@@ -172,7 +176,7 @@ def test_rejects_noncurrent_model_format(tmp_path) -> None:
             seed=0, duration_s=0.1
         ).spec,
     )
-    payload["format_version"] = 2
+    payload["format_version"] = 1
     path.write_text(json.dumps(payload))
 
     with pytest.raises(ValueError, match="unsupported model format/type"):

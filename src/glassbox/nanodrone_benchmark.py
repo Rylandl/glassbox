@@ -22,6 +22,7 @@ from glassbox.data import (
     TrajectorySpec,
     VehicleConfigurationSpec,
     save_trajectory_npz,
+    specific_force_observation_channels,
 )
 from glassbox.dynamics import QUADROTOR_CONTROL_NAMES
 
@@ -304,6 +305,9 @@ def nanodrone_trajectory_spec(
                 "control_transform": "(rotor_speed_rad_s / reference_rad_s)^2",
             },
         ),
+        observations=specific_force_observation_channels(
+            "processed_onboard_accelerometer"
+        ),
     )
 
 
@@ -343,7 +347,7 @@ class NanoDroneBenchmarkAdapter:
         source_path, recording, labels, data, quality, checksum = self._read(path)
         return {
             "source": str(source_path),
-            "adapter": {"name": self.name, "schema_version": 1},
+            "adapter": {"name": self.name, "schema_version": 2},
             "benchmark": {
                 "repository": BENCHMARK_REPOSITORY,
                 "commit": BENCHMARK_COMMIT,
@@ -400,6 +404,7 @@ class NanoDroneBenchmarkAdapter:
             states=states,
             controls=controls,
             spec=nanodrone_trajectory_spec(self.rotor_speed_reference_rad_s),
+            observations=data[:, 18:21],
             labels={
                 **labels,
                 "benchmark": "idsia_nanodrone_sysid",
@@ -408,7 +413,7 @@ class NanoDroneBenchmarkAdapter:
             provenance={
                 "source": str(source_path),
                 "source_sha256": checksum,
-                "adapter": {"name": self.name, "schema_version": 1},
+                "adapter": {"name": self.name, "schema_version": 2},
                 "benchmark": {
                     "repository": BENCHMARK_REPOSITORY,
                     "commit": BENCHMARK_COMMIT,
@@ -462,6 +467,20 @@ class NanoDroneBenchmarkAdapter:
                         "type": "sample_to_interval_alignment",
                         "rule": "control row i applies from state row i to i+1",
                         "discarded_final_control_rows": 1,
+                    },
+                    {
+                        "type": "observation_retention",
+                        "source_columns": [
+                            "ax_body",
+                            "ay_body",
+                            "az_body",
+                        ],
+                        "target_roles": [
+                            "specific_force_x",
+                            "specific_force_y",
+                            "specific_force_z",
+                        ],
+                        "sample_alignment": "state_timestamp",
                     },
                 ],
                 "upstream_preprocessing": {

@@ -70,8 +70,8 @@ def test_adapter_applies_opinionated_reference_contract(tmp_path, monkeypatch) -
         f"{ARP_REFERENCE_NAME}:logs_large/{source.name}"
     )
     assert trajectory.provenance["adapter"] == {
-        "name": "arp_px4_ulog_reference",
-        "schema_version": 1,
+            "name": "arp_px4_ulog_reference",
+            "schema_version": 2,
     }
     reference = trajectory.provenance["reference_dataset"]
     assert reference["commit"] == ARP_REFERENCE_COMMIT

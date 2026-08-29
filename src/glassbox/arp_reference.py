@@ -152,6 +152,7 @@ def _longest_powered_interval(
         controls=trajectory.controls[start:stop],
         spec=trajectory.spec,
         exogenous=trajectory.exogenous[start : stop + 1],
+        observations=trajectory.observations[start : stop + 1],
         labels=trajectory.labels,
         provenance=provenance,
     )
@@ -184,7 +185,7 @@ class ARPReferenceAdapter:
         inventory = inspect_ulog(source_path)
         inventory.update(
             {
-                "adapter": {"name": self.name, "schema_version": 1},
+                "adapter": {"name": self.name, "schema_version": 2},
                 "reference_dataset": _reference_metadata(recording),
                 "sha256": checksum,
                 "checksum_matches_pinned_snapshot": checksum == recording.sha256,
@@ -214,7 +215,7 @@ class ARPReferenceAdapter:
         provenance.update(
             {
                 "source_sha256": checksum,
-                "adapter": {"name": self.name, "schema_version": 1},
+                "adapter": {"name": self.name, "schema_version": 2},
                 "reference_dataset": _reference_metadata(recording),
             }
         )
@@ -224,6 +225,7 @@ class ARPReferenceAdapter:
             controls=trajectory.controls,
             spec=trajectory.spec,
             exogenous=trajectory.exogenous,
+            observations=trajectory.observations,
             labels={
                 **trajectory.labels,
                 "benchmark": ARP_REFERENCE_NAME,

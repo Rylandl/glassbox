@@ -139,6 +139,88 @@ class ExogenousChannel:
 
 
 @dataclass(frozen=True)
+class ObservationChannel:
+    """Meaning of one state-aligned measurement used during identification.
+
+    Observations are measured outputs such as accelerometer specific force.
+    Unlike exogenous channels, they are not assumed to be available when a
+    fitted model is rolled forward.
+    """
+
+    name: str
+    role: str
+    semantic: str
+    unit: str
+    frame: str
+    source: str
+
+    def __post_init__(self) -> None:
+        for field_name in ("name", "role", "semantic", "unit", "frame", "source"):
+            value = getattr(self, field_name)
+            if not value.strip():
+                raise ValueError(
+                    f"observation channel {field_name} cannot be empty"
+                )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "name": self.name,
+            "role": self.role,
+            "semantic": self.semantic,
+            "unit": self.unit,
+            "frame": self.frame,
+            "source": self.source,
+        }
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> ObservationChannel:
+        return cls(
+            name=str(payload["name"]),
+            role=str(payload["role"]),
+            semantic=str(payload["semantic"]),
+            unit=str(payload["unit"]),
+            frame=str(payload["frame"]),
+            source=str(payload["source"]),
+        )
+
+
+def specific_force_observation_channels(
+    source: str,
+) -> tuple[ObservationChannel, ObservationChannel, ObservationChannel]:
+    """Return the canonical FLU accelerometer output contract."""
+
+    return tuple(
+        ObservationChannel(
+            name=f"specific_force_{axis}_m_s2",
+            role=f"specific_force_{axis}",
+            semantic="accelerometer_specific_force_including_gravity",
+            unit="m/s^2",
+            frame="FLU",
+            source=source,
+        )
+        for axis in ("x", "y", "z")
+    )  # type: ignore[return-value]
+
+
+def angular_acceleration_observation_channels(
+    source: str,
+) -> tuple[ObservationChannel, ObservationChannel, ObservationChannel]:
+    """Return the canonical FLU body-angular-acceleration contract."""
+
+    return tuple(
+        ObservationChannel(
+            name=f"angular_acceleration_{axis}_rad_s2",
+            role=f"angular_acceleration_{axis}",
+            semantic="bias_corrected_body_angular_acceleration",
+            unit="rad/s^2",
+            frame="FLU",
+            source=source,
+        )
+        for axis in ("x", "y", "z")
+    )  # type: ignore[return-value]
+
+
+@dataclass(frozen=True)
 class VehicleConfigurationSpec:
     """Vehicle configuration facts that determine safe model-data pooling."""
 
@@ -209,6 +291,7 @@ class TrajectorySpec:
     controls: tuple[ControlChannel, ...]
     vehicle: VehicleConfigurationSpec
     exogenous: tuple[ExogenousChannel, ...] = ()
+    observations: tuple[ObservationChannel, ...] = ()
 
     def __post_init__(self) -> None:
         if self.state_schema != RIGID_BODY_STATE_SCHEMA:
@@ -234,8 +317,16 @@ class TrajectorySpec:
             raise ValueError("trajectory spec exogenous names must be unique")
         if len(set(exogenous_roles)) != len(exogenous_roles):
             raise ValueError("trajectory spec exogenous roles must be unique")
+        observations = tuple(self.observations)
+        observation_names = tuple(channel.name for channel in observations)
+        observation_roles = tuple(channel.role for channel in observations)
+        if len(set(observation_names)) != len(observation_names):
+            raise ValueError("trajectory spec observation names must be unique")
+        if len(set(observation_roles)) != len(observation_roles):
+            raise ValueError("trajectory spec observation roles must be unique")
         object.__setattr__(self, "controls", controls)
         object.__setattr__(self, "exogenous", exogenous)
+        object.__setattr__(self, "observations", observations)
 
     @property
     def control_names(self) -> tuple[str, ...]:
@@ -257,6 +348,25 @@ class TrajectorySpec:
     def exogenous_roles(self) -> tuple[str, ...]:
         return tuple(channel.role for channel in self.exogenous)
 
+    @property
+    def observation_names(self) -> tuple[str, ...]:
+        return tuple(channel.name for channel in self.observations)
+
+    @property
+    def observation_roles(self) -> tuple[str, ...]:
+        return tuple(channel.role for channel in self.observations)
+
+    def prediction_spec(self) -> TrajectorySpec:
+        """Return the runtime contract, excluding training-only observations."""
+
+        return TrajectorySpec(
+            state_schema=self.state_schema,
+            observation_source=self.observation_source,
+            controls=self.controls,
+            vehicle=self.vehicle,
+            exogenous=self.exogenous,
+        )
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "state_schema": self.state_schema,
@@ -264,6 +374,9 @@ class TrajectorySpec:
             "controls": [channel.to_dict() for channel in self.controls],
             "vehicle": self.vehicle.to_dict(),
             "exogenous": [channel.to_dict() for channel in self.exogenous],
+            "observations": [
+                channel.to_dict() for channel in self.observations
+            ],
         }
 
     @classmethod
@@ -279,6 +392,10 @@ class TrajectorySpec:
             exogenous=tuple(
                 ExogenousChannel.from_dict(channel)
                 for channel in payload.get("exogenous", ())
+            ),
+            observations=tuple(
+                ObservationChannel.from_dict(channel)
+                for channel in payload.get("observations", ())
             ),
         )
 
@@ -325,6 +442,7 @@ def make_trajectory_spec(
     configuration_id: str | None = None,
     fixed_states: Mapping[str, Any] | None = None,
     exogenous: Sequence[ExogenousChannel] = (),
+    observations: Sequence[ObservationChannel] = (),
 ) -> TrajectorySpec:
     """Build the standard canonical contract for one vehicle control layout."""
 
@@ -357,6 +475,7 @@ def make_trajectory_spec(
             auxiliary_controls=auxiliary_controls,
         ),
         exogenous=tuple(exogenous),
+        observations=tuple(observations),
     )
 
 
@@ -374,6 +493,7 @@ class Trajectory:
     controls: npt.NDArray[np.float64]
     spec: TrajectorySpec
     exogenous: npt.NDArray[np.float64] | None = None
+    observations: npt.NDArray[np.float64] | None = None
     labels: Mapping[str, Any] = field(default_factory=dict)
     provenance: Mapping[str, Any] = field(default_factory=dict)
 
@@ -387,6 +507,11 @@ class Trajectory:
             np.empty((len(time_s), 0), dtype=np.float64)
             if self.exogenous is None
             else np.asarray(self.exogenous, dtype=np.float64)
+        )
+        observations = (
+            np.empty((len(time_s), 0), dtype=np.float64)
+            if self.observations is None
+            else np.asarray(self.observations, dtype=np.float64)
         )
 
         if time_s.ndim != 1:
@@ -410,6 +535,12 @@ class Trajectory:
                 "exogenous must have shape "
                 f"({len(time_s)}, {len(self.spec.exogenous)}), got {exogenous.shape}"
             )
+        if observations.shape != (len(time_s), len(self.spec.observations)):
+            raise ValueError(
+                "observations must have shape "
+                f"({len(time_s)}, {len(self.spec.observations)}), "
+                f"got {observations.shape}"
+            )
         if not np.all(np.diff(time_s) > 0.0):
             raise ValueError("timestamps must be strictly increasing")
         if not (
@@ -417,6 +548,7 @@ class Trajectory:
             and np.all(np.isfinite(states))
             and np.all(np.isfinite(controls))
             and np.all(np.isfinite(exogenous))
+            and np.all(np.isfinite(observations))
         ):
             raise ValueError("trajectory values must be finite")
 
@@ -435,6 +567,7 @@ class Trajectory:
         object.__setattr__(self, "states", states)
         object.__setattr__(self, "controls", controls)
         object.__setattr__(self, "exogenous", exogenous)
+        object.__setattr__(self, "observations", observations)
         object.__setattr__(self, "labels", labels)
         object.__setattr__(self, "provenance", provenance)
 
@@ -459,6 +592,12 @@ class Trajectory:
         """Return the number of measured non-control input channels."""
 
         return int(self.exogenous.shape[1])
+
+    @property
+    def observation_size(self) -> int:
+        """Return the number of state-aligned identification measurements."""
+
+        return int(self.observations.shape[1])
 
 
 @dataclass(frozen=True)
@@ -962,11 +1101,12 @@ def save_trajectory_npz(trajectory: Trajectory, path: str | Path) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(
         output_path,
-        format_version=np.asarray(2, dtype=np.int64),
+        format_version=np.asarray(3, dtype=np.int64),
         time_s=trajectory.time_s,
         states=trajectory.states,
         controls=trajectory.controls,
         exogenous=trajectory.exogenous,
+        observations=trajectory.observations,
         spec_json=np.asarray(json.dumps(trajectory.spec.to_dict(), sort_keys=True)),
         labels_json=np.asarray(json.dumps(dict(trajectory.labels), sort_keys=True)),
         provenance_json=np.asarray(
@@ -980,13 +1120,14 @@ def load_trajectory_npz(path: str | Path) -> Trajectory:
 
     with np.load(Path(path), allow_pickle=False) as archive:
         version = int(archive["format_version"])
-        if version != 2:
+        if version != 3:
             raise ValueError(f"unsupported trajectory format version: {version}")
         return Trajectory(
             time_s=archive["time_s"],
             states=archive["states"],
             controls=archive["controls"],
             exogenous=archive["exogenous"],
+            observations=archive["observations"],
             spec=TrajectorySpec.from_dict(
                 json.loads(str(archive["spec_json"]))
             ),
@@ -1024,6 +1165,9 @@ def trajectory_segment(
         controls=trajectory.controls[start_interval:stop_interval],
         spec=trajectory.spec,
         exogenous=trajectory.exogenous[start_interval : stop_interval + 1],
+        observations=trajectory.observations[
+            start_interval : stop_interval + 1
+        ],
         labels=trajectory.labels,
         provenance=provenance,
     )

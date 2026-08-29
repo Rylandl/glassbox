@@ -8,7 +8,12 @@ import numpy as np
 
 import glassbox.idf_reference as idf_module
 from glassbox.adapter import TrajectoryAdapter
-from glassbox.data import Trajectory, make_trajectory_spec, save_trajectory_npz
+from glassbox.data import (
+    Trajectory,
+    make_trajectory_spec,
+    save_trajectory_npz,
+    specific_force_observation_channels,
+)
 from glassbox.idf_reference import (
     IDF_CONFIGURATION_ID,
     IDF_REFERENCE_NAME,
@@ -33,7 +38,9 @@ def _trajectory(intervals: int) -> Trajectory:
             family="fixedwing",
             observation_source="estimated",
             configuration_id=IDF_CONFIGURATION_ID,
+            observations=specific_force_observation_channels("fixture_imu"),
         ),
+        observations=np.tile([0.1, 0.2, 9.7], (intervals + 1, 1)),
         labels={"profile": "waypoint_circuit"},
         provenance={"source": "fixture.ulg", "px4": {"filters": {}}},
     )
@@ -69,6 +76,11 @@ def test_adapter_preserves_every_dropout_safe_segment(tmp_path, monkeypatch) -> 
     ]
     assert trajectories[0].labels["benchmark"] == IDF_REFERENCE_NAME
     assert trajectories[0].labels["session"] == 1
+    assert trajectories[0].provenance["adapter"]["schema_version"] == 2
+    np.testing.assert_allclose(
+        trajectories[0].observations,
+        np.tile([0.1, 0.2, 9.7], (21, 1)),
+    )
     reference = trajectories[0].provenance["reference_dataset"]
     assert reference["published_flights"] == [1, 2, 3, 4, 5, 7, 8, 34]
     assert reference["missing_raw_flights"] == [117, 118, 119, 120]
@@ -147,6 +159,7 @@ def test_corpus_report_records_coverage_and_excitation(tmp_path, monkeypatch) ->
         states=source.states,
         controls=source.controls,
         spec=source.spec,
+        observations=source.observations,
         labels={**source.labels, "session": 1},
         provenance=source.provenance,
     )

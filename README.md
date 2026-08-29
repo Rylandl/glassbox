@@ -66,12 +66,14 @@ runs before shifting truth rows by horizon; those shifts cross two recording
 boundaries and reproduce the paper's slightly higher naïve values exactly.
 Glassbox deliberately reports the boundary-safe version.
 
-The adapter preserves the benchmark's 100 Hz sampling and 13-state rigid-body
-observations. These are processed mixed-source observations, not uniform
-ground truth: position and attitude include motion capture, while velocity and
-angular rate come from onboard sensing/estimation. The upstream world and body
-frames already have Glassbox's z-up/FLU signs; the adapter reorders the
-scalar-last quaternion to wxyz.
+The adapter preserves the benchmark's 100 Hz sampling, 13-state rigid-body
+trajectory, and three published body-specific-force channels. The state is a
+processed mixed-source observation, not uniform ground truth: position and
+attitude include motion capture, while velocity and angular rate come from
+onboard sensing/estimation. The accelerometer outputs are typed as
+state-aligned FLU observations used only during identification. The upstream
+world and body frames already have Glassbox's z-up/FLU signs; the adapter
+reorders the scalar-last quaternion to wxyz.
 
 The benchmark inputs are measured rotor angular velocities rather than motor
 commands. The source order `m1,m2,m3,m4` (front-right, rear-right, rear-left,
@@ -585,15 +587,16 @@ uv run glassbox-fit artifacts/flight_1.npz artifacts/flight_2.npz \
 
 The SITL recorder currently uses a 2-second training horizon. This substantially reduces uninterrupted long-rollout drift while the evaluation report still exposes 0.1, 0.5, 1, and 2-second behavior. The same multi-flight command works for simulator ground-truth and estimated-state artifacts; estimated-state coefficients should be interpreted as predictive effective values because estimator filtering and noise are part of the observed signal.
 
-By default, the command fits both the learned-lag model and an otherwise identical near-zero-lag ablation. The report contains aggregate and per-flight metrics for the complete rollout and each requested horizon. When `--model` is provided, the ablation is written beside it with `_no_motor_lag` appended. Use `--holdout-count` to reserve more than one final source group—or more than one trajectory when groups are unlabeled—or `--skip-no-lag-ablation` when the comparison is not needed. Model files contain effective predictive coefficients, the exact input `TrajectorySpec`, and fitting provenance. They explicitly do not claim that those coefficients are uniquely recovered physical parameters.
+By default, the command fits both the learned-lag model and an otherwise identical near-zero-lag ablation. The report contains aggregate and per-flight metrics for the complete rollout and each requested horizon. When `--model` is provided, the ablation is written beside it with `_no_motor_lag` appended. Use `--holdout-count` to reserve more than one final source group—or more than one trajectory when groups are unlabeled—or `--skip-no-lag-ablation` when the comparison is not needed. When every multirotor training trajectory carries typed specific force, the command automatically runs a chronological sensor-residual diagnostic for thrust, timing, and rotational response. It records identifiability and boundary diagnostics without adding user-facing controls. This stage remains diagnostic-only because its initializer failed the maintained Nano and ARP rollout gates; rollout optimization still starts from the stable reference parameters. Model files contain effective predictive coefficients, the exact runtime prediction contract, the training-only observation schema, and fitting provenance. They explicitly do not claim that those coefficients are uniquely recovered physical parameters.
 
 ### Scaling across logs
 
 Canonical trajectory artifacts now carry a typed, versioned semantic contract:
 
 - `spec` defines the 13-state schema, observation source, ordered control
-  roles/units/bounds, optional measured exogenous channels, and vehicle
-  configuration identity.
+  roles/units/bounds, optional measured exogenous channels, optional
+  state-aligned identification observations, and vehicle configuration
+  identity.
 - `labels` contains profile, condition, replicate, vehicle, payload,
   environment, and source-group annotations.
 - `provenance` contains the source path, adapter identity, PX4 topics, raw
@@ -616,12 +619,19 @@ with different observation sources, control meanings/order, fixed
 configuration states, or vehicle configuration IDs are rejected. Sample rate
 is checked separately because rollout windows share one integration step.
 
-The canonical NPZ format is version 2 and contains the state, control, and
-exogenous arrays plus typed `spec`, `labels`, and `provenance`. The loader
+The canonical NPZ format is version 3 and contains the state, control,
+exogenous, and training-only observation arrays plus typed `spec`, `labels`,
+and `provenance`. The loader
 intentionally rejects every other version; derived trajectories should be
 re-extracted from their raw telemetry rather than migrated through compatibility
 shims. For recorded profile corpora, use
 `scripts/reextract_profile_dataset.py`.
+
+Observation channels are measured outputs used to identify dynamics, such as
+accelerometer specific force and filtered body angular acceleration. They are
+state-aligned but are not assumed to exist at rollout time. Model artifacts
+therefore exclude them from `input_spec` and record them separately as
+`identification_observations`.
 
 Exogenous channels are measured non-control inputs available when prediction
 starts, such as trusted wind. Each rollout samples them only at its initial

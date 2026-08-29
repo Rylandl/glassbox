@@ -8,6 +8,7 @@ from glassbox.arp_reference import (
 )
 from glassbox.data import (
     ControlChannel,
+    ObservationChannel,
     RIGID_BODY_STATE_SCHEMA,
     Trajectory,
     TrajectorySpec,
@@ -64,6 +65,10 @@ from glassbox.nanodrone_evaluation import (
     evaluate_nanodrone_model_artifact,
     save_nanodrone_benchmark_report,
 )
+from glassbox.observation_identification import (
+    actuator_observation_alignment,
+    fit_multirotor_observations,
+)
 from glassbox.source_group_benchmark import benchmark_source_groups
 from glassbox.fixedwing_gate import (
     compare_fixedwing_gates,
@@ -85,6 +90,7 @@ from glassbox.x8_evaluation import (
 __all__ = [
     "ARPReferenceAdapter",
     "ControlChannel",
+    "ObservationChannel",
     "BaseDynamicsParams",
     "DynamicsParams",
     "FixedWingDynamicsParams",
@@ -100,6 +106,7 @@ __all__ = [
     "VehicleConfigurationSpec",
     "X8ReferenceAdapter",
     "control_state_after_history",
+    "actuator_observation_alignment",
     "compare_fixedwing_gates",
     "dynamic_envelope_penalty",
     "fixed_wing_trim_control",
@@ -107,6 +114,7 @@ __all__ = [
     "fetch_idf_archive",
     "fetch_nanodrone_benchmark",
     "fetch_x8_reference",
+    "fit_multirotor_observations",
     "extract_nanodrone_benchmark",
     "extract_arp_reference",
     "extract_idf_reference",

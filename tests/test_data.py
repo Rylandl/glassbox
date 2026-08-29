@@ -4,6 +4,7 @@ import pytest
 from glassbox.data import (
     ControlChannel,
     ExogenousChannel,
+    ObservationChannel,
     RIGID_BODY_STATE_SCHEMA,
     Trajectory,
     TrajectorySpec,
@@ -218,8 +219,19 @@ def test_npz_round_trip(tmp_path) -> None:
                     frame="NWU",
                 ),
             ),
+            observations=(
+                ObservationChannel(
+                    name="specific_force_z_m_s2",
+                    role="specific_force_z",
+                    semantic="accelerometer_specific_force_including_gravity",
+                    unit="m/s^2",
+                    frame="FLU",
+                    source="simulator_imu",
+                ),
+            ),
         ),
         exogenous=np.linspace(1.0, 2.0, len(trajectory.time_s))[:, None],
+        observations=np.linspace(9.0, 10.0, len(trajectory.time_s))[:, None],
         labels={"profile": "test"},
         provenance={"adapter": {"name": "test", "schema_version": 1}},
     )
@@ -232,20 +244,25 @@ def test_npz_round_trip(tmp_path) -> None:
     np.testing.assert_array_equal(restored.states, trajectory.states)
     np.testing.assert_array_equal(restored.controls, trajectory.controls)
     np.testing.assert_array_equal(restored.exogenous, trajectory.exogenous)
+    np.testing.assert_array_equal(restored.observations, trajectory.observations)
     assert restored.control_names == trajectory.control_names
     assert restored.spec == trajectory.spec
     assert restored.labels == trajectory.labels
     assert restored.provenance == trajectory.provenance
 
     with np.load(path, allow_pickle=False) as archive:
-        assert int(archive["format_version"]) == 2
+        assert int(archive["format_version"]) == 3
         np.testing.assert_array_equal(archive["exogenous"], trajectory.exogenous)
+        np.testing.assert_array_equal(
+            archive["observations"], trajectory.observations
+        )
         assert set(archive.files) == {
             "format_version",
             "time_s",
             "states",
             "controls",
             "exogenous",
+            "observations",
             "spec_json",
             "labels_json",
             "provenance_json",

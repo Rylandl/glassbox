@@ -146,6 +146,35 @@ Build a research-only path, without changing the public fitting interface, that:
 This is the cheapest test of the strongest literature-supported hypothesis. Do
 not migrate the canonical artifact until this experiment shows value.
 
+#### Phase A result (2026-08-29)
+
+The observation contract and direct-fit spike were implemented and evaluated
+before promotion. Nano specific force fits cleanly on its chronological sensor
+holdout: 0.193 m/s² RMSE versus 4.961 m/s² for a constant baseline. ARP also
+contains useful force information (1.495 versus 4.919 m/s²), but its free motor
+time-constant search ran to the 0.25 s bound. Glassbox now reports that as
+non-identifiability and falls back to the independently measured 60--80 ms
+command/accelerometer correlation delay rather than presenting the boundary as
+a recovered physical parameter.
+
+The good local residual fits did **not** translate into better rollouts. After
+fixing multi-horizon normalization so the A/B objective was identical, the
+Nano initializer increased the equal-metric geometric mean of cumulative
+benchmark error by 8.7% relative to the maintained instantaneous reference and
+13.1% relative to the previous best authority candidate. On protected ARP log
+66 it increased the four-metric geometric error by 5.3%, 14.4%, and 11.5% at
+0.1, 0.5, and 1.0 seconds relative to the maintained instantaneous reference.
+
+The promotion decision is therefore negative. Typed observations remain in
+canonical format v3 because preserving source measurements and their semantics
+is independently useful and does not change rollout inputs. The direct fit is
+retained as an automatic diagnostic and research API, but its parameters are
+not used to initialize production fitting. This result also blocks Phase B:
+there is not yet evidence that a learned history encoder has earned the added
+complexity.
+The machine-readable comparison is retained in
+[`observation-spike-results.json`](observation-spike-results.json).
+
 ### Phase B: structured history encoder
 
 If Phase A improves parameter stability or held-out error, add one small causal

@@ -197,6 +197,7 @@ def test_squared_rotor_speed_proxy_fixes_thrust_offset_to_zero() -> None:
     trajectory = replace(
         generate_trajectory(seed=16, duration_s=0.5),
         spec=nanodrone_trajectory_spec(),
+        observations=np.zeros((26, 3)),
     )
     windows = trajectory_windows([trajectory], horizon=5, stride=5)
 

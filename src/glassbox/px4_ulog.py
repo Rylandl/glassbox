@@ -10,7 +10,13 @@ import numpy as np
 import numpy.typing as npt
 from pyulog import ULog
 
-from glassbox.data import ExogenousChannel, Trajectory, make_trajectory_spec
+from glassbox.data import (
+    ExogenousChannel,
+    Trajectory,
+    angular_acceleration_observation_channels,
+    make_trajectory_spec,
+    specific_force_observation_channels,
+)
 from glassbox.dynamics import FIXED_WING_CONTROL_NAMES, QUADROTOR_CONTROL_NAMES
 
 
@@ -28,6 +34,7 @@ class PX4ULogError(ValueError):
 
 PX4_FRD_TO_FLU_MOMENT_SIGNS = np.asarray([1.0, -1.0, -1.0])
 PX4_WIND_TOPIC = "airspeed_wind"
+PX4_SPECIFIC_FORCE_TOPIC = "vehicle_acceleration"
 PX4_WIND_MAX_GAP_S = 2.5
 WIND_EXOGENOUS_CHANNELS = (
     ExogenousChannel(
@@ -606,6 +613,8 @@ def trajectories_from_datasets(
     position_data = _required_dataset(datasets, topics["position"])
     attitude_data = _required_dataset(datasets, topics["attitude"])
     angular_data = _required_dataset(datasets, topics["angular_velocity"])
+    dataset_by_name = _dataset_map(datasets)
+    specific_force_data = dataset_by_name.get((PX4_SPECIFIC_FORCE_TOPIC, 0))
     armed_data = (
         _required_dataset(datasets, topics["armed"]) if config.only_armed else None
     )
@@ -680,10 +689,62 @@ def trajectories_from_datasets(
         attitude_time, attitude_ned_frd, valid_quaternion
     )
 
+    angular_sample_time = _timestamps_s(angular_data, sample_time=True)
     angular_time, angular_velocity_frd = _prepare_series(
-        _timestamps_s(angular_data, sample_time=True),
+        angular_sample_time,
         _array_field(angular_data, "xyz", 3),
     )
+    observation_series: list[tuple[np.ndarray, np.ndarray]] = []
+    observation_channels = []
+    observation_topic_metadata: dict[str, object] = {}
+    if specific_force_data is not None:
+        specific_force_time, specific_force_frd = _prepare_series(
+            _timestamps_s(specific_force_data, sample_time=True),
+            _array_field(specific_force_data, "xyz", 3),
+        )
+        observation_series.append((specific_force_time, specific_force_frd))
+        observation_channels.extend(
+            specific_force_observation_channels(
+                "px4_vehicle_acceleration_bias_corrected"
+            )
+        )
+        observation_topic_metadata["specific_force"] = {
+            "topic": PX4_SPECIFIC_FORCE_TOPIC,
+            "multi_id": 0,
+            "timestamp_field": (
+                "timestamp_sample"
+                if "timestamp_sample" in specific_force_data.data
+                else "timestamp"
+            ),
+            "source_frame": "FRD",
+        }
+    if "xyz_derivative[0]" in angular_data.data or (
+        "xyz_derivative" in angular_data.data
+        and np.asarray(angular_data.data["xyz_derivative"]).ndim == 2
+    ):
+        angular_acceleration_time, angular_acceleration_frd = _prepare_series(
+            angular_sample_time,
+            _array_field(angular_data, "xyz_derivative", 3),
+        )
+        observation_series.append(
+            (angular_acceleration_time, angular_acceleration_frd)
+        )
+        observation_channels.extend(
+            angular_acceleration_observation_channels(
+                "px4_vehicle_angular_velocity_derivative"
+            )
+        )
+        observation_topic_metadata["angular_acceleration"] = {
+            "topic": topics["angular_velocity"],
+            "multi_id": 0,
+            "field": "xyz_derivative",
+            "timestamp_field": (
+                "timestamp_sample"
+                if "timestamp_sample" in angular_data.data
+                else "timestamp"
+            ),
+            "source_frame": "FRD",
+        }
 
     if config.platform == "fixedwing":
         all_motor_controls = _array_field(
@@ -742,6 +803,7 @@ def trajectories_from_datasets(
         attitude_time[0],
         angular_time[0],
         *(series_time[0] for series_time, _ in actuator_series),
+        *(series_time[0] for series_time, _ in observation_series),
     ]
     if armed_data is not None:
         start_candidates.append(armed_time[0])
@@ -755,6 +817,7 @@ def trajectories_from_datasets(
         attitude_time[-1],
         angular_time[-1],
         *(series_time[-1] for series_time, _ in actuator_series),
+        *(series_time[-1] for series_time, _ in observation_series),
         *([wind_time[-1]] if wind_selection is not None else []),
     )
     dt_s = 1.0 / config.sample_rate_hz
@@ -774,6 +837,24 @@ def trajectories_from_datasets(
     angular_velocity_frd, angular_mask = _linear_resample(
         angular_time, angular_velocity_frd, grid_s, config.max_gap_s
     )
+    resampled_observations = [
+        _linear_resample(series_time, values, grid_s, config.max_gap_s)
+        for series_time, values in observation_series
+    ]
+    if resampled_observations:
+        observations_frd = np.column_stack(
+            [values for values, _ in resampled_observations]
+        )
+        observation_mask = np.logical_and.reduce(
+            [mask for _, mask in resampled_observations]
+        )
+        observations = observations_frd * np.tile(
+            np.asarray([1.0, -1.0, -1.0]),
+            len(resampled_observations),
+        )
+    else:
+        observations = np.empty((len(grid_s), 0), dtype=np.float64)
+        observation_mask = np.ones(len(grid_s), dtype=bool)
     if wind_selection is not None:
         wind_ned, wind_mask = _linear_resample(
             wind_time, wind_ned, grid_s, PX4_WIND_MAX_GAP_S
@@ -840,7 +921,13 @@ def trajectories_from_datasets(
         )
     )
 
-    state_mask = position_mask & attitude_mask & angular_mask & wind_mask
+    state_mask = (
+        position_mask
+        & attitude_mask
+        & angular_mask
+        & wind_mask
+        & observation_mask
+    )
     clearance_mask = (
         np.ones(len(states), dtype=bool)
         if config.min_height_m is None
@@ -934,6 +1021,7 @@ def trajectories_from_datasets(
         exogenous=(
             WIND_EXOGENOUS_CHANNELS if wind_selection is not None else ()
         ),
+        observations=observation_channels,
     )
     trajectories: list[Trajectory] = []
     for segment_index, (interval_start, interval_stop) in enumerate(valid_runs):
@@ -953,7 +1041,7 @@ def trajectories_from_datasets(
         }
         provenance = {
             "source": source,
-            "adapter": {"name": "px4_ulog", "schema_version": 1},
+            "adapter": {"name": "px4_ulog", "schema_version": 2},
             "px4": {
                 "topics": {
                     **topics,
@@ -965,6 +1053,7 @@ def trajectories_from_datasets(
                 },
                 "actuator_mapping": actuator_metadata,
                 "exogenous": wind_metadata,
+                "observations": observation_topic_metadata,
                 "source_start_time_s": absolute_start_s,
                 "valid_interval_index": segment_index + 1,
                 "valid_interval_count": len(valid_runs),
@@ -985,6 +1074,9 @@ def trajectories_from_datasets(
                 controls=controls[interval_start:interval_stop],
                 spec=spec,
                 exogenous=exogenous[interval_start : interval_stop + 1],
+                observations=observations[
+                    interval_start : interval_stop + 1
+                ],
                 labels=labels,
                 provenance=provenance,
             )
@@ -1017,6 +1109,7 @@ def load_px4_trajectory(
 
     config = PX4IngestConfig() if config is None else config
     topics = list(config.resolved_topics().values())
+    topics.append(PX4_SPECIFIC_FORCE_TOPIC)
     if config.platform == "fixedwing":
         topics.append(PX4_WIND_TOPIC)
     ulog = ULog(str(path), message_name_filter_list=topics)
@@ -1035,6 +1128,7 @@ def load_px4_trajectories(
 
     config = PX4IngestConfig() if config is None else config
     topics = list(config.resolved_topics().values())
+    topics.append(PX4_SPECIFIC_FORCE_TOPIC)
     if config.platform == "fixedwing":
         topics.append(PX4_WIND_TOPIC)
     ulog = ULog(str(path), message_name_filter_list=topics)
