@@ -16,21 +16,18 @@ from glassbox.data import (
 from glassbox.dynamics import (
     DynamicsParams,
     FixedWingDynamicsParams,
-    HistoryResidualDynamicsParams,
     ModelParams,
     ResidualDynamicsParams,
-    initial_history_residual_parameters,
     initial_residual_parameters,
-    is_residual_model,
     model_family,
     structured_parameters,
 )
 from glassbox.evaluation import parameter_dict
 
+
 MODEL_FORMAT_VERSION = 2
 MODEL_TYPE = "effective_quadrotor_command_offset_rotational_response_v3"
 RESIDUAL_MODEL_TYPE = "structured_acceleration_residual_v1"
-HISTORY_RESIDUAL_MODEL_TYPE = "causal_residual_innovation_observer_v1"
 FIXED_WING_MODEL_TYPE = "effective_fixedwing_role_aerodynamic_lag_v3"
 
 
@@ -42,8 +39,7 @@ def model_payload(
 ) -> dict[str, Any]:
     """Return a JSON-compatible differentiable-model artifact."""
 
-    residual = is_residual_model(params)
-    history_residual = isinstance(params, HistoryResidualDynamicsParams)
+    residual = isinstance(params, ResidualDynamicsParams)
     identification_observations = input_spec.observations
     input_spec = input_spec.prediction_spec()
     base = structured_parameters(params)
@@ -54,7 +50,9 @@ def model_payload(
             f"model family {family.platform!r} cannot bind to vehicle family "
             f"{input_spec.vehicle.family!r}"
         )
-    family.validate_control_schema(input_spec.control_names, input_spec.control_roles)
+    family.validate_control_schema(
+        input_spec.control_names, input_spec.control_roles
+    )
     thrust_mapping = None
     if not fixed_wing:
         semantics = frozenset(input_spec.control_semantics)
@@ -73,16 +71,18 @@ def model_payload(
                 + ", ".join(sorted(semantics))
             )
     if residual:
-        expected_feature_size = 6 + len(input_spec.controls) + len(input_spec.exogenous)
+        expected_feature_size = (
+            6 + len(input_spec.controls) + len(input_spec.exogenous)
+        )
         if params.feature_mean.shape != (expected_feature_size,):
-            raise ValueError("residual feature configuration does not match input spec")
+            raise ValueError(
+                "residual feature configuration does not match input spec"
+            )
     payload = {
         "format_version": MODEL_FORMAT_VERSION,
         "model_type": (
-            HISTORY_RESIDUAL_MODEL_TYPE
-            if history_residual
-            else RESIDUAL_MODEL_TYPE
-            if isinstance(params, ResidualDynamicsParams)
+            RESIDUAL_MODEL_TYPE
+            if residual
             else FIXED_WING_MODEL_TYPE
             if fixed_wing
             else MODEL_TYPE
@@ -90,10 +90,8 @@ def model_payload(
         "model_family": family.key,
         "platform": family.platform,
         "parameterization": (
-            "structured_base_plus_causal_residual_innovation_observer"
-            if history_residual
-            else "structured_base_plus_body_acceleration_residual"
-            if isinstance(params, ResidualDynamicsParams)
+            "structured_base_plus_body_acceleration_residual"
+            if residual
             else "effective_quadratic_aerodynamics"
             if fixed_wing
             else "effective_positive_coefficients_with_bounded_command_offset"
@@ -120,18 +118,6 @@ def model_payload(
                     "control_generated_yaw_angular_acceleration",
                 ]
             ),
-            *(
-                [
-                    "body_linear_residual_acceleration_x",
-                    "body_linear_residual_acceleration_y",
-                    "body_linear_residual_acceleration_z",
-                    "body_angular_residual_acceleration_x",
-                    "body_angular_residual_acceleration_y",
-                    "body_angular_residual_acceleration_z",
-                ]
-                if history_residual
-                else []
-            ),
         ],
         "control_order": list(input_spec.control_names),
         "control_roles": list(input_spec.control_roles),
@@ -142,9 +128,11 @@ def model_payload(
         "multirotor_thrust_mapping": thrust_mapping,
         "provenance": dict(provenance or {}),
     }
-    if isinstance(params, ResidualDynamicsParams):
+    if residual:
         payload["parameters"] = {
-            "base_model_type": (FIXED_WING_MODEL_TYPE if fixed_wing else MODEL_TYPE),
+            "base_model_type": (
+                FIXED_WING_MODEL_TYPE if fixed_wing else MODEL_TYPE
+            ),
             "base": parameter_dict(params.base),
             "residual": {
                 "hidden_weights": params.hidden_weights.tolist(),
@@ -160,8 +148,14 @@ def model_payload(
                     "body_angular_velocity_x",
                     "body_angular_velocity_y",
                     "body_angular_velocity_z",
-                    *[f"applied_control:{role}" for role in input_spec.control_roles],
-                    *[f"exogenous:{role}" for role in input_spec.exogenous_roles],
+                    *[
+                        f"applied_control:{role}"
+                        for role in input_spec.control_roles
+                    ],
+                    *[
+                        f"exogenous:{role}"
+                        for role in input_spec.exogenous_roles
+                    ],
                 ],
                 "correction_order": [
                     "body_linear_acceleration_x",
@@ -173,43 +167,6 @@ def model_payload(
                 ],
                 "bounded_output": True,
                 "estimated_wind_correction_target": "body_linear_acceleration_only",
-            },
-        }
-    elif isinstance(params, HistoryResidualDynamicsParams):
-        payload["parameters"] = {
-            "base_model_type": (FIXED_WING_MODEL_TYPE if fixed_wing else MODEL_TYPE),
-            "base": parameter_dict(params.base),
-            "residual": {
-                "hidden_weights": params.hidden_weights.tolist(),
-                "hidden_bias": params.hidden_bias.tolist(),
-                "output_weights": params.output_weights.tolist(),
-                "feature_mean": params.feature_mean.tolist(),
-                "feature_scale": params.feature_scale.tolist(),
-                "correction_scale": params.correction_scale.tolist(),
-                "log_residual_response_time_constant": (
-                    params.log_residual_response_time_constant.tolist()
-                ),
-                "feature_order": [
-                    "body_velocity_x",
-                    "body_velocity_y",
-                    "body_velocity_z",
-                    "body_angular_velocity_x",
-                    "body_angular_velocity_y",
-                    "body_angular_velocity_z",
-                    *[f"applied_control:{role}" for role in input_spec.control_roles],
-                    *[f"exogenous:{role}" for role in input_spec.exogenous_roles],
-                ],
-                "latent_order": [
-                    "body_linear_acceleration_x",
-                    "body_linear_acceleration_y",
-                    "body_linear_acceleration_z",
-                    "body_angular_acceleration_x",
-                    "body_angular_acceleration_y",
-                    "body_angular_acceleration_z",
-                ],
-                "bounded_output": True,
-                "history_initialized": True,
-                "estimated_wind_correction_target": ("body_linear_acceleration_only"),
             },
         }
     else:
@@ -230,7 +187,9 @@ def save_dynamics_model(
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(
         json.dumps(
-            model_payload(params, input_spec=input_spec, provenance=provenance),
+            model_payload(
+                params, input_spec=input_spec, provenance=provenance
+            ),
             indent=2,
         )
         + "\n"
@@ -264,7 +223,9 @@ def _fixed_wing_from_payload(
             parameters["lift_alpha_accel_per_speed_sq"]
         ),
         drag_accel_per_speed_sq=float(parameters["drag_accel_per_speed_sq"]),
-        side_force_accel_per_speed=float(parameters["side_force_accel_per_speed"]),
+        side_force_accel_per_speed=float(
+            parameters["side_force_accel_per_speed"]
+        ),
         surface_angular_accel_per_speed_sq=tuple(
             parameters["surface_angular_accel_per_speed_sq"]
         ),
@@ -280,8 +241,12 @@ def _fixed_wing_from_payload(
         angular_drag_per_speed=tuple(parameters["angular_drag_per_speed"]),
         actuator_time_constant=float(parameters["actuator_time_constant"]),
         surface_trim=tuple(parameters["surface_trim"]),
-        flap_lift_accel_per_speed_sq=float(parameters["flap_lift_accel_per_speed_sq"]),
-        flap_drag_accel_per_speed_sq=float(parameters["flap_drag_accel_per_speed_sq"]),
+        flap_lift_accel_per_speed_sq=float(
+            parameters["flap_lift_accel_per_speed_sq"]
+        ),
+        flap_drag_accel_per_speed_sq=float(
+            parameters["flap_drag_accel_per_speed_sq"]
+        ),
         flap_pitch_angular_accel_per_speed_sq=float(
             parameters["flap_pitch_angular_accel_per_speed_sq"]
         ),
@@ -328,7 +293,9 @@ def load_dynamics_model(path: str | Path) -> tuple[ModelParams, dict[str, Any]]:
             hidden_bias=hidden_bias,
             output_weights=jnp.asarray(residual["output_weights"]),
         )
-        expected_feature_size = 6 + len(input_spec.controls) + len(input_spec.exogenous)
+        expected_feature_size = (
+            6 + len(input_spec.controls) + len(input_spec.exogenous)
+        )
         if params.hidden_weights.shape != (
             hidden_bias.shape[0],
             expected_feature_size,
@@ -340,55 +307,6 @@ def load_dynamics_model(path: str | Path) -> tuple[ModelParams, dict[str, Any]]:
             raise ValueError(
                 "residual output_weights must map hidden units to six accelerations"
             )
-    elif version == MODEL_FORMAT_VERSION and model_type == HISTORY_RESIDUAL_MODEL_TYPE:
-        parameters = payload["parameters"]
-        residual = parameters["residual"]
-        base_model_type = parameters["base_model_type"]
-        if base_model_type == MODEL_TYPE:
-            base = _physics_from_payload(parameters["base"])
-        elif base_model_type == FIXED_WING_MODEL_TYPE:
-            base = _fixed_wing_from_payload(parameters["base"])
-        else:
-            raise ValueError(
-                f"unsupported history residual base type: {base_model_type}"
-            )
-        hidden_bias = jnp.asarray(residual["hidden_bias"])
-        if hidden_bias.ndim != 1 or hidden_bias.shape[0] < 1:
-            raise ValueError("history residual hidden_bias must be a nonempty vector")
-        time_constants = jnp.exp(
-            jnp.asarray(residual["log_residual_response_time_constant"])
-        )
-        params = initial_history_residual_parameters(
-            base,
-            control_size=len(input_spec.controls),
-            exogenous_size=len(input_spec.exogenous),
-            hidden_units=int(hidden_bias.shape[0]),
-            feature_mean=jnp.asarray(residual["feature_mean"]),
-            feature_scale=jnp.asarray(residual["feature_scale"]),
-            correction_scale=jnp.asarray(residual["correction_scale"]),
-            response_time_constant_s=tuple(float(value) for value in time_constants),
-        )._replace(
-            hidden_weights=jnp.asarray(residual["hidden_weights"]),
-            hidden_bias=hidden_bias,
-            output_weights=jnp.asarray(residual["output_weights"]),
-            log_residual_response_time_constant=jnp.asarray(
-                residual["log_residual_response_time_constant"]
-            ),
-        )
-        expected_feature_size = 6 + len(input_spec.controls) + len(input_spec.exogenous)
-        if params.hidden_weights.shape != (
-            hidden_bias.shape[0],
-            expected_feature_size,
-        ):
-            raise ValueError(
-                "history residual hidden weights do not match feature size"
-            )
-        if params.output_weights.shape != (6, hidden_bias.shape[0]):
-            raise ValueError("history residual output must map to six accelerations")
-        if params.log_residual_response_time_constant.shape != (2,):
-            raise ValueError(
-                "history residual must contain force and moment response times"
-            )
     else:
         raise ValueError(
             f"unsupported model format/type: version={version}, type={model_type}"
@@ -396,5 +314,7 @@ def load_dynamics_model(path: str | Path) -> tuple[ModelParams, dict[str, Any]]:
     family = model_family(params)
     if input_spec.vehicle.family != family.platform:
         raise ValueError("model input_spec vehicle family does not match model type")
-    family.validate_control_schema(input_spec.control_names, input_spec.control_roles)
+    family.validate_control_schema(
+        input_spec.control_names, input_spec.control_roles
+    )
     return params, payload

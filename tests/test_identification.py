@@ -1,24 +1,23 @@
-from dataclasses import replace
-
+import pytest
 import jax.numpy as jnp
 import numpy as np
-import pytest
+from dataclasses import replace
 
 from glassbox.data import make_trajectory_spec, trajectory_windows
 from glassbox.dynamics import (
-    initial_history_residual_parameters,
     initial_residual_parameters,
     with_thrust_command_offset,
 )
 from glassbox.identification import (
     MAX_OPTIMIZATION_WINDOWS_PER_HORIZON,
+    OPTIMIZATION_POLICY_VERSION,
     _optimization_batch_schedules,
     deterministic_weighted_batch_schedule,
     dynamic_envelope_penalty,
     fit_dynamics,
+    supports_multirotor_thrust_command_offset,
     residual_initialization_statistics,
     rollout_loss_configuration,
-    supports_multirotor_thrust_command_offset,
 )
 from glassbox.nanodrone_benchmark import nanodrone_trajectory_spec
 from glassbox.synthetic import (
@@ -111,18 +110,6 @@ def test_automatic_minibatch_caps_large_short_horizon_window_set() -> None:
             windows.control_histories,
             (repeated_count, *windows.control_histories.shape[1:]),
         ),
-        state_histories=np.resize(
-            windows.state_histories,
-            (repeated_count, *windows.state_histories.shape[1:]),
-        ),
-        exogenous_histories=np.resize(
-            windows.exogenous_histories,
-            (repeated_count, *windows.exogenous_histories.shape[1:]),
-        ),
-        history_valid=np.resize(
-            windows.history_valid,
-            (repeated_count, *windows.history_valid.shape[1:]),
-        ),
         controls=np.resize(
             windows.controls,
             (repeated_count, *windows.controls.shape[1:]),
@@ -173,10 +160,9 @@ def test_normalized_motor_commands_support_shared_thrust_offset() -> None:
         stride=5,
     )
 
-    assert (
-        supports_multirotor_thrust_command_offset(initial_parameter_guess(), windows)
-        is True
-    )
+    assert supports_multirotor_thrust_command_offset(
+        initial_parameter_guess(), windows
+    ) is True
 
     result = fit_dynamics(
         windows,
@@ -215,10 +201,9 @@ def test_squared_rotor_speed_proxy_fixes_thrust_offset_to_zero() -> None:
     )
     windows = trajectory_windows([trajectory], horizon=5, stride=5)
 
-    assert (
-        supports_multirotor_thrust_command_offset(initial_parameter_guess(), windows)
-        is False
-    )
+    assert supports_multirotor_thrust_command_offset(
+        initial_parameter_guess(), windows
+    ) is False
 
     result = fit_dynamics(
         windows,
@@ -293,7 +278,9 @@ def test_rollout_loss_configuration_ignores_world_position_origin() -> None:
     original = rollout_loss_configuration([windows])
     shifted = rollout_loss_configuration([translated])
 
-    np.testing.assert_allclose(original.position_scale_m, shifted.position_scale_m)
+    np.testing.assert_allclose(
+        original.position_scale_m, shifted.position_scale_m
+    )
     np.testing.assert_allclose(
         original.body_velocity_bound_m_s,
         shifted.body_velocity_bound_m_s,
@@ -315,7 +302,9 @@ def test_fit_records_configured_long_rollout_policy() -> None:
 
     assert result.loss_configuration is not None
     assert result.loss_configuration.endpoint_weight == pytest.approx(2.5)
-    assert result.loss_configuration.stability_regularization == pytest.approx(0.02)
+    assert result.loss_configuration.stability_regularization == pytest.approx(
+        0.02
+    )
     assert np.all(result.loss_configuration.position_scale_m > 0.0)
 
 
@@ -325,12 +314,16 @@ def test_dynamic_envelope_penalizes_velocity_escape() -> None:
     )
     configuration = rollout_loss_configuration([windows])
     states = jnp.asarray(windows.target_states[:, 1:])
-    escaped = states.at[..., 3].add(10.0 * configuration.body_velocity_bound_m_s[0])
+    escaped = states.at[..., 3].add(
+        10.0 * configuration.body_velocity_bound_m_s[0]
+    )
 
     nominal_penalty = dynamic_envelope_penalty(states, configuration)
     escaped_penalty = dynamic_envelope_penalty(escaped, configuration)
 
-    assert float(jnp.mean(escaped_penalty)) > float(jnp.mean(nominal_penalty)) + 1.0
+    assert float(jnp.mean(escaped_penalty)) > float(
+        jnp.mean(nominal_penalty)
+    ) + 1.0
 
 
 def test_residual_parameters_can_be_fit_through_rollouts() -> None:
@@ -347,27 +340,9 @@ def test_residual_parameters_can_be_fit_through_rollouts() -> None:
     assert jnp.linalg.norm(result.params.output_weights) > 0.0
     np.testing.assert_allclose(result.params.feature_mean, initial.feature_mean)
     np.testing.assert_allclose(result.params.feature_scale, initial.feature_scale)
-    np.testing.assert_allclose(result.params.correction_scale, initial.correction_scale)
-
-
-def test_history_residual_parameters_fit_through_measured_history() -> None:
-    windows = trajectory_windows(
-        [generate_trajectory(seed=15, duration_s=0.2)],
-        horizon=4,
-        stride=4,
-        motor_history_s=0.04,
+    np.testing.assert_allclose(
+        result.params.correction_scale, initial.correction_scale
     )
-    statistics = residual_initialization_statistics([windows])
-    initial = initial_history_residual_parameters(
-        initial_parameter_guess(), hidden_units=2, **statistics
-    )
-
-    result = fit_dynamics(windows, initial, steps=1, learning_rate=0.01)
-
-    assert np.isfinite(result.final_loss)
-    assert jnp.linalg.norm(result.params.output_weights[0:3]) > 0.0
-    assert jnp.linalg.norm(result.params.output_weights[3:6]) > 0.0
-    np.testing.assert_allclose(result.params.feature_mean, initial.feature_mean)
 
 
 def test_quadrotor_fit_rejects_non_quadrotor_control_schema() -> None:

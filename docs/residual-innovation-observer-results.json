@@ -1,84 +1,89 @@
 {
-  "format_version": 1,
+  "format_version": 2,
   "date": "2026-08-29",
-  "hypothesis": "Past one-step dynamics innovations can initialize a bounded acceleration-discrepancy state that improves finite-horizon prediction without changing the canonical rigid-body state or adding airframe-specific features.",
-  "architecture": {
-    "equilibrium_model": "unchanged structured body-acceleration residual",
-    "latent_state": [
-      "body_linear_acceleration_discrepancy_xyz",
-      "body_angular_acceleration_discrepancy_xyz"
-    ],
-    "history_update": "bounded causal observer from measured one-step velocity and body-rate innovations",
+  "hypothesis": "Past one-step dynamics innovations can initialize a bounded acceleration-discrepancy state that improves finite-horizon prediction without airframe-specific features.",
+  "candidate": {
+    "equilibrium_model": "unchanged strongest maintained structured residual per corpus",
+    "latent_state": "six body-linear/body-angular acceleration discrepancy states",
+    "history_update": "bounded causal observer from measured velocity and body-rate innovations",
     "open_loop_evolution": "analytic exponential decay to zero",
-    "learned_or_selected_parameters": [
-      "force_memory_time_constant_s",
-      "moment_memory_time_constant_s"
+    "selected_parameters": [
+      "force_response_time_constant_s",
+      "moment_response_time_constant_s"
     ],
+    "candidate_time_constants_s": [0.01, 0.02, 0.05, 0.1, 0.2, 0.5],
     "history_duration_s": 0.5,
     "public_tuning_parameters_added": 0,
     "instantaneous_reference": "exact nested ablation"
   },
-  "screen": {
-    "candidate_time_constants_s": [0.01, 0.02, 0.05, 0.1, 0.2, 0.5],
+  "gate": {
     "selection_data": "development trajectories only",
-    "evaluation_data": "previously reused research-validation trajectories; not a fresh production lockbox",
-    "horizons_s": {
-      "nano": [0.1, 0.5],
-      "arp": [0.1, 0.5, 1.0],
-      "x8": [0.1, 0.5, 1.0],
-      "idf": [0.1, 0.5, 1.0]
-    },
-    "aggregation": "equal trajectory, equal horizon, equal state metric geometric mean",
-    "maximum_windows_per_split_horizon": 384,
-    "metric_ratio_definition": "history candidate / exact instantaneous reference; below one improves"
+    "minimum_geometric_improvement": 0.02,
+    "maximum_per_flight_metric_regression": 0.05,
+    "horizons_s": [0.1, 0.5, 1.0],
+    "maximum_windows_per_horizon": 1024,
+    "required_architecture_transfer": "at least one current-best corpus in each vehicle family without family regression",
+    "final_capability_checks": [
+      "Nano published Physics + Residual comparison",
+      "ARP kinematic persistence comparison"
+    ]
   },
   "results": {
     "nano": {
-      "selected_force_time_constant_s": 0.2,
-      "selected_moment_time_constant_s": 0.5,
-      "development_geometric_ratio": 0.9736226831331861,
-      "development_maximum_metric_ratio": 0.9992473166779859,
-      "research_validation_geometric_ratio": 0.9061555647425437,
-      "research_validation_maximum_metric_ratio": 0.987207084588022
+      "base_model": "angular_authority_candidate",
+      "selected_force_time_constant_s": null,
+      "selected_moment_time_constant_s": null,
+      "development_geometric_ratio": 1.0,
+      "official_test_published_reference_geometric_ratio": 0.9957052254530506,
+      "reason": "No history candidate cleared both the materiality and per-flight guardrails on the 12 training flights. The exact no-op preserves the current near-tie on the official test protocol."
     },
     "arp": {
-      "selected_force_time_constant_s": 0.1,
-      "selected_moment_time_constant_s": 0.02,
-      "development_geometric_ratio": 0.9598587760137253,
-      "development_maximum_metric_ratio": 1.0098204467163987,
-      "research_validation_geometric_ratio": 0.9360681037646705,
-      "research_validation_maximum_metric_ratio": 0.9983868563890168
+      "base_model": "promoted_angular_authority_candidate",
+      "selected_force_time_constant_s": 0.2,
+      "selected_moment_time_constant_s": null,
+      "development_geometric_ratio": 0.9721017681793918,
+      "development_maximum_metric_ratio": 1.012309108769981,
+      "heldout_geometric_ratio_vs_instantaneous": 0.9461999446651495,
+      "heldout_maximum_metric_ratio_vs_instantaneous": 1.0152910557811659,
+      "heldout_geometric_ratio_vs_kinematic_persistence": 1.2685910011824135,
+      "previous_ratio_vs_kinematic_persistence": 1.3407895054580619,
+      "reason": "History improved the learned model but did not beat the protected persistence baseline."
     },
     "x8": {
       "selected_force_time_constant_s": null,
       "selected_moment_time_constant_s": null,
       "development_geometric_ratio": 1.0,
-      "development_maximum_metric_ratio": 1.0,
-      "research_validation_geometric_ratio": 1.0,
-      "research_validation_maximum_metric_ratio": 1.0,
-      "reason": "Every common-memory candidate regressed the development aggregate; the exact instantaneous no-op was retained."
+      "heldout_geometric_ratio_vs_instantaneous": 1.0,
+      "reason": "Every eligible candidate was rejected; the exact no-op was retained."
     },
     "idf": {
-      "selected_force_time_constant_s": 0.5,
-      "selected_moment_time_constant_s": 0.5,
-      "development_geometric_ratio": 0.915738450282179,
-      "development_maximum_metric_ratio": 0.9759177432014124,
-      "research_validation_geometric_ratio": 0.925282702872717,
-      "research_validation_maximum_metric_ratio": 1.0128355004421044
+      "selected_force_time_constant_s": null,
+      "selected_moment_time_constant_s": null,
+      "development_geometric_ratio": 1.0,
+      "heldout_geometric_ratio_vs_instantaneous": 1.0,
+      "rejected_combined_candidate": {
+        "force_time_constant_s": 0.2,
+        "moment_time_constant_s": 0.1,
+        "development_geometric_ratio": 0.9069583344512059,
+        "development_maximum_metric_ratio": 1.1142383405304177,
+        "heldout_geometric_ratio": 0.9203407116739778,
+        "heldout_maximum_metric_ratio": 1.0535292380590922
+      },
+      "reason": "The aggregate gain was not safe across flights; axis-only fallbacks also violated the guardrail."
     }
   },
-  "aggregate": {
-    "equal_platform_research_validation_geometric_ratio": 0.9412308713240285,
-    "quadrotor_research_validation_geometric_ratio": 0.9209904023410651,
-    "fixedwing_research_validation_geometric_ratio": 0.9619161620810397,
-    "platforms_improved": 3,
-    "platforms_retaining_exact_no_op": 1,
+  "maintained_selection_aggregate": {
+    "equal_platform_geometric_ratio_vs_instantaneous": 0.9862697875842343,
+    "quadrotor_geometric_ratio_vs_instantaneous": 0.9727280939014507,
+    "fixedwing_geometric_ratio_vs_instantaneous": 1.0,
+    "platforms_improved": 1,
+    "platforms_retaining_exact_no_op": 3,
     "platforms_regressed": 0
   },
   "decision": {
-    "status": "research_architecture_promoted",
+    "status": "rejected_not_maintained",
+    "runtime_implementation_retained": false,
     "production_claim": false,
-    "production_lockbox_required": true,
-    "reason": "The same bounded causal observer improved both quadrotor corpora and one fixed-wing corpus, retained an exact no-op on the other fixed wing, and introduced no airframe-specific feature or public tuning control."
+    "reason": "The candidate improved only ARP among current-best models, still lost to persistence, and did not transfer to either fixed-wing reference under the maintained guardrail. Its core-state and serialization complexity was not justified."
   }
 }

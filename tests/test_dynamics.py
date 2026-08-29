@@ -4,12 +4,10 @@ import numpy as np
 import pytest
 
 from glassbox.dynamics import (
-    MOTOR_MIXER,
     DynamicsParams,
-    history_residual_from_residual,
+    MOTOR_MIXER,
     hover_control,
     initial_residual_parameters,
-    latent_state_after_history,
     rollout,
     rollout_with_latent,
     state_derivative,
@@ -17,12 +15,12 @@ from glassbox.dynamics import (
     step_with_latent,
     with_angular_dynamics_authority,
     with_constant_angular_rate,
-    with_instantaneous_residual_response,
     with_instantaneous_rotational_response,
     with_thrust_command_offset,
 )
 from glassbox.evaluation import rollout_metrics
-from glassbox.synthetic import generate_trajectory, resting_state, true_parameters
+from glassbox.synthetic import generate_trajectory
+from glassbox.synthetic import resting_state, true_parameters
 
 
 def test_hover_is_an_equilibrium() -> None:
@@ -107,7 +105,9 @@ def test_rotational_response_can_lag_measured_motor_state() -> None:
     command = hover + 0.02 * MOTOR_MIXER[0]
 
     _, latent = step_with_latent(params, state, hover, command, 0.02)
-    target = params.physical()["angular_control_matrix"] @ (MOTOR_MIXER @ command)
+    target = params.physical()["angular_control_matrix"] @ (
+        MOTOR_MIXER @ command
+    )
 
     assert latent.shape == (7,)
     assert float(latent[4]) > 0.0
@@ -142,16 +142,22 @@ def test_rotational_control_cross_coupling_is_bounded_and_expressive() -> None:
         ),
     )
     pitch_command = hover_control(params) + 0.02 * MOTOR_MIXER[1]
-    derivative = state_derivative(params, jnp.asarray(resting_state()), pitch_command)
+    derivative = state_derivative(
+        params, jnp.asarray(resting_state()), pitch_command
+    )
 
     assert float(derivative[10]) > 0.0
     assert float(derivative[11]) > float(derivative[10])
-    assert np.max(np.abs(params.physical()["angular_control_cross_coupling"])) <= 0.5
+    assert np.max(
+        np.abs(params.physical()["angular_control_cross_coupling"])
+    ) <= 0.5
 
 
 def test_constant_rate_diagnostic_disables_angular_acceleration() -> None:
     params = with_constant_angular_rate(true_parameters())
-    state = jnp.asarray(resting_state()).at[10:13].set(jnp.asarray([0.4, -0.2, 0.1]))
+    state = jnp.asarray(resting_state()).at[10:13].set(
+        jnp.asarray([0.4, -0.2, 0.1])
+    )
     derivative = state_derivative(params, state, hover_control(params))
 
     np.testing.assert_allclose(derivative[10:13], 0.0, atol=1e-8)
@@ -161,7 +167,9 @@ def test_constant_rate_diagnostic_disables_angular_acceleration() -> None:
 def test_angular_dynamics_authority_scales_rotation_but_not_translation() -> None:
     params = true_parameters()
     half = with_angular_dynamics_authority(params, 0.5)
-    state = jnp.asarray(resting_state()).at[10:13].set(jnp.asarray([0.2, -0.3, 0.1]))
+    state = jnp.asarray(resting_state()).at[10:13].set(
+        jnp.asarray([0.2, -0.3, 0.1])
+    )
     motors = hover_control(params) + 0.02 * MOTOR_MIXER[0]
 
     full_derivative = state_derivative(params, state, motors)
@@ -190,103 +198,11 @@ def test_zero_initialized_residual_matches_structured_model() -> None:
     np.testing.assert_allclose(residual_states, structured_states, atol=1e-7)
 
 
-def test_instantaneous_history_residual_is_exact_nested_ablation() -> None:
-    structured = true_parameters()
-    residual = initial_residual_parameters(structured, hidden_units=2)
-    residual = residual._replace(
-        hidden_weights=jnp.asarray(
-            [
-                [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-            ]
-        ),
-        output_weights=jnp.asarray(
-            [
-                [0.3, 0.0],
-                [0.0, 0.0],
-                [0.0, 0.0],
-                [0.0, 0.2],
-                [0.0, 0.0],
-                [0.0, 0.0],
-            ]
-        ),
-    )
-    observer = with_instantaneous_residual_response(
-        history_residual_from_residual(residual)
-    )
-    state = jnp.asarray(resting_state()).at[3].set(0.8).at[10].set(0.3)
-    controls = jnp.tile(hover_control(structured), (4, 1))
-
-    expected = rollout(residual, state, controls, 0.02)
-    actual = rollout(observer, state, controls, 0.02)
-
-    np.testing.assert_allclose(actual, expected, rtol=2e-6, atol=2e-7)
-
-
-def test_history_residual_latent_depends_on_past_measured_state() -> None:
-    base = true_parameters()
-    residual = initial_residual_parameters(base, hidden_units=1)
-    residual = residual._replace(
-        hidden_weights=jnp.zeros_like(residual.hidden_weights).at[0, 0].set(2.0),
-        output_weights=jnp.zeros_like(residual.output_weights).at[0, 0].set(1.0),
-    )
-    observer = history_residual_from_residual(
-        residual, response_time_constant_s=(0.1, 0.1)
-    )
-    control_history = jnp.tile(hover_control(base), (2, 1))
-    positive = jnp.tile(jnp.asarray(resting_state()), (3, 1)).at[:2, 3].set(1.0)
-    negative = jnp.tile(jnp.asarray(resting_state()), (3, 1)).at[:2, 3].set(-1.0)
-
-    positive_latent = latent_state_after_history(
-        observer, positive, control_history, 0.02
-    )
-    negative_latent = latent_state_after_history(
-        observer, negative, control_history, 0.02
-    )
-    positive_next, _ = step_with_latent(
-        observer,
-        positive[-1],
-        positive_latent,
-        control_history[-1],
-        0.02,
-    )
-    negative_next, _ = step_with_latent(
-        observer,
-        negative[-1],
-        negative_latent,
-        control_history[-1],
-        0.02,
-    )
-
-    assert float(positive_latent[-6]) < 0.0
-    assert float(negative_latent[-6]) > 0.0
-    assert float(positive_next[3]) < float(negative_next[3])
-
-
-def test_history_residual_ignores_padded_history_intervals() -> None:
-    base = true_parameters()
-    observer = history_residual_from_residual(
-        initial_residual_parameters(base, hidden_units=1),
-        response_time_constant_s=(0.1, 0.1),
-    )
-    state_history = jnp.tile(jnp.asarray(resting_state()), (3, 1))
-    control_history = jnp.tile(hover_control(base) + 0.1, (2, 1))
-
-    latent = latent_state_after_history(
-        observer,
-        state_history,
-        control_history,
-        0.02,
-        history_valid=jnp.asarray([False, False]),
-    )
-
-    np.testing.assert_allclose(latent[-6:], 0.0, atol=1e-8)
-    np.testing.assert_allclose(latent[:4], control_history[0], atol=1e-8)
-
-
 def test_estimated_wind_only_conditions_linear_residual() -> None:
     base = true_parameters()
-    residual = initial_residual_parameters(base, hidden_units=1, exogenous_size=2)
+    residual = initial_residual_parameters(
+        base, hidden_units=1, exogenous_size=2
+    )
     residual = residual._replace(
         hidden_weights=residual.hidden_weights.at[0, -2].set(5.0),
         output_weights=jnp.ones_like(residual.output_weights),

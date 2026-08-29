@@ -16,6 +16,7 @@ from glassbox.model_family import (
     DynamicsModelFamily,
 )
 
+
 GRAVITY_M_S2 = 9.80665
 QUADROTOR_CONTROL_SIZE = MULTIROTOR_FAMILY.control_size
 QUADROTOR_CONTROL_NAMES = MULTIROTOR_FAMILY.control_names
@@ -26,10 +27,6 @@ MAX_INTERNAL_INTEGRATION_STEP_S = 0.025
 MULTIROTOR_ROTATIONAL_STATE_SIZE = 3
 MAX_ANGULAR_CONTROL_CROSS_COUPLING = 0.5
 MAX_THRUST_COMMAND_OFFSET = 0.3
-MINIMUM_RESIDUAL_RESPONSE_TIME_CONSTANT_S = 0.01
-MAXIMUM_RESIDUAL_RESPONSE_TIME_CONSTANT_S = 0.5
-INSTANTANEOUS_RESIDUAL_RESPONSE_TIME_CONSTANT_S = 1e-4
-HISTORY_RESIDUAL_STATE_SIZE = 6
 
 # Motor order: front-left, front-right, rear-right, rear-left.
 # Each row maps motor commands to a roll, pitch, or yaw differential.
@@ -95,7 +92,9 @@ class DynamicsParams(NamedTuple):
             )
         cross_coupling = jnp.asarray(angular_control_cross_coupling)
         if cross_coupling.shape != (3, 3):
-            raise ValueError("angular_control_cross_coupling must have shape (3, 3)")
+            raise ValueError(
+                "angular_control_cross_coupling must have shape (3, 3)"
+            )
         cross_coupling = cross_coupling.at[jnp.diag_indices(3)].set(0.0)
         normalized_cross_coupling = jnp.clip(
             cross_coupling / MAX_ANGULAR_CONTROL_CROSS_COUPLING,
@@ -105,7 +104,9 @@ class DynamicsParams(NamedTuple):
         return cls(
             log_thrust_accel=jnp.log(jnp.asarray(thrust_accel)),
             thrust_command_offset_unconstrained=jnp.arctanh(
-                jnp.asarray(thrust_command_offset / MAX_THRUST_COMMAND_OFFSET)
+                jnp.asarray(
+                    thrust_command_offset / MAX_THRUST_COMMAND_OFFSET
+                )
             ),
             log_angular_accel=jnp.log(jnp.asarray(angular_accel)),
             log_linear_drag=jnp.log(jnp.asarray(linear_drag)),
@@ -127,8 +128,9 @@ class DynamicsParams(NamedTuple):
         cross_coupling = cross_coupling.at[jnp.diag_indices(3)].set(0.0)
         return {
             "thrust_accel": jnp.exp(self.log_thrust_accel),
-            "thrust_command_offset": MAX_THRUST_COMMAND_OFFSET
-            * jnp.tanh(self.thrust_command_offset_unconstrained),
+            "thrust_command_offset": MAX_THRUST_COMMAND_OFFSET * jnp.tanh(
+                self.thrust_command_offset_unconstrained
+            ),
             "angular_accel": angular_accel,
             "linear_drag": jnp.exp(self.log_linear_drag),
             "angular_drag": jnp.exp(self.log_angular_drag),
@@ -137,8 +139,9 @@ class DynamicsParams(NamedTuple):
                 self.log_angular_response_time_constant
             ),
             "angular_control_cross_coupling": cross_coupling,
-            "angular_control_matrix": jnp.diag(angular_accel)
-            @ (jnp.eye(3) + cross_coupling),
+            "angular_control_matrix": jnp.diag(angular_accel) @ (
+                jnp.eye(3) + cross_coupling
+            ),
         }
 
 
@@ -193,11 +196,15 @@ class FixedWingDynamicsParams(NamedTuple):
     ) -> "FixedWingDynamicsParams":
         return cls(
             log_thrust_accel=jnp.log(jnp.asarray(thrust_accel)),
-            log_lift_accel_per_speed_sq=jnp.log(jnp.asarray(lift_accel_per_speed_sq)),
+            log_lift_accel_per_speed_sq=jnp.log(
+                jnp.asarray(lift_accel_per_speed_sq)
+            ),
             log_lift_alpha_accel_per_speed_sq=jnp.log(
                 jnp.asarray(lift_alpha_accel_per_speed_sq)
             ),
-            log_drag_accel_per_speed_sq=jnp.log(jnp.asarray(drag_accel_per_speed_sq)),
+            log_drag_accel_per_speed_sq=jnp.log(
+                jnp.asarray(drag_accel_per_speed_sq)
+            ),
             log_side_force_accel_per_speed=jnp.log(
                 jnp.asarray(side_force_accel_per_speed)
             ),
@@ -213,8 +220,12 @@ class FixedWingDynamicsParams(NamedTuple):
             log_lateral_stability_angular_accel_per_speed_sq=jnp.log(
                 jnp.asarray(lateral_stability_angular_accel_per_speed_sq)
             ),
-            log_angular_drag_per_speed=jnp.log(jnp.asarray(angular_drag_per_speed)),
-            log_actuator_time_constant=jnp.log(jnp.asarray(actuator_time_constant)),
+            log_angular_drag_per_speed=jnp.log(
+                jnp.asarray(angular_drag_per_speed)
+            ),
+            log_actuator_time_constant=jnp.log(
+                jnp.asarray(actuator_time_constant)
+            ),
             surface_trim_unconstrained=jnp.arctanh(
                 jnp.clip(jnp.asarray(surface_trim), -0.999, 0.999)
             ),
@@ -235,12 +246,18 @@ class FixedWingDynamicsParams(NamedTuple):
     def physical(self) -> dict[str, Array]:
         return {
             "thrust_accel": jnp.exp(self.log_thrust_accel),
-            "lift_accel_per_speed_sq": jnp.exp(self.log_lift_accel_per_speed_sq),
+            "lift_accel_per_speed_sq": jnp.exp(
+                self.log_lift_accel_per_speed_sq
+            ),
             "lift_alpha_accel_per_speed_sq": jnp.exp(
                 self.log_lift_alpha_accel_per_speed_sq
             ),
-            "drag_accel_per_speed_sq": jnp.exp(self.log_drag_accel_per_speed_sq),
-            "side_force_accel_per_speed": jnp.exp(self.log_side_force_accel_per_speed),
+            "drag_accel_per_speed_sq": jnp.exp(
+                self.log_drag_accel_per_speed_sq
+            ),
+            "side_force_accel_per_speed": jnp.exp(
+                self.log_side_force_accel_per_speed
+            ),
             "surface_angular_accel_per_speed_sq": jnp.exp(
                 self.log_surface_angular_accel_per_speed_sq
             ),
@@ -253,8 +270,12 @@ class FixedWingDynamicsParams(NamedTuple):
             "lateral_stability_angular_accel_per_speed_sq": jnp.exp(
                 self.log_lateral_stability_angular_accel_per_speed_sq
             ),
-            "angular_drag_per_speed": jnp.exp(self.log_angular_drag_per_speed),
-            "actuator_time_constant": jnp.exp(self.log_actuator_time_constant),
+            "angular_drag_per_speed": jnp.exp(
+                self.log_angular_drag_per_speed
+            ),
+            "actuator_time_constant": jnp.exp(
+                self.log_actuator_time_constant
+            ),
             "surface_trim": jnp.tanh(self.surface_trim_unconstrained),
             "flap_lift_accel_per_speed_sq": jnp.exp(
                 self.log_flap_lift_accel_per_speed_sq
@@ -292,32 +313,7 @@ class ResidualDynamicsParams(NamedTuple):
     correction_scale: Array
 
 
-class HistoryResidualDynamicsParams(NamedTuple):
-    """Structured dynamics plus a causal residual-innovation observer.
-
-    The same bounded network as the instantaneous residual predicts equilibrium
-    acceleration. Replaying measured state/control history estimates a bounded
-    six-element acceleration discrepancy from one-step innovations. That
-    discrepancy decays during open-loop prediction through one force and one
-    moment time constant, without changing the interpretable rigid-body state.
-    """
-
-    base: BaseDynamicsParams
-    hidden_weights: Array
-    hidden_bias: Array
-    output_weights: Array
-    feature_mean: Array
-    feature_scale: Array
-    correction_scale: Array
-    log_residual_response_time_constant: Array
-
-
-ResidualModelParams = ResidualDynamicsParams | HistoryResidualDynamicsParams
-ModelParams = BaseDynamicsParams | ResidualModelParams
-
-
-def is_residual_model(params: ModelParams) -> bool:
-    return isinstance(params, (ResidualDynamicsParams, HistoryResidualDynamicsParams))
+ModelParams = BaseDynamicsParams | ResidualDynamicsParams
 
 
 def model_family(params: ModelParams) -> DynamicsModelFamily:
@@ -358,94 +354,41 @@ def _angular_control_target(params: ModelParams, applied_control: Array) -> Arra
     return physical["angular_control_matrix"] @ (MOTOR_MIXER @ applied_control)
 
 
-def _initial_latent_state(
-    params: ModelParams,
-    applied_control: Array,
-    state: Array | None = None,
-    exogenous: Array | None = None,
-    exogenous_roles: tuple[str, ...] | None = None,
-) -> Array:
-    """Return an unobserved-history latent state at one telemetry sample."""
+def _initial_latent_state(params: ModelParams, applied_control: Array) -> Array:
+    """Return a steady latent state for one observed applied-control vector."""
 
     if isinstance(structured_parameters(params), FixedWingDynamicsParams):
-        latent = applied_control
-    else:
-        latent = jnp.concatenate(
-            (applied_control, _angular_control_target(params, applied_control))
-        )
-    if not isinstance(params, HistoryResidualDynamicsParams):
-        return latent
-    return jnp.concatenate((latent, jnp.zeros(HISTORY_RESIDUAL_STATE_SIZE)))
+        return applied_control
+    return jnp.concatenate(
+        (applied_control, _angular_control_target(params, applied_control))
+    )
 
 
 def _split_latent_state(
     params: ModelParams,
     latent_state: Array,
     control_size: int,
-) -> tuple[Array, Array | None, Array | None]:
-    """Split actuator, multirotor torque, and residual-memory states."""
+) -> tuple[Array, Array | None]:
+    """Split canonical applied controls from optional multirotor torque state."""
 
     base = structured_parameters(params)
-    residual_size = (
-        HISTORY_RESIDUAL_STATE_SIZE
-        if isinstance(params, HistoryResidualDynamicsParams)
-        else 0
-    )
-    actuator_size = (
-        control_size
-        if isinstance(base, FixedWingDynamicsParams)
-        else control_size + MULTIROTOR_ROTATIONAL_STATE_SIZE
-    )
-    expected_size = actuator_size + residual_size
+    if isinstance(base, FixedWingDynamicsParams):
+        if latent_state.shape[-1] != control_size:
+            raise ValueError(
+                "fixed-wing latent state must contain one applied value per control"
+            )
+        return latent_state, None
+    if latent_state.shape[-1] == control_size:
+        applied_control = latent_state
+        return applied_control, _angular_control_target(params, applied_control)
+    expected_size = control_size + MULTIROTOR_ROTATIONAL_STATE_SIZE
     if latent_state.shape[-1] != expected_size:
         raise ValueError(
-            "latent state has the wrong size; expected "
-            f"{expected_size}, got {latent_state.shape[-1]}"
+            "multirotor latent state must contain applied controls and three "
+            f"rotational-response states; expected {expected_size}, got "
+            f"{latent_state.shape[-1]}"
         )
-    residual_state = latent_state[-residual_size:] if residual_size else None
-    actuator_state = latent_state[:actuator_size]
-    if isinstance(base, FixedWingDynamicsParams):
-        return actuator_state, None, residual_state
-    return (
-        actuator_state[:control_size],
-        actuator_state[control_size:],
-        residual_state,
-    )
-
-
-def _canonical_latent_state(
-    params: ModelParams,
-    latent_state: Array,
-    control_size: int,
-    state: Array,
-    exogenous: Array | None = None,
-    exogenous_roles: tuple[str, ...] | None = None,
-) -> Array:
-    """Complete a caller-supplied actuator state with inferred latent states."""
-
-    base = structured_parameters(params)
-    actuator_size = (
-        control_size
-        if isinstance(base, FixedWingDynamicsParams)
-        else control_size + MULTIROTOR_ROTATIONAL_STATE_SIZE
-    )
-    if latent_state.shape[-1] == control_size and not isinstance(
-        base, FixedWingDynamicsParams
-    ):
-        latent_state = jnp.concatenate(
-            (
-                latent_state,
-                _angular_control_target(params, latent_state),
-            )
-        )
-    if (
-        isinstance(params, HistoryResidualDynamicsParams)
-        and latent_state.shape[-1] == actuator_size
-    ):
-        latent_state = jnp.concatenate(
-            (latent_state, jnp.zeros(HISTORY_RESIDUAL_STATE_SIZE))
-        )
-    return latent_state
+    return latent_state[:control_size], latent_state[control_size:]
 
 
 def _angular_response_at(
@@ -465,8 +408,9 @@ def _angular_response_at(
     motor_decay = jnp.exp(-time_s / motor_time_constant)
     response_decay = jnp.exp(-time_s / response_time_constant)
     denominator = motor_time_constant - response_time_constant
-    close_time_constants = jnp.abs(denominator) <= 1e-6 * jnp.maximum(
-        motor_time_constant, response_time_constant
+    close_time_constants = (
+        jnp.abs(denominator)
+        <= 1e-6 * jnp.maximum(motor_time_constant, response_time_constant)
     )
     safe_denominator = jnp.where(
         close_time_constants,
@@ -474,9 +418,13 @@ def _angular_response_at(
         denominator,
     )
     distinct_factor = (
-        motor_time_constant / safe_denominator * (motor_decay - response_decay)
+        motor_time_constant
+        / safe_denominator
+        * (motor_decay - response_decay)
     )
-    equal_factor = time_s / response_time_constant * response_decay
+    equal_factor = (
+        time_s / response_time_constant * response_decay
+    )
     forcing_factor = jnp.where(
         close_time_constants,
         equal_factor,
@@ -489,7 +437,8 @@ def _angular_response_at(
     )
     instantaneous_target = _angular_control_target(
         params,
-        commanded_control + (initial_applied_control - commanded_control) * motor_decay,
+        commanded_control
+        + (initial_applied_control - commanded_control) * motor_decay,
     )
     # A 0.1 ms value is the serialized sentinel for the exact memoryless
     # reference model. This makes the simpler model a true nested ablation
@@ -509,7 +458,7 @@ def with_response_time_constant(
         updated = base._replace(log_actuator_time_constant=log_value)
     else:
         updated = base._replace(log_motor_time_constant=log_value)
-    if is_residual_model(params):
+    if isinstance(params, ResidualDynamicsParams):
         return params._replace(base=updated)
     return updated
 
@@ -533,10 +482,12 @@ def with_thrust_command_offset(
         raise TypeError("fixed-wing models do not have a motor command offset")
     updated = base._replace(
         thrust_command_offset_unconstrained=jnp.arctanh(
-            jnp.asarray(thrust_command_offset / MAX_THRUST_COMMAND_OFFSET)
+            jnp.asarray(
+                thrust_command_offset / MAX_THRUST_COMMAND_OFFSET
+            )
         )
     )
-    if is_residual_model(params):
+    if isinstance(params, ResidualDynamicsParams):
         return params._replace(base=updated)
     return updated
 
@@ -547,13 +498,17 @@ def zero_response_time_gradient(params: ModelParams) -> ModelParams:
     base = structured_parameters(params)
     if isinstance(base, FixedWingDynamicsParams):
         updated = base._replace(
-            log_actuator_time_constant=jnp.zeros_like(base.log_actuator_time_constant)
+            log_actuator_time_constant=jnp.zeros_like(
+                base.log_actuator_time_constant
+            )
         )
     else:
         updated = base._replace(
-            log_motor_time_constant=jnp.zeros_like(base.log_motor_time_constant)
+            log_motor_time_constant=jnp.zeros_like(
+                base.log_motor_time_constant
+            )
         )
-    if is_residual_model(params):
+    if isinstance(params, ResidualDynamicsParams):
         return params._replace(base=updated)
     return updated
 
@@ -569,7 +524,7 @@ def zero_thrust_command_offset_gradient(params: ModelParams) -> ModelParams:
             base.thrust_command_offset_unconstrained
         )
     )
-    if is_residual_model(params):
+    if isinstance(params, ResidualDynamicsParams):
         return params._replace(base=updated)
     return updated
 
@@ -584,7 +539,7 @@ def with_instantaneous_rotational_response(params: ModelParams) -> ModelParams:
         log_angular_response_time_constant=jnp.log(jnp.full((3,), 1e-4)),
         angular_control_cross_coupling_unconstrained=jnp.zeros((3, 3)),
     )
-    if is_residual_model(params):
+    if isinstance(params, ResidualDynamicsParams):
         return params._replace(base=updated)
     return updated
 
@@ -598,7 +553,7 @@ def with_diagonal_angular_control(params: ModelParams) -> ModelParams:
     updated = base._replace(
         angular_control_cross_coupling_unconstrained=jnp.zeros((3, 3))
     )
-    if is_residual_model(params):
+    if isinstance(params, ResidualDynamicsParams):
         return params._replace(base=updated)
     return updated
 
@@ -620,13 +575,8 @@ def with_constant_angular_rate(params: ModelParams) -> ModelParams:
         log_angular_response_time_constant=jnp.log(jnp.full((3,), 1e-4)),
         angular_control_cross_coupling_unconstrained=jnp.zeros((3, 3)),
     )
-    if not is_residual_model(params):
+    if not isinstance(params, ResidualDynamicsParams):
         return updated
-    if isinstance(params, ResidualDynamicsParams):
-        return params._replace(
-            base=updated,
-            output_weights=params.output_weights.at[3:6].set(0.0),
-        )
     return params._replace(
         base=updated,
         output_weights=params.output_weights.at[3:6].set(0.0),
@@ -664,15 +614,8 @@ def with_angular_dynamics_authority(
         log_angular_accel=base.log_angular_accel + jnp.log(positive_scale),
         log_angular_drag=base.log_angular_drag + jnp.log(positive_scale),
     )
-    if not is_residual_model(params):
+    if not isinstance(params, ResidualDynamicsParams):
         return updated
-    if isinstance(params, ResidualDynamicsParams):
-        return params._replace(
-            base=updated,
-            output_weights=params.output_weights.at[3:6].multiply(
-                authority_array[:, jnp.newaxis]
-            ),
-        )
     return params._replace(
         base=updated,
         output_weights=params.output_weights.at[3:6].multiply(
@@ -695,7 +638,7 @@ def zero_rotational_response_gradient(params: ModelParams) -> ModelParams:
             base.angular_control_cross_coupling_unconstrained
         ),
     )
-    if is_residual_model(params):
+    if isinstance(params, ResidualDynamicsParams):
         return params._replace(base=updated)
     return updated
 
@@ -711,7 +654,7 @@ def zero_angular_cross_coupling_gradient(params: ModelParams) -> ModelParams:
             base.angular_control_cross_coupling_unconstrained
         )
     )
-    if is_residual_model(params):
+    if isinstance(params, ResidualDynamicsParams):
         return params._replace(base=updated)
     return updated
 
@@ -719,7 +662,7 @@ def zero_angular_cross_coupling_gradient(params: ModelParams) -> ModelParams:
 def zero_residual_configuration_gradient(params: ModelParams) -> ModelParams:
     """Keep data-derived residual normalization fixed during optimization."""
 
-    if not is_residual_model(params):
+    if not isinstance(params, ResidualDynamicsParams):
         return params
     return params._replace(
         feature_mean=jnp.zeros_like(params.feature_mean),
@@ -748,7 +691,9 @@ def require_model_control_size(
     family = model_family(params)
     if control_roles is not None:
         if len(control_roles) != control_size:
-            raise ValueError("control_roles must contain one role per control channel")
+            raise ValueError(
+                "control_roles must contain one role per control channel"
+            )
         family.validate_control_roles(control_roles)
         return
     if control_size != family.control_size:
@@ -763,11 +708,7 @@ def _resolved_control_roles(
     control_size: int,
     control_roles: tuple[str, ...] | None,
 ) -> tuple[str, ...]:
-    roles = (
-        model_family(params).control_roles
-        if control_roles is None
-        else tuple(control_roles)
-    )
+    roles = model_family(params).control_roles if control_roles is None else tuple(control_roles)
     require_model_control_size(params, control_size, roles)
     return roles
 
@@ -818,7 +759,9 @@ def initial_residual_parameters(
     if bool(jnp.any(correction_scale <= 0.0)):
         raise ValueError("correction_scale must be positive")
     key = jax.random.key(seed)
-    hidden_weights = 0.05 * jax.random.normal(key, (hidden_units, feature_size))
+    hidden_weights = 0.05 * jax.random.normal(
+        key, (hidden_units, feature_size)
+    )
     return ResidualDynamicsParams(
         base=base,
         hidden_weights=hidden_weights,
@@ -830,118 +773,10 @@ def initial_residual_parameters(
     )
 
 
-def history_residual_from_residual(
-    params: ResidualDynamicsParams,
-    *,
-    response_time_constant_s: tuple[float, float] = (0.05, 0.05),
-) -> HistoryResidualDynamicsParams:
-    """Add causal innovation state to an instantaneous residual model."""
-
-    time_constants = np.asarray(response_time_constant_s, dtype=np.float64)
-    if (
-        time_constants.shape != (2,)
-        or not np.all(np.isfinite(time_constants))
-        or np.any(time_constants <= 0.0)
-    ):
-        raise ValueError("response_time_constant_s must contain two positive values")
-    return HistoryResidualDynamicsParams(
-        base=params.base,
-        hidden_weights=params.hidden_weights,
-        hidden_bias=params.hidden_bias,
-        output_weights=params.output_weights,
-        feature_mean=params.feature_mean,
-        feature_scale=params.feature_scale,
-        correction_scale=params.correction_scale,
-        log_residual_response_time_constant=jnp.log(jnp.asarray(time_constants)),
-    )
-
-
-def initial_history_residual_parameters(
-    base: BaseDynamicsParams,
-    *,
-    control_size: int | None = None,
-    exogenous_size: int = 0,
-    hidden_units: int = 8,
-    seed: int = 0,
-    feature_mean: Array | None = None,
-    feature_scale: Array | None = None,
-    correction_scale: Array | None = None,
-    response_time_constant_s: tuple[float, float] = (0.05, 0.05),
-) -> HistoryResidualDynamicsParams:
-    """Initialize an opinionated residual-innovation observer at zero."""
-
-    time_constants = np.asarray(response_time_constant_s, dtype=np.float64)
-    if (
-        time_constants.shape != (2,)
-        or not np.all(np.isfinite(time_constants))
-        or np.any(time_constants <= 0.0)
-    ):
-        raise ValueError("response_time_constant_s must contain two positive values")
-    shared = initial_residual_parameters(
-        base,
-        control_size=control_size,
-        exogenous_size=exogenous_size,
-        hidden_units=hidden_units,
-        seed=seed,
-        feature_mean=feature_mean,
-        feature_scale=feature_scale,
-        correction_scale=correction_scale,
-    )
-    return HistoryResidualDynamicsParams(
-        base=base,
-        hidden_weights=shared.hidden_weights,
-        hidden_bias=shared.hidden_bias,
-        output_weights=shared.output_weights,
-        feature_mean=shared.feature_mean,
-        feature_scale=shared.feature_scale,
-        correction_scale=shared.correction_scale,
-        log_residual_response_time_constant=jnp.log(jnp.asarray(time_constants)),
-    )
-
-
-def residual_response_time_constant(params: ModelParams) -> Array:
-    """Return bounded force/moment response times for residual innovation."""
-
-    if not isinstance(params, HistoryResidualDynamicsParams):
-        raise TypeError("model does not contain residual innovation state")
-    raw = jnp.exp(params.log_residual_response_time_constant)
-    instantaneous = raw <= (1.00001 * INSTANTANEOUS_RESIDUAL_RESPONSE_TIME_CONSTANT_S)
-    bounded = jnp.clip(
-        raw,
-        MINIMUM_RESIDUAL_RESPONSE_TIME_CONSTANT_S,
-        MAXIMUM_RESIDUAL_RESPONSE_TIME_CONSTANT_S,
-    )
-    return jnp.where(instantaneous, raw, bounded)
-
-
-def with_instantaneous_residual_response(
-    params: HistoryResidualDynamicsParams,
-) -> HistoryResidualDynamicsParams:
-    """Return the exact memoryless nested ablation of a history residual."""
-
-    return params._replace(
-        log_residual_response_time_constant=jnp.log(
-            jnp.full((2,), INSTANTANEOUS_RESIDUAL_RESPONSE_TIME_CONSTANT_S)
-        )
-    )
-
-
-def zero_residual_response_gradient(params: ModelParams) -> ModelParams:
-    """Freeze only the residual-innovation response-time parameters."""
-
-    if not isinstance(params, HistoryResidualDynamicsParams):
-        return params
-    return params._replace(
-        log_residual_response_time_constant=jnp.zeros_like(
-            params.log_residual_response_time_constant
-        )
-    )
-
-
 def structured_parameters(params: ModelParams) -> BaseDynamicsParams:
     """Return the structured base parameter block from any model class."""
 
-    return params.base if is_residual_model(params) else params
+    return params.base if isinstance(params, ResidualDynamicsParams) else params
 
 
 def physics_parameters(params: ModelParams) -> DynamicsParams:
@@ -953,18 +788,22 @@ def physics_parameters(params: ModelParams) -> DynamicsParams:
     return base
 
 
-def _residual_features(
-    params: ResidualModelParams,
+def _residual_acceleration(
+    params: ResidualDynamicsParams,
     state: Array,
     applied_motor_state: Array,
     exogenous: Array | None = None,
     exogenous_roles: tuple[str, ...] | None = None,
-) -> tuple[Array, Array, Array]:
-    """Return rotation and normalized force/moment residual features."""
+) -> tuple[Array, Array]:
+    """Predict body-linear and body-angular acceleration corrections."""
 
     rotation = quaternion_to_rotation(state[6:10])
-    body_velocity = rotation.T @ (state[3:6] - _wind_world(exogenous, exogenous_roles))
-    exogenous_features = jnp.empty((0,)) if exogenous is None else exogenous
+    body_velocity = rotation.T @ (
+        state[3:6] - _wind_world(exogenous, exogenous_roles)
+    )
+    exogenous_features = (
+        jnp.empty((0,)) if exogenous is None else exogenous
+    )
     features = jnp.concatenate(
         (
             body_velocity,
@@ -974,8 +813,11 @@ def _residual_features(
         )
     )
     normalized_features = (features - params.feature_mean) / params.feature_scale
+    hidden = jnp.tanh(
+        params.hidden_weights @ normalized_features + params.hidden_bias
+    )
     if exogenous is None or exogenous.shape[-1] == 0:
-        angular_features = normalized_features
+        angular_hidden = hidden
     else:
         roles = () if exogenous_roles is None else exogenous_roles
         estimated_wind_mask = jnp.asarray(
@@ -986,32 +828,12 @@ def _residual_features(
             jnp.zeros_like(normalized_features[-exogenous.shape[-1] :]),
             normalized_features[-exogenous.shape[-1] :],
         )
-        angular_features = normalized_features.at[-exogenous.shape[-1] :].set(
-            angular_exogenous
+        angular_features = normalized_features.at[
+            -exogenous.shape[-1] :
+        ].set(angular_exogenous)
+        angular_hidden = jnp.tanh(
+            params.hidden_weights @ angular_features + params.hidden_bias
         )
-    return rotation, normalized_features, angular_features
-
-
-def _residual_body_acceleration(
-    params: ResidualModelParams,
-    state: Array,
-    applied_motor_state: Array,
-    exogenous: Array | None = None,
-    exogenous_roles: tuple[str, ...] | None = None,
-) -> Array:
-    """Predict bounded body-linear and body-angular residual acceleration."""
-
-    _, normalized_features, angular_features = _residual_features(
-        params,
-        state,
-        applied_motor_state,
-        exogenous,
-        exogenous_roles,
-    )
-    hidden = jnp.tanh(params.hidden_weights @ normalized_features + params.hidden_bias)
-    angular_hidden = jnp.tanh(
-        params.hidden_weights @ angular_features + params.hidden_bias
-    )
     normalized_correction = jnp.concatenate(
         (
             params.output_weights[0:3] @ hidden,
@@ -1019,45 +841,7 @@ def _residual_body_acceleration(
         )
     )
     correction = params.correction_scale * jnp.tanh(normalized_correction)
-    return correction
-
-
-def _residual_acceleration(
-    params: ResidualDynamicsParams,
-    state: Array,
-    applied_motor_state: Array,
-    exogenous: Array | None = None,
-    exogenous_roles: tuple[str, ...] | None = None,
-) -> tuple[Array, Array]:
-    """Predict world-linear and body-angular acceleration corrections."""
-
-    correction = _residual_body_acceleration(
-        params,
-        state,
-        applied_motor_state,
-        exogenous,
-        exogenous_roles,
-    )
-    rotation = quaternion_to_rotation(state[6:10])
     return rotation @ correction[0:3], correction[3:6]
-
-
-def _history_residual_target(
-    params: HistoryResidualDynamicsParams,
-    state: Array,
-    applied_control: Array,
-    exogenous: Array | None = None,
-    exogenous_roles: tuple[str, ...] | None = None,
-) -> Array:
-    """Return the bounded body-frame equilibrium residual acceleration."""
-
-    return _residual_body_acceleration(
-        params,
-        state,
-        applied_control,
-        exogenous,
-        exogenous_roles,
-    )
 
 
 def quaternion_multiply(left: Array, right: Array) -> Array:
@@ -1126,7 +910,6 @@ def state_derivative(
     exogenous: Array | None = None,
     exogenous_roles: tuple[str, ...] | None = None,
     rotational_response_state: Array | None = None,
-    residual_response_state: Array | None = None,
 ) -> Array:
     """Calculate the vehicle derivative from latent applied controls."""
 
@@ -1145,7 +928,9 @@ def state_derivative(
         )
         airspeed = jnp.sqrt(jnp.sum(jnp.square(body_velocity)) + 1e-9)
         forward_speed = jnp.maximum(body_velocity[0], 0.0)
-        throttle = jnp.clip(applied_motor_state[roles.index("throttle")], 0.0, 1.0)
+        throttle = jnp.clip(
+            applied_motor_state[roles.index("throttle")], 0.0, 1.0
+        )
         surface_commands = jnp.stack(
             tuple(
                 applied_motor_state[roles.index(axis)]
@@ -1157,7 +942,9 @@ def state_derivative(
         surface_authority = jnp.asarray(
             [axis in roles for axis in ("roll", "pitch", "yaw")]
         )
-        surfaces = (surface_commands - physical["surface_trim"]) * surface_authority
+        surfaces = (
+            surface_commands - physical["surface_trim"]
+        ) * surface_authority
         flap = (
             applied_motor_state[roles.index("flap")] - physical["flap_trim"]
             if "flap" in roles
@@ -1170,7 +957,9 @@ def state_derivative(
         body_acceleration = jnp.asarray(
             [
                 physical["thrust_accel"] * throttle,
-                -physical["side_force_accel_per_speed"] * airspeed * body_velocity[1],
+                -physical["side_force_accel_per_speed"]
+                * airspeed
+                * body_velocity[1],
                 physical["lift_accel_per_speed_sq"] * forward_speed**2
                 - physical["lift_alpha_accel_per_speed_sq"]
                 * forward_speed
@@ -1178,27 +967,35 @@ def state_derivative(
             ]
         )
         body_acceleration = body_acceleration.at[2].add(
-            physical["flap_lift_accel_per_speed_sq"] * forward_speed**2 * flap
+            physical["flap_lift_accel_per_speed_sq"]
+            * forward_speed**2
+            * flap
         )
-        body_acceleration = (
-            body_acceleration
-            - (physical["drag_accel_per_speed_sq"] + flap_drag)
-            * airspeed
-            * body_velocity
-        )
+        body_acceleration = body_acceleration - (
+            physical["drag_accel_per_speed_sq"] + flap_drag
+        ) * airspeed * body_velocity
         world_acceleration = (
-            jnp.asarray([0.0, 0.0, -GRAVITY_M_S2]) + rotation @ body_acceleration
+            jnp.asarray([0.0, 0.0, -GRAVITY_M_S2])
+            + rotation @ body_acceleration
         )
         angular_acceleration = (
-            physical["surface_angular_accel_per_speed_sq"] * forward_speed**2 * surfaces
-            - physical["angular_drag_per_speed"] * airspeed * angular_velocity
+            physical["surface_angular_accel_per_speed_sq"]
+            * forward_speed**2
+            * surfaces
+            - physical["angular_drag_per_speed"]
+            * airspeed
+            * angular_velocity
         )
         angular_acceleration = angular_acceleration + forward_speed**2 * jnp.asarray(
             [
-                physical["lateral_surface_cross_angular_accel_per_speed_sq"][0]
+                physical[
+                    "lateral_surface_cross_angular_accel_per_speed_sq"
+                ][0]
                 * surfaces[2],
                 0.0,
-                physical["lateral_surface_cross_angular_accel_per_speed_sq"][1]
+                physical[
+                    "lateral_surface_cross_angular_accel_per_speed_sq"
+                ][1]
                 * surfaces[0],
             ]
         )
@@ -1215,8 +1012,12 @@ def state_derivative(
             * forward_speed
             * body_velocity[1]
         )
-        angular_acceleration = angular_acceleration.at[0].add(lateral_stability[0])
-        angular_acceleration = angular_acceleration.at[2].add(lateral_stability[1])
+        angular_acceleration = angular_acceleration.at[0].add(
+            lateral_stability[0]
+        )
+        angular_acceleration = angular_acceleration.at[2].add(
+            lateral_stability[1]
+        )
         quaternion_rate = 0.5 * quaternion_multiply(
             quaternion, jnp.concatenate((jnp.zeros(1), angular_velocity))
         )
@@ -1279,40 +1080,6 @@ def state_derivative(
         )
         derivative = derivative.at[3:6].add(linear_residual)
         derivative = derivative.at[10:13].add(angular_residual)
-    elif isinstance(params, HistoryResidualDynamicsParams):
-        equilibrium = _history_residual_target(
-            params,
-            state,
-            applied_motor_state,
-            exogenous,
-            exogenous_roles,
-        )
-        time_constants = residual_response_time_constant(params)
-        instantaneous = time_constants <= (
-            1.00001 * INSTANTANEOUS_RESIDUAL_RESPONSE_TIME_CONSTANT_S
-        )
-        history_correction = (
-            jnp.zeros(HISTORY_RESIDUAL_STATE_SIZE)
-            if residual_response_state is None
-            else jnp.concatenate(
-                (
-                    jnp.where(
-                        instantaneous[0],
-                        jnp.zeros(3),
-                        residual_response_state[0:3],
-                    ),
-                    jnp.where(
-                        instantaneous[1],
-                        jnp.zeros(3),
-                        residual_response_state[3:6],
-                    ),
-                )
-            )
-        )
-        residual = equilibrium + history_correction
-        rotation = quaternion_to_rotation(state[6:10])
-        derivative = derivative.at[3:6].add(rotation @ residual[0:3])
-        derivative = derivative.at[10:13].add(residual[3:6])
     return derivative
 
 
@@ -1346,19 +1113,9 @@ def step_with_latent(
 
     roles = _resolved_control_roles(params, control.shape[-1], control_roles)
     control_size = control.shape[-1]
-    latent_state = _canonical_latent_state(
-        params,
-        latent_state,
-        control_size,
-        state,
-        exogenous,
-        exogenous_roles,
+    applied_control_state, rotational_response_state = _split_latent_state(
+        params, latent_state, control_size
     )
-    (
-        applied_control_state,
-        rotational_response_state,
-        residual_response_state,
-    ) = _split_latent_state(params, latent_state, control_size)
     require_model_control_size(params, applied_control_state.shape[-1], roles)
 
     response_time_constant = _response_time_constant(params)
@@ -1378,52 +1135,9 @@ def step_with_latent(
             time_s,
         )
 
-    history_residual = isinstance(params, HistoryResidualDynamicsParams)
-    initial_residual = (
-        residual_response_state
-        if residual_response_state is not None
-        else jnp.zeros(HISTORY_RESIDUAL_STATE_SIZE)
+    substep_count = max(
+        1, math.ceil(dt_s / MAX_INTERNAL_INTEGRATION_STEP_S)
     )
-    if history_residual:
-        residual_time_constants = residual_response_time_constant(params)
-        residual_tau = jnp.concatenate(
-            (
-                jnp.full((3,), residual_time_constants[0]),
-                jnp.full((3,), residual_time_constants[1]),
-            )
-        )
-        instantaneous_residual = residual_tau <= (
-            1.00001 * INSTANTANEOUS_RESIDUAL_RESPONSE_TIME_CONSTANT_S
-        )
-
-    def residual_at(time_s: float) -> Array:
-        if not history_residual:
-            return initial_residual
-        decay = jnp.exp(-time_s / residual_tau)
-        return jnp.where(
-            instantaneous_residual,
-            jnp.zeros_like(initial_residual),
-            initial_residual * decay,
-        )
-
-    def derivatives(
-        vehicle: Array,
-        motor: Array,
-        angular_response: Array | None,
-        residual: Array,
-    ) -> Array:
-        return state_derivative(
-            params,
-            vehicle,
-            motor,
-            roles,
-            exogenous,
-            exogenous_roles,
-            angular_response,
-            residual if history_residual else None,
-        )
-
-    substep_count = max(1, math.ceil(dt_s / MAX_INTERNAL_INTEGRATION_STEP_S))
     integration_dt_s = dt_s / substep_count
     half_integration_dt_s = 0.5 * integration_dt_s
     next_vehicle = state
@@ -1437,45 +1151,52 @@ def step_with_latent(
         start_angular_response = angular_response_at(start_time_s)
         middle_angular_response = angular_response_at(middle_time_s)
         end_angular_response = angular_response_at(end_time_s)
-        k1 = derivatives(
+        k1 = state_derivative(
+            params,
             next_vehicle,
             start_motor_state,
+            roles,
+            exogenous,
+            exogenous_roles,
             start_angular_response,
-            residual_at(start_time_s),
         )
-        k2 = derivatives(
+        k2 = state_derivative(
+            params,
             next_vehicle + half_integration_dt_s * k1,
             middle_motor_state,
+            roles,
+            exogenous,
+            exogenous_roles,
             middle_angular_response,
-            residual_at(middle_time_s),
         )
-        k3 = derivatives(
+        k3 = state_derivative(
+            params,
             next_vehicle + half_integration_dt_s * k2,
             middle_motor_state,
+            roles,
+            exogenous,
+            exogenous_roles,
             middle_angular_response,
-            residual_at(middle_time_s),
         )
-        k4 = derivatives(
+        k4 = state_derivative(
+            params,
             next_vehicle + integration_dt_s * k3,
             end_motor_state,
+            roles,
+            exogenous,
+            exogenous_roles,
             end_angular_response,
-            residual_at(end_time_s),
         )
         next_vehicle = _normalized_state(
-            next_vehicle + (integration_dt_s / 6.0) * (k1 + 2.0 * k2 + 2.0 * k3 + k4)
+            next_vehicle
+            + (integration_dt_s / 6.0) * (k1 + 2.0 * k2 + 2.0 * k3 + k4)
         )
-    next_residual = residual_at(dt_s)
     next_motor_state = motor_at(dt_s)
     next_angular_response = angular_response_at(dt_s)
-    next_actuator_state = (
+    next_latent_state = (
         next_motor_state
         if next_angular_response is None
         else jnp.concatenate((next_motor_state, next_angular_response))
-    )
-    next_latent_state = (
-        jnp.concatenate((next_actuator_state, next_residual))
-        if history_residual
-        else next_actuator_state
     )
     return next_vehicle, next_latent_state
 
@@ -1499,13 +1220,7 @@ def step(
     next_state, _ = step_with_latent(
         params,
         state,
-        _initial_latent_state(
-            params,
-            control,
-            state,
-            exogenous,
-            exogenous_roles,
-        ),
+        control,
         control,
         dt_s,
         control_roles,
@@ -1538,23 +1253,18 @@ def rollout_with_latent(
         raise ValueError("rollout controls must be two-dimensional")
     roles = _resolved_control_roles(params, controls.shape[-1], control_roles)
     if initial_motor_state is None:
-        initial_latent_state = _initial_latent_state(
-            params,
-            controls[0],
-            initial_state,
-            exogenous,
-            exogenous_roles,
-        )
+        initial_latent_state = _initial_latent_state(params, controls[0])
     else:
-        initial_latent_state = _canonical_latent_state(
-            params,
-            initial_motor_state,
-            controls.shape[-1],
-            initial_state,
-            exogenous,
-            exogenous_roles,
+        initial_applied_control, initial_rotational_response = _split_latent_state(
+            params, initial_motor_state, controls.shape[-1]
         )
-        _split_latent_state(params, initial_latent_state, controls.shape[-1])
+        initial_latent_state = (
+            initial_applied_control
+            if initial_rotational_response is None
+            else jnp.concatenate(
+                (initial_applied_control, initial_rotational_response)
+            )
+        )
     initial_combined = jnp.concatenate((initial_state, initial_latent_state))
     control_size = controls.shape[-1]
     latent_size = initial_latent_state.shape[-1]
@@ -1601,12 +1311,12 @@ def control_state_after_history(
     decay = jnp.exp(-dt_s / _response_time_constant(params))
 
     def scan_step(latent_state: Array, control: Array) -> tuple[Array, None]:
-        applied_control, rotational_response, residual_response = _split_latent_state(
+        applied_control, rotational_response = _split_latent_state(
             params, latent_state, control_history.shape[-1]
         )
         next_applied_control = control + (applied_control - control) * decay
         if rotational_response is None:
-            next_actuator_state = next_applied_control
+            next_latent_state = next_applied_control
         else:
             next_rotational_response = _angular_response_at(
                 params,
@@ -1615,127 +1325,15 @@ def control_state_after_history(
                 control,
                 dt_s,
             )
-            next_actuator_state = jnp.concatenate(
+            next_latent_state = jnp.concatenate(
                 (next_applied_control, next_rotational_response)
             )
-        next_latent_state = (
-            next_actuator_state
-            if residual_response is None
-            else jnp.concatenate((next_actuator_state, residual_response))
-        )
         return next_latent_state, None
 
     final_latent_state, _ = jax.lax.scan(
         scan_step, initial_latent_state, control_history
     )
     return final_latent_state
-
-
-def latent_state_after_history(
-    params: ModelParams,
-    state_history: Array,
-    control_history: Array,
-    dt_s: float,
-    control_roles: tuple[str, ...] | None = None,
-    exogenous_history: Array | None = None,
-    exogenous_roles: tuple[str, ...] | None = None,
-    history_valid: Array | None = None,
-) -> Array:
-    """Infer every latent model state from purely past measured samples."""
-
-    if state_history.ndim != 2 or state_history.shape != (
-        len(control_history) + 1,
-        13,
-    ):
-        raise ValueError(
-            "state_history must have one more 13-state sample than controls"
-        )
-    if control_history.ndim != 2 or len(control_history) < 1:
-        raise ValueError("control_history must be a nonempty matrix")
-    roles = _resolved_control_roles(params, control_history.shape[-1], control_roles)
-    if exogenous_history is None:
-        exogenous_history = jnp.empty((len(state_history), 0))
-    if exogenous_history.ndim != 2 or len(exogenous_history) != len(state_history):
-        raise ValueError("exogenous_history must align with every state-history sample")
-    if history_valid is None:
-        history_valid = jnp.ones((len(control_history),), dtype=bool)
-    if history_valid.ndim != 1 or len(history_valid) != len(control_history):
-        raise ValueError("history_valid must align with every control-history interval")
-    exogenous_roles = () if exogenous_roles is None else exogenous_roles
-    initial_latent = _initial_latent_state(
-        params,
-        control_history[0],
-        state_history[0],
-        exogenous_history[0],
-        exogenous_roles,
-    )
-
-    def scan_step(
-        latent: Array,
-        samples: tuple[Array, Array, Array, Array, Array],
-    ) -> tuple[Array, None]:
-        measured_state, next_measured_state, control, exogenous, valid = samples
-        predicted_state, next_latent = step_with_latent(
-            params,
-            measured_state,
-            latent,
-            control,
-            dt_s,
-            roles,
-            exogenous,
-            exogenous_roles,
-        )
-        if isinstance(params, HistoryResidualDynamicsParams):
-            _, _, prior_residual = _split_latent_state(
-                params, next_latent, control_history.shape[-1]
-            )
-            assert prior_residual is not None
-            world_linear_innovation = (
-                next_measured_state[3:6] - predicted_state[3:6]
-            ) / dt_s
-            body_linear_innovation = (
-                quaternion_to_rotation(next_measured_state[6:10]).T
-                @ world_linear_innovation
-            )
-            angular_innovation = (
-                next_measured_state[10:13] - predicted_state[10:13]
-            ) / dt_s
-            innovation = jnp.concatenate((body_linear_innovation, angular_innovation))
-            time_constants = residual_response_time_constant(params)
-            instantaneous = time_constants <= (
-                1.00001 * INSTANTANEOUS_RESIDUAL_RESPONSE_TIME_CONSTANT_S
-            )
-            gain = 1.0 - jnp.exp(-dt_s / time_constants)
-            gain = jnp.concatenate((jnp.full((3,), gain[0]), jnp.full((3,), gain[1])))
-            instantaneous_axes = jnp.concatenate(
-                (
-                    jnp.full((3,), instantaneous[0]),
-                    jnp.full((3,), instantaneous[1]),
-                )
-            )
-            posterior = params.correction_scale * jnp.tanh(
-                (prior_residual + gain * innovation) / params.correction_scale
-            )
-            posterior = jnp.where(
-                instantaneous_axes,
-                jnp.zeros_like(posterior),
-                posterior,
-            )
-            next_latent = next_latent.at[-HISTORY_RESIDUAL_STATE_SIZE:].set(posterior)
-        return jnp.where(valid, next_latent, latent), None
-
-    final_latent, _ = jax.lax.scan(
-        scan_step,
-        initial_latent,
-        (
-            state_history[:-1],
-            state_history[1:],
-            control_history,
-            exogenous_history[:-1],
-            history_valid,
-        ),
-    )
-    return final_latent
 
 
 def rollout(
@@ -1769,7 +1367,9 @@ def hover_control(params: ModelParams) -> Array:
     motor_command = GRAVITY_M_S2 / (
         4.0 * jnp.exp(physics_parameters(params).log_thrust_accel)
     )
-    motor_command += physics_parameters(params).physical()["thrust_command_offset"]
+    motor_command += physics_parameters(params).physical()[
+        "thrust_command_offset"
+    ]
     return jnp.full((QUADROTOR_CONTROL_SIZE,), motor_command)
 
 
@@ -1782,7 +1382,8 @@ def fixed_wing_trim_control(
 
     physical = params.physical()
     trim_throttle = (
-        physical["drag_accel_per_speed_sq"] * airspeed_m_s**2 / physical["thrust_accel"]
+        physical["drag_accel_per_speed_sq"] * airspeed_m_s**2
+        / physical["thrust_accel"]
     )
     roles = FIXED_WING_CONTROL_ROLES if control_roles is None else control_roles
     FIXED_WING_FAMILY.validate_control_roles(tuple(roles))

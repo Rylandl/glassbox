@@ -340,50 +340,45 @@ IDF, but not ARP; the temporal candidate was therefore the stronger transfer
 hypothesis and the alignment candidate was not advanced. Nano also exceeded the
 5% per-flight position regression guard.
 
-This closed the observation-layer branch of the literature-guided research
-cycle. Combining delay and filter candidates would increase observation-model
-flexibility after the stronger candidate failed the rollout gate, so that branch
-remains frozen. The full result is recorded in
+This closes the bounded literature-guided research cycle. Combining delay and
+filter candidates would increase flexibility after the stronger candidate failed
+the rollout gate; a history encoder was explicitly conditional on rollout-level
+success. The current dynamics architecture is therefore frozen. Glassbox remains
+valuable as an opinionated telemetry normalization, differentiable gray-box
+baseline, and evaluation framework, but the evidence does not support
+presenting it as a state-of-the-art universal dynamics model. The full result
+is recorded in
 [`state-observation-alignment-results.json`](state-observation-alignment-results.json).
 
-### Phase B: causal residual-innovation observer — promoted for research
+### Phase B: causal residual-innovation observer — tested and rejected
 
-The observation result did not authorize a larger observation model, but a
-separate causal upper-bound screen showed that past one-step **dynamics
-innovations** contained useful short-horizon state on Nano, ARP, X8, and IDF.
-That evidence reopened the dynamics-history hypothesis without changing the
-failed observation decision.
+A distinct dynamics-history upper-bound showed that past one-step prediction
+innovations sometimes contained useful short-horizon state even though the
+observation-only branch failed. A bounded candidate was therefore implemented
+temporarily: measured state/control history initialized six body-acceleration
+discrepancy states, with one force and one moment decay time constant. The
+instantaneous model remained an exact nested no-op, candidate values were fixed
+internal policy, and no airframe-specific feature or public knob was added.
 
-The implemented model keeps the fitted instantaneous structured residual
-unchanged. During measured history it compares each one-step prediction with
-the next measured velocity and body rate, converts the discrepancy into a
-bounded body-force/body-moment acceleration state, and carries that six-element
-state into the rollout. The discrepancy decays analytically toward zero during
-open-loop prediction. Only two bounded time constants are added: one shared by
-the three force axes and one by the three moment axes. The exact instantaneous
-model remains a nested no-op, and no public configuration was added.
+The decisive rerun used the strongest maintained model on every corpus, not the
+older model on which the upper-bound was first observed:
 
-A filter of the existing residual target was tested first and rejected: every
-development corpus preferred the 10 ms boundary or the exact no-op, and longer
-memory produced monotonic regressions. The innovation observer produced the
-following development-selected result against the exact instantaneous model:
+| Corpus | Selected history | Development ratio | Held-out result | Capability gate |
+| --- | --- | ---: | --- | --- |
+| Nano | no-op | 1.000 | official published-reference ratio remains 0.996 | no material gain |
+| ARP | force 0.20 s | 0.972 | 0.946 vs instantaneous; 1.269 vs persistence | fail |
+| X8 | no-op | 1.000 | 1.000 vs instantaneous | no material gain |
+| IDF | no-op | 1.000 | combined candidate was 0.920 but exceeded the guardrail | fail |
 
-| Corpus | Force memory | Moment memory | Development ratio | Research-validation ratio | Maximum validation metric ratio |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| Nano | 0.20 s | 0.50 s | 0.974 | 0.906 | 0.987 |
-| ARP | 0.10 s | 0.02 s | 0.960 | 0.936 | 0.998 |
-| X8 | no-op | no-op | 1.000 | 1.000 | 1.000 |
-| IDF | 0.50 s | 0.50 s | 0.916 | 0.925 | 1.013 |
-
-Ratios are candidate/reference geometric means over finite-horizon state
-metrics, so lower is better. Three corpora improved and X8 retained the exact
-no-op; none regressed. Equal-platform aggregation was 0.941, with 0.921 across
-the two quadrotor corpora and 0.962 across the fixed wings. These are research
-validation results, not a fresh production lockbox or a new state-of-the-art
-claim. Complete coefficients and protocol details are recorded in
+The IDF combined candidate had an attractive 0.907 development aggregate, but
+its maximum per-flight metric ratio was 1.114 against the allowed 1.05. Force-
+only and moment-only fallbacks were less safe. Retaining the guardrail matters
+more than rescuing the aggregate. ARP was the only accepted per-airframe gain,
+and it did not close the learned-model gap to kinematic persistence. The runtime
+and fitter implementation was removed; the complete decision record is in
 [`residual-innovation-observer-results.json`](residual-innovation-observer-results.json).
 
-### Phase C: conditional promotion gate
+### Phase C: promote or freeze — frozen
 
 The maintained criteria below were applied to the existing corpus without adding
 new airframes:
@@ -398,17 +393,12 @@ Promotion requires all of the following:
 - synthetic recovery: retain parameter recovery and numerical stability;
 - interface: no airframe-specific public tuning knobs.
 
-The gate is now layered rather than universal. A candidate first has to beat its
-exact nested ablation by at least 2% on development data with no metric worse by
-more than 5%. Evidence must then transfer to at least one corpus in each vehicle
-family without a family-level regression. Airframes with no supported hidden
-state retain the exact no-op. A fresh lockbox is still required before a
-production or state-of-the-art claim.
-
-The causal innovation observer clears the research architecture gate. It does
-not yet clear the final capability gate: Nano is close to but not decisively
-past the published Physics + Residual reference, and ARP still needs to beat
-kinematic persistence rather than merely improve the learned dynamics model.
+The materiality threshold was at least 10% improvement in the aggregate
+research-validation metric with consistent per-flight direction. The
+observation-aware and dynamics-history candidates failed those gates, so model
+development is frozen and Glassbox is presented as a well-audited baseline and
+telemetry normalization/evaluation framework rather than a state-of-the-art
+universal dynamics learner.
 
 ## Ideas to defer
 
@@ -427,11 +417,10 @@ kinematic persistence rather than merely improve the learned dynamics model.
 ## Bottom line
 
 The project was not missing a clever integrator or one more aerodynamic
-coefficient. Glassbox now preserves the distinction between **equilibrium
-dynamics**, **causally inferred latent discrepancy**, and **how telemetry
-observes those dynamics**. The observation-only candidates remain rejected, but
-the bounded innovation observer provides transferable rollout improvement with
-an exact no-op for airframes that do not support it. Glassbox remains an honest
-general gray-box system rather than a claimed universal state-of-the-art model;
-the next work is to test whether this gain is sufficient on the official Nano
-protocol and against ARP persistence.
+coefficient. Glassbox now preserves the distinction between **dynamics**,
+**latent state**, and **how telemetry observes those dynamics**, but neither the
+bounded observation-aware candidate nor the causal innovation observer cleared
+the rollout promotion gate on current best models.
+That is a useful technical result: the maintained system is an honest, general
+gray-box baseline and telemetry framework, and further capacity is not justified
+until new evidence changes the problem.

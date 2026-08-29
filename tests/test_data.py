@@ -2,10 +2,10 @@ import numpy as np
 import pytest
 
 from glassbox.data import (
-    RIGID_BODY_STATE_SCHEMA,
     ControlChannel,
     ExogenousChannel,
     ObservationChannel,
+    RIGID_BODY_STATE_SCHEMA,
     Trajectory,
     TrajectorySpec,
     VehicleConfigurationSpec,
@@ -71,41 +71,9 @@ def test_windows_do_not_cross_trajectory_boundaries() -> None:
 
     assert windows.initial_states.shape == (4, 13)
     assert windows.control_histories.shape == (4, 50, 4)
-    assert windows.state_histories.shape == (4, 51, 13)
-    assert windows.exogenous_histories.shape == (4, 51, 0)
-    assert windows.history_valid.shape == (4, 50)
     assert windows.controls.shape == (4, 5, 4)
     assert windows.target_states.shape == (4, 6, 13)
     assert windows.dt_s == pytest.approx(0.02)
-
-
-def test_windows_align_measured_history_with_prediction_start() -> None:
-    trajectory = make_trajectory(intervals=6)
-    states = trajectory.states.copy()
-    controls = trajectory.controls.copy()
-    states[:, 0] = np.arange(len(states))
-    controls[:, 0] = np.arange(len(controls))
-    trajectory = Trajectory(
-        time_s=trajectory.time_s,
-        states=states,
-        controls=controls,
-        spec=trajectory.spec,
-    )
-
-    windows = trajectory_windows(
-        [trajectory],
-        horizon=2,
-        stride=2,
-        motor_history_s=0.04,
-    )
-
-    np.testing.assert_array_equal(windows.control_histories[1, :, 0], [0, 1])
-    np.testing.assert_array_equal(windows.state_histories[1, :, 0], [0, 1, 2])
-    np.testing.assert_array_equal(windows.history_valid[0], [False, False])
-    np.testing.assert_array_equal(windows.history_valid[1], [True, True])
-    np.testing.assert_array_equal(
-        windows.state_histories[:, -1], windows.initial_states
-    )
 
 
 def test_windows_support_named_variable_control_channels() -> None:
@@ -146,17 +114,11 @@ def test_balanced_windows_give_each_trajectory_equal_total_weight() -> None:
     assert windows.window_weights is not None
     assert np.sum(windows.trajectory_indices == 0) == 2
     assert np.sum(windows.trajectory_indices == 1) == 4
-    assert np.sum(
-        windows.window_weights[windows.trajectory_indices == 0]
-    ) == pytest.approx(1.0)
-    assert np.sum(
-        windows.window_weights[windows.trajectory_indices == 1]
-    ) == pytest.approx(1.0)
+    assert np.sum(windows.window_weights[windows.trajectory_indices == 0]) == pytest.approx(1.0)
+    assert np.sum(windows.window_weights[windows.trajectory_indices == 1]) == pytest.approx(1.0)
 
 
-def test_explicit_trajectory_weights_are_distributed_over_each_flights_windows() -> (
-    None
-):
+def test_explicit_trajectory_weights_are_distributed_over_each_flights_windows() -> None:
     windows = trajectory_windows(
         [
             make_trajectory(intervals=10),
@@ -291,7 +253,9 @@ def test_npz_round_trip(tmp_path) -> None:
     with np.load(path, allow_pickle=False) as archive:
         assert int(archive["format_version"]) == 3
         np.testing.assert_array_equal(archive["exogenous"], trajectory.exogenous)
-        np.testing.assert_array_equal(archive["observations"], trajectory.observations)
+        np.testing.assert_array_equal(
+            archive["observations"], trajectory.observations
+        )
         assert set(archive.files) == {
             "format_version",
             "time_s",
