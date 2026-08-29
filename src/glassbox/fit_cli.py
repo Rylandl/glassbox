@@ -23,6 +23,7 @@ from glassbox.data import (
 from glassbox.dynamics import (
     MOTOR_MIXER,
     ModelParams,
+    ResidualDynamicsParams,
     initial_residual_parameters,
     model_family,
     with_response_time_constant,
@@ -35,23 +36,23 @@ from glassbox.evaluation import (
     rollout_metrics,
     windowed_rollout_metrics,
 )
+from glassbox.fixedwing_synthetic import initial_fixed_wing_parameter_guess
+from glassbox.history_selection import select_history_residual
 from glassbox.identification import (
-    MAX_OPTIMIZATION_WINDOWS_PER_HORIZON,
     MAX_OPTIMIZATION_TRANSITIONS_PER_HORIZON,
+    MAX_OPTIMIZATION_WINDOWS_PER_HORIZON,
     OPTIMIZATION_POLICY_VERSION,
     fit_dynamics,
     fit_dynamics_multi_horizon,
     residual_initialization_statistics,
 )
-from glassbox.model_io import save_dynamics_model
 from glassbox.model_family import MULTIROTOR_FAMILY, family_for_platform
+from glassbox.model_io import save_dynamics_model
 from glassbox.observation_identification import (
     ObservationFitResult,
     fit_multirotor_observations,
 )
-from glassbox.fixedwing_synthetic import initial_fixed_wing_parameter_guess
 from glassbox.synthetic import initial_parameter_guess
-
 
 _MAX_TRAINING_WINDOWS_PER_HORIZON = 8_192
 _MAX_TRAINING_TRANSITIONS_PER_HORIZON = 524_288
@@ -197,9 +198,7 @@ def _fit_on_windows(
     instantaneous_rotational_response = (
         instantaneous_rotational_response and platform == "multirotor"
     )
-    diagonal_angular_control = (
-        diagonal_angular_control and platform == "multirotor"
-    )
+    diagonal_angular_control = diagonal_angular_control and platform == "multirotor"
     window_sets = windows if isinstance(windows, tuple) else (windows,)
     if model_class == "structured_residual":
         residual_statistics = residual_initialization_statistics(window_sets)
@@ -299,9 +298,7 @@ def _fit_on_windows(
                         (
                             fit.batch_sizes
                             if fit.batch_sizes
-                            else tuple(
-                                len(item.initial_states) for item in window_sets
-                            )
+                            else tuple(len(item.initial_states) for item in window_sets)
                         ),
                     )
                 },
@@ -374,9 +371,7 @@ def fit_trajectory_artifact(
 
     trajectory = load_trajectory_npz(trajectory_path)
     platform = _trajectory_platform(trajectory)
-    training, validation = split_trajectory(
-        trajectory, train_fraction=train_fraction
-    )
+    training, validation = split_trajectory(trajectory, train_fraction=train_fraction)
     maximum_windows = _automatic_training_window_budget(
         horizon_steps=horizon,
         source_group_count=1,
@@ -387,9 +382,7 @@ def fit_trajectory_artifact(
         stride=horizon if stride is None else stride,
         maximum_windows=maximum_windows,
     )
-    observation_fit = _observation_fit(
-        [training], platform=platform
-    )
+    observation_fit = _observation_fit([training], platform=platform)
     fitted_params, model_report = _fit_on_windows(
         windows,
         steps=steps,
@@ -533,9 +526,7 @@ def _trajectory_summary(path: str, trajectory: Trajectory) -> dict[str, Any]:
             ),
             "net_displacement_m": float(np.linalg.norm(position[-1] - position[0])),
             "position_range_xyz_m": np.ptp(position, axis=0).tolist(),
-            "maximum_speed_m_s": float(
-                np.max(np.linalg.norm(velocity, axis=1))
-            ),
+            "maximum_speed_m_s": float(np.max(np.linalg.norm(velocity, axis=1))),
             "maximum_angular_speed_rad_s": float(
                 np.max(np.linalg.norm(angular_velocity, axis=1))
             ),
@@ -580,9 +571,7 @@ def _dataset_contract(
         raise ValueError(f"inconsistent dataset sample_rate_hz: {details}")
 
     spec_payloads = [trajectory.spec.to_dict() for trajectory in trajectories]
-    spec_payload = consistent_value(
-        "trajectory_spec", spec_payloads, serialize=True
-    )
+    spec_payload = consistent_value("trajectory_spec", spec_payloads, serialize=True)
 
     profiles = [trajectory.labels.get("profile") for trajectory in trajectories]
     profile_counts = {
@@ -613,9 +602,7 @@ def _dataset_contract(
                 continue
             px4 = trajectory.provenance.get("px4", {})
             mapping = (
-                px4.get("actuator_mapping", {})
-                if isinstance(px4, Mapping)
-                else {}
+                px4.get("actuator_mapping", {}) if isinstance(px4, Mapping) else {}
             )
             mapping_verified = (
                 mapping.get("actuator_mapping_verified")
@@ -636,22 +623,14 @@ def _dataset_contract(
         ),
         "sample_rate_hz": reference_rate,
         "control_size": len(spec_payload["controls"]),
-        "control_names": [
-            channel["name"] for channel in spec_payload["controls"]
-        ],
-        "control_roles": [
-            channel["role"] for channel in spec_payload["controls"]
-        ],
+        "control_names": [channel["name"] for channel in spec_payload["controls"]],
+        "control_roles": [channel["role"] for channel in spec_payload["controls"]],
         "control_semantics": [
             channel["semantic"] for channel in spec_payload["controls"]
         ],
         "exogenous_size": len(spec_payload["exogenous"]),
-        "exogenous_names": [
-            channel["name"] for channel in spec_payload["exogenous"]
-        ],
-        "exogenous_roles": [
-            channel["role"] for channel in spec_payload["exogenous"]
-        ],
+        "exogenous_names": [channel["name"] for channel in spec_payload["exogenous"]],
+        "exogenous_roles": [channel["role"] for channel in spec_payload["exogenous"]],
         "observation_size": len(spec_payload["observations"]),
         "observation_names": [
             channel["name"] for channel in spec_payload["observations"]
@@ -660,9 +639,7 @@ def _dataset_contract(
             channel["role"] for channel in spec_payload["observations"]
         ],
         "platform": platform,
-        "source_type": (
-            source_types[0] if len(source_type_counts) == 1 else "mixed"
-        ),
+        "source_type": (source_types[0] if len(source_type_counts) == 1 else "mixed"),
         "source_type_counts": source_type_counts,
         "state_source": spec_payload["observation_source"],
         "state_schema": spec_payload["state_schema"],
@@ -740,9 +717,7 @@ def _evaluate_model(
         "aggregate": {
             "flight_count": len(flights),
             "weighting": "equal_flight",
-            "full_rollout": aggregate_rollout_metrics(
-                full_metrics, weighting="equal"
-            ),
+            "full_rollout": aggregate_rollout_metrics(full_metrics, weighting="equal"),
             "horizon_rollouts": {
                 label: aggregate_rollout_metrics(items, weighting="equal")
                 for label, items in horizon_metrics.items()
@@ -1005,17 +980,13 @@ def fit_trajectory_artifacts(
     else:
         training_horizon_steps = tuple(
             dict.fromkeys(
-                duration_to_steps(seconds, dt_s)
-                for seconds in training_horizons_s
+                duration_to_steps(seconds, dt_s) for seconds in training_horizons_s
             )
         )
     training_horizon_labels = tuple(
-        f"{steps_at_horizon * dt_s:g}s"
-        for steps_at_horizon in training_horizon_steps
+        f"{steps_at_horizon * dt_s:g}s" for steps_at_horizon in training_horizon_steps
     )
-    training_profiles = [
-        trajectory.labels.get("profile") for trajectory in training
-    ]
+    training_profiles = [trajectory.labels.get("profile") for trajectory in training]
     group_balanced = (
         balance_training_flights
         and len(training) > 1
@@ -1025,8 +996,7 @@ def fit_trajectory_artifacts(
     profile_balanced_weights = None
     if (
         not group_balanced
-        and
-        balance_training_flights
+        and balance_training_flights
         and len(training) > 1
         and all(profile is not None for profile in training_profiles)
     ):
@@ -1061,9 +1031,7 @@ def fit_trajectory_artifacts(
                 and profile_balanced_weights is None
             ),
             trajectory_weights=profile_balanced_weights,
-            trajectory_groups=(
-                training_source_groups if group_balanced else None
-            ),
+            trajectory_groups=(training_source_groups if group_balanced else None),
             maximum_windows=maximum_windows,
         )
         for steps_at_horizon, maximum_windows in zip(
@@ -1089,6 +1057,12 @@ def fit_trajectory_artifacts(
     learned_report["observation_identification"] = (
         None if observation_fit is None else observation_fit.report
     )
+    if isinstance(learned_params, ResidualDynamicsParams):
+        learned_params, history_selection = select_history_residual(
+            learned_params,
+            [flight.trajectory for flight in validation],
+        )
+        learned_report["history_residual_selection"] = history_selection
     learned_report["validation"] = _evaluate_model(
         learned_params,
         validation,
@@ -1116,6 +1090,12 @@ def fit_trajectory_artifacts(
         baseline_report["observation_identification"] = (
             None if observation_fit is None else observation_fit.report
         )
+        if isinstance(baseline_params, ResidualDynamicsParams):
+            baseline_params, history_selection = select_history_residual(
+                baseline_params,
+                [flight.trajectory for flight in validation],
+            )
+            baseline_report["history_residual_selection"] = history_selection
         baseline_report["validation"] = _evaluate_model(
             baseline_params,
             validation,
@@ -1208,8 +1188,7 @@ def fit_trajectory_artifacts(
             "horizon_duration_s": max(training_horizon_steps) * dt_s,
             "training_horizon_steps": list(training_horizon_steps),
             "training_horizons_s": [
-                steps_at_horizon * dt_s
-                for steps_at_horizon in training_horizon_steps
+                steps_at_horizon * dt_s for steps_at_horizon in training_horizon_steps
             ],
             "stride_steps_by_horizon": {
                 label: steps_at_horizon if stride is None else stride
@@ -1273,8 +1252,7 @@ def fit_trajectory_artifacts(
                     for label, windows in zip(training_horizon_labels, window_sets)
                 },
                 "selection_fraction_by_horizon": {
-                    label: len(windows.initial_states)
-                    / windows.candidate_window_count
+                    label: len(windows.initial_states) / windows.candidate_window_count
                     for label, windows in zip(training_horizon_labels, window_sets)
                 },
                 "source_group_count": training_diversity_count,
@@ -1291,6 +1269,11 @@ def fit_trajectory_artifacts(
             "evaluation_horizons_s": list(evaluation_horizons_s),
             "no_lag_ablation": run_no_lag_ablation,
             "model_class": model_class,
+            "residual_history_policy": (
+                "automatic_bounded_causal_innovation_selection"
+                if model_class == "structured_residual"
+                else "not_applicable"
+            ),
             "platform": platform,
             "model_family": family.key,
             "training_flight_weighting": (
@@ -1313,9 +1296,7 @@ def fit_trajectory_artifacts(
             },
             "candidate_training_windows_per_flight_by_horizon": {
                 label: {
-                    training_labels[index]: int(
-                        windows.candidate_window_counts[index]
-                    )
+                    training_labels[index]: int(windows.candidate_window_counts[index])
                     for index in range(len(training))
                 }
                 for label, windows in zip(training_horizon_labels, window_sets)
@@ -1390,9 +1371,7 @@ def _evaluation_horizons(value: str) -> tuple[float, ...]:
 
 
 def _no_lag_model_path(model_path: Path) -> Path:
-    return model_path.with_name(
-        f"{model_path.stem}_no_motor_lag{model_path.suffix}"
-    )
+    return model_path.with_name(f"{model_path.stem}_no_motor_lag{model_path.suffix}")
 
 
 def main() -> None:
@@ -1499,8 +1478,7 @@ def main() -> None:
             parser.error("--training-horizons is not used in fixed-response mode")
         if args.model_class != "structured":
             parser.error(
-                "--fixed-response-time-constant only supports "
-                "--model-class structured"
+                "--fixed-response-time-constant only supports --model-class structured"
             )
         params, report = fit_trajectory_artifact(
             args.trajectory[0],
@@ -1582,9 +1560,7 @@ def main() -> None:
             )
 
     if "split" in report:
-        training_paths = [
-            item["path"] for item in report["split"]["training_flights"]
-        ]
+        training_paths = [item["path"] for item in report["split"]["training_flights"]]
         validation_paths = [
             item["path"] for item in report["split"]["validation_flights"]
         ]
@@ -1593,9 +1569,7 @@ def main() -> None:
         validation_paths = []
 
     if args.model is not None:
-        input_spec = TrajectorySpec.from_dict(
-            report["dataset"]["trajectory_spec"]
-        )
+        input_spec = TrajectorySpec.from_dict(report["dataset"]["trajectory_spec"])
         save_dynamics_model(
             params,
             args.model,

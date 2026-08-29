@@ -7,15 +7,15 @@ from glassbox.arp_reference import (
     fetch_arp_reference,
 )
 from glassbox.data import (
+    RIGID_BODY_STATE_SCHEMA,
     ControlChannel,
     ObservationChannel,
-    RIGID_BODY_STATE_SCHEMA,
     Trajectory,
     TrajectorySpec,
     TrajectoryWindows,
     VehicleConfigurationSpec,
-    make_trajectory_spec,
     load_trajectory_npz,
+    make_trajectory_spec,
     save_trajectory_npz,
     split_trajectory,
     trajectory_segment,
@@ -25,10 +25,14 @@ from glassbox.dynamics import (
     BaseDynamicsParams,
     DynamicsParams,
     FixedWingDynamicsParams,
+    HistoryResidualDynamicsParams,
     ResidualDynamicsParams,
     control_state_after_history,
     fixed_wing_trim_control,
+    history_residual_from_residual,
+    initial_history_residual_parameters,
     initial_residual_parameters,
+    latent_state_after_history,
     model_family,
     rollout,
     rollout_with_latent,
@@ -36,18 +40,24 @@ from glassbox.dynamics import (
     step_with_latent,
     structured_parameters,
 )
-from glassbox.identification import (
-    RolloutLossConfiguration,
-    dynamic_envelope_penalty,
-    residual_initialization_statistics,
-    rollout_loss_configuration,
-)
 from glassbox.evaluation import (
     aggregate_innovation_diagnostics,
     kinematic_persistence_windowed_metrics,
     one_step_innovation_diagnostics,
     rollout_divergence_metrics,
     state_kinematic_compatibility_diagnostics,
+)
+from glassbox.fixedwing_gate import (
+    compare_fixedwing_gates,
+    evaluate_fixedwing_gate,
+    save_fixedwing_gate,
+    screen_fixedwing_airframe_candidate,
+)
+from glassbox.identification import (
+    RolloutLossConfiguration,
+    dynamic_envelope_penalty,
+    residual_initialization_statistics,
+    rollout_loss_configuration,
 )
 from glassbox.idf_reference import (
     IDFFixedWingAdapter,
@@ -73,21 +83,15 @@ from glassbox.observation_identification import (
     fit_multirotor_observations,
 )
 from glassbox.source_group_benchmark import benchmark_source_groups
-from glassbox.fixedwing_gate import (
-    compare_fixedwing_gates,
-    evaluate_fixedwing_gate,
-    save_fixedwing_gate,
-    screen_fixedwing_airframe_candidate,
+from glassbox.x8_evaluation import (
+    evaluate_x8_reference_models,
+    save_x8_reference_report,
 )
 from glassbox.x8_reference import (
     X8ReferenceAdapter,
     extract_x8_reference,
     fetch_x8_reference,
     x8_trajectory_spec,
-)
-from glassbox.x8_evaluation import (
-    evaluate_x8_reference_models,
-    save_x8_reference_report,
 )
 
 __all__ = [
@@ -97,6 +101,7 @@ __all__ = [
     "BaseDynamicsParams",
     "DynamicsParams",
     "FixedWingDynamicsParams",
+    "HistoryResidualDynamicsParams",
     "IDFFixedWingAdapter",
     "RIGID_BODY_STATE_SCHEMA",
     "RolloutLossConfiguration",
@@ -109,6 +114,7 @@ __all__ = [
     "VehicleConfigurationSpec",
     "X8ReferenceAdapter",
     "control_state_after_history",
+    "latent_state_after_history",
     "actuator_observation_alignment",
     "aggregate_innovation_diagnostics",
     "compare_fixedwing_gates",
@@ -139,6 +145,8 @@ __all__ = [
     "screen_fixedwing_airframe_candidate",
     "load_trajectory_npz",
     "initial_residual_parameters",
+    "initial_history_residual_parameters",
+    "history_residual_from_residual",
     "kinematic_persistence_windowed_metrics",
     "model_family",
     "one_step_innovation_diagnostics",

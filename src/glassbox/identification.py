@@ -17,9 +17,10 @@ from glassbox.data import (
     TrajectoryWindows,
 )
 from glassbox.dynamics import (
+    HistoryResidualDynamicsParams,
     ModelParams,
     ResidualDynamicsParams,
-    control_state_after_history,
+    latent_state_after_history,
     model_family,
     quaternion_to_rotation,
     rollout_with_latent,
@@ -30,11 +31,10 @@ from glassbox.dynamics import (
     with_thrust_command_offset,
     zero_angular_cross_coupling_gradient,
     zero_residual_configuration_gradient,
-    zero_rotational_response_gradient,
     zero_response_time_gradient,
+    zero_rotational_response_gradient,
     zero_thrust_command_offset_gradient,
 )
-
 
 OPTIMIZATION_POLICY_VERSION = "deterministic_weighted_minibatch_v2"
 MAX_OPTIMIZATION_WINDOWS_PER_HORIZON = 8_192
@@ -87,9 +87,7 @@ class RolloutLossConfiguration:
             not np.isfinite(self.stability_regularization)
             or self.stability_regularization < 0.0
         ):
-            raise ValueError(
-                "stability_regularization must be finite and nonnegative"
-            )
+            raise ValueError("stability_regularization must be finite and nonnegative")
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -102,12 +100,8 @@ class RolloutLossConfiguration:
                 ),
             },
             "dynamic_envelope": {
-                "body_velocity_center_m_s": (
-                    self.body_velocity_center_m_s.tolist()
-                ),
-                "body_velocity_half_width_m_s": (
-                    self.body_velocity_bound_m_s.tolist()
-                ),
+                "body_velocity_center_m_s": (self.body_velocity_center_m_s.tolist()),
+                "body_velocity_half_width_m_s": (self.body_velocity_bound_m_s.tolist()),
                 "angular_velocity_center_rad_s": (
                     self.angular_velocity_center_rad_s.tolist()
                 ),
@@ -169,14 +163,10 @@ def deterministic_weighted_batch_schedule(
         probabilities = weights / np.sum(weights)
     cumulative = np.cumsum(probabilities)
     cumulative[-1] = 1.0
-    base_positions = (
-        np.arange(batch_size, dtype=np.float64) + 0.5
-    ) / batch_size
+    base_positions = (np.arange(batch_size, dtype=np.float64) + 0.5) / batch_size
     golden_fraction = 0.6180339887498949
     phases = np.mod(np.arange(steps, dtype=np.float64) * golden_fraction, 1.0)
-    positions = np.mod(
-        phases[:, np.newaxis] + base_positions[np.newaxis, :], 1.0
-    )
+    positions = np.mod(phases[:, np.newaxis] + base_positions[np.newaxis, :], 1.0)
     return np.searchsorted(cumulative, positions, side="right").astype(np.int64)
 
 
@@ -209,7 +199,9 @@ def _optimization_batch_schedules(
     return schedules
 
 
-def _rotation_matrices(quaternion_wxyz: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+def _rotation_matrices(
+    quaternion_wxyz: npt.NDArray[np.float64],
+) -> npt.NDArray[np.float64]:
     """Return vectorized body-to-world rotations for normalized WXYZ quaternions."""
 
     quaternion = quaternion_wxyz / np.linalg.norm(
@@ -255,9 +247,7 @@ def _window_wind_world(windows: TrajectoryWindows) -> npt.NDArray[np.float64]:
     return wind
 
 
-def _batch_wind_world(
-    exogenous: Array, exogenous_roles: tuple[str, ...]
-) -> Array:
+def _batch_wind_world(exogenous: Array, exogenous_roles: tuple[str, ...]) -> Array:
     """JAX equivalent of :func:`_window_wind_world`."""
 
     return jnp.stack(
@@ -296,20 +286,14 @@ def rollout_loss_configuration(
     for windows in window_sets:
         states = np.asarray(windows.target_states[:, 1:], dtype=np.float64)
         initial = np.asarray(windows.initial_states, dtype=np.float64)[:, None, :]
-        position_changes.append(
-            (states[..., 0:3] - initial[..., 0:3]).reshape(-1, 3)
-        )
-        velocity_changes.append(
-            (states[..., 3:6] - initial[..., 3:6]).reshape(-1, 3)
-        )
+        position_changes.append((states[..., 0:3] - initial[..., 0:3]).reshape(-1, 3))
+        velocity_changes.append((states[..., 3:6] - initial[..., 3:6]).reshape(-1, 3))
         angular_velocity_changes.append(
             (states[..., 10:13] - initial[..., 10:13]).reshape(-1, 3)
         )
         quaternion = states[..., 6:10]
         initial_quaternion = initial[..., 6:10]
-        quaternion = quaternion / np.linalg.norm(
-            quaternion, axis=-1, keepdims=True
-        )
+        quaternion = quaternion / np.linalg.norm(quaternion, axis=-1, keepdims=True)
         initial_quaternion = initial_quaternion / np.linalg.norm(
             initial_quaternion, axis=-1, keepdims=True
         )
@@ -326,26 +310,21 @@ def rollout_loss_configuration(
                 "...ji,...j->...i",
                 rotations,
                 states[..., 3:6] - wind_world,
-            )
-            .reshape(-1, 3)
+            ).reshape(-1, 3)
         )
         angular_velocities.append(states[..., 10:13].reshape(-1, 3))
 
     position_change = np.concatenate(position_changes, axis=0)
     velocity_change = np.concatenate(velocity_changes, axis=0)
     attitude_change = np.concatenate(attitude_changes, axis=0)
-    angular_velocity_change = np.concatenate(
-        angular_velocity_changes, axis=0
-    )
+    angular_velocity_change = np.concatenate(angular_velocity_changes, axis=0)
     body_velocity = np.concatenate(body_velocities, axis=0)
     angular_velocity = np.concatenate(angular_velocities, axis=0)
     body_velocity_center = np.median(body_velocity, axis=0)
     angular_velocity_center = np.median(angular_velocity, axis=0)
     body_velocity_deviation = body_velocity - body_velocity_center
     angular_velocity_deviation = angular_velocity - angular_velocity_center
-    body_velocity_scale = _robust_axis_scale(
-        body_velocity_deviation, floor=0.1
-    )
+    body_velocity_scale = _robust_axis_scale(body_velocity_deviation, floor=0.1)
     angular_velocity_envelope_scale = _robust_axis_scale(
         angular_velocity_deviation, floor=0.1
     )
@@ -426,18 +405,15 @@ def residual_initialization_statistics(
                 axis=-1,
             ).reshape(-1, 6 + expected_control_size + expected_exogenous_size)
         )
-        world_acceleration = (
-            next_states[..., 3:6] - states[..., 3:6]
-        ) / windows.dt_s
-        body_acceleration = np.einsum(
-            "...ji,...j->...i", rotations, world_acceleration
-        )
+        world_acceleration = (next_states[..., 3:6] - states[..., 3:6]) / windows.dt_s
+        body_acceleration = np.einsum("...ji,...j->...i", rotations, world_acceleration)
         angular_acceleration = (
             next_states[..., 10:13] - states[..., 10:13]
         ) / windows.dt_s
         accelerations.append(
-            np.concatenate((body_acceleration, angular_acceleration), axis=-1)
-            .reshape(-1, 6)
+            np.concatenate((body_acceleration, angular_acceleration), axis=-1).reshape(
+                -1, 6
+            )
         )
 
     feature_values = np.concatenate(features, axis=0)
@@ -469,18 +445,41 @@ def batch_rollout_loss(
     control_roles: tuple[str, ...] | None = None,
     initial_exogenous: Array | None = None,
     exogenous_roles: tuple[str, ...] | None = None,
+    state_histories: Array | None = None,
+    exogenous_histories: Array | None = None,
+    history_valid: Array | None = None,
 ) -> Array:
     """Calculate semantic rollout error plus a soft dynamic-envelope penalty."""
 
-    initial_motor_states = jax.vmap(
-        lambda history: control_state_after_history(
-            params, history, dt_s, control_roles
-        )
-    )(control_histories)
     if initial_exogenous is None:
         initial_exogenous = jnp.empty((len(initial_states), 0))
     if exogenous_roles is None:
         exogenous_roles = ()
+    history_steps = control_histories.shape[1]
+    if state_histories is None:
+        state_histories = jnp.repeat(
+            initial_states[:, jnp.newaxis, :], history_steps + 1, axis=1
+        )
+    if exogenous_histories is None:
+        exogenous_histories = jnp.repeat(
+            initial_exogenous[:, jnp.newaxis, :], history_steps + 1, axis=1
+        )
+    if history_valid is None:
+        history_valid = jnp.zeros((len(initial_states), history_steps), dtype=bool)
+    initial_latent_states = jax.vmap(
+        lambda state_history, control_history, exogenous_history, valid: (
+            latent_state_after_history(
+                params,
+                state_history,
+                control_history,
+                dt_s,
+                control_roles,
+                exogenous_history,
+                exogenous_roles,
+                valid,
+            )
+        )
+    )(state_histories, control_histories, exogenous_histories, history_valid)
     predicted, _ = jax.vmap(
         lambda initial, control_sequence, initial_control, context: rollout_with_latent(
             params,
@@ -495,17 +494,17 @@ def batch_rollout_loss(
     )(
         initial_states,
         controls,
-        initial_motor_states,
+        initial_latent_states,
         initial_exogenous,
     )
     predicted = predicted[:, 1:, :]
     target_states = target_states[:, 1:, :]
-    position_error = (
-        predicted[..., 0:3] - target_states[..., 0:3]
-    ) / jnp.asarray(loss_configuration.position_scale_m)
-    velocity_error = (
-        predicted[..., 3:6] - target_states[..., 3:6]
-    ) / jnp.asarray(loss_configuration.velocity_scale_m_s)
+    position_error = (predicted[..., 0:3] - target_states[..., 0:3]) / jnp.asarray(
+        loss_configuration.position_scale_m
+    )
+    velocity_error = (predicted[..., 3:6] - target_states[..., 3:6]) / jnp.asarray(
+        loss_configuration.velocity_scale_m_s
+    )
     angular_velocity_error = (
         predicted[..., 10:13] - target_states[..., 10:13]
     ) / jnp.asarray(loss_configuration.angular_velocity_scale_rad_s)
@@ -518,15 +517,12 @@ def batch_rollout_loss(
         target_quaternion, axis=-1, keepdims=True
     )
     quaternion_dot = jnp.clip(
-        jnp.abs(
-            jnp.sum(predicted_quaternion * target_quaternion, axis=-1)
-        ),
+        jnp.abs(jnp.sum(predicted_quaternion * target_quaternion, axis=-1)),
         0.0,
         1.0,
     )
     attitude_squared_error = (
-        8.0 * (1.0 - quaternion_dot)
-        / loss_configuration.attitude_scale_rad**2
+        8.0 * (1.0 - quaternion_dot) / loss_configuration.attitude_scale_rad**2
     )
     per_step_error = 0.25 * (
         jnp.mean(jnp.square(position_error), axis=-1)
@@ -572,9 +568,7 @@ def dynamic_envelope_penalty(
     predicted_quaternion = predicted_quaternion / jnp.linalg.norm(
         predicted_quaternion, axis=-1, keepdims=True
     )
-    rotations = jax.vmap(jax.vmap(quaternion_to_rotation))(
-        predicted_quaternion
-    )
+    rotations = jax.vmap(jax.vmap(quaternion_to_rotation))(predicted_quaternion)
     if initial_exogenous is None:
         initial_exogenous = jnp.empty((predicted_states.shape[0], 0))
     if exogenous_roles is None:
@@ -585,28 +579,30 @@ def dynamic_envelope_penalty(
         rotations,
         predicted_states[..., 3:6] - wind_world[:, None, :],
     )
-    body_velocity_bound = jnp.asarray(
-        loss_configuration.body_velocity_bound_m_s
-    )
+    body_velocity_bound = jnp.asarray(loss_configuration.body_velocity_bound_m_s)
     angular_velocity_bound = jnp.asarray(
         loss_configuration.angular_velocity_bound_rad_s
     )
-    body_velocity_excess = jax.nn.relu(
-        jnp.abs(
-            predicted_body_velocity
-            - jnp.asarray(loss_configuration.body_velocity_center_m_s)
-        )
-        - body_velocity_bound
-    ) / body_velocity_bound
-    angular_velocity_excess = jax.nn.relu(
-        jnp.abs(
-            predicted_states[..., 10:13]
-            - jnp.asarray(
-                loss_configuration.angular_velocity_center_rad_s
+    body_velocity_excess = (
+        jax.nn.relu(
+            jnp.abs(
+                predicted_body_velocity
+                - jnp.asarray(loss_configuration.body_velocity_center_m_s)
             )
+            - body_velocity_bound
         )
-        - angular_velocity_bound
-    ) / angular_velocity_bound
+        / body_velocity_bound
+    )
+    angular_velocity_excess = (
+        jax.nn.relu(
+            jnp.abs(
+                predicted_states[..., 10:13]
+                - jnp.asarray(loss_configuration.angular_velocity_center_rad_s)
+            )
+            - angular_velocity_bound
+        )
+        / angular_velocity_bound
+    )
     per_step_stability = 0.5 * (
         jnp.mean(jnp.square(body_velocity_excess), axis=-1)
         + jnp.mean(jnp.square(angular_velocity_excess), axis=-1)
@@ -627,8 +623,7 @@ def _fit_objective(
     fixed_rotational_response: bool = False,
     fixed_angular_cross_coupling: bool = False,
     loss_configuration: RolloutLossConfiguration,
-    batch_objective: Callable[[ModelParams, tuple[Array, ...]], Array]
-    | None = None,
+    batch_objective: Callable[[ModelParams, tuple[Array, ...]], Array] | None = None,
     batch_schedules: tuple[npt.NDArray[np.int64], ...] | None = None,
     batch_window_counts: tuple[int, ...] | None = None,
 ) -> FitResult:
@@ -637,16 +632,11 @@ def _fit_objective(
             "batch_objective and batch_schedules must be supplied together"
         )
     if batch_schedules is not None and (
-        batch_window_counts is None
-        or len(batch_window_counts) != len(batch_schedules)
+        batch_window_counts is None or len(batch_window_counts) != len(batch_schedules)
     ):
-        raise ValueError(
-            "batch_window_counts must match supplied batch schedules"
-        )
+        raise ValueError("batch_window_counts must match supplied batch schedules")
     value_and_grad = jax.jit(
-        jax.value_and_grad(
-            objective if batch_objective is None else batch_objective
-        )
+        jax.value_and_grad(objective if batch_objective is None else batch_objective)
     )
     component_values = jax.jit(component_objective)
     params = initial_params
@@ -677,14 +667,9 @@ def _fit_objective(
         elif fixed_angular_cross_coupling:
             gradients = zero_angular_cross_coupling_gradient(gradients)
         gradient_norm = jnp.sqrt(
-            sum(
-                jnp.sum(jnp.square(leaf))
-                for leaf in jax.tree.leaves(gradients)
-            )
+            sum(jnp.sum(jnp.square(leaf)) for leaf in jax.tree.leaves(gradients))
         )
-        clip_scale = jnp.minimum(
-            1.0, gradient_clip_norm / (gradient_norm + 1e-12)
-        )
+        clip_scale = jnp.minimum(1.0, gradient_clip_norm / (gradient_norm + 1e-12))
         gradients = jax.tree.map(lambda value: value * clip_scale, gradients)
 
         first_moment = jax.tree.map(
@@ -693,8 +678,9 @@ def _fit_objective(
             gradients,
         )
         second_moment = jax.tree.map(
-            lambda moment, gradient: beta2 * moment
-            + (1.0 - beta2) * jnp.square(gradient),
+            lambda moment, gradient: (
+                beta2 * moment + (1.0 - beta2) * jnp.square(gradient)
+            ),
             second_moment,
             gradients,
         )
@@ -705,8 +691,9 @@ def _fit_objective(
             lambda moment: moment / (1.0 - beta2**index), second_moment
         )
         params = jax.tree.map(
-            lambda parameter, first, second: parameter
-            - learning_rate * first / (jnp.sqrt(second) + epsilon),
+            lambda parameter, first, second: (
+                parameter - learning_rate * first / (jnp.sqrt(second) + epsilon)
+            ),
             params,
             corrected_first,
             corrected_second,
@@ -722,9 +709,7 @@ def _fit_objective(
         component_final_losses=final_components,
         loss_configuration=loss_configuration,
         optimization_policy=(
-            "full_batch_v1"
-            if batch_schedules is None
-            else OPTIMIZATION_POLICY_VERSION
+            "full_batch_v1" if batch_schedules is None else OPTIMIZATION_POLICY_VERSION
         ),
         batch_sizes=(
             ()
@@ -749,21 +734,14 @@ def _configured_initial_params(
     initial_params: ModelParams,
     fixed_motor_time_constant_s: float | None,
 ) -> ModelParams:
-    if (
-        fixed_motor_time_constant_s is not None
-        and fixed_motor_time_constant_s <= 0.0
-    ):
+    if fixed_motor_time_constant_s is not None and fixed_motor_time_constant_s <= 0.0:
         raise ValueError("fixed_motor_time_constant_s must be positive")
     if fixed_motor_time_constant_s is None:
         return initial_params
-    return with_response_time_constant(
-        initial_params, fixed_motor_time_constant_s
-    )
+    return with_response_time_constant(initial_params, fixed_motor_time_constant_s)
 
 
-def _validate_window_schema(
-    params: ModelParams, windows: TrajectoryWindows
-) -> None:
+def _validate_window_schema(params: ModelParams, windows: TrajectoryWindows) -> None:
     validate_control_schema(
         params,
         windows.control_names,
@@ -797,8 +775,7 @@ def _resolved_thrust_command_offset_policy(
     requested: bool,
 ) -> bool:
     semantic_policies = {
-        supports_multirotor_thrust_command_offset(params, item)
-        for item in windows
+        supports_multirotor_thrust_command_offset(params, item) for item in windows
     }
     if len(semantic_policies) != 1:
         raise ValueError(
@@ -814,13 +791,21 @@ def _resolved_thrust_command_offset_policy(
 
 
 def _residual_regularization(params: ModelParams) -> Array:
-    if not isinstance(params, ResidualDynamicsParams):
+    if isinstance(params, ResidualDynamicsParams):
+        terms = (
+            params.hidden_weights,
+            params.output_weights,
+            params.hidden_bias,
+        )
+    elif isinstance(params, HistoryResidualDynamicsParams):
+        terms = (
+            params.hidden_weights,
+            params.output_weights,
+            params.hidden_bias,
+        )
+    else:
         return jnp.asarray(0.0)
-    return 1e-3 * (
-        jnp.mean(jnp.square(params.hidden_weights))
-        + jnp.mean(jnp.square(params.output_weights))
-        + jnp.mean(jnp.square(params.hidden_bias))
-    )
+    return 1e-3 * sum(jnp.mean(jnp.square(value)) for value in terms)
 
 
 def _window_loss(
@@ -831,17 +816,21 @@ def _window_loss(
 ) -> Array:
     initial_states = jnp.asarray(windows.initial_states)
     control_histories = jnp.asarray(windows.control_histories)
+    state_histories = jnp.asarray(windows.state_histories)
+    exogenous_histories = jnp.asarray(windows.exogenous_histories)
+    history_valid = jnp.asarray(windows.history_valid)
     controls = jnp.asarray(windows.controls)
     target_states = jnp.asarray(windows.target_states)
     initial_exogenous = jnp.asarray(windows.initial_exogenous)
     window_weights = (
-        None
-        if windows.window_weights is None
-        else jnp.asarray(windows.window_weights)
+        None if windows.window_weights is None else jnp.asarray(windows.window_weights)
     )
     if indices is not None:
         initial_states = initial_states[indices]
         control_histories = control_histories[indices]
+        state_histories = state_histories[indices]
+        exogenous_histories = exogenous_histories[indices]
+        history_valid = history_valid[indices]
         controls = controls[indices]
         target_states = target_states[indices]
         initial_exogenous = initial_exogenous[indices]
@@ -859,6 +848,9 @@ def _window_loss(
         windows.control_roles,
         initial_exogenous,
         windows.exogenous_roles,
+        state_histories,
+        exogenous_histories,
+        history_valid,
     )
 
 
@@ -907,27 +899,20 @@ def fit_dynamics(
         )
 
     def component_objective(params: ModelParams) -> Array:
-        return jnp.asarray(
-            [_window_loss(params, windows, loss_configuration)]
-        )
+        return jnp.asarray([_window_loss(params, windows, loss_configuration)])
 
     def objective(params: ModelParams) -> Array:
         return component_objective(params)[0] + _residual_regularization(params)
 
     batch_schedules = _optimization_batch_schedules([windows], steps=steps)
 
-    def batch_objective(
-        params: ModelParams, batch_indices: tuple[Array, ...]
-    ) -> Array:
-        return (
-            _window_loss(
-                params,
-                windows,
-                loss_configuration,
-                indices=batch_indices[0],
-            )
-            + _residual_regularization(params)
-        )
+    def batch_objective(params: ModelParams, batch_indices: tuple[Array, ...]) -> Array:
+        return _window_loss(
+            params,
+            windows,
+            loss_configuration,
+            indices=batch_indices[0],
+        ) + _residual_regularization(params)
 
     return _fit_objective(
         objective,
@@ -941,9 +926,7 @@ def fit_dynamics(
         fixed_rotational_response=instantaneous_rotational_response,
         fixed_angular_cross_coupling=diagonal_angular_control,
         loss_configuration=loss_configuration,
-        batch_objective=(
-            None if batch_schedules is None else batch_objective
-        ),
+        batch_objective=(None if batch_schedules is None else batch_objective),
         batch_schedules=batch_schedules,
         batch_window_counts=(
             None if batch_schedules is None else (len(windows.initial_states),)
@@ -1042,21 +1025,16 @@ def fit_dynamics_multi_horizon(
         if loss_normalization_params is None
         else loss_normalization_params
     )
-    normalizers = jax.lax.stop_gradient(
-        jnp.maximum(initial_component_losses, 1e-12)
-    )
+    normalizers = jax.lax.stop_gradient(jnp.maximum(initial_component_losses, 1e-12))
 
     def objective(params: ModelParams) -> Array:
-        return (
-            jnp.sum(weights * component_objective(params) / normalizers)
-            + _residual_regularization(params)
-        )
+        return jnp.sum(
+            weights * component_objective(params) / normalizers
+        ) + _residual_regularization(params)
 
     batch_schedules = _optimization_batch_schedules(window_sets, steps=steps)
 
-    def batch_objective(
-        params: ModelParams, batch_indices: tuple[Array, ...]
-    ) -> Array:
+    def batch_objective(params: ModelParams, batch_indices: tuple[Array, ...]) -> Array:
         component_losses = jnp.stack(
             [
                 _window_loss(
@@ -1068,10 +1046,9 @@ def fit_dynamics_multi_horizon(
                 for windows, indices in zip(window_sets, batch_indices)
             ]
         )
-        return (
-            jnp.sum(weights * component_losses / normalizers)
-            + _residual_regularization(params)
-        )
+        return jnp.sum(
+            weights * component_losses / normalizers
+        ) + _residual_regularization(params)
 
     return _fit_objective(
         objective,
@@ -1085,9 +1062,7 @@ def fit_dynamics_multi_horizon(
         fixed_rotational_response=instantaneous_rotational_response,
         fixed_angular_cross_coupling=diagonal_angular_control,
         loss_configuration=loss_configuration,
-        batch_objective=(
-            None if batch_schedules is None else batch_objective
-        ),
+        batch_objective=(None if batch_schedules is None else batch_objective),
         batch_schedules=batch_schedules,
         batch_window_counts=(
             None

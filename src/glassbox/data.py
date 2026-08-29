@@ -10,15 +10,12 @@ from typing import Any, Mapping, Sequence
 import numpy as np
 import numpy.typing as npt
 
-
 STATE_SIZE = 13
 RIGID_BODY_STATE_SCHEMA = "rigid_body_13_nwu_flu_wxyz_v1"
 NORMALIZED_MOTOR_COMMAND_SEMANTICS = frozenset(
     {"normalized_command", "normalized_actuator_output"}
 )
-PHYSICAL_MOTOR_THRUST_SEMANTICS = frozenset(
-    {"squared_rotor_speed_ratio"}
-)
+PHYSICAL_MOTOR_THRUST_SEMANTICS = frozenset({"squared_rotor_speed_ratio"})
 
 
 def duration_to_steps(duration_s: float, dt_s: float) -> int:
@@ -87,14 +84,10 @@ class ControlChannel:
             semantic=str(payload["semantic"]),
             unit=str(payload["unit"]),
             minimum=(
-                None
-                if payload.get("minimum") is None
-                else float(payload["minimum"])
+                None if payload.get("minimum") is None else float(payload["minimum"])
             ),
             maximum=(
-                None
-                if payload.get("maximum") is None
-                else float(payload["maximum"])
+                None if payload.get("maximum") is None else float(payload["maximum"])
             ),
             frame=(None if payload.get("frame") is None else str(payload["frame"])),
         )
@@ -158,9 +151,7 @@ class ObservationChannel:
         for field_name in ("name", "role", "semantic", "unit", "frame", "source"):
             value = getattr(self, field_name)
             if not value.strip():
-                raise ValueError(
-                    f"observation channel {field_name} cannot be empty"
-                )
+                raise ValueError(f"observation channel {field_name} cannot be empty")
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -273,7 +264,9 @@ class VehicleConfigurationSpec:
                 if payload.get("configuration_id") is None
                 else str(payload["configuration_id"])
             ),
-            controlled_axes=tuple(str(value) for value in payload.get("controlled_axes", ())),
+            controlled_axes=tuple(
+                str(value) for value in payload.get("controlled_axes", ())
+            ),
             propulsion=str(payload.get("propulsion", "unknown")),
             fixed_states=dict(payload.get("fixed_states", {})),
             auxiliary_controls=tuple(
@@ -374,9 +367,7 @@ class TrajectorySpec:
             "controls": [channel.to_dict() for channel in self.controls],
             "vehicle": self.vehicle.to_dict(),
             "exogenous": [channel.to_dict() for channel in self.exogenous],
-            "observations": [
-                channel.to_dict() for channel in self.observations
-            ],
+            "observations": [channel.to_dict() for channel in self.observations],
         }
 
     @classmethod
@@ -449,9 +440,7 @@ def make_trajectory_spec(
     names = tuple(str(name) for name in control_names)
     channels = tuple(_control_channel_for_name(name, family) for name in names)
     roles = {channel.role for channel in channels}
-    controlled_axes = tuple(
-        axis for axis in ("roll", "pitch", "yaw") if axis in roles
-    )
+    controlled_axes = tuple(axis for axis in ("roll", "pitch", "yaw") if axis in roles)
     if family == "multirotor" and any(name.startswith("motor_") for name in names):
         controlled_axes = ("roll", "pitch", "yaw")
         propulsion = "quadrotor" if len(names) == 4 else "distributed_electric"
@@ -609,6 +598,9 @@ class TrajectoryWindows:
     controls: npt.NDArray[np.float64]
     target_states: npt.NDArray[np.float64]
     dt_s: float
+    state_histories: npt.NDArray[np.float64] | None = None
+    exogenous_histories: npt.NDArray[np.float64] | None = None
+    history_valid: npt.NDArray[np.bool_] | None = None
     initial_exogenous: npt.NDArray[np.float64] | None = None
     window_weights: npt.NDArray[np.float64] | None = None
     trajectory_indices: npt.NDArray[np.int64] | None = None
@@ -647,6 +639,33 @@ class TrajectoryWindows:
             )
         if self.dt_s <= 0.0:
             raise ValueError("dt_s must be positive")
+        history_steps = self.control_histories.shape[1]
+        state_histories_were_provided = self.state_histories is not None
+        state_histories = (
+            np.repeat(
+                np.asarray(self.initial_states)[:, np.newaxis, :],
+                history_steps + 1,
+                axis=1,
+            )
+            if self.state_histories is None
+            else np.asarray(self.state_histories, dtype=np.float64)
+        )
+        expected_state_histories = (count, history_steps + 1, STATE_SIZE)
+        if state_histories.shape != expected_state_histories:
+            raise ValueError(
+                f"state_histories must have shape {expected_state_histories}"
+            )
+        if not np.all(np.isfinite(state_histories)):
+            raise ValueError("state_histories values must be finite")
+        object.__setattr__(self, "state_histories", state_histories)
+        history_valid = (
+            np.full((count, history_steps), state_histories_were_provided, dtype=bool)
+            if self.history_valid is None
+            else np.asarray(self.history_valid, dtype=bool)
+        )
+        if history_valid.shape != (count, history_steps):
+            raise ValueError(f"history_valid must have shape {(count, history_steps)}")
+        object.__setattr__(self, "history_valid", history_valid)
         initial_exogenous = (
             np.empty((count, 0), dtype=np.float64)
             if self.initial_exogenous is None
@@ -659,6 +678,27 @@ class TrajectoryWindows:
         if not np.all(np.isfinite(initial_exogenous)):
             raise ValueError("initial_exogenous values must be finite")
         object.__setattr__(self, "initial_exogenous", initial_exogenous)
+        exogenous_histories = (
+            np.repeat(
+                initial_exogenous[:, np.newaxis, :],
+                history_steps + 1,
+                axis=1,
+            )
+            if self.exogenous_histories is None
+            else np.asarray(self.exogenous_histories, dtype=np.float64)
+        )
+        expected_exogenous_histories = (
+            count,
+            history_steps + 1,
+            initial_exogenous.shape[1],
+        )
+        if exogenous_histories.shape != expected_exogenous_histories:
+            raise ValueError(
+                f"exogenous_histories must have shape {expected_exogenous_histories}"
+            )
+        if not np.all(np.isfinite(exogenous_histories)):
+            raise ValueError("exogenous_histories values must be finite")
+        object.__setattr__(self, "exogenous_histories", exogenous_histories)
         control_names = self.control_names
         if control_names is None:
             control_names = tuple(
@@ -667,9 +707,7 @@ class TrajectoryWindows:
         else:
             control_names = tuple(control_names)
         if len(control_names) != self.controls.shape[2]:
-            raise ValueError(
-                "control_names must contain one name per control channel"
-            )
+            raise ValueError("control_names must contain one name per control channel")
         if any(not name.strip() for name in control_names):
             raise ValueError("control_names cannot contain empty names")
         if len(set(control_names)) != len(control_names):
@@ -681,9 +719,7 @@ class TrajectoryWindows:
         else:
             control_roles = tuple(control_roles)
         if len(control_roles) != self.controls.shape[2]:
-            raise ValueError(
-                "control_roles must contain one role per control channel"
-            )
+            raise ValueError("control_roles must contain one role per control channel")
         if any(not role.strip() for role in control_roles):
             raise ValueError("control_roles cannot contain empty values")
         if len(set(control_roles)) != len(control_roles):
@@ -761,15 +797,12 @@ class TrajectoryWindows:
             if (
                 self.trajectory_indices is not None
                 and count > 0
-                and int(np.max(self.trajectory_indices))
-                >= len(candidate_window_counts)
+                and int(np.max(self.trajectory_indices)) >= len(candidate_window_counts)
             ):
                 raise ValueError(
                     "candidate_window_counts must cover every trajectory index"
                 )
-            object.__setattr__(
-                self, "candidate_window_counts", candidate_window_counts
-            )
+            object.__setattr__(self, "candidate_window_counts", candidate_window_counts)
         if not self.selection_policy.strip():
             raise ValueError("selection_policy cannot be empty")
 
@@ -1006,11 +1039,11 @@ def trajectory_windows(
             )
         intervals = np.diff(trajectory.time_s)
         if not np.allclose(intervals, dt_s, atol=dt_tolerance_s, rtol=0.0):
-            raise ValueError("all trajectories must have the same fixed sample interval")
+            raise ValueError(
+                "all trajectories must have the same fixed sample interval"
+            )
 
-        candidate_count = len(
-            range(0, len(trajectory.controls) - horizon + 1, stride)
-        )
+        candidate_count = len(range(0, len(trajectory.controls) - horizon + 1, stride))
         candidate_counts.append(candidate_count)
         if weighting_modes and candidate_count == 0:
             raise ValueError(
@@ -1031,6 +1064,9 @@ def trajectory_windows(
     )
     initial_states: list[npt.NDArray[np.float64]] = []
     control_histories: list[npt.NDArray[np.float64]] = []
+    state_histories: list[npt.NDArray[np.float64]] = []
+    exogenous_histories: list[npt.NDArray[np.float64]] = []
+    history_valid: list[npt.NDArray[np.bool_]] = []
     controls: list[npt.NDArray[np.float64]] = []
     targets: list[npt.NDArray[np.float64]] = []
     initial_exogenous: list[npt.NDArray[np.float64]] = []
@@ -1041,13 +1077,37 @@ def trajectory_windows(
         stop = start + horizon
         history_start = max(0, start - motor_history_steps)
         history = trajectory.controls[history_start:start]
-        padding = np.repeat(
+        control_padding = np.repeat(
             trajectory.controls[0][np.newaxis, :],
             motor_history_steps - len(history),
             axis=0,
         )
+        state_history = trajectory.states[history_start : start + 1]
+        state_padding = np.repeat(
+            trajectory.states[0][np.newaxis, :],
+            motor_history_steps + 1 - len(state_history),
+            axis=0,
+        )
+        exogenous_history = trajectory.exogenous[history_start : start + 1]
+        exogenous_padding = np.repeat(
+            trajectory.exogenous[0][np.newaxis, :],
+            motor_history_steps + 1 - len(exogenous_history),
+            axis=0,
+        )
         initial_states.append(trajectory.states[start])
-        control_histories.append(np.concatenate((padding, history), axis=0))
+        control_histories.append(np.concatenate((control_padding, history), axis=0))
+        state_histories.append(np.concatenate((state_padding, state_history), axis=0))
+        exogenous_histories.append(
+            np.concatenate((exogenous_padding, exogenous_history), axis=0)
+        )
+        history_valid.append(
+            np.concatenate(
+                (
+                    np.zeros(motor_history_steps - len(history), dtype=bool),
+                    np.ones(len(history), dtype=bool),
+                )
+            )
+        )
         controls.append(trajectory.controls[start:stop])
         targets.append(trajectory.states[start : stop + 1])
         initial_exogenous.append(trajectory.exogenous[start])
@@ -1062,13 +1122,16 @@ def trajectory_windows(
     elif trajectory_weights is not None:
         counts = np.bincount(trajectory_index_array, minlength=len(trajectories))
         weights = np.asarray(trajectory_weights, dtype=np.float64)
-        window_weights = weights[trajectory_index_array] / counts[
-            trajectory_index_array
-        ]
+        window_weights = (
+            weights[trajectory_index_array] / counts[trajectory_index_array]
+        )
     elif trajectory_groups is not None:
         group_order = tuple(dict.fromkeys(trajectory_groups))
         group_indices = np.asarray(
-            [group_order.index(trajectory_groups[index]) for index in trajectory_index_array],
+            [
+                group_order.index(trajectory_groups[index])
+                for index in trajectory_index_array
+            ],
             dtype=np.int64,
         )
         group_counts = np.bincount(group_indices, minlength=len(group_order))
@@ -1080,6 +1143,9 @@ def trajectory_windows(
         controls=np.stack(controls),
         target_states=np.stack(targets),
         dt_s=dt_s,
+        state_histories=np.stack(state_histories),
+        exogenous_histories=np.stack(exogenous_histories),
+        history_valid=np.stack(history_valid),
         initial_exogenous=np.stack(initial_exogenous),
         window_weights=window_weights,
         trajectory_indices=trajectory_index_array,
@@ -1128,9 +1194,7 @@ def load_trajectory_npz(path: str | Path) -> Trajectory:
             controls=archive["controls"],
             exogenous=archive["exogenous"],
             observations=archive["observations"],
-            spec=TrajectorySpec.from_dict(
-                json.loads(str(archive["spec_json"]))
-            ),
+            spec=TrajectorySpec.from_dict(json.loads(str(archive["spec_json"]))),
             labels=json.loads(str(archive["labels_json"])),
             provenance=json.loads(str(archive["provenance_json"])),
         )
@@ -1144,8 +1208,7 @@ def trajectory_segment(
     interval_count = len(trajectory.controls)
     if not 0 <= start_interval < stop_interval <= interval_count:
         raise ValueError(
-            "segment bounds must satisfy "
-            f"0 <= start < stop <= {interval_count}"
+            f"segment bounds must satisfy 0 <= start < stop <= {interval_count}"
         )
     provenance = dict(trajectory.provenance)
     transformations = list(provenance.get("transformations", ()))
@@ -1165,9 +1228,7 @@ def trajectory_segment(
         controls=trajectory.controls[start_interval:stop_interval],
         spec=trajectory.spec,
         exogenous=trajectory.exogenous[start_interval : stop_interval + 1],
-        observations=trajectory.observations[
-            start_interval : stop_interval + 1
-        ],
+        observations=trajectory.observations[start_interval : stop_interval + 1],
         labels=trajectory.labels,
         provenance=provenance,
     )

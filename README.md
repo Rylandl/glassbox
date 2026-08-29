@@ -620,10 +620,19 @@ candidate transferred to more platforms and subsequently failed the rollout
 gate. Its implementation is also isolated from normal fitting; the evidence is
 in
 [`docs/state-observation-alignment-results.json`](docs/state-observation-alignment-results.json).
-That closes the bounded literature-guided architecture cycle. Until materially
-new measurements or an externally validated method changes the evidence,
-Glassbox keeps the current dynamics model as an audited gray-box baseline rather
-than adding a combined filter/delay search or learned history encoder.
+That closes the observation-layer branch; those corrections remain isolated
+from normal fitting.
+
+The separate dynamics-history branch now uses a bounded causal innovation
+observer. It replays measured state/control history, estimates a body-force and
+body-moment acceleration discrepancy from one-step prediction errors, and lets
+that discrepancy decay during open-loop rollout. The existing instantaneous
+residual is an exact nested no-op. Development-selected research validation
+improved by 9.4% on Nano, 6.4% on ARP, and 7.5% on IDF; X8 retained the no-op.
+The same architecture and gate apply to both vehicle families, and no CLI knobs
+were added. This is research promotion rather than a production claim; complete
+evidence is in
+[`docs/residual-innovation-observer-results.json`](docs/residual-innovation-observer-results.json).
 
 The evaluation hierarchy is deliberately asymmetric. A material improvement in
 one identifiable state channel may authorize a research A/B for that channel;
@@ -959,6 +968,18 @@ training windows and serialized with the model; there are no multirotor motor
 indices, hover assumptions, fixed-wing surface names, or NanoDrone
 operating-range constants in the residual.
 
+After fitting the instantaneous residual, Glassbox automatically evaluates its
+causal innovation observer on the reserved validation flights. Force and moment
+memory are selected from one fixed internal policy only when they improve the
+state-group aggregate by at least 2% without a metric regressing more than 5%; if
+that gate fails, the serialized result is the original instantaneous model.
+This keeps `structured_residual` as the only user-facing choice while allowing
+airframes with supported hidden state to benefit and airframes such as X8 to
+retain an exact no-op.
+Because those reserved flights participate in model selection, their post-selection
+metrics are explicitly not an unbiased performance estimate; a fresh lockbox is
+required for any production claim.
+
 The same artifact and fitting path wraps multirotor, conventional fixed-wing,
 flying-wing, flap-equipped, and future rigid-body base models. The control
 feature count follows `TrajectorySpec`, so a three-control flying wing and a
@@ -1080,8 +1101,10 @@ while yaw and flap are optional. The coordinate convention is world Z-up and
 body X-forward, Y-left, Z-up.
 
 During rollout each model carries a latent applied-control vector through a
-learned first-order time constant, making the complete simulated state Markovian
-without requiring actuator-position or motor-speed telemetry.
+learned first-order time constant. A selected history-aware residual additionally
+carries six bounded body-acceleration discrepancy states initialized causally
+from prior telemetry and decayed analytically in open loop. The canonical
+telemetry state remains the same 13-element rigid-body vector.
 
 ## Current boundary
 

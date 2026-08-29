@@ -54,14 +54,14 @@ def test_fixed_wing_trim_is_constant_velocity_level_flight() -> None:
 
 def test_low_rate_step_matches_repeated_native_rate_integration() -> None:
     params = true_fixed_wing_parameters()
-    state = jnp.asarray(fixed_wing_trim_state()).at[10:13].set(
-        jnp.asarray((0.08, -0.04, 0.03))
+    state = (
+        jnp.asarray(fixed_wing_trim_state())
+        .at[10:13]
+        .set(jnp.asarray((0.08, -0.04, 0.03)))
     )
     control = fixed_wing_trim_control(params, TRIM_AIRSPEED_M_S).at[1].add(0.04)
 
-    coarse_state, coarse_latent = step_with_latent(
-        params, state, control, control, 0.2
-    )
+    coarse_state, coarse_latent = step_with_latent(params, state, control, control, 0.2)
     fine_states, fine_latent = rollout_with_latent(
         params,
         state,
@@ -76,12 +76,12 @@ def test_low_rate_step_matches_repeated_native_rate_integration() -> None:
 
 def test_initial_fixed_wing_model_stays_finite_at_five_hertz() -> None:
     params = initial_fixed_wing_parameter_guess()
-    state = jnp.asarray(fixed_wing_trim_state()).at[10:13].set(
-        jnp.asarray((0.5, -0.3, 0.2))
+    state = (
+        jnp.asarray(fixed_wing_trim_state())
+        .at[10:13]
+        .set(jnp.asarray((0.5, -0.3, 0.2)))
     )
-    controls = jnp.tile(
-        fixed_wing_trim_control(params, TRIM_AIRSPEED_M_S), (10, 1)
-    )
+    controls = jnp.tile(fixed_wing_trim_control(params, TRIM_AIRSPEED_M_S), (10, 1))
 
     states = rollout(params, state, controls, 0.2)
 
@@ -113,9 +113,9 @@ def test_fixed_wing_rollout_is_differentiable_through_all_controls() -> None:
     trim = fixed_wing_trim_control(params, TRIM_AIRSPEED_M_S)
     controls = jnp.tile(trim, (5, 1))
 
-    jacobian = jax.jacrev(
-        lambda values: rollout(params, state, values, 0.02)[-1, 0:3]
-    )(controls)
+    jacobian = jax.jacrev(lambda values: rollout(params, state, values, 0.02)[-1, 0:3])(
+        controls
+    )
 
     assert jacobian.shape == (3, 5, 4)
     assert bool(jnp.all(jnp.isfinite(jacobian)))
@@ -169,9 +169,7 @@ def test_residual_wraps_flying_wing_without_changing_kinematics() -> None:
     roles = ("throttle", "roll", "pitch")
     residual = initial_residual_parameters(base, control_size=len(roles))
     state = jnp.asarray(fixed_wing_trim_state())
-    controls = jnp.tile(
-        fixed_wing_trim_control(base, TRIM_AIRSPEED_M_S, roles), (8, 1)
-    )
+    controls = jnp.tile(fixed_wing_trim_control(base, TRIM_AIRSPEED_M_S, roles), (8, 1))
     controls = controls.at[2:5, 1].add(0.08)
 
     base_states = rollout(base, state, controls, 0.02, roles)
@@ -190,9 +188,7 @@ def test_residual_wraps_flap_equipped_layout() -> None:
     roles = ("throttle", "roll", "pitch", "yaw", "flap")
     residual = initial_residual_parameters(base, control_size=len(roles))
     state = jnp.asarray(fixed_wing_trim_state())
-    control = fixed_wing_trim_control(base, TRIM_AIRSPEED_M_S, roles).at[4].set(
-        0.3
-    )
+    control = fixed_wing_trim_control(base, TRIM_AIRSPEED_M_S, roles).at[4].set(0.3)
 
     base_next = step(base, state, control, 0.02, roles)
     residual_next = step(residual, state, control, 0.02, roles)
@@ -222,9 +218,7 @@ def test_moving_flap_adds_lift_drag_and_pitch_effects() -> None:
 
 def test_lateral_surface_cross_coupling_adds_adverse_moments() -> None:
     params = true_fixed_wing_parameters()._replace(
-        lateral_surface_cross_angular_accel_per_speed_sq=jnp.asarray(
-            [0.02, -0.03]
-        )
+        lateral_surface_cross_angular_accel_per_speed_sq=jnp.asarray([0.02, -0.03])
     )
     state = jnp.asarray(fixed_wing_trim_state())
     neutral = fixed_wing_trim_control(params, TRIM_AIRSPEED_M_S)
@@ -308,9 +302,7 @@ def test_fixed_wing_artifacts_select_model_family_automatically(tmp_path) -> Non
     assert baseline is None
     assert report["dataset"]["platform"] == "fixedwing"
     assert report["dataset"]["model_family"] == "effective_fixedwing"
-    assert report["configuration"]["control_history_duration_s"] == pytest.approx(
-        1.0
-    )
+    assert report["configuration"]["control_history_duration_s"] == pytest.approx(1.0)
     assert report["configuration"]["motor_history_duration_s"] is None
 
 
@@ -337,14 +329,23 @@ def test_fixed_wing_artifacts_fit_platform_neutral_residual(tmp_path) -> None:
     assert np.all(np.asarray(params.feature_scale) > 0.0)
     assert np.all(np.asarray(params.correction_scale) > 0.0)
     assert report["configuration"]["model_class"] == "structured_residual"
-    assert report["models"]["learned_lag"]["parameters"]["initial"][
-        "residual"
-    ]["input_features"] == 10
+    assert report["configuration"]["residual_history_policy"] == (
+        "automatic_bounded_causal_innovation_selection"
+    )
+    history_selection = report["models"]["learned_lag"]["history_residual_selection"]
+    assert history_selection["policy"] == (
+        "bounded_causal_residual_innovation_selection_v1"
+    )
+    assert history_selection["production_lockbox_required"] is True
+    assert (
+        report["models"]["learned_lag"]["parameters"]["initial"]["residual"][
+            "input_features"
+        ]
+        == 10
+    )
     rollout_loss = report["models"]["learned_lag"]["fit"]["rollout_loss"]
     assert rollout_loss["state_group_weighting"] == "equal_semantic_groups"
-    assert rollout_loss["dynamic_envelope"][
-        "body_velocity_half_width_m_s"
-    ][0] > 0.0
+    assert rollout_loss["dynamic_envelope"]["body_velocity_half_width_m_s"][0] > 0.0
 
 
 def test_fixed_wing_profile_benchmark_does_not_apply_multirotor_contract(
