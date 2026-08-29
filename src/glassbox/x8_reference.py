@@ -15,15 +15,14 @@ from typing import Any
 import numpy as np
 
 from glassbox.data import (
+    RIGID_BODY_STATE_SCHEMA,
     ControlChannel,
     ExogenousChannel,
-    RIGID_BODY_STATE_SCHEMA,
     Trajectory,
     TrajectorySpec,
     VehicleConfigurationSpec,
     save_trajectory_npz,
 )
-
 
 X8_REFERENCE_NAME = "ntnu_skywalker_x8_system_identification"
 X8_REFERENCE_DOI = "10.18710/U4TLYV"

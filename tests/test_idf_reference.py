@@ -17,8 +17,8 @@ from glassbox.data import (
 from glassbox.idf_reference import (
     IDF_CONFIGURATION_ID,
     IDF_REFERENCE_NAME,
-    IDFRecording,
     IDFFixedWingAdapter,
+    IDFRecording,
     extract_idf_ulogs,
     fetch_idf_archive,
     idf_corpus_report,
@@ -146,7 +146,7 @@ def test_corpus_report_records_coverage_and_excitation(tmp_path, monkeypatch) ->
     monkeypatch.setattr(
         idf_module,
         "ULog",
-        lambda *args, **kwargs: SimpleNamespace(
+        lambda *_args, **_kwargs: SimpleNamespace(
             start_timestamp=0, last_timestamp=1_000_000
         ),
     )

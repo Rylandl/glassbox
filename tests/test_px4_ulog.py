@@ -393,7 +393,10 @@ def test_missing_required_topic_reports_inventory() -> None:
         if dataset.name != "vehicle_angular_velocity"
     ]
 
-    with pytest.raises(PX4ULogError, match="vehicle_angular_velocity.*available topics"):
+    with pytest.raises(
+        PX4ULogError,
+        match=r"vehicle_angular_velocity.*available topics",
+    ):
         trajectory_from_datasets(datasets)
 
 

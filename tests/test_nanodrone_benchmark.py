@@ -9,11 +9,12 @@ import glassbox.nanodrone_benchmark as benchmark_module
 from glassbox.adapter import TrajectoryAdapter
 from glassbox.data import save_trajectory_npz
 from glassbox.dynamics import QUADROTOR_CONTROL_NAMES
+from glassbox.model_io import save_dynamics_model
 from glassbox.nanodrone_benchmark import (
     BENCHMARK_COMMIT,
+    SOURCE_COLUMNS,
     BenchmarkRecording,
     NanoDroneBenchmarkAdapter,
-    SOURCE_COLUMNS,
     fetch_nanodrone_benchmark,
 )
 from glassbox.nanodrone_evaluation import (
@@ -24,7 +25,6 @@ from glassbox.nanodrone_evaluation import (
     evaluate_nanodrone_model_artifact,
     save_nanodrone_benchmark_report,
 )
-from glassbox.model_io import save_dynamics_model
 from glassbox.synthetic import initial_parameter_guess
 
 

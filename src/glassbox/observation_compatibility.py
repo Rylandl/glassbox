@@ -8,8 +8,9 @@ rollout dynamics or the default fitter.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, replace
-from typing import Any, Sequence
+from typing import Any
 
 import numpy as np
 import numpy.typing as npt
@@ -20,7 +21,6 @@ from glassbox.evaluation import (
     KINEMATIC_POSITION_RATE_FLOOR_M_S,
     state_kinematic_compatibility_diagnostics,
 )
-
 
 MINIMUM_SCALE = 0.8
 MAXIMUM_SCALE = 1.2
@@ -301,7 +301,6 @@ def _bounded_solution(
     residual_target = target - design[:, :3] @ scale
     bias, *_ = np.linalg.lstsq(design[:, 3:6], residual_target, rcond=None)
     bias = np.clip(bias, -maximum_bias, maximum_bias)
-    bounded = np.concatenate((scale, bias))
     return scale, bias, unconstrained
 
 

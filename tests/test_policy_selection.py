@@ -325,10 +325,10 @@ def test_selection_rejects_benchmark_test_trajectories(tmp_path, monkeypatch) ->
     }
     monkeypatch.setattr(
         "glassbox.policy_selection.benchmark_profiles",
-        lambda *args, **kwargs: pytest.fail("fit must not run"),
+        lambda *_args, **_kwargs: pytest.fail("fit must not run"),
     )
 
-    with pytest.raises(ValueError, match="non-training benchmark split.*test"):
+    with pytest.raises(ValueError, match=r"non-training benchmark split.*test"):
         select_fitting_policy(
             datasets,
             tmp_path / "selection",
@@ -365,7 +365,7 @@ def test_selection_dispatches_single_profile_corpus_to_source_groups(
     )
     monkeypatch.setattr(
         "glassbox.policy_selection.benchmark_profiles",
-        lambda *args, **kwargs: pytest.fail("profile benchmark must not run"),
+        lambda *_args, **_kwargs: pytest.fail("profile benchmark must not run"),
     )
     plan = PolicySelectionPlan(
         name="source_groups_v1",

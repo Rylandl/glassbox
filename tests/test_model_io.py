@@ -4,7 +4,6 @@ import numpy as np
 import pytest
 
 from glassbox.data import ExogenousChannel, make_trajectory_spec
-from glassbox.model_io import load_dynamics_model, model_payload, save_dynamics_model
 from glassbox.dynamics import (
     initial_residual_parameters,
     with_thrust_command_offset,
@@ -13,8 +12,9 @@ from glassbox.fixedwing_synthetic import (
     generate_fixed_wing_trajectory,
     true_fixed_wing_parameters,
 )
-from glassbox.synthetic import generate_trajectory, true_parameters
+from glassbox.model_io import load_dynamics_model, model_payload, save_dynamics_model
 from glassbox.nanodrone_benchmark import nanodrone_trajectory_spec
+from glassbox.synthetic import generate_trajectory, true_parameters
 
 
 def test_model_json_round_trip(tmp_path) -> None:

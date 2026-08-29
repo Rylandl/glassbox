@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal, Mapping, Protocol, Sequence
+from typing import Literal, Protocol
 
 import numpy as np
 import numpy.typing as npt
@@ -823,7 +824,7 @@ def trajectories_from_datasets(
     dt_s = 1.0 / config.sample_rate_hz
     grid_start_s = np.ceil((start_s - 1e-12) / dt_s) * dt_s
     grid_stop_s = np.floor((stop_s + 1e-12) / dt_s) * dt_s
-    state_count = int(round((grid_stop_s - grid_start_s) / dt_s)) + 1
+    state_count = round((grid_stop_s - grid_start_s) / dt_s) + 1
     if state_count < 2:
         raise PX4ULogError("the required topics have no overlapping time interval")
     grid_s = grid_start_s + np.arange(state_count, dtype=np.float64) * dt_s
@@ -1151,7 +1152,7 @@ def inspect_ulog(path: str | Path) -> dict[str, object]:
             {
                 "name": dataset.name,
                 "multi_id": int(dataset.multi_id),
-                "samples": int(len(timestamp)),
+                "samples": len(timestamp),
                 "fields": sorted(dataset.data.keys()),
                 "start_time_s": float(timestamp[0] * 1e-6) if len(timestamp) else None,
                 "stop_time_s": float(timestamp[-1] * 1e-6) if len(timestamp) else None,

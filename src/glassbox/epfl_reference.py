@@ -15,15 +15,14 @@ import numpy as np
 from rosbags.highlevel import AnyReader
 
 from glassbox.data import (
+    RIGID_BODY_STATE_SCHEMA,
     ControlChannel,
     ExogenousChannel,
-    RIGID_BODY_STATE_SCHEMA,
     Trajectory,
     TrajectorySpec,
     VehicleConfigurationSpec,
     save_trajectory_npz,
 )
-
 
 EPFL_REFERENCE_NAME = "epfl_vdm_navigation_flight_data"
 EPFL_REFERENCE_DOI = "10.5281/zenodo.10337559"
@@ -411,14 +410,14 @@ def _healthy_ranges(
         np.abs(altitude_offset - healthy_offset_m)
         <= _BAROMETRIC_CONSISTENCY_TOLERANCE_M
     )
-    maximum_gap_samples = int(round(1.0 / nominal_dt_s))
+    maximum_gap_samples = round(1.0 / nominal_dt_s)
     barometrically_consistent = _close_short_gaps(
         barometrically_consistent, maximum_gap_samples=maximum_gap_samples
     )
     healthy = basic_flight & barometrically_consistent
 
-    margin_samples = int(round(_BOUNDARY_MARGIN_S / nominal_dt_s))
-    minimum_samples = int(round(_MIN_SEGMENT_DURATION_S / nominal_dt_s)) + 1
+    margin_samples = round(_BOUNDARY_MARGIN_S / nominal_dt_s)
+    minimum_samples = round(_MIN_SEGMENT_DURATION_S / nominal_dt_s) + 1
     edges = np.diff(np.r_[False, healthy, False].astype(np.int8))
     starts = np.flatnonzero(edges == 1)
     ends = np.flatnonzero(edges == -1)

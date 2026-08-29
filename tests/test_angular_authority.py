@@ -69,14 +69,14 @@ def test_source_group_authority_selection_is_train_only(tmp_path, monkeypatch) -
     monkeypatch.setattr(
         authority_module,
         "windowed_rollout_metrics",
-        lambda authority, trajectory, **kwargs: _metrics(
+        lambda authority, trajectory, **_kwargs: _metrics(
             1.0 + abs(authority - 0.75)
         ),
     )
     monkeypatch.setattr(
         authority_module,
         "kinematic_persistence_windowed_metrics",
-        lambda trajectory, **kwargs: _metrics(1.1),
+        lambda trajectory, **_kwargs: _metrics(1.1),
     )
 
     decision = select_angular_dynamics_authority(
@@ -105,14 +105,14 @@ def test_candidate_gate_requires_reference_and_persistence_improvement(
         time_s=np.asarray([0.0, 1.0]),
     )
 
-    def metrics(params, trajectory, **kwargs):
+    def metrics(params, trajectory, **_kwargs):
         return _metrics({"reference": 1.0, "candidate": 0.8}[params])
 
     monkeypatch.setattr(authority_module, "windowed_rollout_metrics", metrics)
     monkeypatch.setattr(
         authority_module,
         "kinematic_persistence_windowed_metrics",
-        lambda trajectory, **kwargs: _metrics(0.9),
+        lambda trajectory, **_kwargs: _metrics(0.9),
     )
     monkeypatch.setattr(authority_module, "rollout_metrics", metrics)
     monkeypatch.setattr(
@@ -145,14 +145,14 @@ def test_candidate_gate_does_not_promote_when_persistence_is_better(
         time_s=np.asarray([0.0, 1.0]),
     )
 
-    def metrics(params, trajectory, **kwargs):
+    def metrics(params, trajectory, **_kwargs):
         return _metrics({"reference": 1.0, "candidate": 0.8}[params])
 
     monkeypatch.setattr(authority_module, "windowed_rollout_metrics", metrics)
     monkeypatch.setattr(
         authority_module,
         "kinematic_persistence_windowed_metrics",
-        lambda trajectory, **kwargs: _metrics(0.7),
+        lambda trajectory, **_kwargs: _metrics(0.7),
     )
     monkeypatch.setattr(authority_module, "rollout_metrics", metrics)
     monkeypatch.setattr(

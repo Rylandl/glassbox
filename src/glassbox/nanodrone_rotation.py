@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 from glassbox.angular_authority import (
     select_angular_dynamics_authority,
 )
 from glassbox.policy_selection import score_policy_candidates
-
 
 ROTATION_SELECTION_HORIZONS_S = (0.1, 0.5, 1.0)
 ROTATION_SELECTION_PROFILES = ("chirp", "random", "square")

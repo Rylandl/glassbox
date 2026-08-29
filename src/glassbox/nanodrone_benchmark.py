@@ -16,8 +16,8 @@ from typing import Any
 import numpy as np
 
 from glassbox.data import (
-    ControlChannel,
     RIGID_BODY_STATE_SCHEMA,
+    ControlChannel,
     Trajectory,
     TrajectorySpec,
     VehicleConfigurationSpec,
@@ -25,7 +25,6 @@ from glassbox.data import (
     specific_force_observation_channels,
 )
 from glassbox.dynamics import QUADROTOR_CONTROL_NAMES
-
 
 BENCHMARK_REPOSITORY = (
     "https://github.com/idsia-robotics/nanodrone-sysid-benchmark"

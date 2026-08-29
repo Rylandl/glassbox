@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 import numpy as np
 
@@ -21,7 +22,6 @@ from glassbox.x8_reference import (
     X8_REFERENCE_VERSION,
     x8_trajectory_spec,
 )
-
 
 X8_EVALUATION_HORIZONS_S = (0.1, 0.5, 1.0, 2.0)
 _SCORE_METRICS = (

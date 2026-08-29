@@ -16,7 +16,6 @@ import numpy as np
 from glassbox.data import Trajectory, save_trajectory_npz
 from glassbox.px4_ulog import PX4IngestConfig, inspect_ulog, load_px4_trajectory
 
-
 ARP_REFERENCE_REPOSITORY = (
     "https://github.com/arplaboratory/data-driven-system-identification"
 )

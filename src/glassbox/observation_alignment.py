@@ -7,8 +7,9 @@ and the normal fitting path.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Any, Sequence
+from typing import Any
 
 import numpy as np
 import numpy.typing as npt
@@ -28,7 +29,6 @@ from glassbox.observation_compatibility import (
     _validate_observation_fit_data,
     observation_channel_transfer_gate,
 )
-
 
 ALIGNMENT_POLICY = "bounded_state_observation_alignment_v1"
 MAXIMUM_ABSOLUTE_ALIGNMENT_S = 0.1

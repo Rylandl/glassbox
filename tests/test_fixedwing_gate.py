@@ -1,14 +1,14 @@
 import pytest
 
+from glassbox.evaluation import ROLLOUT_METRICS
 from glassbox.fixedwing_gate import (
     FIXED_WING_GATE_HORIZONS_S,
     FIXED_WING_SCORE_HORIZONS_S,
-    compare_fixedwing_gates,
-    screen_fixedwing_airframe_candidate,
     _score_against_persistence,
     _summarize_divergence,
+    compare_fixedwing_gates,
+    screen_fixedwing_airframe_candidate,
 )
-from glassbox.policy_selection import ROLLOUT_METRICS
 
 
 def _horizons(value: float) -> dict[str, dict[str, float]]:

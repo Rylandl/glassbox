@@ -10,9 +10,10 @@ import tempfile
 import urllib.request
 import zipfile
 import zlib
+from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any
 
 import numpy as np
 from pyulog import ULog
@@ -23,7 +24,6 @@ from glassbox.px4_ulog import (
     inspect_ulog,
     load_px4_trajectories,
 )
-
 
 IDF_REFERENCE_NAME = "idf_ds_fixedwing_telemetry"
 IDF_REFERENCE_RECORD = "https://zenodo.org/records/16992976"

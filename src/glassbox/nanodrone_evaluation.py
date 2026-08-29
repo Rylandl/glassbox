@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any
 
 import numpy as np
 
@@ -19,7 +20,6 @@ from glassbox.nanodrone_benchmark import (
     BENCHMARK_REPOSITORY,
     nanodrone_trajectory_spec,
 )
-
 
 BENCHMARK_MAX_HORIZON_STEPS = 50
 _METRIC_NAMES = (

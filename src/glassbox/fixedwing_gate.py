@@ -7,21 +7,22 @@ import hashlib
 import json
 import math
 from collections import Counter
+from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 import numpy as np
 
 from glassbox.acceptance import evaluate_fixedwing_accuracy
 from glassbox.data import Trajectory, duration_to_steps, load_trajectory_npz
 from glassbox.evaluation import (
+    METRIC_FLOORS,
+    ROLLOUT_METRICS,
     aggregate_rollout_metrics,
     kinematic_persistence_windowed_metrics,
     rollout_divergence_metrics,
 )
 from glassbox.model_io import load_dynamics_model
-from glassbox.policy_selection import METRIC_FLOORS, ROLLOUT_METRICS
-
 
 FIXED_WING_GATE_HORIZONS_S = (0.1, 0.5, 1.0, 2.0)
 FIXED_WING_SCORE_HORIZONS_S = (0.5, 1.0, 2.0)

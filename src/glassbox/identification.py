@@ -30,11 +30,10 @@ from glassbox.dynamics import (
     with_thrust_command_offset,
     zero_angular_cross_coupling_gradient,
     zero_residual_configuration_gradient,
-    zero_rotational_response_gradient,
     zero_response_time_gradient,
+    zero_rotational_response_gradient,
     zero_thrust_command_offset_gradient,
 )
-
 
 OPTIMIZATION_POLICY_VERSION = "deterministic_weighted_minibatch_v2"
 MAX_OPTIMIZATION_WINDOWS_PER_HORIZON = 8_192
@@ -685,7 +684,10 @@ def _fit_objective(
         clip_scale = jnp.minimum(
             1.0, gradient_clip_norm / (gradient_norm + 1e-12)
         )
-        gradients = jax.tree.map(lambda value: value * clip_scale, gradients)
+        gradients = jax.tree.map(
+            lambda value, scale=clip_scale: value * scale,
+            gradients,
+        )
 
         first_moment = jax.tree.map(
             lambda moment, gradient: beta1 * moment + (1.0 - beta1) * gradient,
@@ -699,10 +701,12 @@ def _fit_objective(
             gradients,
         )
         corrected_first = jax.tree.map(
-            lambda moment: moment / (1.0 - beta1**index), first_moment
+            lambda moment, step=index: moment / (1.0 - beta1**step),
+            first_moment,
         )
         corrected_second = jax.tree.map(
-            lambda moment: moment / (1.0 - beta2**index), second_moment
+            lambda moment, step=index: moment / (1.0 - beta2**step),
+            second_moment,
         )
         params = jax.tree.map(
             lambda parameter, first, second: parameter

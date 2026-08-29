@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import math
-from typing import Any, Mapping
-
+from collections.abc import Mapping
+from typing import Any
 
 CONTRACT_ID = "multirotor_prediction_v1"
 REQUIRED_HORIZONS_S = (0.1, 0.5, 1.0, 2.0)

@@ -6,15 +6,15 @@ import argparse
 import json
 from pathlib import Path
 
+from glassbox.epfl_evaluation import (
+    evaluate_epfl_characterization,
+    save_epfl_characterization,
+)
 from glassbox.epfl_reference import (
     EPFL_REFERENCE_DOI,
     EPFLTopoplaneAdapter,
     extract_epfl_topoplane_reference,
     fetch_epfl_topoplane_reference,
-)
-from glassbox.epfl_evaluation import (
-    evaluate_epfl_characterization,
-    save_epfl_characterization,
 )
 
 

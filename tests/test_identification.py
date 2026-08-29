@@ -1,7 +1,8 @@
-import pytest
+from dataclasses import replace
+
 import jax.numpy as jnp
 import numpy as np
-from dataclasses import replace
+import pytest
 
 from glassbox.data import make_trajectory_spec, trajectory_windows
 from glassbox.dynamics import (
@@ -10,14 +11,13 @@ from glassbox.dynamics import (
 )
 from glassbox.identification import (
     MAX_OPTIMIZATION_WINDOWS_PER_HORIZON,
-    OPTIMIZATION_POLICY_VERSION,
     _optimization_batch_schedules,
     deterministic_weighted_batch_schedule,
     dynamic_envelope_penalty,
     fit_dynamics,
-    supports_multirotor_thrust_command_offset,
     residual_initialization_statistics,
     rollout_loss_configuration,
+    supports_multirotor_thrust_command_offset,
 )
 from glassbox.nanodrone_benchmark import nanodrone_trajectory_spec
 from glassbox.synthetic import (

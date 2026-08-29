@@ -1,7 +1,8 @@
-import numpy as np
-import pytest
 from dataclasses import replace
 from pathlib import Path
+
+import numpy as np
+import pytest
 
 from glassbox.data import save_trajectory_npz
 from glassbox.evaluation import (

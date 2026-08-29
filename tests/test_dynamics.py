@@ -4,8 +4,8 @@ import numpy as np
 import pytest
 
 from glassbox.dynamics import (
-    DynamicsParams,
     MOTOR_MIXER,
+    DynamicsParams,
     hover_control,
     initial_residual_parameters,
     rollout,
@@ -19,8 +19,7 @@ from glassbox.dynamics import (
     with_thrust_command_offset,
 )
 from glassbox.evaluation import rollout_metrics
-from glassbox.synthetic import generate_trajectory
-from glassbox.synthetic import resting_state, true_parameters
+from glassbox.synthetic import generate_trajectory, resting_state, true_parameters
 
 
 def test_hover_is_an_equilibrium() -> None:

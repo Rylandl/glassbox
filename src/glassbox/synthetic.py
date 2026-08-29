@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import numpy as np
 import jax.numpy as jnp
+import numpy as np
 
 from glassbox.data import Trajectory, make_trajectory_spec
 from glassbox.dynamics import (
@@ -67,7 +67,7 @@ def generate_trajectory(
         raise ValueError("duration_s and dt_s must be positive")
 
     params = true_parameters() if params is None else params
-    interval_count = int(round(duration_s / dt_s))
+    interval_count = round(duration_s / dt_s)
     if interval_count < 1:
         raise ValueError("duration is shorter than one sample interval")
 

@@ -4,8 +4,8 @@ import numpy as np
 import pytest
 
 from glassbox.observation_compatibility import (
-    MAXIMUM_TIME_CONSTANT_S,
     MAXIMUM_SCALE,
+    MAXIMUM_TIME_CONSTANT_S,
     FirstOrderObservationFilter,
     StateObservationCorrection,
     apply_state_observation_correction,

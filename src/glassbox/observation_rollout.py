@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Sequence
+from collections.abc import Sequence
+from typing import Any
 
 import numpy as np
 
@@ -14,7 +15,6 @@ from glassbox.evaluation import (
     windowed_rollout_predictions,
 )
 from glassbox.observation_compatibility import FirstOrderObservationFilter
-
 
 BODY_RATE_ROLLOUT_MATERIAL_RATIO = 0.9
 BODY_RATE_ROLLOUT_MAXIMUM_REGRESSION_RATIO = 1.05

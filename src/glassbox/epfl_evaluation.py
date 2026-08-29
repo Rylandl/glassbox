@@ -5,16 +5,17 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 from glassbox.data import duration_to_steps, load_trajectory_npz
 from glassbox.evaluation import (
+    METRIC_FLOORS,
+    ROLLOUT_METRICS,
     aggregate_rollout_metrics,
     kinematic_persistence_windowed_metrics,
 )
-from glassbox.policy_selection import METRIC_FLOORS, ROLLOUT_METRICS
-
 
 EPFL_CHARACTERIZATION_HORIZONS_S = (0.2, 0.5, 1.0, 2.0)
 EPFL_SCORE_HORIZONS_S = (0.5, 1.0, 2.0)

@@ -2,8 +2,8 @@ import numpy as np
 import pytest
 
 from glassbox.data import (
-    ControlChannel,
     RIGID_BODY_STATE_SCHEMA,
+    ControlChannel,
     Trajectory,
     TrajectorySpec,
     VehicleConfigurationSpec,
@@ -12,11 +12,11 @@ from glassbox.data import (
     specific_force_observation_channels,
 )
 from glassbox.dynamics import MOTOR_MIXER, QUADROTOR_CONTROL_NAMES
+from glassbox.fit_cli import fit_trajectory_artifact
 from glassbox.observation_identification import (
     actuator_observation_alignment,
     fit_multirotor_observations,
 )
-from glassbox.fit_cli import fit_trajectory_artifact
 
 
 def _trajectory(*, lag_steps: int = 0, intervals: int = 240) -> Trajectory:

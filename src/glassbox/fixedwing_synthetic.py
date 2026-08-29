@@ -14,7 +14,6 @@ from glassbox.dynamics import (
     step_with_latent,
 )
 
-
 TRIM_AIRSPEED_M_S = 15.0
 
 
@@ -74,7 +73,7 @@ def generate_fixed_wing_trajectory(
 
     if duration_s <= 0.0 or dt_s <= 0.0:
         raise ValueError("duration_s and dt_s must be positive")
-    interval_count = int(round(duration_s / dt_s))
+    interval_count = round(duration_s / dt_s)
     if interval_count < 1:
         raise ValueError("duration is shorter than one sample interval")
 

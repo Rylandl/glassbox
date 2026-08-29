@@ -188,6 +188,23 @@ def _command_land(connection: Any) -> None:
     )
 
 
+def _land_and_disarm(connection: Any, timeout_s: float) -> None:
+    """Land after a profile without suppressing a preceding flight error."""
+
+    print("landing")
+    _command_land(connection)
+    landing_deadline = time.monotonic() + timeout_s
+    while time.monotonic() < landing_deadline:
+        message = connection.recv_match(type="HEARTBEAT", blocking=True, timeout=1.0)
+        if message is not None and not (
+            message.base_mode & mavutil.mavlink.MAV_MODE_FLAG_SAFETY_ARMED
+        ):
+            print("landed and disarmed")
+            return
+    _command_arm(connection, False)
+    raise RuntimeError("landing timed out; sent disarm command")
+
+
 def fly_profile(
     profile: str,
     *,
@@ -238,7 +255,7 @@ def fly_profile(
 
     armed = connection.motors_armed()
     arm_deadline = time.monotonic() + 8.0
-    while time.monotonic() < arm_deadline:
+    while not armed and time.monotonic() < arm_deadline:
         _send_target(connection, targets[0])
         message = connection.recv_match(type="HEARTBEAT", blocking=False)
         if message is not None and message.get_srcSystem() == connection.target_system:
@@ -260,18 +277,7 @@ def fly_profile(
             )
             _stream_target(connection, target, rate_hz)
     finally:
-        print("landing")
-        _command_land(connection)
-        landing_deadline = time.monotonic() + landing_timeout_s
-        while time.monotonic() < landing_deadline:
-            message = connection.recv_match(type="HEARTBEAT", blocking=True, timeout=1.0)
-            if message is not None and not (
-                message.base_mode & mavutil.mavlink.MAV_MODE_FLAG_SAFETY_ARMED
-            ):
-                print("landed and disarmed")
-                return
-        _command_arm(connection, False)
-        raise RuntimeError("landing timed out; sent disarm command")
+        _land_and_disarm(connection, landing_timeout_s)
 
 
 def main() -> None:

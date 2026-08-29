@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 import jax.numpy as jnp
 
@@ -23,7 +24,6 @@ from glassbox.dynamics import (
     structured_parameters,
 )
 from glassbox.evaluation import parameter_dict
-
 
 MODEL_FORMAT_VERSION = 2
 MODEL_TYPE = "effective_quadrotor_command_offset_rotational_response_v3"

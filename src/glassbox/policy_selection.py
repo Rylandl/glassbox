@@ -8,9 +8,10 @@ import hashlib
 import json
 import math
 import re
+from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 from glassbox.data import load_trajectory_npz
 from glassbox.evaluation import METRIC_FLOORS, ROLLOUT_METRICS

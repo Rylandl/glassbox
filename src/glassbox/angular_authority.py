@@ -5,8 +5,9 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 import numpy as np
 
@@ -27,7 +28,6 @@ from glassbox.evaluation import (
 )
 from glassbox.model_io import load_dynamics_model
 from glassbox.policy_selection import score_policy_candidates
-
 
 ANGULAR_AUTHORITY_CANDIDATES = (0.0, 0.25, 0.5, 0.75, 1.0)
 ANGULAR_AUTHORITY_REFERENCE = "authority_1"

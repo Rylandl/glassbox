@@ -14,10 +14,10 @@ from glassbox.data import save_trajectory_npz
 from glassbox.epfl_evaluation import evaluate_epfl_characterization
 from glassbox.epfl_reference import (
     EPFLTopoplaneAdapter,
-    _TopoplaneStreams,
     _angular_velocity_from_quaternion,
     _build_trajectories,
     _canonical_quaternion,
+    _TopoplaneStreams,
     fetch_epfl_topoplane_reference,
     topoplane_trajectory_spec,
 )

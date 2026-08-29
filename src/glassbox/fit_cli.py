@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import argparse
 import json
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from time import perf_counter
-from typing import Any, Mapping
+from typing import Any
 
 import numpy as np
 
@@ -35,23 +36,22 @@ from glassbox.evaluation import (
     rollout_metrics,
     windowed_rollout_metrics,
 )
+from glassbox.fixedwing_synthetic import initial_fixed_wing_parameter_guess
 from glassbox.identification import (
-    MAX_OPTIMIZATION_WINDOWS_PER_HORIZON,
     MAX_OPTIMIZATION_TRANSITIONS_PER_HORIZON,
+    MAX_OPTIMIZATION_WINDOWS_PER_HORIZON,
     OPTIMIZATION_POLICY_VERSION,
     fit_dynamics,
     fit_dynamics_multi_horizon,
     residual_initialization_statistics,
 )
-from glassbox.model_io import save_dynamics_model
 from glassbox.model_family import MULTIROTOR_FAMILY, family_for_platform
+from glassbox.model_io import save_dynamics_model
 from glassbox.observation_identification import (
     ObservationFitResult,
     fit_multirotor_observations,
 )
-from glassbox.fixedwing_synthetic import initial_fixed_wing_parameter_guess
 from glassbox.synthetic import initial_parameter_guess
-
 
 _MAX_TRAINING_WINDOWS_PER_HORIZON = 8_192
 _MAX_TRAINING_TRANSITIONS_PER_HORIZON = 524_288

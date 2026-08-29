@@ -10,7 +10,6 @@ import numpy as np
 
 from glassbox.data import Trajectory, trajectory_windows
 from glassbox.dynamics import (
-    DynamicsParams,
     FixedWingDynamicsParams,
     ModelParams,
     ResidualDynamicsParams,
@@ -21,7 +20,6 @@ from glassbox.dynamics import (
     structured_parameters,
     validate_control_schema,
 )
-
 
 DIVERGENCE_ERROR_THRESHOLDS = {
     "position_error_m": 10.0,

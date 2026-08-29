@@ -16,7 +16,6 @@ from glassbox.model_family import (
     DynamicsModelFamily,
 )
 
-
 GRAVITY_M_S2 = 9.80665
 QUADROTOR_CONTROL_SIZE = MULTIROTOR_FAMILY.control_size
 QUADROTOR_CONTROL_NAMES = MULTIROTOR_FAMILY.control_names
@@ -80,7 +79,7 @@ class DynamicsParams(NamedTuple):
             (0.0, 0.0, 0.0),
             (0.0, 0.0, 0.0),
         ),
-    ) -> "DynamicsParams":
+    ) -> DynamicsParams:
         if (
             not math.isfinite(thrust_command_offset)
             or abs(thrust_command_offset) >= MAX_THRUST_COMMAND_OFFSET
@@ -193,7 +192,7 @@ class FixedWingDynamicsParams(NamedTuple):
         flap_drag_accel_per_speed_sq: float = 1e-6,
         flap_pitch_angular_accel_per_speed_sq: float = 0.0,
         flap_trim: float = 0.0,
-    ) -> "FixedWingDynamicsParams":
+    ) -> FixedWingDynamicsParams:
         return cls(
             log_thrust_accel=jnp.log(jnp.asarray(thrust_accel)),
             log_lift_accel_per_speed_sq=jnp.log(

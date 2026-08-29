@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 import numpy as np
 import numpy.typing as npt
-
 
 STATE_SIZE = 13
 RIGID_BODY_STATE_SCHEMA = "rigid_body_13_nwu_flu_wxyz_v1"
@@ -1181,7 +1181,7 @@ def split_trajectory(
     if not 0.0 < train_fraction < 1.0:
         raise ValueError("train_fraction must be between zero and one")
     interval_count = len(trajectory.controls)
-    split = int(round(interval_count * train_fraction))
+    split = round(interval_count * train_fraction)
     split = min(max(split, 1), interval_count - 1)
     return (
         trajectory_segment(trajectory, 0, split),

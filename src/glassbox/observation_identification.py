@@ -9,8 +9,9 @@ point and diagnostics.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Any, Sequence
+from typing import Any
 
 import numpy as np
 import numpy.typing as npt
@@ -27,7 +28,6 @@ from glassbox.dynamics import (
 )
 from glassbox.evaluation import parameter_dict
 from glassbox.synthetic import initial_parameter_guess
-
 
 MAX_ALIGNMENT_LAG_S = 0.20
 MINIMUM_ALIGNMENT_CORRELATION = 0.30
@@ -213,7 +213,7 @@ def _first_order_response(
 
 
 def _split_mask(length: int) -> np.ndarray:
-    split = min(max(int(round(TRAIN_FRACTION * length)), 1), length - 1)
+    split = min(max(round(TRAIN_FRACTION * length), 1), length - 1)
     mask = np.zeros(length, dtype=bool)
     mask[:split] = True
     return mask

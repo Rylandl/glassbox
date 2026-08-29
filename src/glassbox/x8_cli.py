@@ -7,16 +7,16 @@ import json
 from pathlib import Path
 
 from glassbox.data import save_trajectory_npz
+from glassbox.x8_evaluation import (
+    evaluate_x8_reference_models,
+    save_x8_reference_report,
+)
 from glassbox.x8_reference import (
     X8_RECORDINGS,
     X8_REFERENCE_DOI,
     X8ReferenceAdapter,
     extract_x8_reference,
     fetch_x8_reference,
-)
-from glassbox.x8_evaluation import (
-    evaluate_x8_reference_models,
-    save_x8_reference_report,
 )
 
 

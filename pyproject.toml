@@ -34,7 +34,21 @@ glassbox-select-policy = "glassbox.policy_selection:main"
 [dependency-groups]
 dev = [
     "pytest>=8.3",
+    "ruff>=0.16.5,<0.17",
 ]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["B", "E4", "E7", "E9", "F", "I", "RUF", "UP"]
+ignore = [
+    # Existing call sites mix exact and truncating semantics; audit those
+    # invariants before enforcing strict zip project-wide.
+    "B905",
+    # Tuple concatenation is clearer for the NumPy shape expressions in use.
+    "RUF005",
+]
