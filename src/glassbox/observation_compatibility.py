@@ -28,6 +28,7 @@ MAXIMUM_VELOCITY_BIAS_M_S = 1.0
 MAXIMUM_ANGULAR_RATE_BIAS_RAD_S = 0.5
 MINIMUM_FIT_INTERVALS = 20
 MATERIAL_IMPROVEMENT_RATIO = 0.9
+MAXIMUM_NEUTRAL_RATIO = 1.02
 MAXIMUM_COMPATIBILITY_REGRESSION_RATIO = 1.05
 PROTECTED_SPLITS = frozenset({"test", "validation", "holdout", "protected"})
 CORRECTION_POLICY = "bounded_affine_state_compatibility_v1"
@@ -334,6 +335,125 @@ def _mean_compatibility(
                 ]
             )
         ),
+    }
+
+
+def observation_channel_transfer_gate(
+    *,
+    reference_error: dict[str, float],
+    candidate_over_reference: dict[str, float | None],
+    per_trajectory: Sequence[dict[str, Any]],
+    materiality_floors: dict[str, float],
+    group_interior: dict[str, bool],
+) -> dict[str, Any]:
+    """Resolve channel-level research and blanket-promotion decisions.
+
+    A material, identifiable improvement in one state group can authorize a
+    conditional rollout experiment without forcing unrelated groups to adopt
+    the candidate. Blanket promotion remains intentionally stricter.
+    """
+
+    decisions: dict[str, dict[str, Any]] = {}
+    rollout_candidate_groups = []
+    eligible_groups = []
+    for name, reference_value in reference_error.items():
+        eligible = bool(
+            np.isfinite(reference_value)
+            and reference_value > materiality_floors[name]
+        )
+        ratio = candidate_over_reference[name]
+        trajectory_ratios = [
+            report["candidate_over_reference"][name]
+            for report in per_trajectory
+        ]
+        finite_trajectory_ratios = [
+            value
+            for value in trajectory_ratios
+            if value is not None and np.isfinite(value)
+        ]
+        maximum_trajectory_ratio = (
+            max(finite_trajectory_ratios)
+            if len(finite_trajectory_ratios) == len(trajectory_ratios)
+            else None
+        )
+        material = bool(
+            eligible
+            and ratio is not None
+            and ratio <= MATERIAL_IMPROVEMENT_RATIO
+        )
+        neutral = bool(
+            not eligible
+            or (
+                ratio is not None
+                and ratio <= MAXIMUM_NEUTRAL_RATIO
+            )
+        )
+        no_flight_regression = bool(
+            not eligible
+            or (
+                maximum_trajectory_ratio is not None
+                and maximum_trajectory_ratio
+                <= MAXIMUM_COMPATIBILITY_REGRESSION_RATIO
+            )
+        )
+        identifiable = bool(group_interior[name])
+        rollout_candidate = bool(
+            material and no_flight_regression and identifiable
+        )
+        if eligible:
+            eligible_groups.append(name)
+        if rollout_candidate:
+            rollout_candidate_groups.append(name)
+        decisions[name] = {
+            "eligible": eligible,
+            "aggregate_ratio": ratio,
+            "maximum_complete_trajectory_ratio": maximum_trajectory_ratio,
+            "improves_materially": material,
+            "neutral_or_better": neutral,
+            "no_complete_trajectory_regresses": no_flight_regression,
+            "identifiable": identifiable,
+            "conditional_rollout_candidate": rollout_candidate,
+        }
+
+    conditional_transfer = bool(rollout_candidate_groups)
+    blanket_transfer = bool(
+        eligible_groups
+        and all(
+            decisions[name]["conditional_rollout_candidate"]
+            for name in eligible_groups
+        )
+    )
+    full_candidate_safe = bool(
+        all(
+            decisions[name]["neutral_or_better"]
+            and decisions[name]["no_complete_trajectory_regresses"]
+            and decisions[name]["identifiable"]
+            for name in eligible_groups
+        )
+    )
+    return {
+        "policy": "channel_conditional_observation_transfer_v2",
+        "material_improvement_ratio": MATERIAL_IMPROVEMENT_RATIO,
+        "maximum_neutral_ratio": MAXIMUM_NEUTRAL_RATIO,
+        "maximum_regression_ratio": MAXIMUM_COMPATIBILITY_REGRESSION_RATIO,
+        "materiality_floors": materiality_floors,
+        "eligible_groups": eligible_groups,
+        "already_consistent_groups": [
+            name for name in reference_error if name not in eligible_groups
+        ],
+        "channel_decisions": decisions,
+        "rollout_candidate_groups": rollout_candidate_groups,
+        "conditional_transfer_passes": conditional_transfer,
+        "blanket_transfer_passes": blanket_transfer,
+        "full_candidate_is_neutral_or_better": full_candidate_safe,
+        "conditional_application_policy": (
+            "Use candidate parameters only for rollout_candidate_groups and "
+            "the instantaneous reference for every other group."
+        ),
+        "regression_guard_scope": (
+            "aggregate and every complete research-validation trajectory"
+        ),
+        "production_promotion_requires_fresh_lockbox": True,
     }
 
 
@@ -1031,64 +1151,34 @@ def evaluate_first_order_observation_filter(
             np.sqrt(3.0) * KINEMATIC_ATTITUDE_RATE_FLOOR_RAD_S
         ),
     }
-    eligible_groups = [
-        name
-        for name in names
-        if reference_mean[name] > materiality_floors[name]
-    ]
-    eligible_ratios = [ratios[name] for name in eligible_groups]
-    interior = bool(
-        np.all(
-            candidate.velocity_time_constant_s < MAXIMUM_TIME_CONSTANT_S
-        )
-        and np.all(
-            candidate.angular_rate_time_constant_s < MAXIMUM_TIME_CONSTANT_S
-        )
-    )
-    material = bool(
-        eligible_ratios
-        and all(
-            ratio is not None and ratio <= MATERIAL_IMPROVEMENT_RATIO
-            for ratio in eligible_ratios
-        )
-    )
-    no_regression = bool(
-        all(
-            ratio is not None
-            and ratio <= MAXIMUM_COMPATIBILITY_REGRESSION_RATIO
-            for ratio in eligible_ratios
-        )
-        and all(
-            trajectory_report["candidate_over_reference"][name] is not None
-            and trajectory_report["candidate_over_reference"][name]
-            <= MAXIMUM_COMPATIBILITY_REGRESSION_RATIO
-            for trajectory_report in per_trajectory
-            for name in eligible_groups
-        )
+    gate = observation_channel_transfer_gate(
+        reference_error=reference_mean,
+        candidate_over_reference=ratios,
+        per_trajectory=per_trajectory,
+        materiality_floors=materiality_floors,
+        group_interior={
+            "position_velocity_vector_rmse_m_s": bool(
+                np.all(
+                    candidate.velocity_time_constant_s
+                    < MAXIMUM_TIME_CONSTANT_S
+                )
+            ),
+            "attitude_rate_vector_rmse_rad_s": bool(
+                np.all(
+                    candidate.angular_rate_time_constant_s
+                    < MAXIMUM_TIME_CONSTANT_S
+                )
+            ),
+        },
     )
     return {
-        "policy": "held_out_first_order_observation_transfer_v1",
+        "policy": "research_validation_first_order_observation_transfer_v2",
         "trajectory_count": len(trajectories),
         "candidate": candidate.to_dict(),
         "instantaneous_reference": instantaneous_reference.to_dict(),
         "candidate_error": candidate_mean,
         "instantaneous_reference_error": reference_mean,
         "candidate_over_reference": ratios,
-        "gate": {
-            "material_improvement_ratio": MATERIAL_IMPROVEMENT_RATIO,
-            "maximum_regression_ratio": MAXIMUM_COMPATIBILITY_REGRESSION_RATIO,
-            "materiality_floors": materiality_floors,
-            "eligible_groups": eligible_groups,
-            "already_consistent_groups": [
-                name for name in names if name not in eligible_groups
-            ],
-            "all_groups_improve_materially": material,
-            "no_group_regresses": no_regression,
-            "regression_guard_scope": (
-                "aggregate and every complete held-out trajectory"
-            ),
-            "time_constants_interior": interior,
-            "passes": bool(material and no_regression and interior),
-        },
+        "gate": gate,
         "per_trajectory": per_trajectory,
     }

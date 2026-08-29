@@ -1,0 +1,83 @@
+{
+  "date": "2026-08-29",
+  "hypothesis": "A body-rate-only first-order observation model that transferred in pose/rate compatibility tests also materially improves angular-velocity error when applied to fixed dynamics rollouts.",
+  "policy": "conditional_body_rate_observation_rollout_v1",
+  "status": "research_validation_failed",
+  "selection": {
+    "candidate_source": "development-only bounded_first_order_observation_filter_v1 fit",
+    "application_scope": "reported body angular velocity only",
+    "instantaneous_reference": "development-only zero-time-constant affine observation fit",
+    "horizons_s": [0.1, 0.5, 1.0],
+    "window_stride": "one nonoverlapping horizon",
+    "trajectory_weighting": "equal",
+    "material_improvement_ratio": 0.9,
+    "materiality_scope": "geometric mean of equal-trajectory aggregate angular-velocity RMSE ratios across all requested horizons",
+    "maximum_regression_ratio": 1.05,
+    "regression_scope": "every aggregate horizon and every complete research-validation trajectory/horizon",
+    "public_configuration_added": false
+  },
+  "decision": {
+    "channel_compatibility_authorized_ab": true,
+    "rollout_gate_passed": false,
+    "production_application_authorized": false,
+    "history_encoder_authorized": false,
+    "model_architecture_frozen": true,
+    "production_promotion_requires_fresh_lockbox": true,
+    "reason": "The candidate was safe and consistently helped the 0.1 s rate metric, but its benefit became nearly neutral by 0.5 s and 1.0 s. No corpus achieved the predeclared 10 percent geometric improvement across the horizon set."
+  },
+  "invariants": {
+    "dynamics_parameters_changed": false,
+    "physical_rollout_changed": false,
+    "position_velocity_attitude_metrics_changed": false,
+    "only_reported_body_rate_changed": true
+  },
+  "datasets": {
+    "arp": {
+      "platform": "multirotor",
+      "model_artifact": "artifacts/arp_reference/authority_selection/promoted_candidate_model.json",
+      "development_trajectories": 3,
+      "research_validation_trajectories": 1,
+      "aggregate_candidate_over_instantaneous_reference": {
+        "0.1s": 0.8862465785907383,
+        "0.5s": 0.9932975743069742,
+        "1s": 1.0024930651831705
+      },
+      "geometric_ratio": 0.9591910279888649,
+      "maximum_trajectory_horizon_ratio": 1.0024930651831705,
+      "no_regression": true,
+      "rollout_gate_passed": false
+    },
+    "x8": {
+      "platform": "fixedwing",
+      "model_artifact": "artifacts/x8_reference/staged_residual_v3/residual_model.json",
+      "development_trajectories": 13,
+      "research_validation_trajectories": 4,
+      "aggregate_candidate_over_instantaneous_reference": {
+        "0.1s": 0.8692100951261009,
+        "0.5s": 0.9528959503809116,
+        "1s": 0.9594869240489113
+      },
+      "geometric_ratio": 0.926267517650428,
+      "maximum_trajectory_horizon_ratio": 1.0195249962294088,
+      "no_regression": true,
+      "rollout_gate_passed": false
+    },
+    "idf": {
+      "platform": "fixedwing",
+      "model_artifact": "artifacts/idf_reference/idf_lateral_cross_coupling_residual_model.json",
+      "development_trajectories": 111,
+      "research_validation_trajectories": 8,
+      "aggregate_candidate_over_instantaneous_reference": {
+        "0.1s": 0.9116942143281529,
+        "0.5s": 0.9900688761226282,
+        "1s": 0.994037564469961
+      },
+      "geometric_ratio": 0.964507926684795,
+      "maximum_trajectory_horizon_ratio": 0.9984043102239157,
+      "no_regression": true,
+      "rollout_gate_passed": false
+    }
+  },
+  "evaluation_role": "The trajectories called heldouts in earlier reports have been reused across architecture decisions and are therefore research-validation data, not a fresh production lockbox.",
+  "legacy_artifact_note": "The three maintained format-v1 dynamics artifacts were decoded in memory for this one-time comparison. No compatibility loader or migrated artifact was added."
+}

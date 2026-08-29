@@ -13,7 +13,7 @@
     "material_improvement_ratio": 0.9,
     "maximum_regression_ratio": 1.05,
     "fit_data": "development trajectories only",
-    "evaluation_data": "complete held-out trajectories",
+    "evaluation_data": "complete research-validation trajectories; these previously named holdouts have been reused during architecture research and are not a fresh production lockbox",
     "public_configuration_added": false
   },
   "synthetic_recovery": {
@@ -31,14 +31,16 @@
     "boundary_test": "An injected 0.2 s delay selected the maintained 0.1 s upper bound for both groups and was rejected as non-interior."
   },
   "decision": {
-    "cross_platform_transfer_gate_passed": false,
+    "channel_conditional_transfer_gate_passed": true,
+    "blanket_transfer_gate_passed": false,
+    "rollout_candidate_group": "attitude_rate_vector_rmse_rad_s",
     "rollout_ab_authorized": false,
     "production_alignment_authorized": false,
     "combined_delay_filter_search_authorized": false,
     "history_encoder_authorized": false,
     "model_architecture_frozen": true,
     "research_utility_retained": true,
-    "reason": "Only X8 passed its corpus gate. The final distinct observation hypothesis therefore failed the predeclared cross-platform promotion criteria; combining failed candidates would add flexibility without new causal evidence."
+    "reason": "Alignment cleared the body-rate channel gate on X8 and IDF, but the temporal filter transferred more broadly by also clearing ARP. The less general alignment candidate was not advanced, and combining it with filtering would add flexibility without an independent causal test."
   },
   "datasets": {
     "nano": {
@@ -63,9 +65,10 @@
         "position_velocity_vector_rmse_m_s": 1.0518102780575733,
         "attitude_rate_vector_rmse_rad_s": 0.9190519019625143
       },
-      "all_groups_improve_materially": false,
-      "no_group_regresses": false,
-      "corpus_gate_passed": false
+      "rollout_candidate_groups": [],
+      "conditional_transfer_passes": false,
+      "blanket_transfer_passes": false,
+      "full_candidate_is_neutral_or_better": false
     },
     "arp": {
       "development_trajectories": 3,
@@ -85,9 +88,10 @@
         "position_velocity_vector_rmse_m_s": 0.9773163093608594,
         "attitude_rate_vector_rmse_rad_s": 0.906078597062753
       },
-      "all_groups_improve_materially": false,
-      "no_group_regresses": true,
-      "corpus_gate_passed": false
+      "rollout_candidate_groups": [],
+      "conditional_transfer_passes": false,
+      "blanket_transfer_passes": false,
+      "full_candidate_is_neutral_or_better": true
     },
     "x8": {
       "development_trajectories": 13,
@@ -108,9 +112,10 @@
         "attitude_rate_vector_rmse_rad_s": 0.6204698244203132
       },
       "already_consistent_groups": ["position_velocity_vector_rmse_m_s"],
-      "all_groups_improve_materially": true,
-      "no_group_regresses": true,
-      "corpus_gate_passed": true
+      "rollout_candidate_groups": ["attitude_rate_vector_rmse_rad_s"],
+      "conditional_transfer_passes": true,
+      "blanket_transfer_passes": true,
+      "full_candidate_is_neutral_or_better": true
     },
     "idf": {
       "development_trajectories": 111,
@@ -134,9 +139,10 @@
         "position_velocity_vector_rmse_m_s": 0.9800996296718454,
         "attitude_rate_vector_rmse_rad_s": 0.9234764836385779
       },
-      "all_groups_improve_materially": false,
-      "no_group_regresses": true,
-      "corpus_gate_passed": false
+      "rollout_candidate_groups": ["attitude_rate_vector_rmse_rad_s"],
+      "conditional_transfer_passes": true,
+      "blanket_transfer_passes": false,
+      "full_candidate_is_neutral_or_better": true
     }
   },
   "legacy_artifact_note": "X8 format-v2 and IDF format-v1 artifacts were decoded in memory for this one-time comparison. No compatibility loader or migrated artifact was added."

@@ -58,7 +58,8 @@ def test_alignment_recovers_signed_state_channel_delay(delay_s: float) -> None:
         ratio < 0.01
         for ratio in evaluation["candidate_over_reference"].values()
     )
-    assert evaluation["gate"]["passes"] is True
+    assert evaluation["gate"]["conditional_transfer_passes"] is True
+    assert evaluation["gate"]["blanket_transfer_passes"] is True
 
 
 def test_alignment_rejects_protected_fit_and_boundary_is_not_promoted() -> None:
@@ -72,10 +73,13 @@ def test_alignment_rejects_protected_fit_and_boundary_is_not_promoted() -> None:
     assert result.candidate.angular_rate_delay_s == pytest.approx(
         MAXIMUM_ABSOLUTE_ALIGNMENT_S
     )
+    decisions = result.report["training_comparison"]["gate"][
+        "channel_decisions"
+    ]
+    assert all(not decision["identifiable"] for decision in decisions.values())
     assert result.report["training_comparison"]["gate"][
-        "alignment_interior"
+        "conditional_transfer_passes"
     ] is False
-    assert result.report["training_comparison"]["gate"]["passes"] is False
     protected = replace(
         slow,
         labels={**slow.labels, "benchmark_split": "holdout"},

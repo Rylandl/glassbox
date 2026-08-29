@@ -8,8 +8,12 @@ Freeze the Glassbox model architecture at its current audited baseline. The
 bounded research cycle proposed below is now complete: typed direct observations,
 an observation-first initializer, innovation diagnostics, static compatibility
 correction, causal first-order filtering, and explicit timestamp alignment were
-all tested. None passed the predeclared cross-platform transfer and rollout
-gates without per-airframe tuning.
+all tested. The original transfer gate incorrectly coupled unrelated state
+channels: it would reject a transferable body-rate hypothesis because velocity
+did not improve by the same amount. The corrected channel-level gate advanced
+the strongest body-rate candidate to a fixed rollout A/B. That candidate was
+safe but did not clear the predeclared rollout materiality threshold on any
+corpus.
 
 Retain the canonical observation contract and research diagnostics because they
 improve telemetry auditing. Do not add a combined delay/filter search, history
@@ -17,13 +21,25 @@ encoder, or more force/moment capacity on the present evidence. Further model
 development should require materially new measurements or a new externally
 validated method, not another internal architecture or coefficient search.
 
+The evidence ladder is now explicit:
+
+1. Development data estimates a bounded candidate.
+2. Reused complete flights are research-validation data. A material,
+   identifiable channel improvement can authorize an A/B for that channel only;
+   unrelated channels remain on their reference behavior and are not silently
+   modified.
+3. Rollout A/B requires at least 10% geometric improvement across the maintained
+   horizons and no aggregate or complete-flight/horizon regression above 5%.
+4. Production promotion additionally requires a genuinely fresh lockbox. None
+   of the repeatedly consulted flights in this report qualifies as one.
+
 ## Why the current loop has saturated
 
 Glassbox already contains most of the commonly recommended deterministic model
 ingredients: a structured rigid-body core, differentiable integration, latent
 actuator response, bounded residual acceleration, normalized multi-step losses,
-and complete-flight holdouts. Adding another airframe now tests adapters and data
-coverage more than it tests a new modeling hypothesis.
+and complete-flight evaluation. Adding another airframe now tests adapters and
+data coverage more than it tests a new modeling hypothesis.
 
 The remaining failures have a common shape:
 
@@ -148,8 +164,8 @@ not migrate the canonical artifact until this experiment shows value.
 
 The observation contract and direct-fit spike were implemented and evaluated
 before promotion. Nano specific force fits cleanly on its chronological sensor
-holdout: 0.193 m/s² RMSE versus 4.961 m/s² for a constant baseline. ARP also
-contains useful force information (1.495 versus 4.919 m/s²), but its free motor
+validation split: 0.193 m/s² RMSE versus 4.961 m/s² for a constant baseline.
+ARP also contains useful force information (1.495 versus 4.919 m/s²), but its free motor
 time-constant search ran to the 0.25 s bound. Glassbox now reports that as
 non-identifiability and falls back to the independently measured 60--80 ms
 command/accelerometer correlation delay rather than presenting the boundary as
@@ -159,8 +175,8 @@ The good local residual fits did **not** translate into better rollouts. After
 fixing multi-horizon normalization so the A/B objective was identical, the
 Nano initializer increased the equal-metric geometric mean of cumulative
 benchmark error by 8.7% relative to the maintained instantaneous reference and
-13.1% relative to the previous best authority candidate. On protected ARP log
-66 it increased the four-metric geometric error by 5.3%, 14.4%, and 11.5% at
+13.1% relative to the previous best authority candidate. On then-protected ARP
+log 66 it increased the four-metric geometric error by 5.3%, 14.4%, and 11.5% at
 0.1, 0.5, and 1.0 seconds relative to the maintained instantaneous reference.
 
 The promotion decision is therefore negative. Typed observations remain in
@@ -176,7 +192,8 @@ The machine-readable comparison is retained in
 #### Post-freeze innovation diagnostic (2026-08-29)
 
 Glassbox now performs the next lower-risk step from the classical system-
-identification workflow: it checks whether held-out one-step innovations are
+identification workflow: it checks whether research-validation one-step
+innovations are
 white and independent of current or past controls before attributing rollout
 error to model capacity. NASA's
 [aircraft parameter-uncertainty work](https://ntrs.nasa.gov/citations/20160007740)
@@ -186,8 +203,9 @@ resets the rigid-body state to the measurement while carrying the latent
 actuator state causally. The report uses one maintained 0.5 s correlation
 horizon and a conservative simultaneous screen; it adds no fitting controls.
 
-All evaluated held-out flights--three Nano Melon flights, ARP log 66, four X8
-validation flights, and eight segments from protected IDF session 13--contained
+All evaluated research-validation flights--three Nano Melon flights, ARP log
+66, four X8 validation flights, and eight segments from protected IDF session
+13--contained
 temporally colored and input-correlated innovations. That alone is not evidence
 for a history model because every real corpus is closed loop: controller
 feedback can correlate commands with estimator and process errors.
@@ -215,13 +233,13 @@ The first correction experiment followed NASA's interpretable
 [real-time data-compatibility model](https://ntrs.nasa.gov/api/citations/20150000551/downloads/20150000551.pdf):
 each reported world-velocity and body-rate axis received one bounded scale factor
 and constant bias. Coefficients were estimated on development trajectories only,
-then frozen for complete held-out flights. Synthetic tests recover known scale
-and bias errors to within 0.001, confirming that the implementation can detect
+then frozen for complete research-validation flights. Synthetic tests recover
+known scale and bias errors to within 0.001, confirming that the implementation can detect
 the error class it claims to model.
 
 The real-data transfer gate failed:
 
-| Corpus | Held-out position/velocity ratio | Held-out attitude/rate ratio |
+| Corpus | Position/velocity ratio | Attitude/rate ratio |
 | --- | ---: | ---: |
 | Nano | 1.051 | 1.001 |
 | ARP | 0.952 | 1.008 |
@@ -259,27 +277,43 @@ rejected, establishing both positive and negative test sensitivity.
 
 Frozen real-data transfer produced this result:
 
-| Corpus | Position/velocity ratio | Attitude/rate ratio | Corpus gate |
+| Corpus | Position/velocity ratio | Attitude/rate ratio | Body-rate channel gate |
 | --- | ---: | ---: | --- |
 | Nano | 0.943 | 1.000 | fail |
-| ARP | 0.983 | 0.632 | fail |
+| ARP | 0.983 | 0.632 | pass |
 | X8 | 1.000 (already consistent) | 0.599 | pass |
-| IDF | 0.933 | 0.840 | fail |
+| IDF | 0.933 | 0.840 | pass |
 
 Values are candidate/instantaneous-reference RMSE. ARP, X8, and IDF provide
 strong evidence that their reported body rates have useful temporal semantics;
 Nano selected zero angular-rate memory. The position channel did not meet the
-10% material-improvement requirement on Nano, ARP, or IDF, and one Nano held-out
-flight regressed by 14.3%, beyond the 5% per-flight guardrail.
+10% material-improvement requirement on Nano, ARP, or IDF, and one Nano
+research-validation flight regressed by 14.3%, beyond the 5% per-flight
+guardrail.
 
-Only X8 passed its corpus gate, so the cross-platform gate failed and no rollout
-refit was run. This is a more specific result than the static-correction failure:
-observation dynamics explain a substantial fraction of attitude/body-rate
-incompatibility on three distinct platforms, but a single first-order state
-observation layer does not explain the full canonical-state mismatch. The model
-remains a research utility rather than becoming another fitting option. Complete
-coefficients and split sizes are recorded in
+The body-rate channel independently passed on ARP, X8, and IDF. That is sufficient
+cross-platform evidence for a body-rate-only rollout A/B; requiring the unrelated
+velocity channel to improve would test universality rather than transfer. Nano's
+zero-memory selection is a valid platform-specific no-op, not evidence for the
+candidate. Complete coefficients and split sizes are recorded in
 [`temporal-observation-filter-results.json`](temporal-observation-filter-results.json).
+
+The fixed rollout A/B changed only the reported body-rate output of existing
+models. Dynamics parameters, physical trajectories, and position, velocity, and
+attitude metrics were identical between candidate and reference:
+
+| Corpus | 0.1 s ratio | 0.5 s ratio | 1.0 s ratio | Across-horizon geometric ratio | Gate |
+| --- | ---: | ---: | ---: | ---: | --- |
+| ARP | 0.886 | 0.993 | 1.002 | 0.959 | fail |
+| X8 | 0.869 | 0.953 | 0.959 | 0.926 | fail |
+| IDF | 0.912 | 0.990 | 0.994 | 0.965 | fail |
+
+The filter consistently helps at 100 ms and does not cause a guarded regression,
+but its advantage is almost gone by 0.5–1.0 s. None achieves the predeclared 0.90
+geometric ratio across horizons. The post-result threshold was not relaxed, so
+the observation layer remains a research utility and is not applied by fitting.
+The full A/B is recorded in
+[`body-rate-observation-rollout-results.json`](body-rate-observation-rollout-results.json).
 
 #### State-channel alignment result and terminal decision (2026-08-29)
 
@@ -293,26 +327,27 @@ zero-shift reference, used equal source-group fitting weight, trimmed a fixed
 Synthetic tests recovered injected +60 ms and -40 ms shifts within 10 ms and
 rejected a +200 ms shift at the +100 ms boundary. Frozen real-data transfer was:
 
-| Corpus | Position/velocity ratio | Attitude/rate ratio | Corpus gate |
+| Corpus | Position/velocity ratio | Attitude/rate ratio | Body-rate channel gate |
 | --- | ---: | ---: | --- |
 | Nano | 1.003 | 0.906 | fail |
 | ARP | 0.977 | 0.906 | fail |
 | X8 | 1.000 (already consistent) | 0.620 | pass |
-| IDF | 0.954 | 0.827 | fail |
+| IDF | 0.954 | 0.827 | pass |
 
 Timing alignment again explains a meaningful part of body-rate incompatibility,
-especially on the fixed wings, but only X8 passed. Nano also exceeded the 5%
-per-flight position regression guard. The cross-platform gate therefore failed,
-and no rollout refit was run. Bootstrap uncertainty was not reached because the
-candidates first failed the deterministic materiality and consistency screen.
+especially on the fixed wings. It clears the conditional channel gate on X8 and
+IDF, but not ARP; the temporal candidate was therefore the stronger transfer
+hypothesis and the alignment candidate was not advanced. Nano also exceeded the
+5% per-flight position regression guard.
 
 This closes the bounded literature-guided research cycle. Combining delay and
-filter candidates would increase flexibility after both independently failed the
-same gate; a history encoder was explicitly conditional on Phase A success. The
-current dynamics architecture is therefore frozen. Glassbox remains valuable as
-an opinionated telemetry normalization, differentiable gray-box baseline, and
-evaluation framework, but the evidence does not support presenting it as a
-state-of-the-art universal dynamics model. The full result is recorded in
+filter candidates would increase flexibility after the stronger candidate failed
+the rollout gate; a history encoder was explicitly conditional on rollout-level
+success. The current dynamics architecture is therefore frozen. Glassbox remains
+valuable as an opinionated telemetry normalization, differentiable gray-box
+baseline, and evaluation framework, but the evidence does not support
+presenting it as a state-of-the-art universal dynamics model. The full result
+is recorded in
 [`state-observation-alignment-results.json`](state-observation-alignment-results.json).
 
 ### Phase B: structured history encoder — not authorized
@@ -339,11 +374,12 @@ Promotion requires all of the following:
 - synthetic recovery: retain parameter recovery and numerical stability;
 - interface: no airframe-specific public tuning knobs.
 
-The materiality threshold was at least 10% improvement in the aggregate held-out
-metric with consistent per-flight direction. The observation-aware candidates
-failed those gates, so model development is frozen and Glassbox is presented as
-a well-audited baseline and telemetry normalization/evaluation framework rather
-than a state-of-the-art universal dynamics learner.
+The materiality threshold was at least 10% improvement in the aggregate
+research-validation metric with consistent per-flight direction. The
+observation-aware candidates failed those gates, so model development is frozen
+and Glassbox is presented as a well-audited baseline and telemetry
+normalization/evaluation framework rather than a state-of-the-art universal
+dynamics learner.
 
 ## Ideas to defer
 
@@ -364,7 +400,8 @@ than a state-of-the-art universal dynamics learner.
 The project was not missing a clever integrator or one more aerodynamic
 coefficient. Glassbox now preserves the distinction between **dynamics**,
 **latent state**, and **how telemetry observes those dynamics**, but the bounded
-observation-aware candidates did not clear the cross-platform promotion gates.
+observation-aware candidate cleared channel-level transfer but not the rollout
+promotion gate.
 That is a useful technical result: the maintained system is an honest, general
 gray-box baseline and telemetry framework, and further capacity is not justified
 until new evidence changes the problem.

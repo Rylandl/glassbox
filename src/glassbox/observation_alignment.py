@@ -19,15 +19,14 @@ from glassbox.evaluation import (
     KINEMATIC_POSITION_RATE_FLOOR_M_S,
 )
 from glassbox.observation_compatibility import (
-    MATERIAL_IMPROVEMENT_RATIO,
     MAXIMUM_ANGULAR_RATE_BIAS_RAD_S,
-    MAXIMUM_COMPATIBILITY_REGRESSION_RATIO,
     MAXIMUM_SCALE,
     MAXIMUM_VELOCITY_BIAS_M_S,
     MINIMUM_SCALE,
     _bounded_affine_from_statistics,
     _observation_rate_pairs,
     _validate_observation_fit_data,
+    observation_channel_transfer_gate,
 )
 
 
@@ -469,60 +468,30 @@ def evaluate_state_observation_alignment(
             np.sqrt(3.0) * KINEMATIC_ATTITUDE_RATE_FLOOR_RAD_S
         ),
     }
-    eligible_groups = [
-        name
-        for name in names
-        if reference_mean[name] > materiality_floors[name]
-    ]
-    eligible_ratios = [ratios[name] for name in eligible_groups]
-    material = bool(
-        eligible_ratios
-        and all(
-            ratio is not None and ratio <= MATERIAL_IMPROVEMENT_RATIO
-            for ratio in eligible_ratios
-        )
-    )
-    no_regression = bool(
-        all(
-            ratio is not None
-            and ratio <= MAXIMUM_COMPATIBILITY_REGRESSION_RATIO
-            for ratio in eligible_ratios
-        )
-        and all(
-            trajectory_report["candidate_over_reference"][name] is not None
-            and trajectory_report["candidate_over_reference"][name]
-            <= MAXIMUM_COMPATIBILITY_REGRESSION_RATIO
-            for trajectory_report in per_trajectory
-            for name in eligible_groups
-        )
-    )
-    interior = bool(
-        abs(candidate.velocity_delay_s) < MAXIMUM_ABSOLUTE_ALIGNMENT_S
-        and abs(candidate.angular_rate_delay_s) < MAXIMUM_ABSOLUTE_ALIGNMENT_S
+    gate = observation_channel_transfer_gate(
+        reference_error=reference_mean,
+        candidate_over_reference=ratios,
+        per_trajectory=per_trajectory,
+        materiality_floors=materiality_floors,
+        group_interior={
+            "position_velocity_vector_rmse_m_s": bool(
+                abs(candidate.velocity_delay_s)
+                < MAXIMUM_ABSOLUTE_ALIGNMENT_S
+            ),
+            "attitude_rate_vector_rmse_rad_s": bool(
+                abs(candidate.angular_rate_delay_s)
+                < MAXIMUM_ABSOLUTE_ALIGNMENT_S
+            ),
+        },
     )
     return {
-        "policy": "held_out_state_observation_alignment_transfer_v1",
+        "policy": "research_validation_state_observation_alignment_transfer_v2",
         "trajectory_count": len(trajectories),
         "candidate": candidate.to_dict(),
         "instantaneous_reference": instantaneous_reference.to_dict(),
         "candidate_error": candidate_mean,
         "instantaneous_reference_error": reference_mean,
         "candidate_over_reference": ratios,
-        "gate": {
-            "material_improvement_ratio": MATERIAL_IMPROVEMENT_RATIO,
-            "maximum_regression_ratio": MAXIMUM_COMPATIBILITY_REGRESSION_RATIO,
-            "materiality_floors": materiality_floors,
-            "eligible_groups": eligible_groups,
-            "already_consistent_groups": [
-                name for name in names if name not in eligible_groups
-            ],
-            "all_groups_improve_materially": material,
-            "no_group_regresses": no_regression,
-            "alignment_interior": interior,
-            "regression_guard_scope": (
-                "aggregate and every complete held-out trajectory"
-            ),
-            "passes": bool(material and no_regression and interior),
-        },
+        "gate": gate,
         "per_trajectory": per_trajectory,
     }

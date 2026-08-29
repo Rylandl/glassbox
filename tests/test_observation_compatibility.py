@@ -13,6 +13,7 @@ from glassbox.observation_compatibility import (
     evaluate_state_observation_correction,
     fit_first_order_observation_filter,
     fit_state_observation_correction,
+    observation_channel_transfer_gate,
 )
 from glassbox.synthetic import generate_trajectory
 
@@ -192,7 +193,8 @@ def test_first_order_filter_recovers_temporal_observation_response() -> None:
         ratio < 0.1
         for ratio in evaluation["candidate_over_reference"].values()
     )
-    assert evaluation["gate"]["passes"] is True
+    assert evaluation["gate"]["conditional_transfer_passes"] is True
+    assert evaluation["gate"]["blanket_transfer_passes"] is True
 
 
 def test_temporal_fit_rejects_protected_data_and_boundary_is_not_promoted() -> None:
@@ -209,10 +211,13 @@ def test_temporal_fit_rejects_protected_data_and_boundary_is_not_promoted() -> N
         result.candidate.angular_rate_time_constant_s,
         MAXIMUM_TIME_CONSTANT_S,
     )
+    decisions = result.report["training_comparison"]["gate"][
+        "channel_decisions"
+    ]
+    assert all(not decision["identifiable"] for decision in decisions.values())
     assert result.report["training_comparison"]["gate"][
-        "time_constants_interior"
+        "conditional_transfer_passes"
     ] is False
-    assert result.report["training_comparison"]["gate"]["passes"] is False
     protected = replace(
         slow,
         labels={**slow.labels, "benchmark_split": "validation"},
@@ -263,3 +268,36 @@ def test_temporal_fit_weights_source_groups_instead_of_segment_count() -> None:
         )
     assert duplicated_segment.report["source_group_count"] == 2
     assert duplicated_segment.report["fit_weighting"] == "equal_source_group"
+
+
+def test_channel_gate_separates_conditional_from_blanket_transfer() -> None:
+    position = "position_velocity_vector_rmse_m_s"
+    attitude = "attitude_rate_vector_rmse_rad_s"
+    per_trajectory = [
+        {
+            "candidate_over_reference": {
+                position: 1.01,
+                attitude: 0.65,
+            }
+        },
+        {
+            "candidate_over_reference": {
+                position: 0.99,
+                attitude: 0.70,
+            }
+        },
+    ]
+
+    gate = observation_channel_transfer_gate(
+        reference_error={position: 0.2, attitude: 0.2},
+        candidate_over_reference={position: 0.98, attitude: 0.67},
+        per_trajectory=per_trajectory,
+        materiality_floors={position: 0.001, attitude: 0.001},
+        group_interior={position: True, attitude: True},
+    )
+
+    assert gate["rollout_candidate_groups"] == [attitude]
+    assert gate["conditional_transfer_passes"] is True
+    assert gate["blanket_transfer_passes"] is False
+    assert gate["full_candidate_is_neutral_or_better"] is True
+    assert gate["production_promotion_requires_fresh_lockbox"] is True

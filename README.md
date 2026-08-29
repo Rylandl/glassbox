@@ -603,21 +603,33 @@ adds no CLI knobs.
 A research-only compatibility utility also tests whether reported velocity and
 body rate behave like bounded first-order observations of pose-consistent
 motion. It fits development flights only and compares against an equally
-flexible zero-memory reference on complete held-out flights. This diagnostic
-found transferable body-rate memory on ARP, X8, and IDF, but failed the joint
-cross-platform state-group gate, so it is not applied by the fitter and adds no
-user-facing configuration. The frozen result is documented in
-[`docs/temporal-observation-filter-results.json`](docs/temporal-observation-filter-results.json).
+flexible zero-memory reference on complete research-validation flights. Its
+channel-level gate found transferable body-rate memory on ARP, X8, and IDF and
+authorized a body-rate-only rollout A/B without modifying velocity or the
+physical dynamics. The filter improved the 0.1 s rate metric by 8.8–13.1%, but
+the advantage became nearly neutral by 0.5–1.0 s; no corpus met the maintained
+10% across-horizon materiality threshold. It is therefore not applied by the
+fitter and adds no user-facing configuration. The evidence is documented in
+[`docs/temporal-observation-filter-results.json`](docs/temporal-observation-filter-results.json)
+and
+[`docs/body-rate-observation-rollout-results.json`](docs/body-rate-observation-rollout-results.json).
 
 A final signed timestamp-alignment diagnostic likewise found substantial
-body-rate improvements on X8 and IDF but failed the joint Nano/ARP/fixed-wing
-transfer gate. Its implementation is also isolated from normal fitting; the
-evidence is in
+body-rate improvements on X8 and IDF. It was not advanced because the temporal
+candidate transferred to more platforms and subsequently failed the rollout
+gate. Its implementation is also isolated from normal fitting; the evidence is
+in
 [`docs/state-observation-alignment-results.json`](docs/state-observation-alignment-results.json).
 That closes the bounded literature-guided architecture cycle. Until materially
 new measurements or an externally validated method changes the evidence,
 Glassbox keeps the current dynamics model as an audited gray-box baseline rather
 than adding a combined filter/delay search or learned history encoder.
+
+The evaluation hierarchy is deliberately asymmetric. A material improvement in
+one identifiable state channel may authorize a research A/B for that channel;
+blanket/default adoption must improve every eligible channel. Reused evaluation
+flights are classified as research validation, and any production promotion
+would additionally require a genuinely fresh lockbox.
 
 ### Scaling across logs
 
