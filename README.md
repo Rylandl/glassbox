@@ -609,6 +609,16 @@ cross-platform state-group gate, so it is not applied by the fitter and adds no
 user-facing configuration. The frozen result is documented in
 [`docs/temporal-observation-filter-results.json`](docs/temporal-observation-filter-results.json).
 
+A final signed timestamp-alignment diagnostic likewise found substantial
+body-rate improvements on X8 and IDF but failed the joint Nano/ARP/fixed-wing
+transfer gate. Its implementation is also isolated from normal fitting; the
+evidence is in
+[`docs/state-observation-alignment-results.json`](docs/state-observation-alignment-results.json).
+That closes the bounded literature-guided architecture cycle. Until materially
+new measurements or an externally validated method changes the evidence,
+Glassbox keeps the current dynamics model as an audited gray-box baseline rather
+than adding a combined filter/delay search or learned history encoder.
+
 ### Scaling across logs
 
 Canonical trajectory artifacts now carry a typed, versioned semantic contract:

@@ -1,0 +1,143 @@
+{
+  "date": "2026-08-29",
+  "hypothesis": "A bounded relative timestamp offset between pose and reported rate channels transfers better than an otherwise identical instantaneous affine observation model.",
+  "policy": "bounded_state_observation_alignment_v1",
+  "selection": {
+    "delay_candidates_s": "41 uniformly spaced values from -0.1 to 0.1 inclusive",
+    "delay_convention": "positive means the reported channel lags pose-implied motion",
+    "axis_policy": "one shared delay for all three velocity axes and one shared delay for all three angular-rate axes",
+    "fit_weighting": "equal_source_group",
+    "scale_bounds": [0.8, 1.2],
+    "velocity_bias_bounds_m_s": [-1.0, 1.0],
+    "angular_rate_bias_bounds_rad_s": [-0.5, 0.5],
+    "material_improvement_ratio": 0.9,
+    "maximum_regression_ratio": 1.05,
+    "fit_data": "development trajectories only",
+    "evaluation_data": "complete held-out trajectories",
+    "public_configuration_added": false
+  },
+  "synthetic_recovery": {
+    "positive_injected_delay_s": 0.06,
+    "negative_injected_delay_s": -0.04,
+    "recovery_tolerance_s": 0.01,
+    "positive_held_out_candidate_over_instantaneous_reference": {
+      "position_velocity_vector_rmse_m_s": 0.0017154735631035745,
+      "attitude_rate_vector_rmse_rad_s": 0.0018243741252965675
+    },
+    "negative_held_out_candidate_over_instantaneous_reference": {
+      "position_velocity_vector_rmse_m_s": 0.0026208337356817438,
+      "attitude_rate_vector_rmse_rad_s": 0.0023520469615812708
+    },
+    "boundary_test": "An injected 0.2 s delay selected the maintained 0.1 s upper bound for both groups and was rejected as non-interior."
+  },
+  "decision": {
+    "cross_platform_transfer_gate_passed": false,
+    "rollout_ab_authorized": false,
+    "production_alignment_authorized": false,
+    "combined_delay_filter_search_authorized": false,
+    "history_encoder_authorized": false,
+    "model_architecture_frozen": true,
+    "research_utility_retained": true,
+    "reason": "Only X8 passed its corpus gate. The final distinct observation hypothesis therefore failed the predeclared cross-platform promotion criteria; combining failed candidates would add flexibility without new causal evidence."
+  },
+  "datasets": {
+    "nano": {
+      "development_trajectories": 12,
+      "development_intervals": 55587,
+      "development_source_groups": 12,
+      "held_out_trajectories": 3,
+      "held_out_intervals": 19494,
+      "alignment": {
+        "velocity_delay_s": 0.015,
+        "angular_rate_delay_s": -0.005,
+        "velocity_scale": [1.0628923576944713, 1.048165010805205, 0.8882997462682034],
+        "velocity_bias_m_s": [-0.0012672490896720244, -0.00589166164975969, -0.003846997156108154],
+        "angular_rate_scale": [1.0037328855885108, 0.9950981207029361, 0.9737742983543852],
+        "angular_rate_bias_rad_s": [-0.00023354453890725205, -0.005641142400651736, -0.00750516429165777]
+      },
+      "held_out_candidate_over_instantaneous_reference": {
+        "position_velocity_vector_rmse_m_s": 1.0030763523015573,
+        "attitude_rate_vector_rmse_rad_s": 0.9060365810059465
+      },
+      "maximum_single_flight_ratio": {
+        "position_velocity_vector_rmse_m_s": 1.0518102780575733,
+        "attitude_rate_vector_rmse_rad_s": 0.9190519019625143
+      },
+      "all_groups_improve_materially": false,
+      "no_group_regresses": false,
+      "corpus_gate_passed": false
+    },
+    "arp": {
+      "development_trajectories": 3,
+      "development_intervals": 6980,
+      "development_source_groups": 3,
+      "held_out_trajectories": 1,
+      "held_out_intervals": 3819,
+      "alignment": {
+        "velocity_delay_s": -0.01,
+        "angular_rate_delay_s": 0.005,
+        "velocity_scale": [1.0045839415987114, 0.9994490784491906, 1.0126269674563608],
+        "velocity_bias_m_s": [0.01010429630748352, -0.0029256344163776926, -0.0016204150508660382],
+        "angular_rate_scale": [0.9972196967944816, 0.9971277430012002, 0.8],
+        "angular_rate_bias_rad_s": [0.0002842033978286025, 0.00013963648703393546, -0.0009822474841110855]
+      },
+      "held_out_candidate_over_instantaneous_reference": {
+        "position_velocity_vector_rmse_m_s": 0.9773163093608594,
+        "attitude_rate_vector_rmse_rad_s": 0.906078597062753
+      },
+      "all_groups_improve_materially": false,
+      "no_group_regresses": true,
+      "corpus_gate_passed": false
+    },
+    "x8": {
+      "development_trajectories": 13,
+      "development_intervals": 5185,
+      "development_source_groups": 13,
+      "held_out_trajectories": 4,
+      "held_out_intervals": 1625,
+      "alignment": {
+        "velocity_delay_s": 0.0,
+        "angular_rate_delay_s": 0.01,
+        "velocity_scale": [1.0000000000000002, 0.9999999999999996, 0.9999999999999999],
+        "velocity_bias_m_s": [3.2794280112004626e-15, -1.0931426704001542e-15, -6.832141690000964e-17],
+        "angular_rate_scale": [0.9475740485730543, 0.959987994383446, 0.9453048740387403],
+        "angular_rate_bias_rad_s": [-0.00041794770923680254, -0.0013396185657015623, -0.001114466535276111]
+      },
+      "held_out_candidate_over_instantaneous_reference": {
+        "position_velocity_vector_rmse_m_s": 1.0,
+        "attitude_rate_vector_rmse_rad_s": 0.6204698244203132
+      },
+      "already_consistent_groups": ["position_velocity_vector_rmse_m_s"],
+      "all_groups_improve_materially": true,
+      "no_group_regresses": true,
+      "corpus_gate_passed": true
+    },
+    "idf": {
+      "development_trajectories": 111,
+      "development_intervals": 1616660,
+      "development_source_groups": 12,
+      "held_out_trajectories": 8,
+      "held_out_intervals": 128818,
+      "alignment": {
+        "velocity_delay_s": 0.005,
+        "angular_rate_delay_s": 0.005,
+        "velocity_scale": [0.999585873555802, 1.001976158328437, 1.0023850602931328],
+        "velocity_bias_m_s": [0.00360948445474623, 0.004868453078462782, 0.009036172408565822],
+        "angular_rate_scale": [1.007978328868219, 1.0034175468803324, 0.995632303694024],
+        "angular_rate_bias_rad_s": [-9.31488823745245e-05, 4.656220311954895e-06, 0.00010380467410448883]
+      },
+      "held_out_candidate_over_instantaneous_reference": {
+        "position_velocity_vector_rmse_m_s": 0.9543959968253669,
+        "attitude_rate_vector_rmse_rad_s": 0.8266937329007891
+      },
+      "maximum_single_flight_ratio": {
+        "position_velocity_vector_rmse_m_s": 0.9800996296718454,
+        "attitude_rate_vector_rmse_rad_s": 0.9234764836385779
+      },
+      "all_groups_improve_materially": false,
+      "no_group_regresses": true,
+      "corpus_gate_passed": false
+    }
+  },
+  "legacy_artifact_note": "X8 format-v2 and IDF format-v1 artifacts were decoded in memory for this one-time comparison. No compatibility loader or migrated artifact was added."
+}

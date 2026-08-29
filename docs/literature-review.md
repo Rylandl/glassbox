@@ -4,19 +4,18 @@ Date: 2026-08-29
 
 ## Decision
 
-Do not freeze Glassbox yet, but stop expanding the airframe catalog and stop
-tuning airframe-specific constants. The literature supports one bounded research
-cycle around a missing system-identification layer:
+Freeze the Glassbox model architecture at its current audited baseline. The
+bounded research cycle proposed below is now complete: typed direct observations,
+an observation-first initializer, innovation diagnostics, static compatibility
+correction, causal first-order filtering, and explicit timestamp alignment were
+all tested. None passed the predeclared cross-platform transfer and rollout
+gates without per-airframe tuning.
 
-1. preserve and model observations rather than treating estimator outputs as the
-   physical state;
-2. estimate signal delay and latent state from causal input/output history;
-3. learn decoupled force and moment discrepancies inside the rigid-body model;
-4. validate residual structure and finite-horizon predictions, with uncertainty.
-
-If this architecture does not improve the existing Nano, ARP, and fixed-wing
-references without per-airframe tuning, the current implementation should be
-accepted as the useful limit of the project for now.
+Retain the canonical observation contract and research diagnostics because they
+improve telemetry auditing. Do not add a combined delay/filter search, history
+encoder, or more force/moment capacity on the present evidence. Further model
+development should require materially new measurements or a new externally
+validated method, not another internal architecture or coefficient search.
 
 ## Why the current loop has saturated
 
@@ -58,16 +57,15 @@ samples of one fully observed Markov state.
 | [Prediction intervals for data-driven quadrotor models](https://arxiv.org/html/2408.06036) | Simulation plus real high-speed quadrotor flights | Prediction intervals widen under extrapolation and expose when a learned aerodynamic model is outside its support. | After the observation-aware model works, calibrated interval coverage should become a promotion metric; raw mean error alone cannot tell users when to trust a model. |
 | [Neural-Fly](https://arxiv.org/abs/2205.06908) | Real wind-tunnel and outdoor flight; transfer across wind and drones | Learns a shared residual basis offline and adapts only low-dimensional coefficients online. | This is a credible later path for fleet adaptation, but only after Glassbox has multiple cleanly identified systems and a trustworthy observation model. |
 
-## What is actually missing
+## What the review identified as missing
 
 ### 1. A typed observation model
 
-`Trajectory` currently preserves a canonical 13-element state, controls, and
-exogenous values. The source data often contain additional measurements that are
-more directly related to dynamics, but they are discarded. The Nano CSV files,
-for example, contain body specific acceleration; their canonical NPZ files do
-not. The PX4 adapter similarly uses estimator position, velocity, attitude, and
-angular rate but does not retain raw IMU observations in the trajectory.
+At the start of the review, `Trajectory` preserved a canonical 13-element state,
+controls, and exogenous values while discarding more direct dynamics
+measurements. That gap led to canonical format v3: Nano body specific
+acceleration and PX4 IMU observations are now retained as typed observation
+channels without changing the rigid-body state schema.
 
 The internal representation should distinguish:
 
@@ -283,18 +281,53 @@ remains a research utility rather than becoming another fitting option. Complete
 coefficients and split sizes are recorded in
 [`temporal-observation-filter-results.json`](temporal-observation-filter-results.json).
 
-### Phase B: structured history encoder
+#### State-channel alignment result and terminal decision (2026-08-29)
 
-If Phase A improves parameter stability or held-out error, add one small causal
+The final distinct compatibility hypothesis separated a pure relative timestamp
+offset from first-order filtering. It fitted one shared signed delay for all
+three velocity axes and one for all three angular-rate axes, over a maintained
+±100 ms range. The candidate retained the same bounded affine capacity as its
+zero-shift reference, used equal source-group fitting weight, trimmed a fixed
+100 ms boundary for every candidate, and rejected protected splits.
+
+Synthetic tests recovered injected +60 ms and -40 ms shifts within 10 ms and
+rejected a +200 ms shift at the +100 ms boundary. Frozen real-data transfer was:
+
+| Corpus | Position/velocity ratio | Attitude/rate ratio | Corpus gate |
+| --- | ---: | ---: | --- |
+| Nano | 1.003 | 0.906 | fail |
+| ARP | 0.977 | 0.906 | fail |
+| X8 | 1.000 (already consistent) | 0.620 | pass |
+| IDF | 0.954 | 0.827 | fail |
+
+Timing alignment again explains a meaningful part of body-rate incompatibility,
+especially on the fixed wings, but only X8 passed. Nano also exceeded the 5%
+per-flight position regression guard. The cross-platform gate therefore failed,
+and no rollout refit was run. Bootstrap uncertainty was not reached because the
+candidates first failed the deterministic materiality and consistency screen.
+
+This closes the bounded literature-guided research cycle. Combining delay and
+filter candidates would increase flexibility after both independently failed the
+same gate; a history encoder was explicitly conditional on Phase A success. The
+current dynamics architecture is therefore frozen. Glassbox remains valuable as
+an opinionated telemetry normalization, differentiable gray-box baseline, and
+evaluation framework, but the evidence does not support presenting it as a
+state-of-the-art universal dynamics model. The full result is recorded in
+[`state-observation-alignment-results.json`](state-observation-alignment-results.json).
+
+### Phase B: structured history encoder — not authorized
+
+Phase A did not improve the maintained rollout gates, so this phase is not
+authorized. Its conditional design was: add one small causal
 encoder that initializes a latent discrepancy state from past observations and
 controls. Use independent linear/body-force and angular/body-moment heads. Keep
 history duration and architecture as maintained internal policy selected by
 cross-flight validation, not public CLI options.
 
-### Phase C: promote or freeze
+### Phase C: promote or freeze — frozen
 
-Run the same maintained configuration on the existing corpus only. No new
-airframes are needed for the decision.
+The maintained criteria below were applied to the existing corpus without adding
+new airframes:
 
 Promotion requires all of the following:
 
@@ -306,12 +339,11 @@ Promotion requires all of the following:
 - synthetic recovery: retain parameter recovery and numerical stability;
 - interface: no airframe-specific public tuning knobs.
 
-A reasonable materiality threshold is at least 10% improvement in the aggregate
-held-out metric, accompanied by consistent per-flight direction and bootstrap
-intervals that exclude a negligible change. If the method fails these gates,
-freeze model development and present Glassbox as a well-audited baseline and
-telemetry normalization/evaluation framework rather than a state-of-the-art
-universal dynamics learner.
+The materiality threshold was at least 10% improvement in the aggregate held-out
+metric with consistent per-flight direction. The observation-aware candidates
+failed those gates, so model development is frozen and Glassbox is presented as
+a well-audited baseline and telemetry normalization/evaluation framework rather
+than a state-of-the-art universal dynamics learner.
 
 ## Ideas to defer
 
@@ -329,9 +361,10 @@ universal dynamics learner.
 
 ## Bottom line
 
-The project is not missing a clever integrator or one more aerodynamic
-coefficient. It is missing the distinction between **dynamics**, **latent state**,
-and **how telemetry observes those dynamics**. That distinction is established
-system-identification practice, repeatedly validated on real aerial vehicles,
-and broad enough to benefit multirotors, conventional fixed wings, flying wings,
-and flap-equipped aircraft without adding user-facing model knobs.
+The project was not missing a clever integrator or one more aerodynamic
+coefficient. Glassbox now preserves the distinction between **dynamics**,
+**latent state**, and **how telemetry observes those dynamics**, but the bounded
+observation-aware candidates did not clear the cross-platform promotion gates.
+That is a useful technical result: the maintained system is an honest, general
+gray-box baseline and telemetry framework, and further capacity is not justified
+until new evidence changes the problem.
