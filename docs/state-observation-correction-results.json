@@ -1,0 +1,102 @@
+{
+  "date": "2026-08-29",
+  "hypothesis": "A bounded diagonal scale and constant bias correction for reported world velocity and body angular rate will reduce kinematic compatibility defects on complete held-out flights.",
+  "policy": "bounded_affine_state_compatibility_v1",
+  "selection": {
+    "material_improvement_ratio": 0.9,
+    "maximum_regression_ratio": 1.05,
+    "fit_data": "development trajectories only",
+    "evaluation_data": "complete held-out trajectories",
+    "public_configuration_added": false
+  },
+  "decision": {
+    "held_out_transfer_gate_passed": false,
+    "rollout_ab_authorized": false,
+    "production_application_authorized": false,
+    "research_utility_retained": true,
+    "reason": "No platform improved both material compatibility groups by 10 percent. Nano position/velocity compatibility regressed beyond the 5 percent guardrail."
+  },
+  "datasets": {
+    "nano": {
+      "training_trajectories": 12,
+      "held_out_trajectories": 3,
+      "correction": {
+        "velocity_scale": [0.9117225731911601, 0.9155824880672022, 0.9972908665386405],
+        "velocity_bias_m_s": [0.0021673009631093965, 0.007239819087426736, 0.007486124811811869],
+        "angular_rate_scale": [0.984620602926103, 0.9965693827140301, 0.9351960665020379],
+        "angular_rate_bias_rad_s": [0.004068905709098809, 0.005780170915305544, 0.003609731290504503]
+      },
+      "training_after_over_before": {
+        "position_velocity_vector_rmse_m_s": 0.905168304113921,
+        "attitude_rate_vector_rmse_rad_s": 0.9948384675917532
+      },
+      "held_out_after_over_before": {
+        "position_velocity_vector_rmse_m_s": 1.050857410789031,
+        "attitude_rate_vector_rmse_rad_s": 1.0011827329420329
+      },
+      "all_groups_improve_materially": false,
+      "no_group_regresses": false
+    },
+    "arp": {
+      "training_trajectories": 3,
+      "held_out_trajectories": 1,
+      "correction": {
+        "velocity_scale": [0.9257945224191154, 0.9104506611360725, 0.9858663159473693],
+        "velocity_bias_m_s": [-0.006009459297297224, 0.0014500003601218114, 0.0021487285244793366],
+        "angular_rate_scale": [1.0040724281081372, 1.0030351962612216, 0.9717415368161503],
+        "angular_rate_bias_rad_s": [-0.00016698162102672502, -0.00024341097524320315, -0.0013684580419386315]
+      },
+      "training_after_over_before": {
+        "position_velocity_vector_rmse_m_s": 0.9711556368256454,
+        "attitude_rate_vector_rmse_rad_s": 0.99874603050209
+      },
+      "held_out_after_over_before": {
+        "position_velocity_vector_rmse_m_s": 0.9523582954009041,
+        "attitude_rate_vector_rmse_rad_s": 1.0082725543789253
+      },
+      "all_groups_improve_materially": false,
+      "no_group_regresses": true
+    },
+    "x8": {
+      "training_trajectories": 13,
+      "held_out_trajectories": 4,
+      "correction": {
+        "velocity_scale": [0.9999999999999976, 0.9999999999999988, 0.9999999999999983],
+        "velocity_bias_m_s": [-6.765840432643572e-15, 1.2752768946930553e-14, 1.3752372891408867e-16],
+        "angular_rate_scale": [1.0065221686698662, 1.0081242990493302, 1.0095881297802298],
+        "angular_rate_bias_rad_s": [0.0001571623806912759, 0.0013214514225404457, 0.0012476196105652504]
+      },
+      "training_after_over_before": {
+        "position_velocity_vector_rmse_m_s": 0.9970407950611897,
+        "attitude_rate_vector_rmse_rad_s": 0.9997507339543951
+      },
+      "held_out_after_over_before": {
+        "position_velocity_vector_rmse_m_s": 0.9983383197756035,
+        "attitude_rate_vector_rmse_rad_s": 0.9996747456627961
+      },
+      "already_consistent_groups": ["position_velocity_vector_rmse_m_s"],
+      "all_groups_improve_materially": false,
+      "no_group_regresses": true
+    },
+    "idf": {
+      "training_trajectories": 111,
+      "held_out_trajectories": 8,
+      "correction": {
+        "velocity_scale": [1.000301525845002, 0.9979698463367697, 0.9950031401517101],
+        "velocity_bias_m_s": [-0.0036665936936994634, -0.004895708557003522, -0.008984513481892564],
+        "angular_rate_scale": [0.9860608436116217, 0.9919952179611637, 0.9978332414162998],
+        "angular_rate_bias_rad_s": [0.00010419072087910525, -0.00032444910874729636, -0.00019772252344361604]
+      },
+      "training_after_over_before": {
+        "position_velocity_vector_rmse_m_s": 0.9847732840550789,
+        "attitude_rate_vector_rmse_rad_s": 0.9932681416075071
+      },
+      "held_out_after_over_before": {
+        "position_velocity_vector_rmse_m_s": 0.9896086893754797,
+        "attitude_rate_vector_rmse_rad_s": 0.9922529559562987
+      },
+      "all_groups_improve_materially": false,
+      "no_group_regresses": true
+    }
+  }
+}

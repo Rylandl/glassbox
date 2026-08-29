@@ -211,6 +211,38 @@ targets, then pass the unchanged cross-platform rollout gates. The complete
 machine-readable result is in
 [`innovation-diagnostic-results.json`](innovation-diagnostic-results.json).
 
+#### Static observation-correction result (2026-08-29)
+
+The first correction experiment followed NASA's interpretable
+[real-time data-compatibility model](https://ntrs.nasa.gov/api/citations/20150000551/downloads/20150000551.pdf):
+each reported world-velocity and body-rate axis received one bounded scale factor
+and constant bias. Coefficients were estimated on development trajectories only,
+then frozen for complete held-out flights. Synthetic tests recover known scale
+and bias errors to within 0.001, confirming that the implementation can detect
+the error class it claims to model.
+
+The real-data transfer gate failed:
+
+| Corpus | Held-out position/velocity ratio | Held-out attitude/rate ratio |
+| --- | ---: | ---: |
+| Nano | 1.051 | 1.001 |
+| ARP | 0.952 | 1.008 |
+| X8 | 0.998 | 1.000 |
+| IDF | 0.990 | 0.992 |
+
+Values are corrected/original compatibility RMSE, so lower is better. No corpus
+improved both material groups by the required 10%. Nano also crossed the 5%
+regression guardrail. X8's position/velocity group was already consistent to the
+maintained numerical floor and was excluded from its material gate.
+
+No rollout refit was run. The experiment shows that the observed defects are not
+well explained by transferable static calibration errors; estimator filtering,
+time variation, and channel-specific temporal semantics remain more plausible.
+The bounded implementation remains isolated as a research utility with explicit
+provenance, but it is not imported by the normal Glassbox interface or applied
+by fitting. The evidence is recorded in
+[`state-observation-correction-results.json`](state-observation-correction-results.json).
+
 ### Phase B: structured history encoder
 
 If Phase A improves parameter stability or held-out error, add one small causal
