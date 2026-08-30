@@ -170,6 +170,14 @@ NWU/FLU/WXYZ representation. Its frame operations are the same functions used
 by offline ULog ingestion. The source exposes no send method and never requests
 stream rates, arms, changes mode, or transmits a setpoint.
 
+The MAVLink reader runs continuously on a daemon thread and retains only the
+latest coherent state. This is required even in shadow mode: a solver can block
+long enough for a UDP receive buffer to preserve old datagrams while dropping
+newer ones. Each state also reports estimated source-clock lag relative to the
+best observed PX4-boot-time/host-time alignment. That diagnostic reveals
+whether freshly decoded data's source time is keeping pace with the host; it
+does not mislabel decode time as vehicle-state time.
+
 Ordinary `pytest` runs deterministic tests with fake MAVLink messages and skips
 the external fixture. To exercise a real PX4 binary and real MAVLink encoding,
 run:
@@ -210,11 +218,19 @@ uv run glassbox-px4-nmpc-shadow artifacts/px4/model.json \
 ```
 
 The shadow runner executes cold and warm-up controller solves before sampling,
-holds the current state as the regulation reference, and records solver status,
-fallback rate, model-period deadline misses, message skew, current and predicted
-validity, and command bounds. Returned commands are written only to the report.
-The previous command remains the measured/applied command because the shadow
-command is not being actuated.
+holds the current state as the regulation reference, and applies the artifact's
+sample period as the deadline for every measured solve. It records solver
+status, fallback rate, model-period deadline misses, message skew, estimated
+source-clock lag and real-time ratio, current and predicted validity, and
+command bounds. Returned commands are written only to the report. The previous
+command remains the measured/applied command because the shadow command is not
+being actuated.
+
+A transport test can pass while the real-time gate fails. In particular, PX4
+SIH and JAX share host resources in this fixture, so the report treats source
+clock progress and solver latency as separate measurements. Any
+`deadline_exceeded` sample returns the bounded previous command and is counted
+as a fallback; it is not presented as a usable controller output.
 
 This establishes transport and solver integration, not closed-loop PX4 control.
 A future command-output adapter remains a separate boundary and must own mixing,

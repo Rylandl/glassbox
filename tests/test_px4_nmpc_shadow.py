@@ -61,6 +61,7 @@ def test_shadow_runner_exercises_both_warmup_paths_without_transmission(
 ) -> None:
     model = runtime_model()
     source = StateSource()
+    deadlines: list[float | None] = []
 
     class Controller:
         prediction_horizon_s = 0.4
@@ -84,10 +85,12 @@ def test_shadow_runner_exercises_both_warmup_paths_without_transmission(
             *,
             applied_command: jnp.ndarray,
             warm_start: NMPCWarmStart | None,
+            deadline_s: float | None,
         ) -> SimpleNamespace:
             assert state.shape == (13,)
             assert reference is not None
             np.testing.assert_allclose(applied_command, previous_command)
+            deadlines.append(deadline_s)
             return SimpleNamespace(
                 status=SimpleNamespace(value="converged"),
                 command_usable=True,
@@ -121,6 +124,9 @@ def test_shadow_runner_exercises_both_warmup_paths_without_transmission(
     assert report["warmup"]["warm"]["command_usable"]
     assert len(report["samples"]) == 2
     assert source.sample_index == 3
+    assert deadlines == [None, None, 0.2, 0.2]
+    assert report["schema_version"] == 2
+    assert report["summary"]["maximum_estimated_source_clock_lag_s"] == 0.0
     json.dumps(report, allow_nan=False)
 
 

@@ -1,4 +1,5 @@
 from collections import deque
+from threading import Event
 from types import SimpleNamespace
 
 import numpy as np
@@ -105,6 +106,7 @@ def test_assembler_builds_canonical_state_only_after_both_streams_advance() -> N
     )
     assert sample.message_skew_s == pytest.approx(0.02)
     assert sample.maximum_receive_age_s == pytest.approx(0.01)
+    assert sample.estimated_source_clock_lag_s == 0.0
 
     assert assembler.ingest(position_message(1_040), received_monotonic_s=5.02) is None
     next_sample = assembler.ingest(
@@ -112,6 +114,29 @@ def test_assembler_builds_canonical_state_only_after_both_streams_advance() -> N
     )
     assert next_sample is not None
     np.testing.assert_allclose(next_sample.state[6:10], sample.state[6:10])
+
+
+def test_assembler_detects_source_clock_lag_and_recovers_after_catchup() -> None:
+    assembler = PX4StateAssembler()
+    assert assembler.ingest(position_message(1_000), received_monotonic_s=5.0) is None
+    first = assembler.ingest(
+        attitude_message(1_000), received_monotonic_s=5.01
+    )
+    assert first is not None
+
+    assert assembler.ingest(position_message(1_020), received_monotonic_s=5.10) is None
+    delayed = assembler.ingest(
+        attitude_message(1_020), received_monotonic_s=5.11
+    )
+    assert delayed is not None
+    assert delayed.estimated_source_clock_lag_s == pytest.approx(0.08)
+
+    assert assembler.ingest(position_message(1_200), received_monotonic_s=5.12) is None
+    caught_up = assembler.ingest(
+        attitude_message(1_200), received_monotonic_s=5.13
+    )
+    assert caught_up is not None
+    assert caught_up.estimated_source_clock_lag_s == 0.0
 
 
 def test_assembler_rejects_stale_or_misaligned_pairs_until_both_refresh() -> None:
@@ -164,12 +189,16 @@ def test_state_source_filters_systems_and_has_no_transmit_surface() -> None:
                 (
                     position_message(1_000, source_system=2),
                     attitude_message(1_000, source_system=2),
+                    position_message(1_000),
+                    attitude_message(1_000),
                     position_message(2_000),
                     attitude_message(2_000),
                 )
             )
             self.received_types: list[list[str]] = []
+            self.blocking_modes: list[bool] = []
             self.closed = False
+            self.closed_event = Event()
 
         def recv_match(
             self,
@@ -178,13 +207,18 @@ def test_state_source_filters_systems_and_has_no_transmit_surface() -> None:
             blocking: bool,
             timeout: float,
         ) -> Message | None:
-            assert blocking
-            assert timeout > 0.0
+            assert timeout >= 0.0
             self.received_types.append(type)
-            return self.messages.popleft() if self.messages else None
+            self.blocking_modes.append(blocking)
+            if self.messages:
+                return self.messages.popleft()
+            if blocking:
+                self.closed_event.wait(timeout)
+            return None
 
         def close(self) -> None:
             self.closed = True
+            self.closed_event.set()
 
     connection = Connection()
     with PX4MavlinkStateSource(connection, source_system=1) as source:
@@ -192,5 +226,7 @@ def test_state_source_filters_systems_and_has_no_transmit_surface() -> None:
 
     assert sample.position_time_boot_ms == 2_000
     assert connection.received_types
+    assert connection.blocking_modes[0]
+    assert False in connection.blocking_modes
     assert connection.closed
     assert not hasattr(source, "send")

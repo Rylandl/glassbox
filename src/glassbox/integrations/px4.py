@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass
+from threading import Condition, Event, Thread
 from typing import Protocol
 
 import numpy as np
@@ -16,6 +17,8 @@ from glassbox.px4_frames import (
 
 PX4_STATE_MESSAGE_TYPES = ("LOCAL_POSITION_NED", "ATTITUDE_QUATERNION")
 _BOOT_TIME_MODULUS_MS = 2**32
+_RECEIVE_POLL_TIMEOUT_S = 0.10
+_MAXIMUM_DRAIN_MESSAGES = 4096
 
 
 class PX4TelemetryError(RuntimeError):
@@ -53,6 +56,7 @@ class PX4StateSample:
     attitude_time_boot_ms: int
     message_skew_s: float
     maximum_receive_age_s: float
+    estimated_source_clock_lag_s: float = 0.0
 
     def __post_init__(self) -> None:
         state = np.asarray(self.state, dtype=np.float64)
@@ -64,7 +68,13 @@ class PX4StateSample:
             raise ValueError("PX4 position boot timestamp is outside uint32 range")
         if not 0 <= self.attitude_time_boot_ms < _BOOT_TIME_MODULUS_MS:
             raise ValueError("PX4 attitude boot timestamp is outside uint32 range")
-        timing = np.asarray([self.message_skew_s, self.maximum_receive_age_s])
+        timing = np.asarray(
+            [
+                self.message_skew_s,
+                self.maximum_receive_age_s,
+                self.estimated_source_clock_lag_s,
+            ]
+        )
         if not np.all(np.isfinite(timing)) or np.any(timing < 0.0):
             raise ValueError(
                 "PX4 state timing diagnostics must be finite and nonnegative"
@@ -108,6 +118,37 @@ class PX4StateAssembler:
         self._generation = 0
         self._emitted_generations = (-1, -1)
         self._previous_quaternion: np.ndarray | None = None
+        self._last_position_boot_ms: int | None = None
+        self._unwrapped_position_boot_ms = 0
+        self._minimum_clock_offset_s: float | None = None
+
+    def _source_clock_lag_s(self, boot_ms: int, received_at_s: float) -> float:
+        previous_boot_ms = self._last_position_boot_ms
+        if previous_boot_ms is None:
+            self._unwrapped_position_boot_ms = boot_ms
+            self._minimum_clock_offset_s = None
+        else:
+            advance_ms = (
+                (boot_ms - previous_boot_ms + _BOOT_TIME_MODULUS_MS // 2)
+                % _BOOT_TIME_MODULUS_MS
+                - _BOOT_TIME_MODULUS_MS // 2
+            )
+            if advance_ms < 0:
+                # A negative source-time jump indicates a PX4 restart. Re-anchor
+                # rather than treating the new boot as years of transport lag.
+                self._unwrapped_position_boot_ms = boot_ms
+                self._minimum_clock_offset_s = None
+            else:
+                self._unwrapped_position_boot_ms += advance_ms
+        self._last_position_boot_ms = boot_ms
+
+        clock_offset_s = received_at_s - self._unwrapped_position_boot_ms * 1e-3
+        if (
+            self._minimum_clock_offset_s is None
+            or clock_offset_s < self._minimum_clock_offset_s
+        ):
+            self._minimum_clock_offset_s = clock_offset_s
+        return max(0.0, clock_offset_s - self._minimum_clock_offset_s)
 
     def ingest(
         self,
@@ -206,6 +247,9 @@ class PX4StateAssembler:
             attitude_time_boot_ms=attitude_boot_ms,
             message_skew_s=skew_s,
             maximum_receive_age_s=float(np.max(ages)),
+            estimated_source_clock_lag_s=self._source_clock_lag_s(
+                position_boot_ms, now_s
+            ),
         )
 
 
@@ -222,6 +266,19 @@ class PX4MavlinkStateSource:
         self._connection = connection
         self._assembler = PX4StateAssembler() if assembler is None else assembler
         self._source_system = source_system
+        self._condition = Condition()
+        self._stop_requested = Event()
+        self._latest_sample: PX4StateSample | None = None
+        self._latest_sequence = 0
+        self._delivered_sequence = 0
+        self._receiver_error: Exception | None = None
+        self._closed = False
+        self._receiver = Thread(
+            target=self._receive_forever,
+            name="glassbox-px4-telemetry",
+            daemon=True,
+        )
+        self._receiver.start()
 
     @classmethod
     def connect(
@@ -257,37 +314,89 @@ class PX4MavlinkStateSource:
             source_system=int(heartbeat.get_srcSystem()),
         )
 
+    def _ingest_selected(
+        self, message: _MAVLinkMessage
+    ) -> PX4StateSample | None:
+        if (
+            self._source_system is not None
+            and int(message.get_srcSystem()) != self._source_system
+        ):
+            return None
+        return self._assembler.ingest(message)
+
+    def _receive_forever(self) -> None:
+        try:
+            while not self._stop_requested.is_set():
+                message = self._connection.recv_match(
+                    type=list(PX4_STATE_MESSAGE_TYPES),
+                    blocking=True,
+                    timeout=_RECEIVE_POLL_TIMEOUT_S,
+                )
+                if message is None:
+                    continue
+                latest = self._ingest_selected(message)
+                for _ in range(_MAXIMUM_DRAIN_MESSAGES):
+                    pending = self._connection.recv_match(
+                        type=list(PX4_STATE_MESSAGE_TYPES),
+                        blocking=False,
+                        timeout=0.0,
+                    )
+                    if pending is None:
+                        break
+                    sample = self._ingest_selected(pending)
+                    if sample is not None:
+                        latest = sample
+                if latest is None:
+                    continue
+                with self._condition:
+                    self._latest_sample = latest
+                    self._latest_sequence += 1
+                    self._condition.notify_all()
+        except Exception as error:
+            with self._condition:
+                if not self._closed:
+                    self._receiver_error = error
+                    self._condition.notify_all()
+
     def next_sample(self, *, timeout_s: float = 1.0) -> PX4StateSample:
         """Wait for the next fresh, time-aligned canonical state sample."""
 
         if not np.isfinite(timeout_s) or timeout_s <= 0:
             raise ValueError("timeout_s must be finite and positive")
         deadline = time.monotonic() + timeout_s
-        while True:
-            remaining_s = deadline - time.monotonic()
-            if remaining_s <= 0.0:
-                raise PX4TelemetryError(
-                    "timed out waiting for fresh LOCAL_POSITION_NED and "
-                    "ATTITUDE_QUATERNION messages"
-                )
-            message = self._connection.recv_match(
-                type=list(PX4_STATE_MESSAGE_TYPES),
-                blocking=True,
-                timeout=remaining_s,
-            )
-            if message is None:
-                continue
-            if (
-                self._source_system is not None
-                and int(message.get_srcSystem()) != self._source_system
-            ):
-                continue
-            sample = self._assembler.ingest(message)
-            if sample is not None:
-                return sample
+        with self._condition:
+            while True:
+                if self._receiver_error is not None:
+                    raise PX4TelemetryError(
+                        "PX4 telemetry receiver failed"
+                    ) from self._receiver_error
+                if self._closed:
+                    raise PX4TelemetryError("PX4 telemetry source is closed")
+                if self._latest_sequence > self._delivered_sequence:
+                    sample = self._latest_sample
+                    if sample is None:
+                        raise PX4TelemetryError(
+                            "PX4 telemetry receiver published an empty sample"
+                        )
+                    self._delivered_sequence = self._latest_sequence
+                    return sample
+                remaining_s = deadline - time.monotonic()
+                if remaining_s <= 0.0:
+                    raise PX4TelemetryError(
+                        "timed out waiting for fresh LOCAL_POSITION_NED and "
+                        "ATTITUDE_QUATERNION messages"
+                    )
+                self._condition.wait(timeout=remaining_s)
 
     def close(self) -> None:
+        with self._condition:
+            if self._closed:
+                return
+            self._closed = True
+            self._stop_requested.set()
+            self._condition.notify_all()
         self._connection.close()
+        self._receiver.join(timeout=1.0)
 
     def __enter__(self) -> PX4MavlinkStateSource:
         return self

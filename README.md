@@ -48,8 +48,10 @@ GLASSBOX_RUN_PX4_SITL=1 \
   uv run pytest -m px4_sitl tests/integration/test_px4_sitl.py -v
 ```
 
-An eligible fitted artifact can then be exercised against live state estimates
-with `glassbox-px4-nmpc-shadow`; its proposed commands are recorded, never sent.
+An eligible fitted artifact can then be exercised against continuously received
+live state estimates with `glassbox-px4-nmpc-shadow`. The report separates PX4
+source-clock progress from solver latency, applies the model period as the solve
+deadline, and records proposed commands without ever transmitting them.
 
 ## Nano-Quadrotor System Identification Benchmark
 

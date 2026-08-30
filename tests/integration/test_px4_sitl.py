@@ -93,6 +93,16 @@ def test_pinned_px4_sih_emits_canonical_read_only_state(
     )
     assert max(sample.message_skew_s for sample in samples) <= 0.10
     assert max(sample.maximum_receive_age_s for sample in samples) <= 0.25
+    assert all(
+        np.isfinite(sample.estimated_source_clock_lag_s)
+        and sample.estimated_source_clock_lag_s >= 0.0
+        for sample in samples
+    )
+    boot_times = np.asarray(
+        [sample.position_time_boot_ms for sample in samples], dtype=np.int64
+    )
+    boot_advances_ms = np.diff(boot_times) % (2**32)
+    assert np.all((boot_advances_ms > 0) & (boot_advances_ms < 1_000))
     assert not hasattr(px4_state_source, "send")
 
 
@@ -131,3 +141,7 @@ def test_eligible_artifact_runs_complete_nmpc_shadow_path_when_provided(
         sample["maximum_command_bound_violation"] <= 1e-6
         for sample in report["samples"]
     )
+    for sample in report["samples"]:
+        if sample["solve_time_s"] > report["model_sample_period_s"]:
+            assert sample["status"] == "deadline_exceeded"
+            assert sample["used_fallback"]

@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import platform
+import time
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
@@ -16,6 +17,8 @@ import numpy as np
 from glassbox.integrations.px4 import PX4MavlinkStateSource, PX4StateSample
 from glassbox.nmpc import NMPCController, NMPCWarmStart
 from glassbox.runtime import RuntimeDynamicsModel
+
+_BOOT_TIME_MODULUS_MS = 2**32
 
 
 def _command(value: str, *, expected_size: int) -> np.ndarray:
@@ -45,11 +48,28 @@ def _optional_max(rows: list[dict[str, Any]], key: str) -> float | None:
     return max(values) if values else None
 
 
+def _source_clock_advance_s(first_ms: int, last_ms: int) -> float | None:
+    advance_ms = (
+        (last_ms - first_ms + _BOOT_TIME_MODULUS_MS // 2)
+        % _BOOT_TIME_MODULUS_MS
+        - _BOOT_TIME_MODULUS_MS // 2
+    )
+    return advance_ms * 1e-3 if advance_ms >= 0 else None
+
+
+def _clock_ratio(source_advance_s: float | None, host_elapsed_s: float) -> float | None:
+    if source_advance_s is None or host_elapsed_s <= 0.0:
+        return None
+    return source_advance_s / host_elapsed_s
+
+
 def _solve_row(
     controller: NMPCController,
     sample: PX4StateSample,
     previous_command: np.ndarray,
     warm_start: NMPCWarmStart | None,
+    *,
+    deadline_s: float | None = None,
 ) -> tuple[dict[str, Any], NMPCWarmStart | None]:
     result = controller.solve(
         jnp.asarray(sample.state),
@@ -57,6 +77,7 @@ def _solve_row(
         jnp.asarray(previous_command),
         applied_command=jnp.asarray(previous_command),
         warm_start=warm_start,
+        deadline_s=deadline_s,
     )
     current_validity = np.asarray(
         controller.model.validity_utilization(
@@ -69,6 +90,7 @@ def _solve_row(
         "attitude_time_boot_ms": sample.attitude_time_boot_ms,
         "message_skew_s": sample.message_skew_s,
         "maximum_receive_age_s": sample.maximum_receive_age_s,
+        "estimated_source_clock_lag_s": sample.estimated_source_clock_lag_s,
         "state": sample.state.tolist(),
         "current_maximum_validity_utilization": float(np.max(current_validity)),
         "status": result.status.value,
@@ -114,6 +136,7 @@ def run_px4_nmpc_shadow(
 
     controller = NMPCController(model)
     first_sample = source.next_sample(timeout_s=telemetry_timeout_s)
+    first_sample_host_s = time.monotonic()
     cold_row, warm_start = _solve_row(
         controller, first_sample, previous_command, None
     )
@@ -122,17 +145,35 @@ def run_px4_nmpc_shadow(
     )
 
     rows: list[dict[str, Any]] = []
+    sample_host_times_s: list[float] = []
+    model_period_s = model.runtime_spec.sample_period_s
     for _ in range(sample_count):
         sample = source.next_sample(timeout_s=telemetry_timeout_s)
+        sample_host_s = time.monotonic()
         row, warm_start = _solve_row(
-            controller, sample, previous_command, warm_start
+            controller,
+            sample,
+            previous_command,
+            warm_start,
+            deadline_s=model_period_s,
         )
+        row["sample_host_elapsed_s"] = sample_host_s - first_sample_host_s
         rows.append(row)
+        sample_host_times_s.append(sample_host_s)
 
     solve_times = np.asarray([row["solve_time_s"] for row in rows])
-    model_period_s = model.runtime_spec.sample_period_s
+    warmup_host_elapsed_s = sample_host_times_s[0] - first_sample_host_s
+    warmup_source_advance_s = _source_clock_advance_s(
+        first_sample.position_time_boot_ms,
+        int(rows[0]["position_time_boot_ms"]),
+    )
+    sample_host_elapsed_s = sample_host_times_s[-1] - sample_host_times_s[0]
+    sample_source_advance_s = _source_clock_advance_s(
+        int(rows[0]["position_time_boot_ms"]),
+        int(rows[-1]["position_time_boot_ms"]),
+    )
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "mode": "read_only_shadow",
         "commands_transmitted": False,
         "platform": model.input_spec.vehicle.family,
@@ -161,6 +202,19 @@ def run_px4_nmpc_shadow(
             "solve_time_maximum_s": float(np.max(solve_times)),
             "maximum_message_skew_s": max(
                 row["message_skew_s"] for row in rows
+            ),
+            "maximum_estimated_source_clock_lag_s": max(
+                row["estimated_source_clock_lag_s"] for row in rows
+            ),
+            "warmup_host_elapsed_s": warmup_host_elapsed_s,
+            "warmup_source_clock_advance_s": warmup_source_advance_s,
+            "warmup_source_clock_realtime_ratio": _clock_ratio(
+                warmup_source_advance_s, warmup_host_elapsed_s
+            ),
+            "sample_host_elapsed_s": sample_host_elapsed_s,
+            "sample_source_clock_advance_s": sample_source_advance_s,
+            "sample_source_clock_realtime_ratio": _clock_ratio(
+                sample_source_advance_s, sample_host_elapsed_s
             ),
             "maximum_current_validity_utilization": max(
                 row["current_maximum_validity_utilization"] for row in rows
