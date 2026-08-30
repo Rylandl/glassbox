@@ -18,6 +18,26 @@ uv run glassbox-synthetic
 uv run pytest
 ```
 
+## Nonlinear model-predictive control
+
+Glassbox includes an opinionated JAX NMPC controller for actionable fitted
+multirotor and fixed-wing artifacts. It tracks the canonical rigid-body state,
+propagates learned actuator lag and residual dynamics, accepts physical tracking
+tolerances and state limits, and returns a bounded command with explicit solver,
+validity, and fallback diagnostics.
+
+The maintained synthetic gate covers hover, translation, attitude, fixed-wing
+trim, altitude, path, coordinated turn, optional flaps, flying-wing generalized
+controls, and model mismatch. Run it with:
+
+```bash
+uv run glassbox-nmpc-benchmark --output artifacts/nmpc_report.json
+```
+
+See [the NMPC guide](docs/nmpc.md) for the programmatic API, measured results,
+safety boundaries, supported command semantics, and the PX4 SITL integration
+path. This is research control software, not a flight-safety system.
+
 ## Nano-Quadrotor System Identification Benchmark
 
 Prepare the complete

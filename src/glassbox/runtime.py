@@ -315,17 +315,33 @@ class RuntimeDynamicsModel:
         maximum = np.asarray(
             [channel.maximum for channel in self.actuation.command_channels]
         )
-        mapped = np.asarray(
-            self.actuation.model_control(jnp.asarray(0.5 * (minimum + maximum)))
-        )
         expected_shape = (len(self.input_spec.controls),)
-        if mapped.shape != expected_shape:
-            raise ValueError(
-                "actuation map produced shape "
-                f"{mapped.shape}, expected {expected_shape}"
+        midpoint = 0.5 * (minimum + maximum)
+        for sample in (minimum, midpoint, maximum):
+            try:
+                mapped = np.asarray(
+                    jax.jit(self.actuation.model_control)(jnp.asarray(sample))
+                )
+            except Exception as error:
+                raise ValueError("actuation map must be JAX-traceable") from error
+            if mapped.shape != expected_shape:
+                raise ValueError(
+                    "actuation map produced shape "
+                    f"{mapped.shape}, expected {expected_shape}"
+                )
+            if not np.all(np.isfinite(mapped)):
+                raise ValueError("actuation map produced non-finite model controls")
+        try:
+            jacobian = np.asarray(
+                jax.jacrev(self.actuation.model_control)(jnp.asarray(midpoint))
             )
-        if not np.all(np.isfinite(mapped)):
-            raise ValueError("actuation map produced non-finite model controls")
+        except Exception as error:
+            raise ValueError("actuation map must be JAX-differentiable") from error
+        expected_jacobian_shape = expected_shape + (len(minimum),)
+        if jacobian.shape != expected_jacobian_shape or not np.all(
+            np.isfinite(jacobian)
+        ):
+            raise ValueError("actuation map produced an invalid command Jacobian")
 
     @classmethod
     def load(

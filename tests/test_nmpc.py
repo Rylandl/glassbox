@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+from dataclasses import replace
 
 import jax
 import jax.numpy as jnp
@@ -10,6 +11,7 @@ import pytest
 from glassbox.data import (
     RIGID_BODY_STATE_SCHEMA,
     ControlChannel,
+    ExogenousChannel,
     TrajectorySpec,
     VehicleConfigurationSpec,
 )
@@ -269,6 +271,32 @@ def test_invalid_estimate_and_deadline_return_bounded_fallback() -> None:
         assert np.max(result.command) <= np.max(model.command_maximum)
 
 
+def test_forced_line_search_failure_returns_bounded_fallback() -> None:
+    model = _multirotor_runtime()
+    policy = _SolverPolicy(
+        horizon_steps=6,
+        block_count=3,
+        maximum_iterations=2,
+        line_search_steps=1,
+        armijo_fraction=1e6,
+    )
+    controller = NMPCController(model, _policy=policy)
+    target = resting_state()
+    state = target.copy()
+    state[2] = -0.3
+    previous = hover_control(true_parameters())
+
+    result = controller.solve(
+        jnp.asarray(state),
+        controller.hold_reference(jnp.asarray(target)),
+        previous,
+    )
+
+    assert result.status is SolveStatus.LINE_SEARCH_FAILED
+    assert result.used_fallback
+    np.testing.assert_allclose(result.command, previous, atol=1e-6)
+
+
 def test_safety_envelope_reports_normalized_prediction_violation() -> None:
     model = _multirotor_runtime()
     controller = NMPCController(
@@ -393,3 +421,54 @@ def test_fixedwing_generalized_roles_support_flying_wing_command_names() -> None
 
     assert result.command.shape == (3,)
     assert not result.used_fallback
+
+
+def test_exogenous_wind_forecast_flows_through_prediction() -> None:
+    trajectory = generate_trajectory(seed=0, duration_s=0.1)
+    exogenous = tuple(
+        ExogenousChannel(
+            name=f"wind_{axis}_m_s",
+            role=f"wind_{axis}",
+            semantic="forecast_world_wind",
+            unit="m/s",
+            frame="NWU",
+        )
+        for axis in ("north", "west", "up")
+    )
+    spec = replace(trajectory.spec, exogenous=exogenous)
+    model = RuntimeDynamicsModel(
+        true_parameters(),
+        spec,
+        _runtime_spec(trajectory.nominal_dt_s),
+        DirectActuationMap(spec.controls),
+    )
+    controller = NMPCController(model, _policy=_test_policy())
+    target = resting_state()
+    previous = hover_control(true_parameters())
+
+    result = controller.solve(
+        jnp.asarray(target),
+        controller.hold_reference(
+            jnp.asarray(target), exogenous=jnp.asarray([0.2, -0.1, 0.0])
+        ),
+        previous,
+    )
+
+    assert result.predicted_states.shape == (controller.prediction_steps + 1, 13)
+    assert np.all(np.isfinite(result.predicted_states))
+
+
+def test_controller_honors_certified_prediction_horizon() -> None:
+    model = _multirotor_runtime()
+    certified_runtime = RuntimeModelSpec(
+        sample_period_s=model.runtime_spec.sample_period_s,
+        validity_envelope=model.runtime_spec.validity_envelope,
+        certified_prediction_horizon_s=0.1,
+        certification_source="synthetic horizon audit",
+    )
+    certified_model = replace(model, runtime_spec=certified_runtime)
+
+    controller = NMPCController(certified_model)
+
+    assert controller.prediction_horizon_s <= 0.1
+    assert controller.prediction_steps == 5

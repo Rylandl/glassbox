@@ -114,6 +114,15 @@ class InvalidActuationOutput:
         return jnp.zeros(3)
 
 
+@dataclass(frozen=True)
+class InvalidActuationBoundary:
+    command_channels: tuple[ControlChannel, ...]
+    model_control_size: int = 4
+
+    def model_control(self, command: Array) -> Array:
+        return jnp.where(command > 0.9, jnp.nan, command)
+
+
 def test_runtime_validates_actual_actuation_map_output(tmp_path) -> None:
     trajectory = generate_trajectory(seed=0, duration_s=0.1)
     path = tmp_path / "model.json"
@@ -129,6 +138,12 @@ def test_runtime_validates_actual_actuation_map_output(tmp_path) -> None:
         RuntimeDynamicsModel.load(
             path,
             actuation=InvalidActuationOutput(command_channels),
+        )
+
+    with pytest.raises(ValueError, match="non-finite"):
+        RuntimeDynamicsModel.load(
+            path,
+            actuation=InvalidActuationBoundary(command_channels),
         )
 
 
@@ -177,9 +192,7 @@ def test_runtime_spec_extracts_fit_envelope_and_refuses_implicit_certificate() -
     assert runtime_spec.sample_period_s == pytest.approx(0.02)
     assert runtime_spec.certified_prediction_horizon_s is None
     with pytest.raises(ValueError, match="requires certification_source"):
-        runtime_spec_from_fit_report(
-            report, certified_prediction_horizon_s=0.5
-        )
+        runtime_spec_from_fit_report(report, certified_prediction_horizon_s=0.5)
 
 
 def test_direct_actuation_requires_complete_command_bounds() -> None:

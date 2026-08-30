@@ -6,6 +6,7 @@ import argparse
 import json
 import math
 import platform
+import subprocess
 from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -498,6 +499,19 @@ def _geometric_mean(values: list[float]) -> float:
     return float(np.exp(np.mean(np.log(np.asarray(values)))))
 
 
+def _processor_name() -> str:
+    if platform.system() == "Darwin":
+        result = subprocess.run(
+            ["sysctl", "-n", "machdep.cpu.brand_string"],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            return result.stdout.strip()
+    return platform.processor() or platform.machine() or "unknown"
+
+
 def run_nmpc_benchmark() -> dict[str, object]:
     """Run the maintained nominal/mismatch suite and return its evidence."""
 
@@ -533,7 +547,7 @@ def run_nmpc_benchmark() -> dict[str, object]:
     mismatch = [result for result in results if result.condition == "model_mismatch"]
     nominal_ratio = _geometric_mean([result.tracking_ratio for result in nominal])
     mismatch_ratio = _geometric_mean([result.tracking_ratio for result in mismatch])
-    all_times = [result.solve_time_median_s for result in results]
+    scenario_medians = [result.solve_time_median_s for result in results]
     checks = {
         "finite": all(result.finite for result in results),
         "hard_command_bounds": all(
@@ -574,7 +588,8 @@ def run_nmpc_benchmark() -> dict[str, object]:
         },
         "environment": {
             "platform": platform.platform(),
-            "processor": platform.processor(),
+            "processor": _processor_name(),
+            "machine": platform.machine(),
             "python": platform.python_version(),
             "jax": jax.__version__,
             "jax_backend": jax.default_backend(),
@@ -586,7 +601,15 @@ def run_nmpc_benchmark() -> dict[str, object]:
             "checks": checks,
             "nominal_geometric_mean_tracking_ratio": nominal_ratio,
             "mismatch_geometric_mean_tracking_ratio": mismatch_ratio,
-            "scenario_median_solve_time_median_s": float(np.median(all_times)),
+            "post_jit_solve_time_s": {
+                "median_of_scenario_medians": float(np.median(scenario_medians)),
+                "maximum_scenario_p90": max(
+                    result.solve_time_p90_s for result in results
+                ),
+                "maximum_observed": max(
+                    result.solve_time_maximum_s for result in results
+                ),
+            },
         },
         "scenarios": [asdict(result) for result in results],
     }
