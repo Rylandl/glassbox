@@ -288,6 +288,7 @@ def test_px4_topics_are_aligned_and_converted_to_nwu_flu() -> None:
     assert trajectory.labels["condition"] == "high"
     assert trajectory.labels["replicate"] == 2
     assert trajectory.labels["initial_yaw_deg"] == 45.0
+    assert trajectory.labels["source_group"] == "fixture.ulg"
     assert trajectory.control_names == (
         "motor_front_left",
         "motor_front_right",

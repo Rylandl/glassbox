@@ -227,8 +227,9 @@ command bounds. Returned commands are written only to the report. The previous
 command remains the measured/applied command because the shadow command is not
 being actuated.
 
-The maintained fixture can also exercise a dynamically flown profile using the
-commands PX4 actually applies rather than a constant supplied by the operator:
+The maintained fixture can also exercise a dynamically flown profile matrix
+using the commands PX4 actually applies rather than a constant supplied by the
+operator:
 
 ```bash
 GLASSBOX_RUN_PX4_SITL=1 \
@@ -237,16 +238,18 @@ GLASSBOX_PX4_NMPC_MODEL=artifacts/px4/model.json \
   uv run pytest -m px4_sitl tests/integration/test_px4_sitl.py -k flown -v
 ```
 
-This higher opt-in level arms only the disposable `sihsim_quadx` container. It
-waits for PX4's normal readiness margin, invokes the ordinary takeoff command,
-then runs the existing bounded OFFBOARD altitude profile and verifies landing
-and disarm. The state source remains passive on PX4's onboard MAVLink link. A
-second passive source consumes `HIL_ACTUATOR_CONTROLS` from the simulator link
-and maps the pinned quad-X output geometry into the artifact's canonical motor
-order. It retains a bounded recent history and selects the command nearest each
-state's PX4 boot timestamp; solver load therefore cannot turn two individually
-fresh streams into a mismatched pair. The profile driver is the only process
-that transmits anything.
+This higher opt-in level arms only fresh disposable `sihsim_quadx` containers.
+Every profile gets an independent PX4 lifecycle, so a cleanup failure cannot
+contaminate the following case. Each waits for PX4's normal readiness margin,
+invokes the ordinary takeoff command, then runs one bounded OFFBOARD vertical,
+lateral, yaw, or combined profile and verifies its intended state excitation,
+landing, and disarm. The state source remains passive on PX4's onboard MAVLink
+link. A second passive source consumes `HIL_ACTUATOR_CONTROLS` from the simulator
+link and maps the pinned quad-X output geometry into the artifact's canonical
+motor order. It retains a bounded recent history and selects the command nearest
+each state's PX4 boot timestamp; solver load therefore cannot turn two
+individually fresh streams into a mismatched pair. The profile driver is the
+only process that transmits anything.
 
 Every measured applied command is checked against the artifact's dimensions and
 bounds before solving. State and command source timestamps must be within one
@@ -270,17 +273,25 @@ intermediate inputs are unknown.
 
 The audit reports position, velocity, attitude, and body-rate RMSE against both
 the next telemetry state and a constant-world-velocity/constant-body-rate
-persistence baseline, plus their ratios. It is diagnostic evidence, not yet an
-acceptance gate: a single SIH profile is insufficient to set a defensible live
-accuracy threshold. The fixture currently gates only that at least half of the
-moving transitions are temporally eligible and that all resulting metrics are
-finite.
+persistence baseline, plus their ratios. It is diagnostic evidence, not an
+acceptance gate. The maneuver matrix has shown why one global ratio would be
+misleading: a model can improve translational prediction while exposing a
+rotational deficiency on the same profile. Model promotion remains the job of
+held-out recorded-flight benchmarks with airframe-relevant horizons. This live
+fixture gates at least 90% temporal eligibility, finiteness of every error and
+ratio, maneuver-specific excitation, synchronization, command bounds, and
+cleanup.
 
 A transport test can pass while the real-time gate fails. In particular, PX4
 SIH and JAX share host resources in this fixture, so the report treats source
 clock progress and solver latency as separate measurements. Any
 `deadline_exceeded` sample returns the bounded previous command and is counted
 as a fallback; it is not presented as a usable controller output.
+
+The fixed-command shadow and flown-telemetry matrix are deliberately separate
+opt-in modes. When the flown flag is set, the fixed-command test is skipped even
+if its command variable is also present. This prevents solver warm-up or PX4
+state from one lifecycle changing the evidence produced by the other.
 
 This establishes transport and solver integration, not closed-loop PX4 control.
 A future command-output adapter remains a separate boundary and must own mixing,

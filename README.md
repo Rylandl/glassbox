@@ -53,12 +53,12 @@ live state estimates with `glassbox-px4-nmpc-shadow`. The report separates PX4
 source-clock progress from solver latency, applies the model period as the solve
 deadline, and records proposed commands without ever transmitting them.
 
-A separately gated SIH-only test performs a normal takeoff and bounded flight
-profile while the shadow controller passively consumes both moving state and
-the commands PX4 actually applies. It checks state/command timestamp alignment,
-command excitation, short-horizon model error against a kinematic baseline,
-landing, and disarm; see the NMPC guide for the explicit opt-in command and
-safety boundary.
+A separately gated SIH-only test performs normal takeoffs and a bounded
+vertical, lateral, yaw, and combined flight matrix while the shadow controller
+passively consumes both moving state and the commands PX4 actually applies. It
+checks state/command timestamp alignment, maneuver-specific excitation,
+short-horizon model error against a kinematic baseline, landing, and disarm;
+see the NMPC guide for the explicit opt-in command and safety boundary.
 
 ## Nano-Quadrotor System Identification Benchmark
 
@@ -624,6 +624,11 @@ uv run glassbox-fit artifacts/flight_1.npz artifacts/flight_2.npz \
   --model artifacts/multi_flight_model.json \
   --report artifacts/multi_flight_report.json
 ```
+
+Every trajectory extracted from a PX4 ULog carries the source recording as its
+`source_group`. If telemetry gaps produce multiple retained intervals, those
+segments keep the same group, preventing a flight from leaking across a
+source-level holdout.
 
 `--training-horizons` expresses rollout lengths in seconds, so the objective is independent of telemetry sample rate. One value trains at that horizon; multiple comma-separated values combine their initial-loss-normalized objectives. Longer horizons directly penalize compounding rollout drift, while shorter horizons emphasize fast local dynamics.
 

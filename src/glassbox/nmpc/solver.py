@@ -745,6 +745,16 @@ class _DirectShootingBackend:
         )
         maximum_validity = float(np.asarray(self._validity_compiled(states, exogenous)))
         maximum_safety = float(np.asarray(self._safety_compiled(states)))
+        if deadline_s is not None and time.perf_counter() - started_at >= deadline_s:
+            return self._failure_result(
+                SolveStatus.DEADLINE_EXCEEDED,
+                "solver deadline expired during prediction diagnostics",
+                previous_command,
+                started_at,
+                initial_objective=initial_objective,
+                iterations=iteration,
+                warm_start_used=used_warm_start,
+            )
         certified = self.model.runtime_spec.certified_prediction_horizon_s
         status = SolveStatus.CONVERGED if converged else SolveStatus.ITERATION_LIMIT
         return NMPCResult(

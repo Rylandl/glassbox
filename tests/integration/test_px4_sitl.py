@@ -27,6 +27,13 @@ PX4_SITL_IMAGE = (
 RUN_PX4_SITL = os.environ.get("GLASSBOX_RUN_PX4_SITL") == "1"
 RUN_PX4_FLIGHT_SHADOW = os.environ.get("GLASSBOX_RUN_PX4_FLIGHT_SHADOW") == "1"
 SIH_QUADX_CANONICAL_MOTOR_INDICES = (2, 0, 3, 1)
+MINIMUM_EVALUATED_TRANSITION_FRACTION = 0.90
+FLIGHT_SHADOW_PROFILES = (
+    "vertical_steps",
+    "lateral_steps",
+    "yaw_steps",
+    "combined",
+)
 
 pytestmark = [
     pytest.mark.px4_sitl,
@@ -43,7 +50,7 @@ class PX4SITLFixture:
     state_source: PX4MavlinkStateSource
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def px4_sitl() -> Iterator[PX4SITLFixture]:
     if shutil.which("docker") is None:
         pytest.fail("the opt-in PX4 SITL test requires Docker")
@@ -127,6 +134,10 @@ def test_pinned_px4_sih_emits_canonical_read_only_state(
     assert not hasattr(px4_state_source, "send")
 
 
+@pytest.mark.skipif(
+    RUN_PX4_FLIGHT_SHADOW,
+    reason="the flown shadow path obtains its applied command from telemetry",
+)
 def test_eligible_artifact_runs_complete_nmpc_shadow_path_when_provided(
     px4_sitl: PX4SITLFixture,
 ) -> None:
@@ -135,8 +146,6 @@ def test_eligible_artifact_runs_complete_nmpc_shadow_path_when_provided(
     command_text = os.environ.get("GLASSBOX_PX4_NMPC_COMMAND")
     if model_path is None and command_text is None:
         pytest.skip("set the PX4 NMPC model and command variables for the full path")
-    if command_text is None and RUN_PX4_FLIGHT_SHADOW:
-        pytest.skip("the flown shadow path obtains its applied command from telemetry")
     if model_path is None or command_text is None:
         pytest.fail(
             "GLASSBOX_PX4_NMPC_MODEL and GLASSBOX_PX4_NMPC_COMMAND must be set together"
@@ -169,8 +178,37 @@ def test_eligible_artifact_runs_complete_nmpc_shadow_path_when_provided(
             assert sample["used_fallback"]
 
 
+def _attitude_span_deg(states: np.ndarray) -> float:
+    quaternions = states[:, 6:10]
+    reference = quaternions[0]
+    absolute_dots = np.abs(quaternions @ reference)
+    angles_rad = 2.0 * np.arccos(np.clip(absolute_dots, 0.0, 1.0))
+    return float(np.rad2deg(np.max(angles_rad)))
+
+
+def _assert_profile_excitation(profile: str, states: np.ndarray) -> None:
+    vertical_span_m = float(np.ptp(states[:, 2]))
+    horizontal_span_m = float(np.max(np.ptp(states[:, :2], axis=0)))
+    attitude_span_deg = _attitude_span_deg(states)
+
+    if profile == "vertical_steps":
+        assert vertical_span_m > 0.20
+    elif profile == "lateral_steps":
+        assert horizontal_span_m > 0.20
+    elif profile == "yaw_steps":
+        assert attitude_span_deg > 10.0
+    elif profile == "combined":
+        assert vertical_span_m > 0.10
+        assert horizontal_span_m > 0.20
+        assert attitude_span_deg > 10.0
+    else:  # pragma: no cover - the parameter list is maintained above
+        raise AssertionError(f"unsupported flight-shadow profile: {profile}")
+
+
+@pytest.mark.parametrize("profile", FLIGHT_SHADOW_PROFILES)
 def test_flown_profile_pairs_real_applied_commands_with_shadow_solver(
     px4_sitl: PX4SITLFixture,
+    profile: str,
 ) -> None:
     if not RUN_PX4_FLIGHT_SHADOW:
         pytest.skip(
@@ -246,7 +284,7 @@ def test_flown_profile_pairs_real_applied_commands_with_shadow_solver(
                     sys.executable,
                     "-m",
                     "glassbox.sitl_profile",
-                    "vertical_steps",
+                    profile,
                     "--condition",
                     "high",
                 ],
@@ -259,9 +297,9 @@ def test_flown_profile_pairs_real_applied_commands_with_shadow_solver(
                 px4_sitl.state_source,
                 model,
                 applied_command_source=actuator_source,
-                sample_count=80,
+                sample_count=160,
             )
-            output, _ = driver.communicate(timeout=35.0)
+            output, _ = driver.communicate(timeout=50.0)
             if driver.returncode != 0:
                 pytest.fail(f"PX4 profile driver failed:\n{output}")
         finally:
@@ -284,12 +322,18 @@ def test_flown_profile_pairs_real_applied_commands_with_shadow_solver(
     )
     assert report["summary"]["maximum_applied_command_receive_age_s"] <= 0.25
     assert np.max(command_range) > 0.02
-    assert np.ptp(states[:, 2]) > 0.20
-    assert one_step_audit["evaluated_transition_fraction"] >= 0.50, one_step_audit
+    _assert_profile_excitation(profile, states)
+    assert (
+        one_step_audit["evaluated_transition_fraction"]
+        >= MINIMUM_EVALUATED_TRANSITION_FRACTION
+    ), one_step_audit
     assert one_step_audit["model"] is not None
     assert one_step_audit["kinematic_persistence"] is not None
     assert np.all(np.isfinite(list(one_step_audit["model"].values())))
     assert np.all(np.isfinite(list(one_step_audit["kinematic_persistence"].values())))
+    assert np.all(
+        np.isfinite(list(one_step_audit["model_to_kinematic_ratio"].values()))
+    )
     assert all(
         sample["maximum_command_bound_violation"] <= 1e-6
         for sample in report["samples"]

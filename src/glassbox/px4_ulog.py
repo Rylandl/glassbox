@@ -1039,11 +1039,9 @@ def trajectories_from_datasets(
         absolute_start_s = float(selected_grid[0])
         labels = {
             **common_labels,
+            "source_group": source,
             **(
-                {
-                    "segment": segment_index + 1,
-                    "source_group": source,
-                }
+                {"segment": segment_index + 1}
                 if len(valid_runs) > 1
                 else {}
             ),

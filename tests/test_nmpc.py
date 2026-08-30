@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import math
 from dataclasses import replace
+from types import SimpleNamespace
 
 import jax
 import jax.numpy as jnp
 import numpy as np
 import pytest
 
+import glassbox.nmpc.solver as nmpc_solver
 from glassbox.data import (
     RIGID_BODY_STATE_SCHEMA,
     ControlChannel,
@@ -269,6 +271,35 @@ def test_invalid_estimate_and_deadline_return_bounded_fallback() -> None:
         assert np.all(np.isfinite(result.command))
         assert np.min(result.command) >= np.min(model.command_minimum)
         assert np.max(result.command) <= np.max(model.command_maximum)
+
+
+def test_deadline_includes_prediction_diagnostics(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    model = _multirotor_runtime()
+    controller = NMPCController(model, _policy=_test_policy())
+    target = resting_state()
+    previous = hover_control(true_parameters())
+    reference = controller.hold_reference(jnp.asarray(target))
+    controller.solve(jnp.asarray(target), reference, previous)
+
+    clock = iter((0.0, 0.001, 0.002, 0.030, 0.031))
+    monkeypatch.setattr(
+        nmpc_solver,
+        "time",
+        SimpleNamespace(perf_counter=lambda: next(clock)),
+    )
+    result = controller.solve(
+        jnp.asarray(target),
+        reference,
+        previous,
+        deadline_s=0.020,
+    )
+
+    assert result.status is SolveStatus.DEADLINE_EXCEEDED
+    assert result.used_fallback
+    np.testing.assert_allclose(result.command, previous)
+    assert result.diagnostics.solve_time_s == pytest.approx(0.031)
 
 
 def test_forced_line_search_failure_returns_bounded_fallback() -> None:

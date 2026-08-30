@@ -213,7 +213,7 @@ def fly_profile(
     connection_string: str = "udpin:0.0.0.0:14550",
     rate_hz: float = 20.0,
     heartbeat_timeout_s: float = 30.0,
-    landing_timeout_s: float = 20.0,
+    landing_timeout_s: float = 30.0,
 ) -> None:
     """Connect to one PX4 SITL instance, fly a profile, land, and disarm."""
 
