@@ -62,12 +62,8 @@ class ModelValidityEnvelope:
     def to_dict(self) -> dict[str, list[float]]:
         return {
             "body_velocity_center_m_s": list(self.body_velocity_center_m_s),
-            "body_velocity_half_width_m_s": list(
-                self.body_velocity_half_width_m_s
-            ),
-            "angular_velocity_center_rad_s": list(
-                self.angular_velocity_center_rad_s
-            ),
+            "body_velocity_half_width_m_s": list(self.body_velocity_half_width_m_s),
+            "angular_velocity_center_rad_s": list(self.angular_velocity_center_rad_s),
             "angular_velocity_half_width_rad_s": list(
                 self.angular_velocity_half_width_rad_s
             ),
@@ -77,9 +73,7 @@ class ModelValidityEnvelope:
     def from_dict(cls, payload: Mapping[str, Any]) -> ModelValidityEnvelope:
         return cls(
             body_velocity_center_m_s=tuple(payload["body_velocity_center_m_s"]),
-            body_velocity_half_width_m_s=tuple(
-                payload["body_velocity_half_width_m_s"]
-            ),
+            body_velocity_half_width_m_s=tuple(payload["body_velocity_half_width_m_s"]),
             angular_velocity_center_rad_s=tuple(
                 payload["angular_velocity_center_rad_s"]
             ),
@@ -164,9 +158,7 @@ def runtime_spec_from_fit_report(
             ]
         else:
             horizon_steps = int(report["configuration"]["horizon_steps"])
-            horizon_duration_s = float(
-                report["configuration"]["horizon_duration_s"]
-            )
+            horizon_duration_s = float(report["configuration"]["horizon_duration_s"])
             sample_rate_hz = horizon_steps / horizon_duration_s
             envelope = report["fit"]["rollout_loss"]["dynamic_envelope"]
     except (KeyError, TypeError, ZeroDivisionError) as error:
@@ -316,9 +308,7 @@ class RuntimeDynamicsModel:
                 or not np.isfinite(channel.maximum)
                 or channel.minimum >= channel.maximum
             ):
-                raise ValueError(
-                    f"invalid command bounds for channel {channel.name!r}"
-                )
+                raise ValueError(f"invalid command bounds for channel {channel.name!r}")
         minimum = np.asarray(
             [channel.minimum for channel in self.actuation.command_channels]
         )
@@ -384,9 +374,7 @@ class RuntimeDynamicsModel:
         if history.ndim == 1:
             history = history[jnp.newaxis, :]
         if history.ndim != 2 or history.shape[1] != self.command_size:
-            raise ValueError(
-                "command history must have shape (time, command_size)"
-            )
+            raise ValueError("command history must have shape (time, command_size)")
         model_history = jax.vmap(self.actuation.model_control)(history)
         return control_state_after_history(
             self.params,
@@ -417,4 +405,36 @@ class RuntimeDynamicsModel:
             self.input_spec.control_roles,
             exogenous,
             self.input_spec.exogenous_roles,
+        )
+
+    def validity_utilization(
+        self,
+        state: Array,
+        exogenous: Array | None = None,
+    ) -> Array:
+        """Return per-axis utilization of the fitted dynamic envelope."""
+
+        if exogenous is None:
+            exogenous = jnp.zeros(self.exogenous_size)
+        if exogenous.shape[-1] != self.exogenous_size:
+            raise ValueError("exogenous input does not match runtime spec")
+        roles = self.input_spec.exogenous_roles
+        wind = jnp.stack(
+            tuple(
+                exogenous[roles.index(role)] if role in roles else jnp.asarray(0.0)
+                for role in ("wind_north", "wind_west", "wind_up")
+            )
+        )
+        rotation = quaternion_to_rotation(state[6:10])
+        body_velocity = rotation.T @ (state[3:6] - wind)
+        envelope = self.runtime_spec.validity_envelope
+        return jnp.concatenate(
+            (
+                jnp.abs(body_velocity - jnp.asarray(envelope.body_velocity_center_m_s))
+                / jnp.asarray(envelope.body_velocity_half_width_m_s),
+                jnp.abs(
+                    state[10:13] - jnp.asarray(envelope.angular_velocity_center_rad_s)
+                )
+                / jnp.asarray(envelope.angular_velocity_half_width_rad_s),
+            )
         )

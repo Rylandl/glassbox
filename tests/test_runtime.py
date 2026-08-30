@@ -45,6 +45,7 @@ def test_runtime_model_loads_timing_bounds_and_latent_state(tmp_path) -> None:
     assert next_state.shape == (13,)
     assert next_latent.shape == (7,)
     assert np.all(np.isfinite(next_state))
+    assert runtime.validity_utilization(next_state).shape == (6,)
     np.testing.assert_allclose(runtime.command_minimum, 0.0)
     np.testing.assert_allclose(runtime.command_maximum, 1.0)
 

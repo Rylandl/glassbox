@@ -12,7 +12,6 @@ import jax.numpy as jnp
 import numpy as np
 from jax import Array
 
-from glassbox.dynamics import quaternion_to_rotation
 from glassbox.nmpc.geometry import rigid_body_local_error
 from glassbox.nmpc.types import (
     NMPCDiagnostics,
@@ -124,7 +123,9 @@ class _DirectShootingBackend:
         self._block_steps = math.ceil(
             self._policy.horizon_steps / self._policy.block_count
         )
-        self._objective_and_gradient = jax.jit(jax.value_and_grad(self._objective))
+        self._objective_gradient = jax.value_and_grad(self._objective)
+        self._objective_and_gradient = jax.jit(self._objective_gradient)
+        self._optimize_compiled = jax.jit(self._optimize)
         self._rollout_compiled = jax.jit(self._rollout)
         self._validity_compiled = jax.jit(self._maximum_validity_utilization)
         self._safety_compiled = jax.jit(self._maximum_safety_violation)
@@ -184,29 +185,8 @@ class _DirectShootingBackend:
         latent = jnp.concatenate((initial_latent[None, :], future_latent), axis=0)
         return states, latent, commands
 
-    def _wind_world(self, exogenous: Array) -> Array:
-        roles = self.model.input_spec.exogenous_roles
-        components = []
-        for role in ("wind_north", "wind_west", "wind_up"):
-            components.append(
-                exogenous[roles.index(role)] if role in roles else jnp.asarray(0.0)
-            )
-        return jnp.asarray(components)
-
     def _validity_utilization(self, state: Array, exogenous: Array) -> Array:
-        envelope = self.model.runtime_spec.validity_envelope
-        rotation = quaternion_to_rotation(state[6:10])
-        body_velocity = rotation.T @ (state[3:6] - self._wind_world(exogenous))
-        body_center = jnp.asarray(envelope.body_velocity_center_m_s)
-        body_half_width = jnp.asarray(envelope.body_velocity_half_width_m_s)
-        angular_center = jnp.asarray(envelope.angular_velocity_center_rad_s)
-        angular_half_width = jnp.asarray(envelope.angular_velocity_half_width_rad_s)
-        return jnp.concatenate(
-            (
-                jnp.abs(body_velocity - body_center) / body_half_width,
-                jnp.abs(state[10:13] - angular_center) / angular_half_width,
-            )
-        )
+        return self.model.validity_utilization(state, exogenous)
 
     def _safety_violation(self, state: Array) -> Array:
         envelope = self.safety_envelope
@@ -295,6 +275,127 @@ class _DirectShootingBackend:
 
     def _maximum_safety_violation(self, states: Array) -> Array:
         return jnp.max(jax.vmap(self._safety_violation)(states[1:]))
+
+    def _optimize(
+        self,
+        initial_blocks: Array,
+        initial_value: Array,
+        initial_gradient: Array,
+        initial_state: Array,
+        initial_latent: Array,
+        reference_states: Array,
+        previous_command: Array,
+        exogenous: Array,
+    ) -> tuple[Array, Array, Array, Array, Array, Array, Array]:
+        """Run the fixed maintained policy as one compiled JAX operation."""
+
+        def finite(value: Array, gradient: Array) -> Array:
+            return jnp.isfinite(value) & jnp.all(jnp.isfinite(gradient))
+
+        def continue_outer(
+            carry: tuple[Array, Array, Array, Array, Array, Array],
+        ) -> Array:
+            iteration, _, value, gradient, converged, line_search_failed = carry
+            return (
+                (iteration < self._policy.maximum_iterations)
+                & ~converged
+                & ~line_search_failed
+                & finite(value, gradient)
+            )
+
+        def outer_step(
+            carry: tuple[Array, Array, Array, Array, Array, Array],
+        ) -> tuple[Array, Array, Array, Array, Array, Array]:
+            iteration, blocks, value, gradient, _, _ = carry
+            gradient_norm = jnp.max(jnp.abs(gradient))
+            gradient_converged = gradient_norm <= self._policy.gradient_tolerance
+
+            def continue_line_search(
+                line_carry: tuple[Array, Array, Array, Array, Array],
+            ) -> Array:
+                line_iteration, accepted, _, _, _ = line_carry
+                return (line_iteration < self._policy.line_search_steps) & ~accepted
+
+            def line_search_step(
+                line_carry: tuple[Array, Array, Array, Array, Array],
+            ) -> tuple[Array, Array, Array, Array, Array]:
+                line_iteration, accepted, best_blocks, best_value, best_gradient = (
+                    line_carry
+                )
+                step_size = self._policy.initial_step_size * jnp.power(
+                    0.5, line_iteration
+                )
+                candidate = jnp.clip(blocks - step_size * gradient, -1.0, 1.0)
+                candidate_value, candidate_gradient = self._objective_gradient(
+                    candidate,
+                    initial_state,
+                    initial_latent,
+                    reference_states,
+                    previous_command,
+                    exogenous,
+                )
+                projected_decrease = jnp.sum(gradient * (blocks - candidate))
+                candidate_accepted = finite(candidate_value, candidate_gradient) & (
+                    candidate_value
+                    <= value
+                    - self._policy.armijo_fraction
+                    * jnp.maximum(projected_decrease, 0.0)
+                )
+                return (
+                    line_iteration + 1,
+                    accepted | candidate_accepted,
+                    jnp.where(candidate_accepted, candidate, best_blocks),
+                    jnp.where(candidate_accepted, candidate_value, best_value),
+                    jnp.where(candidate_accepted, candidate_gradient, best_gradient),
+                )
+
+            line_initial = (
+                jnp.asarray(0),
+                gradient_converged,
+                blocks,
+                value,
+                gradient,
+            )
+            _, accepted, next_blocks, next_value, next_gradient = jax.lax.while_loop(
+                continue_line_search, line_search_step, line_initial
+            )
+            relative_improvement = (value - next_value) / jnp.maximum(
+                jnp.abs(value), 1.0
+            )
+            improvement_converged = (
+                accepted
+                & ~gradient_converged
+                & (relative_improvement <= self._policy.relative_improvement_tolerance)
+            )
+            return (
+                iteration + 1,
+                next_blocks,
+                next_value,
+                next_gradient,
+                gradient_converged | improvement_converged,
+                ~accepted,
+            )
+
+        initial_carry = (
+            jnp.asarray(0),
+            initial_blocks,
+            initial_value,
+            initial_gradient,
+            jnp.asarray(False),
+            jnp.asarray(False),
+        )
+        iteration, blocks, value, gradient, converged, line_search_failed = (
+            jax.lax.while_loop(continue_outer, outer_step, initial_carry)
+        )
+        return (
+            blocks,
+            value,
+            gradient,
+            iteration,
+            converged,
+            line_search_failed,
+            finite(value, gradient),
+        )
 
     def _exogenous_forecast(self, reference: ReferenceTrajectory) -> Array:
         if reference.exogenous is None:
@@ -478,11 +579,12 @@ class _DirectShootingBackend:
             previous_command,
             exogenous,
         )
-        current_value = float(np.asarray(value))
+        current_value_float = float(np.asarray(value))
+        current_value = value
         current_gradient = gradient
         blocks = cold_blocks
         used_warm_start = False
-        if not np.isfinite(current_value) or not np.all(
+        if not np.isfinite(current_value_float) or not np.all(
             np.isfinite(np.asarray(current_gradient))
         ):
             return self._failure_result(
@@ -507,84 +609,78 @@ class _DirectShootingBackend:
                 if (
                     np.isfinite(warm_value_float)
                     and np.all(np.isfinite(np.asarray(warm_gradient)))
-                    and warm_value_float <= current_value
+                    and warm_value_float <= current_value_float
                 ):
                     blocks = warm_blocks
-                    current_value = warm_value_float
+                    current_value = warm_value
+                    current_value_float = warm_value_float
                     current_gradient = warm_gradient
                     used_warm_start = True
 
-        initial_objective = current_value
-        converged = False
-        iteration = 0
-        gradient_norm = float(np.max(np.abs(np.asarray(current_gradient))))
-        for iteration in range(1, self._policy.maximum_iterations + 1):
-            if (
-                deadline_s is not None
-                and time.perf_counter() - started_at >= deadline_s
-            ):
-                return self._failure_result(
-                    SolveStatus.DEADLINE_EXCEEDED,
-                    "solver deadline expired",
-                    previous_command,
-                    started_at,
-                    initial_objective=initial_objective,
-                    iterations=iteration - 1,
-                    warm_start_used=used_warm_start,
-                )
-            gradient_norm = float(np.max(np.abs(np.asarray(current_gradient))))
-            if gradient_norm <= self._policy.gradient_tolerance:
-                converged = True
-                break
-
-            accepted = False
-            step_size = self._policy.initial_step_size
-            old_value = current_value
-            for _ in range(self._policy.line_search_steps):
-                candidate = jnp.clip(blocks - step_size * current_gradient, -1.0, 1.0)
-                candidate_value, candidate_gradient = self._objective_and_gradient(
-                    candidate,
-                    state,
-                    latent,
-                    reference.states,
-                    previous_command,
-                    exogenous,
-                )
-                candidate_float = float(np.asarray(candidate_value))
-                projected_decrease = float(
-                    np.sum(
-                        np.asarray(current_gradient) * np.asarray(blocks - candidate)
-                    )
-                )
-                if (
-                    np.isfinite(candidate_float)
-                    and np.all(np.isfinite(np.asarray(candidate_gradient)))
-                    and candidate_float
-                    <= current_value
-                    - self._policy.armijo_fraction * max(projected_decrease, 0.0)
-                ):
-                    blocks = candidate
-                    current_value = candidate_float
-                    current_gradient = candidate_gradient
-                    accepted = True
-                    break
-                step_size *= 0.5
-            if not accepted:
-                return self._failure_result(
-                    SolveStatus.LINE_SEARCH_FAILED,
-                    "bounded line search could not find a finite descent step",
-                    previous_command,
-                    started_at,
-                    initial_objective=initial_objective,
-                    iterations=iteration,
-                    warm_start_used=used_warm_start,
-                )
-            relative_improvement = (old_value - current_value) / max(
-                abs(old_value), 1.0
+        initial_objective = current_value_float
+        if deadline_s is not None and time.perf_counter() - started_at >= deadline_s:
+            return self._failure_result(
+                SolveStatus.DEADLINE_EXCEEDED,
+                "solver deadline expired before optimization",
+                previous_command,
+                started_at,
+                initial_objective=initial_objective,
+                warm_start_used=used_warm_start,
             )
-            if relative_improvement <= self._policy.relative_improvement_tolerance:
-                converged = True
-                break
+        (
+            blocks,
+            current_value,
+            current_gradient,
+            iteration_array,
+            converged_array,
+            line_search_failed_array,
+            finite_array,
+        ) = self._optimize_compiled(
+            blocks,
+            current_value,
+            current_gradient,
+            state,
+            latent,
+            reference.states,
+            previous_command,
+            exogenous,
+        )
+        current_value_float = float(np.asarray(current_value))
+        iteration = int(np.asarray(iteration_array))
+        converged = bool(np.asarray(converged_array))
+        line_search_failed = bool(np.asarray(line_search_failed_array))
+        finite_optimization = bool(np.asarray(finite_array))
+        gradient_norm = float(np.max(np.abs(np.asarray(current_gradient))))
+        if deadline_s is not None and time.perf_counter() - started_at >= deadline_s:
+            return self._failure_result(
+                SolveStatus.DEADLINE_EXCEEDED,
+                "solver deadline expired during optimization",
+                previous_command,
+                started_at,
+                initial_objective=initial_objective,
+                iterations=iteration,
+                warm_start_used=used_warm_start,
+            )
+        if not finite_optimization:
+            return self._failure_result(
+                SolveStatus.NONFINITE_OBJECTIVE,
+                "objective or gradient became non-finite during optimization",
+                previous_command,
+                started_at,
+                initial_objective=initial_objective,
+                iterations=iteration,
+                warm_start_used=used_warm_start,
+            )
+        if line_search_failed:
+            return self._failure_result(
+                SolveStatus.LINE_SEARCH_FAILED,
+                "bounded line search could not find a finite descent step",
+                previous_command,
+                started_at,
+                initial_objective=initial_objective,
+                iterations=iteration,
+                warm_start_used=used_warm_start,
+            )
 
         states, latent_states, commands = self._rollout_compiled(
             blocks, state, latent, exogenous
@@ -596,7 +692,7 @@ class _DirectShootingBackend:
             np.all(np.isfinite(states_np))
             and np.all(np.isfinite(latent_np))
             and np.all(np.isfinite(commands_np))
-            and np.isfinite(current_value)
+            and np.isfinite(current_value_float)
         ):
             return self._failure_result(
                 SolveStatus.NONFINITE_OBJECTIVE,
@@ -632,7 +728,7 @@ class _DirectShootingBackend:
                 iterations=iteration,
                 solve_time_s=time.perf_counter() - started_at,
                 initial_objective=initial_objective,
-                final_objective=current_value,
+                final_objective=current_value_float,
                 final_gradient_inf_norm=gradient_norm,
                 maximum_command_bound_violation=bound_violation,
                 maximum_validity_utilization=maximum_validity,

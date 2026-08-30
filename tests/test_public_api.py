@@ -21,6 +21,7 @@ workflow_modules = {
     "glassbox.fixedwing_gate",
     "glassbox.policy_selection",
     "glassbox.profile_benchmark",
+    "glassbox.nmpc_benchmark",
     "glassbox.source_group_benchmark",
 }
 print(json.dumps(sorted(workflow_modules.intersection(sys.modules))))

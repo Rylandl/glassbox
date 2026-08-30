@@ -30,6 +30,7 @@ glassbox-nanodrone = "glassbox.nanodrone_cli:main"
 glassbox-x8 = "glassbox.x8_cli:main"
 glassbox-epfl = "glassbox.epfl_cli:main"
 glassbox-select-policy = "glassbox.policy_selection:main"
+glassbox-nmpc-benchmark = "glassbox.nmpc_benchmark:main"
 
 [dependency-groups]
 dev = [

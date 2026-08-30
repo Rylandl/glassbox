@@ -7,6 +7,12 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
+from glassbox.data import (
+    RIGID_BODY_STATE_SCHEMA,
+    ControlChannel,
+    TrajectorySpec,
+    VehicleConfigurationSpec,
+)
 from glassbox.dynamics import (
     fixed_wing_trim_control,
     hover_control,
@@ -71,6 +77,54 @@ def _fixed_wing_runtime() -> RuntimeDynamicsModel:
         trajectory.spec,
         _runtime_spec(trajectory.nominal_dt_s),
         DirectActuationMap(trajectory.spec.controls),
+    )
+
+
+def _flying_wing_runtime() -> RuntimeDynamicsModel:
+    controls = (
+        ControlChannel(
+            "propulsion_command",
+            "throttle",
+            "normalized_command",
+            "1",
+            0.0,
+            1.0,
+        ),
+        ControlChannel(
+            "elevon_roll_command",
+            "roll",
+            "normalized_generalized_command",
+            "1",
+            -1.0,
+            1.0,
+            "FLU",
+        ),
+        ControlChannel(
+            "elevon_pitch_command",
+            "pitch",
+            "normalized_generalized_command",
+            "1",
+            -1.0,
+            1.0,
+            "FLU",
+        ),
+    )
+    spec = TrajectorySpec(
+        state_schema=RIGID_BODY_STATE_SCHEMA,
+        observation_source="simulator_truth",
+        controls=controls,
+        vehicle=VehicleConfigurationSpec(
+            family="fixedwing",
+            configuration_id="synthetic_flying_wing",
+            controlled_axes=("roll", "pitch"),
+            propulsion="single_propeller",
+        ),
+    )
+    return RuntimeDynamicsModel(
+        true_fixed_wing_parameters(),
+        spec,
+        _runtime_spec(0.02),
+        DirectActuationMap(spec.controls),
     )
 
 
@@ -319,3 +373,23 @@ def test_incompatible_warm_start_is_safely_ignored() -> None:
     )
 
     assert not result.diagnostics.warm_start_used
+
+
+def test_fixedwing_generalized_roles_support_flying_wing_command_names() -> None:
+    model = _flying_wing_runtime()
+    controller = NMPCController(model, _policy=_test_policy())
+    state = fixed_wing_trim_state()
+    previous = fixed_wing_trim_control(
+        true_fixed_wing_parameters(),
+        TRIM_AIRSPEED_M_S,
+        model.input_spec.control_roles,
+    )
+
+    result = controller.solve(
+        jnp.asarray(state),
+        controller.hold_reference(jnp.asarray(state)),
+        previous,
+    )
+
+    assert result.command.shape == (3,)
+    assert not result.used_fallback
