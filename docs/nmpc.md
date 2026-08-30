@@ -227,6 +227,34 @@ command bounds. Returned commands are written only to the report. The previous
 command remains the measured/applied command because the shadow command is not
 being actuated.
 
+The maintained fixture can also exercise a dynamically flown profile using the
+commands PX4 actually applies rather than a constant supplied by the operator:
+
+```bash
+GLASSBOX_RUN_PX4_SITL=1 \
+GLASSBOX_RUN_PX4_FLIGHT_SHADOW=1 \
+GLASSBOX_PX4_NMPC_MODEL=artifacts/px4/model.json \
+  uv run pytest -m px4_sitl tests/integration/test_px4_sitl.py -k flown -v
+```
+
+This higher opt-in level arms only the disposable `sihsim_quadx` container. It
+waits for PX4's normal readiness margin, invokes the ordinary takeoff command,
+then runs the existing bounded OFFBOARD altitude profile and verifies landing
+and disarm. The state source remains passive on PX4's onboard MAVLink link. A
+second passive source consumes `HIL_ACTUATOR_CONTROLS` from the simulator link
+and maps the pinned quad-X output geometry into the artifact's canonical motor
+order. The profile driver is the only process that transmits anything.
+
+Every measured applied command is checked against the artifact's dimensions and
+bounds before solving. State and command source timestamps must be within one
+model sample period on PX4's boot clock, with a 100 ms absolute ceiling;
+otherwise evaluation stops instead of silently pairing unrelated samples. The
+report includes their actual skew, receive age, armed state, and per-channel
+peak-to-peak excitation. This makes the fixture evidence for asynchronous
+telemetry, varying commands, moving states, solver deadlines, and cleanup—not a
+closed-loop control test and not a general claim that HIL actuator order is
+shared by other PX4 configurations.
+
 A transport test can pass while the real-time gate fails. In particular, PX4
 SIH and JAX share host resources in this fixture, so the report treats source
 clock progress and solver latency as separate measurements. Any

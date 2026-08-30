@@ -8,17 +8,30 @@ import platform
 import time
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 import jax
 import jax.numpy as jnp
 import numpy as np
 
-from glassbox.integrations.px4 import PX4MavlinkStateSource, PX4StateSample
+from glassbox.integrations.px4 import (
+    PX4AppliedCommandSample,
+    PX4MavlinkStateSource,
+    PX4StateSample,
+    PX4TelemetryError,
+    px4_boot_time_skew_s,
+)
 from glassbox.nmpc import NMPCController, NMPCWarmStart
 from glassbox.runtime import RuntimeDynamicsModel
 
 _BOOT_TIME_MODULUS_MS = 2**32
+_MAXIMUM_APPLIED_COMMAND_STATE_SKEW_S = 0.10
+
+
+class AppliedCommandSource(Protocol):
+    """Read-only source of canonical commands actually applied by the vehicle."""
+
+    def next_sample(self, *, timeout_s: float = 1.0) -> PX4AppliedCommandSample: ...
 
 
 def _command(value: str, *, expected_size: int) -> np.ndarray:
@@ -27,9 +40,7 @@ def _command(value: str, *, expected_size: int) -> np.ndarray:
     except ValueError as error:
         raise ValueError("previous command must be comma-separated numbers") from error
     if command.shape != (expected_size,) or not np.all(np.isfinite(command)):
-        raise ValueError(
-            f"previous command must contain {expected_size} finite values"
-        )
+        raise ValueError(f"previous command must contain {expected_size} finite values")
     return command
 
 
@@ -50,10 +61,8 @@ def _optional_max(rows: list[dict[str, Any]], key: str) -> float | None:
 
 def _source_clock_advance_s(first_ms: int, last_ms: int) -> float | None:
     advance_ms = (
-        (last_ms - first_ms + _BOOT_TIME_MODULUS_MS // 2)
-        % _BOOT_TIME_MODULUS_MS
-        - _BOOT_TIME_MODULUS_MS // 2
-    )
+        last_ms - first_ms + _BOOT_TIME_MODULUS_MS // 2
+    ) % _BOOT_TIME_MODULUS_MS - _BOOT_TIME_MODULUS_MS // 2
     return advance_ms * 1e-3 if advance_ms >= 0 else None
 
 
@@ -66,16 +75,37 @@ def _clock_ratio(source_advance_s: float | None, host_elapsed_s: float) -> float
 def _solve_row(
     controller: NMPCController,
     sample: PX4StateSample,
-    previous_command: np.ndarray,
+    applied_command: np.ndarray,
     warm_start: NMPCWarmStart | None,
     *,
+    applied_sample: PX4AppliedCommandSample | None = None,
     deadline_s: float | None = None,
 ) -> tuple[dict[str, Any], NMPCWarmStart | None]:
+    applied_command_state_skew_s = (
+        None
+        if applied_sample is None
+        else px4_boot_time_skew_s(
+            sample.position_time_boot_ms,
+            (applied_sample.source_time_us // 1_000) % _BOOT_TIME_MODULUS_MS,
+        )
+    )
+    maximum_applied_command_state_skew_s = min(
+        _MAXIMUM_APPLIED_COMMAND_STATE_SKEW_S,
+        controller.model.runtime_spec.sample_period_s,
+    )
+    if (
+        applied_command_state_skew_s is not None
+        and applied_command_state_skew_s > maximum_applied_command_state_skew_s + 1e-12
+    ):
+        raise PX4TelemetryError(
+            "PX4 state and applied-command telemetry exceed the "
+            f"{maximum_applied_command_state_skew_s * 1_000:g} ms alignment limit"
+        )
     result = controller.solve(
         jnp.asarray(sample.state),
         _held_reference(controller, sample.state),
-        jnp.asarray(previous_command),
-        applied_command=jnp.asarray(previous_command),
+        jnp.asarray(applied_command),
+        applied_command=jnp.asarray(applied_command),
         warm_start=warm_start,
         deadline_s=deadline_s,
     )
@@ -104,16 +134,55 @@ def _solve_row(
         "maximum_command_bound_violation": (
             result.diagnostics.maximum_command_bound_violation
         ),
+        "applied_command": applied_command.tolist(),
+        "applied_command_source_time_us": (
+            None if applied_sample is None else applied_sample.source_time_us
+        ),
+        "applied_command_state_skew_s": applied_command_state_skew_s,
+        "applied_command_receive_age_s": (
+            None if applied_sample is None else applied_sample.receive_age_s
+        ),
+        "applied_command_armed": (
+            None if applied_sample is None else applied_sample.armed
+        ),
+        "applied_command_mav_mode": (
+            None if applied_sample is None else applied_sample.mav_mode
+        ),
         "shadow_command": np.asarray(result.command).tolist(),
     }
     return row, result.warm_start
 
 
+def _validated_command(model: RuntimeDynamicsModel, command: np.ndarray) -> np.ndarray:
+    command = np.asarray(command, dtype=np.float64)
+    expected_shape = (model.command_size,)
+    if command.shape != expected_shape or not np.all(np.isfinite(command)):
+        raise ValueError(
+            f"applied command must have shape {expected_shape} and be finite"
+        )
+    minimum = np.asarray(model.command_minimum)
+    maximum = np.asarray(model.command_maximum)
+    if np.any(command < minimum) or np.any(command > maximum):
+        raise ValueError("applied command must lie inside the artifact bounds")
+    return command
+
+
+def _next_applied_command(
+    source: AppliedCommandSource,
+    model: RuntimeDynamicsModel,
+    *,
+    timeout_s: float,
+) -> tuple[np.ndarray, PX4AppliedCommandSample]:
+    sample = source.next_sample(timeout_s=timeout_s)
+    return _validated_command(model, sample.command), sample
+
+
 def run_px4_nmpc_shadow(
     source: PX4MavlinkStateSource,
     model: RuntimeDynamicsModel,
-    previous_command: np.ndarray,
+    previous_command: np.ndarray | None = None,
     *,
+    applied_command_source: AppliedCommandSource | None = None,
     sample_count: int = 10,
     telemetry_timeout_s: float = 5.0,
 ) -> dict[str, Any]:
@@ -121,27 +190,47 @@ def run_px4_nmpc_shadow(
 
     if sample_count < 1:
         raise ValueError("sample_count must be positive")
-    previous_command = np.asarray(previous_command, dtype=np.float64)
-    expected_shape = (model.command_size,)
-    if previous_command.shape != expected_shape or not np.all(
-        np.isfinite(previous_command)
-    ):
+    if applied_command_source is None and previous_command is None:
         raise ValueError(
-            f"previous_command must have shape {expected_shape} and be finite"
+            "provide either a fixed previous_command or an applied_command_source"
         )
-    minimum = np.asarray(model.command_minimum)
-    maximum = np.asarray(model.command_maximum)
-    if np.any(previous_command < minimum) or np.any(previous_command > maximum):
-        raise ValueError("previous_command must lie inside the artifact bounds")
+    if applied_command_source is not None and previous_command is not None:
+        raise ValueError(
+            "previous_command and applied_command_source are mutually exclusive"
+        )
+    fixed_command = (
+        None
+        if previous_command is None
+        else _validated_command(model, previous_command)
+    )
 
     controller = NMPCController(model)
     first_sample = source.next_sample(timeout_s=telemetry_timeout_s)
+    if applied_command_source is None:
+        if fixed_command is None:  # pragma: no cover - guarded above
+            raise RuntimeError("fixed applied command was not initialized")
+        first_command = fixed_command
+        first_applied_sample = None
+    else:
+        first_command, first_applied_sample = _next_applied_command(
+            applied_command_source,
+            model,
+            timeout_s=telemetry_timeout_s,
+        )
     first_sample_host_s = time.monotonic()
     cold_row, warm_start = _solve_row(
-        controller, first_sample, previous_command, None
+        controller,
+        first_sample,
+        first_command,
+        None,
+        applied_sample=first_applied_sample,
     )
     warm_row, warm_start = _solve_row(
-        controller, first_sample, previous_command, warm_start
+        controller,
+        first_sample,
+        first_command,
+        warm_start,
+        applied_sample=first_applied_sample,
     )
 
     rows: list[dict[str, Any]] = []
@@ -149,12 +238,24 @@ def run_px4_nmpc_shadow(
     model_period_s = model.runtime_spec.sample_period_s
     for _ in range(sample_count):
         sample = source.next_sample(timeout_s=telemetry_timeout_s)
+        if applied_command_source is None:
+            if fixed_command is None:  # pragma: no cover - guarded above
+                raise RuntimeError("fixed applied command was not initialized")
+            applied_command = fixed_command
+            applied_sample = None
+        else:
+            applied_command, applied_sample = _next_applied_command(
+                applied_command_source,
+                model,
+                timeout_s=telemetry_timeout_s,
+            )
         sample_host_s = time.monotonic()
         row, warm_start = _solve_row(
             controller,
             sample,
-            previous_command,
+            applied_command,
             warm_start,
+            applied_sample=applied_sample,
             deadline_s=model_period_s,
         )
         row["sample_host_elapsed_s"] = sample_host_s - first_sample_host_s
@@ -172,17 +273,19 @@ def run_px4_nmpc_shadow(
         int(rows[0]["position_time_boot_ms"]),
         int(rows[-1]["position_time_boot_ms"]),
     )
+    applied_commands = np.asarray([row["applied_command"] for row in rows])
     return {
-        "schema_version": 2,
+        "schema_version": 3,
         "mode": "read_only_shadow",
         "commands_transmitted": False,
+        "applied_command_source": (
+            "fixed" if applied_command_source is None else "telemetry"
+        ),
         "platform": model.input_spec.vehicle.family,
         "model_sample_period_s": model_period_s,
         "prediction_horizon_s": controller.prediction_horizon_s,
-        "command_roles": [
-            channel.role for channel in model.actuation.command_channels
-        ],
-        "previous_applied_command": previous_command.tolist(),
+        "command_roles": [channel.role for channel in model.actuation.command_channels],
+        "initial_applied_command": first_command.tolist(),
         "runtime": {
             "python": platform.python_version(),
             "jax": jax.__version__,
@@ -200,12 +303,22 @@ def run_px4_nmpc_shadow(
             "solve_time_median_s": float(np.median(solve_times)),
             "solve_time_p90_s": float(np.quantile(solve_times, 0.9)),
             "solve_time_maximum_s": float(np.max(solve_times)),
-            "maximum_message_skew_s": max(
-                row["message_skew_s"] for row in rows
-            ),
+            "maximum_message_skew_s": max(row["message_skew_s"] for row in rows),
             "maximum_estimated_source_clock_lag_s": max(
                 row["estimated_source_clock_lag_s"] for row in rows
             ),
+            "maximum_applied_command_state_skew_s": _optional_max(
+                rows, "applied_command_state_skew_s"
+            ),
+            "maximum_applied_command_receive_age_s": _optional_max(
+                rows, "applied_command_receive_age_s"
+            ),
+            "all_applied_command_samples_armed": (
+                None
+                if applied_command_source is None
+                else all(row["applied_command_armed"] for row in rows)
+            ),
+            "applied_command_peak_to_peak": np.ptp(applied_commands, axis=0).tolist(),
             "warmup_host_elapsed_s": warmup_host_elapsed_s,
             "warmup_source_clock_advance_s": warmup_source_advance_s,
             "warmup_source_clock_realtime_ratio": _clock_ratio(
@@ -252,9 +365,7 @@ def _parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> None:
     args = _parser().parse_args(argv)
     model = RuntimeDynamicsModel.load(args.model)
-    previous_command = _command(
-        args.previous_command, expected_size=model.command_size
-    )
+    previous_command = _command(args.previous_command, expected_size=model.command_size)
     with PX4MavlinkStateSource.connect(args.connection) as source:
         report = run_px4_nmpc_shadow(
             source,
