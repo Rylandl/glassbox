@@ -832,6 +832,7 @@ def _selected_window_locations(
     balance_trajectories: bool,
     trajectory_weights: Sequence[float] | None,
     trajectory_groups: Sequence[str | int] | None,
+    trajectory_group_weights: Mapping[str | int, float] | None,
 ) -> tuple[list[tuple[int, int]], str]:
     """Select midpoint-stratified windows without materializing all candidates."""
 
@@ -856,7 +857,15 @@ def _selected_window_locations(
             ]
             for selected_group in group_order
         ]
-        stratum_weights = np.ones(len(strata), dtype=np.float64)
+        stratum_weights = np.asarray(
+            [
+                1.0
+                if trajectory_group_weights is None
+                else trajectory_group_weights[group]
+                for group in group_order
+            ],
+            dtype=np.float64,
+        )
     elif balance_trajectories:
         strata = [[index] for index in range(len(candidate_counts))]
         stratum_weights = np.ones(len(strata), dtype=np.float64)
@@ -910,6 +919,7 @@ def trajectory_windows(
     balance_trajectories: bool = False,
     trajectory_weights: Sequence[float] | None = None,
     trajectory_groups: Sequence[str | int] | None = None,
+    trajectory_group_weights: Mapping[str | int, float] | None = None,
     maximum_windows: int | None = None,
 ) -> TrajectoryWindows:
     """Extract rollout windows without crossing flight boundaries.
@@ -918,7 +928,9 @@ def trajectory_windows(
     total loss weight regardless of its duration or number of extracted windows.
     ``maximum_windows`` applies deterministic midpoint sampling across the same
     weighting strata, preserving broad temporal and source coverage without first
-    materializing every candidate window.
+    materializing every candidate window. ``trajectory_group_weights`` changes
+    the total contribution of each group while retaining uniform weight among
+    windows in that group; it is intended for complete-group resampling.
     """
 
     if not trajectories:
@@ -961,6 +973,24 @@ def trajectory_windows(
         ):
             raise ValueError(
                 "trajectory_groups must contain non-empty strings or integers"
+            )
+    if trajectory_group_weights is not None:
+        if trajectory_groups is None:
+            raise ValueError(
+                "trajectory_group_weights requires trajectory_groups"
+            )
+        group_order = tuple(dict.fromkeys(trajectory_groups))
+        if set(trajectory_group_weights) != set(group_order):
+            raise ValueError(
+                "trajectory_group_weights must contain exactly the trajectory "
+                "groups"
+            )
+        if any(
+            not np.isfinite(weight) or weight <= 0.0
+            for weight in trajectory_group_weights.values()
+        ):
+            raise ValueError(
+                "trajectory_group_weights values must be finite and positive"
             )
 
     dt_s = trajectories[0].nominal_dt_s
@@ -1028,6 +1058,7 @@ def trajectory_windows(
         balance_trajectories=balance_trajectories,
         trajectory_weights=trajectory_weights,
         trajectory_groups=trajectory_groups,
+        trajectory_group_weights=trajectory_group_weights,
     )
     initial_states: list[npt.NDArray[np.float64]] = []
     control_histories: list[npt.NDArray[np.float64]] = []
@@ -1072,7 +1103,16 @@ def trajectory_windows(
             dtype=np.int64,
         )
         group_counts = np.bincount(group_indices, minlength=len(group_order))
-        window_weights = 1.0 / group_counts[group_indices]
+        group_weights = np.asarray(
+            [
+                1.0
+                if trajectory_group_weights is None
+                else trajectory_group_weights[group]
+                for group in group_order
+            ],
+            dtype=np.float64,
+        )
+        window_weights = group_weights[group_indices] / group_counts[group_indices]
 
     return TrajectoryWindows(
         initial_states=np.stack(initial_states),

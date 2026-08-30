@@ -18,6 +18,37 @@ uv run glassbox-synthetic
 uv run pytest
 ```
 
+## Experimental predictive ensembles
+
+Glassbox can now test whether corpus sensitivity contains useful predictive
+uncertainty without describing the result as a Bayesian posterior. The offline
+ensemble benchmark keeps a complete profile or source group outside every fit,
+then builds each member by resampling only the remaining independent source
+groups:
+
+```bash
+uv run glassbox-ensemble-benchmark artifacts/sitl/canonical/*.npz \
+  --output-dir artifacts/sitl/predictive_ensemble
+```
+
+The outer axis is selected automatically: maneuver profile when the corpus has
+multiple typed profiles, otherwise source group. Bootstrap draws are stratified
+by profile when possible, and the normal interface automatically chooses four
+to eight members rather than exposing resampling and calibration knobs.
+
+Reports contain endpoint ensemble-center error, empirical 50/80/90% disagreement
+coverage, interval radius, multivariate energy score, disagreement/error rank
+correlation, and both endpoint and complete-path finiteness. Attitude is handled
+as a shortest-path rotation vector rather than componentwise quaternion bounds.
+Artifacts explicitly record `posterior: false`: this first stage measures
+epistemic sensitivity to the available groups and does not claim to contain
+process noise, observation noise, or model forms that were never fitted.
+
+See [the predictive-ensemble guide](docs/predictive-ensembles.md) for the split
+contract, metric interpretation, and promotion boundary. The workflow remains
+diagnostic-only until protected results show that disagreement predicts error
+without requiring uselessly wide intervals.
+
 ## Nonlinear model-predictive control
 
 Glassbox includes an opinionated JAX NMPC controller for actionable fitted

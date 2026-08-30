@@ -196,7 +196,7 @@ def rollout_predictions(
     )
 
 
-def _attitude_innovation(
+def attitude_innovation(
     predicted_wxyz: np.ndarray,
     observed_wxyz: np.ndarray,
 ) -> np.ndarray:
@@ -274,7 +274,7 @@ def state_kinematic_compatibility_diagnostics(
         np.diff(states[:, 0:3], axis=0) / dt_s
         - 0.5 * (states[:-1, 3:6] + states[1:, 3:6])
     )
-    attitude_increment = _attitude_innovation(
+    attitude_increment = attitude_innovation(
         states[:-1, 6:10], states[1:, 6:10]
     )
     rotations = _quaternion_rotation_matrices(states[:, 6:10])
@@ -520,7 +520,7 @@ def one_step_innovation_diagnostics(
         (
             observed[:, 0:3] - predicted[:, 0:3],
             observed[:, 3:6] - predicted[:, 3:6],
-            _attitude_innovation(predicted[:, 6:10], observed[:, 6:10]),
+            attitude_innovation(predicted[:, 6:10], observed[:, 6:10]),
             observed[:, 10:13] - predicted[:, 10:13],
         )
     )

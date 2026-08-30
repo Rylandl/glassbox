@@ -821,6 +821,7 @@ def fit_trajectory_artifacts(
     run_no_lag_ablation: bool = True,
     balance_training_flights: bool = True,
     holdout_profiles: tuple[str, ...] | list[str] | None = None,
+    training_source_group_weights: Mapping[str | int, float] | None = None,
     model_class: str = "structured",
     endpoint_weight: float = 3.0,
     stability_regularization: float = 0.01,
@@ -844,6 +845,13 @@ def fit_trajectory_artifacts(
         raise ValueError("endpoint_weight must be at least one")
     if stability_regularization < 0.0:
         raise ValueError("stability_regularization must be nonnegative")
+    if training_source_group_weights is not None and any(
+        not np.isfinite(weight) or weight <= 0.0
+        for weight in training_source_group_weights.values()
+    ):
+        raise ValueError(
+            "training_source_group_weights values must be finite and positive"
+        )
 
     paths = [Path(path) for path in trajectory_paths]
     trajectories = [load_trajectory_npz(path) for path in paths]
@@ -1017,11 +1025,26 @@ def fit_trajectory_artifacts(
     training_profiles = [
         trajectory.labels.get("profile") for trajectory in training
     ]
+    training_group_order = (
+        list(dict.fromkeys(training_source_groups))
+        if training_source_groups is not None
+        else []
+    )
+    if training_source_group_weights is not None:
+        if training_source_groups is None:
+            raise ValueError(
+                "training_source_group_weights requires source_group labels"
+            )
+        if set(training_source_group_weights) != set(training_group_order):
+            raise ValueError(
+                "training_source_group_weights must contain exactly the "
+                "training source groups"
+            )
     group_balanced = (
         balance_training_flights
-        and len(training) > 1
+        and (len(training) > 1 or training_source_group_weights is not None)
         and training_source_groups is not None
-        and not holdout_profiles
+        and (not holdout_profiles or training_source_group_weights is not None)
     )
     profile_balanced_weights = None
     if (
@@ -1064,6 +1087,9 @@ def fit_trajectory_artifacts(
             trajectory_weights=profile_balanced_weights,
             trajectory_groups=(
                 training_source_groups if group_balanced else None
+            ),
+            trajectory_group_weights=(
+                training_source_group_weights if group_balanced else None
             ),
             maximum_windows=maximum_windows,
         )
@@ -1127,12 +1153,6 @@ def fit_trajectory_artifacts(
         )
 
     controls = np.concatenate([trajectory.controls for trajectory in training])
-    training_group_order = (
-        list(dict.fromkeys(training_source_groups))
-        if training_source_groups is not None
-        else []
-    )
-
     def group_weight_shares(windows: TrajectoryWindows) -> dict[str, float]:
         if training_source_groups is None:
             return {}
@@ -1280,7 +1300,10 @@ def fit_trajectory_artifacts(
                 },
                 "source_group_count": training_diversity_count,
                 "stratification": (
-                    "source_group"
+                    "weighted_source_group"
+                    if group_balanced
+                    and training_source_group_weights is not None
+                    else "source_group"
                     if group_balanced
                     else "weighted_trajectory"
                     if profile_balanced_weights is not None
@@ -1295,7 +1318,10 @@ def fit_trajectory_artifacts(
             "platform": platform,
             "model_family": family.key,
             "training_flight_weighting": (
-                "equal_source_group_then_equal_window"
+                "weighted_source_group_then_equal_window"
+                if group_balanced
+                and training_source_group_weights is not None
+                else "equal_source_group_then_equal_window"
                 if group_balanced
                 else "equal_profile_then_equal_flight"
                 if profile_balanced_weights is not None
@@ -1345,6 +1371,14 @@ def fit_trajectory_artifacts(
                 label: group_weight_shares(windows)
                 for label, windows in zip(training_horizon_labels, window_sets)
             },
+            "training_source_group_weights": (
+                None
+                if training_source_group_weights is None
+                else {
+                    str(group): float(training_source_group_weights[group])
+                    for group in training_group_order
+                }
+            ),
         },
         "models": models,
         "comparison": comparison,
@@ -1362,7 +1396,9 @@ def fit_trajectory_artifacts(
             "by their initial values before being combined with equal weight. "
             "By default each labeled source group contributes equal total loss "
             "weight with uniform window weight inside the group; without source "
-            "groups, each training flight contributes equally. Large candidate "
+            "groups, each training flight contributes equally. Explicit source-"
+            "group weights represent complete-group resampling multiplicities. "
+            "Large candidate "
             "sets are deterministically thinned across every group's timeline "
             "using an automatic corpus- and horizon-aware compute budget. For a "
             "structured "

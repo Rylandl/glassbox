@@ -21,6 +21,7 @@ workflow_modules = {
     "glassbox.fixedwing_gate",
     "glassbox.policy_selection",
     "glassbox.profile_benchmark",
+    "glassbox.predictive_ensemble",
     "glassbox.nmpc_benchmark",
     "glassbox.source_group_benchmark",
 }
