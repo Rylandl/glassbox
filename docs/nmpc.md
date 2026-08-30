@@ -138,15 +138,16 @@ On the recorded Apple M3 CPU run with JAX's CPU backend and a 50 ms model step:
 - all eight nominal and eight model-mismatch cases were finite;
 - there were no fallbacks and no command-bound violations;
 - every mismatch case stayed within the fitted model-validity envelope;
-- equal-scenario geometric tracking error was `0.659x` the non-optimizing trim
-  baseline nominally and `0.540x` under parameter mismatch; and
-- the median of per-scenario post-JIT median solve times was about `29 ms`.
+- equal-scenario geometric tracking error was `0.661x` the non-optimizing trim
+  baseline nominally and `0.542x` under parameter mismatch; and
+- the median of per-scenario post-JIT median solve times was about `19 ms`.
 
 Each scenario records median, p90, and maximum post-JIT time. Cold compilation
-took multiple seconds for each novel model/control shape. Every scenario's p90
-was below the 50 ms model step on the recorded run, but the maximum observed
-solve was about `112 ms`. This demonstrates useful typical throughput, not a
-hard real-time guarantee. No real-time or flight-safety claim is made.
+took multiple seconds for each novel model/control shape. The worst scenario
+p90 was about `23 ms`, and the maximum observed solve was about `26 ms`, both
+below the 50 ms model step on the recorded run. These measurements establish
+margin for that benchmark and hardware combination, not a portable hard
+real-time guarantee. No flight-safety claim is made.
 
 The baseline holds the model-derived hover or level-flight trim command. It is
 deliberately non-optimizing and recorded with every result. The gate also

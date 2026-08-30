@@ -46,6 +46,9 @@ regularization, and control-block policy are maintainer-owned defaults.
 The maintained backend uses at most eight warm-started outer iterations per
 control update; accuracy and latency changes to that policy are judged against
 the complete acceptance suite, not exposed as operator tuning knobs.
+Its bounded Armijo search carries an accepted step size into the next outer
+iteration and cautiously expands it, avoiding repeated backtracking from the
+same deliberately conservative maximum step.
 
 Rigid-body error has 12 local coordinates: position, velocity, the shortest
 quaternion log-map rotation vector, and angular velocity. Quaternion component

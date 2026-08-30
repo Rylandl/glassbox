@@ -294,9 +294,9 @@ class _DirectShootingBackend:
             return jnp.isfinite(value) & jnp.all(jnp.isfinite(gradient))
 
         def continue_outer(
-            carry: tuple[Array, Array, Array, Array, Array, Array],
+            carry: tuple[Array, Array, Array, Array, Array, Array, Array],
         ) -> Array:
-            iteration, _, value, gradient, converged, line_search_failed = carry
+            iteration, _, value, gradient, _, converged, line_search_failed = carry
             return (
                 (iteration < self._policy.maximum_iterations)
                 & ~converged
@@ -305,28 +305,33 @@ class _DirectShootingBackend:
             )
 
         def outer_step(
-            carry: tuple[Array, Array, Array, Array, Array, Array],
-        ) -> tuple[Array, Array, Array, Array, Array, Array]:
-            iteration, blocks, value, gradient, _, _ = carry
+            carry: tuple[Array, Array, Array, Array, Array, Array, Array],
+        ) -> tuple[Array, Array, Array, Array, Array, Array, Array]:
+            iteration, blocks, value, gradient, step_size, _, _ = carry
             gradient_norm = jnp.max(jnp.abs(gradient))
             gradient_converged = gradient_norm <= self._policy.gradient_tolerance
 
             def continue_line_search(
-                line_carry: tuple[Array, Array, Array, Array, Array],
+                line_carry: tuple[Array, Array, Array, Array, Array, Array],
             ) -> Array:
-                line_iteration, accepted, _, _, _ = line_carry
+                line_iteration, accepted, _, _, _, _ = line_carry
                 return (line_iteration < self._policy.line_search_steps) & ~accepted
 
             def line_search_step(
-                line_carry: tuple[Array, Array, Array, Array, Array],
-            ) -> tuple[Array, Array, Array, Array, Array]:
-                line_iteration, accepted, best_blocks, best_value, best_gradient = (
-                    line_carry
+                line_carry: tuple[Array, Array, Array, Array, Array, Array],
+            ) -> tuple[Array, Array, Array, Array, Array, Array]:
+                (
+                    line_iteration,
+                    accepted,
+                    best_blocks,
+                    best_value,
+                    best_gradient,
+                    accepted_step_size,
+                ) = line_carry
+                candidate_step_size = step_size * jnp.power(0.5, line_iteration)
+                candidate = jnp.clip(
+                    blocks - candidate_step_size * gradient, -1.0, 1.0
                 )
-                step_size = self._policy.initial_step_size * jnp.power(
-                    0.5, line_iteration
-                )
-                candidate = jnp.clip(blocks - step_size * gradient, -1.0, 1.0)
                 candidate_value, candidate_gradient = self._objective_gradient(
                     candidate,
                     initial_state,
@@ -348,6 +353,11 @@ class _DirectShootingBackend:
                     jnp.where(candidate_accepted, candidate, best_blocks),
                     jnp.where(candidate_accepted, candidate_value, best_value),
                     jnp.where(candidate_accepted, candidate_gradient, best_gradient),
+                    jnp.where(
+                        candidate_accepted,
+                        candidate_step_size,
+                        accepted_step_size,
+                    ),
                 )
 
             line_initial = (
@@ -356,8 +366,16 @@ class _DirectShootingBackend:
                 blocks,
                 value,
                 gradient,
+                step_size,
             )
-            _, accepted, next_blocks, next_value, next_gradient = jax.lax.while_loop(
+            (
+                _,
+                accepted,
+                next_blocks,
+                next_value,
+                next_gradient,
+                accepted_step_size,
+            ) = jax.lax.while_loop(
                 continue_line_search, line_search_step, line_initial
             )
             relative_improvement = (value - next_value) / jnp.maximum(
@@ -373,6 +391,10 @@ class _DirectShootingBackend:
                 next_blocks,
                 next_value,
                 next_gradient,
+                jnp.minimum(
+                    self._policy.initial_step_size,
+                    2.0 * accepted_step_size,
+                ),
                 gradient_converged | improvement_converged,
                 ~accepted,
             )
@@ -382,12 +404,19 @@ class _DirectShootingBackend:
             initial_blocks,
             initial_value,
             initial_gradient,
+            jnp.asarray(self._policy.initial_step_size),
             jnp.asarray(False),
             jnp.asarray(False),
         )
-        iteration, blocks, value, gradient, converged, line_search_failed = (
-            jax.lax.while_loop(continue_outer, outer_step, initial_carry)
-        )
+        (
+            iteration,
+            blocks,
+            value,
+            gradient,
+            _,
+            converged,
+            line_search_failed,
+        ) = jax.lax.while_loop(continue_outer, outer_step, initial_carry)
         return (
             blocks,
             value,
