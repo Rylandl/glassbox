@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from collections import deque
 from dataclasses import dataclass
 from threading import Condition, Event, Thread
 from typing import Protocol
@@ -21,6 +22,7 @@ _BOOT_TIME_MODULUS_MS = 2**32
 _RECEIVE_POLL_TIMEOUT_S = 0.10
 _MAXIMUM_DRAIN_MESSAGES = 4096
 _MAV_MODE_FLAG_SAFETY_ARMED = 128
+_HIL_ACTUATOR_HISTORY_SIZE = 512
 
 
 class PX4TelemetryError(RuntimeError):
@@ -125,13 +127,16 @@ class _ReceivedAppliedCommand:
     received_monotonic_s: float
 
 
+def _px4_boot_time_difference_ms(first_ms: int, second_ms: int) -> int:
+    return (
+        int(first_ms) - int(second_ms) + _BOOT_TIME_MODULUS_MS // 2
+    ) % _BOOT_TIME_MODULUS_MS - _BOOT_TIME_MODULUS_MS // 2
+
+
 def px4_boot_time_skew_s(first_ms: int, second_ms: int) -> float:
     """Return the absolute distance between wrapping PX4 boot timestamps."""
 
-    difference = (
-        int(first_ms) - int(second_ms) + _BOOT_TIME_MODULUS_MS // 2
-    ) % _BOOT_TIME_MODULUS_MS - _BOOT_TIME_MODULUS_MS // 2
-    return abs(difference) * 1e-3
+    return abs(_px4_boot_time_difference_ms(first_ms, second_ms)) * 1e-3
 
 
 class PX4StateAssembler:
@@ -469,6 +474,9 @@ class PX4HILActuatorSource:
         self._condition = Condition()
         self._stop_requested = Event()
         self._latest: _ReceivedAppliedCommand | None = None
+        self._history: deque[_ReceivedAppliedCommand] = deque(
+            maxlen=_HIL_ACTUATOR_HISTORY_SIZE
+        )
         self._latest_sequence = 0
         self._delivered_sequence = 0
         self._receiver_error: Exception | None = None
@@ -548,21 +556,39 @@ class PX4HILActuatorSource:
         )
 
     def _receive_forever(self) -> None:
-        generation = 0
         try:
             while not self._stop_requested.is_set():
-                latest = self._receive_one(blocking=True)
+                received: list[_ReceivedAppliedCommand] = []
+                first = self._receive_one(blocking=True)
+                if first is not None:
+                    received.append(first)
                 for _ in range(_MAXIMUM_DRAIN_MESSAGES):
                     pending = self._receive_one(blocking=False)
                     if pending is None:
                         break
-                    latest = pending
-                if latest is None:
+                    received.append(pending)
+                if not received:
                     continue
-                generation += 1
                 with self._condition:
-                    self._latest = latest
-                    self._latest_sequence = generation
+                    previous_source_time_us = (
+                        self._history[-1].source_time_us if self._history else None
+                    )
+                    reset_index: int | None = None
+                    for index, item in enumerate(received):
+                        if (
+                            previous_source_time_us is not None
+                            and item.source_time_us < previous_source_time_us
+                        ):
+                            reset_index = index
+                        previous_source_time_us = item.source_time_us
+                    if reset_index is not None:
+                        # PX4 restarted; samples from the previous boot must
+                        # never compete in nearest-timestamp selection.
+                        self._history.clear()
+                        received = received[reset_index:]
+                    self._history.extend(received)
+                    self._latest = received[-1]
+                    self._latest_sequence += len(received)
                     self._condition.notify_all()
         except Exception as error:
             with self._condition:
@@ -591,19 +617,71 @@ class PX4HILActuatorSource:
                             "PX4 HIL actuator receiver published an empty sample"
                         )
                     self._delivered_sequence = self._latest_sequence
-                    receive_age_s = time.monotonic() - latest.received_monotonic_s
-                    if receive_age_s <= self._maximum_receive_age_s:
-                        return PX4AppliedCommandSample(
-                            command=latest.command,
-                            source_time_us=latest.source_time_us,
-                            mav_mode=latest.mav_mode,
-                            armed=bool(latest.mav_mode & _MAV_MODE_FLAG_SAFETY_ARMED),
-                            receive_age_s=receive_age_s,
-                        )
+                    sample = self._sample(latest)
+                    if sample is not None:
+                        return sample
                 remaining_s = deadline - time.monotonic()
                 if remaining_s <= 0.0:
                     raise PX4TelemetryError(
                         "timed out waiting for fresh HIL_ACTUATOR_CONTROLS"
+                    )
+                self._condition.wait(timeout=remaining_s)
+
+    def _sample(
+        self, received: _ReceivedAppliedCommand
+    ) -> PX4AppliedCommandSample | None:
+        receive_age_s = time.monotonic() - received.received_monotonic_s
+        if receive_age_s > self._maximum_receive_age_s:
+            return None
+        return PX4AppliedCommandSample(
+            command=received.command,
+            source_time_us=received.source_time_us,
+            mav_mode=received.mav_mode,
+            armed=bool(received.mav_mode & _MAV_MODE_FLAG_SAFETY_ARMED),
+            receive_age_s=receive_age_s,
+        )
+
+    def sample_nearest(
+        self,
+        time_boot_ms: int,
+        *,
+        timeout_s: float = 1.0,
+    ) -> PX4AppliedCommandSample:
+        """Return the retained actuator sample nearest one PX4 boot time."""
+
+        if not 0 <= time_boot_ms < _BOOT_TIME_MODULUS_MS:
+            raise ValueError("PX4 target boot timestamp is outside uint32 range")
+        if not np.isfinite(timeout_s) or timeout_s <= 0:
+            raise ValueError("timeout_s must be finite and positive")
+        deadline = time.monotonic() + timeout_s
+        with self._condition:
+            while True:
+                if self._receiver_error is not None:
+                    raise PX4TelemetryError(
+                        "PX4 HIL actuator receiver failed"
+                    ) from self._receiver_error
+                if self._closed:
+                    raise PX4TelemetryError("PX4 HIL actuator source is closed")
+                if self._history:
+                    latest_boot_ms = (
+                        self._history[-1].source_time_us // 1_000
+                    ) % _BOOT_TIME_MODULUS_MS
+                    if _px4_boot_time_difference_ms(latest_boot_ms, time_boot_ms) >= 0:
+                        nearest = min(
+                            self._history,
+                            key=lambda item: px4_boot_time_skew_s(
+                                (item.source_time_us // 1_000) % _BOOT_TIME_MODULUS_MS,
+                                time_boot_ms,
+                            ),
+                        )
+                        sample = self._sample(nearest)
+                        if sample is not None:
+                            return sample
+                remaining_s = deadline - time.monotonic()
+                if remaining_s <= 0.0:
+                    raise PX4TelemetryError(
+                        "timed out waiting for HIL actuator telemetry at PX4 "
+                        f"boot time {time_boot_ms} ms"
                     )
                 self._condition.wait(timeout=remaining_s)
 

@@ -35,6 +35,12 @@ def test_runtime_model_loads_timing_bounds_and_latent_state(tmp_path) -> None:
     next_state, next_latent = runtime.transition(
         jnp.asarray(trajectory.states[0]), latent, command
     )
+    irregular_state, irregular_latent = runtime.transition_at_interval(
+        jnp.asarray(trajectory.states[0]),
+        latent,
+        command,
+        1.6 * trajectory.nominal_dt_s,
+    )
 
     assert runtime.runtime_spec.sample_period_s == pytest.approx(
         trajectory.nominal_dt_s
@@ -44,10 +50,18 @@ def test_runtime_model_loads_timing_bounds_and_latent_state(tmp_path) -> None:
     assert latent.shape == (7,)
     assert next_state.shape == (13,)
     assert next_latent.shape == (7,)
+    assert irregular_state.shape == (13,)
+    assert irregular_latent.shape == (7,)
     assert np.all(np.isfinite(next_state))
+    assert np.all(np.isfinite(irregular_state))
     assert runtime.validity_utilization(next_state).shape == (6,)
     np.testing.assert_allclose(runtime.command_minimum, 0.0)
     np.testing.assert_allclose(runtime.command_maximum, 1.0)
+
+    with pytest.raises(ValueError, match="finite and positive"):
+        runtime.transition_at_interval(
+            jnp.asarray(trajectory.states[0]), latent, command, 0.0
+        )
 
 
 def test_direct_actuation_rejects_measured_rotor_speed_model(tmp_path) -> None:

@@ -275,12 +275,15 @@ def test_hil_actuator_source_maps_fresh_commands_without_transmission() -> None:
         source_system=1,
     ) as source:
         sample = source.next_sample(timeout_s=0.1)
+        nearest = source.sample_nearest(1_001, timeout_s=0.1)
 
     np.testing.assert_allclose(sample.command, [0.4, 0.2, 0.5, 0.3])
     assert sample.source_time_us == 1_020_000
     assert sample.armed
     assert sample.mav_mode == 145
     assert 0.0 <= sample.receive_age_s <= 0.25
+    np.testing.assert_allclose(nearest.command, [0.3, 0.1, 0.4, 0.2])
+    assert nearest.source_time_us == 1_000_000
     assert connection.closed
     assert not hasattr(source, "send")
 

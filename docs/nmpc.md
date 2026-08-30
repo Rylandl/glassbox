@@ -243,7 +243,10 @@ then runs the existing bounded OFFBOARD altitude profile and verifies landing
 and disarm. The state source remains passive on PX4's onboard MAVLink link. A
 second passive source consumes `HIL_ACTUATOR_CONTROLS` from the simulator link
 and maps the pinned quad-X output geometry into the artifact's canonical motor
-order. The profile driver is the only process that transmits anything.
+order. It retains a bounded recent history and selects the command nearest each
+state's PX4 boot timestamp; solver load therefore cannot turn two individually
+fresh streams into a mismatched pair. The profile driver is the only process
+that transmits anything.
 
 Every measured applied command is checked against the artifact's dimensions and
 bounds before solving. State and command source timestamps must be within one
@@ -254,6 +257,24 @@ peak-to-peak excitation. This makes the fixture evidence for asynchronous
 telemetry, varying commands, moving states, solver deadlines, and cleanup—not a
 closed-loop control test and not a general claim that HIL actuator order is
 shared by other PX4 configurations.
+
+The same report performs a short-horizon logged-input model audit. Each
+prediction starts from a measured state, carries the model's latent actuator
+state, holds the timestamp-aligned starting command, and integrates the
+continuous dynamics across the state stream's actual source-time interval.
+This matters because the maintained onboard estimator stream advances at a
+quantized 24/32/40 ms cadence even though the fitted model and controller use a
+20 ms period. Intervals from 0.5 to 2.5 model periods are scored at their actual
+duration; larger coalesced gaps are reported and re-anchored because their
+intermediate inputs are unknown.
+
+The audit reports position, velocity, attitude, and body-rate RMSE against both
+the next telemetry state and a constant-world-velocity/constant-body-rate
+persistence baseline, plus their ratios. It is diagnostic evidence, not yet an
+acceptance gate: a single SIH profile is insufficient to set a defensible live
+accuracy threshold. The fixture currently gates only that at least half of the
+moving transitions are temporally eligible and that all resulting metrics are
+finite.
 
 A transport test can pass while the real-time gate fails. In particular, PX4
 SIH and JAX share host resources in this fixture, so the report treats source

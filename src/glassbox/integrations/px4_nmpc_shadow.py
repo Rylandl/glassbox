@@ -23,6 +23,7 @@ from glassbox.integrations.px4 import (
 )
 from glassbox.nmpc import NMPCController, NMPCWarmStart
 from glassbox.runtime import RuntimeDynamicsModel
+from glassbox.streaming_evaluation import StreamingOneStepEvaluator
 
 _BOOT_TIME_MODULUS_MS = 2**32
 _MAXIMUM_APPLIED_COMMAND_STATE_SKEW_S = 0.10
@@ -31,7 +32,12 @@ _MAXIMUM_APPLIED_COMMAND_STATE_SKEW_S = 0.10
 class AppliedCommandSource(Protocol):
     """Read-only source of canonical commands actually applied by the vehicle."""
 
-    def next_sample(self, *, timeout_s: float = 1.0) -> PX4AppliedCommandSample: ...
+    def sample_nearest(
+        self,
+        time_boot_ms: int,
+        *,
+        timeout_s: float = 1.0,
+    ) -> PX4AppliedCommandSample: ...
 
 
 def _command(value: str, *, expected_size: int) -> np.ndarray:
@@ -171,9 +177,10 @@ def _next_applied_command(
     source: AppliedCommandSource,
     model: RuntimeDynamicsModel,
     *,
+    time_boot_ms: int,
     timeout_s: float,
 ) -> tuple[np.ndarray, PX4AppliedCommandSample]:
-    sample = source.next_sample(timeout_s=timeout_s)
+    sample = source.sample_nearest(time_boot_ms, timeout_s=timeout_s)
     return _validated_command(model, sample.command), sample
 
 
@@ -205,6 +212,7 @@ def run_px4_nmpc_shadow(
     )
 
     controller = NMPCController(model)
+    one_step_evaluator = StreamingOneStepEvaluator(model)
     first_sample = source.next_sample(timeout_s=telemetry_timeout_s)
     if applied_command_source is None:
         if fixed_command is None:  # pragma: no cover - guarded above
@@ -215,8 +223,16 @@ def run_px4_nmpc_shadow(
         first_command, first_applied_sample = _next_applied_command(
             applied_command_source,
             model,
+            time_boot_ms=first_sample.position_time_boot_ms,
             timeout_s=telemetry_timeout_s,
         )
+    one_step_evaluator.observe(
+        first_sample.state,
+        first_command,
+        elapsed_s=0.0,
+    )
+    audit_elapsed_s = 0.0
+    audit_position_boot_ms = first_sample.position_time_boot_ms
     first_sample_host_s = time.monotonic()
     cold_row, warm_start = _solve_row(
         controller,
@@ -247,9 +263,22 @@ def run_px4_nmpc_shadow(
             applied_command, applied_sample = _next_applied_command(
                 applied_command_source,
                 model,
+                time_boot_ms=sample.position_time_boot_ms,
                 timeout_s=telemetry_timeout_s,
             )
         sample_host_s = time.monotonic()
+        audit_advance_s = _source_clock_advance_s(
+            audit_position_boot_ms,
+            sample.position_time_boot_ms,
+        )
+        if audit_advance_s is not None:
+            audit_elapsed_s += audit_advance_s
+        one_step_audit = one_step_evaluator.observe(
+            sample.state,
+            applied_command,
+            elapsed_s=audit_elapsed_s,
+        )
+        audit_position_boot_ms = sample.position_time_boot_ms
         row, warm_start = _solve_row(
             controller,
             sample,
@@ -258,6 +287,7 @@ def run_px4_nmpc_shadow(
             applied_sample=applied_sample,
             deadline_s=model_period_s,
         )
+        row["one_step_model_audit"] = one_step_audit
         row["sample_host_elapsed_s"] = sample_host_s - first_sample_host_s
         rows.append(row)
         sample_host_times_s.append(sample_host_s)
@@ -275,7 +305,7 @@ def run_px4_nmpc_shadow(
     )
     applied_commands = np.asarray([row["applied_command"] for row in rows])
     return {
-        "schema_version": 3,
+        "schema_version": 4,
         "mode": "read_only_shadow",
         "commands_transmitted": False,
         "applied_command_source": (
@@ -319,6 +349,7 @@ def run_px4_nmpc_shadow(
                 else all(row["applied_command_armed"] for row in rows)
             ),
             "applied_command_peak_to_peak": np.ptp(applied_commands, axis=0).tolist(),
+            "one_step_model_audit": one_step_evaluator.summary(),
             "warmup_host_elapsed_s": warmup_host_elapsed_s,
             "warmup_source_clock_advance_s": warmup_source_advance_s,
             "warmup_source_clock_realtime_ratio": _clock_ratio(

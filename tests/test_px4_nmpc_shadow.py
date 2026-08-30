@@ -127,10 +127,18 @@ def test_shadow_runner_exercises_both_warmup_paths_without_transmission(
     assert len(report["samples"]) == 2
     assert source.sample_index == 3
     assert deadlines == [None, None, 0.2, 0.2]
-    assert report["schema_version"] == 3
+    assert report["schema_version"] == 4
     assert report["applied_command_source"] == "fixed"
     assert report["summary"]["maximum_applied_command_state_skew_s"] is None
     assert report["summary"]["maximum_estimated_source_clock_lag_s"] == 0.0
+    one_step = report["summary"]["one_step_model_audit"]
+    assert one_step["transition_count"] == 2
+    assert one_step["evaluated_transition_count"] == 0
+    assert one_step["timing_ineligible_transition_count"] == 2
+    assert all(
+        sample["one_step_model_audit"]["status"] == "timing_ineligible"
+        for sample in report["samples"]
+    )
     json.dumps(report, allow_nan=False)
 
 
@@ -152,9 +160,12 @@ def test_shadow_runner_uses_aligned_applied_command_telemetry(
         def __init__(self) -> None:
             self.sample_index = 0
 
-        def next_sample(self, *, timeout_s: float) -> PX4AppliedCommandSample:
+        def sample_nearest(
+            self, time_boot_ms: int, *, timeout_s: float
+        ) -> PX4AppliedCommandSample:
             assert timeout_s == 1.0
             self.sample_index += 1
+            assert time_boot_ms == 1_000 + 20 * self.sample_index
             return PX4AppliedCommandSample(
                 command=np.full(4, 0.2 + 0.05 * self.sample_index),
                 source_time_us=(1_000 + 20 * self.sample_index) * 1_000,
@@ -238,7 +249,9 @@ def test_shadow_runner_requires_exactly_one_applied_command_source() -> None:
 
 def test_shadow_runner_rejects_misaligned_applied_command_telemetry() -> None:
     class MisalignedCommandSource:
-        def next_sample(self, *, timeout_s: float) -> PX4AppliedCommandSample:
+        def sample_nearest(
+            self, time_boot_ms: int, *, timeout_s: float
+        ) -> PX4AppliedCommandSample:
             return PX4AppliedCommandSample(
                 command=np.full(4, 0.3),
                 source_time_us=1_200_000,

@@ -406,6 +406,26 @@ class RuntimeDynamicsModel:
         command: Array,
         exogenous: Array | None = None,
     ) -> tuple[Array, Array]:
+        return self.transition_at_interval(
+            state,
+            latent_state,
+            command,
+            self.runtime_spec.sample_period_s,
+            exogenous,
+        )
+
+    def transition_at_interval(
+        self,
+        state: Array,
+        latent_state: Array,
+        command: Array,
+        interval_s: float,
+        exogenous: Array | None = None,
+    ) -> tuple[Array, Array]:
+        """Advance the continuous dynamics across one explicit interval."""
+
+        if not np.isfinite(interval_s) or interval_s <= 0.0:
+            raise ValueError("runtime transition interval must be finite and positive")
         if command.shape[-1] != self.command_size:
             raise ValueError("command does not match runtime command size")
         if exogenous is None:
@@ -417,7 +437,7 @@ class RuntimeDynamicsModel:
             state,
             latent_state,
             self.actuation.model_control(command),
-            self.runtime_spec.sample_period_s,
+            interval_s,
             self.input_spec.control_roles,
             exogenous,
             self.input_spec.exogenous_roles,

@@ -275,6 +275,7 @@ def test_flown_profile_pairs_real_applied_commands_with_shadow_solver(
 
     states = np.asarray([sample["state"] for sample in report["samples"]])
     command_range = np.asarray(report["summary"]["applied_command_peak_to_peak"])
+    one_step_audit = report["summary"]["one_step_model_audit"]
     assert report["commands_transmitted"] is False
     assert report["applied_command_source"] == "telemetry"
     assert report["summary"]["all_applied_command_samples_armed"] is True
@@ -284,6 +285,11 @@ def test_flown_profile_pairs_real_applied_commands_with_shadow_solver(
     assert report["summary"]["maximum_applied_command_receive_age_s"] <= 0.25
     assert np.max(command_range) > 0.02
     assert np.ptp(states[:, 2]) > 0.20
+    assert one_step_audit["evaluated_transition_fraction"] >= 0.50, one_step_audit
+    assert one_step_audit["model"] is not None
+    assert one_step_audit["kinematic_persistence"] is not None
+    assert np.all(np.isfinite(list(one_step_audit["model"].values())))
+    assert np.all(np.isfinite(list(one_step_audit["kinematic_persistence"].values())))
     assert all(
         sample["maximum_command_bound_violation"] <= 1e-6
         for sample in report["samples"]

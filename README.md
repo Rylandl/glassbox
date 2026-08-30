@@ -56,8 +56,9 @@ deadline, and records proposed commands without ever transmitting them.
 A separately gated SIH-only test performs a normal takeoff and bounded flight
 profile while the shadow controller passively consumes both moving state and
 the commands PX4 actually applies. It checks state/command timestamp alignment,
-command excitation, landing, and disarm; see the NMPC guide for the explicit
-opt-in command and safety boundary.
+command excitation, short-horizon model error against a kinematic baseline,
+landing, and disarm; see the NMPC guide for the explicit opt-in command and
+safety boundary.
 
 ## Nano-Quadrotor System Identification Benchmark
 
