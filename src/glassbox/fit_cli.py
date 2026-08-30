@@ -549,7 +549,15 @@ def _source_groups(
         for value in values
     ):
         raise ValueError("source_group labels must be non-empty strings or integers")
-    return [value for value in values if isinstance(value, (str, int))]
+    source_groups = [
+        value for value in values if isinstance(value, (str, int))
+    ]
+    unique_groups = tuple(dict.fromkeys(source_groups))
+    if len({str(group) for group in unique_groups}) != len(unique_groups):
+        raise ValueError(
+            "source_group labels must have unique string representations"
+        )
+    return source_groups
 
 
 def _trajectory_summary(path: str, trajectory: Trajectory) -> dict[str, Any]:

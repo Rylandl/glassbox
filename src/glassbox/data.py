@@ -729,15 +729,10 @@ class TrajectoryWindows:
             window_weights = np.asarray(self.window_weights, dtype=np.float64)
             if window_weights.shape != (count,):
                 raise ValueError("window_weights must have shape (windows,)")
-            if (
-                not np.all(np.isfinite(window_weights))
-                or np.any(window_weights < 0.0)
-                or not np.any(window_weights > 0.0)
+            if not np.all(np.isfinite(window_weights)) or np.any(
+                window_weights <= 0.0
             ):
-                raise ValueError(
-                    "window_weights must be finite and nonnegative with at "
-                    "least one positive value"
-                )
+                raise ValueError("window_weights must be finite and positive")
             object.__setattr__(self, "window_weights", window_weights)
         if self.trajectory_indices is not None:
             trajectory_indices = np.asarray(self.trajectory_indices, dtype=np.int64)
@@ -937,7 +932,8 @@ def trajectory_windows(
     weighting strata, preserving broad temporal and source coverage without first
     materializing every candidate window. ``trajectory_group_weights`` changes
     the total contribution of each group while retaining uniform weight among
-    windows in that group; it is intended for complete-group resampling.
+    windows in that group; a zero group weight excludes that group's windows. It
+    is intended for complete-group resampling.
     """
 
     if not trajectories:
@@ -1063,8 +1059,19 @@ def trajectory_windows(
     if not np.any(candidate_count_array):
         raise ValueError("no windows fit within the provided trajectories")
 
+    selection_candidate_counts = candidate_count_array.copy()
+    if trajectory_groups is not None and trajectory_group_weights is not None:
+        selection_candidate_counts = np.asarray(
+            [
+                count
+                if trajectory_group_weights[trajectory_groups[index]] > 0.0
+                else 0
+                for index, count in enumerate(candidate_count_array)
+            ],
+            dtype=np.int64,
+        )
     selected_locations, selection_policy = _selected_window_locations(
-        candidate_count_array,
+        selection_candidate_counts,
         stride=stride,
         maximum_windows=maximum_windows,
         balance_trajectories=balance_trajectories,
@@ -1072,6 +1079,11 @@ def trajectory_windows(
         trajectory_groups=trajectory_groups,
         trajectory_group_weights=trajectory_group_weights,
     )
+    if (
+        not np.array_equal(selection_candidate_counts, candidate_count_array)
+        and selection_policy == "all_candidates"
+    ):
+        selection_policy = "all_positive_weight_candidates"
     initial_states: list[npt.NDArray[np.float64]] = []
     control_histories: list[npt.NDArray[np.float64]] = []
     controls: list[npt.NDArray[np.float64]] = []
@@ -1136,7 +1148,7 @@ def trajectory_windows(
         window_weights=window_weights,
         trajectory_indices=trajectory_index_array,
         start_indices=np.asarray(start_indices, dtype=np.int64),
-        candidate_window_counts=candidate_count_array,
+        candidate_window_counts=selection_candidate_counts,
         selection_policy=selection_policy,
         control_names=control_names,
         control_roles=control_roles,

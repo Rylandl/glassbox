@@ -164,15 +164,8 @@ def deterministic_weighted_batch_schedule(
         weights = np.asarray(window_weights, dtype=np.float64)
         if weights.shape != (window_count,):
             raise ValueError("window_weights must match window_count")
-        if (
-            not np.all(np.isfinite(weights))
-            or np.any(weights < 0.0)
-            or not np.any(weights > 0.0)
-        ):
-            raise ValueError(
-                "window_weights must be finite and nonnegative with at least "
-                "one positive value"
-            )
+        if not np.all(np.isfinite(weights)) or np.any(weights <= 0.0):
+            raise ValueError("window_weights must be finite and positive")
         probabilities = weights / np.sum(weights)
     cumulative = np.cumsum(probabilities)
     cumulative[-1] = 1.0

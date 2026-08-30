@@ -72,8 +72,10 @@ def test_group_weighted_windows_preserve_complete_group_multiplicity() -> None:
         trajectory_group_weights={"a": 1.0, "b": 0.0},
     )
     assert omitted.window_weights is not None
-    assert np.all(omitted.window_weights[omitted.trajectory_indices == 2] == 0.0)
-    assert np.any(omitted.window_weights[omitted.trajectory_indices != 2] > 0.0)
+    assert np.all(omitted.trajectory_indices != 2)
+    assert np.all(omitted.window_weights > 0.0)
+    assert omitted.candidate_window_counts[2] == 0
+    assert omitted.selection_policy == "all_positive_weight_candidates"
 
 
 def test_shared_outer_statistics_fix_residual_coordinates_across_members(
@@ -144,6 +146,27 @@ def test_shared_outer_statistics_fix_residual_coordinates_across_members(
     assert reports[0]["fit"]["rollout_loss"] == reports[1]["fit"][
         "rollout_loss"
     ]
+
+
+def test_ensemble_rejects_source_groups_with_colliding_json_keys(
+    tmp_path,
+) -> None:
+    paths = []
+    for seed, source_group in enumerate((1, "1", 2)):
+        trajectory = generate_trajectory(seed=seed, duration_s=0.2)
+        trajectory = replace(
+            trajectory,
+            labels={
+                **trajectory.labels,
+                "source_group": source_group,
+            },
+        )
+        path = tmp_path / f"flight_{seed}.npz"
+        save_trajectory_npz(trajectory, path)
+        paths.append(path)
+
+    with pytest.raises(ValueError, match="unique string representations"):
+        benchmark_predictive_ensemble(paths, tmp_path / "ensemble")
 
 
 def test_predictive_metrics_use_quaternion_geometry_and_exclude_initial_state(
@@ -254,6 +277,7 @@ def test_nested_ensemble_benchmark_keeps_outer_profiles_out_of_every_member(
     monkeypatch,
 ) -> None:
     paths = []
+    source_group_by_path = {}
     seed = 0
     for profile in ("vertical", "lateral", "yaw"):
         for replicate in range(2):
@@ -271,6 +295,7 @@ def test_nested_ensemble_benchmark_keeps_outer_profiles_out_of_every_member(
             path = tmp_path / f"flight_{seed}.npz"
             save_trajectory_npz(trajectory, path)
             paths.append(path)
+            source_group_by_path[str(path.resolve())] = f"{profile}-{replicate}"
             seed += 1
 
     summary = benchmark_predictive_ensemble(
@@ -288,6 +313,7 @@ def test_nested_ensemble_benchmark_keeps_outer_profiles_out_of_every_member(
     assert summary["uncertainty_semantics"]["posterior"] is False
     assert len(summary["implementation"]["source_tree_sha256"]) == 64
     observed_distinct_resample = False
+    observed_omitted_group = False
     for fold in summary["per_fold"].values():
         assert fold["member_count"] == 2
         assert len(fold["validation_source_groups"]) == 2
@@ -312,7 +338,24 @@ def test_nested_ensemble_benchmark_keeps_outer_profiles_out_of_every_member(
                 ) == pytest.approx(1.0)
             assert len(member["model_artifact"]["sha256"]) == 64
             assert len(member["fit_report_artifact"]["sha256"]) == 64
-            reports.append(json.loads(Path(member["report"]).read_text()))
+            report = json.loads(Path(member["report"]).read_text())
+            for horizon_counts in report["configuration"][
+                "candidate_training_windows_per_flight_by_horizon"
+            ].values():
+                for path, count in horizon_counts.items():
+                    source_group = source_group_by_path[path]
+                    if weights[source_group] == 0.0:
+                        observed_omitted_group = True
+                        assert count == 0
+                    else:
+                        assert count > 0
+            for horizon_counts in report["configuration"][
+                "training_windows_per_flight_by_horizon"
+            ].values():
+                for path, count in horizon_counts.items():
+                    source_group = source_group_by_path[path]
+                    assert (count > 0) is (weights[source_group] > 0.0)
+            reports.append(report)
         assert all(
             report["configuration"]["fit_statistics"]["policy"]
             == "shared_outer_training_windows_v1"
@@ -327,6 +370,7 @@ def test_nested_ensemble_benchmark_keeps_outer_profiles_out_of_every_member(
             "multi_horizon_loss_normalizers"
         ]
     assert observed_distinct_resample is True
+    assert observed_omitted_group is True
     assert (tmp_path / "ensemble" / "summary.json").exists()
 
     monkeypatch.setattr(

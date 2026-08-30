@@ -23,8 +23,10 @@ For each outer fold, Glassbox:
    are available, resampling occurs independently within each training profile
    so every member retains the original profile draw count.
 4. Represents repeated draws as source-group loss weights. A group omitted by a
-   draw remains available to the shared-statistics stage with zero empirical-loss
-   weight; files and correlated trajectory segments are never duplicated or split.
+   draw contributes no member-fitting windows, but remains available to the
+   separate shared-statistics stage; files and correlated trajectory segments are
+   never duplicated or split. Every window reaching an optimizer therefore has
+   positive weight.
 5. Derives state-error scales, the stability envelope, multi-horizon initial-loss
    normalizers, and residual feature/correction normalization once from the full
    outer-training fold. Every member therefore uses the same objective coordinate

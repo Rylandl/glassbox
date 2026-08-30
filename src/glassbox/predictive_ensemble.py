@@ -887,6 +887,10 @@ def benchmark_predictive_ensemble(
         raise ValueError(
             "predictive ensemble benchmark requires three independent source groups"
         )
+    if len({str(group) for group in groups}) != len(groups):
+        raise ValueError(
+            "source_group labels must have unique string representations"
+        )
     profile_by_trajectory = [
         trajectory.labels.get("profile") for trajectory in trajectories
     ]
