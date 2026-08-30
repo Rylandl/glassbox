@@ -29,7 +29,7 @@ from glassbox.runtime import RuntimeDynamicsModel
 class _SolverPolicy:
     horizon_steps: int
     block_count: int
-    maximum_iterations: int = 18
+    maximum_iterations: int = 8
     line_search_steps: int = 8
     initial_step_size: float = 0.2
     gradient_tolerance: float = 2e-3
@@ -125,6 +125,7 @@ class _DirectShootingBackend:
         )
         self._objective_gradient = jax.value_and_grad(self._objective)
         self._objective_and_gradient = jax.jit(self._objective_gradient)
+        self._initial_latent_compiled = jax.jit(self.model.initial_latent_state)
         self._optimize_compiled = jax.jit(self._optimize)
         self._rollout_compiled = jax.jit(self._rollout)
         self._validity_compiled = jax.jit(self._maximum_validity_utilization)
@@ -561,7 +562,7 @@ class _DirectShootingBackend:
         state = jnp.asarray(state)
         previous_command = jnp.asarray(previous_command)
         latent = (
-            self.model.initial_latent_state(
+            self._initial_latent_compiled(
                 previous_command
                 if applied_command is None
                 else jnp.asarray(applied_command)

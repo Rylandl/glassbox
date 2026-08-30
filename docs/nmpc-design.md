@@ -43,6 +43,9 @@ steps, and differentiates the complete rollout with JAX. The normal interface
 exposes physical tracking tolerances and a safety envelope rather than raw
 state/control weight matrices. Solver iteration limits, line-search policy,
 regularization, and control-block policy are maintainer-owned defaults.
+The maintained backend uses at most eight warm-started outer iterations per
+control update; accuracy and latency changes to that policy are judged against
+the complete acceptance suite, not exposed as operator tuning knobs.
 
 Rigid-body error has 12 local coordinates: position, velocity, the shortest
 quaternion log-map rotation vector, and angular velocity. Quaternion component
@@ -87,4 +90,3 @@ include multirotor hover, translation, and attitude; fixed-wing trim, altitude
 or path tracking, turning, and a flap-enabled configuration. Both structured
 and structured-residual models must remain differentiable through the runtime
 and solver paths.
-
