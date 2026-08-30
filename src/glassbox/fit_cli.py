@@ -44,6 +44,7 @@ from glassbox.identification import (
     fit_dynamics,
     fit_dynamics_multi_horizon,
     residual_initialization_statistics,
+    rollout_loss_configuration,
 )
 from glassbox.model_family import MULTIROTOR_FAMILY, family_for_platform
 from glassbox.model_io import save_dynamics_model
@@ -185,6 +186,9 @@ def _fit_on_windows(
     instantaneous_rotational_response: bool = True,
     diagonal_angular_control: bool = True,
     observation_initializer: ModelParams | None = None,
+    normalization_windows: (
+        TrajectoryWindows | tuple[TrajectoryWindows, ...] | None
+    ) = None,
 ) -> tuple[ModelParams, dict[str, Any]]:
     physics_params = _configured_initial_params(
         fixed_motor_time_constant_s,
@@ -202,8 +206,24 @@ def _fit_on_windows(
         diagonal_angular_control and platform == "multirotor"
     )
     window_sets = windows if isinstance(windows, tuple) else (windows,)
+    normalization_window_sets = (
+        window_sets
+        if normalization_windows is None
+        else normalization_windows
+        if isinstance(normalization_windows, tuple)
+        else (normalization_windows,)
+    )
+    if len(normalization_window_sets) != len(window_sets):
+        raise ValueError("normalization_windows must match fitting horizons")
+    loss_configuration = rollout_loss_configuration(
+        normalization_window_sets,
+        endpoint_weight=endpoint_weight,
+        stability_regularization=stability_regularization,
+    )
     if model_class == "structured_residual":
-        residual_statistics = residual_initialization_statistics(window_sets)
+        residual_statistics = residual_initialization_statistics(
+            normalization_window_sets
+        )
         initial_params: ModelParams = initial_residual_parameters(
             physics_params,
             control_size=window_sets[0].control_size,
@@ -237,8 +257,7 @@ def _fit_on_windows(
             learn_thrust_command_offset=learn_thrust_command_offset,
             instantaneous_rotational_response=instantaneous_rotational_response,
             diagonal_angular_control=diagonal_angular_control,
-            endpoint_weight=endpoint_weight,
-            stability_regularization=stability_regularization,
+            loss_configuration=loss_configuration,
         )
     else:
         fit = fit_dynamics_multi_horizon(
@@ -250,9 +269,9 @@ def _fit_on_windows(
             learn_thrust_command_offset=learn_thrust_command_offset,
             instantaneous_rotational_response=instantaneous_rotational_response,
             diagonal_angular_control=diagonal_angular_control,
-            endpoint_weight=endpoint_weight,
-            stability_regularization=stability_regularization,
+            loss_configuration=loss_configuration,
             loss_normalization_params=normalization_params,
+            loss_normalization_window_sets=normalization_window_sets,
         )
     wall_time_s = perf_counter() - start
     component_losses = {}
@@ -279,10 +298,26 @@ def _fit_on_windows(
             "loss_reduction": fit.initial_loss / fit.final_loss,
             "wall_time_s": wall_time_s,
             "component_losses": component_losses,
+            "multi_horizon_loss_normalizers": (
+                None
+                if fit.component_loss_normalizers is None
+                else {
+                    label: float(value)
+                    for label, value in zip(
+                        horizon_labels,
+                        fit.component_loss_normalizers,
+                    )
+                }
+            ),
             "rollout_loss": (
                 fit.loss_configuration.to_dict()
                 if fit.loss_configuration is not None
                 else None
+            ),
+            "statistics_source": (
+                "member_training_windows"
+                if normalization_windows is None
+                else "shared_outer_training_windows"
             ),
             "optimization_data_policy": {
                 "policy": fit.optimization_policy,
@@ -822,6 +857,9 @@ def fit_trajectory_artifacts(
     balance_training_flights: bool = True,
     holdout_profiles: tuple[str, ...] | list[str] | None = None,
     training_source_group_weights: Mapping[str | int, float] | None = None,
+    normalization_source_group_weights: (
+        Mapping[str | int, float] | None
+    ) = None,
     model_class: str = "structured",
     endpoint_weight: float = 3.0,
     stability_regularization: float = 0.01,
@@ -845,12 +883,33 @@ def fit_trajectory_artifacts(
         raise ValueError("endpoint_weight must be at least one")
     if stability_regularization < 0.0:
         raise ValueError("stability_regularization must be nonnegative")
-    if training_source_group_weights is not None and any(
+    if training_source_group_weights is not None:
+        weights = np.asarray(
+            list(training_source_group_weights.values()), dtype=np.float64
+        )
+        if (
+            not np.all(np.isfinite(weights))
+            or np.any(weights < 0.0)
+            or not np.any(weights > 0.0)
+        ):
+            raise ValueError(
+                "training_source_group_weights values must be finite and "
+                "nonnegative with at least one positive group"
+            )
+    if normalization_source_group_weights is not None and any(
         not np.isfinite(weight) or weight <= 0.0
-        for weight in training_source_group_weights.values()
+        for weight in normalization_source_group_weights.values()
     ):
         raise ValueError(
-            "training_source_group_weights values must be finite and positive"
+            "normalization_source_group_weights values must be finite and positive"
+        )
+    if (
+        normalization_source_group_weights is not None
+        and training_source_group_weights is None
+    ):
+        raise ValueError(
+            "normalization_source_group_weights requires explicit training "
+            "source-group weights"
         )
 
     paths = [Path(path) for path in trajectory_paths]
@@ -1040,11 +1099,27 @@ def fit_trajectory_artifacts(
                 "training_source_group_weights must contain exactly the "
                 "training source groups"
             )
+    if normalization_source_group_weights is not None:
+        if training_source_groups is None:
+            raise ValueError(
+                "normalization_source_group_weights requires source_group labels"
+            )
+        if set(normalization_source_group_weights) != set(training_group_order):
+            raise ValueError(
+                "normalization_source_group_weights must contain exactly the "
+                "training source groups"
+            )
     group_balanced = (
         balance_training_flights
-        and (len(training) > 1 or training_source_group_weights is not None)
+        and (
+            len(training) > 1
+            or training_source_group_weights is not None
+        )
         and training_source_groups is not None
-        and (not holdout_profiles or training_source_group_weights is not None)
+        and (
+            not holdout_profiles
+            or training_source_group_weights is not None
+        )
     )
     profile_balanced_weights = None
     if (
@@ -1097,8 +1172,32 @@ def fit_trajectory_artifacts(
             training_horizon_steps, maximum_windows_by_horizon
         )
     )
+    normalization_window_sets = (
+        None
+        if normalization_source_group_weights is None
+        else tuple(
+            trajectory_windows(
+                training,
+                horizon=steps_at_horizon,
+                stride=steps_at_horizon if stride is None else stride,
+                trajectory_groups=training_source_groups,
+                trajectory_group_weights=normalization_source_group_weights,
+                maximum_windows=maximum_windows,
+            )
+            for steps_at_horizon, maximum_windows in zip(
+                training_horizon_steps, maximum_windows_by_horizon
+            )
+        )
+    )
     fitting_windows: TrajectoryWindows | tuple[TrajectoryWindows, ...]
     fitting_windows = window_sets[0] if len(window_sets) == 1 else window_sets
+    normalization_fitting_windows = (
+        None
+        if normalization_window_sets is None
+        else normalization_window_sets[0]
+        if len(normalization_window_sets) == 1
+        else normalization_window_sets
+    )
     observation_fit = _observation_fit(training, platform=platform)
     learned_params, learned_report = _fit_on_windows(
         fitting_windows,
@@ -1112,6 +1211,7 @@ def fit_trajectory_artifacts(
         learn_thrust_command_offset=learn_thrust_command_offset,
         instantaneous_rotational_response=instantaneous_rotational_response,
         diagonal_angular_control=diagonal_angular_control,
+        normalization_windows=normalization_fitting_windows,
     )
     learned_report["observation_identification"] = (
         None if observation_fit is None else observation_fit.report
@@ -1139,6 +1239,7 @@ def fit_trajectory_artifacts(
             learn_thrust_command_offset=learn_thrust_command_offset,
             instantaneous_rotational_response=instantaneous_rotational_response,
             diagonal_angular_control=diagonal_angular_control,
+            normalization_windows=normalization_fitting_windows,
         )
         baseline_report["observation_identification"] = (
             None if observation_fit is None else observation_fit.report
@@ -1153,6 +1254,7 @@ def fit_trajectory_artifacts(
         )
 
     controls = np.concatenate([trajectory.controls for trajectory in training])
+
     def group_weight_shares(windows: TrajectoryWindows) -> dict[str, float]:
         if training_source_groups is None:
             return {}
@@ -1379,6 +1481,50 @@ def fit_trajectory_artifacts(
                     for group in training_group_order
                 }
             ),
+            "fit_statistics": {
+                "policy": (
+                    "member_training_windows_v1"
+                    if normalization_window_sets is None
+                    else "shared_outer_training_windows_v1"
+                ),
+                "shared_across_resampled_members": bool(
+                    normalization_window_sets is not None
+                ),
+                "normalization_source_group_weights": (
+                    None
+                    if normalization_source_group_weights is None
+                    else {
+                        str(group): float(
+                            normalization_source_group_weights[group]
+                        )
+                        for group in training_group_order
+                    }
+                ),
+                "selected_windows_by_horizon": (
+                    None
+                    if normalization_window_sets is None
+                    else {
+                        label: len(windows.initial_states)
+                        for label, windows in zip(
+                            training_horizon_labels,
+                            normalization_window_sets,
+                        )
+                    }
+                ),
+                "data_derived_values": [
+                    "state_error_scales",
+                    "dynamic_envelope",
+                    "multi_horizon_initial_loss_normalizers",
+                    *(
+                        [
+                            "residual_feature_center_and_scale",
+                            "residual_correction_scale",
+                        ]
+                        if model_class == "structured_residual"
+                        else []
+                    ),
+                ],
+            },
         },
         "models": models,
         "comparison": comparison,
@@ -1398,6 +1544,10 @@ def fit_trajectory_artifacts(
             "weight with uniform window weight inside the group; without source "
             "groups, each training flight contributes equally. Explicit source-"
             "group weights represent complete-group resampling multiplicities. "
+            "When shared fit-statistics weights are supplied, state scales, the "
+            "stability envelope, multi-horizon loss normalization, and residual "
+            "normalization are derived from that fixed outer-training reference "
+            "rather than each resampled empirical loss. "
             "Large candidate "
             "sets are deterministically thinned across every group's timeline "
             "using an automatic corpus- and horizon-aware compute budget. For a "

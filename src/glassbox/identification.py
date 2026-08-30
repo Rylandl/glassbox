@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import jax
 import jax.numpy as jnp
@@ -127,6 +127,7 @@ class FitResult:
     loss_history: npt.NDArray[np.float64]
     component_initial_losses: npt.NDArray[np.float64] | None = None
     component_final_losses: npt.NDArray[np.float64] | None = None
+    component_loss_normalizers: npt.NDArray[np.float64] | None = None
     loss_configuration: RolloutLossConfiguration | None = None
     optimization_policy: str = "full_batch_v1"
     batch_sizes: tuple[int, ...] = ()
@@ -163,8 +164,15 @@ def deterministic_weighted_batch_schedule(
         weights = np.asarray(window_weights, dtype=np.float64)
         if weights.shape != (window_count,):
             raise ValueError("window_weights must match window_count")
-        if not np.all(np.isfinite(weights)) or np.any(weights <= 0.0):
-            raise ValueError("window_weights must be finite and positive")
+        if (
+            not np.all(np.isfinite(weights))
+            or np.any(weights < 0.0)
+            or not np.any(weights > 0.0)
+        ):
+            raise ValueError(
+                "window_weights must be finite and nonnegative with at least "
+                "one positive value"
+            )
         probabilities = weights / np.sum(weights)
     cumulative = np.cumsum(probabilities)
     cumulative[-1] = 1.0
@@ -971,6 +979,9 @@ def fit_dynamics_multi_horizon(
     endpoint_weight: float = 3.0,
     stability_regularization: float = 0.01,
     loss_normalization_params: ModelParams | None = None,
+    loss_normalization_window_sets: (
+        tuple[TrajectoryWindows, ...] | list[TrajectoryWindows] | None
+    ) = None,
 ) -> FitResult:
     """Fit one model to normalized rollout losses at several horizons."""
 
@@ -982,6 +993,13 @@ def fit_dynamics_multi_horizon(
         raise ValueError("learning_rate must be positive")
     for windows in window_sets:
         _validate_window_schema(initial_params, windows)
+    if loss_normalization_window_sets is not None:
+        if len(loss_normalization_window_sets) != len(window_sets):
+            raise ValueError(
+                "loss_normalization_window_sets must match window_sets"
+            )
+        for windows in loss_normalization_window_sets:
+            _validate_window_schema(initial_params, windows)
     learn_thrust_command_offset = _resolved_thrust_command_offset_policy(
         initial_params, tuple(window_sets), learn_thrust_command_offset
     )
@@ -1028,7 +1046,11 @@ def fit_dynamics_multi_horizon(
             )
     if loss_configuration is None:
         loss_configuration = rollout_loss_configuration(
-            window_sets,
+            (
+                window_sets
+                if loss_normalization_window_sets is None
+                else loss_normalization_window_sets
+            ),
             endpoint_weight=endpoint_weight,
             stability_regularization=stability_regularization,
         )
@@ -1041,10 +1063,24 @@ def fit_dynamics_multi_horizon(
             ]
         )
 
-    initial_component_losses = component_objective(
+    normalization_params = (
         initial_params
         if loss_normalization_params is None
         else loss_normalization_params
+    )
+    initial_component_losses = (
+        component_objective(normalization_params)
+        if loss_normalization_window_sets is None
+        else jnp.stack(
+            [
+                _window_loss(
+                    normalization_params,
+                    windows,
+                    loss_configuration,
+                )
+                for windows in loss_normalization_window_sets
+            ]
+        )
     )
     normalizers = jax.lax.stop_gradient(
         jnp.maximum(initial_component_losses, 1e-12)
@@ -1077,7 +1113,7 @@ def fit_dynamics_multi_horizon(
             + _residual_regularization(params)
         )
 
-    return _fit_objective(
+    result = _fit_objective(
         objective,
         component_objective,
         initial_params,
@@ -1098,4 +1134,8 @@ def fit_dynamics_multi_horizon(
             if batch_schedules is None
             else tuple(len(windows.initial_states) for windows in window_sets)
         ),
+    )
+    return replace(
+        result,
+        component_loss_normalizers=np.asarray(normalizers, dtype=np.float64),
     )

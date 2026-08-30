@@ -40,14 +40,20 @@ Reports contain endpoint ensemble-center error, empirical 50/80/90% disagreement
 coverage, interval radius, multivariate energy score, disagreement/error rank
 correlation, and both endpoint and complete-path finiteness. Attitude is handled
 as a shortest-path rotation vector rather than componentwise quaternion bounds.
+The report also exposes the finite-member mass attained by each requested level,
+unique resamples, unique fitted members, and unique predictions: four to eight
+members are treated as a disagreement ensemble, not a resolved interval
+distribution. Every member shares normalization and envelope statistics derived
+once from the complete outer-training fold, while profile-balanced bootstrap
+multiplicity affects only empirical loss.
 Artifacts explicitly record `posterior: false`: this first stage measures
 epistemic sensitivity to the available groups and does not claim to contain
 process noise, observation noise, or model forms that were never fitted.
 
 See [the predictive-ensemble guide](docs/predictive-ensembles.md) for the split
 contract, metric interpretation, and promotion boundary. The workflow remains
-diagnostic-only until protected results show that disagreement predicts error
-without requiring uselessly wide intervals.
+diagnostic-only. Once the first outer-fold results influence development choices,
+promotion requires a subsequently untouched corpus, airframe, or configuration.
 
 ## Nonlinear model-predictive control
 

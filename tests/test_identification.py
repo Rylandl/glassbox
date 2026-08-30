@@ -71,6 +71,14 @@ def test_deterministic_weighted_batches_span_large_window_sets() -> None:
     counts = np.bincount(weighted.ravel(), minlength=20)
     assert np.sum(counts[10:]) == pytest.approx(2.0 * np.sum(counts[:10]), rel=0.02)
 
+    omitted = deterministic_weighted_batch_schedule(
+        np.concatenate((np.zeros(10), np.ones(10))),
+        window_count=20,
+        steps=20,
+        maximum_batch_size=5,
+    )
+    assert np.all(omitted >= 10)
+
 
 def test_affordable_fit_uses_every_window() -> None:
     windows = trajectory_windows(

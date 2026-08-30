@@ -729,8 +729,15 @@ class TrajectoryWindows:
             window_weights = np.asarray(self.window_weights, dtype=np.float64)
             if window_weights.shape != (count,):
                 raise ValueError("window_weights must have shape (windows,)")
-            if not np.all(np.isfinite(window_weights)) or np.any(window_weights <= 0.0):
-                raise ValueError("window_weights must be finite and positive")
+            if (
+                not np.all(np.isfinite(window_weights))
+                or np.any(window_weights < 0.0)
+                or not np.any(window_weights > 0.0)
+            ):
+                raise ValueError(
+                    "window_weights must be finite and nonnegative with at "
+                    "least one positive value"
+                )
             object.__setattr__(self, "window_weights", window_weights)
         if self.trajectory_indices is not None:
             trajectory_indices = np.asarray(self.trajectory_indices, dtype=np.int64)
@@ -802,7 +809,7 @@ def _bounded_weighted_allocation(
         active_weights = np.where(available, weights, 0.0)
         weight_total = float(np.sum(active_weights))
         if weight_total <= 0.0:
-            raise ValueError("window-selection strata must have positive weight")
+            break
         ideal = remaining * active_weights / weight_total
         additions = np.minimum(
             np.floor(ideal).astype(np.int64), capacities - allocation
@@ -985,12 +992,17 @@ def trajectory_windows(
                 "trajectory_group_weights must contain exactly the trajectory "
                 "groups"
             )
-        if any(
-            not np.isfinite(weight) or weight <= 0.0
-            for weight in trajectory_group_weights.values()
+        weights = np.asarray(
+            list(trajectory_group_weights.values()), dtype=np.float64
+        )
+        if (
+            not np.all(np.isfinite(weights))
+            or np.any(weights < 0.0)
+            or not np.any(weights > 0.0)
         ):
             raise ValueError(
-                "trajectory_group_weights values must be finite and positive"
+                "trajectory_group_weights values must be finite and nonnegative "
+                "with at least one positive group"
             )
 
     dt_s = trajectories[0].nominal_dt_s

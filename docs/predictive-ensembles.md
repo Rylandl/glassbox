@@ -8,8 +8,8 @@ library adopts a probabilistic runtime contract:
 > held-out rollout error?
 
 It does not estimate a Bayesian posterior. A saved manifest therefore uses
-`artifact_type: empirical_predictive_ensemble`, `method: group_bootstrap_v1`,
-and `posterior: false`.
+`artifact_type: empirical_predictive_ensemble`,
+`method: group_bootstrap_shared_statistics_v2`, and `posterior: false`.
 
 ## Evaluation contract
 
@@ -22,19 +22,31 @@ For each outer fold, Glassbox:
 3. Resamples the remaining source groups with replacement. When profile labels
    are available, resampling occurs independently within each training profile
    so every member retains the original profile draw count.
-4. Represents repeated draws as source-group loss weights. Files and correlated
-   trajectory segments are never duplicated or split.
-5. Fits every member with the existing deterministic model, initialization,
+4. Represents repeated draws as source-group loss weights. A group omitted by a
+   draw remains available to the shared-statistics stage with zero empirical-loss
+   weight; files and correlated trajectory segments are never duplicated or split.
+5. Derives state-error scales, the stability envelope, multi-horizon initial-loss
+   normalizers, and residual feature/correction normalization once from the full
+   outer-training fold. Every member therefore uses the same objective coordinate
+   system; bootstrap multiplicity changes only empirical loss and window allocation.
+6. Gives each training profile equal total empirical-loss mass, then distributes
+   that mass according to bootstrap multiplicity among the profile's source
+   groups. Unequal numbers of groups per profile cannot silently change the base
+   estimator.
+7. Fits every member with the existing deterministic model, initialization,
    bounds, multi-horizon loss, and automatic window budget.
-6. Evaluates ensemble predictions only on the untouched outer trajectories.
+8. Evaluates ensemble predictions only on the untouched outer trajectories.
 
 The normal command chooses four to eight members from the number of available
 training groups. The Python function accepts an explicit member count for tests
 and research audits, but the CLI intentionally does not expose that knob.
 
-Runs are resumable. The request records input hashes and the fitting policy;
-each member records its exact training-group multiplicities, fit report, and
-model path.
+Runs are resumable. The request records input hashes, method/artifact version,
+source-tree digest, Git revision and tracked-worktree state, Python/JAX/NumPy
+versions, JAX backend, and host platform. Each manifest records content hashes
+for every model and fit report in addition to its exact training-group
+multiplicities. A changed implementation or environment cannot silently reuse
+an old summary.
 
 ## Prediction geometry
 
@@ -54,8 +66,18 @@ Each state group reports:
 - ensemble-center vector RMSE;
 - mean and p90 member-disagreement radius;
 - empirical coverage and radius for 50%, 80%, and 90% member balls;
+- the finite-member mass actually attained by each requested radius;
 - Spearman rank correlation between disagreement radius and realized error;
 - a multivariate energy score.
+
+Four to eight members make this a disagreement ensemble, not a resolved interval
+distribution. With eight finite members, the higher-order 90% radius is the
+maximum member radius; with four, both 80% and 90% use the maximum. Reports expose
+requested and attained mass, finite-member counts, unique bootstrap resamples,
+unique fitted parameter members, and unique predictions. Raw coverage is not a
+promotion metric at this resolution. A later interval claim requires either a
+substantially larger offline ensemble or a separately learned calibration factor
+evaluated on subsequently untouched groups.
 
 Endpoint finite-member fraction describes usable forecasts at the requested
 horizon. Full-path finite-member fraction and the fraction of members finite on
@@ -80,14 +102,17 @@ effective fitted parameters. It does not represent:
 This distinction is especially important for the current multirotor corpus:
 shared model-form bias can produce a narrow ensemble whose members are all
 wrong. That outcome is a useful failure of the uncertainty hypothesis, not a
-reason to widen intervals after inspecting the protected fold.
+reason to widen intervals after inspecting an outer fold.
 
 ## Promotion boundary
 
 The benchmark deliberately reports `promotion.status: diagnostic_only` and no
-pass threshold. Meaningful thresholds must be chosen from protected empirical
-results, not invented before the first run. Promotion to a serialized runtime
-ensemble requires evidence that:
+pass threshold. The first outer-fold results are untouched evaluation evidence
+only until they are inspected. Once they influence thresholds, calibration, or
+implementation choices, they become development evidence. Promotion must then
+use a subsequently untouched corpus, airframe, or configuration rather than
+relabeling the same folds as protected. Promotion to a serialized runtime
+ensemble requires that new evidence show:
 
 - disagreement ranks held-out errors at fixed horizons;
 - nominal coverage is reasonably calibrated across complete outer groups;

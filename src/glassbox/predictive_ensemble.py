@@ -11,13 +11,18 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.metadata
 import json
+import platform
 import re
+import subprocess
+import sys
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import jax
 import numpy as np
 
 from glassbox.data import Trajectory, duration_to_steps, load_trajectory_npz
@@ -29,6 +34,8 @@ from glassbox.runtime import runtime_spec_from_fit_report
 
 DEFAULT_COVERAGE_LEVELS = (0.5, 0.8, 0.9)
 DEFAULT_ENSEMBLE_MEMBER_COUNT = 8
+PREDICTIVE_ENSEMBLE_FORMAT_VERSION = 2
+PREDICTIVE_ENSEMBLE_METHOD = "group_bootstrap_shared_statistics_v2"
 PREDICTIVE_GROUPS = (
     ("position", "m", slice(0, 3)),
     ("velocity", "m/s", slice(3, 6)),
@@ -43,7 +50,7 @@ class PredictiveEnsemble:
 
     members: tuple[ModelParams, ...]
     member_ids: tuple[str, ...]
-    method: str = "group_bootstrap_v1"
+    method: str = PREDICTIVE_ENSEMBLE_METHOD
 
     def __post_init__(self) -> None:
         if len(self.members) < 2:
@@ -55,12 +62,44 @@ class PredictiveEnsemble:
         families = {model_family(member).key for member in self.members}
         if len(families) != 1:
             raise ValueError("predictive ensemble members must use one model family")
-        if self.method != "group_bootstrap_v1":
+        if self.method != PREDICTIVE_ENSEMBLE_METHOD:
             raise ValueError(f"unsupported predictive ensemble method: {self.method}")
 
     @property
     def member_count(self) -> int:
         return len(self.members)
+
+    @property
+    def unique_member_count(self) -> int:
+        return len({_parameter_digest(member) for member in self.members})
+
+
+def _parameter_digest(params: ModelParams) -> str:
+    digest = hashlib.sha256()
+    for leaf in jax.tree_util.tree_leaves(params):
+        values = np.asarray(leaf)
+        digest.update(str(values.dtype).encode())
+        digest.update(np.asarray(values.shape, dtype=np.int64).tobytes())
+        digest.update(np.ascontiguousarray(values).tobytes())
+    return digest.hexdigest()
+
+
+def _prediction_member_digest(
+    predictions: np.ndarray, finite: np.ndarray
+) -> str:
+    values = np.asarray(predictions, dtype=np.float64).copy()
+    for sample_index in np.flatnonzero(finite):
+        quaternion = values[sample_index, 6:10]
+        quaternion /= np.linalg.norm(quaternion)
+        sign_index = int(np.argmax(np.abs(quaternion)))
+        if quaternion[sign_index] < 0.0:
+            quaternion *= -1.0
+        values[sample_index, 6:10] = quaternion
+    values[~finite] = 0.0
+    digest = hashlib.sha256()
+    digest.update(np.asarray(finite, dtype=np.uint8).tobytes())
+    digest.update(np.ascontiguousarray(values).tobytes())
+    return digest.hexdigest()
 
 
 def grouped_bootstrap_multiplicities(
@@ -329,12 +368,23 @@ def predictive_ensemble_metrics(
     quaternion_norm = np.linalg.norm(predictions[:, :, 6:10], axis=2)
     finite = np.all(np.isfinite(predictions), axis=2) & (quaternion_norm > 0.0)
     centers = _ensemble_centers(predictions, finite)
+    finite_counts = np.sum(finite, axis=0)
+    unique_prediction_member_count = len(
+        {
+            _prediction_member_digest(member, member_finite)
+            for member, member_finite in zip(predictions, finite)
+        }
+    )
 
     groups: dict[str, Any] = {}
     for group_name, unit, state_slice in PREDICTIVE_GROUPS:
         member_coordinates = _group_coordinates(
             predictions, centers, group_name, state_slice
         )
+        # A member is either a valid state prediction or absent. Reusing a
+        # finite position from a state rejected for a NaN in another component
+        # would make the center and disagreement population inconsistent.
+        member_coordinates[~finite] = np.nan
         target_coordinates = _target_coordinates(
             target_flat, centers, group_name, state_slice
         )
@@ -348,6 +398,14 @@ def predictive_ensemble_metrics(
         for level in levels:
             radius = _column_quantile(member_radius, level)
             valid = valid_target & np.isfinite(radius)
+            attained_mass = np.full(len(radius), np.nan, dtype=np.float64)
+            positive = valid & (finite_counts > 0)
+            quantile_indices = np.ceil(
+                level * (finite_counts[positive] - 1)
+            )
+            attained_mass[positive] = (
+                quantile_indices + 1
+            ) / finite_counts[positive]
             empirical_coverage = (
                 float(np.mean(target_error[valid] <= radius[valid]))
                 if np.any(valid)
@@ -363,6 +421,15 @@ def predictive_ensemble_metrics(
                 ),
                 "mean_radius": _finite_mean(radius[valid]),
                 "p90_radius": _finite_quantile(radius[valid], 0.9),
+                "mean_attained_finite_member_mass": _finite_mean(
+                    attained_mass[valid]
+                ),
+                "minimum_attained_finite_member_mass": _finite_quantile(
+                    attained_mass[valid], 0.0
+                ),
+                "maximum_attained_finite_member_mass": _finite_quantile(
+                    attained_mass[valid], 1.0
+                ),
             }
         groups[group_name] = {
             "unit": unit,
@@ -376,19 +443,22 @@ def predictive_ensemble_metrics(
             "calibration": calibration,
         }
 
-    finite_counts = np.sum(finite, axis=0)
     return {
-        "policy": "group_bootstrap_predictive_disagreement_v1",
+        "policy": "group_bootstrap_predictive_disagreement_v2",
         "uncertainty_semantics": {
             "kind": "empirical_epistemic_sensitivity",
             "posterior": False,
             "calibrated_distribution": False,
+            "interval_claim": False,
+            "coverage_role": "coarse_disagreement_diagnostic",
             "includes_parameter_resampling": True,
             "includes_process_noise": False,
             "includes_observation_noise": False,
             "includes_unfitted_model_form": False,
         },
         "member_count": ensemble.member_count,
+        "unique_parameter_member_count": ensemble.unique_member_count,
+        "unique_prediction_member_count": unique_prediction_member_count,
         "rollout_count": rollout_count,
         "prediction_count": rollout_count,
         "path_prediction_count": rollout_count * horizon_count,
@@ -402,6 +472,10 @@ def predictive_ensemble_metrics(
             np.mean(np.all(path_finite, axis=(1, 2)))
         ),
         "minimum_finite_members_per_prediction": int(np.min(finite_counts)),
+        "median_finite_members_per_prediction": float(
+            np.median(finite_counts)
+        ),
+        "maximum_finite_members_per_prediction": int(np.max(finite_counts)),
         "groups": groups,
     }
 
@@ -417,6 +491,56 @@ def aggregate_predictive_ensemble_metrics(
     if any(tuple(report["groups"]) != reference_groups for report in reports):
         raise ValueError("predictive ensemble reports have incompatible groups")
     levels = tuple(reports[0]["groups"][reference_groups[0]]["calibration"])
+    unique_parameter_counts = [
+        float(
+            report["unique_parameter_member_count"]
+            if "unique_parameter_member_count" in report
+            else report["mean_unique_parameter_member_count"]
+        )
+        for report in reports
+    ]
+    minimum_unique_parameter_counts = [
+        int(
+            report["unique_parameter_member_count"]
+            if "unique_parameter_member_count" in report
+            else report["minimum_unique_parameter_member_count"]
+        )
+        for report in reports
+    ]
+    unique_prediction_counts = [
+        float(
+            report["unique_prediction_member_count"]
+            if "unique_prediction_member_count" in report
+            else report["mean_unique_prediction_member_count"]
+        )
+        for report in reports
+    ]
+    minimum_unique_prediction_counts = [
+        int(
+            report["unique_prediction_member_count"]
+            if "unique_prediction_member_count" in report
+            else report["minimum_unique_prediction_member_count"]
+        )
+        for report in reports
+    ]
+    minimum_finite_counts = [
+        int(report["minimum_finite_members_per_prediction"])
+        if "minimum_finite_members_per_prediction" in report
+        else int(report["minimum_finite_members_per_prediction_aggregate"])
+        for report in reports
+    ]
+    median_finite_counts = [
+        float(report["median_finite_members_per_prediction"])
+        if "median_finite_members_per_prediction" in report
+        else float(report["mean_median_finite_members_per_prediction"])
+        for report in reports
+    ]
+    maximum_finite_counts = [
+        int(report["maximum_finite_members_per_prediction"])
+        if "maximum_finite_members_per_prediction" in report
+        else int(report["maximum_finite_members_per_prediction_aggregate"])
+        for report in reports
+    ]
     groups = {}
     for group_name in reference_groups:
         items = [report["groups"][group_name] for report in reports]
@@ -471,6 +595,32 @@ def aggregate_predictive_ensemble_metrics(
                             for item in items
                         ]
                     ),
+                    "mean_attained_finite_member_mass": _finite_mean(
+                        [
+                            item["calibration"][level][
+                                "mean_attained_finite_member_mass"
+                            ]
+                            for item in items
+                        ]
+                    ),
+                    "minimum_attained_finite_member_mass": _finite_quantile(
+                        [
+                            item["calibration"][level][
+                                "minimum_attained_finite_member_mass"
+                            ]
+                            for item in items
+                        ],
+                        0.0,
+                    ),
+                    "maximum_attained_finite_member_mass": _finite_quantile(
+                        [
+                            item["calibration"][level][
+                                "maximum_attained_finite_member_mass"
+                            ]
+                            for item in items
+                        ],
+                        1.0,
+                    ),
                 }
                 for level in levels
             },
@@ -478,6 +628,27 @@ def aggregate_predictive_ensemble_metrics(
     return {
         "weighting": "equal_item",
         "item_count": len(reports),
+        "mean_unique_parameter_member_count": float(
+            np.mean(unique_parameter_counts)
+        ),
+        "minimum_unique_parameter_member_count": int(
+            min(minimum_unique_parameter_counts)
+        ),
+        "mean_unique_prediction_member_count": float(
+            np.mean(unique_prediction_counts)
+        ),
+        "minimum_unique_prediction_member_count": int(
+            min(minimum_unique_prediction_counts)
+        ),
+        "minimum_finite_members_per_prediction_aggregate": int(
+            min(minimum_finite_counts)
+        ),
+        "mean_median_finite_members_per_prediction": float(
+            np.mean(median_finite_counts)
+        ),
+        "maximum_finite_members_per_prediction_aggregate": int(
+            max(maximum_finite_counts)
+        ),
         "finite_member_prediction_fraction": float(
             np.mean(
                 [float(report["finite_member_prediction_fraction"]) for report in reports]
@@ -512,6 +683,56 @@ def _file_record(path: Path) -> dict[str, Any]:
     }
 
 
+def _read_json_mapping(path: Path) -> dict[str, Any] | None:
+    try:
+        payload = json.loads(path.read_text())
+    except (OSError, ValueError):
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def _artifact_record_matches(record: Mapping[str, Any]) -> bool:
+    try:
+        path = Path(str(record["path"]))
+        if not path.is_file():
+            return False
+        current = _file_record(path)
+        return (
+            current["size_bytes"] == record["size_bytes"]
+            and current["sha256"] == record["sha256"]
+        )
+    except (KeyError, OSError, TypeError, ValueError):
+        return False
+
+
+def _summary_artifacts_valid(summary: Mapping[str, Any]) -> bool:
+    try:
+        manifest_paths = [
+            Path(str(fold["ensemble"]))
+            for fold in summary["per_fold"].values()
+        ]
+        for manifest_path in manifest_paths:
+            if not manifest_path.is_file():
+                return False
+            manifest = json.loads(manifest_path.read_text())
+            if (
+                manifest.get("format_version")
+                != PREDICTIVE_ENSEMBLE_FORMAT_VERSION
+                or manifest.get("method") != PREDICTIVE_ENSEMBLE_METHOD
+            ):
+                return False
+            for member in manifest["members"]:
+                if not _artifact_record_matches(member["model_artifact"]):
+                    return False
+                if not _artifact_record_matches(
+                    member["fit_report_artifact"]
+                ):
+                    return False
+    except (AttributeError, KeyError, OSError, TypeError, ValueError):
+        return False
+    return True
+
+
 def _request_digest(request: Mapping[str, Any]) -> str:
     serialized = json.dumps(
         request, sort_keys=True, separators=(",", ":"), allow_nan=False
@@ -528,6 +749,101 @@ def _automatic_outer_axis(trajectories: Sequence[Trajectory]) -> str:
 
 def _automatic_member_count(training_group_count: int) -> int:
     return min(DEFAULT_ENSEMBLE_MEMBER_COUNT, max(4, training_group_count))
+
+
+def _group_objective_weights(
+    groups: Sequence[str | int],
+    *,
+    multiplicities: Mapping[str | int, int] | None,
+    strata: Mapping[str | int, str | int] | None,
+) -> dict[str | int, float]:
+    """Give profiles equal objective mass and groups bootstrap multiplicity."""
+
+    if strata is None:
+        return {
+            group: float(
+                1 if multiplicities is None else multiplicities.get(group, 0)
+            )
+            for group in groups
+        }
+    stratum_counts = {
+        stratum: sum(strata[group] == stratum for group in groups)
+        for stratum in dict.fromkeys(strata[group] for group in groups)
+    }
+    return {
+        group: float(
+            1 if multiplicities is None else multiplicities.get(group, 0)
+        )
+        / stratum_counts[strata[group]]
+        for group in groups
+    }
+
+
+def _source_tree_digest() -> str:
+    root = Path(__file__).resolve().parents[2]
+    source_root = root / "src" / "glassbox"
+    if source_root.is_dir():
+        candidates = [
+            *sorted(source_root.rglob("*.py")),
+            root / "pyproject.toml",
+            root / "uv.lock",
+        ]
+        relative_root = root
+    else:
+        source_root = Path(__file__).resolve().parent
+        candidates = sorted(source_root.rglob("*.py"))
+        relative_root = source_root
+    digest = hashlib.sha256()
+    for path in candidates:
+        if not path.is_file():
+            continue
+        digest.update(str(path.relative_to(relative_root)).encode())
+        digest.update(path.read_bytes())
+    return digest.hexdigest()
+
+
+def _git_revision() -> dict[str, Any]:
+    root = Path(__file__).resolve().parents[2]
+    try:
+        commit = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=root,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        dirty = bool(
+            subprocess.run(
+                ["git", "status", "--porcelain", "--untracked-files=no"],
+                cwd=root,
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.strip()
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return {"commit": None, "tracked_worktree_dirty": None}
+    return {"commit": commit, "tracked_worktree_dirty": dirty}
+
+
+def _implementation_fingerprint() -> dict[str, Any]:
+    try:
+        glassbox_version = importlib.metadata.version("glassbox")
+    except importlib.metadata.PackageNotFoundError:
+        glassbox_version = None
+    return {
+        "ensemble_format_version": PREDICTIVE_ENSEMBLE_FORMAT_VERSION,
+        "ensemble_method": PREDICTIVE_ENSEMBLE_METHOD,
+        "glassbox_version": glassbox_version,
+        "source_tree_sha256": _source_tree_digest(),
+        "git": _git_revision(),
+        "python": sys.version,
+        "jax": jax.__version__,
+        "numpy": np.__version__,
+        "jax_backend": jax.default_backend(),
+        "platform": platform.platform(),
+        "machine": platform.machine(),
+    }
 
 
 def benchmark_predictive_ensemble(
@@ -603,8 +919,9 @@ def benchmark_predictive_ensemble(
     destination = Path(output_dir)
     destination.mkdir(parents=True, exist_ok=True)
     request = {
-        "format_version": 1,
+        "format_version": PREDICTIVE_ENSEMBLE_FORMAT_VERSION,
         "evaluation": "nested_group_bootstrap_predictive_ensemble",
+        "implementation": _implementation_fingerprint(),
         "files": [_file_record(path) for path in paths],
         "outer_axis": outer_axis,
         "configuration": {
@@ -623,15 +940,27 @@ def benchmark_predictive_ensemble(
             "bootstrap_stratification": (
                 "profile" if group_profiles else "none"
             ),
+            "bootstrap_estimator": (
+                "shared_outer_training_statistics_with_profile_balanced_"
+                "group_multiplicity_loss_v2"
+            ),
             "coverage_levels": list(DEFAULT_COVERAGE_LEVELS),
         },
     }
     request_path = destination / "request.json"
     summary_path = destination / "summary.json"
     if request_path.exists() and summary_path.exists():
-        if json.loads(request_path.read_text()) == request:
-            return json.loads(summary_path.read_text())
-    request_path.write_text(json.dumps(request, indent=2) + "\n")
+        recorded_request = _read_json_mapping(request_path)
+        recorded_summary = _read_json_mapping(summary_path)
+        if (
+            recorded_request == request
+            and recorded_summary is not None
+            and _summary_artifacts_valid(recorded_summary)
+        ):
+            return recorded_summary
+    request_path.write_text(
+        json.dumps(request, indent=2, allow_nan=False) + "\n"
+    )
     dataset_digest = _request_digest(request)
 
     folds: dict[str, Any] = {}
@@ -670,18 +999,27 @@ def benchmark_predictive_ensemble(
             member_count=selected_member_count,
             seed=bootstrap_seed + fold_index - 1,
         )
+        normalization_group_weights = _group_objective_weights(
+            training_groups,
+            multiplicities=None,
+            strata=strata,
+        )
+        training_indices = [
+            index
+            for index, group in enumerate(group_by_trajectory)
+            if group in training_groups
+        ]
         fold_prefix = f"fold_{fold_index:02d}_{_safe_name(outer_value)}"
         fold_dir = destination / fold_prefix
         fold_dir.mkdir(parents=True, exist_ok=True)
         members = []
         member_records = []
         for member_index, counts in enumerate(multiplicities, start=1):
-            selected_groups = tuple(group for group in training_groups if group in counts)
-            training_indices = [
-                index
-                for index, group in enumerate(group_by_trajectory)
-                if group in selected_groups
-            ]
+            loss_group_weights = _group_objective_weights(
+                training_groups,
+                multiplicities=counts,
+                strata=strata,
+            )
             fit_paths = [
                 *(paths[index] for index in training_indices),
                 *(paths[index] for index in validation_indices),
@@ -691,7 +1029,7 @@ def benchmark_predictive_ensemble(
             report_path = fold_dir / f"{member_id}_report.json"
             member_request_path = fold_dir / f"{member_id}_request.json"
             member_request = {
-                "format_version": 1,
+                "format_version": PREDICTIVE_ENSEMBLE_FORMAT_VERSION,
                 "dataset_request_sha256": dataset_digest,
                 "outer_axis": outer_axis,
                 "outer_value": outer_value,
@@ -699,12 +1037,25 @@ def benchmark_predictive_ensemble(
                 "training_source_group_multiplicities": {
                     str(group): count for group, count in counts.items()
                 },
+                "training_source_group_loss_weights": {
+                    str(group): loss_group_weights[group]
+                    for group in training_groups
+                },
+                "normalization_source_group_weights": {
+                    str(group): normalization_group_weights[group]
+                    for group in training_groups
+                },
             }
-            reusable = (
-                member_request_path.exists()
-                and report_path.exists()
-                and model_path.exists()
-                and json.loads(member_request_path.read_text()) == member_request
+            member_state = _read_json_mapping(member_request_path)
+            reusable = bool(
+                member_state is not None
+                and member_state.get("request") == member_request
+                and _artifact_record_matches(
+                    member_state.get("model_artifact", {})
+                )
+                and _artifact_record_matches(
+                    member_state.get("fit_report_artifact", {})
+                )
             )
             if reusable:
                 params, _ = load_dynamics_model(model_path)
@@ -719,7 +1070,10 @@ def benchmark_predictive_ensemble(
                     steps=steps,
                     learning_rate=learning_rate,
                     run_no_lag_ablation=False,
-                    training_source_group_weights=counts,
+                    training_source_group_weights=loss_group_weights,
+                    normalization_source_group_weights=(
+                        normalization_group_weights
+                    ),
                     model_class=model_class,
                 )
                 report_path.write_text(json.dumps(report, indent=2) + "\n")
@@ -729,7 +1083,7 @@ def benchmark_predictive_ensemble(
                     input_spec=reference_spec,
                     runtime_spec=runtime_spec_from_fit_report(report),
                     provenance={
-                        "ensemble_method": "group_bootstrap_v1",
+                        "ensemble_method": PREDICTIVE_ENSEMBLE_METHOD,
                         "outer_axis": outer_axis,
                         "outer_value": outer_value,
                         "member_index": member_index,
@@ -737,11 +1091,26 @@ def benchmark_predictive_ensemble(
                         "training_source_group_multiplicities": {
                             str(group): count for group, count in counts.items()
                         },
+                        "training_source_group_loss_weights": {
+                            str(group): loss_group_weights[group]
+                            for group in training_groups
+                        },
                     },
                 )
-                member_request_path.write_text(
-                    json.dumps(member_request, indent=2) + "\n"
+            model_artifact = _file_record(model_path)
+            fit_report_artifact = _file_record(report_path)
+            member_request_path.write_text(
+                json.dumps(
+                    {
+                        "request": member_request,
+                        "model_artifact": model_artifact,
+                        "fit_report_artifact": fit_report_artifact,
+                    },
+                    indent=2,
+                    allow_nan=False,
                 )
+                + "\n"
+            )
             members.append(params)
             member_records.append(
                 {
@@ -751,6 +1120,12 @@ def benchmark_predictive_ensemble(
                     "training_source_group_multiplicities": {
                         str(group): count for group, count in counts.items()
                     },
+                    "training_source_group_loss_weights": {
+                        str(group): loss_group_weights[group]
+                        for group in training_groups
+                    },
+                    "model_artifact": model_artifact,
+                    "fit_report_artifact": fit_report_artifact,
                 }
             )
 
@@ -782,17 +1157,36 @@ def benchmark_predictive_ensemble(
             for label, reports in trajectory_aggregate_inputs.items()
         }
         fold_aggregate_reports.append(aggregate)
+        unique_resample_count = len(
+            {
+                tuple(counts.get(group, 0) for group in training_groups)
+                for counts in multiplicities
+            }
+        )
         manifest = {
-            "format_version": 1,
+            "format_version": PREDICTIVE_ENSEMBLE_FORMAT_VERSION,
             "artifact_type": "empirical_predictive_ensemble",
-            "method": "group_bootstrap_v1",
+            "method": PREDICTIVE_ENSEMBLE_METHOD,
             "posterior": False,
+            "implementation": request["implementation"],
             "outer_axis": outer_axis,
             "outer_value": outer_value,
+            "shared_fit_statistics": {
+                "policy": "complete_outer_training_fold_v1",
+                "normalization_source_group_weights": {
+                    str(group): normalization_group_weights[group]
+                    for group in training_groups
+                },
+            },
+            "member_count": selected_member_count,
+            "unique_resample_count": unique_resample_count,
+            "unique_parameter_member_count": ensemble.unique_member_count,
             "members": member_records,
         }
         manifest_path = fold_dir / "ensemble.json"
-        manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
+        manifest_path.write_text(
+            json.dumps(manifest, indent=2, allow_nan=False) + "\n"
+        )
         folds[str(outer_value)] = {
             "outer_value": outer_value,
             "validation_source_groups": list(
@@ -800,6 +1194,8 @@ def benchmark_predictive_ensemble(
             ),
             "training_source_groups": list(training_groups),
             "member_count": selected_member_count,
+            "unique_resample_count": unique_resample_count,
+            "unique_parameter_member_count": ensemble.unique_member_count,
             "ensemble": str(manifest_path),
             "aggregate": aggregate,
             "per_trajectory": per_trajectory,
@@ -812,8 +1208,9 @@ def benchmark_predictive_ensemble(
         for label in (f"{seconds:g}s" for seconds in evaluation_horizons_s)
     }
     summary = {
-        "format_version": 1,
+        "format_version": PREDICTIVE_ENSEMBLE_FORMAT_VERSION,
         "evaluation": "nested_group_bootstrap_predictive_ensemble",
+        "implementation": request["implementation"],
         "outer_axis": outer_axis,
         "trajectory_count": len(paths),
         "source_group_count": len(groups),
@@ -823,6 +1220,8 @@ def benchmark_predictive_ensemble(
             "kind": "empirical_epistemic_sensitivity",
             "posterior": False,
             "calibrated_distribution": False,
+            "interval_claim": False,
+            "coverage_role": "coarse_disagreement_diagnostic",
             "process_noise_included": False,
             "observation_noise_included": False,
             "unfitted_model_form_included": False,
@@ -836,12 +1235,15 @@ def benchmark_predictive_ensemble(
             "status": "diagnostic_only",
             "passed": None,
             "reason": (
-                "disagreement skill and useful calibration thresholds require "
-                "protected empirical results before they can be versioned"
+                "outer-fold results become development evidence once inspected; "
+                "versioned promotion thresholds require a subsequently untouched "
+                "corpus, airframe, or configuration"
             ),
         },
     }
-    summary_path.write_text(json.dumps(summary, indent=2) + "\n")
+    summary_path.write_text(
+        json.dumps(summary, indent=2, allow_nan=False) + "\n"
+    )
     return summary
 
 
