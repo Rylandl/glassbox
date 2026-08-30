@@ -38,6 +38,19 @@ See [the NMPC guide](docs/nmpc.md) for the programmatic API, measured results,
 safety boundaries, supported command semantics, and the PX4 SITL integration
 path. This is research control software, not a flight-safety system.
 
+PX4 integration stays outside the normal dependency and test path. A pinned,
+prebuilt PX4 SIH container can verify passive MAVLink-to-canonical-state
+telemetry without a PX4 checkout, Gazebo, ROS, arming, mode changes, or command
+transmission:
+
+```bash
+GLASSBOX_RUN_PX4_SITL=1 \
+  uv run pytest -m px4_sitl tests/integration/test_px4_sitl.py -v
+```
+
+An eligible fitted artifact can then be exercised against live state estimates
+with `glassbox-px4-nmpc-shadow`; its proposed commands are recorded, never sent.
+
 ## Nano-Quadrotor System Identification Benchmark
 
 Prepare the complete

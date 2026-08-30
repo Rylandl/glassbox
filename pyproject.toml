@@ -31,6 +31,7 @@ glassbox-x8 = "glassbox.x8_cli:main"
 glassbox-epfl = "glassbox.epfl_cli:main"
 glassbox-select-policy = "glassbox.policy_selection:main"
 glassbox-nmpc-benchmark = "glassbox.nmpc_benchmark:main"
+glassbox-px4-nmpc-shadow = "glassbox.integrations.px4_nmpc_shadow:main"
 
 [dependency-groups]
 dev = [
@@ -40,6 +41,9 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "px4_sitl: opt-in contract tests against a disposable PX4 SIH container",
+]
 
 [tool.ruff]
 target-version = "py311"

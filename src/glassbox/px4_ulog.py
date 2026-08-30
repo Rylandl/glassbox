@@ -19,6 +19,12 @@ from glassbox.data import (
     specific_force_observation_channels,
 )
 from glassbox.dynamics import FIXED_WING_CONTROL_NAMES, QUADROTOR_CONTROL_NAMES
+from glassbox.px4_frames import (
+    PX4_FRD_TO_FLU_SIGNS,
+    frd_to_flu,
+    ned_frd_quaternion_to_nwu_flu,
+    ned_to_nwu,
+)
 
 
 class ULogDataset(Protocol):
@@ -33,7 +39,6 @@ class PX4ULogError(ValueError):
     """Raised when a ULog cannot produce a valid dynamics trajectory."""
 
 
-PX4_FRD_TO_FLU_MOMENT_SIGNS = np.asarray([1.0, -1.0, -1.0])
 PX4_WIND_TOPIC = "airspeed_wind"
 PX4_SPECIFIC_FORCE_TOPIC = "vehicle_acceleration"
 PX4_WIND_MAX_GAP_S = 2.5
@@ -297,7 +302,7 @@ def _resolve_fixed_wing_actuators(
             "PX4 CA_SV_CS*_TRQ_R/P/Y parameters must be finite"
         )
     canonical_effectiveness = (
-        PX4_FRD_TO_FLU_MOMENT_SIGNS[:, np.newaxis] * effectiveness
+        PX4_FRD_TO_FLU_SIGNS[:, np.newaxis] * effectiveness
     )
     axis_names = ("roll", "pitch", "yaw")
     active_indices = tuple(
@@ -874,7 +879,7 @@ def trajectories_from_datasets(
         resampled_motor, motor_mask = resampled_actuators[0]
         resampled_surfaces, surface_mask = resampled_actuators[1]
         canonical_surface_mixing = (
-            PX4_FRD_TO_FLU_MOMENT_SIGNS[:, np.newaxis]
+            PX4_FRD_TO_FLU_SIGNS[:, np.newaxis]
             * surface_effectiveness
         )
         axis_indices = tuple(
@@ -907,12 +912,15 @@ def trajectories_from_datasets(
 
     # PX4 state is NED/FRD. Glassbox uses right-handed NWU/FLU so thrust is
     # positive body Z. Both frame conversions are 180-degree rotations about X.
-    position_velocity_nwu = position_velocity_ned * np.asarray(
-        [1.0, -1.0, -1.0, 1.0, -1.0, -1.0]
+    position_velocity_nwu = np.column_stack(
+        (
+            ned_to_nwu(position_velocity_ned[:, 0:3]),
+            ned_to_nwu(position_velocity_ned[:, 3:6]),
+        )
     )
-    attitude_nwu_flu = attitude_ned_frd * np.asarray([1.0, 1.0, -1.0, -1.0])
+    attitude_nwu_flu = ned_frd_quaternion_to_nwu_flu(attitude_ned_frd)
     attitude_nwu_flu = _continuous_quaternions(attitude_nwu_flu)
-    angular_velocity_flu = angular_velocity_frd * np.asarray([1.0, -1.0, -1.0])
+    angular_velocity_flu = frd_to_flu(angular_velocity_frd)
     states = np.column_stack(
         (
             position_velocity_nwu[:, 0:3],
@@ -970,7 +978,7 @@ def trajectories_from_datasets(
             "surface_effectiveness_matrix": surface_effectiveness.tolist(),
             "surface_effectiveness_frame": "PX4_FRD",
             "surface_axis_signs_frd_to_flu": (
-                PX4_FRD_TO_FLU_MOMENT_SIGNS.tolist()
+                PX4_FRD_TO_FLU_SIGNS.tolist()
             ),
             "canonical_surface_mixing_matrix": (
                 canonical_surface_mixing.tolist()

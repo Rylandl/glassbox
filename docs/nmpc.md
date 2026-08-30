@@ -153,32 +153,74 @@ deliberately non-optimizing and recorded with every result. The gate also
 requires no hidden per-scenario regression, so the aggregate cannot conceal a
 failed airframe or maneuver.
 
-## PX4 SITL integration path
+## PX4 SITL integration
 
-The next deployment stage is shadow-mode PX4 SITL, not real hardware:
+PX4 is an outer, opt-in contract test rather than a Glassbox runtime dependency.
+The package talks only to PX4's standard MAVLink telemetry. It does not import
+PX4 code, vendor a simulator, add Gazebo or ROS, or launch Docker from production
+code. The maintained external fixture uses PX4's internal SIH physics, so the
+only heavyweight component is a disposable prebuilt container owned by the
+integration test.
 
-1. Fit and promote an artifact whose control inputs are actionable commands,
-   or bind a reviewed `ActuationMap`.
-2. Convert PX4 NED/FRD state estimates into Glassbox NWU/FLU/WXYZ at the
-   telemetry boundary. Reuse the audited frame conversions in the ULog adapter;
-   do not duplicate signs inside the controller.
-3. Build an absolute `ReferenceTrajectory` at every cycle. Reference generation
-   owns path feasibility and terminal behavior.
-4. Maintain actuator latent state from measured applied command, command
-   history, or a dedicated estimator. Feed forecast wind only through the
-   artifact's typed exogenous channels.
-5. Compile both cold and warm solver paths before starting the SITL clock. Run
-   shadow-only solves first and record missed deadlines, validity utilization,
-   fallback rate, and prediction error without transmitting commands.
-6. Add a platform adapter that consumes the returned canonical command roles
-   and writes the selected PX4 offboard/SITL interface. The adapter owns mixing,
-   arming state, mode checks, stale-setpoint rejection, and command timestamps.
-7. Enable bounded SITL actuation only after p90 latency fits the selected loop
-   deadline, the artifact remains inside its envelope, and an independent
-   watchdog can return PX4 to its existing safe mode.
+The live boundary in `glassbox.integrations.px4` passively receives
+`LOCAL_POSITION_NED` and `ATTITUDE_QUATERNION`. It verifies the PX4 heartbeat and
+source system, pairs fresh messages with bounded boot-time skew, normalizes and
+makes quaternion signs continuous, and returns the canonical 13-state
+NWU/FLU/WXYZ representation. Its frame operations are the same functions used
+by offline ULog ingestion. The source exposes no send method and never requests
+stream rates, arms, changes mode, or transmits a setpoint.
 
-The current repository does not provide that command-output adapter or watchdog.
-It must not be connected directly to real actuators.
+Ordinary `pytest` runs deterministic tests with fake MAVLink messages and skips
+the external fixture. To exercise a real PX4 binary and real MAVLink encoding,
+run:
+
+```bash
+GLASSBOX_RUN_PX4_SITL=1 \
+  uv run pytest -m px4_sitl tests/integration/test_px4_sitl.py -v
+```
+
+That test launches the multi-architecture PX4 SIH image pinned by immutable
+digest, gives it an explicit Docker host gateway, receives canonical telemetry,
+and always stops the container. It does not require a local PX4 checkout or a
+Python Docker dependency. The maintained first-stage fixture is `sihsim_quadx`;
+additional PX4 vehicle configurations should be separate fixture parameters,
+not branches in the model or telemetry contract.
+
+### Artifact-backed NMPC shadow mode
+
+The external test intentionally does not invent a dynamics artifact for the PX4
+vehicle. A synthetic or unrelated fit would prove plumbing while producing
+misleading model-performance evidence. When a promoted actionable multirotor
+artifact and its actual applied command are available, include the complete
+telemetry-to-solver path with:
+
+```bash
+GLASSBOX_RUN_PX4_SITL=1 \
+GLASSBOX_PX4_NMPC_MODEL=artifacts/px4/model.json \
+GLASSBOX_PX4_NMPC_COMMAND=0.5,0.5,0.5,0.5 \
+  uv run pytest -m px4_sitl tests/integration/test_px4_sitl.py -v
+```
+
+For an already-running PX4 instance, the equivalent operator-facing command is:
+
+```bash
+uv run glassbox-px4-nmpc-shadow artifacts/px4/model.json \
+  --previous-command 0.5,0.5,0.5,0.5 \
+  --output artifacts/px4/nmpc-shadow.json
+```
+
+The shadow runner executes cold and warm-up controller solves before sampling,
+holds the current state as the regulation reference, and records solver status,
+fallback rate, model-period deadline misses, message skew, current and predicted
+validity, and command bounds. Returned commands are written only to the report.
+The previous command remains the measured/applied command because the shadow
+command is not being actuated.
+
+This establishes transport and solver integration, not closed-loop PX4 control.
+A future command-output adapter remains a separate boundary and must own mixing,
+arming and mode checks, stale-setpoint rejection, command timestamps, an
+independent watchdog, and safe-mode handoff. The repository still provides no
+such adapter and must not be connected directly to real actuators.
 
 ## Reproducing the gate
 
