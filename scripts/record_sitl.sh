@@ -4,7 +4,7 @@ set -euo pipefail
 script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 project_dir=$(cd "$script_dir/.." && pwd)
 data_dir=${1:-"$project_dir/artifacts/sitl"}
-px4_image=${GLASSBOX_PX4_IMAGE:-px4io/px4-sitl:latest}
+px4_image=${GLASSBOX_PX4_IMAGE:-px4io/px4-sitl@sha256:01866d912ac22ca6119a996b830cf628a6d47dfb60fdccc41cd9f44b62935a44}
 startup_wait_s=${GLASSBOX_STARTUP_WAIT_S:-8}
 flight_wait_s=${GLASSBOX_FLIGHT_WAIT_S:-15}
 landing_wait_s=${GLASSBOX_LANDING_WAIT_S:-12}

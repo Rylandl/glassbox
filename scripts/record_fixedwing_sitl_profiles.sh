@@ -13,7 +13,7 @@ else
   profiles=(throttle_steps roll_steps pitch_steps combined)
 fi
 
-px4_image=${GLASSBOX_PX4_IMAGE:-px4io/px4-sitl:latest}
+px4_image=${GLASSBOX_PX4_IMAGE:-px4io/px4-sitl@sha256:01866d912ac22ca6119a996b830cf628a6d47dfb60fdccc41cd9f44b62935a44}
 replicates=${GLASSBOX_PROFILE_REPLICATES:-2}
 replicate_start=${GLASSBOX_PROFILE_REPLICATE_START:-1}
 sample_rate_hz=${GLASSBOX_PROFILE_SAMPLE_RATE_HZ:-50}

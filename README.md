@@ -601,7 +601,14 @@ With Docker Desktop running, record a PX4 SIH quadrotor takeoff–hover–landin
 ./scripts/record_sitl.sh
 ```
 
-The script uses PX4's multi-architecture `px4io/px4-sitl:latest` image and stores generated data under the ignored `artifacts/sitl/` directory. [logger_topics.txt](config/logging/logger_topics.txt) overrides the dynamics topics to their full publication rates; the default PX4 logging profile is intended for flight review and records some actuator signals too slowly for identification. For SIH, the script extracts the normalized `actuator_outputs_sim` signal consumed by the simulator at 250 Hz.
+The script uses the same immutable multi-architecture PX4 SIH image digest as
+the integration gate and stores generated data under the ignored
+`artifacts/sitl/` directory. Set `GLASSBOX_PX4_IMAGE` only to make an explicit
+image comparison. [logger_topics.txt](config/logging/logger_topics.txt)
+overrides the dynamics topics to their full publication rates; the default PX4
+logging profile is intended for flight review and records some actuator signals
+too slowly for identification. For SIH, the script extracts the normalized
+`actuator_outputs_sim` signal consumed by the simulator at 250 Hz.
 
 The same fitting step can be run on any extracted trajectory:
 
@@ -724,6 +731,13 @@ intentionally rejects every other version; derived trajectories should be
 re-extracted from their raw telemetry rather than migrated through compatibility
 shims. For recorded profile corpora, use
 `scripts/reextract_profile_dataset.py`.
+
+```bash
+uv run python scripts/reextract_profile_dataset.py \
+  artifacts/sitl/multirotor_v2 \
+  --platform multirotor \
+  --vehicle-id px4_sih_quadx
+```
 
 Observation channels are measured outputs used to identify dynamics, such as
 accelerometer specific force and filtered body angular acceleration. They are
@@ -891,18 +905,21 @@ ground truth are balanced at six flights per maneuver family, eight per
 excitation condition, and twelve per initial heading; all artifacts are finite
 and share the verified canonical motor schema. Peak speed reaches 3.16 m/s.
 
-On the expanded structured leave-one-family-out benchmark, ground-truth
-prediction reaches 0.00011 m / 0.13 degrees at 0.1 seconds, 0.0029 m / 1.32
-degrees at 0.5 seconds, 0.0215 m / 3.35 degrees at 1 second, 0.168 m / 6.55
-degrees at 2 seconds, and 1.23 m / 10.09 degrees at 5 seconds. Complete flights
-reach 7.35 m / 16.54 degrees. The matched estimated-state benchmark reaches
-0.0117 m / 0.34 degrees, 0.054 m / 2.00 degrees, 0.109 m / 4.17 degrees, 0.285
-m / 7.14 degrees, and 1.35 m / 10.69 degrees at the same horizons; complete
-flights reach 5.82 m / 15.30 degrees. Both contracts fail: position meets the
+Re-extracting the retained ULogs through canonical format v3 and rerunning the
+expanded structured leave-one-family-out benchmark gives ground-truth
+position/attitude errors of 0.00012 m / 0.13 degrees at 0.1 seconds, 0.0031 m /
+1.32 degrees at 0.5 seconds, 0.0216 m / 3.36 degrees at 1 second, 0.167 m / 6.57
+degrees at 2 seconds, and 1.23 m / 10.18 degrees at 5 seconds. Complete flights
+reach 7.39 m / 16.56 degrees. The matched estimated-state benchmark reaches
+0.0117 m / 0.34 degrees, 0.0543 m / 2.01 degrees, 0.109 m / 4.19 degrees, 0.284
+m / 7.19 degrees, and 1.34 m / 10.87 degrees at the same horizons; complete
+flights reach 5.85 m / 15.84 degrees. Both contracts fail: position meets the
 ground-truth target through 2 seconds, while attitude meets it only at 0.1
-seconds. The modest local change and worse full-flight behavior over a broader
+seconds. The modest local change and poor full-flight behavior over a broader
 envelope indicate that the structured model is now the limiting factor, not
-the amount of repeated data.
+the amount of repeated data. The machine-readable rerun and no-promotion
+decision are recorded in
+[`multirotor-profile-results.json`](docs/multirotor-profile-results.json).
 
 ### Fixed-wing structured baseline
 

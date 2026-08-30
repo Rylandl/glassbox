@@ -13,7 +13,7 @@ else
   profiles=(vertical_steps lateral_steps yaw_steps combined)
 fi
 
-px4_image=${GLASSBOX_PX4_IMAGE:-px4io/px4-sitl:latest}
+px4_image=${GLASSBOX_PX4_IMAGE:-px4io/px4-sitl@sha256:01866d912ac22ca6119a996b830cf628a6d47dfb60fdccc41cd9f44b62935a44}
 replicates=${GLASSBOX_PROFILE_REPLICATES:-2}
 sample_rate_hz=${GLASSBOX_PROFILE_SAMPLE_RATE_HZ:-50}
 condition_list=${GLASSBOX_PROFILE_CONDITIONS:-low,medium,high}

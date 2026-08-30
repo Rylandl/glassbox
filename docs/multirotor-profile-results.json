@@ -1,0 +1,139 @@
+{
+  "format_version": 1,
+  "date": "2026-08-30",
+  "hypothesis": "A balanced maneuver-family corpus can distinguish insufficient excitation from a limiting multirotor model structure.",
+  "dataset": {
+    "name": "multirotor_v2",
+    "raw_ulog_count": 24,
+    "canonical_trajectory_format_version": 3,
+    "ground_truth_duration_s": 428.0,
+    "profiles": {
+      "combined": 6,
+      "lateral_steps": 6,
+      "vertical_steps": 6,
+      "yaw_steps": 6
+    },
+    "conditions": {
+      "low": 8,
+      "medium": 8,
+      "high": 8
+    },
+    "initial_yaw_deg": {
+      "0": 12,
+      "45": 12
+    },
+    "independent_source_groups": 24,
+    "finite_trajectory_count": 24,
+    "typed_spec_count": 1,
+    "vehicle_configuration_id": "px4_sih_quadx"
+  },
+  "benchmark": {
+    "evaluation": "leave_one_profile_out",
+    "model": "structured_instantaneous_diagonal_rotational_response",
+    "training_horizons_s": [0.1, 0.5, 2.0],
+    "evaluation_horizons_s": [0.1, 0.5, 1.0, 2.0, 5.0],
+    "optimization_steps_per_fold": 2500,
+    "endpoint_weight": 3.0,
+    "stability_regularization": 0.01,
+    "profile_weighting": "equal_profile"
+  },
+  "results": {
+    "ground_truth": {
+      "acceptance_status": "fail",
+      "horizon_rollouts": {
+        "0.1s": {
+          "position_rmse_m": 0.00012441954415371836,
+          "attitude_rmse_deg": 0.12561627397678649,
+          "angular_velocity_rmse_rad_s": 0.030180150510619178,
+          "passed": true
+        },
+        "0.5s": {
+          "position_rmse_m": 0.003050790851764488,
+          "attitude_rmse_deg": 1.317577190155408,
+          "angular_velocity_rmse_rad_s": 0.06841760615231411,
+          "passed": false
+        },
+        "1s": {
+          "position_rmse_m": 0.021640352768401025,
+          "attitude_rmse_deg": 3.355011650679425,
+          "angular_velocity_rmse_rad_s": 0.08647515015876624,
+          "passed": false
+        },
+        "2s": {
+          "position_rmse_m": 0.16743303376564664,
+          "attitude_rmse_deg": 6.567616679833321,
+          "angular_velocity_rmse_rad_s": 0.09468720584602162,
+          "passed": false
+        },
+        "5s": {
+          "position_rmse_m": 1.2331715795203588,
+          "attitude_rmse_deg": 10.182034118560496,
+          "angular_velocity_rmse_rad_s": 0.09713642593630628,
+          "passed": false
+        }
+      },
+      "complete_flight": {
+        "position_rmse_m": 7.388962975018693,
+        "attitude_rmse_deg": 16.560963686881852,
+        "angular_velocity_rmse_rad_s": 0.0998174480976823,
+        "passed": false
+      },
+      "worst_2s_profile": {
+        "profile": "lateral_steps",
+        "position_rmse_m": 0.1893034564708038,
+        "attitude_rmse_deg": 7.658449518984579
+      }
+    },
+    "estimated": {
+      "acceptance_status": "fail",
+      "horizon_rollouts": {
+        "0.1s": {
+          "position_rmse_m": 0.011692982682047014,
+          "attitude_rmse_deg": 0.3393637489361546,
+          "angular_velocity_rmse_rad_s": 0.06916481796003475,
+          "passed": true
+        },
+        "0.5s": {
+          "position_rmse_m": 0.05432330770472379,
+          "attitude_rmse_deg": 2.010539394017936,
+          "angular_velocity_rmse_rad_s": 0.09651564599743523,
+          "passed": false
+        },
+        "1s": {
+          "position_rmse_m": 0.10853747452777822,
+          "attitude_rmse_deg": 4.189674167502981,
+          "angular_velocity_rmse_rad_s": 0.10694625064473336,
+          "passed": false
+        },
+        "2s": {
+          "position_rmse_m": 0.28428855512765194,
+          "attitude_rmse_deg": 7.187308531265776,
+          "angular_velocity_rmse_rad_s": 0.11367781613207412,
+          "passed": false
+        },
+        "5s": {
+          "position_rmse_m": 1.3444808738376754,
+          "attitude_rmse_deg": 10.873046839532492,
+          "angular_velocity_rmse_rad_s": 0.11582510076176734,
+          "passed": false
+        }
+      },
+      "complete_flight": {
+        "position_rmse_m": 5.853405151465887,
+        "attitude_rmse_deg": 15.84406881129994,
+        "angular_velocity_rmse_rad_s": 0.11643994677831865,
+        "passed": false
+      },
+      "worst_2s_profile": {
+        "profile": "lateral_steps",
+        "position_rmse_m": 0.3577509699972141,
+        "attitude_rmse_deg": 8.568256700558306
+      }
+    }
+  },
+  "decision": {
+    "status": "no_model_promotion",
+    "live_shadow_rerun": false,
+    "reason": "Balanced data preserves useful short-horizon translation but does not close rotational or complete-flight error. The maintained literature-guided rotational, observation, and history candidates have already failed broader cross-platform promotion gates, so this rerun does not justify new capacity or a benchmark-specific model change."
+  }
+}
