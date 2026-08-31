@@ -9,7 +9,7 @@ library adopts a probabilistic runtime contract:
 
 It does not estimate a Bayesian posterior. A current manifest therefore uses
 `artifact_type: empirical_calibrated_predictive_ensemble`,
-`method: balanced_group_calibrated_bootstrap_v4`, and `posterior: false`.
+`method: balanced_group_calibrated_bootstrap_v5`, and `posterior: false`.
 
 ## Evaluation contract
 
@@ -73,6 +73,8 @@ Each state group reports:
 - ensemble-center vector RMSE;
 - mean and p90 member-disagreement radius;
 - empirical coverage and radius for 50%, 80%, and 90% member balls;
+- a proper radial set score and comparison with an independently calibrated
+  constant-error-radius baseline;
 - the finite-member mass actually attained by each requested radius;
 - Spearman rank correlation between disagreement radius and realized error;
 - a multivariate energy score.
@@ -95,6 +97,16 @@ Glassbox never substitutes the much larger number of correlated rollout windows.
 For example, 90% calibration requires at least nine independent calibration
 groups. The scaled sets remain empirical diagnostics rather than a calibrated
 probability distribution.
+
+The constant-radius baseline uses the same calibration groups and finite-sample
+rank, but calibrates a fixed ensemble-center error radius without using member
+disagreement. Both methods are scored on the untouched outer fold with
+
+`radius + max(error - radius, 0) / (1 - coverage)`.
+
+Lower is better. Positive skill means the adaptive disagreement radius reduced
+this score relative to the constant baseline. This is the minimum evidence that
+an ensemble adds predictive information beyond a held-out residual quantile.
 
 Endpoint finite-member fraction describes usable forecasts at the requested
 horizon. Full-path finite-member fraction and the fraction of members finite on
@@ -145,6 +157,30 @@ and airframe-family priors remain later stages. In particular, bootstrap members
 cannot be updated with new data without refitting, and evaluating eight models
 inside the current real-time NMPC loop would multiply a workload already subject
 to a 20 ms deadline.
+
+### Preregistered uncertainty candidate gate
+
+The v1 candidate gate was frozen before inspecting any IDF-DS fixed-wing
+ensemble result. It requires:
+
+- complete availability of independently scaled disagreement and constant
+  baseline radii at 50% and 80%;
+- coverage MAE no greater than 0.10 and no state-group/horizon cell more than
+  0.10 below nominal coverage;
+- median fixed-horizon error/disagreement Spearman correlation of at least 0.30,
+  with positive correlation in at least 75% of cells;
+- median radial set-score improvement over the constant baseline of at least
+  5%, with positive improvement in at least 75% of cells;
+- endpoint, full-path, and fully-finite member fractions of 1.0; and
+- at least four unique parameter and predictive members in every horizon.
+
+Ninety-percent coverage remains reported but is not required because a valid
+corrected rank needs at least nine calibration source groups. The gate concerns
+only the uncertainty estimator. A pass does not establish that the evidence
+corpus was prospectively untouched, that point predictions meet an airframe's
+accuracy requirements, or that an ensemble is safe or fast enough for runtime
+control. Those remain explicit external decisions, and summaries continue to
+report `promotion.status: diagnostic_only`.
 
 ## First development result
 

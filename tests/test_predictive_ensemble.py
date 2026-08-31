@@ -17,6 +17,7 @@ from glassbox.predictive_ensemble import (
     fit_grouped_disagreement_calibration,
     grouped_bootstrap_multiplicities,
     predictive_ensemble_metrics,
+    predictive_uncertainty_candidate_gate,
 )
 from glassbox.synthetic import (
     generate_trajectory,
@@ -43,7 +44,9 @@ def test_grouped_bootstrap_is_deterministic_and_preserves_stratum_draw_counts() 
         assert set(member) <= set(groups)
 
 
-def test_balanced_calibration_partition_preserves_profile_condition_replicates() -> None:
+def test_balanced_calibration_partition_preserves_profile_condition_replicates() -> (
+    None
+):
     groups = tuple(
         f"{profile}-{condition}-{replicate}"
         for profile in ("a", "b", "c")
@@ -163,26 +166,21 @@ def test_shared_outer_statistics_fix_residual_coordinates_across_members(
 
     first_params, first_kwargs = captured[0]
     second_params, second_kwargs = captured[1]
-    np.testing.assert_array_equal(
-        first_params.feature_mean, second_params.feature_mean
-    )
+    np.testing.assert_array_equal(first_params.feature_mean, second_params.feature_mean)
     np.testing.assert_array_equal(
         first_params.feature_scale, second_params.feature_scale
     )
     np.testing.assert_array_equal(
         first_params.correction_scale, second_params.correction_scale
     )
-    assert first_kwargs["loss_configuration"].to_dict() == second_kwargs[
-        "loss_configuration"
-    ].to_dict()
+    assert (
+        first_kwargs["loss_configuration"].to_dict()
+        == second_kwargs["loss_configuration"].to_dict()
+    )
     assert first_kwargs["loss_normalization_window_sets"] is normalization
     assert second_kwargs["loss_normalization_window_sets"] is normalization
-    assert reports[0]["fit"]["statistics_source"] == (
-        "shared_outer_training_windows"
-    )
-    assert reports[0]["fit"]["rollout_loss"] == reports[1]["fit"][
-        "rollout_loss"
-    ]
+    assert reports[0]["fit"]["statistics_source"] == ("shared_outer_training_windows")
+    assert reports[0]["fit"]["rollout_loss"] == reports[1]["fit"]["rollout_loss"]
 
 
 def test_ensemble_rejects_source_groups_with_colliding_json_keys(
@@ -319,10 +317,16 @@ def test_grouped_scale_calibration_respects_independent_group_resolution() -> No
     assert calibration["calibration_source_group_count"] == 2
     assert calibration["groups"]["position"]["0.5"]["status"] == "available"
     assert calibration["groups"]["position"]["0.5"]["scale"] is not None
+    assert (
+        calibration["groups"]["position"]["0.5"]["constant_error_radius_status"]
+        == "available"
+    )
+    assert calibration["groups"]["position"]["0.5"]["constant_error_radius"] is not None
     for level in ("0.8", "0.9"):
         setting = calibration["groups"]["position"][level]
         assert setting["status"] == "unavailable"
         assert setting["reason"] == "insufficient_independent_calibration_groups"
+        assert setting["constant_error_radius_status"] == "unavailable"
 
     report = predictive_ensemble_metrics(
         ensemble,
@@ -330,13 +334,72 @@ def test_grouped_scale_calibration_respects_independent_group_resolution() -> No
         horizon_steps=2,
         disagreement_calibration=calibration,
     )
-    assert report["groups"]["position"]["scaled_calibration"]["0.5"][
-        "status"
-    ] == "available"
-    assert report["groups"]["position"]["scaled_calibration"]["0.9"][
-        "status"
-    ] == "unavailable"
+    assert (
+        report["groups"]["position"]["scaled_calibration"]["0.5"]["status"]
+        == "available"
+    )
+    assert (
+        report["groups"]["position"]["scaled_calibration"]["0.9"]["status"]
+        == "unavailable"
+    )
+    assert (
+        report["groups"]["position"]["constant_radius_baseline"]["0.5"]["status"]
+        == "available"
+    )
+    assert (
+        report["groups"]["position"]["scaled_calibration"]["0.5"]["mean_set_score"]
+        is not None
+    )
+    aggregate = aggregate_predictive_ensemble_metrics((report, report))
+    assert (
+        aggregate["groups"]["position"]["constant_radius_baseline"]["0.5"][
+            "mean_set_score"
+        ]
+        is not None
+    )
+    assert (
+        aggregate["groups"]["position"]["scaled_calibration"]["0.5"][
+            "set_score_skill_vs_constant"
+        ]
+        is not None
+    )
     assert report["uncertainty_semantics"]["posterior"] is False
+
+
+def test_uncertainty_candidate_gate_requires_calibration_skill_and_finiteness() -> None:
+    groups = {}
+    for name in ("position", "velocity", "attitude", "angular_velocity"):
+        groups[name] = {
+            "error_disagreement_spearman": 0.5,
+            "scaled_calibration": {
+                level: {
+                    "status": "available",
+                    "empirical_coverage": float(level),
+                    "set_score_skill_vs_constant": 0.2,
+                }
+                for level in ("0.5", "0.8")
+            },
+            "constant_radius_baseline": {
+                level: {"status": "available"} for level in ("0.5", "0.8")
+            },
+        }
+    horizon = {
+        "finite_member_prediction_fraction": 1.0,
+        "finite_member_path_fraction": 1.0,
+        "fully_finite_member_fraction": 1.0,
+        "minimum_unique_parameter_member_count": 4,
+        "minimum_unique_prediction_member_count": 4,
+        "groups": groups,
+    }
+
+    passing = predictive_uncertainty_candidate_gate({"1s": horizon})
+    assert passing["passed"] is True
+    assert passing["runtime_promotion"] is False
+
+    failing_horizon = {**horizon, "finite_member_path_fraction": 0.99}
+    failing = predictive_uncertainty_candidate_gate({"1s": failing_horizon})
+    assert failing["passed"] is False
+    assert failing["checks"]["member_finiteness"]["passed"] is False
 
 
 def test_aggregate_predictive_metrics_uses_equal_item_weighting(monkeypatch) -> None:
@@ -365,9 +428,7 @@ def test_nested_ensemble_benchmark_keeps_outer_profiles_out_of_every_member(
     seed = 0
     for profile in ("vertical", "lateral", "yaw"):
         for replicate in range(4):
-            trajectory = generate_fixed_wing_trajectory(
-                seed=seed, duration_s=0.2
-            )
+            trajectory = generate_fixed_wing_trajectory(seed=seed, duration_s=0.2)
             trajectory = replace(
                 trajectory,
                 labels={
@@ -396,6 +457,10 @@ def test_nested_ensemble_benchmark_keeps_outer_profiles_out_of_every_member(
     assert summary["outer_fold_count"] == 3
     assert summary["evaluation"] == "nested_group_calibrated_predictive_ensemble"
     assert summary["promotion"]["status"] == "diagnostic_only"
+    assert summary["promotion"]["candidate_gate"]["gate_version"] == (
+        "predictive_uncertainty_gate_v1"
+    )
+    assert summary["promotion"]["candidate_gate"]["runtime_promotion"] is False
     assert summary["uncertainty_semantics"]["posterior"] is False
     assert len(summary["implementation"]["source_tree_sha256"]) == 64
     observed_distinct_resample = False
@@ -414,9 +479,7 @@ def test_nested_ensemble_benchmark_keeps_outer_profiles_out_of_every_member(
         assert set(fold["calibration_source_groups"]).isdisjoint(
             fold["validation_source_groups"]
         )
-        assert {
-            group.split("-")[0] for group in fold["calibration_source_groups"]
-        } == {
+        assert {group.split("-")[0] for group in fold["calibration_source_groups"]} == {
             group.split("-")[0] for group in fold["training_source_groups"]
         }
         manifest = Path(fold["ensemble"])
@@ -428,9 +491,7 @@ def test_nested_ensemble_benchmark_keeps_outer_profiles_out_of_every_member(
         assert len(payload["disagreement_calibration_artifact"]["sha256"]) == 64
         calibration = json.loads(Path(fold["disagreement_calibration"]).read_text())
         assert set(
-            calibration["horizon_rollouts"]["0.1s"][
-                "calibration_source_groups"
-            ]
+            calibration["horizon_rollouts"]["0.1s"]["calibration_source_groups"]
         ) == set(fold["calibration_source_groups"])
         observed_distinct_resample |= payload["unique_resample_count"] > 1
         reports = []
@@ -476,14 +537,16 @@ def test_nested_ensemble_benchmark_keeps_outer_profiles_out_of_every_member(
             == "shared_outer_training_windows_v1"
             for report in reports
         )
-        assert reports[0]["models"]["learned_lag"]["fit"][
-            "rollout_loss"
-        ] == reports[1]["models"]["learned_lag"]["fit"]["rollout_loss"]
-        assert reports[0]["models"]["learned_lag"]["fit"][
-            "multi_horizon_loss_normalizers"
-        ] == reports[1]["models"]["learned_lag"]["fit"][
-            "multi_horizon_loss_normalizers"
-        ]
+        assert (
+            reports[0]["models"]["learned_lag"]["fit"]["rollout_loss"]
+            == reports[1]["models"]["learned_lag"]["fit"]["rollout_loss"]
+        )
+        assert (
+            reports[0]["models"]["learned_lag"]["fit"]["multi_horizon_loss_normalizers"]
+            == reports[1]["models"]["learned_lag"]["fit"][
+                "multi_horizon_loss_normalizers"
+            ]
+        )
     assert observed_distinct_resample is True
     assert observed_omitted_group is True
     assert (tmp_path / "ensemble" / "summary.json").exists()

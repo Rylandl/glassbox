@@ -58,6 +58,13 @@ Requested coverage is scaled only from the independent calibration partition.
 Levels unsupported by its number of source groups are reported as unavailable
 rather than estimated from correlated rollout windows.
 
+The current benchmark also calibrates a constant ensemble-center error radius
+from the same groups and compares it with adaptive disagreement using a proper
+radial set score. A preregistered uncertainty-only gate requires useful coverage,
+positive ranking and set-score skill, complete finiteness, and member diversity;
+passing it still does not promote a runtime controller or waive platform-specific
+accuracy requirements.
+
 See [the predictive-ensemble guide](docs/predictive-ensembles.md) for the split
 contract, metric interpretation, and promotion boundary. The workflow remains
 diagnostic-only. Once the first outer-fold results influence development choices,

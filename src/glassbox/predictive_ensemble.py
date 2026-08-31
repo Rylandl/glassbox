@@ -36,9 +36,21 @@ from glassbox.runtime import runtime_spec_from_fit_report
 
 DEFAULT_COVERAGE_LEVELS = (0.5, 0.8, 0.9)
 DEFAULT_ENSEMBLE_MEMBER_COUNT = 8
-PREDICTIVE_ENSEMBLE_FORMAT_VERSION = 4
-PREDICTIVE_ENSEMBLE_METHOD = "balanced_group_calibrated_bootstrap_v4"
-DISAGREEMENT_CALIBRATION_METHOD = "source_group_split_scale_v1"
+PREDICTIVE_ENSEMBLE_FORMAT_VERSION = 5
+PREDICTIVE_ENSEMBLE_METHOD = "balanced_group_calibrated_bootstrap_v5"
+DISAGREEMENT_CALIBRATION_METHOD = "source_group_split_scale_and_baseline_v2"
+PREDICTIVE_PROMOTION_GATE_VERSION = "predictive_uncertainty_gate_v1"
+PREDICTIVE_PROMOTION_GATE = {
+    "required_coverage_levels": (0.5, 0.8),
+    "maximum_coverage_mean_absolute_error": 0.10,
+    "maximum_cell_undercoverage": 0.10,
+    "minimum_median_error_disagreement_spearman": 0.30,
+    "minimum_positive_rank_fraction": 0.75,
+    "minimum_median_set_score_skill_vs_constant": 0.05,
+    "minimum_positive_set_score_skill_fraction": 0.75,
+    "minimum_finite_fraction": 1.0,
+    "minimum_unique_members": 4,
+}
 PREDICTIVE_GROUPS = (
     ("position", "m", slice(0, 3)),
     ("velocity", "m/s", slice(3, 6)),
@@ -87,9 +99,7 @@ def _parameter_digest(params: ModelParams) -> str:
     return digest.hexdigest()
 
 
-def _prediction_member_digest(
-    predictions: np.ndarray, finite: np.ndarray
-) -> str:
+def _prediction_member_digest(predictions: np.ndarray, finite: np.ndarray) -> str:
     values = np.asarray(predictions, dtype=np.float64).copy()
     for sample_index in np.flatnonzero(finite):
         quaternion = values[sample_index, 6:10]
@@ -135,7 +145,9 @@ def grouped_bootstrap_multiplicities(
         if set(strata) != set(ordered_groups):
             raise ValueError("strata must contain exactly the source groups")
         group_strata = dict(strata)
-    stratum_order = tuple(dict.fromkeys(group_strata[group] for group in ordered_groups))
+    stratum_order = tuple(
+        dict.fromkeys(group_strata[group] for group in ordered_groups)
+    )
     groups_by_stratum = {
         stratum: tuple(
             group for group in ordered_groups if group_strata[group] == stratum
@@ -149,9 +161,7 @@ def grouped_bootstrap_multiplicities(
         counts = {group: 0 for group in ordered_groups}
         for stratum in stratum_order:
             candidates = groups_by_stratum[stratum]
-            sampled_indices = rng.integers(
-                0, len(candidates), size=len(candidates)
-            )
+            sampled_indices = rng.integers(0, len(candidates), size=len(candidates))
             for candidate_index in sampled_indices.tolist():
                 group = candidates[candidate_index]
                 counts[group] += 1
@@ -169,9 +179,7 @@ def _normalized_quaternions(values: np.ndarray) -> np.ndarray:
     )
 
 
-def _ensemble_centers(
-    predictions: np.ndarray, finite: np.ndarray
-) -> np.ndarray:
+def _ensemble_centers(predictions: np.ndarray, finite: np.ndarray) -> np.ndarray:
     """Return samplewise Euclidean means and sign-invariant quaternion means."""
 
     _, sample_count, _ = predictions.shape
@@ -253,9 +261,7 @@ def _target_coordinates(
         np.isfinite(centers[:, 6:10]), axis=1
     )
     if np.any(valid):
-        result[valid] = attitude_innovation(
-            centers[valid, 6:10], target[valid, 6:10]
-        )
+        result[valid] = attitude_innovation(centers[valid, 6:10], target[valid, 6:10])
     return result
 
 
@@ -291,8 +297,7 @@ def _column_rms(values: np.ndarray) -> np.ndarray:
     result = np.full(values.shape[1], np.nan, dtype=np.float64)
     valid = counts > 0
     result[valid] = np.sqrt(
-        np.sum(np.where(finite, np.square(values), 0.0), axis=0)[valid]
-        / counts[valid]
+        np.sum(np.where(finite, np.square(values), 0.0), axis=0)[valid] / counts[valid]
     )
     return result
 
@@ -303,15 +308,11 @@ def _column_quantile(values: np.ndarray, quantile: float) -> np.ndarray:
         finite = values[:, column_index]
         finite = finite[np.isfinite(finite)]
         if len(finite):
-            result[column_index] = np.quantile(
-                finite, quantile, method="higher"
-            )
+            result[column_index] = np.quantile(finite, quantile, method="higher")
     return result
 
 
-def _energy_score(
-    member_coordinates: np.ndarray, target: np.ndarray
-) -> float | None:
+def _energy_score(member_coordinates: np.ndarray, target: np.ndarray) -> float | None:
     scores = []
     for sample_index in range(member_coordinates.shape[1]):
         members = member_coordinates[:, sample_index]
@@ -324,6 +325,29 @@ def _energy_score(
         second = 0.5 * np.mean(np.linalg.norm(pairwise, axis=2))
         scores.append(first - second)
     return float(np.mean(scores)) if scores else None
+
+
+def _mean_ball_set_score(
+    target_error: np.ndarray,
+    radius: np.ndarray,
+    level: float,
+) -> float | None:
+    """Score a predictive ball by size plus a coverage-miss penalty.
+
+    This is the one-sided interval score applied to radial error. Lower is
+    better. It permits a fair comparison between adaptive ensemble radii and a
+    constant radius calibrated from the same independent source groups.
+    """
+
+    valid = np.isfinite(target_error) & np.isfinite(radius)
+    if not np.any(valid):
+        return None
+    selected_error = target_error[valid]
+    selected_radius = radius[valid]
+    scores = selected_radius + np.maximum(selected_error - selected_radius, 0.0) / (
+        1.0 - level
+    )
+    return float(np.mean(scores))
 
 
 def _predictive_ensemble_result(
@@ -401,18 +425,15 @@ def _predictive_ensemble_result(
         )
         calibration = {}
         scaled_calibration = {}
+        constant_radius_baseline = {}
         group_samples = {}
         for level in levels:
             radius = _column_quantile(member_radius, level)
             valid = valid_target & np.isfinite(radius)
             attained_mass = np.full(len(radius), np.nan, dtype=np.float64)
             positive = valid & (finite_counts > 0)
-            quantile_indices = np.ceil(
-                level * (finite_counts[positive] - 1)
-            )
-            attained_mass[positive] = (
-                quantile_indices + 1
-            ) / finite_counts[positive]
+            quantile_indices = np.ceil(level * (finite_counts[positive] - 1))
+            attained_mass[positive] = (quantile_indices + 1) / finite_counts[positive]
             empirical_coverage = (
                 float(np.mean(target_error[valid] <= radius[valid]))
                 if np.any(valid)
@@ -422,15 +443,12 @@ def _predictive_ensemble_result(
                 "nominal_coverage": level,
                 "empirical_coverage": empirical_coverage,
                 "coverage_error": (
-                    None
-                    if empirical_coverage is None
-                    else empirical_coverage - level
+                    None if empirical_coverage is None else empirical_coverage - level
                 ),
                 "mean_radius": _finite_mean(radius[valid]),
                 "p90_radius": _finite_quantile(radius[valid], 0.9),
-                "mean_attained_finite_member_mass": _finite_mean(
-                    attained_mass[valid]
-                ),
+                "mean_set_score": _mean_ball_set_score(target_error, radius, level),
+                "mean_attained_finite_member_mass": _finite_mean(attained_mass[valid]),
                 "minimum_attained_finite_member_mass": _finite_quantile(
                     attained_mass[valid], 0.0
                 ),
@@ -444,10 +462,9 @@ def _predictive_ensemble_result(
                 "valid": valid,
             }
             if disagreement_calibration is not None:
-                setting = disagreement_calibration["groups"][group_name][
-                    f"{level:g}"
-                ]
+                setting = disagreement_calibration["groups"][group_name][f"{level:g}"]
                 scale = setting["scale"]
+                baseline_radius = setting["constant_error_radius"]
                 if scale is None:
                     scaled_calibration[f"{level:g}"] = {
                         "nominal_coverage": level,
@@ -458,6 +475,7 @@ def _predictive_ensemble_result(
                         "coverage_error": None,
                         "mean_radius": None,
                         "p90_radius": None,
+                        "mean_set_score": None,
                     }
                 else:
                     scaled_radius = radius * float(scale)
@@ -483,11 +501,52 @@ def _predictive_ensemble_result(
                             if empirical_coverage is None
                             else empirical_coverage - level
                         ),
-                        "mean_radius": _finite_mean(
-                            scaled_radius[scaled_valid]
-                        ),
+                        "mean_radius": _finite_mean(scaled_radius[scaled_valid]),
                         "p90_radius": _finite_quantile(
                             scaled_radius[scaled_valid], 0.9
+                        ),
+                        "mean_set_score": _mean_ball_set_score(
+                            target_error, scaled_radius, level
+                        ),
+                    }
+                if baseline_radius is None:
+                    constant_radius_baseline[f"{level:g}"] = {
+                        "nominal_coverage": level,
+                        "status": "unavailable",
+                        "reason": setting["constant_error_radius_reason"],
+                        "radius": None,
+                        "empirical_coverage": None,
+                        "coverage_error": None,
+                        "mean_set_score": None,
+                    }
+                else:
+                    baseline_radius_array = np.full(
+                        len(target_error), float(baseline_radius), dtype=np.float64
+                    )
+                    baseline_valid = valid_target & np.isfinite(baseline_radius_array)
+                    baseline_coverage = (
+                        float(
+                            np.mean(
+                                target_error[baseline_valid]
+                                <= baseline_radius_array[baseline_valid]
+                            )
+                        )
+                        if np.any(baseline_valid)
+                        else None
+                    )
+                    constant_radius_baseline[f"{level:g}"] = {
+                        "nominal_coverage": level,
+                        "status": "available",
+                        "reason": None,
+                        "radius": float(baseline_radius),
+                        "empirical_coverage": baseline_coverage,
+                        "coverage_error": (
+                            None
+                            if baseline_coverage is None
+                            else baseline_coverage - level
+                        ),
+                        "mean_set_score": _mean_ball_set_score(
+                            target_error, baseline_radius_array, level
                         ),
                     }
         groups[group_name] = {
@@ -495,14 +554,13 @@ def _predictive_ensemble_result(
             "center_vector_rmse": _finite_rms(target_error),
             "mean_disagreement_radius": _finite_mean(spread),
             "p90_disagreement_radius": _finite_quantile(spread, 0.9),
-            "error_disagreement_spearman": _spearman_correlation(
-                target_error, spread
-            ),
+            "error_disagreement_spearman": _spearman_correlation(target_error, spread),
             "energy_score": _energy_score(member_coordinates, target_coordinates),
             "calibration": calibration,
         }
         if disagreement_calibration is not None:
             groups[group_name]["scaled_calibration"] = scaled_calibration
+            groups[group_name]["constant_radius_baseline"] = constant_radius_baseline
         calibration_samples[group_name] = group_samples
 
     report = {
@@ -538,9 +596,7 @@ def _predictive_ensemble_result(
             np.mean(np.all(path_finite, axis=(1, 2)))
         ),
         "minimum_finite_members_per_prediction": int(np.min(finite_counts)),
-        "median_finite_members_per_prediction": float(
-            np.median(finite_counts)
-        ),
+        "median_finite_members_per_prediction": float(np.median(finite_counts)),
         "maximum_finite_members_per_prediction": int(np.max(finite_counts)),
         "groups": groups,
     }
@@ -597,7 +653,9 @@ def fit_grouped_disagreement_calibration(
     levels = tuple(dict.fromkeys(float(level) for level in coverage_levels))
     if not levels or any(level <= 0.0 or level >= 1.0 for level in levels):
         raise ValueError("coverage levels must be strictly between zero and one")
-    source_groups = [trajectory.labels.get("source_group") for trajectory in trajectories]
+    source_groups = [
+        trajectory.labels.get("source_group") for trajectory in trajectories
+    ]
     if any(
         not isinstance(group, (str, int))
         or (isinstance(group, str) and not group.strip())
@@ -612,9 +670,13 @@ def fit_grouped_disagreement_calibration(
             "calibration source_group labels need unique string representations"
         )
 
-    samples_by_group: dict[str | int, dict[str, dict[str, list[np.ndarray]]]] = {
+    samples_by_group: dict[
+        str | int, dict[str, dict[str, dict[str, list[np.ndarray]]]]
+    ] = {
         group: {
-            group_name: {f"{level:g}": [] for level in levels}
+            group_name: {
+                f"{level:g}": {"ratios": [], "target_errors": []} for level in levels
+            }
             for group_name, _, _ in PREDICTIVE_GROUPS
         }
         for group in ordered_groups
@@ -638,9 +700,9 @@ def fit_grouped_disagreement_calibration(
                 positive = member_radius > 0.0
                 ratio[positive] = target_error[positive] / member_radius[positive]
                 ratio[(member_radius == 0.0) & (target_error == 0.0)] = 0.0
-                samples_by_group[source_group][group_name][f"{level:g}"].append(
-                    ratio
-                )
+                group_samples = samples_by_group[source_group][group_name][f"{level:g}"]
+                group_samples["ratios"].append(ratio)
+                group_samples["target_errors"].append(target_error)
                 if group_name == PREDICTIVE_GROUPS[0][0] and level == levels[0]:
                     endpoint_counts[source_group] += len(ratio)
 
@@ -651,23 +713,37 @@ def fit_grouped_disagreement_calibration(
         for level in levels:
             label = f"{level:g}"
             group_scores: dict[str, float | None] = {}
+            group_constant_error_radii: dict[str, float | None] = {}
             sortable_scores = []
+            sortable_constant_error_radii = []
             for source_group in ordered_groups:
-                parts = samples_by_group[source_group][group_name][label]
-                ratios = np.concatenate(parts) if parts else np.empty(0)
+                samples = samples_by_group[source_group][group_name][label]
+                ratio_parts = samples["ratios"]
+                error_parts = samples["target_errors"]
+                ratios = np.concatenate(ratio_parts) if ratio_parts else np.empty(0)
+                target_errors = (
+                    np.concatenate(error_parts) if error_parts else np.empty(0)
+                )
                 score = (
                     float(np.quantile(ratios, level, method="higher"))
                     if len(ratios)
                     else math.inf
                 )
-                group_scores[str(source_group)] = (
-                    score if np.isfinite(score) else None
+                constant_error_radius = (
+                    float(np.quantile(target_errors, level, method="higher"))
+                    if len(target_errors)
+                    else math.inf
+                )
+                group_scores[str(source_group)] = score if np.isfinite(score) else None
+                group_constant_error_radii[str(source_group)] = (
+                    constant_error_radius
+                    if np.isfinite(constant_error_radius)
+                    else None
                 )
                 sortable_scores.append(score)
+                sortable_constant_error_radii.append(constant_error_radius)
             conformal_rank = math.ceil((group_count + 1) * level)
-            minimum_group_count = math.ceil(
-                level / (1.0 - level) - 1e-12
-            )
+            minimum_group_count = math.ceil(level / (1.0 - level) - 1e-12)
             if conformal_rank > group_count:
                 scale = None
                 reason = "insufficient_independent_calibration_groups"
@@ -679,6 +755,23 @@ def fit_grouped_disagreement_calibration(
                 else:
                     scale = None
                     reason = "nonfinite_required_scale"
+            if conformal_rank > group_count:
+                selected_constant_error_radius = None
+                constant_error_radius_reason = (
+                    "insufficient_independent_calibration_groups"
+                )
+            else:
+                selected_constant = sorted(sortable_constant_error_radii)[
+                    conformal_rank - 1
+                ]
+                if np.isfinite(selected_constant):
+                    selected_constant_error_radius = float(selected_constant)
+                    constant_error_radius_reason = None
+                else:
+                    selected_constant_error_radius = None
+                    constant_error_radius_reason = (
+                        "nonfinite_required_constant_error_radius"
+                    )
             calibrated_levels[label] = {
                 "nominal_coverage": level,
                 "scale": scale,
@@ -688,6 +781,14 @@ def fit_grouped_disagreement_calibration(
                 "minimum_calibration_group_count": minimum_group_count,
                 "calibration_source_group_count": group_count,
                 "source_group_required_scales": group_scores,
+                "constant_error_radius": selected_constant_error_radius,
+                "constant_error_radius_status": (
+                    "available"
+                    if selected_constant_error_radius is not None
+                    else "unavailable"
+                ),
+                "constant_error_radius_reason": constant_error_radius_reason,
+                "source_group_constant_error_radii": (group_constant_error_radii),
             }
         calibrated_groups[group_name] = {
             "unit": unit,
@@ -700,6 +801,7 @@ def fit_grouped_disagreement_calibration(
         "independence_unit": "source_group",
         "endpoint_sampling": "nonoverlapping_fixed_horizon_rollouts",
         "group_score": "higher_quantile_required_member_radius_multiplier",
+        "baseline": "higher_quantile_constant_center_error_radius",
         "finite_sample_correction": "ceil((group_count + 1) * coverage)",
         "calibration_source_groups": [str(group) for group in ordered_groups],
         "calibration_source_group_count": group_count,
@@ -799,9 +901,7 @@ def aggregate_predictive_ensemble_metrics(
             "error_disagreement_spearman": (
                 float(np.mean(correlations)) if correlations else None
             ),
-            "energy_score": _finite_mean(
-                [item["energy_score"] for item in items]
-            ),
+            "energy_score": _finite_mean([item["energy_score"] for item in items]),
             "calibration": {
                 level: {
                     "nominal_coverage": float(
@@ -814,22 +914,16 @@ def aggregate_predictive_ensemble_metrics(
                         ]
                     ),
                     "coverage_error": _finite_mean(
-                        [
-                            item["calibration"][level]["coverage_error"]
-                            for item in items
-                        ]
+                        [item["calibration"][level]["coverage_error"] for item in items]
                     ),
                     "mean_radius": _finite_mean(
-                        [
-                            item["calibration"][level]["mean_radius"]
-                            for item in items
-                        ]
+                        [item["calibration"][level]["mean_radius"] for item in items]
                     ),
                     "p90_radius": _finite_mean(
-                        [
-                            item["calibration"][level]["p90_radius"]
-                            for item in items
-                        ]
+                        [item["calibration"][level]["p90_radius"] for item in items]
+                    ),
+                    "mean_set_score": _finite_mean(
+                        [item["calibration"][level]["mean_set_score"] for item in items]
                     ),
                     "mean_attained_finite_member_mass": _finite_mean(
                         [
@@ -870,9 +964,7 @@ def aggregate_predictive_ensemble_metrics(
                 ]
                 available_fraction = len(available) / len(level_items)
                 scaled[level] = {
-                    "nominal_coverage": float(
-                        level_items[0]["nominal_coverage"]
-                    ),
+                    "nominal_coverage": float(level_items[0]["nominal_coverage"]),
                     "status": (
                         "available"
                         if available_fraction == 1.0
@@ -890,10 +982,7 @@ def aggregate_predictive_ensemble_metrics(
                             for reason in (
                                 [str(item["reason"])]
                                 if item.get("reason") is not None
-                                else [
-                                    str(value)
-                                    for value in item.get("reasons", [])
-                                ]
+                                else [str(value) for value in item.get("reasons", [])]
                             )
                         }
                     ),
@@ -915,21 +1004,86 @@ def aggregate_predictive_ensemble_metrics(
                     "p90_radius": _finite_mean(
                         [item["p90_radius"] for item in available]
                     ),
+                    "mean_set_score": _finite_mean(
+                        [item["mean_set_score"] for item in available]
+                    ),
                 }
             group_report["scaled_calibration"] = scaled
+        if all("constant_radius_baseline" in item for item in items):
+            baseline = {}
+            for level in levels:
+                level_items = [
+                    item["constant_radius_baseline"][level] for item in items
+                ]
+                available = [
+                    item for item in level_items if item["status"] == "available"
+                ]
+                available_fraction = len(available) / len(level_items)
+                baseline[level] = {
+                    "nominal_coverage": float(level_items[0]["nominal_coverage"]),
+                    "status": (
+                        "available"
+                        if available_fraction == 1.0
+                        else (
+                            "unavailable"
+                            if available_fraction == 0.0
+                            else "partially_available"
+                        )
+                    ),
+                    "available_item_fraction": available_fraction,
+                    "reasons": sorted(
+                        {
+                            reason
+                            for item in level_items
+                            for reason in (
+                                [str(item["reason"])]
+                                if item.get("reason") is not None
+                                else [str(value) for value in item.get("reasons", [])]
+                            )
+                        }
+                    ),
+                    "mean_radius": _finite_mean(
+                        [
+                            item.get("radius", item.get("mean_radius"))
+                            for item in available
+                        ]
+                    ),
+                    "empirical_coverage": _finite_mean(
+                        [item["empirical_coverage"] for item in available]
+                    ),
+                    "coverage_error": _finite_mean(
+                        [item["coverage_error"] for item in available]
+                    ),
+                    "mean_set_score": _finite_mean(
+                        [item["mean_set_score"] for item in available]
+                    ),
+                }
+            group_report["constant_radius_baseline"] = baseline
+            if "scaled_calibration" in group_report:
+                for level in levels:
+                    scaled_score = group_report["scaled_calibration"][level][
+                        "mean_set_score"
+                    ]
+                    baseline_score = baseline[level]["mean_set_score"]
+                    skill = None
+                    if (
+                        scaled_score is not None
+                        and baseline_score is not None
+                        and baseline_score > 0.0
+                    ):
+                        skill = 1.0 - scaled_score / baseline_score
+                    group_report["scaled_calibration"][level][
+                        "set_score_skill_vs_constant"
+                    ] = skill
         groups[group_name] = group_report
     return {
         "weighting": "equal_item",
         "item_count": len(reports),
-        "mean_unique_parameter_member_count": float(
-            np.mean(unique_parameter_counts)
-        ),
+        "mean_unique_parameter_member_count": float(np.mean(unique_parameter_counts)),
         "minimum_unique_parameter_member_count": int(
             min(minimum_unique_parameter_counts)
         ),
-        "mean_unique_prediction_member_count": float(
-            np.mean(unique_prediction_counts)
-        ),
+        "mean_unique_prediction_member_count": float(np.mean(unique_prediction_counts)),
         "minimum_unique_prediction_member_count": int(
             min(minimum_unique_prediction_counts)
         ),
@@ -944,7 +1098,10 @@ def aggregate_predictive_ensemble_metrics(
         ),
         "finite_member_prediction_fraction": float(
             np.mean(
-                [float(report["finite_member_prediction_fraction"]) for report in reports]
+                [
+                    float(report["finite_member_prediction_fraction"])
+                    for report in reports
+                ]
             )
         ),
         "finite_member_path_fraction": float(
@@ -953,9 +1110,217 @@ def aggregate_predictive_ensemble_metrics(
             )
         ),
         "fully_finite_member_fraction": float(
-            np.mean([float(report["fully_finite_member_fraction"]) for report in reports])
+            np.mean(
+                [float(report["fully_finite_member_fraction"]) for report in reports]
+            )
         ),
         "groups": groups,
+    }
+
+
+def predictive_uncertainty_candidate_gate(
+    horizon_rollouts: Mapping[str, Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Apply the preregistered uncertainty-only promotion candidate gate.
+
+    Passing this gate does not promote a runtime model. The evidence corpus
+    must also be prospectively eligible, and platform-specific point accuracy
+    and control requirements remain separate decisions.
+    """
+
+    rollouts = tuple(horizon_rollouts.values())
+    group_reports = [
+        group for rollout in rollouts for group in rollout.get("groups", {}).values()
+    ]
+    correlations = np.asarray(
+        [
+            float(group["error_disagreement_spearman"])
+            for group in group_reports
+            if group.get("error_disagreement_spearman") is not None
+        ],
+        dtype=np.float64,
+    )
+    ranking_observed = {
+        "median": (float(np.median(correlations)) if len(correlations) else None),
+        "positive_fraction": (
+            float(np.mean(correlations > 0.0)) if len(correlations) else None
+        ),
+        "cell_count": len(correlations),
+    }
+    ranking_passed = (
+        ranking_observed["median"] is not None
+        and ranking_observed["median"]
+        >= PREDICTIVE_PROMOTION_GATE["minimum_median_error_disagreement_spearman"]
+        and ranking_observed["positive_fraction"]
+        >= PREDICTIVE_PROMOTION_GATE["minimum_positive_rank_fraction"]
+    )
+
+    coverage_checks = {}
+    skills = []
+    supported = True
+    for level in PREDICTIVE_PROMOTION_GATE["required_coverage_levels"]:
+        label = f"{level:g}"
+        level_items = [
+            group.get("scaled_calibration", {}).get(label, {})
+            for group in group_reports
+        ]
+        baseline_items = [
+            group.get("constant_radius_baseline", {}).get(label, {})
+            for group in group_reports
+        ]
+        available = bool(level_items) and all(
+            item.get("status") == "available" for item in level_items
+        )
+        baseline_available = bool(baseline_items) and all(
+            item.get("status") == "available" for item in baseline_items
+        )
+        coverages = np.asarray(
+            [
+                float(item["empirical_coverage"])
+                for item in level_items
+                if item.get("empirical_coverage") is not None
+            ],
+            dtype=np.float64,
+        )
+        mean_absolute_error = (
+            float(np.mean(np.abs(coverages - level))) if len(coverages) else None
+        )
+        maximum_undercoverage = (
+            float(max(0.0, np.max(level - coverages))) if len(coverages) else None
+        )
+        level_skills = [
+            float(item["set_score_skill_vs_constant"])
+            for item in level_items
+            if item.get("set_score_skill_vs_constant") is not None
+        ]
+        skills.extend(level_skills)
+        passed = (
+            available
+            and baseline_available
+            and mean_absolute_error is not None
+            and mean_absolute_error
+            <= PREDICTIVE_PROMOTION_GATE["maximum_coverage_mean_absolute_error"]
+            and maximum_undercoverage is not None
+            and maximum_undercoverage
+            <= PREDICTIVE_PROMOTION_GATE["maximum_cell_undercoverage"]
+        )
+        supported &= passed
+        coverage_checks[label] = {
+            "passed": passed,
+            "scaled_radius_available_in_every_cell": available,
+            "constant_baseline_available_in_every_cell": baseline_available,
+            "mean_absolute_error": mean_absolute_error,
+            "maximum_undercoverage": maximum_undercoverage,
+            "cell_count": len(coverages),
+            "thresholds": {
+                "maximum_mean_absolute_error": PREDICTIVE_PROMOTION_GATE[
+                    "maximum_coverage_mean_absolute_error"
+                ],
+                "maximum_cell_undercoverage": PREDICTIVE_PROMOTION_GATE[
+                    "maximum_cell_undercoverage"
+                ],
+            },
+        }
+
+    skill_values = np.asarray(skills, dtype=np.float64)
+    skill_observed = {
+        "median": (float(np.median(skill_values)) if len(skill_values) else None),
+        "positive_fraction": (
+            float(np.mean(skill_values > 0.0)) if len(skill_values) else None
+        ),
+        "cell_count": len(skill_values),
+    }
+    skill_passed = (
+        skill_observed["median"] is not None
+        and skill_observed["median"]
+        >= PREDICTIVE_PROMOTION_GATE["minimum_median_set_score_skill_vs_constant"]
+        and skill_observed["positive_fraction"]
+        >= PREDICTIVE_PROMOTION_GATE["minimum_positive_set_score_skill_fraction"]
+    )
+
+    finite_values = np.asarray(
+        [
+            float(rollout[field])
+            for rollout in rollouts
+            for field in (
+                "finite_member_prediction_fraction",
+                "finite_member_path_fraction",
+                "fully_finite_member_fraction",
+            )
+        ],
+        dtype=np.float64,
+    )
+    minimum_finite_fraction = (
+        float(np.min(finite_values)) if len(finite_values) else None
+    )
+    finiteness_passed = (
+        minimum_finite_fraction is not None
+        and minimum_finite_fraction
+        >= PREDICTIVE_PROMOTION_GATE["minimum_finite_fraction"]
+    )
+    unique_counts = [
+        min(
+            int(rollout["minimum_unique_parameter_member_count"]),
+            int(rollout["minimum_unique_prediction_member_count"]),
+        )
+        for rollout in rollouts
+    ]
+    minimum_unique_members = min(unique_counts) if unique_counts else None
+    diversity_passed = (
+        minimum_unique_members is not None
+        and minimum_unique_members
+        >= PREDICTIVE_PROMOTION_GATE["minimum_unique_members"]
+    )
+
+    checks = {
+        "coverage": {
+            "passed": supported,
+            "levels": coverage_checks,
+        },
+        "error_disagreement_ranking": {
+            "passed": ranking_passed,
+            "observed": ranking_observed,
+            "thresholds": {
+                "minimum_median": PREDICTIVE_PROMOTION_GATE[
+                    "minimum_median_error_disagreement_spearman"
+                ],
+                "minimum_positive_fraction": PREDICTIVE_PROMOTION_GATE[
+                    "minimum_positive_rank_fraction"
+                ],
+            },
+        },
+        "set_score_skill_vs_constant_radius": {
+            "passed": skill_passed,
+            "observed": skill_observed,
+            "thresholds": {
+                "minimum_median": PREDICTIVE_PROMOTION_GATE[
+                    "minimum_median_set_score_skill_vs_constant"
+                ],
+                "minimum_positive_fraction": PREDICTIVE_PROMOTION_GATE[
+                    "minimum_positive_set_score_skill_fraction"
+                ],
+            },
+        },
+        "member_finiteness": {
+            "passed": finiteness_passed,
+            "minimum_fraction": minimum_finite_fraction,
+            "threshold": PREDICTIVE_PROMOTION_GATE["minimum_finite_fraction"],
+        },
+        "member_diversity": {
+            "passed": diversity_passed,
+            "minimum_unique_members": minimum_unique_members,
+            "threshold": PREDICTIVE_PROMOTION_GATE["minimum_unique_members"],
+        },
+    }
+    return {
+        "gate_version": PREDICTIVE_PROMOTION_GATE_VERSION,
+        "scope": "uncertainty_estimator_only",
+        "passed": all(check["passed"] for check in checks.values()),
+        "checks": checks,
+        "runtime_promotion": False,
+        "evidence_eligibility": (
+            "must be established prospectively outside this metric function"
+        ),
     }
 
 
@@ -1001,16 +1366,14 @@ def _artifact_record_matches(record: Mapping[str, Any]) -> bool:
 def _summary_artifacts_valid(summary: Mapping[str, Any]) -> bool:
     try:
         manifest_paths = [
-            Path(str(fold["ensemble"]))
-            for fold in summary["per_fold"].values()
+            Path(str(fold["ensemble"])) for fold in summary["per_fold"].values()
         ]
         for manifest_path in manifest_paths:
             if not manifest_path.is_file():
                 return False
             manifest = json.loads(manifest_path.read_text())
             if (
-                manifest.get("format_version")
-                != PREDICTIVE_ENSEMBLE_FORMAT_VERSION
+                manifest.get("format_version") != PREDICTIVE_ENSEMBLE_FORMAT_VERSION
                 or manifest.get("method") != PREDICTIVE_ENSEMBLE_METHOD
             ):
                 return False
@@ -1021,9 +1384,7 @@ def _summary_artifacts_valid(summary: Mapping[str, Any]) -> bool:
             for member in manifest["members"]:
                 if not _artifact_record_matches(member["model_artifact"]):
                     return False
-                if not _artifact_record_matches(
-                    member["fit_report_artifact"]
-                ):
+                if not _artifact_record_matches(member["fit_report_artifact"]):
                     return False
     except (AttributeError, KeyError, OSError, TypeError, ValueError):
         return False
@@ -1130,9 +1491,7 @@ def _group_objective_weights(
 
     if strata is None:
         return {
-            group: float(
-                1 if multiplicities is None else multiplicities.get(group, 0)
-            )
+            group: float(1 if multiplicities is None else multiplicities.get(group, 0))
             for group in groups
         }
     stratum_counts = {
@@ -1140,9 +1499,7 @@ def _group_objective_weights(
         for stratum in dict.fromkeys(strata[group] for group in groups)
     }
     return {
-        group: float(
-            1 if multiplicities is None else multiplicities.get(group, 0)
-        )
+        group: float(1 if multiplicities is None else multiplicities.get(group, 0))
         / stratum_counts[strata[group]]
         for group in groups
     }
@@ -1248,18 +1605,14 @@ def benchmark_predictive_ensemble(
         or (isinstance(group, str) and not group.strip())
         for group in group_by_trajectory
     ):
-        raise ValueError(
-            "source_group labels must be non-empty strings or integers"
-        )
+        raise ValueError("source_group labels must be non-empty strings or integers")
     groups = tuple(dict.fromkeys(group_by_trajectory))
     if len(groups) < 4:
         raise ValueError(
             "predictive ensemble benchmark requires four independent source groups"
         )
     if len({str(group) for group in groups}) != len(groups):
-        raise ValueError(
-            "source_group labels must have unique string representations"
-        )
+        raise ValueError("source_group labels must have unique string representations")
     profile_by_trajectory = [
         trajectory.labels.get("profile") for trajectory in trajectories
     ]
@@ -1330,9 +1683,7 @@ def benchmark_predictive_ensemble(
             ),
             "member_count_override": member_count,
             "bootstrap_seed": bootstrap_seed,
-            "bootstrap_stratification": (
-                "profile" if group_profiles else "none"
-            ),
+            "bootstrap_stratification": ("profile" if group_profiles else "none"),
             "bootstrap_estimator": (
                 "shared_fit_partition_statistics_with_profile_balanced_"
                 "group_multiplicity_loss_v2"
@@ -1343,6 +1694,13 @@ def benchmark_predictive_ensemble(
             ),
             "calibration_method": DISAGREEMENT_CALIBRATION_METHOD,
             "coverage_levels": list(DEFAULT_COVERAGE_LEVELS),
+            "promotion_candidate_gate": {
+                "version": PREDICTIVE_PROMOTION_GATE_VERSION,
+                **PREDICTIVE_PROMOTION_GATE,
+                "required_coverage_levels": list(
+                    PREDICTIVE_PROMOTION_GATE["required_coverage_levels"]
+                ),
+            },
         },
     }
     request_path = destination / "request.json"
@@ -1356,9 +1714,7 @@ def benchmark_predictive_ensemble(
             and _summary_artifacts_valid(recorded_summary)
         ):
             return recorded_summary
-    request_path.write_text(
-        json.dumps(request, indent=2, allow_nan=False) + "\n"
-    )
+    request_path.write_text(json.dumps(request, indent=2, allow_nan=False) + "\n")
     dataset_digest = _request_digest(request)
 
     folds: dict[str, Any] = {}
@@ -1417,7 +1773,8 @@ def benchmark_predictive_ensemble(
         )
         strata = (
             {group: group_profiles[group] for group in training_groups}
-            if group_profiles and all(group in group_profiles for group in training_groups)
+            if group_profiles
+            and all(group in group_profiles for group in training_groups)
             else None
         )
         multiplicities = grouped_bootstrap_multiplicities(
@@ -1467,8 +1824,7 @@ def benchmark_predictive_ensemble(
                     str(group): count for group, count in counts.items()
                 },
                 "training_source_group_loss_weights": {
-                    str(group): loss_group_weights[group]
-                    for group in training_groups
+                    str(group): loss_group_weights[group] for group in training_groups
                 },
                 "normalization_source_group_weights": {
                     str(group): normalization_group_weights[group]
@@ -1479,9 +1835,7 @@ def benchmark_predictive_ensemble(
             reusable = bool(
                 member_state is not None
                 and member_state.get("request") == member_request
-                and _artifact_record_matches(
-                    member_state.get("model_artifact", {})
-                )
+                and _artifact_record_matches(member_state.get("model_artifact", {}))
                 and _artifact_record_matches(
                     member_state.get("fit_report_artifact", {})
                 )
@@ -1500,9 +1854,7 @@ def benchmark_predictive_ensemble(
                     learning_rate=learning_rate,
                     run_no_lag_ablation=False,
                     training_source_group_weights=loss_group_weights,
-                    normalization_source_group_weights=(
-                        normalization_group_weights
-                    ),
+                    normalization_source_group_weights=(normalization_group_weights),
                     model_class=model_class,
                 )
                 report_path.write_text(json.dumps(report, indent=2) + "\n")
@@ -1606,9 +1958,7 @@ def benchmark_predictive_ensemble(
                 metrics = predictive_ensemble_metrics(
                     ensemble,
                     trajectory,
-                    horizon_steps=duration_to_steps(
-                        seconds, trajectory.nominal_dt_s
-                    ),
+                    horizon_steps=duration_to_steps(seconds, trajectory.nominal_dt_s),
                     disagreement_calibration=disagreement_calibrations[label],
                 )
                 trajectory_report[label] = metrics
@@ -1650,9 +2000,7 @@ def benchmark_predictive_ensemble(
             "members": member_records,
         }
         manifest_path = fold_dir / "ensemble.json"
-        manifest_path.write_text(
-            json.dumps(manifest, indent=2, allow_nan=False) + "\n"
-        )
+        manifest_path.write_text(json.dumps(manifest, indent=2, allow_nan=False) + "\n")
         folds[str(outer_value)] = {
             "outer_value": outer_value,
             "calibration_axis": calibration_axis,
@@ -1707,11 +2055,10 @@ def benchmark_predictive_ensemble(
                 "versioned promotion thresholds require a subsequently untouched "
                 "corpus, airframe, or configuration"
             ),
+            "candidate_gate": predictive_uncertainty_candidate_gate(aggregate),
         },
     }
-    summary_path.write_text(
-        json.dumps(summary, indent=2, allow_nan=False) + "\n"
-    )
+    summary_path.write_text(json.dumps(summary, indent=2, allow_nan=False) + "\n")
     return summary
 
 
