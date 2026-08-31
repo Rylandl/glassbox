@@ -11,6 +11,7 @@ structures that were not fitted.
 from __future__ import annotations
 
 import argparse
+import concurrent.futures
 import hashlib
 import importlib.metadata
 import json
@@ -36,6 +37,7 @@ from glassbox.runtime import runtime_spec_from_fit_report
 
 DEFAULT_COVERAGE_LEVELS = (0.5, 0.8, 0.9)
 DEFAULT_ENSEMBLE_MEMBER_COUNT = 8
+DEFAULT_ENSEMBLE_FIT_WORKERS = 2
 PREDICTIVE_ENSEMBLE_FORMAT_VERSION = 5
 PREDICTIVE_ENSEMBLE_METHOD = "balanced_group_calibrated_bootstrap_v5"
 DISAGREEMENT_CALIBRATION_METHOD = "source_group_split_scale_and_baseline_v2"
@@ -1682,6 +1684,10 @@ def benchmark_predictive_ensemble(
                 else "explicit_test_or_research_override"
             ),
             "member_count_override": member_count,
+            "member_fit_execution": {
+                "policy": "automatic_threaded_max_2",
+                "maximum_workers": DEFAULT_ENSEMBLE_FIT_WORKERS,
+            },
             "bootstrap_seed": bootstrap_seed,
             "bootstrap_stratification": ("profile" if group_profiles else "none"),
             "bootstrap_estimator": (
@@ -1796,18 +1802,31 @@ def benchmark_predictive_ensemble(
         fold_prefix = f"fold_{fold_index:02d}_{_safe_name(outer_value)}"
         fold_dir = destination / fold_prefix
         fold_dir.mkdir(parents=True, exist_ok=True)
-        members = []
-        member_records = []
-        for member_index, counts in enumerate(multiplicities, start=1):
+        fit_paths = [
+            *(paths[index] for index in training_indices),
+            *(paths[index] for index in calibration_indices),
+        ]
+
+        def fit_member(
+            member_job: tuple[int, Mapping[str | int, int]],
+            training_groups: tuple[str | int, ...] = training_groups,
+            strata: Mapping[str | int, str | int] | None = strata,
+            fold_dir: Path = fold_dir,
+            outer_value: str | int = outer_value,
+            calibration_axis: str = calibration_axis,
+            calibration_value: str = calibration_value,
+            normalization_group_weights: Mapping[
+                str | int, float
+            ] = normalization_group_weights,
+            fit_paths: Sequence[Path] = fit_paths,
+            calibration_groups: tuple[str | int, ...] = calibration_groups,
+        ) -> tuple[ModelParams, dict[str, Any]]:
+            member_index, counts = member_job
             loss_group_weights = _group_objective_weights(
                 training_groups,
                 multiplicities=counts,
                 strata=strata,
             )
-            fit_paths = [
-                *(paths[index] for index in training_indices),
-                *(paths[index] for index in calibration_indices),
-            ]
             member_id = f"member_{member_index:02d}"
             model_path = fold_dir / f"{member_id}_model.json"
             report_path = fold_dir / f"{member_id}_report.json"
@@ -1894,26 +1913,32 @@ def benchmark_predictive_ensemble(
                 )
                 + "\n"
             )
-            members.append(params)
-            member_records.append(
-                {
-                    "member_id": member_id,
-                    "model": str(model_path),
-                    "report": str(report_path),
-                    "training_source_group_multiplicities": {
-                        str(group): count for group, count in counts.items()
-                    },
-                    "training_source_group_loss_weights": {
-                        str(group): loss_group_weights[group]
-                        for group in training_groups
-                    },
-                    "model_artifact": model_artifact,
-                    "fit_report_artifact": fit_report_artifact,
-                }
-            )
+            return params, {
+                "member_id": member_id,
+                "model": str(model_path),
+                "report": str(report_path),
+                "training_source_group_multiplicities": {
+                    str(group): count for group, count in counts.items()
+                },
+                "training_source_group_loss_weights": {
+                    str(group): loss_group_weights[group] for group in training_groups
+                },
+                "model_artifact": model_artifact,
+                "fit_report_artifact": fit_report_artifact,
+            }
+
+        member_jobs = tuple(enumerate(multiplicities, start=1))
+        fit_worker_count = min(DEFAULT_ENSEMBLE_FIT_WORKERS, len(member_jobs))
+        with concurrent.futures.ThreadPoolExecutor(
+            max_workers=fit_worker_count,
+            thread_name_prefix="glassbox-ensemble-fit",
+        ) as executor:
+            member_results = tuple(executor.map(fit_member, member_jobs))
+        members = tuple(result[0] for result in member_results)
+        member_records = tuple(result[1] for result in member_results)
 
         ensemble = PredictiveEnsemble(
-            members=tuple(members),
+            members=members,
             member_ids=tuple(record["member_id"] for record in member_records),
         )
         calibration_trajectories = [
@@ -1992,6 +2017,10 @@ def benchmark_predictive_ensemble(
                     for group in training_groups
                 },
             },
+            "member_fit_execution": {
+                "policy": "automatic_threaded_max_2",
+                "worker_count": fit_worker_count,
+            },
             "member_count": selected_member_count,
             "unique_resample_count": unique_resample_count,
             "unique_parameter_member_count": ensemble.unique_member_count,
@@ -2009,6 +2038,7 @@ def benchmark_predictive_ensemble(
             "calibration_source_groups": list(calibration_groups),
             "training_source_groups": list(training_groups),
             "member_count": selected_member_count,
+            "member_fit_worker_count": fit_worker_count,
             "unique_resample_count": unique_resample_count,
             "unique_parameter_member_count": ensemble.unique_member_count,
             "ensemble": str(manifest_path),

@@ -47,6 +47,10 @@ For each outer fold, Glassbox:
 The normal command chooses four to eight members from the number of available
 training groups. The Python function accepts an explicit member count for tests
 and research audits, but the CLI intentionally does not expose that knob.
+Member fits use a bounded two-worker thread pool. This is an execution policy,
+not an estimator option: result ordering, group draws, objectives, and artifact
+fingerprints are unchanged, and every completed member remains independently
+resumable.
 
 Runs are resumable. The request records input hashes, method/artifact version,
 source-tree digest, Git revision and tracked-worktree state, Python/JAX/NumPy

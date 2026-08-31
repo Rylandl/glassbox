@@ -39,7 +39,9 @@ without removing a maneuver family from fitting. Typed conditions and replicates
 are balanced automatically when present. Bootstrap draws are stratified by
 profile when possible, and the normal interface chooses four to eight members
 rather than exposing resampling or calibration knobs. Structured-residual
-dynamics are the evidence-backed default.
+dynamics are the evidence-backed default. Two member fits execute concurrently
+to keep large-corpus runs tractable without changing their deterministic draws
+or exposing a performance knob.
 
 Reports contain endpoint ensemble-center error, empirical 50/80/90% disagreement
 coverage, interval radius, multivariate energy score, disagreement/error rank

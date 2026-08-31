@@ -488,6 +488,10 @@ def test_nested_ensemble_benchmark_keeps_outer_profiles_out_of_every_member(
         assert payload["shared_fit_statistics"]["policy"] == (
             "complete_member_fit_partition_v1"
         )
+        assert payload["member_fit_execution"] == {
+            "policy": "automatic_threaded_max_2",
+            "worker_count": 2,
+        }
         assert len(payload["disagreement_calibration_artifact"]["sha256"]) == 64
         calibration = json.loads(Path(fold["disagreement_calibration"]).read_text())
         assert set(
