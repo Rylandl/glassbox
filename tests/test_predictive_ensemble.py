@@ -13,6 +13,7 @@ from glassbox.predictive_ensemble import (
     PredictiveEnsemble,
     aggregate_predictive_ensemble_metrics,
     benchmark_predictive_ensemble,
+    fit_grouped_disagreement_calibration,
     grouped_bootstrap_multiplicities,
     predictive_ensemble_metrics,
 )
@@ -152,7 +153,7 @@ def test_ensemble_rejects_source_groups_with_colliding_json_keys(
     tmp_path,
 ) -> None:
     paths = []
-    for seed, source_group in enumerate((1, "1", 2)):
+    for seed, source_group in enumerate((1, "1", 2, 3)):
         trajectory = generate_trajectory(seed=seed, duration_s=0.2)
         trajectory = replace(
             trajectory,
@@ -255,6 +256,53 @@ def test_predictive_metrics_reject_every_component_of_a_nonfinite_member(
     )
 
 
+def test_grouped_scale_calibration_respects_independent_group_resolution() -> None:
+    trajectories = []
+    for seed in range(2):
+        trajectory = generate_trajectory(seed=seed, duration_s=0.2)
+        trajectories.append(
+            replace(
+                trajectory,
+                labels={
+                    **trajectory.labels,
+                    "source_group": f"calibration-{seed}",
+                },
+            )
+        )
+    ensemble = PredictiveEnsemble(
+        members=(true_parameters(), initial_parameter_guess()),
+        member_ids=("first", "second"),
+    )
+
+    calibration = fit_grouped_disagreement_calibration(
+        ensemble,
+        trajectories,
+        horizon_steps=2,
+    )
+
+    assert calibration["calibration_source_group_count"] == 2
+    assert calibration["groups"]["position"]["0.5"]["status"] == "available"
+    assert calibration["groups"]["position"]["0.5"]["scale"] is not None
+    for level in ("0.8", "0.9"):
+        setting = calibration["groups"]["position"][level]
+        assert setting["status"] == "unavailable"
+        assert setting["reason"] == "insufficient_independent_calibration_groups"
+
+    report = predictive_ensemble_metrics(
+        ensemble,
+        trajectories[0],
+        horizon_steps=2,
+        disagreement_calibration=calibration,
+    )
+    assert report["groups"]["position"]["scaled_calibration"]["0.5"][
+        "status"
+    ] == "available"
+    assert report["groups"]["position"]["scaled_calibration"]["0.9"][
+        "status"
+    ] == "unavailable"
+    assert report["uncertainty_semantics"]["posterior"] is False
+
+
 def test_aggregate_predictive_metrics_uses_equal_item_weighting(monkeypatch) -> None:
     trajectory = generate_trajectory(seed=0, duration_s=0.1)
     ensemble = PredictiveEnsemble(
@@ -305,10 +353,12 @@ def test_nested_ensemble_benchmark_keeps_outer_profiles_out_of_every_member(
         evaluation_horizons_s=(0.1,),
         steps=1,
         member_count=2,
+        model_class="structured",
     )
 
     assert summary["outer_axis"] == "profile"
     assert summary["outer_fold_count"] == 3
+    assert summary["evaluation"] == "nested_group_calibrated_predictive_ensemble"
     assert summary["promotion"]["status"] == "diagnostic_only"
     assert summary["uncertainty_semantics"]["posterior"] is False
     assert len(summary["implementation"]["source_tree_sha256"]) == 64
@@ -320,9 +370,25 @@ def test_nested_ensemble_benchmark_keeps_outer_profiles_out_of_every_member(
         assert set(fold["validation_source_groups"]).isdisjoint(
             fold["training_source_groups"]
         )
+        assert set(fold["calibration_source_groups"]).isdisjoint(
+            fold["training_source_groups"]
+        )
+        assert set(fold["calibration_source_groups"]).isdisjoint(
+            fold["validation_source_groups"]
+        )
         manifest = Path(fold["ensemble"])
         assert manifest.exists()
         payload = json.loads(manifest.read_text())
+        assert payload["shared_fit_statistics"]["policy"] == (
+            "complete_member_fit_partition_v1"
+        )
+        assert len(payload["disagreement_calibration_artifact"]["sha256"]) == 64
+        calibration = json.loads(Path(fold["disagreement_calibration"]).read_text())
+        assert set(
+            calibration["horizon_rollouts"]["0.1s"][
+                "calibration_source_groups"
+            ]
+        ) == set(fold["calibration_source_groups"])
         observed_distinct_resample |= payload["unique_resample_count"] > 1
         reports = []
         for member in payload["members"]:
@@ -339,6 +405,12 @@ def test_nested_ensemble_benchmark_keeps_outer_profiles_out_of_every_member(
             assert len(member["model_artifact"]["sha256"]) == 64
             assert len(member["fit_report_artifact"]["sha256"]) == 64
             report = json.loads(Path(member["report"]).read_text())
+            assert set(report["split"]["training_source_groups"]) == set(
+                fold["training_source_groups"]
+            )
+            assert set(report["split"]["validation_source_groups"]) == set(
+                fold["calibration_source_groups"]
+            )
             for horizon_counts in report["configuration"][
                 "candidate_training_windows_per_flight_by_horizon"
             ].values():
@@ -386,6 +458,7 @@ def test_nested_ensemble_benchmark_keeps_outer_profiles_out_of_every_member(
         evaluation_horizons_s=(0.1,),
         steps=1,
         member_count=2,
+        model_class="structured",
     )
     assert resumed == summary
 
@@ -402,4 +475,5 @@ def test_nested_ensemble_benchmark_keeps_outer_profiles_out_of_every_member(
             evaluation_horizons_s=(0.1,),
             steps=1,
             member_count=2,
+            model_class="structured",
         )

@@ -7,37 +7,40 @@ library adopts a probabilistic runtime contract:
 > When independent training groups change, does model disagreement predict
 > held-out rollout error?
 
-It does not estimate a Bayesian posterior. A saved manifest therefore uses
-`artifact_type: empirical_predictive_ensemble`,
-`method: group_bootstrap_shared_statistics_v2`, and `posterior: false`.
+It does not estimate a Bayesian posterior. A current manifest therefore uses
+`artifact_type: empirical_calibrated_predictive_ensemble`,
+`method: nested_group_calibrated_bootstrap_v3`, and `posterior: false`.
 
 ## Evaluation contract
 
 For each outer fold, Glassbox:
 
-1. Holds out an entire maneuver profile when at least two profiles are present;
-   otherwise it holds out one complete source group.
-2. Removes every trajectory belonging to that outer fold before constructing
-   any ensemble member.
-3. Resamples the remaining source groups with replacement. When profile labels
+1. Holds out an entire maneuver profile for outer evaluation when typed profiles
+   are present; otherwise it holds out one complete source group.
+2. Reserves a separate complete profile for disagreement calibration when the
+   corpus has at least three profiles. Smaller-profile corpora reserve one source
+   group instead. Fitting, calibration, and outer-evaluation groups are disjoint.
+3. Removes every calibration and outer-evaluation trajectory before deriving
+   fit statistics or constructing any ensemble member.
+4. Resamples the fitting source groups with replacement. When profile labels
    are available, resampling occurs independently within each training profile
    so every member retains the original profile draw count.
-4. Represents repeated draws as source-group loss weights. A group omitted by a
+5. Represents repeated draws as source-group loss weights. A group omitted by a
    draw contributes no member-fitting windows, but remains available to the
-   separate shared-statistics stage; files and correlated trajectory segments are
-   never duplicated or split. Every window reaching an optimizer therefore has
-   positive weight.
-5. Derives state-error scales, the stability envelope, multi-horizon initial-loss
+   separate shared-statistics stage. Files and correlated trajectory segments
+   are never duplicated or split. Every optimizer window has positive weight.
+6. Derives state-error scales, the stability envelope, multi-horizon initial-loss
    normalizers, and residual feature/correction normalization once from the full
-   outer-training fold. Every member therefore uses the same objective coordinate
+   fitting partition. Every member therefore uses the same objective coordinate
    system; bootstrap multiplicity changes only empirical loss and window allocation.
-6. Gives each training profile equal total empirical-loss mass, then distributes
+7. Gives each fitting profile equal total empirical-loss mass, then distributes
    that mass according to bootstrap multiplicity among the profile's source
    groups. Unequal numbers of groups per profile cannot silently change the base
    estimator.
-7. Fits every member with the existing deterministic model, initialization,
+8. Fits every member with the existing deterministic model, initialization,
    bounds, multi-horizon loss, and automatic window budget.
-8. Evaluates ensemble predictions only on the untouched outer trajectories.
+9. Fits disagreement-radius scales only on the calibration partition, then
+   evaluates raw and scaled radii once on the untouched outer trajectories.
 
 The normal command chooses four to eight members from the number of available
 training groups. The Python function accepts an explicit member count for tests
@@ -81,6 +84,16 @@ promotion metric at this resolution. A later interval claim requires either a
 substantially larger offline ensemble or a separately learned calibration factor
 evaluated on subsequently untouched groups.
 
+The current scale stage uses source groups as its finite-sample unit. For each
+state group, horizon, and requested coverage, it finds the multiplier required
+to attain that coverage within each complete calibration group. It then selects
+the corrected rank `ceil((group_count + 1) * coverage)` across groups. A level is
+reported as unavailable when that rank exceeds the number of independent groups;
+Glassbox never substitutes the much larger number of correlated rollout windows.
+For example, 90% calibration requires at least nine independent calibration
+groups. The scaled sets remain empirical diagnostics rather than a calibrated
+probability distribution.
+
 Endpoint finite-member fraction describes usable forecasts at the requested
 horizon. Full-path finite-member fraction and the fraction of members finite on
 every evaluated path separately expose trajectories that diverged before
@@ -92,8 +105,9 @@ guarantee for future flights.
 
 ## What is and is not represented
 
-The ensemble currently measures sensitivity to finite training groups and their
-effective fitted parameters. It does not represent:
+The ensemble currently measures sensitivity to finite fitting groups and their
+effective fitted parameters. The scale stage measures how that disagreement
+related to error on a separate calibration partition. Neither represents:
 
 - pose, velocity, or rate uncertainty in the initial state;
 - wind, turbulence, actuator variability, or sensor noise;
@@ -131,7 +145,7 @@ to a 20 ms deadline.
 
 ## First development result
 
-The first complete run used the 24-flight, four-profile PX4 SIH ground-truth
+The first complete v2 run used the 24-flight, four-profile PX4 SIH ground-truth
 corpus: six independent source groups each for combined, lateral, vertical, and
 yaw maneuvers. Each leave-one-profile-out fold fitted eight unique members at
 0.1, 0.5, and 2 seconds, producing 32 models for each of the structured and
@@ -163,7 +177,7 @@ not rollout-local validity. A new corpus must test that relationship directly.
 
 Inspection converted this corpus into development evidence. The next promotion
 attempt must use a new airframe, configuration, or untouched corpus and should
-evaluate either a larger residual ensemble or a calibration factor learned
-without touching that final evidence. Exact metrics, implementation fingerprints,
+evaluate the v3 independent calibration stage without touching that final
+evidence. Exact v2 metrics, implementation fingerprints,
 artifact hashes, and the evidence decision are recorded in
 [`predictive-ensemble-results.json`](predictive-ensemble-results.json).

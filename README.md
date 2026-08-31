@@ -32,9 +32,12 @@ uv run glassbox-ensemble-benchmark artifacts/sitl/canonical/*.npz \
 ```
 
 The outer axis is selected automatically: maneuver profile when the corpus has
-multiple typed profiles, otherwise source group. Bootstrap draws are stratified
-by profile when possible, and the normal interface automatically chooses four
-to eight members rather than exposing resampling and calibration knobs.
+multiple typed profiles, otherwise source group. Each fold also reserves a
+separate complete profile or source group for scale calibration, so fitting,
+calibration, and evaluation evidence remain disjoint. Bootstrap draws are
+stratified by profile when possible, and the normal interface automatically
+chooses four to eight members rather than exposing resampling or calibration
+knobs. Structured-residual dynamics are the evidence-backed default.
 
 Reports contain endpoint ensemble-center error, empirical 50/80/90% disagreement
 coverage, interval radius, multivariate energy score, disagreement/error rank
@@ -49,6 +52,9 @@ multiplicity affects only empirical loss.
 Artifacts explicitly record `posterior: false`: this first stage measures
 epistemic sensitivity to the available groups and does not claim to contain
 process noise, observation noise, or model forms that were never fitted.
+Requested coverage is scaled only from the independent calibration partition.
+Levels unsupported by its number of source groups are reported as unavailable
+rather than estimated from correlated rollout windows.
 
 See [the predictive-ensemble guide](docs/predictive-ensembles.md) for the split
 contract, metric interpretation, and promotion boundary. The workflow remains

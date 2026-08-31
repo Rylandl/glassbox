@@ -2,9 +2,10 @@
 
 This module deliberately describes an empirical ensemble, not a Bayesian
 posterior. Members differ because complete, independent source groups are
-resampled. The resulting spread measures sensitivity to the available corpus;
-it does not include process noise, observation noise, or model structures that
-were not fitted.
+resampled. A separate group partition scales their disagreement before an outer
+partition is evaluated. The result measures corpus sensitivity and empirical
+scale transfer; it does not include process noise, observation noise, or model
+structures that were not fitted.
 """
 
 from __future__ import annotations
@@ -13,6 +14,7 @@ import argparse
 import hashlib
 import importlib.metadata
 import json
+import math
 import platform
 import re
 import subprocess
@@ -34,8 +36,9 @@ from glassbox.runtime import runtime_spec_from_fit_report
 
 DEFAULT_COVERAGE_LEVELS = (0.5, 0.8, 0.9)
 DEFAULT_ENSEMBLE_MEMBER_COUNT = 8
-PREDICTIVE_ENSEMBLE_FORMAT_VERSION = 2
-PREDICTIVE_ENSEMBLE_METHOD = "group_bootstrap_shared_statistics_v2"
+PREDICTIVE_ENSEMBLE_FORMAT_VERSION = 3
+PREDICTIVE_ENSEMBLE_METHOD = "nested_group_calibrated_bootstrap_v3"
+DISAGREEMENT_CALIBRATION_METHOD = "source_group_split_scale_v1"
 PREDICTIVE_GROUPS = (
     ("position", "m", slice(0, 3)),
     ("velocity", "m/s", slice(3, 6)),
@@ -323,15 +326,16 @@ def _energy_score(
     return float(np.mean(scores)) if scores else None
 
 
-def predictive_ensemble_metrics(
+def _predictive_ensemble_result(
     ensemble: PredictiveEnsemble,
     trajectory: Trajectory,
     *,
     horizon_steps: int,
     stride_steps: int | None = None,
     coverage_levels: Sequence[float] = DEFAULT_COVERAGE_LEVELS,
-) -> dict[str, Any]:
-    """Evaluate uncalibrated ensemble disagreement on fixed-horizon rollouts."""
+    disagreement_calibration: Mapping[str, Any] | None = None,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Evaluate one trajectory and retain private scale-fitting samples."""
 
     levels = tuple(dict.fromkeys(float(level) for level in coverage_levels))
     if not levels or any(level <= 0.0 or level >= 1.0 for level in levels):
@@ -377,6 +381,7 @@ def predictive_ensemble_metrics(
     )
 
     groups: dict[str, Any] = {}
+    calibration_samples: dict[str, Any] = {}
     for group_name, unit, state_slice in PREDICTIVE_GROUPS:
         member_coordinates = _group_coordinates(
             predictions, centers, group_name, state_slice
@@ -395,6 +400,8 @@ def predictive_ensemble_metrics(
             np.isfinite(member_radius), axis=0
         )
         calibration = {}
+        scaled_calibration = {}
+        group_samples = {}
         for level in levels:
             radius = _column_quantile(member_radius, level)
             valid = valid_target & np.isfinite(radius)
@@ -431,6 +438,58 @@ def predictive_ensemble_metrics(
                     attained_mass[valid], 1.0
                 ),
             }
+            group_samples[f"{level:g}"] = {
+                "target_error": target_error,
+                "member_radius": radius,
+                "valid": valid,
+            }
+            if disagreement_calibration is not None:
+                setting = disagreement_calibration["groups"][group_name][
+                    f"{level:g}"
+                ]
+                scale = setting["scale"]
+                if scale is None:
+                    scaled_calibration[f"{level:g}"] = {
+                        "nominal_coverage": level,
+                        "status": "unavailable",
+                        "reason": setting["reason"],
+                        "scale": None,
+                        "empirical_coverage": None,
+                        "coverage_error": None,
+                        "mean_radius": None,
+                        "p90_radius": None,
+                    }
+                else:
+                    scaled_radius = radius * float(scale)
+                    scaled_valid = valid & np.isfinite(scaled_radius)
+                    empirical_coverage = (
+                        float(
+                            np.mean(
+                                target_error[scaled_valid]
+                                <= scaled_radius[scaled_valid]
+                            )
+                        )
+                        if np.any(scaled_valid)
+                        else None
+                    )
+                    scaled_calibration[f"{level:g}"] = {
+                        "nominal_coverage": level,
+                        "status": "available",
+                        "reason": None,
+                        "scale": float(scale),
+                        "empirical_coverage": empirical_coverage,
+                        "coverage_error": (
+                            None
+                            if empirical_coverage is None
+                            else empirical_coverage - level
+                        ),
+                        "mean_radius": _finite_mean(
+                            scaled_radius[scaled_valid]
+                        ),
+                        "p90_radius": _finite_quantile(
+                            scaled_radius[scaled_valid], 0.9
+                        ),
+                    }
         groups[group_name] = {
             "unit": unit,
             "center_vector_rmse": _finite_rms(target_error),
@@ -442,15 +501,22 @@ def predictive_ensemble_metrics(
             "energy_score": _energy_score(member_coordinates, target_coordinates),
             "calibration": calibration,
         }
+        if disagreement_calibration is not None:
+            groups[group_name]["scaled_calibration"] = scaled_calibration
+        calibration_samples[group_name] = group_samples
 
-    return {
-        "policy": "group_bootstrap_predictive_disagreement_v2",
+    report = {
+        "policy": "group_bootstrap_predictive_disagreement_v3",
         "uncertainty_semantics": {
             "kind": "empirical_epistemic_sensitivity",
             "posterior": False,
             "calibrated_distribution": False,
             "interval_claim": False,
-            "coverage_role": "coarse_disagreement_diagnostic",
+            "coverage_role": (
+                "independently_scaled_group_diagnostic"
+                if disagreement_calibration is not None
+                else "coarse_disagreement_diagnostic"
+            ),
             "includes_parameter_resampling": True,
             "includes_process_noise": False,
             "includes_observation_noise": False,
@@ -477,6 +543,176 @@ def predictive_ensemble_metrics(
         ),
         "maximum_finite_members_per_prediction": int(np.max(finite_counts)),
         "groups": groups,
+    }
+    if disagreement_calibration is not None:
+        report["disagreement_calibration"] = {
+            "method": disagreement_calibration["method"],
+            "calibration_source_group_count": disagreement_calibration[
+                "calibration_source_group_count"
+            ],
+            "independent_from_evaluation": True,
+        }
+    return report, calibration_samples
+
+
+def predictive_ensemble_metrics(
+    ensemble: PredictiveEnsemble,
+    trajectory: Trajectory,
+    *,
+    horizon_steps: int,
+    stride_steps: int | None = None,
+    coverage_levels: Sequence[float] = DEFAULT_COVERAGE_LEVELS,
+    disagreement_calibration: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Evaluate ensemble disagreement on fixed-horizon rollouts."""
+
+    report, _ = _predictive_ensemble_result(
+        ensemble,
+        trajectory,
+        horizon_steps=horizon_steps,
+        stride_steps=stride_steps,
+        coverage_levels=coverage_levels,
+        disagreement_calibration=disagreement_calibration,
+    )
+    return report
+
+
+def fit_grouped_disagreement_calibration(
+    ensemble: PredictiveEnsemble,
+    trajectories: Sequence[Trajectory],
+    *,
+    horizon_steps: int,
+    coverage_levels: Sequence[float] = DEFAULT_COVERAGE_LEVELS,
+) -> dict[str, Any]:
+    """Fit source-group split scales on data excluded from every member fit.
+
+    Each source group first contributes the multiplier required to attain the
+    requested endpoint coverage within that complete group. The selected scale
+    is then the finite-sample corrected quantile across independent groups. A
+    level is unavailable when the calibration partition has too few groups.
+    """
+
+    if not trajectories:
+        raise ValueError("calibration requires at least one trajectory")
+    levels = tuple(dict.fromkeys(float(level) for level in coverage_levels))
+    if not levels or any(level <= 0.0 or level >= 1.0 for level in levels):
+        raise ValueError("coverage levels must be strictly between zero and one")
+    source_groups = [trajectory.labels.get("source_group") for trajectory in trajectories]
+    if any(
+        not isinstance(group, (str, int))
+        or (isinstance(group, str) and not group.strip())
+        for group in source_groups
+    ):
+        raise ValueError(
+            "calibration requires a non-empty source_group on every trajectory"
+        )
+    ordered_groups = tuple(dict.fromkeys(source_groups))
+    if len({str(group) for group in ordered_groups}) != len(ordered_groups):
+        raise ValueError(
+            "calibration source_group labels need unique string representations"
+        )
+
+    samples_by_group: dict[str | int, dict[str, dict[str, list[np.ndarray]]]] = {
+        group: {
+            group_name: {f"{level:g}": [] for level in levels}
+            for group_name, _, _ in PREDICTIVE_GROUPS
+        }
+        for group in ordered_groups
+    }
+    endpoint_counts = {group: 0 for group in ordered_groups}
+    for trajectory, source_group in zip(trajectories, source_groups):
+        assert isinstance(source_group, (str, int))
+        _, samples = _predictive_ensemble_result(
+            ensemble,
+            trajectory,
+            horizon_steps=horizon_steps,
+            coverage_levels=levels,
+        )
+        for group_name, _, _ in PREDICTIVE_GROUPS:
+            for level in levels:
+                item = samples[group_name][f"{level:g}"]
+                valid = item["valid"]
+                target_error = item["target_error"][valid]
+                member_radius = item["member_radius"][valid]
+                ratio = np.full(len(target_error), np.inf, dtype=np.float64)
+                positive = member_radius > 0.0
+                ratio[positive] = target_error[positive] / member_radius[positive]
+                ratio[(member_radius == 0.0) & (target_error == 0.0)] = 0.0
+                samples_by_group[source_group][group_name][f"{level:g}"].append(
+                    ratio
+                )
+                if group_name == PREDICTIVE_GROUPS[0][0] and level == levels[0]:
+                    endpoint_counts[source_group] += len(ratio)
+
+    group_count = len(ordered_groups)
+    calibrated_groups: dict[str, Any] = {}
+    for group_name, unit, _ in PREDICTIVE_GROUPS:
+        calibrated_levels = {}
+        for level in levels:
+            label = f"{level:g}"
+            group_scores: dict[str, float | None] = {}
+            sortable_scores = []
+            for source_group in ordered_groups:
+                parts = samples_by_group[source_group][group_name][label]
+                ratios = np.concatenate(parts) if parts else np.empty(0)
+                score = (
+                    float(np.quantile(ratios, level, method="higher"))
+                    if len(ratios)
+                    else math.inf
+                )
+                group_scores[str(source_group)] = (
+                    score if np.isfinite(score) else None
+                )
+                sortable_scores.append(score)
+            conformal_rank = math.ceil((group_count + 1) * level)
+            minimum_group_count = math.ceil(
+                level / (1.0 - level) - 1e-12
+            )
+            if conformal_rank > group_count:
+                scale = None
+                reason = "insufficient_independent_calibration_groups"
+            else:
+                selected = sorted(sortable_scores)[conformal_rank - 1]
+                if np.isfinite(selected):
+                    scale = float(selected)
+                    reason = None
+                else:
+                    scale = None
+                    reason = "nonfinite_required_scale"
+            calibrated_levels[label] = {
+                "nominal_coverage": level,
+                "scale": scale,
+                "status": "available" if scale is not None else "unavailable",
+                "reason": reason,
+                "conformal_group_rank": conformal_rank,
+                "minimum_calibration_group_count": minimum_group_count,
+                "calibration_source_group_count": group_count,
+                "source_group_required_scales": group_scores,
+            }
+        calibrated_groups[group_name] = {
+            "unit": unit,
+            **calibrated_levels,
+        }
+
+    return {
+        "format_version": PREDICTIVE_ENSEMBLE_FORMAT_VERSION,
+        "method": DISAGREEMENT_CALIBRATION_METHOD,
+        "independence_unit": "source_group",
+        "endpoint_sampling": "nonoverlapping_fixed_horizon_rollouts",
+        "group_score": "higher_quantile_required_member_radius_multiplier",
+        "finite_sample_correction": "ceil((group_count + 1) * coverage)",
+        "calibration_source_groups": [str(group) for group in ordered_groups],
+        "calibration_source_group_count": group_count,
+        "endpoint_count_by_source_group": {
+            str(group): endpoint_counts[group] for group in ordered_groups
+        },
+        "groups": calibrated_groups,
+        "uncertainty_semantics": {
+            "posterior": False,
+            "calibrated_distribution": False,
+            "interval_claim": False,
+            "coverage_role": "independently_scaled_group_diagnostic",
+        },
     }
 
 
@@ -549,7 +785,7 @@ def aggregate_predictive_ensemble_metrics(
             for item in items
             if item["error_disagreement_spearman"] is not None
         ]
-        groups[group_name] = {
+        group_report = {
             "unit": items[0]["unit"],
             "center_vector_rmse": _finite_rms(
                 [item["center_vector_rmse"] for item in items]
@@ -625,6 +861,63 @@ def aggregate_predictive_ensemble_metrics(
                 for level in levels
             },
         }
+        if all("scaled_calibration" in item for item in items):
+            scaled = {}
+            for level in levels:
+                level_items = [item["scaled_calibration"][level] for item in items]
+                available = [
+                    item for item in level_items if item["status"] == "available"
+                ]
+                available_fraction = len(available) / len(level_items)
+                scaled[level] = {
+                    "nominal_coverage": float(
+                        level_items[0]["nominal_coverage"]
+                    ),
+                    "status": (
+                        "available"
+                        if available_fraction == 1.0
+                        else (
+                            "unavailable"
+                            if available_fraction == 0.0
+                            else "partially_available"
+                        )
+                    ),
+                    "available_item_fraction": available_fraction,
+                    "reasons": sorted(
+                        {
+                            reason
+                            for item in level_items
+                            for reason in (
+                                [str(item["reason"])]
+                                if item.get("reason") is not None
+                                else [
+                                    str(value)
+                                    for value in item.get("reasons", [])
+                                ]
+                            )
+                        }
+                    ),
+                    "mean_scale": _finite_mean(
+                        [
+                            item.get("scale", item.get("mean_scale"))
+                            for item in available
+                        ]
+                    ),
+                    "empirical_coverage": _finite_mean(
+                        [item["empirical_coverage"] for item in available]
+                    ),
+                    "coverage_error": _finite_mean(
+                        [item["coverage_error"] for item in available]
+                    ),
+                    "mean_radius": _finite_mean(
+                        [item["mean_radius"] for item in available]
+                    ),
+                    "p90_radius": _finite_mean(
+                        [item["p90_radius"] for item in available]
+                    ),
+                }
+            group_report["scaled_calibration"] = scaled
+        groups[group_name] = group_report
     return {
         "weighting": "equal_item",
         "item_count": len(reports),
@@ -719,6 +1012,10 @@ def _summary_artifacts_valid(summary: Mapping[str, Any]) -> bool:
                 manifest.get("format_version")
                 != PREDICTIVE_ENSEMBLE_FORMAT_VERSION
                 or manifest.get("method") != PREDICTIVE_ENSEMBLE_METHOD
+            ):
+                return False
+            if not _artifact_record_matches(
+                manifest["disagreement_calibration_artifact"]
             ):
                 return False
             for member in manifest["members"]:
@@ -854,15 +1151,15 @@ def benchmark_predictive_ensemble(
     evaluation_horizons_s: tuple[float, ...] = (0.1, 0.5, 1.0, 2.0),
     steps: int = 400,
     learning_rate: float = 0.02,
-    model_class: str = "structured",
+    model_class: str = "structured_residual",
     member_count: int | None = None,
     bootstrap_seed: int = 0,
 ) -> dict[str, Any]:
-    """Run nested outer holdouts with training-only grouped bootstraps."""
+    """Run nested fit, calibration, and outer-evaluation partitions."""
 
     paths = [Path(path).resolve() for path in trajectory_paths]
-    if len(paths) < 3:
-        raise ValueError("predictive ensemble benchmark requires three trajectories")
+    if len(paths) < 4:
+        raise ValueError("predictive ensemble benchmark requires four trajectories")
     trajectories = [load_trajectory_npz(path) for path in paths]
     reference_spec = trajectories[0].spec
     if any(trajectory.spec != reference_spec for trajectory in trajectories[1:]):
@@ -883,9 +1180,9 @@ def benchmark_predictive_ensemble(
             "source_group labels must be non-empty strings or integers"
         )
     groups = tuple(dict.fromkeys(group_by_trajectory))
-    if len(groups) < 3:
+    if len(groups) < 4:
         raise ValueError(
-            "predictive ensemble benchmark requires three independent source groups"
+            "predictive ensemble benchmark requires four independent source groups"
         )
     if len({str(group) for group in groups}) != len(groups):
         raise ValueError(
@@ -924,7 +1221,7 @@ def benchmark_predictive_ensemble(
     destination.mkdir(parents=True, exist_ok=True)
     request = {
         "format_version": PREDICTIVE_ENSEMBLE_FORMAT_VERSION,
-        "evaluation": "nested_group_bootstrap_predictive_ensemble",
+        "evaluation": "nested_group_calibrated_predictive_ensemble",
         "implementation": _implementation_fingerprint(),
         "files": [_file_record(path) for path in paths],
         "outer_axis": outer_axis,
@@ -945,9 +1242,14 @@ def benchmark_predictive_ensemble(
                 "profile" if group_profiles else "none"
             ),
             "bootstrap_estimator": (
-                "shared_outer_training_statistics_with_profile_balanced_"
+                "shared_fit_partition_statistics_with_profile_balanced_"
                 "group_multiplicity_loss_v2"
             ),
+            "calibration_partition": (
+                "one_complete_profile_when_three_or_more_profiles_exist_"
+                "otherwise_one_complete_source_group"
+            ),
+            "calibration_method": DISAGREEMENT_CALIBRATION_METHOD,
             "coverage_levels": list(DEFAULT_COVERAGE_LEVELS),
         },
     }
@@ -977,15 +1279,47 @@ def benchmark_predictive_ensemble(
             )
             if (profile if outer_axis == "profile" else group) == outer_value
         ]
+        validation_groups = tuple(
+            dict.fromkeys(group_by_trajectory[index] for index in validation_indices)
+        )
+        if outer_axis == "profile" and len(outer_values) >= 3:
+            calibration_axis = "profile"
+            calibration_value = outer_values[fold_index % len(outer_values)]
+            calibration_indices = [
+                index
+                for index, profile in enumerate(profile_by_trajectory)
+                if profile == calibration_value
+            ]
+        else:
+            calibration_axis = "source_group"
+            calibration_candidates = tuple(
+                group for group in groups if group not in validation_groups
+            )
+            if len(calibration_candidates) < 3:
+                raise ValueError(
+                    f"outer {outer_axis} fold {outer_value!r} leaves too few "
+                    "groups for independent fitting and calibration"
+                )
+            calibration_value = calibration_candidates[
+                (fold_index - 1) % len(calibration_candidates)
+            ]
+            calibration_indices = [
+                index
+                for index, group in enumerate(group_by_trajectory)
+                if group == calibration_value
+            ]
+        calibration_groups = tuple(
+            dict.fromkeys(group_by_trajectory[index] for index in calibration_indices)
+        )
         training_groups = tuple(
             group
             for group in groups
-            if all(group_by_trajectory[index] != group for index in validation_indices)
+            if group not in validation_groups and group not in calibration_groups
         )
         if len(training_groups) < 2:
             raise ValueError(
                 f"outer {outer_axis} fold {outer_value!r} leaves fewer than two "
-                "training source groups"
+                "member-fitting source groups after calibration is reserved"
             )
         selected_member_count = (
             _automatic_member_count(len(training_groups))
@@ -1026,7 +1360,7 @@ def benchmark_predictive_ensemble(
             )
             fit_paths = [
                 *(paths[index] for index in training_indices),
-                *(paths[index] for index in validation_indices),
+                *(paths[index] for index in calibration_indices),
             ]
             member_id = f"member_{member_index:02d}"
             model_path = fold_dir / f"{member_id}_model.json"
@@ -1037,6 +1371,8 @@ def benchmark_predictive_ensemble(
                 "dataset_request_sha256": dataset_digest,
                 "outer_axis": outer_axis,
                 "outer_value": outer_value,
+                "calibration_axis": calibration_axis,
+                "calibration_value": calibration_value,
                 "member_index": member_index,
                 "training_source_group_multiplicities": {
                     str(group): count for group, count in counts.items()
@@ -1068,7 +1404,11 @@ def benchmark_predictive_ensemble(
                 params, _, report = fit_trajectory_artifacts(
                     fit_paths,
                     holdout_count=1,
-                    holdout_profiles=(outer_value,) if outer_axis == "profile" else None,
+                    holdout_profiles=(
+                        (calibration_value,)
+                        if calibration_axis == "profile"
+                        else None
+                    ),
                     training_horizons_s=training_horizons_s,
                     evaluation_horizons_s=evaluation_horizons_s,
                     steps=steps,
@@ -1090,6 +1430,8 @@ def benchmark_predictive_ensemble(
                         "ensemble_method": PREDICTIVE_ENSEMBLE_METHOD,
                         "outer_axis": outer_axis,
                         "outer_value": outer_value,
+                        "calibration_axis": calibration_axis,
+                        "calibration_value": calibration_value,
                         "member_index": member_index,
                         "fit_report": str(report_path),
                         "training_source_group_multiplicities": {
@@ -1137,6 +1479,36 @@ def benchmark_predictive_ensemble(
             members=tuple(members),
             member_ids=tuple(record["member_id"] for record in member_records),
         )
+        calibration_trajectories = [
+            trajectories[index] for index in calibration_indices
+        ]
+        disagreement_calibrations = {
+            f"{seconds:g}s": fit_grouped_disagreement_calibration(
+                ensemble,
+                calibration_trajectories,
+                horizon_steps=duration_to_steps(
+                    seconds, calibration_trajectories[0].nominal_dt_s
+                ),
+            )
+            for seconds in evaluation_horizons_s
+        }
+        calibration_path = fold_dir / "disagreement_calibration.json"
+        calibration_path.write_text(
+            json.dumps(
+                {
+                    "format_version": PREDICTIVE_ENSEMBLE_FORMAT_VERSION,
+                    "outer_axis": outer_axis,
+                    "outer_value": outer_value,
+                    "calibration_axis": calibration_axis,
+                    "calibration_value": calibration_value,
+                    "horizon_rollouts": disagreement_calibrations,
+                },
+                indent=2,
+                allow_nan=False,
+            )
+            + "\n"
+        )
+        calibration_artifact = _file_record(calibration_path)
         per_trajectory = {}
         trajectory_aggregate_inputs: dict[str, list[dict[str, Any]]] = {
             f"{seconds:g}s": [] for seconds in evaluation_horizons_s
@@ -1152,6 +1524,7 @@ def benchmark_predictive_ensemble(
                     horizon_steps=duration_to_steps(
                         seconds, trajectory.nominal_dt_s
                     ),
+                    disagreement_calibration=disagreement_calibrations[label],
                 )
                 trajectory_report[label] = metrics
                 trajectory_aggregate_inputs[label].append(metrics)
@@ -1169,14 +1542,16 @@ def benchmark_predictive_ensemble(
         )
         manifest = {
             "format_version": PREDICTIVE_ENSEMBLE_FORMAT_VERSION,
-            "artifact_type": "empirical_predictive_ensemble",
+            "artifact_type": "empirical_calibrated_predictive_ensemble",
             "method": PREDICTIVE_ENSEMBLE_METHOD,
             "posterior": False,
             "implementation": request["implementation"],
             "outer_axis": outer_axis,
             "outer_value": outer_value,
+            "calibration_axis": calibration_axis,
+            "calibration_value": calibration_value,
             "shared_fit_statistics": {
-                "policy": "complete_outer_training_fold_v1",
+                "policy": "complete_member_fit_partition_v1",
                 "normalization_source_group_weights": {
                     str(group): normalization_group_weights[group]
                     for group in training_groups
@@ -1185,6 +1560,8 @@ def benchmark_predictive_ensemble(
             "member_count": selected_member_count,
             "unique_resample_count": unique_resample_count,
             "unique_parameter_member_count": ensemble.unique_member_count,
+            "disagreement_calibration": str(calibration_path),
+            "disagreement_calibration_artifact": calibration_artifact,
             "members": member_records,
         }
         manifest_path = fold_dir / "ensemble.json"
@@ -1193,14 +1570,16 @@ def benchmark_predictive_ensemble(
         )
         folds[str(outer_value)] = {
             "outer_value": outer_value,
-            "validation_source_groups": list(
-                dict.fromkeys(group_by_trajectory[index] for index in validation_indices)
-            ),
+            "calibration_axis": calibration_axis,
+            "calibration_value": calibration_value,
+            "validation_source_groups": list(validation_groups),
+            "calibration_source_groups": list(calibration_groups),
             "training_source_groups": list(training_groups),
             "member_count": selected_member_count,
             "unique_resample_count": unique_resample_count,
             "unique_parameter_member_count": ensemble.unique_member_count,
             "ensemble": str(manifest_path),
+            "disagreement_calibration": str(calibration_path),
             "aggregate": aggregate,
             "per_trajectory": per_trajectory,
         }
@@ -1213,7 +1592,7 @@ def benchmark_predictive_ensemble(
     }
     summary = {
         "format_version": PREDICTIVE_ENSEMBLE_FORMAT_VERSION,
-        "evaluation": "nested_group_bootstrap_predictive_ensemble",
+        "evaluation": "nested_group_calibrated_predictive_ensemble",
         "implementation": request["implementation"],
         "outer_axis": outer_axis,
         "trajectory_count": len(paths),
@@ -1225,7 +1604,7 @@ def benchmark_predictive_ensemble(
             "posterior": False,
             "calibrated_distribution": False,
             "interval_claim": False,
-            "coverage_role": "coarse_disagreement_diagnostic",
+            "coverage_role": "independently_scaled_group_diagnostic",
             "process_noise_included": False,
             "observation_noise_included": False,
             "unfitted_model_form_included": False,
@@ -1258,7 +1637,7 @@ def main() -> None:
     parser.add_argument(
         "--model-class",
         choices=("structured", "structured_residual"),
-        default="structured",
+        default="structured_residual",
     )
     args = parser.parse_args()
     benchmark_predictive_ensemble(
