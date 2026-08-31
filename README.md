@@ -55,6 +55,14 @@ contract, metric interpretation, and promotion boundary. The workflow remains
 diagnostic-only. Once the first outer-fold results influence development choices,
 promotion requires a subsequently untouched corpus, airframe, or configuration.
 
+The first 24-flight development run found moderate disagreement/error ranking
+for both model classes, but only the structured-residual ensemble had useful
+scale: it reduced the error-to-spread mismatch from 12.2--17.4x to 1.6--2.9x
+and improved the energy score in every state group and horizon. It still
+under-covers and is not calibrated, so no runtime ensemble was promoted. See the
+[recorded result](docs/predictive-ensemble-results.json) for exact metrics and
+artifact fingerprints.
+
 ## Nonlinear model-predictive control
 
 Glassbox includes an opinionated JAX NMPC controller for actionable fitted

@@ -1,0 +1,183 @@
+{
+  "format_version": 1,
+  "date": "2026-08-30",
+  "status": "development_evidence",
+  "hypothesis": "Sensitivity to independent training groups predicts held-out rollout error at fixed horizons.",
+  "uncertainty_semantics": {
+    "kind": "empirical_epistemic_sensitivity",
+    "posterior": false,
+    "calibrated_distribution": false,
+    "interval_claim": false
+  },
+  "corpus": {
+    "name": "multirotor_v2_ground_truth",
+    "vehicle_configuration_id": "px4_sih_quadx",
+    "trajectory_count": 24,
+    "independent_source_group_count": 24,
+    "duration_s": 428.0,
+    "profiles": {
+      "combined": 6,
+      "lateral_steps": 6,
+      "vertical_steps": 6,
+      "yaw_steps": 6
+    },
+    "outer_axis": "profile",
+    "outer_fold_count": 4,
+    "evidence_boundary": "The corpus became development evidence when these results were inspected. It cannot be reused for promotion."
+  },
+  "configuration": {
+    "method": "group_bootstrap_shared_statistics_v2",
+    "bootstrap_estimator": "shared_outer_training_statistics_with_profile_balanced_group_multiplicity_loss_v2",
+    "training_horizons_s": [0.1, 0.5, 2.0],
+    "evaluation_horizons_s": [0.1, 0.5, 1.0, 2.0],
+    "optimization_steps_per_member": 400,
+    "learning_rate": 0.02,
+    "members_per_fold": 8,
+    "fitted_members_per_model_class": 32,
+    "bootstrap_seed": 0,
+    "bootstrap_stratification": "profile"
+  },
+  "implementation": {
+    "git_commit": "edf28b76caec249a362ae73e68ade739fe5aebdd",
+    "tracked_worktree_dirty": false,
+    "source_tree_sha256": "051226d86ece03fbdc62d5193b3c0aa08c2ed6c5e10cb8967348343e07c5afc9",
+    "glassbox_version": "0.1.0",
+    "python": "3.12.12",
+    "jax": "0.11.1",
+    "numpy": "2.5.2",
+    "jax_backend": "cpu",
+    "platform": "macOS-26.6.1-arm64-arm-64bit"
+  },
+  "artifacts": {
+    "structured_summary": "artifacts/sitl/predictive_ensemble_v2/ground_truth/structured/summary.json",
+    "structured_summary_sha256": "ab4224afc513b33910e576fb70aa08ad44931b3da8672d9311b52b6737ab41b9",
+    "structured_residual_summary": "artifacts/sitl/predictive_ensemble_v2/ground_truth/structured_residual/summary.json",
+    "structured_residual_summary_sha256": "8236e3296813677552bf666ead807b1661aa1739fd29e99ea7bb8c33444ad8ac"
+  },
+  "metric_layout": {
+    "horizons_s": [0.1, 0.5, 1.0, 2.0],
+    "groups": {
+      "position": "m",
+      "velocity": "m/s",
+      "attitude": "rad",
+      "angular_velocity": "rad/s"
+    },
+    "maximum_member_ball_coverage": "Coverage of the maximum radius among eight finite members; requested 90 percent radius has attained member mass 1.0. It is not an interval claim."
+  },
+  "results": {
+    "structured": {
+      "center_vector_rmse": {
+        "position": [0.000413431126414534, 0.012331595543437589, 0.0979817931748469, 0.7247561951516674],
+        "velocity": [0.009160902245113303, 0.0732909086463826, 0.32416588035643845, 0.985026616174114],
+        "attitude": [0.004210511006511638, 0.04469738646234172, 0.10607001301397216, 0.19161504079175454],
+        "angular_velocity": [0.08139619391668793, 0.17935547306456753, 0.18419641097694608, 0.19390509228867267]
+      },
+      "mean_disagreement_radius": {
+        "position": [0.00003389311548618254, 0.0009952648346057784, 0.00747611222003903, 0.04889292101493089],
+        "velocity": [0.000666107817498628, 0.005529585526589844, 0.023137886992127675, 0.06751380121222174],
+        "attitude": [0.0002529576434110286, 0.0030765168954747643, 0.00752402498465671, 0.013827906968989997],
+        "angular_velocity": [0.004672144474825344, 0.011591203246611555, 0.012442459919565297, 0.014159393158168892]
+      },
+      "error_to_spread_ratio": {
+        "position": [12.198085672681243, 12.390265499857733, 13.105982132292736, 14.823335978031295],
+        "velocity": [13.752882047705695, 13.254322280386521, 14.010176489613382, 14.590003799042481],
+        "attitude": [16.645122676407986, 14.528568501634727, 14.097509408896745, 13.857125392979865],
+        "angular_velocity": [17.421591809771833, 15.473412832873786, 14.803858092988849, 13.694449339928399]
+      },
+      "error_disagreement_spearman": {
+        "position": [0.7023127801220519, 0.4246636799466533, 0.44714963235751704, 0.5508387445887446],
+        "velocity": [0.7168233939886616, 0.37853209325735093, 0.5058118383986603, 0.5514520202020202],
+        "attitude": [0.37038687820838195, 0.34036013092103284, 0.4090883589571166, 0.5611922799422799],
+        "angular_velocity": [0.37687268655782, 0.5751333135759508, 0.587064187943344, 0.5684343434343434]
+      },
+      "maximum_member_ball_coverage": {
+        "position": [0.018587316947395367, 0.0038461538461538464, 0.0032051282051282055, 0.004166666666666667],
+        "velocity": [0.012601374556496278, 0.007636190969524302, 0.002976190476190476, 0.0],
+        "attitude": [0.01748208037909881, 0.018940234336575802, 0.01097027972027972, 0.0],
+        "angular_velocity": [0.013708182974388344, 0.010589761194599904, 0.008154382167540063, 0.01111111111111111]
+      },
+      "energy_score": {
+        "position": [0.0002745673114587186, 0.010321493940524428, 0.08070610251129116, 0.587784569057814],
+        "velocity": [0.006358896329874528, 0.06124254157968996, 0.2632750119367443, 0.8065113033858057],
+        "attitude": [0.0033189785562556203, 0.03677366617264261, 0.08650944708158467, 0.15867095474565285],
+        "angular_velocity": [0.06298225790960243, 0.13802489412255728, 0.14651537895954256, 0.15802075518891973]
+      }
+    },
+    "structured_residual": {
+      "center_vector_rmse": {
+        "position": [0.0005192620253868147, 0.01385120078952636, 0.10076320158889075, 0.5796286505948938],
+        "velocity": [0.00925495256114571, 0.07666504839102492, 0.3093861972871346, 0.7132842622786651],
+        "attitude": [0.003709448887566035, 0.043538907716866554, 0.10332697645504783, 0.19314027436087297],
+        "angular_velocity": [0.06965752033878544, 0.15711902423642746, 0.17712012099187038, 0.23091178900268536]
+      },
+      "mean_disagreement_radius": {
+        "position": [0.00029443456136401955, 0.007654048193000836, 0.04581456461571753, 0.3143723267668401],
+        "velocity": [0.005759930040708612, 0.0378610290765928, 0.13554827431094418, 0.44552693124658405],
+        "attitude": [0.0012692136952587836, 0.01897022271510484, 0.04764046989453145, 0.11130870362169178],
+        "angular_velocity": [0.02391157577086935, 0.061490487205896636, 0.0817983835895521, 0.13320707992806755]
+      },
+      "error_to_spread_ratio": {
+        "position": [1.7635906022079832, 1.8096568561186281, 2.199370493511622, 1.8437648649169611],
+        "velocity": [1.6067821129312059, 2.0249066193085152, 2.282479794448809, 1.6009902258498634],
+        "attitude": [2.9226354091693794, 2.295118426954427, 2.168890791459396, 1.735176747878626],
+        "angular_velocity": [2.913129649265809, 2.555176115458726, 2.1653254406666966, 1.733479850525804]
+      },
+      "error_disagreement_spearman": {
+        "position": [0.6066596621100366, 0.5183671667448646, 0.5338742666432296, 0.5809343434343435],
+        "velocity": [0.5835312922954659, 0.4994994544221246, 0.5659813606530022, 0.5136453823953824],
+        "attitude": [0.32755917666013473, 0.5039979216954477, 0.5746075084672138, 0.594796176046176],
+        "angular_velocity": [0.3328374478051292, 0.49816212095540824, 0.5079976186038577, 0.6440566378066378]
+      },
+      "maximum_member_ball_coverage": {
+        "position": [0.7684930583824154, 0.5474297382576215, 0.3908931040364864, 0.5704921236171236],
+        "velocity": [0.7352385786993072, 0.4227681975516276, 0.43403444304663347, 0.574750481000481],
+        "attitude": [0.24767450172962374, 0.3649913631677498, 0.5431545175885346, 0.6253096440596441],
+        "angular_velocity": [0.2623411998057829, 0.35759869895114454, 0.4270171730359424, 0.5027837902837903]
+      },
+      "energy_score": {
+        "position": [0.0002365198526995357, 0.007787081594852181, 0.05875681240817064, 0.3022077133311265],
+        "velocity": [0.0045178898939475165, 0.04616709728430926, 0.1698737233577852, 0.38163728110057427],
+        "attitude": [0.0025895700436226227, 0.02651187626942993, 0.05304315880211889, 0.09203164743209541],
+        "angular_velocity": [0.04798261504265702, 0.09273967819679833, 0.10250168261044965, 0.12215425300984419]
+      }
+    }
+  },
+  "diversity_and_finiteness": {
+    "unique_bootstrap_resamples_per_fold": 8,
+    "unique_parameter_members_per_fold": 8,
+    "unique_prediction_members_per_fold_and_horizon": 8,
+    "finite_member_prediction_fraction": 1.0,
+    "finite_member_path_fraction": 1.0,
+    "fully_finite_member_fraction": 1.0
+  },
+  "validity_envelope_analysis": {
+    "role": "post_hoc_exploratory_check_not_promotion_evidence",
+    "scalar": "maximum per-axis runtime validity utilization over each complete held-out trajectory",
+    "all_trajectories": {
+      "minimum": 0.5137379765510559,
+      "median": 1.1872401237487793,
+      "maximum": 2.7053520679473877,
+      "count_above_one": 16
+    },
+    "by_profile": {
+      "combined": {"minimum": 0.9494956135749817, "median": 1.0447155237197876, "maximum": 1.5613588094711304, "count_above_one": 4},
+      "lateral_steps": {"minimum": 1.2980412244796753, "median": 2.0432134866714478, "maximum": 2.7053520679473877, "count_above_one": 6},
+      "vertical_steps": {"minimum": 0.5137379765510559, "median": 0.5712581276893616, "maximum": 0.5864887237548828, "count_above_one": 0},
+      "yaw_steps": {"minimum": 1.1736385822296143, "median": 1.197732150554657, "maximum": 1.2686638832092285, "count_above_one": 6}
+    },
+    "structured_residual_within_profile_partial_spearman": {
+      "method": "Rank each of six trajectories within its held-out profile, then correlate error and disagreement ranks after linear residualization against the rank of complete-trajectory maximum validity utilization.",
+      "sample_size": 24,
+      "position": [0.8117782950956856, 0.585193790594831, 0.5197191965064278, 0.6046914166760674],
+      "attitude": [0.6050944296505597, 0.503778851283843, 0.39283436786985704, 0.6385796299336407],
+      "interpretation": "Residual disagreement retains positive trajectory-level rank information after this coarse envelope control, but the analysis is post hoc, uses only six trajectories per profile, and does not replace a rollout-local comparison on new data."
+    }
+  },
+  "decision": {
+    "status": "no_runtime_promotion",
+    "hypothesis_result": "partially_supported",
+    "structured": "Disagreement ranks some errors, but its scale is unusably narrow: center error is 12.2 to 17.4 times mean spread and the maximum-member ball covers at most 1.9 percent of endpoints.",
+    "structured_residual": "Disagreement has moderate positive fixed-horizon rank correlation, improves the energy score for every state group and horizon, and reduces the error-to-spread mismatch to 1.6 to 2.9 times. It remains substantially under-covering and is not calibrated.",
+    "next_evidence": "Use a larger residual ensemble or a separately calibrated scale, then evaluate once on a new untouched corpus, airframe, or configuration."
+  }
+}

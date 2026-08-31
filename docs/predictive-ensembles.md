@@ -128,3 +128,42 @@ and airframe-family priors remain later stages. In particular, bootstrap members
 cannot be updated with new data without refitting, and evaluating eight models
 inside the current real-time NMPC loop would multiply a workload already subject
 to a 20 ms deadline.
+
+## First development result
+
+The first complete run used the 24-flight, four-profile PX4 SIH ground-truth
+corpus: six independent source groups each for combined, lateral, vertical, and
+yaw maneuvers. Each leave-one-profile-out fold fitted eight unique members at
+0.1, 0.5, and 2 seconds, producing 32 models for each of the structured and
+structured-residual classes. Every resample, fitted parameter member, and
+fixed-horizon prediction was distinct; every member remained finite through all
+evaluated paths.
+
+The result partially supports the uncertainty hypothesis:
+
+| Model | Fixed-horizon error/spread | Error/disagreement Spearman | Maximum-member coverage | Energy score |
+| --- | ---: | ---: | ---: | --- |
+| Structured | 12.2--17.4x | 0.34--0.72 | 0--1.9% | Baseline |
+| Structured residual | 1.6--2.9x | 0.33--0.64 | 24.8--76.8% | Better for all 16 state-group/horizon comparisons |
+
+The structured ensemble is a useful negative result: its members often rank
+harder predictions, but shared systematic error makes their absolute spread
+nearly meaningless. The structured-residual ensemble is materially healthier.
+It retains moderate fixed-horizon ranking skill, reduces the error/spread scale
+mismatch by roughly an order of magnitude, and improves the multivariate energy
+score everywhere. Its maximum-member ball still under-covers, so it is neither a
+calibrated distribution nor ready for runtime control.
+
+The validity envelope also explains part of the result. Sixteen of 24 held-out
+flights exceeded utilization one, including every lateral and yaw flight. A
+post-hoc trajectory-level rank analysis retained positive residual-ensemble
+signal after controlling for each flight's maximum utilization, but this is only
+exploratory: it uses six trajectories per profile and a complete-flight scalar,
+not rollout-local validity. A new corpus must test that relationship directly.
+
+Inspection converted this corpus into development evidence. The next promotion
+attempt must use a new airframe, configuration, or untouched corpus and should
+evaluate either a larger residual ensemble or a calibration factor learned
+without touching that final evidence. Exact metrics, implementation fingerprints,
+artifact hashes, and the evidence decision are recorded in
+[`predictive-ensemble-results.json`](predictive-ensemble-results.json).
