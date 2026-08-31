@@ -1,0 +1,160 @@
+{
+  "format_version": 1,
+  "date": "2026-08-31",
+  "status": "development_evidence",
+  "hypothesis": "Complete-session bootstrap disagreement adds predictive information beyond a constant residual radius on held-out fixed-wing sessions.",
+  "uncertainty_semantics": {
+    "kind": "empirical_epistemic_sensitivity",
+    "posterior": false,
+    "calibrated_distribution": false,
+    "interval_claim": false,
+    "coverage_role": "independently_scaled_group_diagnostic"
+  },
+  "corpus": {
+    "name": "idf_ds_fixedwing_telemetry",
+    "vehicle_configuration_id": "idf_ds_holybro_pixhawk_fixedwing",
+    "trajectory_count": 119,
+    "independent_source_group_count": 13,
+    "retained_duration_s": 34908.46,
+    "sample_rate_hz": 50.0,
+    "outer_axis": "source_group",
+    "outer_fold_count": 13,
+    "per_fold_source_groups": {
+      "member_fitting": 6,
+      "disagreement_calibration": 6,
+      "outer_evaluation": 1
+    },
+    "evidence_boundary": "The gate and estimator were frozen before this run. Inspection converted IDF-DS into development evidence for predictive uncertainty; it cannot be reused for promotion."
+  },
+  "configuration": {
+    "method": "balanced_group_calibrated_bootstrap_v5",
+    "model_class": "structured_residual",
+    "training_horizons_s": [0.1, 0.5, 2.0],
+    "evaluation_horizons_s": [0.1, 0.5, 1.0, 2.0],
+    "optimization_steps_per_member": 400,
+    "learning_rate": 0.02,
+    "members_per_fold": 6,
+    "fitted_member_count": 78,
+    "member_fit_workers": 2,
+    "bootstrap_seed": 0,
+    "bootstrap_estimator": "shared_fit_partition_statistics_with_profile_balanced_group_multiplicity_loss_v2",
+    "calibration_method": "source_group_split_scale_and_baseline_v2",
+    "candidate_gate": "predictive_uncertainty_gate_v1"
+  },
+  "implementation": {
+    "git_commit": "9cb0ccf3fe098cf412c4b437567cecadc68f1e36",
+    "tracked_worktree_dirty": false,
+    "source_tree_sha256": "b3a65ea5791f33af9bcefe500936fc948662bb43d4cfa38947395f74b6e76e55",
+    "glassbox_version": "0.1.0",
+    "python": "3.12.12",
+    "jax": "0.11.1",
+    "numpy": "2.5.2",
+    "jax_backend": "cpu",
+    "platform": "macOS-26.6.1-arm64-arm-64bit"
+  },
+  "artifacts": {
+    "request": "artifacts/idf_reference/predictive_ensemble_v5/structured_residual/request.json",
+    "request_sha256": "34c737587eab9dfb47ceba3290316532ada8778d11645785654e60d933124784",
+    "dataset_request_sha256": "85856bcdc414b77a8c2833b7cf2921aa2d1220e732a6cf053fb1f90f6bc46fce",
+    "summary": "artifacts/idf_reference/predictive_ensemble_v5/structured_residual/summary.json",
+    "summary_sha256": "70ad611efed41c17fc45f995a60161aafed49c672e32a28e13b7c1acc199581e"
+  },
+  "integrity": {
+    "fold_count": 13,
+    "member_count": 78,
+    "recorded_model_report_and_calibration_hashes_verified": true,
+    "member_dataset_request_fingerprints_match": true,
+    "nonfinite_summary_numeric_value_count": 0,
+    "recomputed_candidate_gate_matches_summary": true
+  },
+  "metric_layout": {
+    "horizons_s": [0.1, 0.5, 1.0, 2.0],
+    "groups": {
+      "position": "m",
+      "velocity": "m/s",
+      "attitude": "rad",
+      "angular_velocity": "rad/s"
+    }
+  },
+  "results": {
+    "candidate_gate": {
+      "passed": false,
+      "coverage": {
+        "passed": true,
+        "0.5": {
+          "mean_absolute_error": 0.02560469634472142,
+          "maximum_undercoverage": 0.029184810116312798
+        },
+        "0.8": {
+          "mean_absolute_error": 0.07151703064926773,
+          "maximum_undercoverage": 0.0
+        }
+      },
+      "error_disagreement_ranking": {
+        "passed": false,
+        "median_spearman": 0.20323878993729438,
+        "positive_fraction": 1.0,
+        "minimum_median": 0.3,
+        "minimum_positive_fraction": 0.75
+      },
+      "set_score_skill_vs_constant_radius": {
+        "passed": false,
+        "median_skill": -0.018854170790827074,
+        "positive_fraction": 0.28125,
+        "minimum_median_skill": 0.05,
+        "minimum_positive_fraction": 0.75
+      },
+      "member_finiteness": {
+        "passed": true,
+        "minimum_fraction": 1.0
+      },
+      "member_diversity": {
+        "passed": true,
+        "minimum_unique_parameter_and_predictive_members": 5,
+        "minimum_required": 4
+      }
+    },
+    "error_disagreement_spearman": {
+      "position": [0.45794557577871775, 0.218948017008538, 0.17061938450961234, 0.22949149387576284],
+      "velocity": [0.41021727170033107, 0.18752956286605077, 0.23308689995498952, 0.24321447443794827],
+      "attitude": [0.370215508668474, 0.12368100971140931, 0.04224206428257768, 0.06812339505269063],
+      "angular_velocity": [0.33660218540180853, 0.11994718514034003, 0.1630636765747217, 0.15907970644022842]
+    },
+    "set_score_skill_vs_constant_radius": {
+      "0.5": {
+        "position": [0.018098787923163773, -0.008165151295099315, -0.029279142848567474, -0.008785617286280578],
+        "velocity": [0.01730468795771478, -0.017137557621623944, -0.018542745031830288, -0.0009862323391891525],
+        "attitude": [0.026572686031238746, -0.005732045497748084, -0.02228033178042388, -0.01679700720474142],
+        "angular_velocity": [0.025683894734691015, -0.01916559654982386, -0.024840461070446462, -0.03804846229898873]
+      },
+      "0.8": {
+        "position": [0.026406064663164197, -0.038850538457868566, -0.0732700325303608, -0.04571999414979788],
+        "velocity": [0.00890910283471269, -0.05614801170739314, -0.042820723874990474, 0.0013675684625834572],
+        "attitude": [0.03188294906217204, -0.057385025559437475, -0.08967756544405914, -0.05140710138090321],
+        "angular_velocity": [0.025135285454859657, -0.08444338671094753, -0.10754218266064286, -0.13310213697267836]
+      }
+    },
+    "scaled_coverage": {
+      "0.5": {
+        "position": [0.5743492496206068, 0.5376992748063265, 0.5034140260110074, 0.5057995705098282],
+        "velocity": [0.5789071179037867, 0.5072739970632564, 0.49651609176552675, 0.5210602306937013],
+        "attitude": [0.5412561181877777, 0.5196047118456486, 0.5137634862108216, 0.5112985361771101],
+        "angular_velocity": [0.5277579258156627, 0.4847652639502454, 0.4708151898836872, 0.48041255773053193]
+      },
+      "0.8": {
+        "position": [0.8885135330327198, 0.8882583560115964, 0.8830233996436286, 0.8878328617692026],
+        "velocity": [0.8965012763098094, 0.8752231433369193, 0.8739299751457478, 0.8734728031664011],
+        "attitude": [0.8941811787038036, 0.8666757150148443, 0.8601385625116902, 0.854777324834165],
+        "angular_velocity": [0.8841243610717489, 0.835853112722621, 0.8381516835978136, 0.843615203515573]
+      }
+    }
+  },
+  "decision": {
+    "candidate_gate": "failed",
+    "runtime_promotion": false,
+    "calibration_result": "Independent group scaling produced acceptable aggregate 50 and 80 percent coverage.",
+    "adaptive_disagreement_result": "Not supported on IDF-DS: fixed-horizon ranking was weaker than preregistered, and adaptive disagreement radii beat the matched constant-radius baseline in only 28.125 percent of cells.",
+    "interpretation": "The available bootstrap members are numerically stable and diverse, but their spread does not add reliable fixed-wing predictive information beyond a held-out residual quantile. Calibration success alone is not evidence for a runtime ensemble.",
+    "next_evidence": "Keep the estimator and failed gate unchanged. IDF-DS is now development evidence; any new uncertainty construction must be motivated independently and evaluated on a subsequently untouched airframe, configuration, or corpus."
+  }
+}

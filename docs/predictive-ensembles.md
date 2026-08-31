@@ -293,3 +293,47 @@ airframe or configuration with enough independent groups to preserve separate
 fit, calibration, and outer-evaluation partitions. Exact v4 metrics and the
 artifact fingerprint are recorded in
 [`predictive-ensemble-balanced-calibration-results.json`](predictive-ensemble-balanced-calibration-results.json).
+
+## First fixed-wing evidence result
+
+The preregistered v1 candidate gate was then evaluated without modification on
+the IDF-DS fixed-wing corpus: 119 canonical trajectories covering 9.70 hours in
+13 independent outdoor sessions. Each leave-one-session-out fold used six
+sessions for member fitting, six disjoint sessions for disagreement calibration,
+and one untouched session for evaluation. Six members per fold produced 78
+structured-residual fits.
+
+Artifact verification passed before interpretation: every recorded model,
+fit-report, and calibration hash matched; all member requests shared the frozen
+dataset fingerprint; the summary contained no non-finite numeric value; and a
+fresh gate evaluation exactly reproduced the serialized decision. Every member
+also remained finite through every evaluated path, with at least five unique
+parameter and prediction members in every horizon.
+
+The candidate gate failed:
+
+| Check | Required | IDF-DS result | Decision |
+| --- | ---: | ---: | --- |
+| 50% coverage MAE / maximum undercoverage | <= 0.10 / <= 0.10 | 0.0256 / 0.0292 | pass |
+| 80% coverage MAE / maximum undercoverage | <= 0.10 / <= 0.10 | 0.0715 / 0.0000 | pass |
+| Median error/disagreement Spearman | >= 0.30 | 0.2032 | fail |
+| Positive rank-correlation cells | >= 75% | 100% | pass |
+| Median set-score skill vs constant radius | >= 5% | -1.89% | fail |
+| Positive set-score-skill cells | >= 75% | 28.125% | fail |
+| Path finiteness / unique members | 100% / >= 4 | 100% / >= 5 | pass |
+
+Independent scaling therefore transferred well enough to produce acceptable
+aggregate coverage, but that does not validate adaptive disagreement. The
+matched constant residual radius was better in 23 of 32 state-group, horizon,
+and coverage cells. Disagreement ranked errors positively everywhere, but the
+relationship weakened sharply after 0.1 seconds and did not clear the frozen
+median threshold. Ninety-percent scaling was correctly unavailable because six
+calibration sessions cannot support its corrected finite-sample rank.
+
+This is a clean negative result for the current empirical uncertainty
+construction on real fixed-wing data. Glassbox should retain the ensemble as an
+offline diagnostic, not serialize it for runtime control. IDF-DS became
+development evidence when this result was inspected; neither thresholds nor
+the estimator should now be tuned and re-promoted on these folds. Exact metrics,
+fingerprints, integrity checks, and the evidence decision are recorded in
+[`predictive-ensemble-idf-results.json`](predictive-ensemble-idf-results.json).

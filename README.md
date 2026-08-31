@@ -92,6 +92,15 @@ contract, so the workflow remains diagnostic-only pending evaluation on a new
 airframe or configuration. See the
 [balanced calibration result](docs/predictive-ensemble-balanced-calibration-results.json).
 
+The frozen estimator and preregistered gate were subsequently evaluated on
+119 trajectories from 13 IDF-DS fixed-wing sessions. Independent scaling passed
+the 50% and 80% coverage checks, and every member remained finite, but the
+uncertainty candidate failed: median disagreement/error Spearman correlation
+was 0.203 against a 0.30 requirement, while adaptive radii had -1.89% median
+set-score skill against the matched constant-radius baseline and improved only
+28.125% of cells. No runtime ensemble was promoted. See the
+[fixed-wing evidence result](docs/predictive-ensemble-idf-results.json).
+
 ## Nonlinear model-predictive control
 
 Glassbox includes an opinionated JAX NMPC controller for actionable fitted
