@@ -32,12 +32,14 @@ uv run glassbox-ensemble-benchmark artifacts/sitl/canonical/*.npz \
 ```
 
 The outer axis is selected automatically: maneuver profile when the corpus has
-multiple typed profiles, otherwise source group. Each fold also reserves a
-separate complete profile or source group for scale calibration, so fitting,
-calibration, and evaluation evidence remain disjoint. Bootstrap draws are
-stratified by profile when possible, and the normal interface automatically
-chooses four to eight members rather than exposing resampling or calibration
-knobs. Structured-residual dynamics are the evidence-backed default.
+multiple typed profiles, otherwise source group. Each fold also reserves
+balanced complete source groups inside every outer-training profile for scale
+calibration, so fitting, calibration, and evaluation evidence remain disjoint
+without removing a maneuver family from fitting. Typed conditions and replicates
+are balanced automatically when present. Bootstrap draws are stratified by
+profile when possible, and the normal interface chooses four to eight members
+rather than exposing resampling or calibration knobs. Structured-residual
+dynamics are the evidence-backed default.
 
 Reports contain endpoint ensemble-center error, empirical 50/80/90% disagreement
 coverage, interval radius, multivariate energy score, disagreement/error rank

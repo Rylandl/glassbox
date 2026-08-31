@@ -9,7 +9,7 @@ library adopts a probabilistic runtime contract:
 
 It does not estimate a Bayesian posterior. A current manifest therefore uses
 `artifact_type: empirical_calibrated_predictive_ensemble`,
-`method: nested_group_calibrated_bootstrap_v3`, and `posterior: false`.
+`method: balanced_group_calibrated_bootstrap_v4`, and `posterior: false`.
 
 ## Evaluation contract
 
@@ -17,9 +17,11 @@ For each outer fold, Glassbox:
 
 1. Holds out an entire maneuver profile for outer evaluation when typed profiles
    are present; otherwise it holds out one complete source group.
-2. Reserves a separate complete profile for disagreement calibration when the
-   corpus has at least three profiles. Smaller-profile corpora reserve one source
-   group instead. Fitting, calibration, and outer-evaluation groups are disjoint.
+2. Reserves complete source groups inside every outer-training profile for
+   disagreement calibration. When condition labels and replicate groups exist,
+   the split is balanced within each profile×condition stratum; otherwise it is
+   balanced by profile. Fitting, calibration, and outer-evaluation groups are
+   disjoint, while fitting and calibration retain the same maneuver families.
 3. Removes every calibration and outer-evaluation trajectory before deriving
    fit statistics or constructing any ensemble member.
 4. Resamples the fitting source groups with replacement. When profile labels

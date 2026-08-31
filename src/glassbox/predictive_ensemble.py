@@ -36,8 +36,8 @@ from glassbox.runtime import runtime_spec_from_fit_report
 
 DEFAULT_COVERAGE_LEVELS = (0.5, 0.8, 0.9)
 DEFAULT_ENSEMBLE_MEMBER_COUNT = 8
-PREDICTIVE_ENSEMBLE_FORMAT_VERSION = 3
-PREDICTIVE_ENSEMBLE_METHOD = "nested_group_calibrated_bootstrap_v3"
+PREDICTIVE_ENSEMBLE_FORMAT_VERSION = 4
+PREDICTIVE_ENSEMBLE_METHOD = "balanced_group_calibrated_bootstrap_v4"
 DISAGREEMENT_CALIBRATION_METHOD = "source_group_split_scale_v1"
 PREDICTIVE_GROUPS = (
     ("position", "m", slice(0, 3)),
@@ -506,7 +506,7 @@ def _predictive_ensemble_result(
         calibration_samples[group_name] = group_samples
 
     report = {
-        "policy": "group_bootstrap_predictive_disagreement_v3",
+        "policy": "group_bootstrap_predictive_disagreement_v4",
         "uncertainty_semantics": {
             "kind": "empirical_epistemic_sensitivity",
             "posterior": False,
@@ -1048,6 +1048,78 @@ def _automatic_member_count(training_group_count: int) -> int:
     return min(DEFAULT_ENSEMBLE_MEMBER_COUNT, max(4, training_group_count))
 
 
+def _balanced_calibration_groups(
+    candidate_groups: Sequence[str | int],
+    *,
+    profiles: Mapping[str | int, str | int] | None,
+    conditions: Mapping[str | int, str | int] | None,
+    fold_index: int,
+) -> tuple[str | int, ...]:
+    """Reserve deterministic groups while preserving every usable stratum.
+
+    When typed profile/condition strata contain replicate groups, half of each
+    stratum calibrates and half fits. Otherwise the same split is performed per
+    profile, or globally when profiles are absent. No stratum contributes all
+    of its groups to calibration.
+    """
+
+    ordered = tuple(sorted(candidate_groups, key=str))
+    if len(ordered) < 3:
+        raise ValueError(
+            "independent calibration requires at least three candidate groups"
+        )
+    if profiles is not None and set(profiles) != set(ordered):
+        raise ValueError("profiles must contain exactly the candidate groups")
+    if conditions is not None and set(conditions) != set(ordered):
+        raise ValueError("conditions must contain exactly the candidate groups")
+
+    if profiles is None:
+        strata = (ordered,)
+    else:
+        profile_values = tuple(dict.fromkeys(profiles[group] for group in ordered))
+        profile_strata = tuple(
+            tuple(group for group in ordered if profiles[group] == profile)
+            for profile in profile_values
+        )
+        condition_strata = []
+        condition_balanced = conditions is not None
+        if condition_balanced:
+            for profile_groups in profile_strata:
+                condition_values = tuple(
+                    dict.fromkeys(conditions[group] for group in profile_groups)
+                )
+                subdivisions = tuple(
+                    tuple(
+                        group
+                        for group in profile_groups
+                        if conditions[group] == condition
+                    )
+                    for condition in condition_values
+                )
+                if any(len(subdivision) < 2 for subdivision in subdivisions):
+                    condition_balanced = False
+                    break
+                condition_strata.extend(subdivisions)
+        strata = tuple(condition_strata) if condition_balanced else profile_strata
+
+    selected = []
+    for stratum_index, stratum in enumerate(strata):
+        if len(stratum) < 2:
+            continue
+        calibration_count = max(1, len(stratum) // 2)
+        offset = (fold_index + stratum_index) % len(stratum)
+        rotated = stratum[offset:] + stratum[:offset]
+        selected.extend(rotated[:calibration_count])
+    if not selected:
+        selected.append(ordered[fold_index % len(ordered)])
+    selected_set = set(selected)
+    if len(ordered) - len(selected_set) < 2:
+        raise ValueError(
+            "calibration partition leaves fewer than two member-fitting groups"
+        )
+    return tuple(group for group in ordered if group in selected_set)
+
+
 def _group_objective_weights(
     groups: Sequence[str | int],
     *,
@@ -1201,13 +1273,33 @@ def benchmark_predictive_ensemble(
     ):
         raise ValueError("profile labels must be non-empty strings or integers")
     group_profiles: dict[str | int, str | int] = {}
-    for group, profile in zip(group_by_trajectory, profile_by_trajectory):
+    condition_by_trajectory = [
+        trajectory.labels.get("condition") for trajectory in trajectories
+    ]
+    group_conditions: dict[str | int, str | int] = {}
+    for group, profile, condition in zip(
+        group_by_trajectory,
+        profile_by_trajectory,
+        condition_by_trajectory,
+    ):
         assert isinstance(group, (str, int))
         if profile is None:
+            pass
+        elif not isinstance(profile, (str, int)):
+            raise ValueError("profile labels must be strings or integers")
+        else:
+            if group in group_profiles and group_profiles[group] != profile:
+                raise ValueError("one source_group cannot span multiple profiles")
+            group_profiles[group] = profile
+        if condition is None:
             continue
-        if group in group_profiles and group_profiles[group] != profile:
-            raise ValueError("one source_group cannot span multiple profiles")
-        group_profiles[group] = profile
+        if not isinstance(condition, (str, int)) or (
+            isinstance(condition, str) and not condition.strip()
+        ):
+            raise ValueError("condition labels must be non-empty strings or integers")
+        if group in group_conditions and group_conditions[group] != condition:
+            raise ValueError("one source_group cannot span multiple conditions")
+        group_conditions[group] = condition
 
     outer_axis = _automatic_outer_axis(trajectories)
     outer_values = (
@@ -1246,8 +1338,8 @@ def benchmark_predictive_ensemble(
                 "group_multiplicity_loss_v2"
             ),
             "calibration_partition": (
-                "one_complete_profile_when_three_or_more_profiles_exist_"
-                "otherwise_one_complete_source_group"
+                "balanced_complete_source_groups_within_profile_and_condition_"
+                "strata_when_replicates_exist"
             ),
             "calibration_method": DISAGREEMENT_CALIBRATION_METHOD,
             "coverage_levels": list(DEFAULT_COVERAGE_LEVELS),
@@ -1282,35 +1374,32 @@ def benchmark_predictive_ensemble(
         validation_groups = tuple(
             dict.fromkeys(group_by_trajectory[index] for index in validation_indices)
         )
-        if outer_axis == "profile" and len(outer_values) >= 3:
-            calibration_axis = "profile"
-            calibration_value = outer_values[fold_index % len(outer_values)]
-            calibration_indices = [
-                index
-                for index, profile in enumerate(profile_by_trajectory)
-                if profile == calibration_value
-            ]
-        else:
-            calibration_axis = "source_group"
-            calibration_candidates = tuple(
-                group for group in groups if group not in validation_groups
-            )
-            if len(calibration_candidates) < 3:
-                raise ValueError(
-                    f"outer {outer_axis} fold {outer_value!r} leaves too few "
-                    "groups for independent fitting and calibration"
-                )
-            calibration_value = calibration_candidates[
-                (fold_index - 1) % len(calibration_candidates)
-            ]
-            calibration_indices = [
-                index
-                for index, group in enumerate(group_by_trajectory)
-                if group == calibration_value
-            ]
-        calibration_groups = tuple(
-            dict.fromkeys(group_by_trajectory[index] for index in calibration_indices)
+        calibration_axis = "source_group"
+        calibration_value = "balanced_within_outer_training_strata"
+        calibration_candidates = tuple(
+            group for group in groups if group not in validation_groups
         )
+        candidate_profiles = (
+            {group: group_profiles[group] for group in calibration_candidates}
+            if all(group in group_profiles for group in calibration_candidates)
+            else None
+        )
+        candidate_conditions = (
+            {group: group_conditions[group] for group in calibration_candidates}
+            if all(group in group_conditions for group in calibration_candidates)
+            else None
+        )
+        calibration_groups = _balanced_calibration_groups(
+            calibration_candidates,
+            profiles=candidate_profiles,
+            conditions=candidate_conditions,
+            fold_index=fold_index,
+        )
+        calibration_indices = [
+            index
+            for index, group in enumerate(group_by_trajectory)
+            if group in calibration_groups
+        ]
         training_groups = tuple(
             group
             for group in groups
@@ -1403,12 +1492,8 @@ def benchmark_predictive_ensemble(
             else:
                 params, _, report = fit_trajectory_artifacts(
                     fit_paths,
-                    holdout_count=1,
-                    holdout_profiles=(
-                        (calibration_value,)
-                        if calibration_axis == "profile"
-                        else None
-                    ),
+                    holdout_count=len(calibration_groups),
+                    holdout_profiles=None,
                     training_horizons_s=training_horizons_s,
                     evaluation_horizons_s=evaluation_horizons_s,
                     steps=steps,

@@ -11,6 +11,7 @@ from glassbox.fixedwing_synthetic import generate_fixed_wing_trajectory
 from glassbox.identification import FitResult
 from glassbox.predictive_ensemble import (
     PredictiveEnsemble,
+    _balanced_calibration_groups,
     aggregate_predictive_ensemble_metrics,
     benchmark_predictive_ensemble,
     fit_grouped_disagreement_calibration,
@@ -40,6 +41,41 @@ def test_grouped_bootstrap_is_deterministic_and_preserves_stratum_draw_counts() 
         assert sum(count for group, count in member.items() if group[0] == "a") == 2
         assert sum(count for group, count in member.items() if group[0] == "b") == 3
         assert set(member) <= set(groups)
+
+
+def test_balanced_calibration_partition_preserves_profile_condition_replicates() -> None:
+    groups = tuple(
+        f"{profile}-{condition}-{replicate}"
+        for profile in ("a", "b", "c")
+        for condition in ("low", "medium", "high")
+        for replicate in range(2)
+    )
+    profiles = {group: group.split("-")[0] for group in groups}
+    conditions = {group: group.split("-")[1] for group in groups}
+
+    selected = _balanced_calibration_groups(
+        groups,
+        profiles=profiles,
+        conditions=conditions,
+        fold_index=1,
+    )
+
+    assert len(selected) == 9
+    for profile in ("a", "b", "c"):
+        for condition in ("low", "medium", "high"):
+            stratum = {
+                group
+                for group in groups
+                if profiles[group] == profile and conditions[group] == condition
+            }
+            assert len(stratum & set(selected)) == 1
+            assert len(stratum - set(selected)) == 1
+    assert selected == _balanced_calibration_groups(
+        groups,
+        profiles=profiles,
+        conditions=conditions,
+        fold_index=1,
+    )
 
 
 def test_group_weighted_windows_preserve_complete_group_multiplicity() -> None:
@@ -328,9 +364,9 @@ def test_nested_ensemble_benchmark_keeps_outer_profiles_out_of_every_member(
     source_group_by_path = {}
     seed = 0
     for profile in ("vertical", "lateral", "yaw"):
-        for replicate in range(2):
+        for replicate in range(4):
             trajectory = generate_fixed_wing_trajectory(
-                seed=seed, duration_s=0.4
+                seed=seed, duration_s=0.2
             )
             trajectory = replace(
                 trajectory,
@@ -366,7 +402,9 @@ def test_nested_ensemble_benchmark_keeps_outer_profiles_out_of_every_member(
     observed_omitted_group = False
     for fold in summary["per_fold"].values():
         assert fold["member_count"] == 2
-        assert len(fold["validation_source_groups"]) == 2
+        assert len(fold["validation_source_groups"]) == 4
+        assert len(fold["calibration_source_groups"]) == 4
+        assert len(fold["training_source_groups"]) == 4
         assert set(fold["validation_source_groups"]).isdisjoint(
             fold["training_source_groups"]
         )
@@ -376,6 +414,11 @@ def test_nested_ensemble_benchmark_keeps_outer_profiles_out_of_every_member(
         assert set(fold["calibration_source_groups"]).isdisjoint(
             fold["validation_source_groups"]
         )
+        assert {
+            group.split("-")[0] for group in fold["calibration_source_groups"]
+        } == {
+            group.split("-")[0] for group in fold["training_source_groups"]
+        }
         manifest = Path(fold["ensemble"])
         assert manifest.exists()
         payload = json.loads(manifest.read_text())
