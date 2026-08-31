@@ -181,3 +181,33 @@ evaluate the v3 independent calibration stage without touching that final
 evidence. Exact v2 metrics, implementation fingerprints,
 artifact hashes, and the evidence decision are recorded in
 [`predictive-ensemble-results.json`](predictive-ensemble-results.json).
+
+## First independent calibration result
+
+The v3 benchmark then introduced a strict three-way split. For each outer
+profile, eight residual members fitted only two of the remaining profiles, a
+third complete profile selected disagreement scales, and the fourth remained
+untouched for evaluation. Six calibration source groups support corrected 50%
+and 80% ranks but not 90%, which correctly remained unavailable.
+
+Independent scaling worked at the aggregate level:
+
+| Level | Raw coverage MAE | Scaled coverage MAE | Scaled aggregate range |
+| ---: | ---: | ---: | ---: |
+| 50% | 0.212 | 0.046 | 49.6--59.7% |
+| 80% | 0.342 | 0.079 | 82.7--92.9% |
+| 90% | n/a | unavailable | six groups cannot support the corrected rank |
+
+All 32 members, resamples, and predictions remained distinct and finite. The
+result therefore supports the scale-calibration hypothesis as development
+evidence. It does not support the whole-profile calibration partition as the
+default: excluding an entire maneuver family from fitting increased center
+errors by 1.33--3.33x relative to the v2 ensemble trained on every outer-training
+profile. Per-fold coverage also remained heterogeneous even though the aggregate
+result was strong.
+
+The next partition should reserve balanced source groups within every
+outer-training profile. That keeps fitting and calibration independent while
+preserving maneuver-family coverage on both sides. Exact v3 metrics and the
+decision are recorded in
+[`predictive-ensemble-calibration-results.json`](predictive-ensemble-calibration-results.json).

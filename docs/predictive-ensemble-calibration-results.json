@@ -1,0 +1,152 @@
+{
+  "format_version": 1,
+  "date": "2026-08-31",
+  "status": "development_evidence",
+  "hypothesis": "A scale learned from complete calibration groups can correct bootstrap-ensemble under-dispersion on a subsequently untouched maneuver profile.",
+  "uncertainty_semantics": {
+    "posterior": false,
+    "calibrated_distribution": false,
+    "interval_claim": false,
+    "coverage_role": "independently_scaled_group_diagnostic"
+  },
+  "corpus": {
+    "name": "multirotor_v2_ground_truth",
+    "vehicle_configuration_id": "px4_sih_quadx",
+    "trajectory_count": 24,
+    "independent_source_group_count": 24,
+    "profiles": {
+      "combined": 6,
+      "lateral_steps": 6,
+      "vertical_steps": 6,
+      "yaw_steps": 6
+    },
+    "evidence_boundary": "This corpus was already development evidence before the v3 calibration method was implemented and cannot support promotion."
+  },
+  "configuration": {
+    "method": "nested_group_calibrated_bootstrap_v3",
+    "model_class": "structured_residual",
+    "outer_partition": "one_complete_profile",
+    "calibration_partition": "one_complete_profile",
+    "member_fit_partition": "two_complete_profiles",
+    "member_fit_source_groups_per_fold": 12,
+    "calibration_source_groups_per_fold": 6,
+    "outer_evaluation_source_groups_per_fold": 6,
+    "members_per_fold": 8,
+    "fitted_member_count": 32,
+    "training_horizons_s": [0.1, 0.5, 2.0],
+    "evaluation_horizons_s": [0.1, 0.5, 1.0, 2.0],
+    "optimization_steps_per_member": 400,
+    "learning_rate": 0.02,
+    "calibration_method": "source_group_split_scale_v1",
+    "calibration_group_score": "higher quantile of endpoint error divided by same-level member radius",
+    "finite_sample_group_rank": "ceil((group_count + 1) * coverage)"
+  },
+  "implementation": {
+    "git_commit": "18cbe4d2bfb69cba4c93ee643d3b78d078daeb13",
+    "tracked_worktree_dirty": false,
+    "source_tree_sha256": "a2922681ce7e16e0b4829c727fca87f09b44ce5aee3bbd6c93de61161ed18b43",
+    "python": "3.12.12",
+    "jax": "0.11.1",
+    "numpy": "2.5.2",
+    "jax_backend": "cpu"
+  },
+  "artifact": {
+    "summary": "artifacts/sitl/predictive_ensemble_v3/ground_truth/structured_residual/summary.json",
+    "summary_sha256": "3712e4edacfe2f51d061f27134b4f86c870d099a54a05f63854e31a47818d842"
+  },
+  "metric_layout": {
+    "horizons_s": [0.1, 0.5, 1.0, 2.0],
+    "groups": {
+      "position": "m",
+      "velocity": "m/s",
+      "attitude": "rad",
+      "angular_velocity": "rad/s"
+    }
+  },
+  "results": {
+    "center_vector_rmse": {
+      "position": [0.0016136697887517812, 0.04229037772597993, 0.2387558486740604, 1.5004818048462365],
+      "velocity": [0.030779077887835366, 0.1978608956759247, 0.6667040173211961, 1.86877496265961],
+      "attitude": [0.004940038172401674, 0.06973361380007242, 0.16867419415083462, 0.3090775853917111],
+      "angular_velocity": [0.0978704182615238, 0.26253238561087366, 0.2654274026576855, 0.3106858665635304]
+    },
+    "center_error_ratio_to_v2_full_outer_training": {
+      "position": [3.108, 3.053, 2.369, 2.589],
+      "velocity": [3.326, 2.581, 2.155, 2.620],
+      "attitude": [1.332, 1.602, 1.632, 1.600],
+      "angular_velocity": [1.405, 1.671, 1.499, 1.345]
+    },
+    "error_disagreement_spearman": {
+      "position": [0.6258961878963357, 0.5685672953509799, 0.5436724785661385, 0.5568722943722944],
+      "velocity": [0.6236433150949309, 0.5514614176096184, 0.5508746558290575, 0.65872113997114],
+      "attitude": [0.3572757746020629, 0.539597437870502, 0.5881198039576523, 0.7093524531024531],
+      "angular_velocity": [0.37310046670261443, 0.5503932315001383, 0.5410418221138877, 0.5534181096681097]
+    },
+    "raw_coverage_0.5": {
+      "position": [0.4610554679056338, 0.2953909295211665, 0.24005453181149775, 0.3399606180856181],
+      "velocity": [0.4310745195400359, 0.24000242569999813, 0.24447864442059491, 0.3394104737854738],
+      "attitude": [0.15860035013386065, 0.2468105272323572, 0.30101038022864646, 0.3154806998556999],
+      "angular_velocity": [0.1667792294818765, 0.22540606948684577, 0.2506367546711974, 0.3532422438672439]
+    },
+    "scaled_coverage_0.5": {
+      "position": [0.5380026700517903, 0.5460102736062856, 0.544089665601856, 0.5956890331890332],
+      "velocity": [0.5394745017538929, 0.5458261966194532, 0.5684802566284765, 0.5745385401635401],
+      "attitude": [0.5144099989834184, 0.5227528210578385, 0.5329591890737401, 0.5144976551226551],
+      "angular_velocity": [0.4958048913320521, 0.5390451754004075, 0.5649768521382298, 0.5974777537277538]
+    },
+    "scale_0.5": {
+      "position": [1.20522520806432, 1.7612761253674267, 2.03327187240364, 1.68073833447037],
+      "velocity": [1.2655747046902917, 2.078823771860835, 2.058614015846166, 1.5312574732614799],
+      "attitude": [2.889986256215582, 1.9934443597549092, 1.5889707672600275, 1.3262700959883573],
+      "angular_velocity": [2.819499700313283, 2.2280242790507114, 2.1349860077028615, 1.7601464836747789]
+    },
+    "raw_coverage_0.8": {
+      "position": [0.6349565552605672, 0.4276914035481765, 0.38007287045599747, 0.5772501803751804],
+      "velocity": [0.6010697962906856, 0.36891795041869624, 0.4148503280130602, 0.5657347282347283],
+      "attitude": [0.2694189374079901, 0.3850825141428833, 0.5396760644970784, 0.5711925805675806],
+      "angular_velocity": [0.2735735424475628, 0.3779699720889401, 0.4205719917552348, 0.525808682058682]
+    },
+    "scaled_coverage_0.8": {
+      "position": [0.8479387959913558, 0.8573640640607267, 0.9149165199910169, 0.864637445887446],
+      "velocity": [0.8272960843649299, 0.8688361259494555, 0.9026418155288125, 0.9289938071188072],
+      "attitude": [0.8366438341436958, 0.8873347305329177, 0.869388961571624, 0.9160488816738818],
+      "angular_velocity": [0.8400559932938813, 0.8841409940019549, 0.9072739293085654, 0.9073502886002887]
+    },
+    "scale_0.8": {
+      "position": [1.6947651825592496, 2.5225762785821413, 3.3581438047541483, 2.3853851377704296],
+      "velocity": [1.6707559340424762, 2.9369443968872986, 3.2712813690697673, 2.3559021075008504],
+      "attitude": [4.668273590898665, 3.500026233329694, 2.343588873714201, 2.031404868393265],
+      "angular_velocity": [4.702864124782194, 3.7367025429023255, 3.2271782066256764, 2.5399207452719885]
+    },
+    "aggregate_calibration_error": {
+      "raw_mean_absolute_error_0.5": 0.21191288339201583,
+      "scaled_mean_absolute_error_0.5": 0.04640160573664493,
+      "raw_mean_absolute_error_0.8": 0.3416351189023098,
+      "scaled_mean_absolute_error_0.8": 0.07880389200120995
+    },
+    "per_fold_state_group_horizon_coverage_range": {
+      "scaled_0.5": {"minimum": 0.2960054355408052, "mean": 0.5458772171531512, "maximum": 0.794877344877345},
+      "scaled_0.8": {"minimum": 0.6774057053751933, "mean": 0.8788038920012105, "maximum": 1.0}
+    },
+    "coverage_0.9": {
+      "status": "unavailable",
+      "calibration_source_group_count": 6,
+      "minimum_required_source_group_count": 9
+    }
+  },
+  "diversity_and_finiteness": {
+    "unique_bootstrap_resamples_per_fold": 8,
+    "unique_parameter_members_per_fold": 8,
+    "minimum_unique_prediction_members_per_fold_and_horizon": 8,
+    "finite_member_prediction_fraction": 1.0,
+    "finite_member_path_fraction": 1.0,
+    "fully_finite_member_fraction": 1.0
+  },
+  "decision": {
+    "calibration_hypothesis": "supported_as_development_evidence",
+    "runtime_promotion": false,
+    "whole_profile_calibration_partition": "rejected_as_default",
+    "reason": "Independent scaling reduced aggregate coverage MAE by 4.3x at 50 percent and 4.3x at 80 percent, but removing an entire maneuver profile from member fitting increased center errors by 1.33x to 3.33x relative to v2.",
+    "next_experiment": "Reserve balanced source groups within every outer-training profile so fitting and calibration both retain maneuver and condition coverage."
+  }
+}

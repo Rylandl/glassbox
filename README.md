@@ -69,6 +69,14 @@ under-covers and is not calibrated, so no runtime ensemble was promoted. See the
 [recorded result](docs/predictive-ensemble-results.json) for exact metrics and
 artifact fingerprints.
 
+A subsequent strict three-way experiment showed that independent group scaling
+reduces coverage error substantially: aggregate 50% coverage moved to
+49.6--59.7%, and 80% coverage moved to 82.7--92.9%. Reserving a whole maneuver
+profile for calibration degraded center accuracy too much, however, so that
+partition is not the default endpoint. The next iteration keeps independent
+groups on both sides while preserving every training maneuver family. See the
+[calibration result](docs/predictive-ensemble-calibration-results.json).
+
 ## Nonlinear model-predictive control
 
 Glassbox includes an opinionated JAX NMPC controller for actionable fitted
