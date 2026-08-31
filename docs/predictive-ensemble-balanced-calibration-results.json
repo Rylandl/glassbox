@@ -1,0 +1,136 @@
+{
+  "format_version": 1,
+  "date": "2026-08-31",
+  "status": "development_evidence",
+  "hypothesis": "Balanced source-group calibration can correct bootstrap-ensemble under-dispersion without removing maneuver or condition support from member fitting.",
+  "uncertainty_semantics": {
+    "posterior": false,
+    "calibrated_distribution": false,
+    "interval_claim": false,
+    "coverage_role": "independently_scaled_group_diagnostic"
+  },
+  "corpus": {
+    "name": "multirotor_v2_ground_truth",
+    "vehicle_configuration_id": "px4_sih_quadx",
+    "trajectory_count": 24,
+    "independent_source_group_count": 24,
+    "profiles": {
+      "combined": 6,
+      "lateral_steps": 6,
+      "vertical_steps": 6,
+      "yaw_steps": 6
+    },
+    "evidence_boundary": "This corpus was already development evidence before the v4 balanced partition was implemented and cannot support promotion."
+  },
+  "configuration": {
+    "method": "balanced_group_calibrated_bootstrap_v4",
+    "model_class": "structured_residual",
+    "outer_partition": "one_complete_profile",
+    "member_fit_partition": "one_source group per outer-training profile and condition stratum",
+    "calibration_partition": "the other replicate in every outer-training profile and condition stratum",
+    "member_fit_source_groups_per_fold": 9,
+    "calibration_source_groups_per_fold": 9,
+    "outer_evaluation_source_groups_per_fold": 6,
+    "members_per_fold": 8,
+    "fitted_member_count": 32,
+    "training_horizons_s": [0.1, 0.5, 2.0],
+    "evaluation_horizons_s": [0.1, 0.5, 1.0, 2.0],
+    "optimization_steps_per_member": 400,
+    "learning_rate": 0.02,
+    "calibration_method": "source_group_split_scale_v1",
+    "calibration_group_score": "higher quantile of endpoint error divided by same-level member radius",
+    "finite_sample_group_rank": "ceil((group_count + 1) * coverage)"
+  },
+  "implementation": {
+    "git_commit": "795cc99ae922984998a52a1dc1bc08273d8073f5",
+    "tracked_worktree_dirty": false,
+    "source_tree_sha256": "5a9cbde853189e790bc14615d227f75f43c7a61a86852c508124746ad6c439c6",
+    "python": "3.12.12",
+    "jax": "0.11.1",
+    "numpy": "2.5.2",
+    "jax_backend": "cpu"
+  },
+  "artifact": {
+    "summary": "artifacts/sitl/predictive_ensemble_v4/ground_truth/structured_residual/summary.json",
+    "summary_sha256": "8ea4eb234a1da79c700f91416378f36e2c5ae9434a053dd29046b7da337b1b85"
+  },
+  "metric_layout": {
+    "horizons_s": [0.1, 0.5, 1.0, 2.0],
+    "groups": {
+      "position": "m",
+      "velocity": "m/s",
+      "attitude": "rad",
+      "angular_velocity": "rad/s"
+    }
+  },
+  "results": {
+    "center_vector_rmse": {
+      "position": [0.000552150427306425, 0.014339141856818137, 0.10087559588140174, 0.6188610973845117],
+      "velocity": [0.009710496421289266, 0.07831073040632687, 0.30595340512096636, 0.8806107797822108],
+      "attitude": [0.00378818504455395, 0.044061129886805606, 0.10082704886871117, 0.20770388547457097],
+      "angular_velocity": [0.07150043313565241, 0.16057316590364848, 0.17556768126478017, 0.21293781629910608]
+    },
+    "center_error_ratio_to_v2_full_outer_training": {
+      "position": [1.0633368132304895, 1.0352273477733955, 1.0011154299460387, 1.067685485783617],
+      "velocity": [1.0492216310276974, 1.0214658706912734, 0.9889045077114983, 1.2345860218042701],
+      "attitude": [1.021225836876156, 1.0119943792190438, 0.9758056639988469, 1.07540432031533],
+      "angular_velocity": [1.0264567671646048, 1.0219842357347086, 0.9912351023791279, 0.9221608702560862]
+    },
+    "error_disagreement_spearman": {
+      "position": [0.6122606280807629, 0.5226058300656775, 0.47272737087399225, 0.5966720779220779],
+      "velocity": [0.5912552402982796, 0.46436275486528195, 0.5009409711674485, 0.592550505050505],
+      "attitude": [0.3319553263330191, 0.5011939941695331, 0.5949130819562574, 0.6074494949494951],
+      "angular_velocity": [0.32978255453483735, 0.4835726659200929, 0.495765655240349, 0.5699585137085137]
+    },
+    "aggregate_calibration": {
+      "0.5": {
+        "raw_mean_absolute_error": 0.2162266115568448,
+        "scaled_mean_absolute_error": 0.05519657078980853,
+        "scaled_mean": 0.5551965707898086,
+        "scaled_minimum": 0.5112688040803366,
+        "scaled_maximum": 0.6426361832611833,
+        "per_fold_cell_minimum": 0.28789682539682543,
+        "per_fold_cell_maximum": 0.8599567099567101
+      },
+      "0.8": {
+        "raw_mean_absolute_error": 0.3517098925159146,
+        "scaled_mean_absolute_error": 0.07919663519488869,
+        "scaled_mean": 0.8791966351948888,
+        "scaled_minimum": 0.8425225474982392,
+        "scaled_maximum": 0.917703823953824,
+        "per_fold_cell_minimum": 0.7668260751594084,
+        "per_fold_cell_maximum": 1.0
+      },
+      "0.9": {
+        "raw_mean_absolute_error": 0.3327951070703529,
+        "scaled_mean_absolute_error": 0.06368865578960592,
+        "scaled_mean": 0.9636886557896059,
+        "scaled_minimum": 0.93379922598723,
+        "scaled_maximum": 0.9871031746031746,
+        "per_fold_cell_minimum": 0.9013969368474744,
+        "per_fold_cell_maximum": 1.0
+      }
+    },
+    "scaled_mean_radius_0.9": {
+      "position": [0.0008557132447647351, 0.043525165224244794, 0.391506526406939, 2.7396343532716805],
+      "velocity": [0.018468133025078968, 0.2946826016306419, 1.2830528124443312, 5.78950387669283],
+      "attitude": [0.014197074096505169, 0.15806593480211556, 0.35285116955158485, 0.807832005292441],
+      "angular_velocity": [0.2672448913409815, 0.5971079043565047, 0.8647468373364494, 1.2033176051486314]
+    }
+  },
+  "diversity_and_finiteness": {
+    "unique_bootstrap_resamples_per_fold": 8,
+    "unique_parameter_members_per_fold": 8,
+    "minimum_unique_prediction_members_per_fold_and_horizon": 8,
+    "finite_member_prediction_fraction": 1.0,
+    "finite_member_path_fraction": 1.0,
+    "fully_finite_member_fraction": 1.0
+  },
+  "decision": {
+    "balanced_calibration_hypothesis": "supported_as_development_evidence",
+    "balanced_partition": "accepted_as_current_default",
+    "runtime_promotion": false,
+    "reason": "Balanced calibration retained every maneuver and condition in fitting, restoring 15 of 16 center-error cells to within 8 percent of v2 while independently reducing aggregate coverage error. The corrected bands remain conservative, 50 percent fold coverage is heterogeneous, and long-horizon 90 percent radii are too broad for a runtime contract.",
+    "next_experiment": "Freeze the estimator and evaluate it on a new airframe or configuration with enough independent source groups for disjoint fit, calibration, and outer-evaluation evidence."
+  }
+}

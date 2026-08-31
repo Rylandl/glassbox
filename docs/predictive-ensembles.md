@@ -101,9 +101,10 @@ horizon. Full-path finite-member fraction and the fraction of members finite on
 every evaluated path separately expose trajectories that diverged before
 returning an apparently finite endpoint.
 
-These are uncalibrated member-disagreement balls, not confidence or credible
-intervals. Coverage is evidence about the bootstrap construction; it is not a
-guarantee for future flights.
+The raw member-disagreement balls are uncalibrated. The independently scaled
+balls are still diagnostics rather than confidence or credible intervals:
+coverage is evidence about this bootstrap construction, not a guarantee for
+future flights.
 
 ## What is and is not represented
 
@@ -213,3 +214,42 @@ outer-training profile. That keeps fitting and calibration independent while
 preserving maneuver-family coverage on both sides. Exact v3 metrics and the
 decision are recorded in
 [`predictive-ensemble-calibration-results.json`](predictive-ensemble-calibration-results.json).
+
+## Balanced calibration result
+
+The v4 benchmark replaced the whole-profile calibration partition with a
+balanced source-group split. In each outer fold, every one of the three
+remaining profiles contributed one replicate of each low, medium, and high
+condition to fitting and the other replicate to calibration. The resulting
+9/9/6 fitting/calibration/evaluation source-group split retained the same
+maneuver and condition support on both sides without sharing a source group.
+
+This resolves the principal v3 failure. Relative to the v2 ensemble that used
+all 18 outer-training groups for fitting, v4 center errors were 0.92--1.08x as
+large in 15 of 16 state-group/horizon cells. The exception was 2-second
+velocity at 1.23x. Every member, resample, and prediction remained distinct and
+finite, while fixed-horizon error/disagreement rank correlations remained
+positive at 0.33--0.61.
+
+Independent scaling again corrected severe raw under-coverage:
+
+| Level | Raw coverage MAE | Scaled coverage MAE | Scaled aggregate range |
+| ---: | ---: | ---: | ---: |
+| 50% | 0.216 | 0.055 | 51.1--64.3% |
+| 80% | 0.352 | 0.079 | 84.3--91.8% |
+| 90% | 0.333 | 0.064 | 93.4--98.7% |
+
+The result supports balanced group calibration as the current default
+estimator. It does not support a runtime interval contract. With nine
+calibration groups, corrected 90% calibration selects the maximum group score;
+the resulting bands are consistently conservative and become operationally
+weak at long horizons. At two seconds, the mean 90% position and velocity radii
+were 2.74 m and 5.79 m/s. The 50% bands were much sharper but heterogeneous
+across individual folds, spanning 28.8--86.0% over fold/state/horizon cells.
+
+This corpus has now influenced every ensemble iteration and remains development
+evidence. The implementation should stay fixed until it is evaluated on a new
+airframe or configuration with enough independent groups to preserve separate
+fit, calibration, and outer-evaluation partitions. Exact v4 metrics and the
+artifact fingerprint are recorded in
+[`predictive-ensemble-balanced-calibration-results.json`](predictive-ensemble-balanced-calibration-results.json).

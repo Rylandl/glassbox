@@ -75,9 +75,13 @@ A subsequent strict three-way experiment showed that independent group scaling
 reduces coverage error substantially: aggregate 50% coverage moved to
 49.6--59.7%, and 80% coverage moved to 82.7--92.9%. Reserving a whole maneuver
 profile for calibration degraded center accuracy too much, however, so that
-partition is not the default endpoint. The next iteration keeps independent
-groups on both sides while preserving every training maneuver family. See the
-[calibration result](docs/predictive-ensemble-calibration-results.json).
+partition is not the default endpoint. A balanced source-group split then
+restored center accuracy to within 8% of the full-profile fit in 15 of 16 metric
+cells while reducing aggregate coverage MAE to 0.055, 0.079, and 0.064 at 50%,
+80%, and 90%. The 90% bands are conservative and too broad for a runtime control
+contract, so the workflow remains diagnostic-only pending evaluation on a new
+airframe or configuration. See the
+[balanced calibration result](docs/predictive-ensemble-balanced-calibration-results.json).
 
 ## Nonlinear model-predictive control
 
