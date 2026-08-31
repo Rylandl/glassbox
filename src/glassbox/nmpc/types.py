@@ -198,6 +198,12 @@ class NMPCDiagnostics:
     maximum_command_bound_violation: float
     maximum_validity_utilization: float
     maximum_normalized_safety_violation: float
+    maximum_normalized_model_uncertainty_standard_deviation: float
+    model_uncertainty_available: bool
+    prediction_error_model_available: bool
+    prediction_error_model_current: bool
+    prediction_error_horizon_supported: bool
+    parameter_uncertainty_available: bool
     warm_start_used: bool
     prediction_horizon_s: float
     prediction_horizon_certified: bool

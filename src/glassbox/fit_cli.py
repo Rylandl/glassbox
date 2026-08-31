@@ -12,6 +12,14 @@ from typing import Any
 
 import numpy as np
 
+from glassbox.belief import (
+    DynamicsBelief,
+    EmpiricalErrorSample,
+    EmpiricalHorizonPredictiveError,
+    UnavailablePredictiveError,
+    predictive_error_from_dict,
+)
+from glassbox.belief_io import save_dynamics_belief
 from glassbox.data import (
     Trajectory,
     TrajectorySpec,
@@ -34,7 +42,7 @@ from glassbox.evaluation import (
     one_step_innovation_diagnostics,
     parameter_dict,
     rollout_metrics,
-    windowed_rollout_metrics,
+    windowed_rollout_evaluation,
 )
 from glassbox.fixedwing_synthetic import initial_fixed_wing_parameter_guess
 from glassbox.identification import (
@@ -47,7 +55,6 @@ from glassbox.identification import (
     rollout_loss_configuration,
 )
 from glassbox.model_family import MULTIROTOR_FAMILY, family_for_platform
-from glassbox.model_io import save_dynamics_model
 from glassbox.observation_identification import (
     ObservationFitResult,
     fit_multirotor_observations,
@@ -733,6 +740,9 @@ def _evaluate_model(
     horizon_metrics: dict[str, list[dict[str, Any]]] = {
         f"{seconds:g}s": [] for seconds in horizon_seconds
     }
+    error_samples: dict[float, list[EmpiricalErrorSample]] = {
+        seconds: [] for seconds in horizon_seconds
+    }
 
     for flight in flights:
         trajectory = flight.trajectory
@@ -754,7 +764,7 @@ def _evaluate_model(
             steps = duration_to_steps(seconds, trajectory.nominal_dt_s)
             if steps > len(trajectory.controls):
                 continue
-            metrics = windowed_rollout_metrics(
+            metrics, endpoint_errors = windowed_rollout_evaluation(
                 params,
                 trajectory,
                 horizon_steps=steps,
@@ -764,6 +774,17 @@ def _evaluate_model(
             metrics["horizon_steps"] = steps
             per_horizon[label] = metrics
             horizon_metrics[label].append(metrics)
+            error_samples[seconds].append(
+                EmpiricalErrorSample(
+                    endpoint_errors,
+                    source_group=str(
+                        flight.source_group
+                        if flight.source_group is not None
+                        else flight.path
+                    ),
+                    trajectory_id=flight.path,
+                )
+            )
 
         per_flight.append(
             {
@@ -779,6 +800,19 @@ def _evaluate_model(
     for label, items in horizon_metrics.items():
         if items:
             aggregate_horizons[label] = aggregate_rollout_metrics(items)
+
+    available_error_samples = {
+        horizon: samples
+        for horizon, samples in error_samples.items()
+        if samples
+    }
+    predictive_error = (
+        EmpiricalHorizonPredictiveError.from_samples(available_error_samples)
+        if available_error_samples
+        else UnavailablePredictiveError(
+            "held-out trajectories were shorter than every evaluation horizon"
+        )
+    )
 
     return {
         "aggregate": {
@@ -802,6 +836,7 @@ def _evaluate_model(
             "horizon_rollouts": aggregate_horizons,
         },
         "per_flight": per_flight,
+        "predictive_error": predictive_error.to_dict(),
     }
 
 
@@ -1593,11 +1628,11 @@ def _no_lag_model_path(model_path: Path) -> Path:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("trajectory", type=Path, nargs="+")
-    parser.add_argument("--model", type=Path, help="output model JSON")
+    parser.add_argument("--model", type=Path, help="output dynamics-belief JSON")
     parser.add_argument(
         "--baseline-model",
         type=Path,
-        help="output no-lag model JSON; defaults beside --model",
+        help="output no-lag dynamics-belief JSON; defaults beside --model",
     )
     parser.add_argument("--report", type=Path, help="output fit report JSON")
     parser.add_argument("--train-fraction", type=float, default=0.70)
@@ -1793,35 +1828,59 @@ def main() -> None:
             if "dataset" in report
             else report["source"]["spec"]
         )
-        save_dynamics_model(
-            params,
+        provenance = {
+            "training_trajectories": training_paths,
+            "validation_trajectories": validation_paths,
+            "fit_report": str(args.report) if args.report else None,
+        }
+        predictive_error = (
+            predictive_error_from_dict(
+                report["models"]["learned_lag"]["validation"][
+                    "predictive_error"
+                ]
+            )
+            if "models" in report
+            else UnavailablePredictiveError(
+                "single-trajectory fixed-response fitting does not produce "
+                "a fixed-horizon held-out error profile"
+            )
+        )
+        save_dynamics_belief(
+            DynamicsBelief(
+                params=params,
+                input_spec=input_spec,
+                runtime_spec=runtime_spec_from_fit_report(report),
+                predictive_error=predictive_error,
+                provenance=provenance,
+            ),
             args.model,
-            input_spec=input_spec,
-            runtime_spec=runtime_spec_from_fit_report(report),
-            provenance={
+        )
+        print(f"wrote dynamics belief {args.model}")
+        if baseline_params is not None:
+            baseline_path = args.baseline_model or _no_lag_model_path(args.model)
+            baseline_provenance = {
                 "training_trajectories": training_paths,
                 "validation_trajectories": validation_paths,
                 "fit_report": str(args.report) if args.report else None,
-            },
-        )
-        print(f"wrote model {args.model}")
-        if baseline_params is not None:
-            baseline_path = args.baseline_model or _no_lag_model_path(args.model)
-            save_dynamics_model(
-                baseline_params,
-                baseline_path,
-                input_spec=input_spec,
-                runtime_spec=runtime_spec_from_fit_report(
-                    report, model_name="no_lag"
+                "ablation": "fixed near-zero applied-control response",
+            }
+            save_dynamics_belief(
+                DynamicsBelief(
+                    params=baseline_params,
+                    input_spec=input_spec,
+                    runtime_spec=runtime_spec_from_fit_report(
+                        report, model_name="no_lag"
+                    ),
+                    predictive_error=predictive_error_from_dict(
+                        report["models"]["no_lag"]["validation"][
+                            "predictive_error"
+                        ]
+                    ),
+                    provenance=baseline_provenance,
                 ),
-                provenance={
-                    "training_trajectories": training_paths,
-                    "validation_trajectories": validation_paths,
-                    "fit_report": str(args.report) if args.report else None,
-                    "ablation": "fixed near-zero applied-control response",
-                },
+                baseline_path,
             )
-            print(f"wrote no-lag model {baseline_path}")
+            print(f"wrote no-lag dynamics belief {baseline_path}")
     if args.report is not None:
         args.report.parent.mkdir(parents=True, exist_ok=True)
         args.report.write_text(json.dumps(report, indent=2) + "\n")

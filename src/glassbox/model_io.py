@@ -261,10 +261,12 @@ def _fixed_wing_from_payload(
     )
 
 
-def load_dynamics_model(path: str | Path) -> tuple[ModelParams, dict[str, Any]]:
-    """Load a model written by :func:`save_dynamics_model`."""
+def dynamics_model_from_payload(
+    payload: Mapping[str, Any],
+) -> tuple[ModelParams, dict[str, Any]]:
+    """Restore model parameters from an already decoded artifact payload."""
 
-    payload = json.loads(Path(path).read_text())
+    payload = dict(payload)
     version = payload.get("format_version")
     model_type = payload.get("model_type")
     input_spec = TrajectorySpec.from_dict(payload["input_spec"])
@@ -326,3 +328,15 @@ def load_dynamics_model(path: str | Path) -> tuple[ModelParams, dict[str, Any]]:
         input_spec.control_names, input_spec.control_roles
     )
     return params, payload
+
+
+def load_dynamics_model(path: str | Path) -> tuple[ModelParams, dict[str, Any]]:
+    """Load a nominal model from either a model or dynamics-belief artifact."""
+
+    payload = json.loads(Path(path).read_text())
+    from glassbox.belief_io import BELIEF_ARTIFACT_TYPE, dynamics_belief_from_payload
+
+    if payload.get("artifact_type") == BELIEF_ARTIFACT_TYPE:
+        belief = dynamics_belief_from_payload(payload)
+        return belief.params, dict(payload["nominal_model"])
+    return dynamics_model_from_payload(payload)

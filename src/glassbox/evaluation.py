@@ -1015,6 +1015,81 @@ def _state_error_metrics(
     }
 
 
+def rigid_body_tangent_errors(
+    predicted: np.ndarray,
+    target: np.ndarray,
+) -> np.ndarray:
+    """Return target-minus-prediction errors in 12 rigid-body local coordinates."""
+
+    predicted = np.asarray(predicted, dtype=np.float64)
+    target = np.asarray(target, dtype=np.float64)
+    if predicted.shape != target.shape or predicted.shape[-1] != 13:
+        raise ValueError("rigid-body error inputs must have matching (..., 13) shape")
+    predicted_quaternion = predicted[..., 6:10] / np.linalg.norm(
+        predicted[..., 6:10], axis=-1, keepdims=True
+    )
+    target_quaternion = target[..., 6:10] / np.linalg.norm(
+        target[..., 6:10], axis=-1, keepdims=True
+    )
+    predicted_w = predicted_quaternion[..., 0]
+    predicted_xyz = predicted_quaternion[..., 1:4]
+    target_w = target_quaternion[..., 0]
+    target_xyz = target_quaternion[..., 1:4]
+    relative_w = predicted_w * target_w + np.sum(
+        predicted_xyz * target_xyz, axis=-1
+    )
+    relative_xyz = (
+        predicted_w[..., np.newaxis] * target_xyz
+        - target_w[..., np.newaxis] * predicted_xyz
+        - np.cross(predicted_xyz, target_xyz)
+    )
+    relative_sign = np.where(relative_w < 0.0, -1.0, 1.0)
+    relative_w *= relative_sign
+    relative_xyz *= relative_sign[..., np.newaxis]
+    vector_norm = np.linalg.norm(relative_xyz, axis=-1)
+    angle = 2.0 * np.arctan2(vector_norm, np.clip(relative_w, 0.0, 1.0))
+    scale = np.divide(
+        angle,
+        vector_norm,
+        out=np.full_like(angle, 2.0),
+        where=vector_norm > 1e-12,
+    )
+    return np.concatenate(
+        (
+            target[..., 0:3] - predicted[..., 0:3],
+            target[..., 3:6] - predicted[..., 3:6],
+            relative_xyz * scale[..., np.newaxis],
+            target[..., 10:13] - predicted[..., 10:13],
+        ),
+        axis=-1,
+    )
+
+
+def windowed_rollout_evaluation(
+    params: ModelParams,
+    trajectory: Trajectory,
+    *,
+    horizon_steps: int,
+    stride_steps: int | None = None,
+) -> tuple[dict[str, Any], np.ndarray]:
+    """Return fixed-horizon metrics and endpoint tangent errors in one pass."""
+
+    predicted, target, dt_s = windowed_rollout_predictions(
+        params,
+        trajectory,
+        horizon_steps=horizon_steps,
+        stride_steps=stride_steps,
+    )
+    return (
+        _state_error_metrics(
+            predicted,
+            target,
+            duration_s=horizon_steps * dt_s,
+        ),
+        rigid_body_tangent_errors(predicted[:, -1], target[:, -1]),
+    )
+
+
 def windowed_rollout_metrics(
     params: ModelParams,
     trajectory: Trajectory,
@@ -1024,17 +1099,13 @@ def windowed_rollout_metrics(
 ) -> dict[str, Any]:
     """Evaluate fixed-horizon rollouts initialized throughout one flight."""
 
-    predicted, target, dt_s = windowed_rollout_predictions(
+    metrics, _ = windowed_rollout_evaluation(
         params,
         trajectory,
         horizon_steps=horizon_steps,
         stride_steps=stride_steps,
     )
-    return _state_error_metrics(
-        predicted,
-        target,
-        duration_s=horizon_steps * dt_s,
-    )
+    return metrics
 
 
 def kinematic_persistence_windowed_metrics(

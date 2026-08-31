@@ -12,7 +12,8 @@ import jax.numpy as jnp
 import numpy as np
 from jax import Array
 
-from glassbox.nmpc.geometry import rigid_body_local_error
+from glassbox.belief import DynamicsBelief, RuntimeDynamicsBelief
+from glassbox.geometry import rigid_body_local_error
 from glassbox.nmpc.types import (
     NMPCDiagnostics,
     NMPCResult,
@@ -106,18 +107,21 @@ class _DirectShootingBackend:
 
     def __init__(
         self,
-        model: RuntimeDynamicsModel,
+        belief: RuntimeDynamicsBelief,
         tolerances: TrackingTolerances,
         safety_envelope: SafetyEnvelope,
         *,
         _policy: _SolverPolicy | None = None,
     ) -> None:
-        self.model = model
+        self.belief = belief
+        self.model = belief.nominal
         self.tolerances = tolerances
         self.safety_envelope = safety_envelope
-        self._policy = _default_policy(model) if _policy is None else _policy
-        horizon_s = self._policy.horizon_steps * model.runtime_spec.sample_period_s
-        certified = model.runtime_spec.certified_prediction_horizon_s
+        self._policy = _default_policy(self.model) if _policy is None else _policy
+        horizon_s = (
+            self._policy.horizon_steps * self.model.runtime_spec.sample_period_s
+        )
+        certified = self.model.runtime_spec.certified_prediction_horizon_s
         if certified is not None and horizon_s > certified + 1e-12:
             raise ValueError("solver horizon exceeds the model's certified horizon")
         self._block_steps = math.ceil(
@@ -130,6 +134,9 @@ class _DirectShootingBackend:
         self._rollout_compiled = jax.jit(self._rollout)
         self._validity_compiled = jax.jit(self._maximum_validity_utilization)
         self._safety_compiled = jax.jit(self._maximum_safety_violation)
+        self._uncertainty_compiled = jax.jit(
+            self._maximum_normalized_model_uncertainty
+        )
 
     @property
     def prediction_steps(self) -> int:
@@ -182,7 +189,18 @@ class _DirectShootingBackend:
             (initial_state, initial_latent),
             (commands, exogenous),
         )
-        states = jnp.concatenate((initial_state[None, :], future_states), axis=0)
+        horizons = self.model.runtime_spec.sample_period_s * jnp.arange(
+            1, self.prediction_steps + 1
+        )
+        corrected_states, _, _ = jax.vmap(self.belief.corrected_state)(
+            future_states,
+            horizons,
+            commands,
+            exogenous,
+        )
+        states = jnp.concatenate(
+            (initial_state[None, :], corrected_states), axis=0
+        )
         latent = jnp.concatenate((initial_latent[None, :], future_latent), axis=0)
         return states, latent, commands
 
@@ -276,6 +294,24 @@ class _DirectShootingBackend:
 
     def _maximum_safety_violation(self, states: Array) -> Array:
         return jnp.max(jax.vmap(self._safety_violation)(states[1:]))
+
+    def _maximum_normalized_model_uncertainty(
+        self,
+        initial_state: Array,
+        initial_latent: Array,
+        commands: Array,
+        exogenous: Array,
+    ) -> Array:
+        forecast = self.belief.rollout(
+            initial_state,
+            commands,
+            initial_latent_state=initial_latent,
+            exogenous=exogenous,
+        )
+        return jnp.max(
+            forecast.tangent_standard_deviation[1:]
+            / self.tolerances.local_state_scale[None, :]
+        )
 
     def _optimize(
         self,
@@ -539,6 +575,18 @@ class _DirectShootingBackend:
                 maximum_command_bound_violation=0.0,
                 maximum_validity_utilization=math.inf,
                 maximum_normalized_safety_violation=math.inf,
+                maximum_normalized_model_uncertainty_standard_deviation=(
+                    math.inf if self.belief.uncertainty_available else 0.0
+                ),
+                model_uncertainty_available=self.belief.uncertainty_available,
+                prediction_error_model_available=(
+                    self.belief.predictive_error_available
+                ),
+                prediction_error_model_current=self.belief.predictive_error_current,
+                prediction_error_horizon_supported=False,
+                parameter_uncertainty_available=(
+                    self.belief.parameter_uncertainty_available
+                ),
                 warm_start_used=warm_start_used,
                 prediction_horizon_s=self.prediction_horizon_s,
                 prediction_horizon_certified=(
@@ -745,6 +793,16 @@ class _DirectShootingBackend:
         )
         maximum_validity = float(np.asarray(self._validity_compiled(states, exogenous)))
         maximum_safety = float(np.asarray(self._safety_compiled(states)))
+        maximum_model_uncertainty = float(
+            np.asarray(
+                self._uncertainty_compiled(
+                    state,
+                    latent,
+                    commands,
+                    exogenous,
+                )
+            )
+        )
         if deadline_s is not None and time.perf_counter() - started_at >= deadline_s:
             return self._failure_result(
                 SolveStatus.DEADLINE_EXCEEDED,
@@ -773,6 +831,22 @@ class _DirectShootingBackend:
                 maximum_command_bound_violation=bound_violation,
                 maximum_validity_utilization=maximum_validity,
                 maximum_normalized_safety_violation=maximum_safety,
+                maximum_normalized_model_uncertainty_standard_deviation=(
+                    maximum_model_uncertainty
+                ),
+                model_uncertainty_available=self.belief.uncertainty_available,
+                prediction_error_model_available=(
+                    self.belief.predictive_error_available
+                ),
+                prediction_error_model_current=self.belief.predictive_error_current,
+                prediction_error_horizon_supported=(
+                    self.belief.maximum_error_horizon_s is not None
+                    and self.prediction_horizon_s
+                    <= self.belief.maximum_error_horizon_s + 1e-12
+                ),
+                parameter_uncertainty_available=(
+                    self.belief.parameter_uncertainty_available
+                ),
                 warm_start_used=used_warm_start,
                 prediction_horizon_s=self.prediction_horizon_s,
                 prediction_horizon_certified=(
@@ -794,15 +868,25 @@ class NMPCController:
 
     def __init__(
         self,
-        model: RuntimeDynamicsModel,
+        model: RuntimeDynamicsModel | RuntimeDynamicsBelief | DynamicsBelief,
         tolerances: TrackingTolerances | None = None,
         safety_envelope: SafetyEnvelope | None = None,
         *,
         _policy: _SolverPolicy | None = None,
     ) -> None:
-        self.model = model
+        belief = (
+            model.compile_for_nmpc()
+            if isinstance(model, DynamicsBelief)
+            else model
+            if isinstance(model, RuntimeDynamicsBelief)
+            else RuntimeDynamicsBelief.from_nominal(model)
+        )
+        self.belief = belief
+        self.model = belief.nominal
         self.tolerances = (
-            TrackingTolerances.for_platform(model.input_spec.vehicle.family)
+            TrackingTolerances.for_platform(
+                self.model.input_spec.vehicle.family
+            )
             if tolerances is None
             else tolerances
         )
@@ -810,7 +894,7 @@ class NMPCController:
             SafetyEnvelope() if safety_envelope is None else safety_envelope
         )
         self._backend: _SolverBackend = _DirectShootingBackend(
-            model,
+            belief,
             self.tolerances,
             self.safety_envelope,
             _policy=_policy,

@@ -10,6 +10,14 @@ import numpy as np
 import pytest
 
 import glassbox.nmpc.solver as nmpc_solver
+from glassbox.belief import (
+    DynamicsBelief,
+    EmpiricalErrorSample,
+    EmpiricalHorizonPredictiveError,
+    LocalGaussianParameterBelief,
+    structured_parameter_names,
+    structured_parameter_vector,
+)
 from glassbox.data import (
     RIGID_BODY_STATE_SCHEMA,
     ControlChannel,
@@ -198,6 +206,51 @@ def test_solver_propagates_latent_state_and_returns_bounded_plan() -> None:
     )
     assert result.diagnostics.maximum_command_bound_violation <= 1e-6
     assert np.all(np.isfinite(result.predicted_states))
+
+
+def test_solver_consumes_predictive_and_parameter_uncertainty() -> None:
+    model = _multirotor_runtime()
+    parameter_count = len(structured_parameter_vector(model.params))
+    parameter_covariance = np.zeros((parameter_count, parameter_count))
+    parameter_covariance[0, 0] = 0.04
+    endpoint_errors = 0.02 * np.concatenate((np.eye(12), -np.eye(12)))
+    error_samples = (
+        EmpiricalErrorSample(endpoint_errors, "group-a", "flight-a"),
+        EmpiricalErrorSample(endpoint_errors, "group-b", "flight-b"),
+    )
+    belief = DynamicsBelief(
+        params=model.params,
+        input_spec=model.input_spec,
+        runtime_spec=model.runtime_spec,
+        predictive_error=EmpiricalHorizonPredictiveError.from_samples(
+            {0.1: error_samples, 0.2: error_samples}
+        ),
+        parameter_belief=LocalGaussianParameterBelief(
+            parameter_names=structured_parameter_names(model.params),
+            covariance=parameter_covariance,
+            source="fleet_prior",
+            evidence_count=4,
+            effective_sample_count=4.0,
+        ),
+    )
+    controller = NMPCController(belief, _policy=_test_policy(horizon_steps=4))
+    target = resting_state()
+    previous = hover_control(true_parameters())
+
+    result = controller.solve(
+        jnp.asarray(target),
+        controller.hold_reference(jnp.asarray(target)),
+        previous,
+    )
+
+    assert result.diagnostics.model_uncertainty_available
+    assert result.diagnostics.prediction_error_model_available
+    assert result.diagnostics.prediction_error_model_current
+    assert result.diagnostics.parameter_uncertainty_available
+    assert (
+        result.diagnostics.maximum_normalized_model_uncertainty_standard_deviation
+        > 0.0
+    )
 
 
 def test_applied_command_initializes_latent_actuator_state() -> None:

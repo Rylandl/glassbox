@@ -10,9 +10,9 @@ mixing remain separate projects or adapters.
 The dependency direction is deliberately one-way:
 
 ```text
-model artifact -> runtime dynamics -> NMPC -> canonical command -> actuation adapter
-                                      ^
-                    state estimate, reference, exogenous forecast
+dynamics belief -> compact runtime belief -> NMPC -> canonical command
+                                               |              |
+                         state/reference/context       actuation adapter
 ```
 
 Runtime and NMPC modules may depend on the canonical data, dynamics, and model

@@ -18,6 +18,40 @@ uv run glassbox-synthetic
 uv run pytest
 ```
 
+## Dynamics beliefs and live adaptation
+
+The primary fitted artifact is now a `DynamicsBelief`: a differentiable nominal
+model surrounded by the prediction error actually observed on held-out flights,
+an explicit parameter-belief state, validity support, and update provenance.
+The normal `glassbox-fit --model ...` output is a belief JSON. Existing benchmark
+evaluators transparently consume its nominal member, while runtime and NMPC keep
+the complete uncertainty contract.
+
+Held-out rollout errors are represented in 12 local rigid-body coordinates—
+position, velocity, shortest-path attitude rotation, and body rate—with full
+covariance and group-balanced empirical radii. Ordinary fits remain honest point
+parameter beliefs. Independent fleet, configuration, or resampling members can
+be condensed into a local Gaussian prior over only the structured effective
+coefficients, then updated from recent canonical telemetry:
+
+```python
+from glassbox import DynamicsBelief, NMPCController
+
+belief = DynamicsBelief.load("artifacts/vehicle-belief.json")
+belief = belief.with_parameter_members(fleet_members, source="fleet_prior_v1")
+updated, update_report = belief.update(recent_telemetry)
+assessment = updated.compile_for_nmpc().assess_plan(state, candidate_commands)
+controller = NMPCController(updated)
+```
+
+Forecasts preserve empirical residual error and parameter-induced uncertainty as
+separate components, combining them only in tangent space. A live parameter
+update marks older held-out residual evidence as stale rather than silently
+claiming it was revalidated. Candidate maneuvers expose expected local parameter
+information gain and posterior covariance, giving an exploration policy the
+primitives needed to stabilize first and increase maneuver complexity as
+evidence accumulates. See [the dynamics-belief design](docs/dynamics-beliefs.md).
+
 ## Experimental predictive ensembles
 
 Glassbox can now test whether corpus sensitivity contains useful predictive

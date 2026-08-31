@@ -3,6 +3,7 @@ import json
 import numpy as np
 import pytest
 
+from glassbox.belief import DynamicsBelief
 from glassbox.data import ExogenousChannel, make_trajectory_spec
 from glassbox.dynamics import (
     initial_residual_parameters,
@@ -58,6 +59,28 @@ def test_model_json_round_trip(tmp_path) -> None:
     assert payload["format_version"] == 3
     assert payload["provenance"] == {"flight": "fixture"}
     assert payload["input_spec"] == input_spec.prediction_spec().to_dict()
+
+
+def test_nominal_loader_unwraps_dynamics_belief(tmp_path) -> None:
+    path = tmp_path / "belief.json"
+    input_spec = generate_trajectory(seed=0, duration_s=0.1).spec
+    DynamicsBelief(
+        params=true_parameters(),
+        input_spec=input_spec,
+        runtime_spec=_runtime_spec(),
+        provenance={"flight": "fixture"},
+    ).save(path)
+
+    restored, payload = load_dynamics_model(path)
+
+    for expected_leaf, restored_leaf in zip(
+        true_parameters(), restored, strict=True
+    ):
+        np.testing.assert_allclose(restored_leaf, expected_leaf)
+    assert payload["model_type"] == (
+        "effective_quadrotor_command_offset_rotational_response_v3"
+    )
+    assert payload["provenance"] == {"flight": "fixture"}
 
 
 def test_residual_model_json_round_trip(tmp_path) -> None:

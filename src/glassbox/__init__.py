@@ -5,7 +5,26 @@ their respective modules. Keeping them out of the package root makes the
 stable API small and prevents a core import from loading experiment code.
 """
 
+from glassbox.adaptation import BeliefUpdateReport, update_dynamics_belief
 from glassbox.adapter import TrajectoryAdapter
+from glassbox.belief import (
+    TANGENT_GROUP_ORDER,
+    TANGENT_STATE_ORDER,
+    DynamicsBelief,
+    EmpiricalErrorSample,
+    EmpiricalHorizonPredictiveError,
+    LocalGaussianParameterBelief,
+    PlanAssessment,
+    PointParameterBelief,
+    PredictiveTrajectory,
+    RuntimeDynamicsBelief,
+    UnavailablePredictiveError,
+    apply_tangent_correction,
+    structured_parameter_names,
+    structured_parameter_vector,
+    with_structured_parameter_vector,
+)
+from glassbox.belief_io import load_dynamics_belief, save_dynamics_belief
 from glassbox.data import (
     RIGID_BODY_STATE_SCHEMA,
     ControlChannel,
@@ -48,7 +67,6 @@ from glassbox.identification import (
     fit_dynamics_multi_horizon,
     rollout_loss_configuration,
 )
-from glassbox.model_io import load_dynamics_model, save_dynamics_model
 from glassbox.nmpc import (
     NMPCController,
     NMPCDiagnostics,
@@ -72,14 +90,21 @@ from glassbox.runtime import (
 
 __all__ = [
     "RIGID_BODY_STATE_SCHEMA",
+    "TANGENT_GROUP_ORDER",
+    "TANGENT_STATE_ORDER",
     "ActuationMap",
     "BaseDynamicsParams",
+    "BeliefUpdateReport",
     "ControlChannel",
     "DirectActuationMap",
+    "DynamicsBelief",
     "DynamicsParams",
+    "EmpiricalErrorSample",
+    "EmpiricalHorizonPredictiveError",
     "ExogenousChannel",
     "FitResult",
     "FixedWingDynamicsParams",
+    "LocalGaussianParameterBelief",
     "ModelParams",
     "ModelValidityEnvelope",
     "NMPCController",
@@ -88,9 +113,13 @@ __all__ = [
     "NMPCWarmStart",
     "NonActionableModelError",
     "ObservationChannel",
+    "PlanAssessment",
+    "PointParameterBelief",
+    "PredictiveTrajectory",
     "ReferenceTrajectory",
     "ResidualDynamicsParams",
     "RolloutLossConfiguration",
+    "RuntimeDynamicsBelief",
     "RuntimeDynamicsModel",
     "RuntimeModelSpec",
     "SafetyEnvelope",
@@ -100,12 +129,14 @@ __all__ = [
     "TrajectoryAdapter",
     "TrajectorySpec",
     "TrajectoryWindows",
+    "UnavailablePredictiveError",
     "VehicleConfigurationSpec",
     "aggregate_rollout_metrics",
+    "apply_tangent_correction",
     "duration_to_steps",
     "fit_dynamics",
     "fit_dynamics_multi_horizon",
-    "load_dynamics_model",
+    "load_dynamics_belief",
     "load_trajectory_npz",
     "make_trajectory_spec",
     "model_family",
@@ -116,12 +147,16 @@ __all__ = [
     "rollout_with_latent",
     "runtime_spec_from_fit_report",
     "runtime_spec_from_trajectory",
-    "save_dynamics_model",
+    "save_dynamics_belief",
     "save_trajectory_npz",
     "split_trajectory",
     "step",
     "step_with_latent",
+    "structured_parameter_names",
+    "structured_parameter_vector",
     "trajectory_segment",
     "trajectory_windows",
+    "update_dynamics_belief",
     "windowed_rollout_metrics",
+    "with_structured_parameter_vector",
 ]

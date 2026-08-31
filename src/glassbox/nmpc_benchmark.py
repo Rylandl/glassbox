@@ -32,8 +32,8 @@ from glassbox.fixedwing_synthetic import (
     generate_fixed_wing_trajectory,
     true_fixed_wing_parameters,
 )
+from glassbox.geometry import rigid_body_local_error
 from glassbox.nmpc import NMPCController, ReferenceTrajectory
-from glassbox.nmpc.geometry import rigid_body_local_error
 from glassbox.runtime import (
     DirectActuationMap,
     RuntimeDynamicsModel,

@@ -213,6 +213,12 @@ def test_multi_flight_fit_reserves_complete_final_flight(tmp_path) -> None:
     assert "0.1s" in report["models"]["learned_lag"]["validation"][
         "aggregate"
     ]["horizon_rollouts"]
+    predictive_error = report["models"]["learned_lag"]["validation"][
+        "predictive_error"
+    ]
+    assert predictive_error["kind"] == "empirical_horizon_tangent_moments"
+    assert predictive_error["horizons_s"] == [0.1]
+    assert predictive_error["independent_group_count"] == [1]
     innovation = report["models"]["learned_lag"]["validation"]
     assert innovation["aggregate"]["one_step_innovation"]["status"] == "ok"
     assert innovation["per_flight"][0]["one_step_innovation"]["policy"] == (

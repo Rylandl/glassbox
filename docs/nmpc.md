@@ -1,7 +1,7 @@
 # Glassbox nonlinear model-predictive control
 
-Glassbox NMPC turns one eligible fitted dynamics artifact into a finite-horizon
-rigid-body tracker. The interface is intentionally small: a runtime model, a
+Glassbox NMPC turns one eligible fitted dynamics belief into a finite-horizon
+rigid-body tracker. The interface is intentionally small: a runtime belief, a
 state estimate, a state reference, the previous command, optional applied
 control or latent actuator state, physical tracking tolerances, and optional
 state limits. Horizon length, command blocking, line search, regularization,
@@ -17,17 +17,17 @@ module.
 import jax.numpy as jnp
 
 from glassbox import (
+    DynamicsBelief,
     NMPCController,
     ReferenceTrajectory,
-    RuntimeDynamicsModel,
     SafetyEnvelope,
     TrackingTolerances,
 )
 
-model = RuntimeDynamicsModel.load("artifacts/model.json")
+belief = DynamicsBelief.load("artifacts/vehicle-belief.json")
 controller = NMPCController(
-    model,
-    TrackingTolerances.for_platform(model.input_spec.vehicle.family),
+    belief,
+    TrackingTolerances.for_platform(belief.input_spec.vehicle.family),
     SafetyEnvelope(
         minimum_position_m=(-100.0, -100.0, -20.0),
         maximum_position_m=(100.0, 100.0, 100.0),
@@ -116,7 +116,10 @@ Important result fields are:
 - `predicted_states`, `predicted_latent_states`, and `predicted_commands`;
 - initial/final objective, iteration count, gradient norm, and solve time;
 - maximum command-bound violation, model-validity utilization, and normalized
-  safety-limit violation; and
+  safety-limit violation;
+- total normalized model uncertainty plus separate predictive-error availability,
+  residual-evidence currency, horizon support, and parameter-uncertainty flags;
+  and
 - an opaque `warm_start` for the next receding-horizon solve.
 
 An iteration-limit result is a finite bounded best plan and is marked as such;
