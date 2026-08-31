@@ -16,7 +16,9 @@ from glassbox.belief import (
     DynamicsBelief,
     EmpiricalErrorSample,
     EmpiricalHorizonPredictiveError,
+    UnavailableParameterEvidence,
     UnavailablePredictiveError,
+    parameter_evidence_from_dict,
     predictive_error_from_dict,
 )
 from glassbox.belief_io import save_dynamics_belief
@@ -58,6 +60,11 @@ from glassbox.model_family import MULTIROTOR_FAMILY, family_for_platform
 from glassbox.observation_identification import (
     ObservationFitResult,
     fit_multirotor_observations,
+)
+from glassbox.parameter_evidence import (
+    MAX_PARAMETER_EVIDENCE_WINDOWS_PER_HORIZON,
+    estimate_local_parameter_information,
+    fitted_structured_parameter_mask,
 )
 from glassbox.runtime import runtime_spec_from_fit_report
 from glassbox.synthetic import initial_parameter_guess
@@ -909,6 +916,7 @@ def fit_trajectory_artifacts(
     learn_thrust_command_offset: bool = False,
     instantaneous_rotational_response: bool = True,
     diagonal_angular_control: bool = True,
+    build_parameter_evidence: bool = False,
 ) -> tuple[ModelParams, ModelParams | None, dict[str, Any]]:
     """Fit across flights and reserve complete flights when multiple are given."""
 
@@ -1265,6 +1273,63 @@ def fit_trajectory_artifacts(
         horizon_seconds=evaluation_horizons_s,
     )
 
+    evidence_groups = (
+        training_source_groups
+        if training_source_groups is not None
+        else training_labels
+    )
+    evidence_independence_unit = (
+        "source_group"
+        if training_source_groups is not None
+        else "temporal_training_segment"
+        if split_mode == "temporal_within_flight"
+        else "complete_trajectory"
+    )
+
+    def attach_parameter_evidence(
+        selected_params: ModelParams,
+        model_report: dict[str, Any],
+        *,
+        fixed_response_time: bool,
+    ) -> None:
+        if not build_parameter_evidence:
+            return
+        predictive_error = predictive_error_from_dict(
+            model_report["validation"]["predictive_error"]
+        )
+        if not isinstance(
+            predictive_error,
+            EmpiricalHorizonPredictiveError,
+        ):
+            evidence = UnavailableParameterEvidence(
+                "held-out fixed-horizon residual covariance is unavailable"
+            )
+        else:
+            fitted_mask = fitted_structured_parameter_mask(
+                selected_params,
+                fixed_response_time=fixed_response_time,
+                learn_thrust_command_offset=learn_thrust_command_offset,
+                instantaneous_rotational_response=(
+                    instantaneous_rotational_response
+                ),
+                diagonal_angular_control=diagonal_angular_control,
+            )
+            evidence = estimate_local_parameter_information(
+                selected_params,
+                window_sets,
+                predictive_error,
+                evidence_groups,
+                fitted_parameter_mask=fitted_mask,
+                independence_unit=evidence_independence_unit,
+            )
+        model_report["parameter_evidence"] = evidence.to_dict()
+
+    attach_parameter_evidence(
+        learned_params,
+        learned_report,
+        fixed_response_time=False,
+    )
+
     baseline_params = None
     baseline_report = None
     comparison = None
@@ -1291,6 +1356,11 @@ def fit_trajectory_artifacts(
             baseline_params,
             validation,
             horizon_seconds=evaluation_horizons_s,
+        )
+        attach_parameter_evidence(
+            baseline_params,
+            baseline_report,
+            fixed_response_time=True,
         )
         comparison = _comparison_report(
             learned_report["validation"], baseline_report["validation"]
@@ -1568,6 +1638,15 @@ def fit_trajectory_artifacts(
                     ),
                 ],
             },
+            "parameter_evidence": {
+                "requested": build_parameter_evidence,
+                "method": "grouped_local_rollout_information_v1",
+                "maximum_windows_per_horizon": (
+                    MAX_PARAMETER_EVIDENCE_WINDOWS_PER_HORIZON
+                ),
+                "independence_unit": evidence_independence_unit,
+                "residual_scale_source": "held_out_tangent_covariance",
+            },
         },
         "models": models,
         "comparison": comparison,
@@ -1601,7 +1680,12 @@ def fit_trajectory_artifacts(
             "model class uses equal semantic state-group loss after scaling by "
             "training-window motion, linearly emphasizes later rollout steps, "
             "and softly penalizes velocity/rate escape beyond a generous "
-            "training-derived body-frame envelope."
+            "training-derived body-frame envelope. When requested for a model "
+            "artifact, local structured-parameter information uses bounded "
+            "rollout Jacobians, gives each independent training group one unit "
+            "of evidence, averages correlated horizons, and whitens only the "
+            "held-out residual subspace supported numerically. Its rank and "
+            "group scores are diagnostics, not an inferred parameter covariance."
         ),
     }
     return learned_params, baseline_params, report
@@ -1772,6 +1856,7 @@ def main() -> None:
             model_class=args.model_class,
             endpoint_weight=args.endpoint_weight,
             stability_regularization=args.stability_regularization,
+            build_parameter_evidence=args.model is not None,
         )
         learned = report["models"]["learned_lag"]
         learned_fit = learned["fit"]
@@ -1845,12 +1930,23 @@ def main() -> None:
                 "a fixed-horizon held-out error profile"
             )
         )
+        parameter_evidence = (
+            parameter_evidence_from_dict(
+                report["models"]["learned_lag"]["parameter_evidence"]
+            )
+            if "models" in report
+            else UnavailableParameterEvidence(
+                "single-trajectory fixed-response fitting does not evaluate "
+                "grouped local parameter information"
+            )
+        )
         save_dynamics_belief(
             DynamicsBelief(
                 params=params,
                 input_spec=input_spec,
                 runtime_spec=runtime_spec_from_fit_report(report),
                 predictive_error=predictive_error,
+                parameter_evidence=parameter_evidence,
                 provenance=provenance,
             ),
             args.model,
@@ -1875,6 +1971,9 @@ def main() -> None:
                         report["models"]["no_lag"]["validation"][
                             "predictive_error"
                         ]
+                    ),
+                    parameter_evidence=parameter_evidence_from_dict(
+                        report["models"]["no_lag"]["parameter_evidence"]
                     ),
                     provenance=baseline_provenance,
                 ),

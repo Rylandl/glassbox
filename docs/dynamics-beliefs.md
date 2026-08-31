@@ -18,7 +18,8 @@ The opinionated public lifecycle is:
 
 ```python
 belief = glassbox.DynamicsBelief.load("artifacts/vehicle-belief.json")
-belief = belief.with_parameter_members(fleet_members, source="fleet_prior_v1")
+fleet_prior = glassbox.DynamicsBelief.load("artifacts/fleet-prior.json")
+belief = belief.condition_parameter_prior(fleet_prior)
 forecast = belief.compile_for_nmpc().rollout(initial_state, commands)
 updated_belief, update = belief.update(recent_telemetry)
 controller = glassbox.NMPCController(updated_belief)
@@ -32,6 +33,7 @@ DynamicsBelief
 ├── nominal differentiable dynamics and latent actuator state
 ├── typed state, control, exogenous, timing, and validity contract
 ├── parameter belief and update history
+├── rank-aware local parameter information from grouped training evidence
 ├── predictive error model in 12 rigid-body tangent coordinates
 └── evidence and provenance
 ```
@@ -106,10 +108,31 @@ counts. Fast coefficient updates and slower residual-model refits use the same
 outer contract but remain distinguishable in provenance.
 
 Ordinary point fits explicitly use a `PointParameterBelief`; they do not invent
-covariance. A `LocalGaussianParameterBelief` can be built from independent fleet,
-configuration, or resampling members with `with_parameter_members()`. It covers
-only the compact structured coefficient block. A residual network remains fixed
-during a fast update.
+covariance. When `glassbox-fit` writes a model, it also differentiates a bounded,
+group-balanced sample of the training rollouts and stores
+`LocalParameterInformation`. This is a local likelihood geometry around the
+fitted structured coefficients, not a posterior. Each complete source group
+contributes one unit of information, horizons are averaged within a group, and
+the tangent residual covariance is inverted only on the subspace supported by
+held-out errors. The artifact records the numerical rank, information spectrum,
+coordinates excluded by the fitter, unresolved directions, and one local score
+vector per independent group. Those group scores preserve the ingredients for
+cluster-robust sandwich or influence diagnostics without rerunning the fitter.
+
+The distinction matters: inverting a rank-deficient Hessian would assign zero
+variance to directions the flight never excited. Glassbox leaves the ordinary
+fit as a point belief plus partial information instead. A complete full-rank
+fleet or configuration prior can be combined with that information using
+`fit_belief.condition_parameter_prior(fleet_prior)`. Supported directions move
+toward the vehicle fit and contract; unsupported directions retain the prior
+mean and covariance. A rank-deficient empirical member cloud is rejected as an
+incomplete prior rather than silently regularized into certainty.
+
+`LocalGaussianParameterBelief` still covers only the compact structured
+coefficient block. A residual network remains fixed during fast conditioning
+and online updates. `with_parameter_members()` is useful for recording empirical
+fleet spread, but its covariance is not automatically a complete prior when the
+members do not span every structured coordinate.
 
 `belief.update(recent_telemetry)` is now implemented as a local Gaussian update.
 It selects nonoverlapping windows at the shortest held-out error horizon, uses

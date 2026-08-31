@@ -15,115 +15,18 @@ from glassbox.belief import (
     DynamicsBelief,
     LocalGaussianParameterBelief,
     _regularized_covariance,
-    apply_tangent_correction,
     structured_parameter_vector,
     with_structured_parameter_vector,
 )
 from glassbox.data import Trajectory
-from glassbox.dynamics import ModelParams, control_state_after_history, step_with_latent
-from glassbox.geometry import rigid_body_local_error
+from glassbox.linearization import (
+    compiled_endpoint_tangent_error,
+    compiled_endpoint_tangent_linearization,
+)
 from glassbox.runtime import model_validity_utilization
 
 MAXIMUM_ONLINE_UPDATE_WINDOWS = 64
 ACTUATOR_HISTORY_DURATION_S = 1.0
-
-
-def _endpoint_error(
-    vector: Array,
-    template_params: ModelParams,
-    initial_state: Array,
-    control_history: Array,
-    controls: Array,
-    target: Array,
-    context: Array,
-    bias: Array,
-    *,
-    dt_s: float,
-    control_roles: tuple[str, ...],
-    exogenous_roles: tuple[str, ...],
-) -> Array:
-    params = with_structured_parameter_vector(template_params, vector)
-    latent = control_state_after_history(
-        params,
-        control_history,
-        dt_s,
-        control_roles,
-    )
-
-    def transition(carry: tuple[Array, Array], inputs: tuple[Array, Array]):
-        state, latent_state = carry
-        control, exogenous = inputs
-        return step_with_latent(
-            params,
-            state,
-            latent_state,
-            control,
-            dt_s,
-            control_roles,
-            exogenous,
-            exogenous_roles,
-        ), None
-
-    (predicted, _), _ = jax.lax.scan(
-        transition,
-        (initial_state, latent),
-        (controls, context),
-    )
-    predicted_mean = apply_tangent_correction(predicted, bias)
-    return rigid_body_local_error(target, predicted_mean)
-
-
-def _endpoint_error_and_jacobian(
-    vector: Array,
-    template_params: ModelParams,
-    initial_state: Array,
-    control_history: Array,
-    controls: Array,
-    target: Array,
-    context: Array,
-    bias: Array,
-    *,
-    dt_s: float,
-    control_roles: tuple[str, ...],
-    exogenous_roles: tuple[str, ...],
-) -> tuple[Array, Array]:
-    arguments = (
-        vector,
-        template_params,
-        initial_state,
-        control_history,
-        controls,
-        target,
-        context,
-        bias,
-    )
-    keywords = {
-        "dt_s": dt_s,
-        "control_roles": control_roles,
-        "exogenous_roles": exogenous_roles,
-    }
-    value, pullback = jax.vjp(
-        lambda selected: _endpoint_error(
-            selected,
-            *arguments[1:],
-            **keywords,
-        ),
-        vector,
-    )
-    jacobian = jax.vmap(lambda basis: pullback(basis)[0])(
-        jnp.eye(TANGENT_STATE_SIZE, dtype=value.dtype)
-    )
-    return value, jacobian
-
-
-_COMPILED_ENDPOINT_ERROR = jax.jit(
-    _endpoint_error,
-    static_argnames=("dt_s", "control_roles", "exogenous_roles"),
-)
-_COMPILED_ENDPOINT_LINEARIZATION = jax.jit(
-    _endpoint_error_and_jacobian,
-    static_argnames=("dt_s", "control_roles", "exogenous_roles"),
-)
 
 
 @dataclass(frozen=True)
@@ -368,7 +271,7 @@ def update_dynamics_belief(
         squared: list[float] = []
         for initial, history, controls, target, context, bias, residual in windows:
             error = np.asarray(
-                _COMPILED_ENDPOINT_ERROR(
+                compiled_endpoint_tangent_error(
                     jnp.asarray(selected_vector),
                     belief.params,
                     initial,
@@ -390,7 +293,7 @@ def update_dynamics_belief(
     innovation_before = normalized_rms(vector)
     information_gain = 0.0
     for initial, history, controls, target, context, bias, residual in windows:
-        error, jacobian = _COMPILED_ENDPOINT_LINEARIZATION(
+        error, jacobian = compiled_endpoint_tangent_linearization(
             jnp.asarray(vector),
             belief.params,
             initial,
@@ -483,6 +386,7 @@ def update_dynamics_belief(
         runtime_spec=belief.runtime_spec,
         predictive_error=belief.predictive_error,
         parameter_belief=updated_parameter_belief,
+        parameter_evidence=belief.parameter_evidence,
         predictive_error_parameter_update_count=(
             belief.predictive_error_parameter_update_count
         ),

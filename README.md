@@ -30,15 +30,17 @@ the complete uncertainty contract.
 Held-out rollout errors are represented in 12 local rigid-body coordinates—
 position, velocity, shortest-path attitude rotation, and body rate—with full
 covariance and group-balanced empirical radii. Ordinary fits remain honest point
-parameter beliefs. Independent fleet, configuration, or resampling members can
-be condensed into a local Gaussian prior over only the structured effective
-coefficients, then updated from recent canonical telemetry:
+parameter beliefs, but model artifacts now include group-balanced local
+parameter information, its numerical rank, and the directions the available
+motion did not resolve. A complete fleet or configuration prior can be
+conditioned by that evidence and then updated from recent canonical telemetry:
 
 ```python
 from glassbox import DynamicsBelief, NMPCController
 
-belief = DynamicsBelief.load("artifacts/vehicle-belief.json")
-belief = belief.with_parameter_members(fleet_members, source="fleet_prior_v1")
+vehicle_fit = DynamicsBelief.load("artifacts/vehicle-belief.json")
+fleet_prior = DynamicsBelief.load("artifacts/fleet-prior.json")
+belief = vehicle_fit.condition_parameter_prior(fleet_prior)
 updated, update_report = belief.update(recent_telemetry)
 assessment = updated.compile_for_nmpc().assess_plan(state, candidate_commands)
 controller = NMPCController(updated)
@@ -758,7 +760,7 @@ source-level holdout.
 
 The SITL recorder currently uses a 2-second training horizon. This substantially reduces uninterrupted long-rollout drift while the evaluation report still exposes 0.1, 0.5, 1, and 2-second behavior. The same multi-flight command works for simulator ground-truth and estimated-state artifacts; estimated-state coefficients should be interpreted as predictive effective values because estimator filtering and noise are part of the observed signal.
 
-By default, the command fits both the learned-lag model and an otherwise identical near-zero-lag ablation. The report contains aggregate and per-flight metrics for the complete rollout and each requested horizon. When `--model` is provided, the ablation is written beside it with `_no_motor_lag` appended. Use `--holdout-count` to reserve more than one final source group—or more than one trajectory when groups are unlabeled—or `--skip-no-lag-ablation` when the comparison is not needed. When every multirotor training trajectory carries typed specific force, the command automatically runs a chronological sensor-residual diagnostic for thrust, timing, and rotational response. It records identifiability and boundary diagnostics without adding user-facing controls. This stage remains diagnostic-only because its initializer failed the maintained Nano and ARP rollout gates; rollout optimization still starts from the stable reference parameters. Model files contain effective predictive coefficients, the exact runtime prediction contract, the training-only observation schema, and fitting provenance. They explicitly do not claim that those coefficients are uniquely recovered physical parameters.
+By default, the command fits both the learned-lag model and an otherwise identical near-zero-lag ablation. The report contains aggregate and per-flight metrics for the complete rollout and each requested horizon. When `--model` is provided, the ablation is written beside it with `_no_motor_lag` appended. Use `--holdout-count` to reserve more than one final source group—or more than one trajectory when groups are unlabeled—or `--skip-no-lag-ablation` when the comparison is not needed. When every multirotor training trajectory carries typed specific force, the command automatically runs a chronological sensor-residual diagnostic for thrust, timing, and rotational response. It records identifiability and boundary diagnostics without adding user-facing controls. This stage remains diagnostic-only because its initializer failed the maintained Nano and ARP rollout gates; rollout optimization still starts from the stable reference parameters. Model files contain effective predictive coefficients, the exact runtime prediction contract, the training-only observation schema, fitting provenance, and bounded-compute local parameter information whitened by held-out forecast errors. That information records unresolved directions rather than turning a rank-deficient inverse into covariance. Model artifacts explicitly do not claim that effective coefficients are uniquely recovered physical parameters.
 
 Held-out evaluation also reports measured-state-reset one-step innovations. The
 latent actuator state is carried causally, but the 13-element rigid-body state is

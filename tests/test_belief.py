@@ -11,13 +11,23 @@ from glassbox.belief import (
     EmpiricalErrorSample,
     EmpiricalHorizonPredictiveError,
     LocalGaussianParameterBelief,
+    LocalParameterInformation,
     apply_tangent_correction,
+    structured_parameter_names,
     structured_parameter_vector,
     with_structured_parameter_vector,
 )
+from glassbox.data import trajectory_windows
 from glassbox.dynamics import ResidualDynamicsParams, initial_residual_parameters
 from glassbox.evaluation import rigid_body_tangent_errors
-from glassbox.fixedwing_synthetic import true_fixed_wing_parameters
+from glassbox.fixedwing_synthetic import (
+    generate_fixed_wing_trajectory,
+    true_fixed_wing_parameters,
+)
+from glassbox.parameter_evidence import (
+    estimate_local_parameter_information,
+    fitted_structured_parameter_mask,
+)
 from glassbox.runtime import RuntimeDynamicsModel, runtime_spec_from_trajectory
 from glassbox.synthetic import generate_trajectory, true_parameters
 
@@ -187,6 +197,217 @@ def test_parameter_belief_propagates_and_scores_candidate_information(tmp_path) 
     )
     assert assessment.prediction.parameter_uncertainty_available
     assert np.max(assessment.prediction.parameter_tangent_covariance) > 0.0
+
+
+def test_local_parameter_information_preserves_unresolved_directions(tmp_path) -> None:
+    trajectory = generate_trajectory(seed=9, duration_s=0.3)
+    params = true_parameters()
+    names = structured_parameter_names(params)
+    center = np.asarray(structured_parameter_vector(params))
+    information = np.zeros((len(names), len(names)))
+    information[0, 0] = 4.0
+    group_scores = np.zeros((2, len(names)))
+    group_scores[:, 0] = 0.1
+    evidence = LocalParameterInformation(
+        parameter_names=names,
+        center=center,
+        information_matrix=information,
+        parameter_scale=np.maximum(np.abs(center), 1.0),
+        fitted_parameter_mask=np.ones(len(names), dtype=bool),
+        horizons_s=(0.1,),
+        window_count_by_horizon=(8,),
+        residual_precision_rank_by_horizon=(12,),
+        group_labels=("group-a", "group-b"),
+        group_score_vectors=group_scores,
+        independent_group_count=2,
+        trajectory_count=2,
+        rank_relative_tolerance=1e-5,
+    )
+    belief = DynamicsBelief(
+        params=params,
+        input_spec=trajectory.spec,
+        runtime_spec=runtime_spec_from_trajectory(trajectory),
+        predictive_error=_nonsingular_error_model(),
+        parameter_evidence=evidence,
+    )
+    path = tmp_path / "parameter-evidence.json"
+
+    belief.save(path)
+    restored = DynamicsBelief.load(path)
+
+    assert isinstance(restored.parameter_evidence, LocalParameterInformation)
+    assert restored.parameter_evidence.numerical_rank == 1
+    assert restored.parameter_evidence.unresolved_fitted_direction_count == (
+        len(names) - 1
+    )
+    assert restored.parameter_evidence.unresolved_direction_basis.shape == (
+        len(names),
+        len(names) - 1,
+    )
+    assert restored.parameter_evidence.score_vector[0] == pytest.approx(0.2)
+    assert not restored.parameter_belief.uncertainty_available
+
+
+def test_local_information_conditions_complete_prior_without_collapsing_nullspace() -> (
+    None
+):
+    trajectory = generate_trajectory(seed=12, duration_s=0.3)
+    params = true_parameters()
+    names = structured_parameter_names(params)
+    local_center = np.asarray(structured_parameter_vector(params))
+    information = np.zeros((len(names), len(names)))
+    information[0, 0] = 4.0
+    group_scores = np.zeros((2, len(names)))
+    group_scores[:, 0] = 0.1
+    evidence = LocalParameterInformation(
+        parameter_names=names,
+        center=local_center,
+        information_matrix=information,
+        parameter_scale=np.maximum(np.abs(local_center), 1.0),
+        fitted_parameter_mask=np.ones(len(names), dtype=bool),
+        horizons_s=(0.1,),
+        window_count_by_horizon=(8,),
+        residual_precision_rank_by_horizon=(12,),
+        group_labels=("group-a", "group-b"),
+        group_score_vectors=group_scores,
+        independent_group_count=2,
+        trajectory_count=2,
+        rank_relative_tolerance=1e-5,
+    )
+    fitted = DynamicsBelief(
+        params=params,
+        input_spec=trajectory.spec,
+        runtime_spec=runtime_spec_from_trajectory(trajectory),
+        predictive_error=_nonsingular_error_model(),
+        parameter_evidence=evidence,
+    )
+    prior_center = local_center.copy()
+    prior_center[0] += 0.5
+    prior_center[1] += 0.75
+    prior_params = with_structured_parameter_vector(
+        params,
+        jnp.asarray(prior_center),
+    )
+    prior = DynamicsBelief(
+        params=prior_params,
+        input_spec=trajectory.spec,
+        runtime_spec=runtime_spec_from_trajectory(trajectory),
+        parameter_belief=LocalGaussianParameterBelief(
+            parameter_names=names,
+            covariance=2.0 * np.eye(len(names)),
+            source="fleet_hierarchical_prior",
+            evidence_count=4,
+            effective_sample_count=4.0,
+        ),
+    )
+
+    conditioned = fitted.condition_parameter_prior(prior)
+    posterior_center = np.asarray(structured_parameter_vector(conditioned.params))
+
+    assert isinstance(conditioned.parameter_belief, LocalGaussianParameterBelief)
+    assert posterior_center[0] < prior_center[0]
+    assert posterior_center[0] > local_center[0]
+    assert posterior_center[0] == pytest.approx(
+        local_center[0] + (0.25 - 0.2) / 4.5,
+        abs=1e-6,
+    )
+    assert posterior_center[1] == pytest.approx(prior_center[1])
+    assert conditioned.parameter_belief.covariance[0, 0] < 2.0
+    assert conditioned.parameter_belief.covariance[1, 1] == pytest.approx(2.0)
+    assert not conditioned.predictive_error_current
+    assert conditioned.parameter_evidence is evidence
+
+    incomplete_prior = replace(
+        prior,
+        parameter_belief=_parameter_belief(prior_params),
+    )
+    with pytest.raises(ValueError, match="full-rank prior covariance"):
+        fitted.condition_parameter_prior(incomplete_prior)
+
+    incompatible_spec = replace(
+        prior.input_spec,
+        controls=(
+            replace(prior.input_spec.controls[0], unit="rad"),
+            *prior.input_spec.controls[1:],
+        ),
+    )
+    with pytest.raises(ValueError, match="incompatible control semantics"):
+        fitted.condition_parameter_prior(replace(prior, input_spec=incompatible_spec))
+
+
+def test_grouped_rollout_information_uses_only_fitted_structured_coordinates() -> (
+    None
+):
+    trajectories = tuple(
+        replace(
+            generate_trajectory(seed=seed, duration_s=0.3),
+            labels={"source_group": group},
+        )
+        for seed, group in ((1, "group-a"), (2, "group-b"))
+    )
+    windows = trajectory_windows(
+        trajectories,
+        horizon=5,
+        stride=5,
+        trajectory_groups=("group-a", "group-b"),
+    )
+    params = true_parameters()
+    fitted_mask = fitted_structured_parameter_mask(
+        params,
+        instantaneous_rotational_response=True,
+        diagonal_angular_control=True,
+    )
+
+    evidence = estimate_local_parameter_information(
+        params,
+        (windows,),
+        _nonsingular_error_model(),
+        ("group-a", "group-b"),
+        fitted_parameter_mask=fitted_mask,
+    )
+
+    assert isinstance(evidence, LocalParameterInformation)
+    assert evidence.independent_group_count == 2
+    assert evidence.window_count_by_horizon == (6,)
+    assert evidence.fitted_parameter_count == 9
+    assert 0 < evidence.numerical_rank <= evidence.fitted_parameter_count
+    assert np.all(np.isfinite(evidence.information_matrix))
+    assert evidence.group_score_vectors.shape == (2, len(evidence.parameter_names))
+    assert np.allclose(evidence.information_matrix[~fitted_mask], 0.0)
+
+
+def test_grouped_rollout_information_is_vehicle_family_generic() -> None:
+    trajectories = tuple(
+        generate_fixed_wing_trajectory(seed=seed, duration_s=0.3)
+        for seed in (1, 2)
+    )
+    windows = trajectory_windows(
+        trajectories,
+        horizon=5,
+        stride=5,
+        trajectory_groups=("fixedwing-a", "fixedwing-b"),
+    )
+    params = true_fixed_wing_parameters()
+    fitted_mask = fitted_structured_parameter_mask(params)
+    fixed_response_mask = fitted_structured_parameter_mask(
+        params,
+        fixed_response_time=True,
+    )
+
+    evidence = estimate_local_parameter_information(
+        params,
+        (windows,),
+        _nonsingular_error_model(),
+        ("fixedwing-a", "fixedwing-b"),
+        fitted_parameter_mask=fitted_mask,
+    )
+
+    assert isinstance(evidence, LocalParameterInformation)
+    assert evidence.fitted_parameter_count == len(structured_parameter_names(params))
+    assert 0 < evidence.numerical_rank <= evidence.fitted_parameter_count
+    assert np.count_nonzero(fixed_response_mask) == (
+        evidence.fitted_parameter_count - 1
+    )
 
 
 def test_live_update_moves_structured_parameters_and_preserves_error_provenance() -> (

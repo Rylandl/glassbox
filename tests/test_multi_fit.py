@@ -229,6 +229,35 @@ def test_multi_flight_fit_reserves_complete_final_flight(tmp_path) -> None:
     )
 
 
+def test_requested_fit_builds_rank_aware_parameter_evidence(tmp_path) -> None:
+    paths = []
+    for seed in range(3):
+        path = tmp_path / f"evidence_flight_{seed}.npz"
+        save_trajectory_npz(
+            generate_trajectory(seed=seed, duration_s=0.4),
+            path,
+        )
+        paths.append(path)
+
+    _, _, report = fit_trajectory_artifacts(
+        paths,
+        horizon=5,
+        steps=1,
+        evaluation_horizons_s=(0.1,),
+        run_no_lag_ablation=False,
+        build_parameter_evidence=True,
+    )
+
+    evidence = report["models"]["learned_lag"]["parameter_evidence"]
+    assert evidence["kind"] == "local_structured_parameter_information"
+    assert evidence["posterior"] is False
+    assert evidence["complete_parameter_uncertainty"] is False
+    assert evidence["independent_group_count"] == 2
+    assert evidence["fitted_parameter_count"] == 9
+    assert evidence["numerical_rank"] <= evidence["fitted_parameter_count"]
+    assert report["configuration"]["parameter_evidence"]["requested"] is True
+
+
 def test_source_group_holdout_keeps_dropout_segments_together(tmp_path) -> None:
     paths = []
     groups_and_durations = (

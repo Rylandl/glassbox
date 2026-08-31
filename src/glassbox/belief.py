@@ -71,6 +71,7 @@ TANGENT_GROUP_SLICES = (
 )
 PREDICTIVE_ERROR_FORMAT_VERSION = 1
 PARAMETER_BELIEF_FORMAT_VERSION = 1
+PARAMETER_EVIDENCE_FORMAT_VERSION = 1
 
 
 def _weighted_quantile(
@@ -662,6 +663,321 @@ def parameter_belief_from_dict(payload: Mapping[str, Any]) -> ParameterBelief:
     raise ValueError(f"unsupported parameter-belief kind: {kind!r}")
 
 
+@dataclass(frozen=True)
+class UnavailableParameterEvidence:
+    """Explicit absence of local parameter-identification evidence."""
+
+    reason: str = "local parameter information was not evaluated"
+
+    def __post_init__(self) -> None:
+        if not self.reason.strip():
+            raise ValueError("unavailable parameter evidence requires a reason")
+
+    @property
+    def available(self) -> bool:
+        return False
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "format_version": PARAMETER_EVIDENCE_FORMAT_VERSION,
+            "kind": "unavailable",
+            "available": False,
+            "reason": self.reason,
+        }
+
+
+@dataclass(frozen=True)
+class LocalParameterInformation:
+    """Rank-aware local likelihood geometry for structured coefficients.
+
+    This object records how held-out-error-whitened rollout predictions change
+    around one fitted parameter vector. It is information, not a covariance:
+    unresolved directions remain explicit and are never converted into zero
+    variance. A complete prior is required before this evidence can become a
+    proper local Gaussian parameter belief.
+    """
+
+    parameter_names: tuple[str, ...]
+    center: np.ndarray
+    information_matrix: np.ndarray
+    parameter_scale: np.ndarray
+    fitted_parameter_mask: np.ndarray
+    horizons_s: tuple[float, ...]
+    window_count_by_horizon: tuple[int, ...]
+    residual_precision_rank_by_horizon: tuple[int, ...]
+    group_labels: tuple[str, ...]
+    group_score_vectors: np.ndarray
+    independent_group_count: int
+    trajectory_count: int
+    rank_relative_tolerance: float
+    source: str = "grouped_rollout_jacobians"
+    weighting: str = "sum_independent_groups_mean_horizons_mean_windows"
+    residual_precision: str = "held_out_tangent_covariance_pseudoinverse"
+
+    def __post_init__(self) -> None:
+        names = tuple(str(name) for name in self.parameter_names)
+        if not names or any(not name.strip() for name in names):
+            raise ValueError("parameter-evidence names must be nonempty")
+        if len(set(names)) != len(names):
+            raise ValueError("parameter-evidence names must be unique")
+        size = len(names)
+        center = np.asarray(self.center, dtype=np.float64)
+        information = np.asarray(self.information_matrix, dtype=np.float64)
+        scale = np.asarray(self.parameter_scale, dtype=np.float64)
+        fitted = np.asarray(self.fitted_parameter_mask, dtype=bool)
+        if center.shape != (size,) or not np.all(np.isfinite(center)):
+            raise ValueError("parameter-evidence center must match finite names")
+        if information.shape != (size, size) or not np.all(
+            np.isfinite(information)
+        ):
+            raise ValueError("parameter information must be a finite square matrix")
+        if not np.allclose(information, information.T, atol=1e-9):
+            raise ValueError("parameter information must be symmetric")
+        information_eigenvalues = np.linalg.eigvalsh(information)
+        information_scale = max(float(np.max(np.abs(information_eigenvalues))), 1.0)
+        if float(np.min(information_eigenvalues)) < -1e-9 * information_scale:
+            raise ValueError("parameter information must be positive semidefinite")
+        if scale.shape != (size,) or not np.all(np.isfinite(scale)) or np.any(
+            scale <= 0.0
+        ):
+            raise ValueError("parameter-evidence scale must be finite and positive")
+        if fitted.shape != (size,):
+            raise ValueError("fitted-parameter mask must match parameter names")
+        if not np.any(fitted):
+            raise ValueError("parameter evidence requires a fitted parameter")
+        inactive = ~fitted
+        if np.any(np.abs(information[inactive]) > 1e-10 * information_scale):
+            raise ValueError("parameters excluded from fitting cannot contain information")
+        horizons = tuple(float(value) for value in self.horizons_s)
+        windows = tuple(int(value) for value in self.window_count_by_horizon)
+        precision_ranks = tuple(
+            int(value) for value in self.residual_precision_rank_by_horizon
+        )
+        group_labels = tuple(str(value) for value in self.group_labels)
+        group_scores = np.asarray(self.group_score_vectors, dtype=np.float64)
+        if (
+            not horizons
+            or any(not np.isfinite(value) or value <= 0.0 for value in horizons)
+            or any(right <= left for left, right in pairwise(horizons))
+        ):
+            raise ValueError("parameter-evidence horizons must be finite and increasing")
+        if not (
+            len(horizons) == len(windows) == len(precision_ranks)
+            and all(value > 0 for value in windows)
+            and all(0 < value <= TANGENT_STATE_SIZE for value in precision_ranks)
+        ):
+            raise ValueError("parameter-evidence horizon counts are invalid")
+        if self.independent_group_count < 1 or self.trajectory_count < 1:
+            raise ValueError("parameter evidence requires groups and trajectories")
+        if (
+            len(group_labels) != self.independent_group_count
+            or len(set(group_labels)) != len(group_labels)
+            or any(not value.strip() for value in group_labels)
+            or group_scores.shape != (self.independent_group_count, size)
+            or not np.all(np.isfinite(group_scores))
+        ):
+            raise ValueError("parameter-evidence group scores are invalid")
+        if np.any(np.abs(group_scores[:, inactive]) > 1e-10 * information_scale):
+            raise ValueError("parameters excluded from fitting cannot have scores")
+        if (
+            not np.isfinite(self.rank_relative_tolerance)
+            or not 0.0 < self.rank_relative_tolerance < 1.0
+        ):
+            raise ValueError("parameter-evidence rank tolerance must lie within (0, 1)")
+        if not (
+            self.source.strip()
+            and self.weighting.strip()
+            and self.residual_precision.strip()
+        ):
+            raise ValueError("parameter-evidence semantics are required")
+        object.__setattr__(self, "parameter_names", names)
+        object.__setattr__(self, "center", center)
+        object.__setattr__(
+            self,
+            "information_matrix",
+            0.5 * (information + information.T),
+        )
+        object.__setattr__(self, "parameter_scale", scale)
+        object.__setattr__(self, "fitted_parameter_mask", fitted)
+        object.__setattr__(self, "horizons_s", horizons)
+        object.__setattr__(self, "window_count_by_horizon", windows)
+        object.__setattr__(
+            self,
+            "residual_precision_rank_by_horizon",
+            precision_ranks,
+        )
+        object.__setattr__(self, "group_labels", group_labels)
+        object.__setattr__(self, "group_score_vectors", group_scores)
+
+    @property
+    def available(self) -> bool:
+        return True
+
+    @property
+    def fitted_parameter_count(self) -> int:
+        return int(np.count_nonzero(self.fitted_parameter_mask))
+
+    @property
+    def normalized_information_matrix(self) -> np.ndarray:
+        return (
+            self.parameter_scale[:, None]
+            * self.information_matrix
+            * self.parameter_scale[None, :]
+        )
+
+    @property
+    def normalized_information_eigenvalues(self) -> np.ndarray:
+        active = self.fitted_parameter_mask
+        values = np.linalg.eigvalsh(
+            self.normalized_information_matrix[np.ix_(active, active)]
+        )
+        return np.maximum(values, 0.0)
+
+    @property
+    def numerical_rank(self) -> int:
+        eigenvalues = self.normalized_information_eigenvalues
+        if not np.any(eigenvalues > 0.0):
+            return 0
+        return int(
+            np.count_nonzero(
+                eigenvalues
+                > self.rank_relative_tolerance * float(np.max(eigenvalues))
+            )
+        )
+
+    @property
+    def unresolved_fitted_direction_count(self) -> int:
+        return self.fitted_parameter_count - self.numerical_rank
+
+    @property
+    def score_vector(self) -> np.ndarray:
+        """Return the grouped local loss gradient at the evidence center."""
+
+        return np.sum(self.group_score_vectors, axis=0)
+
+    @property
+    def group_score_second_moment(self) -> np.ndarray:
+        """Return the cluster score outer-product used by sandwich estimators."""
+
+        return self.group_score_vectors.T @ self.group_score_vectors
+
+    @property
+    def unresolved_direction_basis(self) -> np.ndarray:
+        """Return normalized-coordinate directions unsupported by the evidence."""
+
+        active_indices = np.flatnonzero(self.fitted_parameter_mask)
+        inactive_indices = np.flatnonzero(~self.fitted_parameter_mask)
+        active_information = self.normalized_information_matrix[
+            np.ix_(active_indices, active_indices)
+        ]
+        eigenvalues, eigenvectors = np.linalg.eigh(active_information)
+        threshold = (
+            self.rank_relative_tolerance * float(np.max(eigenvalues))
+            if len(eigenvalues) and np.max(eigenvalues) > 0.0
+            else np.inf
+        )
+        columns: list[np.ndarray] = []
+        for index in inactive_indices:
+            direction = np.zeros(len(self.parameter_names))
+            direction[index] = 1.0
+            columns.append(direction)
+        for direction in eigenvectors[:, eigenvalues <= threshold].T:
+            embedded = np.zeros(len(self.parameter_names))
+            embedded[active_indices] = direction
+            columns.append(embedded)
+        return (
+            np.column_stack(columns)
+            if columns
+            else np.empty((len(self.parameter_names), 0))
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "format_version": PARAMETER_EVIDENCE_FORMAT_VERSION,
+            "kind": "local_structured_parameter_information",
+            "available": True,
+            "posterior": False,
+            "complete_parameter_uncertainty": False,
+            "coordinate_system": "unconstrained_structured_parameter_vector",
+            "parameter_names": list(self.parameter_names),
+            "center": self.center.tolist(),
+            "information_matrix": self.information_matrix.tolist(),
+            "parameter_scale": self.parameter_scale.tolist(),
+            "parameter_scale_semantics": (
+                "one_transformed_unit_or_same_axis_effective_authority"
+            ),
+            "fitted_parameter_mask": self.fitted_parameter_mask.tolist(),
+            "horizons_s": list(self.horizons_s),
+            "window_count_by_horizon": list(self.window_count_by_horizon),
+            "residual_precision_rank_by_horizon": list(
+                self.residual_precision_rank_by_horizon
+            ),
+            "group_labels": list(self.group_labels),
+            "group_score_vectors": self.group_score_vectors.tolist(),
+            "score_vector": self.score_vector.tolist(),
+            "group_score_second_moment": (
+                self.group_score_second_moment.tolist()
+            ),
+            "independent_group_count": self.independent_group_count,
+            "trajectory_count": self.trajectory_count,
+            "rank_relative_tolerance": self.rank_relative_tolerance,
+            "numerical_rank": self.numerical_rank,
+            "fitted_parameter_count": self.fitted_parameter_count,
+            "unresolved_fitted_direction_count": (
+                self.unresolved_fitted_direction_count
+            ),
+            "normalized_information_eigenvalues": (
+                self.normalized_information_eigenvalues.tolist()
+            ),
+            "source": self.source,
+            "weighting": self.weighting,
+            "residual_precision": self.residual_precision,
+        }
+
+
+ParameterEvidence = UnavailableParameterEvidence | LocalParameterInformation
+
+
+def parameter_evidence_from_dict(payload: Mapping[str, Any]) -> ParameterEvidence:
+    """Restore one versioned parameter-evidence implementation."""
+
+    if payload.get("format_version") != PARAMETER_EVIDENCE_FORMAT_VERSION:
+        raise ValueError("unsupported parameter-evidence format")
+    kind = payload.get("kind")
+    if kind == "unavailable":
+        return UnavailableParameterEvidence(reason=str(payload["reason"]))
+    if kind == "local_structured_parameter_information":
+        if payload.get("coordinate_system") != (
+            "unconstrained_structured_parameter_vector"
+        ):
+            raise ValueError("unsupported parameter-evidence coordinate system")
+        if payload.get("parameter_scale_semantics") != (
+            "one_transformed_unit_or_same_axis_effective_authority"
+        ):
+            raise ValueError("unsupported parameter-evidence scale semantics")
+        return LocalParameterInformation(
+            parameter_names=tuple(payload["parameter_names"]),
+            center=np.asarray(payload["center"]),
+            information_matrix=np.asarray(payload["information_matrix"]),
+            parameter_scale=np.asarray(payload["parameter_scale"]),
+            fitted_parameter_mask=np.asarray(payload["fitted_parameter_mask"]),
+            horizons_s=tuple(payload["horizons_s"]),
+            window_count_by_horizon=tuple(payload["window_count_by_horizon"]),
+            residual_precision_rank_by_horizon=tuple(
+                payload["residual_precision_rank_by_horizon"]
+            ),
+            group_labels=tuple(payload["group_labels"]),
+            group_score_vectors=np.asarray(payload["group_score_vectors"]),
+            independent_group_count=int(payload["independent_group_count"]),
+            trajectory_count=int(payload["trajectory_count"]),
+            rank_relative_tolerance=float(payload["rank_relative_tolerance"]),
+            source=str(payload["source"]),
+            weighting=str(payload["weighting"]),
+            residual_precision=str(payload["residual_precision"]),
+        )
+    raise ValueError(f"unsupported parameter-evidence kind: {kind!r}")
+
+
 def apply_tangent_correction(state: Array, correction: Array) -> Array:
     """Apply one local 12-vector correction to a rigid-body state."""
 
@@ -782,6 +1098,9 @@ class DynamicsBelief:
         default_factory=UnavailablePredictiveError
     )
     parameter_belief: ParameterBelief = field(default_factory=PointParameterBelief)
+    parameter_evidence: ParameterEvidence = field(
+        default_factory=UnavailableParameterEvidence
+    )
     predictive_error_parameter_update_count: int | None = None
     provenance: Mapping[str, Any] = field(default_factory=dict)
 
@@ -801,6 +1120,13 @@ class DynamicsBelief:
         ):
             raise ValueError(
                 "parameter belief does not match the nominal structured parameters"
+            )
+        if (
+            isinstance(self.parameter_evidence, LocalParameterInformation)
+            and self.parameter_evidence.parameter_names != names
+        ):
+            raise ValueError(
+                "parameter evidence does not match the structured parameters"
             )
         error_update_count = self.predictive_error_parameter_update_count
         if error_update_count is None:
@@ -873,6 +1199,119 @@ class DynamicsBelief:
             update_count=self.parameter_belief.update_count,
         )
         return replace(self, parameter_belief=parameter_belief)
+
+    def condition_parameter_prior(
+        self,
+        prior: DynamicsBelief,
+    ) -> DynamicsBelief:
+        """Combine this fit's local information with one complete Gaussian prior.
+
+        The local information is centered at the parameters originally fitted
+        from this dataset. Directions absent from that information retain their
+        prior mean and covariance. Rank-deficient empirical member spread is not
+        silently treated as a complete prior.
+        """
+
+        if not isinstance(self.parameter_evidence, LocalParameterInformation):
+            raise ValueError("conditioning requires local parameter information")
+        if not isinstance(prior.parameter_belief, LocalGaussianParameterBelief):
+            raise ValueError("conditioning requires a Gaussian parameter prior")
+        names = self.parameter_evidence.parameter_names
+        if prior.parameter_belief.parameter_names != names:
+            raise ValueError("parameter prior and local evidence are incompatible")
+        if self.input_spec.state_schema != prior.input_spec.state_schema:
+            raise ValueError("parameter prior uses an incompatible state schema")
+        local_controls = {
+            channel.role: (channel.semantic, channel.unit, channel.frame)
+            for channel in self.input_spec.controls
+        }
+        prior_controls = {
+            channel.role: (channel.semantic, channel.unit, channel.frame)
+            for channel in prior.input_spec.controls
+        }
+        shared_roles = set(local_controls) & set(prior_controls)
+        if any(local_controls[role] != prior_controls[role] for role in shared_roles):
+            raise ValueError("parameter prior uses incompatible control semantics")
+        prior_center = np.asarray(
+            structured_parameter_vector(prior.params), dtype=np.float64
+        )
+        prior_covariance = np.asarray(
+            prior.parameter_belief.covariance, dtype=np.float64
+        )
+        eigenvalues = np.linalg.eigvalsh(prior_covariance)
+        tolerance = (
+            np.finfo(np.float64).eps
+            * max(prior_covariance.shape)
+            * float(np.max(eigenvalues))
+        )
+        if np.min(eigenvalues) <= tolerance:
+            raise ValueError(
+                "conditioning requires a full-rank prior covariance; "
+                "empirical subspace spread is incomplete"
+            )
+        prior_precision = np.linalg.solve(
+            prior_covariance,
+            np.eye(len(prior_covariance)),
+        )
+        local_information = self.parameter_evidence.information_matrix
+        posterior_precision = prior_precision + local_information
+        posterior_covariance = np.linalg.solve(
+            posterior_precision,
+            np.eye(len(posterior_precision)),
+        )
+        posterior_covariance = 0.5 * (
+            posterior_covariance + posterior_covariance.T
+        )
+        posterior_center = posterior_covariance @ (
+            prior_precision @ prior_center
+            + local_information @ self.parameter_evidence.center
+            - self.parameter_evidence.score_vector
+        )
+        update_count = max(
+            self.parameter_belief.update_count,
+            prior.parameter_belief.update_count,
+        ) + 1
+        parameter_belief = LocalGaussianParameterBelief(
+            parameter_names=names,
+            covariance=posterior_covariance,
+            source=(
+                f"{prior.parameter_belief.source}+"
+                f"{self.parameter_evidence.source}"
+            ),
+            evidence_count=(
+                prior.parameter_belief.evidence_count
+                + self.parameter_evidence.independent_group_count
+            ),
+            effective_sample_count=(
+                prior.parameter_belief.effective_sample_count
+                + self.parameter_evidence.independent_group_count
+            ),
+            update_count=update_count,
+        )
+        provenance = dict(self.provenance)
+        provenance["parameter_prior_conditioning"] = {
+            "prior_source": prior.parameter_belief.source,
+            "local_evidence_source": self.parameter_evidence.source,
+            "local_information_rank": self.parameter_evidence.numerical_rank,
+            "local_independent_group_count": (
+                self.parameter_evidence.independent_group_count
+            ),
+        }
+        return DynamicsBelief(
+            params=with_structured_parameter_vector(
+                self.params,
+                jnp.asarray(posterior_center),
+            ),
+            input_spec=self.input_spec,
+            runtime_spec=self.runtime_spec,
+            predictive_error=self.predictive_error,
+            parameter_belief=parameter_belief,
+            parameter_evidence=self.parameter_evidence,
+            predictive_error_parameter_update_count=(
+                self.predictive_error_parameter_update_count
+            ),
+            provenance=provenance,
+        )
 
     def update(
         self, telemetry: Trajectory

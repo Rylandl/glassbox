@@ -10,13 +10,14 @@ from typing import Any
 from glassbox.belief import (
     DynamicsBelief,
     parameter_belief_from_dict,
+    parameter_evidence_from_dict,
     predictive_error_from_dict,
 )
 from glassbox.data import TrajectorySpec
 from glassbox.model_io import dynamics_model_from_payload, model_payload
 from glassbox.runtime import RuntimeModelSpec
 
-BELIEF_FORMAT_VERSION = 1
+BELIEF_FORMAT_VERSION = 2
 BELIEF_ARTIFACT_TYPE = "glassbox_dynamics_belief"
 
 
@@ -33,6 +34,7 @@ def belief_payload(belief: DynamicsBelief) -> dict[str, Any]:
             "parameter_uncertainty_included": (
                 belief.parameter_belief.uncertainty_available
             ),
+            "parameter_information_included": belief.parameter_evidence.available,
             "predictive_error_included": belief.predictive_error.available,
             "predictive_error_current": belief.predictive_error_current,
         },
@@ -43,6 +45,7 @@ def belief_payload(belief: DynamicsBelief) -> dict[str, Any]:
             provenance=belief.provenance,
         ),
         "parameter_belief": belief.parameter_belief.to_dict(),
+        "parameter_evidence": belief.parameter_evidence.to_dict(),
         "predictive_error": belief.predictive_error.to_dict(),
         "predictive_error_parameter_update_count": (
             belief.predictive_error_parameter_update_count
@@ -76,6 +79,9 @@ def dynamics_belief_from_payload(payload: Mapping[str, Any]) -> DynamicsBelief:
         runtime_spec=RuntimeModelSpec.from_dict(nominal["runtime_spec"]),
         predictive_error=predictive_error_from_dict(payload["predictive_error"]),
         parameter_belief=parameter_belief_from_dict(payload["parameter_belief"]),
+        parameter_evidence=parameter_evidence_from_dict(
+            payload["parameter_evidence"]
+        ),
         predictive_error_parameter_update_count=int(
             payload["predictive_error_parameter_update_count"]
         ),
