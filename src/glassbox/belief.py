@@ -41,6 +41,7 @@ from glassbox.runtime import (
 if TYPE_CHECKING:
     from glassbox.adaptation import BeliefUpdateReport
     from glassbox.data import Trajectory
+    from glassbox.parameter_prior import StructuredParameterPrior
 
 TANGENT_STATE_SIZE = 12
 TANGENT_STATE_ORDER = (
@@ -1202,42 +1203,25 @@ class DynamicsBelief:
 
     def condition_parameter_prior(
         self,
-        prior: DynamicsBelief,
+        prior: StructuredParameterPrior,
     ) -> DynamicsBelief:
-        """Combine this fit's local information with one complete Gaussian prior.
+        """Combine local information with one explicit fleet/configuration prior.
 
         The local information is centered at the parameters originally fitted
         from this dataset. Directions absent from that information retain their
-        prior mean and covariance. Rank-deficient empirical member spread is not
-        silently treated as a complete prior.
+        prior mean and covariance. Empirical fleet spread and the structural
+        completion needed to make that spread a proper prior remain separate in
+        the prior artifact and conditioning provenance.
         """
 
         if not isinstance(self.parameter_evidence, LocalParameterInformation):
             raise ValueError("conditioning requires local parameter information")
-        if not isinstance(prior.parameter_belief, LocalGaussianParameterBelief):
-            raise ValueError("conditioning requires a Gaussian parameter prior")
+        prior.validate_input_spec(self.input_spec)
         names = self.parameter_evidence.parameter_names
-        if prior.parameter_belief.parameter_names != names:
+        if prior.parameter_names != names:
             raise ValueError("parameter prior and local evidence are incompatible")
-        if self.input_spec.state_schema != prior.input_spec.state_schema:
-            raise ValueError("parameter prior uses an incompatible state schema")
-        local_controls = {
-            channel.role: (channel.semantic, channel.unit, channel.frame)
-            for channel in self.input_spec.controls
-        }
-        prior_controls = {
-            channel.role: (channel.semantic, channel.unit, channel.frame)
-            for channel in prior.input_spec.controls
-        }
-        shared_roles = set(local_controls) & set(prior_controls)
-        if any(local_controls[role] != prior_controls[role] for role in shared_roles):
-            raise ValueError("parameter prior uses incompatible control semantics")
-        prior_center = np.asarray(
-            structured_parameter_vector(prior.params), dtype=np.float64
-        )
-        prior_covariance = np.asarray(
-            prior.parameter_belief.covariance, dtype=np.float64
-        )
+        prior_center = np.asarray(prior.mean, dtype=np.float64)
+        prior_covariance = np.asarray(prior.covariance, dtype=np.float64)
         eigenvalues = np.linalg.eigvalsh(prior_covariance)
         tolerance = (
             np.finfo(np.float64).eps
@@ -1267,30 +1251,29 @@ class DynamicsBelief:
             + local_information @ self.parameter_evidence.center
             - self.parameter_evidence.score_vector
         )
-        update_count = max(
-            self.parameter_belief.update_count,
-            prior.parameter_belief.update_count,
-        ) + 1
+        update_count = self.parameter_belief.update_count + 1
         parameter_belief = LocalGaussianParameterBelief(
             parameter_names=names,
             covariance=posterior_covariance,
-            source=(
-                f"{prior.parameter_belief.source}+"
-                f"{self.parameter_evidence.source}"
-            ),
+            source=f"parameter_prior:{prior.source}+{self.parameter_evidence.source}",
             evidence_count=(
-                prior.parameter_belief.evidence_count
-                + self.parameter_evidence.independent_group_count
+                prior.member_count + self.parameter_evidence.independent_group_count
             ),
             effective_sample_count=(
-                prior.parameter_belief.effective_sample_count
-                + self.parameter_evidence.independent_group_count
+                prior.member_count + self.parameter_evidence.independent_group_count
             ),
             update_count=update_count,
         )
         provenance = dict(self.provenance)
         provenance["parameter_prior_conditioning"] = {
-            "prior_source": prior.parameter_belief.source,
+            "prior_source": prior.source,
+            "prior_method": prior.method,
+            "prior_member_count": prior.member_count,
+            "prior_empirical_rank": prior.empirical_rank,
+            "prior_completion_fraction_in_natural_coordinates": (
+                prior.completion_fraction_in_natural_coordinates
+            ),
+            "prior_artifact": prior.to_dict(),
             "local_evidence_source": self.parameter_evidence.source,
             "local_information_rank": self.parameter_evidence.numerical_rank,
             "local_independent_group_count": (

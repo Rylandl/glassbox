@@ -68,7 +68,7 @@ def fitted_structured_parameter_mask(
     return fitted
 
 
-def _structured_parameter_scale(params: ModelParams) -> np.ndarray:
+def structured_parameter_scale(params: ModelParams) -> np.ndarray:
     """Return natural perturbation scales for numerical-rank diagnostics."""
 
     names = structured_parameter_names(params)
@@ -314,7 +314,7 @@ def estimate_local_parameter_information(
         [np.mean(group_scores[group], axis=0) for group in group_labels]
     )
     score_vectors[:, ~fitted] = 0.0
-    scale = _structured_parameter_scale(params)
+    scale = structured_parameter_scale(params)
     rank_relative_tolerance = min(
         0.01,
         max(len(names), total_observation_rows) * _FLOAT32_EPSILON,

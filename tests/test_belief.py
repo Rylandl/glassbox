@@ -28,6 +28,7 @@ from glassbox.parameter_evidence import (
     estimate_local_parameter_information,
     fitted_structured_parameter_mask,
 )
+from glassbox.parameter_prior import StructuredParameterPrior
 from glassbox.runtime import RuntimeDynamicsModel, runtime_spec_from_trajectory
 from glassbox.synthetic import generate_trajectory, true_parameters
 
@@ -284,21 +285,23 @@ def test_local_information_conditions_complete_prior_without_collapsing_nullspac
     prior_center = local_center.copy()
     prior_center[0] += 0.5
     prior_center[1] += 0.75
-    prior_params = with_structured_parameter_vector(
-        params,
-        jnp.asarray(prior_center),
+    contracts = tuple(
+        (channel.role, channel.semantic, channel.unit, channel.frame)
+        for channel in trajectory.spec.controls
     )
-    prior = DynamicsBelief(
-        params=prior_params,
-        input_spec=trajectory.spec,
-        runtime_spec=runtime_spec_from_trajectory(trajectory),
-        parameter_belief=LocalGaussianParameterBelief(
-            parameter_names=names,
-            covariance=2.0 * np.eye(len(names)),
-            source="fleet_hierarchical_prior",
-            evidence_count=4,
-            effective_sample_count=4.0,
-        ),
+    prior = StructuredParameterPrior(
+        parameter_names=names,
+        mean=prior_center,
+        between_member_covariance=np.zeros((len(names), len(names))),
+        within_member_covariance=np.zeros((len(names), len(names))),
+        completion_covariance=np.eye(len(names)),
+        natural_scale=np.ones(len(names)),
+        member_labels=("fleet-a", "fleet-b", "fleet-c", "fleet-d"),
+        within_member_covariance_count=0,
+        state_schema=trajectory.spec.state_schema,
+        vehicle_family=trajectory.spec.vehicle.family,
+        control_contracts=contracts,
+        source="fleet_hierarchical_prior",
     )
 
     conditioned = fitted.condition_parameter_prior(prior)
@@ -308,31 +311,23 @@ def test_local_information_conditions_complete_prior_without_collapsing_nullspac
     assert posterior_center[0] < prior_center[0]
     assert posterior_center[0] > local_center[0]
     assert posterior_center[0] == pytest.approx(
-        local_center[0] + (0.25 - 0.2) / 4.5,
+        local_center[0] + (0.5 - 0.2) / 5.0,
         abs=1e-6,
     )
     assert posterior_center[1] == pytest.approx(prior_center[1])
-    assert conditioned.parameter_belief.covariance[0, 0] < 2.0
-    assert conditioned.parameter_belief.covariance[1, 1] == pytest.approx(2.0)
+    assert conditioned.parameter_belief.covariance[0, 0] < 1.0
+    assert conditioned.parameter_belief.covariance[1, 1] == pytest.approx(1.0)
     assert not conditioned.predictive_error_current
     assert conditioned.parameter_evidence is evidence
 
-    incomplete_prior = replace(
-        prior,
-        parameter_belief=_parameter_belief(prior_params),
-    )
-    with pytest.raises(ValueError, match="full-rank prior covariance"):
-        fitted.condition_parameter_prior(incomplete_prior)
-
-    incompatible_spec = replace(
-        prior.input_spec,
-        controls=(
-            replace(prior.input_spec.controls[0], unit="rad"),
-            *prior.input_spec.controls[1:],
-        ),
+    incompatible_contracts = (
+        (contracts[0][0], contracts[0][1], "rad", contracts[0][3]),
+        *contracts[1:],
     )
     with pytest.raises(ValueError, match="incompatible control semantics"):
-        fitted.condition_parameter_prior(replace(prior, input_spec=incompatible_spec))
+        fitted.condition_parameter_prior(
+            replace(prior, control_contracts=incompatible_contracts)
+        )
 
 
 def test_grouped_rollout_information_uses_only_fitted_structured_coordinates() -> (

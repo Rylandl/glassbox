@@ -1,0 +1,154 @@
+from __future__ import annotations
+
+from dataclasses import replace
+
+import jax.numpy as jnp
+import numpy as np
+import pytest
+
+from glassbox.belief import (
+    DynamicsBelief,
+    LocalGaussianParameterBelief,
+    structured_parameter_names,
+    structured_parameter_vector,
+    with_structured_parameter_vector,
+)
+from glassbox.data import make_trajectory_spec
+from glassbox.dynamics import FIXED_WING_CONTROL_NAMES
+from glassbox.fixedwing_synthetic import (
+    generate_fixed_wing_trajectory,
+    true_fixed_wing_parameters,
+)
+from glassbox.parameter_prior import StructuredParameterPrior
+from glassbox.runtime import runtime_spec_from_trajectory
+from glassbox.synthetic import generate_trajectory, true_parameters
+
+
+def _member_belief(trajectory, params, offset: np.ndarray) -> DynamicsBelief:
+    center = np.asarray(structured_parameter_vector(params), dtype=np.float64)
+    return DynamicsBelief(
+        params=with_structured_parameter_vector(
+            params,
+            jnp.asarray(center + offset),
+        ),
+        input_spec=trajectory.spec,
+        runtime_spec=runtime_spec_from_trajectory(trajectory),
+    )
+
+
+@pytest.mark.parametrize(
+    ("trajectory", "params"),
+    (
+        (generate_trajectory(seed=1, duration_s=0.2), true_parameters()),
+        (
+            generate_fixed_wing_trajectory(seed=1, duration_s=0.2),
+            true_fixed_wing_parameters(),
+        ),
+    ),
+)
+def test_parameter_prior_separates_fleet_spread_from_full_rank_completion(
+    trajectory,
+    params,
+    tmp_path,
+) -> None:
+    size = len(np.asarray(structured_parameter_vector(params)))
+    offsets = []
+    for first, second in ((-0.2, 0.1), (0.0, -0.2), (0.2, 0.1)):
+        offset = np.zeros(size)
+        offset[:2] = (first, second)
+        offsets.append(offset)
+    members = tuple(
+        _member_belief(trajectory, params, offset) for offset in offsets
+    )
+
+    prior = StructuredParameterPrior.from_beliefs(
+        members,
+        source="three_vehicle_reference",
+        member_labels=("vehicle-a", "vehicle-b", "vehicle-c"),
+    )
+
+    assert prior.member_count == 3
+    assert prior.empirical_rank == 2
+    assert np.linalg.matrix_rank(prior.between_member_covariance) == 2
+    assert np.linalg.matrix_rank(prior.completion_covariance) == size - 2
+    normalized_total = (
+        prior.covariance
+        / prior.natural_scale[:, None]
+        / prior.natural_scale[None, :]
+    )
+    assert np.min(np.linalg.eigvalsh(normalized_total)) > 0.0
+    assert 0.0 < prior.completion_fraction_in_natural_coordinates < 1.0
+
+    path = tmp_path / "fleet-prior.json"
+    prior.save(path)
+    restored = StructuredParameterPrior.load(path)
+    np.testing.assert_allclose(restored.mean, prior.mean)
+    np.testing.assert_allclose(
+        restored.between_member_covariance,
+        prior.between_member_covariance,
+    )
+    np.testing.assert_allclose(
+        restored.completion_covariance,
+        prior.completion_covariance,
+    )
+    payload = restored.to_dict()
+    assert payload["semantics"]["posterior"] is False
+    assert payload["semantics"]["calibrated_distribution"] is False
+    assert payload["completion_policy"]["completed_dimension"] == size - 2
+
+    initialized = restored.initialize_belief(members[0])
+    np.testing.assert_allclose(
+        structured_parameter_vector(initialized.params),
+        restored.mean,
+    )
+    assert isinstance(initialized.parameter_belief, LocalGaussianParameterBelief)
+    assert not initialized.parameter_evidence.available
+    assert initialized.provenance["parameter_prior_initialization"][
+        "prior_empirical_rank"
+    ] == 2
+
+
+def test_parameter_prior_rejects_mixed_member_covariance_semantics() -> None:
+    trajectory = generate_trajectory(seed=2, duration_s=0.2)
+    params = true_parameters()
+    size = len(np.asarray(structured_parameter_vector(params)))
+    first = _member_belief(trajectory, params, np.zeros(size))
+    second = _member_belief(trajectory, params, np.full(size, 0.01))
+    second = replace(
+        second,
+        parameter_belief=LocalGaussianParameterBelief(
+            parameter_names=structured_parameter_names(params),
+            covariance=np.eye(size),
+            source="member_covariance",
+            evidence_count=2,
+            effective_sample_count=2.0,
+        ),
+    )
+
+    with pytest.raises(ValueError, match="either all provide parameter covariance"):
+        StructuredParameterPrior.from_beliefs(
+            (first, second),
+            source="mixed_reference",
+        )
+
+
+def test_parameter_prior_requires_fleet_coverage_for_target_controls() -> None:
+    trajectory = generate_fixed_wing_trajectory(seed=3, duration_s=0.2)
+    params = true_fixed_wing_parameters()
+    size = len(np.asarray(structured_parameter_vector(params)))
+    prior = StructuredParameterPrior.from_beliefs(
+        (
+            _member_belief(trajectory, params, np.zeros(size)),
+            _member_belief(trajectory, params, np.full(size, 0.01)),
+        ),
+        source="flapless_reference",
+    )
+    flap_spec = make_trajectory_spec(
+        FIXED_WING_CONTROL_NAMES + ("flap",),
+        family="fixedwing",
+        observation_source="simulator_truth",
+        configuration_id="flap_equipped_target",
+    )
+
+    with pytest.raises(ValueError, match=r"no fleet evidence.*flap"):
+        prior.validate_input_spec(flap_spec)

@@ -36,15 +36,28 @@ motion did not resolve. A complete fleet or configuration prior can be
 conditioned by that evidence and then updated from recent canonical telemetry:
 
 ```python
-from glassbox import DynamicsBelief, NMPCController
+from glassbox import DynamicsBelief, NMPCController, StructuredParameterPrior
 
 vehicle_fit = DynamicsBelief.load("artifacts/vehicle-belief.json")
-fleet_prior = DynamicsBelief.load("artifacts/fleet-prior.json")
+fleet_prior = StructuredParameterPrior.load("artifacts/fleet-prior.json")
 belief = vehicle_fit.condition_parameter_prior(fleet_prior)
 updated, update_report = belief.update(recent_telemetry)
 assessment = updated.compile_for_nmpc().assess_plan(state, candidate_commands)
 controller = NMPCController(updated)
 ```
+
+Build the prior with one opinionated command; there are no covariance-floor or
+adaptation-tuning flags:
+
+```bash
+uv run glassbox-prior artifacts/fleet/*.json --output artifacts/fleet-prior.json
+```
+
+The prior artifact keeps observed between-vehicle spread, member uncertainty,
+and the assumed natural-coordinate completion of unresolved directions as
+separate matrices. It is a proper prior for adaptation, but explicitly neither
+a posterior nor a calibrated predictive distribution. A vehicle with no local
+fit can instead start from `fleet_prior.initialize_belief(vehicle_shell)`.
 
 Forecasts preserve empirical residual error and parameter-induced uncertainty as
 separate components, combining them only in tangent space. A live parameter
@@ -53,6 +66,14 @@ claiming it was revalidated. Candidate maneuvers expose expected local parameter
 information gain and posterior covariance, giving an exploration policy the
 primitives needed to stabilize first and increase maneuver complexity as
 evidence accumulates. See [the dynamics-belief design](docs/dynamics-beliefs.md).
+
+The compact synthetic diagnostic exercises that full lifecycle on an unseen
+multirotor and fixed-wing configuration, using disjoint adaptation and
+evaluation motion and no acceptance threshold:
+
+```bash
+uv run glassbox-adaptation-benchmark --output artifacts/adaptation.json
+```
 
 ## Experimental predictive ensembles
 

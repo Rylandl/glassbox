@@ -18,7 +18,7 @@ The opinionated public lifecycle is:
 
 ```python
 belief = glassbox.DynamicsBelief.load("artifacts/vehicle-belief.json")
-fleet_prior = glassbox.DynamicsBelief.load("artifacts/fleet-prior.json")
+fleet_prior = glassbox.StructuredParameterPrior.load("artifacts/fleet-prior.json")
 belief = belief.condition_parameter_prior(fleet_prior)
 forecast = belief.compile_for_nmpc().rollout(initial_state, commands)
 updated_belief, update = belief.update(recent_telemetry)
@@ -125,8 +125,43 @@ fit as a point belief plus partial information instead. A complete full-rank
 fleet or configuration prior can be combined with that information using
 `fit_belief.condition_parameter_prior(fleet_prior)`. Supported directions move
 toward the vehicle fit and contract; unsupported directions retain the prior
-mean and covariance. A rank-deficient empirical member cloud is rejected as an
-incomplete prior rather than silently regularized into certainty.
+mean and covariance.
+
+`StructuredParameterPrior` makes the unavoidable completion of a small fleet
+explicit. In natural structured-parameter coordinates it stores three separate
+terms:
+
+```text
+between-vehicle covariance      empirical
++ mean within-vehicle covariance empirical, when every member supplies it
++ unit covariance only on the unresolved numerical nullspace
+                                 structural prior assumption
+```
+
+The completion does not perturb directions spanned by fleet evidence and is
+never relabeled as observed variance, a posterior, or a calibrated
+distribution. Mixed fleets in which only some members supply covariance are
+rejected because their within-vehicle uncertainty has no coherent weighting.
+State schema, vehicle family, shared control semantics, and target control-role
+coverage are checked at the artifact boundary. A prior built only from
+flapless aircraft therefore cannot silently initialize flap effectiveness; at
+least one prior member must represent the flap-equipped configuration.
+
+The two supported entry paths are intentionally distinct:
+
+```python
+# Existing vehicle telemetry supplies local likelihood geometry.
+belief = vehicle_fit.condition_parameter_prior(fleet_prior)
+
+# No vehicle-local fit yet; a typed shell supplies controls/runtime/error model.
+belief = fleet_prior.initialize_belief(vehicle_shell)
+```
+
+`glassbox-prior` builds the artifact from fitted vehicle beliefs without tuning
+flags. `glassbox-adaptation-benchmark` then exercises prior initialization,
+family-level predictive error, an immutable live update, and disjoint held-out
+prediction for both maintained vehicle families. It is deliberately a
+directional synthetic diagnostic rather than a fractional-performance gate.
 
 `LocalGaussianParameterBelief` still covers only the compact structured
 coefficient block. A residual network remains fixed during fast conditioning

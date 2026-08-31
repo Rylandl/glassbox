@@ -79,6 +79,7 @@ from glassbox.nmpc import (
     SolveStatus,
     TrackingTolerances,
 )
+from glassbox.parameter_prior import StructuredParameterPrior
 from glassbox.runtime import (
     ActuationMap,
     DirectActuationMap,
@@ -127,6 +128,7 @@ __all__ = [
     "RuntimeModelSpec",
     "SafetyEnvelope",
     "SolveStatus",
+    "StructuredParameterPrior",
     "TrackingTolerances",
     "Trajectory",
     "TrajectoryAdapter",

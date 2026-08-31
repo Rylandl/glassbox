@@ -18,6 +18,8 @@ dependencies = [
 
 [project.scripts]
 glassbox-fit = "glassbox.fit_cli:main"
+glassbox-prior = "glassbox.parameter_prior_cli:main"
+glassbox-adaptation-benchmark = "glassbox.adaptation_benchmark:main"
 glassbox-synthetic = "glassbox.demo:main"
 glassbox-ulog = "glassbox.ulog_cli:main"
 glassbox-sitl-profile = "glassbox.sitl_profile:main"
