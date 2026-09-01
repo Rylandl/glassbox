@@ -6,6 +6,7 @@ import argparse
 import json
 import platform
 import time
+from collections import Counter
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any, Protocol
@@ -139,6 +140,31 @@ def _solve_row(
         ),
         "maximum_command_bound_violation": (
             result.diagnostics.maximum_command_bound_violation
+        ),
+        "support_filter_mode": result.diagnostics.support_filter_mode.value,
+        "support_filter_applied": result.diagnostics.support_filter_applied,
+        "support_command_fraction": result.diagnostics.support_command_fraction,
+        "next_step_mean_validity_utilization": _finite_or_none(
+            result.diagnostics.next_step_mean_validity_utilization
+        ),
+        "next_step_robust_validity_utilization": _finite_or_none(
+            result.diagnostics.next_step_robust_validity_utilization
+        ),
+        "current_angular_rate_energy": _finite_or_none(
+            result.diagnostics.current_angular_rate_energy
+        ),
+        "next_step_angular_rate_energy": _finite_or_none(
+            result.diagnostics.next_step_angular_rate_energy
+        ),
+        "support_horizon_s": result.diagnostics.support_horizon_s,
+        "support_horizon_maximum_robust_validity_utilization": _finite_or_none(
+            result.diagnostics.support_horizon_maximum_robust_validity_utilization
+        ),
+        "support_horizon_terminal_robust_validity_utilization": _finite_or_none(
+            result.diagnostics.support_horizon_terminal_robust_validity_utilization
+        ),
+        "support_horizon_terminal_angular_rate_energy": _finite_or_none(
+            result.diagnostics.support_horizon_terminal_angular_rate_energy
         ),
         "applied_command": applied_command.tolist(),
         "applied_command_source_time_us": (
@@ -305,7 +331,7 @@ def run_px4_nmpc_shadow(
     )
     applied_commands = np.asarray([row["applied_command"] for row in rows])
     return {
-        "schema_version": 4,
+        "schema_version": 5,
         "mode": "read_only_shadow",
         "commands_transmitted": False,
         "applied_command_source": (
@@ -327,6 +353,15 @@ def run_px4_nmpc_shadow(
             "sample_count": len(rows),
             "usable_command_count": sum(row["command_usable"] for row in rows),
             "fallback_count": sum(row["used_fallback"] for row in rows),
+            "support_filter_mode_counts": dict(
+                sorted(Counter(row["support_filter_mode"] for row in rows).items())
+            ),
+            "support_filter_applied_count": sum(
+                row["support_filter_applied"] for row in rows
+            ),
+            "support_best_effort_count": sum(
+                row["support_filter_mode"].endswith("best_effort") for row in rows
+            ),
             "model_period_deadline_miss_count": int(
                 np.count_nonzero(solve_times > model_period_s)
             ),
@@ -365,6 +400,13 @@ def run_px4_nmpc_shadow(
             ),
             "maximum_predicted_validity_utilization": _optional_max(
                 rows, "maximum_predicted_validity_utilization"
+            ),
+            "maximum_next_step_robust_validity_utilization": _optional_max(
+                rows, "next_step_robust_validity_utilization"
+            ),
+            "maximum_support_horizon_robust_validity_utilization": _optional_max(
+                rows,
+                "support_horizon_maximum_robust_validity_utilization",
             ),
         },
     }

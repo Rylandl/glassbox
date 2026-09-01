@@ -56,8 +56,8 @@ standard deviation is normalized by the declared tracking tolerances. Spread
 above one tolerance proportionally bounds the optimized change from the
 previous command. This small discrete safety coupling avoids differentiating
 through covariance Jacobians inside every solver iteration and remains visible
-as `command_authority_fraction`. It does not replace hard state constraints, a
-control-authority supervisor, attitude/rate arrest, or an independent watchdog.
+as `command_authority_fraction`. Glassbox deliberately does not embed a second
+airframe-specific controller behind this NMPC path.
 
 Rigid-body error has 12 local coordinates: position, velocity, the shortest
 quaternion log-map rotation vector, and angular velocity. Quaternion component
@@ -65,7 +65,8 @@ subtraction is never a tracking metric. Command bounds are hard constraints;
 command rate and model-validity terms use dimensionless physical
 normalization. A solve returns the predicted state/latent/control traces,
 initial and final costs, convergence status, timing, constraint diagnostics,
-and the bounded fallback command selected on failure.
+and the explicit bounded hold returned on failure. That hold is marked unusable
+and is not presented as an independently functioning controller.
 
 ## Acceptance thresholds fixed before tuning
 

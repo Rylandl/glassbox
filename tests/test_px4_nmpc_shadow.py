@@ -104,6 +104,17 @@ def test_shadow_runner_exercises_both_warmup_paths_without_transmission(
                     iterations=1,
                     maximum_validity_utilization=0.1,
                     maximum_command_bound_violation=0.0,
+                    support_filter_mode=SimpleNamespace(value="nominal_safe"),
+                    support_filter_applied=False,
+                    support_command_fraction=1.0,
+                    next_step_mean_validity_utilization=0.1,
+                    next_step_robust_validity_utilization=0.1,
+                    current_angular_rate_energy=0.0,
+                    next_step_angular_rate_energy=0.0,
+                    support_horizon_s=0.2,
+                    support_horizon_maximum_robust_validity_utilization=0.1,
+                    support_horizon_terminal_robust_validity_utilization=0.1,
+                    support_horizon_terminal_angular_rate_energy=0.0,
                 ),
             )
 
@@ -127,10 +138,12 @@ def test_shadow_runner_exercises_both_warmup_paths_without_transmission(
     assert len(report["samples"]) == 2
     assert source.sample_index == 3
     assert deadlines == [None, None, 0.2, 0.2]
-    assert report["schema_version"] == 4
+    assert report["schema_version"] == 5
     assert report["applied_command_source"] == "fixed"
     assert report["summary"]["maximum_applied_command_state_skew_s"] is None
     assert report["summary"]["maximum_estimated_source_clock_lag_s"] == 0.0
+    assert report["summary"]["support_filter_mode_counts"] == {"nominal_safe": 2}
+    assert report["summary"]["support_filter_applied_count"] == 0
     one_step = report["summary"]["one_step_model_audit"]
     assert one_step["transition_count"] == 2
     assert one_step["evaluated_transition_count"] == 0
@@ -210,6 +223,17 @@ def test_shadow_runner_uses_aligned_applied_command_telemetry(
                     iterations=1,
                     maximum_validity_utilization=0.1,
                     maximum_command_bound_violation=0.0,
+                    support_filter_mode=SimpleNamespace(value="nominal_safe"),
+                    support_filter_applied=False,
+                    support_command_fraction=1.0,
+                    next_step_mean_validity_utilization=0.1,
+                    next_step_robust_validity_utilization=0.1,
+                    current_angular_rate_energy=0.0,
+                    next_step_angular_rate_energy=0.0,
+                    support_horizon_s=0.2,
+                    support_horizon_maximum_robust_validity_utilization=0.1,
+                    support_horizon_terminal_robust_validity_utilization=0.1,
+                    support_horizon_terminal_angular_rate_energy=0.0,
                 ),
             )
 

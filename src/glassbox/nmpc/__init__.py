@@ -9,6 +9,7 @@ from glassbox.nmpc.types import (
     ReferenceTrajectory,
     SafetyEnvelope,
     SolveStatus,
+    SupportFilterMode,
     TrackingTolerances,
 )
 
@@ -20,6 +21,7 @@ __all__ = [
     "ReferenceTrajectory",
     "SafetyEnvelope",
     "SolveStatus",
+    "SupportFilterMode",
     "TrackingTolerances",
     "quaternion_log_error",
     "rigid_body_local_error",

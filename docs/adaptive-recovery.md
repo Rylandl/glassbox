@@ -31,17 +31,22 @@ The evidence path is:
    bounded initial disturbance: stale belief, adapted belief, adapted point
    mean, and hidden oracle point mean.
 
-No watchdog, rate-arrest controller, PX4 integration, or independent safety
-supervisor is present. Compilation time is excluded, while per-solve runtime is
-reported.
+The controller includes the maintained vehicle-agnostic belief-support
+projection. Every alternative is a blend between the optimized NMPC command
+and the previous bounded command. It includes no motor mixer, attitude/rate law,
+independent fallback controller, PX4 integration, or flight-authority handoff.
+Compilation time is excluded, while per-solve runtime is reported. Both nominal
+and alternative projection paths are compiled during prewarming.
 
 ## Recorded result
 
 The accepted update reduced independent normalized 0.6-second prediction RMS
 from `0.033394` to `0.013706` (`0.410x`). Relative to the stale belief, the
-adapted belief produced `0.818x` recovery-tail tracking RMS and `0.561x`
-recovery-tail attitude/rate RMS. Its tail tracking was `0.997x` the oracle point
-model in this trace.
+adapted belief produced `0.811x` recovery-tail tracking RMS and `0.539x`
+recovery-tail attitude/rate RMS. Relative to the oracle point model, those
+ratios were `0.990x` and `0.799x`. Thus useful parameter evidence reaches both
+the predictive mean and uncertainty-aware command selection without a hidden
+platform-specific controller.
 
 With actuator history correctly carried across the split, the disjoint
 validation RMS is `1.1994 → 0.4982`. The earlier `1.7534 → 1.6154` values came
@@ -52,12 +57,25 @@ Those numbers show that the architecture can move useful configuration evidence
 through an immutable belief update and into command selection. They are not an
 acceptance threshold or a general recovery claim.
 
-The important negative result is that every recovery condition reached roughly
-`1.6-1.7x` learned validity utilization. The disturbance begins inside support,
-but the controller's state-support cost is still soft. Consequently this result
-does not establish safe recovery, envelope expansion, or throw-to-recover
-capability. It points to the next general controller requirement: a hard
-support/authority boundary plus an independent attitude/rate-arrest supervisor.
+The support result is intentionally negative. Maximum actual validity
+utilization was `1.624`, `1.666`, `1.669`, and `1.631` for stale belief, adapted
+belief, adapted point mean, and oracle point mean. Maximum returned one-step
+robust utilization was `1.633`, `1.674`, `1.670`, and `1.631`; reaction-horizon
+utilization reached `1.710`, `1.837`, `1.712`, and `1.652`. All traces remained
+finite and bounded with no solver fallback, but every trace left support and
+some steps had no enumerated projection satisfying the progress condition.
+
+This is the behavior the diagnostic should expose. Removing the independent
+quadrotor recovery law eliminates the earlier appearance that the generic NMPC
+path kept the experiment inside support. The benchmark now establishes useful
+adaptation evidence and a clear controller limitation—not an invariant-set,
+envelope-expansion, flight-safety, or throw-to-recover result.
+
+On the recorded Apple M3 CPU run, point-model median/p90 solves were roughly
+`6.7-8.0 ms`. The uncertainty-bearing adapted belief measured `13.6 ms` median
+and `19.1 ms` p90 against a `20 ms` model period. Alternative-path compilation
+was prewarmed. These measurements are encouraging for this deterministic
+scenario but are not a hard real-time claim.
 
 ## Reproduce
 

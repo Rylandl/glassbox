@@ -14,6 +14,7 @@ from jax import Array
 
 from glassbox.belief import DynamicsBelief, RuntimeDynamicsBelief
 from glassbox.data import duration_to_steps
+from glassbox.dynamics import quaternion_to_rotation
 from glassbox.geometry import rigid_body_local_error
 from glassbox.nmpc.types import (
     NMPCDiagnostics,
@@ -22,9 +23,15 @@ from glassbox.nmpc.types import (
     ReferenceTrajectory,
     SafetyEnvelope,
     SolveStatus,
+    SupportFilterMode,
     TrackingTolerances,
 )
 from glassbox.runtime import RuntimeDynamicsModel
+
+_MINIMUM_SUPPORT_HORIZON_S = 0.1
+_MAXIMUM_SUPPORT_HORIZON_S = 0.3
+_ACTUATOR_TIME_CONSTANT_MULTIPLIER = 2.0
+_SUPPORT_INTERPOLATION_FRACTIONS = (0.75, 0.5, 0.25, 0.0)
 
 
 @dataclass(frozen=True)
@@ -67,6 +74,23 @@ class _SolverPolicy:
             or self.command_change_weight < 0
         ):
             raise ValueError("command_change_weight must be finite and nonnegative")
+
+
+@dataclass(frozen=True)
+class _SupportDecision:
+    command: np.ndarray
+    mode: SupportFilterMode
+    applied: bool
+    nominal_fraction: float
+    current_validity: float
+    next_mean_validity: float
+    next_robust_validity: float
+    current_rate_energy: float
+    next_rate_energy: float
+    support_horizon_s: float
+    support_horizon_maximum_robust_validity: float
+    support_horizon_terminal_robust_validity: float
+    support_horizon_terminal_rate_energy: float
 
 
 def _default_policy(model: RuntimeDynamicsModel) -> _SolverPolicy:
@@ -141,6 +165,27 @@ class _DirectShootingBackend:
         self._block_steps = math.ceil(
             self._policy.horizon_steps / self._policy.block_count
         )
+        response_time_constants = np.asarray(
+            self.model.latent_response_time_constants_s,
+            dtype=np.float64,
+        )
+        slowest_actuator_s = float(np.max(response_time_constants))
+        support_horizon_s = min(
+            _MAXIMUM_SUPPORT_HORIZON_S,
+            max(
+                _MINIMUM_SUPPORT_HORIZON_S,
+                _ACTUATOR_TIME_CONSTANT_MULTIPLIER * slowest_actuator_s,
+            ),
+        )
+        self._support_horizon_steps = min(
+            self._policy.horizon_steps,
+            max(
+                1,
+                math.ceil(
+                    support_horizon_s / self.model.runtime_spec.sample_period_s - 1e-9
+                ),
+            ),
+        )
         self._objective_gradient = jax.value_and_grad(self._objective)
         self._objective_and_gradient = jax.jit(self._objective_gradient)
         self._initial_latent_compiled = jax.jit(self.model.initial_latent_state)
@@ -148,7 +193,17 @@ class _DirectShootingBackend:
         self._rollout_compiled = jax.jit(self._rollout)
         self._validity_compiled = jax.jit(self._maximum_validity_utilization)
         self._safety_compiled = jax.jit(self._maximum_safety_violation)
-        self._uncertainty_compiled = jax.jit(self._maximum_normalized_model_uncertainty)
+        self._uncertainty_support_compiled = jax.jit(
+            self._model_uncertainty_and_support_metrics
+        )
+        self._support_metric_compiled = jax.jit(self._support_horizon_metrics)
+        self._support_metrics_compiled = jax.jit(
+            jax.vmap(
+                self._support_horizon_metrics,
+                in_axes=(None, None, 0, None),
+            )
+        )
+        self._support_batch_warmed = False
 
     @property
     def prediction_steps(self) -> int:
@@ -305,22 +360,425 @@ class _DirectShootingBackend:
     def _maximum_safety_violation(self, states: Array) -> Array:
         return jnp.max(jax.vmap(self._safety_violation)(states[1:]))
 
-    def _maximum_normalized_model_uncertainty(
+    def _model_uncertainty_and_support_metrics(
         self,
         initial_state: Array,
         initial_latent: Array,
         commands: Array,
         exogenous: Array,
-    ) -> Array:
+    ) -> tuple[Array, Array, Array, Array, Array, Array, Array]:
         forecast = self.belief.rollout(
             initial_state,
             commands,
             initial_latent_state=initial_latent,
             exogenous=exogenous,
         )
-        return jnp.max(
+        maximum_uncertainty = jnp.max(
             forecast.tangent_standard_deviation[1:]
             / self.tolerances.local_state_scale[None, :]
+        )
+        support_steps = min(self._support_horizon_steps, len(commands))
+        mean_validity, robust_validity, rate_energy = jax.vmap(
+            self._support_state_metrics
+        )(
+            forecast.mean_states[1 : support_steps + 1],
+            forecast.tangent_covariance[1 : support_steps + 1],
+            exogenous[:support_steps],
+        )
+        return (
+            maximum_uncertainty,
+            mean_validity[0],
+            robust_validity[0],
+            rate_energy[0],
+            jnp.max(robust_validity),
+            robust_validity[-1],
+            rate_energy[-1],
+        )
+
+    def _support_state_metrics(
+        self,
+        mean_state: Array,
+        covariance: Array,
+        exogenous: Array,
+    ) -> tuple[Array, Array, Array]:
+        """Return mean/marginal-radius validity and normalized rate energy."""
+
+        envelope = self.model.runtime_spec.validity_envelope
+        mean_utilization = self.model.validity_utilization(mean_state, exogenous)
+        mean_validity = jnp.max(mean_utilization)
+
+        roles = self.model.input_spec.exogenous_roles
+        wind = jnp.stack(
+            tuple(
+                exogenous[roles.index(role)] if role in roles else jnp.asarray(0.0)
+                for role in ("wind_north", "wind_west", "wind_up")
+            )
+        )
+        rotation = quaternion_to_rotation(mean_state[6:10])
+        body_velocity = rotation.T @ (mean_state[3:6] - wind)
+        body_velocity_cross = jnp.asarray(
+            (
+                (0.0, -body_velocity[2], body_velocity[1]),
+                (body_velocity[2], 0.0, -body_velocity[0]),
+                (-body_velocity[1], body_velocity[0], 0.0),
+            )
+        )
+        feature_jacobian = jnp.zeros((6, 12))
+        feature_jacobian = feature_jacobian.at[0:3, 3:6].set(rotation.T)
+        feature_jacobian = feature_jacobian.at[0:3, 6:9].set(body_velocity_cross)
+        feature_jacobian = feature_jacobian.at[3:6, 9:12].set(jnp.eye(3))
+        feature_covariance = feature_jacobian @ covariance @ feature_jacobian.T
+        feature_half_width = jnp.concatenate(
+            (
+                jnp.asarray(envelope.body_velocity_half_width_m_s),
+                jnp.asarray(envelope.angular_velocity_half_width_rad_s),
+            )
+        )
+        marginal_radius = (
+            jnp.sqrt(jnp.maximum(jnp.diag(feature_covariance), 0.0))
+            / feature_half_width
+        )
+        robust_validity = jnp.max(mean_utilization + marginal_radius)
+        normalized_rate = (
+            mean_state[10:13] - jnp.asarray(envelope.angular_velocity_center_rad_s)
+        ) / jnp.asarray(envelope.angular_velocity_half_width_rad_s)
+        rate_energy = jnp.sum(jnp.square(normalized_rate))
+        return mean_validity, robust_validity, rate_energy
+
+    def _support_horizon_metrics(
+        self,
+        state: Array,
+        latent: Array,
+        command: Array,
+        exogenous: Array,
+    ) -> tuple[Array, Array, Array, Array, Array, Array]:
+        """Evaluate one held command over the actuator reaction horizon."""
+
+        commands = jnp.repeat(
+            command[None, :],
+            self._support_horizon_steps,
+            axis=0,
+        )
+        exogenous_forecast = jnp.repeat(
+            exogenous[None, :], self._support_horizon_steps, axis=0
+        )
+        forecast = self.belief.rollout(
+            state,
+            commands,
+            initial_latent_state=latent,
+            exogenous=exogenous_forecast,
+        )
+        mean_validity, robust_validity, rate_energy = jax.vmap(
+            self._support_state_metrics
+        )(
+            forecast.mean_states[1:],
+            forecast.tangent_covariance[1:],
+            exogenous_forecast,
+        )
+        return (
+            mean_validity[0],
+            robust_validity[0],
+            rate_energy[0],
+            jnp.max(robust_validity),
+            robust_validity[-1],
+            rate_energy[-1],
+        )
+
+    def _current_support_metrics(
+        self,
+        state: np.ndarray,
+        exogenous: np.ndarray,
+    ) -> tuple[float, float]:
+        current_validity = float(
+            np.max(
+                np.asarray(
+                    self.model.validity_utilization(
+                        jnp.asarray(state),
+                        jnp.asarray(exogenous),
+                    )
+                )
+            )
+        )
+        envelope = self.model.runtime_spec.validity_envelope
+        normalized_rate = (
+            state[10:13] - np.asarray(envelope.angular_velocity_center_rad_s)
+        ) / np.asarray(envelope.angular_velocity_half_width_rad_s)
+        return current_validity, float(normalized_rate @ normalized_rate)
+
+    def _uncertainty_support_values(
+        self,
+        state: Array,
+        latent: Array,
+        commands: Array,
+        exogenous: Array,
+    ) -> tuple[float, tuple[float, float, float, float, float, float]]:
+        values = tuple(
+            float(np.asarray(value))
+            for value in self._uncertainty_support_compiled(
+                state,
+                latent,
+                commands,
+                exogenous,
+            )
+        )
+        return values[0], values[1:]  # type: ignore[return-value]
+
+    def _support_candidates(
+        self,
+        nominal_command: np.ndarray,
+        previous_command: np.ndarray,
+    ) -> tuple[list[np.ndarray], list[float]]:
+        minimum = np.asarray(self.model.command_minimum, dtype=np.float64)
+        maximum = np.asarray(self.model.command_maximum, dtype=np.float64)
+        candidates = [np.clip(nominal_command, minimum, maximum)]
+        nominal_fractions = [1.0]
+        anchor = np.clip(previous_command, minimum, maximum)
+
+        for fraction in _SUPPORT_INTERPOLATION_FRACTIONS:
+            candidate = np.clip(
+                anchor + fraction * (nominal_command - anchor),
+                minimum,
+                maximum,
+            )
+            candidates.append(candidate)
+            nominal_fractions.append(fraction)
+        return candidates, nominal_fractions
+
+    def _select_support_command(
+        self,
+        state: Array,
+        latent: Array,
+        nominal_command: Array,
+        previous_command: Array,
+        exogenous: Array,
+        nominal_support_metrics: tuple[float, float, float, float, float, float]
+        | None = None,
+    ) -> _SupportDecision:
+        state_np = np.asarray(state, dtype=np.float64)
+        nominal_np = np.asarray(nominal_command, dtype=np.float64)
+        previous_np = np.asarray(previous_command, dtype=np.float64)
+        exogenous_np = np.asarray(exogenous, dtype=np.float64)
+        candidates, nominal_fractions = self._support_candidates(
+            nominal_np, previous_np
+        )
+        current_validity, current_rate_energy = self._current_support_metrics(
+            state_np,
+            exogenous_np,
+        )
+        inside_support = current_validity <= 1.0 + 1e-6
+        nominal_metrics = (
+            tuple(
+                float(np.asarray(value))
+                for value in self._support_metric_compiled(
+                    state,
+                    latent,
+                    jnp.asarray(candidates[0]),
+                    exogenous,
+                )
+            )
+            if nominal_support_metrics is None
+            else nominal_support_metrics
+        )
+        nominal_finite = bool(np.all(np.isfinite(nominal_metrics)))
+        if nominal_finite and inside_support and nominal_metrics[3] <= 1.0 + 1e-6:
+            if not self._support_batch_warmed:
+                warmed = self._support_metrics_compiled(
+                    state,
+                    latent,
+                    jnp.asarray(np.asarray(candidates[1:])),
+                    exogenous,
+                )
+                jax.block_until_ready(warmed)
+                self._support_batch_warmed = True
+            return _SupportDecision(
+                command=candidates[0],
+                mode=SupportFilterMode.NOMINAL_SAFE,
+                applied=False,
+                nominal_fraction=1.0,
+                current_validity=current_validity,
+                next_mean_validity=nominal_metrics[0],
+                next_robust_validity=nominal_metrics[1],
+                current_rate_energy=current_rate_energy,
+                next_rate_energy=nominal_metrics[2],
+                support_horizon_s=(
+                    self._support_horizon_steps
+                    * self.model.runtime_spec.sample_period_s
+                ),
+                support_horizon_maximum_robust_validity=nominal_metrics[3],
+                support_horizon_terminal_robust_validity=nominal_metrics[4],
+                support_horizon_terminal_rate_energy=nominal_metrics[5],
+            )
+
+        alternative_metrics = (
+            self._support_metrics_compiled(
+                state,
+                latent,
+                jnp.asarray(np.asarray(candidates[1:])),
+                exogenous,
+            )
+            if len(candidates) > 1
+            else tuple(np.empty(0) for _ in range(6))
+        )
+        self._support_batch_warmed = True
+        metric_values = tuple(
+            np.concatenate(
+                (
+                    np.asarray((nominal_metrics[index],), dtype=np.float64),
+                    np.asarray(alternative_metrics[index], dtype=np.float64),
+                )
+            )
+            for index in range(6)
+        )
+        (
+            next_mean_values,
+            next_robust_values,
+            next_rate_values,
+            horizon_maximum_values,
+            horizon_terminal_values,
+            horizon_terminal_rate_values,
+        ) = metric_values
+        next_mean_np = np.asarray(next_mean_values, dtype=np.float64)
+        next_robust_np = np.asarray(next_robust_values, dtype=np.float64)
+        next_rate_np = np.asarray(next_rate_values, dtype=np.float64)
+        horizon_maximum_np = np.asarray(horizon_maximum_values, dtype=np.float64)
+        horizon_terminal_np = np.asarray(horizon_terminal_values, dtype=np.float64)
+        horizon_terminal_rate_np = np.asarray(
+            horizon_terminal_rate_values,
+            dtype=np.float64,
+        )
+        finite_metrics = (
+            np.isfinite(next_mean_np)
+            & np.isfinite(next_robust_np)
+            & np.isfinite(next_rate_np)
+            & np.isfinite(horizon_maximum_np)
+            & np.isfinite(horizon_terminal_np)
+            & np.isfinite(horizon_terminal_rate_np)
+        )
+        next_mean_np = np.where(finite_metrics, next_mean_np, np.inf)
+        next_robust_np = np.where(finite_metrics, next_robust_np, np.inf)
+        next_rate_np = np.where(finite_metrics, next_rate_np, np.inf)
+        horizon_maximum_np = np.where(finite_metrics, horizon_maximum_np, np.inf)
+        horizon_terminal_np = np.where(finite_metrics, horizon_terminal_np, np.inf)
+        horizon_terminal_rate_np = np.where(
+            finite_metrics,
+            horizon_terminal_rate_np,
+            np.inf,
+        )
+        if inside_support:
+            acceptable = horizon_maximum_np <= 1.0 + 1e-6
+        else:
+            validity_tolerance = (
+                32.0
+                * np.finfo(np.float64).eps
+                * max(
+                    1.0,
+                    current_validity,
+                )
+            )
+            energy_tolerance = (
+                32.0
+                * np.finfo(np.float64).eps
+                * max(
+                    1.0,
+                    current_rate_energy,
+                )
+            )
+            validity_progress = (
+                horizon_terminal_np < current_validity - validity_tolerance
+            )
+            rate_progress = np.where(
+                current_rate_energy > energy_tolerance,
+                horizon_terminal_rate_np < current_rate_energy - energy_tolerance,
+                horizon_terminal_rate_np <= energy_tolerance,
+            )
+            acceptable = validity_progress & rate_progress
+
+        acceptable_indices = np.flatnonzero(acceptable)
+        if len(acceptable_indices):
+            selected_index = (
+                int(acceptable_indices[0])
+                if inside_support
+                else min(
+                    (int(index) for index in acceptable_indices),
+                    key=lambda index: (
+                        horizon_maximum_np[index],
+                        horizon_terminal_np[index] / max(current_validity, 1e-12),
+                        horizon_terminal_rate_np[index]
+                        / max(current_rate_energy, 1e-12),
+                        -nominal_fractions[index],
+                    ),
+                )
+            )
+            mode = (
+                SupportFilterMode.NOMINAL_SAFE
+                if inside_support and selected_index == 0
+                else SupportFilterMode.BOUNDARY_FILTERED
+                if inside_support
+                else SupportFilterMode.RECOVERY_FILTERED
+            )
+        else:
+            if inside_support:
+                scores = np.stack(
+                    (
+                        horizon_maximum_np,
+                        horizon_terminal_np,
+                        horizon_terminal_rate_np,
+                    ),
+                    axis=1,
+                )
+            else:
+                validity_scale = max(current_validity, 1e-12)
+                rate_scale = max(current_rate_energy, 1e-12)
+                maximum_validity_ratio = horizon_maximum_np / validity_scale
+                terminal_validity_ratio = horizon_terminal_np / validity_scale
+                terminal_rate_ratio = horizon_terminal_rate_np / rate_scale
+                scores = np.stack(
+                    (
+                        maximum_validity_ratio,
+                        np.maximum(terminal_validity_ratio, terminal_rate_ratio),
+                        terminal_validity_ratio + terminal_rate_ratio,
+                    ),
+                    axis=1,
+                )
+            selected_index = min(
+                range(len(candidates)),
+                key=lambda index: (
+                    scores[index, 0],
+                    scores[index, 1],
+                    scores[index, 2],
+                    -nominal_fractions[index],
+                ),
+            )
+            mode = (
+                SupportFilterMode.BOUNDARY_BEST_EFFORT
+                if inside_support
+                else SupportFilterMode.RECOVERY_BEST_EFFORT
+            )
+
+        selected = candidates[selected_index]
+        applied = not np.allclose(selected, nominal_np, rtol=0.0, atol=1e-12)
+        return _SupportDecision(
+            command=selected,
+            mode=mode,
+            applied=applied,
+            nominal_fraction=nominal_fractions[selected_index],
+            current_validity=current_validity,
+            next_mean_validity=float(next_mean_np[selected_index]),
+            next_robust_validity=float(next_robust_np[selected_index]),
+            current_rate_energy=current_rate_energy,
+            next_rate_energy=float(next_rate_np[selected_index]),
+            support_horizon_s=(
+                self._support_horizon_steps * self.model.runtime_spec.sample_period_s
+            ),
+            support_horizon_maximum_robust_validity=float(
+                horizon_maximum_np[selected_index]
+            ),
+            support_horizon_terminal_robust_validity=float(
+                horizon_terminal_np[selected_index]
+            ),
+            support_horizon_terminal_rate_energy=float(
+                horizon_terminal_rate_np[selected_index]
+            ),
         )
 
     def _optimize(
@@ -601,6 +1059,21 @@ class _DirectShootingBackend:
                     certified is not None
                     and self.prediction_horizon_s <= certified + 1e-12
                 ),
+                support_filter_mode=SupportFilterMode.SOLVER_FALLBACK,
+                support_filter_applied=False,
+                support_command_fraction=0.0,
+                current_validity_utilization=math.inf,
+                next_step_mean_validity_utilization=math.inf,
+                next_step_robust_validity_utilization=math.inf,
+                current_angular_rate_energy=math.inf,
+                next_step_angular_rate_energy=math.inf,
+                support_horizon_s=(
+                    self._support_horizon_steps
+                    * self.model.runtime_spec.sample_period_s
+                ),
+                support_horizon_maximum_robust_validity_utilization=math.inf,
+                support_horizon_terminal_robust_validity_utilization=math.inf,
+                support_horizon_terminal_angular_rate_energy=math.inf,
             ),
             used_fallback=True,
             message=message,
@@ -790,15 +1263,14 @@ class _DirectShootingBackend:
                 warm_start_used=used_warm_start,
             )
 
-        maximum_model_uncertainty = float(
-            np.asarray(
-                self._uncertainty_compiled(
-                    state,
-                    latent,
-                    commands,
-                    exogenous,
-                )
-            )
+        (
+            maximum_model_uncertainty,
+            nominal_support_metrics,
+        ) = self._uncertainty_support_values(
+            state,
+            latent,
+            commands,
+            exogenous,
         )
         if not np.isfinite(maximum_model_uncertainty):
             return self._failure_result(
@@ -840,15 +1312,14 @@ class _DirectShootingBackend:
             states_np = np.asarray(states)
             latent_np = np.asarray(latent_states)
             commands_np = np.asarray(commands)
-            maximum_model_uncertainty = float(
-                np.asarray(
-                    self._uncertainty_compiled(
-                        state,
-                        latent,
-                        commands,
-                        exogenous,
-                    )
-                )
+            (
+                maximum_model_uncertainty,
+                nominal_support_metrics,
+            ) = self._uncertainty_support_values(
+                state,
+                latent,
+                commands,
+                exogenous,
             )
             converged = False
         if not (
@@ -861,6 +1332,67 @@ class _DirectShootingBackend:
             return self._failure_result(
                 SolveStatus.NONFINITE_OBJECTIVE,
                 "uncertainty-bounded prediction is non-finite",
+                previous_command,
+                started_at,
+                initial_objective=initial_objective,
+                iterations=iteration,
+                warm_start_used=used_warm_start,
+            )
+
+        support_decision = self._select_support_command(
+            state,
+            latent,
+            commands[0],
+            previous_command,
+            exogenous[0],
+            nominal_support_metrics,
+        )
+        if support_decision.applied:
+            blocks = blocks.at[0].set(
+                jnp.clip(
+                    self._normalized_from_commands(
+                        jnp.asarray(support_decision.command)
+                    ),
+                    -1.0,
+                    1.0,
+                )
+            )
+            current_value, current_gradient = self._objective_and_gradient(
+                blocks,
+                state,
+                latent,
+                reference.states,
+                previous_command,
+                exogenous,
+            )
+            current_value_float = float(np.asarray(current_value))
+            gradient_norm = float(np.max(np.abs(np.asarray(current_gradient))))
+            states, latent_states, commands = self._rollout_compiled(
+                blocks,
+                state,
+                latent,
+                exogenous,
+            )
+            states_np = np.asarray(states)
+            latent_np = np.asarray(latent_states)
+            commands_np = np.asarray(commands)
+            maximum_model_uncertainty, _ = self._uncertainty_support_values(
+                state,
+                latent,
+                commands,
+                exogenous,
+            )
+            converged = False
+        if not (
+            np.all(np.isfinite(states_np))
+            and np.all(np.isfinite(latent_np))
+            and np.all(np.isfinite(commands_np))
+            and np.isfinite(current_value_float)
+            and np.isfinite(maximum_model_uncertainty)
+        ):
+            return self._failure_result(
+                SolveStatus.NONFINITE_OBJECTIVE,
+                "support-filtered prediction is non-finite",
                 previous_command,
                 started_at,
                 initial_objective=initial_objective,
@@ -931,10 +1463,40 @@ class _DirectShootingBackend:
                     certified is not None
                     and self.prediction_horizon_s <= certified + 1e-12
                 ),
+                support_filter_mode=support_decision.mode,
+                support_filter_applied=support_decision.applied,
+                support_command_fraction=support_decision.nominal_fraction,
+                current_validity_utilization=support_decision.current_validity,
+                next_step_mean_validity_utilization=(
+                    support_decision.next_mean_validity
+                ),
+                next_step_robust_validity_utilization=(
+                    support_decision.next_robust_validity
+                ),
+                current_angular_rate_energy=(support_decision.current_rate_energy),
+                next_step_angular_rate_energy=support_decision.next_rate_energy,
+                support_horizon_s=support_decision.support_horizon_s,
+                support_horizon_maximum_robust_validity_utilization=(
+                    support_decision.support_horizon_maximum_robust_validity
+                ),
+                support_horizon_terminal_robust_validity_utilization=(
+                    support_decision.support_horizon_terminal_robust_validity
+                ),
+                support_horizon_terminal_angular_rate_energy=(
+                    support_decision.support_horizon_terminal_rate_energy
+                ),
             ),
             used_fallback=False,
             message=(
-                "finite plan returned with belief-bounded command authority"
+                f"finite plan returned with {support_decision.mode.value} projection"
+                if support_decision.applied
+                or support_decision.mode
+                in {
+                    SupportFilterMode.RECOVERY_FILTERED,
+                    SupportFilterMode.RECOVERY_BEST_EFFORT,
+                    SupportFilterMode.BOUNDARY_BEST_EFFORT,
+                }
+                else "finite plan returned with belief-bounded command authority"
                 if command_authority < 1.0
                 else "first-order convergence criterion satisfied"
                 if converged

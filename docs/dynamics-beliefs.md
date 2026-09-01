@@ -249,9 +249,19 @@ capped at the maintained predictive-error evidence. Its
 diagnostics separately state whether empirical predictive error and parameter
 uncertainty are available, whether error evidence is current, whether the
 requested error horizon is supported, and the selected command-authority
-fraction. This is a conservative first coupling; state limits remain soft and
-a separate watchdog/authority/rate-arrest layer remains necessary. Constraint
-tightening, CVaR, or worst-scenario objectives can evolve through the same
+fraction.
+
+The returned next command then passes through a belief-aware support projection.
+It tests the optimized sequence over a bounded actuator-reaction horizon and,
+when needed, searches maintained blends between that NMPC command and the
+previous bounded command. The mechanism is vehicle-agnostic and cannot generate
+a command from a separate attitude, rate, mixer, or airframe-specific control
+law. Optimizer failure stays explicit and returns only a bounded hold with
+`command_usable=False`; it does not silently transfer authority to another
+controller.
+
+The complete NMPC horizon and mission state limits are still soft; CVaR,
+worst-scenario objectives, or invariant-set methods can evolve through the same
 runtime boundary. A large offline bootstrap ensemble is never required in the
 real-time loop.
 
@@ -285,8 +295,8 @@ depends on a mission safety envelope, not only the system model.
 This supports the conceptual progression:
 
 1. **Arrest and stabilize.** Use a family prior, broad uncertainty, known command
-   bounds, and a fallback controller. An entirely unknown thrown vehicle cannot
-   be guaranteed recoverable before it produces informative motion.
+   bounds, and belief-aware NMPC. An entirely unknown thrown vehicle cannot be
+   guaranteed recoverable before it produces informative motion.
 2. **Exploit passive excitation.** The throw and recovery provide transitions
    that update control authority, damping, and actuator response.
 3. **Probe safely.** Choose bounded maneuvers that add information while their

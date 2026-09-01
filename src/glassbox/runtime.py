@@ -16,6 +16,7 @@ from glassbox.data import ControlChannel, Trajectory, TrajectorySpec
 from glassbox.dynamics import (
     ModelParams,
     control_state_after_history,
+    latent_response_time_constants,
     model_family,
     quaternion_to_rotation,
     step_with_latent,
@@ -414,6 +415,12 @@ class RuntimeDynamicsModel:
         return len(self.input_spec.controls) + (
             3 if model_family(self.params).platform == "multirotor" else 0
         )
+
+    @property
+    def latent_response_time_constants_s(self) -> Array:
+        """Fitted time scales governing the model's latent actuation response."""
+
+        return latent_response_time_constants(self.params)
 
     def initial_latent_state(self, command_history: Array) -> Array:
         history = jnp.asarray(command_history)

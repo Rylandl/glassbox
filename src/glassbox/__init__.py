@@ -84,6 +84,7 @@ from glassbox.nmpc import (
     ReferenceTrajectory,
     SafetyEnvelope,
     SolveStatus,
+    SupportFilterMode,
     TrackingTolerances,
 )
 from glassbox.parameter_prior import StructuredParameterPrior
@@ -138,6 +139,7 @@ __all__ = [
     "SafetyEnvelope",
     "SolveStatus",
     "StructuredParameterPrior",
+    "SupportFilterMode",
     "TrackingTolerances",
     "Trajectory",
     "TrajectoryAdapter",

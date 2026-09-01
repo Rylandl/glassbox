@@ -173,6 +173,17 @@ class SolveStatus(StrEnum):
     DEADLINE_EXCEEDED = "deadline_exceeded"
 
 
+class SupportFilterMode(StrEnum):
+    """How the returned command relates to the learned validity envelope."""
+
+    NOMINAL_SAFE = "nominal_safe"
+    BOUNDARY_FILTERED = "boundary_filtered"
+    BOUNDARY_BEST_EFFORT = "boundary_best_effort"
+    RECOVERY_FILTERED = "recovery_filtered"
+    RECOVERY_BEST_EFFORT = "recovery_best_effort"
+    SOLVER_FALLBACK = "solver_fallback"
+
+
 @dataclass(frozen=True)
 class NMPCWarmStart:
     """Opaque receding-horizon seed returned by a previous solve."""
@@ -209,6 +220,18 @@ class NMPCDiagnostics:
     warm_start_used: bool
     prediction_horizon_s: float
     prediction_horizon_certified: bool
+    support_filter_mode: SupportFilterMode
+    support_filter_applied: bool
+    support_command_fraction: float
+    current_validity_utilization: float
+    next_step_mean_validity_utilization: float
+    next_step_robust_validity_utilization: float
+    current_angular_rate_energy: float
+    next_step_angular_rate_energy: float
+    support_horizon_s: float
+    support_horizon_maximum_robust_validity_utilization: float
+    support_horizon_terminal_robust_validity_utilization: float
+    support_horizon_terminal_angular_rate_energy: float
 
 
 @dataclass(frozen=True)

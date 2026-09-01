@@ -26,6 +26,7 @@ from glassbox.data import (
     VehicleConfigurationSpec,
 )
 from glassbox.dynamics import (
+    MOTOR_MIXER,
     fixed_wing_trim_control,
     hover_control,
     initial_residual_parameters,
@@ -41,6 +42,7 @@ from glassbox.nmpc import (
     NMPCWarmStart,
     SafetyEnvelope,
     SolveStatus,
+    SupportFilterMode,
     quaternion_log_error,
 )
 from glassbox.nmpc.solver import _SolverPolicy
@@ -79,6 +81,25 @@ def _multirotor_runtime(*, residual: bool = False) -> RuntimeDynamicsModel:
         trajectory.spec,
         _runtime_spec(trajectory.nominal_dt_s),
         DirectActuationMap(trajectory.spec.controls),
+    )
+
+
+def _narrow_rate_envelope_multirotor() -> RuntimeDynamicsModel:
+    model = _multirotor_runtime()
+    runtime_spec = replace(
+        model.runtime_spec,
+        validity_envelope=ModelValidityEnvelope(
+            body_velocity_center_m_s=(0.0, 0.0, 0.0),
+            body_velocity_half_width_m_s=(10.0, 10.0, 10.0),
+            angular_velocity_center_rad_s=(0.0, 0.0, 0.0),
+            angular_velocity_half_width_rad_s=(0.2, 0.2, 0.2),
+        ),
+    )
+    return RuntimeDynamicsModel(
+        model.params,
+        model.input_spec,
+        runtime_spec,
+        model.actuation,
     )
 
 
@@ -206,6 +227,7 @@ def test_solver_propagates_latent_state_and_returns_bounded_plan() -> None:
     )
     assert result.diagnostics.maximum_command_bound_violation <= 1e-6
     assert np.all(np.isfinite(result.predicted_states))
+    assert controller._backend._support_batch_warmed
 
 
 def test_solver_consumes_predictive_and_parameter_uncertainty() -> None:
@@ -480,6 +502,151 @@ def test_forced_line_search_failure_returns_bounded_fallback() -> None:
     assert result.status is SolveStatus.LINE_SEARCH_FAILED
     assert result.used_fallback
     np.testing.assert_allclose(result.command, previous, atol=1e-6)
+
+
+def test_support_candidates_are_vehicle_agnostic_nmpc_projections() -> None:
+    model = _fixed_wing_runtime()
+    controller = NMPCController(model, _policy=_test_policy(horizon_steps=4))
+    previous = np.asarray(fixed_wing_trim_control(model.params, TRIM_AIRSPEED_M_S))
+    nominal = np.clip(
+        previous + np.asarray((0.1, 0.2, -0.2, 0.1)),
+        np.asarray(model.command_minimum),
+        np.asarray(model.command_maximum),
+    )
+
+    candidates, fractions = controller._backend._support_candidates(
+        nominal,
+        previous,
+    )
+
+    assert not hasattr(controller, "supervisor")
+    assert fractions == [1.0, 0.75, 0.5, 0.25, 0.0]
+    for candidate, fraction in zip(candidates, fractions):
+        np.testing.assert_allclose(
+            candidate,
+            previous + fraction * (nominal - previous),
+            atol=1e-7,
+        )
+
+
+def test_support_filter_keeps_next_step_inside_from_envelope_boundary() -> None:
+    model = _narrow_rate_envelope_multirotor()
+    controller = NMPCController(model, _policy=_test_policy(horizon_steps=4))
+    state = resting_state()
+    state[10] = 0.19
+    previous = np.full(4, 0.5)
+    nominal = np.clip(previous + 0.15 * np.asarray(MOTOR_MIXER[0]), 0.0, 1.0)
+    decision = controller._backend._select_support_command(
+        jnp.asarray(state),
+        model.initial_latent_state(previous),
+        jnp.asarray(nominal),
+        jnp.asarray(previous),
+        jnp.zeros(0),
+    )
+
+    assert decision.mode is SupportFilterMode.BOUNDARY_FILTERED
+    assert decision.applied
+    assert decision.nominal_fraction < 1.0
+    assert decision.current_validity <= 1.0
+    assert decision.support_horizon_maximum_robust_validity <= 1.0 + 1e-6
+
+
+def test_support_filter_tightens_boundary_for_predictive_error() -> None:
+    model = _narrow_rate_envelope_multirotor()
+    endpoint_errors = np.zeros((4, 12))
+    endpoint_errors[:, 9] = (-0.04, 0.04, -0.04, 0.04)
+    samples = (
+        EmpiricalErrorSample(endpoint_errors, "group-a", "flight-a"),
+        EmpiricalErrorSample(-endpoint_errors, "group-b", "flight-b"),
+    )
+    belief = DynamicsBelief(
+        params=model.params,
+        input_spec=model.input_spec,
+        runtime_spec=model.runtime_spec,
+        predictive_error=EmpiricalHorizonPredictiveError.from_samples(
+            {model.runtime_spec.sample_period_s: samples}
+        ),
+    )
+    policy = _test_policy(horizon_steps=4)
+    point_controller = NMPCController(model, _policy=policy)
+    belief_controller = NMPCController(belief, _policy=policy)
+    state = resting_state()
+    state[10] = 0.10
+    previous = np.full(4, 0.5)
+    nominal = np.clip(previous + 0.04 * np.asarray(MOTOR_MIXER[0]), 0.0, 1.0)
+
+    def decide(controller: NMPCController):
+        return controller._backend._select_support_command(
+            jnp.asarray(state),
+            controller.model.initial_latent_state(previous),
+            jnp.asarray(nominal),
+            jnp.asarray(previous),
+            jnp.zeros(0),
+        )
+
+    point = decide(point_controller)
+    uncertain = decide(belief_controller)
+
+    assert point.mode is SupportFilterMode.NOMINAL_SAFE
+    assert not point.applied
+    assert uncertain.mode is SupportFilterMode.BOUNDARY_FILTERED
+    assert uncertain.applied
+    assert uncertain.nominal_fraction < 1.0
+    assert uncertain.next_mean_validity < point.next_mean_validity
+    assert uncertain.support_horizon_maximum_robust_validity <= 1.0 + 1e-6
+
+
+def test_support_filter_requires_validity_and_rate_progress_outside_envelope() -> None:
+    model = _narrow_rate_envelope_multirotor()
+    controller = NMPCController(model, _policy=_test_policy(horizon_steps=4))
+    state = resting_state()
+    state[10] = 0.25
+    previous = np.full(4, 0.5)
+    nominal = np.clip(previous + 0.15 * np.asarray(MOTOR_MIXER[0]), 0.0, 1.0)
+    decision = controller._backend._select_support_command(
+        jnp.asarray(state),
+        model.initial_latent_state(previous),
+        jnp.asarray(nominal),
+        jnp.asarray(previous),
+        jnp.zeros(0),
+    )
+
+    assert decision.mode is SupportFilterMode.RECOVERY_FILTERED
+    assert decision.applied
+    assert decision.nominal_fraction < 1.0
+    assert decision.current_validity > 1.0
+    assert decision.support_horizon_terminal_robust_validity < decision.current_validity
+    assert decision.support_horizon_terminal_rate_energy < (
+        decision.current_rate_energy
+    )
+
+
+def test_solver_failure_does_not_inject_an_independent_controller() -> None:
+    model = _multirotor_runtime()
+    policy = _SolverPolicy(
+        horizon_steps=6,
+        block_count=3,
+        maximum_iterations=2,
+        line_search_steps=1,
+        armijo_fraction=1e6,
+    )
+    controller = NMPCController(model, _policy=policy)
+    target = resting_state()
+    state = target.copy()
+    state[2] = -0.3
+    state[10] = 2.0
+    previous = hover_control(true_parameters())
+
+    result = controller.solve(
+        jnp.asarray(state),
+        controller.hold_reference(jnp.asarray(target)),
+        previous,
+    )
+
+    assert result.status is SolveStatus.LINE_SEARCH_FAILED
+    assert result.used_fallback
+    assert result.diagnostics.support_filter_mode is SupportFilterMode.SOLVER_FALLBACK
+    np.testing.assert_allclose(result.command, previous)
 
 
 def test_safety_envelope_reports_normalized_prediction_violation() -> None:

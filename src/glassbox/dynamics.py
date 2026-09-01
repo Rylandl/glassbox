@@ -346,6 +346,20 @@ def _response_time_constant(params: ModelParams) -> Array:
     return jnp.exp(base.log_motor_time_constant)
 
 
+def latent_response_time_constants(params: ModelParams) -> Array:
+    """Return every fitted first-order latent-response time constant in seconds."""
+
+    base = structured_parameters(params)
+    if isinstance(base, FixedWingDynamicsParams):
+        return jnp.atleast_1d(jnp.exp(base.log_actuator_time_constant))
+    return jnp.concatenate(
+        (
+            jnp.atleast_1d(jnp.exp(base.log_motor_time_constant)),
+            jnp.atleast_1d(jnp.exp(base.log_angular_response_time_constant)),
+        )
+    )
+
+
 def _angular_control_target(params: ModelParams, applied_control: Array) -> Array:
     """Return the multirotor control-generated angular acceleration target."""
 

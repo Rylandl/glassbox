@@ -88,10 +88,13 @@ uv run glassbox-adaptive-recovery \
   --output docs/adaptive-recovery-results.json
 ```
 
-The recorded update improved independent prediction and recovery-tail error,
-but every closed-loop condition left the learned validity envelope. That
-negative evidence is retained explicitly: this is an integration result, not a
-safe-recovery or throw-to-recover claim. See the
+The recorded update improves independent prediction. Its prewarmed recovery
+comparison uses the same vehicle-agnostic belief-support projection as the
+library: candidates are derived only from the optimized NMPC command and the
+previous bounded command. There is no hidden multirotor recovery controller.
+Adaptation improves both recorded recovery-tail metrics, but every trace leaves
+the learned validity envelope; the result therefore remains diagnostic—not a
+flight-safety or throw-to-recover claim. See the
 [adaptive recovery diagnostic](docs/adaptive-recovery.md).
 
 ## Experimental predictive ensembles
@@ -183,10 +186,13 @@ Glassbox includes an opinionated JAX NMPC controller for actionable fitted
 multirotor and fixed-wing artifacts. It tracks the canonical rigid-body state,
 propagates learned actuator lag and residual dynamics, accepts physical tracking
 tolerances and state limits, and returns a bounded command with explicit solver,
-validity, and fallback diagnostics. The default horizon never exceeds available
-predictive-error evidence, and forecast spread above one declared tracking
-tolerance proportionally limits command authority. This is a conservative
-runtime coupling, not a substitute for an independent flight watchdog.
+validity, and explicit failure diagnostics. The default horizon never exceeds
+available predictive-error evidence, and forecast spread above one declared
+tracking tolerance proportionally limits command authority. A reaction-horizon support
+projection evaluates the optimized sequence and, when necessary, blends it
+toward the previous bounded command. It is driven by the same learned belief and
+contains no family-specific backup law. Solver failure is explicit and returns
+only a bounded hold marked unusable, never a silently independent controller.
 
 The maintained synthetic gate covers hover, translation, attitude, fixed-wing
 trim, altitude, path, coordinated turn, optional flaps, flying-wing generalized

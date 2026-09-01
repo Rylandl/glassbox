@@ -67,9 +67,10 @@ controller's actionable command coordinates. Advanced estimators can instead
 provide the complete `latent_state`; passing both is rejected. If neither is
 available, the controller initializes lag state from `previous_command`.
 
-The first cold solve and the first warm-started solve compile separate JAX
-paths. Run both and discard their commands before entering a timed control loop.
-Compilation must never happen after arming.
+The first cold solve compiles both nominal and support-filter paths; the first
+warm-started solve compiles the receding-horizon path. Run both and discard
+their commands before entering a timed control loop. Compilation must never
+happen after arming.
 
 ## Eligible models and airframes
 
@@ -112,11 +113,31 @@ change from the previous command is scaled by the reciprocal spread. The
 diagnostic `command_authority_fraction` records the result. This is a maintained
 bounded-authority policy, not an uncertainty calibration claim.
 
-Command change, model-validity excess, and supported state limits remain
-dimensionless soft penalties. `SafetyEnvelope` currently
-supports minimum/maximum world position, maximum world speed, and maximum body
-angular speed. These state limits are preferences, not invariant-set or
-collision guarantees.
+Command change, full-horizon model-validity excess, and `SafetyEnvelope` state
+limits remain dimensionless soft penalties. `SafetyEnvelope` currently supports
+minimum/maximum world position, maximum world speed, and maximum body angular
+speed. These mission limits are preferences, not invariant-set or collision
+guarantees.
+
+The command returned for the next interval has a separate belief-support
+projection. It derives an actuator-reaction horizon from twice the model's
+slowest learned actuator time constant, bounded to 0.1--0.3 seconds and never
+longer than the NMPC horizon. The optimized sequence is evaluated first. If it
+is unsupported,
+Glassbox evaluates maintained blends between the optimized NMPC command and the
+previous bounded command. This path uses only the typed dynamics belief and the
+NMPC solution; it contains no motor mixer, control-surface law, family-specific
+recovery policy, or independently operating controller.
+
+Inside the learned envelope, a candidate is accepted only when its predicted
+body velocity and angular rate stay within support over that reaction horizon.
+The margin adds one componentwise standard deviation from the current dynamics
+belief; a point model contributes no invented spread. Outside support, the
+terminal robust utilization and normalized angular-rate energy must both
+decrease. If no maintained candidate satisfies the relevant condition, the
+least-bad bounded command is returned with an explicit `boundary_best_effort`
+or `recovery_best_effort` mode. The full NMPC prediction can still leave support:
+this receding projection is not a robust invariant-set proof.
 
 Important result fields are:
 
@@ -129,16 +150,20 @@ Important result fields are:
 - total normalized model uncertainty, the uncertainty-aware command-authority
   fraction, plus separate predictive-error availability, error-evidence
   currency, horizon support, and parameter-uncertainty flags;
-  and
+- support-filter mode and intervention, current/next-step robust utilization,
+  reaction-horizon maximum and terminal utilization, rate energy, retained
+  nominal-command fraction; and
 - an opaque `warm_start` for the next receding-horizon solve.
 
 An iteration-limit result is a finite bounded best plan and is marked as such;
 it is not falsely labeled converged. Invalid estimates, non-finite objectives,
-line-search failure, and exceeded deadlines return the finite bounded previous
-command (or channel midpoint when the previous command itself is invalid) with
-`used_fallback=True`. A deadline cannot preempt an already executing JAX device
-call; the elapsed-time check rejects its output afterward. A supervising loop
-still needs an independent watchdog.
+line-search failure, and exceeded deadlines set `used_fallback=True` and
+`command_usable=False`. The returned value is only an explicit bounded hold of
+the previous command, or the channel midpoint if the previous command is
+invalid; Glassbox does not silently replace NMPC with a second controller. A
+deadline cannot preempt an already executing JAX device call; the elapsed-time
+check rejects its output afterward. Process/telemetry watchdogs and authority
+handoff remain integration concerns, not alternate controllers embedded here.
 
 ## Measured capability
 
@@ -153,11 +178,11 @@ On the recorded Apple M3 CPU run with JAX's CPU backend and a 50 ms model step:
 - every mismatch case stayed within the fitted model-validity envelope;
 - equal-scenario geometric tracking error was `0.661x` the non-optimizing trim
   baseline nominally and `0.542x` under parameter mismatch; and
-- the median of per-scenario post-JIT median solve times was about `19 ms`.
+- the median of per-scenario post-JIT median solve times was about `20 ms`.
 
 Each scenario records median, p90, and maximum post-JIT time. Cold compilation
 took multiple seconds for each novel model/control shape. The worst scenario
-p90 was about `23 ms`, and the maximum observed solve was about `26 ms`, both
+p90 was about `23 ms`, and the maximum observed solve was about `25 ms`, both
 below the 50 ms model step on the recorded run. These measurements establish
 margin for that benchmark and hardware combination, not a portable hard
 real-time guarantee. No flight-safety claim is made.
@@ -236,9 +261,10 @@ holds the current state as the regulation reference, and applies the artifact's
 sample period as the deadline for every measured solve. It records solver
 status, fallback rate, model-period deadline misses, message skew, estimated
 source-clock lag and real-time ratio, current and predicted validity, and
-command bounds. Returned commands are written only to the report. The previous
-command remains the measured/applied command because the shadow command is not
-being actuated.
+command bounds. It also records support-filter modes, interventions, and
+reaction-horizon robustness. Returned commands are written
+only to the report. The previous command remains the measured/applied command
+because the shadow command is not being actuated.
 
 The maintained fixture can also exercise a dynamically flown profile matrix
 using the commands PX4 actually applies rather than a constant supplied by the
