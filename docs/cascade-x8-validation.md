@@ -97,11 +97,33 @@ Yaw damping changes scores by under 0.01. The inertia axis has an interior optim
    this airframe. Both are testable outside this campaign, by weighing and swinging the 2023
    airframe and by a component-model prediction of the damping from geometry.
 
+## The component-panel X8
+
+Cascade also ships `skywalker_x8_panels`, a from-geometry component model (center body, swept
+inner and outer panels per side with flapped elevons, tip winglets) whose static coefficients are
+fitted to the published polynomial and whose rate derivatives are predictions from geometry
+(Cascade `docs/skywalker-x8.md`). Run with `--aircraft skywalker_x8_panels`, on the same grid:
+
+| Model, best variant (CG +50 mm, 4 kg, inertia ×2, ½ vertical wind) | 0.5 s | 2 s | Score |
+| --- | --- | --- | ---: |
+| Coefficient table | 0.071 m / 0.39 m/s / 6.5° / 0.28 rad/s | 1.04 m / 1.46 m/s / 14.8° / 0.31 rad/s | 0.677 |
+| Component panels | 0.064 m / 0.36 m/s / 6.3° / 0.29 rad/s | 1.06 m / 1.59 m/s / 17.5° / 0.32 rad/s | 0.675 |
+
+As published (no shift, pendulum inertia, full wind) the panels score 2.19 against the table's
+2.77. The one-step residual regressions separate the two channels: the panel model's roll
+moment residual is 2.0 N m rms against 3.4 N m for the table, with its aileron and dihedral
+terms essentially matching flight and only mild excess damping (its geometric `C_lp` of −0.29
+sits between XFLR5's −0.40 and the flight-effective value), whereas its pitch damping from
+geometry (`C_mq` −2.6) is further from flight than XFLR5's −1.3. Over two seconds the pitch
+channel dominates attitude error, so the roll improvement does not show in the score. Rate
+derivatives from geometry are therefore a mixed but informative prediction: right in roll,
+wrong in pitch for a tailless wing whose damping this panel layout overstates.
+
 ## Boundary
 
 This is characterization evidence for the simulator and the campaign, not a candidate under the
 fixed-wing development contract, and the sensitivity rows are not a fit. The next evidence-bearing
 steps are on the data side (an independent airspeed reference, the instrumented airframe's
-inertia) and on Cascade's side (a component-panel X8 fitted to the coefficient backend, to test
-whether the damping derivatives follow from geometry). See
+inertia) and on Cascade's side (a panel layout or unsteady term that reproduces the flying
+wing's weak pitch damping). See
 [the recorded result](cascade-x8-validation-results.json).

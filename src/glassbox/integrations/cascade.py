@@ -701,16 +701,12 @@ def residual_regressions(
             state.rigid_body.attitude, result.derivative.rigid_body.velocity - environment.gravity
         )
         body = result.aerodynamics.body
-        deflection = jnp.einsum(
-            "ds,s->d", model.body.deflection_map, state.actuators.surface_deflection
-        )
         return (
             specific_force,
             result.derivative.rigid_body.angular_velocity,
             body.angle_of_attack,
             body.sideslip,
             body.airspeed,
-            deflection,
         )
 
     batched = jax.jit(jax.vmap(predict))
@@ -742,8 +738,13 @@ def residual_regressions(
             jnp.asarray(controls[index]),
             jnp.asarray(wind),
         )
-        sf_pred, alpha_pred, aoa, beta, airspeed, deflection = (
+        sf_pred, alpha_pred, aoa, beta, airspeed = (
             np.asarray(value, dtype=np.float64) for value in outputs
+        )
+        # Generalized control features come from the logged commands so the regression reads the
+        # same way for the coefficient table and the component panels (rudder absent on the X8).
+        deflection = np.column_stack(
+            (controls[index, 1], controls[index, 2], np.zeros(len(index)))
         )
         # Measured specific force in FRD: rotate (a - g) from NWU into FLU with the canonical
         # attitude, then flip to FRD. Measured angular acceleration: differences of FLU rates.
