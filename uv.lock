@@ -115,6 +115,31 @@ wheels = [
 ]
 
 [[package]]
+name = "cascade-flight"
+version = "0.1.0"
+source = { editable = "../cascade" }
+dependencies = [
+    { name = "jax", version = "0.10.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "jax", version = "0.11.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "scipy", version = "1.18.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "tomli-w" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "jax", specifier = ">=0.7.0" },
+    { name = "scipy", specifier = ">=1.11" },
+    { name = "tomli-w", specifier = ">=1.2" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest", specifier = ">=8.0" },
+    { name = "ruff", specifier = ">=0.9" },
+]
+
+[[package]]
 name = "cloudpickle"
 version = "3.1.2"
 source = { registry = "https://pypi.org/simple" }
@@ -340,6 +365,9 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+cascade = [
+    { name = "cascade-flight" },
+]
 crazyflow = [
     { name = "crazyflow" },
 ]
@@ -356,6 +384,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "cascade-flight", marker = "extra == 'cascade'", editable = "../cascade" },
     { name = "crazyflow", marker = "extra == 'crazyflow'", specifier = "==0.3.2" },
     { name = "crazyflow", marker = "extra == 'crazyflow-animation'", specifier = "==0.3.2" },
     { name = "jax", specifier = ">=0.4.35" },
@@ -365,7 +394,7 @@ requires-dist = [
     { name = "pyulog", specifier = ">=1.2.2" },
     { name = "rosbags", specifier = ">=0.11.5" },
 ]
-provides-extras = ["crazyflow", "crazyflow-animation"]
+provides-extras = ["cascade", "crazyflow", "crazyflow-animation"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -1415,6 +1444,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/15/39/c8aa7ecaa715e722358a2e45f77420646db527897eee1a2e2dbfa511c63c/tensorstore-0.1.85-cp313-cp313-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:f5dae40b25cf99543d466d054b99064354055c2813470440fe46503cbaf450a0", size = 19973413, upload-time = "2026-08-05T15:35:23.469Z" },
     { url = "https://files.pythonhosted.org/packages/93/f5/759503078567055731f747e6141bd878d1f706341a9d7a34b9eb6ad0ed50/tensorstore-0.1.85-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:f3b03f52c8982764133ddd045c05582608d2ad9011b3a20ff832680467697d6d", size = 21580016, upload-time = "2026-08-05T15:35:26.249Z" },
     { url = "https://files.pythonhosted.org/packages/07/74/91a1f9038e2c018f21ea52729ade7d700dde9f01d566b0ed528ae4a7f1d3/tensorstore-0.1.85-cp313-cp313-win_amd64.whl", hash = "sha256:5c7567c8101b3568a5d34f2a5e7235eeb78161a86588d039b5f5658cba6a0b2a", size = 14129625, upload-time = "2026-08-05T15:35:28.928Z" },
+]
+
+[[package]]
+name = "tomli-w"
+version = "1.2.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/19/75/241269d1da26b624c0d5e110e8149093c759b7a286138f4efd61a60e75fe/tomli_w-1.2.0.tar.gz", hash = "sha256:2dd14fac5a47c27be9cd4c976af5a12d87fb1f0b4512f81d69cce3b35ae25021", size = 7184, upload-time = "2025-01-15T12:07:24.262Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c7/18/c86eb8e0202e32dd3df50d43d7ff9854f8e0603945ff398974c1d91ac1ef/tomli_w-1.2.0-py3-none-any.whl", hash = "sha256:188306098d013b691fcadc011abd66727d3c414c571bb01b1a174ba8c983cf90", size = 6675, upload-time = "2025-01-15T12:07:22.074Z" },
 ]
 
 [[package]]

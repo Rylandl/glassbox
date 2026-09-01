@@ -17,6 +17,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+cascade = [
+    "cascade-flight",
+]
 crazyflow = [
     "crazyflow==0.3.2",
 ]
@@ -51,6 +54,9 @@ glassbox-crazyflow-animation = "glassbox.integrations.crazyflow_animation:main"
 glassbox-crazyflow-throw = "glassbox.integrations.crazyflow_throw:main"
 glassbox-crazyflow-throw-animation = "glassbox.integrations.crazyflow_animation:throw_main"
 
+[tool.uv.sources]
+cascade-flight = { path = "../cascade", editable = true }
+
 [dependency-groups]
 dev = [
     "pytest>=8.3",
@@ -60,6 +66,7 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 markers = [
+    "cascade: opt-in contracts against the local Cascade fixed-wing simulator",
     "crazyflow: opt-in contracts against the pinned Crazyflow simulator",
     "px4_sitl: opt-in contract tests against a disposable PX4 SIH container",
 ]

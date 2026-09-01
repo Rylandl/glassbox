@@ -116,6 +116,50 @@ def _evaluate(args: argparse.Namespace) -> None:
     print(f"wrote benchmark report {args.report}")
 
 
+def _evaluate_cascade(args: argparse.Namespace) -> None:
+    from glassbox.integrations.cascade import (
+        evaluate_x8_cascade,
+        save_x8_cascade_report,
+    )
+
+    reference = args.reference_report
+    if reference is None:
+        candidate = args.destination / "benchmark_report.json"
+        reference = candidate if candidate.exists() else None
+    report = evaluate_x8_cascade(
+        args.destination,
+        vertical_wind_fractions=tuple(
+            float(value) for value in args.vertical_wind_fractions.split(",")
+        ),
+        cg_shifts_forward_m=tuple(float(value) for value in args.cg_shifts.split(",")),
+        reference_report=reference,
+        simulation_substeps=args.substeps,
+    )
+    save_x8_cascade_report(report, args.report)
+    persistence = report["kinematic_persistence"]["aggregate"]["horizon_rollouts"]["2s"]
+    print(
+        f"kinematic persistence: 2s position={persistence['position_rmse_m']:.3f}m  "
+        f"attitude={persistence['attitude_rmse_deg']:.2f}deg"
+    )
+    ordered = sorted(
+        report["models"].items(), key=lambda item: item[1]["score_vs_kinematic_persistence"]
+    )
+    for name, model in ordered:
+        metrics = model["aggregate"]["horizon_rollouts"]["2s"]
+        flag = " (primary)" if model["primary"] else ""
+        print(
+            f"{name}{flag}: 2s position={metrics['position_rmse_m']:.3f}m  "
+            f"velocity={metrics['velocity_rmse_m_s']:.3f}m/s  "
+            f"attitude={metrics['attitude_rmse_deg']:.2f}deg  "
+            f"rate={metrics['angular_velocity_rmse_rad_s']:.3f}rad/s  "
+            f"score/persistence={model['score_vs_kinematic_persistence']:.3f}"
+        )
+    for name, comparison in report["comparisons"].items():
+        if report["primary_model"] in name or report["best_model"] in name:
+            print(f"{name}: {comparison['score']:.3f}")
+    print(f"wrote Cascade report {args.report}")
+
+
 def _add_checksum_option(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--skip-checksum",
@@ -174,6 +218,31 @@ def main() -> None:
     evaluate_parser.add_argument("--residual-model", type=Path, required=True)
     evaluate_parser.add_argument("--report", type=Path, required=True)
     evaluate_parser.set_defaults(handler=_evaluate)
+
+    cascade_parser = subparsers.add_parser(
+        "evaluate-cascade",
+        help="score the unfitted published Cascade X8 model on the validation split",
+    )
+    cascade_parser.add_argument("destination", type=Path)
+    cascade_parser.add_argument("--report", type=Path, required=True)
+    cascade_parser.add_argument(
+        "--reference-report",
+        type=Path,
+        default=None,
+        help="artifact benchmark report to compare against (default: destination/benchmark_report.json)",
+    )
+    cascade_parser.add_argument(
+        "--vertical-wind-fractions",
+        default="0,0.25,0.5,0.75,1",
+        help="comma-separated fractions of the campaign's vertical wind estimate to evaluate",
+    )
+    cascade_parser.add_argument(
+        "--cg-shifts",
+        default="0,0.02,0.03,0.05",
+        help="comma-separated forward CG shifts in metres applied to the pitch triple",
+    )
+    cascade_parser.add_argument("--substeps", type=int, default=10)
+    cascade_parser.set_defaults(handler=_evaluate_cascade)
 
     args = parser.parse_args()
     args.handler(args)
