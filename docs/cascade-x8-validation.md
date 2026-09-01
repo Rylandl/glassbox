@@ -7,7 +7,10 @@ uv sync --inexact --extra cascade
 uv run glassbox-x8 extract-dataset artifacts/x8_reference/raw artifacts/x8_cascade/canonical
 uv run glassbox-x8 evaluate-cascade artifacts/x8_cascade \
   --report artifacts/x8_cascade/cascade_report.json \
-  --reference-report artifacts/x8_reference/benchmark_report.json
+  --reference-report artifacts/x8_reference/benchmark_report.json \
+  --cg-shifts 0,0.03,0.05 --inertia-scales 1,2,3.5 --vertical-wind-fractions 0.25,0.5,1
+uv run glassbox-x8 diagnose-cascade artifacts/x8_cascade --split all \
+  --cg-shift 0.05 --vertical-wind-fraction 0.4 --inertia-scale 1
 ```
 
 ## What was evaluated
@@ -18,17 +21,21 @@ published NTNU model: Gryte et al. (ICUAS 2018) wind-tunnel statics and XFLR5 ra
 Reinhardt et al. (ICUAS 2022) bifilar-pendulum inertia, the pyfly stall blend, and an exact map of
 the NTNU exit-velocity propulsion law. Nothing in it was fitted to this campaign. Each rolling
 window starts from the measured state, holds each logged control for one 40 Hz interval with ten
-RK4 sub-steps, keeps actuators at their equilibrium for the last control before the window, and
-holds the typed wind at the window start. The protocol, horizons, metrics, and persistence
+RK4 sub-steps, carries actuators that have integrated their lag over the logged control history,
+and holds the typed wind at the window start. The protocol, horizons, metrics, and persistence
 baseline are exactly those of `glassbox-x8 evaluate`.
 
 Rows other than the primary one vary documented uncertainties of the published model, applied
-identically to every window and never tuned per window: the pitching-moment reference point
-(Gryte et al. warn a 30 mm CG shift moves the trim alpha from 11 to 3.25 degrees; the NTNU
-repository's "flight-tuned" pitch triple is exactly the wind-tunnel triple moved 30 mm forward),
-the mass (3.364 kg in the NTNU parameter file, about 4 kg per EUCASS 2019), the yaw damping
-(XFLR5 value or the repository's sixfold value), and the fraction of the campaign's inferred
-vertical wind that is applied.
+identically to every window and never tuned per window:
+
+- the pitching-moment reference point, as a forward CG shift through the lever-arm transform
+  (Gryte et al. warn a 30 mm shift moves the trim alpha from 11 to 3.25 degrees; the NTNU
+  repository's "flight-tuned" pitch triple is exactly the wind-tunnel triple moved 30 mm forward);
+- the mass (3.364 kg in the NTNU parameter file, about 4 kg per EUCASS 2019);
+- a uniform scale on the inertia tensor (the pendulum tensor is for a bare airframe; the older
+  parameter file lists a roll inertia 3.7 times larger; the 2023 instrumented airframe is
+  undocumented);
+- the fraction of the campaign's inferred vertical wind that is applied.
 
 ## Result on the four untouched validation maneuvers
 
@@ -40,23 +47,22 @@ Position / velocity / attitude / body-rate RMSE, equal weight per maneuver.
 | Glassbox structured (fitted) | 0.006 / 0.14 / 0.9° / 0.16 | 0.08 / 0.38 / 4.3° / 0.22 | 0.53 / 0.63 / 7.3° / 0.23 | 0.510 |
 | Glassbox structured residual (fitted) | 0.006 / 0.12 / 0.8° / 0.13 | 0.06 / 0.26 / 3.4° / 0.18 | 0.43 / 0.59 / 7.4° / 0.18 | 0.414 |
 | Cascade X8, published as-is (primary) | 0.022 / 0.50 / 1.7° / 0.35 | 0.52 / 2.83 / 17.3° / 0.70 | 7.79 / 9.28 / 72.0° / 0.68 | 2.766 |
-| Cascade X8, CG +50 mm, 3.364 kg, ¼ vertical wind (best) | 0.007 / 0.14 / 1.5° / 0.28 | 0.07 / 0.39 / 6.9° / 0.31 | 1.01 / 1.53 / 16.5° / 0.31 | 0.735 |
+| Cascade X8, CG +50 mm, 4 kg, inertia ×2, ½ vertical wind (best) | 0.006 / 0.12 / 1.0° / 0.18 | 0.07 / 0.39 / 6.5° / 0.28 | 1.04 / 1.46 / 14.8° / 0.31 | 0.677 |
 
-The best unfitted physics row is 1.44 times the fitted structured model's score and 1.78 times
-the residual's. At 0.1 s its position and velocity errors match the fitted models; its attitude
-and body-rate errors do not.
+The best unfitted physics row is 1.33 times the fitted structured model's score and 1.64 times
+the residual's. At 0.1 s it matches the fitted models on all four metrics; the gap opens with
+horizon and is carried by attitude and body rate, which points at the damping derivatives below.
 
-Score against persistence over the two dominant axes, 3.364 kg, XFLR5 yaw damping:
+Score against persistence, 3.364 kg, XFLR5 yaw damping, columns ¼ / ½ / full vertical wind:
 
-| Forward CG shift | wind 0 | ¼ | ½ | ¾ | full |
-| ---: | ---: | ---: | ---: | ---: | ---: |
-| 0 mm | 2.45 | 2.34 | 2.45 | 2.63 | 2.77 |
-| 20 mm | 1.39 | 1.29 | 1.32 | 1.40 | 1.49 |
-| 30 mm | 1.09 | 1.00 | 1.02 | 1.11 | 1.22 |
-| 50 mm | 0.82 | 0.74 | 0.74 | 0.85 | 0.99 |
+| Forward CG shift | inertia ×1 | inertia ×2 | inertia ×3.5 |
+| ---: | --- | --- | --- |
+| 0 mm | 2.34 / 2.45 / 2.77 | 2.01 / 2.09 / 2.40 | 1.75 / 1.82 / 2.13 |
+| 30 mm | 1.00 / 1.02 / 1.22 | 0.94 / 0.95 / 1.15 | 0.95 / 0.96 / 1.17 |
+| 50 mm | 0.74 / 0.74 / 0.99 | 0.69 / 0.69 / 0.93 | 0.73 / 0.73 / 0.95 |
 
-Yaw damping changes scores by under 0.01. A 4 kg mass helps at small CG shifts (0.83 at 30 mm and
-half wind) and is equivalent at 50 mm.
+At 4 kg the 50 mm rows are 0.77 / 0.74 / 0.94, 0.71 / 0.68 / 0.87, and 0.74 / 0.70 / 0.88.
+Yaw damping changes scores by under 0.01. The inertia axis has an interior optimum near ×2.
 
 ## Findings
 
@@ -70,23 +76,32 @@ half wind) and is equivalent at 50 mm.
    measured load factor of 1.02 the model's mean vertical specific-force error is zero with 0.4 of
    the inferred 2.8 m/s vertical wind and +16 m/s² with all of it. The upstream method inferred
    the vertical component from pitot airspeed minus horizontal relative airspeed; a 1.2% pitot
-   bias would produce the entire estimate. The typed wind should be treated as an estimate whose
-   vertical component is uncertain by a factor of about two.
-3. **A constant forward-force excess of about 2.7 N.** Either the clean wind-tunnel drag is low
-   for the instrumented 2023 airframe, or the propulsion law's thrust is high; the residual grows
-   with alpha, which favours drag.
-4. **Angular-rate residuals point at the rate signals, not one coefficient.** Regressing the roll
-   and pitch acceleration residuals on the flight variables (R² 0.88 and 0.87) makes every damping
-   and control derivative look several times too strong at once, including a positive apparent
-   pitch damping, which is not physical. The adapter takes body rates from the ArduPilot EKF
-   states; the raw 200 Hz IMU gyro columns are in the CSV and would give unfiltered angular
-   accelerations. The X8 aileron scaling (half-difference versus full-difference of the elevons)
-   is the second suspect for the roll channel.
+   bias would produce the entire estimate. There is no independent airspeed channel to check:
+   the CSV's `IndicatedSpeed` is by construction the inertial velocity minus the 3D wind, and its
+   `TrueSpeed` column tracks GPS ground speed to 0.1 m/s. The typed wind should be treated as an
+   estimate whose vertical component is uncertain by a factor of about two.
+3. **Constant force offsets of a few newtons.** Predicted minus measured: +2.7 N forward,
+   −2.6 N to the right, −2.7 N downward (slightly too much lift at 3.364 kg and 0.4 wind). The
+   forward excess grows with alpha, which favours the clean wind-tunnel drag being low for the
+   instrumented 2023 airframe over the propulsion law being high.
+4. **The rotational dynamics disagree with the published derivatives, and it is not a data
+   artifact.** Raw IMU gyro rates match the EKF rate states to 0.08 rad/s rms, so finite-difference
+   angular accelerations are trustworthy. Lag-aware equation-error regressions
+   (`glassbox-x8 diagnose-cascade`, all 17 maneuvers, R² 0.79 roll and 0.84 pitch) with the
+   pendulum inertia give flight-effective aileron effectiveness of about 0.06 against the
+   wind-tunnel 0.12, roll damping about −0.10 against XFLR5's −0.404, pitch damping about −0.46
+   against −1.3, and elevator effectiveness about −0.16 against −0.21. Doubling the inertia
+   reconciles the aileron term and is the best-scoring inertia in the grid, but the damping terms
+   stay two to four times too strong. Read together: the instrumented airframe's inertia is about
+   twice the bare-airframe pendulum value, and the XFLR5 damping derivatives are too large for
+   this airframe. Both are testable outside this campaign, by weighing and swinging the 2023
+   airframe and by a component-model prediction of the damping from geometry.
 
 ## Boundary
 
 This is characterization evidence for the simulator and the campaign, not a candidate under the
 fixed-wing development contract, and the sensitivity rows are not a fit. The next evidence-bearing
-steps are on the data side (IMU rates, pitot calibration) and on Cascade's side (a component-panel
-X8 fitted to the coefficient backend, which would test whether rate derivatives follow from
-geometry). See [the recorded result](cascade-x8-validation-results.json).
+steps are on the data side (an independent airspeed reference, the instrumented airframe's
+inertia) and on Cascade's side (a component-panel X8 fitted to the coefficient backend, to test
+whether the damping derivatives follow from geometry). See
+[the recorded result](cascade-x8-validation-results.json).

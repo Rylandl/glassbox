@@ -48,6 +48,10 @@ X8_CONTROL_ROLES = ("throttle", "roll", "pitch")
 # "flight-tuned" triple (0.02275, -0.4629, -0.2292) is exactly the wind-tunnel triple moved 30 mm
 # forward by the lever-arm transform C_m' = C_m - (dx / c) C_L, so CG shift is the one axis.
 DEFAULT_CG_SHIFTS_M = (0.0, 0.02, 0.03, 0.05)
+# The bifilar-pendulum inertia (Reinhardt et al. 2022) is for a bare airframe; the older NTNU
+# parameter file lists a roll inertia 3.7 times larger, and the 2023 instrumented airframe's
+# inertia is undocumented. Scaling the pendulum tensor keeps its ratios and spans that range.
+DEFAULT_INERTIA_SCALES = (1.0, 2.0, 3.5)
 
 
 class CascadeUnavailableError(RuntimeError):
@@ -146,6 +150,7 @@ class X8Variant:
     cg_shift_forward_m: float
     mass_kg: float
     yaw_damping: float
+    inertia_scale: float
     vertical_wind_fraction: float
     primary: bool
 
@@ -169,48 +174,95 @@ def shift_center_of_gravity(body: Any, shift_forward_m: float, chord_m: float) -
     return replace(body, pitch=pitch)
 
 
+X8_AIRCRAFT = ("skywalker_x8", "skywalker_x8_panels")
+
+
+def _x8_spec(cascade: Any, aircraft: str) -> Any:
+    if aircraft not in X8_AIRCRAFT:
+        raise ValueError(f"aircraft must be one of {X8_AIRCRAFT}")
+    loader = getattr(cascade, f"{aircraft}_spec", None)
+    if loader is None:
+        raise CascadeUnavailableError(f"the installed Cascade has no {aircraft}_spec loader")
+    return loader()
+
+
+def shift_center_of_gravity_of_spec(spec: Any, shift_forward_m: float) -> Any:
+    """Move the CG forward on either backend.
+
+    A coefficient table gets the lever-arm transform of its pitch coefficients; component
+    surfaces and propellers simply sit further aft of the new center of mass.
+    """
+
+    if shift_forward_m == 0.0:
+        return spec
+    body = spec.body
+    if body is not None:
+        body = shift_center_of_gravity(body, shift_forward_m, spec.reference_chord_m)
+    surfaces = tuple(
+        replace(surface, position_m=(surface.position_m[0] - shift_forward_m, *surface.position_m[1:]))
+        for surface in spec.surfaces
+    )
+    propellers = tuple(
+        replace(propeller, position_m=(propeller.position_m[0] - shift_forward_m, *propeller.position_m[1:]))
+        for propeller in spec.propellers
+    )
+    return replace(spec, body=body, surfaces=surfaces, propellers=propellers)
+
+
 def x8_variant_models(
     *,
+    aircraft: str = "skywalker_x8",
     cg_shifts_forward_m: Sequence[float] = DEFAULT_CG_SHIFTS_M,
     masses_kg: Sequence[float] = (3.364, 4.0),
-    yaw_damping: Sequence[float] = (-0.012, -0.072),
+    yaw_damping: Sequence[float] = (-0.012,),
+    inertia_scales: Sequence[float] = DEFAULT_INERTIA_SCALES,
     vertical_wind_fractions: Sequence[float] = (0.0, 0.25, 0.5, 0.75, 1.0),
 ) -> tuple[list[X8Variant], list[Any]]:
     """Build the Cascade X8 variant grid. The primary variant is the published model as-is."""
 
     cascade = _require_cascade()
 
-    base = cascade.skywalker_x8_spec()
+    base = _x8_spec(cascade, aircraft)
     variants: list[X8Variant] = []
     models: list[Any] = []
     for shift in cg_shifts_forward_m:
         for mass in masses_kg:
             for cnr in yaw_damping:
-                body = shift_center_of_gravity(base.body, float(shift), base.reference_chord_m)
-                body = replace(body, yaw=replace(body.yaw, r=float(cnr)))
-                spec = replace(base, mass_kg=float(mass), body=body)
-                model = spec.to_model()
-                for fraction in vertical_wind_fractions:
-                    primary = (
-                        float(shift) == 0.0
-                        and float(mass) == base.mass_kg
-                        and float(cnr) == base.body.yaw.r
-                        and float(fraction) == 1.0
-                    )
-                    variants.append(
-                        X8Variant(
-                            label=(
-                                f"cg=+{shift:g}m,mass={mass:g}kg,cnr={cnr:g},"
-                                f"vertical_wind={fraction:g}"
-                            ),
-                            cg_shift_forward_m=float(shift),
-                            mass_kg=float(mass),
-                            yaw_damping=float(cnr),
-                            vertical_wind_fraction=float(fraction),
-                            primary=primary,
+                for inertia_scale in inertia_scales:
+                    spec = shift_center_of_gravity_of_spec(base, float(shift))
+                    if spec.body is not None:
+                        spec = replace(
+                            spec, body=replace(spec.body, yaw=replace(spec.body.yaw, r=float(cnr)))
                         )
+                    inertia = tuple(
+                        tuple(float(inertia_scale) * value for value in row)
+                        for row in base.inertia_kg_m2
                     )
-                    models.append(model)
+                    spec = replace(spec, mass_kg=float(mass), inertia_kg_m2=inertia)
+                    model = spec.to_model()
+                    for fraction in vertical_wind_fractions:
+                        primary = (
+                            float(shift) == 0.0
+                            and float(mass) == base.mass_kg
+                            and (base.body is None or float(cnr) == base.body.yaw.r)
+                            and float(inertia_scale) == 1.0
+                            and float(fraction) == 1.0
+                        )
+                        variants.append(
+                            X8Variant(
+                                label=(
+                                    f"cg=+{shift:g}m,mass={mass:g}kg,cnr={cnr:g},"
+                                    f"inertia=x{inertia_scale:g},vertical_wind={fraction:g}"
+                                ),
+                                cg_shift_forward_m=float(shift),
+                                mass_kg=float(mass),
+                                yaw_damping=float(cnr),
+                                inertia_scale=float(inertia_scale),
+                                vertical_wind_fraction=float(fraction),
+                                primary=primary,
+                            )
+                        )
+                        models.append(model)
     return variants, models
 
 
@@ -232,6 +284,82 @@ def _initial_wind_nwu(windows: TrajectoryWindows) -> np.ndarray:
         if axis in roles:
             wind[:, column] = windows.initial_exogenous[:, roles.index(axis)]
     return wind
+
+
+def actuator_states_over_controls(
+    model: Any, controls: Any, dt_s: float, *, simulation_substeps: int = 10
+) -> Any:
+    """Integrate the actuator lag over a control sequence, from equilibrium at the first one.
+
+    Returns an ``ActuatorState`` whose leaves carry a leading axis of ``len(controls) + 1``:
+    entry ``i`` is the actuator state at the start of interval ``i``, so entry ``0`` is the
+    equilibrium for the first control and the last entry is the state after every control was
+    applied. Uses the same RK4 sub-stepping as the plant and the physical clips of the core.
+    """
+
+    _require_cascade()
+    from cascade.actuators import actuator_dynamics, actuator_targets
+    from cascade.initialization import control_from_array
+    from cascade.state import ActuatorState
+
+    controls = jnp.asarray(controls)
+    step = dt_s / simulation_substeps
+    limits = model.actuators
+
+    def combine(state, derivative, scale):
+        return ActuatorState(
+            surface_deflection=state.surface_deflection + scale * derivative.surface_deflection,
+            propeller_speed=state.propeller_speed + scale * derivative.propeller_speed,
+        )
+
+    def interval(state, control_row):
+        control = control_from_array(model, control_row)
+
+        def substep(current, _):
+            k1 = actuator_dynamics(model, current, control)
+            k2 = actuator_dynamics(model, combine(current, k1, step / 2.0), control)
+            k3 = actuator_dynamics(model, combine(current, k2, step / 2.0), control)
+            k4 = actuator_dynamics(model, combine(current, k3, step), control)
+            weighted = ActuatorState(
+                surface_deflection=(
+                    k1.surface_deflection
+                    + 2.0 * k2.surface_deflection
+                    + 2.0 * k3.surface_deflection
+                    + k4.surface_deflection
+                )
+                / 6.0,
+                propeller_speed=(
+                    k1.propeller_speed
+                    + 2.0 * k2.propeller_speed
+                    + 2.0 * k3.propeller_speed
+                    + k4.propeller_speed
+                )
+                / 6.0,
+            )
+            advanced = combine(current, weighted, step)
+            clipped = ActuatorState(
+                surface_deflection=jnp.clip(
+                    advanced.surface_deflection, -limits.surface_limit, limits.surface_limit
+                ),
+                propeller_speed=jnp.clip(
+                    advanced.propeller_speed, limits.propeller_speed_min, limits.propeller_speed_max
+                ),
+            )
+            return clipped, None
+
+        final, _ = jax.lax.scan(substep, state, None, length=simulation_substeps)
+        return final, final
+
+    initial = actuator_targets(model, control_from_array(model, controls[0]))
+    _, after_each = jax.lax.scan(interval, initial, controls)
+    return ActuatorState(
+        surface_deflection=jnp.concatenate(
+            (initial.surface_deflection[None], after_each.surface_deflection), axis=0
+        ),
+        propeller_speed=jnp.concatenate(
+            (initial.propeller_speed[None], after_each.propeller_speed), axis=0
+        ),
+    )
 
 
 def predict_windows(
@@ -274,7 +402,7 @@ def predict_windows(
     fractions = jnp.asarray(np.asarray(vertical_wind_fractions, dtype=np.float64))
     initial_states = jnp.asarray(windows.initial_states)
     controls = jnp.asarray(windows.controls)
-    last_history = jnp.asarray(windows.control_histories[:, -1])
+    histories = jnp.asarray(windows.control_histories)
     wind_nwu = jnp.asarray(_initial_wind_nwu(windows))
     dt = windows.dt_s / simulation_substeps
     del cascade
@@ -284,7 +412,14 @@ def predict_windows(
         environment = standard_environment()._replace(wind=nwu_to_ned(scaled_wind))
         state = zero_state(model)._replace(rigid_body=rigid_body_from_canonical(initial_state))
         state = equilibrate_internal_state(
-            model, state, control_from_array(model, history), environment
+            model, state, control_from_array(model, history[-1]), environment
+        )
+        # Actuators carry the lagged response to the whole control history, not just its end.
+        lagged = actuator_states_over_controls(
+            model, history, windows.dt_s, simulation_substeps=simulation_substeps
+        )
+        state = state._replace(
+            actuators=jax.tree.map(lambda leaf: leaf[-1], lagged)
         )
 
         def hold(carry, control_row):
@@ -300,7 +435,7 @@ def predict_windows(
     over_windows = jax.vmap(predict_one, in_axes=(None, None, 0, 0, 0, 0))
     over_variants = jax.vmap(over_windows, in_axes=(0, 0, None, None, None, None))
     predicted = jax.jit(over_variants)(
-        stacked, fractions, initial_states, controls, last_history, wind_nwu
+        stacked, fractions, initial_states, controls, histories, wind_nwu
     )
     return np.asarray(predicted, dtype=np.float64)
 
@@ -308,9 +443,11 @@ def predict_windows(
 def evaluate_x8_cascade(
     destination: str | Path,
     *,
+    aircraft: str = "skywalker_x8",
     horizons_s: Sequence[float] = X8_EVALUATION_HORIZONS_S,
     vertical_wind_fractions: Sequence[float] = (0.0, 0.25, 0.5, 0.75, 1.0),
     cg_shifts_forward_m: Sequence[float] = DEFAULT_CG_SHIFTS_M,
+    inertia_scales: Sequence[float] = DEFAULT_INERTIA_SCALES,
     reference_report: str | Path | None = None,
     simulation_substeps: int = 10,
 ) -> dict[str, Any]:
@@ -329,7 +466,10 @@ def evaluate_x8_cascade(
         f"{horizon:g}s": _horizon_steps(trajectories[0], horizon) for horizon in horizons_s
     }
     variants, models = x8_variant_models(
-        cg_shifts_forward_m=cg_shifts_forward_m, vertical_wind_fractions=vertical_wind_fractions
+        aircraft=aircraft,
+        cg_shifts_forward_m=cg_shifts_forward_m,
+        inertia_scales=inertia_scales,
+        vertical_wind_fractions=vertical_wind_fractions,
     )
     fractions = [variant.vertical_wind_fraction for variant in variants]
 
@@ -368,11 +508,12 @@ def evaluate_x8_cascade(
     for variant, per_trajectory in zip(variants, per_variant):
         aggregate = _aggregate_horizons(per_trajectory)
         rows[variant.label] = {
-            "model_type": "cascade_skywalker_x8_published",
+            "model_type": f"cascade_{aircraft}",
             "primary": variant.primary,
             "parameters": {
                 "cg_shift_forward_m": variant.cg_shift_forward_m,
                 "mass_kg": variant.mass_kg,
+                "inertia_scale": variant.inertia_scale,
                 "yaw_damping_cnr": variant.yaw_damping,
                 "vertical_wind_fraction": variant.vertical_wind_fraction,
             },
@@ -424,9 +565,10 @@ def evaluate_x8_cascade(
             "baseline": "constant_world_velocity_and_constant_body_rate",
             "predictor": "cascade_skywalker_x8_published_model_no_fitting",
             "integration": f"rk4_{simulation_substeps}_substeps_per_sample",
-            "actuator_initialization": "equilibrium_at_last_control_before_window",
+            "actuator_initialization": "lag_integrated_over_the_window_control_history",
             "wind": "typed_window_start_wind_held_vertical_component_scaled_per_variant",
             "cg_shift": "lever_arm_transform_of_the_wind_tunnel_pitch_triple",
+            "inertia": "bifilar_pendulum_tensor_scaled_uniformly",
         },
         "dataset": {
             "validation_trajectory_count": len(trajectories),
@@ -441,7 +583,7 @@ def evaluate_x8_cascade(
         "best_model": best,
         "comparisons": comparisons,
         "provenance": {
-            "cascade_aircraft": "skywalker_x8 (published NTNU model; see the TOML for sources)",
+            "cascade_aircraft": aircraft,
             "cg_note": (
                 "Gryte et al. 2018 give the pitch triple about a nominal CG and note a 30 mm "
                 "shift moves trim alpha from 11 to 3.25 degrees; the NTNU repository's "
@@ -473,6 +615,270 @@ def save_x8_cascade_report(report: dict[str, Any], path: str | Path) -> None:
     with destination.open("w") as output:
         json.dump(report, output, indent=2, sort_keys=True)
         output.write("\n")
+
+
+RESIDUAL_FEATURES = (
+    "1",
+    "alpha",
+    "beta",
+    "p_hat",
+    "q_hat",
+    "r_hat",
+    "delta_a",
+    "delta_e",
+    "delta_r",
+    "throttle",
+)
+RESIDUAL_CHANNELS = ("X", "Y", "Z", "roll", "pitch", "yaw")
+
+
+@dataclass(frozen=True)
+class ResidualRegression:
+    """One-step residual of a force or moment channel regressed on the flight variables.
+
+    ``corrections`` are the regression coefficients expressed as coefficient increments
+    (predicted minus measured, per unit feature) after dividing by the mean dynamic pressure and
+    the reference area, span, or chord, so they read as corrections to the published derivatives.
+    """
+
+    channel: str
+    unit: str
+    mean: float
+    rms: float
+    r_squared: float
+    sample_count: int
+    corrections: dict[str, float]
+
+
+def residual_regressions(
+    model: Any,
+    trajectories: Sequence[Trajectory],
+    *,
+    vertical_wind_fraction: float = 1.0,
+) -> dict[str, ResidualRegression]:
+    """Regress one-step Cascade residuals on the flight variables, per body axis.
+
+    At every interior sample the model is evaluated at the measured state with actuators
+    carrying their lagged response to the logged control history and the typed wind held; its
+    body-frame specific
+    force and angular acceleration are compared with central differences of the measured
+    velocity and body rates. Residuals are in FRD body axes, forces in newtons and moments in
+    newton-metres using the model's mass and inertia tensor. This is an equation-error
+    diagnostic: the fitted coefficients say which published derivatives disagree with flight and
+    by how much, they are not a fit to be written back into the model.
+    """
+
+    cascade = _require_cascade()
+    from cascade.canonical import (
+        flu_to_frd,
+        nwu_to_ned,
+        rigid_body_from_canonical,
+    )
+    from cascade.dynamics import evaluate_dynamics
+    from cascade.initialization import (
+        control_from_array,
+        equilibrate_internal_state,
+        standard_environment,
+        zero_state,
+    )
+    from cascade.math import quaternion_rotate_inverse
+    from cascade.state import ActuatorState
+
+    del cascade
+    fraction = float(vertical_wind_fraction)
+
+    def predict(state13, actuators, control_now, wind_nwu):
+        environment = standard_environment()._replace(
+            wind=nwu_to_ned(wind_nwu.at[2].multiply(fraction))
+        )
+        state = zero_state(model)._replace(rigid_body=rigid_body_from_canonical(state13))
+        state = equilibrate_internal_state(
+            model, state, control_from_array(model, control_now), environment
+        )
+        state = state._replace(actuators=actuators)
+        result = evaluate_dynamics(model, state, control_from_array(model, control_now), environment)
+        specific_force = quaternion_rotate_inverse(
+            state.rigid_body.attitude, result.derivative.rigid_body.velocity - environment.gravity
+        )
+        body = result.aerodynamics.body
+        deflection = jnp.einsum(
+            "ds,s->d", model.body.deflection_map, state.actuators.surface_deflection
+        )
+        return (
+            specific_force,
+            result.derivative.rigid_body.angular_velocity,
+            body.angle_of_attack,
+            body.sideslip,
+            body.airspeed,
+            deflection,
+        )
+
+    batched = jax.jit(jax.vmap(predict))
+    mass = float(np.asarray(model.mass))
+    inertia = np.asarray(model.inertia, dtype=np.float64)
+    area = float(np.asarray(model.reference_area))
+    span = float(np.asarray(model.reference_span))
+    chord = float(np.asarray(model.reference_chord))
+
+    force_residuals, moment_residuals, features, pressures = [], [], [], []
+    for trajectory in trajectories:
+        states = trajectory.states
+        controls = trajectory.controls
+        dt = trajectory.nominal_dt_s
+        index = np.arange(2, len(states) - 2)
+        wind = np.zeros((len(index), 3))
+        roles = trajectory.spec.exogenous_roles
+        for column, axis in enumerate(("wind_north", "wind_west", "wind_up")):
+            if axis in roles:
+                wind[:, column] = trajectory.exogenous[index, roles.index(axis)]
+        lagged = actuator_states_over_controls(model, controls, dt)
+        actuators = ActuatorState(
+            surface_deflection=lagged.surface_deflection[index],
+            propeller_speed=lagged.propeller_speed[index],
+        )
+        outputs = batched(
+            jnp.asarray(states[index]),
+            actuators,
+            jnp.asarray(controls[index]),
+            jnp.asarray(wind),
+        )
+        sf_pred, alpha_pred, aoa, beta, airspeed, deflection = (
+            np.asarray(value, dtype=np.float64) for value in outputs
+        )
+        # Measured specific force in FRD: rotate (a - g) from NWU into FLU with the canonical
+        # attitude, then flip to FRD. Measured angular acceleration: differences of FLU rates.
+        acceleration_nwu = (states[index + 1, 3:6] - states[index - 1, 3:6]) / (2.0 * dt)
+        w, x, y, z = states[index, 6:10].T
+        rotation = np.stack(
+            [
+                np.stack([1 - 2 * (y * y + z * z), 2 * (x * y - w * z), 2 * (x * z + w * y)], -1),
+                np.stack([2 * (x * y + w * z), 1 - 2 * (x * x + z * z), 2 * (y * z - w * x)], -1),
+                np.stack([2 * (x * z - w * y), 2 * (y * z + w * x), 1 - 2 * (x * x + y * y)], -1),
+            ],
+            -2,
+        )
+        sf_flu = np.einsum("nji,nj->ni", rotation, acceleration_nwu - np.array([0.0, 0.0, -9.80665]))
+        sf_meas = np.asarray(flu_to_frd(jnp.asarray(sf_flu)))
+        rate_flu = states[:, 10:13]
+        alpha_meas = np.asarray(
+            flu_to_frd(jnp.asarray((rate_flu[index + 1] - rate_flu[index - 1]) / (2.0 * dt)))
+        )
+        rates_frd = np.asarray(flu_to_frd(jnp.asarray(rate_flu[index])))
+        force_residuals.append(mass * (sf_pred - sf_meas))
+        moment_residuals.append((alpha_pred - alpha_meas) @ inertia.T)
+        throttle = controls[index, 0]
+        features.append(
+            np.column_stack(
+                [
+                    np.ones(len(index)),
+                    aoa,
+                    beta,
+                    span * rates_frd[:, 0] / (2.0 * airspeed),
+                    chord * rates_frd[:, 1] / (2.0 * airspeed),
+                    span * rates_frd[:, 2] / (2.0 * airspeed),
+                    deflection[:, 0],
+                    deflection[:, 1],
+                    deflection[:, 2],
+                    throttle,
+                ]
+            )
+        )
+        pressures.append(0.5 * 1.225 * airspeed**2)
+
+    design = np.concatenate(features)
+    forces = np.concatenate(force_residuals)
+    moments = np.concatenate(moment_residuals)
+    dynamic_pressure = float(np.concatenate(pressures).mean())
+    scales = {
+        "X": (forces[:, 0], area, "N"),
+        "Y": (forces[:, 1], area, "N"),
+        "Z": (forces[:, 2], area, "N"),
+        "roll": (moments[:, 0], area * span, "N m"),
+        "pitch": (moments[:, 1], area * chord, "N m"),
+        "yaw": (moments[:, 2], area * span, "N m"),
+    }
+    results: dict[str, ResidualRegression] = {}
+    for channel, (residual, scale, unit) in scales.items():
+        coefficients, *_ = np.linalg.lstsq(design, residual, rcond=None)
+        explained = residual - design @ coefficients
+        variance = float(np.var(residual))
+        r_squared = 0.0 if variance <= 0.0 else 1.0 - float(np.var(explained)) / variance
+        results[channel] = ResidualRegression(
+            channel=channel,
+            unit=unit,
+            mean=float(residual.mean()),
+            rms=float(np.sqrt(np.mean(residual**2))),
+            r_squared=r_squared,
+            sample_count=len(residual),
+            corrections={
+                name: float(value / (dynamic_pressure * scale))
+                for name, value in zip(RESIDUAL_FEATURES, coefficients)
+            },
+        )
+    return results
+
+
+def diagnose_x8_cascade(
+    destination: str | Path,
+    *,
+    aircraft: str = "skywalker_x8",
+    split: str = "validation",
+    cg_shift_forward_m: float = 0.0,
+    mass_kg: float | None = None,
+    inertia_scale: float = 1.0,
+    vertical_wind_fraction: float = 1.0,
+) -> dict[str, Any]:
+    """Run the residual regressions for one Cascade X8 configuration on a campaign split."""
+
+    destination = Path(destination)
+    splits = ("training", "validation") if split == "all" else (split,)
+    paths = []
+    for name in splits:
+        paths.extend(sorted((destination / "canonical" / name).glob("*.npz")))
+    if not paths:
+        raise ValueError(f"no canonical trajectories under {destination} for split {split!r}")
+    from glassbox.data import load_trajectory_npz
+
+    trajectories = [load_trajectory_npz(path) for path in paths]
+    cascade = _require_cascade()
+    spec = shift_center_of_gravity_of_spec(_x8_spec(cascade, aircraft), cg_shift_forward_m)
+    inertia = tuple(tuple(inertia_scale * value for value in row) for row in spec.inertia_kg_m2)
+    spec = replace(spec, inertia_kg_m2=inertia)
+    if mass_kg is not None:
+        spec = replace(spec, mass_kg=float(mass_kg))
+    model = spec.to_model()
+    regressions = residual_regressions(
+        model, trajectories, vertical_wind_fraction=vertical_wind_fraction
+    )
+    return {
+        "format_version": 1,
+        "aircraft": aircraft,
+        "configuration": {
+            "cg_shift_forward_m": cg_shift_forward_m,
+            "mass_kg": spec.mass_kg,
+            "inertia_scale": inertia_scale,
+            "vertical_wind_fraction": vertical_wind_fraction,
+        },
+        "split": split,
+        "trajectories": [str(path) for path in paths],
+        "features": list(RESIDUAL_FEATURES),
+        "channels": {
+            channel: {
+                "unit": item.unit,
+                "mean": item.mean,
+                "rms": item.rms,
+                "r_squared": item.r_squared,
+                "sample_count": item.sample_count,
+                "corrections": item.corrections,
+            }
+            for channel, item in regressions.items()
+        },
+        "reading": (
+            "corrections are predicted-minus-measured per unit feature in coefficient units; a "
+            "positive p_hat correction on roll means the model's roll damping is too strong by "
+            "that amount, a positive constant on Z (FRD down) means too little lift"
+        ),
+    }
 
 
 def trajectory_from_plant_samples(samples: Sequence[Any], spec: Any) -> Trajectory:

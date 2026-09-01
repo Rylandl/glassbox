@@ -103,6 +103,7 @@ def test_published_x8_variants_are_finite_and_the_documented_one_beats_persisten
         cg_shifts_forward_m=(0.0, 0.05),
         masses_kg=(3.364,),
         yaw_damping=(-0.012,),
+        inertia_scales=(1.0,),
         vertical_wind_fractions=(0.5, 1.0),
     )
     fractions = [variant.vertical_wind_fraction for variant in variants]
@@ -121,3 +122,30 @@ def test_published_x8_variants_are_finite_and_the_documented_one_beats_persisten
 
     assert np.all(np.isfinite(predicted))
     assert metrics["attitude_rmse_deg"] < persistence["attitude_rmse_deg"]
+
+
+@pytest.mark.cascade
+def test_residual_regressions_vanish_on_a_cascade_generated_trajectory() -> None:
+    from glassbox.integrations.cascade import (
+        CascadePlant,
+        residual_regressions,
+        trajectory_from_plant_samples,
+    )
+
+    plant = CascadePlant()
+    samples = [plant.reset(LEVEL_18_M_S, applied_control=np.array([0.45, 0.0, 0.05]))]
+    for step in range(160):
+        aileron = 0.15 * np.sin(step / 8.0)
+        elevator = 0.05 + 0.08 * np.sin(step / 13.0)
+        samples.append(plant.step(np.array([0.45, aileron, elevator])))
+    trajectory = trajectory_from_plant_samples(samples, x8_trajectory_spec(trusted_wind=True))
+
+    regressions = residual_regressions(plant.model, [trajectory], vertical_wind_fraction=1.0)
+
+    for channel, item in regressions.items():
+        # Central differences of a 40 Hz trajectory leave small discretization residuals; the
+        # frames, signs, mass, and inertia plumbing must not add systematic ones. Regression
+        # coefficients are not bounded here: with near-zero residuals they are ill-conditioned.
+        mean_bound, rms_bound = (0.1, 0.5) if item.unit == "N" else (0.02, 0.05)
+        assert abs(item.mean) < mean_bound, (channel, item.mean)
+        assert item.rms < rms_bound, (channel, item.rms)

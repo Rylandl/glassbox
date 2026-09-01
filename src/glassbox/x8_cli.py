@@ -128,10 +128,12 @@ def _evaluate_cascade(args: argparse.Namespace) -> None:
         reference = candidate if candidate.exists() else None
     report = evaluate_x8_cascade(
         args.destination,
+        aircraft=args.aircraft,
         vertical_wind_fractions=tuple(
             float(value) for value in args.vertical_wind_fractions.split(",")
         ),
         cg_shifts_forward_m=tuple(float(value) for value in args.cg_shifts.split(",")),
+        inertia_scales=tuple(float(value) for value in args.inertia_scales.split(",")),
         reference_report=reference,
         simulation_substeps=args.substeps,
     )
@@ -158,6 +160,37 @@ def _evaluate_cascade(args: argparse.Namespace) -> None:
         if report["primary_model"] in name or report["best_model"] in name:
             print(f"{name}: {comparison['score']:.3f}")
     print(f"wrote Cascade report {args.report}")
+
+
+def _diagnose_cascade(args: argparse.Namespace) -> None:
+    from glassbox.integrations.cascade import diagnose_x8_cascade
+
+    report = diagnose_x8_cascade(
+        args.destination,
+        aircraft=args.aircraft,
+        split=args.split,
+        cg_shift_forward_m=args.cg_shift,
+        mass_kg=args.mass,
+        inertia_scale=args.inertia_scale,
+        vertical_wind_fraction=args.vertical_wind_fraction,
+    )
+    print(f"{args.aircraft} on {args.split}: configuration {report['configuration']}")
+    for channel, item in report["channels"].items():
+        terms = ", ".join(
+            f"{name}:{value:+.4f}"
+            for name, value in item["corrections"].items()
+            if abs(value) > 0.003 or name == "1"
+        )
+        print(
+            f"  {channel:5s} mean={item['mean']:+7.2f} rms={item['rms']:6.2f} {item['unit']:3s} "
+            f"R2={item['r_squared']:.2f}  {terms}"
+        )
+    if args.report is not None:
+        args.report.parent.mkdir(parents=True, exist_ok=True)
+        with args.report.open("w") as output:
+            json.dump(report, output, indent=2, sort_keys=True)
+            output.write("\n")
+        print(f"wrote residual diagnostic {args.report}")
 
 
 def _add_checksum_option(parser: argparse.ArgumentParser) -> None:
@@ -226,6 +259,12 @@ def main() -> None:
     cascade_parser.add_argument("destination", type=Path)
     cascade_parser.add_argument("--report", type=Path, required=True)
     cascade_parser.add_argument(
+        "--aircraft",
+        default="skywalker_x8",
+        choices=("skywalker_x8", "skywalker_x8_panels"),
+        help="Cascade X8 backend: published coefficient table or component panels",
+    )
+    cascade_parser.add_argument(
         "--reference-report",
         type=Path,
         default=None,
@@ -241,8 +280,31 @@ def main() -> None:
         default="0,0.02,0.03,0.05",
         help="comma-separated forward CG shifts in metres applied to the pitch triple",
     )
+    cascade_parser.add_argument(
+        "--inertia-scales",
+        default="1,2,3.5",
+        help="comma-separated uniform scale factors applied to the published inertia tensor",
+    )
     cascade_parser.add_argument("--substeps", type=int, default=10)
     cascade_parser.set_defaults(handler=_evaluate_cascade)
+
+    diagnose_parser = subparsers.add_parser(
+        "diagnose-cascade",
+        help="regress one-step Cascade force and moment residuals on the flight variables",
+    )
+    diagnose_parser.add_argument("destination", type=Path)
+    diagnose_parser.add_argument(
+        "--aircraft", default="skywalker_x8", choices=("skywalker_x8", "skywalker_x8_panels")
+    )
+    diagnose_parser.add_argument(
+        "--split", default="validation", choices=("training", "validation", "all")
+    )
+    diagnose_parser.add_argument("--cg-shift", type=float, default=0.0)
+    diagnose_parser.add_argument("--mass", type=float, default=None)
+    diagnose_parser.add_argument("--inertia-scale", type=float, default=1.0)
+    diagnose_parser.add_argument("--vertical-wind-fraction", type=float, default=1.0)
+    diagnose_parser.add_argument("--report", type=Path, default=None)
+    diagnose_parser.set_defaults(handler=_diagnose_cascade)
 
     args = parser.parse_args()
     args.handler(args)
