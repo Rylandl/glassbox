@@ -117,26 +117,13 @@ wheels = [
 [[package]]
 name = "cascade-flight"
 version = "0.1.0"
-source = { editable = "../cascade" }
+source = { git = "https://github.com/Rylandl/cascade?branch=main#31bc56c31cfed64b5922ea03072fa32a6234a0fe" }
 dependencies = [
     { name = "jax", version = "0.10.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "jax", version = "0.11.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "scipy", version = "1.18.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "tomli-w" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "jax", specifier = ">=0.7.0" },
-    { name = "scipy", specifier = ">=1.11" },
-    { name = "tomli-w", specifier = ">=1.2" },
-]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "pytest", specifier = ">=8.0" },
-    { name = "ruff", specifier = ">=0.9" },
 ]
 
 [[package]]
@@ -384,7 +371,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cascade-flight", marker = "extra == 'cascade'", editable = "../cascade" },
+    { name = "cascade-flight", marker = "extra == 'cascade'", git = "https://github.com/Rylandl/cascade?branch=main" },
     { name = "crazyflow", marker = "extra == 'crazyflow'", specifier = "==0.3.2" },
     { name = "crazyflow", marker = "extra == 'crazyflow-animation'", specifier = "==0.3.2" },
     { name = "jax", specifier = ">=0.4.35" },

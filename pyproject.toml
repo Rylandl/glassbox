@@ -55,7 +55,7 @@ glassbox-crazyflow-throw = "glassbox.integrations.crazyflow_throw:main"
 glassbox-crazyflow-throw-animation = "glassbox.integrations.crazyflow_animation:throw_main"
 
 [tool.uv.sources]
-cascade-flight = { path = "../cascade", editable = true }
+cascade-flight = { git = "https://github.com/Rylandl/cascade", branch = "main" }
 
 [dependency-groups]
 dev = [
