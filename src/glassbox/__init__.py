@@ -5,7 +5,13 @@ their respective modules. Keeping them out of the package root makes the
 stable API small and prevents a core import from loading experiment code.
 """
 
-from glassbox.adaptation import BeliefUpdateReport, update_dynamics_belief
+from glassbox.adaptation import (
+    BeliefUpdateProposal,
+    BeliefUpdateReport,
+    propose_dynamics_belief_update,
+    update_dynamics_belief,
+    validate_and_commit_dynamics_belief_update,
+)
 from glassbox.adapter import TrajectoryAdapter
 from glassbox.belief import (
     TANGENT_GROUP_ORDER,
@@ -13,6 +19,7 @@ from glassbox.belief import (
     DynamicsBelief,
     EmpiricalErrorSample,
     EmpiricalHorizonPredictiveError,
+    ErrorCovarianceScope,
     LocalGaussianParameterBelief,
     LocalParameterInformation,
     PlanAssessment,
@@ -97,6 +104,7 @@ __all__ = [
     "TANGENT_STATE_ORDER",
     "ActuationMap",
     "BaseDynamicsParams",
+    "BeliefUpdateProposal",
     "BeliefUpdateReport",
     "ControlChannel",
     "DirectActuationMap",
@@ -104,6 +112,7 @@ __all__ = [
     "DynamicsParams",
     "EmpiricalErrorSample",
     "EmpiricalHorizonPredictiveError",
+    "ErrorCovarianceScope",
     "ExogenousChannel",
     "FitResult",
     "FixedWingDynamicsParams",
@@ -146,6 +155,7 @@ __all__ = [
     "load_trajectory_npz",
     "make_trajectory_spec",
     "model_family",
+    "propose_dynamics_belief_update",
     "rollout",
     "rollout_divergence_metrics",
     "rollout_loss_configuration",
@@ -163,6 +173,7 @@ __all__ = [
     "trajectory_segment",
     "trajectory_windows",
     "update_dynamics_belief",
+    "validate_and_commit_dynamics_belief_update",
     "windowed_rollout_metrics",
     "with_structured_parameter_vector",
 ]

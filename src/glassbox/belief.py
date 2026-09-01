@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field, replace
+from enum import StrEnum
 from itertools import pairwise
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -20,6 +21,7 @@ import numpy as np
 from jax import Array
 from jax.flatten_util import ravel_pytree
 
+from glassbox.covariance import supported_covariance
 from glassbox.data import TrajectorySpec
 from glassbox.dynamics import (
     ModelParams,
@@ -39,7 +41,7 @@ from glassbox.runtime import (
 )
 
 if TYPE_CHECKING:
-    from glassbox.adaptation import BeliefUpdateReport
+    from glassbox.adaptation import BeliefUpdateProposal, BeliefUpdateReport
     from glassbox.data import Trajectory
     from glassbox.parameter_prior import StructuredParameterPrior
 
@@ -70,9 +72,16 @@ TANGENT_GROUP_SLICES = (
     slice(6, 9),
     slice(9, 12),
 )
-PREDICTIVE_ERROR_FORMAT_VERSION = 1
+PREDICTIVE_ERROR_FORMAT_VERSION = 2
 PARAMETER_BELIEF_FORMAT_VERSION = 1
-PARAMETER_EVIDENCE_FORMAT_VERSION = 1
+PARAMETER_EVIDENCE_FORMAT_VERSION = 2
+
+
+class ErrorCovarianceScope(StrEnum):
+    """What variation an empirical tangent covariance already contains."""
+
+    TOTAL_FORECAST = "total_forecast_error"
+    CONDITIONAL_INNOVATION = "conditional_innovation_error"
 
 
 def _weighted_quantile(
@@ -85,18 +94,6 @@ def _weighted_quantile(
     cumulative = np.cumsum(weights[order])
     index = min(int(np.searchsorted(cumulative, level, side="left")), len(values) - 1)
     return float(sorted_values[index])
-
-
-def _regularized_covariance(matrix: np.ndarray) -> np.ndarray:
-    """Apply only a floating-point-scale floor to a PSD covariance."""
-
-    symmetric = 0.5 * (
-        np.asarray(matrix, dtype=np.float64) + np.asarray(matrix, dtype=np.float64).T
-    )
-    eigenvalues, eigenvectors = np.linalg.eigh(symmetric)
-    scale = max(float(np.max(np.abs(eigenvalues))), 1.0)
-    floor = 100.0 * np.finfo(np.float64).eps * len(symmetric) * scale
-    return (eigenvectors * np.maximum(eigenvalues, floor)) @ eigenvectors.T
 
 
 @dataclass(frozen=True)
@@ -173,6 +170,7 @@ class EmpiricalHorizonPredictiveError:
     raw_sample_count: tuple[int, ...]
     effective_sample_count: tuple[float, ...]
     independent_group_count: tuple[int, ...]
+    covariance_scope: ErrorCovarianceScope = ErrorCovarianceScope.TOTAL_FORECAST
     source: str = "held_out_rollout_endpoints"
     weighting: str = "equal_source_group_then_trajectory_then_endpoint"
 
@@ -218,6 +216,10 @@ class EmpiricalHorizonPredictiveError:
         counts = tuple(int(value) for value in self.raw_sample_count)
         effective = tuple(float(value) for value in self.effective_sample_count)
         groups = tuple(int(value) for value in self.independent_group_count)
+        try:
+            covariance_scope = ErrorCovarianceScope(self.covariance_scope)
+        except ValueError as error:
+            raise ValueError("unsupported predictive-error covariance scope") from error
         if not (
             len(counts) == len(effective) == len(groups) == count
             and all(value > 0 for value in counts)
@@ -235,6 +237,7 @@ class EmpiricalHorizonPredictiveError:
         object.__setattr__(self, "raw_sample_count", counts)
         object.__setattr__(self, "effective_sample_count", effective)
         object.__setattr__(self, "independent_group_count", groups)
+        object.__setattr__(self, "covariance_scope", covariance_scope)
 
     @property
     def available(self) -> bool:
@@ -250,6 +253,9 @@ class EmpiricalHorizonPredictiveError:
         samples_by_horizon: Mapping[float, Sequence[EmpiricalErrorSample]],
         *,
         quantile_levels: tuple[float, ...] = (0.5, 0.8, 0.9),
+        covariance_scope: ErrorCovarianceScope = (
+            ErrorCovarianceScope.TOTAL_FORECAST
+        ),
     ) -> EmpiricalHorizonPredictiveError:
         """Fit group-balanced empirical moments without a Gaussian claim."""
 
@@ -332,6 +338,7 @@ class EmpiricalHorizonPredictiveError:
             raw_sample_count=tuple(raw_counts),
             effective_sample_count=tuple(effective_counts),
             independent_group_count=tuple(group_counts),
+            covariance_scope=covariance_scope,
         )
 
     def moments(
@@ -394,6 +401,7 @@ class EmpiricalHorizonPredictiveError:
             "available": True,
             "posterior": False,
             "calibrated_distribution": False,
+            "covariance_scope": self.covariance_scope.value,
             "source": self.source,
             "weighting": self.weighting,
             "tangent_state_order": list(TANGENT_STATE_ORDER),
@@ -434,6 +442,7 @@ def predictive_error_from_dict(payload: Mapping[str, Any]) -> PredictiveErrorMod
             raw_sample_count=tuple(payload["raw_sample_count"]),
             effective_sample_count=tuple(payload["effective_sample_count"]),
             independent_group_count=tuple(payload["independent_group_count"]),
+            covariance_scope=ErrorCovarianceScope(str(payload["covariance_scope"])),
             source=str(payload["source"]),
             weighting=str(payload["weighting"]),
         )
@@ -689,13 +698,13 @@ class UnavailableParameterEvidence:
 
 @dataclass(frozen=True)
 class LocalParameterInformation:
-    """Rank-aware local likelihood geometry for structured coefficients.
+    """Rank-aware local loss geometry for structured coefficients.
 
     This object records how held-out-error-whitened rollout predictions change
-    around one fitted parameter vector. It is information, not a covariance:
-    unresolved directions remain explicit and are never converted into zero
-    variance. A complete prior is required before this evidence can become a
-    proper local Gaussian parameter belief.
+    around one fitted parameter vector. Unresolved directions remain explicit
+    and are never converted into zero variance. The covariance scope records
+    whether this geometry can support probabilistic contraction or only a
+    regularized mean update.
     """
 
     parameter_names: tuple[str, ...]
@@ -711,6 +720,7 @@ class LocalParameterInformation:
     independent_group_count: int
     trajectory_count: int
     rank_relative_tolerance: float
+    covariance_scope: ErrorCovarianceScope = ErrorCovarianceScope.TOTAL_FORECAST
     source: str = "grouped_rollout_jacobians"
     weighting: str = "sum_independent_groups_mean_horizons_mean_windows"
     residual_precision: str = "held_out_tangent_covariance_pseudoinverse"
@@ -791,6 +801,10 @@ class LocalParameterInformation:
             and self.residual_precision.strip()
         ):
             raise ValueError("parameter-evidence semantics are required")
+        try:
+            covariance_scope = ErrorCovarianceScope(self.covariance_scope)
+        except ValueError as error:
+            raise ValueError("unsupported parameter-evidence covariance scope") from error
         object.__setattr__(self, "parameter_names", names)
         object.__setattr__(self, "center", center)
         object.__setattr__(
@@ -809,6 +823,7 @@ class LocalParameterInformation:
         )
         object.__setattr__(self, "group_labels", group_labels)
         object.__setattr__(self, "group_score_vectors", group_scores)
+        object.__setattr__(self, "covariance_scope", covariance_scope)
 
     @property
     def available(self) -> bool:
@@ -899,6 +914,7 @@ class LocalParameterInformation:
             "available": True,
             "posterior": False,
             "complete_parameter_uncertainty": False,
+            "covariance_scope": self.covariance_scope.value,
             "coordinate_system": "unconstrained_structured_parameter_vector",
             "parameter_names": list(self.parameter_names),
             "center": self.center.tolist(),
@@ -972,6 +988,7 @@ def parameter_evidence_from_dict(payload: Mapping[str, Any]) -> ParameterEvidenc
             independent_group_count=int(payload["independent_group_count"]),
             trajectory_count=int(payload["trajectory_count"]),
             rank_relative_tolerance=float(payload["rank_relative_tolerance"]),
+            covariance_scope=ErrorCovarianceScope(str(payload["covariance_scope"])),
             source=str(payload["source"]),
             weighting=str(payload["weighting"]),
             residual_precision=str(payload["residual_precision"]),
@@ -1011,7 +1028,7 @@ class PredictiveTrajectory:
     latent_states: Array
     commands: Array
     tangent_bias: Array
-    residual_tangent_covariance: Array
+    empirical_error_tangent_covariance: Array
     parameter_tangent_covariance: Array
     parameter_tangent_jacobian: Array | None
     quantile_levels: tuple[float, ...]
@@ -1021,12 +1038,30 @@ class PredictiveTrajectory:
     predictive_error_current: bool
     predictive_error_horizon_supported: bool
     parameter_uncertainty_available: bool
+    empirical_error_covariance_scope: ErrorCovarianceScope | None
 
     @property
     def tangent_covariance(self) -> Array:
         """Return total local model uncertainty from distinct components."""
 
-        return self.residual_tangent_covariance + self.parameter_tangent_covariance
+        if (
+            self.empirical_error_covariance_scope
+            == ErrorCovarianceScope.TOTAL_FORECAST
+        ):
+            return self.empirical_error_tangent_covariance
+        return (
+            self.empirical_error_tangent_covariance
+            + self.parameter_tangent_covariance
+        )
+
+    @property
+    def parameter_covariance_combined_with_empirical_error(self) -> bool:
+        return (
+            self.parameter_uncertainty_available
+            and self.predictive_error_available
+            and self.empirical_error_covariance_scope
+            == ErrorCovarianceScope.CONDITIONAL_INNOVATION
+        )
 
     @property
     def uncertainty_available(self) -> bool:
@@ -1205,13 +1240,12 @@ class DynamicsBelief:
         self,
         prior: StructuredParameterPrior,
     ) -> DynamicsBelief:
-        """Combine local information with one explicit fleet/configuration prior.
+        """Combine local loss geometry with a fleet/configuration prior.
 
-        The local information is centered at the parameters originally fitted
-        from this dataset. Directions absent from that information retain their
-        prior mean and covariance. Empirical fleet spread and the structural
-        completion needed to make that spread a proper prior remain separate in
-        the prior artifact and conditioning provenance.
+        Conditional innovation covariance supports a local Gaussian contraction.
+        Total forecast covariance supports a regularized mean update only, so
+        the prior covariance is preserved. Directions absent from the local
+        geometry retain their prior mean and covariance.
         """
 
         if not isinstance(self.parameter_evidence, LocalParameterInformation):
@@ -1238,29 +1272,50 @@ class DynamicsBelief:
             np.eye(len(prior_covariance)),
         )
         local_information = self.parameter_evidence.information_matrix
-        posterior_precision = prior_precision + local_information
-        posterior_covariance = np.linalg.solve(
-            posterior_precision,
-            np.eye(len(posterior_precision)),
+        conditioned_precision = prior_precision + local_information
+        conditional_covariance = np.linalg.solve(
+            conditioned_precision,
+            np.eye(len(conditioned_precision)),
         )
-        posterior_covariance = 0.5 * (
-            posterior_covariance + posterior_covariance.T
+        conditional_covariance = 0.5 * (
+            conditional_covariance + conditional_covariance.T
         )
-        posterior_center = posterior_covariance @ (
+        conditioned_center = conditional_covariance @ (
             prior_precision @ prior_center
             + local_information @ self.parameter_evidence.center
             - self.parameter_evidence.score_vector
         )
+        contracts_covariance = (
+            self.parameter_evidence.covariance_scope
+            == ErrorCovarianceScope.CONDITIONAL_INNOVATION
+        )
+        conditioned_covariance = (
+            conditional_covariance if contracts_covariance else prior_covariance
+        )
         update_count = self.parameter_belief.update_count + 1
         parameter_belief = LocalGaussianParameterBelief(
             parameter_names=names,
-            covariance=posterior_covariance,
-            source=f"parameter_prior:{prior.source}+{self.parameter_evidence.source}",
+            covariance=conditioned_covariance,
+            source=(
+                f"conditional_parameter_prior:{prior.source}"
+                if contracts_covariance
+                else f"parameter_prior_mean_update:{prior.source}"
+            ),
             evidence_count=(
-                prior.member_count + self.parameter_evidence.independent_group_count
+                prior.member_count
+                + (
+                    self.parameter_evidence.independent_group_count
+                    if contracts_covariance
+                    else 0
+                )
             ),
             effective_sample_count=(
-                prior.member_count + self.parameter_evidence.independent_group_count
+                prior.member_count
+                + (
+                    self.parameter_evidence.independent_group_count
+                    if contracts_covariance
+                    else 0
+                )
             ),
             update_count=update_count,
         )
@@ -1276,6 +1331,10 @@ class DynamicsBelief:
             "prior_artifact": prior.to_dict(),
             "local_evidence_source": self.parameter_evidence.source,
             "local_information_rank": self.parameter_evidence.numerical_rank,
+            "local_covariance_scope": (
+                self.parameter_evidence.covariance_scope.value
+            ),
+            "parameter_covariance_updated": contracts_covariance,
             "local_independent_group_count": (
                 self.parameter_evidence.independent_group_count
             ),
@@ -1283,7 +1342,7 @@ class DynamicsBelief:
         return DynamicsBelief(
             params=with_structured_parameter_vector(
                 self.params,
-                jnp.asarray(posterior_center),
+                jnp.asarray(conditioned_center),
             ),
             input_spec=self.input_spec,
             runtime_spec=self.runtime_spec,
@@ -1299,11 +1358,38 @@ class DynamicsBelief:
     def update(
         self, telemetry: Trajectory
     ) -> tuple[DynamicsBelief, BeliefUpdateReport]:
-        """Assimilate recent canonical telemetry using the maintained updater."""
+        """Propose on early telemetry and commit after disjoint validation."""
 
         from glassbox.adaptation import update_dynamics_belief
 
         return update_dynamics_belief(self, telemetry)
+
+    def propose_update(
+        self,
+        telemetry: Trajectory,
+    ) -> tuple[BeliefUpdateProposal | None, BeliefUpdateReport]:
+        """Create a bounded update proposal without changing this belief."""
+
+        from glassbox.adaptation import propose_dynamics_belief_update
+
+        return propose_dynamics_belief_update(self, telemetry)
+
+    def commit_update(
+        self,
+        proposal: BeliefUpdateProposal,
+        validation_telemetry: Trajectory,
+    ) -> tuple[DynamicsBelief, BeliefUpdateReport]:
+        """Validate and commit a proposal, or return this belief unchanged."""
+
+        from glassbox.adaptation import (
+            validate_and_commit_dynamics_belief_update,
+        )
+
+        return validate_and_commit_dynamics_belief_update(
+            self,
+            proposal,
+            validation_telemetry,
+        )
 
     def save(self, path: str | Path) -> None:
         from glassbox.belief_io import save_dynamics_belief
@@ -1558,7 +1644,7 @@ class RuntimeDynamicsBelief:
             )
         mean_states = jnp.concatenate((initial_state[None, :], mean_future))
         tangent_bias = jnp.concatenate((jnp.zeros((1, TANGENT_STATE_SIZE)), bias))
-        residual_tangent_covariance = jnp.concatenate(
+        empirical_error_tangent_covariance = jnp.concatenate(
             (
                 jnp.zeros((1, TANGENT_STATE_SIZE, TANGENT_STATE_SIZE)),
                 residual_covariance,
@@ -1604,7 +1690,9 @@ class RuntimeDynamicsBelief:
             latent_states=latent_states,
             commands=commands,
             tangent_bias=tangent_bias,
-            residual_tangent_covariance=residual_tangent_covariance,
+            empirical_error_tangent_covariance=(
+                empirical_error_tangent_covariance
+            ),
             parameter_tangent_covariance=parameter_tangent_covariance,
             parameter_tangent_jacobian=parameter_jacobian,
             quantile_levels=quantile_levels,
@@ -1618,6 +1706,14 @@ class RuntimeDynamicsBelief:
                 <= maximum_horizon + 1e-12
             ),
             parameter_uncertainty_available=self.parameter_uncertainty_available,
+            empirical_error_covariance_scope=(
+                self.predictive_error.covariance_scope
+                if isinstance(
+                    self.predictive_error,
+                    EmpiricalHorizonPredictiveError,
+                )
+                else None
+            ),
         )
 
     def assess_plan(
@@ -1643,11 +1739,23 @@ class RuntimeDynamicsBelief:
         if not isinstance(self.parameter_belief, LocalGaussianParameterBelief):
             unavailable_reason = "parameter uncertainty is unavailable"
         elif not self.predictive_error_available:
-            unavailable_reason = "predictive residual covariance is unavailable"
+            unavailable_reason = "predictive-error covariance is unavailable"
+        elif not self.predictive_error_current:
+            unavailable_reason = "predictive-error evidence is stale"
         elif not prediction.predictive_error_horizon_supported:
             unavailable_reason = "candidate plan exceeds predictive-error evidence"
         elif prediction.parameter_tangent_jacobian is None:
             unavailable_reason = "parameter sensitivity is unavailable"
+        elif not isinstance(
+            self.predictive_error,
+            EmpiricalHorizonPredictiveError,
+        ) or (
+            self.predictive_error.covariance_scope
+            != ErrorCovarianceScope.CONDITIONAL_INNOVATION
+        ):
+            unavailable_reason = (
+                "parameter information requires conditional innovation covariance"
+            )
         if unavailable_reason is not None:
             return PlanAssessment(
                 prediction=prediction,
@@ -1659,30 +1767,64 @@ class RuntimeDynamicsBelief:
             )
 
         prior = np.asarray(self.parameter_belief.covariance, dtype=np.float64)
+        prior_support = supported_covariance(prior)
+        if prior_support.rank == 0:
+            return PlanAssessment(
+                prediction=prediction,
+                maximum_validity_utilization=maximum_validity,
+                expected_parameter_information_gain_nats=None,
+                expected_parameter_covariance=None,
+                information_available=False,
+                information_unavailable_reason=(
+                    "parameter covariance has no supported direction"
+                ),
+            )
         jacobian = np.asarray(
             prediction.parameter_tangent_jacobian[-1], dtype=np.float64
         )
-        residual = _regularized_covariance(
-            np.asarray(prediction.residual_tangent_covariance[-1])
+        residual_support = supported_covariance(
+            np.asarray(prediction.empirical_error_tangent_covariance[-1])
         )
-        innovation = _regularized_covariance(residual + jacobian @ prior @ jacobian.T)
-        _, residual_logdet = np.linalg.slogdet(residual)
-        _, innovation_logdet = np.linalg.slogdet(innovation)
-        information_gain = max(0.0, 0.5 * (innovation_logdet - residual_logdet))
-        gain = prior @ jacobian.T @ np.linalg.solve(innovation, np.eye(12))
-        identity = np.eye(len(prior))
-        posterior = (identity - gain @ jacobian) @ prior @ (
-            identity - gain @ jacobian
-        ).T + gain @ residual @ gain.T
+        if residual_support.rank == 0:
+            return PlanAssessment(
+                prediction=prediction,
+                maximum_validity_utilization=maximum_validity,
+                expected_parameter_information_gain_nats=None,
+                expected_parameter_covariance=None,
+                information_available=False,
+                information_unavailable_reason=(
+                    "conditional innovation covariance has rank zero"
+                ),
+            )
+        prior_factor = prior_support.basis * np.sqrt(prior_support.variances)
+        whitened_jacobian = residual_support.whiten_rows(
+            jacobian @ prior_factor
+        )
+        normalized_information = (
+            np.eye(prior_support.rank)
+            + whitened_jacobian.T @ whitened_jacobian
+        )
+        sign, logdet = np.linalg.slogdet(normalized_information)
+        if sign <= 0.0 or not np.isfinite(logdet):
+            return PlanAssessment(
+                prediction=prediction,
+                maximum_validity_utilization=maximum_validity,
+                expected_parameter_information_gain_nats=None,
+                expected_parameter_covariance=None,
+                information_available=False,
+                information_unavailable_reason=(
+                    "conditional information geometry is non-finite"
+                ),
+            )
+        posterior = prior_factor @ np.linalg.solve(
+            normalized_information,
+            prior_factor.T,
+        )
         posterior = 0.5 * (posterior + posterior.T)
-        eigenvalues, eigenvectors = np.linalg.eigh(posterior)
-        posterior = (
-            eigenvectors * np.maximum(eigenvalues, 0.0)
-        ) @ eigenvectors.T
         return PlanAssessment(
             prediction=prediction,
             maximum_validity_utilization=maximum_validity,
-            expected_parameter_information_gain_nats=float(information_gain),
+            expected_parameter_information_gain_nats=float(0.5 * logdet),
             expected_parameter_covariance=posterior,
             information_available=True,
         )

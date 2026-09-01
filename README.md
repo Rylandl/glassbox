@@ -41,8 +41,8 @@ from glassbox import DynamicsBelief, NMPCController, StructuredParameterPrior
 vehicle_fit = DynamicsBelief.load("artifacts/vehicle-belief.json")
 fleet_prior = StructuredParameterPrior.load("artifacts/fleet-prior.json")
 belief = vehicle_fit.condition_parameter_prior(fleet_prior)
+assessment = belief.compile_for_nmpc().assess_plan(state, candidate_commands)
 updated, update_report = belief.update(recent_telemetry)
-assessment = updated.compile_for_nmpc().assess_plan(state, candidate_commands)
 controller = NMPCController(updated)
 ```
 
@@ -58,14 +58,19 @@ and the assumed natural-coordinate completion of unresolved directions as
 separate matrices. It is a proper prior for adaptation, but explicitly neither
 a posterior nor a calibrated predictive distribution. A vehicle with no local
 fit can instead start from `fleet_prior.initialize_belief(vehicle_shell)`.
+Configuration-specific coordinates are pooled only from applicable members: a
+flapless aircraft contributes to shared aerodynamics, but not to flap
+effectiveness or trim.
 
-Forecasts preserve empirical residual error and parameter-induced uncertainty as
-separate components, combining them only in tangent space. A live parameter
-update marks older held-out residual evidence as stale rather than silently
-claiming it was revalidated. Candidate maneuvers expose expected local parameter
-information gain and posterior covariance, giving an exploration policy the
-primitives needed to stabilize first and increase maneuver complexity as
-evidence accumulates. See [the dynamics-belief design](docs/dynamics-beliefs.md).
+Forecast errors explicitly state whether they are total held-out forecast error
+or conditional innovation noise. Total error is already an end-to-end quantity,
+so Glassbox does not add propagated parameter covariance to it or use it to
+claim posterior contraction. Conditional noise may be combined with parameter
+spread and used for information calculations. A live update is transactional:
+it proposes a bounded local move on early telemetry, commits only when disjoint
+later telemetry improves, and otherwise returns the original belief. A commit
+marks older error evidence stale rather than silently claiming revalidation.
+See [the dynamics-belief design](docs/dynamics-beliefs.md).
 
 The compact synthetic diagnostic exercises that full lifecycle on an unseen
 multirotor and fixed-wing configuration, using disjoint adaptation and
@@ -164,7 +169,10 @@ Glassbox includes an opinionated JAX NMPC controller for actionable fitted
 multirotor and fixed-wing artifacts. It tracks the canonical rigid-body state,
 propagates learned actuator lag and residual dynamics, accepts physical tracking
 tolerances and state limits, and returns a bounded command with explicit solver,
-validity, and fallback diagnostics.
+validity, and fallback diagnostics. The default horizon never exceeds available
+predictive-error evidence, and forecast spread above one declared tracking
+tolerance proportionally limits command authority. This is a conservative
+runtime coupling, not a substitute for an independent flight watchdog.
 
 The maintained synthetic gate covers hover, translation, attitude, fixed-wing
 trim, altitude, path, coordinated turn, optional flaps, flying-wing generalized

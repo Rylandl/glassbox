@@ -340,13 +340,15 @@ def run_adaptation_benchmark() -> dict[str, Any]:
 
     scenarios = tuple(_run_scenario(scenario) for scenario in _scenarios())
     return {
-        "format_version": 1,
+        "format_version": 2,
         "artifact_type": "glassbox_synthetic_fleet_adaptation_diagnostic",
         "semantics": {
             "diagnostic_only": True,
             "acceptance_gate": False,
             "synthetic": True,
             "posterior_calibration_claim": False,
+            "parameter_covariance_contraction_claim": False,
+            "forecast_error_used_as_generalized_loss_geometry": True,
             "physical_parameter_recovery_required": False,
             "evaluation_telemetry_is_disjoint_from_adaptation_telemetry": True,
             "runtime_envelope_uses_target_telemetry": False,
@@ -365,11 +367,11 @@ def run_adaptation_benchmark() -> dict[str, Any]:
                 ]
                 for item in scenarios
             ),
-            "all_parameter_covariances_contracted": all(
+            "all_parameter_covariances_preserved": all(
                 item["parameter_diagnostics"][
                     "normalized_covariance_trace_after"
                 ]
-                < item["parameter_diagnostics"][
+                == item["parameter_diagnostics"][
                     "normalized_covariance_trace_before"
                 ]
                 for item in scenarios

@@ -15,6 +15,7 @@ from glassbox.belief import (
     structured_parameter_names,
     structured_parameter_vector,
 )
+from glassbox.covariance import supported_covariance
 from glassbox.data import TrajectoryWindows
 from glassbox.dynamics import (
     FixedWingDynamicsParams,
@@ -133,27 +134,6 @@ def _balanced_window_indices(
     return np.asarray(sorted(selected), dtype=np.int64)
 
 
-def _covariance_pseudoinverse(
-    covariance: np.ndarray,
-) -> tuple[np.ndarray | None, int]:
-    symmetric = 0.5 * (covariance + covariance.T)
-    eigenvalues, eigenvectors = np.linalg.eigh(symmetric)
-    maximum = float(np.max(eigenvalues))
-    if not np.isfinite(maximum) or maximum <= 0.0:
-        return None, 0
-    tolerance = (
-        max(symmetric.shape) * _FLOAT32_EPSILON * maximum
-    )
-    retained = eigenvalues > tolerance
-    if not np.any(retained):
-        return None, 0
-    selected_vectors = eigenvectors[:, retained]
-    precision = (
-        selected_vectors * (1.0 / eigenvalues[retained])
-    ) @ selected_vectors.T
-    return 0.5 * (precision + precision.T), int(np.count_nonzero(retained))
-
-
 def estimate_local_parameter_information(
     params: ModelParams,
     window_sets: Sequence[TrajectoryWindows],
@@ -212,11 +192,11 @@ def estimate_local_parameter_information(
         if horizon_s > predictive_error.maximum_horizon_s * (1.0 + 1e-9):
             continue
         bias, covariance = predictive_error.moments(horizon_s)
-        precision, precision_rank = _covariance_pseudoinverse(
-            np.asarray(covariance, dtype=np.float64)
-        )
-        if precision is None:
+        supported = supported_covariance(np.asarray(covariance, dtype=np.float64))
+        if supported.rank == 0:
             continue
+        precision = supported.precision
+        precision_rank = supported.rank
         window_groups = np.asarray(
             [string_groups[index] for index in windows.trajectory_indices],
             dtype=object,
@@ -293,7 +273,7 @@ def estimate_local_parameter_information(
 
     if not group_information:
         return UnavailableParameterEvidence(
-            "no training horizon had supported held-out residual covariance"
+            "no training horizon had supported held-out predictive-error covariance"
         )
     information = np.sum(
         [
@@ -336,5 +316,6 @@ def estimate_local_parameter_information(
         independent_group_count=len(group_information),
         trajectory_count=trajectory_count,
         rank_relative_tolerance=rank_relative_tolerance,
+        covariance_scope=predictive_error.covariance_scope,
         source=f"grouped_rollout_jacobians:{independence_unit}",
     )

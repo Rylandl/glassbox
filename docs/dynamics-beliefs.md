@@ -74,6 +74,22 @@ group count. Covariance and radii are centered on the reported predictive bias.
 These are forecast-error statistics, not a posterior or calibrated probability
 distribution.
 
+Every empirical covariance carries one of two scopes:
+
+- `total_forecast_error` is the complete held-out error around the nominal
+  forecast. It may already contain parameter variation, process variability,
+  observation error, and model-form error. Runtime returns it directly as total
+  covariance; adding propagated parameter covariance could count the same
+  variation twice.
+- `conditional_innovation_error` is separately justified measurement/process
+  error conditional on the parameter state. Only this scope may be added to
+  propagated parameter covariance or inverted to claim information gain and
+  covariance contraction.
+
+Held-out rollout errors default to `total_forecast_error`. Zero empirical
+eigenvalues are absent evidence, not noiseless measurements: whitening and
+information calculations use only the numerically supported subspace.
+
 Group-bootstrap disagreement is one possible future input to the belief. The
 IDF-DS evidence shows that it should not define the abstraction or be the
 default error model: independently calibrated residual error was more useful
@@ -87,45 +103,52 @@ effective coefficients—control authority, damping, trim or command offset, and
 actuator response—without requiring the residual network to move on every
 control cycle.
 
-The intended update is an information-form local Gaussian step:
+The maintained update is a bounded proposal followed by disjoint validation:
 
 ```text
-recent measured transitions
+early measured transitions
         ↓
 prediction innovations and parameter Jacobians
         ↓
-prior precision + observed information
+prior-scaled proposal and one-standard-deviation trust bound
         ↓
-updated effective coefficients and covariance
+later, nonoverlapping validation transitions
         ↓
-residual evidence marked stale until revalidated
+commit improvement or return the original belief
+        ↓
+predictive-error evidence marked stale after commit
 ```
 
 Updates are functional: they produce a new immutable belief and an audit report.
-The report records whether the update was applied and why, coefficient movement,
-information gain, covariance contraction, validity utilization, and evidence
-counts. Fast coefficient updates and slower residual-model refits use the same
-outer contract but remain distinguishable in provenance.
+The report records whether a proposal existed, whether validation ran, why a
+commit was accepted or rejected, coefficient movement, prior-standardized step,
+validity utilization, and evidence counts. Unsupported horizons,
+out-of-envelope telemetry, stale error evidence, reused proposal transitions,
+non-finite rollouts, and non-improving validation all fail closed. One
+contiguous telemetry block is one evidence unit regardless of its window count.
 
 Ordinary point fits explicitly use a `PointParameterBelief`; they do not invent
 covariance. When `glassbox-fit` writes a model, it also differentiates a bounded,
 group-balanced sample of the training rollouts and stores
-`LocalParameterInformation`. This is a local likelihood geometry around the
+`LocalParameterInformation`. This is local loss geometry around the
 fitted structured coefficients, not a posterior. Each complete source group
 contributes one unit of information, horizons are averaged within a group, and
-the tangent residual covariance is inverted only on the subspace supported by
-held-out errors. The artifact records the numerical rank, information spectrum,
-coordinates excluded by the fitter, unresolved directions, and one local score
-vector per independent group. Those group scores preserve the ingredients for
-cluster-robust sandwich or influence diagnostics without rerunning the fitter.
+the tangent predictive-error covariance is inverted only on the subspace
+supported by held-out errors. The artifact records the numerical rank,
+information spectrum, coordinates excluded by the fitter, unresolved
+directions, and one local score vector per independent group. Those group scores
+preserve the ingredients for cluster-robust sandwich or influence diagnostics
+without rerunning the fitter.
 
 The distinction matters: inverting a rank-deficient Hessian would assign zero
 variance to directions the flight never excited. Glassbox leaves the ordinary
 fit as a point belief plus partial information instead. A complete full-rank
-fleet or configuration prior can be combined with that information using
+fleet or configuration prior can be combined with that geometry using
 `fit_belief.condition_parameter_prior(fleet_prior)`. Supported directions move
-toward the vehicle fit and contract; unsupported directions retain the prior
-mean and covariance.
+toward the vehicle fit. Covariance contracts only when the geometry used
+conditional innovation noise; total-forecast-scaled geometry performs a
+regularized mean update and preserves prior covariance. Unsupported directions
+retain the prior mean and covariance.
 
 `StructuredParameterPrior` makes the unavoidable completion of a small fleet
 explicit. In natural structured-parameter coordinates it stores three separate
@@ -143,14 +166,18 @@ never relabeled as observed variance, a posterior, or a calibrated
 distribution. Mixed fleets in which only some members supply covariance are
 rejected because their within-vehicle uncertainty has no coherent weighting.
 State schema, vehicle family, shared control semantics, and target control-role
-coverage are checked at the artifact boundary. A prior built only from
-flapless aircraft therefore cannot silently initialize flap effectiveness; at
-least one prior member must represent the flap-equipped configuration.
+coverage are checked at the artifact boundary. Shared and optional parameter
+blocks are configuration-aware. Shared aerodynamics use every compatible
+member; yaw-surface coordinates use only yaw-equipped members; flap coordinates
+use only flap-equipped members. Cross-block covariance is deliberately zero
+rather than inferred from unmatched samples. A prior built only from flapless
+aircraft cannot initialize a flap-equipped target, while flapless members still
+contribute valid evidence to its shared aerodynamic block.
 
 The two supported entry paths are intentionally distinct:
 
 ```python
-# Existing vehicle telemetry supplies local likelihood geometry.
+# Existing vehicle telemetry supplies local loss geometry.
 belief = vehicle_fit.condition_parameter_prior(fleet_prior)
 
 # No vehicle-local fit yet; a typed shell supplies controls/runtime/error model.
@@ -169,19 +196,22 @@ and online updates. `with_parameter_members()` is useful for recording empirical
 fleet spread, but its covariance is not automatically a complete prior when the
 members do not span every structured coordinate.
 
-`belief.update(recent_telemetry)` is now implemented as a local Gaussian update.
-It selects nonoverlapping windows at the shortest held-out error horizon, uses
-the matched empirical tangent covariance for the innovations, differentiates
-the complete latent-actuator rollout with respect to structured coefficients,
-and returns a new immutable belief plus `BeliefUpdateReport`. The report exposes
-innovation before and after the update, information gain, coefficient movement,
-covariance contraction, validity utilization, and the evidence counts used.
+`belief.update(recent_telemetry)` is the opinionated one-call transaction. It
+splits complete horizon-aligned windows into early proposal and later validation
+partitions. Streaming callers may instead use
+`belief.propose_update(telemetry)` and
+`belief.commit_update(proposal, later_telemetry)`. The proposal is a
+prior-scaled batch Gauss--Newton move capped at one RMS prior standard deviation
+and line-searched for improvement. Commit line-searches again on disjoint
+telemetry. Total forecast error supplies generalized loss coordinates but leaves
+parameter covariance unchanged; conditional innovation error additionally
+supports rank-aware contraction and information-gain reporting.
 
-The held-out residual model remains attached after a parameter update but is
-marked not current. This is deliberately different from deleting it or treating
-it as newly validated: another update and runtime forecast can use the inherited
-noise scale, while NMPC and plan-assessment diagnostics continue to expose that
-the residual evidence predates the current coefficients.
+The held-out predictive-error model remains attached after a parameter update
+but is marked not current. This is deliberately different from deleting it or
+treating it as newly validated. Runtime forecasts still expose the inherited
+evidence and stale flag, but another update and plan-information claims are
+rejected until error evidence is refreshed.
 
 ## NMPC compilation
 
@@ -194,14 +224,18 @@ belief:
 - typed validity support; and
 - no training data or optimizer state.
 
-NMPC optimizes the predictive mean and reports total local model uncertainty
-relative to the same physical tracking tolerances used by its objective. Its
+NMPC first optimizes the predictive mean, then bounds how far the command plan
+may move from the previous command when forecast spread exceeds one of the same
+physical tracking tolerances used by its objective. The normal horizon is
+capped at the maintained predictive-error evidence. Its
 diagnostics separately state whether empirical predictive error and parameter
-uncertainty are available, whether residual evidence is current, and whether
-the requested error horizon is supported. State/control-dependent error and
-parameter scenarios can later affect constraint tightening, CVaR, or
-worst-scenario objectives through this runtime boundary. A large offline
-bootstrap ensemble is never required in the real-time loop.
+uncertainty are available, whether error evidence is current, whether the
+requested error horizon is supported, and the selected command-authority
+fraction. This is a conservative first coupling; state limits remain soft and
+a separate watchdog/authority/rate-arrest layer remains necessary. Constraint
+tightening, CVaR, or worst-scenario objectives can evolve through the same
+runtime boundary. A large offline bootstrap ensemble is never required in the
+real-time loop.
 
 The model-validity envelope and predictive uncertainty have different meanings.
 The former asks whether a query resembles observed operating conditions; the
@@ -224,10 +258,11 @@ assessment.expected_parameter_covariance
 ```
 
 `assess_plan()` differentiates the candidate endpoint with respect to the local
-structured coefficients and computes the Gaussian information gain implied by
-the current parameter covariance and empirical residual covariance. Constraint
-risk remains a controller or exploration-policy concern because it depends on a
-mission safety envelope, not only the system model.
+structured coefficients. It reports Gaussian information gain only when the
+predictive-error evidence is current and explicitly conditional. Rank-zero
+directions report information unavailable rather than enormous precision.
+Constraint risk remains a controller or exploration-policy concern because it
+depends on a mission safety envelope, not only the system model.
 
 This supports the conceptual progression:
 
@@ -259,7 +294,8 @@ This keeps negative results useful:
 - the IDF bootstrap result rejects bootstrap disagreement as the current
   fixed-wing runtime signal;
 - it does not reject predictive-error modeling;
-- the matched held-out residual model becomes the honest initial implementation;
+- the matched held-out total-forecast model becomes the honest initial
+  implementation;
   and
 - future error or parameter-belief candidates can be compared without another
   system-wide artifact migration.

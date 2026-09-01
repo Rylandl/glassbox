@@ -19,11 +19,14 @@ from glassbox.belief import (
     with_structured_parameter_vector,
 )
 from glassbox.data import TrajectorySpec
+from glassbox.dynamics import model_family
 from glassbox.parameter_evidence import structured_parameter_scale
 
-PARAMETER_PRIOR_FORMAT_VERSION = 1
+PARAMETER_PRIOR_FORMAT_VERSION = 2
 PARAMETER_PRIOR_ARTIFACT_TYPE = "glassbox_structured_parameter_prior"
-PARAMETER_PRIOR_METHOD = "equal_member_natural_nullspace_completion_v1"
+PARAMETER_PRIOR_METHOD = (
+    "configuration_aware_block_equal_member_natural_nullspace_completion_v2"
+)
 
 ControlContract = tuple[str, str, str, str | None]
 
@@ -86,7 +89,10 @@ class StructuredParameterPrior:
     within_member_covariance: np.ndarray
     completion_covariance: np.ndarray
     natural_scale: np.ndarray
+    parameter_control_dependencies: tuple[str | None, ...]
+    parameter_member_counts: tuple[int, ...]
     member_labels: tuple[str, ...]
+    member_control_roles: tuple[tuple[str, ...], ...]
     within_member_covariance_count: int
     state_schema: str
     vehicle_family: str
@@ -149,12 +155,6 @@ class StructuredParameterPrior:
             np.diag(matrices["within_member_covariance"]) > 0.0
         ):
             raise ValueError("fleet member covariances contain no uncertainty")
-        normalized_between = _normalized_covariance(
-            matrices["between_member_covariance"],
-            scale,
-        )
-        if _numerical_rank(np.linalg.eigvalsh(normalized_between)) > len(labels) - 1:
-            raise ValueError("between-member covariance exceeds fleet evidence rank")
         normalized_empirical = _normalized_covariance(
             matrices["between_member_covariance"]
             + matrices["within_member_covariance"],
@@ -190,6 +190,79 @@ class StructuredParameterPrior:
             for role, semantic, unit, _ in contracts
         ):
             raise ValueError("parameter-prior control contracts are invalid")
+        dependencies = tuple(
+            None if value is None else str(value)
+            for value in self.parameter_control_dependencies
+        )
+        if len(dependencies) != size:
+            raise ValueError("parameter control dependencies must match names")
+        member_roles = tuple(
+            tuple(str(role) for role in values)
+            for values in self.member_control_roles
+        )
+        if len(member_roles) != len(labels) or any(
+            len(set(values)) != len(values) or set(values) - set(roles)
+            for values in member_roles
+        ):
+            raise ValueError("member control-role evidence is invalid")
+        member_counts = tuple(int(value) for value in self.parameter_member_counts)
+        if len(member_counts) != size or any(
+            value < 0 or value > len(labels) for value in member_counts
+        ):
+            raise ValueError("parameter member counts are invalid")
+        expected_counts = tuple(
+            sum(
+                dependency is None or dependency in roles_for_member
+                for roles_for_member in member_roles
+            )
+            for dependency in dependencies
+        )
+        if member_counts != expected_counts:
+            raise ValueError(
+                "parameter member counts do not match configuration evidence"
+            )
+        if any(
+            dependency is not None
+            and dependency not in roles
+            and member_counts[index] != 0
+            for index, dependency in enumerate(dependencies)
+        ):
+            raise ValueError(
+                "parameter dependency claims evidence for an absent control"
+            )
+        between = matrices["between_member_covariance"]
+        for dependency in dict.fromkeys(dependencies):
+            indices = np.asarray(
+                [
+                    index
+                    for index, value in enumerate(dependencies)
+                    if value == dependency
+                ],
+                dtype=np.int64,
+            )
+            eligible_count = member_counts[int(indices[0])]
+            block = between[np.ix_(indices, indices)]
+            normalized_block = _normalized_covariance(block, scale[indices])
+            maximum_rank = max(eligible_count - 1, 0)
+            if _numerical_rank(np.linalg.eigvalsh(normalized_block)) > maximum_rank:
+                raise ValueError(
+                    "between-member covariance exceeds configuration evidence rank"
+                )
+            other = np.setdiff1d(np.arange(size), indices)
+            if len(other) and any(
+                not np.allclose(
+                    matrices[matrix_name][np.ix_(indices, other)],
+                    0.0,
+                    atol=1e-12,
+                )
+                for matrix_name in (
+                    "between_member_covariance",
+                    "within_member_covariance",
+                )
+            ):
+                raise ValueError(
+                    "configuration-specific parameter blocks must be independent"
+                )
         if not (
             self.state_schema.strip()
             and self.vehicle_family.strip()
@@ -200,7 +273,10 @@ class StructuredParameterPrior:
         object.__setattr__(self, "parameter_names", names)
         object.__setattr__(self, "mean", mean)
         object.__setattr__(self, "natural_scale", scale)
+        object.__setattr__(self, "parameter_control_dependencies", dependencies)
+        object.__setattr__(self, "parameter_member_counts", member_counts)
         object.__setattr__(self, "member_labels", labels)
+        object.__setattr__(self, "member_control_roles", member_roles)
         object.__setattr__(self, "control_contracts", contracts)
         for name, matrix in matrices.items():
             object.__setattr__(self, name, matrix)
@@ -263,12 +339,17 @@ class StructuredParameterPrior:
         names = structured_parameter_names(reference.params)
         state_schema = reference.input_spec.state_schema
         vehicle_family = reference.input_spec.vehicle.family
+        family = model_family(reference.params)
+        dependencies = tuple(
+            family.parameter_control_dependency(name) for name in names
+        )
         contracts_by_role: dict[str, ControlContract] = {
             item[0]: item for item in _control_contracts(reference.input_spec)
         }
         vectors: list[np.ndarray] = []
         scales: list[np.ndarray] = []
-        within_covariances: list[np.ndarray] = []
+        member_covariances: list[np.ndarray] = []
+        member_control_roles: list[tuple[str, ...]] = []
         covariance_availability: list[bool] = []
         for member in members:
             if structured_parameter_names(member.params) != names:
@@ -284,6 +365,7 @@ class StructuredParameterPrior:
             )
             for contract in member_contracts:
                 contracts_by_role.setdefault(contract[0], contract)
+            member_control_roles.append(tuple(member.input_spec.control_roles))
             vectors.append(
                 np.asarray(structured_parameter_vector(member.params), dtype=np.float64)
             )
@@ -294,27 +376,60 @@ class StructuredParameterPrior:
             )
             covariance_availability.append(has_covariance)
             if has_covariance:
-                within_covariances.append(member.parameter_belief.covariance)
+                member_covariances.append(member.parameter_belief.covariance)
         if any(covariance_availability) and not all(covariance_availability):
             raise ValueError(
                 "fleet members must either all provide parameter covariance or none"
             )
         values = np.asarray(vectors)
-        mean = np.mean(values, axis=0)
-        centered = values - mean
-        between = (
-            centered.T @ centered / (len(values) - 1)
-            if len(values) > 1
-            else np.zeros((len(names), len(names)))
-        )
-        within = (
-            np.mean(within_covariances, axis=0)
-            if within_covariances
-            else np.zeros_like(between)
-        )
-        scale = np.median(np.asarray(scales), axis=0)
-        between = _project_psd(between)
-        within = _project_psd(within)
+        scales_array = np.asarray(scales)
+        size = len(names)
+        mean = values[0].copy()
+        scale = scales_array[0].copy()
+        between = np.zeros((size, size), dtype=np.float64)
+        within = np.zeros_like(between)
+        member_counts = np.zeros(size, dtype=np.int64)
+        for dependency in dict.fromkeys(dependencies):
+            indices = np.asarray(
+                [
+                    index
+                    for index, value in enumerate(dependencies)
+                    if value == dependency
+                ],
+                dtype=np.int64,
+            )
+            eligible = np.asarray(
+                [
+                    dependency is None or dependency in roles
+                    for roles in member_control_roles
+                ],
+                dtype=bool,
+            )
+            count = int(np.count_nonzero(eligible))
+            member_counts[indices] = count
+            if count == 0:
+                continue
+            block_values = values[np.ix_(eligible, indices)]
+            block_mean = np.mean(block_values, axis=0)
+            mean[indices] = block_mean
+            scale[indices] = np.median(
+                scales_array[np.ix_(eligible, indices)],
+                axis=0,
+            )
+            centered = block_values - block_mean
+            block_between = (
+                centered.T @ centered / (count - 1)
+                if count > 1
+                else np.zeros((len(indices), len(indices)))
+            )
+            between[np.ix_(indices, indices)] = _project_psd(block_between)
+            if member_covariances:
+                covariance_values = np.asarray(member_covariances)
+                block_within = np.mean(
+                    covariance_values[np.ix_(eligible, indices, indices)],
+                    axis=0,
+                )
+                within[np.ix_(indices, indices)] = _project_psd(block_within)
         normalized_empirical = _normalized_covariance(between + within, scale)
         eigenvalues, eigenvectors = np.linalg.eigh(normalized_empirical)
         rank = _numerical_rank(eigenvalues)
@@ -328,8 +443,11 @@ class StructuredParameterPrior:
             within_member_covariance=within,
             completion_covariance=completion,
             natural_scale=scale,
+            parameter_control_dependencies=dependencies,
+            parameter_member_counts=tuple(member_counts),
             member_labels=labels,
-            within_member_covariance_count=len(within_covariances),
+            member_control_roles=tuple(member_control_roles),
+            within_member_covariance_count=len(member_covariances),
             state_schema=state_schema,
             vehicle_family=vehicle_family,
             control_contracts=tuple(contracts_by_role.values()),
@@ -414,6 +532,10 @@ class StructuredParameterPrior:
                 "posterior": False,
                 "calibrated_distribution": False,
                 "empirical_and_assumed_uncertainty_separated": True,
+                "configuration_specific_coordinates_use_only_applicable_members": (
+                    True
+                ),
+                "cross_configuration_parameter_blocks_independent": True,
             },
             "coordinate_system": "unconstrained_structured_parameter_vector",
             "parameter_names": list(self.parameter_names),
@@ -423,8 +545,15 @@ class StructuredParameterPrior:
             "completion_covariance": self.completion_covariance.tolist(),
             "total_covariance": self.covariance.tolist(),
             "natural_scale": self.natural_scale.tolist(),
+            "parameter_control_dependencies": list(
+                self.parameter_control_dependencies
+            ),
+            "parameter_member_counts": list(self.parameter_member_counts),
             "member_labels": list(self.member_labels),
             "member_count": self.member_count,
+            "member_control_roles": [
+                list(roles) for roles in self.member_control_roles
+            ],
             "within_member_covariance_count": self.within_member_covariance_count,
             "empirical_rank": self.empirical_rank,
             "completion_fraction_in_natural_coordinates": (
@@ -474,6 +603,10 @@ class StructuredParameterPrior:
                 "posterior": False,
                 "calibrated_distribution": False,
                 "empirical_and_assumed_uncertainty_separated": True,
+                "configuration_specific_coordinates_use_only_applicable_members": (
+                    True
+                ),
+                "cross_configuration_parameter_blocks_independent": True,
             }.items()
         ):
             raise ValueError("parameter-prior semantics are incompatible")
@@ -486,7 +619,16 @@ class StructuredParameterPrior:
             within_member_covariance=np.asarray(payload["within_member_covariance"]),
             completion_covariance=np.asarray(payload["completion_covariance"]),
             natural_scale=np.asarray(payload["natural_scale"]),
+            parameter_control_dependencies=tuple(
+                None if value is None else str(value)
+                for value in payload["parameter_control_dependencies"]
+            ),
+            parameter_member_counts=tuple(payload["parameter_member_counts"]),
             member_labels=tuple(payload["member_labels"]),
+            member_control_roles=tuple(
+                tuple(str(role) for role in roles)
+                for roles in payload["member_control_roles"]
+            ),
             within_member_covariance_count=int(
                 payload["within_member_covariance_count"]
             ),

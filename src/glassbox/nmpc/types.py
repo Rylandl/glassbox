@@ -199,6 +199,8 @@ class NMPCDiagnostics:
     maximum_validity_utilization: float
     maximum_normalized_safety_violation: float
     maximum_normalized_model_uncertainty_standard_deviation: float
+    command_authority_fraction: float
+    uncertainty_aware_command_selection: bool
     model_uncertainty_available: bool
     prediction_error_model_available: bool
     prediction_error_model_current: bool

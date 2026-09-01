@@ -9,6 +9,8 @@ from typing import Any
 
 from glassbox.belief import (
     DynamicsBelief,
+    EmpiricalHorizonPredictiveError,
+    LocalParameterInformation,
     parameter_belief_from_dict,
     parameter_evidence_from_dict,
     predictive_error_from_dict,
@@ -17,7 +19,7 @@ from glassbox.data import TrajectorySpec
 from glassbox.model_io import dynamics_model_from_payload, model_payload
 from glassbox.runtime import RuntimeModelSpec
 
-BELIEF_FORMAT_VERSION = 2
+BELIEF_FORMAT_VERSION = 3
 BELIEF_ARTIFACT_TYPE = "glassbox_dynamics_belief"
 
 
@@ -37,6 +39,22 @@ def belief_payload(belief: DynamicsBelief) -> dict[str, Any]:
             "parameter_information_included": belief.parameter_evidence.available,
             "predictive_error_included": belief.predictive_error.available,
             "predictive_error_current": belief.predictive_error_current,
+            "predictive_error_covariance_scope": (
+                belief.predictive_error.covariance_scope.value
+                if isinstance(
+                    belief.predictive_error,
+                    EmpiricalHorizonPredictiveError,
+                )
+                else None
+            ),
+            "parameter_evidence_covariance_scope": (
+                belief.parameter_evidence.covariance_scope.value
+                if isinstance(
+                    belief.parameter_evidence,
+                    LocalParameterInformation,
+                )
+                else None
+            ),
         },
         "nominal_model": model_payload(
             belief.params,

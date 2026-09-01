@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Protocol
 
 import jax
@@ -118,6 +118,22 @@ class _DirectShootingBackend:
         self.tolerances = tolerances
         self.safety_envelope = safety_envelope
         self._policy = _default_policy(self.model) if _policy is None else _policy
+        if _policy is None and belief.maximum_error_horizon_s is not None:
+            supported_steps = math.floor(
+                belief.maximum_error_horizon_s
+                / self.model.runtime_spec.sample_period_s
+                + 1e-9
+            )
+            if supported_steps < 1:
+                raise ValueError(
+                    "predictive-error evidence is shorter than one model step"
+                )
+            if supported_steps < self._policy.horizon_steps:
+                self._policy = replace(
+                    self._policy,
+                    horizon_steps=supported_steps,
+                    block_count=min(self._policy.block_count, supported_steps),
+                )
         horizon_s = (
             self._policy.horizon_steps * self.model.runtime_spec.sample_period_s
         )
@@ -578,6 +594,10 @@ class _DirectShootingBackend:
                 maximum_normalized_model_uncertainty_standard_deviation=(
                     math.inf if self.belief.uncertainty_available else 0.0
                 ),
+                command_authority_fraction=0.0,
+                uncertainty_aware_command_selection=(
+                    self.belief.uncertainty_available
+                ),
                 model_uncertainty_available=self.belief.uncertainty_available,
                 prediction_error_model_available=(
                     self.belief.predictive_error_available
@@ -782,6 +802,85 @@ class _DirectShootingBackend:
                 warm_start_used=used_warm_start,
             )
 
+        maximum_model_uncertainty = float(
+            np.asarray(
+                self._uncertainty_compiled(
+                    state,
+                    latent,
+                    commands,
+                    exogenous,
+                )
+            )
+        )
+        if not np.isfinite(maximum_model_uncertainty):
+            return self._failure_result(
+                SolveStatus.NONFINITE_OBJECTIVE,
+                "model-uncertainty forecast is non-finite",
+                previous_command,
+                started_at,
+                initial_objective=initial_objective,
+                iterations=iteration,
+                warm_start_used=used_warm_start,
+            )
+        command_authority = (
+            min(1.0, 1.0 / maximum_model_uncertainty)
+            if self.belief.uncertainty_available
+            and maximum_model_uncertainty > 0.0
+            else 1.0
+        )
+        if command_authority < 1.0:
+            blocks = jnp.clip(
+                cold_blocks + command_authority * (blocks - cold_blocks),
+                -1.0,
+                1.0,
+            )
+            current_value, current_gradient = self._objective_and_gradient(
+                blocks,
+                state,
+                latent,
+                reference.states,
+                previous_command,
+                exogenous,
+            )
+            current_value_float = float(np.asarray(current_value))
+            gradient_norm = float(np.max(np.abs(np.asarray(current_gradient))))
+            states, latent_states, commands = self._rollout_compiled(
+                blocks,
+                state,
+                latent,
+                exogenous,
+            )
+            states_np = np.asarray(states)
+            latent_np = np.asarray(latent_states)
+            commands_np = np.asarray(commands)
+            maximum_model_uncertainty = float(
+                np.asarray(
+                    self._uncertainty_compiled(
+                        state,
+                        latent,
+                        commands,
+                        exogenous,
+                    )
+                )
+            )
+            converged = False
+        if not (
+            np.all(np.isfinite(states_np))
+            and np.all(np.isfinite(latent_np))
+            and np.all(np.isfinite(commands_np))
+            and np.isfinite(current_value_float)
+            and np.isfinite(maximum_model_uncertainty)
+        ):
+            return self._failure_result(
+                SolveStatus.NONFINITE_OBJECTIVE,
+                "uncertainty-bounded prediction is non-finite",
+                previous_command,
+                started_at,
+                initial_objective=initial_objective,
+                iterations=iteration,
+                warm_start_used=used_warm_start,
+            )
+
         minimum = np.asarray(self.model.command_minimum)
         maximum = np.asarray(self.model.command_maximum)
         bound_violation = float(
@@ -793,16 +892,6 @@ class _DirectShootingBackend:
         )
         maximum_validity = float(np.asarray(self._validity_compiled(states, exogenous)))
         maximum_safety = float(np.asarray(self._safety_compiled(states)))
-        maximum_model_uncertainty = float(
-            np.asarray(
-                self._uncertainty_compiled(
-                    state,
-                    latent,
-                    commands,
-                    exogenous,
-                )
-            )
-        )
         if deadline_s is not None and time.perf_counter() - started_at >= deadline_s:
             return self._failure_result(
                 SolveStatus.DEADLINE_EXCEEDED,
@@ -834,6 +923,10 @@ class _DirectShootingBackend:
                 maximum_normalized_model_uncertainty_standard_deviation=(
                     maximum_model_uncertainty
                 ),
+                command_authority_fraction=command_authority,
+                uncertainty_aware_command_selection=(
+                    self.belief.uncertainty_available
+                ),
                 model_uncertainty_available=self.belief.uncertainty_available,
                 prediction_error_model_available=(
                     self.belief.predictive_error_available
@@ -856,7 +949,9 @@ class _DirectShootingBackend:
             ),
             used_fallback=False,
             message=(
-                "first-order convergence criterion satisfied"
+                "finite plan returned with belief-bounded command authority"
+                if command_authority < 1.0
+                else "first-order convergence criterion satisfied"
                 if converged
                 else "finite best plan returned at the maintained iteration limit"
             ),

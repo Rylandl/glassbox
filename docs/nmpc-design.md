@@ -50,6 +50,15 @@ Its bounded Armijo search carries an accepted step size into the next outer
 iteration and cautiously expands it, avoiding repeated backtracking from the
 same deliberately conservative maximum step.
 
+For a dynamics belief, the default prediction horizon cannot exceed maintained
+predictive-error evidence. After direct-shooting optimization, total forecast
+standard deviation is normalized by the declared tracking tolerances. Spread
+above one tolerance proportionally bounds the optimized change from the
+previous command. This small discrete safety coupling avoids differentiating
+through covariance Jacobians inside every solver iteration and remains visible
+as `command_authority_fraction`. It does not replace hard state constraints, a
+control-authority supervisor, attitude/rate arrest, or an independent watchdog.
+
 Rigid-body error has 12 local coordinates: position, velocity, the shortest
 quaternion log-map rotation vector, and angular velocity. Quaternion component
 subtraction is never a tracking metric. Command bounds are hard constraints;

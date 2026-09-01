@@ -16,7 +16,20 @@ class DynamicsModelFamily:
     latent_state_names: tuple[str, ...]
     required_control_roles: tuple[str, ...]
     optional_control_roles: tuple[str, ...] = ()
+    optional_parameter_control_dependencies: tuple[
+        tuple[str, str], ...
+    ] = ()
     supports_residual: bool = False
+
+    def __post_init__(self) -> None:
+        dependencies = dict(self.optional_parameter_control_dependencies)
+        if len(dependencies) != len(self.optional_parameter_control_dependencies):
+            raise ValueError("optional parameter dependencies must be unique")
+        unsupported = set(dependencies.values()) - set(self.optional_control_roles)
+        if unsupported:
+            raise ValueError(
+                "parameter dependencies must name optional control roles"
+            )
 
     @property
     def control_size(self) -> int:
@@ -79,6 +92,13 @@ class DynamicsModelFamily:
         if self.platform == "multirotor":
             self.validate_control_names(control_names)
 
+    def parameter_control_dependency(self, parameter_name: str) -> str | None:
+        """Return the optional control required to identify one parameter."""
+
+        return dict(self.optional_parameter_control_dependencies).get(
+            parameter_name
+        )
+
 
 MULTIROTOR_FAMILY = DynamicsModelFamily(
     key="effective_quadrotor",
@@ -124,6 +144,15 @@ FIXED_WING_FAMILY = DynamicsModelFamily(
     ),
     required_control_roles=("throttle", "roll", "pitch"),
     optional_control_roles=("yaw", "flap"),
+    optional_parameter_control_dependencies=(
+        ("log_surface_angular_accel_per_speed_sq[2]", "yaw"),
+        ("lateral_surface_cross_angular_accel_per_speed_sq[0]", "yaw"),
+        ("surface_trim_unconstrained[2]", "yaw"),
+        ("log_flap_lift_accel_per_speed_sq", "flap"),
+        ("log_flap_drag_accel_per_speed_sq", "flap"),
+        ("flap_pitch_angular_accel_per_speed_sq", "flap"),
+        ("flap_trim_unconstrained", "flap"),
+    ),
     supports_residual=True,
 )
 

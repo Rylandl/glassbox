@@ -10,6 +10,7 @@ from glassbox.belief import (
     DynamicsBelief,
     EmpiricalErrorSample,
     EmpiricalHorizonPredictiveError,
+    ErrorCovarianceScope,
     LocalGaussianParameterBelief,
     LocalParameterInformation,
     apply_tangent_correction,
@@ -50,13 +51,20 @@ def _error_model(value: float = 0.0) -> EmpiricalHorizonPredictiveError:
     )
 
 
-def _nonsingular_error_model(scale: float = 0.02) -> EmpiricalHorizonPredictiveError:
+def _nonsingular_error_model(
+    scale: float = 0.02,
+    *,
+    covariance_scope: ErrorCovarianceScope = ErrorCovarianceScope.TOTAL_FORECAST,
+) -> EmpiricalHorizonPredictiveError:
     errors = scale * np.concatenate((np.eye(12), -np.eye(12)), axis=0)
     samples = (
         EmpiricalErrorSample(errors, "group-a", "flight-a"),
         EmpiricalErrorSample(errors, "group-b", "flight-b"),
     )
-    return EmpiricalHorizonPredictiveError.from_samples({0.1: samples, 0.2: samples})
+    return EmpiricalHorizonPredictiveError.from_samples(
+        {0.1: samples, 0.2: samples},
+        covariance_scope=covariance_scope,
+    )
 
 
 def _parameter_belief(params, *, spread: float = 0.2):
@@ -175,7 +183,9 @@ def test_parameter_belief_propagates_and_scores_candidate_information(tmp_path) 
         params=params,
         input_spec=trajectory.spec,
         runtime_spec=runtime_spec_from_trajectory(trajectory),
-        predictive_error=_nonsingular_error_model(),
+        predictive_error=_nonsingular_error_model(
+            covariance_scope=ErrorCovarianceScope.CONDITIONAL_INNOVATION
+        ),
         parameter_belief=_parameter_belief(params),
     )
     path = tmp_path / "parameter-belief.json"
@@ -274,6 +284,7 @@ def test_local_information_conditions_complete_prior_without_collapsing_nullspac
         independent_group_count=2,
         trajectory_count=2,
         rank_relative_tolerance=1e-5,
+        covariance_scope=ErrorCovarianceScope.CONDITIONAL_INNOVATION,
     )
     fitted = DynamicsBelief(
         params=params,
@@ -296,7 +307,10 @@ def test_local_information_conditions_complete_prior_without_collapsing_nullspac
         within_member_covariance=np.zeros((len(names), len(names))),
         completion_covariance=np.eye(len(names)),
         natural_scale=np.ones(len(names)),
+        parameter_control_dependencies=(None,) * len(names),
+        parameter_member_counts=(4,) * len(names),
         member_labels=("fleet-a", "fleet-b", "fleet-c", "fleet-d"),
+        member_control_roles=(trajectory.spec.control_roles,) * 4,
         within_member_covariance_count=0,
         state_schema=trajectory.spec.state_schema,
         vehicle_family=trajectory.spec.vehicle.family,
@@ -319,6 +333,26 @@ def test_local_information_conditions_complete_prior_without_collapsing_nullspac
     assert conditioned.parameter_belief.covariance[1, 1] == pytest.approx(1.0)
     assert not conditioned.predictive_error_current
     assert conditioned.parameter_evidence is evidence
+
+    total_error_evidence = replace(
+        evidence,
+        covariance_scope=ErrorCovarianceScope.TOTAL_FORECAST,
+    )
+    mean_only = replace(
+        fitted,
+        parameter_evidence=total_error_evidence,
+    ).condition_parameter_prior(prior)
+    np.testing.assert_allclose(
+        structured_parameter_vector(mean_only.params),
+        structured_parameter_vector(conditioned.params),
+    )
+    np.testing.assert_allclose(
+        mean_only.parameter_belief.covariance,
+        prior.covariance,
+    )
+    assert not mean_only.provenance["parameter_prior_conditioning"][
+        "parameter_covariance_updated"
+    ]
 
     incompatible_contracts = (
         (contracts[0][0], contracts[0][1], "rad", contracts[0][3]),
@@ -419,7 +453,10 @@ def test_live_update_moves_structured_parameters_and_preserves_error_provenance(
         params=nominal,
         input_spec=telemetry.spec,
         runtime_spec=runtime_spec_from_trajectory(telemetry),
-        predictive_error=_nonsingular_error_model(scale=0.05),
+        predictive_error=_nonsingular_error_model(
+            scale=0.05,
+            covariance_scope=ErrorCovarianceScope.CONDITIONAL_INNOVATION,
+        ),
         parameter_belief=_parameter_belief(nominal, spread=0.4),
     )
 
@@ -427,6 +464,9 @@ def test_live_update_moves_structured_parameters_and_preserves_error_provenance(
 
     assert report.applied
     assert report.used_window_count == 4
+    assert report.proposal_window_count == 2
+    assert report.validation_window_count == 2
+    assert report.validation_performed
     assert report.normalized_innovation_rms_after < (
         report.normalized_innovation_rms_before
     )
@@ -439,10 +479,17 @@ def test_live_update_moves_structured_parameters_and_preserves_error_provenance(
         structured_parameter_vector(belief.params),
     )
     assert updated.provenance["online_adaptation"]["last_update"]["applied"]
+    stale_assessment = updated.compile_for_nmpc().assess_plan(
+        jnp.asarray(telemetry.states[0]),
+        jnp.asarray(telemetry.controls[:5]),
+    )
+    assert not stale_assessment.information_available
+    assert "stale" in stale_assessment.information_unavailable_reason
 
     updated_again, second_report = updated.update(telemetry)
-    assert second_report.applied
-    assert updated_again.parameter_belief.update_count == 2
+    assert not second_report.applied
+    assert "stale" in second_report.reason
+    assert updated_again.parameter_belief.update_count == 1
     assert updated_again.predictive_error_parameter_update_count == 0
 
 
@@ -462,12 +509,18 @@ def test_live_update_does_not_require_actionable_control_semantics() -> None:
     )
     telemetry = replace(telemetry, spec=physical_spec)
     params = true_parameters()
+    vector = np.asarray(structured_parameter_vector(params)).copy()
+    vector[0] += 0.25
+    nominal = with_structured_parameter_vector(params, jnp.asarray(vector))
     belief = DynamicsBelief(
-        params=params,
+        params=nominal,
         input_spec=physical_spec,
         runtime_spec=runtime_spec_from_trajectory(telemetry),
-        predictive_error=_nonsingular_error_model(scale=0.05),
-        parameter_belief=_parameter_belief(params),
+        predictive_error=_nonsingular_error_model(
+            scale=0.05,
+            covariance_scope=ErrorCovarianceScope.CONDITIONAL_INNOVATION,
+        ),
+        parameter_belief=_parameter_belief(nominal, spread=0.4),
     )
 
     with pytest.raises(ValueError, match="direct NMPC actuation"):

@@ -251,6 +251,72 @@ def test_solver_consumes_predictive_and_parameter_uncertainty() -> None:
         result.diagnostics.maximum_normalized_model_uncertainty_standard_deviation
         > 0.0
     )
+    assert result.diagnostics.uncertainty_aware_command_selection
+
+
+def test_large_model_uncertainty_bounds_command_authority() -> None:
+    model = _multirotor_runtime()
+    endpoint_errors = 2.0 * np.concatenate((np.eye(12), -np.eye(12)))
+    error_samples = (
+        EmpiricalErrorSample(endpoint_errors, "group-a", "flight-a"),
+        EmpiricalErrorSample(endpoint_errors, "group-b", "flight-b"),
+    )
+    belief = DynamicsBelief(
+        params=model.params,
+        input_spec=model.input_spec,
+        runtime_spec=model.runtime_spec,
+        predictive_error=EmpiricalHorizonPredictiveError.from_samples(
+            {0.1: error_samples, 0.2: error_samples}
+        ),
+    )
+    policy = _test_policy(horizon_steps=4)
+    nominal_controller = NMPCController(model, _policy=policy)
+    uncertain_controller = NMPCController(belief, _policy=policy)
+    target = resting_state()
+    state = target.copy()
+    state[2] = -0.2
+    previous = hover_control(true_parameters())
+
+    nominal = nominal_controller.solve(
+        jnp.asarray(state),
+        nominal_controller.hold_reference(jnp.asarray(target)),
+        previous,
+    )
+    uncertain = uncertain_controller.solve(
+        jnp.asarray(state),
+        uncertain_controller.hold_reference(jnp.asarray(target)),
+        previous,
+    )
+
+    authority = uncertain.diagnostics.command_authority_fraction
+    assert 0.0 < authority < 1.0
+    assert uncertain.diagnostics.uncertainty_aware_command_selection
+    np.testing.assert_allclose(
+        uncertain.command - previous,
+        authority * (nominal.command - previous),
+        atol=1e-5,
+    )
+
+
+def test_default_horizon_does_not_exceed_predictive_error_evidence() -> None:
+    model = _multirotor_runtime()
+    endpoint_errors = 0.02 * np.concatenate((np.eye(12), -np.eye(12)))
+    samples = (
+        EmpiricalErrorSample(endpoint_errors, "group-a", "flight-a"),
+        EmpiricalErrorSample(endpoint_errors, "group-b", "flight-b"),
+    )
+    belief = DynamicsBelief(
+        params=model.params,
+        input_spec=model.input_spec,
+        runtime_spec=model.runtime_spec,
+        predictive_error=EmpiricalHorizonPredictiveError.from_samples(
+            {0.1: samples}
+        ),
+    )
+
+    controller = NMPCController(belief)
+
+    assert controller.prediction_horizon_s == pytest.approx(0.1)
 
 
 def test_applied_command_initializes_latent_actuator_state() -> None:

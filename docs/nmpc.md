@@ -6,6 +6,8 @@ state estimate, a state reference, the previous command, optional applied
 control or latent actuator state, physical tracking tolerances, and optional
 state limits. Horizon length, command blocking, line search, regularization,
 and iteration count are maintained policies rather than routine user knobs.
+When a belief supplies predictive-error evidence, the maintained horizon is
+capped at that evidence boundary.
 
 The controller is independent of reference generation, state estimation, PX4
 transport, and hardware mixing. Terminal-pose docking is not part of this
@@ -103,8 +105,15 @@ components are never subtracted as a tracking metric. Errors are divided by
 physical tolerances before aggregation.
 
 Command limits are hard: every direct-shooting iterate is projected into the
-typed channel bounds. Command change, model-validity excess, and supported
-state limits are dimensionless soft penalties. `SafetyEnvelope` currently
+typed channel bounds. After nominal optimization, Glassbox evaluates total
+forecast spread in the same normalized tracking coordinates. If its maximum
+standard deviation exceeds one declared tracking tolerance, the optimized
+change from the previous command is scaled by the reciprocal spread. The
+diagnostic `command_authority_fraction` records the result. This is a maintained
+bounded-authority policy, not an uncertainty calibration claim.
+
+Command change, model-validity excess, and supported state limits remain
+dimensionless soft penalties. `SafetyEnvelope` currently
 supports minimum/maximum world position, maximum world speed, and maximum body
 angular speed. These state limits are preferences, not invariant-set or
 collision guarantees.
@@ -117,8 +126,9 @@ Important result fields are:
 - initial/final objective, iteration count, gradient norm, and solve time;
 - maximum command-bound violation, model-validity utilization, and normalized
   safety-limit violation;
-- total normalized model uncertainty plus separate predictive-error availability,
-  residual-evidence currency, horizon support, and parameter-uncertainty flags;
+- total normalized model uncertainty, the uncertainty-aware command-authority
+  fraction, plus separate predictive-error availability, error-evidence
+  currency, horizon support, and parameter-uncertainty flags;
   and
 - an opaque `warm_start` for the next receding-horizon solve.
 

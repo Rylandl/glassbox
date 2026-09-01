@@ -152,3 +152,63 @@ def test_parameter_prior_requires_fleet_coverage_for_target_controls() -> None:
 
     with pytest.raises(ValueError, match=r"no fleet evidence.*flap"):
         prior.validate_input_spec(flap_spec)
+
+
+def test_configuration_specific_parameters_ignore_inapplicable_members() -> None:
+    trajectory = generate_fixed_wing_trajectory(seed=4, duration_s=0.2)
+    flap_spec = make_trajectory_spec(
+        FIXED_WING_CONTROL_NAMES + ("flap",),
+        family="fixedwing",
+        observation_source="simulator_truth",
+        configuration_id="flap_equipped_reference",
+    )
+    flap_trajectory = replace(
+        trajectory,
+        spec=flap_spec,
+        controls=np.column_stack((trajectory.controls, np.zeros(len(trajectory.controls)))),
+    )
+    params = true_fixed_wing_parameters()
+    names = structured_parameter_names(params)
+    size = len(names)
+    flap_indices = np.asarray(
+        [
+            index
+            for index, name in enumerate(names)
+            if name
+            in {
+                "log_flap_lift_accel_per_speed_sq",
+                "log_flap_drag_accel_per_speed_sq",
+                "flap_pitch_angular_accel_per_speed_sq",
+                "flap_trim_unconstrained",
+            }
+        ]
+    )
+    flapless_first = np.zeros(size)
+    flapless_second = np.zeros(size)
+    flap_equipped = np.zeros(size)
+    flapless_first[flap_indices] = -10.0
+    flapless_second[flap_indices] = 10.0
+    flap_equipped[flap_indices] = (0.2, 0.3, 0.4, 0.5)
+
+    prior = StructuredParameterPrior.from_beliefs(
+        (
+            _member_belief(trajectory, params, flapless_first),
+            _member_belief(trajectory, params, flapless_second),
+            _member_belief(flap_trajectory, params, flap_equipped),
+        ),
+        source="mixed_flap_configuration_reference",
+    )
+    base = np.asarray(structured_parameter_vector(params))
+
+    np.testing.assert_allclose(
+        prior.mean[flap_indices],
+        base[flap_indices] + flap_equipped[flap_indices],
+    )
+    assert set(np.asarray(prior.parameter_member_counts)[flap_indices]) == {1}
+    core_indices = np.setdiff1d(np.arange(size), flap_indices)
+    assert set(np.asarray(prior.parameter_member_counts)[core_indices]) == {3}
+    np.testing.assert_allclose(
+        prior.between_member_covariance[np.ix_(flap_indices, core_indices)],
+        0.0,
+    )
+    prior.validate_input_spec(flap_spec)
