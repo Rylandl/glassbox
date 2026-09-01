@@ -13,6 +13,7 @@ import numpy as np
 from jax import Array
 
 from glassbox.belief import DynamicsBelief, RuntimeDynamicsBelief
+from glassbox.data import duration_to_steps
 from glassbox.geometry import rigid_body_local_error
 from glassbox.nmpc.types import (
     NMPCDiagnostics,
@@ -75,9 +76,9 @@ def _default_policy(model: RuntimeDynamicsModel) -> _SolverPolicy:
     if certified is not None:
         target_horizon_s = min(target_horizon_s, certified)
     maximum_steps = 40 if model.input_spec.vehicle.family == "multirotor" else 50
-    steps = min(maximum_steps, max(2, math.floor(target_horizon_s / dt_s)))
+    steps = min(maximum_steps, max(2, duration_to_steps(target_horizon_s, dt_s)))
     if certified is not None and steps * dt_s > certified + 1e-12:
-        steps = math.floor(certified / dt_s)
+        steps = duration_to_steps(certified, dt_s)
     if steps < 1:
         raise ValueError("certified prediction horizon is shorter than one model step")
     return _SolverPolicy(horizon_steps=steps, block_count=min(10, steps))
@@ -120,8 +121,7 @@ class _DirectShootingBackend:
         self._policy = _default_policy(self.model) if _policy is None else _policy
         if _policy is None and belief.maximum_error_horizon_s is not None:
             supported_steps = math.floor(
-                belief.maximum_error_horizon_s
-                / self.model.runtime_spec.sample_period_s
+                belief.maximum_error_horizon_s / self.model.runtime_spec.sample_period_s
                 + 1e-9
             )
             if supported_steps < 1:
@@ -134,9 +134,7 @@ class _DirectShootingBackend:
                     horizon_steps=supported_steps,
                     block_count=min(self._policy.block_count, supported_steps),
                 )
-        horizon_s = (
-            self._policy.horizon_steps * self.model.runtime_spec.sample_period_s
-        )
+        horizon_s = self._policy.horizon_steps * self.model.runtime_spec.sample_period_s
         certified = self.model.runtime_spec.certified_prediction_horizon_s
         if certified is not None and horizon_s > certified + 1e-12:
             raise ValueError("solver horizon exceeds the model's certified horizon")
@@ -150,9 +148,7 @@ class _DirectShootingBackend:
         self._rollout_compiled = jax.jit(self._rollout)
         self._validity_compiled = jax.jit(self._maximum_validity_utilization)
         self._safety_compiled = jax.jit(self._maximum_safety_violation)
-        self._uncertainty_compiled = jax.jit(
-            self._maximum_normalized_model_uncertainty
-        )
+        self._uncertainty_compiled = jax.jit(self._maximum_normalized_model_uncertainty)
 
     @property
     def prediction_steps(self) -> int:
@@ -214,9 +210,7 @@ class _DirectShootingBackend:
             commands,
             exogenous,
         )
-        states = jnp.concatenate(
-            (initial_state[None, :], corrected_states), axis=0
-        )
+        states = jnp.concatenate((initial_state[None, :], corrected_states), axis=0)
         latent = jnp.concatenate((initial_latent[None, :], future_latent), axis=0)
         return states, latent, commands
 
@@ -381,9 +375,7 @@ class _DirectShootingBackend:
                     accepted_step_size,
                 ) = line_carry
                 candidate_step_size = step_size * jnp.power(0.5, line_iteration)
-                candidate = jnp.clip(
-                    blocks - candidate_step_size * gradient, -1.0, 1.0
-                )
+                candidate = jnp.clip(blocks - candidate_step_size * gradient, -1.0, 1.0)
                 candidate_value, candidate_gradient = self._objective_gradient(
                     candidate,
                     initial_state,
@@ -427,9 +419,7 @@ class _DirectShootingBackend:
                 next_value,
                 next_gradient,
                 accepted_step_size,
-            ) = jax.lax.while_loop(
-                continue_line_search, line_search_step, line_initial
-            )
+            ) = jax.lax.while_loop(continue_line_search, line_search_step, line_initial)
             relative_improvement = (value - next_value) / jnp.maximum(
                 jnp.abs(value), 1.0
             )
@@ -595,9 +585,7 @@ class _DirectShootingBackend:
                     math.inf if self.belief.uncertainty_available else 0.0
                 ),
                 command_authority_fraction=0.0,
-                uncertainty_aware_command_selection=(
-                    self.belief.uncertainty_available
-                ),
+                uncertainty_aware_command_selection=(self.belief.uncertainty_available),
                 model_uncertainty_available=self.belief.uncertainty_available,
                 prediction_error_model_available=(
                     self.belief.predictive_error_available
@@ -824,8 +812,7 @@ class _DirectShootingBackend:
             )
         command_authority = (
             min(1.0, 1.0 / maximum_model_uncertainty)
-            if self.belief.uncertainty_available
-            and maximum_model_uncertainty > 0.0
+            if self.belief.uncertainty_available and maximum_model_uncertainty > 0.0
             else 1.0
         )
         if command_authority < 1.0:
@@ -924,9 +911,7 @@ class _DirectShootingBackend:
                     maximum_model_uncertainty
                 ),
                 command_authority_fraction=command_authority,
-                uncertainty_aware_command_selection=(
-                    self.belief.uncertainty_available
-                ),
+                uncertainty_aware_command_selection=(self.belief.uncertainty_available),
                 model_uncertainty_available=self.belief.uncertainty_available,
                 prediction_error_model_available=(
                     self.belief.predictive_error_available
@@ -979,9 +964,7 @@ class NMPCController:
         self.belief = belief
         self.model = belief.nominal
         self.tolerances = (
-            TrackingTolerances.for_platform(
-                self.model.input_spec.vehicle.family
-            )
+            TrackingTolerances.for_platform(self.model.input_spec.vehicle.family)
             if tolerances is None
             else tolerances
         )

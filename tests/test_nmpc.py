@@ -248,8 +248,7 @@ def test_solver_consumes_predictive_and_parameter_uncertainty() -> None:
     assert result.diagnostics.prediction_error_model_current
     assert result.diagnostics.parameter_uncertainty_available
     assert (
-        result.diagnostics.maximum_normalized_model_uncertainty_standard_deviation
-        > 0.0
+        result.diagnostics.maximum_normalized_model_uncertainty_standard_deviation > 0.0
     )
     assert result.diagnostics.uncertainty_aware_command_selection
 
@@ -309,14 +308,50 @@ def test_default_horizon_does_not_exceed_predictive_error_evidence() -> None:
         params=model.params,
         input_spec=model.input_spec,
         runtime_spec=model.runtime_spec,
-        predictive_error=EmpiricalHorizonPredictiveError.from_samples(
-            {0.1: samples}
-        ),
+        predictive_error=EmpiricalHorizonPredictiveError.from_samples({0.1: samples}),
     )
 
     controller = NMPCController(belief)
 
     assert controller.prediction_horizon_s == pytest.approx(0.1)
+
+
+def test_default_multirotor_horizon_snaps_near_integer_sample_ratio() -> None:
+    controller = NMPCController(_multirotor_runtime())
+
+    assert controller.prediction_steps == 30
+    assert controller.prediction_horizon_s == pytest.approx(0.6)
+
+
+def test_stale_predictive_error_does_not_cap_default_horizon() -> None:
+    model = _multirotor_runtime()
+    endpoint_errors = 0.02 * np.concatenate((np.eye(12), -np.eye(12)))
+    samples = (
+        EmpiricalErrorSample(endpoint_errors, "group-a", "flight-a"),
+        EmpiricalErrorSample(endpoint_errors, "group-b", "flight-b"),
+    )
+    parameter_count = len(structured_parameter_names(model.params))
+    stale_belief = DynamicsBelief(
+        params=model.params,
+        input_spec=model.input_spec,
+        runtime_spec=model.runtime_spec,
+        predictive_error=EmpiricalHorizonPredictiveError.from_samples({0.1: samples}),
+        parameter_belief=LocalGaussianParameterBelief(
+            parameter_names=structured_parameter_names(model.params),
+            covariance=np.eye(parameter_count),
+            source="updated parameter belief",
+            evidence_count=1,
+            effective_sample_count=1.0,
+            update_count=1,
+        ),
+        predictive_error_parameter_update_count=0,
+    )
+
+    controller = NMPCController(stale_belief)
+
+    assert controller.belief.maximum_error_horizon_s is None
+    assert controller.prediction_steps == 30
+    assert controller.prediction_horizon_s == pytest.approx(0.6)
 
 
 def test_applied_command_initializes_latent_actuator_state() -> None:

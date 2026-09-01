@@ -125,9 +125,7 @@ def test_empirical_error_model_balances_complete_source_groups() -> None:
 
 
 def test_structured_parameter_belief_is_generic_and_leaves_residual_fixed() -> None:
-    residual = initial_residual_parameters(
-        true_fixed_wing_parameters(), hidden_units=3
-    )
+    residual = initial_residual_parameters(true_fixed_wing_parameters(), hidden_units=3)
     vector = np.asarray(structured_parameter_vector(residual))
     changed = vector.copy()
     changed[0] += 0.1
@@ -364,9 +362,7 @@ def test_local_information_conditions_complete_prior_without_collapsing_nullspac
         )
 
 
-def test_grouped_rollout_information_uses_only_fitted_structured_coordinates() -> (
-    None
-):
+def test_grouped_rollout_information_uses_only_fitted_structured_coordinates() -> None:
     trajectories = tuple(
         replace(
             generate_trajectory(seed=seed, duration_s=0.3),
@@ -407,8 +403,7 @@ def test_grouped_rollout_information_uses_only_fitted_structured_coordinates() -
 
 def test_grouped_rollout_information_is_vehicle_family_generic() -> None:
     trajectories = tuple(
-        generate_fixed_wing_trajectory(seed=seed, duration_s=0.3)
-        for seed in (1, 2)
+        generate_fixed_wing_trajectory(seed=seed, duration_s=0.3) for seed in (1, 2)
     )
     windows = trajectory_windows(
         trajectories,
@@ -485,6 +480,25 @@ def test_live_update_moves_structured_parameters_and_preserves_error_provenance(
     )
     assert not stale_assessment.information_available
     assert "stale" in stale_assessment.information_unavailable_reason
+    stale_prediction = stale_assessment.prediction
+    assert updated.compile_for_nmpc().maximum_error_horizon_s is None
+    np.testing.assert_allclose(
+        stale_prediction.mean_states,
+        stale_prediction.nominal_states,
+    )
+    np.testing.assert_array_equal(
+        stale_prediction.empirical_error_tangent_covariance,
+        np.zeros_like(stale_prediction.empirical_error_tangent_covariance),
+    )
+    assert stale_prediction.group_radius_quantiles is None
+    assert stale_prediction.empirical_error_covariance_scope is None
+    assert stale_prediction.parameter_uncertainty_available
+    assert stale_prediction.uncertainty_available
+    assert np.max(stale_prediction.parameter_tangent_covariance) > 0.0
+    np.testing.assert_allclose(
+        stale_prediction.tangent_covariance,
+        stale_prediction.parameter_tangent_covariance,
+    )
 
     updated_again, second_report = updated.update(telemetry)
     assert not second_report.applied

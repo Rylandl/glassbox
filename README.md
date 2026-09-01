@@ -80,6 +80,20 @@ evaluation motion and no acceptance threshold:
 uv run glassbox-adaptation-benchmark --output artifacts/adaptation.json
 ```
 
+A second fixed diagnostic carries an adjustable-arm configuration change all
+the way through a prewarmed NMPC recovery:
+
+```bash
+uv run glassbox-adaptive-recovery \
+  --output docs/adaptive-recovery-results.json
+```
+
+The recorded update improved independent prediction and recovery-tail error,
+but every closed-loop condition left the learned validity envelope. That
+negative evidence is retained explicitly: this is an integration result, not a
+safe-recovery or throw-to-recover claim. See the
+[adaptive recovery diagnostic](docs/adaptive-recovery.md).
+
 ## Experimental predictive ensembles
 
 Glassbox can now test whether corpus sensitivity contains useful predictive

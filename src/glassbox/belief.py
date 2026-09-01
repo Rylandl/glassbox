@@ -253,9 +253,7 @@ class EmpiricalHorizonPredictiveError:
         samples_by_horizon: Mapping[float, Sequence[EmpiricalErrorSample]],
         *,
         quantile_levels: tuple[float, ...] = (0.5, 0.8, 0.9),
-        covariance_scope: ErrorCovarianceScope = (
-            ErrorCovarianceScope.TOTAL_FORECAST
-        ),
+        covariance_scope: ErrorCovarianceScope = (ErrorCovarianceScope.TOTAL_FORECAST),
     ) -> EmpiricalHorizonPredictiveError:
         """Fit group-balanced empirical moments without a Gaussian claim."""
 
@@ -383,9 +381,7 @@ class EmpiricalHorizonPredictiveError:
         knots = jnp.asarray((0.0, *self.horizons_s))
         values = jnp.concatenate(
             (
-                jnp.zeros(
-                    (1, len(self.quantile_levels), len(TANGENT_GROUP_ORDER))
-                ),
+                jnp.zeros((1, len(self.quantile_levels), len(TANGENT_GROUP_ORDER))),
                 jnp.asarray(self.group_radius_quantiles),
             ),
             axis=0,
@@ -738,9 +734,7 @@ class LocalParameterInformation:
         fitted = np.asarray(self.fitted_parameter_mask, dtype=bool)
         if center.shape != (size,) or not np.all(np.isfinite(center)):
             raise ValueError("parameter-evidence center must match finite names")
-        if information.shape != (size, size) or not np.all(
-            np.isfinite(information)
-        ):
+        if information.shape != (size, size) or not np.all(np.isfinite(information)):
             raise ValueError("parameter information must be a finite square matrix")
         if not np.allclose(information, information.T, atol=1e-9):
             raise ValueError("parameter information must be symmetric")
@@ -748,8 +742,10 @@ class LocalParameterInformation:
         information_scale = max(float(np.max(np.abs(information_eigenvalues))), 1.0)
         if float(np.min(information_eigenvalues)) < -1e-9 * information_scale:
             raise ValueError("parameter information must be positive semidefinite")
-        if scale.shape != (size,) or not np.all(np.isfinite(scale)) or np.any(
-            scale <= 0.0
+        if (
+            scale.shape != (size,)
+            or not np.all(np.isfinite(scale))
+            or np.any(scale <= 0.0)
         ):
             raise ValueError("parameter-evidence scale must be finite and positive")
         if fitted.shape != (size,):
@@ -758,7 +754,9 @@ class LocalParameterInformation:
             raise ValueError("parameter evidence requires a fitted parameter")
         inactive = ~fitted
         if np.any(np.abs(information[inactive]) > 1e-10 * information_scale):
-            raise ValueError("parameters excluded from fitting cannot contain information")
+            raise ValueError(
+                "parameters excluded from fitting cannot contain information"
+            )
         horizons = tuple(float(value) for value in self.horizons_s)
         windows = tuple(int(value) for value in self.window_count_by_horizon)
         precision_ranks = tuple(
@@ -771,7 +769,9 @@ class LocalParameterInformation:
             or any(not np.isfinite(value) or value <= 0.0 for value in horizons)
             or any(right <= left for left, right in pairwise(horizons))
         ):
-            raise ValueError("parameter-evidence horizons must be finite and increasing")
+            raise ValueError(
+                "parameter-evidence horizons must be finite and increasing"
+            )
         if not (
             len(horizons) == len(windows) == len(precision_ranks)
             and all(value > 0 for value in windows)
@@ -804,7 +804,9 @@ class LocalParameterInformation:
         try:
             covariance_scope = ErrorCovarianceScope(self.covariance_scope)
         except ValueError as error:
-            raise ValueError("unsupported parameter-evidence covariance scope") from error
+            raise ValueError(
+                "unsupported parameter-evidence covariance scope"
+            ) from error
         object.__setattr__(self, "parameter_names", names)
         object.__setattr__(self, "center", center)
         object.__setattr__(
@@ -856,8 +858,7 @@ class LocalParameterInformation:
             return 0
         return int(
             np.count_nonzero(
-                eigenvalues
-                > self.rank_relative_tolerance * float(np.max(eigenvalues))
+                eigenvalues > self.rank_relative_tolerance * float(np.max(eigenvalues))
             )
         )
 
@@ -932,9 +933,7 @@ class LocalParameterInformation:
             "group_labels": list(self.group_labels),
             "group_score_vectors": self.group_score_vectors.tolist(),
             "score_vector": self.score_vector.tolist(),
-            "group_score_second_moment": (
-                self.group_score_second_moment.tolist()
-            ),
+            "group_score_second_moment": (self.group_score_second_moment.tolist()),
             "independent_group_count": self.independent_group_count,
             "trajectory_count": self.trajectory_count,
             "rank_relative_tolerance": self.rank_relative_tolerance,
@@ -1044,36 +1043,31 @@ class PredictiveTrajectory:
     def tangent_covariance(self) -> Array:
         """Return total local model uncertainty from distinct components."""
 
-        if (
-            self.empirical_error_covariance_scope
-            == ErrorCovarianceScope.TOTAL_FORECAST
-        ):
+        if self.empirical_error_covariance_scope == ErrorCovarianceScope.TOTAL_FORECAST:
             return self.empirical_error_tangent_covariance
         return (
-            self.empirical_error_tangent_covariance
-            + self.parameter_tangent_covariance
+            self.empirical_error_tangent_covariance + self.parameter_tangent_covariance
         )
 
     @property
     def parameter_covariance_combined_with_empirical_error(self) -> bool:
         return (
             self.parameter_uncertainty_available
-            and self.predictive_error_available
+            and self.predictive_error_current
             and self.empirical_error_covariance_scope
             == ErrorCovarianceScope.CONDITIONAL_INNOVATION
         )
 
     @property
     def uncertainty_available(self) -> bool:
-        return self.predictive_error_available or self.parameter_uncertainty_available
+        return self.predictive_error_current or self.parameter_uncertainty_available
 
     @property
     def uncertainty_horizon_supported(self) -> bool:
         """Compatibility summary for the empirical predictive-error horizon."""
 
         return (
-            not self.predictive_error_available
-            or self.predictive_error_horizon_supported
+            not self.predictive_error_current or self.predictive_error_horizon_supported
         )
 
     @property
@@ -1331,9 +1325,7 @@ class DynamicsBelief:
             "prior_artifact": prior.to_dict(),
             "local_evidence_source": self.parameter_evidence.source,
             "local_information_rank": self.parameter_evidence.numerical_rank,
-            "local_covariance_scope": (
-                self.parameter_evidence.covariance_scope.value
-            ),
+            "local_covariance_scope": (self.parameter_evidence.covariance_scope.value),
             "parameter_covariance_updated": contracts_covariance,
             "local_independent_group_count": (
                 self.parameter_evidence.independent_group_count
@@ -1446,7 +1438,7 @@ class RuntimeDynamicsBelief:
 
     @property
     def uncertainty_available(self) -> bool:
-        return self.predictive_error_available or self.parameter_uncertainty_available
+        return self.predictive_error_current or self.parameter_uncertainty_available
 
     @property
     def predictive_error_current(self) -> bool:
@@ -1458,7 +1450,11 @@ class RuntimeDynamicsBelief:
 
     @property
     def maximum_error_horizon_s(self) -> float | None:
-        return self.predictive_error.maximum_horizon_s
+        return (
+            self.predictive_error.maximum_horizon_s
+            if self.predictive_error_current
+            else None
+        )
 
     def error_moments(
         self,
@@ -1467,6 +1463,11 @@ class RuntimeDynamicsBelief:
         command: Array | None = None,
         exogenous: Array | None = None,
     ) -> tuple[Array, Array]:
+        if not self.predictive_error_current:
+            return (
+                jnp.zeros(TANGENT_STATE_SIZE),
+                jnp.zeros((TANGENT_STATE_SIZE, TANGENT_STATE_SIZE)),
+            )
         return self.predictive_error.moments(
             horizon_s,
             state=state,
@@ -1656,7 +1657,13 @@ class RuntimeDynamicsBelief:
                 parameter_covariance,
             )
         )
-        if isinstance(self.predictive_error, EmpiricalHorizonPredictiveError):
+        if (
+            isinstance(
+                self.predictive_error,
+                EmpiricalHorizonPredictiveError,
+            )
+            and self.predictive_error_current
+        ):
             future_radii = jax.vmap(self.predictive_error.radius_quantiles)(horizons)
             group_radius_quantiles = jnp.concatenate(
                 (
@@ -1690,9 +1697,7 @@ class RuntimeDynamicsBelief:
             latent_states=latent_states,
             commands=commands,
             tangent_bias=tangent_bias,
-            empirical_error_tangent_covariance=(
-                empirical_error_tangent_covariance
-            ),
+            empirical_error_tangent_covariance=(empirical_error_tangent_covariance),
             parameter_tangent_covariance=parameter_tangent_covariance,
             parameter_tangent_jacobian=parameter_jacobian,
             quantile_levels=quantile_levels,
@@ -1712,6 +1717,7 @@ class RuntimeDynamicsBelief:
                     self.predictive_error,
                     EmpiricalHorizonPredictiveError,
                 )
+                and self.predictive_error_current
                 else None
             ),
         )
@@ -1797,12 +1803,9 @@ class RuntimeDynamicsBelief:
                 ),
             )
         prior_factor = prior_support.basis * np.sqrt(prior_support.variances)
-        whitened_jacobian = residual_support.whiten_rows(
-            jacobian @ prior_factor
-        )
+        whitened_jacobian = residual_support.whiten_rows(jacobian @ prior_factor)
         normalized_information = (
-            np.eye(prior_support.rank)
-            + whitened_jacobian.T @ whitened_jacobian
+            np.eye(prior_support.rank) + whitened_jacobian.T @ whitened_jacobian
         )
         sign, logdet = np.linalg.slogdet(normalized_information)
         if sign <= 0.0 or not np.isfinite(logdet):

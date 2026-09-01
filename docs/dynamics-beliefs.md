@@ -133,6 +133,11 @@ is recomputed from the disjoint validation evidence; proposal-carried geometry
 cannot make the committed belief overconfident. One contiguous telemetry block
 is one evidence unit regardless of its window count.
 
+Stale predictive-error artifacts remain attached for provenance and
+recalibration, but runtime forecasts and NMPC no longer apply their bias,
+covariance, or quantiles. Independently maintained parameter uncertainty remains
+active around the updated nominal model.
+
 Ordinary point fits explicitly use a `PointParameterBelief`; they do not invent
 covariance. When `glassbox-fit` writes a model, it also differentiates a bounded,
 group-balanced sample of the training rollouts and stores
