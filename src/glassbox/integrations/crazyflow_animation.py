@@ -261,7 +261,7 @@ def _throw_storyboard(
         elif simulation_time < hover_time:
             phase = "recovery"
             status = "CONTINUOUS IDENTIFICATION + STABILIZATION"
-            detail = "Certified support controls; every new interval is still fitted"
+            detail = "Validated belief controls; the live working fit keeps updating"
         else:
             phase = "hover"
             status = "SUSTAINED HOVER IN SIMULATION"
@@ -772,7 +772,7 @@ def _draw_throw_overlay(
         model_status = "OFF"
         model_color = _AMBER
     elif certified:
-        model_status = "CONTROL CERTIFIED / FIT LIVE"
+        model_status = "CONTROL VALIDATED / FIT LIVE"
         model_color = _MINT
     else:
         model_status = "UPDATING / PARTIAL"
@@ -918,7 +918,7 @@ def _draw_throw_overlay(
                 (
                     trace.timestamps_s[trace.certified_belief_sample_index]
                     / terminal_time,
-                    "SUPPORTED",
+                    "VALIDATED",
                 ),
                 (
                     1.0 if hover_time is None else hover_time / terminal_time,

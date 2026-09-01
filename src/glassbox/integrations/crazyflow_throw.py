@@ -19,6 +19,73 @@ from glassbox.online_bootstrap import (
 
 
 @dataclass(frozen=True)
+class CrazyflowThrowScenario:
+    """One deterministic hidden-airframe and release configuration."""
+
+    name: str = "canonical"
+    arm_length_ratio: float = 1.25
+    release_height_m: float = 1.2
+    world_velocity_m_s: tuple[float, float, float] = (1.0, -0.6, 10.0)
+    angular_velocity_rad_s: tuple[float, float, float] = (0.8, -0.6, 0.4)
+    roll_rad: float = 0.20
+    pitch_rad: float = -0.15
+
+    def __post_init__(self) -> None:
+        vector = np.asarray(
+            (
+                self.arm_length_ratio,
+                self.release_height_m,
+                *self.world_velocity_m_s,
+                *self.angular_velocity_rad_s,
+                self.roll_rad,
+                self.pitch_rad,
+            ),
+            dtype=np.float64,
+        )
+        if not self.name:
+            raise ValueError("throw scenario name cannot be empty")
+        if vector.shape != (10,) or not np.all(np.isfinite(vector)):
+            raise ValueError("throw scenario values must be finite")
+        if self.arm_length_ratio <= 0.0 or self.release_height_m <= 0.0:
+            raise ValueError("throw arm ratio and release height must be positive")
+
+
+CRAZYFLOW_THROW_CAMPAIGN_SCENARIOS = (
+    CrazyflowThrowScenario(),
+    CrazyflowThrowScenario(
+        name="shorter_arms_high_release",
+        arm_length_ratio=1.15,
+        release_height_m=2.5,
+    ),
+    CrazyflowThrowScenario(
+        name="long_arms_cross_axis_tumble",
+        arm_length_ratio=1.35,
+        release_height_m=2.5,
+        world_velocity_m_s=(0.5, 0.8, 10.0),
+        angular_velocity_rad_s=(0.5, 0.7, -0.3),
+        roll_rad=0.15,
+        pitch_rad=0.12,
+    ),
+    CrazyflowThrowScenario(
+        name="milder_low_energy_release",
+        release_height_m=2.5,
+        world_velocity_m_s=(0.7, -0.4, 9.0),
+        angular_velocity_rad_s=(0.6, -0.4, 0.3),
+        roll_rad=0.15,
+        pitch_rad=-0.10,
+    ),
+    CrazyflowThrowScenario(
+        name="reversed_tumble",
+        release_height_m=2.5,
+        world_velocity_m_s=(-1.0, 0.6, 10.0),
+        angular_velocity_rad_s=(-0.8, 0.6, -0.4),
+        roll_rad=-0.20,
+        pitch_rad=0.15,
+    ),
+)
+
+
+@dataclass(frozen=True)
 class CrazyflowThrowTrace:
     """State-aligned telemetry for one uninterrupted release-to-hover trial."""
 
@@ -121,23 +188,26 @@ def _norm(values: np.ndarray) -> np.ndarray:
     return np.linalg.norm(values, axis=1)
 
 
-def run_crazyflow_throw_trial() -> CrazyflowThrowRun:
+def run_crazyflow_throw_trial(
+    scenario: CrazyflowThrowScenario | None = None,
+) -> CrazyflowThrowRun:
     """Tumble unpowered for one second, then identify and stabilize online."""
 
+    scenario = CrazyflowThrowScenario() if scenario is None else scenario
     plant = CrazyflowPlant(CrazyflowPlantConfig(control_frequency_hz=100))
     try:
-        plant.set_arm_length_ratio(1.25)
+        plant.set_arm_length_ratio(scenario.arm_length_ratio)
         identifier = RecursiveBootstrapIdentifier()
         controller = ProgressiveBootstrapController(identifier.config)
         minimum = np.asarray(identifier.config.command_minimum)
         maximum = np.asarray(identifier.config.command_maximum)
         release_state = _initial_state(
-            world_velocity_m_s=(1.0, -0.6, 10.0),
-            angular_velocity_rad_s=(0.8, -0.6, 0.4),
-            roll_rad=0.20,
-            pitch_rad=-0.15,
+            world_velocity_m_s=scenario.world_velocity_m_s,
+            angular_velocity_rad_s=scenario.angular_velocity_rad_s,
+            roll_rad=scenario.roll_rad,
+            pitch_rad=scenario.pitch_rad,
         )
-        release_state[2] = 1.2
+        release_state[2] = scenario.release_height_m
         sample = plant.reset(
             release_state,
             applied_motor_thrust_fraction=np.zeros(4),
@@ -191,6 +261,9 @@ def run_crazyflow_throw_trial() -> CrazyflowThrowRun:
                 sample.state,
                 control_belief,
                 previous_command=previous_command,
+                exploration_belief=(
+                    None if identifier.certified_belief is None else identifier.belief
+                ),
             )
             previous_state = sample.state
             previous_applied = sample.applied_motor_thrust_fraction
@@ -292,9 +365,24 @@ def run_crazyflow_throw_trial() -> CrazyflowThrowRun:
         first_authority_time_s = float(timestamps[first_supported_control_sample_index])
         certified_time_s = float(timestamps[certified_belief_sample_index])
         update_times = np.asarray(update_wall_times_s)
+        validation_reports = identifier.validation_history
+        initial_admission = next(
+            (
+                validation
+                for validation in validation_reports
+                if validation.initial_admission and validation.accepted
+            ),
+            None,
+        )
+        if initial_admission is None:
+            raise RuntimeError("certified belief has no accepted initial validation")
+        replacement_commit_count = sum(
+            validation.accepted and not validation.initial_admission
+            for validation in validation_reports
+        )
         report = {
             "artifact_type": "glassbox_crazyflow_online_throw_recovery_diagnostic",
-            "schema_version": 2,
+            "schema_version": 3,
             "semantics": {
                 "diagnostic_only": True,
                 "flight_safety_claim": False,
@@ -310,8 +398,12 @@ def run_crazyflow_throw_trial() -> CrazyflowThrowRun:
                 "progressive_supported_direction_authority": True,
                 "working_belief_updated_every_actuated_interval": True,
                 "unsupported_closed_loop_candidate_cannot_erase_certified_support": True,
-                "initial_control_belief_uses_disjoint_predictive_validation": False,
-                "post_admission_candidate_replacement_implemented": False,
+                "initial_control_belief_uses_disjoint_predictive_validation": True,
+                "post_admission_candidate_replacement_implemented": True,
+                "control_authority_uses_information_and_supported_covariance": True,
+                "active_excitation_targets_weak_information_directions": True,
+                "feedback_uses_committed_belief_after_admission": True,
+                "exploration_uses_continuously_updated_working_belief": True,
                 "airframe_parameter_prior_used": False,
                 "canonical_motor_mixer_supplied_to_identifier": False,
                 "hover_command_supplied_to_identifier": False,
@@ -320,7 +412,8 @@ def run_crazyflow_throw_trial() -> CrazyflowThrowRun:
                 "hidden_plant_values_used_only_for_post_run_evaluation": True,
             },
             "configuration": {
-                "hidden_arm_length_ratio": 1.25,
+                "scenario_name": scenario.name,
+                "hidden_arm_length_ratio": scenario.arm_length_ratio,
                 "release_height_m": float(release_state[2]),
                 "release_world_velocity_m_s": release_state[3:6].tolist(),
                 "release_angular_velocity_rad_s": release_state[10:13].tolist(),
@@ -343,14 +436,38 @@ def run_crazyflow_throw_trial() -> CrazyflowThrowRun:
                     "output_rank_relative_tolerance": (
                         identifier.config.output_rank_relative_tolerance
                     ),
-                    "authority_start_interval_count": (
-                        identifier.config.authority_start_interval_count
+                    "minimum_information_singular_value": (
+                        identifier.config.minimum_information_singular_value
                     ),
-                    "authority_full_interval_count": (
-                        identifier.config.authority_full_interval_count
+                    "full_authority_information_singular_value": (
+                        identifier.config.full_authority_information_singular_value
+                    ),
+                    "minimum_effect_signal_to_noise": (
+                        identifier.config.minimum_effect_signal_to_noise
+                    ),
+                    "full_authority_effect_signal_to_noise": (
+                        identifier.config.full_authority_effect_signal_to_noise
+                    ),
+                    "collective_residual_std_floor_m_s2": (
+                        identifier.config.collective_residual_std_floor_m_s2
+                    ),
+                    "angular_residual_std_floor_rad_s2": (
+                        identifier.config.angular_residual_std_floor_rad_s2
                     ),
                     "minimum_certification_interval_count": (
                         identifier.config.minimum_certification_interval_count
+                    ),
+                    "validation_interval_count": (
+                        identifier.config.validation_interval_count
+                    ),
+                    "minimum_validation_improvement": (
+                        identifier.config.minimum_validation_improvement
+                    ),
+                    "maximum_model_movement_fraction": (
+                        identifier.config.maximum_model_movement_fraction
+                    ),
+                    "proposal_cooldown_interval_count": (
+                        identifier.config.proposal_cooldown_interval_count
                     ),
                 },
                 "controller": {
@@ -366,6 +483,9 @@ def run_crazyflow_throw_trial() -> CrazyflowThrowRun:
                     ),
                     "continuing_excitation_fraction": (
                         controller.config.continuing_excitation_fraction
+                    ),
+                    "maximum_committed_excitation_fraction": (
+                        controller.config.maximum_committed_excitation_fraction
                     ),
                     "maximum_feedback_delta": (
                         controller.config.maximum_feedback_delta
@@ -392,23 +512,35 @@ def run_crazyflow_throw_trial() -> CrazyflowThrowRun:
                 "terminal_working_belief": working_belief.to_dict(),
                 "working_update_count": working_belief.interval_count,
                 "control_authority_was_progressive_before_certification": True,
+                "pending_proposal_at_trial_end": identifier.pending_proposal,
+                "accepted_update_count": identifier.accepted_update_count,
+                "rejected_update_count": identifier.rejected_update_count,
+                "accepted_replacement_count": replacement_commit_count,
+                "initial_admission_validation": initial_admission.to_dict(),
+                "last_validation": validation_reports[-1].to_dict(),
+                "validation_history": [
+                    validation.to_dict() for validation in validation_reports
+                ],
                 "control_belief_admission_contract": {
                     "minimum_interval_count": (
                         identifier.config.minimum_certification_interval_count
                     ),
                     "required_command_evidence_rank": 4,
                     "required_angular_effect_rank": 3,
-                    "minimum_axis_authority": 0.95,
+                    "minimum_exploration_completion": 0.75,
                     "feasible_hover_command_required": True,
-                    "disjoint_predictive_validation_required": False,
-                    "claim": "structural_support_and_feasibility_only",
+                    "future_validation_interval_count": (
+                        identifier.config.validation_interval_count
+                    ),
+                    "minimum_validation_improvement": (
+                        identifier.config.minimum_validation_improvement
+                    ),
+                    "maximum_replacement_model_movement_fraction": (
+                        identifier.config.maximum_model_movement_fraction
+                    ),
+                    "disjoint_predictive_validation_required": True,
+                    "claim": "frozen_candidate_prequential_future_validation",
                 },
-                "terminal_candidate_rejected_for_lost_independent_support": bool(
-                    working_belief.command_evidence_rank
-                    < certified_belief.command_evidence_rank
-                    or working_belief.angular_effect_rank
-                    < certified_belief.angular_effect_rank
-                ),
             },
             "evaluation_only": {
                 "hidden_hover_motor_command": hidden_hover,
@@ -483,6 +615,16 @@ def run_crazyflow_throw_trial() -> CrazyflowThrowRun:
                 "working_belief_updated_for_every_post_enable_interval": (
                     working_belief.interval_count == online_step_count
                 ),
+                "initial_admission_scored_on_future_intervals": (
+                    initial_admission.validation_interval_count
+                    == identifier.config.validation_interval_count
+                    and initial_admission.candidate_interval_count
+                    + initial_admission.validation_interval_count
+                    == certified_belief_sample_index - model_enable_sample_index
+                ),
+                "at_least_one_belief_replacement_committed": (
+                    replacement_commit_count >= 1
+                ),
                 "certified_command_evidence_rank_is_four": (
                     certified_belief.command_evidence_rank == 4
                 ),
@@ -515,8 +657,8 @@ def run_crazyflow_throw_trial() -> CrazyflowThrowRun:
                 "Exact simulator state and measured applied rotor state are used.",
                 "The first post-enable command is centered at the known command-bounds midpoint.",
                 "The controller regulates velocity, attitude, and rates but not position.",
-                "Initial persistent-belief admission checks rank support, authority, sample count, and hover feasibility; it is not disjoint predictive validation.",
-                "The admitted belief is retained after independent closed-loop excitation fades; later candidate replacement is disabled until independent predictive validation is implemented.",
+                "Candidate admission uses a short local future-prediction window; it is not a calibrated probability of flight safety.",
+                "The nuisance-only initial reference and committed-model replacement reference are local one-step predictors, not full trajectory validators.",
                 "No sensor noise, estimator delay, packet loss, or firmware scheduling is included.",
                 "No real vehicle, propeller proximity, or human-release safety claim is made.",
             ],
@@ -550,13 +692,146 @@ def run_crazyflow_throw_benchmark() -> dict[str, Any]:
     return run_crazyflow_throw_trial().report
 
 
+def run_crazyflow_throw_campaign(
+    scenarios: tuple[CrazyflowThrowScenario, ...] = CRAZYFLOW_THROW_CAMPAIGN_SCENARIOS,
+) -> dict[str, Any]:
+    """Run the fixed development campaign without hiding failed gates."""
+
+    if not scenarios:
+        raise ValueError("throw campaign needs at least one scenario")
+    if len({scenario.name for scenario in scenarios}) != len(scenarios):
+        raise ValueError("throw campaign scenario names must be unique")
+    cases: list[dict[str, Any]] = []
+    for scenario in scenarios:
+        run = run_crazyflow_throw_trial(scenario)
+        report = run.report
+        recovery = report["continuous_throw"]
+        observations = report["observations"]
+        identification = report["identification"]
+        cases.append(
+            {
+                "scenario": {
+                    "name": scenario.name,
+                    "hidden_arm_length_ratio": scenario.arm_length_ratio,
+                    "release_height_m": scenario.release_height_m,
+                    "release_world_velocity_m_s": list(scenario.world_velocity_m_s),
+                    "release_angular_velocity_rad_s": list(
+                        scenario.angular_velocity_rad_s
+                    ),
+                    "release_roll_rad": scenario.roll_rad,
+                    "release_pitch_rad": scenario.pitch_rad,
+                },
+                "gate_passed": observations["gate_passed"],
+                "failed_observations": [
+                    name
+                    for name, passed in observations.items()
+                    if name != "gate_passed" and not passed
+                ],
+                "timing": {
+                    "first_supported_control_time_s": report["timing"][
+                        "first_supported_control_time_s"
+                    ],
+                    "initial_belief_admission_time_s": report["timing"][
+                        "certified_belief_time_s"
+                    ],
+                },
+                "identification": {
+                    "accepted_update_count": identification["accepted_update_count"],
+                    "rejected_update_count": identification["rejected_update_count"],
+                    "accepted_replacement_count": identification[
+                        "accepted_replacement_count"
+                    ],
+                    "terminal_working_command_evidence_rank": identification[
+                        "terminal_working_belief"
+                    ]["command_evidence_rank"],
+                    "terminal_working_angular_effect_rank": identification[
+                        "terminal_working_belief"
+                    ]["angular_effect_rank"],
+                },
+                "recovery": {
+                    name: recovery[name]
+                    for name in (
+                        "terminal_velocity_norm_m_s",
+                        "terminal_angular_rate_norm_rad_s",
+                        "terminal_tilt_rad",
+                        "terminal_vertical_velocity_m_s",
+                        "minimum_altitude_m",
+                        "maximum_altitude_m",
+                        "maximum_horizontal_excursion_m",
+                        "sustained_hover_duration_s",
+                        "commands_finite",
+                        "commands_bounded",
+                    )
+                },
+            }
+        )
+    passing_cases = [case for case in cases if case["gate_passed"]]
+    recovery_cases = [case["recovery"] for case in cases]
+    result = {
+        "artifact_type": "glassbox_crazyflow_online_throw_development_campaign",
+        "schema_version": 1,
+        "semantics": {
+            "diagnostic_only": True,
+            "flight_safety_claim": False,
+            "fixed_scenarios": scenarios == CRAZYFLOW_THROW_CAMPAIGN_SCENARIOS,
+            "held_out_after_controller_tuning": False,
+            "failed_gates_retained": True,
+            "exact_simulator_state_used": True,
+            "sensor_noise_or_delay_modeled": False,
+        },
+        "case_count": len(cases),
+        "cases": cases,
+        "aggregate": {
+            "passing_case_count": len(passing_cases),
+            "failing_case_count": len(cases) - len(passing_cases),
+            "pass_fraction": len(passing_cases) / len(cases),
+            "all_commands_finite_and_bounded": all(
+                recovery["commands_finite"] and recovery["commands_bounded"]
+                for recovery in recovery_cases
+            ),
+            "worst_terminal_velocity_norm_m_s": max(
+                recovery["terminal_velocity_norm_m_s"] for recovery in recovery_cases
+            ),
+            "worst_terminal_angular_rate_norm_rad_s": max(
+                recovery["terminal_angular_rate_norm_rad_s"]
+                for recovery in recovery_cases
+            ),
+            "worst_terminal_tilt_rad": max(
+                recovery["terminal_tilt_rad"] for recovery in recovery_cases
+            ),
+            "minimum_sustained_hover_duration_s": min(
+                recovery["sustained_hover_duration_s"] for recovery in recovery_cases
+            ),
+            "minimum_altitude_m": min(
+                recovery["minimum_altitude_m"] for recovery in recovery_cases
+            ),
+        },
+        "limitations": [
+            "This is a small deterministic development campaign, not held-out validation.",
+            "The scenarios vary arm length and release state but not sensors, timing, motors, battery, or aerodynamics.",
+            "A passed recovery gate is not a calibrated probability of flight safety.",
+        ],
+    }
+    json.dumps(result, allow_nan=False)
+    return result
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Run the unpowered-throw online Crazyflow diagnostic."
     )
     parser.add_argument("output", type=Path)
+    parser.add_argument(
+        "--campaign",
+        action="store_true",
+        help="run the fixed multi-configuration development campaign",
+    )
     args = parser.parse_args()
-    report = run_crazyflow_throw_benchmark()
+    report = (
+        run_crazyflow_throw_campaign()
+        if args.campaign
+        else run_crazyflow_throw_benchmark()
+    )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2, allow_nan=False) + "\n")
     print(f"wrote {args.output}")

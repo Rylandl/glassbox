@@ -108,17 +108,27 @@ A stricter continuous diagnostic now begins with stopped motors at a `1.2 m`
 hand-release state and leaves the model, controller, requested motors, and
 applied motors off for exactly `1.00 s`. Identification and bounded control then
 start together: every `10 ms` motor interval updates a recursive working belief,
-and supported directions earn authority progressively. A full-rank control
-belief is structurally admitted at `1.53 s`, but there is no
-collect-then-control handoff. This admission is a support/feasibility gate, not
-yet disjoint predictive validation.
-By `10.00 s`, the uninterrupted run reaches `0.0054 m/s` speed,
-`0.0184 rad/s` body rate, and less than `0.00003 rad` tilt, with a strict hover
-envelope sustained for the final `4.26 s`. The real-time exporter produces both
+and supported directions earn covariance- and information-based authority
+progressively. A frozen full-rank proposal is admitted at `2.26 s` only after
+improving predictions on the next `16` intervals; later candidates use the same
+prequential propose/validate/commit path. Feedback uses the committed belief
+while bounded information-directed probing follows the live belief, so there is
+still no collect-then-control handoff.
+By `10.00 s`, the uninterrupted run reaches `0.0111 m/s` speed,
+`0.0120 rad/s` body rate, and `0.00099 rad` tilt, with a strict hover envelope
+sustained for the final `5.73 s`. The run commits seven validated belief
+replacements after initial admission. The real-time exporter produces both
 the exact unpowered first second and the full online recovery with no editorial
 holds. Crazyflow injects the release state, so hand contact, estimator startup,
 and real propeller safety remain outside the result. See the
 [continuous throw diagnostic](docs/crazyflow-throw.md).
+
+A fixed five-case development campaign passes three complete recovery gates.
+All five cases remain finite and command-bounded and eventually enter the hover
+envelope, but one narrowly misses the terminal vertical-speed threshold and a
+reversed tumble contacts the simulated ground before stabilizing. Those failures
+are retained in the recorded artifact; the campaign is tuned development
+evidence, not a held-out robustness or flight-safety result.
 
 The compact synthetic diagnostic exercises that full lifecycle on an unseen
 multirotor and fixed-wing configuration, using disjoint adaptation and

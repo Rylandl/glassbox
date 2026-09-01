@@ -64,7 +64,11 @@ from glassbox.integrations.crazyflow_prototype import (
     generate_crazyflow_trajectory,
     run_crazyflow_prototype,
 )
-from glassbox.integrations.crazyflow_throw import run_crazyflow_throw_trial
+from glassbox.integrations.crazyflow_throw import (
+    CRAZYFLOW_THROW_CAMPAIGN_SCENARIOS,
+    run_crazyflow_throw_campaign,
+    run_crazyflow_throw_trial,
+)
 from glassbox.nmpc import NMPCController
 from glassbox.runtime import runtime_spec_from_trajectory
 from glassbox.synthetic import generate_trajectory, resting_state, true_parameters
@@ -528,10 +532,15 @@ def test_continuous_throw_fits_and_arrests_without_a_post_release_reset() -> Non
     assert report["semantics"]["flight_safety_claim"] is False
     assert report["semantics"]["continuous_identification_during_control"]
     assert report["semantics"]["separate_evidence_collection_phase"] is False
+    assert report["semantics"][
+        "initial_control_belief_uses_disjoint_predictive_validation"
+    ]
+    assert report["semantics"]["post_admission_candidate_replacement_implemented"]
+    assert report["semantics"]["active_excitation_targets_weak_information_directions"]
     assert report["observations"]["gate_passed"]
     assert trace.model_enable_sample_index == 100
-    assert trace.first_supported_control_sample_index == 109
-    assert trace.certified_belief_sample_index == 153
+    assert trace.first_supported_control_sample_index == 105
+    assert trace.certified_belief_sample_index == 226
     assert trace.states.shape == (1001, 13)
     assert trace.applied_motor_commands.shape == (1001, 4)
     assert trace.requested_motor_commands.shape == (1000, 4)
@@ -551,13 +560,18 @@ def test_continuous_throw_fits_and_arrests_without_a_post_release_reset() -> Non
     certified = report["identification"]["certified_control_belief"]
     assert certified["command_evidence_rank"] == 4
     assert certified["angular_effect_rank"] == 3
+    initial_validation = report["identification"]["initial_admission_validation"]
+    assert initial_validation["candidate_interval_count"] == 110
+    assert initial_validation["validation_interval_count"] == 16
+    assert initial_validation["accepted"]
+    assert report["identification"]["accepted_replacement_count"] >= 1
     assert report["continuous_throw"]["terminal_to_release_velocity_ratio"] < 0.01
     assert report["continuous_throw"]["terminal_to_release_rate_ratio"] < 0.02
     assert report["continuous_throw"]["terminal_tilt_rad"] < 0.01
     assert report["continuous_throw"]["terminal_velocity_norm_m_s"] < 0.02
     assert report["continuous_throw"]["terminal_angular_rate_norm_rad_s"] < 0.03
     assert abs(report["continuous_throw"]["terminal_vertical_velocity_m_s"]) < 0.01
-    assert report["continuous_throw"]["sustained_hover_duration_s"] > 4.0
+    assert report["continuous_throw"]["sustained_hover_duration_s"] > 5.0
     moments = _throw_storyboard(trace, CrazyflowAnimationConfig())
     throw_only_moments = _throw_storyboard(
         trace,
@@ -584,3 +598,35 @@ def test_continuous_throw_fits_and_arrests_without_a_post_release_reset() -> Non
         report["continuous_throw"]["terminal_to_release_velocity_ratio"],
         rel=1e-6,
     )
+
+
+@pytest.mark.crazyflow
+def test_continuous_throw_campaign_retains_successes_and_failed_gates() -> None:
+    pytest.importorskip("crazyflow")
+
+    report = run_crazyflow_throw_campaign()
+
+    assert report["case_count"] == len(CRAZYFLOW_THROW_CAMPAIGN_SCENARIOS) == 5
+    assert report["semantics"]["held_out_after_controller_tuning"] is False
+    assert report["semantics"]["failed_gates_retained"]
+    assert report["aggregate"]["passing_case_count"] == 3
+    assert report["aggregate"]["failing_case_count"] == 2
+    assert report["aggregate"]["pass_fraction"] == pytest.approx(0.6)
+    assert report["aggregate"]["all_commands_finite_and_bounded"]
+    by_name = {case["scenario"]["name"]: case for case in report["cases"]}
+    assert by_name["canonical"]["gate_passed"]
+    assert by_name["shorter_arms_high_release"]["gate_passed"]
+    assert by_name["long_arms_cross_axis_tumble"]["gate_passed"]
+    assert by_name["milder_low_energy_release"]["failed_observations"] == [
+        "terminal_vertical_speed_below_0_01_m_s"
+    ]
+    assert by_name["reversed_tumble"]["failed_observations"] == [
+        "minimum_altitude_above_1_m"
+    ]
+
+    recorded = json.loads(
+        (
+            Path(__file__).parents[1] / "docs/crazyflow-throw-campaign-results.json"
+        ).read_text()
+    )
+    assert recorded["aggregate"] == report["aggregate"]

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import replace
+
 import numpy as np
 import pytest
 
@@ -13,6 +15,7 @@ from glassbox.bootstrap_identification import (
 from glassbox.dynamics import GRAVITY_M_S2, MOTOR_MIXER
 from glassbox.online_bootstrap import (
     ProgressiveBootstrapController,
+    RecursiveBootstrapConfig,
     RecursiveBootstrapIdentifier,
 )
 
@@ -34,6 +37,7 @@ def _linear_hidden_plant(
     commands: np.ndarray,
     *,
     sample_period_s: float = 0.02,
+    effect_scales: np.ndarray | None = None,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     thrust_effect = np.asarray((4.8, 5.0, 5.2, 4.9))
     angular_effect = np.diag((34.0, 31.0, 11.0)) @ np.asarray(MOTOR_MIXER)
@@ -42,15 +46,25 @@ def _linear_hidden_plant(
     states = np.zeros((len(commands) + 1, 13), dtype=np.float64)
     states[:, 6] = 1.0
     timestamps = np.arange(len(states), dtype=np.float64) * sample_period_s
+    scales = (
+        np.ones(len(commands), dtype=np.float64)
+        if effect_scales is None
+        else np.asarray(effect_scales, dtype=np.float64)
+    )
+    if scales.shape != (len(commands),):
+        raise ValueError("effect_scales must be interval-aligned")
     for index, command in enumerate(commands):
         velocity = states[index, 3:6]
         angular_velocity = states[index, 10:13]
         body_specific_force_z = (
-            thrust_effect @ command + thrust_intercept - 0.12 * velocity[2]
+            scales[index] * (thrust_effect @ command)
+            + thrust_intercept
+            - 0.12 * velocity[2]
         )
         acceleration = np.asarray((0.0, 0.0, body_specific_force_z - GRAVITY_M_S2))
         angular_acceleration = (
-            angular_effect @ command + angular_rate_coefficient @ angular_velocity
+            scales[index] * (angular_effect @ command)
+            + angular_rate_coefficient @ angular_velocity
         )
         states[index + 1, 0:3] = (
             states[index, 0:3]
@@ -92,6 +106,15 @@ def test_recursive_bootstrap_updates_every_interval_and_certifies_support() -> N
     assert certified is not None
     assert certified.interval_count == 48
     assert identifier.control_belief is certified
+    assert len(identifier.validation_history) == 1
+    validation = identifier.validation_history[0]
+    assert validation.candidate_interval_count == 48
+    assert validation.validation_interval_count == 16
+    assert validation.initial_admission
+    assert validation.accepted
+    assert validation.reason == "initial_prequential_admission"
+    assert identifier.accepted_update_count == 1
+    assert identifier.rejected_update_count == 0
     np.testing.assert_allclose(
         belief.collective_acceleration_per_command,
         thrust_effect,
@@ -104,6 +127,150 @@ def test_recursive_bootstrap_updates_every_interval_and_certifies_support() -> N
     )
     assert belief.to_dict()["airframe_parameter_prior_used"] is False
     assert belief.to_dict()["canonical_motor_mixer_assumed"] is False
+
+
+def test_recursive_candidate_is_frozen_then_scored_on_future_intervals() -> None:
+    commands = _excitation(64)
+    timestamps, states, _, _ = _linear_hidden_plant(commands)
+    identifier = RecursiveBootstrapIdentifier()
+
+    for index, command in enumerate(commands[:48]):
+        identifier.update(
+            states[index],
+            states[index + 1],
+            command,
+            timestamps[index + 1] - timestamps[index],
+        )
+    assert identifier.pending_proposal
+    assert identifier.certified_belief is None
+    frozen_candidate = identifier.belief
+
+    for index, command in enumerate(commands[48:63], start=48):
+        identifier.update(
+            states[index],
+            states[index + 1],
+            command,
+            timestamps[index + 1] - timestamps[index],
+        )
+    assert identifier.pending_proposal
+    assert identifier.certified_belief is None
+    assert identifier.belief is not frozen_candidate
+
+    identifier.update(
+        states[63],
+        states[64],
+        commands[63],
+        timestamps[64] - timestamps[63],
+    )
+
+    assert identifier.certified_belief is frozen_candidate
+    report = identifier.validation_history[0]
+    assert report.candidate_interval_count == 48
+    assert report.validation_interval_count == 16
+    assert report.accepted
+
+
+def test_recursive_replacement_cannot_claim_sub_noise_information_gain() -> None:
+    commands = _excitation(100)
+
+    identifier, _, _ = _update_recursive_identifier(commands)
+
+    replacements = [
+        report
+        for report in identifier.validation_history
+        if not report.initial_admission
+    ]
+    assert replacements
+    assert all(not report.accepted for report in replacements)
+    assert all(
+        report.reason == "prequential_improvement_not_demonstrated"
+        for report in replacements
+    )
+    assert identifier.certified_belief is not None
+    assert identifier.certified_belief.interval_count == 48
+
+
+def test_recursive_replacement_rejects_excessive_model_movement() -> None:
+    commands = _excitation(100)
+    scales = np.ones(len(commands))
+    scales[64:] = 4.0
+    timestamps, states, _, _ = _linear_hidden_plant(
+        commands,
+        effect_scales=scales,
+    )
+    identifier = RecursiveBootstrapIdentifier()
+    for index, command in enumerate(commands):
+        identifier.update(
+            states[index],
+            states[index + 1],
+            command,
+            timestamps[index + 1] - timestamps[index],
+        )
+
+    movement_rejections = [
+        report
+        for report in identifier.validation_history
+        if report.reason == "model_movement_exceeded"
+    ]
+    assert movement_rejections
+    assert all(not report.accepted for report in movement_rejections)
+    assert all(
+        report.model_movement_fraction
+        > identifier.config.maximum_model_movement_fraction
+        for report in movement_rejections
+    )
+
+
+def test_recursive_belief_exposes_supported_covariance_and_information() -> None:
+    identifier, _, _ = _update_recursive_identifier(_excitation(80))
+    belief = identifier.belief
+
+    assert belief.normalized_command_information.shape == (4, 4)
+    assert belief.supported_collective_effect_covariance.shape == (4, 4)
+    assert belief.supported_angular_effect_covariance.shape == (3, 4, 4)
+    assert np.all(np.linalg.eigvalsh(belief.normalized_command_information) >= -1e-10)
+    assert np.all(
+        np.linalg.eigvalsh(belief.supported_collective_effect_covariance) >= -1e-10
+    )
+    assert np.all(
+        np.linalg.eigvalsh(belief.supported_angular_effect_covariance) >= -1e-10
+    )
+    assert belief.minimum_supported_information_singular_value > 0.0
+    assert 0.0 < belief.information_authority <= 1.0
+    assert belief.collective_effect_signal_to_noise > 0.0
+    assert np.all(belief.angular_effect_signal_to_noise > 0.0)
+    assert belief.to_dict()["effect_covariance_scope"] == "supported_subspace_only"
+
+
+def test_recursive_authority_tracks_information_not_elapsed_interval_count() -> None:
+    generator = np.random.default_rng(3)
+    patterns = generator.standard_normal((80, 4))
+    config = RecursiveBootstrapConfig(
+        minimum_normalized_command_rms=0.0001,
+        minimum_information_singular_value=0.01,
+        full_authority_information_singular_value=0.5,
+    )
+    beliefs = []
+    for amplitude in (0.0035, 0.09):
+        commands = 0.5 + amplitude * patterns
+        timestamps, states, _, _ = _linear_hidden_plant(commands)
+        identifier = RecursiveBootstrapIdentifier(config)
+        for index, command in enumerate(commands):
+            identifier.update(
+                states[index],
+                states[index + 1],
+                command,
+                timestamps[index + 1] - timestamps[index],
+            )
+        beliefs.append(identifier.belief)
+
+    weak, strong = beliefs
+    assert weak.interval_count == strong.interval_count == 80
+    assert weak.command_evidence_rank == strong.command_evidence_rank == 4
+    assert weak.information_authority < 0.05
+    assert strong.information_authority == pytest.approx(1.0)
+    assert weak.collective_authority < strong.collective_authority
+    assert np.max(weak.angular_axis_authority) < np.min(strong.angular_axis_authority)
 
 
 def test_recursive_rank_deficiency_never_certifies_unobserved_axes() -> None:
@@ -136,6 +303,47 @@ def test_progressive_controller_explores_before_support_and_stays_bounded() -> N
     np.testing.assert_allclose(decision.angular_axis_authority, 0.0)
     assert np.all(decision.command >= 0.0)
     assert np.all(decision.command <= 1.0)
+
+
+def test_progressive_controller_targets_weak_information_and_caps_live_probe() -> None:
+    identifier, _, _ = _update_recursive_identifier(_excitation(80))
+    controller = ProgressiveBootstrapController(identifier.config)
+    state = np.zeros(13, dtype=np.float64)
+    state[6] = 1.0
+    feedback_belief = identifier.control_belief
+    isotropic = replace(
+        identifier.belief,
+        normalized_command_information=np.eye(4),
+        exploration_completion=0.0,
+    )
+    weak_first_channel = replace(
+        isotropic,
+        normalized_command_information=np.diag((2.5e-5, 1.0, 1.0, 1.0)),
+    )
+
+    isotropic_decision = controller.command(
+        state,
+        feedback_belief,
+        previous_command=np.full(4, 0.5),
+        exploration_belief=isotropic,
+    )
+    weak_decision = controller.command(
+        state,
+        feedback_belief,
+        previous_command=np.full(4, 0.5),
+        exploration_belief=weak_first_channel,
+    )
+
+    assert abs(weak_decision.excitation_direction[0]) / np.linalg.norm(
+        weak_decision.excitation_direction[1:]
+    ) > abs(isotropic_decision.excitation_direction[0]) / np.linalg.norm(
+        isotropic_decision.excitation_direction[1:]
+    )
+    assert weak_decision.excitation_amplitude_fraction == pytest.approx(
+        controller.config.maximum_committed_excitation_fraction
+    )
+    assert np.all(weak_decision.command >= 0.0)
+    assert np.all(weak_decision.command <= 1.0)
 
 
 def test_bootstrap_fit_recovers_supported_input_effects_without_mixer_prior() -> None:

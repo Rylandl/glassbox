@@ -1,6 +1,6 @@
 {
   "artifact_type": "glassbox_crazyflow_online_throw_recovery_diagnostic",
-  "schema_version": 2,
+  "schema_version": 3,
   "semantics": {
     "diagnostic_only": true,
     "flight_safety_claim": false,
@@ -16,8 +16,12 @@
     "progressive_supported_direction_authority": true,
     "working_belief_updated_every_actuated_interval": true,
     "unsupported_closed_loop_candidate_cannot_erase_certified_support": true,
-    "initial_control_belief_uses_disjoint_predictive_validation": false,
-    "post_admission_candidate_replacement_implemented": false,
+    "initial_control_belief_uses_disjoint_predictive_validation": true,
+    "post_admission_candidate_replacement_implemented": true,
+    "control_authority_uses_information_and_supported_covariance": true,
+    "active_excitation_targets_weak_information_directions": true,
+    "feedback_uses_committed_belief_after_admission": true,
+    "exploration_uses_continuously_updated_working_belief": true,
     "airframe_parameter_prior_used": false,
     "canonical_motor_mixer_supplied_to_identifier": false,
     "hover_command_supplied_to_identifier": false,
@@ -26,6 +30,7 @@
     "hidden_plant_values_used_only_for_post_run_evaluation": true
   },
   "configuration": {
+    "scenario_name": "canonical",
     "hidden_arm_length_ratio": 1.25,
     "release_height_m": 1.2,
     "release_world_velocity_m_s": [
@@ -56,9 +61,17 @@
       "command_rank_relative_tolerance": 0.025,
       "minimum_normalized_command_rms": 0.003,
       "output_rank_relative_tolerance": 0.04,
-      "authority_start_interval_count": 8,
-      "authority_full_interval_count": 32,
-      "minimum_certification_interval_count": 48
+      "minimum_information_singular_value": 0.005,
+      "full_authority_information_singular_value": 0.025,
+      "minimum_effect_signal_to_noise": 1.0,
+      "full_authority_effect_signal_to_noise": 3.0,
+      "collective_residual_std_floor_m_s2": 0.05,
+      "angular_residual_std_floor_rad_s2": 0.5,
+      "minimum_certification_interval_count": 48,
+      "validation_interval_count": 16,
+      "minimum_validation_improvement": 0.02,
+      "maximum_model_movement_fraction": 0.25,
+      "proposal_cooldown_interval_count": 16
     },
     "controller": {
       "velocity_gain": [
@@ -83,163 +96,312 @@
       ],
       "initial_excitation_fraction": 0.12,
       "continuing_excitation_fraction": 0.0,
+      "maximum_committed_excitation_fraction": 0.0005,
       "maximum_feedback_delta": 0.35,
       "maximum_motor_step": 0.1
     }
   },
   "timing": {
     "model_enable_time_s": 1.0,
-    "first_supported_control_time_s": 1.09,
-    "certified_belief_time_s": 1.53,
-    "time_from_enable_to_first_supported_control_s": 0.09000000000000008,
-    "time_from_enable_to_certified_belief_s": 0.53,
+    "first_supported_control_time_s": 1.05,
+    "certified_belief_time_s": 2.26,
+    "time_from_enable_to_first_supported_control_s": 0.050000000000000044,
+    "time_from_enable_to_certified_belief_s": 1.2599999999999998,
     "total_trial_duration_s": 10.0,
-    "median_recursive_update_wall_time_s": 0.00014150002971291542,
-    "maximum_recursive_update_wall_time_s": 0.00028270785696804523
+    "median_recursive_update_wall_time_s": 0.0002633956028148532,
+    "maximum_recursive_update_wall_time_s": 0.00160670792683959
   },
   "identification": {
     "certified_control_belief": {
       "method": "recursive_rank_supported_multirotor_bootstrap_v1",
       "airframe_parameter_prior_used": false,
       "canonical_motor_mixer_assumed": false,
-      "interval_count": 53,
-      "effective_interval_count": 53.0,
+      "interval_count": 451,
+      "effective_interval_count": 451.0,
       "collective_acceleration_per_command": [
-        4.227314765763936,
-        4.651119184936249,
-        4.863580521631604,
-        4.716542766372299
+        4.706752809238878,
+        4.494008893271257,
+        4.272877812696606,
+        5.040587979076463
       ],
       "collective_velocity_coefficient": [
-        -0.03115029871378283,
-        0.05538963180151768,
-        -0.5172004421865495
+        -0.006493389210234568,
+        0.0186839459710626,
+        -0.5246408347068083
       ],
-      "collective_intercept_m_s2": 0.01045553200856375,
+      "collective_intercept_m_s2": -0.04194552612279523,
       "angular_acceleration_per_command": [
         [
-          215.40261149039864,
-          -238.49541569642258,
-          -223.9472635824568,
-          247.09884968410216
+          223.82715343205706,
+          -230.2284753555733,
+          -225.1186716731124,
+          231.93357166860895
         ],
         [
-          -217.0696221289834,
-          -201.31868097064924,
-          197.6808067789053,
-          214.821841057596
+          -201.34165448576272,
+          -199.93596746417316,
+          202.06772798349795,
+          199.23047754862148
         ],
         [
-          132.47993409469512,
-          -94.58799941247622,
-          111.45931900691144,
-          -125.02070701455717
+          15.607888054698964,
+          -7.31171427455646,
+          7.405324420554454,
+          -17.553909316782416
         ]
       ],
       "angular_rate_coefficient": [
         [
-          20.785826190245917,
-          17.834460238044713,
-          16.20990166180914
+          0.15773280827599884,
+          -0.07367202418556104,
+          -0.1644990523704557
         ],
         [
-          6.767612755547229,
-          12.012998697559894,
-          17.375151703345757
+          0.36917334753357905,
+          -0.00258910162425984,
+          -0.32142032563223416
         ],
         [
-          -31.40452348108851,
-          -48.35067469854398,
-          -170.14748783423843
+          0.5566829201870046,
+          0.21471768956377943,
+          0.2698906269716841
         ]
       ],
       "angular_rate_product_coefficient": [
         [
-          0.4247694987678624,
-          -39.14586657241151,
-          -31.991447796788098
+          -0.13461696785265476,
+          0.27853810359561465,
+          -0.7248378073825815
         ],
         [
-          0.4783473861007486,
-          -12.287539928043797,
-          -18.766331168531373
+          0.01883530862906506,
+          0.21622576276684985,
+          0.3017730575220777
         ],
         [
-          0.5667825291182427,
-          56.34867381268117,
-          83.27646648578538
+          0.14281991376612496,
+          -1.7673317465711456,
+          -0.3092338609709029
         ]
       ],
       "angular_intercept_rad_s2": [
-        -9.130291962628823,
-        -7.092712246484199,
-        76.35138370072568
+        -0.2285798464986796,
+        -0.003280359009869631,
+        0.9976329743324731
       ],
       "normalized_command_support_projector": [
         [
+          0.9999999999999998,
+          -6.938893903907228e-18,
+          0.0,
+          -5.551115123125783e-17
+        ],
+        [
+          -6.938893903907228e-18,
           1.0000000000000002,
           -8.326672684688674e-17,
-          -2.7755575615628914e-17,
-          -1.1102230246251565e-16
+          8.326672684688674e-17
         ],
         [
+          0.0,
           -8.326672684688674e-17,
-          1.0000000000000004,
-          8.326672684688674e-17,
-          -2.0816681711721685e-17
+          1.0,
+          -5.551115123125783e-17
         ],
         [
-          -2.7755575615628914e-17,
+          -5.551115123125783e-17,
           8.326672684688674e-17,
-          1.0000000000000004,
-          -1.6653345369377348e-16
-        ],
-        [
-          -1.1102230246251565e-16,
-          -2.0816681711721685e-17,
-          -1.6653345369377348e-16,
-          1.0000000000000004
+          -5.551115123125783e-17,
+          1.0
         ]
       ],
       "normalized_command_singular_values": [
-        0.20856391493886023,
-        0.06177991318181539,
-        0.02497056482984888,
-        0.022386835320628476
+        1.8867900199107603,
+        0.22059657208216857,
+        0.08256534815579857,
+        0.06823274978931035
       ],
+      "normalized_command_information": [
+        [
+          1.014636727321503,
+          0.9389353017391819,
+          0.848340024316184,
+          0.9578333809599511
+        ],
+        [
+          0.9389353017391819,
+          0.9029771879389594,
+          0.8276580212801554,
+          0.8999800684941808
+        ],
+        [
+          0.848340024316184,
+          0.8276580212801554,
+          0.785745144053319,
+          0.8202951479974563
+        ],
+        [
+          0.9578333809599511,
+          0.8999800684941808,
+          0.8202951479974563,
+          0.9167531123953676
+        ]
+      ],
+      "supported_collective_effect_covariance": [
+        [
+          0.15266104433983235,
+          -0.03919967129908113,
+          0.0533419008691076,
+          -0.16476946802415635
+        ],
+        [
+          -0.03919967129908113,
+          0.24786003656375064,
+          -0.12946832356977792,
+          -0.0828673967163198
+        ],
+        [
+          0.05334190086910761,
+          -0.1294683235697779,
+          0.152237124996455,
+          -0.06909497331386631
+        ],
+        [
+          -0.16476946802415635,
+          -0.0828673967163198,
+          -0.06909497331386633,
+          0.3132868770911386
+        ]
+      ],
+      "supported_angular_effect_covariance": [
+        [
+          [
+            21.13082548441262,
+            -5.1618437366020995,
+            5.788180714753602,
+            -22.189474807976488
+          ],
+          [
+            -5.1618437366020995,
+            26.786500536497883,
+            -12.44652671054412,
+            -9.766320679147997
+          ],
+          [
+            5.788180714753602,
+            -12.446526710544118,
+            11.184062742462078,
+            -3.836059127742116
+          ],
+          [
+            -22.189474807976488,
+            -9.766320679147997,
+            -3.836059127742116,
+            36.47657571987831
+          ]
+        ],
+        [
+          [
+            21.13082548441262,
+            -5.1618437366020995,
+            5.788180714753602,
+            -22.189474807976488
+          ],
+          [
+            -5.1618437366020995,
+            26.786500536497883,
+            -12.44652671054412,
+            -9.766320679147997
+          ],
+          [
+            5.788180714753602,
+            -12.446526710544118,
+            11.184062742462078,
+            -3.836059127742116
+          ],
+          [
+            -22.189474807976488,
+            -9.766320679147997,
+            -3.836059127742116,
+            36.47657571987831
+          ]
+        ],
+        [
+          [
+            21.13082548441262,
+            -5.1618437366020995,
+            5.788180714753602,
+            -22.189474807976488
+          ],
+          [
+            -5.1618437366020995,
+            26.786500536497883,
+            -12.44652671054412,
+            -9.766320679147997
+          ],
+          [
+            5.788180714753602,
+            -12.446526710544118,
+            11.184062742462078,
+            -3.836059127742116
+          ],
+          [
+            -22.189474807976488,
+            -9.766320679147997,
+            -3.836059127742116,
+            36.47657571987831
+          ]
+        ]
+      ],
+      "effect_covariance_scope": "supported_subspace_only",
       "command_evidence_rank": 4,
       "angular_effect_rank": 3,
       "angular_output_support_projector": [
         [
           0.9999999999999996,
-          3.1963181602471076e-17,
-          -1.1783733480094853e-17
+          -5.468448633637828e-18,
+          -6.629288051278865e-19
         ],
         [
-          3.1963181602471076e-17,
-          0.9999999999999994,
-          9.407757570904049e-17
+          -5.468448633637828e-18,
+          1.0000000000000004,
+          6.557139124129233e-17
         ],
         [
-          -1.0408340855860843e-17,
-          9.71445146547012e-17,
-          1.0
+          -8.673617379884035e-19,
+          6.938893903907228e-17,
+          1.0000000000000004
         ]
       ],
-      "collective_support_fraction": 0.9999999999999996,
-      "collective_authority": 0.9999999999999996,
+      "collective_support_fraction": 0.9999999999999998,
+      "minimum_supported_information_singular_value": 0.06823274978931035,
+      "information_authority": 1.0,
+      "collective_effect_signal_to_noise": 421.51675653075546,
+      "angular_effect_signal_to_noise": [
+        46.60247627667825,
+        41.0472390765591,
+        2.627896033348155
+      ],
+      "collective_residual_std_m_s2": 0.05,
+      "angular_residual_std_rad_s2": [
+        0.5,
+        0.5,
+        0.5
+      ],
+      "exploration_completion": 0.8139480166740776,
+      "collective_authority": 0.9999999999999998,
       "angular_axis_authority": [
         0.9999999999999996,
-        0.9999999999999994,
-        1.0
+        1.0,
+        0.8139480166740779
       ],
       "hover_command": [
-        0.5307129014097958,
-        0.5307129014097958,
-        0.5307129014097958,
-        0.5307129014097958
+        0.5319474187709873,
+        0.5319474187709873,
+        0.5319474187709873,
+        0.5319474187709873
       ],
-      "update_wall_time_s": 0.000140791991725564
+      "update_wall_time_s": 0.00024550012312829494
     },
     "terminal_working_belief": {
       "method": "recursive_rank_supported_multirotor_bootstrap_v1",
@@ -248,188 +410,830 @@
       "interval_count": 900,
       "effective_interval_count": 900.0,
       "collective_acceleration_per_command": [
-        4.7023054694276425,
-        4.62797545843037,
-        4.4552111884434,
-        4.729659566945259
+        4.866359044525538,
+        4.597516125451143,
+        4.314708461098618,
+        4.738097415337226
       ],
       "collective_velocity_coefficient": [
-        -0.003283504652237923,
-        0.015172509364088427,
-        -0.528690028141412
+        -0.007032611803680311,
+        0.01892220208168993,
+        -0.5250307584039788
       ],
-      "collective_intercept_m_s2": -0.042203315504973915,
+      "collective_intercept_m_s2": -0.04323282378189752,
       "angular_acceleration_per_command": [
         [
-          137.7376492857621,
-          12.064616400673762,
-          -295.33369683138903,
-          142.55465018797054
+          238.94826697278629,
+          -62.751169823769196,
+          -294.2134064938584,
+          112.59262470918617
         ],
         [
-          -66.98979407427815,
-          -5.937821715877925,
-          143.40173764997212,
-          -69.33133665695478
+          -111.09175752705639,
+          25.50437167199231,
+          130.4298866007556,
+          -53.81674664912303
         ],
         [
-          -2.9040386831227183,
-          -0.5667194598045281,
-          5.174583646570033,
-          -3.000057162693601
+          -0.39214016114083733,
+          -0.47048532466274684,
+          -0.5103277726932434,
+          -0.41451720394952113
         ]
       ],
       "angular_rate_coefficient": [
         [
-          -4.669303034944465,
-          -3.4387075698828493,
-          -3.056055338881338
+          -14.338244014875348,
+          -1.543107252105701,
+          0.005461558268182325
         ],
         [
-          2.259476525900393,
-          -3.9042616258152707,
-          -0.6272621135092564
+          -13.006059233680064,
+          -1.9237395668078265,
+          3.0223772830800257
         ],
         [
-          -1.1387891002424464,
-          0.18604956562963176,
-          -0.26715815061132414
+          -1.4738946418678986,
+          0.1149942187024057,
+          -0.4079522728075882
         ]
       ],
       "angular_rate_product_coefficient": [
         [
-          -2.610474003223204,
-          15.326185051046004,
-          9.008773576352743
+          -1.4357274960661959,
+          31.535076820671005,
+          3.5073981703017623
         ],
         [
-          -2.2572055599616,
-          -1.7602687295740695,
-          6.874461041507211
+          0.8072715580771624,
+          23.217616945555665,
+          6.3011927838936375
         ],
         [
-          -0.35845904038882703,
-          3.1425584526146872,
-          0.1394855495670248
+          -0.5084163200031455,
+          3.984737131735684,
+          -0.18689140735632612
         ]
       ],
       "angular_intercept_rad_s2": [
-        1.6521475935767667,
-        -0.49397666055432005,
-        0.6874468693004245
+        2.8479724654708325,
+        4.7547241024365015,
+        0.9474441917443951
       ],
       "normalized_command_support_projector": [
         [
-          0.39496168452722563,
-          0.26341495483184163,
-          -0.0760653648165179,
-          0.4047141881981787
+          0.6109019137179383,
+          0.16357349925731948,
+          -0.19106330250188358,
+          0.4176592993236091
         ],
         [
-          0.26341495483184163,
-          0.2566677359561258,
-          0.2220793977152469,
-          0.26848223769302554
+          0.16357349925731948,
+          0.2841923643206826,
+          0.36517065871415666,
+          0.2081373698726097
         ],
         [
-          -0.0760653648165179,
-          0.2220793977152469,
-          0.9336375772077145,
-          -0.08278437666121977
+          -0.19106330250188358,
+          0.36517065871415666,
+          0.7807800608924114,
+          0.036162990150099966
         ],
         [
-          0.4047141881981787,
-          0.26848223769302554,
-          -0.08278437666121977,
-          0.41473300230893406
+          0.4176592993236091,
+          0.2081373698726097,
+          0.036162990150099966,
+          0.3241256610689669
         ]
       ],
       "normalized_command_singular_values": [
-        1.7328410733495418,
-        0.10268581891995959,
-        0.05359861570070583,
-        0.04055949183301571
+        1.9070926896384806,
+        0.22067211398585332,
+        0.08466519478501439,
+        0.06866109469285671
       ],
+      "normalized_command_information": [
+        [
+          1.0345753344300483,
+          0.9600992744279386,
+          0.8647691037273235,
+          0.978420402977898
+        ],
+        [
+          0.9600992744279386,
+          0.9256572303410779,
+          0.8451210032184542,
+          0.9219195577706509
+        ],
+        [
+          0.8647691037273235,
+          0.8451210032184542,
+          0.7992924080741171,
+          0.8372727071717576
+        ],
+        [
+          0.978420402977898,
+          0.9219195577706509,
+          0.8372727071717576,
+          0.9380562770506842
+        ]
+      ],
+      "supported_collective_effect_covariance": [
+        [
+          0.03210996963135384,
+          -0.011615145554700815,
+          -0.03094777602033563,
+          0.008761519796450673
+        ],
+        [
+          -0.011615145554700812,
+          0.004390930867799017,
+          0.011462977078739816,
+          -0.0030677239449650416
+        ],
+        [
+          -0.030947776020335632,
+          0.011462977078739818,
+          0.03020755868023795,
+          -0.008300527325190469
+        ],
+        [
+          0.008761519796450673,
+          -0.0030677239449650416,
+          -0.008300527325190469,
+          0.0024451540884852427
+        ]
+      ],
+      "supported_angular_effect_covariance": [
+        [
+          [
+            2.3310744058303565,
+            -0.6857479723187025,
+            -2.9976385998394934,
+            1.0689288035990687
+          ],
+          [
+            -0.6857479723187028,
+            0.2425259942912248,
+            0.9524866556211957,
+            -0.2981109326136569
+          ],
+          [
+            -2.997638599839494,
+            0.9524866556211957,
+            3.97716252272593,
+            -1.346282035502429
+          ],
+          [
+            1.0689288035990687,
+            -0.2981109326136569,
+            -1.346282035502429,
+            0.49671133577192883
+          ]
+        ],
+        [
+          [
+            5.505487814500632,
+            -1.6195867004400912,
+            -7.07976662710358,
+            2.5245760015485703
+          ],
+          [
+            -1.6195867004400917,
+            0.5727933449616187,
+            2.2495651202214675,
+            -0.7040728098463572
+          ],
+          [
+            -7.079766627103582,
+            2.2495651202214675,
+            9.39318785809263,
+            -3.1796236631492283
+          ],
+          [
+            2.5245760015485708,
+            -0.7040728098463572,
+            -3.1796236631492283,
+            1.1731235174548515
+          ]
+        ],
+        [
+          [
+            1.7208537525918934,
+            -0.5062352229278436,
+            -2.212927060820516,
+            0.7891082920074269
+          ],
+          [
+            -0.5062352229278437,
+            0.17903837232019568,
+            0.7031479696743415,
+            -0.22007247636273622
+          ],
+          [
+            -2.2129270608205163,
+            0.7031479696743415,
+            2.9360345747791787,
+            -0.993856947271553
+          ],
+          [
+            0.789108292007427,
+            -0.22007247636273622,
+            -0.993856947271553,
+            0.36668394795985815
+          ]
+        ]
+      ],
+      "effect_covariance_scope": "supported_subspace_only",
       "command_evidence_rank": 2,
       "angular_effect_rank": 1,
       "angular_output_support_projector": [
         [
-          0.808824648709468,
-          -0.39293725368475135,
-          -0.015088108435425315
+          0.8297783193317739,
+          -0.37582738411552563,
+          0.0001935138035424341
         ],
         [
-          -0.39293725368475135,
-          0.19089389224187134,
-          0.007329994086324329
+          -0.37582738411552563,
+          0.17022163553859224,
+          -8.764724852556633e-05
         ],
         [
-          -0.015088108435425315,
-          0.007329994086324329,
-          0.0002814590486607752
+          0.0001935138035424341,
+          -8.764724852556633e-05,
+          4.5129634372246036e-08
         ]
       ],
-      "collective_support_fraction": 0.9999743683647642,
-      "collective_authority": 0.9999743683647642,
+      "collective_support_fraction": 0.9998887205748069,
+      "minimum_supported_information_singular_value": 0.22067211398585332,
+      "information_authority": 0.5,
+      "collective_effect_signal_to_noise": 443.870120525778,
+      "angular_effect_signal_to_noise": [
+        150.80401603939686,
+        44.459204643967276,
+        0.39394068036916874
+      ],
+      "collective_residual_std_m_s2": 0.05,
+      "angular_residual_std_rad_s2": [
+        0.5819371606614623,
+        0.894326141627612,
+        0.5
+      ],
+      "exploration_completion": 0.0,
+      "collective_authority": 0.9998887205748069,
       "angular_axis_authority": [
-        0.404412324354734,
-        0.09544694612093567,
-        0.0001407295243303876
+        0.41488915966588696,
+        0.08511081776929612,
+        0.0
       ],
       "hover_command": [
-        0.5319347896251183,
-        0.5319347896251183,
-        0.5319347896251183,
-        0.5319347896251183
+        0.5319464540698692,
+        0.5319464540698692,
+        0.5319464540698692,
+        0.5319464540698692
       ],
-      "update_wall_time_s": 0.0001420830376446247
+      "update_wall_time_s": 0.00024200021289288998
     },
     "working_update_count": 900,
     "control_authority_was_progressive_before_certification": true,
+    "pending_proposal_at_trial_end": false,
+    "accepted_update_count": 8,
+    "rejected_update_count": 8,
+    "accepted_replacement_count": 7,
+    "initial_admission_validation": {
+      "candidate_interval_count": 110,
+      "reference_interval_count": null,
+      "validation_interval_count": 16,
+      "initial_admission": true,
+      "candidate_collective_rmse_m_s2": 0.002531324470267172,
+      "reference_collective_rmse_m_s2": 1.2286153294143138,
+      "collective_improvement": 0.997939693238669,
+      "candidate_angular_rmse_rad_s2": [
+        0.07270927383976433,
+        0.13492519713481746,
+        0.41917913890654335
+      ],
+      "reference_angular_rmse_rad_s2": [
+        9.264321899203647,
+        5.50708452163863,
+        0.5187203224508766
+      ],
+      "angular_improvement": [
+        0.9921516896076318,
+        0.9754997046795514,
+        0.1918975972909948
+      ],
+      "model_movement_fraction": 0.0,
+      "accepted": true,
+      "reason": "initial_prequential_admission"
+    },
+    "last_validation": {
+      "candidate_interval_count": 513,
+      "reference_interval_count": 451,
+      "validation_interval_count": 16,
+      "initial_admission": false,
+      "candidate_collective_rmse_m_s2": 4.810854303804974e-05,
+      "reference_collective_rmse_m_s2": 4.8991124149707115e-05,
+      "collective_improvement": 1.765162223314745e-05,
+      "candidate_angular_rmse_rad_s2": [
+        0.00693462127149164,
+        0.004318047244669648,
+        0.011710639898600798
+      ],
+      "reference_angular_rmse_rad_s2": [
+        0.00888466070991796,
+        0.00592662229159966,
+        0.012929190521777965
+      ],
+      "angular_improvement": [
+        0.0039000788768526404,
+        0.003217150093860024,
+        0.0024371012463543333
+      ],
+      "model_movement_fraction": 0.00015134910393554437,
+      "accepted": false,
+      "reason": "prequential_improvement_not_demonstrated"
+    },
+    "validation_history": [
+      {
+        "candidate_interval_count": 48,
+        "reference_interval_count": null,
+        "validation_interval_count": 16,
+        "initial_admission": true,
+        "candidate_collective_rmse_m_s2": 0.17517403425551237,
+        "reference_collective_rmse_m_s2": 11.079543246641038,
+        "collective_improvement": 0.9841894173472702,
+        "candidate_angular_rmse_rad_s2": [
+          0.7513599385017751,
+          0.19506376422721244,
+          3.455483398567253
+        ],
+        "reference_angular_rmse_rad_s2": [
+          25.09369398067433,
+          13.466205484877653,
+          1.1626376823802476
+        ],
+        "angular_improvement": [
+          0.9700578185467461,
+          0.9855145709423292,
+          -1.9721068316768324
+        ],
+        "model_movement_fraction": 0.0,
+        "accepted": false,
+        "reason": "prequential_improvement_not_demonstrated"
+      },
+      {
+        "candidate_interval_count": 79,
+        "reference_interval_count": null,
+        "validation_interval_count": 16,
+        "initial_admission": true,
+        "candidate_collective_rmse_m_s2": 0.001860944170745867,
+        "reference_collective_rmse_m_s2": 1.2833459257712518,
+        "collective_improvement": 0.9985499278617124,
+        "candidate_angular_rmse_rad_s2": [
+          0.7109317770221375,
+          0.12665073987176528,
+          3.034641653481631
+        ],
+        "reference_angular_rmse_rad_s2": [
+          38.79945445795408,
+          13.260317385167522,
+          0.3602585103615577
+        ],
+        "angular_improvement": [
+          0.9816767584247207,
+          0.9904488907623409,
+          -5.348766286240147
+        ],
+        "model_movement_fraction": 0.0,
+        "accepted": false,
+        "reason": "prequential_improvement_not_demonstrated"
+      },
+      {
+        "candidate_interval_count": 110,
+        "reference_interval_count": null,
+        "validation_interval_count": 16,
+        "initial_admission": true,
+        "candidate_collective_rmse_m_s2": 0.002531324470267172,
+        "reference_collective_rmse_m_s2": 1.2286153294143138,
+        "collective_improvement": 0.997939693238669,
+        "candidate_angular_rmse_rad_s2": [
+          0.07270927383976433,
+          0.13492519713481746,
+          0.41917913890654335
+        ],
+        "reference_angular_rmse_rad_s2": [
+          9.264321899203647,
+          5.50708452163863,
+          0.5187203224508766
+        ],
+        "angular_improvement": [
+          0.9921516896076318,
+          0.9754997046795514,
+          0.1918975972909948
+        ],
+        "model_movement_fraction": 0.0,
+        "accepted": true,
+        "reason": "initial_prequential_admission"
+      },
+      {
+        "candidate_interval_count": 141,
+        "reference_interval_count": 110,
+        "validation_interval_count": 16,
+        "initial_admission": false,
+        "candidate_collective_rmse_m_s2": 0.0008952451579107385,
+        "reference_collective_rmse_m_s2": 0.0009743870889735592,
+        "collective_improvement": 0.0015828386212564122,
+        "candidate_angular_rmse_rad_s2": [
+          0.1422020797548342,
+          0.09970804816560337,
+          0.28799561304691246
+        ],
+        "reference_angular_rmse_rad_s2": [
+          0.07128785286111797,
+          0.4620901434504158,
+          1.311258841457249
+        ],
+        "angular_improvement": [
+          -0.14182845378743247,
+          0.7247641905696249,
+          0.7803670763227398
+        ],
+        "model_movement_fraction": 0.006489255418886323,
+        "accepted": false,
+        "reason": "prequential_improvement_not_demonstrated"
+      },
+      {
+        "candidate_interval_count": 172,
+        "reference_interval_count": 110,
+        "validation_interval_count": 16,
+        "initial_admission": false,
+        "candidate_collective_rmse_m_s2": 0.0050452574061467794,
+        "reference_collective_rmse_m_s2": 0.010461534514132521,
+        "collective_improvement": 0.10832554215971482,
+        "candidate_angular_rmse_rad_s2": [
+          0.06582263513061243,
+          0.006757358721008917,
+          0.22924240186475234
+        ],
+        "reference_angular_rmse_rad_s2": [
+          0.14148540541369142,
+          0.7031840053456198,
+          1.8142049650790995
+        ],
+        "angular_improvement": [
+          0.151325540566158,
+          0.9903903406937028,
+          0.8736402962855097
+        ],
+        "model_movement_fraction": 0.021452844284729822,
+        "accepted": true,
+        "reason": "prequential_replacement_committed"
+      },
+      {
+        "candidate_interval_count": 203,
+        "reference_interval_count": 172,
+        "validation_interval_count": 16,
+        "initial_admission": false,
+        "candidate_collective_rmse_m_s2": 0.0028262969731022818,
+        "reference_collective_rmse_m_s2": 0.011390451276529056,
+        "collective_improvement": 0.17128308606853548,
+        "candidate_angular_rmse_rad_s2": [
+          0.18445927072288987,
+          0.004753692851260099,
+          0.38237243731760107
+        ],
+        "reference_angular_rmse_rad_s2": [
+          0.4249056681621249,
+          0.012611898698606586,
+          1.0265261147463876
+        ],
+        "angular_improvement": [
+          0.48089279487847003,
+          0.015716411694692973,
+          0.6275083197351783
+        ],
+        "model_movement_fraction": 0.022993400374070706,
+        "accepted": true,
+        "reason": "prequential_replacement_committed"
+      },
+      {
+        "candidate_interval_count": 234,
+        "reference_interval_count": 203,
+        "validation_interval_count": 16,
+        "initial_admission": false,
+        "candidate_collective_rmse_m_s2": 0.0023775765972121107,
+        "reference_collective_rmse_m_s2": 0.005376061345243814,
+        "collective_improvement": 0.05996969496063407,
+        "candidate_angular_rmse_rad_s2": [
+          0.04446117209598873,
+          0.03126342433298256,
+          0.0703501674631928
+        ],
+        "reference_angular_rmse_rad_s2": [
+          0.20539611886081718,
+          0.0331909903122228,
+          0.39214702103223614
+        ],
+        "angular_improvement": [
+          0.3218698935296569,
+          0.0038551319584804733,
+          0.6435937071380867
+        ],
+        "model_movement_fraction": 0.008358882862258719,
+        "accepted": true,
+        "reason": "prequential_replacement_committed"
+      },
+      {
+        "candidate_interval_count": 265,
+        "reference_interval_count": 234,
+        "validation_interval_count": 16,
+        "initial_admission": false,
+        "candidate_collective_rmse_m_s2": 0.0018253111001725311,
+        "reference_collective_rmse_m_s2": 0.003193911945115942,
+        "collective_improvement": 0.027372016898868215,
+        "candidate_angular_rmse_rad_s2": [
+          0.04276047062503412,
+          0.0607564426775501,
+          0.09174917216956135
+        ],
+        "reference_angular_rmse_rad_s2": [
+          0.03410731950396989,
+          0.08283182209663267,
+          0.08281721009450675
+        ],
+        "angular_improvement": [
+          -0.017306302242128452,
+          0.04415075883816515,
+          -0.017863924150109206
+        ],
+        "model_movement_fraction": 0.0034837117899832112,
+        "accepted": false,
+        "reason": "prequential_improvement_not_demonstrated"
+      },
+      {
+        "candidate_interval_count": 296,
+        "reference_interval_count": 234,
+        "validation_interval_count": 16,
+        "initial_admission": false,
+        "candidate_collective_rmse_m_s2": 0.0007060874824841426,
+        "reference_collective_rmse_m_s2": 0.002448104474175352,
+        "collective_improvement": 0.03484033983382419,
+        "candidate_angular_rmse_rad_s2": [
+          0.061328585447437425,
+          0.04915887820453443,
+          0.11818853843504558
+        ],
+        "reference_angular_rmse_rad_s2": [
+          0.10204441678790524,
+          0.1211412265264216,
+          0.20640086481420522
+        ],
+        "angular_improvement": [
+          0.08143166268093563,
+          0.14396469664377437,
+          0.17642465275831928
+        ],
+        "model_movement_fraction": 0.008832413816868731,
+        "accepted": true,
+        "reason": "prequential_replacement_committed"
+      },
+      {
+        "candidate_interval_count": 327,
+        "reference_interval_count": 296,
+        "validation_interval_count": 16,
+        "initial_admission": false,
+        "candidate_collective_rmse_m_s2": 0.000147875947393432,
+        "reference_collective_rmse_m_s2": 7.662858355104636e-05,
+        "collective_improvement": -0.0014249472768477125,
+        "candidate_angular_rmse_rad_s2": [
+          0.04447950102475752,
+          0.028365976961485424,
+          0.08110323376847585
+        ],
+        "reference_angular_rmse_rad_s2": [
+          0.08916964280295883,
+          0.06214505889316521,
+          0.16833872170431305
+        ],
+        "angular_improvement": [
+          0.08938028355640262,
+          0.06755816386335958,
+          0.1744709758716744
+        ],
+        "model_movement_fraction": 0.005840473232142304,
+        "accepted": true,
+        "reason": "prequential_replacement_committed"
+      },
+      {
+        "candidate_interval_count": 358,
+        "reference_interval_count": 327,
+        "validation_interval_count": 16,
+        "initial_admission": false,
+        "candidate_collective_rmse_m_s2": 0.0005215040212872655,
+        "reference_collective_rmse_m_s2": 0.0005616804063509979,
+        "collective_improvement": 0.0008035277012746495,
+        "candidate_angular_rmse_rad_s2": [
+          0.026294960856227758,
+          0.01814836606518536,
+          0.04754154802453649
+        ],
+        "reference_angular_rmse_rad_s2": [
+          0.04612718836124043,
+          0.031016088571343234,
+          0.08365394411703744
+        ],
+        "angular_improvement": [
+          0.03966445501002535,
+          0.02573544501231575,
+          0.07222479218500191
+        ],
+        "model_movement_fraction": 0.0024190811008163358,
+        "accepted": true,
+        "reason": "prequential_replacement_committed"
+      },
+      {
+        "candidate_interval_count": 389,
+        "reference_interval_count": 358,
+        "validation_interval_count": 16,
+        "initial_admission": false,
+        "candidate_collective_rmse_m_s2": 0.00041212848258031045,
+        "reference_collective_rmse_m_s2": 0.000485198318779772,
+        "collective_improvement": 0.001461396723989231,
+        "candidate_angular_rmse_rad_s2": [
+          0.019169900809922327,
+          0.01261999812319684,
+          0.03299207504364669
+        ],
+        "reference_angular_rmse_rad_s2": [
+          0.027147069331571554,
+          0.018190617919275332,
+          0.0476765028192017
+        ],
+        "angular_improvement": [
+          0.015954337043298454,
+          0.011141239592156984,
+          0.029368855551110018
+        ],
+        "model_movement_fraction": 0.0011375517628526102,
+        "accepted": false,
+        "reason": "prequential_improvement_not_demonstrated"
+      },
+      {
+        "candidate_interval_count": 420,
+        "reference_interval_count": 358,
+        "validation_interval_count": 16,
+        "initial_admission": false,
+        "candidate_collective_rmse_m_s2": 0.00021971954319684439,
+        "reference_collective_rmse_m_s2": 0.00033662860012896107,
+        "collective_improvement": 0.0023381811386423337,
+        "candidate_angular_rmse_rad_s2": [
+          0.013739197052930113,
+          0.006699486115308229,
+          0.017480202534948242
+        ],
+        "reference_angular_rmse_rad_s2": [
+          0.025471067276871703,
+          0.014507644421379124,
+          0.03669813825320448
+        ],
+        "angular_improvement": [
+          0.02346374044788318,
+          0.01561631661214179,
+          0.03843587143651248
+        ],
+        "model_movement_fraction": 0.00158320365182946,
+        "accepted": false,
+        "reason": "prequential_improvement_not_demonstrated"
+      },
+      {
+        "candidate_interval_count": 451,
+        "reference_interval_count": 358,
+        "validation_interval_count": 16,
+        "initial_admission": false,
+        "candidate_collective_rmse_m_s2": 5.56002801890178e-05,
+        "reference_collective_rmse_m_s2": 0.00014939231288663883,
+        "collective_improvement": 0.0018758406539524206,
+        "candidate_angular_rmse_rad_s2": [
+          0.010215247103276094,
+          0.007225231009011534,
+          0.011482519071020198
+        ],
+        "reference_angular_rmse_rad_s2": [
+          0.023482149559009353,
+          0.01563797796562573,
+          0.032368265853222285
+        ],
+        "angular_improvement": [
+          0.026533804911466518,
+          0.016825493913228393,
+          0.04177149356440417
+        ],
+        "model_movement_fraction": 0.0016676611942622276,
+        "accepted": true,
+        "reason": "prequential_replacement_committed"
+      },
+      {
+        "candidate_interval_count": 482,
+        "reference_interval_count": 451,
+        "validation_interval_count": 16,
+        "initial_admission": false,
+        "candidate_collective_rmse_m_s2": 4.7508654333944144e-05,
+        "reference_collective_rmse_m_s2": 4.770343935817378e-05,
+        "collective_improvement": 3.895700484592683e-06,
+        "candidate_angular_rmse_rad_s2": [
+          0.006204072359029136,
+          0.007407815862239064,
+          0.013057278483033539
+        ],
+        "reference_angular_rmse_rad_s2": [
+          0.007326728889135999,
+          0.008296154912120969,
+          0.013869051257990237
+        ],
+        "angular_improvement": [
+          0.002245313060213725,
+          0.0017766780997638103,
+          0.0016235455499133966
+        ],
+        "model_movement_fraction": 7.605639386485695e-05,
+        "accepted": false,
+        "reason": "prequential_improvement_not_demonstrated"
+      },
+      {
+        "candidate_interval_count": 513,
+        "reference_interval_count": 451,
+        "validation_interval_count": 16,
+        "initial_admission": false,
+        "candidate_collective_rmse_m_s2": 4.810854303804974e-05,
+        "reference_collective_rmse_m_s2": 4.8991124149707115e-05,
+        "collective_improvement": 1.765162223314745e-05,
+        "candidate_angular_rmse_rad_s2": [
+          0.00693462127149164,
+          0.004318047244669648,
+          0.011710639898600798
+        ],
+        "reference_angular_rmse_rad_s2": [
+          0.00888466070991796,
+          0.00592662229159966,
+          0.012929190521777965
+        ],
+        "angular_improvement": [
+          0.0039000788768526404,
+          0.003217150093860024,
+          0.0024371012463543333
+        ],
+        "model_movement_fraction": 0.00015134910393554437,
+        "accepted": false,
+        "reason": "prequential_improvement_not_demonstrated"
+      }
+    ],
     "control_belief_admission_contract": {
       "minimum_interval_count": 48,
       "required_command_evidence_rank": 4,
       "required_angular_effect_rank": 3,
-      "minimum_axis_authority": 0.95,
+      "minimum_exploration_completion": 0.75,
       "feasible_hover_command_required": true,
-      "disjoint_predictive_validation_required": false,
-      "claim": "structural_support_and_feasibility_only"
-    },
-    "terminal_candidate_rejected_for_lost_independent_support": true
+      "future_validation_interval_count": 16,
+      "minimum_validation_improvement": 0.02,
+      "maximum_replacement_model_movement_fraction": 0.25,
+      "disjoint_predictive_validation_required": true,
+      "claim": "frozen_candidate_prequential_future_validation"
+    }
   },
   "evaluation_only": {
     "hidden_hover_motor_command": 0.5319472690407334,
-    "estimated_hover_motor_command": 0.5307129014097958,
-    "hover_relative_error": 0.0023204699089133377
+    "estimated_hover_motor_command": 0.5319474187709873,
+    "hover_relative_error": 2.814757450155424e-07
   },
   "continuous_throw": {
     "release_velocity_norm_m_s": 10.067770360343458,
     "model_enable_velocity_norm_m_s": 1.8806475336910486,
-    "first_supported_control_velocity_norm_m_s": 2.5700586810011483,
-    "certified_belief_velocity_norm_m_s": 5.3939408326811025,
-    "terminal_velocity_norm_m_s": 0.00541322578458227,
-    "terminal_to_release_velocity_ratio": 0.0005376787104625219,
+    "first_supported_control_velocity_norm_m_s": 2.27505671445602,
+    "certified_belief_velocity_norm_m_s": 2.9015988248553803,
+    "terminal_velocity_norm_m_s": 0.011105440891453074,
+    "terminal_to_release_velocity_ratio": 0.0011030685538077982,
     "release_angular_rate_norm_rad_s": 1.0770329857771712,
     "model_enable_angular_rate_norm_rad_s": 1.083774074895121,
-    "first_supported_control_angular_rate_norm_rad_s": 1.0167999636053284,
-    "certified_belief_angular_rate_norm_rad_s": 1.9520038027242723,
-    "terminal_angular_rate_norm_rad_s": 0.01835692533807264,
-    "terminal_to_release_rate_ratio": 0.01704397690738,
+    "first_supported_control_angular_rate_norm_rad_s": 0.9799124789895908,
+    "certified_belief_angular_rate_norm_rad_s": 0.28606690206156205,
+    "terminal_angular_rate_norm_rad_s": 0.011989700134842164,
+    "terminal_to_release_rate_ratio": 0.011132156854221668,
     "release_tilt_rad": 0.24939675919267654,
     "model_enable_tilt_rad": 1.202271401422409,
-    "certified_belief_tilt_rad": 0.6702078709053756,
-    "terminal_tilt_rad": 2.3772106921323343e-05,
+    "certified_belief_tilt_rad": 0.23864908607232493,
+    "terminal_tilt_rad": 0.0009918884556607257,
     "maximum_pre_enable_tilt_rad": 1.202271401422409,
     "release_altitude_m": 1.2000000476837158,
     "model_enable_altitude_m": 4.821143627166748,
-    "certified_belief_altitude_m": 3.1633548736572266,
-    "terminal_altitude_m": 1.7066630125045776,
+    "certified_belief_altitude_m": 1.8863717317581177,
+    "terminal_altitude_m": 1.840254545211792,
     "minimum_altitude_m": 1.2000000476837158,
     "maximum_altitude_m": 4.983355522155762,
-    "maximum_horizontal_excursion_m": 6.669504001013967,
-    "terminal_vertical_velocity_m_s": -0.005040348973125219,
-    "sustained_hover_start_time_s": 5.74,
-    "sustained_hover_duration_s": 4.26,
+    "maximum_horizontal_excursion_m": 5.582962881906138,
+    "terminal_vertical_velocity_m_s": -7.575379277113825e-05,
+    "sustained_hover_start_time_s": 4.27,
+    "sustained_hover_duration_s": 5.73,
     "sustained_hover_thresholds": {
       "speed_m_s": 0.1,
       "angular_rate_rad_s": 0.1,
@@ -444,6 +1248,8 @@
     "pre_enable_commands_exactly_zero": true,
     "first_supported_control_began_before_certification": true,
     "working_belief_updated_for_every_post_enable_interval": true,
+    "initial_admission_scored_on_future_intervals": true,
+    "at_least_one_belief_replacement_committed": true,
     "certified_command_evidence_rank_is_four": true,
     "certified_angular_effect_rank_is_three": true,
     "hover_error_below_2_percent": true,
@@ -465,8 +1271,8 @@
     "Exact simulator state and measured applied rotor state are used.",
     "The first post-enable command is centered at the known command-bounds midpoint.",
     "The controller regulates velocity, attitude, and rates but not position.",
-    "Initial persistent-belief admission checks rank support, authority, sample count, and hover feasibility; it is not disjoint predictive validation.",
-    "The admitted belief is retained after independent closed-loop excitation fades; later candidate replacement is disabled until independent predictive validation is implemented.",
+    "Candidate admission uses a short local future-prediction window; it is not a calibrated probability of flight safety.",
+    "The nuisance-only initial reference and committed-model replacement reference are local one-step predictors, not full trajectory validators.",
     "No sensor noise, estimator delay, packet loss, or firmware scheduling is included.",
     "No real vehicle, propeller proximity, or human-release safety claim is made."
   ]

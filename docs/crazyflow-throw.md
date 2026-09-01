@@ -9,12 +9,17 @@ identification begin together on the same uninterrupted simulation.
 Every subsequent `10 ms` interval updates a working local belief. The
 controller uses only currently supported input/output directions, so command
 authority grows continuously rather than appearing at a single model-ready
-handoff. Once a fully supported belief passes the structural admission
-contract, it is retained for control. That first admission checks input rank,
-output rank, authority, sample count, and feasible hover; it is not disjoint
-predictive validation. Later closed-loop samples still update the working
-candidate, but loss of independent excitation cannot erase previously
-established support.
+handoff. Authority depends on supported parameter covariance, command
+information, and estimated effect signal-to-noise—not elapsed sample count.
+
+Persistent belief updates are transactional. A supported working belief is
+frozen as a proposal, scored prequentially on the next `16` intervals before
+those observations enter that proposal, and committed only if it improves
+future force and angular-acceleration predictions. Later candidates use the
+last committed belief as their reference and must also pass a bounded-movement
+check. Feedback uses the committed belief while information-directed probing
+uses the live working belief, so validation does not introduce a temporal
+collect-then-fly phase.
 
 Glassbox receives timestamps, exact canonical simulator state, measured applied
 motor state, normalized command bounds, and four-channel output shape. It does
@@ -36,24 +41,30 @@ The unpowered first second is visibly ballistic: tilt reaches `1.202 rad`, and
 the airframe reaches `4.821 m` altitude before online actuation starts. After
 activation:
 
-- the first supported feedback contribution occurs at `1.09 s`;
-- four input directions and three angular-effect directions are certified at
-  `1.53 s`;
-- the recursive update median is about `0.15 ms` on the recorded machine;
+- the first supported feedback contribution occurs at `1.05 s`;
+- the accepted initial proposal is frozen after interval `110`, then admitted
+  after `16` future predictions at `2.26 s`;
+- the recursive update median is about `0.34 ms` on the recorded machine;
 - the working belief is updated on all `900` post-enable intervals; and
 - no simulator reset or controller handoff occurs.
 
+Across the full run, the validator accepts the initial belief and seven later
+replacements while rejecting eight candidates that do not demonstrate enough
+future improvement. A post-admission information probe is capped at `0.0005`
+of normalized motor range, independently of the larger initial identification
+signal.
+
 At the `10.00 s` end of the uninterrupted run:
 
-- speed is `0.0054 m/s`, or `0.00054x` release speed;
-- body-rate norm is `0.0184 rad/s`, or `0.0170x` release rate;
-- vertical speed is `-0.0050 m/s`;
-- tilt is below `0.00003 rad`;
+- speed is `0.0111 m/s`, or `0.00110x` release speed;
+- body-rate norm is `0.0120 rad/s`, or `0.0111x` release rate;
+- vertical speed is below `0.00008 m/s` in magnitude;
+- tilt is `0.00099 rad`;
 - minimum altitude is the `1.200 m` release height; and
-- the strict hover envelope remains satisfied for the final `4.26 s`.
+- the strict hover envelope remains satisfied for the final `5.73 s`.
 
-The certified belief estimates hover at `0.53071`, versus the hidden
-evaluation-only value `0.53195` (`0.23%` relative error). All requested and
+The certified belief estimates hover at `0.53194742`, versus the hidden
+evaluation-only value `0.53194727` (`0.000028%` relative error). All requested and
 measured motor values remain finite and bounded.
 
 Run the diagnostic with:
@@ -67,6 +78,31 @@ uv run --extra crazyflow glassbox-crazyflow-throw \
 The [machine-readable result](crazyflow-throw-results.json) records the full
 configuration, working and certified beliefs, timing, state metrics,
 observations, and limitations.
+
+## Development campaign
+
+A fixed five-scenario campaign varies hidden arm length and release state. It
+is deliberately recorded as development evidence—not held-out validation—and
+retains failures instead of reducing the output to successful examples:
+
+```bash
+uv run --extra crazyflow glassbox-crazyflow-throw \
+  docs/crazyflow-throw-campaign-results.json --campaign
+```
+
+Three of five scenarios pass the complete canonical gate. The canonical case,
+a `1.15x` shorter-arm case, and a `1.35x` longer-arm cross-axis tumble all pass.
+Every scenario keeps commands finite and bounded, and all five finish with
+speed at or below `0.0154 m/s`, rate at or below `0.0127 rad/s`, and at least
+`5.07 s` in the strict hover envelope.
+
+The two failed gates matter. A lower-energy release misses the final vertical
+speed threshold by `0.00078 m/s`. A reversed tumble eventually stabilizes but
+contacts the simulated ground first, reaching `-0.001 m`; it therefore cannot
+count as a successful recovery. The
+[campaign artifact](crazyflow-throw-campaign-results.json) records both failures
+and a `3/5` pass rate. This small tuned scenario set does not measure a
+generalization probability.
 
 ## Real-time animations
 
@@ -89,17 +125,20 @@ uv run --extra crazyflow-animation glassbox-crazyflow-throw-animation \
   --throw-only-gif artifacts/crazyflow_throw/unpowered-throw-preview.gif
 ```
 
-## Why retain a certified belief?
+## Why separate working and committed beliefs?
 
 Continuous fitting and continuous control do not require treating every new
-regression as more informative. Once the vehicle is nearly stable, feedback
-commands become correlated and stop independently exciting all motor
-directions. The terminal working candidate correctly reports less independent
-support than the earlier maneuver. It therefore cannot replace the supported
-control belief. Candidate replacement is deliberately not implemented until
-there is independent predictive validation. This follows the broader
-`propose -> validate -> commit` design, but the current demo implements only
-the initial structural admission and the reject-on-lost-support behavior.
+regression as more informative. The working belief assimilates every interval
+and decides which input directions still need information. The committed
+belief is the last frozen candidate that predicted a disjoint future window
+better than its reference. Only it supplies feedback after initial admission.
+
+This is an epistemic separation inside one real-time loop, not two temporal
+controllers. It prevents a transient closed-loop regression from immediately
+rewriting the controller, while still allowing validated replacements. The
+short one-step validation window is evidence of local predictive improvement;
+it is not a calibrated safety probability or a proof of trajectory-wide
+validity.
 
 ## What this does not establish
 

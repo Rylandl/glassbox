@@ -1,0 +1,256 @@
+{
+  "artifact_type": "glassbox_crazyflow_online_throw_development_campaign",
+  "schema_version": 1,
+  "semantics": {
+    "diagnostic_only": true,
+    "flight_safety_claim": false,
+    "fixed_scenarios": true,
+    "held_out_after_controller_tuning": false,
+    "failed_gates_retained": true,
+    "exact_simulator_state_used": true,
+    "sensor_noise_or_delay_modeled": false
+  },
+  "case_count": 5,
+  "cases": [
+    {
+      "scenario": {
+        "name": "canonical",
+        "hidden_arm_length_ratio": 1.25,
+        "release_height_m": 1.2,
+        "release_world_velocity_m_s": [
+          1.0,
+          -0.6,
+          10.0
+        ],
+        "release_angular_velocity_rad_s": [
+          0.8,
+          -0.6,
+          0.4
+        ],
+        "release_roll_rad": 0.2,
+        "release_pitch_rad": -0.15
+      },
+      "gate_passed": true,
+      "failed_observations": [],
+      "timing": {
+        "first_supported_control_time_s": 1.05,
+        "initial_belief_admission_time_s": 2.26
+      },
+      "identification": {
+        "accepted_update_count": 8,
+        "rejected_update_count": 8,
+        "accepted_replacement_count": 7,
+        "terminal_working_command_evidence_rank": 2,
+        "terminal_working_angular_effect_rank": 1
+      },
+      "recovery": {
+        "terminal_velocity_norm_m_s": 0.011105440891453074,
+        "terminal_angular_rate_norm_rad_s": 0.011989700134842164,
+        "terminal_tilt_rad": 0.0009918884556607257,
+        "terminal_vertical_velocity_m_s": -7.575379277113825e-05,
+        "minimum_altitude_m": 1.2000000476837158,
+        "maximum_altitude_m": 4.983355522155762,
+        "maximum_horizontal_excursion_m": 5.582962881906138,
+        "sustained_hover_duration_s": 5.73,
+        "commands_finite": true,
+        "commands_bounded": true
+      }
+    },
+    {
+      "scenario": {
+        "name": "shorter_arms_high_release",
+        "hidden_arm_length_ratio": 1.15,
+        "release_height_m": 2.5,
+        "release_world_velocity_m_s": [
+          1.0,
+          -0.6,
+          10.0
+        ],
+        "release_angular_velocity_rad_s": [
+          0.8,
+          -0.6,
+          0.4
+        ],
+        "release_roll_rad": 0.2,
+        "release_pitch_rad": -0.15
+      },
+      "gate_passed": true,
+      "failed_observations": [],
+      "timing": {
+        "first_supported_control_time_s": 1.05,
+        "initial_belief_admission_time_s": 2.95
+      },
+      "identification": {
+        "accepted_update_count": 7,
+        "rejected_update_count": 12,
+        "accepted_replacement_count": 6,
+        "terminal_working_command_evidence_rank": 2,
+        "terminal_working_angular_effect_rank": 1
+      },
+      "recovery": {
+        "terminal_velocity_norm_m_s": 0.012229839461563669,
+        "terminal_angular_rate_norm_rad_s": 0.012668415635191263,
+        "terminal_tilt_rad": 0.000896883615736191,
+        "terminal_vertical_velocity_m_s": 0.00030383537523448467,
+        "minimum_altitude_m": 2.5,
+        "maximum_altitude_m": 6.283355236053467,
+        "maximum_horizontal_excursion_m": 7.2481143969684725,
+        "sustained_hover_duration_s": 5.44,
+        "commands_finite": true,
+        "commands_bounded": true
+      }
+    },
+    {
+      "scenario": {
+        "name": "long_arms_cross_axis_tumble",
+        "hidden_arm_length_ratio": 1.35,
+        "release_height_m": 2.5,
+        "release_world_velocity_m_s": [
+          0.5,
+          0.8,
+          10.0
+        ],
+        "release_angular_velocity_rad_s": [
+          0.5,
+          0.7,
+          -0.3
+        ],
+        "release_roll_rad": 0.15,
+        "release_pitch_rad": 0.12
+      },
+      "gate_passed": true,
+      "failed_observations": [],
+      "timing": {
+        "first_supported_control_time_s": 1.05,
+        "initial_belief_admission_time_s": 2.35
+      },
+      "identification": {
+        "accepted_update_count": 4,
+        "rejected_update_count": 2,
+        "accepted_replacement_count": 3,
+        "terminal_working_command_evidence_rank": 3,
+        "terminal_working_angular_effect_rank": 2
+      },
+      "recovery": {
+        "terminal_velocity_norm_m_s": 0.014015177816747795,
+        "terminal_angular_rate_norm_rad_s": 0.011032285401268088,
+        "terminal_tilt_rad": 0.0009132675961920292,
+        "terminal_vertical_velocity_m_s": 0.009617135860025883,
+        "minimum_altitude_m": 1.6126604080200195,
+        "maximum_altitude_m": 6.278735637664795,
+        "maximum_horizontal_excursion_m": 9.067763912570564,
+        "sustained_hover_duration_s": 5.07,
+        "commands_finite": true,
+        "commands_bounded": true
+      }
+    },
+    {
+      "scenario": {
+        "name": "milder_low_energy_release",
+        "hidden_arm_length_ratio": 1.25,
+        "release_height_m": 2.5,
+        "release_world_velocity_m_s": [
+          0.7,
+          -0.4,
+          9.0
+        ],
+        "release_angular_velocity_rad_s": [
+          0.6,
+          -0.4,
+          0.3
+        ],
+        "release_roll_rad": 0.15,
+        "release_pitch_rad": -0.1
+      },
+      "gate_passed": false,
+      "failed_observations": [
+        "terminal_vertical_speed_below_0_01_m_s"
+      ],
+      "timing": {
+        "first_supported_control_time_s": 1.05,
+        "initial_belief_admission_time_s": 1.95
+      },
+      "identification": {
+        "accepted_update_count": 2,
+        "rejected_update_count": 1,
+        "accepted_replacement_count": 1,
+        "terminal_working_command_evidence_rank": 2,
+        "terminal_working_angular_effect_rank": 1
+      },
+      "recovery": {
+        "terminal_velocity_norm_m_s": 0.015394153050033332,
+        "terminal_angular_rate_norm_rad_s": 0.011932479100468569,
+        "terminal_tilt_rad": 0.0009750349343274916,
+        "terminal_vertical_velocity_m_s": 0.010778648778796196,
+        "minimum_altitude_m": 2.5,
+        "maximum_altitude_m": 5.637847900390625,
+        "maximum_horizontal_excursion_m": 9.60344146201758,
+        "sustained_hover_duration_s": 5.08,
+        "commands_finite": true,
+        "commands_bounded": true
+      }
+    },
+    {
+      "scenario": {
+        "name": "reversed_tumble",
+        "hidden_arm_length_ratio": 1.25,
+        "release_height_m": 2.5,
+        "release_world_velocity_m_s": [
+          -1.0,
+          0.6,
+          10.0
+        ],
+        "release_angular_velocity_rad_s": [
+          -0.8,
+          0.6,
+          -0.4
+        ],
+        "release_roll_rad": -0.2,
+        "release_pitch_rad": 0.15
+      },
+      "gate_passed": false,
+      "failed_observations": [
+        "minimum_altitude_above_1_m"
+      ],
+      "timing": {
+        "first_supported_control_time_s": 1.05,
+        "initial_belief_admission_time_s": 1.83
+      },
+      "identification": {
+        "accepted_update_count": 2,
+        "rejected_update_count": 0,
+        "accepted_replacement_count": 1,
+        "terminal_working_command_evidence_rank": 2,
+        "terminal_working_angular_effect_rank": 1
+      },
+      "recovery": {
+        "terminal_velocity_norm_m_s": 0.014365088303848878,
+        "terminal_angular_rate_norm_rad_s": 0.012074086489184753,
+        "terminal_tilt_rad": 0.0010058058768302454,
+        "terminal_vertical_velocity_m_s": 0.009135430678725243,
+        "minimum_altitude_m": -0.0010000000474974513,
+        "maximum_altitude_m": 6.284185886383057,
+        "maximum_horizontal_excursion_m": 2.7797722479029607,
+        "sustained_hover_duration_s": 6.84,
+        "commands_finite": true,
+        "commands_bounded": true
+      }
+    }
+  ],
+  "aggregate": {
+    "passing_case_count": 3,
+    "failing_case_count": 2,
+    "pass_fraction": 0.6,
+    "all_commands_finite_and_bounded": true,
+    "worst_terminal_velocity_norm_m_s": 0.015394153050033332,
+    "worst_terminal_angular_rate_norm_rad_s": 0.012668415635191263,
+    "worst_terminal_tilt_rad": 0.0010058058768302454,
+    "minimum_sustained_hover_duration_s": 5.07,
+    "minimum_altitude_m": -0.0010000000474974513
+  },
+  "limitations": [
+    "This is a small deterministic development campaign, not held-out validation.",
+    "The scenarios vary arm length and release state but not sensors, timing, motors, battery, or aerodynamics.",
+    "A passed recovery gate is not a calibrated probability of flight safety."
+  ]
+}
