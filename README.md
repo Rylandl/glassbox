@@ -1442,3 +1442,24 @@ command-to-force model. Use `--include-ground` only with a model that includes
 ground-contact dynamics.
 
 See [idea.md](idea.md) for the complete project scope.
+
+## License and citation
+
+Glassbox is released under the [Apache License, Version 2.0](LICENSE). The
+reference flight corpora it can download (Nano-Quadrotor, ARP, IDF-DS,
+Skywalker X8, EPFL TOPOPlane2) are distributed by their authors under their own
+terms and are not covered by this license.
+
+If you use Glassbox in academic work, please cite it. GitHub renders a
+ready-made citation from [CITATION.cff](CITATION.cff); the BibTeX form is:
+
+```bibtex
+@software{lillibridge2026glassbox,
+  author  = {Lillibridge, Ryland},
+  title   = {Glassbox: telemetry-driven differentiable vehicle dynamics identification},
+  year    = {2026},
+  version = {0.1.0},
+  url     = {https://github.com/Rylandl/glassbox},
+  license = {Apache-2.0}
+}
+```

@@ -1,0 +1,13 @@
+Glassbox
+Copyright 2026 Ryland Lillibridge
+
+This product includes software developed as part of the Glassbox project
+(https://github.com/Rylandl/glassbox), licensed under the Apache License,
+Version 2.0.
+
+If you use Glassbox in academic work, please cite it. A machine-readable
+citation is provided in CITATION.cff at the root of the repository.
+
+The reference flight-data corpora that Glassbox can download at runtime
+(Nano-Quadrotor, ARP, IDF-DS, Skywalker X8, EPFL TOPOPlane2) are not part of
+this product and are distributed by their authors under their own terms.
