@@ -1,0 +1,473 @@
+{
+  "artifact_type": "glassbox_crazyflow_online_throw_recovery_diagnostic",
+  "schema_version": 2,
+  "semantics": {
+    "diagnostic_only": true,
+    "flight_safety_claim": false,
+    "physical_hand_contact_modeled": false,
+    "release_state_injected_by_simulator": true,
+    "continuous_after_release": true,
+    "simulator_reset_after_release": false,
+    "motors_cold_at_release": true,
+    "motors_off_until_model_enable": true,
+    "model_and_controller_disabled_before_model_enable": true,
+    "continuous_identification_during_control": true,
+    "separate_evidence_collection_phase": false,
+    "progressive_supported_direction_authority": true,
+    "working_belief_updated_every_actuated_interval": true,
+    "unsupported_closed_loop_candidate_cannot_erase_certified_support": true,
+    "initial_control_belief_uses_disjoint_predictive_validation": false,
+    "post_admission_candidate_replacement_implemented": false,
+    "airframe_parameter_prior_used": false,
+    "canonical_motor_mixer_supplied_to_identifier": false,
+    "hover_command_supplied_to_identifier": false,
+    "command_bounds_and_channel_shape_known": true,
+    "measured_applied_motor_state_used": true,
+    "hidden_plant_values_used_only_for_post_run_evaluation": true
+  },
+  "configuration": {
+    "hidden_arm_length_ratio": 1.25,
+    "release_height_m": 1.2,
+    "release_world_velocity_m_s": [
+      1.0,
+      -0.6,
+      10.0
+    ],
+    "release_angular_velocity_rad_s": [
+      0.8,
+      -0.6,
+      0.4
+    ],
+    "release_tilt_rad": 0.24939677114952488,
+    "release_applied_motor_command": [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "command_bound_numerical_tolerance": 1e-08,
+    "model_enable_delay_s": 1.0,
+    "model_enable_delay_step_count": 100,
+    "target_trial_duration_s": 10.0,
+    "online_step_count": 900,
+    "sample_period_s": 0.01,
+    "identifier": {
+      "forgetting_factor": 1.0,
+      "command_rank_relative_tolerance": 0.025,
+      "minimum_normalized_command_rms": 0.003,
+      "output_rank_relative_tolerance": 0.04,
+      "authority_start_interval_count": 8,
+      "authority_full_interval_count": 32,
+      "minimum_certification_interval_count": 48
+    },
+    "controller": {
+      "velocity_gain": [
+        1.5,
+        1.5,
+        4.0
+      ],
+      "maximum_world_acceleration_m_s2": [
+        2.5,
+        2.5,
+        4.0
+      ],
+      "maximum_tilt_rad": 0.5,
+      "attitude_gain": [
+        14.0,
+        14.0
+      ],
+      "angular_rate_gain": [
+        6.0,
+        6.0,
+        3.0
+      ],
+      "initial_excitation_fraction": 0.12,
+      "continuing_excitation_fraction": 0.0,
+      "maximum_feedback_delta": 0.35,
+      "maximum_motor_step": 0.1
+    }
+  },
+  "timing": {
+    "model_enable_time_s": 1.0,
+    "first_supported_control_time_s": 1.09,
+    "certified_belief_time_s": 1.53,
+    "time_from_enable_to_first_supported_control_s": 0.09000000000000008,
+    "time_from_enable_to_certified_belief_s": 0.53,
+    "total_trial_duration_s": 10.0,
+    "median_recursive_update_wall_time_s": 0.00014150002971291542,
+    "maximum_recursive_update_wall_time_s": 0.00028270785696804523
+  },
+  "identification": {
+    "certified_control_belief": {
+      "method": "recursive_rank_supported_multirotor_bootstrap_v1",
+      "airframe_parameter_prior_used": false,
+      "canonical_motor_mixer_assumed": false,
+      "interval_count": 53,
+      "effective_interval_count": 53.0,
+      "collective_acceleration_per_command": [
+        4.227314765763936,
+        4.651119184936249,
+        4.863580521631604,
+        4.716542766372299
+      ],
+      "collective_velocity_coefficient": [
+        -0.03115029871378283,
+        0.05538963180151768,
+        -0.5172004421865495
+      ],
+      "collective_intercept_m_s2": 0.01045553200856375,
+      "angular_acceleration_per_command": [
+        [
+          215.40261149039864,
+          -238.49541569642258,
+          -223.9472635824568,
+          247.09884968410216
+        ],
+        [
+          -217.0696221289834,
+          -201.31868097064924,
+          197.6808067789053,
+          214.821841057596
+        ],
+        [
+          132.47993409469512,
+          -94.58799941247622,
+          111.45931900691144,
+          -125.02070701455717
+        ]
+      ],
+      "angular_rate_coefficient": [
+        [
+          20.785826190245917,
+          17.834460238044713,
+          16.20990166180914
+        ],
+        [
+          6.767612755547229,
+          12.012998697559894,
+          17.375151703345757
+        ],
+        [
+          -31.40452348108851,
+          -48.35067469854398,
+          -170.14748783423843
+        ]
+      ],
+      "angular_rate_product_coefficient": [
+        [
+          0.4247694987678624,
+          -39.14586657241151,
+          -31.991447796788098
+        ],
+        [
+          0.4783473861007486,
+          -12.287539928043797,
+          -18.766331168531373
+        ],
+        [
+          0.5667825291182427,
+          56.34867381268117,
+          83.27646648578538
+        ]
+      ],
+      "angular_intercept_rad_s2": [
+        -9.130291962628823,
+        -7.092712246484199,
+        76.35138370072568
+      ],
+      "normalized_command_support_projector": [
+        [
+          1.0000000000000002,
+          -8.326672684688674e-17,
+          -2.7755575615628914e-17,
+          -1.1102230246251565e-16
+        ],
+        [
+          -8.326672684688674e-17,
+          1.0000000000000004,
+          8.326672684688674e-17,
+          -2.0816681711721685e-17
+        ],
+        [
+          -2.7755575615628914e-17,
+          8.326672684688674e-17,
+          1.0000000000000004,
+          -1.6653345369377348e-16
+        ],
+        [
+          -1.1102230246251565e-16,
+          -2.0816681711721685e-17,
+          -1.6653345369377348e-16,
+          1.0000000000000004
+        ]
+      ],
+      "normalized_command_singular_values": [
+        0.20856391493886023,
+        0.06177991318181539,
+        0.02497056482984888,
+        0.022386835320628476
+      ],
+      "command_evidence_rank": 4,
+      "angular_effect_rank": 3,
+      "angular_output_support_projector": [
+        [
+          0.9999999999999996,
+          3.1963181602471076e-17,
+          -1.1783733480094853e-17
+        ],
+        [
+          3.1963181602471076e-17,
+          0.9999999999999994,
+          9.407757570904049e-17
+        ],
+        [
+          -1.0408340855860843e-17,
+          9.71445146547012e-17,
+          1.0
+        ]
+      ],
+      "collective_support_fraction": 0.9999999999999996,
+      "collective_authority": 0.9999999999999996,
+      "angular_axis_authority": [
+        0.9999999999999996,
+        0.9999999999999994,
+        1.0
+      ],
+      "hover_command": [
+        0.5307129014097958,
+        0.5307129014097958,
+        0.5307129014097958,
+        0.5307129014097958
+      ],
+      "update_wall_time_s": 0.000140791991725564
+    },
+    "terminal_working_belief": {
+      "method": "recursive_rank_supported_multirotor_bootstrap_v1",
+      "airframe_parameter_prior_used": false,
+      "canonical_motor_mixer_assumed": false,
+      "interval_count": 900,
+      "effective_interval_count": 900.0,
+      "collective_acceleration_per_command": [
+        4.7023054694276425,
+        4.62797545843037,
+        4.4552111884434,
+        4.729659566945259
+      ],
+      "collective_velocity_coefficient": [
+        -0.003283504652237923,
+        0.015172509364088427,
+        -0.528690028141412
+      ],
+      "collective_intercept_m_s2": -0.042203315504973915,
+      "angular_acceleration_per_command": [
+        [
+          137.7376492857621,
+          12.064616400673762,
+          -295.33369683138903,
+          142.55465018797054
+        ],
+        [
+          -66.98979407427815,
+          -5.937821715877925,
+          143.40173764997212,
+          -69.33133665695478
+        ],
+        [
+          -2.9040386831227183,
+          -0.5667194598045281,
+          5.174583646570033,
+          -3.000057162693601
+        ]
+      ],
+      "angular_rate_coefficient": [
+        [
+          -4.669303034944465,
+          -3.4387075698828493,
+          -3.056055338881338
+        ],
+        [
+          2.259476525900393,
+          -3.9042616258152707,
+          -0.6272621135092564
+        ],
+        [
+          -1.1387891002424464,
+          0.18604956562963176,
+          -0.26715815061132414
+        ]
+      ],
+      "angular_rate_product_coefficient": [
+        [
+          -2.610474003223204,
+          15.326185051046004,
+          9.008773576352743
+        ],
+        [
+          -2.2572055599616,
+          -1.7602687295740695,
+          6.874461041507211
+        ],
+        [
+          -0.35845904038882703,
+          3.1425584526146872,
+          0.1394855495670248
+        ]
+      ],
+      "angular_intercept_rad_s2": [
+        1.6521475935767667,
+        -0.49397666055432005,
+        0.6874468693004245
+      ],
+      "normalized_command_support_projector": [
+        [
+          0.39496168452722563,
+          0.26341495483184163,
+          -0.0760653648165179,
+          0.4047141881981787
+        ],
+        [
+          0.26341495483184163,
+          0.2566677359561258,
+          0.2220793977152469,
+          0.26848223769302554
+        ],
+        [
+          -0.0760653648165179,
+          0.2220793977152469,
+          0.9336375772077145,
+          -0.08278437666121977
+        ],
+        [
+          0.4047141881981787,
+          0.26848223769302554,
+          -0.08278437666121977,
+          0.41473300230893406
+        ]
+      ],
+      "normalized_command_singular_values": [
+        1.7328410733495418,
+        0.10268581891995959,
+        0.05359861570070583,
+        0.04055949183301571
+      ],
+      "command_evidence_rank": 2,
+      "angular_effect_rank": 1,
+      "angular_output_support_projector": [
+        [
+          0.808824648709468,
+          -0.39293725368475135,
+          -0.015088108435425315
+        ],
+        [
+          -0.39293725368475135,
+          0.19089389224187134,
+          0.007329994086324329
+        ],
+        [
+          -0.015088108435425315,
+          0.007329994086324329,
+          0.0002814590486607752
+        ]
+      ],
+      "collective_support_fraction": 0.9999743683647642,
+      "collective_authority": 0.9999743683647642,
+      "angular_axis_authority": [
+        0.404412324354734,
+        0.09544694612093567,
+        0.0001407295243303876
+      ],
+      "hover_command": [
+        0.5319347896251183,
+        0.5319347896251183,
+        0.5319347896251183,
+        0.5319347896251183
+      ],
+      "update_wall_time_s": 0.0001420830376446247
+    },
+    "working_update_count": 900,
+    "control_authority_was_progressive_before_certification": true,
+    "control_belief_admission_contract": {
+      "minimum_interval_count": 48,
+      "required_command_evidence_rank": 4,
+      "required_angular_effect_rank": 3,
+      "minimum_axis_authority": 0.95,
+      "feasible_hover_command_required": true,
+      "disjoint_predictive_validation_required": false,
+      "claim": "structural_support_and_feasibility_only"
+    },
+    "terminal_candidate_rejected_for_lost_independent_support": true
+  },
+  "evaluation_only": {
+    "hidden_hover_motor_command": 0.5319472690407334,
+    "estimated_hover_motor_command": 0.5307129014097958,
+    "hover_relative_error": 0.0023204699089133377
+  },
+  "continuous_throw": {
+    "release_velocity_norm_m_s": 10.067770360343458,
+    "model_enable_velocity_norm_m_s": 1.8806475336910486,
+    "first_supported_control_velocity_norm_m_s": 2.5700586810011483,
+    "certified_belief_velocity_norm_m_s": 5.3939408326811025,
+    "terminal_velocity_norm_m_s": 0.00541322578458227,
+    "terminal_to_release_velocity_ratio": 0.0005376787104625219,
+    "release_angular_rate_norm_rad_s": 1.0770329857771712,
+    "model_enable_angular_rate_norm_rad_s": 1.083774074895121,
+    "first_supported_control_angular_rate_norm_rad_s": 1.0167999636053284,
+    "certified_belief_angular_rate_norm_rad_s": 1.9520038027242723,
+    "terminal_angular_rate_norm_rad_s": 0.01835692533807264,
+    "terminal_to_release_rate_ratio": 0.01704397690738,
+    "release_tilt_rad": 0.24939675919267654,
+    "model_enable_tilt_rad": 1.202271401422409,
+    "certified_belief_tilt_rad": 0.6702078709053756,
+    "terminal_tilt_rad": 2.3772106921323343e-05,
+    "maximum_pre_enable_tilt_rad": 1.202271401422409,
+    "release_altitude_m": 1.2000000476837158,
+    "model_enable_altitude_m": 4.821143627166748,
+    "certified_belief_altitude_m": 3.1633548736572266,
+    "terminal_altitude_m": 1.7066630125045776,
+    "minimum_altitude_m": 1.2000000476837158,
+    "maximum_altitude_m": 4.983355522155762,
+    "maximum_horizontal_excursion_m": 6.669504001013967,
+    "terminal_vertical_velocity_m_s": -0.005040348973125219,
+    "sustained_hover_start_time_s": 5.74,
+    "sustained_hover_duration_s": 4.26,
+    "sustained_hover_thresholds": {
+      "speed_m_s": 0.1,
+      "angular_rate_rad_s": 0.1,
+      "absolute_vertical_speed_m_s": 0.05,
+      "tilt_rad": 0.05
+    },
+    "commands_finite": true,
+    "commands_bounded": true,
+    "pre_enable_commands_exactly_zero": true
+  },
+  "observations": {
+    "pre_enable_commands_exactly_zero": true,
+    "first_supported_control_began_before_certification": true,
+    "working_belief_updated_for_every_post_enable_interval": true,
+    "certified_command_evidence_rank_is_four": true,
+    "certified_angular_effect_rank_is_three": true,
+    "hover_error_below_2_percent": true,
+    "terminal_velocity_below_1_percent_of_release": true,
+    "terminal_rate_below_2_percent_of_release": true,
+    "terminal_speed_below_0_02_m_s": true,
+    "terminal_rate_below_0_03_rad_s": true,
+    "terminal_vertical_speed_below_0_01_m_s": true,
+    "terminal_tilt_below_0_01_rad": true,
+    "sustained_hover_exceeds_3_s": true,
+    "minimum_altitude_above_1_m": true,
+    "all_values_finite": true,
+    "all_commands_bounded": true,
+    "no_reset_after_release": true,
+    "gate_passed": true
+  },
+  "limitations": [
+    "The simulator injects a release state; hand contact and separation are not modeled.",
+    "Exact simulator state and measured applied rotor state are used.",
+    "The first post-enable command is centered at the known command-bounds midpoint.",
+    "The controller regulates velocity, attitude, and rates but not position.",
+    "Initial persistent-belief admission checks rank support, authority, sample count, and hover feasibility; it is not disjoint predictive validation.",
+    "The admitted belief is retained after independent closed-loop excitation fades; later candidate replacement is disabled until independent predictive validation is implemented.",
+    "No sensor noise, estimator delay, packet loss, or firmware scheduling is included.",
+    "No real vehicle, propeller proximity, or human-release safety claim is made."
+  ]
+}

@@ -107,6 +107,46 @@ def endpoint_tangent_error_and_jacobian(
     return value, jacobian
 
 
+def batched_endpoint_tangent_error(
+    vector: Array,
+    template_params: ModelParams,
+    initial_states: Array,
+    control_histories: Array,
+    controls: Array,
+    targets: Array,
+    contexts: Array,
+    biases: Array,
+    *,
+    dt_s: float,
+    control_roles: tuple[str, ...],
+    exogenous_roles: tuple[str, ...],
+) -> Array:
+    """Vectorize endpoint errors across equal-horizon update windows."""
+
+    return jax.vmap(
+        lambda initial, history, command, target, context, bias: endpoint_tangent_error(
+            vector,
+            template_params,
+            initial,
+            history,
+            command,
+            target,
+            context,
+            bias,
+            dt_s=dt_s,
+            control_roles=control_roles,
+            exogenous_roles=exogenous_roles,
+        )
+    )(
+        initial_states,
+        control_histories,
+        controls,
+        targets,
+        contexts,
+        biases,
+    )
+
+
 def batched_endpoint_tangent_error_and_jacobian(
     vector: Array,
     template_params: ModelParams,
@@ -151,6 +191,10 @@ def batched_endpoint_tangent_error_and_jacobian(
 
 compiled_endpoint_tangent_error = jax.jit(
     endpoint_tangent_error,
+    static_argnames=("dt_s", "control_roles", "exogenous_roles"),
+)
+compiled_batched_endpoint_tangent_error = jax.jit(
+    batched_endpoint_tangent_error,
     static_argnames=("dt_s", "control_roles", "exogenous_roles"),
 )
 compiled_endpoint_tangent_linearization = jax.jit(

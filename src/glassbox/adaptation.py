@@ -21,12 +21,16 @@ from glassbox.belief import (
 )
 from glassbox.covariance import SupportedCovariance, supported_covariance
 from glassbox.data import Trajectory, duration_to_steps
-from glassbox.dynamics import control_state_after_history, step_with_latent
-from glassbox.linearization import (
-    compiled_endpoint_tangent_error,
-    compiled_endpoint_tangent_linearization,
+from glassbox.dynamics import (
+    ModelParams,
+    control_state_after_history,
+    step_with_latent,
 )
-from glassbox.runtime import model_validity_utilization
+from glassbox.linearization import (
+    compiled_batched_endpoint_tangent_error,
+    compiled_batched_endpoint_tangent_linearization,
+)
+from glassbox.runtime import model_validity_utilization_from_components
 
 MAXIMUM_ONLINE_UPDATE_WINDOWS = 64
 ACTUATOR_HISTORY_DURATION_S = 1.0
@@ -370,6 +374,168 @@ class _UpdateContext:
     actuator_context_fingerprint: str | None
 
 
+def _stacked_window_values(
+    context: _UpdateContext,
+) -> tuple[jax.Array, jax.Array, jax.Array, jax.Array, jax.Array, jax.Array]:
+    return tuple(
+        jnp.stack(tuple(getattr(window, field) for window in context.windows))
+        for field in (
+            "initial_state",
+            "control_history",
+            "controls",
+            "target_state",
+            "exogenous",
+            "bias",
+        )
+    )  # type: ignore[return-value]
+
+
+def _batched_candidate_rollouts(
+    vector: jax.Array,
+    template_params: ModelParams,
+    initial_states: jax.Array,
+    control_histories: jax.Array,
+    controls: jax.Array,
+    exogenous: jax.Array,
+    *,
+    dt_s: float,
+    control_roles: tuple[str, ...],
+    exogenous_roles: tuple[str, ...],
+) -> tuple[jax.Array, jax.Array]:
+    params = with_structured_parameter_vector(template_params, vector)
+
+    def rollout_one(
+        initial_state: jax.Array,
+        control_history: jax.Array,
+        window_controls: jax.Array,
+        window_exogenous: jax.Array,
+    ) -> tuple[jax.Array, jax.Array]:
+        latent = control_state_after_history(
+            params,
+            control_history,
+            dt_s,
+            control_roles,
+        )
+
+        def transition(
+            carry: tuple[jax.Array, jax.Array],
+            inputs: tuple[jax.Array, jax.Array],
+        ) -> tuple[tuple[jax.Array, jax.Array], tuple[jax.Array, jax.Array]]:
+            state, latent_state = carry
+            control, context = inputs
+            next_state, next_latent = step_with_latent(
+                params,
+                state,
+                latent_state,
+                control,
+                dt_s,
+                control_roles,
+                context,
+                exogenous_roles,
+            )
+            return (next_state, next_latent), (next_state, next_latent)
+
+        _, (states, latent_states) = jax.lax.scan(
+            transition,
+            (initial_state, latent),
+            (window_controls, window_exogenous),
+        )
+        return states, latent_states
+
+    return jax.vmap(rollout_one)(
+        initial_states,
+        control_histories,
+        controls,
+        exogenous,
+    )
+
+
+def _batched_model_validity_utilization(
+    states: jax.Array,
+    exogenous: jax.Array,
+    body_velocity_center: jax.Array,
+    body_velocity_half_width: jax.Array,
+    angular_velocity_center: jax.Array,
+    angular_velocity_half_width: jax.Array,
+    *,
+    exogenous_roles: tuple[str, ...],
+) -> jax.Array:
+    """Evaluate validity over arbitrary leading batch dimensions."""
+
+    flat_states = states.reshape((-1, states.shape[-1]))
+    flat_exogenous = exogenous.reshape((flat_states.shape[0], exogenous.shape[-1]))
+
+    def utilization_one(state: jax.Array, context: jax.Array) -> jax.Array:
+        return model_validity_utilization_from_components(
+            state,
+            context,
+            body_velocity_center,
+            body_velocity_half_width,
+            angular_velocity_center,
+            angular_velocity_half_width,
+            exogenous_roles=exogenous_roles,
+        )
+
+    flat_utilization = jax.vmap(utilization_one)(flat_states, flat_exogenous)
+    return flat_utilization.reshape((*states.shape[:-1], 6))
+
+
+_compiled_batched_model_validity_utilization = jax.jit(
+    _batched_model_validity_utilization,
+    static_argnames=("exogenous_roles",),
+)
+
+
+def _batched_candidate_rollouts_supported(
+    vector: jax.Array,
+    template_params: ModelParams,
+    initial_states: jax.Array,
+    control_histories: jax.Array,
+    controls: jax.Array,
+    exogenous: jax.Array,
+    body_velocity_center: jax.Array,
+    body_velocity_half_width: jax.Array,
+    angular_velocity_center: jax.Array,
+    angular_velocity_half_width: jax.Array,
+    *,
+    dt_s: float,
+    control_roles: tuple[str, ...],
+    exogenous_roles: tuple[str, ...],
+) -> jax.Array:
+    states, latent_states = _batched_candidate_rollouts(
+        vector,
+        template_params,
+        initial_states,
+        control_histories,
+        controls,
+        exogenous,
+        dt_s=dt_s,
+        control_roles=control_roles,
+        exogenous_roles=exogenous_roles,
+    )
+    utilization = _batched_model_validity_utilization(
+        states,
+        exogenous,
+        body_velocity_center,
+        body_velocity_half_width,
+        angular_velocity_center,
+        angular_velocity_half_width,
+        exogenous_roles=exogenous_roles,
+    )
+    return (
+        jnp.all(jnp.isfinite(states))
+        & jnp.all(jnp.isfinite(latent_states))
+        & jnp.all(jnp.isfinite(utilization))
+        & (jnp.max(utilization) <= 1.0 + VALIDITY_BOUNDARY_TOLERANCE)
+    )
+
+
+_compiled_batched_candidate_rollouts_supported = jax.jit(
+    _batched_candidate_rollouts_supported,
+    static_argnames=("dt_s", "control_roles", "exogenous_roles"),
+)
+
+
 def _source_group(trajectory: Trajectory) -> str:
     for key in ("source_group", "flight_id", "trajectory_id", "vehicle_id"):
         value = trajectory.labels.get(key)
@@ -428,17 +594,16 @@ def _window_starts(candidate_count: int) -> np.ndarray:
 
 
 def _maximum_validity(belief: DynamicsBelief, telemetry: Trajectory) -> float:
+    envelope = belief.runtime_spec.validity_envelope
     utilization = np.asarray(
-        jax.vmap(
-            lambda state, context: model_validity_utilization(
-                state,
-                context,
-                belief.input_spec,
-                belief.runtime_spec.validity_envelope,
-            )
-        )(
+        _compiled_batched_model_validity_utilization(
             jnp.asarray(telemetry.states),
             jnp.asarray(telemetry.exogenous),
+            jnp.asarray(envelope.body_velocity_center_m_s),
+            jnp.asarray(envelope.body_velocity_half_width_m_s),
+            jnp.asarray(envelope.angular_velocity_center_rad_s),
+            jnp.asarray(envelope.angular_velocity_half_width_rad_s),
+            exogenous_roles=belief.input_spec.exogenous_roles,
         )
     )
     return float(np.max(utilization))
@@ -556,8 +721,8 @@ def _preflight(
             maximum_validity=maximum_validity,
         )
     intervals = np.diff(telemetry.time_s)
-    dt_s = float(np.median(intervals))
-    if not np.allclose(intervals, dt_s, atol=1e-7, rtol=0.0):
+    observed_dt_s = float(np.median(intervals))
+    if not np.allclose(intervals, observed_dt_s, atol=1e-7, rtol=0.0):
         return None, _base_report(
             belief,
             telemetry,
@@ -565,7 +730,7 @@ def _preflight(
             maximum_validity=maximum_validity,
         )
     if not np.isclose(
-        dt_s,
+        observed_dt_s,
         belief.runtime_spec.sample_period_s,
         atol=1e-7,
         rtol=0.0,
@@ -576,6 +741,11 @@ def _preflight(
             reason="telemetry sample period does not match the runtime model",
             maximum_validity=maximum_validity,
         )
+    # The runtime contract is authoritative after the telemetry period passes
+    # validation. Using a median reconstructed from timestamps as a JAX static
+    # argument lets insignificant floating-point differences defeat the
+    # precompiled update cache.
+    dt_s = float(belief.runtime_spec.sample_period_s)
     shortest_horizon = float(belief.predictive_error.horizons_s[0])
     horizon_steps = duration_to_steps(shortest_horizon, dt_s)
     horizon_s = horizon_steps * dt_s
@@ -702,41 +872,26 @@ def _preflight(
     )
 
 
-def _window_error(
+def _normalized_rms(
     belief: DynamicsBelief,
     context: _UpdateContext,
-    window: _UpdateWindow,
     vector: np.ndarray,
-) -> np.ndarray:
-    return np.asarray(
-        compiled_endpoint_tangent_error(
+) -> float:
+    errors = np.asarray(
+        compiled_batched_endpoint_tangent_error(
             jnp.asarray(vector),
             belief.params,
-            window.initial_state,
-            window.control_history,
-            window.controls,
-            window.target_state,
-            window.exogenous,
-            window.bias,
+            *_stacked_window_values(context),
             dt_s=context.dt_s,
             control_roles=belief.input_spec.control_roles,
             exogenous_roles=belief.input_spec.exogenous_roles,
         ),
         dtype=np.float64,
     )
-
-
-def _normalized_rms(
-    belief: DynamicsBelief,
-    context: _UpdateContext,
-    vector: np.ndarray,
-) -> float:
     squared_error = 0.0
     supported_dimension = 0
-    for window in context.windows:
-        whitened = window.error_support.whiten_vector(
-            _window_error(belief, context, window, vector)
-        )
+    for window, error in zip(context.windows, errors):
+        whitened = window.error_support.whiten_vector(error)
         squared_error += float(whitened @ whitened)
         supported_dimension += len(whitened)
     return float(np.sqrt(squared_error / supported_dimension))
@@ -749,57 +904,24 @@ def _candidate_rollouts_supported(
 ) -> bool:
     """Require every proposed rollout path to remain finite and in support."""
 
-    params = with_structured_parameter_vector(belief.params, jnp.asarray(vector))
-    for window in context.windows:
-        latent = control_state_after_history(
-            params,
-            window.control_history,
-            context.dt_s,
-            belief.input_spec.control_roles,
-        )
-
-        def transition(
-            carry: tuple[jax.Array, jax.Array],
-            inputs: tuple[jax.Array, jax.Array],
-        ) -> tuple[tuple[jax.Array, jax.Array], tuple[jax.Array, jax.Array]]:
-            state, latent_state = carry
-            control, exogenous = inputs
-            next_state, next_latent = step_with_latent(
-                params,
-                state,
-                latent_state,
-                control,
-                context.dt_s,
-                belief.input_spec.control_roles,
-                exogenous,
-                belief.input_spec.exogenous_roles,
-            )
-            return (next_state, next_latent), (next_state, next_latent)
-
-        _, (states, latent_states) = jax.lax.scan(
-            transition,
-            (window.initial_state, latent),
-            (window.controls, window.exogenous),
-        )
-        states_np = np.asarray(states)
-        latent_np = np.asarray(latent_states)
-        if not (np.all(np.isfinite(states_np)) and np.all(np.isfinite(latent_np))):
-            return False
-        utilization = np.asarray(
-            jax.vmap(
-                lambda state, exogenous: model_validity_utilization(
-                    state,
-                    exogenous,
-                    belief.input_spec,
-                    belief.runtime_spec.validity_envelope,
-                )
-            )(states, window.exogenous)
-        )
-        if not np.all(np.isfinite(utilization)) or float(np.max(utilization)) > (
-            1.0 + VALIDITY_BOUNDARY_TOLERANCE
-        ):
-            return False
-    return True
+    initial, history, controls, _, exogenous, _ = _stacked_window_values(context)
+    envelope = belief.runtime_spec.validity_envelope
+    supported = _compiled_batched_candidate_rollouts_supported(
+        jnp.asarray(vector),
+        belief.params,
+        initial,
+        history,
+        controls,
+        exogenous,
+        jnp.asarray(envelope.body_velocity_center_m_s),
+        jnp.asarray(envelope.body_velocity_half_width_m_s),
+        jnp.asarray(envelope.angular_velocity_center_rad_s),
+        jnp.asarray(envelope.angular_velocity_half_width_rad_s),
+        dt_s=context.dt_s,
+        control_roles=belief.input_spec.control_roles,
+        exogenous_roles=belief.input_spec.exogenous_roles,
+    )
+    return bool(np.asarray(supported))
 
 
 def _proposal_geometry(
@@ -811,20 +933,15 @@ def _proposal_geometry(
     prior_factor = prior_support.basis * np.sqrt(prior_support.variances)
     rows: list[np.ndarray] = []
     residuals: list[np.ndarray] = []
-    for window in context.windows:
-        error, jacobian = compiled_endpoint_tangent_linearization(
-            jnp.asarray(vector),
-            belief.params,
-            window.initial_state,
-            window.control_history,
-            window.controls,
-            window.target_state,
-            window.exogenous,
-            window.bias,
-            dt_s=context.dt_s,
-            control_roles=belief.input_spec.control_roles,
-            exogenous_roles=belief.input_spec.exogenous_roles,
-        )
+    errors, jacobians = compiled_batched_endpoint_tangent_linearization(
+        jnp.asarray(vector),
+        belief.params,
+        *_stacked_window_values(context),
+        dt_s=context.dt_s,
+        control_roles=belief.input_spec.control_roles,
+        exogenous_roles=belief.input_spec.exogenous_roles,
+    )
+    for window, error, jacobian in zip(context.windows, errors, jacobians):
         error_np = np.asarray(error, dtype=np.float64)
         jacobian_np = np.asarray(jacobian, dtype=np.float64)
         residuals.append(window.error_support.whiten_vector(error_np))

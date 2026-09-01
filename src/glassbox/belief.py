@@ -1543,6 +1543,7 @@ class RuntimeDynamicsBelief:
 
     def _parameter_tangent_jacobian(
         self,
+        params: ModelParams,
         initial_state: Array,
         commands: Array,
         command_history: Array,
@@ -1553,12 +1554,12 @@ class RuntimeDynamicsBelief:
     ) -> Array | None:
         if not isinstance(self.parameter_belief, LocalGaussianParameterBelief):
             return None
-        center = structured_parameter_vector(self.nominal.params)
+        center = structured_parameter_vector(params)
 
         def varied_tangent(vector: Array) -> Array:
-            params = with_structured_parameter_vector(self.nominal.params, vector)
+            varied_params = with_structured_parameter_vector(params, vector)
             varied_states, _, _ = self._rollout_with_params(
-                params,
+                varied_params,
                 initial_state,
                 commands,
                 command_history,
@@ -1577,6 +1578,7 @@ class RuntimeDynamicsBelief:
         initial_state: Array,
         commands: Array,
         *,
+        model_parameters: ModelParams | None = None,
         command_history: Array | None = None,
         initial_latent_state: Array | None = None,
         exogenous: Array | None = None,
@@ -1605,9 +1607,12 @@ class RuntimeDynamicsBelief:
         provided_latent = (
             None if initial_latent_state is None else jnp.asarray(initial_latent_state)
         )
+        selected_parameters = (
+            self.nominal.params if model_parameters is None else model_parameters
+        )
         future_states, future_latent, resolved_initial_latent = (
             self._rollout_with_params(
-                self.nominal.params,
+                selected_parameters,
                 initial_state,
                 commands,
                 history,
@@ -1629,6 +1634,7 @@ class RuntimeDynamicsBelief:
             exogenous,
         )
         parameter_jacobian = self._parameter_tangent_jacobian(
+            selected_parameters,
             initial_state,
             commands,
             history,

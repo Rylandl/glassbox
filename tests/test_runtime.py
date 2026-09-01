@@ -182,6 +182,33 @@ def test_runtime_supports_structured_residual_transition(tmp_path) -> None:
     assert np.all(np.isfinite(next_state))
 
 
+def test_runtime_rebinds_only_compatible_finite_parameter_numerics(tmp_path) -> None:
+    trajectory = generate_trajectory(seed=4, duration_s=0.1)
+    path = tmp_path / "model.json"
+    params = true_parameters()
+    save_dynamics_model(
+        params,
+        path,
+        input_spec=trajectory.spec,
+        runtime_spec=runtime_spec_from_trajectory(trajectory),
+    )
+    runtime = RuntimeDynamicsModel.load(path)
+    rebound = runtime.rebind_parameters(
+        params._replace(log_linear_drag=params.log_linear_drag + 0.1)
+    )
+
+    assert rebound is not runtime
+    assert rebound.input_spec is runtime.input_spec
+    assert rebound.runtime_spec is runtime.runtime_spec
+    assert rebound.actuation is runtime.actuation
+    assert rebound.params.log_linear_drag != runtime.params.log_linear_drag
+
+    with pytest.raises(ValueError, match="shape changed"):
+        runtime.rebind_parameters(params._replace(log_angular_accel=jnp.zeros(2)))
+    with pytest.raises(ValueError, match="must be finite"):
+        runtime.rebind_parameters(params._replace(log_linear_drag=jnp.asarray(np.nan)))
+
+
 def test_runtime_spec_extracts_fit_envelope_and_refuses_implicit_certificate() -> None:
     report = {
         "dataset": {"sample_rate_hz": 50.0},

@@ -72,6 +72,16 @@ warm-started solve compiles the receding-horizon path. Run both and discard
 their commands before entering a timed control loop. Compilation must never
 happen after arming.
 
+For an online belief mean change, `controller.rebind_belief(updated_belief)`
+returns an immutable controller handle that shares the original JIT functions
+and supplies the new `ModelParams` PyTree dynamically. Rebinding is intentionally
+strict: input/runtime specifications, actuation, parameter-tree shapes,
+uncertainty numerics, prediction horizon, and derived support horizon must match
+the precompiled template. A mismatch raises `ValueError` instead of compiling a
+different program on the control path. The integrator must construct and fully
+prewarm the expected post-update template before arming; rebinding does not turn
+an arbitrary belief change into a compatible hot swap.
+
 ## Eligible models and airframes
 
 The runtime contract requires a sample period, a training-derived body-velocity
@@ -162,8 +172,13 @@ line-search failure, and exceeded deadlines set `used_fallback=True` and
 the previous command, or the channel midpoint if the previous command is
 invalid; Glassbox does not silently replace NMPC with a second controller. A
 deadline cannot preempt an already executing JAX device call; the elapsed-time
-check rejects its output afterward. Process/telemetry watchdogs and authority
-handoff remain integration concerns, not alternate controllers embedded here.
+check rejects its output afterward. Process isolation and authority handoff
+remain integration concerns, not alternate controllers embedded here. Glassbox
+does provide a separate `MultirotorFlightSupervisor` building block for command
+and telemetry freshness, finite/bounded command checks, and attitude/rate
+arrest; it is intentionally outside `NMPCController` and must be configured by
+the vehicle integration. See the
+[multirotor supervisor contract](flight-supervisor.md).
 
 ## Measured capability
 
@@ -336,7 +351,10 @@ This establishes transport and solver integration, not closed-loop PX4 control.
 A future command-output adapter remains a separate boundary and must own mixing,
 arming and mode checks, stale-setpoint rejection, command timestamps, an
 independent watchdog, and safe-mode handoff. The repository still provides no
-such adapter and must not be connected directly to real actuators.
+such PX4 adapter. The model-independent multirotor supervisor can form one part
+of that boundary, but it does not implement PX4 transport, arming, estimator
+health, or vehicle-specific safe-mode handoff and must not be connected directly
+to real actuators.
 
 ## Reproducing the gate
 

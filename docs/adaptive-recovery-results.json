@@ -20,7 +20,7 @@
       "runtime.py",
       "synthetic.py"
     ],
-    "source_sha256": "9b831b84ca38b7462bb5a406640314aa6c9e5ea6ba7dee0a351ef7b4ff2f1291",
+    "source_sha256": "0e1de659b5dcfc450e8eb3d449fab3ed647ced43f64d01676479f0402738afaf",
     "scenario_sha256": "a9cc98f3c8703b1375264afc3b41379baaf1e4b6d9d9ad9daf5a344b8aa82606"
   },
   "semantics": {
@@ -159,7 +159,7 @@
       "validation_performed": true,
       "reason": null,
       "source_group": "proposal:target-configuration-adaptation;validation:target-configuration-adaptation",
-      "update_horizon_s": 0.10000000000000002,
+      "update_horizon_s": 0.10000000000000009,
       "update_horizon_steps": 5,
       "candidate_window_count": 8,
       "used_window_count": 8,
@@ -167,13 +167,13 @@
       "validation_window_count": 4,
       "actuator_context_sample_count": 20,
       "actuator_context_fingerprint": "55cf010d76dcea8af4405bfd6260fc249af4dcca787f1f389dbce6935d249abc",
-      "normalized_innovation_rms_before": 0.5909151600548506,
-      "normalized_innovation_rms_after": 0.2430803796738898,
-      "normalized_validation_rms_before": 1.1994160563751122,
-      "normalized_validation_rms_after": 0.4982188254158822,
+      "normalized_innovation_rms_before": 0.5909157696026289,
+      "normalized_innovation_rms_after": 0.24307920747811296,
+      "normalized_validation_rms_before": 1.1994095845564494,
+      "normalized_validation_rms_after": 0.4982276869348676,
       "realized_local_information_gain_nats": null,
-      "structured_parameter_delta_norm": 0.15983661159205842,
-      "prior_standardized_step_rms": 0.571848846100918,
+      "structured_parameter_delta_norm": 0.15983681262036498,
+      "prior_standardized_step_rms": 0.5718495653216521,
       "accepted_step_fraction": 1.0,
       "prior_covariance_trace": 0.07812499999999999,
       "posterior_covariance_trace": 0.07812499999999999,
@@ -227,10 +227,10 @@
       "outside_support_best_effort_count": 4,
       "fallback_count": 0,
       "finite": true,
-      "prewarm_wall_time_s": 4.511944582918659,
-      "solve_time_median_s": 0.006871166406199336,
-      "solve_time_p90_s": 0.007269574655219912,
-      "solve_time_maximum_s": 0.008026707917451859
+      "prewarm_wall_time_s": 5.327394666150212,
+      "solve_time_median_s": 0.009002686943858862,
+      "solve_time_p90_s": 0.01046053769532591,
+      "solve_time_maximum_s": 0.014798833057284355
     },
     {
       "condition": "adapted_belief",
@@ -267,10 +267,10 @@
       "outside_support_best_effort_count": 6,
       "fallback_count": 0,
       "finite": true,
-      "prewarm_wall_time_s": 5.833905166015029,
-      "solve_time_median_s": 0.013618020457215607,
-      "solve_time_p90_s": 0.019070033472962676,
-      "solve_time_maximum_s": 0.04821141716092825
+      "prewarm_wall_time_s": 6.204317665891722,
+      "solve_time_median_s": 0.018425750080496073,
+      "solve_time_p90_s": 0.02532706237398088,
+      "solve_time_maximum_s": 0.06198633392341435
     },
     {
       "condition": "adapted_mean_point",
@@ -307,10 +307,10 @@
       "outside_support_best_effort_count": 4,
       "fallback_count": 0,
       "finite": true,
-      "prewarm_wall_time_s": 2.866575916064903,
-      "solve_time_median_s": 0.007638750481419265,
-      "solve_time_p90_s": 0.008016720740124583,
-      "solve_time_maximum_s": 0.008569916943088174
+      "prewarm_wall_time_s": 3.6107354999985546,
+      "solve_time_median_s": 0.00939906237181276,
+      "solve_time_p90_s": 0.010803200420923531,
+      "solve_time_maximum_s": 0.014177666045725346
     },
     {
       "condition": "oracle_mean_point",
@@ -347,10 +347,10 @@
       "outside_support_best_effort_count": 3,
       "fallback_count": 0,
       "finite": true,
-      "prewarm_wall_time_s": 2.73951704101637,
-      "solve_time_median_s": 0.0067005211021751165,
-      "solve_time_p90_s": 0.007031175680458546,
-      "solve_time_maximum_s": 0.0073749159928411245
+      "prewarm_wall_time_s": 3.5820235828869045,
+      "solve_time_median_s": 0.009250395931303501,
+      "solve_time_p90_s": 0.010768367280252279,
+      "solve_time_maximum_s": 0.015785582829266787
     }
   ],
   "comparisons": {

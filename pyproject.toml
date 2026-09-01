@@ -16,6 +16,15 @@ dependencies = [
     "rosbags>=0.11.5",
 ]
 
+[project.optional-dependencies]
+crazyflow = [
+    "crazyflow==0.3.2",
+]
+crazyflow-animation = [
+    "crazyflow==0.3.2",
+    "pillow>=10",
+]
+
 [project.scripts]
 glassbox-fit = "glassbox.fit_cli:main"
 glassbox-prior = "glassbox.parameter_prior_cli:main"
@@ -36,6 +45,11 @@ glassbox-epfl = "glassbox.epfl_cli:main"
 glassbox-select-policy = "glassbox.policy_selection:main"
 glassbox-nmpc-benchmark = "glassbox.nmpc_benchmark:main"
 glassbox-px4-nmpc-shadow = "glassbox.integrations.px4_nmpc_shadow:main"
+glassbox-crazyflow-prototype = "glassbox.integrations.crazyflow_prototype:main"
+glassbox-crazyflow-bootstrap = "glassbox.integrations.crazyflow_bootstrap:main"
+glassbox-crazyflow-animation = "glassbox.integrations.crazyflow_animation:main"
+glassbox-crazyflow-throw = "glassbox.integrations.crazyflow_throw:main"
+glassbox-crazyflow-throw-animation = "glassbox.integrations.crazyflow_animation:throw_main"
 
 [dependency-groups]
 dev = [
@@ -46,6 +60,7 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 markers = [
+    "crazyflow: opt-in contracts against the pinned Crazyflow simulator",
     "px4_sitl: opt-in contract tests against a disposable PX4 SIH container",
 ]
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 import time
+from copy import copy
 from dataclasses import dataclass, replace
 from typing import Protocol
 
@@ -14,7 +15,7 @@ from jax import Array
 
 from glassbox.belief import DynamicsBelief, RuntimeDynamicsBelief
 from glassbox.data import duration_to_steps
-from glassbox.dynamics import quaternion_to_rotation
+from glassbox.dynamics import ModelParams, quaternion_to_rotation
 from glassbox.geometry import rigid_body_local_error
 from glassbox.nmpc.types import (
     NMPCDiagnostics,
@@ -108,6 +109,26 @@ def _default_policy(model: RuntimeDynamicsModel) -> _SolverPolicy:
     return _SolverPolicy(horizon_steps=steps, block_count=min(10, steps))
 
 
+def _runtime_belief(
+    model: RuntimeDynamicsModel | RuntimeDynamicsBelief | DynamicsBelief,
+) -> RuntimeDynamicsBelief:
+    return (
+        model.compile_for_nmpc()
+        if isinstance(model, DynamicsBelief)
+        else model
+        if isinstance(model, RuntimeDynamicsBelief)
+        else RuntimeDynamicsBelief.from_nominal(model)
+    )
+
+
+def _parameter_tree_signature(params: ModelParams) -> tuple[object, tuple[tuple, ...]]:
+    leaves, structure = jax.tree_util.tree_flatten(params)
+    signature = tuple(
+        (np.asarray(leaf).shape, np.asarray(leaf).dtype.str) for leaf in leaves
+    )
+    return structure, signature
+
+
 class _SolverBackend(Protocol):
     """Internal boundary allowing solver replacement without API changes."""
 
@@ -126,6 +147,8 @@ class _SolverBackend(Protocol):
         deadline_s: float | None = None,
     ) -> NMPCResult: ...
 
+    def rebind(self, belief: RuntimeDynamicsBelief) -> _SolverBackend: ...
+
 
 class _DirectShootingBackend:
     """Maintained bounded direct-shooting implementation."""
@@ -140,6 +163,7 @@ class _DirectShootingBackend:
     ) -> None:
         self.belief = belief
         self.model = belief.nominal
+        self._active_parameters = self.model.params
         self.tolerances = tolerances
         self.safety_envelope = safety_envelope
         self._policy = _default_policy(self.model) if _policy is None else _policy
@@ -188,7 +212,9 @@ class _DirectShootingBackend:
         )
         self._objective_gradient = jax.value_and_grad(self._objective)
         self._objective_and_gradient = jax.jit(self._objective_gradient)
-        self._initial_latent_compiled = jax.jit(self.model.initial_latent_state)
+        self._initial_latent_compiled = jax.jit(
+            self.model.initial_latent_state_with_parameters
+        )
         self._optimize_compiled = jax.jit(self._optimize)
         self._rollout_compiled = jax.jit(self._rollout)
         self._validity_compiled = jax.jit(self._maximum_validity_utilization)
@@ -200,7 +226,7 @@ class _DirectShootingBackend:
         self._support_metrics_compiled = jax.jit(
             jax.vmap(
                 self._support_horizon_metrics,
-                in_axes=(None, None, 0, None),
+                in_axes=(None, None, 0, None, None),
             )
         )
         self._support_batch_warmed = False
@@ -216,6 +242,85 @@ class _DirectShootingBackend:
     @property
     def command_block_count(self) -> int:
         return self._policy.block_count
+
+    def rebind(self, belief: RuntimeDynamicsBelief) -> _DirectShootingBackend:
+        """Return a handle sharing compiled kernels with compatible new numerics."""
+
+        candidate = belief.nominal
+        if candidate.input_spec != self.model.input_spec:
+            raise ValueError("rebound belief input specification changed")
+        if candidate.runtime_spec != self.model.runtime_spec:
+            raise ValueError("rebound belief runtime specification changed")
+        same_actuation = candidate.actuation is self.model.actuation
+        if not same_actuation:
+            try:
+                same_actuation = bool(candidate.actuation == self.model.actuation)
+            except (TypeError, ValueError):
+                same_actuation = False
+        if not same_actuation:
+            raise ValueError("rebound belief actuation map changed")
+        if _parameter_tree_signature(candidate.params) != _parameter_tree_signature(
+            self.model.params
+        ):
+            raise ValueError("rebound belief parameter structure changed")
+        candidate_leaves = jax.tree_util.tree_leaves(candidate.params)
+        if not all(np.all(np.isfinite(np.asarray(leaf))) for leaf in candidate_leaves):
+            raise ValueError("rebound belief parameters must be finite")
+        if (
+            belief.parameter_belief is not self.belief.parameter_belief
+            and belief.parameter_belief.to_dict()
+            != self.belief.parameter_belief.to_dict()
+        ):
+            raise ValueError("rebound belief parameter uncertainty changed")
+        belief_flags = (
+            belief.predictive_error_available,
+            belief.predictive_error_current,
+            belief.parameter_uncertainty_available,
+            belief.maximum_error_horizon_s,
+        )
+        template_flags = (
+            self.belief.predictive_error_available,
+            self.belief.predictive_error_current,
+            self.belief.parameter_uncertainty_available,
+            self.belief.maximum_error_horizon_s,
+        )
+        if belief_flags != template_flags:
+            raise ValueError("rebound belief uncertainty availability changed")
+        if (
+            belief.predictive_error_current
+            and belief.predictive_error.to_dict()
+            != self.belief.predictive_error.to_dict()
+        ):
+            raise ValueError("rebound belief predictive-error numerics changed")
+        response_time_constants = np.asarray(
+            candidate.latent_response_time_constants_s,
+            dtype=np.float64,
+        )
+        support_horizon_s = min(
+            _MAXIMUM_SUPPORT_HORIZON_S,
+            max(
+                _MINIMUM_SUPPORT_HORIZON_S,
+                _ACTUATOR_TIME_CONSTANT_MULTIPLIER
+                * float(np.max(response_time_constants)),
+            ),
+        )
+        support_steps = min(
+            self._policy.horizon_steps,
+            max(
+                1,
+                math.ceil(
+                    support_horizon_s / candidate.runtime_spec.sample_period_s - 1e-9
+                ),
+            ),
+        )
+        if support_steps != self._support_horizon_steps:
+            raise ValueError("rebound belief changes the compiled support horizon")
+
+        rebound = copy(self)
+        rebound.belief = belief
+        rebound.model = candidate
+        rebound._active_parameters = candidate.params
+        return rebound
 
     def _expand_normalized_blocks(self, blocks: Array) -> Array:
         expanded = jnp.repeat(blocks, self._block_steps, axis=0)
@@ -237,6 +342,7 @@ class _DirectShootingBackend:
         initial_state: Array,
         initial_latent: Array,
         exogenous: Array,
+        model_parameters: ModelParams,
     ) -> tuple[Array, Array, Array]:
         normalized_commands = self._expand_normalized_blocks(blocks)
         commands = self._commands_from_normalized(normalized_commands)
@@ -246,8 +352,13 @@ class _DirectShootingBackend:
         ) -> tuple[tuple[Array, Array], tuple[Array, Array]]:
             state, latent = carry
             command, context = inputs
-            next_state, next_latent = self.model.transition(
-                state, latent, command, context
+            next_state, next_latent = self.model.transition_at_interval_with_parameters(
+                model_parameters,
+                state,
+                latent,
+                command,
+                self.model.runtime_spec.sample_period_s,
+                context,
             )
             return (next_state, next_latent), (next_state, next_latent)
 
@@ -316,9 +427,14 @@ class _DirectShootingBackend:
         reference_states: Array,
         previous_command: Array,
         exogenous: Array,
+        model_parameters: ModelParams,
     ) -> Array:
         states, _, commands = self._rollout(
-            blocks, initial_state, initial_latent, exogenous
+            blocks,
+            initial_state,
+            initial_latent,
+            exogenous,
+            model_parameters,
         )
         local_error = jax.vmap(rigid_body_local_error)(reference_states[1:], states[1:])
         normalized_error = local_error / self.tolerances.local_state_scale
@@ -366,10 +482,12 @@ class _DirectShootingBackend:
         initial_latent: Array,
         commands: Array,
         exogenous: Array,
+        model_parameters: ModelParams,
     ) -> tuple[Array, Array, Array, Array, Array, Array, Array]:
         forecast = self.belief.rollout(
             initial_state,
             commands,
+            model_parameters=model_parameters,
             initial_latent_state=initial_latent,
             exogenous=exogenous,
         )
@@ -451,6 +569,7 @@ class _DirectShootingBackend:
         latent: Array,
         command: Array,
         exogenous: Array,
+        model_parameters: ModelParams,
     ) -> tuple[Array, Array, Array, Array, Array, Array]:
         """Evaluate one held command over the actuator reaction horizon."""
 
@@ -465,6 +584,7 @@ class _DirectShootingBackend:
         forecast = self.belief.rollout(
             state,
             commands,
+            model_parameters=model_parameters,
             initial_latent_state=latent,
             exogenous=exogenous_forecast,
         )
@@ -519,6 +639,7 @@ class _DirectShootingBackend:
                 latent,
                 commands,
                 exogenous,
+                self._active_parameters,
             )
         )
         return values[0], values[1:]  # type: ignore[return-value]
@@ -574,6 +695,7 @@ class _DirectShootingBackend:
                     latent,
                     jnp.asarray(candidates[0]),
                     exogenous,
+                    self._active_parameters,
                 )
             )
             if nominal_support_metrics is None
@@ -587,6 +709,7 @@ class _DirectShootingBackend:
                     latent,
                     jnp.asarray(np.asarray(candidates[1:])),
                     exogenous,
+                    self._active_parameters,
                 )
                 jax.block_until_ready(warmed)
                 self._support_batch_warmed = True
@@ -615,6 +738,7 @@ class _DirectShootingBackend:
                 latent,
                 jnp.asarray(np.asarray(candidates[1:])),
                 exogenous,
+                self._active_parameters,
             )
             if len(candidates) > 1
             else tuple(np.empty(0) for _ in range(6))
@@ -791,6 +915,7 @@ class _DirectShootingBackend:
         reference_states: Array,
         previous_command: Array,
         exogenous: Array,
+        model_parameters: ModelParams,
     ) -> tuple[Array, Array, Array, Array, Array, Array, Array]:
         """Run the fixed maintained policy as one compiled JAX operation."""
 
@@ -841,6 +966,7 @@ class _DirectShootingBackend:
                     reference_states,
                     previous_command,
                     exogenous,
+                    model_parameters,
                 )
                 projected_decrease = jnp.sum(gradient * (blocks - candidate))
                 candidate_accepted = finite(candidate_value, candidate_gradient) & (
@@ -1121,9 +1247,10 @@ class _DirectShootingBackend:
         previous_command = jnp.asarray(previous_command)
         latent = (
             self._initial_latent_compiled(
+                self._active_parameters,
                 previous_command
                 if applied_command is None
-                else jnp.asarray(applied_command)
+                else jnp.asarray(applied_command),
             )
             if latent_state is None
             else jnp.asarray(latent_state)
@@ -1137,6 +1264,7 @@ class _DirectShootingBackend:
             reference.states,
             previous_command,
             exogenous,
+            self._active_parameters,
         )
         current_value_float = float(np.asarray(value))
         current_value = value
@@ -1163,6 +1291,7 @@ class _DirectShootingBackend:
                     reference.states,
                     previous_command,
                     exogenous,
+                    self._active_parameters,
                 )
                 warm_value_float = float(np.asarray(warm_value))
                 if (
@@ -1203,6 +1332,7 @@ class _DirectShootingBackend:
             reference.states,
             previous_command,
             exogenous,
+            self._active_parameters,
         )
         current_value_float = float(np.asarray(current_value))
         iteration = int(np.asarray(iteration_array))
@@ -1242,7 +1372,11 @@ class _DirectShootingBackend:
             )
 
         states, latent_states, commands = self._rollout_compiled(
-            blocks, state, latent, exogenous
+            blocks,
+            state,
+            latent,
+            exogenous,
+            self._active_parameters,
         )
         states_np = np.asarray(states)
         latent_np = np.asarray(latent_states)
@@ -1300,6 +1434,7 @@ class _DirectShootingBackend:
                 reference.states,
                 previous_command,
                 exogenous,
+                self._active_parameters,
             )
             current_value_float = float(np.asarray(current_value))
             gradient_norm = float(np.max(np.abs(np.asarray(current_gradient))))
@@ -1308,6 +1443,7 @@ class _DirectShootingBackend:
                 state,
                 latent,
                 exogenous,
+                self._active_parameters,
             )
             states_np = np.asarray(states)
             latent_np = np.asarray(latent_states)
@@ -1364,6 +1500,7 @@ class _DirectShootingBackend:
                 reference.states,
                 previous_command,
                 exogenous,
+                self._active_parameters,
             )
             current_value_float = float(np.asarray(current_value))
             gradient_norm = float(np.max(np.abs(np.asarray(current_gradient))))
@@ -1372,6 +1509,7 @@ class _DirectShootingBackend:
                 state,
                 latent,
                 exogenous,
+                self._active_parameters,
             )
             states_np = np.asarray(states)
             latent_np = np.asarray(latent_states)
@@ -1516,13 +1654,7 @@ class NMPCController:
         *,
         _policy: _SolverPolicy | None = None,
     ) -> None:
-        belief = (
-            model.compile_for_nmpc()
-            if isinstance(model, DynamicsBelief)
-            else model
-            if isinstance(model, RuntimeDynamicsBelief)
-            else RuntimeDynamicsBelief.from_nominal(model)
-        )
+        belief = _runtime_belief(model)
         self.belief = belief
         self.model = belief.nominal
         self.tolerances = (
@@ -1539,6 +1671,26 @@ class NMPCController:
             self.safety_envelope,
             _policy=_policy,
         )
+
+    def rebind_belief(
+        self,
+        model: RuntimeDynamicsModel | RuntimeDynamicsBelief | DynamicsBelief,
+    ) -> NMPCController:
+        """Share precompiled kernels with a structurally compatible belief.
+
+        Only dynamic model-parameter values may change. Static runtime,
+        actuation, uncertainty, solver-horizon, and support-horizon semantics
+        remain those that were compiled and validated on this controller.
+        """
+
+        belief = _runtime_belief(model)
+        rebound = object.__new__(NMPCController)
+        rebound.belief = belief
+        rebound.model = belief.nominal
+        rebound.tolerances = self.tolerances
+        rebound.safety_envelope = self.safety_envelope
+        rebound._backend = self._backend.rebind(belief)
+        return rebound
 
     @property
     def prediction_steps(self) -> int:

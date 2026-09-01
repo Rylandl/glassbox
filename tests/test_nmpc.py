@@ -705,6 +705,7 @@ def test_objective_gradient_agrees_with_central_difference(model_kind: str) -> N
         reference.states,
         previous,
         exogenous,
+        model.params,
     )
     epsilon = 2e-3
     finite_difference = np.empty(blocks.shape)
@@ -717,6 +718,7 @@ def test_objective_gradient_agrees_with_central_difference(model_kind: str) -> N
             reference.states,
             previous,
             exogenous,
+            model.params,
         )
         minus = objective(
             blocks - direction,
@@ -725,6 +727,7 @@ def test_objective_gradient_agrees_with_central_difference(model_kind: str) -> N
             reference.states,
             previous,
             exogenous,
+            model.params,
         )
         finite_difference[index] = float((plus - minus) / (2.0 * epsilon))
 
@@ -736,6 +739,60 @@ def test_objective_gradient_agrees_with_central_difference(model_kind: str) -> N
     )
     assert np.all(np.isfinite(analytic_array))
     assert relative_error <= 2e-3
+
+
+def test_compatible_belief_rebind_reuses_compiled_parameterized_kernels() -> None:
+    model = _multirotor_runtime()
+    controller = NMPCController(model, _policy=_test_policy(horizon_steps=4))
+    state = resting_state()
+    state[7] = 0.08
+    state[10] = 0.3
+    previous = hover_control(true_parameters())
+    reference = controller.hold_reference(jnp.asarray(resting_state()))
+
+    original = controller.solve(jnp.asarray(state), reference, previous)
+    jax.block_until_ready(original.command)
+    compiled_functions = (
+        controller._backend._initial_latent_compiled,
+        controller._backend._objective_and_gradient,
+        controller._backend._optimize_compiled,
+        controller._backend._rollout_compiled,
+        controller._backend._uncertainty_support_compiled,
+        controller._backend._support_metric_compiled,
+        controller._backend._support_metrics_compiled,
+    )
+    cache_sizes_before = tuple(
+        function._cache_size() for function in compiled_functions
+    )
+
+    changed_params = model.params._replace(
+        log_angular_accel=model.params.log_angular_accel + math.log(0.6)
+    )
+    rebound = controller.rebind_belief(replace(model, params=changed_params))
+    changed = rebound.solve(jnp.asarray(state), reference, previous)
+    jax.block_until_ready(changed.command)
+    cache_sizes_after = tuple(function._cache_size() for function in compiled_functions)
+
+    assert rebound._backend._objective_and_gradient is compiled_functions[1]
+    assert cache_sizes_after == cache_sizes_before
+    assert not original.used_fallback
+    assert not changed.used_fallback
+    assert not np.allclose(
+        np.asarray(changed.predicted_states),
+        np.asarray(original.predicted_states),
+    )
+
+
+def test_belief_rebind_rejects_a_changed_runtime_contract() -> None:
+    model = _multirotor_runtime()
+    controller = NMPCController(model, _policy=_test_policy(horizon_steps=4))
+    changed_runtime = replace(
+        model,
+        runtime_spec=replace(model.runtime_spec, sample_period_s=0.01),
+    )
+
+    with pytest.raises(ValueError, match="runtime specification changed"):
+        controller.rebind_belief(changed_runtime)
 
 
 def test_incompatible_warm_start_is_safely_ignored() -> None:

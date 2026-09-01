@@ -72,6 +72,54 @@ later telemetry improves, and otherwise returns the original belief. A commit
 marks older error evidence stale rather than silently claiming revalidation.
 See [the dynamics-belief design](docs/dynamics-beliefs.md).
 
+For a vehicle with no airframe or fleet prior, Glassbox now has a smaller
+bootstrap contract rather than pretending the full model is immediately
+observable. Given only command bounds, channel shape, canonical rigid-body
+state, and measured applied motor inputs, it fits collective acceleration and a
+full `3 × 4` motor-to-angular-acceleration map. Rank-deficient input directions
+remain unsupported and cannot be used for rate arrest:
+
+```python
+from glassbox import BootstrapIdentificationConfig, BootstrapMultirotorIdentifier
+
+identifier = BootstrapMultirotorIdentifier(
+    BootstrapIdentificationConfig(interval_count=48)
+)
+identifier.prewarm()
+bootstrap = identifier.fit(timestamps, states, applied_motor_commands)
+```
+
+The recorded Crazyflow diagnostic uses a rejected 24-interval provisional fit
+to target four follow-up inputs at its weakest validated angular output. The
+resulting `0.56 s` evidence record fits in about `0.26 ms` after prewarming,
+estimates hover within `0.034%`, reduces an independent throw-like linear-speed
+disturbance to `0.151×`, angular-rate norm to `0.115×`, and tilt from
+`0.249 rad` to `0.034 rad` with bounded commands. This is direct local authority
+identification—not yet a complete position model or physical throw-to-recover
+claim. See the
+[bootstrap identification contract](docs/bootstrap-identification.md).
+That exact trace also has an optional annotated Crazyflow/MuJoCo animation:
+
+```bash
+uv run --extra crazyflow-animation glassbox-crazyflow-animation
+```
+
+A stricter continuous diagnostic now begins with stopped motors at a `1.2 m`
+hand-release state and leaves the model, controller, requested motors, and
+applied motors off for exactly `1.00 s`. Identification and bounded control then
+start together: every `10 ms` motor interval updates a recursive working belief,
+and supported directions earn authority progressively. A full-rank control
+belief is structurally admitted at `1.53 s`, but there is no
+collect-then-control handoff. This admission is a support/feasibility gate, not
+yet disjoint predictive validation.
+By `10.00 s`, the uninterrupted run reaches `0.0054 m/s` speed,
+`0.0184 rad/s` body rate, and less than `0.00003 rad` tilt, with a strict hover
+envelope sustained for the final `4.26 s`. The real-time exporter produces both
+the exact unpowered first second and the full online recovery with no editorial
+holds. Crazyflow injects the release state, so hand contact, estimator startup,
+and real propeller safety remain outside the result. See the
+[continuous throw diagnostic](docs/crazyflow-throw.md).
+
 The compact synthetic diagnostic exercises that full lifecycle on an unseen
 multirotor and fixed-wing configuration, using disjoint adaptation and
 evaluation motion and no acceptance threshold:
@@ -96,6 +144,41 @@ Adaptation improves both recorded recovery-tail metrics, but every trace leaves
 the learned validity envelope; the result therefore remains diagnostic—not a
 flight-safety or throw-to-recover claim. See the
 [adaptive recovery diagnostic](docs/adaptive-recovery.md).
+
+An optional Crazyflow prototype now repeats the configuration-change path
+against an independently implemented first-principles plant. Glassbox fits the
+prechange vehicle and five-member configuration fleet from telemetry; it does
+not receive Crazyflow arm length, inertia, mass, or force/torque coefficients.
+The adapter makes quaternion storage, motor order, normalized-thrust-to-RPM
+mapping, and applied-rotor observations explicit:
+
+```bash
+uv sync --extra crazyflow
+uv run --extra crazyflow glassbox-crazyflow-prototype \
+  artifacts/crazyflow_prototype
+```
+
+The current diagnostic improves independent prediction and both recovery-tail
+metrics with finite, bounded, fallback-free rotor commands, but every recovery
+still leaves learned validity support. It remains a bounded-release prototype,
+not a throw or safety result. Its real-time online slice now accepts a valid
+post-arrest belief update and atomically installs it through a precompiled,
+parameter-dynamic controller. Adaptation runs in a prewarmed, lower-priority
+spawned process and is temporally limited to control slack. The recorded 50 Hz
+run completed its prewarmed transactional belief update in `25.31 ms` wall
+time (`14.62 ms` worker CPU), installed the accepted controller `66.76 ms`
+after submission, and had zero 20 ms computation-deadline misses and zero
+fallback. Every command now crosses a separate model-independent freshness,
+bounds, attitude, and rate-arrest supervisor; its fixed stale-command injection
+was rejected with bounded output before nominal authority returned. A separate
+16-case controller→supervisor→Crazyflow campaign now passes one transparent
+nominal case and every typed supervisor reason with bounded finite commands and
+finite post-step plant state. Desktop wall-clock jitter remains explicitly
+reported, so this is not a hard-real-time or flight-safety claim. The next gate
+is sustained and interacting disturbance sequences, followed by a
+firmware-representative estimator/command boundary. See the
+[Crazyflow prototype report](docs/crazyflow-prototype.md) and
+[supervisor contract](docs/flight-supervisor.md).
 
 ## Experimental predictive ensembles
 

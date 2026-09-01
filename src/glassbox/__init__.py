@@ -34,6 +34,17 @@ from glassbox.belief import (
     with_structured_parameter_vector,
 )
 from glassbox.belief_io import load_dynamics_belief, save_dynamics_belief
+from glassbox.bootstrap_identification import (
+    BootstrapArrestCommand,
+    BootstrapExcitationConfig,
+    BootstrapExcitationPlan,
+    BootstrapIdentificationConfig,
+    BootstrapIdentificationResult,
+    BootstrapModelNotReadyError,
+    BootstrapMultirotorIdentifier,
+    BootstrapVelocityArrestCommand,
+    plan_bootstrap_excitation,
+)
 from glassbox.data import (
     RIGID_BODY_STATE_SCHEMA,
     ControlChannel,
@@ -69,6 +80,13 @@ from glassbox.evaluation import (
     rollout_metrics,
     windowed_rollout_metrics,
 )
+from glassbox.flight_supervisor import (
+    MultirotorFlightSupervisor,
+    MultirotorSupervisorConfig,
+    SupervisedCommand,
+    SupervisorMode,
+    SupervisorReason,
+)
 from glassbox.identification import (
     FitResult,
     RolloutLossConfiguration,
@@ -86,6 +104,14 @@ from glassbox.nmpc import (
     SolveStatus,
     SupportFilterMode,
     TrackingTolerances,
+)
+from glassbox.online_bootstrap import (
+    ProgressiveBootstrapCommand,
+    ProgressiveBootstrapController,
+    ProgressiveBootstrapControllerConfig,
+    RecursiveBootstrapBelief,
+    RecursiveBootstrapConfig,
+    RecursiveBootstrapIdentifier,
 )
 from glassbox.parameter_prior import StructuredParameterPrior
 from glassbox.runtime import (
@@ -107,6 +133,14 @@ __all__ = [
     "BaseDynamicsParams",
     "BeliefUpdateProposal",
     "BeliefUpdateReport",
+    "BootstrapArrestCommand",
+    "BootstrapExcitationConfig",
+    "BootstrapExcitationPlan",
+    "BootstrapIdentificationConfig",
+    "BootstrapIdentificationResult",
+    "BootstrapModelNotReadyError",
+    "BootstrapMultirotorIdentifier",
+    "BootstrapVelocityArrestCommand",
     "ControlChannel",
     "DirectActuationMap",
     "DynamicsBelief",
@@ -121,6 +155,8 @@ __all__ = [
     "LocalParameterInformation",
     "ModelParams",
     "ModelValidityEnvelope",
+    "MultirotorFlightSupervisor",
+    "MultirotorSupervisorConfig",
     "NMPCController",
     "NMPCDiagnostics",
     "NMPCResult",
@@ -130,6 +166,12 @@ __all__ = [
     "PlanAssessment",
     "PointParameterBelief",
     "PredictiveTrajectory",
+    "ProgressiveBootstrapCommand",
+    "ProgressiveBootstrapController",
+    "ProgressiveBootstrapControllerConfig",
+    "RecursiveBootstrapBelief",
+    "RecursiveBootstrapConfig",
+    "RecursiveBootstrapIdentifier",
     "ReferenceTrajectory",
     "ResidualDynamicsParams",
     "RolloutLossConfiguration",
@@ -139,6 +181,9 @@ __all__ = [
     "SafetyEnvelope",
     "SolveStatus",
     "StructuredParameterPrior",
+    "SupervisedCommand",
+    "SupervisorMode",
+    "SupervisorReason",
     "SupportFilterMode",
     "TrackingTolerances",
     "Trajectory",
@@ -157,6 +202,7 @@ __all__ = [
     "load_trajectory_npz",
     "make_trajectory_spec",
     "model_family",
+    "plan_bootstrap_excitation",
     "propose_dynamics_belief_update",
     "rollout",
     "rollout_divergence_metrics",

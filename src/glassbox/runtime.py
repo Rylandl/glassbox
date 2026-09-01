@@ -142,6 +142,38 @@ class RuntimeModelSpec:
         )
 
 
+def model_validity_utilization_from_components(
+    state: Array,
+    exogenous: Array,
+    body_velocity_center_m_s: Array,
+    body_velocity_half_width_m_s: Array,
+    angular_velocity_center_rad_s: Array,
+    angular_velocity_half_width_rad_s: Array,
+    *,
+    exogenous_roles: tuple[str, ...],
+) -> Array:
+    """Evaluate one validity envelope from JAX-compatible components."""
+
+    wind = jnp.stack(
+        tuple(
+            exogenous[exogenous_roles.index(role)]
+            if role in exogenous_roles
+            else jnp.asarray(0.0)
+            for role in ("wind_north", "wind_west", "wind_up")
+        )
+    )
+    rotation = quaternion_to_rotation(state[6:10])
+    body_velocity = rotation.T @ (state[3:6] - wind)
+    return jnp.concatenate(
+        (
+            jnp.abs(body_velocity - body_velocity_center_m_s)
+            / body_velocity_half_width_m_s,
+            jnp.abs(state[10:13] - angular_velocity_center_rad_s)
+            / angular_velocity_half_width_rad_s,
+        )
+    )
+
+
 def model_validity_utilization(
     state: Array,
     exogenous: Array,
@@ -150,25 +182,14 @@ def model_validity_utilization(
 ) -> Array:
     """Return typed body-velocity/rate utilization without an actuation contract."""
 
-    roles = input_spec.exogenous_roles
-    wind = jnp.stack(
-        tuple(
-            exogenous[roles.index(role)] if role in roles else jnp.asarray(0.0)
-            for role in ("wind_north", "wind_west", "wind_up")
-        )
-    )
-    rotation = quaternion_to_rotation(state[6:10])
-    body_velocity = rotation.T @ (state[3:6] - wind)
-    return jnp.concatenate(
-        (
-            jnp.abs(body_velocity - jnp.asarray(envelope.body_velocity_center_m_s))
-            / jnp.asarray(envelope.body_velocity_half_width_m_s),
-            jnp.abs(
-                state[10:13]
-                - jnp.asarray(envelope.angular_velocity_center_rad_s)
-            )
-            / jnp.asarray(envelope.angular_velocity_half_width_rad_s),
-        )
+    return model_validity_utilization_from_components(
+        state,
+        exogenous,
+        jnp.asarray(envelope.body_velocity_center_m_s),
+        jnp.asarray(envelope.body_velocity_half_width_m_s),
+        jnp.asarray(envelope.angular_velocity_center_rad_s),
+        jnp.asarray(envelope.angular_velocity_half_width_rad_s),
+        exogenous_roles=input_spec.exogenous_roles,
     )
 
 
@@ -374,6 +395,33 @@ class RuntimeDynamicsModel:
         ):
             raise ValueError("actuation map produced an invalid command Jacobian")
 
+    def rebind_parameters(self, params: ModelParams) -> RuntimeDynamicsModel:
+        """Reuse validated static contracts with compatible dynamic parameters."""
+
+        template_leaves, template_structure = jax.tree_util.tree_flatten(self.params)
+        candidate_leaves, candidate_structure = jax.tree_util.tree_flatten(params)
+        if candidate_structure != template_structure:
+            raise ValueError("rebound parameter structure changed")
+        for template_leaf, candidate_leaf in zip(
+            template_leaves,
+            candidate_leaves,
+            strict=True,
+        ):
+            template_array = np.asarray(template_leaf)
+            candidate_array = np.asarray(candidate_leaf)
+            if candidate_array.shape != template_array.shape:
+                raise ValueError("rebound parameter shape changed")
+            if candidate_array.dtype != template_array.dtype:
+                raise ValueError("rebound parameter dtype changed")
+            if not np.all(np.isfinite(candidate_array)):
+                raise ValueError("rebound parameters must be finite")
+        rebound = object.__new__(RuntimeDynamicsModel)
+        object.__setattr__(rebound, "params", params)
+        object.__setattr__(rebound, "input_spec", self.input_spec)
+        object.__setattr__(rebound, "runtime_spec", self.runtime_spec)
+        object.__setattr__(rebound, "actuation", self.actuation)
+        return rebound
+
     @classmethod
     def load(
         cls,
@@ -423,6 +471,15 @@ class RuntimeDynamicsModel:
         return latent_response_time_constants(self.params)
 
     def initial_latent_state(self, command_history: Array) -> Array:
+        return self.initial_latent_state_with_parameters(self.params, command_history)
+
+    def initial_latent_state_with_parameters(
+        self,
+        params: ModelParams,
+        command_history: Array,
+    ) -> Array:
+        """Infer actuator state with a compatible dynamic parameter tree."""
+
         history = jnp.asarray(command_history)
         if history.ndim == 1:
             history = history[jnp.newaxis, :]
@@ -430,7 +487,7 @@ class RuntimeDynamicsModel:
             raise ValueError("command history must have shape (time, command_size)")
         model_history = jax.vmap(self.actuation.model_control)(history)
         return control_state_after_history(
-            self.params,
+            params,
             model_history,
             self.runtime_spec.sample_period_s,
             self.input_spec.control_roles,
@@ -461,6 +518,26 @@ class RuntimeDynamicsModel:
     ) -> tuple[Array, Array]:
         """Advance the continuous dynamics across one explicit interval."""
 
+        return self.transition_at_interval_with_parameters(
+            self.params,
+            state,
+            latent_state,
+            command,
+            interval_s,
+            exogenous,
+        )
+
+    def transition_at_interval_with_parameters(
+        self,
+        params: ModelParams,
+        state: Array,
+        latent_state: Array,
+        command: Array,
+        interval_s: float,
+        exogenous: Array | None = None,
+    ) -> tuple[Array, Array]:
+        """Advance using a compatible parameter PyTree supplied at execution."""
+
         if not np.isfinite(interval_s) or interval_s <= 0.0:
             raise ValueError("runtime transition interval must be finite and positive")
         if command.shape[-1] != self.command_size:
@@ -470,7 +547,7 @@ class RuntimeDynamicsModel:
         if exogenous.shape[-1] != self.exogenous_size:
             raise ValueError("exogenous input does not match runtime spec")
         return step_with_latent(
-            self.params,
+            params,
             state,
             latent_state,
             self.actuation.model_control(command),

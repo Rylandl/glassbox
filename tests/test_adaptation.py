@@ -136,6 +136,32 @@ def test_total_forecast_error_can_move_mean_without_contracting_covariance() -> 
     )
 
 
+def test_update_uses_runtime_period_after_timestamp_period_validation() -> None:
+    telemetry = generate_trajectory(seed=31, duration_s=0.4)
+    belief = _shifted_belief(
+        telemetry,
+        covariance_scope=ErrorCovarianceScope.TOTAL_FORECAST,
+    )
+    perturbed_period_s = belief.runtime_spec.sample_period_s + 5e-13
+    perturbed_time = np.arange(len(telemetry.time_s)) * perturbed_period_s
+    perturbed = replace(telemetry, time_s=perturbed_time)
+
+    reference_updated, reference_report = belief.update(telemetry)
+    perturbed_updated, perturbed_report = belief.update(perturbed)
+
+    assert reference_report.applied
+    assert perturbed_report.applied
+    assert (
+        perturbed_report.update_horizon_s
+        == perturbed_report.update_horizon_steps * belief.runtime_spec.sample_period_s
+    )
+    assert perturbed_report.update_horizon_s == reference_report.update_horizon_s
+    np.testing.assert_array_equal(
+        structured_parameter_vector(perturbed_updated.params),
+        structured_parameter_vector(reference_updated.params),
+    )
+
+
 def test_update_rejects_horizon_longer_than_predictive_error_support() -> None:
     telemetry = generate_trajectory(
         seed=32,
