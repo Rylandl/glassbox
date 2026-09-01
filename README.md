@@ -111,9 +111,11 @@ start together: every `10 ms` motor interval updates a recursive working belief,
 and supported directions earn covariance- and information-based authority
 progressively. A frozen full-rank proposal is admitted at `2.26 s` only after
 improving predictions on the next `16` intervals; later candidates use the same
-prequential propose/validate/commit path. Feedback uses the committed belief
-while bounded information-directed probing follows the live belief, so there is
-still no collect-then-control handoff.
+prequential propose/validate/commit path. Every action minimizes one bounded
+belief-space objective combining stabilization, current information geometry,
+supported uncertainty, altitude risk, and command constraints. The model
+transaction does not create a fallback controller: the recorded controller-tier
+count is one and there is still no collect-then-control handoff.
 By `10.00 s`, the uninterrupted run reaches `0.0111 m/s` speed,
 `0.0120 rad/s` body rate, and `0.00099 rad` tilt, with a strict hover envelope
 sustained for the final `5.73 s`. The run commits seven validated belief

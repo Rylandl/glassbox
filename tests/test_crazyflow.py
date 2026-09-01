@@ -536,7 +536,11 @@ def test_continuous_throw_fits_and_arrests_without_a_post_release_reset() -> Non
         "initial_control_belief_uses_disjoint_predictive_validation"
     ]
     assert report["semantics"]["post_admission_candidate_replacement_implemented"]
-    assert report["semantics"]["active_excitation_targets_weak_information_directions"]
+    assert report["semantics"]["information_term_targets_weak_information_directions"]
+    assert report["semantics"]["single_belief_space_command_objective"]
+    assert report["semantics"]["controller_tier_count"] == 1
+    assert report["semantics"]["fallback_controller_implemented"] is False
+    assert report["semantics"]["safety_net_controller_implemented"] is False
     assert report["observations"]["gate_passed"]
     assert trace.model_enable_sample_index == 100
     assert trace.first_supported_control_sample_index == 105
@@ -544,6 +548,9 @@ def test_continuous_throw_fits_and_arrests_without_a_post_release_reset() -> Non
     assert trace.states.shape == (1001, 13)
     assert trace.applied_motor_commands.shape == (1001, 4)
     assert trace.requested_motor_commands.shape == (1000, 4)
+    assert trace.command_objective_values.shape == (1001,)
+    assert trace.information_action_fractions.shape == (1001,)
+    assert trace.estimated_information_gains.shape == (1001,)
     np.testing.assert_allclose(trace.applied_motor_commands[0], 0.0, atol=2e-11)
     np.testing.assert_allclose(
         trace.applied_motor_commands[: trace.model_enable_sample_index + 1],
@@ -557,7 +564,7 @@ def test_continuous_throw_fits_and_arrests_without_a_post_release_reset() -> Non
     )
     np.testing.assert_allclose(np.diff(trace.timestamps_s), 0.01, atol=1e-12)
     assert report["identification"]["working_update_count"] == 900
-    certified = report["identification"]["certified_control_belief"]
+    certified = report["identification"]["validated_predictive_belief"]
     assert certified["command_evidence_rank"] == 4
     assert certified["angular_effect_rank"] == 3
     initial_validation = report["identification"]["initial_admission_validation"]
@@ -565,6 +572,9 @@ def test_continuous_throw_fits_and_arrests_without_a_post_release_reset() -> Non
     assert initial_validation["validation_interval_count"] == 16
     assert initial_validation["accepted"]
     assert report["identification"]["accepted_replacement_count"] >= 1
+    assert report["command_objective"]["controller_tier_count"] == 1
+    assert report["command_objective"]["fallback_or_safety_net_controller"] is False
+    assert report["command_objective"]["nonzero_information_action_count"] > 0
     assert report["continuous_throw"]["terminal_to_release_velocity_ratio"] < 0.01
     assert report["continuous_throw"]["terminal_to_release_rate_ratio"] < 0.02
     assert report["continuous_throw"]["terminal_tilt_rad"] < 0.01

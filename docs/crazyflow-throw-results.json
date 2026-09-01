@@ -1,6 +1,6 @@
 {
   "artifact_type": "glassbox_crazyflow_online_throw_recovery_diagnostic",
-  "schema_version": 3,
+  "schema_version": 4,
   "semantics": {
     "diagnostic_only": true,
     "flight_safety_claim": false,
@@ -19,9 +19,13 @@
     "initial_control_belief_uses_disjoint_predictive_validation": true,
     "post_admission_candidate_replacement_implemented": true,
     "control_authority_uses_information_and_supported_covariance": true,
-    "active_excitation_targets_weak_information_directions": true,
-    "feedback_uses_committed_belief_after_admission": true,
-    "exploration_uses_continuously_updated_working_belief": true,
+    "information_term_targets_weak_information_directions": true,
+    "single_belief_space_command_objective": true,
+    "controller_tier_count": 1,
+    "fallback_controller_implemented": false,
+    "safety_net_controller_implemented": false,
+    "predictive_mean_and_live_information_share_one_objective": true,
+    "validation_creates_a_second_controller": false,
     "airframe_parameter_prior_used": false,
     "canonical_motor_mixer_supplied_to_identifier": false,
     "hover_command_supplied_to_identifier": false,
@@ -98,7 +102,18 @@
       "continuing_excitation_fraction": 0.0,
       "maximum_committed_excitation_fraction": 0.0005,
       "maximum_feedback_delta": 0.35,
-      "maximum_motor_step": 0.1
+      "maximum_motor_step": 0.1,
+      "objective_horizon_s": 0.1,
+      "minimum_altitude_m": 1.0,
+      "altitude_risk_weight": 1.0,
+      "uncertainty_cost_weight": 1e-10,
+      "objective_information_scales": [
+        0.0,
+        0.25,
+        0.5,
+        0.75,
+        1.0
+      ]
     }
   },
   "timing": {
@@ -108,11 +123,23 @@
     "time_from_enable_to_first_supported_control_s": 0.050000000000000044,
     "time_from_enable_to_certified_belief_s": 1.2599999999999998,
     "total_trial_duration_s": 10.0,
-    "median_recursive_update_wall_time_s": 0.0002633956028148532,
-    "maximum_recursive_update_wall_time_s": 0.00160670792683959
+    "median_recursive_update_wall_time_s": 0.0002540420973673463,
+    "maximum_recursive_update_wall_time_s": 0.0006035419646650553
+  },
+  "command_objective": {
+    "name": "bounded_stabilization_information_objective",
+    "controller_tier_count": 1,
+    "fallback_or_safety_net_controller": false,
+    "state_transition_updates_and_commands_are_interleaved": true,
+    "post_enable_command_count": 900,
+    "nonzero_information_action_count": 777,
+    "maximum_information_action_fraction": 0.12,
+    "maximum_estimated_information_gain": 10.79072854419845,
+    "minimum_objective_value": -0.01742851868163273,
+    "maximum_objective_value": 0.07945716452882391
   },
   "identification": {
-    "certified_control_belief": {
+    "validated_predictive_belief": {
       "method": "recursive_rank_supported_multirotor_bootstrap_v1",
       "airframe_parameter_prior_used": false,
       "canonical_motor_mixer_assumed": false,
@@ -401,7 +428,7 @@
         0.5319474187709873,
         0.5319474187709873
       ],
-      "update_wall_time_s": 0.00024550012312829494
+      "update_wall_time_s": 0.00026350002735853195
     },
     "terminal_working_belief": {
       "method": "recursive_rank_supported_multirotor_bootstrap_v1",
@@ -692,10 +719,10 @@
         0.5319464540698692,
         0.5319464540698692
       ],
-      "update_wall_time_s": 0.00024200021289288998
+      "update_wall_time_s": 0.0002624590415507555
     },
     "working_update_count": 900,
-    "control_authority_was_progressive_before_certification": true,
+    "authority_was_progressive_before_validation": true,
     "pending_proposal_at_trial_end": false,
     "accepted_update_count": 8,
     "rejected_update_count": 8,
@@ -1188,7 +1215,7 @@
         "reason": "prequential_improvement_not_demonstrated"
       }
     ],
-    "control_belief_admission_contract": {
+    "predictive_belief_validation_contract": {
       "minimum_interval_count": 48,
       "required_command_evidence_rank": 4,
       "required_angular_effect_rank": 3,
@@ -1246,12 +1273,14 @@
   },
   "observations": {
     "pre_enable_commands_exactly_zero": true,
-    "first_supported_control_began_before_certification": true,
+    "first_supported_action_began_before_model_validation": true,
+    "every_action_used_one_command_objective": true,
+    "no_fallback_or_safety_net_controller": true,
     "working_belief_updated_for_every_post_enable_interval": true,
     "initial_admission_scored_on_future_intervals": true,
     "at_least_one_belief_replacement_committed": true,
-    "certified_command_evidence_rank_is_four": true,
-    "certified_angular_effect_rank_is_three": true,
+    "validated_command_evidence_rank_is_four": true,
+    "validated_angular_effect_rank_is_three": true,
     "hover_error_below_2_percent": true,
     "terminal_velocity_below_1_percent_of_release": true,
     "terminal_rate_below_2_percent_of_release": true,
@@ -1271,6 +1300,7 @@
     "Exact simulator state and measured applied rotor state are used.",
     "The first post-enable command is centered at the known command-bounds midpoint.",
     "The controller regulates velocity, attitude, and rates but not position.",
+    "There is one command objective and no fallback controller; model validation remains an epistemic transaction inside that policy.",
     "Candidate admission uses a short local future-prediction window; it is not a calibrated probability of flight safety.",
     "The nuisance-only initial reference and committed-model replacement reference are local one-step predictors, not full trajectory validators.",
     "No sensor noise, estimator delay, packet loss, or firmware scheduling is included.",

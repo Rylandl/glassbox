@@ -224,14 +224,14 @@
         "terminal_working_angular_effect_rank": 1
       },
       "recovery": {
-        "terminal_velocity_norm_m_s": 0.014365088303848878,
-        "terminal_angular_rate_norm_rad_s": 0.012074086489184753,
-        "terminal_tilt_rad": 0.0010058058768302454,
-        "terminal_vertical_velocity_m_s": 0.009135430678725243,
+        "terminal_velocity_norm_m_s": 0.010138270354596638,
+        "terminal_angular_rate_norm_rad_s": 0.007174704746876898,
+        "terminal_tilt_rad": 0.0007907007367745692,
+        "terminal_vertical_velocity_m_s": 0.009379184804856777,
         "minimum_altitude_m": -0.0010000000474974513,
         "maximum_altitude_m": 6.284185886383057,
-        "maximum_horizontal_excursion_m": 2.7797722479029607,
-        "sustained_hover_duration_s": 6.84,
+        "maximum_horizontal_excursion_m": 2.7728742804972177,
+        "sustained_hover_duration_s": 6.859999999999999,
         "commands_finite": true,
         "commands_bounded": true
       }
@@ -244,7 +244,7 @@
     "all_commands_finite_and_bounded": true,
     "worst_terminal_velocity_norm_m_s": 0.015394153050033332,
     "worst_terminal_angular_rate_norm_rad_s": 0.012668415635191263,
-    "worst_terminal_tilt_rad": 0.0010058058768302454,
+    "worst_terminal_tilt_rad": 0.0009918884556607257,
     "minimum_sustained_hover_duration_s": 5.07,
     "minimum_altitude_m": -0.0010000000474974513
   },

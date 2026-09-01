@@ -249,11 +249,11 @@ def _throw_storyboard(
         if simulation_time < enable_time or throw_only:
             phase = "throw"
             status = "UNPOWERED THROW / SYSTEM OFF"
-            detail = "Motors 0.000 - model 0 updates - controller disabled"
+            detail = "Motors 0.000 - belief 0 updates - objective disabled"
         elif simulation_time < first_support_time:
             phase = "online"
-            status = "ONLINE IDENTIFICATION + EXPLORATION"
-            detail = "Each measured motor interval updates the working belief"
+            status = "ONLINE BELIEF-SPACE OPTIMIZATION"
+            detail = "One objective trades arrest, uncertainty, and information"
         elif simulation_time < certified_time:
             phase = "online"
             status = "LEARNING WHILE ARRESTING"
@@ -261,7 +261,7 @@ def _throw_storyboard(
         elif simulation_time < hover_time:
             phase = "recovery"
             status = "CONTINUOUS IDENTIFICATION + STABILIZATION"
-            detail = "Validated belief controls; the live working fit keeps updating"
+            detail = "Predictive evidence and live information share one objective"
         else:
             phase = "hover"
             status = "SUSTAINED HOVER IN SIMULATION"
@@ -767,19 +767,19 @@ def _draw_throw_overlay(
     )
     px = panel_left + round(22 * scale)
     model_enabled = sample_index >= trace.model_enable_sample_index and not throw_only
-    certified = bool(trace.certified_control_active[sample_index]) and not throw_only
+    certified = bool(trace.validated_belief_available[sample_index]) and not throw_only
     if not model_enabled:
         model_status = "OFF"
         model_color = _AMBER
     elif certified:
-        model_status = "CONTROL VALIDATED / FIT LIVE"
+        model_status = "VALIDATED MEAN / OBJECTIVE LIVE"
         model_color = _MINT
     else:
-        model_status = "UPDATING / PARTIAL"
+        model_status = "WORKING BELIEF / OBJECTIVE LIVE"
         model_color = _CYAN
     draw.text(
         (px, round(57 * scale)),
-        "MODEL + CONTROLLER",
+        "BELIEF + SINGLE OBJECTIVE",
         font=label_font,
         fill=(*_MUTED, 255),
     )
@@ -819,7 +819,7 @@ def _draw_throw_overlay(
     )
     draw.text(
         (px, round(264 * scale)),
-        "WORKING / CONTROL RANK",
+        "WORKING / PREDICTIVE RANK",
         font=label_font,
         fill=(*_MUTED, 255),
     )
@@ -832,11 +832,15 @@ def _draw_throw_overlay(
         font=mono_font,
         fill=(*_WHITE, 255),
     )
-    control_input_rank = 4 if certified else trace.command_evidence_ranks[sample_index]
-    control_output_rank = 3 if certified else trace.angular_effect_ranks[sample_index]
+    predictive_input_rank = (
+        4 if certified else trace.command_evidence_ranks[sample_index]
+    )
+    predictive_output_rank = (
+        3 if certified else trace.angular_effect_ranks[sample_index]
+    )
     draw.text(
         (px, round(314 * scale)),
-        f"control {control_input_rank}/4  {control_output_rank}/3",
+        f"predict {predictive_input_rank}/4  {predictive_output_rank}/3",
         font=mono_font,
         fill=(*(_MINT if certified else _MUTED), 255),
     )

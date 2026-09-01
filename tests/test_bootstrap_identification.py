@@ -105,7 +105,8 @@ def test_recursive_bootstrap_updates_every_interval_and_certifies_support() -> N
     assert belief.angular_effect_rank == 3
     assert certified is not None
     assert certified.interval_count == 48
-    assert identifier.control_belief is certified
+    assert identifier.predictive_belief is certified
+    assert identifier.control_belief is identifier.predictive_belief
     assert len(identifier.validation_history) == 1
     validation = identifier.validation_history[0]
     assert validation.candidate_interval_count == 48
@@ -282,11 +283,11 @@ def test_recursive_rank_deficiency_never_certifies_unobserved_axes() -> None:
     assert belief.command_evidence_rank <= 1
     assert belief.angular_effect_rank < 3
     assert identifier.certified_belief is None
-    assert identifier.control_belief is belief
+    assert identifier.predictive_belief is belief
     assert np.max(belief.angular_axis_authority) < 0.26
 
 
-def test_progressive_controller_explores_before_support_and_stays_bounded() -> None:
+def test_progressive_controller_optimizes_information_before_support() -> None:
     identifier = RecursiveBootstrapIdentifier()
     controller = ProgressiveBootstrapController(identifier.config)
     state = np.zeros(13, dtype=np.float64)
@@ -294,13 +295,23 @@ def test_progressive_controller_explores_before_support_and_stays_bounded() -> N
 
     decision = controller.command(
         state,
-        identifier.control_belief,
+        identifier.predictive_belief,
         previous_command=np.zeros(4),
     )
 
-    assert not np.allclose(decision.command, decision.feedback_command)
+    assert decision.information_action_fraction > 0.0
+    assert decision.information_reward > 0.0
+    assert decision.estimated_information_gain > 0.0
+    assert decision.objective_value == pytest.approx(
+        decision.stabilization_cost
+        - decision.information_reward
+        + decision.uncertainty_cost
+        + decision.altitude_risk_cost
+    )
     assert decision.collective_authority == 0.0
     np.testing.assert_allclose(decision.angular_axis_authority, 0.0)
+    assert decision.predicted_world_velocity_m_s.shape == (3,)
+    assert decision.predicted_angular_velocity_rad_s.shape == (3,)
     assert np.all(decision.command >= 0.0)
     assert np.all(decision.command <= 1.0)
 
@@ -310,7 +321,7 @@ def test_progressive_controller_targets_weak_information_and_caps_live_probe() -
     controller = ProgressiveBootstrapController(identifier.config)
     state = np.zeros(13, dtype=np.float64)
     state[6] = 1.0
-    feedback_belief = identifier.control_belief
+    feedback_belief = identifier.predictive_belief
     isotropic = replace(
         identifier.belief,
         normalized_command_information=np.eye(4),
@@ -321,25 +332,31 @@ def test_progressive_controller_targets_weak_information_and_caps_live_probe() -
         normalized_command_information=np.diag((2.5e-5, 1.0, 1.0, 1.0)),
     )
 
+    no_information_decision = controller.command(
+        state,
+        feedback_belief,
+        previous_command=np.full(4, 0.5),
+        online_belief=replace(isotropic, exploration_completion=1.0),
+    )
     isotropic_decision = controller.command(
         state,
         feedback_belief,
         previous_command=np.full(4, 0.5),
-        exploration_belief=isotropic,
+        online_belief=isotropic,
     )
     weak_decision = controller.command(
         state,
         feedback_belief,
         previous_command=np.full(4, 0.5),
-        exploration_belief=weak_first_channel,
+        online_belief=weak_first_channel,
     )
 
-    assert abs(weak_decision.excitation_direction[0]) / np.linalg.norm(
-        weak_decision.excitation_direction[1:]
-    ) > abs(isotropic_decision.excitation_direction[0]) / np.linalg.norm(
-        isotropic_decision.excitation_direction[1:]
-    )
-    assert weak_decision.excitation_amplitude_fraction == pytest.approx(
+    weak_delta = weak_decision.command - no_information_decision.command
+    isotropic_delta = isotropic_decision.command - no_information_decision.command
+    assert abs(weak_delta[0]) / np.linalg.norm(weak_delta[1:]) > abs(
+        isotropic_delta[0]
+    ) / np.linalg.norm(isotropic_delta[1:])
+    assert weak_decision.information_action_fraction == pytest.approx(
         controller.config.maximum_committed_excitation_fraction
     )
     assert np.all(weak_decision.command >= 0.0)

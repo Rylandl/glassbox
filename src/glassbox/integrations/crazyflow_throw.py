@@ -102,7 +102,10 @@ class CrazyflowThrowTrace:
     angular_effect_ranks: np.ndarray
     collective_authority: np.ndarray
     angular_axis_authority: np.ndarray
-    certified_control_active: np.ndarray
+    validated_belief_available: np.ndarray
+    command_objective_values: np.ndarray
+    information_action_fractions: np.ndarray
+    estimated_information_gains: np.ndarray
 
     def __post_init__(self) -> None:
         timestamps = np.asarray(self.timestamps_s, dtype=np.float64)
@@ -114,7 +117,16 @@ class CrazyflowThrowTrace:
         effect_ranks = np.asarray(self.angular_effect_ranks, dtype=np.int64)
         collective_authority = np.asarray(self.collective_authority, dtype=np.float64)
         angular_authority = np.asarray(self.angular_axis_authority, dtype=np.float64)
-        certified = np.asarray(self.certified_control_active, dtype=np.bool_)
+        validated = np.asarray(self.validated_belief_available, dtype=np.bool_)
+        objective_values = np.asarray(self.command_objective_values, dtype=np.float64)
+        information_actions = np.asarray(
+            self.information_action_fractions,
+            dtype=np.float64,
+        )
+        information_gains = np.asarray(
+            self.estimated_information_gains,
+            dtype=np.float64,
+        )
         if not np.isfinite(self.sample_period_s) or self.sample_period_s <= 0.0:
             raise ValueError("sample_period_s must be finite and positive")
         if timestamps.ndim != 1 or len(timestamps) < 2:
@@ -127,7 +139,10 @@ class CrazyflowThrowTrace:
             "angular_effect_ranks": (len(timestamps),),
             "collective_authority": (len(timestamps),),
             "angular_axis_authority": (len(timestamps), 3),
-            "certified_control_active": (len(timestamps),),
+            "validated_belief_available": (len(timestamps),),
+            "command_objective_values": (len(timestamps),),
+            "information_action_fractions": (len(timestamps),),
+            "estimated_information_gains": (len(timestamps),),
         }
         values = {
             "states": states,
@@ -137,7 +152,10 @@ class CrazyflowThrowTrace:
             "angular_effect_ranks": effect_ranks,
             "collective_authority": collective_authority,
             "angular_axis_authority": angular_authority,
-            "certified_control_active": certified,
+            "validated_belief_available": validated,
+            "command_objective_values": objective_values,
+            "information_action_fractions": information_actions,
+            "estimated_information_gains": information_gains,
         }
         for name, shape in aligned_shapes.items():
             if values[name].shape != shape:
@@ -152,6 +170,9 @@ class CrazyflowThrowTrace:
             or not np.all(np.isfinite(requested))
             or not np.all(np.isfinite(collective_authority))
             or not np.all(np.isfinite(angular_authority))
+            or not np.all(np.isfinite(objective_values))
+            or not np.all(np.isfinite(information_actions))
+            or not np.all(np.isfinite(information_gains))
         ):
             raise ValueError("throw trace values must be finite and ordered")
         if not (
@@ -173,7 +194,10 @@ class CrazyflowThrowTrace:
         object.__setattr__(self, "angular_effect_ranks", effect_ranks)
         object.__setattr__(self, "collective_authority", collective_authority)
         object.__setattr__(self, "angular_axis_authority", angular_authority)
-        object.__setattr__(self, "certified_control_active", certified)
+        object.__setattr__(self, "validated_belief_available", validated)
+        object.__setattr__(self, "command_objective_values", objective_values)
+        object.__setattr__(self, "information_action_fractions", information_actions)
+        object.__setattr__(self, "estimated_information_gains", information_gains)
 
 
 @dataclass(frozen=True)
@@ -221,7 +245,10 @@ def run_crazyflow_throw_trial(
         angular_effect_ranks = [0]
         collective_authority = [0.0]
         angular_axis_authority = [np.zeros(3)]
-        certified_control_active = [False]
+        validated_belief_available = [False]
+        command_objective_values = [0.0]
+        information_action_fractions = [0.0]
+        estimated_information_gains = [0.0]
 
         model_enable_delay_s = 1.0
         model_enable_delay_step_count = round(
@@ -239,7 +266,10 @@ def run_crazyflow_throw_trial(
             angular_effect_ranks.append(0)
             collective_authority.append(0.0)
             angular_axis_authority.append(np.zeros(3))
-            certified_control_active.append(False)
+            validated_belief_available.append(False)
+            command_objective_values.append(0.0)
+            information_action_fractions.append(0.0)
+            estimated_information_gains.append(0.0)
         model_enable_sample_index = len(states) - 1
 
         target_trial_duration_s = 10.0
@@ -251,17 +281,17 @@ def run_crazyflow_throw_trial(
         certified_belief_sample_index: int | None = None
         update_wall_times_s: list[float] = []
         for _ in range(online_step_count):
-            control_belief = identifier.control_belief
+            predictive_belief = identifier.predictive_belief
             if (
                 first_supported_control_sample_index is None
-                and control_belief.has_any_control_authority
+                and predictive_belief.has_any_control_authority
             ):
                 first_supported_control_sample_index = len(states) - 1
             decision = controller.command(
                 sample.state,
-                control_belief,
+                predictive_belief,
                 previous_command=previous_command,
-                exploration_belief=(
+                online_belief=(
                     None if identifier.certified_belief is None else identifier.belief
                 ),
             )
@@ -293,7 +323,10 @@ def run_crazyflow_throw_trial(
             angular_effect_ranks.append(working_belief.angular_effect_rank)
             collective_authority.append(working_belief.collective_authority)
             angular_axis_authority.append(working_belief.angular_axis_authority)
-            certified_control_active.append(identifier.certified_belief is not None)
+            validated_belief_available.append(identifier.certified_belief is not None)
+            command_objective_values.append(decision.objective_value)
+            information_action_fractions.append(decision.information_action_fraction)
+            estimated_information_gains.append(decision.estimated_information_gain)
 
         if first_supported_control_sample_index is None:
             raise RuntimeError("online identifier never earned supported control")
@@ -380,9 +413,12 @@ def run_crazyflow_throw_trial(
             validation.accepted and not validation.initial_admission
             for validation in validation_reports
         )
+        objective_array = np.asarray(command_objective_values)
+        information_action_array = np.asarray(information_action_fractions)
+        information_gain_array = np.asarray(estimated_information_gains)
         report = {
             "artifact_type": "glassbox_crazyflow_online_throw_recovery_diagnostic",
-            "schema_version": 3,
+            "schema_version": 4,
             "semantics": {
                 "diagnostic_only": True,
                 "flight_safety_claim": False,
@@ -401,9 +437,13 @@ def run_crazyflow_throw_trial(
                 "initial_control_belief_uses_disjoint_predictive_validation": True,
                 "post_admission_candidate_replacement_implemented": True,
                 "control_authority_uses_information_and_supported_covariance": True,
-                "active_excitation_targets_weak_information_directions": True,
-                "feedback_uses_committed_belief_after_admission": True,
-                "exploration_uses_continuously_updated_working_belief": True,
+                "information_term_targets_weak_information_directions": True,
+                "single_belief_space_command_objective": True,
+                "controller_tier_count": 1,
+                "fallback_controller_implemented": False,
+                "safety_net_controller_implemented": False,
+                "predictive_mean_and_live_information_share_one_objective": True,
+                "validation_creates_a_second_controller": False,
                 "airframe_parameter_prior_used": False,
                 "canonical_motor_mixer_supplied_to_identifier": False,
                 "hover_command_supplied_to_identifier": False,
@@ -491,6 +531,15 @@ def run_crazyflow_throw_trial(
                         controller.config.maximum_feedback_delta
                     ),
                     "maximum_motor_step": controller.config.maximum_motor_step,
+                    "objective_horizon_s": controller.config.objective_horizon_s,
+                    "minimum_altitude_m": controller.config.minimum_altitude_m,
+                    "altitude_risk_weight": (controller.config.altitude_risk_weight),
+                    "uncertainty_cost_weight": (
+                        controller.config.uncertainty_cost_weight
+                    ),
+                    "objective_information_scales": list(
+                        controller.config.objective_information_scales
+                    ),
                 },
             },
             "timing": {
@@ -507,11 +556,31 @@ def run_crazyflow_throw_trial(
                 "median_recursive_update_wall_time_s": float(np.median(update_times)),
                 "maximum_recursive_update_wall_time_s": float(np.max(update_times)),
             },
+            "command_objective": {
+                "name": "bounded_stabilization_information_objective",
+                "controller_tier_count": 1,
+                "fallback_or_safety_net_controller": False,
+                "state_transition_updates_and_commands_are_interleaved": True,
+                "post_enable_command_count": online_step_count,
+                "nonzero_information_action_count": int(
+                    np.count_nonzero(
+                        information_action_array[model_enable_sample_index + 1 :] > 0.0
+                    )
+                ),
+                "maximum_information_action_fraction": float(
+                    np.max(information_action_array)
+                ),
+                "maximum_estimated_information_gain": float(
+                    np.max(information_gain_array)
+                ),
+                "minimum_objective_value": float(np.min(objective_array)),
+                "maximum_objective_value": float(np.max(objective_array)),
+            },
             "identification": {
-                "certified_control_belief": certified_belief.to_dict(),
+                "validated_predictive_belief": certified_belief.to_dict(),
                 "terminal_working_belief": working_belief.to_dict(),
                 "working_update_count": working_belief.interval_count,
-                "control_authority_was_progressive_before_certification": True,
+                "authority_was_progressive_before_validation": True,
                 "pending_proposal_at_trial_end": identifier.pending_proposal,
                 "accepted_update_count": identifier.accepted_update_count,
                 "rejected_update_count": identifier.rejected_update_count,
@@ -521,7 +590,7 @@ def run_crazyflow_throw_trial(
                 "validation_history": [
                     validation.to_dict() for validation in validation_reports
                 ],
-                "control_belief_admission_contract": {
+                "predictive_belief_validation_contract": {
                     "minimum_interval_count": (
                         identifier.config.minimum_certification_interval_count
                     ),
@@ -609,9 +678,11 @@ def run_crazyflow_throw_trial(
             },
             "observations": {
                 "pre_enable_commands_exactly_zero": pre_enable_commands_zero,
-                "first_supported_control_began_before_certification": (
+                "first_supported_action_began_before_model_validation": (
                     first_supported_control_sample_index < certified_belief_sample_index
                 ),
+                "every_action_used_one_command_objective": True,
+                "no_fallback_or_safety_net_controller": True,
                 "working_belief_updated_for_every_post_enable_interval": (
                     working_belief.interval_count == online_step_count
                 ),
@@ -625,10 +696,10 @@ def run_crazyflow_throw_trial(
                 "at_least_one_belief_replacement_committed": (
                     replacement_commit_count >= 1
                 ),
-                "certified_command_evidence_rank_is_four": (
+                "validated_command_evidence_rank_is_four": (
                     certified_belief.command_evidence_rank == 4
                 ),
-                "certified_angular_effect_rank_is_three": (
+                "validated_angular_effect_rank_is_three": (
                     certified_belief.angular_effect_rank == 3
                 ),
                 "hover_error_below_2_percent": hover_relative_error < 0.02,
@@ -657,6 +728,7 @@ def run_crazyflow_throw_trial(
                 "Exact simulator state and measured applied rotor state are used.",
                 "The first post-enable command is centered at the known command-bounds midpoint.",
                 "The controller regulates velocity, attitude, and rates but not position.",
+                "There is one command objective and no fallback controller; model validation remains an epistemic transaction inside that policy.",
                 "Candidate admission uses a short local future-prediction window; it is not a calibrated probability of flight safety.",
                 "The nuisance-only initial reference and committed-model replacement reference are local one-step predictors, not full trajectory validators.",
                 "No sensor noise, estimator delay, packet loss, or firmware scheduling is included.",
@@ -679,7 +751,10 @@ def run_crazyflow_throw_trial(
             angular_effect_ranks=np.asarray(angular_effect_ranks),
             collective_authority=np.asarray(collective_authority),
             angular_axis_authority=np.asarray(angular_axis_authority),
-            certified_control_active=np.asarray(certified_control_active),
+            validated_belief_available=np.asarray(validated_belief_available),
+            command_objective_values=np.asarray(command_objective_values),
+            information_action_fractions=np.asarray(information_action_fractions),
+            estimated_information_gains=np.asarray(estimated_information_gains),
         )
         return CrazyflowThrowRun(report=report, trace=trace)
     finally:

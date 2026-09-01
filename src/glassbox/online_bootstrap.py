@@ -449,14 +449,19 @@ class _PendingBeliefProposal:
 
 @dataclass(frozen=True)
 class ProgressiveBootstrapCommand:
-    """One bounded command combining supported feedback and exploration."""
+    """One bounded minimizer of the joint belief-space command objective."""
 
     command: np.ndarray
-    feedback_command: np.ndarray
-    excitation_command_delta: np.ndarray
-    excitation_direction: np.ndarray
-    excitation_amplitude_fraction: float
-    exploration_completion: float
+    objective_value: float
+    stabilization_cost: float
+    information_reward: float
+    uncertainty_cost: float
+    altitude_risk_cost: float
+    estimated_information_gain: float
+    information_action_fraction: float
+    information_completion: float
+    predicted_world_velocity_m_s: np.ndarray
+    predicted_angular_velocity_rad_s: np.ndarray
     desired_world_acceleration_m_s2: np.ndarray
     desired_angular_acceleration_rad_s2: np.ndarray
     collective_authority: float
@@ -465,9 +470,8 @@ class ProgressiveBootstrapCommand:
     def __post_init__(self) -> None:
         for name, shape in {
             "command": (4,),
-            "feedback_command": (4,),
-            "excitation_command_delta": (4,),
-            "excitation_direction": (4,),
+            "predicted_world_velocity_m_s": (3,),
+            "predicted_angular_velocity_rad_s": (3,),
             "desired_world_acceleration_m_s2": (3,),
             "desired_angular_acceleration_rad_s2": (3,),
             "angular_axis_authority": (3,),
@@ -479,11 +483,17 @@ class ProgressiveBootstrapCommand:
             )
         scalars = (
             self.collective_authority,
-            self.excitation_amplitude_fraction,
-            self.exploration_completion,
+            self.objective_value,
+            self.stabilization_cost,
+            self.information_reward,
+            self.uncertainty_cost,
+            self.altitude_risk_cost,
+            self.estimated_information_gain,
+            self.information_action_fraction,
+            self.information_completion,
         )
         if not np.all(np.isfinite(scalars)):
-            raise ValueError("command authority and excitation must be finite")
+            raise ValueError("command objective diagnostics must be finite")
 
 
 class RecursiveBootstrapIdentifier:
@@ -556,17 +566,23 @@ class RecursiveBootstrapIdentifier:
 
     @property
     def certified_belief(self) -> RecursiveBootstrapBelief | None:
-        """Last fully supported belief admitted for persistent control use."""
+        """Last frozen belief admitted by future predictive validation."""
 
         return self._certified_belief
 
     @property
-    def control_belief(self) -> RecursiveBootstrapBelief:
-        """Progressive working belief, then the last supported commit."""
+    def predictive_belief(self) -> RecursiveBootstrapBelief:
+        """Transactional predictive mean supplied to the joint objective."""
 
         return (
             self._belief if self._certified_belief is None else self._certified_belief
         )
+
+    @property
+    def control_belief(self) -> RecursiveBootstrapBelief:
+        """Compatibility alias for :attr:`predictive_belief`."""
+
+        return self.predictive_belief
 
     @property
     def pending_proposal(self) -> bool:
@@ -1203,7 +1219,7 @@ class RecursiveBootstrapIdentifier:
 
 @dataclass(frozen=True)
 class ProgressiveBootstrapControllerConfig:
-    """Bounded dual-control policy for identification during stabilization."""
+    """Weights and bounds for one belief-space command objective."""
 
     velocity_gain: tuple[float, float, float] = (1.5, 1.5, 4.0)
     maximum_world_acceleration_m_s2: tuple[float, float, float] = (2.5, 2.5, 4.0)
@@ -1215,6 +1231,11 @@ class ProgressiveBootstrapControllerConfig:
     maximum_committed_excitation_fraction: float = 0.0005
     maximum_feedback_delta: float = 0.35
     maximum_motor_step: float = 0.10
+    objective_horizon_s: float = 0.10
+    minimum_altitude_m: float = 1.0
+    altitude_risk_weight: float = 1.0
+    uncertainty_cost_weight: float = 1e-10
+    objective_information_scales: tuple[float, ...] = (0.0, 0.25, 0.5, 0.75, 1.0)
 
     def __post_init__(self) -> None:
         for name, size in (
@@ -1244,10 +1265,31 @@ class ProgressiveBootstrapControllerConfig:
             raise ValueError("maximum_feedback_delta must lie inside (0, 0.5]")
         if not 0.0 < self.maximum_motor_step <= 1.0:
             raise ValueError("maximum_motor_step must lie inside (0, 1]")
+        for name in (
+            "objective_horizon_s",
+            "minimum_altitude_m",
+            "altitude_risk_weight",
+            "uncertainty_cost_weight",
+        ):
+            value = float(getattr(self, name))
+            if not math.isfinite(value) or value <= 0.0:
+                raise ValueError(f"{name} must be finite and positive")
+        scales = np.asarray(self.objective_information_scales, dtype=np.float64)
+        if (
+            scales.ndim != 1
+            or len(scales) < 2
+            or not np.all(np.isfinite(scales))
+            or scales[0] != 0.0
+            or scales[-1] != 1.0
+            or np.any(np.diff(scales) <= 0.0)
+        ):
+            raise ValueError(
+                "objective_information_scales must increase from zero to one"
+            )
 
 
 class ProgressiveBootstrapController:
-    """Blend exploration with feedback only in currently supported directions."""
+    """Minimize one bounded objective for stabilization and information."""
 
     def __init__(
         self,
@@ -1279,19 +1321,19 @@ class ProgressiveBootstrapController:
         belief: RecursiveBootstrapBelief,
         *,
         previous_command: Sequence[float],
-        exploration_belief: RecursiveBootstrapBelief | None = None,
+        online_belief: RecursiveBootstrapBelief | None = None,
     ) -> ProgressiveBootstrapCommand:
-        """Return one bounded command from committed control and live evidence.
+        """Return one action; no fallback or secondary controller is involved.
 
-        ``belief`` supplies the model trusted for feedback.  The optional live
-        ``exploration_belief`` supplies only the information geometry and
-        evidence completion used by the probing term.  A committed model can
-        therefore remain in charge while new evidence targets weak inputs.
+        ``belief`` is the transactional predictive mean.  ``online_belief`` may
+        provide fresher information geometry while a candidate is undergoing
+        predictive validation.  Both enter this objective; neither produces a
+        separate command.
         """
 
         state_array = _finite_vector("state", state, 13)
         previous = _finite_vector("previous_command", previous_command, 4)
-        exploration = belief if exploration_belief is None else exploration_belief
+        online = belief if online_belief is None else online_belief
         quaternion = state_array[6:10]
         rotation = _quaternion_to_rotation(quaternion)
         velocity = state_array[3:6]
@@ -1376,19 +1418,19 @@ class ProgressiveBootstrapController:
             self._maximum,
         )
 
-        excitation_amplitude = self.config.continuing_excitation_fraction + (
+        information_amplitude = self.config.continuing_excitation_fraction + (
             self.config.initial_excitation_fraction
             - self.config.continuing_excitation_fraction
-        ) * (1.0 - exploration.exploration_completion)
-        if exploration_belief is not None:
-            excitation_amplitude = min(
-                excitation_amplitude,
+        ) * (1.0 - online.exploration_completion)
+        if online_belief is not None:
+            information_amplitude = min(
+                information_amplitude,
                 self.config.maximum_committed_excitation_fraction,
             )
-        pattern = self._patterns[exploration.interval_count % len(self._patterns)]
+        pattern = self._patterns[online.interval_count % len(self._patterns)]
         information = 0.5 * (
-            exploration.normalized_command_information
-            + exploration.normalized_command_information.T
+            online.normalized_command_information
+            + online.normalized_command_information.T
         )
         eigenvalues, eigenvectors = np.linalg.eigh(information)
         information_floor = self.identifier_config.minimum_information_singular_value**2
@@ -1402,36 +1444,110 @@ class ProgressiveBootstrapController:
             float(np.max(np.abs(information_weighted_direction))),
             1e-9,
         )
-        excitation_direction = 0.5 * pattern + 0.5 * information_weighted_direction
-        excitation_direction /= max(
-            float(np.max(np.abs(excitation_direction))),
+        information_direction = 0.5 * pattern + 0.5 * information_weighted_direction
+        information_direction /= max(
+            float(np.max(np.abs(information_direction))),
             1e-9,
         )
-        excitation = excitation_amplitude * self._span * excitation_direction
-        unconstrained = np.clip(
-            feedback + excitation,
-            self._minimum,
-            self._maximum,
-        )
-        # The first post-release command may jump to the bounds-derived midpoint;
-        # subsequent requested commands are slew bounded. Rotor lag remains in the
-        # hidden plant and the identifier consumes measured applied motor state.
-        if belief.interval_count == 0:
-            bounded = unconstrained
-        else:
-            bounded = np.clip(
-                unconstrained,
+        information_target = information_amplitude * self._span * information_direction
+        scales = np.asarray(self.config.objective_information_scales)
+        candidates = feedback + scales[:, None] * information_target
+        candidates = np.clip(candidates, self._minimum, self._maximum)
+        if belief.interval_count:
+            candidates = np.clip(
+                candidates,
                 previous - self.config.maximum_motor_step,
                 previous + self.config.maximum_motor_step,
             )
-            bounded = np.clip(bounded, self._minimum, self._maximum)
+            candidates = np.clip(candidates, self._minimum, self._maximum)
+
+        normalized_delta = (candidates - feedback) / self._span
+        normalized_information_target = information_target / self._span
+        stabilization_costs = 0.5 * np.sum(np.square(normalized_delta), axis=1)
+        information_rewards = normalized_delta @ normalized_information_target
+        force_variance = np.einsum(
+            "ni,ij,nj->n",
+            candidates,
+            belief.supported_collective_effect_covariance,
+            candidates,
+        )
+        angular_variance = sum(
+            np.einsum(
+                "ni,ij,nj->n",
+                candidates,
+                belief.supported_angular_effect_covariance[axis],
+                candidates,
+            )
+            for axis in range(3)
+        )
+        uncertainty_costs = self.config.uncertainty_cost_weight * (
+            force_variance + angular_variance
+        )
+        body_velocity = rotation.T @ velocity
+        predicted_force = (
+            candidates @ belief.collective_acceleration_per_command
+            + belief.collective_velocity_coefficient @ body_velocity
+            + belief.collective_intercept_m_s2
+        )
+        predicted_world_acceleration = predicted_force[:, None] * rotation[
+            :, 2
+        ] - np.asarray((0.0, 0.0, GRAVITY_M_S2))
+        horizon = self.config.objective_horizon_s
+        predicted_velocity = velocity + horizon * predicted_world_acceleration
+        predicted_altitude = (
+            state_array[2]
+            + horizon * velocity[2]
+            + 0.5 * horizon**2 * predicted_world_acceleration[:, 2]
+        )
+        altitude_risk_costs = self.config.altitude_risk_weight * np.square(
+            np.maximum(self.config.minimum_altitude_m - predicted_altitude, 0.0)
+        )
+        objective_values = (
+            stabilization_costs
+            - information_rewards
+            + uncertainty_costs
+            + altitude_risk_costs
+        )
+        selected = int(np.argmin(objective_values))
+        bounded = candidates[selected]
+
+        rate_products = np.asarray(
+            (
+                angular_velocity[0] * angular_velocity[1],
+                angular_velocity[0] * angular_velocity[2],
+                angular_velocity[1] * angular_velocity[2],
+            )
+        )
+        predicted_angular_acceleration = (
+            bounded @ belief.angular_acceleration_per_command.T
+            + belief.angular_rate_coefficient @ angular_velocity
+            + belief.angular_rate_product_coefficient @ rate_products
+            + belief.angular_intercept_rad_s2
+        )
+        predicted_angular_velocity = (
+            angular_velocity + horizon * predicted_angular_acceleration
+        )
+        command_innovation = (bounded - previous) / self._span
+        regularized_information = information + information_floor * np.eye(4)
+        information_inverse = np.linalg.pinv(regularized_information, rcond=1e-10)
+        estimated_information_gain = math.log1p(
+            max(
+                float(command_innovation @ information_inverse @ command_innovation),
+                0.0,
+            )
+        )
         return ProgressiveBootstrapCommand(
             command=bounded,
-            feedback_command=feedback,
-            excitation_command_delta=bounded - feedback,
-            excitation_direction=excitation_direction,
-            excitation_amplitude_fraction=excitation_amplitude,
-            exploration_completion=exploration.exploration_completion,
+            objective_value=float(objective_values[selected]),
+            stabilization_cost=float(stabilization_costs[selected]),
+            information_reward=float(information_rewards[selected]),
+            uncertainty_cost=float(uncertainty_costs[selected]),
+            altitude_risk_cost=float(altitude_risk_costs[selected]),
+            estimated_information_gain=estimated_information_gain,
+            information_action_fraction=float(scales[selected] * information_amplitude),
+            information_completion=online.exploration_completion,
+            predicted_world_velocity_m_s=predicted_velocity[selected],
+            predicted_angular_velocity_rad_s=predicted_angular_velocity,
             desired_world_acceleration_m_s2=(
                 desired_specific_force - np.asarray((0.0, 0.0, GRAVITY_M_S2))
             ),

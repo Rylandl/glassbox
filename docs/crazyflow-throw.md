@@ -17,9 +17,15 @@ frozen as a proposal, scored prequentially on the next `16` intervals before
 those observations enter that proposal, and committed only if it improves
 future force and angular-acceleration predictions. Later candidates use the
 last committed belief as their reference and must also pass a bounded-movement
-check. Feedback uses the committed belief while information-directed probing
-uses the live working belief, so validation does not introduce a temporal
-collect-then-fly phase.
+check.
+
+That model transaction does not create another controller. Every motor action
+minimizes the same bounded belief-space objective. Its stabilization term uses
+the transactional predictive mean, its information term uses the freshest
+supported information geometry, and altitude risk plus supported covariance
+enter the same candidate score. Command bounds and slew limits define the
+feasible set. There is one controller tier, no fallback policy, and no
+collect-then-fly mode change.
 
 Glassbox receives timestamps, exact canonical simulator state, measured applied
 motor state, normalized command bounds, and four-channel output shape. It does
@@ -41,7 +47,7 @@ The unpowered first second is visibly ballistic: tilt reaches `1.202 rad`, and
 the airframe reaches `4.821 m` altitude before online actuation starts. After
 activation:
 
-- the first supported feedback contribution occurs at `1.05 s`;
+- the first supported stabilization contribution occurs at `1.05 s`;
 - the accepted initial proposal is frozen after interval `110`, then admitted
   after `16` future predictions at `2.26 s`;
 - the recursive update median is about `0.34 ms` on the recorded machine;
@@ -50,9 +56,10 @@ activation:
 
 Across the full run, the validator accepts the initial belief and seven later
 replacements while rejecting eight candidates that do not demonstrate enough
-future improvement. A post-admission information probe is capped at `0.0005`
-of normalized motor range, independently of the larger initial identification
-signal.
+future improvement. The joint objective selects a nonzero information action
+on `777` of `900` intervals, reaching `0.12` of normalized motor range before
+validation and at most `0.0005` afterward. These are weights inside the same
+action optimization, not commands from a second policy.
 
 At the `10.00 s` end of the uninterrupted run:
 
@@ -63,7 +70,7 @@ At the `10.00 s` end of the uninterrupted run:
 - minimum altitude is the `1.200 m` release height; and
 - the strict hover envelope remains satisfied for the final `5.73 s`.
 
-The certified belief estimates hover at `0.53194742`, versus the hidden
+The validated predictive belief estimates hover at `0.53194742`, versus the hidden
 evaluation-only value `0.53194727` (`0.000028%` relative error). All requested and
 measured motor values remain finite and bounded.
 
@@ -76,7 +83,7 @@ uv run --extra crazyflow glassbox-crazyflow-throw \
 ```
 
 The [machine-readable result](crazyflow-throw-results.json) records the full
-configuration, working and certified beliefs, timing, state metrics,
+configuration, working and validated beliefs, objective diagnostics, timing, state metrics,
 observations, and limitations.
 
 ## Development campaign
@@ -125,20 +132,19 @@ uv run --extra crazyflow-animation glassbox-crazyflow-throw-animation \
   --throw-only-gif artifacts/crazyflow_throw/unpowered-throw-preview.gif
 ```
 
-## Why separate working and committed beliefs?
+## Why keep transactional model evidence?
 
 Continuous fitting and continuous control do not require treating every new
 regression as more informative. The working belief assimilates every interval
-and decides which input directions still need information. The committed
-belief is the last frozen candidate that predicted a disjoint future window
-better than its reference. Only it supplies feedback after initial admission.
+and contributes current information geometry. The validated predictive mean is
+the last frozen candidate that predicted a disjoint future window better than
+its reference. Both are inputs to one command objective; neither is a fallback
+controller or a safety net.
 
-This is an epistemic separation inside one real-time loop, not two temporal
-controllers. It prevents a transient closed-loop regression from immediately
-rewriting the controller, while still allowing validated replacements. The
-short one-step validation window is evidence of local predictive improvement;
-it is not a calibrated safety probability or a proof of trajectory-wide
-validity.
+This prevents a transient closed-loop regression from being mistaken for
+information gain while still allowing validated replacements. The short
+one-step validation window is evidence of local predictive improvement; it is
+not a calibrated safety probability or a proof of trajectory-wide validity.
 
 ## What this does not establish
 
@@ -152,5 +158,5 @@ horizontal throw displacement is expected.
 
 This is a simulation diagnostic, not a physical throw-to-recover or
 flight-safety claim. Hardware progression still needs release detection,
-sensor delay/noise, a rate-arrest supervisor, netted testing, and an explicit
-validity/abort envelope.
+sensor delay/noise, netted testing, and physical constraints represented inside
+the same command objective.
