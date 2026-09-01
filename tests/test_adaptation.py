@@ -4,7 +4,9 @@ from dataclasses import replace
 
 import jax.numpy as jnp
 import numpy as np
+import pytest
 
+import glassbox.adaptation as adaptation_module
 from glassbox.belief import (
     DynamicsBelief,
     EmpiricalErrorSample,
@@ -67,6 +69,26 @@ def _shifted_belief(
             effective_sample_count=2.0,
         ),
     )
+
+
+def _split_telemetry(telemetry, split: int):
+    proposal = replace(
+        telemetry,
+        time_s=telemetry.time_s[: split + 1],
+        states=telemetry.states[: split + 1],
+        controls=telemetry.controls[:split],
+        exogenous=telemetry.exogenous[: split + 1],
+        observations=telemetry.observations[: split + 1],
+    )
+    validation = replace(
+        telemetry,
+        time_s=telemetry.time_s[split:],
+        states=telemetry.states[split:],
+        controls=telemetry.controls[split:],
+        exogenous=telemetry.exogenous[split:],
+        observations=telemetry.observations[split:],
+    )
+    return proposal, validation
 
 
 def test_total_forecast_error_does_not_double_count_parameter_spread() -> None:
@@ -229,3 +251,143 @@ def test_rank_zero_conditional_error_cannot_create_information() -> None:
     assert updated is belief
     assert not report.applied
     assert "no supported direction" in report.reason
+
+
+def test_proposal_owns_immutable_arrays_and_verifies_its_trust_step() -> None:
+    telemetry = generate_trajectory(seed=37, duration_s=0.2)
+    belief = _shifted_belief(
+        telemetry,
+        covariance_scope=ErrorCovarianceScope.CONDITIONAL_INNOVATION,
+    )
+
+    proposal, _ = belief.propose_update(telemetry)
+
+    assert proposal is not None
+    assert not np.shares_memory(
+        proposal.base_parameter_covariance,
+        belief.parameter_belief.covariance,
+    )
+    assert not proposal.base_parameter_vector.flags.writeable
+    assert not proposal.base_parameter_covariance.flags.writeable
+    assert not proposal.candidate_parameter_vector.flags.writeable
+    assert not proposal.normalized_information_matrix.flags.writeable
+    with pytest.raises(ValueError, match="read-only"):
+        proposal.candidate_parameter_vector[0] = proposal.base_parameter_vector[0]
+    with pytest.raises(ValueError, match="trust-region evidence is inconsistent"):
+        replace(
+            proposal,
+            candidate_parameter_vector=(
+                proposal.base_parameter_vector
+                + 0.5
+                * (proposal.candidate_parameter_vector - proposal.base_parameter_vector)
+            ),
+        )
+
+
+def test_shifted_timestamp_replay_is_not_disjoint_validation() -> None:
+    telemetry = generate_trajectory(seed=38, duration_s=0.2)
+    belief = _shifted_belief(
+        telemetry,
+        covariance_scope=ErrorCovarianceScope.CONDITIONAL_INNOVATION,
+    )
+    proposal, _ = belief.propose_update(telemetry)
+    replay = replace(telemetry, time_s=telemetry.time_s + 100.0)
+
+    assert proposal is not None
+    unchanged, report = belief.commit_update(proposal, replay)
+
+    assert unchanged is belief
+    assert not report.validation_performed
+    assert "overlaps proposal transitions" in report.reason
+
+
+def test_validation_rechecks_candidate_rollout_support(monkeypatch) -> None:
+    telemetry = generate_trajectory(seed=39, duration_s=0.4)
+    belief = _shifted_belief(
+        telemetry,
+        covariance_scope=ErrorCovarianceScope.CONDITIONAL_INNOVATION,
+    )
+    proposal_telemetry, validation_telemetry = _split_telemetry(telemetry, 10)
+    proposal, _ = belief.propose_update(proposal_telemetry)
+
+    assert proposal is not None
+    monkeypatch.setattr(
+        adaptation_module,
+        "_candidate_rollouts_supported",
+        lambda *_args, **_kwargs: False,
+    )
+    unchanged, report = belief.commit_update(proposal, validation_telemetry)
+
+    assert unchanged is belief
+    assert report.validation_performed
+    assert "validation rollouts left" in report.reason
+
+
+def test_proposal_is_tied_to_full_belief_and_target_specification() -> None:
+    telemetry = generate_trajectory(seed=40, duration_s=0.4)
+    belief = _shifted_belief(
+        telemetry,
+        covariance_scope=ErrorCovarianceScope.CONDITIONAL_INNOVATION,
+    )
+    proposal_telemetry, validation_telemetry = _split_telemetry(telemetry, 10)
+    proposal, _ = belief.propose_update(proposal_telemetry)
+
+    assert proposal is not None
+    recalibrated = replace(
+        belief,
+        predictive_error=replace(
+            belief.predictive_error,
+            source="independently_recalibrated",
+        ),
+    )
+    unchanged, revision_report = recalibrated.commit_update(
+        proposal,
+        validation_telemetry,
+    )
+    assert unchanged is recalibrated
+    assert "no longer matches" in revision_report.reason
+
+    changed_vehicle = replace(
+        validation_telemetry,
+        spec=replace(
+            validation_telemetry.spec,
+            vehicle=replace(
+                validation_telemetry.spec.vehicle,
+                configuration_id="different-validation-target",
+            ),
+        ),
+    )
+    unchanged, target_report = belief.commit_update(proposal, changed_vehicle)
+    assert unchanged is belief
+    assert "target specification changed" in target_report.reason
+
+
+def test_commit_derives_covariance_information_from_validation_evidence() -> None:
+    telemetry = generate_trajectory(seed=41, duration_s=0.4)
+    belief = _shifted_belief(
+        telemetry,
+        covariance_scope=ErrorCovarianceScope.CONDITIONAL_INNOVATION,
+    )
+    proposal_telemetry, validation_telemetry = _split_telemetry(telemetry, 10)
+    proposal, _ = belief.propose_update(proposal_telemetry)
+
+    assert proposal is not None
+    exaggerated = replace(
+        proposal,
+        normalized_information_matrix=(
+            1e12 * np.eye(len(proposal.normalized_information_matrix))
+        ),
+    )
+    expected, expected_report = belief.commit_update(proposal, validation_telemetry)
+    actual, actual_report = belief.commit_update(exaggerated, validation_telemetry)
+
+    assert expected_report.applied
+    assert actual_report.applied
+    np.testing.assert_array_equal(
+        actual.parameter_belief.covariance,
+        expected.parameter_belief.covariance,
+    )
+    assert (
+        actual_report.realized_local_information_gain_nats
+        == expected_report.realized_local_information_gain_nats
+    )

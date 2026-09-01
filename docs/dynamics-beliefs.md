@@ -120,12 +120,18 @@ predictive-error evidence marked stale after commit
 ```
 
 Updates are functional: they produce a new immutable belief and an audit report.
+Proposal arrays are owned, read-only copies and each proposal fingerprints the
+complete belief revision and target trajectory specification. Transition replay
+is detected from physical transition content rather than absolute timestamps.
 The report records whether a proposal existed, whether validation ran, why a
 commit was accepted or rejected, coefficient movement, prior-standardized step,
 validity utilization, and evidence counts. Unsupported horizons,
-out-of-envelope telemetry, stale error evidence, reused proposal transitions,
-non-finite rollouts, and non-improving validation all fail closed. One
-contiguous telemetry block is one evidence unit regardless of its window count.
+out-of-envelope telemetry or candidate paths, stale or changed belief evidence,
+reused proposal transitions, target-configuration changes, non-finite rollouts,
+and non-improving validation all fail closed. Conditional covariance contraction
+is recomputed from the disjoint validation evidence; proposal-carried geometry
+cannot make the committed belief overconfident. One contiguous telemetry block
+is one evidence unit regardless of its window count.
 
 Ordinary point fits explicitly use a `PointParameterBelief`; they do not invent
 covariance. When `glassbox-fit` writes a model, it also differentiates a bounded,

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from dataclasses import dataclass, replace
 from typing import Any
 
@@ -34,6 +35,96 @@ VALIDITY_BOUNDARY_TOLERANCE = 1e-6
 LINE_SEARCH_FRACTIONS = (1.0, 0.5, 0.25, 0.125, 0.0625)
 
 
+def _readonly_array(value: np.ndarray) -> np.ndarray:
+    """Own one immutable copy rather than aliasing authoritative belief state."""
+
+    array = np.array(value, dtype=np.float64, copy=True)
+    array.setflags(write=False)
+    return array
+
+
+def _valid_sha256(value: str) -> bool:
+    if len(value) != 64:
+        return False
+    try:
+        int(value, 16)
+    except ValueError:
+        return False
+    return True
+
+
+def _update_revision_fingerprint(belief: DynamicsBelief) -> str:
+    """Fingerprint every belief component that changes update semantics."""
+
+    digest = hashlib.sha256()
+    for leaf in jax.tree_util.tree_leaves(belief.params):
+        array = np.ascontiguousarray(np.asarray(leaf))
+        digest.update(str(array.dtype).encode("utf-8"))
+        digest.update(np.asarray(array.shape, dtype=np.int64).tobytes())
+        digest.update(array.tobytes())
+    payload = {
+        "input_spec": belief.input_spec.to_dict(),
+        "runtime_spec": belief.runtime_spec.to_dict(),
+        "predictive_error": belief.predictive_error.to_dict(),
+        "parameter_belief": belief.parameter_belief.to_dict(),
+        "parameter_evidence": belief.parameter_evidence.to_dict(),
+        "predictive_error_parameter_update_count": (
+            belief.predictive_error_parameter_update_count
+        ),
+    }
+    digest.update(
+        json.dumps(
+            payload,
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        ).encode("utf-8")
+    )
+    return digest.hexdigest()
+
+
+def _trajectory_spec_fingerprint(trajectory: Trajectory) -> str:
+    payload = trajectory.spec.prediction_spec().to_dict()
+    return hashlib.sha256(
+        json.dumps(
+            payload,
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        ).encode("utf-8")
+    ).hexdigest()
+
+
+def _prior_standardized_step_rms(
+    base: np.ndarray,
+    candidate: np.ndarray,
+    covariance: np.ndarray,
+) -> float:
+    """Measure a candidate in supported prior coordinates, rejecting leakage."""
+
+    support = supported_covariance(covariance)
+    if support.rank == 0:
+        raise ValueError("update proposal covariance has no supported direction")
+    delta = candidate - base
+    projected = support.projector @ delta
+    residual = delta - projected
+    tolerance = np.sqrt(np.finfo(np.float64).eps) * max(
+        1.0,
+        float(np.linalg.norm(delta)),
+    )
+    if float(np.linalg.norm(residual)) > tolerance:
+        raise ValueError("update proposal moves in an unsupported parameter direction")
+    local_step = (support.basis.T @ delta) / np.sqrt(support.variances)
+    return float(np.sqrt(np.mean(np.square(local_step))))
+
+
+def _score_improves(before: float, after: float) -> bool:
+    """Reject numerical ties without imposing a domain performance threshold."""
+
+    tolerance = 32.0 * np.finfo(np.float64).eps * max(1.0, abs(before))
+    return np.isfinite(after) and after < before - tolerance
+
+
 @dataclass(frozen=True)
 class BeliefUpdateProposal:
     """A parameter move that is not authoritative until separately validated."""
@@ -54,14 +145,25 @@ class BeliefUpdateProposal:
     maximum_validity_utilization: float
     source_group: str
     evidence_transition_hashes: tuple[str, ...]
+    base_belief_fingerprint: str
+    target_spec_fingerprint: str
 
     def __post_init__(self) -> None:
-        base = np.asarray(self.base_parameter_vector, dtype=np.float64)
-        candidate = np.asarray(self.candidate_parameter_vector, dtype=np.float64)
-        covariance = np.asarray(self.base_parameter_covariance, dtype=np.float64)
-        information = np.asarray(
+        base = np.array(self.base_parameter_vector, dtype=np.float64, copy=True)
+        candidate = np.array(
+            self.candidate_parameter_vector,
+            dtype=np.float64,
+            copy=True,
+        )
+        covariance = np.array(
+            self.base_parameter_covariance,
+            dtype=np.float64,
+            copy=True,
+        )
+        information = np.array(
             self.normalized_information_matrix,
             dtype=np.float64,
+            copy=True,
         )
         size = len(base)
         if candidate.shape != (size,) or covariance.shape != (size, size):
@@ -81,10 +183,8 @@ class BeliefUpdateProposal:
             raise ValueError("update proposal information must be symmetric")
         if np.min(np.linalg.eigvalsh(information)) < -1e-8:
             raise ValueError("update proposal information must be PSD")
-        if information.shape != (
-            supported_covariance(covariance).rank,
-            supported_covariance(covariance).rank,
-        ):
+        prior_support = supported_covariance(covariance)
+        if information.shape != (prior_support.rank, prior_support.rank):
             raise ValueError("update proposal information has incompatible rank")
         if self.base_update_count < 0:
             raise ValueError("update proposal count cannot be negative")
@@ -101,10 +201,23 @@ class BeliefUpdateProposal:
             raise ValueError("update proposal must improve its proposal evidence")
         if not (
             np.isfinite(self.prior_standardized_step_rms)
-            and 0.0 < self.prior_standardized_step_rms
+            and 0.0
+            < self.prior_standardized_step_rms
             <= MAXIMUM_LOCAL_PARAMETER_STEP_RMS * (1.0 + 1e-9)
         ):
             raise ValueError("update proposal exceeds the local trust region")
+        measured_step_rms = _prior_standardized_step_rms(
+            base,
+            candidate,
+            covariance,
+        )
+        if not np.isclose(
+            measured_step_rms,
+            self.prior_standardized_step_rms,
+            rtol=1e-7,
+            atol=1e-10,
+        ):
+            raise ValueError("update proposal trust-region evidence is inconsistent")
         if not (
             np.isfinite(self.proposal_step_fraction)
             and 0.0 < self.proposal_step_fraction <= 1.0
@@ -112,26 +225,43 @@ class BeliefUpdateProposal:
             raise ValueError("update proposal step fraction is invalid")
         if not (
             np.isfinite(self.maximum_validity_utilization)
-            and self.maximum_validity_utilization
-            <= 1.0 + VALIDITY_BOUNDARY_TOLERANCE
+            and self.maximum_validity_utilization <= 1.0 + VALIDITY_BOUNDARY_TOLERANCE
         ):
             raise ValueError("update proposal lies outside model support")
         if not self.source_group.strip():
             raise ValueError("update proposal source group is required")
-        transition_hashes = tuple(str(value) for value in self.evidence_transition_hashes)
-        if not transition_hashes or len(set(transition_hashes)) != len(
-            transition_hashes
-        ) or any(len(value) != 64 for value in transition_hashes):
+        transition_hashes = tuple(
+            str(value) for value in self.evidence_transition_hashes
+        )
+        if not transition_hashes or any(
+            not _valid_sha256(value) for value in transition_hashes
+        ):
             raise ValueError("update proposal transition evidence is invalid")
+        if not _valid_sha256(self.base_belief_fingerprint):
+            raise ValueError("update proposal belief revision is invalid")
+        if not _valid_sha256(self.target_spec_fingerprint):
+            raise ValueError("update proposal target specification is invalid")
         object.__setattr__(
             self,
             "covariance_scope",
             ErrorCovarianceScope(self.covariance_scope),
         )
-        object.__setattr__(self, "base_parameter_vector", base)
-        object.__setattr__(self, "base_parameter_covariance", covariance)
-        object.__setattr__(self, "candidate_parameter_vector", candidate)
-        object.__setattr__(self, "normalized_information_matrix", information)
+        object.__setattr__(self, "base_parameter_vector", _readonly_array(base))
+        object.__setattr__(
+            self,
+            "base_parameter_covariance",
+            _readonly_array(covariance),
+        )
+        object.__setattr__(
+            self,
+            "candidate_parameter_vector",
+            _readonly_array(candidate),
+        )
+        object.__setattr__(
+            self,
+            "normalized_information_matrix",
+            _readonly_array(information),
+        )
         object.__setattr__(self, "evidence_transition_hashes", transition_hashes)
 
 
@@ -180,18 +310,10 @@ class BeliefUpdateReport:
             "used_window_count": self.used_window_count,
             "proposal_window_count": self.proposal_window_count,
             "validation_window_count": self.validation_window_count,
-            "normalized_innovation_rms_before": (
-                self.normalized_innovation_rms_before
-            ),
-            "normalized_innovation_rms_after": (
-                self.normalized_innovation_rms_after
-            ),
-            "normalized_validation_rms_before": (
-                self.normalized_validation_rms_before
-            ),
-            "normalized_validation_rms_after": (
-                self.normalized_validation_rms_after
-            ),
+            "normalized_innovation_rms_before": (self.normalized_innovation_rms_before),
+            "normalized_innovation_rms_after": (self.normalized_innovation_rms_after),
+            "normalized_validation_rms_before": (self.normalized_validation_rms_before),
+            "normalized_validation_rms_after": (self.normalized_validation_rms_after),
             "realized_local_information_gain_nats": (
                 self.realized_local_information_gain_nats
             ),
@@ -241,13 +363,12 @@ def _source_group(trajectory: Trajectory) -> str:
 
 
 def _transition_hashes(trajectory: Trajectory) -> tuple[str, ...]:
-    """Fingerprint transitions so proposal evidence cannot be reused to validate."""
+    """Fingerprint transition content independent of an arbitrary time origin."""
 
     hashes: list[str] = []
     for index, control in enumerate(trajectory.controls):
         digest = hashlib.sha256()
         for values in (
-            trajectory.time_s[index : index + 2],
             trajectory.states[index],
             control,
             trajectory.states[index + 1],
@@ -287,9 +408,7 @@ def _window_starts(candidate_count: int) -> np.ndarray:
     if candidate_count <= MAXIMUM_ONLINE_UPDATE_WINDOWS:
         return np.arange(candidate_count, dtype=np.int64)
     count = MAXIMUM_ONLINE_UPDATE_WINDOWS
-    return ((2 * np.arange(count, dtype=np.int64) + 1) * candidate_count) // (
-        2 * count
-    )
+    return ((2 * np.arange(count, dtype=np.int64) + 1) * candidate_count) // (2 * count)
 
 
 def _maximum_validity(belief: DynamicsBelief, telemetry: Trajectory) -> float:
@@ -597,9 +716,7 @@ def _candidate_rollouts_supported(
         )
         states_np = np.asarray(states)
         latent_np = np.asarray(latent_states)
-        if not (
-            np.all(np.isfinite(states_np)) and np.all(np.isfinite(latent_np))
-        ):
+        if not (np.all(np.isfinite(states_np)) and np.all(np.isfinite(latent_np))):
             return False
         utilization = np.asarray(
             jax.vmap(
@@ -720,10 +837,8 @@ def propose_dynamics_belief_update(
             combined_fraction = trust_fraction * fraction
             selected = prior_vector + combined_fraction * raw_delta
             score = _normalized_rms(belief, context, selected)
-            if (
-                np.isfinite(score)
-                and score < score_before
-                and _candidate_rollouts_supported(belief, context, selected)
+            if _score_improves(score_before, score) and _candidate_rollouts_supported(
+                belief, context, selected
             ):
                 candidate = selected
                 score_after = score
@@ -776,6 +891,8 @@ def propose_dynamics_belief_update(
         maximum_validity_utilization=context.maximum_validity_utilization,
         source_group=_source_group(telemetry),
         evidence_transition_hashes=_transition_hashes(telemetry),
+        base_belief_fingerprint=_update_revision_fingerprint(belief),
+        target_spec_fingerprint=_trajectory_spec_fingerprint(telemetry),
     )
     report = _base_report(
         belief,
@@ -793,9 +910,7 @@ def propose_dynamics_belief_update(
         report,
         normalized_innovation_rms_before=score_before,
         normalized_innovation_rms_after=score_after,
-        structured_parameter_delta_norm=float(
-            np.linalg.norm(candidate - prior_vector)
-        ),
+        structured_parameter_delta_norm=float(np.linalg.norm(candidate - prior_vector)),
         prior_standardized_step_rms=selected_local_rms,
         accepted_step_fraction=selected_fraction,
     )
@@ -810,6 +925,7 @@ def _proposal_matches_belief(
         return False
     return (
         belief.parameter_belief.update_count == proposal.base_update_count
+        and _update_revision_fingerprint(belief) == proposal.base_belief_fingerprint
         and np.array_equal(
             np.asarray(structured_parameter_vector(belief.params), dtype=np.float64),
             proposal.base_parameter_vector,
@@ -847,6 +963,21 @@ def validate_and_commit_dynamics_belief_update(
             horizon_steps=proposal.update_horizon_steps,
             proposal_count=proposal.proposal_window_count,
         )
+    if (
+        _trajectory_spec_fingerprint(validation_telemetry)
+        != proposal.target_spec_fingerprint
+    ):
+        return belief, _base_report(
+            belief,
+            validation_telemetry,
+            reason="validation telemetry target specification changed",
+            maximum_validity=maximum_validity,
+            proposal_available=True,
+            validation_performed=False,
+            horizon_s=proposal.update_horizon_s,
+            horizon_steps=proposal.update_horizon_steps,
+            proposal_count=proposal.proposal_window_count,
+        )
     if set(proposal.evidence_transition_hashes) & set(
         _transition_hashes(validation_telemetry)
     ):
@@ -874,9 +1005,8 @@ def validate_and_commit_dynamics_belief_update(
         )
         return belief, report
     assert context is not None
-    if (
-        context.horizon_steps != proposal.update_horizon_steps
-        or not np.isclose(context.horizon_s, proposal.update_horizon_s)
+    if context.horizon_steps != proposal.update_horizon_steps or not np.isclose(
+        context.horizon_s, proposal.update_horizon_s
     ):
         return belief, _base_report(
             belief,
@@ -900,24 +1030,35 @@ def validate_and_commit_dynamics_belief_update(
         selected: np.ndarray | None = None
         validation_after: float | None = None
         validation_fraction: float | None = None
+        improved_but_unsupported = False
         for fraction in LINE_SEARCH_FRACTIONS:
             candidate = base + fraction * proposed_delta
             score = _normalized_rms(belief, context, candidate)
-            if np.isfinite(score) and score < validation_before:
-                selected = candidate
-                validation_after = score
-                validation_fraction = fraction
-                break
+            if not _score_improves(validation_before, score):
+                continue
+            if not _candidate_rollouts_supported(belief, context, candidate):
+                improved_but_unsupported = True
+                continue
+            selected = candidate
+            validation_after = score
+            validation_fraction = fraction
+            break
     except (FloatingPointError, np.linalg.LinAlgError, ValueError):
         selected = None
         validation_after = None
         validation_fraction = None
         validation_before = None
+        improved_but_unsupported = False
     if selected is None:
+        reason = (
+            "proposal validation rollouts left the learned validity envelope"
+            if improved_but_unsupported
+            else "proposal did not improve disjoint validation telemetry"
+        )
         report = _base_report(
             belief,
             validation_telemetry,
-            reason="proposal did not improve disjoint validation telemetry",
+            reason=reason,
             maximum_validity=maximum_validity,
             proposal_available=True,
             validation_performed=True,
@@ -935,9 +1076,7 @@ def validate_and_commit_dynamics_belief_update(
             normalized_innovation_rms_before=(
                 proposal.normalized_innovation_rms_before
             ),
-            normalized_innovation_rms_after=(
-                proposal.normalized_innovation_rms_after
-            ),
+            normalized_innovation_rms_after=(proposal.normalized_innovation_rms_after),
             normalized_validation_rms_before=validation_before,
         )
         return belief, report
@@ -948,102 +1087,134 @@ def validate_and_commit_dynamics_belief_update(
     assert isinstance(parameter_belief, LocalGaussianParameterBelief)
     prior_covariance = proposal.base_parameter_covariance
     accepted_fraction = proposal.proposal_step_fraction * validation_fraction
-    covariance = prior_covariance
-    information_gain: float | None = None
-    covariance_updated = False
-    if proposal.covariance_scope == ErrorCovarianceScope.CONDITIONAL_INNOVATION:
-        prior_support = supported_covariance(prior_covariance)
-        prior_factor = prior_support.basis * np.sqrt(prior_support.variances)
-        normalized_posterior_precision = (
-            np.eye(prior_support.rank)
-            + accepted_fraction * proposal.normalized_information_matrix
-        )
-        covariance = prior_factor @ np.linalg.solve(
-            normalized_posterior_precision,
-            prior_factor.T,
-        )
-        covariance = 0.5 * (covariance + covariance.T)
-        sign, logdet = np.linalg.slogdet(normalized_posterior_precision)
-        if sign <= 0.0 or not np.isfinite(logdet):
-            return belief, _base_report(
+    try:
+        covariance = prior_covariance
+        information_gain: float | None = None
+        covariance_updated = False
+        if proposal.covariance_scope == ErrorCovarianceScope.CONDITIONAL_INNOVATION:
+            prior_support = supported_covariance(prior_covariance)
+            prior_factor = prior_support.basis * np.sqrt(prior_support.variances)
+            validation_design, _ = _proposal_geometry(
                 belief,
-                validation_telemetry,
-                reason="validated covariance update was non-finite",
-                maximum_validity=maximum_validity,
-                proposal_available=True,
-                validation_performed=True,
-                horizon_s=proposal.update_horizon_s,
-                horizon_steps=proposal.update_horizon_steps,
-                proposal_count=proposal.proposal_window_count,
-                validation_count=len(context.windows),
+                context,
+                base,
+                prior_support,
             )
-        information_gain = float(0.5 * logdet)
-        covariance_updated = not np.array_equal(covariance, prior_covariance)
+            validation_information = validation_design.T @ validation_design
+            normalized_posterior_precision = (
+                np.eye(prior_support.rank)
+                + validation_fraction * validation_information
+            )
+            if not np.all(np.isfinite(normalized_posterior_precision)):
+                raise FloatingPointError
+            covariance = prior_factor @ np.linalg.solve(
+                normalized_posterior_precision,
+                prior_factor.T,
+            )
+            covariance = 0.5 * (covariance + covariance.T)
+            sign, logdet = np.linalg.slogdet(normalized_posterior_precision)
+            if (
+                sign <= 0.0
+                or not np.isfinite(logdet)
+                or not np.all(np.isfinite(covariance))
+            ):
+                raise FloatingPointError
+            information_gain = float(0.5 * logdet)
+            covariance_updated = not np.array_equal(covariance, prior_covariance)
 
-    update_count = parameter_belief.update_count + 1
-    updated_parameter_belief = LocalGaussianParameterBelief(
-        parameter_names=parameter_belief.parameter_names,
-        covariance=covariance,
-        source=parameter_belief.source,
-        evidence_count=parameter_belief.evidence_count + 1,
-        effective_sample_count=parameter_belief.effective_sample_count + 1.0,
-        update_count=update_count,
-    )
-    report = BeliefUpdateReport(
-        applied=True,
-        proposal_available=True,
-        validation_performed=True,
-        reason=None,
-        source_group=(
-            f"proposal:{proposal.source_group};validation:"
-            f"{_source_group(validation_telemetry)}"
-        ),
-        update_horizon_s=proposal.update_horizon_s,
-        update_horizon_steps=proposal.update_horizon_steps,
-        candidate_window_count=(
-            proposal.proposal_window_count + context.candidate_window_count
-        ),
-        used_window_count=proposal.proposal_window_count + len(context.windows),
-        proposal_window_count=proposal.proposal_window_count,
-        validation_window_count=len(context.windows),
-        normalized_innovation_rms_before=(
-            proposal.normalized_innovation_rms_before
-        ),
-        normalized_innovation_rms_after=proposal.normalized_innovation_rms_after,
-        normalized_validation_rms_before=validation_before,
-        normalized_validation_rms_after=validation_after,
-        realized_local_information_gain_nats=information_gain,
-        structured_parameter_delta_norm=float(np.linalg.norm(selected - base)),
-        prior_standardized_step_rms=(
-            proposal.prior_standardized_step_rms * validation_fraction
-        ),
-        accepted_step_fraction=accepted_fraction,
-        prior_covariance_trace=float(np.trace(prior_covariance)),
-        posterior_covariance_trace=float(np.trace(covariance)),
-        covariance_scope=proposal.covariance_scope,
-        covariance_updated=covariance_updated,
-        maximum_validity_utilization=maximum_validity,
-        prior_update_count=parameter_belief.update_count,
-        posterior_update_count=update_count,
-        predictive_error_marked_stale=True,
-    )
-    provenance = dict(belief.provenance)
-    provenance["online_adaptation"] = {
-        "update_count": update_count,
-        "last_update": report.to_dict(),
-    }
-    updated = DynamicsBelief(
-        params=with_structured_parameter_vector(belief.params, jnp.asarray(selected)),
-        input_spec=belief.input_spec,
-        runtime_spec=belief.runtime_spec,
-        predictive_error=belief.predictive_error,
-        parameter_belief=updated_parameter_belief,
-        parameter_evidence=belief.parameter_evidence,
-        predictive_error_parameter_update_count=(
-            belief.predictive_error_parameter_update_count
-        ),
-        provenance=provenance,
-    )
+        update_count = parameter_belief.update_count + 1
+        updated_parameter_belief = LocalGaussianParameterBelief(
+            parameter_names=parameter_belief.parameter_names,
+            covariance=covariance,
+            source=parameter_belief.source,
+            evidence_count=parameter_belief.evidence_count + 1,
+            effective_sample_count=parameter_belief.effective_sample_count + 1.0,
+            update_count=update_count,
+        )
+        report = BeliefUpdateReport(
+            applied=True,
+            proposal_available=True,
+            validation_performed=True,
+            reason=None,
+            source_group=(
+                f"proposal:{proposal.source_group};validation:"
+                f"{_source_group(validation_telemetry)}"
+            ),
+            update_horizon_s=proposal.update_horizon_s,
+            update_horizon_steps=proposal.update_horizon_steps,
+            candidate_window_count=(
+                proposal.proposal_window_count + context.candidate_window_count
+            ),
+            used_window_count=proposal.proposal_window_count + len(context.windows),
+            proposal_window_count=proposal.proposal_window_count,
+            validation_window_count=len(context.windows),
+            normalized_innovation_rms_before=(
+                proposal.normalized_innovation_rms_before
+            ),
+            normalized_innovation_rms_after=(proposal.normalized_innovation_rms_after),
+            normalized_validation_rms_before=validation_before,
+            normalized_validation_rms_after=validation_after,
+            realized_local_information_gain_nats=information_gain,
+            structured_parameter_delta_norm=float(np.linalg.norm(selected - base)),
+            prior_standardized_step_rms=(
+                proposal.prior_standardized_step_rms * validation_fraction
+            ),
+            accepted_step_fraction=accepted_fraction,
+            prior_covariance_trace=float(np.trace(prior_covariance)),
+            posterior_covariance_trace=float(np.trace(covariance)),
+            covariance_scope=proposal.covariance_scope,
+            covariance_updated=covariance_updated,
+            maximum_validity_utilization=maximum_validity,
+            prior_update_count=parameter_belief.update_count,
+            posterior_update_count=update_count,
+            predictive_error_marked_stale=True,
+        )
+        provenance = dict(belief.provenance)
+        provenance["online_adaptation"] = {
+            "update_count": update_count,
+            "last_update": report.to_dict(),
+        }
+        updated = DynamicsBelief(
+            params=with_structured_parameter_vector(
+                belief.params,
+                jnp.asarray(selected),
+            ),
+            input_spec=belief.input_spec,
+            runtime_spec=belief.runtime_spec,
+            predictive_error=belief.predictive_error,
+            parameter_belief=updated_parameter_belief,
+            parameter_evidence=belief.parameter_evidence,
+            predictive_error_parameter_update_count=(
+                belief.predictive_error_parameter_update_count
+            ),
+            provenance=provenance,
+        )
+    except (FloatingPointError, np.linalg.LinAlgError, OverflowError, ValueError):
+        report = _base_report(
+            belief,
+            validation_telemetry,
+            reason="validated belief construction was non-finite or inconsistent",
+            maximum_validity=maximum_validity,
+            proposal_available=True,
+            validation_performed=True,
+            horizon_s=proposal.update_horizon_s,
+            horizon_steps=proposal.update_horizon_steps,
+            candidate_count=(
+                proposal.proposal_window_count + context.candidate_window_count
+            ),
+            used_count=proposal.proposal_window_count + len(context.windows),
+            proposal_count=proposal.proposal_window_count,
+            validation_count=len(context.windows),
+        )
+        return belief, replace(
+            report,
+            normalized_innovation_rms_before=(
+                proposal.normalized_innovation_rms_before
+            ),
+            normalized_innovation_rms_after=(proposal.normalized_innovation_rms_after),
+            normalized_validation_rms_before=validation_before,
+            normalized_validation_rms_after=validation_after,
+        )
     return updated, report
 
 
