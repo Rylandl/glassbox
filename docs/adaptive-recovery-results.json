@@ -1,6 +1,28 @@
 {
-  "format_version": 1,
+  "format_version": 2,
   "artifact_type": "glassbox_synthetic_adaptive_recovery_diagnostic",
+  "implementation": {
+    "method_version": 2,
+    "source_files": [
+      "adaptation.py",
+      "adaptive_recovery_benchmark.py",
+      "belief.py",
+      "covariance.py",
+      "data.py",
+      "dynamics.py",
+      "evaluation.py",
+      "geometry.py",
+      "linearization.py",
+      "nmpc/__init__.py",
+      "nmpc/solver.py",
+      "nmpc/types.py",
+      "parameter_prior.py",
+      "runtime.py",
+      "synthetic.py"
+    ],
+    "source_sha256": "43656c8f449b0d11528255c8d650e6a969e817c68f789ac19305a472ca042460",
+    "scenario_sha256": "83985b1b6d16439e4a262a2b0a3173a47c00ebd2aceda1355bbc19f9d04b2da1"
+  },
   "semantics": {
     "diagnostic_only": true,
     "acceptance_gate": false,
@@ -15,15 +37,28 @@
     "prechange_vehicle_anchors_unchanged_parameters": true,
     "configuration_delta_direction_derived_from_fleet": true,
     "adaptation_and_evaluation_telemetry_disjoint": true,
+    "validation_actuator_context_excluded_from_evidence": true,
     "stale_predictive_error_is_not_applied_at_runtime": true
   },
   "configuration": {
     "sample_period_s": 0.02,
     "adaptation_horizon_s": 0.1,
     "control_horizon_s": 0.6,
+    "short_horizon_fleet_duration_s": 1.2,
+    "control_horizon_fleet_duration_s": 2.0,
     "adaptation_duration_s": 0.8,
+    "evaluation_duration_s": 1.6,
     "recovery_duration_s": 1.2,
     "reported_tail_duration_s": 0.4,
+    "fleet_profile_base_seeds": [
+      100,
+      200,
+      300
+    ],
+    "support_trajectory_seed": 700,
+    "fleet_member_spec_seed_start": 800,
+    "adaptation_trajectory_seed": 21,
+    "evaluation_trajectory_seed": 22,
     "arm_length_ratio_before": 1.0,
     "arm_length_ratio_after": 1.2214027581601699,
     "fleet_arm_length_ratios": [
@@ -34,6 +69,24 @@
       1.2840254166877414
     ],
     "effective_authority_mapping": "roll_pitch_angular_authority_inverse_arm_length_ratio",
+    "recovery_conditions": [
+      {
+        "condition": "stale_belief",
+        "model_role": "prechange mean plus current fleet forecast error"
+      },
+      {
+        "condition": "adapted_belief",
+        "model_role": "adapted mean plus parameter uncertainty; forecast error stale"
+      },
+      {
+        "condition": "adapted_mean_point",
+        "model_role": "adapted mean without uncertainty"
+      },
+      {
+        "condition": "oracle_mean_point",
+        "model_role": "hidden target mean without uncertainty"
+      }
+    ],
     "recovery_initial_state": [
       0.25,
       -0.2,
@@ -107,10 +160,12 @@
       "used_window_count": 8,
       "proposal_window_count": 4,
       "validation_window_count": 4,
+      "actuator_context_sample_count": 20,
+      "actuator_context_fingerprint": "55cf010d76dcea8af4405bfd6260fc249af4dcca787f1f389dbce6935d249abc",
       "normalized_innovation_rms_before": 0.5909151600548506,
       "normalized_innovation_rms_after": 0.2430803796738898,
-      "normalized_validation_rms_before": 1.7534097389119132,
-      "normalized_validation_rms_after": 1.6153827407681136,
+      "normalized_validation_rms_before": 1.1994160563751122,
+      "normalized_validation_rms_after": 0.4982188254158822,
       "realized_local_information_gain_nats": null,
       "structured_parameter_delta_norm": 0.15983661159205842,
       "prior_standardized_step_rms": 0.571848846100918,
@@ -153,10 +208,10 @@
       "maximum_normalized_model_uncertainty_standard_deviation": 0.08166541159152985,
       "fallback_count": 0,
       "finite": true,
-      "prewarm_wall_time_s": 3.100724207935855,
-      "solve_time_median_s": 0.005956541863270104,
-      "solve_time_p90_s": 0.006283316784538329,
-      "solve_time_maximum_s": 0.006480040960013866
+      "prewarm_wall_time_s": 3.872825042111799,
+      "solve_time_median_s": 0.006662082974798977,
+      "solve_time_p90_s": 0.007060625613667071,
+      "solve_time_maximum_s": 0.007491041906177998
     },
     {
       "condition": "adapted_belief",
@@ -179,10 +234,10 @@
       "maximum_normalized_model_uncertainty_standard_deviation": 1.640218734741211,
       "fallback_count": 0,
       "finite": true,
-      "prewarm_wall_time_s": 3.3233682920690626,
-      "solve_time_median_s": 0.01084700005594641,
-      "solve_time_p90_s": 0.01635594645049423,
-      "solve_time_maximum_s": 0.045598916010931134
+      "prewarm_wall_time_s": 4.436143249971792,
+      "solve_time_median_s": 0.013821562519297004,
+      "solve_time_p90_s": 0.02105600885115564,
+      "solve_time_maximum_s": 0.06662154197692871
     },
     {
       "condition": "adapted_mean_point",
@@ -205,10 +260,10 @@
       "maximum_normalized_model_uncertainty_standard_deviation": 0.0,
       "fallback_count": 0,
       "finite": true,
-      "prewarm_wall_time_s": 1.985218333080411,
-      "solve_time_median_s": 0.005867541418410838,
-      "solve_time_p90_s": 0.006073025031946599,
-      "solve_time_maximum_s": 0.0062555838376283646
+      "prewarm_wall_time_s": 2.734318875009194,
+      "solve_time_median_s": 0.007735728984698653,
+      "solve_time_p90_s": 0.00856318345759064,
+      "solve_time_maximum_s": 0.009154750034213066
     },
     {
       "condition": "oracle_mean_point",
@@ -231,10 +286,10 @@
       "maximum_normalized_model_uncertainty_standard_deviation": 0.0,
       "fallback_count": 0,
       "finite": true,
-      "prewarm_wall_time_s": 1.8519040420651436,
-      "solve_time_median_s": 0.005667624995112419,
-      "solve_time_p90_s": 0.005970708164386451,
-      "solve_time_maximum_s": 0.012465874897316098
+      "prewarm_wall_time_s": 2.878216333920136,
+      "solve_time_median_s": 0.009556207922287285,
+      "solve_time_p90_s": 0.010165658663026989,
+      "solve_time_maximum_s": 0.01415550010278821
     }
   ],
   "comparisons": {

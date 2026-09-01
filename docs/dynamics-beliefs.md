@@ -133,6 +133,13 @@ is recomputed from the disjoint validation evidence; proposal-carried geometry
 cannot make the committed belief overconfident. One contiguous telemetry block
 is one evidence unit regardless of its window count.
 
+Actuator commands immediately preceding the validation boundary are carried as
+separately fingerprinted initialization context. They are used to recompute the
+candidate-dependent latent actuator state, but they are not validation samples
+and are excluded from transition-overlap checks. The low-level two-stage commit
+API requires callers to supply this context explicitly; missing or malformed
+history returns the original belief unchanged.
+
 Stale predictive-error artifacts remain attached for provenance and
 recalibration, but runtime forecasts and NMPC no longer apply their bias,
 covariance, or quantiles. Independently maintained parameter uncertainty remains

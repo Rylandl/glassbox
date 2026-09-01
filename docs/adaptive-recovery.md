@@ -23,7 +23,9 @@ The evidence path is:
    remains separately reported.
 2. Start from the known prechange vehicle model.
 3. Propose an update from the first half of 0.8 seconds of target telemetry and
-   validate it on the disjoint second half.
+   validate it on the disjoint second half. Pre-split commands initialize the
+   validation actuator state but are fingerprinted separately and do not count
+   as validation evidence.
 4. Evaluate the accepted model on independent 0.6-second prediction windows.
 5. Compare four 1.2-second, prewarmed closed-loop recoveries from the same
    bounded initial disturbance: stale belief, adapted belief, adapted point
@@ -40,6 +42,11 @@ from `0.033394` to `0.013706` (`0.410x`). Relative to the stale belief, the
 adapted belief produced `0.818x` recovery-tail tracking RMS and `0.561x`
 recovery-tail attitude/rate RMS. Its tail tracking was `0.997x` the oracle point
 model in this trace.
+
+With actuator history correctly carried across the split, the disjoint
+validation RMS is `1.1994 → 0.4982`. The earlier `1.7534 → 1.6154` values came
+from incorrectly treating the first post-split command as a steady actuator
+state; they are no longer part of the recorded evidence.
 
 Those numbers show that the architecture can move useful configuration evidence
 through an immutable belief update and into command selection. They are not an
@@ -63,3 +70,7 @@ The checked-in [result artifact](adaptive-recovery-results.json) records the
 scenario contract, environment, evidence, all four recovery traces, direct
 comparisons, observations, and limitations. Its `acceptance_gate`,
 `flight_safety_claim`, and `throw_to_recover_claim` fields are all false.
+The artifact also stores source and scenario SHA-256 fingerprints. Its test
+regenerates the complete report and compares every deterministic field after
+excluding only platform metadata and measured wall-clock timings, so changed
+results must be recorded deliberately without becoming a performance gate.

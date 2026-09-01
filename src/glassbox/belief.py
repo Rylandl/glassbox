@@ -1370,8 +1370,10 @@ class DynamicsBelief:
         self,
         proposal: BeliefUpdateProposal,
         validation_telemetry: Trajectory,
+        *,
+        validation_control_history: np.ndarray | None = None,
     ) -> tuple[DynamicsBelief, BeliefUpdateReport]:
-        """Validate and commit a proposal, or return this belief unchanged."""
+        """Validate and commit using explicit pre-segment actuator context."""
 
         from glassbox.adaptation import (
             validate_and_commit_dynamics_belief_update,
@@ -1381,6 +1383,7 @@ class DynamicsBelief:
             self,
             proposal,
             validation_telemetry,
+            validation_control_history=validation_control_history,
         )
 
     def save(self, path: str | Path) -> None:

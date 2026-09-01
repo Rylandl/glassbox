@@ -95,6 +95,16 @@ def _trajectory_spec_fingerprint(trajectory: Trajectory) -> str:
     ).hexdigest()
 
 
+def _control_history_fingerprint(control_history: np.ndarray) -> str:
+    """Fingerprint context commands without treating them as evidence."""
+
+    array = np.ascontiguousarray(control_history, dtype=np.float64)
+    digest = hashlib.sha256()
+    digest.update(np.asarray(array.shape, dtype=np.int64).tobytes())
+    digest.update(array.tobytes())
+    return digest.hexdigest()
+
+
 def _prior_standardized_step_rms(
     base: np.ndarray,
     candidate: np.ndarray,
@@ -280,6 +290,8 @@ class BeliefUpdateReport:
     used_window_count: int
     proposal_window_count: int
     validation_window_count: int
+    actuator_context_sample_count: int
+    actuator_context_fingerprint: str | None
     normalized_innovation_rms_before: float | None
     normalized_innovation_rms_after: float | None
     normalized_validation_rms_before: float | None
@@ -310,6 +322,8 @@ class BeliefUpdateReport:
             "used_window_count": self.used_window_count,
             "proposal_window_count": self.proposal_window_count,
             "validation_window_count": self.validation_window_count,
+            "actuator_context_sample_count": self.actuator_context_sample_count,
+            "actuator_context_fingerprint": self.actuator_context_fingerprint,
             "normalized_innovation_rms_before": (self.normalized_innovation_rms_before),
             "normalized_innovation_rms_after": (self.normalized_innovation_rms_after),
             "normalized_validation_rms_before": (self.normalized_validation_rms_before),
@@ -352,6 +366,8 @@ class _UpdateContext:
     candidate_window_count: int
     windows: tuple[_UpdateWindow, ...]
     maximum_validity_utilization: float
+    actuator_context_sample_count: int
+    actuator_context_fingerprint: str | None
 
 
 def _source_group(trajectory: Trajectory) -> str:
@@ -442,6 +458,8 @@ def _base_report(
     used_count: int = 0,
     proposal_count: int = 0,
     validation_count: int = 0,
+    actuator_context_sample_count: int = 0,
+    actuator_context_fingerprint: str | None = None,
 ) -> BeliefUpdateReport:
     parameter_belief = belief.parameter_belief
     covariance_trace = (
@@ -466,6 +484,8 @@ def _base_report(
         used_window_count=used_count,
         proposal_window_count=proposal_count,
         validation_window_count=validation_count,
+        actuator_context_sample_count=actuator_context_sample_count,
+        actuator_context_fingerprint=actuator_context_fingerprint,
         normalized_innovation_rms_before=None,
         normalized_innovation_rms_after=None,
         normalized_validation_rms_before=None,
@@ -488,6 +508,8 @@ def _base_report(
 def _preflight(
     belief: DynamicsBelief,
     telemetry: Trajectory,
+    *,
+    preceding_control_history: np.ndarray | None = None,
 ) -> tuple[_UpdateContext | None, BeliefUpdateReport | None]:
     if not isinstance(telemetry, Trajectory):
         raise TypeError("belief updates require one canonical Trajectory")
@@ -578,14 +600,55 @@ def _preflight(
         )
 
     history_steps = max(1, int(np.ceil(ACTUATOR_HISTORY_DURATION_S / dt_s)))
+    context_history: np.ndarray | None = None
+    context_sample_count = 0
+    context_fingerprint: str | None = None
+    if preceding_control_history is not None:
+        try:
+            provided_history = np.asarray(
+                preceding_control_history,
+                dtype=np.float64,
+            )
+        except (TypeError, ValueError):
+            provided_history = np.empty((0, 0), dtype=np.float64)
+        if (
+            provided_history.ndim != 2
+            or provided_history.shape[1:] != telemetry.controls.shape[1:]
+            or len(provided_history) < 1
+            or not np.all(np.isfinite(provided_history))
+        ):
+            return None, _base_report(
+                belief,
+                telemetry,
+                reason="actuator context must contain finite preceding commands",
+                maximum_validity=maximum_validity,
+                horizon_s=horizon_s,
+                horizon_steps=horizon_steps,
+                candidate_count=candidate_count,
+            )
+        available = provided_history[-history_steps:]
+        padding = np.repeat(
+            available[0:1],
+            history_steps - len(available),
+            axis=0,
+        )
+        context_history = np.concatenate((padding, available), axis=0)
+        context_sample_count = len(available)
+        context_fingerprint = _control_history_fingerprint(context_history)
     windows: list[_UpdateWindow] = []
     for ordinal in _window_starts(candidate_count):
         start = int(ordinal) * horizon_steps
         stop = start + horizon_steps
-        history_start = max(0, start - history_steps)
-        history = telemetry.controls[history_start:start]
+        local_history = telemetry.controls[:start]
+        history = (
+            local_history
+            if context_history is None
+            else np.concatenate((context_history, local_history), axis=0)
+        )
+        history = history[-history_steps:]
+        initial_command = telemetry.controls[0:1] if not len(history) else history[0:1]
         padding = np.repeat(
-            telemetry.controls[0:1],
+            initial_command,
             history_steps - len(history),
             axis=0,
         )
@@ -621,6 +684,8 @@ def _preflight(
             horizon_s=horizon_s,
             horizon_steps=horizon_steps,
             candidate_count=candidate_count,
+            actuator_context_sample_count=context_sample_count,
+            actuator_context_fingerprint=context_fingerprint,
         )
     return (
         _UpdateContext(
@@ -630,6 +695,8 @@ def _preflight(
             candidate_window_count=candidate_count,
             windows=tuple(windows),
             maximum_validity_utilization=maximum_validity,
+            actuator_context_sample_count=context_sample_count,
+            actuator_context_fingerprint=context_fingerprint,
         ),
         None,
     )
@@ -941,6 +1008,8 @@ def validate_and_commit_dynamics_belief_update(
     belief: DynamicsBelief,
     proposal: BeliefUpdateProposal,
     validation_telemetry: Trajectory,
+    *,
+    validation_control_history: np.ndarray | None = None,
 ) -> tuple[DynamicsBelief, BeliefUpdateReport]:
     """Commit only the portion of a proposal that improves disjoint evidence."""
 
@@ -992,7 +1061,23 @@ def validate_and_commit_dynamics_belief_update(
             horizon_steps=proposal.update_horizon_steps,
             proposal_count=proposal.proposal_window_count,
         )
-    context, rejected = _preflight(belief, validation_telemetry)
+    if validation_control_history is None:
+        return belief, _base_report(
+            belief,
+            validation_telemetry,
+            reason="validation requires preceding actuator command context",
+            maximum_validity=maximum_validity,
+            proposal_available=True,
+            validation_performed=False,
+            horizon_s=proposal.update_horizon_s,
+            horizon_steps=proposal.update_horizon_steps,
+            proposal_count=proposal.proposal_window_count,
+        )
+    context, rejected = _preflight(
+        belief,
+        validation_telemetry,
+        preceding_control_history=validation_control_history,
+    )
     if rejected is not None:
         report = replace(
             rejected,
@@ -1022,6 +1107,8 @@ def validate_and_commit_dynamics_belief_update(
             ),
             proposal_count=proposal.proposal_window_count,
             validation_count=len(context.windows),
+            actuator_context_sample_count=context.actuator_context_sample_count,
+            actuator_context_fingerprint=context.actuator_context_fingerprint,
         )
     base = proposal.base_parameter_vector
     proposed_delta = proposal.candidate_parameter_vector - base
@@ -1070,6 +1157,8 @@ def validate_and_commit_dynamics_belief_update(
             used_count=proposal.proposal_window_count + len(context.windows),
             proposal_count=proposal.proposal_window_count,
             validation_count=len(context.windows),
+            actuator_context_sample_count=context.actuator_context_sample_count,
+            actuator_context_fingerprint=context.actuator_context_fingerprint,
         )
         report = replace(
             report,
@@ -1148,6 +1237,8 @@ def validate_and_commit_dynamics_belief_update(
             used_window_count=proposal.proposal_window_count + len(context.windows),
             proposal_window_count=proposal.proposal_window_count,
             validation_window_count=len(context.windows),
+            actuator_context_sample_count=context.actuator_context_sample_count,
+            actuator_context_fingerprint=context.actuator_context_fingerprint,
             normalized_innovation_rms_before=(
                 proposal.normalized_innovation_rms_before
             ),
@@ -1205,6 +1296,8 @@ def validate_and_commit_dynamics_belief_update(
             used_count=proposal.proposal_window_count + len(context.windows),
             proposal_count=proposal.proposal_window_count,
             validation_count=len(context.windows),
+            actuator_context_sample_count=context.actuator_context_sample_count,
+            actuator_context_fingerprint=context.actuator_context_fingerprint,
         )
         return belief, replace(
             report,
@@ -1300,4 +1393,5 @@ def update_dynamics_belief(
         belief,
         proposal,
         validation_telemetry,
+        validation_control_history=telemetry.controls[:split],
     )

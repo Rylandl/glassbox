@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 import platform
@@ -55,6 +56,66 @@ RECOVERY_DURATION_S = 1.2
 RECOVERY_TAIL_DURATION_S = 0.4
 FLEET_LOG_ARM_LENGTH_RATIOS = (-0.25, -0.125, 0.0, 0.125, 0.25)
 TARGET_LOG_ARM_LENGTH_RATIO = 0.20
+BENCHMARK_METHOD_VERSION = 2
+BENCHMARK_SOURCE_FILES = (
+    "adaptation.py",
+    "adaptive_recovery_benchmark.py",
+    "belief.py",
+    "covariance.py",
+    "data.py",
+    "dynamics.py",
+    "evaluation.py",
+    "geometry.py",
+    "linearization.py",
+    "nmpc/__init__.py",
+    "nmpc/solver.py",
+    "nmpc/types.py",
+    "parameter_prior.py",
+    "runtime.py",
+    "synthetic.py",
+)
+_NONDETERMINISTIC_RECOVERY_FIELDS = frozenset(
+    {
+        "prewarm_wall_time_s",
+        "solve_time_median_s",
+        "solve_time_p90_s",
+        "solve_time_maximum_s",
+    }
+)
+
+
+def _json_fingerprint(payload: Any) -> str:
+    return hashlib.sha256(
+        json.dumps(
+            payload,
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        ).encode("utf-8")
+    ).hexdigest()
+
+
+def adaptive_recovery_source_fingerprint() -> str:
+    """Bind evidence to the maintained source modules that produce it."""
+
+    source_root = Path(__file__).resolve().parent
+    digest = hashlib.sha256()
+    for relative_path in BENCHMARK_SOURCE_FILES:
+        path = source_root / relative_path
+        digest.update(relative_path.encode("utf-8"))
+        digest.update(path.read_bytes())
+    return digest.hexdigest()
+
+
+def normalized_adaptive_recovery_report(report: dict[str, Any]) -> dict[str, Any]:
+    """Remove machine- and timing-dependent fields for artifact freshness checks."""
+
+    normalized = json.loads(json.dumps(report, allow_nan=False))
+    normalized.pop("environment", None)
+    for recovery in normalized.get("recovery", []):
+        for field_name in _NONDETERMINISTIC_RECOVERY_FIELDS:
+            recovery.pop(field_name, None)
+    return normalized
 
 
 @dataclass(frozen=True)
@@ -592,47 +653,74 @@ def run_adaptive_recovery_benchmark() -> dict[str, Any]:
     stale = by_condition["stale_belief"]
     adapted = by_condition["adapted_belief"]
     oracle = by_condition["oracle_mean_point"]
+    semantics = {
+        "diagnostic_only": True,
+        "acceptance_gate": False,
+        "synthetic": True,
+        "prewarmed_controller": True,
+        "compile_latency_excluded_from_recovery_timing": True,
+        "independent_safety_supervisor_included": False,
+        "hard_validity_constraint_included": False,
+        "flight_safety_claim": False,
+        "throw_to_recover_claim": False,
+        "posterior_calibration_claim": False,
+        "prechange_vehicle_anchors_unchanged_parameters": True,
+        "configuration_delta_direction_derived_from_fleet": True,
+        "adaptation_and_evaluation_telemetry_disjoint": True,
+        "validation_actuator_context_excluded_from_evidence": True,
+        "stale_predictive_error_is_not_applied_at_runtime": True,
+    }
+    configuration = {
+        "sample_period_s": SAMPLE_DT_S,
+        "adaptation_horizon_s": ADAPTATION_HORIZON_STEPS * SAMPLE_DT_S,
+        "control_horizon_s": CONTROL_HORIZON_STEPS * SAMPLE_DT_S,
+        "short_horizon_fleet_duration_s": SHORT_HORIZON_FLEET_DURATION_S,
+        "control_horizon_fleet_duration_s": CONTROL_HORIZON_FLEET_DURATION_S,
+        "adaptation_duration_s": ADAPTATION_DURATION_S,
+        "evaluation_duration_s": EVALUATION_DURATION_S,
+        "recovery_duration_s": RECOVERY_DURATION_S,
+        "reported_tail_duration_s": RECOVERY_TAIL_DURATION_S,
+        "fleet_profile_base_seeds": list(FLEET_PROFILE_BASE_SEEDS),
+        "support_trajectory_seed": 700,
+        "fleet_member_spec_seed_start": 800,
+        "adaptation_trajectory_seed": 21,
+        "evaluation_trajectory_seed": 22,
+        "arm_length_ratio_before": 1.0,
+        "arm_length_ratio_after": math.exp(TARGET_LOG_ARM_LENGTH_RATIO),
+        "fleet_arm_length_ratios": [
+            math.exp(value) for value in FLEET_LOG_ARM_LENGTH_RATIOS
+        ],
+        "effective_authority_mapping": (
+            "roll_pitch_angular_authority_inverse_arm_length_ratio"
+        ),
+        "recovery_conditions": [
+            {"condition": condition, "model_role": role}
+            for condition, role, _ in controllers
+        ],
+        "recovery_initial_state": initial_state.tolist(),
+        "tracking_tolerances": {
+            "local_state_scale": np.asarray(
+                TrackingTolerances.for_platform("multirotor").local_state_scale
+            ).tolist()
+        },
+    }
     return {
-        "format_version": 1,
+        "format_version": 2,
         "artifact_type": "glassbox_synthetic_adaptive_recovery_diagnostic",
-        "semantics": {
-            "diagnostic_only": True,
-            "acceptance_gate": False,
-            "synthetic": True,
-            "prewarmed_controller": True,
-            "compile_latency_excluded_from_recovery_timing": True,
-            "independent_safety_supervisor_included": False,
-            "hard_validity_constraint_included": False,
-            "flight_safety_claim": False,
-            "throw_to_recover_claim": False,
-            "posterior_calibration_claim": False,
-            "prechange_vehicle_anchors_unchanged_parameters": True,
-            "configuration_delta_direction_derived_from_fleet": True,
-            "adaptation_and_evaluation_telemetry_disjoint": True,
-            "stale_predictive_error_is_not_applied_at_runtime": True,
-        },
-        "configuration": {
-            "sample_period_s": SAMPLE_DT_S,
-            "adaptation_horizon_s": ADAPTATION_HORIZON_STEPS * SAMPLE_DT_S,
-            "control_horizon_s": CONTROL_HORIZON_STEPS * SAMPLE_DT_S,
-            "adaptation_duration_s": ADAPTATION_DURATION_S,
-            "recovery_duration_s": RECOVERY_DURATION_S,
-            "reported_tail_duration_s": RECOVERY_TAIL_DURATION_S,
-            "arm_length_ratio_before": 1.0,
-            "arm_length_ratio_after": math.exp(TARGET_LOG_ARM_LENGTH_RATIO),
-            "fleet_arm_length_ratios": [
-                math.exp(value) for value in FLEET_LOG_ARM_LENGTH_RATIOS
-            ],
-            "effective_authority_mapping": (
-                "roll_pitch_angular_authority_inverse_arm_length_ratio"
+        "implementation": {
+            "method_version": BENCHMARK_METHOD_VERSION,
+            "source_files": list(BENCHMARK_SOURCE_FILES),
+            "source_sha256": adaptive_recovery_source_fingerprint(),
+            "scenario_sha256": _json_fingerprint(
+                {
+                    "method_version": BENCHMARK_METHOD_VERSION,
+                    "semantics": semantics,
+                    "configuration": configuration,
+                }
             ),
-            "recovery_initial_state": initial_state.tolist(),
-            "tracking_tolerances": {
-                "local_state_scale": np.asarray(
-                    TrackingTolerances.for_platform("multirotor").local_state_scale
-                ).tolist()
-            },
         },
+        "semantics": semantics,
+        "configuration": configuration,
         "environment": {
             "platform": platform.platform(),
             "python": platform.python_version(),

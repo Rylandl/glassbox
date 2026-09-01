@@ -213,11 +213,81 @@ def test_failed_disjoint_validation_rolls_back_proposal() -> None:
     assert unchanged is belief
     assert not overlap_report.validation_performed
     assert "overlaps proposal transitions" in overlap_report.reason
-    updated, report = belief.commit_update(proposal, validation)
+    updated, report = belief.commit_update(
+        proposal,
+        validation,
+        validation_control_history=validation.controls[0:1],
+    )
     assert updated is belief
     assert not report.applied
     assert report.validation_performed
     assert "did not improve disjoint validation" in report.reason
+
+
+def test_validation_without_actuator_context_fails_closed() -> None:
+    telemetry = generate_trajectory(seed=11, duration_s=0.4)
+    belief = _shifted_belief(
+        telemetry,
+        covariance_scope=ErrorCovarianceScope.TOTAL_FORECAST,
+    )
+    proposal_telemetry, validation_telemetry = _split_telemetry(telemetry, 10)
+    proposal, _ = belief.propose_update(proposal_telemetry)
+
+    assert proposal is not None
+    unchanged, report = belief.commit_update(proposal, validation_telemetry)
+
+    assert unchanged is belief
+    assert not report.applied
+    assert not report.validation_performed
+    assert "actuator command context" in report.reason
+
+
+def test_transaction_carries_actuator_history_across_validation_split() -> None:
+    telemetry = generate_trajectory(seed=11, duration_s=0.4)
+    belief = _shifted_belief(
+        telemetry,
+        covariance_scope=ErrorCovarianceScope.TOTAL_FORECAST,
+    )
+    proposal_telemetry, validation_telemetry = _split_telemetry(telemetry, 10)
+    proposal, _ = belief.propose_update(proposal_telemetry)
+
+    assert proposal is not None
+    explicit, explicit_report = belief.commit_update(
+        proposal,
+        validation_telemetry,
+        validation_control_history=proposal_telemetry.controls,
+    )
+    automatic, automatic_report = belief.update(telemetry)
+    context, rejected = adaptation_module._preflight(
+        belief,
+        validation_telemetry,
+        preceding_control_history=proposal_telemetry.controls,
+    )
+
+    assert rejected is None
+    assert context is not None
+    np.testing.assert_allclose(
+        context.windows[0].control_history[-len(proposal_telemetry.controls) :],
+        proposal_telemetry.controls,
+        rtol=1e-6,
+        atol=1e-7,
+    )
+    assert explicit_report.applied
+    assert automatic_report.applied
+    np.testing.assert_allclose(
+        structured_parameter_vector(automatic.params),
+        structured_parameter_vector(explicit.params),
+    )
+    assert automatic_report.normalized_validation_rms_before == pytest.approx(
+        explicit_report.normalized_validation_rms_before
+    )
+    assert automatic_report.normalized_validation_rms_after == pytest.approx(
+        explicit_report.normalized_validation_rms_after
+    )
+    assert automatic_report.actuator_context_sample_count == len(
+        proposal_telemetry.controls
+    )
+    assert automatic_report.actuator_context_fingerprint is not None
 
 
 def test_rank_zero_conditional_error_cannot_create_information() -> None:
@@ -316,7 +386,11 @@ def test_validation_rechecks_candidate_rollout_support(monkeypatch) -> None:
         "_candidate_rollouts_supported",
         lambda *_args, **_kwargs: False,
     )
-    unchanged, report = belief.commit_update(proposal, validation_telemetry)
+    unchanged, report = belief.commit_update(
+        proposal,
+        validation_telemetry,
+        validation_control_history=proposal_telemetry.controls,
+    )
 
     assert unchanged is belief
     assert report.validation_performed
@@ -378,8 +452,16 @@ def test_commit_derives_covariance_information_from_validation_evidence() -> Non
             1e12 * np.eye(len(proposal.normalized_information_matrix))
         ),
     )
-    expected, expected_report = belief.commit_update(proposal, validation_telemetry)
-    actual, actual_report = belief.commit_update(exaggerated, validation_telemetry)
+    expected, expected_report = belief.commit_update(
+        proposal,
+        validation_telemetry,
+        validation_control_history=proposal_telemetry.controls,
+    )
+    actual, actual_report = belief.commit_update(
+        exaggerated,
+        validation_telemetry,
+        validation_control_history=proposal_telemetry.controls,
+    )
 
     assert expected_report.applied
     assert actual_report.applied
