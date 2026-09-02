@@ -19,6 +19,8 @@ artifact each experiment page cites.
   no-prior contract for local authority identification.
 - [Predictive ensembles](concepts/predictive-ensembles.md): the diagnostic
   uncertainty workflow and its promotion boundary.
+- [Dual-control NMPC](concepts/dual-control-nmpc.md): design under
+  exploration for learning to fly an unseen multirotor with no numerical prior.
 
 ## Guides
 
