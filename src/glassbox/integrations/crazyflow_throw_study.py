@@ -43,7 +43,11 @@ from glassbox.experimental.dual_control import (
     command_information_log_determinant,
     dual_control_config,
 )
-from glassbox.integrations.crazyflow import CrazyflowPlant, CrazyflowPlantConfig
+from glassbox.integrations.crazyflow import (
+    CrazyflowDivergenceError,
+    CrazyflowPlant,
+    CrazyflowPlantConfig,
+)
 from glassbox.integrations.crazyflow_telemetry import (
     PlantTelemetryRecorder,
     initial_plant_state,
@@ -66,16 +70,20 @@ DUAL_CONTROL_PASS2A_MODEL = "dual_control_nmpc_pass2a"
 DUAL_CONTROL_PASS2B_MODEL = "dual_control_nmpc_pass2b"
 DUAL_CONTROL_PASS3_MODEL = "dual_control_nmpc_pass3"
 DUAL_CONTROL_PASS4_MODEL = "dual_control_nmpc_pass4"
+DUAL_CONTROL_PASS5_MODEL = "dual_control_nmpc_pass5"
 #: Which objective each arm plans with.  Pass three plans with the pass-2b
 #: objective unchanged: its two changes are in the identifier, not in the
 #: optimization, so re-running the objective would confound them.  Pass four
-#: changes only where the plan starts and what the rate cost charges for.
+#: changes only where the plan starts and what the rate cost charges for.  Pass
+#: five replaces the plan parameterization, the spread model, and the seeds at
+#: once: it is one goal over a one-second horizon of slew-bounded moves.
 DUAL_CONTROL_MODEL_VARIANTS = {
     DUAL_CONTROL_MODEL: "pass1",
     DUAL_CONTROL_PASS2A_MODEL: "pass2a",
     DUAL_CONTROL_PASS2B_MODEL: "pass2b",
     DUAL_CONTROL_PASS3_MODEL: "pass2b",
     DUAL_CONTROL_PASS4_MODEL: "pass4",
+    DUAL_CONTROL_PASS5_MODEL: "pass5",
 }
 #: Identifier switches each arm turns on.  Both are opt-in, so every other arm
 #: in this study, the two cascade modes included, runs the identifier it always
@@ -97,6 +105,7 @@ DEFAULT_CONTROL_MODELS = (
     DUAL_CONTROL_PASS2B_MODEL,
     DUAL_CONTROL_PASS3_MODEL,
     DUAL_CONTROL_PASS4_MODEL,
+    DUAL_CONTROL_PASS5_MODEL,
 )
 #: What to call each arm on screen.  Used by the renderer so an overlay names
 #: the control model actually flying rather than assuming the cascade.
@@ -108,15 +117,19 @@ ARM_DISPLAY_NAMES: dict[str, str] = {
     DUAL_CONTROL_PASS2B_MODEL: "DUAL-CONTROL NMPC pass 2b",
     DUAL_CONTROL_PASS3_MODEL: "DUAL-CONTROL NMPC pass 3",
     DUAL_CONTROL_PASS4_MODEL: "DUAL-CONTROL NMPC pass 4",
+    DUAL_CONTROL_PASS5_MODEL: "DUAL-CONTROL NMPC pass 5",
 }
 #: The arms the ensemble protocol compares.  Two cascade references, the design
-#: the third pass left standing, and the fourth pass's base action.  The
-#: superseded passes are excluded: an ensemble is expensive and re-measuring a
-#: configuration whose failure is already explained buys nothing.
+#: the third pass left standing, the fourth pass's base action, and the fifth
+#: pass's one-goal formulation.  The superseded passes are excluded: an ensemble
+#: is expensive and re-measuring a configuration whose failure is already
+#: explained buys nothing.  The four earlier arms stay in so the comparison is
+#: paired on the same releases rather than merged across runs.
 ENSEMBLE_CONTROL_MODELS = (
     *CONTROL_MODELS,
     DUAL_CONTROL_PASS2B_MODEL,
     DUAL_CONTROL_PASS4_MODEL,
+    DUAL_CONTROL_PASS5_MODEL,
 )
 DEFAULT_OUTPUT_PATH = Path("artifacts/crazyflow_throw_study/report.json")
 #: Commands kept verbatim from model enable, for the early-action analysis.
@@ -1357,6 +1370,10 @@ def _dual_control_metrics(
                     np.asarray([result.altitude_penalty for result in results]),
                 ),
                 (
+                    "body_rate_penalty",
+                    np.asarray([result.body_rate_penalty for result in results]),
+                ),
+                (
                     "tilt_penalty",
                     np.asarray([result.tilt_penalty for result in results]),
                 ),
@@ -2040,6 +2057,7 @@ def _ensemble_trial(
     return {
         "case": case.name,
         "control_model": control_model,
+        "simulator_diverged": False,
         # The success criterion the design page states: the hover envelope
         # reached, and the vehicle never on the floor.  A vehicle resting on the
         # ground satisfies the envelope, so the altitude test is what makes the
@@ -2080,6 +2098,45 @@ def _ensemble_trial(
     }
 
 
+def _diverged_ensemble_trial(
+    case: ThrowStudyCase,
+    control_model: str,
+    reason: str,
+) -> dict[str, Any]:
+    """One release whose simulation could not be integrated to the end.
+
+    A trial that ends in a non-finite simulator state is a result, not an
+    accident of the harness, and losing the other five hundred trials to it
+    would be the accident.  It is recorded with the same keys every other trial
+    carries, with every measured quantity absent rather than invented: it did
+    not recover, and nothing else about it is known.  ``simulator_diverged``
+    and the arm's own ``all_values_finite_and_bounded`` are what carry it into
+    the report, so a diverged arm cannot pass the finiteness criterion.
+    """
+
+    return {
+        "case": case.name,
+        "control_model": control_model,
+        "simulator_diverged": True,
+        "divergence_reason": reason,
+        "recovered": False,
+        "reached_hover_envelope": False,
+        "touched_floor": False,
+        "terminal_speed_m_s": None,
+        "terminal_angular_rate_rad_s": None,
+        "terminal_tilt_rad": None,
+        "minimum_altitude_m": None,
+        "sustained_hover_duration_s": None,
+        "time_to_rank_four_s": None,
+        "early_mean_collective": None,
+        "settled_maximum_command_step": None,
+        "settled_maximum_relative_allocation_change": None,
+        "settled_maximum_allocation_change": None,
+        "non_finite_value_count": None,
+        "command_bound_violation_count": None,
+    }
+
+
 def _spread(values: Sequence[float | None], worst: str) -> dict[str, Any]:
     """Median and worst of one metric over an ensemble, ignoring absences.
 
@@ -2104,12 +2161,20 @@ def _ensemble_summary(trials: Sequence[dict[str, Any]]) -> dict[str, Any]:
     count = len(trials)
     recovered = sum(trial["recovered"] for trial in trials)
     low, high = wilson_interval(recovered, count)
-    collectives = np.asarray([trial["early_mean_collective"] for trial in trials])
+    diverged = sum(bool(trial.get("simulator_diverged")) for trial in trials)
+    collectives = np.asarray(
+        [
+            trial["early_mean_collective"]
+            for trial in trials
+            if trial["early_mean_collective"] is not None
+        ]
+    )
     return {
         "trial_count": count,
         "recovery_count": recovered,
         "recovery_rate": (recovered / count if count else 0.0),
         "recovery_rate_wilson_95": [low, high],
+        "simulator_diverged_count": diverged,
         "floor_contact_count": sum(trial["touched_floor"] for trial in trials),
         "hover_envelope_count": sum(
             trial["reached_hover_envelope"] for trial in trials
@@ -2130,10 +2195,11 @@ def _ensemble_summary(trials: Sequence[dict[str, Any]]) -> dict[str, Any]:
             [trial["time_to_rank_four_s"] for trial in trials], "maximum"
         ),
         "early_mean_collective": {
-            "mean": (float(np.mean(collectives)) if count else 0.0),
-            "median": (float(np.median(collectives)) if count else 0.0),
-            "minimum": (float(np.min(collectives)) if count else 0.0),
-            "maximum": (float(np.max(collectives)) if count else 0.0),
+            "mean": (float(np.mean(collectives)) if collectives.size else 0.0),
+            "median": (float(np.median(collectives)) if collectives.size else 0.0),
+            "minimum": (float(np.min(collectives)) if collectives.size else 0.0),
+            "maximum": (float(np.max(collectives)) if collectives.size else 0.0),
+            "available_count": int(collectives.size),
         },
         "settled_maximum_command_step": _spread(
             [trial["settled_maximum_command_step"] for trial in trials], "maximum"
@@ -2202,7 +2268,18 @@ def _run_ensemble_jobs(
                         )
                     )
                     controllers[model] = controller
-            results.append(_ensemble_trial(case, model, plant, controller))
+            try:
+                results.append(_ensemble_trial(case, model, plant, controller))
+            except CrazyflowDivergenceError as error:
+                # The plant refuses a non-finite simulator state rather than
+                # returning one, which is right.  Here it means this release
+                # could not be integrated to the end; the trial is recorded as
+                # diverged and the plant is rebuilt so the rest of the chunk
+                # starts from a clean simulator.  Only that refusal is caught:
+                # any other error in a trial is a defect and still ends the run.
+                results.append(_diverged_ensemble_trial(case, model, str(error)))
+                plant.close()
+                plant = CrazyflowPlant(CrazyflowPlantConfig(control_frequency_hz=100))
         return results
     finally:
         plant.close()
@@ -2288,6 +2365,7 @@ def run_crazyflow_throw_ensemble(
             "every_arm_flies_the_same_releases": True,
             "release_height_unperturbed": True,
             "recovered_means_hover_envelope_without_floor_contact": True,
+            "diverged_trials_recorded_not_dropped": True,
         },
         "ensemble": settings.to_dict(),
         "control_models": list(models),
@@ -2301,6 +2379,7 @@ def run_crazyflow_throw_ensemble(
             "The perturbation is a declared distribution over the release state only; the hidden airframe, the loop rate, and every controller setting are unchanged.",
             "Recovery is a binary read of one envelope on one ten-second window, so a marginal arrest and a comfortable one score the same.",
             "The state-noise case draws one noise realisation per release, not a distribution over realisations.",
+            "A release the simulator could not integrate to the end is counted as not recovered and contributes nothing to any other statistic; `simulator_diverged_count` per arm is what makes those releases visible.",
         ],
     }
     json.dumps(report, allow_nan=False)

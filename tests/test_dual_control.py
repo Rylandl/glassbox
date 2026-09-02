@@ -12,10 +12,14 @@ from __future__ import annotations
 
 import json
 import time
+from dataclasses import replace
 
+import jax
+import jax.numpy as jnp
 import numpy as np
 import pytest
 
+from glassbox.control._common import quaternion_to_rotation
 from glassbox.control.online_bootstrap import (
     RecursiveBootstrapBelief,
     RecursiveBootstrapIdentifier,
@@ -24,6 +28,7 @@ from glassbox.core.dynamics import GRAVITY_M_S2
 from glassbox.experimental.dual_control import (
     DualControlConfig,
     DualControlNMPC,
+    _Rollout,
     command_information_log_determinant,
     design_sign_pattern,
     dual_control_config,
@@ -911,3 +916,531 @@ def test_the_cascade_arms_reproduce_the_archived_single_release_report() -> None
     assert json.dumps(
         fresh["difference_working_minus_certified"], sort_keys=True
     ) == json.dumps(want["difference_working_minus_certified"], sort_keys=True)
+
+
+# ----------------------------------------------------------------------
+# pass five: one goal, slew-bounded moves, and posterior-derived seeds
+# ----------------------------------------------------------------------
+
+
+def _pass_five(**overrides: object) -> DualControlNMPC:
+    return DualControlNMPC(
+        dual_control_config("pass5", sample_period_s=_SAMPLE_PERIOD_S, **overrides)
+    )
+
+
+def _synthetic_belief(
+    *,
+    angular_per_command: np.ndarray,
+    collective_per_command: np.ndarray,
+) -> RecursiveBootstrapBelief:
+    """A belief with the two command maps set and nothing else supported.
+
+    The seeds under test read exactly these two arrays, so setting them
+    directly is what makes the assertion about the seed rather than about
+    whatever the identifier happened to fit.
+    """
+
+    empty = RecursiveBootstrapIdentifier().belief
+    return replace(
+        empty,
+        angular_acceleration_per_command=angular_per_command,
+        collective_acceleration_per_command=collective_per_command,
+    )
+
+
+def test_pass_five_declares_its_switches_and_refuses_a_malformed_slew() -> None:
+    config = dual_control_config("pass5")
+
+    assert config.variant == "pass5"
+    assert config.horizon_steps == 100
+    assert config.block_steps == 5
+    assert config.block_count == 20
+    assert config.plan_parameterization == "slew_moves"
+    assert config.spread_model == "planned_trajectory"
+    assert config.seed_family == "posterior_moves"
+    assert config.charge_body_rate_limit is True
+    assert config.charge_unowned_transition is False
+    assert config.center_designs_on_base_action is False
+    assert config.candidate_count == 8
+    recorded = config.to_dict()
+    for key in (
+        "plan_parameterization",
+        "spread_model",
+        "seed_family",
+        "charge_body_rate_limit",
+        "slew_per_interval",
+        "maximum_body_rate_rad_s",
+    ):
+        assert key in recorded, key
+
+    for bad in (0.0, -0.1, 1.5, float("nan")):
+        with pytest.raises(ValueError, match="slew_per_interval"):
+            DualControlConfig(slew_per_interval=bad)
+    with pytest.raises(ValueError, match="plan_parameterization"):
+        DualControlConfig(plan_parameterization="absolute")  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="spread_model"):
+        DualControlConfig(spread_model="box")  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="seed_family"):
+        DualControlConfig(seed_family="hadamard")  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="positive"):
+        DualControlConfig(maximum_body_rate_rad_s=0.0)
+
+
+def test_every_pass_five_candidate_and_command_respects_the_declared_slew() -> None:
+    """The slew limit is a box on the decision variables, not a preference.
+
+    Every seed and every refined plan is checked block by block, and the
+    executed command is checked against the command the vehicle was holding.
+    The seeds are checked at the JAX default precision the solve runs in; the
+    executed command is enforced in double precision by the solver itself, so
+    it is checked exactly.
+    """
+
+    controller = _pass_five()
+    step = controller.config.slew_per_interval
+    beliefs = [_belief_after(count) for count in (0, 4, 60)]
+    states = _random_states(4, seed=17)
+    for belief in beliefs:
+        posterior = controller._posterior(belief)
+        for state in states:
+            for held in (np.zeros(4), np.full(4, 0.35), np.full(4, 1.0)):
+                warm, _ = controller._warm_blocks(None, held)
+                candidates = controller._candidate_blocks(
+                    jnp.asarray(warm),
+                    jnp.asarray(held),
+                    jnp.asarray(held),
+                    jnp.asarray(state),
+                    posterior,
+                )
+                for blocks in candidates:
+                    plan = np.asarray(
+                        controller._plan_command_blocks(blocks, jnp.asarray(held))
+                    )
+                    moves = np.diff(np.concatenate((held[None, :], plan)), axis=0)
+                    assert np.max(np.abs(moves)) <= step + 1e-6
+                result = controller.solve(state, belief, held)
+                assert np.all(np.abs(result.command - held) <= step + 1e-9)
+                assert np.all(result.command >= 0.0)
+                assert np.all(result.command <= 1.0)
+
+
+def _assert_directions_are_read_off_the_posterior(
+    controller: DualControlNMPC,
+) -> None:
+    """The excitation basis follows the evidence, weakest-known direction first.
+
+    At zero information any orthonormal basis is as good as any other, so the
+    identity there proves nothing on its own.  This checks the informed case:
+    the basis is no longer the identity, it is still orthogonal, and its rows
+    are ordered by how little the accumulated command evidence says about them.
+    """
+
+    posterior = controller._posterior(_belief_after(60))
+    directions = np.asarray(controller._excitation_directions(posterior))
+    assert not np.allclose(np.abs(directions), np.eye(4), atol=1e-3)
+    unit = directions / np.linalg.norm(directions, axis=1, keepdims=True)
+    assert np.allclose(unit @ unit.T, np.eye(4), atol=1e-4)
+    gram = np.asarray(posterior.collective_information)[:4, :4]
+    known = np.asarray([row @ gram @ row for row in unit])
+    assert np.all(np.diff(known) >= -1e-6), known
+    assert known[-1] > known[0]
+
+
+def test_zero_information_seeds_span_the_box_but_the_objective_still_holds() -> None:
+    """A measured negative result, pinned so it cannot be lost.
+
+    At zero information the excitation directions are the four commands, one at
+    a time — the posterior supplies the symmetry break the declared ladder used
+    to declare — and the four excitation seeds between them move every command
+    in both directions.  The objective nevertheless prefers ``hold``: the
+    planned-trajectory spread is evaluated at the plan's *own* features, and a
+    plan that visits one command direction knows that direction better than a
+    plan that spreads the same horizon over four.  Standing still is therefore
+    the cheapest plan the spread charge can see, and the fifth pass reproduces
+    the first pass's fixed point by a different route.
+    """
+
+    controller = _pass_five()
+    belief = _belief_after(0)
+    posterior = controller._posterior(belief)
+    state = jnp.asarray(_released_state())
+
+    directions = np.asarray(controller._excitation_directions(posterior))
+    assert np.allclose(np.abs(directions), np.eye(4), atol=1e-6)
+
+    held = np.full(4, 0.4)
+    _assert_directions_are_read_off_the_posterior(controller)
+    warm, _ = controller._warm_blocks(None, held)
+    candidates = controller._candidate_blocks(
+        jnp.asarray(warm),
+        jnp.asarray(held),
+        jnp.asarray(held),
+        state,
+        posterior,
+    )
+    names = controller.candidate_names
+    excitation = {
+        name: np.asarray(controller._plan_command_blocks(blocks, jnp.asarray(held)))
+        for name, blocks in zip(names, candidates)
+        if name.startswith("excite")
+    }
+    assert len(excitation) == 4
+    stacked = np.concatenate(list(excitation.values()))
+    assert np.linalg.matrix_rank(stacked - held, tol=1e-6) == 4
+    assert np.max(stacked - held) > 0.09
+    assert np.min(stacked - held) < -0.09
+
+    values = np.asarray(
+        jax.vmap(
+            lambda candidate: controller._objective(
+                candidate,
+                state,
+                posterior,
+                jnp.asarray(held),
+                jnp.asarray(0.0),
+            )
+        )(candidates)
+    )
+    ranked = dict(zip(names, values))
+    assert min(ranked[name] for name in excitation) > ranked["hold"]
+    assert (
+        controller.solve(np.asarray(state), belief, held).selected_candidate == "hold"
+    )
+
+
+def test_the_coupled_spread_grows_the_velocity_channel_with_thrust() -> None:
+    """Thrusting under an uncertain attitude is charged for sideways velocity.
+
+    The two rollouts below carry the same attitude spread by construction — the
+    angular regressors and the angular posterior are identical — and differ only
+    in the magnitude of the predicted specific force.  Only the coupled term
+    ``|f| sigma_tilt`` can move the velocity spread between them.
+    """
+
+    controller = _pass_five()
+    posterior = controller._posterior(_belief_after(30))
+    steps = controller.config.horizon_steps
+    rollout = _fixed_thrust_rollout(controller, steps, specific_force=0.0)
+    quiet = controller._spreads_trajectory(rollout, posterior)
+    loud = controller._spreads_trajectory(
+        _fixed_thrust_rollout(controller, steps, specific_force=12.0),
+        posterior,
+    )
+    assert np.allclose(np.asarray(quiet[0]), np.asarray(loud[0]))
+    assert np.allclose(np.asarray(quiet[1]), np.asarray(loud[1]))
+    assert float(loud[2][-1]) > float(quiet[2][-1])
+    assert float(loud[3][-1]) > float(quiet[3][-1])
+    tilt = np.asarray(quiet[1])
+    expected = float(np.sum(_SAMPLE_PERIOD_S * 12.0 * tilt))
+    assert float(loud[2][-1] - quiet[2][-1]) == pytest.approx(expected, rel=1e-3)
+
+
+def _fixed_thrust_rollout(
+    controller: DualControlNMPC,
+    steps: int,
+    *,
+    specific_force: float,
+) -> object:
+    """One synthetic rollout with every regressor fixed but the thrust."""
+
+    zeros = jnp.zeros((steps, 3))
+    return _Rollout(
+        commands=jnp.full((steps, 4), 0.4),
+        tracking=jnp.zeros(steps),
+        tilt=jnp.zeros(steps),
+        altitude=jnp.full((steps,), 2.0),
+        angular_velocity=zeros,
+        rate_products=zeros,
+        body_velocity=zeros,
+        specific_force=jnp.full((steps,), specific_force),
+        rate_norm=jnp.zeros(steps),
+    )
+
+
+def test_the_body_rate_penalty_fires_on_a_fast_spin_and_not_at_rest() -> None:
+    """The declared rate limit is charged, and only pass five declares one."""
+
+    controller = _pass_five()
+    posterior = controller._posterior(_belief_after(60))
+    blocks = jnp.zeros((controller.block_count, 4))
+    previous = jnp.full(4, 0.3)
+
+    calm = _released_state()
+    calm[10:13] = (0.05, -0.05, 0.02)
+    spinning = calm.copy()
+    spinning[10:13] = (26.0, -18.0, 9.0)
+
+    calm_terms = controller._terms(
+        blocks, jnp.asarray(calm), posterior, previous, jnp.asarray(1.0)
+    )
+    spinning_terms = controller._terms(
+        blocks, jnp.asarray(spinning), posterior, previous, jnp.asarray(1.0)
+    )
+    assert float(calm_terms.body_rate_penalty) == 0.0
+    assert float(spinning_terms.body_rate_penalty) > 0.0
+
+    quiet = DualControlNMPC(
+        dual_control_config("pass4", sample_period_s=_SAMPLE_PERIOD_S)
+    )
+    quiet_terms = quiet._terms(
+        jnp.zeros((quiet.block_count, 4)),
+        jnp.asarray(spinning),
+        quiet._posterior(_belief_after(60)),
+        previous,
+        jnp.asarray(1.0),
+    )
+    assert float(quiet_terms.body_rate_penalty) == 0.0
+
+
+def test_the_righting_seed_accelerates_towards_level_under_a_known_map() -> None:
+    """The righting seed is read off the posterior, not declared.
+
+    With a known angular map the seed's first move must produce an angular
+    acceleration that points the way the vehicle has to turn: positively along
+    the levelling-plus-damping direction the seed was built from, and against
+    the tilt the state carries.  With no map at all it is the held command.
+    """
+
+    controller = _pass_five()
+    angular = np.asarray(
+        (
+            (-90.0, -88.0, 92.0, 90.0),
+            (86.0, -90.0, -88.0, 92.0),
+            (-24.0, 26.0, -25.0, 23.0),
+        )
+    )
+    belief = _synthetic_belief(
+        angular_per_command=angular,
+        collective_per_command=np.asarray((4.6, 4.7, 4.5, 4.6)),
+    )
+    posterior = controller._posterior(belief)
+    state = _released_state()
+    state[10:13] = (0.0, 0.0, 0.0)
+    move = np.asarray(controller._righting_move(jnp.asarray(state), posterior))
+    assert np.max(np.abs(move)) == pytest.approx(1.0, abs=1e-5)
+
+    rotation = quaternion_to_rotation(state[6:10])
+    up_body = rotation[2, :]
+    desired = np.asarray((-up_body[1], up_body[0], 0.0)) - state[10:13]
+    desired /= np.linalg.norm(desired)
+    acceleration = angular @ (move * controller.config.slew_per_interval)
+    assert float(desired @ acceleration) > 0.0
+    # The tilt error itself must shrink: the roll and pitch rates the move
+    # produces oppose the tilt the state carries.
+    assert float(np.asarray((up_body[0], up_body[1])) @ acceleration[:2]) < 0.0
+
+    blind = _synthetic_belief(
+        angular_per_command=np.zeros((3, 4)),
+        collective_per_command=np.zeros(4),
+    )
+    blind_move = np.asarray(
+        controller._righting_move(jnp.asarray(state), controller._posterior(blind))
+    )
+    assert np.allclose(blind_move, 0.0)
+
+
+def test_the_collective_seed_raises_the_posterior_specific_force() -> None:
+    controller = _pass_five()
+    collective = np.asarray((4.6, 4.7, 4.5, 2.3))
+    belief = _synthetic_belief(
+        angular_per_command=np.zeros((3, 4)),
+        collective_per_command=collective,
+    )
+    move = np.asarray(controller._collective_move(controller._posterior(belief)))
+    assert np.max(np.abs(move)) == pytest.approx(1.0, abs=1e-5)
+    assert float(collective @ move) > 0.0
+    # The weakest motor is asked for the least, because the posterior says it
+    # buys the least specific force.
+    assert int(np.argmin(move)) == 3
+
+    blind = _synthetic_belief(
+        angular_per_command=np.zeros((3, 4)),
+        collective_per_command=np.zeros(4),
+    )
+    assert np.allclose(
+        np.asarray(controller._collective_move(controller._posterior(blind))),
+        0.0,
+    )
+
+
+def test_the_warm_start_moves_round_trip_through_the_shift() -> None:
+    """The shifted warm start replays the plan the previous solve committed to.
+
+    The vehicle is holding the plan's first block, so the shifted plan's own
+    commands must be the previous plan's second block onwards, with its last
+    block repeated.  The seed is stored as moves; reconstructing the commands
+    from them is what proves the conversion is lossless.
+    """
+
+    controller = _pass_five()
+    slew = controller.config.slew_per_interval
+    generator = np.random.default_rng(5)
+    # A plan a previous solve could actually have produced: a cumulative sum of
+    # moves inside the declared slew box, starting inside the command box.
+    steps = generator.uniform(
+        -slew,
+        slew,
+        (controller.block_count, 4),
+    )
+    plan = np.clip(np.cumsum(steps, axis=0) + 0.45, 0.0, 1.0)
+    held = plan[0]
+    moves, valid = controller._warm_blocks(plan, held)
+    assert valid
+    assert np.max(np.abs(moves)) <= 1.0
+    rebuilt = np.asarray(
+        controller._plan_command_blocks(jnp.asarray(moves), jnp.asarray(held))
+    )
+    expected = np.concatenate((plan[1:], plan[-1:]))
+    assert np.allclose(rebuilt, expected, atol=1e-6)
+    assert np.allclose(rebuilt[-1], rebuilt[-2])
+
+    # A plan whose blocks are further apart than the declared slew comes back
+    # clipped rather than refused: the seed is a starting point, not a promise.
+    wide = np.tile(np.asarray(((0.0, 0.0, 0.0, 0.0), (1.0, 1.0, 1.0, 1.0))), (10, 1))
+    clipped, wide_valid = controller._warm_blocks(wide, wide[0])
+    assert wide_valid
+    assert np.max(np.abs(clipped)) == 1.0
+    # Every move but the repeated final block saturates the slew box.
+    assert np.allclose(np.abs(clipped[:-1]), 1.0)
+    assert np.allclose(clipped[-1], 0.0)
+
+    cold, cold_valid = controller._warm_blocks(None, held)
+    assert not cold_valid
+    assert np.allclose(cold, 0.0)
+
+
+def test_the_earlier_variants_are_unchanged_by_the_fifth_pass() -> None:
+    """The four earlier variants are pinned, not merely believed unchanged.
+
+    These numbers were recorded from the pass-four tree before any of the fifth
+    pass landed and reproduce bit for bit after it; the recorded study report
+    reproduces alongside them.  Every switch the fifth pass adds is stated on
+    each earlier variant at the value it already behaved as.
+    """
+
+    state = _released_state()
+    belief = _belief_after(40)
+    previous = np.full(4, 0.25)
+    expected = {
+        "pass2b": (
+            (
+                0.5503792762756348,
+                0.4479737877845764,
+                0.39375966787338257,
+                0.43878284096717834,
+            ),
+            52114.84375,
+        ),
+        "pass4": (
+            (
+                0.8636729717254639,
+                0.7502814531326294,
+                0.6340652704238892,
+                0.683287501335144,
+            ),
+            34851.47265625,
+        ),
+    }
+    for variant, (command, objective) in expected.items():
+        config = dual_control_config(variant, sample_period_s=_SAMPLE_PERIOD_S)
+        assert config.variant == variant
+        assert config.plan_parameterization == "command_blocks"
+        assert config.spread_model == "command_marginal"
+        assert config.seed_family == "declared_designs"
+        assert config.charge_body_rate_limit is False
+        result = DualControlNMPC(config).solve(
+            state, belief, previous, previous_command_owned=True
+        )
+        assert result.command.tolist() == list(command), variant
+        assert float(result.objective_value) == objective, variant
+        assert float(result.body_rate_penalty) == 0.0, variant
+
+
+def test_every_pass_five_solve_stays_bounded_and_compiles_once() -> None:
+    controller = _pass_five()
+    plan = None
+    previous = np.full(4, 0.2)
+    for index, state in enumerate(_random_states(5, seed=23)):
+        for belief in (_belief_after(0), _belief_after(9), _belief_after(80)):
+            result = controller.solve(
+                state,
+                belief,
+                previous,
+                warm_start=plan,
+                previous_command_owned=index > 0,
+            )
+            assert result.command_usable
+            assert np.all(np.isfinite(result.command))
+            assert np.all(result.command >= 0.0)
+            assert np.all(result.command <= 1.0)
+            assert result.design_center_source == "previous_command"
+            assert np.allclose(result.design_center, previous)
+            assert result.selected_candidate in controller.candidate_names
+            plan = result
+            previous = np.asarray(result.command)
+    assert controller.jit_cache_size == 1
+
+
+def test_a_diverged_release_is_recorded_rather_than_ending_the_ensemble() -> None:
+    """A simulator that cannot integrate one release must not lose the other 559.
+
+    The plant refuses a non-finite state rather than returning one, which is
+    right, and the ensemble turns that refusal into a trial: not recovered,
+    every measured quantity absent rather than invented, and the arm's own
+    finiteness criterion failed so the divergence cannot be read as a clean run.
+    """
+
+    from glassbox.integrations.crazyflow_throw_study import (
+        CRAZYFLOW_THROW_STUDY_CASES,
+        _diverged_ensemble_trial,
+        _ensemble_summary,
+    )
+
+    case = CRAZYFLOW_THROW_STUDY_CASES[0]
+    flown = {
+        "case": case.name,
+        "control_model": "arm",
+        "simulator_diverged": False,
+        "recovered": True,
+        "reached_hover_envelope": True,
+        "touched_floor": False,
+        "terminal_speed_m_s": 0.10,
+        "terminal_angular_rate_rad_s": 0.10,
+        "terminal_tilt_rad": 0.01,
+        "minimum_altitude_m": 1.0,
+        "sustained_hover_duration_s": 3.0,
+        "time_to_rank_four_s": 0.30,
+        "early_mean_collective": 0.50,
+        "settled_maximum_command_step": 0.01,
+        "settled_maximum_relative_allocation_change": 0.01,
+        "settled_maximum_allocation_change": 0.001,
+        "non_finite_value_count": 0,
+        "command_bound_violation_count": 0,
+    }
+    diverged = _diverged_ensemble_trial(case, "arm", "velocity must be finite")
+    assert set(diverged) >= set(flown)
+    assert diverged["simulator_diverged"] is True
+    assert diverged["recovered"] is False
+    assert diverged["early_mean_collective"] is None
+
+    summary = _ensemble_summary([flown, diverged])
+    assert summary["trial_count"] == 2
+    assert summary["recovery_count"] == 1
+    assert summary["simulator_diverged_count"] == 1
+    assert summary["all_values_finite_and_bounded"] is False
+    # The diverged release invents no number: every spread is built from the
+    # one trial that actually flew.
+    for key in (
+        "terminal_speed_m_s",
+        "time_to_rank_four_s",
+        "settled_maximum_command_step",
+    ):
+        assert summary[key]["available_count"] == 1
+    assert summary["early_mean_collective"]["available_count"] == 1
+    assert summary["early_mean_collective"]["mean"] == 0.50
+    json.dumps(summary, allow_nan=False)
+
+    clean = _ensemble_summary([flown])
+    assert clean["simulator_diverged_count"] == 0
+    assert clean["all_values_finite_and_bounded"] is True

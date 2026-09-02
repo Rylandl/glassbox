@@ -38,6 +38,7 @@ from glassbox.core.dynamics import MOTOR_MIXER
 from glassbox.core.runtime import runtime_spec_from_trajectory
 from glassbox.core.synthetic import generate_trajectory, resting_state, true_parameters
 from glassbox.integrations.crazyflow import (
+    CrazyflowDivergenceError,
     CrazyflowPlant,
     CrazyflowPlantConfig,
     CrazyflowUnavailableError,
@@ -100,6 +101,31 @@ CRAZYFLOW_MIXER = np.asarray(
         (-1.0, 1.0, -1.0, 1.0),
     )
 )
+
+
+def test_a_non_finite_simulator_state_raises_the_divergence_error() -> None:
+    """The read-back path names divergence, and stays a ``ValueError``.
+
+    A campaign that records diverged releases catches exactly this type, so a
+    defect elsewhere in a trial cannot be mistaken for the simulator giving up.
+    """
+
+    with pytest.raises(CrazyflowDivergenceError):
+        crazyflow_state_to_canonical(
+            pos=(0.0, 0.0, 1.0),
+            vel=(0.0, np.nan, 0.0),
+            quat_xyzw=(0.0, 0.0, 0.0, 1.0),
+            ang_vel=(0.0, 0.0, 0.0),
+        )
+    assert issubclass(CrazyflowDivergenceError, ValueError)
+    # A wrong shape on the same path is the same refusal.
+    with pytest.raises(CrazyflowDivergenceError):
+        crazyflow_state_to_canonical(
+            pos=(0.0, 0.0),
+            vel=(0.0, 0.0, 0.0),
+            quat_xyzw=(0.0, 0.0, 0.0, 1.0),
+            ang_vel=(0.0, 0.0, 0.0),
+        )
 
 
 def test_motor_permutation_preserves_the_canonical_mixer() -> None:

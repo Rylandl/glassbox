@@ -38,6 +38,7 @@ Multirotor:
 - [PX4 SITL multirotor corpora](experiments/px4-sitl-multirotor.md)
 - [Crazyflow configuration-change prototype](experiments/crazyflow-prototype.md)
 - [Crazyflow continuous throw diagnostic](experiments/crazyflow-throw.md)
+- [Dual-control NMPC release ensemble](experiments/dual-control-throw-ensemble.md)
 - [Adaptive recovery diagnostic](experiments/adaptive-recovery.md)
 
 Fixed wing:

@@ -927,3 +927,284 @@ drawn from between-arm comparisons at a resolution that could not support it. It
 should be re-opened, and now it can be asked properly: the ensemble is a paired
 112-release experiment, and any identifier or excitation change can be run
 through it and read against these intervals.
+
+## Fifth pass (2026-09-02)
+
+The fourth pass answered its own question and left the design where the second
+pass had it: a thirty-step horizon over bounded command blocks, a spread charge
+averaged over the command box, and a declared amplitude ladder to break the
+motor symmetry. This pass replaces all three at once, on one stated principle.
+
+There is one goal — stabilize the vehicle: velocity, body rate, tilt, and an
+altitude floor — and learning is valued only for what it buys towards that
+goal. There is no midpoint, no staging, no cascade, and no amplitude ladder.
+The declared quantities are the command box, a per-interval slew limit, the two
+outcome limits, and the four task tolerances. Everything else is derived from
+the posterior and the state.
+
+### Diagnosis
+
+Four readings from the recorded pass-2b and pass-4 flights, each of which the
+formulation below answers directly.
+
+The horizon is too short to prefer the right manoeuvre. Over `0.3 s` a
+tumbling vehicle cannot both right itself and arrest its descent, so the
+objective compares "thrust now, tilted" against "right first, thrust later"
+over a window in which only the first has begun to pay. It picks the first.
+
+The spread charge cannot see the coupling that makes that choice wrong.
+Specific force acts along the body `z` axis, so an uncertain attitude turns a
+known thrust into an unknown acceleration *direction*. The box-averaged charge
+treats the four channels as independent chains of integrators and carries no
+term in which tilt uncertainty costs velocity, so thrusting while tilted is
+free in exactly the case where it is most expensive.
+
+The amplitude ladder is violent on this vehicle. The identified angular map
+carries row norms of `457` and `402 rad/s^2` per unit command on roll and pitch
+— the certified arm's own fitted belief on the canonical release — so the
+ladder's top rung, a quarter of the command range laid differentially, is a
+command for hundreds of radians per second squared. The ladder is declared in
+command units and has no way to know that.
+
+And the log-determinant information term is not goal-directed. It scores
+directions by how much they are learned, not by what learning them is worth to
+the one goal, so it buys evidence about a motor the vehicle does not currently
+need and charges the tracking cost for it.
+
+### Formulation
+
+**Moves, not commands.** The decision variables are per-block *moves*, each
+bounded by the declared per-interval slew of `0.10` of the command range, and
+the plan is their cumulative sum from the command the vehicle is holding,
+clipped to the box. The slew stops being a cost to trade against and becomes a
+box the bounded solver already projects onto; the executed command cannot leave
+the previous one by more than the declared fraction whatever the objective
+prefers. The horizon is `100` steps in `20` blocks — one second at the study's
+loop rate — so righting and then thrusting fits inside the window.
+
+**The full-regressor planned posterior.** The belief now exposes the two
+accumulated Grams the identifier solves from, in the identifier's own feature
+order, rather than only the command-block summaries the fits reduce them to.
+The spread is the posterior of the whole regressor set that the plan itself
+would leave behind: `Sigma' = ((G + Psi^T Psi) / s^2 + eps I)^-1` with `Psi` the
+regressors the planned mean trajectory would present. No residualization enters
+it, and none should: a plan that moves a nuisance regressor is buying real
+information about the coefficient that regressor multiplies.
+
+**Coupled propagation.** The per-step spreads are evaluated at the plan's own
+features and integrated along the trajectory, with the coupling the earlier
+model could not express:
+
+```
+sigma_omega  = cumsum(T sigma_alpha)
+sigma_tilt   = cumsum(T sigma_omega)
+sigma_a,k    = sigma_f,k + |f_k| sigma_tilt,k
+sigma_v      = cumsum(T sigma_a)
+sigma_alt    = cumsum(T sigma_v)
+```
+
+`|f_k| sigma_tilt,k` is the whole point: thrusting under an uncertain attitude
+is charged, in metres per second, for the velocity it might produce sideways.
+
+**Clipped spreads, live penalties.** Each propagated spread is clipped at
+`spread_cap` times its matching tolerance and every chance penalty stays in the
+objective. The earlier passes dropped a penalty whose spread was saturated,
+which lets a plan escape a constraint by making its own prediction worse.
+Clipping instead gives "unknown" a bounded, plan-independent charge: no plan
+profits from ignorance, and a plan whose own excitation brings a channel back
+under the cap is charged strictly less. The gradient goes flat inside a
+saturated channel, and the multi-start is what moves the plan there.
+
+**Posterior-derived seeds.** The declared designs are gone. The eight seeds are
+the shifted warm start, the held command, four excitation cycles along the
+eigenvectors of the *current* command covariance — weakest-known direction
+first, in both polarities and in a variant whose polarity flips every cycle so
+it is zero-mean — a righting move allocated through the pseudo-inverse of the
+posterior's own angular map, and a collective move along the posterior's own
+collective map. Each seed moves at most one declared slew per block. At zero
+information the covariance is a multiple of the identity, so the excitation
+cycle is the four commands one at a time — the symmetry break the ladder used
+to declare, now read off the posterior — and the righting and collective seeds
+are the held command, because a zero map allocates nothing.
+
+**A second outcome limit.** The maximum body rate joins the maximum tilt as a
+declared outcome limit, charged in the same chance form: predicted magnitude
+plus a reserved spread, past the declared maximum, squared.
+
+### Declared and derived
+
+| declared | derived |
+| --- | --- |
+| command box `[0, 1]^4` | every command inside it |
+| slew `0.10` of range per interval | which direction to move, and how far inside the slew |
+| maximum tilt `0.50 rad`, maximum body rate `5.0 rad/s` | when either constraint is active |
+| four task tolerances, altitude floor | the whole trajectory cost |
+| horizon, block length, optimizer budget, `epsilon` | the plan and every seed |
+| — | the excitation directions, the righting move, the collective move, every spread |
+
+No base action, no design amplitudes, no sign pattern, no staging schedule, and
+no vehicle number anywhere. The one thing the fourth pass declared that this
+pass does not is the box midpoint.
+
+### Result
+
+The fifth pass is worse than every earlier one, and it fails for a reason that
+is visible in one column of the trace.
+
+The same paired ensemble the fourth pass introduced, re-run with all five arms
+on the same 112 releases each; the protocol and the full per-case table are on
+[the release-ensemble page](../experiments/dual-control-throw-ensemble.md).
+The four earlier arms are byte-identical to `report-pass4-ensemble.json`, all
+448 trials, so the comparison is the fourth pass's own numbers with a fifth
+column added. On the seven deterministic
+releases the two cascade arms reproduce `report-pass4.json` byte for byte, and
+both dual arms reproduce every number in it; their records gain the six switch
+keys this pass declares and one penalty summary, and change nothing.
+
+| arm | recovered | rate | Wilson 95 | early collective | rank four s med | terminal tilt med | on the floor |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| certified | 61/112 | 0.545 | 0.452-0.634 | 0.717 | 0.23 | 0.0009 | 38 |
+| working | 25/112 | 0.223 | 0.156-0.309 | 0.717 | 0.23 | 0.0276 | 37 |
+| pass2b | 7/112 | 0.062 | 0.031-0.123 | 0.314 | 0.32 | 0.0202 | 99 |
+| pass4 | 2/112 | 0.018 | 0.005-0.063 | 0.410 | 0.48 | 0.0804 | 107 |
+| pass5 | 0/112 | 0.000 | 0.000-0.033 | 0.044 | 0.96 | 1.2232 | 109 |
+
+Zero of 112, with a Wilson upper bound of `0.033`, against `pass2b`'s `0.062`
+and the certified cascade's `0.545`. On the seven deterministic releases it is
+the same picture: no sustained hover on any case and the floor touched on all
+seven, against `pass2b`'s three clean recoveries.
+
+Three further readings, none of which any earlier arm produced.
+
+`pass5` is the first arm that fails to reach command information rank four at
+all. Thirteen of its 112 ensemble releases never get there, and on the
+deterministic `milder_low_energy_release` it never does either, with the solve
+stalling on `801` of `900` intervals.
+
+`pass5` is the first arm that drives the simulator to a non-finite state. Three
+of its 112 releases end in a position, velocity or quaternion the plant refuses
+to return; those trials are recorded as diverged and counted as not recovered
+rather than dropped. No other arm has ever done this on this diagnostic.
+
+And `pass5` has the *quietest* settled command of any arm in the study —
+pooled median step `0.0006` of the command range against the frozen snapshot's
+`0.0010` — measured on flights that are lying still on the floor. It is the
+clearest illustration this study has produced of why the chatter criterion is
+read after the recovery criterion and not instead of it.
+
+The cause is the first-`0.3 s` mean collective, which pools to `0.044` for
+`pass5` against `0.314` for `pass2b` and `0.717` for both cascade arms, and
+which on the deterministic releases is `0.000` in every third of that window on
+five of the seven cases. The selected candidate over those intervals is `hold`
+or the shifted warm start, and nothing else. The vehicle is commanded to keep
+its motors off while it falls, and by the time the posterior can say anything
+about the collective map it is already low, fast and tilted: pooled median
+terminal tilt `1.22 rad`, which is a vehicle on its side.
+
+### Holding is the cheapest plan the spread charge can see
+
+This is not the slew limit. At `0.10` of range per interval a plan reaches this
+vehicle's hover command in one interval; the limit never binds on the way up.
+It is the spread model, and the mechanism is exact rather than empirical.
+
+The planned posterior is evaluated at the plan's *own* features. A plan that
+holds one command visits one direction of the command block for the whole
+horizon, and the posterior it leaves behind knows that one direction to
+`s^2 / N`. A plan that cycles four directions spends `N / 4` samples on each
+and is evaluated at points it knows to `4 s^2 / N`. Spreading the same horizon
+over four directions therefore roughly doubles every propagated standard
+deviation and quadruples the quadratic charge. At zero information, from any
+held command, the four excitation seeds score strictly worse than `hold` — the
+measured spread charge on the canonical release is `43.4` for `hold` against
+`204.0` for the excitation cycle — and the tracking term cannot break the tie
+because a posterior with a zero command map predicts the same free fall for
+every plan.
+
+That is the first pass's fixed point, reached by a different route. The first
+pass could not earn information from a uniform plan; the fifth pass can, and
+declines to, because the charge it pays for the excitation is levied in the
+same units as the goal and is larger than what the excitation buys within the
+horizon. "Learning is valued only for what it buys towards the goal" is exactly
+the principle, faithfully implemented, and on this vehicle at this margin the
+answer it returns is *nothing*.
+
+The second pass's box average was not an approximation to be improved on. It
+was load-bearing, and its own docstring said so: averaging over the box rather
+than evaluating at the planned command is what stops the charge from being
+zeroed by parking on whatever command the quadratic form happens to vanish at.
+Replacing it with the planned features restores exactly the failure it was
+written to prevent.
+
+### Criteria
+
+1. Every command finite and inside the box on every case: met for the
+   controller, not met for the flight. `pass5` returned no unusable solve on
+   any deterministic case and the slew bound holds elementwise on every
+   executed command by construction, but three of 112 ensemble releases ended
+   in a simulator state the plant refuses to return, so the arm fails
+   `all_values_finite_and_bounded`.
+2. The hover envelope reached on at least the cases the cascade reaches: not
+   met, by a wider margin than any earlier pass. Zero of 112 ensemble releases
+   and zero of seven deterministic ones, against the certified cascade's 61 and
+   six and `pass2b`'s 7 and three.
+3. Command information rank four within `0.3 s` of control starting: not met,
+   and now not met at all on some releases. `pass5`'s pooled median is `0.96 s`
+   against `pass2b`'s `0.32 s` and the cascade's `0.23 s`, and 13 of its 112
+   releases never reach rank four.
+4. Chatter no worse than the frozen snapshot: met on the number and meaningless
+   as a reading. Pooled median settled command step `0.0006` against the
+   snapshot's `0.0010`, measured on 109 flights that are on the floor.
+5. Under state noise and after the mid-flight change, tracking no worse than
+   the cascade: not met on either. Zero of 16 under state noise against the
+   cascade's 2, and zero of 16 after the arm change against 10.
+6. No vehicle-specific number anywhere in the controller: met, and more
+   completely than any earlier pass. The midpoint, the amplitude ladder and the
+   sign pattern are all gone, and nothing replaced them.
+
+### Tuning record
+
+Nothing was tuned. No weight, tolerance, horizon, block length or solver
+setting was moved after a flight was looked at. The horizon and block length
+are stated by the design, the slew and the rate limit are declared, and the two
+numbers that could have been tuned to rescue the result — `w_rate` and
+`spread_cap` — were left at the values every earlier pass used.
+
+| knob | tried | kept | effect |
+| --- | --- | --- | --- |
+| — | — | — | nothing moved in this pass |
+
+### What this leaves
+
+The spread charge is the open question, and it is now a sharp one. Two forms
+have been measured on the same protocol: a box average that rewards excitation
+and cannot see the tilt-to-thrust coupling, and a planned-trajectory form that
+sees the coupling and rewards standing still. Neither is right, and the reason
+neither is right is the same in both cases — the charge is a function of the
+plan's own predicted uncertainty, and a plan can always reduce that by
+promising to do less.
+
+What the goal actually needs is the spread of the *closed-loop* outcome under
+the commands the vehicle will have to issue later, not the spread at the points
+this horizon happens to visit. That is a statement about the reachable set, and
+neither form approximates it. The box average is a crude bound on it; the
+planned-trajectory form is not a bound on it at all.
+
+The coupling term is worth keeping. It is the only part of this pass that
+answers a diagnosis rather than restating one, it costs nothing to compute
+alongside the box average, and it is the term that makes "right first, then
+thrust" cheaper than "thrust while tilted" in the units of the goal. The
+obvious next configuration is the second pass's box-averaged charge with the
+tilt-to-thrust coupling added and the one-second horizon kept, which separates
+the two changes this pass confounded.
+
+The one-second horizon is untested on its own. Every `pass5` flight it appears
+in also carries the spread model that stops the vehicle from thrusting, so
+nothing here says whether the longer window helps. The same is true of the slew
+box, the posterior-derived seeds and the rate limit: this pass moved five things
+at once and the ensemble measures their joint effect. That was the wrong shape
+for an experiment, and it is only cheap to say so because the answer came back
+as a zero rather than as a small improvement that would have had to be
+attributed.
+
+The ensemble protocol and the recorded numbers are in
+[the release-ensemble page](../experiments/dual-control-throw-ensemble.md).

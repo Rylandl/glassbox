@@ -46,6 +46,37 @@ for, and nothing else:
     midpoint while the posterior has no supported hover estimate, and the
     posterior's own hover estimate once it has one.
 
+The fifth pass removes the midpoint, the amplitude ladder, and the declared
+designs entirely.  There is one goal — stabilize — and learning is valued only
+for what it buys towards that goal.  The only declared quantities left on the
+action side are the command box, a per-interval slew limit, and the outcome
+limits; everything else is derived from the posterior and the state.  Three
+switches carry it, and every earlier variant leaves them where they were:
+
+``plan_parameterization``
+    ``"slew_moves"`` makes each block a bounded *move* from the previous one.
+    The declared slew becomes a box on the decision variables rather than a
+    cost, so the executed command can never jump more than the declared
+    fraction of the range, and the projection the bounded solver already
+    performs is exactly the slew projection.
+
+``spread_model``
+    ``"planned_trajectory"`` inverts the *full* regressor information — the
+    accumulated Gram plus what the plan itself would add — along the planned
+    mean trajectory, and couples the attitude spread into the thrust: the
+    velocity spread carries ``|f| sigma_tilt`` alongside the collective's own
+    spread, so thrusting while the attitude is uncertain is charged for the
+    velocity it might produce in the wrong direction.
+
+``seed_family``
+    ``"posterior_moves"`` replaces the declared designs with seeds the
+    posterior and the state supply: an excitation cycle along the eigenvectors
+    of the current command covariance, weakest-known direction first; a
+    righting move allocated through the pseudo-inverse of the posterior's own
+    angular map; and a collective move along the posterior's own collective
+    map.  At zero information the excitation cycle is the only seed that moves,
+    which is the symmetry break the ladder used to provide.
+
 Nothing in this module knows anything about a particular vehicle.  The
 prediction model is rigid-body kinematics, gravity, and the posterior mean of
 the recursive bootstrap belief; every other number lives in
@@ -78,6 +109,12 @@ from glassbox.core.dynamics import (
 
 _STATE_SIZE = 13
 _COMMAND_SIZE = 4
+#: Columns of the identifier's collective regression: the normalized command,
+#: the body velocity, and an intercept.
+_COLLECTIVE_FEATURE_SIZE = 8
+#: Columns of the identifier's angular regression: the normalized command, the
+#: body rates, the three rate products, and an intercept.
+_ANGULAR_FEATURE_SIZE = 11
 #: Nuisance regressors the identifier's angular regression residualizes its
 #: command Gram against, minus the intercept, which is handled exactly by
 #: centering: three body rates and three rate products.
@@ -118,6 +155,41 @@ _HADAMARD_ROWS = np.asarray(
 #: tracking cost and carries no information weight.
 ObjectiveForm = Literal["information_gain", "expected_cost"]
 
+#: How the horizon's decision variables become commands.  ``"command_blocks"``
+#: makes every block a bounded command in its own right.  ``"slew_moves"``
+#: makes every block a bounded *move* from the one before it, so the declared
+#: per-interval slew is a box on the decision variables and the plan is the
+#: cumulative sum from the command the vehicle is already holding.
+PlanParameterization = Literal["command_blocks", "slew_moves"]
+
+#: Where the predicted spread comes from.  ``"command_marginal"`` reads it off
+#: the command-map covariance alone — evaluated at the planned command under
+#: ``"information_gain"``, averaged over the command box under
+#: ``"expected_cost"`` — and treats the four channels as independent chains of
+#: integrators.  ``"planned_trajectory"`` inverts the full regressor
+#: information along the planned mean trajectory and couples the attitude
+#: spread into the thrust.
+SpreadModel = Literal["command_marginal", "planned_trajectory"]
+
+#: What the multi-start scores.  ``"declared_designs"`` is the Hadamard
+#: amplitude ladder laid on a command center; ``"posterior_moves"`` derives
+#: every seed from the current posterior and the current state.
+SeedFamily = Literal["declared_designs", "posterior_moves"]
+
+#: The posterior-derived seeds, in the order the program stacks them after the
+#: warm start and the held command.  Four excitation cycles along the command
+#: covariance's own eigenvectors — both polarities of the plain cycle and both
+#: of the cycle whose polarity flips every four blocks, which is zero-mean over
+#: two cycles — then the righting move and the collective move.
+_POSTERIOR_SEED_NAMES: tuple[str, ...] = (
+    "excite+",
+    "excite-",
+    "excite_alt+",
+    "excite_alt-",
+    "righting",
+    "collective",
+)
+
 #: The studied configurations.  Pass one is kept selectable so its failure stays
 #: reproducible; the default is the current design.  Every variant states every
 #: switch, so a config matches at most one of them.
@@ -128,6 +200,10 @@ DUAL_CONTROL_VARIANTS: dict[str, dict[str, Any]] = {
         "objective": "information_gain",
         "charge_unowned_transition": True,
         "center_designs_on_base_action": False,
+        "plan_parameterization": "command_blocks",
+        "spread_model": "command_marginal",
+        "seed_family": "declared_designs",
+        "charge_body_rate_limit": False,
     },
     "pass2a": {
         "multi_start": True,
@@ -135,6 +211,10 @@ DUAL_CONTROL_VARIANTS: dict[str, dict[str, Any]] = {
         "objective": "information_gain",
         "charge_unowned_transition": True,
         "center_designs_on_base_action": False,
+        "plan_parameterization": "command_blocks",
+        "spread_model": "command_marginal",
+        "seed_family": "declared_designs",
+        "charge_body_rate_limit": False,
     },
     "pass2b": {
         "multi_start": True,
@@ -142,6 +222,10 @@ DUAL_CONTROL_VARIANTS: dict[str, dict[str, Any]] = {
         "objective": "expected_cost",
         "charge_unowned_transition": True,
         "center_designs_on_base_action": False,
+        "plan_parameterization": "command_blocks",
+        "spread_model": "command_marginal",
+        "seed_family": "declared_designs",
+        "charge_body_rate_limit": False,
     },
     "pass4": {
         "multi_start": True,
@@ -149,6 +233,25 @@ DUAL_CONTROL_VARIANTS: dict[str, dict[str, Any]] = {
         "objective": "expected_cost",
         "charge_unowned_transition": False,
         "center_designs_on_base_action": True,
+        "plan_parameterization": "command_blocks",
+        "spread_model": "command_marginal",
+        "seed_family": "declared_designs",
+        "charge_body_rate_limit": False,
+    },
+    # One goal, a one-second horizon, and no declared action prior beyond the
+    # command box, the slew limit, and the two outcome limits.
+    "pass5": {
+        "multi_start": True,
+        "residualize_information": True,
+        "objective": "expected_cost",
+        "charge_unowned_transition": False,
+        "center_designs_on_base_action": False,
+        "plan_parameterization": "slew_moves",
+        "spread_model": "planned_trajectory",
+        "seed_family": "posterior_moves",
+        "charge_body_rate_limit": True,
+        "horizon_steps": 100,
+        "block_steps": 5,
     },
 }
 
@@ -238,6 +341,24 @@ class DualControlConfig:
     #: Center the declared orthogonal designs on
     #: :meth:`DualControlNMPC.base_action` rather than on the previous command.
     center_designs_on_base_action: bool = False
+    #: How the decision variables become commands; see
+    #: :data:`PlanParameterization`.
+    plan_parameterization: PlanParameterization = "command_blocks"
+    #: Where the predicted spread comes from; see :data:`SpreadModel`.
+    spread_model: SpreadModel = "command_marginal"
+    #: What the multi-start scores; see :data:`SeedFamily`.
+    seed_family: SeedFamily = "declared_designs"
+    #: Charge a chance penalty for exceeding :attr:`maximum_body_rate_rad_s`.
+    #: The rate limit is only an outcome limit where it is charged; the earlier
+    #: passes declare no such limit and leave this off.
+    charge_body_rate_limit: bool = False
+    #: The declared per-interval slew limit, as a fraction of the command
+    #: range.  Under ``"slew_moves"`` this is a hard box on every block's move,
+    #: so the executed command never leaves the previous one by more than this
+    #: fraction of the range, whatever the objective would prefer.  It is a
+    #: statement about how fast this controller is willing to move an actuator
+    #: it has not identified, in the same class as the command bounds.
+    slew_per_interval: float = 0.10
     #: Weight on the squared command move between consecutive horizon steps.
     #: A simultaneous ``0.1`` move on all four commands then costs exactly one
     #: task-tolerance unit of tracking error.
@@ -266,6 +387,11 @@ class DualControlConfig:
     altitude_tolerance_m: float = 0.10
     altitude_floor_m: float = 1.0
     maximum_tilt_rad: float = 0.50
+    #: The declared maximum body rate, charged only when
+    #: :attr:`charge_body_rate_limit` is set.  It is an outcome limit of the
+    #: same kind as :attr:`maximum_tilt_rad`: a statement about the states this
+    #: controller is willing to plan through, not a vehicle capability.
+    maximum_body_rate_rad_s: float = 5.0
     #: Outer projected-gradient iterations per solve.
     iteration_count: int = 10
     #: Halvings the backtracking search may take.  The objective's curvature
@@ -297,12 +423,16 @@ class DualControlConfig:
     def candidate_count(self) -> int:
         """Plans the multi-start scores before the gradient refinement.
 
-        The shifted warm start, the previous command held, and both polarities
-        of the declared design at every declared amplitude.
+        The shifted warm start, the previous command held, and either both
+        polarities of the declared design at every declared amplitude or, under
+        ``"posterior_moves"``, the six seeds the posterior and the state
+        supply.
         """
 
         if not self.multi_start:
             return 2
+        if self.seed_family == "posterior_moves":
+            return 2 + len(_POSTERIOR_SEED_NAMES)
         return 2 + 2 * len(self.multi_start_amplitudes)
 
     @property
@@ -327,6 +457,25 @@ class DualControlConfig:
             raise ValueError("solver iteration counts must be positive")
         if self.objective not in ("information_gain", "expected_cost"):
             raise ValueError("objective must be 'information_gain' or 'expected_cost'")
+        if self.plan_parameterization not in ("command_blocks", "slew_moves"):
+            raise ValueError(
+                "plan_parameterization must be 'command_blocks' or 'slew_moves'"
+            )
+        if self.spread_model not in ("command_marginal", "planned_trajectory"):
+            raise ValueError(
+                "spread_model must be 'command_marginal' or 'planned_trajectory'"
+            )
+        if self.seed_family not in ("declared_designs", "posterior_moves"):
+            raise ValueError(
+                "seed_family must be 'declared_designs' or 'posterior_moves'"
+            )
+        if (
+            not math.isfinite(self.slew_per_interval)
+            or not 0.0 < self.slew_per_interval <= 1.0
+        ):
+            raise ValueError(
+                "slew_per_interval must be a fraction of the command range"
+            )
         amplitudes = np.asarray(self.multi_start_amplitudes, dtype=np.float64)
         if amplitudes.ndim != 1 or amplitudes.size == 0:
             raise ValueError("multi_start_amplitudes must be a non-empty sequence")
@@ -350,6 +499,8 @@ class DualControlConfig:
             self.altitude_tolerance_m,
             self.altitude_floor_m,
             self.maximum_tilt_rad,
+            self.maximum_body_rate_rad_s,
+            self.slew_per_interval,
             self.initial_step_size,
             self.armijo_fraction,
             self.gradient_tolerance,
@@ -375,6 +526,11 @@ class DualControlConfig:
             "candidate_count": self.candidate_count,
             "charge_unowned_transition": self.charge_unowned_transition,
             "center_designs_on_base_action": self.center_designs_on_base_action,
+            "plan_parameterization": self.plan_parameterization,
+            "spread_model": self.spread_model,
+            "seed_family": self.seed_family,
+            "charge_body_rate_limit": self.charge_body_rate_limit,
+            "slew_per_interval": self.slew_per_interval,
             "w_rate": self.w_rate,
             "w_info": self.w_info,
             "beta": self.beta,
@@ -387,6 +543,7 @@ class DualControlConfig:
             "altitude_tolerance_m": self.altitude_tolerance_m,
             "altitude_floor_m": self.altitude_floor_m,
             "maximum_tilt_rad": self.maximum_tilt_rad,
+            "maximum_body_rate_rad_s": self.maximum_body_rate_rad_s,
             "iteration_count": self.iteration_count,
             "line_search_steps": self.line_search_steps,
             "command_minimum": list(self.command_minimum),  # type: ignore[arg-type]
@@ -451,6 +608,34 @@ class _Posterior(NamedTuple):
     angular_covariance: Array
     residual_variance: Array
     collective_residual_variance: Array
+    #: The identifier's own accumulated Grams, over its own feature order.
+    #: Only ``"planned_trajectory"`` reads them.
+    collective_information: Array
+    angular_information: Array
+    #: Per-axis angular residual variance.  ``residual_variance`` above is the
+    #: mean of these three, which is what the command-marginal spread and the
+    #: information term have always used.
+    angular_residual_variance: Array
+
+
+class _Rollout(NamedTuple):
+    """Everything one mean rollout leaves behind, over the horizon's steps.
+
+    The nuisance regressors are the ones measured at the *start* of each step,
+    because that is what the identifier regresses the interval's acceleration
+    on; the tracking cost, the tilt, the altitude, and the rate norm are the
+    predicted post-step quantities.
+    """
+
+    commands: Array
+    tracking: Array
+    tilt: Array
+    altitude: Array
+    angular_velocity: Array
+    rate_products: Array
+    body_velocity: Array
+    specific_force: Array
+    rate_norm: Array
 
 
 class _Terms(NamedTuple):
@@ -462,8 +647,10 @@ class _Terms(NamedTuple):
     information_gain: Array
     altitude_penalty: Array
     tilt_penalty: Array
+    body_rate_penalty: Array
     maximum_rate_spread: Array
     maximum_tilt_spread: Array
+    maximum_velocity_spread: Array
     maximum_altitude_spread: Array
     altitude_active_steps: Array
     tilt_active_steps: Array
@@ -487,8 +674,12 @@ class DualControlResult:
     information_gain: float
     altitude_penalty: float
     tilt_penalty: float
+    #: Chance penalty on the declared maximum body rate, zero for every
+    #: configuration that does not declare one.
+    body_rate_penalty: float
     maximum_rate_spread_rad_s: float
     maximum_tilt_spread_rad: float
+    maximum_velocity_spread_m_s: float
     maximum_altitude_spread_m: float
     altitude_constraint_active_steps: int
     tilt_constraint_active_steps: int
@@ -543,8 +734,10 @@ class DualControlResult:
             self.information_gain,
             self.altitude_penalty,
             self.tilt_penalty,
+            self.body_rate_penalty,
             self.maximum_rate_spread_rad_s,
             self.maximum_tilt_spread_rad,
+            self.maximum_velocity_spread_m_s,
             self.maximum_altitude_spread_m,
             self.selected_amplitude,
             self.plan_amplitude,
@@ -569,8 +762,10 @@ class DualControlResult:
             "information_gain": self.information_gain,
             "altitude_penalty": self.altitude_penalty,
             "tilt_penalty": self.tilt_penalty,
+            "body_rate_penalty": self.body_rate_penalty,
             "maximum_rate_spread_rad_s": self.maximum_rate_spread_rad_s,
             "maximum_tilt_spread_rad": self.maximum_tilt_spread_rad,
+            "maximum_velocity_spread_m_s": self.maximum_velocity_spread_m_s,
             "maximum_altitude_spread_m": self.maximum_altitude_spread_m,
             "altitude_constraint_active_steps": (self.altitude_constraint_active_steps),
             "tilt_constraint_active_steps": self.tilt_constraint_active_steps,
@@ -626,29 +821,51 @@ class DualControlNMPC:
         self._jit_midpoint = jnp.asarray(self._midpoint)
         self._jit_maximum = jnp.asarray(self._maximum)
         self._signs = jnp.asarray(design_sign_pattern(self.config.block_count))
+        # One decision-variable unit is a full declared slew on that command,
+        # so the projected gradient's clip to ``[-1, 1]`` is exactly the slew
+        # projection and no other bound has to be threaded through the solver.
+        self._slew_step = self.config.slew_per_interval * self._span
+        self._jit_slew_step = jnp.asarray(self._slew_step)
         # Amplitude labels line up with the candidate order the program builds:
         # warm start, held command, then both polarities of every amplitude.
         polarities = (1.0, -1.0)
-        self._candidate_names: tuple[str, ...] = (
-            "warm_start",
-            "hold",
-            *(
-                f"design_{amplitude:g}_{'plus' if polarity > 0 else 'minus'}"
-                for amplitude in self.config.multi_start_amplitudes
-                for polarity in polarities
-            ),
-        )
-        self._candidate_amplitudes = np.asarray(
-            (
-                0.0,
-                0.0,
+        if self.config.seed_family == "posterior_moves":
+            self._candidate_names: tuple[str, ...] = (
+                "warm",
+                "hold",
+                *_POSTERIOR_SEED_NAMES,
+            )
+            # Every posterior seed moves by exactly the declared slew on at
+            # least one command, so the declared amplitude of all six is the
+            # slew itself; the warm start and the held command declare none.
+            self._candidate_amplitudes = np.asarray(
+                (
+                    0.0,
+                    0.0,
+                    *(self.config.slew_per_interval for _ in _POSTERIOR_SEED_NAMES),
+                )
+            )
+        else:
+            self._candidate_names = (
+                "warm_start",
+                "hold",
                 *(
-                    amplitude
+                    f"design_{amplitude:g}_{'plus' if polarity > 0 else 'minus'}"
                     for amplitude in self.config.multi_start_amplitudes
-                    for _ in polarities
+                    for polarity in polarities
                 ),
             )
-        )
+            self._candidate_amplitudes = np.asarray(
+                (
+                    0.0,
+                    0.0,
+                    *(
+                        amplitude
+                        for amplitude in self.config.multi_start_amplitudes
+                        for _ in polarities
+                    ),
+                )
+            )
         if not self.config.multi_start:
             self._candidate_names = self._candidate_names[:2]
             self._candidate_amplitudes = self._candidate_amplitudes[:2]
@@ -690,7 +907,29 @@ class DualControlNMPC:
     def _normalized_from_commands(self, commands: Array) -> Array:
         return 2.0 * (commands - self._jit_minimum) / self._jit_span - 1.0
 
+    def _plan_command_blocks(self, blocks: Array, previous_command: Array) -> Array:
+        """Raw command per block under this config's plan parameterization.
+
+        Under ``"slew_moves"`` each decision variable is a move of at most one
+        declared slew, the plan is their cumulative sum from the command the
+        vehicle is holding, and the box is applied to the running total.
+        Clipping the total rather than the moves keeps the slew bound exact: a
+        clip can only pull a command back towards the one before it.
+        """
+
+        if self.config.plan_parameterization == "slew_moves":
+            moves = jnp.clip(blocks, -1.0, 1.0) * self._jit_slew_step
+            return jnp.clip(
+                previous_command[None, :] + jnp.cumsum(moves, axis=0),
+                self._jit_minimum,
+                self._jit_maximum,
+            )
+        return self._commands_from_normalized(blocks)
+
     def _cold_blocks(self, previous_command: Array) -> Array:
+        if self.config.plan_parameterization == "slew_moves":
+            # Holding the current command is the zero move, whatever it is.
+            return jnp.zeros((self.block_count, _COMMAND_SIZE))
         normalized = jnp.clip(
             self._normalized_from_commands(previous_command), -1.0, 1.0
         )
@@ -709,14 +948,129 @@ class DualControlNMPC:
         clipped = jnp.clip(raw, self._jit_minimum, self._jit_maximum)
         return jnp.clip(self._normalized_from_commands(clipped), -1.0, 1.0)
 
+    def _excitation_directions(self, posterior: _Posterior) -> Array:
+        """Unit-slew moves along the command covariance's own eigenvectors.
+
+        The command block of the accumulated Gram, scaled by the residual
+        variance and regularized by ``epsilon``, is the incumbent command
+        precision.  Its eigenvectors are the covariance's eigenvectors, and
+        ``eigh`` returns them in ascending eigenvalue order, which is exactly
+        descending posterior variance: row zero is the direction the posterior
+        knows least about.  At zero information the precision is a multiple of
+        the identity and the four rows are the four commands, one at a time,
+        which is the symmetry break the declared designs used to provide — but
+        it is read off the posterior rather than declared, and it stops being
+        the identity the moment the posterior has learned anything.
+
+        Each row is scaled so its largest entry is one, so every excitation
+        block moves at least one command by the full declared slew.
+        """
+
+        variance = jnp.maximum(posterior.collective_residual_variance, 1e-12)
+        precision = posterior.collective_information[
+            :_COMMAND_SIZE, :_COMMAND_SIZE
+        ] / variance + self.config.epsilon * jnp.eye(_COMMAND_SIZE)
+        _eigenvalues, eigenvectors = jnp.linalg.eigh(precision)
+        rows = eigenvectors.T
+        scale = jnp.maximum(jnp.max(jnp.abs(rows), axis=1, keepdims=True), 1e-12)
+        return rows / scale
+
+    def _righting_move(self, state: Array, posterior: _Posterior) -> Array:
+        """One slew-sized move towards levelling the vehicle and stopping it.
+
+        The desired body-frame angular acceleration is the axis-angle that
+        takes the body ``z`` axis onto world up, less the current body rate, so
+        the seed both rights the vehicle and damps what it is already doing.
+        It is allocated through the pseudo-inverse of the posterior's own
+        angular map, with a relative cutoff that zeroes the directions the
+        posterior cannot yet actuate; at zero information the map is zero, the
+        pseudo-inverse is zero, and this seed is the held command.
+        """
+
+        quaternion = state[6:10] / jnp.maximum(jnp.linalg.norm(state[6:10]), 1e-9)
+        rotation = quaternion_to_rotation(quaternion)
+        # World up expressed in the body frame, which is the third row of the
+        # body-to-world rotation.
+        up_body = rotation[2, :]
+        levelling = jnp.stack((-up_body[1], up_body[0], jnp.zeros(())))
+        desired = levelling - state[10:13]
+        norm = jnp.linalg.norm(desired)
+        direction = jnp.where(
+            norm > 1e-9,
+            desired / jnp.maximum(norm, 1e-12),
+            jnp.zeros(3),
+        )
+        # Angular acceleration per unit decision variable, before the slew
+        # scale: the posterior's map composed with the command range.
+        effect = posterior.angular_per_command * self._jit_span[None, :]
+        move = jnp.linalg.pinv(effect, rtol=1e-3) @ direction
+        scale = jnp.max(jnp.abs(move))
+        return jnp.where(
+            scale > 1e-12,
+            move / jnp.maximum(scale, 1e-12),
+            jnp.zeros(_COMMAND_SIZE),
+        )
+
+    def _collective_move(self, posterior: _Posterior) -> Array:
+        """One slew-sized move along the posterior's own collective map.
+
+        The move is the map itself, rescaled so its largest entry is one, which
+        raises the predicted specific force by construction and does so through
+        the motors the posterior believes actually produce it.  At zero
+        information the map is zero and this seed is the held command.
+        """
+
+        effect = posterior.collective_per_command * self._jit_span
+        scale = jnp.max(jnp.abs(effect))
+        return jnp.where(
+            scale > 1e-12,
+            effect / jnp.maximum(scale, 1e-12),
+            jnp.zeros(_COMMAND_SIZE),
+        )
+
+    def _posterior_seed_blocks(
+        self,
+        warm_blocks: Array,
+        state: Array,
+        posterior: _Posterior,
+    ) -> Array:
+        """The eight seeds of the posterior-derived multi-start."""
+
+        hold = jnp.zeros((self.block_count, _COMMAND_SIZE))
+        directions = self._excitation_directions(posterior)
+        index = jnp.arange(self.block_count)
+        cycle = directions[index % _COMMAND_SIZE]
+        # Flip the polarity every completed cycle, so the alternating pattern
+        # is exactly zero-mean over any two cycles.
+        polarity = jnp.where((index // _COMMAND_SIZE) % 2 == 0, 1.0, -1.0)
+        alternating = polarity[:, None] * cycle
+        righting = hold.at[0].set(self._righting_move(state, posterior))
+        collective = hold.at[0].set(self._collective_move(posterior))
+        return jnp.stack(
+            (
+                warm_blocks,
+                hold,
+                cycle,
+                -cycle,
+                alternating,
+                -alternating,
+                righting,
+                collective,
+            )
+        )
+
     def _candidate_blocks(
         self,
         warm_blocks: Array,
         previous_command: Array,
         design_center: Array,
+        state: Array,
+        posterior: _Posterior,
     ) -> Array:
         """Every multi-start candidate, stacked for one vmapped evaluation."""
 
+        if self.config.multi_start and self.config.seed_family == "posterior_moves":
+            return self._posterior_seed_blocks(warm_blocks, state, posterior)
         cold = self._cold_blocks(previous_command)
         candidates = [warm_blocks, cold]
         if self.config.multi_start:
@@ -739,15 +1093,19 @@ class DualControlNMPC:
         blocks: Array,
         state: Array,
         posterior: _Posterior,
-    ) -> tuple[Array, Array, Array, Array, Array, Array]:
+        previous_command: Array,
+    ) -> _Rollout:
         """Roll the known kinematics forward on the posterior-mean command maps.
 
         Returns the commands, the per-step tracking cost, the chord tilt, the
-        altitude, and the two angular nuisance regressor blocks the identifier
-        residualizes its command Gram against.
+        altitude, the regressors the identifier would see at each step, and the
+        predicted specific force and rate magnitude.
         """
 
-        commands = self._commands_from_normalized(self._expand(blocks))
+        if self.config.plan_parameterization == "slew_moves":
+            commands = self._expand(self._plan_command_blocks(blocks, previous_command))
+        else:
+            commands = self._commands_from_normalized(self._expand(blocks))
         period = self.config.sample_period_s
         gravity = jnp.asarray((0.0, 0.0, -GRAVITY_M_S2))
 
@@ -827,13 +1185,15 @@ class DualControlNMPC:
                 # nuisance regressors the plan implies are the pre-step ones.
                 angular_velocity,
                 rate_products,
+                body_velocity,
+                specific_force,
+                jnp.linalg.norm(next_angular_velocity),
             )
 
         quaternion = state[6:10] / jnp.maximum(jnp.linalg.norm(state[6:10]), 1e-9)
         initial = (state[2], state[3:6], quaternion, state[10:13])
         _, outputs = jax.lax.scan(step, initial, commands)
-        tracking, tilt, altitude, angular_velocity, rate_products = outputs
-        return commands, tracking, tilt, altitude, angular_velocity, rate_products
+        return _Rollout(commands, *outputs)
 
     def _information_features(
         self,
@@ -1013,6 +1373,95 @@ class DualControlNMPC:
         altitude_spread = jnp.cumsum(period * vertical_speed_spread)
         return rate_spread, tilt_spread, vertical_speed_spread, altitude_spread
 
+    def _spreads_trajectory(
+        self,
+        rollout: _Rollout,
+        posterior: _Posterior,
+    ) -> tuple[Array, Array, Array, Array]:
+        """Per-step spread from the full-regressor posterior the plan implies.
+
+        The command-marginal model above asks what a command drawn from the box
+        would be worth on average.  This one asks the narrower question the goal
+        actually needs: given the states this plan says the vehicle will be in,
+        and given that the plan's own regressors will have been absorbed by the
+        time the horizon ends, how well is the response known *at the points
+        the plan visits*?  The regressors are the identifier's own — the
+        normalized command, the nuisance block, and the intercept — so the
+        planned information is the accumulated Gram plus the plan's own outer
+        products, in the same basis, and no residualization is needed or
+        wanted: a plan that moves a nuisance regressor is buying real
+        information about the coefficient it multiplies.
+
+        The one coupling the command-marginal model has no way to express is
+        the decisive one here.  Specific force acts along the body ``z`` axis,
+        so an uncertain attitude turns a *known* thrust into an unknown
+        acceleration direction: the acceleration spread carries ``|f|
+        sigma_tilt`` alongside the collective's own spread.  Thrusting while
+        the attitude is uncertain is therefore charged for the velocity it
+        might produce sideways, and levelling first is worth something in the
+        same units as the goal.
+        """
+
+        period = self.config.sample_period_s
+        steps = rollout.commands.shape[0]
+        normalized = (rollout.commands - self._jit_midpoint) / self._jit_span
+        ones = jnp.ones((steps, 1))
+        collective_features = jnp.concatenate(
+            (normalized, rollout.body_velocity, ones),
+            axis=1,
+        )
+        angular_features = jnp.concatenate(
+            (normalized, rollout.angular_velocity, rollout.rate_products, ones),
+            axis=1,
+        )
+        collective_variance = jnp.maximum(posterior.collective_residual_variance, 1e-12)
+        collective_precision = (
+            posterior.collective_information
+            + collective_features.T @ collective_features
+        ) / collective_variance + self.config.epsilon * jnp.eye(
+            _COLLECTIVE_FEATURE_SIZE
+        )
+        force_spread = _safe_sqrt(
+            jnp.einsum(
+                "ti,ij,tj->t",
+                collective_features,
+                jnp.linalg.inv(collective_precision),
+                collective_features,
+            )
+        )
+        # The three angular axes share one Gram and one planned design and
+        # differ only in their residual variance, so one inverse per axis is
+        # the whole cost.
+        angular_gram = (
+            posterior.angular_information + angular_features.T @ angular_features
+        )
+
+        def axis_variance(variance: Array) -> Array:
+            precision = angular_gram / jnp.maximum(
+                variance, 1e-12
+            ) + self.config.epsilon * jnp.eye(_ANGULAR_FEATURE_SIZE)
+            return jnp.einsum(
+                "ti,ij,tj->t",
+                angular_features,
+                jnp.linalg.inv(precision),
+                angular_features,
+            )
+
+        angular_spread = _safe_sqrt(
+            jnp.sum(
+                jax.vmap(axis_variance)(posterior.angular_residual_variance),
+                axis=0,
+            )
+        )
+        rate_spread = jnp.cumsum(period * angular_spread)
+        tilt_spread = jnp.cumsum(period * rate_spread)
+        acceleration_spread = (
+            force_spread + jnp.abs(rollout.specific_force) * tilt_spread
+        )
+        velocity_spread = jnp.cumsum(period * acceleration_spread)
+        altitude_spread = jnp.cumsum(period * velocity_spread)
+        return rate_spread, tilt_spread, velocity_spread, altitude_spread
+
     def _terms(
         self,
         blocks: Array,
@@ -1023,25 +1472,23 @@ class DualControlNMPC:
     ) -> _Terms:
         """Every objective term, plus the chance-constraint activity it implies."""
 
-        (
-            commands,
-            tracking,
-            tilt,
-            altitude,
-            angular_velocity,
-            rate_products,
-        ) = self._rollout(blocks, state, posterior)
+        rollout = self._rollout(blocks, state, posterior, previous_command)
+        commands = rollout.commands
         features = self._information_features(
             commands,
-            angular_velocity,
-            rate_products,
+            rollout.angular_velocity,
+            rollout.rate_products,
         )
+        if self.config.spread_model == "planned_trajectory":
+            spreads = self._spreads_trajectory(rollout, posterior)
+        else:
+            spreads = self._spreads(commands, features, posterior)
         (
             rate_spread,
             tilt_spread,
             vertical_speed_spread,
             altitude_spread,
-        ) = self._spreads(commands, features, posterior)
+        ) = spreads
         moves = jnp.diff(
             jnp.concatenate((previous_command[None, :], commands), axis=0),
             axis=0,
@@ -1058,6 +1505,31 @@ class DualControlNMPC:
                 + jnp.sum(squared_moves[1:])
             )
         gain = self._information_gain(features, posterior)
+        rate_cap = self.config.spread_cap * self.config.body_rate_tolerance_rad_s
+        tilt_cap = self.config.spread_cap * self.config.tilt_tolerance_rad
+        velocity_cap = self.config.spread_cap * self.config.velocity_tolerance_m_s
+        altitude_cap = self.config.spread_cap * self.config.altitude_tolerance_m
+        if self.config.spread_model == "planned_trajectory":
+            # Clipping, rather than dropping, is what keeps every chance
+            # penalty live.  A spread past the cap says "unknown", and what a
+            # bounded charge for "unknown" buys is that no plan can profit by
+            # making the prediction worse, while a plan whose own excitation
+            # brings a channel back under the cap is charged strictly less.
+            # The gradient goes flat inside a saturated channel; the seeds, not
+            # the gradient, are what move the plan there.
+            altitude_saturated = altitude_spread > altitude_cap
+            tilt_saturated = tilt_spread > tilt_cap
+            rate_spread = jnp.minimum(rate_spread, rate_cap)
+            tilt_spread = jnp.minimum(tilt_spread, tilt_cap)
+            vertical_speed_spread = jnp.minimum(vertical_speed_spread, velocity_cap)
+            altitude_spread = jnp.minimum(altitude_spread, altitude_cap)
+            altitude_supported = jnp.ones_like(altitude_spread, dtype=bool)
+            tilt_supported = jnp.ones_like(tilt_spread, dtype=bool)
+        else:
+            altitude_supported = altitude_spread <= altitude_cap
+            tilt_supported = tilt_spread <= tilt_cap
+            altitude_saturated = ~altitude_supported
+            tilt_saturated = ~tilt_supported
         if self.config.objective == "expected_cost":
             # ``trace(W Sigma_x,k)`` on the same tolerances the tracking cost
             # normalizes by, so a metre of predicted spread and a metre of
@@ -1072,20 +1544,34 @@ class DualControlNMPC:
         else:
             spread_charge = jnp.asarray(0.0)
 
-        altitude_cap = self.config.spread_cap * self.config.altitude_tolerance_m
-        tilt_cap = self.config.spread_cap * self.config.tilt_tolerance_rad
-        altitude_supported = altitude_spread <= altitude_cap
-        tilt_supported = tilt_spread <= tilt_cap
         altitude_breach = jnp.maximum(
             self.config.altitude_floor_m
             + self.config.beta * altitude_spread
-            - altitude,
+            - rollout.altitude,
             0.0,
         )
         tilt_breach = jnp.maximum(
-            tilt + self.config.beta * tilt_spread - self.config.maximum_tilt_rad,
+            rollout.tilt
+            + self.config.beta * tilt_spread
+            - self.config.maximum_tilt_rad,
             0.0,
         )
+        if self.config.charge_body_rate_limit:
+            # The declared rate limit, charged in exactly the form the tilt
+            # limit is: predicted magnitude plus a reserved spread, past the
+            # declared maximum, squared.
+            body_rate_penalty = jnp.sum(
+                jnp.square(
+                    jnp.maximum(
+                        rollout.rate_norm
+                        + self.config.beta * rate_spread
+                        - self.config.maximum_body_rate_rad_s,
+                        0.0,
+                    )
+                )
+            )
+        else:
+            body_rate_penalty = jnp.asarray(0.0)
         # A spread wider than the cap makes the chance constraint say nothing,
         # so the penalty is dropped from the objective and therefore from the
         # gradient.  At zero information this leaves the spread charge, the
@@ -1096,19 +1582,21 @@ class DualControlNMPC:
         )
         tilt_penalty = jnp.sum(jnp.where(tilt_supported, jnp.square(tilt_breach), 0.0))
         return _Terms(
-            tracking=jnp.sum(tracking),
+            tracking=jnp.sum(rollout.tracking),
             spread_charge=spread_charge,
             command_rate=command_rate,
             information_gain=gain,
             altitude_penalty=altitude_penalty,
             tilt_penalty=tilt_penalty,
+            body_rate_penalty=body_rate_penalty,
             maximum_rate_spread=jnp.max(rate_spread),
             maximum_tilt_spread=jnp.max(tilt_spread),
+            maximum_velocity_spread=jnp.max(vertical_speed_spread),
             maximum_altitude_spread=jnp.max(altitude_spread),
             altitude_active_steps=jnp.sum((altitude_breach > 0.0) & altitude_supported),
             tilt_active_steps=jnp.sum((tilt_breach > 0.0) & tilt_supported),
-            altitude_saturated_steps=jnp.sum(~altitude_supported),
-            tilt_saturated_steps=jnp.sum(~tilt_supported),
+            altitude_saturated_steps=jnp.sum(altitude_saturated),
+            tilt_saturated_steps=jnp.sum(tilt_saturated),
         )
 
     def _objective(
@@ -1138,6 +1626,7 @@ class DualControlNMPC:
             - information
             + terms.altitude_penalty
             + terms.tilt_penalty
+            + terms.body_rate_penalty
         )
 
     def _plan_diagnostics(
@@ -1145,6 +1634,7 @@ class DualControlNMPC:
         blocks: Array,
         state: Array,
         posterior: _Posterior,
+        previous_command: Array,
     ) -> tuple[Array, Array]:
         """Realized amplitude and planned information rank of a finished plan.
 
@@ -1153,18 +1643,11 @@ class DualControlNMPC:
         design produces.
         """
 
-        (
-            commands,
-            _tracking,
-            _tilt,
-            _altitude,
-            angular_velocity,
-            rate_products,
-        ) = self._rollout(blocks, state, posterior)
+        rollout = self._rollout(blocks, state, posterior, previous_command)
         features = self._information_features(
-            commands,
-            angular_velocity,
-            rate_products,
+            rollout.commands,
+            rollout.angular_velocity,
+            rollout.rate_products,
         )
         amplitude = jnp.max(jnp.abs(features - jnp.mean(features, axis=0)))
         planned = features.T @ features
@@ -1378,6 +1861,8 @@ class DualControlNMPC:
             warm_blocks,
             previous_command,
             design_center,
+            state,
+            posterior,
         )
         values = jax.vmap(
             lambda candidate: self._objective(
@@ -1419,11 +1904,17 @@ class DualControlNMPC:
             previous_command,
             initial_rate_scale,
         )
-        amplitude, rank = self._plan_diagnostics(final_blocks, state, posterior)
-        commands = self._commands_from_normalized(self._expand(final_blocks))
-        plan = self._commands_from_normalized(final_blocks)
+        amplitude, rank = self._plan_diagnostics(
+            final_blocks,
+            state,
+            posterior,
+            previous_command,
+        )
+        # The executed command is the plan's first block, whatever the
+        # parameterization: the horizon holds each block over its own steps.
+        plan = self._plan_command_blocks(final_blocks, previous_command)
         return (
-            commands[0],
+            plan[0],
             plan,
             final_value,
             seed_value,
@@ -1534,8 +2025,10 @@ class DualControlNMPC:
             information_gain=0.0,
             altitude_penalty=0.0,
             tilt_penalty=0.0,
+            body_rate_penalty=0.0,
             maximum_rate_spread_rad_s=0.0,
             maximum_tilt_spread_rad=0.0,
+            maximum_velocity_spread_m_s=0.0,
             maximum_altitude_spread_m=0.0,
             altitude_constraint_active_steps=0,
             tilt_constraint_active_steps=0,
@@ -1579,6 +2072,11 @@ class DualControlNMPC:
             collective_residual_variance=jnp.asarray(
                 float(belief.collective_residual_std_m_s2) ** 2
             ),
+            collective_information=jnp.asarray(belief.collective_information),
+            angular_information=jnp.asarray(belief.angular_information),
+            angular_residual_variance=jnp.asarray(
+                np.square(belief.angular_residual_std_rad_s2)
+            ),
         )
 
     @staticmethod
@@ -1594,6 +2092,8 @@ class DualControlNMPC:
             and np.all(np.isfinite(belief.normalized_command_information))
             and np.all(np.isfinite(belief.supported_collective_effect_covariance))
             and np.all(np.isfinite(belief.supported_angular_effect_covariance))
+            and np.all(np.isfinite(belief.collective_information))
+            and np.all(np.isfinite(belief.angular_information))
             and math.isfinite(belief.collective_residual_std_m_s2)
         )
 
@@ -1607,12 +2107,25 @@ class DualControlNMPC:
         The plan is parameterized at block granularity, so the seed is shifted
         at that granularity too: its first block is the previous plan's second,
         and its final block repeats the previous plan's last.
+
+        Under ``"slew_moves"`` the shift happens on the previous plan's
+        absolute commands and the result is converted back into moves from the
+        command the vehicle is now holding.  The previous plan's first block is
+        the one that was executed, so the held command is where the shifted
+        plan already starts, and every move in the shifted plan is a move the
+        previous solve had already chosen; the clip to the slew box is
+        therefore a formality except when the box clipped the plan.
         """
 
-        cold = np.repeat(
-            (2.0 * (held - self._minimum) / self._span - 1.0)[None, :],
-            self.block_count,
-            axis=0,
+        moves = self.config.plan_parameterization == "slew_moves"
+        cold = (
+            np.zeros((self.block_count, _COMMAND_SIZE))
+            if moves
+            else np.repeat(
+                (2.0 * (held - self._minimum) / self._span - 1.0)[None, :],
+                self.block_count,
+                axis=0,
+            )
         )
         if warm_start is None:
             return cold, False
@@ -1627,6 +2140,12 @@ class DualControlNMPC:
             return cold, False
         bounded = np.clip(commands, self._minimum, self._maximum)
         shifted = np.concatenate((bounded[1:], bounded[-1:]), axis=0)
+        if moves:
+            steps = np.diff(
+                np.concatenate((held[None, :], shifted), axis=0),
+                axis=0,
+            )
+            return np.clip(steps / self._slew_step, -1.0, 1.0), True
         normalized = 2.0 * (shifted - self._minimum) / self._span - 1.0
         return np.clip(normalized, -1.0, 1.0), True
 
@@ -1708,6 +2227,18 @@ class DualControlNMPC:
                 charged_initial_transition=charged,
             )
         bounded = np.clip(command_array, self._minimum, self._maximum)
+        if self.config.plan_parameterization == "slew_moves":
+            # The declared limits are enforced here, in double precision, for
+            # the same reason the command box is: the solve runs in the JAX
+            # default precision and a rounded decision variable can land a
+            # fraction of an ulp outside a bound the caller was promised.  The
+            # slew window always contains the held command, so this clip can
+            # never push the command back out of the box.
+            bounded = np.clip(
+                bounded,
+                held - self._slew_step,
+                held + self._slew_step,
+            )
         if bool(failed):
             status = SolveStatus.LINE_SEARCH_FAILED
         elif bool(converged):
@@ -1730,8 +2261,10 @@ class DualControlNMPC:
             information_gain=float(terms.information_gain),
             altitude_penalty=float(terms.altitude_penalty),
             tilt_penalty=float(terms.tilt_penalty),
+            body_rate_penalty=float(terms.body_rate_penalty),
             maximum_rate_spread_rad_s=float(terms.maximum_rate_spread),
             maximum_tilt_spread_rad=float(terms.maximum_tilt_spread),
+            maximum_velocity_spread_m_s=float(terms.maximum_velocity_spread),
             maximum_altitude_spread_m=float(terms.maximum_altitude_spread),
             altitude_constraint_active_steps=int(terms.altitude_active_steps),
             tilt_constraint_active_steps=int(terms.tilt_active_steps),

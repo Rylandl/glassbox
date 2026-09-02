@@ -19,6 +19,15 @@ class CrazyflowUnavailableError(RuntimeError):
     """Raised when the optional pinned Crazyflow dependency is unavailable."""
 
 
+class CrazyflowDivergenceError(ValueError):
+    """Raised when the simulator hands back a state that is not finite.
+
+    A ``ValueError`` so every caller that already refuses a non-finite state
+    keeps refusing it, and a distinct type so a campaign that wants to record a
+    diverged release and carry on can catch exactly that and nothing else.
+    """
+
+
 def _finite_vector(name: str, value: Any, size: int) -> np.ndarray:
     result = np.asarray(value, dtype=np.float64)
     if result.shape != (size,) or not np.all(np.isfinite(result)):
@@ -71,10 +80,13 @@ def crazyflow_state_to_canonical(
 ) -> np.ndarray:
     """Convert one Crazyflow state into canonical NWU/FLU WXYZ storage."""
 
-    position = _finite_vector("Crazyflow position", pos, 3)
-    velocity = _finite_vector("Crazyflow velocity", vel, 3)
-    quaternion = _finite_vector("Crazyflow quaternion", quat_xyzw, 4)
-    angular_velocity = _finite_vector("Crazyflow angular velocity", ang_vel, 3)
+    try:
+        position = _finite_vector("Crazyflow position", pos, 3)
+        velocity = _finite_vector("Crazyflow velocity", vel, 3)
+        quaternion = _finite_vector("Crazyflow quaternion", quat_xyzw, 4)
+        angular_velocity = _finite_vector("Crazyflow angular velocity", ang_vel, 3)
+    except ValueError as error:
+        raise CrazyflowDivergenceError(str(error)) from None
     norm = np.linalg.norm(quaternion)
     if norm < 1e-9:
         raise ValueError("Crazyflow state quaternion must have nonzero norm")

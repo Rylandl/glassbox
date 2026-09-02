@@ -177,6 +177,18 @@ class RecursiveBootstrapBelief:
     normalized_command_information: np.ndarray
     supported_collective_effect_covariance: np.ndarray
     supported_angular_effect_covariance: np.ndarray
+    #: The raw accumulated, forgetting-weighted Gram of each regression, in the
+    #: identifier's own feature order: ``[normalized command (4), body velocity
+    #: (3), 1]`` for the collective fit and ``[normalized command (4), body rate
+    #: (3), rate products (3), 1]`` for the angular one.  These are the whole
+    #: evidence the fits are solved from, before any support rule, Schur
+    #: complement, or rescaling to raw command units; the two covariance fields
+    #: above are what that evidence implies about the *command* block alone.
+    #: A planner that wants the posterior of the full regressor set — because
+    #: its plan moves the nuisance regressors as well as the commands — needs
+    #: these rather than the reduced summaries.
+    collective_information: np.ndarray
+    angular_information: np.ndarray
     command_evidence_rank: int
     angular_effect_rank: int
     collective_nuisance_rank: int
@@ -222,6 +234,8 @@ class RecursiveBootstrapBelief:
             "normalized_command_information": (4, 4),
             "supported_collective_effect_covariance": (4, 4),
             "supported_angular_effect_covariance": (3, 4, 4),
+            "collective_information": (8, 8),
+            "angular_information": (11, 11),
             "angular_output_support_projector": (3, 3),
             "angular_effect_signal_to_noise": (3,),
             "angular_residual_std_rad_s2": (3,),
@@ -374,6 +388,8 @@ class RecursiveBootstrapBelief:
             "supported_angular_effect_covariance": (
                 self.supported_angular_effect_covariance.tolist()
             ),
+            "collective_information": self.collective_information.tolist(),
+            "angular_information": self.angular_information.tolist(),
             "effect_covariance_scope": "supported_subspace_only",
             "command_evidence_rank": self.command_evidence_rank,
             "angular_effect_rank": self.angular_effect_rank,
@@ -767,6 +783,8 @@ class RecursiveBootstrapIdentifier:
             normalized_command_information=np.zeros((4, 4)),
             supported_collective_effect_covariance=np.zeros((4, 4)),
             supported_angular_effect_covariance=np.zeros((3, 4, 4)),
+            collective_information=np.zeros((8, 8)),
+            angular_information=np.zeros((11, 11)),
             command_evidence_rank=0,
             angular_effect_rank=0,
             collective_nuisance_rank=0,
@@ -1797,6 +1815,8 @@ class RecursiveBootstrapIdentifier:
             normalized_command_information=fit.angular_residual_information,
             supported_collective_effect_covariance=fit.collective_effect_covariance,
             supported_angular_effect_covariance=fit.angular_effect_covariance,
+            collective_information=self._force_gram,
+            angular_information=self._angular_gram,
             command_evidence_rank=fit.angular_command_rank,
             angular_effect_rank=authority.angular_effect_rank,
             collective_nuisance_rank=fit.force_nuisance_rank,

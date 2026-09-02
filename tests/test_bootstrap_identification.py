@@ -977,3 +977,57 @@ def test_collective_sign_projection_leaves_a_positive_fit_untouched() -> None:
 def test_staging_sample_multiple_below_one_is_rejected() -> None:
     with pytest.raises(ValueError, match="staging_sample_multiple"):
         RecursiveBootstrapConfig(staging_sample_multiple=0.5)
+
+
+def test_recursive_belief_exposes_the_accumulated_regression_grams() -> None:
+    """The whole evidence, not only the summaries the fits reduce it to.
+
+    A planner whose plan moves the nuisance regressors as well as the commands
+    cannot work from the command-block summaries: it needs the Gram in the
+    identifier's own feature order.  Exposing it is only honest if it is
+    demonstrably the same evidence the reported command information is derived
+    from, so the Schur complement is recomputed here through the identifier's
+    own nuisance pseudo-inverse rule and compared, and the Loewner ordering the
+    complement must satisfy is checked alongside it.
+    """
+
+    empty = RecursiveBootstrapIdentifier().belief
+    assert empty.collective_information.shape == (8, 8)
+    assert empty.angular_information.shape == (11, 11)
+    assert np.all(empty.collective_information == 0.0)
+    assert np.all(empty.angular_information == 0.0)
+    assert not empty.collective_information.flags.writeable
+    assert not empty.angular_information.flags.writeable
+
+    identifier, _, _ = _update_recursive_identifier(_excitation(80))
+    belief = identifier.belief
+    collective = belief.collective_information
+    angular = belief.angular_information
+
+    assert np.allclose(collective, collective.T)
+    assert np.allclose(angular, angular.T)
+    assert np.all(np.linalg.eigvalsh(collective) >= -1e-8)
+    assert np.all(np.linalg.eigvalsh(angular) >= -1e-8)
+    # Both regressions read the same normalized command off the same samples,
+    # so their command blocks are the same accumulated outer products.
+    assert np.allclose(collective[:4, :4], angular[:4, :4])
+    assert np.trace(angular[:4, :4]) > 0.0
+
+    nuisance_inverse, _ = RecursiveBootstrapIdentifier._nuisance_inverse(
+        angular[4:, 4:],
+        relative_tolerance=identifier.config.nuisance_rank_relative_tolerance,
+    )
+    complement = (
+        angular[:4, :4] - angular[:4, 4:] @ nuisance_inverse @ angular[:4, 4:].T
+    )
+    complement = 0.5 * (complement + complement.T)
+    assert np.allclose(complement, belief.normalized_command_information, atol=1e-8)
+    # Residualizing can only remove information, never add it.
+    assert np.all(
+        np.linalg.eigvalsh(angular[:4, :4] - belief.normalized_command_information)
+        >= -1e-8
+    )
+
+    recorded = belief.to_dict()
+    assert np.allclose(recorded["collective_information"], collective)
+    assert np.allclose(recorded["angular_information"], angular)

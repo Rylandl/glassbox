@@ -6,6 +6,18 @@ All notable changes to Glassbox are recorded here. The format follows
 ## Unreleased
 
 ### Added
+- Dual-control NMPC pass five (`dual_control_nmpc_pass5`): one goal over a
+  one-second horizon of slew-bounded moves, with the spread propagated from the
+  full-regressor planned posterior along the planned trajectory and coupled
+  through `|f| sigma_tilt`, a declared maximum body rate charged as a chance
+  penalty, and every multi-start seed derived from the posterior and the state
+  instead of a declared amplitude ladder. `RecursiveBootstrapBelief` now exposes
+  the two accumulated regression Grams the seeds and the spread read from. The
+  pass is a recorded negative result: it does not recover the throw diagnostic
+  on any release, and `docs/concepts/dual-control-nmpc.md` records why.
+- The Crazyflow plant raises `CrazyflowDivergenceError`, a `ValueError`, when
+  the simulator hands back a non-finite state, and the throw ensemble records
+  such a release as a diverged, unrecovered trial instead of ending the run.
 - `glassbox record-results` regenerates the recorded artifacts under
   `docs/results/` from one manifest, in-process, with `--list`, `--dry-run`,
   `--only`, and `--include-slow`.
