@@ -90,7 +90,7 @@ on demand.
 
 | Area | Modules |
 | --- | --- |
-| Core | `data`, `dynamics`, `model_family`, `geometry`, `px4_frames`, `linearization`, `covariance`, `identification`, `evaluation`, `runtime`, `model_io`, `synthetic`, `fixedwing_synthetic` |
+| Core | `data`, `dynamics`, `families`, `geometry`, `px4_frames`, `linearization`, `covariance`, `identification`, `evaluation`, `runtime`, `model_io`, `synthetic`, `fixedwing_synthetic` |
 | Beliefs | `belief`, `belief_io`, `parameter_evidence`, `parameter_prior`, `adaptation` |
 | Control | `nmpc/`, `flight_supervisor`, `bootstrap_identification`, `online_bootstrap`, `angular_authority` |
 | Telemetry and corpora | `px4_ulog`, `sitl_profile`, `fixedwing_sitl_profile`, `nanodrone_*`, `arp_reference`, `idf_reference`, `x8_*`, `epfl_*` |

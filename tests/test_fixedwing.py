@@ -19,6 +19,7 @@ from glassbox.dynamics import (
     step_with_latent,
 )
 from glassbox.evaluation import rollout_metrics
+from glassbox.families import FIXED_WING_FAMILY, family_for_platform
 from glassbox.fit_cli import fit_trajectory_artifacts
 from glassbox.fixedwing_synthetic import (
     TRIM_AIRSPEED_M_S,
@@ -28,7 +29,6 @@ from glassbox.fixedwing_synthetic import (
     true_fixed_wing_parameters,
 )
 from glassbox.identification import fit_dynamics
-from glassbox.model_family import FIXED_WING_FAMILY, family_for_platform
 from glassbox.profile_benchmark import benchmark_profiles
 
 

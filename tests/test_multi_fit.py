@@ -1,10 +1,12 @@
 import json
+import sys
 from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
 import pytest
 
+from glassbox import fit_cli
 from glassbox.data import save_trajectory_npz
 from glassbox.evaluation import (
     kinematic_persistence_windowed_metrics,
@@ -12,6 +14,7 @@ from glassbox.evaluation import (
     windowed_rollout_metrics,
 )
 from glassbox.fit_cli import (
+    BenchmarkSplitHoldoutConflict,
     _automatic_training_window_budget,
     _dataset_contract,
     fit_trajectory_artifacts,
@@ -229,6 +232,146 @@ def test_multi_flight_fit_reserves_complete_final_flight(tmp_path) -> None:
     assert np.isfinite(
         report["comparison"]["aggregate_full_rollout"]["position_rmse_m"]
     )
+
+
+def _write_benchmark_split_flights(tmp_path, splits) -> list[Path]:
+    paths = []
+    for seed, split in enumerate(splits):
+        path = tmp_path / f"flight_{seed}.npz"
+        trajectory = generate_trajectory(seed=seed, duration_s=0.4)
+        trajectory = replace(
+            trajectory,
+            labels={**trajectory.labels, "benchmark_split": split},
+        )
+        save_trajectory_npz(trajectory, path)
+        paths.append(path)
+    return paths
+
+
+def test_benchmark_split_labels_determine_holdout_regardless_of_argument_order(
+    tmp_path,
+) -> None:
+    paths = _write_benchmark_split_flights(
+        tmp_path, ("training", "training", "training", "validation")
+    )
+
+    _, _, forward_report = fit_trajectory_artifacts(
+        paths,
+        horizon=5,
+        steps=1,
+        run_no_lag_ablation=False,
+        evaluation_horizons_s=(0.1,),
+    )
+    _, _, reversed_report = fit_trajectory_artifacts(
+        list(reversed(paths)),
+        horizon=5,
+        steps=1,
+        run_no_lag_ablation=False,
+        evaluation_horizons_s=(0.1,),
+    )
+
+    for report in (forward_report, reversed_report):
+        assert report["split"]["mode"] == "benchmark_split_holdout"
+        assert report["split"]["benchmark_split_holdout"] is True
+        assert [
+            flight["path"] for flight in report["split"]["validation_flights"]
+        ] == [str(paths[3])]
+        assert {
+            flight["path"] for flight in report["split"]["training_flights"]
+        } == {str(paths[0]), str(paths[1]), str(paths[2])}
+        assert report["split"]["benchmark_split_training"] == [
+            "training",
+            "training",
+            "training",
+        ]
+        assert report["split"]["benchmark_split_validation"] == ["validation"]
+        assert report["configuration"]["holdout_count"] == 1
+
+
+def test_positional_holdout_still_follows_argument_order_without_labels(
+    tmp_path,
+) -> None:
+    paths = []
+    for seed in range(3):
+        path = tmp_path / f"flight_{seed}.npz"
+        save_trajectory_npz(generate_trajectory(seed=seed, duration_s=0.4), path)
+        paths.append(path)
+
+    _, _, forward_report = fit_trajectory_artifacts(
+        paths,
+        horizon=5,
+        steps=1,
+        run_no_lag_ablation=False,
+        evaluation_horizons_s=(0.1,),
+    )
+    _, _, reversed_report = fit_trajectory_artifacts(
+        list(reversed(paths)),
+        horizon=5,
+        steps=1,
+        run_no_lag_ablation=False,
+        evaluation_horizons_s=(0.1,),
+    )
+
+    assert forward_report["split"]["mode"] == "leave_complete_flights_out"
+    assert reversed_report["split"]["mode"] == "leave_complete_flights_out"
+    assert [
+        flight["path"] for flight in forward_report["split"]["validation_flights"]
+    ] == [str(paths[2])]
+    assert [
+        flight["path"] for flight in reversed_report["split"]["validation_flights"]
+    ] == [str(paths[0])]
+
+
+def test_benchmark_split_holdout_rejects_an_explicit_holdout_count(tmp_path) -> None:
+    paths = _write_benchmark_split_flights(tmp_path, ("training", "validation"))
+
+    with pytest.raises(BenchmarkSplitHoldoutConflict, match="holdout_count"):
+        fit_trajectory_artifacts(paths, holdout_count=2, steps=1)
+
+
+def test_benchmark_split_holdout_rejects_explicit_holdout_profiles(tmp_path) -> None:
+    paths = []
+    for seed, split in enumerate(("training", "validation")):
+        path = tmp_path / f"flight_{seed}.npz"
+        trajectory = generate_trajectory(seed=seed, duration_s=0.4)
+        trajectory = replace(
+            trajectory,
+            labels={
+                **trajectory.labels,
+                "benchmark_split": split,
+                "profile": "hover",
+            },
+        )
+        save_trajectory_npz(trajectory, path)
+        paths.append(path)
+
+    with pytest.raises(BenchmarkSplitHoldoutConflict, match="holdout_profiles"):
+        fit_trajectory_artifacts(paths, holdout_profiles=("hover",), steps=1)
+
+
+def test_fit_cli_rejects_holdout_count_when_benchmark_split_labels_are_present(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    paths = _write_benchmark_split_flights(tmp_path, ("training", "validation"))
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "glassbox-fit",
+            *(str(path) for path in paths),
+            "--holdout-count",
+            "2",
+            "--steps",
+            "1",
+        ],
+    )
+
+    with pytest.raises(SystemExit) as excinfo:
+        fit_cli.main()
+
+    assert excinfo.value.code == 2
+    assert "benchmark_split" in capsys.readouterr().err
 
 
 def test_requested_fit_builds_rank_aware_parameter_evidence(tmp_path) -> None:

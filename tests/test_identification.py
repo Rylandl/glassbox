@@ -1,5 +1,6 @@
 from dataclasses import replace
 
+import jax
 import jax.numpy as jnp
 import numpy as np
 import pytest
@@ -412,3 +413,18 @@ def test_fit_warns_when_rotational_response_starts_at_the_sentinel() -> None:
     )
     with pytest.warns(UserWarning, match="memoryless sentinel"):
         fit_dynamics(windows, true_parameters(), steps=1)
+
+
+def test_fit_reports_divergence_and_returns_finite_parameters() -> None:
+    windows = trajectory_windows(
+        [generate_trajectory(seed=5, duration_s=0.4)], horizon=5, stride=5
+    )
+
+    result = fit_dynamics(windows, initial_parameter_guess(), steps=20, learning_rate=50.0)
+
+    assert result.diverged
+    assert result.completed_steps is not None and result.completed_steps < 20
+    assert all(bool(jnp.all(jnp.isfinite(leaf))) for leaf in jax.tree.leaves(result.params))
+    assert np.isfinite(result.final_loss)
+    assert np.all(np.isfinite(result.loss_history))
+    assert len(result.loss_history) == result.completed_steps + 2

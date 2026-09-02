@@ -95,6 +95,7 @@ def test_published_x8_variants_are_finite_and_the_documented_one_beats_persisten
     campaign's inferred vertical wind) beats it on attitude at half a second.
     """
 
+    pytest.importorskip("cascade")
     from glassbox.integrations.cascade import predict_windows, x8_variant_models
 
     trajectory = _load_x8_validation()
@@ -126,6 +127,7 @@ def test_published_x8_variants_are_finite_and_the_documented_one_beats_persisten
 
 @pytest.mark.cascade
 def test_residual_regressions_vanish_on_a_cascade_generated_trajectory() -> None:
+    pytest.importorskip("cascade")
     from glassbox.integrations.cascade import (
         CascadePlant,
         residual_regressions,

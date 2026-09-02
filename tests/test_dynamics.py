@@ -6,6 +6,7 @@ import pytest
 from glassbox.dynamics import (
     MOTOR_MIXER,
     DynamicsParams,
+    FixedWingDynamicsParams,
     hover_control,
     initial_residual_parameters,
     rollout,
@@ -328,3 +329,85 @@ def test_memoryless_sentinel_is_detected_and_excluded_from_the_fitted_mask() -> 
     assert not sentinel_mask[response_leaves].any()
     lagged_mask = fitted_structured_parameter_mask(initial_parameter_guess())
     assert lagged_mask[response_leaves].all()
+
+
+def test_residual_angular_authority_scales_the_realized_correction() -> None:
+    structured = true_parameters()
+    residual = initial_residual_parameters(structured)
+    rng = np.random.default_rng(3)
+    # Activate the residual so the angular correction is far from zero and the
+    # tanh bound is partly saturated.
+    residual = residual._replace(
+        output_weights=jnp.asarray(rng.normal(scale=3.0, size=residual.output_weights.shape)),
+        hidden_weights=jnp.asarray(rng.normal(scale=1.0, size=residual.hidden_weights.shape)),
+    )
+    state = jnp.asarray(resting_state()).at[3:6].set(jnp.asarray([1.0, -0.5, 0.2]))
+    state = state.at[10:13].set(jnp.asarray([0.4, -0.3, 0.2]))
+    motors = hover_control(structured) + 0.05 * MOTOR_MIXER[0]
+
+    full = state_derivative(residual, state, motors)
+    half = state_derivative(with_angular_dynamics_authority(residual, 0.5), state, motors)
+
+    assert float(jnp.linalg.norm(full[10:13])) > 1e-3
+    np.testing.assert_allclose(half[:10], full[:10], rtol=1e-6, atol=1e-7)
+    np.testing.assert_allclose(half[10:13], 0.5 * full[10:13], rtol=1e-5, atol=1e-7)
+
+
+def test_cascaded_lag_is_smooth_near_equal_time_constants() -> None:
+    from glassbox.dynamics import _angular_response_at
+
+    def response(delta: float) -> np.ndarray:
+        params = DynamicsParams.from_physical(
+            thrust_accel=5.4,
+            angular_accel=(18.0, 16.5, 7.5),
+            linear_drag=0.18,
+            angular_drag=(0.24, 0.21, 0.13),
+            motor_time_constant=0.05,
+            angular_response_time_constant=tuple(0.05 * (1.0 + delta) for _ in range(3)),
+        )
+        initial_applied = hover_control(params)
+        commanded = initial_applied + 0.1 * MOTOR_MIXER[1]
+        return np.asarray(
+            _angular_response_at(params, initial_applied, jnp.zeros(3), commanded, 0.02)
+        )
+
+    reference = response(0.0)
+    assert np.all(np.isfinite(reference)) and float(np.max(np.abs(reference))) > 1e-3
+    for delta in (1e-7, 1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1):
+        deviation = np.max(np.abs(response(delta) - reference) / np.maximum(np.abs(reference), 1e-6))
+        assert deviation <= 5.0 * delta + 2e-4, (delta, deviation)
+
+
+def test_from_physical_rejects_out_of_range_inputs() -> None:
+    from glassbox.fixedwing_synthetic import true_fixed_wing_parameters
+
+    with pytest.raises(ValueError, match="thrust_accel must be finite and strictly positive"):
+        DynamicsParams.from_physical(
+            thrust_accel=-5.4,
+            angular_accel=(18.0, 16.5, 7.5),
+            linear_drag=0.18,
+            angular_drag=(0.24, 0.21, 0.13),
+            motor_time_constant=0.08,
+        )
+    with pytest.raises(ValueError, match="angular_control_cross_coupling"):
+        DynamicsParams.from_physical(
+            thrust_accel=5.4,
+            angular_accel=(18.0, 16.5, 7.5),
+            linear_drag=0.18,
+            angular_drag=(0.24, 0.21, 0.13),
+            motor_time_constant=0.08,
+            angular_control_cross_coupling=((0.0, 0.9, 0.0), (0.0, 0.0, 0.0), (0.0, 0.0, 0.0)),
+        )
+    physical = true_fixed_wing_parameters().physical()
+    kwargs = {
+        name: (
+            tuple(float(v) for v in np.asarray(value))
+            if np.ndim(value) > 0
+            else float(value)
+        )
+        for name, value in physical.items()
+    }
+    with pytest.raises(ValueError, match="surface_trim must lie strictly within"):
+        FixedWingDynamicsParams.from_physical(**{**kwargs, "surface_trim": (1.5, 0.0, 0.0)})
+    with pytest.raises(ValueError, match="lift_accel_per_speed_sq must be finite"):
+        FixedWingDynamicsParams.from_physical(**{**kwargs, "lift_accel_per_speed_sq": float("nan")})

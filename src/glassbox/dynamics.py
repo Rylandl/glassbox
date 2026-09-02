@@ -10,7 +10,7 @@ import jax.numpy as jnp
 import numpy as np
 from jax import Array
 
-from glassbox.model_family import (
+from glassbox.families import (
     FIXED_WING_FAMILY,
     MULTIROTOR_FAMILY,
     DynamicsModelFamily,
@@ -42,6 +42,24 @@ MOTOR_MIXER = jnp.asarray(
         [1.0, -1.0, 1.0, -1.0],
     ]
 )
+
+
+
+def _require_positive(name: str, value: object) -> None:
+    values = np.asarray(value, dtype=np.float64)
+    if not np.all(np.isfinite(values)) or np.any(values <= 0.0):
+        raise ValueError(f"{name} must be finite and strictly positive")
+
+
+def _require_finite(name: str, value: object) -> None:
+    if not np.all(np.isfinite(np.asarray(value, dtype=np.float64))):
+        raise ValueError(f"{name} must be finite")
+
+
+def _require_open_unit_interval(name: str, value: object) -> None:
+    values = np.asarray(value, dtype=np.float64)
+    if not np.all(np.isfinite(values)) or np.any(np.abs(values) >= 1.0):
+        raise ValueError(f"{name} must lie strictly within (-1, 1)")
 
 
 class DynamicsParams(NamedTuple):
@@ -95,16 +113,26 @@ class DynamicsParams(NamedTuple):
                 f"{-MAX_THRUST_COMMAND_OFFSET:g} and "
                 f"{MAX_THRUST_COMMAND_OFFSET:g}"
             )
+        _require_positive("thrust_accel", thrust_accel)
+        _require_positive("angular_accel", angular_accel)
+        _require_positive("linear_drag", linear_drag)
+        _require_positive("angular_drag", angular_drag)
+        _require_positive("motor_time_constant", motor_time_constant)
+        _require_positive(
+            "angular_response_time_constant", angular_response_time_constant
+        )
         cross_coupling = jnp.asarray(angular_control_cross_coupling)
         if cross_coupling.shape != (3, 3):
             raise ValueError(
                 "angular_control_cross_coupling must have shape (3, 3)"
             )
         cross_coupling = cross_coupling.at[jnp.diag_indices(3)].set(0.0)
-        normalized_cross_coupling = jnp.clip(
-            cross_coupling / MAX_ANGULAR_CONTROL_CROSS_COUPLING,
-            -0.999,
-            0.999,
+        normalized_cross_coupling = (
+            cross_coupling / MAX_ANGULAR_CONTROL_CROSS_COUPLING
+        )
+        _require_open_unit_interval(
+            f"angular_control_cross_coupling / {MAX_ANGULAR_CONTROL_CROSS_COUPLING:g}",
+            normalized_cross_coupling,
         )
         return cls(
             log_thrust_accel=jnp.log(jnp.asarray(thrust_accel)),
@@ -199,6 +227,33 @@ class FixedWingDynamicsParams(NamedTuple):
         flap_pitch_angular_accel_per_speed_sq: float = 0.0,
         flap_trim: float = 0.0,
     ) -> FixedWingDynamicsParams:
+        for name, value in (
+            ("thrust_accel", thrust_accel),
+            ("lift_accel_per_speed_sq", lift_accel_per_speed_sq),
+            ("lift_alpha_accel_per_speed_sq", lift_alpha_accel_per_speed_sq),
+            ("drag_accel_per_speed_sq", drag_accel_per_speed_sq),
+            ("side_force_accel_per_speed", side_force_accel_per_speed),
+            ("surface_angular_accel_per_speed_sq", surface_angular_accel_per_speed_sq),
+            ("pitch_stability_accel_per_speed_sq", pitch_stability_accel_per_speed_sq),
+            (
+                "lateral_stability_angular_accel_per_speed_sq",
+                lateral_stability_angular_accel_per_speed_sq,
+            ),
+            ("angular_drag_per_speed", angular_drag_per_speed),
+            ("actuator_time_constant", actuator_time_constant),
+            ("flap_lift_accel_per_speed_sq", flap_lift_accel_per_speed_sq),
+            ("flap_drag_accel_per_speed_sq", flap_drag_accel_per_speed_sq),
+        ):
+            _require_positive(name, value)
+        _require_finite(
+            "lateral_surface_cross_angular_accel_per_speed_sq",
+            lateral_surface_cross_angular_accel_per_speed_sq,
+        )
+        _require_finite(
+            "flap_pitch_angular_accel_per_speed_sq", flap_pitch_angular_accel_per_speed_sq
+        )
+        _require_open_unit_interval("surface_trim", surface_trim)
+        _require_open_unit_interval("flap_trim", flap_trim)
         return cls(
             log_thrust_accel=jnp.log(jnp.asarray(thrust_accel)),
             log_lift_accel_per_speed_sq=jnp.log(
@@ -231,9 +286,7 @@ class FixedWingDynamicsParams(NamedTuple):
             log_actuator_time_constant=jnp.log(
                 jnp.asarray(actuator_time_constant)
             ),
-            surface_trim_unconstrained=jnp.arctanh(
-                jnp.clip(jnp.asarray(surface_trim), -0.999, 0.999)
-            ),
+            surface_trim_unconstrained=jnp.arctanh(jnp.asarray(surface_trim)),
             log_flap_lift_accel_per_speed_sq=jnp.log(
                 jnp.asarray(flap_lift_accel_per_speed_sq)
             ),
@@ -243,9 +296,7 @@ class FixedWingDynamicsParams(NamedTuple):
             flap_pitch_angular_accel_per_speed_sq=jnp.asarray(
                 flap_pitch_angular_accel_per_speed_sq
             ),
-            flap_trim_unconstrained=jnp.arctanh(
-                jnp.clip(jnp.asarray(flap_trim), -0.999, 0.999)
-            ),
+            flap_trim_unconstrained=jnp.arctanh(jnp.asarray(flap_trim)),
         )
 
     def physical(self) -> dict[str, Array]:
@@ -427,28 +478,26 @@ def _angular_response_at(
     motor_decay = jnp.exp(-time_s / motor_time_constant)
     response_decay = jnp.exp(-time_s / response_time_constant)
     denominator = motor_time_constant - response_time_constant
-    close_time_constants = (
-        jnp.abs(denominator)
-        <= 1e-6 * jnp.maximum(motor_time_constant, response_time_constant)
-    )
+    # The exact factor tau_m / (tau_m - tau_r) * (exp(-t/tau_m) - exp(-t/tau_r))
+    # cancels catastrophically in float32 when the time constants are close.
+    # With x = t (tau_m - tau_r) / (tau_m tau_r) it equals
+    # (t / tau_r) exp(-t/tau_r) expm1(x) / x, whose x -> 0 limit is the
+    # equal-time-constant factor, so a short series is used near x = 0.
+    x = time_s * denominator / (motor_time_constant * response_time_constant)
+    near_equal = jnp.abs(x) < 2e-2
     safe_denominator = jnp.where(
-        close_time_constants,
-        jnp.ones_like(denominator),
-        denominator,
+        near_equal, jnp.ones_like(denominator), denominator
     )
     distinct_factor = (
-        motor_time_constant
-        / safe_denominator
-        * (motor_decay - response_decay)
+        motor_time_constant / safe_denominator * (motor_decay - response_decay)
     )
-    equal_factor = (
-        time_s / response_time_constant * response_decay
+    series_factor = (
+        time_s
+        / response_time_constant
+        * response_decay
+        * (1.0 + x / 2.0 + x * x / 6.0 + x * x * x / 24.0)
     )
-    forcing_factor = jnp.where(
-        close_time_constants,
-        equal_factor,
-        distinct_factor,
-    )
+    forcing_factor = jnp.where(near_equal, series_factor, distinct_factor)
     lagged_response = (
         commanded_target
         + (initial_angular_response - commanded_target) * response_decay
@@ -634,7 +683,10 @@ def with_angular_dynamics_authority(
     This is a model-selection transform, not a runtime tuning parameter. One
     reproduces the fitted model and zero approaches constant measured body rate,
     while intermediate values retain a conservative fraction of structured and
-    residual angular acceleration. Translation is unchanged directly.
+    residual angular acceleration: structured angular acceleration and damping
+    and the residual's angular correction bound are all multiplied by the
+    authority, so the total angular acceleration scales exactly. Translation is
+    unchanged directly.
     """
 
     values = np.asarray(authority, dtype=np.float64)
@@ -658,11 +710,12 @@ def with_angular_dynamics_authority(
     )
     if not isinstance(params, ResidualDynamicsParams):
         return updated
+    # The residual correction is ``correction_scale * tanh(...)``; scaling the
+    # bound scales the realized angular correction exactly, whereas scaling the
+    # pre-activation weights would not.
     return params._replace(
         base=updated,
-        output_weights=params.output_weights.at[3:6].multiply(
-            authority_array[:, jnp.newaxis]
-        ),
+        correction_scale=params.correction_scale.at[3:6].multiply(authority_array),
     )
 
 

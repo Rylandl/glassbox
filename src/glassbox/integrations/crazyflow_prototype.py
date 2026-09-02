@@ -2433,6 +2433,8 @@ def run_crazyflow_prototype(
 
 
 def main() -> None:
+    # Set before any lazy `import crazyflow` reaches its own SciPy-array-API guard.
+    os.environ.setdefault("SCIPY_ARRAY_API", "1")
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("output_dir", type=Path)
     parser.add_argument(

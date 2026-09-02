@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import math
+import os
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -1320,6 +1321,8 @@ def render_crazyflow_unpowered_throw_animation(
 
 
 def main() -> None:
+    # Set before any lazy `import crazyflow` reaches its own SciPy-array-API guard.
+    os.environ.setdefault("SCIPY_ARRAY_API", "1")
     parser = argparse.ArgumentParser(
         description="Render the no-prior Crazyflow bootstrap diagnostic."
     )
@@ -1352,6 +1355,8 @@ def main() -> None:
 
 
 def throw_main() -> None:
+    # Set before any lazy `import crazyflow` reaches its own SciPy-array-API guard.
+    os.environ.setdefault("SCIPY_ARRAY_API", "1")
     parser = argparse.ArgumentParser(
         description="Render the real-time unpowered-throw Crazyflow diagnostic."
     )

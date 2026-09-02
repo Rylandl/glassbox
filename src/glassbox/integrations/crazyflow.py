@@ -181,9 +181,14 @@ class CrazyflowPlant:
         if simulator is None:
             try:
                 from crazyflow import Control, Dynamics, Sim
-            except ImportError as error:
+            except (ImportError, RuntimeError) as error:
+                # Crazyflow raises RuntimeError instead of ImportError when
+                # SciPy was imported before it without SCIPY_ARRAY_API=1.
                 raise CrazyflowUnavailableError(
-                    "install the pinned simulator with `uv sync --extra crazyflow`"
+                    "install the pinned simulator with `uv sync --extra crazyflow`; "
+                    "if crazyflow is installed, this may be "
+                    "`SCIPY_ARRAY_API=1` not being set before SciPy's first "
+                    "import in this process"
                 ) from error
             simulator = Sim(
                 n_worlds=1,

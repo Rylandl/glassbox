@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import warnings
 from collections.abc import Callable
 from dataclasses import dataclass, replace
@@ -134,6 +135,8 @@ class FitResult:
     optimization_policy: str = "full_batch_v1"
     batch_sizes: tuple[int, ...] = ()
     window_coverage: tuple[float, ...] = ()
+    diverged: bool = False
+    completed_steps: int | None = None
 
     @property
     def initial_loss(self) -> float:
@@ -142,6 +145,16 @@ class FitResult:
     @property
     def final_loss(self) -> float:
         return float(self.loss_history[-1])
+
+
+def _all_leaves_finite(tree: ModelParams) -> bool:
+    """Return whether every leaf of a parameter or gradient tree is finite."""
+
+    return bool(
+        jnp.all(
+            jnp.stack([jnp.all(jnp.isfinite(leaf)) for leaf in jax.tree.leaves(tree)])
+        )
+    )
 
 
 def _warn_if_rotational_response_frozen(params: ModelParams) -> None:
@@ -673,6 +686,10 @@ def _fit_objective(
     history = np.empty(steps + 1, dtype=np.float64)
     history[0] = float(jax.jit(objective)(params))
     initial_components = np.asarray(component_values(params), dtype=np.float64)
+    best_loss = history[0]
+    best_params = params
+    diverged = False
+    completed_steps = 0
 
     for index in range(1, steps + 1):
         if batch_schedules is None:
@@ -682,6 +699,15 @@ def _fit_objective(
                 jnp.asarray(schedule[index - 1]) for schedule in batch_schedules
             )
             loss, gradients = value_and_grad(params, batch_indices)
+        loss_value = float(loss)
+        if not math.isfinite(loss_value) or not _all_leaves_finite(gradients):
+            # Stop rather than propagate NaN into the parameters; the caller
+            # receives the best finite iterate and an explicit flag.
+            diverged = True
+            break
+        if loss_value < best_loss:
+            best_loss = loss_value
+            best_params = params
         gradients = zero_residual_configuration_gradient(gradients)
         if fixed_motor_time_constant:
             gradients = zero_response_time_gradient(gradients)
@@ -731,13 +757,28 @@ def _fit_objective(
             corrected_first,
             corrected_second,
         )
-        history[index] = float(loss)
+        history[index] = loss_value
+        completed_steps = index
 
-    history[-1] = float(jax.jit(objective)(params))
+    if diverged:
+        params = best_params
+        history = history[: completed_steps + 1]
+    final_loss = float(jax.jit(objective)(params))
+    if not math.isfinite(final_loss):
+        diverged = True
+        params = best_params
+        final_loss = float(jax.jit(objective)(params))
+        history = history[: completed_steps + 1]
+    if diverged:
+        history = np.append(history, final_loss)
+    else:
+        history[-1] = final_loss
     final_components = np.asarray(component_values(params), dtype=np.float64)
     return FitResult(
         params=params,
         loss_history=history,
+        diverged=diverged,
+        completed_steps=completed_steps,
         component_initial_losses=initial_components,
         component_final_losses=final_components,
         loss_configuration=loss_configuration,

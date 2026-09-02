@@ -344,3 +344,140 @@ def test_split_trajectory_preserves_the_boundary_state() -> None:
     assert len(validation.controls) == 4
     np.testing.assert_array_equal(training.states[-1], validation.states[0])
     assert validation.time_s[0] == 0.0
+
+
+def _ramped_control_trajectory(intervals: int = 20, dt_s: float = 0.02) -> Trajectory:
+    """A single-channel trajectory whose control equals its interval index."""
+
+    states = np.zeros((intervals + 1, 13))
+    states[:, 6] = 1.0
+    return Trajectory(
+        time_s=np.arange(intervals + 1) * dt_s,
+        states=states,
+        controls=np.arange(intervals, dtype=np.float64)[:, None],
+        spec=make_trajectory_spec(
+            ("throttle",),
+            family="test_vehicle",
+            observation_source="simulator_truth",
+        ),
+    )
+
+
+def test_split_trajectory_carries_the_true_prior_controls_as_a_prefix() -> None:
+    trajectory = _ramped_control_trajectory(intervals=20, dt_s=0.02)
+
+    training, validation = split_trajectory(trajectory, train_fraction=0.5)
+
+    assert training.control_prefix is None
+    np.testing.assert_array_equal(validation.control_prefix, trajectory.controls[:10])
+
+
+def test_holdout_window_histories_equal_the_true_prior_commands() -> None:
+    trajectory = _ramped_control_trajectory(intervals=20, dt_s=0.02)
+    _, validation = split_trajectory(trajectory, train_fraction=0.5)
+    motor_history_steps = 5
+
+    windows = trajectory_windows(
+        [validation],
+        horizon=2,
+        stride=2,
+        motor_history_s=motor_history_steps * 0.02,
+    )
+
+    # The split boundary is at interval 10; the true commands issued just
+    # before the held-out segment began are controls[5:10], not a repeat of
+    # the segment's own first control (controls[10]).
+    expected_history = trajectory.controls[10 - motor_history_steps : 10]
+    np.testing.assert_array_equal(windows.control_histories[0], expected_history)
+    assert not np.allclose(windows.control_histories[0], validation.controls[0])
+
+
+def test_windows_without_a_control_prefix_pad_from_the_segments_first_control() -> None:
+    intervals = 3
+    states = np.zeros((intervals + 1, 13))
+    states[:, 6] = 1.0
+    trajectory = Trajectory(
+        time_s=np.arange(intervals + 1) * 0.02,
+        states=states,
+        controls=np.asarray([[5.0], [6.0], [7.0]]),
+        spec=make_trajectory_spec(
+            ("throttle",),
+            family="test_vehicle",
+            observation_source="simulator_truth",
+        ),
+    )
+    assert trajectory.control_prefix is None
+
+    windows = trajectory_windows(
+        [trajectory], horizon=1, stride=1, motor_history_s=0.06
+    )
+
+    np.testing.assert_array_equal(
+        windows.control_histories[0], np.asarray([[5.0], [5.0], [5.0]])
+    )
+
+
+def test_npz_round_trip_drops_the_in_memory_control_prefix(tmp_path) -> None:
+    base = make_trajectory(intervals=6, control_size=2)
+    trajectory = Trajectory(
+        time_s=base.time_s,
+        states=base.states,
+        controls=base.controls,
+        spec=base.spec,
+        control_prefix=np.ones((3, 2)),
+    )
+    assert trajectory.control_prefix is not None
+    path = tmp_path / "with_prefix.npz"
+
+    save_trajectory_npz(trajectory, path)
+    restored = load_trajectory_npz(path)
+
+    assert restored.control_prefix is None
+    with np.load(path, allow_pickle=False) as archive:
+        assert "control_prefix" not in archive.files
+
+
+def test_trajectory_copies_constructor_arrays_instead_of_aliasing_them() -> None:
+    time_s = np.arange(5, dtype=np.float64) * 0.02
+    states = np.zeros((5, 13))
+    states[:, 6] = 1.0
+    controls = np.zeros((4, 2))
+
+    trajectory = Trajectory(
+        time_s=time_s,
+        states=states,
+        controls=controls,
+        spec=make_trajectory_spec(
+            ("a", "b"), family="test_vehicle", observation_source="simulator_truth"
+        ),
+    )
+    time_s[0] = 99.0
+    states[0, 0] = 99.0
+    controls[0, 0] = 99.0
+
+    assert trajectory.time_s[0] == 0.0
+    assert trajectory.states[0, 0] == 0.0
+    assert trajectory.controls[0, 0] == 0.0
+
+
+def test_trajectory_arrays_are_not_writeable() -> None:
+    trajectory = make_trajectory(intervals=4, control_size=2)
+    trajectory = Trajectory(
+        time_s=trajectory.time_s,
+        states=trajectory.states,
+        controls=trajectory.controls,
+        spec=trajectory.spec,
+        control_prefix=np.ones((3, 2)),
+    )
+
+    for array in (
+        trajectory.time_s,
+        trajectory.states,
+        trajectory.controls,
+        trajectory.exogenous,
+        trajectory.observations,
+        trajectory.control_prefix,
+    ):
+        assert array.flags.writeable is False
+        with pytest.raises(ValueError):
+            array[0] = 1.0

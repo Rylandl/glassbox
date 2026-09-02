@@ -46,6 +46,7 @@ from glassbox.evaluation import (
     parameter_dict,
     rollout_metrics,
 )
+from glassbox.families import MULTIROTOR_FAMILY, family_for_platform
 from glassbox.fixedwing_synthetic import initial_fixed_wing_parameter_guess
 from glassbox.identification import (
     MAX_OPTIMIZATION_TRANSITIONS_PER_HORIZON,
@@ -56,7 +57,6 @@ from glassbox.identification import (
     residual_initialization_statistics,
     rollout_loss_configuration,
 )
-from glassbox.model_family import MULTIROTOR_FAMILY, family_for_platform
 from glassbox.observation_identification import (
     ObservationFitResult,
     fit_multirotor_observations,
@@ -335,6 +335,8 @@ def _fit_on_windows(
             ),
             "optimization_data_policy": {
                 "policy": fit.optimization_policy,
+                "diverged": fit.diverged,
+                "completed_steps": fit.completed_steps,
                 "automatic_policy": OPTIMIZATION_POLICY_VERSION,
                 "maximum_windows_per_horizon_per_step": (
                     MAX_OPTIMIZATION_WINDOWS_PER_HORIZON
@@ -543,6 +545,43 @@ class _EvaluationFlight:
     trajectory: Trajectory
     control_history: np.ndarray | None = None
     source_group: str | int | None = None
+
+
+class BenchmarkSplitHoldoutConflict(ValueError):
+    """Raised when --holdout-count/--holdout-profile conflict with labels.
+
+    Every input trajectory carries a ``labels["benchmark_split"]`` of
+    ``"training"`` or ``"validation"``, so the holdout is derived from that
+    label rather than from argument order or an explicit holdout request.
+    """
+
+
+_BENCHMARK_SPLIT_HOLDOUT_VALUES = ("training", "validation")
+
+
+def _benchmark_split_holdout_indices(
+    trajectories: list[Trajectory],
+) -> tuple[list[int], list[int]] | None:
+    """Return (training, validation) indices from upstream split labels.
+
+    Returns ``None`` unless every trajectory carries a
+    ``labels["benchmark_split"]`` of exactly ``"training"`` or
+    ``"validation"`` and at least one trajectory has each value; callers fall
+    back to argument-order-based splitting in every other case.
+    """
+
+    splits = [trajectory.labels.get("benchmark_split") for trajectory in trajectories]
+    if any(split not in _BENCHMARK_SPLIT_HOLDOUT_VALUES for split in splits):
+        return None
+    training_indices = [
+        index for index, split in enumerate(splits) if split == "training"
+    ]
+    validation_indices = [
+        index for index, split in enumerate(splits) if split == "validation"
+    ]
+    if not training_indices or not validation_indices:
+        return None
+    return training_indices, validation_indices
 
 
 def _source_groups(
@@ -906,8 +945,19 @@ def fit_trajectory_artifacts(
     instantaneous_rotational_response: bool = True,
     diagonal_angular_control: bool = True,
     build_parameter_evidence: bool = False,
+    respect_benchmark_split: bool = True,
 ) -> tuple[ModelParams, ModelParams | None, dict[str, Any]]:
-    """Fit across flights and reserve complete flights when multiple are given."""
+    """Fit across flights and reserve complete flights when multiple are given.
+
+    When ``respect_benchmark_split`` is true (the default) and every input
+    trajectory carries a ``labels["benchmark_split"]`` of ``"training"`` or
+    ``"validation"``, the flights labeled ``"validation"`` are reserved
+    regardless of ``trajectory_paths`` order or ``holdout_count``/
+    ``holdout_profiles``; passing either of those explicitly in that case
+    raises :class:`BenchmarkSplitHoldoutConflict`. Positional,
+    argument-order-based holdout selection applies only when the label is
+    absent from at least one trajectory.
+    """
 
     if not trajectory_paths:
         raise ValueError("at least one trajectory path is required")
@@ -998,6 +1048,42 @@ def fit_trajectory_artifacts(
         ]
         training_source_groups = None
         split_mode = "temporal_within_flight"
+    elif respect_benchmark_split and (
+        benchmark_split_indices := _benchmark_split_holdout_indices(trajectories)
+    ) is not None:
+        if holdout_profiles:
+            raise BenchmarkSplitHoldoutConflict(
+                "every trajectory carries a benchmark_split label of "
+                "'training'/'validation'; holdout_profiles is not applicable "
+                "because the validation split is determined by the label "
+                "(pass respect_benchmark_split=False to override)"
+            )
+        if holdout_count != 1:
+            raise BenchmarkSplitHoldoutConflict(
+                "every trajectory carries a benchmark_split label of "
+                "'training'/'validation'; holdout_count is not applicable "
+                "because the validation split is determined by the label "
+                "(pass respect_benchmark_split=False to override)"
+            )
+        training_indices, validation_indices = benchmark_split_indices
+        training = [trajectories[index] for index in training_indices]
+        training_labels = [str(paths[index]) for index in training_indices]
+        training_source_groups = (
+            [source_groups[index] for index in training_indices]
+            if source_groups is not None
+            else None
+        )
+        validation = [
+            _EvaluationFlight(
+                path=str(paths[index]),
+                trajectory=trajectories[index],
+                source_group=(
+                    source_groups[index] if source_groups is not None else None
+                ),
+            )
+            for index in validation_indices
+        ]
+        split_mode = "benchmark_split_holdout"
     elif holdout_profiles:
         selected_profiles = tuple(dict.fromkeys(holdout_profiles))
         profile_by_flight = [
@@ -1418,6 +1504,14 @@ def fit_trajectory_artifacts(
                 _trajectory_summary(flight.path, flight.trajectory)
                 for flight in validation
             ],
+            "benchmark_split_holdout": split_mode == "benchmark_split_holdout",
+            "benchmark_split_training": [
+                trajectory.labels.get("benchmark_split") for trajectory in training
+            ],
+            "benchmark_split_validation": [
+                flight.trajectory.labels.get("benchmark_split")
+                for flight in validation
+            ],
         },
         "configuration": {
             "train_fraction_for_single_flight": train_fraction,
@@ -1715,7 +1809,9 @@ def main() -> None:
         default=1,
         help=(
             "number of final source groups reserved completely for validation; "
-            "falls back to input trajectories when groups are unlabeled"
+            "falls back to input trajectories when groups are unlabeled; "
+            "rejected when every trajectory carries a benchmark_split label, "
+            "which determines the holdout instead"
         ),
     )
     parser.add_argument(
@@ -1723,7 +1819,8 @@ def main() -> None:
         action="append",
         help=(
             "maneuver profile to reserve completely; repeat for multiple profiles "
-            "and supersedes --holdout-count"
+            "and supersedes --holdout-count; rejected when every trajectory "
+            "carries a benchmark_split label, which determines the holdout instead"
         ),
     )
     parser.add_argument("--horizon", type=int, default=25)
@@ -1829,24 +1926,27 @@ def main() -> None:
             f"attitude={validation['attitude_rmse_deg']:.3f} deg"
         )
     else:
-        params, baseline_params, report = fit_trajectory_artifacts(
-            args.trajectory,
-            train_fraction=args.train_fraction,
-            holdout_count=args.holdout_count,
-            horizon=args.horizon,
-            stride=args.stride,
-            training_horizons_s=args.training_horizons,
-            steps=args.steps,
-            learning_rate=args.learning_rate,
-            evaluation_horizons_s=args.evaluation_horizons,
-            run_no_lag_ablation=not args.skip_no_lag_ablation,
-            balance_training_flights=not args.duration_weighted_training,
-            holdout_profiles=args.holdout_profile,
-            model_class=args.model_class,
-            endpoint_weight=args.endpoint_weight,
-            stability_regularization=args.stability_regularization,
-            build_parameter_evidence=args.model is not None,
-        )
+        try:
+            params, baseline_params, report = fit_trajectory_artifacts(
+                args.trajectory,
+                train_fraction=args.train_fraction,
+                holdout_count=args.holdout_count,
+                horizon=args.horizon,
+                stride=args.stride,
+                training_horizons_s=args.training_horizons,
+                steps=args.steps,
+                learning_rate=args.learning_rate,
+                evaluation_horizons_s=args.evaluation_horizons,
+                run_no_lag_ablation=not args.skip_no_lag_ablation,
+                balance_training_flights=not args.duration_weighted_training,
+                holdout_profiles=args.holdout_profile,
+                model_class=args.model_class,
+                endpoint_weight=args.endpoint_weight,
+                stability_regularization=args.stability_regularization,
+                build_parameter_evidence=args.model is not None,
+            )
+        except BenchmarkSplitHoldoutConflict as error:
+            parser.error(str(error))
         learned = report["models"]["learned_lag"]
         learned_fit = learned["fit"]
         learned_full = learned["validation"]["aggregate"]["full_rollout"]
@@ -1857,6 +1957,7 @@ def main() -> None:
                 "leave_complete_flights_out",
                 "leave_profiles_out",
                 "leave_source_groups_out",
+                "benchmark_split_holdout",
             }
             else "held-out temporal rollout"
         )

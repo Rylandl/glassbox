@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -394,6 +395,8 @@ def run_crazyflow_bootstrap_benchmark() -> dict[str, Any]:
 
 
 def main() -> None:
+    # Set before any lazy `import crazyflow` reaches its own SciPy-array-API guard.
+    os.environ.setdefault("SCIPY_ARRAY_API", "1")
     parser = argparse.ArgumentParser(
         description="Run the no-prior Crazyflow bootstrap diagnostic."
     )

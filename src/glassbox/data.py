@@ -486,6 +486,18 @@ class Trajectory:
     States include both endpoints, so a trajectory with ``T`` states has
     ``T - 1`` controls. Control ``i`` is applied over the interval from state
     ``i`` to state ``i + 1``.
+
+    Every array field is copied on construction and marked read-only, so a
+    ``Trajectory`` never aliases the caller's arrays and mutating it after
+    construction raises.
+
+    ``control_prefix``, when given, holds the real controls immediately
+    preceding this trajectory (oldest first, same channel count as
+    ``controls``), for segments cut mid-flight so window extraction can pad
+    early motor histories from true prior commands instead of repeating the
+    segment's own first control. It is an in-memory-only convenience: it is
+    never written by :func:`save_trajectory_npz` and is always ``None`` after
+    :func:`load_trajectory_npz`.
     """
 
     time_s: npt.NDArray[np.float64]
@@ -496,22 +508,28 @@ class Trajectory:
     observations: npt.NDArray[np.float64] | None = None
     labels: Mapping[str, Any] = field(default_factory=dict)
     provenance: Mapping[str, Any] = field(default_factory=dict)
+    control_prefix: npt.NDArray[np.float64] | None = None
 
     def __post_init__(self) -> None:
-        time_s = np.asarray(self.time_s, dtype=np.float64)
-        states = np.asarray(self.states, dtype=np.float64)
-        controls = np.asarray(self.controls, dtype=np.float64)
+        time_s = np.array(self.time_s, dtype=np.float64, copy=True)
+        states = np.array(self.states, dtype=np.float64, copy=True)
+        controls = np.array(self.controls, dtype=np.float64, copy=True)
         if not isinstance(self.spec, TrajectorySpec):
             raise TypeError("spec must be a TrajectorySpec")
         exogenous = (
             np.empty((len(time_s), 0), dtype=np.float64)
             if self.exogenous is None
-            else np.asarray(self.exogenous, dtype=np.float64)
+            else np.array(self.exogenous, dtype=np.float64, copy=True)
         )
         observations = (
             np.empty((len(time_s), 0), dtype=np.float64)
             if self.observations is None
-            else np.asarray(self.observations, dtype=np.float64)
+            else np.array(self.observations, dtype=np.float64, copy=True)
+        )
+        control_prefix = (
+            None
+            if self.control_prefix is None
+            else np.array(self.control_prefix, dtype=np.float64, copy=True)
         )
 
         if time_s.ndim != 1:
@@ -530,6 +548,14 @@ class Trajectory:
             )
         if controls.shape[1] < 1:
             raise ValueError("controls must contain at least one channel")
+        if control_prefix is not None:
+            if control_prefix.ndim != 2 or control_prefix.shape[1] != controls.shape[1]:
+                raise ValueError(
+                    "control_prefix must have shape (history, "
+                    f"{controls.shape[1]}), got {control_prefix.shape}"
+                )
+            if not np.all(np.isfinite(control_prefix)):
+                raise ValueError("control_prefix values must be finite")
         if exogenous.shape != (len(time_s), len(self.spec.exogenous)):
             raise ValueError(
                 "exogenous must have shape "
@@ -563,6 +589,14 @@ class Trajectory:
         if any(not isinstance(key, str) or not key for key in provenance):
             raise ValueError("trajectory provenance keys must be non-empty strings")
 
+        time_s.setflags(write=False)
+        states.setflags(write=False)
+        controls.setflags(write=False)
+        exogenous.setflags(write=False)
+        observations.setflags(write=False)
+        if control_prefix is not None:
+            control_prefix.setflags(write=False)
+
         object.__setattr__(self, "time_s", time_s)
         object.__setattr__(self, "states", states)
         object.__setattr__(self, "controls", controls)
@@ -570,6 +604,7 @@ class Trajectory:
         object.__setattr__(self, "observations", observations)
         object.__setattr__(self, "labels", labels)
         object.__setattr__(self, "provenance", provenance)
+        object.__setattr__(self, "control_prefix", control_prefix)
 
     @property
     def control_names(self) -> tuple[str, ...]:
@@ -911,6 +946,41 @@ def _selected_window_locations(
     return locations, "deterministic_stratified_midpoint"
 
 
+def _control_window_history(
+    trajectory: Trajectory, start: int, motor_history_steps: int
+) -> npt.NDArray[np.float64]:
+    """Return the ``motor_history_steps`` controls immediately before ``start``.
+
+    Prefers real history: the trajectory's own prior controls first, then any
+    ``control_prefix`` carried from a parent trajectory (populated by
+    :func:`trajectory_segment`/:func:`split_trajectory` for a segment cut
+    mid-flight). Only pads with a repeated earliest known control when
+    neither source has enough samples, e.g. at the true start of a flight.
+    """
+
+    history_start = max(0, start - motor_history_steps)
+    local_history = trajectory.controls[history_start:start]
+    deficit = motor_history_steps - len(local_history)
+    if deficit <= 0:
+        return local_history
+    if trajectory.control_prefix is not None and len(trajectory.control_prefix):
+        prefix = trajectory.control_prefix[-deficit:]
+    else:
+        prefix = np.empty((0, trajectory.control_size), dtype=np.float64)
+    deficit -= len(prefix)
+    if deficit <= 0:
+        return np.concatenate((prefix, local_history), axis=0)
+    fill_source = (
+        prefix[0]
+        if len(prefix)
+        else local_history[0]
+        if len(local_history)
+        else trajectory.controls[0]
+    )
+    padding = np.repeat(fill_source[np.newaxis, :], deficit, axis=0)
+    return np.concatenate((padding, prefix, local_history), axis=0)
+
+
 def trajectory_windows(
     trajectories: list[Trajectory] | tuple[Trajectory, ...],
     *,
@@ -1094,15 +1164,10 @@ def trajectory_windows(
     for trajectory_index, start in selected_locations:
         trajectory = trajectories[trajectory_index]
         stop = start + horizon
-        history_start = max(0, start - motor_history_steps)
-        history = trajectory.controls[history_start:start]
-        padding = np.repeat(
-            trajectory.controls[0][np.newaxis, :],
-            motor_history_steps - len(history),
-            axis=0,
-        )
         initial_states.append(trajectory.states[start])
-        control_histories.append(np.concatenate((padding, history), axis=0))
+        control_histories.append(
+            _control_window_history(trajectory, start, motor_history_steps)
+        )
         controls.append(trajectory.controls[start:stop])
         targets.append(trajectory.states[start : stop + 1])
         initial_exogenous.append(trajectory.exogenous[start])
@@ -1159,7 +1224,11 @@ def trajectory_windows(
 
 
 def save_trajectory_npz(trajectory: Trajectory, path: str | Path) -> None:
-    """Write a canonical trajectory to a compressed, self-describing NPZ file."""
+    """Write a canonical trajectory to a compressed, self-describing NPZ file.
+
+    ``trajectory.control_prefix`` is in-memory only and is not written here;
+    :func:`load_trajectory_npz` always returns ``control_prefix=None``.
+    """
 
     output_path = Path(path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1223,6 +1292,20 @@ def trajectory_segment(
     )
     provenance["transformations"] = transformations
     start_time_s = trajectory.time_s[start_interval]
+    if start_interval > 0:
+        # The controls dropped from the front of this segment are real prior
+        # commands, not fabricated ones; carry them (and any prefix the
+        # parent already carried) so window extraction can pad early motor
+        # histories from what was actually commanded before this segment.
+        local_prefix = trajectory.controls[:start_interval]
+        if trajectory.control_prefix is not None and len(trajectory.control_prefix):
+            control_prefix = np.concatenate(
+                (trajectory.control_prefix, local_prefix), axis=0
+            )
+        else:
+            control_prefix = local_prefix
+    else:
+        control_prefix = trajectory.control_prefix
     return Trajectory(
         time_s=trajectory.time_s[start_interval : stop_interval + 1] - start_time_s,
         states=trajectory.states[start_interval : stop_interval + 1],
@@ -1234,6 +1317,7 @@ def trajectory_segment(
         ],
         labels=trajectory.labels,
         provenance=provenance,
+        control_prefix=control_prefix,
     )
 
 
