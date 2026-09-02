@@ -2,16 +2,39 @@
 
 This is the controller described in ``docs/concepts/dual-control-nmpc.md``.  It
 replaces a hand-gained cascade and a scan-based excitation with a single
-objective over bounded command blocks.  The objective trades an expected
-tracking cost against the expected log-determinant information gain the planned
-inputs buy about the command maps, under two chance penalties on altitude and
-tilt.
+objective over bounded command blocks.
+
+The first pass paid for information with a separate additive log-determinant
+term evaluated on raw commands, and it did not fly: at zero information a
+motor-uniform seed is a fixed point of the whole objective, and raw commands
+report information a uniform plan cannot actually buy.  Two changes answer
+that, both selectable per variant:
+
+``residualize_information``
+    The planned information features are residualized exactly the way the
+    recursive identifier residualizes its own command Gram, against the
+    intercept and the angular nuisance regressors.  A uniform plan then earns
+    exactly zero information, and the information gradient points along
+    differential inputs rather than along the all-ones direction.
+
+``objective``
+    ``"expected_cost"`` deletes the additive information term and charges the
+    tracking cost for predicted spread instead, ``E[l(x_k)] = l(x_hat_k) +
+    trace(W Sigma_x,k)``, with the parameter posterior the planned inputs would
+    produce.  Excitation then pays for itself in tracking units and there is no
+    information weight left to choose.
+
+A small multi-start over bounded orthogonal designs breaks the motor symmetry
+before the gradient refinement runs.  The amplitudes and sign patterns of those
+designs are declared design constants: they are the one action-side prior in
+the controller, alongside the command box and the regularizing ``epsilon``.
 
 Nothing in this module knows anything about a particular vehicle.  The
 prediction model is rigid-body kinematics, gravity, and the posterior mean of
 the recursive bootstrap belief; every other number lives in
 :class:`DualControlConfig` and describes either the command box, the recovery
-goal, or the optimizer.  There is no cascade, no gain, and no motor geometry.
+goal, the declared excitation family, or the optimizer.  There is no cascade,
+no gain, and no motor geometry.
 
 Research tier: names, signatures, and semantics may change without notice.
 """
@@ -21,7 +44,7 @@ from __future__ import annotations
 import math
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Any, NamedTuple
+from typing import Any, Literal, NamedTuple
 
 import jax
 import jax.numpy as jnp
@@ -38,10 +61,65 @@ from glassbox.core.dynamics import (
 
 _STATE_SIZE = 13
 _COMMAND_SIZE = 4
+#: Nuisance regressors the identifier's angular regression residualizes its
+#: command Gram against, minus the intercept, which is handled exactly by
+#: centering: three body rates and three rate products.
+_ANGULAR_NUISANCE_SIZE = 6
 #: Squared quantities below this are held constant before a square root is
 #: taken, so a spread of exactly zero, which is what a posterior carrying no
 #: information reports, leaves a finite gradient instead of an infinite one.
 _SQUARE_FLOOR = 1e-18
+#: Magnitude at which the predicted accelerations and states are saturated.
+#:
+#: A posterior fitted from a handful of rank-deficient samples routinely carries
+#: a rate-product coefficient of tens, and ``omega' = a_p omega^2`` blows up in
+#: finite time, so the mean model's own thirty-step prediction reaches infinity
+#: within the horizon and every plan scores the same infinite cost.  Saturating
+#: the prediction keeps the objective finite and, more usefully, makes the
+#: tracking term go flat exactly where the model has stopped saying anything, so
+#: the spread and information terms decide instead.  The bound is six orders of
+#: magnitude above any state a multirotor can be in, so it is a numerical guard
+#: in the same sense as the square-root floor above, not a vehicle number: no
+#: reachable flight touches it and nothing about its value is tuned.
+_PREDICTION_GUARD = 1.0e6
+#: Sign patterns the bounded orthogonal designs are built from.  A Hadamard
+#: matrix of order four is the smallest bounded design whose rows are mutually
+#: orthogonal and span every command direction, and its first row is the
+#: collective direction, so a horizon that cycles the rows in both polarities
+#: excites the collective and all three differentials at equal amplitude.
+_HADAMARD_ROWS = np.asarray(
+    (
+        (1.0, 1.0, 1.0, 1.0),
+        (1.0, -1.0, 1.0, -1.0),
+        (1.0, 1.0, -1.0, -1.0),
+        (1.0, -1.0, -1.0, 1.0),
+    )
+)
+
+#: Objective form.  ``"information_gain"`` is the first pass's additive
+#: log-determinant term; ``"expected_cost"`` charges predicted spread inside the
+#: tracking cost and carries no information weight.
+ObjectiveForm = Literal["information_gain", "expected_cost"]
+
+#: The three studied configurations.  Pass one is kept selectable so its
+#: failure stays reproducible; the default is the current design.
+DUAL_CONTROL_VARIANTS: dict[str, dict[str, Any]] = {
+    "pass1": {
+        "multi_start": False,
+        "residualize_information": False,
+        "objective": "information_gain",
+    },
+    "pass2a": {
+        "multi_start": True,
+        "residualize_information": True,
+        "objective": "information_gain",
+    },
+    "pass2b": {
+        "multi_start": True,
+        "residualize_information": True,
+        "objective": "expected_cost",
+    },
+}
 
 
 def _safe_sqrt(value: Array) -> Array:
@@ -50,33 +128,86 @@ def _safe_sqrt(value: Array) -> Array:
     return jnp.sqrt(jnp.maximum(value, _SQUARE_FLOOR))
 
 
+def _guard(value: Array) -> Array:
+    """Saturate a predicted quantity at :data:`_PREDICTION_GUARD`."""
+
+    return jnp.clip(value, -_PREDICTION_GUARD, _PREDICTION_GUARD)
+
+
+def design_sign_pattern(block_count: int) -> np.ndarray:
+    """Signs of the declared orthogonal design, one row per command block.
+
+    Blocks cycle the four Hadamard rows and flip polarity every fourth block.
+    Over eight or more blocks every row appears in both polarities, so the
+    pattern is exactly zero-mean along every command direction and its
+    intercept-residualized Gram has full rank four within a single horizon.
+    Cycling the rows before flipping the polarity, rather than alternating the
+    polarity every block, is the ordering that moves the fewest commands per
+    block boundary and so costs the least command rate for the same design.
+    """
+
+    if block_count < 1:
+        raise ValueError("block_count must be positive")
+    index = np.arange(block_count)
+    polarity = np.where((index // len(_HADAMARD_ROWS)) % 2 == 0, 1.0, -1.0)
+    return polarity[:, None] * _HADAMARD_ROWS[index % len(_HADAMARD_ROWS)]
+
+
 @dataclass(frozen=True)
 class DualControlConfig:
-    """Horizon, objective weights, task tolerances, and the command box.
+    """Horizon, objective form, task tolerances, and the command box.
 
     Every field is either a property of the control loop (sample period,
     horizon, block length, optimizer budget), a statement of the recovery goal
     (the four tolerances, the altitude floor, the tilt maximum), a declared
-    action-side choice the posterior cannot supply (the command bounds and the
-    regularizing information ``epsilon``), or one of the two objective weights.
-    None of them is a vehicle number.
+    action-side choice the posterior cannot supply (the command bounds, the
+    multi-start amplitudes, and the regularizing ``epsilon``), or an objective
+    weight.  None of them is a vehicle number.
     """
 
     #: Control interval the horizon is expressed in.
     sample_period_s: float = 0.01
     horizon_steps: int = 30
     block_steps: int = 3
+    #: Objective form; see :data:`ObjectiveForm`.
+    objective: ObjectiveForm = "expected_cost"
+    #: Residualize the planned information features the way the identifier
+    #: residualizes its own command Gram.
+    residualize_information: bool = True
+    #: Evaluate the declared orthogonal designs before the gradient refinement.
+    multi_start: bool = True
+    #: Amplitudes, as fractions of the command range, at which the declared
+    #: orthogonal designs are laid on top of the current command.  Both sign
+    #: polarities of each design are evaluated.  This tuple and
+    #: :func:`design_sign_pattern` are the controller's one action-side prior
+    #: beyond the command box.
+    #:
+    #: A geometric ladder spanning a factor of four.  The top rung is set so
+    #: that a single horizon of it dominates the ``epsilon`` prior by three
+    #: orders of magnitude, which is what lets one horizon settle the command
+    #: map instead of the optimizer having to grow an amplitude over many
+    #: intervals; the bottom rung is small enough to leave a settled hover
+    #: alone.  Nothing about the ladder refers to a vehicle.
+    multi_start_amplitudes: tuple[float, ...] = (0.06, 0.12, 0.25)
     #: Weight on the squared command move between consecutive horizon steps.
     #: A simultaneous ``0.1`` move on all four commands then costs exactly one
     #: task-tolerance unit of tracking error.
     w_rate: float = 25.0
-    #: Weight on the expected log-determinant information gain.
+    #: Weight on the expected log-determinant information gain.  Used only by
+    #: the ``"information_gain"`` objective; ``"expected_cost"`` has no
+    #: information weight at all.
     w_info: float = 1.0
     #: Standard deviations of predicted spread the chance penalties reserve.
     beta: float = 2.0
     #: Regularizing information that makes the log-determinant gain finite
-    #: before the first observation.  It is the only prior in the controller.
+    #: before the first observation, and the parameter posterior proper.  It is
+    #: the only prior on the belief side of the controller.
     epsilon: float = 1e-3
+    #: Ridge, relative to the mean nuisance energy, used when residualizing the
+    #: planned commands against the planned nuisance regressors.  A purely
+    #: numerical regularizer: an unexcited nuisance direction explains nothing
+    #: rather than everything.
+    nuisance_ridge: float = 1e-6
     #: Multiples of the matching task tolerance beyond which a predicted spread
     #: is treated as saturated, and its chance penalty is dropped entirely.
     spread_cap: float = 3.0
@@ -113,6 +244,27 @@ class DualControlConfig:
     def horizon_s(self) -> float:
         return self.horizon_steps * self.sample_period_s
 
+    @property
+    def candidate_count(self) -> int:
+        """Plans the multi-start scores before the gradient refinement.
+
+        The shifted warm start, the previous command held, and both polarities
+        of the declared design at every declared amplitude.
+        """
+
+        if not self.multi_start:
+            return 2
+        return 2 + 2 * len(self.multi_start_amplitudes)
+
+    @property
+    def variant(self) -> str:
+        """Name of the studied configuration this config matches, if any."""
+
+        for name, switches in DUAL_CONTROL_VARIANTS.items():
+            if all(getattr(self, key) == value for key, value in switches.items()):
+                return name
+        return "custom"
+
     def __post_init__(self) -> None:
         minimum = _finite_command("command_minimum", self.command_minimum)
         maximum = _finite_command("command_maximum", self.command_maximum)
@@ -124,12 +276,24 @@ class DualControlConfig:
             raise ValueError("block_steps cannot exceed the prediction horizon")
         if self.iteration_count < 1 or self.line_search_steps < 1:
             raise ValueError("solver iteration counts must be positive")
+        if self.objective not in ("information_gain", "expected_cost"):
+            raise ValueError("objective must be 'information_gain' or 'expected_cost'")
+        amplitudes = np.asarray(self.multi_start_amplitudes, dtype=np.float64)
+        if amplitudes.ndim != 1 or amplitudes.size == 0:
+            raise ValueError("multi_start_amplitudes must be a non-empty sequence")
+        if not np.all(np.isfinite(amplitudes)) or np.any(
+            (amplitudes <= 0.0) | (amplitudes > 1.0)
+        ):
+            raise ValueError(
+                "multi_start_amplitudes must be fractions of the command range"
+            )
         positive = (
             self.sample_period_s,
             self.w_rate,
             self.w_info,
             self.beta,
             self.epsilon,
+            self.nuisance_ridge,
             self.spread_cap,
             self.velocity_tolerance_m_s,
             self.body_rate_tolerance_rad_s,
@@ -146,17 +310,25 @@ class DualControlConfig:
             raise ValueError("dual-control weights and tolerances must be positive")
         object.__setattr__(self, "command_minimum", tuple(minimum))
         object.__setattr__(self, "command_maximum", tuple(maximum))
+        object.__setattr__(self, "multi_start_amplitudes", tuple(amplitudes.tolist()))
 
     def to_dict(self) -> dict[str, Any]:
         return {
+            "variant": self.variant,
             "sample_period_s": self.sample_period_s,
             "horizon_steps": self.horizon_steps,
             "block_steps": self.block_steps,
             "block_count": self.block_count,
+            "objective": self.objective,
+            "residualize_information": self.residualize_information,
+            "multi_start": self.multi_start,
+            "multi_start_amplitudes": list(self.multi_start_amplitudes),
+            "candidate_count": self.candidate_count,
             "w_rate": self.w_rate,
             "w_info": self.w_info,
             "beta": self.beta,
             "epsilon": self.epsilon,
+            "nuisance_ridge": self.nuisance_ridge,
             "spread_cap": self.spread_cap,
             "velocity_tolerance_m_s": self.velocity_tolerance_m_s,
             "body_rate_tolerance_rad_s": self.body_rate_tolerance_rad_s,
@@ -169,6 +341,15 @@ class DualControlConfig:
             "command_minimum": list(self.command_minimum),  # type: ignore[arg-type]
             "command_maximum": list(self.command_maximum),  # type: ignore[arg-type]
         }
+
+
+def dual_control_config(variant: str = "pass2b", **overrides: Any) -> DualControlConfig:
+    """Config for one of the studied variants, with optional overrides."""
+
+    if variant not in DUAL_CONTROL_VARIANTS:
+        known = ", ".join(sorted(DUAL_CONTROL_VARIANTS))
+        raise ValueError(f"unknown dual-control variant {variant!r}; known: {known}")
+    return DualControlConfig(**DUAL_CONTROL_VARIANTS[variant], **overrides)
 
 
 def _finite_command(name: str, value: Any) -> np.ndarray:
@@ -218,12 +399,14 @@ class _Posterior(NamedTuple):
     collective_covariance: Array
     angular_covariance: Array
     residual_variance: Array
+    collective_residual_variance: Array
 
 
 class _Terms(NamedTuple):
     """The objective decomposition and the horizon diagnostics it implies."""
 
     tracking: Array
+    spread_charge: Array
     command_rate: Array
     information_gain: Array
     altitude_penalty: Array
@@ -248,6 +431,7 @@ class DualControlResult:
     objective_value: float
     seed_objective_value: float
     tracking_cost: float
+    spread_charge: float
     command_rate_cost: float
     information_gain: float
     altitude_penalty: float
@@ -260,6 +444,17 @@ class DualControlResult:
     altitude_constraint_saturated_steps: int
     tilt_constraint_saturated_steps: int
     used_warm_start: bool
+    #: Which multi-start candidate the solve refined.
+    selected_candidate: str
+    selected_candidate_index: int
+    #: Declared amplitude of the winning candidate, zero for the warm start and
+    #: the held command.
+    selected_amplitude: float
+    #: Amplitude the refined plan actually carries: the largest deviation of any
+    #: block from the plan's own mean, as a fraction of the command range.
+    plan_amplitude: float
+    #: Numerical rank of the planned command information the refined plan buys.
+    planned_information_rank: int
     plan: np.ndarray
     reason: str = "dual_control_nmpc"
 
@@ -278,6 +473,7 @@ class DualControlResult:
             self.objective_value,
             self.seed_objective_value,
             self.tracking_cost,
+            self.spread_charge,
             self.command_rate_cost,
             self.information_gain,
             self.altitude_penalty,
@@ -285,6 +481,8 @@ class DualControlResult:
             self.maximum_rate_spread_rad_s,
             self.maximum_tilt_spread_rad,
             self.maximum_altitude_spread_m,
+            self.selected_amplitude,
+            self.plan_amplitude,
         )
         if not np.all(np.isfinite(scalars)):
             raise ValueError("dual-control diagnostics must be finite")
@@ -301,6 +499,7 @@ class DualControlResult:
             "objective_value": self.objective_value,
             "seed_objective_value": self.seed_objective_value,
             "tracking_cost": self.tracking_cost,
+            "spread_charge": self.spread_charge,
             "command_rate_cost": self.command_rate_cost,
             "information_gain": self.information_gain,
             "altitude_penalty": self.altitude_penalty,
@@ -315,6 +514,11 @@ class DualControlResult:
             ),
             "tilt_constraint_saturated_steps": (self.tilt_constraint_saturated_steps),
             "used_warm_start": self.used_warm_start,
+            "selected_candidate": self.selected_candidate,
+            "selected_candidate_index": self.selected_candidate_index,
+            "selected_amplitude": self.selected_amplitude,
+            "plan_amplitude": self.plan_amplitude,
+            "planned_information_rank": self.planned_information_rank,
         }
 
 
@@ -338,8 +542,9 @@ def _projected_gradient_norm(blocks: Array, gradient: Array) -> Array:
 class DualControlNMPC:
     """Plan bounded commands that recover the vehicle and identify it at once.
 
-    The whole solve is one jitted program.  The posterior enters as traced
-    arrays, so a belief that changes every interval never recompiles anything.
+    The whole solve, multi-start included, is one jitted program.  The posterior
+    enters as traced arrays, so a belief that changes every interval never
+    recompiles anything.
     """
 
     def __init__(self, config: DualControlConfig | None = None) -> None:
@@ -351,6 +556,34 @@ class DualControlNMPC:
         self._jit_minimum = jnp.asarray(self._minimum)
         self._jit_span = jnp.asarray(self._span)
         self._jit_midpoint = jnp.asarray(self._midpoint)
+        self._jit_maximum = jnp.asarray(self._maximum)
+        self._signs = jnp.asarray(design_sign_pattern(self.config.block_count))
+        # Amplitude labels line up with the candidate order the program builds:
+        # warm start, held command, then both polarities of every amplitude.
+        polarities = (1.0, -1.0)
+        self._candidate_names: tuple[str, ...] = (
+            "warm_start",
+            "hold",
+            *(
+                f"design_{amplitude:g}_{'plus' if polarity > 0 else 'minus'}"
+                for amplitude in self.config.multi_start_amplitudes
+                for polarity in polarities
+            ),
+        )
+        self._candidate_amplitudes = np.asarray(
+            (
+                0.0,
+                0.0,
+                *(
+                    amplitude
+                    for amplitude in self.config.multi_start_amplitudes
+                    for _ in polarities
+                ),
+            )
+        )
+        if not self.config.multi_start:
+            self._candidate_names = self._candidate_names[:2]
+            self._candidate_amplitudes = self._candidate_amplitudes[:2]
         self._value_and_gradient = jax.value_and_grad(self._objective)
         self._program = jax.jit(self._solve_program)
 
@@ -361,6 +594,12 @@ class DualControlNMPC:
     @property
     def block_count(self) -> int:
         return self.config.block_count
+
+    @property
+    def candidate_names(self) -> tuple[str, ...]:
+        """Multi-start candidates in the order the program scores them."""
+
+        return self._candidate_names
 
     @property
     def jit_cache_size(self) -> int:
@@ -389,8 +628,41 @@ class DualControlNMPC:
         )
         return jnp.repeat(normalized[None, :], self.block_count, axis=0)
 
+    def _design_blocks(self, previous_command: Array, offset: Array) -> Array:
+        """One declared orthogonal design laid on top of the current command.
+
+        The offset is applied in raw command units and clipped to the box.  At a
+        bound the clip turns the two-sided design into a one-sided one, which
+        halves its amplitude but leaves its sign structure, and therefore its
+        rank, untouched.
+        """
+
+        raw = previous_command[None, :] + offset * self._signs * self._jit_span
+        clipped = jnp.clip(raw, self._jit_minimum, self._jit_maximum)
+        return jnp.clip(self._normalized_from_commands(clipped), -1.0, 1.0)
+
+    def _candidate_blocks(
+        self,
+        warm_blocks: Array,
+        previous_command: Array,
+    ) -> Array:
+        """Every multi-start candidate, stacked for one vmapped evaluation."""
+
+        cold = self._cold_blocks(previous_command)
+        candidates = [warm_blocks, cold]
+        if self.config.multi_start:
+            for amplitude in self.config.multi_start_amplitudes:
+                for polarity in (1.0, -1.0):
+                    candidates.append(
+                        self._design_blocks(
+                            previous_command,
+                            jnp.asarray(polarity * amplitude),
+                        )
+                    )
+        return jnp.stack(candidates)
+
     # ------------------------------------------------------------------
-    # prediction, spread, and objective
+    # prediction, information features, spread, and objective
     # ------------------------------------------------------------------
 
     def _rollout(
@@ -398,11 +670,12 @@ class DualControlNMPC:
         blocks: Array,
         state: Array,
         posterior: _Posterior,
-    ) -> tuple[Array, Array, Array, Array, Array, Array, Array]:
+    ) -> tuple[Array, Array, Array, Array, Array, Array]:
         """Roll the known kinematics forward on the posterior-mean command maps.
 
-        Returns the per-step tracking cost, the chord tilt, the altitude, and
-        the three first-order spreads, plus the raw commands the blocks imply.
+        Returns the commands, the per-step tracking cost, the chord tilt, the
+        altitude, and the two angular nuisance regressor blocks the identifier
+        residualizes its command Gram against.
         """
 
         commands = self._commands_from_normalized(self._expand(blocks))
@@ -410,22 +683,13 @@ class DualControlNMPC:
         gravity = jnp.asarray((0.0, 0.0, -GRAVITY_M_S2))
 
         def step(
-            carry: tuple[Array, Array, Array, Array, Array, Array, Array, Array],
+            carry: tuple[Array, Array, Array, Array],
             command: Array,
         ) -> tuple[
-            tuple[Array, Array, Array, Array, Array, Array, Array, Array],
-            tuple[Array, Array, Array, Array, Array, Array],
+            tuple[Array, Array, Array, Array],
+            tuple[Array, Array, Array, Array, Array],
         ]:
-            (
-                altitude,
-                velocity,
-                quaternion,
-                angular_velocity,
-                rate_spread,
-                tilt_spread,
-                vertical_speed_spread,
-                altitude_spread,
-            ) = carry
+            altitude, velocity, quaternion, angular_velocity = carry
             rotation = quaternion_to_rotation(quaternion)
             body_velocity = rotation.T @ velocity
             specific_force = (
@@ -433,6 +697,7 @@ class DualControlNMPC:
                 + posterior.collective_velocity_coefficient @ body_velocity
                 + posterior.collective_intercept
             )
+            specific_force = _guard(specific_force)
             world_acceleration = gravity + rotation[:, 2] * specific_force
             rate_products = jnp.stack(
                 (
@@ -447,30 +712,11 @@ class DualControlNMPC:
                 + posterior.angular_rate_product_coefficient @ rate_products
                 + posterior.angular_intercept
             )
-            # First-order spread: the command-map covariance is the covariance
-            # of a fixed unknown coefficient, so its effect is perfectly
-            # correlated across the horizon and the standard deviations, not
-            # the variances, are what integrate.
-            collective_spread = _safe_sqrt(
-                command @ posterior.collective_covariance @ command
-            )
-            angular_spread = _safe_sqrt(
-                jnp.einsum(
-                    "i,aij,j->",
-                    command,
-                    posterior.angular_covariance,
-                    command,
-                )
-            )
-            next_rate_spread = rate_spread + period * angular_spread
-            next_tilt_spread = tilt_spread + period * next_rate_spread
-            next_vertical_speed_spread = (
-                vertical_speed_spread + period * collective_spread
-            )
-            next_altitude_spread = altitude_spread + period * next_vertical_speed_spread
 
-            next_altitude = altitude + period * velocity[2]
-            next_velocity = velocity + period * world_acceleration
+            angular_acceleration = _guard(angular_acceleration)
+
+            next_altitude = _guard(altitude + period * velocity[2])
+            next_velocity = _guard(velocity + period * world_acceleration)
             quaternion_rate = 0.5 * quaternion_multiply(
                 quaternion,
                 jnp.concatenate((jnp.zeros(1), angular_velocity)),
@@ -479,7 +725,9 @@ class DualControlNMPC:
             next_quaternion = unnormalized / jnp.maximum(
                 jnp.linalg.norm(unnormalized), 1e-9
             )
-            next_angular_velocity = angular_velocity + period * angular_acceleration
+            next_angular_velocity = _guard(
+                angular_velocity + period * angular_acceleration
+            )
 
             # Chord-squared tilt: ``2 (1 - cos tilt)`` equals ``tilt**2`` to
             # second order and, unlike ``arccos``, has a bounded gradient at
@@ -501,78 +749,200 @@ class DualControlNMPC:
                 next_velocity,
                 next_quaternion,
                 next_angular_velocity,
-                next_rate_spread,
-                next_tilt_spread,
-                next_vertical_speed_spread,
-                next_altitude_spread,
             ), (
                 tracking,
                 chord_tilt,
                 next_altitude,
-                next_rate_spread,
-                next_tilt_spread,
-                next_altitude_spread,
+                # The identifier regresses the interval's angular acceleration
+                # on the rates measured at the *start* of the interval, so the
+                # nuisance regressors the plan implies are the pre-step ones.
+                angular_velocity,
+                rate_products,
             )
 
         quaternion = state[6:10] / jnp.maximum(jnp.linalg.norm(state[6:10]), 1e-9)
-        initial = (
-            state[2],
-            state[3:6],
-            quaternion,
-            state[10:13],
-            jnp.asarray(0.0),
-            jnp.asarray(0.0),
-            jnp.asarray(0.0),
-            jnp.asarray(0.0),
-        )
+        initial = (state[2], state[3:6], quaternion, state[10:13])
         _, outputs = jax.lax.scan(step, initial, commands)
-        tracking, tilt, altitude, rate_spread, tilt_spread, altitude_spread = outputs
-        return (
-            commands,
-            tracking,
-            tilt,
-            altitude,
-            rate_spread,
-            tilt_spread,
-            altitude_spread,
-        )
+        tracking, tilt, altitude, angular_velocity, rate_products = outputs
+        return commands, tracking, tilt, altitude, angular_velocity, rate_products
 
-    def _information_gain(self, commands: Array, posterior: _Posterior) -> Array:
-        """Expected log-determinant gain about the command maps.
+    def _information_features(
+        self,
+        commands: Array,
+        angular_velocity: Array,
+        rate_products: Array,
+    ) -> Array:
+        """Planned command features on the identifier's own residual basis.
 
-        ``I_u`` is the identifier's normalized command information turned into a
-        precision by its residual variance and floored by ``epsilon * I``, which
-        is what keeps the gain finite before the first observation.  The planned
-        features are the normalized commands the identifier regresses on.
+        The identifier accumulates ``outer(f, f)`` on ``f = [(u - mid) / span,
+        omega, omega products, 1]`` and reports as command information the Schur
+        complement of the nuisance block, that is the command features
+        residualized against the intercept and the nuisance regressors.  A
+        planned Gram is only comparable with that incumbent if it is built the
+        same way, so the planned commands are centered over the horizon (which
+        is exact residualization against the intercept) and then regressed out
+        of the planned nuisance regressors.
+
+        Centering is what makes a uniform plan earn exactly zero: its centered
+        features are identically zero, so its Gram is zero and its
+        log-determinant gain is zero rather than the rank-one credit raw
+        commands report for doing nothing differential.
         """
 
         features = (commands - self._jit_midpoint) / self._jit_span
-        variance = jnp.maximum(posterior.residual_variance, 1e-12)
-        identity = jnp.eye(_COMMAND_SIZE)
-        current = posterior.command_information / variance + self.config.epsilon * (
-            identity
+        if not self.config.residualize_information:
+            return features
+        centered = features - jnp.mean(features, axis=0)
+        nuisance = jnp.concatenate((angular_velocity, rate_products), axis=1)
+        nuisance = nuisance - jnp.mean(nuisance, axis=0)
+        gram = nuisance.T @ nuisance
+        ridge = jnp.maximum(
+            self.config.nuisance_ridge * jnp.trace(gram) / _ANGULAR_NUISANCE_SIZE,
+            1e-12,
         )
+        coefficient = jnp.linalg.solve(
+            gram + ridge * jnp.eye(_ANGULAR_NUISANCE_SIZE),
+            nuisance.T @ centered,
+        )
+        return centered - nuisance @ coefficient
+
+    def _current_information(self, posterior: _Posterior) -> Array:
+        """``I_u``: the incumbent command information as a precision."""
+
+        variance = jnp.maximum(posterior.residual_variance, 1e-12)
+        return posterior.command_information / variance + self.config.epsilon * jnp.eye(
+            _COMMAND_SIZE
+        )
+
+    def _information_gain(self, features: Array, posterior: _Posterior) -> Array:
+        """Expected log-determinant gain about the command maps."""
+
+        variance = jnp.maximum(posterior.residual_variance, 1e-12)
+        current = self._current_information(posterior)
         planned = features.T @ features / variance
         return jnp.linalg.slogdet(current + planned)[1] - jnp.linalg.slogdet(current)[1]
+
+    def _planned_parameter_covariance(
+        self,
+        features: Array,
+        posterior: _Posterior,
+    ) -> Array:
+        """``Sigma_theta' = (I_u + Phi^T Phi / s^2)^-1`` on residualized features.
+
+        This is the posterior the planned inputs would leave behind, used from
+        the start of the horizon.  It is the standard value-of-information
+        approximation of the dual effect: the plan is charged for the spread it
+        would still be carrying after its own excitation had been absorbed.
+        """
+
+        variance = jnp.maximum(posterior.residual_variance, 1e-12)
+        planned = self._current_information(posterior) + features.T @ features / (
+            variance
+        )
+        return jnp.linalg.inv(planned)
 
     def expected_information_gain(
         self,
         commands: Any,
         belief: RecursiveBootstrapBelief,
+        angular_velocity: Any = None,
+        rate_products: Any = None,
     ) -> float:
         """Information the given command sequence is expected to buy.
 
         This is the objective's own information term evaluated on an arbitrary
         command sequence rather than on a plan, which is what lets a caller ask
         what a candidate excitation would be worth without solving anything.
+        The nuisance regressors default to zero, which reduces the
+        residualization to the exact intercept term.
         """
 
         sequence = np.asarray(commands, dtype=np.float64)
         if sequence.ndim != 2 or sequence.shape[1] != _COMMAND_SIZE:
             raise ValueError("commands must be a sequence of four-entry commands")
-        return float(
-            self._information_gain(jnp.asarray(sequence), self._posterior(belief))
+        rates = (
+            np.zeros((len(sequence), 3))
+            if angular_velocity is None
+            else np.asarray(angular_velocity, dtype=np.float64)
         )
+        products = (
+            np.zeros((len(sequence), 3))
+            if rate_products is None
+            else np.asarray(rate_products, dtype=np.float64)
+        )
+        if rates.shape != (len(sequence), 3) or products.shape != (len(sequence), 3):
+            raise ValueError("nuisance regressors must be three per command")
+        posterior = self._posterior(belief)
+        features = self._information_features(
+            jnp.asarray(sequence),
+            jnp.asarray(rates),
+            jnp.asarray(products),
+        )
+        return float(self._information_gain(features, posterior))
+
+    def _spreads(
+        self,
+        commands: Array,
+        features: Array,
+        posterior: _Posterior,
+    ) -> tuple[Array, Array, Array, Array]:
+        """Per-step predicted spread in rate, tilt, vertical speed, and altitude.
+
+        The command-map covariance is the covariance of a fixed unknown
+        coefficient, so its effect is perfectly correlated across the horizon
+        and the standard deviations, not the variances, are what integrate.
+
+        Under ``"information_gain"`` the per-step acceleration spread is the
+        incumbent posterior evaluated at the planned command, which is what the
+        first pass propagated.  Under ``"expected_cost"`` it is the
+        command-averaged spread of the *planned* posterior: the variance a
+        command drawn uniformly from the box would still have after the plan's
+        own excitation.  Averaging over the box rather than evaluating at the
+        planned command is what stops the charge from being zeroed by parking on
+        whatever command the quadratic form happens to vanish at; it asks how
+        well the vehicle's response is known over the whole box it will have to
+        act in, which is the quantity that decides whether the goal is
+        reachable.
+        """
+
+        period = self.config.sample_period_s
+        if self.config.objective == "expected_cost":
+            covariance = self._planned_parameter_covariance(features, posterior)
+            # Uniform commands on the box give the normalized features
+            # covariance ``I / 12`` and zero mean, so the box-averaged
+            # predictive variance is ``trace(Sigma) / 12`` per output axis.
+            box_variance = jnp.trace(covariance) / 12.0
+            angular_variance = 3.0 * box_variance
+            collective_variance = (
+                box_variance
+                * posterior.collective_residual_variance
+                / jnp.maximum(posterior.residual_variance, 1e-12)
+            )
+            steps = commands.shape[0]
+            angular_spread = jnp.full((steps,), _safe_sqrt(angular_variance))
+            collective_spread = jnp.full((steps,), _safe_sqrt(collective_variance))
+        else:
+            collective_spread = _safe_sqrt(
+                jnp.einsum(
+                    "ti,ij,tj->t",
+                    commands,
+                    posterior.collective_covariance,
+                    commands,
+                )
+            )
+            angular_spread = _safe_sqrt(
+                jnp.einsum(
+                    "ti,aij,tj->t",
+                    commands,
+                    posterior.angular_covariance,
+                    commands,
+                )
+            )
+        rate_spread = jnp.cumsum(period * angular_spread)
+        tilt_spread = jnp.cumsum(period * rate_spread)
+        vertical_speed_spread = jnp.cumsum(period * collective_spread)
+        altitude_spread = jnp.cumsum(period * vertical_speed_spread)
+        return rate_spread, tilt_spread, vertical_speed_spread, altitude_spread
 
     def _terms(
         self,
@@ -588,16 +958,39 @@ class DualControlNMPC:
             tracking,
             tilt,
             altitude,
+            angular_velocity,
+            rate_products,
+        ) = self._rollout(blocks, state, posterior)
+        features = self._information_features(
+            commands,
+            angular_velocity,
+            rate_products,
+        )
+        (
             rate_spread,
             tilt_spread,
+            vertical_speed_spread,
             altitude_spread,
-        ) = self._rollout(blocks, state, posterior)
+        ) = self._spreads(commands, features, posterior)
         moves = jnp.diff(
             jnp.concatenate((previous_command[None, :], commands), axis=0),
             axis=0,
         )
         command_rate = self.config.w_rate * jnp.sum(jnp.square(moves))
-        gain = self._information_gain(commands, posterior)
+        gain = self._information_gain(features, posterior)
+        if self.config.objective == "expected_cost":
+            # ``trace(W Sigma_x,k)`` on the same tolerances the tracking cost
+            # normalizes by, so a metre of predicted spread and a metre of
+            # predicted error cost the same.
+            spread_charge = jnp.sum(
+                jnp.square(rate_spread) / self.config.body_rate_tolerance_rad_s**2
+                + jnp.square(tilt_spread) / self.config.tilt_tolerance_rad**2
+                + jnp.square(vertical_speed_spread)
+                / self.config.velocity_tolerance_m_s**2
+                + jnp.square(altitude_spread) / self.config.altitude_tolerance_m**2
+            )
+        else:
+            spread_charge = jnp.asarray(0.0)
 
         altitude_cap = self.config.spread_cap * self.config.altitude_tolerance_m
         tilt_cap = self.config.spread_cap * self.config.tilt_tolerance_rad
@@ -615,14 +1008,16 @@ class DualControlNMPC:
         )
         # A spread wider than the cap makes the chance constraint say nothing,
         # so the penalty is dropped from the objective and therefore from the
-        # gradient.  At zero information this leaves the information term and
-        # the command bounds in charge, which is the intent.
+        # gradient.  At zero information this leaves the spread charge, the
+        # information term, and the command bounds in charge, which is the
+        # intent.
         altitude_penalty = jnp.sum(
             jnp.where(altitude_supported, jnp.square(altitude_breach), 0.0)
         )
         tilt_penalty = jnp.sum(jnp.where(tilt_supported, jnp.square(tilt_breach), 0.0))
         return _Terms(
             tracking=jnp.sum(tracking),
+            spread_charge=spread_charge,
             command_rate=command_rate,
             information_gain=gain,
             altitude_penalty=altitude_penalty,
@@ -644,13 +1039,52 @@ class DualControlNMPC:
         previous_command: Array,
     ) -> Array:
         terms = self._terms(blocks, state, posterior, previous_command)
+        information = (
+            jnp.asarray(0.0)
+            if self.config.objective == "expected_cost"
+            else self.config.w_info * terms.information_gain
+        )
         return (
             terms.tracking
+            + terms.spread_charge
             + terms.command_rate
-            - self.config.w_info * terms.information_gain
+            - information
             + terms.altitude_penalty
             + terms.tilt_penalty
         )
+
+    def _plan_diagnostics(
+        self,
+        blocks: Array,
+        state: Array,
+        posterior: _Posterior,
+    ) -> tuple[Array, Array]:
+        """Realized amplitude and planned information rank of a finished plan.
+
+        Kept out of the objective because the eigenvalue decomposition the rank
+        needs has no usable gradient at the repeated eigenvalues an unexcited
+        design produces.
+        """
+
+        (
+            commands,
+            _tracking,
+            _tilt,
+            _altitude,
+            angular_velocity,
+            rate_products,
+        ) = self._rollout(blocks, state, posterior)
+        features = self._information_features(
+            commands,
+            angular_velocity,
+            rate_products,
+        )
+        amplitude = jnp.max(jnp.abs(features - jnp.mean(features, axis=0)))
+        planned = features.T @ features
+        eigenvalues = jnp.linalg.eigvalsh(planned)
+        threshold = jnp.maximum(jnp.max(eigenvalues), 0.0) * 1e-6
+        rank = jnp.sum(eigenvalues > jnp.maximum(threshold, 1e-12))
+        return amplitude, rank
 
     # ------------------------------------------------------------------
     # bounded projected-gradient solve
@@ -674,6 +1108,10 @@ class DualControlNMPC:
         flight the solve happens; a unit direction makes the step sizes mean the
         same thing throughout, and any positive multiple of the gradient is
         still a descent direction, so the Armijo test is unchanged.
+
+        Every accepted step strictly decreases the objective and a rejected one
+        leaves the iterate alone, so the refinement can never return a plan
+        worse than the multi-start candidate it was handed.
         """
 
         def finite(candidate_value: Array, candidate_gradient: Array) -> Array:
@@ -823,21 +1261,43 @@ class DualControlNMPC:
         state: Array,
         posterior: _Posterior,
         previous_command: Array,
-    ) -> tuple[Array, Array, Array, Array, Array, Array, Array, Array, Array, _Terms]:
-        """The whole solve as one compiled operation on traced posteriors."""
+    ) -> tuple[
+        Array,
+        Array,
+        Array,
+        Array,
+        Array,
+        Array,
+        Array,
+        Array,
+        Array,
+        Array,
+        Array,
+        _Terms,
+    ]:
+        """The whole solve as one compiled operation on traced posteriors.
 
-        cold = self._cold_blocks(previous_command)
-        cold_value = self._objective(cold, state, posterior, previous_command)
-        warm_value = self._objective(warm_blocks, state, posterior, previous_command)
-        # Seeding from the better of the shifted plan and the held command makes
-        # a warm start structurally no worse than a cold one.
-        use_warm = (
-            warm_valid
-            & jnp.isfinite(warm_value)
-            & (warm_value <= jnp.where(jnp.isfinite(cold_value), cold_value, jnp.inf))
-        )
-        blocks = jnp.where(use_warm, warm_blocks, cold)
-        seed_value = jnp.where(use_warm, warm_value, cold_value)
+        The multi-start scores every declared candidate in one vmap and refines
+        the best.  Because the warm start and the held command are both in that
+        set, the seed is structurally no worse than either, and because the
+        refinement is monotone the returned plan is no worse than the seed.
+        """
+
+        candidates = self._candidate_blocks(warm_blocks, previous_command)
+        values = jax.vmap(
+            lambda candidate: self._objective(
+                candidate,
+                state,
+                posterior,
+                previous_command,
+            )
+        )(candidates)
+        # A warm start that could not be shifted is not a candidate at all.
+        usable = jnp.isfinite(values).at[0].set(jnp.isfinite(values[0]) & warm_valid)
+        values = jnp.where(usable, values, jnp.inf)
+        selected = jnp.argmin(values)
+        blocks = candidates[selected]
+        seed_value = values[selected]
         value, gradient = self._value_and_gradient(
             blocks,
             state,
@@ -855,6 +1315,7 @@ class DualControlNMPC:
             )
         )
         terms = self._terms(final_blocks, state, posterior, previous_command)
+        amplitude, rank = self._plan_diagnostics(final_blocks, state, posterior)
         commands = self._commands_from_normalized(self._expand(final_blocks))
         plan = self._commands_from_normalized(final_blocks)
         return (
@@ -866,7 +1327,9 @@ class DualControlNMPC:
             converged,
             stalled,
             failed,
-            use_warm,
+            selected,
+            amplitude,
+            rank,
             terms,
         )
 
@@ -897,6 +1360,7 @@ class DualControlNMPC:
             objective_value=0.0,
             seed_objective_value=0.0,
             tracking_cost=0.0,
+            spread_charge=0.0,
             command_rate_cost=0.0,
             information_gain=0.0,
             altitude_penalty=0.0,
@@ -909,6 +1373,11 @@ class DualControlNMPC:
             altitude_constraint_saturated_steps=0,
             tilt_constraint_saturated_steps=0,
             used_warm_start=False,
+            selected_candidate="none",
+            selected_candidate_index=-1,
+            selected_amplitude=0.0,
+            plan_amplitude=0.0,
+            planned_information_rank=0,
             plan=np.repeat(command[None, :], self.block_count, axis=0),
             reason=reason,
         )
@@ -935,6 +1404,9 @@ class DualControlNMPC:
             ),
             angular_covariance=jnp.asarray(belief.supported_angular_effect_covariance),
             residual_variance=jnp.asarray(variance),
+            collective_residual_variance=jnp.asarray(
+                float(belief.collective_residual_std_m_s2) ** 2
+            ),
         )
 
     @staticmethod
@@ -950,6 +1422,7 @@ class DualControlNMPC:
             and np.all(np.isfinite(belief.normalized_command_information))
             and np.all(np.isfinite(belief.supported_collective_effect_covariance))
             and np.all(np.isfinite(belief.supported_angular_effect_covariance))
+            and math.isfinite(belief.collective_residual_std_m_s2)
         )
 
     def _warm_blocks(
@@ -1019,7 +1492,9 @@ class DualControlNMPC:
             converged,
             stalled,
             failed,
-            used_warm,
+            selected,
+            plan_amplitude,
+            planned_rank,
             terms,
         ) = self._program(
             jnp.asarray(warm),
@@ -1046,6 +1521,7 @@ class DualControlNMPC:
             status = SolveStatus.STALLED
         else:
             status = SolveStatus.ITERATION_LIMIT
+        index = int(selected)
         return DualControlResult(
             command=bounded,
             command_usable=True,
@@ -1054,6 +1530,7 @@ class DualControlNMPC:
             objective_value=value_float,
             seed_objective_value=float(seed_value),
             tracking_cost=float(terms.tracking),
+            spread_charge=float(terms.spread_charge),
             command_rate_cost=float(terms.command_rate),
             information_gain=float(terms.information_gain),
             altitude_penalty=float(terms.altitude_penalty),
@@ -1065,7 +1542,12 @@ class DualControlNMPC:
             tilt_constraint_active_steps=int(terms.tilt_active_steps),
             altitude_constraint_saturated_steps=int(terms.altitude_saturated_steps),
             tilt_constraint_saturated_steps=int(terms.tilt_saturated_steps),
-            used_warm_start=bool(used_warm),
+            used_warm_start=index == 0,
+            selected_candidate=self._candidate_names[index],
+            selected_candidate_index=index,
+            selected_amplitude=float(self._candidate_amplitudes[index]),
+            plan_amplitude=float(plan_amplitude),
+            planned_information_rank=int(planned_rank),
             plan=np.clip(
                 np.asarray(plan, dtype=np.float64),
                 self._minimum,

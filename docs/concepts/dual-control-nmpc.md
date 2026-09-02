@@ -1,7 +1,8 @@
 # Dual-control NMPC for an unseen multirotor
 
-**Status: design under exploration.** This describes an experimental controller
-being built in `glassbox.experimental`. Nothing here is part of the stable API,
+**Status: design under exploration; the second pass recovers three of the
+seven study cases from zero information with no vehicle numbers.** This
+describes an experimental controller being built in `glassbox.experimental`. Nothing here is part of the stable API,
 and the throw diagnostic's default controller is unchanged until the study on
 this page reports.
 
@@ -162,3 +163,204 @@ Actuator lag, forgetting or process noise for tracking configuration changes
 (the posterior currently never forgets), integration into the maintained NMPC
 model families, and any real-time claim. Each is a follow-up once the
 feasibility question is answered.
+
+## Second pass (2026-09-02)
+
+The first pass failed for three reasons that the page above stated as
+assumptions: the seed was a fixed point, the information features were not the
+features the identifier accumulates, and the information term had no currency
+in common with tracking. Each is addressed by one change, and each change is a
+config switch, so the passes are three arms of one study rather than three
+studies. `pass1` is the configuration above and is kept selectable so its
+failure stays reproducible; `pass2a` adds the first two changes; `pass2b` adds
+the third.
+
+### Multi-start over declared orthogonal designs
+
+Before the gradient refinement, one jitted `vmap` scores a small candidate set:
+the shifted warm start, the previous command held, and both sign polarities of a
+bounded orthogonal design at each declared amplitude. The design lays a
+Hadamard row of order four on each command block, cycling the rows and flipping
+the polarity every fourth block, so a single horizon visits the collective
+direction and all three differentials in both polarities. Its
+intercept-centered Gram has full rank four, which is the property that matters:
+a design whose centered Gram were rank deficient could not buy rank four inside
+one horizon at any amplitude.
+
+The best candidate is refined by the existing projected-gradient solver. The
+warm start and the held command are both in the set, so the seed is
+structurally no worse than either, and the refinement only accepts steps that
+decrease the objective, so the returned plan is no worse than the seed.
+
+The declared amplitudes are `0.06`, `0.12`, and `0.25` of the command range: a
+geometric ladder whose top rung makes one horizon's Gram outweigh the `epsilon`
+prior by three orders of magnitude and whose bottom rung is small enough to
+leave a settled hover alone. This tuple and the sign pattern are the
+controller's one action-side prior beyond the command box, and they are the
+same kind of declaration as the bounds.
+
+### Residualized information features
+
+The identifier accumulates `outer(f, f)` on `f = [(u - mid)/span, omega, omega
+products, 1]` and reports as command information the Schur complement of the
+nuisance block. The first pass planned on raw commands instead, so it credited
+a motor-uniform plan with information the intercept would have absorbed: at the
+canonical release it reported 11.7 nats per interval for holding all four
+motors at zero. The planned features are now centered over the horizon, which
+is exact residualization against the intercept, and then regressed out of the
+planned body rates and rate products with a relative ridge. A uniform plan now
+earns exactly zero — the same float twice, not a small number — and the
+information gradient points along differential inputs.
+
+### A shared currency
+
+`pass2b` deletes the additive information term and the weight `w_info` with it.
+The tracking cost is charged for predicted spread,
+`E[l(x_k)] = l(x_hat_k) + trace(W Sigma_x,k)`, on the same task tolerances the
+tracking error is normalized by. The parameter posterior used over the horizon
+is the one the planned inputs would produce,
+`Sigma_theta' = (I_u + Phi^T Phi / s^2)^-1` on the residualized features,
+applied from the start of the horizon: the standard value-of-information
+approximation of the dual effect.
+
+`Sigma_theta'` is turned into an acceleration spread by averaging over the
+command box rather than by evaluating it at the planned command. That choice is
+load bearing. Every quadratic form `phi^T Sigma phi` has a zero, and an
+optimizer handed one parks on it: evaluated at the planned command the charge
+is minimized by holding, or by sitting at whatever command the form happens to
+vanish at, and no amount of posterior spread changes that. The box average,
+`trace(Sigma_theta') / 12` per output axis, asks instead how well the vehicle's
+response is known over the whole box it will have to act in, which is the
+quantity that decides whether the goal is reachable at all. It is A-optimal
+design rather than D-optimal, and unlike a log-determinant it carries units, so
+it can be added to a tracking cost without a weight.
+
+Excitation then pays for itself: at zero information `Sigma_theta'` is
+`epsilon^-1 I`, and one horizon of the top declared amplitude collapses it by a
+factor of about two thousand, while the same design costs between ten and a
+hundred task-tolerance units of command rate.
+falls on its own and the marginal value of excitation falls with it, so the
+controller anneals without a schedule, a freeze, or a quality test.
+
+### One numerical guard
+
+A posterior fitted from a handful of rank-deficient samples routinely carries a
+rate-product coefficient of tens, and `omega' = a_p omega^2` blows up in finite
+time, so the mean model's own thirty-step prediction reached infinity inside the
+horizon and every plan scored the same infinite cost. On the canonical case
+that made forty-one solves return no usable command at all, nearly all of them
+in the first second after enable.
+Predicted accelerations and states are now saturated at `1e6`, six orders of
+magnitude above any reachable flight. The effect that matters is not the
+finiteness but the flatness: the tracking term goes flat exactly where the mean
+model has stopped saying anything, and the spread term decides there instead.
+
+### Result
+
+Seven cases, four arms, in `artifacts/crazyflow_throw_study/report-pass2.json`.
+The two cascade arms are byte-identical to the first-pass report.
+
+Symmetry breaking works and is not weight dependent. On the canonical case the
+first thirty commands are all exactly zero in pass 1 and none of them are in
+pass 2a or 2b; the first interval is won by a declared design in both, the
+planned information rank is four at the first interval and at all but two of
+the first thirty in pass 2a and all but four in pass 2b, and command evidence
+reaches rank four in every case in both passes, worst case 0.98 s after enable
+in pass 2a and 0.53 s in pass 2b, against never in five of seven cases in
+pass 1. The third success criterion, rank four within 0.3 s of control
+starting, is met on five of seven cases in pass 2b (0.25, 0.34, 0.53, 0.25,
+0.27, 0.24, 0.25 s) and on two of seven in pass 2a (0.35, 0.38, 0.25, 0.28,
+0.40, 0.98, 0.35 s).
+
+The shared currency is what makes the excitation persist for the right length of
+time. In pass 2a the log-determinant gain falls from 24.5 nats at the first
+interval to 0.18 by the fiftieth while the tracking cost is between `1e5` and
+`1e6`, so excitation stops paying long before the model is good enough to fly
+on, and the plan wanders at a mean amplitude of 0.014. In pass 2b the spread
+charge is 2000 against a tracking cost of `1e5` through the whole arrest, the
+same order of magnitude rather than four orders below it, and the controller
+trades between them continuously.
+
+Recovery is partial. Pass 2b flies the canonical release, the mid-flight arm
+change, and the high release to a hover without touching the floor, at a settled
+command step of 0.0003 against 0.0010 for the frozen snapshot and 0.0804 for the
+working belief, which is the quietest hover of any arm. It touches the floor on
+the other four. Pass 2a touches the floor on six of seven. Both cascade arms
+never touch it on any case. The `sustained_hover_duration_s` metric does not
+separate these: a vehicle resting on the floor satisfies the hover envelope, so
+pass 2a's 5.10 s on the canonical case is a vehicle lying on the ground and
+pass 2b's 0.41 s is a real hover at 2.3 m. Read `minimum_altitude_m` alongside
+it.
+
+The mechanism of the remaining failures is identification speed against
+altitude, and it is a vicious circle rather than a weight. The identifier
+residualizes eleven features, so it can report no command information at all
+until it has more than eleven samples, and the samples it does get during a
+tumble are confounded: body rates of six to eight radians per second make the
+rate-product regressors large and correlated with whatever the commands are
+doing, so the Schur complement stays small. The canonical release is at 4.8 m
+with 1.7 m/s of descent and more than a radian of attitude error when control
+is enabled, which is 0.83 s of free fall; the cascade has a supported belief at
+0.22 s because its probe rides on a smooth hand-designed base that keeps the
+vehicle benign, and the dual controller needs 0.25 s to 0.53 s because its own
+early commands make the vehicle less benign. Where that leaves enough altitude, it recovers; where
+it does not, it hits the floor and then levels itself on the ground.
+
+### Tuning record
+
+Every value tried, all on the canonical case only, one adjustment per knob. All
+six trials start from the same baseline, which is pass 2b at the first-pass
+amplitude ladder, so the effect column is measured against that one run
+(floor contact, 2.27 s of hover on the ground, rank four 0.44 s after enable,
+settled command step 0.20). Only the amplitude row changed anything decisive:
+every other trial still put the vehicle on the floor.
+
+| knob | tried | kept | effect at the trial |
+| --- | --- | --- | --- |
+| `multi_start_amplitudes` | `(0.03, 0.06, 0.12)`, `(0.06, 0.12, 0.25)` | `(0.06, 0.12, 0.25)` | floor contact removed, rank four 0.44 s → 0.25 s, settled command step 0.20 → 0.0003 |
+| `w_rate` | `25`, `100` | `25` | still hits the floor, maximum tilt 1.81 → 3.09 |
+| `beta` | `2.0`, `3.0` | `2.0` | still hits the floor, hover 2.27 s → 0.84 s |
+| `spread_cap` | `3.0`, `30.0` | `3.0` | still hits the floor, terminal rate 0.06 → 0.41 |
+| `epsilon` | `1e-3`, `1e-2` | `1e-3` | still hits the floor, information rank four 0.69 s → 3.78 s |
+| `altitude_floor_m` | `1.0`, `2.0` | `1.0` | still hits the floor, hover 2.27 s → 1.13 s |
+
+Nothing else was tuned. The horizon, block length, solver budget, and the four
+task tolerances are unchanged from the first pass.
+
+The amplitude ladder is the only knob whose value changed, so it is the only one
+whose canonical-only choice could be an accident of that case. Re-running all
+seven cases at both ladders says it is not: the old ladder touches the floor on
+seven of seven, the new one on four, it is at least as fast to rank four on six
+of seven cases, and it is quieter in the settled window on every case where the
+vehicle is actually hovering. The choice generalizes in the direction it was
+made; it does not rescue the four cases that still land.
+
+### What is still open
+
+The three criteria the first pass met still hold: every command finite and in
+bounds on every case, one compiled program with no recompilation across
+posteriors, and no vehicle-specific number in the controller. The rank-four
+timing criterion is met on five cases of seven in pass 2b. The chatter
+criterion is met, and beaten, on exactly the cases that do not touch the floor:
+settled command steps of 0.0003, 0.0009, and 0.0003 against 0.0010 for the
+frozen snapshot, and 0.18 to 0.34 on the four that land, where those numbers
+describe a controller working against the ground rather than a hover. The
+hover-envelope criterion is met without floor contact on three of seven. Under
+state noise pass 2b's terminal speed, rate, and settled angular error are all
+better than either cascade arm (0.000, 0.027, 2.47 against 0.429, 0.449, 2.50),
+but it reaches them on the floor; after the mid-flight arm change it holds a
+real hover with a settled angular error of 0.12 against the snapshot's 0.59.
+
+The honest reading is that this controller is slower to earn attitude authority
+than a hand-gained cascade by roughly a factor of two, which on a release with
+under a second of altitude budget is the difference between a hover and a
+landing.
+
+The next thing to try is not another weight. It is the confounding: the
+identifier cannot separate a command effect from a rate-product effect during a
+tumble, and the controller's own excitation makes the tumble worse. Either the
+objective has to charge for the confounding it is about to create — the planned
+Gram already contains the nuisance regressors the plan implies, so the
+information it reports is honest, but nothing yet prefers a plan whose nuisance
+block is quiet — or the horizon has to be long enough for the arrest to appear
+in the tracking term before the altitude is gone.

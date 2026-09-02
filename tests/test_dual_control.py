@@ -11,6 +11,7 @@ the flight loop starts from.
 from __future__ import annotations
 
 import json
+import time
 
 import numpy as np
 import pytest
@@ -24,6 +25,8 @@ from glassbox.experimental.dual_control import (
     DualControlConfig,
     DualControlNMPC,
     command_information_log_determinant,
+    design_sign_pattern,
+    dual_control_config,
 )
 
 #: A synthetic four-motor vehicle used only to manufacture posteriors.  It is a
@@ -254,7 +257,15 @@ def test_log_determinant_helper_matches_the_objectives_information_floor() -> No
 
 
 @pytest.mark.crazyflow
-def test_dual_control_study_mode_reports_the_canonical_case() -> None:
+def test_the_superseded_first_pass_mode_still_runs_the_canonical_case() -> None:
+    """The first pass stays runnable so its recorded failure is reproducible.
+
+    It is not the default arm any more, and it is not expected to fly: the
+    study report is where its behaviour is read.  What is asserted here is only
+    that the switch still selects it and that it still produces a bounded,
+    serializable run.
+    """
+
     pytest.importorskip("crazyflow")
 
     from glassbox.integrations.crazyflow_throw_study import (
@@ -270,6 +281,7 @@ def test_dual_control_study_mode_reports_the_canonical_case() -> None:
 
     assert report["control_models"] == [DUAL_CONTROL_MODEL]
     metrics = report["cases"][0]["modes"][DUAL_CONTROL_MODEL]
+    assert metrics["dual_control"]["config"]["variant"] == "pass1"
     assert metrics["flight"]["non_finite_value_count"] == 0
     assert metrics["flight"]["command_bound_violation_count"] == 0
     dual = metrics["dual_control"]
@@ -286,4 +298,197 @@ def test_dual_control_study_mode_reports_the_canonical_case() -> None:
         "invalid_input",
     }
     assert "altitude_active_step_total" in dual["chance_constraints"]
+    json.dumps(report, allow_nan=False)
+
+
+def _uniform_plan(level: float, steps: int = 30) -> np.ndarray:
+    return np.repeat(np.full(4, level)[None, :], steps, axis=0)
+
+
+def _declared_plan(
+    controller: DualControlNMPC,
+    amplitude: float,
+    base: float = 0.5,
+) -> np.ndarray:
+    """The controller's own declared design, expanded to horizon steps."""
+
+    blocks = np.clip(
+        base + amplitude * design_sign_pattern(controller.block_count),
+        0.0,
+        1.0,
+    )
+    return np.repeat(blocks, controller.config.block_steps, axis=0)[
+        : controller.config.horizon_steps
+    ]
+
+
+def test_the_declared_design_is_full_rank_after_intercept_residualization() -> None:
+    """One horizon of the design spans all four command directions.
+
+    Centering is exactly what the identifier's intercept does to the command
+    Gram, so a design whose centered Gram is rank deficient could never buy
+    rank four inside a single horizon however large its amplitude.
+    """
+
+    signs = design_sign_pattern(DualControlConfig().block_count)
+    centered = signs - signs.mean(axis=0)
+    assert np.linalg.matrix_rank(centered.T @ centered) == 4
+
+
+def test_a_uniform_plan_earns_exactly_zero_planned_information() -> None:
+    """The identifier's intercept absorbs a uniform command, so it is free.
+
+    Not approximately zero: the planned features are centered over the horizon
+    before the Gram is formed, so a uniform plan contributes an exactly zero
+    matrix and the log-determinant difference is the same float twice.  The
+    first pass, which regressed on raw commands, credited a uniform plan with
+    several nats it could never collect, and that credit is what let the
+    optimizer sit still.
+    """
+
+    controller = _controller()
+    superseded = DualControlNMPC(
+        dual_control_config("pass1", sample_period_s=_SAMPLE_PERIOD_S)
+    )
+    for count in (0, 6, 200):
+        belief = _belief_after(count)
+        for level in (0.0, 0.317, 0.5, 1.0):
+            plan = _uniform_plan(level)
+            assert controller.expected_information_gain(plan, belief) == 0.0
+    assert (
+        superseded.expected_information_gain(_uniform_plan(0.317), _belief_after(0))
+        > 1.0
+    )
+
+
+def test_the_declared_design_outearns_every_uniform_plan() -> None:
+    controller = _controller()
+    for count in (0, 6, 200):
+        belief = _belief_after(count)
+        design = controller.expected_information_gain(
+            _declared_plan(controller, 0.12), belief
+        )
+        uniform = [
+            controller.expected_information_gain(_uniform_plan(level), belief)
+            for level in np.linspace(0.0, 1.0, 21)
+        ]
+        assert design > max(uniform)
+        assert max(uniform) == 0.0
+
+
+def test_the_multi_start_never_seeds_worse_than_the_warm_start() -> None:
+    """Adding candidates can only lower the objective the refinement starts at.
+
+    The warm start and the held command are both in the candidate set and the
+    seed is their argmin, so this is structural.  The refinement is monotone on
+    top of that: every accepted line-search step strictly decreases the
+    objective and a rejected one leaves the iterate alone.
+    """
+
+    controller = _controller()
+    single = DualControlNMPC(
+        DualControlConfig(sample_period_s=_SAMPLE_PERIOD_S, multi_start=False)
+    )
+    for count in (0, 6, 200):
+        belief = _belief_after(count)
+        for state in _random_states(4, seed=17):
+            previous = np.full(4, 0.4)
+            warm = controller.solve(state, belief, previous)
+            multi = controller.solve(state, belief, previous, warm_start=warm)
+            plain = single.solve(state, belief, previous, warm_start=warm)
+            tolerance = 1e-4 * max(abs(plain.seed_objective_value), 1.0)
+            assert multi.seed_objective_value <= plain.seed_objective_value + tolerance
+            assert multi.objective_value <= multi.seed_objective_value + tolerance
+
+
+def test_expected_cost_probes_a_wide_posterior_and_tracks_a_tight_one() -> None:
+    """The spread charge, not a weight, decides between probing and tracking.
+
+    With no information the spread charge is the only term with a usable
+    gradient and an informative plan collapses it, so the optimizer takes one of
+    the declared designs and buys rank four.  With a tight posterior the same
+    charge is already small, excitation cannot repay its command-rate cost, and
+    the optimizer holds the tracking plan.  Nothing switched: the same objective
+    reports both.
+    """
+
+    controller = _controller()
+    state = np.zeros(13)
+    state[2] = 3.0
+    state[6] = 1.0
+    state[3:6] = (0.0, 0.0, -2.0)
+
+    wide = controller.solve(state, _belief_after(0), np.full(4, 0.3))
+    assert wide.selected_amplitude > 0.0
+    assert wide.selected_candidate.startswith("design_")
+    assert wide.planned_information_rank == 4
+    assert wide.spread_charge > 0.0
+
+    belief = _belief_after(200)
+    hover = np.asarray(belief.hover_command)
+    tight = controller.solve(state, belief, hover)
+    for _ in range(20):
+        tight = controller.solve(state, belief, tight.command, tight)
+    assert tight.selected_amplitude == 0.0
+    assert tight.plan_amplitude < wide.plan_amplitude
+    assert tight.spread_charge < wide.spread_charge
+
+
+def test_every_variant_compiles_one_program_and_stays_bounded() -> None:
+    beliefs = [_belief_after(count) for count in (0, 1, 6, 40, 200)]
+    for variant in ("pass1", "pass2a", "pass2b"):
+        controller = DualControlNMPC(
+            dual_control_config(variant, sample_period_s=_SAMPLE_PERIOD_S)
+        )
+        assert controller.config.variant == variant
+        assert controller.jit_cache_size == 0
+        for belief in beliefs:
+            result = None
+            for state in _random_states(4, seed=5):
+                result = controller.solve(state, belief, np.full(4, 0.45), result)
+                assert np.all(np.isfinite(result.command))
+                assert np.all(result.command >= -1e-9)
+                assert np.all(result.command <= 1.0 + 1e-9)
+        assert controller.jit_cache_size == 1
+
+
+@pytest.mark.crazyflow
+def test_the_canonical_dual_control_smoke_stays_under_a_minute() -> None:
+    pytest.importorskip("crazyflow")
+
+    from glassbox.integrations.crazyflow_throw_study import (
+        CRAZYFLOW_THROW_STUDY_CASES,
+        DUAL_CONTROL_PASS2B_MODEL,
+        run_crazyflow_throw_study,
+    )
+
+    canonical = next(
+        case for case in CRAZYFLOW_THROW_STUDY_CASES if case.name == "canonical"
+    )
+    started = time.perf_counter()
+    report = run_crazyflow_throw_study((canonical,), (DUAL_CONTROL_PASS2B_MODEL,))
+    elapsed = time.perf_counter() - started
+    assert elapsed < 60.0
+
+    metrics = report["cases"][0]["modes"][DUAL_CONTROL_PASS2B_MODEL]
+    dual = metrics["dual_control"]
+    assert dual["config"]["variant"] == "pass2b"
+    assert metrics["flight"]["non_finite_value_count"] == 0
+    assert metrics["flight"]["command_bound_violation_count"] == 0
+    assert dual["unusable_command_count"] == 0
+    assert len(dual["multi_start"]["selected_candidate"]) == 900
+    assert len(dual["information_rank"]) == 900
+    assert set(dual["multi_start"]["selection_counts"]) <= set(
+        (
+            "warm_start",
+            "hold",
+            "none",
+            *(
+                f"design_{amplitude:g}_{polarity}"
+                for amplitude in dual["config"]["multi_start_amplitudes"]
+                for polarity in ("plus", "minus")
+            ),
+        )
+    )
+    assert dual["charge_series"][0]["spread_charge"] >= 0.0
     json.dumps(report, allow_nan=False)
