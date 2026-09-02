@@ -64,10 +64,24 @@ CONTROL_MODELS = ("certified", "working")
 DUAL_CONTROL_MODEL = "dual_control_nmpc"
 DUAL_CONTROL_PASS2A_MODEL = "dual_control_nmpc_pass2a"
 DUAL_CONTROL_PASS2B_MODEL = "dual_control_nmpc_pass2b"
+DUAL_CONTROL_PASS3_MODEL = "dual_control_nmpc_pass3"
+#: Which objective each arm plans with.  Pass three plans with the pass-2b
+#: objective unchanged: its two changes are in the identifier, not in the
+#: optimization, so re-running the objective would confound them.
 DUAL_CONTROL_MODEL_VARIANTS = {
     DUAL_CONTROL_MODEL: "pass1",
     DUAL_CONTROL_PASS2A_MODEL: "pass2a",
     DUAL_CONTROL_PASS2B_MODEL: "pass2b",
+    DUAL_CONTROL_PASS3_MODEL: "pass2b",
+}
+#: Identifier switches each arm turns on.  Both are opt-in, so every other arm
+#: in this study, the two cascade modes included, runs the identifier it always
+#: has.
+DUAL_CONTROL_IDENTIFIER_OPTIONS: dict[str, dict[str, Any]] = {
+    DUAL_CONTROL_PASS3_MODEL: {
+        "staged_regressors": True,
+        "enforce_collective_sign": True,
+    },
 }
 #: Every arm the command line will accept.
 STUDY_CONTROL_MODELS = (*CONTROL_MODELS, *DUAL_CONTROL_MODEL_VARIANTS)
@@ -78,6 +92,7 @@ DEFAULT_CONTROL_MODELS = (
     *CONTROL_MODELS,
     DUAL_CONTROL_PASS2A_MODEL,
     DUAL_CONTROL_PASS2B_MODEL,
+    DUAL_CONTROL_PASS3_MODEL,
 )
 DEFAULT_OUTPUT_PATH = Path("artifacts/crazyflow_throw_study/report.json")
 #: Commands kept verbatim from model enable, for the early-action analysis.
@@ -394,7 +409,12 @@ class _TrialRecord:
     dual_results: list[DualControlResult]
     dual_log_determinants: list[float]
     dual_information_ranks: list[int]
+    staged_collective: list[bool]
+    staged_angular: list[bool]
+    sign_projection_counts: list[int]
+    sign_projection_magnitudes: list[float]
     dual_config: dict[str, Any] | None = None
+    identifier_config: dict[str, Any] | None = None
     first_supported_control_step: int | None = None
     control_model_step: int | None = None
     configuration_change_step: int | None = None
@@ -416,6 +436,10 @@ def _new_record() -> _TrialRecord:
         dual_results=[],
         dual_log_determinants=[],
         dual_information_ranks=[],
+        staged_collective=[],
+        staged_angular=[],
+        sign_projection_counts=[],
+        sign_projection_magnitudes=[],
     )
 
 
@@ -439,9 +463,11 @@ def _fly_trial(
     # mode means to the identifier.  The shadow transaction is still scored.
     variant = DUAL_CONTROL_MODEL_VARIANTS.get(control_model)
     dual = variant is not None
-    identifier = RecursiveBootstrapIdentifier(
-        RecursiveBootstrapConfig(control_model="working" if dual else control_model)
+    identifier_config = RecursiveBootstrapConfig(
+        control_model="working" if dual else control_model,
+        **DUAL_CONTROL_IDENTIFIER_OPTIONS.get(control_model, {}),
     )
+    identifier = RecursiveBootstrapIdentifier(identifier_config)
     dual_config = dual_control_config(
         variant if dual else "pass2b",
         sample_period_s=plant.sample_period_s,
@@ -474,6 +500,11 @@ def _fly_trial(
     record = _new_record()
     if dual:
         record.dual_config = dual_config.to_dict()
+        record.identifier_config = {
+            "staged_regressors": identifier_config.staged_regressors,
+            "staging_sample_multiple": identifier_config.staging_sample_multiple,
+            "enforce_collective_sign": identifier_config.enforce_collective_sign,
+        }
     hidden_hover = plant.hover_motor_thrust_fraction
     previous_command = zero_command
     dual_plan: DualControlResult | None = None
@@ -569,6 +600,12 @@ def _fly_trial(
         )
         record.working_hover_errors.append(_hover_relative_error(working, hidden_hover))
         record.command_evidence_ranks.append(working.command_evidence_rank)
+        record.staged_collective.append(working.collective_nuisance_staged)
+        record.staged_angular.append(working.angular_nuisance_staged)
+        record.sign_projection_counts.append(working.collective_sign_projection_count)
+        record.sign_projection_magnitudes.append(
+            working.collective_sign_projection_magnitude
+        )
         if record.command_rank_four_step is None and working.command_evidence_rank == 4:
             record.command_rank_four_step = step
 
@@ -751,9 +788,109 @@ def _charge_series(
     ]
 
 
+def _first_true_step(flags: Sequence[bool]) -> int | None:
+    """Index of the first true entry of an online-step series, if any."""
+
+    found = np.flatnonzero(np.asarray(flags, dtype=bool))
+    return None if len(found) == 0 else int(found[0])
+
+
+def _moment(
+    timestamps: np.ndarray,
+    states: np.ndarray,
+    enable_index: int,
+    step: int | None,
+) -> dict[str, Any] | None:
+    """When one online step happened and what the vehicle was doing then.
+
+    The step index is the online-loop index, whose transition ends on telemetry
+    sample ``enable_index + step + 1``: the same convention every other time in
+    this report uses, so a moment and a time series line up.
+    """
+
+    if step is None:
+        return None
+    index = enable_index + step + 1
+    return {
+        "step": step,
+        "time_s": float(timestamps[index]),
+        "time_from_enable_s": float(timestamps[index] - timestamps[enable_index]),
+        "altitude_m": float(states[index, 2]),
+        "descent_rate_m_s": float(-states[index, 5]),
+    }
+
+
+def _staging_metrics(
+    record: _TrialRecord,
+    timestamps: np.ndarray,
+    states: np.ndarray,
+    enable_index: int,
+) -> dict[str, Any]:
+    """When each nuisance block was admitted, and what the projection did."""
+
+    options = record.identifier_config or {}
+    counts = np.asarray(record.sign_projection_counts, dtype=int)
+    magnitudes = np.asarray(record.sign_projection_magnitudes, dtype=float)
+    fired = counts > 0
+    fired_steps = np.flatnonzero(fired)
+    return {
+        "staged_regressors": bool(options.get("staged_regressors", False)),
+        "staging_sample_multiple": float(options.get("staging_sample_multiple", 0.0)),
+        "collective_transition": _moment(
+            timestamps,
+            states,
+            enable_index,
+            _first_true_step(record.staged_collective),
+        ),
+        "angular_transition": _moment(
+            timestamps,
+            states,
+            enable_index,
+            _first_true_step(record.staged_angular),
+        ),
+        "collective_staged_interval_fraction": (
+            float(np.mean(np.asarray(record.staged_collective, dtype=bool)))
+            if record.staged_collective
+            else 0.0
+        ),
+        "angular_staged_interval_fraction": (
+            float(np.mean(np.asarray(record.staged_angular, dtype=bool)))
+            if record.staged_angular
+            else 0.0
+        ),
+        "collective_sign_projection": {
+            "enforced": bool(options.get("enforce_collective_sign", False)),
+            "fired_interval_count": int(np.count_nonzero(fired)),
+            "fired_interval_fraction": (float(np.mean(fired)) if len(counts) else 0.0),
+            "maximum_projected_command_count": (
+                int(np.max(counts)) if len(counts) else 0
+            ),
+            "maximum_magnitude_m_s2_per_command": (
+                float(np.max(magnitudes)) if len(magnitudes) else 0.0
+            ),
+            "mean_magnitude_when_fired_m_s2_per_command": (
+                float(np.mean(magnitudes[fired])) if fired.any() else 0.0
+            ),
+            "first_fired": _moment(
+                timestamps,
+                states,
+                enable_index,
+                None if not fired.any() else int(fired_steps[0]),
+            ),
+            "last_fired": _moment(
+                timestamps,
+                states,
+                enable_index,
+                None if not fired.any() else int(fired_steps[-1]),
+            ),
+        },
+    }
+
+
 def _dual_control_metrics(
     record: _TrialRecord,
     timestamps: np.ndarray,
+    states: np.ndarray,
     enable_index: int,
     requested: np.ndarray,
 ) -> dict[str, Any]:
@@ -789,6 +926,20 @@ def _dual_control_metrics(
     ranks = np.asarray(record.command_evidence_ranks)
     return {
         "config": record.dual_config,
+        "identifier": record.identifier_config,
+        "staging": _staging_metrics(record, timestamps, states, enable_index),
+        "first_supported_model": _moment(
+            timestamps,
+            states,
+            enable_index,
+            _first_true_step(record.working_supported),
+        ),
+        "command_rank_four": _moment(
+            timestamps,
+            states,
+            enable_index,
+            record.command_rank_four_step,
+        ),
         "multi_start": {
             "selection_counts": selections,
             "selected_candidate": [result.selected_candidate for result in results],
@@ -1123,6 +1274,7 @@ def run_throw_study_trial(
                     "dual_control": _dual_control_metrics(
                         record,
                         timestamps,
+                        states,
                         enable_index,
                         requested,
                     )
@@ -1279,6 +1431,23 @@ def _aggregate(
             "excited_candidate_total": sum(
                 entry["excited_candidate_count"] for entry in dual("multi_start")
             ),
+            "worst_first_supported_time_from_enable_s": (
+                None
+                if any(entry is None for entry in dual("first_supported_model"))
+                else max(
+                    entry["time_from_enable_s"]
+                    for entry in dual("first_supported_model")
+                )
+            ),
+            "sign_projection_fired_interval_total": sum(
+                entry["collective_sign_projection"]["fired_interval_count"]
+                for entry in dual("staging")
+            ),
+            "cases_without_floor_contact": [
+                result["case"]["name"]
+                for result in results
+                if result["modes"][dual_model]["flight"]["minimum_altitude_m"] > 0.0
+            ],
         }
     for model in models:
         aggregate[model] = {

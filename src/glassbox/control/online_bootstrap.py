@@ -61,6 +61,36 @@ class RecursiveBootstrapConfig:
     #: control; the transaction it would have run is still scored and reported
     #: under the ``shadow_`` properties.
     control_model: Literal["certified", "working"] = "certified"
+    #: Solve the point estimate, ranks, support, and covariances over a staged
+    #: column set rather than over every accumulated regressor at once.  The
+    #: full Gram and right-hand side are accumulated either way and nothing is
+    #: discarded; staging only decides which columns the *solve* runs over.
+    #: Stage one is the command block plus the intercept, which is the smallest
+    #: system whose residualization is exact (centering) rather than fitted;
+    #: stage two admits the nuisance regressors and is bit-for-bit the solve
+    #: this identifier has always performed.  Off by default, so the certified
+    #: and working control modes are unchanged.
+    staged_regressors: bool = False
+    #: Effective samples per regressor required before the nuisance block is
+    #: admitted, as a pure ratio of counts.  The Schur complement the fit takes
+    #: projects the command features onto the orthogonal complement of the
+    #: fitted nuisance span, and with ``p`` regressors and ``n`` samples that
+    #: projection removes a fraction of order ``p / n`` of the command energy
+    #: purely by the fit's own freedom; equivalently the smallest eigenvalue of
+    #: a sample Gram sits near ``(1 - sqrt(p / n))**2`` of its population value.
+    #: At ``n = 4 p`` both readings bound the damage at a quarter, so the rank
+    #: the fit reports is a statement about the design rather than about the
+    #: nuisance block's slack.  It is a ratio of counts and refers to nothing
+    #: about a vehicle.
+    staging_sample_multiple: float = 4.0
+    #: Treat the normalized command channel as thrust fraction: more collective
+    #: command means more specific force along body z.  The fitted collective
+    #: command coefficients are then projected onto the nonnegative orthant, so
+    #: a confounded early estimate cannot claim a motor pushes the vehicle down.
+    #: The projection is qualitative and carries no magnitude prior: it moves a
+    #: negative coefficient to exactly zero and leaves every nonnegative one
+    #: untouched.  Off by default.
+    enforce_collective_sign: bool = False
 
     def __post_init__(self) -> None:
         minimum = finite_vector("command_minimum", self.command_minimum, 4)
@@ -116,6 +146,15 @@ class RecursiveBootstrapConfig:
             raise ValueError("proposal_cooldown_interval_count cannot be negative")
         if self.control_model not in ("certified", "working"):
             raise ValueError("control_model must be 'certified' or 'working'")
+        if (
+            not math.isfinite(float(self.staging_sample_multiple))
+            or self.staging_sample_multiple < 1.0
+        ):
+            raise ValueError(
+                "staging_sample_multiple must be finite and at least one: a "
+                "staged system solved from fewer samples than it has columns "
+                "is not a fit"
+            )
         object.__setattr__(self, "command_minimum", tuple(minimum))
         object.__setattr__(self, "command_maximum", tuple(maximum))
 
@@ -155,6 +194,20 @@ class RecursiveBootstrapBelief:
     angular_axis_authority: np.ndarray
     hover_command: np.ndarray | None
     update_wall_time_s: float
+    #: Whether each regression's nuisance block has been admitted to the solve.
+    #: Both are true whenever staging is off, which is the default, so a belief
+    #: that never staged is indistinguishable from one that finished staging.
+    collective_nuisance_staged: bool = True
+    angular_nuisance_staged: bool = True
+    #: Interval at which each nuisance block was admitted, ``None`` while the
+    #: solve is still running on the command block and the intercept alone.
+    collective_staging_interval_count: int | None = None
+    angular_staging_interval_count: int | None = None
+    #: How many collective command coefficients this update's sign projection
+    #: moved, and the norm of what it removed, in specific force per unit
+    #: command.  Both are zero when the projection is off or did not fire.
+    collective_sign_projection_count: int = 0
+    collective_sign_projection_magnitude: float = 0.0
 
     def __post_init__(self) -> None:
         arrays = {
@@ -227,6 +280,20 @@ class RecursiveBootstrapBelief:
             self.angular_axis_authority > 1.0
         ):
             raise ValueError("angular authority must lie inside [0, 1]")
+        if not 0 <= self.collective_sign_projection_count <= 4:
+            raise ValueError("sign projection cannot move more than four commands")
+        if (
+            not math.isfinite(self.collective_sign_projection_magnitude)
+            or self.collective_sign_projection_magnitude < 0.0
+        ):
+            raise ValueError("sign projection magnitude must be finite and nonnegative")
+        for name in (
+            "collective_staging_interval_count",
+            "angular_staging_interval_count",
+        ):
+            staged_at = getattr(self, name)
+            if staged_at is not None and staged_at < 0:
+                raise ValueError(f"{name} cannot be negative")
 
     @property
     def has_any_control_authority(self) -> bool:
@@ -335,6 +402,16 @@ class RecursiveBootstrapBelief:
                 None if self.hover_command is None else self.hover_command.tolist()
             ),
             "update_wall_time_s": self.update_wall_time_s,
+            "collective_nuisance_staged": self.collective_nuisance_staged,
+            "angular_nuisance_staged": self.angular_nuisance_staged,
+            "collective_staging_interval_count": (
+                self.collective_staging_interval_count
+            ),
+            "angular_staging_interval_count": self.angular_staging_interval_count,
+            "collective_sign_projection_count": self.collective_sign_projection_count,
+            "collective_sign_projection_magnitude": (
+                self.collective_sign_projection_magnitude
+            ),
         }
 
 
@@ -540,6 +617,10 @@ class _EffectFit:
     angular_intercept: np.ndarray
     angular_residual_std: np.ndarray
     angular_effect_covariance: np.ndarray
+    force_nuisance_staged: bool
+    angular_nuisance_staged: bool
+    collective_sign_projection_count: int
+    collective_sign_projection_magnitude: float
 
 
 @dataclass(frozen=True)
@@ -652,6 +733,10 @@ class RecursiveBootstrapIdentifier:
         self._angular_gram = np.zeros((11, 11), dtype=np.float64)
         self._angular_rhs = np.zeros((11, 3), dtype=np.float64)
         self._angular_target_sum_squares = np.zeros(3, dtype=np.float64)
+        self._force_nuisance_staged = not self.config.staged_regressors
+        self._angular_nuisance_staged = not self.config.staged_regressors
+        self._force_staged_interval: int | None = None
+        self._angular_staged_interval: int | None = None
         self._belief = self._empty_belief()
         self._working_support_reached = False
         self._certified_belief: RecursiveBootstrapBelief | None = None
@@ -704,6 +789,10 @@ class RecursiveBootstrapIdentifier:
             angular_axis_authority=np.zeros(3),
             hover_command=None,
             update_wall_time_s=0.0,
+            collective_nuisance_staged=self._force_nuisance_staged,
+            angular_nuisance_staged=self._angular_nuisance_staged,
+            collective_staging_interval_count=self._force_staged_interval,
+            angular_staging_interval_count=self._angular_staged_interval,
         )
 
     @property
@@ -941,6 +1030,70 @@ class RecursiveBootstrapIdentifier:
             residual_gram,
             nuisance_rank,
         )
+
+    def _nuisance_admitted(self, nuisance_size: int) -> bool:
+        """Whether the accumulated evidence can carry this nuisance block.
+
+        The condition is a ratio of counts and nothing else: effective samples
+        against the full column count of the regression, at the declared
+        :attr:`RecursiveBootstrapConfig.staging_sample_multiple`.
+        """
+
+        if not self.config.staged_regressors:
+            return True
+        columns = 4 + nuisance_size
+        return self._weight >= self.config.staging_sample_multiple * columns
+
+    def _staged_fit(
+        self,
+        gram: np.ndarray,
+        rhs: np.ndarray,
+        *,
+        nuisance_size: int,
+        staged: bool,
+        **thresholds: float,
+    ) -> tuple[
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        int,
+        np.ndarray,
+        np.ndarray,
+        int,
+    ]:
+        """Solve one regression over the staged columns of the same Gram.
+
+        The Gram and right-hand side are always the full accumulated ones; only
+        the column set the solve runs over is staged.  Stage one keeps the
+        command block and the intercept, so the command features are
+        residualized against the intercept alone, which is exact centering
+        rather than a fitted projection, and four command directions can be
+        resolved from five samples.  Stage two is every column, and the fully
+        staged branch hands the accumulated arrays through untouched so the
+        solve is bit-for-bit the one this identifier has always run.
+
+        The nuisance coefficient is returned at full size with the unstaged
+        entries exactly zero, so every caller downstream sees one shape.
+        """
+
+        if staged:
+            return self._supported_fit(
+                gram,
+                rhs,
+                nuisance_size=nuisance_size,
+                **thresholds,  # type: ignore[arg-type]
+            )
+        columns = np.concatenate((np.arange(4), np.asarray((3 + nuisance_size,))))
+        result = self._supported_fit(
+            gram[np.ix_(columns, columns)],
+            rhs[columns],
+            nuisance_size=1,
+            **thresholds,  # type: ignore[arg-type]
+        )
+        nuisance = np.zeros((nuisance_size, rhs.shape[1]), dtype=np.float64)
+        nuisance[-1] = result[1][0]
+        return (result[0], nuisance, *result[2:])  # type: ignore[return-value]
 
     @staticmethod
     def _residual_standard_deviation(
@@ -1322,6 +1475,28 @@ class RecursiveBootstrapIdentifier:
         self._weight = forgetting * self._weight + 1.0
         self._interval_count += 1
 
+    def _admit_staged_regressors(self) -> None:
+        """Admit each nuisance block the moment its staging condition holds.
+
+        Staging only ever moves forwards.  The Gram it is read against is the
+        full accumulated one, so nothing about the transition discards
+        evidence: the same data is simply solved over more columns from here
+        on, and the interval it happened at is recorded on the belief.
+        """
+
+        if self._force_nuisance_staged and self._angular_nuisance_staged:
+            return
+        if not self._force_nuisance_staged and self._nuisance_admitted(
+            self._FORCE_NUISANCE_SIZE
+        ):
+            self._force_nuisance_staged = True
+            self._force_staged_interval = self._interval_count
+        if not self._angular_nuisance_staged and self._nuisance_admitted(
+            self._ANGULAR_NUISANCE_SIZE
+        ):
+            self._angular_nuisance_staged = True
+            self._angular_staged_interval = self._interval_count
+
     def _fit_supported_effects(self) -> _EffectFit:
         """Solve both regressions and rescale them back to raw command units.
 
@@ -1330,19 +1505,21 @@ class RecursiveBootstrapIdentifier:
         already mapped back to the raw command box the vehicle is flown in.
         """
 
-        force = self._supported_fit(
+        force = self._staged_fit(
             self._force_gram,
             self._force_rhs,
             nuisance_size=self._FORCE_NUISANCE_SIZE,
+            staged=self._force_nuisance_staged,
             effective_count=self._weight,
             relative_tolerance=self.config.command_rank_relative_tolerance,
             minimum_rms=self.config.minimum_normalized_command_rms,
             nuisance_relative_tolerance=(self.config.nuisance_rank_relative_tolerance),
         )
-        angular = self._supported_fit(
+        angular = self._staged_fit(
             self._angular_gram,
             self._angular_rhs,
             nuisance_size=self._ANGULAR_NUISANCE_SIZE,
+            staged=self._angular_nuisance_staged,
             effective_count=self._weight,
             relative_tolerance=self.config.command_rank_relative_tolerance,
             minimum_rms=self.config.minimum_normalized_command_rms,
@@ -1368,6 +1545,22 @@ class RecursiveBootstrapIdentifier:
             angular_residual_information,
             angular_nuisance_rank,
         ) = angular
+        # The normalized command channel is thrust fraction, so a nonnegative
+        # coefficient is a statement about what the channel *means* rather than
+        # about how strong this vehicle is.  The span is positive, so clipping
+        # in normalized units is the same qualitative constraint as clipping in
+        # raw units, and it carries no magnitude: a negative coefficient moves
+        # to exactly zero and a nonnegative one does not move at all.
+        sign_projection_count = 0
+        sign_projection_magnitude = 0.0
+        if self.config.enforce_collective_sign:
+            projected = np.maximum(normalized_force_effect, 0.0)
+            removed = normalized_force_effect - projected
+            sign_projection_count = int(np.count_nonzero(removed))
+            sign_projection_magnitude = float(
+                np.linalg.norm(removed[:, 0] / self._span)
+            )
+            normalized_force_effect = projected
         force_effect = normalized_force_effect[:, 0] / self._span
         angular_effect = (normalized_angular_effect / self._span[:, None]).T
         force_intercept = float(force_nuisance[-1, 0] - force_effect @ self._midpoint)
@@ -1428,6 +1621,10 @@ class RecursiveBootstrapIdentifier:
             angular_intercept=angular_intercept,
             angular_residual_std=angular_residual_std,
             angular_effect_covariance=angular_effect_covariance,
+            force_nuisance_staged=self._force_nuisance_staged,
+            angular_nuisance_staged=self._angular_nuisance_staged,
+            collective_sign_projection_count=sign_projection_count,
+            collective_sign_projection_magnitude=sign_projection_magnitude,
         )
 
     def _belief_authority(self, fit: _EffectFit) -> _BeliefAuthority:
@@ -1621,6 +1818,14 @@ class RecursiveBootstrapIdentifier:
             angular_axis_authority=authority.angular_axis_authority,
             hover_command=authority.hover_command,
             update_wall_time_s=time.perf_counter() - started_at,
+            collective_nuisance_staged=fit.force_nuisance_staged,
+            angular_nuisance_staged=fit.angular_nuisance_staged,
+            collective_staging_interval_count=self._force_staged_interval,
+            angular_staging_interval_count=self._angular_staged_interval,
+            collective_sign_projection_count=fit.collective_sign_projection_count,
+            collective_sign_projection_magnitude=(
+                fit.collective_sign_projection_magnitude
+            ),
         )
 
     def update(
@@ -1658,6 +1863,7 @@ class RecursiveBootstrapIdentifier:
             angular_target=features.angular_acceleration,
         )
         self._accumulate_sample(features)
+        self._admit_staged_regressors()
         fit = self._fit_supported_effects()
         self._belief = self._assimilated_belief(
             fit,

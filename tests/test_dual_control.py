@@ -492,3 +492,58 @@ def test_the_canonical_dual_control_smoke_stays_under_a_minute() -> None:
     )
     assert dual["charge_series"][0]["spread_charge"] >= 0.0
     json.dumps(report, allow_nan=False)
+
+
+@pytest.mark.crazyflow
+def test_the_pass_three_arm_stages_regressors_and_records_the_sign_projection() -> None:
+    """Pass three is pass 2b's objective on a staged, sign-constrained belief.
+
+    Both changes live in the identifier, so what this asserts is that the arm
+    selects them, that the staging transitions and the projection are recorded
+    where the study says they are, and that the run stays bounded.  Whether the
+    changes help is a study result, not a contract.
+    """
+
+    pytest.importorskip("crazyflow")
+
+    from glassbox.integrations.crazyflow_throw_study import (
+        CRAZYFLOW_THROW_STUDY_CASES,
+        DUAL_CONTROL_PASS3_MODEL,
+        run_crazyflow_throw_study,
+    )
+
+    canonical = next(
+        case for case in CRAZYFLOW_THROW_STUDY_CASES if case.name == "canonical"
+    )
+    started = time.perf_counter()
+    report = run_crazyflow_throw_study((canonical,), (DUAL_CONTROL_PASS3_MODEL,))
+    elapsed = time.perf_counter() - started
+    assert elapsed < 60.0
+
+    metrics = report["cases"][0]["modes"][DUAL_CONTROL_PASS3_MODEL]
+    dual = metrics["dual_control"]
+    assert dual["config"]["variant"] == "pass2b"
+    assert dual["identifier"] == {
+        "staged_regressors": True,
+        "staging_sample_multiple": 4.0,
+        "enforce_collective_sign": True,
+    }
+    assert metrics["flight"]["non_finite_value_count"] == 0
+    assert metrics["flight"]["command_bound_violation_count"] == 0
+    assert dual["unusable_command_count"] == 0
+    staging = dual["staging"]
+    assert staging["staged_regressors"]
+    # Four samples per column on eight and eleven columns, at a hundred hertz.
+    assert staging["collective_transition"]["step"] == 31
+    assert staging["angular_transition"]["step"] == 43
+    assert staging["angular_transition"]["time_from_enable_s"] == pytest.approx(0.44)
+    assert staging["collective_sign_projection"]["enforced"]
+    for moment in ("first_supported_model", "command_rank_four"):
+        assert set(dual[moment]) == {
+            "step",
+            "time_s",
+            "time_from_enable_s",
+            "altitude_m",
+            "descent_rate_m_s",
+        }
+    json.dumps(report, allow_nan=False)

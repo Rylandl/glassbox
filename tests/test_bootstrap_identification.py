@@ -41,8 +41,13 @@ def _linear_hidden_plant(
     acceleration_noise_m_s2: float = 0.0,
     angular_noise_rad_s2: float = 0.0,
     noise_seed: int = 3,
+    thrust_effect: np.ndarray | None = None,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    thrust_effect = np.asarray((4.8, 5.0, 5.2, 4.9))
+    thrust_effect = (
+        np.asarray((4.8, 5.0, 5.2, 4.9))
+        if thrust_effect is None
+        else np.asarray(thrust_effect, dtype=np.float64)
+    )
     angular_effect = np.diag((34.0, 31.0, 11.0)) @ np.asarray(MOTOR_MIXER)
     angular_rate_coefficient = -np.diag((0.4, 0.5, 0.25))
     thrust_intercept = 0.08
@@ -86,13 +91,14 @@ def _linear_hidden_plant(
 
 def _update_recursive_identifier(
     commands: np.ndarray,
+    config: RecursiveBootstrapConfig | None = None,
     **plant: float,
 ) -> tuple[RecursiveBootstrapIdentifier, np.ndarray, np.ndarray]:
     timestamps, states, thrust_effect, angular_effect = _linear_hidden_plant(
         commands,
         **plant,
     )
-    identifier = RecursiveBootstrapIdentifier()
+    identifier = RecursiveBootstrapIdentifier(config)
     for index, command in enumerate(commands):
         identifier.update(
             states[index],
@@ -101,6 +107,27 @@ def _update_recursive_identifier(
             timestamps[index + 1] - timestamps[index],
         )
     return identifier, thrust_effect, angular_effect
+
+
+def _first_supported_interval(
+    commands: np.ndarray,
+    config: RecursiveBootstrapConfig | None = None,
+    **plant: float,
+) -> int | None:
+    """Interval at which one identifier first meets its own support rule."""
+
+    timestamps, states, _, _ = _linear_hidden_plant(commands, **plant)
+    identifier = RecursiveBootstrapIdentifier(config)
+    for index, command in enumerate(commands):
+        identifier.update(
+            states[index],
+            states[index + 1],
+            command,
+            timestamps[index + 1] - timestamps[index],
+        )
+        if identifier.working_belief_supported:
+            return index + 1
+    return None
 
 
 def test_recursive_bootstrap_updates_every_interval_and_certifies_support() -> None:
@@ -803,3 +830,150 @@ def test_certified_control_model_is_the_unchanged_default() -> None:
     assert identifier.certified_belief is not None
     assert identifier.predictive_belief is identifier.certified_belief
     assert identifier.control_model_ready
+
+
+_STAGING_BOOKKEEPING = (
+    "update_wall_time_s",
+    "collective_nuisance_staged",
+    "angular_nuisance_staged",
+    "collective_staging_interval_count",
+    "angular_staging_interval_count",
+    "collective_sign_projection_count",
+    "collective_sign_projection_magnitude",
+)
+
+
+def test_default_recursive_config_stages_every_regressor_and_enforces_no_sign() -> None:
+    """Both pass-three switches are opt-in, so the shipped identifier moves."""
+
+    config = RecursiveBootstrapConfig()
+
+    assert config.staged_regressors is False
+    assert config.enforce_collective_sign is False
+    assert config.staging_sample_multiple == 4.0
+    identifier = RecursiveBootstrapIdentifier()
+    assert identifier.belief.collective_nuisance_staged
+    assert identifier.belief.angular_nuisance_staged
+    assert identifier.belief.collective_staging_interval_count is None
+
+
+def test_staged_solve_equals_the_full_solve_bit_for_bit_once_fully_staged() -> None:
+    """Staging chooses columns, never evidence.
+
+    The Gram and right-hand side are accumulated over every regressor in both
+    identifiers, so once the staged solve has admitted the nuisance block it is
+    solving the same system on the same data and must return the same floats,
+    not merely close ones.
+    """
+
+    commands = _excitation(80)
+
+    plain, _, _ = _update_recursive_identifier(commands)
+    staged, _, _ = _update_recursive_identifier(
+        commands,
+        RecursiveBootstrapConfig(staged_regressors=True),
+    )
+
+    assert staged.belief.collective_nuisance_staged
+    assert staged.belief.angular_nuisance_staged
+    # Four samples per column, on eight and eleven columns.
+    assert staged.belief.collective_staging_interval_count == 32
+    assert staged.belief.angular_staging_interval_count == 44
+    expected = plain.belief.to_dict()
+    actual = staged.belief.to_dict()
+    assert set(expected) == set(actual)
+    differing = [
+        name
+        for name in expected
+        if name not in _STAGING_BOOKKEEPING
+        and repr(expected[name]) != repr(actual[name])
+    ]
+    assert differing == []
+
+
+def test_staged_support_arrives_before_unstaged_support() -> None:
+    """Stage one resolves four command directions from five samples.
+
+    Residualizing against the intercept alone is exact centering rather than a
+    fitted projection, so the staged solve reports a supported model as soon as
+    the design has spanned the command box, instead of waiting for more samples
+    than the regression has columns.
+    """
+
+    commands = _excitation(80)
+
+    unstaged = _first_supported_interval(commands)
+    staged = _first_supported_interval(
+        commands,
+        RecursiveBootstrapConfig(staged_regressors=True),
+    )
+
+    assert unstaged is not None and staged is not None
+    assert staged < unstaged
+    # The unstaged fit cannot resolve eleven columns from fewer than eleven
+    # samples; the staged one only ever has five.
+    assert staged <= 5 < unstaged
+
+
+def test_collective_sign_projection_clips_a_negative_coefficient_and_records_it() -> (
+    None
+):
+    """A motor the fit says pushes down is clipped to no effect, and recorded.
+
+    The hidden plant here really does have a negative fourth thrust
+    coefficient, so this is the projection acting against the evidence rather
+    than against noise: the constraint is a statement about what a thrust
+    fraction means, and it is qualitative, so the clipped coefficient lands on
+    exactly zero and carries no magnitude of its own.
+    """
+
+    commands = _excitation(80)
+    reversed_motor = np.asarray((4.8, 5.0, 5.2, -3.1))
+
+    plain, _, _ = _update_recursive_identifier(
+        commands,
+        thrust_effect=reversed_motor,
+    )
+    projected, _, _ = _update_recursive_identifier(
+        commands,
+        RecursiveBootstrapConfig(enforce_collective_sign=True),
+        thrust_effect=reversed_motor,
+    )
+
+    assert plain.belief.collective_acceleration_per_command[3] < -1.0
+    assert plain.belief.collective_sign_projection_count == 0
+    assert projected.belief.collective_acceleration_per_command[3] == 0.0
+    assert np.all(projected.belief.collective_acceleration_per_command >= 0.0)
+    assert projected.belief.collective_sign_projection_count == 1
+    assert projected.belief.collective_sign_projection_magnitude == pytest.approx(
+        abs(float(plain.belief.collective_acceleration_per_command[3])),
+        rel=1e-9,
+    )
+
+
+def test_collective_sign_projection_leaves_a_positive_fit_untouched() -> None:
+    """Where the fit already respects the channel's sign, nothing moves."""
+
+    commands = _excitation(80)
+
+    plain, _, _ = _update_recursive_identifier(commands)
+    projected, _, _ = _update_recursive_identifier(
+        commands,
+        RecursiveBootstrapConfig(enforce_collective_sign=True),
+    )
+
+    assert np.all(plain.belief.collective_acceleration_per_command > 0.0)
+    assert projected.belief.collective_sign_projection_count == 0
+    assert projected.belief.collective_sign_projection_magnitude == 0.0
+    assert np.array_equal(
+        projected.belief.collective_acceleration_per_command,
+        plain.belief.collective_acceleration_per_command,
+    )
+    assert projected.belief.collective_intercept_m_s2 == (
+        plain.belief.collective_intercept_m_s2
+    )
+
+
+def test_staging_sample_multiple_below_one_is_rejected() -> None:
+    with pytest.raises(ValueError, match="staging_sample_multiple"):
+        RecursiveBootstrapConfig(staging_sample_multiple=0.5)

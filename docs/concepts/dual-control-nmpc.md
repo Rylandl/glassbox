@@ -1,7 +1,9 @@
 # Dual-control NMPC for an unseen multirotor
 
-**Status: design under exploration; the second pass recovers three of the
-seven study cases from zero information with no vehicle numbers.** This
+**Status: design under exploration. The second pass recovered three of seven
+study cases; the third pass showed those outcomes are a coin flip on single
+releases and that the decisive quantity is the collective commanded before any
+model exists, not identification latency.** This
 describes an experimental controller being built in `glassbox.experimental`. Nothing here is part of the stable API,
 and the throw diagnostic's default controller is unchanged until the study on
 this page reports.
@@ -364,3 +366,290 @@ Gram already contains the nuisance regressors the plan implies, so the
 information it reports is honest, but nothing yet prefers a plan whose nuisance
 block is quiet — or the horizon has to be long enough for the arrest to appear
 in the tracking term before the altitude is gone.
+
+## Third pass (2026-09-02)
+
+The second pass named identification latency as the remaining mechanism and
+proposed two structural answers: stage the identifier's regressors so a
+supported model arrives sooner, and constrain the collective command
+coefficients to the sign the command channel already means. Both are
+implemented, both are opt-in, and both are measured here. Neither helps. What
+the measurement does establish is that the premise was wrong and that the
+pass-2 outcome split was never a property of the design.
+
+Both switches live in `RecursiveBootstrapConfig` and default to off, so the
+certified and working cascade arms are untouched: re-running them on all seven
+cases reproduces every certified and working case record in
+`report-pass2.json` byte for byte, and their difference block with them. The
+new arm `dual_control_nmpc_pass3` turns both on and plans with the pass-2b
+objective unchanged, so nothing in the optimization moved between the two arms.
+`pass2b` stays selectable and is re-run alongside.
+
+### Staged regressors
+
+The identifier accumulates the full Gram and right-hand side every interval
+exactly as before; staging only chooses which columns the point estimate,
+ranks, support projectors, authorities, and covariances are solved over. Stage
+one is the command block and the intercept, so the command features are
+residualized against the intercept alone, which is exact centering rather than
+a fitted projection, and four command directions can be resolved from five
+samples instead of from more samples than the regression has columns. Stage two
+is every column, and the fully staged branch hands the accumulated arrays
+through untouched, so once staged the estimate is bit-for-bit the solve this
+identifier has always run — asserted on identical data, not approximated.
+
+The admission condition is a ratio of counts: effective samples against the
+full column count of that regression, at a declared multiple. The Schur
+complement removes a fraction of order `p / n` of the command energy purely by
+the nuisance block's own freedom, and the smallest eigenvalue of a sample Gram
+sits near `(1 - sqrt(p / n))**2` of its population value; at `n = 4 p` both
+readings bound the damage at a quarter. So the multiple is four, and at a
+hundred hertz the collective block stages 0.32 s after enable and the angular
+block 0.44 s, on every case, deterministically.
+
+Inside the identifier it does what it claims. On the linear hidden-plant
+fixture the staged solve is supported at five intervals against nine unstaged.
+Replayed on the pass-2b canonical flight — the same measured transitions fed to
+both — it is supported at 21 intervals against 24, and in closed loop it
+reaches command rank four earlier on three of seven cases, improving the
+worst case across the seven from 0.53 s after enable to 0.37 s. Only the
+replay is a controlled comparison: from the first interval on, the two arms
+are flying different trajectories.
+
+Three intervals. That is what the change buys against a 0.83 s free fall.
+
+### Collective sign as command semantics
+
+The normalized command channel is thrust fraction, so the fitted collective
+coefficients are projected onto the nonnegative orthant: a negative coefficient
+moves to exactly zero, a nonnegative one does not move at all, and the count
+and the norm of what was removed are recorded on the belief and in the study.
+The span is positive, so clipping in normalized units is the same qualitative
+constraint as clipping in raw units, and it carries no magnitude of its own.
+
+On a healthy trajectory it is almost inert. Replayed on the pass-2b canonical
+flight it fires once in nine hundred intervals, at interval three, moving one
+coefficient by 0.13 specific force per unit command against a fitted collective
+sum of 11.5 — a 1.1 percent change to one number, once.
+
+In the pass-3 flights it fires on 5 to 96 percent of intervals with magnitudes
+up to 1123 per unit command, but almost all of that is after floor contact,
+where commands produce no acceleration and the collective fit has nothing left
+to fit.
+
+### Result
+
+Seven cases, five arms, in `artifacts/crazyflow_throw_study/report-pass3.json`.
+The two cascade arms are byte-identical to the pass-2 report.
+
+| case | arm | recovered | speed | rate | tilt | hover s | min alt | supported s | alt m | descent | rank four s | settled step |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| canonical | certified | yes | 0.0110 | 0.0119 | 0.0010 | 5.47 | 1.200 | 0.22 | 4.27 | 3.12 | 0.22 | 0.0010 |
+| canonical | working | no | 0.1247 | 0.1406 | 0.0543 | 0.00 | 1.200 | 0.22 | 4.27 | 3.12 | 0.22 | 0.0804 |
+| canonical | pass2b | yes | 0.0417 | 0.0037 | 0.0004 | 0.41 | 1.200 | 0.25 | 4.16 | 3.25 | 0.25 | 0.0003 |
+| canonical | pass3 | floor | 0.0000 | 0.0165 | 0.0060 | 2.62 | -0.001 | 0.58 | 2.46 | 6.08 | 0.35 | 0.0189 |
+| shorter_arms_high_release | certified | yes | 0.0119 | 0.0128 | 0.0011 | 5.56 | 2.500 | 0.22 | 5.57 | 3.11 | 0.22 | 0.0010 |
+| shorter_arms_high_release | working | no | 0.1086 | 0.1281 | 0.0689 | 0.00 | 2.500 | 0.22 | 5.57 | 3.11 | 0.22 | 0.0807 |
+| shorter_arms_high_release | pass2b | yes | 0.0029 | 0.0106 | 0.0006 | 3.37 | 2.500 | 0.34 | 5.09 | 3.85 | 0.34 | 0.0009 |
+| shorter_arms_high_release | pass3 | floor | 0.0000 | 0.1598 | 0.0473 | 0.00 | -0.001 | 0.36 | 4.96 | 4.65 | 0.36 | 0.0070 |
+| long_arms_cross_axis_tumble | certified | yes | 0.0165 | 0.0111 | 0.0009 | 5.17 | 2.500 | 0.63 | 4.22 | 3.24 | 0.63 | 0.0010 |
+| long_arms_cross_axis_tumble | working | no | 0.0830 | 0.2108 | 0.0463 | 0.00 | 2.500 | 0.63 | 4.22 | 3.24 | 0.63 | 0.0803 |
+| long_arms_cross_axis_tumble | pass2b | floor | 0.4960 | 0.2152 | 0.0200 | 0.00 | -0.001 | 0.53 | 4.39 | 4.46 | 0.53 | 0.2301 |
+| long_arms_cross_axis_tumble | pass3 | floor | 0.0023 | 0.8073 | 0.0453 | 0.00 | -0.001 | 0.28 | 5.30 | 4.06 | 0.28 | 0.4775 |
+| milder_low_energy_release | certified | yes | 0.0109 | 0.0118 | 0.0010 | 5.42 | 2.500 | 0.23 | 4.66 | 3.19 | 0.23 | 0.0010 |
+| milder_low_energy_release | working | yes | 0.0003 | 0.0002 | 0.0001 | 3.89 | 2.500 | 0.23 | 4.66 | 3.19 | 0.23 | 0.0000 |
+| milder_low_energy_release | pass2b | floor | 0.1975 | 0.0577 | 0.0092 | 0.00 | -0.001 | 0.25 | 4.55 | 3.68 | 0.25 | 0.1939 |
+| milder_low_energy_release | pass3 | floor | 0.0000 | 0.2317 | 0.0903 | 0.00 | -0.001 | 0.39 | 3.82 | 5.33 | 0.37 | 0.2728 |
+| reversed_tumble | certified | yes | 0.0128 | 0.0099 | 0.0008 | 4.83 | 0.845 | 0.23 | 5.53 | 3.30 | 0.23 | 0.0010 |
+| reversed_tumble | working | yes | 0.0062 | 0.0030 | 0.0006 | 4.91 | 0.777 | 0.23 | 5.53 | 3.30 | 0.23 | 0.0472 |
+| reversed_tumble | pass2b | floor | 0.0075 | 0.2492 | 0.0235 | 0.00 | -0.001 | 0.27 | 5.35 | 3.98 | 0.27 | 0.3358 |
+| reversed_tumble | pass3 | floor | 0.0013 | 0.3433 | 0.0583 | 0.00 | -0.001 | 0.17 | 5.70 | 3.18 | 0.17 | 0.3447 |
+| canonical_state_noise | certified | no | 0.4291 | 0.4492 | 0.0432 | 0.00 | 1.200 | 0.44 | 3.47 | 3.77 | 0.23 | 0.0755 |
+| canonical_state_noise | working | no | 0.4291 | 0.4492 | 0.0432 | 0.00 | 1.200 | 0.44 | 3.47 | 3.77 | 0.23 | 0.0755 |
+| canonical_state_noise | pass2b | floor | 0.0000 | 0.0273 | 0.0357 | 1.51 | -0.001 | 0.53 | 2.82 | 5.34 | 0.24 | 0.1764 |
+| canonical_state_noise | pass3 | floor | 0.0009 | 0.0382 | 0.0203 | 0.26 | -0.001 | 0.08 | 4.65 | 2.43 | 0.08 | 0.1698 |
+| canonical_mid_flight_arm_change | certified | yes | 0.0102 | 0.0114 | 0.0005 | 5.44 | 1.200 | 0.22 | 4.27 | 3.12 | 0.22 | 0.0010 |
+| canonical_mid_flight_arm_change | working | yes | 0.0488 | 0.0477 | 0.0065 | 0.09 | 1.200 | 0.22 | 4.27 | 3.12 | 0.22 | 0.0744 |
+| canonical_mid_flight_arm_change | pass2b | yes | 0.0506 | 0.0046 | 0.0006 | 0.09 | 1.200 | 0.25 | 4.16 | 3.25 | 0.25 | 0.0003 |
+| canonical_mid_flight_arm_change | pass3 | floor | 0.0000 | 0.0231 | 0.0027 | 2.98 | -0.001 | 0.58 | 2.46 | 6.08 | 0.35 | 0.0104 |
+
+`recovered` means the hover envelope was reached without the vehicle touching
+the floor. Read `hover s` against `min alt`: a vehicle resting on the ground
+satisfies the hover envelope, so pass 3's 2.62 s on the canonical case and
+2.98 s after the arm change are a vehicle lying on the ground, and the settled
+command steps on those rows describe a controller working against the floor.
+The two cascade arms never touch it. Pass 2b recovers three of seven. Pass 3
+recovers none. Times are measured from model enable. The report records the
+supported-model and rank-four moments only for the dual arms, so the cascade
+rows here were measured separately from the same runs.
+
+### The premise does not survive measurement
+
+Identification latency is not what decides these cases.
+
+At the moment each arm first has a supported model, the altitude it has left is
+far more than the altitude it needs. Taking the vehicle's own net upward
+authority from the hidden hover command — `g (1/h - 1)` = 8.63 m/s² — the
+stopping distance implied by the descent rate at first support is 0.34 to
+2.14 m, against 2.46 to 5.70 m of altitude actually in hand. Every arm-case in
+the table, including every one that lands, has between 0.3 and 5.1 m of spare
+altitude at the moment it first knows what its motors do.
+
+The comparison that settles it is `long_arms_cross_axis_tumble`. The certified
+cascade reaches a supported model there at 0.63 s after enable, at 4.22 m,
+descending at 3.24 m/s. Pass 2b reaches one at 0.53 s, 0.10 s *earlier*, at
+4.39 m, a higher altitude. The cascade recovers and pass 2b lands. The pass-2
+page's reading — that the cascade's 0.22 s against the dual controller's 0.25
+to 0.53 s is the difference between a hover and a landing — is not supported by
+its own data.
+
+What differs is not when the model arrives but what is commanded before it
+does. Over the first thirty intervals after enable, with nobody holding a model,
+the certified cascade commands a mean collective of 0.787 of the command range
+on the canonical case, rising from 0.621 in the first ten intervals to 0.950 in
+the third ten. This vehicle's hover command is 0.532. The cascade is climbing
+hard from the first interval it is allowed to act.
+
+It can do that because its collective reference defaults to the *midpoint of
+the command box* whenever collective authority is zero, and the midpoint of
+`[0, 1]` is 0.500 against a hover of 0.532. The command box is a declared fact
+about the actuator interface, not about the vehicle — but that this particular
+vehicle hovers within six percent of that box's midpoint is a fact about the
+vehicle, and the cascade collects it for free by defaulting there. The dual
+controller collects nothing: its plan starts from the previous command, which
+at release is zero, and it has to buy its way up from there.
+
+The two cases read the same way. On the canonical case pass 2b commands a mean
+collective of 0.542 over the first thirty intervals — 0.312, then 0.655, then
+0.658 — selects a declared excitation design on eleven of the twenty-four
+intervals before it has a supported model, and arrests above the release
+height. Pass 3 commands 0.035 over the same window, selects a design on eight
+of its fifty-seven pre-support intervals, and is still falling at 6.08 m/s when
+the model arrives. On `long_arms_cross_axis_tumble`, which every dual arm
+loses, pass 2b commands 0.457 and excites on thirty-one of fifty-two
+pre-support intervals; pass 3 commands 0.023 and excites on four of
+twenty-seven, has a supported model 0.25 s sooner and 0.9 m higher than
+pass 2b, and lands anyway.
+
+The mean collective over the same thirty intervals tracks the outcome across
+arms far better than any timing does. The three arm-cases that recover sit at
+0.436, 0.542 and 0.542; every arm-case below 0.41 lands. `long_arms` under
+pass 2b sits at 0.457 and lands anyway, so an early collective near hover is
+necessary here, not sufficient.
+
+### Why staging makes it worse
+
+Staging does not merely fail to help; it reproduces the first pass's failure
+by another route.
+
+The command information the identifier reports is the Schur complement of the
+nuisance block, and the objective divides its planned parameter covariance by
+it. Staged against the intercept alone, that complement is much larger on
+identical data: replaying the pass-2b canonical flight through both, the
+largest command-information direction is 18 to 44 times larger under staging
+from the tenth interval to the fortieth, and the box-averaged spread the
+objective actually charges — `trace(Sigma) / 12` — falls to between 0.17 and
+0.46 of its unstaged value over intervals 25 to 40. From interval 60, where
+both are fully staged, the ratio is exactly 1.000.
+
+The spread charge is the only term that pays for moving at zero information.
+Shrink it and the command-rate cost wins, and the plan stays where it was — at
+the zero command the vehicle was released with. Measured: over the first thirty
+intervals pass 3 commands a mean collective of 0.035, 0.042, 0.023, 0.033,
+0.066 and 0.035 on six of the seven cases — the state-noise case is the
+exception, at 0.269 — against 0.542 for pass 2b on the canonical case. That is
+free fall with the motors essentially off, which is the pass-1 fixed point,
+arrived at because staging told the objective it already knew the command
+map.
+
+Staging alone reproduces this exactly: with the sign projection off, the
+canonical case still commands a mean collective of 0.035 over the first thirty
+intervals. The sign projection alone leaves it at 0.255.
+
+### The pass-2 outcome split is a coin flip
+
+Enabling the sign projection alone changes exactly one number in the whole run
+before the trajectories diverge: at interval three it clips one collective
+coefficient from -0.13 to zero, a 1.1 percent change to the fitted collective
+sum. The first four commands are bit-identical to pass 2b's. The fifth differs.
+Within thirty commands the two plans differ by the full command range, and the
+canonical case goes from a recovery at 1.2 m to floor contact.
+
+Running each change separately on all seven cases makes the same point from the
+other side. Pass 2b recovers canonical, `shorter_arms_high_release` and the arm
+change. Staging alone recovers only `long_arms_cross_axis_tumble` — a case
+pass 2b loses. The sign projection alone also recovers only
+`long_arms_cross_axis_tumble`, cleanly, at 2.5 m. Both together recover
+nothing. Four arms, four different subsets of between zero and three cases —
+and the first two of those four are separated by one clipped coefficient at
+interval three.
+
+So "pass 2b recovers three of seven" is not a property of pass 2b. It is one
+draw from a controller whose early trajectory is chaotically sensitive to a
+posterior fitted from three or four samples, and no comparison between arms at
+this resolution means anything. That applies to this pass's numbers as much as
+to the last one's.
+
+### Tuning record
+
+The staging multiple is the only new knob. It was set to four from the
+conditioning argument above before any flight, and two alternatives were tried
+on the canonical case only. None of them changes the outcome, so the reasoned
+value is kept.
+
+| knob | tried | kept | effect at the trial |
+| --- | --- | --- | --- |
+| `staging_sample_multiple` | `2.0`, `4.0`, `8.0` | `4.0` | floor contact on all three; supported 0.39 / 0.58 / 0.35 s, rank four 0.39 / 0.35 / 0.35 s, settled command step 0.053 / 0.019 / 0.341 |
+
+Nothing else was tuned. The objective, its weights, the amplitude ladder, the
+horizon, the solver budget and the four task tolerances are unchanged from pass
+2b, which is what makes pass 3 an ablation of the identifier rather than a new
+controller.
+
+### Criteria
+
+1. Every command finite and within bounds on every case: met, on all five arms,
+   with no unusable solve in any of the three dual arms.
+2. The hover envelope reached on at least the cases the cascade reaches: not
+   met. The certified cascade reaches it without floor contact on six of seven
+   (it misses under state noise), the working cascade on four of seven, pass 2b
+   on three, and pass 3 on none.
+3. Command information rank four within 0.3 s of control starting: met on three
+   of seven cases in pass 3 (0.35, 0.36, 0.28, 0.37, 0.17, 0.08, 0.35 s) against
+   five of seven in pass 2b. The worst case improves, from 0.53 s to 0.37 s.
+4. Chatter no worse than the frozen snapshot: not met in pass 3. Settled command
+   steps are 0.0070 to 0.4775 against the snapshot's 0.0010, but every pass-3
+   row is a vehicle on the floor, so the number describes a controller working
+   against the ground rather than a hover.
+5. Under state noise and after the mid-flight change, tracking no worse than the
+   cascade: pass 3's terminal speed, rate and tilt under state noise (0.0009,
+   0.038, 0.020) beat both cascade arms (0.429, 0.449, 0.043), and it reaches
+   them on the floor. After the arm change it is better on terminal speed
+   (0.0000 against 0.0102) and worse on rate and tilt (0.023 and 0.0027 against
+   0.011 and 0.0005), on the floor, where pass 2b held a real if brief hover at
+   1.2 m.
+6. No vehicle-specific number anywhere in the controller: met. Both new switches
+   are unit-free — a ratio of counts, and a sign.
+
+### What this leaves
+
+The next thing to try is not a third identifier change. Two things follow from
+the numbers above.
+
+The first is that this study cannot currently distinguish designs. Any
+comparison between arms has to survive a perturbation of the size that already
+flips it: an ensemble over release states or over first-interval posteriors,
+not seven deterministic releases. Until that exists, "recovers *n* of seven" is
+a draw, not a result.
+
+The second is that the honest gap is the base action, not the belief. The
+cascade is not faster to a model; it climbs at 0.79 of the command range while
+it has no model at all, because its zero-information default is the box
+midpoint and the box midpoint nearly hovers this vehicle. The dual controller
+starts from the released zero command and its objective gives it no reason to
+leave, because at zero information the mean model predicts nothing and the only
+term with a gradient is a spread charge that any excitation collapses. A
+zero-information default that is a statement about the command box rather than
+about the vehicle — the midpoint, which the cascade already uses and the
+optimizer does not — would be the smallest honest change to test, and it is a
+change to where the plan starts rather than to what the objective says.
