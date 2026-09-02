@@ -205,6 +205,25 @@ tracking term cannot distinguish plans at all, so the cheapest plan on the board
 is to do nothing. The controller is not failing to solve its problem. It is
 solving it, and the solution is to keep the motors off.
 
+## Sixth pass, arm-only ensembles
+
+The sixth pass was measured one arm at a time on the same seeded releases, so
+its rows pair with this page's table by construction. The reports are
+`artifacts/crazyflow_throw_study/report-pass6-ensemble-arm-only.json`
+(`pass6` as committed), `report-pass6-pre-switch-ensemble-arm-only.json`
+(the same design before the switches that keep the fifth pass bit-identical),
+and `report-pass6-motor-basis-ensemble-arm-only.json` (motor-basis probes).
+
+| arm | recovered | rate | Wilson 95 | on the floor | airborne, outside envelope |
+| --- | --- | --- | --- | --- | --- |
+| pass6, motor-basis probes | 14/112 | 0.125 | 0.076-0.199 | 48 | 50 |
+| pass6, before the switches | 11/112 | 0.098 | 0.056-0.167 | 50 | 51 |
+| pass6 | 10/112 | 0.089 | 0.049-0.157 | 52 | 48 |
+
+Both intervals exclude `pass5`'s point estimate and include `pass2b`'s. The
+design page records the six configurations that were measured on the
+single-release gate and dropped, and why.
+
 ## Limitations
 
 - The perturbation is a declared distribution over the release state only; the

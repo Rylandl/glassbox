@@ -38,6 +38,7 @@ from glassbox.control.online_bootstrap import (
 )
 from glassbox.core.dynamics import GRAVITY_M_S2
 from glassbox.experimental.dual_control import (
+    DualControlConfig,
     DualControlNMPC,
     DualControlResult,
     command_information_log_determinant,
@@ -71,6 +72,7 @@ DUAL_CONTROL_PASS2B_MODEL = "dual_control_nmpc_pass2b"
 DUAL_CONTROL_PASS3_MODEL = "dual_control_nmpc_pass3"
 DUAL_CONTROL_PASS4_MODEL = "dual_control_nmpc_pass4"
 DUAL_CONTROL_PASS5_MODEL = "dual_control_nmpc_pass5"
+DUAL_CONTROL_PASS6_MODEL = "dual_control_nmpc_pass6"
 #: Which objective each arm plans with.  Pass three plans with the pass-2b
 #: objective unchanged: its two changes are in the identifier, not in the
 #: optimization, so re-running the objective would confound them.  Pass four
@@ -84,6 +86,7 @@ DUAL_CONTROL_MODEL_VARIANTS = {
     DUAL_CONTROL_PASS3_MODEL: "pass2b",
     DUAL_CONTROL_PASS4_MODEL: "pass4",
     DUAL_CONTROL_PASS5_MODEL: "pass5",
+    DUAL_CONTROL_PASS6_MODEL: "pass6",
 }
 #: Identifier switches each arm turns on.  Both are opt-in, so every other arm
 #: in this study, the two cascade modes included, runs the identifier it always
@@ -106,6 +109,7 @@ DEFAULT_CONTROL_MODELS = (
     DUAL_CONTROL_PASS3_MODEL,
     DUAL_CONTROL_PASS4_MODEL,
     DUAL_CONTROL_PASS5_MODEL,
+    DUAL_CONTROL_PASS6_MODEL,
 )
 #: What to call each arm on screen.  Used by the renderer so an overlay names
 #: the control model actually flying rather than assuming the cascade.
@@ -118,6 +122,7 @@ ARM_DISPLAY_NAMES: dict[str, str] = {
     DUAL_CONTROL_PASS3_MODEL: "DUAL-CONTROL NMPC pass 3",
     DUAL_CONTROL_PASS4_MODEL: "DUAL-CONTROL NMPC pass 4",
     DUAL_CONTROL_PASS5_MODEL: "DUAL-CONTROL NMPC pass 5",
+    DUAL_CONTROL_PASS6_MODEL: "DUAL-CONTROL NMPC pass 6",
 }
 #: The arms the ensemble protocol compares.  Two cascade references, the design
 #: the third pass left standing, the fourth pass's base action, and the fifth
@@ -130,6 +135,7 @@ ENSEMBLE_CONTROL_MODELS = (
     DUAL_CONTROL_PASS2B_MODEL,
     DUAL_CONTROL_PASS4_MODEL,
     DUAL_CONTROL_PASS5_MODEL,
+    DUAL_CONTROL_PASS6_MODEL,
 )
 DEFAULT_OUTPUT_PATH = Path("artifacts/crazyflow_throw_study/report.json")
 #: Commands kept verbatim from model enable, for the early-action analysis.
@@ -641,6 +647,7 @@ def _fly_trial(
     control_model: str,
     plant: CrazyflowPlant,
     dual_controller: DualControlNMPC | None = None,
+    dual_config: DualControlConfig | None = None,
 ) -> tuple[
     _TrialRecord,
     PlantTelemetryRecorder,
@@ -680,10 +687,13 @@ def _fly_trial(
         **DUAL_CONTROL_IDENTIFIER_OPTIONS.get(control_model, {}),
     )
     identifier = RecursiveBootstrapIdentifier(identifier_config)
-    dual_config = dual_control_config(
-        variant if dual else "pass2b",
-        sample_period_s=plant.sample_period_s,
-    )
+    if dual_config is None:
+        dual_config = dual_control_config(
+            variant if dual else "pass2b",
+            sample_period_s=plant.sample_period_s,
+        )
+    elif not dual:
+        raise ValueError("a dual-control config needs a dual-control arm")
     if not dual:
         dual_controller = None
     elif dual_controller is None:
@@ -1425,8 +1435,15 @@ def run_throw_study_trial(
     case: ThrowStudyCase,
     control_model: str,
     plant: CrazyflowPlant | None = None,
+    dual_config: DualControlConfig | None = None,
 ) -> dict[str, Any]:
-    """Run one case in one control model and reduce it to study metrics."""
+    """Run one case in one control model and reduce it to study metrics.
+
+    ``dual_config`` flies a dual-control arm on a configuration other than the
+    one its name declares.  It exists for quick single-release iteration on a
+    candidate design before that design earns an arm of its own; the recorded
+    study never sets it.
+    """
 
     if control_model not in STUDY_CONTROL_MODELS:
         raise ValueError(f"unknown control model {control_model!r}")
@@ -1441,6 +1458,7 @@ def run_throw_study_trial(
             case,
             control_model,
             plant,
+            dual_config=dual_config,
         )
         timestamps = telemetry.timestamp_array()
         states = telemetry.state_array()

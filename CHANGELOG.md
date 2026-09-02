@@ -15,6 +15,17 @@ All notable changes to Glassbox are recorded here. The format follows
   the two accumulated regression Grams the seeds and the spread read from. The
   pass is a recorded negative result: it does not recover the throw diagnostic
   on any release, and `docs/concepts/dual-control-nmpc.md` records why.
+- Dual-control NMPC pass six (`dual_control_nmpc_pass6`): the fifth pass's
+  horizon, slew moves, seeds, and coupling with the spread charged on the box
+  average of the full regressor set, the goal charged only as far as the
+  incumbent posterior can see, one descent seed per goal term, and collective-
+  first probing at zero information. Measured on a sub-minute single-release
+  gate, then the seven cases, then arm-only ensembles: 10 to 14 of 112
+  recoveries against the fifth pass's zero, with the remaining losses split
+  between early floor contacts and a lateral drift just outside the hover
+  envelope. `run_throw_study_trial` accepts a `dual_config` override for
+  single-release iteration, and `scripts/throw_gate.py` is that gate. Six rejected formulations are recorded in
+  `docs/concepts/dual-control-nmpc.md`.
 - The Crazyflow plant raises `CrazyflowDivergenceError`, a `ValueError`, when
   the simulator hands back a non-finite state, and the throw ensemble records
   such a release as a diverged, unrecovered trial instead of ending the run.

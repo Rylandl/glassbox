@@ -26,6 +26,7 @@ from glassbox.control.online_bootstrap import (
 )
 from glassbox.core.dynamics import GRAVITY_M_S2
 from glassbox.experimental.dual_control import (
+    DUAL_CONTROL_VARIANTS,
     DualControlConfig,
     DualControlNMPC,
     _Rollout,
@@ -1155,6 +1156,7 @@ def _fixed_thrust_rollout(
         body_velocity=zeros,
         specific_force=jnp.full((steps,), specific_force),
         rate_norm=jnp.zeros(steps),
+        tracking_terms=jnp.zeros((steps, 4)),
     )
 
 
@@ -1444,3 +1446,96 @@ def test_a_diverged_release_is_recorded_rather_than_ending_the_ensemble() -> Non
     clean = _ensemble_summary([flown])
     assert clean["simulator_diverged_count"] == 0
     assert clean["all_values_finite_and_bounded"] is True
+
+
+# ----------------------------------------------------------------------
+# pass six
+# ----------------------------------------------------------------------
+
+
+def _pass_six(**overrides) -> DualControlNMPC:
+    return DualControlNMPC(dual_control_config("pass6", **overrides))
+
+
+def test_pass_six_declares_its_switches_and_refuses_malformed_ones() -> None:
+    config = dual_control_config("pass6")
+    assert config.variant == "pass6"
+    assert config.spread_model == "command_marginal_full"
+    assert config.goal_horizon == "posterior"
+    assert config.excitation_basis == "hadamard"
+    assert config.information_neighbourhood == "box"
+    assert config.horizon_steps == 100 and config.block_steps == 5
+    assert dual_control_config("pass5").excitation_basis == "motor"
+    for field, value in (
+        ("goal_horizon", "always"),
+        ("excitation_basis", "random"),
+        ("information_neighbourhood", "everywhere"),
+        ("spread_model", "box"),
+    ):
+        with pytest.raises(ValueError):
+            DualControlConfig(**(dict(DUAL_CONTROL_VARIANTS["pass6"]) | {field: value}))
+
+
+def test_pass_six_probes_the_collective_first_at_zero_information() -> None:
+    """In the Hadamard basis the degenerate case is collective first.
+
+    The eigenvectors of a multiple of the identity are whatever basis the
+    decomposition is taken in, so at zero information the sixth pass's first
+    excitation row moves all four motors together and the other three are
+    zero-sum patterns; the fifth pass, decomposing in the motor basis, probes
+    the four motors one at a time.  Once the posterior has learned anything
+    the rows are its own weakest directions in either basis.
+    """
+
+    belief = _belief_after(0)
+    six = _pass_six()
+    rows = np.asarray(six._excitation_directions(six._posterior(belief)))
+    assert np.allclose(np.abs(rows[0]), np.ones(4), atol=1e-6)
+    assert np.allclose(np.sum(rows[1:], axis=1), 0.0, atol=1e-6)
+    assert np.linalg.matrix_rank(rows, tol=1e-6) == 4
+    five = _pass_five()
+    motor_rows = np.asarray(five._excitation_directions(five._posterior(belief)))
+    assert np.allclose(np.abs(motor_rows), np.eye(4), atol=1e-6)
+
+    learned = _belief_after(60)
+    six_learned = np.asarray(six._excitation_directions(six._posterior(learned)))
+    five_learned = np.asarray(five._excitation_directions(five._posterior(learned)))
+    # Same subspace ordering, up to sign: the basis is immaterial once learned.
+    for a, b in zip(six_learned, five_learned):
+        assert np.isclose(
+            abs(np.dot(a, b)) / (np.linalg.norm(a) * np.linalg.norm(b)), 1.0, atol=1e-5
+        )
+
+
+def test_pass_six_seeds_include_one_descent_plan_per_goal_term() -> None:
+    controller = _pass_six()
+    assert controller.config.candidate_count == 2 + 10
+    names = controller.candidate_names
+    assert names[-4:] == ("goal_velocity", "goal_rate", "goal_tilt", "goal_floor")
+    belief = _belief_after(60)
+    posterior = controller._posterior(belief)
+    held = jnp.full(4, 0.5)
+    goals = np.asarray(
+        controller._goal_moves(jnp.asarray(_released_state()), posterior, held)
+    )
+    assert goals.shape == (4, controller.block_count, 4)
+    # Every goal seed is a slew-scaled descent plan: bounded by one in the
+    # normalized move units, and non-trivial once the maps are learned.
+    assert np.max(np.abs(goals)) <= 1.0 + 1e-9
+    assert np.max(np.abs(goals)) > 0.5
+
+
+def test_pass_six_solves_from_zero_information_within_the_slew() -> None:
+    controller = _pass_six()
+    belief = _belief_after(0)
+    held = np.zeros(4)
+    result = controller.solve(
+        _released_state(), belief, held, previous_command_owned=False
+    )
+    assert result.command_usable
+    assert np.all(
+        np.abs(result.command - held) <= controller.config.slew_per_interval + 1e-9
+    )
+    assert np.all(result.command >= 0.0) and np.all(result.command <= 1.0)
+    assert result.selected_candidate != "hold"
+    assert np.max(result.command) > 0.05

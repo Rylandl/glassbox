@@ -1208,3 +1208,146 @@ attributed.
 
 The ensemble protocol and the recorded numbers are in
 [the release-ensemble page](../experiments/dual-control-throw-ensemble.md).
+
+
+## Sixth pass (2026-09-02)
+
+The fifth pass took over two hours to reach a conclusion that was visible in
+the first thirty intervals of its first flight. The sixth pass was run
+differently: one release at a time on a single-trial gate that reports in
+seconds, the seven deterministic cases only for a configuration that passed
+the gate, and the release ensemble only for one that passed the seven. Every
+configuration below was measured that way, and the ones that did not survive
+are recorded with the reason, because each rules out a formulation rather
+than a number.
+
+### What survived
+
+`pass6` keeps the fifth pass's one-second horizon, slew-bounded moves,
+posterior-derived seeds, declared rate limit, and tilt-to-thrust coupling, and
+changes four things.
+
+The spread charge is the box-averaged one again, on the full regressor set:
+the command block averaged uniformly over the box, the nuisance block fixed at
+the *measured* body velocity and rates, the intercept included, under the
+posterior the plan would leave behind. It is plan-independent except through
+the information the plan buys, so no plan can lower it by visiting fewer
+points, which is the fifth pass's failure, and it carries the attitude
+coupling, which the second pass's charge could not.
+
+The goal is charged only as far as the *current* posterior can see. Each goal
+term, and its chance penalty, counts on the steps where that channel's
+predicted spread under the incumbent posterior is still under the cap, and
+always on the executed block. The horizon the goal sees is then a consequence
+of what has been learned rather than a number, and because it is decided by
+the incumbent posterior it is the same for every candidate in a solve: a plan
+cannot profit by learning less. A mean rollout that has run past what the data
+supports carries no goal cost there, and the clipped spread charge is the
+whole statement about those steps. This is what stops a one-second rollout of
+a three-sample map from deciding anything.
+
+The seeds gain one descent plan per goal term: the steepest-descent direction
+of the velocity, rate, tilt, or floor cost with respect to the whole plan of
+moves, taken at the held command by differentiating the objective's own mean
+rollout, and rescaled so its largest move is the slew. Nothing is allocated
+by hand; at zero information every map is zero and every goal seed is the
+held command.
+
+The excitation seeds decompose the command precision in the orthonormal
+Hadamard basis rather than the motor basis. Eigenvectors do not depend on the
+basis, so once anything is learned the seeds are the posterior's own weakest
+directions either way. What the basis decides is the degenerate case: at zero
+information the fifth pass probed the four motors one at a time, which buys
+the least thrust per unit of torque on any multirotor, and the sixth probes
+the collective first and then the three zero-sum patterns. That order treats
+the motors as exchangeable and nothing more; it names no vehicle.
+
+### What did not survive
+
+Each of these was measured on the single-release gate, most on all seven
+deterministic cases, and none was tuned before being dropped.
+
+- **Goal horizon gated by the planned posterior.** Charging the goal only
+  where the plan's *own* posterior can see hands back the fifth pass's fixed
+  point: a plan that learns more exposes more goal cost and loses to one that
+  stays ignorant. The vehicle held zero command and fell.
+- **A sequential action charge.** Recursive least squares inside the rollout,
+  so each step's spread is the predictive spread at that step's own command
+  under the posterior that has absorbed the plan's earlier samples. Clipped at
+  the cap it protects nothing, because the cap is far below what a fall costs;
+  unclipped it is decided entirely by the regularizing prior, which is a hidden
+  scale for the vehicle's response. Both crashed more often than the box.
+- **An action charge under the incumbent posterior.** With the nominal prior
+  it paralyses the controller (six of seven floor contacts, commands near
+  zero); with the prior scale read from the learned directions, on the
+  presumption that unlearned motors are as strong as learned ones, it crashed
+  five of seven. The trade-off between paralysis and blind action is set by
+  the prior scale either way, and no vehicle-free constant can supply it.
+- **A knowledge term within one slew of the held command.** Meant to let the
+  information reward shrink at hover. It did, and it starved the early phase
+  of the global learning it needs: four of seven floor contacts, and after a
+  contact the posterior-gated goal vanished and the vehicle climbed away at
+  full thrust. The executed-block floor on the goal horizon dates from this.
+- **A knowledge term over the regressors actually visited**, the identifier's
+  own second moment with the box as one pseudo-sample. The term shrank at
+  hover as intended and the arrest overshot instead: the known horizon
+  lengthened into the part of the mean rollout that extrapolates the fitted
+  damping and coupling terms.
+- **Trusting nuisance regressors only within the data range**, clipping the
+  rates and speeds entering the fitted nuisance terms at the half-width of a
+  uniform distribution with the accumulated second moment. Alone it did not
+  separate from the box; with the goal charged over the full declared horizon
+  it was the worst configuration measured, seven of seven floor contacts. The
+  short posterior-gated horizon is doing real work during the arrest, and not
+  only against nuisance extrapolation: a one-second rollout of a partial
+  command map is wrong on its own.
+
+### Result
+
+Three arm-only ensembles on the recorded release distribution, paired with
+the fifth pass's report by construction. The first two were measured during
+the iteration; the third is the committed `pass6` configuration, re-measured
+after the switches that keep the fifth pass bit-identical were added, and it
+is the recorded result.
+
+| configuration | recovered | rate | Wilson 95 | floor | airborne, not in envelope |
+| --- | --- | --- | --- | --- | --- |
+| box charge, motor-basis probes, goal seeds | 14/112 | 0.125 | 0.076-0.199 | 48 | 50 |
+| box charge, Hadamard probes, goal seeds | 11/112 | 0.098 | 0.056-0.167 | 50 | 51 |
+| `pass6` as committed | 10/112 | 0.089 | 0.049-0.157 | 52 | 48 |
+
+The three are one configuration up to the order of the seeds and last-ulp
+arithmetic, and their spread is what chaotic sensitivity to a
+three-sample posterior looks like at this sample size. Against the recorded
+arms: `pass2b` 0.062, `pass4` 0.018, `pass5` 0.000, the working cascade 0.223,
+the certified cascade 0.545. The sixth pass is the first learned arm whose
+interval excludes the fifth pass's, and it is not distinguishable from the
+second.
+
+The split is the useful part. In the Hadamard run, of the 62 releases that
+stay off the floor, 51 end level, within 0.03 rad of upright and under
+0.2 rad/s, but drifting laterally at 0.08 to 0.3 m/s, just outside the
+0.1 m/s envelope; the committed run splits the same way. The drift alone is
+worth about forty points of recovery, which would put the arm level with the
+certified cascade. The floor contacts have a lower first-0.3 s
+collective than the airborne releases (0.245 against 0.362 of the range) and
+the same time to rank four, so they are spending the early window learning
+rather than thrusting, not learning more slowly.
+
+### What this leaves
+
+The drift is an objective problem, not a solver problem: it survives a
+tenfold solver budget. At hover the box-averaged knowledge term is still near
+its cap, because "how well is the response known over the whole command box"
+never gets small, and the optimizer keeps trading a little tracking for a
+little information. Every attempt to shrink that term at hover also removed
+the global learning the early phase needs, so the two phases want different
+neighbourhoods and the honest way to get both is still open. The
+value-of-information proxy should concentrate on the commands the goal will
+need, and what that set is has to come from the posterior.
+
+The early floor contacts are the other half. The right reading of them is
+that the controller does not yet know how much to thrust before it knows the
+map, and every mechanism tried for charging blind action was decided by a
+prior scale. A reading of the response scale from the first measured
+transitions, rather than from a constant, is the untested direction.
