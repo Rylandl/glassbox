@@ -83,7 +83,7 @@ uv run --extra crazyflow glassbox-crazyflow-throw \
   docs/crazyflow-throw-results.json
 ```
 
-The [machine-readable result](crazyflow-throw-results.json) records the full
+The [machine-readable result](../results/crazyflow-throw-results.json) records the full
 configuration, working and validated beliefs, objective diagnostics, timing, state metrics,
 observations, and limitations.
 
@@ -108,7 +108,7 @@ The two failed gates matter. A lower-energy release misses the final vertical
 speed threshold by `0.00078 m/s`. A reversed tumble eventually stabilizes but
 contacts the simulated ground first, reaching `-0.001 m`; it therefore cannot
 count as a successful recovery. The
-[campaign artifact](crazyflow-throw-campaign-results.json) records both failures
+[campaign artifact](../results/crazyflow-throw-campaign-results.json) records both failures
 and a `3/5` pass rate. This small tuned scenario set does not measure a
 generalization probability.
 

@@ -187,7 +187,7 @@ not used to initialize production fitting. This result also blocks Phase B:
 there is not yet evidence that a learned history encoder has earned the added
 complexity.
 The machine-readable comparison is retained in
-[`observation-spike-results.json`](observation-spike-results.json).
+[`observation-spike-results.json`](results/observation-spike-results.json).
 
 #### Post-freeze innovation diagnostic (2026-08-29)
 
@@ -225,7 +225,7 @@ rigid-body trajectory. A future observation-model experiment must first show
 that it reduces these compatibility defects without using protected rollout
 targets, then pass the unchanged cross-platform rollout gates. The complete
 machine-readable result is in
-[`innovation-diagnostic-results.json`](innovation-diagnostic-results.json).
+[`innovation-diagnostic-results.json`](results/innovation-diagnostic-results.json).
 
 #### Static observation-correction result (2026-08-29)
 
@@ -257,7 +257,7 @@ time variation, and channel-specific temporal semantics remain more plausible.
 The bounded implementation remains isolated as a research utility with explicit
 provenance, but it is not imported by the normal Glassbox interface or applied
 by fitting. The evidence is recorded in
-[`state-observation-correction-results.json`](state-observation-correction-results.json).
+[`state-observation-correction-results.json`](results/state-observation-correction-results.json).
 
 #### Temporal observation-filter result (2026-08-29)
 
@@ -296,7 +296,7 @@ cross-platform evidence for a body-rate-only rollout A/B; requiring the unrelate
 velocity channel to improve would test universality rather than transfer. Nano's
 zero-memory selection is a valid platform-specific no-op, not evidence for the
 candidate. Complete coefficients and split sizes are recorded in
-[`temporal-observation-filter-results.json`](temporal-observation-filter-results.json).
+[`temporal-observation-filter-results.json`](results/temporal-observation-filter-results.json).
 
 The fixed rollout A/B changed only the reported body-rate output of existing
 models. Dynamics parameters, physical trajectories, and position, velocity, and
@@ -313,7 +313,7 @@ but its advantage is almost gone by 0.5–1.0 s. None achieves the predeclared 0
 geometric ratio across horizons. The post-result threshold was not relaxed, so
 the observation layer remains a research utility and is not applied by fitting.
 The full A/B is recorded in
-[`body-rate-observation-rollout-results.json`](body-rate-observation-rollout-results.json).
+[`body-rate-observation-rollout-results.json`](results/body-rate-observation-rollout-results.json).
 
 #### State-channel alignment result and terminal decision (2026-08-29)
 
@@ -348,7 +348,7 @@ valuable as an opinionated telemetry normalization, differentiable gray-box
 baseline, and evaluation framework, but the evidence does not support
 presenting it as a state-of-the-art universal dynamics model. The full result
 is recorded in
-[`state-observation-alignment-results.json`](state-observation-alignment-results.json).
+[`state-observation-alignment-results.json`](results/state-observation-alignment-results.json).
 
 ### Phase B: causal residual-innovation observer — tested and rejected
 
@@ -376,7 +376,7 @@ only and moment-only fallbacks were less safe. Retaining the guardrail matters
 more than rescuing the aggregate. ARP was the only accepted per-airframe gain,
 and it did not close the learned-model gap to kinematic persistence. The runtime
 and fitter implementation was removed; the complete decision record is in
-[`residual-innovation-observer-results.json`](residual-innovation-observer-results.json).
+[`residual-innovation-observer-results.json`](results/residual-innovation-observer-results.json).
 
 ### Phase C: promote or freeze — frozen
 

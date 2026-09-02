@@ -59,7 +59,7 @@ reason. Each case advances the true plant through one 50 Hz command interval and
 requires the expected authority mode/reason, transparent nominal pass-through,
 finite bounded motor output, and a finite post-step plant state. Campaign
 telemetry is not reused for fitting or belief updates. See the
-[Crazyflow prototype report](crazyflow-prototype.md) for the recorded result.
+[Crazyflow prototype report](../experiments/crazyflow-prototype.md) for the recorded result.
 
 This matrix establishes deterministic single-interval contracts. It does not
 establish recovery under sustained, repeated, or interacting faults.

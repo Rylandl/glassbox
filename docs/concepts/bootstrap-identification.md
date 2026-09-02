@@ -121,7 +121,7 @@ while every displayed telemetry value remains tied to the recorded simulator
 samples. `CrazyflowBootstrapTrace` is the typed state-aligned replay boundary,
 so presentation code does not need access to hidden plant parameters.
 
-The checked-in [machine-readable result](crazyflow-bootstrap-results.json)
+The checked-in [machine-readable result](../results/crazyflow-bootstrap-results.json)
 records the fitted matrix, support projectors, validation metrics, timing, and
 independent recovery outcome.
 

@@ -126,4 +126,4 @@ fixed-wing development contract, and the sensitivity rows are not a fit. The nex
 steps are on the data side (an independent airspeed reference, the instrumented airframe's
 inertia) and on Cascade's side (a panel layout or unsteady term that reproduces the flying
 wing's weak pitch damping). See
-[the recorded result](cascade-x8-validation-results.json).
+[the recorded result](../results/cascade-x8-validation-results.json).

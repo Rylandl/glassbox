@@ -146,7 +146,7 @@ def test_adaptive_recovery_benchmark_is_finite_and_auditable() -> None:
     json.dumps(report, allow_nan=False)
 
     recorded = json.loads(
-        (Path(__file__).parents[1] / "docs/adaptive-recovery-results.json").read_text()
+        (Path(__file__).parents[1] / "docs/results/adaptive-recovery-results.json").read_text()
     )
     _assert_nested_close(
         normalized_adaptive_recovery_report(report),

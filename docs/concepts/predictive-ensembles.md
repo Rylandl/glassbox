@@ -223,7 +223,7 @@ attempt must use a new airframe, configuration, or untouched corpus and should
 evaluate the v3 independent calibration stage without touching that final
 evidence. Exact v2 metrics, implementation fingerprints,
 artifact hashes, and the evidence decision are recorded in
-[`predictive-ensemble-results.json`](predictive-ensemble-results.json).
+[`predictive-ensemble-results.json`](../results/predictive-ensemble-results.json).
 
 ## First independent calibration result
 
@@ -253,7 +253,7 @@ The next partition should reserve balanced source groups within every
 outer-training profile. That keeps fitting and calibration independent while
 preserving maneuver-family coverage on both sides. Exact v3 metrics and the
 decision are recorded in
-[`predictive-ensemble-calibration-results.json`](predictive-ensemble-calibration-results.json).
+[`predictive-ensemble-calibration-results.json`](../results/predictive-ensemble-calibration-results.json).
 
 ## Balanced calibration result
 
@@ -292,7 +292,7 @@ evidence. The implementation should stay fixed until it is evaluated on a new
 airframe or configuration with enough independent groups to preserve separate
 fit, calibration, and outer-evaluation partitions. Exact v4 metrics and the
 artifact fingerprint are recorded in
-[`predictive-ensemble-balanced-calibration-results.json`](predictive-ensemble-balanced-calibration-results.json).
+[`predictive-ensemble-balanced-calibration-results.json`](../results/predictive-ensemble-balanced-calibration-results.json).
 
 ## First fixed-wing evidence result
 
@@ -336,4 +336,4 @@ offline diagnostic, not serialize it for runtime control. IDF-DS became
 development evidence when this result was inspected; neither thresholds nor
 the estimator should now be tuned and re-promoted on these folds. Exact metrics,
 fingerprints, integrity checks, and the evidence decision are recorded in
-[`predictive-ensemble-idf-results.json`](predictive-ensemble-idf-results.json).
+[`predictive-ensemble-idf-results.json`](../results/predictive-ensemble-idf-results.json).

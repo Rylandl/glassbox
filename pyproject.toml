@@ -60,6 +60,9 @@ glassbox-crazyflow-animation = "glassbox.integrations.crazyflow_animation:main"
 glassbox-crazyflow-throw = "glassbox.integrations.crazyflow_throw:main"
 glassbox-crazyflow-throw-animation = "glassbox.integrations.crazyflow_animation:throw_main"
 
+[tool.hatch.build.targets.sdist]
+exclude = ["/docs/results", "/docs/history", "/tasks"]
+
 [tool.uv.sources]
 cascade-flight = { git = "https://github.com/Rylandl/cascade", branch = "main" }
 

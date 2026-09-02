@@ -85,7 +85,7 @@ uv run glassbox-adaptive-recovery \
   --output docs/adaptive-recovery-results.json
 ```
 
-The checked-in [result artifact](adaptive-recovery-results.json) records the
+The checked-in [result artifact](../results/adaptive-recovery-results.json) records the
 scenario contract, environment, evidence, all four recovery traces, direct
 comparisons, observations, and limitations. Its `acceptance_gate`,
 `flight_safety_claim`, and `throw_to_recover_claim` fields are all false.
