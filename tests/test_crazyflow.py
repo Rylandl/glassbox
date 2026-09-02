@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import io
 import json
 import multiprocessing
 import os
 import sys
 import time
 from concurrent.futures import ProcessPoolExecutor
+from unittest.mock import patch
 
 # Crazyflow must establish SciPy's array-API process contract before any JAX
 # linear algebra test can lazily import SciPy. Keep the optional dependency
@@ -51,6 +53,7 @@ from glassbox.integrations.crazyflow_animation import (
     _interpolate_sample,
     _storyboard,
     _throw_storyboard,
+    render_crazyflow_throw_trace,
 )
 from glassbox.integrations.crazyflow_bootstrap import (
     run_crazyflow_bootstrap_benchmark,
@@ -85,6 +88,7 @@ from glassbox.integrations.crazyflow_throw import (
 )
 from glassbox.integrations.crazyflow_throw_study import (
     CRAZYFLOW_THROW_STUDY_CASES,
+    CrazyflowStudyTrace,
     format_study_table,
     run_crazyflow_throw_study,
 )
@@ -777,7 +781,7 @@ def test_continuous_throw_fits_and_arrests_without_a_post_release_reset() -> Non
     )
     assert "UNPOWERED THROW" in moments[0].status
     assert any("LEARNING WHILE ARRESTING" in moment.status for moment in moments)
-    assert "SUSTAINED HOVER" in moments[-1].status
+    assert "LEARNED CONTROL" in moments[-1].status
     assert all("SEPARATE" not in moment.status for moment in moments)
     assert len(moments) == 300
     assert len(throw_only_moments) == 30
@@ -929,3 +933,94 @@ def test_throw_study_reports_both_control_models_for_the_canonical_case() -> Non
     assert table.splitlines()[0].startswith("| case")
     assert len(table.splitlines()) == 4
     json.dumps(report, allow_nan=False)
+
+
+def test_render_crazyflow_throw_trace_accepts_an_uncertified_dual_arm_trace(
+    tmp_path,
+) -> None:
+    """The renderer must not assume every arm certifies or even validates.
+
+    A dual-control arm never certifies a belief at all, so its
+    ``CrazyflowStudyTrace`` carries ``certified_belief_sample_index=None`` and
+    ``validated=False``.  This builds one by hand — no plant simulation, no
+    ffmpeg — and checks the storyboard still produces the three honest
+    phases, and that the renderer (with the plant, its rendering, and the
+    ffmpeg encoder all mocked out) accepts the trace and names the arm
+    correctly, in well under a second.
+    """
+
+    sample_count = 40
+    sample_period_s = 0.01
+    timestamps = np.arange(sample_count, dtype=np.float64) * sample_period_s
+    states = np.zeros((sample_count, 13), dtype=np.float64)
+    states[:, 6] = 1.0  # identity quaternion; everything else stays at rest.
+    applied = np.zeros((sample_count, 4), dtype=np.float64)
+    requested = np.zeros((sample_count - 1, 4), dtype=np.float64)
+    # Model enable at sample 10 (t=0.10 s); command evidence reaches rank four
+    # at sample 25 (t=0.25 s); never certified.
+    ranks = np.zeros(sample_count, dtype=np.int64)
+    ranks[25:] = 4
+    interval_counts = np.zeros(sample_count, dtype=np.int64)
+    interval_counts[11:] = np.arange(1, sample_count - 10)
+
+    trace = CrazyflowStudyTrace(
+        arm="dual_control_nmpc_pass2b",
+        case_name="canonical",
+        sample_period_s=sample_period_s,
+        model_enable_sample_index=10,
+        first_supported_control_sample_index=12,
+        command_rank_four_sample_index=25,
+        certified_belief_sample_index=None,
+        validated=False,
+        timestamps_s=timestamps,
+        states=states,
+        applied_motor_commands=applied,
+        requested_motor_commands=requested,
+        working_interval_counts=interval_counts,
+        command_evidence_ranks=ranks,
+    )
+
+    config = CrazyflowAnimationConfig(width=640, height=360, frames_per_second=10)
+    moments = _throw_storyboard(trace, config)
+    assert moments[0].phase == "unpowered"
+    assert any(moment.phase == "learning" for moment in moments)
+    assert moments[-1].phase == "learned"
+    assert all("SUSTAINED HOVER" not in moment.status for moment in moments)
+    assert all("VALIDATED" not in moment.status for moment in moments)
+
+    class _FakePlant:
+        def close(self) -> None:
+            pass
+
+    class _FakeEncoder:
+        def __init__(self) -> None:
+            self.stdin = io.BytesIO()
+
+    def _fake_render_plant_frame(*_args, width, height, **_kwargs):
+        return np.zeros((height, width, 3), dtype=np.uint8)
+
+    with (
+        patch(
+            "glassbox.integrations.crazyflow_animation.CrazyflowPlant",
+            return_value=_FakePlant(),
+        ),
+        patch(
+            "glassbox.integrations.crazyflow_animation._render_plant_frame",
+            side_effect=_fake_render_plant_frame,
+        ),
+        patch(
+            "glassbox.integrations.crazyflow_animation._start_encoder",
+            return_value=_FakeEncoder(),
+        ),
+        patch("glassbox.integrations.crazyflow_animation._finish_encoder"),
+    ):
+        summary = render_crazyflow_throw_trace(
+            trace,
+            tmp_path / "dual-control.mp4",
+            config=config,
+        )
+
+    assert summary["arm"] == "dual_control_nmpc_pass2b"
+    assert summary["case_name"] == "canonical"
+    assert summary["frame_count"] == len(moments)
+    assert summary["throw_only"] is False

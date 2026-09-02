@@ -98,6 +98,17 @@ DEFAULT_CONTROL_MODELS = (
     DUAL_CONTROL_PASS3_MODEL,
     DUAL_CONTROL_PASS4_MODEL,
 )
+#: What to call each arm on screen.  Used by the renderer so an overlay names
+#: the control model actually flying rather than assuming the cascade.
+ARM_DISPLAY_NAMES: dict[str, str] = {
+    "certified": "FROZEN SNAPSHOT CASCADE",
+    "working": "WORKING-BELIEF CASCADE",
+    DUAL_CONTROL_MODEL: "DUAL-CONTROL NMPC pass 1",
+    DUAL_CONTROL_PASS2A_MODEL: "DUAL-CONTROL NMPC pass 2a",
+    DUAL_CONTROL_PASS2B_MODEL: "DUAL-CONTROL NMPC pass 2b",
+    DUAL_CONTROL_PASS3_MODEL: "DUAL-CONTROL NMPC pass 3",
+    DUAL_CONTROL_PASS4_MODEL: "DUAL-CONTROL NMPC pass 4",
+}
 #: The arms the ensemble protocol compares.  Two cascade references, the design
 #: the third pass left standing, and the fourth pass's base action.  The
 #: superseded passes are excluded: an ensemble is expensive and re-measuring a
@@ -276,6 +287,99 @@ class ThrowStudyCase:
         if self.release_perturbation is not None:
             entry["release_perturbation"] = self.release_perturbation.to_dict()
         return entry
+
+
+@dataclass(frozen=True)
+class CrazyflowStudyTrace:
+    """State-aligned telemetry for one study arm, playable by the throw renderer.
+
+    Shares its state-aligned field names with
+    :class:`glassbox.integrations.crazyflow_throw.CrazyflowThrowTrace` so the
+    same renderer plays either one, but an arm here need not have earned or
+    validated a control belief at all: ``certified_belief_sample_index`` is
+    ``None`` and ``validated`` is ``False`` for every arm except ``certified``,
+    honestly, rather than repurposing a working-belief or dual-control
+    readiness moment as if it were a certification.
+    """
+
+    arm: str
+    case_name: str
+    sample_period_s: float
+    model_enable_sample_index: int
+    first_supported_control_sample_index: int | None
+    command_rank_four_sample_index: int | None
+    certified_belief_sample_index: int | None
+    validated: bool
+    timestamps_s: np.ndarray
+    states: np.ndarray
+    applied_motor_commands: np.ndarray
+    requested_motor_commands: np.ndarray
+    working_interval_counts: np.ndarray
+    command_evidence_ranks: np.ndarray
+
+    def __post_init__(self) -> None:
+        timestamps = np.asarray(self.timestamps_s, dtype=np.float64)
+        states = np.asarray(self.states, dtype=np.float64)
+        applied = np.asarray(self.applied_motor_commands, dtype=np.float64)
+        requested = np.asarray(self.requested_motor_commands, dtype=np.float64)
+        interval_counts = np.asarray(self.working_interval_counts, dtype=np.int64)
+        ranks = np.asarray(self.command_evidence_ranks, dtype=np.int64)
+        if not self.arm:
+            raise ValueError("a study trace must name its arm")
+        if not self.case_name:
+            raise ValueError("a study trace must name its case")
+        if not np.isfinite(self.sample_period_s) or self.sample_period_s <= 0.0:
+            raise ValueError("sample_period_s must be finite and positive")
+        if timestamps.ndim != 1 or len(timestamps) < 2:
+            raise ValueError("timestamps_s must contain at least two samples")
+        sample_count = len(timestamps)
+        aligned_shapes = {
+            "states": (sample_count, 13),
+            "applied_motor_commands": (sample_count, 4),
+            "working_interval_counts": (sample_count,),
+            "command_evidence_ranks": (sample_count,),
+        }
+        values = {
+            "states": states,
+            "applied_motor_commands": applied,
+            "working_interval_counts": interval_counts,
+            "command_evidence_ranks": ranks,
+        }
+        for name, shape in aligned_shapes.items():
+            if values[name].shape != shape:
+                raise ValueError(f"{name} must have state-aligned shape {shape}")
+        if requested.shape != (sample_count - 1, 4):
+            raise ValueError("requested_motor_commands must be interval-aligned")
+        if (
+            not np.all(np.isfinite(timestamps))
+            or not np.all(np.diff(timestamps) > 0.0)
+            or not np.all(np.isfinite(states))
+            or not np.all(np.isfinite(applied))
+            or not np.all(np.isfinite(requested))
+        ):
+            raise ValueError("study trace values must be finite and ordered")
+        if not (0 < self.model_enable_sample_index < sample_count):
+            raise ValueError("model_enable_sample_index must be interior to the trace")
+        for name, value in (
+            (
+                "first_supported_control_sample_index",
+                self.first_supported_control_sample_index,
+            ),
+            ("command_rank_four_sample_index", self.command_rank_four_sample_index),
+            ("certified_belief_sample_index", self.certified_belief_sample_index),
+        ):
+            if value is not None and not (
+                self.model_enable_sample_index <= value < sample_count
+            ):
+                raise ValueError(f"{name} must fall within the trace when present")
+        if self.validated and self.certified_belief_sample_index is None:
+            raise ValueError("a validated trace must carry its certification index")
+        object.__setattr__(self, "timestamps_s", timestamps)
+        object.__setattr__(self, "states", states)
+        object.__setattr__(self, "applied_motor_commands", applied)
+        object.__setattr__(self, "requested_motor_commands", requested)
+        object.__setattr__(self, "working_interval_counts", interval_counts)
+        object.__setattr__(self, "command_evidence_ranks", ranks)
 
 
 def _study_cases() -> tuple[ThrowStudyCase, ...]:
@@ -480,6 +584,7 @@ class _TrialRecord:
     flown_collective_errors: list[float]
     flown_angular_errors: list[float]
     command_evidence_ranks: list[int]
+    working_interval_counts: list[int]
     dual_results: list[DualControlResult]
     dual_log_determinants: list[float]
     dual_information_ranks: list[int]
@@ -507,6 +612,7 @@ def _new_record() -> _TrialRecord:
         flown_collective_errors=[],
         flown_angular_errors=[],
         command_evidence_ranks=[],
+        working_interval_counts=[],
         dual_results=[],
         dual_log_determinants=[],
         dual_information_ranks=[],
@@ -522,7 +628,13 @@ def _fly_trial(
     control_model: str,
     plant: CrazyflowPlant,
     dual_controller: DualControlNMPC | None = None,
-) -> tuple[_TrialRecord, PlantTelemetryRecorder, np.ndarray, dict[str, Any]]:
+) -> tuple[
+    _TrialRecord,
+    PlantTelemetryRecorder,
+    np.ndarray,
+    dict[str, Any],
+    CrazyflowStudyTrace,
+]:
     """Run one release-to-hover trial and return its raw telemetry.
 
     The loop is the canonical throw loop: motors and model are off for the
@@ -537,6 +649,11 @@ def _fly_trial(
     warm-starts from is passed back in by this loop — so reusing one across
     trials is exactly the same computation, and it saves recompiling the solve
     program for every release of an ensemble.
+
+    Alongside the record, this returns a :class:`CrazyflowStudyTrace`: the same
+    state-aligned telemetry the report is reduced from, kept in a shape the
+    throw renderer can play back directly, whether or not this arm ever
+    certified a belief.
     """
 
     scenario = case.scenario
@@ -693,6 +810,7 @@ def _fly_trial(
         )
         record.working_hover_errors.append(_hover_relative_error(working, hidden_hover))
         record.command_evidence_ranks.append(working.command_evidence_rank)
+        record.working_interval_counts.append(working.interval_count)
         record.staged_collective.append(working.collective_nuisance_staged)
         record.staged_angular.append(working.angular_nuisance_staged)
         record.sign_projection_counts.append(working.collective_sign_projection_count)
@@ -757,7 +875,78 @@ def _fly_trial(
             }
         )
     identification["validation_history"] = [report.to_dict() for report in history]
-    return record, telemetry, np.asarray(requested_commands), identification
+    requested_array = np.asarray(requested_commands)
+    trace = _build_study_trace(
+        case,
+        control_model,
+        plant.sample_period_s,
+        enable_step_count,
+        record,
+        telemetry,
+        requested_array,
+    )
+    return record, telemetry, requested_array, identification, trace
+
+
+def _build_study_trace(
+    case: ThrowStudyCase,
+    control_model: str,
+    sample_period_s: float,
+    enable_index: int,
+    record: _TrialRecord,
+    telemetry: PlantTelemetryRecorder,
+    requested: np.ndarray,
+) -> CrazyflowStudyTrace:
+    """Assemble the render trace from one already-flown trial's telemetry.
+
+    ``enable_index`` is the sample index of model enable: the identifier and
+    controller are disabled for that many intervals, so the arrays the study
+    accumulates per online step are prefixed with that many zeros to become
+    state-aligned, exactly as :class:`.CrazyflowThrowTrace` does for the single
+    default trial.
+    """
+
+    pre_enable = np.zeros(enable_index + 1, dtype=np.int64)
+    ranks = np.concatenate(
+        (pre_enable, np.asarray(record.command_evidence_ranks, dtype=np.int64))
+    )
+    interval_counts = np.concatenate(
+        (pre_enable, np.asarray(record.working_interval_counts, dtype=np.int64))
+    )
+    first_supported_control_sample_index = (
+        None
+        if record.first_supported_control_step is None
+        else enable_index + record.first_supported_control_step
+    )
+    command_rank_four_sample_index = (
+        None
+        if record.command_rank_four_step is None
+        else enable_index + record.command_rank_four_step + 1
+    )
+    # Only certified mode's own readiness is a certification: working mode and
+    # every dual-control arm read this from the working belief's own support
+    # rule instead, which is a different claim and stays out of this field.
+    certified_belief_sample_index = (
+        enable_index + record.control_model_step + 1
+        if control_model == "certified" and record.control_model_step is not None
+        else None
+    )
+    return CrazyflowStudyTrace(
+        arm=control_model,
+        case_name=case.name,
+        sample_period_s=sample_period_s,
+        model_enable_sample_index=enable_index,
+        first_supported_control_sample_index=first_supported_control_sample_index,
+        command_rank_four_sample_index=command_rank_four_sample_index,
+        certified_belief_sample_index=certified_belief_sample_index,
+        validated=certified_belief_sample_index is not None,
+        timestamps_s=telemetry.timestamp_array(),
+        states=telemetry.state_array(),
+        applied_motor_commands=telemetry.applied_array(),
+        requested_motor_commands=requested,
+        working_interval_counts=interval_counts,
+        command_evidence_ranks=ranks,
+    )
 
 
 def _reason_counts(history: Sequence[Any]) -> dict[str, int]:
@@ -1231,7 +1420,7 @@ def run_throw_study_trial(
         else plant
     )
     try:
-        record, telemetry, requested, identification = _fly_trial(
+        record, telemetry, requested, identification, _trace = _fly_trial(
             case,
             control_model,
             plant,
@@ -1419,6 +1608,39 @@ def run_throw_study_trial(
                 else {}
             ),
         }
+    finally:
+        if owned:
+            plant.close()
+
+
+def run_throw_study_render_trial(
+    case: ThrowStudyCase,
+    control_model: str,
+    plant: CrazyflowPlant | None = None,
+) -> CrazyflowStudyTrace:
+    """Fly one arm on one case and return only what the throw renderer needs.
+
+    This runs exactly the same closed loop as :func:`run_throw_study_trial`
+    but skips reducing it to a report, so any of :data:`STUDY_CONTROL_MODELS`
+    can be handed to the renderer without paying for metrics nothing will
+    read.
+    """
+
+    if control_model not in STUDY_CONTROL_MODELS:
+        raise ValueError(f"unknown control model {control_model!r}")
+    owned = plant is None
+    plant = (
+        CrazyflowPlant(CrazyflowPlantConfig(control_frequency_hz=100))
+        if plant is None
+        else plant
+    )
+    try:
+        _record, _telemetry, _requested, _identification, trace = _fly_trial(
+            case,
+            control_model,
+            plant,
+        )
+        return trace
     finally:
         if owned:
             plant.close()
@@ -1782,7 +2004,7 @@ def _ensemble_trial(
     deterministic study readable would make this report unreadable.
     """
 
-    record, telemetry, requested, _identification = _fly_trial(
+    record, telemetry, requested, _identification, _trace = _fly_trial(
         case,
         control_model,
         plant,

@@ -24,6 +24,13 @@ from glassbox.integrations.crazyflow_throw import (
     CrazyflowThrowTrace,
     run_crazyflow_throw_trial,
 )
+from glassbox.integrations.crazyflow_throw_study import (
+    ARM_DISPLAY_NAMES,
+    CRAZYFLOW_THROW_STUDY_CASES,
+    STUDY_CONTROL_MODELS,
+    CrazyflowStudyTrace,
+    run_throw_study_render_trial,
+)
 
 _NAVY = (8, 17, 28)
 _MINT = (78, 232, 184)
@@ -214,61 +221,58 @@ def _storyboard(
     return moments
 
 
+def _rank_four_time_s(trace: CrazyflowThrowTrace | CrazyflowStudyTrace) -> float:
+    """First simulation time the flown command evidence reaches rank four.
+
+    ``inf`` if it never does, which is honest: a dual-control arm can lose a
+    case without ever earning full command evidence, and the trace does not
+    pretend otherwise by falling back to a certification field that may not
+    exist.
+    """
+
+    ranks = np.asarray(trace.command_evidence_ranks)
+    hits = np.flatnonzero(ranks >= 4)
+    return float("inf") if len(hits) == 0 else float(trace.timestamps_s[int(hits[0])])
+
+
 def _throw_storyboard(
-    trace: CrazyflowThrowTrace,
+    trace: CrazyflowThrowTrace | CrazyflowStudyTrace,
     config: CrazyflowAnimationConfig,
     *,
     throw_only: bool = False,
 ) -> list[_StoryMoment]:
-    """Play exact simulation time continuously, with no editorial holds."""
+    """Play exact simulation time continuously, with no editorial holds.
+
+    Three phases carry the frames — unpowered (motors and model both off),
+    learning (model enable until command evidence reaches rank four), and
+    learned control (after rank four) — with a release marker at time zero
+    drawn separately by the overlay.  Nothing here reads a certification
+    field, so a trace that never certifies or validates a belief (any
+    dual-control arm, or the working-belief cascade) renders exactly the same
+    way as one that does.
+    """
 
     fps = config.frames_per_second
     release_time = float(trace.timestamps_s[0])
     enable_time = float(trace.timestamps_s[trace.model_enable_sample_index])
-    first_support_time = float(
-        trace.timestamps_s[trace.first_supported_control_sample_index]
-    )
-    certified_time = float(trace.timestamps_s[trace.certified_belief_sample_index])
-    speed = np.linalg.norm(trace.states[:, 3:6], axis=1)
-    rate = np.linalg.norm(trace.states[:, 10:13], axis=1)
-    tilt = np.asarray([_tilt_rad(state) for state in trace.states])
-    hover = (
-        (speed < 0.10)
-        & (rate < 0.10)
-        & (np.abs(trace.states[:, 5]) < 0.05)
-        & (tilt < 0.05)
-    )
-    sustained = np.logical_and.accumulate(hover[::-1])[::-1]
-    hover_indices = np.flatnonzero(sustained)
-    hover_time = (
-        float("inf")
-        if len(hover_indices) == 0
-        else float(trace.timestamps_s[hover_indices[0]])
-    )
+    rank_four_time = _rank_four_time_s(trace)
     terminal_time = enable_time if throw_only else float(trace.timestamps_s[-1])
     count = max(1, round((terminal_time - release_time) * fps))
     moments: list[_StoryMoment] = []
     for simulation_time in release_time + np.arange(count) / fps:
+        simulation_time = float(simulation_time)
         if simulation_time < enable_time or throw_only:
-            phase = "throw"
+            phase = "unpowered"
             status = "UNPOWERED THROW / SYSTEM OFF"
-            detail = "Motors 0.000 - belief 0 updates - objective disabled"
-        elif simulation_time < first_support_time:
-            phase = "online"
-            status = "ONLINE BELIEF-SPACE OPTIMIZATION"
-            detail = "One objective trades arrest, uncertainty, and information"
-        elif simulation_time < certified_time:
-            phase = "online"
+            detail = "Motors at zero - belief and controller are both disabled"
+        elif simulation_time < rank_four_time:
+            phase = "learning"
             status = "LEARNING WHILE ARRESTING"
-            detail = "Supported directions earn command authority continuously"
-        elif simulation_time < hover_time:
-            phase = "recovery"
-            status = "CONTINUOUS IDENTIFICATION + STABILIZATION"
-            detail = "Predictive evidence and live information share one objective"
+            detail = "Command evidence has not yet reached rank four"
         else:
-            phase = "hover"
-            status = "SUSTAINED HOVER IN SIMULATION"
-            detail = "Velocity, body rate, vertical speed, and tilt remain arrested"
+            phase = "learned"
+            status = "LEARNED CONTROL"
+            detail = "Command evidence spans all four channels"
         progress = (simulation_time - release_time) / max(
             terminal_time - release_time,
             1e-9,
@@ -278,7 +282,7 @@ def _throw_storyboard(
                 phase=phase,
                 status=status,
                 detail=detail,
-                simulation_time_s=float(simulation_time),
+                simulation_time_s=simulation_time,
                 progress=float(progress),
             )
         )
@@ -697,6 +701,9 @@ def _draw_overlay(
     return np.asarray(image)
 
 
+_PHASE_COLORS = {"unpowered": _AMBER, "learning": _CYAN, "learned": _MINT}
+
+
 def _draw_throw_overlay(
     rgb_frame: np.ndarray,
     *,
@@ -704,11 +711,16 @@ def _draw_throw_overlay(
     state: np.ndarray,
     command: np.ndarray,
     sample_index: int,
-    trace: CrazyflowThrowTrace,
-    report: dict[str, Any],
+    trace: CrazyflowThrowTrace | CrazyflowStudyTrace,
     throw_only: bool,
 ) -> np.ndarray:
-    """Draw telemetry without changing the real-time throw playback."""
+    """Draw telemetry without changing the real-time throw playback.
+
+    Every number comes from ``trace`` and the frame being drawn, never from a
+    report or a literal constant, so a study arm that never certifies or even
+    validates a belief (any dual-control arm, or the working-belief cascade)
+    renders exactly the same overlay, honestly naming whatever arm flew it.
+    """
 
     from PIL import Image, ImageDraw
 
@@ -737,12 +749,12 @@ def _draw_throw_overlay(
         font=title_font,
         fill=(*_WHITE, 255),
     )
-    status_color = _AMBER if moment.phase == "throw" else _MINT
+    phase_color = _PHASE_COLORS.get(moment.phase, _MINT)
     draw.text(
         (round(56 * scale), round(93 * scale)),
         moment.status,
         font=status_font,
-        fill=(*status_color, 255),
+        fill=(*phase_color, 255),
     )
     draw.text(
         (round(56 * scale), round(120 * scale)),
@@ -763,28 +775,19 @@ def _draw_throw_overlay(
         width=1,
     )
     px = panel_left + round(22 * scale)
-    model_enabled = sample_index >= trace.model_enable_sample_index and not throw_only
-    certified = bool(trace.validated_belief_available[sample_index]) and not throw_only
-    if not model_enabled:
-        model_status = "OFF"
-        model_color = _AMBER
-    elif certified:
-        model_status = "VALIDATED MEAN / OBJECTIVE LIVE"
-        model_color = _MINT
-    else:
-        model_status = "WORKING BELIEF / OBJECTIVE LIVE"
-        model_color = _CYAN
+    arm = getattr(trace, "arm", "certified")
+    arm_label = ARM_DISPLAY_NAMES.get(arm, arm.upper())
     draw.text(
         (px, round(57 * scale)),
-        "BELIEF + SINGLE OBJECTIVE",
+        "CONTROL MODEL",
         font=label_font,
         fill=(*_MUTED, 255),
     )
     draw.text(
         (px, round(82 * scale)),
-        model_status,
+        arm_label,
         font=status_font,
-        fill=(*model_color, 255),
+        fill=(*phase_color, 255),
     )
 
     speed = float(np.linalg.norm(state[3:6]))
@@ -804,42 +807,29 @@ def _draw_throw_overlay(
     )
     draw.text(
         (px, round(198 * scale)),
-        "TILT / ONLINE UPDATES",
+        "TILT / WORKING UPDATES",
         font=label_font,
         fill=(*_MUTED, 255),
     )
     draw.text(
         (px, round(224 * scale)),
-        f"{tilt_deg:5.1f} deg  {trace.working_interval_counts[sample_index]:4d}",
+        f"{tilt_deg:5.1f} deg  {int(trace.working_interval_counts[sample_index]):4d}",
         font=mono_font,
         fill=(*_WHITE, 255),
     )
+    live_rank = int(trace.command_evidence_ranks[sample_index])
+    collective_command = float(np.mean(command))
     draw.text(
         (px, round(264 * scale)),
-        "WORKING / PREDICTIVE RANK",
+        "COMMAND RANK / COLLECTIVE",
         font=label_font,
         fill=(*_MUTED, 255),
     )
     draw.text(
         (px, round(290 * scale)),
-        (
-            f"working {trace.command_evidence_ranks[sample_index]}/4  "
-            f"{trace.angular_effect_ranks[sample_index]}/3"
-        ),
+        f"{live_rank}/4  {collective_command:.3f}",
         font=mono_font,
-        fill=(*_WHITE, 255),
-    )
-    predictive_input_rank = (
-        4 if certified else trace.command_evidence_ranks[sample_index]
-    )
-    predictive_output_rank = (
-        3 if certified else trace.angular_effect_ranks[sample_index]
-    )
-    draw.text(
-        (px, round(314 * scale)),
-        f"predict {predictive_input_rank}/4  {predictive_output_rank}/3",
-        font=mono_font,
-        fill=(*(_MINT if certified else _MUTED), 255),
+        fill=(*(_MINT if live_rank >= 4 else _WHITE), 255),
     )
     draw.text(
         (px, round(350 * scale)),
@@ -900,42 +890,42 @@ def _draw_throw_overlay(
         ),
         fill=(*_MINT, 255),
     )
-    terminal_time = (
-        trace.timestamps_s[trace.model_enable_sample_index]
-        if throw_only
-        else trace.timestamps_s[-1]
-    )
+    release_time = float(trace.timestamps_s[0])
+    enable_time = float(trace.timestamps_s[trace.model_enable_sample_index])
+    terminal_time = enable_time if throw_only else float(trace.timestamps_s[-1])
+    span = max(terminal_time - release_time, 1e-9)
     markers: list[tuple[float, str]] = [(0.0, "RELEASE")]
     if throw_only:
-        markers.append((1.0, "1.00 s / OFF"))
+        markers.append((1.0, f"{enable_time - release_time:.2f} s / OFF"))
     else:
-        hover_time = report["continuous_throw"]["sustained_hover_start_time_s"]
-        markers.extend(
-            (
-                (
-                    trace.timestamps_s[trace.model_enable_sample_index] / terminal_time,
-                    "ONLINE",
-                ),
-                (
-                    trace.timestamps_s[trace.certified_belief_sample_index]
-                    / terminal_time,
-                    "VALIDATED",
-                ),
-                (
-                    1.0 if hover_time is None else hover_time / terminal_time,
-                    "HOVER",
-                ),
-            )
-        )
+        markers.append(((enable_time - release_time) / span, "ENABLE"))
+        rank_four_time = _rank_four_time_s(trace)
+        if math.isfinite(rank_four_time):
+            markers.append(((rank_four_time - release_time) / span, "RANK 4"))
+        certified_index = getattr(trace, "certified_belief_sample_index", None)
+        if certified_index is not None:
+            certified_time = float(trace.timestamps_s[certified_index])
+            markers.append(((certified_time - release_time) / span, "CERTIFIED"))
+    # Two markers close together in time (enable and an early rank four, most
+    # often) would overlap at one text row, so alternate rows whenever markers
+    # are closer than a label's own width can safely claim.
+    row_gap = round(15 * scale)
+    previous_x: float | None = None
+    row = 0
     for position, label in markers:
         label_x = timeline_left + round(position * (timeline_right - timeline_left))
+        if previous_x is not None and label_x - previous_x < round(70 * scale):
+            row = 1 - row
+        else:
+            row = 0
         draw.text(
-            (label_x, timeline_y - round(23 * scale)),
+            (label_x, timeline_y - round(23 * scale) - row * row_gap),
             label,
             font=small_font,
             fill=(*_MUTED, 240),
             anchor="ms",
         )
+        previous_x = label_x
     return np.asarray(image)
 
 
@@ -1064,13 +1054,19 @@ def _finish_encoder(process: subprocess.Popen[bytes]) -> None:
         raise RuntimeError(f"ffmpeg failed to encode the animation: {message}")
 
 
-def _write_gif(source: Path, output: Path) -> None:
+def _write_gif(
+    source: Path,
+    output: Path,
+    *,
+    fps: int = 15,
+    width: int = 640,
+) -> None:
     ffmpeg = shutil.which("ffmpeg")
     if ffmpeg is None:
         raise RuntimeError("ffmpeg is required to encode the GIF preview")
     output.parent.mkdir(parents=True, exist_ok=True)
     filter_graph = (
-        "fps=15,scale=640:-1:flags=lanczos,split[s0][s1];"
+        f"fps={fps},scale={width}:-1:flags=lanczos,split[s0][s1];"
         "[s0]palettegen=max_colors=128[p];[s1][p]paletteuse=dither=bayer"
     )
     completed = subprocess.run(
@@ -1188,16 +1184,30 @@ def render_crazyflow_bootstrap_animation(
     return summary
 
 
-def _render_crazyflow_throw_run(
-    run: Any,
+def render_crazyflow_throw_trace(
+    trace: CrazyflowThrowTrace | CrazyflowStudyTrace,
     output: Path,
     *,
     poster_output: Path | None = None,
     gif_output: Path | None = None,
+    gif_fps: int = 15,
+    gif_width: int = 640,
     config: CrazyflowAnimationConfig | None = None,
     throw_only: bool = False,
 ) -> dict[str, Any]:
-    """Render exact trace time without storyboard pauses or simulation resets."""
+    """Render exact trace time to H.264, without a storyboard pause or reset.
+
+    Takes any trace shaped like :class:`CrazyflowThrowTrace` (the standalone
+    throw diagnostic) or
+    :class:`~glassbox.integrations.crazyflow_throw_study.CrazyflowStudyTrace`
+    (one study arm on one case) — the arm need not have certified, or even
+    validated, a control belief.  Nothing here reads a report: every number on
+    screen is read from ``trace`` itself.
+
+    ``gif_fps``/``gif_width`` only take effect together with ``gif_output``;
+    lower them for a busier scene whose default-settings preview would land
+    above a size budget.
+    """
 
     config = CrazyflowAnimationConfig() if config is None else config
     if output.suffix.lower() != ".mp4":
@@ -1205,7 +1215,6 @@ def _render_crazyflow_throw_run(
     output.parent.mkdir(parents=True, exist_ok=True)
     if poster_output is not None:
         poster_output.parent.mkdir(parents=True, exist_ok=True)
-    trace = run.trace
     moments = _throw_storyboard(trace, config, throw_only=throw_only)
     encoder = _start_encoder(
         output,
@@ -1241,7 +1250,6 @@ def _render_crazyflow_throw_run(
                 command=command,
                 sample_index=index,
                 trace=trace,
-                report=run.report,
                 throw_only=throw_only,
             )
             if encoder.stdin is None:
@@ -1261,7 +1269,7 @@ def _render_crazyflow_throw_run(
 
         Image.fromarray(last_frame).save(poster_output)
     if gif_output is not None:
-        _write_gif(output, gif_output)
+        _write_gif(output, gif_output, fps=gif_fps, width=gif_width)
     return {
         "output": str(output),
         "poster_output": None if poster_output is None else str(poster_output),
@@ -1269,11 +1277,89 @@ def _render_crazyflow_throw_run(
         "frame_count": len(moments),
         "frames_per_second": config.frames_per_second,
         "duration_s": len(moments) / config.frames_per_second,
-        "source_artifact_type": run.report["artifact_type"],
-        "gate_passed": run.report["observations"]["gate_passed"],
-        "continuous_after_release": run.report["semantics"]["continuous_after_release"],
+        "arm": getattr(trace, "arm", "certified"),
+        "case_name": getattr(trace, "case_name", "canonical"),
         "throw_only": throw_only,
         "real_time_playback": True,
+    }
+
+
+#: The fixed simulation times a contact sheet samples, in a 2x4 grid.
+CONTACT_SHEET_TIMES_S: tuple[float, ...] = (0.0, 1.0, 1.3, 1.6, 2.0, 3.0, 5.0, 10.0)
+
+
+def render_crazyflow_throw_contact_sheet(
+    trace: CrazyflowThrowTrace | CrazyflowStudyTrace,
+    output: Path,
+    *,
+    config: CrazyflowAnimationConfig | None = None,
+    times_s: Sequence[float] = CONTACT_SHEET_TIMES_S,
+) -> dict[str, Any]:
+    """Render a fixed 2x4 grid of frames, each stamped with its own time.
+
+    Every tile is one exact rendered frame at the requested simulation time,
+    clipped to the trace's own span; the label stamped on a tile is the time
+    the trace actually had there, not the requested one, so a request past the
+    end of a shorter trace reads honestly rather than silently repeating the
+    last frame's own time.
+    """
+
+    from PIL import Image, ImageDraw
+
+    config = CrazyflowAnimationConfig() if config is None else config
+    if output.suffix.lower() != ".png":
+        raise ValueError("contact sheet output must have a .png suffix")
+    if len(times_s) != 8:
+        raise ValueError("the contact sheet lays out exactly eight tiles, 2x4")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    tile_width = (config.width // 4) - (config.width // 4) % 2
+    tile_height = (config.height // 2) - (config.height // 2) % 2
+    render_plant = CrazyflowPlant(CrazyflowPlantConfig())
+    sheet = Image.new("RGB", (tile_width * 4, tile_height * 2), color=_NAVY)
+    try:
+        for tile_index, requested_time_s in enumerate(times_s):
+            state, command, index = _interpolate_sample(
+                trace.timestamps_s,
+                trace.states,
+                trace.applied_motor_commands,
+                float(requested_time_s),
+            )
+            trail_start = max(0, index - 100)
+            trail = trace.states[trail_start : index + 1, 0:3]
+            rgb = _render_plant_frame(
+                render_plant,
+                state=state,
+                command=command,
+                trail=trail,
+                width=tile_width,
+                height=tile_height,
+                recovery=True,
+            )
+            tile = Image.fromarray(rgb)
+            draw = ImageDraw.Draw(tile, "RGBA")
+            scale = tile_width / 320.0
+            font = _load_font(max(12, round(20 * scale)), bold=True, mono=True)
+            band_top = tile_height - round(28 * scale)
+            draw.rectangle((0, band_top, tile_width, tile_height), fill=(*_NAVY, 210))
+            draw.text(
+                (round(8 * scale), band_top + round(6 * scale)),
+                f"t = {float(trace.timestamps_s[index]):5.2f} s",
+                font=font,
+                fill=(*_WHITE, 255),
+            )
+            row, column = divmod(tile_index, 4)
+            sheet.paste(tile, (column * tile_width, row * tile_height))
+        sheet.save(output)
+    finally:
+        render_plant.close()
+    return {
+        "output": str(output),
+        "tile_count": len(times_s),
+        "tile_width": tile_width,
+        "tile_height": tile_height,
+        "times_s": [float(time_s) for time_s in times_s],
+        "arm": getattr(trace, "arm", "certified"),
+        "case_name": getattr(trace, "case_name", "canonical"),
     }
 
 
@@ -1284,11 +1370,16 @@ def render_crazyflow_throw_animation(
     gif_output: Path | None = None,
     config: CrazyflowAnimationConfig | None = None,
 ) -> dict[str, Any]:
-    """Render the uninterrupted one-second throw and online recovery."""
+    """Render the uninterrupted one-second throw and online recovery.
+
+    A thin wrapper: it runs the default trial — the frozen-snapshot cascade on
+    the canonical release, unchanged — and hands its trace to
+    :func:`render_crazyflow_throw_trace`.
+    """
 
     run = run_crazyflow_throw_trial()
-    return _render_crazyflow_throw_run(
-        run,
+    return render_crazyflow_throw_trace(
+        run.trace,
         output,
         poster_output=poster_output,
         gif_output=gif_output,
@@ -1306,8 +1397,8 @@ def render_crazyflow_unpowered_throw_animation(
     """Render only the exact unpowered first second of the same demo trace."""
 
     run = run_crazyflow_throw_trial()
-    return _render_crazyflow_throw_run(
-        run,
+    return render_crazyflow_throw_trace(
+        run.trace,
         output,
         poster_output=poster_output,
         gif_output=gif_output,
@@ -1365,12 +1456,48 @@ def throw_main(argv: Sequence[str] | None = None) -> None:
     parser.add_argument("--poster", type=Path)
     parser.add_argument("--gif", type=Path)
     parser.add_argument(
+        "--gif-fps",
+        type=int,
+        default=15,
+        help="frame rate of the GIF preview, independent of --fps (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--gif-width",
+        type=int,
+        default=640,
+        help="pixel width of the GIF preview (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--contact-sheet",
+        type=Path,
+        help="also render a 2x4 grid of stamped frames at fixed simulation times",
+    )
+    parser.add_argument(
         "--throw-only-output",
         type=Path,
         help="also render the exact unpowered first second",
     )
     parser.add_argument("--throw-only-poster", type=Path)
     parser.add_argument("--throw-only-gif", type=Path)
+    parser.add_argument(
+        "--control-model",
+        choices=STUDY_CONTROL_MODELS,
+        default=None,
+        help=(
+            "render one glassbox crazyflow throw-study arm instead of the "
+            "standalone throw diagnostic (default: the standalone diagnostic, "
+            "which is the frozen-snapshot cascade on the canonical release)"
+        ),
+    )
+    parser.add_argument(
+        "--case",
+        default="canonical",
+        choices=[case.name for case in CRAZYFLOW_THROW_STUDY_CASES],
+        help=(
+            "throw-study case to render when --control-model is given "
+            "(default: %(default)s)"
+        ),
+    )
     parser.add_argument("--width", type=int, default=1280)
     parser.add_argument("--height", type=int, default=720)
     parser.add_argument("--fps", type=int, default=30)
@@ -1380,12 +1507,22 @@ def throw_main(argv: Sequence[str] | None = None) -> None:
         height=args.height,
         frames_per_second=args.fps,
     )
-    run = run_crazyflow_throw_trial()
-    summary = _render_crazyflow_throw_run(
-        run,
+    if args.control_model is None:
+        trace: CrazyflowThrowTrace | CrazyflowStudyTrace = (
+            run_crazyflow_throw_trial().trace
+        )
+    else:
+        case = next(
+            case for case in CRAZYFLOW_THROW_STUDY_CASES if case.name == args.case
+        )
+        trace = run_throw_study_render_trial(case, args.control_model)
+    summary = render_crazyflow_throw_trace(
+        trace,
         args.output,
         poster_output=args.poster,
         gif_output=args.gif,
+        gif_fps=args.gif_fps,
+        gif_width=args.gif_width,
         config=config,
     )
     print(
@@ -1393,11 +1530,13 @@ def throw_main(argv: Sequence[str] | None = None) -> None:
         f"({summary['duration_s']:.1f} s, {summary['frame_count']} frames)"
     )
     if args.throw_only_output is not None:
-        throw_summary = _render_crazyflow_throw_run(
-            run,
+        throw_summary = render_crazyflow_throw_trace(
+            trace,
             args.throw_only_output,
             poster_output=args.throw_only_poster,
             gif_output=args.throw_only_gif,
+            gif_fps=args.gif_fps,
+            gif_width=args.gif_width,
             config=config,
             throw_only=True,
         )
@@ -1405,6 +1544,15 @@ def throw_main(argv: Sequence[str] | None = None) -> None:
             f"wrote {throw_summary['output']} "
             f"({throw_summary['duration_s']:.1f} s, "
             f"{throw_summary['frame_count']} frames)"
+        )
+    if args.contact_sheet is not None:
+        contact_summary = render_crazyflow_throw_contact_sheet(
+            trace,
+            args.contact_sheet,
+            config=config,
+        )
+        print(
+            f"wrote {contact_summary['output']} ({contact_summary['tile_count']} tiles)"
         )
 
 
