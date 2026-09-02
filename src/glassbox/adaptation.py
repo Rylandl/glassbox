@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from typing import Any
 
@@ -13,6 +14,7 @@ import numpy as np
 
 from glassbox.belief import (
     DynamicsBelief,
+    EmpiricalErrorSample,
     EmpiricalHorizonPredictiveError,
     ErrorCovarianceScope,
     LocalGaussianParameterBelief,
@@ -26,6 +28,7 @@ from glassbox.dynamics import (
     control_state_after_history,
     step_with_latent,
 )
+from glassbox.evaluation import windowed_rollout_evaluation
 from glassbox.linearization import (
     compiled_batched_endpoint_tangent_error,
     compiled_batched_endpoint_tangent_linearization,
@@ -37,6 +40,25 @@ ACTUATOR_HISTORY_DURATION_S = 1.0
 MAXIMUM_LOCAL_PARAMETER_STEP_RMS = 1.0
 VALIDITY_BOUNDARY_TOLERANCE = 1e-6
 LINE_SEARCH_FRACTIONS = (1.0, 0.5, 0.25, 0.125, 0.0625)
+
+# How candidates are scored, recorded in every report. A commit marks the
+# held-out bias correction stale, so the runtime stops applying it: candidates
+# are therefore scored *without* that correction, while the incumbent keeps the
+# correction the runtime is applying today. Accepting a candidate then means the
+# uncorrected candidate forecast beats the forecast the vehicle currently flies.
+VALIDATION_SCORING = "candidate_uncorrected_vs_nominal_bias_corrected"
+
+# A commit must beat the incumbent by more than the noise of the evidence that
+# scores it. The paired per-window reduction in whitened squared endpoint error
+# must exceed this many standard errors of its own total. Two standard errors is
+# a one-sided level of about 2 percent under a normal approximation, and the
+# same hurdle is cleared twice on disjoint telemetry -- once to propose and once
+# to commit -- so the transaction as a whole is far more conservative than the
+# per-stage level suggests. It is a library invariant, not a tuning knob.
+IMPROVEMENT_MARGIN_STANDARD_ERRORS = 2.0
+
+# Source recorded on predictive-error evidence rebuilt around current parameters.
+RECALIBRATION_SOURCE = "recalibrated_from_telemetry"
 
 
 def _readonly_array(value: np.ndarray) -> np.ndarray:
@@ -132,11 +154,68 @@ def _prior_standardized_step_rms(
     return float(np.sqrt(np.mean(np.square(local_step))))
 
 
-def _score_improves(before: float, after: float) -> bool:
-    """Reject numerical ties without imposing a domain performance threshold."""
+@dataclass(frozen=True)
+class _ImprovementEvidence:
+    """One paired, noise-aware comparison of incumbent and candidate forecasts."""
 
-    tolerance = 32.0 * np.finfo(np.float64).eps * max(1.0, abs(before))
-    return np.isfinite(after) and after < before - tolerance
+    before_rms: float
+    after_rms: float
+    total_reduction: float
+    margin: float
+
+    @property
+    def improves(self) -> bool:
+        return (
+            np.isfinite(self.total_reduction)
+            and np.isfinite(self.margin)
+            and np.isfinite(self.after_rms)
+            and self.total_reduction > self.margin
+        )
+
+
+def _improvement_evidence(
+    before_squared: np.ndarray,
+    after_squared: np.ndarray,
+    dimensions: np.ndarray,
+) -> _ImprovementEvidence:
+    """Score a candidate against the incumbent with an effect-size margin.
+
+    Windows are the independent evidence units. The paired per-window reduction
+    in whitened squared endpoint error must exceed a one-sided margin scaled by
+    the standard error of its own total. The per-window variance is floored by
+    the chi-square scale of the incumbent's own error, ``2 * s**2 / k`` for
+    ``k`` supported error dimensions and mean incumbent whitened squared error
+    ``s``, so a short evidence block whose window-to-window spread happens to be
+    small cannot manufacture significance and a single window still carries a
+    usable scale. Held-out error covariance is empirical rather than calibrated,
+    so the floor is anchored to the error level actually observed instead of
+    assuming ``s == k``; the two agree exactly when the whitening is calibrated.
+    """
+
+    differences = np.asarray(before_squared, dtype=np.float64) - np.asarray(
+        after_squared, dtype=np.float64
+    )
+    count = len(differences)
+    if count < 1:
+        raise ValueError("improvement evidence requires at least one window")
+    supported_dimension = float(np.sum(dimensions))
+    finite = bool(np.all(np.isfinite(differences)))
+    sample_variance = (
+        float(np.var(differences, ddof=1)) if count > 1 and finite else 0.0
+    )
+    mean_dimension = float(np.mean(dimensions))
+    mean_incumbent_squared = float(np.mean(before_squared))
+    chi_square_variance = 2.0 * mean_incumbent_squared**2 / mean_dimension
+    per_window_variance = max(sample_variance, chi_square_variance)
+    margin = IMPROVEMENT_MARGIN_STANDARD_ERRORS * float(
+        np.sqrt(count * per_window_variance)
+    )
+    return _ImprovementEvidence(
+        before_rms=float(np.sqrt(np.sum(before_squared) / supported_dimension)),
+        after_rms=float(np.sqrt(np.sum(after_squared) / supported_dimension)),
+        total_reduction=float(np.sum(differences)),
+        margin=margin,
+    )
 
 
 @dataclass(frozen=True)
@@ -154,6 +233,8 @@ class BeliefUpdateProposal:
     proposal_window_count: int
     normalized_innovation_rms_before: float
     normalized_innovation_rms_after: float
+    normalized_innovation_improvement: float
+    normalized_innovation_improvement_margin: float
     prior_standardized_step_rms: float
     proposal_step_fraction: float
     maximum_validity_utilization: float
@@ -213,6 +294,16 @@ class BeliefUpdateProposal:
             < self.normalized_innovation_rms_before
         ):
             raise ValueError("update proposal must improve its proposal evidence")
+        if not (
+            np.isfinite(self.normalized_innovation_improvement)
+            and np.isfinite(self.normalized_innovation_improvement_margin)
+            and self.normalized_innovation_improvement_margin >= 0.0
+            and self.normalized_innovation_improvement
+            > self.normalized_innovation_improvement_margin
+        ):
+            raise ValueError(
+                "update proposal must clear its proposal effect-size margin"
+            )
         if not (
             np.isfinite(self.prior_standardized_step_rms)
             and 0.0
@@ -312,6 +403,11 @@ class BeliefUpdateReport:
     prior_update_count: int
     posterior_update_count: int
     predictive_error_marked_stale: bool
+    validation_scoring: str = VALIDATION_SCORING
+    normalized_innovation_improvement: float | None = None
+    normalized_innovation_improvement_margin: float | None = None
+    normalized_validation_improvement: float | None = None
+    normalized_validation_improvement_margin: float | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -348,6 +444,19 @@ class BeliefUpdateReport:
             "prior_update_count": self.prior_update_count,
             "posterior_update_count": self.posterior_update_count,
             "predictive_error_marked_stale": self.predictive_error_marked_stale,
+            "validation_scoring": self.validation_scoring,
+            "normalized_innovation_improvement": (
+                self.normalized_innovation_improvement
+            ),
+            "normalized_innovation_improvement_margin": (
+                self.normalized_innovation_improvement_margin
+            ),
+            "normalized_validation_improvement": (
+                self.normalized_validation_improvement
+            ),
+            "normalized_validation_improvement_margin": (
+                self.normalized_validation_improvement_margin
+            ),
         }
 
 
@@ -872,29 +981,64 @@ def _preflight(
     )
 
 
-def _normalized_rms(
+def _window_squared_errors(
     belief: DynamicsBelief,
     context: _UpdateContext,
     vector: np.ndarray,
-) -> float:
+    *,
+    apply_bias: bool,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Return per-window whitened squared endpoint error and supported rank.
+
+    ``apply_bias`` selects the incumbent convention (the held-out bias the
+    runtime applies today) or the candidate convention (no bias, because a
+    commit marks that evidence stale).
+    """
+
+    initial, history, controls, target, exogenous, bias = _stacked_window_values(
+        context
+    )
+    if not apply_bias:
+        bias = jnp.zeros_like(bias)
     errors = np.asarray(
         compiled_batched_endpoint_tangent_error(
             jnp.asarray(vector),
             belief.params,
-            *_stacked_window_values(context),
+            initial,
+            history,
+            controls,
+            target,
+            exogenous,
+            bias,
             dt_s=context.dt_s,
             control_roles=belief.input_spec.control_roles,
             exogenous_roles=belief.input_spec.exogenous_roles,
         ),
         dtype=np.float64,
     )
-    squared_error = 0.0
-    supported_dimension = 0
-    for window, error in zip(context.windows, errors):
+    squared = np.empty(len(context.windows), dtype=np.float64)
+    dimensions = np.empty(len(context.windows), dtype=np.int64)
+    for index, (window, error) in enumerate(zip(context.windows, errors)):
         whitened = window.error_support.whiten_vector(error)
-        squared_error += float(whitened @ whitened)
-        supported_dimension += len(whitened)
-    return float(np.sqrt(squared_error / supported_dimension))
+        squared[index] = float(whitened @ whitened)
+        dimensions[index] = len(whitened)
+    return squared, dimensions
+
+
+def _normalized_rms(
+    belief: DynamicsBelief,
+    context: _UpdateContext,
+    vector: np.ndarray,
+    *,
+    apply_bias: bool,
+) -> float:
+    squared, dimensions = _window_squared_errors(
+        belief,
+        context,
+        vector,
+        apply_bias=apply_bias,
+    )
+    return float(np.sqrt(np.sum(squared) / float(np.sum(dimensions))))
 
 
 def _candidate_rollouts_supported(
@@ -930,13 +1074,28 @@ def _proposal_geometry(
     vector: np.ndarray,
     prior_support: SupportedCovariance,
 ) -> tuple[np.ndarray, np.ndarray]:
+    """Linearize the *uncorrected* endpoint error around one parameter vector.
+
+    The held-out bias is excluded because a committed update stales it: the
+    objective a candidate is proposed for is the same uncorrected forecast the
+    acceptance test scores and the runtime then flies.
+    """
+
     prior_factor = prior_support.basis * np.sqrt(prior_support.variances)
     rows: list[np.ndarray] = []
     residuals: list[np.ndarray] = []
+    initial, history, controls, target, exogenous, bias = _stacked_window_values(
+        context
+    )
     errors, jacobians = compiled_batched_endpoint_tangent_linearization(
         jnp.asarray(vector),
         belief.params,
-        *_stacked_window_values(context),
+        initial,
+        history,
+        controls,
+        target,
+        exogenous,
+        jnp.zeros_like(bias),
         dt_s=context.dt_s,
         control_roles=belief.input_spec.control_roles,
         exogenous_roles=belief.input_spec.exogenous_roles,
@@ -1012,20 +1171,31 @@ def propose_dynamics_belief_update(
         )
         prior_factor = prior_support.basis * np.sqrt(prior_support.variances)
         raw_delta = prior_factor @ local_step
-        score_before = _normalized_rms(belief, context, prior_vector)
+        before_squared, dimensions = _window_squared_errors(
+            belief,
+            context,
+            prior_vector,
+            apply_bias=True,
+        )
         candidate: np.ndarray | None = None
-        score_after: float | None = None
+        evidence: _ImprovementEvidence | None = None
         selected_fraction: float | None = None
         selected_local_rms: float | None = None
         for fraction in LINE_SEARCH_FRACTIONS:
             combined_fraction = trust_fraction * fraction
             selected = prior_vector + combined_fraction * raw_delta
-            score = _normalized_rms(belief, context, selected)
-            if _score_improves(score_before, score) and _candidate_rollouts_supported(
+            after_squared, _ = _window_squared_errors(
+                belief,
+                context,
+                selected,
+                apply_bias=False,
+            )
+            scored = _improvement_evidence(before_squared, after_squared, dimensions)
+            if scored.improves and _candidate_rollouts_supported(
                 belief, context, selected
             ):
                 candidate = selected
-                score_after = score
+                evidence = scored
                 selected_fraction = combined_fraction
                 selected_local_rms = combined_fraction * local_rms
                 break
@@ -1053,7 +1223,7 @@ def propose_dynamics_belief_update(
             used_count=len(context.windows),
             proposal_count=len(context.windows),
         )
-    assert score_after is not None
+    assert evidence is not None
     assert selected_fraction is not None
     assert selected_local_rms is not None
     predictive_error = belief.predictive_error
@@ -1068,8 +1238,10 @@ def propose_dynamics_belief_update(
         update_horizon_s=context.horizon_s,
         update_horizon_steps=context.horizon_steps,
         proposal_window_count=len(context.windows),
-        normalized_innovation_rms_before=score_before,
-        normalized_innovation_rms_after=score_after,
+        normalized_innovation_rms_before=evidence.before_rms,
+        normalized_innovation_rms_after=evidence.after_rms,
+        normalized_innovation_improvement=evidence.total_reduction,
+        normalized_innovation_improvement_margin=evidence.margin,
         prior_standardized_step_rms=selected_local_rms,
         proposal_step_fraction=selected_fraction,
         maximum_validity_utilization=context.maximum_validity_utilization,
@@ -1092,8 +1264,10 @@ def propose_dynamics_belief_update(
     )
     report = replace(
         report,
-        normalized_innovation_rms_before=score_before,
-        normalized_innovation_rms_after=score_after,
+        normalized_innovation_rms_before=evidence.before_rms,
+        normalized_innovation_rms_after=evidence.after_rms,
+        normalized_innovation_improvement=evidence.total_reduction,
+        normalized_innovation_improvement_margin=evidence.margin,
         structured_parameter_delta_norm=float(np.linalg.norm(candidate - prior_vector)),
         prior_standardized_step_rms=selected_local_rms,
         accepted_step_fraction=selected_fraction,
@@ -1230,29 +1404,50 @@ def validate_and_commit_dynamics_belief_update(
     base = proposal.base_parameter_vector
     proposed_delta = proposal.candidate_parameter_vector - base
     try:
-        validation_before: float | None = _normalized_rms(belief, context, base)
+        before_squared, dimensions = _window_squared_errors(
+            belief,
+            context,
+            base,
+            apply_bias=True,
+        )
+        validation_before: float | None = float(
+            np.sqrt(np.sum(before_squared) / float(np.sum(dimensions)))
+        )
         selected: np.ndarray | None = None
-        validation_after: float | None = None
+        validation_evidence: _ImprovementEvidence | None = None
         validation_fraction: float | None = None
         improved_but_unsupported = False
+        best_evidence: _ImprovementEvidence | None = None
         for fraction in LINE_SEARCH_FRACTIONS:
             candidate = base + fraction * proposed_delta
-            score = _normalized_rms(belief, context, candidate)
-            if not _score_improves(validation_before, score):
+            after_squared, _ = _window_squared_errors(
+                belief,
+                context,
+                candidate,
+                apply_bias=False,
+            )
+            scored = _improvement_evidence(before_squared, after_squared, dimensions)
+            if (
+                best_evidence is None
+                or scored.total_reduction > best_evidence.total_reduction
+            ):
+                best_evidence = scored
+            if not scored.improves:
                 continue
             if not _candidate_rollouts_supported(belief, context, candidate):
                 improved_but_unsupported = True
                 continue
             selected = candidate
-            validation_after = score
+            validation_evidence = scored
             validation_fraction = fraction
             break
     except (FloatingPointError, np.linalg.LinAlgError, ValueError):
         selected = None
-        validation_after = None
+        validation_evidence = None
         validation_fraction = None
         validation_before = None
         improved_but_unsupported = False
+        best_evidence = None
     if selected is None:
         reason = (
             "proposal validation rollouts left the learned validity envelope"
@@ -1283,11 +1478,23 @@ def validate_and_commit_dynamics_belief_update(
                 proposal.normalized_innovation_rms_before
             ),
             normalized_innovation_rms_after=(proposal.normalized_innovation_rms_after),
+            normalized_innovation_improvement=(
+                proposal.normalized_innovation_improvement
+            ),
+            normalized_innovation_improvement_margin=(
+                proposal.normalized_innovation_improvement_margin
+            ),
             normalized_validation_rms_before=validation_before,
+            normalized_validation_improvement=(
+                None if best_evidence is None else best_evidence.total_reduction
+            ),
+            normalized_validation_improvement_margin=(
+                None if best_evidence is None else best_evidence.margin
+            ),
         )
         return belief, report
 
-    assert validation_after is not None
+    assert validation_evidence is not None
     assert validation_fraction is not None
     parameter_belief = belief.parameter_belief
     assert isinstance(parameter_belief, LocalGaussianParameterBelief)
@@ -1360,8 +1567,18 @@ def validate_and_commit_dynamics_belief_update(
                 proposal.normalized_innovation_rms_before
             ),
             normalized_innovation_rms_after=(proposal.normalized_innovation_rms_after),
+            normalized_innovation_improvement=(
+                proposal.normalized_innovation_improvement
+            ),
+            normalized_innovation_improvement_margin=(
+                proposal.normalized_innovation_improvement_margin
+            ),
             normalized_validation_rms_before=validation_before,
-            normalized_validation_rms_after=validation_after,
+            normalized_validation_rms_after=validation_evidence.after_rms,
+            normalized_validation_improvement=(
+                validation_evidence.total_reduction
+            ),
+            normalized_validation_improvement_margin=validation_evidence.margin,
             realized_local_information_gain_nats=information_gain,
             structured_parameter_delta_norm=float(np.linalg.norm(selected - base)),
             prior_standardized_step_rms=(
@@ -1422,10 +1639,218 @@ def validate_and_commit_dynamics_belief_update(
                 proposal.normalized_innovation_rms_before
             ),
             normalized_innovation_rms_after=(proposal.normalized_innovation_rms_after),
+            normalized_innovation_improvement=(
+                proposal.normalized_innovation_improvement
+            ),
+            normalized_innovation_improvement_margin=(
+                proposal.normalized_innovation_improvement_margin
+            ),
             normalized_validation_rms_before=validation_before,
-            normalized_validation_rms_after=validation_after,
+            normalized_validation_rms_after=validation_evidence.after_rms,
+            normalized_validation_improvement=(
+                validation_evidence.total_reduction
+            ),
+            normalized_validation_improvement_margin=validation_evidence.margin,
         )
     return updated, report
+
+
+@dataclass(frozen=True)
+class HorizonEndpointErrorEvidence:
+    """One trajectory's windowed endpoint evidence at one evaluation horizon."""
+
+    horizon_s: float
+    horizon_steps: int
+    sample: EmpiricalErrorSample
+    window_metrics: dict[str, Any]
+
+
+def endpoint_error_evidence_by_horizon(
+    params: ModelParams,
+    trajectory: Trajectory,
+    *,
+    horizons_s: Sequence[float],
+    source_group: str,
+    trajectory_id: str,
+) -> tuple[HorizonEndpointErrorEvidence, ...]:
+    """Score nonoverlapping windows and label their endpoint tangent errors.
+
+    This is the single implementation behind both offline evaluation reports and
+    online predictive-error recalibration. Horizons longer than the trajectory
+    are skipped rather than raising, so one horizon schedule can be applied to
+    flights of different lengths.
+    """
+
+    records: list[HorizonEndpointErrorEvidence] = []
+    for requested in horizons_s:
+        steps = duration_to_steps(requested, trajectory.nominal_dt_s)
+        if steps > len(trajectory.controls):
+            continue
+        metrics, endpoint_errors = windowed_rollout_evaluation(
+            params,
+            trajectory,
+            horizon_steps=steps,
+            stride_steps=steps,
+        )
+        metrics["requested_horizon_s"] = requested
+        metrics["horizon_steps"] = steps
+        records.append(
+            HorizonEndpointErrorEvidence(
+                horizon_s=float(requested),
+                horizon_steps=steps,
+                sample=EmpiricalErrorSample(
+                    endpoint_errors,
+                    source_group=source_group,
+                    trajectory_id=trajectory_id,
+                ),
+                window_metrics=metrics,
+            )
+        )
+    return tuple(records)
+
+
+def _trajectory_content_hash(trajectory: Trajectory) -> str:
+    """Fingerprint the transition content of one telemetry block.
+
+    The digest covers measured transitions rather than timestamps, so the same
+    content hashes identically after a time shift. A caller that records this
+    hash beside an update's evidence can later show whether recalibration reused
+    the block that validated the update.
+    """
+
+    digest = hashlib.sha256()
+    for value in _transition_hashes(trajectory):
+        digest.update(bytes.fromhex(value))
+    return digest.hexdigest()
+
+
+def _recalibration_labels(trajectory: Trajectory) -> tuple[str, str]:
+    group = _source_group(trajectory)
+    for key in ("trajectory_id", "flight_id", "source_group"):
+        value = trajectory.labels.get(key)
+        if value is not None and str(value).strip():
+            return group, str(value)
+    return group, f"recalibration:{_trajectory_content_hash(trajectory)}"
+
+
+def recalibrate_predictive_error(
+    belief: DynamicsBelief,
+    trajectory: Trajectory,
+    *,
+    horizons_s: Sequence[float] | None = None,
+    quantile_levels: tuple[float, ...] | None = None,
+    covariance_scope: ErrorCovarianceScope | None = None,
+    source_group: str | None = None,
+    trajectory_id: str | None = None,
+) -> DynamicsBelief:
+    """Rebuild predictive-error evidence around the belief's current parameters.
+
+    A commit and ``condition_parameter_prior`` both move the parameters and mark
+    the attached error evidence stale, because that evidence describes a model
+    the belief no longer holds. This is the documented way back: measure the
+    forecast errors of the *current* parameters on fresh telemetry and attach
+    them, which makes the refreshed belief current again.
+
+    The telemetry must be disjoint from any evidence the caller intends to
+    validate a later update against; the returned provenance records a content
+    hash so that can be shown after the fact.
+    """
+
+    if not isinstance(trajectory, Trajectory):
+        raise TypeError("recalibration requires one canonical Trajectory")
+    _compatible_telemetry(belief, trajectory)
+    existing = belief.predictive_error
+    if horizons_s is None:
+        if not isinstance(existing, EmpiricalHorizonPredictiveError):
+            raise ValueError(
+                "recalibration needs explicit horizons when the belief carries "
+                "no empirical predictive-error model"
+            )
+        horizons_s = existing.horizons_s
+    requested_horizons = tuple(float(value) for value in horizons_s)
+    if not requested_horizons or len(set(requested_horizons)) != len(
+        requested_horizons
+    ):
+        raise ValueError("recalibration horizons must be unique and nonempty")
+    if quantile_levels is None:
+        quantile_levels = (
+            existing.quantile_levels
+            if isinstance(existing, EmpiricalHorizonPredictiveError)
+            else (0.5, 0.8, 0.9)
+        )
+    if covariance_scope is None:
+        covariance_scope = (
+            existing.covariance_scope
+            if isinstance(existing, EmpiricalHorizonPredictiveError)
+            else ErrorCovarianceScope.TOTAL_FORECAST
+        )
+    observed_dt_s = trajectory.nominal_dt_s
+    if not np.isclose(
+        observed_dt_s,
+        belief.runtime_spec.sample_period_s,
+        atol=1e-7,
+        rtol=0.0,
+    ):
+        raise ValueError(
+            "recalibration telemetry sample period does not match the runtime model"
+        )
+    maximum_validity = _maximum_validity(belief, trajectory)
+    if (
+        not np.isfinite(maximum_validity)
+        or maximum_validity > 1.0 + VALIDITY_BOUNDARY_TOLERANCE
+    ):
+        raise ValueError(
+            "recalibration telemetry lies outside the learned validity envelope"
+        )
+    default_group, default_id = _recalibration_labels(trajectory)
+    records = endpoint_error_evidence_by_horizon(
+        belief.params,
+        trajectory,
+        horizons_s=requested_horizons,
+        source_group=default_group if source_group is None else source_group,
+        trajectory_id=default_id if trajectory_id is None else trajectory_id,
+    )
+    if not records:
+        raise ValueError(
+            "recalibration telemetry is shorter than every requested horizon"
+        )
+    samples: Mapping[float, tuple[EmpiricalErrorSample, ...]] = {
+        record.horizon_s: (record.sample,) for record in records
+    }
+    predictive_error = replace(
+        EmpiricalHorizonPredictiveError.from_samples(
+            samples,
+            quantile_levels=tuple(quantile_levels),
+            covariance_scope=ErrorCovarianceScope(covariance_scope),
+        ),
+        source=RECALIBRATION_SOURCE,
+    )
+    update_count = belief.parameter_belief.update_count
+    provenance = dict(belief.provenance)
+    provenance["predictive_error_recalibration"] = {
+        "source": RECALIBRATION_SOURCE,
+        "parameter_update_count": update_count,
+        "horizons_s": [record.horizon_s for record in records],
+        "horizon_steps": [record.horizon_steps for record in records],
+        "window_count_by_horizon": [len(record.sample.errors) for record in records],
+        "requested_horizons_s": list(requested_horizons),
+        "covariance_scope": predictive_error.covariance_scope.value,
+        "telemetry_transition_count": len(trajectory.controls),
+        "telemetry_content_hash": _trajectory_content_hash(trajectory),
+        "telemetry_spec_fingerprint": _trajectory_spec_fingerprint(trajectory),
+        "telemetry_source_group": _source_group(trajectory),
+        "maximum_validity_utilization": maximum_validity,
+    }
+    return DynamicsBelief(
+        params=belief.params,
+        input_spec=belief.input_spec,
+        runtime_spec=belief.runtime_spec,
+        predictive_error=predictive_error,
+        parameter_belief=belief.parameter_belief,
+        parameter_evidence=belief.parameter_evidence,
+        predictive_error_parameter_update_count=update_count,
+        provenance=provenance,
+    )
 
 
 def _trajectory_slice(

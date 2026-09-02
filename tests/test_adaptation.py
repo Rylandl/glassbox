@@ -17,6 +17,8 @@ from glassbox.belief import (
     structured_parameter_vector,
     with_structured_parameter_vector,
 )
+from glassbox.data import duration_to_steps
+from glassbox.evaluation import rigid_body_tangent_errors, windowed_rollout_evaluation
 from glassbox.runtime import ModelValidityEnvelope, runtime_spec_from_trajectory
 from glassbox.synthetic import generate_trajectory, true_parameters
 
@@ -498,4 +500,222 @@ def test_commit_derives_covariance_information_from_validation_evidence() -> Non
     assert (
         actual_report.realized_local_information_gain_nats
         == expected_report.realized_local_information_gain_nats
+    )
+
+
+def _self_calibrated_belief(
+    *,
+    offset: float,
+    calibration_seed: int,
+    calibration_duration_s: float = 1.0,
+) -> DynamicsBelief:
+    """Build a belief whose error evidence was measured around its own model.
+
+    The fitted bias then absorbs the parameter offset, which is exactly the
+    situation in which a commit that stales the bias can make the runtime
+    forecast worse than doing nothing.
+    """
+
+    params = true_parameters()
+    vector = np.asarray(structured_parameter_vector(params)).copy()
+    vector[0] += offset
+    nominal = with_structured_parameter_vector(params, jnp.asarray(vector))
+    covariance = np.zeros((len(vector), len(vector)))
+    covariance[0, 0] = 0.16
+    calibration = generate_trajectory(
+        seed=calibration_seed,
+        duration_s=calibration_duration_s,
+    )
+    shell = DynamicsBelief(
+        params=nominal,
+        input_spec=calibration.spec,
+        runtime_spec=runtime_spec_from_trajectory(calibration),
+        parameter_belief=LocalGaussianParameterBelief(
+            parameter_names=structured_parameter_names(nominal),
+            covariance=covariance,
+            source="test_parameter_evidence",
+            evidence_count=2,
+            effective_sample_count=2.0,
+        ),
+    )
+    return adaptation_module.recalibrate_predictive_error(
+        shell,
+        calibration,
+        horizons_s=(0.1,),
+    )
+
+
+def _runtime_endpoint_errors(
+    belief: DynamicsBelief,
+    trajectory,
+    *,
+    horizon_steps: int = 5,
+    window_count: int = 4,
+) -> np.ndarray:
+    """Score the forecast the controller actually consumes, bias included."""
+
+    runtime = belief.compile_for_nmpc()
+    errors = []
+    for start in range(0, horizon_steps * window_count, horizon_steps):
+        forecast = runtime.rollout(
+            jnp.asarray(trajectory.states[start]),
+            jnp.asarray(trajectory.controls[start : start + horizon_steps]),
+            command_history=jnp.asarray(trajectory.controls[: start + 1]),
+        )
+        errors.append(
+            float(
+                np.linalg.norm(
+                    rigid_body_tangent_errors(
+                        np.asarray(forecast.mean_states[-1]),
+                        trajectory.states[start + horizon_steps],
+                    )
+                )
+            )
+        )
+    return np.asarray(errors)
+
+
+def _noisy(trajectory, seed: int):
+    """Add i.i.d. observation noise without leaving the quaternion manifold."""
+
+    rng = np.random.default_rng(10_000 + seed)
+    states = np.array(trajectory.states, dtype=np.float64, copy=True)
+    count = len(states)
+    states[:, 0:3] += rng.normal(0.0, 0.002, size=(count, 3))
+    states[:, 3:6] += rng.normal(0.0, 0.010, size=(count, 3))
+    states[:, 10:13] += rng.normal(0.0, 0.010, size=(count, 3))
+    rotation = rng.normal(0.0, 0.002, size=(count, 3))
+    angle = np.linalg.norm(rotation, axis=1, keepdims=True)
+    axis = np.where(angle > 0.0, rotation / np.maximum(angle, 1e-30), 0.0)
+    delta = np.concatenate((np.cos(angle / 2.0), axis * np.sin(angle / 2.0)), axis=1)
+    left = states[:, 6:10]
+    w1, x1, y1, z1 = left.T
+    w2, x2, y2, z2 = delta.T
+    product = np.stack(
+        (
+            w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2,
+            w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2,
+            w1 * y2 - x1 * z2 + y1 * w2 + z1 * x2,
+            w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2,
+        ),
+        axis=1,
+    )
+    states[:, 6:10] = product / np.linalg.norm(product, axis=1, keepdims=True)
+    return replace(trajectory, states=states)
+
+
+def test_committed_update_never_worsens_the_runtime_forecast() -> None:
+    belief = _self_calibrated_belief(offset=0.25, calibration_seed=1)
+    telemetry = generate_trajectory(seed=11, duration_s=0.4)
+    evaluation = generate_trajectory(seed=2, duration_s=0.5)
+
+    updated, report = belief.update(telemetry)
+    incumbent = _runtime_endpoint_errors(belief, evaluation)
+    committed = _runtime_endpoint_errors(updated, evaluation)
+
+    assert report.validation_scoring == (
+        "candidate_uncorrected_vs_nominal_bias_corrected"
+    )
+    # The acceptance criterion scores the candidate the way the runtime will
+    # fly it, so a commit can never trade a good corrected forecast for a worse
+    # uncorrected one.
+    assert np.all(committed <= incumbent + 1e-12)
+    # This specific belief is corrected by evidence fitted to its own offset:
+    # no bounded parameter move beats it, so the transaction fails closed.
+    assert not report.applied
+    assert updated is belief
+    np.testing.assert_array_equal(committed, incumbent)
+
+
+def test_null_acceptance_rate_stays_within_one_in_twenty() -> None:
+    truth = true_parameters()
+    names = structured_parameter_names(truth)
+    covariance = np.zeros((len(names), len(names)))
+    covariance[0, 0] = 0.16
+    calibration = _noisy(generate_trajectory(seed=901, duration_s=2.0), 901)
+    permissive = replace(
+        runtime_spec_from_trajectory(calibration),
+        validity_envelope=ModelValidityEnvelope(
+            body_velocity_center_m_s=(0.0, 0.0, 0.0),
+            body_velocity_half_width_m_s=(100.0, 100.0, 100.0),
+            angular_velocity_center_rad_s=(0.0, 0.0, 0.0),
+            angular_velocity_half_width_rad_s=(100.0, 100.0, 100.0),
+        ),
+    )
+    shell = DynamicsBelief(
+        params=truth,
+        input_spec=calibration.spec,
+        runtime_spec=permissive,
+        parameter_belief=LocalGaussianParameterBelief(
+            parameter_names=names,
+            covariance=covariance,
+            source="test_parameter_evidence",
+            evidence_count=2,
+            effective_sample_count=2.0,
+        ),
+    )
+    belief = adaptation_module.recalibrate_predictive_error(
+        shell,
+        calibration,
+        horizons_s=(0.1,),
+    )
+
+    seeds = tuple(range(20))
+    commits = 0
+    for seed in seeds:
+        telemetry = _noisy(generate_trajectory(seed=seed, duration_s=0.4), seed)
+        updated, report = belief.update(telemetry)
+        commits += bool(report.applied)
+        if not report.applied:
+            assert updated is belief
+
+    assert commits <= 0.05 * len(seeds)
+
+
+def test_endpoint_error_evidence_matches_the_previous_inline_recipe() -> None:
+    params = true_parameters()
+    horizons = (0.1, 0.2, 5.0)
+    flights = ((101, "group-a"), (102, "group-b"))
+    expected: dict[float, list[EmpiricalErrorSample]] = {}
+    expected_metrics: list[dict] = []
+    actual: dict[float, list[EmpiricalErrorSample]] = {}
+    actual_metrics: list[dict] = []
+    for seed, group in flights:
+        trajectory = generate_trajectory(seed=seed, duration_s=0.6)
+        path = f"synthetic-{seed}.npz"
+        for seconds in horizons:
+            steps = duration_to_steps(seconds, trajectory.nominal_dt_s)
+            if steps > len(trajectory.controls):
+                continue
+            metrics, endpoint_errors = windowed_rollout_evaluation(
+                params,
+                trajectory,
+                horizon_steps=steps,
+                stride_steps=steps,
+            )
+            metrics["requested_horizon_s"] = seconds
+            metrics["horizon_steps"] = steps
+            expected_metrics.append(metrics)
+            expected.setdefault(seconds, []).append(
+                EmpiricalErrorSample(
+                    endpoint_errors,
+                    source_group=group,
+                    trajectory_id=path,
+                )
+            )
+        for evidence in adaptation_module.endpoint_error_evidence_by_horizon(
+            params,
+            trajectory,
+            horizons_s=horizons,
+            source_group=group,
+            trajectory_id=path,
+        ):
+            actual_metrics.append(evidence.window_metrics)
+            actual.setdefault(evidence.horizon_s, []).append(evidence.sample)
+
+    assert actual_metrics == expected_metrics
+    assert sorted(actual) == sorted(expected) == [0.1, 0.2]
+    assert (
+        EmpiricalHorizonPredictiveError.from_samples(actual).to_dict()
+        == EmpiricalHorizonPredictiveError.from_samples(expected).to_dict()
     )

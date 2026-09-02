@@ -273,7 +273,10 @@ def _run_scenario(scenario: _Scenario) -> dict[str, Any]:
         predictive_error=predictive_error,
         provenance={"benchmark_role": "unseen_target_vehicle_shell"},
     )
-    belief = prior.initialize_belief(shell)
+    # The shell's error model is family-level evidence measured on held-out
+    # fleet members around the family nominal, which is what the prior mean
+    # summarizes, so it is declared valid at the prior mean rather than stale.
+    belief = prior.initialize_belief(shell, predictive_error_valid_at_prior_mean=True)
     before_metrics, before_errors = windowed_rollout_evaluation(
         belief.params,
         evaluation_telemetry,

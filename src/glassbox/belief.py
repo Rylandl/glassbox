@@ -84,6 +84,14 @@ class ErrorCovarianceScope(StrEnum):
     CONDITIONAL_INNOVATION = "conditional_innovation_error"
 
 
+def _owned_array(value: np.ndarray, *, dtype: Any = np.float64) -> np.ndarray:
+    """Own one immutable copy rather than aliasing a caller's array."""
+
+    array = np.array(value, dtype=dtype, copy=True)
+    array.setflags(write=False)
+    return array
+
+
 def _weighted_quantile(
     values: np.ndarray,
     weights: np.ndarray,
@@ -112,7 +120,7 @@ class EmpiricalErrorSample:
             raise ValueError("empirical tangent errors must be finite and nonempty")
         if not self.source_group or not self.trajectory_id:
             raise ValueError("error samples require source-group and trajectory labels")
-        object.__setattr__(self, "errors", errors)
+        object.__setattr__(self, "errors", _owned_array(errors))
 
 
 @dataclass(frozen=True)
@@ -231,9 +239,9 @@ class EmpiricalHorizonPredictiveError:
             raise ValueError("predictive-error source and weighting are required")
         object.__setattr__(self, "horizons_s", horizons)
         object.__setattr__(self, "quantile_levels", levels)
-        object.__setattr__(self, "tangent_bias", bias)
-        object.__setattr__(self, "tangent_covariance", covariance)
-        object.__setattr__(self, "group_radius_quantiles", radii)
+        object.__setattr__(self, "tangent_bias", _owned_array(bias))
+        object.__setattr__(self, "tangent_covariance", _owned_array(covariance))
+        object.__setattr__(self, "group_radius_quantiles", _owned_array(radii))
         object.__setattr__(self, "raw_sample_count", counts)
         object.__setattr__(self, "effective_sample_count", effective)
         object.__setattr__(self, "independent_group_count", groups)
@@ -809,14 +817,18 @@ class LocalParameterInformation:
                 "unsupported parameter-evidence covariance scope"
             ) from error
         object.__setattr__(self, "parameter_names", names)
-        object.__setattr__(self, "center", center)
+        object.__setattr__(self, "center", _owned_array(center))
         object.__setattr__(
             self,
             "information_matrix",
-            0.5 * (information + information.T),
+            _owned_array(0.5 * (information + information.T)),
         )
-        object.__setattr__(self, "parameter_scale", scale)
-        object.__setattr__(self, "fitted_parameter_mask", fitted)
+        object.__setattr__(self, "parameter_scale", _owned_array(scale))
+        object.__setattr__(
+            self,
+            "fitted_parameter_mask",
+            _owned_array(fitted, dtype=bool),
+        )
         object.__setattr__(self, "horizons_s", horizons)
         object.__setattr__(self, "window_count_by_horizon", windows)
         object.__setattr__(
@@ -825,7 +837,7 @@ class LocalParameterInformation:
             precision_ranks,
         )
         object.__setattr__(self, "group_labels", group_labels)
-        object.__setattr__(self, "group_score_vectors", group_scores)
+        object.__setattr__(self, "group_score_vectors", _owned_array(group_scores))
         object.__setattr__(self, "rank_relative_tolerance", rank_relative_tolerance)
         object.__setattr__(self, "covariance_scope", covariance_scope)
 
@@ -1242,6 +1254,13 @@ class DynamicsBelief:
         Total forecast covariance supports a regularized mean update only, so
         the prior covariance is preserved. Directions absent from the local
         geometry retain their prior mean and covariance.
+
+        The local geometry is a linearization about ``parameter_evidence.center``
+        and the conditioned mean is expressed in the same coordinates, so this
+        refuses to run once the parameters have moved away from that center. The
+        conditioned belief moves the parameters, which marks the attached
+        predictive-error evidence stale; refresh it with
+        ``recalibrate_predictive_error`` before assessing plans or updating.
         """
 
         if not isinstance(self.parameter_evidence, LocalParameterInformation):
@@ -1250,6 +1269,23 @@ class DynamicsBelief:
         names = self.parameter_evidence.parameter_names
         if prior.parameter_names != names:
             raise ValueError("parameter prior and local evidence are incompatible")
+        current_vector = np.asarray(
+            structured_parameter_vector(self.params),
+            dtype=np.float64,
+        )
+        evidence_center = np.asarray(
+            self.parameter_evidence.center,
+            dtype=np.float64,
+        )
+        # A serialization round trip may perturb the last bits; any parameter
+        # movement worth preserving is many orders of magnitude larger.
+        if not np.allclose(current_vector, evidence_center, rtol=1e-12, atol=1e-12):
+            raise ValueError(
+                "local parameter evidence is stale: the belief parameters no "
+                "longer equal parameter_evidence.center, so conditioning would "
+                "discard the intervening update; refit the local evidence "
+                "around the current parameters first"
+            )
         prior_center = np.asarray(prior.mean, dtype=np.float64)
         prior_covariance = np.asarray(prior.covariance, dtype=np.float64)
         eigenvalues = np.linalg.eigvalsh(prior_covariance)
@@ -1332,6 +1368,9 @@ class DynamicsBelief:
             "local_independent_group_count": (
                 self.parameter_evidence.independent_group_count
             ),
+            # Conditioning moves the parameters, so held-out error evidence
+            # measured around the previous parameters is no longer current.
+            "predictive_error_marked_stale": True,
         }
         return DynamicsBelief(
             params=with_structured_parameter_vector(
@@ -1357,6 +1396,30 @@ class DynamicsBelief:
         from glassbox.adaptation import update_dynamics_belief
 
         return update_dynamics_belief(self, telemetry)
+
+    def recalibrate_predictive_error(
+        self,
+        telemetry: Trajectory,
+        *,
+        horizons_s: Sequence[float] | None = None,
+        quantile_levels: tuple[float, ...] | None = None,
+        covariance_scope: ErrorCovarianceScope | None = None,
+        source_group: str | None = None,
+        trajectory_id: str | None = None,
+    ) -> DynamicsBelief:
+        """Rebuild predictive-error evidence around the current parameters."""
+
+        from glassbox.adaptation import recalibrate_predictive_error
+
+        return recalibrate_predictive_error(
+            self,
+            telemetry,
+            horizons_s=horizons_s,
+            quantile_levels=quantile_levels,
+            covariance_scope=covariance_scope,
+            source_group=source_group,
+            trajectory_id=trajectory_id,
+        )
 
     def propose_update(
         self,

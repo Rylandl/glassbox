@@ -483,7 +483,12 @@ class StructuredParameterPrior:
             update_count=update_count,
         )
 
-    def initialize_belief(self, vehicle_shell: DynamicsBelief) -> DynamicsBelief:
+    def initialize_belief(
+        self,
+        vehicle_shell: DynamicsBelief,
+        *,
+        predictive_error_valid_at_prior_mean: bool = False,
+    ) -> DynamicsBelief:
         """Seed a new vehicle belief while preserving its typed runtime shell.
 
         The shell supplies the target control/configuration contract, runtime
@@ -491,6 +496,14 @@ class StructuredParameterPrior:
         parameters and vehicle-local information are replaced by the family
         prior; an already fitted vehicle should use ``condition_parameter_prior``
         instead.
+
+        Moving the parameters to the prior mean stales predictive-error
+        evidence that was measured around other parameters, exactly as a commit
+        or ``condition_parameter_prior`` does. The returned belief therefore
+        needs ``recalibrate_predictive_error`` before plan assessment, an
+        online update, or an NMPC horizon cap, unless the caller asserts with
+        ``predictive_error_valid_at_prior_mean=True`` that the shell's error
+        model is family-level evidence that already holds at the prior mean.
         """
 
         self.validate_input_spec(vehicle_shell.input_spec)
@@ -506,6 +519,12 @@ class StructuredParameterPrior:
                 self.completion_fraction_in_natural_coordinates
             ),
             "prior_artifact": self.to_dict(),
+            "predictive_error_valid_at_prior_mean": (
+                predictive_error_valid_at_prior_mean
+            ),
+            "predictive_error_marked_stale": (
+                not predictive_error_valid_at_prior_mean
+            ),
         }
         return DynamicsBelief(
             params=with_structured_parameter_vector(
@@ -515,11 +534,16 @@ class StructuredParameterPrior:
             input_spec=vehicle_shell.input_spec,
             runtime_spec=vehicle_shell.runtime_spec,
             predictive_error=vehicle_shell.predictive_error,
-            parameter_belief=self.as_parameter_belief(),
+            # Moving the shell to the prior mean is one parameter update, the
+            # same accounting ``condition_parameter_prior`` uses, so the error
+            # evidence can be marked current or stale relative to that move.
+            parameter_belief=self.as_parameter_belief(update_count=1),
             parameter_evidence=UnavailableParameterEvidence(
                 "family-prior initialization has no vehicle-local parameter evidence"
             ),
-            predictive_error_parameter_update_count=0,
+            predictive_error_parameter_update_count=(
+                1 if predictive_error_valid_at_prior_mean else 0
+            ),
             provenance=provenance,
         )
 

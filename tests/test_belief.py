@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 
 from glassbox.belief import (
+    TANGENT_GROUP_ORDER,
     DynamicsBelief,
     EmpiricalErrorSample,
     EmpiricalHorizonPredictiveError,
@@ -31,7 +32,11 @@ from glassbox.parameter_evidence import (
     fitted_structured_parameter_mask,
 )
 from glassbox.parameter_prior import StructuredParameterPrior
-from glassbox.runtime import RuntimeDynamicsModel, runtime_spec_from_trajectory
+from glassbox.runtime import (
+    ModelValidityEnvelope,
+    RuntimeDynamicsModel,
+    runtime_spec_from_trajectory,
+)
 from glassbox.synthetic import generate_trajectory, true_parameters
 
 
@@ -573,3 +578,231 @@ def test_parameter_evidence_coerces_numpy_scalar_tolerance_to_json_native_float(
     payload = json.loads(json.dumps(evidence.to_dict()))
     assert payload["rank_relative_tolerance"] == pytest.approx(1e-5)
 
+
+
+def _permissive_runtime_spec(trajectory):
+    return replace(
+        runtime_spec_from_trajectory(trajectory),
+        validity_envelope=ModelValidityEnvelope(
+            body_velocity_center_m_s=(0.0, 0.0, 0.0),
+            body_velocity_half_width_m_s=(100.0, 100.0, 100.0),
+            angular_velocity_center_rad_s=(0.0, 0.0, 0.0),
+            angular_velocity_half_width_rad_s=(100.0, 100.0, 100.0),
+        ),
+    )
+
+
+def _local_information(params, trajectory):
+    names = structured_parameter_names(params)
+    center = np.asarray(structured_parameter_vector(params))
+    information = np.zeros((len(names), len(names)))
+    information[0, 0] = 4.0
+    scores = np.zeros((2, len(names)))
+    scores[:, 0] = 0.1
+    return LocalParameterInformation(
+        parameter_names=names,
+        center=center,
+        information_matrix=information,
+        parameter_scale=np.maximum(np.abs(center), 1.0),
+        fitted_parameter_mask=np.ones(len(names), dtype=bool),
+        horizons_s=(0.1,),
+        window_count_by_horizon=(8,),
+        residual_precision_rank_by_horizon=(12,),
+        group_labels=("group-a", "group-b"),
+        group_score_vectors=scores,
+        independent_group_count=2,
+        trajectory_count=2,
+        rank_relative_tolerance=1e-5,
+        covariance_scope=ErrorCovarianceScope.CONDITIONAL_INNOVATION,
+    )
+
+
+def _fleet_prior(params, trajectory, *, offset: float):
+    names = structured_parameter_names(params)
+    mean = np.asarray(structured_parameter_vector(params)).copy()
+    mean[0] += offset
+    contracts = tuple(
+        (channel.role, channel.semantic, channel.unit, channel.frame)
+        for channel in trajectory.spec.controls
+    )
+    return StructuredParameterPrior(
+        parameter_names=names,
+        mean=mean,
+        between_member_covariance=np.zeros((len(names), len(names))),
+        within_member_covariance=np.zeros((len(names), len(names))),
+        completion_covariance=np.eye(len(names)),
+        natural_scale=np.ones(len(names)),
+        parameter_control_dependencies=(None,) * len(names),
+        parameter_member_counts=(4,) * len(names),
+        member_labels=("fleet-a", "fleet-b", "fleet-c", "fleet-d"),
+        member_control_roles=(trajectory.spec.control_roles,) * 4,
+        within_member_covariance_count=0,
+        state_schema=trajectory.spec.state_schema,
+        vehicle_family=trajectory.spec.vehicle.family,
+        control_contracts=contracts,
+        source="fleet_hierarchical_prior",
+    )
+
+
+def test_conditioning_recalibration_and_update_complete_the_lifecycle() -> None:
+    trajectory = generate_trajectory(seed=12, duration_s=0.3)
+    params = true_parameters()
+    fitted = DynamicsBelief(
+        params=params,
+        input_spec=trajectory.spec,
+        runtime_spec=_permissive_runtime_spec(trajectory),
+        predictive_error=_nonsingular_error_model(
+            covariance_scope=ErrorCovarianceScope.CONDITIONAL_INNOVATION,
+        ),
+        parameter_evidence=_local_information(params, trajectory),
+    )
+    prior = _fleet_prior(params, trajectory, offset=0.5)
+
+    conditioned = fitted.condition_parameter_prior(prior)
+
+    # Conditioning moved the parameters, so the inherited error evidence is no
+    # longer current: the horizon cap disappears and updates fail closed.
+    assert not conditioned.predictive_error_current
+    assert conditioned.compile_for_nmpc().maximum_error_horizon_s is None
+    assert conditioned.provenance["parameter_prior_conditioning"][
+        "predictive_error_marked_stale"
+    ]
+    _, stale_report = conditioned.update(generate_trajectory(seed=13, duration_s=0.4))
+    assert not stale_report.applied
+    assert "stale" in stale_report.reason
+
+    calibration = generate_trajectory(seed=14, duration_s=2.0)
+    refreshed = conditioned.recalibrate_predictive_error(calibration)
+
+    assert refreshed.predictive_error_current
+    assert refreshed.compile_for_nmpc().maximum_error_horizon_s == pytest.approx(0.2)
+    assert refreshed.predictive_error.horizons_s == (0.1, 0.2)
+    assert (
+        refreshed.predictive_error.covariance_scope
+        == ErrorCovarianceScope.CONDITIONAL_INNOVATION
+    )
+    np.testing.assert_array_equal(
+        structured_parameter_vector(refreshed.params),
+        structured_parameter_vector(conditioned.params),
+    )
+    recalibration = refreshed.provenance["predictive_error_recalibration"]
+    assert recalibration["source"] == "recalibrated_from_telemetry"
+    assert recalibration["parameter_update_count"] == 1
+    assert recalibration["window_count_by_horizon"] == [20, 10]
+    assert recalibration["horizon_steps"] == [5, 10]
+    assert len(recalibration["telemetry_content_hash"]) == 64
+    assert (
+        recalibration["telemetry_content_hash"]
+        != refreshed.recalibrate_predictive_error(
+            generate_trajectory(seed=16, duration_s=2.0)
+        ).provenance["predictive_error_recalibration"]["telemetry_content_hash"]
+    )
+
+    # The refreshed belief can now be updated again. Telemetry from a vehicle
+    # that has since drifted commits; telemetry from the vehicle the evidence
+    # was measured on does not.
+    drifted_vector = np.asarray(structured_parameter_vector(params)).copy()
+    drifted_vector[0] += 0.2
+    drifted = with_structured_parameter_vector(params, jnp.asarray(drifted_vector))
+    updated, report = refreshed.update(
+        generate_trajectory(seed=15, duration_s=1.0, params=drifted)
+    )
+    unchanged, quiet_report = refreshed.update(
+        generate_trajectory(seed=15, duration_s=1.0, params=params)
+    )
+
+    assert report.applied
+    assert report.validation_performed
+    assert report.normalized_validation_improvement > (
+        report.normalized_validation_improvement_margin
+    )
+    assert updated.parameter_belief.update_count == 2
+    assert not updated.predictive_error_current
+    assert not quiet_report.applied
+    assert unchanged is refreshed
+
+    # The local information is a linearization about its own center, so it can
+    # no longer be conditioned once an online update has moved the parameters.
+    with pytest.raises(ValueError, match="no longer equal parameter_evidence"):
+        updated.condition_parameter_prior(prior)
+
+
+def test_evidence_dataclasses_own_immutable_array_inputs() -> None:
+    errors = np.zeros((3, 12))
+    errors[0, 0] = 0.1
+    sample = EmpiricalErrorSample(errors, "group-a", "flight-a")
+    errors[0, 0] = 99.0
+
+    assert sample.errors[0, 0] == 0.1
+    assert not sample.errors.flags.writeable
+    with pytest.raises(ValueError, match="read-only"):
+        sample.errors[0, 0] = 1.0
+
+    bias = np.zeros((1, 12))
+    covariance = 0.01 * np.eye(12)[None, :, :]
+    radii = 0.1 * np.ones((1, 3, len(TANGENT_GROUP_ORDER)))
+    model = EmpiricalHorizonPredictiveError(
+        horizons_s=(0.1,),
+        tangent_bias=bias,
+        tangent_covariance=covariance,
+        quantile_levels=(0.5, 0.8, 0.9),
+        group_radius_quantiles=radii,
+        raw_sample_count=(4,),
+        effective_sample_count=(4.0,),
+        independent_group_count=(2,),
+    )
+    bias[0, 0] = 99.0
+    covariance[0, 0, 0] = 99.0
+    radii[0, 0, 0] = 99.0
+
+    assert model.tangent_bias[0, 0] == 0.0
+    assert model.tangent_covariance[0, 0, 0] == pytest.approx(0.01)
+    assert model.group_radius_quantiles[0, 0, 0] == pytest.approx(0.1)
+    assert not model.tangent_bias.flags.writeable
+    assert not model.tangent_covariance.flags.writeable
+    assert not model.group_radius_quantiles.flags.writeable
+
+    params = true_parameters()
+    names = structured_parameter_names(params)
+    center = np.asarray(structured_parameter_vector(params)).copy()
+    information = np.zeros((len(names), len(names)))
+    information[0, 0] = 4.0
+    scale = np.maximum(np.abs(center), 1.0)
+    mask = np.ones(len(names), dtype=bool)
+    scores = np.zeros((2, len(names)))
+    scores[:, 0] = 0.1
+    evidence = LocalParameterInformation(
+        parameter_names=names,
+        center=center,
+        information_matrix=information,
+        parameter_scale=scale,
+        fitted_parameter_mask=mask,
+        horizons_s=(0.1,),
+        window_count_by_horizon=(8,),
+        residual_precision_rank_by_horizon=(12,),
+        group_labels=("group-a", "group-b"),
+        group_score_vectors=scores,
+        independent_group_count=2,
+        trajectory_count=2,
+        rank_relative_tolerance=1e-5,
+    )
+    stored_center = np.array(evidence.center, copy=True)
+    center[0] += 99.0
+    information[0, 0] = 99.0
+    scale[0] = 99.0
+    mask[1] = False
+    scores[0, 0] = 99.0
+
+    np.testing.assert_array_equal(evidence.center, stored_center)
+    assert evidence.information_matrix[0, 0] == pytest.approx(4.0)
+    assert evidence.parameter_scale[0] != 99.0
+    assert bool(evidence.fitted_parameter_mask[1])
+    assert evidence.group_score_vectors[0, 0] == pytest.approx(0.1)
+    for array in (
+        evidence.center,
+        evidence.information_matrix,
+        evidence.parameter_scale,
+        evidence.fitted_parameter_mask,
+        evidence.group_score_vectors,
+    ):
+        assert not array.flags.writeable

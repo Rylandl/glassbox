@@ -72,9 +72,14 @@ command = result.command  # bounded even when result.command_usable is False
 ```
 
 Update the belief from recent telemetry with `belief.update(trajectory)`. The
-update is transactional: it proposes a bounded local move on early telemetry,
-commits only when disjoint later telemetry improves, and otherwise returns the
-original belief. See [dynamics beliefs](docs/concepts/dynamics-beliefs.md) and
+update is transactional: it proposes a bounded local move on early telemetry
+and commits only when disjoint later telemetry shows the moved parameters,
+scored without the held-out bias correction that a commit makes stale, beating
+the corrected forecast the vehicle flies today by more than the noise in that
+evidence. Otherwise it returns the original belief. A commit, like
+`condition_parameter_prior`, marks the error evidence stale; rebuild it around
+the new parameters with `belief.recalibrate_predictive_error(trajectory)`. See
+[dynamics beliefs](docs/concepts/dynamics-beliefs.md) and
 [NMPC](docs/concepts/nmpc.md) for the full contracts.
 
 ## Layout

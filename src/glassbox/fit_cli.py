@@ -12,6 +12,7 @@ from typing import Any
 
 import numpy as np
 
+from glassbox.adaptation import endpoint_error_evidence_by_horizon
 from glassbox.belief import (
     DynamicsBelief,
     EmpiricalErrorSample,
@@ -44,7 +45,6 @@ from glassbox.evaluation import (
     one_step_innovation_diagnostics,
     parameter_dict,
     rollout_metrics,
-    windowed_rollout_evaluation,
 )
 from glassbox.fixedwing_synthetic import initial_fixed_wing_parameter_guess
 from glassbox.identification import (
@@ -766,32 +766,21 @@ def _evaluate_model(
         )
         innovation_diagnostics.append(innovation)
         per_horizon: dict[str, Any] = {}
-        for seconds in horizon_seconds:
-            label = f"{seconds:g}s"
-            steps = duration_to_steps(seconds, trajectory.nominal_dt_s)
-            if steps > len(trajectory.controls):
-                continue
-            metrics, endpoint_errors = windowed_rollout_evaluation(
-                params,
-                trajectory,
-                horizon_steps=steps,
-                stride_steps=steps,
-            )
-            metrics["requested_horizon_s"] = seconds
-            metrics["horizon_steps"] = steps
-            per_horizon[label] = metrics
-            horizon_metrics[label].append(metrics)
-            error_samples[seconds].append(
-                EmpiricalErrorSample(
-                    endpoint_errors,
-                    source_group=str(
-                        flight.source_group
-                        if flight.source_group is not None
-                        else flight.path
-                    ),
-                    trajectory_id=flight.path,
-                )
-            )
+        for evidence in endpoint_error_evidence_by_horizon(
+            params,
+            trajectory,
+            horizons_s=horizon_seconds,
+            source_group=str(
+                flight.source_group
+                if flight.source_group is not None
+                else flight.path
+            ),
+            trajectory_id=flight.path,
+        ):
+            label = f"{evidence.horizon_s:g}s"
+            per_horizon[label] = evidence.window_metrics
+            horizon_metrics[label].append(evidence.window_metrics)
+            error_samples[evidence.horizon_s].append(evidence.sample)
 
         per_flight.append(
             {

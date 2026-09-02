@@ -212,3 +212,45 @@ def test_configuration_specific_parameters_ignore_inapplicable_members() -> None
         0.0,
     )
     prior.validate_input_spec(flap_spec)
+
+
+def test_initialize_belief_stales_inherited_error_evidence_unless_asserted() -> None:
+    from glassbox.belief import EmpiricalErrorSample, EmpiricalHorizonPredictiveError
+
+    trajectory = generate_trajectory(seed=4, duration_s=0.2)
+    params = true_parameters()
+    size = len(np.asarray(structured_parameter_vector(params)))
+    members = [
+        _member_belief(trajectory, params, np.full(size, offset))
+        for offset in (0.0, 0.02, -0.02)
+    ]
+    prior = StructuredParameterPrior.from_beliefs(members, source="test")
+    errors = np.random.default_rng(0).normal(scale=0.02, size=(40, 12))
+    shell = replace(
+        members[0],
+        predictive_error=EmpiricalHorizonPredictiveError.from_samples(
+            {
+                0.1: (
+                    EmpiricalErrorSample(
+                        errors=errors, source_group="fleet", trajectory_id="shell"
+                    ),
+                )
+            }
+        ),
+    )
+    assert shell.predictive_error_current
+
+    stale = prior.initialize_belief(shell)
+    assert not stale.predictive_error_current
+    assert stale.compile_for_nmpc().maximum_error_horizon_s is None
+    assert stale.provenance["parameter_prior_initialization"][
+        "predictive_error_marked_stale"
+    ]
+
+    asserted = prior.initialize_belief(
+        shell, predictive_error_valid_at_prior_mean=True
+    )
+    assert asserted.predictive_error_current
+    assert asserted.provenance["parameter_prior_initialization"][
+        "predictive_error_valid_at_prior_mean"
+    ]

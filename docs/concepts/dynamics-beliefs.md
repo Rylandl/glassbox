@@ -19,12 +19,24 @@ The opinionated public lifecycle is:
 ```python
 belief = glassbox.DynamicsBelief.load("artifacts/vehicle-belief.json")
 fleet_prior = glassbox.StructuredParameterPrior.load("artifacts/fleet-prior.json")
+
+# Conditioning moves the parameters, so the attached error evidence becomes
+# stale. Measuring it again around the new parameters is what makes the belief
+# usable for plan assessment, horizon capping, and further updates.
 belief = belief.condition_parameter_prior(fleet_prior)
+belief = belief.recalibrate_predictive_error(calibration_telemetry)
+
 forecast = belief.compile_for_nmpc().rollout(initial_state, commands)
 updated_belief, update = belief.update(recent_telemetry)
 controller = glassbox.NMPCController(updated_belief)
 result = controller.solve(state, reference, previous_command)
 ```
+
+`recent_telemetry` must be disjoint from `calibration_telemetry`; the
+recalibration provenance records a content hash of the telemetry it consumed so
+that can be shown after the fact. A belief that was fitted offline with fresh
+held-out flights already carries current evidence and does not need the
+recalibration step until its parameters move.
 
 The serialized object owns:
 
@@ -114,7 +126,9 @@ prior-scaled proposal and one-standard-deviation trust bound
         ↓
 later, nonoverlapping validation transitions
         ↓
-commit improvement or return the original belief
+uncorrected candidate scored against the bias-corrected incumbent
+        ↓
+commit only past a noise-scaled margin, else return the original belief
         ↓
 predictive-error evidence marked stale after commit
 ```
@@ -128,7 +142,8 @@ commit was accepted or rejected, coefficient movement, prior-standardized step,
 validity utilization, and evidence counts. Unsupported horizons,
 out-of-envelope telemetry or candidate paths, stale or changed belief evidence,
 reused proposal transitions, target-configuration changes, non-finite rollouts,
-and non-improving validation all fail closed. Conditional covariance contraction
+and validation improvements inside the noise margin all fail closed.
+Conditional covariance contraction
 is recomputed from the disjoint validation evidence; proposal-carried geometry
 cannot make the committed belief overconfident. One contiguous telemetry block
 is one evidence unit regardless of its window count.
@@ -143,7 +158,8 @@ history returns the original belief unchanged.
 Stale predictive-error artifacts remain attached for provenance and
 recalibration, but runtime forecasts and NMPC no longer apply their bias,
 covariance, or quantiles. Independently maintained parameter uncertainty remains
-active around the updated nominal model.
+active around the updated nominal model. Because a commit stales the bias, a
+candidate is scored without it; see the acceptance criterion below.
 
 Ordinary point fits explicitly use a `PointParameterBelief`; they do not invent
 covariance. When `glassbox-fit` writes a model, it also differentiates a bounded,
@@ -166,7 +182,10 @@ fleet or configuration prior can be combined with that geometry using
 toward the vehicle fit. Covariance contracts only when the geometry used
 conditional innovation noise; total-forecast-scaled geometry performs a
 regularized mean update and preserves prior covariance. Unsupported directions
-retain the prior mean and covariance.
+retain the prior mean and covariance. Conditioning is valid only around the
+center the geometry was linearized at, so it refuses to run once the parameters
+have moved away from `parameter_evidence.center`, and the belief it returns
+carries stale error evidence until that evidence is recalibrated.
 
 `StructuredParameterPrior` makes the unavoidable completion of a small fleet
 explicit. In natural structured-parameter coordinates it stores three separate
@@ -195,11 +214,17 @@ contribute valid evidence to its shared aerodynamic block.
 The two supported entry paths are intentionally distinct:
 
 ```python
-# Existing vehicle telemetry supplies local loss geometry.
+# Existing vehicle telemetry supplies local loss geometry. The conditioned
+# parameters need error evidence measured around them before they can be used
+# for plan assessment, horizon capping, or another update.
 belief = vehicle_fit.condition_parameter_prior(fleet_prior)
+belief = belief.recalibrate_predictive_error(calibration_telemetry)
 
 # No vehicle-local fit yet; a typed shell supplies controls/runtime/error model.
+# Moving to the prior mean stales the shell's error evidence too, unless the
+# caller asserts it is family-level evidence that already holds at the mean.
 belief = fleet_prior.initialize_belief(vehicle_shell)
+belief = belief.recalibrate_predictive_error(calibration_telemetry)
 ```
 
 `glassbox-prior` builds the artifact from fitted vehicle beliefs without tuning
@@ -225,11 +250,77 @@ telemetry. Total forecast error supplies generalized loss coordinates but leaves
 parameter covariance unchanged; conditional innovation error additionally
 supports rank-aware contraction and information-gain reporting.
 
-The held-out predictive-error model remains attached after a parameter update
-but is marked not current. This is deliberately different from deleting it or
-treating it as newly validated. Runtime forecasts still expose the inherited
-evidence and stale flag, but another update and plan-information claims are
-rejected until error evidence is refreshed.
+### The acceptance criterion
+
+A commit stales the held-out bias, so the runtime stops applying it. The
+acceptance test scores each side the way the vehicle would actually fly it:
+
+- the **incumbent** is the current parameters *with* the bias correction the
+  runtime applies today;
+- a **candidate** is the moved parameters *without* any bias correction.
+
+Both are measured on the same disjoint validation windows as whitened endpoint
+error in the 12 rigid-body tangent coordinates, and the Gauss--Newton proposal
+is linearized on the same uncorrected objective it will be judged by. A commit
+therefore cannot trade a good corrected forecast for a worse uncorrected one.
+The report records this convention as
+`validation_scoring: candidate_uncorrected_vs_nominal_bias_corrected`, keeps
+`normalized_validation_rms_before` for the bias-corrected incumbent, and keeps
+`normalized_validation_rms_after` for the accepted uncorrected candidate.
+
+Improvement is an effect size, not a sign test. Windows are the independent
+evidence units, so for each validation window the paired reduction in whitened
+squared error, incumbent minus candidate, is summed and compared against a
+one-sided margin of `IMPROVEMENT_MARGIN_STANDARD_ERRORS = 2.0` standard errors
+of that total. The per-window variance behind that standard error is the sample
+variance across validation windows, floored by the chi-square scale of the
+incumbent's own error: `2 s^2 / k` for `k` supported error dimensions per window
+and mean incumbent whitened squared error `s`. A short evidence block whose
+window-to-window spread happens to be small therefore cannot manufacture
+significance, and a single window still carries a usable scale. The floor is
+anchored to the error level actually observed rather than assuming `s = k`,
+because held-out error covariance is empirical and not calibrated; the two
+expressions agree exactly when the whitening is calibrated.
+
+Two standard errors is a one-sided level of roughly two percent under a normal
+approximation, and the same hurdle is cleared twice on disjoint telemetry, once
+to propose and once to commit, so the transaction as a whole is much more
+conservative than its per-stage level. Under the null, a belief already at the
+true parameters observed through i.i.d. state noise, the pre-margin rule
+committed on 30 to 54 percent of seeds while this rule committed on none of 64.
+The achieved statistic and the margin it had to clear are both recorded in the
+report, at the proposal stage and at the validation stage.
+
+The constant is a documented library invariant, not a tuning knob: no
+configuration surface exposes it.
+
+### Stale error evidence and recalibration
+
+Both a commit and `condition_parameter_prior` move the parameters, and both
+therefore mark the held-out predictive-error model not current. This is
+deliberately different from deleting it, carrying it forward as if it still
+applied, or treating it as newly validated. The artifact stays attached for
+provenance, runtime forecasts still expose it together with the stale flag, but
+its bias, covariance, and quantiles stop being applied, the NMPC horizon cap
+disappears, and further updates and plan-information claims are rejected until
+the evidence is refreshed.
+
+`belief.recalibrate_predictive_error(telemetry)` is the way back. It rolls out
+nonoverlapping windows at the maintained horizons around the belief's
+**current** parameters, refits the empirical tangent moments from those
+endpoints, and returns a belief whose error evidence is current again. Its
+provenance records `source: recalibrated_from_telemetry`, the horizons, window
+counts, and a content hash of the telemetry, so a caller can later show that
+recalibration evidence was not the block that validated an update. The same
+window-and-endpoint routine, `endpoint_error_evidence_by_horizon`, backs both
+this path and the held-out evaluation that `glassbox-fit` reports, so online and
+offline error evidence are fitted identically.
+
+`condition_parameter_prior` refuses to run when the belief's parameters no
+longer equal `parameter_evidence.center`. The local information is a
+linearization about that center, so conditioning after an online update would
+silently discard the update while still incrementing the evidence counters.
+Refit the local geometry around the current parameters instead.
 
 ## NMPC compilation
 
