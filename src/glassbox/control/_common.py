@@ -83,10 +83,13 @@ def quaternion_to_rotation(quaternion_wxyz: np.ndarray) -> np.ndarray:
 
     This is the NumPy mirror of :func:`glassbox.core.dynamics.quaternion_to_rotation`,
     with the normalization the JAX version leaves to its caller folded in. It
-    deliberately keeps the input dtype: simulator plants hand this float32
-    attitudes, and the recorded closed-loop diagnostics are pinned to the
-    float32 arithmetic. :func:`glassbox.core.geometry.quaternion_to_rotation_matrices`
-    computes the same expressions in float64 and is the offline helper.
+    is kept separate from
+    :func:`glassbox.core.geometry.quaternion_to_rotation_matrices` on purpose:
+    this version normalizes with ``np.linalg.norm(q)`` while the batched helper
+    reduces along ``axis=-1``, and the two differ in the last ulp for roughly
+    one quaternion in seven. That perturbation sits far below every test
+    tolerance but the recorded closed-loop Crazyflow diagnostics amplify it over
+    hundreds of steps, so swapping helpers silently moves pinned numbers.
     """
 
     quaternion = quaternion_wxyz / np.linalg.norm(quaternion_wxyz)

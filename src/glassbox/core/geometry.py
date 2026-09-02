@@ -63,9 +63,10 @@ def quaternion_to_rotation_matrices(
 
     Use :func:`glassbox.core.dynamics.quaternion_to_rotation` instead inside
     traced JAX code; this function is the offline NumPy equivalent.
-    It computes in float64; ``glassbox.control._common.quaternion_to_rotation``
-    keeps the input dtype because recorded closed-loop diagnostics depend on
-    float32 arithmetic there.
+    ``glassbox.control._common.quaternion_to_rotation`` stays separate because
+    it normalizes with ``np.linalg.norm(q)`` rather than an ``axis=-1``
+    reduction; the last-ulp difference is amplified by the recorded closed-loop
+    diagnostics, which are pinned at 1e-6.
     """
 
     quaternion = np.asarray(quaternion_wxyz, dtype=np.float64)
