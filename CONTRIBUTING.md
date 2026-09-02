@@ -33,13 +33,25 @@ uv run ruff check src tests scripts && uv run ruff format --check src tests scri
 ## Recorded results
 
 Several benchmarks pin a recorded artifact under `docs/results/` and compare a
-fresh run against it, and `glassbox adaptive-recovery` also hashes its source
-files into that artifact. After changing `belief/belief.py`,
-`belief/adaptation.py`, `core/dynamics.py`, `core/evaluation.py`, the NMPC
-package, or the other files listed in
-`adaptive_recovery_benchmark.BENCHMARK_SOURCE_FILES`, re-record with the
-command on the experiment page and commit the JSON alongside the change. Never
-edit a recorded JSON by hand, and never pick a re-run for its timings.
+fresh run against it. See [the recorded-results guide](docs/guides/recorded-results.md)
+for the two-tier test policy and when to re-record: in short, re-record after
+an intentional behavior change on that artifact's path, not in response to its
+own provenance metadata changing on its own.
+
+`glassbox adaptive-recovery` also records a SHA-256 hash of the source files
+that produced its artifact (`adaptive_recovery_benchmark.BENCHMARK_SOURCE_FILES`).
+That hash is provenance, not a trigger; it is expected to drift between
+recordings and does not by itself require a re-record.
+
+Regenerate a recorded artifact with:
+
+```bash
+uv run glassbox record-results --only <artifact-name>
+```
+
+or see `uv run glassbox record-results --list` for every artifact's name and
+status. Commit the JSON alongside the change that motivated it. Never edit a
+recorded JSON by hand, and never pick a re-run for its timings.
 
 ## Documentation conventions
 

@@ -59,6 +59,9 @@ The unpowered first second is visibly ballistic: tilt reaches `1.202 rad`, and
 the airframe reaches `4.821 m` altitude before online actuation starts. After
 activation:
 
+- (the interval and time values in this list are outcomes of the recorded
+  run; which interval the candidate freezes on, and everything downstream of
+  it, flips on last-bit numerical differences and is not a stable property)
 - the first supported stabilization contribution occurs at `1.03 s`;
 - the accepted initial proposal is frozen after interval `172`, then admitted
   after `16` future predictions at `2.88 s`;
@@ -111,8 +114,10 @@ uv run --extra crazyflow glassbox crazyflow throw \
   docs/results/crazyflow-throw-campaign-results.json --campaign
 ```
 
-Two of five scenarios pass the complete canonical gate: a `1.15x` shorter-arm
-high release and a milder low-energy release. Every scenario keeps commands
+In the recorded run, two of five scenarios pass the complete canonical gate: a
+`1.15x` shorter-arm high release and a milder low-energy release. Which cases
+pass the replacement criterion is an outcome of that run, not a stable
+property; the flight-quality bounds below are. Every scenario keeps commands
 finite and bounded, and all five finish with speed at or below `0.0165 m/s`,
 rate at or below `0.0128 rad/s`, and at least `4.83 s` in the strict hover
 envelope.

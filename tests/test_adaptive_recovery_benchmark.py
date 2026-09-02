@@ -1,45 +1,39 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
+import re
 
 import numpy as np
 import pytest
+from _recorded import assert_recorded_close, recorded_result
 
 from glassbox.workflows.adaptive_recovery_benchmark import (
-    adaptive_recovery_source_fingerprint,
     normalized_adaptive_recovery_report,
     run_adaptive_recovery_benchmark,
 )
 
-
-def _assert_nested_close(actual, expected, path: str = "report") -> None:
-    if isinstance(expected, dict):
-        assert isinstance(actual, dict), path
-        assert actual.keys() == expected.keys(), path
-        for key in expected:
-            _assert_nested_close(actual[key], expected[key], f"{path}.{key}")
-        return
-    if isinstance(expected, list):
-        assert isinstance(actual, list), path
-        assert len(actual) == len(expected), path
-        for index, (actual_item, expected_item) in enumerate(zip(actual, expected)):
-            _assert_nested_close(
-                actual_item,
-                expected_item,
-                f"{path}[{index}]",
-            )
-        return
-    if isinstance(expected, float):
-        assert actual == pytest.approx(expected, rel=1e-5, abs=1e-7), path
-        return
-    assert actual == expected, path
+# Recorded-tier policy for docs/results/adaptive-recovery-results.json.
+_ADAPTIVE_RECOVERY_TOLERANCES = {
+    # One offline JAX rollout with no simulator in the loop: byte-stable
+    # across the refactors so far, so 1e-5 relative (with a 1e-7 absolute
+    # floor for near-zero entries) leaves headroom without accepting drift.
+    "*": (1e-5, 1e-7),
+}
+_ADAPTIVE_RECOVERY_EXACT = (
+    # Seeds, durations, the initial state, and offline functions of them.
+    "configuration.*",
+)
+_ADAPTIVE_RECOVERY_IGNORE = (
+    # Nothing further: ``normalized_adaptive_recovery_report`` already drops
+    # the environment block, per-trace wall clock, and source provenance.
+)
 
 
 @pytest.mark.slow
 def test_adaptive_recovery_benchmark_is_finite_and_auditable() -> None:
     report = run_adaptive_recovery_benchmark()
 
+    # Contract tier: structure, semantics, and internal consistency.
     assert report["artifact_type"] == (
         "glassbox_synthetic_adaptive_recovery_diagnostic"
     )
@@ -63,10 +57,12 @@ def test_adaptive_recovery_benchmark_is_finite_and_auditable() -> None:
     ]
     assert report["semantics"]["validation_actuator_context_excluded_from_evidence"]
     assert report["semantics"]["stale_predictive_error_is_not_applied_at_runtime"]
-    assert (
-        report["implementation"]["source_sha256"]
-        == adaptive_recovery_source_fingerprint()
-    )
+    # The source digest is provenance: the artifact records which sources
+    # produced its numbers, and a source edit that leaves every number
+    # unchanged does not make the artifact stale. It is checked for shape
+    # here and excluded from the recorded comparison below.
+    assert re.fullmatch(r"[0-9a-f]{64}", report["implementation"]["source_sha256"])
+    assert report["implementation"]["source_files"]
     assert (
         report["observations"]["update_applied"]
         == report["evidence"]["adaptation"]["applied"]
@@ -146,12 +142,13 @@ def test_adaptive_recovery_benchmark_is_finite_and_auditable() -> None:
     assert all(np.isfinite(value) for value in report["comparisons"].values())
     json.dumps(report, allow_nan=False)
 
-    recorded = json.loads(
-        (
-            Path(__file__).parents[1] / "docs/results/adaptive-recovery-results.json"
-        ).read_text()
-    )
-    _assert_nested_close(
+    # Recorded tier.
+    assert_recorded_close(
         normalized_adaptive_recovery_report(report),
-        normalized_adaptive_recovery_report(recorded),
+        normalized_adaptive_recovery_report(
+            recorded_result("adaptive-recovery-results.json")
+        ),
+        tolerances=_ADAPTIVE_RECOVERY_TOLERANCES,
+        exact=_ADAPTIVE_RECOVERY_EXACT,
+        ignore=_ADAPTIVE_RECOVERY_IGNORE,
     )

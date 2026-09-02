@@ -7,15 +7,8 @@ installed, instead of skipping cleanly. When the extra *is* installed, tests
 keep running by default; there is deliberately no environment-variable gate
 on top of that.
 
-The ``slow`` marker identifies benchmark-scale tests that take over a
-minute. It cannot yet be declared in ``pyproject.toml`` (out of scope for
-this change), so it is registered here via ``pytest_configure`` instead;
-that makes ``-m "not slow"`` work today without pytest warning about an
-unknown marker. Once ``pyproject.toml`` can be touched, add this line to its
-``[tool.pytest.ini_options] markers`` list and this registration can be
-removed:
-
-    "slow: benchmark-scale tests that take over a minute",
+The ``slow`` marker, declared in ``pyproject.toml``, identifies the three
+benchmark-scale tests that take over a minute; ``-m "not slow"`` skips them.
 
 The trajectory fixtures below build the handful of synthetic quadrotor and
 fixed-wing rollouts that multiple test modules were each constructing
@@ -53,12 +46,6 @@ def _importable(module_name: str) -> bool:
         # extra is not usable for collection/skip purposes here.
         return False
     return True
-
-
-def pytest_configure(config: pytest.Config) -> None:
-    config.addinivalue_line(
-        "markers", "slow: benchmark-scale tests that take over a minute"
-    )
 
 
 def pytest_collection_modifyitems(

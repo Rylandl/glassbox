@@ -24,6 +24,8 @@ artifact each experiment page cites.
 
 - [PX4 ULogs](guides/px4-ulog.md): extracting canonical trajectories and
   recording reproducible SITL flights.
+- [Recorded results](guides/recorded-results.md): the two-tier recorded-result
+  tests, when to re-record, and the `glassbox record-results` command.
 
 ## Experiments
 

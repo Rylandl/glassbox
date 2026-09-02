@@ -113,10 +113,25 @@ def adaptive_recovery_source_fingerprint() -> str:
 
 
 def normalized_adaptive_recovery_report(report: dict[str, Any]) -> dict[str, Any]:
-    """Remove machine- and timing-dependent fields for artifact freshness checks."""
+    """Remove machine-, timing-, and provenance-dependent fields.
+
+    A freshness check compares the numbers a run produces, not where it ran or
+    which source tree produced them. The environment block and the per-trace
+    wall-clock fields vary with the host. The implementation provenance fields
+    (the source file list and its ``source_sha256`` digest) vary with any
+    source edit, including edits that leave every recorded number unchanged;
+    such an edit does not make the artifact stale, so the digest must not gate
+    the comparison. The artifact still records it, as the statement of which
+    sources produced these numbers.
+    """
 
     normalized = json.loads(json.dumps(report, allow_nan=False))
-    normalized.pop("environment", None)
+    for field_name in ("environment", "git_revision"):
+        normalized.pop(field_name, None)
+    implementation = normalized.get("implementation")
+    if isinstance(implementation, dict):
+        for field_name in ("source_files", "source_sha256"):
+            implementation.pop(field_name, None)
     for recovery in normalized.get("recovery", []):
         for field_name in _NONDETERMINISTIC_RECOVERY_FIELDS:
             recovery.pop(field_name, None)

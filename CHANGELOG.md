@@ -5,6 +5,11 @@ All notable changes to Glassbox are recorded here. The format follows
 
 ## Unreleased
 
+### Added
+- `glassbox record-results` regenerates the recorded artifacts under
+  `docs/results/` from one manifest, in-process, with `--list`, `--dry-run`,
+  `--only`, and `--include-slow`.
+
 ### Changed
 - Rollout error statistics exclude the measured initial sample and every metrics
   dict carries a `metric_policy` identifier; the minibatch objective averages

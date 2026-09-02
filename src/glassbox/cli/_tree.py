@@ -90,6 +90,11 @@ TREE: tuple[Node, ...] = (
         summary="maintained closed-loop NMPC acceptance and timing benchmark",
     ),
     Command(
+        name="record-results",
+        target="glassbox.workflows.record_results:main",
+        summary="regenerate the recorded artifacts under docs/results/",
+    ),
+    Command(
         name="fixedwing-gate",
         target="glassbox.workflows.fixedwing_gate:main",
         summary="cross-airframe fixed-wing development and promotion gate",
