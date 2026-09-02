@@ -151,10 +151,12 @@ this receding projection is not a robust invariant-set proof.
 
 Important result fields are:
 
-- `status`: converged, finite iteration-limit plan, or an explicit failure;
+- `status`: converged, stalled, finite iteration-limit plan, or an explicit
+  failure;
 - `command_usable`: whether the command comes from a finite optimized plan;
 - `predicted_states`, `predicted_latent_states`, and `predicted_commands`;
-- initial/final objective, iteration count, gradient norm, and solve time;
+- initial/final objective, iteration count, raw and bound-projected gradient
+  infinity norms, and solve time;
 - maximum command-bound violation, model-validity utilization, and normalized
   safety-limit violation;
 - total normalized model uncertainty, the uncertainty-aware command-authority
@@ -165,9 +167,25 @@ Important result fields are:
   nominal-command fraction; and
 - an opaque `warm_start` for the next receding-horizon solve.
 
-An iteration-limit result is a finite bounded best plan and is marked as such;
-it is not falsely labeled converged. Invalid estimates, non-finite objectives,
-line-search failure, and exceeded deadlines set `used_fallback=True` and
+`converged` is reserved for the first-order criterion. That criterion tests the
+bound-projected gradient, `blocks - clip(blocks - gradient)`, against the
+maintained tolerance rather than the raw gradient, because a raw gradient
+component pointing outward at an active command bound never shrinks however
+optimal the iterate is. The projected residual is reported as
+`final_projected_gradient_inf_norm` next to the raw
+`final_gradient_inf_norm`, so the status can be audited from the result.
+
+Two outcomes report a finite bounded best plan without claiming convergence.
+An iteration-limit result exhausted the maintained iteration budget. A
+`stalled` result stopped earlier because the bounded line search ran out of
+progress: either relative improvement fell below the maintained tolerance, or
+no acceptable step remained after at least one accepted iteration. Both are
+finite optimized plans with `used_fallback=False` and `command_usable=True`;
+`stalled` carries exactly the same usability as an iteration-limit plan and is
+not a fallback. Neither is labeled converged.
+
+Invalid estimates, non-finite objectives, a line search that fails before any
+iteration is accepted, and exceeded deadlines set `used_fallback=True` and
 `command_usable=False`. The returned value is only an explicit bounded hold of
 the previous command, or the channel midpoint if the previous command is
 invalid; Glassbox does not silently replace NMPC with a second controller. A
@@ -191,8 +209,8 @@ On the recorded Apple M3 CPU run with JAX's CPU backend and a 50 ms model step:
 - all eight nominal and eight model-mismatch cases were finite;
 - there were no fallbacks and no command-bound violations;
 - every mismatch case stayed within the fitted model-validity envelope;
-- equal-scenario geometric tracking error was `0.661x` the non-optimizing trim
-  baseline nominally and `0.542x` under parameter mismatch; and
+- equal-scenario geometric tracking error was `0.651x` the non-optimizing trim
+  baseline nominally and `0.552x` under parameter mismatch; and
 - every scenario's post-JIT median solve time was well below the 50 ms model
   step.
 
@@ -421,6 +439,22 @@ Its bounded Armijo search carries an accepted step size into the next outer
 iteration and cautiously expands it, avoiding repeated backtracking from the
 same deliberately conservative maximum step.
 
+The command-block layout is the largest divisor of the horizon that is at most
+ten blocks, so every block is held for the same number of model steps and the
+expansion covers the horizon exactly. A horizon of ten steps or fewer gets one
+block per step. Only a prime horizon longer than that cap needs a shortened
+final block. No layout ever carries a block that drives no prediction step,
+which would otherwise cost gradient, line-search, and warm-start work on
+coordinates the plan cannot use.
+
+The returned `warm_start` is shifted at that same block granularity for the
+next solve: its first block is the previous plan's second block, and its final
+block repeats the previous plan's last block. Shifting the expanded command
+sequence by a single model step instead would land back inside the same old
+block whenever a block spans more than one step, which reproduces the previous
+plan unshifted. The shifted seed is used only when its objective is no worse
+than the controller's cold-start policy.
+
 For a dynamics belief, the default prediction horizon cannot exceed maintained
 predictive-error evidence. After direct-shooting optimization, total forecast
 standard deviation is normalized by the declared tracking tolerances. Spread
@@ -434,10 +468,14 @@ Rigid-body error has 12 local coordinates: position, velocity, the shortest
 quaternion log-map rotation vector, and angular velocity. Quaternion component
 subtraction is never a tracking metric. Command bounds are hard constraints;
 command rate and model-validity terms use dimensionless physical
-normalization. A solve returns the predicted state/latent/control traces,
-initial and final costs, convergence status, timing, constraint diagnostics,
-and the explicit bounded hold returned on failure. That hold is marked unusable
-and is not presented as an independently functioning controller.
+normalization. Because those bounds are hard, the first-order convergence test
+uses the bound-projected gradient; a converged status therefore means no
+feasible descent direction remains, not merely that the raw gradient is small.
+A solve returns the predicted state/latent/control traces, initial and final
+costs, the outcome status separating convergence from an iteration limit and
+from a line-search stall, timing, constraint diagnostics, and the explicit
+bounded hold returned on failure. That hold is marked unusable and is not
+presented as an independently functioning controller.
 
 ### Acceptance thresholds fixed before tuning
 
@@ -461,6 +499,13 @@ The following gates apply to the maintained synthetic scenario suite:
    bounded fallback command.
 7. Post-JIT solve latency is reported as median, p90, and maximum on named
    hardware. Passing functional gates does not constitute a real-time claim.
+
+Gate 6 covers the failure paths that produce no usable iterate at all. A
+bounded line search that stops after at least one accepted outer iteration is
+not one of them: the carried iterate is a finite improvement on the seed, so it
+is returned as a `stalled` plan rather than discarded for a previous-command
+hold. A line search that fails before anything is accepted still returns
+`line_search_failed` with the bounded fallback.
 
 The baseline and normalized error definition are recorded with each report.
 Thresholds may only change in a reviewed contract revision made before the

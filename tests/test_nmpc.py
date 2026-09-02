@@ -45,7 +45,13 @@ from glassbox.nmpc import (
     SupportFilterMode,
     quaternion_log_error,
 )
-from glassbox.nmpc.solver import _SolverPolicy
+from glassbox.nmpc.solver import (
+    _block_steps_for,
+    _blocks_cover_horizon,
+    _maintained_block_count,
+    _projected_gradient_norm,
+    _SolverPolicy,
+)
 from glassbox.runtime import (
     DirectActuationMap,
     ModelValidityEnvelope,
@@ -71,7 +77,9 @@ def _runtime_spec(dt_s: float) -> RuntimeModelSpec:
     )
 
 
-def _multirotor_runtime(*, residual: bool = False) -> RuntimeDynamicsModel:
+def _multirotor_runtime(
+    *, residual: bool = False, sample_period_s: float | None = None
+) -> RuntimeDynamicsModel:
     trajectory = generate_trajectory(seed=0, duration_s=0.1)
     params = true_parameters()
     if residual:
@@ -79,7 +87,9 @@ def _multirotor_runtime(*, residual: bool = False) -> RuntimeDynamicsModel:
     return RuntimeDynamicsModel(
         params,
         trajectory.spec,
-        _runtime_spec(trajectory.nominal_dt_s),
+        _runtime_spec(
+            trajectory.nominal_dt_s if sample_period_s is None else sample_period_s
+        ),
         DirectActuationMap(trajectory.spec.controls),
     )
 
@@ -162,9 +172,12 @@ def _flying_wing_runtime() -> RuntimeDynamicsModel:
 
 
 def _test_policy(*, horizon_steps: int = 6) -> _SolverPolicy:
+    block_count = max(
+        count for count in range(1, 4) if _blocks_cover_horizon(horizon_steps, count)
+    )
     return _SolverPolicy(
         horizon_steps=horizon_steps,
-        block_count=3,
+        block_count=block_count,
         maximum_iterations=4,
         line_search_steps=5,
     )
@@ -202,6 +215,49 @@ def test_control_blocks_expand_and_commands_remain_bounded() -> None:
     np.testing.assert_allclose(expanded[:, 0], [-1.0, -1.0, 0.0, 0.0, 1.0])
     assert np.min(commands) >= 0.0
     assert np.max(commands) <= 1.0
+
+
+def test_maintained_block_layout_covers_every_horizon_without_dead_blocks() -> None:
+    for horizon_steps in range(1, 61):
+        block_count = _maintained_block_count(horizon_steps)
+        block_steps = _block_steps_for(horizon_steps, block_count)
+        expanded = np.repeat(np.arange(block_count), block_steps)[:horizon_steps]
+
+        assert 1 <= block_count <= 10
+        assert len(expanded) == horizon_steps
+        assert sorted(set(expanded.tolist())) == list(range(block_count))
+        # Every horizon with a usable divisor is covered exactly, so no block
+        # is ever held for fewer steps than its neighbours.
+        if horizon_steps % block_count == 0:
+            assert block_steps * block_count == horizon_steps
+        else:
+            # Only a prime horizon longer than the block cap has to truncate
+            # its final block, and it still uses more than a single block.
+            assert horizon_steps > 10 and block_count > 1
+            assert all(horizon_steps % divisor for divisor in range(2, 11))
+
+
+def test_default_multirotor_block_layout_has_no_dead_blocks_at_fifty_hertz() -> None:
+    controller = NMPCController(_multirotor_runtime(sample_period_s=0.05))
+    backend = controller._backend
+    blocks = jnp.repeat(
+        jnp.linspace(-1.0, 1.0, backend.command_block_count)[:, None],
+        controller.model.command_size,
+        axis=1,
+    )
+
+    expanded = np.asarray(backend._expand_normalized_blocks(blocks))
+
+    assert controller.prediction_steps == 12
+    assert backend.command_block_count == 6
+    assert backend._block_steps * backend.command_block_count == 12
+    assert expanded.shape == (12, controller.model.command_size)
+    assert len(np.unique(expanded[:, 0])) == backend.command_block_count
+
+
+def test_solver_policy_rejects_a_layout_with_dead_command_blocks() -> None:
+    with pytest.raises(ValueError, match="drive no prediction step"):
+        _SolverPolicy(horizon_steps=4, block_count=3)
 
 
 def test_solver_propagates_latent_state_and_returns_bounded_plan() -> None:
@@ -420,6 +476,31 @@ def test_warm_start_is_selected_only_when_no_worse_than_cold_start() -> None:
     )
 
 
+def test_warm_start_seed_advances_the_previous_plan_by_one_block() -> None:
+    model = _multirotor_runtime()
+    controller = NMPCController(model, _policy=_test_policy(horizon_steps=6))
+    backend = controller._backend
+    block_values = (0.2, 0.5, 0.8)
+    previous_blocks = np.asarray(
+        [[value] * model.command_size for value in block_values]
+    )
+    previous_plan = np.repeat(previous_blocks, backend._block_steps, axis=0)
+
+    seed = backend._warm_blocks(NMPCWarmStart(jnp.asarray(previous_plan)))
+    seed_commands = np.asarray(backend._commands_from_normalized(seed))
+
+    assert backend._block_steps == 2
+    np.testing.assert_allclose(seed_commands[0], previous_blocks[1], atol=1e-6)
+    np.testing.assert_allclose(seed_commands[-1], previous_blocks[-1], atol=1e-6)
+    np.testing.assert_allclose(
+        seed_commands,
+        previous_blocks[[1, 2, 2]],
+        atol=1e-6,
+    )
+    # The seed must not simply reproduce the previous unshifted plan.
+    assert np.max(np.abs(seed_commands - previous_blocks)) > 0.1
+
+
 def test_invalid_estimate_and_deadline_return_bounded_fallback() -> None:
     model = _multirotor_runtime()
     controller = NMPCController(model, _policy=_test_policy())
@@ -447,6 +528,33 @@ def test_invalid_estimate_and_deadline_return_bounded_fallback() -> None:
         assert np.all(np.isfinite(result.command))
         assert np.min(result.command) >= np.min(model.command_minimum)
         assert np.max(result.command) <= np.max(model.command_maximum)
+
+
+def test_previous_command_within_rounding_of_a_bound_is_accepted() -> None:
+    model = _multirotor_runtime()
+    controller = NMPCController(model, _policy=_test_policy())
+    target = resting_state()
+    reference = controller.hold_reference(jnp.asarray(target))
+    maximum = np.asarray(model.command_maximum, dtype=np.float64)
+    at_bound = maximum + 1e-9
+    beyond_bound = maximum + 1e-3
+
+    accepted = controller.solve(jnp.asarray(target), reference, at_bound)
+    applied = controller.solve(
+        jnp.asarray(target),
+        reference,
+        maximum,
+        applied_command=at_bound,
+    )
+    rejected = controller.solve(jnp.asarray(target), reference, beyond_bound)
+
+    for result in (accepted, applied):
+        assert result.status is not SolveStatus.INVALID_INPUT
+        assert not result.used_fallback
+        assert np.all(np.asarray(result.command) <= maximum + 1e-6)
+    assert rejected.status is SolveStatus.INVALID_INPUT
+    assert rejected.message == "previous command lies outside the command bounds"
+    assert np.all(np.asarray(rejected.command) <= maximum + 1e-6)
 
 
 def test_deadline_includes_prediction_diagnostics(
@@ -502,6 +610,108 @@ def test_forced_line_search_failure_returns_bounded_fallback() -> None:
     assert result.status is SolveStatus.LINE_SEARCH_FAILED
     assert result.used_fallback
     np.testing.assert_allclose(result.command, previous, atol=1e-6)
+
+
+def test_projected_gradient_measures_stationarity_inside_the_command_box() -> None:
+    at_upper_bound = jnp.asarray([[1.0, 1.0]])
+    interior = jnp.asarray([[0.0, 0.0]])
+
+    outward = _projected_gradient_norm(at_upper_bound, jnp.asarray([[-5.0, -5.0]]))
+    inward = _projected_gradient_norm(at_upper_bound, jnp.asarray([[5.0, 5.0]]))
+    unconstrained = _projected_gradient_norm(interior, jnp.asarray([[0.3, -0.4]]))
+
+    # An outward gradient at an active bound offers no feasible descent, so the
+    # raw infinity norm of 5.0 is not evidence of an unconverged solve.
+    assert float(outward) == pytest.approx(0.0)
+    assert float(inward) == pytest.approx(2.0)
+    assert float(unconstrained) == pytest.approx(0.4)
+
+
+def test_converged_status_requires_the_first_order_criterion() -> None:
+    model = _multirotor_runtime()
+    policy = _test_policy()
+    controller = NMPCController(model, _policy=policy)
+    target = resting_state()
+    previous = hover_control(true_parameters())
+
+    result = controller.solve(
+        jnp.asarray(target),
+        controller.hold_reference(jnp.asarray(target)),
+        previous,
+    )
+
+    assert result.status is SolveStatus.CONVERGED
+    assert result.command_usable
+    assert result.diagnostics.final_projected_gradient_inf_norm <= (
+        policy.gradient_tolerance
+    )
+    assert result.message == "first-order convergence criterion satisfied"
+
+
+def test_improvement_stall_is_reported_as_stalled_rather_than_converged() -> None:
+    model = _multirotor_runtime()
+    policy = _SolverPolicy(
+        horizon_steps=6,
+        block_count=3,
+        maximum_iterations=4,
+        line_search_steps=5,
+        gradient_tolerance=1e-9,
+        relative_improvement_tolerance=1.0,
+    )
+    controller = NMPCController(model, _policy=policy)
+    target = resting_state()
+    state = target.copy()
+    state[2] = -0.2
+    previous = hover_control(true_parameters())
+
+    result = controller.solve(
+        jnp.asarray(state),
+        controller.hold_reference(jnp.asarray(target)),
+        previous,
+    )
+
+    assert result.status is SolveStatus.STALLED
+    assert not result.used_fallback
+    # A stall is exactly as usable as an iteration-limit plan.
+    assert result.command_usable
+    assert result.diagnostics.final_projected_gradient_inf_norm > (
+        policy.gradient_tolerance
+    )
+    assert "converg" not in result.message
+    assert "stalled" in result.message
+
+
+def test_line_search_stall_after_progress_keeps_the_improved_plan() -> None:
+    model = _multirotor_runtime()
+    policy = _SolverPolicy(
+        horizon_steps=6,
+        block_count=3,
+        maximum_iterations=12,
+        line_search_steps=1,
+        initial_step_size=0.5,
+        armijo_fraction=0.5,
+        gradient_tolerance=1e-9,
+        relative_improvement_tolerance=1e-12,
+    )
+    controller = NMPCController(model, _policy=policy)
+    target = resting_state()
+    state = target.copy()
+    state[0] = 0.3
+    state[2] = -0.3
+    previous = hover_control(true_parameters())
+
+    result = controller.solve(
+        jnp.asarray(state),
+        controller.hold_reference(jnp.asarray(target)),
+        previous,
+    )
+
+    assert result.status is SolveStatus.STALLED
+    assert not result.used_fallback
+    assert result.diagnostics.iterations >= 2
+    assert result.diagnostics.final_objective < result.diagnostics.initial_objective
+    assert "line search" in result.message
+    assert not np.allclose(np.asarray(result.command), np.asarray(previous))
 
 
 def test_support_candidates_are_vehicle_agnostic_nmpc_projections() -> None:
@@ -686,7 +896,7 @@ def test_objective_gradient_agrees_with_central_difference(model_kind: str) -> N
         state[0] = 0.1
         target = resting_state()
         previous = hover_control(true_parameters())
-    controller = NMPCController(model, _policy=_test_policy(horizon_steps=4))
+    controller = NMPCController(model, _policy=_test_policy())
     reference = controller.hold_reference(jnp.asarray(target))
     latent = model.initial_latent_state(previous)
     exogenous = jnp.zeros((controller.prediction_steps, model.exogenous_size))

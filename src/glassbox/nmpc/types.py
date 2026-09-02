@@ -163,10 +163,20 @@ class ReferenceTrajectory:
 
 
 class SolveStatus(StrEnum):
-    """Controller outcome with explicit degraded and failure states."""
+    """Controller outcome with explicit degraded and failure states.
+
+    The first three members return a finite optimized plan and a usable
+    command. ``CONVERGED`` is reserved for the first-order criterion, which
+    tests the bound-projected gradient against the maintained tolerance.
+    ``STALLED`` means the bounded line search stopped making progress while
+    that criterion was still unmet, so the returned plan is the best finite
+    iterate rather than a stationary point. The remaining members are
+    failures: they set ``used_fallback`` and return a bounded hold.
+    """
 
     CONVERGED = "converged"
     ITERATION_LIMIT = "iteration_limit"
+    STALLED = "stalled"
     LINE_SEARCH_FAILED = "line_search_failed"
     INVALID_INPUT = "invalid_input"
     NONFINITE_OBJECTIVE = "nonfinite_objective"
@@ -206,6 +216,7 @@ class NMPCDiagnostics:
     initial_objective: float
     final_objective: float
     final_gradient_inf_norm: float
+    final_projected_gradient_inf_norm: float
     maximum_command_bound_violation: float
     maximum_validity_utilization: float
     maximum_normalized_safety_violation: float
@@ -250,6 +261,13 @@ class NMPCResult:
 
     @property
     def command_usable(self) -> bool:
-        """Whether the returned command came from a finite optimized plan."""
+        """Whether the returned command came from a finite optimized plan.
+
+        ``CONVERGED``, ``ITERATION_LIMIT``, and ``STALLED`` all return an
+        optimized bounded plan and are usable. ``STALLED`` carries exactly the
+        same usability as ``ITERATION_LIMIT``: it reports that optimization
+        stopped early, not that the command is a fallback. Only the explicit
+        failure statuses set ``used_fallback`` and make the command a hold.
+        """
 
         return not self.used_fallback

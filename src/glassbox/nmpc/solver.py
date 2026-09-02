@@ -33,6 +33,62 @@ _MINIMUM_SUPPORT_HORIZON_S = 0.1
 _MAXIMUM_SUPPORT_HORIZON_S = 0.3
 _ACTUATOR_TIME_CONSTANT_MULTIPLIER = 2.0
 _SUPPORT_INTERPOLATION_FRACTIONS = (0.75, 0.5, 0.25, 0.0)
+_MAXIMUM_COMMAND_BLOCKS = 10
+_COMMAND_BOUND_RELATIVE_TOLERANCE = 1e-6
+
+# iteration, blocks, value, gradient, step size, converged, stalled,
+# line-search failure, and whether any outer iteration was accepted.
+_OuterCarry = tuple[Array, Array, Array, Array, Array, Array, Array, Array, Array]
+
+
+def _block_steps_for(horizon_steps: int, block_count: int) -> int:
+    """Return the model steps each command block is held for."""
+
+    return math.ceil(horizon_steps / block_count)
+
+
+def _blocks_cover_horizon(horizon_steps: int, block_count: int) -> bool:
+    """Whether every block of this layout drives at least one model step."""
+
+    block_steps = _block_steps_for(horizon_steps, block_count)
+    return (block_count - 1) * block_steps < horizon_steps
+
+
+def _maintained_block_count(horizon_steps: int) -> int:
+    """Choose the maintained command-block layout for one horizon length.
+
+    The layout is the largest divisor of ``horizon_steps`` no greater than
+    ``_MAXIMUM_COMMAND_BLOCKS``, so every block is held for the same number of
+    model steps and the expansion covers the horizon exactly. A horizon of ten
+    steps or fewer therefore uses one block per step. When the horizon is a
+    prime longer than that cap the only divisor available is one, which would
+    throw away nearly all command authority; in that case the largest block
+    count whose last block is merely truncated, and never empty, is used
+    instead.
+    """
+
+    limit = min(_MAXIMUM_COMMAND_BLOCKS, horizon_steps)
+    for count in range(limit, 1, -1):
+        if horizon_steps % count == 0:
+            return count
+    for count in range(limit, 0, -1):
+        if _blocks_cover_horizon(horizon_steps, count):
+            return count
+    raise AssertionError("a single block always covers the horizon")
+
+
+def _projected_gradient_norm(blocks: Array, gradient: Array) -> Array:
+    """Return the infinity norm of the bound-projected gradient.
+
+    Command blocks are normalized to ``[-1, 1]`` and every iterate is projected
+    back into that box, so a raw gradient component that points outward at an
+    active bound never shrinks no matter how optimal the iterate is. The
+    projected step ``blocks - clip(blocks - gradient)`` is the honest
+    first-order residual for this bounded problem: it vanishes exactly when no
+    feasible descent direction remains.
+    """
+
+    return jnp.max(jnp.abs(blocks - jnp.clip(blocks - gradient, -1.0, 1.0)))
 
 
 @dataclass(frozen=True)
@@ -51,11 +107,22 @@ class _SolverPolicy:
     safety_weight: float = 40.0
     terminal_weight: float = 2.0
 
+    @property
+    def block_steps(self) -> int:
+        """Model steps each command block is held for."""
+
+        return _block_steps_for(self.horizon_steps, self.block_count)
+
     def __post_init__(self) -> None:
         if self.horizon_steps < 1:
             raise ValueError("horizon_steps must be positive")
         if not 1 <= self.block_count <= self.horizon_steps:
             raise ValueError("block_count must be within the prediction horizon")
+        if not _blocks_cover_horizon(self.horizon_steps, self.block_count):
+            raise ValueError(
+                "block_count leaves trailing command blocks that drive no "
+                "prediction step"
+            )
         if self.maximum_iterations < 1 or self.line_search_steps < 1:
             raise ValueError("solver iteration counts must be positive")
         positive = (
@@ -106,7 +173,10 @@ def _default_policy(model: RuntimeDynamicsModel) -> _SolverPolicy:
         steps = duration_to_steps(certified, dt_s)
     if steps < 1:
         raise ValueError("certified prediction horizon is shorter than one model step")
-    return _SolverPolicy(horizon_steps=steps, block_count=min(10, steps))
+    return _SolverPolicy(
+        horizon_steps=steps,
+        block_count=_maintained_block_count(steps),
+    )
 
 
 def _runtime_belief(
@@ -180,15 +250,13 @@ class _DirectShootingBackend:
                 self._policy = replace(
                     self._policy,
                     horizon_steps=supported_steps,
-                    block_count=min(self._policy.block_count, supported_steps),
+                    block_count=_maintained_block_count(supported_steps),
                 )
         horizon_s = self._policy.horizon_steps * self.model.runtime_spec.sample_period_s
         certified = self.model.runtime_spec.certified_prediction_horizon_s
         if certified is not None and horizon_s > certified + 1e-12:
             raise ValueError("solver horizon exceeds the model's certified horizon")
-        self._block_steps = math.ceil(
-            self._policy.horizon_steps / self._policy.block_count
-        )
+        self._block_steps = self._policy.block_steps
         response_time_constants = np.asarray(
             self.model.latent_response_time_constants_s,
             dtype=np.float64,
@@ -323,6 +391,14 @@ class _DirectShootingBackend:
         return rebound
 
     def _expand_normalized_blocks(self, blocks: Array) -> Array:
+        """Hold each block over its model steps, covering the whole horizon.
+
+        The maintained layout divides the horizon exactly, so the trailing
+        slice is a no-op. It only ever shortens the final block of a horizon
+        whose length admits no usable divisor, and every block still drives at
+        least one prediction step.
+        """
+
         expanded = jnp.repeat(blocks, self._block_steps, axis=0)
         return expanded[: self.prediction_steps]
 
@@ -916,28 +992,35 @@ class _DirectShootingBackend:
         previous_command: Array,
         exogenous: Array,
         model_parameters: ModelParams,
-    ) -> tuple[Array, Array, Array, Array, Array, Array, Array]:
+    ) -> tuple[Array, Array, Array, Array, Array, Array, Array, Array, Array]:
         """Run the fixed maintained policy as one compiled JAX operation."""
 
         def finite(value: Array, gradient: Array) -> Array:
             return jnp.isfinite(value) & jnp.all(jnp.isfinite(gradient))
 
-        def continue_outer(
-            carry: tuple[Array, Array, Array, Array, Array, Array, Array],
-        ) -> Array:
-            iteration, _, value, gradient, _, converged, line_search_failed = carry
+        def continue_outer(carry: _OuterCarry) -> Array:
+            (
+                iteration,
+                _,
+                value,
+                gradient,
+                _,
+                converged,
+                stalled,
+                line_search_failed,
+                _,
+            ) = carry
             return (
                 (iteration < self._policy.maximum_iterations)
                 & ~converged
+                & ~stalled
                 & ~line_search_failed
                 & finite(value, gradient)
             )
 
-        def outer_step(
-            carry: tuple[Array, Array, Array, Array, Array, Array, Array],
-        ) -> tuple[Array, Array, Array, Array, Array, Array, Array]:
-            iteration, blocks, value, gradient, step_size, _, _ = carry
-            gradient_norm = jnp.max(jnp.abs(gradient))
+        def outer_step(carry: _OuterCarry) -> _OuterCarry:
+            iteration, blocks, value, gradient, step_size, _, _, _, progressed = carry
+            gradient_norm = _projected_gradient_norm(blocks, gradient)
             gradient_converged = gradient_norm <= self._policy.gradient_tolerance
 
             def continue_line_search(
@@ -1007,7 +1090,7 @@ class _DirectShootingBackend:
             relative_improvement = (value - next_value) / jnp.maximum(
                 jnp.abs(value), 1.0
             )
-            improvement_converged = (
+            improvement_stalled = (
                 accepted
                 & ~gradient_converged
                 & (relative_improvement <= self._policy.relative_improvement_tolerance)
@@ -1021,8 +1104,10 @@ class _DirectShootingBackend:
                     self._policy.initial_step_size,
                     2.0 * accepted_step_size,
                 ),
-                gradient_converged | improvement_converged,
+                gradient_converged,
+                improvement_stalled,
                 ~accepted,
+                progressed | (accepted & ~gradient_converged),
             )
 
         initial_carry = (
@@ -1033,6 +1118,8 @@ class _DirectShootingBackend:
             jnp.asarray(self._policy.initial_step_size),
             jnp.asarray(False),
             jnp.asarray(False),
+            jnp.asarray(False),
+            jnp.asarray(False),
         )
         (
             iteration,
@@ -1041,7 +1128,9 @@ class _DirectShootingBackend:
             gradient,
             _,
             converged,
+            stalled,
             line_search_failed,
+            progressed,
         ) = jax.lax.while_loop(continue_outer, outer_step, initial_carry)
         return (
             blocks,
@@ -1049,7 +1138,9 @@ class _DirectShootingBackend:
             gradient,
             iteration,
             converged,
+            stalled,
             line_search_failed,
+            progressed,
             finite(value, gradient),
         )
 
@@ -1063,15 +1154,26 @@ class _DirectShootingBackend:
         return jnp.repeat(normalized[None, :], self.command_block_count, axis=0)
 
     def _warm_blocks(self, warm_start: NMPCWarmStart) -> Array | None:
+        """Recover the previous plan's blocks and advance them by one block.
+
+        The plan is parameterized at block granularity, so the seed is shifted
+        at that granularity too: its first block is the previous plan's second
+        block, and its final block repeats the previous plan's last block.
+        Shifting the expanded command sequence by a single model step instead
+        would land back inside the same old block whenever a block spans more
+        than one step, which reproduces the previous plan unshifted.
+        """
+
         commands = warm_start.commands
         if commands.shape != (self.prediction_steps, self.model.command_size):
             return None
-        shifted = jnp.concatenate((commands[1:], commands[-1:]), axis=0)
         indices = jnp.minimum(
             jnp.arange(self.command_block_count) * self._block_steps,
             self.prediction_steps - 1,
         )
-        return jnp.clip(self._normalized_from_commands(shifted[indices]), -1.0, 1.0)
+        blocks = commands[indices]
+        shifted = jnp.concatenate((blocks[1:], blocks[-1:]), axis=0)
+        return jnp.clip(self._normalized_from_commands(shifted), -1.0, 1.0)
 
     def _input_error(
         self,
@@ -1095,7 +1197,13 @@ class _DirectShootingBackend:
             return "previous command has the wrong shape or non-finite values"
         minimum = np.asarray(self.model.command_minimum)
         maximum = np.asarray(self.model.command_maximum)
-        if np.any(previous_array < minimum) or np.any(previous_array > maximum):
+        # A measured or saturated command routinely lands a rounding step
+        # outside its own bound. Accept that band and clip it rather than
+        # rejecting a command the vehicle actually holds.
+        tolerance = _COMMAND_BOUND_RELATIVE_TOLERANCE * (maximum - minimum)
+        if np.any(previous_array < minimum - tolerance) or np.any(
+            previous_array > maximum + tolerance
+        ):
             return "previous command lies outside the command bounds"
         if reference.exogenous is not None and reference.exogenous.shape != (
             self.prediction_steps,
@@ -1108,7 +1216,9 @@ class _DirectShootingBackend:
                 np.isfinite(applied_array)
             ):
                 return "applied command has the wrong shape or non-finite values"
-            if np.any(applied_array < minimum) or np.any(applied_array > maximum):
+            if np.any(applied_array < minimum - tolerance) or np.any(
+                applied_array > maximum + tolerance
+            ):
                 return "applied command lies outside the command bounds"
         if applied_command is not None and latent_state is not None:
             return "provide either applied_command or latent_state, not both"
@@ -1162,6 +1272,7 @@ class _DirectShootingBackend:
                 initial_objective=initial_objective,
                 final_objective=math.inf,
                 final_gradient_inf_norm=math.inf,
+                final_projected_gradient_inf_norm=math.inf,
                 maximum_command_bound_violation=0.0,
                 maximum_validity_utilization=math.inf,
                 maximum_normalized_safety_violation=math.inf,
@@ -1244,13 +1355,23 @@ class _DirectShootingBackend:
             )
 
         state = jnp.asarray(state)
-        previous_command = jnp.asarray(previous_command)
+        # Validation accepts a rounding step outside the bounds; everything
+        # downstream sees a strictly bounded command.
+        previous_command = jnp.clip(
+            jnp.asarray(previous_command),
+            self.model.command_minimum,
+            self.model.command_maximum,
+        )
         latent = (
             self._initial_latent_compiled(
                 self._active_parameters,
                 previous_command
                 if applied_command is None
-                else jnp.asarray(applied_command),
+                else jnp.clip(
+                    jnp.asarray(applied_command),
+                    self.model.command_minimum,
+                    self.model.command_maximum,
+                ),
             )
             if latent_state is None
             else jnp.asarray(latent_state)
@@ -1321,7 +1442,9 @@ class _DirectShootingBackend:
             current_gradient,
             iteration_array,
             converged_array,
+            stalled_array,
             line_search_failed_array,
+            progressed_array,
             finite_array,
         ) = self._optimize_compiled(
             blocks,
@@ -1337,9 +1460,18 @@ class _DirectShootingBackend:
         current_value_float = float(np.asarray(current_value))
         iteration = int(np.asarray(iteration_array))
         converged = bool(np.asarray(converged_array))
+        stalled = bool(np.asarray(stalled_array))
         line_search_failed = bool(np.asarray(line_search_failed_array))
+        progressed = bool(np.asarray(progressed_array))
         finite_optimization = bool(np.asarray(finite_array))
         gradient_norm = float(np.max(np.abs(np.asarray(current_gradient))))
+        projected_gradient_norm = float(
+            np.asarray(_projected_gradient_norm(blocks, current_gradient))
+        )
+        stall_message = (
+            "finite best plan returned after improvement stalled short of the "
+            "first-order criterion"
+        )
         if deadline_s is not None and time.perf_counter() - started_at >= deadline_s:
             return self._failure_result(
                 SolveStatus.DEADLINE_EXCEEDED,
@@ -1360,7 +1492,7 @@ class _DirectShootingBackend:
                 iterations=iteration,
                 warm_start_used=used_warm_start,
             )
-        if line_search_failed:
+        if line_search_failed and not progressed:
             return self._failure_result(
                 SolveStatus.LINE_SEARCH_FAILED,
                 "bounded line search could not find a finite descent step",
@@ -1369,6 +1501,15 @@ class _DirectShootingBackend:
                 initial_objective=initial_objective,
                 iterations=iteration,
                 warm_start_used=used_warm_start,
+            )
+        if line_search_failed:
+            # Earlier outer iterations were accepted, so the carried iterate is
+            # a finite improvement on the seed. Report the stall instead of
+            # discarding that progress for a previous-command hold.
+            stalled = True
+            stall_message = (
+                "finite best plan returned after the bounded line search "
+                "stalled short of the first-order criterion"
             )
 
         states, latent_states, commands = self._rollout_compiled(
@@ -1438,6 +1579,9 @@ class _DirectShootingBackend:
             )
             current_value_float = float(np.asarray(current_value))
             gradient_norm = float(np.max(np.abs(np.asarray(current_gradient))))
+            projected_gradient_norm = float(
+                np.asarray(_projected_gradient_norm(blocks, current_gradient))
+            )
             states, latent_states, commands = self._rollout_compiled(
                 blocks,
                 state,
@@ -1458,6 +1602,7 @@ class _DirectShootingBackend:
                 exogenous,
             )
             converged = False
+            stalled = False
         if not (
             np.all(np.isfinite(states_np))
             and np.all(np.isfinite(latent_np))
@@ -1504,6 +1649,9 @@ class _DirectShootingBackend:
             )
             current_value_float = float(np.asarray(current_value))
             gradient_norm = float(np.max(np.abs(np.asarray(current_gradient))))
+            projected_gradient_norm = float(
+                np.asarray(_projected_gradient_norm(blocks, current_gradient))
+            )
             states, latent_states, commands = self._rollout_compiled(
                 blocks,
                 state,
@@ -1521,6 +1669,7 @@ class _DirectShootingBackend:
                 exogenous,
             )
             converged = False
+            stalled = False
         if not (
             np.all(np.isfinite(states_np))
             and np.all(np.isfinite(latent_np))
@@ -1560,7 +1709,13 @@ class _DirectShootingBackend:
                 warm_start_used=used_warm_start,
             )
         certified = self.model.runtime_spec.certified_prediction_horizon_s
-        status = SolveStatus.CONVERGED if converged else SolveStatus.ITERATION_LIMIT
+        status = (
+            SolveStatus.CONVERGED
+            if converged
+            else SolveStatus.STALLED
+            if stalled
+            else SolveStatus.ITERATION_LIMIT
+        )
         return NMPCResult(
             status=status,
             command=commands[0],
@@ -1574,6 +1729,7 @@ class _DirectShootingBackend:
                 initial_objective=initial_objective,
                 final_objective=current_value_float,
                 final_gradient_inf_norm=gradient_norm,
+                final_projected_gradient_inf_norm=projected_gradient_norm,
                 maximum_command_bound_violation=bound_violation,
                 maximum_validity_utilization=maximum_validity,
                 maximum_normalized_safety_violation=maximum_safety,
@@ -1638,6 +1794,8 @@ class _DirectShootingBackend:
                 if command_authority < 1.0
                 else "first-order convergence criterion satisfied"
                 if converged
+                else stall_message
+                if stalled
                 else "finite best plan returned at the maintained iteration limit"
             ),
         )
