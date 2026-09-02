@@ -40,8 +40,13 @@ and alternative projection paths are compiled during prewarming.
 
 ## Recorded result
 
+Recorded on 2026-09-01 with the current acceptance criterion (candidate scored
+without the held-out bias against the bias-corrected incumbent, with a
+noise-scaled margin) and rollout error statistics that exclude the shared
+initial sample.
+
 The accepted update reduced independent normalized 0.6-second prediction RMS
-from `0.033394` to `0.013706` (`0.410x`). Relative to the stale belief, the
+from `0.033394` to `0.013680` (`0.410x`). Relative to the stale belief, the
 adapted belief produced `0.811x` recovery-tail tracking RMS and `0.539x`
 recovery-tail attitude/rate RMS. Relative to the oracle point model, those
 ratios were `0.990x` and `0.799x`. Thus useful parameter evidence reaches both
@@ -49,7 +54,7 @@ the predictive mean and uncertainty-aware command selection without a hidden
 platform-specific controller.
 
 With actuator history correctly carried across the split, the disjoint
-validation RMS is `1.1994 → 0.4982`. The earlier `1.7534 → 1.6154` values came
+validation RMS is `1.1994 → 0.4875`. The earlier `1.7534 → 1.6154` values came
 from incorrectly treating the first post-split command as a steady actuator
 state; they are no longer part of the recorded evidence.
 
@@ -58,10 +63,10 @@ through an immutable belief update and into command selection. They are not an
 acceptance threshold or a general recovery claim.
 
 The support result is intentionally negative. Maximum actual validity
-utilization was `1.624`, `1.666`, `1.669`, and `1.631` for stale belief, adapted
+utilization was `1.624`, `1.666`, `1.667`, and `1.631` for stale belief, adapted
 belief, adapted point mean, and oracle point mean. Maximum returned one-step
-robust utilization was `1.633`, `1.674`, `1.670`, and `1.631`; reaction-horizon
-utilization reached `1.710`, `1.837`, `1.712`, and `1.652`. All traces remained
+robust utilization was `1.633`, `1.674`, `1.669`, and `1.631`; reaction-horizon
+utilization reached `1.710`, `1.836`, `1.712`, and `1.652`. All traces remained
 finite and bounded with no solver fallback, but every trace left support and
 some steps had no enumerated projection satisfying the progress condition.
 

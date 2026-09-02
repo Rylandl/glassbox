@@ -39,17 +39,21 @@ identically to every window and never tuned per window:
 
 ## Result on the four untouched validation maneuvers
 
+Recorded on 2026-09-01 with lag-integrated actuator initialization, rollout error
+statistics that exclude the shared initial sample (`metric_policy` v2), and fitted
+reference models trained under `deterministic_weighted_minibatch_v3`.
+
 Position / velocity / attitude / body-rate RMSE, equal weight per maneuver.
 
 | Model | 0.1 s | 0.5 s | 2 s | Score vs persistence |
 | --- | --- | --- | --- | ---: |
-| Kinematic persistence | 0.008 m / 0.17 m/s / 1.2° / 0.22 rad/s | 0.12 m / 0.56 m/s / 12.8° / 0.56 rad/s | 0.86 m / 1.00 m/s / 42.9° / 0.58 rad/s | 1.000 |
-| Glassbox structured (fitted) | 0.006 / 0.14 / 0.9° / 0.16 | 0.08 / 0.38 / 4.3° / 0.22 | 0.53 / 0.63 / 7.3° / 0.23 | 0.510 |
-| Glassbox structured residual (fitted) | 0.006 / 0.12 / 0.8° / 0.13 | 0.06 / 0.26 / 3.4° / 0.18 | 0.43 / 0.59 / 7.4° / 0.18 | 0.414 |
-| Cascade X8, published as-is (primary) | 0.022 / 0.50 / 1.7° / 0.35 | 0.52 / 2.83 / 17.3° / 0.70 | 7.79 / 9.28 / 72.0° / 0.68 | 2.766 |
-| Cascade X8, CG +50 mm, 4 kg, inertia ×2, ½ vertical wind (best) | 0.006 / 0.12 / 1.0° / 0.18 | 0.07 / 0.39 / 6.5° / 0.28 | 1.04 / 1.46 / 14.8° / 0.31 | 0.677 |
+| Kinematic persistence | 0.008 m / 0.19 m/s / 1.3° / 0.24 rad/s | 0.12 m / 0.58 m/s / 13.1° / 0.58 rad/s | 0.87 m / 1.01 m/s / 43.2° / 0.58 rad/s | 1.000 |
+| Glassbox structured (fitted) | 0.007 / 0.16 / 1.0° / 0.18 | 0.08 / 0.38 / 4.4° / 0.22 | 0.53 / 0.63 / 7.2° / 0.23 | 0.507 |
+| Glassbox structured residual (fitted) | 0.006 / 0.14 / 0.9° / 0.15 | 0.06 / 0.28 / 3.7° / 0.19 | 0.49 / 0.68 / 8.7° / 0.19 | 0.438 |
+| Cascade X8, published as-is (primary) | 0.03 / 0.56 / 1.8° / 0.38 | 0.53 / 2.90 / 17.7° / 0.71 | 7.84 / 9.34 / 72.4° / 0.68 | 2.760 |
+| Cascade X8, CG +50 mm, 4 kg, inertia ×2, ½ vertical wind (best) | 0.006 / 0.14 / 1.1° / 0.21 | 0.07 / 0.40 / 6.7° / 0.29 | 1.05 / 1.47 / 14.9° / 0.31 | 0.679 |
 
-The best unfitted physics row is 1.33 times the fitted structured model's score and 1.64 times
+The best unfitted physics row is 1.34 times the fitted structured model's score and 1.55 times
 the residual's. At 0.1 s it matches the fitted models on all four metrics; the gap opens with
 horizon and is carried by attitude and body rate, which points at the damping derivatives below.
 
@@ -57,11 +61,11 @@ Score against persistence, 3.364 kg, XFLR5 yaw damping, columns ¼ / ½ / full v
 
 | Forward CG shift | inertia ×1 | inertia ×2 | inertia ×3.5 |
 | ---: | --- | --- | --- |
-| 0 mm | 2.34 / 2.45 / 2.77 | 2.01 / 2.09 / 2.40 | 1.75 / 1.82 / 2.13 |
-| 30 mm | 1.00 / 1.02 / 1.22 | 0.94 / 0.95 / 1.15 | 0.95 / 0.96 / 1.17 |
-| 50 mm | 0.74 / 0.74 / 0.99 | 0.69 / 0.69 / 0.93 | 0.73 / 0.73 / 0.95 |
+| 0 mm | 2.34 / 2.45 / 2.76 | 2.01 / 2.09 / 2.41 | 1.76 / 1.82 / 2.14 |
+| 30 mm | 1.00 / 1.01 / 1.22 | 0.94 / 0.95 / 1.15 | 0.96 / 0.97 / 1.18 |
+| 50 mm | 0.73 / 0.74 / 0.99 | 0.69 / 0.70 / 0.93 | 0.74 / 0.74 / 0.95 |
 
-At 4 kg the 50 mm rows are 0.77 / 0.74 / 0.94, 0.71 / 0.68 / 0.87, and 0.74 / 0.70 / 0.88.
+At 4 kg the 50 mm rows are 0.77 / 0.73 / 0.93, 0.72 / 0.68 / 0.87, and 0.75 / 0.71 / 0.88.
 Yaw damping changes scores by under 0.01. The inertia axis has an interior optimum near ×2.
 
 ## Findings
@@ -106,11 +110,12 @@ fitted to the published polynomial and whose rate derivatives are predictions fr
 
 | Model, best variant (CG +50 mm, 4 kg, inertia ×2, ½ vertical wind) | 0.5 s | 2 s | Score |
 | --- | --- | --- | ---: |
-| Coefficient table | 0.071 m / 0.39 m/s / 6.5° / 0.28 rad/s | 1.04 m / 1.46 m/s / 14.8° / 0.31 rad/s | 0.677 |
-| Component panels | 0.064 m / 0.36 m/s / 6.3° / 0.29 rad/s | 1.06 m / 1.59 m/s / 17.5° / 0.32 rad/s | 0.675 |
+| Coefficient table | 0.073 m / 0.40 m/s / 6.7° / 0.29 rad/s | 1.052 m / 1.47 m/s / 14.9° / 0.31 rad/s | 0.679 |
+| Component panels | 0.065 m / 0.37 m/s / 6.5° / 0.29 rad/s | 1.065 m / 1.60 m/s / 17.6° / 0.32 rad/s | 0.675 |
 
-As published (no shift, pendulum inertia, full wind) the panels score 2.19 against the table's
-2.77. The one-step residual regressions separate the two channels: the panel model's roll
+As published (no shift, pendulum inertia, full wind) the panels score 2.19 against the table's 2.76.
+On its own grid the panels' best variant is CG +50 mm, 3.364 kg, inertia ×2, ¼ vertical
+wind at 0.661, within 0.02 of the table's best. The one-step residual regressions separate the two channels: the panel model's roll
 moment residual is 2.0 N m rms against 3.4 N m for the table, with its aileron and dihedral
 terms essentially matching flight and only mild excess damping (its geometric `C_lp` of −0.29
 sits between XFLR5's −0.40 and the flight-effective value), whereas its pitch damping from
