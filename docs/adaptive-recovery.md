@@ -71,11 +71,12 @@ path kept the experiment inside support. The benchmark now establishes useful
 adaptation evidence and a clear controller limitation—not an invariant-set,
 envelope-expansion, flight-safety, or throw-to-recover result.
 
-On the recorded Apple M3 CPU run, point-model median/p90 solves were roughly
-`6.7-8.0 ms`. The uncertainty-bearing adapted belief measured `13.6 ms` median
-and `19.1 ms` p90 against a `20 ms` model period. Alternative-path compilation
-was prewarmed. These measurements are encouraging for this deterministic
-scenario but are not a hard real-time claim.
+On the recorded run, the uncertainty-bearing adapted belief cost roughly twice
+the point-model solve per step against a `20 ms` model period. Alternative-path
+compilation was prewarmed. Absolute solve times depend on the host and its
+load, so they are kept only in the results artifact, where the benchmark marks
+them nondeterministic and excludes them from its comparison. This is not a
+hard real-time claim.
 
 ## Reproduce
 

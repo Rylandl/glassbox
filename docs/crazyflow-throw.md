@@ -50,7 +50,8 @@ activation:
 - the first supported stabilization contribution occurs at `1.05 s`;
 - the accepted initial proposal is frozen after interval `110`, then admitted
   after `16` future predictions at `2.26 s`;
-- the recursive update median is about `0.34 ms` on the recorded machine;
+- each recursive update completes in a small fraction of the `10 ms` motor
+  interval on the recorded host (the report records the median);
 - the working belief is updated on all `900` post-enable intervals; and
 - no simulator reset or controller handoff occurs.
 

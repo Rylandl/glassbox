@@ -91,7 +91,8 @@ bootstrap = identifier.fit(timestamps, states, applied_motor_commands)
 
 The recorded Crazyflow diagnostic uses a rejected 24-interval provisional fit
 to target four follow-up inputs at its weakest validated angular output. The
-resulting `0.56 s` evidence record fits in about `0.26 ms` after prewarming,
+resulting `0.56 s` evidence record fits in well under a millisecond after
+prewarming,
 estimates hover within `0.034%`, reduces an independent throw-like linear-speed
 disturbance to `0.151×`, angular-rate norm to `0.115×`, and tilt from
 `0.249 rad` to `0.034 rad` with bounded commands. This is direct local authority
@@ -177,10 +178,9 @@ not a throw or safety result. Its real-time online slice now accepts a valid
 post-arrest belief update and atomically installs it through a precompiled,
 parameter-dynamic controller. Adaptation runs in a prewarmed, lower-priority
 spawned process and is temporally limited to control slack. The recorded 50 Hz
-run completed its prewarmed transactional belief update in `25.31 ms` wall
-time (`14.62 ms` worker CPU), installed the accepted controller `66.76 ms`
-after submission, and had zero 20 ms computation-deadline misses and zero
-fallback. Every command now crosses a separate model-independent freshness,
+run completed its prewarmed transactional belief update and installed the
+accepted controller within a few control periods of submission, with zero
+20 ms computation-deadline misses and zero fallback. Every command now crosses a separate model-independent freshness,
 bounds, attitude, and rate-arrest supervisor; its fixed stale-command injection
 was rejected with bounded output before nominal authority returned. A separate
 16-case controller→supervisor→Crazyflow campaign now passes one transparent

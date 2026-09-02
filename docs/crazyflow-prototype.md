@@ -100,9 +100,9 @@ to `0.8190`; independent normalized 0.6 second prediction RMS changed from
 Relative to the stale belief, the adapted belief produced `0.936x`
 recovery-tail tracking RMS and `0.942x` recovery-tail attitude/rate RMS. Its
 tail tracking was `1.048x` the independent full target-telemetry fit. Every
-trace was finite and command-bounded with zero fallback. Point-model median
-solve time was about `8.6–9.0 ms`; the adapted belief measured about `17.3 ms`
-against the 20 ms command period.
+trace was finite and command-bounded with zero fallback. Adapted-belief solves
+cost roughly twice the point-model solves; the report records each recovery's
+median, p90, and maximum solve time against the 20 ms command period.
 
 The validity result remains negative. Maximum actual validity utilization was
 `1.234`, `1.293`, `1.293`, and `1.248` for stale belief, adapted belief,
@@ -136,20 +136,22 @@ period and then uses the exact runtime-contract period. Candidate rollouts and
 validity utilization are also evaluated by one compiled batched kernel instead
 of nested eager transforms.
 
-The recorded worker still reports its cold prewarm separately (`2.813 s` wall,
-`7.054 s` CPU). After that prewarm, the target belief update took `25.31 ms`
-wall and `14.62 ms` CPU. Candidate first-solve validation took `17.51 ms`, and
-the accepted controller installed `66.76 ms` after submission at simulation
-time `1.30 s`, after two stale-controller ticks. The audited 50 Hz loop had
-`12.20 ms` median, `16.56 ms` p90, and `18.56 ms` maximum complete-step time:
-zero 20 ms computation-deadline misses and zero fallback. Fitting is therefore
-no longer the dominant post-evidence delay in this prewarmed path.
+The recorded worker still reports its cold prewarm separately from the
+prewarmed path. After that prewarm, the target belief update, candidate
+first-solve validation, and controller installation each completed within a
+few control periods, and the accepted controller was installed at simulation
+time `1.30 s` after two stale-controller ticks. Every complete step of the
+audited 50 Hz loop finished inside the 20 ms computation budget: zero deadline
+misses and zero fallback. Fitting is therefore no longer the dominant
+post-evidence delay in this prewarmed path. The report records the wall and
+CPU times.
 
 The supervisor passed the adapted controller's nominal commands unchanged
 except for the fixed injected fault. A command timestamp made `40 ms` stale was
 rejected and replaced with finite, bounded rate-arrest output, followed by four
-latched arrest steps before nominal authority returned. Its maximum recorded
-decision time was `0.094 ms`. The supervisor uses no fitted dynamics, optimizer,
+latched arrest steps before nominal authority returned. Its decision time is
+negligible next to the command period (the report records the maximum). The
+supervisor uses no fitted dynamics, optimizer,
 position target, or trajectory; its configured collective calibration and
 fixed attitude/rate gains remain an integration responsibility.
 
@@ -158,13 +160,14 @@ pass-through. Every expected authority mode and reason matched; every supervised
 command and post-step true plant state was finite and bounded. Invalid state and
 quaternion observations caused real NMPC `invalid_input` results, and a forced
 controller deadline caused `deadline_exceeded`; the supervisor still selected
-the configured collective hold or rate arrest. The campaign's maximum supervisor
-decision time was `0.143 ms`. These are deterministic one-interval fault
+the configured collective hold or rate arrest. Supervisor decision time again
+stayed negligible next to the command period. These are deterministic
+one-interval fault
 contracts, not evidence of recovery from sustained or interacting faults.
 
 The report separately records desktop scheduling jitter. One command
-completion crossed its absolute wall-clock schedule by `0.41 ms`, despite
-remaining below the 20 ms computation budget. That metric is not hidden
+completion crossed its absolute wall-clock schedule by a fraction of a
+millisecond despite remaining below the 20 ms computation budget. That metric is not hidden
 inside the passing computation gate: Python, macOS, and a simulator are not a
 hard-real-time flight runtime. Commands and states remained finite and bounded,
 and the machine-readable artifact remains authoritative for the recorded run.

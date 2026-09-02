@@ -79,8 +79,9 @@ weakest output and generated four symmetric commands from its learned input
 direction. No hidden mixer or plant value was used to select them. On the
 recorded modified-arm run:
 
-- prewarming both fixed fit shapes took about `0.30 s`;
-- the provisional and final fits took about `0.32 ms` and `0.26 ms`;
+- after both fixed fit shapes were prewarmed, the provisional and final fits
+  each completed in well under a millisecond (the report records the wall
+  times);
 - 28 total intervals reduced evidence duration to `0.56 s`;
 - all four command directions and all three angular output directions were
   supported;
