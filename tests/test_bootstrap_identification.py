@@ -717,3 +717,89 @@ def test_recursive_config_rejects_a_forgetting_factor_below_one() -> None:
         RecursiveBootstrapConfig(forgetting_factor=0.95)
 
     assert RecursiveBootstrapConfig().forgetting_factor == 1.0
+
+
+def test_working_control_model_flies_the_working_belief_without_a_transaction() -> None:
+    commands = _excitation(80)
+    timestamps, states, _, _ = _linear_hidden_plant(commands)
+    config = RecursiveBootstrapConfig(control_model="working")
+    identifier = RecursiveBootstrapIdentifier(config)
+
+    supported_history: list[bool] = []
+    for index, command in enumerate(commands):
+        belief = identifier.update(
+            states[index],
+            states[index + 1],
+            command,
+            timestamps[index + 1] - timestamps[index],
+        )
+        supported_history.append(identifier.working_belief_supported)
+        # The controller is always handed the belief that just assimilated the
+        # newest interval, whether or not support holds yet.
+        assert identifier.predictive_belief is belief
+        assert identifier.control_belief is belief
+
+    # Readiness is exactly the support conditions, never prequential evidence.
+    assert identifier.working_belief_supported
+    assert identifier.belief.command_evidence_rank == 4
+    assert identifier.belief.angular_effect_rank == 3
+    assert identifier.belief.hover_command is not None
+    assert any(supported_history) and not all(supported_history)
+    assert identifier.control_model_ready
+    assert identifier.working_support_reached
+
+    # Nothing the transaction does reaches control in this mode.
+    assert identifier.certified_belief is None
+    assert identifier.pending_proposal is False
+    assert identifier.validation_history == ()
+    assert identifier.accepted_update_count == 0
+    assert identifier.rejected_update_count == 0
+
+
+def test_working_control_model_still_records_a_shadow_transaction() -> None:
+    commands = _excitation(80)
+    timestamps, states, _, _ = _linear_hidden_plant(commands)
+    certified = RecursiveBootstrapIdentifier()
+    shadowed = RecursiveBootstrapIdentifier(
+        RecursiveBootstrapConfig(control_model="working")
+    )
+
+    for index, command in enumerate(commands):
+        for identifier in (certified, shadowed):
+            identifier.update(
+                states[index],
+                states[index + 1],
+                command,
+                timestamps[index + 1] - timestamps[index],
+            )
+
+    # The two identifiers saw identical evidence, so the shadow record is the
+    # certified record: working mode reports what the gate would have done.
+    assert shadowed.shadow_certified_belief is not None
+    assert (
+        shadowed.shadow_certified_belief.interval_count
+        == certified.certified_belief.interval_count
+    )
+    assert shadowed.shadow_accepted_update_count == certified.accepted_update_count
+    assert shadowed.shadow_rejected_update_count == certified.rejected_update_count
+    assert [report.reason for report in shadowed.shadow_validation_history] == [
+        report.reason for report in certified.validation_history
+    ]
+    # The certified identifier reports no shadow, and neither reports both.
+    assert certified.shadow_certified_belief is None
+    assert certified.shadow_validation_history == ()
+    assert certified.shadow_pending_proposal is False
+
+
+def test_certified_control_model_is_the_unchanged_default() -> None:
+    assert RecursiveBootstrapConfig().control_model == "certified"
+    with pytest.raises(ValueError, match="control_model"):
+        RecursiveBootstrapConfig(control_model="workin")
+
+    commands = _excitation(80)
+    identifier, _, _ = _update_recursive_identifier(commands)
+
+    assert identifier.flies_working_belief is False
+    assert identifier.certified_belief is not None
+    assert identifier.predictive_belief is identifier.certified_belief
+    assert identifier.control_model_ready

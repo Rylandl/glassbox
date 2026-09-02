@@ -189,6 +189,12 @@ TREE: tuple[Node, ...] = (
                 extra="crazyflow",
             ),
             Command(
+                name="throw-study",
+                target="glassbox.integrations.crazyflow_throw_study:main",
+                summary="compare flying the certified snapshot and the working belief",
+                extra="crazyflow",
+            ),
+            Command(
                 name="animation",
                 target="glassbox.integrations.crazyflow_animation:main",
                 summary="render the bootstrap diagnostic as an annotated video",

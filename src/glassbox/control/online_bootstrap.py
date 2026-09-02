@@ -12,7 +12,7 @@ import math
 import time
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 
@@ -52,6 +52,15 @@ class RecursiveBootstrapConfig:
     minimum_validation_improvement: float = 0.02
     maximum_model_movement_fraction: float = 0.25
     proposal_cooldown_interval_count: int = 16
+    #: Which belief the controller flies.  ``"certified"`` hands it the frozen
+    #: snapshot the prequential transaction last admitted, so a candidate has to
+    #: out-predict the incumbent before it can steer.  ``"working"`` hands it the
+    #: continuously updated belief as soon as that belief's own support
+    #: conditions hold, and lets authority scaling rather than a quality test
+    #: decide how far to trust it.  Working mode never certifies a belief for
+    #: control; the transaction it would have run is still scored and reported
+    #: under the ``shadow_`` properties.
+    control_model: Literal["certified", "working"] = "certified"
 
     def __post_init__(self) -> None:
         minimum = finite_vector("command_minimum", self.command_minimum, 4)
@@ -105,6 +114,8 @@ class RecursiveBootstrapConfig:
             raise ValueError("validation_interval_count must be at least four")
         if self.proposal_cooldown_interval_count < 0:
             raise ValueError("proposal_cooldown_interval_count cannot be negative")
+        if self.control_model not in ("certified", "working"):
+            raise ValueError("control_model must be 'certified' or 'working'")
         object.__setattr__(self, "command_minimum", tuple(minimum))
         object.__setattr__(self, "command_maximum", tuple(maximum))
 
@@ -642,6 +653,7 @@ class RecursiveBootstrapIdentifier:
         self._angular_rhs = np.zeros((11, 3), dtype=np.float64)
         self._angular_target_sum_squares = np.zeros(3, dtype=np.float64)
         self._belief = self._empty_belief()
+        self._working_support_reached = False
         self._certified_belief: RecursiveBootstrapBelief | None = None
         self._pending_proposal: _PendingBeliefProposal | None = None
         self._validation_history: list[RecursiveBeliefValidationReport] = []
@@ -699,15 +711,73 @@ class RecursiveBootstrapIdentifier:
         return self._belief
 
     @property
-    def certified_belief(self) -> RecursiveBootstrapBelief | None:
-        """Last frozen belief admitted by future predictive validation."""
+    def flies_working_belief(self) -> bool:
+        """Whether control tracks the working belief instead of a snapshot."""
 
-        return self._certified_belief
+        return self.config.control_model == "working"
+
+    @staticmethod
+    def _belief_is_supported(belief: RecursiveBootstrapBelief) -> bool:
+        """Whether one belief spans everything control has to command.
+
+        These are the same support conditions the certification transaction
+        already requires of a candidate, and nothing else: the command evidence
+        spans all four motors, the fitted angular effect spans all three body
+        axes, and the collective effect implies a hover command inside the
+        command box.  Prequential improvement is deliberately not part of it.
+        """
+
+        return bool(
+            belief.command_evidence_rank == 4
+            and belief.angular_effect_rank == 3
+            and belief.hover_command is not None
+        )
+
+    @property
+    def working_belief_supported(self) -> bool:
+        """Whether the working belief currently meets the support conditions."""
+
+        return self._belief_is_supported(self._belief)
+
+    @property
+    def working_support_reached(self) -> bool:
+        """Whether the working belief has ever met the support conditions."""
+
+        return self._working_support_reached
+
+    @property
+    def control_model_ready(self) -> bool:
+        """Whether an identified model is the one being flown.
+
+        Certified mode reads this from the transaction and working mode from
+        the working belief's own support, so a caller can ask one question
+        without knowing which mode it is in.  Both latch: an admitted snapshot
+        is never withdrawn, and working mode likewise commits once support has
+        been demonstrated, rather than reverting to pre-handover behaviour every
+        time an interval leaves the fit briefly short of full rank.
+        """
+
+        if self.flies_working_belief:
+            return self._working_support_reached
+        return self._certified_belief is not None
+
+    @property
+    def certified_belief(self) -> RecursiveBootstrapBelief | None:
+        """Last frozen belief admitted by future predictive validation.
+
+        Working mode never certifies a belief for control, so this is ``None``
+        there and the shadow transaction is read through
+        :attr:`shadow_certified_belief` instead.
+        """
+
+        return None if self.flies_working_belief else self._certified_belief
 
     @property
     def predictive_belief(self) -> RecursiveBootstrapBelief:
-        """Transactional predictive mean supplied to the joint objective."""
+        """The belief supplied to the joint objective as its predictive mean."""
 
+        if self.flies_working_belief:
+            return self._belief
         return (
             self._belief if self._certified_belief is None else self._certified_belief
         )
@@ -720,19 +790,47 @@ class RecursiveBootstrapIdentifier:
 
     @property
     def pending_proposal(self) -> bool:
-        return self._pending_proposal is not None
+        return not self.flies_working_belief and self._pending_proposal is not None
 
     @property
     def validation_history(self) -> tuple[RecursiveBeliefValidationReport, ...]:
-        return tuple(self._validation_history)
+        return () if self.flies_working_belief else tuple(self._validation_history)
 
     @property
     def accepted_update_count(self) -> int:
-        return sum(report.accepted for report in self._validation_history)
+        return sum(report.accepted for report in self.validation_history)
 
     @property
     def rejected_update_count(self) -> int:
-        return sum(not report.accepted for report in self._validation_history)
+        return sum(not report.accepted for report in self.validation_history)
+
+    @property
+    def shadow_certified_belief(self) -> RecursiveBootstrapBelief | None:
+        """What the transaction would have been flying in working mode.
+
+        The shadow evaluation runs the ordinary freeze, score, and admit cycle
+        against the trajectory working mode actually flew.  Nothing it produces
+        reaches the controller, so recording it costs one pending proposal and
+        the sixteen predictions that score it.
+        """
+
+        return self._certified_belief if self.flies_working_belief else None
+
+    @property
+    def shadow_pending_proposal(self) -> bool:
+        return self.flies_working_belief and self._pending_proposal is not None
+
+    @property
+    def shadow_validation_history(self) -> tuple[RecursiveBeliefValidationReport, ...]:
+        return tuple(self._validation_history) if self.flies_working_belief else ()
+
+    @property
+    def shadow_accepted_update_count(self) -> int:
+        return sum(report.accepted for report in self.shadow_validation_history)
+
+    @property
+    def shadow_rejected_update_count(self) -> int:
+        return sum(not report.accepted for report in self.shadow_validation_history)
 
     @property
     def last_sample_report(self) -> RecursiveBootstrapSampleReport:
@@ -1020,11 +1118,7 @@ class RecursiveBootstrapIdentifier:
         reference_stale = (
             not initial and pending.reference is not self._certified_belief
         )
-        supported = bool(
-            pending.candidate.command_evidence_rank == 4
-            and pending.candidate.angular_effect_rank == 3
-            and pending.candidate.hover_command is not None
-        )
+        supported = self._belief_is_supported(pending.candidate)
         if initial:
             improved = bool(
                 force_improvement >= self.config.minimum_validation_improvement
@@ -1089,9 +1183,7 @@ class RecursiveBootstrapIdentifier:
         candidate = self._belief
         eligible = bool(
             candidate.interval_count >= self.config.minimum_certification_interval_count
-            and candidate.command_evidence_rank == 4
-            and candidate.angular_effect_rank == 3
-            and candidate.hover_command is not None
+            and self._belief_is_supported(candidate)
             and candidate.exploration_completion >= 0.75
         )
         if not eligible:
@@ -1571,6 +1663,9 @@ class RecursiveBootstrapIdentifier:
             fit,
             self._belief_authority(fit),
             started_at,
+        )
+        self._working_support_reached = (
+            self._working_support_reached or self.working_belief_supported
         )
         self._maybe_start_proposal()
         self._last_sample_report = RecursiveBootstrapSampleReport(

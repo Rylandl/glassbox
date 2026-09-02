@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import multiprocessing
 import os
 import sys
@@ -81,6 +82,11 @@ from glassbox.integrations.crazyflow_throw import (
     CRAZYFLOW_THROW_CAMPAIGN_SCENARIOS,
     run_crazyflow_throw_campaign,
     run_crazyflow_throw_trial,
+)
+from glassbox.integrations.crazyflow_throw_study import (
+    CRAZYFLOW_THROW_STUDY_CASES,
+    format_study_table,
+    run_crazyflow_throw_study,
 )
 
 CRAZYFLOW_MIXER = np.asarray(
@@ -869,3 +875,57 @@ def test_continuous_throw_campaign_retains_successes_and_failed_gates() -> None:
         exact=_CAMPAIGN_EXACT,
         ignore=_CAMPAIGN_IGNORE,
     )
+
+
+@pytest.mark.crazyflow
+def test_throw_study_reports_both_control_models_for_the_canonical_case() -> None:
+    pytest.importorskip("crazyflow")
+
+    canonical = next(
+        case for case in CRAZYFLOW_THROW_STUDY_CASES if case.name == "canonical"
+    )
+    report = run_crazyflow_throw_study((canonical,))
+
+    assert report["artifact_type"] == "glassbox_crazyflow_throw_control_model_study"
+    assert report["control_models"] == ["certified", "working"]
+    assert report["case_count"] == 1
+    modes = report["cases"][0]["modes"]
+    assert set(modes) == {"certified", "working"}
+    for name, metrics in modes.items():
+        assert metrics["control_model"] == name
+        assert metrics["flight"]["non_finite_value_count"] == 0, name
+        assert metrics["flight"]["command_bound_violation_count"] == 0, name
+        assert metrics["readiness"]["control_model_time_s"] is not None, name
+        assert metrics["identification"]["working_interval_count"] == 900, name
+    # Certified mode flies a snapshot the transaction admitted; working mode
+    # flies the working belief from the moment its own support holds, which is
+    # earlier, and records what the transaction would have done instead.
+    certified = modes["certified"]
+    working = modes["working"]
+    assert (
+        working["readiness"]["control_model_time_s"]
+        == working["readiness"]["readiness_time_s"]
+    )
+    assert (
+        working["readiness"]["control_model_time_s"]
+        < certified["readiness"]["control_model_time_s"]
+    )
+    assert certified["identification"]["certified_interval_count"] is not None
+    assert "shadow_rejection_reasons" in working["identification"]
+    assert working["identification"]["shadow_accepted_update_count"] >= 1
+    difference = report["cases"][0]["difference_working_minus_certified"]
+    assert set(difference) == {
+        "flight",
+        "readiness",
+        "stability",
+        "hover_estimate",
+        "flown_model_error",
+    }
+    assert difference["flight"]["terminal_speed_m_s"] == pytest.approx(
+        working["flight"]["terminal_speed_m_s"]
+        - certified["flight"]["terminal_speed_m_s"]
+    )
+    table = format_study_table(report)
+    assert table.splitlines()[0].startswith("| case")
+    assert len(table.splitlines()) == 4
+    json.dumps(report, allow_nan=False)
