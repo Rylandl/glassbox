@@ -20,9 +20,12 @@ uv sync --dev
 ```
 
 Python 3.11 to 3.13. JAX runs on the CPU backend in float32 by default.
-Optional extras: `crazyflow` for the pinned Crazyflow simulator,
+The core package depends only on JAX and NumPy. Optional extras: `px4` for PX4
+ULog ingestion and SITL recording (`pyulog`, `pymavlink`), `ros` for the EPFL
+rosbag adapter, `crazyflow` for the pinned Crazyflow simulator,
 `crazyflow-animation` to render its diagnostics, and `cascade` for the Cascade
-fixed-wing plant, which installs from GitHub.
+fixed-wing plant, which installs from GitHub. `uv sync --dev` installs the
+telemetry extras because the default test suite exercises them.
 
 ## Quickstart
 

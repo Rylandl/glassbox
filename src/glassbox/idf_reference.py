@@ -16,7 +16,14 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from pyulog import ULog
+
+try:
+    from pyulog import ULog
+except ImportError as error:  # pragma: no cover - exercised without the extra
+    raise ImportError(
+        "the IDF-DS corpus adapter needs the 'px4' extra: "
+        "uv sync --extra px4, or pip install 'glassbox[px4]'"
+    ) from error
 
 from glassbox.data import Trajectory, load_trajectory_npz, save_trajectory_npz
 from glassbox.px4_ulog import (

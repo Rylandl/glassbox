@@ -2,6 +2,10 @@
 
 ## Overview
 
+The ULog and SITL tools need the `px4` extra: `uv sync --extra px4`, or
+`pip install 'glassbox[px4]'`. `uv sync --dev` includes it.
+
+
 This guide covers inspecting and extracting PX4 ULogs into Glassbox's canonical trajectory format, and recording a reproducible PX4 SIH simulator flight end to end. For benchmarks built on top of extracted PX4 telemetry, see the [multirotor](../experiments/px4-sitl-multirotor.md) and [fixed-wing](../experiments/px4-sitl-fixedwing.md) PX4 SITL corpora, or the real-flight [ARP](../experiments/arp.md), [IDF-DS](../experiments/idf.md), and [X8](../experiments/x8.md) references.
 
 ## Extract a ULog

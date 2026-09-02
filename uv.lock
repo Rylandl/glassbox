@@ -346,9 +346,6 @@ dependencies = [
     { name = "jax", version = "0.11.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "numpy", version = "2.5.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
-    { name = "pymavlink" },
-    { name = "pyulog" },
-    { name = "rosbags" },
 ]
 
 [package.optional-dependencies]
@@ -362,10 +359,20 @@ crazyflow-animation = [
     { name = "crazyflow" },
     { name = "pillow" },
 ]
+px4 = [
+    { name = "pymavlink" },
+    { name = "pyulog" },
+]
+ros = [
+    { name = "rosbags" },
+]
 
 [package.dev-dependencies]
 dev = [
+    { name = "pymavlink" },
     { name = "pytest" },
+    { name = "pyulog" },
+    { name = "rosbags" },
     { name = "ruff" },
 ]
 
@@ -374,18 +381,21 @@ requires-dist = [
     { name = "cascade-flight", marker = "extra == 'cascade'", git = "https://github.com/Rylandl/cascade?branch=main" },
     { name = "crazyflow", marker = "extra == 'crazyflow'", specifier = "==0.3.2" },
     { name = "crazyflow", marker = "extra == 'crazyflow-animation'", specifier = "==0.3.2" },
-    { name = "jax", specifier = ">=0.4.35" },
+    { name = "jax", specifier = ">=0.10" },
     { name = "numpy", specifier = ">=1.26" },
     { name = "pillow", marker = "extra == 'crazyflow-animation'", specifier = ">=10" },
-    { name = "pymavlink", specifier = ">=2.4.49" },
-    { name = "pyulog", specifier = ">=1.2.2" },
-    { name = "rosbags", specifier = ">=0.11.5" },
+    { name = "pymavlink", marker = "extra == 'px4'", specifier = ">=2.4.49" },
+    { name = "pyulog", marker = "extra == 'px4'", specifier = ">=1.2.2" },
+    { name = "rosbags", marker = "extra == 'ros'", specifier = ">=0.11.5" },
 ]
-provides-extras = ["cascade", "crazyflow", "crazyflow-animation"]
+provides-extras = ["px4", "ros", "cascade", "crazyflow", "crazyflow-animation"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "pymavlink", specifier = ">=2.4.49" },
     { name = "pytest", specifier = ">=8.3" },
+    { name = "pyulog", specifier = ">=1.2.2" },
+    { name = "rosbags", specifier = ">=0.11.5" },
     { name = "ruff", specifier = ">=0.16.5,<0.17" },
 ]
 

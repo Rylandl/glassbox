@@ -12,17 +12,21 @@ license-files = ["LICENSE", "NOTICE"]
 authors = [{ name = "Ryland Lillibridge" }]
 requires-python = ">=3.11,<3.14"
 dependencies = [
-    "jax>=0.4.35",
+    "jax>=0.10",
     "numpy>=1.26",
-    "pymavlink>=2.4.49",
-    "pyulog>=1.2.2",
-    "rosbags>=0.11.5",
 ]
 
 [project.urls]
 Repository = "https://github.com/Rylandl/glassbox"
 
 [project.optional-dependencies]
+px4 = [
+    "pymavlink>=2.4.49",
+    "pyulog>=1.2.2",
+]
+ros = [
+    "rosbags>=0.11.5",
+]
 cascade = [
     "cascade-flight",
 ]
@@ -70,6 +74,10 @@ cascade-flight = { git = "https://github.com/Rylandl/cascade", branch = "main" }
 dev = [
     "pytest>=8.3",
     "ruff>=0.16.5,<0.17",
+    # The telemetry extras are exercised by the default test suite.
+    "pymavlink>=2.4.49",
+    "pyulog>=1.2.2",
+    "rosbags>=0.11.5",
 ]
 
 [tool.pytest.ini_options]

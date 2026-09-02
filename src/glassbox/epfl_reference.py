@@ -12,7 +12,14 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from rosbags.highlevel import AnyReader
+
+try:
+    from rosbags.highlevel import AnyReader
+except ImportError as error:  # pragma: no cover - exercised without the extra
+    raise ImportError(
+        "the EPFL rosbag adapter needs the 'ros' extra: "
+        "uv sync --extra ros, or pip install 'glassbox[ros]'"
+    ) from error
 
 from glassbox.data import (
     RIGID_BODY_STATE_SCHEMA,

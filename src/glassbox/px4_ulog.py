@@ -9,7 +9,14 @@ from typing import Literal, Protocol
 
 import numpy as np
 import numpy.typing as npt
-from pyulog import ULog
+
+try:
+    from pyulog import ULog
+except ImportError as error:  # pragma: no cover - exercised without the extra
+    raise ImportError(
+        "PX4 ULog ingestion needs the 'px4' extra: "
+        "uv sync --extra px4, or pip install 'glassbox[px4]'"
+    ) from error
 
 from glassbox.data import (
     ExogenousChannel,

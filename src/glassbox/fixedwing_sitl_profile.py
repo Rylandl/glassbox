@@ -8,7 +8,13 @@ import time
 from dataclasses import dataclass
 from typing import Any
 
-from pymavlink import mavutil
+try:
+    from pymavlink import mavutil
+except ImportError as error:  # pragma: no cover - exercised without the extra
+    raise ImportError(
+        "PX4 SITL recording needs the 'px4' extra: "
+        "uv sync --extra px4, or pip install 'glassbox[px4]'"
+    ) from error
 
 
 @dataclass(frozen=True)
