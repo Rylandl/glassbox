@@ -790,9 +790,10 @@ class LocalParameterInformation:
             raise ValueError("parameter-evidence group scores are invalid")
         if np.any(np.abs(group_scores[:, inactive]) > 1e-10 * information_scale):
             raise ValueError("parameters excluded from fitting cannot have scores")
+        rank_relative_tolerance = float(self.rank_relative_tolerance)
         if (
-            not np.isfinite(self.rank_relative_tolerance)
-            or not 0.0 < self.rank_relative_tolerance < 1.0
+            not np.isfinite(rank_relative_tolerance)
+            or not 0.0 < rank_relative_tolerance < 1.0
         ):
             raise ValueError("parameter-evidence rank tolerance must lie within (0, 1)")
         if not (
@@ -825,6 +826,7 @@ class LocalParameterInformation:
         )
         object.__setattr__(self, "group_labels", group_labels)
         object.__setattr__(self, "group_score_vectors", group_scores)
+        object.__setattr__(self, "rank_relative_tolerance", rank_relative_tolerance)
         object.__setattr__(self, "covariance_scope", covariance_scope)
 
     @property

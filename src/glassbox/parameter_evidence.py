@@ -26,7 +26,7 @@ from glassbox.dynamics import (
 from glassbox.linearization import compiled_batched_endpoint_tangent_linearization
 
 MAX_PARAMETER_EVIDENCE_WINDOWS_PER_HORIZON = 96
-_FLOAT32_EPSILON = np.finfo(np.float32).eps
+_FLOAT32_EPSILON = float(np.finfo(np.float32).eps)
 
 
 def fitted_structured_parameter_mask(

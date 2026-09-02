@@ -1,3 +1,4 @@
+import json
 from dataclasses import replace
 from pathlib import Path
 
@@ -256,6 +257,9 @@ def test_requested_fit_builds_rank_aware_parameter_evidence(tmp_path) -> None:
     assert evidence["fitted_parameter_count"] == 9
     assert evidence["numerical_rank"] <= evidence["fitted_parameter_count"]
     assert report["configuration"]["parameter_evidence"]["requested"] is True
+    # The report is written with plain ``json.dumps``; every leaf must be JSON-native.
+    assert type(evidence["rank_relative_tolerance"]) is float
+    assert json.loads(json.dumps(report))["models"]["learned_lag"]["parameter_evidence"] == evidence
 
 
 def test_source_group_holdout_keeps_dropout_segments_together(tmp_path) -> None:

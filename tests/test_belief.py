@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from dataclasses import replace
 
 import jax.numpy as jnp
@@ -542,3 +543,33 @@ def test_live_update_does_not_require_actionable_control_semantics() -> None:
     _, report = belief.update(telemetry)
 
     assert report.applied
+
+
+def test_parameter_evidence_coerces_numpy_scalar_tolerance_to_json_native_float() -> None:
+    params = true_parameters()
+    names = structured_parameter_names(params)
+    center = np.asarray(structured_parameter_vector(params))
+    information = np.zeros((len(names), len(names)))
+    information[0, 0] = 4.0
+    group_scores = np.zeros((2, len(names)))
+    group_scores[:, 0] = 0.1
+    evidence = LocalParameterInformation(
+        parameter_names=names,
+        center=center,
+        information_matrix=information,
+        parameter_scale=np.maximum(np.abs(center), 1.0),
+        fitted_parameter_mask=np.ones(len(names), dtype=bool),
+        horizons_s=(0.1,),
+        window_count_by_horizon=(8,),
+        residual_precision_rank_by_horizon=(12,),
+        group_labels=("group-a", "group-b"),
+        group_score_vectors=group_scores,
+        independent_group_count=2,
+        trajectory_count=2,
+        rank_relative_tolerance=np.float32(1e-5),
+    )
+
+    assert type(evidence.rank_relative_tolerance) is float
+    payload = json.loads(json.dumps(evidence.to_dict()))
+    assert payload["rank_relative_tolerance"] == pytest.approx(1e-5)
+
