@@ -37,6 +37,12 @@ from glassbox.control.online_bootstrap import (
     RecursiveBootstrapIdentifier,
 )
 from glassbox.core.dynamics import GRAVITY_M_S2
+from glassbox.experimental.dual_control import (
+    DualControlConfig,
+    DualControlNMPC,
+    DualControlResult,
+    command_information_log_determinant,
+)
 from glassbox.integrations.crazyflow import CrazyflowPlant, CrazyflowPlantConfig
 from glassbox.integrations.crazyflow_telemetry import (
     PlantTelemetryRecorder,
@@ -48,8 +54,16 @@ from glassbox.integrations.crazyflow_throw import (
     CrazyflowThrowScenario,
 )
 
+#: The two transactional arms the report differences against each other.
 CONTROL_MODELS = ("certified", "working")
+#: The experimental third arm: one dual-control optimization, no cascade, no
+#: certification, flying the working belief from zero information.
+DUAL_CONTROL_MODEL = "dual_control_nmpc"
+#: Every arm the command line runs by default.
+STUDY_CONTROL_MODELS = (*CONTROL_MODELS, DUAL_CONTROL_MODEL)
 DEFAULT_OUTPUT_PATH = Path("artifacts/crazyflow_throw_study/report.json")
+#: Commands kept verbatim from model enable, for the early-action analysis.
+EARLY_COMMAND_COUNT = 30
 MODEL_ENABLE_DELAY_S = 1.0
 TARGET_TRIAL_DURATION_S = 10.0
 #: The closing stretch every case should be quietly hovering through.  Chatter
@@ -338,7 +352,12 @@ def _flip_counts(flags: np.ndarray) -> tuple[int, int]:
 
 @dataclass
 class _TrialRecord:
-    """Everything one closed-loop run accumulates, before it is reduced."""
+    """Everything one closed-loop run accumulates, before it is reduced.
+
+    The ``dual_`` lists stay empty in the two cascade modes, which have no
+    optimizer to report on, so the reduction below emits the dual-control
+    section only for the mode that filled them.
+    """
 
     flown_allocations: list[np.ndarray]
     flown_angular_row_norms: list[np.ndarray]
@@ -349,9 +368,13 @@ class _TrialRecord:
     information_action_fractions: list[float]
     flown_collective_errors: list[float]
     flown_angular_errors: list[float]
+    command_evidence_ranks: list[int]
+    dual_results: list[DualControlResult]
+    dual_log_determinants: list[float]
     first_supported_control_step: int | None = None
     control_model_step: int | None = None
     configuration_change_step: int | None = None
+    command_rank_four_step: int | None = None
 
 
 def _new_record() -> _TrialRecord:
@@ -365,6 +388,9 @@ def _new_record() -> _TrialRecord:
         information_action_fractions=[],
         flown_collective_errors=[],
         flown_angular_errors=[],
+        command_evidence_ranks=[],
+        dual_results=[],
+        dual_log_determinants=[],
     )
 
 
@@ -383,10 +409,16 @@ def _fly_trial(
     """
 
     scenario = case.scenario
+    # The dual-control arm has no certification transaction of its own: it flies
+    # the working belief from zero information, which is what ``working`` mode
+    # means to the identifier.  The shadow transaction is still scored.
+    dual = control_model == DUAL_CONTROL_MODEL
     identifier = RecursiveBootstrapIdentifier(
-        RecursiveBootstrapConfig(control_model=control_model)
+        RecursiveBootstrapConfig(control_model="working" if dual else control_model)
     )
-    controller = ProgressiveBootstrapController(identifier.config)
+    dual_config = DualControlConfig(sample_period_s=plant.sample_period_s)
+    dual_controller = DualControlNMPC(dual_config) if dual else None
+    controller = None if dual else ProgressiveBootstrapController(identifier.config)
     observer = _StateObserver(case.state_noise)
     release_state = initial_plant_state(
         world_velocity_m_s=scenario.world_velocity_m_s,
@@ -413,6 +445,7 @@ def _fly_trial(
     record = _new_record()
     hidden_hover = plant.hover_motor_thrust_fraction
     previous_command = zero_command
+    dual_plan: DualControlResult | None = None
     observed_state = observer.observe(sample.state)
     for step in range(online_step_count):
         change = case.configuration_change
@@ -433,23 +466,43 @@ def _fly_trial(
         record.flown_angular_row_norms.append(
             np.linalg.norm(flown.angular_acceleration_per_command, axis=1)
         )
-        decision = controller.command(
-            observed_state,
-            flown,
-            previous_command=previous_command,
-            # The committed excitation cap exists to keep a large probe out of
-            # a candidate's validation window.  Working mode opens no such
-            # window, so it never applies the cap and its excitation is decided
-            # by exploration completion alone, which is the point of the mode.
-            online_belief=(
-                None if identifier.certified_belief is None else identifier.belief
-            ),
-        )
+        if dual_controller is not None:
+            dual_decision = dual_controller.solve(
+                observed_state,
+                flown,
+                previous_command,
+                warm_start=dual_plan,
+            )
+            dual_plan = dual_decision if dual_decision.command_usable else None
+            record.dual_results.append(dual_decision)
+            record.dual_log_determinants.append(
+                command_information_log_determinant(flown, dual_config)
+            )
+            command = dual_decision.command
+        else:
+            assert controller is not None
+            decision = controller.command(
+                observed_state,
+                flown,
+                previous_command=previous_command,
+                # The committed excitation cap exists to keep a large probe out
+                # of a candidate's validation window.  Working mode opens no
+                # such window, so it never applies the cap and its excitation is
+                # decided by exploration completion alone, which is the point of
+                # the mode.
+                online_belief=(
+                    None if identifier.certified_belief is None else identifier.belief
+                ),
+            )
+            record.information_action_fractions.append(
+                decision.information_action_fraction
+            )
+            command = decision.command
         previous_observed = observed_state
         previous_applied = sample.applied_motor_thrust_fraction
-        previous_command = decision.command
-        requested_commands.append(decision.command)
-        sample = plant.step(decision.command)
+        previous_command = command
+        requested_commands.append(command)
+        sample = plant.step(command)
         observed_state = observer.observe(sample.state)
         average_applied = 0.5 * (
             previous_applied + sample.applied_motor_thrust_fraction
@@ -478,7 +531,9 @@ def _fly_trial(
             np.linalg.norm(working.angular_acceleration_per_command, axis=1)
         )
         record.working_hover_errors.append(_hover_relative_error(working, hidden_hover))
-        record.information_action_fractions.append(decision.information_action_fraction)
+        record.command_evidence_ranks.append(working.command_evidence_rank)
+        if record.command_rank_four_step is None and working.command_evidence_rank == 4:
+            record.command_rank_four_step = step
 
     identification: dict[str, Any] = {
         "working_interval_count": identifier.belief.interval_count,
@@ -616,6 +671,127 @@ def _row_norm_samples(
     }
 
 
+def _dual_control_metrics(
+    record: _TrialRecord,
+    timestamps: np.ndarray,
+    enable_index: int,
+    requested: np.ndarray,
+) -> dict[str, Any]:
+    """Reduce one dual-control run to what the design asks to be measured.
+
+    The per-step information gain and log-determinant trajectories are kept in
+    full, because the question this arm answers is what the optimizer did early
+    rather than where it ended up.
+    """
+
+    results = record.dual_results
+    gains = np.asarray([result.information_gain for result in results])
+    iterations = np.asarray([result.iterations for result in results])
+    statuses: dict[str, int] = {}
+    for result in results:
+        key = str(result.status)
+        statuses[key] = statuses.get(key, 0) + 1
+    early = requested[enable_index : enable_index + EARLY_COMMAND_COUNT]
+    ranks = np.asarray(record.command_evidence_ranks)
+    return {
+        "command_information_rank_four_step": record.command_rank_four_step,
+        "command_information_rank_four_time_s": (
+            None
+            if record.command_rank_four_step is None
+            else float(timestamps[enable_index + record.command_rank_four_step + 1])
+        ),
+        "terminal_command_evidence_rank": (None if len(ranks) == 0 else int(ranks[-1])),
+        "maximum_command_evidence_rank": (
+            None if len(ranks) == 0 else int(np.max(ranks))
+        ),
+        "information_gain_per_step": gains.tolist(),
+        "command_information_log_determinant": (list(record.dual_log_determinants)),
+        "total_information_gain": float(np.sum(gains)),
+        "maximum_information_gain": float(np.max(gains)) if len(gains) else 0.0,
+        "solve_iterations": {
+            "total": int(np.sum(iterations)),
+            "mean": float(np.mean(iterations)) if len(iterations) else 0.0,
+            "maximum": int(np.max(iterations)) if len(iterations) else 0,
+        },
+        "status_counts": statuses,
+        "unusable_command_count": int(
+            sum(not result.command_usable for result in results)
+        ),
+        "objective_terms": {
+            name: {
+                "mean": float(np.mean(values)) if len(values) else 0.0,
+                "maximum": float(np.max(values)) if len(values) else 0.0,
+                "terminal": float(values[-1]) if len(values) else 0.0,
+            }
+            for name, values in (
+                (
+                    "objective_value",
+                    np.asarray([result.objective_value for result in results]),
+                ),
+                (
+                    "tracking_cost",
+                    np.asarray([result.tracking_cost for result in results]),
+                ),
+                (
+                    "command_rate_cost",
+                    np.asarray([result.command_rate_cost for result in results]),
+                ),
+                (
+                    "information_gain",
+                    gains,
+                ),
+                (
+                    "altitude_penalty",
+                    np.asarray([result.altitude_penalty for result in results]),
+                ),
+                (
+                    "tilt_penalty",
+                    np.asarray([result.tilt_penalty for result in results]),
+                ),
+            )
+        },
+        "chance_constraints": {
+            "altitude_active_step_total": int(
+                sum(result.altitude_constraint_active_steps for result in results)
+            ),
+            "tilt_active_step_total": int(
+                sum(result.tilt_constraint_active_steps for result in results)
+            ),
+            "altitude_saturated_step_total": int(
+                sum(result.altitude_constraint_saturated_steps for result in results)
+            ),
+            "tilt_saturated_step_total": int(
+                sum(result.tilt_constraint_saturated_steps for result in results)
+            ),
+            "intervals_with_active_altitude_penalty": int(
+                sum(result.altitude_constraint_active_steps > 0 for result in results)
+            ),
+            "intervals_with_active_tilt_penalty": int(
+                sum(result.tilt_constraint_active_steps > 0 for result in results)
+            ),
+            "maximum_predicted_altitude_spread_m": float(
+                max(
+                    (result.maximum_altitude_spread_m for result in results),
+                    default=0.0,
+                )
+            ),
+            "maximum_predicted_tilt_spread_rad": float(
+                max((result.maximum_tilt_spread_rad for result in results), default=0.0)
+            ),
+            "maximum_predicted_rate_spread_rad_s": float(
+                max(
+                    (result.maximum_rate_spread_rad_s for result in results),
+                    default=0.0,
+                )
+            ),
+        },
+        "warm_start_use_count": int(sum(result.used_warm_start for result in results)),
+        "early_commands": early.tolist(),
+        "early_information_gain": gains[:EARLY_COMMAND_COUNT].tolist(),
+        "early_command_evidence_rank": ranks[:EARLY_COMMAND_COUNT].tolist(),
+    }
+
+
 def run_throw_study_trial(
     case: ThrowStudyCase,
     control_model: str,
@@ -623,7 +799,7 @@ def run_throw_study_trial(
 ) -> dict[str, Any]:
     """Run one case in one control model and reduce it to study metrics."""
 
-    if control_model not in CONTROL_MODELS:
+    if control_model not in STUDY_CONTROL_MODELS:
         raise ValueError(f"unknown control model {control_model!r}")
     owned = plant is None
     plant = (
@@ -806,6 +982,18 @@ def run_throw_study_trial(
                 ),
             },
             "identification": identification,
+            **(
+                {
+                    "dual_control": _dual_control_metrics(
+                        record,
+                        timestamps,
+                        enable_index,
+                        requested,
+                    )
+                }
+                if control_model == DUAL_CONTROL_MODEL
+                else {}
+            ),
         }
     finally:
         if owned:
@@ -844,26 +1032,35 @@ def _mode_difference(
 
 def run_crazyflow_throw_study(
     cases: tuple[ThrowStudyCase, ...] = CRAZYFLOW_THROW_STUDY_CASES,
+    control_models: Sequence[str] = CONTROL_MODELS,
 ) -> dict[str, Any]:
-    """Run every case in both control models and return the comparison report."""
+    """Run every case in the named control models and return the comparison.
+
+    The default is the two transactional arms the report differences against
+    each other.  The command line adds :data:`DUAL_CONTROL_MODEL`, which is a
+    third independent arm rather than a second half of that difference.
+    """
 
     if not cases:
         raise ValueError("the throw study needs at least one case")
     if len({case.name for case in cases}) != len(cases):
         raise ValueError("throw study case names must be unique")
+    models = tuple(control_models)
+    if not models:
+        raise ValueError("the throw study needs at least one control model")
+    unknown = sorted(set(models) - set(STUDY_CONTROL_MODELS))
+    if unknown:
+        raise ValueError(f"unknown control model(s): {', '.join(unknown)}")
     results: list[dict[str, Any]] = []
     for case in cases:
-        modes = {model: run_throw_study_trial(case, model) for model in CONTROL_MODELS}
-        results.append(
-            {
-                "case": case.to_dict(),
-                "modes": modes,
-                "difference_working_minus_certified": _mode_difference(
-                    modes["certified"],
-                    modes["working"],
-                ),
-            }
-        )
+        modes = {model: run_throw_study_trial(case, model) for model in models}
+        entry: dict[str, Any] = {"case": case.to_dict(), "modes": modes}
+        if set(CONTROL_MODELS) <= set(modes):
+            entry["difference_working_minus_certified"] = _mode_difference(
+                modes["certified"],
+                modes["working"],
+            )
+        results.append(entry)
     report = {
         "artifact_type": "glassbox_crazyflow_throw_control_model_study",
         "schema_version": 1,
@@ -877,10 +1074,10 @@ def run_crazyflow_throw_study(
             "sustained_hover_measured_from_model_enable_in_both_modes": True,
             "working_mode_records_a_shadow_transaction": True,
         },
-        "control_models": list(CONTROL_MODELS),
+        "control_models": list(models),
         "case_count": len(results),
         "cases": results,
-        "aggregate": _aggregate(results),
+        "aggregate": _aggregate(results, models),
         "limitations": [
             "This is a two-arm comparison on eight deterministic releases, not held-out validation.",
             "Only one noise realisation and one configuration change are exercised.",
@@ -892,7 +1089,10 @@ def run_crazyflow_throw_study(
     return report
 
 
-def _aggregate(results: list[dict[str, Any]]) -> dict[str, Any]:
+def _aggregate(
+    results: list[dict[str, Any]],
+    models: tuple[str, ...] = CONTROL_MODELS,
+) -> dict[str, Any]:
     def worst(model: str, section: str, name: str) -> float:
         return max(float(result["modes"][model][section][name]) for result in results)
 
@@ -904,18 +1104,33 @@ def _aggregate(results: list[dict[str, Any]]) -> dict[str, Any]:
             result["modes"][model]["flight"]["non_finite_value_count"] == 0
             and result["modes"][model]["flight"]["command_bound_violation_count"] == 0
             for result in results
-            for model in CONTROL_MODELS
-        ),
-        "working_mode_never_lost_readiness": all(
-            result["modes"]["working"]["readiness"]["readiness_loss_count"] == 0
-            for result in results
-        ),
-        "working_mode_reached_readiness_in_every_case": all(
-            result["modes"]["working"]["readiness"]["control_model_time_s"] is not None
-            for result in results
+            for model in models
         ),
     }
-    for model in CONTROL_MODELS:
+    if "working" in models:
+        aggregate["working_mode_never_lost_readiness"] = all(
+            result["modes"]["working"]["readiness"]["readiness_loss_count"] == 0
+            for result in results
+        )
+        aggregate["working_mode_reached_readiness_in_every_case"] = all(
+            result["modes"]["working"]["readiness"]["control_model_time_s"] is not None
+            for result in results
+        )
+    if DUAL_CONTROL_MODEL in models:
+        aggregate["dual_control_reached_command_rank_four_in_every_case"] = all(
+            result["modes"][DUAL_CONTROL_MODEL]["dual_control"][
+                "command_information_rank_four_time_s"
+            ]
+            is not None
+            for result in results
+        )
+        aggregate["dual_control_unusable_command_total"] = sum(
+            result["modes"][DUAL_CONTROL_MODEL]["dual_control"][
+                "unusable_command_count"
+            ]
+            for result in results
+        )
+    for model in models:
         aggregate[model] = {
             "worst_terminal_speed_m_s": worst(model, "flight", "terminal_speed_m_s"),
             "worst_terminal_angular_rate_rad_s": worst(
@@ -939,13 +1154,13 @@ def _aggregate(results: list[dict[str, Any]]) -> dict[str, Any]:
                 model, "stability", "settled_maximum_relative_allocation_change"
             ),
         }
-    working_better = [
-        result["case"]["name"]
-        for result in results
-        if result["modes"]["working"]["flight"]["terminal_speed_m_s"]
-        <= result["modes"]["certified"]["flight"]["terminal_speed_m_s"]
-    ]
-    aggregate["cases_where_working_terminal_speed_is_no_worse"] = working_better
+    if set(CONTROL_MODELS) <= set(models):
+        aggregate["cases_where_working_terminal_speed_is_no_worse"] = [
+            result["case"]["name"]
+            for result in results
+            if result["modes"]["working"]["flight"]["terminal_speed_m_s"]
+            <= result["modes"]["certified"]["flight"]["terminal_speed_m_s"]
+        ]
     aggregate["case_count"] = len(results)
     return aggregate
 
@@ -1003,8 +1218,9 @@ def main(argv: Sequence[str] | None = None) -> None:
     os.environ.setdefault("SCIPY_ARRAY_API", "1")
     parser = argparse.ArgumentParser(
         description=(
-            "Compare flying the certified snapshot against flying the working "
-            "belief on the Crazyflow throw diagnostic."
+            "Compare flying the certified snapshot, flying the working belief, "
+            "and flying one dual-control optimization on the Crazyflow throw "
+            "diagnostic."
         )
     )
     parser.add_argument(
@@ -1020,6 +1236,16 @@ def main(argv: Sequence[str] | None = None) -> None:
         default=None,
         help="run only the named case; may be repeated",
     )
+    parser.add_argument(
+        "--control-model",
+        action="append",
+        default=None,
+        choices=STUDY_CONTROL_MODELS,
+        help=(
+            "run only the named control model; may be repeated "
+            f"(default: {' '.join(STUDY_CONTROL_MODELS)})"
+        ),
+    )
     args = parser.parse_args(argv)
     cases = CRAZYFLOW_THROW_STUDY_CASES
     if args.case:
@@ -1028,7 +1254,8 @@ def main(argv: Sequence[str] | None = None) -> None:
         if unknown:
             parser.error(f"unknown case name(s): {', '.join(unknown)}")
         cases = tuple(by_name[name] for name in args.case)
-    report = run_crazyflow_throw_study(cases)
+    models = tuple(args.control_model) if args.control_model else STUDY_CONTROL_MODELS
+    report = run_crazyflow_throw_study(cases, models)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2, allow_nan=False) + "\n")
     print(format_study_table(report))

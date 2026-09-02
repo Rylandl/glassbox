@@ -116,6 +116,46 @@ Success criteria for this pass:
    the cascade;
 6. no vehicle-specific number anywhere in the controller.
 
+## First pass result (2026-09-02)
+
+The controller as specified does not fly. On all seven cases it commands all
+four motors at zero for the first half second after enable and the vehicle
+reaches the floor; command information never reaches rank four before floor
+contact on any case. The mechanism is structural, not a weight choice:
+
+- At zero information the posterior command maps are exactly zero, so the
+  tracking cost and both chance penalties have exactly zero gradient with
+  respect to the commands. The only term with a gradient is the information
+  gain, and at a motor-uniform command that gradient is parallel to the
+  all-ones direction. The diagnostic releases with motors off, so the seed sits
+  on the lower bound in that direction and the projected gradient vanishes.
+  Uniform commands generate no command information, so the fixed point
+  sustains itself. No positive scaling of any term changes this; every knob
+  was tried once on the canonical case and none moved the first thirty
+  commands.
+- Even a global solve would not excite at the dimensional weights: the
+  rank-four design earns about 30 nats more information than holding zero but
+  costs about 550 units of command-rate penalty, so the information weight
+  must exceed roughly 19 before excitation is preferred at all. The claim
+  above that the information term dominates at zero information is therefore
+  not weight-free, and the two terms have no shared currency.
+- A plan seeded constant across blocks stays constant across blocks under
+  first-order steps, so even after escaping motor symmetry the optimizer
+  cannot build a rank-four design within one horizon.
+
+What was met: every command finite and within bounds on every case, one
+jitted program with no recompilation, no vehicle-specific number anywhere in
+the controller, and a solve cost of about 3 ms. The implementation lives in
+`glassbox.experimental.dual_control` and the study mode `dual_control_nmpc`;
+the two existing modes are unchanged.
+
+The next pass has to break the symmetry deliberately (a declared, tiny,
+non-uniform seed or a multi-start over bounded orthogonal designs), compute
+the information features on the residualized commands the identifier actually
+accumulates, and give information a currency in tracking units, for example
+by charging the expected tracking cost for predicted spread so that reducing
+spread is worth something to the same objective.
+
 ## Out of scope for this pass
 
 Actuator lag, forgetting or process noise for tracking configuration changes
