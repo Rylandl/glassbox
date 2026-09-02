@@ -1,5 +1,4 @@
 import json
-import sys
 from dataclasses import replace
 from pathlib import Path
 
@@ -17,7 +16,6 @@ from glassbox.core.fixedwing_synthetic import (
     true_fixed_wing_parameters,
 )
 from glassbox.core.synthetic import generate_trajectory, true_parameters
-from glassbox.workflows import fitting
 from glassbox.workflows.fitting import (
     BenchmarkSplitHoldoutConflict,
     _automatic_training_window_budget,
@@ -357,31 +355,6 @@ def test_benchmark_split_holdout_rejects_explicit_holdout_profiles(tmp_path) -> 
         fit_trajectory_artifacts(paths, holdout_profiles=("hover",), steps=1)
 
 
-def test_fit_cli_rejects_holdout_count_when_benchmark_split_labels_are_present(
-    tmp_path, monkeypatch, capsys
-) -> None:
-    paths = _write_benchmark_split_flights(tmp_path, ("training", "validation"))
-
-    monkeypatch.setattr(
-        sys,
-        "argv",
-        [
-            "glassbox-fit",
-            *(str(path) for path in paths),
-            "--holdout-count",
-            "2",
-            "--steps",
-            "1",
-        ],
-    )
-
-    with pytest.raises(SystemExit) as excinfo:
-        fitting.main()
-
-    assert excinfo.value.code == 2
-    assert "benchmark_split" in capsys.readouterr().err
-
-
 def test_requested_fit_builds_rank_aware_parameter_evidence(tmp_path) -> None:
     paths = []
     for seed in range(3):
@@ -620,7 +593,7 @@ def test_profile_benchmark_runs_one_fold_per_profile(tmp_path) -> None:
 
 
 def test_rollout_error_excludes_the_measured_initial_sample() -> None:
-    from glassbox.core.evaluation import ROLLOUT_METRIC_POLICY, _state_error_metrics
+    from glassbox.core.evaluation import ROLLOUT_METRIC_POLICY, state_error_metrics
     from glassbox.core.synthetic import resting_state
 
     horizon = 5
@@ -628,11 +601,11 @@ def test_rollout_error_excludes_the_measured_initial_sample() -> None:
     predicted = target.copy()
     predicted[:, 1:, 0:3] += 0.3
 
-    metrics = _state_error_metrics(predicted, target, duration_s=0.1)
+    metrics = state_error_metrics(predicted, target, duration_s=0.1)
 
     assert metrics["position_rmse_m"] == pytest.approx(0.3)
     assert metrics["sample_count"] == 3 * horizon
     assert metrics["rollout_count"] == 3
     assert metrics["metric_policy"] == ROLLOUT_METRIC_POLICY
     with pytest.raises(ValueError, match="at least one predicted step"):
-        _state_error_metrics(predicted[:, :1], target[:, :1], duration_s=0.0)
+        state_error_metrics(predicted[:, :1], target[:, :1], duration_s=0.0)

@@ -12,6 +12,11 @@ from glassbox.workflows.angular_authority import (
     select_angular_dynamics_authority,
 )
 from glassbox.workflows.policy_selection import score_policy_candidates
+from glassbox.workflows.selection import (
+    MAXIMUM_METRIC_REGRESSION,
+    MAXIMUM_PLATFORM_REGRESSION,
+    MINIMUM_OVERALL_IMPROVEMENT,
+)
 
 ROTATION_SELECTION_HORIZONS_S = (0.1, 0.5, 1.0)
 ROTATION_SELECTION_PROFILES = ("chirp", "random", "square")
@@ -59,9 +64,9 @@ def select_nanodrone_rotation_candidate(
         loaded,
         reference_id=ROTATION_REFERENCE,
         evaluation_horizons_s=ROTATION_SELECTION_HORIZONS_S,
-        maximum_metric_regression=1.5,
-        maximum_platform_regression=1.05,
-        minimum_overall_improvement=0.01,
+        maximum_metric_regression=MAXIMUM_METRIC_REGRESSION,
+        maximum_platform_regression=MAXIMUM_PLATFORM_REGRESSION,
+        minimum_overall_improvement=MINIMUM_OVERALL_IMPROVEMENT,
     )
     decision = {
         "format_version": 1,
@@ -75,7 +80,7 @@ def select_nanodrone_rotation_candidate(
         "profiles": list(ROTATION_SELECTION_PROFILES),
         "evaluation_horizons_s": list(ROTATION_SELECTION_HORIZONS_S),
         "reference_candidate": ROTATION_REFERENCE,
-        "minimum_improvement": 0.01,
+        "minimum_improvement": MINIMUM_OVERALL_IMPROVEMENT,
         "candidate_summaries": {
             name: {
                 "path": str(path),

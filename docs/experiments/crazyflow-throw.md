@@ -92,7 +92,7 @@ Run the diagnostic with:
 
 ```bash
 uv sync --extra crazyflow
-uv run --extra crazyflow glassbox-crazyflow-throw \
+uv run --extra crazyflow glassbox crazyflow throw \
   docs/results/crazyflow-throw-results.json
 ```
 
@@ -107,7 +107,7 @@ is deliberately recorded as development evidence—not held-out validation—and
 retains failures instead of reducing the output to successful examples:
 
 ```bash
-uv run --extra crazyflow glassbox-crazyflow-throw \
+uv run --extra crazyflow glassbox crazyflow throw \
   docs/results/crazyflow-throw-campaign-results.json --campaign
 ```
 
@@ -138,7 +138,7 @@ Render both in one run with:
 
 ```bash
 uv sync --extra crazyflow-animation
-uv run --extra crazyflow-animation glassbox-crazyflow-throw-animation \
+uv run --extra crazyflow-animation glassbox crazyflow throw-animation \
   artifacts/crazyflow_throw/online-recovery.mp4 \
   --poster artifacts/crazyflow_throw/online-recovery-poster.png \
   --gif artifacts/crazyflow_throw/online-recovery-preview.gif \

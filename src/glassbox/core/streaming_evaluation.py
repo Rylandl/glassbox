@@ -8,7 +8,12 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
-from glassbox.core.evaluation import METRIC_FLOORS, ROLLOUT_METRICS
+from glassbox.core.evaluation import (
+    METRIC_FLOORS,
+    ROLLOUT_METRICS,
+    state_error_magnitudes,
+    state_rmse_metrics,
+)
 from glassbox.core.runtime import RuntimeDynamicsModel
 
 _MINIMUM_INTERVAL_MULTIPLE = 0.5
@@ -56,32 +61,20 @@ def _kinematic_prediction(state: np.ndarray, dt_s: float) -> np.ndarray:
 
 
 def _state_error(predicted: np.ndarray, actual: np.ndarray) -> dict[str, float]:
-    quaternion_dot = abs(float(np.dot(predicted[6:10], actual[6:10])))
-    attitude_error_deg = np.rad2deg(2.0 * np.arccos(np.clip(quaternion_dot, -1.0, 1.0)))
-    return {
-        "position_error_m": float(np.linalg.norm(predicted[0:3] - actual[0:3])),
-        "velocity_error_m_s": float(np.linalg.norm(predicted[3:6] - actual[3:6])),
-        "attitude_error_deg": float(attitude_error_deg),
-        "angular_velocity_error_rad_s": float(
-            np.linalg.norm(predicted[10:13] - actual[10:13])
-        ),
-    }
+    """Report one transition's error magnitudes under this module's key names."""
+
+    magnitudes = state_error_magnitudes(predicted, actual, normalize_quaternions=False)
+    return {name: float(value) for name, value in magnitudes.items()}
 
 
 def _aggregate_metrics(predicted: np.ndarray, actual: np.ndarray) -> dict[str, float]:
-    position_error = predicted[:, 0:3] - actual[:, 0:3]
-    velocity_error = predicted[:, 3:6] - actual[:, 3:6]
-    angular_velocity_error = predicted[:, 10:13] - actual[:, 10:13]
-    quaternion_dot = np.abs(np.sum(predicted[:, 6:10] * actual[:, 6:10], axis=1))
-    attitude_error_deg = np.rad2deg(2.0 * np.arccos(np.clip(quaternion_dot, -1.0, 1.0)))
-    return {
-        "position_rmse_m": float(np.sqrt(np.mean(np.square(position_error)))),
-        "velocity_rmse_m_s": float(np.sqrt(np.mean(np.square(velocity_error)))),
-        "attitude_rmse_deg": float(np.sqrt(np.mean(np.square(attitude_error_deg)))),
-        "angular_velocity_rmse_rad_s": float(
-            np.sqrt(np.mean(np.square(angular_velocity_error)))
-        ),
-    }
+    """Aggregate every scored transition into the shared rollout RMSE terms.
+
+    Streaming states are validated unit quaternions, so renormalizing them
+    would only add rounding noise to the published numbers.
+    """
+
+    return state_rmse_metrics(predicted, actual, normalize_quaternions=False)
 
 
 class StreamingOneStepEvaluator:

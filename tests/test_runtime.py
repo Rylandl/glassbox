@@ -20,8 +20,10 @@ from glassbox.core.synthetic import generate_trajectory, true_parameters
 from glassbox.io.nanodrone_reference import nanodrone_trajectory_spec
 
 
-def test_runtime_model_loads_timing_bounds_and_latent_state(tmp_path) -> None:
-    trajectory = generate_trajectory(seed=2, duration_s=0.2)
+def test_runtime_model_loads_timing_bounds_and_latent_state(
+    tmp_path, quadrotor_trajectory_seed2_dur0_2s
+) -> None:
+    trajectory = quadrotor_trajectory_seed2_dur0_2s
     path = tmp_path / "model.json"
     save_dynamics_model(
         true_parameters(),
@@ -65,8 +67,10 @@ def test_runtime_model_loads_timing_bounds_and_latent_state(tmp_path) -> None:
         )
 
 
-def test_transition_enforces_declared_command_bounds(tmp_path) -> None:
-    trajectory = generate_trajectory(seed=2, duration_s=0.2)
+def test_transition_enforces_declared_command_bounds(
+    tmp_path, quadrotor_trajectory_seed2_dur0_2s
+) -> None:
+    trajectory = quadrotor_trajectory_seed2_dur0_2s
     path = tmp_path / "model.json"
     save_dynamics_model(
         true_parameters(),
@@ -111,8 +115,10 @@ def test_transition_enforces_declared_command_bounds(tmp_path) -> None:
         runtime.transition(state, latent, beyond)
 
 
-def test_traced_commands_stay_the_caller_s_contract(tmp_path) -> None:
-    trajectory = generate_trajectory(seed=2, duration_s=0.2)
+def test_traced_commands_stay_the_caller_s_contract(
+    tmp_path, quadrotor_trajectory_seed2_dur0_2s
+) -> None:
+    trajectory = quadrotor_trajectory_seed2_dur0_2s
     path = tmp_path / "model.json"
     save_dynamics_model(
         true_parameters(),
@@ -133,8 +139,10 @@ def test_traced_commands_stay_the_caller_s_contract(tmp_path) -> None:
     assert np.all(np.isfinite(compiled(jnp.full(4, 0.4))))
 
 
-def test_direct_actuation_rejects_measured_rotor_speed_model(tmp_path) -> None:
-    trajectory = generate_trajectory(seed=0, duration_s=0.1)
+def test_direct_actuation_rejects_measured_rotor_speed_model(
+    tmp_path, quadrotor_trajectory_seed0_dur0_1s
+) -> None:
+    trajectory = quadrotor_trajectory_seed0_dur0_1s
     path = tmp_path / "nanodrone_model.json"
     save_dynamics_model(
         true_parameters(),
@@ -156,8 +164,10 @@ class SquaredSpeedActuation:
         return jnp.square(command)
 
 
-def test_explicit_actuation_map_can_bind_noncommand_model(tmp_path) -> None:
-    trajectory = generate_trajectory(seed=0, duration_s=0.1)
+def test_explicit_actuation_map_can_bind_noncommand_model(
+    tmp_path, quadrotor_trajectory_seed0_dur0_1s
+) -> None:
+    trajectory = quadrotor_trajectory_seed0_dur0_1s
     path = tmp_path / "nanodrone_model.json"
     save_dynamics_model(
         true_parameters(),
@@ -206,8 +216,10 @@ class InvalidActuationBoundary:
         return jnp.where(command > 0.9, jnp.nan, command)
 
 
-def test_runtime_validates_actual_actuation_map_output(tmp_path) -> None:
-    trajectory = generate_trajectory(seed=0, duration_s=0.1)
+def test_runtime_validates_actual_actuation_map_output(
+    tmp_path, quadrotor_trajectory_seed0_dur0_1s
+) -> None:
+    trajectory = quadrotor_trajectory_seed0_dur0_1s
     path = tmp_path / "model.json"
     save_dynamics_model(
         true_parameters(),

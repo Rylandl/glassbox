@@ -161,6 +161,114 @@ class _SupportDecision:
     support_horizon_terminal_rate_energy: float
 
 
+@dataclass(frozen=True)
+class _SupportMetrics:
+    """Per-candidate support metrics, non-finite entries masked to infinity.
+
+    Masking rather than dropping keeps every array aligned with the candidate
+    list, and infinity makes a candidate whose forecast went non-finite lose
+    every comparison without a separate branch.
+    """
+
+    next_mean_validity: np.ndarray
+    next_robust_validity: np.ndarray
+    next_rate_energy: np.ndarray
+    horizon_maximum_robust_validity: np.ndarray
+    horizon_terminal_robust_validity: np.ndarray
+    horizon_terminal_rate_energy: np.ndarray
+
+    def at(self, index: int) -> tuple[float, float, float, float, float, float]:
+        """Return one candidate's six metrics in decision-record order."""
+
+        return (
+            float(self.next_mean_validity[index]),
+            float(self.next_robust_validity[index]),
+            float(self.next_rate_energy[index]),
+            float(self.horizon_maximum_robust_validity[index]),
+            float(self.horizon_terminal_robust_validity[index]),
+            float(self.horizon_terminal_rate_energy[index]),
+        )
+
+
+@dataclass(frozen=True)
+class _PlanEvaluation:
+    """One command plan with its objective, gradient norms, and prediction."""
+
+    blocks: Array
+    value: Array
+    gradient: Array
+    value_float: float
+    gradient_inf_norm: float
+    projected_gradient_inf_norm: float
+    states: Array
+    latent_states: Array
+    commands: Array
+    states_np: np.ndarray
+    latent_np: np.ndarray
+    commands_np: np.ndarray
+
+    @property
+    def prediction_finite(self) -> bool:
+        """Whether the rolled-out plan and its objective are all finite."""
+
+        return bool(
+            np.all(np.isfinite(self.states_np))
+            and np.all(np.isfinite(self.latent_np))
+            and np.all(np.isfinite(self.commands_np))
+            and np.isfinite(self.value_float)
+        )
+
+
+@dataclass
+class _OptimizerOutcome:
+    """What the bounded optimizer produced and how it terminated.
+
+    ``converged`` and ``stalled`` are cleared by any later edit to the command
+    blocks, because a plan that was changed after the line search no longer
+    satisfies the criterion the line search reported.
+    """
+
+    blocks: Array
+    value: Array
+    gradient: Array
+    iterations: int
+    converged: bool
+    stalled: bool
+    line_search_failed: bool
+    progressed: bool
+    finite: bool
+    stall_message: str
+
+
+@dataclass(frozen=True)
+class _PredictionDiagnostics:
+    """Bound, validity, and safety measurements of one predicted horizon."""
+
+    maximum_command_bound_violation: float
+    maximum_validity_utilization: float
+    maximum_normalized_safety_violation: float
+
+
+@dataclass
+class _SolveProgress:
+    """Failure-report context accumulated as one solve advances."""
+
+    started_at: float
+    previous_command: Array
+    initial_objective: float = math.inf
+    iterations: int = 0
+    warm_start_used: bool = False
+
+
+class _SolveAbort(Exception):
+    """Internal signal that one solve must return a bounded fallback command."""
+
+    def __init__(self, status: SolveStatus, message: str) -> None:
+        super().__init__(message)
+        self.status = status
+        self.message = message
+
+
 def _default_policy(model: RuntimeDynamicsModel) -> _SolverPolicy:
     dt_s = model.runtime_spec.sample_period_s
     target_horizon_s = 0.6 if model.input_spec.vehicle.family == "multirotor" else 1.0
@@ -741,6 +849,241 @@ class _DirectShootingBackend:
             nominal_fractions.append(fraction)
         return candidates, nominal_fractions
 
+    def _warm_support_batch(
+        self,
+        state: Array,
+        latent: Array,
+        candidates: list[np.ndarray],
+        exogenous: Array,
+    ) -> None:
+        """Compile the batched candidate kernel on a solve that does not need it.
+
+        The recovery and boundary paths must not pay a first-call compile at the
+        moment they are reached, so the first nominal-safe solve warms the same
+        kernel with the candidates it would otherwise have evaluated.
+        """
+
+        if self._support_batch_warmed:
+            return
+        warmed = self._support_metrics_compiled(
+            state,
+            latent,
+            jnp.asarray(np.asarray(candidates[1:])),
+            exogenous,
+            self._active_parameters,
+        )
+        jax.block_until_ready(warmed)
+        self._support_batch_warmed = True
+
+    def _candidate_support_metrics(
+        self,
+        state: Array,
+        latent: Array,
+        candidates: list[np.ndarray],
+        nominal_metrics: tuple[float, float, float, float, float, float],
+        exogenous: Array,
+    ) -> _SupportMetrics:
+        """Evaluate every candidate over the actuator reaction horizon.
+
+        The nominal candidate's metrics are already known, so only the
+        interpolated alternatives go through the batched kernel; the two are
+        then concatenated back into candidate order.
+        """
+
+        alternative_metrics = (
+            self._support_metrics_compiled(
+                state,
+                latent,
+                jnp.asarray(np.asarray(candidates[1:])),
+                exogenous,
+                self._active_parameters,
+            )
+            if len(candidates) > 1
+            else tuple(np.empty(0) for _ in range(6))
+        )
+        self._support_batch_warmed = True
+        columns = [
+            np.asarray(
+                np.concatenate(
+                    (
+                        np.asarray((nominal_metrics[index],), dtype=np.float64),
+                        np.asarray(alternative_metrics[index], dtype=np.float64),
+                    )
+                ),
+                dtype=np.float64,
+            )
+            for index in range(6)
+        ]
+        finite = np.logical_and.reduce([np.isfinite(column) for column in columns])
+        return _SupportMetrics(
+            *(np.where(finite, column, np.inf) for column in columns)
+        )
+
+    def _acceptable_support(
+        self,
+        metrics: _SupportMetrics,
+        *,
+        inside_support: bool,
+        current_validity: float,
+        current_rate_energy: float,
+    ) -> np.ndarray:
+        """Mark the candidates whose support-horizon forecast is acceptable.
+
+        Inside the validity envelope a candidate is acceptable when it never
+        leaves the envelope over the whole support horizon.  Outside it no
+        candidate can already be safe, so acceptability becomes strict progress
+        instead: terminal robust validity and terminal rate energy must both
+        fall by more than the rounding width of the value they are measured
+        against, which stops a numerically flat candidate from being mistaken
+        for a recovering one.
+        """
+
+        if inside_support:
+            return metrics.horizon_maximum_robust_validity <= 1.0 + 1e-6
+        validity_tolerance = (
+            32.0
+            * np.finfo(np.float64).eps
+            * max(
+                1.0,
+                current_validity,
+            )
+        )
+        energy_tolerance = (
+            32.0
+            * np.finfo(np.float64).eps
+            * max(
+                1.0,
+                current_rate_energy,
+            )
+        )
+        validity_progress = (
+            metrics.horizon_terminal_robust_validity
+            < current_validity - validity_tolerance
+        )
+        rate_progress = np.where(
+            current_rate_energy > energy_tolerance,
+            metrics.horizon_terminal_rate_energy
+            < current_rate_energy - energy_tolerance,
+            metrics.horizon_terminal_rate_energy <= energy_tolerance,
+        )
+        return validity_progress & rate_progress
+
+    def _selected_support_candidate(
+        self,
+        metrics: _SupportMetrics,
+        acceptable: np.ndarray,
+        nominal_fractions: list[float],
+        *,
+        inside_support: bool,
+        current_validity: float,
+        current_rate_energy: float,
+    ) -> tuple[int, SupportFilterMode]:
+        """Pick one candidate and name the mode that picked it.
+
+        With acceptable candidates available the choice is the most nominal one
+        inside the envelope, and the one that recovers hardest outside it.  With
+        none, the same orderings are applied as a best effort so a command is
+        still returned, and the mode records that no candidate met the bar.
+        """
+
+        acceptable_indices = np.flatnonzero(acceptable)
+        if len(acceptable_indices):
+            selected_index = (
+                int(acceptable_indices[0])
+                if inside_support
+                else min(
+                    (int(index) for index in acceptable_indices),
+                    key=lambda index: (
+                        metrics.horizon_maximum_robust_validity[index],
+                        metrics.horizon_terminal_robust_validity[index]
+                        / max(current_validity, 1e-12),
+                        metrics.horizon_terminal_rate_energy[index]
+                        / max(current_rate_energy, 1e-12),
+                        -nominal_fractions[index],
+                    ),
+                )
+            )
+            return selected_index, (
+                SupportFilterMode.NOMINAL_SAFE
+                if inside_support and selected_index == 0
+                else SupportFilterMode.BOUNDARY_FILTERED
+                if inside_support
+                else SupportFilterMode.RECOVERY_FILTERED
+            )
+
+        if inside_support:
+            scores = np.stack(
+                (
+                    metrics.horizon_maximum_robust_validity,
+                    metrics.horizon_terminal_robust_validity,
+                    metrics.horizon_terminal_rate_energy,
+                ),
+                axis=1,
+            )
+        else:
+            validity_scale = max(current_validity, 1e-12)
+            rate_scale = max(current_rate_energy, 1e-12)
+            maximum_validity_ratio = (
+                metrics.horizon_maximum_robust_validity / validity_scale
+            )
+            terminal_validity_ratio = (
+                metrics.horizon_terminal_robust_validity / validity_scale
+            )
+            terminal_rate_ratio = metrics.horizon_terminal_rate_energy / rate_scale
+            scores = np.stack(
+                (
+                    maximum_validity_ratio,
+                    np.maximum(terminal_validity_ratio, terminal_rate_ratio),
+                    terminal_validity_ratio + terminal_rate_ratio,
+                ),
+                axis=1,
+            )
+        selected_index = min(
+            range(len(nominal_fractions)),
+            key=lambda index: (
+                scores[index, 0],
+                scores[index, 1],
+                scores[index, 2],
+                -nominal_fractions[index],
+            ),
+        )
+        return selected_index, (
+            SupportFilterMode.BOUNDARY_BEST_EFFORT
+            if inside_support
+            else SupportFilterMode.RECOVERY_BEST_EFFORT
+        )
+
+    def _support_decision(
+        self,
+        command: np.ndarray,
+        mode: SupportFilterMode,
+        *,
+        applied: bool,
+        nominal_fraction: float,
+        current_validity: float,
+        current_rate_energy: float,
+        metrics: tuple[float, float, float, float, float, float],
+    ) -> _SupportDecision:
+        """Assemble one auditable support-filter decision record."""
+
+        return _SupportDecision(
+            command=command,
+            mode=mode,
+            applied=applied,
+            nominal_fraction=nominal_fraction,
+            current_validity=current_validity,
+            next_mean_validity=metrics[0],
+            next_robust_validity=metrics[1],
+            current_rate_energy=current_rate_energy,
+            next_rate_energy=metrics[2],
+            support_horizon_s=(
+                self._support_horizon_steps * self.model.runtime_spec.sample_period_s
+            ),
+            support_horizon_maximum_robust_validity=metrics[3],
+            support_horizon_terminal_robust_validity=metrics[4],
+            support_horizon_terminal_rate_energy=metrics[5],
+        )
+
     def _select_support_command(
         self,
         state: Array,
@@ -751,6 +1094,15 @@ class _DirectShootingBackend:
         nominal_support_metrics: tuple[float, float, float, float, float, float]
         | None = None,
     ) -> _SupportDecision:
+        """Choose the first command the belief can actually support.
+
+        The nominal command is kept untouched whenever the vehicle is inside its
+        validity envelope and the nominal plan keeps it there across the whole
+        actuator reaction horizon.  Otherwise the interpolation toward the
+        previous command is searched, and the mode records whether the result
+        was safe, filtered, or the best available with nothing acceptable.
+        """
+
         state_np = np.asarray(state, dtype=np.float64)
         nominal_np = np.asarray(nominal_command, dtype=np.float64)
         previous_np = np.asarray(previous_command, dtype=np.float64)
@@ -779,206 +1131,46 @@ class _DirectShootingBackend:
         )
         nominal_finite = bool(np.all(np.isfinite(nominal_metrics)))
         if nominal_finite and inside_support and nominal_metrics[3] <= 1.0 + 1e-6:
-            if not self._support_batch_warmed:
-                warmed = self._support_metrics_compiled(
-                    state,
-                    latent,
-                    jnp.asarray(np.asarray(candidates[1:])),
-                    exogenous,
-                    self._active_parameters,
-                )
-                jax.block_until_ready(warmed)
-                self._support_batch_warmed = True
-            return _SupportDecision(
-                command=candidates[0],
-                mode=SupportFilterMode.NOMINAL_SAFE,
+            self._warm_support_batch(state, latent, candidates, exogenous)
+            return self._support_decision(
+                candidates[0],
+                SupportFilterMode.NOMINAL_SAFE,
                 applied=False,
                 nominal_fraction=1.0,
                 current_validity=current_validity,
-                next_mean_validity=nominal_metrics[0],
-                next_robust_validity=nominal_metrics[1],
                 current_rate_energy=current_rate_energy,
-                next_rate_energy=nominal_metrics[2],
-                support_horizon_s=(
-                    self._support_horizon_steps
-                    * self.model.runtime_spec.sample_period_s
-                ),
-                support_horizon_maximum_robust_validity=nominal_metrics[3],
-                support_horizon_terminal_robust_validity=nominal_metrics[4],
-                support_horizon_terminal_rate_energy=nominal_metrics[5],
+                metrics=nominal_metrics,
             )
 
-        alternative_metrics = (
-            self._support_metrics_compiled(
-                state,
-                latent,
-                jnp.asarray(np.asarray(candidates[1:])),
-                exogenous,
-                self._active_parameters,
-            )
-            if len(candidates) > 1
-            else tuple(np.empty(0) for _ in range(6))
+        metrics = self._candidate_support_metrics(
+            state,
+            latent,
+            candidates,
+            nominal_metrics,
+            exogenous,
         )
-        self._support_batch_warmed = True
-        metric_values = tuple(
-            np.concatenate(
-                (
-                    np.asarray((nominal_metrics[index],), dtype=np.float64),
-                    np.asarray(alternative_metrics[index], dtype=np.float64),
-                )
-            )
-            for index in range(6)
+        selected_index, mode = self._selected_support_candidate(
+            metrics,
+            self._acceptable_support(
+                metrics,
+                inside_support=inside_support,
+                current_validity=current_validity,
+                current_rate_energy=current_rate_energy,
+            ),
+            nominal_fractions,
+            inside_support=inside_support,
+            current_validity=current_validity,
+            current_rate_energy=current_rate_energy,
         )
-        (
-            next_mean_values,
-            next_robust_values,
-            next_rate_values,
-            horizon_maximum_values,
-            horizon_terminal_values,
-            horizon_terminal_rate_values,
-        ) = metric_values
-        next_mean_np = np.asarray(next_mean_values, dtype=np.float64)
-        next_robust_np = np.asarray(next_robust_values, dtype=np.float64)
-        next_rate_np = np.asarray(next_rate_values, dtype=np.float64)
-        horizon_maximum_np = np.asarray(horizon_maximum_values, dtype=np.float64)
-        horizon_terminal_np = np.asarray(horizon_terminal_values, dtype=np.float64)
-        horizon_terminal_rate_np = np.asarray(
-            horizon_terminal_rate_values,
-            dtype=np.float64,
-        )
-        finite_metrics = (
-            np.isfinite(next_mean_np)
-            & np.isfinite(next_robust_np)
-            & np.isfinite(next_rate_np)
-            & np.isfinite(horizon_maximum_np)
-            & np.isfinite(horizon_terminal_np)
-            & np.isfinite(horizon_terminal_rate_np)
-        )
-        next_mean_np = np.where(finite_metrics, next_mean_np, np.inf)
-        next_robust_np = np.where(finite_metrics, next_robust_np, np.inf)
-        next_rate_np = np.where(finite_metrics, next_rate_np, np.inf)
-        horizon_maximum_np = np.where(finite_metrics, horizon_maximum_np, np.inf)
-        horizon_terminal_np = np.where(finite_metrics, horizon_terminal_np, np.inf)
-        horizon_terminal_rate_np = np.where(
-            finite_metrics,
-            horizon_terminal_rate_np,
-            np.inf,
-        )
-        if inside_support:
-            acceptable = horizon_maximum_np <= 1.0 + 1e-6
-        else:
-            validity_tolerance = (
-                32.0
-                * np.finfo(np.float64).eps
-                * max(
-                    1.0,
-                    current_validity,
-                )
-            )
-            energy_tolerance = (
-                32.0
-                * np.finfo(np.float64).eps
-                * max(
-                    1.0,
-                    current_rate_energy,
-                )
-            )
-            validity_progress = (
-                horizon_terminal_np < current_validity - validity_tolerance
-            )
-            rate_progress = np.where(
-                current_rate_energy > energy_tolerance,
-                horizon_terminal_rate_np < current_rate_energy - energy_tolerance,
-                horizon_terminal_rate_np <= energy_tolerance,
-            )
-            acceptable = validity_progress & rate_progress
-
-        acceptable_indices = np.flatnonzero(acceptable)
-        if len(acceptable_indices):
-            selected_index = (
-                int(acceptable_indices[0])
-                if inside_support
-                else min(
-                    (int(index) for index in acceptable_indices),
-                    key=lambda index: (
-                        horizon_maximum_np[index],
-                        horizon_terminal_np[index] / max(current_validity, 1e-12),
-                        horizon_terminal_rate_np[index]
-                        / max(current_rate_energy, 1e-12),
-                        -nominal_fractions[index],
-                    ),
-                )
-            )
-            mode = (
-                SupportFilterMode.NOMINAL_SAFE
-                if inside_support and selected_index == 0
-                else SupportFilterMode.BOUNDARY_FILTERED
-                if inside_support
-                else SupportFilterMode.RECOVERY_FILTERED
-            )
-        else:
-            if inside_support:
-                scores = np.stack(
-                    (
-                        horizon_maximum_np,
-                        horizon_terminal_np,
-                        horizon_terminal_rate_np,
-                    ),
-                    axis=1,
-                )
-            else:
-                validity_scale = max(current_validity, 1e-12)
-                rate_scale = max(current_rate_energy, 1e-12)
-                maximum_validity_ratio = horizon_maximum_np / validity_scale
-                terminal_validity_ratio = horizon_terminal_np / validity_scale
-                terminal_rate_ratio = horizon_terminal_rate_np / rate_scale
-                scores = np.stack(
-                    (
-                        maximum_validity_ratio,
-                        np.maximum(terminal_validity_ratio, terminal_rate_ratio),
-                        terminal_validity_ratio + terminal_rate_ratio,
-                    ),
-                    axis=1,
-                )
-            selected_index = min(
-                range(len(candidates)),
-                key=lambda index: (
-                    scores[index, 0],
-                    scores[index, 1],
-                    scores[index, 2],
-                    -nominal_fractions[index],
-                ),
-            )
-            mode = (
-                SupportFilterMode.BOUNDARY_BEST_EFFORT
-                if inside_support
-                else SupportFilterMode.RECOVERY_BEST_EFFORT
-            )
-
         selected = candidates[selected_index]
-        applied = not np.allclose(selected, nominal_np, rtol=0.0, atol=1e-12)
-        return _SupportDecision(
-            command=selected,
-            mode=mode,
-            applied=applied,
+        return self._support_decision(
+            selected,
+            mode,
+            applied=not np.allclose(selected, nominal_np, rtol=0.0, atol=1e-12),
             nominal_fraction=nominal_fractions[selected_index],
             current_validity=current_validity,
-            next_mean_validity=float(next_mean_np[selected_index]),
-            next_robust_validity=float(next_robust_np[selected_index]),
             current_rate_energy=current_rate_energy,
-            next_rate_energy=float(next_rate_np[selected_index]),
-            support_horizon_s=(
-                self._support_horizon_steps * self.model.runtime_spec.sample_period_s
-            ),
-            support_horizon_maximum_robust_validity=float(
-                horizon_maximum_np[selected_index]
-            ),
-            support_horizon_terminal_robust_validity=float(
-                horizon_terminal_np[selected_index]
-            ),
-            support_horizon_terminal_rate_energy=float(
-                horizon_terminal_rate_np[selected_index]
-            ),
+            metrics=metrics.at(selected_index),
         )
 
     def _optimize(
@@ -1316,20 +1508,17 @@ class _DirectShootingBackend:
             message=message,
         )
 
-    def solve(
+    def _reject_invalid_request(
         self,
         state: Array,
         reference: ReferenceTrajectory,
         previous_command: Array,
-        *,
-        applied_command: Array | None = None,
-        latent_state: Array | None = None,
-        warm_start: NMPCWarmStart | None = None,
-        deadline_s: float | None = None,
-    ) -> NMPCResult:
-        """Optimize one bounded command and return an auditable receding horizon."""
+        applied_command: Array | None,
+        latent_state: Array | None,
+        deadline_s: float | None,
+    ) -> None:
+        """Refuse a request the bounded solver cannot act on at all."""
 
-        started_at = time.perf_counter()
         input_error = self._input_error(
             state,
             reference,
@@ -1338,46 +1527,73 @@ class _DirectShootingBackend:
             latent_state,
         )
         if input_error is not None:
-            return self._failure_result(
-                SolveStatus.INVALID_INPUT,
-                input_error,
-                previous_command,
-                started_at,
-            )
+            raise _SolveAbort(SolveStatus.INVALID_INPUT, input_error)
         if deadline_s is not None and (
             not np.isfinite(deadline_s) or deadline_s <= 0.0
         ):
-            return self._failure_result(
+            raise _SolveAbort(
                 SolveStatus.DEADLINE_EXCEEDED,
                 "deadline must be finite and positive",
-                previous_command,
-                started_at,
             )
 
-        state = jnp.asarray(state)
-        # Validation accepts a rounding step outside the bounds; everything
-        # downstream sees a strictly bounded command.
-        previous_command = jnp.clip(
-            jnp.asarray(previous_command),
-            self.model.command_minimum,
-            self.model.command_maximum,
+    def _require_deadline(
+        self,
+        deadline_s: float | None,
+        progress: _SolveProgress,
+        message: str,
+    ) -> None:
+        """Abort the solve when it has already spent its deadline."""
+
+        if (
+            deadline_s is not None
+            and time.perf_counter() - progress.started_at >= deadline_s
+        ):
+            raise _SolveAbort(SolveStatus.DEADLINE_EXCEEDED, message)
+
+    def _initial_latent(
+        self,
+        previous_command: Array,
+        applied_command: Array | None,
+        latent_state: Array | None,
+    ) -> Array:
+        """Return the actuator state the predicted horizon starts from.
+
+        A caller that knows the actuator state supplies it; otherwise it is
+        reconstructed from the command the vehicle is actually holding, which is
+        the applied command when one was measured and the previous command
+        when it was not.
+        """
+
+        if latent_state is not None:
+            return jnp.asarray(latent_state)
+        return self._initial_latent_compiled(
+            self._active_parameters,
+            previous_command
+            if applied_command is None
+            else jnp.clip(
+                jnp.asarray(applied_command),
+                self.model.command_minimum,
+                self.model.command_maximum,
+            ),
         )
-        latent = (
-            self._initial_latent_compiled(
-                self._active_parameters,
-                previous_command
-                if applied_command is None
-                else jnp.clip(
-                    jnp.asarray(applied_command),
-                    self.model.command_minimum,
-                    self.model.command_maximum,
-                ),
-            )
-            if latent_state is None
-            else jnp.asarray(latent_state)
-        )
-        exogenous = self._exogenous_forecast(reference)
-        cold_blocks = self._cold_blocks(previous_command)
+
+    def _seed_plan(
+        self,
+        cold_blocks: Array,
+        warm_start: NMPCWarmStart | None,
+        state: Array,
+        latent: Array,
+        reference: ReferenceTrajectory,
+        previous_command: Array,
+        exogenous: Array,
+    ) -> tuple[Array, Array, Array, float, bool]:
+        """Score the cold seed and adopt a warm seed only when it is no worse.
+
+        A warm start that is non-finite, the wrong shape, or simply worse than
+        holding the previous command is discarded rather than trusted, so a
+        stale plan can never make this solve start behind a cold start.
+        """
+
         value, gradient = self._objective_and_gradient(
             cold_blocks,
             state,
@@ -1387,21 +1603,16 @@ class _DirectShootingBackend:
             exogenous,
             self._active_parameters,
         )
-        current_value_float = float(np.asarray(value))
-        current_value = value
-        current_gradient = gradient
-        blocks = cold_blocks
-        used_warm_start = False
-        if not np.isfinite(current_value_float) or not np.all(
-            np.isfinite(np.asarray(current_gradient))
+        value_float = float(np.asarray(value))
+        if not np.isfinite(value_float) or not np.all(
+            np.isfinite(np.asarray(gradient))
         ):
-            return self._failure_result(
+            raise _SolveAbort(
                 SolveStatus.NONFINITE_OBJECTIVE,
                 "cold-start objective or gradient is non-finite",
-                previous_command,
-                started_at,
             )
-
+        blocks = cold_blocks
+        used_warm_start = False
         if warm_start is not None:
             warm_blocks = self._warm_blocks(warm_start)
             if warm_blocks is not None:
@@ -1418,28 +1629,32 @@ class _DirectShootingBackend:
                 if (
                     np.isfinite(warm_value_float)
                     and np.all(np.isfinite(np.asarray(warm_gradient)))
-                    and warm_value_float <= current_value_float
+                    and warm_value_float <= value_float
                 ):
                     blocks = warm_blocks
-                    current_value = warm_value
-                    current_value_float = warm_value_float
-                    current_gradient = warm_gradient
+                    value = warm_value
+                    value_float = warm_value_float
+                    gradient = warm_gradient
                     used_warm_start = True
+        return blocks, value, gradient, value_float, used_warm_start
 
-        initial_objective = current_value_float
-        if deadline_s is not None and time.perf_counter() - started_at >= deadline_s:
-            return self._failure_result(
-                SolveStatus.DEADLINE_EXCEEDED,
-                "solver deadline expired before optimization",
-                previous_command,
-                started_at,
-                initial_objective=initial_objective,
-                warm_start_used=used_warm_start,
-            )
+    def _optimize_plan(
+        self,
+        blocks: Array,
+        value: Array,
+        gradient: Array,
+        state: Array,
+        latent: Array,
+        reference: ReferenceTrajectory,
+        previous_command: Array,
+        exogenous: Array,
+    ) -> _OptimizerOutcome:
+        """Run the bounded projected line search and report what it found."""
+
         (
             blocks,
-            current_value,
-            current_gradient,
+            value,
+            gradient,
             iteration_array,
             converged_array,
             stalled_array,
@@ -1448,8 +1663,8 @@ class _DirectShootingBackend:
             finite_array,
         ) = self._optimize_compiled(
             blocks,
-            current_value,
-            current_gradient,
+            value,
+            gradient,
             state,
             latent,
             reference.states,
@@ -1457,61 +1672,79 @@ class _DirectShootingBackend:
             exogenous,
             self._active_parameters,
         )
-        current_value_float = float(np.asarray(current_value))
-        iteration = int(np.asarray(iteration_array))
-        converged = bool(np.asarray(converged_array))
-        stalled = bool(np.asarray(stalled_array))
-        line_search_failed = bool(np.asarray(line_search_failed_array))
-        progressed = bool(np.asarray(progressed_array))
-        finite_optimization = bool(np.asarray(finite_array))
-        gradient_norm = float(np.max(np.abs(np.asarray(current_gradient))))
-        projected_gradient_norm = float(
-            np.asarray(_projected_gradient_norm(blocks, current_gradient))
+        return _OptimizerOutcome(
+            blocks=blocks,
+            value=value,
+            gradient=gradient,
+            iterations=int(np.asarray(iteration_array)),
+            converged=bool(np.asarray(converged_array)),
+            stalled=bool(np.asarray(stalled_array)),
+            line_search_failed=bool(np.asarray(line_search_failed_array)),
+            progressed=bool(np.asarray(progressed_array)),
+            finite=bool(np.asarray(finite_array)),
+            stall_message=(
+                "finite best plan returned after improvement stalled short of "
+                "the first-order criterion"
+            ),
         )
-        stall_message = (
-            "finite best plan returned after improvement stalled short of the "
-            "first-order criterion"
-        )
-        if deadline_s is not None and time.perf_counter() - started_at >= deadline_s:
-            return self._failure_result(
-                SolveStatus.DEADLINE_EXCEEDED,
-                "solver deadline expired during optimization",
-                previous_command,
-                started_at,
-                initial_objective=initial_objective,
-                iterations=iteration,
-                warm_start_used=used_warm_start,
-            )
-        if not finite_optimization:
-            return self._failure_result(
+
+    def _accept_optimizer_outcome(self, outcome: _OptimizerOutcome) -> None:
+        """Refuse an unusable optimizer result, or record a line-search stall.
+
+        A line search that failed only after an earlier outer iteration was
+        accepted still leaves a finite improvement on the seed, so that progress
+        is reported as a stall instead of being discarded for a hold.
+        """
+
+        if not outcome.finite:
+            raise _SolveAbort(
                 SolveStatus.NONFINITE_OBJECTIVE,
                 "objective or gradient became non-finite during optimization",
-                previous_command,
-                started_at,
-                initial_objective=initial_objective,
-                iterations=iteration,
-                warm_start_used=used_warm_start,
             )
-        if line_search_failed and not progressed:
-            return self._failure_result(
+        if outcome.line_search_failed and not outcome.progressed:
+            raise _SolveAbort(
                 SolveStatus.LINE_SEARCH_FAILED,
                 "bounded line search could not find a finite descent step",
-                previous_command,
-                started_at,
-                initial_objective=initial_objective,
-                iterations=iteration,
-                warm_start_used=used_warm_start,
             )
-        if line_search_failed:
-            # Earlier outer iterations were accepted, so the carried iterate is
-            # a finite improvement on the seed. Report the stall instead of
-            # discarding that progress for a previous-command hold.
-            stalled = True
-            stall_message = (
+        if outcome.line_search_failed:
+            outcome.stalled = True
+            outcome.stall_message = (
                 "finite best plan returned after the bounded line search "
                 "stalled short of the first-order criterion"
             )
 
+    def _evaluate_blocks(
+        self,
+        blocks: Array,
+        state: Array,
+        latent: Array,
+        reference: ReferenceTrajectory,
+        previous_command: Array,
+        exogenous: Array,
+        *,
+        value: Array | None = None,
+        gradient: Array | None = None,
+    ) -> _PlanEvaluation:
+        """Score one command plan and roll it out across the whole horizon.
+
+        Every site that edits the command blocks after optimization, namely the
+        uncertainty-bounded authority scaling and the support filter, has to
+        recompute the objective, the gradient norms, and the prediction that go
+        with the edited plan.  ``value`` and ``gradient`` are passed only by the
+        caller that already holds them for exactly these blocks, which is how
+        the optimizer's own result is carried through without re-evaluating it.
+        """
+
+        if value is None or gradient is None:
+            value, gradient = self._objective_and_gradient(
+                blocks,
+                state,
+                latent,
+                reference.states,
+                previous_command,
+                exogenous,
+                self._active_parameters,
+            )
         states, latent_states, commands = self._rollout_compiled(
             blocks,
             state,
@@ -1519,220 +1752,212 @@ class _DirectShootingBackend:
             exogenous,
             self._active_parameters,
         )
-        states_np = np.asarray(states)
-        latent_np = np.asarray(latent_states)
-        commands_np = np.asarray(commands)
-        if not (
-            np.all(np.isfinite(states_np))
-            and np.all(np.isfinite(latent_np))
-            and np.all(np.isfinite(commands_np))
-            and np.isfinite(current_value_float)
-        ):
-            return self._failure_result(
-                SolveStatus.NONFINITE_OBJECTIVE,
-                "optimized prediction is non-finite",
-                previous_command,
-                started_at,
-                initial_objective=initial_objective,
-                iterations=iteration,
-                warm_start_used=used_warm_start,
-            )
-
-        (
-            maximum_model_uncertainty,
-            nominal_support_metrics,
-        ) = self._uncertainty_support_values(
-            state,
-            latent,
-            commands,
-            exogenous,
+        return _PlanEvaluation(
+            blocks=blocks,
+            value=value,
+            gradient=gradient,
+            value_float=float(np.asarray(value)),
+            gradient_inf_norm=float(np.max(np.abs(np.asarray(gradient)))),
+            projected_gradient_inf_norm=float(
+                np.asarray(_projected_gradient_norm(blocks, gradient))
+            ),
+            states=states,
+            latent_states=latent_states,
+            commands=commands,
+            states_np=np.asarray(states),
+            latent_np=np.asarray(latent_states),
+            commands_np=np.asarray(commands),
         )
-        if not np.isfinite(maximum_model_uncertainty):
-            return self._failure_result(
-                SolveStatus.NONFINITE_OBJECTIVE,
-                "model-uncertainty forecast is non-finite",
-                previous_command,
-                started_at,
-                initial_objective=initial_objective,
-                iterations=iteration,
-                warm_start_used=used_warm_start,
-            )
+
+    def _bounded_authority_plan(
+        self,
+        plan: _PlanEvaluation,
+        cold_blocks: Array,
+        maximum_model_uncertainty: float,
+        support_metrics: tuple[float, float, float, float, float, float],
+        outcome: _OptimizerOutcome,
+        state: Array,
+        latent: Array,
+        reference: ReferenceTrajectory,
+        previous_command: Array,
+        exogenous: Array,
+    ) -> tuple[
+        float,
+        _PlanEvaluation,
+        float,
+        tuple[float, float, float, float, float, float],
+    ]:
+        """Pull the plan toward the previous command when the belief is weak.
+
+        Command authority is the reciprocal of the largest normalized predicted
+        uncertainty, so a forecast whose spread already fills the tracking
+        tolerance keeps only the fraction of the optimized departure the belief
+        can still stand behind.  The scaled plan is a different plan, so it is
+        rescored and its uncertainty forecast is recomputed.
+        """
+
         command_authority = (
             min(1.0, 1.0 / maximum_model_uncertainty)
             if self.belief.uncertainty_available and maximum_model_uncertainty > 0.0
             else 1.0
         )
         if command_authority < 1.0:
-            blocks = jnp.clip(
-                cold_blocks + command_authority * (blocks - cold_blocks),
-                -1.0,
-                1.0,
-            )
-            current_value, current_gradient = self._objective_and_gradient(
-                blocks,
+            plan = self._evaluate_blocks(
+                jnp.clip(
+                    cold_blocks + command_authority * (plan.blocks - cold_blocks),
+                    -1.0,
+                    1.0,
+                ),
                 state,
                 latent,
-                reference.states,
+                reference,
                 previous_command,
                 exogenous,
-                self._active_parameters,
             )
-            current_value_float = float(np.asarray(current_value))
-            gradient_norm = float(np.max(np.abs(np.asarray(current_gradient))))
-            projected_gradient_norm = float(
-                np.asarray(_projected_gradient_norm(blocks, current_gradient))
-            )
-            states, latent_states, commands = self._rollout_compiled(
-                blocks,
-                state,
-                latent,
-                exogenous,
-                self._active_parameters,
-            )
-            states_np = np.asarray(states)
-            latent_np = np.asarray(latent_states)
-            commands_np = np.asarray(commands)
             (
                 maximum_model_uncertainty,
-                nominal_support_metrics,
+                support_metrics,
             ) = self._uncertainty_support_values(
                 state,
                 latent,
-                commands,
+                plan.commands,
                 exogenous,
             )
-            converged = False
-            stalled = False
-        if not (
-            np.all(np.isfinite(states_np))
-            and np.all(np.isfinite(latent_np))
-            and np.all(np.isfinite(commands_np))
-            and np.isfinite(current_value_float)
-            and np.isfinite(maximum_model_uncertainty)
-        ):
-            return self._failure_result(
+            outcome.converged = False
+            outcome.stalled = False
+        if not (plan.prediction_finite and np.isfinite(maximum_model_uncertainty)):
+            raise _SolveAbort(
                 SolveStatus.NONFINITE_OBJECTIVE,
                 "uncertainty-bounded prediction is non-finite",
-                previous_command,
-                started_at,
-                initial_objective=initial_objective,
-                iterations=iteration,
-                warm_start_used=used_warm_start,
             )
+        return command_authority, plan, maximum_model_uncertainty, support_metrics
+
+    def _support_filtered_plan(
+        self,
+        plan: _PlanEvaluation,
+        support_metrics: tuple[float, float, float, float, float, float],
+        maximum_model_uncertainty: float,
+        outcome: _OptimizerOutcome,
+        state: Array,
+        latent: Array,
+        reference: ReferenceTrajectory,
+        previous_command: Array,
+        exogenous: Array,
+    ) -> tuple[_SupportDecision, _PlanEvaluation, float]:
+        """Project the first command onto the support the belief actually has.
+
+        Only the first block is edited, because only the first command is
+        applied; the rest of the horizon is left for the next solve to revisit.
+        As with authority scaling, an edited plan is rescored before it is
+        reported.
+        """
 
         support_decision = self._select_support_command(
             state,
             latent,
-            commands[0],
+            plan.commands[0],
             previous_command,
             exogenous[0],
-            nominal_support_metrics,
+            support_metrics,
         )
         if support_decision.applied:
-            blocks = blocks.at[0].set(
-                jnp.clip(
-                    self._normalized_from_commands(
-                        jnp.asarray(support_decision.command)
-                    ),
-                    -1.0,
-                    1.0,
-                )
-            )
-            current_value, current_gradient = self._objective_and_gradient(
-                blocks,
+            plan = self._evaluate_blocks(
+                plan.blocks.at[0].set(
+                    jnp.clip(
+                        self._normalized_from_commands(
+                            jnp.asarray(support_decision.command)
+                        ),
+                        -1.0,
+                        1.0,
+                    )
+                ),
                 state,
                 latent,
-                reference.states,
+                reference,
                 previous_command,
                 exogenous,
-                self._active_parameters,
             )
-            current_value_float = float(np.asarray(current_value))
-            gradient_norm = float(np.max(np.abs(np.asarray(current_gradient))))
-            projected_gradient_norm = float(
-                np.asarray(_projected_gradient_norm(blocks, current_gradient))
-            )
-            states, latent_states, commands = self._rollout_compiled(
-                blocks,
-                state,
-                latent,
-                exogenous,
-                self._active_parameters,
-            )
-            states_np = np.asarray(states)
-            latent_np = np.asarray(latent_states)
-            commands_np = np.asarray(commands)
             maximum_model_uncertainty, _ = self._uncertainty_support_values(
                 state,
                 latent,
-                commands,
+                plan.commands,
                 exogenous,
             )
-            converged = False
-            stalled = False
-        if not (
-            np.all(np.isfinite(states_np))
-            and np.all(np.isfinite(latent_np))
-            and np.all(np.isfinite(commands_np))
-            and np.isfinite(current_value_float)
-            and np.isfinite(maximum_model_uncertainty)
-        ):
-            return self._failure_result(
+            outcome.converged = False
+            outcome.stalled = False
+        if not (plan.prediction_finite and np.isfinite(maximum_model_uncertainty)):
+            raise _SolveAbort(
                 SolveStatus.NONFINITE_OBJECTIVE,
                 "support-filtered prediction is non-finite",
-                previous_command,
-                started_at,
-                initial_objective=initial_objective,
-                iterations=iteration,
-                warm_start_used=used_warm_start,
             )
+        return support_decision, plan, maximum_model_uncertainty
+
+    def _prediction_diagnostics(
+        self,
+        plan: _PlanEvaluation,
+        exogenous: Array,
+    ) -> _PredictionDiagnostics:
+        """Measure the bound, validity, and safety margins of the final plan."""
 
         minimum = np.asarray(self.model.command_minimum)
         maximum = np.asarray(self.model.command_maximum)
-        bound_violation = float(
-            max(
-                np.max(minimum - commands_np),
-                np.max(commands_np - maximum),
-                0.0,
-            )
+        return _PredictionDiagnostics(
+            maximum_command_bound_violation=float(
+                max(
+                    np.max(minimum - plan.commands_np),
+                    np.max(plan.commands_np - maximum),
+                    0.0,
+                )
+            ),
+            maximum_validity_utilization=float(
+                np.asarray(self._validity_compiled(plan.states, exogenous))
+            ),
+            maximum_normalized_safety_violation=float(
+                np.asarray(self._safety_compiled(plan.states))
+            ),
         )
-        maximum_validity = float(np.asarray(self._validity_compiled(states, exogenous)))
-        maximum_safety = float(np.asarray(self._safety_compiled(states)))
-        if deadline_s is not None and time.perf_counter() - started_at >= deadline_s:
-            return self._failure_result(
-                SolveStatus.DEADLINE_EXCEEDED,
-                "solver deadline expired during prediction diagnostics",
-                previous_command,
-                started_at,
-                initial_objective=initial_objective,
-                iterations=iteration,
-                warm_start_used=used_warm_start,
-            )
+
+    def _solved_result(
+        self,
+        plan: _PlanEvaluation,
+        outcome: _OptimizerOutcome,
+        support_decision: _SupportDecision,
+        prediction: _PredictionDiagnostics,
+        maximum_model_uncertainty: float,
+        command_authority: float,
+        progress: _SolveProgress,
+    ) -> NMPCResult:
+        """Assemble the auditable result for one finite, bounded solve."""
+
         certified = self.model.runtime_spec.certified_prediction_horizon_s
         status = (
             SolveStatus.CONVERGED
-            if converged
+            if outcome.converged
             else SolveStatus.STALLED
-            if stalled
+            if outcome.stalled
             else SolveStatus.ITERATION_LIMIT
         )
         return NMPCResult(
             status=status,
-            command=commands[0],
-            predicted_states=states,
-            predicted_latent_states=latent_states,
-            predicted_commands=commands,
-            warm_start=NMPCWarmStart(commands),
+            command=plan.commands[0],
+            predicted_states=plan.states,
+            predicted_latent_states=plan.latent_states,
+            predicted_commands=plan.commands,
+            warm_start=NMPCWarmStart(plan.commands),
             diagnostics=NMPCDiagnostics(
-                iterations=iteration,
-                solve_time_s=time.perf_counter() - started_at,
-                initial_objective=initial_objective,
-                final_objective=current_value_float,
-                final_gradient_inf_norm=gradient_norm,
-                final_projected_gradient_inf_norm=projected_gradient_norm,
-                maximum_command_bound_violation=bound_violation,
-                maximum_validity_utilization=maximum_validity,
-                maximum_normalized_safety_violation=maximum_safety,
+                iterations=outcome.iterations,
+                solve_time_s=time.perf_counter() - progress.started_at,
+                initial_objective=progress.initial_objective,
+                final_objective=plan.value_float,
+                final_gradient_inf_norm=plan.gradient_inf_norm,
+                final_projected_gradient_inf_norm=(plan.projected_gradient_inf_norm),
+                maximum_command_bound_violation=(
+                    prediction.maximum_command_bound_violation
+                ),
+                maximum_validity_utilization=(prediction.maximum_validity_utilization),
+                maximum_normalized_safety_violation=(
+                    prediction.maximum_normalized_safety_violation
+                ),
                 maximum_normalized_model_uncertainty_standard_deviation=(
                     maximum_model_uncertainty
                 ),
@@ -1751,7 +1976,7 @@ class _DirectShootingBackend:
                 parameter_uncertainty_available=(
                     self.belief.parameter_uncertainty_available
                 ),
-                warm_start_used=used_warm_start,
+                warm_start_used=progress.warm_start_used,
                 prediction_horizon_s=self.prediction_horizon_s,
                 prediction_horizon_certified=(
                     certified is not None
@@ -1793,11 +2018,186 @@ class _DirectShootingBackend:
                 else "finite plan returned with belief-bounded command authority"
                 if command_authority < 1.0
                 else "first-order convergence criterion satisfied"
-                if converged
-                else stall_message
-                if stalled
+                if outcome.converged
+                else outcome.stall_message
+                if outcome.stalled
                 else "finite best plan returned at the maintained iteration limit"
             ),
+        )
+
+    def solve(
+        self,
+        state: Array,
+        reference: ReferenceTrajectory,
+        previous_command: Array,
+        *,
+        applied_command: Array | None = None,
+        latent_state: Array | None = None,
+        warm_start: NMPCWarmStart | None = None,
+        deadline_s: float | None = None,
+    ) -> NMPCResult:
+        """Optimize one bounded command and return an auditable receding horizon.
+
+        The solve is a fixed sequence of steps: refuse an unusable request, seed
+        the plan, optimize it, roll it out, bound its authority by the belief's
+        own uncertainty, project the first command onto supported ground, and
+        measure the result.  Any step may abort, and every abort returns the
+        same bounded previous-command hold rather than raising.
+        """
+
+        started_at = time.perf_counter()
+        progress = _SolveProgress(
+            started_at=started_at,
+            previous_command=previous_command,
+        )
+        try:
+            self._reject_invalid_request(
+                state,
+                reference,
+                previous_command,
+                applied_command,
+                latent_state,
+                deadline_s,
+            )
+            state = jnp.asarray(state)
+            # Validation accepts a rounding step outside the bounds; everything
+            # downstream sees a strictly bounded command.
+            previous_command = jnp.clip(
+                jnp.asarray(previous_command),
+                self.model.command_minimum,
+                self.model.command_maximum,
+            )
+            progress.previous_command = previous_command
+            latent = self._initial_latent(
+                previous_command,
+                applied_command,
+                latent_state,
+            )
+            exogenous = self._exogenous_forecast(reference)
+            cold_blocks = self._cold_blocks(previous_command)
+
+            blocks, value, gradient, value_float, used_warm_start = self._seed_plan(
+                cold_blocks,
+                warm_start,
+                state,
+                latent,
+                reference,
+                previous_command,
+                exogenous,
+            )
+            progress.initial_objective = value_float
+            progress.warm_start_used = used_warm_start
+            self._require_deadline(
+                deadline_s,
+                progress,
+                "solver deadline expired before optimization",
+            )
+
+            outcome = self._optimize_plan(
+                blocks,
+                value,
+                gradient,
+                state,
+                latent,
+                reference,
+                previous_command,
+                exogenous,
+            )
+            progress.iterations = outcome.iterations
+            self._require_deadline(
+                deadline_s,
+                progress,
+                "solver deadline expired during optimization",
+            )
+            self._accept_optimizer_outcome(outcome)
+
+            plan = self._evaluate_blocks(
+                outcome.blocks,
+                state,
+                latent,
+                reference,
+                previous_command,
+                exogenous,
+                value=outcome.value,
+                gradient=outcome.gradient,
+            )
+            if not plan.prediction_finite:
+                raise _SolveAbort(
+                    SolveStatus.NONFINITE_OBJECTIVE,
+                    "optimized prediction is non-finite",
+                )
+            (
+                maximum_model_uncertainty,
+                support_metrics,
+            ) = self._uncertainty_support_values(
+                state,
+                latent,
+                plan.commands,
+                exogenous,
+            )
+            if not np.isfinite(maximum_model_uncertainty):
+                raise _SolveAbort(
+                    SolveStatus.NONFINITE_OBJECTIVE,
+                    "model-uncertainty forecast is non-finite",
+                )
+
+            (
+                command_authority,
+                plan,
+                maximum_model_uncertainty,
+                support_metrics,
+            ) = self._bounded_authority_plan(
+                plan,
+                cold_blocks,
+                maximum_model_uncertainty,
+                support_metrics,
+                outcome,
+                state,
+                latent,
+                reference,
+                previous_command,
+                exogenous,
+            )
+            (
+                support_decision,
+                plan,
+                maximum_model_uncertainty,
+            ) = self._support_filtered_plan(
+                plan,
+                support_metrics,
+                maximum_model_uncertainty,
+                outcome,
+                state,
+                latent,
+                reference,
+                previous_command,
+                exogenous,
+            )
+
+            prediction = self._prediction_diagnostics(plan, exogenous)
+            self._require_deadline(
+                deadline_s,
+                progress,
+                "solver deadline expired during prediction diagnostics",
+            )
+        except _SolveAbort as abort:
+            return self._failure_result(
+                abort.status,
+                abort.message,
+                progress.previous_command,
+                progress.started_at,
+                initial_objective=progress.initial_objective,
+                iterations=progress.iterations,
+                warm_start_used=progress.warm_start_used,
+            )
+        return self._solved_result(
+            plan,
+            outcome,
+            support_decision,
+            prediction,
+            maximum_model_uncertainty,
+            command_authority,
+            progress,
         )
 
 

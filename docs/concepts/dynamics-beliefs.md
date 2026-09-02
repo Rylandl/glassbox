@@ -109,7 +109,7 @@ Every empirical covariance carries one of two scopes:
   covariance contraction.
 
 Every artifact the shipped CLIs write carries `total_forecast_error`:
-`glassbox-fit` fits held-out rollout error and records that scope, and the
+`glassbox fit` fits held-out rollout error and records that scope, and the
 local parameter information it stores inherits the scope of the predictive
 error it was whitened with. No flag changes this. Everything in this document
 that depends on `conditional_innovation_error` -- `assess_plan` information
@@ -187,7 +187,7 @@ active around the updated nominal model. Because a commit stales the bias, a
 candidate is scored without it; see the acceptance criterion below.
 
 Ordinary point fits explicitly use a `PointParameterBelief`; they do not invent
-covariance. When `glassbox-fit` writes a model, it also differentiates a bounded,
+covariance. When `glassbox fit` writes a model, it also differentiates a bounded,
 group-balanced sample of the training rollouts and stores
 `LocalParameterInformation`. This is local loss geometry around the
 fitted structured coefficients, not a posterior. Each complete source group
@@ -265,8 +265,8 @@ belief = fleet_prior.initialize_belief(vehicle_shell)
 belief = belief.recalibrate_predictive_error(calibration_telemetry)
 ```
 
-`glassbox-prior` builds the artifact from fitted vehicle beliefs without tuning
-flags. `glassbox-adaptation-benchmark` then exercises prior initialization,
+`glassbox prior` builds the artifact from fitted vehicle beliefs without tuning
+flags. `glassbox adaptation-benchmark` then exercises prior initialization,
 family-level predictive error, an immutable live update, and disjoint held-out
 prediction for both maintained vehicle families. It is deliberately a
 directional synthetic diagnostic rather than a fractional-performance gate.
@@ -359,7 +359,7 @@ provenance records `source: recalibrated_from_telemetry`, the horizons, window
 counts, and a content hash of the telemetry, so a caller can later show that
 recalibration evidence was not the block that validated an update. The same
 window-and-endpoint routine, `endpoint_error_evidence_by_horizon`, backs both
-this path and the held-out evaluation that `glassbox-fit` reports, so online and
+this path and the held-out evaluation that `glassbox fit` reports, so online and
 offline error evidence are fitted identically.
 
 `condition_parameter_prior` refuses to run when the belief's parameters no

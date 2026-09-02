@@ -16,53 +16,14 @@ from typing import Any
 
 import numpy as np
 
+from glassbox.control._common import (
+    ThrustCascade,
+    finite_vector,
+    immutable_array,
+    quaternion_to_rotation,
+    thrust_cascade,
+)
 from glassbox.core.dynamics import GRAVITY_M_S2
-
-
-def _finite_vector(
-    name: str,
-    value: float | Sequence[float],
-    size: int,
-) -> np.ndarray:
-    if np.isscalar(value):
-        result = np.full(size, float(value), dtype=np.float64)
-    else:
-        result = np.asarray(tuple(value), dtype=np.float64)
-    if result.shape != (size,) or not np.all(np.isfinite(result)):
-        raise ValueError(f"{name} must contain {size} finite values")
-    return result
-
-
-def _immutable_array(value: Any, shape: tuple[int, ...], name: str) -> np.ndarray:
-    result = np.asarray(value, dtype=np.float64).copy()
-    if result.shape != shape or not np.all(np.isfinite(result)):
-        raise ValueError(f"{name} must have shape {shape} and contain finite values")
-    result.flags.writeable = False
-    return result
-
-
-def _quaternion_to_rotation(quaternion_wxyz: np.ndarray) -> np.ndarray:
-    quaternion = quaternion_wxyz / np.linalg.norm(quaternion_wxyz)
-    w, x, y, z = quaternion
-    return np.asarray(
-        (
-            (
-                1.0 - 2.0 * (y * y + z * z),
-                2.0 * (x * y - z * w),
-                2.0 * (x * z + y * w),
-            ),
-            (
-                2.0 * (x * y + z * w),
-                1.0 - 2.0 * (x * x + z * z),
-                2.0 * (y * z - x * w),
-            ),
-            (
-                2.0 * (x * z - y * w),
-                2.0 * (y * z + x * w),
-                1.0 - 2.0 * (x * x + y * y),
-            ),
-        )
-    )
 
 
 @dataclass(frozen=True)
@@ -93,8 +54,8 @@ class RecursiveBootstrapConfig:
     proposal_cooldown_interval_count: int = 16
 
     def __post_init__(self) -> None:
-        minimum = _finite_vector("command_minimum", self.command_minimum, 4)
-        maximum = _finite_vector("command_maximum", self.command_maximum, 4)
+        minimum = finite_vector("command_minimum", self.command_minimum, 4)
+        maximum = finite_vector("command_maximum", self.command_maximum, 4)
         if np.any(minimum >= maximum):
             raise ValueError("command_minimum must be below command_maximum")
         if self.forgetting_factor != 1.0:
@@ -206,13 +167,13 @@ class RecursiveBootstrapBelief:
             object.__setattr__(
                 self,
                 name,
-                _immutable_array(getattr(self, name), shape, name),
+                immutable_array(getattr(self, name), shape, name),
             )
         if self.hover_command is not None:
             object.__setattr__(
                 self,
                 "hover_command",
-                _immutable_array(self.hover_command, (4,), "hover_command"),
+                immutable_array(self.hover_command, (4,), "hover_command"),
             )
         scalars = (
             self.effective_interval_count,
@@ -267,8 +228,8 @@ class RecursiveBootstrapBelief:
         command: Sequence[float],
         body_velocity_m_s: Sequence[float],
     ) -> float:
-        command_array = _finite_vector("command", command, 4)
-        body_velocity = _finite_vector("body_velocity_m_s", body_velocity_m_s, 3)
+        command_array = finite_vector("command", command, 4)
+        body_velocity = finite_vector("body_velocity_m_s", body_velocity_m_s, 3)
         return float(
             self.collective_acceleration_per_command @ command_array
             + self.collective_velocity_coefficient @ body_velocity
@@ -280,8 +241,8 @@ class RecursiveBootstrapBelief:
         command: Sequence[float],
         angular_velocity_rad_s: Sequence[float],
     ) -> np.ndarray:
-        command_array = _finite_vector("command", command, 4)
-        angular_velocity = _finite_vector(
+        command_array = finite_vector("command", command, 4)
+        angular_velocity = finite_vector(
             "angular_velocity_rad_s", angular_velocity_rad_s, 3
         )
         rate_products = np.asarray(
@@ -388,7 +349,7 @@ class RecursiveBeliefValidationReport:
         object.__setattr__(
             self,
             "candidate_angular_rmse_rad_s2",
-            _immutable_array(
+            immutable_array(
                 self.candidate_angular_rmse_rad_s2,
                 (3,),
                 "candidate_angular_rmse_rad_s2",
@@ -397,7 +358,7 @@ class RecursiveBeliefValidationReport:
         object.__setattr__(
             self,
             "reference_angular_rmse_rad_s2",
-            _immutable_array(
+            immutable_array(
                 self.reference_angular_rmse_rad_s2,
                 (3,),
                 "reference_angular_rmse_rad_s2",
@@ -406,7 +367,7 @@ class RecursiveBeliefValidationReport:
         object.__setattr__(
             self,
             "angular_improvement",
-            _immutable_array(self.angular_improvement, (3,), "angular_improvement"),
+            immutable_array(self.angular_improvement, (3,), "angular_improvement"),
         )
         scalars = (
             self.candidate_collective_rmse_m_s2,
@@ -490,6 +451,103 @@ class _PendingBeliefProposal:
         self.reference_angular_squared_error = np.zeros(3, dtype=np.float64)
 
 
+class _UnusableActionInput(Exception):
+    """Internal signal naming why one control input cannot be acted on."""
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(reason)
+        self.reason = reason
+
+
+@dataclass(frozen=True)
+class _StabilizingFeedback:
+    """The fixed cascade evaluated once, with its allocated motor command."""
+
+    rotation: np.ndarray
+    velocity: np.ndarray
+    angular_velocity: np.ndarray
+    cascade: ThrustCascade
+    command: np.ndarray
+
+
+@dataclass(frozen=True)
+class _InformationAction:
+    """The excitation direction, amplitude, and geometry chosen for one step."""
+
+    amplitude: float
+    target: np.ndarray
+    information: np.ndarray
+    floor: float
+
+
+@dataclass(frozen=True)
+class _CandidateScores:
+    """Every term of the excitation-scan objective, one entry per candidate."""
+
+    stabilization: np.ndarray
+    information_reward: np.ndarray
+    uncertainty: np.ndarray
+    altitude_risk: np.ndarray
+    objective: np.ndarray
+    predicted_world_velocity: np.ndarray
+
+
+@dataclass(frozen=True)
+class _SampleFeatures:
+    """One measured transition reduced to regression targets and features."""
+
+    command: np.ndarray
+    body_specific_force: np.ndarray
+    body_velocity: np.ndarray
+    angular_velocity: np.ndarray
+    angular_acceleration: np.ndarray
+    rate_products: np.ndarray
+    force_features: np.ndarray
+    angular_features: np.ndarray
+
+
+@dataclass(frozen=True)
+class _EffectFit:
+    """Both support-restricted regressions and their residual scales."""
+
+    force_effect: np.ndarray
+    force_nuisance: np.ndarray
+    force_support: np.ndarray
+    force_rank: int
+    force_nuisance_rank: int
+    force_residual_inverse: np.ndarray
+    force_intercept: float
+    force_residual_std: float
+    collective_effect_covariance: np.ndarray
+    angular_effect: np.ndarray
+    angular_nuisance: np.ndarray
+    angular_support: np.ndarray
+    angular_singular_values: np.ndarray
+    angular_command_rank: int
+    angular_nuisance_rank: int
+    angular_residual_information: np.ndarray
+    angular_intercept: np.ndarray
+    angular_residual_std: np.ndarray
+    angular_effect_covariance: np.ndarray
+
+
+@dataclass(frozen=True)
+class _BeliefAuthority:
+    """How much of each output direction one fit is entitled to command."""
+
+    collective_support: float
+    angular_output_support: np.ndarray
+    angular_effect_rank: int
+    minimum_supported_information: float
+    information_authority: float
+    angular_effect_signal_to_noise: np.ndarray
+    angular_axis_authority: np.ndarray
+    hover_command: np.ndarray | None
+    collective_authority: float
+    collective_effect_signal_to_noise: float
+    exploration_completion: float
+
+
 @dataclass(frozen=True)
 class ProgressiveBootstrapCommand:
     """One stabilizing cascade command plus its scanned information action."""
@@ -524,7 +582,7 @@ class ProgressiveBootstrapCommand:
             object.__setattr__(
                 self,
                 name,
-                _immutable_array(getattr(self, name), shape, name),
+                immutable_array(getattr(self, name), shape, name),
             )
         scalars = (
             self.collective_authority,
@@ -1066,7 +1124,7 @@ class RecursiveBootstrapIdentifier:
             ),
         ):
             try:
-                parsed.append(_finite_vector(name, value, size))
+                parsed.append(finite_vector(name, value, size))
             except (ValueError, TypeError):
                 return reason, None
         previous, current, command = parsed
@@ -1085,40 +1143,38 @@ class RecursiveBootstrapIdentifier:
             np.clip(command, self._minimum, self._maximum),
         )
 
-    def update(
+    def _refused_sample(
         self,
-        previous_state: Sequence[float],
-        current_state: Sequence[float],
-        average_applied_motor_command: Sequence[float],
-        sample_period_s: float,
+        rejection: str,
+        started_at: float,
     ) -> RecursiveBootstrapBelief:
-        """Assimilate one measured transition and return the current belief.
+        """Record why a transition was unusable and keep the belief unchanged."""
 
-        A transition that is not usable evidence is refused rather than raised
-        on, because a single non-finite estimator sample must not end a control
-        loop.  The belief is then left exactly as it was and the refusal is
-        recorded in :attr:`last_sample_report`.
+        self._rejected_sample_count += 1
+        self._last_sample_report = RecursiveBootstrapSampleReport(
+            interval_count=self._interval_count,
+            accepted=False,
+            reason=rejection,
+            update_wall_time_s=time.perf_counter() - started_at,
+        )
+        return self._belief
+
+    def _sample_features(
+        self,
+        previous: np.ndarray,
+        current: np.ndarray,
+        command: np.ndarray,
+        sample_period_s: float,
+    ) -> _SampleFeatures:
+        """Reduce one measured transition to regression targets and features.
+
+        The collective target is the body-frame specific force implied by the
+        measured world acceleration, and the angular target is the measured
+        body-rate derivative.  Both regressions share the same normalized
+        command block and differ only in the nuisance terms appended to it.
         """
 
-        started_at = time.perf_counter()
-        rejection, sample = self._validated_sample(
-            previous_state,
-            current_state,
-            average_applied_motor_command,
-            sample_period_s,
-        )
-        if sample is None:
-            assert rejection is not None
-            self._rejected_sample_count += 1
-            self._last_sample_report = RecursiveBootstrapSampleReport(
-                interval_count=self._interval_count,
-                accepted=False,
-                reason=rejection,
-                update_wall_time_s=time.perf_counter() - started_at,
-            )
-            return self._belief
-        previous, current, command = sample
-        rotation = _quaternion_to_rotation(previous[6:10])
+        rotation = quaternion_to_rotation(previous[6:10])
         world_acceleration = (current[3:6] - previous[3:6]) / sample_period_s
         body_specific_force = rotation.T @ (
             world_acceleration + np.asarray((0.0, 0.0, GRAVITY_M_S2))
@@ -1134,18 +1190,24 @@ class RecursiveBootstrapIdentifier:
             )
         )
         normalized_command = (command - self._midpoint) / self._span
-        force_features = np.concatenate((normalized_command, body_velocity, np.ones(1)))
-        angular_features = np.concatenate(
-            (normalized_command, angular_velocity, rate_products, np.ones(1))
-        )
-        self._score_pending_proposal(
+        return _SampleFeatures(
             command=command,
+            body_specific_force=body_specific_force,
             body_velocity=body_velocity,
             angular_velocity=angular_velocity,
+            angular_acceleration=angular_acceleration,
             rate_products=rate_products,
-            collective_target=float(body_specific_force[2]),
-            angular_target=angular_acceleration,
+            force_features=np.concatenate(
+                (normalized_command, body_velocity, np.ones(1))
+            ),
+            angular_features=np.concatenate(
+                (normalized_command, angular_velocity, rate_products, np.ones(1))
+            ),
         )
+
+    def _accumulate_sample(self, features: _SampleFeatures) -> None:
+        """Fold one sample into the forgetting-weighted normal equations."""
+
         forgetting = self.config.forgetting_factor
         self._force_gram *= forgetting
         self._force_rhs *= forgetting
@@ -1153,14 +1215,28 @@ class RecursiveBootstrapIdentifier:
         self._angular_gram *= forgetting
         self._angular_rhs *= forgetting
         self._angular_target_sum_squares *= forgetting
-        self._force_gram += np.outer(force_features, force_features)
-        self._force_rhs += np.outer(force_features, body_specific_force[2:3])
-        self._force_target_sum_squares += float(body_specific_force[2] ** 2)
-        self._angular_gram += np.outer(angular_features, angular_features)
-        self._angular_rhs += np.outer(angular_features, angular_acceleration)
-        self._angular_target_sum_squares += np.square(angular_acceleration)
+        self._force_gram += np.outer(features.force_features, features.force_features)
+        self._force_rhs += np.outer(
+            features.force_features, features.body_specific_force[2:3]
+        )
+        self._force_target_sum_squares += float(features.body_specific_force[2] ** 2)
+        self._angular_gram += np.outer(
+            features.angular_features, features.angular_features
+        )
+        self._angular_rhs += np.outer(
+            features.angular_features, features.angular_acceleration
+        )
+        self._angular_target_sum_squares += np.square(features.angular_acceleration)
         self._weight = forgetting * self._weight + 1.0
         self._interval_count += 1
+
+    def _fit_supported_effects(self) -> _EffectFit:
+        """Solve both regressions and rescale them back to raw command units.
+
+        The regressions run on normalized commands so their rank tests have a
+        single scale; the effects, intercepts, and covariances returned here are
+        already mapped back to the raw command box the vehicle is flown in.
+        """
 
         force = self._supported_fit(
             self._force_gram,
@@ -1240,12 +1316,44 @@ class RecursiveBootstrapIdentifier:
                 for axis in range(3)
             )
         )
+        return _EffectFit(
+            force_effect=force_effect,
+            force_nuisance=force_nuisance,
+            force_support=force_support,
+            force_rank=force_rank,
+            force_nuisance_rank=force_nuisance_rank,
+            force_residual_inverse=force_residual_inverse,
+            force_intercept=force_intercept,
+            force_residual_std=force_residual_std,
+            collective_effect_covariance=collective_effect_covariance,
+            angular_effect=angular_effect,
+            angular_nuisance=angular_nuisance,
+            angular_support=angular_support,
+            angular_singular_values=angular_singular_values,
+            angular_command_rank=angular_command_rank,
+            angular_nuisance_rank=angular_nuisance_rank,
+            angular_residual_information=angular_residual_information,
+            angular_intercept=angular_intercept,
+            angular_residual_std=angular_residual_std,
+            angular_effect_covariance=angular_effect_covariance,
+        )
+
+    def _belief_authority(self, fit: _EffectFit) -> _BeliefAuthority:
+        """Decide how much of each output direction this fit may command.
+
+        Authority is the product of what the evidence spans, how strong the
+        weakest supported information direction is, and how far each fitted
+        effect stands above its own residual noise.  Collective authority
+        additionally requires a hover command that lies inside the command box,
+        because a collective effect that cannot hold the vehicle up is not
+        something to hand control to.
+        """
 
         collective_direction = np.ones(4, dtype=np.float64)
         collective_support = float(
-            np.linalg.norm(force_support @ collective_direction) ** 2 / 4.0
+            np.linalg.norm(fit.force_support @ collective_direction) ** 2 / 4.0
         )
-        supported_effect = angular_effect @ angular_support
+        supported_effect = fit.angular_effect @ fit.angular_support
         left, effect_singular_values, _ = np.linalg.svd(
             supported_effect,
             full_matrices=False,
@@ -1262,22 +1370,22 @@ class RecursiveBootstrapIdentifier:
         angular_output_support = (left * effect_supported.astype(np.float64)) @ left.T
         minimum_supported_information = (
             0.0
-            if angular_command_rank == 0
-            else float(angular_singular_values[angular_command_rank - 1])
+            if fit.angular_command_rank == 0
+            else float(fit.angular_singular_values[fit.angular_command_rank - 1])
         )
         information_strength = self._authority_fraction(
             minimum_supported_information,
             self.config.minimum_information_singular_value,
             self.config.full_authority_information_singular_value,
         )
-        command_coverage = angular_command_rank / 4.0
+        command_coverage = fit.angular_command_rank / 4.0
         information_authority = command_coverage * information_strength
         angular_effect_signal_to_noise = np.asarray(
             [
                 np.linalg.norm(supported_effect[axis])
                 / max(
                     math.sqrt(
-                        max(float(np.trace(angular_effect_covariance[axis])), 0.0)
+                        max(float(np.trace(fit.angular_effect_covariance[axis])), 0.0)
                     ),
                     1e-9,
                 )
@@ -1302,9 +1410,9 @@ class RecursiveBootstrapIdentifier:
             1.0,
         )
         hover_command: np.ndarray | None = None
-        collective_sum = float(np.sum(force_effect))
+        collective_sum = float(np.sum(fit.force_effect))
         if collective_sum > 1e-8:
-            hover_scalar = (GRAVITY_M_S2 - force_intercept) / collective_sum
+            hover_scalar = (GRAVITY_M_S2 - fit.force_intercept) / collective_sum
             candidate = np.full(4, hover_scalar)
             if np.all(candidate >= self._minimum) and np.all(
                 candidate <= self._maximum
@@ -1315,7 +1423,7 @@ class RecursiveBootstrapIdentifier:
             max(
                 float(
                     collective_direction
-                    @ collective_effect_covariance
+                    @ fit.collective_effect_covariance
                     @ collective_direction
                 ),
                 0.0,
@@ -1333,7 +1441,7 @@ class RecursiveBootstrapIdentifier:
         unit_collective = collective_direction / np.linalg.norm(collective_direction)
         collective_directional_information = 1.0 / math.sqrt(
             max(
-                float(unit_collective @ force_residual_inverse @ unit_collective),
+                float(unit_collective @ fit.force_residual_inverse @ unit_collective),
                 1e-12,
             )
         )
@@ -1342,7 +1450,7 @@ class RecursiveBootstrapIdentifier:
             self.config.minimum_information_singular_value,
             self.config.full_authority_information_singular_value,
         )
-        if force_rank >= 1 and hover_command is not None:
+        if fit.force_rank >= 1 and hover_command is not None:
             collective_authority = float(
                 np.clip(
                     collective_support
@@ -1356,47 +1464,113 @@ class RecursiveBootstrapIdentifier:
             )
         exploration_completion = float(
             min(
-                angular_command_rank / 4.0,
+                fit.angular_command_rank / 4.0,
                 angular_effect_rank / 3.0,
                 information_strength,
                 collective_signal_authority,
                 float(np.min(angular_signal_authority)),
             )
         )
-        self._belief = RecursiveBootstrapBelief(
-            interval_count=self._interval_count,
-            effective_interval_count=self._weight,
-            collective_acceleration_per_command=force_effect,
-            collective_velocity_coefficient=force_nuisance[:3, 0],
-            collective_intercept_m_s2=force_intercept,
-            angular_acceleration_per_command=angular_effect,
-            angular_rate_coefficient=angular_nuisance[:3].T,
-            angular_rate_product_coefficient=angular_nuisance[3:6].T,
-            angular_intercept_rad_s2=angular_intercept,
-            normalized_command_support_projector=angular_support,
-            normalized_command_singular_values=angular_singular_values,
-            normalized_command_information=angular_residual_information,
-            supported_collective_effect_covariance=collective_effect_covariance,
-            supported_angular_effect_covariance=angular_effect_covariance,
-            command_evidence_rank=angular_command_rank,
+        return _BeliefAuthority(
+            collective_support=collective_support,
+            angular_output_support=angular_output_support,
             angular_effect_rank=angular_effect_rank,
-            collective_nuisance_rank=force_nuisance_rank,
-            angular_nuisance_rank=angular_nuisance_rank,
-            angular_output_support_projector=angular_output_support,
-            collective_support_fraction=collective_support,
-            minimum_supported_information_singular_value=(
-                minimum_supported_information
-            ),
+            minimum_supported_information=minimum_supported_information,
             information_authority=information_authority,
-            collective_effect_signal_to_noise=collective_effect_signal_to_noise,
             angular_effect_signal_to_noise=angular_effect_signal_to_noise,
-            collective_residual_std_m_s2=force_residual_std,
-            angular_residual_std_rad_s2=angular_residual_std,
-            exploration_completion=exploration_completion,
-            collective_authority=collective_authority,
             angular_axis_authority=angular_axis_authority,
             hover_command=hover_command,
+            collective_authority=collective_authority,
+            collective_effect_signal_to_noise=collective_effect_signal_to_noise,
+            exploration_completion=exploration_completion,
+        )
+
+    def _assimilated_belief(
+        self,
+        fit: _EffectFit,
+        authority: _BeliefAuthority,
+        started_at: float,
+    ) -> RecursiveBootstrapBelief:
+        """Assemble the working belief this sample leaves the identifier in."""
+
+        return RecursiveBootstrapBelief(
+            interval_count=self._interval_count,
+            effective_interval_count=self._weight,
+            collective_acceleration_per_command=fit.force_effect,
+            collective_velocity_coefficient=fit.force_nuisance[:3, 0],
+            collective_intercept_m_s2=fit.force_intercept,
+            angular_acceleration_per_command=fit.angular_effect,
+            angular_rate_coefficient=fit.angular_nuisance[:3].T,
+            angular_rate_product_coefficient=fit.angular_nuisance[3:6].T,
+            angular_intercept_rad_s2=fit.angular_intercept,
+            normalized_command_support_projector=fit.angular_support,
+            normalized_command_singular_values=fit.angular_singular_values,
+            normalized_command_information=fit.angular_residual_information,
+            supported_collective_effect_covariance=fit.collective_effect_covariance,
+            supported_angular_effect_covariance=fit.angular_effect_covariance,
+            command_evidence_rank=fit.angular_command_rank,
+            angular_effect_rank=authority.angular_effect_rank,
+            collective_nuisance_rank=fit.force_nuisance_rank,
+            angular_nuisance_rank=fit.angular_nuisance_rank,
+            angular_output_support_projector=authority.angular_output_support,
+            collective_support_fraction=authority.collective_support,
+            minimum_supported_information_singular_value=(
+                authority.minimum_supported_information
+            ),
+            information_authority=authority.information_authority,
+            collective_effect_signal_to_noise=(
+                authority.collective_effect_signal_to_noise
+            ),
+            angular_effect_signal_to_noise=authority.angular_effect_signal_to_noise,
+            collective_residual_std_m_s2=fit.force_residual_std,
+            angular_residual_std_rad_s2=fit.angular_residual_std,
+            exploration_completion=authority.exploration_completion,
+            collective_authority=authority.collective_authority,
+            angular_axis_authority=authority.angular_axis_authority,
+            hover_command=authority.hover_command,
             update_wall_time_s=time.perf_counter() - started_at,
+        )
+
+    def update(
+        self,
+        previous_state: Sequence[float],
+        current_state: Sequence[float],
+        average_applied_motor_command: Sequence[float],
+        sample_period_s: float,
+    ) -> RecursiveBootstrapBelief:
+        """Assimilate one measured transition and return the current belief.
+
+        A transition that is not usable evidence is refused rather than raised
+        on, because a single non-finite estimator sample must not end a control
+        loop.  The belief is then left exactly as it was and the refusal is
+        recorded in :attr:`last_sample_report`.
+        """
+
+        started_at = time.perf_counter()
+        rejection, sample = self._validated_sample(
+            previous_state,
+            current_state,
+            average_applied_motor_command,
+            sample_period_s,
+        )
+        if sample is None:
+            assert rejection is not None
+            return self._refused_sample(rejection, started_at)
+        features = self._sample_features(*sample, sample_period_s)
+        self._score_pending_proposal(
+            command=features.command,
+            body_velocity=features.body_velocity,
+            angular_velocity=features.angular_velocity,
+            rate_products=features.rate_products,
+            collective_target=float(features.body_specific_force[2]),
+            angular_target=features.angular_acceleration,
+        )
+        self._accumulate_sample(features)
+        fit = self._fit_supported_effects()
+        self._belief = self._assimilated_belief(
+            fit,
+            self._belief_authority(fit),
+            started_at,
         )
         self._maybe_start_proposal()
         self._last_sample_report = RecursiveBootstrapSampleReport(
@@ -1444,7 +1618,7 @@ class ProgressiveBootstrapControllerConfig:
             ("attitude_gain", 2),
             ("angular_rate_gain", 3),
         ):
-            values = _finite_vector(name, getattr(self, name), size)
+            values = finite_vector(name, getattr(self, name), size)
             if np.any(values <= 0.0):
                 raise ValueError(f"{name} must be positive")
         if not 0.0 < self.maximum_tilt_rad < 1.0:
@@ -1563,6 +1737,318 @@ class ProgressiveBootstrapController:
             reason=reason,
         )
 
+    def _action_inputs(
+        self,
+        state: Sequence[float],
+        previous_command: Sequence[float],
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Parse the state and previous command, or name why they are unusable."""
+
+        try:
+            state_array = finite_vector("state", state, 13)
+        except (ValueError, TypeError) as error:
+            raise _UnusableActionInput("state_not_finite") from error
+        try:
+            previous = finite_vector("previous_command", previous_command, 4)
+        except (ValueError, TypeError) as error:
+            raise _UnusableActionInput("previous_command_not_finite") from error
+        if float(np.linalg.norm(state_array[6:10])) < 1e-9:
+            raise _UnusableActionInput("state_quaternion_degenerate")
+        return state_array, previous
+
+    def _stabilizing_feedback(
+        self,
+        state_array: np.ndarray,
+        belief: RecursiveBootstrapBelief,
+    ) -> _StabilizingFeedback:
+        """Run the fixed cascade and allocate it through the identified effect.
+
+        Velocity arrest is scaled by the weakest authority the manoeuvre needs,
+        the collective reference is blended from the bounded midpoint toward the
+        identified hover command in proportion to collective authority, and the
+        angular part is allocated only inside the supported command and output
+        subspaces, so an unexcited direction is never commanded.
+        """
+
+        rotation = quaternion_to_rotation(state_array[6:10])
+        velocity = state_array[3:6]
+        angular_velocity = state_array[10:13]
+        velocity_authority = float(
+            min(
+                belief.collective_authority,
+                belief.angular_axis_authority[0],
+                belief.angular_axis_authority[1],
+            )
+        )
+        cascade = thrust_cascade(
+            world_velocity_m_s=velocity,
+            rotation=rotation,
+            angular_velocity_rad_s=angular_velocity,
+            velocity_gain=np.asarray(self.config.velocity_gain),
+            maximum_world_acceleration_m_s2=np.asarray(
+                self.config.maximum_world_acceleration_m_s2
+            ),
+            maximum_tilt_rad=self.config.maximum_tilt_rad,
+            attitude_gain=np.asarray(self.config.attitude_gain),
+            angular_rate_gain=np.asarray(self.config.angular_rate_gain),
+            velocity_authority=velocity_authority,
+        )
+
+        collective_reference = self._midpoint.copy()
+        collective_sum = float(np.sum(belief.collective_acceleration_per_command))
+        if belief.hover_command is not None and collective_sum > 1e-8:
+            estimated_scalar = (
+                cascade.desired_force_magnitude_m_s2 - belief.collective_intercept_m_s2
+            ) / collective_sum
+            estimated_reference = np.full(4, estimated_scalar)
+            collective_reference = (
+                1.0 - belief.collective_authority
+            ) * self._midpoint + belief.collective_authority * estimated_reference
+        collective_reference = np.clip(
+            collective_reference,
+            self._minimum,
+            self._maximum,
+        )
+
+        angular_effect = (
+            belief.angular_acceleration_per_command
+            @ belief.normalized_command_support_projector
+        )
+        supported_desired = belief.angular_output_support_projector @ (
+            belief.angular_axis_authority * cascade.desired_angular_acceleration_rad_s2
+        )
+        if belief.angular_effect_rank:
+            delta = np.linalg.pinv(angular_effect, rcond=1e-5) @ supported_desired
+        else:
+            delta = np.zeros(4)
+        delta_limit = self.config.maximum_feedback_delta * float(
+            np.max(belief.angular_axis_authority)
+        )
+        delta = np.clip(delta, -delta_limit, delta_limit)
+        return _StabilizingFeedback(
+            rotation=rotation,
+            velocity=velocity,
+            angular_velocity=angular_velocity,
+            cascade=cascade,
+            command=np.clip(
+                collective_reference + delta,
+                self._minimum,
+                self._maximum,
+            ),
+        )
+
+    def _information_action(
+        self,
+        online: RecursiveBootstrapBelief,
+        *,
+        committed: bool,
+    ) -> _InformationAction:
+        """Choose the excitation direction and amplitude to ride on the cascade.
+
+        The amplitude decays from the initial fraction toward the continuing one
+        as exploration completes, and is capped further while a candidate belief
+        is committed to predictive validation.  The direction is a fixed pseudo
+        random pattern half blended with the same pattern whitened by the
+        current information geometry, which pushes the probe toward the weakest
+        identified directions without ever leaving the bounded pattern family.
+        """
+
+        amplitude = self.config.continuing_excitation_fraction + (
+            self.config.initial_excitation_fraction
+            - self.config.continuing_excitation_fraction
+        ) * (1.0 - online.exploration_completion)
+        if committed:
+            amplitude = min(
+                amplitude,
+                self.config.maximum_committed_excitation_fraction,
+            )
+        pattern = self._patterns[online.interval_count % len(self._patterns)]
+        information = 0.5 * (
+            online.normalized_command_information
+            + online.normalized_command_information.T
+        )
+        eigenvalues, eigenvectors = np.linalg.eigh(information)
+        floor = self.identifier_config.minimum_information_singular_value**2
+        inverse_sqrt = 1.0 / np.sqrt(np.maximum(eigenvalues, floor))
+        inverse_sqrt /= max(float(np.min(inverse_sqrt)), 1e-9)
+        inverse_sqrt = np.clip(inverse_sqrt, 1.0, 3.0)
+        information_weighted_direction = eigenvectors @ (
+            inverse_sqrt * (eigenvectors.T @ pattern)
+        )
+        information_weighted_direction /= max(
+            float(np.max(np.abs(information_weighted_direction))),
+            1e-9,
+        )
+        information_direction = 0.5 * pattern + 0.5 * information_weighted_direction
+        information_direction /= max(
+            float(np.max(np.abs(information_direction))),
+            1e-9,
+        )
+        return _InformationAction(
+            amplitude=amplitude,
+            target=amplitude * self._span * information_direction,
+            information=information,
+            floor=floor,
+        )
+
+    def _candidate_commands(
+        self,
+        feedback: np.ndarray,
+        information_target: np.ndarray,
+        previous: np.ndarray,
+        belief: RecursiveBootstrapBelief,
+    ) -> np.ndarray:
+        """Return the bounded scan of excitation fractions around the feedback.
+
+        The per-interval motor step limit applies only once the belief has seen
+        an interval, so the very first command is free to move from whatever the
+        vehicle happened to be holding.
+        """
+
+        scales = np.asarray(self.config.objective_information_scales)
+        candidates = feedback + scales[:, None] * information_target
+        candidates = np.clip(candidates, self._minimum, self._maximum)
+        if belief.interval_count:
+            candidates = np.clip(
+                candidates,
+                previous - self.config.maximum_motor_step,
+                previous + self.config.maximum_motor_step,
+            )
+            candidates = np.clip(candidates, self._minimum, self._maximum)
+        return candidates
+
+    def _candidate_scores(
+        self,
+        candidates: np.ndarray,
+        feedback: _StabilizingFeedback,
+        action: _InformationAction,
+        belief: RecursiveBootstrapBelief,
+        state_array: np.ndarray,
+    ) -> _CandidateScores:
+        """Score every candidate on stabilization, information, and risk.
+
+        The objective trades departure from the stabilizing command against the
+        information the departure buys, then charges the candidate for the
+        predicted-effect variance it rides on and for any predicted breach of
+        the minimum altitude.
+        """
+
+        normalized_delta = (candidates - feedback.command) / self._span
+        normalized_information_target = action.target / self._span
+        stabilization = 0.5 * np.sum(np.square(normalized_delta), axis=1)
+        information_reward = normalized_delta @ normalized_information_target
+        force_variance = np.einsum(
+            "ni,ij,nj->n",
+            candidates,
+            belief.supported_collective_effect_covariance,
+            candidates,
+        )
+        angular_variance = sum(
+            np.einsum(
+                "ni,ij,nj->n",
+                candidates,
+                belief.supported_angular_effect_covariance[axis],
+                candidates,
+            )
+            for axis in range(3)
+        )
+        uncertainty = self.config.uncertainty_cost_weight * (
+            force_variance + angular_variance
+        )
+        body_velocity = feedback.rotation.T @ feedback.velocity
+        predicted_force = (
+            candidates @ belief.collective_acceleration_per_command
+            + belief.collective_velocity_coefficient @ body_velocity
+            + belief.collective_intercept_m_s2
+        )
+        predicted_world_acceleration = predicted_force[:, None] * feedback.rotation[
+            :, 2
+        ] - np.asarray((0.0, 0.0, GRAVITY_M_S2))
+        horizon = self.config.objective_horizon_s
+        predicted_velocity = feedback.velocity + horizon * predicted_world_acceleration
+        predicted_altitude = (
+            state_array[2]
+            + horizon * feedback.velocity[2]
+            + 0.5 * horizon**2 * predicted_world_acceleration[:, 2]
+        )
+        altitude_risk = self.config.altitude_risk_weight * np.square(
+            np.maximum(self.config.minimum_altitude_m - predicted_altitude, 0.0)
+        )
+        return _CandidateScores(
+            stabilization=stabilization,
+            information_reward=information_reward,
+            uncertainty=uncertainty,
+            altitude_risk=altitude_risk,
+            objective=(
+                stabilization - information_reward + uncertainty + altitude_risk
+            ),
+            predicted_world_velocity=predicted_velocity,
+        )
+
+    def _selected_decision(
+        self,
+        selected: int,
+        candidates: np.ndarray,
+        scores: _CandidateScores,
+        feedback: _StabilizingFeedback,
+        action: _InformationAction,
+        belief: RecursiveBootstrapBelief,
+        online: RecursiveBootstrapBelief,
+        previous: np.ndarray,
+    ) -> ProgressiveBootstrapCommand:
+        """Assemble the decision record for the candidate the scan selected."""
+
+        bounded = candidates[selected]
+        angular_velocity = feedback.angular_velocity
+        rate_products = np.asarray(
+            (
+                angular_velocity[0] * angular_velocity[1],
+                angular_velocity[0] * angular_velocity[2],
+                angular_velocity[1] * angular_velocity[2],
+            )
+        )
+        predicted_angular_acceleration = (
+            bounded @ belief.angular_acceleration_per_command.T
+            + belief.angular_rate_coefficient @ angular_velocity
+            + belief.angular_rate_product_coefficient @ rate_products
+            + belief.angular_intercept_rad_s2
+        )
+        predicted_angular_velocity = (
+            angular_velocity
+            + self.config.objective_horizon_s * predicted_angular_acceleration
+        )
+        command_innovation = (bounded - previous) / self._span
+        regularized_information = action.information + action.floor * np.eye(4)
+        information_inverse = np.linalg.pinv(regularized_information, rcond=1e-10)
+        estimated_information_gain = math.log1p(
+            max(
+                float(command_innovation @ information_inverse @ command_innovation),
+                0.0,
+            )
+        )
+        scales = np.asarray(self.config.objective_information_scales)
+        return ProgressiveBootstrapCommand(
+            command=bounded,
+            objective_value=float(scores.objective[selected]),
+            stabilization_cost=float(scores.stabilization[selected]),
+            information_reward=float(scores.information_reward[selected]),
+            uncertainty_cost=float(scores.uncertainty[selected]),
+            altitude_risk_cost=float(scores.altitude_risk[selected]),
+            estimated_information_gain=estimated_information_gain,
+            information_action_fraction=float(scales[selected] * action.amplitude),
+            information_completion=online.exploration_completion,
+            predicted_world_velocity_m_s=scores.predicted_world_velocity[selected],
+            predicted_angular_velocity_rad_s=predicted_angular_velocity,
+            desired_world_acceleration_m_s2=(
+                feedback.cascade.desired_world_acceleration_m_s2
+            ),
+            desired_angular_acceleration_rad_s2=(
+                feedback.cascade.desired_angular_acceleration_rad_s2
+            ),
+            collective_authority=belief.collective_authority,
+            angular_axis_authority=belief.angular_axis_authority,
+        )
+
     def command(
         self,
         state: Sequence[float],
@@ -1588,243 +2074,35 @@ class ProgressiveBootstrapController:
         online = belief if online_belief is None else online_belief
         held = self._held_command(previous_command)
         try:
-            state_array = _finite_vector("state", state, 13)
-        except (ValueError, TypeError):
-            return self._unusable_command(held, belief, online, "state_not_finite")
-        try:
-            previous = _finite_vector("previous_command", previous_command, 4)
-        except (ValueError, TypeError):
-            return self._unusable_command(
-                held,
-                belief,
-                online,
-                "previous_command_not_finite",
-            )
-        if float(np.linalg.norm(state_array[6:10])) < 1e-9:
-            return self._unusable_command(
-                held,
-                belief,
-                online,
-                "state_quaternion_degenerate",
-            )
-        quaternion = state_array[6:10]
-        rotation = _quaternion_to_rotation(quaternion)
-        velocity = state_array[3:6]
-        angular_velocity = state_array[10:13]
-        velocity_authority = float(
-            min(
-                belief.collective_authority,
-                belief.angular_axis_authority[0],
-                belief.angular_axis_authority[1],
-            )
-        )
-        velocity_gain = np.asarray(self.config.velocity_gain)
-        maximum_acceleration = np.asarray(self.config.maximum_world_acceleration_m_s2)
-        desired_world_acceleration = np.clip(
-            -velocity_authority * velocity_gain * velocity,
-            -maximum_acceleration,
-            maximum_acceleration,
-        )
-        desired_specific_force = desired_world_acceleration + np.asarray(
-            (0.0, 0.0, GRAVITY_M_S2)
-        )
-        vertical_force = max(float(desired_specific_force[2]), 1e-3)
-        maximum_horizontal_force = vertical_force * math.tan(
-            self.config.maximum_tilt_rad
-        )
-        horizontal_norm = float(np.linalg.norm(desired_specific_force[:2]))
-        if horizontal_norm > maximum_horizontal_force:
-            desired_specific_force[:2] *= maximum_horizontal_force / horizontal_norm
-        desired_force_magnitude = float(np.linalg.norm(desired_specific_force))
-        desired_thrust_world = desired_specific_force / desired_force_magnitude
-        desired_thrust_body = rotation.T @ desired_thrust_world
-        tilt_error_body = np.cross(
-            np.asarray((0.0, 0.0, 1.0)),
-            desired_thrust_body,
-        )
-        attitude_gain = np.asarray(self.config.attitude_gain)
-        angular_rate_gain = np.asarray(self.config.angular_rate_gain)
-        desired_angular_acceleration = np.asarray(
-            (
-                attitude_gain[0] * tilt_error_body[0]
-                - angular_rate_gain[0] * angular_velocity[0],
-                attitude_gain[1] * tilt_error_body[1]
-                - angular_rate_gain[1] * angular_velocity[1],
-                -angular_rate_gain[2] * angular_velocity[2],
-            )
-        )
+            state_array, previous = self._action_inputs(state, previous_command)
+        except _UnusableActionInput as unusable:
+            return self._unusable_command(held, belief, online, unusable.reason)
 
-        collective_reference = self._midpoint.copy()
-        collective_sum = float(np.sum(belief.collective_acceleration_per_command))
-        if belief.hover_command is not None and collective_sum > 1e-8:
-            estimated_scalar = (
-                desired_force_magnitude - belief.collective_intercept_m_s2
-            ) / collective_sum
-            estimated_reference = np.full(4, estimated_scalar)
-            collective_reference = (
-                1.0 - belief.collective_authority
-            ) * self._midpoint + belief.collective_authority * estimated_reference
-        collective_reference = np.clip(
-            collective_reference,
-            self._minimum,
-            self._maximum,
+        feedback = self._stabilizing_feedback(state_array, belief)
+        action = self._information_action(
+            online,
+            committed=online_belief is not None,
         )
-
-        angular_effect = (
-            belief.angular_acceleration_per_command
-            @ belief.normalized_command_support_projector
+        candidates = self._candidate_commands(
+            feedback.command,
+            action.target,
+            previous,
+            belief,
         )
-        supported_desired = belief.angular_output_support_projector @ (
-            belief.angular_axis_authority * desired_angular_acceleration
-        )
-        if belief.angular_effect_rank:
-            delta = np.linalg.pinv(angular_effect, rcond=1e-5) @ supported_desired
-        else:
-            delta = np.zeros(4)
-        delta_limit = self.config.maximum_feedback_delta * float(
-            np.max(belief.angular_axis_authority)
-        )
-        delta = np.clip(delta, -delta_limit, delta_limit)
-        feedback = np.clip(
-            collective_reference + delta,
-            self._minimum,
-            self._maximum,
-        )
-
-        information_amplitude = self.config.continuing_excitation_fraction + (
-            self.config.initial_excitation_fraction
-            - self.config.continuing_excitation_fraction
-        ) * (1.0 - online.exploration_completion)
-        if online_belief is not None:
-            information_amplitude = min(
-                information_amplitude,
-                self.config.maximum_committed_excitation_fraction,
-            )
-        pattern = self._patterns[online.interval_count % len(self._patterns)]
-        information = 0.5 * (
-            online.normalized_command_information
-            + online.normalized_command_information.T
-        )
-        eigenvalues, eigenvectors = np.linalg.eigh(information)
-        information_floor = self.identifier_config.minimum_information_singular_value**2
-        inverse_sqrt = 1.0 / np.sqrt(np.maximum(eigenvalues, information_floor))
-        inverse_sqrt /= max(float(np.min(inverse_sqrt)), 1e-9)
-        inverse_sqrt = np.clip(inverse_sqrt, 1.0, 3.0)
-        information_weighted_direction = eigenvectors @ (
-            inverse_sqrt * (eigenvectors.T @ pattern)
-        )
-        information_weighted_direction /= max(
-            float(np.max(np.abs(information_weighted_direction))),
-            1e-9,
-        )
-        information_direction = 0.5 * pattern + 0.5 * information_weighted_direction
-        information_direction /= max(
-            float(np.max(np.abs(information_direction))),
-            1e-9,
-        )
-        information_target = information_amplitude * self._span * information_direction
-        scales = np.asarray(self.config.objective_information_scales)
-        candidates = feedback + scales[:, None] * information_target
-        candidates = np.clip(candidates, self._minimum, self._maximum)
-        if belief.interval_count:
-            candidates = np.clip(
-                candidates,
-                previous - self.config.maximum_motor_step,
-                previous + self.config.maximum_motor_step,
-            )
-            candidates = np.clip(candidates, self._minimum, self._maximum)
-
-        normalized_delta = (candidates - feedback) / self._span
-        normalized_information_target = information_target / self._span
-        stabilization_costs = 0.5 * np.sum(np.square(normalized_delta), axis=1)
-        information_rewards = normalized_delta @ normalized_information_target
-        force_variance = np.einsum(
-            "ni,ij,nj->n",
+        scores = self._candidate_scores(
             candidates,
-            belief.supported_collective_effect_covariance,
+            feedback,
+            action,
+            belief,
+            state_array,
+        )
+        return self._selected_decision(
+            int(np.argmin(scores.objective)),
             candidates,
-        )
-        angular_variance = sum(
-            np.einsum(
-                "ni,ij,nj->n",
-                candidates,
-                belief.supported_angular_effect_covariance[axis],
-                candidates,
-            )
-            for axis in range(3)
-        )
-        uncertainty_costs = self.config.uncertainty_cost_weight * (
-            force_variance + angular_variance
-        )
-        body_velocity = rotation.T @ velocity
-        predicted_force = (
-            candidates @ belief.collective_acceleration_per_command
-            + belief.collective_velocity_coefficient @ body_velocity
-            + belief.collective_intercept_m_s2
-        )
-        predicted_world_acceleration = predicted_force[:, None] * rotation[
-            :, 2
-        ] - np.asarray((0.0, 0.0, GRAVITY_M_S2))
-        horizon = self.config.objective_horizon_s
-        predicted_velocity = velocity + horizon * predicted_world_acceleration
-        predicted_altitude = (
-            state_array[2]
-            + horizon * velocity[2]
-            + 0.5 * horizon**2 * predicted_world_acceleration[:, 2]
-        )
-        altitude_risk_costs = self.config.altitude_risk_weight * np.square(
-            np.maximum(self.config.minimum_altitude_m - predicted_altitude, 0.0)
-        )
-        objective_values = (
-            stabilization_costs
-            - information_rewards
-            + uncertainty_costs
-            + altitude_risk_costs
-        )
-        selected = int(np.argmin(objective_values))
-        bounded = candidates[selected]
-
-        rate_products = np.asarray(
-            (
-                angular_velocity[0] * angular_velocity[1],
-                angular_velocity[0] * angular_velocity[2],
-                angular_velocity[1] * angular_velocity[2],
-            )
-        )
-        predicted_angular_acceleration = (
-            bounded @ belief.angular_acceleration_per_command.T
-            + belief.angular_rate_coefficient @ angular_velocity
-            + belief.angular_rate_product_coefficient @ rate_products
-            + belief.angular_intercept_rad_s2
-        )
-        predicted_angular_velocity = (
-            angular_velocity + horizon * predicted_angular_acceleration
-        )
-        command_innovation = (bounded - previous) / self._span
-        regularized_information = information + information_floor * np.eye(4)
-        information_inverse = np.linalg.pinv(regularized_information, rcond=1e-10)
-        estimated_information_gain = math.log1p(
-            max(
-                float(command_innovation @ information_inverse @ command_innovation),
-                0.0,
-            )
-        )
-        return ProgressiveBootstrapCommand(
-            command=bounded,
-            objective_value=float(objective_values[selected]),
-            stabilization_cost=float(stabilization_costs[selected]),
-            information_reward=float(information_rewards[selected]),
-            uncertainty_cost=float(uncertainty_costs[selected]),
-            altitude_risk_cost=float(altitude_risk_costs[selected]),
-            estimated_information_gain=estimated_information_gain,
-            information_action_fraction=float(scales[selected] * information_amplitude),
-            information_completion=online.exploration_completion,
-            predicted_world_velocity_m_s=predicted_velocity[selected],
-            predicted_angular_velocity_rad_s=predicted_angular_velocity,
-            desired_world_acceleration_m_s2=(
-                desired_specific_force - np.asarray((0.0, 0.0, GRAVITY_M_S2))
-            ),
-            desired_angular_acceleration_rad_s2=desired_angular_acceleration,
-            collective_authority=belief.collective_authority,
-            angular_axis_authority=belief.angular_axis_authority,
+            scores,
+            feedback,
+            action,
+            belief,
+            online,
+            previous,
         )

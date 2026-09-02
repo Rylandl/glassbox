@@ -9,6 +9,7 @@ import math
 import platform
 import time
 from collections import Counter
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Any
@@ -37,7 +38,10 @@ from glassbox.core.dynamics import (
     step_with_latent,
 )
 from glassbox.core.evaluation import windowed_rollout_evaluation
-from glassbox.core.geometry import rigid_body_local_error
+from glassbox.core.geometry import (
+    quaternion_from_euler,
+    rigid_body_local_error,
+)
 from glassbox.core.runtime import (
     DirectActuationMap,
     RuntimeDynamicsModel,
@@ -404,24 +408,10 @@ def _build_beliefs() -> tuple[
     return belief, updated, target_params, fleet_prior, evidence
 
 
-def _quaternion_from_euler(roll: float, pitch: float, yaw: float) -> np.ndarray:
-    cr, sr = math.cos(0.5 * roll), math.sin(0.5 * roll)
-    cp, sp = math.cos(0.5 * pitch), math.sin(0.5 * pitch)
-    cy, sy = math.cos(0.5 * yaw), math.sin(0.5 * yaw)
-    return np.asarray(
-        (
-            cr * cp * cy + sr * sp * sy,
-            sr * cp * cy - cr * sp * sy,
-            cr * sp * cy + sr * cp * sy,
-            cr * cp * sy - sr * sp * cy,
-        )
-    )
-
-
 def _recovery_initial_state(belief: DynamicsBelief) -> np.ndarray:
     state = resting_state()
     state[0:3] = (0.25, -0.20, -0.15)
-    quaternion = _quaternion_from_euler(0.24, -0.17, 0.12)
+    quaternion = quaternion_from_euler(0.24, -0.17, 0.12)
     state[6:10] = quaternion
     envelope = belief.runtime_spec.validity_envelope
     body_velocity = np.asarray(envelope.body_velocity_center_m_s) + 0.25 * np.asarray(
@@ -865,10 +855,10 @@ def run_adaptive_recovery_benchmark() -> dict[str, Any]:
     }
 
 
-def main() -> None:
+def main(argv: Sequence[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     report = run_adaptive_recovery_benchmark()
     payload = json.dumps(report, indent=2, allow_nan=False) + "\n"
     if args.output is not None:

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import itertools
 import math
+from collections.abc import Callable
 from dataclasses import replace
 from types import SimpleNamespace
 
@@ -181,6 +183,28 @@ def _test_policy(*, horizon_steps: int = 6) -> _SolverPolicy:
         maximum_iterations=4,
         line_search_steps=5,
     )
+
+
+def _scripted_perf_counter(readings: tuple[float, ...]) -> Callable[[], float]:
+    """Return a ``perf_counter`` stand-in that never runs out of readings.
+
+    The scripted readings are handed out in order and every later call keeps
+    advancing by a millisecond.  A solve that reads the clock one more time
+    than the script anticipates therefore still runs past the deadline and
+    fails the assertion under test, instead of raising ``StopIteration`` out of
+    an exhausted iterator and hiding what changed.
+    """
+
+    scripted = iter(readings)
+    overflow = itertools.count(1)
+
+    def perf_counter() -> float:
+        try:
+            return next(scripted)
+        except StopIteration:
+            return readings[-1] + 0.001 * next(overflow)
+
+    return perf_counter
 
 
 def test_quaternion_error_is_sign_invariant_and_has_finite_identity_gradient() -> None:
@@ -567,11 +591,12 @@ def test_deadline_includes_prediction_diagnostics(
     reference = controller.hold_reference(jnp.asarray(target))
     controller.solve(jnp.asarray(target), reference, previous)
 
-    clock = iter((0.0, 0.001, 0.002, 0.030, 0.031))
     monkeypatch.setattr(
         nmpc_solver,
         "time",
-        SimpleNamespace(perf_counter=lambda: next(clock)),
+        SimpleNamespace(
+            perf_counter=_scripted_perf_counter((0.0, 0.001, 0.002, 0.030, 0.031))
+        ),
     )
     result = controller.solve(
         jnp.asarray(target),

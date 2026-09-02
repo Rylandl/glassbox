@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -16,7 +17,11 @@ from glassbox.control.online_bootstrap import (
     RecursiveBootstrapIdentifier,
 )
 from glassbox.integrations.crazyflow import CrazyflowPlant, CrazyflowPlantConfig
-from glassbox.integrations.crazyflow_bootstrap import _initial_state, _tilt_rad
+from glassbox.integrations.crazyflow_telemetry import (
+    PlantTelemetryRecorder,
+    initial_plant_state,
+    tilt_rad,
+)
 
 
 @dataclass(frozen=True)
@@ -226,7 +231,7 @@ def run_crazyflow_throw_trial(
         controller = ProgressiveBootstrapController(identifier.config)
         minimum = np.asarray(identifier.config.command_minimum)
         maximum = np.asarray(identifier.config.command_maximum)
-        release_state = _initial_state(
+        release_state = initial_plant_state(
             world_velocity_m_s=scenario.world_velocity_m_s,
             angular_velocity_rad_s=scenario.angular_velocity_rad_s,
             roll_rad=scenario.roll_rad,
@@ -237,9 +242,9 @@ def run_crazyflow_throw_trial(
             release_state,
             applied_motor_thrust_fraction=np.zeros(4),
         )
-        timestamps = [sample.time_s]
-        states = [sample.state]
-        applied_state = [sample.applied_motor_thrust_fraction]
+        telemetry = PlantTelemetryRecorder(sample)
+        timestamps = telemetry.timestamps_s
+        states = telemetry.states
         requested_commands: list[np.ndarray] = []
         working_interval_counts = [0]
         command_evidence_ranks = [0]
@@ -259,9 +264,7 @@ def run_crazyflow_throw_trial(
         for _ in range(model_enable_delay_step_count):
             requested_commands.append(zero_command)
             sample = plant.step(zero_command)
-            timestamps.append(sample.time_s)
-            states.append(sample.state)
-            applied_state.append(sample.applied_motor_thrust_fraction)
+            telemetry.record(sample)
             working_interval_counts.append(0)
             command_evidence_ranks.append(0)
             angular_effect_ranks.append(0)
@@ -316,9 +319,7 @@ def run_crazyflow_throw_trial(
             ):
                 certified_belief_sample_index = len(states)
             update_wall_times_s.append(working_belief.update_wall_time_s)
-            timestamps.append(sample.time_s)
-            states.append(sample.state)
-            applied_state.append(sample.applied_motor_thrust_fraction)
+            telemetry.record(sample)
             working_interval_counts.append(working_belief.interval_count)
             command_evidence_ranks.append(working_belief.command_evidence_rank)
             angular_effect_ranks.append(working_belief.angular_effect_rank)
@@ -335,12 +336,12 @@ def run_crazyflow_throw_trial(
             raise RuntimeError("online identifier never certified a control belief")
         certified_belief = identifier.certified_belief
         working_belief = identifier.belief
-        state_array = np.asarray(states)
-        applied_array = np.asarray(applied_state)
+        state_array = telemetry.state_array()
+        applied_array = telemetry.applied_array()
         requested_array = np.asarray(requested_commands)
         velocity_norm = _norm(state_array[:, 3:6])
         rate_norm = _norm(state_array[:, 10:13])
-        tilt = np.asarray([_tilt_rad(state) for state in state_array])
+        tilt = np.asarray([tilt_rad(state) for state in state_array])
         horizontal_excursion = _norm(state_array[:, 0:2] - state_array[0, 0:2])
         hidden_hover = plant.hover_motor_thrust_fraction
         if certified_belief.hover_command is None:
@@ -458,7 +459,7 @@ def run_crazyflow_throw_trial(
                 "release_height_m": float(release_state[2]),
                 "release_world_velocity_m_s": release_state[3:6].tolist(),
                 "release_angular_velocity_rad_s": release_state[10:13].tolist(),
-                "release_tilt_rad": float(_tilt_rad(release_state)),
+                "release_tilt_rad": float(tilt_rad(release_state)),
                 "release_applied_motor_command": [0.0, 0.0, 0.0, 0.0],
                 "command_bound_numerical_tolerance": command_bound_tolerance,
                 "model_enable_delay_s": model_enable_delay_s,
@@ -743,7 +744,7 @@ def run_crazyflow_throw_trial(
             model_enable_sample_index=model_enable_sample_index,
             first_supported_control_sample_index=(first_supported_control_sample_index),
             certified_belief_sample_index=certified_belief_sample_index,
-            timestamps_s=np.asarray(timestamps),
+            timestamps_s=telemetry.timestamp_array(),
             states=state_array,
             applied_motor_commands=applied_array,
             requested_motor_commands=requested_array,
@@ -892,7 +893,7 @@ def run_crazyflow_throw_campaign(
     return result
 
 
-def main() -> None:
+def main(argv: Sequence[str] | None = None) -> None:
     # Set before any lazy `import crazyflow` reaches its own SciPy-array-API guard.
     os.environ.setdefault("SCIPY_ARRAY_API", "1")
     parser = argparse.ArgumentParser(
@@ -904,7 +905,7 @@ def main() -> None:
         action="store_true",
         help="run the fixed multi-configuration development campaign",
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     report = (
         run_crazyflow_throw_campaign()
         if args.campaign

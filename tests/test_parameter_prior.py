@@ -36,21 +36,23 @@ def _member_belief(trajectory, params, offset: np.ndarray) -> DynamicsBelief:
     )
 
 
-@pytest.mark.parametrize(
-    ("trajectory", "params"),
-    (
-        (generate_trajectory(seed=1, duration_s=0.2), true_parameters()),
-        (
-            generate_fixed_wing_trajectory(seed=1, duration_s=0.2),
-            true_fixed_wing_parameters(),
-        ),
-    ),
-)
+# Resolved lazily from the session-scoped conftest fixtures at test setup
+# time (keyed by a plain string id) instead of building both rollouts
+# eagerly inside `@pytest.mark.parametrize`, which used to run at import.
+@pytest.fixture(params=("quadrotor", "fixedwing"))
+def fleet_reference_case(request):
+    if request.param == "quadrotor":
+        trajectory = request.getfixturevalue("quadrotor_trajectory_seed1_dur0_2s")
+        return trajectory, true_parameters()
+    trajectory = request.getfixturevalue("fixedwing_trajectory_seed1_dur0_2s")
+    return trajectory, true_fixed_wing_parameters()
+
+
 def test_parameter_prior_separates_fleet_spread_from_full_rank_completion(
-    trajectory,
-    params,
+    fleet_reference_case,
     tmp_path,
 ) -> None:
+    trajectory, params = fleet_reference_case
     size = len(np.asarray(structured_parameter_vector(params)))
     offsets = []
     for first, second in ((-0.2, 0.1), (0.0, -0.2), (0.2, 0.1)):
@@ -105,8 +107,10 @@ def test_parameter_prior_separates_fleet_spread_from_full_rank_completion(
     )
 
 
-def test_parameter_prior_rejects_mixed_member_covariance_semantics() -> None:
-    trajectory = generate_trajectory(seed=2, duration_s=0.2)
+def test_parameter_prior_rejects_mixed_member_covariance_semantics(
+    quadrotor_trajectory_seed2_dur0_2s,
+) -> None:
+    trajectory = quadrotor_trajectory_seed2_dur0_2s
     params = true_parameters()
     size = len(np.asarray(structured_parameter_vector(params)))
     first = _member_belief(trajectory, params, np.zeros(size))

@@ -56,21 +56,27 @@ from glassbox.integrations.crazyflow_bootstrap import (
     run_crazyflow_bootstrap_benchmark,
     run_crazyflow_bootstrap_trial,
 )
-from glassbox.integrations.crazyflow_prototype import (
-    _SUPERVISOR_FAULT_EXPECTATIONS,
+from glassbox.integrations.crazyflow_fleet import (
     FLEET_LOG_ARM_LENGTH_RATIOS,
-    _belief_from_worker_update,
     _configuration_direction_prior,
-    _crazyflow_solver_policy,
+)
+from glassbox.integrations.crazyflow_online import (
+    _belief_from_worker_update,
     _eligible_recovery_evidence_start,
     _initialize_adaptation_worker,
     _online_recovery_trajectory,
     _post_update_controller_template,
     _run_isolated_belief_update,
     _set_process_suspended,
+)
+from glassbox.integrations.crazyflow_prototype import run_crazyflow_prototype
+from glassbox.integrations.crazyflow_supervisor_campaign import (
+    _SUPERVISOR_FAULT_EXPECTATIONS,
     _simulate_supervisor_fault_campaign,
+)
+from glassbox.integrations.crazyflow_telemetry import (
+    _crazyflow_solver_policy,
     generate_crazyflow_trajectory,
-    run_crazyflow_prototype,
 )
 from glassbox.integrations.crazyflow_throw import (
     CRAZYFLOW_THROW_CAMPAIGN_SCENARIOS,

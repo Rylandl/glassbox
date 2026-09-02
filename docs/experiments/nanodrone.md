@@ -20,7 +20,7 @@ The [IDSIA Nano-Quadrotor benchmark](https://github.com/idsia-robotics/nanodrone
 
 ## Data
 
-`glassbox-nanodrone prepare` downloads all 15 official CSV recordings from the pinned upstream commit, verifies their Git LFS SHA-256 values, and writes 12 canonical training trajectories and three canonical Melon test trajectories under `artifacts/nanodrone/canonical/`. The raw upstream files remain separate under `artifacts/nanodrone/raw/`; Glassbox does not vendor the dataset. Checksum verification is strict by default so an upstream revision cannot silently change a benchmark run. For individual files, use `glassbox-nanodrone inspect` or `glassbox-nanodrone extract`.
+`glassbox nanodrone prepare` downloads all 15 official CSV recordings from the pinned upstream commit, verifies their Git LFS SHA-256 values, and writes 12 canonical training trajectories and three canonical Melon test trajectories under `artifacts/nanodrone/canonical/`. The raw upstream files remain separate under `artifacts/nanodrone/raw/`; Glassbox does not vendor the dataset. Checksum verification is strict by default so an upstream revision cannot silently change a benchmark run. For individual files, use `glassbox nanodrone inspect` or `glassbox nanodrone extract`.
 
 The adapter preserves the benchmark's 100 Hz sampling, 13-state rigid-body trajectory, and three published body-specific-force channels. The state is a processed mixed-source observation, not uniform ground truth: position and attitude include motion capture, while velocity and angular rate come from onboard sensing/estimation. The accelerometer outputs are typed as state-aligned FLU observations used only during identification. The upstream world and body frames already have Glassbox's z-up/FLU signs; the adapter reorders the scalar-last quaternion to wxyz.
 
@@ -31,13 +31,13 @@ The v3 multirotor model can represent one bounded shared normalized-command offs
 ## Reproduce
 
 ```bash
-uv run glassbox-nanodrone prepare artifacts/nanodrone
+uv run glassbox nanodrone prepare artifacts/nanodrone
 ```
 
 Fit against the benchmark's trajectory-level split:
 
 ```bash
-uv run glassbox-fit \
+uv run glassbox fit \
   artifacts/nanodrone/canonical/train/*.npz \
   artifacts/nanodrone/canonical/test/*.npz \
   --holdout-profile melon \
@@ -52,7 +52,7 @@ uv run glassbox-fit \
 Score either saved model with the benchmark's rolling 1-to-50-step metrics:
 
 ```bash
-uv run glassbox-nanodrone evaluate \
+uv run glassbox nanodrone evaluate \
   artifacts/nanodrone/model.json \
   artifacts/nanodrone/canonical/test/*.npz \
   --report artifacts/nanodrone/benchmark_report.json

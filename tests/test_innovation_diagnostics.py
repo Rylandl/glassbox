@@ -9,7 +9,6 @@ from glassbox.core.evaluation import (
     state_kinematic_compatibility_diagnostics,
 )
 from glassbox.core.fixedwing_synthetic import (
-    generate_fixed_wing_trajectory,
     initial_fixed_wing_parameter_guess,
     true_fixed_wing_parameters,
 )
@@ -19,20 +18,35 @@ from glassbox.core.synthetic import (
     true_parameters,
 )
 
+# The two vehicle-family cases below resolve their (expensive, JAX-built)
+# trajectory lazily from the session-scoped conftest fixtures at test setup
+# time, keyed by a plain string id, rather than building both rollouts
+# eagerly inside a `@pytest.mark.parametrize` decorator at import time. That
+# keeps `pytest --collect-only` fast: parametrize arguments are evaluated
+# during collection, before any fixture exists to build from.
+_VEHICLE_CASES = ("quadrotor", "fixedwing")
 
-@pytest.mark.parametrize(
-    ("trajectory", "params"),
-    (
-        (generate_trajectory(seed=9, duration_s=4.0), true_parameters()),
-        (
-            generate_fixed_wing_trajectory(seed=4, duration_s=4.0),
-            true_fixed_wing_parameters(),
-        ),
-    ),
-)
-def test_matching_model_has_no_structured_one_step_innovation(
-    trajectory, params
-) -> None:
+
+@pytest.fixture(params=_VEHICLE_CASES)
+def matching_case(request):
+    if request.param == "quadrotor":
+        trajectory = request.getfixturevalue("quadrotor_trajectory_seed9_dur4_0s")
+        return trajectory, true_parameters()
+    trajectory = request.getfixturevalue("fixedwing_trajectory_seed4_dur4_0s")
+    return trajectory, true_fixed_wing_parameters()
+
+
+@pytest.fixture(params=_VEHICLE_CASES)
+def misspecified_case(request):
+    if request.param == "quadrotor":
+        trajectory = request.getfixturevalue("quadrotor_trajectory_seed9_dur4_0s")
+        return trajectory, initial_parameter_guess()
+    trajectory = request.getfixturevalue("fixedwing_trajectory_seed4_dur4_0s")
+    return trajectory, initial_fixed_wing_parameter_guess()
+
+
+def test_matching_model_has_no_structured_one_step_innovation(matching_case) -> None:
+    trajectory, params = matching_case
     report = one_step_innovation_diagnostics(params, trajectory)
 
     assert report["status"] == "ok"
@@ -46,19 +60,10 @@ def test_matching_model_has_no_structured_one_step_innovation(
     )
 
 
-@pytest.mark.parametrize(
-    ("trajectory", "params"),
-    (
-        (generate_trajectory(seed=9, duration_s=4.0), initial_parameter_guess()),
-        (
-            generate_fixed_wing_trajectory(seed=4, duration_s=4.0),
-            initial_fixed_wing_parameter_guess(),
-        ),
-    ),
-)
 def test_misspecified_model_exposes_temporal_and_input_structure(
-    trajectory, params
+    misspecified_case,
 ) -> None:
+    trajectory, params = misspecified_case
     report = one_step_innovation_diagnostics(params, trajectory)
 
     assert report["summary"]["structured_innovation_detected"] is True
@@ -107,8 +112,10 @@ def test_state_compatibility_separates_inconsistent_pose_and_velocity() -> None:
     assert inconsistent["attitude_rate_compatibility"]["vector_rmse"] < 1e-3
 
 
-def test_aggregate_diagnostics_weight_flights_equally() -> None:
-    trajectory = generate_trajectory(seed=9, duration_s=4.0)
+def test_aggregate_diagnostics_weight_flights_equally(
+    quadrotor_trajectory_seed9_dur4_0s,
+) -> None:
+    trajectory = quadrotor_trajectory_seed9_dur4_0s
     clean = one_step_innovation_diagnostics(true_parameters(), trajectory)
     structured = one_step_innovation_diagnostics(initial_parameter_guess(), trajectory)
 

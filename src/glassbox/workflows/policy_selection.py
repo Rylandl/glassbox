@@ -16,6 +16,11 @@ from typing import Any
 from glassbox.core.data import load_trajectory_npz
 from glassbox.core.evaluation import METRIC_FLOORS, ROLLOUT_METRICS
 from glassbox.workflows.profile_benchmark import benchmark_profiles
+from glassbox.workflows.selection import (
+    MAXIMUM_METRIC_REGRESSION,
+    MAXIMUM_PLATFORM_REGRESSION,
+    MINIMUM_OVERALL_IMPROVEMENT,
+)
 from glassbox.workflows.source_group_benchmark import benchmark_source_groups
 
 
@@ -73,9 +78,9 @@ class PolicySelectionPlan:
     evaluation_horizons_s: tuple[float, ...]
     steps: int
     learning_rate: float = 0.01
-    maximum_metric_regression: float = 1.5
-    maximum_platform_regression: float = 1.05
-    minimum_overall_improvement: float = 0.01
+    maximum_metric_regression: float = MAXIMUM_METRIC_REGRESSION
+    maximum_platform_regression: float = MAXIMUM_PLATFORM_REGRESSION
+    minimum_overall_improvement: float = MINIMUM_OVERALL_IMPROVEMENT
 
     def __post_init__(self) -> None:
         if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", self.name) is None:
@@ -257,9 +262,9 @@ def score_policy_candidates(
     *,
     reference_id: str,
     evaluation_horizons_s: Sequence[float],
-    maximum_metric_regression: float = 1.5,
-    maximum_platform_regression: float = 1.05,
-    minimum_overall_improvement: float = 0.01,
+    maximum_metric_regression: float = MAXIMUM_METRIC_REGRESSION,
+    maximum_platform_regression: float = MAXIMUM_PLATFORM_REGRESSION,
+    minimum_overall_improvement: float = MINIMUM_OVERALL_IMPROVEMENT,
 ) -> tuple[dict[str, dict[str, Any]], list[str], str]:
     """Score candidates with equal platform and profile influence.
 
@@ -608,7 +613,7 @@ def _dataset(value: str) -> tuple[str, tuple[Path, ...]]:
     return name, paths
 
 
-def main() -> None:
+def main(argv: Sequence[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--dataset",
@@ -626,7 +631,7 @@ def main() -> None:
         action="store_true",
         help="validate ingestion and the full workflow with one optimizer step",
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     datasets: dict[str, tuple[Path, ...]] = {}
     for name, paths in args.dataset:

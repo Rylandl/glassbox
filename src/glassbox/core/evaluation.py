@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import math
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from typing import Any
 
 import jax
@@ -20,6 +23,7 @@ from glassbox.core.dynamics import (
     structured_parameters,
     validate_control_schema,
 )
+from glassbox.core.geometry import quaternion_to_rotation_matrices
 
 # Rollout error statistics exclude the measured initial sample shared by
 # prediction and target. Reports carry this identifier so recorded results
@@ -48,6 +52,13 @@ METRIC_FLOORS = {
     "attitude_rmse_deg": 1e-2,
     "angular_velocity_rmse_rad_s": 1e-3,
 }
+
+# Floors used when a scorer wants nothing but protection from log(0), rather
+# than the physically meaningful equality floors above.
+NEGLIGIBLE_METRIC_FLOORS = dict.fromkeys(ROLLOUT_METRICS, 1e-12)
+
+SEQUENTIAL_LOG_MEAN = "sequential_log_mean"
+VECTORIZED_LOG_MEAN = "vectorized_log_mean"
 
 INNOVATION_MAXIMUM_LAG_S = 0.5
 INNOVATION_MAXIMUM_LAG_STEPS = 50
@@ -228,27 +239,6 @@ def attitude_innovation(
     return relative_xyz * scale[:, None]
 
 
-def _quaternion_rotation_matrices(quaternion_wxyz: np.ndarray) -> np.ndarray:
-    quaternion = quaternion_wxyz / np.linalg.norm(
-        quaternion_wxyz, axis=1, keepdims=True
-    )
-    w, x, y, z = quaternion.T
-    return np.stack(
-        (
-            1.0 - 2.0 * (y * y + z * z),
-            2.0 * (x * y - z * w),
-            2.0 * (x * z + y * w),
-            2.0 * (x * y + z * w),
-            1.0 - 2.0 * (x * x + z * z),
-            2.0 * (y * z - x * w),
-            2.0 * (x * z - y * w),
-            2.0 * (y * z + x * w),
-            1.0 - 2.0 * (x * x + y * y),
-        ),
-        axis=-1,
-    ).reshape((-1, 3, 3))
-
-
 def state_kinematic_compatibility_diagnostics(
     trajectory: Trajectory,
 ) -> dict[str, Any]:
@@ -266,7 +256,7 @@ def state_kinematic_compatibility_diagnostics(
         states[:-1, 3:6] + states[1:, 3:6]
     )
     attitude_increment = attitude_innovation(states[:-1, 6:10], states[1:, 6:10])
-    rotations = _quaternion_rotation_matrices(states[:, 6:10])
+    rotations = quaternion_to_rotation_matrices(states[:, 6:10])
     next_rate_in_initial_body = np.einsum(
         "nji,njk,nk->ni",
         rotations[:-1],
@@ -417,7 +407,13 @@ def _measured_state_reset_predictions(
     return np.asarray(predictions, dtype=np.float64)
 
 
-def _correlation(left: np.ndarray, right: np.ndarray) -> float:
+def pearson_correlation(left: np.ndarray, right: np.ndarray) -> float:
+    """Return the centered correlation of two equal-length one-dimensional signals.
+
+    Series shorter than three samples, and pairs where either side is
+    effectively constant, score zero rather than an unstable ratio.
+    """
+
     left = np.asarray(left, dtype=np.float64)
     right = np.asarray(right, dtype=np.float64)
     if len(left) < 3:
@@ -453,7 +449,7 @@ def _strongest_autocorrelation(
     maximum_lag_steps: int,
 ) -> tuple[float, int]:
     candidates = [
-        (_correlation(values[:-lag], values[lag:]), lag)
+        (pearson_correlation(values[:-lag], values[lag:]), lag)
         for lag in range(1, maximum_lag_steps + 1)
     ]
     return max(candidates, key=lambda item: abs(item[0]))
@@ -468,7 +464,7 @@ def _strongest_input_correlation(
     for control_index in range(controls.shape[1]):
         control = controls[:, control_index]
         for lag in range(maximum_lag_steps + 1):
-            correlation = _correlation(
+            correlation = pearson_correlation(
                 control[:-lag] if lag else control,
                 values[lag:],
             )
@@ -767,7 +763,7 @@ def rollout_metrics(
         trajectory,
         control_history=control_history,
     )
-    return _state_error_metrics(
+    return state_error_metrics(
         predicted,
         trajectory.states,
         duration_s=float(trajectory.time_s[-1] - trajectory.time_s[0]),
@@ -876,7 +872,107 @@ def rollout_divergence_metrics(
     }
 
 
-def _state_error_metrics(
+@dataclass(frozen=True)
+class StateErrorTerms:
+    """Per-sample rigid-body error components for aligned state arrays."""
+
+    position_error: np.ndarray
+    velocity_error: np.ndarray
+    angular_velocity_error: np.ndarray
+    attitude_error_deg: np.ndarray
+    predicted_quaternion: np.ndarray
+    target_quaternion: np.ndarray
+
+
+def state_error_terms(
+    predicted: np.ndarray,
+    target: np.ndarray,
+    *,
+    normalize_quaternions: bool = True,
+) -> StateErrorTerms:
+    """Return the shared error components for two aligned ``(..., 13)`` arrays.
+
+    Every sample pair supplied is scored; callers that share a measured initial
+    state with the target drop it before calling.
+
+    ``normalize_quaternions`` renormalizes both attitudes before the angle,
+    which rollout scoring needs because integrated predictions drift off the
+    unit sphere. The streaming evaluator scores validated unit quaternions and
+    turns it off so that its published numbers stay bit-identical to the
+    measurements they came from.
+    """
+
+    quaternion_predicted = predicted[..., 6:10]
+    quaternion_target = target[..., 6:10]
+    if normalize_quaternions:
+        quaternion_predicted = quaternion_predicted / np.linalg.norm(
+            quaternion_predicted, axis=-1, keepdims=True
+        )
+        quaternion_target = quaternion_target / np.linalg.norm(
+            quaternion_target, axis=-1, keepdims=True
+        )
+    quaternion_dot = np.abs(np.sum(quaternion_predicted * quaternion_target, axis=-1))
+    quaternion_dot = np.clip(quaternion_dot, -1.0, 1.0)
+    return StateErrorTerms(
+        position_error=predicted[..., 0:3] - target[..., 0:3],
+        velocity_error=predicted[..., 3:6] - target[..., 3:6],
+        angular_velocity_error=predicted[..., 10:13] - target[..., 10:13],
+        attitude_error_deg=np.rad2deg(2.0 * np.arccos(quaternion_dot)),
+        predicted_quaternion=quaternion_predicted,
+        target_quaternion=quaternion_target,
+    )
+
+
+def _rmse_metrics_from_terms(terms: StateErrorTerms) -> dict[str, float]:
+    return {
+        "position_rmse_m": float(np.sqrt(np.mean(np.square(terms.position_error)))),
+        "velocity_rmse_m_s": float(np.sqrt(np.mean(np.square(terms.velocity_error)))),
+        "attitude_rmse_deg": float(
+            np.sqrt(np.mean(np.square(terms.attitude_error_deg)))
+        ),
+        "angular_velocity_rmse_rad_s": float(
+            np.sqrt(np.mean(np.square(terms.angular_velocity_error)))
+        ),
+    }
+
+
+def state_rmse_metrics(
+    predicted: np.ndarray,
+    target: np.ndarray,
+    *,
+    normalize_quaternions: bool = True,
+) -> dict[str, float]:
+    """Return the four headline :data:`ROLLOUT_METRICS` over every sample pair."""
+
+    return _rmse_metrics_from_terms(
+        state_error_terms(
+            predicted, target, normalize_quaternions=normalize_quaternions
+        )
+    )
+
+
+def state_error_magnitudes(
+    predicted: np.ndarray,
+    target: np.ndarray,
+    *,
+    normalize_quaternions: bool = True,
+) -> dict[str, Any]:
+    """Return per-sample error magnitudes keyed like the divergence thresholds."""
+
+    terms = state_error_terms(
+        predicted, target, normalize_quaternions=normalize_quaternions
+    )
+    return {
+        "position_error_m": np.linalg.norm(terms.position_error, axis=-1),
+        "velocity_error_m_s": np.linalg.norm(terms.velocity_error, axis=-1),
+        "attitude_error_deg": terms.attitude_error_deg,
+        "angular_velocity_error_rad_s": np.linalg.norm(
+            terms.angular_velocity_error, axis=-1
+        ),
+    }
+
+
+def state_error_metrics(
     predicted: np.ndarray,
     target: np.ndarray,
     *,
@@ -899,19 +995,12 @@ def _state_error_metrics(
     predicted = predicted[..., 1:, :]
     target = target[..., 1:, :]
 
-    position_error = predicted[..., 0:3] - target[..., 0:3]
-    velocity_error = predicted[..., 3:6] - target[..., 3:6]
-    angular_velocity_error = predicted[..., 10:13] - target[..., 10:13]
-
-    predicted_quaternion = predicted[..., 6:10] / np.linalg.norm(
-        predicted[..., 6:10], axis=-1, keepdims=True
-    )
-    target_quaternion = target[..., 6:10] / np.linalg.norm(
-        target[..., 6:10], axis=-1, keepdims=True
-    )
-    quaternion_dot = np.abs(np.sum(predicted_quaternion * target_quaternion, axis=-1))
-    quaternion_dot = np.clip(quaternion_dot, -1.0, 1.0)
-    attitude_error_deg = np.rad2deg(2.0 * np.arccos(quaternion_dot))
+    terms = state_error_terms(predicted, target)
+    position_error = terms.position_error
+    velocity_error = terms.velocity_error
+    angular_velocity_error = terms.angular_velocity_error
+    predicted_quaternion = terms.predicted_quaternion
+    target_quaternion = terms.target_quaternion
 
     # Express target^-1 * prediction as a shortest-path rotation vector. Its
     # components expose which body rotation axes dominate attitude drift.
@@ -950,19 +1039,18 @@ def _state_error_metrics(
         position_error[..., -1, :] if predicted.ndim > 2 else position_error[-1],
         axis=-1,
     )
+    headline = _rmse_metrics_from_terms(terms)
     return {
-        "position_rmse_m": float(np.sqrt(np.mean(np.square(position_error)))),
+        "position_rmse_m": headline["position_rmse_m"],
         "position_rmse_xyz_m": np.sqrt(
             np.mean(np.square(position_error), axis=reduction_axes)
         ).tolist(),
-        "velocity_rmse_m_s": float(np.sqrt(np.mean(np.square(velocity_error)))),
+        "velocity_rmse_m_s": headline["velocity_rmse_m_s"],
         "velocity_rmse_xyz_m_s": np.sqrt(
             np.mean(np.square(velocity_error), axis=reduction_axes)
         ).tolist(),
-        "attitude_rmse_deg": float(np.sqrt(np.mean(np.square(attitude_error_deg)))),
-        "angular_velocity_rmse_rad_s": float(
-            np.sqrt(np.mean(np.square(angular_velocity_error)))
-        ),
+        "attitude_rmse_deg": headline["attitude_rmse_deg"],
+        "angular_velocity_rmse_rad_s": headline["angular_velocity_rmse_rad_s"],
         "angular_velocity_rmse_xyz_rad_s": np.sqrt(
             np.mean(np.square(angular_velocity_error), axis=reduction_axes)
         ).tolist(),
@@ -1043,7 +1131,7 @@ def windowed_rollout_evaluation(
         stride_steps=stride_steps,
     )
     return (
-        _state_error_metrics(
+        state_error_metrics(
             predicted,
             target,
             duration_s=horizon_steps * dt_s,
@@ -1103,7 +1191,7 @@ def kinematic_persistence_windowed_metrics(
         state[:, 6:10] += windows.dt_s * quaternion_rate
         state[:, 6:10] /= np.linalg.norm(state[:, 6:10], axis=1, keepdims=True)
         predicted[:, index + 1] = state
-    return _state_error_metrics(
+    return state_error_metrics(
         predicted,
         windows.target_states,
         duration_s=horizon_steps * windows.dt_s,
@@ -1162,6 +1250,55 @@ def windowed_rollout_predictions(
         windows.target_states,
         windows.dt_s,
     )
+
+
+def persistence_score(
+    candidate: Mapping[str, Mapping[str, Any]],
+    persistence: Mapping[str, Mapping[str, Any]],
+    *,
+    horizons: Sequence[float] | None,
+    floors: Mapping[str, float],
+    metrics: Sequence[str] = ROLLOUT_METRICS,
+    aggregation: str = SEQUENTIAL_LOG_MEAN,
+) -> float:
+    """Score one candidate against a baseline over horizons and state metrics.
+
+    Both mappings are keyed by a horizon label and then by metric name. The
+    result is the geometric mean of the floored candidate-over-baseline ratios,
+    so values below one favor the candidate and every metric and horizon
+    contributes equally.
+
+    ``horizons`` are seconds, formatted as ``f"{seconds:g}s"`` to index both
+    mappings; pass ``None`` to score every label the candidate carries, in its
+    own order. ``floors`` supplies the per-metric value below which a term is
+    treated as equal, which stops numerical noise near zero from dominating.
+
+    ``aggregation`` selects the floating-point reduction. The two options
+    compute the same geometric mean but round differently, and recorded reports
+    pin the one that produced them: ``SEQUENTIAL_LOG_MEAN`` sums
+    :func:`math.log` terms in order, while ``VECTORIZED_LOG_MEAN`` takes
+    NumPy's pairwise-summed mean of :func:`numpy.log`, which is what the
+    recorded Skywalker X8 scores were produced with.
+    """
+
+    labels = (
+        list(candidate)
+        if horizons is None
+        else [f"{seconds:g}s" for seconds in horizons]
+    )
+    ratios = [
+        max(float(candidate[label][metric]), floors[metric])
+        / max(float(persistence[label][metric]), floors[metric])
+        for label in labels
+        for metric in metrics
+    ]
+    if not ratios:
+        raise ValueError("cannot average an empty score collection")
+    if aggregation == SEQUENTIAL_LOG_MEAN:
+        return float(math.exp(sum(math.log(value) for value in ratios) / len(ratios)))
+    if aggregation == VECTORIZED_LOG_MEAN:
+        return float(np.exp(np.mean(np.log(ratios))))
+    raise ValueError(f"unknown persistence score aggregation: {aggregation!r}")
 
 
 def aggregate_rollout_metrics(

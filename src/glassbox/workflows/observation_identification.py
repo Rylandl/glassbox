@@ -26,7 +26,8 @@ from glassbox.core.dynamics import (
     MOTOR_MIXER,
     DynamicsParams,
 )
-from glassbox.core.evaluation import parameter_dict
+from glassbox.core.evaluation import parameter_dict, pearson_correlation
+from glassbox.core.geometry import quaternion_to_rotation_matrices
 from glassbox.core.synthetic import initial_parameter_guess
 
 MAX_ALIGNMENT_LAG_S = 0.20
@@ -72,17 +73,6 @@ class ObservationFitResult:
     report: dict[str, Any]
 
 
-def _correlation(left: np.ndarray, right: np.ndarray) -> float:
-    left = np.asarray(left, dtype=np.float64)
-    right = np.asarray(right, dtype=np.float64)
-    if len(left) < 3:
-        return 0.0
-    left = left - np.mean(left)
-    right = right - np.mean(right)
-    denominator = float(np.linalg.norm(left) * np.linalg.norm(right))
-    return 0.0 if denominator <= 1e-12 else float(left @ right / denominator)
-
-
 def _specific_force(trajectory: Trajectory) -> np.ndarray:
     roles = trajectory.spec.observation_roles
     required = tuple(f"specific_force_{axis}" for axis in "xyz")
@@ -113,7 +103,7 @@ def actuator_observation_alignment(
     )
     correlations = np.asarray(
         [
-            _correlation(
+            pearson_correlation(
                 collective[: len(collective) - lag] if lag else collective,
                 specific_force[lag:],
             )
@@ -150,29 +140,8 @@ def actuator_observation_alignment(
     )
 
 
-def _rotation_matrices(quaternion_wxyz: np.ndarray) -> np.ndarray:
-    quaternion = quaternion_wxyz / np.linalg.norm(
-        quaternion_wxyz, axis=1, keepdims=True
-    )
-    w, x, y, z = quaternion.T
-    return np.stack(
-        (
-            1.0 - 2.0 * (y * y + z * z),
-            2.0 * (x * y - z * w),
-            2.0 * (x * z + y * w),
-            2.0 * (x * y + z * w),
-            1.0 - 2.0 * (x * x + z * z),
-            2.0 * (y * z - x * w),
-            2.0 * (x * z - y * w),
-            2.0 * (y * z + x * w),
-            1.0 - 2.0 * (x * x + y * y),
-        ),
-        axis=-1,
-    ).reshape((-1, 3, 3))
-
-
 def _body_velocity(trajectory: Trajectory) -> np.ndarray:
-    rotations = _rotation_matrices(trajectory.states[:-1, 6:10])
+    rotations = quaternion_to_rotation_matrices(trajectory.states[:-1, 6:10])
     wind_world = np.zeros((len(trajectory.controls), 3), dtype=np.float64)
     for axis, suffix in enumerate(("wind_north", "wind_west", "wind_up")):
         matching_roles = [
@@ -192,9 +161,19 @@ def _body_velocity(trajectory: Trajectory) -> np.ndarray:
     )
 
 
-def _first_order_response(
+def _zero_order_hold_lag_response(
     commands: np.ndarray, dt_s: float, time_constant_s: float
 ) -> np.ndarray:
+    """Integrate a first-order actuator lag driven by the previous command.
+
+    Each interval holds the command logged for the interval before it, which is
+    the causal convention the rollout dynamics use, so a sample can only
+    respond to an input that was already applied. Contrast
+    ``observation_compatibility._exponential_smoothing_response``, which blends
+    toward the current sample instead and models estimator filtering rather
+    than actuator physics.
+    """
+
     commands = np.asarray(commands, dtype=np.float64)
     if time_constant_s <= MEMORYLESS_TIME_CONSTANT_S * 1.0001:
         return commands.copy()
@@ -363,10 +342,12 @@ def fit_multirotor_observations(
     for time_constant in time_constants:
         for record_index, record in enumerate(force_records):
             trajectory = record["trajectory"]
-            applied_cache[(record_index, float(time_constant))] = _first_order_response(
-                trajectory.controls,
-                trajectory.nominal_dt_s,
-                float(time_constant),
+            applied_cache[(record_index, float(time_constant))] = (
+                _zero_order_hold_lag_response(
+                    trajectory.controls,
+                    trajectory.nominal_dt_s,
+                    float(time_constant),
+                )
             )
         for offset in _candidate_offsets(command_semantics):
             designs = []
@@ -464,7 +445,7 @@ def fit_multirotor_observations(
             targets = []
             masks = []
             for record in angular_records:
-                response = _first_order_response(
+                response = _zero_order_hold_lag_response(
                     record["mixer"], record["dt_s"], float(time_constant)
                 )[record["control_indices"]]
                 design = np.column_stack(

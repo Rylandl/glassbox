@@ -24,7 +24,7 @@ while IFS= read -r -d '' log_path; do
 
   for state_source in ground_truth estimated; do
     output_path="$output_dir/${log_name}_${state_source}.npz"
-    if uv --directory "$project_dir" run glassbox-ulog extract \
+    if uv --directory "$project_dir" run glassbox ulog extract \
       "$log_path" "$output_path" \
       --rate "$sample_rate_hz" \
       --state-source "$state_source" \

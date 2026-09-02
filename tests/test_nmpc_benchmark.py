@@ -1,6 +1,9 @@
+import pytest
+
 from glassbox.workflows.nmpc_benchmark import run_nmpc_benchmark
 
 
+@pytest.mark.slow
 def test_maintained_nmpc_acceptance_suite_passes() -> None:
     report = run_nmpc_benchmark()
 

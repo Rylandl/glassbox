@@ -7,7 +7,7 @@ import json
 import math
 import platform
 import subprocess
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -33,7 +33,7 @@ from glassbox.core.fixedwing_synthetic import (
     generate_fixed_wing_trajectory,
     true_fixed_wing_parameters,
 )
-from glassbox.core.geometry import rigid_body_local_error
+from glassbox.core.geometry import quaternion_from_euler, rigid_body_local_error
 from glassbox.core.runtime import (
     DirectActuationMap,
     RuntimeDynamicsModel,
@@ -80,25 +80,6 @@ class ScenarioMetrics:
     solve_time_median_s: float
     solve_time_p90_s: float
     solve_time_maximum_s: float
-
-
-def _quaternion_from_euler(
-    roll: np.ndarray, pitch: np.ndarray, yaw: np.ndarray
-) -> np.ndarray:
-    half_roll = 0.5 * roll
-    half_pitch = 0.5 * pitch
-    half_yaw = 0.5 * yaw
-    cr, sr = np.cos(half_roll), np.sin(half_roll)
-    cp, sp = np.cos(half_pitch), np.sin(half_pitch)
-    cy, sy = np.cos(half_yaw), np.sin(half_yaw)
-    return np.column_stack(
-        (
-            cr * cp * cy + sr * sp * sy,
-            sr * cp * cy - cr * sp * sy,
-            cr * sp * cy + sr * cp * sy,
-            cr * cp * sy - sr * sp * cy,
-        )
-    )
 
 
 def _multirotor_reference(kind: str) -> ReferenceFunction:
@@ -152,7 +133,7 @@ def _fixed_wing_reference(kind: str) -> ReferenceFunction:
             states[:, 4] = TRIM_AIRSPEED_M_S * np.sin(yaw)
             roll[:] = -math.atan(TRIM_AIRSPEED_M_S * yaw_rate_rad_s / 9.80665)
             states[:, 12] = yaw_rate_rad_s
-        states[:, 6:10] = _quaternion_from_euler(roll, pitch, yaw)
+        states[:, 6:10] = quaternion_from_euler(roll, pitch, yaw)
         return states
 
     return reference
@@ -162,7 +143,7 @@ def _scenario_definitions() -> tuple[_Scenario, ...]:
     hover_initial = resting_state()
     hover_initial[0:3] = (0.25, -0.20, -0.15)
     attitude_initial = resting_state()
-    attitude_initial[6:10] = _quaternion_from_euler(
+    attitude_initial[6:10] = quaternion_from_euler(
         np.asarray([0.22]), np.asarray([-0.12]), np.asarray([0.16])
     )[0]
     trim_initial = fixed_wing_trim_state()
@@ -615,7 +596,7 @@ def run_nmpc_benchmark() -> dict[str, object]:
     }
 
 
-def main() -> None:
+def main(argv: Sequence[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
         description="Run the maintained Glassbox NMPC acceptance benchmark."
     )
@@ -624,7 +605,7 @@ def main() -> None:
         type=Path,
         help="Optional JSON evidence path; stdout is always populated.",
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     report = run_nmpc_benchmark()
     encoded = json.dumps(report, indent=2)
     if args.output is not None:

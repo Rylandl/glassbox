@@ -1,6 +1,6 @@
 # Crazyflow adjustable-arm prototype
 
-`glassbox-crazyflow-prototype` is the first simulator-independent vertical
+`glassbox crazyflow prototype` is the first simulator-independent vertical
 slice of the adjustable-arm recovery demonstration. It uses Crazyflow 0.3.2 as
 a hidden first-principles plant with rotor dynamics at 500 Hz while Glassbox
 receives canonical telemetry and returns normalized per-motor thrust commands
@@ -188,7 +188,7 @@ Install the pinned optional simulator and execute the full prototype:
 
 ```bash
 uv sync --extra crazyflow
-uv run --extra crazyflow glassbox-crazyflow-prototype \
+uv run --extra crazyflow glassbox crazyflow prototype \
   artifacts/crazyflow_prototype
 ```
 
@@ -196,7 +196,7 @@ The output is `artifacts/crazyflow_prototype/report.json`. To exercise only the
 fast frame, motor-order, thrust-map, and telemetry contracts:
 
 ```bash
-uv run --extra crazyflow glassbox-crazyflow-prototype \
+uv run --extra crazyflow glassbox crazyflow prototype \
   artifacts/crazyflow_contract --plant-contract-only
 ```
 

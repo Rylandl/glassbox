@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import io
+import urllib.request
 
 import numpy as np
 
@@ -115,7 +116,7 @@ def test_x8_fetch_verifies_pinned_files(tmp_path, monkeypatch) -> None:
         payload = readme_payload if request.full_url.endswith("/10") else csv_payload
         return io.BytesIO(payload)
 
-    monkeypatch.setattr(x8_module.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
 
     paths = fetch_x8_reference(tmp_path, timeout_s=5.0)
 

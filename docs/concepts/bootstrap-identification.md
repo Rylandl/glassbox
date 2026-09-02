@@ -139,7 +139,7 @@ Run it with:
 
 ```bash
 uv sync --extra crazyflow
-uv run --extra crazyflow glassbox-crazyflow-bootstrap \
+uv run --extra crazyflow glassbox crazyflow bootstrap \
   artifacts/crazyflow_bootstrap/report.json
 ```
 
@@ -151,7 +151,7 @@ into a physical-throw or flight-safety claim.
 
 ```bash
 uv sync --extra crazyflow-animation
-uv run --extra crazyflow-animation glassbox-crazyflow-animation \
+uv run --extra crazyflow-animation glassbox crazyflow animation \
   artifacts/crazyflow_bootstrap/no-prior-bootstrap.mp4 \
   --poster artifacts/crazyflow_bootstrap/no-prior-bootstrap-poster.png \
   --gif artifacts/crazyflow_bootstrap/no-prior-bootstrap-preview.gif

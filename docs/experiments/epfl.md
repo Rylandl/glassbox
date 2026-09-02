@@ -29,13 +29,13 @@ All segments come from one flight, so no train/validation partition can establis
 ## Reproduce
 
 ```bash
-uv run glassbox-epfl prepare artifacts/epfl_topoplane
+uv run glassbox epfl prepare artifacts/epfl_topoplane
 ```
 
 Fit the two maintained model classes on the canonical segments, using one consistent artifact directory:
 
 ```bash
-uv run glassbox-fit \
+uv run glassbox fit \
   artifacts/epfl_topoplane/canonical/*.npz \
   --evaluation-horizons 0.2,0.5,1,2 \
   --training-horizons 0.2,1,2 \
@@ -43,7 +43,7 @@ uv run glassbox-fit \
   --model artifacts/epfl_topoplane/structured_model.json \
   --report artifacts/epfl_topoplane/structured_report.json
 
-uv run glassbox-fit \
+uv run glassbox fit \
   artifacts/epfl_topoplane/canonical/*.npz \
   --evaluation-horizons 0.2,0.5,1,2 \
   --training-horizons 0.2,1,2 \
@@ -56,7 +56,7 @@ uv run glassbox-fit \
 Combine their reports into a same-flight characterization:
 
 ```bash
-uv run glassbox-epfl evaluate \
+uv run glassbox epfl evaluate \
   --structured-report artifacts/epfl_topoplane/structured_report.json \
   --residual-report artifacts/epfl_topoplane/residual_report.json \
   --output artifacts/epfl_topoplane/characterization_report.json

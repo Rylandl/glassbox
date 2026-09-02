@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import math
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -15,6 +14,7 @@ from glassbox.core.evaluation import (
     ROLLOUT_METRICS,
     aggregate_rollout_metrics,
     kinematic_persistence_windowed_metrics,
+    persistence_score,
 )
 
 EPFL_CHARACTERIZATION_HORIZONS_S = (0.2, 0.5, 1.0, 2.0)
@@ -47,16 +47,15 @@ def _score_against_persistence(
     model: Mapping[str, Mapping[str, Any]],
     persistence: Mapping[str, Mapping[str, Any]],
 ) -> float:
-    ratios = []
-    for seconds in EPFL_SCORE_HORIZONS_S:
-        label = f"{seconds:g}s"
-        for metric in ROLLOUT_METRICS:
-            floor = METRIC_FLOORS[metric]
-            ratios.append(
-                max(float(model[label][metric]), floor)
-                / max(float(persistence[label][metric]), floor)
-            )
-    return float(math.exp(sum(math.log(value) for value in ratios) / len(ratios)))
+    """Score one characterization model against its persistence baseline."""
+
+    return persistence_score(
+        model,
+        persistence,
+        horizons=EPFL_SCORE_HORIZONS_S,
+        floors=METRIC_FLOORS,
+        metrics=ROLLOUT_METRICS,
+    )
 
 
 def evaluate_epfl_characterization(
@@ -161,6 +160,7 @@ def evaluate_epfl_characterization(
             "score_vs_kinematic_persistence": _score_against_persistence(
                 horizons, persistence
             ),
+            "score_horizons_s": list(EPFL_SCORE_HORIZONS_S),
         }
 
     selected_model = min(

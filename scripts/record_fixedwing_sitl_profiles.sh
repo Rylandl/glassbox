@@ -122,7 +122,7 @@ for profile in "${profiles[@]}"; do
       docker exec -w /root "$container_name" \
         /opt/px4/bin/px4-logger start -m all >/dev/null
       sleep 0.5
-      uv --directory "$project_dir" run glassbox-fixedwing-sitl-profile "$profile" \
+      uv --directory "$project_dir" run glassbox fixedwing-sitl-profile "$profile" \
         --condition "$condition"
 
       stop_container
@@ -136,14 +136,14 @@ for profile in "${profiles[@]}"; do
       echo "profile=$profile condition=$condition replicate=$replicate raw_log=$latest_log"
 
       output_stem="$absolute_run_dir/${profile}_${condition}_${replicate}"
-      uv --directory "$project_dir" run glassbox-ulog extract-fixedwing \
+      uv --directory "$project_dir" run glassbox ulog extract-fixedwing \
         "$latest_log" "${output_stem}_estimated.npz" \
         --rate "$sample_rate_hz" \
         --profile "$profile" \
         --condition "$condition" \
         --replicate "$replicate" \
         --min-height 0.5
-      uv --directory "$project_dir" run glassbox-ulog extract-fixedwing \
+      uv --directory "$project_dir" run glassbox ulog extract-fixedwing \
         "$latest_log" "${output_stem}_ground_truth.npz" \
         --rate "$sample_rate_hz" \
         --profile "$profile" \

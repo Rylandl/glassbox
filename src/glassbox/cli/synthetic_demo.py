@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from collections.abc import Sequence
 from pathlib import Path
 from time import perf_counter
 from typing import Any
@@ -90,7 +91,7 @@ def _print_summary(result: dict[str, Any]) -> None:
         )
 
 
-def main() -> None:
+def main(argv: Sequence[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--train-flights", type=int, default=3)
     parser.add_argument("--duration-s", type=float, default=6.0)
@@ -100,7 +101,7 @@ def main() -> None:
     parser.add_argument(
         "--json", type=Path, help="optional output path for full results"
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     result = run_demo(
         train_flights=args.train_flights,

@@ -8,7 +8,7 @@ rollout dynamics or the default fitter.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from typing import Any
 
@@ -19,8 +19,10 @@ from glassbox.core.data import Trajectory
 from glassbox.core.evaluation import (
     KINEMATIC_ATTITUDE_RATE_FLOOR_RAD_S,
     KINEMATIC_POSITION_RATE_FLOOR_M_S,
+    attitude_innovation,
     state_kinematic_compatibility_diagnostics,
 )
+from glassbox.core.geometry import quaternion_to_rotation_matrices
 
 MINIMUM_SCALE = 0.8
 MAXIMUM_SCALE = 1.2
@@ -188,55 +190,9 @@ class FirstOrderObservationFilterFit:
 
 
 def _attitude_increment(quaternion_wxyz: np.ndarray) -> np.ndarray:
-    predicted = quaternion_wxyz[:-1] / np.linalg.norm(
-        quaternion_wxyz[:-1], axis=1, keepdims=True
-    )
-    observed = quaternion_wxyz[1:] / np.linalg.norm(
-        quaternion_wxyz[1:], axis=1, keepdims=True
-    )
-    predicted_w = predicted[:, 0]
-    predicted_xyz = predicted[:, 1:4]
-    observed_w = observed[:, 0]
-    observed_xyz = observed[:, 1:4]
-    relative_w = predicted_w * observed_w + np.sum(predicted_xyz * observed_xyz, axis=1)
-    relative_xyz = (
-        predicted_w[:, None] * observed_xyz
-        - observed_w[:, None] * predicted_xyz
-        - np.cross(predicted_xyz, observed_xyz)
-    )
-    sign = np.where(relative_w < 0.0, -1.0, 1.0)
-    relative_w *= sign
-    relative_xyz *= sign[:, None]
-    norm = np.linalg.norm(relative_xyz, axis=1)
-    angle = 2.0 * np.arctan2(norm, np.clip(relative_w, 0.0, 1.0))
-    scale = np.divide(
-        angle,
-        norm,
-        out=np.full_like(angle, 2.0),
-        where=norm > 1e-12,
-    )
-    return relative_xyz * scale[:, None]
+    """Return the shortest rotation vector between consecutive attitudes."""
 
-
-def _rotation_matrices(quaternion_wxyz: np.ndarray) -> np.ndarray:
-    quaternion = quaternion_wxyz / np.linalg.norm(
-        quaternion_wxyz, axis=1, keepdims=True
-    )
-    w, x, y, z = quaternion.T
-    return np.stack(
-        (
-            1.0 - 2.0 * (y * y + z * z),
-            2.0 * (x * y - z * w),
-            2.0 * (x * z + y * w),
-            2.0 * (x * y + z * w),
-            1.0 - 2.0 * (x * x + z * z),
-            2.0 * (y * z - x * w),
-            2.0 * (x * z - y * w),
-            2.0 * (y * z + x * w),
-            1.0 - 2.0 * (x * x + y * y),
-        ),
-        axis=-1,
-    ).reshape((-1, 3, 3))
+    return attitude_innovation(quaternion_wxyz[:-1], quaternion_wxyz[1:])
 
 
 def _compatibility_system(
@@ -252,7 +208,7 @@ def _compatibility_system(
     velocity_design[:, :, 3:6] = identity
     velocity_target = np.diff(states[:, 0:3], axis=0) / trajectory.nominal_dt_s
 
-    rotations = _rotation_matrices(states[:, 6:10])
+    rotations = quaternion_to_rotation_matrices(states[:, 6:10])
     relative_rotation = np.einsum("nji,njk->nik", rotations[:-1], rotations[1:])
     initial_rate_design = identity[None, :, :] * states[:-1, None, 10:13]
     terminal_rate_design = np.einsum(
@@ -651,6 +607,96 @@ def evaluate_state_observation_correction(
     }
 
 
+def evaluate_observation_model_transfer(
+    candidate: Any,
+    instantaneous_reference: Any,
+    trajectories: Sequence[Trajectory],
+    *,
+    errors_for: Callable[[Any, Trajectory], dict[str, float]],
+    group_interior: Mapping[str, bool],
+    policy: str,
+) -> dict[str, Any]:
+    """Compare a candidate observation model with its instantaneous ablation.
+
+    Both models are scored on the same complete trajectories with the same
+    error function, then compared per trajectory and in the mean, so ratios
+    below one favor the candidate. ``group_interior`` reports, per metric,
+    whether the candidate's selected parameter stayed off its search boundary,
+    which the transfer gate treats as a precondition for believing the result.
+    """
+
+    if not trajectories:
+        raise ValueError("at least one trajectory is required")
+    per_trajectory = []
+    candidate_metrics = []
+    reference_metrics = []
+    for trajectory in trajectories:
+        candidate_error = errors_for(candidate, trajectory)
+        reference_error = errors_for(instantaneous_reference, trajectory)
+        candidate_metrics.append(candidate_error)
+        reference_metrics.append(reference_error)
+        per_trajectory.append(
+            {
+                "source_group": trajectory.labels.get("source_group"),
+                "profile": trajectory.labels.get("profile"),
+                "replicate": trajectory.labels.get("replicate"),
+                "candidate": candidate_error,
+                "instantaneous_reference": reference_error,
+                "candidate_over_reference": {
+                    name: (
+                        candidate_error[name] / reference_error[name]
+                        if reference_error[name] > 0.0
+                        else None
+                    )
+                    for name in reference_error
+                },
+            }
+        )
+    names = tuple(reference_metrics[0])
+    candidate_mean = {
+        name: float(np.mean([metric[name] for metric in candidate_metrics]))
+        for name in names
+    }
+    reference_mean = {
+        name: float(np.mean([metric[name] for metric in reference_metrics]))
+        for name in names
+    }
+    ratios = {
+        name: (
+            candidate_mean[name] / reference_mean[name]
+            if reference_mean[name] > 0.0
+            else None
+        )
+        for name in names
+    }
+    materiality_floors = {
+        "position_velocity_vector_rmse_m_s": float(
+            np.sqrt(3.0) * KINEMATIC_POSITION_RATE_FLOOR_M_S
+        ),
+        "attitude_rate_vector_rmse_rad_s": float(
+            np.sqrt(3.0) * KINEMATIC_ATTITUDE_RATE_FLOOR_RAD_S
+        ),
+    }
+    gate = observation_channel_transfer_gate(
+        reference_error=reference_mean,
+        candidate_over_reference=ratios,
+        per_trajectory=per_trajectory,
+        materiality_floors=materiality_floors,
+        group_interior=dict(group_interior),
+    )
+    return {
+        "policy": policy,
+        "trajectory_count": len(trajectories),
+        "candidate": candidate.to_dict(),
+        "instantaneous_reference": instantaneous_reference.to_dict(),
+        "candidate_error": candidate_mean,
+        "instantaneous_reference_error": reference_mean,
+        "candidate_over_reference": ratios,
+        "gate": gate,
+        "per_trajectory": per_trajectory,
+    }
+
+
 def _observation_rate_pairs(
     trajectory: Trajectory,
 ) -> dict[str, np.ndarray]:
@@ -661,7 +707,7 @@ def _observation_rate_pairs(
     pose_velocity = np.diff(states[:, 0:3], axis=0) / interval_s[:, None]
     reported_velocity = 0.5 * (states[:-1, 3:6] + states[1:, 3:6])
 
-    rotations = _rotation_matrices(states[:, 6:10])
+    rotations = quaternion_to_rotation_matrices(states[:, 6:10])
     relative_rotation = np.einsum("nji,njk->nik", rotations[:-1], rotations[1:])
     terminal_rate = np.einsum("nij,nj->ni", relative_rotation, states[1:, 10:13])
     pose_angular_rate = _attitude_increment(states[:, 6:10]) / interval_s[:, None]
@@ -679,11 +725,19 @@ def _observation_rate_pairs(
     }
 
 
-def _first_order_response(
+def _exponential_smoothing_response(
     values: np.ndarray,
     center_step_s: np.ndarray,
     time_constant_s: np.ndarray,
 ) -> np.ndarray:
+    """Blend a signal toward its current sample with a per-axis time constant.
+
+    Each interval uses its own measured step, and the response moves toward the
+    sample observed at that step, which is how a reporting filter behaves.
+    Contrast ``observation_identification._zero_order_hold_lag_response``,
+    which is driven by the previous interval's command and models actuator lag.
+    """
+
     response = np.empty_like(values)
     response[0] = values[0]
     for index in range(1, len(values)):
@@ -777,35 +831,35 @@ def _bounded_affine_from_statistics(
     return scale, bias, unconstrained, float(max(squared_error / count, 0.0))
 
 
-def _fit_temporal_group(
+def source_group_key(trajectory: Trajectory, index: int) -> str:
+    """Return the equal-weighting key for one trajectory.
+
+    Trajectories that name a source group share that group's weight; an
+    unlabeled trajectory is its own group, so no single logged flight can
+    dominate a fit just by being longer than the others.
+    """
+
+    source_group = trajectory.labels.get("source_group")
+    if source_group is None:
+        return f"trajectory:{index}"
+    return f"source_group:{source_group}"
+
+
+def _group_weighted_statistics(
     trajectories: Sequence[Trajectory],
-    *,
-    input_name: str,
-    target_name: str,
-    maximum_bias: float,
-    candidates_s: np.ndarray,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, list[dict[str, Any]]]:
-    statistics = []
-    for trajectory_index, trajectory in enumerate(trajectories):
-        pair = _observation_rate_pairs(trajectory)
-        source_group = trajectory.labels.get("source_group")
-        group_key = (
-            f"source_group:{source_group}"
-            if source_group is not None
-            else f"trajectory:{trajectory_index}"
-        )
-        statistics.append(
-            (
-                group_key,
-                _temporal_sufficient_statistics(
-                    pair[input_name],
-                    pair[target_name],
-                    pair["center_step_s"],
-                    _warmup_start(trajectory),
-                    candidates_s,
-                ),
-            )
-        )
+    statistics_for: Callable[[Trajectory], dict[str, np.ndarray | float]],
+) -> dict[str, np.ndarray | float]:
+    """Combine per-trajectory sufficient statistics with equal group weight.
+
+    Every statistic is divided by the total interval count of its own source
+    group before summing, so each group contributes the same total weight
+    however many flights or intervals it happens to carry.
+    """
+
+    statistics = [
+        (source_group_key(trajectory, index), statistics_for(trajectory))
+        for index, trajectory in enumerate(trajectories)
+    ]
     group_counts: dict[str, float] = {}
     for group_key, statistic in statistics:
         group_counts[group_key] = group_counts.get(group_key, 0.0) + float(
@@ -820,6 +874,28 @@ def _fit_temporal_group(
             ),
             start=np.zeros_like(statistics[0][1][name]),
         )
+    return combined
+
+
+def _fit_temporal_group(
+    trajectories: Sequence[Trajectory],
+    *,
+    input_name: str,
+    target_name: str,
+    maximum_bias: float,
+    candidates_s: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, list[dict[str, Any]]]:
+    def statistics_for(trajectory: Trajectory) -> dict[str, np.ndarray | float]:
+        pair = _observation_rate_pairs(trajectory)
+        return _temporal_sufficient_statistics(
+            pair[input_name],
+            pair[target_name],
+            pair["center_step_s"],
+            _warmup_start(trajectory),
+            candidates_s,
+        )
+
+    combined = _group_weighted_statistics(trajectories, statistics_for)
     selected_time_constants = np.empty(3, dtype=np.float64)
     scales = np.empty(3, dtype=np.float64)
     biases = np.empty(3, dtype=np.float64)
@@ -949,7 +1025,7 @@ def _observation_filter_errors(
     pair = _observation_rate_pairs(trajectory)
     start = _warmup_start(trajectory)
     predicted_velocity = (
-        _first_order_response(
+        _exponential_smoothing_response(
             pair["pose_velocity"],
             pair["center_step_s"],
             model.velocity_time_constant_s,
@@ -958,7 +1034,7 @@ def _observation_filter_errors(
         + model.velocity_bias_m_s
     )
     predicted_angular_rate = (
-        _first_order_response(
+        _exponential_smoothing_response(
             pair["pose_angular_rate"],
             pair["center_step_s"],
             model.angular_rate_time_constant_s,
@@ -1004,11 +1080,7 @@ def fit_first_order_observation_filter(
         "interval_count": interval_count,
         "source_group_count": len(
             {
-                (
-                    f"source_group:{trajectory.labels['source_group']}"
-                    if trajectory.labels.get("source_group") is not None
-                    else f"trajectory:{index}"
-                )
+                source_group_key(trajectory, index)
                 for index, trajectory in enumerate(trajectories)
             }
         ),
@@ -1044,65 +1116,11 @@ def evaluate_first_order_observation_filter(
 ) -> dict[str, Any]:
     """Compare fixed temporal and memoryless observation models."""
 
-    if not trajectories:
-        raise ValueError("at least one trajectory is required")
-    per_trajectory = []
-    candidate_metrics = []
-    reference_metrics = []
-    for trajectory in trajectories:
-        candidate_error = _observation_filter_errors(candidate, trajectory)
-        reference_error = _observation_filter_errors(
-            instantaneous_reference, trajectory
-        )
-        candidate_metrics.append(candidate_error)
-        reference_metrics.append(reference_error)
-        per_trajectory.append(
-            {
-                "source_group": trajectory.labels.get("source_group"),
-                "profile": trajectory.labels.get("profile"),
-                "replicate": trajectory.labels.get("replicate"),
-                "candidate": candidate_error,
-                "instantaneous_reference": reference_error,
-                "candidate_over_reference": {
-                    name: (
-                        candidate_error[name] / reference_error[name]
-                        if reference_error[name] > 0.0
-                        else None
-                    )
-                    for name in reference_error
-                },
-            }
-        )
-    names = tuple(reference_metrics[0])
-    candidate_mean = {
-        name: float(np.mean([metric[name] for metric in candidate_metrics]))
-        for name in names
-    }
-    reference_mean = {
-        name: float(np.mean([metric[name] for metric in reference_metrics]))
-        for name in names
-    }
-    ratios = {
-        name: (
-            candidate_mean[name] / reference_mean[name]
-            if reference_mean[name] > 0.0
-            else None
-        )
-        for name in names
-    }
-    materiality_floors = {
-        "position_velocity_vector_rmse_m_s": float(
-            np.sqrt(3.0) * KINEMATIC_POSITION_RATE_FLOOR_M_S
-        ),
-        "attitude_rate_vector_rmse_rad_s": float(
-            np.sqrt(3.0) * KINEMATIC_ATTITUDE_RATE_FLOOR_RAD_S
-        ),
-    }
-    gate = observation_channel_transfer_gate(
-        reference_error=reference_mean,
-        candidate_over_reference=ratios,
-        per_trajectory=per_trajectory,
-        materiality_floors=materiality_floors,
+    return evaluate_observation_model_transfer(
+        candidate,
+        instantaneous_reference,
+        trajectories,
+        errors_for=_observation_filter_errors,
         group_interior={
             "position_velocity_vector_rmse_m_s": bool(
                 np.all(candidate.velocity_time_constant_s < MAXIMUM_TIME_CONSTANT_S)
@@ -1111,15 +1129,5 @@ def evaluate_first_order_observation_filter(
                 np.all(candidate.angular_rate_time_constant_s < MAXIMUM_TIME_CONSTANT_S)
             ),
         },
+        policy="research_validation_first_order_observation_transfer_v2",
     )
-    return {
-        "policy": "research_validation_first_order_observation_transfer_v2",
-        "trajectory_count": len(trajectories),
-        "candidate": candidate.to_dict(),
-        "instantaneous_reference": instantaneous_reference.to_dict(),
-        "candidate_error": candidate_mean,
-        "instantaneous_reference_error": reference_mean,
-        "candidate_over_reference": ratios,
-        "gate": gate,
-        "per_trajectory": per_trajectory,
-    }

@@ -26,8 +26,8 @@ from glassbox.core.data import (
     trajectory_windows,
 )
 from glassbox.core.evaluation import (
-    _state_error_metrics,
     kinematic_persistence_windowed_metrics,
+    state_error_metrics,
 )
 from glassbox.io.x8_reference import (
     X8_REFERENCE_DOI,
@@ -36,10 +36,10 @@ from glassbox.io.x8_reference import (
 )
 from glassbox.workflows.x8_evaluation import (
     X8_EVALUATION_HORIZONS_S,
-    _aggregate_horizons,
-    _geometric_ratio,
-    _horizon_steps,
-    _validation_trajectories,
+    aggregate_horizon_rollouts,
+    geometric_ratio,
+    horizon_steps_for_duration,
+    load_validation_trajectories,
 )
 
 X8_CONTROL_ROLES = ("throttle", "roll", "pitch")
@@ -497,9 +497,9 @@ def evaluate_x8_cascade(
     validation_paths = tuple(
         sorted((destination / "canonical" / "validation").glob("*.npz"))
     )
-    paths, trajectories = _validation_trajectories(validation_paths)
+    paths, trajectories = load_validation_trajectories(validation_paths)
     horizon_steps = {
-        f"{horizon:g}s": _horizon_steps(trajectories[0], horizon)
+        f"{horizon:g}s": horizon_steps_for_duration(trajectories[0], horizon)
         for horizon in horizons_s
     }
     variants, models = x8_variant_models(
@@ -534,7 +534,7 @@ def evaluate_x8_cascade(
                 simulation_substeps=simulation_substeps,
             )
             for index in range(len(variants)):
-                rollouts[index][label] = _state_error_metrics(
+                rollouts[index][label] = state_error_metrics(
                     predicted[index],
                     windows.target_states,
                     duration_s=steps * windows.dt_s,
@@ -544,10 +544,10 @@ def evaluate_x8_cascade(
                 {"path": str(path), "horizon_rollouts": rollouts[index]}
             )
 
-    persistence_aggregate = _aggregate_horizons(persistence_per_trajectory)
+    persistence_aggregate = aggregate_horizon_rollouts(persistence_per_trajectory)
     rows: dict[str, Any] = {}
     for variant, per_trajectory in zip(variants, per_variant):
-        aggregate = _aggregate_horizons(per_trajectory)
+        aggregate = aggregate_horizon_rollouts(per_trajectory)
         rows[variant.label] = {
             "model_type": f"cascade_{aircraft}",
             "primary": variant.primary,
@@ -560,7 +560,7 @@ def evaluate_x8_cascade(
             },
             "aggregate": {"horizon_rollouts": aggregate},
             "per_trajectory": per_trajectory,
-            "score_vs_kinematic_persistence": _geometric_ratio(
+            "score_vs_kinematic_persistence": geometric_ratio(
                 aggregate, persistence_aggregate
             ),
             "all_finite": all(
@@ -590,7 +590,7 @@ def evaluate_x8_cascade(
                     "candidate/reference geometric mean over four state metrics and every "
                     "horizon; values below one favor the candidate"
                 ),
-                "score": _geometric_ratio(
+                "score": geometric_ratio(
                     row["aggregate"]["horizon_rollouts"], aggregate
                 ),
             }

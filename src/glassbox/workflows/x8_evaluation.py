@@ -11,8 +11,12 @@ import numpy as np
 
 from glassbox.core.data import Trajectory, duration_to_steps, load_trajectory_npz
 from glassbox.core.evaluation import (
+    NEGLIGIBLE_METRIC_FLOORS,
+    ROLLOUT_METRICS,
+    VECTORIZED_LOG_MEAN,
     aggregate_rollout_metrics,
     kinematic_persistence_windowed_metrics,
+    persistence_score,
     windowed_rollout_metrics,
 )
 from glassbox.core.model_io import load_dynamics_model
@@ -24,17 +28,13 @@ from glassbox.io.x8_reference import (
 )
 
 X8_EVALUATION_HORIZONS_S = (0.1, 0.5, 1.0, 2.0)
-_SCORE_METRICS = (
-    "position_rmse_m",
-    "velocity_rmse_m_s",
-    "attitude_rmse_deg",
-    "angular_velocity_rmse_rad_s",
-)
 
 
-def _validation_trajectories(
+def load_validation_trajectories(
     paths: list[str | Path] | tuple[str | Path, ...],
 ) -> tuple[list[Path], list[Trajectory]]:
+    """Load the upstream validation maneuvers and check their pinned identity."""
+
     resolved = [Path(path).resolve() for path in paths]
     if not resolved:
         raise ValueError("at least one Skywalker X8 validation trajectory is required")
@@ -50,7 +50,9 @@ def _validation_trajectories(
     return resolved, trajectories
 
 
-def _horizon_steps(trajectory: Trajectory, horizon_s: float) -> int:
+def horizon_steps_for_duration(trajectory: Trajectory, horizon_s: float) -> int:
+    """Return the integer step count for one horizon at a trajectory's rate."""
+
     steps = duration_to_steps(horizon_s, trajectory.nominal_dt_s)
     if not np.isclose(steps * trajectory.nominal_dt_s, horizon_s, atol=1e-9, rtol=0.0):
         raise ValueError(
@@ -59,9 +61,11 @@ def _horizon_steps(trajectory: Trajectory, horizon_s: float) -> int:
     return steps
 
 
-def _aggregate_horizons(
+def aggregate_horizon_rollouts(
     per_trajectory: list[dict[str, Any]],
 ) -> dict[str, dict[str, Any]]:
+    """Average each horizon's rollout metrics across validation maneuvers."""
+
     labels = tuple(per_trajectory[0]["horizon_rollouts"])
     return {
         label: aggregate_rollout_metrics(
@@ -72,17 +76,25 @@ def _aggregate_horizons(
     }
 
 
-def _geometric_ratio(
+def geometric_ratio(
     candidate: Mapping[str, Mapping[str, Any]],
     reference: Mapping[str, Mapping[str, Any]],
 ) -> float:
-    ratios = [
-        max(float(candidate[label][metric]), 1e-12)
-        / max(float(reference[label][metric]), 1e-12)
-        for label in candidate
-        for metric in _SCORE_METRICS
-    ]
-    return float(np.exp(np.mean(np.log(ratios))))
+    """Score a candidate against a reference over every horizon it carries.
+
+    The campaign reports every horizon it evaluates, so this scores all of
+    them, and uses only a negligible floor because both sides are real flight
+    errors rather than a possibly-zero baseline.
+    """
+
+    return persistence_score(
+        candidate,
+        reference,
+        horizons=None,
+        floors=NEGLIGIBLE_METRIC_FLOORS,
+        metrics=ROLLOUT_METRICS,
+        aggregation=VECTORIZED_LOG_MEAN,
+    )
 
 
 def evaluate_x8_reference_models(
@@ -97,9 +109,9 @@ def evaluate_x8_reference_models(
         raise ValueError("at least one model artifact is required")
     if any(horizon <= 0.0 for horizon in horizons_s):
         raise ValueError("evaluation horizons must be positive")
-    paths, trajectories = _validation_trajectories(validation_paths)
+    paths, trajectories = load_validation_trajectories(validation_paths)
     horizon_steps = {
-        f"{horizon:g}s": _horizon_steps(trajectories[0], horizon)
+        f"{horizon:g}s": horizon_steps_for_duration(trajectories[0], horizon)
         for horizon in horizons_s
     }
 
@@ -118,7 +130,7 @@ def evaluate_x8_reference_models(
                 },
             }
         )
-    persistence_aggregate = _aggregate_horizons(persistence_per_trajectory)
+    persistence_aggregate = aggregate_horizon_rollouts(persistence_per_trajectory)
 
     models: dict[str, Any] = {}
     for name, model_path_value in model_paths.items():
@@ -146,15 +158,16 @@ def evaluate_x8_reference_models(
                     },
                 }
             )
-        aggregate = _aggregate_horizons(per_trajectory)
+        aggregate = aggregate_horizon_rollouts(per_trajectory)
         models[name] = {
             "path": str(model_path),
             "model_type": payload["model_type"],
             "aggregate": {"horizon_rollouts": aggregate},
             "per_trajectory": per_trajectory,
-            "score_vs_kinematic_persistence": _geometric_ratio(
+            "score_vs_kinematic_persistence": geometric_ratio(
                 aggregate, persistence_aggregate
             ),
+            "score_horizons_s": list(horizons_s),
         }
 
     comparisons = {
@@ -163,7 +176,7 @@ def evaluate_x8_reference_models(
                 "candidate/reference geometric mean over four state metrics "
                 "and every horizon; values below one favor the candidate"
             ),
-            "score": _geometric_ratio(
+            "score": geometric_ratio(
                 models[candidate]["aggregate"]["horizon_rollouts"],
                 models[reference]["aggregate"]["horizon_rollouts"],
             ),
@@ -184,6 +197,7 @@ def evaluate_x8_reference_models(
             "initialization": "every_admissible_sample",
             "flight_boundaries_crossed": False,
             "horizons_s": list(horizons_s),
+            "score_horizons_s": list(horizons_s),
             "aggregation": "equal_validation_maneuver",
             "baseline": "constant_world_velocity_and_constant_body_rate",
         },

@@ -15,19 +15,17 @@ import numpy as np
 import numpy.typing as npt
 
 from glassbox.core.data import Trajectory
-from glassbox.core.evaluation import (
-    KINEMATIC_ATTITUDE_RATE_FLOOR_RAD_S,
-    KINEMATIC_POSITION_RATE_FLOOR_M_S,
-)
 from glassbox.workflows.observation_compatibility import (
     MAXIMUM_ANGULAR_RATE_BIAS_RAD_S,
     MAXIMUM_SCALE,
     MAXIMUM_VELOCITY_BIAS_M_S,
     MINIMUM_SCALE,
     _bounded_affine_from_statistics,
+    _group_weighted_statistics,
     _observation_rate_pairs,
     _validate_observation_fit_data,
-    observation_channel_transfer_gate,
+    evaluate_observation_model_transfer,
+    source_group_key,
 )
 
 ALIGNMENT_POLICY = "bounded_state_observation_alignment_v1"
@@ -115,13 +113,6 @@ class StateObservationAlignmentFit:
     report: dict[str, Any]
 
 
-def _source_group_key(trajectory: Trajectory, index: int) -> str:
-    source_group = trajectory.labels.get("source_group")
-    if source_group is None:
-        return f"trajectory:{index}"
-    return f"source_group:{source_group}"
-
-
 def _interval_center_times(trajectory: Trajectory) -> np.ndarray:
     return 0.5 * (trajectory.time_s[:-1] + trajectory.time_s[1:])
 
@@ -183,34 +174,16 @@ def _fit_alignment_group(
     maximum_bias: float,
     candidates_s: np.ndarray,
 ) -> tuple[float, np.ndarray, np.ndarray, dict[str, Any]]:
-    statistics = []
-    for index, trajectory in enumerate(trajectories):
+    def statistics_for(trajectory: Trajectory) -> dict[str, np.ndarray | float]:
         pair = _observation_rate_pairs(trajectory)
-        statistics.append(
-            (
-                _source_group_key(trajectory, index),
-                _alignment_statistics(
-                    pair[input_name],
-                    pair[target_name],
-                    _interval_center_times(trajectory),
-                    candidates_s,
-                ),
-            )
+        return _alignment_statistics(
+            pair[input_name],
+            pair[target_name],
+            _interval_center_times(trajectory),
+            candidates_s,
         )
-    group_counts: dict[str, float] = {}
-    for group_key, statistic in statistics:
-        group_counts[group_key] = group_counts.get(group_key, 0.0) + float(
-            statistic["count"]
-        )
-    combined: dict[str, np.ndarray | float] = {}
-    for name in statistics[0][1]:
-        combined[name] = sum(
-            (
-                statistic[name] / group_counts[group_key]
-                for group_key, statistic in statistics
-            ),
-            start=np.zeros_like(statistics[0][1][name]),
-        )
+
+    combined = _group_weighted_statistics(trajectories, statistics_for)
 
     candidate_reports = []
     best: tuple[float, float, float, np.ndarray, np.ndarray, list[dict[str, float]]]
@@ -359,7 +332,7 @@ def fit_state_observation_alignment(
         trajectories, np.asarray([0.0], dtype=np.float64)
     )
     source_groups = {
-        _source_group_key(trajectory, index)
+        source_group_key(trajectory, index)
         for index, trajectory in enumerate(trajectories)
     }
     training = evaluate_state_observation_alignment(candidate, reference, trajectories)
@@ -399,63 +372,11 @@ def evaluate_state_observation_alignment(
 ) -> dict[str, Any]:
     """Compare fixed time-aligned and instantaneous observation models."""
 
-    if not trajectories:
-        raise ValueError("at least one trajectory is required")
-    per_trajectory = []
-    candidate_metrics = []
-    reference_metrics = []
-    for trajectory in trajectories:
-        candidate_error = _alignment_errors(candidate, trajectory)
-        reference_error = _alignment_errors(instantaneous_reference, trajectory)
-        candidate_metrics.append(candidate_error)
-        reference_metrics.append(reference_error)
-        per_trajectory.append(
-            {
-                "source_group": trajectory.labels.get("source_group"),
-                "profile": trajectory.labels.get("profile"),
-                "replicate": trajectory.labels.get("replicate"),
-                "candidate": candidate_error,
-                "instantaneous_reference": reference_error,
-                "candidate_over_reference": {
-                    name: (
-                        candidate_error[name] / reference_error[name]
-                        if reference_error[name] > 0.0
-                        else None
-                    )
-                    for name in reference_error
-                },
-            }
-        )
-    names = tuple(reference_metrics[0])
-    candidate_mean = {
-        name: float(np.mean([metric[name] for metric in candidate_metrics]))
-        for name in names
-    }
-    reference_mean = {
-        name: float(np.mean([metric[name] for metric in reference_metrics]))
-        for name in names
-    }
-    ratios = {
-        name: (
-            candidate_mean[name] / reference_mean[name]
-            if reference_mean[name] > 0.0
-            else None
-        )
-        for name in names
-    }
-    materiality_floors = {
-        "position_velocity_vector_rmse_m_s": float(
-            np.sqrt(3.0) * KINEMATIC_POSITION_RATE_FLOOR_M_S
-        ),
-        "attitude_rate_vector_rmse_rad_s": float(
-            np.sqrt(3.0) * KINEMATIC_ATTITUDE_RATE_FLOOR_RAD_S
-        ),
-    }
-    gate = observation_channel_transfer_gate(
-        reference_error=reference_mean,
-        candidate_over_reference=ratios,
-        per_trajectory=per_trajectory,
-        materiality_floors=materiality_floors,
+    return evaluate_observation_model_transfer(
+        candidate,
+        instantaneous_reference,
+        trajectories,
+        errors_for=_alignment_errors,
         group_interior={
             "position_velocity_vector_rmse_m_s": bool(
                 abs(candidate.velocity_delay_s) < MAXIMUM_ABSOLUTE_ALIGNMENT_S
@@ -464,15 +385,5 @@ def evaluate_state_observation_alignment(
                 abs(candidate.angular_rate_delay_s) < MAXIMUM_ABSOLUTE_ALIGNMENT_S
             ),
         },
+        policy="research_validation_state_observation_alignment_transfer_v2",
     )
-    return {
-        "policy": "research_validation_state_observation_alignment_transfer_v2",
-        "trajectory_count": len(trajectories),
-        "candidate": candidate.to_dict(),
-        "instantaneous_reference": instantaneous_reference.to_dict(),
-        "candidate_error": candidate_mean,
-        "instantaneous_reference_error": reference_mean,
-        "candidate_over_reference": ratios,
-        "gate": gate,
-        "per_trajectory": per_trajectory,
-    }

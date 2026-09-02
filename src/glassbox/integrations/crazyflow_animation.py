@@ -7,6 +7,7 @@ import math
 import os
 import shutil
 import subprocess
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -18,6 +19,7 @@ from glassbox.integrations.crazyflow_bootstrap import (
     CrazyflowBootstrapTrace,
     run_crazyflow_bootstrap_trial,
 )
+from glassbox.integrations.crazyflow_telemetry import tilt_rad as _tilt_rad
 from glassbox.integrations.crazyflow_throw import (
     CrazyflowThrowTrace,
     run_crazyflow_throw_trial,
@@ -309,12 +311,6 @@ def _interpolate_sample(
     state[6:10] = quaternion / np.linalg.norm(quaternion)
     command = (1.0 - fraction) * commands[lower] + fraction * commands[upper]
     return state, command, lower
-
-
-def _tilt_rad(state: np.ndarray) -> float:
-    quaternion = state[6:10] / np.linalg.norm(state[6:10])
-    _, x, y, _ = quaternion
-    return math.acos(float(np.clip(1.0 - 2.0 * (x * x + y * y), -1.0, 1.0)))
 
 
 def _load_font(size: int, *, bold: bool = False, mono: bool = False) -> Any:
@@ -1320,7 +1316,7 @@ def render_crazyflow_unpowered_throw_animation(
     )
 
 
-def main() -> None:
+def main(argv: Sequence[str] | None = None) -> None:
     # Set before any lazy `import crazyflow` reaches its own SciPy-array-API guard.
     os.environ.setdefault("SCIPY_ARRAY_API", "1")
     parser = argparse.ArgumentParser(
@@ -1337,7 +1333,7 @@ def main() -> None:
     parser.add_argument("--width", type=int, default=1280)
     parser.add_argument("--height", type=int, default=720)
     parser.add_argument("--fps", type=int, default=30)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     summary = render_crazyflow_bootstrap_animation(
         args.output,
         poster_output=args.poster,
@@ -1354,7 +1350,7 @@ def main() -> None:
     )
 
 
-def throw_main() -> None:
+def throw_main(argv: Sequence[str] | None = None) -> None:
     # Set before any lazy `import crazyflow` reaches its own SciPy-array-API guard.
     os.environ.setdefault("SCIPY_ARRAY_API", "1")
     parser = argparse.ArgumentParser(
@@ -1378,7 +1374,7 @@ def throw_main() -> None:
     parser.add_argument("--width", type=int, default=1280)
     parser.add_argument("--height", type=int, default=720)
     parser.add_argument("--fps", type=int, default=30)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     config = CrazyflowAnimationConfig(
         width=args.width,
         height=args.height,

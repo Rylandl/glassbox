@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from collections.abc import Sequence
 from pathlib import Path
 
 from glassbox.core.data import save_trajectory_npz
@@ -202,7 +203,7 @@ def _add_checksum_option(parser: argparse.ArgumentParser) -> None:
     )
 
 
-def main() -> None:
+def main(argv: Sequence[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -309,7 +310,7 @@ def main() -> None:
     diagnose_parser.add_argument("--report", type=Path, default=None)
     diagnose_parser.set_defaults(handler=_diagnose_cascade)
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     args.handler(args)
 
 

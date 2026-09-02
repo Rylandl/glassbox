@@ -2,11 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
-import os
-import shutil
-import tempfile
-import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -14,6 +9,7 @@ from typing import Any
 import numpy as np
 
 from glassbox.core.data import Trajectory, save_trajectory_npz
+from glassbox.io.pinned_download import download_verified, file_digest
 from glassbox.io.px4_ulog import PX4IngestConfig, inspect_ulog, load_px4_trajectory
 
 ARP_REFERENCE_REPOSITORY = (
@@ -76,11 +72,7 @@ _RECORDING_BY_FILENAME = {recording.filename: recording for recording in ARP_REC
 
 
 def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as source:
-        for chunk in iter(lambda: source.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
+    return file_digest(path, algorithm="sha256")
 
 
 def _recording_for_path(path: Path) -> ARPRecording:
@@ -254,46 +246,27 @@ def fetch_arp_reference(
     fetched: list[Path] = []
     for recording in ARP_RECORDINGS:
         target = destination_root / recording.relative_path
-        target.parent.mkdir(parents=True, exist_ok=True)
-        if target.exists():
-            if _sha256(target) == recording.sha256:
-                fetched.append(target)
-                continue
-            if not overwrite:
-                raise FileExistsError(
+        fetched.append(
+            download_verified(
+                f"{ARP_REFERENCE_MEDIA_ROOT}/{recording.relative_path}",
+                target,
+                size_bytes=recording.size_bytes,
+                digest=recording.sha256,
+                algorithm="sha256",
+                user_agent="glassbox-arp-reference-adapter/1",
+                overwrite=overwrite,
+                timeout_s=timeout_s,
+                existing_mismatch_message=(
                     f"existing file does not match pinned ARP reference: {target}"
-                )
-
-        request = urllib.request.Request(
-            f"{ARP_REFERENCE_MEDIA_ROOT}/{recording.relative_path}",
-            headers={"User-Agent": "glassbox-arp-reference-adapter/1"},
-        )
-        temporary_path: Path | None = None
-        try:
-            with tempfile.NamedTemporaryFile(
-                dir=target.parent,
-                prefix=f".{target.name}.",
-                suffix=".download",
-                delete=False,
-            ) as temporary:
-                temporary_path = Path(temporary.name)
-                with urllib.request.urlopen(request, timeout=timeout_s) as response:
-                    shutil.copyfileobj(response, temporary)
-            if temporary_path.stat().st_size != recording.size_bytes:
-                raise ValueError(
+                ),
+                size_mismatch_message=(
                     f"downloaded size mismatch for {recording.relative_path}"
-                )
-            checksum = _sha256(temporary_path)
-            if checksum != recording.sha256:
-                raise ValueError(
+                ),
+                digest_mismatch_message=(
                     f"downloaded checksum mismatch for {recording.relative_path}"
-                )
-            os.replace(temporary_path, target)
-            temporary_path = None
-        finally:
-            if temporary_path is not None:
-                temporary_path.unlink(missing_ok=True)
-        fetched.append(target)
+                ),
+            )
+        )
     return tuple(fetched)
 
 

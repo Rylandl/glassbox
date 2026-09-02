@@ -55,10 +55,10 @@ Build a consistent 50 Hz dataset from a directory of raw ULogs:
 ./scripts/extract_ulog_dataset.sh path/to/logs artifacts/dataset_50hz 50
 ```
 
-The script attempts both ground-truth and estimated-state extraction, reports logs without a valid airborne interval, and consistently uses the normalized `actuator_motors.control` command available in operational PX4 logs. Pass the desired state source from every flight to `glassbox-fit`; this example reserves two complete flights:
+The script attempts both ground-truth and estimated-state extraction, reports logs without a valid airborne interval, and consistently uses the normalized `actuator_motors.control` command available in operational PX4 logs. Pass the desired state source from every flight to `glassbox fit`; this example reserves two complete flights:
 
 ```bash
-uv run glassbox-fit artifacts/dataset_50hz/*_ground_truth.npz \
+uv run glassbox fit artifacts/dataset_50hz/*_ground_truth.npz \
   --holdout-count 2 \
   --training-horizons 0.1,0.5,2.0 \
   --model artifacts/scaled_model.json \
@@ -78,7 +78,7 @@ The recorder uses PX4's normal takeoff and landing behavior, streams local-NED p
 Reserve an entire maneuver family, not merely the last flight, with `--holdout-profile`:
 
 ```bash
-uv run glassbox-fit \
+uv run glassbox fit \
   $(find artifacts/sitl/profile_dataset -name '*_ground_truth.npz' | sort) \
   --holdout-profile combined \
   --training-horizons 0.1,0.5,2.0 \
@@ -89,7 +89,7 @@ uv run glassbox-fit \
 When all inputs have profile labels, training first gives every included maneuver family equal total loss weight and then divides each family's weight equally among its replicate flights. Run every holdout fold and write a macro summary with:
 
 ```bash
-uv run glassbox-profile-benchmark \
+uv run glassbox profile-benchmark \
   $(find artifacts/sitl/profile_dataset -name '*_ground_truth.npz' | sort) \
   --output-dir artifacts/sitl/profile_benchmark
 ```

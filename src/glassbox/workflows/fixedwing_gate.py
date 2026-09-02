@@ -19,10 +19,17 @@ from glassbox.core.evaluation import (
     ROLLOUT_METRICS,
     aggregate_rollout_metrics,
     kinematic_persistence_windowed_metrics,
+    persistence_score,
     rollout_divergence_metrics,
 )
 from glassbox.core.model_io import load_dynamics_model
 from glassbox.workflows.acceptance import evaluate_fixedwing_accuracy
+from glassbox.workflows.selection import (
+    MAXIMUM_METRIC_REGRESSION,
+    MAXIMUM_PLATFORM_REGRESSION,
+    MAXIMUM_SELECTABLE_OVERALL_SCORE,
+    MINIMUM_OVERALL_IMPROVEMENT,
+)
 
 FIXED_WING_GATE_HORIZONS_S = (0.1, 0.5, 1.0, 2.0)
 FIXED_WING_SCORE_HORIZONS_S = (0.5, 1.0, 2.0)
@@ -59,18 +66,19 @@ def _score_against_persistence(
     candidate: Mapping[str, Mapping[str, Any]],
     persistence: Mapping[str, Mapping[str, Any]],
 ) -> float:
-    ratios = []
+    """Score one airframe's aggregate against its persistence baseline."""
+
     for seconds in FIXED_WING_SCORE_HORIZONS_S:
         label = f"{seconds:g}s"
         if label not in candidate or label not in persistence:
             raise ValueError(f"missing fixed-wing gate horizon {label}")
-        for metric in ROLLOUT_METRICS:
-            floor = METRIC_FLOORS[metric]
-            ratios.append(
-                max(float(candidate[label][metric]), floor)
-                / max(float(persistence[label][metric]), floor)
-            )
-    return _geometric_mean(ratios)
+    return persistence_score(
+        candidate,
+        persistence,
+        horizons=FIXED_WING_SCORE_HORIZONS_S,
+        floors=METRIC_FLOORS,
+        metrics=ROLLOUT_METRICS,
+    )
 
 
 def _p90_horizons(
@@ -215,6 +223,7 @@ def _source_group_airframe(summary_path: Path) -> dict[str, Any]:
         "score_vs_kinematic_persistence": _score_against_persistence(
             aggregate, persistence
         ),
+        "score_horizons_s": list(FIXED_WING_SCORE_HORIZONS_S),
         "full_rollout_finite_fraction": divergence["full_rollout_finite_fraction"],
         "divergence": divergence,
         "source": _sha256_record(summary_path),
@@ -253,6 +262,7 @@ def _x8_airframe(report_path: Path, model_name: str) -> dict[str, Any]:
         "score_vs_kinematic_persistence": _score_against_persistence(
             aggregate, persistence
         ),
+        "score_horizons_s": list(FIXED_WING_SCORE_HORIZONS_S),
         "full_rollout_finite_fraction": divergence["full_rollout_finite_fraction"],
         "divergence": divergence,
         "source": _sha256_record(report_path),
@@ -360,19 +370,23 @@ def compare_fixedwing_gates(
     overall_score = _geometric_mean(list(airframe_scores.values()))
     rejection_reasons = []
     regressed_airframes = {
-        name: score for name, score in airframe_scores.items() if score > 1.05
+        name: score
+        for name, score in airframe_scores.items()
+        if score > MAXIMUM_PLATFORM_REGRESSION
     }
     if regressed_airframes:
         rejection_reasons.append(
-            "airframe regression exceeds 5%: "
+            f"airframe regression exceeds "
+            f"{MAXIMUM_PLATFORM_REGRESSION - 1.0:.0%}: "
             + ", ".join(
                 f"{name}={score:.4g}"
                 for name, score in sorted(regressed_airframes.items())
             )
         )
-    if largest_metric_ratio > 1.5:
+    if largest_metric_ratio > MAXIMUM_METRIC_REGRESSION:
         rejection_reasons.append(
-            f"largest metric regression {largest_metric_ratio:.4g} exceeds 1.5"
+            f"largest metric regression {largest_metric_ratio:.4g} exceeds "
+            f"{MAXIMUM_METRIC_REGRESSION:g}"
         )
     nonfinite_airframes = [
         name
@@ -383,10 +397,11 @@ def compare_fixedwing_gates(
         rejection_reasons.append(
             "non-finite complete rollout: " + ", ".join(nonfinite_airframes)
         )
-    clears_minimum_improvement = overall_score <= 0.99
+    clears_minimum_improvement = overall_score <= MAXIMUM_SELECTABLE_OVERALL_SCORE
     if not clears_minimum_improvement:
         rejection_reasons.append(
-            f"overall score {overall_score:.4g} does not improve at least 1%"
+            f"overall score {overall_score:.4g} does not improve at least "
+            f"{MINIMUM_OVERALL_IMPROVEMENT:.0%}"
         )
     eligible = not rejection_reasons
     selected_candidate = (
@@ -405,9 +420,9 @@ def compare_fixedwing_gates(
         "overall_score": overall_score,
         "largest_metric_ratio": largest_metric_ratio,
         "median_stable_horizon_ratio": stable_horizon_ratios,
-        "maximum_airframe_regression": 1.05,
-        "maximum_metric_regression": 1.5,
-        "minimum_overall_improvement": 0.01,
+        "maximum_airframe_regression": MAXIMUM_PLATFORM_REGRESSION,
+        "maximum_metric_regression": MAXIMUM_METRIC_REGRESSION,
+        "minimum_overall_improvement": MINIMUM_OVERALL_IMPROVEMENT,
         "clears_minimum_improvement": clears_minimum_improvement,
         "eligible": eligible,
         "rejection_reasons": rejection_reasons,
@@ -475,13 +490,15 @@ def screen_fixedwing_airframe_candidate(
         flattened, key=lambda item: item[2]
     )
     rejection_reasons = []
-    if overall_score > 0.99:
+    if overall_score > MAXIMUM_SELECTABLE_OVERALL_SCORE:
         rejection_reasons.append(
-            f"overall score {overall_score:.4g} does not improve at least 1%"
+            f"overall score {overall_score:.4g} does not improve at least "
+            f"{MINIMUM_OVERALL_IMPROVEMENT:.0%}"
         )
-    if largest_ratio > 1.5:
+    if largest_ratio > MAXIMUM_METRIC_REGRESSION:
         rejection_reasons.append(
-            f"largest metric regression {largest_ratio:.4g} exceeds 1.5"
+            f"largest metric regression {largest_ratio:.4g} exceeds "
+            f"{MAXIMUM_METRIC_REGRESSION:g}"
         )
     eligible = not rejection_reasons
     return {
@@ -505,8 +522,8 @@ def screen_fixedwing_airframe_candidate(
             "metric": largest_metric,
             "value": largest_ratio,
         },
-        "minimum_overall_improvement": 0.01,
-        "maximum_metric_regression": 1.5,
+        "minimum_overall_improvement": MINIMUM_OVERALL_IMPROVEMENT,
+        "maximum_metric_regression": MAXIMUM_METRIC_REGRESSION,
         "eligible_for_cross_airframe_evaluation": eligible,
         "rejection_reasons": rejection_reasons,
         "interpretation": (
@@ -517,7 +534,7 @@ def screen_fixedwing_airframe_candidate(
     }
 
 
-def main() -> None:
+def main(argv: Sequence[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
     evaluate_parser = subparsers.add_parser(
@@ -543,7 +560,7 @@ def main() -> None:
     screen_parser.add_argument("--airframe-name", required=True)
     screen_parser.add_argument("--candidate-name", required=True)
     screen_parser.add_argument("--output", type=Path, required=True)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     if args.command == "screen":
         reference = json.loads(args.reference_report.read_text())
         candidate = json.loads(args.candidate_report.read_text())

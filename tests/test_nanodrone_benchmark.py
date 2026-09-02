@@ -1,5 +1,6 @@
 import hashlib
 import io
+import urllib.request
 from pathlib import Path
 
 import numpy as np
@@ -156,7 +157,7 @@ def test_fetch_verifies_download_and_reuses_valid_file(tmp_path, monkeypatch) ->
         return io.BytesIO(payload)
 
     monkeypatch.setattr(benchmark_module, "BENCHMARK_RECORDINGS", (recording,))
-    monkeypatch.setattr(benchmark_module.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
 
     first = fetch_nanodrone_benchmark(tmp_path)
     second = fetch_nanodrone_benchmark(tmp_path)

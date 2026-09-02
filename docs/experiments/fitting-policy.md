@@ -37,7 +37,7 @@ A candidate is ineligible if any rollout is non-finite, any individual metric re
 ## Reproduce
 
 ```bash
-uv run glassbox-select-policy \
+uv run glassbox select-policy \
   --dataset 'nanodrone=artifacts/nanodrone/canonical/train/*.npz' \
   --dataset 'fixedwing=artifacts/fixedwing/synthetic_v1/*.npz' \
   --output-dir artifacts/policy_selection

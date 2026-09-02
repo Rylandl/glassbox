@@ -39,30 +39,7 @@ crazyflow-animation = [
 ]
 
 [project.scripts]
-glassbox-fit = "glassbox.workflows.fitting:main"
-glassbox-prior = "glassbox.cli.prior:main"
-glassbox-adaptation-benchmark = "glassbox.workflows.adaptation_benchmark:main"
-glassbox-adaptive-recovery = "glassbox.workflows.adaptive_recovery_benchmark:main"
-glassbox-synthetic = "glassbox.cli.synthetic_demo:main"
-glassbox-ulog = "glassbox.cli.ulog:main"
-glassbox-sitl-profile = "glassbox.io.sitl_profile:main"
-glassbox-profile-benchmark = "glassbox.workflows.profile_benchmark:main"
-glassbox-source-benchmark = "glassbox.workflows.source_group_benchmark:main"
-glassbox-ensemble-benchmark = "glassbox.workflows.predictive_ensemble:main"
-glassbox-fixedwing-synthetic = "glassbox.cli.fixedwing:main"
-glassbox-fixedwing-gate = "glassbox.workflows.fixedwing_gate:main"
-glassbox-fixedwing-sitl-profile = "glassbox.io.fixedwing_sitl_profile:main"
-glassbox-nanodrone = "glassbox.cli.nanodrone:main"
-glassbox-x8 = "glassbox.cli.x8:main"
-glassbox-epfl = "glassbox.cli.epfl:main"
-glassbox-select-policy = "glassbox.workflows.policy_selection:main"
-glassbox-nmpc-benchmark = "glassbox.workflows.nmpc_benchmark:main"
-glassbox-px4-nmpc-shadow = "glassbox.integrations.px4_nmpc_shadow:main"
-glassbox-crazyflow-prototype = "glassbox.integrations.crazyflow_prototype:main"
-glassbox-crazyflow-bootstrap = "glassbox.integrations.crazyflow_bootstrap:main"
-glassbox-crazyflow-animation = "glassbox.integrations.crazyflow_animation:main"
-glassbox-crazyflow-throw = "glassbox.integrations.crazyflow_throw:main"
-glassbox-crazyflow-throw-animation = "glassbox.integrations.crazyflow_animation:throw_main"
+glassbox = "glassbox.cli:main"
 
 [tool.hatch.build.targets.sdist]
 exclude = ["/docs/results", "/docs/history", "/tasks"]
@@ -86,6 +63,7 @@ markers = [
     "cascade: opt-in contracts against the local Cascade fixed-wing simulator",
     "crazyflow: opt-in contracts against the pinned Crazyflow simulator",
     "px4_sitl: opt-in contract tests against a disposable PX4 SIH container",
+    "slow: benchmark-scale tests that take over a minute",
 ]
 
 [tool.ruff]

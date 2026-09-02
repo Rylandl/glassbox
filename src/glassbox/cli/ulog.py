@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from collections.abc import Sequence
 from pathlib import Path
 
 from glassbox.core.data import load_trajectory_npz, save_trajectory_npz
@@ -194,7 +195,7 @@ def _prepare_idf(args: argparse.Namespace) -> None:
     )
 
 
-def main() -> None:
+def main(argv: Sequence[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -356,7 +357,7 @@ def main() -> None:
     idf_parser.add_argument("--overwrite", action="store_true")
     idf_parser.set_defaults(handler=_prepare_idf)
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     args.handler(args)
 
 

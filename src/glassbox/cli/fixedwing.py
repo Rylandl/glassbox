@@ -3,20 +3,21 @@
 from __future__ import annotations
 
 import argparse
+from collections.abc import Sequence
 from pathlib import Path
 
 from glassbox.core.data import save_trajectory_npz
 from glassbox.core.fixedwing_synthetic import generate_fixed_wing_trajectory
 
 
-def main() -> None:
+def main(argv: Sequence[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("output_dir", type=Path)
     parser.add_argument("--flights", type=int, default=6)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--duration", type=float, default=6.0)
     parser.add_argument("--dt", type=float, default=0.02)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     if args.flights < 1:
         parser.error("--flights must be positive")
 

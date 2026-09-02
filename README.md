@@ -32,19 +32,19 @@ telemetry extras because the default test suite exercises them.
 Turn telemetry into canonical trajectories. From a PX4 ULog:
 
 ```bash
-uv run glassbox-ulog extract flight.ulg flight.npz --rate 50
+uv run glassbox ulog extract flight.ulg flight.npz --rate 50
 ```
 
 The [PX4 ULog guide](docs/guides/px4-ulog.md) covers fixed-wing logs,
 ground-truth versus estimated states, and gap handling. The reference-corpus
-commands (`glassbox-nanodrone`, `glassbox-x8`, `glassbox-epfl`, and
-`glassbox-ulog prepare-arp` and `prepare-idf`) produce the same NPZ format.
+commands (`glassbox nanodrone`, `glassbox x8`, `glassbox epfl`, and
+`glassbox ulog prepare-arp` and `prepare-idf`) produce the same NPZ format.
 
 Fit a belief on several flights. The final flight is held out for validation
 and a no-lag ablation is written beside the model:
 
 ```bash
-uv run glassbox-fit flights/*.npz \
+uv run glassbox fit flights/*.npz \
   --model artifacts/belief.json --report artifacts/report.json
 ```
 
@@ -107,26 +107,43 @@ The canonical state is 13 wide: NWU position and velocity, a WXYZ unit
 quaternion from body to world, and FLU body rates. Commands are normalized
 actuator inputs in the order the trajectory spec declares.
 
-## Console scripts
+## The `glassbox` command
 
-| Script | Purpose |
-| --- | --- |
-| `glassbox-fit` | Fit a dynamics belief and report from trajectory NPZ files |
-| `glassbox-prior` | Build a fleet parameter prior from fitted beliefs |
-| `glassbox-ulog` | Inspect and extract PX4 ULogs; prepare the ARP and IDF-DS corpora |
-| `glassbox-sitl-profile`, `glassbox-fixedwing-sitl-profile` | Fly and record scripted PX4 SITL maneuver profiles |
-| `glassbox-synthetic`, `glassbox-fixedwing-synthetic` | Synthetic parameter-recovery demonstrations |
-| `glassbox-profile-benchmark`, `glassbox-source-benchmark` | Maneuver-family and source-group holdout benchmarks |
-| `glassbox-select-policy` | Cross-platform fitting-policy selection |
-| `glassbox-ensemble-benchmark` | Predictive-ensemble uncertainty diagnostic |
-| `glassbox-adaptation-benchmark`, `glassbox-adaptive-recovery` | Belief adaptation diagnostics, the second through NMPC recovery |
-| `glassbox-nanodrone`, `glassbox-x8`, `glassbox-epfl` | Fetch, prepare, and evaluate the reference corpora; `glassbox-x8` also drives the Cascade validation |
-| `glassbox-fixedwing-gate` | Cross-airframe fixed-wing development gate |
-| `glassbox-nmpc-benchmark` | Closed-loop NMPC acceptance suite |
-| `glassbox-px4-nmpc-shadow` | Passive NMPC shadow against live PX4 telemetry; never transmits |
-| `glassbox-crazyflow-*` | Crazyflow prototype, bootstrap, throw, and animation diagnostics (`--extra crazyflow`) |
+Every workflow lives behind one console command. `glassbox --help` lists the
+whole tree, and every leaf prints its own flags with `--help`.
 
-Every script prints its flags with `--help`.
+```text
+glassbox fit                     fit a dynamics belief and report from NPZ flights
+glassbox prior                   build a fleet parameter prior from fitted beliefs
+glassbox synthetic               synthetic multirotor parameter recovery
+glassbox fixedwing-synthetic     synthetic fixed-wing trajectory generator
+glassbox profile-benchmark       maneuver-family holdout benchmark
+glassbox source-benchmark        source-group holdout benchmark
+glassbox ensemble-benchmark      predictive-ensemble uncertainty diagnostic
+glassbox select-policy           cross-platform fitting-policy selection
+glassbox adaptation-benchmark    belief-adaptation diagnostic
+glassbox adaptive-recovery       belief adaptation through NMPC recovery
+glassbox nmpc-benchmark          closed-loop NMPC acceptance suite
+glassbox fixedwing-gate          cross-airframe fixed-wing development gate
+    evaluate | compare | screen
+glassbox sitl-profile            record scripted PX4 SITL maneuver profiles     [px4]
+glassbox fixedwing-sitl-profile  the fixed-wing SITL profiles                   [px4]
+glassbox px4-nmpc-shadow         passive NMPC shadow on live PX4; never sends   [px4]
+glassbox ulog                    inspect PX4 ULogs; prepare ARP and IDF-DS      [px4]
+    inspect | extract | extract-fixedwing | prepare-arp | prepare-idf
+glassbox nanodrone               the IDSIA nano-quadrotor corpus
+    inspect | extract | fetch | extract-dataset | prepare | evaluate
+glassbox x8                      the NTNU Skywalker X8 campaign
+    inspect | extract | fetch | extract-dataset | prepare | evaluate
+    evaluate-cascade | diagnose-cascade                                     [cascade]
+glassbox epfl                    the EPFL TOPOPlane2 release                    [ros]
+    inspect | extract | fetch | prepare | evaluate
+glassbox crazyflow               hidden-plant simulation diagnostics      [crazyflow]
+    prototype | bootstrap | throw | animation | throw-animation
+```
+
+A bracketed name is the optional extra a command needs, for example
+`uv run --extra crazyflow glassbox crazyflow throw ...`.
 
 ## Tests
 

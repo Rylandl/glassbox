@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import urllib.request
 from pathlib import Path
 
 import numpy as np
@@ -135,7 +136,7 @@ def test_fetch_verifies_and_reuses_pinned_bag(tmp_path, monkeypatch) -> None:
 
     monkeypatch.setattr(epfl_module, "TOPOPLANE_SIZE_BYTES", len(payload))
     monkeypatch.setattr(epfl_module, "TOPOPLANE_MD5", digest)
-    monkeypatch.setattr(epfl_module.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
 
     first = fetch_epfl_topoplane_reference(tmp_path, timeout_s=5.0)
     second = fetch_epfl_topoplane_reference(tmp_path, timeout_s=5.0)

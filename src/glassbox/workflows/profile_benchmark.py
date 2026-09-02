@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
@@ -225,7 +226,7 @@ def benchmark_profiles(
     return summary
 
 
-def main() -> None:
+def main(argv: Sequence[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("trajectory", nargs="+", type=Path)
     parser.add_argument("--output-dir", type=Path, required=True)
@@ -243,7 +244,7 @@ def main() -> None:
         choices=("structured", "structured_residual"),
         default="structured",
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     benchmark_profiles(
         args.trajectory,
         args.output_dir,

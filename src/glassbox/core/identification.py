@@ -37,6 +37,7 @@ from glassbox.core.dynamics import (
     zero_rotational_response_gradient,
     zero_thrust_command_offset_gradient,
 )
+from glassbox.core.geometry import quaternion_to_rotation_matrices
 
 OPTIMIZATION_POLICY_VERSION = "deterministic_weighted_minibatch_v3"
 MAX_OPTIMIZATION_WINDOWS_PER_HORIZON = 8_192
@@ -227,31 +228,6 @@ def _optimization_batch_schedules(
     return schedules
 
 
-def _rotation_matrices(
-    quaternion_wxyz: npt.NDArray[np.float64],
-) -> npt.NDArray[np.float64]:
-    """Return vectorized body-to-world rotations for normalized WXYZ quaternions."""
-
-    quaternion = quaternion_wxyz / np.linalg.norm(
-        quaternion_wxyz, axis=-1, keepdims=True
-    )
-    w, x, y, z = np.moveaxis(quaternion, -1, 0)
-    return np.stack(
-        (
-            1.0 - 2.0 * (y * y + z * z),
-            2.0 * (x * y - z * w),
-            2.0 * (x * z + y * w),
-            2.0 * (x * y + z * w),
-            1.0 - 2.0 * (x * x + z * z),
-            2.0 * (y * z - x * w),
-            2.0 * (x * z - y * w),
-            2.0 * (y * z + x * w),
-            1.0 - 2.0 * (x * x + y * y),
-        ),
-        axis=-1,
-    ).reshape(quaternion.shape[:-1] + (3, 3))
-
-
 def _robust_axis_scale(
     values: npt.NDArray[np.float64],
     *,
@@ -331,7 +307,7 @@ def rollout_loss_configuration(
             1.0,
         )
         attitude_changes.append((2.0 * np.arccos(quaternion_dot)).reshape(-1))
-        rotations = _rotation_matrices(quaternion)
+        rotations = quaternion_to_rotation_matrices(quaternion)
         wind_world = _window_wind_world(windows)[:, None, :]
         body_velocities.append(
             np.einsum(
@@ -416,7 +392,7 @@ def residual_initialization_statistics(
         states = np.asarray(windows.target_states[:, :-1], dtype=np.float64)
         next_states = np.asarray(windows.target_states[:, 1:], dtype=np.float64)
         controls = np.asarray(windows.controls, dtype=np.float64)
-        rotations = _rotation_matrices(states[..., 6:10])
+        rotations = quaternion_to_rotation_matrices(states[..., 6:10])
         wind_world = _window_wind_world(windows)[:, None, :]
         body_velocity = np.einsum(
             "...ji,...j->...i",

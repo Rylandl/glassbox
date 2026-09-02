@@ -35,32 +35,32 @@ This gate consumes the [IDF-DS](idf.md) leave-one-source-group-out summary and t
 Evaluate the two model classes and make the selection:
 
 ```bash
-uv run glassbox-fixedwing-gate evaluate \
+uv run glassbox fixedwing-gate evaluate \
   --idf-summary artifacts/idf_reference/source_benchmark_lateral_cross_coupling_structured_v3/summary.json \
   --x8-report artifacts/x8_reference/benchmark_report.json \
   --x8-model-name structured \
   --candidate-name structured_v3 \
   --output artifacts/fixedwing_cross_airframe/structured_v3_gate.json
 
-uv run glassbox-fixedwing-gate evaluate \
+uv run glassbox fixedwing-gate evaluate \
   --idf-summary artifacts/idf_reference/source_benchmark_lateral_cross_coupling_residual_v3/summary.json \
   --x8-report artifacts/x8_reference/benchmark_report.json \
   --x8-model-name structured_residual \
   --candidate-name structured_residual_v3 \
   --output artifacts/fixedwing_cross_airframe/residual_v3_gate.json
 
-uv run glassbox-fixedwing-gate compare \
+uv run glassbox fixedwing-gate compare \
   --reference artifacts/fixedwing_cross_airframe/structured_v3_gate.json \
   --candidate artifacts/fixedwing_cross_airframe/residual_v3_gate.json \
   --output artifacts/fixedwing_cross_airframe/selection_v1.json
 ```
 
-The second `evaluate` call uses `--x8-model-name structured_residual`, not `residual`: the X8 benchmark report names its two models `structured` and `structured_residual` (see [x8.md](x8.md)), and `glassbox-fixedwing-gate` looks the name up directly in the report's `models` object.
+The second `evaluate` call uses `--x8-model-name structured_residual`, not `residual`: the X8 benchmark report names its two models `structured` and `structured_residual` (see [x8.md](x8.md)), and `glassbox fixedwing-gate` looks the name up directly in the report's `models` object.
 
 Use the fail-fast single-airframe screen before paying for a full cross-airframe fit:
 
 ```bash
-uv run glassbox-fixedwing-gate screen \
+uv run glassbox fixedwing-gate screen \
   --reference-report artifacts/x8_reference/benchmark_report.json \
   --candidate-report artifacts/x8_reference/candidate/benchmark_report.json \
   --model-name structured_residual \

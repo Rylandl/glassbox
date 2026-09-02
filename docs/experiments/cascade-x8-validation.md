@@ -4,12 +4,12 @@ Date: 2026-09-01. Reproduce with:
 
 ```bash
 uv sync --inexact --extra cascade
-uv run glassbox-x8 extract-dataset artifacts/x8_reference/raw artifacts/x8_cascade/canonical
-uv run glassbox-x8 evaluate-cascade artifacts/x8_cascade \
+uv run glassbox x8 extract-dataset artifacts/x8_reference/raw artifacts/x8_cascade/canonical
+uv run glassbox x8 evaluate-cascade artifacts/x8_cascade \
   --report artifacts/x8_cascade/cascade_report.json \
   --reference-report artifacts/x8_reference/benchmark_report.json \
   --cg-shifts 0,0.03,0.05 --inertia-scales 1,2,3.5 --vertical-wind-fractions 0.25,0.5,1
-uv run glassbox-x8 diagnose-cascade artifacts/x8_cascade --split all \
+uv run glassbox x8 diagnose-cascade artifacts/x8_cascade --split all \
   --cg-shift 0.05 --vertical-wind-fraction 0.4 --inertia-scale 1
 ```
 
@@ -23,7 +23,7 @@ the NTNU exit-velocity propulsion law. Nothing in it was fitted to this campaign
 window starts from the measured state, holds each logged control for one 40 Hz interval with ten
 RK4 sub-steps, carries actuators that have integrated their lag over the logged control history,
 and holds the typed wind at the window start. The protocol, horizons, metrics, and persistence
-baseline are exactly those of `glassbox-x8 evaluate`.
+baseline are exactly those of `glassbox x8 evaluate`.
 
 Rows other than the primary one vary documented uncertainties of the published model, applied
 identically to every window and never tuned per window:
@@ -91,7 +91,7 @@ Yaw damping changes scores by under 0.01. The inertia axis has an interior optim
 4. **The rotational dynamics disagree with the published derivatives, and it is not a data
    artifact.** Raw IMU gyro rates match the EKF rate states to 0.08 rad/s rms, so finite-difference
    angular accelerations are trustworthy. Lag-aware equation-error regressions
-   (`glassbox-x8 diagnose-cascade`, all 17 maneuvers, R² 0.79 roll and 0.84 pitch) with the
+   (`glassbox x8 diagnose-cascade`, all 17 maneuvers, R² 0.79 roll and 0.84 pitch) with the
    pendulum inertia give flight-effective aileron effectiveness of about 0.06 against the
    wind-tunnel 0.12, roll damping about −0.10 against XFLR5's −0.404, pitch damping about −0.46
    against −1.3, and elevator effectiveness about −0.16 against −0.21. Doubling the inertia

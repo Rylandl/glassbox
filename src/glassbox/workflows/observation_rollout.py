@@ -10,8 +10,8 @@ import numpy as np
 from glassbox.core.data import Trajectory, duration_to_steps
 from glassbox.core.dynamics import ModelParams
 from glassbox.core.evaluation import (
-    _state_error_metrics,
     aggregate_rollout_metrics,
+    state_error_metrics,
     windowed_rollout_predictions,
 )
 from glassbox.workflows.observation_compatibility import FirstOrderObservationFilter
@@ -88,7 +88,7 @@ def body_rate_observation_metrics_from_predictions(
         model=model,
         dt_s=dt_s,
     )
-    return _state_error_metrics(
+    return state_error_metrics(
         observed_prediction,
         target,
         duration_s=(predicted.shape[-2] - 1) * dt_s,

@@ -2092,7 +2092,7 @@ def benchmark_predictive_ensemble(
     return summary
 
 
-def main() -> None:
+def main(argv: Sequence[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("trajectory", nargs="+", type=Path)
     parser.add_argument("--output-dir", type=Path, required=True)
@@ -2101,7 +2101,7 @@ def main() -> None:
         choices=("structured", "structured_residual"),
         default="structured_residual",
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     benchmark_predictive_ensemble(
         args.trajectory,
         args.output_dir,

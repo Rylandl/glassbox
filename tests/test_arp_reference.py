@@ -1,5 +1,6 @@
 import hashlib
 import io
+import urllib.request
 
 import numpy as np
 
@@ -142,7 +143,7 @@ def test_fetch_verifies_download_and_reuses_valid_file(tmp_path, monkeypatch) ->
         return io.BytesIO(payload)
 
     monkeypatch.setattr(arp_module, "ARP_RECORDINGS", (recording,))
-    monkeypatch.setattr(arp_module.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
 
     first = fetch_arp_reference(tmp_path)
     second = fetch_arp_reference(tmp_path)

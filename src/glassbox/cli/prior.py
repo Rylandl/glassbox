@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import argparse
+from collections.abc import Sequence
 from pathlib import Path
 
 from glassbox.belief.belief import DynamicsBelief
 from glassbox.belief.parameter_prior import StructuredParameterPrior
 
 
-def main() -> None:
+def main(argv: Sequence[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "members",
@@ -18,7 +19,7 @@ def main() -> None:
         help="fitted DynamicsBelief artifacts from one vehicle family",
     )
     parser.add_argument("--output", type=Path, required=True)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     members = tuple(DynamicsBelief.load(path) for path in args.members)
     labels = tuple(str(path.resolve()) for path in args.members)

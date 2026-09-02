@@ -11,8 +11,8 @@ from glassbox.core.data import (
     trajectory_windows,
 )
 from glassbox.core.evaluation import (
-    _state_error_metrics,
     kinematic_persistence_windowed_metrics,
+    state_error_metrics,
 )
 from glassbox.io.x8_reference import x8_trajectory_spec
 
@@ -36,7 +36,7 @@ def _load_x8_validation():
                 continue
     pytest.skip(
         "prepare the X8 campaign at the current trajectory format, e.g. "
-        "`glassbox-x8 extract-dataset artifacts/x8_reference/raw artifacts/x8_cascade/canonical`"
+        "`glassbox x8 extract-dataset artifacts/x8_reference/raw artifacts/x8_cascade/canonical`"
     )
 
 
@@ -127,7 +127,7 @@ def test_published_x8_variants_are_finite_and_the_documented_one_beats_persisten
     persistence = kinematic_persistence_windowed_metrics(
         trajectory, horizon_steps=20, stride_steps=1
     )
-    metrics = _state_error_metrics(
+    metrics = state_error_metrics(
         predicted[documented], windows.target_states, duration_s=0.5
     )
 

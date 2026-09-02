@@ -102,7 +102,7 @@ for profile in "${profiles[@]}"; do
     docker exec -w /root "$container_name" \
       /opt/px4/bin/px4-commander takeoff
     sleep 6
-    uv --directory "$project_dir" run glassbox-sitl-profile "$profile" \
+    uv --directory "$project_dir" run glassbox sitl-profile "$profile" \
       --condition "$condition" \
       --initial-yaw "$initial_yaw"
     docker exec -w /root "$container_name" \
@@ -123,7 +123,7 @@ for profile in "${profiles[@]}"; do
     echo "profile=$profile condition=$condition replicate=$replicate raw_log=$latest_log"
 
     output_stem="$absolute_run_dir/${profile}_${condition}_${replicate}"
-    uv --directory "$project_dir" run glassbox-ulog extract \
+    uv --directory "$project_dir" run glassbox ulog extract \
       "$latest_log" "${output_stem}_estimated.npz" \
       --rate "$sample_rate_hz" \
       --profile "$profile" \
@@ -132,7 +132,7 @@ for profile in "${profiles[@]}"; do
       --initial-yaw "$initial_yaw" \
       --actuator-topic actuator_motors \
       --actuator-field control
-    uv --directory "$project_dir" run glassbox-ulog extract \
+    uv --directory "$project_dir" run glassbox ulog extract \
       "$latest_log" "${output_stem}_ground_truth.npz" \
       --rate "$sample_rate_hz" \
       --profile "$profile" \

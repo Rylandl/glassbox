@@ -41,14 +41,14 @@ if [[ -z "$latest_log" ]]; then
 fi
 
 log_stem=${latest_log%.ulg}
-uv --directory "$project_dir" run glassbox-ulog extract \
+uv --directory "$project_dir" run glassbox ulog extract \
   "$latest_log" "${log_stem}_estimated.npz" --rate 250 \
   --actuator-topic actuator_outputs_sim --actuator-field output
-uv --directory "$project_dir" run glassbox-ulog extract \
+uv --directory "$project_dir" run glassbox ulog extract \
   "$latest_log" "${log_stem}_ground_truth.npz" --rate 250 \
   --state-source ground_truth \
   --actuator-topic actuator_outputs_sim --actuator-field output
-uv --directory "$project_dir" run glassbox-fit \
+uv --directory "$project_dir" run glassbox fit \
   "${log_stem}_ground_truth.npz" \
   --training-horizons 2.0 \
   --steps 2000 \

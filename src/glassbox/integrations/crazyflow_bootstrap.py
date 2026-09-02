@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
 import os
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -19,6 +19,11 @@ from glassbox.control.bootstrap_identification import (
     plan_bootstrap_excitation,
 )
 from glassbox.integrations.crazyflow import CrazyflowPlant, CrazyflowPlantConfig
+from glassbox.integrations.crazyflow_telemetry import (
+    PlantTelemetryRecorder,
+    initial_plant_state,
+    tilt_rad,
+)
 
 
 @dataclass(frozen=True)
@@ -128,37 +133,6 @@ def _bounded_excitation(
     return midpoint + span * normalized
 
 
-def _initial_state(
-    *,
-    world_velocity_m_s: tuple[float, float, float] = (0.0, 0.0, 0.0),
-    angular_velocity_rad_s: tuple[float, float, float] = (0.0, 0.0, 0.0),
-    roll_rad: float = 0.0,
-    pitch_rad: float = 0.0,
-) -> np.ndarray:
-    state = np.zeros(13, dtype=np.float64)
-    state[2] = 2.0
-    cos_roll = math.cos(0.5 * roll_rad)
-    sin_roll = math.sin(0.5 * roll_rad)
-    cos_pitch = math.cos(0.5 * pitch_rad)
-    sin_pitch = math.sin(0.5 * pitch_rad)
-    state[6:10] = (
-        cos_roll * cos_pitch,
-        sin_roll * cos_pitch,
-        cos_roll * sin_pitch,
-        -sin_roll * sin_pitch,
-    )
-    state[3:6] = world_velocity_m_s
-    state[10:13] = angular_velocity_rad_s
-    return state
-
-
-def _tilt_rad(state: np.ndarray) -> float:
-    quaternion = state[6:10] / np.linalg.norm(state[6:10])
-    _, x, y, _ = quaternion
-    world_up_body_z = 1.0 - 2.0 * (x * x + y * y)
-    return math.acos(float(np.clip(world_up_body_z, -1.0, 1.0)))
-
-
 def run_crazyflow_bootstrap_trial() -> CrazyflowBootstrapRun:
     """Fit direct motor effects and retain the independent arrest trace."""
 
@@ -184,29 +158,19 @@ def run_crazyflow_bootstrap_trial() -> CrazyflowBootstrapRun:
         midpoint = 0.5 * (minimum + maximum)
         excitation = _bounded_excitation(provisional_config, seed=11)
         sample = plant.reset(
-            _initial_state(),
+            initial_plant_state(),
             applied_motor_thrust_fraction=midpoint,
         )
-        timestamps = [sample.time_s]
-        states = [sample.state]
-        evidence_applied_motor_commands = [
-            sample.applied_motor_thrust_fraction,
-        ]
-        applied_commands = []
+        evidence = PlantTelemetryRecorder(sample)
         for command in excitation:
-            previous_applied = sample.applied_motor_thrust_fraction
+            previous_applied = evidence.latest_applied
             sample = plant.step(command)
-            timestamps.append(sample.time_s)
-            states.append(sample.state)
-            evidence_applied_motor_commands.append(sample.applied_motor_thrust_fraction)
-            applied_commands.append(
-                0.5 * (previous_applied + sample.applied_motor_thrust_fraction)
-            )
+            evidence.record(sample, previous_applied=previous_applied)
 
         provisional = provisional_identifier.fit(
-            np.asarray(timestamps),
-            np.asarray(states),
-            np.asarray(applied_commands),
+            evidence.timestamp_array(),
+            evidence.state_array(),
+            evidence.average_applied_array(),
         )
         excitation_plan = plan_bootstrap_excitation(
             provisional,
@@ -218,24 +182,19 @@ def run_crazyflow_bootstrap_trial() -> CrazyflowBootstrapRun:
             ),
         )
         for command in excitation_plan.commands:
-            previous_applied = sample.applied_motor_thrust_fraction
+            previous_applied = evidence.latest_applied
             sample = plant.step(command)
-            timestamps.append(sample.time_s)
-            states.append(sample.state)
-            evidence_applied_motor_commands.append(sample.applied_motor_thrust_fraction)
-            applied_commands.append(
-                0.5 * (previous_applied + sample.applied_motor_thrust_fraction)
-            )
+            evidence.record(sample, previous_applied=previous_applied)
 
         result = identifier.fit(
-            np.asarray(timestamps),
-            np.asarray(states),
-            np.asarray(applied_commands),
+            evidence.timestamp_array(),
+            evidence.state_array(),
+            evidence.average_applied_array(),
         )
         if result.hover_command is None:
             raise RuntimeError("bootstrap evidence did not produce a hover command")
 
-        recovery_state = _initial_state(
+        recovery_state = initial_plant_state(
             world_velocity_m_s=(0.8, -0.5, 1.2),
             angular_velocity_rad_s=(1.2, -0.9, 0.55),
             roll_rad=0.20,
@@ -245,11 +204,7 @@ def run_crazyflow_bootstrap_trial() -> CrazyflowBootstrapRun:
             recovery_state,
             applied_motor_thrust_fraction=result.hover_command,
         )
-        recovery_timestamps = [sample.time_s]
-        recovery_states = [sample.state]
-        recovery_applied_motor_commands = [
-            sample.applied_motor_thrust_fraction,
-        ]
+        recovery = PlantTelemetryRecorder(sample)
         recovery_commands = []
         previous_command = result.hover_command
         for _ in range(100):
@@ -266,15 +221,13 @@ def run_crazyflow_bootstrap_trial() -> CrazyflowBootstrapRun:
             previous_command = decision.command
             recovery_commands.append(decision.command)
             sample = plant.step(decision.command)
-            recovery_timestamps.append(sample.time_s)
-            recovery_states.append(sample.state)
-            recovery_applied_motor_commands.append(sample.applied_motor_thrust_fraction)
+            recovery.record(sample)
 
-        recovery_state_array = np.asarray(recovery_states)
+        recovery_state_array = recovery.state_array()
         recovery_command_array = np.asarray(recovery_commands)
         velocity_norm = np.linalg.norm(recovery_state_array[:, 3:6], axis=1)
         rate_norm = np.linalg.norm(recovery_state_array[:, 10:13], axis=1)
-        tilt = np.asarray([_tilt_rad(state) for state in recovery_state_array])
+        tilt = np.asarray([tilt_rad(state) for state in recovery_state_array])
         hidden_hover = plant.hover_motor_thrust_fraction
         estimated_hover = float(np.mean(result.hover_command))
         hover_relative_error = abs(estimated_hover - hidden_hover) / hidden_hover
@@ -376,12 +329,12 @@ def run_crazyflow_bootstrap_trial() -> CrazyflowBootstrapRun:
         trace = CrazyflowBootstrapTrace(
             sample_period_s=plant.sample_period_s,
             provisional_interval_count=provisional_config.interval_count,
-            evidence_timestamps_s=np.asarray(timestamps),
-            evidence_states=np.asarray(states),
-            evidence_applied_motor_commands=np.asarray(evidence_applied_motor_commands),
-            recovery_timestamps_s=np.asarray(recovery_timestamps),
+            evidence_timestamps_s=evidence.timestamp_array(),
+            evidence_states=evidence.state_array(),
+            evidence_applied_motor_commands=evidence.applied_array(),
+            recovery_timestamps_s=recovery.timestamp_array(),
             recovery_states=recovery_state_array,
-            recovery_applied_motor_commands=np.asarray(recovery_applied_motor_commands),
+            recovery_applied_motor_commands=recovery.applied_array(),
         )
         return CrazyflowBootstrapRun(report=report, trace=trace)
     finally:
@@ -394,14 +347,14 @@ def run_crazyflow_bootstrap_benchmark() -> dict[str, Any]:
     return run_crazyflow_bootstrap_trial().report
 
 
-def main() -> None:
+def main(argv: Sequence[str] | None = None) -> None:
     # Set before any lazy `import crazyflow` reaches its own SciPy-array-API guard.
     os.environ.setdefault("SCIPY_ARRAY_API", "1")
     parser = argparse.ArgumentParser(
         description="Run the no-prior Crazyflow bootstrap diagnostic."
     )
     parser.add_argument("output", type=Path)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     report = run_crazyflow_bootstrap_benchmark()
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2, allow_nan=False) + "\n")

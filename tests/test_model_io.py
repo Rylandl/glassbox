@@ -19,7 +19,7 @@ from glassbox.core.model_io import (
     save_dynamics_model,
 )
 from glassbox.core.runtime import ModelValidityEnvelope, RuntimeModelSpec
-from glassbox.core.synthetic import generate_trajectory, true_parameters
+from glassbox.core.synthetic import true_parameters
 from glassbox.io.nanodrone_reference import nanodrone_trajectory_spec
 
 
@@ -35,11 +35,11 @@ def _runtime_spec() -> RuntimeModelSpec:
     )
 
 
-def test_model_json_round_trip(tmp_path) -> None:
+def test_model_json_round_trip(tmp_path, quadrotor_trajectory_seed0_dur0_1s) -> None:
     path = tmp_path / "model.json"
     original = with_thrust_command_offset(true_parameters(), -0.12)
 
-    input_spec = generate_trajectory(seed=0, duration_s=0.1).spec
+    input_spec = quadrotor_trajectory_seed0_dur0_1s.spec
     save_dynamics_model(
         original,
         path,
@@ -61,9 +61,11 @@ def test_model_json_round_trip(tmp_path) -> None:
     assert payload["input_spec"] == input_spec.prediction_spec().to_dict()
 
 
-def test_nominal_loader_unwraps_dynamics_belief(tmp_path) -> None:
+def test_nominal_loader_unwraps_dynamics_belief(
+    tmp_path, quadrotor_trajectory_seed0_dur0_1s
+) -> None:
     path = tmp_path / "belief.json"
-    input_spec = generate_trajectory(seed=0, duration_s=0.1).spec
+    input_spec = quadrotor_trajectory_seed0_dur0_1s.spec
     DynamicsBelief(
         params=true_parameters(),
         input_spec=input_spec,
@@ -81,14 +83,16 @@ def test_nominal_loader_unwraps_dynamics_belief(tmp_path) -> None:
     assert payload["provenance"] == {"flight": "fixture"}
 
 
-def test_residual_model_json_round_trip(tmp_path) -> None:
+def test_residual_model_json_round_trip(
+    tmp_path, quadrotor_trajectory_seed0_dur0_1s
+) -> None:
     path = tmp_path / "residual_model.json"
     original = initial_residual_parameters(true_parameters(), hidden_units=5)
 
     save_dynamics_model(
         original,
         path,
-        input_spec=generate_trajectory(seed=0, duration_s=0.1).spec,
+        input_spec=quadrotor_trajectory_seed0_dur0_1s.spec,
         runtime_spec=_runtime_spec(),
     )
     restored, payload = load_dynamics_model(path)
@@ -187,11 +191,13 @@ def test_fixed_wing_residual_model_json_round_trip(tmp_path) -> None:
     assert payload["platform"] == "fixedwing"
 
 
-def test_fixed_wing_model_json_round_trip(tmp_path) -> None:
+def test_fixed_wing_model_json_round_trip(
+    tmp_path, fixedwing_trajectory_seed0_dur0_1s
+) -> None:
     path = tmp_path / "fixed_wing_model.json"
     original = true_fixed_wing_parameters()
 
-    input_spec = generate_fixed_wing_trajectory(seed=0, duration_s=0.1).spec
+    input_spec = fixedwing_trajectory_seed0_dur0_1s.spec
     save_dynamics_model(
         original, path, input_spec=input_spec, runtime_spec=_runtime_spec()
     )
@@ -214,11 +220,13 @@ def test_fixed_wing_model_json_round_trip(tmp_path) -> None:
     }
 
 
-def test_rejects_noncurrent_model_format(tmp_path) -> None:
+def test_rejects_noncurrent_model_format(
+    tmp_path, fixedwing_trajectory_seed0_dur0_1s
+) -> None:
     path = tmp_path / "old_model.json"
     payload = model_payload(
         true_fixed_wing_parameters(),
-        input_spec=generate_fixed_wing_trajectory(seed=0, duration_s=0.1).spec,
+        input_spec=fixedwing_trajectory_seed0_dur0_1s.spec,
         runtime_spec=_runtime_spec(),
     )
     payload["format_version"] = 1

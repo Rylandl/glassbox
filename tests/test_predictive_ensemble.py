@@ -208,8 +208,9 @@ def test_ensemble_rejects_source_groups_with_colliding_json_keys(
 
 def test_predictive_metrics_use_quaternion_geometry_and_exclude_initial_state(
     monkeypatch,
+    quadrotor_trajectory_seed0_dur0_1s,
 ) -> None:
-    trajectory = generate_trajectory(seed=0, duration_s=0.1)
+    trajectory = quadrotor_trajectory_seed0_dur0_1s
     target = np.zeros((3, 4, 13), dtype=np.float64)
     target[..., 6] = 1.0
     target[:, -1, 0] = (1.0, 2.0, 3.0)
@@ -257,8 +258,9 @@ def test_predictive_metrics_use_quaternion_geometry_and_exclude_initial_state(
 
 def test_predictive_metrics_reject_every_component_of_a_nonfinite_member(
     monkeypatch,
+    quadrotor_trajectory_seed0_dur0_1s,
 ) -> None:
-    trajectory = generate_trajectory(seed=0, duration_s=0.1)
+    trajectory = quadrotor_trajectory_seed0_dur0_1s
     target = np.zeros((3, 2, 13), dtype=np.float64)
     target[..., 6] = 1.0
     valid = target.copy()
@@ -404,8 +406,10 @@ def test_uncertainty_candidate_gate_requires_calibration_skill_and_finiteness() 
     assert failing["checks"]["member_finiteness"]["passed"] is False
 
 
-def test_aggregate_predictive_metrics_uses_equal_item_weighting(monkeypatch) -> None:
-    trajectory = generate_trajectory(seed=0, duration_s=0.1)
+def test_aggregate_predictive_metrics_uses_equal_item_weighting(
+    monkeypatch, quadrotor_trajectory_seed0_dur0_1s
+) -> None:
+    trajectory = quadrotor_trajectory_seed0_dur0_1s
     ensemble = PredictiveEnsemble(
         members=(true_parameters(), initial_parameter_guess()),
         member_ids=("first", "second"),
@@ -421,6 +425,7 @@ def test_aggregate_predictive_metrics_uses_equal_item_weighting(monkeypatch) -> 
     )
 
 
+@pytest.mark.slow
 def test_nested_ensemble_benchmark_keeps_outer_profiles_out_of_every_member(
     tmp_path,
     monkeypatch,

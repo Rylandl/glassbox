@@ -27,9 +27,36 @@ All notable changes to Glassbox are recorded here. The format follows
 - The `model_family` module is now `families`.
 - Documentation is restructured around a short README with concept,
   experiment, and results directories.
+- The 24 `glassbox-*` console scripts are replaced by a single `glassbox`
+  command with a subcommand tree: `glassbox fit`, `glassbox ulog extract`,
+  `glassbox crazyflow throw`, and so on. `glassbox --help` lists every command
+  and runs with no optional extra installed, because subcommand modules are
+  imported only when one is dispatched.
+- `workflows.fitting` is split into a library and a front end. A frozen
+  `FitRequest` carries every fitting knob, `plan_holdout` resolves the
+  training/validation split on its own, report assembly moved into named
+  builders, and the argparse entry point is now `cli.fit`. Fit reports are
+  byte-for-byte unchanged.
+- The package is organized into `core`, `belief`, `control`, `io`, `workflows`,
+  `integrations`, and `cli` subpackages; the root exports the stable surface
+  and `glassbox.experimental` holds bootstrap identification, online
+  bootstrap, the flight supervisor, and predictive ensembles.
+- Duplicated helpers are consolidated: one NumPy quaternion-to-rotation and
+  Euler helper in `core.geometry`, one pinned-download helper in
+  `io.pinned_download`, one persistence score in `core.evaluation`, one set of
+  selection thresholds in `workflows.selection`, and one set of finite-vector,
+  world-up, and thrust-cascade helpers in `control._common`; all verified
+  bit-identical against recorded outputs.
+- `NMPCController.solve`, the recursive bootstrap update, the progressive
+  bootstrap command, and the Crazyflow prototype are split into named phases
+  and modules; the prototype module shrinks from about 2,450 lines to about
+  540 with `crazyflow_telemetry`, `crazyflow_fleet`, `crazyflow_online`, and
+  `crazyflow_supervisor_campaign` beside it.
+- Test collection drops from about 21 s to under 2 s; the three
+  benchmark-scale tests carry a `slow` marker.
 
 ### Fixed
-- `glassbox-fit --model --report` no longer fails on a NumPy scalar.
+- `glassbox fit --model --report` no longer fails on a NumPy scalar.
 - Fits stop on non-finite loss and return the best finite iterate with a flag.
 - Physical parameter constructors validate their inputs instead of clipping.
 - Holdouts follow `benchmark_split` labels when present.

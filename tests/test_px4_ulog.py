@@ -759,7 +759,7 @@ def test_cli_extract_warns_when_coverage_is_incomplete(
         sys,
         "argv",
         [
-            "glassbox-ulog",
+            "glassbox ulog",
             "extract",
             str(tmp_path / "flight.ulg"),
             str(output_path),

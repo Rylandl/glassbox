@@ -595,10 +595,10 @@ def test_grouped_rollout_information_is_vehicle_family_generic() -> None:
     )
 
 
-def test_live_update_moves_structured_parameters_and_preserves_error_provenance() -> (
-    None
-):
-    telemetry = generate_trajectory(seed=11, duration_s=0.4)
+def test_live_update_moves_structured_parameters_and_preserves_error_provenance(
+    quadrotor_trajectory_seed11_dur0_4s,
+) -> None:
+    telemetry = quadrotor_trajectory_seed11_dur0_4s
     true_vector = np.asarray(structured_parameter_vector(true_parameters()))
     nominal_vector = true_vector.copy()
     nominal_vector[0] += 0.25

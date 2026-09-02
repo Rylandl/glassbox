@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import math
 import time
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -15,6 +16,8 @@ except ImportError as error:  # pragma: no cover - exercised without the extra
         "PX4 SITL recording needs the 'px4' extra: "
         "uv sync --extra px4, or pip install 'glassbox[px4]'"
     ) from error
+
+from glassbox.core.geometry import quaternion_from_euler
 
 
 @dataclass(frozen=True)
@@ -103,18 +106,10 @@ def profile_targets(
 def _quaternion_from_euler(
     roll_rad: float, pitch_rad: float, yaw_rad: float
 ) -> tuple[float, float, float, float]:
-    cr = math.cos(roll_rad * 0.5)
-    sr = math.sin(roll_rad * 0.5)
-    cp = math.cos(pitch_rad * 0.5)
-    sp = math.sin(pitch_rad * 0.5)
-    cy = math.cos(yaw_rad * 0.5)
-    sy = math.sin(yaw_rad * 0.5)
-    return (
-        cr * cp * cy + sr * sp * sy,
-        sr * cp * cy - cr * sp * sy,
-        cr * sp * cy + sr * cp * sy,
-        cr * cp * sy - sr * sp * cy,
-    )
+    """Return the shared WXYZ attitude quaternion as a MAVLink-ready tuple."""
+
+    w, x, y, z = quaternion_from_euler(roll_rad, pitch_rad, yaw_rad)
+    return (float(w), float(x), float(y), float(z))
 
 
 def _attitude_mask() -> int:
@@ -207,7 +202,7 @@ def fly_profile(
     _stream_target(connection, warmup, yaw_rad, rate_hz)
 
 
-def main() -> None:
+def main(argv: Sequence[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("profile", choices=tuple(PROFILES))
     parser.add_argument("--condition", choices=tuple(CONDITIONS), default="medium")
@@ -215,7 +210,7 @@ def main() -> None:
         "--connection", default="udpin:0.0.0.0:14550", help="pymavlink endpoint"
     )
     parser.add_argument("--rate", type=float, default=20.0)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     fly_profile(
         args.profile,
         condition=args.condition,

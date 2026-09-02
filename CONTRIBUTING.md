@@ -33,7 +33,7 @@ uv run ruff check src tests scripts && uv run ruff format --check src tests scri
 ## Recorded results
 
 Several benchmarks pin a recorded artifact under `docs/results/` and compare a
-fresh run against it, and `glassbox-adaptive-recovery` also hashes its source
+fresh run against it, and `glassbox adaptive-recovery` also hashes its source
 files into that artifact. After changing `belief/belief.py`,
 `belief/adaptation.py`, `core/dynamics.py`, `core/evaluation.py`, the NMPC
 package, or the other files listed in

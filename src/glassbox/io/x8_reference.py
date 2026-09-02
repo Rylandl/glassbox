@@ -2,12 +2,7 @@
 
 from __future__ import annotations
 
-import hashlib
-import os
 import re
-import shutil
-import tempfile
-import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -23,6 +18,7 @@ from glassbox.core.data import (
     VehicleConfigurationSpec,
     save_trajectory_npz,
 )
+from glassbox.io.pinned_download import download_verified, file_digest
 
 X8_REFERENCE_NAME = "ntnu_skywalker_x8_system_identification"
 X8_REFERENCE_DOI = "10.18710/U4TLYV"
@@ -188,11 +184,7 @@ _RECORDING_BY_FILENAME = {recording.filename: recording for recording in X8_RECO
 
 
 def _md5(path: Path) -> str:
-    digest = hashlib.md5()
-    with path.open("rb") as source:
-        for chunk in iter(lambda: source.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
+    return file_digest(path, algorithm="md5")
 
 
 def _recording_for_path(path: Path) -> X8Recording:
@@ -591,40 +583,21 @@ def _fetch_one(
     overwrite: bool,
     timeout_s: float,
 ) -> Path:
-    target.parent.mkdir(parents=True, exist_ok=True)
-    if target.exists():
-        if target.stat().st_size == size_bytes and _md5(target) == md5:
-            return target
-        if not overwrite:
-            raise FileExistsError(
-                f"existing file does not match pinned Skywalker X8 source: {target}"
-            )
-
-    request = urllib.request.Request(
+    return download_verified(
         f"{_DATAVERSE_ACCESS_ROOT}/{file_id}",
-        headers={"User-Agent": "glassbox-skywalker-x8-adapter/1"},
+        target,
+        size_bytes=size_bytes,
+        digest=md5,
+        algorithm="md5",
+        user_agent="glassbox-skywalker-x8-adapter/1",
+        overwrite=overwrite,
+        timeout_s=timeout_s,
+        existing_mismatch_message=(
+            f"existing file does not match pinned Skywalker X8 source: {target}"
+        ),
+        size_mismatch_message=f"downloaded size mismatch for {target.name}",
+        digest_mismatch_message=f"downloaded MD5 mismatch for {target.name}",
     )
-    temporary_path: Path | None = None
-    try:
-        with tempfile.NamedTemporaryFile(
-            dir=target.parent,
-            prefix=f".{target.name}.",
-            suffix=".download",
-            delete=False,
-        ) as temporary:
-            temporary_path = Path(temporary.name)
-            with urllib.request.urlopen(request, timeout=timeout_s) as response:
-                shutil.copyfileobj(response, temporary)
-        if temporary_path.stat().st_size != size_bytes:
-            raise ValueError(f"downloaded size mismatch for {target.name}")
-        if _md5(temporary_path) != md5:
-            raise ValueError(f"downloaded MD5 mismatch for {target.name}")
-        os.replace(temporary_path, target)
-        temporary_path = None
-    finally:
-        if temporary_path is not None:
-            temporary_path.unlink(missing_ok=True)
-    return target
 
 
 def fetch_x8_reference(

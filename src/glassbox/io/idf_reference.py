@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import shutil
 import tempfile
-import urllib.request
 import zipfile
 import zlib
 from collections.abc import Sequence
@@ -26,6 +24,7 @@ except ImportError as error:  # pragma: no cover - exercised without the extra
     ) from error
 
 from glassbox.core.data import Trajectory, load_trajectory_npz, save_trajectory_npz
+from glassbox.io.pinned_download import download_verified, file_digest
 from glassbox.io.px4_ulog import (
     PX4IngestConfig,
     inspect_ulog,
@@ -178,11 +177,7 @@ _RECORDING_BY_FILENAME = {recording.filename: recording for recording in IDF_REC
 
 
 def _md5(path: Path) -> str:
-    digest = hashlib.md5()
-    with path.open("rb") as source:
-        for chunk in iter(lambda: source.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
+    return file_digest(path, algorithm="md5")
 
 
 def _crc32(path: Path) -> int:
@@ -338,43 +333,21 @@ def fetch_idf_archive(
     if timeout_s <= 0.0:
         raise ValueError("timeout_s must be positive")
     target = Path(destination) / IDF_ARCHIVE_FILENAME
-    target.parent.mkdir(parents=True, exist_ok=True)
-    if target.exists():
-        if (
-            target.stat().st_size == IDF_ARCHIVE_SIZE_BYTES
-            and _md5(target) == IDF_ARCHIVE_MD5
-        ):
-            return target
-        if not overwrite:
-            raise FileExistsError(
-                f"existing file does not match pinned IDF-DS archive: {target}"
-            )
-
-    request = urllib.request.Request(
+    return download_verified(
         IDF_ARCHIVE_URL,
-        headers={"User-Agent": "glassbox-idf-reference-adapter/1"},
+        target,
+        size_bytes=IDF_ARCHIVE_SIZE_BYTES,
+        digest=IDF_ARCHIVE_MD5,
+        algorithm="md5",
+        user_agent="glassbox-idf-reference-adapter/1",
+        overwrite=overwrite,
+        timeout_s=timeout_s,
+        existing_mismatch_message=(
+            f"existing file does not match pinned IDF-DS archive: {target}"
+        ),
+        size_mismatch_message="downloaded IDF-DS archive has the wrong size",
+        digest_mismatch_message="downloaded IDF-DS archive has the wrong MD5",
     )
-    temporary_path: Path | None = None
-    try:
-        with tempfile.NamedTemporaryFile(
-            dir=target.parent,
-            prefix=f".{target.name}.",
-            suffix=".download",
-            delete=False,
-        ) as temporary:
-            temporary_path = Path(temporary.name)
-            with urllib.request.urlopen(request, timeout=timeout_s) as response:
-                shutil.copyfileobj(response, temporary)
-        if temporary_path.stat().st_size != IDF_ARCHIVE_SIZE_BYTES:
-            raise ValueError("downloaded IDF-DS archive has the wrong size")
-        if _md5(temporary_path) != IDF_ARCHIVE_MD5:
-            raise ValueError("downloaded IDF-DS archive has the wrong MD5")
-        os.replace(temporary_path, target)
-        temporary_path = None
-    finally:
-        if temporary_path is not None:
-            temporary_path.unlink(missing_ok=True)
-    return target
 
 
 def extract_idf_ulogs(

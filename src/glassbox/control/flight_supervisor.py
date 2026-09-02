@@ -3,31 +3,17 @@
 from __future__ import annotations
 
 import math
-from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
 
 import numpy as np
 
+from glassbox.control._common import finite_tuple, world_up_body
 from glassbox.core.dynamics import MOTOR_MIXER
 
 
-def _finite_vector(
-    name: str,
-    values: float | Sequence[float],
-    size: int,
-) -> tuple[float, ...]:
-    if np.isscalar(values):
-        result = np.full(size, float(values), dtype=np.float64)
-    else:
-        result = np.asarray(tuple(values), dtype=np.float64)
-    if result.shape != (size,) or not np.all(np.isfinite(result)):
-        raise ValueError(f"{name} must contain {size} finite values")
-    return tuple(float(value) for value in result)
-
-
-def _tilt_error_body(world_up_body: np.ndarray) -> np.ndarray:
+def _tilt_error_body(body_up: np.ndarray) -> np.ndarray:
     """Return the geodesic body-frame rotation that would level the vehicle.
 
     The naive cross product of the body vertical with the measured world up has
@@ -40,9 +26,9 @@ def _tilt_error_body(world_up_body: np.ndarray) -> np.ndarray:
     At exact inversion the axis is undefined and a fixed positive roll is chosen.
     """
 
-    axis = np.cross(np.asarray((0.0, 0.0, 1.0)), world_up_body)
+    axis = np.cross(np.asarray((0.0, 0.0, 1.0)), body_up)
     sine = float(np.linalg.norm(axis))
-    cosine = float(world_up_body[2])
+    cosine = float(body_up[2])
     angle = math.atan2(sine, cosine)
     if sine < 1e-9:
         if cosine >= 0.0:
@@ -101,24 +87,24 @@ class MultirotorSupervisorConfig:
     maximum_arrest_motor_step: float = 0.20
 
     def __post_init__(self) -> None:
-        minimum = _finite_vector("command_minimum", self.command_minimum, 4)
-        maximum = _finite_vector("command_maximum", self.command_maximum, 4)
-        hold = _finite_vector(
+        minimum = finite_tuple("command_minimum", self.command_minimum, 4)
+        maximum = finite_tuple("command_maximum", self.command_maximum, 4)
+        hold = finite_tuple(
             "collective_hold_command",
             self.collective_hold_command,
             4,
         )
-        maximum_rate = _finite_vector(
+        maximum_rate = finite_tuple(
             "maximum_angular_rate_rad_s",
             self.maximum_angular_rate_rad_s,
             3,
         )
-        release_rate = _finite_vector(
+        release_rate = finite_tuple(
             "release_angular_rate_rad_s",
             self.release_angular_rate_rad_s,
             3,
         )
-        maximum_differential = _finite_vector(
+        maximum_differential = finite_tuple(
             "maximum_axis_differential",
             self.maximum_axis_differential,
             3,
@@ -239,15 +225,8 @@ def _state_metrics(state: Any) -> tuple[np.ndarray | None, float | None, float |
     norm = float(np.linalg.norm(quaternion))
     if not math.isfinite(norm) or norm < 1e-6:
         return values, None, None
-    w, x, y, z = quaternion / norm
-    world_up_body = np.asarray(
-        (
-            2.0 * (x * z - w * y),
-            2.0 * (y * z + w * x),
-            1.0 - 2.0 * (x * x + y * y),
-        )
-    )
-    tilt = math.acos(float(np.clip(world_up_body[2], -1.0, 1.0)))
+    body_up = world_up_body(quaternion / norm)
+    tilt = math.acos(float(np.clip(body_up[2], -1.0, 1.0)))
     maximum_rate = float(np.max(np.abs(values[10:13])))
     return values, tilt, maximum_rate
 
@@ -274,15 +253,7 @@ class MultirotorFlightSupervisor:
         previous_applied_command: Any,
     ) -> np.ndarray:
         quaternion = state[6:10] / np.linalg.norm(state[6:10])
-        w, x, y, z = quaternion
-        world_up_body = np.asarray(
-            (
-                2.0 * (x * z - w * y),
-                2.0 * (y * z + w * x),
-                1.0 - 2.0 * (x * x + y * y),
-            )
-        )
-        tilt_error_body = _tilt_error_body(world_up_body)
+        tilt_error_body = _tilt_error_body(world_up_body(quaternion))
         rates = state[10:13]
         differential = np.asarray(
             (

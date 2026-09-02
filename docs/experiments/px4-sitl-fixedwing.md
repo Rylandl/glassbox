@@ -33,9 +33,9 @@ The `fixedwing_v2` profile-only PX4 SIH corpus contains 12 ULogs, 12 ground-trut
 Generate and benchmark the closed-world synthetic smoke corpus:
 
 ```bash
-uv run glassbox-fixedwing-synthetic artifacts/fixedwing/synthetic_v1 \
+uv run glassbox fixedwing-synthetic artifacts/fixedwing/synthetic_v1 \
   --flights 6 --duration 3
-uv run glassbox-profile-benchmark artifacts/fixedwing/synthetic_v1/*.npz \
+uv run glassbox profile-benchmark artifacts/fixedwing/synthetic_v1/*.npz \
   --output-dir artifacts/fixedwing/profile_benchmark_synthetic_v1 \
   --training-horizons 0.1,0.5,1.0 \
   --evaluation-horizons 0.1,0.5,1.0,2.0 \
@@ -53,7 +53,7 @@ The recorder explicitly reconciles the SIH plant's 5-6 m/s envelope with PX4 run
 Fit the optional structured residual on any fixed-wing trajectory set:
 
 ```bash
-uv run glassbox-fit trajectory_1.npz trajectory_2.npz trajectory_3.npz \
+uv run glassbox fit trajectory_1.npz trajectory_2.npz trajectory_3.npz \
   --model-class structured_residual \
   --training-horizons 0.1,0.5,2.0,5.0 \
   --skip-no-lag-ablation
@@ -64,7 +64,7 @@ The wrapper retains the selected vehicle family's force law, exact rigid-body po
 Both the endpoint weight and stability regularization used by the shared long-rollout objective are explicit fit flags, recorded in every fit report:
 
 ```bash
-uv run glassbox-fit trajectory_1.npz trajectory_2.npz \
+uv run glassbox fit trajectory_1.npz trajectory_2.npz \
   --training-horizons 0.1,0.5,1.0 \
   --endpoint-weight 3.0 \
   --stability-regularization 0.01

@@ -2,11 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
-import os
-import shutil
-import tempfile
-import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -30,6 +25,7 @@ from glassbox.core.data import (
     VehicleConfigurationSpec,
     save_trajectory_npz,
 )
+from glassbox.io.pinned_download import download_verified, file_digest
 
 EPFL_REFERENCE_NAME = "epfl_vdm_navigation_flight_data"
 EPFL_REFERENCE_DOI = "10.5281/zenodo.10337559"
@@ -73,11 +69,7 @@ class _TopoplaneStreams:
 
 
 def _md5(path: Path) -> str:
-    digest = hashlib.md5()
-    with path.open("rb") as source:
-        for chunk in iter(lambda: source.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
+    return file_digest(path, algorithm="md5")
 
 
 def _header_time_s(header: Any) -> float:
@@ -738,43 +730,21 @@ def fetch_epfl_topoplane_reference(
     if timeout_s <= 0.0:
         raise ValueError("timeout_s must be positive")
     target = Path(destination) / TOPOPLANE_FILENAME
-    target.parent.mkdir(parents=True, exist_ok=True)
-    if target.exists():
-        if (
-            target.stat().st_size == TOPOPLANE_SIZE_BYTES
-            and _md5(target) == TOPOPLANE_MD5
-        ):
-            return target
-        if not overwrite:
-            raise FileExistsError(
-                f"existing file does not match pinned EPFL reference: {target}"
-            )
-
-    request = urllib.request.Request(
+    return download_verified(
         TOPOPLANE_DOWNLOAD_URL,
-        headers={"User-Agent": "glassbox-epfl-topoplane-adapter/1"},
+        target,
+        size_bytes=TOPOPLANE_SIZE_BYTES,
+        digest=TOPOPLANE_MD5,
+        algorithm="md5",
+        user_agent="glassbox-epfl-topoplane-adapter/1",
+        overwrite=overwrite,
+        timeout_s=timeout_s,
+        existing_mismatch_message=(
+            f"existing file does not match pinned EPFL reference: {target}"
+        ),
+        size_mismatch_message="downloaded size mismatch for EPFL TOPOPlane2 bag",
+        digest_mismatch_message="downloaded MD5 mismatch for EPFL TOPOPlane2 bag",
     )
-    temporary_path: Path | None = None
-    try:
-        with tempfile.NamedTemporaryFile(
-            dir=target.parent,
-            prefix=f".{target.name}.",
-            suffix=".download",
-            delete=False,
-        ) as temporary:
-            temporary_path = Path(temporary.name)
-            with urllib.request.urlopen(request, timeout=timeout_s) as response:
-                shutil.copyfileobj(response, temporary)
-        if temporary_path.stat().st_size != TOPOPLANE_SIZE_BYTES:
-            raise ValueError("downloaded size mismatch for EPFL TOPOPlane2 bag")
-        if _md5(temporary_path) != TOPOPLANE_MD5:
-            raise ValueError("downloaded MD5 mismatch for EPFL TOPOPlane2 bag")
-        os.replace(temporary_path, target)
-        temporary_path = None
-    finally:
-        if temporary_path is not None:
-            temporary_path.unlink(missing_ok=True)
-    return target
 
 
 def extract_epfl_topoplane_reference(

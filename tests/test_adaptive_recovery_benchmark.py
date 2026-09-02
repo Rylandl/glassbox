@@ -36,6 +36,7 @@ def _assert_nested_close(actual, expected, path: str = "report") -> None:
     assert actual == expected, path
 
 
+@pytest.mark.slow
 def test_adaptive_recovery_benchmark_is_finite_and_auditable() -> None:
     report = run_adaptive_recovery_benchmark()
 

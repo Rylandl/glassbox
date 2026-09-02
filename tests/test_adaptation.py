@@ -255,8 +255,10 @@ def test_failed_disjoint_validation_rolls_back_proposal() -> None:
     assert "did not improve disjoint validation" in report.reason
 
 
-def test_validation_without_actuator_context_fails_closed() -> None:
-    telemetry = generate_trajectory(seed=11, duration_s=0.4)
+def test_validation_without_actuator_context_fails_closed(
+    quadrotor_trajectory_seed11_dur0_4s,
+) -> None:
+    telemetry = quadrotor_trajectory_seed11_dur0_4s
     belief = _shifted_belief(
         telemetry,
         covariance_scope=ErrorCovarianceScope.TOTAL_FORECAST,
@@ -273,8 +275,10 @@ def test_validation_without_actuator_context_fails_closed() -> None:
     assert "actuator command context" in report.reason
 
 
-def test_transaction_carries_actuator_history_across_validation_split() -> None:
-    telemetry = generate_trajectory(seed=11, duration_s=0.4)
+def test_transaction_carries_actuator_history_across_validation_split(
+    quadrotor_trajectory_seed11_dur0_4s,
+) -> None:
+    telemetry = quadrotor_trajectory_seed11_dur0_4s
     belief = _shifted_belief(
         telemetry,
         covariance_scope=ErrorCovarianceScope.TOTAL_FORECAST,
@@ -698,9 +702,11 @@ def _noisy(trajectory, seed: int):
     return replace(trajectory, states=states)
 
 
-def test_committed_update_never_worsens_the_runtime_forecast() -> None:
+def test_committed_update_never_worsens_the_runtime_forecast(
+    quadrotor_trajectory_seed11_dur0_4s,
+) -> None:
     belief = _self_calibrated_belief(offset=0.25, calibration_seed=1)
-    telemetry = generate_trajectory(seed=11, duration_s=0.4)
+    telemetry = quadrotor_trajectory_seed11_dur0_4s
     evaluation = generate_trajectory(seed=2, duration_s=0.5)
 
     updated, report = belief.update(telemetry)

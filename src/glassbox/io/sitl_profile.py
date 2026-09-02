@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import math
 import time
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -277,7 +278,7 @@ def fly_profile(
         _land_and_disarm(connection, landing_timeout_s)
 
 
-def main() -> None:
+def main(argv: Sequence[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("profile", choices=tuple(PROFILES))
     parser.add_argument("--condition", choices=tuple(CONDITIONS), default="medium")
@@ -286,7 +287,7 @@ def main() -> None:
         "--connection", default="udpin:0.0.0.0:14550", help="pymavlink endpoint"
     )
     parser.add_argument("--rate", type=float, default=20.0)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     fly_profile(
         args.profile,
         condition=args.condition,

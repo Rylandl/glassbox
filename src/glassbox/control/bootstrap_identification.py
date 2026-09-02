@@ -20,29 +20,15 @@ import jax.numpy as jnp
 import numpy as np
 from jax import Array
 
+from glassbox.control._common import (
+    finite_tuple,
+    immutable_array,
+    quaternion_to_rotation,
+    quaternion_to_rotation_batch,
+    thrust_cascade,
+    world_up_body,
+)
 from glassbox.core.dynamics import GRAVITY_M_S2
-
-
-def _finite_vector(
-    name: str,
-    value: float | Sequence[float],
-    size: int,
-) -> tuple[float, ...]:
-    if np.isscalar(value):
-        result = np.full(size, float(value), dtype=np.float64)
-    else:
-        result = np.asarray(tuple(value), dtype=np.float64)
-    if result.shape != (size,) or not np.all(np.isfinite(result)):
-        raise ValueError(f"{name} must contain {size} finite values")
-    return tuple(float(item) for item in result)
-
-
-def _immutable_array(value: Any, shape: tuple[int, ...], name: str) -> np.ndarray:
-    result = np.asarray(value, dtype=np.float64).copy()
-    if result.shape != shape or not np.all(np.isfinite(result)):
-        raise ValueError(f"{name} must have shape {shape} and contain finite values")
-    result.flags.writeable = False
-    return result
 
 
 @dataclass(frozen=True)
@@ -62,8 +48,8 @@ class BootstrapIdentificationConfig:
     maximum_sample_period_deviation_fraction: float = 0.05
 
     def __post_init__(self) -> None:
-        minimum = _finite_vector("command_minimum", self.command_minimum, 4)
-        maximum = _finite_vector("command_maximum", self.command_maximum, 4)
+        minimum = finite_tuple("command_minimum", self.command_minimum, 4)
+        maximum = finite_tuple("command_maximum", self.command_maximum, 4)
         if np.any(np.asarray(minimum) >= np.asarray(maximum)):
             raise ValueError("command_minimum must be below command_maximum")
         if self.interval_count < 16:
@@ -163,7 +149,7 @@ class BootstrapExcitationPlan:
         object.__setattr__(
             self,
             "normalized_direction",
-            _immutable_array(
+            immutable_array(
                 self.normalized_direction,
                 (4,),
                 "normalized_direction",
@@ -172,7 +158,7 @@ class BootstrapExcitationPlan:
         object.__setattr__(
             self,
             "center_command",
-            _immutable_array(self.center_command, (4,), "center_command"),
+            immutable_array(self.center_command, (4,), "center_command"),
         )
         if self.target_angular_axis is not None and self.target_angular_axis not in (
             0,
@@ -206,12 +192,12 @@ class BootstrapArrestCommand:
 
     def __post_init__(self) -> None:
         object.__setattr__(
-            self, "command", _immutable_array(self.command, (4,), "command")
+            self, "command", immutable_array(self.command, (4,), "command")
         )
         object.__setattr__(
             self,
             "desired_angular_acceleration_rad_s2",
-            _immutable_array(
+            immutable_array(
                 self.desired_angular_acceleration_rad_s2,
                 (3,),
                 "desired angular acceleration",
@@ -220,7 +206,7 @@ class BootstrapArrestCommand:
         object.__setattr__(
             self,
             "predicted_control_angular_acceleration_rad_s2",
-            _immutable_array(
+            immutable_array(
                 self.predicted_control_angular_acceleration_rad_s2,
                 (3,),
                 "predicted control angular acceleration",
@@ -259,7 +245,7 @@ class BootstrapVelocityArrestCommand:
         object.__setattr__(
             self,
             "desired_world_acceleration_m_s2",
-            _immutable_array(
+            immutable_array(
                 self.desired_world_acceleration_m_s2,
                 (3,),
                 "desired_world_acceleration_m_s2",
@@ -268,7 +254,7 @@ class BootstrapVelocityArrestCommand:
         object.__setattr__(
             self,
             "desired_thrust_direction_world",
-            _immutable_array(
+            immutable_array(
                 self.desired_thrust_direction_world,
                 (3,),
                 "desired_thrust_direction_world",
@@ -277,7 +263,7 @@ class BootstrapVelocityArrestCommand:
         object.__setattr__(
             self,
             "collective_reference_command",
-            _immutable_array(
+            immutable_array(
                 self.collective_reference_command,
                 (4,),
                 "collective_reference_command",
@@ -359,13 +345,13 @@ class BootstrapIdentificationResult:
             object.__setattr__(
                 self,
                 name,
-                _immutable_array(getattr(self, name), shape, name),
+                immutable_array(getattr(self, name), shape, name),
             )
         if self.hover_command is not None:
             object.__setattr__(
                 self,
                 "hover_command",
-                _immutable_array(self.hover_command, (4,), "hover_command"),
+                immutable_array(self.hover_command, (4,), "hover_command"),
             )
         scalar_fields = (
             "collective_intercept_m_s2",
@@ -430,7 +416,7 @@ class BootstrapIdentificationResult:
             raise ValueError("angular_velocity_rad_s must contain three finite values")
         if desired_angular_acceleration_rad_s2 is None:
             gains = np.asarray(
-                _finite_vector("angular_rate_gain", angular_rate_gain, 3),
+                finite_tuple("angular_rate_gain", angular_rate_gain, 3),
                 dtype=np.float64,
             )
             if np.any(gains <= 0.0):
@@ -438,7 +424,7 @@ class BootstrapIdentificationResult:
             desired = -gains * angular_velocity
         else:
             desired = np.asarray(
-                _finite_vector(
+                finite_tuple(
                     "desired_angular_acceleration_rad_s2",
                     desired_angular_acceleration_rad_s2,
                     3,
@@ -521,26 +507,18 @@ class BootstrapIdentificationResult:
         if angular_velocity.shape != (3,) or not np.all(np.isfinite(angular_velocity)):
             raise ValueError("angular_velocity_rad_s must contain three finite values")
         attitude_gains = np.asarray(
-            _finite_vector("attitude_gain", attitude_gain, 2),
+            finite_tuple("attitude_gain", attitude_gain, 2),
             dtype=np.float64,
         )
         rate_gains = np.asarray(
-            _finite_vector("angular_rate_gain", angular_rate_gain, 3),
+            finite_tuple("angular_rate_gain", angular_rate_gain, 3),
             dtype=np.float64,
         )
         if np.any(attitude_gains <= 0.0) or np.any(rate_gains <= 0.0):
             raise ValueError("attitude and angular-rate gains must be positive")
-        w, x, y, z = quaternion / quaternion_norm
-        world_up_body = np.asarray(
-            (
-                2.0 * (x * z - w * y),
-                2.0 * (y * z + w * x),
-                1.0 - 2.0 * (x * x + y * y),
-            )
-        )
         tilt_error_body = np.cross(
             np.asarray((0.0, 0.0, 1.0)),
-            world_up_body,
+            world_up_body(quaternion / quaternion_norm),
         )
         desired = np.asarray(
             (
@@ -596,11 +574,11 @@ class BootstrapIdentificationResult:
         if angular_velocity.shape != (3,) or not np.all(np.isfinite(angular_velocity)):
             raise ValueError("angular_velocity_rad_s must contain three finite values")
         velocity_gains = np.asarray(
-            _finite_vector("velocity_gain", velocity_gain, 3),
+            finite_tuple("velocity_gain", velocity_gain, 3),
             dtype=np.float64,
         )
         maximum_acceleration = np.asarray(
-            _finite_vector(
+            finite_tuple(
                 "maximum_world_acceleration_m_s2",
                 maximum_world_acceleration_m_s2,
                 3,
@@ -608,11 +586,11 @@ class BootstrapIdentificationResult:
             dtype=np.float64,
         )
         attitude_gains = np.asarray(
-            _finite_vector("attitude_gain", attitude_gain, 2),
+            finite_tuple("attitude_gain", attitude_gain, 2),
             dtype=np.float64,
         )
         rate_gains = np.asarray(
-            _finite_vector("angular_rate_gain", angular_rate_gain, 3),
+            finite_tuple("angular_rate_gain", angular_rate_gain, 3),
             dtype=np.float64,
         )
         if (
@@ -627,58 +605,15 @@ class BootstrapIdentificationResult:
         if not math.isfinite(maximum_tilt_rad) or not 0.0 < maximum_tilt_rad < 1.0:
             raise ValueError("maximum_tilt_rad must lie between zero and one radian")
 
-        desired_world_acceleration = np.clip(
-            -velocity_gains * velocity,
-            -maximum_acceleration,
-            maximum_acceleration,
-        )
-        desired_specific_force = desired_world_acceleration + np.asarray(
-            (0.0, 0.0, GRAVITY_M_S2)
-        )
-        vertical_force = max(float(desired_specific_force[2]), 1e-3)
-        maximum_horizontal_force = vertical_force * math.tan(maximum_tilt_rad)
-        horizontal_norm = float(np.linalg.norm(desired_specific_force[:2]))
-        if horizontal_norm > maximum_horizontal_force:
-            desired_specific_force[:2] *= maximum_horizontal_force / horizontal_norm
-        desired_world_acceleration = desired_specific_force - np.asarray(
-            (0.0, 0.0, GRAVITY_M_S2)
-        )
-        desired_force_magnitude = float(np.linalg.norm(desired_specific_force))
-        desired_thrust_direction = desired_specific_force / desired_force_magnitude
-
-        w, x, y, z = quaternion / quaternion_norm
-        rotation = np.asarray(
-            (
-                (
-                    1.0 - 2.0 * (y * y + z * z),
-                    2.0 * (x * y - z * w),
-                    2.0 * (x * z + y * w),
-                ),
-                (
-                    2.0 * (x * y + z * w),
-                    1.0 - 2.0 * (x * x + z * z),
-                    2.0 * (y * z - x * w),
-                ),
-                (
-                    2.0 * (x * z - y * w),
-                    2.0 * (y * z + x * w),
-                    1.0 - 2.0 * (x * x + y * y),
-                ),
-            )
-        )
-        desired_thrust_body = rotation.T @ desired_thrust_direction
-        tilt_error_body = np.cross(
-            np.asarray((0.0, 0.0, 1.0)),
-            desired_thrust_body,
-        )
-        desired_angular_acceleration = np.asarray(
-            (
-                attitude_gains[0] * tilt_error_body[0]
-                - rate_gains[0] * angular_velocity[0],
-                attitude_gains[1] * tilt_error_body[1]
-                - rate_gains[1] * angular_velocity[1],
-                -rate_gains[2] * angular_velocity[2],
-            )
+        cascade = thrust_cascade(
+            world_velocity_m_s=velocity,
+            rotation=quaternion_to_rotation(quaternion),
+            angular_velocity_rad_s=angular_velocity,
+            velocity_gain=velocity_gains,
+            maximum_world_acceleration_m_s2=maximum_acceleration,
+            maximum_tilt_rad=maximum_tilt_rad,
+            attitude_gain=attitude_gains,
+            angular_rate_gain=rate_gains,
         )
         collective_effect = float(np.sum(self.collective_acceleration_per_command))
         if collective_effect <= 1e-8:
@@ -686,7 +621,7 @@ class BootstrapIdentificationResult:
                 "identified collective effect is not positive"
             )
         collective_scalar = (
-            desired_force_magnitude - self.collective_intercept_m_s2
+            cascade.desired_force_magnitude_m_s2 - self.collective_intercept_m_s2
         ) / collective_effect
         collective_reference = np.clip(
             np.full(4, collective_scalar),
@@ -695,15 +630,17 @@ class BootstrapIdentificationResult:
         )
         motor = self.rate_arrest_command(
             angular_velocity,
-            desired_angular_acceleration_rad_s2=desired_angular_acceleration,
+            desired_angular_acceleration_rad_s2=(
+                cascade.desired_angular_acceleration_rad_s2
+            ),
             reference_command=collective_reference,
             previous_command=previous_command,
             maximum_motor_step=maximum_motor_step,
         )
         return BootstrapVelocityArrestCommand(
             motor=motor,
-            desired_world_acceleration_m_s2=desired_world_acceleration,
-            desired_thrust_direction_world=desired_thrust_direction,
+            desired_world_acceleration_m_s2=cascade.desired_world_acceleration_m_s2,
+            desired_thrust_direction_world=cascade.desired_thrust_direction_world,
             collective_reference_command=collective_reference,
         )
 
@@ -810,25 +747,6 @@ def plan_bootstrap_excitation(
     )
 
 
-def _quaternion_to_rotation(quaternion: Array) -> Array:
-    quaternion = quaternion / jnp.linalg.norm(quaternion, axis=-1, keepdims=True)
-    w, x, y, z = jnp.moveaxis(quaternion, -1, 0)
-    return jnp.stack(
-        (
-            1.0 - 2.0 * (y * y + z * z),
-            2.0 * (x * y - z * w),
-            2.0 * (x * z + y * w),
-            2.0 * (x * y + z * w),
-            1.0 - 2.0 * (x * x + z * z),
-            2.0 * (y * z - x * w),
-            2.0 * (x * z - y * w),
-            2.0 * (y * z + x * w),
-            1.0 - 2.0 * (x * x + y * y),
-        ),
-        axis=-1,
-    ).reshape((-1, 3, 3))
-
-
 def _nuisance_pinv(matrix: Array, relative_tolerance: float) -> tuple[Array, Array]:
     """Invert only the nuisance directions the evidence window actually excited.
 
@@ -921,7 +839,7 @@ def _bootstrap_fit_core(
     nuisance_rank_relative_tolerance: float,
 ) -> tuple[Array, ...]:
     intervals = jnp.diff(timestamps_s)
-    rotations = _quaternion_to_rotation(states[:-1, 6:10])
+    rotations = quaternion_to_rotation_batch(states[:-1, 6:10])
     world_acceleration = jnp.diff(states[:, 3:6], axis=0) / intervals[:, None]
     gravity_compensated = world_acceleration + jnp.asarray((0.0, 0.0, GRAVITY_M_S2))
     body_specific_force = jnp.einsum(

@@ -3,12 +3,7 @@
 from __future__ import annotations
 
 import csv
-import hashlib
-import os
 import re
-import shutil
-import tempfile
-import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -25,6 +20,7 @@ from glassbox.core.data import (
     specific_force_observation_channels,
 )
 from glassbox.core.dynamics import QUADROTOR_CONTROL_NAMES
+from glassbox.io.pinned_download import download_verified, file_digest
 
 BENCHMARK_REPOSITORY = "https://github.com/idsia-robotics/nanodrone-sysid-benchmark"
 BENCHMARK_COMMIT = "2d921b57d166fe2debe08a5d39bd07297c5abc39"
@@ -168,11 +164,7 @@ _FILENAME_PATTERN = re.compile(
 
 
 def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as source:
-        for chunk in iter(lambda: source.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
+    return file_digest(path, algorithm="sha256")
 
 
 def _recording_identity(path: Path) -> tuple[BenchmarkRecording, dict[str, Any]]:
@@ -500,46 +492,27 @@ def fetch_nanodrone_benchmark(
     fetched: list[Path] = []
     for recording in BENCHMARK_RECORDINGS:
         target = destination_root / recording.relative_path
-        target.parent.mkdir(parents=True, exist_ok=True)
-        if target.exists():
-            if _sha256(target) == recording.sha256:
-                fetched.append(target)
-                continue
-            if not overwrite:
-                raise FileExistsError(
+        fetched.append(
+            download_verified(
+                f"{BENCHMARK_MEDIA_ROOT}/{recording.relative_path}",
+                target,
+                size_bytes=recording.size_bytes,
+                digest=recording.sha256,
+                algorithm="sha256",
+                user_agent="glassbox-nanodrone-adapter/1",
+                overwrite=overwrite,
+                timeout_s=timeout_s,
+                existing_mismatch_message=(
                     f"existing file does not match pinned benchmark: {target}"
-                )
-
-        request = urllib.request.Request(
-            f"{BENCHMARK_MEDIA_ROOT}/{recording.relative_path}",
-            headers={"User-Agent": "glassbox-nanodrone-adapter/1"},
-        )
-        temporary_path: Path | None = None
-        try:
-            with tempfile.NamedTemporaryFile(
-                dir=target.parent,
-                prefix=f".{target.name}.",
-                suffix=".download",
-                delete=False,
-            ) as temporary:
-                temporary_path = Path(temporary.name)
-                with urllib.request.urlopen(request, timeout=timeout_s) as response:
-                    shutil.copyfileobj(response, temporary)
-            if temporary_path.stat().st_size != recording.size_bytes:
-                raise ValueError(
+                ),
+                size_mismatch_message=(
                     f"downloaded size mismatch for {recording.relative_path}"
-                )
-            checksum = _sha256(temporary_path)
-            if checksum != recording.sha256:
-                raise ValueError(
+                ),
+                digest_mismatch_message=(
                     f"downloaded checksum mismatch for {recording.relative_path}"
-                )
-            os.replace(temporary_path, target)
-            temporary_path = None
-        finally:
-            if temporary_path is not None:
-                temporary_path.unlink(missing_ok=True)
-        fetched.append(target)
+                ),
+            )
+        )
     return tuple(fetched)
 
 
