@@ -28,6 +28,7 @@ from glassbox.belief import (
     PlanAssessment,
     PointParameterBelief,
     PredictiveTrajectory,
+    ResolvedLocalGeometry,
     RuntimeDynamicsBelief,
     UnavailableParameterEvidence,
     UnavailablePredictiveError,
@@ -116,6 +117,7 @@ from glassbox.online_bootstrap import (
     RecursiveBootstrapBelief,
     RecursiveBootstrapConfig,
     RecursiveBootstrapIdentifier,
+    RecursiveBootstrapSampleReport,
 )
 from glassbox.parameter_prior import StructuredParameterPrior
 from glassbox.runtime import (
@@ -178,8 +180,10 @@ __all__ = [
     "RecursiveBootstrapBelief",
     "RecursiveBootstrapConfig",
     "RecursiveBootstrapIdentifier",
+    "RecursiveBootstrapSampleReport",
     "ReferenceTrajectory",
     "ResidualDynamicsParams",
+    "ResolvedLocalGeometry",
     "RolloutLossConfiguration",
     "RuntimeDynamicsBelief",
     "RuntimeDynamicsModel",

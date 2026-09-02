@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+import jax
 import jax.numpy as jnp
 import numpy as np
 import pytest
@@ -62,6 +63,74 @@ def test_runtime_model_loads_timing_bounds_and_latent_state(tmp_path) -> None:
         runtime.transition_at_interval(
             jnp.asarray(trajectory.states[0]), latent, command, 0.0
         )
+
+
+def test_transition_enforces_declared_command_bounds(tmp_path) -> None:
+    trajectory = generate_trajectory(seed=2, duration_s=0.2)
+    path = tmp_path / "model.json"
+    save_dynamics_model(
+        true_parameters(),
+        path,
+        input_spec=trajectory.spec,
+        runtime_spec=runtime_spec_from_trajectory(trajectory),
+    )
+    runtime = RuntimeDynamicsModel.load(path)
+    state = jnp.asarray(trajectory.states[0])
+    command = jnp.full(4, 0.4)
+    latent = runtime.initial_latent_state(command)
+    channel_name = trajectory.spec.control_names[1]
+
+    unbounded = command.at[1].set(7.5)
+    with pytest.raises(ValueError, match=f"{channel_name!r}=7.5 outside"):
+        runtime.transition(state, latent, unbounded)
+    with pytest.raises(ValueError, match="declared channel bounds"):
+        runtime.transition_at_interval(
+            state,
+            latent,
+            command.at[1].set(-0.5),
+            trajectory.nominal_dt_s,
+        )
+
+    # A command 1e-9 outside the bound is rounding slack: it is clipped onto
+    # the bound and executes as if it had been supplied there. The value is
+    # carried in float64 because float32 could not represent the violation.
+    slack = np.full(4, 0.4)
+    slack[1] = 1.0 + 1e-9
+    exact = np.full(4, 0.4)
+    exact[1] = 1.0
+    clipped_state, clipped_latent = runtime.transition(state, latent, slack)
+    bounded_state, bounded_latent = runtime.transition(state, latent, exact)
+
+    np.testing.assert_array_equal(clipped_state, bounded_state)
+    np.testing.assert_array_equal(clipped_latent, bounded_latent)
+
+    # The tolerance is a fraction of the channel span, not an open door.
+    beyond = np.full(4, 0.4)
+    beyond[1] = 1.0 + 1e-5
+    with pytest.raises(ValueError, match="declared channel bounds"):
+        runtime.transition(state, latent, beyond)
+
+
+def test_traced_commands_stay_the_caller_s_contract(tmp_path) -> None:
+    trajectory = generate_trajectory(seed=2, duration_s=0.2)
+    path = tmp_path / "model.json"
+    save_dynamics_model(
+        true_parameters(),
+        path,
+        input_spec=trajectory.spec,
+        runtime_spec=runtime_spec_from_trajectory(trajectory),
+    )
+    runtime = RuntimeDynamicsModel.load(path)
+    state = jnp.asarray(trajectory.states[0])
+    latent = runtime.initial_latent_state(jnp.full(4, 0.4))
+
+    # Bound checks need concrete values, so a traced transition compiles: NMPC
+    # clips its commands into the declared range before this point.
+    compiled = jax.jit(
+        lambda command: runtime.transition(state, latent, command)[0],
+    )
+
+    assert np.all(np.isfinite(compiled(jnp.full(4, 0.4))))
 
 
 def test_direct_actuation_rejects_measured_rotor_speed_model(tmp_path) -> None:

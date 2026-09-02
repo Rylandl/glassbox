@@ -382,6 +382,101 @@ def test_proposal_owns_immutable_arrays_and_verifies_its_trust_step() -> None:
         )
 
 
+def _concentrated_proposal(
+    *,
+    rank: int,
+    sigma: float,
+) -> adaptation_module.BeliefUpdateProposal:
+    """Build a proposal that moves exactly one whitened prior coordinate."""
+
+    candidate = np.zeros(rank)
+    candidate[0] = sigma
+    return adaptation_module.BeliefUpdateProposal(
+        base_parameter_vector=np.zeros(rank),
+        base_parameter_covariance=np.eye(rank),
+        candidate_parameter_vector=candidate,
+        normalized_information_matrix=np.eye(rank),
+        covariance_scope=ErrorCovarianceScope.CONDITIONAL_INNOVATION,
+        base_update_count=0,
+        update_horizon_s=0.1,
+        update_horizon_steps=1,
+        proposal_window_count=4,
+        normalized_innovation_rms_before=2.0,
+        normalized_innovation_rms_after=1.0,
+        normalized_innovation_improvement=10.0,
+        normalized_innovation_improvement_margin=1.0,
+        prior_standardized_step_rms=float(np.sqrt(np.mean(np.square(candidate)))),
+        prior_standardized_step_max=sigma,
+        proposal_step_fraction=1.0,
+        maximum_validity_utilization=0.5,
+        source_group="test-trust-region",
+        evidence_transition_hashes=("a" * 64,),
+        base_belief_fingerprint="b" * 64,
+        target_spec_fingerprint="c" * 64,
+    )
+
+
+def test_trust_region_bounds_each_prior_coordinate_not_their_mean() -> None:
+    concentrated = np.zeros(22)
+    concentrated[7] = 4.69
+    diffuse = np.full(22, 0.2)
+
+    concentrated_fraction = adaptation_module._bounded_local_step_fraction(
+        concentrated
+    )
+    diffuse_fraction = adaptation_module._bounded_local_step_fraction(diffuse)
+    bounded = concentrated_fraction * concentrated
+
+    # The step keeps its direction and lands exactly on the one-sigma bound.
+    assert np.max(np.abs(bounded)) == pytest.approx(1.0)
+    assert bounded[7] == pytest.approx(1.0)
+    assert np.count_nonzero(bounded) == 1
+    # A diffuse step already inside the bound is untouched, even though its
+    # movement is spread across every supported direction.
+    assert diffuse_fraction == 1.0
+    np.testing.assert_array_equal(diffuse_fraction * diffuse, diffuse)
+
+    # A rank-22 step of 4.69 sigma in one direction has an RMS just under one,
+    # so the retired root-mean-square bound accepted it.
+    with pytest.raises(ValueError, match="exceeds the local trust region"):
+        _concentrated_proposal(rank=22, sigma=4.69)
+    accepted = _concentrated_proposal(rank=22, sigma=1.0)
+    assert accepted.prior_standardized_step_max == pytest.approx(1.0)
+    assert accepted.prior_standardized_step_rms == pytest.approx(1.0 / np.sqrt(22.0))
+
+
+def test_proposal_reports_the_bounded_coordinate_and_its_spread() -> None:
+    telemetry = generate_trajectory(seed=37, duration_s=0.4)
+    belief = _shifted_belief(
+        telemetry,
+        covariance_scope=ErrorCovarianceScope.CONDITIONAL_INNOVATION,
+    )
+    proposal_telemetry, validation_telemetry = _split_telemetry(telemetry, 10)
+
+    proposal, proposal_report = belief.propose_update(proposal_telemetry)
+
+    assert proposal is not None
+    assert 0.0 < proposal.prior_standardized_step_max <= 1.0
+    assert (
+        proposal.prior_standardized_step_rms <= proposal.prior_standardized_step_max
+    )
+    assert proposal_report.prior_standardized_step_max == pytest.approx(
+        proposal.prior_standardized_step_max
+    )
+
+    _, commit_report = belief.commit_update(
+        proposal,
+        validation_telemetry,
+        validation_control_history=proposal_telemetry.controls,
+    )
+
+    assert commit_report.applied
+    assert commit_report.to_dict()["prior_standardized_step_max"] == pytest.approx(
+        commit_report.prior_standardized_step_max
+    )
+    assert 0.0 < commit_report.prior_standardized_step_max <= 1.0
+
+
 def test_shifted_timestamp_replay_is_not_disjoint_validation() -> None:
     telemetry = generate_trajectory(seed=38, duration_s=0.2)
     belief = _shifted_belief(

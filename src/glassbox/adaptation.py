@@ -37,7 +37,14 @@ from glassbox.runtime import model_validity_utilization_from_components
 
 MAXIMUM_ONLINE_UPDATE_WINDOWS = 64
 ACTUATOR_HISTORY_DURATION_S = 1.0
-MAXIMUM_LOCAL_PARAMETER_STEP_RMS = 1.0
+
+# The local trust region is a max-norm bound in whitened prior coordinates: no
+# supported prior direction may move by more than one prior standard deviation.
+# A root-mean-square bound would be a much weaker claim, because it lets a step
+# concentrated in one direction move by sqrt(rank) standard deviations -- about
+# 4.7 sigma at the rank-22 structured block. The step keeps its direction and is
+# scaled down uniformly when its largest whitened coordinate exceeds the bound.
+MAXIMUM_LOCAL_PARAMETER_STEP_SIGMA = 1.0
 VALIDITY_BOUNDARY_TOLERANCE = 1e-6
 LINE_SEARCH_FRACTIONS = (1.0, 0.5, 0.25, 0.125, 0.0625)
 
@@ -131,12 +138,41 @@ def _control_history_fingerprint(control_history: np.ndarray) -> str:
     return digest.hexdigest()
 
 
-def _prior_standardized_step_rms(
+def _step_magnitudes(local_step: np.ndarray) -> tuple[float, float]:
+    """Summarize a whitened prior-coordinate step as (root mean square, max)."""
+
+    return (
+        float(np.sqrt(np.mean(np.square(local_step)))),
+        float(np.max(np.abs(local_step))),
+    )
+
+
+def _bounded_local_step_fraction(local_step: np.ndarray) -> float:
+    """Scale a whitened step into the one-sigma-per-coordinate trust region.
+
+    The direction is preserved: only the length changes, and only when the
+    largest absolute whitened coordinate exceeds the bound. A root-mean-square
+    bound would instead let a step concentrated in a single prior direction
+    move by ``sqrt(rank)`` standard deviations along it.
+    """
+
+    _, maximum = _step_magnitudes(local_step)
+    if not np.isfinite(maximum) or maximum <= 0.0:
+        raise ValueError("a bounded local step requires finite movement")
+    return min(1.0, MAXIMUM_LOCAL_PARAMETER_STEP_SIGMA / maximum)
+
+
+def _prior_standardized_step(
     base: np.ndarray,
     candidate: np.ndarray,
     covariance: np.ndarray,
-) -> float:
-    """Measure a candidate in supported prior coordinates, rejecting leakage."""
+) -> tuple[float, float]:
+    """Measure a candidate in supported prior coordinates, rejecting leakage.
+
+    Returns the root-mean-square and the largest absolute whitened coordinate
+    of the step. The maximum is the bounded quantity; the mean square is
+    reported alongside it because it describes how the movement is spread.
+    """
 
     support = supported_covariance(covariance)
     if support.rank == 0:
@@ -151,7 +187,7 @@ def _prior_standardized_step_rms(
     if float(np.linalg.norm(residual)) > tolerance:
         raise ValueError("update proposal moves in an unsupported parameter direction")
     local_step = (support.basis.T @ delta) / np.sqrt(support.variances)
-    return float(np.sqrt(np.mean(np.square(local_step))))
+    return _step_magnitudes(local_step)
 
 
 @dataclass(frozen=True)
@@ -220,7 +256,13 @@ def _improvement_evidence(
 
 @dataclass(frozen=True)
 class BeliefUpdateProposal:
-    """A parameter move that is not authoritative until separately validated."""
+    """A parameter move that is not authoritative until separately validated.
+
+    ``prior_standardized_step_max`` is the bounded quantity: the largest
+    absolute movement of any whitened supported prior coordinate, which may not
+    exceed ``MAXIMUM_LOCAL_PARAMETER_STEP_SIGMA``.
+    ``prior_standardized_step_rms`` reports the same step's root-mean-square.
+    """
 
     base_parameter_vector: np.ndarray
     base_parameter_covariance: np.ndarray
@@ -236,6 +278,7 @@ class BeliefUpdateProposal:
     normalized_innovation_improvement: float
     normalized_innovation_improvement_margin: float
     prior_standardized_step_rms: float
+    prior_standardized_step_max: float
     proposal_step_fraction: float
     maximum_validity_utilization: float
     source_group: str
@@ -305,22 +348,37 @@ class BeliefUpdateProposal:
                 "update proposal must clear its proposal effect-size margin"
             )
         if not (
+            np.isfinite(self.prior_standardized_step_max)
+            and 0.0
+            < self.prior_standardized_step_max
+            <= MAXIMUM_LOCAL_PARAMETER_STEP_SIGMA * (1.0 + 1e-9)
+        ):
+            raise ValueError("update proposal exceeds the local trust region")
+        if not (
             np.isfinite(self.prior_standardized_step_rms)
             and 0.0
             < self.prior_standardized_step_rms
-            <= MAXIMUM_LOCAL_PARAMETER_STEP_RMS * (1.0 + 1e-9)
+            <= self.prior_standardized_step_max * (1.0 + 1e-9)
         ):
-            raise ValueError("update proposal exceeds the local trust region")
-        measured_step_rms = _prior_standardized_step_rms(
+            raise ValueError("update proposal trust-region evidence is inconsistent")
+        measured_step_rms, measured_step_max = _prior_standardized_step(
             base,
             candidate,
             covariance,
         )
-        if not np.isclose(
-            measured_step_rms,
-            self.prior_standardized_step_rms,
-            rtol=1e-7,
-            atol=1e-10,
+        if not (
+            np.isclose(
+                measured_step_rms,
+                self.prior_standardized_step_rms,
+                rtol=1e-7,
+                atol=1e-10,
+            )
+            and np.isclose(
+                measured_step_max,
+                self.prior_standardized_step_max,
+                rtol=1e-7,
+                atol=1e-10,
+            )
         ):
             raise ValueError("update proposal trust-region evidence is inconsistent")
         if not (
@@ -394,6 +452,7 @@ class BeliefUpdateReport:
     realized_local_information_gain_nats: float | None
     structured_parameter_delta_norm: float | None
     prior_standardized_step_rms: float | None
+    prior_standardized_step_max: float | None
     accepted_step_fraction: float | None
     prior_covariance_trace: float | None
     posterior_covariance_trace: float | None
@@ -433,6 +492,7 @@ class BeliefUpdateReport:
             ),
             "structured_parameter_delta_norm": self.structured_parameter_delta_norm,
             "prior_standardized_step_rms": self.prior_standardized_step_rms,
+            "prior_standardized_step_max": self.prior_standardized_step_max,
             "accepted_step_fraction": self.accepted_step_fraction,
             "prior_covariance_trace": self.prior_covariance_trace,
             "posterior_covariance_trace": self.posterior_covariance_trace,
@@ -767,6 +827,7 @@ def _base_report(
         realized_local_information_gain_nats=None,
         structured_parameter_delta_norm=None,
         prior_standardized_step_rms=None,
+        prior_standardized_step_max=None,
         accepted_step_fraction=None,
         prior_covariance_trace=covariance_trace,
         posterior_covariance_trace=covariance_trace,
@@ -1116,7 +1177,12 @@ def propose_dynamics_belief_update(
     belief: DynamicsBelief,
     telemetry: Trajectory,
 ) -> tuple[BeliefUpdateProposal | None, BeliefUpdateReport]:
-    """Propose a bounded local move; do not mutate the authoritative belief."""
+    """Propose a bounded local move; do not mutate the authoritative belief.
+
+    The Gauss--Newton step is scaled down uniformly until no whitened supported
+    prior coordinate moves by more than one prior standard deviation, then
+    line-searched for improvement inside that bound.
+    """
 
     context, rejected = _preflight(belief, telemetry)
     if rejected is not None:
@@ -1152,8 +1218,8 @@ def propose_dynamics_belief_update(
             np.eye(prior_support.rank) + information,
             design.T @ residual,
         )
-        local_rms = float(np.sqrt(np.mean(np.square(local_step))))
-        if not np.isfinite(local_rms) or local_rms == 0.0:
+        local_rms, local_max = _step_magnitudes(local_step)
+        if not np.isfinite(local_max) or local_max == 0.0:
             return None, _base_report(
                 belief,
                 telemetry,
@@ -1165,10 +1231,7 @@ def propose_dynamics_belief_update(
                 used_count=len(context.windows),
                 proposal_count=len(context.windows),
             )
-        trust_fraction = min(
-            1.0,
-            MAXIMUM_LOCAL_PARAMETER_STEP_RMS / local_rms,
-        )
+        trust_fraction = _bounded_local_step_fraction(local_step)
         prior_factor = prior_support.basis * np.sqrt(prior_support.variances)
         raw_delta = prior_factor @ local_step
         before_squared, dimensions = _window_squared_errors(
@@ -1181,6 +1244,7 @@ def propose_dynamics_belief_update(
         evidence: _ImprovementEvidence | None = None
         selected_fraction: float | None = None
         selected_local_rms: float | None = None
+        selected_local_max: float | None = None
         for fraction in LINE_SEARCH_FRACTIONS:
             combined_fraction = trust_fraction * fraction
             selected = prior_vector + combined_fraction * raw_delta
@@ -1198,6 +1262,7 @@ def propose_dynamics_belief_update(
                 evidence = scored
                 selected_fraction = combined_fraction
                 selected_local_rms = combined_fraction * local_rms
+                selected_local_max = combined_fraction * local_max
                 break
         if candidate is None:
             return None, _base_report(
@@ -1226,6 +1291,7 @@ def propose_dynamics_belief_update(
     assert evidence is not None
     assert selected_fraction is not None
     assert selected_local_rms is not None
+    assert selected_local_max is not None
     predictive_error = belief.predictive_error
     assert isinstance(predictive_error, EmpiricalHorizonPredictiveError)
     proposal = BeliefUpdateProposal(
@@ -1243,6 +1309,7 @@ def propose_dynamics_belief_update(
         normalized_innovation_improvement=evidence.total_reduction,
         normalized_innovation_improvement_margin=evidence.margin,
         prior_standardized_step_rms=selected_local_rms,
+        prior_standardized_step_max=selected_local_max,
         proposal_step_fraction=selected_fraction,
         maximum_validity_utilization=context.maximum_validity_utilization,
         source_group=_source_group(telemetry),
@@ -1270,6 +1337,7 @@ def propose_dynamics_belief_update(
         normalized_innovation_improvement_margin=evidence.margin,
         structured_parameter_delta_norm=float(np.linalg.norm(candidate - prior_vector)),
         prior_standardized_step_rms=selected_local_rms,
+        prior_standardized_step_max=selected_local_max,
         accepted_step_fraction=selected_fraction,
     )
     return proposal, report
@@ -1583,6 +1651,9 @@ def validate_and_commit_dynamics_belief_update(
             structured_parameter_delta_norm=float(np.linalg.norm(selected - base)),
             prior_standardized_step_rms=(
                 proposal.prior_standardized_step_rms * validation_fraction
+            ),
+            prior_standardized_step_max=(
+                proposal.prior_standardized_step_max * validation_fraction
             ),
             accepted_step_fraction=accepted_fraction,
             prior_covariance_trace=float(np.trace(prior_covariance)),

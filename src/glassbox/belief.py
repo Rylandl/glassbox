@@ -38,6 +38,7 @@ from glassbox.runtime import (
     DirectActuationMap,
     RuntimeDynamicsModel,
     RuntimeModelSpec,
+    commands_within_declared_bounds,
 )
 
 if TYPE_CHECKING:
@@ -701,6 +702,21 @@ class UnavailableParameterEvidence:
 
 
 @dataclass(frozen=True)
+class ResolvedLocalGeometry:
+    """Local loss geometry restricted to the directions the evidence resolves.
+
+    ``information_matrix`` and ``score_vector`` are in parameter coordinates
+    and vanish on unresolved directions. ``discarded_information_fraction`` is
+    the share of the normalized information trace the projection dropped.
+    """
+
+    information_matrix: np.ndarray
+    score_vector: np.ndarray
+    rank: int
+    discarded_information_fraction: float
+
+
+@dataclass(frozen=True)
 class LocalParameterInformation:
     """Rank-aware local loss geometry for structured coefficients.
 
@@ -857,24 +873,38 @@ class LocalParameterInformation:
             * self.parameter_scale[None, :]
         )
 
+    def _normalized_information_spectrum(
+        self,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, float]:
+        """Eigendecompose the fitted block of the normalized information.
+
+        Rank classification and conditioning share these coordinates: the
+        normalized coordinate ``u`` is defined by
+        ``parameters = center + diag(parameter_scale) @ u``, so the normalized
+        information is ``diag(scale) @ information @ diag(scale)`` and its
+        eigenvalues are directly comparable across parameters of different
+        physical units. Returns the fitted indices, the clipped eigenvalues,
+        their eigenvectors, and the relative-tolerance threshold that separates
+        resolved from unresolved directions.
+        """
+
+        active_indices = np.flatnonzero(self.fitted_parameter_mask)
+        eigenvalues, eigenvectors = np.linalg.eigh(
+            self.normalized_information_matrix[np.ix_(active_indices, active_indices)]
+        )
+        eigenvalues = np.maximum(eigenvalues, 0.0)
+        largest = float(np.max(eigenvalues)) if len(eigenvalues) else 0.0
+        threshold = self.rank_relative_tolerance * largest if largest > 0.0 else np.inf
+        return active_indices, eigenvalues, eigenvectors, threshold
+
     @property
     def normalized_information_eigenvalues(self) -> np.ndarray:
-        active = self.fitted_parameter_mask
-        values = np.linalg.eigvalsh(
-            self.normalized_information_matrix[np.ix_(active, active)]
-        )
-        return np.maximum(values, 0.0)
+        return self._normalized_information_spectrum()[1]
 
     @property
     def numerical_rank(self) -> int:
-        eigenvalues = self.normalized_information_eigenvalues
-        if not np.any(eigenvalues > 0.0):
-            return 0
-        return int(
-            np.count_nonzero(
-                eigenvalues > self.rank_relative_tolerance * float(np.max(eigenvalues))
-            )
-        )
+        _, eigenvalues, _, threshold = self._normalized_information_spectrum()
+        return int(np.count_nonzero(eigenvalues > threshold))
 
     @property
     def unresolved_fitted_direction_count(self) -> int:
@@ -892,21 +922,63 @@ class LocalParameterInformation:
 
         return self.group_score_vectors.T @ self.group_score_vectors
 
+    def resolved_local_geometry(self) -> ResolvedLocalGeometry:
+        """Restrict the geometry to the directions this evidence resolves.
+
+        The classification is the one ``numerical_rank`` and
+        ``unresolved_direction_basis`` report, in the normalized coordinates of
+        ``_normalized_information_spectrum``. With ``V diag(lambda) V^T`` the
+        eigendecomposition of the fitted block of the normalized information,
+        the resolved projector ``P`` keeps only the eigenvectors whose
+        eigenvalue exceeds ``rank_relative_tolerance * lambda_max``. The
+        returned information is ``P M P`` and the returned score is ``P g``,
+        both mapped back to parameter coordinates, so an unresolved direction
+        carries no information and no gradient: a conditioning step reads
+        nothing from it rather than reading a near-zero curvature that would
+        otherwise contract it toward the loss geometry's numerical noise.
+        """
+
+        size = len(self.parameter_names)
+        (
+            active_indices,
+            eigenvalues,
+            eigenvectors,
+            threshold,
+        ) = self._normalized_information_spectrum()
+        resolved = eigenvalues > threshold
+        total_information = float(np.sum(eigenvalues))
+        resolved_information = float(np.sum(eigenvalues[resolved]))
+        discarded_fraction = (
+            0.0
+            if total_information <= 0.0
+            else float(
+                np.clip(1.0 - resolved_information / total_information, 0.0, 1.0)
+            )
+        )
+        basis = eigenvectors[:, resolved]
+        projector = np.zeros((size, size))
+        projector[np.ix_(active_indices, active_indices)] = basis @ basis.T
+        scale = self.parameter_scale
+        projected = projector @ self.normalized_information_matrix @ projector
+        information = (projected / scale[:, None]) / scale[None, :]
+        return ResolvedLocalGeometry(
+            information_matrix=0.5 * (information + information.T),
+            score_vector=(projector @ (scale * self.score_vector)) / scale,
+            rank=int(np.count_nonzero(resolved)),
+            discarded_information_fraction=discarded_fraction,
+        )
+
     @property
     def unresolved_direction_basis(self) -> np.ndarray:
         """Return normalized-coordinate directions unsupported by the evidence."""
 
-        active_indices = np.flatnonzero(self.fitted_parameter_mask)
         inactive_indices = np.flatnonzero(~self.fitted_parameter_mask)
-        active_information = self.normalized_information_matrix[
-            np.ix_(active_indices, active_indices)
-        ]
-        eigenvalues, eigenvectors = np.linalg.eigh(active_information)
-        threshold = (
-            self.rank_relative_tolerance * float(np.max(eigenvalues))
-            if len(eigenvalues) and np.max(eigenvalues) > 0.0
-            else np.inf
-        )
+        (
+            active_indices,
+            eigenvalues,
+            eigenvectors,
+            threshold,
+        ) = self._normalized_information_spectrum()
         columns: list[np.ndarray] = []
         for index in inactive_indices:
             direction = np.zeros(len(self.parameter_names))
@@ -1252,8 +1324,17 @@ class DynamicsBelief:
 
         Conditional innovation covariance supports a local Gaussian contraction.
         Total forecast covariance supports a regularized mean update only, so
-        the prior covariance is preserved. Directions absent from the local
-        geometry retain their prior mean and covariance.
+        the prior covariance is preserved.
+
+        Only the resolved subspace of the local geometry conditions the prior:
+        the information and the score are both projected with the same
+        eigenvector basis the rank test uses (see
+        ``LocalParameterInformation.resolved_local_geometry``). An unresolved
+        direction therefore contributes no information and no gradient, and a
+        prior that is uncorrelated with the resolved subspace keeps its mean
+        and covariance there exactly. Correlated prior directions still move
+        and contract through the prior's own covariance, which is the prior's
+        claim rather than the local evidence's.
 
         The local geometry is a linearization about ``parameter_evidence.center``
         and the conditioned mean is expressed in the same coordinates, so this
@@ -1303,7 +1384,12 @@ class DynamicsBelief:
             prior_covariance,
             np.eye(len(prior_covariance)),
         )
-        local_information = self.parameter_evidence.information_matrix
+        # Only the resolved subspace conditions. The rank test classifies
+        # directions the evidence never excited as unresolved, and adding their
+        # numerical-noise curvature would contract and move them as if it were
+        # evidence.
+        resolved = self.parameter_evidence.resolved_local_geometry()
+        local_information = resolved.information_matrix
         conditioned_precision = prior_precision + local_information
         conditional_covariance = np.linalg.solve(
             conditioned_precision,
@@ -1315,7 +1401,7 @@ class DynamicsBelief:
         conditioned_center = conditional_covariance @ (
             prior_precision @ prior_center
             + local_information @ self.parameter_evidence.center
-            - self.parameter_evidence.score_vector
+            - resolved.score_vector
         )
         contracts_covariance = (
             self.parameter_evidence.covariance_scope
@@ -1363,6 +1449,13 @@ class DynamicsBelief:
             "prior_artifact": prior.to_dict(),
             "local_evidence_source": self.parameter_evidence.source,
             "local_information_rank": self.parameter_evidence.numerical_rank,
+            "local_information_resolved_rank": resolved.rank,
+            "local_information_discarded_fraction": (
+                resolved.discarded_information_fraction
+            ),
+            "local_information_projection": (
+                "resolved_subspace_of_scale_normalized_fitted_information"
+            ),
             "local_covariance_scope": (self.parameter_evidence.covariance_scope.value),
             "parameter_covariance_updated": contracts_covariance,
             "local_independent_group_count": (
@@ -1465,7 +1558,15 @@ class DynamicsBelief:
 
 @dataclass(frozen=True)
 class RuntimeDynamicsBelief:
-    """Executable nominal dynamics and compact predictive-error model."""
+    """Executable nominal dynamics and compact predictive-error model.
+
+    Declared command bounds are enforced on every concrete rollout: a command
+    outside them raises and names the channel. The validity envelope stays
+    advisory -- ``PredictiveTrajectory.validity_utilization`` reports how far
+    the forecast leaves the training support, and the caller decides, because
+    an unsupported forecast is still a forecast while an unexecutable command
+    is not a command.
+    """
 
     nominal: RuntimeDynamicsModel
     predictive_error: PredictiveErrorModel = field(
@@ -1648,13 +1749,21 @@ class RuntimeDynamicsBelief:
         initial_latent_state: Array | None = None,
         exogenous: Array | None = None,
     ) -> PredictiveTrajectory:
-        """Roll out nominal dynamics and attach predictive tangent moments."""
+        """Roll out nominal dynamics and attach predictive tangent moments.
+
+        Concrete commands and command history must lie within the declared
+        channel bounds; see ``commands_within_declared_bounds``.
+        """
 
         commands = jnp.asarray(commands)
         if commands.ndim != 2 or commands.shape[1] != self.nominal.command_size:
             raise ValueError("commands must have shape (time, command_size)")
         if len(commands) < 1:
             raise ValueError("belief rollout requires at least one command")
+        commands = commands_within_declared_bounds(
+            commands,
+            self.nominal.actuation.command_channels,
+        )
         if exogenous is None:
             exogenous = jnp.zeros((len(commands), self.nominal.exogenous_size))
         else:
@@ -1669,6 +1778,11 @@ class RuntimeDynamicsBelief:
             history = history[None, :]
         if history.ndim != 2 or history.shape[1] != self.nominal.command_size:
             raise ValueError("command history must have shape (time, command_size)")
+        history = commands_within_declared_bounds(
+            history,
+            self.nominal.actuation.command_channels,
+            label="command history",
+        )
         provided_latent = (
             None if initial_latent_state is None else jnp.asarray(initial_latent_state)
         )

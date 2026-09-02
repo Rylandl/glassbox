@@ -72,6 +72,16 @@ A rollout returns:
 - validity-envelope utilization; and
 - whether the requested horizon is supported by the error evidence.
 
+Declared command bounds and the validity envelope are enforced differently, on
+purpose. Bounds are a hard execution contract: a rollout or runtime transition
+given a concrete command outside its channel bounds raises and names the
+channel, and only a violation within `1e-6` of the channel span, which is
+normalization or serialization rounding, is clipped onto the bound. The
+validity envelope is advisory: utilization is reported at every step and the
+caller decides, because an out-of-envelope forecast is unsupported rather than
+impossible. Bound checks need concrete values, so a JAX-traced command is left
+to its caller; NMPC constructs every command inside the bounds.
+
 The error-model interface accepts horizon, nominal state, command, and
 exogenous context. The first implementation is deliberately horizon-only, but
 the signature permits heteroscedastic state/control-conditioned errors without
@@ -98,6 +108,18 @@ Every empirical covariance carries one of two scopes:
   propagated parameter covariance or inverted to claim information gain and
   covariance contraction.
 
+Every artifact the shipped CLIs write carries `total_forecast_error`:
+`glassbox-fit` fits held-out rollout error and records that scope, and the
+local parameter information it stores inherits the scope of the predictive
+error it was whitened with. No flag changes this. Everything in this document
+that depends on `conditional_innovation_error` -- `assess_plan` information
+gain, commit-time covariance contraction, and conditioning contraction -- is
+therefore reachable only by a caller who builds and attaches conditional
+innovation evidence programmatically, having separately justified that the
+covariance is measurement and process noise conditional on the parameters.
+With a shipped artifact those paths report unavailable and the parameter
+covariance is preserved rather than contracted.
+
 Held-out rollout errors default to `total_forecast_error`. Zero empirical
 eigenvalues are absent evidence, not noiseless measurements: whitening and
 information calculations use only the numerically supported subspace.
@@ -122,7 +144,7 @@ early measured transitions
         ↓
 prediction innovations and parameter Jacobians
         ↓
-prior-scaled proposal and one-standard-deviation trust bound
+prior-scaled proposal, no coordinate past one prior standard deviation
         ↓
 later, nonoverlapping validation transitions
         ↓
@@ -138,15 +160,18 @@ Proposal arrays are owned, read-only copies and each proposal fingerprints the
 complete belief revision and target trajectory specification. Transition replay
 is detected from physical transition content rather than absolute timestamps.
 The report records whether a proposal existed, whether validation ran, why a
-commit was accepted or rejected, coefficient movement, prior-standardized step,
-validity utilization, and evidence counts. Unsupported horizons,
+commit was accepted or rejected, coefficient movement, the bounded and
+root-mean-square prior-standardized step, validity utilization, and evidence
+counts. Unsupported horizons,
 out-of-envelope telemetry or candidate paths, stale or changed belief evidence,
 reused proposal transitions, target-configuration changes, non-finite rollouts,
 and validation improvements inside the noise margin all fail closed.
-Conditional covariance contraction
-is recomputed from the disjoint validation evidence; proposal-carried geometry
-cannot make the committed belief overconfident. One contiguous telemetry block
-is one evidence unit regardless of its window count.
+Covariance contraction happens only for a belief whose error evidence is
+conditional innovation, which no shipped artifact is; when it does, it is
+recomputed from the disjoint validation evidence, so proposal-carried geometry
+cannot make the committed belief overconfident. A total-forecast belief commits
+the mean move and leaves its parameter covariance alone. One contiguous
+telemetry block is one evidence unit regardless of its window count.
 
 Actuator commands immediately preceding the validation boundary are carried as
 separately fingerprinted initialization context. They are used to recompute the
@@ -180,9 +205,22 @@ fit as a point belief plus partial information instead. A complete full-rank
 fleet or configuration prior can be combined with that geometry using
 `fit_belief.condition_parameter_prior(fleet_prior)`. Supported directions move
 toward the vehicle fit. Covariance contracts only when the geometry used
-conditional innovation noise; total-forecast-scaled geometry performs a
-regularized mean update and preserves prior covariance. Unsupported directions
-retain the prior mean and covariance. Conditioning is valid only around the
+conditional innovation noise, which is not the scope a shipped artifact
+carries; total-forecast-scaled geometry performs a regularized mean update and
+preserves prior covariance.
+
+Conditioning uses only the resolved subspace. The rank test and the
+conditioning step share one set of coordinates -- the scale-normalized fitted
+block, `diag(parameter_scale) @ information @ diag(parameter_scale)` -- and
+with `V diag(lambda) V^T` its eigendecomposition, only the eigenpairs with
+`lambda > rank_relative_tolerance * lambda_max` are kept. Both the information
+and the score are projected onto that subspace, so a direction the rank test
+calls unresolved contributes no curvature and no gradient: it keeps its prior
+mean and covariance exactly unless the prior's own covariance correlates it
+with a resolved direction, in which case it moves and contracts through that
+prior correlation rather than through local evidence. The conditioning
+provenance records the resolved rank and the fraction of the normalized
+information trace the projection discarded. Conditioning is valid only around the
 center the geometry was linearized at, so it refuses to run once the parameters
 have moved away from `parameter_evidence.center`, and the belief it returns
 carries stale error evidence until that evidence is recalibrated.
@@ -244,11 +282,19 @@ splits complete horizon-aligned windows into early proposal and later validation
 partitions. Streaming callers may instead use
 `belief.propose_update(telemetry)` and
 `belief.commit_update(proposal, later_telemetry)`. The proposal is a
-prior-scaled batch Gauss--Newton move capped at one RMS prior standard deviation
-and line-searched for improvement. Commit line-searches again on disjoint
+prior-scaled batch Gauss--Newton move, bounded and line-searched for
+improvement. The bound is a maximum, not an average: the step is scaled down
+uniformly, keeping its direction, until no whitened supported prior coordinate
+moves by more than one prior standard deviation
+(`MAXIMUM_LOCAL_PARAMETER_STEP_SIGMA = 1.0`). A root-mean-square bound would be
+a weaker claim, since a step concentrated in one direction of the rank-22
+structured block could move about 4.7 standard deviations along it. The report
+records both the bounded maximum, `prior_standardized_step_max`, and the
+root-mean-square spread of the same step. Commit line-searches again on disjoint
 telemetry. Total forecast error supplies generalized loss coordinates but leaves
 parameter covariance unchanged; conditional innovation error additionally
-supports rank-aware contraction and information-gain reporting.
+supports rank-aware contraction and information-gain reporting, and only a
+caller who attaches that evidence programmatically has it.
 
 ### The acceptance criterion
 
@@ -378,8 +424,12 @@ assessment.expected_parameter_covariance
 
 `assess_plan()` differentiates the candidate endpoint with respect to the local
 structured coefficients. It reports Gaussian information gain only when the
-predictive-error evidence is current and explicitly conditional. Rank-zero
-directions report information unavailable rather than enormous precision.
+predictive-error evidence is current and explicitly conditional, so a shipped
+total-forecast artifact reports the prediction, validity utilization, and
+propagated parameter covariance but says information is unavailable; the gain
+is available to a caller who attaches conditional-innovation evidence.
+Rank-zero directions report information unavailable rather than enormous
+precision.
 Constraint risk remains a controller or exploration-policy concern because it
 depends on a mission safety envelope, not only the system model.
 

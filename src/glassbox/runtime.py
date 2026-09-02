@@ -26,9 +26,64 @@ ACTIONABLE_CONTROL_SEMANTICS = frozenset(
     {"normalized_command", "normalized_generalized_command"}
 )
 
+# Commands within this fraction of a channel's span outside its declared bounds
+# are rounding slack from normalization or serialization and are clipped back
+# onto the bound. Anything beyond it is a caller error, not slack.
+COMMAND_BOUND_RELATIVE_TOLERANCE = 1e-6
+
 
 class NonActionableModelError(ValueError):
     """Raised when model inputs cannot safely be interpreted as commands."""
+
+
+def commands_within_declared_bounds(
+    commands: Array,
+    channels: Sequence[ControlChannel],
+    *,
+    label: str = "command",
+) -> Array:
+    """Reject commands outside their declared channel bounds; clip slack.
+
+    Command bounds are a hard execution contract: the fitted model saw commands
+    inside them, and an actuator cannot accept anything else. A value more than
+    ``COMMAND_BOUND_RELATIVE_TOLERANCE`` of the channel span outside its bounds
+    raises and names the channel; a value inside that band is clipped onto the
+    bound.
+
+    Enforcement needs concrete values. Under JAX tracing the commands are
+    symbolic, so the traced commands are returned unchanged and the caller owns
+    the bound: NMPC builds every command with ``jnp.clip`` inside the declared
+    range before it reaches a traced transition.
+    """
+
+    if isinstance(commands, jax.core.Tracer):
+        return commands
+    values = np.asarray(commands, dtype=np.float64)
+    minimum = np.asarray([channel.minimum for channel in channels], dtype=np.float64)
+    maximum = np.asarray([channel.maximum for channel in channels], dtype=np.float64)
+    tolerance = COMMAND_BOUND_RELATIVE_TOLERANCE * (maximum - minimum)
+    outside = (values < minimum - tolerance) | (values > maximum + tolerance)
+    if np.any(outside):
+        leading_axes = tuple(range(values.ndim - 1))
+        offending = np.flatnonzero(
+            np.any(outside, axis=leading_axes) if leading_axes else outside
+        )
+        details = []
+        for index in offending:
+            column = np.atleast_1d(np.asarray(values[..., index])).ravel()
+            excess = column - np.clip(column, minimum[index], maximum[index])
+            worst = float(column[int(np.argmax(np.abs(excess)))])
+            details.append(
+                f"{channels[index].name!r}={worst:.6g} outside "
+                f"[{minimum[index]:.6g}, {maximum[index]:.6g}]"
+            )
+        raise ValueError(
+            f"{label} lies outside its declared channel bounds: " + ", ".join(details)
+        )
+    clipped = np.clip(values, minimum, maximum)
+    if np.array_equal(clipped, values):
+        return commands
+    return jnp.asarray(clipped, dtype=jnp.asarray(commands).dtype)
 
 
 def _finite_triplet(name: str, values: Sequence[float]) -> tuple[float, float, float]:
@@ -332,7 +387,16 @@ class DirectActuationMap:
 
 @dataclass(frozen=True)
 class RuntimeDynamicsModel:
-    """A fitted model bound to its executable timing and actuation contract."""
+    """A fitted model bound to its executable timing and actuation contract.
+
+    Command bounds and the validity envelope are different kinds of contract.
+    Declared command bounds are *enforced*: a transition with a command outside
+    them raises and names the channel, because no actuator could execute it.
+    The validity envelope is *advisory*: ``validity_utilization`` reports how
+    far a state sits outside the training support and callers decide what to do
+    with it, because leaving the envelope makes a forecast unsupported rather
+    than impossible.
+    """
 
     params: ModelParams
     input_spec: TrajectorySpec
@@ -536,12 +600,21 @@ class RuntimeDynamicsModel:
         interval_s: float,
         exogenous: Array | None = None,
     ) -> tuple[Array, Array]:
-        """Advance using a compatible parameter PyTree supplied at execution."""
+        """Advance using a compatible parameter PyTree supplied at execution.
+
+        Concrete commands must lie within the declared channel bounds; see
+        ``commands_within_declared_bounds`` for the tolerance and the
+        JAX-tracing carve-out.
+        """
 
         if not np.isfinite(interval_s) or interval_s <= 0.0:
             raise ValueError("runtime transition interval must be finite and positive")
         if command.shape[-1] != self.command_size:
             raise ValueError("command does not match runtime command size")
+        command = commands_within_declared_bounds(
+            command,
+            self.actuation.command_channels,
+        )
         if exogenous is None:
             exogenous = jnp.zeros(self.exogenous_size)
         if exogenous.shape[-1] != self.exogenous_size:

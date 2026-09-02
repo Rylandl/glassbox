@@ -180,6 +180,42 @@ def test_belief_round_trip_and_runtime_forecast(tmp_path) -> None:
     assert nominal_from_legacy_loader.command_size == runtime.nominal.command_size
 
 
+def test_runtime_rollout_enforces_declared_command_bounds() -> None:
+    trajectory = generate_trajectory(seed=5, duration_s=0.3)
+    belief = DynamicsBelief(
+        params=true_parameters(),
+        input_spec=trajectory.spec,
+        runtime_spec=runtime_spec_from_trajectory(trajectory),
+        predictive_error=_error_model(0.01),
+    )
+    runtime = belief.compile_for_nmpc()
+    initial_state = jnp.asarray(trajectory.states[0])
+    commands = jnp.asarray(trajectory.controls[:5])
+    channel_name = trajectory.spec.control_names[2]
+
+    unbounded = commands.at[3, 2].set(7.5)
+    with pytest.raises(ValueError, match=f"{channel_name!r}=7.5 outside"):
+        runtime.rollout(initial_state, unbounded)
+    with pytest.raises(ValueError, match="command history lies outside"):
+        runtime.rollout(
+            initial_state,
+            commands,
+            command_history=commands.at[0, 2].set(-3.0),
+        )
+
+    # A command 1e-9 outside the bound is clipped onto it. The value is carried
+    # in float64 because float32 could not represent the violation.
+    slack = np.array(trajectory.controls[:5], dtype=np.float64)
+    slack[3, 2] = 1.0 + 1e-9
+    exact = np.array(trajectory.controls[:5], dtype=np.float64)
+    exact[3, 2] = 1.0
+    clipped = runtime.rollout(initial_state, slack)
+    bounded = runtime.rollout(initial_state, exact)
+
+    np.testing.assert_array_equal(clipped.mean_states, bounded.mean_states)
+    np.testing.assert_array_equal(clipped.commands, bounded.commands)
+
+
 def test_parameter_belief_propagates_and_scores_candidate_information(tmp_path) -> None:
     trajectory = generate_trajectory(seed=7, duration_s=0.3)
     params = true_parameters()
@@ -366,6 +402,125 @@ def test_local_information_conditions_complete_prior_without_collapsing_nullspac
         fitted.condition_parameter_prior(
             replace(prior, control_contracts=incompatible_contracts)
         )
+
+
+def _two_direction_evidence(params, *, rank_relative_tolerance: float):
+    """Local geometry whose two curvatures straddle a 1 percent rank test."""
+
+    names = structured_parameter_names(params)
+    center = np.asarray(structured_parameter_vector(params))
+    size = len(names)
+    information = np.zeros((size, size))
+    information[0, 0] = 1e6
+    information[1, 1] = 1e3
+    scores = np.zeros((2, size))
+    scores[:, 0] = 0.1
+    scores[:, 1] = 0.1
+    return LocalParameterInformation(
+        parameter_names=names,
+        center=center,
+        information_matrix=information,
+        parameter_scale=np.ones(size),
+        fitted_parameter_mask=np.ones(size, dtype=bool),
+        horizons_s=(0.1,),
+        window_count_by_horizon=(8,),
+        residual_precision_rank_by_horizon=(12,),
+        group_labels=("group-a", "group-b"),
+        group_score_vectors=scores,
+        independent_group_count=2,
+        trajectory_count=2,
+        rank_relative_tolerance=rank_relative_tolerance,
+        covariance_scope=ErrorCovarianceScope.CONDITIONAL_INNOVATION,
+    )
+
+
+def test_conditioning_reads_nothing_from_unresolved_directions() -> None:
+    trajectory = generate_trajectory(seed=17, duration_s=0.3)
+    params = true_parameters()
+    evidence = _two_direction_evidence(params, rank_relative_tolerance=0.01)
+    fitted = DynamicsBelief(
+        params=params,
+        input_spec=trajectory.spec,
+        runtime_spec=_permissive_runtime_spec(trajectory),
+        predictive_error=_nonsingular_error_model(
+            covariance_scope=ErrorCovarianceScope.CONDITIONAL_INNOVATION,
+        ),
+        parameter_evidence=evidence,
+    )
+    prior = _fleet_prior(params, trajectory, offset=0.5)
+    prior_mean = np.asarray(prior.mean)
+    prior_covariance = np.asarray(prior.covariance)
+
+    # The second direction carries a thousandth of the largest curvature, which
+    # the 1 percent rank test classifies as unresolved.
+    assert evidence.numerical_rank == 1
+
+    conditioned = fitted.condition_parameter_prior(prior)
+    posterior_center = np.asarray(structured_parameter_vector(conditioned.params))
+    posterior_covariance = np.asarray(conditioned.parameter_belief.covariance)
+
+    assert posterior_center[1] == pytest.approx(prior_mean[1])
+    assert posterior_covariance[1, 1] == pytest.approx(prior_covariance[1, 1])
+    np.testing.assert_array_equal(posterior_covariance[1], posterior_covariance[:, 1])
+    # The resolved direction still conditions.
+    assert posterior_covariance[0, 0] < 1e-3
+
+    np.testing.assert_allclose(posterior_covariance, posterior_covariance.T, atol=1e-12)
+    assert np.min(np.linalg.eigvalsh(posterior_covariance)) > 0.0
+    contraction = prior_covariance - posterior_covariance
+    assert np.min(np.linalg.eigvalsh(0.5 * (contraction + contraction.T))) >= -1e-12
+
+    provenance = conditioned.provenance["parameter_prior_conditioning"]
+    assert provenance["local_information_resolved_rank"] == 1
+    assert provenance["local_information_discarded_fraction"] == pytest.approx(
+        1e3 / (1e6 + 1e3)
+    )
+
+
+def test_conditioning_matches_full_geometry_when_every_direction_resolves() -> None:
+    trajectory = generate_trajectory(seed=18, duration_s=0.3)
+    params = true_parameters()
+    evidence = _two_direction_evidence(params, rank_relative_tolerance=1e-6)
+    fitted = DynamicsBelief(
+        params=params,
+        input_spec=trajectory.spec,
+        runtime_spec=_permissive_runtime_spec(trajectory),
+        predictive_error=_nonsingular_error_model(
+            covariance_scope=ErrorCovarianceScope.CONDITIONAL_INNOVATION,
+        ),
+        parameter_evidence=evidence,
+    )
+    prior = _fleet_prior(params, trajectory, offset=0.5)
+    prior_mean = np.asarray(prior.mean)
+    prior_precision = np.linalg.inv(np.asarray(prior.covariance))
+    information = np.asarray(evidence.information_matrix)
+    expected_covariance = np.linalg.inv(prior_precision + information)
+    expected_center = expected_covariance @ (
+        prior_precision @ prior_mean
+        + information @ np.asarray(evidence.center)
+        - np.asarray(evidence.score_vector)
+    )
+
+    assert evidence.numerical_rank == 2
+
+    conditioned = fitted.condition_parameter_prior(prior)
+
+    # Conditioned parameters are stored in the model's float32 leaves.
+    np.testing.assert_allclose(
+        structured_parameter_vector(conditioned.params),
+        expected_center,
+        rtol=1e-6,
+        atol=1e-9,
+    )
+    np.testing.assert_allclose(
+        conditioned.parameter_belief.covariance,
+        expected_covariance,
+        rtol=1e-9,
+        atol=1e-12,
+    )
+    provenance = conditioned.provenance["parameter_prior_conditioning"]
+    assert provenance["local_information_resolved_rank"] == 2
+    assert provenance["local_information_discarded_fraction"] == 0.0
 
 
 def test_grouped_rollout_information_uses_only_fitted_structured_coordinates() -> None:
