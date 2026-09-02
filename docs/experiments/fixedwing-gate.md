@@ -2,6 +2,18 @@
 
 **What this establishes:** the structured residual is selected for continued development over the structured baseline, with an equal-airframe candidate/reference score of 0.791 and every complete rollout finite. It does not yet pass the accuracy contract: IDF p90 position error at 0.5 seconds is 0.2523 m against a 0.2500 m limit, while X8 passes every contract requirement.
 
+> **Recorded before the 2026-09-01 estimator revisions.** The artifacts behind
+> this page were not regenerated because the run is long, so three conventions
+> differ from current code. Rollout error statistics now exclude the shared
+> measured initial sample (`metric_policy` v2); the absolute RMSE values here
+> are therefore lower than a fresh run would report, by at most a factor of
+> sqrt(H / (H + 1)) at horizon H steps, while every model-versus-baseline ratio
+> is unaffected. Minibatched fits, which large corpora trigger at the 0.5 s and
+> 2 s horizons, weighted each training window by the square of its intended
+> weight; the current objective is `deterministic_weighted_minibatch_v3`.
+> Complete-flight rollouts held logged wind at its first sample; fixed-horizon
+> window metrics are unaffected.
+
 ## Purpose
 
 The versioned `fixedwing_prediction_development_v1` contract prevents progress on one airframe from hiding regressions on another. It gives the conventional IDF aircraft and the X8 flying wing equal weight and requires each airframe to meet both equal-flight aggregate and p90 flight errors.

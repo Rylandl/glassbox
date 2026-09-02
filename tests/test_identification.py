@@ -360,3 +360,55 @@ def test_quadrotor_fit_rejects_non_quadrotor_control_schema() -> None:
 
     with pytest.raises(ValueError, match="requires ordered control roles"):
         fit_dynamics(windows, initial_parameter_guess(), steps=1)
+
+
+def test_minibatch_realizes_window_weights_exactly_once() -> None:
+    from dataclasses import replace
+
+    from glassbox.identification import (
+        _window_loss,
+        deterministic_weighted_batch_schedule,
+    )
+
+    trajectories = [generate_trajectory(seed=seed, duration_s=0.4) for seed in range(2)]
+    windows = trajectory_windows(trajectories, horizon=5, stride=5)
+    count = len(windows.initial_states)
+    weights = np.where(np.arange(count) < count // 2, 1.0, 3.0)
+    windows = replace(windows, window_weights=weights)
+    configuration = rollout_loss_configuration([windows])
+    params = initial_parameter_guess()
+
+    per_window = np.asarray(
+        [
+            float(_window_loss(params, windows, configuration, indices=jnp.asarray([index])))
+            for index in range(count)
+        ]
+    )
+    weighted_full = float(_window_loss(params, windows, configuration))
+    assert weighted_full == pytest.approx(
+        float(np.sum(weights * per_window) / np.sum(weights)), rel=1e-5
+    )
+
+    schedule = deterministic_weighted_batch_schedule(
+        weights, window_count=count, steps=300, maximum_batch_size=max(1, count // 3)
+    )
+    for row in schedule[:3]:
+        # The schedule already draws windows in proportion to weight, so each
+        # sampled batch is averaged uniformly rather than weighted again.
+        assert float(
+            _window_loss(params, windows, configuration, indices=jnp.asarray(row))
+        ) == pytest.approx(float(np.mean(per_window[row])), rel=1e-5)
+    realized = float(np.mean(per_window[schedule]))
+    squared_weight_mean = float(
+        np.sum(weights**2 * per_window) / np.sum(weights**2)
+    )
+    assert realized == pytest.approx(weighted_full, rel=0.02)
+    assert abs(realized - weighted_full) < abs(realized - squared_weight_mean)
+
+
+def test_fit_warns_when_rotational_response_starts_at_the_sentinel() -> None:
+    windows = trajectory_windows(
+        [generate_trajectory(seed=3, duration_s=0.4)], horizon=5, stride=5
+    )
+    with pytest.warns(UserWarning, match="memoryless sentinel"):
+        fit_dynamics(windows, true_parameters(), steps=1)

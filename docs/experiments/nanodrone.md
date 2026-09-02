@@ -2,6 +2,18 @@
 
 **What this establishes:** the promoted structured model reaches boundary-safe accuracy on the IDSIA Nano-Quadrotor benchmark's protected Melon test flights that is near-comparable to the published Phys+Res reference (an equal-metric geometric cumulative ratio of `0.9957`), while remaining worse than a naive baseline on angular velocity. This is competitive benchmark performance, not a state-of-the-art claim or evidence of complete-flight open-loop stability.
 
+> **Recorded before the 2026-09-01 estimator revisions.** The artifacts behind
+> this page were not regenerated because the run is long, so three conventions
+> differ from current code. Rollout error statistics now exclude the shared
+> measured initial sample (`metric_policy` v2); the absolute RMSE values here
+> are therefore lower than a fresh run would report, by at most a factor of
+> sqrt(H / (H + 1)) at horizon H steps, while every model-versus-baseline ratio
+> is unaffected. Minibatched fits, which large corpora trigger at the 0.5 s and
+> 2 s horizons, weighted each training window by the square of its intended
+> weight; the current objective is `deterministic_weighted_minibatch_v3`.
+> Complete-flight rollouts held logged wind at its first sample; fixed-horizon
+> window metrics are unaffected.
+
 ## Purpose
 
 The [IDSIA Nano-Quadrotor benchmark](https://github.com/idsia-robotics/nanodrone-sysid-benchmark) tests whether Glassbox's effective dynamics models can identify a small multirotor from real motion-capture and onboard telemetry, then predict held-out flights at rolling horizons up to 0.5 seconds using the benchmark's own 1-to-50-step rolling metric.

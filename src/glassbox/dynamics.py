@@ -29,6 +29,12 @@ MAX_THRUST_COMMAND_OFFSET = 0.3
 
 # Motor order: front-left, front-right, rear-right, rear-left.
 # Each row maps motor commands to a roll, pitch, or yaw differential.
+# A rotational-response time constant at or below this value selects the exact
+# memoryless torque map in ``_angular_response_at``. At the sentinel the loss
+# gradient with respect to that leaf is exactly zero, so a fit can never move
+# it; use ``has_instantaneous_rotational_response`` to detect the mode.
+INSTANTANEOUS_ROTATIONAL_RESPONSE_S = 1e-4
+
 MOTOR_MIXER = jnp.asarray(
     [
         [1.0, -1.0, -1.0, 1.0],
@@ -66,9 +72,9 @@ class DynamicsParams(NamedTuple):
         angular_drag: tuple[float, float, float],
         motor_time_constant: float,
         angular_response_time_constant: tuple[float, float, float] = (
-            1e-4,
-            1e-4,
-            1e-4,
+            INSTANTANEOUS_ROTATIONAL_RESPONSE_S,
+            INSTANTANEOUS_ROTATIONAL_RESPONSE_S,
+            INSTANTANEOUS_ROTATIONAL_RESPONSE_S,
         ),
         angular_control_cross_coupling: tuple[
             tuple[float, float, float],
@@ -456,7 +462,9 @@ def _angular_response_at(
     # A 0.1 ms value is the serialized sentinel for the exact memoryless
     # reference model. This makes the simpler model a true nested ablation
     # rather than an approximation using another fast latent state.
-    instantaneous = response_time_constant <= 1.00001e-4
+    instantaneous = response_time_constant <= (
+        1.00001 * INSTANTANEOUS_ROTATIONAL_RESPONSE_S
+    )
     return jnp.where(instantaneous, instantaneous_target, lagged_response)
 
 
@@ -549,12 +557,33 @@ def with_instantaneous_rotational_response(params: ModelParams) -> ModelParams:
     if isinstance(base, FixedWingDynamicsParams):
         raise TypeError("fixed-wing models do not have multirotor torque response")
     updated = base._replace(
-        log_angular_response_time_constant=jnp.log(jnp.full((3,), 1e-4)),
+        log_angular_response_time_constant=jnp.log(
+            jnp.full((3,), INSTANTANEOUS_ROTATIONAL_RESPONSE_S)
+        ),
         angular_control_cross_coupling_unconstrained=jnp.zeros((3, 3)),
     )
     if isinstance(params, ResidualDynamicsParams):
         return params._replace(base=updated)
     return updated
+
+
+def has_instantaneous_rotational_response(params: ModelParams) -> bool:
+    """Return whether every rotational-response leaf sits at the memoryless sentinel.
+
+    ``DynamicsParams.from_physical`` defaults to this mode and
+    ``with_instantaneous_rotational_response`` selects it explicitly. Fixed-wing
+    models have no such leaf and always return ``False``.
+    """
+
+    base = structured_parameters(params)
+    if isinstance(base, FixedWingDynamicsParams):
+        return False
+    time_constants = np.exp(
+        np.asarray(base.log_angular_response_time_constant, dtype=np.float64)
+    )
+    return bool(
+        np.all(time_constants <= 1.00001 * INSTANTANEOUS_ROTATIONAL_RESPONSE_S)
+    )
 
 
 def with_diagonal_angular_control(params: ModelParams) -> ModelParams:
@@ -1260,6 +1289,9 @@ def rollout_with_latent(
     approximation when a telemetry window begins during a fast command change.
     The returned latent trace remains the canonical applied-control trace; the
     multirotor rotational-response state is carried internally.
+
+    ``exogenous`` may be one vector, held for every step, or one row per control
+    step so that logged wind or other context varies along the rollout.
     """
 
     if controls.ndim != 2:
@@ -1281,8 +1313,12 @@ def rollout_with_latent(
     initial_combined = jnp.concatenate((initial_state, initial_latent_state))
     control_size = controls.shape[-1]
     latent_size = initial_latent_state.shape[-1]
+    per_step_exogenous = _per_step_exogenous(exogenous, controls.shape[0])
 
-    def scan_step(combined: Array, control: Array) -> tuple[Array, Array]:
+    def scan_step(
+        combined: Array, inputs: tuple[Array, Array | None]
+    ) -> tuple[Array, Array]:
+        control, step_exogenous = inputs
         next_state, next_latent_state = step_with_latent(
             params,
             combined[:13],
@@ -1290,13 +1326,15 @@ def rollout_with_latent(
             control,
             dt_s,
             roles,
-            exogenous,
+            step_exogenous,
             exogenous_roles,
         )
         next_combined = jnp.concatenate((next_state, next_latent_state))
         return next_combined, next_combined
 
-    _, combined_states = jax.lax.scan(scan_step, initial_combined, controls)
+    _, combined_states = jax.lax.scan(
+        scan_step, initial_combined, (controls, per_step_exogenous)
+    )
     combined_states = jnp.concatenate(
         (initial_combined[jnp.newaxis, :], combined_states), axis=0
     )
@@ -1347,6 +1385,23 @@ def control_state_after_history(
         scan_step, initial_latent_state, control_history
     )
     return final_latent_state
+
+
+def _per_step_exogenous(exogenous: Array | None, step_count: int) -> Array | None:
+    """Broadcast one exogenous vector, or validate one row per control step."""
+
+    if exogenous is None:
+        return None
+    values = jnp.asarray(exogenous)
+    if values.ndim == 1:
+        return jnp.broadcast_to(values, (step_count, values.shape[0]))
+    if values.ndim == 2:
+        if values.shape[0] != step_count:
+            raise ValueError(
+                "per-step exogenous inputs need exactly one row per control step"
+            )
+        return values
+    raise ValueError("exogenous inputs must be one vector or one row per step")
 
 
 def rollout(

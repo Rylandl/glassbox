@@ -107,7 +107,8 @@ def test_windowed_metrics_cover_multiple_initial_conditions() -> None:
     )
 
     assert metrics["rollout_count"] == 4
-    assert metrics["sample_count"] == 24
+    # Four windows of five predicted steps; the shared initial sample is excluded.
+    assert metrics["sample_count"] == 20
     assert metrics["position_rmse_m"] < 1e-5
     assert len(metrics["position_rmse_xyz_m"]) == 3
     assert len(metrics["attitude_rotation_vector_rmse_xyz_deg"]) == 3
@@ -464,3 +465,22 @@ def test_profile_benchmark_runs_one_fold_per_profile(tmp_path) -> None:
         "motor_rear_left",
     ]
     assert (tmp_path / "benchmark" / "summary.json").exists()
+
+
+def test_rollout_error_excludes_the_measured_initial_sample() -> None:
+    from glassbox.evaluation import ROLLOUT_METRIC_POLICY, _state_error_metrics
+    from glassbox.synthetic import resting_state
+
+    horizon = 5
+    target = np.tile(resting_state(), (3, horizon + 1, 1))
+    predicted = target.copy()
+    predicted[:, 1:, 0:3] += 0.3
+
+    metrics = _state_error_metrics(predicted, target, duration_s=0.1)
+
+    assert metrics["position_rmse_m"] == pytest.approx(0.3)
+    assert metrics["sample_count"] == 3 * horizon
+    assert metrics["rollout_count"] == 3
+    assert metrics["metric_policy"] == ROLLOUT_METRIC_POLICY
+    with pytest.raises(ValueError, match="at least one predicted step"):
+        _state_error_metrics(predicted[:, :1], target[:, :1], duration_s=0.0)

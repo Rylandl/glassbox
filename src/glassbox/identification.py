@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 
@@ -20,6 +21,7 @@ from glassbox.dynamics import (
     ModelParams,
     ResidualDynamicsParams,
     control_state_after_history,
+    has_instantaneous_rotational_response,
     model_family,
     quaternion_to_rotation,
     rollout_with_latent,
@@ -35,7 +37,7 @@ from glassbox.dynamics import (
     zero_thrust_command_offset_gradient,
 )
 
-OPTIMIZATION_POLICY_VERSION = "deterministic_weighted_minibatch_v2"
+OPTIMIZATION_POLICY_VERSION = "deterministic_weighted_minibatch_v3"
 MAX_OPTIMIZATION_WINDOWS_PER_HORIZON = 8_192
 MAX_OPTIMIZATION_TRANSITIONS_PER_HORIZON = 65_536
 
@@ -140,6 +142,19 @@ class FitResult:
     @property
     def final_loss(self) -> float:
         return float(self.loss_history[-1])
+
+
+def _warn_if_rotational_response_frozen(params: ModelParams) -> None:
+    """Warn when a fit starts at the memoryless sentinel it can never leave."""
+
+    if has_instantaneous_rotational_response(params):
+        warnings.warn(
+            "the rotational-response time constants start at the memoryless "
+            "sentinel, where their loss gradient is exactly zero, so this fit "
+            "cannot learn rotational lag; pass instantaneous_rotational_response="
+            "True to declare that mode or start from a positive time constant",
+            stacklevel=3,
+        )
 
 
 def deterministic_weighted_batch_schedule(
@@ -850,8 +865,10 @@ def _window_loss(
         controls = controls[indices]
         target_states = target_states[indices]
         initial_exogenous = initial_exogenous[indices]
-        if window_weights is not None:
-            window_weights = window_weights[indices]
+        # ``deterministic_weighted_batch_schedule`` already draws windows in
+        # proportion to their weights, so the in-batch mean must be uniform.
+        # Weighting the sampled windows again would square every weight.
+        window_weights = None
     return batch_rollout_loss(
         params,
         initial_states,
@@ -902,8 +919,10 @@ def fit_dynamics(
         initial_params = with_thrust_command_offset(initial_params, 0.0)
     if instantaneous_rotational_response:
         initial_params = with_instantaneous_rotational_response(initial_params)
-    elif diagonal_angular_control:
-        initial_params = with_diagonal_angular_control(initial_params)
+    else:
+        if diagonal_angular_control:
+            initial_params = with_diagonal_angular_control(initial_params)
+        _warn_if_rotational_response_frozen(initial_params)
     if loss_configuration is None:
         loss_configuration = rollout_loss_configuration(
             [windows],
@@ -1016,8 +1035,10 @@ def fit_dynamics_multi_horizon(
         initial_params = with_thrust_command_offset(initial_params, 0.0)
     if instantaneous_rotational_response:
         initial_params = with_instantaneous_rotational_response(initial_params)
-    elif diagonal_angular_control:
-        initial_params = with_diagonal_angular_control(initial_params)
+    else:
+        if diagonal_angular_control:
+            initial_params = with_diagonal_angular_control(initial_params)
+        _warn_if_rotational_response_frozen(initial_params)
     if loss_normalization_params is not None:
         loss_normalization_params = _configured_initial_params(
             loss_normalization_params, fixed_motor_time_constant_s

@@ -2,6 +2,18 @@
 
 **What this establishes:** on ARP Laboratory's four-log real-multirotor PX4 dataset, a learned rotational-response candidate improves the fitted reference's equal-horizon, equal-metric score on a protected held-out log by 11.49%, but the result remains `improves_reference_only`: it is 34.08% worse than kinematic persistence overall and still crosses the configured divergence threshold. A separate command-offset candidate shows dataset evidence for a more expressive force law but is not promoted because the protected log is already spent.
 
+> **Recorded before the 2026-09-01 estimator revisions.** The artifacts behind
+> this page were not regenerated because the run is long, so three conventions
+> differ from current code. Rollout error statistics now exclude the shared
+> measured initial sample (`metric_policy` v2); the absolute RMSE values here
+> are therefore lower than a fresh run would report, by at most a factor of
+> sqrt(H / (H + 1)) at horizon H steps, while every model-versus-baseline ratio
+> is unaffected. Minibatched fits, which large corpora trigger at the 0.5 s and
+> 2 s horizons, weighted each training window by the square of its intended
+> weight; the current objective is `deterministic_weighted_minibatch_v3`.
+> Complete-flight rollouts held logged wind at its first sample; fixed-horizon
+> window metrics are unaffected.
+
 ## Purpose
 
 ARP Laboratory's four large-quadrotor ULogs are the first real PX4 multirotor references beyond synthetic and NanoDrone data. Glassbox uses logs 63-65 for all rotational-structure and authority development decisions, then evaluates the selected candidate once on protected log 66.

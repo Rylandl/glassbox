@@ -227,3 +227,104 @@ def test_estimated_wind_only_conditions_linear_residual() -> None:
 
     assert float(jnp.linalg.norm(windy[3:6] - calm[3:6])) > 0.1
     np.testing.assert_allclose(windy[10:13], calm[10:13], atol=1e-7)
+
+
+def test_rollout_applies_per_step_exogenous_inputs() -> None:
+    from glassbox.dynamics import WIND_EXOGENOUS_ROLES, rollout_with_latent
+    from glassbox.fixedwing_synthetic import (
+        generate_fixed_wing_trajectory,
+        true_fixed_wing_parameters,
+    )
+
+    trajectory = generate_fixed_wing_trajectory(seed=1, duration_s=0.3)
+    params = true_fixed_wing_parameters()
+    controls = jnp.asarray(trajectory.controls)
+    steps = controls.shape[0]
+    wind = 2.0 * np.sin(np.linspace(0.0, 3.0, 2 * steps)).reshape(steps, 2)
+    dt_s = trajectory.nominal_dt_s
+    roles = trajectory.spec.control_roles
+
+    per_step_states, _ = rollout_with_latent(
+        params,
+        jnp.asarray(trajectory.states[0]),
+        controls,
+        dt_s,
+        None,
+        roles,
+        jnp.asarray(wind),
+        WIND_EXOGENOUS_ROLES,
+    )
+
+    # Chain single-step rollouts, each holding that step's wind vector.
+    state = jnp.asarray(trajectory.states[0])
+    latent = None
+    for index in range(steps):
+        states, applied = rollout_with_latent(
+            params,
+            state,
+            controls[index : index + 1],
+            dt_s,
+            latent,
+            roles,
+            jnp.asarray(wind[index]),
+            WIND_EXOGENOUS_ROLES,
+        )
+        state, latent = states[-1], applied[-1]
+    np.testing.assert_allclose(per_step_states[-1], state, rtol=1e-5, atol=1e-6)
+
+    held_states, _ = rollout_with_latent(
+        params,
+        jnp.asarray(trajectory.states[0]),
+        controls,
+        dt_s,
+        None,
+        roles,
+        jnp.asarray(wind[0]),
+        WIND_EXOGENOUS_ROLES,
+    )
+    broadcast_states, _ = rollout_with_latent(
+        params,
+        jnp.asarray(trajectory.states[0]),
+        controls,
+        dt_s,
+        None,
+        roles,
+        jnp.asarray(np.tile(wind[0], (steps, 1))),
+        WIND_EXOGENOUS_ROLES,
+    )
+    np.testing.assert_allclose(held_states, broadcast_states, rtol=1e-6, atol=1e-7)
+    assert not np.allclose(per_step_states[-1], held_states[-1], atol=1e-4)
+
+    with pytest.raises(ValueError, match="one row per control step"):
+        rollout_with_latent(
+            params,
+            jnp.asarray(trajectory.states[0]),
+            controls,
+            dt_s,
+            None,
+            roles,
+            jnp.asarray(wind[:-1]),
+            WIND_EXOGENOUS_ROLES,
+        )
+
+
+def test_memoryless_sentinel_is_detected_and_excluded_from_the_fitted_mask() -> None:
+    from glassbox.belief import structured_parameter_names
+    from glassbox.dynamics import has_instantaneous_rotational_response
+    from glassbox.parameter_evidence import fitted_structured_parameter_mask
+    from glassbox.synthetic import initial_parameter_guess
+
+    assert has_instantaneous_rotational_response(true_parameters())
+    assert not has_instantaneous_rotational_response(initial_parameter_guess())
+
+    names = structured_parameter_names(true_parameters())
+    response_leaves = [
+        index
+        for index, name in enumerate(names)
+        if name.startswith("log_angular_response_time_constant[")
+    ]
+    assert len(response_leaves) == 3
+    sentinel_mask = fitted_structured_parameter_mask(true_parameters())
+    assert not sentinel_mask[response_leaves].any()
+    lagged_mask = fitted_structured_parameter_mask(initial_parameter_guess())
+    assert lagged_mask[response_leaves].all()

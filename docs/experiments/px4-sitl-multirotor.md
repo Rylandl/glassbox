@@ -2,6 +2,18 @@
 
 **What this establishes:** the typed trajectory contract and window-budget training policy scale from a handful of homogeneous SITL logs to a balanced 24-flight, four-maneuver-family corpus. On that expanded corpus, the structured model's leave-one-maneuver-family-out benchmark meets its ground-truth position development target only through 2 seconds and its attitude target only at 0.1 seconds, indicating the model is the limiting factor rather than the amount of repeated data.
 
+> **Recorded before the 2026-09-01 estimator revisions.** The artifacts behind
+> this page were not regenerated because the run is long, so three conventions
+> differ from current code. Rollout error statistics now exclude the shared
+> measured initial sample (`metric_policy` v2); the absolute RMSE values here
+> are therefore lower than a fresh run would report, by at most a factor of
+> sqrt(H / (H + 1)) at horizon H steps, while every model-versus-baseline ratio
+> is unaffected. Minibatched fits, which large corpora trigger at the 0.5 s and
+> 2 s horizons, weighted each training window by the square of its intended
+> weight; the current objective is `deterministic_weighted_minibatch_v3`.
+> Complete-flight rollouts held logged wind at its first sample; fixed-horizon
+> window metrics are unaffected.
+
 ## Purpose
 
 This benchmark scales structured and structured-residual fitting across many PX4 SITL logs and maneuver families to verify that the semantic trajectory contract, dataset pooling rules, and window/weighting policy generalize beyond a single flight, then measures leave-one-maneuver-family-out generalization to motion types absent from training.

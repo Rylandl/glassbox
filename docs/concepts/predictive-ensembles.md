@@ -38,7 +38,12 @@ For each outer fold, Glassbox:
 7. Gives each fitting profile equal total empirical-loss mass, then distributes
    that mass according to bootstrap multiplicity among the profile's source
    groups. Unequal numbers of groups per profile cannot silently change the base
-   estimator.
+   estimator. When the automatic window budget forces minibatching, the
+   deterministic schedule draws windows in proportion to their weights and each
+   batch is averaged uniformly (`deterministic_weighted_minibatch_v3`). Runs
+   recorded under `deterministic_weighted_minibatch_v2`, including the results
+   linked below, applied the weights a second time inside each batch, so their
+   effective multiplicities were squared.
 8. Fits every member with the existing deterministic model, initialization,
    bounds, multi-horizon loss, and automatic window budget.
 9. Fits disagreement-radius scales only on the calibration partition, then

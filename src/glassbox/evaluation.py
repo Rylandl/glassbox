@@ -21,6 +21,12 @@ from glassbox.dynamics import (
     validate_control_schema,
 )
 
+# Rollout error statistics exclude the measured initial sample shared by
+# prediction and target. Reports carry this identifier so recorded results
+# produced under the earlier convention, which averaged over it, are
+# distinguishable.
+ROLLOUT_METRIC_POLICY = "rollout_error_excludes_measured_initial_sample_v2"
+
 DIVERGENCE_ERROR_THRESHOLDS = {
     "position_error_m": 10.0,
     "velocity_error_m_s": 5.0,
@@ -163,7 +169,13 @@ def rollout_predictions(
     *,
     control_history: np.ndarray | None = None,
 ) -> np.ndarray:
-    """Return one complete logged-input prediction from the measured start."""
+    """Return one complete logged-input prediction from the measured start.
+
+    Logged exogenous context such as wind is applied per step, so a complete
+    rollout sees the same time-varying context as the streaming evaluator.
+    Fixed-horizon windows instead hold the context recorded at each window's
+    start, matching how the fitter builds its training windows.
+    """
 
     validate_control_schema(
         params,
@@ -189,7 +201,7 @@ def rollout_predictions(
             trajectory.nominal_dt_s,
             initial_motor_state,
             trajectory.spec.control_roles,
-            jnp.asarray(trajectory.exogenous[0]),
+            jnp.asarray(trajectory.exogenous[:-1]),
             trajectory.spec.exogenous_roles,
         )[0],
         dtype=np.float64,
@@ -928,7 +940,22 @@ def _state_error_metrics(
     *,
     duration_s: float,
 ) -> dict[str, Any]:
-    """Calculate metrics for one rollout or a batch of rollout windows."""
+    """Calculate metrics for one rollout or a batch of rollout windows.
+
+    Both arrays carry the measured initial state at time index zero. That
+    sample is shared by prediction and target, so it is excluded from every
+    error statistic; ``sample_count`` counts predicted steps only.
+    """
+
+    if predicted.shape != target.shape:
+        raise ValueError("predicted and target state arrays must match")
+    if predicted.shape[-2] < 2:
+        raise ValueError(
+            "rollout metrics need the measured initial state followed by at "
+            "least one predicted step"
+        )
+    predicted = predicted[..., 1:, :]
+    target = target[..., 1:, :]
 
     position_error = predicted[..., 0:3] - target[..., 0:3]
     velocity_error = predicted[..., 3:6] - target[..., 3:6]
@@ -1012,6 +1039,7 @@ def _state_error_metrics(
         "duration_s": duration_s,
         "sample_count": sample_count,
         "rollout_count": rollout_count,
+        "metric_policy": ROLLOUT_METRIC_POLICY,
     }
 
 
@@ -1274,6 +1302,7 @@ def aggregate_rollout_metrics(
             "sample_count": sample_count,
             "rollout_count": rollout_count,
             "weighting": weighting,
+            "metric_policy": ROLLOUT_METRIC_POLICY,
         }
     )
     return result

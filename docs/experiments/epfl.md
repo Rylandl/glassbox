@@ -2,6 +2,18 @@
 
 **What this establishes:** a reproducible same-flight characterization of the structured and structured-residual models on a second conventional fixed-wing configuration. The evaluator records that training and validation share a source flight and refuses to mark either model as promotable, so this is characterization evidence, not a promotion benchmark.
 
+> **Recorded before the 2026-09-01 estimator revisions.** The artifacts behind
+> this page were not regenerated because the run is long, so three conventions
+> differ from current code. Rollout error statistics now exclude the shared
+> measured initial sample (`metric_policy` v2); the absolute RMSE values here
+> are therefore lower than a fresh run would report, by at most a factor of
+> sqrt(H / (H + 1)) at horizon H steps, while every model-versus-baseline ratio
+> is unaffected. Minibatched fits, which large corpora trigger at the 0.5 s and
+> 2 s horizons, weighted each training window by the square of its intended
+> weight; the current objective is `deterministic_weighted_minibatch_v3`.
+> Complete-flight rollouts held logged wind at its first sample; fixed-horizon
+> window metrics are unaffected.
+
 ## Purpose
 
 EPFL's pinned [TOPOPlane2 navigation flight](https://zenodo.org/records/10337559) adds a second conventional configuration and a third fixed-wing dataset family, used to characterize model behavior on a genuinely different aircraft and sensor suite rather than to promote a default.

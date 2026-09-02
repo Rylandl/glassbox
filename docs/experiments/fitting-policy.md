@@ -2,6 +2,18 @@
 
 **What this establishes:** the maintained `maintained_v1` five-candidate sweep provisionally selected the structured model at 0.1/0.5/1.0-second horizons with endpoint weight 3 and stability regularization 0.01, a 2.54% equal-platform improvement over the explicit reference. It failed one-shot promotion against the protected NanoDrone Melon split (an 8.85% worse equal-group geometric score), so the reference configuration remains the promotion baseline.
 
+> **Recorded before the 2026-09-01 estimator revisions.** The artifacts behind
+> this page were not regenerated because the run is long, so three conventions
+> differ from current code. Rollout error statistics now exclude the shared
+> measured initial sample (`metric_policy` v2); the absolute RMSE values here
+> are therefore lower than a fresh run would report, by at most a factor of
+> sqrt(H / (H + 1)) at horizon H steps, while every model-versus-baseline ratio
+> is unaffected. Minibatched fits, which large corpora trigger at the 0.5 s and
+> 2 s horizons, weighted each training window by the square of its intended
+> weight; the current objective is `deterministic_weighted_minibatch_v3`.
+> Complete-flight rollouts held logged wind at its first sample; fixed-horizon
+> window metrics are unaffected.
+
 ## Purpose
 
 Use one leave-profile-out matrix to choose model class, training horizons, and long-rollout loss settings without tuning on the NanoDrone benchmark test set.
