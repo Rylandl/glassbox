@@ -1,9 +1,10 @@
 # Dual-control NMPC for an unseen multirotor
 
-**Status: design under exploration. The second pass recovered three of seven
-study cases; the third pass showed those outcomes are a coin flip on single
-releases and that the decisive quantity is the collective commanded before any
-model exists, not identification latency.** This
+**Status: design under exploration, measured on a 16-release ensemble per
+case. Pooled recovery: frozen-snapshot cascade 0.55, working-belief cascade
+0.22, dual-control pass 2b 0.06, pass 4 0.02. Within every arm the recovered
+releases reach command rank four earlier; the fourth pass's midpoint base
+action slowed that and lowered recovery.** This
 describes an experimental controller being built in `glassbox.experimental`. Nothing here is part of the stable API,
 and the throw diagnostic's default controller is unchanged until the study on
 this page reports.
@@ -653,3 +654,276 @@ zero-information default that is a statement about the command box rather than
 about the vehicle — the midpoint, which the cascade already uses and the
 optimizer does not — would be the smallest honest change to test, and it is a
 change to where the plan starts rather than to what the objective says.
+
+## Fourth pass (2026-09-02)
+
+The third pass ended with two things to do and this pass does both. The first
+is the base action: the controller had no statement about where in the command
+box to act while it knew nothing, so it inherited one from the release, and the
+throw releases with the motors off. The second is the protocol: seven
+deterministic releases cannot tell two designs apart when one clipped
+coefficient at interval three flips a case.
+
+Two declared changes, both config switches, both off in every earlier arm, so
+`pass2b` is re-run unchanged beside them. On all seven cases the certified and
+working records in `report-pass4.json` are byte-identical to `report-pass3.json`,
+case block and difference block included, and every `pass2b` number is unchanged
+— its record gains three keys and changes none.
+
+The result is that the ensemble works and the base action does not. Both are
+below; the second is the more useful of the two.
+
+### The rate cost is a slew cost on the controller's own actions
+
+The command-rate term charges `w_rate |u_k - u_{k-1}|^2` over the horizon, and
+its first move is measured from the command the vehicle is carrying when the
+solve runs. That is right for every move between two of the controller's own
+consecutive actions: it is a statement about how fast this controller is
+willing to move. It is not right for the handover. At the first interval after
+enable the previous command is the diagnostic's zero, chosen by fiat because
+the throw releases with the motors off, and charging the plan for leaving it is
+a prior toward zero thrust that nothing in the objective declares.
+
+So the transition out of a command this controller did not issue is not
+charged, and every later one is charged exactly as before. The term keeps its
+weight and its form; only the set of moves it is summed over changes.
+`previous_command_owned` is an argument to `solve`, false exactly once per
+flight in this diagnostic, and the study records the count so the claim is
+checkable: one uncharged transition per flight on every case.
+
+### The base action at zero information
+
+A multi-start design is a spread of commands around a center. Centering it on
+the previous command means that at zero information the only thing the
+controller says about where in the box to act is whatever it was handed, and at
+a motors-off release that is the lower bound. The declared alternative comes
+from the command contract and from nothing else: commands are normalized thrust
+fractions on `[0, 1]` and hover is somewhere inside, so with no information
+about where, the midpoint is the maximum-entropy choice and the unique point
+minimizing the worst-case distance to hover over the box. It is the same class
+of statement as the bounds, it is the same number for every vehicle, and it is
+not fitted, measured, or tuned. That this particular vehicle then turns out to
+hover at 0.532, six percent from that midpoint, is a fact about the vehicle
+that the controller neither knows nor uses — it is the same free lunch the
+cascade collects by the same route, which is what the third pass measured.
+
+The declaration is not permanent. The moment the posterior can answer the
+question the center becomes the posterior's own hover command, on the
+identifier's existing support rule and nothing new: command evidence spanning
+all four motors, angular effect spanning all three body axes, and a collective
+effect implying a hover command inside the box. That is the rule the
+certification transaction requires of a candidate and the rule working mode
+hands control over on. The center in use is recorded per interval, so the
+handover is visible: 0.43, 0.47, 0.54, 0.89, 1.07, 6.20 and 6.55 s after enable
+across the seven cases.
+
+It does what it was designed to do at the action level. On the canonical
+release `pass2b`'s first four commands average 0.000, 0.026, 0.166 and 0.191 of
+the command range — the first is exactly the command it was released with —
+and `pass4`'s average 0.681, 0.614, 0.552 and 0.180. Over the ensemble the
+first-0.3 s mean collective rises from 0.314 to 0.410, against 0.717 for both
+cascade arms.
+
+### The ensemble protocol
+
+Each of the seven study cases is drawn sixteen times. Each world velocity
+component is scaled by an independent `U[0.8, 1.2]`, each body rate component
+likewise, and the release attitude is rotated by `U[0, 0.1]` radians about a
+uniformly random horizontal body axis. The release height, the hidden airframe,
+the loop rate and every controller setting are unchanged, so the altitude
+budget the arms are spending stays comparable across draws. Each draw is seeded
+from the triple `(ensemble seed, case index, replicate index)`, so a single row
+reproduces on its own and adding a case or a replicate never moves the others,
+and every arm flies exactly the same draws, so every comparison is paired.
+
+Reported per case and arm: the recovery rate with a Wilson 95 percent score
+interval, the median and worst terminal speed, rate and tilt, minimum altitude,
+time to command rank four, the first-0.3 s mean collective, and the settled
+chatter metrics; plus one pooled rate per arm over all 112 releases. Recovery
+is the page's own criterion — the hover envelope reached and the floor never
+touched — because the envelope alone is satisfied by a vehicle resting on the
+ground. The interval is Wilson rather than normal because at sixteen releases
+the normal interval for zero recoveries has exactly zero width.
+
+Four arms, 448 trials, 23 minutes on four processes. The report is
+`artifacts/crazyflow_throw_study/report-pass4-ensemble.json`.
+
+### Result
+
+| case | arm | recovered | rate | Wilson 95 | early collective | rank four s med/worst | settled step med/worst |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| canonical | certified | 7/16 | 0.44 | 0.23-0.67 | 0.786 | 0.29/0.95 | 0.0010/0.1000 |
+| canonical | working | 2/16 | 0.12 | 0.03-0.36 | 0.786 | 0.29/0.95 | 0.0802/0.1000 |
+| canonical | pass2b | 1/16 | 0.06 | 0.01-0.28 | 0.369 | 0.28/0.41 | 0.1697/0.3375 |
+| canonical | pass4 | 0/16 | 0.00 | 0.00-0.19 | 0.386 | 0.55/1.38 | 0.2161/0.9869 |
+| shorter_arms_high_release | certified | 11/16 | 0.69 | 0.44-0.86 | 0.754 | 0.23/0.76 | 0.0010/0.1000 |
+| shorter_arms_high_release | working | 5/16 | 0.31 | 0.14-0.56 | 0.754 | 0.23/0.76 | 0.0742/0.1000 |
+| shorter_arms_high_release | pass2b | 1/16 | 0.06 | 0.01-0.28 | 0.328 | 0.34/0.57 | 0.2082/0.4193 |
+| shorter_arms_high_release | pass4 | 0/16 | 0.00 | 0.00-0.19 | 0.272 | 0.79/5.24 | 0.1916/0.8728 |
+| long_arms_cross_axis_tumble | certified | 9/16 | 0.56 | 0.33-0.77 | 0.726 | 0.23/0.39 | 0.0010/0.1000 |
+| long_arms_cross_axis_tumble | working | 2/16 | 0.12 | 0.03-0.36 | 0.726 | 0.23/0.39 | 0.0757/0.1000 |
+| long_arms_cross_axis_tumble | pass2b | 2/16 | 0.12 | 0.03-0.36 | 0.421 | 0.29/0.45 | 0.0808/0.4421 |
+| long_arms_cross_axis_tumble | pass4 | 2/16 | 0.12 | 0.03-0.36 | 0.531 | 0.51/1.24 | 0.2283/0.4142 |
+| milder_low_energy_release | certified | 16/16 | 1.00 | 0.81-1.00 | 0.732 | 0.23/0.31 | 0.0010/0.0010 |
+| milder_low_energy_release | working | 9/16 | 0.56 | 0.33-0.77 | 0.732 | 0.23/0.31 | 0.0400/0.0860 |
+| milder_low_energy_release | pass2b | 2/16 | 0.12 | 0.03-0.36 | 0.381 | 0.28/0.63 | 0.0549/0.5474 |
+| milder_low_energy_release | pass4 | 0/16 | 0.00 | 0.00-0.19 | 0.419 | 0.49/0.98 | 0.2171/0.5275 |
+| reversed_tumble | certified | 6/16 | 0.38 | 0.18-0.61 | 0.732 | 0.25/0.38 | 0.0010/0.1000 |
+| reversed_tumble | working | 2/16 | 0.12 | 0.03-0.36 | 0.732 | 0.25/0.38 | 0.0733/0.1000 |
+| reversed_tumble | pass2b | 0/16 | 0.00 | 0.00-0.19 | 0.278 | 0.34/1.33 | 0.1921/0.4512 |
+| reversed_tumble | pass4 | 0/16 | 0.00 | 0.00-0.19 | 0.410 | 0.58/1.36 | 0.2296/0.5776 |
+| canonical_state_noise | certified | 2/16 | 0.12 | 0.03-0.36 | 0.511 | 0.23/0.23 | 0.0198/0.1000 |
+| canonical_state_noise | working | 1/16 | 0.06 | 0.01-0.28 | 0.511 | 0.23/0.23 | 0.0652/0.1000 |
+| canonical_state_noise | pass2b | 0/16 | 0.00 | 0.00-0.19 | 0.069 | 0.58/4.65 | 0.2598/0.4710 |
+| canonical_state_noise | pass4 | 0/16 | 0.00 | 0.00-0.19 | 0.450 | 0.36/0.58 | 0.3163/0.8185 |
+| canonical_mid_flight_arm_change | certified | 10/16 | 0.62 | 0.39-0.82 | 0.779 | 0.23/0.74 | 0.0010/0.1000 |
+| canonical_mid_flight_arm_change | working | 4/16 | 0.25 | 0.10-0.49 | 0.779 | 0.23/0.74 | 0.0757/0.1000 |
+| canonical_mid_flight_arm_change | pass2b | 1/16 | 0.06 | 0.01-0.28 | 0.356 | 0.32/0.51 | 0.1609/0.2819 |
+| canonical_mid_flight_arm_change | pass4 | 0/16 | 0.00 | 0.00-0.19 | 0.406 | 0.42/1.07 | 0.1991/0.6551 |
+| **pooled** | **certified** | **61/112** | **0.545** | **0.452-0.634** | **0.717** | 0.23/0.95 | 0.0010/0.1000 |
+| **pooled** | **working** | **25/112** | **0.223** | **0.156-0.309** | **0.717** | 0.23/0.95 | 0.0723/0.1000 |
+| **pooled** | **pass2b** | **7/112** | **0.062** | **0.031-0.123** | **0.314** | 0.32/4.65 | 0.1802/0.5474 |
+| **pooled** | **pass4** | **2/112** | **0.018** | **0.005-0.063** | **0.410** | 0.48/5.24 | 0.2258/0.9869 |
+
+Median and worst terminal speed, rate, tilt and minimum altitude are in the
+report; the pooled medians are 0.011, 0.012, 0.0009 and 1.200 for the certified
+cascade, 0.010, 0.115, 0.0202 and -0.001 for `pass2b`, and 0.002, 0.466, 0.0804
+and -0.001 for `pass4`. `pass2b` touches the floor on 99 of 112 releases and
+`pass4` on 107, so their settled chatter numbers describe a controller working
+against the ground, not a hover.
+
+Because every arm flies the same releases, the comparisons are paired, and the
+exact sign test on the discordant releases is the honest reading:
+
+| comparison | discordant | exact two-sided p |
+| --- | --- | --- |
+| certified vs working | 40 / 4 | 1.7e-08 |
+| certified vs pass2b | 54 / 0 | 1.1e-16 |
+| certified vs pass4 | 59 / 0 | 3.5e-18 |
+| working vs pass2b | 23 / 5 | 9.1e-04 |
+| working vs pass4 | 25 / 2 | 5.7e-06 |
+| pass2b vs pass4 | 6 / 1 | 0.125 |
+
+The protocol does what it was built for. It separates the cascade from the dual
+controller at a resolution nothing in the first three passes could reach, and
+it separates the certified cascade from the working one. It does not separate
+`pass4` from `pass2b`: their intervals overlap, the sign test does not reject,
+and the point estimate moves the wrong way.
+
+It also puts a number on how much the earlier reports were worth. Deterministic
+against pooled: certified 6/7 against 0.545, working 4/7 against 0.223, `pass2b`
+3/7 against 0.062, `pass4` 0/7 against 0.018. Perturbing the release makes every
+arm worse, and it costs the dual arms far more than the cascade — `pass2b` keeps
+a seventh of its deterministic rate and the certified cascade keeps two thirds.
+"Recovers three of seven" was worth even less than the third pass said.
+
+### The base action fails, and it takes the third pass's reading with it
+
+`pass4` raised the pooled first-0.3 s mean collective from 0.314 to 0.410 and
+its recovery rate fell from 0.062 to 0.018. That is the intervention the third
+pass's closing paragraph asked for, run on 112 releases per arm, and it says
+the commanded collective before a model exists is not the causal quantity at
+this margin.
+
+The ensemble says why the third pass thought otherwise. The correlation between
+the first-0.3 s mean collective and recovery over all 448 trials is 0.381, which
+looks like a mechanism. Within an arm it is 0.241 for the certified cascade,
+0.083 for the working one, 0.119 for `pass2b` and 0.050 for `pass4`. Almost all
+of the pooled association is *between* arms: the arms that recover also happen
+to command more collective, and with three arm-cases the third pass could not
+tell those apart. Its own caveat — an early collective near hover is necessary,
+not sufficient — was closer to right than the reading built on top of it.
+
+What does separate recovered from lost releases, inside every arm, is how
+quickly the command evidence reaches rank four. Recovered against lost, median
+seconds after enable: 0.245 against 0.351 for the certified cascade, 0.239
+against 0.309 for the working one, 0.314 against 0.410 for `pass2b`, and 0.375
+against 0.658 for `pass4`. It is the same sign in all four arms, and it is the
+quantity the third pass discarded. This is correlational and the obvious
+confound is real — a benign trajectory both identifies faster and recovers —
+but it is now the reading with within-arm support, and the collective is the
+reading without it.
+
+The mechanism by which the base action hurts is visible in the same direction.
+`pass4` reaches rank four later than `pass2b` on the pooled median, 0.48 s
+against 0.32 s, and its early plan carries markedly less differential: over the
+first 0.3 s the mean deviation of a command from its own four-motor mean is
+0.039 of the command range against `pass2b`'s 0.113, on the seven deterministic
+releases. It buys collective and spends differential. The consequence is a
+vehicle that is pushed hard along a body axis it has no authority over: pooled
+median terminal rate 0.466 rad/s against 0.115, and the hover envelope reached
+on 10 of 112 releases against 37.
+
+### Tuning record
+
+No weight, tolerance, amplitude, horizon or solver setting moved in this pass.
+The two switches are the whole change, and neither carries a number.
+
+One choice inside the second switch was made after looking at a flight, and it
+is recorded as such. The handover from the declared midpoint to the posterior's
+hover estimate was first written on the identifier's collective authority being
+positive. On the canonical release that fires at interval five, 0.06 s after
+enable, on a posterior fitted from five samples — the design center left a
+declaration that is true by construction for an estimate that is not yet true
+at all. It was replaced with the identifier's own support rule on that ground:
+the observation that decided it is when the handover fires, not what the flight
+did afterwards. For the record the discarded version scored better on the one
+release that was visible when the change was made — canonical early collective
+0.715 against 0.328 — and still put the vehicle on the floor, and no ensemble
+was run on it.
+
+| knob | tried | kept | effect |
+| --- | --- | --- | --- |
+| base-action handover rule | `collective_authority > 0`, identifier support rule | support rule | handover 0.06 s against 6.20 s after enable on the canonical release; floor contact either way |
+
+### Criteria
+
+1. Every command finite and within bounds on every case: met, on all four arms,
+   on all 448 ensemble trials and all 28 deterministic ones. The ensemble does
+   not record solve status per trial; on the deterministic runs, which do,
+   neither dual arm returned an unusable solve on any case.
+2. The hover envelope reached on at least the cases the cascade reaches: not
+   met, and now not met by a margin that is measured rather than drawn. Pooled
+   over 112 releases the certified cascade recovers 0.545 [0.452, 0.634] and
+   `pass4` 0.018 [0.005, 0.063], with 59 discordant releases and none of them
+   won by `pass4`.
+3. Command information rank four within 0.3 s of control starting: not met.
+   `pass4`'s pooled median is 0.48 s against `pass2b`'s 0.32 s and the cascade's
+   0.23 s; on the deterministic releases `pass4` is slower than `pass2b` on all
+   seven.
+4. Chatter no worse than the frozen snapshot: not met. Pooled median settled
+   command step 0.2258 against the snapshot's 0.0010 — measured on flights that
+   are on the floor, so the number describes a controller working against the
+   ground.
+5. Under state noise and after the mid-flight change, tracking no worse than the
+   cascade: not met on either. Under state noise `pass4` recovers 0 of 16 against
+   the cascade's 2; after the arm change 0 of 16 against 10.
+6. No vehicle-specific number anywhere in the controller: met. The two new
+   switches are a boolean and a point in the command box that is the same point
+   for every vehicle.
+
+### What this leaves
+
+The base action is answered and the answer is no. Commanding near the box
+midpoint from the first interval is defensible, costs nothing to declare, and
+does not recover this vehicle; the third pass's reading that it was the decisive
+quantity does not survive an ensemble.
+
+The ensemble itself is the durable part of this pass, and it changes what the
+next question can be. Three things follow from it.
+
+The gap is not marginal and is not a tuning distance. `pass2b` recovers 6 percent
+of releases where the certified cascade recovers 55 percent, and loses all 54
+releases they disagree on. No weight moves a controller across that.
+
+The two cascade arms differ from each other by the same protocol — 0.545 against
+0.223, p = 1.7e-08 — so the ensemble has the resolution to detect a design change
+that matters. A change that does not move it is not being hidden by noise.
+
+And the quantity that separates recovered from lost inside every arm is the time
+to command rank four, which is where the second pass started and where the third
+pass concluded, on three arm-cases, that the answer was not. That conclusion was
+drawn from between-arm comparisons at a resolution that could not support it. It
+should be re-opened, and now it can be asked properly: the ensemble is a paired
+112-release experiment, and any identifier or excitation change can be run
+through it and read against these intervals.

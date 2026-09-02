@@ -65,14 +65,17 @@ DUAL_CONTROL_MODEL = "dual_control_nmpc"
 DUAL_CONTROL_PASS2A_MODEL = "dual_control_nmpc_pass2a"
 DUAL_CONTROL_PASS2B_MODEL = "dual_control_nmpc_pass2b"
 DUAL_CONTROL_PASS3_MODEL = "dual_control_nmpc_pass3"
+DUAL_CONTROL_PASS4_MODEL = "dual_control_nmpc_pass4"
 #: Which objective each arm plans with.  Pass three plans with the pass-2b
 #: objective unchanged: its two changes are in the identifier, not in the
-#: optimization, so re-running the objective would confound them.
+#: optimization, so re-running the objective would confound them.  Pass four
+#: changes only where the plan starts and what the rate cost charges for.
 DUAL_CONTROL_MODEL_VARIANTS = {
     DUAL_CONTROL_MODEL: "pass1",
     DUAL_CONTROL_PASS2A_MODEL: "pass2a",
     DUAL_CONTROL_PASS2B_MODEL: "pass2b",
     DUAL_CONTROL_PASS3_MODEL: "pass2b",
+    DUAL_CONTROL_PASS4_MODEL: "pass4",
 }
 #: Identifier switches each arm turns on.  Both are opt-in, so every other arm
 #: in this study, the two cascade modes included, runs the identifier it always
@@ -93,6 +96,16 @@ DEFAULT_CONTROL_MODELS = (
     DUAL_CONTROL_PASS2A_MODEL,
     DUAL_CONTROL_PASS2B_MODEL,
     DUAL_CONTROL_PASS3_MODEL,
+    DUAL_CONTROL_PASS4_MODEL,
+)
+#: The arms the ensemble protocol compares.  Two cascade references, the design
+#: the third pass left standing, and the fourth pass's base action.  The
+#: superseded passes are excluded: an ensemble is expensive and re-measuring a
+#: configuration whose failure is already explained buys nothing.
+ENSEMBLE_CONTROL_MODELS = (
+    *CONTROL_MODELS,
+    DUAL_CONTROL_PASS2B_MODEL,
+    DUAL_CONTROL_PASS4_MODEL,
 )
 DEFAULT_OUTPUT_PATH = Path("artifacts/crazyflow_throw_study/report.json")
 #: Commands kept verbatim from model enable, for the early-action analysis.
@@ -169,6 +182,61 @@ class ThrowStudyConfigurationChange:
 
 
 @dataclass(frozen=True)
+class ThrowReleasePerturbation:
+    """One draw from the declared distribution of releases around a scenario.
+
+    The release state is the only thing perturbed: the hidden airframe, the
+    release height, the loop rate, and every controller setting are exactly the
+    scenario's.  Scales multiply the released world velocity and body rate
+    componentwise; the rotation vector is applied in the body frame on top of
+    the scenario's own roll and pitch, so a draw is a rotated, rescaled version
+    of the same throw rather than a different throw.
+    """
+
+    velocity_scale: tuple[float, float, float] = (1.0, 1.0, 1.0)
+    angular_velocity_scale: tuple[float, float, float] = (1.0, 1.0, 1.0)
+    tilt_rotation_rad: tuple[float, float, float] = (0.0, 0.0, 0.0)
+    #: The seed this draw came from — the ensemble seed, the case index, and the
+    #: replicate index — carried so a single row of an ensemble reproduces on
+    #: its own without re-deriving the whole draw order.
+    seed: tuple[int, ...] = ()
+
+    def __post_init__(self) -> None:
+        values = np.asarray(
+            (
+                *self.velocity_scale,
+                *self.angular_velocity_scale,
+                *self.tilt_rotation_rad,
+            ),
+            dtype=np.float64,
+        )
+        if values.shape != (9,) or not np.all(np.isfinite(values)):
+            raise ValueError("release perturbation values must be finite")
+        if np.any(values[:6] <= 0.0):
+            raise ValueError("release perturbation scales must be positive")
+
+    def apply(self, state: np.ndarray) -> np.ndarray:
+        """Return the perturbed release state; the altitude is left alone."""
+
+        perturbed = np.asarray(state, dtype=np.float64).copy()
+        perturbed[3:6] *= np.asarray(self.velocity_scale)
+        perturbed[10:13] *= np.asarray(self.angular_velocity_scale)
+        perturbed[6:10] = _perturbed_quaternion(
+            perturbed[6:10] / np.linalg.norm(perturbed[6:10]),
+            np.asarray(self.tilt_rotation_rad),
+        )
+        return perturbed
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "velocity_scale": list(self.velocity_scale),
+            "angular_velocity_scale": list(self.angular_velocity_scale),
+            "tilt_rotation_rad": list(self.tilt_rotation_rad),
+            "seed": list(self.seed),
+        }
+
+
+@dataclass(frozen=True)
 class ThrowStudyCase:
     """One release, plus whatever the study perturbs on top of it."""
 
@@ -176,13 +244,16 @@ class ThrowStudyCase:
     scenario: CrazyflowThrowScenario
     state_noise: ThrowStudyStateNoise | None = None
     configuration_change: ThrowStudyConfigurationChange | None = None
+    release_perturbation: ThrowReleasePerturbation | None = None
 
     def __post_init__(self) -> None:
         if not self.name:
             raise ValueError("study case name cannot be empty")
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        # The perturbation key appears only on a drawn case, so a deterministic
+        # study's case block is exactly what it always was.
+        entry = {
             "name": self.name,
             "scenario_name": self.scenario.name,
             "hidden_arm_length_ratio": self.scenario.arm_length_ratio,
@@ -202,6 +273,9 @@ class ThrowStudyCase:
                 else self.configuration_change.to_dict()
             ),
         }
+        if self.release_perturbation is not None:
+            entry["release_perturbation"] = self.release_perturbation.to_dict()
+        return entry
 
 
 def _study_cases() -> tuple[ThrowStudyCase, ...]:
@@ -447,6 +521,7 @@ def _fly_trial(
     case: ThrowStudyCase,
     control_model: str,
     plant: CrazyflowPlant,
+    dual_controller: DualControlNMPC | None = None,
 ) -> tuple[_TrialRecord, PlantTelemetryRecorder, np.ndarray, dict[str, Any]]:
     """Run one release-to-hover trial and return its raw telemetry.
 
@@ -454,7 +529,14 @@ def _fly_trial(
     first second, then every interval issues one bounded command and folds the
     resulting transition into the identifier.  The only additions are the
     observer that may add measurement noise, the in-place configuration change,
-    and the per-interval bookkeeping the study reduces afterwards.
+    the declared release perturbation an ensemble draws, and the per-interval
+    bookkeeping the study reduces afterwards.
+
+    ``dual_controller`` lets a caller hand in a controller already compiled for
+    this arm.  The controller carries no state between solves — the plan it
+    warm-starts from is passed back in by this loop — so reusing one across
+    trials is exactly the same computation, and it saves recompiling the solve
+    program for every release of an ensemble.
     """
 
     scenario = case.scenario
@@ -472,7 +554,12 @@ def _fly_trial(
         variant if dual else "pass2b",
         sample_period_s=plant.sample_period_s,
     )
-    dual_controller = DualControlNMPC(dual_config) if dual else None
+    if not dual:
+        dual_controller = None
+    elif dual_controller is None:
+        dual_controller = DualControlNMPC(dual_config)
+    elif dual_controller.config != dual_config:
+        raise ValueError("the supplied dual controller is configured for another arm")
     controller = None if dual else ProgressiveBootstrapController(identifier.config)
     observer = _StateObserver(case.state_noise)
     release_state = initial_plant_state(
@@ -482,6 +569,8 @@ def _fly_trial(
         pitch_rad=scenario.pitch_rad,
     )
     release_state[2] = scenario.release_height_m
+    if case.release_perturbation is not None:
+        release_state = case.release_perturbation.apply(release_state)
     plant.set_arm_length_ratio(scenario.arm_length_ratio)
     sample = plant.reset(release_state, applied_motor_thrust_fraction=np.zeros(4))
     telemetry = PlantTelemetryRecorder(sample)
@@ -534,6 +623,10 @@ def _fly_trial(
                 flown,
                 previous_command,
                 warm_start=dual_plan,
+                # Before this loop's first command the vehicle is falling with
+                # the motors off, so the command it carries is the diagnostic's
+                # by fiat rather than the controller's own action.
+                previous_command_owned=step > 0,
             )
             dual_plan = dual_decision if dual_decision.command_usable else None
             record.dual_results.append(dual_decision)
@@ -788,6 +881,18 @@ def _charge_series(
     ]
 
 
+def _early_mean_collective(requested: np.ndarray, enable_index: int) -> float:
+    """Mean commanded collective over the first 0.3 s after model enable.
+
+    The third pass found this to be the quantity that tracks the outcome across
+    arms, so it is measured the same way for every arm: the plain mean of every
+    motor command issued in the window, as a fraction of the command range.
+    """
+
+    window = requested[enable_index : enable_index + EARLY_COMMAND_COUNT]
+    return 0.0 if len(window) == 0 else float(np.mean(window))
+
+
 def _first_true_step(flags: Sequence[bool]) -> int | None:
     """Index of the first true entry of an online-step series, if any."""
 
@@ -924,10 +1029,41 @@ def _dual_control_metrics(
     rank_four = np.flatnonzero(information_ranks == 4)
     early = requested[enable_index : enable_index + EARLY_COMMAND_COUNT]
     ranks = np.asarray(record.command_evidence_ranks)
+    sources = [result.design_center_source for result in results]
+    source_counts: dict[str, int] = {}
+    for source in sources:
+        source_counts[source] = source_counts.get(source, 0) + 1
+    hover_centered = [source == "hover_estimate" for source in sources]
     return {
         "config": record.dual_config,
         "identifier": record.identifier_config,
         "staging": _staging_metrics(record, timestamps, states, enable_index),
+        "base_action": {
+            "center_source_counts": source_counts,
+            "early_center_source": sources[:EARLY_COMMAND_COUNT],
+            "hover_centered_handover": _moment(
+                timestamps,
+                states,
+                enable_index,
+                _first_true_step(hover_centered),
+            ),
+            "hover_centered_interval_fraction": (
+                float(np.mean(hover_centered)) if hover_centered else 0.0
+            ),
+            "first_center": (results[0].design_center.tolist() if results else []),
+            "uncharged_transition_count": int(
+                sum(not result.charged_initial_transition for result in results)
+            ),
+        },
+        # The quantity the third pass identified as decisive: what is commanded
+        # before any model exists.  Thirds of the same window are kept because
+        # the third pass read the arms apart on their shape, not only on their
+        # mean.
+        "early_mean_collective": _early_mean_collective(requested, enable_index),
+        "early_mean_collective_thirds": [
+            float(np.mean(early[start : start + 10]))
+            for start in range(0, EARLY_COMMAND_COUNT, 10)
+        ],
         "first_supported_model": _moment(
             timestamps,
             states,
@@ -1484,6 +1620,530 @@ def _aggregate(
     return aggregate
 
 
+# ----------------------------------------------------------------------
+# ensemble protocol
+# ----------------------------------------------------------------------
+#
+# Seven deterministic releases cannot distinguish two designs whose early
+# trajectory is chaotically sensitive to a posterior fitted from three or four
+# samples: the third pass showed one clipped coefficient at interval three
+# turning a recovery into a floor contact.  So a design is compared on a
+# declared distribution of releases instead, with a fixed seed per draw, and
+# every arm flies exactly the same draws.
+
+#: Perturbed releases per case.  Sixteen would halve the width of the per-case
+#: interval, and the pooled interval is the one that carries the comparison.
+ENSEMBLE_REPLICATE_COUNT = 16
+ENSEMBLE_SEED = 20260902
+#: Two-sided normal quantile for a 95 percent Wilson score interval.
+_WILSON_Z = 1.959963984540054
+
+
+@dataclass(frozen=True)
+class ThrowEnsembleConfig:
+    """The declared distribution of releases, and how many are drawn.
+
+    The release height is deliberately not perturbed: it is the altitude budget
+    every arm is spending, so holding it fixed keeps the cases comparable and
+    keeps the perturbation to the part of the release the arms actually differ
+    on.
+    """
+
+    replicate_count: int = ENSEMBLE_REPLICATE_COUNT
+    seed: int = ENSEMBLE_SEED
+    velocity_scale_minimum: float = 0.8
+    velocity_scale_maximum: float = 1.2
+    angular_velocity_scale_minimum: float = 0.8
+    angular_velocity_scale_maximum: float = 1.2
+    maximum_tilt_perturbation_rad: float = 0.1
+
+    def __post_init__(self) -> None:
+        if self.replicate_count < 1:
+            raise ValueError("an ensemble needs at least one replicate")
+        if self.seed < 0:
+            raise ValueError("the ensemble seed cannot be negative")
+        bounds = (
+            self.velocity_scale_minimum,
+            self.velocity_scale_maximum,
+            self.angular_velocity_scale_minimum,
+            self.angular_velocity_scale_maximum,
+            self.maximum_tilt_perturbation_rad,
+        )
+        if not np.all(np.isfinite(bounds)) or np.any(np.asarray(bounds) < 0.0):
+            raise ValueError("ensemble bounds must be finite and nonnegative")
+        if self.velocity_scale_minimum > self.velocity_scale_maximum:
+            raise ValueError("velocity scale bounds are inverted")
+        if self.angular_velocity_scale_minimum > self.angular_velocity_scale_maximum:
+            raise ValueError("angular velocity scale bounds are inverted")
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "replicate_count": self.replicate_count,
+            "seed": self.seed,
+            "velocity_scale_range": [
+                self.velocity_scale_minimum,
+                self.velocity_scale_maximum,
+            ],
+            "angular_velocity_scale_range": [
+                self.angular_velocity_scale_minimum,
+                self.angular_velocity_scale_maximum,
+            ],
+            "maximum_tilt_perturbation_rad": self.maximum_tilt_perturbation_rad,
+            "release_height_perturbed": False,
+        }
+
+    def draw(self, case_index: int, replicate_index: int) -> ThrowReleasePerturbation:
+        """One release draw, determined entirely by the seed and the indices.
+
+        Seeding from the triple rather than from a running counter means a
+        single replicate reproduces on its own, and adding a case or a
+        replicate never moves the draws of the others.
+        """
+
+        seed = (self.seed, case_index, replicate_index)
+        generator = np.random.default_rng(seed)
+        velocity = generator.uniform(
+            self.velocity_scale_minimum,
+            self.velocity_scale_maximum,
+            3,
+        )
+        angular = generator.uniform(
+            self.angular_velocity_scale_minimum,
+            self.angular_velocity_scale_maximum,
+            3,
+        )
+        azimuth = generator.uniform(0.0, 2.0 * math.pi)
+        magnitude = generator.uniform(0.0, self.maximum_tilt_perturbation_rad)
+        rotation = magnitude * np.asarray((math.cos(azimuth), math.sin(azimuth), 0.0))
+        return ThrowReleasePerturbation(
+            velocity_scale=tuple(velocity.tolist()),
+            angular_velocity_scale=tuple(angular.tolist()),
+            tilt_rotation_rad=tuple(rotation.tolist()),
+            seed=seed,
+        )
+
+
+def wilson_interval(
+    success_count: int,
+    trial_count: int,
+    z: float = _WILSON_Z,
+) -> tuple[float, float]:
+    """Wilson score interval for a binomial rate.
+
+    The normal approximation is useless at the rates this study reports — a
+    zero-of-eight recovery rate has a symmetric interval of exactly zero width —
+    and the Wilson interval stays inside ``[0, 1]`` and stays non-degenerate at
+    both ends, which is what makes "recovers none of these releases" and
+    "recovers all of them" readable as evidence rather than as certainty.
+    """
+
+    if trial_count <= 0:
+        return 0.0, 1.0
+    rate = success_count / trial_count
+    denominator = 1.0 + z * z / trial_count
+    center = (rate + z * z / (2.0 * trial_count)) / denominator
+    spread = (
+        z
+        * math.sqrt(rate * (1.0 - rate) / trial_count + z * z / (4.0 * trial_count**2))
+        / denominator
+    )
+    return max(center - spread, 0.0), min(center + spread, 1.0)
+
+
+def build_ensemble_cases(
+    case: ThrowStudyCase,
+    case_index: int,
+    config: ThrowEnsembleConfig,
+) -> tuple[ThrowStudyCase, ...]:
+    """The perturbed releases one study case contributes to the ensemble."""
+
+    return tuple(
+        ThrowStudyCase(
+            name=f"{case.name}#{replicate:02d}",
+            scenario=case.scenario,
+            state_noise=case.state_noise,
+            configuration_change=case.configuration_change,
+            release_perturbation=config.draw(case_index, replicate),
+        )
+        for replicate in range(config.replicate_count)
+    )
+
+
+def _ensemble_trial(
+    case: ThrowStudyCase,
+    control_model: str,
+    plant: CrazyflowPlant,
+    dual_controller: DualControlNMPC | None = None,
+) -> dict[str, Any]:
+    """Reduce one ensemble release to the handful of numbers it contributes.
+
+    Deliberately far smaller than :func:`run_throw_study_trial`'s record: an
+    ensemble is hundreds of flights, and the per-interval series that make the
+    deterministic study readable would make this report unreadable.
+    """
+
+    record, telemetry, requested, _identification = _fly_trial(
+        case,
+        control_model,
+        plant,
+        dual_controller,
+    )
+    timestamps = telemetry.timestamp_array()
+    states = telemetry.state_array()
+    applied = telemetry.applied_array()
+    enable_index = round(MODEL_ENABLE_DELAY_S / plant.sample_period_s)
+    speed = np.linalg.norm(states[:, 3:6], axis=1)
+    rate = np.linalg.norm(states[:, 10:13], axis=1)
+    tilt = np.asarray([tilt_rad(state) for state in states])
+    hover_start_s, hover_duration_s = _sustained_hover_duration_s(
+        timestamps,
+        speed,
+        rate,
+        states[:, 5],
+        tilt,
+        enable_index,
+    )
+    minimum_altitude_m = float(np.min(states[:, 2]))
+    online_step_count = len(record.working_supported)
+    settled_step = max(
+        online_step_count - round(SETTLED_WINDOW_S / plant.sample_period_s),
+        0,
+    )
+    settled_absolute, settled_relative = _allocation_changes(
+        record.flown_allocations,
+        settled_step,
+    )
+    minimum = np.asarray(RecursiveBootstrapConfig().command_minimum)
+    maximum = np.asarray(RecursiveBootstrapConfig().command_maximum)
+    return {
+        "case": case.name,
+        "control_model": control_model,
+        # The success criterion the design page states: the hover envelope
+        # reached, and the vehicle never on the floor.  A vehicle resting on the
+        # ground satisfies the envelope, so the altitude test is what makes the
+        # rate mean anything.
+        "recovered": bool(hover_start_s is not None and minimum_altitude_m > 0.0),
+        "reached_hover_envelope": hover_start_s is not None,
+        "touched_floor": bool(minimum_altitude_m <= 0.0),
+        "terminal_speed_m_s": float(speed[-1]),
+        "terminal_angular_rate_rad_s": float(rate[-1]),
+        "terminal_tilt_rad": float(tilt[-1]),
+        "minimum_altitude_m": minimum_altitude_m,
+        "sustained_hover_duration_s": hover_duration_s,
+        "time_to_rank_four_s": (
+            None
+            if record.command_rank_four_step is None
+            else float(
+                timestamps[enable_index + record.command_rank_four_step + 1]
+                - timestamps[enable_index]
+            )
+        ),
+        "early_mean_collective": _early_mean_collective(requested, enable_index),
+        "settled_maximum_command_step": _maximum_step(
+            requested[enable_index + settled_step :]
+        ),
+        "settled_maximum_relative_allocation_change": settled_relative,
+        "settled_maximum_allocation_change": settled_absolute,
+        "non_finite_value_count": int(
+            np.count_nonzero(~np.isfinite(states))
+            + np.count_nonzero(~np.isfinite(applied))
+            + np.count_nonzero(~np.isfinite(requested))
+        ),
+        "command_bound_violation_count": int(
+            np.count_nonzero(requested < minimum - COMMAND_BOUND_TOLERANCE)
+            + np.count_nonzero(requested > maximum + COMMAND_BOUND_TOLERANCE)
+            + np.count_nonzero(applied < minimum - COMMAND_BOUND_TOLERANCE)
+            + np.count_nonzero(applied > maximum + COMMAND_BOUND_TOLERANCE)
+        ),
+    }
+
+
+def _spread(values: Sequence[float | None], worst: str) -> dict[str, Any]:
+    """Median and worst of one metric over an ensemble, ignoring absences.
+
+    ``worst`` names the direction: ``"maximum"`` for a quantity a design wants
+    small, ``"minimum"`` for one it wants large.
+    """
+
+    present = [float(value) for value in values if value is not None]
+    if not present:
+        return {"median": None, "worst": None, "available_count": 0}
+    array = np.asarray(present)
+    return {
+        "median": float(np.median(array)),
+        "worst": float(np.max(array) if worst == "maximum" else np.min(array)),
+        "available_count": len(present),
+    }
+
+
+def _ensemble_summary(trials: Sequence[dict[str, Any]]) -> dict[str, Any]:
+    """Reduce the trials of one arm, on one case or pooled, to a summary."""
+
+    count = len(trials)
+    recovered = sum(trial["recovered"] for trial in trials)
+    low, high = wilson_interval(recovered, count)
+    collectives = np.asarray([trial["early_mean_collective"] for trial in trials])
+    return {
+        "trial_count": count,
+        "recovery_count": recovered,
+        "recovery_rate": (recovered / count if count else 0.0),
+        "recovery_rate_wilson_95": [low, high],
+        "floor_contact_count": sum(trial["touched_floor"] for trial in trials),
+        "hover_envelope_count": sum(
+            trial["reached_hover_envelope"] for trial in trials
+        ),
+        "terminal_speed_m_s": _spread(
+            [trial["terminal_speed_m_s"] for trial in trials], "maximum"
+        ),
+        "terminal_angular_rate_rad_s": _spread(
+            [trial["terminal_angular_rate_rad_s"] for trial in trials], "maximum"
+        ),
+        "terminal_tilt_rad": _spread(
+            [trial["terminal_tilt_rad"] for trial in trials], "maximum"
+        ),
+        "minimum_altitude_m": _spread(
+            [trial["minimum_altitude_m"] for trial in trials], "minimum"
+        ),
+        "time_to_rank_four_s": _spread(
+            [trial["time_to_rank_four_s"] for trial in trials], "maximum"
+        ),
+        "early_mean_collective": {
+            "mean": (float(np.mean(collectives)) if count else 0.0),
+            "median": (float(np.median(collectives)) if count else 0.0),
+            "minimum": (float(np.min(collectives)) if count else 0.0),
+            "maximum": (float(np.max(collectives)) if count else 0.0),
+        },
+        "settled_maximum_command_step": _spread(
+            [trial["settled_maximum_command_step"] for trial in trials], "maximum"
+        ),
+        "settled_maximum_relative_allocation_change": _spread(
+            [trial["settled_maximum_relative_allocation_change"] for trial in trials],
+            "maximum",
+        ),
+        "all_values_finite_and_bounded": all(
+            trial["non_finite_value_count"] == 0
+            and trial["command_bound_violation_count"] == 0
+            for trial in trials
+        ),
+    }
+
+
+def _ensemble_jobs(
+    cases: Sequence[ThrowStudyCase],
+    control_models: Sequence[str],
+    config: ThrowEnsembleConfig,
+) -> list[tuple[str, ThrowStudyCase, str]]:
+    """Every (base case, release, arm) trial the ensemble runs, in a fixed order.
+
+    The base case name is carried alongside rather than recovered from the draw's
+    own name, so the per-case grouping of the results is the same structure that
+    generated them.  Jobs are grouped by arm rather than by release so that a
+    worker which has compiled one arm's solve program runs a long stretch of
+    that arm before paying for the next one.
+    """
+
+    jobs: list[tuple[str, ThrowStudyCase, str]] = []
+    for model in control_models:
+        for case_index, case in enumerate(cases):
+            jobs.extend(
+                (case.name, draw, model)
+                for draw in build_ensemble_cases(case, case_index, config)
+            )
+    return jobs
+
+
+def _run_ensemble_jobs(
+    jobs: Sequence[tuple[ThrowStudyCase, str]],
+) -> list[dict[str, Any]]:
+    """Run a chunk of ensemble trials on one plant, reusing compiled arms.
+
+    Module level and picklable so a process pool can call it.  The plant is
+    reset for every trial and carries nothing across them — measured, not
+    assumed — so a chunk's results do not depend on how the chunk was cut.
+    """
+
+    os.environ.setdefault("SCIPY_ARRAY_API", "1")
+    plant = CrazyflowPlant(CrazyflowPlantConfig(control_frequency_hz=100))
+    controllers: dict[str, DualControlNMPC] = {}
+    try:
+        results = []
+        for case, model in jobs:
+            controller = None
+            variant = DUAL_CONTROL_MODEL_VARIANTS.get(model)
+            if variant is not None and model not in DUAL_CONTROL_IDENTIFIER_OPTIONS:
+                controller = controllers.get(model)
+                if controller is None:
+                    controller = DualControlNMPC(
+                        dual_control_config(
+                            variant,
+                            sample_period_s=plant.sample_period_s,
+                        )
+                    )
+                    controllers[model] = controller
+            results.append(_ensemble_trial(case, model, plant, controller))
+        return results
+    finally:
+        plant.close()
+
+
+def run_crazyflow_throw_ensemble(
+    cases: Sequence[ThrowStudyCase] = CRAZYFLOW_THROW_STUDY_CASES,
+    control_models: Sequence[str] = ENSEMBLE_CONTROL_MODELS,
+    config: ThrowEnsembleConfig | None = None,
+    worker_count: int = 1,
+) -> dict[str, Any]:
+    """Fly every arm on the same declared distribution of releases.
+
+    The report is per case and arm, plus one pooled rate per arm over every
+    release: a recovery rate with a Wilson interval, the median and worst of
+    each flight-quality metric, the time to command rank four, the first-0.3 s
+    mean collective, and the settled chatter.  Every arm sees the same draws, so
+    the comparison is paired.
+
+    ``worker_count`` shards the trials across processes.  Each trial is decided
+    entirely by its own seeded release and its arm, and the results are
+    reassembled in the job order rather than the completion order, so the report
+    is identical whatever the worker count.
+    """
+
+    settings = ThrowEnsembleConfig() if config is None else config
+    if not cases:
+        raise ValueError("the throw ensemble needs at least one case")
+    if len({case.name for case in cases}) != len(cases):
+        raise ValueError("throw study case names must be unique")
+    models = tuple(control_models)
+    if not models:
+        raise ValueError("the throw ensemble needs at least one control model")
+    unknown = sorted(set(models) - set(STUDY_CONTROL_MODELS))
+    if unknown:
+        raise ValueError(f"unknown control model(s): {', '.join(unknown)}")
+    if worker_count < 1:
+        raise ValueError("worker_count must be positive")
+
+    jobs = _ensemble_jobs(cases, models, settings)
+    work = [(draw, model) for _base, draw, model in jobs]
+    if worker_count == 1:
+        trials = _run_ensemble_jobs(work)
+    else:
+        from concurrent.futures import ProcessPoolExecutor
+
+        chunks = [work[index::worker_count] for index in range(worker_count)]
+        with ProcessPoolExecutor(max_workers=worker_count) as pool:
+            outputs = list(pool.map(_run_ensemble_jobs, chunks))
+        merged: dict[tuple[str, str], dict[str, Any]] = {}
+        for chunk in outputs:
+            for trial in chunk:
+                merged[(trial["case"], trial["control_model"])] = trial
+        trials = [merged[(draw.name, model)] for draw, model in work]
+
+    by_arm: dict[str, list[dict[str, Any]]] = {model: [] for model in models}
+    by_case_arm: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for (base, _draw, model), trial in zip(jobs, trials, strict=True):
+        by_arm[model].append(trial)
+        by_case_arm.setdefault((base, model), []).append(trial)
+    case_entries = [
+        {
+            "case": case.to_dict(),
+            "releases": [
+                draw.release_perturbation.to_dict()
+                for draw in build_ensemble_cases(case, case_index, settings)
+                if draw.release_perturbation is not None
+            ],
+            "arms": {
+                model: _ensemble_summary(by_case_arm[(case.name, model)])
+                for model in models
+            },
+        }
+        for case_index, case in enumerate(cases)
+    ]
+    report = {
+        "artifact_type": "glassbox_crazyflow_throw_release_ensemble",
+        "schema_version": 1,
+        "semantics": {
+            "diagnostic_only": True,
+            "flight_safety_claim": False,
+            "deterministic_given_the_seed": True,
+            "every_arm_flies_the_same_releases": True,
+            "release_height_unperturbed": True,
+            "recovered_means_hover_envelope_without_floor_contact": True,
+        },
+        "ensemble": settings.to_dict(),
+        "control_models": list(models),
+        "case_count": len(cases),
+        "releases_per_arm": len(cases) * settings.replicate_count,
+        "trial_count": len(trials),
+        "cases": case_entries,
+        "pooled": {model: _ensemble_summary(by_arm[model]) for model in models},
+        "trials": trials,
+        "limitations": [
+            "The perturbation is a declared distribution over the release state only; the hidden airframe, the loop rate, and every controller setting are unchanged.",
+            "Recovery is a binary read of one envelope on one ten-second window, so a marginal arrest and a comfortable one score the same.",
+            "The state-noise case draws one noise realisation per release, not a distribution over realisations.",
+        ],
+    }
+    json.dumps(report, allow_nan=False)
+    return report
+
+
+_ENSEMBLE_COLUMNS: tuple[tuple[str, str, str], ...] = (
+    ("terminal speed", "terminal_speed_m_s", "{:.3f}"),
+    ("terminal rate", "terminal_angular_rate_rad_s", "{:.3f}"),
+    ("terminal tilt", "terminal_tilt_rad", "{:.4f}"),
+    ("min alt", "minimum_altitude_m", "{:.3f}"),
+    ("rank four s", "time_to_rank_four_s", "{:.2f}"),
+    ("set cmd step", "settled_maximum_command_step", "{:.4f}"),
+)
+
+
+def format_ensemble_table(report: dict[str, Any]) -> str:
+    """Render the per-case, per-arm ensemble summary as a markdown table."""
+
+    header = [
+        "case",
+        "arm",
+        "recovered",
+        "rate",
+        "wilson 95",
+        "early collective",
+        *(f"{name} med/worst" for name, _, _ in _ENSEMBLE_COLUMNS),
+    ]
+    rows = [header, ["---"] * len(header)]
+    entries = [(entry["case"]["name"], entry["arms"]) for entry in report["cases"]] + [
+        ("pooled", report["pooled"])
+    ]
+    for name, arms in entries:
+        for model in report["control_models"]:
+            summary = arms[model]
+            low, high = summary["recovery_rate_wilson_95"]
+            row = [
+                name,
+                model,
+                f"{summary['recovery_count']}/{summary['trial_count']}",
+                f"{summary['recovery_rate']:.2f}",
+                f"{low:.2f}-{high:.2f}",
+                f"{summary['early_mean_collective']['mean']:.3f}",
+            ]
+            for _, key, template in _ENSEMBLE_COLUMNS:
+                spread = summary[key]
+                row.append(
+                    "n/a"
+                    if spread["median"] is None
+                    else (
+                        template.format(spread["median"])
+                        + "/"
+                        + template.format(spread["worst"])
+                    )
+                )
+            rows.append(row)
+    widths = [max(len(row[index]) for row in rows) for index in range(len(header))]
+    return "\n".join(
+        "| "
+        + " | ".join(cell.ljust(widths[index]) for index, cell in enumerate(row))
+        + " |"
+        for row in rows
+    )
+
+
 _TABLE_COLUMNS: tuple[tuple[str, str, str, str], ...] = (
     ("speed", "flight", "terminal_speed_m_s", "{:.4f}"),
     ("rate", "flight", "terminal_angular_rate_rad_s", "{:.4f}"),
@@ -1565,6 +2225,35 @@ def main(argv: Sequence[str] | None = None) -> None:
             f"(default: {' '.join(DEFAULT_CONTROL_MODELS)})"
         ),
     )
+    parser.add_argument(
+        "--ensemble",
+        action="store_true",
+        help=(
+            "fly every arm on a seeded distribution of perturbed releases "
+            "instead of the single deterministic release per case"
+        ),
+    )
+    parser.add_argument(
+        "--replicates",
+        type=int,
+        default=ENSEMBLE_REPLICATE_COUNT,
+        help="perturbed releases per case in ensemble mode (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--ensemble-seed",
+        type=int,
+        default=ENSEMBLE_SEED,
+        help="seed the ensemble draws come from (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        help=(
+            "processes to shard ensemble trials across; the report is identical "
+            "at any worker count (default: %(default)s)"
+        ),
+    )
     args = parser.parse_args(argv)
     cases = CRAZYFLOW_THROW_STUDY_CASES
     if args.case:
@@ -1573,11 +2262,29 @@ def main(argv: Sequence[str] | None = None) -> None:
         if unknown:
             parser.error(f"unknown case name(s): {', '.join(unknown)}")
         cases = tuple(by_name[name] for name in args.case)
-    models = tuple(args.control_model) if args.control_model else DEFAULT_CONTROL_MODELS
-    report = run_crazyflow_throw_study(cases, models)
+    if args.ensemble:
+        models = (
+            tuple(args.control_model) if args.control_model else ENSEMBLE_CONTROL_MODELS
+        )
+        report = run_crazyflow_throw_ensemble(
+            cases,
+            models,
+            ThrowEnsembleConfig(
+                replicate_count=args.replicates,
+                seed=args.ensemble_seed,
+            ),
+            worker_count=args.workers,
+        )
+        table = format_ensemble_table(report)
+    else:
+        models = (
+            tuple(args.control_model) if args.control_model else DEFAULT_CONTROL_MODELS
+        )
+        report = run_crazyflow_throw_study(cases, models)
+        table = format_study_table(report)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2, allow_nan=False) + "\n")
-    print(format_study_table(report))
+    print(table)
     print(f"\nwrote {args.output}")
 
 

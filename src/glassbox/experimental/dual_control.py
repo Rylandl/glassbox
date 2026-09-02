@@ -29,6 +29,23 @@ before the gradient refinement runs.  The amplitudes and sign patterns of those
 designs are declared design constants: they are the one action-side prior in
 the controller, alongside the command box and the regularizing ``epsilon``.
 
+The fourth pass changes where those designs sit and what the rate cost charges
+for, and nothing else:
+
+``charge_unowned_transition``
+    False makes the command-rate cost a slew cost on the controller's *own*
+    consecutive actions rather than a prior about the state the vehicle was
+    handed over in.  The move out of a command this controller never issued —
+    the first plan after enable, or any interval whose predecessor was somebody
+    else's command — is not charged; every later move is charged exactly as
+    before.
+
+``center_designs_on_base_action``
+    True centers the declared designs on the base action rather than on the
+    previous command.  See :meth:`DualControlNMPC.base_action`: it is the box
+    midpoint while the posterior has no supported hover estimate, and the
+    posterior's own hover estimate once it has one.
+
 Nothing in this module knows anything about a particular vehicle.  The
 prediction model is rigid-body kinematics, gravity, and the posterior mean of
 the recursive bootstrap belief; every other number lives in
@@ -101,23 +118,37 @@ _HADAMARD_ROWS = np.asarray(
 #: tracking cost and carries no information weight.
 ObjectiveForm = Literal["information_gain", "expected_cost"]
 
-#: The three studied configurations.  Pass one is kept selectable so its
-#: failure stays reproducible; the default is the current design.
+#: The studied configurations.  Pass one is kept selectable so its failure stays
+#: reproducible; the default is the current design.  Every variant states every
+#: switch, so a config matches at most one of them.
 DUAL_CONTROL_VARIANTS: dict[str, dict[str, Any]] = {
     "pass1": {
         "multi_start": False,
         "residualize_information": False,
         "objective": "information_gain",
+        "charge_unowned_transition": True,
+        "center_designs_on_base_action": False,
     },
     "pass2a": {
         "multi_start": True,
         "residualize_information": True,
         "objective": "information_gain",
+        "charge_unowned_transition": True,
+        "center_designs_on_base_action": False,
     },
     "pass2b": {
         "multi_start": True,
         "residualize_information": True,
         "objective": "expected_cost",
+        "charge_unowned_transition": True,
+        "center_designs_on_base_action": False,
+    },
+    "pass4": {
+        "multi_start": True,
+        "residualize_information": True,
+        "objective": "expected_cost",
+        "charge_unowned_transition": False,
+        "center_designs_on_base_action": True,
     },
 }
 
@@ -189,6 +220,24 @@ class DualControlConfig:
     #: intervals; the bottom rung is small enough to leave a settled hover
     #: alone.  Nothing about the ladder refers to a vehicle.
     multi_start_amplitudes: tuple[float, ...] = (0.06, 0.12, 0.25)
+    #: Charge the command-rate cost for the move out of a command this
+    #: controller did not issue.
+    #:
+    #: The rate cost exists to keep consecutive *planned* actions close to each
+    #: other, which is a statement about how fast this controller is willing to
+    #: move.  Applied to the handover it becomes something else: it anchors the
+    #: whole first plan to whatever command the vehicle happened to be carrying,
+    #: and the throw diagnostic releases with the motors off, so that anchor is
+    #: a prior toward zero thrust that nothing in the objective ever declared.
+    #: With this false the rate cost is a slew cost on the controller's own
+    #: actions and nothing else: the first transition after enable, and any
+    #: transition out of an interval the controller did not command, is free,
+    #: while every transition between two of its own consecutive commands is
+    #: charged exactly as before.
+    charge_unowned_transition: bool = True
+    #: Center the declared orthogonal designs on
+    #: :meth:`DualControlNMPC.base_action` rather than on the previous command.
+    center_designs_on_base_action: bool = False
     #: Weight on the squared command move between consecutive horizon steps.
     #: A simultaneous ``0.1`` move on all four commands then costs exactly one
     #: task-tolerance unit of tracking error.
@@ -324,6 +373,8 @@ class DualControlConfig:
             "multi_start": self.multi_start,
             "multi_start_amplitudes": list(self.multi_start_amplitudes),
             "candidate_count": self.candidate_count,
+            "charge_unowned_transition": self.charge_unowned_transition,
+            "center_designs_on_base_action": self.center_designs_on_base_action,
             "w_rate": self.w_rate,
             "w_info": self.w_info,
             "beta": self.beta,
@@ -456,6 +507,15 @@ class DualControlResult:
     #: Numerical rank of the planned command information the refined plan buys.
     planned_information_rank: int
     plan: np.ndarray
+    #: The command the declared designs were centered on this interval, and
+    #: which of the two rules supplied it: ``"previous_command"`` when the
+    #: designs sit on the incumbent command, ``"box_midpoint"`` when the base
+    #: action is the declared midpoint because no supported hover estimate
+    #: exists yet, and ``"hover_estimate"`` once the posterior supplies one.
+    design_center: np.ndarray
+    design_center_source: str
+    #: Whether the rate cost charged the move out of the previous command.
+    charged_initial_transition: bool
     reason: str = "dual_control_nmpc"
 
     def __post_init__(self) -> None:
@@ -469,6 +529,11 @@ class DualControlResult:
             raise ValueError("dual-control plan must be blocks of four commands")
         plan.setflags(write=False)
         object.__setattr__(self, "plan", plan)
+        center = np.asarray(self.design_center, dtype=np.float64)
+        if center.shape != (_COMMAND_SIZE,) or not np.all(np.isfinite(center)):
+            raise ValueError("dual-control design center must have four finite entries")
+        center.setflags(write=False)
+        object.__setattr__(self, "design_center", center)
         scalars = (
             self.objective_value,
             self.seed_objective_value,
@@ -519,6 +584,9 @@ class DualControlResult:
             "selected_amplitude": self.selected_amplitude,
             "plan_amplitude": self.plan_amplitude,
             "planned_information_rank": self.planned_information_rank,
+            "design_center": self.design_center.tolist(),
+            "design_center_source": self.design_center_source,
+            "charged_initial_transition": self.charged_initial_transition,
         }
 
 
@@ -628,8 +696,8 @@ class DualControlNMPC:
         )
         return jnp.repeat(normalized[None, :], self.block_count, axis=0)
 
-    def _design_blocks(self, previous_command: Array, offset: Array) -> Array:
-        """One declared orthogonal design laid on top of the current command.
+    def _design_blocks(self, center: Array, offset: Array) -> Array:
+        """One declared orthogonal design laid on top of a command center.
 
         The offset is applied in raw command units and clipped to the box.  At a
         bound the clip turns the two-sided design into a one-sided one, which
@@ -637,7 +705,7 @@ class DualControlNMPC:
         rank, untouched.
         """
 
-        raw = previous_command[None, :] + offset * self._signs * self._jit_span
+        raw = center[None, :] + offset * self._signs * self._jit_span
         clipped = jnp.clip(raw, self._jit_minimum, self._jit_maximum)
         return jnp.clip(self._normalized_from_commands(clipped), -1.0, 1.0)
 
@@ -645,6 +713,7 @@ class DualControlNMPC:
         self,
         warm_blocks: Array,
         previous_command: Array,
+        design_center: Array,
     ) -> Array:
         """Every multi-start candidate, stacked for one vmapped evaluation."""
 
@@ -655,7 +724,7 @@ class DualControlNMPC:
                 for polarity in (1.0, -1.0):
                     candidates.append(
                         self._design_blocks(
-                            previous_command,
+                            design_center,
                             jnp.asarray(polarity * amplitude),
                         )
                     )
@@ -950,6 +1019,7 @@ class DualControlNMPC:
         state: Array,
         posterior: _Posterior,
         previous_command: Array,
+        initial_rate_scale: Array,
     ) -> _Terms:
         """Every objective term, plus the chance-constraint activity it implies."""
 
@@ -976,7 +1046,17 @@ class DualControlNMPC:
             jnp.concatenate((previous_command[None, :], commands), axis=0),
             axis=0,
         )
-        command_rate = self.config.w_rate * jnp.sum(jnp.square(moves))
+        squared_moves = jnp.square(moves)
+        if self.config.charge_unowned_transition:
+            command_rate = self.config.w_rate * jnp.sum(squared_moves)
+        else:
+            # ``initial_rate_scale`` is one when the previous command was this
+            # controller's own and zero when it was not, so the sum below is
+            # exactly the slew of consecutive planned actions.
+            command_rate = self.config.w_rate * (
+                initial_rate_scale * jnp.sum(squared_moves[0])
+                + jnp.sum(squared_moves[1:])
+            )
         gain = self._information_gain(features, posterior)
         if self.config.objective == "expected_cost":
             # ``trace(W Sigma_x,k)`` on the same tolerances the tracking cost
@@ -1037,8 +1117,15 @@ class DualControlNMPC:
         state: Array,
         posterior: _Posterior,
         previous_command: Array,
+        initial_rate_scale: Array,
     ) -> Array:
-        terms = self._terms(blocks, state, posterior, previous_command)
+        terms = self._terms(
+            blocks,
+            state,
+            posterior,
+            previous_command,
+            initial_rate_scale,
+        )
         information = (
             jnp.asarray(0.0)
             if self.config.objective == "expected_cost"
@@ -1098,6 +1185,7 @@ class DualControlNMPC:
         state: Array,
         posterior: _Posterior,
         previous_command: Array,
+        initial_rate_scale: Array,
     ) -> tuple[Array, Array, Array, Array, Array, Array]:
         """Projected gradient with a bounded Armijo backtracking line search.
 
@@ -1166,6 +1254,7 @@ class DualControlNMPC:
                     state,
                     posterior,
                     previous_command,
+                    initial_rate_scale,
                 )
                 projected_decrease = jnp.sum(
                     current_gradient * (current_blocks - candidate)
@@ -1261,6 +1350,8 @@ class DualControlNMPC:
         state: Array,
         posterior: _Posterior,
         previous_command: Array,
+        design_center: Array,
+        initial_rate_scale: Array,
     ) -> tuple[
         Array,
         Array,
@@ -1283,13 +1374,18 @@ class DualControlNMPC:
         refinement is monotone the returned plan is no worse than the seed.
         """
 
-        candidates = self._candidate_blocks(warm_blocks, previous_command)
+        candidates = self._candidate_blocks(
+            warm_blocks,
+            previous_command,
+            design_center,
+        )
         values = jax.vmap(
             lambda candidate: self._objective(
                 candidate,
                 state,
                 posterior,
                 previous_command,
+                initial_rate_scale,
             )
         )(candidates)
         # A warm start that could not be shifted is not a candidate at all.
@@ -1303,6 +1399,7 @@ class DualControlNMPC:
             state,
             posterior,
             previous_command,
+            initial_rate_scale,
         )
         final_blocks, final_value, iteration, converged, stalled, failed = (
             self._optimize(
@@ -1312,9 +1409,16 @@ class DualControlNMPC:
                 state,
                 posterior,
                 previous_command,
+                initial_rate_scale,
             )
         )
-        terms = self._terms(final_blocks, state, posterior, previous_command)
+        terms = self._terms(
+            final_blocks,
+            state,
+            posterior,
+            previous_command,
+            initial_rate_scale,
+        )
         amplitude, rank = self._plan_diagnostics(final_blocks, state, posterior)
         commands = self._commands_from_normalized(self._expand(final_blocks))
         plan = self._commands_from_normalized(final_blocks)
@@ -1337,6 +1441,68 @@ class DualControlNMPC:
     # public entry point
     # ------------------------------------------------------------------
 
+    def base_action(
+        self,
+        belief: RecursiveBootstrapBelief,
+    ) -> tuple[np.ndarray, str]:
+        """The command the designs are centered on, and why that one.
+
+        A multi-start design is a spread of commands around a center, and at
+        zero information the center is the only thing in the controller that
+        says where in the command box the vehicle is likely to want to be.
+        Centering it on the previous command answers that question with
+        whatever the vehicle happened to be carrying at handover, which in a
+        motors-off release is the lower bound, and no posterior ever says so.
+
+        This answers it from the command contract instead.  The contract is
+        that each command is a normalized thrust fraction on ``[0, 1]`` and
+        that hover is somewhere in that box; with no information about where,
+        the box midpoint is the maximum-entropy choice, and it is the unique
+        point that minimizes the worst-case distance to hover over the box.  It
+        is a statement about the interface, in the same class as the bounds
+        themselves, and it stays the same number for every vehicle: nothing
+        here is fitted, measured, or tuned to an airframe.
+
+        The moment the posterior can say where hover is, the declaration stops
+        being the best available answer and is replaced by the estimate.  That
+        handover is this method's return value, and the caller records which of
+        the two was in use, so the annealing is visible rather than implicit.
+
+        The condition is the identifier's own support rule and nothing new: the
+        command evidence spans all four motors, the fitted angular effect spans
+        all three body axes, and the collective effect implies a hover command
+        inside the command box.  That is the same rule the certification
+        transaction requires of a candidate and the same one working mode hands
+        control over on, so this controller anneals off its declaration at
+        exactly the moment the rest of the stack agrees the posterior can
+        answer the question.  A weaker rule is not merely less careful, it is
+        wrong here: a hover command fitted from a handful of rank-deficient
+        samples exists long before it means anything, and centering on it would
+        replace a declaration that is true by construction with an estimate
+        that is not yet true at all.
+        """
+
+        hover = belief.hover_command
+        if (
+            hover is not None
+            and int(belief.command_evidence_rank) == _COMMAND_SIZE
+            and int(belief.angular_effect_rank) == 3
+        ):
+            candidate = np.asarray(hover, dtype=np.float64)
+            if candidate.shape == (_COMMAND_SIZE,) and np.all(np.isfinite(candidate)):
+                clipped = np.clip(candidate, self._minimum, self._maximum)
+                return clipped, "hover_estimate"
+        return self._midpoint.copy(), "box_midpoint"
+
+    def _design_center(
+        self,
+        belief: RecursiveBootstrapBelief,
+        held: np.ndarray,
+    ) -> tuple[np.ndarray, str]:
+        if self.config.center_designs_on_base_action:
+            return self.base_action(belief)
+        return held, "previous_command"
+
     def _held_command(self, previous_command: Any) -> np.ndarray:
         try:
             previous = np.asarray(previous_command, dtype=np.float64)
@@ -1351,6 +1517,9 @@ class DualControlNMPC:
         command: np.ndarray,
         status: SolveStatus,
         reason: str,
+        design_center: np.ndarray | None = None,
+        design_center_source: str = "previous_command",
+        charged_initial_transition: bool = True,
     ) -> DualControlResult:
         return DualControlResult(
             command=command,
@@ -1379,6 +1548,9 @@ class DualControlNMPC:
             plan_amplitude=0.0,
             planned_information_rank=0,
             plan=np.repeat(command[None, :], self.block_count, axis=0),
+            design_center=(command if design_center is None else design_center),
+            design_center_source=design_center_source,
+            charged_initial_transition=charged_initial_transition,
             reason=reason,
         )
 
@@ -1464,8 +1636,17 @@ class DualControlNMPC:
         belief: RecursiveBootstrapBelief,
         previous_command: Sequence[float],
         warm_start: Any = None,
+        previous_command_owned: bool = True,
     ) -> DualControlResult:
         """Return one bounded command, or the previous one when it cannot.
+
+        ``previous_command_owned`` says whether the command the vehicle is
+        carrying was issued by this controller.  It is false exactly once per
+        flight in the throw diagnostic — the first interval after enable, whose
+        predecessor is the motors-off release — and the rate cost then does not
+        charge for leaving it, provided the configuration says the rate cost is
+        a slew cost on the controller's own actions.  It defaults to true, so a
+        caller that does not distinguish gets the behaviour it always had.
 
         A state or posterior this controller cannot act on never raises: the
         result comes back with ``command_usable`` false, a status, and the
@@ -1473,6 +1654,8 @@ class DualControlNMPC:
         """
 
         held = self._held_command(previous_command)
+        center, center_source = self._design_center(belief, held)
+        charged = bool(previous_command_owned) or self.config.charge_unowned_transition
         state_array = np.asarray(state, dtype=np.float64)
         if (
             state_array.shape != (_STATE_SIZE,)
@@ -1480,7 +1663,14 @@ class DualControlNMPC:
             or float(np.linalg.norm(state_array[6:10])) < 1e-9
             or not self._belief_is_finite(belief)
         ):
-            return self._unusable(held, SolveStatus.INVALID_INPUT, "unusable_input")
+            return self._unusable(
+                held,
+                SolveStatus.INVALID_INPUT,
+                "unusable_input",
+                design_center=center,
+                design_center_source=center_source,
+                charged_initial_transition=charged,
+            )
 
         warm, warm_valid = self._warm_blocks(warm_start, held)
         (
@@ -1502,6 +1692,8 @@ class DualControlNMPC:
             jnp.asarray(state_array),
             self._posterior(belief),
             jnp.asarray(held),
+            jnp.asarray(center),
+            jnp.asarray(1.0 if charged else 0.0),
         )
         command_array = np.asarray(command, dtype=np.float64)
         value_float = float(value)
@@ -1511,6 +1703,9 @@ class DualControlNMPC:
                 held,
                 SolveStatus.NONFINITE_OBJECTIVE,
                 "nonfinite_solve",
+                design_center=center,
+                design_center_source=center_source,
+                charged_initial_transition=charged,
             )
         bounded = np.clip(command_array, self._minimum, self._maximum)
         if bool(failed):
@@ -1553,4 +1748,7 @@ class DualControlNMPC:
                 self._minimum,
                 self._maximum,
             ),
+            design_center=center,
+            design_center_source=center_source,
+            charged_initial_transition=charged,
         )
