@@ -16,9 +16,7 @@ class DynamicsModelFamily:
     latent_state_names: tuple[str, ...]
     required_control_roles: tuple[str, ...]
     optional_control_roles: tuple[str, ...] = ()
-    optional_parameter_control_dependencies: tuple[
-        tuple[str, str], ...
-    ] = ()
+    optional_parameter_control_dependencies: tuple[tuple[str, str], ...] = ()
     supports_residual: bool = False
 
     def __post_init__(self) -> None:
@@ -27,9 +25,7 @@ class DynamicsModelFamily:
             raise ValueError("optional parameter dependencies must be unique")
         unsupported = set(dependencies.values()) - set(self.optional_control_roles)
         if unsupported:
-            raise ValueError(
-                "parameter dependencies must name optional control roles"
-            )
+            raise ValueError("parameter dependencies must name optional control roles")
 
     @property
     def control_size(self) -> int:
@@ -68,9 +64,7 @@ class DynamicsModelFamily:
                 f"{self.key} requires control roles {self.required_control_roles}; "
                 f"missing {tuple(missing)} from {roles}"
             )
-        supported = set(self.required_control_roles) | set(
-            self.optional_control_roles
-        )
+        supported = set(self.required_control_roles) | set(self.optional_control_roles)
         unsupported = [role for role in roles if role not in supported]
         if unsupported:
             raise ValueError(
@@ -95,9 +89,7 @@ class DynamicsModelFamily:
     def parameter_control_dependency(self, parameter_name: str) -> str | None:
         """Return the optional control required to identify one parameter."""
 
-        return dict(self.optional_parameter_control_dependencies).get(
-            parameter_name
-        )
+        return dict(self.optional_parameter_control_dependencies).get(parameter_name)
 
 
 MULTIROTOR_FAMILY = DynamicsModelFamily(

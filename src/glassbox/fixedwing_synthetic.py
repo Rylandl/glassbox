@@ -98,16 +98,9 @@ def generate_fixed_wing_trajectory(
         angular_velocity = state[10:13]
 
         control = trim_control.copy()
-        control[0] += (
-            0.035 * (TRIM_AIRSPEED_M_S - state[3])
-            + ramp
-            * (
-                0.035
-                * np.sin(
-                    frequency_scale * 2.0 * np.pi * 0.17 * time_s + phases[0]
-                )
-                + 0.015 * np.sin(2.0 * np.pi * 0.43 * time_s + phases[1])
-            )
+        control[0] += 0.035 * (TRIM_AIRSPEED_M_S - state[3]) + ramp * (
+            0.035 * np.sin(frequency_scale * 2.0 * np.pi * 0.17 * time_s + phases[0])
+            + 0.015 * np.sin(2.0 * np.pi * 0.43 * time_s + phases[1])
         )
         surface_excitation = ramp * np.asarray(
             [
@@ -117,9 +110,7 @@ def generate_fixed_wing_trajectory(
             ]
         )
         control[1:4] = trim_control[1:4] + (
-            -0.65 * attitude_vector
-            - 0.12 * angular_velocity
-            + surface_excitation
+            -0.65 * attitude_vector - 0.12 * angular_velocity + surface_excitation
         )
         control[3] -= 0.012 * state[4]
         control[0] = np.clip(control[0], 0.05, 0.95)

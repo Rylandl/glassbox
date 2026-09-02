@@ -28,8 +28,7 @@ def _summary(value: float, profiles: tuple[str, ...]) -> dict:
             profile: {
                 "full_rollout": _metrics(value),
                 "horizon_rollouts": {
-                    label: _metrics(value)
-                    for label in ("0.1s", "0.5s", "1s")
+                    label: _metrics(value) for label in ("0.1s", "0.5s", "1s")
                 },
             }
             for profile in profiles

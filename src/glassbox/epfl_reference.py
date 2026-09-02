@@ -30,16 +30,12 @@ EPFL_REFERENCE_URL = "https://zenodo.org/records/10337559"
 EPFL_REFERENCE_VERSION = "v1"
 EPFL_REFERENCE_LICENSE = "CC-BY-4.0"
 EPFL_SOURCE_COMMIT = "0c5865cfb6f914a8e6cd5f0b6dd3cba02cb459a7"
-EPFL_SOURCE_URL = (
-    "https://gitlab.epfl.ch/laupre/vdm_c/-/tree/"
-    f"{EPFL_SOURCE_COMMIT}"
-)
+EPFL_SOURCE_URL = f"https://gitlab.epfl.ch/laupre/vdm_c/-/tree/{EPFL_SOURCE_COMMIT}"
 TOPOPLANE_FILENAME = "TOPOPlane2_20221027_STIM14.bag"
 TOPOPLANE_SIZE_BYTES = 298_658_823
 TOPOPLANE_MD5 = "1050ed20a4ea78a5dbda37b79df0e788"
 TOPOPLANE_DOWNLOAD_URL = (
-    "https://zenodo.org/api/records/10337559/files/"
-    f"{TOPOPLANE_FILENAME}/content"
+    f"https://zenodo.org/api/records/10337559/files/{TOPOPLANE_FILENAME}/content"
 )
 TOPOPLANE_CONFIGURATION_ID = "epfl_topoplane2_conventional_fixedwing"
 TOPOPLANE_SAMPLE_RATE_HZ = 5.0
@@ -132,7 +128,9 @@ def _read_topoplane_streams(path: Path) -> _TopoplaneStreams:
                 )
             elif connection.topic == "/cc_tagged":
                 if len(message.channels) < 4:
-                    raise ValueError("EPFL cc_tagged record has fewer than four channels")
+                    raise ValueError(
+                        "EPFL cc_tagged record has fewer than four channels"
+                    )
                 controls.append(
                     (
                         _header_time_s(message.header),
@@ -322,7 +320,9 @@ def _geodetic_to_local_nwu(geodetic_deg_m: np.ndarray) -> np.ndarray:
             np.sin(latitude_0),
         )
     )
-    return np.column_stack((displacement @ north, -(displacement @ east), displacement @ up))
+    return np.column_stack(
+        (displacement @ north, -(displacement @ east), displacement @ up)
+    )
 
 
 def _zero_order_hold(
@@ -381,9 +381,7 @@ def _healthy_ranges(
     if maximum_timing_error_s > 1e-4:
         raise ValueError("EPFL GIINAV_POSE timestamps are not uniformly sampled")
 
-    control_pwm = _zero_order_hold(
-        streams.control_time_s, streams.control_pwm, time_s
-    )
+    control_pwm = _zero_order_hold(streams.control_time_s, streams.control_pwm, time_s)
     airspeed = np.interp(time_s, streams.air_time_s, streams.airspeed_m_s)
     barometric_altitude = np.interp(
         time_s, streams.air_time_s, streams.barometric_altitude_m
@@ -402,7 +400,9 @@ def _healthy_ranges(
         & plausible_controls
     )
     if np.count_nonzero(basic_flight) < 2:
-        raise ValueError("EPFL recording contains no telemetry-complete flight interval")
+        raise ValueError(
+            "EPFL recording contains no telemetry-complete flight interval"
+        )
 
     altitude_offset = streams.geodetic_deg_m[:, 2] - barometric_altitude
     healthy_offset_m = _dominant_offset(altitude_offset[basic_flight])
@@ -489,9 +489,7 @@ def _build_trajectories(
     for segment, (start, end) in enumerate(ranges, start=1):
         segment_time = streams.nav_time_s[start:end]
         quaternion = all_quaternion[start:end]
-        angular_velocity = _angular_velocity_from_quaternion(
-            segment_time, quaternion
-        )
+        angular_velocity = _angular_velocity_from_quaternion(segment_time, quaternion)
         position_nwu = _geodetic_to_local_nwu(streams.geodetic_deg_m[start:end])
         states = np.column_stack(
             (
@@ -735,7 +733,10 @@ def fetch_epfl_topoplane_reference(
     target = Path(destination) / TOPOPLANE_FILENAME
     target.parent.mkdir(parents=True, exist_ok=True)
     if target.exists():
-        if target.stat().st_size == TOPOPLANE_SIZE_BYTES and _md5(target) == TOPOPLANE_MD5:
+        if (
+            target.stat().st_size == TOPOPLANE_SIZE_BYTES
+            and _md5(target) == TOPOPLANE_MD5
+        ):
             return target
         if not overwrite:
             raise FileExistsError(

@@ -44,7 +44,9 @@ class PolicyCandidate:
     def candidate_id(self) -> str:
         payload = json.dumps(asdict(self), sort_keys=True, separators=(",", ":"))
         digest = hashlib.sha256(payload.encode()).hexdigest()[:10]
-        horizon_label = "-".join(_number_label(value) for value in self.training_horizons_s)
+        horizon_label = "-".join(
+            _number_label(value) for value in self.training_horizons_s
+        )
         return (
             f"{self.model_class}__h-{horizon_label}"
             f"__ew-{_number_label(self.endpoint_weight)}"
@@ -195,13 +197,15 @@ def _validate_training_dataset(name: str, paths: Sequence[Path]) -> dict[str, st
     source_groups = [
         trajectory.labels.get("source_group") for trajectory in trajectories
     ]
-    if all(profile is not None for profile in profiles) and len(
-        {str(profile) for profile in profiles}
-    ) >= 2:
+    if (
+        all(profile is not None for profile in profiles)
+        and len({str(profile) for profile in profiles}) >= 2
+    ):
         fold_axis = "profile"
-    elif all(group is not None for group in source_groups) and len(
-        {str(group) for group in source_groups}
-    ) >= 2:
+    elif (
+        all(group is not None for group in source_groups)
+        and len({str(group) for group in source_groups}) >= 2
+    ):
         fold_axis = "source_group"
     else:
         raise ValueError(
@@ -312,16 +316,13 @@ def score_policy_candidates(
 
             for fold_name in sorted(candidate_folds):
                 ratios: list[float] = []
-                candidate_horizons = candidate_folds[fold_name][
-                    "horizon_rollouts"
-                ]
-                reference_horizons = reference_folds[fold_name][
-                    "horizon_rollouts"
-                ]
+                candidate_horizons = candidate_folds[fold_name]["horizon_rollouts"]
+                reference_horizons = reference_folds[fold_name]["horizon_rollouts"]
                 missing = [
                     label
                     for label in horizon_labels
-                    if label not in candidate_horizons or label not in reference_horizons
+                    if label not in candidate_horizons
+                    or label not in reference_horizons
                 ]
                 if missing:
                     rejection_reasons.append(
@@ -354,20 +355,19 @@ def score_policy_candidates(
                     fold_key = f"{dataset_name}/{fold_name}"
                     fold_score = _geometric_mean(ratios)
                     fold_scores[fold_key] = fold_score
-                    fold_scores_by_platform.setdefault(platform, []).append(
-                        fold_score
-                    )
+                    fold_scores_by_platform.setdefault(platform, []).append(fold_score)
 
         platform_scores = {
             platform: _geometric_mean(values)
             for platform, values in sorted(fold_scores_by_platform.items())
         }
         overall_score: float | None = (
-            _geometric_mean(list(platform_scores.values()))
-            if platform_scores
-            else None
+            _geometric_mean(list(platform_scores.values())) if platform_scores else None
         )
-        if candidate_id != reference_id and largest_metric_ratio > maximum_metric_regression:
+        if (
+            candidate_id != reference_id
+            and largest_metric_ratio > maximum_metric_regression
+        ):
             rejection_reasons.append(
                 "largest metric regression "
                 f"{largest_metric_ratio:.4g} exceeds {maximum_metric_regression:g}"
@@ -467,9 +467,7 @@ def select_fitting_policy(
         name: [_file_record(path) for path in paths]
         for name, paths in resolved_datasets.items()
     }
-    candidates = {
-        candidate.candidate_id: candidate for candidate in plan.candidates
-    }
+    candidates = {candidate.candidate_id: candidate for candidate in plan.candidates}
     reference = plan.reference
 
     destination = Path(output_dir)

@@ -72,9 +72,7 @@ ARP_RECORDINGS = (
     ),
 )
 
-_RECORDING_BY_FILENAME = {
-    recording.filename: recording for recording in ARP_RECORDINGS
-}
+_RECORDING_BY_FILENAME = {recording.filename: recording for recording in ARP_RECORDINGS}
 
 
 def _sha256(path: Path) -> str:
@@ -89,7 +87,9 @@ def _recording_for_path(path: Path) -> ARPRecording:
     try:
         return _RECORDING_BY_FILENAME[path.name]
     except KeyError as error:
-        raise ValueError(f"unrecognized ARP reference ULog filename {path.name!r}") from error
+        raise ValueError(
+            f"unrecognized ARP reference ULog filename {path.name!r}"
+        ) from error
 
 
 def _reference_metadata(recording: ARPRecording) -> dict[str, Any]:
@@ -234,9 +234,7 @@ class ARPReferenceAdapter:
                 **trajectory.labels,
                 "benchmark": ARP_REFERENCE_NAME,
                 "recording_date": "2024-01-08",
-                "source_group": (
-                    f"{ARP_REFERENCE_NAME}:{recording.relative_path}"
-                ),
+                "source_group": (f"{ARP_REFERENCE_NAME}:{recording.relative_path}"),
             },
             provenance=provenance,
         )

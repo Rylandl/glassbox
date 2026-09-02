@@ -82,12 +82,10 @@ def test_adapter_emits_strict_canonical_trajectory(tmp_path) -> None:
     assert trajectory.controls.shape == (3, 4)
     assert trajectory.control_names == QUADROTOR_CONTROL_NAMES
     assert trajectory.spec.control_roles == QUADROTOR_CONTROL_NAMES
-    assert {
-        channel.semantic for channel in trajectory.spec.controls
-    } == {"squared_rotor_speed_ratio"}
-    assert trajectory.spec.observation_source == (
-        "processed_mocap_and_onboard_sensors"
-    )
+    assert {channel.semantic for channel in trajectory.spec.controls} == {
+        "squared_rotor_speed_ratio"
+    }
+    assert trajectory.spec.observation_source == ("processed_mocap_and_onboard_sensors")
     assert trajectory.spec.observation_roles == (
         "specific_force_x",
         "specific_force_y",
@@ -203,9 +201,7 @@ def test_benchmark_attitude_metric_resolves_quaternion_double_cover() -> None:
 def test_published_reference_comparison_reports_direct_ratios() -> None:
     selected = {
         step: {"time_s": int(step) * 0.01, **values}
-        for step, values in PUBLISHED_PHYS_PLUS_RES[
-            "selected_horizons"
-        ].items()
+        for step, values in PUBLISHED_PHYS_PLUS_RES["selected_horizons"].items()
     }
     summary = {
         "horizon_steps": list(range(1, 51)),
@@ -218,9 +214,7 @@ def test_published_reference_comparison_reports_direct_ratios() -> None:
     comparison = _published_reference_comparison(summary)
 
     assert comparison is not None
-    assert comparison["cumulative_equal_metric_geometric_ratio"] == pytest.approx(
-        1.0
-    )
+    assert comparison["cumulative_equal_metric_geometric_ratio"] == pytest.approx(1.0)
     assert comparison["beats_every_published_50_step_metric"] is True
 
 

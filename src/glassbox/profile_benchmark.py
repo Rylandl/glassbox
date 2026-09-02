@@ -51,9 +51,7 @@ def benchmark_profiles(
     profile_values = [trajectory.labels.get("profile") for trajectory in trajectories]
     if any(profile is None for profile in profile_values):
         unlabeled = [
-            str(path)
-            for path, profile in zip(paths, profile_values)
-            if profile is None
+            str(path) for path, profile in zip(paths, profile_values) if profile is None
         ]
         raise ValueError(
             "profile benchmark requires every trajectory to have a profile; "
@@ -129,9 +127,7 @@ def benchmark_profiles(
                 baseline,
                 baseline_path,
                 input_spec=trajectories[0].spec,
-                runtime_spec=runtime_spec_from_fit_report(
-                    report, model_name="no_lag"
-                ),
+                runtime_spec=runtime_spec_from_fit_report(report, model_name="no_lag"),
                 provenance={
                     "held_out_profile": profile,
                     "fit_report": str(report_path),
@@ -233,9 +229,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("trajectory", nargs="+", type=Path)
     parser.add_argument("--output-dir", type=Path, required=True)
-    parser.add_argument(
-        "--training-horizons", type=_horizons, default=(0.1, 0.5, 2.0)
-    )
+    parser.add_argument("--training-horizons", type=_horizons, default=(0.1, 0.5, 2.0))
     parser.add_argument(
         "--evaluation-horizons", type=_horizons, default=(0.1, 0.5, 1.0, 2.0)
     )

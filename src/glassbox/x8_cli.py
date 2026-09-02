@@ -144,7 +144,8 @@ def _evaluate_cascade(args: argparse.Namespace) -> None:
         f"attitude={persistence['attitude_rmse_deg']:.2f}deg"
     )
     ordered = sorted(
-        report["models"].items(), key=lambda item: item[1]["score_vs_kinematic_persistence"]
+        report["models"].items(),
+        key=lambda item: item[1]["score_vs_kinematic_persistence"],
     )
     for name, model in ordered:
         metrics = model["aggregate"]["horizon_rollouts"]["2s"]
@@ -294,7 +295,9 @@ def main() -> None:
     )
     diagnose_parser.add_argument("destination", type=Path)
     diagnose_parser.add_argument(
-        "--aircraft", default="skywalker_x8", choices=("skywalker_x8", "skywalker_x8_panels")
+        "--aircraft",
+        default="skywalker_x8",
+        choices=("skywalker_x8", "skywalker_x8_panels"),
     )
     diagnose_parser.add_argument(
         "--split", default="validation", choices=("training", "validation", "all")

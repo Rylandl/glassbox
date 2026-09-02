@@ -35,19 +35,18 @@ def test_compact_fleet_prior_adaptation_is_predictively_useful() -> None:
         parameters = scenario["parameter_diagnostics"]
         assert 0 < fleet["empirical_rank"] < fleet["parameter_count"]
         assert fleet["predictive_error_group_count"] == fleet["member_count"]
-        assert (
-            0.0
-            < fleet["completion_fraction_in_natural_coordinates"]
-            < 1.0
-        )
+        assert 0.0 < fleet["completion_fraction_in_natural_coordinates"] < 1.0
         assert adaptation["applied"]
-        assert adaptation["normalized_innovation_rms_after"] < (
-            adaptation["normalized_innovation_rms_before"]
+        assert (
+            adaptation["normalized_innovation_rms_after"]
+            < (adaptation["normalized_innovation_rms_before"])
         )
-        assert evaluation["normalized_prediction_rms_after"] < (
-            evaluation["normalized_prediction_rms_before"]
+        assert (
+            evaluation["normalized_prediction_rms_after"]
+            < (evaluation["normalized_prediction_rms_before"])
         )
-        assert parameters["normalized_covariance_trace_after"] == (
-            parameters["normalized_covariance_trace_before"]
+        assert (
+            parameters["normalized_covariance_trace_after"]
+            == (parameters["normalized_covariance_trace_before"])
         )
     json.dumps(report, allow_nan=False)

@@ -132,8 +132,16 @@ class CascadePlant:
     def sample_period_s(self) -> float:
         return self._plant.sample_period_s
 
-    def reset(self, state: Any, *, applied_control: Any | None = None, wind_nwu: Any | None = None):
-        return self._plant.reset(state, applied_control=applied_control, wind_nwu=wind_nwu)
+    def reset(
+        self,
+        state: Any,
+        *,
+        applied_control: Any | None = None,
+        wind_nwu: Any | None = None,
+    ):
+        return self._plant.reset(
+            state, applied_control=applied_control, wind_nwu=wind_nwu
+        )
 
     def step(self, command: Any, *, wind_nwu: Any | None = None):
         return self._plant.step(command, wind_nwu=wind_nwu)
@@ -182,7 +190,9 @@ def _x8_spec(cascade: Any, aircraft: str) -> Any:
         raise ValueError(f"aircraft must be one of {X8_AIRCRAFT}")
     loader = getattr(cascade, f"{aircraft}_spec", None)
     if loader is None:
-        raise CascadeUnavailableError(f"the installed Cascade has no {aircraft}_spec loader")
+        raise CascadeUnavailableError(
+            f"the installed Cascade has no {aircraft}_spec loader"
+        )
     return loader()
 
 
@@ -199,11 +209,23 @@ def shift_center_of_gravity_of_spec(spec: Any, shift_forward_m: float) -> Any:
     if body is not None:
         body = shift_center_of_gravity(body, shift_forward_m, spec.reference_chord_m)
     surfaces = tuple(
-        replace(surface, position_m=(surface.position_m[0] - shift_forward_m, *surface.position_m[1:]))
+        replace(
+            surface,
+            position_m=(
+                surface.position_m[0] - shift_forward_m,
+                *surface.position_m[1:],
+            ),
+        )
         for surface in spec.surfaces
     )
     propellers = tuple(
-        replace(propeller, position_m=(propeller.position_m[0] - shift_forward_m, *propeller.position_m[1:]))
+        replace(
+            propeller,
+            position_m=(
+                propeller.position_m[0] - shift_forward_m,
+                *propeller.position_m[1:],
+            ),
+        )
         for propeller in spec.propellers
     )
     return replace(spec, body=body, surfaces=surfaces, propellers=propellers)
@@ -232,7 +254,10 @@ def x8_variant_models(
                     spec = shift_center_of_gravity_of_spec(base, float(shift))
                     if spec.body is not None:
                         spec = replace(
-                            spec, body=replace(spec.body, yaw=replace(spec.body.yaw, r=float(cnr)))
+                            spec,
+                            body=replace(
+                                spec.body, yaw=replace(spec.body.yaw, r=float(cnr))
+                            ),
                         )
                     inertia = tuple(
                         tuple(float(inertia_scale) * value for value in row)
@@ -308,7 +333,8 @@ def actuator_states_over_controls(
 
     def combine(state, derivative, scale):
         return ActuatorState(
-            surface_deflection=state.surface_deflection + scale * derivative.surface_deflection,
+            surface_deflection=state.surface_deflection
+            + scale * derivative.surface_deflection,
             propeller_speed=state.propeller_speed + scale * derivative.propeller_speed,
         )
 
@@ -339,10 +365,14 @@ def actuator_states_over_controls(
             advanced = combine(current, weighted, step)
             clipped = ActuatorState(
                 surface_deflection=jnp.clip(
-                    advanced.surface_deflection, -limits.surface_limit, limits.surface_limit
+                    advanced.surface_deflection,
+                    -limits.surface_limit,
+                    limits.surface_limit,
                 ),
                 propeller_speed=jnp.clip(
-                    advanced.propeller_speed, limits.propeller_speed_min, limits.propeller_speed_max
+                    advanced.propeller_speed,
+                    limits.propeller_speed_min,
+                    limits.propeller_speed_max,
                 ),
             )
             return clipped, None
@@ -410,7 +440,9 @@ def predict_windows(
     def predict_one(model, fraction, initial_state, control_sequence, history, wind):
         scaled_wind = wind.at[2].multiply(fraction)
         environment = standard_environment()._replace(wind=nwu_to_ned(scaled_wind))
-        state = zero_state(model)._replace(rigid_body=rigid_body_from_canonical(initial_state))
+        state = zero_state(model)._replace(
+            rigid_body=rigid_body_from_canonical(initial_state)
+        )
         state = equilibrate_internal_state(
             model, state, control_from_array(model, history[-1]), environment
         )
@@ -418,14 +450,16 @@ def predict_windows(
         lagged = actuator_states_over_controls(
             model, history, windows.dt_s, simulation_substeps=simulation_substeps
         )
-        state = state._replace(
-            actuators=jax.tree.map(lambda leaf: leaf[-1], lagged)
-        )
+        state = state._replace(actuators=jax.tree.map(lambda leaf: leaf[-1], lagged))
 
         def hold(carry, control_row):
             control = control_from_array(model, control_row)
             final, _ = rollout(
-                model, carry, repeat_control(control, simulation_substeps), environment, dt
+                model,
+                carry,
+                repeat_control(control, simulation_substeps),
+                environment,
+                dt,
             )
             return final, rigid_body_to_canonical(final.rigid_body)
 
@@ -460,10 +494,13 @@ def evaluate_x8_cascade(
     """
 
     destination = Path(destination)
-    validation_paths = tuple(sorted((destination / "canonical" / "validation").glob("*.npz")))
+    validation_paths = tuple(
+        sorted((destination / "canonical" / "validation").glob("*.npz"))
+    )
     paths, trajectories = _validation_trajectories(validation_paths)
     horizon_steps = {
-        f"{horizon:g}s": _horizon_steps(trajectories[0], horizon) for horizon in horizons_s
+        f"{horizon:g}s": _horizon_steps(trajectories[0], horizon)
+        for horizon in horizons_s
     }
     variants, models = x8_variant_models(
         aircraft=aircraft,
@@ -498,10 +535,14 @@ def evaluate_x8_cascade(
             )
             for index in range(len(variants)):
                 rollouts[index][label] = _state_error_metrics(
-                    predicted[index], windows.target_states, duration_s=steps * windows.dt_s
+                    predicted[index],
+                    windows.target_states,
+                    duration_s=steps * windows.dt_s,
                 )
         for index in range(len(variants)):
-            per_variant[index].append({"path": str(path), "horizon_rollouts": rollouts[index]})
+            per_variant[index].append(
+                {"path": str(path), "horizon_rollouts": rollouts[index]}
+            )
 
     persistence_aggregate = _aggregate_horizons(persistence_per_trajectory)
     rows: dict[str, Any] = {}
@@ -519,10 +560,15 @@ def evaluate_x8_cascade(
             },
             "aggregate": {"horizon_rollouts": aggregate},
             "per_trajectory": per_trajectory,
-            "score_vs_kinematic_persistence": _geometric_ratio(aggregate, persistence_aggregate),
+            "score_vs_kinematic_persistence": _geometric_ratio(
+                aggregate, persistence_aggregate
+            ),
             "all_finite": all(
                 np.isfinite(
-                    [item["horizon_rollouts"][label]["position_rmse_m"] for item in per_trajectory]
+                    [
+                        item["horizon_rollouts"][label]["position_rmse_m"]
+                        for item in per_trajectory
+                    ]
                 ).all()
                 for label in horizon_steps
             ),
@@ -544,7 +590,9 @@ def evaluate_x8_cascade(
                     "candidate/reference geometric mean over four state metrics and every "
                     "horizon; values below one favor the candidate"
                 ),
-                "score": _geometric_ratio(row["aggregate"]["horizon_rollouts"], aggregate),
+                "score": _geometric_ratio(
+                    row["aggregate"]["horizon_rollouts"], aggregate
+                ),
             }
 
     primary = next(label for label, row in rows.items() if row["primary"])
@@ -691,14 +739,19 @@ def residual_regressions(
         environment = standard_environment()._replace(
             wind=nwu_to_ned(wind_nwu.at[2].multiply(fraction))
         )
-        state = zero_state(model)._replace(rigid_body=rigid_body_from_canonical(state13))
+        state = zero_state(model)._replace(
+            rigid_body=rigid_body_from_canonical(state13)
+        )
         state = equilibrate_internal_state(
             model, state, control_from_array(model, control_now), environment
         )
         state = state._replace(actuators=actuators)
-        result = evaluate_dynamics(model, state, control_from_array(model, control_now), environment)
+        result = evaluate_dynamics(
+            model, state, control_from_array(model, control_now), environment
+        )
         specific_force = quaternion_rotate_inverse(
-            state.rigid_body.attitude, result.derivative.rigid_body.velocity - environment.gravity
+            state.rigid_body.attitude,
+            result.derivative.rigid_body.velocity - environment.gravity,
         )
         body = result.aerodynamics.body
         return (
@@ -748,21 +801,36 @@ def residual_regressions(
         )
         # Measured specific force in FRD: rotate (a - g) from NWU into FLU with the canonical
         # attitude, then flip to FRD. Measured angular acceleration: differences of FLU rates.
-        acceleration_nwu = (states[index + 1, 3:6] - states[index - 1, 3:6]) / (2.0 * dt)
+        acceleration_nwu = (states[index + 1, 3:6] - states[index - 1, 3:6]) / (
+            2.0 * dt
+        )
         w, x, y, z = states[index, 6:10].T
         rotation = np.stack(
             [
-                np.stack([1 - 2 * (y * y + z * z), 2 * (x * y - w * z), 2 * (x * z + w * y)], -1),
-                np.stack([2 * (x * y + w * z), 1 - 2 * (x * x + z * z), 2 * (y * z - w * x)], -1),
-                np.stack([2 * (x * z - w * y), 2 * (y * z + w * x), 1 - 2 * (x * x + y * y)], -1),
+                np.stack(
+                    [1 - 2 * (y * y + z * z), 2 * (x * y - w * z), 2 * (x * z + w * y)],
+                    -1,
+                ),
+                np.stack(
+                    [2 * (x * y + w * z), 1 - 2 * (x * x + z * z), 2 * (y * z - w * x)],
+                    -1,
+                ),
+                np.stack(
+                    [2 * (x * z - w * y), 2 * (y * z + w * x), 1 - 2 * (x * x + y * y)],
+                    -1,
+                ),
             ],
             -2,
         )
-        sf_flu = np.einsum("nji,nj->ni", rotation, acceleration_nwu - np.array([0.0, 0.0, -9.80665]))
+        sf_flu = np.einsum(
+            "nji,nj->ni", rotation, acceleration_nwu - np.array([0.0, 0.0, -9.80665])
+        )
         sf_meas = np.asarray(flu_to_frd(jnp.asarray(sf_flu)))
         rate_flu = states[:, 10:13]
         alpha_meas = np.asarray(
-            flu_to_frd(jnp.asarray((rate_flu[index + 1] - rate_flu[index - 1]) / (2.0 * dt)))
+            flu_to_frd(
+                jnp.asarray((rate_flu[index + 1] - rate_flu[index - 1]) / (2.0 * dt))
+            )
         )
         rates_frd = np.asarray(flu_to_frd(jnp.asarray(rate_flu[index])))
         force_residuals.append(mass * (sf_pred - sf_meas))
@@ -803,7 +871,9 @@ def residual_regressions(
         coefficients, *_ = np.linalg.lstsq(design, residual, rcond=None)
         explained = residual - design @ coefficients
         variance = float(np.var(residual))
-        r_squared = 0.0 if variance <= 0.0 else 1.0 - float(np.var(explained)) / variance
+        r_squared = (
+            0.0 if variance <= 0.0 else 1.0 - float(np.var(explained)) / variance
+        )
         results[channel] = ResidualRegression(
             channel=channel,
             unit=unit,
@@ -837,13 +907,19 @@ def diagnose_x8_cascade(
     for name in splits:
         paths.extend(sorted((destination / "canonical" / name).glob("*.npz")))
     if not paths:
-        raise ValueError(f"no canonical trajectories under {destination} for split {split!r}")
+        raise ValueError(
+            f"no canonical trajectories under {destination} for split {split!r}"
+        )
     from glassbox.data import load_trajectory_npz
 
     trajectories = [load_trajectory_npz(path) for path in paths]
     cascade = _require_cascade()
-    spec = shift_center_of_gravity_of_spec(_x8_spec(cascade, aircraft), cg_shift_forward_m)
-    inertia = tuple(tuple(inertia_scale * value for value in row) for row in spec.inertia_kg_m2)
+    spec = shift_center_of_gravity_of_spec(
+        _x8_spec(cascade, aircraft), cg_shift_forward_m
+    )
+    inertia = tuple(
+        tuple(inertia_scale * value for value in row) for row in spec.inertia_kg_m2
+    )
     spec = replace(spec, inertia_kg_m2=inertia)
     if mass_kg is not None:
         spec = replace(spec, mass_kg=float(mass_kg))

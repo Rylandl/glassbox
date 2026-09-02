@@ -69,8 +69,8 @@ def test_adapter_applies_opinionated_reference_contract(tmp_path, monkeypatch) -
         f"{ARP_REFERENCE_NAME}:logs_large/{source.name}"
     )
     assert trajectory.provenance["adapter"] == {
-            "name": "arp_px4_ulog_reference",
-            "schema_version": 2,
+        "name": "arp_px4_ulog_reference",
+        "schema_version": 2,
     }
     reference = trajectory.provenance["reference_dataset"]
     assert reference["commit"] == ARP_REFERENCE_COMMIT
@@ -117,15 +117,14 @@ def test_reference_adapter_selects_longest_powered_interval() -> None:
         spec=base.spec,
     )
 
-    selected = _longest_powered_interval(
-        trajectory, minimum_duration_s=0.1
-    )
+    selected = _longest_powered_interval(trajectory, minimum_duration_s=0.1)
 
     assert np.isclose(selected.time_s[-1], 0.3)
     np.testing.assert_allclose(selected.controls, 0.4)
-    assert selected.provenance["reference_powered_interval"][
-        "candidate_interval_count"
-    ] == 2
+    assert (
+        selected.provenance["reference_powered_interval"]["candidate_interval_count"]
+        == 2
+    )
 
 
 def test_fetch_verifies_download_and_reuses_valid_file(tmp_path, monkeypatch) -> None:

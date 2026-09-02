@@ -80,12 +80,9 @@ class StateObservationCorrection:
         if np.any(np.abs(self.velocity_bias_m_s) > MAXIMUM_VELOCITY_BIAS_M_S):
             raise ValueError("velocity_bias_m_s exceeds the maintained bounds")
         if np.any(
-            np.abs(self.angular_rate_bias_rad_s)
-            > MAXIMUM_ANGULAR_RATE_BIAS_RAD_S
+            np.abs(self.angular_rate_bias_rad_s) > MAXIMUM_ANGULAR_RATE_BIAS_RAD_S
         ):
-            raise ValueError(
-                "angular_rate_bias_rad_s exceeds the maintained bounds"
-            )
+            raise ValueError("angular_rate_bias_rad_s exceeds the maintained bounds")
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -144,9 +141,7 @@ class FirstOrderObservationFilter:
             "angular_rate_time_constant_s",
         ):
             values = getattr(self, name)
-            if np.any(values < 0.0) or np.any(
-                values > MAXIMUM_TIME_CONSTANT_S
-            ):
+            if np.any(values < 0.0) or np.any(values > MAXIMUM_TIME_CONSTANT_S):
                 raise ValueError(f"{name} exceeds the maintained bounds")
         for name in ("velocity_scale", "angular_rate_scale"):
             values = getattr(self, name)
@@ -155,12 +150,9 @@ class FirstOrderObservationFilter:
         if np.any(np.abs(self.velocity_bias_m_s) > MAXIMUM_VELOCITY_BIAS_M_S):
             raise ValueError("velocity_bias_m_s exceeds the maintained bounds")
         if np.any(
-            np.abs(self.angular_rate_bias_rad_s)
-            > MAXIMUM_ANGULAR_RATE_BIAS_RAD_S
+            np.abs(self.angular_rate_bias_rad_s) > MAXIMUM_ANGULAR_RATE_BIAS_RAD_S
         ):
-            raise ValueError(
-                "angular_rate_bias_rad_s exceeds the maintained bounds"
-            )
+            raise ValueError("angular_rate_bias_rad_s exceeds the maintained bounds")
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -172,9 +164,7 @@ class FirstOrderObservationFilter:
                 self.angular_rate_time_constant_s.tolist()
             ),
             "angular_rate_scale": self.angular_rate_scale.tolist(),
-            "angular_rate_bias_rad_s": (
-                self.angular_rate_bias_rad_s.tolist()
-            ),
+            "angular_rate_bias_rad_s": (self.angular_rate_bias_rad_s.tolist()),
             "bounds": {
                 "time_constant_s": [0.0, MAXIMUM_TIME_CONSTANT_S],
                 "scale": [MINIMUM_SCALE, MAXIMUM_SCALE],
@@ -208,9 +198,7 @@ def _attitude_increment(quaternion_wxyz: np.ndarray) -> np.ndarray:
     predicted_xyz = predicted[:, 1:4]
     observed_w = observed[:, 0]
     observed_xyz = observed[:, 1:4]
-    relative_w = predicted_w * observed_w + np.sum(
-        predicted_xyz * observed_xyz, axis=1
-    )
+    relative_w = predicted_w * observed_w + np.sum(predicted_xyz * observed_xyz, axis=1)
     relative_xyz = (
         predicted_w[:, None] * observed_xyz
         - observed_w[:, None] * predicted_xyz
@@ -265,9 +253,7 @@ def _compatibility_system(
     velocity_target = np.diff(states[:, 0:3], axis=0) / trajectory.nominal_dt_s
 
     rotations = _rotation_matrices(states[:, 6:10])
-    relative_rotation = np.einsum(
-        "nji,njk->nik", rotations[:-1], rotations[1:]
-    )
+    relative_rotation = np.einsum("nji,njk->nik", rotations[:-1], rotations[1:])
     initial_rate_design = identity[None, :, :] * states[:-1, None, 10:13]
     terminal_rate_design = np.einsum(
         "nij,njk->nik",
@@ -275,12 +261,8 @@ def _compatibility_system(
         identity[None, :, :] * states[1:, None, 10:13],
     )
     angular_design = np.empty((count, 3, 6), dtype=np.float64)
-    angular_design[:, :, 0:3] = 0.5 * (
-        initial_rate_design + terminal_rate_design
-    )
-    angular_design[:, :, 3:6] = 0.5 * (
-        identity[None, :, :] + relative_rotation
-    )
+    angular_design[:, :, 0:3] = 0.5 * (initial_rate_design + terminal_rate_design)
+    angular_design[:, :, 3:6] = 0.5 * (identity[None, :, :] + relative_rotation)
     angular_target = _attitude_increment(states[:, 6:10]) / trajectory.nominal_dt_s
     return (
         velocity_design.reshape((-1, 6)),
@@ -357,13 +339,11 @@ def observation_channel_transfer_gate(
     eligible_groups = []
     for name, reference_value in reference_error.items():
         eligible = bool(
-            np.isfinite(reference_value)
-            and reference_value > materiality_floors[name]
+            np.isfinite(reference_value) and reference_value > materiality_floors[name]
         )
         ratio = candidate_over_reference[name]
         trajectory_ratios = [
-            report["candidate_over_reference"][name]
-            for report in per_trajectory
+            report["candidate_over_reference"][name] for report in per_trajectory
         ]
         finite_trajectory_ratios = [
             value
@@ -376,29 +356,20 @@ def observation_channel_transfer_gate(
             else None
         )
         material = bool(
-            eligible
-            and ratio is not None
-            and ratio <= MATERIAL_IMPROVEMENT_RATIO
+            eligible and ratio is not None and ratio <= MATERIAL_IMPROVEMENT_RATIO
         )
         neutral = bool(
-            not eligible
-            or (
-                ratio is not None
-                and ratio <= MAXIMUM_NEUTRAL_RATIO
-            )
+            not eligible or (ratio is not None and ratio <= MAXIMUM_NEUTRAL_RATIO)
         )
         no_flight_regression = bool(
             not eligible
             or (
                 maximum_trajectory_ratio is not None
-                and maximum_trajectory_ratio
-                <= MAXIMUM_COMPATIBILITY_REGRESSION_RATIO
+                and maximum_trajectory_ratio <= MAXIMUM_COMPATIBILITY_REGRESSION_RATIO
             )
         )
         identifiable = bool(group_interior[name])
-        rollout_candidate = bool(
-            material and no_flight_regression and identifiable
-        )
+        rollout_candidate = bool(material and no_flight_regression and identifiable)
         if eligible:
             eligible_groups.append(name)
         if rollout_candidate:
@@ -418,8 +389,7 @@ def observation_channel_transfer_gate(
     blanket_transfer = bool(
         eligible_groups
         and all(
-            decisions[name]["conditional_rollout_candidate"]
-            for name in eligible_groups
+            decisions[name]["conditional_rollout_candidate"] for name in eligible_groups
         )
     )
     full_candidate_safe = bool(
@@ -466,8 +436,7 @@ def apply_state_observation_correction(
         raise ValueError("trajectory already has a state observation correction")
     states = trajectory.states.copy()
     states[:, 3:6] = (
-        states[:, 3:6] * correction.velocity_scale
-        + correction.velocity_bias_m_s
+        states[:, 3:6] * correction.velocity_scale + correction.velocity_bias_m_s
     )
     states[:, 10:13] = (
         states[:, 10:13] * correction.angular_rate_scale
@@ -502,8 +471,7 @@ def fit_state_observation_correction(
     protected = [
         str(trajectory.labels.get("benchmark_split"))
         for trajectory in trajectories
-        if str(trajectory.labels.get("benchmark_split", "")).lower()
-        in PROTECTED_SPLITS
+        if str(trajectory.labels.get("benchmark_split", "")).lower() in PROTECTED_SPLITS
     ]
     if protected:
         raise ValueError(
@@ -660,9 +628,7 @@ def evaluate_state_observation_correction(
         "after_over_before": ratios,
         "gate": {
             "material_improvement_ratio": MATERIAL_IMPROVEMENT_RATIO,
-            "maximum_regression_ratio": (
-                MAXIMUM_COMPATIBILITY_REGRESSION_RATIO
-            ),
+            "maximum_regression_ratio": (MAXIMUM_COMPATIBILITY_REGRESSION_RATIO),
             "materiality_floors": materiality_floors,
             "eligible_groups": eligible_groups,
             "already_consistent_groups": [
@@ -671,8 +637,7 @@ def evaluate_state_observation_correction(
             "all_groups_improve_materially": bool(
                 eligible_ratios
                 and all(
-                    ratio <= MATERIAL_IMPROVEMENT_RATIO
-                    for ratio in eligible_ratios
+                    ratio <= MATERIAL_IMPROVEMENT_RATIO for ratio in eligible_ratios
                 )
             ),
             "no_group_regresses": bool(
@@ -697,15 +662,9 @@ def _observation_rate_pairs(
     reported_velocity = 0.5 * (states[:-1, 3:6] + states[1:, 3:6])
 
     rotations = _rotation_matrices(states[:, 6:10])
-    relative_rotation = np.einsum(
-        "nji,njk->nik", rotations[:-1], rotations[1:]
-    )
-    terminal_rate = np.einsum(
-        "nij,nj->ni", relative_rotation, states[1:, 10:13]
-    )
-    pose_angular_rate = (
-        _attitude_increment(states[:, 6:10]) / interval_s[:, None]
-    )
+    relative_rotation = np.einsum("nji,njk->nik", rotations[:-1], rotations[1:])
+    terminal_rate = np.einsum("nij,nj->ni", relative_rotation, states[1:, 10:13])
+    pose_angular_rate = _attitude_increment(states[:, 6:10]) / interval_s[:, None]
     reported_angular_rate = 0.5 * (states[:-1, 10:13] + terminal_rate)
     center_step_s = np.empty_like(interval_s)
     center_step_s[0] = interval_s[0]
@@ -730,12 +689,8 @@ def _first_order_response(
     for index in range(1, len(values)):
         decay = np.zeros_like(time_constant_s)
         temporal = time_constant_s > 0.0
-        decay[temporal] = np.exp(
-            -center_step_s[index] / time_constant_s[temporal]
-        )
-        response[index] = (
-            decay * response[index - 1] + (1.0 - decay) * values[index]
-        )
+        decay[temporal] = np.exp(-center_step_s[index] / time_constant_s[temporal])
+        response[index] = decay * response[index - 1] + (1.0 - decay) * values[index]
     return response
 
 
@@ -766,9 +721,7 @@ def _temporal_sufficient_statistics(
         if index > 0:
             decay = np.zeros_like(candidates_s)
             temporal = candidates_s > 0.0
-            decay[temporal] = np.exp(
-                -center_step_s[index] / candidates_s[temporal]
-            )
+            decay[temporal] = np.exp(-center_step_s[index] / candidates_s[temporal])
             response = (
                 decay[:, None] * response
                 + (1.0 - decay[:, None]) * values[index][None, :]
@@ -855,8 +808,8 @@ def _fit_temporal_group(
         )
     group_counts: dict[str, float] = {}
     for group_key, statistic in statistics:
-        group_counts[group_key] = (
-            group_counts.get(group_key, 0.0) + float(statistic["count"])
+        group_counts[group_key] = group_counts.get(group_key, 0.0) + float(
+            statistic["count"]
         )
     combined: dict[str, np.ndarray | float] = {}
     for name in statistics[0][1]:
@@ -930,8 +883,7 @@ def _validate_observation_fit_data(
     protected = [
         str(trajectory.labels.get("benchmark_split"))
         for trajectory in trajectories
-        if str(trajectory.labels.get("benchmark_split", "")).lower()
-        in PROTECTED_SPLITS
+        if str(trajectory.labels.get("benchmark_split", "")).lower() in PROTECTED_SPLITS
     ]
     if protected:
         raise ValueError(
@@ -962,23 +914,19 @@ def _make_first_order_filter(
     trajectories: Sequence[Trajectory],
     candidates_s: np.ndarray,
 ) -> tuple[FirstOrderObservationFilter, dict[str, Any]]:
-    velocity_tau, velocity_scale, velocity_bias, velocity_report = (
-        _fit_temporal_group(
-            trajectories,
-            input_name="pose_velocity",
-            target_name="reported_velocity",
-            maximum_bias=MAXIMUM_VELOCITY_BIAS_M_S,
-            candidates_s=candidates_s,
-        )
+    velocity_tau, velocity_scale, velocity_bias, velocity_report = _fit_temporal_group(
+        trajectories,
+        input_name="pose_velocity",
+        target_name="reported_velocity",
+        maximum_bias=MAXIMUM_VELOCITY_BIAS_M_S,
+        candidates_s=candidates_s,
     )
-    angular_tau, angular_scale, angular_bias, angular_report = (
-        _fit_temporal_group(
-            trajectories,
-            input_name="pose_angular_rate",
-            target_name="reported_angular_rate",
-            maximum_bias=MAXIMUM_ANGULAR_RATE_BIAS_RAD_S,
-            candidates_s=candidates_s,
-        )
+    angular_tau, angular_scale, angular_bias, angular_report = _fit_temporal_group(
+        trajectories,
+        input_name="pose_angular_rate",
+        target_name="reported_angular_rate",
+        maximum_bias=MAXIMUM_ANGULAR_RATE_BIAS_RAD_S,
+        candidates_s=candidates_s,
     )
     model = FirstOrderObservationFilter(
         velocity_time_constant_s=velocity_tau,
@@ -1157,16 +1105,10 @@ def evaluate_first_order_observation_filter(
         materiality_floors=materiality_floors,
         group_interior={
             "position_velocity_vector_rmse_m_s": bool(
-                np.all(
-                    candidate.velocity_time_constant_s
-                    < MAXIMUM_TIME_CONSTANT_S
-                )
+                np.all(candidate.velocity_time_constant_s < MAXIMUM_TIME_CONSTANT_S)
             ),
             "attitude_rate_vector_rmse_rad_s": bool(
-                np.all(
-                    candidate.angular_rate_time_constant_s
-                    < MAXIMUM_TIME_CONSTANT_S
-                )
+                np.all(candidate.angular_rate_time_constant_s < MAXIMUM_TIME_CONSTANT_S)
             ),
         },
     )

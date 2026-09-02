@@ -42,10 +42,7 @@ class SupportedCovariance:
             atol=1e-9,
         ):
             raise ValueError("supported covariance basis must be orthonormal")
-        if not (
-            np.isfinite(self.relative_tolerance)
-            and self.relative_tolerance > 0.0
-        ):
+        if not (np.isfinite(self.relative_tolerance) and self.relative_tolerance > 0.0):
             raise ValueError("supported covariance tolerance must be positive")
         object.__setattr__(self, "basis", basis)
         object.__setattr__(self, "variances", variances)

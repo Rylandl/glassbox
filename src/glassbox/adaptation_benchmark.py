@@ -187,9 +187,7 @@ def _normalized_covariance_trace(
     belief: LocalGaussianParameterBelief,
     prior: StructuredParameterPrior,
 ) -> float:
-    return float(
-        np.sum(np.diag(belief.covariance) / np.square(prior.natural_scale))
-    )
+    return float(np.sum(np.diag(belief.covariance) / np.square(prior.natural_scale)))
 
 
 def _run_scenario(scenario: _Scenario) -> dict[str, Any]:
@@ -362,21 +360,13 @@ def run_adaptation_benchmark() -> dict[str, Any]:
                 item["adaptation"]["applied"] for item in scenarios
             ),
             "all_independent_predictions_improved": all(
-                item["independent_evaluation"][
-                    "normalized_prediction_rms_after"
-                ]
-                < item["independent_evaluation"][
-                    "normalized_prediction_rms_before"
-                ]
+                item["independent_evaluation"]["normalized_prediction_rms_after"]
+                < item["independent_evaluation"]["normalized_prediction_rms_before"]
                 for item in scenarios
             ),
             "all_parameter_covariances_preserved": all(
-                item["parameter_diagnostics"][
-                    "normalized_covariance_trace_after"
-                ]
-                == item["parameter_diagnostics"][
-                    "normalized_covariance_trace_before"
-                ]
+                item["parameter_diagnostics"]["normalized_covariance_trace_after"]
+                == item["parameter_diagnostics"]["normalized_covariance_trace_before"]
                 for item in scenarios
             ),
         },

@@ -61,4 +61,7 @@ def test_console_script_help_exits_cleanly(
 
 def test_pyproject_declares_at_least_one_console_script() -> None:
     assert len(_CONSOLE_SCRIPTS) >= 1
-    assert all(module_name and function_name for _, module_name, function_name in _CONSOLE_SCRIPTS)
+    assert all(
+        module_name and function_name
+        for _, module_name, function_name in _CONSOLE_SCRIPTS
+    )

@@ -50,12 +50,8 @@ def test_model_json_round_trip(tmp_path) -> None:
     assert payload["model_type"] == (
         "effective_quadrotor_command_offset_rotational_response_v3"
     )
-    assert payload["multirotor_thrust_mapping"] == (
-        "shared_normalized_command_offset"
-    )
-    assert payload["parameters"]["thrust_command_offset"] == pytest.approx(
-        -0.12
-    )
+    assert payload["multirotor_thrust_mapping"] == ("shared_normalized_command_offset")
+    assert payload["parameters"]["thrust_command_offset"] == pytest.approx(-0.12)
     assert payload["format_version"] == 3
     assert payload["provenance"] == {"flight": "fixture"}
     assert payload["input_spec"] == input_spec.prediction_spec().to_dict()
@@ -73,9 +69,7 @@ def test_nominal_loader_unwraps_dynamics_belief(tmp_path) -> None:
 
     restored, payload = load_dynamics_model(path)
 
-    for expected_leaf, restored_leaf in zip(
-        true_parameters(), restored, strict=True
-    ):
+    for expected_leaf, restored_leaf in zip(true_parameters(), restored, strict=True):
         np.testing.assert_allclose(restored_leaf, expected_leaf)
     assert payload["model_type"] == (
         "effective_quadrotor_command_offset_rotational_response_v3"
@@ -95,9 +89,7 @@ def test_residual_model_json_round_trip(tmp_path) -> None:
     )
     restored, payload = load_dynamics_model(path)
 
-    for original_leaf, restored_leaf in zip(
-        original.base, restored.base, strict=True
-    ):
+    for original_leaf, restored_leaf in zip(original.base, restored.base, strict=True):
         np.testing.assert_allclose(restored_leaf, original_leaf, rtol=1e-6)
     np.testing.assert_allclose(restored.hidden_weights, original.hidden_weights)
     np.testing.assert_allclose(restored.output_weights, original.output_weights)
@@ -116,13 +108,13 @@ def test_physical_rotor_thrust_proxy_requires_identity_offset() -> None:
         true_parameters(), input_spec=input_spec, runtime_spec=_runtime_spec()
     )
 
-    assert payload["multirotor_thrust_mapping"] == (
-        "identity_physical_thrust_proxy"
-    )
+    assert payload["multirotor_thrust_mapping"] == ("identity_physical_thrust_proxy")
     assert payload["input_spec"]["observations"] == []
-    assert [
-        channel["role"] for channel in payload["identification_observations"]
-    ] == ["specific_force_x", "specific_force_y", "specific_force_z"]
+    assert [channel["role"] for channel in payload["identification_observations"]] == [
+        "specific_force_x",
+        "specific_force_y",
+        "specific_force_z",
+    ]
     with pytest.raises(ValueError, match="require zero command offset"):
         model_payload(
             with_thrust_command_offset(true_parameters(), -0.1),
@@ -144,7 +136,12 @@ def test_residual_model_serializes_typed_exogenous_features(tmp_path) -> None:
         for axis in ("north", "west")
     )
     input_spec = make_trajectory_spec(
-        ("motor_front_left", "motor_front_right", "motor_rear_right", "motor_rear_left"),
+        (
+            "motor_front_left",
+            "motor_front_right",
+            "motor_rear_right",
+            "motor_rear_left",
+        ),
         family="multirotor",
         observation_source="estimated",
         exogenous=channels,
@@ -177,9 +174,7 @@ def test_fixed_wing_residual_model_json_round_trip(tmp_path) -> None:
     restored, payload = load_dynamics_model(path)
 
     assert restored.base.__class__ is base.__class__
-    for original_leaf, restored_leaf in zip(
-        original.base, restored.base, strict=True
-    ):
+    for original_leaf, restored_leaf in zip(original.base, restored.base, strict=True):
         np.testing.assert_allclose(restored_leaf, original_leaf, rtol=1e-6)
     assert payload["model_type"] == "structured_acceleration_residual_v1"
     assert payload["parameters"]["base_model_type"] == (
@@ -219,9 +214,7 @@ def test_rejects_noncurrent_model_format(tmp_path) -> None:
     path = tmp_path / "old_model.json"
     payload = model_payload(
         true_fixed_wing_parameters(),
-        input_spec=generate_fixed_wing_trajectory(
-            seed=0, duration_s=0.1
-        ).spec,
+        input_spec=generate_fixed_wing_trajectory(seed=0, duration_s=0.1).spec,
         runtime_spec=_runtime_spec(),
     )
     payload["format_version"] = 1

@@ -78,10 +78,9 @@ def test_quaternion_double_cover_does_not_create_attitude_innovation() -> None:
     attitude = report["groups"]["attitude"]
     assert attitude["temporally_colored"] is False
     assert attitude["input_correlated"] is False
-    assert max(
-        report["channels"][f"attitude_{axis}_rad"]["rmse"]
-        for axis in "xyz"
-    ) < 1e-6
+    assert (
+        max(report["channels"][f"attitude_{axis}_rad"]["rmse"] for axis in "xyz") < 1e-6
+    )
 
 
 def test_short_trajectory_reports_insufficient_samples() -> None:
@@ -111,9 +110,7 @@ def test_state_compatibility_separates_inconsistent_pose_and_velocity() -> None:
 def test_aggregate_diagnostics_weight_flights_equally() -> None:
     trajectory = generate_trajectory(seed=9, duration_s=4.0)
     clean = one_step_innovation_diagnostics(true_parameters(), trajectory)
-    structured = one_step_innovation_diagnostics(
-        initial_parameter_guess(), trajectory
-    )
+    structured = one_step_innovation_diagnostics(initial_parameter_guess(), trajectory)
 
     report = aggregate_innovation_diagnostics([clean, structured])
 
@@ -126,6 +123,4 @@ def test_aggregate_diagnostics_weight_flights_equally() -> None:
     assert report["state_kinematic_compatibility"][
         "inconsistent_flight_fraction"
     ] == pytest.approx(0.0)
-    assert np.isfinite(
-        report["groups"]["velocity"]["mean_maximum_abs_autocorrelation"]
-    )
+    assert np.isfinite(report["groups"]["velocity"]["mean_maximum_abs_autocorrelation"])

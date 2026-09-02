@@ -36,9 +36,10 @@ def pytest_collection_modifyitems(
 ) -> None:
     availability: dict[str, bool] = {}
     for item in items:
-        for marker_name, (module_name, extra_name) in (
-            _OPTIONAL_SIMULATOR_MARKERS.items()
-        ):
+        for marker_name, (
+            module_name,
+            extra_name,
+        ) in _OPTIONAL_SIMULATOR_MARKERS.items():
             if item.get_closest_marker(marker_name) is None:
                 continue
             if marker_name not in availability:

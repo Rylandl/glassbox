@@ -84,7 +84,9 @@ def evaluate_epfl_characterization(
         ):
             raise ValueError(f"{name} report is not an EPFL characterization split")
         if report["split"]["independent_source_group_holdout"] is not False:
-            raise ValueError("EPFL characterization must not claim an independent holdout")
+            raise ValueError(
+                "EPFL characterization must not claim an independent holdout"
+            )
 
     structured_split = reports["structured"]["split"]
     residual_split = reports["structured_residual"]["split"]
@@ -201,9 +203,7 @@ def evaluate_epfl_characterization(
     }
 
 
-def save_epfl_characterization(
-    report: Mapping[str, Any], path: str | Path
-) -> None:
+def save_epfl_characterization(report: Mapping[str, Any], path: str | Path) -> None:
     output = Path(path)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(report, indent=2) + "\n")

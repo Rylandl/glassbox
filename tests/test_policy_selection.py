@@ -150,9 +150,7 @@ def test_scoring_rejects_nonfinite_full_rollout() -> None:
     candidates = {
         "reference": {"nano": _summary("multirotor", {"chirp": 1.0})},
         "unstable": {
-            "nano": _summary(
-                "multirotor", {"chirp": 0.5}, full_value=float("inf")
-            )
+            "nano": _summary("multirotor", {"chirp": 0.5}, full_value=float("inf"))
         },
     }
 
@@ -227,9 +225,7 @@ def _write_dataset(
     return tuple(paths)
 
 
-def _write_source_group_dataset(
-    root: Path, name: str, family: str
-) -> tuple[Path, ...]:
+def _write_source_group_dataset(root: Path, name: str, family: str) -> tuple[Path, ...]:
     paths = []
     for index, group in enumerate(("session_a", "session_b")):
         states = np.zeros((6, 13), dtype=float)
@@ -274,9 +270,7 @@ def test_selection_is_resumable_and_writes_auditable_decision(
         (destination / "summary.json").write_text(json.dumps(summary) + "\n")
         return summary
 
-    monkeypatch.setattr(
-        "glassbox.policy_selection.benchmark_profiles", fake_benchmark
-    )
+    monkeypatch.setattr("glassbox.policy_selection.benchmark_profiles", fake_benchmark)
     output_dir = tmp_path / "selection"
     plan = PolicySelectionPlan(
         name="test_v1",
@@ -344,16 +338,12 @@ def test_selection_rejects_benchmark_test_trajectories(tmp_path, monkeypatch) ->
 def test_selection_dispatches_single_profile_corpus_to_source_groups(
     tmp_path, monkeypatch
 ) -> None:
-    datasets = {
-        "idf": _write_source_group_dataset(tmp_path, "idf", "fixedwing")
-    }
+    datasets = {"idf": _write_source_group_dataset(tmp_path, "idf", "fixedwing")}
     calls = []
 
     def fake_source_benchmark(paths, output_dir, **configuration):
         calls.append((tuple(paths), Path(output_dir), configuration))
-        summary = _source_summary(
-            "fixedwing", {"session_a": 1.0, "session_b": 1.0}
-        )
+        summary = _source_summary("fixedwing", {"session_a": 1.0, "session_b": 1.0})
         destination = Path(output_dir)
         destination.mkdir(parents=True, exist_ok=True)
         (destination / "summary.json").write_text(json.dumps(summary) + "\n")
@@ -374,11 +364,7 @@ def test_selection_dispatches_single_profile_corpus_to_source_groups(
         steps=1,
     )
 
-    decision = select_fitting_policy(
-        datasets, tmp_path / "source_selection", plan=plan
-    )
+    decision = select_fitting_policy(datasets, tmp_path / "source_selection", plan=plan)
 
     assert len(calls) == 1
-    assert decision["data_policy"]["dataset_fold_axes"] == {
-        "idf": "source_group"
-    }
+    assert decision["data_policy"]["dataset_fold_axes"] == {"idf": "source_group"}

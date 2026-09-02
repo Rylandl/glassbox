@@ -83,7 +83,9 @@ def test_scalar_first_quaternion_reorder_and_rate_sign() -> None:
     np.testing.assert_allclose(angular_velocity[:, 2], -1.0, atol=0.01)
 
 
-def test_build_trajectories_excludes_navigation_drift_and_types_inputs(tmp_path) -> None:
+def test_build_trajectories_excludes_navigation_drift_and_types_inputs(
+    tmp_path,
+) -> None:
     source = tmp_path / epfl_module.TOPOPLANE_FILENAME
     trajectories = _build_trajectories(
         _streams(), source_path=source, checksum="fixture-md5"
@@ -100,12 +102,14 @@ def test_build_trajectories_excludes_navigation_drift_and_types_inputs(tmp_path)
     np.testing.assert_allclose(trajectory.states[:, 10:13], 0.0)
     assert trajectory.states[-1, 0] > 600.0
     assert trajectory.provenance["evaluation_limitations"]["single_flight"] is True
-    assert trajectory.provenance["quality"]["forward_velocity_alignment"][
-        "median"
-    ] > 0.999
+    assert (
+        trajectory.provenance["quality"]["forward_velocity_alignment"]["median"] > 0.999
+    )
 
 
-def test_adapter_returns_longest_segment_for_minimal_protocol(tmp_path, monkeypatch) -> None:
+def test_adapter_returns_longest_segment_for_minimal_protocol(
+    tmp_path, monkeypatch
+) -> None:
     source = tmp_path / epfl_module.TOPOPLANE_FILENAME
     source.write_bytes(b"fixture")
     monkeypatch.setattr(epfl_module, "_read_topoplane_streams", lambda path: _streams())

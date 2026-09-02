@@ -421,9 +421,7 @@ def test_trust_region_bounds_each_prior_coordinate_not_their_mean() -> None:
     concentrated[7] = 4.69
     diffuse = np.full(22, 0.2)
 
-    concentrated_fraction = adaptation_module._bounded_local_step_fraction(
-        concentrated
-    )
+    concentrated_fraction = adaptation_module._bounded_local_step_fraction(concentrated)
     diffuse_fraction = adaptation_module._bounded_local_step_fraction(diffuse)
     bounded = concentrated_fraction * concentrated
 
@@ -457,9 +455,7 @@ def test_proposal_reports_the_bounded_coordinate_and_its_spread() -> None:
 
     assert proposal is not None
     assert 0.0 < proposal.prior_standardized_step_max <= 1.0
-    assert (
-        proposal.prior_standardized_step_rms <= proposal.prior_standardized_step_max
-    )
+    assert proposal.prior_standardized_step_rms <= proposal.prior_standardized_step_max
     assert proposal_report.prior_standardized_step_max == pytest.approx(
         proposal.prior_standardized_step_max
     )

@@ -73,10 +73,7 @@ def test_x8_inspection_audits_source_consistency(tmp_path) -> None:
     assert inventory["intervals"] == 3
     assert np.isclose(inventory["duration_s"], 0.075)
     assert inventory["quality"]["sample_rate_hz"] == 40.0
-    assert (
-        inventory["quality"]["maximum_body_velocity_consistency_error_m_s"]
-        < 1e-12
-    )
+    assert inventory["quality"]["maximum_body_velocity_consistency_error_m_s"] < 1e-12
     assert inventory["checksum_matches_pinned_snapshot"] is False
 
 
@@ -158,9 +155,5 @@ def test_x8_evaluation_requires_and_scores_upstream_validation(tmp_path) -> None
 
     assert report["protocol"]["split"] == "upstream_validation"
     assert report["dataset"]["validation_trajectory_count"] == 1
-    assert "0.025s" in report["models"]["structured"]["aggregate"][
-        "horizon_rollouts"
-    ]
-    assert np.isfinite(
-        report["models"]["structured"]["score_vs_kinematic_persistence"]
-    )
+    assert "0.025s" in report["models"]["structured"]["aggregate"]["horizon_rollouts"]
+    assert np.isfinite(report["models"]["structured"]["score_vs_kinematic_persistence"])

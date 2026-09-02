@@ -162,18 +162,22 @@ def test_divergence_diagnostic_validates_threshold_names() -> None:
 
 
 def test_training_window_budget_scales_with_diversity_and_horizon() -> None:
-    assert _automatic_training_window_budget(
-        horizon_steps=100, source_group_count=1
-    ) == 5_242
-    assert _automatic_training_window_budget(
-        horizon_steps=100, source_group_count=12
-    ) == 5_242
-    assert _automatic_training_window_budget(
-        horizon_steps=1_000, source_group_count=12
-    ) == 524
-    assert _automatic_training_window_budget(
-        horizon_steps=5, source_group_count=40
-    ) == 8_192
+    assert (
+        _automatic_training_window_budget(horizon_steps=100, source_group_count=1)
+        == 5_242
+    )
+    assert (
+        _automatic_training_window_budget(horizon_steps=100, source_group_count=12)
+        == 5_242
+    )
+    assert (
+        _automatic_training_window_budget(horizon_steps=1_000, source_group_count=12)
+        == 524
+    )
+    assert (
+        _automatic_training_window_budget(horizon_steps=5, source_group_count=40)
+        == 8_192
+    )
 
 
 def test_multi_flight_fit_reserves_complete_final_flight(tmp_path) -> None:
@@ -200,13 +204,14 @@ def test_multi_flight_fit_reserves_complete_final_flight(tmp_path) -> None:
     assert baseline_params is not None
     assert report["configuration"]["training_horizon_steps"] == [5, 10]
     assert report["configuration"]["training_flight_weighting"] == "equal_flight"
-    shares = report["configuration"][
-        "training_weight_share_per_flight_by_horizon"
-    ]["0.1s"]
+    shares = report["configuration"]["training_weight_share_per_flight_by_horizon"][
+        "0.1s"
+    ]
     assert list(shares.values()) == pytest.approx([0.5, 0.5])
-    assert report["models"]["learned_lag"]["validation"]["aggregate"][
-        "weighting"
-    ] == "equal_flight"
+    assert (
+        report["models"]["learned_lag"]["validation"]["aggregate"]["weighting"]
+        == "equal_flight"
+    )
     assert set(report["models"]) == {"learned_lag", "no_lag"}
     assert set(report["models"]["learned_lag"]["fit"]["component_losses"]) == {
         "0.1s",
@@ -215,12 +220,13 @@ def test_multi_flight_fit_reserves_complete_final_flight(tmp_path) -> None:
     rollout_loss = report["models"]["learned_lag"]["fit"]["rollout_loss"]
     assert rollout_loss["endpoint_weight"] == pytest.approx(3.0)
     assert rollout_loss["stability_regularization"] == pytest.approx(0.01)
-    assert "0.1s" in report["models"]["learned_lag"]["validation"][
-        "aggregate"
-    ]["horizon_rollouts"]
-    predictive_error = report["models"]["learned_lag"]["validation"][
-        "predictive_error"
-    ]
+    assert (
+        "0.1s"
+        in report["models"]["learned_lag"]["validation"]["aggregate"][
+            "horizon_rollouts"
+        ]
+    )
+    predictive_error = report["models"]["learned_lag"]["validation"]["predictive_error"]
     assert predictive_error["kind"] == "empirical_horizon_tangent_moments"
     assert predictive_error["horizons_s"] == [0.1]
     assert predictive_error["independent_group_count"] == [1]
@@ -273,12 +279,14 @@ def test_benchmark_split_labels_determine_holdout_regardless_of_argument_order(
     for report in (forward_report, reversed_report):
         assert report["split"]["mode"] == "benchmark_split_holdout"
         assert report["split"]["benchmark_split_holdout"] is True
-        assert [
-            flight["path"] for flight in report["split"]["validation_flights"]
-        ] == [str(paths[3])]
-        assert {
-            flight["path"] for flight in report["split"]["training_flights"]
-        } == {str(paths[0]), str(paths[1]), str(paths[2])}
+        assert [flight["path"] for flight in report["split"]["validation_flights"]] == [
+            str(paths[3])
+        ]
+        assert {flight["path"] for flight in report["split"]["training_flights"]} == {
+            str(paths[0]),
+            str(paths[1]),
+            str(paths[2]),
+        }
         assert report["split"]["benchmark_split_training"] == [
             "training",
             "training",
@@ -403,7 +411,10 @@ def test_requested_fit_builds_rank_aware_parameter_evidence(tmp_path) -> None:
     assert report["configuration"]["parameter_evidence"]["requested"] is True
     # The report is written with plain ``json.dumps``; every leaf must be JSON-native.
     assert type(evidence["rank_relative_tolerance"]) is float
-    assert json.loads(json.dumps(report))["models"]["learned_lag"]["parameter_evidence"] == evidence
+    assert (
+        json.loads(json.dumps(report))["models"]["learned_lag"]["parameter_evidence"]
+        == evidence
+    )
 
 
 def test_source_group_holdout_keeps_dropout_segments_together(tmp_path) -> None:
@@ -452,9 +463,7 @@ def test_source_group_holdout_keeps_dropout_segments_together(tmp_path) -> None:
     assert group_shares == pytest.approx({"session-1": 0.5, "session-2": 0.5})
     selection = report["configuration"]["training_window_selection"]
     assert selection["budget_policy"] == "automatic_corpus_and_horizon"
-    assert selection["selection_policy_by_horizon"] == {
-        "0.1s": "all_candidates"
-    }
+    assert selection["selection_policy_by_horizon"] == {"0.1s": "all_candidates"}
     assert selection["candidate_windows_by_horizon"] == {
         "0.1s": selection["selected_windows_by_horizon"]["0.1s"]
     }

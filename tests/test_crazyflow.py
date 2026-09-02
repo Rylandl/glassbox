@@ -634,7 +634,9 @@ def test_continuous_throw_fits_and_arrests_without_a_post_release_reset() -> Non
     assert np.all(np.diff([moment.simulation_time_s for moment in moments]) > 0.0)
 
     recorded = json.loads(
-        (Path(__file__).parents[1] / "docs/results/crazyflow-throw-results.json").read_text()
+        (
+            Path(__file__).parents[1] / "docs/results/crazyflow-throw-results.json"
+        ).read_text()
     )
     assert recorded["observations"] == report["observations"]
     assert recorded["continuous_throw"][
@@ -675,7 +677,8 @@ def test_continuous_throw_campaign_retains_successes_and_failed_gates() -> None:
 
     recorded = json.loads(
         (
-            Path(__file__).parents[1] / "docs/results/crazyflow-throw-campaign-results.json"
+            Path(__file__).parents[1]
+            / "docs/results/crazyflow-throw-campaign-results.json"
         ).read_text()
     )
     assert recorded["aggregate"] == report["aggregate"]

@@ -26,9 +26,7 @@ from glassbox.data import (
 )
 from glassbox.dynamics import QUADROTOR_CONTROL_NAMES
 
-BENCHMARK_REPOSITORY = (
-    "https://github.com/idsia-robotics/nanodrone-sysid-benchmark"
-)
+BENCHMARK_REPOSITORY = "https://github.com/idsia-robotics/nanodrone-sysid-benchmark"
 BENCHMARK_COMMIT = "2d921b57d166fe2debe08a5d39bd07297c5abc39"
 BENCHMARK_DOI = "10.1016/j.conengprac.2026.106871"
 BENCHMARK_MEDIA_ROOT = (
@@ -37,9 +35,7 @@ BENCHMARK_MEDIA_ROOT = (
 )
 ROTOR_SPEED_REFERENCE_RAD_S = 2500.0
 BENCHMARK_OBSERVATION_SOURCE = "processed_mocap_and_onboard_sensors"
-BENCHMARK_CONFIGURATION_ID = (
-    "idsia_crazyflie_2_1_brushless_flow_v2_ai_deck"
-)
+BENCHMARK_CONFIGURATION_ID = "idsia_crazyflie_2_1_brushless_flow_v2_ai_deck"
 
 SOURCE_COLUMNS = (
     "t",
@@ -199,8 +195,7 @@ def _recording_identity(path: Path) -> tuple[BenchmarkRecording, dict[str, Any]]
     return recording, {
         "profile": identity["profile"],
         "recording_date": (
-            f"{identity['date'][:4]}-{identity['date'][4:6]}-"
-            f"{identity['date'][6:]}"
+            f"{identity['date'][:4]}-{identity['date'][4:6]}-{identity['date'][6:]}"
         ),
         "replicate": int(identity["replicate"]),
         "benchmark_split": split,
@@ -237,9 +232,7 @@ def _source_quality(data: np.ndarray) -> dict[str, Any]:
     nominal_dt_s = float(np.median(time_steps))
     maximum_timing_error_s = float(np.max(np.abs(time_steps - nominal_dt_s)))
     if not np.isclose(nominal_dt_s, 0.01, atol=1e-8, rtol=0.0):
-        raise ValueError(
-            f"expected 100 Hz benchmark data, got dt={nominal_dt_s:g}s"
-        )
+        raise ValueError(f"expected 100 Hz benchmark data, got dt={nominal_dt_s:g}s")
     if maximum_timing_error_s > 1e-7:
         raise ValueError(
             "benchmark timestamps are not uniformly sampled: maximum interval "
@@ -248,9 +241,7 @@ def _source_quality(data: np.ndarray) -> dict[str, Any]:
 
     quaternion = data[:, 4:8]
     quaternion_norm = np.linalg.norm(quaternion, axis=1)
-    maximum_quaternion_norm_error = float(
-        np.max(np.abs(quaternion_norm - 1.0))
-    )
+    maximum_quaternion_norm_error = float(np.max(np.abs(quaternion_norm - 1.0)))
     if maximum_quaternion_norm_error > 1e-3:
         raise ValueError(
             "benchmark quaternion norm error exceeds 1e-3: "
@@ -327,7 +318,9 @@ class NanoDroneBenchmarkAdapter:
 
     def _read(
         self, path: str | Path
-    ) -> tuple[Path, BenchmarkRecording, dict[str, Any], np.ndarray, dict[str, Any], str]:
+    ) -> tuple[
+        Path, BenchmarkRecording, dict[str, Any], np.ndarray, dict[str, Any], str
+    ]:
         source_path = Path(path)
         recording, labels = _recording_identity(source_path)
         checksum = _sha256(source_path)
@@ -374,9 +367,7 @@ class NanoDroneBenchmarkAdapter:
         time_s = data[:, 0] - data[0, 0]
 
         quaternion_xyzw = data[:, 4:8].copy()
-        quaternion_xyzw /= np.linalg.norm(
-            quaternion_xyzw, axis=1, keepdims=True
-        )
+        quaternion_xyzw /= np.linalg.norm(quaternion_xyzw, axis=1, keepdims=True)
         sign_flips = 0
         for index in range(1, len(quaternion_xyzw)):
             if np.dot(quaternion_xyzw[index - 1], quaternion_xyzw[index]) < 0.0:
@@ -391,12 +382,8 @@ class NanoDroneBenchmarkAdapter:
         states[:, 10:13] = data[:, 11:14]
 
         source_motor_speeds = data[:-1, 14:18]
-        canonical_motor_speeds = source_motor_speeds[
-            :, CANONICAL_MOTOR_SOURCE_INDICES
-        ]
-        controls = (
-            canonical_motor_speeds / self.rotor_speed_reference_rad_s
-        ) ** 2
+        canonical_motor_speeds = source_motor_speeds[:, CANONICAL_MOTOR_SOURCE_INDICES]
+        controls = (canonical_motor_speeds / self.rotor_speed_reference_rad_s) ** 2
 
         return Trajectory(
             time_s=time_s,
@@ -571,7 +558,9 @@ def extract_nanodrone_benchmark(
     for recording in BENCHMARK_RECORDINGS:
         source_path = source_directory / recording.relative_path
         output_path = (
-            output_directory / recording.split / Path(recording.filename).with_suffix(".npz")
+            output_directory
+            / recording.split
+            / Path(recording.filename).with_suffix(".npz")
         )
         save_trajectory_npz(selected_adapter.load(source_path), output_path)
         outputs.append(output_path)

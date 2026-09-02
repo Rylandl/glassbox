@@ -108,9 +108,7 @@ class BootstrapIdentificationConfig:
             "command_maximum": list(self.command_maximum),
             "command_rank_relative_tolerance": self.command_rank_relative_tolerance,
             "minimum_normalized_command_rms": self.minimum_normalized_command_rms,
-            "nuisance_rank_relative_tolerance": (
-                self.nuisance_rank_relative_tolerance
-            ),
+            "nuisance_rank_relative_tolerance": (self.nuisance_rank_relative_tolerance),
             "output_rank_relative_tolerance": self.output_rank_relative_tolerance,
             "minimum_validation_improvement": self.minimum_validation_improvement,
             "minimum_collective_support_fraction": (

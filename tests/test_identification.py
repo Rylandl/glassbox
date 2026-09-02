@@ -161,9 +161,10 @@ def test_normalized_motor_commands_support_shared_thrust_offset() -> None:
         stride=5,
     )
 
-    assert supports_multirotor_thrust_command_offset(
-        initial_parameter_guess(), windows
-    ) is True
+    assert (
+        supports_multirotor_thrust_command_offset(initial_parameter_guess(), windows)
+        is True
+    )
 
     result = fit_dynamics(
         windows,
@@ -202,9 +203,10 @@ def test_squared_rotor_speed_proxy_fixes_thrust_offset_to_zero() -> None:
     )
     windows = trajectory_windows([trajectory], horizon=5, stride=5)
 
-    assert supports_multirotor_thrust_command_offset(
-        initial_parameter_guess(), windows
-    ) is False
+    assert (
+        supports_multirotor_thrust_command_offset(initial_parameter_guess(), windows)
+        is False
+    )
 
     result = fit_dynamics(
         windows,
@@ -279,9 +281,7 @@ def test_rollout_loss_configuration_ignores_world_position_origin() -> None:
     original = rollout_loss_configuration([windows])
     shifted = rollout_loss_configuration([translated])
 
-    np.testing.assert_allclose(
-        original.position_scale_m, shifted.position_scale_m
-    )
+    np.testing.assert_allclose(original.position_scale_m, shifted.position_scale_m)
     np.testing.assert_allclose(
         original.body_velocity_bound_m_s,
         shifted.body_velocity_bound_m_s,
@@ -303,9 +303,7 @@ def test_fit_records_configured_long_rollout_policy() -> None:
 
     assert result.loss_configuration is not None
     assert result.loss_configuration.endpoint_weight == pytest.approx(2.5)
-    assert result.loss_configuration.stability_regularization == pytest.approx(
-        0.02
-    )
+    assert result.loss_configuration.stability_regularization == pytest.approx(0.02)
     assert np.all(result.loss_configuration.position_scale_m > 0.0)
 
 
@@ -315,16 +313,12 @@ def test_dynamic_envelope_penalizes_velocity_escape() -> None:
     )
     configuration = rollout_loss_configuration([windows])
     states = jnp.asarray(windows.target_states[:, 1:])
-    escaped = states.at[..., 3].add(
-        10.0 * configuration.body_velocity_bound_m_s[0]
-    )
+    escaped = states.at[..., 3].add(10.0 * configuration.body_velocity_bound_m_s[0])
 
     nominal_penalty = dynamic_envelope_penalty(states, configuration)
     escaped_penalty = dynamic_envelope_penalty(escaped, configuration)
 
-    assert float(jnp.mean(escaped_penalty)) > float(
-        jnp.mean(nominal_penalty)
-    ) + 1.0
+    assert float(jnp.mean(escaped_penalty)) > float(jnp.mean(nominal_penalty)) + 1.0
 
 
 def test_residual_parameters_can_be_fit_through_rollouts() -> None:
@@ -341,9 +335,7 @@ def test_residual_parameters_can_be_fit_through_rollouts() -> None:
     assert jnp.linalg.norm(result.params.output_weights) > 0.0
     np.testing.assert_allclose(result.params.feature_mean, initial.feature_mean)
     np.testing.assert_allclose(result.params.feature_scale, initial.feature_scale)
-    np.testing.assert_allclose(
-        result.params.correction_scale, initial.correction_scale
-    )
+    np.testing.assert_allclose(result.params.correction_scale, initial.correction_scale)
 
 
 def test_quadrotor_fit_rejects_non_quadrotor_control_schema() -> None:
@@ -381,7 +373,11 @@ def test_minibatch_realizes_window_weights_exactly_once() -> None:
 
     per_window = np.asarray(
         [
-            float(_window_loss(params, windows, configuration, indices=jnp.asarray([index])))
+            float(
+                _window_loss(
+                    params, windows, configuration, indices=jnp.asarray([index])
+                )
+            )
             for index in range(count)
         ]
     )
@@ -400,9 +396,7 @@ def test_minibatch_realizes_window_weights_exactly_once() -> None:
             _window_loss(params, windows, configuration, indices=jnp.asarray(row))
         ) == pytest.approx(float(np.mean(per_window[row])), rel=1e-5)
     realized = float(np.mean(per_window[schedule]))
-    squared_weight_mean = float(
-        np.sum(weights**2 * per_window) / np.sum(weights**2)
-    )
+    squared_weight_mean = float(np.sum(weights**2 * per_window) / np.sum(weights**2))
     assert realized == pytest.approx(weighted_full, rel=0.02)
     assert abs(realized - weighted_full) < abs(realized - squared_weight_mean)
 
@@ -420,11 +414,15 @@ def test_fit_reports_divergence_and_returns_finite_parameters() -> None:
         [generate_trajectory(seed=5, duration_s=0.4)], horizon=5, stride=5
     )
 
-    result = fit_dynamics(windows, initial_parameter_guess(), steps=20, learning_rate=50.0)
+    result = fit_dynamics(
+        windows, initial_parameter_guess(), steps=20, learning_rate=50.0
+    )
 
     assert result.diverged
     assert result.completed_steps is not None and result.completed_steps < 20
-    assert all(bool(jnp.all(jnp.isfinite(leaf))) for leaf in jax.tree.leaves(result.params))
+    assert all(
+        bool(jnp.all(jnp.isfinite(leaf))) for leaf in jax.tree.leaves(result.params)
+    )
     assert np.isfinite(result.final_loss)
     assert np.all(np.isfinite(result.loss_history))
     assert len(result.loss_history) == result.completed_steps + 2

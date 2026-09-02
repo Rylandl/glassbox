@@ -15,10 +15,7 @@ from glassbox.synthetic import generate_trajectory
 def _shift(values: np.ndarray, time_s: np.ndarray, delay_s: float) -> np.ndarray:
     query_time_s = time_s - delay_s
     return np.column_stack(
-        [
-            np.interp(query_time_s, time_s, values[:, axis])
-            for axis in range(3)
-        ]
+        [np.interp(query_time_s, time_s, values[:, axis]) for axis in range(3)]
     )
 
 
@@ -29,12 +26,8 @@ def _shifted_trajectory(*, seed: int, delay_s: float, duration_s: float = 3.0):
         dt_s=0.02,
     )
     states = trajectory.states.copy()
-    states[:, 3:6] = _shift(
-        states[:, 3:6], trajectory.time_s, delay_s
-    )
-    states[:, 10:13] = _shift(
-        states[:, 10:13], trajectory.time_s, delay_s
-    )
+    states[:, 3:6] = _shift(states[:, 3:6], trajectory.time_s, delay_s)
+    states[:, 10:13] = _shift(states[:, 10:13], trajectory.time_s, delay_s)
     return replace(trajectory, states=states)
 
 
@@ -51,12 +44,9 @@ def test_alignment_recovers_signed_state_channel_delay(delay_s: float) -> None:
     )
 
     assert result.candidate.velocity_delay_s == pytest.approx(delay_s, abs=0.01)
-    assert result.candidate.angular_rate_delay_s == pytest.approx(
-        delay_s, abs=0.01
-    )
+    assert result.candidate.angular_rate_delay_s == pytest.approx(delay_s, abs=0.01)
     assert all(
-        ratio < 0.01
-        for ratio in evaluation["candidate_over_reference"].values()
+        ratio < 0.01 for ratio in evaluation["candidate_over_reference"].values()
     )
     assert evaluation["gate"]["conditional_transfer_passes"] is True
     assert evaluation["gate"]["blanket_transfer_passes"] is True
@@ -73,13 +63,12 @@ def test_alignment_rejects_protected_fit_and_boundary_is_not_promoted() -> None:
     assert result.candidate.angular_rate_delay_s == pytest.approx(
         MAXIMUM_ABSOLUTE_ALIGNMENT_S
     )
-    decisions = result.report["training_comparison"]["gate"][
-        "channel_decisions"
-    ]
+    decisions = result.report["training_comparison"]["gate"]["channel_decisions"]
     assert all(not decision["identifiable"] for decision in decisions.values())
-    assert result.report["training_comparison"]["gate"][
-        "conditional_transfer_passes"
-    ] is False
+    assert (
+        result.report["training_comparison"]["gate"]["conditional_transfer_passes"]
+        is False
+    )
     protected = replace(
         slow,
         labels={**slow.labels, "benchmark_split": "holdout"},
@@ -111,9 +100,7 @@ def test_alignment_weights_source_groups_instead_of_segment_count() -> None:
     )
 
     balanced = fit_state_observation_alignment([first, second])
-    duplicated_segment = fit_state_observation_alignment(
-        [first, first, second]
-    )
+    duplicated_segment = fit_state_observation_alignment([first, first, second])
 
     assert duplicated_segment.candidate.velocity_delay_s == pytest.approx(
         balanced.candidate.velocity_delay_s

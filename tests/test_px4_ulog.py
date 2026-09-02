@@ -69,9 +69,7 @@ def make_datasets(*, disarmed_until_s: float | None = None) -> list[FakeDataset]
             "timestamp": angular_timestamp + 1_000,
             "timestamp_sample": angular_timestamp,
             **array_fields("xyz", angular_values),
-            **array_fields(
-                "xyz_derivative", np.tile([0.4, 0.5, 0.6], (26, 1))
-            ),
+            **array_fields("xyz_derivative", np.tile([0.4, 0.5, 0.6], (26, 1))),
         },
     )
 
@@ -81,9 +79,7 @@ def make_datasets(*, disarmed_until_s: float | None = None) -> list[FakeDataset]
         {
             "timestamp": acceleration_timestamp + 1_000,
             "timestamp_sample": acceleration_timestamp,
-            **array_fields(
-                "xyz", np.tile([1.0, 2.0, -9.0], (21, 1))
-            ),
+            **array_fields("xyz", np.tile([1.0, 2.0, -9.0], (21, 1))),
         },
     )
 
@@ -359,9 +355,7 @@ def test_all_valid_intervals_are_preserved_across_a_telemetry_gap() -> None:
         dataset for dataset in datasets if dataset.name == "vehicle_local_position"
     )
     retained = np.asarray([0, 1, 2, 3, 7, 8, 9, 10])
-    position.data = {
-        name: values[retained] for name, values in position.data.items()
-    }
+    position.data = {name: values[retained] for name, values in position.data.items()}
 
     trajectories = trajectories_from_datasets(
         datasets,
@@ -479,9 +473,11 @@ def test_fixed_wing_topics_are_joined_using_px4_surface_effectiveness() -> None:
         "name": "px4_ulog",
         "schema_version": 2,
     }
-    assert trajectory.provenance["px4"]["actuator_mapping"][
-        "surface_indices"
-    ] == [0, 1, 2]
+    assert trajectory.provenance["px4"]["actuator_mapping"]["surface_indices"] == [
+        0,
+        1,
+        2,
+    ]
 
 
 def test_split_ailerons_are_reconstructed_as_one_signed_roll_control() -> None:
@@ -543,9 +539,7 @@ def test_flying_wing_elevons_produce_roll_pitch_roles_without_fictional_yaw() ->
     assert trajectory.spec is not None
     assert trajectory.spec.control_roles == ("throttle", "roll", "pitch")
     assert trajectory.spec.vehicle.controlled_axes == ("roll", "pitch")
-    np.testing.assert_allclose(
-        trajectory.controls, np.tile([0.1, 0.4, -0.2], (10, 1))
-    )
+    np.testing.assert_allclose(trajectory.controls, np.tile([0.1, 0.4, -0.2], (10, 1)))
     mapping = trajectory.provenance["px4"]["actuator_mapping"]
     assert mapping["surface_types"] == [5, 6]
     assert mapping["controlled_axes"] == ["roll", "pitch"]
@@ -627,9 +621,7 @@ def make_jittered_actuator_datasets() -> list[FakeDataset]:
         {
             "timestamp": fine_timestamp,
             "timestamp_sample": fine_timestamp,
-            **array_fields(
-                "q", np.tile([1.0, 0.0, 0.0, 0.0], (fine_count, 1))
-            ),
+            **array_fields("q", np.tile([1.0, 0.0, 0.0, 0.0], (fine_count, 1))),
         },
     )
     angular_velocity = FakeDataset(
@@ -642,9 +634,7 @@ def make_jittered_actuator_datasets() -> list[FakeDataset]:
     )
 
     periods_us = np.tile([90_000, 110_000], 20)
-    actuator_timestamp = start_us + 7_000 + np.concatenate(
-        ([0], np.cumsum(periods_us))
-    )
+    actuator_timestamp = start_us + 7_000 + np.concatenate(([0], np.cumsum(periods_us)))
     control_values = np.tile(
         np.arange(1, 5, dtype=float) / 10.0, (len(actuator_timestamp), 1)
     )
@@ -746,7 +736,9 @@ def test_source_rates_reports_period_method_and_sample_count() -> None:
     assert actuator_rates["sample_count"] == 51
 
 
-def test_cli_extract_warns_when_coverage_is_incomplete(tmp_path, monkeypatch, capsys) -> None:
+def test_cli_extract_warns_when_coverage_is_incomplete(
+    tmp_path, monkeypatch, capsys
+) -> None:
     import glassbox.ulog_cli as ulog_cli
 
     fragmented_trajectory = trajectory_from_datasets(

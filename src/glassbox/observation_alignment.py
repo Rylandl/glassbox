@@ -53,9 +53,7 @@ class StateObservationAlignment:
     def __post_init__(self) -> None:
         for name in ("velocity_delay_s", "angular_rate_delay_s"):
             value = float(getattr(self, name))
-            if not np.isfinite(value) or (
-                abs(value) > MAXIMUM_ABSOLUTE_ALIGNMENT_S
-            ):
+            if not np.isfinite(value) or (abs(value) > MAXIMUM_ABSOLUTE_ALIGNMENT_S):
                 raise ValueError(f"{name} exceeds the maintained bounds")
             object.__setattr__(self, name, value)
         for name in (
@@ -76,12 +74,9 @@ class StateObservationAlignment:
         if np.any(np.abs(self.velocity_bias_m_s) > MAXIMUM_VELOCITY_BIAS_M_S):
             raise ValueError("velocity_bias_m_s exceeds the maintained bounds")
         if np.any(
-            np.abs(self.angular_rate_bias_rad_s)
-            > MAXIMUM_ANGULAR_RATE_BIAS_RAD_S
+            np.abs(self.angular_rate_bias_rad_s) > MAXIMUM_ANGULAR_RATE_BIAS_RAD_S
         ):
-            raise ValueError(
-                "angular_rate_bias_rad_s exceeds the maintained bounds"
-            )
+            raise ValueError("angular_rate_bias_rad_s exceeds the maintained bounds")
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -94,9 +89,7 @@ class StateObservationAlignment:
             "velocity_bias_m_s": self.velocity_bias_m_s.tolist(),
             "angular_rate_delay_s": self.angular_rate_delay_s,
             "angular_rate_scale": self.angular_rate_scale.tolist(),
-            "angular_rate_bias_rad_s": (
-                self.angular_rate_bias_rad_s.tolist()
-            ),
+            "angular_rate_bias_rad_s": (self.angular_rate_bias_rad_s.tolist()),
             "bounds": {
                 "alignment_s": [
                     -MAXIMUM_ABSOLUTE_ALIGNMENT_S,
@@ -151,10 +144,7 @@ def _shifted_response(
 ) -> np.ndarray:
     query_times_s = center_times_s - delay_s
     return np.column_stack(
-        [
-            np.interp(query_times_s, center_times_s, values[:, axis])
-            for axis in range(3)
-        ]
+        [np.interp(query_times_s, center_times_s, values[:, axis]) for axis in range(3)]
     )
 
 
@@ -209,8 +199,8 @@ def _fit_alignment_group(
         )
     group_counts: dict[str, float] = {}
     for group_key, statistic in statistics:
-        group_counts[group_key] = (
-            group_counts.get(group_key, 0.0) + float(statistic["count"])
+        group_counts[group_key] = group_counts.get(group_key, 0.0) + float(
+            statistic["count"]
         )
     combined: dict[str, np.ndarray | float] = {}
     for name in statistics[0][1]:
@@ -274,14 +264,19 @@ def _fit_alignment_group(
         if key < best[:3]:
             best = (*key, scales, biases, axis_reports)
     _, _, selected_delay_s, scales, biases, axis_reports = best
-    return selected_delay_s, scales, biases, {
-        "selected_delay_s": selected_delay_s,
-        "selected_boundary": bool(
-            np.isclose(abs(selected_delay_s), MAXIMUM_ABSOLUTE_ALIGNMENT_S)
-        ),
-        "selected_axes": axis_reports,
-        "candidate_scores": candidate_reports,
-    }
+    return (
+        selected_delay_s,
+        scales,
+        biases,
+        {
+            "selected_delay_s": selected_delay_s,
+            "selected_boundary": bool(
+                np.isclose(abs(selected_delay_s), MAXIMUM_ABSOLUTE_ALIGNMENT_S)
+            ),
+            "selected_axes": axis_reports,
+            "candidate_scores": candidate_reports,
+        },
+    )
 
 
 def _make_alignment(
@@ -297,14 +292,12 @@ def _make_alignment(
             candidates_s=candidates_s,
         )
     )
-    angular_delay, angular_scale, angular_bias, angular_report = (
-        _fit_alignment_group(
-            trajectories,
-            input_name="pose_angular_rate",
-            target_name="reported_angular_rate",
-            maximum_bias=MAXIMUM_ANGULAR_RATE_BIAS_RAD_S,
-            candidates_s=candidates_s,
-        )
+    angular_delay, angular_scale, angular_bias, angular_report = _fit_alignment_group(
+        trajectories,
+        input_name="pose_angular_rate",
+        target_name="reported_angular_rate",
+        maximum_bias=MAXIMUM_ANGULAR_RATE_BIAS_RAD_S,
+        candidates_s=candidates_s,
     )
     alignment = StateObservationAlignment(
         velocity_delay_s=velocity_delay,
@@ -328,9 +321,7 @@ def _alignment_errors(
     center_times_s = _interval_center_times(trajectory)
     mask = _alignment_mask(center_times_s)
     predicted_velocity = (
-        _shifted_response(
-            pair["pose_velocity"], center_times_s, model.velocity_delay_s
-        )
+        _shifted_response(pair["pose_velocity"], center_times_s, model.velocity_delay_s)
         * model.velocity_scale
         + model.velocity_bias_m_s
     )
@@ -344,9 +335,7 @@ def _alignment_errors(
         + model.angular_rate_bias_rad_s
     )
     velocity_error = predicted_velocity[mask] - pair["reported_velocity"][mask]
-    angular_error = (
-        predicted_angular_rate[mask] - pair["reported_angular_rate"][mask]
-    )
+    angular_error = predicted_angular_rate[mask] - pair["reported_angular_rate"][mask]
     return {
         "position_velocity_vector_rmse_m_s": float(
             np.sqrt(np.mean(np.sum(velocity_error * velocity_error, axis=1)))
@@ -365,9 +354,7 @@ def fit_state_observation_alignment(
     configuration_id, observation_source, interval_count = (
         _validate_observation_fit_data(trajectories)
     )
-    candidate, candidate_details = _make_alignment(
-        trajectories, ALIGNMENT_CANDIDATES_S
-    )
+    candidate, candidate_details = _make_alignment(trajectories, ALIGNMENT_CANDIDATES_S)
     reference, reference_details = _make_alignment(
         trajectories, np.asarray([0.0], dtype=np.float64)
     )
@@ -375,9 +362,7 @@ def fit_state_observation_alignment(
         _source_group_key(trajectory, index)
         for index, trajectory in enumerate(trajectories)
     }
-    training = evaluate_state_observation_alignment(
-        candidate, reference, trajectories
-    )
+    training = evaluate_state_observation_alignment(candidate, reference, trajectories)
     return StateObservationAlignmentFit(
         candidate=candidate,
         instantaneous_reference=reference,
@@ -421,9 +406,7 @@ def evaluate_state_observation_alignment(
     reference_metrics = []
     for trajectory in trajectories:
         candidate_error = _alignment_errors(candidate, trajectory)
-        reference_error = _alignment_errors(
-            instantaneous_reference, trajectory
-        )
+        reference_error = _alignment_errors(instantaneous_reference, trajectory)
         candidate_metrics.append(candidate_error)
         reference_metrics.append(reference_error)
         per_trajectory.append(
@@ -475,12 +458,10 @@ def evaluate_state_observation_alignment(
         materiality_floors=materiality_floors,
         group_interior={
             "position_velocity_vector_rmse_m_s": bool(
-                abs(candidate.velocity_delay_s)
-                < MAXIMUM_ABSOLUTE_ALIGNMENT_S
+                abs(candidate.velocity_delay_s) < MAXIMUM_ABSOLUTE_ALIGNMENT_S
             ),
             "attitude_rate_vector_rmse_rad_s": bool(
-                abs(candidate.angular_rate_delay_s)
-                < MAXIMUM_ABSOLUTE_ALIGNMENT_S
+                abs(candidate.angular_rate_delay_s) < MAXIMUM_ABSOLUTE_ALIGNMENT_S
             ),
         },
     )

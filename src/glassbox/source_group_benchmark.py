@@ -86,9 +86,7 @@ def _source_groups(
 ) -> tuple[str | int, ...]:
     values = [trajectory.labels.get("source_group") for trajectory in trajectories]
     if any(value is None for value in values):
-        missing = [
-            str(path) for path, value in zip(paths, values) if value is None
-        ]
+        missing = [str(path) for path, value in zip(paths, values) if value is None]
         raise ValueError(
             "source-group benchmark requires every trajectory to have a "
             f"source_group label; unlabeled: {', '.join(missing)}"
@@ -124,9 +122,7 @@ def benchmark_source_groups(
 
     paths = [Path(path).resolve() for path in trajectory_paths]
     if len(paths) < 2:
-        raise ValueError(
-            "source-group benchmark requires at least two trajectories"
-        )
+        raise ValueError("source-group benchmark requires at least two trajectories")
     trajectories = [load_trajectory_npz(path) for path in paths]
     groups_by_trajectory = _source_groups(paths, trajectories)
     groups = tuple(dict.fromkeys(groups_by_trajectory))
@@ -169,9 +165,7 @@ def benchmark_source_groups(
             "model_class": model_class,
             "base_model_type": base_model_type,
             "residual_model_type": (
-                RESIDUAL_MODEL_TYPE
-                if model_class == "structured_residual"
-                else None
+                RESIDUAL_MODEL_TYPE if model_class == "structured_residual" else None
             ),
             "endpoint_weight": endpoint_weight,
             "stability_regularization": stability_regularization,
@@ -230,9 +224,7 @@ def benchmark_source_groups(
         ]
         validation_trajectories = [
             trajectory
-            for trajectory, path_group in zip(
-                trajectories, groups_by_trajectory
-            )
+            for trajectory, path_group in zip(trajectories, groups_by_trajectory)
             if path_group == group
         ]
         fold_paths = [*training_paths, *validation_paths]
@@ -255,18 +247,13 @@ def benchmark_source_groups(
             fold_request_path.exists()
             and report_path.exists()
             and model_path.exists()
-            and (
-                not run_no_lag_ablation
-                or expected_baseline_path.exists()
-            )
+            and (not run_no_lag_ablation or expected_baseline_path.exists())
             and json.loads(fold_request_path.read_text()) == fold_request
         )
         if reusable:
             print(f"  resume fold: {report_path}")
             report = json.loads(report_path.read_text())
-            baseline_path = (
-                expected_baseline_path if run_no_lag_ablation else None
-            )
+            baseline_path = expected_baseline_path if run_no_lag_ablation else None
         else:
             learned, baseline, report = fit_trajectory_artifacts(
                 fold_paths,
@@ -280,9 +267,7 @@ def benchmark_source_groups(
                 endpoint_weight=endpoint_weight,
                 stability_regularization=stability_regularization,
                 learn_thrust_command_offset=learn_thrust_command_offset,
-                instantaneous_rotational_response=(
-                    instantaneous_rotational_response
-                ),
+                instantaneous_rotational_response=(instantaneous_rotational_response),
                 diagonal_angular_control=diagonal_angular_control,
             )
             if report["split"]["validation_source_groups"] != [group]:
@@ -318,9 +303,7 @@ def benchmark_source_groups(
                         "ablation": lag_label,
                     },
                 )
-            fold_request_path.write_text(
-                json.dumps(fold_request, indent=2) + "\n"
-            )
+            fold_request_path.write_text(json.dumps(fold_request, indent=2) + "\n")
 
         validation = report["models"]["learned_lag"]["validation"]
         full_metrics = validation["aggregate"]["full_rollout"]
@@ -334,9 +317,7 @@ def benchmark_source_groups(
             label = f"{seconds:g}s"
             persistence_metrics = []
             for trajectory in validation_trajectories:
-                horizon_steps = duration_to_steps(
-                    seconds, trajectory.nominal_dt_s
-                )
+                horizon_steps = duration_to_steps(seconds, trajectory.nominal_dt_s)
                 persistence_metrics.append(
                     kinematic_persistence_windowed_metrics(
                         trajectory,
@@ -409,9 +390,7 @@ def benchmark_source_groups(
             "model_class": model_class,
             "base_model_type": base_model_type,
             "residual_model_type": (
-                RESIDUAL_MODEL_TYPE
-                if model_class == "structured_residual"
-                else None
+                RESIDUAL_MODEL_TYPE if model_class == "structured_residual" else None
             ),
             "endpoint_weight": endpoint_weight,
             "stability_regularization": stability_regularization,
@@ -445,9 +424,7 @@ def benchmark_source_groups(
                 fold_full_metrics, weighting="equal"
             ),
             "horizon_rollouts": aggregate_horizons,
-            "kinematic_persistence_horizon_rollouts": (
-                aggregate_persistence_horizons
-            ),
+            "kinematic_persistence_horizon_rollouts": (aggregate_persistence_horizons),
             "model_over_kinematic_persistence": {
                 label: {
                     metric: max(

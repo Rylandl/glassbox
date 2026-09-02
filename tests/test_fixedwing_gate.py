@@ -83,11 +83,7 @@ def test_fixedwing_gate_comparison_selects_shared_improvement() -> None:
 
 def _benchmark(value: float) -> dict:
     return {
-        "models": {
-            "residual": {
-                "aggregate": {"horizon_rollouts": _horizons(value)}
-            }
-        }
+        "models": {"residual": {"aggregate": {"horizon_rollouts": _horizons(value)}}}
     }
 
 

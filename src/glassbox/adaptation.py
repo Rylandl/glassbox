@@ -1643,9 +1643,7 @@ def validate_and_commit_dynamics_belief_update(
             ),
             normalized_validation_rms_before=validation_before,
             normalized_validation_rms_after=validation_evidence.after_rms,
-            normalized_validation_improvement=(
-                validation_evidence.total_reduction
-            ),
+            normalized_validation_improvement=(validation_evidence.total_reduction),
             normalized_validation_improvement_margin=validation_evidence.margin,
             realized_local_information_gain_nats=information_gain,
             structured_parameter_delta_norm=float(np.linalg.norm(selected - base)),
@@ -1718,9 +1716,7 @@ def validate_and_commit_dynamics_belief_update(
             ),
             normalized_validation_rms_before=validation_before,
             normalized_validation_rms_after=validation_evidence.after_rms,
-            normalized_validation_improvement=(
-                validation_evidence.total_reduction
-            ),
+            normalized_validation_improvement=(validation_evidence.total_reduction),
             normalized_validation_improvement_margin=validation_evidence.margin,
         )
     return updated, report

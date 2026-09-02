@@ -73,9 +73,7 @@ def _report_segments(trajectory) -> None:
     if segment_count > 1 or (coverage is not None and coverage < 0.5):
         resolved_hold_age = px4.get("resolved_actuator_hold_max_age_s")
         hold_age_text = (
-            f"{resolved_hold_age:.3f}s"
-            if resolved_hold_age is not None
-            else "unknown"
+            f"{resolved_hold_age:.3f}s" if resolved_hold_age is not None else "unknown"
         )
         print(
             "warning: extraction kept only "
@@ -115,11 +113,7 @@ def _extract(args: argparse.Namespace) -> None:
         f"wrote {args.output}: {len(trajectory.controls)} intervals, "
         f"{trajectory.time_s[-1]:.3f}s at {config.sample_rate_hz:g} Hz"
     )
-    print(
-        "motor order: "
-        f"{mapping['motor_indices']} "
-        f"({mapping['motor_order_source']})"
-    )
+    print(f"motor order: {mapping['motor_indices']} ({mapping['motor_order_source']})")
     _report_segments(trajectory)
 
 

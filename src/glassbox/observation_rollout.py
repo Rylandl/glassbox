@@ -51,21 +51,15 @@ def first_order_body_rate_observations(
 
     observed = np.empty_like(physical)
     observed[..., 0, :] = initial
-    latent = (
-        initial - model.angular_rate_bias_rad_s
-    ) / model.angular_rate_scale
+    latent = (initial - model.angular_rate_bias_rad_s) / model.angular_rate_scale
     time_constant_s = model.angular_rate_time_constant_s
     decay = np.zeros(3, dtype=np.float64)
     temporal = time_constant_s > 0.0
     decay[temporal] = np.exp(-dt_s / time_constant_s[temporal])
     for index in range(1, physical.shape[-2]):
-        latent = (
-            decay * latent
-            + (1.0 - decay) * physical[..., index, :]
-        )
+        latent = decay * latent + (1.0 - decay) * physical[..., index, :]
         observed[..., index, :] = (
-            model.angular_rate_scale * latent
-            + model.angular_rate_bias_rad_s
+            model.angular_rate_scale * latent + model.angular_rate_bias_rad_s
         )
     return observed
 
@@ -83,8 +77,7 @@ def body_rate_observation_metrics_from_predictions(
         raise ValueError("predicted and target state arrays must match")
     if predicted.ndim not in (2, 3) or predicted.shape[-1] != 13:
         raise ValueError(
-            "state predictions must have shape (time, 13) or "
-            "(batch, time, 13)"
+            "state predictions must have shape (time, 13) or (batch, time, 13)"
         )
     observed_prediction = np.asarray(predicted, dtype=np.float64).copy()
     observed_prediction[..., 10:13] = first_order_body_rate_observations(
@@ -201,17 +194,14 @@ def evaluate_body_rate_observation_rollouts(
             reference_metrics["angular_velocity_rmse_rad_s"],
         )
         all_ratios.extend(
-            item["horizons"][label]["angular_velocity_ratio"]
-            for item in per_trajectory
+            item["horizons"][label]["angular_velocity_ratio"] for item in per_trajectory
         )
         aggregate[label] = {
             "candidate": candidate_metrics,
             "instantaneous_reference": reference_metrics,
             "angular_velocity_ratio": ratio,
         }
-    aggregate_ratios = [
-        aggregate[label]["angular_velocity_ratio"] for label in labels
-    ]
+    aggregate_ratios = [aggregate[label]["angular_velocity_ratio"] for label in labels]
     geometric_ratio = (
         0.0
         if any(ratio == 0.0 for ratio in aggregate_ratios)
@@ -219,8 +209,7 @@ def evaluate_body_rate_observation_rollouts(
     )
     material = bool(geometric_ratio <= BODY_RATE_ROLLOUT_MATERIAL_RATIO)
     no_regression = bool(
-        max(aggregate_ratios + all_ratios)
-        <= BODY_RATE_ROLLOUT_MAXIMUM_REGRESSION_RATIO
+        max(aggregate_ratios + all_ratios) <= BODY_RATE_ROLLOUT_MAXIMUM_REGRESSION_RATIO
     )
     return {
         "policy": "conditional_body_rate_observation_rollout_v1",
@@ -238,9 +227,7 @@ def evaluate_body_rate_observation_rollouts(
                 "all requested horizons"
             ),
             "material_improvement_ratio": BODY_RATE_ROLLOUT_MATERIAL_RATIO,
-            "maximum_regression_ratio": (
-                BODY_RATE_ROLLOUT_MAXIMUM_REGRESSION_RATIO
-            ),
+            "maximum_regression_ratio": (BODY_RATE_ROLLOUT_MAXIMUM_REGRESSION_RATIO),
             "improves_materially": material,
             "no_horizon_or_complete_trajectory_regresses": no_regression,
             "research_rollout_passes": bool(material and no_regression),

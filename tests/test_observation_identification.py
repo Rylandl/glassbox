@@ -58,10 +58,9 @@ def _trajectory(*, lag_steps: int = 0, intervals: int = 240) -> Trajectory:
     specific_force[-1] = specific_force[-2]
     mixer = force_controls @ np.asarray(MOTOR_MIXER).T
     angular_acceleration = np.zeros((intervals + 1, 3), dtype=np.float64)
-    angular_acceleration[:-1] = (
-        mixer * np.asarray([11.0, 12.0, 5.0])
-        - states[:-1, 10:13] * np.asarray([0.3, 0.4, 0.2])
-    )
+    angular_acceleration[:-1] = mixer * np.asarray([11.0, 12.0, 5.0]) - states[
+        :-1, 10:13
+    ] * np.asarray([0.3, 0.4, 0.2])
     angular_acceleration[-1] = angular_acceleration[-2]
     observations = np.column_stack((specific_force, angular_acceleration))
     controls_spec = tuple(
@@ -129,12 +128,8 @@ def test_observation_fit_recovers_structured_force_and_rotation() -> None:
 
     assert float(physical["thrust_accel"]) == pytest.approx(3.4, rel=0.02)
     assert float(physical["linear_drag"]) == pytest.approx(0.18, rel=0.1)
-    np.testing.assert_allclose(
-        physical["angular_accel"], [11.0, 12.0, 5.0], rtol=0.03
-    )
-    np.testing.assert_allclose(
-        physical["angular_drag"], [0.3, 0.4, 0.2], rtol=0.15
-    )
+    np.testing.assert_allclose(physical["angular_accel"], [11.0, 12.0, 5.0], rtol=0.03)
+    np.testing.assert_allclose(physical["angular_drag"], [0.3, 0.4, 0.2], rtol=0.15)
     assert result.report["force_fit"]["validation_rmse_m_s2"] < 1e-3
     assert result.report["selection_data"]["test_split_used"] is False
 

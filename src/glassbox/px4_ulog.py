@@ -122,7 +122,9 @@ class PX4IngestConfig:
         if self.motor_indices is not None and (
             len(set(self.motor_indices)) != 4 or min(self.motor_indices) < 0
         ):
-            raise ValueError("motor_indices must contain four distinct nonnegative indices")
+            raise ValueError(
+                "motor_indices must contain four distinct nonnegative indices"
+            )
         if self.motor_index is not None and self.motor_index < 0:
             raise ValueError("motor_index must be nonnegative")
         if self.surface_indices is not None and (
@@ -289,8 +291,7 @@ def _resolve_fixed_wing_actuators(
         )
     surface_indices = tuple(range(surface_count))
     surface_types = tuple(
-        int(parameters.get(f"CA_SV_CS{index}_TYPE", 0))
-        for index in surface_indices
+        int(parameters.get(f"CA_SV_CS{index}_TYPE", 0)) for index in surface_indices
     )
     axes = ("R", "P", "Y")
     effectiveness = np.asarray(
@@ -304,12 +305,8 @@ def _resolve_fixed_wing_actuators(
         dtype=np.float64,
     )
     if not np.all(np.isfinite(effectiveness)):
-        raise PX4ULogError(
-            "PX4 CA_SV_CS*_TRQ_R/P/Y parameters must be finite"
-        )
-    canonical_effectiveness = (
-        PX4_FRD_TO_FLU_SIGNS[:, np.newaxis] * effectiveness
-    )
+        raise PX4ULogError("PX4 CA_SV_CS*_TRQ_R/P/Y parameters must be finite")
+    canonical_effectiveness = PX4_FRD_TO_FLU_SIGNS[:, np.newaxis] * effectiveness
     axis_names = ("roll", "pitch", "yaw")
     active_indices = tuple(
         index
@@ -504,7 +501,10 @@ def _linear_resample(
     max_gap_s: float,
 ) -> tuple[np.ndarray, np.ndarray]:
     result = np.column_stack(
-        [np.interp(target_s, timestamps_s, values[:, index]) for index in range(values.shape[1])]
+        [
+            np.interp(target_s, timestamps_s, values[:, index])
+            for index in range(values.shape[1])
+        ]
     )
     right = np.searchsorted(timestamps_s, target_s, side="left")
     exact = (right < len(timestamps_s)) & np.isclose(
@@ -774,9 +774,7 @@ def trajectories_from_datasets(
             angular_sample_time,
             _array_field(angular_data, "xyz_derivative", 3),
         )
-        observation_series.append(
-            (angular_acceleration_time, angular_acceleration_frd)
-        )
+        observation_series.append((angular_acceleration_time, angular_acceleration_frd))
         observation_channels.extend(
             angular_acceleration_observation_channels(
                 "px4_vehicle_angular_velocity_derivative"
@@ -924,8 +922,7 @@ def trajectories_from_datasets(
         resampled_motor, motor_mask = resampled_actuators[0]
         resampled_surfaces, surface_mask = resampled_actuators[1]
         canonical_surface_mixing = (
-            PX4_FRD_TO_FLU_SIGNS[:, np.newaxis]
-            * surface_effectiveness
+            PX4_FRD_TO_FLU_SIGNS[:, np.newaxis] * surface_effectiveness
         )
         axis_indices = tuple(
             ("roll", "pitch", "yaw").index(axis) for axis in controlled_axes
@@ -976,11 +973,7 @@ def trajectories_from_datasets(
     )
 
     state_mask = (
-        position_mask
-        & attitude_mask
-        & angular_mask
-        & wind_mask
-        & observation_mask
+        position_mask & attitude_mask & angular_mask & wind_mask & observation_mask
     )
     clearance_mask = (
         np.ones(len(states), dtype=bool)
@@ -1062,17 +1055,11 @@ def trajectories_from_datasets(
             "surface_effectiveness_axes": ["roll", "pitch", "yaw"],
             "surface_effectiveness_matrix": surface_effectiveness.tolist(),
             "surface_effectiveness_frame": "PX4_FRD",
-            "surface_axis_signs_frd_to_flu": (
-                PX4_FRD_TO_FLU_SIGNS.tolist()
-            ),
-            "canonical_surface_mixing_matrix": (
-                canonical_surface_mixing.tolist()
-            ),
+            "surface_axis_signs_frd_to_flu": (PX4_FRD_TO_FLU_SIGNS.tolist()),
+            "canonical_surface_mixing_matrix": (canonical_surface_mixing.tolist()),
             "controlled_axes": list(controlled_axes),
             "flap_effectiveness": (
-                None
-                if flap_effectiveness is None
-                else flap_effectiveness.tolist()
+                None if flap_effectiveness is None else flap_effectiveness.tolist()
             ),
             "control_axis_frame": "FLU",
             "actuator_mapping_verified": True,
@@ -1112,9 +1099,7 @@ def trajectories_from_datasets(
         family=config.platform,
         observation_source=config.state_source,
         configuration_id=config.vehicle_id,
-        exogenous=(
-            WIND_EXOGENOUS_CHANNELS if wind_selection is not None else ()
-        ),
+        exogenous=(WIND_EXOGENOUS_CHANNELS if wind_selection is not None else ()),
         observations=observation_channels,
     )
     trajectories: list[Trajectory] = []
@@ -1125,11 +1110,7 @@ def trajectories_from_datasets(
         labels = {
             **common_labels,
             "source_group": source,
-            **(
-                {"segment": segment_index + 1}
-                if len(valid_runs) > 1
-                else {}
-            ),
+            **({"segment": segment_index + 1} if len(valid_runs) > 1 else {}),
         }
         segment_duration_s = interval_count * dt_s
         selected_segment_coverage = (
@@ -1143,11 +1124,7 @@ def trajectories_from_datasets(
             "px4": {
                 "topics": {
                     **topics,
-                    **(
-                        {"wind": PX4_WIND_TOPIC}
-                        if wind_selection is not None
-                        else {}
-                    ),
+                    **({"wind": PX4_WIND_TOPIC} if wind_selection is not None else {}),
                 },
                 "actuator_mapping": actuator_metadata,
                 "exogenous": wind_metadata,
@@ -1177,9 +1154,7 @@ def trajectories_from_datasets(
                 controls=controls[interval_start:interval_stop],
                 spec=spec,
                 exogenous=exogenous[interval_start : interval_stop + 1],
-                observations=observations[
-                    interval_start : interval_stop + 1
-                ],
+                observations=observations[interval_start : interval_stop + 1],
                 labels=labels,
                 provenance=provenance,
             )

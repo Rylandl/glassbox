@@ -57,9 +57,7 @@ def test_parameter_prior_separates_fleet_spread_from_full_rank_completion(
         offset = np.zeros(size)
         offset[:2] = (first, second)
         offsets.append(offset)
-    members = tuple(
-        _member_belief(trajectory, params, offset) for offset in offsets
-    )
+    members = tuple(_member_belief(trajectory, params, offset) for offset in offsets)
 
     prior = StructuredParameterPrior.from_beliefs(
         members,
@@ -72,9 +70,7 @@ def test_parameter_prior_separates_fleet_spread_from_full_rank_completion(
     assert np.linalg.matrix_rank(prior.between_member_covariance) == 2
     assert np.linalg.matrix_rank(prior.completion_covariance) == size - 2
     normalized_total = (
-        prior.covariance
-        / prior.natural_scale[:, None]
-        / prior.natural_scale[None, :]
+        prior.covariance / prior.natural_scale[:, None] / prior.natural_scale[None, :]
     )
     assert np.min(np.linalg.eigvalsh(normalized_total)) > 0.0
     assert 0.0 < prior.completion_fraction_in_natural_coordinates < 1.0
@@ -103,9 +99,10 @@ def test_parameter_prior_separates_fleet_spread_from_full_rank_completion(
     )
     assert isinstance(initialized.parameter_belief, LocalGaussianParameterBelief)
     assert not initialized.parameter_evidence.available
-    assert initialized.provenance["parameter_prior_initialization"][
-        "prior_empirical_rank"
-    ] == 2
+    assert (
+        initialized.provenance["parameter_prior_initialization"]["prior_empirical_rank"]
+        == 2
+    )
 
 
 def test_parameter_prior_rejects_mixed_member_covariance_semantics() -> None:
@@ -165,7 +162,9 @@ def test_configuration_specific_parameters_ignore_inapplicable_members() -> None
     flap_trajectory = replace(
         trajectory,
         spec=flap_spec,
-        controls=np.column_stack((trajectory.controls, np.zeros(len(trajectory.controls)))),
+        controls=np.column_stack(
+            (trajectory.controls, np.zeros(len(trajectory.controls)))
+        ),
     )
     params = true_fixed_wing_parameters()
     names = structured_parameter_names(params)
@@ -247,9 +246,7 @@ def test_initialize_belief_stales_inherited_error_evidence_unless_asserted() -> 
         "predictive_error_marked_stale"
     ]
 
-    asserted = prior.initialize_belief(
-        shell, predictive_error_valid_at_prior_mean=True
-    )
+    asserted = prior.initialize_belief(shell, predictive_error_valid_at_prior_mean=True)
     assert asserted.predictive_error_current
     assert asserted.provenance["parameter_prior_initialization"][
         "predictive_error_valid_at_prior_mean"

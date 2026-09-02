@@ -109,8 +109,10 @@ class StructuredParameterPrior:
         scale = np.asarray(self.natural_scale, dtype=np.float64)
         if mean.shape != (size,) or not np.all(np.isfinite(mean)):
             raise ValueError("parameter-prior mean must match finite names")
-        if scale.shape != (size,) or not np.all(np.isfinite(scale)) or np.any(
-            scale <= 0.0
+        if (
+            scale.shape != (size,)
+            or not np.all(np.isfinite(scale))
+            or np.any(scale <= 0.0)
         ):
             raise ValueError("parameter-prior natural scale must be positive")
         matrices: dict[str, np.ndarray] = {}
@@ -133,14 +135,13 @@ class StructuredParameterPrior:
             _normalized_covariance(sum(matrices.values()), scale)
         )
         total_scale = max(float(np.max(np.abs(total_eigenvalues))), 1.0)
-        if (
-            np.min(total_eigenvalues)
-            <= np.finfo(np.float64).eps * size * total_scale
-        ):
+        if np.min(total_eigenvalues) <= np.finfo(np.float64).eps * size * total_scale:
             raise ValueError("parameter-prior total covariance must be full rank")
         labels = tuple(str(value) for value in self.member_labels)
-        if not labels or len(set(labels)) != len(labels) or any(
-            not value.strip() for value in labels
+        if (
+            not labels
+            or len(set(labels)) != len(labels)
+            or any(not value.strip() for value in labels)
         ):
             raise ValueError("parameter prior requires unique member labels")
         if self.within_member_covariance_count not in {0, len(labels)}:
@@ -197,8 +198,7 @@ class StructuredParameterPrior:
         if len(dependencies) != size:
             raise ValueError("parameter control dependencies must match names")
         member_roles = tuple(
-            tuple(str(role) for role in values)
-            for values in self.member_control_roles
+            tuple(str(role) for role in values) for values in self.member_control_roles
         )
         if len(member_roles) != len(labels) or any(
             len(set(values)) != len(values) or set(values) - set(roles)
@@ -471,7 +471,9 @@ class StructuredParameterPrior:
                 + ", ".join(sorted(uncovered_roles))
             )
 
-    def as_parameter_belief(self, *, update_count: int = 0) -> LocalGaussianParameterBelief:
+    def as_parameter_belief(
+        self, *, update_count: int = 0
+    ) -> LocalGaussianParameterBelief:
         """Return the compact Gaussian consumed by runtime adaptation."""
 
         return LocalGaussianParameterBelief(
@@ -522,9 +524,7 @@ class StructuredParameterPrior:
             "predictive_error_valid_at_prior_mean": (
                 predictive_error_valid_at_prior_mean
             ),
-            "predictive_error_marked_stale": (
-                not predictive_error_valid_at_prior_mean
-            ),
+            "predictive_error_marked_stale": (not predictive_error_valid_at_prior_mean),
         }
         return DynamicsBelief(
             params=with_structured_parameter_vector(
@@ -569,9 +569,7 @@ class StructuredParameterPrior:
             "completion_covariance": self.completion_covariance.tolist(),
             "total_covariance": self.covariance.tolist(),
             "natural_scale": self.natural_scale.tolist(),
-            "parameter_control_dependencies": list(
-                self.parameter_control_dependencies
-            ),
+            "parameter_control_dependencies": list(self.parameter_control_dependencies),
             "parameter_member_counts": list(self.parameter_member_counts),
             "member_labels": list(self.member_labels),
             "member_count": self.member_count,
@@ -637,9 +635,7 @@ class StructuredParameterPrior:
         prior = cls(
             parameter_names=tuple(payload["parameter_names"]),
             mean=np.asarray(payload["mean"]),
-            between_member_covariance=np.asarray(
-                payload["between_member_covariance"]
-            ),
+            between_member_covariance=np.asarray(payload["between_member_covariance"]),
             within_member_covariance=np.asarray(payload["within_member_covariance"]),
             completion_covariance=np.asarray(payload["completion_covariance"]),
             natural_scale=np.asarray(payload["natural_scale"]),

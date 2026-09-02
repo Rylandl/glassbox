@@ -705,7 +705,9 @@ def test_live_update_does_not_require_actionable_control_semantics() -> None:
     assert report.applied
 
 
-def test_parameter_evidence_coerces_numpy_scalar_tolerance_to_json_native_float() -> None:
+def test_parameter_evidence_coerces_numpy_scalar_tolerance_to_json_native_float() -> (
+    None
+):
     params = true_parameters()
     names = structured_parameter_names(params)
     center = np.asarray(structured_parameter_vector(params))
@@ -732,7 +734,6 @@ def test_parameter_evidence_coerces_numpy_scalar_tolerance_to_json_native_float(
     assert type(evidence.rank_relative_tolerance) is float
     payload = json.loads(json.dumps(evidence.to_dict()))
     assert payload["rank_relative_tolerance"] == pytest.approx(1e-5)
-
 
 
 def _permissive_runtime_spec(trajectory):

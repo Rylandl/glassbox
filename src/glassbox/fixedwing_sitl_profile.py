@@ -84,8 +84,7 @@ def profile_targets(
                     max(
                         0.0,
                         TRIM_THROTTLE
-                        + (target.throttle - TRIM_THROTTLE)
-                        * excitation.throttle_scale,
+                        + (target.throttle - TRIM_THROTTLE) * excitation.throttle_scale,
                     ),
                 )
             ),

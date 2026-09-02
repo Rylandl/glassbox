@@ -31,8 +31,7 @@ IDF_REFERENCE_DOI = "10.5281/zenodo.16992976"
 IDF_REFERENCE_PAPER = "https://doi.org/10.1038/s41597-026-06716-3"
 IDF_REFERENCE_LICENSE = "CC-BY-4.0"
 IDF_ARCHIVE_URL = (
-    "https://zenodo.org/api/records/16992976/files/"
-    "Holybro%20Pixhawk.zip/content"
+    "https://zenodo.org/api/records/16992976/files/Holybro%20Pixhawk.zip/content"
 )
 IDF_ARCHIVE_FILENAME = "Holybro Pixhawk.zip"
 IDF_ARCHIVE_SIZE_BYTES = 2_121_943_653
@@ -168,9 +167,7 @@ IDF_RECORDINGS = (
     ),
 )
 
-_RECORDING_BY_FILENAME = {
-    recording.filename: recording for recording in IDF_RECORDINGS
-}
+_RECORDING_BY_FILENAME = {recording.filename: recording for recording in IDF_RECORDINGS}
 
 
 def _md5(path: Path) -> str:
@@ -336,7 +333,10 @@ def fetch_idf_archive(
     target = Path(destination) / IDF_ARCHIVE_FILENAME
     target.parent.mkdir(parents=True, exist_ok=True)
     if target.exists():
-        if target.stat().st_size == IDF_ARCHIVE_SIZE_BYTES and _md5(target) == IDF_ARCHIVE_MD5:
+        if (
+            target.stat().st_size == IDF_ARCHIVE_SIZE_BYTES
+            and _md5(target) == IDF_ARCHIVE_MD5
+        ):
             return target
         if not overwrite:
             raise FileExistsError(

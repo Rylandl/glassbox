@@ -44,7 +44,6 @@ MOTOR_MIXER = jnp.asarray(
 )
 
 
-
 def _require_positive(name: str, value: object) -> None:
     values = np.asarray(value, dtype=np.float64)
     if not np.all(np.isfinite(values)) or np.any(values <= 0.0):
@@ -123,13 +122,9 @@ class DynamicsParams(NamedTuple):
         )
         cross_coupling = jnp.asarray(angular_control_cross_coupling)
         if cross_coupling.shape != (3, 3):
-            raise ValueError(
-                "angular_control_cross_coupling must have shape (3, 3)"
-            )
+            raise ValueError("angular_control_cross_coupling must have shape (3, 3)")
         cross_coupling = cross_coupling.at[jnp.diag_indices(3)].set(0.0)
-        normalized_cross_coupling = (
-            cross_coupling / MAX_ANGULAR_CONTROL_CROSS_COUPLING
-        )
+        normalized_cross_coupling = cross_coupling / MAX_ANGULAR_CONTROL_CROSS_COUPLING
         _require_open_unit_interval(
             f"angular_control_cross_coupling / {MAX_ANGULAR_CONTROL_CROSS_COUPLING:g}",
             normalized_cross_coupling,
@@ -137,9 +132,7 @@ class DynamicsParams(NamedTuple):
         return cls(
             log_thrust_accel=jnp.log(jnp.asarray(thrust_accel)),
             thrust_command_offset_unconstrained=jnp.arctanh(
-                jnp.asarray(
-                    thrust_command_offset / MAX_THRUST_COMMAND_OFFSET
-                )
+                jnp.asarray(thrust_command_offset / MAX_THRUST_COMMAND_OFFSET)
             ),
             log_angular_accel=jnp.log(jnp.asarray(angular_accel)),
             log_linear_drag=jnp.log(jnp.asarray(linear_drag)),
@@ -161,9 +154,8 @@ class DynamicsParams(NamedTuple):
         cross_coupling = cross_coupling.at[jnp.diag_indices(3)].set(0.0)
         return {
             "thrust_accel": jnp.exp(self.log_thrust_accel),
-            "thrust_command_offset": MAX_THRUST_COMMAND_OFFSET * jnp.tanh(
-                self.thrust_command_offset_unconstrained
-            ),
+            "thrust_command_offset": MAX_THRUST_COMMAND_OFFSET
+            * jnp.tanh(self.thrust_command_offset_unconstrained),
             "angular_accel": angular_accel,
             "linear_drag": jnp.exp(self.log_linear_drag),
             "angular_drag": jnp.exp(self.log_angular_drag),
@@ -172,9 +164,8 @@ class DynamicsParams(NamedTuple):
                 self.log_angular_response_time_constant
             ),
             "angular_control_cross_coupling": cross_coupling,
-            "angular_control_matrix": jnp.diag(angular_accel) @ (
-                jnp.eye(3) + cross_coupling
-            ),
+            "angular_control_matrix": jnp.diag(angular_accel)
+            @ (jnp.eye(3) + cross_coupling),
         }
 
 
@@ -250,21 +241,18 @@ class FixedWingDynamicsParams(NamedTuple):
             lateral_surface_cross_angular_accel_per_speed_sq,
         )
         _require_finite(
-            "flap_pitch_angular_accel_per_speed_sq", flap_pitch_angular_accel_per_speed_sq
+            "flap_pitch_angular_accel_per_speed_sq",
+            flap_pitch_angular_accel_per_speed_sq,
         )
         _require_open_unit_interval("surface_trim", surface_trim)
         _require_open_unit_interval("flap_trim", flap_trim)
         return cls(
             log_thrust_accel=jnp.log(jnp.asarray(thrust_accel)),
-            log_lift_accel_per_speed_sq=jnp.log(
-                jnp.asarray(lift_accel_per_speed_sq)
-            ),
+            log_lift_accel_per_speed_sq=jnp.log(jnp.asarray(lift_accel_per_speed_sq)),
             log_lift_alpha_accel_per_speed_sq=jnp.log(
                 jnp.asarray(lift_alpha_accel_per_speed_sq)
             ),
-            log_drag_accel_per_speed_sq=jnp.log(
-                jnp.asarray(drag_accel_per_speed_sq)
-            ),
+            log_drag_accel_per_speed_sq=jnp.log(jnp.asarray(drag_accel_per_speed_sq)),
             log_side_force_accel_per_speed=jnp.log(
                 jnp.asarray(side_force_accel_per_speed)
             ),
@@ -280,12 +268,8 @@ class FixedWingDynamicsParams(NamedTuple):
             log_lateral_stability_angular_accel_per_speed_sq=jnp.log(
                 jnp.asarray(lateral_stability_angular_accel_per_speed_sq)
             ),
-            log_angular_drag_per_speed=jnp.log(
-                jnp.asarray(angular_drag_per_speed)
-            ),
-            log_actuator_time_constant=jnp.log(
-                jnp.asarray(actuator_time_constant)
-            ),
+            log_angular_drag_per_speed=jnp.log(jnp.asarray(angular_drag_per_speed)),
+            log_actuator_time_constant=jnp.log(jnp.asarray(actuator_time_constant)),
             surface_trim_unconstrained=jnp.arctanh(jnp.asarray(surface_trim)),
             log_flap_lift_accel_per_speed_sq=jnp.log(
                 jnp.asarray(flap_lift_accel_per_speed_sq)
@@ -302,18 +286,12 @@ class FixedWingDynamicsParams(NamedTuple):
     def physical(self) -> dict[str, Array]:
         return {
             "thrust_accel": jnp.exp(self.log_thrust_accel),
-            "lift_accel_per_speed_sq": jnp.exp(
-                self.log_lift_accel_per_speed_sq
-            ),
+            "lift_accel_per_speed_sq": jnp.exp(self.log_lift_accel_per_speed_sq),
             "lift_alpha_accel_per_speed_sq": jnp.exp(
                 self.log_lift_alpha_accel_per_speed_sq
             ),
-            "drag_accel_per_speed_sq": jnp.exp(
-                self.log_drag_accel_per_speed_sq
-            ),
-            "side_force_accel_per_speed": jnp.exp(
-                self.log_side_force_accel_per_speed
-            ),
+            "drag_accel_per_speed_sq": jnp.exp(self.log_drag_accel_per_speed_sq),
+            "side_force_accel_per_speed": jnp.exp(self.log_side_force_accel_per_speed),
             "surface_angular_accel_per_speed_sq": jnp.exp(
                 self.log_surface_angular_accel_per_speed_sq
             ),
@@ -326,12 +304,8 @@ class FixedWingDynamicsParams(NamedTuple):
             "lateral_stability_angular_accel_per_speed_sq": jnp.exp(
                 self.log_lateral_stability_angular_accel_per_speed_sq
             ),
-            "angular_drag_per_speed": jnp.exp(
-                self.log_angular_drag_per_speed
-            ),
-            "actuator_time_constant": jnp.exp(
-                self.log_actuator_time_constant
-            ),
+            "angular_drag_per_speed": jnp.exp(self.log_angular_drag_per_speed),
+            "actuator_time_constant": jnp.exp(self.log_actuator_time_constant),
             "surface_trim": jnp.tanh(self.surface_trim_unconstrained),
             "flap_lift_accel_per_speed_sq": jnp.exp(
                 self.log_flap_lift_accel_per_speed_sq
@@ -485,9 +459,7 @@ def _angular_response_at(
     # equal-time-constant factor, so a short series is used near x = 0.
     x = time_s * denominator / (motor_time_constant * response_time_constant)
     near_equal = jnp.abs(x) < 2e-2
-    safe_denominator = jnp.where(
-        near_equal, jnp.ones_like(denominator), denominator
-    )
+    safe_denominator = jnp.where(near_equal, jnp.ones_like(denominator), denominator)
     distinct_factor = (
         motor_time_constant / safe_denominator * (motor_decay - response_decay)
     )
@@ -505,8 +477,7 @@ def _angular_response_at(
     )
     instantaneous_target = _angular_control_target(
         params,
-        commanded_control
-        + (initial_applied_control - commanded_control) * motor_decay,
+        commanded_control + (initial_applied_control - commanded_control) * motor_decay,
     )
     # A 0.1 ms value is the serialized sentinel for the exact memoryless
     # reference model. This makes the simpler model a true nested ablation
@@ -552,9 +523,7 @@ def with_thrust_command_offset(
         raise TypeError("fixed-wing models do not have a motor command offset")
     updated = base._replace(
         thrust_command_offset_unconstrained=jnp.arctanh(
-            jnp.asarray(
-                thrust_command_offset / MAX_THRUST_COMMAND_OFFSET
-            )
+            jnp.asarray(thrust_command_offset / MAX_THRUST_COMMAND_OFFSET)
         )
     )
     if isinstance(params, ResidualDynamicsParams):
@@ -568,15 +537,11 @@ def zero_response_time_gradient(params: ModelParams) -> ModelParams:
     base = structured_parameters(params)
     if isinstance(base, FixedWingDynamicsParams):
         updated = base._replace(
-            log_actuator_time_constant=jnp.zeros_like(
-                base.log_actuator_time_constant
-            )
+            log_actuator_time_constant=jnp.zeros_like(base.log_actuator_time_constant)
         )
     else:
         updated = base._replace(
-            log_motor_time_constant=jnp.zeros_like(
-                base.log_motor_time_constant
-            )
+            log_motor_time_constant=jnp.zeros_like(base.log_motor_time_constant)
         )
     if isinstance(params, ResidualDynamicsParams):
         return params._replace(base=updated)
@@ -630,9 +595,7 @@ def has_instantaneous_rotational_response(params: ModelParams) -> bool:
     time_constants = np.exp(
         np.asarray(base.log_angular_response_time_constant, dtype=np.float64)
     )
-    return bool(
-        np.all(time_constants <= 1.00001 * INSTANTANEOUS_ROTATIONAL_RESPONSE_S)
-    )
+    return bool(np.all(time_constants <= 1.00001 * INSTANTANEOUS_ROTATIONAL_RESPONSE_S))
 
 
 def with_diagonal_angular_control(params: ModelParams) -> ModelParams:
@@ -786,9 +749,7 @@ def require_model_control_size(
     family = model_family(params)
     if control_roles is not None:
         if len(control_roles) != control_size:
-            raise ValueError(
-                "control_roles must contain one role per control channel"
-            )
+            raise ValueError("control_roles must contain one role per control channel")
         family.validate_control_roles(control_roles)
         return
     if control_size != family.control_size:
@@ -803,7 +764,11 @@ def _resolved_control_roles(
     control_size: int,
     control_roles: tuple[str, ...] | None,
 ) -> tuple[str, ...]:
-    roles = model_family(params).control_roles if control_roles is None else tuple(control_roles)
+    roles = (
+        model_family(params).control_roles
+        if control_roles is None
+        else tuple(control_roles)
+    )
     require_model_control_size(params, control_size, roles)
     return roles
 
@@ -854,9 +819,7 @@ def initial_residual_parameters(
     if bool(jnp.any(correction_scale <= 0.0)):
         raise ValueError("correction_scale must be positive")
     key = jax.random.key(seed)
-    hidden_weights = 0.05 * jax.random.normal(
-        key, (hidden_units, feature_size)
-    )
+    hidden_weights = 0.05 * jax.random.normal(key, (hidden_units, feature_size))
     return ResidualDynamicsParams(
         base=base,
         hidden_weights=hidden_weights,
@@ -893,12 +856,8 @@ def _residual_acceleration(
     """Predict body-linear and body-angular acceleration corrections."""
 
     rotation = quaternion_to_rotation(state[6:10])
-    body_velocity = rotation.T @ (
-        state[3:6] - _wind_world(exogenous, exogenous_roles)
-    )
-    exogenous_features = (
-        jnp.empty((0,)) if exogenous is None else exogenous
-    )
+    body_velocity = rotation.T @ (state[3:6] - _wind_world(exogenous, exogenous_roles))
+    exogenous_features = jnp.empty((0,)) if exogenous is None else exogenous
     features = jnp.concatenate(
         (
             body_velocity,
@@ -908,9 +867,7 @@ def _residual_acceleration(
         )
     )
     normalized_features = (features - params.feature_mean) / params.feature_scale
-    hidden = jnp.tanh(
-        params.hidden_weights @ normalized_features + params.hidden_bias
-    )
+    hidden = jnp.tanh(params.hidden_weights @ normalized_features + params.hidden_bias)
     if exogenous is None or exogenous.shape[-1] == 0:
         angular_hidden = hidden
     else:
@@ -923,9 +880,9 @@ def _residual_acceleration(
             jnp.zeros_like(normalized_features[-exogenous.shape[-1] :]),
             normalized_features[-exogenous.shape[-1] :],
         )
-        angular_features = normalized_features.at[
-            -exogenous.shape[-1] :
-        ].set(angular_exogenous)
+        angular_features = normalized_features.at[-exogenous.shape[-1] :].set(
+            angular_exogenous
+        )
         angular_hidden = jnp.tanh(
             params.hidden_weights @ angular_features + params.hidden_bias
         )
@@ -1023,9 +980,7 @@ def state_derivative(
         )
         airspeed = jnp.sqrt(jnp.sum(jnp.square(body_velocity)) + 1e-9)
         forward_speed = jnp.maximum(body_velocity[0], 0.0)
-        throttle = jnp.clip(
-            applied_motor_state[roles.index("throttle")], 0.0, 1.0
-        )
+        throttle = jnp.clip(applied_motor_state[roles.index("throttle")], 0.0, 1.0)
         surface_commands = jnp.stack(
             tuple(
                 applied_motor_state[roles.index(axis)]
@@ -1037,9 +992,7 @@ def state_derivative(
         surface_authority = jnp.asarray(
             [axis in roles for axis in ("roll", "pitch", "yaw")]
         )
-        surfaces = (
-            surface_commands - physical["surface_trim"]
-        ) * surface_authority
+        surfaces = (surface_commands - physical["surface_trim"]) * surface_authority
         flap = (
             applied_motor_state[roles.index("flap")] - physical["flap_trim"]
             if "flap" in roles
@@ -1052,9 +1005,7 @@ def state_derivative(
         body_acceleration = jnp.asarray(
             [
                 physical["thrust_accel"] * throttle,
-                -physical["side_force_accel_per_speed"]
-                * airspeed
-                * body_velocity[1],
+                -physical["side_force_accel_per_speed"] * airspeed * body_velocity[1],
                 physical["lift_accel_per_speed_sq"] * forward_speed**2
                 - physical["lift_alpha_accel_per_speed_sq"]
                 * forward_speed
@@ -1062,35 +1013,27 @@ def state_derivative(
             ]
         )
         body_acceleration = body_acceleration.at[2].add(
-            physical["flap_lift_accel_per_speed_sq"]
-            * forward_speed**2
-            * flap
+            physical["flap_lift_accel_per_speed_sq"] * forward_speed**2 * flap
         )
-        body_acceleration = body_acceleration - (
-            physical["drag_accel_per_speed_sq"] + flap_drag
-        ) * airspeed * body_velocity
+        body_acceleration = (
+            body_acceleration
+            - (physical["drag_accel_per_speed_sq"] + flap_drag)
+            * airspeed
+            * body_velocity
+        )
         world_acceleration = (
-            jnp.asarray([0.0, 0.0, -GRAVITY_M_S2])
-            + rotation @ body_acceleration
+            jnp.asarray([0.0, 0.0, -GRAVITY_M_S2]) + rotation @ body_acceleration
         )
         angular_acceleration = (
-            physical["surface_angular_accel_per_speed_sq"]
-            * forward_speed**2
-            * surfaces
-            - physical["angular_drag_per_speed"]
-            * airspeed
-            * angular_velocity
+            physical["surface_angular_accel_per_speed_sq"] * forward_speed**2 * surfaces
+            - physical["angular_drag_per_speed"] * airspeed * angular_velocity
         )
         angular_acceleration = angular_acceleration + forward_speed**2 * jnp.asarray(
             [
-                physical[
-                    "lateral_surface_cross_angular_accel_per_speed_sq"
-                ][0]
+                physical["lateral_surface_cross_angular_accel_per_speed_sq"][0]
                 * surfaces[2],
                 0.0,
-                physical[
-                    "lateral_surface_cross_angular_accel_per_speed_sq"
-                ][1]
+                physical["lateral_surface_cross_angular_accel_per_speed_sq"][1]
                 * surfaces[0],
             ]
         )
@@ -1107,12 +1050,8 @@ def state_derivative(
             * forward_speed
             * body_velocity[1]
         )
-        angular_acceleration = angular_acceleration.at[0].add(
-            lateral_stability[0]
-        )
-        angular_acceleration = angular_acceleration.at[2].add(
-            lateral_stability[1]
-        )
+        angular_acceleration = angular_acceleration.at[0].add(lateral_stability[0])
+        angular_acceleration = angular_acceleration.at[2].add(lateral_stability[1])
         quaternion_rate = 0.5 * quaternion_multiply(
             quaternion, jnp.concatenate((jnp.zeros(1), angular_velocity))
         )
@@ -1230,9 +1169,7 @@ def step_with_latent(
             time_s,
         )
 
-    substep_count = max(
-        1, math.ceil(dt_s / MAX_INTERNAL_INTEGRATION_STEP_S)
-    )
+    substep_count = max(1, math.ceil(dt_s / MAX_INTERNAL_INTEGRATION_STEP_S))
     integration_dt_s = dt_s / substep_count
     half_integration_dt_s = 0.5 * integration_dt_s
     next_vehicle = state
@@ -1283,8 +1220,7 @@ def step_with_latent(
             end_angular_response,
         )
         next_vehicle = _normalized_state(
-            next_vehicle
-            + (integration_dt_s / 6.0) * (k1 + 2.0 * k2 + 2.0 * k3 + k4)
+            next_vehicle + (integration_dt_s / 6.0) * (k1 + 2.0 * k2 + 2.0 * k3 + k4)
         )
     next_motor_state = motor_at(dt_s)
     next_angular_response = angular_response_at(dt_s)
@@ -1359,9 +1295,7 @@ def rollout_with_latent(
         initial_latent_state = (
             initial_applied_control
             if initial_rotational_response is None
-            else jnp.concatenate(
-                (initial_applied_control, initial_rotational_response)
-            )
+            else jnp.concatenate((initial_applied_control, initial_rotational_response))
         )
     initial_combined = jnp.concatenate((initial_state, initial_latent_state))
     control_size = controls.shape[-1]
@@ -1488,9 +1422,7 @@ def hover_control(params: ModelParams) -> Array:
     motor_command = GRAVITY_M_S2 / (
         4.0 * jnp.exp(physics_parameters(params).log_thrust_accel)
     )
-    motor_command += physics_parameters(params).physical()[
-        "thrust_command_offset"
-    ]
+    motor_command += physics_parameters(params).physical()["thrust_command_offset"]
     return jnp.full((QUADROTOR_CONTROL_SIZE,), motor_command)
 
 
@@ -1503,8 +1435,7 @@ def fixed_wing_trim_control(
 
     physical = params.physical()
     trim_throttle = (
-        physical["drag_accel_per_speed_sq"] * airspeed_m_s**2
-        / physical["thrust_accel"]
+        physical["drag_accel_per_speed_sq"] * airspeed_m_s**2 / physical["thrust_accel"]
     )
     roles = FIXED_WING_CONTROL_ROLES if control_roles is None else control_roles
     FIXED_WING_FAMILY.validate_control_roles(tuple(roles))

@@ -216,9 +216,7 @@ def _fit_on_windows(
     instantaneous_rotational_response = (
         instantaneous_rotational_response and platform == "multirotor"
     )
-    diagonal_angular_control = (
-        diagonal_angular_control and platform == "multirotor"
-    )
+    diagonal_angular_control = diagonal_angular_control and platform == "multirotor"
     window_sets = windows if isinstance(windows, tuple) else (windows,)
     normalization_window_sets = (
         window_sets
@@ -351,9 +349,7 @@ def _fit_on_windows(
                         (
                             fit.batch_sizes
                             if fit.batch_sizes
-                            else tuple(
-                                len(item.initial_states) for item in window_sets
-                            )
+                            else tuple(len(item.initial_states) for item in window_sets)
                         ),
                     )
                 },
@@ -426,9 +422,7 @@ def fit_trajectory_artifact(
 
     trajectory = load_trajectory_npz(trajectory_path)
     platform = _trajectory_platform(trajectory)
-    training, validation = split_trajectory(
-        trajectory, train_fraction=train_fraction
-    )
+    training, validation = split_trajectory(trajectory, train_fraction=train_fraction)
     maximum_windows = _automatic_training_window_budget(
         horizon_steps=horizon,
         source_group_count=1,
@@ -439,9 +433,7 @@ def fit_trajectory_artifact(
         stride=horizon if stride is None else stride,
         maximum_windows=maximum_windows,
     )
-    observation_fit = _observation_fit(
-        [training], platform=platform
-    )
+    observation_fit = _observation_fit([training], platform=platform)
     fitted_params, model_report = _fit_on_windows(
         windows,
         steps=steps,
@@ -602,14 +594,10 @@ def _source_groups(
         for value in values
     ):
         raise ValueError("source_group labels must be non-empty strings or integers")
-    source_groups = [
-        value for value in values if isinstance(value, (str, int))
-    ]
+    source_groups = [value for value in values if isinstance(value, (str, int))]
     unique_groups = tuple(dict.fromkeys(source_groups))
     if len({str(group) for group in unique_groups}) != len(unique_groups):
-        raise ValueError(
-            "source_group labels must have unique string representations"
-        )
+        raise ValueError("source_group labels must have unique string representations")
     return source_groups
 
 
@@ -630,9 +618,7 @@ def _trajectory_summary(path: str, trajectory: Trajectory) -> dict[str, Any]:
             ),
             "net_displacement_m": float(np.linalg.norm(position[-1] - position[0])),
             "position_range_xyz_m": np.ptp(position, axis=0).tolist(),
-            "maximum_speed_m_s": float(
-                np.max(np.linalg.norm(velocity, axis=1))
-            ),
+            "maximum_speed_m_s": float(np.max(np.linalg.norm(velocity, axis=1))),
             "maximum_angular_speed_rad_s": float(
                 np.max(np.linalg.norm(angular_velocity, axis=1))
             ),
@@ -677,9 +663,7 @@ def _dataset_contract(
         raise ValueError(f"inconsistent dataset sample_rate_hz: {details}")
 
     spec_payloads = [trajectory.spec.to_dict() for trajectory in trajectories]
-    spec_payload = consistent_value(
-        "trajectory_spec", spec_payloads, serialize=True
-    )
+    spec_payload = consistent_value("trajectory_spec", spec_payloads, serialize=True)
 
     profiles = [trajectory.labels.get("profile") for trajectory in trajectories]
     profile_counts = {
@@ -710,9 +694,7 @@ def _dataset_contract(
                 continue
             px4 = trajectory.provenance.get("px4", {})
             mapping = (
-                px4.get("actuator_mapping", {})
-                if isinstance(px4, Mapping)
-                else {}
+                px4.get("actuator_mapping", {}) if isinstance(px4, Mapping) else {}
             )
             mapping_verified = (
                 mapping.get("actuator_mapping_verified")
@@ -733,22 +715,14 @@ def _dataset_contract(
         ),
         "sample_rate_hz": reference_rate,
         "control_size": len(spec_payload["controls"]),
-        "control_names": [
-            channel["name"] for channel in spec_payload["controls"]
-        ],
-        "control_roles": [
-            channel["role"] for channel in spec_payload["controls"]
-        ],
+        "control_names": [channel["name"] for channel in spec_payload["controls"]],
+        "control_roles": [channel["role"] for channel in spec_payload["controls"]],
         "control_semantics": [
             channel["semantic"] for channel in spec_payload["controls"]
         ],
         "exogenous_size": len(spec_payload["exogenous"]),
-        "exogenous_names": [
-            channel["name"] for channel in spec_payload["exogenous"]
-        ],
-        "exogenous_roles": [
-            channel["role"] for channel in spec_payload["exogenous"]
-        ],
+        "exogenous_names": [channel["name"] for channel in spec_payload["exogenous"]],
+        "exogenous_roles": [channel["role"] for channel in spec_payload["exogenous"]],
         "observation_size": len(spec_payload["observations"]),
         "observation_names": [
             channel["name"] for channel in spec_payload["observations"]
@@ -757,9 +731,7 @@ def _dataset_contract(
             channel["role"] for channel in spec_payload["observations"]
         ],
         "platform": platform,
-        "source_type": (
-            source_types[0] if len(source_type_counts) == 1 else "mixed"
-        ),
+        "source_type": (source_types[0] if len(source_type_counts) == 1 else "mixed"),
         "source_type_counts": source_type_counts,
         "state_source": spec_payload["observation_source"],
         "state_schema": spec_payload["state_schema"],
@@ -810,9 +782,7 @@ def _evaluate_model(
             trajectory,
             horizons_s=horizon_seconds,
             source_group=str(
-                flight.source_group
-                if flight.source_group is not None
-                else flight.path
+                flight.source_group if flight.source_group is not None else flight.path
             ),
             trajectory_id=flight.path,
         ):
@@ -837,9 +807,7 @@ def _evaluate_model(
             aggregate_horizons[label] = aggregate_rollout_metrics(items)
 
     available_error_samples = {
-        horizon: samples
-        for horizon, samples in error_samples.items()
-        if samples
+        horizon: samples for horizon, samples in error_samples.items() if samples
     }
     predictive_error = (
         EmpiricalHorizonPredictiveError.from_samples(available_error_samples)
@@ -853,9 +821,7 @@ def _evaluate_model(
         "aggregate": {
             "flight_count": len(flights),
             "weighting": "equal_flight",
-            "full_rollout": aggregate_rollout_metrics(
-                full_metrics, weighting="equal"
-            ),
+            "full_rollout": aggregate_rollout_metrics(full_metrics, weighting="equal"),
             "horizon_rollouts": {
                 label: aggregate_rollout_metrics(items, weighting="equal")
                 for label, items in horizon_metrics.items()
@@ -935,9 +901,7 @@ def fit_trajectory_artifacts(
     balance_training_flights: bool = True,
     holdout_profiles: tuple[str, ...] | list[str] | None = None,
     training_source_group_weights: Mapping[str | int, float] | None = None,
-    normalization_source_group_weights: (
-        Mapping[str | int, float] | None
-    ) = None,
+    normalization_source_group_weights: (Mapping[str | int, float] | None) = None,
     model_class: str = "structured",
     endpoint_weight: float = 3.0,
     stability_regularization: float = 0.01,
@@ -1048,9 +1012,11 @@ def fit_trajectory_artifacts(
         ]
         training_source_groups = None
         split_mode = "temporal_within_flight"
-    elif respect_benchmark_split and (
-        benchmark_split_indices := _benchmark_split_holdout_indices(trajectories)
-    ) is not None:
+    elif (
+        respect_benchmark_split
+        and (benchmark_split_indices := _benchmark_split_holdout_indices(trajectories))
+        is not None
+    ):
         if holdout_profiles:
             raise BenchmarkSplitHoldoutConflict(
                 "every trajectory carries a benchmark_split label of "
@@ -1199,17 +1165,13 @@ def fit_trajectory_artifacts(
     else:
         training_horizon_steps = tuple(
             dict.fromkeys(
-                duration_to_steps(seconds, dt_s)
-                for seconds in training_horizons_s
+                duration_to_steps(seconds, dt_s) for seconds in training_horizons_s
             )
         )
     training_horizon_labels = tuple(
-        f"{steps_at_horizon * dt_s:g}s"
-        for steps_at_horizon in training_horizon_steps
+        f"{steps_at_horizon * dt_s:g}s" for steps_at_horizon in training_horizon_steps
     )
-    training_profiles = [
-        trajectory.labels.get("profile") for trajectory in training
-    ]
+    training_profiles = [trajectory.labels.get("profile") for trajectory in training]
     training_group_order = (
         list(dict.fromkeys(training_source_groups))
         if training_source_groups is not None
@@ -1237,21 +1199,14 @@ def fit_trajectory_artifacts(
             )
     group_balanced = (
         balance_training_flights
-        and (
-            len(training) > 1
-            or training_source_group_weights is not None
-        )
+        and (len(training) > 1 or training_source_group_weights is not None)
         and training_source_groups is not None
-        and (
-            not holdout_profiles
-            or training_source_group_weights is not None
-        )
+        and (not holdout_profiles or training_source_group_weights is not None)
     )
     profile_balanced_weights = None
     if (
         not group_balanced
-        and
-        balance_training_flights
+        and balance_training_flights
         and len(training) > 1
         and all(profile is not None for profile in training_profiles)
     ):
@@ -1286,9 +1241,7 @@ def fit_trajectory_artifacts(
                 and profile_balanced_weights is None
             ),
             trajectory_weights=profile_balanced_weights,
-            trajectory_groups=(
-                training_source_groups if group_balanced else None
-            ),
+            trajectory_groups=(training_source_groups if group_balanced else None),
             trajectory_group_weights=(
                 training_source_group_weights if group_balanced else None
             ),
@@ -1384,9 +1337,7 @@ def fit_trajectory_artifacts(
                 selected_params,
                 fixed_response_time=fixed_response_time,
                 learn_thrust_command_offset=learn_thrust_command_offset,
-                instantaneous_rotational_response=(
-                    instantaneous_rotational_response
-                ),
+                instantaneous_rotational_response=(instantaneous_rotational_response),
                 diagonal_angular_control=diagonal_angular_control,
             )
             evidence = estimate_local_parameter_information(
@@ -1509,8 +1460,7 @@ def fit_trajectory_artifacts(
                 trajectory.labels.get("benchmark_split") for trajectory in training
             ],
             "benchmark_split_validation": [
-                flight.trajectory.labels.get("benchmark_split")
-                for flight in validation
+                flight.trajectory.labels.get("benchmark_split") for flight in validation
             ],
         },
         "configuration": {
@@ -1527,8 +1477,7 @@ def fit_trajectory_artifacts(
             "horizon_duration_s": max(training_horizon_steps) * dt_s,
             "training_horizon_steps": list(training_horizon_steps),
             "training_horizons_s": [
-                steps_at_horizon * dt_s
-                for steps_at_horizon in training_horizon_steps
+                steps_at_horizon * dt_s for steps_at_horizon in training_horizon_steps
             ],
             "stride_steps_by_horizon": {
                 label: steps_at_horizon if stride is None else stride
@@ -1592,15 +1541,13 @@ def fit_trajectory_artifacts(
                     for label, windows in zip(training_horizon_labels, window_sets)
                 },
                 "selection_fraction_by_horizon": {
-                    label: len(windows.initial_states)
-                    / windows.candidate_window_count
+                    label: len(windows.initial_states) / windows.candidate_window_count
                     for label, windows in zip(training_horizon_labels, window_sets)
                 },
                 "source_group_count": training_diversity_count,
                 "stratification": (
                     "weighted_source_group"
-                    if group_balanced
-                    and training_source_group_weights is not None
+                    if group_balanced and training_source_group_weights is not None
                     else "source_group"
                     if group_balanced
                     else "weighted_trajectory"
@@ -1617,8 +1564,7 @@ def fit_trajectory_artifacts(
             "model_family": family.key,
             "training_flight_weighting": (
                 "weighted_source_group_then_equal_window"
-                if group_balanced
-                and training_source_group_weights is not None
+                if group_balanced and training_source_group_weights is not None
                 else "equal_source_group_then_equal_window"
                 if group_balanced
                 else "equal_profile_then_equal_flight"
@@ -1638,9 +1584,7 @@ def fit_trajectory_artifacts(
             },
             "candidate_training_windows_per_flight_by_horizon": {
                 label: {
-                    training_labels[index]: int(
-                        windows.candidate_window_counts[index]
-                    )
+                    training_labels[index]: int(windows.candidate_window_counts[index])
                     for index in range(len(training))
                 }
                 for label, windows in zip(training_horizon_labels, window_sets)
@@ -1690,9 +1634,7 @@ def fit_trajectory_artifacts(
                     None
                     if normalization_source_group_weights is None
                     else {
-                        str(group): float(
-                            normalization_source_group_weights[group]
-                        )
+                        str(group): float(normalization_source_group_weights[group])
                         for group in training_group_order
                     }
                 ),
@@ -1787,9 +1729,7 @@ def _evaluation_horizons(value: str) -> tuple[float, ...]:
 
 
 def _no_lag_model_path(model_path: Path) -> Path:
-    return model_path.with_name(
-        f"{model_path.stem}_no_motor_lag{model_path.suffix}"
-    )
+    return model_path.with_name(f"{model_path.stem}_no_motor_lag{model_path.suffix}")
 
 
 def main() -> None:
@@ -1899,8 +1839,7 @@ def main() -> None:
             parser.error("--training-horizons is not used in fixed-response mode")
         if args.model_class != "structured":
             parser.error(
-                "--fixed-response-time-constant only supports "
-                "--model-class structured"
+                "--fixed-response-time-constant only supports --model-class structured"
             )
         params, report = fit_trajectory_artifact(
             args.trajectory[0],
@@ -1987,9 +1926,7 @@ def main() -> None:
             )
 
     if "split" in report:
-        training_paths = [
-            item["path"] for item in report["split"]["training_flights"]
-        ]
+        training_paths = [item["path"] for item in report["split"]["training_flights"]]
         validation_paths = [
             item["path"] for item in report["split"]["validation_flights"]
         ]
@@ -2010,9 +1947,7 @@ def main() -> None:
         }
         predictive_error = (
             predictive_error_from_dict(
-                report["models"]["learned_lag"]["validation"][
-                    "predictive_error"
-                ]
+                report["models"]["learned_lag"]["validation"]["predictive_error"]
             )
             if "models" in report
             else UnavailablePredictiveError(
@@ -2058,9 +1993,7 @@ def main() -> None:
                         report, model_name="no_lag"
                     ),
                     predictive_error=predictive_error_from_dict(
-                        report["models"]["no_lag"]["validation"][
-                            "predictive_error"
-                        ]
+                        report["models"]["no_lag"]["validation"]["predictive_error"]
                     ),
                     parameter_evidence=parameter_evidence_from_dict(
                         report["models"]["no_lag"]["parameter_evidence"]

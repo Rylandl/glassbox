@@ -62,9 +62,7 @@ def test_accuracy_contract_exposes_worst_profile_failure() -> None:
     )
 
     assert result["status"] == "fail"
-    worst = result["horizon_rollouts"]["2s"]["worst_profile"][
-        "position_rmse_m"
-    ]
+    worst = result["horizon_rollouts"]["2s"]["worst_profile"]["position_rmse_m"]
     assert worst["profile"] == "lateral"
     assert worst["passed"] is False
 
@@ -142,8 +140,8 @@ def test_fixedwing_contract_rejects_p90_persistence_and_instability() -> None:
 
     assert result["status"] == "fail"
     airframe = result["airframes"]["flying_wing"]
-    assert airframe["horizon_rollouts"]["2s"]["p90"]["position_rmse_m"][
-        "passed"
-    ] is False
+    assert (
+        airframe["horizon_rollouts"]["2s"]["p90"]["position_rmse_m"]["passed"] is False
+    )
     assert airframe["persistence"]["passed"] is False
     assert airframe["full_rollout_finiteness"]["passed"] is False

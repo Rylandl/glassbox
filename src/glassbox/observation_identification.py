@@ -92,9 +92,7 @@ def _specific_force(trajectory: Trajectory) -> np.ndarray:
             "observation-first identification requires typed specific force "
             f"channels; missing {', '.join(missing)}"
         )
-    return trajectory.observations[
-        :, [roles.index(role) for role in required]
-    ]
+    return trajectory.observations[:, [roles.index(role) for role in required]]
 
 
 def actuator_observation_alignment(
@@ -127,9 +125,7 @@ def actuator_observation_alignment(
     zero_lag = float(correlations[0])
     gain = correlation - zero_lag
     semantics = set(trajectory.spec.control_semantics)
-    physical_actuator_state = semantics.issubset(
-        PHYSICAL_MOTOR_THRUST_SEMANTICS
-    )
+    physical_actuator_state = semantics.issubset(PHYSICAL_MOTOR_THRUST_SEMANTICS)
     apply_alignment = bool(
         physical_actuator_state
         and lag_steps > 0
@@ -206,9 +202,9 @@ def _first_order_response(
     response[0] = commands[0]
     decay = float(np.exp(-dt_s / time_constant_s))
     for index in range(1, len(commands)):
-        response[index] = commands[index - 1] + (
-            response[index - 1] - commands[index - 1]
-        ) * decay
+        response[index] = (
+            commands[index - 1] + (response[index - 1] - commands[index - 1]) * decay
+        )
     return response
 
 
@@ -234,9 +230,7 @@ def _rmse(target: np.ndarray, prediction: np.ndarray) -> float:
     return float(np.sqrt(np.mean(np.square(target - prediction))))
 
 
-def _force_design(
-    collective: np.ndarray, body_velocity: np.ndarray
-) -> np.ndarray:
+def _force_design(collective: np.ndarray, body_velocity: np.ndarray) -> np.ndarray:
     count = len(collective)
     design = np.zeros((count * 3, 5), dtype=np.float64)
     design[2::3, 0] = collective
@@ -291,9 +285,7 @@ def _angular_acceleration(trajectory: Trajectory) -> tuple[np.ndarray, str]:
     required = tuple(f"angular_acceleration_{axis}" for axis in "xyz")
     if all(role in roles for role in required):
         return (
-            trajectory.observations[
-                :-1, [roles.index(role) for role in required]
-            ],
+            trajectory.observations[:-1, [roles.index(role) for role in required]],
             "typed_sensor_output",
         )
     angular_velocity = trajectory.states[:, 10:13]
@@ -345,25 +337,18 @@ def fit_multirotor_observations(
 
     command_semantics = _validate_trajectories(trajectories)
     alignments = tuple(
-        actuator_observation_alignment(trajectory)
-        for trajectory in trajectories
+        actuator_observation_alignment(trajectory) for trajectory in trajectories
     )
     force_records = []
     for trajectory, alignment in zip(trajectories, alignments):
-        control_indices, observation_indices = _aligned_indices(
-            trajectory, alignment
-        )
+        control_indices, observation_indices = _aligned_indices(trajectory, alignment)
         force_records.append(
             {
                 "trajectory": trajectory,
                 "control_indices": control_indices,
                 "observation_indices": observation_indices,
-                "specific_force": _specific_force(trajectory)[
-                    observation_indices
-                ],
-                "body_velocity": _body_velocity(trajectory)[
-                    observation_indices
-                ],
+                "specific_force": _specific_force(trajectory)[observation_indices],
+                "body_velocity": _body_velocity(trajectory)[observation_indices],
                 "train": _split_mask(len(control_indices)),
             }
         )
@@ -378,12 +363,10 @@ def fit_multirotor_observations(
     for time_constant in time_constants:
         for record_index, record in enumerate(force_records):
             trajectory = record["trajectory"]
-            applied_cache[(record_index, float(time_constant))] = (
-                _first_order_response(
-                    trajectory.controls,
-                    trajectory.nominal_dt_s,
-                    float(time_constant),
-                )
+            applied_cache[(record_index, float(time_constant))] = _first_order_response(
+                trajectory.controls,
+                trajectory.nominal_dt_s,
+                float(time_constant),
             )
         for offset in _candidate_offsets(command_semantics):
             designs = []
@@ -391,22 +374,16 @@ def fit_multirotor_observations(
             masks = []
             for record_index, record in enumerate(force_records):
                 indices = record["control_indices"]
-                applied = applied_cache[(record_index, float(time_constant))][
-                    indices
-                ]
+                applied = applied_cache[(record_index, float(time_constant))][indices]
                 collective = np.sum(np.maximum(applied - offset, 0.0), axis=1)
-                designs.append(
-                    _force_design(collective, record["body_velocity"])
-                )
+                designs.append(_force_design(collective, record["body_velocity"]))
                 targets.append(record["specific_force"].reshape(-1))
                 masks.append(np.repeat(record["train"], 3))
             design = np.concatenate(designs)
             target = np.concatenate(targets)
             train = np.concatenate(masks)
             coefficients = _force_solution(design[train], target[train])
-            validation_rmse = _rmse(
-                target[~train], design[~train] @ coefficients
-            )
+            validation_rmse = _rmse(target[~train], design[~train] @ coefficients)
             candidates.append(
                 {
                     "time_constant_s": float(time_constant),
@@ -434,8 +411,7 @@ def fit_multirotor_observations(
         correlated_lags = [
             item.lag_s
             for item in alignments
-            if item.lag_steps > 0
-            and item.correlation >= MINIMUM_ALIGNMENT_CORRELATION
+            if item.lag_steps > 0 and item.correlation >= MINIMUM_ALIGNMENT_CORRELATION
         ]
         fallback_time_constant = (
             float(np.median(correlated_lags))
@@ -462,9 +438,7 @@ def fit_multirotor_observations(
         observation_indices = record["observation_indices"]
         angular_acceleration, source = _angular_acceleration(trajectory)
         angular_sources.add(source)
-        applied = applied_cache[
-            (record_index, selected_motor_time_constant)
-        ]
+        applied = applied_cache[(record_index, selected_motor_time_constant)]
         applied = np.maximum(applied - selected_offset, 0.0)
         angular_records.append(
             {
@@ -526,9 +500,7 @@ def fit_multirotor_observations(
         )
         coefficients = selected["coefficients"]
         candidate_coefficients = coefficients.copy()
-        candidate_response_time_constant = float(
-            selected["time_constant_s"]
-        )
+        candidate_response_time_constant = float(selected["time_constant_s"])
         validation_constant_baseline_rmse = _rmse(
             selected["target"][~selected["train"]],
             np.full(
@@ -537,8 +509,7 @@ def fit_multirotor_observations(
             ),
         )
         accepted = bool(
-            selected["validation_rmse"]
-            <= 0.95 * validation_constant_baseline_rmse
+            selected["validation_rmse"] <= 0.95 * validation_constant_baseline_rmse
             and not np.isclose(
                 selected["time_constant_s"],
                 _candidate_time_constants()[-1],
@@ -572,15 +543,11 @@ def fit_multirotor_observations(
                 "candidate_training_rmse_rad_s2": _rmse(
                     target[train], design[train] @ candidate_coefficients
                 ),
-                "candidate_validation_rmse_rad_s2": float(
-                    selected["validation_rmse"]
-                ),
+                "candidate_validation_rmse_rad_s2": float(selected["validation_rmse"]),
                 "validation_constant_baseline_rmse_rad_s2": (
                     validation_constant_baseline_rmse
                 ),
-                "candidate_nuisance_bias_rad_s2": float(
-                    candidate_coefficients[4]
-                ),
+                "candidate_nuisance_bias_rad_s2": float(candidate_coefficients[4]),
             }
         )
 
@@ -625,9 +592,7 @@ def fit_multirotor_observations(
             "thrust_accel": float(coefficients[0]),
             "linear_drag": float(coefficients[1]),
             "nuisance_accelerometer_bias_m_s2": coefficients[2:5].tolist(),
-            "training_rmse_m_s2": _rmse(
-                target[train], design[train] @ coefficients
-            ),
+            "training_rmse_m_s2": _rmse(target[train], design[train] @ coefficients),
             "validation_rmse_m_s2": float(force_fit["validation_rmse"]),
             "validation_constant_baseline_rmse_m_s2": _rmse(
                 target[~train],

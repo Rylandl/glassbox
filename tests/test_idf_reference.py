@@ -96,9 +96,7 @@ def test_fetch_archive_verifies_and_reuses_snapshot(tmp_path, monkeypatch) -> No
         return io.BytesIO(payload)
 
     monkeypatch.setattr(idf_module, "IDF_ARCHIVE_SIZE_BYTES", len(payload))
-    monkeypatch.setattr(
-        idf_module, "IDF_ARCHIVE_MD5", hashlib.md5(payload).hexdigest()
-    )
+    monkeypatch.setattr(idf_module, "IDF_ARCHIVE_MD5", hashlib.md5(payload).hexdigest())
     monkeypatch.setattr(idf_module.urllib.request, "urlopen", fake_urlopen)
 
     first = fetch_idf_archive(tmp_path)

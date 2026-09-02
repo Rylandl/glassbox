@@ -52,9 +52,7 @@ def model_payload(
             f"model family {family.platform!r} cannot bind to vehicle family "
             f"{input_spec.vehicle.family!r}"
         )
-    family.validate_control_schema(
-        input_spec.control_names, input_spec.control_roles
-    )
+    family.validate_control_schema(input_spec.control_names, input_spec.control_roles)
     thrust_mapping = None
     if not fixed_wing:
         semantics = frozenset(input_spec.control_semantics)
@@ -73,13 +71,9 @@ def model_payload(
                 + ", ".join(sorted(semantics))
             )
     if residual:
-        expected_feature_size = (
-            6 + len(input_spec.controls) + len(input_spec.exogenous)
-        )
+        expected_feature_size = 6 + len(input_spec.controls) + len(input_spec.exogenous)
         if params.feature_mean.shape != (expected_feature_size,):
-            raise ValueError(
-                "residual feature configuration does not match input spec"
-            )
+            raise ValueError("residual feature configuration does not match input spec")
     payload = {
         "format_version": MODEL_FORMAT_VERSION,
         "model_type": (
@@ -133,9 +127,7 @@ def model_payload(
     }
     if residual:
         payload["parameters"] = {
-            "base_model_type": (
-                FIXED_WING_MODEL_TYPE if fixed_wing else MODEL_TYPE
-            ),
+            "base_model_type": (FIXED_WING_MODEL_TYPE if fixed_wing else MODEL_TYPE),
             "base": parameter_dict(params.base),
             "residual": {
                 "hidden_weights": params.hidden_weights.tolist(),
@@ -151,14 +143,8 @@ def model_payload(
                     "body_angular_velocity_x",
                     "body_angular_velocity_y",
                     "body_angular_velocity_z",
-                    *[
-                        f"applied_control:{role}"
-                        for role in input_spec.control_roles
-                    ],
-                    *[
-                        f"exogenous:{role}"
-                        for role in input_spec.exogenous_roles
-                    ],
+                    *[f"applied_control:{role}" for role in input_spec.control_roles],
+                    *[f"exogenous:{role}" for role in input_spec.exogenous_roles],
                 ],
                 "correction_order": [
                     "body_linear_acceleration_x",
@@ -230,9 +216,7 @@ def _fixed_wing_from_payload(
             parameters["lift_alpha_accel_per_speed_sq"]
         ),
         drag_accel_per_speed_sq=float(parameters["drag_accel_per_speed_sq"]),
-        side_force_accel_per_speed=float(
-            parameters["side_force_accel_per_speed"]
-        ),
+        side_force_accel_per_speed=float(parameters["side_force_accel_per_speed"]),
         surface_angular_accel_per_speed_sq=tuple(
             parameters["surface_angular_accel_per_speed_sq"]
         ),
@@ -248,12 +232,8 @@ def _fixed_wing_from_payload(
         angular_drag_per_speed=tuple(parameters["angular_drag_per_speed"]),
         actuator_time_constant=float(parameters["actuator_time_constant"]),
         surface_trim=tuple(parameters["surface_trim"]),
-        flap_lift_accel_per_speed_sq=float(
-            parameters["flap_lift_accel_per_speed_sq"]
-        ),
-        flap_drag_accel_per_speed_sq=float(
-            parameters["flap_drag_accel_per_speed_sq"]
-        ),
+        flap_lift_accel_per_speed_sq=float(parameters["flap_lift_accel_per_speed_sq"]),
+        flap_drag_accel_per_speed_sq=float(parameters["flap_drag_accel_per_speed_sq"]),
         flap_pitch_angular_accel_per_speed_sq=float(
             parameters["flap_pitch_angular_accel_per_speed_sq"]
         ),
@@ -303,9 +283,7 @@ def dynamics_model_from_payload(
             hidden_bias=hidden_bias,
             output_weights=jnp.asarray(residual["output_weights"]),
         )
-        expected_feature_size = (
-            6 + len(input_spec.controls) + len(input_spec.exogenous)
-        )
+        expected_feature_size = 6 + len(input_spec.controls) + len(input_spec.exogenous)
         if params.hidden_weights.shape != (
             hidden_bias.shape[0],
             expected_feature_size,
@@ -324,9 +302,7 @@ def dynamics_model_from_payload(
     family = model_family(params)
     if input_spec.vehicle.family != family.platform:
         raise ValueError("model input_spec vehicle family does not match model type")
-    family.validate_control_schema(
-        input_spec.control_names, input_spec.control_roles
-    )
+    family.validate_control_schema(input_spec.control_names, input_spec.control_roles)
     return params, payload
 
 

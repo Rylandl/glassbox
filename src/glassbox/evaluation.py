@@ -85,25 +85,17 @@ def parameter_dict(params: ModelParams) -> dict[str, Any]:
         physical = base.physical()
         result: dict[str, Any] = {
             "thrust_accel": float(physical["thrust_accel"]),
-            "lift_accel_per_speed_sq": float(
-                physical["lift_accel_per_speed_sq"]
-            ),
+            "lift_accel_per_speed_sq": float(physical["lift_accel_per_speed_sq"]),
             "lift_alpha_accel_per_speed_sq": float(
                 physical["lift_alpha_accel_per_speed_sq"]
             ),
-            "drag_accel_per_speed_sq": float(
-                physical["drag_accel_per_speed_sq"]
-            ),
-            "side_force_accel_per_speed": float(
-                physical["side_force_accel_per_speed"]
-            ),
+            "drag_accel_per_speed_sq": float(physical["drag_accel_per_speed_sq"]),
+            "side_force_accel_per_speed": float(physical["side_force_accel_per_speed"]),
             "surface_angular_accel_per_speed_sq": np.asarray(
                 physical["surface_angular_accel_per_speed_sq"]
             ).tolist(),
             "lateral_surface_cross_angular_accel_per_speed_sq": np.asarray(
-                physical[
-                    "lateral_surface_cross_angular_accel_per_speed_sq"
-                ]
+                physical["lateral_surface_cross_angular_accel_per_speed_sq"]
             ).tolist(),
             "pitch_stability_accel_per_speed_sq": float(
                 physical["pitch_stability_accel_per_speed_sq"]
@@ -125,17 +117,13 @@ def parameter_dict(params: ModelParams) -> dict[str, Any]:
                 physical["flap_pitch_angular_accel_per_speed_sq"]
             ),
             "flap_trim": float(physical["flap_trim"]),
-            "actuator_time_constant": float(
-                physical["actuator_time_constant"]
-            ),
+            "actuator_time_constant": float(physical["actuator_time_constant"]),
         }
     else:
         physical = physics_parameters(params).physical()
         result = {
             "thrust_accel": float(physical["thrust_accel"]),
-            "thrust_command_offset": float(
-                physical["thrust_command_offset"]
-            ),
+            "thrust_command_offset": float(physical["thrust_command_offset"]),
             "angular_accel": np.asarray(physical["angular_accel"]).tolist(),
             "linear_drag": float(physical["linear_drag"]),
             "angular_drag": np.asarray(physical["angular_drag"]).tolist(),
@@ -214,19 +202,13 @@ def attitude_innovation(
 ) -> np.ndarray:
     """Return the shortest predicted-to-observed rotation vector."""
 
-    predicted = predicted_wxyz / np.linalg.norm(
-        predicted_wxyz, axis=1, keepdims=True
-    )
-    observed = observed_wxyz / np.linalg.norm(
-        observed_wxyz, axis=1, keepdims=True
-    )
+    predicted = predicted_wxyz / np.linalg.norm(predicted_wxyz, axis=1, keepdims=True)
+    observed = observed_wxyz / np.linalg.norm(observed_wxyz, axis=1, keepdims=True)
     predicted_w = predicted[:, 0]
     predicted_xyz = predicted[:, 1:4]
     observed_w = observed[:, 0]
     observed_xyz = observed[:, 1:4]
-    relative_w = predicted_w * observed_w + np.sum(
-        predicted_xyz * observed_xyz, axis=1
-    )
+    relative_w = predicted_w * observed_w + np.sum(predicted_xyz * observed_xyz, axis=1)
     relative_xyz = (
         predicted_w[:, None] * observed_xyz
         - observed_w[:, None] * predicted_xyz
@@ -236,9 +218,7 @@ def attitude_innovation(
     relative_w *= sign
     relative_xyz *= sign[:, None]
     vector_norm = np.linalg.norm(relative_xyz, axis=1)
-    angle = 2.0 * np.arctan2(
-        vector_norm, np.clip(relative_w, 0.0, 1.0)
-    )
+    angle = 2.0 * np.arctan2(vector_norm, np.clip(relative_w, 0.0, 1.0))
     scale = np.divide(
         angle,
         vector_norm,
@@ -282,13 +262,10 @@ def state_kinematic_compatibility_diagnostics(
 
     dt_s = trajectory.nominal_dt_s
     states = trajectory.states
-    position_rate_residual = (
-        np.diff(states[:, 0:3], axis=0) / dt_s
-        - 0.5 * (states[:-1, 3:6] + states[1:, 3:6])
+    position_rate_residual = np.diff(states[:, 0:3], axis=0) / dt_s - 0.5 * (
+        states[:-1, 3:6] + states[1:, 3:6]
     )
-    attitude_increment = attitude_innovation(
-        states[:-1, 6:10], states[1:, 6:10]
-    )
+    attitude_increment = attitude_innovation(states[:-1, 6:10], states[1:, 6:10])
     rotations = _quaternion_rotation_matrices(states[:, 6:10])
     next_rate_in_initial_body = np.einsum(
         "nji,njk,nk->ni",
@@ -296,9 +273,8 @@ def state_kinematic_compatibility_diagnostics(
         rotations[1:],
         states[1:, 10:13],
     )
-    attitude_rate_residual = (
-        attitude_increment / dt_s
-        - 0.5 * (states[:-1, 10:13] + next_rate_in_initial_body)
+    attitude_rate_residual = attitude_increment / dt_s - 0.5 * (
+        states[:-1, 10:13] + next_rate_in_initial_body
     )
     sample_count = len(position_rate_residual)
     common = {
@@ -318,9 +294,7 @@ def state_kinematic_compatibility_diagnostics(
         max(1, int(np.floor(INNOVATION_MAXIMUM_LAG_S / dt_s))),
         max(1, sample_count // 4),
     )
-    bound = _simultaneous_correlation_bound(
-        sample_count, 3 * maximum_lag_steps
-    )
+    bound = _simultaneous_correlation_bound(sample_count, 3 * maximum_lag_steps)
 
     def group_report(
         values: np.ndarray,
@@ -348,9 +322,7 @@ def state_kinematic_compatibility_diagnostics(
             }
         return {
             "axes": axes,
-            "vector_rmse": float(
-                np.sqrt(np.mean(np.sum(np.square(values), axis=1)))
-            ),
+            "vector_rmse": float(np.sqrt(np.mean(np.sum(np.square(values), axis=1)))),
             "temporally_colored": any(
                 bool(item["temporally_colored"]) for item in axes.values()
             ),
@@ -469,11 +441,7 @@ def _simultaneous_correlation_bound(
         float(
             np.sqrt(
                 2.0
-                * np.log(
-                    2.0
-                    * comparison_count
-                    / INNOVATION_SIMULTANEOUS_ALPHA
-                )
+                * np.log(2.0 * comparison_count / INNOVATION_SIMULTANEOUS_ALPHA)
                 / sample_count
             )
         ),
@@ -596,10 +564,8 @@ def one_step_innovation_diagnostics(
         autocorrelation, autocorrelation_lag = _strongest_autocorrelation(
             values, maximum_lag_steps
         )
-        input_correlation, input_lag, input_index = (
-            _strongest_input_correlation(
-                values, controls, maximum_lag_steps
-            )
+        input_correlation, input_lag, input_index = _strongest_input_correlation(
+            values, controls, maximum_lag_steps
         )
         channels[name] = {
             "unit": unit,
@@ -608,9 +574,7 @@ def one_step_innovation_diagnostics(
             "rmse": float(np.sqrt(np.mean(np.square(values)))),
             "strongest_autocorrelation": autocorrelation,
             "autocorrelation_lag_steps": autocorrelation_lag,
-            "autocorrelation_lag_s": (
-                autocorrelation_lag * trajectory.nominal_dt_s
-            ),
+            "autocorrelation_lag_s": (autocorrelation_lag * trajectory.nominal_dt_s),
             "autocorrelation_bound": autocorrelation_bound,
             "temporally_colored": abs(autocorrelation) > autocorrelation_bound,
             "strongest_past_or_current_input_correlation": input_correlation,
@@ -632,18 +596,12 @@ def one_step_innovation_diagnostics(
             "temporally_colored": any(
                 bool(item["temporally_colored"]) for item in items
             ),
-            "input_correlated": any(
-                bool(item["input_correlated"]) for item in items
-            ),
+            "input_correlated": any(bool(item["input_correlated"]) for item in items),
             "maximum_abs_autocorrelation": max(
                 abs(float(item["strongest_autocorrelation"])) for item in items
             ),
             "maximum_abs_past_or_current_input_correlation": max(
-                abs(
-                    float(
-                        item["strongest_past_or_current_input_correlation"]
-                    )
-                )
+                abs(float(item["strongest_past_or_current_input_correlation"]))
                 for item in items
             ),
         }
@@ -706,9 +664,7 @@ def aggregate_innovation_diagnostics(
             "mean_maximum_abs_past_or_current_input_correlation": float(
                 np.mean(
                     [
-                        item[
-                            "maximum_abs_past_or_current_input_correlation"
-                        ]
+                        item["maximum_abs_past_or_current_input_correlation"]
                         for item in items
                     ]
                 )
@@ -759,9 +715,7 @@ def aggregate_innovation_diagnostics(
                 else float(
                     np.mean(
                         [
-                            item["attitude_rate_compatibility"][
-                                "temporally_colored"
-                            ]
+                            item["attitude_rate_compatibility"]["temporally_colored"]
                             for item in compatibility
                         ]
                     )
@@ -794,10 +748,7 @@ def aggregate_innovation_diagnostics(
         },
         "flight_fraction_with_any_structured_innovation": float(
             np.mean(
-                [
-                    item["summary"]["structured_innovation_detected"]
-                    for item in valid
-                ]
+                [item["summary"]["structured_innovation_detected"] for item in valid]
             )
         ),
     }
@@ -841,8 +792,7 @@ def rollout_divergence_metrics(
             )
         selected_thresholds.update(thresholds)
     if any(
-        not np.isfinite(value) or value <= 0.0
-        for value in selected_thresholds.values()
+        not np.isfinite(value) or value <= 0.0 for value in selected_thresholds.values()
     ):
         raise ValueError("divergence thresholds must be finite and positive")
 
@@ -853,9 +803,7 @@ def rollout_divergence_metrics(
     )
     target = trajectory.states
     predicted_quaternion_norm = np.linalg.norm(predicted[:, 6:10], axis=1)
-    finite = np.all(np.isfinite(predicted), axis=1) & (
-        predicted_quaternion_norm > 0.0
-    )
+    finite = np.all(np.isfinite(predicted), axis=1) & (predicted_quaternion_norm > 0.0)
     position_error = np.linalg.norm(predicted[:, 0:3] - target[:, 0:3], axis=1)
     velocity_error = np.linalg.norm(predicted[:, 3:6] - target[:, 3:6], axis=1)
     angular_velocity_error = np.linalg.norm(
@@ -868,9 +816,7 @@ def rollout_divergence_metrics(
         predicted_quaternion /= np.linalg.norm(
             predicted_quaternion, axis=1, keepdims=True
         )
-        target_quaternion /= np.linalg.norm(
-            target_quaternion, axis=1, keepdims=True
-        )
+        target_quaternion /= np.linalg.norm(target_quaternion, axis=1, keepdims=True)
         quaternion_dot = np.clip(
             np.abs(np.sum(predicted_quaternion * target_quaternion, axis=1)),
             0.0,
@@ -888,9 +834,7 @@ def rollout_divergence_metrics(
     for name, values in traces.items():
         crossed |= values > selected_thresholds[name]
     crossing_indices = np.flatnonzero(crossed)
-    divergence_index = (
-        None if len(crossing_indices) == 0 else int(crossing_indices[0])
-    )
+    divergence_index = None if len(crossing_indices) == 0 else int(crossing_indices[0])
     if divergence_index is None:
         causes: list[str] = []
         stable_through_s = float(trajectory.time_s[-1] - trajectory.time_s[0])
@@ -902,9 +846,7 @@ def rollout_divergence_metrics(
             if values[divergence_index] > selected_thresholds[name]:
                 causes.append(name)
         stable_index = max(0, divergence_index - 1)
-        stable_through_s = float(
-            trajectory.time_s[stable_index] - trajectory.time_s[0]
-        )
+        stable_through_s = float(trajectory.time_s[stable_index] - trajectory.time_s[0])
     duration_s = float(trajectory.time_s[-1] - trajectory.time_s[0])
     return {
         "thresholds": selected_thresholds,
@@ -967,9 +909,7 @@ def _state_error_metrics(
     target_quaternion = target[..., 6:10] / np.linalg.norm(
         target[..., 6:10], axis=-1, keepdims=True
     )
-    quaternion_dot = np.abs(
-        np.sum(predicted_quaternion * target_quaternion, axis=-1)
-    )
+    quaternion_dot = np.abs(np.sum(predicted_quaternion * target_quaternion, axis=-1))
     quaternion_dot = np.clip(quaternion_dot, -1.0, 1.0)
     attitude_error_deg = np.rad2deg(2.0 * np.arccos(quaternion_dot))
 
@@ -979,9 +919,7 @@ def _state_error_metrics(
     target_xyz = -target_quaternion[..., 1:4]
     predicted_w = predicted_quaternion[..., 0]
     predicted_xyz = predicted_quaternion[..., 1:4]
-    relative_w = target_w * predicted_w - np.sum(
-        target_xyz * predicted_xyz, axis=-1
-    )
+    relative_w = target_w * predicted_w - np.sum(target_xyz * predicted_xyz, axis=-1)
     relative_xyz = (
         target_w[..., np.newaxis] * predicted_xyz
         + predicted_w[..., np.newaxis] * target_xyz
@@ -1021,9 +959,7 @@ def _state_error_metrics(
         "velocity_rmse_xyz_m_s": np.sqrt(
             np.mean(np.square(velocity_error), axis=reduction_axes)
         ).tolist(),
-        "attitude_rmse_deg": float(
-            np.sqrt(np.mean(np.square(attitude_error_deg)))
-        ),
+        "attitude_rmse_deg": float(np.sqrt(np.mean(np.square(attitude_error_deg)))),
         "angular_velocity_rmse_rad_s": float(
             np.sqrt(np.mean(np.square(angular_velocity_error)))
         ),
@@ -1063,9 +999,7 @@ def rigid_body_tangent_errors(
     predicted_xyz = predicted_quaternion[..., 1:4]
     target_w = target_quaternion[..., 0]
     target_xyz = target_quaternion[..., 1:4]
-    relative_w = predicted_w * target_w + np.sum(
-        predicted_xyz * target_xyz, axis=-1
-    )
+    relative_w = predicted_w * target_w + np.sum(predicted_xyz * target_xyz, axis=-1)
     relative_xyz = (
         predicted_w[..., np.newaxis] * target_xyz
         - target_w[..., np.newaxis] * predicted_xyz
@@ -1167,9 +1101,7 @@ def kinematic_persistence_windowed_metrics(
         )
         state[:, 0:3] += windows.dt_s * state[:, 3:6]
         state[:, 6:10] += windows.dt_s * quaternion_rate
-        state[:, 6:10] /= np.linalg.norm(
-            state[:, 6:10], axis=1, keepdims=True
-        )
+        state[:, 6:10] /= np.linalg.norm(state[:, 6:10], axis=1, keepdims=True)
         predicted[:, index + 1] = state
     return _state_error_metrics(
         predicted,
@@ -1291,8 +1223,7 @@ def aggregate_rollout_metrics(
             "final_position_error_m": float(
                 np.sqrt(
                     sum(
-                        float(item["final_position_error_m"]) ** 2
-                        * weight
+                        float(item["final_position_error_m"]) ** 2 * weight
                         for item, weight in zip(metrics, endpoint_weights)
                     )
                     / sum(endpoint_weights)

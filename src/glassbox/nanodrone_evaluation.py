@@ -109,9 +109,7 @@ def _per_horizon_errors(
         "position_mae_m": np.mean(position_error, axis=0),
         "velocity_mae_m_s": np.mean(velocity_error, axis=0),
         "attitude_mae_rad": np.mean(attitude_error, axis=0),
-        "angular_velocity_mae_rad_s": np.mean(
-            angular_velocity_error, axis=0
-        ),
+        "angular_velocity_mae_rad_s": np.mean(angular_velocity_error, axis=0),
     }
 
 
@@ -126,26 +124,17 @@ def _metric_summary(
         if values[name].shape != (horizon_count,):
             raise ValueError("benchmark metric horizon lengths must match")
     selected_steps = tuple(
-        dict.fromkeys(
-            step for step in (1, 10, horizon_count) if step <= horizon_count
-        )
+        dict.fromkeys(step for step in (1, 10, horizon_count) if step <= horizon_count)
     )
     return {
         "window_count": window_count,
         "horizon_steps": list(range(1, horizon_count + 1)),
-        "horizon_time_s": [
-            step * dt_s for step in range(1, horizon_count + 1)
-        ],
-        "per_horizon": {
-            name: values[name].tolist() for name in _METRIC_NAMES
-        },
+        "horizon_time_s": [step * dt_s for step in range(1, horizon_count + 1)],
+        "per_horizon": {name: values[name].tolist() for name in _METRIC_NAMES},
         "selected_horizons": {
             str(step): {
                 "time_s": step * dt_s,
-                **{
-                    name: float(values[name][step - 1])
-                    for name in _METRIC_NAMES
-                },
+                **{name: float(values[name][step - 1]) for name in _METRIC_NAMES},
             }
             for step in selected_steps
         },
@@ -162,15 +151,11 @@ def _aggregate_flights(
 ) -> dict[str, Any]:
     total_windows = sum(count for count, _ in flight_metrics)
     values = {
-        name: sum(
-            metrics[name] * count for count, metrics in flight_metrics
-        )
+        name: sum(metrics[name] * count for count, metrics in flight_metrics)
         / total_windows
         for name in _METRIC_NAMES
     }
-    summary = _metric_summary(
-        values, dt_s=dt_s, window_count=total_windows
-    )
+    summary = _metric_summary(values, dt_s=dt_s, window_count=total_windows)
     summary["weighting"] = "prediction_window"
     return summary
 
@@ -230,16 +215,12 @@ def _published_reference_comparison(
     cumulative_ratios = {
         name: (
             float(model_summary["cumulative_simulation_error"][name])
-            / float(
-                PUBLISHED_PHYS_PLUS_RES["cumulative_simulation_error"][name]
-            )
+            / float(PUBLISHED_PHYS_PLUS_RES["cumulative_simulation_error"][name])
         )
         for name in _METRIC_NAMES
     }
     all_cumulative_ratios = list(cumulative_ratios.values())
-    geometric_ratio = float(
-        np.exp(np.mean(np.log(np.asarray(all_cumulative_ratios))))
-    )
+    geometric_ratio = float(np.exp(np.mean(np.log(np.asarray(all_cumulative_ratios)))))
     return {
         "definition": "Glassbox error / published Phys+Res error; below one wins",
         "comparability": "near_comparable_boundary_safe_vs_concatenated_upstream",
@@ -290,9 +271,7 @@ def evaluate_nanodrone_benchmark(
             raise ValueError("benchmark evaluation requires test-split trajectories")
         if trajectory.labels.get("profile") != "melon":
             raise ValueError("benchmark evaluation requires Melon trajectories")
-        if not np.isclose(
-            trajectory.nominal_dt_s, dt_s, atol=1e-7, rtol=0.0
-        ):
+        if not np.isclose(trajectory.nominal_dt_s, dt_s, atol=1e-7, rtol=0.0):
             raise ValueError("benchmark trajectories must share one sample interval")
         if max_horizon_steps > len(trajectory.controls):
             raise ValueError("benchmark horizon exceeds a trajectory length")
@@ -306,19 +285,15 @@ def evaluate_nanodrone_benchmark(
         if not np.isclose(prediction_dt_s, dt_s, atol=1e-7, rtol=0.0):
             raise ValueError("prediction sample interval changed unexpectedly")
         model_values = _per_horizon_errors(predicted, target)
-        constant_rate_predicted, _, constant_rate_dt_s = (
-            windowed_rollout_predictions(
-                constant_rate_params,
-                trajectory,
-                horizon_steps=max_horizon_steps,
-                stride_steps=1,
-            )
+        constant_rate_predicted, _, constant_rate_dt_s = windowed_rollout_predictions(
+            constant_rate_params,
+            trajectory,
+            horizon_steps=max_horizon_steps,
+            stride_steps=1,
         )
         if not np.isclose(constant_rate_dt_s, dt_s, atol=1e-7, rtol=0.0):
             raise ValueError("constant-rate diagnostic sample interval changed")
-        constant_rate_values = _per_horizon_errors(
-            constant_rate_predicted, target
-        )
+        constant_rate_values = _per_horizon_errors(constant_rate_predicted, target)
         naive_values = _per_horizon_errors(_naive_predictions(target), target)
         window_count = len(predicted)
         model_flights.append((window_count, model_values))
@@ -343,9 +318,7 @@ def evaluate_nanodrone_benchmark(
         )
 
     model_summary = _aggregate_flights(model_flights, dt_s=dt_s)
-    constant_rate_summary = _aggregate_flights(
-        constant_rate_flights, dt_s=dt_s
-    )
+    constant_rate_summary = _aggregate_flights(constant_rate_flights, dt_s=dt_s)
     naive_summary = _aggregate_flights(naive_flights, dt_s=dt_s)
     report = {
         "format_version": 1,
@@ -419,9 +392,7 @@ def evaluate_nanodrone_model_artifact(
     return report
 
 
-def save_nanodrone_benchmark_report(
-    report: dict[str, Any], path: str | Path
-) -> None:
+def save_nanodrone_benchmark_report(report: dict[str, Any], path: str | Path) -> None:
     """Write a benchmark report as readable JSON."""
 
     output_path = Path(path)

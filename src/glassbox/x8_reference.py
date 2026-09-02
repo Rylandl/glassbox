@@ -63,28 +63,128 @@ class X8Recording:
 
 
 X8_RECORDINGS = (
-    X8Recording("lateral_121_1.csv", "training", 233075, 276654, "d163a59d4da594f9c716990151159b3c"),
-    X8Recording("lateral_121_2.csv", "training", 233078, 270694, "091298ff063747e010298ea3e61451be"),
-    X8Recording("lateral_121_3.csv", "training", 233064, 269892, "92bdb4c97d16e05a0c0c4da868d72690"),
-    X8Recording("lateral_doublet_1.csv", "training", 233067, 260832, "a120940bc294cff231b9dd4d24577d34"),
-    X8Recording("lateral_doublet_2.csv", "training", 233073, 259119, "cec7f99412becc59ba5d2b6d36214912"),
-    X8Recording("lateral_doublet_3.csv", "training", 233054, 258177, "338a13a232717c5f397fe14c53399242"),
-    X8Recording("longitudinal_3211_1.csv", "training", 233065, 296095, "655edda35560ca299dac545ff7835dab"),
-    X8Recording("longitudinal_3211_2.csv", "training", 233074, 294245, "caca49f8743caf59cc26bf756c914554"),
-    X8Recording("longitudinal_3211_3.csv", "training", 233077, 293790, "f7fe10687cd6dac07a0d0387150fac9e"),
-    X8Recording("longitudinal_3211_4.csv", "training", 233072, 292137, "52bff9a02a5df53b0f4a5b41625ff47f"),
-    X8Recording("longitudinal_doublet_1.csv", "training", 233059, 327648, "9e9b1bd40bec64a96a30cfe44bf385c3"),
-    X8Recording("longitudinal_doublet_2.csv", "training", 233082, 325829, "03ad563a6e491674c2b763b99a0ee63e"),
-    X8Recording("longitudinal_doublet_3.csv", "training", 233068, 256717, "01f4a2fe2fa98937a090c79e117aba3e"),
-    X8Recording("lateral_121_4.csv", "validation", 233061, 269112, "e9c734f9f7133d79fa568f6bc200d8f5"),
-    X8Recording("lateral_doublet_4.csv", "validation", 233069, 261214, "2d2169e713e65f23e373db75b5122fe1"),
-    X8Recording("longitudinal_3211_5.csv", "validation", 233056, 293225, "0d87838dc9de2e75e7a8db8beca0d3c8"),
-    X8Recording("longitudinal_doublet_4.csv", "validation", 233084, 327017, "2920b5241fef83408fb1e48955372f2f"),
+    X8Recording(
+        "lateral_121_1.csv",
+        "training",
+        233075,
+        276654,
+        "d163a59d4da594f9c716990151159b3c",
+    ),
+    X8Recording(
+        "lateral_121_2.csv",
+        "training",
+        233078,
+        270694,
+        "091298ff063747e010298ea3e61451be",
+    ),
+    X8Recording(
+        "lateral_121_3.csv",
+        "training",
+        233064,
+        269892,
+        "92bdb4c97d16e05a0c0c4da868d72690",
+    ),
+    X8Recording(
+        "lateral_doublet_1.csv",
+        "training",
+        233067,
+        260832,
+        "a120940bc294cff231b9dd4d24577d34",
+    ),
+    X8Recording(
+        "lateral_doublet_2.csv",
+        "training",
+        233073,
+        259119,
+        "cec7f99412becc59ba5d2b6d36214912",
+    ),
+    X8Recording(
+        "lateral_doublet_3.csv",
+        "training",
+        233054,
+        258177,
+        "338a13a232717c5f397fe14c53399242",
+    ),
+    X8Recording(
+        "longitudinal_3211_1.csv",
+        "training",
+        233065,
+        296095,
+        "655edda35560ca299dac545ff7835dab",
+    ),
+    X8Recording(
+        "longitudinal_3211_2.csv",
+        "training",
+        233074,
+        294245,
+        "caca49f8743caf59cc26bf756c914554",
+    ),
+    X8Recording(
+        "longitudinal_3211_3.csv",
+        "training",
+        233077,
+        293790,
+        "f7fe10687cd6dac07a0d0387150fac9e",
+    ),
+    X8Recording(
+        "longitudinal_3211_4.csv",
+        "training",
+        233072,
+        292137,
+        "52bff9a02a5df53b0f4a5b41625ff47f",
+    ),
+    X8Recording(
+        "longitudinal_doublet_1.csv",
+        "training",
+        233059,
+        327648,
+        "9e9b1bd40bec64a96a30cfe44bf385c3",
+    ),
+    X8Recording(
+        "longitudinal_doublet_2.csv",
+        "training",
+        233082,
+        325829,
+        "03ad563a6e491674c2b763b99a0ee63e",
+    ),
+    X8Recording(
+        "longitudinal_doublet_3.csv",
+        "training",
+        233068,
+        256717,
+        "01f4a2fe2fa98937a090c79e117aba3e",
+    ),
+    X8Recording(
+        "lateral_121_4.csv",
+        "validation",
+        233061,
+        269112,
+        "e9c734f9f7133d79fa568f6bc200d8f5",
+    ),
+    X8Recording(
+        "lateral_doublet_4.csv",
+        "validation",
+        233069,
+        261214,
+        "2d2169e713e65f23e373db75b5122fe1",
+    ),
+    X8Recording(
+        "longitudinal_3211_5.csv",
+        "validation",
+        233056,
+        293225,
+        "0d87838dc9de2e75e7a8db8beca0d3c8",
+    ),
+    X8Recording(
+        "longitudinal_doublet_4.csv",
+        "validation",
+        233084,
+        327017,
+        "2920b5241fef83408fb1e48955372f2f",
+    ),
 )
 
-_RECORDING_BY_FILENAME = {
-    recording.filename: recording for recording in X8_RECORDINGS
-}
+_RECORDING_BY_FILENAME = {recording.filename: recording for recording in X8_RECORDINGS}
 
 
 def _md5(path: Path) -> str:
@@ -108,8 +208,7 @@ def _read_csv(path: Path) -> np.ndarray:
         data = data[None, :]
     if data.ndim != 2 or data.shape[1] != X8_COLUMN_COUNT:
         raise ValueError(
-            f"Skywalker X8 CSV must contain {X8_COLUMN_COUNT} columns; "
-            f"got {data.shape}"
+            f"Skywalker X8 CSV must contain {X8_COLUMN_COUNT} columns; got {data.shape}"
         )
     if len(data) < 2:
         raise ValueError("Skywalker X8 maneuver needs at least two samples")
@@ -118,7 +217,9 @@ def _read_csv(path: Path) -> np.ndarray:
     return data
 
 
-def _rotation_body_to_ned(phi: np.ndarray, theta: np.ndarray, psi: np.ndarray) -> np.ndarray:
+def _rotation_body_to_ned(
+    phi: np.ndarray, theta: np.ndarray, psi: np.ndarray
+) -> np.ndarray:
     """Return vectorized aerospace 3-2-1 body-FRD to world-NED rotations."""
 
     cphi, sphi = np.cos(phi), np.sin(phi)
@@ -176,9 +277,7 @@ def _quality(data: np.ndarray) -> dict[str, Any]:
         )
 
     rotation = _rotation_body_to_ned(data[:, 10], data[:, 11], data[:, 12])
-    reconstructed_body_velocity = np.einsum(
-        "nji,nj->ni", rotation, data[:, 19:22]
-    )
+    reconstructed_body_velocity = np.einsum("nji,nj->ni", rotation, data[:, 19:22])
     body_velocity_error = reconstructed_body_velocity - data[:, 16:19]
     maximum_body_velocity_error_m_s = float(
         np.max(np.linalg.norm(body_velocity_error, axis=1))
@@ -191,9 +290,7 @@ def _quality(data: np.ndarray) -> dict[str, Any]:
 
     gps_position_ned = data[:, 32:35]
     integrated_displacement_ned = np.sum(
-        0.5
-        * (data[:-1, 19:22] + data[1:, 19:22])
-        * time_step_s[:, None],
+        0.5 * (data[:-1, 19:22] + data[1:, 19:22]) * time_step_s[:, None],
         axis=0,
     )
     gps_displacement_ned = gps_position_ned[-1] - gps_position_ned[0]
@@ -349,9 +446,7 @@ class X8ReferenceAdapter:
         velocity_nwu[:, 1:] *= -1.0
         position_nwu = np.zeros_like(velocity_nwu)
         position_nwu[1:] = np.cumsum(
-            0.5
-            * (velocity_nwu[:-1] + velocity_nwu[1:])
-            * np.diff(time_s)[:, None],
+            0.5 * (velocity_nwu[:-1] + velocity_nwu[1:]) * np.diff(time_s)[:, None],
             axis=0,
         )
         quaternion_wxyz = _euler_nwu_quaternion_wxyz(
@@ -390,9 +485,7 @@ class X8ReferenceAdapter:
             states=states,
             controls=controls,
             exogenous=(wind_nwu if self.use_trusted_wind_estimate else None),
-            spec=x8_trajectory_spec(
-                trusted_wind=self.use_trusted_wind_estimate
-            ),
+            spec=x8_trajectory_spec(trusted_wind=self.use_trusted_wind_estimate),
             labels={
                 "benchmark": X8_REFERENCE_NAME,
                 "benchmark_split": recording.split,

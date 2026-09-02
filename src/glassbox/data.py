@@ -16,9 +16,7 @@ RIGID_BODY_STATE_SCHEMA = "rigid_body_13_nwu_flu_wxyz_v1"
 NORMALIZED_MOTOR_COMMAND_SEMANTICS = frozenset(
     {"normalized_command", "normalized_actuator_output"}
 )
-PHYSICAL_MOTOR_THRUST_SEMANTICS = frozenset(
-    {"squared_rotor_speed_ratio"}
-)
+PHYSICAL_MOTOR_THRUST_SEMANTICS = frozenset({"squared_rotor_speed_ratio"})
 
 
 def duration_to_steps(duration_s: float, dt_s: float) -> int:
@@ -87,14 +85,10 @@ class ControlChannel:
             semantic=str(payload["semantic"]),
             unit=str(payload["unit"]),
             minimum=(
-                None
-                if payload.get("minimum") is None
-                else float(payload["minimum"])
+                None if payload.get("minimum") is None else float(payload["minimum"])
             ),
             maximum=(
-                None
-                if payload.get("maximum") is None
-                else float(payload["maximum"])
+                None if payload.get("maximum") is None else float(payload["maximum"])
             ),
             frame=(None if payload.get("frame") is None else str(payload["frame"])),
         )
@@ -158,9 +152,7 @@ class ObservationChannel:
         for field_name in ("name", "role", "semantic", "unit", "frame", "source"):
             value = getattr(self, field_name)
             if not value.strip():
-                raise ValueError(
-                    f"observation channel {field_name} cannot be empty"
-                )
+                raise ValueError(f"observation channel {field_name} cannot be empty")
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -273,7 +265,9 @@ class VehicleConfigurationSpec:
                 if payload.get("configuration_id") is None
                 else str(payload["configuration_id"])
             ),
-            controlled_axes=tuple(str(value) for value in payload.get("controlled_axes", ())),
+            controlled_axes=tuple(
+                str(value) for value in payload.get("controlled_axes", ())
+            ),
             propulsion=str(payload.get("propulsion", "unknown")),
             fixed_states=dict(payload.get("fixed_states", {})),
             auxiliary_controls=tuple(
@@ -374,9 +368,7 @@ class TrajectorySpec:
             "controls": [channel.to_dict() for channel in self.controls],
             "vehicle": self.vehicle.to_dict(),
             "exogenous": [channel.to_dict() for channel in self.exogenous],
-            "observations": [
-                channel.to_dict() for channel in self.observations
-            ],
+            "observations": [channel.to_dict() for channel in self.observations],
         }
 
     @classmethod
@@ -449,9 +441,7 @@ def make_trajectory_spec(
     names = tuple(str(name) for name in control_names)
     channels = tuple(_control_channel_for_name(name, family) for name in names)
     roles = {channel.role for channel in channels}
-    controlled_axes = tuple(
-        axis for axis in ("roll", "pitch", "yaw") if axis in roles
-    )
+    controlled_axes = tuple(axis for axis in ("roll", "pitch", "yaw") if axis in roles)
     if family == "multirotor" and any(name.startswith("motor_") for name in names):
         controlled_axes = ("roll", "pitch", "yaw")
         propulsion = "quadrotor" if len(names) == 4 else "distributed_electric"
@@ -702,9 +692,7 @@ class TrajectoryWindows:
         else:
             control_names = tuple(control_names)
         if len(control_names) != self.controls.shape[2]:
-            raise ValueError(
-                "control_names must contain one name per control channel"
-            )
+            raise ValueError("control_names must contain one name per control channel")
         if any(not name.strip() for name in control_names):
             raise ValueError("control_names cannot contain empty names")
         if len(set(control_names)) != len(control_names):
@@ -716,9 +704,7 @@ class TrajectoryWindows:
         else:
             control_roles = tuple(control_roles)
         if len(control_roles) != self.controls.shape[2]:
-            raise ValueError(
-                "control_roles must contain one role per control channel"
-            )
+            raise ValueError("control_roles must contain one role per control channel")
         if any(not role.strip() for role in control_roles):
             raise ValueError("control_roles cannot contain empty values")
         if len(set(control_roles)) != len(control_roles):
@@ -764,9 +750,7 @@ class TrajectoryWindows:
             window_weights = np.asarray(self.window_weights, dtype=np.float64)
             if window_weights.shape != (count,):
                 raise ValueError("window_weights must have shape (windows,)")
-            if not np.all(np.isfinite(window_weights)) or np.any(
-                window_weights <= 0.0
-            ):
+            if not np.all(np.isfinite(window_weights)) or np.any(window_weights <= 0.0):
                 raise ValueError("window_weights must be finite and positive")
             object.__setattr__(self, "window_weights", window_weights)
         if self.trajectory_indices is not None:
@@ -798,15 +782,12 @@ class TrajectoryWindows:
             if (
                 self.trajectory_indices is not None
                 and count > 0
-                and int(np.max(self.trajectory_indices))
-                >= len(candidate_window_counts)
+                and int(np.max(self.trajectory_indices)) >= len(candidate_window_counts)
             ):
                 raise ValueError(
                     "candidate_window_counts must cover every trajectory index"
                 )
-            object.__setattr__(
-                self, "candidate_window_counts", candidate_window_counts
-            )
+            object.__setattr__(self, "candidate_window_counts", candidate_window_counts)
         if not self.selection_policy.strip():
             raise ValueError("selection_policy cannot be empty")
 
@@ -1049,18 +1030,13 @@ def trajectory_windows(
             )
     if trajectory_group_weights is not None:
         if trajectory_groups is None:
-            raise ValueError(
-                "trajectory_group_weights requires trajectory_groups"
-            )
+            raise ValueError("trajectory_group_weights requires trajectory_groups")
         group_order = tuple(dict.fromkeys(trajectory_groups))
         if set(trajectory_group_weights) != set(group_order):
             raise ValueError(
-                "trajectory_group_weights must contain exactly the trajectory "
-                "groups"
+                "trajectory_group_weights must contain exactly the trajectory groups"
             )
-        weights = np.asarray(
-            list(trajectory_group_weights.values()), dtype=np.float64
-        )
+        weights = np.asarray(list(trajectory_group_weights.values()), dtype=np.float64)
         if (
             not np.all(np.isfinite(weights))
             or np.any(weights < 0.0)
@@ -1114,11 +1090,11 @@ def trajectory_windows(
             )
         intervals = np.diff(trajectory.time_s)
         if not np.allclose(intervals, dt_s, atol=dt_tolerance_s, rtol=0.0):
-            raise ValueError("all trajectories must have the same fixed sample interval")
+            raise ValueError(
+                "all trajectories must have the same fixed sample interval"
+            )
 
-        candidate_count = len(
-            range(0, len(trajectory.controls) - horizon + 1, stride)
-        )
+        candidate_count = len(range(0, len(trajectory.controls) - horizon + 1, stride))
         candidate_counts.append(candidate_count)
         if weighting_modes and candidate_count == 0:
             raise ValueError(
@@ -1133,9 +1109,7 @@ def trajectory_windows(
     if trajectory_groups is not None and trajectory_group_weights is not None:
         selection_candidate_counts = np.asarray(
             [
-                count
-                if trajectory_group_weights[trajectory_groups[index]] > 0.0
-                else 0
+                count if trajectory_group_weights[trajectory_groups[index]] > 0.0 else 0
                 for index, count in enumerate(candidate_count_array)
             ],
             dtype=np.int64,
@@ -1182,13 +1156,16 @@ def trajectory_windows(
     elif trajectory_weights is not None:
         counts = np.bincount(trajectory_index_array, minlength=len(trajectories))
         weights = np.asarray(trajectory_weights, dtype=np.float64)
-        window_weights = weights[trajectory_index_array] / counts[
-            trajectory_index_array
-        ]
+        window_weights = (
+            weights[trajectory_index_array] / counts[trajectory_index_array]
+        )
     elif trajectory_groups is not None:
         group_order = tuple(dict.fromkeys(trajectory_groups))
         group_indices = np.asarray(
-            [group_order.index(trajectory_groups[index]) for index in trajectory_index_array],
+            [
+                group_order.index(trajectory_groups[index])
+                for index in trajectory_index_array
+            ],
             dtype=np.int64,
         )
         group_counts = np.bincount(group_indices, minlength=len(group_order))
@@ -1261,9 +1238,7 @@ def load_trajectory_npz(path: str | Path) -> Trajectory:
             controls=archive["controls"],
             exogenous=archive["exogenous"],
             observations=archive["observations"],
-            spec=TrajectorySpec.from_dict(
-                json.loads(str(archive["spec_json"]))
-            ),
+            spec=TrajectorySpec.from_dict(json.loads(str(archive["spec_json"]))),
             labels=json.loads(str(archive["labels_json"])),
             provenance=json.loads(str(archive["provenance_json"])),
         )
@@ -1277,8 +1252,7 @@ def trajectory_segment(
     interval_count = len(trajectory.controls)
     if not 0 <= start_interval < stop_interval <= interval_count:
         raise ValueError(
-            "segment bounds must satisfy "
-            f"0 <= start < stop <= {interval_count}"
+            f"segment bounds must satisfy 0 <= start < stop <= {interval_count}"
         )
     provenance = dict(trajectory.provenance)
     transformations = list(provenance.get("transformations", ()))
@@ -1312,9 +1286,7 @@ def trajectory_segment(
         controls=trajectory.controls[start_interval:stop_interval],
         spec=trajectory.spec,
         exogenous=trajectory.exogenous[start_interval : stop_interval + 1],
-        observations=trajectory.observations[
-            start_interval : stop_interval + 1
-        ],
+        observations=trajectory.observations[start_interval : stop_interval + 1],
         labels=trajectory.labels,
         provenance=provenance,
         control_prefix=control_prefix,

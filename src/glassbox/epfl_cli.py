@@ -57,18 +57,14 @@ def _extract(args: argparse.Namespace) -> None:
 
 
 def _fetch(args: argparse.Namespace) -> None:
-    path = fetch_epfl_topoplane_reference(
-        args.destination, overwrite=args.overwrite
-    )
+    path = fetch_epfl_topoplane_reference(args.destination, overwrite=args.overwrite)
     print(f"verified {path} from {EPFL_REFERENCE_DOI}")
 
 
 def _prepare(args: argparse.Namespace) -> None:
     raw_directory = args.destination / "raw"
     canonical_directory = args.destination / "canonical"
-    source = fetch_epfl_topoplane_reference(
-        raw_directory, overwrite=args.overwrite
-    )
+    source = fetch_epfl_topoplane_reference(raw_directory, overwrite=args.overwrite)
     outputs = extract_epfl_topoplane_reference(source, canonical_directory)
     print(
         f"prepared EPFL TOPOPlane2: verified {source}, wrote {len(outputs)} "

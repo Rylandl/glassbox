@@ -97,9 +97,7 @@ def dynamics_belief_from_payload(payload: Mapping[str, Any]) -> DynamicsBelief:
         runtime_spec=RuntimeModelSpec.from_dict(nominal["runtime_spec"]),
         predictive_error=predictive_error_from_dict(payload["predictive_error"]),
         parameter_belief=parameter_belief_from_dict(payload["parameter_belief"]),
-        parameter_evidence=parameter_evidence_from_dict(
-            payload["parameter_evidence"]
-        ),
+        parameter_evidence=parameter_evidence_from_dict(payload["parameter_evidence"]),
         predictive_error_parameter_update_count=int(
             payload["predictive_error_parameter_update_count"]
         ),

@@ -1169,9 +1169,7 @@ class RecursiveBootstrapIdentifier:
             effective_count=self._weight,
             relative_tolerance=self.config.command_rank_relative_tolerance,
             minimum_rms=self.config.minimum_normalized_command_rms,
-            nuisance_relative_tolerance=(
-                self.config.nuisance_rank_relative_tolerance
-            ),
+            nuisance_relative_tolerance=(self.config.nuisance_rank_relative_tolerance),
         )
         angular = self._supported_fit(
             self._angular_gram,
@@ -1180,9 +1178,7 @@ class RecursiveBootstrapIdentifier:
             effective_count=self._weight,
             relative_tolerance=self.config.command_rank_relative_tolerance,
             minimum_rms=self.config.minimum_normalized_command_rms,
-            nuisance_relative_tolerance=(
-                self.config.nuisance_rank_relative_tolerance
-            ),
+            nuisance_relative_tolerance=(self.config.nuisance_rank_relative_tolerance),
         )
         (
             normalized_force_effect,

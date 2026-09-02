@@ -85,8 +85,7 @@ def select_angular_dynamics_authority(
             {
                 str(trajectory.labels.get("benchmark_split"))
                 for trajectory in trajectories
-                if trajectory.labels.get("benchmark_split")
-                != required_benchmark_split
+                if trajectory.labels.get("benchmark_split") != required_benchmark_split
             }
         )
         if invalid_splits:
@@ -104,15 +103,11 @@ def select_angular_dynamics_authority(
     folds = tuple(sorted(set(fold_values)))
     if set(model_paths) != set(folds):
         raise ValueError(
-            "fold_models must contain exactly one held-out model for every "
-            f"{fold_axis}"
+            f"fold_models must contain exactly one held-out model for every {fold_axis}"
         )
 
     reference_spec = trajectories[0].spec.to_dict()
-    if any(
-        trajectory.spec.to_dict() != reference_spec
-        for trajectory in trajectories
-    ):
+    if any(trajectory.spec.to_dict() != reference_spec for trajectory in trajectories):
         raise ValueError("authority selection requires one trajectory spec")
     if trajectories[0].spec.vehicle.family != "multirotor":
         raise ValueError("angular authority selection requires multirotor data")
@@ -140,9 +135,7 @@ def select_angular_dynamics_authority(
         for seconds in ANGULAR_AUTHORITY_HORIZONS_S:
             metrics = []
             for trajectory in held_out:
-                horizon_steps = duration_to_steps(
-                    seconds, trajectory.nominal_dt_s
-                )
+                horizon_steps = duration_to_steps(seconds, trajectory.nominal_dt_s)
                 metrics.append(
                     kinematic_persistence_windowed_metrics(
                         trajectory,
@@ -171,16 +164,13 @@ def select_angular_dynamics_authority(
                 if value == fold
             ]
             full_rollouts = [
-                rollout_metrics(candidate_params, trajectory)
-                for trajectory in held_out
+                rollout_metrics(candidate_params, trajectory) for trajectory in held_out
             ]
             horizon_rollouts: dict[str, Any] = {}
             for seconds in ANGULAR_AUTHORITY_HORIZONS_S:
                 metrics = []
                 for trajectory in held_out:
-                    horizon_steps = duration_to_steps(
-                        seconds, trajectory.nominal_dt_s
-                    )
+                    horizon_steps = duration_to_steps(seconds, trajectory.nominal_dt_s)
                     metrics.append(
                         windowed_rollout_metrics(
                             candidate_params,
@@ -227,17 +217,11 @@ def select_angular_dynamics_authority(
     for seconds in ANGULAR_AUTHORITY_HORIZONS_S:
         label = f"{seconds:g}s"
         candidate = aggregate_rollout_metrics(
-            [
-                selected_folds[fold]["horizon_rollouts"][label]
-                for fold in folds
-            ],
+            [selected_folds[fold]["horizon_rollouts"][label] for fold in folds],
             weighting="equal",
         )
         persistence = aggregate_rollout_metrics(
-            [
-                persistence_by_fold[fold]["horizon_rollouts"][label]
-                for fold in folds
-            ],
+            [persistence_by_fold[fold]["horizon_rollouts"][label] for fold in folds],
             weighting="equal",
         )
         ratios = {
@@ -311,8 +295,7 @@ def evaluate_angular_dynamics_candidate(
     if not trajectories:
         raise ValueError("candidate evaluation requires untouched trajectories")
     if any(
-        trajectory.spec.vehicle.family != "multirotor"
-        for trajectory in trajectories
+        trajectory.spec.vehicle.family != "multirotor" for trajectory in trajectories
     ):
         raise ValueError("candidate evaluation requires multirotor trajectories")
     if model_family(reference_params).platform != "multirotor":
@@ -323,20 +306,14 @@ def evaluate_angular_dynamics_candidate(
     reference_by_horizon: dict[str, list[dict[str, Any]]] = {
         f"{seconds:g}s": [] for seconds in ANGULAR_AUTHORITY_HORIZONS_S
     }
-    candidate_by_horizon = {
-        label: [] for label in reference_by_horizon
-    }
-    persistence_by_horizon = {
-        label: [] for label in reference_by_horizon
-    }
+    candidate_by_horizon = {label: [] for label in reference_by_horizon}
+    persistence_by_horizon = {label: [] for label in reference_by_horizon}
     candidate_divergence = []
     for trajectory in trajectories:
         trajectory_horizons = {}
         for seconds in ANGULAR_AUTHORITY_HORIZONS_S:
             label = f"{seconds:g}s"
-            horizon_steps = duration_to_steps(
-                seconds, trajectory.nominal_dt_s
-            )
+            horizon_steps = duration_to_steps(seconds, trajectory.nominal_dt_s)
             reference = windowed_rollout_metrics(
                 reference_params,
                 trajectory,
@@ -369,12 +346,8 @@ def evaluate_angular_dynamics_candidate(
                 "source_group": trajectory.labels.get("source_group"),
                 "duration_s": float(trajectory.time_s[-1]),
                 "horizon_rollouts": trajectory_horizons,
-                "reference_full_rollout": rollout_metrics(
-                    reference_params, trajectory
-                ),
-                "candidate_full_rollout": rollout_metrics(
-                    candidate_params, trajectory
-                ),
+                "reference_full_rollout": rollout_metrics(reference_params, trajectory),
+                "candidate_full_rollout": rollout_metrics(candidate_params, trajectory),
                 "reference_divergence": rollout_divergence_metrics(
                     reference_params, trajectory
                 ),
@@ -437,13 +410,10 @@ def evaluate_angular_dynamics_candidate(
     reference_ratio = geometric(candidate_reference_ratios)
     persistence_ratio = geometric(candidate_persistence_ratios)
     improves_reference = (
-        reference_ratio <= 0.99
-        and max(candidate_reference_ratios) <= 1.10
+        reference_ratio <= 0.99 and max(candidate_reference_ratios) <= 1.10
     )
     beats_persistence = persistence_ratio <= 0.99
-    complete_flight_stable = all(
-        not item["diverged"] for item in candidate_divergence
-    )
+    complete_flight_stable = all(not item["diverged"] for item in candidate_divergence)
     if improves_reference and beats_persistence:
         status = (
             "promote_complete_flight"
@@ -473,9 +443,7 @@ def evaluate_angular_dynamics_candidate(
                 "geometric_ratio": persistence_ratio,
                 "required_geometric_ratio": 0.99,
             },
-            "rotational_ratio_vs_reference": geometric(
-                rotational_reference_ratios
-            ),
+            "rotational_ratio_vs_reference": geometric(rotational_reference_ratios),
             "rotational_ratio_vs_kinematic_persistence": geometric(
                 rotational_persistence_ratios
             ),

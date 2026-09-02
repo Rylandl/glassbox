@@ -69,9 +69,8 @@ def fitted_structured_parameter_mask(
                 fitted[index] = False
             if instantaneous_rotational_response or diagonal_angular_control:
                 fitted[index] = False
-        if (
-            instantaneous_rotational_response
-            and name.startswith("log_angular_response_time_constant[")
+        if instantaneous_rotational_response and name.startswith(
+            "log_angular_response_time_constant["
         ):
             fitted[index] = False
     return fitted
@@ -91,12 +90,8 @@ def structured_parameter_scale(params: ModelParams) -> np.ndarray:
         dtype=np.float64,
     )
     direct_scales = {
-        "lateral_surface_cross_angular_accel_per_speed_sq[0]": (
-            surface_authority[0]
-        ),
-        "lateral_surface_cross_angular_accel_per_speed_sq[1]": (
-            surface_authority[2]
-        ),
+        "lateral_surface_cross_angular_accel_per_speed_sq[0]": (surface_authority[0]),
+        "lateral_surface_cross_angular_accel_per_speed_sq[1]": (surface_authority[2]),
         "flap_pitch_angular_accel_per_speed_sq": surface_authority[1],
     }
     for index, name in enumerate(names):
@@ -135,9 +130,9 @@ def _balanced_window_indices(
     for locations, count in zip(members, allocation):
         if count == 0:
             continue
-        ordinals = (
-            (2 * np.arange(count, dtype=np.int64) + 1) * len(locations)
-        ) // (2 * count)
+        ordinals = ((2 * np.arange(count, dtype=np.int64) + 1) * len(locations)) // (
+            2 * count
+        )
         selected.extend(int(locations[ordinal]) for ordinal in ordinals)
     return np.asarray(sorted(selected), dtype=np.int64)
 
@@ -192,9 +187,10 @@ def estimate_local_parameter_information(
     for windows in window_sets:
         if windows.trajectory_indices is None:
             raise ValueError("parameter evidence requires window trajectory indices")
-        if len(windows.trajectory_indices) and int(
-            np.max(windows.trajectory_indices)
-        ) >= trajectory_count:
+        if (
+            len(windows.trajectory_indices)
+            and int(np.max(windows.trajectory_indices)) >= trajectory_count
+        ):
             raise ValueError("trajectory groups do not cover every window")
         horizon_s = float(windows.controls.shape[1] * windows.dt_s)
         if horizon_s > predictive_error.maximum_horizon_s * (1.0 + 1e-9):
@@ -243,10 +239,7 @@ def estimate_local_parameter_information(
         )
         errors_np = np.asarray(errors, dtype=np.float64)
         jacobians_np = np.asarray(jacobians, dtype=np.float64)
-        if not (
-            np.all(np.isfinite(errors_np))
-            and np.all(np.isfinite(jacobians_np))
-        ):
+        if not (np.all(np.isfinite(errors_np)) and np.all(np.isfinite(jacobians_np))):
             return UnavailableParameterEvidence(
                 f"non-finite rollout linearization at {horizon_s:g}s"
             )
@@ -284,17 +277,12 @@ def estimate_local_parameter_information(
             "no training horizon had supported held-out predictive-error covariance"
         )
     information = np.sum(
-        [
-            np.mean(per_horizon, axis=0)
-            for per_horizon in group_information.values()
-        ],
+        [np.mean(per_horizon, axis=0) for per_horizon in group_information.values()],
         axis=0,
     )
     information = 0.5 * (information + information.T)
     eigenvalues, eigenvectors = np.linalg.eigh(information)
-    information = (
-        eigenvectors * np.maximum(eigenvalues, 0.0)
-    ) @ eigenvectors.T
+    information = (eigenvectors * np.maximum(eigenvalues, 0.0)) @ eigenvectors.T
     information[~fitted, :] = 0.0
     information[:, ~fitted] = 0.0
     group_labels = tuple(group_information)

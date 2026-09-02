@@ -105,9 +105,7 @@ def test_rotational_response_can_lag_measured_motor_state() -> None:
     command = hover + 0.02 * MOTOR_MIXER[0]
 
     _, latent = step_with_latent(params, state, hover, command, 0.02)
-    target = params.physical()["angular_control_matrix"] @ (
-        MOTOR_MIXER @ command
-    )
+    target = params.physical()["angular_control_matrix"] @ (MOTOR_MIXER @ command)
 
     assert latent.shape == (7,)
     assert float(latent[4]) > 0.0
@@ -142,22 +140,16 @@ def test_rotational_control_cross_coupling_is_bounded_and_expressive() -> None:
         ),
     )
     pitch_command = hover_control(params) + 0.02 * MOTOR_MIXER[1]
-    derivative = state_derivative(
-        params, jnp.asarray(resting_state()), pitch_command
-    )
+    derivative = state_derivative(params, jnp.asarray(resting_state()), pitch_command)
 
     assert float(derivative[10]) > 0.0
     assert float(derivative[11]) > float(derivative[10])
-    assert np.max(
-        np.abs(params.physical()["angular_control_cross_coupling"])
-    ) <= 0.5
+    assert np.max(np.abs(params.physical()["angular_control_cross_coupling"])) <= 0.5
 
 
 def test_constant_rate_diagnostic_disables_angular_acceleration() -> None:
     params = with_constant_angular_rate(true_parameters())
-    state = jnp.asarray(resting_state()).at[10:13].set(
-        jnp.asarray([0.4, -0.2, 0.1])
-    )
+    state = jnp.asarray(resting_state()).at[10:13].set(jnp.asarray([0.4, -0.2, 0.1]))
     derivative = state_derivative(params, state, hover_control(params))
 
     np.testing.assert_allclose(derivative[10:13], 0.0, atol=1e-8)
@@ -167,9 +159,7 @@ def test_constant_rate_diagnostic_disables_angular_acceleration() -> None:
 def test_angular_dynamics_authority_scales_rotation_but_not_translation() -> None:
     params = true_parameters()
     half = with_angular_dynamics_authority(params, 0.5)
-    state = jnp.asarray(resting_state()).at[10:13].set(
-        jnp.asarray([0.2, -0.3, 0.1])
-    )
+    state = jnp.asarray(resting_state()).at[10:13].set(jnp.asarray([0.2, -0.3, 0.1]))
     motors = hover_control(params) + 0.02 * MOTOR_MIXER[0]
 
     full_derivative = state_derivative(params, state, motors)
@@ -200,9 +190,7 @@ def test_zero_initialized_residual_matches_structured_model() -> None:
 
 def test_estimated_wind_only_conditions_linear_residual() -> None:
     base = true_parameters()
-    residual = initial_residual_parameters(
-        base, hidden_units=1, exogenous_size=2
-    )
+    residual = initial_residual_parameters(base, hidden_units=1, exogenous_size=2)
     residual = residual._replace(
         hidden_weights=residual.hidden_weights.at[0, -2].set(5.0),
         output_weights=jnp.ones_like(residual.output_weights),
@@ -338,15 +326,21 @@ def test_residual_angular_authority_scales_the_realized_correction() -> None:
     # Activate the residual so the angular correction is far from zero and the
     # tanh bound is partly saturated.
     residual = residual._replace(
-        output_weights=jnp.asarray(rng.normal(scale=3.0, size=residual.output_weights.shape)),
-        hidden_weights=jnp.asarray(rng.normal(scale=1.0, size=residual.hidden_weights.shape)),
+        output_weights=jnp.asarray(
+            rng.normal(scale=3.0, size=residual.output_weights.shape)
+        ),
+        hidden_weights=jnp.asarray(
+            rng.normal(scale=1.0, size=residual.hidden_weights.shape)
+        ),
     )
     state = jnp.asarray(resting_state()).at[3:6].set(jnp.asarray([1.0, -0.5, 0.2]))
     state = state.at[10:13].set(jnp.asarray([0.4, -0.3, 0.2]))
     motors = hover_control(structured) + 0.05 * MOTOR_MIXER[0]
 
     full = state_derivative(residual, state, motors)
-    half = state_derivative(with_angular_dynamics_authority(residual, 0.5), state, motors)
+    half = state_derivative(
+        with_angular_dynamics_authority(residual, 0.5), state, motors
+    )
 
     assert float(jnp.linalg.norm(full[10:13])) > 1e-3
     np.testing.assert_allclose(half[:10], full[:10], rtol=1e-6, atol=1e-7)
@@ -363,7 +357,9 @@ def test_cascaded_lag_is_smooth_near_equal_time_constants() -> None:
             linear_drag=0.18,
             angular_drag=(0.24, 0.21, 0.13),
             motor_time_constant=0.05,
-            angular_response_time_constant=tuple(0.05 * (1.0 + delta) for _ in range(3)),
+            angular_response_time_constant=tuple(
+                0.05 * (1.0 + delta) for _ in range(3)
+            ),
         )
         initial_applied = hover_control(params)
         commanded = initial_applied + 0.1 * MOTOR_MIXER[1]
@@ -374,14 +370,18 @@ def test_cascaded_lag_is_smooth_near_equal_time_constants() -> None:
     reference = response(0.0)
     assert np.all(np.isfinite(reference)) and float(np.max(np.abs(reference))) > 1e-3
     for delta in (1e-7, 1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1):
-        deviation = np.max(np.abs(response(delta) - reference) / np.maximum(np.abs(reference), 1e-6))
+        deviation = np.max(
+            np.abs(response(delta) - reference) / np.maximum(np.abs(reference), 1e-6)
+        )
         assert deviation <= 5.0 * delta + 2e-4, (delta, deviation)
 
 
 def test_from_physical_rejects_out_of_range_inputs() -> None:
     from glassbox.fixedwing_synthetic import true_fixed_wing_parameters
 
-    with pytest.raises(ValueError, match="thrust_accel must be finite and strictly positive"):
+    with pytest.raises(
+        ValueError, match="thrust_accel must be finite and strictly positive"
+    ):
         DynamicsParams.from_physical(
             thrust_accel=-5.4,
             angular_accel=(18.0, 16.5, 7.5),
@@ -396,7 +396,11 @@ def test_from_physical_rejects_out_of_range_inputs() -> None:
             linear_drag=0.18,
             angular_drag=(0.24, 0.21, 0.13),
             motor_time_constant=0.08,
-            angular_control_cross_coupling=((0.0, 0.9, 0.0), (0.0, 0.0, 0.0), (0.0, 0.0, 0.0)),
+            angular_control_cross_coupling=(
+                (0.0, 0.9, 0.0),
+                (0.0, 0.0, 0.0),
+                (0.0, 0.0, 0.0),
+            ),
         )
     physical = true_fixed_wing_parameters().physical()
     kwargs = {
@@ -408,6 +412,10 @@ def test_from_physical_rejects_out_of_range_inputs() -> None:
         for name, value in physical.items()
     }
     with pytest.raises(ValueError, match="surface_trim must lie strictly within"):
-        FixedWingDynamicsParams.from_physical(**{**kwargs, "surface_trim": (1.5, 0.0, 0.0)})
+        FixedWingDynamicsParams.from_physical(
+            **{**kwargs, "surface_trim": (1.5, 0.0, 0.0)}
+        )
     with pytest.raises(ValueError, match="lift_accel_per_speed_sq must be finite"):
-        FixedWingDynamicsParams.from_physical(**{**kwargs, "lift_accel_per_speed_sq": float("nan")})
+        FixedWingDynamicsParams.from_physical(
+            **{**kwargs, "lift_accel_per_speed_sq": float("nan")}
+        )

@@ -44,16 +44,18 @@ def _validation_trajectories(
         if trajectory.spec != expected_spec:
             raise ValueError(f"trajectory does not match the Skywalker X8 spec: {path}")
         if trajectory.labels.get("benchmark_split") != "validation":
-            raise ValueError(f"trajectory is not in the upstream validation split: {path}")
+            raise ValueError(
+                f"trajectory is not in the upstream validation split: {path}"
+            )
     return resolved, trajectories
 
 
 def _horizon_steps(trajectory: Trajectory, horizon_s: float) -> int:
     steps = duration_to_steps(horizon_s, trajectory.nominal_dt_s)
-    if not np.isclose(
-        steps * trajectory.nominal_dt_s, horizon_s, atol=1e-9, rtol=0.0
-    ):
-        raise ValueError(f"horizon {horizon_s:g}s is not representable at the sample rate")
+    if not np.isclose(steps * trajectory.nominal_dt_s, horizon_s, atol=1e-9, rtol=0.0):
+        raise ValueError(
+            f"horizon {horizon_s:g}s is not representable at the sample rate"
+        )
     return steps
 
 
@@ -125,7 +127,9 @@ def evaluate_x8_reference_models(
         model_path = Path(model_path_value).resolve()
         params, payload = load_dynamics_model(model_path)
         if payload["input_spec"] != x8_trajectory_spec().to_dict():
-            raise ValueError(f"model input spec does not match Skywalker X8: {model_path}")
+            raise ValueError(
+                f"model input spec does not match Skywalker X8: {model_path}"
+            )
         per_trajectory = []
         for path, trajectory in zip(paths, trajectories):
             per_trajectory.append(

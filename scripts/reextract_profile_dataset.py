@@ -51,8 +51,7 @@ def main() -> None:
     args = parser.parse_args()
 
     initial_yaws = tuple(
-        float(value.strip())
-        for value in args.multirotor_initial_yaws.split(",")
+        float(value.strip()) for value in args.multirotor_initial_yaws.split(",")
     )
     if not initial_yaws:
         parser.error("--multirotor-initial-yaws cannot be empty")

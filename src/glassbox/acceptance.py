@@ -188,16 +188,12 @@ def evaluate_multirotor_accuracy(
             float(result["full_rollout"]["position_rmse_m"]) / path_length_m
         )
 
-    full_position_limit, full_attitude_limit = _FULL_FLIGHT_THRESHOLDS[
-        state_source
-    ]
+    full_position_limit, full_attitude_limit = _FULL_FLIGHT_THRESHOLDS[state_source]
     aggregate_position_fraction = math.sqrt(
         sum(value**2 for value in profile_position_fractions.values())
         / len(profile_position_fractions)
     )
-    aggregate_position = _metric_gate(
-        aggregate_position_fraction, full_position_limit
-    )
+    aggregate_position = _metric_gate(aggregate_position_fraction, full_position_limit)
     aggregate_attitude = _metric_gate(
         float(aggregate_full_rollout["attitude_rmse_deg"]), full_attitude_limit
     )
@@ -242,9 +238,9 @@ def evaluate_multirotor_accuracy(
             for scored in scored_seconds
         )
     ]
-    scored_passes = [
-        result["passed"] for result in horizon_results.values()
-    ] + [full_passed]
+    scored_passes = [result["passed"] for result in horizon_results.values()] + [
+        full_passed
+    ]
     if not all(scored_passes):
         status = "fail"
         passed: bool | None = False
@@ -295,9 +291,10 @@ def evaluate_fixedwing_accuracy(
         p90 = airframe["p90_horizon_rollouts"]
         horizons: dict[str, Any] = {}
         missing: list[float] = []
-        for seconds, (position_limit, attitude_limit) in (
-            _FIXED_WING_HORIZON_THRESHOLDS.items()
-        ):
+        for seconds, (
+            position_limit,
+            attitude_limit,
+        ) in _FIXED_WING_HORIZON_THRESHOLDS.items():
             label = f"{seconds:g}s"
             if label not in aggregate or label not in p90:
                 missing.append(seconds)
@@ -348,9 +345,11 @@ def evaluate_fixedwing_accuracy(
             }
         )
         scored_passes = [item["passed"] for item in horizons.values()]
-        if not all(scored_passes) or not persistence["passed"] or not full_finite[
-            "passed"
-        ]:
+        if (
+            not all(scored_passes)
+            or not persistence["passed"]
+            or not full_finite["passed"]
+        ):
             status = "fail"
             passed: bool | None = False
             any_failure = True

@@ -114,11 +114,17 @@ def test_balanced_windows_give_each_trajectory_equal_total_weight() -> None:
     assert windows.window_weights is not None
     assert np.sum(windows.trajectory_indices == 0) == 2
     assert np.sum(windows.trajectory_indices == 1) == 4
-    assert np.sum(windows.window_weights[windows.trajectory_indices == 0]) == pytest.approx(1.0)
-    assert np.sum(windows.window_weights[windows.trajectory_indices == 1]) == pytest.approx(1.0)
+    assert np.sum(
+        windows.window_weights[windows.trajectory_indices == 0]
+    ) == pytest.approx(1.0)
+    assert np.sum(
+        windows.window_weights[windows.trajectory_indices == 1]
+    ) == pytest.approx(1.0)
 
 
-def test_explicit_trajectory_weights_are_distributed_over_each_flights_windows() -> None:
+def test_explicit_trajectory_weights_are_distributed_over_each_flights_windows() -> (
+    None
+):
     windows = trajectory_windows(
         [
             make_trajectory(intervals=10),
@@ -253,9 +259,7 @@ def test_npz_round_trip(tmp_path) -> None:
     with np.load(path, allow_pickle=False) as archive:
         assert int(archive["format_version"]) == 3
         np.testing.assert_array_equal(archive["exogenous"], trajectory.exogenous)
-        np.testing.assert_array_equal(
-            archive["observations"], trajectory.observations
-        )
+        np.testing.assert_array_equal(archive["observations"], trajectory.observations)
         assert set(archive.files) == {
             "format_version",
             "time_s",

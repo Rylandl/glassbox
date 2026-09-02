@@ -97,7 +97,9 @@ def main() -> None:
     parser.add_argument("--dt-s", type=float, default=0.02)
     parser.add_argument("--horizon", type=int, default=25)
     parser.add_argument("--steps", type=int, default=400)
-    parser.add_argument("--json", type=Path, help="optional output path for full results")
+    parser.add_argument(
+        "--json", type=Path, help="optional output path for full results"
+    )
     args = parser.parse_args()
 
     result = run_demo(

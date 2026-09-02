@@ -88,10 +88,7 @@ def generate_trajectory(
         excitation_ramp = min(time_s / 0.5, 1.0)
 
         collective_excitation = excitation_ramp * (
-            0.018
-            * np.sin(
-                frequency_scale * 2.0 * np.pi * 0.37 * time_s + phases[0]
-            )
+            0.018 * np.sin(frequency_scale * 2.0 * np.pi * 0.37 * time_s + phases[0])
             + 0.009 * np.sin(2.0 * np.pi * 0.83 * time_s + phases[1])
         )
         collective_feedback = -0.035 * state[2] - 0.025 * state[5]
@@ -106,9 +103,7 @@ def generate_trajectory(
             ]
         )
         desired_differential = (
-            -0.30 * attitude_error
-            - 0.075 * angular_velocity
-            + differential_excitation
+            -0.30 * attitude_error - 0.075 * angular_velocity + differential_excitation
         )
 
         control = (

@@ -16,7 +16,9 @@ from glassbox.evaluation import (
 )
 from glassbox.x8_reference import x8_trajectory_spec
 
-LEVEL_18_M_S = np.array([0.0, 0.0, 100.0, 18.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+LEVEL_18_M_S = np.array(
+    [0.0, 0.0, 100.0, 18.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+)
 X8_VALIDATION_CANDIDATES = (
     Path("artifacts/x8_cascade/canonical/validation/longitudinal_doublet_4.npz"),
     Path("artifacts/x8_reference/canonical/validation/longitudinal_doublet_4.npz"),
@@ -53,7 +55,9 @@ def test_cascade_plant_exposes_the_x8_control_layout() -> None:
 
     plant = CascadePlant()
     first = plant.reset(LEVEL_18_M_S, applied_control=np.array([0.45, 0.0, 0.0]))
-    second = plant.step(np.array([0.45, 0.05, -0.02]), wind_nwu=np.array([1.0, 0.0, 0.0]))
+    second = plant.step(
+        np.array([0.45, 0.05, -0.02]), wind_nwu=np.array([1.0, 0.0, 0.0])
+    )
 
     assert plant.control_names == ("throttle", "aileron", "elevator")
     assert first.state.shape == (13,)
@@ -77,7 +81,9 @@ def test_predict_windows_reproduces_a_cascade_generated_trajectory() -> None:
     samples = [plant.reset(LEVEL_18_M_S, applied_control=command)]
     for _ in range(140):
         samples.append(plant.step(command))
-    trajectory = trajectory_from_plant_samples(samples, x8_trajectory_spec(trusted_wind=True))
+    trajectory = trajectory_from_plant_samples(
+        samples, x8_trajectory_spec(trusted_wind=True)
+    )
     windows = trajectory_windows([trajectory], horizon=8, stride=4)
 
     predicted = predict_windows([plant.model], windows, vertical_wind_fractions=[1.0])
@@ -87,7 +93,9 @@ def test_predict_windows_reproduces_a_cascade_generated_trajectory() -> None:
 
 
 @pytest.mark.cascade
-def test_published_x8_variants_are_finite_and_the_documented_one_beats_persistence() -> None:
+def test_published_x8_variants_are_finite_and_the_documented_one_beats_persistence() -> (
+    None
+):
     """Regression of the recorded validation result, see docs/cascade-x8-validation.md.
 
     The published model as-is is untrimmed at the flight condition and loses to persistence;
@@ -119,7 +127,9 @@ def test_published_x8_variants_are_finite_and_the_documented_one_beats_persisten
     persistence = kinematic_persistence_windowed_metrics(
         trajectory, horizon_steps=20, stride_steps=1
     )
-    metrics = _state_error_metrics(predicted[documented], windows.target_states, duration_s=0.5)
+    metrics = _state_error_metrics(
+        predicted[documented], windows.target_states, duration_s=0.5
+    )
 
     assert np.all(np.isfinite(predicted))
     assert metrics["attitude_rmse_deg"] < persistence["attitude_rmse_deg"]
@@ -140,9 +150,13 @@ def test_residual_regressions_vanish_on_a_cascade_generated_trajectory() -> None
         aileron = 0.15 * np.sin(step / 8.0)
         elevator = 0.05 + 0.08 * np.sin(step / 13.0)
         samples.append(plant.step(np.array([0.45, aileron, elevator])))
-    trajectory = trajectory_from_plant_samples(samples, x8_trajectory_spec(trusted_wind=True))
+    trajectory = trajectory_from_plant_samples(
+        samples, x8_trajectory_spec(trusted_wind=True)
+    )
 
-    regressions = residual_regressions(plant.model, [trajectory], vertical_wind_fraction=1.0)
+    regressions = residual_regressions(
+        plant.model, [trajectory], vertical_wind_fraction=1.0
+    )
 
     for channel, item in regressions.items():
         # Central differences of a 40 Hz trajectory leave small discretization residuals; the

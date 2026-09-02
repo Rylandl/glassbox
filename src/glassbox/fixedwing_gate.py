@@ -105,9 +105,7 @@ def _persistence_horizons(
             {
                 f"{seconds:g}s": kinematic_persistence_windowed_metrics(
                     trajectory,
-                    horizon_steps=duration_to_steps(
-                        seconds, trajectory.nominal_dt_s
-                    ),
+                    horizon_steps=duration_to_steps(seconds, trajectory.nominal_dt_s),
                 )
                 for seconds in FIXED_WING_GATE_HORIZONS_S
             }
@@ -130,15 +128,12 @@ def _summarize_divergence(items: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     stable_fractions = np.asarray(
         [float(item["stable_fraction"]) for item in items], dtype=np.float64
     )
-    causes = Counter(
-        cause for item in items for cause in item["divergence_causes"]
-    )
+    causes = Counter(cause for item in items for cause in item["divergence_causes"])
     finite_count = sum(bool(item["full_rollout_finite"]) for item in items)
     return {
         "trajectory_count": len(items),
         "full_rollout_finite_fraction": finite_count / len(items),
-        "diverged_fraction": sum(bool(item["diverged"]) for item in items)
-        / len(items),
+        "diverged_fraction": sum(bool(item["diverged"]) for item in items) / len(items),
         "stable_through_s": {
             "minimum": float(np.min(stable_times)),
             "p10": float(np.quantile(stable_times, 0.1)),
@@ -202,9 +197,9 @@ def _source_group_airframe(summary_path: Path) -> dict[str, Any]:
     p90 = {
         f"{seconds:g}s": {
             metric: float(
-                summary["distribution"]["horizon_rollouts"][f"{seconds:g}s"][
-                    metric
-                ]["p90"]
+                summary["distribution"]["horizon_rollouts"][f"{seconds:g}s"][metric][
+                    "p90"
+                ]
             )
             for metric in ROLLOUT_METRICS
         }
@@ -220,9 +215,7 @@ def _source_group_airframe(summary_path: Path) -> dict[str, Any]:
         "score_vs_kinematic_persistence": _score_against_persistence(
             aggregate, persistence
         ),
-        "full_rollout_finite_fraction": divergence[
-            "full_rollout_finite_fraction"
-        ],
+        "full_rollout_finite_fraction": divergence["full_rollout_finite_fraction"],
         "divergence": divergence,
         "source": _sha256_record(summary_path),
     }
@@ -234,9 +227,7 @@ def _x8_airframe(report_path: Path, model_name: str) -> dict[str, Any]:
         raise ValueError(f"X8 benchmark has no model named {model_name!r}")
     model = report["models"][model_name]
     aggregate = model["aggregate"]["horizon_rollouts"]
-    persistence = report["kinematic_persistence"]["aggregate"][
-        "horizon_rollouts"
-    ]
+    persistence = report["kinematic_persistence"]["aggregate"]["horizon_rollouts"]
     p90 = _p90_horizons(model["per_trajectory"])
     model_path = _resolve_recorded_path(model["path"], anchor=report_path.parent)
     params, _ = load_dynamics_model(model_path)
@@ -245,9 +236,7 @@ def _x8_airframe(report_path: Path, model_name: str) -> dict[str, Any]:
     for item in model["per_trajectory"]:
         path = _resolve_recorded_path(item["path"], anchor=report_path.parent)
         trajectory = load_trajectory_npz(path)
-        configuration_ids.add(
-            trajectory.spec.vehicle.configuration_id or "unknown"
-        )
+        configuration_ids.add(trajectory.spec.vehicle.configuration_id or "unknown")
         divergence_items.append(
             {
                 "path": str(path),
@@ -264,9 +253,7 @@ def _x8_airframe(report_path: Path, model_name: str) -> dict[str, Any]:
         "score_vs_kinematic_persistence": _score_against_persistence(
             aggregate, persistence
         ),
-        "full_rollout_finite_fraction": divergence[
-            "full_rollout_finite_fraction"
-        ],
+        "full_rollout_finite_fraction": divergence["full_rollout_finite_fraction"],
         "divergence": divergence,
         "source": _sha256_record(report_path),
         "model": _sha256_record(model_path),
@@ -300,17 +287,13 @@ def evaluate_fixedwing_gate(
         },
         "scoring": {
             "horizons_s": list(FIXED_WING_GATE_HORIZONS_S),
-            "persistence_score_horizons_s": list(
-                FIXED_WING_SCORE_HORIZONS_S
-            ),
+            "persistence_score_horizons_s": list(FIXED_WING_SCORE_HORIZONS_S),
             "metrics": list(ROLLOUT_METRICS),
-            "persistence_baseline": (
-                "constant_world_velocity_and_constant_body_rate"
-            ),
+            "persistence_baseline": ("constant_world_velocity_and_constant_body_rate"),
             "airframe_weighting": "equal",
-            "divergence_thresholds": next(
-                iter(airframes.values())
-            )["divergence"]["per_trajectory"][0]["thresholds"],
+            "divergence_thresholds": next(iter(airframes.values()))["divergence"][
+                "per_trajectory"
+            ][0]["thresholds"],
         },
         "airframes": airframes,
         "equal_airframe_score_vs_kinematic_persistence": _geometric_mean(
@@ -351,10 +334,14 @@ def compare_fixedwing_gates(
             for metric in ROLLOUT_METRICS:
                 floor = METRIC_FLOORS[metric]
                 ratio = max(
-                    float(candidate_airframe["aggregate_horizon_rollouts"][label][metric]),
+                    float(
+                        candidate_airframe["aggregate_horizon_rollouts"][label][metric]
+                    ),
                     floor,
                 ) / max(
-                    float(reference_airframe["aggregate_horizon_rollouts"][label][metric]),
+                    float(
+                        reference_airframe["aggregate_horizon_rollouts"][label][metric]
+                    ),
                     floor,
                 )
                 ratios.append(ratio)
@@ -367,9 +354,7 @@ def compare_fixedwing_gates(
             candidate_airframe["divergence"]["stable_through_s"]["median"]
         )
         stable_horizon_ratios[airframe_name] = (
-            candidate_stable / reference_stable
-            if reference_stable > 0.0
-            else math.inf
+            candidate_stable / reference_stable if reference_stable > 0.0 else math.inf
         )
 
     overall_score = _geometric_mean(list(airframe_scores.values()))
@@ -405,9 +390,7 @@ def compare_fixedwing_gates(
         )
     eligible = not rejection_reasons
     selected_candidate = (
-        str(candidate["candidate"])
-        if eligible
-        else str(reference["candidate"])
+        str(candidate["candidate"]) if eligible else str(reference["candidate"])
     )
     return {
         "format_version": 1,
@@ -454,7 +437,11 @@ def screen_fixedwing_airframe_candidate(
 ) -> dict[str, Any]:
     """Fail fast on one airframe before running a cross-airframe candidate."""
 
-    if not model_name.strip() or not airframe_name.strip() or not candidate_name.strip():
+    if (
+        not model_name.strip()
+        or not airframe_name.strip()
+        or not candidate_name.strip()
+    ):
         raise ValueError("model, airframe, and candidate names must be non-empty")
     try:
         reference_horizons = reference["models"][model_name]["aggregate"][

@@ -29,12 +29,8 @@ class ExcitationCondition:
 
 CONDITIONS: dict[str, ExcitationCondition] = {
     "low": ExcitationCondition(translation_scale=0.6, yaw_scale=0.5, dwell_s=4.0),
-    "medium": ExcitationCondition(
-        translation_scale=1.0, yaw_scale=1.0, dwell_s=3.0
-    ),
-    "high": ExcitationCondition(
-        translation_scale=1.4, yaw_scale=1.0, dwell_s=2.0
-    ),
+    "medium": ExcitationCondition(translation_scale=1.0, yaw_scale=1.0, dwell_s=3.0),
+    "high": ExcitationCondition(translation_scale=1.4, yaw_scale=1.0, dwell_s=2.0),
 }
 
 
@@ -228,10 +224,7 @@ def fly_profile(
         f"connected to system {connection.target_system}, "
         f"component {connection.target_component}"
     )
-    print(
-        f"profile={profile} condition={condition} "
-        f"initial_yaw={initial_yaw_deg:g}deg"
-    )
+    print(f"profile={profile} condition={condition} initial_yaw={initial_yaw_deg:g}deg")
 
     # PX4 requires a setpoint stream before it will enter offboard mode.
     warmup_target = PositionTarget(
@@ -259,9 +252,7 @@ def fly_profile(
         _send_target(connection, targets[0])
         message = connection.recv_match(type="HEARTBEAT", blocking=False)
         if message is not None and message.get_srcSystem() == connection.target_system:
-            armed = bool(
-                message.base_mode & mavutil.mavlink.MAV_MODE_FLAG_SAFETY_ARMED
-            )
+            armed = bool(message.base_mode & mavutil.mavlink.MAV_MODE_FLAG_SAFETY_ARMED)
             if armed:
                 break
         time.sleep(1.0 / rate_hz)

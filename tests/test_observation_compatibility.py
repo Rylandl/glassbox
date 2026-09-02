@@ -41,9 +41,7 @@ def _low_pass(values: np.ndarray, dt_s: float, time_constant_s: float):
     filtered[0] = values[0]
     decay = np.exp(-dt_s / time_constant_s)
     for index in range(1, len(values)):
-        filtered[index] = (
-            decay * filtered[index - 1] + (1.0 - decay) * values[index]
-        )
+        filtered[index] = decay * filtered[index - 1] + (1.0 - decay) * values[index]
     return filtered
 
 
@@ -51,14 +49,10 @@ def _temporally_filtered_trajectory(
     *, seed: int, time_constant_s: float, duration_s: float = 3.0
 ):
     dt_s = 0.02
-    trajectory = generate_trajectory(
-        seed=seed, duration_s=duration_s, dt_s=dt_s
-    )
+    trajectory = generate_trajectory(seed=seed, duration_s=duration_s, dt_s=dt_s)
     states = trajectory.states.copy()
     states[:, 3:6] = _low_pass(states[:, 3:6], dt_s, time_constant_s)
-    states[:, 10:13] = _low_pass(
-        states[:, 10:13], dt_s, time_constant_s
-    )
+    states[:, 10:13] = _low_pass(states[:, 10:13], dt_s, time_constant_s)
     return replace(trajectory, states=states)
 
 
@@ -93,9 +87,7 @@ def test_held_out_evaluation_applies_material_improvement_gate() -> None:
     trajectory, *_ = _affine_corrupted_trajectory()
     result = fit_state_observation_correction([trajectory])
 
-    evaluation = evaluate_state_observation_correction(
-        result.correction, [trajectory]
-    )
+    evaluation = evaluate_state_observation_correction(result.correction, [trajectory])
 
     assert evaluation["gate"]["all_groups_improve_materially"] is True
     assert evaluation["gate"]["no_group_regresses"] is True
@@ -165,12 +157,8 @@ def test_application_preserves_arrays_and_records_observation_semantics() -> Non
 
 def test_first_order_filter_recovers_temporal_observation_response() -> None:
     time_constant_s = 0.08
-    training = _temporally_filtered_trajectory(
-        seed=8, time_constant_s=time_constant_s
-    )
-    held_out = _temporally_filtered_trajectory(
-        seed=9, time_constant_s=time_constant_s
-    )
+    training = _temporally_filtered_trajectory(seed=8, time_constant_s=time_constant_s)
+    held_out = _temporally_filtered_trajectory(seed=9, time_constant_s=time_constant_s)
 
     result = fit_first_order_observation_filter([training])
     evaluation = evaluate_first_order_observation_filter(
@@ -189,18 +177,13 @@ def test_first_order_filter_recovers_temporal_observation_response() -> None:
         time_constant_s,
         atol=0.02,
     )
-    assert all(
-        ratio < 0.1
-        for ratio in evaluation["candidate_over_reference"].values()
-    )
+    assert all(ratio < 0.1 for ratio in evaluation["candidate_over_reference"].values())
     assert evaluation["gate"]["conditional_transfer_passes"] is True
     assert evaluation["gate"]["blanket_transfer_passes"] is True
 
 
 def test_temporal_fit_rejects_protected_data_and_boundary_is_not_promoted() -> None:
-    slow = _temporally_filtered_trajectory(
-        seed=10, time_constant_s=2.0, duration_s=4.0
-    )
+    slow = _temporally_filtered_trajectory(seed=10, time_constant_s=2.0, duration_s=4.0)
 
     result = fit_first_order_observation_filter([slow])
 
@@ -211,13 +194,12 @@ def test_temporal_fit_rejects_protected_data_and_boundary_is_not_promoted() -> N
         result.candidate.angular_rate_time_constant_s,
         MAXIMUM_TIME_CONSTANT_S,
     )
-    decisions = result.report["training_comparison"]["gate"][
-        "channel_decisions"
-    ]
+    decisions = result.report["training_comparison"]["gate"]["channel_decisions"]
     assert all(not decision["identifiable"] for decision in decisions.values())
-    assert result.report["training_comparison"]["gate"][
-        "conditional_transfer_passes"
-    ] is False
+    assert (
+        result.report["training_comparison"]["gate"]["conditional_transfer_passes"]
+        is False
+    )
     protected = replace(
         slow,
         labels={**slow.labels, "benchmark_split": "validation"},
@@ -249,9 +231,7 @@ def test_temporal_fit_weights_source_groups_instead_of_segment_count() -> None:
     )
 
     balanced = fit_first_order_observation_filter([first, second])
-    duplicated_segment = fit_first_order_observation_filter(
-        [first, first, second]
-    )
+    duplicated_segment = fit_first_order_observation_filter([first, first, second])
 
     for name in (
         "velocity_time_constant_s",
