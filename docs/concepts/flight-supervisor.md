@@ -13,6 +13,19 @@ or excessive tilt/body rates select a bounded geometric attitude/rate-arrest
 command. Arrest remains latched for a minimum interval and until tighter release
 limits are met.
 
+The arrest command drives the geodesic attitude error, which is the rotation
+vector that would level the vehicle. Its magnitude is the tilt angle itself, so
+restoring authority holds across the whole `[0, pi]` range instead of fading out
+near inversion the way a `sin(tilt)` cross product does. For small tilts the two
+agree to third order in the angle, so nothing changes in normal flight. At exact
+inversion the axis is undefined and a fixed positive roll direction is chosen.
+Candidate commands within a rounding width of the command bounds, defined as
+`1e-6` of the span, are clipped rather than treated as out of bounds, so a
+representation-width overshoot cannot latch an arrest. The arrest latch always
+starts from the newest time the supervisor has seen, never from a regressed
+clock reading, so a clock that jumps backwards cannot let the next valid tick
+skip the minimum arrest duration.
+
 ```python
 import time
 

@@ -55,6 +55,7 @@ class BootstrapIdentificationConfig:
     command_maximum: float | tuple[float, float, float, float] = 1.0
     command_rank_relative_tolerance: float = 0.02
     minimum_normalized_command_rms: float = 0.015
+    nuisance_rank_relative_tolerance: float = 0.002
     output_rank_relative_tolerance: float = 0.03
     minimum_validation_improvement: float = 0.05
     minimum_collective_support_fraction: float = 0.95
@@ -72,6 +73,7 @@ class BootstrapIdentificationConfig:
         unit_interval_fields = (
             "command_rank_relative_tolerance",
             "minimum_normalized_command_rms",
+            "nuisance_rank_relative_tolerance",
             "output_rank_relative_tolerance",
             "minimum_validation_improvement",
             "minimum_collective_support_fraction",
@@ -106,6 +108,9 @@ class BootstrapIdentificationConfig:
             "command_maximum": list(self.command_maximum),
             "command_rank_relative_tolerance": self.command_rank_relative_tolerance,
             "minimum_normalized_command_rms": self.minimum_normalized_command_rms,
+            "nuisance_rank_relative_tolerance": (
+                self.nuisance_rank_relative_tolerance
+            ),
             "output_rank_relative_tolerance": self.output_rank_relative_tolerance,
             "minimum_validation_improvement": self.minimum_validation_improvement,
             "minimum_collective_support_fraction": (
@@ -316,6 +321,8 @@ class BootstrapIdentificationResult:
     collective_command_evidence_rank: int
     command_evidence_rank: int
     angular_effect_rank: int
+    collective_nuisance_rank: int
+    angular_nuisance_rank: int
     collective_support_fraction: float
     hover_command: np.ndarray | None
     collective_validation_rmse_m_s2: float
@@ -711,6 +718,8 @@ class BootstrapIdentificationResult:
             "collective_command_evidence_rank": (self.collective_command_evidence_rank),
             "command_evidence_rank": self.command_evidence_rank,
             "angular_effect_rank": self.angular_effect_rank,
+            "collective_nuisance_rank": self.collective_nuisance_rank,
+            "angular_nuisance_rank": self.angular_nuisance_rank,
             "collective_support_fraction": self.collective_support_fraction,
             "collective_acceleration_per_command": (
                 self.collective_acceleration_per_command.tolist()
@@ -822,15 +831,27 @@ def _quaternion_to_rotation(quaternion: Array) -> Array:
     ).reshape((-1, 3, 3))
 
 
-def _pinv(matrix: Array, relative_tolerance: float = 1e-6) -> Array:
+def _nuisance_pinv(matrix: Array, relative_tolerance: float) -> tuple[Array, Array]:
+    """Invert only the nuisance directions the evidence window actually excited.
+
+    Nuisance features carry their own physical units, so no normalized span is
+    available.  The constant intercept column supplies the missing unit scale:
+    its root-mean-square is exactly one, so the leading nuisance direction always
+    has at least unit root-mean-square and a threshold relative to it is also an
+    absolute floor in the features' own units.  Directions below the threshold
+    are dropped rather than inverted, which is the same rank-support rule the
+    command directions already follow.
+    """
+
     left, singular_values, right = jnp.linalg.svd(matrix, full_matrices=False)
-    threshold = jnp.maximum(singular_values[0] * relative_tolerance, 1e-9)
+    threshold = jnp.maximum(singular_values[0] * relative_tolerance, 1e-12)
+    supported = singular_values >= threshold
     inverse = jnp.where(
-        singular_values >= threshold,
+        supported,
         1.0 / jnp.maximum(singular_values, threshold),
         0.0,
     )
-    return (right.T * inverse) @ left.T
+    return (right.T * inverse) @ left.T, jnp.sum(supported)
 
 
 def _residualized_fit(
@@ -840,8 +861,12 @@ def _residualized_fit(
     *,
     rank_relative_tolerance: float,
     minimum_command_rms: float,
-) -> tuple[Array, Array, Array, Array, Array]:
-    nuisance_pinv = _pinv(nuisance)
+    nuisance_rank_relative_tolerance: float,
+) -> tuple[Array, Array, Array, Array, Array, Array]:
+    nuisance_pinv, nuisance_rank = _nuisance_pinv(
+        nuisance,
+        nuisance_rank_relative_tolerance,
+    )
     residual_command = command - nuisance @ (nuisance_pinv @ command)
     residual_target = target - nuisance @ (nuisance_pinv @ target)
     left, singular_values, right = jnp.linalg.svd(
@@ -868,6 +893,7 @@ def _residualized_fit(
         support_projector,
         singular_values,
         jnp.sum(supported),
+        nuisance_rank,
     )
 
 
@@ -881,6 +907,7 @@ def _rmse(target: Array, prediction: Array) -> Array:
         "training_count",
         "rank_relative_tolerance",
         "minimum_command_rms",
+        "nuisance_rank_relative_tolerance",
     ),
 )
 def _bootstrap_fit_core(
@@ -893,6 +920,7 @@ def _bootstrap_fit_core(
     training_count: int,
     rank_relative_tolerance: float,
     minimum_command_rms: float,
+    nuisance_rank_relative_tolerance: float,
 ) -> tuple[Array, ...]:
     intervals = jnp.diff(timestamps_s)
     rotations = _quaternion_to_rotation(states[:-1, 6:10])
@@ -933,18 +961,23 @@ def _bootstrap_fit_core(
         force_support_projector,
         _,
         force_command_rank,
+        force_nuisance_rank,
     ) = _residualized_fit(
         train_command,
         train_force_nuisance,
         train_force_target,
         rank_relative_tolerance=rank_relative_tolerance,
         minimum_command_rms=minimum_command_rms,
+        nuisance_rank_relative_tolerance=nuisance_rank_relative_tolerance,
     )
     force_prediction = (
         validation_command @ force_command_coefficient
         + validation_force_nuisance @ force_nuisance_coefficient
     )
-    force_baseline_coefficient = _pinv(train_force_nuisance) @ train_force_target
+    force_baseline_coefficient = (
+        _nuisance_pinv(train_force_nuisance, nuisance_rank_relative_tolerance)[0]
+        @ train_force_target
+    )
     force_baseline_prediction = validation_force_nuisance @ force_baseline_coefficient
 
     angular_velocity = states[:-1, 10:13]
@@ -977,18 +1010,23 @@ def _bootstrap_fit_core(
         angular_support_projector,
         angular_command_singular_values,
         angular_command_rank,
+        angular_nuisance_rank,
     ) = _residualized_fit(
         train_command,
         train_angular_nuisance,
         train_angular_target,
         rank_relative_tolerance=rank_relative_tolerance,
         minimum_command_rms=minimum_command_rms,
+        nuisance_rank_relative_tolerance=nuisance_rank_relative_tolerance,
     )
     angular_prediction = (
         validation_command @ angular_command_coefficient
         + validation_angular_nuisance @ angular_nuisance_coefficient
     )
-    angular_baseline_coefficient = _pinv(train_angular_nuisance) @ train_angular_target
+    angular_baseline_coefficient = (
+        _nuisance_pinv(train_angular_nuisance, nuisance_rank_relative_tolerance)[0]
+        @ train_angular_target
+    )
     angular_baseline_prediction = (
         validation_angular_nuisance @ angular_baseline_coefficient
     )
@@ -1000,9 +1038,11 @@ def _bootstrap_fit_core(
         angular_nuisance_coefficient,
         force_support_projector,
         force_command_rank,
+        force_nuisance_rank,
         angular_support_projector,
         angular_command_singular_values,
         angular_command_rank,
+        angular_nuisance_rank,
         _rmse(validation_force_target, force_prediction),
         _rmse(validation_force_target, force_baseline_prediction),
         _rmse(validation_angular_target, angular_prediction),
@@ -1046,6 +1086,9 @@ class BootstrapMultirotorIdentifier:
             training_count=self.config.training_interval_count,
             rank_relative_tolerance=self.config.command_rank_relative_tolerance,
             minimum_command_rms=self.config.minimum_normalized_command_rms,
+            nuisance_rank_relative_tolerance=(
+                self.config.nuisance_rank_relative_tolerance
+            ),
         )
 
     def fit(
@@ -1096,9 +1139,11 @@ class BootstrapMultirotorIdentifier:
             angular_nuisance,
             force_support_projector,
             force_command_rank,
+            force_nuisance_rank,
             angular_support_projector,
             angular_command_singular_values,
             angular_command_rank,
+            angular_nuisance_rank,
             force_rmse,
             force_baseline_rmse,
             angular_rmse,
@@ -1177,6 +1222,8 @@ class BootstrapMultirotorIdentifier:
             collective_command_evidence_rank=int(force_command_rank),
             command_evidence_rank=int(angular_command_rank),
             angular_effect_rank=angular_effect_rank,
+            collective_nuisance_rank=int(force_nuisance_rank),
+            angular_nuisance_rank=int(angular_nuisance_rank),
             collective_support_fraction=collective_support,
             hover_command=hover_command,
             collective_validation_rmse_m_s2=force_rmse_value,

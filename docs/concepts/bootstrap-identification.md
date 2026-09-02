@@ -23,6 +23,19 @@ inputs. Unsupported directions remain zero. Separate held-out gates report
 whether collective evidence supports a hover estimate and whether angular
 evidence supports three-axis rate arrest.
 
+The nuisance block follows the same rule. Body velocity, body rate, and rate
+product columns are inverted only along directions the window actually excited,
+at `nuisance_rank_relative_tolerance` of the leading nuisance direction. The
+constant intercept column supplies the unit scale for that comparison: its
+root-mean-square is exactly one, so a relative threshold is also an absolute
+floor in each feature's own units. Without it, a feature that barely moves takes
+a coefficient set by measurement noise divided by a near-zero excursion, and
+that coefficient then enters every later prediction. `collective_nuisance_rank`
+and `angular_nuisance_rank` report how many directions survived. The threshold
+bounds unexcited directions only. A weakly but genuinely excited direction, such
+as a rate product over a short evidence window, is still inverted and its
+coefficient is still only as good as its signal-to-noise ratio.
+
 ```python
 from glassbox import (
     BootstrapIdentificationConfig,
@@ -68,6 +81,35 @@ angular deceleration. Rate and rigid-body coupling terms are useful for fitting
 and held-out validation but are not extrapolated by this controller. Commands
 are clipped to known bounds and can be slew limited. An unready fit raises
 `BootstrapModelNotReadyError` instead of silently inserting a canonical mixer.
+
+## The recursive counterpart
+
+`RecursiveBootstrapIdentifier` runs the same estimator continuously, updating a
+working belief after every measured actuation interval and applying the same
+command and nuisance support rules to its running Gram matrices. Its
+`forgetting_factor` is pinned at `1.0`. A decaying window would drop the working
+belief to rank zero once excitation stops, and committed excitation is capped far
+too low to rebuild that rank, so any smaller value is rejected rather than
+silently flown.
+
+`ProgressiveBootstrapController` is the command side of that estimator, and it is
+not an optimizer. A fixed stabilizing cascade with hand-set gains maps velocity
+error to a thrust direction, thrust direction to a tilt error, and tilt error to
+motor deltas through the identified angular effect and its pseudo-inverse. The
+belief enters only by scaling authority and supplying that allocation. A bounded
+five-point scan then chooses how much information excitation rides on top of the
+cascade, scoring each candidate by its distance from the cascade, minus the
+excitation it buys, plus an altitude-risk penalty, plus a supported-covariance
+term left inert by its configured weight. The scan takes the largest excitation
+unless altitude risk or the bound and slew clipping prefer less, so the score
+selects the probing, not the stabilizing action.
+
+Neither entry point ends a control loop over one bad sample. `update` refuses a
+non-finite or out-of-bounds transition, leaves the belief exactly as it was, and
+records the refusal in `last_sample_report`. `command` returns a decision with
+`command_usable` false, a reason, and the previous command clipped into bounds,
+falling back to the bounded midpoint hold. Applied and candidate commands within
+a rounding width of the bounds are clipped rather than refused.
 
 ## Crazyflow result
 

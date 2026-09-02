@@ -27,6 +27,30 @@ def _finite_vector(
     return tuple(float(value) for value in result)
 
 
+def _tilt_error_body(world_up_body: np.ndarray) -> np.ndarray:
+    """Return the geodesic body-frame rotation that would level the vehicle.
+
+    The naive cross product of the body vertical with the measured world up has
+    magnitude ``sin(tilt)``, so it collapses toward zero exactly when the vehicle
+    is closest to inverted and the restoring torque matters most.  This returns
+    the rotation vector instead: the same axis, but scaled to the true tilt angle,
+    so the command keeps full authority across the whole ``[0, pi]`` range.  For
+    small tilts it agrees with the cross product to third order in the angle, and
+    it keeps the cross product's sign convention at every tilt below inversion.
+    At exact inversion the axis is undefined and a fixed positive roll is chosen.
+    """
+
+    axis = np.cross(np.asarray((0.0, 0.0, 1.0)), world_up_body)
+    sine = float(np.linalg.norm(axis))
+    cosine = float(world_up_body[2])
+    angle = math.atan2(sine, cosine)
+    if sine < 1e-9:
+        if cosine >= 0.0:
+            return axis
+        return np.asarray((angle, 0.0, 0.0))
+    return (angle / sine) * axis
+
+
 class SupervisorMode(StrEnum):
     """Authority selected by the independent flight supervisor."""
 
@@ -231,6 +255,10 @@ def _state_metrics(state: Any) -> tuple[np.ndarray | None, float | None, float |
 class MultirotorFlightSupervisor:
     """Stateful, model-independent boundary around one multirotor controller."""
 
+    #: Candidate commands are accepted this far outside the configured bounds
+    #: and then clipped, so a rounding-width overshoot cannot latch an arrest.
+    _BOUND_TOLERANCE_FRACTION = 1e-6
+
     def __init__(self, config: MultirotorSupervisorConfig) -> None:
         self.config = config
         self._arrest_started_at_s: float | None = None
@@ -254,7 +282,7 @@ class MultirotorFlightSupervisor:
                 1.0 - 2.0 * (x * x + y * y),
             )
         )
-        tilt_error_body = np.cross(np.asarray((0.0, 0.0, 1.0)), world_up_body)
+        tilt_error_body = _tilt_error_body(world_up_body)
         rates = state[10:13]
         differential = np.asarray(
             (
@@ -340,8 +368,11 @@ class MultirotorFlightSupervisor:
         }
         telemetry_valid = not any(reason in telemetry_reasons for reason in reasons)
         if not telemetry_valid:
+            # The latch starts from the newest time seen, never from a regressed
+            # clock reading, so the next valid tick cannot claim that the minimum
+            # arrest duration has already elapsed.
             if time_valid:
-                self._arrest_started_at_s = now_s
+                self._arrest_started_at_s = self._last_time_s
             return SupervisedCommand(
                 command=np.asarray(self.config.collective_hold_command),
                 mode=SupervisorMode.COLLECTIVE_HOLD,
@@ -367,10 +398,13 @@ class MultirotorFlightSupervisor:
             candidate = np.asarray(candidate_command, dtype=np.float64)
         except (TypeError, ValueError):
             candidate = np.empty(0)
+        minimum = np.asarray(self.config.command_minimum)
+        maximum = np.asarray(self.config.command_maximum)
+        tolerance = self._BOUND_TOLERANCE_FRACTION * (maximum - minimum)
         if candidate.shape != (4,) or not np.all(np.isfinite(candidate)):
             reasons.append(SupervisorReason.COMMAND_INVALID)
-        elif np.any(candidate < np.asarray(self.config.command_minimum)) or np.any(
-            candidate > np.asarray(self.config.command_maximum)
+        elif np.any(candidate < minimum - tolerance) or np.any(
+            candidate > maximum + tolerance
         ):
             reasons.append(SupervisorReason.COMMAND_OUT_OF_BOUNDS)
         if not controller_command_usable:
@@ -383,12 +417,8 @@ class MultirotorFlightSupervisor:
         if np.any(np.abs(state_values[10:13]) > maximum_rates):
             reasons.append(SupervisorReason.ANGULAR_RATE_LIMIT)
 
-        if reasons and time_valid:
-            self._arrest_started_at_s = (
-                now_s
-                if self._arrest_started_at_s is None
-                else self._arrest_started_at_s
-            )
+        if reasons and time_valid and self._arrest_started_at_s is None:
+            self._arrest_started_at_s = self._last_time_s
         latch_active = self._arrest_started_at_s is not None
         if latch_active and not reasons:
             elapsed = now_s - self._arrest_started_at_s
@@ -418,8 +448,6 @@ class MultirotorFlightSupervisor:
                 nominal_command_accepted=False,
             )
 
-        minimum = np.asarray(self.config.command_minimum)
-        maximum = np.asarray(self.config.command_maximum)
         return SupervisedCommand(
             command=np.clip(candidate, minimum, maximum),
             mode=SupervisorMode.NOMINAL,

@@ -38,6 +38,9 @@ def _linear_hidden_plant(
     *,
     sample_period_s: float = 0.02,
     effect_scales: np.ndarray | None = None,
+    acceleration_noise_m_s2: float = 0.0,
+    angular_noise_rad_s2: float = 0.0,
+    noise_seed: int = 3,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     thrust_effect = np.asarray((4.8, 5.0, 5.2, 4.9))
     angular_effect = np.diag((34.0, 31.0, 11.0)) @ np.asarray(MOTOR_MIXER)
@@ -53,6 +56,7 @@ def _linear_hidden_plant(
     )
     if scales.shape != (len(commands),):
         raise ValueError("effect_scales must be interval-aligned")
+    noise = np.random.default_rng(noise_seed)
     for index, command in enumerate(commands):
         velocity = states[index, 3:6]
         angular_velocity = states[index, 10:13]
@@ -62,9 +66,11 @@ def _linear_hidden_plant(
             - 0.12 * velocity[2]
         )
         acceleration = np.asarray((0.0, 0.0, body_specific_force_z - GRAVITY_M_S2))
+        acceleration = acceleration + acceleration_noise_m_s2 * noise.standard_normal(3)
         angular_acceleration = (
             scales[index] * (angular_effect @ command)
             + angular_rate_coefficient @ angular_velocity
+            + angular_noise_rad_s2 * noise.standard_normal(3)
         )
         states[index + 1, 0:3] = (
             states[index, 0:3]
@@ -80,8 +86,12 @@ def _linear_hidden_plant(
 
 def _update_recursive_identifier(
     commands: np.ndarray,
+    **plant: float,
 ) -> tuple[RecursiveBootstrapIdentifier, np.ndarray, np.ndarray]:
-    timestamps, states, thrust_effect, angular_effect = _linear_hidden_plant(commands)
+    timestamps, states, thrust_effect, angular_effect = _linear_hidden_plant(
+        commands,
+        **plant,
+    )
     identifier = RecursiveBootstrapIdentifier()
     for index, command in enumerate(commands):
         identifier.update(
@@ -542,3 +552,168 @@ def test_bootstrap_fit_rejects_requested_or_malformed_actuator_history() -> None
     invalid_commands[0, 0] = 1.1
     with pytest.raises(ValueError, match="bounds"):
         identifier.fit(timestamps, states, invalid_commands)
+
+
+def test_unexcited_nuisance_directions_are_never_inverted() -> None:
+    config = BootstrapIdentificationConfig(interval_count=32)
+    commands = _excitation(config.interval_count)
+    identifier = BootstrapMultirotorIdentifier(config)
+    clean_timestamps, clean_states, _, _ = _linear_hidden_plant(commands)
+    noisy_timestamps, noisy_states, _, _ = _linear_hidden_plant(
+        commands,
+        acceleration_noise_m_s2=0.02,
+        angular_noise_rad_s2=0.02,
+    )
+
+    clean = identifier.fit(clean_timestamps, clean_states, commands)
+    noisy = identifier.fit(noisy_timestamps, noisy_states, commands)
+
+    # The plant only ever moves along its body vertical, so the two lateral
+    # velocity columns carry no excitation and must not be inverted at all.
+    assert clean.collective_nuisance_rank == 2
+    assert noisy.collective_nuisance_rank == 2
+    assert clean.angular_nuisance_rank == 7
+    np.testing.assert_allclose(
+        clean.collective_velocity_coefficient,
+        (0.0, 0.0, -0.12),
+        atol=1e-3,
+    )
+    np.testing.assert_allclose(
+        clean.angular_rate_coefficient,
+        -np.diag((0.4, 0.5, 0.25)),
+        atol=1e-3,
+    )
+    np.testing.assert_allclose(clean.angular_rate_product_coefficient, 0.0, atol=1e-3)
+    np.testing.assert_allclose(
+        noisy.collective_velocity_coefficient,
+        (0.0, 0.0, -0.12),
+        atol=0.25,
+    )
+    assert noisy.ready_for_hover and noisy.ready_for_rate_arrest
+
+
+def test_recursive_lateral_velocity_coefficient_stays_near_zero_under_noise() -> None:
+    commands = _excitation(200)
+
+    clean, _, _ = _update_recursive_identifier(commands)
+    noisy, _, _ = _update_recursive_identifier(
+        commands,
+        acceleration_noise_m_s2=0.01,
+        angular_noise_rad_s2=0.01,
+    )
+
+    assert clean.belief.collective_nuisance_rank == 2
+    assert noisy.belief.collective_nuisance_rank == 2
+    np.testing.assert_allclose(
+        clean.belief.collective_velocity_coefficient,
+        (0.0, 0.0, -0.12),
+        atol=1e-9,
+    )
+    np.testing.assert_allclose(
+        noisy.belief.collective_velocity_coefficient[:2],
+        0.0,
+        atol=0.05,
+    )
+    assert noisy.belief.collective_velocity_coefficient[2] == pytest.approx(
+        -0.12,
+        abs=0.05,
+    )
+    assert noisy.belief.to_dict()["collective_nuisance_rank"] == 2
+    assert noisy.belief.to_dict()["angular_nuisance_rank"] == 7
+
+
+def test_recursive_update_refuses_a_non_finite_sample_and_keeps_its_belief() -> None:
+    commands = _excitation(60)
+    identifier, _, _ = _update_recursive_identifier(commands)
+    before = identifier.belief
+    corrupted = np.zeros(13, dtype=np.float64)
+    corrupted[6] = 1.0
+    corrupted[3] = np.nan
+
+    returned = identifier.update(corrupted, np.zeros(13), np.full(4, 0.5), 0.02)
+
+    assert returned is before
+    assert identifier.belief is before
+    assert identifier.rejected_sample_count == 1
+    report = identifier.last_sample_report
+    assert not report.accepted
+    assert report.reason == "previous_state_not_finite"
+    assert report.interval_count == before.interval_count
+    assert report.to_dict()["accepted"] is False
+
+    healthy = identifier.update(
+        np.concatenate((np.zeros(6), (1.0, 0.0, 0.0, 0.0), np.zeros(3))),
+        np.concatenate((np.zeros(6), (1.0, 0.0, 0.0, 0.0), np.zeros(3))),
+        np.full(4, 0.5),
+        0.02,
+    )
+
+    assert healthy.interval_count == before.interval_count + 1
+    assert identifier.last_sample_report.accepted
+
+
+def test_recursive_update_accepts_rounding_width_bound_overshoot() -> None:
+    identifier = RecursiveBootstrapIdentifier()
+    state = np.concatenate((np.zeros(6), (1.0, 0.0, 0.0, 0.0), np.zeros(3)))
+
+    belief = identifier.update(state, state, np.full(4, 1.0 + 1e-7), 0.02)
+
+    assert belief.interval_count == 1
+    assert identifier.last_sample_report.accepted
+
+    refused = identifier.update(state, state, np.full(4, 1.01), 0.02)
+
+    assert refused.interval_count == 1
+    assert identifier.last_sample_report.reason == "applied_command_outside_bounds"
+
+
+def test_progressive_command_returns_an_unusable_hold_for_a_broken_state() -> None:
+    identifier = RecursiveBootstrapIdentifier()
+    controller = ProgressiveBootstrapController(identifier.config)
+    broken = np.zeros(13, dtype=np.float64)
+    broken[6] = 1.0
+    broken[10] = np.nan
+
+    decision = controller.command(
+        broken,
+        identifier.predictive_belief,
+        previous_command=np.full(4, 0.42),
+    )
+
+    assert not decision.command_usable
+    assert decision.reason == "state_not_finite"
+    np.testing.assert_allclose(decision.command, 0.42)
+
+    unbounded = controller.command(
+        broken,
+        identifier.predictive_belief,
+        previous_command=np.full(4, np.nan),
+    )
+
+    assert not unbounded.command_usable
+    np.testing.assert_allclose(unbounded.command, 0.5)
+
+    degenerate = np.zeros(13, dtype=np.float64)
+    flat = controller.command(
+        degenerate,
+        identifier.predictive_belief,
+        previous_command=np.full(4, 2.0),
+    )
+
+    assert flat.reason == "state_quaternion_degenerate"
+    np.testing.assert_allclose(flat.command, 1.0)
+
+    healthy = np.zeros(13, dtype=np.float64)
+    healthy[6] = 1.0
+    assert controller.command(
+        healthy,
+        identifier.predictive_belief,
+        previous_command=np.full(4, 0.42),
+    ).command_usable
+
+
+def test_recursive_config_rejects_a_forgetting_factor_below_one() -> None:
+    with pytest.raises(ValueError, match="never regain it"):
+        RecursiveBootstrapConfig(forgetting_factor=0.95)
+
+    assert RecursiveBootstrapConfig().forgetting_factor == 1.0

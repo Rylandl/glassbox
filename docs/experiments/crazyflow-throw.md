@@ -19,13 +19,25 @@ future force and angular-acceleration predictions. Later candidates use the
 last committed belief as their reference and must also pass a bounded-movement
 check.
 
-That model transaction does not create another controller. Every motor action
-minimizes the same bounded belief-space objective. Its stabilization term uses
-the transactional predictive mean, its information term uses the freshest
-supported information geometry, and altitude risk plus supported covariance
-enter the same candidate score. Command bounds and slew limits define the
-feasible set. There is one controller tier, no fallback policy, and no
-collect-then-fly mode change.
+That model transaction does not create another controller, and there is no
+collect-then-fly mode change. The command itself is simpler than an optimizer.
+A fixed stabilizing cascade with hand-set gains maps velocity error to a thrust
+direction, thrust direction to a tilt error, and tilt error to motor deltas
+through the identified angular effect and its pseudo-inverse. The belief enters
+that cascade only by scaling its authority and supplying the allocation, and the
+cascade is computed before and independently of any candidate score.
+
+An information excitation is then added on top of the cascade, at one of five
+fixed fractions of its amplitude chosen by a bounded scan. The scan scores each
+candidate by its distance from the cascade, minus the excitation it buys, plus
+an altitude-risk penalty, plus a supported-covariance term whose configured
+weight leaves it inert at every reachable magnitude. Because the reward is
+linear in the fraction and the distance is quadratic at the same scale, the scan
+takes the largest excitation unless the altitude-risk term or the command bound
+and slew clipping prefer less. Command bounds and slew limits define the
+feasible set. There is one controller tier and no fallback policy, but the
+belief-space score selects only how much excitation rides on a fixed cascade,
+not the stabilizing action itself.
 
 Glassbox receives timestamps, exact canonical simulator state, measured applied
 motor state, normalized command bounds, and four-channel output shape. It does
@@ -47,32 +59,33 @@ The unpowered first second is visibly ballistic: tilt reaches `1.202 rad`, and
 the airframe reaches `4.821 m` altitude before online actuation starts. After
 activation:
 
-- the first supported stabilization contribution occurs at `1.05 s`;
-- the accepted initial proposal is frozen after interval `110`, then admitted
-  after `16` future predictions at `2.26 s`;
+- the first supported stabilization contribution occurs at `1.03 s`;
+- the accepted initial proposal is frozen after interval `172`, then admitted
+  after `16` future predictions at `2.88 s`;
 - each recursive update completes in a small fraction of the `10 ms` motor
   interval on the recorded host (the report records the median);
 - the working belief is updated on all `900` post-enable intervals; and
 - no simulator reset or controller handoff occurs.
 
-Across the full run, the validator accepts the initial belief and seven later
-replacements while rejecting eight candidates that do not demonstrate enough
-future improvement. The joint objective selects a nonzero information action
-on `777` of `900` intervals, reaching `0.12` of normalized motor range before
-validation and at most `0.0005` afterward. These are weights inside the same
-action optimization, not commands from a second policy.
+Across the full run, the validator admits the initial belief and rejects all
+seven later candidates: none beats the honestly conditioned nuisance-only
+reference on the next `16` intervals, so no replacement commits. The bounded
+scan selects a nonzero information action on `725` of `900` intervals,
+reaching `0.12` of normalized motor range before validation and at most
+`0.0005` afterward. That excitation is added to the fixed stabilizing
+cascade, not issued by a second policy.
 
 At the `10.00 s` end of the uninterrupted run:
 
-- speed is `0.0111 m/s`, or `0.00110x` release speed;
-- body-rate norm is `0.0120 rad/s`, or `0.0111x` release rate;
-- vertical speed is below `0.00008 m/s` in magnitude;
-- tilt is `0.00099 rad`;
+- speed is `0.0110 m/s`, or `0.00110x` release speed;
+- body-rate norm is `0.0119 rad/s`, or `0.0110x` release rate;
+- vertical speed is below `0.0005 m/s` in magnitude;
+- tilt is `0.00097 rad`;
 - minimum altitude is the `1.200 m` release height; and
-- the strict hover envelope remains satisfied for the final `5.73 s`.
+- the strict hover envelope remains satisfied for the final `5.47 s`.
 
-The validated predictive belief estimates hover at `0.53194742`, versus the hidden
-evaluation-only value `0.53194727` (`0.000028%` relative error). All requested and
+The validated predictive belief estimates hover at `0.53211`, versus the hidden
+evaluation-only value `0.53195` (`0.030%` relative error). All requested and
 measured motor values remain finite and bounded.
 
 Run the diagnostic with:
@@ -80,7 +93,7 @@ Run the diagnostic with:
 ```bash
 uv sync --extra crazyflow
 uv run --extra crazyflow glassbox-crazyflow-throw \
-  docs/crazyflow-throw-results.json
+  docs/results/crazyflow-throw-results.json
 ```
 
 The [machine-readable result](../results/crazyflow-throw-results.json) records the full
@@ -95,22 +108,23 @@ retains failures instead of reducing the output to successful examples:
 
 ```bash
 uv run --extra crazyflow glassbox-crazyflow-throw \
-  docs/crazyflow-throw-campaign-results.json --campaign
+  docs/results/crazyflow-throw-campaign-results.json --campaign
 ```
 
-Three of five scenarios pass the complete canonical gate. The canonical case,
-a `1.15x` shorter-arm case, and a `1.35x` longer-arm cross-axis tumble all pass.
-Every scenario keeps commands finite and bounded, and all five finish with
-speed at or below `0.0154 m/s`, rate at or below `0.0127 rad/s`, and at least
-`5.07 s` in the strict hover envelope.
+Two of five scenarios pass the complete canonical gate: a `1.15x` shorter-arm
+high release and a milder low-energy release. Every scenario keeps commands
+finite and bounded, and all five finish with speed at or below `0.0165 m/s`,
+rate at or below `0.0128 rad/s`, and at least `4.83 s` in the strict hover
+envelope.
 
-The two failed gates matter. A lower-energy release misses the final vertical
-speed threshold by `0.00078 m/s`. A reversed tumble eventually stabilizes but
-contacts the simulated ground first, reaching `-0.001 m`; it therefore cannot
-count as a successful recovery. The
-[campaign artifact](../results/crazyflow-throw-campaign-results.json) records both failures
-and a `3/5` pass rate. This small tuned scenario set does not measure a
-generalization probability.
+The three failed gates matter. The canonical case and the `1.35x` longer-arm
+cross-axis tumble commit no belief replacement after initial admission, and
+the tumble also misses the final vertical speed threshold. A reversed tumble
+misses the same vertical speed threshold and dips to `0.845 m`, below the
+`1 m` altitude floor, before stabilizing. The
+[campaign artifact](../results/crazyflow-throw-campaign-results.json) records all three
+failures and a `2/5` pass rate. This small tuned scenario set does not measure
+a generalization probability.
 
 ## Real-time animations
 
@@ -161,3 +175,12 @@ This is a simulation diagnostic, not a physical throw-to-recover or
 flight-safety claim. Hardware progression still needs release detection,
 sensor delay/noise, netted testing, and physical constraints represented inside
 the same command objective.
+
+The replacement criterion is the least robust part of this gate. Once the
+nuisance-only reference is conditioned with the same rank policy as the
+candidate, the prequential bar is honest and no post-admission candidate clears
+it in the recorded run. The same criterion also flips on last-bit numerical
+differences amplified over the 900 closed-loop steps, so a pass or fail on it
+should not be read as a stable property of the controller; every flight-quality
+observation is unchanged. Whether the gate should keep that criterion is an
+open decision recorded here rather than tuned away.

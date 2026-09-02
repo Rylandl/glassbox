@@ -71,9 +71,14 @@ class RecursiveBootstrapConfig:
 
     command_minimum: float | tuple[float, float, float, float] = 0.0
     command_maximum: float | tuple[float, float, float, float] = 1.0
+    #: Retained for report compatibility and pinned to 1.0.  A value below one
+    #: decays the working belief to rank zero once excitation stops, and the
+    #: committed excitation cap is far too small to rebuild that rank, so no
+    #: later candidate could ever be proposed.  Any other value is rejected.
     forgetting_factor: float = 1.0
     command_rank_relative_tolerance: float = 0.025
     minimum_normalized_command_rms: float = 0.003
+    nuisance_rank_relative_tolerance: float = 0.002
     output_rank_relative_tolerance: float = 0.04
     minimum_information_singular_value: float = 0.005
     full_authority_information_singular_value: float = 0.025
@@ -92,11 +97,18 @@ class RecursiveBootstrapConfig:
         maximum = _finite_vector("command_maximum", self.command_maximum, 4)
         if np.any(minimum >= maximum):
             raise ValueError("command_minimum must be below command_maximum")
-        if not 0.9 <= self.forgetting_factor <= 1.0:
-            raise ValueError("forgetting_factor must lie in [0.9, 1.0]")
+        if self.forgetting_factor != 1.0:
+            raise ValueError(
+                "forgetting_factor must be exactly 1.0: post-certification "
+                "excitation is capped at a small fraction of the command span, "
+                "so a decaying working belief loses rank once excitation stops "
+                "and can never regain it, leaving the vehicle flying forever on "
+                "a belief no later proposal can replace"
+            )
         for name in (
             "command_rank_relative_tolerance",
             "minimum_normalized_command_rms",
+            "nuisance_rank_relative_tolerance",
             "output_rank_relative_tolerance",
             "minimum_validation_improvement",
             "maximum_model_movement_fraction",
@@ -156,6 +168,8 @@ class RecursiveBootstrapBelief:
     supported_angular_effect_covariance: np.ndarray
     command_evidence_rank: int
     angular_effect_rank: int
+    collective_nuisance_rank: int
+    angular_nuisance_rank: int
     angular_output_support_projector: np.ndarray
     collective_support_fraction: float
     minimum_supported_information_singular_value: float
@@ -215,7 +229,10 @@ class RecursiveBootstrapBelief:
         if self.interval_count < 0 or not np.all(np.isfinite(scalars)):
             raise ValueError("recursive belief counts and scalars must be finite")
         if not (
-            0 <= self.command_evidence_rank <= 4 and 0 <= self.angular_effect_rank <= 3
+            0 <= self.command_evidence_rank <= 4
+            and 0 <= self.angular_effect_rank <= 3
+            and 0 <= self.collective_nuisance_rank <= 4
+            and 0 <= self.angular_nuisance_rank <= 7
         ):
             raise ValueError("recursive belief ranks lie outside model dimensions")
         if not (
@@ -321,6 +338,8 @@ class RecursiveBootstrapBelief:
             "effect_covariance_scope": "supported_subspace_only",
             "command_evidence_rank": self.command_evidence_rank,
             "angular_effect_rank": self.angular_effect_rank,
+            "collective_nuisance_rank": self.collective_nuisance_rank,
+            "angular_nuisance_rank": self.angular_nuisance_rank,
             "angular_output_support_projector": (
                 self.angular_output_support_projector.tolist()
             ),
@@ -430,6 +449,30 @@ class RecursiveBeliefValidationReport:
         }
 
 
+@dataclass(frozen=True)
+class RecursiveBootstrapSampleReport:
+    """Whether one offered transition was assimilated, and why not."""
+
+    interval_count: int
+    accepted: bool
+    reason: str
+    update_wall_time_s: float
+
+    def __post_init__(self) -> None:
+        if self.interval_count < 0 or not math.isfinite(self.update_wall_time_s):
+            raise ValueError("sample report counts and timings must be finite")
+        if not self.reason:
+            raise ValueError("sample report reason cannot be empty")
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "interval_count": self.interval_count,
+            "accepted": self.accepted,
+            "reason": self.reason,
+            "update_wall_time_s": self.update_wall_time_s,
+        }
+
+
 @dataclass
 class _PendingBeliefProposal:
     candidate: RecursiveBootstrapBelief
@@ -449,7 +492,7 @@ class _PendingBeliefProposal:
 
 @dataclass(frozen=True)
 class ProgressiveBootstrapCommand:
-    """One bounded minimizer of the joint belief-space command objective."""
+    """One stabilizing cascade command plus its scanned information action."""
 
     command: np.ndarray
     objective_value: float
@@ -466,6 +509,8 @@ class ProgressiveBootstrapCommand:
     desired_angular_acceleration_rad_s2: np.ndarray
     collective_authority: float
     angular_axis_authority: np.ndarray
+    command_usable: bool = True
+    reason: str = "stabilizing_cascade_with_scanned_excitation"
 
     def __post_init__(self) -> None:
         for name, shape in {
@@ -494,6 +539,25 @@ class ProgressiveBootstrapCommand:
         )
         if not np.all(np.isfinite(scalars)):
             raise ValueError("command objective diagnostics must be finite")
+        if not self.reason:
+            raise ValueError("command reason cannot be empty")
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "command": self.command.tolist(),
+            "command_usable": self.command_usable,
+            "reason": self.reason,
+            "objective_value": self.objective_value,
+            "stabilization_cost": self.stabilization_cost,
+            "information_reward": self.information_reward,
+            "uncertainty_cost": self.uncertainty_cost,
+            "altitude_risk_cost": self.altitude_risk_cost,
+            "estimated_information_gain": self.estimated_information_gain,
+            "information_action_fraction": self.information_action_fraction,
+            "information_completion": self.information_completion,
+            "collective_authority": self.collective_authority,
+            "angular_axis_authority": self.angular_axis_authority.tolist(),
+        }
 
 
 class RecursiveBootstrapIdentifier:
@@ -501,6 +565,9 @@ class RecursiveBootstrapIdentifier:
 
     _FORCE_NUISANCE_SIZE = 4
     _ANGULAR_NUISANCE_SIZE = 7
+    #: Applied commands are accepted this far outside the configured bounds and
+    #: then clipped, so a saturated actuator readback cannot end an estimator.
+    _BOUND_TOLERANCE_FRACTION = 1e-6
 
     def __init__(self, config: RecursiveBootstrapConfig | None = None) -> None:
         self.config = RecursiveBootstrapConfig() if config is None else config
@@ -521,6 +588,13 @@ class RecursiveBootstrapIdentifier:
         self._pending_proposal: _PendingBeliefProposal | None = None
         self._validation_history: list[RecursiveBeliefValidationReport] = []
         self._last_proposal_finished_interval = -(10**9)
+        self._last_sample_report = RecursiveBootstrapSampleReport(
+            interval_count=0,
+            accepted=False,
+            reason="no_sample_offered",
+            update_wall_time_s=0.0,
+        )
+        self._rejected_sample_count = 0
 
     def _empty_belief(self) -> RecursiveBootstrapBelief:
         return RecursiveBootstrapBelief(
@@ -540,6 +614,8 @@ class RecursiveBootstrapIdentifier:
             supported_angular_effect_covariance=np.zeros((3, 4, 4)),
             command_evidence_rank=0,
             angular_effect_rank=0,
+            collective_nuisance_rank=0,
+            angular_nuisance_rank=0,
             angular_output_support_projector=np.zeros((3, 3)),
             collective_support_fraction=0.0,
             minimum_supported_information_singular_value=0.0,
@@ -600,8 +676,53 @@ class RecursiveBootstrapIdentifier:
     def rejected_update_count(self) -> int:
         return sum(not report.accepted for report in self._validation_history)
 
+    @property
+    def last_sample_report(self) -> RecursiveBootstrapSampleReport:
+        """Whether the most recently offered transition was assimilated."""
+
+        return self._last_sample_report
+
+    @property
+    def rejected_sample_count(self) -> int:
+        """Transitions refused because they were not usable evidence."""
+
+        return self._rejected_sample_count
+
     @staticmethod
+    def _nuisance_inverse(
+        nuisance_gram: np.ndarray,
+        *,
+        relative_tolerance: float,
+    ) -> tuple[np.ndarray, int]:
+        """Invert only the nuisance directions the window actually excited.
+
+        Nuisance features carry their own physical units, so no normalized span
+        is available.  The constant intercept feature supplies the missing unit
+        scale: its root-mean-square is exactly one, so the leading nuisance
+        direction always has at least unit root-mean-square and a threshold
+        relative to it is also an absolute floor in the features' own units.
+        Directions below the threshold are dropped rather than inverted, which
+        is the same rank-support rule the command directions already follow.
+        """
+
+        symmetric = 0.5 * (nuisance_gram + nuisance_gram.T)
+        eigenvalues, eigenvectors = np.linalg.eigh(symmetric)
+        eigenvalues = np.maximum(eigenvalues, 0.0)
+        singular_values = np.sqrt(eigenvalues)
+        leading = float(np.max(singular_values)) if singular_values.size else 0.0
+        threshold = max(leading * relative_tolerance, 1e-12)
+        supported = singular_values >= threshold
+        inverse_eigenvalues = np.where(
+            supported,
+            1.0 / np.maximum(eigenvalues, threshold * threshold),
+            0.0,
+        )
+        inverse = (eigenvectors * inverse_eigenvalues) @ eigenvectors.T
+        return inverse, int(np.sum(supported))
+
+    @classmethod
     def _supported_fit(
+        cls,
         gram: np.ndarray,
         rhs: np.ndarray,
         *,
@@ -609,6 +730,7 @@ class RecursiveBootstrapIdentifier:
         effective_count: float,
         relative_tolerance: float,
         minimum_rms: float,
+        nuisance_relative_tolerance: float,
     ) -> tuple[
         np.ndarray,
         np.ndarray,
@@ -617,11 +739,15 @@ class RecursiveBootstrapIdentifier:
         int,
         np.ndarray,
         np.ndarray,
+        int,
     ]:
         command_gram = gram[:4, :4]
         cross_gram = gram[:4, 4:]
         nuisance_gram = gram[4:, 4:]
-        nuisance_inverse = np.linalg.pinv(nuisance_gram, rcond=1e-8)
+        nuisance_inverse, nuisance_rank = cls._nuisance_inverse(
+            nuisance_gram,
+            relative_tolerance=nuisance_relative_tolerance,
+        )
         residual_gram = command_gram - (cross_gram @ nuisance_inverse @ cross_gram.T)
         residual_gram = 0.5 * (residual_gram + residual_gram.T)
         eigenvalues, eigenvectors = np.linalg.eigh(residual_gram)
@@ -657,6 +783,7 @@ class RecursiveBootstrapIdentifier:
             int(np.sum(supported)),
             residual_inverse,
             residual_gram,
+            nuisance_rank,
         )
 
     @staticmethod
@@ -669,6 +796,7 @@ class RecursiveBootstrapIdentifier:
         *,
         effective_count: float,
         command_rank: int,
+        nuisance_rank: int,
         floor: float,
     ) -> np.ndarray:
         coefficient = np.vstack((command_coefficient, nuisance_coefficient))
@@ -677,7 +805,6 @@ class RecursiveBootstrapIdentifier:
             - 2.0 * np.sum(coefficient * rhs, axis=0)
             + np.sum(coefficient * (gram @ coefficient), axis=0)
         )
-        nuisance_rank = int(np.linalg.matrix_rank(gram[4:, 4:], tol=1e-8))
         degrees_of_freedom = max(
             effective_count - command_rank - nuisance_rank,
             1.0,
@@ -727,22 +854,17 @@ class RecursiveBootstrapIdentifier:
         return max(force_movement, angular_movement, hover_movement)
 
     def _start_proposal(self, candidate: RecursiveBootstrapBelief) -> None:
-        force_nuisance_gram = self._force_gram[4:, 4:]
-        angular_nuisance_gram = self._angular_gram[4:, 4:]
-        baseline_force_nuisance = (
-            np.linalg.pinv(
-                force_nuisance_gram,
-                rcond=1e-8,
-            )
-            @ self._force_rhs[4:]
+        tolerance = self.config.nuisance_rank_relative_tolerance
+        force_inverse, _ = self._nuisance_inverse(
+            self._force_gram[4:, 4:],
+            relative_tolerance=tolerance,
         )
-        baseline_angular_nuisance = (
-            np.linalg.pinv(
-                angular_nuisance_gram,
-                rcond=1e-8,
-            )
-            @ self._angular_rhs[4:]
+        angular_inverse, _ = self._nuisance_inverse(
+            self._angular_gram[4:, 4:],
+            relative_tolerance=tolerance,
         )
+        baseline_force_nuisance = force_inverse @ self._force_rhs[4:]
+        baseline_angular_nuisance = angular_inverse @ self._angular_rhs[4:]
         self._pending_proposal = _PendingBeliefProposal(
             candidate=candidate,
             reference=self._certified_belief,
@@ -918,6 +1040,51 @@ class RecursiveBootstrapIdentifier:
             return
         self._start_proposal(candidate)
 
+    def _validated_sample(
+        self,
+        previous_state: Sequence[float],
+        current_state: Sequence[float],
+        average_applied_motor_command: Sequence[float],
+        sample_period_s: float,
+    ) -> tuple[str, None] | tuple[None, tuple[np.ndarray, np.ndarray, np.ndarray]]:
+        """Parse one transition, or name why it is not usable evidence.
+
+        Applied commands within :attr:`_BOUND_TOLERANCE_FRACTION` of the span
+        outside the bounds are clipped rather than refused, so a saturated
+        actuator readback is still evidence.
+        """
+
+        parsed: list[np.ndarray] = []
+        for name, value, size, reason in (
+            ("previous_state", previous_state, 13, "previous_state_not_finite"),
+            ("current_state", current_state, 13, "current_state_not_finite"),
+            (
+                "average_applied_motor_command",
+                average_applied_motor_command,
+                4,
+                "applied_command_not_finite",
+            ),
+        ):
+            try:
+                parsed.append(_finite_vector(name, value, size))
+            except (ValueError, TypeError):
+                return reason, None
+        previous, current, command = parsed
+        if float(np.linalg.norm(previous[6:10])) < 1e-9:
+            return "previous_state_quaternion_degenerate", None
+        tolerance = self._BOUND_TOLERANCE_FRACTION * self._span
+        if np.any(command < self._minimum - tolerance) or np.any(
+            command > self._maximum + tolerance
+        ):
+            return "applied_command_outside_bounds", None
+        if not math.isfinite(sample_period_s) or sample_period_s <= 0.0:
+            return "sample_period_not_positive", None
+        return None, (
+            previous,
+            current,
+            np.clip(command, self._minimum, self._maximum),
+        )
+
     def update(
         self,
         previous_state: Sequence[float],
@@ -925,22 +1092,32 @@ class RecursiveBootstrapIdentifier:
         average_applied_motor_command: Sequence[float],
         sample_period_s: float,
     ) -> RecursiveBootstrapBelief:
-        """Assimilate one measured transition and return the new belief."""
+        """Assimilate one measured transition and return the current belief.
+
+        A transition that is not usable evidence is refused rather than raised
+        on, because a single non-finite estimator sample must not end a control
+        loop.  The belief is then left exactly as it was and the refusal is
+        recorded in :attr:`last_sample_report`.
+        """
 
         started_at = time.perf_counter()
-        previous = _finite_vector("previous_state", previous_state, 13)
-        current = _finite_vector("current_state", current_state, 13)
-        command = _finite_vector(
-            "average_applied_motor_command",
+        rejection, sample = self._validated_sample(
+            previous_state,
+            current_state,
             average_applied_motor_command,
-            4,
+            sample_period_s,
         )
-        if np.any(command < self._minimum - 1e-9) or np.any(
-            command > self._maximum + 1e-9
-        ):
-            raise ValueError("applied motor command lies outside configured bounds")
-        if not math.isfinite(sample_period_s) or sample_period_s <= 0.0:
-            raise ValueError("sample_period_s must be finite and positive")
+        if sample is None:
+            assert rejection is not None
+            self._rejected_sample_count += 1
+            self._last_sample_report = RecursiveBootstrapSampleReport(
+                interval_count=self._interval_count,
+                accepted=False,
+                reason=rejection,
+                update_wall_time_s=time.perf_counter() - started_at,
+            )
+            return self._belief
+        previous, current, command = sample
         rotation = _quaternion_to_rotation(previous[6:10])
         world_acceleration = (current[3:6] - previous[3:6]) / sample_period_s
         body_specific_force = rotation.T @ (
@@ -992,6 +1169,9 @@ class RecursiveBootstrapIdentifier:
             effective_count=self._weight,
             relative_tolerance=self.config.command_rank_relative_tolerance,
             minimum_rms=self.config.minimum_normalized_command_rms,
+            nuisance_relative_tolerance=(
+                self.config.nuisance_rank_relative_tolerance
+            ),
         )
         angular = self._supported_fit(
             self._angular_gram,
@@ -1000,6 +1180,9 @@ class RecursiveBootstrapIdentifier:
             effective_count=self._weight,
             relative_tolerance=self.config.command_rank_relative_tolerance,
             minimum_rms=self.config.minimum_normalized_command_rms,
+            nuisance_relative_tolerance=(
+                self.config.nuisance_rank_relative_tolerance
+            ),
         )
         (
             normalized_force_effect,
@@ -1009,6 +1192,7 @@ class RecursiveBootstrapIdentifier:
             force_rank,
             force_residual_inverse,
             _,
+            force_nuisance_rank,
         ) = force
         (
             normalized_angular_effect,
@@ -1018,6 +1202,7 @@ class RecursiveBootstrapIdentifier:
             angular_command_rank,
             angular_residual_inverse,
             angular_residual_information,
+            angular_nuisance_rank,
         ) = angular
         force_effect = normalized_force_effect[:, 0] / self._span
         angular_effect = (normalized_angular_effect / self._span[:, None]).T
@@ -1032,6 +1217,7 @@ class RecursiveBootstrapIdentifier:
                 force_nuisance,
                 effective_count=self._weight,
                 command_rank=force_rank,
+                nuisance_rank=force_nuisance_rank,
                 floor=self.config.collective_residual_std_floor_m_s2,
             )[0]
         )
@@ -1043,6 +1229,7 @@ class RecursiveBootstrapIdentifier:
             angular_nuisance,
             effective_count=self._weight,
             command_rank=angular_command_rank,
+            nuisance_rank=angular_nuisance_rank,
             floor=self.config.angular_residual_std_floor_rad_s2,
         )
         raw_scale = np.diag(1.0 / self._span)
@@ -1197,6 +1384,8 @@ class RecursiveBootstrapIdentifier:
             supported_angular_effect_covariance=angular_effect_covariance,
             command_evidence_rank=angular_command_rank,
             angular_effect_rank=angular_effect_rank,
+            collective_nuisance_rank=force_nuisance_rank,
+            angular_nuisance_rank=angular_nuisance_rank,
             angular_output_support_projector=angular_output_support,
             collective_support_fraction=collective_support,
             minimum_supported_information_singular_value=(
@@ -1214,12 +1403,18 @@ class RecursiveBootstrapIdentifier:
             update_wall_time_s=time.perf_counter() - started_at,
         )
         self._maybe_start_proposal()
+        self._last_sample_report = RecursiveBootstrapSampleReport(
+            interval_count=self._interval_count,
+            accepted=True,
+            reason="sample_assimilated",
+            update_wall_time_s=self._belief.update_wall_time_s,
+        )
         return self._belief
 
 
 @dataclass(frozen=True)
 class ProgressiveBootstrapControllerConfig:
-    """Weights and bounds for one belief-space command objective."""
+    """Cascade gains, bounds, and the excitation scan this controller uses."""
 
     velocity_gain: tuple[float, float, float] = (1.5, 1.5, 4.0)
     maximum_world_acceleration_m_s2: tuple[float, float, float] = (2.5, 2.5, 4.0)
@@ -1234,7 +1429,16 @@ class ProgressiveBootstrapControllerConfig:
     objective_horizon_s: float = 0.10
     minimum_altitude_m: float = 1.0
     altitude_risk_weight: float = 1.0
+    #: Inert at its default.  The supported-covariance term it weighs is around
+    #: 1e-9 across reachable states, against stabilization and altitude-risk
+    #: terms of order 1e-1, so it never changes which candidate the scan picks.
+    #: It is kept, and reported, so that a run's recorded configuration stays
+    #: comparable; raising it is the only way to make the term matter.
     uncertainty_cost_weight: float = 1e-10
+    #: Fractions of the information amplitude the bounded scan may choose from.
+    #: The reward is linear in the fraction while the distance from the cascade
+    #: is quadratic at the same scale, so the scan takes the largest fraction
+    #: unless altitude risk or the bound and slew clipping prefer less.
     objective_information_scales: tuple[float, ...] = (0.0, 0.25, 0.5, 0.75, 1.0)
 
     def __post_init__(self) -> None:
@@ -1289,7 +1493,15 @@ class ProgressiveBootstrapControllerConfig:
 
 
 class ProgressiveBootstrapController:
-    """Minimize one bounded objective for stabilization and information."""
+    """Stabilize with a fixed cascade and scan how much to excite on top of it.
+
+    The stabilizing action is a hand-gained cascade from velocity error through
+    a thrust direction and tilt error to a pseudo-inverse motor allocation.  The
+    belief scales its authority and supplies the allocation; it does not select
+    the action.  A bounded scan over
+    :attr:`ProgressiveBootstrapControllerConfig.objective_information_scales`
+    then chooses how much information excitation rides on top of that cascade.
+    """
 
     def __init__(
         self,
@@ -1315,6 +1527,46 @@ class ProgressiveBootstrapController:
             1e-9,
         )
 
+    def _held_command(self, previous_command: Any) -> np.ndarray:
+        """Clip the previous command into bounds, or fall back to the hold."""
+
+        try:
+            previous = np.asarray(previous_command, dtype=np.float64)
+        except (TypeError, ValueError):
+            return self._midpoint.copy()
+        if previous.shape != (4,) or not np.all(np.isfinite(previous)):
+            return self._midpoint.copy()
+        return np.clip(previous, self._minimum, self._maximum)
+
+    def _unusable_command(
+        self,
+        command: np.ndarray,
+        belief: RecursiveBootstrapBelief,
+        online: RecursiveBootstrapBelief,
+        reason: str,
+    ) -> ProgressiveBootstrapCommand:
+        """Return a bounded held command that the supervisor can reject."""
+
+        return ProgressiveBootstrapCommand(
+            command=command,
+            objective_value=0.0,
+            stabilization_cost=0.0,
+            information_reward=0.0,
+            uncertainty_cost=0.0,
+            altitude_risk_cost=0.0,
+            estimated_information_gain=0.0,
+            information_action_fraction=0.0,
+            information_completion=online.exploration_completion,
+            predicted_world_velocity_m_s=np.zeros(3),
+            predicted_angular_velocity_rad_s=np.zeros(3),
+            desired_world_acceleration_m_s2=np.zeros(3),
+            desired_angular_acceleration_rad_s2=np.zeros(3),
+            collective_authority=belief.collective_authority,
+            angular_axis_authority=belief.angular_axis_authority,
+            command_usable=False,
+            reason=reason,
+        )
+
     def command(
         self,
         state: Sequence[float],
@@ -1323,17 +1575,42 @@ class ProgressiveBootstrapController:
         previous_command: Sequence[float],
         online_belief: RecursiveBootstrapBelief | None = None,
     ) -> ProgressiveBootstrapCommand:
-        """Return one action; no fallback or secondary controller is involved.
+        """Return one bounded action from the cascade and the excitation scan.
 
         ``belief`` is the transactional predictive mean.  ``online_belief`` may
         provide fresher information geometry while a candidate is undergoing
         predictive validation.  Both enter this objective; neither produces a
         separate command.
+
+        A state this controller cannot act on never raises.  The decision comes
+        back with ``command_usable`` false, a reason, and the previous command
+        clipped into bounds, falling back to the bounded midpoint hold when even
+        that is unusable, so the supervisor rather than an exception decides what
+        the vehicle does next.
         """
 
-        state_array = _finite_vector("state", state, 13)
-        previous = _finite_vector("previous_command", previous_command, 4)
         online = belief if online_belief is None else online_belief
+        held = self._held_command(previous_command)
+        try:
+            state_array = _finite_vector("state", state, 13)
+        except (ValueError, TypeError):
+            return self._unusable_command(held, belief, online, "state_not_finite")
+        try:
+            previous = _finite_vector("previous_command", previous_command, 4)
+        except (ValueError, TypeError):
+            return self._unusable_command(
+                held,
+                belief,
+                online,
+                "previous_command_not_finite",
+            )
+        if float(np.linalg.norm(state_array[6:10])) < 1e-9:
+            return self._unusable_command(
+                held,
+                belief,
+                online,
+                "state_quaternion_degenerate",
+            )
         quaternion = state_array[6:10]
         rotation = _quaternion_to_rotation(quaternion)
         velocity = state_array[3:6]

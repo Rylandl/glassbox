@@ -30,28 +30,30 @@
         "release_roll_rad": 0.2,
         "release_pitch_rad": -0.15
       },
-      "gate_passed": true,
-      "failed_observations": [],
+      "gate_passed": false,
+      "failed_observations": [
+        "at_least_one_belief_replacement_committed"
+      ],
       "timing": {
-        "first_supported_control_time_s": 1.05,
-        "initial_belief_admission_time_s": 2.26
+        "first_supported_control_time_s": 1.03,
+        "initial_belief_admission_time_s": 2.88
       },
       "identification": {
-        "accepted_update_count": 8,
-        "rejected_update_count": 8,
-        "accepted_replacement_count": 7,
+        "accepted_update_count": 1,
+        "rejected_update_count": 7,
+        "accepted_replacement_count": 0,
         "terminal_working_command_evidence_rank": 2,
         "terminal_working_angular_effect_rank": 1
       },
       "recovery": {
-        "terminal_velocity_norm_m_s": 0.011105440891453074,
-        "terminal_angular_rate_norm_rad_s": 0.011989700134842164,
-        "terminal_tilt_rad": 0.0009918884556607257,
-        "terminal_vertical_velocity_m_s": -7.575379277113825e-05,
+        "terminal_velocity_norm_m_s": 0.011028072035889553,
+        "terminal_angular_rate_norm_rad_s": 0.011856244009370857,
+        "terminal_tilt_rad": 0.0009738563248876331,
+        "terminal_vertical_velocity_m_s": 0.00047558019286952913,
         "minimum_altitude_m": 1.2000000476837158,
         "maximum_altitude_m": 4.983355522155762,
-        "maximum_horizontal_excursion_m": 5.582962881906138,
-        "sustained_hover_duration_s": 5.73,
+        "maximum_horizontal_excursion_m": 7.878663997706833,
+        "sustained_hover_duration_s": 5.47,
         "commands_finite": true,
         "commands_bounded": true
       }
@@ -77,25 +79,25 @@
       "gate_passed": true,
       "failed_observations": [],
       "timing": {
-        "first_supported_control_time_s": 1.05,
-        "initial_belief_admission_time_s": 2.95
+        "first_supported_control_time_s": 1.03,
+        "initial_belief_admission_time_s": 2.72
       },
       "identification": {
-        "accepted_update_count": 7,
-        "rejected_update_count": 12,
-        "accepted_replacement_count": 6,
+        "accepted_update_count": 9,
+        "rejected_update_count": 6,
+        "accepted_replacement_count": 8,
         "terminal_working_command_evidence_rank": 2,
         "terminal_working_angular_effect_rank": 1
       },
       "recovery": {
-        "terminal_velocity_norm_m_s": 0.012229839461563669,
-        "terminal_angular_rate_norm_rad_s": 0.012668415635191263,
-        "terminal_tilt_rad": 0.000896883615736191,
-        "terminal_vertical_velocity_m_s": 0.00030383537523448467,
+        "terminal_velocity_norm_m_s": 0.011923210559906961,
+        "terminal_angular_rate_norm_rad_s": 0.012773167881147355,
+        "terminal_tilt_rad": 0.001050174350206879,
+        "terminal_vertical_velocity_m_s": 0.00025002736947499216,
         "minimum_altitude_m": 2.5,
         "maximum_altitude_m": 6.283355236053467,
-        "maximum_horizontal_excursion_m": 7.2481143969684725,
-        "sustained_hover_duration_s": 5.44,
+        "maximum_horizontal_excursion_m": 7.754655020525306,
+        "sustained_hover_duration_s": 5.56,
         "commands_finite": true,
         "commands_bounded": true
       }
@@ -118,28 +120,31 @@
         "release_roll_rad": 0.15,
         "release_pitch_rad": 0.12
       },
-      "gate_passed": true,
-      "failed_observations": [],
+      "gate_passed": false,
+      "failed_observations": [
+        "at_least_one_belief_replacement_committed",
+        "terminal_vertical_speed_below_0_01_m_s"
+      ],
       "timing": {
-        "first_supported_control_time_s": 1.05,
-        "initial_belief_admission_time_s": 2.35
+        "first_supported_control_time_s": 1.03,
+        "initial_belief_admission_time_s": 2.72
       },
       "identification": {
-        "accepted_update_count": 4,
-        "rejected_update_count": 2,
-        "accepted_replacement_count": 3,
-        "terminal_working_command_evidence_rank": 3,
-        "terminal_working_angular_effect_rank": 2
+        "accepted_update_count": 1,
+        "rejected_update_count": 3,
+        "accepted_replacement_count": 0,
+        "terminal_working_command_evidence_rank": 2,
+        "terminal_working_angular_effect_rank": 1
       },
       "recovery": {
-        "terminal_velocity_norm_m_s": 0.014015177816747795,
-        "terminal_angular_rate_norm_rad_s": 0.011032285401268088,
-        "terminal_tilt_rad": 0.0009132675961920292,
-        "terminal_vertical_velocity_m_s": 0.009617135860025883,
-        "minimum_altitude_m": 1.6126604080200195,
+        "terminal_velocity_norm_m_s": 0.016482974863393292,
+        "terminal_angular_rate_norm_rad_s": 0.01106600226491525,
+        "terminal_tilt_rad": 0.000929758433130031,
+        "terminal_vertical_velocity_m_s": 0.012925396673381329,
+        "minimum_altitude_m": 2.5,
         "maximum_altitude_m": 6.278735637664795,
-        "maximum_horizontal_excursion_m": 9.067763912570564,
-        "sustained_hover_duration_s": 5.07,
+        "maximum_horizontal_excursion_m": 9.309459007178344,
+        "sustained_hover_duration_s": 5.17,
         "commands_finite": true,
         "commands_bounded": true
       }
@@ -162,30 +167,28 @@
         "release_roll_rad": 0.15,
         "release_pitch_rad": -0.1
       },
-      "gate_passed": false,
-      "failed_observations": [
-        "terminal_vertical_speed_below_0_01_m_s"
-      ],
+      "gate_passed": true,
+      "failed_observations": [],
       "timing": {
-        "first_supported_control_time_s": 1.05,
-        "initial_belief_admission_time_s": 1.95
+        "first_supported_control_time_s": 1.03,
+        "initial_belief_admission_time_s": 2.73
       },
       "identification": {
-        "accepted_update_count": 2,
-        "rejected_update_count": 1,
-        "accepted_replacement_count": 1,
-        "terminal_working_command_evidence_rank": 2,
-        "terminal_working_angular_effect_rank": 1
+        "accepted_update_count": 9,
+        "rejected_update_count": 17,
+        "accepted_replacement_count": 8,
+        "terminal_working_command_evidence_rank": 4,
+        "terminal_working_angular_effect_rank": 3
       },
       "recovery": {
-        "terminal_velocity_norm_m_s": 0.015394153050033332,
-        "terminal_angular_rate_norm_rad_s": 0.011932479100468569,
-        "terminal_tilt_rad": 0.0009750349343274916,
-        "terminal_vertical_velocity_m_s": 0.010778648778796196,
+        "terminal_velocity_norm_m_s": 0.01091748054869722,
+        "terminal_angular_rate_norm_rad_s": 0.011796834779030176,
+        "terminal_tilt_rad": 0.0009656384202018963,
+        "terminal_vertical_velocity_m_s": 6.437288539018482e-05,
         "minimum_altitude_m": 2.5,
         "maximum_altitude_m": 5.637847900390625,
-        "maximum_horizontal_excursion_m": 9.60344146201758,
-        "sustained_hover_duration_s": 5.08,
+        "maximum_horizontal_excursion_m": 4.971075489020105,
+        "sustained_hover_duration_s": 5.42,
         "commands_finite": true,
         "commands_bounded": true
       }
@@ -210,43 +213,44 @@
       },
       "gate_passed": false,
       "failed_observations": [
+        "terminal_vertical_speed_below_0_01_m_s",
         "minimum_altitude_above_1_m"
       ],
       "timing": {
-        "first_supported_control_time_s": 1.05,
-        "initial_belief_admission_time_s": 1.83
+        "first_supported_control_time_s": 1.03,
+        "initial_belief_admission_time_s": 1.64
       },
       "identification": {
-        "accepted_update_count": 2,
+        "accepted_update_count": 4,
         "rejected_update_count": 0,
-        "accepted_replacement_count": 1,
-        "terminal_working_command_evidence_rank": 2,
+        "accepted_replacement_count": 3,
+        "terminal_working_command_evidence_rank": 1,
         "terminal_working_angular_effect_rank": 1
       },
       "recovery": {
-        "terminal_velocity_norm_m_s": 0.010138270354596638,
-        "terminal_angular_rate_norm_rad_s": 0.007174704746876898,
-        "terminal_tilt_rad": 0.0007907007367745692,
-        "terminal_vertical_velocity_m_s": 0.009379184804856777,
-        "minimum_altitude_m": -0.0010000000474974513,
+        "terminal_velocity_norm_m_s": 0.012817989530157663,
+        "terminal_angular_rate_norm_rad_s": 0.009891145374507568,
+        "terminal_tilt_rad": 0.0008095886258513086,
+        "terminal_vertical_velocity_m_s": 0.012045870535075665,
+        "minimum_altitude_m": 0.8450114130973816,
         "maximum_altitude_m": 6.284185886383057,
-        "maximum_horizontal_excursion_m": 2.7728742804972177,
-        "sustained_hover_duration_s": 6.859999999999999,
+        "maximum_horizontal_excursion_m": 10.914677417931392,
+        "sustained_hover_duration_s": 4.83,
         "commands_finite": true,
         "commands_bounded": true
       }
     }
   ],
   "aggregate": {
-    "passing_case_count": 3,
-    "failing_case_count": 2,
-    "pass_fraction": 0.6,
+    "passing_case_count": 2,
+    "failing_case_count": 3,
+    "pass_fraction": 0.4,
     "all_commands_finite_and_bounded": true,
-    "worst_terminal_velocity_norm_m_s": 0.015394153050033332,
-    "worst_terminal_angular_rate_norm_rad_s": 0.012668415635191263,
-    "worst_terminal_tilt_rad": 0.0009918884556607257,
-    "minimum_sustained_hover_duration_s": 5.07,
-    "minimum_altitude_m": -0.0010000000474974513
+    "worst_terminal_velocity_norm_m_s": 0.016482974863393292,
+    "worst_terminal_angular_rate_norm_rad_s": 0.012773167881147355,
+    "worst_terminal_tilt_rad": 0.001050174350206879,
+    "minimum_sustained_hover_duration_s": 4.83,
+    "minimum_altitude_m": 0.8450114130973816
   },
   "limitations": [
     "This is a small deterministic development campaign, not held-out validation.",

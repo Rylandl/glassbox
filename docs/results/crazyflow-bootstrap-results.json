@@ -34,6 +34,7 @@
       ],
       "command_rank_relative_tolerance": 0.02,
       "minimum_normalized_command_rms": 0.003,
+      "nuisance_rank_relative_tolerance": 0.002,
       "output_rank_relative_tolerance": 0.03,
       "minimum_validation_improvement": 0.05,
       "minimum_collective_support_fraction": 0.95,
@@ -58,6 +59,7 @@
       ],
       "command_rank_relative_tolerance": 0.02,
       "minimum_normalized_command_rms": 0.003,
+      "nuisance_rank_relative_tolerance": 0.002,
       "output_rank_relative_tolerance": 0.03,
       "minimum_validation_improvement": 0.05,
       "minimum_collective_support_fraction": 0.95,
@@ -109,11 +111,11 @@
     }
   },
   "timing": {
-    "provisional_prewarm_wall_time_s": 0.15237333299592137,
-    "final_prewarm_wall_time_s": 0.14723904081620276,
-    "prewarm_wall_time_s": 0.29961237381212413,
-    "provisional_fit_wall_time_s": 0.0003189169801771641,
-    "fit_wall_time_s": 0.0002620001323521137,
+    "provisional_prewarm_wall_time_s": 0.3387763749342412,
+    "final_prewarm_wall_time_s": 0.30428533302620053,
+    "prewarm_wall_time_s": 0.6430617079604417,
+    "provisional_fit_wall_time_s": 0.0010472920257598162,
+    "fit_wall_time_s": 0.0014147500041872263,
     "evidence_duration_s": 0.56
   },
   "identification": {
@@ -124,6 +126,8 @@
     "collective_command_evidence_rank": 4,
     "command_evidence_rank": 4,
     "angular_effect_rank": 3,
+    "collective_nuisance_rank": 4,
+    "angular_nuisance_rank": 7,
     "collective_support_fraction": 1.000000098085136,
     "collective_acceleration_per_command": [
       4.741510391235352,
@@ -257,7 +261,7 @@
     "ready_for_hover": true,
     "ready_for_rate_arrest": true,
     "ready": true,
-    "wall_time_s": 0.0002620001323521137,
+    "wall_time_s": 0.0014147500041872263,
     "sample_period_s": 0.02000000000000001,
     "evidence_duration_s": 0.56
   },
@@ -269,6 +273,8 @@
     "collective_command_evidence_rank": 4,
     "command_evidence_rank": 3,
     "angular_effect_rank": 3,
+    "collective_nuisance_rank": 4,
+    "angular_nuisance_rank": 7,
     "collective_support_fraction": 0.9999995177595769,
     "collective_acceleration_per_command": [
       4.786831378936768,
@@ -402,7 +408,7 @@
     "ready_for_hover": true,
     "ready_for_rate_arrest": false,
     "ready": false,
-    "wall_time_s": 0.0003189169801771641,
+    "wall_time_s": 0.0010472920257598162,
     "sample_period_s": 0.020000000000000004,
     "evidence_duration_s": 0.48
   },

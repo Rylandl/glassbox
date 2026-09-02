@@ -241,3 +241,90 @@ def test_supervisor_config_rejects_incoherent_release_and_command_bounds() -> No
             maximum_angular_rate_rad_s=2.0,
             release_angular_rate_rad_s=2.0,
         )
+
+
+def _arrest_command(
+    supervisor: MultirotorFlightSupervisor,
+    roll_rad: float,
+) -> np.ndarray:
+    state = resting_state()
+    state[6:10] = _roll_quaternion(roll_rad)
+    decision = supervisor.supervise(
+        state=state,
+        state_received_at_s=1.0,
+        candidate_command=np.full(4, 0.4),
+        command_generated_at_s=1.0,
+        now_s=1.0,
+        controller_command_usable=False,
+        previous_applied_command=np.full(4, 0.5),
+    )
+    assert decision.mode == SupervisorMode.RATE_ARREST
+    return decision.command
+
+
+def test_arrest_keeps_restoring_authority_near_inversion() -> None:
+    config = MultirotorSupervisorConfig()
+    upright = _arrest_command(MultirotorFlightSupervisor(config), 1.0)
+    inverted = _arrest_command(MultirotorFlightSupervisor(config), 3.0)
+    exactly_inverted = _arrest_command(MultirotorFlightSupervisor(config), math.pi)
+
+    upright_spread = float(np.max(upright) - np.min(upright))
+    inverted_spread = float(np.max(inverted) - np.min(inverted))
+    exact_spread = float(np.max(exactly_inverted) - np.min(exactly_inverted))
+
+    assert upright_spread > 0.1
+    assert inverted_spread >= 0.9 * upright_spread
+    assert exact_spread >= 0.9 * upright_spread
+    assert np.sign(inverted[0] - inverted[1]) == np.sign(upright[0] - upright[1])
+
+
+def test_small_tilt_arrest_matches_the_linearized_cross_product() -> None:
+    config = MultirotorSupervisorConfig()
+    hold = np.asarray(config.collective_hold_command)
+    mixer = np.asarray(MOTOR_MIXER)
+
+    for roll_rad in (1e-3, 5e-3, 1e-2):
+        state = resting_state()
+        state[6:10] = _roll_quaternion(roll_rad)
+        _, x, _, _ = state[6:10]
+        world_up_body = np.asarray((0.0, 2.0 * x * state[6], 1.0 - 2.0 * x * x))
+        linearized = np.cross(np.asarray((0.0, 0.0, 1.0)), world_up_body)
+        expected = hold + 0.25 * mixer.T @ np.asarray(
+            (config.tilt_gain * linearized[0], config.tilt_gain * linearized[1], 0.0)
+        )
+
+        command = _arrest_command(MultirotorFlightSupervisor(config), roll_rad)
+
+        np.testing.assert_allclose(command, expected, atol=1e-6)
+
+
+def test_rounding_width_bound_overshoot_is_clipped_not_arrested() -> None:
+    supervisor = MultirotorFlightSupervisor(MultirotorSupervisorConfig())
+
+    decision = _decision(supervisor, candidate=np.asarray((1.0 + 1e-9, 0.4, 0.4, 0.4)))
+
+    assert decision.mode == SupervisorMode.NOMINAL
+    assert decision.reasons == ()
+    assert decision.command[0] == pytest.approx(1.0)
+
+    supervisor.reset()
+    rejected = _decision(supervisor, candidate=np.asarray((1.01, 0.4, 0.4, 0.4)))
+
+    assert rejected.mode == SupervisorMode.RATE_ARREST
+    assert SupervisorReason.COMMAND_OUT_OF_BOUNDS in rejected.reasons
+
+
+def test_time_regression_latch_still_serves_the_minimum_arrest_duration() -> None:
+    supervisor = MultirotorFlightSupervisor(
+        MultirotorSupervisorConfig(minimum_arrest_duration_s=0.10)
+    )
+    assert _decision(supervisor, now_s=1.0).mode == SupervisorMode.NOMINAL
+
+    regressed = _decision(supervisor, now_s=0.5)
+    early = _decision(supervisor, now_s=1.05)
+    released = _decision(supervisor, now_s=1.11)
+
+    assert regressed.mode == SupervisorMode.COLLECTIVE_HOLD
+    assert early.mode == SupervisorMode.RATE_ARREST
+    assert early.reasons == (SupervisorReason.ARREST_LATCHED,)
+    assert released.mode == SupervisorMode.NOMINAL
