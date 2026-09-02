@@ -88,38 +88,48 @@ change to the library-wide NMPC policy.
 
 ## Current result
 
+Recorded on 2026-09-01 after the belief-update criterion was corrected to score
+candidates without the held-out bias against the bias-corrected incumbent with a
+noise-scaled margin, and after the NMPC warm start was made to advance the plan
+at block granularity. Both changes moved this result materially; the previous
+record is described at the end of this section.
+
 On the recorded Apple M3 CPU run, the telemetry-only baseline fit reduced its
 fixed 0.1 second fitting loss from `0.02499` to `8.62e-6`. Independently fitted
 fleet members recovered the expected decreasing effective angular authority as
 arm length increased without receiving physical plant parameters.
 
-The target update was accepted. Disjoint validation RMS changed from `1.0564`
-to `0.8190`; independent normalized 0.6 second prediction RMS changed from
-`0.04641` to `0.02335` (`0.503x`).
+The target update was rejected: no bounded local step improved the proposal
+telemetry once candidates were scored without the held-out bias correction, so
+the belief was returned unchanged (`no bounded local step improved proposal telemetry`). Independent
+normalized 0.6 second prediction RMS therefore stayed at `0.04641`
+(`1.000x`), and the adapted and stale recoveries are the same trajectory
+(`1.000x` tail tracking and attitude/rate RMS). The stale belief's tail tracking
+was `1.089x` the independent full target-telemetry fit. Every trace was
+finite and command-bounded with zero fallback.
 
-Relative to the stale belief, the adapted belief produced `0.936x`
-recovery-tail tracking RMS and `0.942x` recovery-tail attitude/rate RMS. Its
-tail tracking was `1.048x` the independent full target-telemetry fit. Every
-trace was finite and command-bounded with zero fallback. Adapted-belief solves
-cost roughly twice the point-model solves; the report records each recovery's
-median, p90, and maximum solve time against the 20 ms command period.
+The validity result is now positive in this scenario: maximum actual validity
+utilization was `0.946`, `0.946`, `0.947`, and `0.897` for stale belief, adapted belief,
+adapted point, and the target-telemetry fit, so every recovery stayed inside
+learned support with the corrected warm start. This run demonstrates neither
+useful mean adaptation nor uncertainty-aware command differentiation; it
+records that the honest update criterion declined to move the belief on 0.8 s
+of this telemetry, which is the behavior the criterion is designed to have when
+the evidence does not beat the corrected forecast.
 
-The validity result remains negative. Maximum actual validity utilization was
-`1.234`, `1.293`, `1.293`, and `1.248` for stale belief, adapted belief,
-adapted point, and the target-telemetry fit. Each recovery contains best-effort
-support steps. The adapted belief and adapted point also produced the same
-physical trajectory in this scenario: parameter uncertainty increased the
-reported robust support bound, but did not change the returned commands. This
-run therefore demonstrates useful mean adaptation, not uncertainty-aware
-command differentiation.
+The previous record, produced with the bias-corrected acceptance criterion and
+the unshifted warm start, accepted the update (`0.503x` independent prediction
+RMS, `0.936x` and `0.942x` recovery-tail ratios) and left support in every
+recovery (utilization `1.234` to `1.293`). Those numbers are superseded.
 
-The online path now passes its fixed computation gate. The initial
-`1.234x`-validity portion was retained in the audit but was not used for
-fitting. A fully valid evidence window began at `0.46 s` and was submitted at
-`1.26 s`. Its transactional update was accepted: normalized innovation RMS
-changed from `7.136` to `5.248`, and validation RMS changed from `2.641` to
-`2.398`. Applied-motor context covered 20 samples and was recorded by
-fingerprint.
+The online path met every computation and absolute wall-clock deadline in the
+recorded run, but its transactional update was likewise rejected, so no
+candidate controller was installed and the stale controller flew the whole
+window. With every recovery inside support, the evidence window began at
+`0.00 s` with `41` samples and no excluded prefix. The
+online gate, which requires an installed update, therefore fails; the fixed
+supervisor fault injection that follows installation was not exercised in this
+run, and the separate 16-case supervisor campaign below still passes.
 
 The controller now treats fitted `ModelParams` as a dynamic JAX PyTree. Before
 release it compiles and twice prewarms a template with the exact uncertainty
