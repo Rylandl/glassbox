@@ -85,6 +85,7 @@ class PX4IngestConfig:
     motor_index: int | None = None
     surface_indices: tuple[int, ...] | None = None
     max_gap_s: float = 0.10
+    actuator_hold_max_age_s: float | None = None
     min_duration_s: float = 0.50
     min_height_m: float | None = 0.20
     only_armed: bool = True
@@ -109,6 +110,11 @@ class PX4IngestConfig:
             raise ValueError("sample_rate_hz must be positive")
         if self.max_gap_s <= 0.0:
             raise ValueError("max_gap_s must be positive")
+        if self.actuator_hold_max_age_s is not None and not (
+            np.isfinite(self.actuator_hold_max_age_s)
+            and self.actuator_hold_max_age_s > 0.0
+        ):
+            raise ValueError("actuator_hold_max_age_s must be positive and finite")
         if self.min_duration_s <= 0.0:
             raise ValueError("min_duration_s must be positive")
         if self.min_height_m is not None and self.min_height_m < 0.0:
@@ -585,6 +591,42 @@ def _hold_resample(
     return values[safe_indices], valid
 
 
+def _sample_rate_stats(timestamps_s: np.ndarray) -> dict[str, float | int]:
+    """Median period, maximum gap, and sample count for a prepared time series."""
+
+    diffs = np.diff(timestamps_s)
+    return {
+        "median_period_s": float(np.median(diffs)),
+        "max_gap_s": float(np.max(diffs)),
+        "sample_count": len(timestamps_s),
+    }
+
+
+def _resolve_actuator_hold_max_age_s(
+    config: PX4IngestConfig,
+    actuator_series: Sequence[tuple[np.ndarray, np.ndarray]],
+) -> float:
+    """Resolve the hold-age tolerance actually used for actuator validity.
+
+    PX4's default logging profile publishes ``actuator_motors``/``actuator_servos``
+    around every 100 ms with normal scheduling jitter. Reusing the tighter
+    ``max_gap_s`` state-interpolation tolerance for that hold window makes
+    ordinary jitter look like a telemetry dropout and needlessly fragments an
+    otherwise continuous flight. When the caller has not pinned an explicit
+    value, this widens the tolerance to 1.5x the median observed actuator
+    sample period (never below ``max_gap_s``), measured from the actuator
+    topic(s) actually selected for this log.
+    """
+
+    if config.actuator_hold_max_age_s is not None:
+        return config.actuator_hold_max_age_s
+    resolved = config.max_gap_s
+    for series_time, _ in actuator_series:
+        median_period_s = float(np.median(np.diff(series_time)))
+        resolved = max(resolved, 1.5 * median_period_s)
+    return resolved
+
+
 def _longest_true_run(mask: np.ndarray) -> tuple[int, int]:
     padded = np.concatenate(([False], np.asarray(mask, dtype=bool), [False]))
     changes = np.diff(padded.astype(np.int8))
@@ -869,9 +911,12 @@ def trajectories_from_datasets(
     else:
         wind_mask = np.ones(len(grid_s), dtype=bool)
         exogenous = np.empty((len(grid_s), 0), dtype=np.float64)
+    resolved_actuator_hold_max_age_s = _resolve_actuator_hold_max_age_s(
+        config, actuator_series
+    )
     resampled_actuators = [
         _hold_resample(
-            series_time, series_values, grid_s[:-1], config.max_gap_s
+            series_time, series_values, grid_s[:-1], resolved_actuator_hold_max_age_s
         )
         for series_time, series_values in actuator_series
     ]
@@ -965,6 +1010,46 @@ def trajectories_from_datasets(
             f"best={longest_duration_s:.3f}s, required={config.min_duration_s:.3f}s"
         )
 
+    armed_and_in_air_mask = armed_mask & in_air_mask
+    total_armed_in_air_span_s = float(np.count_nonzero(armed_and_in_air_mask)) * dt_s
+    valid_segment_count = len(valid_runs)
+
+    source_rates: dict[str, object] = {
+        "position": {**_sample_rate_stats(position_time), "method": "linear"},
+        "attitude": {**_sample_rate_stats(attitude_time), "method": "slerp"},
+        "angular_velocity": {**_sample_rate_stats(angular_time), "method": "linear"},
+    }
+    if config.platform == "fixedwing":
+        source_rates["motor_actuator"] = {
+            **_sample_rate_stats(motor_time),
+            "method": "hold",
+        }
+        source_rates["servo_actuator"] = {
+            **_sample_rate_stats(surface_time),
+            "method": "hold",
+        }
+    else:
+        source_rates["actuator"] = {
+            **_sample_rate_stats(actuator_time),
+            "method": "hold",
+        }
+    if armed_data is not None:
+        source_rates["armed"] = {**_sample_rate_stats(armed_time), "method": "hold"}
+    if land_data is not None:
+        source_rates["land"] = {**_sample_rate_stats(land_time), "method": "hold"}
+    if wind_selection is not None:
+        source_rates["wind"] = {**_sample_rate_stats(wind_time), "method": "linear"}
+    if specific_force_data is not None:
+        source_rates["specific_force"] = {
+            **_sample_rate_stats(specific_force_time),
+            "method": "linear",
+        }
+    if "angular_acceleration" in observation_topic_metadata:
+        source_rates["angular_acceleration"] = {
+            **_sample_rate_stats(angular_acceleration_time),
+            "method": "linear",
+        }
+
     if config.platform == "fixedwing":
         actuator_metadata: dict[str, object] = {
             "actuator_fields": {
@@ -1046,6 +1131,12 @@ def trajectories_from_datasets(
                 else {}
             ),
         }
+        segment_duration_s = interval_count * dt_s
+        selected_segment_coverage = (
+            segment_duration_s / total_armed_in_air_span_s
+            if total_armed_in_air_span_s > 0.0
+            else None
+        )
         provenance = {
             "source": source,
             "adapter": {"name": "px4_ulog", "schema_version": 2},
@@ -1064,11 +1155,16 @@ def trajectories_from_datasets(
                 "source_start_time_s": absolute_start_s,
                 "valid_interval_index": segment_index + 1,
                 "valid_interval_count": len(valid_runs),
+                "valid_segment_count": valid_segment_count,
+                "selected_segment_coverage": selected_segment_coverage,
+                "resolved_actuator_hold_max_age_s": resolved_actuator_hold_max_age_s,
+                "source_rates": source_rates,
                 "filters": {
                     "only_armed": config.only_armed,
                     "only_in_air": config.only_in_air,
                     "min_height_m": config.min_height_m,
                     "max_gap_s": config.max_gap_s,
+                    "actuator_hold_max_age_s": config.actuator_hold_max_age_s,
                     "min_duration_s": config.min_duration_s,
                 },
                 "discarded_intervals": int(len(interval_mask) - interval_count),

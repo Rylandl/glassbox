@@ -263,7 +263,12 @@ class IDFFixedWingAdapter:
             config=PX4IngestConfig(
                 platform="fixedwing",
                 sample_rate_hz=IDF_SAMPLE_RATE_HZ,
+                # IDF_MAX_GAP_S is pinned explicitly for both the state
+                # interpolation gap and the actuator hold-age tolerance so
+                # this adapter never depends on PX4IngestConfig's automatic
+                # per-log hold-age resolution.
                 max_gap_s=IDF_MAX_GAP_S,
+                actuator_hold_max_age_s=IDF_MAX_GAP_S,
                 min_duration_s=IDF_MIN_SEGMENT_DURATION_S,
                 profile="waypoint_circuit",
                 condition="outdoor_real_flight",

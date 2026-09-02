@@ -1,8 +1,10 @@
+import sys
 from dataclasses import dataclass
 
 import numpy as np
 import pytest
 
+from glassbox.data import Trajectory, make_trajectory_spec
 from glassbox.px4_ulog import (
     PX4IngestConfig,
     PX4ULogError,
@@ -586,3 +588,257 @@ def test_px4_flap_effectiveness_adds_a_typed_auxiliary_control() -> None:
     np.testing.assert_allclose(
         trajectory.controls, np.tile([0.1, 0.4, -0.2, 0.3], (10, 1))
     )
+
+
+def make_jittered_actuator_datasets() -> list[FakeDataset]:
+    """A ~4s flight with actuator_motors jittering +-10% around a 100ms period.
+
+    Position, attitude, and angular velocity are sampled every 20ms (well
+    inside ``max_gap_s``) so only the actuator hold-age tolerance can gate
+    validity. The actuator series is phase-shifted from the state grid by a
+    few milliseconds, matching how PX4's continuous microsecond timestamps
+    actually fall relative to a fixed-rate output grid.
+    """
+
+    start_us = 1_000_000
+    span_s = 4.0
+    fine_count = int(span_s / 0.02) + 1
+    fine_timestamp = start_us + np.arange(fine_count) * 20_000
+
+    position = FakeDataset(
+        "vehicle_local_position",
+        {
+            "timestamp": fine_timestamp,
+            "timestamp_sample": fine_timestamp,
+            "x": np.zeros(fine_count),
+            "y": np.zeros(fine_count),
+            "z": np.full(fine_count, -5.0),
+            "vx": np.zeros(fine_count),
+            "vy": np.zeros(fine_count),
+            "vz": np.zeros(fine_count),
+            "xy_valid": np.ones(fine_count, dtype=bool),
+            "z_valid": np.ones(fine_count, dtype=bool),
+            "v_xy_valid": np.ones(fine_count, dtype=bool),
+            "v_z_valid": np.ones(fine_count, dtype=bool),
+        },
+    )
+    attitude = FakeDataset(
+        "vehicle_attitude",
+        {
+            "timestamp": fine_timestamp,
+            "timestamp_sample": fine_timestamp,
+            **array_fields(
+                "q", np.tile([1.0, 0.0, 0.0, 0.0], (fine_count, 1))
+            ),
+        },
+    )
+    angular_velocity = FakeDataset(
+        "vehicle_angular_velocity",
+        {
+            "timestamp": fine_timestamp,
+            "timestamp_sample": fine_timestamp,
+            **array_fields("xyz", np.tile([0.1, 0.2, 0.3], (fine_count, 1))),
+        },
+    )
+
+    periods_us = np.tile([90_000, 110_000], 20)
+    actuator_timestamp = start_us + 7_000 + np.concatenate(
+        ([0], np.cumsum(periods_us))
+    )
+    control_values = np.tile(
+        np.arange(1, 5, dtype=float) / 10.0, (len(actuator_timestamp), 1)
+    )
+    actuator = FakeDataset(
+        "actuator_motors",
+        {
+            "timestamp": actuator_timestamp,
+            "timestamp_sample": actuator_timestamp,
+            **array_fields("control", control_values),
+        },
+    )
+
+    armed_timestamp = start_us + np.arange(int(span_s / 0.1) + 1) * 100_000
+    armed = FakeDataset(
+        "actuator_armed",
+        {
+            "timestamp": armed_timestamp,
+            "armed": np.ones(len(armed_timestamp), dtype=bool),
+        },
+    )
+    land = FakeDataset(
+        "vehicle_land_detected",
+        {
+            "timestamp": armed_timestamp,
+            "landed": np.zeros(len(armed_timestamp), dtype=bool),
+            "ground_contact": np.zeros(len(armed_timestamp), dtype=bool),
+        },
+    )
+    return [position, attitude, angular_velocity, actuator, armed, land]
+
+
+def test_actuator_hold_age_resolves_from_publish_jitter_by_default() -> None:
+    datasets = make_jittered_actuator_datasets()
+
+    trajectories = trajectories_from_datasets(
+        datasets,
+        config=PX4IngestConfig(motor_indices=(0, 1, 2, 3)),
+    )
+
+    assert len(trajectories) == 1
+    px4 = trajectories[0].provenance["px4"]
+    assert px4["resolved_actuator_hold_max_age_s"] == pytest.approx(0.15, abs=1e-6)
+    assert px4["valid_segment_count"] == 1
+    assert px4["selected_segment_coverage"] == pytest.approx(1.0)
+    assert trajectories[0].time_s[-1] == pytest.approx(3.98)
+
+
+def test_explicit_actuator_hold_max_age_overrides_automatic_resolution() -> None:
+    datasets = make_jittered_actuator_datasets()
+
+    trajectories = trajectories_from_datasets(
+        datasets,
+        config=PX4IngestConfig(
+            motor_indices=(0, 1, 2, 3),
+            actuator_hold_max_age_s=0.10,
+            min_duration_s=0.15,
+        ),
+    )
+
+    assert len(trajectories) == 20
+    px4 = trajectories[0].provenance["px4"]
+    assert px4["resolved_actuator_hold_max_age_s"] == pytest.approx(0.10)
+    assert px4["valid_segment_count"] == 20
+    for trajectory in trajectories:
+        assert trajectory.time_s[-1] == pytest.approx(0.18)
+
+
+def test_source_rates_reports_period_method_and_sample_count() -> None:
+    trajectory = trajectory_from_datasets(
+        make_datasets(),
+        config=PX4IngestConfig(
+            sample_rate_hz=10.0,
+            motor_indices=(0, 1, 2, 3),
+            max_gap_s=0.11,
+            min_height_m=0.0,
+        ),
+    )
+
+    source_rates = trajectory.provenance["px4"]["source_rates"]
+
+    position_rates = source_rates["position"]
+    assert position_rates["method"] == "linear"
+    assert position_rates["median_period_s"] == pytest.approx(0.1)
+    assert position_rates["sample_count"] == 11
+
+    attitude_rates = source_rates["attitude"]
+    assert attitude_rates["method"] == "slerp"
+    assert attitude_rates["median_period_s"] == pytest.approx(0.05)
+    assert attitude_rates["sample_count"] == 21
+
+    angular_rates = source_rates["angular_velocity"]
+    assert angular_rates["method"] == "linear"
+    assert angular_rates["median_period_s"] == pytest.approx(0.04)
+    assert angular_rates["sample_count"] == 26
+
+    actuator_rates = source_rates["actuator"]
+    assert actuator_rates["method"] == "hold"
+    assert actuator_rates["median_period_s"] == pytest.approx(0.02)
+    assert actuator_rates["sample_count"] == 51
+
+
+def test_cli_extract_warns_when_coverage_is_incomplete(tmp_path, monkeypatch, capsys) -> None:
+    import glassbox.ulog_cli as ulog_cli
+
+    fragmented_trajectory = trajectory_from_datasets(
+        make_jittered_actuator_datasets(),
+        config=PX4IngestConfig(
+            motor_indices=(0, 1, 2, 3),
+            actuator_hold_max_age_s=0.10,
+            min_duration_s=0.15,
+        ),
+    )
+
+    def fake_load(path, *, config):
+        return fragmented_trajectory
+
+    monkeypatch.setattr(ulog_cli, "load_px4_trajectory", fake_load)
+    output_path = tmp_path / "flight.npz"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "glassbox-ulog",
+            "extract",
+            str(tmp_path / "flight.ulg"),
+            str(output_path),
+        ],
+    )
+
+    ulog_cli.main()
+
+    captured = capsys.readouterr()
+    assert "segments: 20 valid" in captured.out
+    assert "warning" in captured.err
+    assert "--max-gap" in captured.err
+    assert "--actuator-hold-max-age" in captured.err
+    assert "0.100s" in captured.err
+
+
+def test_arp_reference_pins_actuator_hold_max_age(tmp_path, monkeypatch) -> None:
+    import glassbox.arp_reference as arp_module
+
+    source = tmp_path / "log_63_2024-1-8-16-37-54.ulg"
+    source.write_bytes(b"fixture")
+    captured: dict[str, object] = {}
+
+    states = np.zeros((31, 13), dtype=np.float64)
+    states[:, 6] = 1.0
+    powered_trajectory = Trajectory(
+        time_s=np.arange(31, dtype=np.float64) * 0.02,
+        states=states,
+        controls=np.full((30, 4), 0.25),
+        spec=make_trajectory_spec(
+            (
+                "motor_front_left",
+                "motor_front_right",
+                "motor_rear_right",
+                "motor_rear_left",
+            ),
+            family="multirotor",
+            observation_source="estimated",
+        ),
+        labels={"profile": "published_sysid", "replicate": 1},
+        provenance={"source": "fixture.ulg", "px4": {"filters": {}}},
+    )
+
+    def fake_load(path, *, config):
+        captured["config"] = config
+        return powered_trajectory
+
+    monkeypatch.setattr(arp_module, "load_px4_trajectory", fake_load)
+    arp_module.ARPReferenceAdapter(verify_checksum=False).load(source)
+
+    config = captured["config"]
+    assert config.actuator_hold_max_age_s == pytest.approx(0.10)
+    assert config.max_gap_s == pytest.approx(0.10)
+
+
+def test_idf_reference_pins_actuator_hold_max_age_to_max_gap(
+    tmp_path, monkeypatch
+) -> None:
+    import glassbox.idf_reference as idf_module
+
+    source = tmp_path / "log_67_2025-8-21-14-24-48.ulg"
+    source.write_bytes(b"fixture")
+    captured: dict[str, object] = {}
+
+    def fake_load(path, *, config):
+        captured["config"] = config
+        return ()
+
+    monkeypatch.setattr(idf_module, "load_px4_trajectories", fake_load)
+    idf_module.IDFFixedWingAdapter(verify_checksum=False).load_all(source)
+
+    config = captured["config"]
+    assert config.actuator_hold_max_age_s == idf_module.IDF_MAX_GAP_S
+    assert config.max_gap_s == idf_module.IDF_MAX_GAP_S

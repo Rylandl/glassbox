@@ -203,6 +203,11 @@ class ARPReferenceAdapter:
                 min_height_m=None,
                 only_armed=False,
                 only_in_air=False,
+                # Pinned to the pre-auto-resolution actuator hold-age tolerance.
+                # Recorded ARP fit and evaluation results depend on this exact
+                # value; do not let it silently follow PX4IngestConfig's
+                # automatic per-log resolution.
+                actuator_hold_max_age_s=0.10,
                 profile="published_sysid",
                 condition="aggressive_real_flight",
                 replicate=recording.replicate,

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
 from glassbox.arp_reference import (
@@ -61,6 +62,33 @@ def _inspect(args: argparse.Namespace) -> None:
         )
 
 
+def _report_segments(trajectory) -> None:
+    """Print segment coverage and warn when telemetry gaps discarded flight time."""
+
+    px4 = trajectory.provenance["px4"]
+    segment_count = px4.get("valid_segment_count", 1)
+    coverage = px4.get("selected_segment_coverage")
+    coverage_text = f"{coverage:.1%}" if coverage is not None else "unknown"
+    print(f"segments: {segment_count} valid, coverage: {coverage_text}")
+    if segment_count > 1 or (coverage is not None and coverage < 0.5):
+        resolved_hold_age = px4.get("resolved_actuator_hold_max_age_s")
+        hold_age_text = (
+            f"{resolved_hold_age:.3f}s"
+            if resolved_hold_age is not None
+            else "unknown"
+        )
+        print(
+            "warning: extraction kept only "
+            f"{segment_count} valid segment(s) covering {coverage_text} of the "
+            "armed/in-air span this log offered; only the longest segment was "
+            "written. Telemetry gaps wider than the resolved actuator hold "
+            f"age ({hold_age_text}) split the flight into separate segments. "
+            "Widen --max-gap or set --actuator-hold-max-age explicitly to "
+            "recover more flight time.",
+            file=sys.stderr,
+        )
+
+
 def _extract(args: argparse.Namespace) -> None:
     config = PX4IngestConfig(
         sample_rate_hz=args.rate,
@@ -69,6 +97,7 @@ def _extract(args: argparse.Namespace) -> None:
         actuator_topic=args.actuator_topic,
         actuator_field=args.actuator_field,
         max_gap_s=args.max_gap,
+        actuator_hold_max_age_s=args.actuator_hold_max_age,
         min_duration_s=args.min_duration,
         min_height_m=None if args.include_ground else args.min_height,
         only_armed=not args.include_disarmed,
@@ -91,6 +120,7 @@ def _extract(args: argparse.Namespace) -> None:
         f"{mapping['motor_indices']} "
         f"({mapping['motor_order_source']})"
     )
+    _report_segments(trajectory)
 
 
 def _extract_fixedwing(args: argparse.Namespace) -> None:
@@ -105,6 +135,7 @@ def _extract_fixedwing(args: argparse.Namespace) -> None:
         servo_topic=args.servo_topic,
         servo_field=args.servo_field,
         max_gap_s=args.max_gap,
+        actuator_hold_max_age_s=args.actuator_hold_max_age,
         min_duration_s=args.min_duration,
         min_height_m=None if args.include_ground else args.min_height,
         only_armed=not args.include_disarmed,
@@ -128,6 +159,7 @@ def _extract_fixedwing(args: argparse.Namespace) -> None:
         f"surfaces={mapping['surface_indices']} "
         f"({mapping['actuator_mapping_source']})"
     )
+    _report_segments(trajectory)
 
 
 def _prepare_arp(args: argparse.Namespace) -> None:
@@ -202,6 +234,17 @@ def main() -> None:
         help="actuator array field prefix, for example control or output",
     )
     extract_parser.add_argument("--max-gap", type=float, default=0.10)
+    extract_parser.add_argument(
+        "--actuator-hold-max-age",
+        type=float,
+        default=None,
+        help=(
+            "maximum age in seconds for holding the last actuator sample "
+            "valid; default resolves per log as max(--max-gap, 1.5x the "
+            "median actuator sample period) so ordinary publish jitter does "
+            "not fragment a flight into short segments"
+        ),
+    )
     extract_parser.add_argument("--min-duration", type=float, default=0.50)
     extract_parser.add_argument(
         "--min-height",
@@ -269,6 +312,17 @@ def main() -> None:
     fixedwing_parser.add_argument("--servo-topic", default="actuator_servos")
     fixedwing_parser.add_argument("--servo-field", default="control")
     fixedwing_parser.add_argument("--max-gap", type=float, default=0.10)
+    fixedwing_parser.add_argument(
+        "--actuator-hold-max-age",
+        type=float,
+        default=None,
+        help=(
+            "maximum age in seconds for holding the last motor/servo sample "
+            "valid; default resolves per log as max(--max-gap, 1.5x the "
+            "median actuator sample period) so ordinary publish jitter does "
+            "not fragment a flight into short segments"
+        ),
+    )
     fixedwing_parser.add_argument("--min-duration", type=float, default=0.50)
     fixedwing_parser.add_argument(
         "--min-height",
