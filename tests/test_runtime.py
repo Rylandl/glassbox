@@ -6,18 +6,18 @@ import numpy as np
 import pytest
 from jax import Array
 
-from glassbox.data import ControlChannel
-from glassbox.dynamics import initial_residual_parameters
-from glassbox.model_io import save_dynamics_model
-from glassbox.nanodrone_benchmark import nanodrone_trajectory_spec
-from glassbox.runtime import (
+from glassbox.core.data import ControlChannel
+from glassbox.core.dynamics import initial_residual_parameters
+from glassbox.core.model_io import save_dynamics_model
+from glassbox.core.runtime import (
     DirectActuationMap,
     NonActionableModelError,
     RuntimeDynamicsModel,
     runtime_spec_from_fit_report,
     runtime_spec_from_trajectory,
 )
-from glassbox.synthetic import generate_trajectory, true_parameters
+from glassbox.core.synthetic import generate_trajectory, true_parameters
+from glassbox.io.nanodrone_reference import nanodrone_trajectory_spec
 
 
 def test_runtime_model_loads_timing_bounds_and_latent_state(tmp_path) -> None:

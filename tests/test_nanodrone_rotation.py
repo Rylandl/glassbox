@@ -1,14 +1,14 @@
 import json
 from dataclasses import replace
 
-from glassbox.data import save_trajectory_npz
-from glassbox.model_io import save_dynamics_model
-from glassbox.nanodrone_rotation import (
+from glassbox.core.data import save_trajectory_npz
+from glassbox.core.model_io import save_dynamics_model
+from glassbox.core.runtime import runtime_spec_from_trajectory
+from glassbox.core.synthetic import generate_trajectory, true_parameters
+from glassbox.workflows.nanodrone_rotation import (
     select_nanodrone_angular_authority,
     select_nanodrone_rotation_candidate,
 )
-from glassbox.runtime import runtime_spec_from_trajectory
-from glassbox.synthetic import generate_trajectory, true_parameters
 
 
 def _metrics(value: float) -> dict[str, float]:

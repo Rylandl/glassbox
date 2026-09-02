@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from glassbox.data import (
+from glassbox.core.data import (
     RIGID_BODY_STATE_SCHEMA,
     ControlChannel,
     ExogenousChannel,

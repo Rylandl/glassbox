@@ -4,23 +4,23 @@
   "implementation": {
     "method_version": 4,
     "source_files": [
-      "adaptation.py",
-      "adaptive_recovery_benchmark.py",
-      "belief.py",
-      "covariance.py",
-      "data.py",
-      "dynamics.py",
-      "evaluation.py",
-      "geometry.py",
-      "linearization.py",
-      "nmpc/__init__.py",
-      "nmpc/solver.py",
-      "nmpc/types.py",
-      "parameter_prior.py",
-      "runtime.py",
-      "synthetic.py"
+      "belief/adaptation.py",
+      "belief/belief.py",
+      "belief/parameter_prior.py",
+      "control/nmpc/__init__.py",
+      "control/nmpc/solver.py",
+      "control/nmpc/types.py",
+      "core/covariance.py",
+      "core/data.py",
+      "core/dynamics.py",
+      "core/evaluation.py",
+      "core/geometry.py",
+      "core/linearization.py",
+      "core/runtime.py",
+      "core/synthetic.py",
+      "workflows/adaptive_recovery_benchmark.py"
     ],
-    "source_sha256": "c602844d85801993f2a46bf321628466f0160232ab78ad9ddcdc59e6cbeb6e98",
+    "source_sha256": "808c1424a7ec37c091b9dbf60a0aa3f7b15cb6fdb8a69074a8671d9a835d24cd",
     "scenario_sha256": "a9cc98f3c8703b1375264afc3b41379baaf1e4b6d9d9ad9daf5a344b8aa82606"
   },
   "semantics": {
@@ -233,10 +233,10 @@
       "outside_support_best_effort_count": 1,
       "fallback_count": 0,
       "finite": true,
-      "prewarm_wall_time_s": 5.936540208058432,
-      "solve_time_median_s": 0.008117688004858792,
-      "solve_time_p90_s": 0.008853678684681654,
-      "solve_time_maximum_s": 0.010843042051419616
+      "prewarm_wall_time_s": 12.94330787518993,
+      "solve_time_median_s": 0.017872854368761182,
+      "solve_time_p90_s": 0.02942900892812759,
+      "solve_time_maximum_s": 0.04566375003196299
     },
     {
       "condition": "adapted_belief",
@@ -273,10 +273,10 @@
       "outside_support_best_effort_count": 1,
       "fallback_count": 0,
       "finite": true,
-      "prewarm_wall_time_s": 6.628436999861151,
-      "solve_time_median_s": 0.01576237508561462,
-      "solve_time_p90_s": 0.018551357882097365,
-      "solve_time_maximum_s": 0.05190979107283056
+      "prewarm_wall_time_s": 14.901692750165239,
+      "solve_time_median_s": 0.034204249386675656,
+      "solve_time_p90_s": 0.0582002590643242,
+      "solve_time_maximum_s": 0.15425104089081287
     },
     {
       "condition": "adapted_mean_point",
@@ -313,10 +313,10 @@
       "outside_support_best_effort_count": 1,
       "fallback_count": 0,
       "finite": true,
-      "prewarm_wall_time_s": 3.048682250082493,
-      "solve_time_median_s": 0.008555291104130447,
-      "solve_time_p90_s": 0.010128283384256065,
-      "solve_time_maximum_s": 0.014377417042851448
+      "prewarm_wall_time_s": 6.096381291979924,
+      "solve_time_median_s": 0.014293145504780114,
+      "solve_time_p90_s": 0.03137895006220788,
+      "solve_time_maximum_s": 0.055971042020246387
     },
     {
       "condition": "oracle_mean_point",
@@ -353,10 +353,10 @@
       "outside_support_best_effort_count": 1,
       "fallback_count": 0,
       "finite": true,
-      "prewarm_wall_time_s": 2.9341842920985073,
-      "solve_time_median_s": 0.008088083588518202,
-      "solve_time_p90_s": 0.00917232499923557,
-      "solve_time_maximum_s": 0.01440233294852078
+      "prewarm_wall_time_s": 4.828763667028397,
+      "solve_time_median_s": 0.012174541596323252,
+      "solve_time_p90_s": 0.03070742040872574,
+      "solve_time_maximum_s": 0.14837875007651746
     }
   ],
   "comparisons": {

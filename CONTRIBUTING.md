@@ -3,9 +3,13 @@
 ## Setup
 
 ```bash
-uv sync --dev
+uv sync --dev --extra crazyflow --extra crazyflow-animation --extra cascade
 uv run pre-commit install   # optional; mirrors CI locally
 ```
+
+`uv sync` makes the environment exact, so a later `uv sync --dev` without the
+extras removes the simulators and their tests skip. Pass the extras every time,
+or the simulator-backed tests silently stop running.
 
 The default suite runs in about a quarter of an hour:
 
@@ -30,8 +34,9 @@ uv run ruff check src tests scripts && uv run ruff format --check src tests scri
 
 Several benchmarks pin a recorded artifact under `docs/results/` and compare a
 fresh run against it, and `glassbox-adaptive-recovery` also hashes its source
-files into that artifact. After changing `belief.py`, `adaptation.py`,
-`dynamics.py`, `evaluation.py`, the NMPC package, or the other files listed in
+files into that artifact. After changing `belief/belief.py`,
+`belief/adaptation.py`, `core/dynamics.py`, `core/evaluation.py`, the NMPC
+package, or the other files listed in
 `adaptive_recovery_benchmark.BENCHMARK_SOURCE_FILES`, re-record with the
 command on the experiment page and commit the JSON alongside the change. Never
 edit a recorded JSON by hand, and never pick a re-run for its timings.
@@ -49,5 +54,7 @@ edit a recorded JSON by hand, and never pick a re-run for its timings.
 
 ## Layout
 
-`import glassbox` must load only the core; workflow, corpus, CLI, and
-integration modules import on demand. `tests/test_public_api.py` guards this.
+`import glassbox` must load only `glassbox.core`, `glassbox.belief`, and
+`glassbox.control.nmpc`; the `workflows`, `io`, `cli`, `integrations`, and
+`experimental` subpackages import on demand. `tests/test_public_api.py` guards
+this and pins the exported names.

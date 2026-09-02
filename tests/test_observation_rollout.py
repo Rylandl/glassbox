@@ -2,8 +2,8 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from glassbox.observation_compatibility import FirstOrderObservationFilter
-from glassbox.observation_rollout import (
+from glassbox.workflows.observation_compatibility import FirstOrderObservationFilter
+from glassbox.workflows.observation_rollout import (
     body_rate_observation_metrics_from_predictions,
     evaluate_body_rate_observation_rollouts,
     first_order_body_rate_observations,
@@ -139,7 +139,7 @@ def test_rollout_gate_aggregates_all_horizons_without_changing_dynamics(
         return predicted, target, dt_s
 
     monkeypatch.setattr(
-        "glassbox.observation_rollout.windowed_rollout_predictions",
+        "glassbox.workflows.observation_rollout.windowed_rollout_predictions",
         fake_predictions,
     )
     report = evaluate_body_rate_observation_rollouts(

@@ -3,17 +3,17 @@ from dataclasses import replace
 import numpy as np
 import pytest
 
-from glassbox.evaluation import (
+from glassbox.core.evaluation import (
     aggregate_innovation_diagnostics,
     one_step_innovation_diagnostics,
     state_kinematic_compatibility_diagnostics,
 )
-from glassbox.fixedwing_synthetic import (
+from glassbox.core.fixedwing_synthetic import (
     generate_fixed_wing_trajectory,
     initial_fixed_wing_parameter_guess,
     true_fixed_wing_parameters,
 )
-from glassbox.synthetic import (
+from glassbox.core.synthetic import (
     generate_trajectory,
     initial_parameter_guess,
     true_parameters,

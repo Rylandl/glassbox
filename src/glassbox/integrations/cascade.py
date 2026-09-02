@@ -19,27 +19,27 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
-from glassbox.data import (
+from glassbox.core.data import (
     RIGID_BODY_STATE_SCHEMA,
     Trajectory,
     TrajectoryWindows,
     trajectory_windows,
 )
-from glassbox.evaluation import (
+from glassbox.core.evaluation import (
     _state_error_metrics,
     kinematic_persistence_windowed_metrics,
 )
-from glassbox.x8_evaluation import (
+from glassbox.io.x8_reference import (
+    X8_REFERENCE_DOI,
+    X8_REFERENCE_NAME,
+    X8_REFERENCE_VERSION,
+)
+from glassbox.workflows.x8_evaluation import (
     X8_EVALUATION_HORIZONS_S,
     _aggregate_horizons,
     _geometric_ratio,
     _horizon_steps,
     _validation_trajectories,
-)
-from glassbox.x8_reference import (
-    X8_REFERENCE_DOI,
-    X8_REFERENCE_NAME,
-    X8_REFERENCE_VERSION,
 )
 
 X8_CONTROL_ROLES = ("throttle", "roll", "pitch")
@@ -910,7 +910,7 @@ def diagnose_x8_cascade(
         raise ValueError(
             f"no canonical trajectories under {destination} for split {split!r}"
         )
-    from glassbox.data import load_trajectory_npz
+    from glassbox.core.data import load_trajectory_npz
 
     trajectories = [load_trajectory_npz(path) for path in paths]
     cascade = _require_cascade()

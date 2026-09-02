@@ -3,13 +3,13 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
-from glassbox.data import (
+from glassbox.core.data import (
     Trajectory,
     make_trajectory_spec,
     save_trajectory_npz,
     trajectory_windows,
 )
-from glassbox.dynamics import (
+from glassbox.core.dynamics import (
     fixed_wing_trim_control,
     initial_residual_parameters,
     rollout,
@@ -18,18 +18,18 @@ from glassbox.dynamics import (
     step,
     step_with_latent,
 )
-from glassbox.evaluation import rollout_metrics
-from glassbox.families import FIXED_WING_FAMILY, family_for_platform
-from glassbox.fit_cli import fit_trajectory_artifacts
-from glassbox.fixedwing_synthetic import (
+from glassbox.core.evaluation import rollout_metrics
+from glassbox.core.families import FIXED_WING_FAMILY, family_for_platform
+from glassbox.core.fixedwing_synthetic import (
     TRIM_AIRSPEED_M_S,
     fixed_wing_trim_state,
     generate_fixed_wing_trajectory,
     initial_fixed_wing_parameter_guess,
     true_fixed_wing_parameters,
 )
-from glassbox.identification import fit_dynamics
-from glassbox.profile_benchmark import benchmark_profiles
+from glassbox.core.identification import fit_dynamics
+from glassbox.workflows.fitting import fit_trajectory_artifacts
+from glassbox.workflows.profile_benchmark import benchmark_profiles
 
 
 def test_fixed_wing_family_declares_canonical_controls() -> None:

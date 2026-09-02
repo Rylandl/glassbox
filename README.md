@@ -54,7 +54,7 @@ Use the belief for control:
 import jax.numpy as jnp
 
 from glassbox import DynamicsBelief, NMPCController, SafetyEnvelope, TrackingTolerances
-from glassbox.dynamics import hover_control
+from glassbox.core.dynamics import hover_control
 
 belief = DynamicsBelief.load("artifacts/belief.json")
 controller = NMPCController(
@@ -87,18 +87,21 @@ the new parameters with `belief.recalibrate_predictive_error(trajectory)`. See
 
 ## Layout
 
-The package is a flat set of modules in `src/glassbox`. `import glassbox`
-loads only the core; workflows, corpus adapters, and integrations are imported
-on demand.
+The package is a set of subpackages under `src/glassbox`. `import glassbox`
+loads only `core`, `belief`, and `control.nmpc`; workflows, command-line front
+ends, corpus adapters, integrations, and experimental APIs are imported on
+demand.
 
-| Area | Modules |
+| Subpackage | Modules |
 | --- | --- |
-| Core | `data`, `dynamics`, `families`, `geometry`, `px4_frames`, `linearization`, `covariance`, `identification`, `evaluation`, `runtime`, `model_io`, `synthetic`, `fixedwing_synthetic` |
-| Beliefs | `belief`, `belief_io`, `parameter_evidence`, `parameter_prior`, `adaptation` |
-| Control | `nmpc/`, `flight_supervisor`, `bootstrap_identification`, `online_bootstrap`, `angular_authority` |
-| Telemetry and corpora | `px4_ulog`, `sitl_profile`, `fixedwing_sitl_profile`, `nanodrone_*`, `arp_reference`, `idf_reference`, `x8_*`, `epfl_*` |
-| Workflows | `fit_cli`, `profile_benchmark`, `source_group_benchmark`, `predictive_ensemble`, `policy_selection`, `acceptance`, `fixedwing_gate`, `nmpc_benchmark`, `adaptation_benchmark`, `adaptive_recovery_benchmark`, `observation_*`, `streaming_evaluation` |
-| Integrations | `integrations/px4`, `integrations/px4_nmpc_shadow`, `integrations/crazyflow*`, `integrations/cascade` |
+| `core` | `data`, `dynamics`, `families`, `geometry`, `px4_frames`, `linearization`, `covariance`, `identification`, `evaluation`, `runtime`, `model_io`, `streaming_evaluation`, `adapter`, `synthetic`, `fixedwing_synthetic` |
+| `belief` | `belief`, `belief_io`, `parameter_evidence`, `parameter_prior`, `adaptation` |
+| `control` | `nmpc/`, `flight_supervisor`, `bootstrap_identification`, `online_bootstrap` |
+| `io` | `px4_ulog`, `sitl_profile`, `fixedwing_sitl_profile`, `arp_reference`, `idf_reference`, `nanodrone_reference`, `x8_reference`, `epfl_reference` |
+| `workflows` | `fitting`, `profile_benchmark`, `source_group_benchmark`, `predictive_ensemble`, `policy_selection`, `acceptance`, `fixedwing_gate`, `nmpc_benchmark`, `adaptation_benchmark`, `adaptive_recovery_benchmark`, `observation_*`, `*_evaluation`, `nanodrone_rotation`, `angular_authority` |
+| `cli` | `synthetic_demo`, `fixedwing`, `ulog`, `prior`, `nanodrone`, `x8`, `epfl` |
+| `integrations` | `px4`, `px4_nmpc_shadow`, `crazyflow*`, `cascade` |
+| `experimental` | Re-exports of the bootstrap identifiers, the flight supervisor, and the predictive-ensemble workflow. These APIs can change without notice. |
 
 The canonical state is 13 wide: NWU position and velocity, a WXYZ unit
 quaternion from body to world, and FLU body rates. Commands are normalized

@@ -13,12 +13,12 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from glassbox.core.runtime import RuntimeDynamicsModel
 from glassbox.integrations.px4 import (
     PX4HILActuatorSource,
     PX4MavlinkStateSource,
 )
 from glassbox.integrations.px4_nmpc_shadow import run_px4_nmpc_shadow
-from glassbox.runtime import RuntimeDynamicsModel
 
 PX4_SITL_IMAGE = (
     "px4io/px4-sitl@"
@@ -283,7 +283,7 @@ def test_flown_profile_pairs_real_applied_commands_with_shadow_solver(
                 [
                     sys.executable,
                     "-m",
-                    "glassbox.sitl_profile",
+                    "glassbox.io.sitl_profile",
                     profile,
                     "--condition",
                     "high",

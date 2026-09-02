@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 
-from glassbox.adaptation_benchmark import run_adaptation_benchmark
+from glassbox.workflows.adaptation_benchmark import run_adaptation_benchmark
 
 
 def test_compact_fleet_prior_adaptation_is_predictively_useful() -> None:

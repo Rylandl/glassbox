@@ -5,12 +5,12 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
-from glassbox.data import make_trajectory_spec, trajectory_windows
-from glassbox.dynamics import (
+from glassbox.core.data import make_trajectory_spec, trajectory_windows
+from glassbox.core.dynamics import (
     initial_residual_parameters,
     with_thrust_command_offset,
 )
-from glassbox.identification import (
+from glassbox.core.identification import (
     MAX_OPTIMIZATION_WINDOWS_PER_HORIZON,
     _optimization_batch_schedules,
     deterministic_weighted_batch_schedule,
@@ -20,12 +20,12 @@ from glassbox.identification import (
     rollout_loss_configuration,
     supports_multirotor_thrust_command_offset,
 )
-from glassbox.nanodrone_benchmark import nanodrone_trajectory_spec
-from glassbox.synthetic import (
+from glassbox.core.synthetic import (
     generate_trajectory,
     initial_parameter_guess,
     true_parameters,
 )
+from glassbox.io.nanodrone_reference import nanodrone_trajectory_spec
 
 
 def test_multistep_fit_reduces_training_loss() -> None:
@@ -358,7 +358,7 @@ def test_quadrotor_fit_rejects_non_quadrotor_control_schema() -> None:
 def test_minibatch_realizes_window_weights_exactly_once() -> None:
     from dataclasses import replace
 
-    from glassbox.identification import (
+    from glassbox.core.identification import (
         _window_loss,
         deterministic_weighted_batch_schedule,
     )

@@ -1,4 +1,4 @@
-from glassbox.nmpc_benchmark import run_nmpc_benchmark
+from glassbox.workflows.nmpc_benchmark import run_nmpc_benchmark
 
 
 def test_maintained_nmpc_acceptance_suite_passes() -> None:

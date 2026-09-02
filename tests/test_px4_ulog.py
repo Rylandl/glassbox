@@ -4,8 +4,8 @@ from dataclasses import dataclass
 import numpy as np
 import pytest
 
-from glassbox.data import Trajectory, make_trajectory_spec
-from glassbox.px4_ulog import (
+from glassbox.core.data import Trajectory, make_trajectory_spec
+from glassbox.io.px4_ulog import (
     PX4IngestConfig,
     PX4ULogError,
     trajectories_from_datasets,
@@ -739,7 +739,7 @@ def test_source_rates_reports_period_method_and_sample_count() -> None:
 def test_cli_extract_warns_when_coverage_is_incomplete(
     tmp_path, monkeypatch, capsys
 ) -> None:
-    import glassbox.ulog_cli as ulog_cli
+    import glassbox.cli.ulog as ulog_cli
 
     fragmented_trajectory = trajectory_from_datasets(
         make_jittered_actuator_datasets(),
@@ -777,7 +777,7 @@ def test_cli_extract_warns_when_coverage_is_incomplete(
 
 
 def test_arp_reference_pins_actuator_hold_max_age(tmp_path, monkeypatch) -> None:
-    import glassbox.arp_reference as arp_module
+    import glassbox.io.arp_reference as arp_module
 
     source = tmp_path / "log_63_2024-1-8-16-37-54.ulg"
     source.write_bytes(b"fixture")
@@ -818,7 +818,7 @@ def test_arp_reference_pins_actuator_hold_max_age(tmp_path, monkeypatch) -> None
 def test_idf_reference_pins_actuator_hold_max_age_to_max_gap(
     tmp_path, monkeypatch
 ) -> None:
-    import glassbox.idf_reference as idf_module
+    import glassbox.io.idf_reference as idf_module
 
     source = tmp_path / "log_67_2025-8-21-14-24-48.ulg"
     source.write_bytes(b"fixture")

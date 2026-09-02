@@ -1,8 +1,8 @@
 from dataclasses import replace
 
-from glassbox.data import save_trajectory_npz
-from glassbox.fixedwing_synthetic import generate_fixed_wing_trajectory
-from glassbox.source_group_benchmark import benchmark_source_groups
+from glassbox.core.data import save_trajectory_npz
+from glassbox.core.fixedwing_synthetic import generate_fixed_wing_trajectory
+from glassbox.workflows.source_group_benchmark import benchmark_source_groups
 
 
 def test_source_group_benchmark_moves_every_segment_into_the_same_fold(
@@ -65,7 +65,7 @@ def test_source_group_benchmark_moves_every_segment_into_the_same_fold(
 
     summary_path.unlink()
     monkeypatch.setattr(
-        "glassbox.source_group_benchmark.fit_trajectory_artifacts",
+        "glassbox.workflows.source_group_benchmark.fit_trajectory_artifacts",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(
             AssertionError("completed folds must be resumed")
         ),

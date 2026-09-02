@@ -3,7 +3,7 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
-from glassbox.dynamics import (
+from glassbox.core.dynamics import (
     MOTOR_MIXER,
     DynamicsParams,
     FixedWingDynamicsParams,
@@ -19,8 +19,8 @@ from glassbox.dynamics import (
     with_instantaneous_rotational_response,
     with_thrust_command_offset,
 )
-from glassbox.evaluation import rollout_metrics
-from glassbox.synthetic import generate_trajectory, resting_state, true_parameters
+from glassbox.core.evaluation import rollout_metrics
+from glassbox.core.synthetic import generate_trajectory, resting_state, true_parameters
 
 
 def test_hover_is_an_equilibrium() -> None:
@@ -219,8 +219,8 @@ def test_estimated_wind_only_conditions_linear_residual() -> None:
 
 
 def test_rollout_applies_per_step_exogenous_inputs() -> None:
-    from glassbox.dynamics import WIND_EXOGENOUS_ROLES, rollout_with_latent
-    from glassbox.fixedwing_synthetic import (
+    from glassbox.core.dynamics import WIND_EXOGENOUS_ROLES, rollout_with_latent
+    from glassbox.core.fixedwing_synthetic import (
         generate_fixed_wing_trajectory,
         true_fixed_wing_parameters,
     )
@@ -298,10 +298,10 @@ def test_rollout_applies_per_step_exogenous_inputs() -> None:
 
 
 def test_memoryless_sentinel_is_detected_and_excluded_from_the_fitted_mask() -> None:
-    from glassbox.belief import structured_parameter_names
-    from glassbox.dynamics import has_instantaneous_rotational_response
-    from glassbox.parameter_evidence import fitted_structured_parameter_mask
-    from glassbox.synthetic import initial_parameter_guess
+    from glassbox.belief.belief import structured_parameter_names
+    from glassbox.belief.parameter_evidence import fitted_structured_parameter_mask
+    from glassbox.core.dynamics import has_instantaneous_rotational_response
+    from glassbox.core.synthetic import initial_parameter_guess
 
     assert has_instantaneous_rotational_response(true_parameters())
     assert not has_instantaneous_rotational_response(initial_parameter_guess())
@@ -348,7 +348,7 @@ def test_residual_angular_authority_scales_the_realized_correction() -> None:
 
 
 def test_cascaded_lag_is_smooth_near_equal_time_constants() -> None:
-    from glassbox.dynamics import _angular_response_at
+    from glassbox.core.dynamics import _angular_response_at
 
     def response(delta: float) -> np.ndarray:
         params = DynamicsParams.from_physical(
@@ -377,7 +377,7 @@ def test_cascaded_lag_is_smooth_near_equal_time_constants() -> None:
 
 
 def test_from_physical_rejects_out_of_range_inputs() -> None:
-    from glassbox.fixedwing_synthetic import true_fixed_wing_parameters
+    from glassbox.core.fixedwing_synthetic import true_fixed_wing_parameters
 
     with pytest.raises(
         ValueError, match="thrust_accel must be finite and strictly positive"

@@ -3,14 +3,14 @@ import math
 import numpy as np
 import pytest
 
-from glassbox.dynamics import MOTOR_MIXER
-from glassbox.flight_supervisor import (
+from glassbox.control.flight_supervisor import (
     MultirotorFlightSupervisor,
     MultirotorSupervisorConfig,
     SupervisorMode,
     SupervisorReason,
 )
-from glassbox.synthetic import resting_state
+from glassbox.core.dynamics import MOTOR_MIXER
+from glassbox.core.synthetic import resting_state
 
 
 def _roll_quaternion(angle_rad: float) -> np.ndarray:

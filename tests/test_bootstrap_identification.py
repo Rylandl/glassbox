@@ -5,19 +5,19 @@ from dataclasses import replace
 import numpy as np
 import pytest
 
-from glassbox.bootstrap_identification import (
+from glassbox.control.bootstrap_identification import (
     BootstrapExcitationConfig,
     BootstrapIdentificationConfig,
     BootstrapModelNotReadyError,
     BootstrapMultirotorIdentifier,
     plan_bootstrap_excitation,
 )
-from glassbox.dynamics import GRAVITY_M_S2, MOTOR_MIXER
-from glassbox.online_bootstrap import (
+from glassbox.control.online_bootstrap import (
     ProgressiveBootstrapController,
     RecursiveBootstrapConfig,
     RecursiveBootstrapIdentifier,
 )
+from glassbox.core.dynamics import GRAVITY_M_S2, MOTOR_MIXER
 
 
 def _excitation(interval_count: int, *, collective_only: bool = False) -> np.ndarray:

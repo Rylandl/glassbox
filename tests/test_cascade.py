@@ -5,16 +5,16 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from glassbox.data import (
+from glassbox.core.data import (
     RIGID_BODY_STATE_SCHEMA,
     load_trajectory_npz,
     trajectory_windows,
 )
-from glassbox.evaluation import (
+from glassbox.core.evaluation import (
     _state_error_metrics,
     kinematic_persistence_windowed_metrics,
 )
-from glassbox.x8_reference import x8_trajectory_spec
+from glassbox.io.x8_reference import x8_trajectory_spec
 
 LEVEL_18_M_S = np.array(
     [0.0, 0.0, 100.0, 18.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]

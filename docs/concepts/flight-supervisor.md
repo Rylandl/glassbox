@@ -29,7 +29,10 @@ skip the minimum arrest duration.
 ```python
 import time
 
-from glassbox import MultirotorFlightSupervisor, MultirotorSupervisorConfig
+from glassbox.experimental import (
+    MultirotorFlightSupervisor,
+    MultirotorSupervisorConfig,
+)
 
 supervisor = MultirotorFlightSupervisor(
     MultirotorSupervisorConfig(

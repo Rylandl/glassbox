@@ -1,4 +1,4 @@
-from glassbox.acceptance import (
+from glassbox.workflows.acceptance import (
     evaluate_fixedwing_accuracy,
     evaluate_multirotor_accuracy,
 )

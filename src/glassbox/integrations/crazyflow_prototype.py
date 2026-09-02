@@ -20,7 +20,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
-from glassbox.belief import (
+from glassbox.belief.belief import (
     DynamicsBelief,
     EmpiricalErrorSample,
     EmpiricalHorizonPredictiveError,
@@ -30,37 +30,37 @@ from glassbox.belief import (
     structured_parameter_names,
     structured_parameter_vector,
 )
-from glassbox.data import (
-    ObservationChannel,
-    Trajectory,
-    make_trajectory_spec,
-    save_trajectory_npz,
-)
-from glassbox.dynamics import (
-    MOTOR_MIXER,
-    QUADROTOR_CONTROL_NAMES,
-    ModelParams,
-    physics_parameters,
-)
-from glassbox.evaluation import windowed_rollout_evaluation
-from glassbox.flight_supervisor import (
+from glassbox.belief.parameter_prior import StructuredParameterPrior
+from glassbox.control.flight_supervisor import (
     MultirotorFlightSupervisor,
     MultirotorSupervisorConfig,
     SupervisorMode,
     SupervisorReason,
 )
-from glassbox.geometry import rigid_body_local_error
-from glassbox.identification import fit_dynamics
-from glassbox.integrations.crazyflow import CrazyflowPlant, CrazyflowPlantConfig
-from glassbox.nmpc import NMPCController, TrackingTolerances
-from glassbox.nmpc.solver import _SolverPolicy
-from glassbox.parameter_prior import StructuredParameterPrior
-from glassbox.runtime import (
+from glassbox.control.nmpc import NMPCController, TrackingTolerances
+from glassbox.control.nmpc.solver import _SolverPolicy
+from glassbox.core.data import (
+    ObservationChannel,
+    Trajectory,
+    make_trajectory_spec,
+    save_trajectory_npz,
+)
+from glassbox.core.dynamics import (
+    MOTOR_MIXER,
+    QUADROTOR_CONTROL_NAMES,
+    ModelParams,
+    physics_parameters,
+)
+from glassbox.core.evaluation import windowed_rollout_evaluation
+from glassbox.core.geometry import rigid_body_local_error
+from glassbox.core.identification import fit_dynamics
+from glassbox.core.runtime import (
     DirectActuationMap,
     RuntimeDynamicsModel,
     runtime_spec_from_trajectory,
 )
-from glassbox.synthetic import initial_parameter_guess, resting_state
+from glassbox.core.synthetic import initial_parameter_guess, resting_state
+from glassbox.integrations.crazyflow import CrazyflowPlant, CrazyflowPlantConfig
 
 PROTOTYPE_SCHEMA_VERSION = 2
 DEFAULT_BASELINE_SEED = 101
@@ -528,7 +528,7 @@ def _fit_effective_model(
     steps: int,
     learning_rate: float,
 ) -> tuple[ModelParams, dict[str, Any]]:
-    from glassbox.data import trajectory_windows
+    from glassbox.core.data import trajectory_windows
 
     windows = trajectory_windows(
         trajectories,

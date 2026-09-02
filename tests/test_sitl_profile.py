@@ -2,8 +2,8 @@ from types import SimpleNamespace
 
 import pytest
 
-import glassbox.sitl_profile as sitl_profile
-from glassbox.sitl_profile import fly_profile, profile_targets
+import glassbox.io.sitl_profile as sitl_profile
+from glassbox.io.sitl_profile import fly_profile, profile_targets
 
 
 def test_excitation_condition_scales_translation_and_dwell() -> None:

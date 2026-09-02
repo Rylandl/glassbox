@@ -10,7 +10,7 @@ from typing import Protocol
 
 import numpy as np
 
-from glassbox.px4_frames import (
+from glassbox.core.px4_frames import (
     frd_to_flu,
     ned_frd_quaternion_to_nwu_flu,
     ned_to_nwu,

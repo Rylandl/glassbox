@@ -3,7 +3,8 @@ from dataclasses import replace
 import numpy as np
 import pytest
 
-from glassbox.observation_compatibility import (
+from glassbox.core.synthetic import generate_trajectory
+from glassbox.workflows.observation_compatibility import (
     MAXIMUM_SCALE,
     MAXIMUM_TIME_CONSTANT_S,
     FirstOrderObservationFilter,
@@ -15,7 +16,6 @@ from glassbox.observation_compatibility import (
     fit_state_observation_correction,
     observation_channel_transfer_gate,
 )
-from glassbox.synthetic import generate_trajectory
 
 
 def _affine_corrupted_trajectory():

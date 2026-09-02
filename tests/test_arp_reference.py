@@ -3,9 +3,10 @@ import io
 
 import numpy as np
 
-import glassbox.arp_reference as arp_module
-from glassbox.adapter import TrajectoryAdapter
-from glassbox.arp_reference import (
+import glassbox.io.arp_reference as arp_module
+from glassbox.core.adapter import TrajectoryAdapter
+from glassbox.core.data import Trajectory, make_trajectory_spec
+from glassbox.io.arp_reference import (
     ARP_CONFIGURATION_ID,
     ARP_REFERENCE_COMMIT,
     ARP_REFERENCE_NAME,
@@ -14,7 +15,6 @@ from glassbox.arp_reference import (
     _longest_powered_interval,
     fetch_arp_reference,
 )
-from glassbox.data import Trajectory, make_trajectory_spec
 
 
 def _base_trajectory() -> Trajectory:

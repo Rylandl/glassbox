@@ -23,15 +23,18 @@ import jax
 import numpy as np
 import pytest
 
-from glassbox.belief import (
+from glassbox.belief.belief import (
     DynamicsBelief,
     LocalGaussianParameterBelief,
     structured_parameter_names,
     structured_parameter_vector,
     with_structured_parameter_vector,
 )
-from glassbox.dynamics import MOTOR_MIXER
-from glassbox.flight_supervisor import SupervisorMode, SupervisorReason
+from glassbox.control.flight_supervisor import SupervisorMode, SupervisorReason
+from glassbox.control.nmpc import NMPCController
+from glassbox.core.dynamics import MOTOR_MIXER
+from glassbox.core.runtime import runtime_spec_from_trajectory
+from glassbox.core.synthetic import generate_trajectory, resting_state, true_parameters
 from glassbox.integrations.crazyflow import (
     CrazyflowPlant,
     CrazyflowPlantConfig,
@@ -74,9 +77,6 @@ from glassbox.integrations.crazyflow_throw import (
     run_crazyflow_throw_campaign,
     run_crazyflow_throw_trial,
 )
-from glassbox.nmpc import NMPCController
-from glassbox.runtime import runtime_spec_from_trajectory
-from glassbox.synthetic import generate_trajectory, resting_state, true_parameters
 
 CRAZYFLOW_MIXER = np.asarray(
     (

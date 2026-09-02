@@ -6,8 +6,8 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from glassbox.data import save_trajectory_npz
-from glassbox.px4_ulog import PX4IngestConfig, load_px4_trajectory
+from glassbox.core.data import save_trajectory_npz
+from glassbox.io.px4_ulog import PX4IngestConfig, load_px4_trajectory
 
 
 def _recorded_runs(root: Path) -> list[tuple[str, str, int, Path]]:

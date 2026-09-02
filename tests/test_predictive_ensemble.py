@@ -5,11 +5,16 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from glassbox.data import save_trajectory_npz, trajectory_windows
-from glassbox.fit_cli import _fit_on_windows
-from glassbox.fixedwing_synthetic import generate_fixed_wing_trajectory
-from glassbox.identification import FitResult
-from glassbox.predictive_ensemble import (
+from glassbox.core.data import save_trajectory_npz, trajectory_windows
+from glassbox.core.fixedwing_synthetic import generate_fixed_wing_trajectory
+from glassbox.core.identification import FitResult
+from glassbox.core.synthetic import (
+    generate_trajectory,
+    initial_parameter_guess,
+    true_parameters,
+)
+from glassbox.workflows.fitting import _fit_on_windows
+from glassbox.workflows.predictive_ensemble import (
     PredictiveEnsemble,
     _balanced_calibration_groups,
     aggregate_predictive_ensemble_metrics,
@@ -18,11 +23,6 @@ from glassbox.predictive_ensemble import (
     grouped_bootstrap_multiplicities,
     predictive_ensemble_metrics,
     predictive_uncertainty_candidate_gate,
-)
-from glassbox.synthetic import (
-    generate_trajectory,
-    initial_parameter_guess,
-    true_parameters,
 )
 
 
@@ -152,7 +152,9 @@ def test_shared_outer_statistics_fix_residual_coordinates_across_members(
             loss_configuration=kwargs["loss_configuration"],
         )
 
-    monkeypatch.setattr("glassbox.fit_cli.fit_dynamics_multi_horizon", fake_fit)
+    monkeypatch.setattr(
+        "glassbox.workflows.fitting.fit_dynamics_multi_horizon", fake_fit
+    )
     reports = []
     for weights in ({"a": 1.0, "b": 0.0}, {"a": 0.0, "b": 1.0}):
         _, report = _fit_on_windows(
@@ -222,7 +224,7 @@ def test_predictive_metrics_use_quaternion_geometry_and_exclude_initial_state(
         return next(predictions), target, 0.02
 
     monkeypatch.setattr(
-        "glassbox.predictive_ensemble.windowed_rollout_predictions",
+        "glassbox.workflows.predictive_ensemble.windowed_rollout_predictions",
         fake_predictions,
     )
     ensemble = PredictiveEnsemble(
@@ -269,7 +271,7 @@ def test_predictive_metrics_reject_every_component_of_a_nonfinite_member(
         return next(predictions), target, 0.02
 
     monkeypatch.setattr(
-        "glassbox.predictive_ensemble.windowed_rollout_predictions",
+        "glassbox.workflows.predictive_ensemble.windowed_rollout_predictions",
         fake_predictions,
     )
     ensemble = PredictiveEnsemble(
@@ -556,7 +558,7 @@ def test_nested_ensemble_benchmark_keeps_outer_profiles_out_of_every_member(
     assert (tmp_path / "ensemble" / "summary.json").exists()
 
     monkeypatch.setattr(
-        "glassbox.predictive_ensemble.fit_trajectory_artifacts",
+        "glassbox.workflows.predictive_ensemble.fit_trajectory_artifacts",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(
             AssertionError("an identical fingerprint must resume")
         ),

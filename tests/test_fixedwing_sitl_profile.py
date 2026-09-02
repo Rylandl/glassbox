@@ -1,6 +1,6 @@
 import numpy as np
 
-from glassbox.fixedwing_sitl_profile import (
+from glassbox.io.fixedwing_sitl_profile import (
     PROFILES,
     TRIM_PITCH_DEG,
     TRIM_THROTTLE,

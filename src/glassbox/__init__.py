@@ -1,11 +1,13 @@
 """Core API for telemetry-driven differentiable dynamics identification.
 
-Source adapters, benchmark workflows, and command-line applications live in
-their respective modules. Keeping them out of the package root makes the
+Source adapters (``glassbox.io``), benchmark workflows (``glassbox.workflows``),
+command-line applications (``glassbox.cli``), live-system boundaries
+(``glassbox.integrations``), and research-grade APIs (``glassbox.experimental``)
+live in their own subpackages. Keeping them out of the package root makes the
 stable API small and prevents a core import from loading experiment code.
 """
 
-from glassbox.adaptation import (
+from glassbox.belief.adaptation import (
     BeliefUpdateProposal,
     BeliefUpdateReport,
     HorizonEndpointErrorEvidence,
@@ -15,8 +17,7 @@ from glassbox.adaptation import (
     update_dynamics_belief,
     validate_and_commit_dynamics_belief_update,
 )
-from glassbox.adapter import TrajectoryAdapter
-from glassbox.belief import (
+from glassbox.belief.belief import (
     TANGENT_GROUP_ORDER,
     TANGENT_STATE_ORDER,
     DynamicsBelief,
@@ -37,19 +38,21 @@ from glassbox.belief import (
     structured_parameter_vector,
     with_structured_parameter_vector,
 )
-from glassbox.belief_io import load_dynamics_belief, save_dynamics_belief
-from glassbox.bootstrap_identification import (
-    BootstrapArrestCommand,
-    BootstrapExcitationConfig,
-    BootstrapExcitationPlan,
-    BootstrapIdentificationConfig,
-    BootstrapIdentificationResult,
-    BootstrapModelNotReadyError,
-    BootstrapMultirotorIdentifier,
-    BootstrapVelocityArrestCommand,
-    plan_bootstrap_excitation,
+from glassbox.belief.belief_io import load_dynamics_belief, save_dynamics_belief
+from glassbox.belief.parameter_prior import StructuredParameterPrior
+from glassbox.control.nmpc import (
+    NMPCController,
+    NMPCDiagnostics,
+    NMPCResult,
+    NMPCWarmStart,
+    ReferenceTrajectory,
+    SafetyEnvelope,
+    SolveStatus,
+    SupportFilterMode,
+    TrackingTolerances,
 )
-from glassbox.data import (
+from glassbox.core.adapter import TrajectoryAdapter
+from glassbox.core.data import (
     RIGID_BODY_STATE_SCHEMA,
     ControlChannel,
     ExogenousChannel,
@@ -66,7 +69,7 @@ from glassbox.data import (
     trajectory_segment,
     trajectory_windows,
 )
-from glassbox.dynamics import (
+from glassbox.core.dynamics import (
     BaseDynamicsParams,
     DynamicsParams,
     FixedWingDynamicsParams,
@@ -78,49 +81,20 @@ from glassbox.dynamics import (
     step,
     step_with_latent,
 )
-from glassbox.evaluation import (
+from glassbox.core.evaluation import (
     aggregate_rollout_metrics,
     rollout_divergence_metrics,
     rollout_metrics,
     windowed_rollout_metrics,
 )
-from glassbox.flight_supervisor import (
-    MultirotorFlightSupervisor,
-    MultirotorSupervisorConfig,
-    SupervisedCommand,
-    SupervisorMode,
-    SupervisorReason,
-)
-from glassbox.identification import (
+from glassbox.core.identification import (
     FitResult,
     RolloutLossConfiguration,
     fit_dynamics,
     fit_dynamics_multi_horizon,
     rollout_loss_configuration,
 )
-from glassbox.nmpc import (
-    NMPCController,
-    NMPCDiagnostics,
-    NMPCResult,
-    NMPCWarmStart,
-    ReferenceTrajectory,
-    SafetyEnvelope,
-    SolveStatus,
-    SupportFilterMode,
-    TrackingTolerances,
-)
-from glassbox.online_bootstrap import (
-    ProgressiveBootstrapCommand,
-    ProgressiveBootstrapController,
-    ProgressiveBootstrapControllerConfig,
-    RecursiveBeliefValidationReport,
-    RecursiveBootstrapBelief,
-    RecursiveBootstrapConfig,
-    RecursiveBootstrapIdentifier,
-    RecursiveBootstrapSampleReport,
-)
-from glassbox.parameter_prior import StructuredParameterPrior
-from glassbox.runtime import (
+from glassbox.core.runtime import (
     ActuationMap,
     DirectActuationMap,
     ModelValidityEnvelope,
@@ -139,14 +113,6 @@ __all__ = [
     "BaseDynamicsParams",
     "BeliefUpdateProposal",
     "BeliefUpdateReport",
-    "BootstrapArrestCommand",
-    "BootstrapExcitationConfig",
-    "BootstrapExcitationPlan",
-    "BootstrapIdentificationConfig",
-    "BootstrapIdentificationResult",
-    "BootstrapModelNotReadyError",
-    "BootstrapMultirotorIdentifier",
-    "BootstrapVelocityArrestCommand",
     "ControlChannel",
     "DirectActuationMap",
     "DynamicsBelief",
@@ -162,8 +128,6 @@ __all__ = [
     "LocalParameterInformation",
     "ModelParams",
     "ModelValidityEnvelope",
-    "MultirotorFlightSupervisor",
-    "MultirotorSupervisorConfig",
     "NMPCController",
     "NMPCDiagnostics",
     "NMPCResult",
@@ -173,14 +137,6 @@ __all__ = [
     "PlanAssessment",
     "PointParameterBelief",
     "PredictiveTrajectory",
-    "ProgressiveBootstrapCommand",
-    "ProgressiveBootstrapController",
-    "ProgressiveBootstrapControllerConfig",
-    "RecursiveBeliefValidationReport",
-    "RecursiveBootstrapBelief",
-    "RecursiveBootstrapConfig",
-    "RecursiveBootstrapIdentifier",
-    "RecursiveBootstrapSampleReport",
     "ReferenceTrajectory",
     "ResidualDynamicsParams",
     "ResolvedLocalGeometry",
@@ -191,9 +147,6 @@ __all__ = [
     "SafetyEnvelope",
     "SolveStatus",
     "StructuredParameterPrior",
-    "SupervisedCommand",
-    "SupervisorMode",
-    "SupervisorReason",
     "SupportFilterMode",
     "TrackingTolerances",
     "Trajectory",
@@ -213,7 +166,6 @@ __all__ = [
     "load_trajectory_npz",
     "make_trajectory_spec",
     "model_family",
-    "plan_bootstrap_excitation",
     "propose_dynamics_belief_update",
     "recalibrate_predictive_error",
     "rollout",

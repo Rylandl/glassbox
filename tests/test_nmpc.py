@@ -9,8 +9,8 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
-import glassbox.nmpc.solver as nmpc_solver
-from glassbox.belief import (
+import glassbox.control.nmpc.solver as nmpc_solver
+from glassbox.belief.belief import (
     DynamicsBelief,
     EmpiricalErrorSample,
     EmpiricalHorizonPredictiveError,
@@ -18,26 +18,7 @@ from glassbox.belief import (
     structured_parameter_names,
     structured_parameter_vector,
 )
-from glassbox.data import (
-    RIGID_BODY_STATE_SCHEMA,
-    ControlChannel,
-    ExogenousChannel,
-    TrajectorySpec,
-    VehicleConfigurationSpec,
-)
-from glassbox.dynamics import (
-    MOTOR_MIXER,
-    fixed_wing_trim_control,
-    hover_control,
-    initial_residual_parameters,
-)
-from glassbox.fixedwing_synthetic import (
-    TRIM_AIRSPEED_M_S,
-    fixed_wing_trim_state,
-    generate_fixed_wing_trajectory,
-    true_fixed_wing_parameters,
-)
-from glassbox.nmpc import (
+from glassbox.control.nmpc import (
     NMPCController,
     NMPCWarmStart,
     SafetyEnvelope,
@@ -45,20 +26,39 @@ from glassbox.nmpc import (
     SupportFilterMode,
     quaternion_log_error,
 )
-from glassbox.nmpc.solver import (
+from glassbox.control.nmpc.solver import (
     _block_steps_for,
     _blocks_cover_horizon,
     _maintained_block_count,
     _projected_gradient_norm,
     _SolverPolicy,
 )
-from glassbox.runtime import (
+from glassbox.core.data import (
+    RIGID_BODY_STATE_SCHEMA,
+    ControlChannel,
+    ExogenousChannel,
+    TrajectorySpec,
+    VehicleConfigurationSpec,
+)
+from glassbox.core.dynamics import (
+    MOTOR_MIXER,
+    fixed_wing_trim_control,
+    hover_control,
+    initial_residual_parameters,
+)
+from glassbox.core.fixedwing_synthetic import (
+    TRIM_AIRSPEED_M_S,
+    fixed_wing_trim_state,
+    generate_fixed_wing_trajectory,
+    true_fixed_wing_parameters,
+)
+from glassbox.core.runtime import (
     DirectActuationMap,
     ModelValidityEnvelope,
     RuntimeDynamicsModel,
     RuntimeModelSpec,
 )
-from glassbox.synthetic import (
+from glassbox.core.synthetic import (
     generate_trajectory,
     resting_state,
     true_parameters,

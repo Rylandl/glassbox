@@ -8,11 +8,10 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-import glassbox.epfl_reference as epfl_module
-from glassbox.adapter import TrajectoryAdapter
-from glassbox.data import save_trajectory_npz
-from glassbox.epfl_evaluation import evaluate_epfl_characterization
-from glassbox.epfl_reference import (
+import glassbox.io.epfl_reference as epfl_module
+from glassbox.core.adapter import TrajectoryAdapter
+from glassbox.core.data import save_trajectory_npz
+from glassbox.io.epfl_reference import (
     EPFLTopoplaneAdapter,
     _angular_velocity_from_quaternion,
     _build_trajectories,
@@ -21,6 +20,7 @@ from glassbox.epfl_reference import (
     fetch_epfl_topoplane_reference,
     topoplane_trajectory_spec,
 )
+from glassbox.workflows.epfl_evaluation import evaluate_epfl_characterization
 
 
 def _streams() -> _TopoplaneStreams:

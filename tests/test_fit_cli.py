@@ -1,6 +1,6 @@
 """End-to-end smoke tests for the ``glassbox-fit`` console script.
 
-These drive ``fit_cli.main`` exactly as the README does so that argparse-layer
+These drive ``fitting.main`` exactly as the README does so that argparse-layer
 and serialization failures, which library-level tests cannot see, are caught.
 """
 
@@ -9,9 +9,10 @@ from __future__ import annotations
 import json
 import sys
 
-from glassbox import DynamicsBelief, LocalParameterInformation, fit_cli
-from glassbox.data import save_trajectory_npz
-from glassbox.synthetic import generate_trajectory
+from glassbox import DynamicsBelief, LocalParameterInformation
+from glassbox.core.data import save_trajectory_npz
+from glassbox.core.synthetic import generate_trajectory
+from glassbox.workflows import fitting
 
 
 def _write_flights(tmp_path, count: int = 3) -> list[str]:
@@ -46,7 +47,7 @@ def test_fit_cli_writes_belief_and_report_together(tmp_path, monkeypatch) -> Non
         ],
     )
 
-    fit_cli.main()
+    fitting.main()
 
     belief = DynamicsBelief.load(model_path)
     assert isinstance(belief.parameter_evidence, LocalParameterInformation)

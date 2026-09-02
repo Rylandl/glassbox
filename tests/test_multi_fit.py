@@ -6,25 +6,25 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from glassbox import fit_cli
-from glassbox.data import save_trajectory_npz
-from glassbox.evaluation import (
+from glassbox.core.data import save_trajectory_npz
+from glassbox.core.evaluation import (
     kinematic_persistence_windowed_metrics,
     rollout_divergence_metrics,
     windowed_rollout_metrics,
 )
-from glassbox.fit_cli import (
+from glassbox.core.fixedwing_synthetic import (
+    generate_fixed_wing_trajectory,
+    true_fixed_wing_parameters,
+)
+from glassbox.core.synthetic import generate_trajectory, true_parameters
+from glassbox.workflows import fitting
+from glassbox.workflows.fitting import (
     BenchmarkSplitHoldoutConflict,
     _automatic_training_window_budget,
     _dataset_contract,
     fit_trajectory_artifacts,
 )
-from glassbox.fixedwing_synthetic import (
-    generate_fixed_wing_trajectory,
-    true_fixed_wing_parameters,
-)
-from glassbox.profile_benchmark import benchmark_profiles
-from glassbox.synthetic import generate_trajectory, true_parameters
+from glassbox.workflows.profile_benchmark import benchmark_profiles
 
 
 def _px4_provenance(*, motor_index: int, surface_indices: list[int]) -> dict:
@@ -376,7 +376,7 @@ def test_fit_cli_rejects_holdout_count_when_benchmark_split_labels_are_present(
     )
 
     with pytest.raises(SystemExit) as excinfo:
-        fit_cli.main()
+        fitting.main()
 
     assert excinfo.value.code == 2
     assert "benchmark_split" in capsys.readouterr().err
@@ -620,8 +620,8 @@ def test_profile_benchmark_runs_one_fold_per_profile(tmp_path) -> None:
 
 
 def test_rollout_error_excludes_the_measured_initial_sample() -> None:
-    from glassbox.evaluation import ROLLOUT_METRIC_POLICY, _state_error_metrics
-    from glassbox.synthetic import resting_state
+    from glassbox.core.evaluation import ROLLOUT_METRIC_POLICY, _state_error_metrics
+    from glassbox.core.synthetic import resting_state
 
     horizon = 5
     target = np.tile(resting_state(), (3, horizon + 1, 1))

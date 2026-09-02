@@ -2,8 +2,8 @@ from types import SimpleNamespace
 
 import numpy as np
 
-import glassbox.angular_authority as authority_module
-from glassbox.angular_authority import (
+import glassbox.workflows.angular_authority as authority_module
+from glassbox.workflows.angular_authority import (
     evaluate_angular_dynamics_candidate,
     select_angular_dynamics_authority,
 )

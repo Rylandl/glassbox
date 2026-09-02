@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from glassbox.adaptive_recovery_benchmark import (
+from glassbox.workflows.adaptive_recovery_benchmark import (
     adaptive_recovery_source_fingerprint,
     normalized_adaptive_recovery_report,
     run_adaptive_recovery_benchmark,

@@ -6,15 +6,15 @@ from types import SimpleNamespace
 
 import numpy as np
 
-import glassbox.idf_reference as idf_module
-from glassbox.adapter import TrajectoryAdapter
-from glassbox.data import (
+import glassbox.io.idf_reference as idf_module
+from glassbox.core.adapter import TrajectoryAdapter
+from glassbox.core.data import (
     Trajectory,
     make_trajectory_spec,
     save_trajectory_npz,
     specific_force_observation_channels,
 )
-from glassbox.idf_reference import (
+from glassbox.io.idf_reference import (
     IDF_CONFIGURATION_ID,
     IDF_REFERENCE_NAME,
     IDFFixedWingAdapter,

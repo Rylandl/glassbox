@@ -7,7 +7,7 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
-from glassbox.belief import (
+from glassbox.belief.belief import (
     TANGENT_GROUP_ORDER,
     DynamicsBelief,
     EmpiricalErrorSample,
@@ -20,24 +20,24 @@ from glassbox.belief import (
     structured_parameter_vector,
     with_structured_parameter_vector,
 )
-from glassbox.data import trajectory_windows
-from glassbox.dynamics import ResidualDynamicsParams, initial_residual_parameters
-from glassbox.evaluation import rigid_body_tangent_errors
-from glassbox.fixedwing_synthetic import (
-    generate_fixed_wing_trajectory,
-    true_fixed_wing_parameters,
-)
-from glassbox.parameter_evidence import (
+from glassbox.belief.parameter_evidence import (
     estimate_local_parameter_information,
     fitted_structured_parameter_mask,
 )
-from glassbox.parameter_prior import StructuredParameterPrior
-from glassbox.runtime import (
+from glassbox.belief.parameter_prior import StructuredParameterPrior
+from glassbox.core.data import trajectory_windows
+from glassbox.core.dynamics import ResidualDynamicsParams, initial_residual_parameters
+from glassbox.core.evaluation import rigid_body_tangent_errors
+from glassbox.core.fixedwing_synthetic import (
+    generate_fixed_wing_trajectory,
+    true_fixed_wing_parameters,
+)
+from glassbox.core.runtime import (
     ModelValidityEnvelope,
     RuntimeDynamicsModel,
     runtime_spec_from_trajectory,
 )
-from glassbox.synthetic import generate_trajectory, true_parameters
+from glassbox.core.synthetic import generate_trajectory, true_parameters
 
 
 def _error_model(value: float = 0.0) -> EmpiricalHorizonPredictiveError:

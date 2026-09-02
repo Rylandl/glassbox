@@ -6,8 +6,8 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
-import glassbox.adaptation as adaptation_module
-from glassbox.belief import (
+import glassbox.belief.adaptation as adaptation_module
+from glassbox.belief.belief import (
     DynamicsBelief,
     EmpiricalErrorSample,
     EmpiricalHorizonPredictiveError,
@@ -17,10 +17,13 @@ from glassbox.belief import (
     structured_parameter_vector,
     with_structured_parameter_vector,
 )
-from glassbox.data import duration_to_steps
-from glassbox.evaluation import rigid_body_tangent_errors, windowed_rollout_evaluation
-from glassbox.runtime import ModelValidityEnvelope, runtime_spec_from_trajectory
-from glassbox.synthetic import generate_trajectory, true_parameters
+from glassbox.core.data import duration_to_steps
+from glassbox.core.evaluation import (
+    rigid_body_tangent_errors,
+    windowed_rollout_evaluation,
+)
+from glassbox.core.runtime import ModelValidityEnvelope, runtime_spec_from_trajectory
+from glassbox.core.synthetic import generate_trajectory, true_parameters
 
 
 def _error_model(

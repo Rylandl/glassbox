@@ -37,7 +37,7 @@ as a rate product over a short evidence window, is still inverted and its
 coefficient is still only as good as its signal-to-noise ratio.
 
 ```python
-from glassbox import (
+from glassbox.experimental import (
     BootstrapIdentificationConfig,
     BootstrapMultirotorIdentifier,
     plan_bootstrap_excitation,

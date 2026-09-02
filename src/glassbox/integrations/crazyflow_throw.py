@@ -11,12 +11,12 @@ from typing import Any
 
 import numpy as np
 
-from glassbox.integrations.crazyflow import CrazyflowPlant, CrazyflowPlantConfig
-from glassbox.integrations.crazyflow_bootstrap import _initial_state, _tilt_rad
-from glassbox.online_bootstrap import (
+from glassbox.control.online_bootstrap import (
     ProgressiveBootstrapController,
     RecursiveBootstrapIdentifier,
 )
+from glassbox.integrations.crazyflow import CrazyflowPlant, CrazyflowPlantConfig
+from glassbox.integrations.crazyflow_bootstrap import _initial_state, _tilt_rad
 
 
 @dataclass(frozen=True)

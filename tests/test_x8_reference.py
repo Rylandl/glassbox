@@ -5,18 +5,18 @@ import io
 
 import numpy as np
 
-import glassbox.x8_reference as x8_module
-from glassbox.data import Trajectory, save_trajectory_npz
-from glassbox.fixedwing_synthetic import true_fixed_wing_parameters
-from glassbox.model_io import save_dynamics_model
-from glassbox.runtime import runtime_spec_from_trajectory
-from glassbox.x8_evaluation import evaluate_x8_reference_models
-from glassbox.x8_reference import (
+import glassbox.io.x8_reference as x8_module
+from glassbox.core.data import Trajectory, save_trajectory_npz
+from glassbox.core.fixedwing_synthetic import true_fixed_wing_parameters
+from glassbox.core.model_io import save_dynamics_model
+from glassbox.core.runtime import runtime_spec_from_trajectory
+from glassbox.io.x8_reference import (
     X8Recording,
     X8ReferenceAdapter,
     fetch_x8_reference,
     x8_trajectory_spec,
 )
+from glassbox.workflows.x8_evaluation import evaluate_x8_reference_models
 
 
 def _write_fixture(path) -> np.ndarray:

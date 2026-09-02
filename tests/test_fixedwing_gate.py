@@ -1,7 +1,7 @@
 import pytest
 
-from glassbox.evaluation import ROLLOUT_METRICS
-from glassbox.fixedwing_gate import (
+from glassbox.core.evaluation import ROLLOUT_METRICS
+from glassbox.workflows.fixedwing_gate import (
     FIXED_WING_GATE_HORIZONS_S,
     FIXED_WING_SCORE_HORIZONS_S,
     _score_against_persistence,

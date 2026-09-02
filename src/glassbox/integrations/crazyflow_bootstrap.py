@@ -12,7 +12,7 @@ from typing import Any
 
 import numpy as np
 
-from glassbox.bootstrap_identification import (
+from glassbox.control.bootstrap_identification import (
     BootstrapExcitationConfig,
     BootstrapIdentificationConfig,
     BootstrapMultirotorIdentifier,

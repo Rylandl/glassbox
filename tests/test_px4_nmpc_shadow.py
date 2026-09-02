@@ -8,21 +8,21 @@ import numpy as np
 import pytest
 
 import glassbox.integrations.px4_nmpc_shadow as px4_nmpc_shadow
-from glassbox.dynamics import hover_control
+from glassbox.control.nmpc import NMPCWarmStart
+from glassbox.core.dynamics import hover_control
+from glassbox.core.runtime import (
+    DirectActuationMap,
+    ModelValidityEnvelope,
+    RuntimeDynamicsModel,
+    RuntimeModelSpec,
+)
+from glassbox.core.synthetic import generate_trajectory, resting_state, true_parameters
 from glassbox.integrations.px4 import (
     PX4AppliedCommandSample,
     PX4StateSample,
     PX4TelemetryError,
 )
 from glassbox.integrations.px4_nmpc_shadow import run_px4_nmpc_shadow
-from glassbox.nmpc import NMPCWarmStart
-from glassbox.runtime import (
-    DirectActuationMap,
-    ModelValidityEnvelope,
-    RuntimeDynamicsModel,
-    RuntimeModelSpec,
-)
-from glassbox.synthetic import generate_trajectory, resting_state, true_parameters
 
 
 def runtime_model() -> RuntimeDynamicsModel:

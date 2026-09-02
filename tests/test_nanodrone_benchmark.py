@@ -5,19 +5,21 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-import glassbox.nanodrone_benchmark as benchmark_module
-from glassbox.adapter import TrajectoryAdapter
-from glassbox.data import save_trajectory_npz
-from glassbox.dynamics import QUADROTOR_CONTROL_NAMES
-from glassbox.model_io import save_dynamics_model
-from glassbox.nanodrone_benchmark import (
+import glassbox.io.nanodrone_reference as benchmark_module
+from glassbox.core.adapter import TrajectoryAdapter
+from glassbox.core.data import save_trajectory_npz
+from glassbox.core.dynamics import QUADROTOR_CONTROL_NAMES
+from glassbox.core.model_io import save_dynamics_model
+from glassbox.core.runtime import runtime_spec_from_trajectory
+from glassbox.core.synthetic import initial_parameter_guess
+from glassbox.io.nanodrone_reference import (
     BENCHMARK_COMMIT,
     SOURCE_COLUMNS,
     BenchmarkRecording,
     NanoDroneBenchmarkAdapter,
     fetch_nanodrone_benchmark,
 )
-from glassbox.nanodrone_evaluation import (
+from glassbox.workflows.nanodrone_evaluation import (
     PUBLISHED_PHYS_PLUS_RES,
     _per_horizon_errors,
     _published_reference_comparison,
@@ -25,8 +27,6 @@ from glassbox.nanodrone_evaluation import (
     evaluate_nanodrone_model_artifact,
     save_nanodrone_benchmark_report,
 )
-from glassbox.runtime import runtime_spec_from_trajectory
-from glassbox.synthetic import initial_parameter_guess
 
 
 def _fixture_data() -> np.ndarray:

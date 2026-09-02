@@ -3,13 +3,13 @@ from dataclasses import replace
 import numpy as np
 import pytest
 
-from glassbox.observation_alignment import (
+from glassbox.core.synthetic import generate_trajectory
+from glassbox.workflows.observation_alignment import (
     MAXIMUM_ABSOLUTE_ALIGNMENT_S,
     StateObservationAlignment,
     evaluate_state_observation_alignment,
     fit_state_observation_alignment,
 )
-from glassbox.synthetic import generate_trajectory
 
 
 def _shift(values: np.ndarray, time_s: np.ndarray, delay_s: float) -> np.ndarray:

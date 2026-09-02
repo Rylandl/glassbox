@@ -3,20 +3,24 @@ import json
 import numpy as np
 import pytest
 
-from glassbox.belief import DynamicsBelief
-from glassbox.data import ExogenousChannel, make_trajectory_spec
-from glassbox.dynamics import (
+from glassbox.belief.belief import DynamicsBelief
+from glassbox.core.data import ExogenousChannel, make_trajectory_spec
+from glassbox.core.dynamics import (
     initial_residual_parameters,
     with_thrust_command_offset,
 )
-from glassbox.fixedwing_synthetic import (
+from glassbox.core.fixedwing_synthetic import (
     generate_fixed_wing_trajectory,
     true_fixed_wing_parameters,
 )
-from glassbox.model_io import load_dynamics_model, model_payload, save_dynamics_model
-from glassbox.nanodrone_benchmark import nanodrone_trajectory_spec
-from glassbox.runtime import ModelValidityEnvelope, RuntimeModelSpec
-from glassbox.synthetic import generate_trajectory, true_parameters
+from glassbox.core.model_io import (
+    load_dynamics_model,
+    model_payload,
+    save_dynamics_model,
+)
+from glassbox.core.runtime import ModelValidityEnvelope, RuntimeModelSpec
+from glassbox.core.synthetic import generate_trajectory, true_parameters
+from glassbox.io.nanodrone_reference import nanodrone_trajectory_spec
 
 
 def _runtime_spec() -> RuntimeModelSpec:

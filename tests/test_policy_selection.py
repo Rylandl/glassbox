@@ -5,8 +5,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from glassbox.data import Trajectory, make_trajectory_spec, save_trajectory_npz
-from glassbox.policy_selection import (
+from glassbox.core.data import Trajectory, make_trajectory_spec, save_trajectory_npz
+from glassbox.workflows.policy_selection import (
     ROLLOUT_METRICS,
     PolicyCandidate,
     PolicySelectionPlan,
@@ -270,7 +270,9 @@ def test_selection_is_resumable_and_writes_auditable_decision(
         (destination / "summary.json").write_text(json.dumps(summary) + "\n")
         return summary
 
-    monkeypatch.setattr("glassbox.policy_selection.benchmark_profiles", fake_benchmark)
+    monkeypatch.setattr(
+        "glassbox.workflows.policy_selection.benchmark_profiles", fake_benchmark
+    )
     output_dir = tmp_path / "selection"
     plan = PolicySelectionPlan(
         name="test_v1",
@@ -318,7 +320,7 @@ def test_selection_rejects_benchmark_test_trajectories(tmp_path, monkeypatch) ->
         )
     }
     monkeypatch.setattr(
-        "glassbox.policy_selection.benchmark_profiles",
+        "glassbox.workflows.policy_selection.benchmark_profiles",
         lambda *_args, **_kwargs: pytest.fail("fit must not run"),
     )
 
@@ -350,11 +352,11 @@ def test_selection_dispatches_single_profile_corpus_to_source_groups(
         return summary
 
     monkeypatch.setattr(
-        "glassbox.policy_selection.benchmark_source_groups",
+        "glassbox.workflows.policy_selection.benchmark_source_groups",
         fake_source_benchmark,
     )
     monkeypatch.setattr(
-        "glassbox.policy_selection.benchmark_profiles",
+        "glassbox.workflows.policy_selection.benchmark_profiles",
         lambda *_args, **_kwargs: pytest.fail("profile benchmark must not run"),
     )
     plan = PolicySelectionPlan(
