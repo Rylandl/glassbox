@@ -72,16 +72,6 @@ warm-started solve compiles the receding-horizon path. Run both and discard
 their commands before entering a timed control loop. Compilation must never
 happen after arming.
 
-For an online belief mean change, `controller.rebind_belief(updated_belief)`
-returns an immutable controller handle that shares the original JIT functions
-and supplies the new `ModelParams` PyTree dynamically. Rebinding is intentionally
-strict: input/runtime specifications, actuation, parameter-tree shapes,
-uncertainty numerics, prediction horizon, and derived support horizon must match
-the precompiled template. A mismatch raises `ValueError` instead of compiling a
-different program on the control path. The integrator must construct and fully
-prewarm the expected post-update template before arming; rebinding does not turn
-an arbitrary belief change into a compatible hot swap.
-
 ## Eligible models and airframes
 
 The runtime contract requires a sample period, a training-derived body-velocity

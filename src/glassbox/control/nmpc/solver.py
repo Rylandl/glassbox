@@ -4,9 +4,7 @@ from __future__ import annotations
 
 import math
 import time
-from copy import copy
 from dataclasses import dataclass, replace
-from typing import Protocol
 
 import jax
 import jax.numpy as jnp
@@ -299,37 +297,8 @@ def _runtime_belief(
     )
 
 
-def _parameter_tree_signature(params: ModelParams) -> tuple[object, tuple[tuple, ...]]:
-    leaves, structure = jax.tree_util.tree_flatten(params)
-    signature = tuple(
-        (np.asarray(leaf).shape, np.asarray(leaf).dtype.str) for leaf in leaves
-    )
-    return structure, signature
-
-
-class _SolverBackend(Protocol):
-    """Internal boundary allowing solver replacement without API changes."""
-
-    prediction_steps: int
-    prediction_horizon_s: float
-
-    def solve(
-        self,
-        state: Array,
-        reference: ReferenceTrajectory,
-        previous_command: Array,
-        *,
-        applied_command: Array | None = None,
-        latent_state: Array | None = None,
-        warm_start: NMPCWarmStart | None = None,
-        deadline_s: float | None = None,
-    ) -> NMPCResult: ...
-
-    def rebind(self, belief: RuntimeDynamicsBelief) -> _SolverBackend: ...
-
-
 class _DirectShootingBackend:
-    """Maintained bounded direct-shooting implementation."""
+    """The bounded direct-shooting implementation NMPCController drives."""
 
     def __init__(
         self,
@@ -418,85 +387,6 @@ class _DirectShootingBackend:
     @property
     def command_block_count(self) -> int:
         return self._policy.block_count
-
-    def rebind(self, belief: RuntimeDynamicsBelief) -> _DirectShootingBackend:
-        """Return a handle sharing compiled kernels with compatible new numerics."""
-
-        candidate = belief.nominal
-        if candidate.input_spec != self.model.input_spec:
-            raise ValueError("rebound belief input specification changed")
-        if candidate.runtime_spec != self.model.runtime_spec:
-            raise ValueError("rebound belief runtime specification changed")
-        same_actuation = candidate.actuation is self.model.actuation
-        if not same_actuation:
-            try:
-                same_actuation = bool(candidate.actuation == self.model.actuation)
-            except (TypeError, ValueError):
-                same_actuation = False
-        if not same_actuation:
-            raise ValueError("rebound belief actuation map changed")
-        if _parameter_tree_signature(candidate.params) != _parameter_tree_signature(
-            self.model.params
-        ):
-            raise ValueError("rebound belief parameter structure changed")
-        candidate_leaves = jax.tree_util.tree_leaves(candidate.params)
-        if not all(np.all(np.isfinite(np.asarray(leaf))) for leaf in candidate_leaves):
-            raise ValueError("rebound belief parameters must be finite")
-        if (
-            belief.parameter_belief is not self.belief.parameter_belief
-            and belief.parameter_belief.to_dict()
-            != self.belief.parameter_belief.to_dict()
-        ):
-            raise ValueError("rebound belief parameter uncertainty changed")
-        belief_flags = (
-            belief.predictive_error_available,
-            belief.predictive_error_current,
-            belief.parameter_uncertainty_available,
-            belief.maximum_error_horizon_s,
-        )
-        template_flags = (
-            self.belief.predictive_error_available,
-            self.belief.predictive_error_current,
-            self.belief.parameter_uncertainty_available,
-            self.belief.maximum_error_horizon_s,
-        )
-        if belief_flags != template_flags:
-            raise ValueError("rebound belief uncertainty availability changed")
-        if (
-            belief.predictive_error_current
-            and belief.predictive_error.to_dict()
-            != self.belief.predictive_error.to_dict()
-        ):
-            raise ValueError("rebound belief predictive-error numerics changed")
-        response_time_constants = np.asarray(
-            candidate.latent_response_time_constants_s,
-            dtype=np.float64,
-        )
-        support_horizon_s = min(
-            _MAXIMUM_SUPPORT_HORIZON_S,
-            max(
-                _MINIMUM_SUPPORT_HORIZON_S,
-                _ACTUATOR_TIME_CONSTANT_MULTIPLIER
-                * float(np.max(response_time_constants)),
-            ),
-        )
-        support_steps = min(
-            self._policy.horizon_steps,
-            max(
-                1,
-                math.ceil(
-                    support_horizon_s / candidate.runtime_spec.sample_period_s - 1e-9
-                ),
-            ),
-        )
-        if support_steps != self._support_horizon_steps:
-            raise ValueError("rebound belief changes the compiled support horizon")
-
-        rebound = copy(self)
-        rebound.belief = belief
-        rebound.model = candidate
-        rebound._active_parameters = candidate.params
-        return rebound
 
     def _expand_normalized_blocks(self, blocks: Array) -> Array:
         """Hold each block over its model steps, covering the whole horizon.
@@ -2223,32 +2113,12 @@ class NMPCController:
         self.safety_envelope = (
             SafetyEnvelope() if safety_envelope is None else safety_envelope
         )
-        self._backend: _SolverBackend = _DirectShootingBackend(
+        self._backend = _DirectShootingBackend(
             belief,
             self.tolerances,
             self.safety_envelope,
             policy=policy,
         )
-
-    def rebind_belief(
-        self,
-        model: RuntimeDynamicsModel | RuntimeDynamicsBelief | DynamicsBelief,
-    ) -> NMPCController:
-        """Share precompiled kernels with a structurally compatible belief.
-
-        Only dynamic model-parameter values may change. Static runtime,
-        actuation, uncertainty, solver-horizon, and support-horizon semantics
-        remain those that were compiled and validated on this controller.
-        """
-
-        belief = _runtime_belief(model)
-        rebound = object.__new__(NMPCController)
-        rebound.belief = belief
-        rebound.model = belief.nominal
-        rebound.tolerances = self.tolerances
-        rebound.safety_envelope = self.safety_envelope
-        rebound._backend = self._backend.rebind(belief)
-        return rebound
 
     @property
     def prediction_steps(self) -> int:

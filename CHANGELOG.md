@@ -257,6 +257,14 @@ All notable changes to Glassbox are recorded here. The format follows
 - `RecursiveBootstrapConfig.forgetting_factor`, which was pinned to 1.0 and
   rejected at any other value. The accumulation is the constant behaviour and
   never decays. Last commit carrying it: `aab0b42`.
+- `NMPCController.rebind_belief` with the backend `rebind` it delegated to,
+  its seven structural-equality checks and the `_parameter_tree_signature`
+  helper, the `_SolverBackend` Protocol the controller held its one backend
+  behind, their two tests, and the rebinding paragraph in
+  `docs/concepts/nmpc.md`. Nothing in the package or its tests rebound a
+  belief, and only one backend was ever written, so the indirection carried no
+  second implementation. No numerical path changes. Last commit carrying them:
+  `aab0b42`.
 
 ### Fixed
 - `glassbox fit --model --report` no longer fails on a NumPy scalar.
