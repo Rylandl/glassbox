@@ -647,149 +647,59 @@ class TrajectoryWindows:
     exogenous_roles: tuple[str, ...] | None = None
 
     def __post_init__(self) -> None:
+        """Fill in optional defaults and fix the dtypes the package indexes with.
+
+        :func:`trajectory_windows` is the one constructor and validates every
+        input before it reaches here, so this does no checking of its own.
+        """
+
         count = self.initial_states.shape[0]
-        if self.initial_states.shape != (count, STATE_SIZE):
-            raise ValueError("initial_states has an invalid shape")
-        if self.controls.ndim != 3 or self.controls.shape[0] != count:
-            raise ValueError("controls must have shape (windows, horizon, controls)")
-        if self.controls.shape[2] < 1:
-            raise ValueError("controls must contain at least one channel")
-        if (
-            self.control_histories.ndim != 3
-            or self.control_histories.shape[0] != count
-            or self.control_histories.shape[2] != self.controls.shape[2]
-            or self.control_histories.shape[1] < 1
-        ):
-            raise ValueError(
-                "control_histories must have shape "
-                "(windows, positive history, controls)"
-            )
-        expected_targets = (count, self.controls.shape[1] + 1, STATE_SIZE)
-        if self.target_states.shape != expected_targets:
-            raise ValueError(
-                f"target_states must have shape {expected_targets}, "
-                f"got {self.target_states.shape}"
-            )
-        if self.dt_s <= 0.0:
-            raise ValueError("dt_s must be positive")
         initial_exogenous = (
             np.empty((count, 0), dtype=np.float64)
             if self.initial_exogenous is None
             else np.asarray(self.initial_exogenous, dtype=np.float64)
         )
-        if initial_exogenous.ndim != 2 or initial_exogenous.shape[0] != count:
-            raise ValueError(
-                "initial_exogenous must have shape (windows, exogenous channels)"
-            )
-        if not np.all(np.isfinite(initial_exogenous)):
-            raise ValueError("initial_exogenous values must be finite")
         object.__setattr__(self, "initial_exogenous", initial_exogenous)
-        control_names = self.control_names
-        if control_names is None:
-            control_names = tuple(
-                f"control_{index}" for index in range(self.controls.shape[2])
-            )
-        else:
-            control_names = tuple(control_names)
-        if len(control_names) != self.controls.shape[2]:
-            raise ValueError("control_names must contain one name per control channel")
-        if any(not name.strip() for name in control_names):
-            raise ValueError("control_names cannot contain empty names")
-        if len(set(control_names)) != len(control_names):
-            raise ValueError("control_names must be unique")
+        control_names = (
+            tuple(f"control_{index}" for index in range(self.controls.shape[2]))
+            if self.control_names is None
+            else tuple(self.control_names)
+        )
         object.__setattr__(self, "control_names", control_names)
-        control_roles = self.control_roles
-        if control_roles is None:
-            control_roles = control_names
-        else:
-            control_roles = tuple(control_roles)
-        if len(control_roles) != self.controls.shape[2]:
-            raise ValueError("control_roles must contain one role per control channel")
-        if any(not role.strip() for role in control_roles):
-            raise ValueError("control_roles cannot contain empty values")
-        if len(set(control_roles)) != len(control_roles):
-            raise ValueError("control_roles must be unique")
-        object.__setattr__(self, "control_roles", control_roles)
-        control_semantics = self.control_semantics
-        if control_semantics is None:
-            control_semantics = tuple("unspecified" for _ in control_names)
-        else:
-            control_semantics = tuple(control_semantics)
-        if len(control_semantics) != self.controls.shape[2]:
-            raise ValueError(
-                "control_semantics must contain one semantic per control channel"
-            )
-        if any(not semantic.strip() for semantic in control_semantics):
-            raise ValueError("control_semantics cannot contain empty values")
-        object.__setattr__(self, "control_semantics", control_semantics)
+        object.__setattr__(
+            self,
+            "control_roles",
+            control_names if self.control_roles is None else tuple(self.control_roles),
+        )
+        object.__setattr__(
+            self,
+            "control_semantics",
+            tuple("unspecified" for _ in control_names)
+            if self.control_semantics is None
+            else tuple(self.control_semantics),
+        )
         exogenous_names = (
             tuple(f"exogenous_{index}" for index in range(initial_exogenous.shape[1]))
             if self.exogenous_names is None
             else tuple(self.exogenous_names)
         )
-        exogenous_roles = (
+        object.__setattr__(self, "exogenous_names", exogenous_names)
+        object.__setattr__(
+            self,
+            "exogenous_roles",
             exogenous_names
             if self.exogenous_roles is None
-            else tuple(self.exogenous_roles)
+            else tuple(self.exogenous_roles),
         )
-        if len(exogenous_names) != initial_exogenous.shape[1]:
-            raise ValueError(
-                "exogenous_names must contain one name per exogenous channel"
-            )
-        if len(exogenous_roles) != initial_exogenous.shape[1]:
-            raise ValueError(
-                "exogenous_roles must contain one role per exogenous channel"
-            )
-        if len(set(exogenous_names)) != len(exogenous_names):
-            raise ValueError("exogenous_names must be unique")
-        if len(set(exogenous_roles)) != len(exogenous_roles):
-            raise ValueError("exogenous_roles must be unique")
-        object.__setattr__(self, "exogenous_names", exogenous_names)
-        object.__setattr__(self, "exogenous_roles", exogenous_roles)
-        if self.window_weights is not None:
-            window_weights = np.asarray(self.window_weights, dtype=np.float64)
-            if window_weights.shape != (count,):
-                raise ValueError("window_weights must have shape (windows,)")
-            if not np.all(np.isfinite(window_weights)) or np.any(window_weights <= 0.0):
-                raise ValueError("window_weights must be finite and positive")
-            object.__setattr__(self, "window_weights", window_weights)
-        if self.trajectory_indices is not None:
-            trajectory_indices = np.asarray(self.trajectory_indices, dtype=np.int64)
-            if trajectory_indices.shape != (count,):
-                raise ValueError("trajectory_indices must have shape (windows,)")
-            if np.any(trajectory_indices < 0):
-                raise ValueError("trajectory_indices cannot be negative")
-            object.__setattr__(self, "trajectory_indices", trajectory_indices)
-        if self.start_indices is not None:
-            start_indices = np.asarray(self.start_indices, dtype=np.int64)
-            if start_indices.shape != (count,):
-                raise ValueError("start_indices must have shape (windows,)")
-            if np.any(start_indices < 0):
-                raise ValueError("start_indices cannot be negative")
-            object.__setattr__(self, "start_indices", start_indices)
-        if self.candidate_window_counts is not None:
-            candidate_window_counts = np.asarray(
-                self.candidate_window_counts, dtype=np.int64
-            )
-            if candidate_window_counts.ndim != 1:
-                raise ValueError("candidate_window_counts must be one-dimensional")
-            if np.any(candidate_window_counts < 0):
-                raise ValueError("candidate_window_counts cannot be negative")
-            if int(np.sum(candidate_window_counts)) < count:
-                raise ValueError(
-                    "candidate_window_counts cannot total fewer than selected windows"
-                )
-            if (
-                self.trajectory_indices is not None
-                and count > 0
-                and int(np.max(self.trajectory_indices)) >= len(candidate_window_counts)
-            ):
-                raise ValueError(
-                    "candidate_window_counts must cover every trajectory index"
-                )
-            object.__setattr__(self, "candidate_window_counts", candidate_window_counts)
-        if not self.selection_policy.strip():
-            raise ValueError("selection_policy cannot be empty")
+        for name, dtype in (
+            ("window_weights", np.float64),
+            ("trajectory_indices", np.int64),
+            ("start_indices", np.int64),
+            ("candidate_window_counts", np.int64),
+        ):
+            value = getattr(self, name)
+            if value is not None:
+                object.__setattr__(self, name, np.asarray(value, dtype=dtype))
 
     @property
     def control_size(self) -> int:

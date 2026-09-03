@@ -637,51 +637,6 @@ def with_constant_angular_rate(params: ModelParams) -> ModelParams:
     )
 
 
-def with_angular_dynamics_authority(
-    params: ModelParams,
-    authority: float | tuple[float, float, float],
-) -> ModelParams:
-    """Scale total multirotor angular acceleration by a bounded authority.
-
-    This is a model-selection transform, not a runtime tuning parameter. One
-    reproduces the fitted model and zero approaches constant measured body rate,
-    while intermediate values retain a conservative fraction of structured and
-    residual angular acceleration: structured angular acceleration and damping
-    and the residual's angular correction bound are all multiplied by the
-    authority, so the total angular acceleration scales exactly. Translation is
-    unchanged directly.
-    """
-
-    values = np.asarray(authority, dtype=np.float64)
-    if values.ndim == 0:
-        values = np.full(3, float(values))
-    if values.shape != (3,) or not np.all(np.isfinite(values)):
-        raise ValueError(
-            "angular dynamics authority must be one or three finite values"
-        )
-    if np.any(values < 0.0) or np.any(values > 1.0):
-        raise ValueError("angular dynamics authority must lie in [0, 1]")
-
-    base = structured_parameters(params)
-    if isinstance(base, FixedWingDynamicsParams):
-        raise TypeError("angular dynamics authority is currently multirotor-only")
-    authority_array = jnp.asarray(values)
-    positive_scale = jnp.maximum(authority_array, 1e-9)
-    updated = base._replace(
-        log_angular_accel=base.log_angular_accel + jnp.log(positive_scale),
-        log_angular_drag=base.log_angular_drag + jnp.log(positive_scale),
-    )
-    if not isinstance(params, ResidualDynamicsParams):
-        return updated
-    # The residual correction is ``correction_scale * tanh(...)``; scaling the
-    # bound scales the realized angular correction exactly, whereas scaling the
-    # pre-activation weights would not.
-    return params._replace(
-        base=updated,
-        correction_scale=params.correction_scale.at[3:6].multiply(authority_array),
-    )
-
-
 def zero_rotational_response_gradient(params: ModelParams) -> ModelParams:
     """Freeze multirotor rotational-memory and cross-coupling parameters."""
 

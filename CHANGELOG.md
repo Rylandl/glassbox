@@ -276,6 +276,19 @@ All notable changes to Glassbox are recorded here. The format follows
   literature review keeps the negative promotion result as prose, and the PX4
   ULog guide now says only that typed sensor channels are recorded and unused
   by the fitter. Last commit carrying the code: `2e16ebc`.
+- `core.dynamics.with_angular_dynamics_authority` and its three tests. The
+  angular-authority sweep that selected with it was removed at `bd48419` and
+  the two doc paragraphs resting on it were withdrawn then, which left the
+  transform with no caller. It set no parameter field of its own, so no model
+  payload or report changes. `with_constant_angular_rate` stays: the published
+  nanodrone protocol's baseline arm uses it. Last commit carrying it:
+  `2e16ebc`.
+- The re-validation in `TrajectoryWindows.__post_init__`: the shape, dtype,
+  finiteness, uniqueness and coverage checks over the window arrays and their
+  channel labels. `trajectory_windows` is the one constructor and had already
+  validated the same inputs, so the class was checking its own output. The
+  optional defaults and the dtype normalization stay, unchanged. No test
+  asserted any of the deleted raises. Last commit carrying them: `2e16ebc`.
 
 ### Fixed
 - `glassbox fit --model --report` no longer fails on a NumPy scalar.

@@ -14,7 +14,6 @@ from glassbox.core.dynamics import (
     state_derivative,
     step,
     step_with_latent,
-    with_angular_dynamics_authority,
     with_constant_angular_rate,
     with_instantaneous_rotational_response,
     with_thrust_command_offset,
@@ -154,26 +153,6 @@ def test_constant_rate_diagnostic_disables_angular_acceleration() -> None:
 
     np.testing.assert_allclose(derivative[10:13], 0.0, atol=1e-8)
     assert float(jnp.linalg.norm(derivative[6:10])) > 0.0
-
-
-def test_angular_dynamics_authority_scales_rotation_but_not_translation() -> None:
-    params = true_parameters()
-    half = with_angular_dynamics_authority(params, 0.5)
-    state = jnp.asarray(resting_state()).at[10:13].set(jnp.asarray([0.2, -0.3, 0.1]))
-    motors = hover_control(params) + 0.02 * MOTOR_MIXER[0]
-
-    full_derivative = state_derivative(params, state, motors)
-    half_derivative = state_derivative(half, state, motors)
-
-    np.testing.assert_allclose(half_derivative[:10], full_derivative[:10])
-    np.testing.assert_allclose(
-        half_derivative[10:13], 0.5 * full_derivative[10:13], rtol=1e-6
-    )
-
-
-def test_angular_dynamics_authority_is_bounded() -> None:
-    with pytest.raises(ValueError, match=r"\[0, 1\]"):
-        with_angular_dynamics_authority(true_parameters(), 1.1)
 
 
 def test_zero_initialized_residual_matches_structured_model() -> None:
@@ -316,34 +295,6 @@ def test_memoryless_sentinel_is_detected_and_excluded_from_the_fitted_mask() -> 
     assert not sentinel_mask[response_leaves].any()
     lagged_mask = fitted_structured_parameter_mask(initial_parameter_guess())
     assert lagged_mask[response_leaves].all()
-
-
-def test_residual_angular_authority_scales_the_realized_correction() -> None:
-    structured = true_parameters()
-    residual = initial_residual_parameters(structured)
-    rng = np.random.default_rng(3)
-    # Activate the residual so the angular correction is far from zero and the
-    # tanh bound is partly saturated.
-    residual = residual._replace(
-        output_weights=jnp.asarray(
-            rng.normal(scale=3.0, size=residual.output_weights.shape)
-        ),
-        hidden_weights=jnp.asarray(
-            rng.normal(scale=1.0, size=residual.hidden_weights.shape)
-        ),
-    )
-    state = jnp.asarray(resting_state()).at[3:6].set(jnp.asarray([1.0, -0.5, 0.2]))
-    state = state.at[10:13].set(jnp.asarray([0.4, -0.3, 0.2]))
-    motors = hover_control(structured) + 0.05 * MOTOR_MIXER[0]
-
-    full = state_derivative(residual, state, motors)
-    half = state_derivative(
-        with_angular_dynamics_authority(residual, 0.5), state, motors
-    )
-
-    assert float(jnp.linalg.norm(full[10:13])) > 1e-3
-    np.testing.assert_allclose(half[:10], full[:10], rtol=1e-6, atol=1e-7)
-    np.testing.assert_allclose(half[10:13], 0.5 * full[10:13], rtol=1e-5, atol=1e-7)
 
 
 def test_cascaded_lag_is_smooth_near_equal_time_constants() -> None:
