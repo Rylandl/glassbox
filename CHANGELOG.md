@@ -53,6 +53,10 @@ All notable changes to Glassbox are recorded here. The format follows
   contacts, and records four switches measured and left off: maps at face
   value at full rank, a probe overlay until supported, and the identifier's
   prequential residual in two forms.
+- The release ensemble's second distribution never throws weaker than the
+  case declares (velocity scale on `[1.0, 1.2]`) and puts its width into the
+  angular impulse (angular velocity scale on `[0.5, 1.5]`); earlier recorded
+  tables were measured on the first distribution and are not comparable.
 - Throw-study trials stop at the first floor contact and are failures from
   then on: the contact sample is kept, the contact time is recorded, and the
   terminal and settled metrics are absent rather than read off the ground.

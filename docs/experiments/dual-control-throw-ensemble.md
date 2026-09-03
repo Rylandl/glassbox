@@ -14,6 +14,19 @@ measurement.
 
 ## Protocol
 
+> **Release distribution, second version.** From round six the ensemble draws
+> the throw velocity scale on `[1.0, 1.2]` and the angular velocity scale on
+> `[0.5, 1.5]`, with the tilt perturbation unchanged: the throw is never
+> weaker than the case declares, and the width the ensemble resolves is in
+> the angular impulse the release carries. A release thrown too low to be
+> caught by any controller measures the throw rather than the controller,
+> and the low-throw draws were where most of the remaining floor contacts
+> were, for the cascade as much as for the learned arm. Every table above
+> this note that carries a round number of five or lower was measured on the
+> first distribution, `[0.8, 1.2]` on both scales, and is not comparable
+> with the second; the second version's paired table is at the end of this
+> page.
+
 Each of the seven throw-study cases is drawn sixteen times. Each world velocity
 component is scaled by an independent `U[0.8, 1.2]`, each body rate component
 likewise, and the release attitude is rotated by `U[0, 0.1]` radians about a
@@ -308,3 +321,47 @@ uv run glassbox crazyflow throw-animation \
 The report is identical at any worker count: every trial is decided by its own
 seeded release and its arm, and the results are reassembled in job order rather
 than completion order.
+
+
+## Second release distribution: the paired table
+
+Throw velocity scale on `[1.0, 1.2]`, angular velocity scale on `[0.5, 1.5]`,
+tilt perturbation `0.1 rad`, sixteen releases per case, the same seed. The
+report is `artifacts/crazyflow_throw_study/report-v2-ensemble-three-arms.json`.
+
+| case | arm | recovered | rate | wilson 95 |
+| --- | --- | --- | --- | --- |
+| canonical | certified | 12/16 | 0.75 | 0.51-0.90 |
+| canonical | working | 3/16 | 0.19 | 0.07-0.43 |
+| canonical | dual_control_nmpc_pass6 | 11/16 | 0.69 | 0.44-0.86 |
+| shorter_arms_high_release | certified | 14/16 | 0.88 | 0.64-0.97 |
+| shorter_arms_high_release | working | 5/16 | 0.31 | 0.14-0.56 |
+| shorter_arms_high_release | dual_control_nmpc_pass6 | 15/16 | 0.94 | 0.72-0.99 |
+| long_arms_cross_axis_tumble | certified | 13/16 | 0.81 | 0.57-0.93 |
+| long_arms_cross_axis_tumble | working | 5/16 | 0.31 | 0.14-0.56 |
+| long_arms_cross_axis_tumble | dual_control_nmpc_pass6 | 12/16 | 0.75 | 0.51-0.90 |
+| milder_low_energy_release | certified | 16/16 | 1.00 | 0.81-1.00 |
+| milder_low_energy_release | working | 10/16 | 0.62 | 0.39-0.82 |
+| milder_low_energy_release | dual_control_nmpc_pass6 | 14/16 | 0.88 | 0.64-0.97 |
+| reversed_tumble | certified | 6/16 | 0.38 | 0.18-0.61 |
+| reversed_tumble | working | 4/16 | 0.25 | 0.10-0.49 |
+| reversed_tumble | dual_control_nmpc_pass6 | 13/16 | 0.81 | 0.57-0.93 |
+| canonical_state_noise | certified | 7/16 | 0.44 | 0.23-0.67 |
+| canonical_state_noise | working | 4/16 | 0.25 | 0.10-0.49 |
+| canonical_state_noise | dual_control_nmpc_pass6 | 1/16 | 0.06 | 0.01-0.28 |
+| canonical_mid_flight_arm_change | certified | 16/16 | 1.00 | 0.81-1.00 |
+| canonical_mid_flight_arm_change | working | 6/16 | 0.38 | 0.18-0.61 |
+| canonical_mid_flight_arm_change | dual_control_nmpc_pass6 | 13/16 | 0.81 | 0.57-0.93 |
+| pooled | certified | 84/112 | 0.75 | 0.66-0.82 |
+| pooled | working | 37/112 | 0.33 | 0.25-0.42 |
+| pooled | dual_control_nmpc_pass6 | 79/112 | 0.71 | 0.62-0.78 |
+
+Pooled: the certified cascade 84 of 112 (0.750, Wilson 0.662-0.821), the
+learned arm 79 of 112 (0.705, Wilson 0.615-0.782), the working cascade 37 of
+112. Floor contacts 17, 24, and 18. Every learned release that stays off the
+floor reaches the envelope. Without the state-noise case the two leading
+arms are 77 and 78 of 96; with it the learned arm loses six releases to the
+cascade's seven-of-sixteen, which is the one structural difference left:
+the cascade thrusts at its declared midpoint whatever the identifier says,
+and the learned arm's collective authority under differenced measurement
+noise is slow to rise.

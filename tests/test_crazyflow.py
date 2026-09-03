@@ -909,6 +909,41 @@ def test_continuous_throw_campaign_retains_successes_and_failed_gates() -> None:
 
 @pytest.mark.crazyflow
 @pytest.mark.crazyflow
+def test_the_ensemble_never_throws_weaker_than_the_case_and_varies_the_impulse() -> (
+    None
+):
+    """The release distribution perturbs the angular impulse, not the throw down.
+
+    A throw thrown too low to be caught by any controller measures the throw,
+    so the velocity scale is never below one; the width the ensemble resolves
+    is in the angular velocity the release carries.
+    """
+
+    from glassbox.integrations.crazyflow_throw_study import (
+        CRAZYFLOW_THROW_STUDY_CASES,
+        ThrowEnsembleConfig,
+        build_ensemble_cases,
+    )
+
+    config = ThrowEnsembleConfig()
+    assert config.velocity_scale_minimum >= 1.0
+    assert (
+        config.angular_velocity_scale_maximum - config.angular_velocity_scale_minimum
+        > (config.velocity_scale_maximum - config.velocity_scale_minimum)
+    )
+    draws = build_ensemble_cases(CRAZYFLOW_THROW_STUDY_CASES[0], 0, config)
+    for draw in draws:
+        perturbation = draw.release_perturbation.to_dict()
+        assert min(perturbation["velocity_scale"]) >= 1.0 - 1e-12
+        assert (
+            max(perturbation["velocity_scale"]) <= config.velocity_scale_maximum + 1e-12
+        )
+        assert (
+            min(perturbation["angular_velocity_scale"])
+            >= config.angular_velocity_scale_minimum - 1e-12
+        )
+
+
 def test_a_throw_trial_stops_at_its_first_floor_contact() -> None:
     """Floor contact ends the trial and marks it failed.
 

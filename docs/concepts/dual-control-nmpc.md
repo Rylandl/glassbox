@@ -1542,10 +1542,26 @@ the ensemble this recovers 69 of 112 (0.616, Wilson 0.524-0.701) with floor
 contacts down from 39 to 34; the state-noise case is at zero on this run,
 against two on the previous. That is the committed `pass6`.
 
+### Round six: the release distribution
+
+The remaining contacts were the low throws, for the cascade as much as for
+the learned arm, and a release thrown too low to be caught by any controller
+measures the throw. The ensemble's second distribution never throws weaker
+than the case declares and puts its width into the angular impulse: velocity
+scale on `[1.0, 1.2]`, angular velocity scale on `[0.5, 1.5]`. Paired on it,
+the certified cascade recovers 84 of 112 and the learned arm 79, intervals
+0.662-0.821 and 0.615-0.782, with the working cascade at 37. Per case the
+learned arm leads on the reversed tumble (13 against 6) and the short arms,
+ties on the canonical release, and trails on the state-noise case (1 against
+7), which accounts for the pooled gap on its own. The table is on
+[the release-ensemble page](../experiments/dual-control-throw-ensemble.md).
+
 ### What this leaves
 
-The early floor contacts remain, at 34 of 112 after five rounds, and two
-more controller-side ideas for them were measured and rejected:
+On the distribution the study now uses, the learned controller and the
+certified cascade are indistinguishable except under measurement noise. Two
+more controller-side ideas for the early phase were measured and rejected
+before that:
 charging the declared rate limit on the mean prediction over the whole
 horizon (a one-second rollout on a partial map predicts wild rates for every
 plan, so the penalty distorts the choice arbitrarily) and scaling the

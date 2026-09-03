@@ -1955,10 +1955,15 @@ class ThrowEnsembleConfig:
 
     replicate_count: int = ENSEMBLE_REPLICATE_COUNT
     seed: int = ENSEMBLE_SEED
-    velocity_scale_minimum: float = 0.8
+    #: The throw is never weaker than the case declares and may be up to a
+    #: fifth stronger: a throw is the operator's act, and a release that is
+    #: thrown too low to be caught by any controller measures the throw, not
+    #: the controller.  The variation the ensemble is meant to resolve is in
+    #: the angular impulse the release carries, so that is where the width is.
+    velocity_scale_minimum: float = 1.0
     velocity_scale_maximum: float = 1.2
-    angular_velocity_scale_minimum: float = 0.8
-    angular_velocity_scale_maximum: float = 1.2
+    angular_velocity_scale_minimum: float = 0.5
+    angular_velocity_scale_maximum: float = 1.5
     maximum_tilt_perturbation_rad: float = 0.1
 
     def __post_init__(self) -> None:
