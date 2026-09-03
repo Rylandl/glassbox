@@ -44,8 +44,8 @@ behavior to forces, torques, and accelerations.
   recent telemetry that returns the original belief when disjoint later
   telemetry does not improve. See the same page.
 - **Bootstrap identification.** For a vehicle with no prior, a smaller contract
-  that fits collective acceleration and a motor-to-angular-acceleration map from
-  applied motor inputs, offline and recursively online. See
+  that recursively fits collective acceleration and a
+  motor-to-angular-acceleration map from applied motor inputs. See
   [bootstrap identification](concepts/bootstrap-identification.md).
 - **Control.** A bounded JAX NMPC controller driven by a belief, with hard
   command bounds, explicit failure statuses, and belief-aware support

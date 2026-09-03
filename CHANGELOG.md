@@ -134,6 +134,26 @@ All notable changes to Glassbox are recorded here. The format follows
   a downstream contract.
 
 ### Removed
+- The batch bootstrap identifier: `control/bootstrap_identification.py` with
+  `BootstrapMultirotorIdentifier`, `BootstrapIdentificationConfig`,
+  `BootstrapIdentificationResult`, `BootstrapExcitationConfig`,
+  `BootstrapExcitationPlan`, `plan_bootstrap_excitation`,
+  `BootstrapArrestCommand`, `BootstrapVelocityArrestCommand` and
+  `BootstrapModelNotReadyError`; its nine `glassbox.experimental` re-exports;
+  its nine tests; and the batch half of
+  `docs/concepts/bootstrap-identification.md`, including the Crazyflow arrest
+  result that only the batch fit and its excitation plan produced. The
+  recursive identifier's Gram accumulation is the same fit, so a batch fit is
+  folding N transitions and reading the belief. Last commit carrying the code:
+  `aab0b42`.
+- The cascade controller: `ProgressiveBootstrapController`,
+  `ProgressiveBootstrapControllerConfig` and `ProgressiveBootstrapCommand` in
+  `control/online_bootstrap.py` with their excitation scan and its fixed
+  pseudo-random patterns, `ThrustCascade` and `thrust_cascade` in
+  `control/_common.py`, their three `glassbox.experimental` re-exports, their
+  three tests, and their documentation. It was the hand-gained baseline arm of
+  a comparison that lives in the demo repository and was retired there by the
+  learned controller. Last commit carrying the code: `aab0b42`.
 - The Crazyflow throw demo moved to
   [glassbox-throw](https://github.com/Rylandl/glassbox-throw) at this commit:
   the Crazyflow plant adapter, the throw trial and study, the bootstrap and
