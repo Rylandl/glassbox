@@ -82,10 +82,15 @@ def main() -> int:
                 and (rate[-300:] < 0.1).all()
                 and altitude[-300:].min() > 0.0
             )
+            contact = record.floor_contact_step
+            outcome = (
+                f"FLOOR CONTACT at {times[enable + contact + 1]:.2f} s, trial stopped"
+                if contact is not None
+                else f"settled hover last 3 s: {settled}"
+            )
             print(
                 f"\n== {name} wall {wall:.0f}s  min alt {altitude.min():.3f}  "
-                f"max tilt after enable {tilt[enable:].max():.2f}  "
-                f"settled hover last 3 s: {settled}"
+                f"max tilt after enable {tilt[enable:].max():.2f}  {outcome}"
             )
             print(
                 f"  rank4 step {record.command_rank_four_step}  "

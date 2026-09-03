@@ -908,6 +908,59 @@ def test_continuous_throw_campaign_retains_successes_and_failed_gates() -> None:
 
 
 @pytest.mark.crazyflow
+@pytest.mark.crazyflow
+def test_a_throw_trial_stops_at_its_first_floor_contact() -> None:
+    """Floor contact ends the trial and marks it failed.
+
+    A release low and downward enough to reach the floor before the model is
+    enabled is on the ground when the online loop starts, so the loop runs
+    exactly one interval, the record says where it stopped, and every
+    end-of-flight quantity is absent rather than read off the contact sample.
+    """
+
+    from dataclasses import replace
+
+    from glassbox.integrations.crazyflow_throw_study import (
+        _ensemble_trial,
+        run_throw_study_trial,
+    )
+
+    canonical = next(
+        case for case in CRAZYFLOW_THROW_STUDY_CASES if case.name == "canonical"
+    )
+    # Released low and downward, the vehicle is on the floor before the model
+    # is enabled.
+    low = replace(
+        canonical,
+        name="canonical_low",
+        scenario=replace(
+            canonical.scenario,
+            release_height_m=0.5,
+            world_velocity_m_s=(0.0, 0.0, -2.0),
+        ),
+    )
+    plant = CrazyflowPlant(CrazyflowPlantConfig(control_frequency_hz=100))
+    try:
+        result = run_throw_study_trial(low, "working", plant)
+        trial = _ensemble_trial(low, "working", plant, None)
+    finally:
+        plant.close()
+    flight = result["flight"]
+    assert flight["floor_contact_time_s"] is not None
+    assert flight["floor_contact_time_s"] < 1.5
+    assert flight["minimum_altitude_m"] <= 0.0
+    assert flight["terminal_speed_m_s"] is None
+    assert flight["sustained_hover_start_time_s"] is None
+    assert result["stability"]["settled_maximum_command_step"] is None
+    assert result["identification"]["working_interval_count"] < 900
+    assert trial["touched_floor"] is True
+    assert trial["recovered"] is False
+    assert trial["terminal_tilt_rad"] is None
+    assert trial["floor_contact_time_s"] == flight["floor_contact_time_s"]
+    json.dumps(result, allow_nan=False)
+    json.dumps(trial, allow_nan=False)
+
+
 def test_throw_study_reports_both_control_models_for_the_canonical_case() -> None:
     pytest.importorskip("crazyflow")
 

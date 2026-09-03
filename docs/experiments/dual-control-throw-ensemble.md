@@ -35,6 +35,19 @@ zero recoveries has exactly zero width.
 Five arms, 112 releases each, 560 trials. The report is
 `artifacts/crazyflow_throw_study/report-pass5-ensemble.json`.
 
+A trial stops at its first floor contact and is a failure from then on.
+Everything the simulator would produce afterwards is ground contact, not
+flight: it was where the post-contact fly-aways and the "quiet on the floor"
+chatter readings came from, it fed ground-reaction samples to the identifier,
+and it was roughly half the ensemble's compute. A stopped trial keeps its
+contact sample so the trace shows where it happened, records the contact
+time, and reports every terminal and settled quantity as absent rather than
+read off the contact sample. The recovery criterion is unchanged: the hover
+envelope reached with no floor contact. Reports recorded before this rule
+(the fourth and fifth passes, and the sixth pass's rounds one and two) carry
+post-contact metrics for their crashed releases; their recovery counts are
+unaffected, because the flight up to contact is the same.
+
 A release the simulator cannot integrate to the end is recorded as a diverged
 trial and counted as not recovered, rather than ending the run. It contributes
 to no other statistic, and the arm's `simulator_diverged_count` and
@@ -217,7 +230,9 @@ its rows pair with this page's table by construction. The reports are
 `report-pass6-round2-step-shift-ensemble-arm-only.json` (round two: the
 knowledge term over the posterior's hover distribution, with the block and the
 real-time warm start), and `report-pass6-round2-ensemble-arm-only.json` (the
-committed round two, with the composite seeds).
+committed round two, with the composite seeds, re-measured under the
+stop-at-floor-contact rule: the same 54 recoveries, since the flight up to
+contact is unchanged, in a little over half the compute).
 
 | arm | recovered | rate | Wilson 95 | on the floor | airborne, outside envelope |
 | --- | --- | --- | --- | --- | --- |
@@ -226,7 +241,7 @@ committed round two, with the composite seeds).
 | pass6, round one | 10/112 | 0.089 | 0.049-0.157 | 52 | 48 |
 | pass6, round two, block warm start | 47/112 | 0.420 | 0.332-0.512 | 51 | 9 |
 | pass6, round two, real-time warm start | 47/112 | 0.420 | 0.332-0.512 | 61 | 1 |
-| pass6, round two, with composite seeds (committed) | 54/112 | 0.482 | 0.392-0.574 | 50 | 5 |
+| pass6, round two, with composite seeds (committed) | 54/112 | 0.482 | 0.392-0.574 | 50 | 8 |
 
 The round-one intervals exclude `pass5`'s point estimate and include
 `pass2b`'s. The committed round two's interval, 0.392-0.574, excludes every

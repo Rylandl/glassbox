@@ -138,6 +138,11 @@ ENSEMBLE_CONTROL_MODELS = (
     DUAL_CONTROL_PASS6_MODEL,
 )
 DEFAULT_OUTPUT_PATH = Path("artifacts/crazyflow_throw_study/report.json")
+#: Altitude at or below which the vehicle is on the floor.  A trial stops at
+#: its first floor contact and is a failure from then on: everything the
+#: simulator would produce afterwards is ground contact, not flight, and none
+#: of it should reach the identifier, the metrics, or the ensemble's clock.
+FLOOR_CONTACT_ALTITUDE_M = 0.0
 #: Commands kept verbatim from model enable, for the early-action analysis.
 EARLY_COMMAND_COUNT = 30
 MODEL_ENABLE_DELAY_S = 1.0
@@ -616,6 +621,9 @@ class _TrialRecord:
     first_supported_control_step: int | None = None
     control_model_step: int | None = None
     configuration_change_step: int | None = None
+    #: Online step at which the vehicle first touched the floor, at which the
+    #: trial was stopped; ``None`` for a trial that flew to the end.
+    floor_contact_step: int | None = None
     command_rank_four_step: int | None = None
 
 
@@ -842,6 +850,11 @@ def _fly_trial(
         )
         if record.command_rank_four_step is None and working.command_evidence_rank == 4:
             record.command_rank_four_step = step
+        if sample.state[2] <= FLOOR_CONTACT_ALTITUDE_M:
+            # Floor contact ends the trial.  The contact sample is kept so the
+            # trace shows where it happened; nothing after it is simulated.
+            record.floor_contact_step = step
+            break
 
     identification: dict[str, Any] = {
         "working_interval_count": identifier.belief.interval_count,
@@ -1523,13 +1536,28 @@ def run_throw_study_trial(
             if record.configuration_change_step is not None
             else online_step_count // 2
         )
+        truncated = record.floor_contact_step is not None
+        if truncated:
+            # A trial stopped at floor contact has no end of flight to
+            # measure: it failed, and its terminal and settled quantities are
+            # absent rather than read off the contact sample.
+            hover_start_s, hover_duration_s = None, 0.0
+
+        def flown(value: float) -> float | None:
+            return None if truncated else float(value)
+
         return {
             "control_model": control_model,
             "flight": {
-                "terminal_speed_m_s": float(speed[-1]),
-                "terminal_angular_rate_rad_s": float(rate[-1]),
-                "terminal_tilt_rad": float(tilt[-1]),
-                "terminal_vertical_speed_m_s": float(states[-1, 5]),
+                "floor_contact_time_s": (
+                    None
+                    if record.floor_contact_step is None
+                    else float(timestamps[enable_index + record.floor_contact_step + 1])
+                ),
+                "terminal_speed_m_s": flown(speed[-1]),
+                "terminal_angular_rate_rad_s": flown(rate[-1]),
+                "terminal_tilt_rad": flown(tilt[-1]),
+                "terminal_vertical_speed_m_s": flown(states[-1, 5]),
                 "sustained_hover_start_time_s": hover_start_s,
                 "sustained_hover_duration_s": hover_duration_s,
                 "minimum_altitude_m": float(np.min(states[:, 2])),
@@ -1556,9 +1584,11 @@ def run_throw_study_trial(
                 ),
                 "readiness_loss_count": loss_count,
                 "readiness_regain_count": regain_count,
-                "settled_readiness_loss_count": _flip_counts(
-                    supported[max(settled_step, 0) :]
-                )[0],
+                "settled_readiness_loss_count": (
+                    None
+                    if truncated
+                    else _flip_counts(supported[max(settled_step, 0) :])[0]
+                ),
                 "supported_interval_fraction": float(np.mean(supported)),
             },
             "stability": {
@@ -1566,10 +1596,10 @@ def run_throw_study_trial(
                 "maximum_relative_allocation_change": relative_move,
                 "maximum_command_step": maximum_command_step,
                 "settled_window_s": SETTLED_WINDOW_S,
-                "settled_maximum_allocation_change": settled_absolute,
-                "settled_maximum_relative_allocation_change": settled_relative,
-                "settled_maximum_command_step": _maximum_step(
-                    requested[enable_index + max(settled_step, 0) :]
+                "settled_maximum_allocation_change": flown(settled_absolute),
+                "settled_maximum_relative_allocation_change": flown(settled_relative),
+                "settled_maximum_command_step": flown(
+                    _maximum_step(requested[enable_index + max(settled_step, 0) :])
                 ),
                 "nonzero_information_action_count": int(
                     np.count_nonzero(
@@ -1774,11 +1804,17 @@ def _aggregate(
     results: list[dict[str, Any]],
     models: tuple[str, ...] = CONTROL_MODELS,
 ) -> dict[str, Any]:
-    def worst(model: str, section: str, name: str) -> float:
-        return max(float(result["modes"][model][section][name]) for result in results)
+    def present(model: str, section: str, name: str) -> list[float]:
+        values = [result["modes"][model][section][name] for result in results]
+        return [float(value) for value in values if value is not None]
 
-    def best(model: str, section: str, name: str) -> float:
-        return min(float(result["modes"][model][section][name]) for result in results)
+    def worst(model: str, section: str, name: str) -> float | None:
+        values = present(model, section, name)
+        return max(values) if values else None
+
+    def best(model: str, section: str, name: str) -> float | None:
+        values = present(model, section, name)
+        return min(values) if values else None
 
     aggregate: dict[str, Any] = {
         "all_values_finite_and_bounded": all(
@@ -2061,6 +2097,13 @@ def _ensemble_trial(
         enable_index,
     )
     minimum_altitude_m = float(np.min(states[:, 2]))
+    truncated = record.floor_contact_step is not None
+    if truncated:
+        hover_start_s, hover_duration_s = None, 0.0
+
+    def flown(value: float) -> float | None:
+        return None if truncated else float(value)
+
     online_step_count = len(record.working_supported)
     settled_step = max(
         online_step_count - round(SETTLED_WINDOW_S / plant.sample_period_s),
@@ -2080,12 +2123,17 @@ def _ensemble_trial(
         # reached, and the vehicle never on the floor.  A vehicle resting on the
         # ground satisfies the envelope, so the altitude test is what makes the
         # rate mean anything.
-        "recovered": bool(hover_start_s is not None and minimum_altitude_m > 0.0),
+        "recovered": bool(hover_start_s is not None and not truncated),
         "reached_hover_envelope": hover_start_s is not None,
-        "touched_floor": bool(minimum_altitude_m <= 0.0),
-        "terminal_speed_m_s": float(speed[-1]),
-        "terminal_angular_rate_rad_s": float(rate[-1]),
-        "terminal_tilt_rad": float(tilt[-1]),
+        "touched_floor": truncated,
+        "floor_contact_time_s": (
+            None
+            if record.floor_contact_step is None
+            else float(timestamps[enable_index + record.floor_contact_step + 1])
+        ),
+        "terminal_speed_m_s": flown(speed[-1]),
+        "terminal_angular_rate_rad_s": flown(rate[-1]),
+        "terminal_tilt_rad": flown(tilt[-1]),
         "minimum_altitude_m": minimum_altitude_m,
         "sustained_hover_duration_s": hover_duration_s,
         "time_to_rank_four_s": (
@@ -2097,11 +2145,11 @@ def _ensemble_trial(
             )
         ),
         "early_mean_collective": _early_mean_collective(requested, enable_index),
-        "settled_maximum_command_step": _maximum_step(
-            requested[enable_index + settled_step :]
+        "settled_maximum_command_step": flown(
+            _maximum_step(requested[enable_index + settled_step :])
         ),
-        "settled_maximum_relative_allocation_change": settled_relative,
-        "settled_maximum_allocation_change": settled_absolute,
+        "settled_maximum_relative_allocation_change": flown(settled_relative),
+        "settled_maximum_allocation_change": flown(settled_absolute),
         "non_finite_value_count": int(
             np.count_nonzero(~np.isfinite(states))
             + np.count_nonzero(~np.isfinite(applied))
@@ -2140,6 +2188,7 @@ def _diverged_ensemble_trial(
         "recovered": False,
         "reached_hover_envelope": False,
         "touched_floor": False,
+        "floor_contact_time_s": None,
         "terminal_speed_m_s": None,
         "terminal_angular_rate_rad_s": None,
         "terminal_tilt_rad": None,
@@ -2383,6 +2432,7 @@ def run_crazyflow_throw_ensemble(
             "every_arm_flies_the_same_releases": True,
             "release_height_unperturbed": True,
             "recovered_means_hover_envelope_without_floor_contact": True,
+            "trials_stop_at_first_floor_contact": True,
             "diverged_trials_recorded_not_dropped": True,
         },
         "ensemble": settings.to_dict(),

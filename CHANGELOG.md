@@ -35,6 +35,11 @@ All notable changes to Glassbox are recorded here. The format follows
   the certified cascade's point estimate. Explicit `block_lengths` are
   available and were measured as a negative result. Six rejected formulations are recorded in
   `docs/concepts/dual-control-nmpc.md`.
+- Throw-study trials stop at the first floor contact and are failures from
+  then on: the contact sample is kept, the contact time is recorded, and the
+  terminal and settled metrics are absent rather than read off the ground.
+  Recovery counts are unchanged; post-contact metrics in earlier recorded
+  reports are superseded.
 - The Crazyflow plant raises `CrazyflowDivergenceError`, a `ValueError`, when
   the simulator hands back a non-finite state, and the throw ensemble records
   such a release as a diverged, unrecovered trial instead of ending the run.
