@@ -474,6 +474,27 @@ class DualControlConfig:
     #: and the full slew is only proposed once the map has been earned.  The
     #: excitation seeds are not scaled: learning is what earns the authority.
     goal_seed_authority: bool = False
+    #: Use the maps at face value once the identifier's own support spans
+    #: them: the angular map when its effect has rank three and the command
+    #: evidence rank four, the collective map when the command evidence has
+    #: rank four.  Authority scaling stops a rank-one fit from driving the
+    #: goal, but it also under-gains a map that is already known on every
+    #: axis, and a brake commanded through a map at half its true gain comes
+    #: late and overshoots.  The rank is the identifier's own statement, not a
+    #: threshold declared here.
+    face_value_at_full_rank: bool = False
+    #: Lay a probe over the executed command while the identifier's support is
+    #: incomplete: one slew along the posterior's weakest command direction,
+    #: alternating in sign from solve to solve so it is zero-mean, until the
+    #: command evidence has rank four and the angular effect rank three.  The
+    #: objective's proxies for the value of information are capped, and a
+    #: goal that is losing altitude outbids them, so the differential
+    #: excitation that the plans do issue is feedback, correlated with the
+    #: body rates and residualized away by the identifier.  The probe is
+    #: uncorrelated with the state by construction; its direction is read
+    #: off the posterior and its amplitude is the declared slew, and the
+    #: declared slew still bounds the executed move as a whole.
+    probe_until_supported: bool = False
     #: The declared per-interval slew limit, as a fraction of the command
     #: range.  Under ``"slew_moves"`` this is a hard box on every block's move,
     #: so the executed command never leaves the previous one by more than this
@@ -723,6 +744,8 @@ class DualControlConfig:
             "authority_scaled_maps": self.authority_scaled_maps,
             "rate_limit_on_mean": self.rate_limit_on_mean,
             "goal_seed_authority": self.goal_seed_authority,
+            "face_value_at_full_rank": self.face_value_at_full_rank,
+            "probe_until_supported": self.probe_until_supported,
             "goal_seeds": self.goal_seeds,
             "warm_start_shift": self.warm_start_shift,
             "slew_per_interval": self.slew_per_interval,
@@ -918,6 +941,10 @@ class DualControlResult:
     #: Objective value of every multi-start candidate, in ``candidate_names``
     #: order, before the gradient refinement; infinite for an unusable one.
     candidate_objectives: np.ndarray = field(default_factory=lambda: np.zeros(0))
+    #: Sign of the probe overlay this solve applied, held for a whole block and
+    #: flipped at the next block, so the probe is zero-mean over two blocks and
+    #: survives an identifier window shorter than a block.
+    probe_sign: float = 1.0
 
     def __post_init__(self) -> None:
         command = np.asarray(self.command, dtype=np.float64)
@@ -997,6 +1024,7 @@ class DualControlResult:
             "design_center_source": self.design_center_source,
             "charged_initial_transition": self.charged_initial_transition,
             "plan_phase": self.plan_phase,
+            "probe_sign": self.probe_sign,
         }
 
 
@@ -2909,10 +2937,14 @@ class DualControlNMPC:
         collective_map = np.asarray(belief.collective_acceleration_per_command)
         angular_map = np.asarray(belief.angular_acceleration_per_command)
         if self.config.authority_scaled_maps:
-            collective_map = collective_map * float(belief.collective_authority)
-            angular_map = (
-                angular_map * np.asarray(belief.angular_axis_authority)[:, None]
-            )
+            full_command_rank = int(belief.command_evidence_rank) >= _COMMAND_SIZE
+            angular_full = full_command_rank and int(belief.angular_effect_rank) >= 3
+            if not (self.config.face_value_at_full_rank and full_command_rank):
+                collective_map = collective_map * float(belief.collective_authority)
+            if not (self.config.face_value_at_full_rank and angular_full):
+                angular_map = (
+                    angular_map * np.asarray(belief.angular_axis_authority)[:, None]
+                )
         return _Posterior(
             collective_per_command=jnp.asarray(collective_map),
             collective_velocity_coefficient=jnp.asarray(
@@ -3087,6 +3119,13 @@ class DualControlNMPC:
             )
 
         shift, phase = self._warm_phase(warm_start)
+        previous_sign = (
+            float(getattr(warm_start, "probe_sign", 1.0)) if warm_start else 1.0
+        )
+        # A new block flips the probe sign; within a block it is held.
+        probe_sign = (
+            -previous_sign if (shift and warm_start is not None) else previous_sign
+        )
         warm, warm_valid = self._warm_blocks(warm_start, held, shift=shift)
         (
             command,
@@ -3124,6 +3163,23 @@ class DualControlNMPC:
                 charged_initial_transition=charged,
             )
         bounded = np.clip(command_array, self._minimum, self._maximum)
+        if self.config.probe_until_supported and (
+            int(belief.command_evidence_rank) < _COMMAND_SIZE
+            or int(belief.angular_effect_rank) < 3
+        ):
+            # The weakest direction of the command precision, at one slew,
+            # with a sign held for a block and flipped at the next so the
+            # probe is zero-mean over two blocks and survives an identifier
+            # window shorter than a block.  The slew enforcement below still
+            # bounds the executed move as a whole.
+            directions = np.asarray(
+                self._excitation_directions(self._posterior(belief))
+            )
+            bounded = np.clip(
+                bounded + probe_sign * directions[0] * self._slew_step,
+                self._minimum,
+                self._maximum,
+            )
         if self.config.plan_parameterization == "slew_moves":
             # The declared limits are enforced here, in double precision, for
             # the same reason the command box is: the solve runs in the JAX
@@ -3183,4 +3239,5 @@ class DualControlNMPC:
             design_center_source=center_source,
             charged_initial_transition=charged,
             plan_phase=phase,
+            probe_sign=probe_sign,
         )

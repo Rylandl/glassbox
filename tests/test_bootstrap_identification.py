@@ -1117,3 +1117,67 @@ def test_transition_aggregation_assimilates_window_means_weighted_by_the_window(
     assert np.allclose(
         single.belief.collective_information, 3.0 * np.outer(mean_force, mean_force)
     )
+
+
+def test_the_prequential_residual_floors_the_scale_at_the_belief_error() -> None:
+    """The residual scale cannot sit below what the belief actually gets wrong.
+
+    Off, the identifier is bit-for-bit as it was.  On, each residual standard
+    deviation is at least the exponentially weighted root-mean-square error
+    the belief made predicting each transition before absorbing it, so a fit
+    with as many samples as parameters no longer reads as certain.
+    """
+
+    import numpy as np
+
+    from glassbox.control.online_bootstrap import (
+        RecursiveBootstrapConfig,
+        RecursiveBootstrapIdentifier,
+    )
+
+    rng = np.random.default_rng(5)
+    dt = 0.01
+
+    def transition() -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        previous = np.zeros(13)
+        previous[6] = 1.0
+        previous[3:6] = rng.normal(scale=0.1, size=3)
+        previous[10:13] = rng.normal(scale=0.3, size=3)
+        current = previous.copy()
+        # A large, command-independent angular kick the model cannot fit.
+        current[3:6] += rng.normal(scale=0.02, size=3)
+        current[10:13] += rng.normal(scale=0.4, size=3)
+        command = np.clip(0.5 + 0.05 * rng.normal(size=4), 0.0, 1.0)
+        return previous, current, command
+
+    transitions = [transition() for _ in range(12)]
+    plain = RecursiveBootstrapIdentifier(
+        RecursiveBootstrapConfig(control_model="working")
+    )
+    off = RecursiveBootstrapIdentifier(
+        RecursiveBootstrapConfig(control_model="working", prequential_residual=False)
+    )
+    on = RecursiveBootstrapIdentifier(
+        RecursiveBootstrapConfig(control_model="working", prequential_residual=True)
+    )
+    for previous, current, command in transitions:
+        a = plain.update(previous, current, command, dt).to_dict()
+        b = off.update(previous, current, command, dt).to_dict()
+        a.pop("update_wall_time_s")
+        b.pop("update_wall_time_s")
+        assert a == b
+        on.update(previous, current, command, dt)
+    assert (
+        on.belief.collective_residual_std_m_s2
+        >= off.belief.collective_residual_std_m_s2
+    )
+    assert np.all(
+        on.belief.angular_residual_std_rad_s2 >= off.belief.angular_residual_std_rad_s2
+    )
+    # Twelve samples on eleven angular columns fit the kicks in-sample; the
+    # prequential error does not, so the scale on the switch is well above
+    # the declared floor.
+    assert np.all(
+        on.belief.angular_residual_std_rad_s2
+        > 2.0 * RecursiveBootstrapConfig().angular_residual_std_floor_rad_s2
+    )

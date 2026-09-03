@@ -1501,6 +1501,8 @@ def test_pass_six_declares_its_switches_and_refuses_malformed_ones() -> None:
     # Measured and rejected; kept as switches, off.
     assert config.rate_limit_on_mean is False
     assert config.goal_seed_authority is False
+    assert config.face_value_at_full_rank is False
+    assert config.probe_until_supported is False
     assert config.horizon_steps == 100 and config.block_steps == 5
     assert dual_control_config("pass5").excitation_basis == "motor"
     for field, value in (
@@ -1709,8 +1711,9 @@ def test_authority_scaled_maps_use_the_posterior_at_the_identifier_trust() -> No
     from dataclasses import replace
 
     belief = _belief_after(60)
-    scaled = _pass_six()
-    plain = _pass_six(authority_scaled_maps=False)
+    # The scaling itself, without the full-rank face-value rule on top.
+    scaled = _pass_six(face_value_at_full_rank=False)
+    plain = _pass_six(authority_scaled_maps=False, face_value_at_full_rank=False)
     full = replace(
         belief,
         collective_authority=1.0,
@@ -1737,3 +1740,51 @@ def test_authority_scaled_maps_use_the_posterior_at_the_identifier_trust() -> No
     assert np.allclose(rows[0], reference[0])
     assert np.allclose(rows[1], 0.5 * reference[1])
     assert np.allclose(rows[2], 0.0)
+
+
+def test_the_probe_overlay_rides_on_the_executed_command_until_supported() -> None:
+    """A weakest-direction probe at one slew, held per block, until rank four.
+
+    With the identifier's support incomplete the executed command carries the
+    probe, the executed move still stays within one slew of the held command,
+    and the probe's sign is held within a block and flipped at the next.  With
+    the support complete there is no probe and the command is the plan's own.
+    """
+
+    from types import SimpleNamespace
+
+    controller = _pass_six(probe_until_supported=True)
+    plain = _pass_six()
+    assert plain.config.probe_until_supported is False
+    held = np.full(4, 0.4)
+    state = _released_state()
+
+    incomplete = _belief_after(0)
+    with_probe = controller.solve(state, incomplete, held, previous_command_owned=False)
+    without = plain.solve(state, incomplete, held, previous_command_owned=False)
+    assert with_probe.command_usable and without.command_usable
+    assert not np.allclose(with_probe.command, without.command)
+    assert np.all(
+        np.abs(with_probe.command - held) <= controller.config.slew_per_interval + 1e-9
+    )
+    assert with_probe.probe_sign == 1.0
+    # Within the same block the sign holds; a new block flips it.
+    same_block = controller.solve(
+        state, incomplete, with_probe.command, warm_start=with_probe
+    )
+    assert same_block.probe_sign == 1.0
+    last = SimpleNamespace(
+        plan=with_probe.plan,
+        plan_phase=controller.config.block_steps - 1,
+        probe_sign=1.0,
+    )
+    next_block = controller.solve(
+        state, incomplete, with_probe.command, warm_start=last
+    )
+    assert next_block.probe_sign == -1.0
+
+    complete = _belief_after(200)
+    assert complete.command_evidence_rank == 4 and complete.angular_effect_rank == 3
+    probed = controller.solve(state, complete, held, previous_command_owned=False)
+    bare = plain.solve(state, complete, held, previous_command_owned=False)
+    assert np.allclose(probed.command, bare.command)

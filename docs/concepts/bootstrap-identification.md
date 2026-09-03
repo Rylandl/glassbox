@@ -205,3 +205,20 @@ excitation blocks averages their difference away. On the throw study a
 window of five slowed identification by half; two and three are measured on
 the release ensemble in
 [the dual-control design page](dual-control-nmpc.md).
+
+
+## Prequential residual
+
+`RecursiveBootstrapConfig.prequential_residual` floors each residual scale at
+the belief's own recent prediction error: the error it makes predicting each
+new transition before absorbing it, averaged with exponential forgetting over
+`minimum_certification_interval_count` transitions. Off, the default, the
+identifier is bit-for-bit as it was.
+
+The in-sample residual of a regression with as many samples as parameters is
+nothing, so a rank-deficient angular map fitted on a tumbling vehicle reads
+as certain: its coefficient covariance is the residual floor over a handful
+of samples, and a controller that trusts that covariance commands hard
+through a map that is wrong. The prequential error is what the map actually
+gets wrong, and it falls as soon as the map is right. The two are combined by
+taking the larger, so the scale can only rise on the switch, never fall.

@@ -1477,6 +1477,50 @@ estimate is above the certified cascade's for the first time, with the
 interval still containing it. That is the committed `pass6`; the cascade
 arms keep a window of one and are bit-identical.
 
+### Round five: the remaining contacts, one by one
+
+With the ensemble's own perturbed releases flyable on the gate, the 39
+releases round four still loses were characterized from the report and
+watched one at a time. They are the low-budget releases: the vertical throw
+scale is 0.90 at the median against 1.03 for the recovered ones, so the
+apex is lower and the floor closer, while the first-0.3 s collective is the
+same 0.6 of the range in both groups. On a representative one, at 3.7 m with
+a 77° tilt, two things cost the time it did not have. Rank four arrived at
+0.45 s, and the righting oscillated, pitch rate swinging to plus and minus
+six radians per second, because the authority-scaled map underestimates the
+torque during the brake.
+
+Measuring the excitation that actually reaches the identifier on that
+release explained the first: the differential variation in the executed
+commands is a tenth of the collective's and is 97 to 99 percent correlated
+with the body rates. It is feedback, which the identifier rightly
+residualizes against its rate regressors, not a probe. The excitation seeds
+win the multi-start only sporadically, because the knowledge term is capped
+and a goal that is losing altitude outbids it.
+
+Three responses were measured. Using the maps at face value once the
+identifier's support spans them (`face_value_at_full_rank`) addresses the
+brake; on the ensemble it recovers 62 of 112 against round four's 68, inside
+the noise, with the same floor contacts, so the brake overshoot is not what
+decides those releases. It stays as a switch, off. A probe laid over the executed command along the posterior's weakest
+direction until the support is complete (`probe_until_supported`) brought
+rank four forward to 0.3 s on the crashed draws but recovers 53 of 112
+against round four's 68: within the declared slew the probe takes the
+budget the arrest needs, and the spin-ups on a wrong-axis map are not
+prevented by learning faster. It stays as a switch, off. The identifier's
+prequential residual, the error the belief makes predicting each transition
+before absorbing it, was meant as the honest scale for a map fitted from as
+many samples as it has parameters, and is on
+[the identification page](bootstrap-identification.md). As implemented,
+averaged with exponential forgetting over the certification window, it is
+worse than either: with the probe it recovers 20 of 112 and touches the
+floor on 91. The error an empty or rank-one belief makes is the target
+itself, and a window of forty-eight transitions remembers it for half a
+second, so the authority stays at zero, the maps scale to nothing, and the
+vehicle falls. It stays as a switch, off; a version that discounts the error
+by how much the belief could have known at the time is the honest form and
+is untested.
+
 ### What this leaves
 
 The early floor contacts remain, at 39 of 112 after four rounds, and two

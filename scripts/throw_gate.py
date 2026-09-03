@@ -27,7 +27,7 @@ from glassbox.experimental.dual_control import DUAL_CONTROL_VARIANTS, DualContro
 from glassbox.integrations.crazyflow import CrazyflowPlant, CrazyflowPlantConfig
 from glassbox.integrations.crazyflow_throw_study import (
     CRAZYFLOW_THROW_STUDY_CASES,
-    DUAL_CONTROL_PASS5_MODEL,
+    DUAL_CONTROL_PASS6_MODEL,
     MODEL_ENABLE_DELAY_S,
     ThrowEnsembleConfig,
     _fly_trial,
@@ -100,7 +100,7 @@ def main() -> int:
             start = time.perf_counter()
             record, telemetry, _requested, _identification, _trace = _fly_trial(
                 case,
-                DUAL_CONTROL_PASS5_MODEL,
+                DUAL_CONTROL_PASS6_MODEL,
                 plant,
                 dual_config=config,
                 identifier_options=identifier_options,

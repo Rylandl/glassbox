@@ -57,6 +57,15 @@ class RecursiveBootstrapConfig:
     #: every transition is its own sample, which is bit-for-bit the identifier
     #: as it was.
     transition_aggregation_steps: int = 1
+    #: Floor each residual scale at the belief's own recent prediction error:
+    #: the error it makes predicting each new transition before absorbing it,
+    #: averaged with exponential forgetting over
+    #: ``minimum_certification_interval_count`` transitions.  The in-sample
+    #: residual of a fit with as many samples as parameters is nothing, so a
+    #: rank-deficient map on a tumbling vehicle reads as certain; the
+    #: prequential error is what it actually gets wrong, and it falls as soon
+    #: as the map is right.
+    prequential_residual: bool = False
     minimum_certification_interval_count: int = 48
     validation_interval_count: int = 16
     minimum_validation_improvement: float = 0.02
@@ -759,6 +768,9 @@ class RecursiveBootstrapIdentifier:
         self._interval_count = 0
         self._weight = 0.0
         self._pending_transitions: list[_SampleFeatures] = []
+        self._prequential_force_sum = 0.0
+        self._prequential_angular_sum = np.zeros(3, dtype=np.float64)
+        self._prequential_weight = 0.0
         self._force_gram = np.zeros((8, 8), dtype=np.float64)
         self._force_rhs = np.zeros((8, 1), dtype=np.float64)
         self._force_target_sum_squares = 0.0
@@ -1521,6 +1533,36 @@ class RecursiveBootstrapIdentifier:
         self._weight = forgetting * self._weight + weight
         self._interval_count += round(weight)
 
+    def _record_prequential_error(self, features: _SampleFeatures) -> None:
+        """Fold the belief's error on this transition, before absorbing it."""
+
+        belief = self._belief
+        force_error = float(features.body_specific_force[2]) - (
+            belief.predict_collective_specific_force(
+                features.command, features.body_velocity
+            )
+        )
+        angular_error = features.angular_acceleration - np.asarray(
+            belief.predict_angular_acceleration(
+                features.command, features.angular_velocity
+            )
+        )
+        keep = 1.0 - 1.0 / float(self.config.minimum_certification_interval_count)
+        self._prequential_force_sum = (
+            keep * self._prequential_force_sum + force_error**2
+        )
+        self._prequential_angular_sum = (
+            keep * self._prequential_angular_sum + np.square(angular_error)
+        )
+        self._prequential_weight = keep * self._prequential_weight + 1.0
+
+    def _prequential_standard_deviations(self) -> tuple[float, np.ndarray]:
+        weight = max(self._prequential_weight, 1e-12)
+        return (
+            float(np.sqrt(self._prequential_force_sum / weight)),
+            np.sqrt(self._prequential_angular_sum / weight),
+        )
+
     def _aggregated_sample(self, window: Sequence[_SampleFeatures]) -> _SampleFeatures:
         """The mean of a window of transitions, as one sample."""
 
@@ -1652,6 +1694,12 @@ class RecursiveBootstrapIdentifier:
             nuisance_rank=angular_nuisance_rank,
             floor=self.config.angular_residual_std_floor_rad_s2,
         )
+        if self.config.prequential_residual and self._prequential_weight > 0.0:
+            force_prequential, angular_prequential = (
+                self._prequential_standard_deviations()
+            )
+            force_residual_std = max(force_residual_std, force_prequential)
+            angular_residual_std = np.maximum(angular_residual_std, angular_prequential)
         raw_scale = np.diag(1.0 / self._span)
         collective_effect_covariance = (
             raw_scale @ (force_residual_std**2 * force_residual_inverse) @ raw_scale
@@ -1919,6 +1967,8 @@ class RecursiveBootstrapIdentifier:
             assert rejection is not None
             return self._refused_sample(rejection, started_at)
         features = self._sample_features(*sample, sample_period_s)
+        if self.config.prequential_residual:
+            self._record_prequential_error(features)
         self._score_pending_proposal(
             command=features.command,
             body_velocity=features.body_velocity,
