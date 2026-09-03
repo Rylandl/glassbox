@@ -132,6 +132,17 @@ All notable changes to Glassbox are recorded here. The format follows
   helpers move from `control._common` to `core.geometry`, verbatim, so no
   recorded number moves. `RecursiveBootstrapBelief`'s field list is pinned as
   a downstream contract.
+- `glassbox fit --fixed-response-time-constant` now runs the ordinary
+  multi-flight path with the response time pinned, so it accepts more than one
+  trajectory, `--training-horizons`, `--model-class structured_residual` and
+  `--model`, and writes the one fit-report shape with held-out predictive error
+  and parameter evidence. It now requires `--skip-no-lag-ablation`, since the
+  no-lag ablation pins the same constant, and the four rejections it used to
+  raise for the flags the singular path could not accept are gone.
+  `FitRequest` and `fit_trajectory_artifacts` carry the constant as
+  `fixed_motor_time_constant_s`, and the fit report's `configuration` records
+  it as `fixed_response_time_constant_s`, null when the response time is
+  learned. No flag was removed.
 
 ### Removed
 - The Crazyflow throw demo moved to
@@ -289,6 +300,15 @@ All notable changes to Glassbox are recorded here. The format follows
   validated the same inputs, so the class was checking its own output. The
   optional defaults and the dtype normalization stay, unchanged. No test
   asserted any of the deleted raises. Last commit carrying them: `2e16ebc`.
+- The singular fit path: `workflows.fitting.fit_trajectory_artifact`, the
+  `SINGLE_FLIGHT_INTERPRETATION` string, and the second fit-report shape it
+  produced, with the `trajectory`, `source`, `validation_rollout` and
+  `validation_innovation` blocks nothing else read. Its one caller was
+  `glassbox fit --fixed-response-time-constant`, which now runs the
+  multi-flight path like every other invocation, and the multi-flight path
+  already splits one trajectory temporally. `runtime_spec_from_fit_report` and
+  `glassbox fit` lose their branches over the two report shapes. Last commit
+  carrying it: `2e16ebc`.
 
 ### Fixed
 - `glassbox fit --model --report` no longer fails on a NumPy scalar.

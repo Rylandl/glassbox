@@ -258,17 +258,11 @@ def runtime_spec_from_fit_report(
     """Extract the runtime period and training envelope from a fit report."""
 
     try:
-        if "dataset" in report:
-            sample_rate_hz = float(report["dataset"]["sample_rate_hz"])
-            envelope = report["models"][model_name]["fit"]["rollout_loss"][
-                "dynamic_envelope"
-            ]
-        else:
-            horizon_steps = int(report["configuration"]["horizon_steps"])
-            horizon_duration_s = float(report["configuration"]["horizon_duration_s"])
-            sample_rate_hz = horizon_steps / horizon_duration_s
-            envelope = report["fit"]["rollout_loss"]["dynamic_envelope"]
-    except (KeyError, TypeError, ZeroDivisionError) as error:
+        sample_rate_hz = float(report["dataset"]["sample_rate_hz"])
+        envelope = report["models"][model_name]["fit"]["rollout_loss"][
+            "dynamic_envelope"
+        ]
+    except (KeyError, TypeError) as error:
         raise ValueError(
             f"fit report does not contain runtime data for model {model_name!r}"
         ) from error

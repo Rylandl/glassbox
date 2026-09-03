@@ -100,12 +100,6 @@ INTERPRETATION = (
     "group scores are diagnostics, not an inferred parameter covariance."
 )
 
-SINGLE_FLIGHT_INTERPRETATION = (
-    "Parameters are effective predictive coefficients. They are not "
-    "independently verified physical mass, inertia, aerodynamic, or "
-    "actuator constants."
-)
-
 
 def _automatic_training_window_budget(
     *, horizon_steps: int, source_group_count: int
@@ -397,123 +391,6 @@ def _fit_on_windows(
     }
 
 
-def fit_trajectory_artifact(
-    trajectory_path: str | Path,
-    *,
-    train_fraction: float = 0.70,
-    horizon: int = 25,
-    stride: int | None = None,
-    steps: int = 400,
-    learning_rate: float = 0.02,
-    fixed_motor_time_constant_s: float | None = None,
-    endpoint_weight: float = 3.0,
-    stability_regularization: float = 0.01,
-) -> tuple[ModelParams, dict[str, Any]]:
-    """Fit one trajectory and return parameters plus a JSON-compatible report."""
-
-    trajectory = load_trajectory_npz(trajectory_path)
-    platform = _trajectory_platform(trajectory)
-    training, validation = split_trajectory(trajectory, train_fraction=train_fraction)
-    maximum_windows = _automatic_training_window_budget(
-        horizon_steps=horizon,
-        source_group_count=1,
-    )
-    windows = trajectory_windows(
-        [training],
-        horizon=horizon,
-        stride=horizon if stride is None else stride,
-        maximum_windows=maximum_windows,
-    )
-    fitted_params, model_report = _fit_on_windows(
-        windows,
-        steps=steps,
-        learning_rate=learning_rate,
-        fixed_motor_time_constant_s=fixed_motor_time_constant_s,
-        platform=platform,
-        endpoint_weight=endpoint_weight,
-        stability_regularization=stability_regularization,
-    )
-    initial_params = _configured_initial_params(
-        fixed_motor_time_constant_s,
-        platform=platform,
-    )
-
-    report = {
-        "trajectory": str(trajectory_path),
-        "source": {
-            "spec": trajectory.spec.to_dict(),
-            "labels": dict(trajectory.labels),
-            "provenance": dict(trajectory.provenance),
-        },
-        "configuration": {
-            "train_fraction": train_fraction,
-            "training_duration_s": float(training.time_s[-1]),
-            "validation_duration_s": float(validation.time_s[-1]),
-            "horizon_steps": horizon,
-            "horizon_duration_s": horizon * windows.dt_s,
-            "stride_steps": horizon if stride is None else stride,
-            "control_history_duration_s": (
-                windows.control_histories.shape[1] * windows.dt_s
-            ),
-            "motor_history_duration_s": (
-                windows.control_histories.shape[1] * windows.dt_s
-                if platform == "multirotor"
-                else None
-            ),
-            "optimization_steps": steps,
-            "learning_rate": learning_rate,
-            "endpoint_weight": endpoint_weight,
-            "stability_regularization": stability_regularization,
-            "fixed_motor_time_constant_s": fixed_motor_time_constant_s,
-            "fixed_response_time_constant_s": fixed_motor_time_constant_s,
-            "platform": platform,
-            "training_windows": len(windows.initial_states),
-            "training_window_selection": {
-                "policy": windows.selection_policy,
-                "maximum_windows": maximum_windows,
-                "candidate_windows": windows.candidate_window_count,
-                "selected_windows": len(windows.initial_states),
-                "selection_fraction": (
-                    len(windows.initial_states) / windows.candidate_window_count
-                ),
-            },
-        },
-        "fit": model_report["fit"],
-        "parameters": model_report["parameters"],
-        "validation_rollout": {
-            "initial": rollout_metrics(
-                initial_params,
-                validation,
-                control_history=training.controls,
-            ),
-            "fitted": rollout_metrics(
-                fitted_params,
-                validation,
-                control_history=training.controls,
-            ),
-        },
-        "validation_innovation": {
-            "initial": one_step_innovation_diagnostics(
-                initial_params,
-                validation,
-                control_history=training.controls,
-            ),
-            "fitted": one_step_innovation_diagnostics(
-                fitted_params,
-                validation,
-                control_history=training.controls,
-            ),
-        },
-        "excitation": _excitation_diagnostics(
-            training.controls,
-            training.control_names,
-            training.spec.control_roles,
-        ),
-        "interpretation": SINGLE_FLIGHT_INTERPRETATION,
-    }
-    return fitted_params, report
-
-
 @dataclass(frozen=True)
 class FitRequest:
     """Every knob that shapes a multi-flight fit, validated on construction.
@@ -530,6 +407,7 @@ class FitRequest:
     steps: int = 400
     learning_rate: float = 0.02
     evaluation_horizons_s: tuple[float, ...] = (0.1, 0.5, 1.0, 2.0)
+    fixed_motor_time_constant_s: float | None = None
     run_no_lag_ablation: bool = True
     balance_training_flights: bool = True
     holdout_profiles: tuple[str, ...] | None = None
@@ -560,6 +438,14 @@ class FitRequest:
             raise ValueError("training horizons must be positive")
         if self.model_class not in _MODEL_CLASSES:
             raise ValueError("model_class must be structured or structured_residual")
+        if self.fixed_motor_time_constant_s is not None:
+            if self.fixed_motor_time_constant_s <= 0.0:
+                raise ValueError("fixed_motor_time_constant_s must be positive")
+            if self.run_no_lag_ablation:
+                raise ValueError(
+                    "fixed_motor_time_constant_s already pins the applied-control "
+                    "response time, so the no-lag ablation does not apply"
+                )
         if self.endpoint_weight < 1.0:
             raise ValueError("endpoint_weight must be at least one")
         if self.stability_regularization < 0.0:
@@ -1691,6 +1577,7 @@ def _configuration_section(
         ),
         "training_window_selection": _window_selection_section(plan, windows, request),
         "evaluation_horizons_s": list(request.evaluation_horizons_s),
+        "fixed_response_time_constant_s": request.fixed_motor_time_constant_s,
         "no_lag_ablation": request.run_no_lag_ablation,
         "model_class": request.model_class,
         "platform": platform,
@@ -1852,7 +1739,8 @@ def fit_from_request(
         return params, model_report
 
     learned_params, learned_report = fit_model(
-        fixed_motor_time_constant_s=None, fixed_response_time=False
+        fixed_motor_time_constant_s=request.fixed_motor_time_constant_s,
+        fixed_response_time=request.fixed_motor_time_constant_s is not None,
     )
     models: dict[str, Any] = {"learned_lag": learned_report}
 
@@ -1889,6 +1777,7 @@ def fit_trajectory_artifacts(
     steps: int = 400,
     learning_rate: float = 0.02,
     evaluation_horizons_s: tuple[float, ...] = (0.1, 0.5, 1.0, 2.0),
+    fixed_motor_time_constant_s: float | None = None,
     run_no_lag_ablation: bool = True,
     balance_training_flights: bool = True,
     holdout_profiles: tuple[str, ...] | list[str] | None = None,
@@ -1929,6 +1818,7 @@ def fit_trajectory_artifacts(
         steps=steps,
         learning_rate=learning_rate,
         evaluation_horizons_s=evaluation_horizons_s,
+        fixed_motor_time_constant_s=fixed_motor_time_constant_s,
         run_no_lag_ablation=run_no_lag_ablation,
         balance_training_flights=balance_training_flights,
         holdout_profiles=holdout_profiles,
