@@ -73,31 +73,6 @@ the release ensemble in the dual-control NMPC design, now documented in the
 [glassbox-throw](https://github.com/Rylandl/glassbox-throw) repository.
 
 
-## Prequential residual
-
-`RecursiveBootstrapConfig.prequential_residual` floors each residual scale at
-the belief's own recent prediction error: the error it makes predicting each
-new transition before absorbing it, averaged with exponential forgetting over
-`minimum_certification_interval_count` transitions. Off, the default, the
-identifier is bit-for-bit as it was.
-
-The in-sample residual of a regression with as many samples as parameters is
-nothing, so a rank-deficient angular map fitted on a tumbling vehicle reads
-as certain: its coefficient covariance is the residual floor over a handful
-of samples, and a controller that trusts that covariance commands hard
-through a map that is wrong. The prequential error is what the map actually
-gets wrong, and it falls as soon as the map is right. The two are combined by
-taking the larger, so the scale can only rise on the switch, never fall.
-
-An error is only a model's error once there is a model. Before the command
-evidence supports a fit the prediction is the intercept and the error is the
-target itself, which is ignorance rather than misspecification, so nothing is
-recorded until the command evidence has rank one, and each angular axis is
-recorded only while its own authority is positive. Recording from the first
-transition instead kept the authority at zero for half a second on the throw
-study and crashed most releases.
-
-
 ## Integrated collective fit
 
 `RecursiveBootstrapConfig.integrated_collective` fits the collective map on

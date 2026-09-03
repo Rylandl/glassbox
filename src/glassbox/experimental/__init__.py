@@ -15,7 +15,6 @@ from glassbox.control.flight_supervisor import (
     SupervisorReason,
 )
 from glassbox.control.online_bootstrap import (
-    RecursiveBeliefValidationReport,
     RecursiveBootstrapBelief,
     RecursiveBootstrapConfig,
     RecursiveBootstrapIdentifier,
@@ -25,7 +24,6 @@ from glassbox.control.online_bootstrap import (
 __all__ = [
     "MultirotorFlightSupervisor",
     "MultirotorSupervisorConfig",
-    "RecursiveBeliefValidationReport",
     "RecursiveBootstrapBelief",
     "RecursiveBootstrapConfig",
     "RecursiveBootstrapIdentifier",

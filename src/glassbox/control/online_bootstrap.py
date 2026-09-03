@@ -12,7 +12,7 @@ import math
 import time
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any
 
 import numpy as np
 
@@ -27,11 +27,6 @@ class RecursiveBootstrapConfig:
 
     command_minimum: float | tuple[float, float, float, float] = 0.0
     command_maximum: float | tuple[float, float, float, float] = 1.0
-    #: Retained for report compatibility and pinned to 1.0.  A value below one
-    #: decays the working belief to rank zero once excitation stops, and the
-    #: committed excitation cap is far too small to rebuild that rank, so no
-    #: later candidate could ever be proposed.  Any other value is rejected.
-    forgetting_factor: float = 1.0
     command_rank_relative_tolerance: float = 0.025
     minimum_normalized_command_rms: float = 0.003
     nuisance_rank_relative_tolerance: float = 0.002
@@ -52,15 +47,6 @@ class RecursiveBootstrapConfig:
     #: every transition is its own sample, which is bit-for-bit the identifier
     #: as it was.
     transition_aggregation_steps: int = 1
-    #: Floor each residual scale at the belief's own recent prediction error:
-    #: the error it makes predicting each new transition before absorbing it,
-    #: averaged with exponential forgetting over
-    #: ``minimum_certification_interval_count`` transitions.  The in-sample
-    #: residual of a fit with as many samples as parameters is nothing, so a
-    #: rank-deficient map on a tumbling vehicle reads as certain; the
-    #: prequential error is what it actually gets wrong, and it falls as soon
-    #: as the map is right.
-    prequential_residual: bool = False
     #: Fit the collective map on the integrated target rather than on the
     #: per-interval one.  The per-interval target multiplies measurement noise
     #: on the velocity by the loop rate; the cumulative target since the first
@@ -72,71 +58,17 @@ class RecursiveBootstrapConfig:
     #: and any planner reading the belief see the honest information without
     #: changing.  Off, the default, is bit-for-bit the identifier as it was.
     integrated_collective: bool = False
-    minimum_certification_interval_count: int = 48
-    validation_interval_count: int = 16
-    minimum_validation_improvement: float = 0.02
-    maximum_model_movement_fraction: float = 0.25
-    proposal_cooldown_interval_count: int = 16
-    #: Which belief the controller flies.  ``"certified"`` hands it the frozen
-    #: snapshot the prequential transaction last admitted, so a candidate has to
-    #: out-predict the incumbent before it can steer.  ``"working"`` hands it the
-    #: continuously updated belief as soon as that belief's own support
-    #: conditions hold, and lets authority scaling rather than a quality test
-    #: decide how far to trust it.  Working mode never certifies a belief for
-    #: control; the transaction it would have run is still scored and reported
-    #: under the ``shadow_`` properties.
-    control_model: Literal["certified", "working"] = "certified"
-    #: Solve the point estimate, ranks, support, and covariances over a staged
-    #: column set rather than over every accumulated regressor at once.  The
-    #: full Gram and right-hand side are accumulated either way and nothing is
-    #: discarded; staging only decides which columns the *solve* runs over.
-    #: Stage one is the command block plus the intercept, which is the smallest
-    #: system whose residualization is exact (centering) rather than fitted;
-    #: stage two admits the nuisance regressors and is bit-for-bit the solve
-    #: this identifier has always performed.  Off by default, so the certified
-    #: and working control modes are unchanged.
-    staged_regressors: bool = False
-    #: Effective samples per regressor required before the nuisance block is
-    #: admitted, as a pure ratio of counts.  The Schur complement the fit takes
-    #: projects the command features onto the orthogonal complement of the
-    #: fitted nuisance span, and with ``p`` regressors and ``n`` samples that
-    #: projection removes a fraction of order ``p / n`` of the command energy
-    #: purely by the fit's own freedom; equivalently the smallest eigenvalue of
-    #: a sample Gram sits near ``(1 - sqrt(p / n))**2`` of its population value.
-    #: At ``n = 4 p`` both readings bound the damage at a quarter, so the rank
-    #: the fit reports is a statement about the design rather than about the
-    #: nuisance block's slack.  It is a ratio of counts and refers to nothing
-    #: about a vehicle.
-    staging_sample_multiple: float = 4.0
-    #: Treat the normalized command channel as thrust fraction: more collective
-    #: command means more specific force along body z.  The fitted collective
-    #: command coefficients are then projected onto the nonnegative orthant, so
-    #: a confounded early estimate cannot claim a motor pushes the vehicle down.
-    #: The projection is qualitative and carries no magnitude prior: it moves a
-    #: negative coefficient to exactly zero and leaves every nonnegative one
-    #: untouched.  Off by default.
-    enforce_collective_sign: bool = False
 
     def __post_init__(self) -> None:
         minimum = finite_vector("command_minimum", self.command_minimum, 4)
         maximum = finite_vector("command_maximum", self.command_maximum, 4)
         if np.any(minimum >= maximum):
             raise ValueError("command_minimum must be below command_maximum")
-        if self.forgetting_factor != 1.0:
-            raise ValueError(
-                "forgetting_factor must be exactly 1.0: post-certification "
-                "excitation is capped at a small fraction of the command span, "
-                "so a decaying working belief loses rank once excitation stops "
-                "and can never regain it, leaving the vehicle flying forever on "
-                "a belief no later proposal can replace"
-            )
         for name in (
             "command_rank_relative_tolerance",
             "minimum_normalized_command_rms",
             "nuisance_rank_relative_tolerance",
             "output_rank_relative_tolerance",
-            "minimum_validation_improvement",
-            "maximum_model_movement_fraction",
         ):
             value = float(getattr(self, name))
             if not math.isfinite(value) or not 0.0 < value < 1.0:
@@ -168,23 +100,6 @@ class RecursiveBootstrapConfig:
             self.minimum_effect_signal_to_noise
         ):
             raise ValueError("full effect signal-to-noise must exceed its minimum")
-        if self.minimum_certification_interval_count < 16:
-            raise ValueError("certification needs at least sixteen fitted intervals")
-        if self.validation_interval_count < 4:
-            raise ValueError("validation_interval_count must be at least four")
-        if self.proposal_cooldown_interval_count < 0:
-            raise ValueError("proposal_cooldown_interval_count cannot be negative")
-        if self.control_model not in ("certified", "working"):
-            raise ValueError("control_model must be 'certified' or 'working'")
-        if (
-            not math.isfinite(float(self.staging_sample_multiple))
-            or self.staging_sample_multiple < 1.0
-        ):
-            raise ValueError(
-                "staging_sample_multiple must be finite and at least one: a "
-                "staged system solved from fewer samples than it has columns "
-                "is not a fit"
-            )
         object.__setattr__(self, "command_minimum", tuple(minimum))
         object.__setattr__(self, "command_maximum", tuple(maximum))
 
@@ -236,20 +151,6 @@ class RecursiveBootstrapBelief:
     angular_axis_authority: np.ndarray
     hover_command: np.ndarray | None
     update_wall_time_s: float
-    #: Whether each regression's nuisance block has been admitted to the solve.
-    #: Both are true whenever staging is off, which is the default, so a belief
-    #: that never staged is indistinguishable from one that finished staging.
-    collective_nuisance_staged: bool = True
-    angular_nuisance_staged: bool = True
-    #: Interval at which each nuisance block was admitted, ``None`` while the
-    #: solve is still running on the command block and the intercept alone.
-    collective_staging_interval_count: int | None = None
-    angular_staging_interval_count: int | None = None
-    #: How many collective command coefficients this update's sign projection
-    #: moved, and the norm of what it removed, in specific force per unit
-    #: command.  Both are zero when the projection is off or did not fire.
-    collective_sign_projection_count: int = 0
-    collective_sign_projection_magnitude: float = 0.0
 
     def __post_init__(self) -> None:
         arrays = {
@@ -324,20 +225,6 @@ class RecursiveBootstrapBelief:
             self.angular_axis_authority > 1.0
         ):
             raise ValueError("angular authority must lie inside [0, 1]")
-        if not 0 <= self.collective_sign_projection_count <= 4:
-            raise ValueError("sign projection cannot move more than four commands")
-        if (
-            not math.isfinite(self.collective_sign_projection_magnitude)
-            or self.collective_sign_projection_magnitude < 0.0
-        ):
-            raise ValueError("sign projection magnitude must be finite and nonnegative")
-        for name in (
-            "collective_staging_interval_count",
-            "angular_staging_interval_count",
-        ):
-            staged_at = getattr(self, name)
-            if staged_at is not None and staged_at < 0:
-                raise ValueError(f"{name} cannot be negative")
 
     @property
     def has_any_control_authority(self) -> bool:
@@ -448,99 +335,6 @@ class RecursiveBootstrapBelief:
                 None if self.hover_command is None else self.hover_command.tolist()
             ),
             "update_wall_time_s": self.update_wall_time_s,
-            "collective_nuisance_staged": self.collective_nuisance_staged,
-            "angular_nuisance_staged": self.angular_nuisance_staged,
-            "collective_staging_interval_count": (
-                self.collective_staging_interval_count
-            ),
-            "angular_staging_interval_count": self.angular_staging_interval_count,
-            "collective_sign_projection_count": self.collective_sign_projection_count,
-            "collective_sign_projection_magnitude": (
-                self.collective_sign_projection_magnitude
-            ),
-        }
-
-
-@dataclass(frozen=True)
-class RecursiveBeliefValidationReport:
-    """Prequential evidence for one frozen candidate admission decision."""
-
-    candidate_interval_count: int
-    reference_interval_count: int | None
-    validation_interval_count: int
-    initial_admission: bool
-    candidate_collective_rmse_m_s2: float
-    reference_collective_rmse_m_s2: float
-    collective_improvement: float
-    candidate_angular_rmse_rad_s2: np.ndarray
-    reference_angular_rmse_rad_s2: np.ndarray
-    angular_improvement: np.ndarray
-    model_movement_fraction: float
-    accepted: bool
-    reason: str
-
-    def __post_init__(self) -> None:
-        object.__setattr__(
-            self,
-            "candidate_angular_rmse_rad_s2",
-            immutable_array(
-                self.candidate_angular_rmse_rad_s2,
-                (3,),
-                "candidate_angular_rmse_rad_s2",
-            ),
-        )
-        object.__setattr__(
-            self,
-            "reference_angular_rmse_rad_s2",
-            immutable_array(
-                self.reference_angular_rmse_rad_s2,
-                (3,),
-                "reference_angular_rmse_rad_s2",
-            ),
-        )
-        object.__setattr__(
-            self,
-            "angular_improvement",
-            immutable_array(self.angular_improvement, (3,), "angular_improvement"),
-        )
-        scalars = (
-            self.candidate_collective_rmse_m_s2,
-            self.reference_collective_rmse_m_s2,
-            self.collective_improvement,
-            self.model_movement_fraction,
-        )
-        if (
-            self.candidate_interval_count < 1
-            or self.validation_interval_count < 1
-            or not np.all(np.isfinite(scalars))
-        ):
-            raise ValueError("validation counts and scalar metrics must be finite")
-        if self.initial_admission != (self.reference_interval_count is None):
-            raise ValueError("initial admission must have no reference belief")
-        if self.model_movement_fraction < 0.0:
-            raise ValueError("model movement cannot be negative")
-        if not self.reason:
-            raise ValueError("validation reason cannot be empty")
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "candidate_interval_count": self.candidate_interval_count,
-            "reference_interval_count": self.reference_interval_count,
-            "validation_interval_count": self.validation_interval_count,
-            "initial_admission": self.initial_admission,
-            "candidate_collective_rmse_m_s2": (self.candidate_collective_rmse_m_s2),
-            "reference_collective_rmse_m_s2": (self.reference_collective_rmse_m_s2),
-            "collective_improvement": self.collective_improvement,
-            "candidate_angular_rmse_rad_s2": (
-                self.candidate_angular_rmse_rad_s2.tolist()
-            ),
-            "reference_angular_rmse_rad_s2": (
-                self.reference_angular_rmse_rad_s2.tolist()
-            ),
-            "angular_improvement": self.angular_improvement.tolist(),
-            "model_movement_fraction": self.model_movement_fraction,
-            "accepted": self.accepted,
-            "reason": self.reason,
         }
 
 
@@ -566,23 +360,6 @@ class RecursiveBootstrapSampleReport:
             "reason": self.reason,
             "update_wall_time_s": self.update_wall_time_s,
         }
-
-
-@dataclass
-class _PendingBeliefProposal:
-    candidate: RecursiveBootstrapBelief
-    reference: RecursiveBootstrapBelief | None
-    baseline_force_nuisance: np.ndarray
-    baseline_angular_nuisance: np.ndarray
-    candidate_force_squared_error: float = 0.0
-    reference_force_squared_error: float = 0.0
-    candidate_angular_squared_error: np.ndarray | None = None
-    reference_angular_squared_error: np.ndarray | None = None
-    validation_count: int = 0
-
-    def __post_init__(self) -> None:
-        self.candidate_angular_squared_error = np.zeros(3, dtype=np.float64)
-        self.reference_angular_squared_error = np.zeros(3, dtype=np.float64)
 
 
 @dataclass(frozen=True)
@@ -622,10 +399,6 @@ class _EffectFit:
     angular_intercept: np.ndarray
     angular_residual_std: np.ndarray
     angular_effect_covariance: np.ndarray
-    force_nuisance_staged: bool
-    angular_nuisance_staged: bool
-    collective_sign_projection_count: int
-    collective_sign_projection_magnitude: float
 
 
 @dataclass(frozen=True)
@@ -671,25 +444,13 @@ class RecursiveBootstrapIdentifier:
         self._integrated_target_sum_squares = 0.0
         self._integrated_rows = 0
         self._force_gram_equivalent: np.ndarray | None = None
-        self._prequential_force_sum = 0.0
-        self._prequential_angular_sum = np.zeros(3, dtype=np.float64)
-        self._prequential_weight = 0.0
         self._force_gram = np.zeros((8, 8), dtype=np.float64)
         self._force_rhs = np.zeros((8, 1), dtype=np.float64)
         self._force_target_sum_squares = 0.0
         self._angular_gram = np.zeros((11, 11), dtype=np.float64)
         self._angular_rhs = np.zeros((11, 3), dtype=np.float64)
         self._angular_target_sum_squares = np.zeros(3, dtype=np.float64)
-        self._force_nuisance_staged = not self.config.staged_regressors
-        self._angular_nuisance_staged = not self.config.staged_regressors
-        self._force_staged_interval: int | None = None
-        self._angular_staged_interval: int | None = None
         self._belief = self._empty_belief()
-        self._working_support_reached = False
-        self._certified_belief: RecursiveBootstrapBelief | None = None
-        self._pending_proposal: _PendingBeliefProposal | None = None
-        self._validation_history: list[RecursiveBeliefValidationReport] = []
-        self._last_proposal_finished_interval = -(10**9)
         self._last_sample_report = RecursiveBootstrapSampleReport(
             interval_count=0,
             accepted=False,
@@ -738,31 +499,21 @@ class RecursiveBootstrapIdentifier:
             angular_axis_authority=np.zeros(3),
             hover_command=None,
             update_wall_time_s=0.0,
-            collective_nuisance_staged=self._force_nuisance_staged,
-            angular_nuisance_staged=self._angular_nuisance_staged,
-            collective_staging_interval_count=self._force_staged_interval,
-            angular_staging_interval_count=self._angular_staged_interval,
         )
 
     @property
     def belief(self) -> RecursiveBootstrapBelief:
         return self._belief
 
-    @property
-    def flies_working_belief(self) -> bool:
-        """Whether control tracks the working belief instead of a snapshot."""
-
-        return self.config.control_model == "working"
-
     @staticmethod
     def _belief_is_supported(belief: RecursiveBootstrapBelief) -> bool:
         """Whether one belief spans everything control has to command.
 
-        These are the same support conditions the certification transaction
-        already requires of a candidate, and nothing else: the command evidence
-        spans all four motors, the fitted angular effect spans all three body
-        axes, and the collective effect implies a hover command inside the
-        command box.  Prequential improvement is deliberately not part of it.
+        The conditions are what the evidence spans and nothing else: the
+        command evidence spans all four motors, the fitted angular effect spans
+        all three body axes, and the collective effect implies a hover command
+        inside the command box.  How far to trust a belief that meets them is a
+        question for the per-direction authority, not for this rule.
         """
 
         return bool(
@@ -776,99 +527,6 @@ class RecursiveBootstrapIdentifier:
         """Whether the working belief currently meets the support conditions."""
 
         return self._belief_is_supported(self._belief)
-
-    @property
-    def working_support_reached(self) -> bool:
-        """Whether the working belief has ever met the support conditions."""
-
-        return self._working_support_reached
-
-    @property
-    def control_model_ready(self) -> bool:
-        """Whether an identified model is the one being flown.
-
-        Certified mode reads this from the transaction and working mode from
-        the working belief's own support, so a caller can ask one question
-        without knowing which mode it is in.  Both latch: an admitted snapshot
-        is never withdrawn, and working mode likewise commits once support has
-        been demonstrated, rather than reverting to pre-handover behaviour every
-        time an interval leaves the fit briefly short of full rank.
-        """
-
-        if self.flies_working_belief:
-            return self._working_support_reached
-        return self._certified_belief is not None
-
-    @property
-    def certified_belief(self) -> RecursiveBootstrapBelief | None:
-        """Last frozen belief admitted by future predictive validation.
-
-        Working mode never certifies a belief for control, so this is ``None``
-        there and the shadow transaction is read through
-        :attr:`shadow_certified_belief` instead.
-        """
-
-        return None if self.flies_working_belief else self._certified_belief
-
-    @property
-    def predictive_belief(self) -> RecursiveBootstrapBelief:
-        """The belief supplied to the joint objective as its predictive mean."""
-
-        if self.flies_working_belief:
-            return self._belief
-        return (
-            self._belief if self._certified_belief is None else self._certified_belief
-        )
-
-    @property
-    def control_belief(self) -> RecursiveBootstrapBelief:
-        """Compatibility alias for :attr:`predictive_belief`."""
-
-        return self.predictive_belief
-
-    @property
-    def pending_proposal(self) -> bool:
-        return not self.flies_working_belief and self._pending_proposal is not None
-
-    @property
-    def validation_history(self) -> tuple[RecursiveBeliefValidationReport, ...]:
-        return () if self.flies_working_belief else tuple(self._validation_history)
-
-    @property
-    def accepted_update_count(self) -> int:
-        return sum(report.accepted for report in self.validation_history)
-
-    @property
-    def rejected_update_count(self) -> int:
-        return sum(not report.accepted for report in self.validation_history)
-
-    @property
-    def shadow_certified_belief(self) -> RecursiveBootstrapBelief | None:
-        """What the transaction would have been flying in working mode.
-
-        The shadow evaluation runs the ordinary freeze, score, and admit cycle
-        against the trajectory working mode actually flew.  Nothing it produces
-        reaches the controller, so recording it costs one pending proposal and
-        the sixteen predictions that score it.
-        """
-
-        return self._certified_belief if self.flies_working_belief else None
-
-    @property
-    def shadow_pending_proposal(self) -> bool:
-        return self.flies_working_belief and self._pending_proposal is not None
-
-    @property
-    def shadow_validation_history(self) -> tuple[RecursiveBeliefValidationReport, ...]:
-        return tuple(self._validation_history) if self.flies_working_belief else ()
-
-    @property
-    def shadow_accepted_update_count(self) -> int:
-        return sum(report.accepted for report in self.shadow_validation_history)
-
-    @property
-    def shadow_rejected_update_count(self) -> int:
-        return sum(not report.accepted for report in self.shadow_validation_history)
 
     @property
     def last_sample_report(self) -> RecursiveBootstrapSampleReport:
@@ -980,70 +638,6 @@ class RecursiveBootstrapIdentifier:
             nuisance_rank,
         )
 
-    def _nuisance_admitted(self, nuisance_size: int) -> bool:
-        """Whether the accumulated evidence can carry this nuisance block.
-
-        The condition is a ratio of counts and nothing else: effective samples
-        against the full column count of the regression, at the declared
-        :attr:`RecursiveBootstrapConfig.staging_sample_multiple`.
-        """
-
-        if not self.config.staged_regressors:
-            return True
-        columns = 4 + nuisance_size
-        return self._weight >= self.config.staging_sample_multiple * columns
-
-    def _staged_fit(
-        self,
-        gram: np.ndarray,
-        rhs: np.ndarray,
-        *,
-        nuisance_size: int,
-        staged: bool,
-        **thresholds: float,
-    ) -> tuple[
-        np.ndarray,
-        np.ndarray,
-        np.ndarray,
-        np.ndarray,
-        int,
-        np.ndarray,
-        np.ndarray,
-        int,
-    ]:
-        """Solve one regression over the staged columns of the same Gram.
-
-        The Gram and right-hand side are always the full accumulated ones; only
-        the column set the solve runs over is staged.  Stage one keeps the
-        command block and the intercept, so the command features are
-        residualized against the intercept alone, which is exact centering
-        rather than a fitted projection, and four command directions can be
-        resolved from five samples.  Stage two is every column, and the fully
-        staged branch hands the accumulated arrays through untouched so the
-        solve is bit-for-bit the one this identifier has always run.
-
-        The nuisance coefficient is returned at full size with the unstaged
-        entries exactly zero, so every caller downstream sees one shape.
-        """
-
-        if staged:
-            return self._supported_fit(
-                gram,
-                rhs,
-                nuisance_size=nuisance_size,
-                **thresholds,  # type: ignore[arg-type]
-            )
-        columns = np.concatenate((np.arange(4), np.asarray((3 + nuisance_size,))))
-        result = self._supported_fit(
-            gram[np.ix_(columns, columns)],
-            rhs[columns],
-            nuisance_size=1,
-            **thresholds,  # type: ignore[arg-type]
-        )
-        nuisance = np.zeros((nuisance_size, rhs.shape[1]), dtype=np.float64)
-        nuisance[-1] = result[1][0]
-        return (result[0], nuisance, *result[2:])  # type: ignore[return-value]
-
     @staticmethod
     def _residual_standard_deviation(
         gram: np.ndarray,
@@ -1072,225 +666,6 @@ class RecursiveBootstrapIdentifier:
 
     def _authority_fraction(self, value: float, minimum: float, full: float) -> float:
         return float(np.clip((value - minimum) / (full - minimum), 0.0, 1.0))
-
-    @staticmethod
-    def _model_movement_fraction(
-        candidate: RecursiveBootstrapBelief,
-        reference: RecursiveBootstrapBelief | None,
-    ) -> float:
-        if reference is None:
-            return 0.0
-        force_scale = max(
-            float(np.linalg.norm(reference.collective_acceleration_per_command)),
-            1.0,
-        )
-        angular_scale = max(
-            float(np.linalg.norm(reference.angular_acceleration_per_command)),
-            1.0,
-        )
-        force_movement = float(
-            np.linalg.norm(
-                candidate.collective_acceleration_per_command
-                - reference.collective_acceleration_per_command
-            )
-            / force_scale
-        )
-        angular_movement = float(
-            np.linalg.norm(
-                candidate.angular_acceleration_per_command
-                - reference.angular_acceleration_per_command
-            )
-            / angular_scale
-        )
-        if candidate.hover_command is None or reference.hover_command is None:
-            hover_movement = 1.0
-        else:
-            hover_movement = float(
-                np.linalg.norm(candidate.hover_command - reference.hover_command)
-                / max(float(np.linalg.norm(reference.hover_command)), 1e-6)
-            )
-        return max(force_movement, angular_movement, hover_movement)
-
-    def _start_proposal(self, candidate: RecursiveBootstrapBelief) -> None:
-        tolerance = self.config.nuisance_rank_relative_tolerance
-        force_inverse, _ = self._nuisance_inverse(
-            self._force_gram[4:, 4:],
-            relative_tolerance=tolerance,
-        )
-        angular_inverse, _ = self._nuisance_inverse(
-            self._angular_gram[4:, 4:],
-            relative_tolerance=tolerance,
-        )
-        baseline_force_nuisance = force_inverse @ self._force_rhs[4:]
-        baseline_angular_nuisance = angular_inverse @ self._angular_rhs[4:]
-        self._pending_proposal = _PendingBeliefProposal(
-            candidate=candidate,
-            reference=self._certified_belief,
-            baseline_force_nuisance=baseline_force_nuisance,
-            baseline_angular_nuisance=baseline_angular_nuisance,
-        )
-
-    def _score_pending_proposal(
-        self,
-        *,
-        command: np.ndarray,
-        body_velocity: np.ndarray,
-        angular_velocity: np.ndarray,
-        rate_products: np.ndarray,
-        collective_target: float,
-        angular_target: np.ndarray,
-    ) -> None:
-        pending = self._pending_proposal
-        if pending is None:
-            return
-        candidate_force = pending.candidate.predict_collective_specific_force(
-            command,
-            body_velocity,
-        )
-        candidate_angular = pending.candidate.predict_angular_acceleration(
-            command,
-            angular_velocity,
-        )
-        if pending.reference is None:
-            force_nuisance = np.concatenate((body_velocity, np.ones(1)))
-            angular_nuisance = np.concatenate(
-                (angular_velocity, rate_products, np.ones(1))
-            )
-            reference_force = float(
-                force_nuisance @ pending.baseline_force_nuisance[:, 0]
-            )
-            reference_angular = angular_nuisance @ pending.baseline_angular_nuisance
-        else:
-            reference_force = pending.reference.predict_collective_specific_force(
-                command,
-                body_velocity,
-            )
-            reference_angular = pending.reference.predict_angular_acceleration(
-                command,
-                angular_velocity,
-            )
-        pending.candidate_force_squared_error += (
-            collective_target - candidate_force
-        ) ** 2
-        pending.reference_force_squared_error += (
-            collective_target - reference_force
-        ) ** 2
-        assert pending.candidate_angular_squared_error is not None
-        assert pending.reference_angular_squared_error is not None
-        pending.candidate_angular_squared_error += np.square(
-            angular_target - candidate_angular
-        )
-        pending.reference_angular_squared_error += np.square(
-            angular_target - reference_angular
-        )
-        pending.validation_count += 1
-        if pending.validation_count >= self.config.validation_interval_count:
-            self._finish_pending_proposal()
-
-    def _finish_pending_proposal(self) -> None:
-        pending = self._pending_proposal
-        if pending is None:
-            return
-        count = pending.validation_count
-        candidate_force_rmse = math.sqrt(pending.candidate_force_squared_error / count)
-        reference_force_rmse = math.sqrt(pending.reference_force_squared_error / count)
-        assert pending.candidate_angular_squared_error is not None
-        assert pending.reference_angular_squared_error is not None
-        candidate_angular_rmse = np.sqrt(
-            pending.candidate_angular_squared_error / count
-        )
-        reference_angular_rmse = np.sqrt(
-            pending.reference_angular_squared_error / count
-        )
-        force_improvement = (reference_force_rmse - candidate_force_rmse) / max(
-            reference_force_rmse,
-            self.config.collective_residual_std_floor_m_s2,
-        )
-        angular_improvement = (
-            reference_angular_rmse - candidate_angular_rmse
-        ) / np.maximum(
-            reference_angular_rmse,
-            self.config.angular_residual_std_floor_rad_s2,
-        )
-        movement = self._model_movement_fraction(
-            pending.candidate,
-            pending.reference,
-        )
-        initial = pending.reference is None
-        reference_stale = (
-            not initial and pending.reference is not self._certified_belief
-        )
-        supported = self._belief_is_supported(pending.candidate)
-        if initial:
-            improved = bool(
-                force_improvement >= self.config.minimum_validation_improvement
-                and np.all(
-                    angular_improvement >= self.config.minimum_validation_improvement
-                )
-            )
-        else:
-            improvements = np.concatenate(
-                (np.asarray((force_improvement,)), angular_improvement)
-            )
-            improved = bool(
-                np.mean(improvements) >= self.config.minimum_validation_improvement
-                and np.all(improvements >= -self.config.minimum_validation_improvement)
-            )
-        movement_valid = bool(
-            initial or movement <= self.config.maximum_model_movement_fraction
-        )
-        accepted = supported and improved and movement_valid and not reference_stale
-        if reference_stale:
-            reason = "stale_reference"
-        elif not supported:
-            reason = "candidate_lost_support"
-        elif not movement_valid:
-            reason = "model_movement_exceeded"
-        elif not improved:
-            reason = "prequential_improvement_not_demonstrated"
-        elif initial:
-            reason = "initial_prequential_admission"
-        else:
-            reason = "prequential_replacement_committed"
-        report = RecursiveBeliefValidationReport(
-            candidate_interval_count=pending.candidate.interval_count,
-            reference_interval_count=(
-                None if pending.reference is None else pending.reference.interval_count
-            ),
-            validation_interval_count=count,
-            initial_admission=initial,
-            candidate_collective_rmse_m_s2=candidate_force_rmse,
-            reference_collective_rmse_m_s2=reference_force_rmse,
-            collective_improvement=force_improvement,
-            candidate_angular_rmse_rad_s2=candidate_angular_rmse,
-            reference_angular_rmse_rad_s2=reference_angular_rmse,
-            angular_improvement=angular_improvement,
-            model_movement_fraction=movement,
-            accepted=accepted,
-            reason=reason,
-        )
-        self._validation_history.append(report)
-        if accepted:
-            self._certified_belief = pending.candidate
-        self._pending_proposal = None
-        self._last_proposal_finished_interval = self._interval_count
-
-    def _maybe_start_proposal(self) -> None:
-        if self._pending_proposal is not None:
-            return
-        if self._interval_count - self._last_proposal_finished_interval < (
-            self.config.proposal_cooldown_interval_count
-        ):
-            return
-        candidate = self._belief
-        eligible = bool(
-            candidate.interval_count >= self.config.minimum_certification_interval_count
-            and self._belief_is_supported(candidate)
-            and candidate.exploration_completion >= 0.75
-        )
-        if not eligible:
-            return
-        self._start_proposal(candidate)
 
     def _validated_sample(
         self,
@@ -1402,19 +777,13 @@ class RecursiveBootstrapIdentifier:
     def _accumulate_sample(
         self, features: _SampleFeatures, weight: float = 1.0
     ) -> None:
-        """Fold one sample into the forgetting-weighted normal equations.
+        """Fold one sample into the accumulated normal equations.
 
         ``weight`` is the number of transitions the sample stands for: one for
-        a plain transition, the window length for an aggregated one.
+        a plain transition, the window length for an aggregated one.  Nothing
+        already accumulated is ever decayed: the evidence only grows.
         """
 
-        forgetting = self.config.forgetting_factor
-        self._force_gram *= forgetting
-        self._force_rhs *= forgetting
-        self._force_target_sum_squares *= forgetting
-        self._angular_gram *= forgetting
-        self._angular_rhs *= forgetting
-        self._angular_target_sum_squares *= forgetting
         self._force_gram += weight * np.outer(
             features.force_features, features.force_features
         )
@@ -1433,7 +802,7 @@ class RecursiveBootstrapIdentifier:
         self._angular_target_sum_squares += weight * np.square(
             features.angular_acceleration
         )
-        self._weight = forgetting * self._weight + weight
+        self._weight += weight
         self._interval_count += round(weight)
 
     def _accumulate_integrated_collective(
@@ -1505,48 +874,6 @@ class RecursiveBootstrapIdentifier:
         scale = self.config.collective_residual_std_floor_m_s2**2 / velocity_variance
         return scale * 0.5 * (marginal_gram + marginal_gram.T), scale * marginal_rhs
 
-    def _record_prequential_error(self, features: _SampleFeatures) -> None:
-        """Fold the belief's error on this transition, before absorbing it.
-
-        An error is only a model's error once there is a model: before the
-        command evidence supports a fit, the prediction is the intercept and
-        the error is the target itself, which is ignorance rather than
-        misspecification.  The collective is gated on the command evidence and
-        each angular axis on its own authority.
-        """
-
-        belief = self._belief
-        if int(belief.command_evidence_rank) < 1:
-            return
-        keep = 1.0 - 1.0 / float(self.config.minimum_certification_interval_count)
-        force_error = float(features.body_specific_force[2]) - (
-            belief.predict_collective_specific_force(
-                features.command, features.body_velocity
-            )
-        )
-        angular_error = features.angular_acceleration - np.asarray(
-            belief.predict_angular_acceleration(
-                features.command, features.angular_velocity
-            )
-        )
-        axis_supported = np.asarray(belief.angular_axis_authority) > 0.0
-        self._prequential_force_sum = (
-            keep * self._prequential_force_sum + force_error**2
-        )
-        self._prequential_angular_sum = np.where(
-            axis_supported,
-            keep * self._prequential_angular_sum + np.square(angular_error),
-            self._prequential_angular_sum,
-        )
-        self._prequential_weight = keep * self._prequential_weight + 1.0
-
-    def _prequential_standard_deviations(self) -> tuple[float, np.ndarray]:
-        weight = max(self._prequential_weight, 1e-12)
-        return (
-            float(np.sqrt(self._prequential_force_sum / weight)),
-            np.sqrt(self._prequential_angular_sum / weight),
-        )
-
     def _aggregated_sample(self, window: Sequence[_SampleFeatures]) -> _SampleFeatures:
         """The mean of a window of transitions, as one sample."""
 
@@ -1564,28 +891,6 @@ class RecursiveBootstrapIdentifier:
             angular_features=mean("angular_features"),
         )
 
-    def _admit_staged_regressors(self) -> None:
-        """Admit each nuisance block the moment its staging condition holds.
-
-        Staging only ever moves forwards.  The Gram it is read against is the
-        full accumulated one, so nothing about the transition discards
-        evidence: the same data is simply solved over more columns from here
-        on, and the interval it happened at is recorded on the belief.
-        """
-
-        if self._force_nuisance_staged and self._angular_nuisance_staged:
-            return
-        if not self._force_nuisance_staged and self._nuisance_admitted(
-            self._FORCE_NUISANCE_SIZE
-        ):
-            self._force_nuisance_staged = True
-            self._force_staged_interval = self._interval_count
-        if not self._angular_nuisance_staged and self._nuisance_admitted(
-            self._ANGULAR_NUISANCE_SIZE
-        ):
-            self._angular_nuisance_staged = True
-            self._angular_staged_interval = self._interval_count
-
     def _fit_supported_effects(self) -> _EffectFit:
         """Solve both regressions and rescale them back to raw command units.
 
@@ -1601,21 +906,19 @@ class RecursiveBootstrapIdentifier:
             if integrated is not None:
                 force_gram, force_rhs = integrated[0], integrated[1][:, None]
                 self._force_gram_equivalent = force_gram
-        force = self._staged_fit(
+        force = self._supported_fit(
             force_gram,
             force_rhs,
             nuisance_size=self._FORCE_NUISANCE_SIZE,
-            staged=self._force_nuisance_staged,
             effective_count=self._weight,
             relative_tolerance=self.config.command_rank_relative_tolerance,
             minimum_rms=self.config.minimum_normalized_command_rms,
             nuisance_relative_tolerance=(self.config.nuisance_rank_relative_tolerance),
         )
-        angular = self._staged_fit(
+        angular = self._supported_fit(
             self._angular_gram,
             self._angular_rhs,
             nuisance_size=self._ANGULAR_NUISANCE_SIZE,
-            staged=self._angular_nuisance_staged,
             effective_count=self._weight,
             relative_tolerance=self.config.command_rank_relative_tolerance,
             minimum_rms=self.config.minimum_normalized_command_rms,
@@ -1641,22 +944,6 @@ class RecursiveBootstrapIdentifier:
             angular_residual_information,
             angular_nuisance_rank,
         ) = angular
-        # The normalized command channel is thrust fraction, so a nonnegative
-        # coefficient is a statement about what the channel *means* rather than
-        # about how strong this vehicle is.  The span is positive, so clipping
-        # in normalized units is the same qualitative constraint as clipping in
-        # raw units, and it carries no magnitude: a negative coefficient moves
-        # to exactly zero and a nonnegative one does not move at all.
-        sign_projection_count = 0
-        sign_projection_magnitude = 0.0
-        if self.config.enforce_collective_sign:
-            projected = np.maximum(normalized_force_effect, 0.0)
-            removed = normalized_force_effect - projected
-            sign_projection_count = int(np.count_nonzero(removed))
-            sign_projection_magnitude = float(
-                np.linalg.norm(removed[:, 0] / self._span)
-            )
-            normalized_force_effect = projected
         force_effect = normalized_force_effect[:, 0] / self._span
         angular_effect = (normalized_angular_effect / self._span[:, None]).T
         force_intercept = float(force_nuisance[-1, 0] - force_effect @ self._midpoint)
@@ -1690,12 +977,6 @@ class RecursiveBootstrapIdentifier:
             nuisance_rank=angular_nuisance_rank,
             floor=self.config.angular_residual_std_floor_rad_s2,
         )
-        if self.config.prequential_residual and self._prequential_weight > 0.0:
-            force_prequential, angular_prequential = (
-                self._prequential_standard_deviations()
-            )
-            force_residual_std = max(force_residual_std, force_prequential)
-            angular_residual_std = np.maximum(angular_residual_std, angular_prequential)
         raw_scale = np.diag(1.0 / self._span)
         collective_effect_covariance = (
             raw_scale @ (force_residual_std**2 * force_residual_inverse) @ raw_scale
@@ -1728,10 +1009,6 @@ class RecursiveBootstrapIdentifier:
             angular_intercept=angular_intercept,
             angular_residual_std=angular_residual_std,
             angular_effect_covariance=angular_effect_covariance,
-            force_nuisance_staged=self._force_nuisance_staged,
-            angular_nuisance_staged=self._angular_nuisance_staged,
-            collective_sign_projection_count=sign_projection_count,
-            collective_sign_projection_magnitude=sign_projection_magnitude,
         )
 
     def _belief_authority(self, fit: _EffectFit) -> _BeliefAuthority:
@@ -1931,14 +1208,6 @@ class RecursiveBootstrapIdentifier:
             angular_axis_authority=authority.angular_axis_authority,
             hover_command=authority.hover_command,
             update_wall_time_s=time.perf_counter() - started_at,
-            collective_nuisance_staged=fit.force_nuisance_staged,
-            angular_nuisance_staged=fit.angular_nuisance_staged,
-            collective_staging_interval_count=self._force_staged_interval,
-            angular_staging_interval_count=self._angular_staged_interval,
-            collective_sign_projection_count=fit.collective_sign_projection_count,
-            collective_sign_projection_magnitude=(
-                fit.collective_sign_projection_magnitude
-            ),
         )
 
     def update(
@@ -1970,16 +1239,6 @@ class RecursiveBootstrapIdentifier:
         features = self._sample_features(*sample, sample_period_s)
         if self.config.integrated_collective:
             self._accumulate_integrated_collective(*sample, sample_period_s, features)
-        if self.config.prequential_residual:
-            self._record_prequential_error(features)
-        self._score_pending_proposal(
-            command=features.command,
-            body_velocity=features.body_velocity,
-            angular_velocity=features.angular_velocity,
-            rate_products=features.rate_products,
-            collective_target=float(features.body_specific_force[2]),
-            angular_target=features.angular_acceleration,
-        )
         window = self.config.transition_aggregation_steps
         if window > 1:
             self._pending_transitions.append(features)
@@ -1997,17 +1256,12 @@ class RecursiveBootstrapIdentifier:
             self._accumulate_sample(features, weight=float(window))
         else:
             self._accumulate_sample(features)
-        self._admit_staged_regressors()
         fit = self._fit_supported_effects()
         self._belief = self._assimilated_belief(
             fit,
             self._belief_authority(fit),
             started_at,
         )
-        self._working_support_reached = (
-            self._working_support_reached or self.working_belief_supported
-        )
-        self._maybe_start_proposal()
         self._last_sample_report = RecursiveBootstrapSampleReport(
             interval_count=self._interval_count,
             accepted=True,

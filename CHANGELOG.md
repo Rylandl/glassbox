@@ -134,26 +134,6 @@ All notable changes to Glassbox are recorded here. The format follows
   a downstream contract.
 
 ### Removed
-- The batch bootstrap identifier: `control/bootstrap_identification.py` with
-  `BootstrapMultirotorIdentifier`, `BootstrapIdentificationConfig`,
-  `BootstrapIdentificationResult`, `BootstrapExcitationConfig`,
-  `BootstrapExcitationPlan`, `plan_bootstrap_excitation`,
-  `BootstrapArrestCommand`, `BootstrapVelocityArrestCommand` and
-  `BootstrapModelNotReadyError`; its nine `glassbox.experimental` re-exports;
-  its nine tests; and the batch half of
-  `docs/concepts/bootstrap-identification.md`, including the Crazyflow arrest
-  result that only the batch fit and its excitation plan produced. The
-  recursive identifier's Gram accumulation is the same fit, so a batch fit is
-  folding N transitions and reading the belief. Last commit carrying the code:
-  `aab0b42`.
-- The cascade controller: `ProgressiveBootstrapController`,
-  `ProgressiveBootstrapControllerConfig` and `ProgressiveBootstrapCommand` in
-  `control/online_bootstrap.py` with their excitation scan and its fixed
-  pseudo-random patterns, `ThrustCascade` and `thrust_cascade` in
-  `control/_common.py`, their three `glassbox.experimental` re-exports, their
-  three tests, and their documentation. It was the hand-gained baseline arm of
-  a comparison that lives in the demo repository and was retired there by the
-  learned controller. Last commit carrying the code: `aab0b42`.
 - The Crazyflow throw demo moved to
   [glassbox-throw](https://github.com/Rylandl/glassbox-throw) at this commit:
   the Crazyflow plant adapter, the throw trial and study, the bootstrap and
@@ -226,6 +206,57 @@ All notable changes to Glassbox are recorded here. The format follows
   now takes its configuration-delta covariance from that, so
   `docs/results/adaptive-recovery-results.json` is re-recorded at method
   version 5. Last commit carrying the code: `478c063`.
+- The batch bootstrap identifier: `control/bootstrap_identification.py` with
+  `BootstrapMultirotorIdentifier`, `BootstrapIdentificationConfig`,
+  `BootstrapIdentificationResult`, `BootstrapExcitationConfig`,
+  `BootstrapExcitationPlan`, `plan_bootstrap_excitation`,
+  `BootstrapArrestCommand`, `BootstrapVelocityArrestCommand` and
+  `BootstrapModelNotReadyError`; its nine `glassbox.experimental` re-exports;
+  its nine tests; and the batch half of
+  `docs/concepts/bootstrap-identification.md`, including the Crazyflow arrest
+  result that only the batch fit and its excitation plan produced. The
+  recursive identifier's Gram accumulation is the same fit, so a batch fit is
+  folding N transitions and reading the belief. Last commit carrying the code:
+  `aab0b42`.
+- The cascade controller: `ProgressiveBootstrapController`,
+  `ProgressiveBootstrapControllerConfig` and `ProgressiveBootstrapCommand` in
+  `control/online_bootstrap.py` with their excitation scan and its fixed
+  pseudo-random patterns, `ThrustCascade` and `thrust_cascade` in
+  `control/_common.py`, their three `glassbox.experimental` re-exports, their
+  three tests, and their documentation. It was the hand-gained baseline arm of
+  a comparison that lives in the demo repository and was retired there by the
+  learned controller. Last commit carrying the code: `aab0b42`.
+- The recursive identifier's certification transaction:
+  `RecursiveBeliefValidationReport` with its `glassbox.experimental` re-export,
+  the pending-proposal machinery, and the `RecursiveBootstrapConfig` fields
+  `minimum_certification_interval_count`, `validation_interval_count`,
+  `minimum_validation_improvement`, `maximum_model_movement_fraction` and
+  `proposal_cooldown_interval_count`. `RecursiveBootstrapIdentifier` now
+  exposes one belief, `belief`, and the properties named for the transaction
+  are gone: `certified_belief`, `predictive_belief`, `control_belief`,
+  `pending_proposal`, `validation_history`, `accepted_update_count`,
+  `rejected_update_count`, and the five `shadow_*` readings. It was the same
+  gate twice; authority per direction is what governs, and the learned
+  controller in the demo repository flew the working belief with authority
+  scaling. Last commit carrying it: `aab0b42`.
+- `RecursiveBootstrapConfig.control_model` and the working-versus-certified
+  distinction it selected, with `flies_working_belief`, `control_model_ready`
+  and `working_support_reached`. `working_belief_supported` is the one support
+  question the identifier answers. Last commit carrying them: `aab0b42`.
+- The three identifier switches measured worse on the release ensemble and
+  shipped off: `staged_regressors` with `staging_sample_multiple` and the four
+  belief fields `collective_nuisance_staged`, `angular_nuisance_staged`,
+  `collective_staging_interval_count` and `angular_staging_interval_count`;
+  `enforce_collective_sign` with the two belief fields
+  `collective_sign_projection_count` and
+  `collective_sign_projection_magnitude`; and `prequential_residual` with the
+  prequential error accumulator and the concept page's section on it. Each
+  becomes the default-off behaviour with no flag, so
+  `RecursiveBootstrapBelief` drops from thirty-nine fields to thirty-three and
+  `to_dict` loses the matching keys. Last commit carrying them: `aab0b42`.
+- `RecursiveBootstrapConfig.forgetting_factor`, which was pinned to 1.0 and
+  rejected at any other value. The accumulation is the constant behaviour and
+  never decays. Last commit carrying it: `aab0b42`.
 
 ### Fixed
 - `glassbox fit --model --report` no longer fails on a NumPy scalar.

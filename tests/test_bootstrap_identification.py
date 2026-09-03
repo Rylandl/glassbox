@@ -102,50 +102,16 @@ def _update_recursive_identifier(
     return identifier, thrust_effect, angular_effect
 
 
-def _first_supported_interval(
-    commands: np.ndarray,
-    config: RecursiveBootstrapConfig | None = None,
-    **plant: float,
-) -> int | None:
-    """Interval at which one identifier first meets its own support rule."""
-
-    timestamps, states, _, _ = _linear_hidden_plant(commands, **plant)
-    identifier = RecursiveBootstrapIdentifier(config)
-    for index, command in enumerate(commands):
-        identifier.update(
-            states[index],
-            states[index + 1],
-            command,
-            timestamps[index + 1] - timestamps[index],
-        )
-        if identifier.working_belief_supported:
-            return index + 1
-    return None
-
-
-def test_recursive_bootstrap_updates_every_interval_and_certifies_support() -> None:
+def test_recursive_bootstrap_updates_every_interval_and_recovers_the_map() -> None:
     commands = _excitation(80)
 
     identifier, thrust_effect, angular_effect = _update_recursive_identifier(commands)
     belief = identifier.belief
-    certified = identifier.certified_belief
 
     assert belief.interval_count == len(commands)
     assert belief.command_evidence_rank == 4
     assert belief.angular_effect_rank == 3
-    assert certified is not None
-    assert certified.interval_count == 48
-    assert identifier.predictive_belief is certified
-    assert identifier.control_belief is identifier.predictive_belief
-    assert len(identifier.validation_history) == 1
-    validation = identifier.validation_history[0]
-    assert validation.candidate_interval_count == 48
-    assert validation.validation_interval_count == 16
-    assert validation.initial_admission
-    assert validation.accepted
-    assert validation.reason == "initial_prequential_admission"
-    assert identifier.accepted_update_count == 1
-    assert identifier.rejected_update_count == 0
+    assert identifier.working_belief_supported
     np.testing.assert_allclose(
         belief.collective_acceleration_per_command,
         thrust_effect,
@@ -158,98 +124,6 @@ def test_recursive_bootstrap_updates_every_interval_and_certifies_support() -> N
     )
     assert belief.to_dict()["airframe_parameter_prior_used"] is False
     assert belief.to_dict()["canonical_motor_mixer_assumed"] is False
-
-
-def test_recursive_candidate_is_frozen_then_scored_on_future_intervals() -> None:
-    commands = _excitation(64)
-    timestamps, states, _, _ = _linear_hidden_plant(commands)
-    identifier = RecursiveBootstrapIdentifier()
-
-    for index, command in enumerate(commands[:48]):
-        identifier.update(
-            states[index],
-            states[index + 1],
-            command,
-            timestamps[index + 1] - timestamps[index],
-        )
-    assert identifier.pending_proposal
-    assert identifier.certified_belief is None
-    frozen_candidate = identifier.belief
-
-    for index, command in enumerate(commands[48:63], start=48):
-        identifier.update(
-            states[index],
-            states[index + 1],
-            command,
-            timestamps[index + 1] - timestamps[index],
-        )
-    assert identifier.pending_proposal
-    assert identifier.certified_belief is None
-    assert identifier.belief is not frozen_candidate
-
-    identifier.update(
-        states[63],
-        states[64],
-        commands[63],
-        timestamps[64] - timestamps[63],
-    )
-
-    assert identifier.certified_belief is frozen_candidate
-    report = identifier.validation_history[0]
-    assert report.candidate_interval_count == 48
-    assert report.validation_interval_count == 16
-    assert report.accepted
-
-
-def test_recursive_replacement_cannot_claim_sub_noise_information_gain() -> None:
-    commands = _excitation(100)
-
-    identifier, _, _ = _update_recursive_identifier(commands)
-
-    replacements = [
-        report
-        for report in identifier.validation_history
-        if not report.initial_admission
-    ]
-    assert replacements
-    assert all(not report.accepted for report in replacements)
-    assert all(
-        report.reason == "prequential_improvement_not_demonstrated"
-        for report in replacements
-    )
-    assert identifier.certified_belief is not None
-    assert identifier.certified_belief.interval_count == 48
-
-
-def test_recursive_replacement_rejects_excessive_model_movement() -> None:
-    commands = _excitation(100)
-    scales = np.ones(len(commands))
-    scales[64:] = 4.0
-    timestamps, states, _, _ = _linear_hidden_plant(
-        commands,
-        effect_scales=scales,
-    )
-    identifier = RecursiveBootstrapIdentifier()
-    for index, command in enumerate(commands):
-        identifier.update(
-            states[index],
-            states[index + 1],
-            command,
-            timestamps[index + 1] - timestamps[index],
-        )
-
-    movement_rejections = [
-        report
-        for report in identifier.validation_history
-        if report.reason == "model_movement_exceeded"
-    ]
-    assert movement_rejections
-    assert all(not report.accepted for report in movement_rejections)
-    assert all(
-        report.model_movement_fraction
-        > identifier.config.maximum_model_movement_fraction
-        for report in movement_rejections
-    )
 
 
 def test_recursive_belief_exposes_supported_covariance_and_information() -> None:
@@ -304,7 +178,7 @@ def test_recursive_authority_tracks_information_not_elapsed_interval_count() -> 
     assert np.max(weak.angular_axis_authority) < np.min(strong.angular_axis_authority)
 
 
-def test_recursive_rank_deficiency_never_certifies_unobserved_axes() -> None:
+def test_recursive_rank_deficiency_never_claims_unobserved_axes() -> None:
     commands = _excitation(80, collective_only=True)
 
     identifier, _, _ = _update_recursive_identifier(commands)
@@ -312,8 +186,7 @@ def test_recursive_rank_deficiency_never_certifies_unobserved_axes() -> None:
 
     assert belief.command_evidence_rank <= 1
     assert belief.angular_effect_rank < 3
-    assert identifier.certified_belief is None
-    assert identifier.predictive_belief is belief
+    assert not identifier.working_belief_supported
     assert np.max(belief.angular_axis_authority) < 0.26
 
 
@@ -390,246 +263,6 @@ def test_recursive_update_accepts_rounding_width_bound_overshoot() -> None:
 
     assert refused.interval_count == 1
     assert identifier.last_sample_report.reason == "applied_command_outside_bounds"
-
-
-def test_recursive_config_rejects_a_forgetting_factor_below_one() -> None:
-    with pytest.raises(ValueError, match="never regain it"):
-        RecursiveBootstrapConfig(forgetting_factor=0.95)
-
-    assert RecursiveBootstrapConfig().forgetting_factor == 1.0
-
-
-def test_working_control_model_flies_the_working_belief_without_a_transaction() -> None:
-    commands = _excitation(80)
-    timestamps, states, _, _ = _linear_hidden_plant(commands)
-    config = RecursiveBootstrapConfig(control_model="working")
-    identifier = RecursiveBootstrapIdentifier(config)
-
-    supported_history: list[bool] = []
-    for index, command in enumerate(commands):
-        belief = identifier.update(
-            states[index],
-            states[index + 1],
-            command,
-            timestamps[index + 1] - timestamps[index],
-        )
-        supported_history.append(identifier.working_belief_supported)
-        # The controller is always handed the belief that just assimilated the
-        # newest interval, whether or not support holds yet.
-        assert identifier.predictive_belief is belief
-        assert identifier.control_belief is belief
-
-    # Readiness is exactly the support conditions, never prequential evidence.
-    assert identifier.working_belief_supported
-    assert identifier.belief.command_evidence_rank == 4
-    assert identifier.belief.angular_effect_rank == 3
-    assert identifier.belief.hover_command is not None
-    assert any(supported_history) and not all(supported_history)
-    assert identifier.control_model_ready
-    assert identifier.working_support_reached
-
-    # Nothing the transaction does reaches control in this mode.
-    assert identifier.certified_belief is None
-    assert identifier.pending_proposal is False
-    assert identifier.validation_history == ()
-    assert identifier.accepted_update_count == 0
-    assert identifier.rejected_update_count == 0
-
-
-def test_working_control_model_still_records_a_shadow_transaction() -> None:
-    commands = _excitation(80)
-    timestamps, states, _, _ = _linear_hidden_plant(commands)
-    certified = RecursiveBootstrapIdentifier()
-    shadowed = RecursiveBootstrapIdentifier(
-        RecursiveBootstrapConfig(control_model="working")
-    )
-
-    for index, command in enumerate(commands):
-        for identifier in (certified, shadowed):
-            identifier.update(
-                states[index],
-                states[index + 1],
-                command,
-                timestamps[index + 1] - timestamps[index],
-            )
-
-    # The two identifiers saw identical evidence, so the shadow record is the
-    # certified record: working mode reports what the gate would have done.
-    assert shadowed.shadow_certified_belief is not None
-    assert (
-        shadowed.shadow_certified_belief.interval_count
-        == certified.certified_belief.interval_count
-    )
-    assert shadowed.shadow_accepted_update_count == certified.accepted_update_count
-    assert shadowed.shadow_rejected_update_count == certified.rejected_update_count
-    assert [report.reason for report in shadowed.shadow_validation_history] == [
-        report.reason for report in certified.validation_history
-    ]
-    # The certified identifier reports no shadow, and neither reports both.
-    assert certified.shadow_certified_belief is None
-    assert certified.shadow_validation_history == ()
-    assert certified.shadow_pending_proposal is False
-
-
-def test_certified_control_model_is_the_unchanged_default() -> None:
-    assert RecursiveBootstrapConfig().control_model == "certified"
-    with pytest.raises(ValueError, match="control_model"):
-        RecursiveBootstrapConfig(control_model="workin")
-
-    commands = _excitation(80)
-    identifier, _, _ = _update_recursive_identifier(commands)
-
-    assert identifier.flies_working_belief is False
-    assert identifier.certified_belief is not None
-    assert identifier.predictive_belief is identifier.certified_belief
-    assert identifier.control_model_ready
-
-
-_STAGING_BOOKKEEPING = (
-    "update_wall_time_s",
-    "collective_nuisance_staged",
-    "angular_nuisance_staged",
-    "collective_staging_interval_count",
-    "angular_staging_interval_count",
-    "collective_sign_projection_count",
-    "collective_sign_projection_magnitude",
-)
-
-
-def test_default_recursive_config_stages_every_regressor_and_enforces_no_sign() -> None:
-    """Both pass-three switches are opt-in, so the shipped identifier moves."""
-
-    config = RecursiveBootstrapConfig()
-
-    assert config.staged_regressors is False
-    assert config.enforce_collective_sign is False
-    assert config.staging_sample_multiple == 4.0
-    identifier = RecursiveBootstrapIdentifier()
-    assert identifier.belief.collective_nuisance_staged
-    assert identifier.belief.angular_nuisance_staged
-    assert identifier.belief.collective_staging_interval_count is None
-
-
-def test_staged_solve_equals_the_full_solve_bit_for_bit_once_fully_staged() -> None:
-    """Staging chooses columns, never evidence.
-
-    The Gram and right-hand side are accumulated over every regressor in both
-    identifiers, so once the staged solve has admitted the nuisance block it is
-    solving the same system on the same data and must return the same floats,
-    not merely close ones.
-    """
-
-    commands = _excitation(80)
-
-    plain, _, _ = _update_recursive_identifier(commands)
-    staged, _, _ = _update_recursive_identifier(
-        commands,
-        RecursiveBootstrapConfig(staged_regressors=True),
-    )
-
-    assert staged.belief.collective_nuisance_staged
-    assert staged.belief.angular_nuisance_staged
-    # Four samples per column, on eight and eleven columns.
-    assert staged.belief.collective_staging_interval_count == 32
-    assert staged.belief.angular_staging_interval_count == 44
-    expected = plain.belief.to_dict()
-    actual = staged.belief.to_dict()
-    assert set(expected) == set(actual)
-    differing = [
-        name
-        for name in expected
-        if name not in _STAGING_BOOKKEEPING
-        and repr(expected[name]) != repr(actual[name])
-    ]
-    assert differing == []
-
-
-def test_staged_support_arrives_before_unstaged_support() -> None:
-    """Stage one resolves four command directions from five samples.
-
-    Residualizing against the intercept alone is exact centering rather than a
-    fitted projection, so the staged solve reports a supported model as soon as
-    the design has spanned the command box, instead of waiting for more samples
-    than the regression has columns.
-    """
-
-    commands = _excitation(80)
-
-    unstaged = _first_supported_interval(commands)
-    staged = _first_supported_interval(
-        commands,
-        RecursiveBootstrapConfig(staged_regressors=True),
-    )
-
-    assert unstaged is not None and staged is not None
-    assert staged < unstaged
-    # The unstaged fit cannot resolve eleven columns from fewer than eleven
-    # samples; the staged one only ever has five.
-    assert staged <= 5 < unstaged
-
-
-def test_collective_sign_projection_clips_a_negative_coefficient_and_records_it() -> (
-    None
-):
-    """A motor the fit says pushes down is clipped to no effect, and recorded.
-
-    The hidden plant here really does have a negative fourth thrust
-    coefficient, so this is the projection acting against the evidence rather
-    than against noise: the constraint is a statement about what a thrust
-    fraction means, and it is qualitative, so the clipped coefficient lands on
-    exactly zero and carries no magnitude of its own.
-    """
-
-    commands = _excitation(80)
-    reversed_motor = np.asarray((4.8, 5.0, 5.2, -3.1))
-
-    plain, _, _ = _update_recursive_identifier(
-        commands,
-        thrust_effect=reversed_motor,
-    )
-    projected, _, _ = _update_recursive_identifier(
-        commands,
-        RecursiveBootstrapConfig(enforce_collective_sign=True),
-        thrust_effect=reversed_motor,
-    )
-
-    assert plain.belief.collective_acceleration_per_command[3] < -1.0
-    assert plain.belief.collective_sign_projection_count == 0
-    assert projected.belief.collective_acceleration_per_command[3] == 0.0
-    assert np.all(projected.belief.collective_acceleration_per_command >= 0.0)
-    assert projected.belief.collective_sign_projection_count == 1
-    assert projected.belief.collective_sign_projection_magnitude == pytest.approx(
-        abs(float(plain.belief.collective_acceleration_per_command[3])),
-        rel=1e-9,
-    )
-
-
-def test_collective_sign_projection_leaves_a_positive_fit_untouched() -> None:
-    """Where the fit already respects the channel's sign, nothing moves."""
-
-    commands = _excitation(80)
-
-    plain, _, _ = _update_recursive_identifier(commands)
-    projected, _, _ = _update_recursive_identifier(
-        commands,
-        RecursiveBootstrapConfig(enforce_collective_sign=True),
-    )
-
-    assert np.all(plain.belief.collective_acceleration_per_command > 0.0)
-    assert projected.belief.collective_sign_projection_count == 0
-    assert projected.belief.collective_sign_projection_magnitude == 0.0
-    assert np.array_equal(
-        projected.belief.collective_acceleration_per_command,
-        plain.belief.collective_acceleration_per_command,
-    )
-    assert projected.belief.collective_intercept_m_s2 == (
-        plain.belief.collective_intercept_m_s2
-    )
-
-
-def test_staging_sample_multiple_below_one_is_rejected() -> None:
-    with pytest.raises(ValueError, match="staging_sample_multiple"):
-        RecursiveBootstrapConfig(staging_sample_multiple=0.5)
 
 
 def test_recursive_belief_exposes_the_accumulated_regression_grams() -> None:
@@ -723,18 +356,12 @@ def test_transition_aggregation_assimilates_window_means_weighted_by_the_window(
         return previous, current, command
 
     transitions = [transition(k) for k in range(9)]
-    plain = RecursiveBootstrapIdentifier(
-        RecursiveBootstrapConfig(control_model="working")
-    )
+    plain = RecursiveBootstrapIdentifier()
     reference = RecursiveBootstrapIdentifier(
-        RecursiveBootstrapConfig(
-            control_model="working", transition_aggregation_steps=1
-        )
+        RecursiveBootstrapConfig(transition_aggregation_steps=1)
     )
     windowed = RecursiveBootstrapIdentifier(
-        RecursiveBootstrapConfig(
-            control_model="working", transition_aggregation_steps=3
-        )
+        RecursiveBootstrapConfig(transition_aggregation_steps=3)
     )
     for index, (previous, current, command) in enumerate(transitions):
         a = plain.update(previous, current, command, dt).to_dict()
@@ -761,84 +388,12 @@ def test_transition_aggregation_assimilates_window_means_weighted_by_the_window(
     ]
     mean_force = np.mean([f.force_features for f in features], axis=0)
     single = RecursiveBootstrapIdentifier(
-        RecursiveBootstrapConfig(
-            control_model="working", transition_aggregation_steps=3
-        )
+        RecursiveBootstrapConfig(transition_aggregation_steps=3)
     )
     for previous, current, command in transitions[:3]:
         single.update(previous, current, command, dt)
     assert np.allclose(
         single.belief.collective_information, 3.0 * np.outer(mean_force, mean_force)
-    )
-
-
-def test_the_prequential_residual_floors_the_scale_at_the_belief_error() -> None:
-    """The residual scale cannot sit below what the belief actually gets wrong.
-
-    Off, the identifier is bit-for-bit as it was.  On, each residual standard
-    deviation is at least the exponentially weighted root-mean-square error
-    the belief made predicting each transition before absorbing it, so a fit
-    with as many samples as parameters no longer reads as certain.
-    """
-
-    import numpy as np
-
-    from glassbox.control.online_bootstrap import (
-        RecursiveBootstrapConfig,
-        RecursiveBootstrapIdentifier,
-    )
-
-    rng = np.random.default_rng(5)
-    dt = 0.01
-
-    def transition() -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        previous = np.zeros(13)
-        previous[6] = 1.0
-        previous[3:6] = rng.normal(scale=0.1, size=3)
-        previous[10:13] = rng.normal(scale=0.3, size=3)
-        current = previous.copy()
-        # A large, command-independent angular kick the model cannot fit.
-        current[3:6] += rng.normal(scale=0.02, size=3)
-        current[10:13] += rng.normal(scale=0.4, size=3)
-        command = np.clip(0.5 + 0.05 * rng.normal(size=4), 0.0, 1.0)
-        return previous, current, command
-
-    transitions = [transition() for _ in range(12)]
-    plain = RecursiveBootstrapIdentifier(
-        RecursiveBootstrapConfig(control_model="working")
-    )
-    off = RecursiveBootstrapIdentifier(
-        RecursiveBootstrapConfig(control_model="working", prequential_residual=False)
-    )
-    on = RecursiveBootstrapIdentifier(
-        RecursiveBootstrapConfig(control_model="working", prequential_residual=True)
-    )
-    for index, (previous, current, command) in enumerate(transitions):
-        a = plain.update(previous, current, command, dt).to_dict()
-        b = off.update(previous, current, command, dt).to_dict()
-        a.pop("update_wall_time_s")
-        b.pop("update_wall_time_s")
-        assert a == b
-        before = on.belief
-        on.update(previous, current, command, dt)
-        if index == 0:
-            # The very first transition meets an empty belief: its error is the
-            # target itself and is not recorded.
-            assert before.command_evidence_rank == 0
-            assert on._prequential_weight == 0.0
-    assert (
-        on.belief.collective_residual_std_m_s2
-        >= off.belief.collective_residual_std_m_s2
-    )
-    assert np.all(
-        on.belief.angular_residual_std_rad_s2 >= off.belief.angular_residual_std_rad_s2
-    )
-    # Twelve samples on eleven angular columns fit the kicks in-sample; the
-    # prequential error does not, so the scale on the switch is well above
-    # the declared floor.
-    assert np.all(
-        on.belief.angular_residual_std_rad_s2
-        > 2.0 * RecursiveBootstrapConfig().angular_residual_std_floor_rad_s2
     )
 
 
@@ -890,14 +445,12 @@ def test_the_integrated_collective_fit_is_honest_under_velocity_noise() -> None:
         return transitions
 
     transitions = flight(3)
-    plain = RecursiveBootstrapIdentifier(
-        RecursiveBootstrapConfig(control_model="working")
-    )
+    plain = RecursiveBootstrapIdentifier()
     off = RecursiveBootstrapIdentifier(
-        RecursiveBootstrapConfig(control_model="working", integrated_collective=False)
+        RecursiveBootstrapConfig(integrated_collective=False)
     )
     on = RecursiveBootstrapIdentifier(
-        RecursiveBootstrapConfig(control_model="working", integrated_collective=True)
+        RecursiveBootstrapConfig(integrated_collective=True)
     )
     first_half_authority: dict[str, int | None] = {"off": None, "on": None}
     for index, (previous, current, command) in enumerate(transitions):
@@ -938,7 +491,9 @@ def test_the_integrated_collective_fit_is_honest_under_velocity_noise() -> None:
 
 # The dual-control controller in glassbox-throw reads this belief field by
 # field, so the field list is a downstream contract: a rename or removal has to
-# be made here on purpose, and mirrored there.
+# be made here on purpose, and mirrored there.  The count dropped from
+# thirty-nine to thirty-three at this commit, when the staged-regressor and
+# collective-sign switches and their six bookkeeping fields were deleted.
 RECURSIVE_BOOTSTRAP_BELIEF_FIELDS = (
     "interval_count",
     "effective_interval_count",
@@ -973,12 +528,6 @@ RECURSIVE_BOOTSTRAP_BELIEF_FIELDS = (
     "angular_axis_authority",
     "hover_command",
     "update_wall_time_s",
-    "collective_nuisance_staged",
-    "angular_nuisance_staged",
-    "collective_staging_interval_count",
-    "angular_staging_interval_count",
-    "collective_sign_projection_count",
-    "collective_sign_projection_magnitude",
 )
 
 
