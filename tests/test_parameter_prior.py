@@ -17,11 +17,10 @@ from glassbox.belief.parameter_prior import StructuredParameterPrior
 from glassbox.core.data import make_trajectory_spec
 from glassbox.core.dynamics import FIXED_WING_CONTROL_NAMES
 from glassbox.core.fixedwing_synthetic import (
-    generate_fixed_wing_trajectory,
     true_fixed_wing_parameters,
 )
 from glassbox.core.runtime import runtime_spec_from_trajectory
-from glassbox.core.synthetic import generate_trajectory, true_parameters
+from glassbox.core.synthetic import true_parameters
 
 
 def _member_belief(trajectory, params, offset: np.ndarray) -> DynamicsBelief:
@@ -133,8 +132,10 @@ def test_parameter_prior_rejects_mixed_member_covariance_semantics(
         )
 
 
-def test_parameter_prior_requires_fleet_coverage_for_target_controls() -> None:
-    trajectory = generate_fixed_wing_trajectory(seed=3, duration_s=0.2)
+def test_parameter_prior_requires_fleet_coverage_for_target_controls(
+    fixedwing_flight,
+) -> None:
+    trajectory = fixedwing_flight(3, 0.2)
     params = true_fixed_wing_parameters()
     size = len(np.asarray(structured_parameter_vector(params)))
     prior = StructuredParameterPrior.from_beliefs(
@@ -155,8 +156,10 @@ def test_parameter_prior_requires_fleet_coverage_for_target_controls() -> None:
         prior.validate_input_spec(flap_spec)
 
 
-def test_configuration_specific_parameters_ignore_inapplicable_members() -> None:
-    trajectory = generate_fixed_wing_trajectory(seed=4, duration_s=0.2)
+def test_configuration_specific_parameters_ignore_inapplicable_members(
+    fixedwing_flight,
+) -> None:
+    trajectory = fixedwing_flight(4, 0.2)
     flap_spec = make_trajectory_spec(
         FIXED_WING_CONTROL_NAMES + ("flap",),
         family="fixedwing",
@@ -217,13 +220,15 @@ def test_configuration_specific_parameters_ignore_inapplicable_members() -> None
     prior.validate_input_spec(flap_spec)
 
 
-def test_initialize_belief_stales_inherited_error_evidence_unless_asserted() -> None:
+def test_initialize_belief_stales_inherited_error_evidence_unless_asserted(
+    quadrotor_flight,
+) -> None:
     from glassbox.belief.belief import (
         EmpiricalErrorSample,
         EmpiricalHorizonPredictiveError,
     )
 
-    trajectory = generate_trajectory(seed=4, duration_s=0.2)
+    trajectory = quadrotor_flight(4, 0.2)
     params = true_parameters()
     size = len(np.asarray(structured_parameter_vector(params)))
     members = [

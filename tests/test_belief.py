@@ -29,7 +29,6 @@ from glassbox.core.data import trajectory_windows
 from glassbox.core.dynamics import ResidualDynamicsParams, initial_residual_parameters
 from glassbox.core.evaluation import rigid_body_tangent_errors
 from glassbox.core.fixedwing_synthetic import (
-    generate_fixed_wing_trajectory,
     true_fixed_wing_parameters,
 )
 from glassbox.core.runtime import (
@@ -144,8 +143,8 @@ def test_structured_parameter_belief_is_generic_and_leaves_residual_fixed() -> N
     np.testing.assert_allclose(updated.output_weights, residual.output_weights)
 
 
-def test_belief_round_trip_and_runtime_forecast(tmp_path) -> None:
-    trajectory = generate_trajectory(seed=4, duration_s=0.3)
+def test_belief_round_trip_and_runtime_forecast(tmp_path, quadrotor_flight) -> None:
+    trajectory = quadrotor_flight(4, 0.3)
     error_model = _error_model(0.01)
     belief = DynamicsBelief(
         params=true_parameters(),
@@ -180,8 +179,8 @@ def test_belief_round_trip_and_runtime_forecast(tmp_path) -> None:
     assert nominal_from_legacy_loader.command_size == runtime.nominal.command_size
 
 
-def test_runtime_rollout_enforces_declared_command_bounds() -> None:
-    trajectory = generate_trajectory(seed=5, duration_s=0.3)
+def test_runtime_rollout_enforces_declared_command_bounds(quadrotor_flight) -> None:
+    trajectory = quadrotor_flight(5, 0.3)
     belief = DynamicsBelief(
         params=true_parameters(),
         input_spec=trajectory.spec,
@@ -216,8 +215,10 @@ def test_runtime_rollout_enforces_declared_command_bounds() -> None:
     np.testing.assert_array_equal(clipped.commands, bounded.commands)
 
 
-def test_parameter_belief_propagates_and_scores_candidate_information(tmp_path) -> None:
-    trajectory = generate_trajectory(seed=7, duration_s=0.3)
+def test_parameter_belief_propagates_and_scores_candidate_information(
+    tmp_path, quadrotor_flight
+) -> None:
+    trajectory = quadrotor_flight(7, 0.3)
     params = true_parameters()
     belief = DynamicsBelief(
         params=params,
@@ -250,8 +251,10 @@ def test_parameter_belief_propagates_and_scores_candidate_information(tmp_path) 
     assert np.max(assessment.prediction.parameter_tangent_covariance) > 0.0
 
 
-def test_local_parameter_information_preserves_unresolved_directions(tmp_path) -> None:
-    trajectory = generate_trajectory(seed=9, duration_s=0.3)
+def test_local_parameter_information_preserves_unresolved_directions(
+    tmp_path, quadrotor_flight
+) -> None:
+    trajectory = quadrotor_flight(9, 0.3)
     params = true_parameters()
     names = structured_parameter_names(params)
     center = np.asarray(structured_parameter_vector(params))
@@ -299,10 +302,10 @@ def test_local_parameter_information_preserves_unresolved_directions(tmp_path) -
     assert not restored.parameter_belief.uncertainty_available
 
 
-def test_local_information_conditions_complete_prior_without_collapsing_nullspace() -> (
-    None
-):
-    trajectory = generate_trajectory(seed=12, duration_s=0.3)
+def test_local_information_conditions_complete_prior_without_collapsing_nullspace(
+    quadrotor_flight,
+) -> None:
+    trajectory = quadrotor_flight(12, 0.3)
     params = true_parameters()
     names = structured_parameter_names(params)
     local_center = np.asarray(structured_parameter_vector(params))
@@ -434,8 +437,10 @@ def _two_direction_evidence(params, *, rank_relative_tolerance: float):
     )
 
 
-def test_conditioning_reads_nothing_from_unresolved_directions() -> None:
-    trajectory = generate_trajectory(seed=17, duration_s=0.3)
+def test_conditioning_reads_nothing_from_unresolved_directions(
+    quadrotor_flight,
+) -> None:
+    trajectory = quadrotor_flight(17, 0.3)
     params = true_parameters()
     evidence = _two_direction_evidence(params, rank_relative_tolerance=0.01)
     fitted = DynamicsBelief(
@@ -477,8 +482,10 @@ def test_conditioning_reads_nothing_from_unresolved_directions() -> None:
     )
 
 
-def test_conditioning_matches_full_geometry_when_every_direction_resolves() -> None:
-    trajectory = generate_trajectory(seed=18, duration_s=0.3)
+def test_conditioning_matches_full_geometry_when_every_direction_resolves(
+    quadrotor_flight,
+) -> None:
+    trajectory = quadrotor_flight(18, 0.3)
     params = true_parameters()
     evidence = _two_direction_evidence(params, rank_relative_tolerance=1e-6)
     fitted = DynamicsBelief(
@@ -523,10 +530,12 @@ def test_conditioning_matches_full_geometry_when_every_direction_resolves() -> N
     assert provenance["local_information_discarded_fraction"] == 0.0
 
 
-def test_grouped_rollout_information_uses_only_fitted_structured_coordinates() -> None:
+def test_grouped_rollout_information_uses_only_fitted_structured_coordinates(
+    quadrotor_flight,
+) -> None:
     trajectories = tuple(
         replace(
-            generate_trajectory(seed=seed, duration_s=0.3),
+            quadrotor_flight(seed, 0.3),
             labels={"source_group": group},
         )
         for seed, group in ((1, "group-a"), (2, "group-b"))
@@ -562,10 +571,10 @@ def test_grouped_rollout_information_uses_only_fitted_structured_coordinates() -
     assert np.allclose(evidence.information_matrix[~fitted_mask], 0.0)
 
 
-def test_grouped_rollout_information_is_vehicle_family_generic() -> None:
-    trajectories = tuple(
-        generate_fixed_wing_trajectory(seed=seed, duration_s=0.3) for seed in (1, 2)
-    )
+def test_grouped_rollout_information_is_vehicle_family_generic(
+    fixedwing_flight,
+) -> None:
+    trajectories = tuple(fixedwing_flight(seed, 0.3) for seed in (1, 2))
     windows = trajectory_windows(
         trajectories,
         horizon=5,
@@ -668,8 +677,10 @@ def test_live_update_moves_structured_parameters_and_preserves_error_provenance(
     assert updated_again.predictive_error_parameter_update_count == 0
 
 
-def test_live_update_does_not_require_actionable_control_semantics() -> None:
-    telemetry = generate_trajectory(seed=3, duration_s=0.2)
+def test_live_update_does_not_require_actionable_control_semantics(
+    quadrotor_flight,
+) -> None:
+    telemetry = quadrotor_flight(3, 0.2)
     physical_spec = replace(
         telemetry.spec,
         controls=tuple(
@@ -800,8 +811,10 @@ def _fleet_prior(params, trajectory, *, offset: float):
     )
 
 
-def test_conditioning_recalibration_and_update_complete_the_lifecycle() -> None:
-    trajectory = generate_trajectory(seed=12, duration_s=0.3)
+def test_conditioning_recalibration_and_update_complete_the_lifecycle(
+    quadrotor_flight,
+) -> None:
+    trajectory = quadrotor_flight(12, 0.3)
     params = true_parameters()
     fitted = DynamicsBelief(
         params=params,
@@ -823,11 +836,11 @@ def test_conditioning_recalibration_and_update_complete_the_lifecycle() -> None:
     assert conditioned.provenance["parameter_prior_conditioning"][
         "predictive_error_marked_stale"
     ]
-    _, stale_report = conditioned.update(generate_trajectory(seed=13, duration_s=0.4))
+    _, stale_report = conditioned.update(quadrotor_flight(13, 0.4))
     assert not stale_report.applied
     assert "stale" in stale_report.reason
 
-    calibration = generate_trajectory(seed=14, duration_s=2.0)
+    calibration = quadrotor_flight(14, 2.0)
     refreshed = conditioned.recalibrate_predictive_error(calibration)
 
     assert refreshed.predictive_error_current
@@ -849,9 +862,9 @@ def test_conditioning_recalibration_and_update_complete_the_lifecycle() -> None:
     assert len(recalibration["telemetry_content_hash"]) == 64
     assert (
         recalibration["telemetry_content_hash"]
-        != refreshed.recalibrate_predictive_error(
-            generate_trajectory(seed=16, duration_s=2.0)
-        ).provenance["predictive_error_recalibration"]["telemetry_content_hash"]
+        != refreshed.recalibrate_predictive_error(quadrotor_flight(16, 2.0)).provenance[
+            "predictive_error_recalibration"
+        ]["telemetry_content_hash"]
     )
 
     # The refreshed belief can now be updated again. Telemetry from a vehicle

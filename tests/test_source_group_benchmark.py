@@ -1,17 +1,16 @@
 from dataclasses import replace
 
 from glassbox.core.data import save_trajectory_npz
-from glassbox.core.fixedwing_synthetic import generate_fixed_wing_trajectory
 from glassbox.workflows.source_group_benchmark import benchmark_source_groups
 
 
 def test_source_group_benchmark_moves_every_segment_into_the_same_fold(
-    tmp_path, monkeypatch
+    tmp_path, monkeypatch, fixedwing_flight
 ) -> None:
     paths = []
     groups = ("session-a", "session-a", "session-b", "session-c")
     for seed, group in enumerate(groups):
-        trajectory = generate_fixed_wing_trajectory(seed=seed, duration_s=0.3)
+        trajectory = fixedwing_flight(seed, 0.3)
         trajectory = replace(
             trajectory,
             labels={**trajectory.labels, "source_group": group},

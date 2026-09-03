@@ -14,23 +14,22 @@ import pytest
 
 from glassbox import DynamicsBelief, LocalParameterInformation, cli
 from glassbox.core.data import save_trajectory_npz
-from glassbox.core.synthetic import generate_trajectory
 
 
-def _write_flights(tmp_path, count: int = 3) -> list[str]:
+def _write_flights(tmp_path, quadrotor_flight, count: int = 3) -> list[str]:
     paths = []
     for seed in range(count):
         path = tmp_path / f"flight_{seed}.npz"
-        save_trajectory_npz(generate_trajectory(seed=seed, duration_s=0.4), path)
+        save_trajectory_npz(quadrotor_flight(seed), path)
         paths.append(str(path))
     return paths
 
 
-def _write_benchmark_split_flights(tmp_path, splits) -> list[str]:
+def _write_benchmark_split_flights(tmp_path, quadrotor_flight, splits) -> list[str]:
     paths = []
     for seed, split in enumerate(splits):
         path = tmp_path / f"split_flight_{seed}.npz"
-        trajectory = generate_trajectory(seed=seed, duration_s=0.4)
+        trajectory = quadrotor_flight(seed)
         trajectory = replace(
             trajectory,
             labels={**trajectory.labels, "benchmark_split": split},
@@ -40,8 +39,8 @@ def _write_benchmark_split_flights(tmp_path, splits) -> list[str]:
     return paths
 
 
-def test_fit_cli_writes_belief_and_report_together(tmp_path) -> None:
-    paths = _write_flights(tmp_path)
+def test_fit_cli_writes_belief_and_report_together(tmp_path, quadrotor_flight) -> None:
+    paths = _write_flights(tmp_path, quadrotor_flight)
     model_path = tmp_path / "belief.json"
     report_path = tmp_path / "report.json"
 
@@ -75,9 +74,11 @@ def test_fit_cli_writes_belief_and_report_together(tmp_path) -> None:
 
 
 def test_fit_cli_rejects_holdout_count_when_benchmark_split_labels_are_present(
-    tmp_path, capsys
+    tmp_path, capsys, quadrotor_flight
 ) -> None:
-    paths = _write_benchmark_split_flights(tmp_path, ("training", "validation"))
+    paths = _write_benchmark_split_flights(
+        tmp_path, quadrotor_flight, ("training", "validation")
+    )
 
     with pytest.raises(SystemExit) as excinfo:
         cli.main(["fit", *paths, "--holdout-count", "2", "--steps", "1"])

@@ -1,6 +1,8 @@
 import json
 from dataclasses import replace
 
+import pytest
+
 from glassbox.core.data import save_trajectory_npz
 from glassbox.core.model_io import save_dynamics_model
 from glassbox.core.runtime import runtime_spec_from_trajectory
@@ -60,6 +62,7 @@ def test_train_only_rotation_selection_requires_material_improvement(tmp_path) -
     assert output.read_text().endswith("\n")
 
 
+@pytest.mark.slow
 def test_angular_authority_selection_uses_only_held_out_train_profiles(
     tmp_path,
 ) -> None:

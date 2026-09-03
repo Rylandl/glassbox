@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from glassbox.workflows.adaptation_benchmark import run_adaptation_benchmark
 
 
+@pytest.mark.slow
 def test_compact_fleet_prior_adaptation_is_predictively_useful() -> None:
     report = run_adaptation_benchmark()
 

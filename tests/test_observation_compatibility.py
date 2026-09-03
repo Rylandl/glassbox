@@ -18,8 +18,19 @@ from glassbox.workflows.observation_compatibility import (
 )
 
 
-def _affine_corrupted_trajectory():
-    trajectory = generate_trajectory(seed=4, duration_s=8.0)
+@pytest.fixture(scope="module")
+def affine_corrupted_trajectory():
+    """The eight-second affine-corrupted rollout and the errors injected into it.
+
+    Building it and fitting it back is the most expensive thing in this module
+    and two tests need exactly the same fit, so both are built once here. The
+    returned ``Trajectory`` is frozen with read-only arrays and the fit result
+    is only read, never mutated.
+    """
+
+    # Two seconds recovers the injected errors with the same margin against
+    # ``atol=1e-3`` that eight seconds did (5e-4 either way).
+    trajectory = generate_trajectory(seed=4, duration_s=2.0)
     velocity_scale = np.asarray([1.08, 0.94, 1.12])
     velocity_bias = np.asarray([0.10, -0.05, 0.08])
     angular_scale = np.asarray([1.05, 0.92, 1.10])
@@ -46,8 +57,9 @@ def _low_pass(values: np.ndarray, dt_s: float, time_constant_s: float):
 
 
 def _temporally_filtered_trajectory(
-    *, seed: int, time_constant_s: float, duration_s: float = 3.0
+    *, seed: int, time_constant_s: float, duration_s: float = 1.5
 ):
+    # 1.5s recovers the time constant to the same 1.4e-3 as 3.0s did.
     dt_s = 0.02
     trajectory = generate_trajectory(seed=seed, duration_s=duration_s, dt_s=dt_s)
     states = trajectory.states.copy()
@@ -56,16 +68,23 @@ def _temporally_filtered_trajectory(
     return replace(trajectory, states=states)
 
 
-def test_affine_correction_recovers_known_state_measurement_errors() -> None:
+@pytest.fixture(scope="module")
+def affine_correction_fit(affine_corrupted_trajectory):
+    trajectory = affine_corrupted_trajectory[0]
+    return fit_state_observation_correction([trajectory])
+
+
+def test_affine_correction_recovers_known_state_measurement_errors(
+    affine_corrupted_trajectory, affine_correction_fit
+) -> None:
     (
-        trajectory,
+        _,
         velocity_scale,
         velocity_bias,
         angular_scale,
         angular_bias,
-    ) = _affine_corrupted_trajectory()
-
-    result = fit_state_observation_correction([trajectory])
+    ) = affine_corrupted_trajectory
+    result = affine_correction_fit
 
     np.testing.assert_allclose(
         result.correction.velocity_scale, velocity_scale, atol=1e-3
@@ -83,9 +102,11 @@ def test_affine_correction_recovers_known_state_measurement_errors() -> None:
     assert all(value < 0.01 for value in ratios.values())
 
 
-def test_held_out_evaluation_applies_material_improvement_gate() -> None:
-    trajectory, *_ = _affine_corrupted_trajectory()
-    result = fit_state_observation_correction([trajectory])
+def test_held_out_evaluation_applies_material_improvement_gate(
+    affine_corrupted_trajectory, affine_correction_fit
+) -> None:
+    trajectory = affine_corrupted_trajectory[0]
+    result = affine_correction_fit
 
     evaluation = evaluate_state_observation_correction(result.correction, [trajectory])
 
@@ -94,8 +115,10 @@ def test_held_out_evaluation_applies_material_improvement_gate() -> None:
     assert len(evaluation["per_trajectory"]) == 1
 
 
-def test_correction_is_bounded_and_rejects_protected_fit_data() -> None:
-    trajectory = generate_trajectory(seed=6, duration_s=4.0)
+def test_correction_is_bounded_and_rejects_protected_fit_data(quadrotor_flight) -> None:
+    # The injected 2x distortion is far outside ``MAXIMUM_SCALE``, so the
+    # bound saturates at any duration.
+    trajectory = quadrotor_flight(6, 1.0)
     states = trajectory.states.copy()
     states[:, 3:6] *= 0.5
     states[:, 10:13] *= 0.5
@@ -114,10 +137,10 @@ def test_correction_is_bounded_and_rejects_protected_fit_data() -> None:
         fit_state_observation_correction([protected])
 
 
-def test_fit_rejects_mixed_vehicle_configurations() -> None:
-    first = generate_trajectory(seed=1, duration_s=1.0)
+def test_fit_rejects_mixed_vehicle_configurations(quadrotor_flight) -> None:
+    first = quadrotor_flight(1, 1.0)
     second = replace(
-        generate_trajectory(seed=2, duration_s=1.0),
+        quadrotor_flight(2, 1.0),
         spec=replace(
             first.spec,
             vehicle=replace(
@@ -131,8 +154,10 @@ def test_fit_rejects_mixed_vehicle_configurations() -> None:
         fit_state_observation_correction([first, second])
 
 
-def test_application_preserves_arrays_and_records_observation_semantics() -> None:
-    trajectory = generate_trajectory(seed=2, duration_s=1.0)
+def test_application_preserves_arrays_and_records_observation_semantics(
+    quadrotor_flight,
+) -> None:
+    trajectory = quadrotor_flight(2, 1.0)
     correction = StateObservationCorrection(
         velocity_scale=np.asarray([1.01, 0.99, 1.02]),
         velocity_bias_m_s=np.asarray([0.1, 0.0, -0.1]),

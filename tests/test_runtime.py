@@ -16,7 +16,7 @@ from glassbox.core.runtime import (
     runtime_spec_from_fit_report,
     runtime_spec_from_trajectory,
 )
-from glassbox.core.synthetic import generate_trajectory, true_parameters
+from glassbox.core.synthetic import true_parameters
 from glassbox.io.nanodrone_reference import nanodrone_trajectory_spec
 
 
@@ -242,8 +242,10 @@ def test_runtime_validates_actual_actuation_map_output(
         )
 
 
-def test_runtime_supports_structured_residual_transition(tmp_path) -> None:
-    trajectory = generate_trajectory(seed=1, duration_s=0.1)
+def test_runtime_supports_structured_residual_transition(
+    tmp_path, quadrotor_flight
+) -> None:
+    trajectory = quadrotor_flight(1, 0.1)
     path = tmp_path / "residual.json"
     params = initial_residual_parameters(true_parameters(), hidden_units=3)
     save_dynamics_model(
@@ -263,8 +265,10 @@ def test_runtime_supports_structured_residual_transition(tmp_path) -> None:
     assert np.all(np.isfinite(next_state))
 
 
-def test_runtime_rebinds_only_compatible_finite_parameter_numerics(tmp_path) -> None:
-    trajectory = generate_trajectory(seed=4, duration_s=0.1)
+def test_runtime_rebinds_only_compatible_finite_parameter_numerics(
+    tmp_path, quadrotor_flight
+) -> None:
+    trajectory = quadrotor_flight(4, 0.1)
     path = tmp_path / "model.json"
     params = true_parameters()
     save_dynamics_model(

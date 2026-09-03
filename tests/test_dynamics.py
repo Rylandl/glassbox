@@ -20,7 +20,7 @@ from glassbox.core.dynamics import (
     with_thrust_command_offset,
 )
 from glassbox.core.evaluation import rollout_metrics
-from glassbox.core.synthetic import generate_trajectory, resting_state, true_parameters
+from glassbox.core.synthetic import resting_state, true_parameters
 
 
 def test_hover_is_an_equilibrium() -> None:
@@ -64,8 +64,8 @@ def test_rollout_is_differentiable_with_respect_to_controls() -> None:
     assert float(jnp.linalg.norm(jacobian)) > 0.0
 
 
-def test_true_model_has_zero_attitude_rollout_error() -> None:
-    trajectory = generate_trajectory(seed=4, duration_s=0.2)
+def test_true_model_has_zero_attitude_rollout_error(quadrotor_flight) -> None:
+    trajectory = quadrotor_flight(4, 0.2)
 
     metrics = rollout_metrics(true_parameters(), trajectory)
 
@@ -218,14 +218,13 @@ def test_estimated_wind_only_conditions_linear_residual() -> None:
     np.testing.assert_allclose(windy[10:13], calm[10:13], atol=1e-7)
 
 
-def test_rollout_applies_per_step_exogenous_inputs() -> None:
+def test_rollout_applies_per_step_exogenous_inputs(fixedwing_flight) -> None:
     from glassbox.core.dynamics import WIND_EXOGENOUS_ROLES, rollout_with_latent
     from glassbox.core.fixedwing_synthetic import (
-        generate_fixed_wing_trajectory,
         true_fixed_wing_parameters,
     )
 
-    trajectory = generate_fixed_wing_trajectory(seed=1, duration_s=0.3)
+    trajectory = fixedwing_flight(1, 0.3)
     params = true_fixed_wing_parameters()
     controls = jnp.asarray(trajectory.controls)
     steps = controls.shape[0]

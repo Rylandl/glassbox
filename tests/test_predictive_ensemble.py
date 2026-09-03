@@ -6,10 +6,8 @@ import numpy as np
 import pytest
 
 from glassbox.core.data import save_trajectory_npz, trajectory_windows
-from glassbox.core.fixedwing_synthetic import generate_fixed_wing_trajectory
 from glassbox.core.identification import FitResult
 from glassbox.core.synthetic import (
-    generate_trajectory,
     initial_parameter_guess,
     true_parameters,
 )
@@ -81,11 +79,13 @@ def test_balanced_calibration_partition_preserves_profile_condition_replicates()
     )
 
 
-def test_group_weighted_windows_preserve_complete_group_multiplicity() -> None:
+def test_group_weighted_windows_preserve_complete_group_multiplicity(
+    quadrotor_flight,
+) -> None:
     trajectories = [
-        generate_trajectory(seed=0, duration_s=0.4),
-        generate_trajectory(seed=1, duration_s=0.4),
-        generate_trajectory(seed=2, duration_s=0.4),
+        quadrotor_flight(0, 0.4),
+        quadrotor_flight(1, 0.4),
+        quadrotor_flight(2, 0.4),
     ]
     windows = trajectory_windows(
         trajectories,
@@ -120,10 +120,11 @@ def test_group_weighted_windows_preserve_complete_group_multiplicity() -> None:
 
 def test_shared_outer_statistics_fix_residual_coordinates_across_members(
     monkeypatch,
+    quadrotor_flight,
 ) -> None:
     trajectories = [
-        generate_trajectory(seed=0, duration_s=0.4),
-        generate_trajectory(seed=1, duration_s=0.4),
+        quadrotor_flight(0, 0.4),
+        quadrotor_flight(1, 0.4),
     ]
 
     def window_sets(weights):
@@ -187,10 +188,11 @@ def test_shared_outer_statistics_fix_residual_coordinates_across_members(
 
 def test_ensemble_rejects_source_groups_with_colliding_json_keys(
     tmp_path,
+    quadrotor_flight,
 ) -> None:
     paths = []
     for seed, source_group in enumerate((1, "1", 2, 3)):
-        trajectory = generate_trajectory(seed=seed, duration_s=0.2)
+        trajectory = quadrotor_flight(seed, 0.2)
         trajectory = replace(
             trajectory,
             labels={
@@ -294,10 +296,12 @@ def test_predictive_metrics_reject_every_component_of_a_nonfinite_member(
     )
 
 
-def test_grouped_scale_calibration_respects_independent_group_resolution() -> None:
+def test_grouped_scale_calibration_respects_independent_group_resolution(
+    quadrotor_flight,
+) -> None:
     trajectories = []
     for seed in range(2):
-        trajectory = generate_trajectory(seed=seed, duration_s=0.2)
+        trajectory = quadrotor_flight(seed, 0.2)
         trajectories.append(
             replace(
                 trajectory,
@@ -429,13 +433,14 @@ def test_aggregate_predictive_metrics_uses_equal_item_weighting(
 def test_nested_ensemble_benchmark_keeps_outer_profiles_out_of_every_member(
     tmp_path,
     monkeypatch,
+    fixedwing_flight,
 ) -> None:
     paths = []
     source_group_by_path = {}
     seed = 0
     for profile in ("vertical", "lateral", "yaw"):
         for replicate in range(4):
-            trajectory = generate_fixed_wing_trajectory(seed=seed, duration_s=0.2)
+            trajectory = fixedwing_flight(seed, 0.2)
             trajectory = replace(
                 trajectory,
                 labels={

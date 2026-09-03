@@ -13,7 +13,6 @@ from glassbox.core.fixedwing_synthetic import (
     true_fixed_wing_parameters,
 )
 from glassbox.core.synthetic import (
-    generate_trajectory,
     initial_parameter_guess,
     true_parameters,
 )
@@ -71,8 +70,10 @@ def test_misspecified_model_exposes_temporal_and_input_structure(
     assert report["summary"]["input_correlated_group_count"] >= 2
 
 
-def test_quaternion_double_cover_does_not_create_attitude_innovation() -> None:
-    trajectory = generate_trajectory(seed=3, duration_s=2.0)
+def test_quaternion_double_cover_does_not_create_attitude_innovation(
+    quadrotor_flight,
+) -> None:
+    trajectory = quadrotor_flight(3, 2.0)
     states = trajectory.states.copy()
     states[:, 6:10] *= -1.0
 
@@ -88,8 +89,8 @@ def test_quaternion_double_cover_does_not_create_attitude_innovation() -> None:
     )
 
 
-def test_short_trajectory_reports_insufficient_samples() -> None:
-    trajectory = generate_trajectory(seed=2, duration_s=0.1)
+def test_short_trajectory_reports_insufficient_samples(quadrotor_flight) -> None:
+    trajectory = quadrotor_flight(2, 0.1)
 
     report = one_step_innovation_diagnostics(true_parameters(), trajectory)
 
@@ -97,8 +98,10 @@ def test_short_trajectory_reports_insufficient_samples() -> None:
     assert report["sample_count"] < report["minimum_sample_count"]
 
 
-def test_state_compatibility_separates_inconsistent_pose_and_velocity() -> None:
-    trajectory = generate_trajectory(seed=5, duration_s=4.0)
+def test_state_compatibility_separates_inconsistent_pose_and_velocity(
+    quadrotor_flight,
+) -> None:
+    trajectory = quadrotor_flight(5, 4.0)
     clean = state_kinematic_compatibility_diagnostics(trajectory)
     states = trajectory.states.copy()
     states[:, 0] += 0.2 * np.sin(2.0 * np.pi * trajectory.time_s)

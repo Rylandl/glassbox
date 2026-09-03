@@ -96,8 +96,10 @@ def _split_telemetry(telemetry, split: int):
     return proposal, validation
 
 
-def test_total_forecast_error_does_not_double_count_parameter_spread() -> None:
-    telemetry = generate_trajectory(seed=30, duration_s=0.3)
+def test_total_forecast_error_does_not_double_count_parameter_spread(
+    quadrotor_flight,
+) -> None:
+    telemetry = quadrotor_flight(30, 0.3)
     belief = _shifted_belief(
         telemetry,
         covariance_scope=ErrorCovarianceScope.TOTAL_FORECAST,
@@ -119,8 +121,10 @@ def test_total_forecast_error_does_not_double_count_parameter_spread() -> None:
     assert "conditional innovation" in assessment.information_unavailable_reason
 
 
-def test_total_forecast_error_can_move_mean_without_contracting_covariance() -> None:
-    telemetry = generate_trajectory(seed=31, duration_s=0.4)
+def test_total_forecast_error_can_move_mean_without_contracting_covariance(
+    quadrotor_flight,
+) -> None:
+    telemetry = quadrotor_flight(31, 0.4)
     belief = _shifted_belief(
         telemetry,
         covariance_scope=ErrorCovarianceScope.TOTAL_FORECAST,
@@ -141,8 +145,10 @@ def test_total_forecast_error_can_move_mean_without_contracting_covariance() -> 
     )
 
 
-def test_update_uses_runtime_period_after_timestamp_period_validation() -> None:
-    telemetry = generate_trajectory(seed=31, duration_s=0.4)
+def test_update_uses_runtime_period_after_timestamp_period_validation(
+    quadrotor_flight,
+) -> None:
+    telemetry = quadrotor_flight(31, 0.4)
     belief = _shifted_belief(
         telemetry,
         covariance_scope=ErrorCovarianceScope.TOTAL_FORECAST,
@@ -167,12 +173,10 @@ def test_update_uses_runtime_period_after_timestamp_period_validation() -> None:
     )
 
 
-def test_update_rejects_horizon_longer_than_predictive_error_support() -> None:
-    telemetry = generate_trajectory(
-        seed=32,
-        duration_s=0.4,
-        dt_s=0.1,
-    )
+def test_update_rejects_horizon_longer_than_predictive_error_support(
+    quadrotor_flight,
+) -> None:
+    telemetry = quadrotor_flight(32, 0.4, 0.1)
     belief = _shifted_belief(
         telemetry,
         covariance_scope=ErrorCovarianceScope.CONDITIONAL_INNOVATION,
@@ -193,8 +197,8 @@ def test_update_rejects_horizon_longer_than_predictive_error_support() -> None:
     assert report.update_horizon_s == 0.1
 
 
-def test_update_rejects_telemetry_outside_validity_support() -> None:
-    telemetry = generate_trajectory(seed=33, duration_s=0.4)
+def test_update_rejects_telemetry_outside_validity_support(quadrotor_flight) -> None:
+    telemetry = quadrotor_flight(33, 0.4)
     belief = _shifted_belief(
         telemetry,
         covariance_scope=ErrorCovarianceScope.CONDITIONAL_INNOVATION,
@@ -211,8 +215,8 @@ def test_update_rejects_telemetry_outside_validity_support() -> None:
     assert "outside the learned validity envelope" in report.reason
 
 
-def test_failed_disjoint_validation_rolls_back_proposal() -> None:
-    proposal_telemetry = generate_trajectory(seed=34, duration_s=0.2)
+def test_failed_disjoint_validation_rolls_back_proposal(quadrotor_flight) -> None:
+    proposal_telemetry = quadrotor_flight(34, 0.2)
     broad_runtime = replace(
         runtime_spec_from_trajectory(proposal_telemetry),
         validity_envelope=ModelValidityEnvelope(
@@ -325,8 +329,10 @@ def test_transaction_carries_actuator_history_across_validation_split(
     assert automatic_report.actuator_context_fingerprint is not None
 
 
-def test_rank_zero_conditional_error_cannot_create_information() -> None:
-    telemetry = generate_trajectory(seed=36, duration_s=0.3)
+def test_rank_zero_conditional_error_cannot_create_information(
+    quadrotor_flight,
+) -> None:
+    telemetry = quadrotor_flight(36, 0.3)
     belief = _shifted_belief(
         telemetry,
         covariance_scope=ErrorCovarianceScope.CONDITIONAL_INNOVATION,
@@ -358,8 +364,10 @@ def test_rank_zero_conditional_error_cannot_create_information() -> None:
     assert "no supported direction" in report.reason
 
 
-def test_proposal_owns_immutable_arrays_and_verifies_its_trust_step() -> None:
-    telemetry = generate_trajectory(seed=37, duration_s=0.2)
+def test_proposal_owns_immutable_arrays_and_verifies_its_trust_step(
+    quadrotor_flight,
+) -> None:
+    telemetry = quadrotor_flight(37, 0.2)
     belief = _shifted_belief(
         telemetry,
         covariance_scope=ErrorCovarianceScope.CONDITIONAL_INNOVATION,
@@ -450,8 +458,10 @@ def test_trust_region_bounds_each_prior_coordinate_not_their_mean() -> None:
     assert accepted.prior_standardized_step_rms == pytest.approx(1.0 / np.sqrt(22.0))
 
 
-def test_proposal_reports_the_bounded_coordinate_and_its_spread() -> None:
-    telemetry = generate_trajectory(seed=37, duration_s=0.4)
+def test_proposal_reports_the_bounded_coordinate_and_its_spread(
+    quadrotor_flight,
+) -> None:
+    telemetry = quadrotor_flight(37, 0.4)
     belief = _shifted_belief(
         telemetry,
         covariance_scope=ErrorCovarianceScope.CONDITIONAL_INNOVATION,
@@ -480,8 +490,8 @@ def test_proposal_reports_the_bounded_coordinate_and_its_spread() -> None:
     assert 0.0 < commit_report.prior_standardized_step_max <= 1.0
 
 
-def test_shifted_timestamp_replay_is_not_disjoint_validation() -> None:
-    telemetry = generate_trajectory(seed=38, duration_s=0.2)
+def test_shifted_timestamp_replay_is_not_disjoint_validation(quadrotor_flight) -> None:
+    telemetry = quadrotor_flight(38, 0.2)
     belief = _shifted_belief(
         telemetry,
         covariance_scope=ErrorCovarianceScope.CONDITIONAL_INNOVATION,
@@ -497,8 +507,10 @@ def test_shifted_timestamp_replay_is_not_disjoint_validation() -> None:
     assert "overlaps proposal transitions" in report.reason
 
 
-def test_validation_rechecks_candidate_rollout_support(monkeypatch) -> None:
-    telemetry = generate_trajectory(seed=39, duration_s=0.4)
+def test_validation_rechecks_candidate_rollout_support(
+    monkeypatch, quadrotor_flight
+) -> None:
+    telemetry = quadrotor_flight(39, 0.4)
     belief = _shifted_belief(
         telemetry,
         covariance_scope=ErrorCovarianceScope.CONDITIONAL_INNOVATION,
@@ -523,8 +535,10 @@ def test_validation_rechecks_candidate_rollout_support(monkeypatch) -> None:
     assert "validation rollouts left" in report.reason
 
 
-def test_proposal_is_tied_to_full_belief_and_target_specification() -> None:
-    telemetry = generate_trajectory(seed=40, duration_s=0.4)
+def test_proposal_is_tied_to_full_belief_and_target_specification(
+    quadrotor_flight,
+) -> None:
+    telemetry = quadrotor_flight(40, 0.4)
     belief = _shifted_belief(
         telemetry,
         covariance_scope=ErrorCovarianceScope.CONDITIONAL_INNOVATION,
@@ -562,8 +576,10 @@ def test_proposal_is_tied_to_full_belief_and_target_specification() -> None:
     assert "target specification changed" in target_report.reason
 
 
-def test_commit_derives_covariance_information_from_validation_evidence() -> None:
-    telemetry = generate_trajectory(seed=41, duration_s=0.4)
+def test_commit_derives_covariance_information_from_validation_evidence(
+    quadrotor_flight,
+) -> None:
+    telemetry = quadrotor_flight(41, 0.4)
     belief = _shifted_belief(
         telemetry,
         covariance_scope=ErrorCovarianceScope.CONDITIONAL_INNOVATION,
@@ -704,10 +720,11 @@ def _noisy(trajectory, seed: int):
 
 def test_committed_update_never_worsens_the_runtime_forecast(
     quadrotor_trajectory_seed11_dur0_4s,
+    quadrotor_flight,
 ) -> None:
     belief = _self_calibrated_belief(offset=0.25, calibration_seed=1)
     telemetry = quadrotor_trajectory_seed11_dur0_4s
-    evaluation = generate_trajectory(seed=2, duration_s=0.5)
+    evaluation = quadrotor_flight(2, 0.5)
 
     updated, report = belief.update(telemetry)
     incumbent = _runtime_endpoint_errors(belief, evaluation)
@@ -727,12 +744,12 @@ def test_committed_update_never_worsens_the_runtime_forecast(
     np.testing.assert_array_equal(committed, incumbent)
 
 
-def test_null_acceptance_rate_stays_within_one_in_twenty() -> None:
+def test_null_acceptance_rate_stays_within_one_in_twenty(quadrotor_flight) -> None:
     truth = true_parameters()
     names = structured_parameter_names(truth)
     covariance = np.zeros((len(names), len(names)))
     covariance[0, 0] = 0.16
-    calibration = _noisy(generate_trajectory(seed=901, duration_s=2.0), 901)
+    calibration = _noisy(quadrotor_flight(901, 2.0), 901)
     permissive = replace(
         runtime_spec_from_trajectory(calibration),
         validity_envelope=ModelValidityEnvelope(
@@ -763,7 +780,7 @@ def test_null_acceptance_rate_stays_within_one_in_twenty() -> None:
     seeds = tuple(range(20))
     commits = 0
     for seed in seeds:
-        telemetry = _noisy(generate_trajectory(seed=seed, duration_s=0.4), seed)
+        telemetry = _noisy(quadrotor_flight(seed, 0.4), seed)
         updated, report = belief.update(telemetry)
         commits += bool(report.applied)
         if not report.applied:
@@ -772,7 +789,9 @@ def test_null_acceptance_rate_stays_within_one_in_twenty() -> None:
     assert commits <= 0.05 * len(seeds)
 
 
-def test_endpoint_error_evidence_matches_the_previous_inline_recipe() -> None:
+def test_endpoint_error_evidence_matches_the_previous_inline_recipe(
+    quadrotor_flight,
+) -> None:
     params = true_parameters()
     horizons = (0.1, 0.2, 5.0)
     flights = ((101, "group-a"), (102, "group-b"))
@@ -781,7 +800,7 @@ def test_endpoint_error_evidence_matches_the_previous_inline_recipe() -> None:
     actual: dict[float, list[EmpiricalErrorSample]] = {}
     actual_metrics: list[dict] = []
     for seed, group in flights:
-        trajectory = generate_trajectory(seed=seed, duration_s=0.6)
+        trajectory = quadrotor_flight(seed, 0.6)
         path = f"synthetic-{seed}.npz"
         for seconds in horizons:
             steps = duration_to_steps(seconds, trajectory.nominal_dt_s)

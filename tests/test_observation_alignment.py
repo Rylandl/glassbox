@@ -3,7 +3,6 @@ from dataclasses import replace
 import numpy as np
 import pytest
 
-from glassbox.core.synthetic import generate_trajectory
 from glassbox.workflows.observation_alignment import (
     MAXIMUM_ABSOLUTE_ALIGNMENT_S,
     StateObservationAlignment,
@@ -19,12 +18,10 @@ def _shift(values: np.ndarray, time_s: np.ndarray, delay_s: float) -> np.ndarray
     )
 
 
-def _shifted_trajectory(*, seed: int, delay_s: float, duration_s: float = 3.0):
-    trajectory = generate_trajectory(
-        seed=seed,
-        duration_s=duration_s,
-        dt_s=0.02,
-    )
+def _shifted_trajectory(
+    quadrotor_flight, *, seed: int, delay_s: float, duration_s: float = 3.0
+):
+    trajectory = quadrotor_flight(seed, duration_s)
     states = trajectory.states.copy()
     states[:, 3:6] = _shift(states[:, 3:6], trajectory.time_s, delay_s)
     states[:, 10:13] = _shift(states[:, 10:13], trajectory.time_s, delay_s)
@@ -32,9 +29,11 @@ def _shifted_trajectory(*, seed: int, delay_s: float, duration_s: float = 3.0):
 
 
 @pytest.mark.parametrize("delay_s", [0.06, -0.04])
-def test_alignment_recovers_signed_state_channel_delay(delay_s: float) -> None:
-    training = _shifted_trajectory(seed=1, delay_s=delay_s)
-    held_out = _shifted_trajectory(seed=2, delay_s=delay_s)
+def test_alignment_recovers_signed_state_channel_delay(
+    delay_s: float, quadrotor_flight
+) -> None:
+    training = _shifted_trajectory(quadrotor_flight, seed=1, delay_s=delay_s)
+    held_out = _shifted_trajectory(quadrotor_flight, seed=2, delay_s=delay_s)
 
     result = fit_state_observation_alignment([training])
     evaluation = evaluate_state_observation_alignment(
@@ -52,8 +51,10 @@ def test_alignment_recovers_signed_state_channel_delay(delay_s: float) -> None:
     assert evaluation["gate"]["blanket_transfer_passes"] is True
 
 
-def test_alignment_rejects_protected_fit_and_boundary_is_not_promoted() -> None:
-    slow = _shifted_trajectory(seed=3, delay_s=0.2, duration_s=4.0)
+def test_alignment_rejects_protected_fit_and_boundary_is_not_promoted(
+    quadrotor_flight,
+) -> None:
+    slow = _shifted_trajectory(quadrotor_flight, seed=3, delay_s=0.2, duration_s=4.0)
 
     result = fit_state_observation_alignment([slow])
 
@@ -89,13 +90,15 @@ def test_alignment_validates_maintained_delay_bounds() -> None:
         )
 
 
-def test_alignment_weights_source_groups_instead_of_segment_count() -> None:
+def test_alignment_weights_source_groups_instead_of_segment_count(
+    quadrotor_flight,
+) -> None:
     first = replace(
-        _shifted_trajectory(seed=4, delay_s=0.03),
+        _shifted_trajectory(quadrotor_flight, seed=4, delay_s=0.03),
         labels={"source_group": "first"},
     )
     second = replace(
-        _shifted_trajectory(seed=5, delay_s=0.08),
+        _shifted_trajectory(quadrotor_flight, seed=5, delay_s=0.08),
         labels={"source_group": "second"},
     )
 

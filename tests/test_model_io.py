@@ -10,7 +10,6 @@ from glassbox.core.dynamics import (
     with_thrust_command_offset,
 )
 from glassbox.core.fixedwing_synthetic import (
-    generate_fixed_wing_trajectory,
     true_fixed_wing_parameters,
 )
 from glassbox.core.model_io import (
@@ -170,11 +169,11 @@ def test_residual_model_serializes_typed_exogenous_features(tmp_path) -> None:
     ]
 
 
-def test_fixed_wing_residual_model_json_round_trip(tmp_path) -> None:
+def test_fixed_wing_residual_model_json_round_trip(tmp_path, fixedwing_flight) -> None:
     path = tmp_path / "fixed_wing_residual_model.json"
     base = true_fixed_wing_parameters()
     original = initial_residual_parameters(base, hidden_units=4)
-    input_spec = generate_fixed_wing_trajectory(seed=1, duration_s=0.1).spec
+    input_spec = fixedwing_flight(1, 0.1).spec
 
     save_dynamics_model(
         original, path, input_spec=input_spec, runtime_spec=_runtime_spec()
