@@ -184,6 +184,11 @@ research diagnostic and not used to initialize production fitting, and the
 result blocked Phase B pending evidence that a learned history encoder would
 earn its added complexity.
 
+The diagnostic stage itself was removed from the library on 2026-09-03. It
+initialized nothing on either of its call sites and its report keys were read
+by nothing. The last commit that carries it is `2e16ebc`; the result above is
+the record.
+
 #### Post-freeze innovation diagnostic (2026-08-29)
 
 Glassbox's maintained one-step innovation whiteness diagnostic found that

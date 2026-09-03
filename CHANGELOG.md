@@ -265,6 +265,17 @@ All notable changes to Glassbox are recorded here. The format follows
   belief, and only one backend was ever written, so the indirection carried no
   second implementation. No numerical path changes. Last commit carrying them:
   `aab0b42`.
+- The observation-first initializer: `workflows/observation_identification.py`
+  with `fit_multirotor_observations`, `ObservationFitResult` and
+  `AlignmentDiagnostic`, the `_observation_fit` helper and the
+  `observation_initializer` parameter of the fitting workflow, the
+  `observation_identification` block written into both fit reports, and
+  `tests/test_observation_identification.py`. The stage initialized nothing:
+  its parameters were discarded at both call sites, and the forty report keys
+  it emitted were read by nothing in the package, its tests, or the docs. The
+  literature review keeps the negative promotion result as prose, and the PX4
+  ULog guide now says only that typed sensor channels are recorded and unused
+  by the fitter. Last commit carrying the code: `2e16ebc`.
 
 ### Fixed
 - `glassbox fit --model --report` no longer fails on a NumPy scalar.
