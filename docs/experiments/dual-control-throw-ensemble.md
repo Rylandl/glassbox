@@ -233,8 +233,12 @@ real-time warm start), and `report-pass6-round2-ensemble-arm-only.json` (the
 round two with the composite seeds, re-measured under the
 stop-at-floor-contact rule: the same 54 recoveries, since the flight up to
 contact is unchanged, in a little over half the compute), and
-`report-pass6-round3-ensemble-arm-only.json` (the committed round three,
-with the mean maps used at the identifier's authority).
+`report-pass6-round3-ensemble-arm-only.json` (round three, with the mean
+maps used at the identifier's authority), and
+`report-pass6-round4-window2-ensemble-arm-only.json` (the committed round
+four, with the identifier assimilating one sample per two transitions) and
+`report-pass6-round4-window3-ensemble-arm-only.json` (the same with a
+window of three, measured and not taken).
 
 | arm | recovered | rate | Wilson 95 | on the floor | airborne, outside envelope |
 | --- | --- | --- | --- | --- | --- |
@@ -244,13 +248,15 @@ with the mean maps used at the identifier's authority).
 | pass6, round two, block warm start | 47/112 | 0.420 | 0.332-0.512 | 51 | 9 |
 | pass6, round two, real-time warm start | 47/112 | 0.420 | 0.332-0.512 | 61 | 1 |
 | pass6, round two, with composite seeds | 54/112 | 0.482 | 0.392-0.574 | 50 | 8 |
-| pass6, round three, authority-scaled maps (committed) | 57/112 | 0.509 | 0.418-0.600 | 51 | 4 |
+| pass6, round three, authority-scaled maps | 57/112 | 0.509 | 0.418-0.600 | 51 | 4 |
+| pass6, round four, identifier window of three | 57/112 | 0.509 | 0.418-0.600 | 52 | 3 |
+| pass6, round four, identifier window of two (committed) | 68/112 | 0.607 | 0.515-0.693 | 39 | 5 |
 
 The round-one intervals exclude `pass5`'s point estimate and include
-`pass2b`'s. The committed round three's interval, 0.418-0.600, excludes every
-earlier learned arm and the working cascade (0.223) and contains the certified
-cascade's point estimate (0.545); every release that stays off the floor now
-reaches the envelope. The design page records the configurations
+`pass2b`'s. The committed round four's interval, 0.515-0.693, excludes every
+earlier learned arm and the working cascade (0.223), and its point estimate
+(0.607) is above the certified cascade's (0.545), which its interval still
+contains; every release that stays off the floor reaches the envelope. The design page records the configurations
 that were measured on the single-release gate and dropped, and why.
 
 ## Limitations

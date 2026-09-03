@@ -1446,19 +1446,50 @@ envelope. The floor contacts themselves are unchanged at 51: the arrest now
 begins earlier, and the releases that still crash spin up on a partial map
 before they can right, in flights that last under a second.
 
+### Round four: the identifier's differenced noise
+
+The replay of the state-noise flight settled where the deficit was. The
+angular axes reach full authority by 0.45 s under noise, but the collective
+residual sits at 2.8 m/s² against a 0.05 floor, its authority stays at zero
+for half a second, and the collective map wanders between negative and three
+times the truth. The cause is structural: the collective target is the
+specific force implied by a velocity change over one 10 ms interval, so
+two centimetres per second of velocity noise becomes nearly three metres per
+second squared of target noise, against under two from a probe of a tenth of
+the range. Every regression form tried offline on the noisy trace converged
+to the same estimate by 0.4 s; what differed was the confidence the
+identifier could honestly claim on the way there.
+
+The identifier can now assimilate one sample per window of transitions, the
+window's mean features and targets weighted by the window length, which
+telescopes most of the differenced noise away while keeping the sample
+count, the support thresholds, and the residual floor per transition; the
+mechanism is on [the identification page](bootstrap-identification.md). The
+window trades noise against the variation inside it: a window of five
+averaged the differential excitation away across block boundaries and
+slowed identification by half, and a window of three measured on the
+ensemble recovers 57 of 112, no better than round three, with the
+state-noise case still at zero. A window of two recovers 68 of 112 (0.607,
+Wilson 0.515-0.693): floor contacts fall from 51
+to 39, the state-noise case goes from none to two, the first-0.3 s collective
+rises to 0.61, and every airborne release reaches the envelope. The point
+estimate is above the certified cascade's for the first time, with the
+interval still containing it. That is the committed `pass6`; the cascade
+arms keep a window of one and are bit-identical.
+
 ### What this leaves
 
-The early floor contacts remain, at about 50 of 112 through three rounds,
-and two more controller-side ideas for them were measured and rejected:
+The early floor contacts remain, at 39 of 112 after four rounds, and two
+more controller-side ideas for them were measured and rejected:
 charging the declared rate limit on the mean prediction over the whole
 horizon (a one-second rollout on a partial map predicts wild rates for every
 plan, so the penalty distorts the choice arbitrarily) and scaling the
 goal-derived seeds by the identifier's authority (gentler seeds, more
 crashes). Both stay as switches, off.
 
-Where the contacts are is the useful reading. Paired against the certified
-cascade on the same 112 releases, the cascade touches the floor on 38 and
-the learned arm on 51, but only 23 are shared: the learned arm saves 15
+Where the contacts were before round four is the useful reading. Paired
+against the certified cascade on the same 112 releases, the cascade touches
+the floor on 38 and the round-three arm on 51, but only 23 are shared: the learned arm saves 15
 releases the cascade loses and loses 28 the cascade saves. Per case the
 learned arm has *fewer* contacts on the canonical, cross-axis tumble, and
 reversed-tumble releases, and more on the state-noise case (15 against 6),

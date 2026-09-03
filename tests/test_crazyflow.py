@@ -961,6 +961,29 @@ def test_a_throw_trial_stops_at_its_first_floor_contact() -> None:
     json.dumps(trial, allow_nan=False)
 
 
+def test_the_learned_arm_aggregates_transitions_and_the_cascade_arms_do_not() -> None:
+    """The identifier window is the learned arm's, declared on its arm alone.
+
+    The cascade arms keep a window of one, which is the identifier as it was,
+    so their recorded results stand; the learned arm's window is recorded on
+    its identifier configuration in every study report.
+    """
+
+    from glassbox.control.online_bootstrap import RecursiveBootstrapConfig
+    from glassbox.integrations.crazyflow_throw_study import (
+        DUAL_CONTROL_IDENTIFIER_OPTIONS,
+        DUAL_CONTROL_PASS5_MODEL,
+        DUAL_CONTROL_PASS6_MODEL,
+    )
+
+    assert DUAL_CONTROL_IDENTIFIER_OPTIONS[DUAL_CONTROL_PASS6_MODEL] == {
+        "transition_aggregation_steps": 2
+    }
+    assert DUAL_CONTROL_PASS5_MODEL not in DUAL_CONTROL_IDENTIFIER_OPTIONS
+    assert "certified" not in DUAL_CONTROL_IDENTIFIER_OPTIONS
+    assert RecursiveBootstrapConfig().transition_aggregation_steps == 1
+
+
 def test_throw_study_reports_both_control_models_for_the_canonical_case() -> None:
     pytest.importorskip("crazyflow")
 

@@ -177,3 +177,31 @@ starts from throw-like velocities but uses a simulator reset rather than a
 physical toss. It does not yet include sensor noise, delay, position regulation,
 ground handling, or a safe policy for choosing initial thrust when normalized
 bounds have weak physical meaning.
+
+
+## Aggregated transitions
+
+`RecursiveBootstrapConfig.transition_aggregation_steps` makes the identifier
+assimilate one sample per that many measured transitions: the window's mean
+features and mean targets, weighted by the window length. One, the default,
+is bit-for-bit the identifier as it was.
+
+The reason is measurement noise on a differenced target. The collective
+target is the specific force implied by the velocity change over one
+interval, so white noise on the measured velocity is multiplied by the loop
+rate: at a hundred hertz, two centimetres per second of velocity noise
+becomes nearly three metres per second squared of target noise, against under
+two from a probe of a tenth of the command range. The mean over a window
+telescopes most of that away, because consecutive differences share their
+inner samples with opposite signs. Weighting the aggregated sample by the
+window length keeps the sample count, the support thresholds, and the
+residual floor exactly per transition, so with a noise-free measurement the
+information rate is unchanged for a command held across the window, and
+under noise the residual variance the identifier estimates falls by about
+the window length.
+
+The cost is the variation inside the window: a window that straddles two
+excitation blocks averages their difference away. On the throw study a
+window of five slowed identification by half; two and three are measured on
+the release ensemble in
+[the dual-control design page](dual-control-nmpc.md).

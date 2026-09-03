@@ -1031,3 +1031,89 @@ def test_recursive_belief_exposes_the_accumulated_regression_grams() -> None:
     recorded = belief.to_dict()
     assert np.allclose(recorded["collective_information"], collective)
     assert np.allclose(recorded["angular_information"], angular)
+
+
+def test_transition_aggregation_assimilates_window_means_weighted_by_the_window() -> (
+    None
+):
+    """One sample per window, the window's mean, standing for its transitions.
+
+    At a window of one the identifier is bit-for-bit the identifier as it
+    was.  At a window of three, only every third transition changes the
+    belief, the interval count still counts transitions, and the accumulated
+    Gram is three times the outer product of the window's mean features, so
+    the support thresholds and the residual floor stay per transition.
+    """
+
+    import numpy as np
+
+    from glassbox.control.online_bootstrap import (
+        RecursiveBootstrapConfig,
+        RecursiveBootstrapIdentifier,
+    )
+
+    with pytest.raises(ValueError):
+        RecursiveBootstrapConfig(transition_aggregation_steps=0)
+
+    rng = np.random.default_rng(3)
+    dt = 0.01
+
+    def transition(k: int) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        previous = np.zeros(13)
+        previous[6] = 1.0
+        previous[3:6] = rng.normal(scale=0.1, size=3)
+        previous[10:13] = rng.normal(scale=0.2, size=3)
+        current = previous.copy()
+        current[3:6] += rng.normal(scale=0.02, size=3)
+        current[10:13] += rng.normal(scale=0.05, size=3)
+        command = np.clip(0.5 + 0.1 * rng.normal(size=4), 0.0, 1.0)
+        return previous, current, command
+
+    transitions = [transition(k) for k in range(9)]
+    plain = RecursiveBootstrapIdentifier(
+        RecursiveBootstrapConfig(control_model="working")
+    )
+    reference = RecursiveBootstrapIdentifier(
+        RecursiveBootstrapConfig(
+            control_model="working", transition_aggregation_steps=1
+        )
+    )
+    windowed = RecursiveBootstrapIdentifier(
+        RecursiveBootstrapConfig(
+            control_model="working", transition_aggregation_steps=3
+        )
+    )
+    for index, (previous, current, command) in enumerate(transitions):
+        a = plain.update(previous, current, command, dt).to_dict()
+        b = reference.update(previous, current, command, dt).to_dict()
+        a.pop("update_wall_time_s")
+        b.pop("update_wall_time_s")
+        assert a == b
+        before = windowed.belief
+        after = windowed.update(previous, current, command, dt)
+        if (index + 1) % 3:
+            assert after is before
+            assert windowed.last_sample_report.reason == "sample_buffered"
+        else:
+            assert after is not before
+            assert after.interval_count == index + 1
+    assert windowed.belief.interval_count == 9
+    assert plain.belief.interval_count == 9
+
+    # The aggregated Gram is the window length times the outer product of the
+    # window's mean features: check the first window directly.
+    features = [
+        windowed._sample_features(previous, current, command, dt)
+        for previous, current, command in transitions[:3]
+    ]
+    mean_force = np.mean([f.force_features for f in features], axis=0)
+    single = RecursiveBootstrapIdentifier(
+        RecursiveBootstrapConfig(
+            control_model="working", transition_aggregation_steps=3
+        )
+    )
+    for previous, current, command in transitions[:3]:
+        single.update(previous, current, command, dt)
+    assert np.allclose(
+        single.belief.collective_information, 3.0 * np.outer(mean_force, mean_force)
+    )

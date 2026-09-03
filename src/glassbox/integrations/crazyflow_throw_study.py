@@ -19,6 +19,7 @@ frozen snapshot is the stale model.
 from __future__ import annotations
 
 import argparse
+import functools
 import json
 import math
 import os
@@ -95,6 +96,9 @@ DUAL_CONTROL_IDENTIFIER_OPTIONS: dict[str, dict[str, Any]] = {
     DUAL_CONTROL_PASS3_MODEL: {
         "staged_regressors": True,
         "enforce_collective_sign": True,
+    },
+    DUAL_CONTROL_PASS6_MODEL: {
+        "transition_aggregation_steps": 2,
     },
 }
 #: Every arm the command line will accept.
@@ -656,6 +660,7 @@ def _fly_trial(
     plant: CrazyflowPlant,
     dual_controller: DualControlNMPC | None = None,
     dual_config: DualControlConfig | None = None,
+    identifier_options: dict[str, Any] | None = None,
 ) -> tuple[
     _TrialRecord,
     PlantTelemetryRecorder,
@@ -692,7 +697,10 @@ def _fly_trial(
     dual = variant is not None
     identifier_config = RecursiveBootstrapConfig(
         control_model="working" if dual else control_model,
-        **DUAL_CONTROL_IDENTIFIER_OPTIONS.get(control_model, {}),
+        **(
+            DUAL_CONTROL_IDENTIFIER_OPTIONS.get(control_model, {})
+            | (identifier_options or {})
+        ),
     )
     identifier = RecursiveBootstrapIdentifier(identifier_config)
     if dual_config is None:
@@ -741,6 +749,9 @@ def _fly_trial(
             "staged_regressors": identifier_config.staged_regressors,
             "staging_sample_multiple": identifier_config.staging_sample_multiple,
             "enforce_collective_sign": identifier_config.enforce_collective_sign,
+            "transition_aggregation_steps": (
+                identifier_config.transition_aggregation_steps
+            ),
         }
     hidden_hover = plant.hover_motor_thrust_fraction
     previous_command = zero_command
@@ -2067,6 +2078,7 @@ def _ensemble_trial(
     control_model: str,
     plant: CrazyflowPlant,
     dual_controller: DualControlNMPC | None = None,
+    identifier_options: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Reduce one ensemble release to the handful of numbers it contributes.
 
@@ -2080,6 +2092,7 @@ def _ensemble_trial(
         control_model,
         plant,
         dual_controller,
+        identifier_options=identifier_options,
     )
     timestamps = telemetry.timestamp_array()
     states = telemetry.state_array()
@@ -2309,6 +2322,7 @@ def _ensemble_jobs(
 
 def _run_ensemble_jobs(
     jobs: Sequence[tuple[ThrowStudyCase, str]],
+    identifier_options: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     """Run a chunk of ensemble trials on one plant, reusing compiled arms.
 
@@ -2325,7 +2339,7 @@ def _run_ensemble_jobs(
         for case, model in jobs:
             controller = None
             variant = DUAL_CONTROL_MODEL_VARIANTS.get(model)
-            if variant is not None and model not in DUAL_CONTROL_IDENTIFIER_OPTIONS:
+            if variant is not None:
                 controller = controllers.get(model)
                 if controller is None:
                     controller = DualControlNMPC(
@@ -2336,7 +2350,9 @@ def _run_ensemble_jobs(
                     )
                     controllers[model] = controller
             try:
-                results.append(_ensemble_trial(case, model, plant, controller))
+                results.append(
+                    _ensemble_trial(case, model, plant, controller, identifier_options)
+                )
             except CrazyflowDivergenceError as error:
                 # The plant refuses a non-finite simulator state rather than
                 # returning one, which is right.  Here it means this release
@@ -2357,6 +2373,7 @@ def run_crazyflow_throw_ensemble(
     control_models: Sequence[str] = ENSEMBLE_CONTROL_MODELS,
     config: ThrowEnsembleConfig | None = None,
     worker_count: int = 1,
+    identifier_options: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Fly every arm on the same declared distribution of releases.
 
@@ -2389,13 +2406,20 @@ def run_crazyflow_throw_ensemble(
     jobs = _ensemble_jobs(cases, models, settings)
     work = [(draw, model) for _base, draw, model in jobs]
     if worker_count == 1:
-        trials = _run_ensemble_jobs(work)
+        trials = _run_ensemble_jobs(work, identifier_options)
     else:
         from concurrent.futures import ProcessPoolExecutor
 
         chunks = [work[index::worker_count] for index in range(worker_count)]
         with ProcessPoolExecutor(max_workers=worker_count) as pool:
-            outputs = list(pool.map(_run_ensemble_jobs, chunks))
+            outputs = list(
+                pool.map(
+                    functools.partial(
+                        _run_ensemble_jobs, identifier_options=identifier_options
+                    ),
+                    chunks,
+                )
+            )
         merged: dict[tuple[str, str], dict[str, Any]] = {}
         for chunk in outputs:
             for trial in chunk:

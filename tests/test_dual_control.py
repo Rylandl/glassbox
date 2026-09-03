@@ -538,6 +538,7 @@ def test_the_pass_three_arm_stages_regressors_and_records_the_sign_projection() 
         "staged_regressors": True,
         "staging_sample_multiple": 4.0,
         "enforce_collective_sign": True,
+        "transition_aggregation_steps": 1,
     }
     assert metrics["flight"]["non_finite_value_count"] == 0
     assert metrics["flight"]["command_bound_violation_count"] == 0

@@ -47,6 +47,16 @@ class RecursiveBootstrapConfig:
     full_authority_effect_signal_to_noise: float = 3.0
     collective_residual_std_floor_m_s2: float = 0.05
     angular_residual_std_floor_rad_s2: float = 0.50
+    #: Assimilate one sample per this many measured transitions, built from
+    #: the window's mean features and mean targets and weighted by the window
+    #: length.  Differencing a noisy measurement over one interval multiplies
+    #: the noise by the loop rate; the mean over a window telescopes most of
+    #: it away, while the weight keeps the sample count, the support
+    #: thresholds, and the residual floor exactly per transition, so with a
+    #: noise-free measurement the information rate is unchanged.  One means
+    #: every transition is its own sample, which is bit-for-bit the identifier
+    #: as it was.
+    transition_aggregation_steps: int = 1
     minimum_certification_interval_count: int = 48
     validation_interval_count: int = 16
     minimum_validation_improvement: float = 0.02
@@ -116,6 +126,11 @@ class RecursiveBootstrapConfig:
             value = float(getattr(self, name))
             if not math.isfinite(value) or not 0.0 < value < 1.0:
                 raise ValueError(f"{name} must lie strictly between zero and one")
+        if (
+            not isinstance(self.transition_aggregation_steps, int)
+            or self.transition_aggregation_steps < 1
+        ):
+            raise ValueError("transition_aggregation_steps must be a positive integer")
         positive_fields = (
             "minimum_information_singular_value",
             "full_authority_information_singular_value",
@@ -743,6 +758,7 @@ class RecursiveBootstrapIdentifier:
         self._midpoint = 0.5 * (self._minimum + self._maximum)
         self._interval_count = 0
         self._weight = 0.0
+        self._pending_transitions: list[_SampleFeatures] = []
         self._force_gram = np.zeros((8, 8), dtype=np.float64)
         self._force_rhs = np.zeros((8, 1), dtype=np.float64)
         self._force_target_sum_squares = 0.0
@@ -1468,8 +1484,14 @@ class RecursiveBootstrapIdentifier:
             ),
         )
 
-    def _accumulate_sample(self, features: _SampleFeatures) -> None:
-        """Fold one sample into the forgetting-weighted normal equations."""
+    def _accumulate_sample(
+        self, features: _SampleFeatures, weight: float = 1.0
+    ) -> None:
+        """Fold one sample into the forgetting-weighted normal equations.
+
+        ``weight`` is the number of transitions the sample stands for: one for
+        a plain transition, the window length for an aggregated one.
+        """
 
         forgetting = self.config.forgetting_factor
         self._force_gram *= forgetting
@@ -1478,20 +1500,43 @@ class RecursiveBootstrapIdentifier:
         self._angular_gram *= forgetting
         self._angular_rhs *= forgetting
         self._angular_target_sum_squares *= forgetting
-        self._force_gram += np.outer(features.force_features, features.force_features)
-        self._force_rhs += np.outer(
+        self._force_gram += weight * np.outer(
+            features.force_features, features.force_features
+        )
+        self._force_rhs += weight * np.outer(
             features.force_features, features.body_specific_force[2:3]
         )
-        self._force_target_sum_squares += float(features.body_specific_force[2] ** 2)
-        self._angular_gram += np.outer(
+        self._force_target_sum_squares += weight * float(
+            features.body_specific_force[2] ** 2
+        )
+        self._angular_gram += weight * np.outer(
             features.angular_features, features.angular_features
         )
-        self._angular_rhs += np.outer(
+        self._angular_rhs += weight * np.outer(
             features.angular_features, features.angular_acceleration
         )
-        self._angular_target_sum_squares += np.square(features.angular_acceleration)
-        self._weight = forgetting * self._weight + 1.0
-        self._interval_count += 1
+        self._angular_target_sum_squares += weight * np.square(
+            features.angular_acceleration
+        )
+        self._weight = forgetting * self._weight + weight
+        self._interval_count += round(weight)
+
+    def _aggregated_sample(self, window: Sequence[_SampleFeatures]) -> _SampleFeatures:
+        """The mean of a window of transitions, as one sample."""
+
+        def mean(name: str) -> np.ndarray:
+            return np.mean([getattr(entry, name) for entry in window], axis=0)
+
+        return _SampleFeatures(
+            command=mean("command"),
+            body_specific_force=mean("body_specific_force"),
+            body_velocity=mean("body_velocity"),
+            angular_velocity=mean("angular_velocity"),
+            angular_acceleration=mean("angular_acceleration"),
+            rate_products=mean("rate_products"),
+            force_features=mean("force_features"),
+            angular_features=mean("angular_features"),
+        )
 
     def _admit_staged_regressors(self) -> None:
         """Admit each nuisance block the moment its staging condition holds.
@@ -1882,7 +1927,23 @@ class RecursiveBootstrapIdentifier:
             collective_target=float(features.body_specific_force[2]),
             angular_target=features.angular_acceleration,
         )
-        self._accumulate_sample(features)
+        window = self.config.transition_aggregation_steps
+        if window > 1:
+            self._pending_transitions.append(features)
+            if len(self._pending_transitions) < window:
+                # The window is not full: the belief stands as it was.
+                self._last_sample_report = RecursiveBootstrapSampleReport(
+                    interval_count=self._interval_count,
+                    accepted=True,
+                    reason="sample_buffered",
+                    update_wall_time_s=time.perf_counter() - started_at,
+                )
+                return self._belief
+            features = self._aggregated_sample(self._pending_transitions)
+            self._pending_transitions = []
+            self._accumulate_sample(features, weight=float(window))
+        else:
+            self._accumulate_sample(features)
         self._admit_staged_regressors()
         fit = self._fit_supported_effects()
         self._belief = self._assimilated_belief(

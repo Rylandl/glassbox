@@ -54,6 +54,12 @@ def main() -> int:
         "--every", type=int, default=1, help="tabulate every n-th interval"
     )
     parser.add_argument(
+        "--identifier",
+        action="append",
+        default=[],
+        help="identifier config override, key=value",
+    )
+    parser.add_argument(
         "--candidates",
         type=int,
         default=0,
@@ -67,6 +73,7 @@ def main() -> int:
     )
     args = parser.parse_args()
     overrides = dict(_parse_override(item) for item in args.set)
+    identifier_options = dict(_parse_override(item) for item in args.identifier)
     cases = {case.name: case for case in CRAZYFLOW_THROW_STUDY_CASES}
     plant = CrazyflowPlant(CrazyflowPlantConfig(control_frequency_hz=100))
     merged = (
@@ -78,7 +85,7 @@ def main() -> int:
     from glassbox.experimental.dual_control import DualControlNMPC
 
     candidate_names = DualControlNMPC(config).candidate_names
-    print("config:", args.variant, overrides)
+    print("config:", args.variant, overrides, "identifier:", identifier_options)
     try:
         for name in args.cases.split(","):
             case = cases[name]
@@ -92,7 +99,11 @@ def main() -> int:
                 )
             start = time.perf_counter()
             record, telemetry, _requested, _identification, _trace = _fly_trial(
-                case, DUAL_CONTROL_PASS5_MODEL, plant, dual_config=config
+                case,
+                DUAL_CONTROL_PASS5_MODEL,
+                plant,
+                dual_config=config,
+                identifier_options=identifier_options,
             )
             wall = time.perf_counter() - start
             states = telemetry.state_array()

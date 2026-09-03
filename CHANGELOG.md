@@ -40,6 +40,14 @@ All notable changes to Glassbox are recorded here. The format follows
   and the gate can fly any of the ensemble's own perturbed releases
   (`--draw`) and print the lowest candidates (`--candidates`). Six rejected formulations are recorded in
   `docs/concepts/dual-control-nmpc.md`.
+- `RecursiveBootstrapConfig.transition_aggregation_steps` assimilates one
+  sample per window of transitions, the window's means weighted by its length,
+  so differenced measurement noise telescopes away while the per-transition
+  counts and floors stand; one is bit-identical to before. The throw study's
+  `_fly_trial` and the release ensemble accept `identifier_options`, and the
+  gate accepts `--identifier key=value`. The learned throw-study arm runs a
+  window of two and recovers 68 of 112 on the arm-only ensemble, above the
+  certified cascade's point estimate for the first time.
 - Throw-study trials stop at the first floor contact and are failures from
   then on: the contact sample is kept, the contact time is recorded, and the
   terminal and settled metrics are absent rather than read off the ground.
