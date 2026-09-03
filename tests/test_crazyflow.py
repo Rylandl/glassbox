@@ -1012,7 +1012,8 @@ def test_the_learned_arm_aggregates_transitions_and_the_cascade_arms_do_not() ->
     )
 
     assert DUAL_CONTROL_IDENTIFIER_OPTIONS[DUAL_CONTROL_PASS6_MODEL] == {
-        "transition_aggregation_steps": 2
+        "transition_aggregation_steps": 2,
+        "integrated_collective": True,
     }
     assert DUAL_CONTROL_PASS5_MODEL not in DUAL_CONTROL_IDENTIFIER_OPTIONS
     assert "certified" not in DUAL_CONTROL_IDENTIFIER_OPTIONS

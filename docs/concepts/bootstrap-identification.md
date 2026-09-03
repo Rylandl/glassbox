@@ -230,3 +230,37 @@ recorded until the command evidence has rank one, and each angular axis is
 recorded only while its own authority is positive. Recording from the first
 transition instead kept the authority at zero for half a second on the throw
 study and crashed most releases.
+
+
+## Integrated collective fit
+
+`RecursiveBootstrapConfig.integrated_collective` fits the collective map on
+the cumulative target rather than the per-interval one. The per-interval
+target is the body-z specific force implied by the velocity change over one
+interval, so measurement noise on the velocity enters divided by the
+interval. Summed over the transitions since the anchor, the projected
+velocity changes telescope: the sum carries the anchor's noise once, common
+to every row, the latest sample's noise once, and a small term from how far
+the body axis rotated each step. Regressing the cumulative target on the
+cumulative features with one constant column for the anchor is therefore
+the exact least-squares form for white measurement noise on the velocity,
+and its rows are independent given that column.
+
+The integrated system's information is exported to the rest of the
+identifier as an equivalent per-transition Gram: the anchor column is
+marginalized, the system's residual scale is estimated from its own residual
+with the declared force floor over one interval as its minimum, and the
+marginal is rescaled so that dividing it by the declared floor, which is the
+residual then reported, gives the integrated precision. Support, authority,
+the belief, and any planner reading the belief see the honest information
+without changing. The angular regression is untouched.
+
+Two things this settles. In a noise-free simulation the form behaves like
+the per-interval one. Under measurement noise it says what the per-interval
+form cannot: the collective level is known well within a tenth of a second,
+while the differential coefficients, whose probes integrate to a few
+millimetres per second against two centimetres of noise, are not, and the
+per-interval fit's confidence in them was optimism. A first version with
+three world-axis rows per transition was measured and dropped: the model
+explains only the body-z force, so the other two rows carried unmodeled
+force and the residual came out forty times the floor.

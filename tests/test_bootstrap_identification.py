@@ -1187,3 +1187,97 @@ def test_the_prequential_residual_floors_the_scale_at_the_belief_error() -> None
         on.belief.angular_residual_std_rad_s2
         > 2.0 * RecursiveBootstrapConfig().angular_residual_std_floor_rad_s2
     )
+
+
+def test_the_integrated_collective_fit_is_honest_under_velocity_noise() -> None:
+    """The cumulative collective regression is the least-squares form for measurement noise.
+
+    Off, the identifier is bit-for-bit as it was.  On, with white noise on the
+    measured velocity, the collective map's coefficient error after a burst of
+    transitions is smaller than the per-interval fit's and the collective
+    authority is higher, because the integrated target carries the velocity
+    noise once per row instead of divided by the interval.  The exported
+    collective Gram is the equivalent per-transition one, scaled so that
+    dividing it by the reported residual, the declared floor, gives the
+    integrated precision.
+    """
+
+    import numpy as np
+
+    from glassbox.control.online_bootstrap import (
+        RecursiveBootstrapConfig,
+        RecursiveBootstrapIdentifier,
+    )
+    from glassbox.core.dynamics import GRAVITY_M_S2
+
+    dt = 0.01
+    true_map = np.asarray((4.6, 4.7, 4.5, 4.6))
+    intercept = -0.4
+    noise = 0.02
+
+    def flight(seed: int) -> list[tuple[np.ndarray, np.ndarray, np.ndarray]]:
+        local = np.random.default_rng(seed)
+        velocity = np.zeros(3)
+        transitions = []
+        for k in range(60):
+            command = np.clip(
+                0.5 + 0.1 * (1 if (k // 5) % 2 else -1) + 0.05 * local.normal(size=4),
+                0.0,
+                1.0,
+            )
+            force = true_map @ command + intercept
+            previous = np.zeros(13)
+            previous[6] = 1.0
+            previous[3:6] = velocity + noise * local.normal(size=3)
+            velocity = velocity + dt * np.asarray((0.0, 0.0, force - GRAVITY_M_S2))
+            current = np.zeros(13)
+            current[6] = 1.0
+            current[3:6] = velocity + noise * local.normal(size=3)
+            transitions.append((previous, current, command))
+        return transitions
+
+    transitions = flight(3)
+    plain = RecursiveBootstrapIdentifier(
+        RecursiveBootstrapConfig(control_model="working")
+    )
+    off = RecursiveBootstrapIdentifier(
+        RecursiveBootstrapConfig(control_model="working", integrated_collective=False)
+    )
+    on = RecursiveBootstrapIdentifier(
+        RecursiveBootstrapConfig(control_model="working", integrated_collective=True)
+    )
+    first_half_authority: dict[str, int | None] = {"off": None, "on": None}
+    for index, (previous, current, command) in enumerate(transitions):
+        a = plain.update(previous, current, command, dt).to_dict()
+        b = off.update(previous, current, command, dt).to_dict()
+        a.pop("update_wall_time_s")
+        b.pop("update_wall_time_s")
+        assert a == b
+        on.update(previous, current, command, dt)
+        for name, identifier in (("off", off), ("on", on)):
+            if (
+                first_half_authority[name] is None
+                and identifier.belief.collective_authority >= 0.5
+            ):
+                first_half_authority[name] = index
+
+    per_step_error = abs(
+        np.sum(off.belief.collective_acceleration_per_command) - true_map.sum()
+    )
+    integrated_error = abs(
+        np.sum(on.belief.collective_acceleration_per_command) - true_map.sum()
+    )
+    assert integrated_error < per_step_error
+    # The collective authority reaches half no later under the integrated fit.
+    assert first_half_authority["on"] is not None
+    assert first_half_authority["off"] is None or (
+        first_half_authority["on"] <= first_half_authority["off"]
+    )
+    assert (
+        on.belief.collective_residual_std_m_s2
+        == RecursiveBootstrapConfig().collective_residual_std_floor_m_s2
+    )
+    assert not np.allclose(
+        on.belief.collective_information, off.belief.collective_information
+    )
+    assert np.allclose(on.belief.angular_information, off.belief.angular_information)

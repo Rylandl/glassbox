@@ -99,6 +99,7 @@ DUAL_CONTROL_IDENTIFIER_OPTIONS: dict[str, dict[str, Any]] = {
     },
     DUAL_CONTROL_PASS6_MODEL: {
         "transition_aggregation_steps": 2,
+        "integrated_collective": True,
     },
 }
 #: Every arm the command line will accept.

@@ -360,8 +360,32 @@ Pooled: the certified cascade 84 of 112 (0.750, Wilson 0.662-0.821), the
 learned arm 79 of 112 (0.705, Wilson 0.615-0.782), the working cascade 37 of
 112. Floor contacts 17, 24, and 18. Every learned release that stays off the
 floor reaches the envelope. Without the state-noise case the two leading
-arms are 77 and 78 of 96; with it the learned arm loses six releases to the
-cascade's seven-of-sixteen, which is the one structural difference left:
+arms are 77 and 78 of 96; with it the learned arm lost six releases to the
+cascade's seven-of-sixteen, which was the one structural difference left:
 the cascade thrusts at its declared midpoint whatever the identifier says,
 and the learned arm's collective authority under differenced measurement
-noise is slow to rise.
+noise was slow to rise.
+
+### With the integrated collective fit
+
+The same 112 releases with the learned arm's identifier fitting the
+collective map on the cumulative target
+(`integrated_collective`, on [the identification page](../concepts/bootstrap-identification.md)),
+report `artifacts/crazyflow_throw_study/report-v2-pass6-integrated-ensemble-arm-only.json`:
+
+| case | recovered | rate | Wilson 95 |
+| --- | --- | --- | --- |
+| canonical | 14/16 | 0.88 | 0.64-0.97 |
+| shorter_arms_high_release | 14/16 | 0.88 | 0.64-0.97 |
+| long_arms_cross_axis_tumble | 15/16 | 0.94 | 0.72-0.99 |
+| milder_low_energy_release | 14/16 | 0.88 | 0.64-0.97 |
+| reversed_tumble | 11/16 | 0.69 | 0.44-0.86 |
+| canonical_state_noise | 9/16 | 0.56 | 0.33-0.77 |
+| canonical_mid_flight_arm_change | 13/16 | 0.81 | 0.57-0.93 |
+| pooled | 90/112 | 0.80 | 0.72-0.87 |
+
+Ninety of 112 (0.804, Wilson 0.720-0.867) against the certified cascade's
+84 on the same releases, with 19 floor contacts against the cascade's 17,
+and the state-noise case at 9 of 16 against the cascade's 7. Every learned
+release that stays off the floor reaches the envelope. This is the committed
+learned arm.

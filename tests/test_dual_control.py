@@ -773,10 +773,12 @@ def test_the_ensemble_draws_come_from_the_declared_distribution() -> None:
     for draw in draws:
         perturbation = draw.release_perturbation
         assert perturbation is not None
-        assert np.all(np.asarray(perturbation.velocity_scale) >= 0.8)
-        assert np.all(np.asarray(perturbation.velocity_scale) <= 1.2)
-        assert np.all(np.asarray(perturbation.angular_velocity_scale) >= 0.8)
-        assert np.all(np.asarray(perturbation.angular_velocity_scale) <= 1.2)
+        velocity = np.asarray(perturbation.velocity_scale)
+        angular = np.asarray(perturbation.angular_velocity_scale)
+        assert np.all(velocity >= config.velocity_scale_minimum - 1e-12)
+        assert np.all(velocity <= config.velocity_scale_maximum + 1e-12)
+        assert np.all(angular >= config.angular_velocity_scale_minimum - 1e-12)
+        assert np.all(angular <= config.angular_velocity_scale_maximum + 1e-12)
         rotation = np.asarray(perturbation.tilt_rotation_rad)
         assert float(np.linalg.norm(rotation)) <= 0.1 + 1e-12
         # The tilt perturbation is about a horizontal axis, so it never adds

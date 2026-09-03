@@ -66,6 +66,17 @@ class RecursiveBootstrapConfig:
     #: prequential error is what it actually gets wrong, and it falls as soon
     #: as the map is right.
     prequential_residual: bool = False
+    #: Fit the collective map on the integrated target rather than on the
+    #: per-interval one.  The per-interval target multiplies measurement noise
+    #: on the velocity by the loop rate; the cumulative target since the first
+    #: observation, regressed on the cumulative features with one constant
+    #: column for the anchor's own noise, carries that noise once per row and
+    #: is the exact least-squares form for white measurement noise.  The integrated system's information is
+    #: exported to the rest of the identifier as an equivalent per-transition
+    #: Gram at the declared residual floor, so support, authority, the belief,
+    #: and any planner reading the belief see the honest information without
+    #: changing.  Off, the default, is bit-for-bit the identifier as it was.
+    integrated_collective: bool = False
     minimum_certification_interval_count: int = 48
     validation_interval_count: int = 16
     minimum_validation_improvement: float = 0.02
@@ -768,6 +779,14 @@ class RecursiveBootstrapIdentifier:
         self._interval_count = 0
         self._weight = 0.0
         self._pending_transitions: list[_SampleFeatures] = []
+        self._sample_period_s: float | None = None
+        self._integrated_regressor = np.zeros(8, dtype=np.float64)
+        self._integrated_target = 0.0
+        self._integrated_gram = np.zeros((9, 9), dtype=np.float64)
+        self._integrated_rhs = np.zeros(9, dtype=np.float64)
+        self._integrated_target_sum_squares = 0.0
+        self._integrated_rows = 0
+        self._force_gram_equivalent: np.ndarray | None = None
         self._prequential_force_sum = 0.0
         self._prequential_angular_sum = np.zeros(3, dtype=np.float64)
         self._prequential_weight = 0.0
@@ -1533,6 +1552,75 @@ class RecursiveBootstrapIdentifier:
         self._weight = forgetting * self._weight + weight
         self._interval_count += round(weight)
 
+    def _accumulate_integrated_collective(
+        self,
+        previous: np.ndarray,
+        current: np.ndarray,
+        command: np.ndarray,
+        sample_period_s: float,
+        features: _SampleFeatures,
+    ) -> None:
+        """Fold one transition into the integrated collective system.
+
+        The per-interval target is the body-``z`` specific force implied by
+        the velocity change over the interval, and its measurement noise is
+        the velocity noise divided by the interval.  Summed over the
+        transitions since the anchor, the terms telescope: the sum of the
+        projected velocity changes carries the anchor's noise and the latest
+        sample's, plus a small term from how far the body axis rotated each
+        step, and the anchor's part is common to every row.  So the integrated
+        system regresses the cumulative target on the cumulative features
+        with one constant column for the anchor, its rows are independent
+        given that column, and it is the exact least-squares form for white
+        measurement noise on the velocity.  One scalar row per transition.
+        """
+
+        del previous, current, command
+        self._integrated_regressor += sample_period_s * features.force_features
+        self._integrated_target += sample_period_s * float(
+            features.body_specific_force[2]
+        )
+        row = np.concatenate((self._integrated_regressor, np.ones(1)))
+        self._integrated_gram += np.outer(row, row)
+        self._integrated_rhs += row * self._integrated_target
+        self._integrated_target_sum_squares += self._integrated_target**2
+        self._integrated_rows += 1
+
+    def _integrated_force_system(self) -> tuple[np.ndarray, np.ndarray] | None:
+        """The integrated system as an equivalent per-transition Gram and rhs.
+
+        The anchor column is marginalized by its Schur complement, the
+        residual scale of the integrated system is estimated from its own
+        residual with the declared force floor over one interval as its
+        minimum, and the marginal is rescaled by the declared force floor over
+        that scale, so dividing the result by the floor gives exactly the
+        integrated precision in the per-transition machinery's units.
+        ``None`` until the system is determined.
+        """
+
+        unknowns = 9
+        if self._integrated_rows <= unknowns or self._sample_period_s is None:
+            return None
+        gram = self._integrated_gram
+        rhs = self._integrated_rhs
+        ridge = 1e-12 * max(float(np.trace(gram)) / unknowns, 1e-12)
+        solution = np.linalg.solve(gram + ridge * np.eye(unknowns), rhs)
+        residual = (
+            self._integrated_target_sum_squares
+            - 2.0 * solution @ rhs
+            + solution @ gram @ solution
+        )
+        degrees = max(self._integrated_rows - unknowns, 1)
+        floor = self.config.collective_residual_std_floor_m_s2 * self._sample_period_s
+        velocity_variance = max(residual / degrees, floor * floor)
+        theta = gram[:8, :8]
+        cross = gram[:8, 8]
+        offset = max(float(gram[8, 8]), 1e-12)
+        marginal_gram = theta - np.outer(cross, cross) / offset
+        marginal_rhs = rhs[:8] - cross * (rhs[8] / offset)
+        scale = self.config.collective_residual_std_floor_m_s2**2 / velocity_variance
+        return scale * 0.5 * (marginal_gram + marginal_gram.T), scale * marginal_rhs
+
     def _record_prequential_error(self, features: _SampleFeatures) -> None:
         """Fold the belief's error on this transition, before absorbing it.
 
@@ -1622,9 +1710,16 @@ class RecursiveBootstrapIdentifier:
         already mapped back to the raw command box the vehicle is flown in.
         """
 
+        force_gram, force_rhs = self._force_gram, self._force_rhs
+        self._force_gram_equivalent = None
+        if self.config.integrated_collective:
+            integrated = self._integrated_force_system()
+            if integrated is not None:
+                force_gram, force_rhs = integrated[0], integrated[1][:, None]
+                self._force_gram_equivalent = force_gram
         force = self._staged_fit(
-            self._force_gram,
-            self._force_rhs,
+            force_gram,
+            force_rhs,
             nuisance_size=self._FORCE_NUISANCE_SIZE,
             staged=self._force_nuisance_staged,
             effective_count=self._weight,
@@ -1695,6 +1790,11 @@ class RecursiveBootstrapIdentifier:
                 floor=self.config.collective_residual_std_floor_m_s2,
             )[0]
         )
+        if self._force_gram_equivalent is not None:
+            # The equivalent Gram is scaled so that dividing it by the floor
+            # gives the integrated precision; the floor is therefore the scale
+            # to report with it.
+            force_residual_std = self.config.collective_residual_std_floor_m_s2
         angular_residual_std = self._residual_standard_deviation(
             self._angular_gram,
             self._angular_rhs,
@@ -1920,7 +2020,11 @@ class RecursiveBootstrapIdentifier:
             normalized_command_information=fit.angular_residual_information,
             supported_collective_effect_covariance=fit.collective_effect_covariance,
             supported_angular_effect_covariance=fit.angular_effect_covariance,
-            collective_information=self._force_gram,
+            collective_information=(
+                self._force_gram
+                if self._force_gram_equivalent is None
+                else self._force_gram_equivalent
+            ),
             angular_information=self._angular_gram,
             command_evidence_rank=fit.angular_command_rank,
             angular_effect_rank=authority.angular_effect_rank,
@@ -1969,6 +2073,7 @@ class RecursiveBootstrapIdentifier:
         """
 
         started_at = time.perf_counter()
+        self._sample_period_s = float(sample_period_s)
         rejection, sample = self._validated_sample(
             previous_state,
             current_state,
@@ -1979,6 +2084,8 @@ class RecursiveBootstrapIdentifier:
             assert rejection is not None
             return self._refused_sample(rejection, started_at)
         features = self._sample_features(*sample, sample_period_s)
+        if self.config.integrated_collective:
+            self._accumulate_integrated_collective(*sample, sample_period_s, features)
         if self.config.prequential_residual:
             self._record_prequential_error(features)
         self._score_pending_proposal(

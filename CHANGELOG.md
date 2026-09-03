@@ -53,6 +53,14 @@ All notable changes to Glassbox are recorded here. The format follows
   contacts, and records four switches measured and left off: maps at face
   value at full rank, a probe overlay until supported, and the identifier's
   prequential residual in two forms.
+- `RecursiveBootstrapConfig.integrated_collective` fits the collective map on
+  the cumulative target with one anchor column, the exact least-squares form
+  for white measurement noise on the velocity, exported to the rest of the
+  identifier as an equivalent per-transition Gram; off by default and
+  bit-identical when off. On the learned throw-study arm it lifts the
+  state-noise case from one to nine of sixteen and the pooled recovery to 90
+  of 112 on the second release distribution, above the certified cascade's
+  84 on the same releases.
 - The release ensemble's second distribution never throws weaker than the
   case declares (velocity scale on `[1.0, 1.2]`) and puts its width into the
   angular impulse (angular velocity scale on `[0.5, 1.5]`); earlier recorded

@@ -1556,10 +1556,31 @@ ties on the canonical release, and trails on the state-noise case (1 against
 7), which accounts for the pooled gap on its own. The table is on
 [the release-ensemble page](../experiments/dual-control-throw-ensemble.md).
 
+### Round seven: the collective map on the integrated target
+
+The one structural deficit left was measurement noise, and its cause was in
+the identifier: the collective target is the specific force implied by the
+velocity change over one interval, so velocity noise enters divided by the
+interval. The identifier can now fit the collective map on the cumulative
+target with one constant column for the anchor, which is the exact
+least-squares form for white measurement noise; the mechanism, and the
+first version that was measured and dropped, are on
+[the identification page](bootstrap-identification.md). The rest of the
+stack sees it as an equivalent per-transition Gram and does not change.
+
+On the second release distribution the learned arm recovers 90 of 112
+(0.804, Wilson 0.720-0.867) against the certified cascade's 84, with the
+state-noise case at 9 of 16 against the cascade's 7 and 19 floor contacts
+against 17. Per case it leads or ties the cascade on five of seven and
+trails by two or three on the low-energy release and the mid-flight change,
+inside the per-case spread. Every learned release that stays off the floor
+reaches the envelope. That is the committed `pass6`.
+
 ### What this leaves
 
-On the distribution the study now uses, the learned controller and the
-certified cascade are indistinguishable except under measurement noise. Two
+On the distribution the study now uses, the learned controller is ahead of
+the certified cascade at the point estimate, with overlapping intervals, and
+no case remains where it is structurally worse. Two
 more controller-side ideas for the early phase were measured and rejected
 before that:
 charging the declared rate limit on the mean prediction over the whole
