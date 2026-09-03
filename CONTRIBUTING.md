@@ -3,23 +3,23 @@
 ## Setup
 
 ```bash
-uv sync --dev --extra crazyflow --extra crazyflow-animation --extra cascade
+uv sync --dev --extra cascade
 uv run pre-commit install   # optional; mirrors CI locally
 ```
 
 `uv sync` makes the environment exact, so a later `uv sync --dev` without the
-extras removes the simulators and their tests skip. Pass the extras every time,
-or the simulator-backed tests silently stop running.
+extra removes the simulator and its tests skip. Pass the extra every time, or
+the simulator-backed tests silently stop running.
 
-The default suite runs in about a quarter of an hour:
+The default suite takes several minutes; `-m "not slow"` skips the three
+benchmark-scale tests:
 
 ```bash
 uv run pytest
 ```
 
-Tests marked `crazyflow` and `cascade` need those extras and skip cleanly
-without them. The PX4 SITL contract tests are opt-in with
-`GLASSBOX_RUN_PX4_SITL=1`.
+Tests marked `cascade` need that extra and skip cleanly without it. The PX4
+SITL contract tests are opt-in with `GLASSBOX_RUN_PX4_SITL=1`.
 
 ## Checks
 

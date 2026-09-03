@@ -27,7 +27,7 @@ _RESULTS_DIR = _REPO_ROOT / "docs" / "results"
 _X8_CASCADE_DIR = _REPO_ROOT / "artifacts" / "x8_cascade"
 _X8_REFERENCE_DIR = _REPO_ROOT / "artifacts" / "x8_reference"
 
-_OPTIONAL_MODULES = ("crazyflow", "cascade")
+_OPTIONAL_MODULES = ("cascade",)
 
 
 def _block_optional_extras(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -89,7 +89,6 @@ def test_list_runs_without_any_optional_extra(
     stdout = capsys.readouterr().out
     for spec in MANIFEST:
         assert spec.name in stdout
-    assert "needs the optional 'crazyflow' extra" in stdout
     assert "needs the optional 'cascade' extra" in stdout
 
 
@@ -115,13 +114,13 @@ def test_dry_run_reports_blocked_entries_without_executing(
     calls: list[list[str]] = []
     monkeypatch.setattr(cli, "main", lambda argv: calls.append(list(argv)))
 
-    record_results.main(["--dry-run", "--only", "crazyflow-bootstrap-results"])
+    record_results.main(["--dry-run", "--only", "cascade-x8-validation-results"])
 
     assert calls == []
     stdout = capsys.readouterr().out
-    assert "crazyflow-bootstrap-results" in stdout
+    assert "cascade-x8-validation-results" in stdout
     assert "skipped" in stdout
-    assert "needs the optional 'crazyflow' extra" in stdout
+    assert "needs the optional 'cascade' extra" in stdout
 
 
 def test_only_with_an_unknown_name_exits_with_status_two(
@@ -210,7 +209,7 @@ def test_run_selected_skips_entries_with_unmet_requirements_and_continues(
         name="fake-blocked",
         output="docs/results/does-not-exist-blocked.json",
         steps=(PythonStep("unreachable", lambda: calls.append("unreachable")),),
-        extra="crazyflow",
+        extra="cascade",
         duration="fast",
         doc_page="docs/README.md",
     )

@@ -30,13 +30,6 @@ ros = [
 cascade = [
     "cascade-flight",
 ]
-crazyflow = [
-    "crazyflow==0.3.2",
-]
-crazyflow-animation = [
-    "crazyflow==0.3.2",
-    "pillow>=10",
-]
 
 [project.scripts]
 glassbox = "glassbox.cli:main"
@@ -61,7 +54,6 @@ dev = [
 testpaths = ["tests"]
 markers = [
     "cascade: opt-in contracts against the local Cascade fixed-wing simulator",
-    "crazyflow: opt-in contracts against the pinned Crazyflow simulator",
     "px4_sitl: opt-in contract tests against a disposable PX4 SIH container",
     "slow: benchmark-scale tests that take over a minute",
 ]

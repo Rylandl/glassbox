@@ -46,5 +46,6 @@ jobs:
           enable-cache: true
       - run: uv python install 3.12
       - run: uv sync --locked --dev
-      # Simulator-backed tests need optional extras and skip cleanly without them.
-      - run: uv run pytest -q -p no:cacheprovider -m "not crazyflow and not cascade and not px4_sitl"
+      # Simulator-backed and PX4-SITL tests need optional extras or a live
+      # container and skip cleanly without them.
+      - run: uv run pytest -q -p no:cacheprovider -m "not cascade and not px4_sitl"

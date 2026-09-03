@@ -35,12 +35,6 @@ from glassbox.control.online_bootstrap import (
     RecursiveBootstrapIdentifier,
     RecursiveBootstrapSampleReport,
 )
-from glassbox.experimental.dual_control import (
-    DualControlConfig,
-    DualControlNMPC,
-    DualControlResult,
-    command_information_log_determinant,
-)
 from glassbox.workflows.predictive_ensemble import (
     PredictiveEnsemble,
     aggregate_predictive_ensemble_metrics,
@@ -60,9 +54,6 @@ __all__ = [
     "BootstrapModelNotReadyError",
     "BootstrapMultirotorIdentifier",
     "BootstrapVelocityArrestCommand",
-    "DualControlConfig",
-    "DualControlNMPC",
-    "DualControlResult",
     "MultirotorFlightSupervisor",
     "MultirotorSupervisorConfig",
     "PredictiveEnsemble",
@@ -79,7 +70,6 @@ __all__ = [
     "SupervisorReason",
     "aggregate_predictive_ensemble_metrics",
     "benchmark_predictive_ensemble",
-    "command_information_log_determinant",
     "fit_grouped_disagreement_calibration",
     "grouped_bootstrap_multiplicities",
     "plan_bootstrap_excitation",

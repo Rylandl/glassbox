@@ -135,37 +135,10 @@ recorded modified-arm run:
   Terminal vertical speed was `0.0049 m/s`; altitude excursion was `0.487 m`;
   commands remained finite and bounded.
 
-Run it with:
-
-```bash
-uv sync --extra crazyflow
-uv run --extra crazyflow glassbox crazyflow bootstrap \
-  artifacts/crazyflow_bootstrap/report.json
-```
-
-The same canonical run can be replayed through Crazyflow's offscreen MuJoCo
-renderer as an annotated H.264 animation. The video preserves the distinction
-between the rejected provisional fit, the four learned follow-up pulses, and
-the independently reset stabilization trial. It does not turn the diagnostic
-into a physical-throw or flight-safety claim.
-
-```bash
-uv sync --extra crazyflow-animation
-uv run --extra crazyflow-animation glassbox crazyflow animation \
-  artifacts/crazyflow_bootstrap/no-prior-bootstrap.mp4 \
-  --poster artifacts/crazyflow_bootstrap/no-prior-bootstrap-poster.png \
-  --gif artifacts/crazyflow_bootstrap/no-prior-bootstrap-preview.gif
-```
-
-The exporter requires `ffmpeg` on `PATH`. It renders the real Crazyflow drone
-mesh and state trace; playback timing is deliberately stretched for legibility,
-while every displayed telemetry value remains tied to the recorded simulator
-samples. `CrazyflowBootstrapTrace` is the typed state-aligned replay boundary,
-so presentation code does not need access to hidden plant parameters.
-
-The checked-in [machine-readable result](../results/crazyflow-bootstrap-results.json)
-records the fitted matrix, support projectors, validation metrics, timing, and
-independent recovery outcome.
+This closed-loop Crazyflow result, its reproduction commands, and the
+annotated animation renderer now live in the
+[glassbox-throw](https://github.com/Rylandl/glassbox-throw) repository, along
+with the checked-in machine-readable result it cites.
 
 This closes a narrow but important loop: direct input effects can be identified
 quickly without an airframe parameter prior and immediately used for bounded
@@ -203,8 +176,8 @@ the window length.
 The cost is the variation inside the window: a window that straddles two
 excitation blocks averages their difference away. On the throw study a
 window of five slowed identification by half; two and three are measured on
-the release ensemble in
-[the dual-control design page](dual-control-nmpc.md).
+the release ensemble in the dual-control NMPC design, now documented in the
+[glassbox-throw](https://github.com/Rylandl/glassbox-throw) repository.
 
 
 ## Prequential residual

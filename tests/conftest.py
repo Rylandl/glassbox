@@ -1,11 +1,10 @@
 """Shared pytest configuration: markers and session-scoped fixture trajectories.
 
-The ``crazyflow`` and ``cascade`` markers (see ``pyproject.toml``) are opt-in
-contracts against optional simulator extras. Without this hook, a test
-carrying one of these markers fails outright when its extra is not
-installed, instead of skipping cleanly. When the extra *is* installed, tests
-keep running by default; there is deliberately no environment-variable gate
-on top of that.
+The ``cascade`` marker (see ``pyproject.toml``) is an opt-in contract against
+an optional simulator extra. Without this hook, a test carrying that marker
+fails outright when the extra is not installed, instead of skipping cleanly.
+When the extra *is* installed, tests keep running by default; there is
+deliberately no environment-variable gate on top of that.
 
 The ``slow`` marker, declared in ``pyproject.toml``, identifies the three
 benchmark-scale tests that take over a minute; ``-m "not slow"`` skips them.
@@ -32,7 +31,6 @@ from glassbox.core.fixedwing_synthetic import generate_fixed_wing_trajectory
 from glassbox.core.synthetic import generate_trajectory
 
 _OPTIONAL_SIMULATOR_MARKERS = {
-    "crazyflow": ("crazyflow", "crazyflow"),
     "cascade": ("cascade", "cascade"),
 }
 
@@ -40,10 +38,7 @@ _OPTIONAL_SIMULATOR_MARKERS = {
 def _importable(module_name: str) -> bool:
     try:
         __import__(module_name)
-    except (ImportError, RuntimeError):
-        # Crazyflow raises RuntimeError instead of ImportError when SciPy
-        # was imported before it without SCIPY_ARRAY_API=1; either way the
-        # extra is not usable for collection/skip purposes here.
+    except ImportError:
         return False
     return True
 

@@ -19,8 +19,6 @@ artifact each experiment page cites.
   no-prior contract for local authority identification.
 - [Predictive ensembles](concepts/predictive-ensembles.md): the diagnostic
   uncertainty workflow and its promotion boundary.
-- [Dual-control NMPC](concepts/dual-control-nmpc.md): design under
-  exploration for learning to fly an unseen multirotor with no numerical prior.
 
 ## Guides
 
@@ -36,9 +34,6 @@ Multirotor:
 - [Nano-Quadrotor benchmark](experiments/nanodrone.md)
 - [ARP quadrotor corpus](experiments/arp.md)
 - [PX4 SITL multirotor corpora](experiments/px4-sitl-multirotor.md)
-- [Crazyflow configuration-change prototype](experiments/crazyflow-prototype.md)
-- [Crazyflow continuous throw diagnostic](experiments/crazyflow-throw.md)
-- [Dual-control NMPC release ensemble](experiments/dual-control-throw-ensemble.md)
 - [Adaptive recovery diagnostic](experiments/adaptive-recovery.md)
 
 Fixed wing:
@@ -58,3 +53,9 @@ Cross-platform:
 
 - [Literature review](literature-review.md)
 - [Original proposal, August 2026](history/idea-2026-08.md)
+
+## Related
+
+- [glassbox-throw](https://github.com/Rylandl/glassbox-throw): the Crazyflow
+  throw demo built on this package, including the dual-control NMPC design
+  and the closed-loop bootstrap, prototype, and throw diagnostics.

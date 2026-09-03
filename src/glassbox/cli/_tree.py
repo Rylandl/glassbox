@@ -166,48 +166,6 @@ TREE: tuple[Node, ...] = (
         extra="ros",
         subcommands=("inspect", "extract", "fetch", "prepare", "evaluate"),
     ),
-    Group(
-        name="crazyflow",
-        summary="Crazyflow hidden-plant simulation diagnostics",
-        commands=(
-            Command(
-                name="prototype",
-                target="glassbox.integrations.crazyflow_prototype:main",
-                summary="fixed hidden-plant prototype for adjustable-arm recovery",
-                extra="crazyflow",
-            ),
-            Command(
-                name="bootstrap",
-                target="glassbox.integrations.crazyflow_bootstrap:main",
-                summary="no-airframe-prior bootstrap identification",
-                extra="crazyflow",
-            ),
-            Command(
-                name="throw",
-                target="glassbox.integrations.crazyflow_throw:main",
-                summary="unpowered throw, online identification, and arrest",
-                extra="crazyflow",
-            ),
-            Command(
-                name="throw-study",
-                target="glassbox.integrations.crazyflow_throw_study:main",
-                summary="compare flying the certified snapshot and the working belief",
-                extra="crazyflow",
-            ),
-            Command(
-                name="animation",
-                target="glassbox.integrations.crazyflow_animation:main",
-                summary="render the bootstrap diagnostic as an annotated video",
-                extra="crazyflow-animation",
-            ),
-            Command(
-                name="throw-animation",
-                target="glassbox.integrations.crazyflow_animation:throw_main",
-                summary="render the throw diagnostic as an annotated video",
-                extra="crazyflow-animation",
-            ),
-        ),
-    ),
 )
 
 

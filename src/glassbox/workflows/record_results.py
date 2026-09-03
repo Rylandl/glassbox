@@ -31,7 +31,7 @@ import glassbox.cli as cli
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 
-_EXTRA_MODULES = {"crazyflow": "crazyflow", "cascade": "cascade"}
+_EXTRA_MODULES = {"cascade": "cascade"}
 
 
 class StepFailed(RuntimeError):
@@ -252,45 +252,6 @@ MANIFEST: tuple[ArtifactSpec, ...] = (
         ),
         duration="fast",
         doc_page="docs/concepts/nmpc.md",
-    ),
-    ArtifactSpec(
-        name="crazyflow-bootstrap-results",
-        output="docs/results/crazyflow-bootstrap-results.json",
-        steps=(
-            _cli(
-                "crazyflow",
-                "bootstrap",
-                "docs/results/crazyflow-bootstrap-results.json",
-            ),
-        ),
-        extra="crazyflow",
-        duration="fast",
-        doc_page="docs/concepts/bootstrap-identification.md",
-    ),
-    ArtifactSpec(
-        name="crazyflow-throw-results",
-        output="docs/results/crazyflow-throw-results.json",
-        steps=(
-            _cli("crazyflow", "throw", "docs/results/crazyflow-throw-results.json"),
-        ),
-        extra="crazyflow",
-        duration="fast",
-        doc_page="docs/experiments/crazyflow-throw.md",
-    ),
-    ArtifactSpec(
-        name="crazyflow-throw-campaign-results",
-        output="docs/results/crazyflow-throw-campaign-results.json",
-        steps=(
-            _cli(
-                "crazyflow",
-                "throw",
-                "docs/results/crazyflow-throw-campaign-results.json",
-                "--campaign",
-            ),
-        ),
-        extra="crazyflow",
-        duration="fast",
-        doc_page="docs/experiments/crazyflow-throw.md",
     ),
     ArtifactSpec(
         name="cascade-x8-validation-results",
@@ -563,10 +524,9 @@ MANIFEST: tuple[ArtifactSpec, ...] = (
 def _importable(module_name: str) -> bool:
     """Return whether an optional extra is installed, without importing it.
 
-    Listing must not trigger Crazyflow's import-time side effects (it sets
-    process-wide SciPy state and prints backend warnings); a real import only
-    happens when a step that needs the extra is dispatched, and its actionable
-    error surfaces there.
+    Listing must not trigger an optional extra's import-time side effects; a
+    real import only happens when a step that needs the extra is dispatched,
+    and its actionable error surfaces there.
     """
 
     try:

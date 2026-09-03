@@ -126,6 +126,19 @@ All notable changes to Glassbox are recorded here. The format follows
   `crazyflow_supervisor_campaign` beside it.
 - Test collection drops from about 21 s to under 2 s; the three
   benchmark-scale tests carry a `slow` marker.
+- The NMPC solver policy is public as `SolverPolicy`, exported from
+  `glassbox.control.nmpc` and the package root; `NMPCController` takes it as
+  the `policy` keyword instead of a private one. The NumPy and JAX rotation
+  helpers move from `control._common` to `core.geometry`, verbatim, so no
+  recorded number moves. `RecursiveBootstrapBelief`'s field list is pinned as
+  a downstream contract.
+
+### Removed
+- The Crazyflow throw demo moved to
+  [glassbox-throw](https://github.com/Rylandl/glassbox-throw) at this commit:
+  the Crazyflow plant adapter, the throw trial and study, the bootstrap and
+  prototype trials, the annotated animation renderer, and the experimental
+  dual-control NMPC.
 
 ### Fixed
 - `glassbox fit --model --report` no longer fails on a NumPy scalar.

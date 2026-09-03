@@ -56,8 +56,10 @@ behavior to forces, torques, and accelerations.
   wings, scripted PX4 SITL recording, and adapters for the Nano-Quadrotor, ARP,
   IDF-DS, Skywalker X8, and EPFL TOPOPlane2 reference datasets. See the
   [PX4 ULog guide](guides/px4-ulog.md) and the experiment pages.
-- **Simulator integrations.** Crazyflow and Cascade plants used as
-  independently implemented vehicles for closed-loop diagnostics.
+- **Simulator integrations.** The Cascade plant used as an independently
+  implemented vehicle for closed-loop diagnostics. The Crazyflow integration
+  and its dual-control NMPC throw demo moved to
+  [glassbox-throw](https://github.com/Rylandl/glassbox-throw).
 
 ## Evidence standard
 

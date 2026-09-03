@@ -25,14 +25,8 @@ _LEAF_IDS = [" ".join(path) for path in _LEAF_PATHS]
 # Third-party packages and the Glassbox modules that reach for them. Blocking
 # these proves that rendering the command tree imports no workflow module.
 _OPTIONAL_MODULES = (
-    "crazyflow",
     "cascade",
     "glassbox.integrations.cascade",
-    "glassbox.integrations.crazyflow",
-    "glassbox.integrations.crazyflow_animation",
-    "glassbox.integrations.crazyflow_bootstrap",
-    "glassbox.integrations.crazyflow_prototype",
-    "glassbox.integrations.crazyflow_throw",
 )
 
 
@@ -90,27 +84,32 @@ def test_top_level_help_runs_without_any_optional_extra(
         cli.main(["--help"])
 
     assert excinfo.value.code == 0
-    assert "crazyflow" in capsys.readouterr().out
+    assert "cascade" in capsys.readouterr().out
 
 
 def test_a_command_needing_a_missing_extra_reports_it_without_a_traceback(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setitem(sys.modules, "glassbox.integrations.crazyflow_throw", None)
+    monkeypatch.setitem(sys.modules, "glassbox.integrations.px4_nmpc_shadow", None)
 
     with pytest.raises(SystemExit) as excinfo:
-        cli.main(["crazyflow", "throw", "--help"])
+        cli.main(["px4-nmpc-shadow", "--help"])
 
     message = excinfo.value.code
     assert isinstance(message, str)
-    assert "glassbox crazyflow throw needs the optional 'crazyflow' extra" in message
-    assert "uv run --extra crazyflow" in message
+    assert "glassbox px4-nmpc-shadow needs the optional 'px4' extra" in message
+    assert "uv run --extra px4" in message
 
 
 @pytest.mark.parametrize(
     "argv",
-    ([], ["not-a-command"], ["crazyflow"], ["crazyflow", "not-a-command"]),
-    ids=["no-command", "unknown-command", "group-without-command", "unknown-in-group"],
+    ([], ["not-a-command"], ["x8"], ["x8", "not-a-command"]),
+    ids=[
+        "no-command",
+        "unknown-command",
+        "command-without-subcommand",
+        "unknown-subcommand",
+    ],
 )
 def test_missing_or_unknown_commands_exit_two(argv: list[str]) -> None:
     with pytest.raises(SystemExit) as excinfo:

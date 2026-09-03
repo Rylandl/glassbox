@@ -74,8 +74,9 @@ plant campaign with one nominal case and one case for every typed rejection
 reason. Each case advances the true plant through one 50 Hz command interval and
 requires the expected authority mode/reason, transparent nominal pass-through,
 finite bounded motor output, and a finite post-step plant state. Campaign
-telemetry is not reused for fitting or belief updates. See the
-[Crazyflow prototype report](../experiments/crazyflow-prototype.md) for the recorded result.
+telemetry is not reused for fitting or belief updates. The recorded result and
+its reproduction command now live in the
+[glassbox-throw](https://github.com/Rylandl/glassbox-throw) repository.
 
 This matrix establishes deterministic single-interval contracts. It does not
 establish recovery under sustained, repeated, or interacting faults.

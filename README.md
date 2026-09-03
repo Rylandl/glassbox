@@ -22,10 +22,9 @@ uv sync --dev
 Python 3.11 to 3.13. JAX runs on the CPU backend in float32 by default.
 The core package depends only on JAX and NumPy. Optional extras: `px4` for PX4
 ULog ingestion and SITL recording (`pyulog`, `pymavlink`), `ros` for the EPFL
-rosbag adapter, `crazyflow` for the pinned Crazyflow simulator,
-`crazyflow-animation` to render its diagnostics, and `cascade` for the Cascade
-fixed-wing plant, which installs from GitHub. `uv sync --dev` installs the
-telemetry extras because the default test suite exercises them.
+rosbag adapter, and `cascade` for the Cascade fixed-wing plant, which installs
+from GitHub. `uv sync --dev` installs the telemetry extras because the default
+test suite exercises them.
 
 ## Quickstart
 
@@ -100,7 +99,7 @@ demand.
 | `io` | `px4_ulog`, `sitl_profile`, `fixedwing_sitl_profile`, `arp_reference`, `idf_reference`, `nanodrone_reference`, `x8_reference`, `epfl_reference` |
 | `workflows` | `fitting`, `profile_benchmark`, `source_group_benchmark`, `predictive_ensemble`, `policy_selection`, `acceptance`, `fixedwing_gate`, `nmpc_benchmark`, `adaptation_benchmark`, `adaptive_recovery_benchmark`, `observation_*`, `*_evaluation`, `nanodrone_rotation`, `angular_authority` |
 | `cli` | `synthetic_demo`, `fixedwing`, `ulog`, `prior`, `nanodrone`, `x8`, `epfl` |
-| `integrations` | `px4`, `px4_nmpc_shadow`, `crazyflow*`, `cascade` |
+| `integrations` | `px4`, `px4_nmpc_shadow`, `cascade` |
 | `experimental` | Re-exports of the bootstrap identifiers, the flight supervisor, and the predictive-ensemble workflow. These APIs can change without notice. |
 
 The canonical state is 13 wide: NWU position and velocity, a WXYZ unit
@@ -124,6 +123,7 @@ glassbox select-policy           cross-platform fitting-policy selection
 glassbox adaptation-benchmark    belief-adaptation diagnostic
 glassbox adaptive-recovery       belief adaptation through NMPC recovery
 glassbox nmpc-benchmark          closed-loop NMPC acceptance suite
+glassbox record-results          regenerate the recorded artifacts under docs/results/
 glassbox fixedwing-gate          cross-airframe fixed-wing development gate
     evaluate | compare | screen
 glassbox sitl-profile            record scripted PX4 SITL maneuver profiles     [px4]
@@ -138,12 +138,10 @@ glassbox x8                      the NTNU Skywalker X8 campaign
     evaluate-cascade | diagnose-cascade                                     [cascade]
 glassbox epfl                    the EPFL TOPOPlane2 release                    [ros]
     inspect | extract | fetch | prepare | evaluate
-glassbox crazyflow               hidden-plant simulation diagnostics      [crazyflow]
-    prototype | bootstrap | throw | animation | throw-animation
 ```
 
 A bracketed name is the optional extra a command needs, for example
-`uv run --extra crazyflow glassbox crazyflow throw ...`.
+`uv run --extra px4 glassbox px4-nmpc-shadow ...`.
 
 ## Tests
 
@@ -151,10 +149,10 @@ A bracketed name is the optional extra a command needs, for example
 uv run pytest
 ```
 
-The default suite runs in about a quarter of an hour on a laptop. Tests marked
-`crazyflow` and `cascade` need those extras; deselect them with
-`-m "not crazyflow and not cascade"` when the extras are not installed. The
-PX4 SITL contract tests are opt-in:
+The default suite takes several minutes; `-m "not slow"` skips the three
+benchmark-scale tests. Tests marked `cascade` need that extra; deselect them
+with `-m "not cascade"` when the extra is not installed. The PX4 SITL contract
+tests are opt-in:
 
 ```bash
 GLASSBOX_RUN_PX4_SITL=1 uv run pytest -m px4_sitl tests/integration/test_px4_sitl.py -v
@@ -188,6 +186,10 @@ persistence on another. Long rollouts on multi-minute sessions remain
 unstable, parameters do not transfer between airframes, and every controller
 result is a bounded simulation diagnostic rather than a flight-safety claim.
 See [scope](docs/scope.md) for the full boundary.
+
+[glassbox-throw](https://github.com/Rylandl/glassbox-throw) is a demo built on
+this package: a simulated quadrotor thrown with no prior model, learned in
+flight and recovered.
 
 ## License and citation
 
