@@ -1160,13 +1160,19 @@ def test_the_prequential_residual_floors_the_scale_at_the_belief_error() -> None
     on = RecursiveBootstrapIdentifier(
         RecursiveBootstrapConfig(control_model="working", prequential_residual=True)
     )
-    for previous, current, command in transitions:
+    for index, (previous, current, command) in enumerate(transitions):
         a = plain.update(previous, current, command, dt).to_dict()
         b = off.update(previous, current, command, dt).to_dict()
         a.pop("update_wall_time_s")
         b.pop("update_wall_time_s")
         assert a == b
+        before = on.belief
         on.update(previous, current, command, dt)
+        if index == 0:
+            # The very first transition meets an empty belief: its error is the
+            # target itself and is not recorded.
+            assert before.command_evidence_rank == 0
+            assert on._prequential_weight == 0.0
     assert (
         on.belief.collective_residual_std_m_s2
         >= off.belief.collective_residual_std_m_s2

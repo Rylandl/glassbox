@@ -1534,9 +1534,19 @@ class RecursiveBootstrapIdentifier:
         self._interval_count += round(weight)
 
     def _record_prequential_error(self, features: _SampleFeatures) -> None:
-        """Fold the belief's error on this transition, before absorbing it."""
+        """Fold the belief's error on this transition, before absorbing it.
+
+        An error is only a model's error once there is a model: before the
+        command evidence supports a fit, the prediction is the intercept and
+        the error is the target itself, which is ignorance rather than
+        misspecification.  The collective is gated on the command evidence and
+        each angular axis on its own authority.
+        """
 
         belief = self._belief
+        if int(belief.command_evidence_rank) < 1:
+            return
+        keep = 1.0 - 1.0 / float(self.config.minimum_certification_interval_count)
         force_error = float(features.body_specific_force[2]) - (
             belief.predict_collective_specific_force(
                 features.command, features.body_velocity
@@ -1547,12 +1557,14 @@ class RecursiveBootstrapIdentifier:
                 features.command, features.angular_velocity
             )
         )
-        keep = 1.0 - 1.0 / float(self.config.minimum_certification_interval_count)
+        axis_supported = np.asarray(belief.angular_axis_authority) > 0.0
         self._prequential_force_sum = (
             keep * self._prequential_force_sum + force_error**2
         )
-        self._prequential_angular_sum = (
-            keep * self._prequential_angular_sum + np.square(angular_error)
+        self._prequential_angular_sum = np.where(
+            axis_supported,
+            keep * self._prequential_angular_sum + np.square(angular_error),
+            self._prequential_angular_sum,
         )
         self._prequential_weight = keep * self._prequential_weight + 1.0
 

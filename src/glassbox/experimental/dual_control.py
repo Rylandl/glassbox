@@ -179,7 +179,7 @@ SpreadModel = Literal["command_marginal", "planned_trajectory"]
 #: every seed from the current posterior and the current state.
 SeedFamily = Literal["declared_designs", "posterior_moves"]
 GoalHorizon = Literal["declared", "posterior"]
-InformationNeighbourhood = Literal["box", "slew", "visited", "hover"]
+InformationNeighbourhood = Literal["box", "slew", "visited", "hover", "box_commands"]
 ExcitationBasis = Literal["motor", "hadamard"]
 WarmStartShift = Literal["block", "step"]
 
@@ -288,7 +288,7 @@ DUAL_CONTROL_VARIANTS: dict[str, dict[str, Any]] = {
         "goal_horizon": "posterior",
         "clip_action_spread": True,
         "information_neighbourhood": "hover",
-        "horizon_neighbourhood": "box",
+        "horizon_neighbourhood": "box_commands",
         "empirical_prior_scale": False,
         "regressor_trust": False,
         "excitation_basis": "hadamard",
@@ -657,12 +657,20 @@ class DualControlConfig:
                 "slew",
                 "visited",
                 "hover",
+                "box_commands",
             )
         ):
             raise ValueError("horizon_neighbourhood must be a neighbourhood or None")
-        if self.information_neighbourhood not in ("box", "slew", "visited", "hover"):
+        if self.information_neighbourhood not in (
+            "box",
+            "slew",
+            "visited",
+            "hover",
+            "box_commands",
+        ):
             raise ValueError(
-                "information_neighbourhood must be 'box', 'slew', 'visited', or 'hover'"
+                "information_neighbourhood must be 'box', 'slew', 'visited', "
+                "'hover', or 'box_commands'"
             )
         if self.goal_horizon not in ("declared", "posterior"):
             raise ValueError("goal_horizon must be 'declared' or 'posterior'")
@@ -1931,9 +1939,15 @@ class DualControlNMPC:
 
         if neighbourhood is None:
             neighbourhood = self.config.information_neighbourhood
-        if neighbourhood == "box":
+        commands_only = neighbourhood == "box_commands"
+        if neighbourhood in ("box", "box_commands"):
             # Uniform on the box: zero-mean command features with variance
-            # ``1 / 12`` per axis.
+            # ``1 / 12`` per axis.  ``box_commands`` also drops the nuisance
+            # block from the spread: the goal horizon then asks how well the
+            # command maps are known, not how well the fitted damping and
+            # coupling terms extrapolate to the rates the vehicle has now,
+            # which at a fast tumble saturate the rate channel at once and
+            # leave a brake nothing to plan over.
             held_feature = jnp.zeros(_COMMAND_SIZE)
             local_variance = 1.0 / 12.0
 
@@ -1985,6 +1999,8 @@ class DualControlNMPC:
                 count = base[size - 1, size - 1]
                 moment = (base + pseudo) / (count + 1.0)
                 return jnp.trace(covariance @ moment)
+            if commands_only:
+                return local_variance * jnp.trace(covariance[:4, :4])
             feature = jnp.concatenate((held_feature, rest))
             return feature @ covariance @ feature + local_variance * jnp.trace(
                 covariance[:4, :4]

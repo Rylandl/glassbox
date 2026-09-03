@@ -1495,7 +1495,7 @@ def test_pass_six_declares_its_switches_and_refuses_malformed_ones() -> None:
     assert config.goal_horizon == "posterior"
     assert config.excitation_basis == "hadamard"
     assert config.information_neighbourhood == "hover"
-    assert config.horizon_neighbourhood == "box"
+    assert config.horizon_neighbourhood == "box_commands"
     assert config.authority_scaled_maps is True
     assert config.warm_start_shift == "step"
     # Measured and rejected; kept as switches, off.
@@ -1788,3 +1788,47 @@ def test_the_probe_overlay_rides_on_the_executed_command_until_supported() -> No
     probed = controller.solve(state, complete, held, previous_command_owned=False)
     bare = plain.solve(state, complete, held, previous_command_owned=False)
     assert np.allclose(probed.command, bare.command)
+
+
+def test_the_command_only_horizon_ignores_nuisance_uncertainty_at_high_rates() -> None:
+    """The goal horizon can be decided by the command maps alone.
+
+    With ``"box"`` the spread that decides how far the goal is charged includes
+    the fitted damping and coupling coefficients evaluated at the measured
+    rates, so a fast tumble saturates the rate channel at once.  With
+    ``"box_commands"`` only the command block's box-averaged uncertainty
+    enters, and the spread at a fast tumble equals the spread at rest.
+    """
+
+    box = _pass_six(horizon_neighbourhood="box")
+    commands = _pass_six(horizon_neighbourhood="box_commands")
+    belief = _belief_after(60)
+    posterior = box._posterior(belief)
+    held = jnp.full(4, 0.5)
+    calm = _released_state()
+    calm[10:13] = (0.05, -0.05, 0.02)
+    spinning = _released_state()
+    spinning[10:13] = (6.0, -4.0, 2.0)
+    hold = jnp.zeros((box.block_count, 4))
+
+    def rate_spread(controller, state):
+        rollout = controller._rollout(hold, jnp.asarray(state), posterior, held)
+        return np.asarray(
+            controller._spreads_marginal_full(
+                rollout,
+                posterior,
+                jnp.asarray(state),
+                False,
+                held,
+                controller.config.horizon_neighbourhood,
+            )[0]
+        )
+
+    box_calm, box_spinning = rate_spread(box, calm), rate_spread(box, spinning)
+    cmd_calm, cmd_spinning = (
+        rate_spread(commands, calm),
+        rate_spread(commands, spinning),
+    )
+    assert box_spinning[-1] > box_calm[-1]
+    assert np.allclose(cmd_calm, cmd_spinning)
+    assert cmd_spinning[-1] < box_spinning[-1]

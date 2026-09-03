@@ -47,7 +47,12 @@ All notable changes to Glassbox are recorded here. The format follows
   `_fly_trial` and the release ensemble accept `identifier_options`, and the
   gate accepts `--identifier key=value`. The learned throw-study arm runs a
   window of two and recovers 68 of 112 on the arm-only ensemble, above the
-  certified cascade's point estimate for the first time.
+  certified cascade's point estimate for the first time. Round five decides
+  the goal horizon from the command maps' uncertainty alone
+  (`horizon_neighbourhood="box_commands"`), 69 of 112 with fewer floor
+  contacts, and records four switches measured and left off: maps at face
+  value at full rank, a probe overlay until supported, and the identifier's
+  prequential residual in two forms.
 - Throw-study trials stop at the first floor contact and are failures from
   then on: the contact sample is kept, the contact time is recorded, and the
   terminal and settled metrics are absent rather than read off the ground.

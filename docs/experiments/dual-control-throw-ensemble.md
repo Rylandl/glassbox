@@ -238,10 +238,12 @@ maps used at the identifier's authority), and
 `report-pass6-round4-window2-ensemble-arm-only.json` (the committed round
 four, with the identifier assimilating one sample per two transitions) and
 `report-pass6-round4-window3-ensemble-arm-only.json` (the same with a
-window of three, measured and not taken). Round five's measured-and-not-taken
+window of three, measured and not taken). Round five's committed run is
+`report-pass6-round5-ensemble-arm-only.json`; its measured-and-not-taken
 runs are `report-pass6-round5-facevalue-ensemble-arm-only.json`,
-`report-pass6-round5-probe-ensemble-arm-only.json`, and
-`report-pass6-round5-probe-prequential-ensemble-arm-only.json`.
+`report-pass6-round5-probe-ensemble-arm-only.json`,
+`report-pass6-round5-probe-prequential-ensemble-arm-only.json`, and
+`report-pass6-round5-prequential-gated-ensemble-arm-only.json`.
 
 | arm | recovered | rate | Wilson 95 | on the floor | airborne, outside envelope |
 | --- | --- | --- | --- | --- | --- |
@@ -253,15 +255,17 @@ runs are `report-pass6-round5-facevalue-ensemble-arm-only.json`,
 | pass6, round two, with composite seeds | 54/112 | 0.482 | 0.392-0.574 | 50 | 8 |
 | pass6, round three, authority-scaled maps | 57/112 | 0.509 | 0.418-0.600 | 51 | 4 |
 | pass6, round four, identifier window of three | 57/112 | 0.509 | 0.418-0.600 | 52 | 3 |
-| pass6, round four, identifier window of two (committed) | 68/112 | 0.607 | 0.515-0.693 | 39 | 5 |
+| pass6, round four, identifier window of two | 68/112 | 0.607 | 0.515-0.693 | 39 | 5 |
+| pass6, round five, goal horizon from the command maps alone (committed) | 69/112 | 0.616 | 0.524-0.701 | 34 | 9 |
 | pass6, round five, maps at face value once fully supported | 62/112 | 0.554 | 0.461-0.642 | 41 | 9 |
 | pass6, round five, probe overlay | 53/112 | 0.473 | 0.383-0.565 | 55 | 4 |
 | pass6, round five, probe and prequential residual | 20/112 | 0.179 | 0.119-0.260 | 91 | 1 |
+| pass6, round five, prequential residual gated on support | 29/112 | 0.259 | 0.187-0.347 | 77 | 6 |
 
 The round-one intervals exclude `pass5`'s point estimate and include
-`pass2b`'s. The committed round four's interval, 0.515-0.693, excludes every
+`pass2b`'s. The committed round five's interval, 0.524-0.701, excludes every
 earlier learned arm and the working cascade (0.223), and its point estimate
-(0.607) is above the certified cascade's (0.545), which its interval still
+(0.616) is above the certified cascade's (0.545), which its interval still
 contains; every release that stays off the floor reaches the envelope. The design page records the configurations
 that were measured on the single-release gate and dropped, and why.
 

@@ -222,3 +222,11 @@ of samples, and a controller that trusts that covariance commands hard
 through a map that is wrong. The prequential error is what the map actually
 gets wrong, and it falls as soon as the map is right. The two are combined by
 taking the larger, so the scale can only rise on the switch, never fall.
+
+An error is only a model's error once there is a model. Before the command
+evidence supports a fit the prediction is the intercept and the error is the
+target itself, which is ignorance rather than misspecification, so nothing is
+recorded until the command evidence has rank one, and each angular axis is
+recorded only while its own authority is positive. Recording from the first
+transition instead kept the authority at zero for half a second on the throw
+study and crashed most releases.

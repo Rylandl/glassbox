@@ -1517,13 +1517,34 @@ worse than either: with the probe it recovers 20 of 112 and touches the
 floor on 91. The error an empty or rank-one belief makes is the target
 itself, and a window of forty-eight transitions remembers it for half a
 second, so the authority stays at zero, the maps scale to nothing, and the
-vehicle falls. It stays as a switch, off; a version that discounts the error
-by how much the belief could have known at the time is the honest form and
-is untested.
+vehicle falls. Gating the record on the identifier's own support, so that
+only a fitted map's errors count, recovers 29 of 112 with 77 floor contacts:
+better than counting ignorance, still far worse than the in-sample scale.
+The map's genuine early errors on a tumbling vehicle are large, an honest
+scale says so, the authority stays low, and a controller that waits for a
+good map loses to one that acts on an imperfect one. It stays as a switch,
+off. The reading is that on this task the residual floor's optimism is
+load-bearing: it is what lets the controller act at all in the first half
+second.
+
+Dissecting the brake itself, interval by interval with every candidate's
+value, showed dithering rather than a wrong plan: the winning candidates
+alternate among the righting, rate, tilt, and collective seeds, whose values
+differ by a few percent, the refinement stalls within a few iterations, and
+the pitch rate swings with the alternation. The rate term was charged over
+the executed block only, because the goal horizon's spread included the
+fitted damping and coupling coefficients evaluated at the measured rates, and
+at four radians per second those saturate the rate channel at once. The goal
+horizon is now decided by the command maps' box-averaged uncertainty alone
+(`horizon_neighbourhood="box_commands"`): how well the maps are known, not
+how well the nuisance terms extrapolate to the rates the vehicle has now. On
+the ensemble this recovers 69 of 112 (0.616, Wilson 0.524-0.701) with floor
+contacts down from 39 to 34; the state-noise case is at zero on this run,
+against two on the previous. That is the committed `pass6`.
 
 ### What this leaves
 
-The early floor contacts remain, at 39 of 112 after four rounds, and two
+The early floor contacts remain, at 34 of 112 after five rounds, and two
 more controller-side ideas for them were measured and rejected:
 charging the declared rate limit on the mean prediction over the whole
 horizon (a one-second rollout on a partial map predicts wild rates for every
