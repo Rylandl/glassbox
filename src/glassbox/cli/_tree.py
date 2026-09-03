@@ -22,18 +22,7 @@ class Command:
     subcommands: tuple[str, ...] = ()
 
 
-@dataclass(frozen=True)
-class Group:
-    """A namespace whose children are separate entry points."""
-
-    name: str
-    summary: str
-    commands: tuple[Command, ...]
-
-
-Node = Command | Group
-
-TREE: tuple[Node, ...] = (
+TREE: tuple[Command, ...] = (
     Command(
         name="fit",
         target="glassbox.cli.fit:main",
@@ -65,21 +54,6 @@ TREE: tuple[Node, ...] = (
         summary="run leave-one-source-group-out dynamics identification",
     ),
     Command(
-        name="ensemble-benchmark",
-        target="glassbox.workflows.predictive_ensemble:main",
-        summary="offline grouped predictive ensembles and uncertainty diagnostics",
-    ),
-    Command(
-        name="select-policy",
-        target="glassbox.workflows.policy_selection:main",
-        summary="select a shared fitting policy across platforms and profiles",
-    ),
-    Command(
-        name="adaptation-benchmark",
-        target="glassbox.workflows.adaptation_benchmark:main",
-        summary="compact synthetic evidence for fleet-prior live adaptation",
-    ),
-    Command(
         name="adaptive-recovery",
         target="glassbox.workflows.adaptive_recovery_benchmark:main",
         summary="prewarmed synthetic recovery after a configuration change",
@@ -93,12 +67,6 @@ TREE: tuple[Node, ...] = (
         name="record-results",
         target="glassbox.workflows.record_results:main",
         summary="regenerate the recorded artifacts under docs/results/",
-    ),
-    Command(
-        name="fixedwing-gate",
-        target="glassbox.workflows.fixedwing_gate:main",
-        summary="cross-airframe fixed-wing development and promotion gate",
-        subcommands=("evaluate", "compare", "screen"),
     ),
     Command(
         name="sitl-profile",
@@ -169,26 +137,19 @@ TREE: tuple[Node, ...] = (
 )
 
 
-def leaf_paths(nodes: tuple[Node, ...] = TREE) -> list[tuple[str, ...]]:
+def leaf_paths(nodes: tuple[Command, ...] = TREE) -> list[tuple[str, ...]]:
     """Return the argv prefix of every dispatchable leaf, in tree order."""
 
-    paths: list[tuple[str, ...]] = []
-    for node in nodes:
-        if isinstance(node, Group):
-            paths.extend((node.name, *path) for path in leaf_paths(node.commands))
-        else:
-            paths.append((node.name,))
-    return paths
+    return [(node.name,) for node in nodes]
 
 
-def find(path: tuple[str, ...]) -> Node | None:
-    """Return the node at ``path``, or ``None`` when the path is unknown."""
+def find(path: tuple[str, ...]) -> Command | None:
+    """Return the leaf at ``path``, or ``None`` when the path is unknown.
 
-    nodes: tuple[Node, ...] = TREE
-    node: Node | None = None
-    for name in path:
-        node = next((item for item in nodes if item.name == name), None)
-        if node is None:
-            return None
-        nodes = node.commands if isinstance(node, Group) else ()
-    return node
+    Every leaf sits at the top level; a command's own subcommands are parsed by
+    the command, so any longer path is unknown here.
+    """
+
+    if len(path) != 1:
+        return None
+    return next((item for item in TREE if item.name == path[0]), None)

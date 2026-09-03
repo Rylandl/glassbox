@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 
 from glassbox import cli
-from glassbox.cli._tree import Command, Group
+from glassbox.cli._tree import Command
 
 _PYPROJECT_PATH = Path(__file__).resolve().parent.parent / "pyproject.toml"
 
@@ -65,12 +65,7 @@ def test_top_level_help_lists_every_command(
     stdout = capsys.readouterr().out
     for node in cli.TREE:
         assert node.name in stdout
-        children = (
-            [item.name for item in node.commands]
-            if isinstance(node, Group)
-            else list(node.subcommands)
-        )
-        for child in children:
+        for child in node.subcommands:
             assert child in stdout
 
 

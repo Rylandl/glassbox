@@ -1,10 +1,10 @@
-"""Research-grade control and ensemble APIs whose contracts can change without notice.
+"""Research-grade control APIs whose contracts can change without notice.
 
 Everything re-exported here is deliberately outside the stable ``glassbox``
-surface: bootstrap identification, its online controller, the command
-supervisor, and the predictive-ensemble uncertainty workflow are still being
-shaped by experiments, so their names, signatures, and semantics may change in
-any release. Import them from this subpackage to make that dependency explicit.
+surface: bootstrap identification, its online controller, and the command
+supervisor are still being shaped by experiments, so their names, signatures,
+and semantics may change in any release. Import them from this subpackage to
+make that dependency explicit.
 """
 
 from glassbox.control.bootstrap_identification import (
@@ -35,15 +35,6 @@ from glassbox.control.online_bootstrap import (
     RecursiveBootstrapIdentifier,
     RecursiveBootstrapSampleReport,
 )
-from glassbox.workflows.predictive_ensemble import (
-    PredictiveEnsemble,
-    aggregate_predictive_ensemble_metrics,
-    benchmark_predictive_ensemble,
-    fit_grouped_disagreement_calibration,
-    grouped_bootstrap_multiplicities,
-    predictive_ensemble_metrics,
-    predictive_uncertainty_candidate_gate,
-)
 
 __all__ = [
     "BootstrapArrestCommand",
@@ -56,7 +47,6 @@ __all__ = [
     "BootstrapVelocityArrestCommand",
     "MultirotorFlightSupervisor",
     "MultirotorSupervisorConfig",
-    "PredictiveEnsemble",
     "ProgressiveBootstrapCommand",
     "ProgressiveBootstrapController",
     "ProgressiveBootstrapControllerConfig",
@@ -68,11 +58,5 @@ __all__ = [
     "SupervisedCommand",
     "SupervisorMode",
     "SupervisorReason",
-    "aggregate_predictive_ensemble_metrics",
-    "benchmark_predictive_ensemble",
-    "fit_grouped_disagreement_calibration",
-    "grouped_bootstrap_multiplicities",
     "plan_bootstrap_excitation",
-    "predictive_ensemble_metrics",
-    "predictive_uncertainty_candidate_gate",
 ]

@@ -290,6 +290,19 @@ dynamics learner.
   but the project does not yet have enough consistently observed platforms to
   identify what should be shared.
 
+Grouped predictive ensembles are closed as a negative result. The hypothesis
+was that disagreement across a grouped bootstrap ensemble carries predictive
+information beyond a constant residual radius, and it was tested through five
+versions, from the first grouped bootstrap to a balanced, calibrated,
+nested-group form. On the IDF-DS fixed-wing corpus, across 13 source-group
+folds and 78 fitted members, coverage held but the two claims that mattered
+failed: disagreement ranked held-out error at a median Spearman of 0.20
+against the 0.30 the gate required, and the calibrated set score came out
+1.89 percent worse than the constant-radius baseline it was meant to beat,
+against a required 5 percent improvement. The workflow, its
+`ensemble-benchmark` command, its concept page, and its four recorded notes
+were removed at this commit; the last commit carrying them is `bd48419`.
+
 ## Bottom line
 
 The project was not missing a clever integrator or one more aerodynamic
@@ -300,3 +313,10 @@ the rollout promotion gate on current best models.
 That is a useful technical result: the maintained system is an honest, general
 gray-box baseline and telemetry framework, and further capacity is not justified
 until new evidence changes the problem.
+
+The versioned accuracy contracts and the cross-platform fitting-policy sweep
+were retired at this commit with their verdicts standing: the sweep failed its
+protected promotion check and the reference fitting defaults were retained,
+and the fixed-wing residual was selected for continued development while
+missing the cross-airframe development contract by 0.0023 m of p90 IDF
+position error at the half-second horizon.

@@ -1,6 +1,6 @@
 # PX4 SITL Multirotor Corpus Scaling and Maneuver-Family Benchmark
 
-**What this establishes:** the typed trajectory contract and window-budget training policy scale from a handful of homogeneous SITL logs to a balanced 24-flight, four-maneuver-family corpus. On that expanded corpus, the structured model's leave-one-maneuver-family-out benchmark meets its ground-truth position development target only through 2 seconds and its attitude target only at 0.1 seconds, indicating the model is the limiting factor rather than the amount of repeated data.
+**What this establishes:** the typed trajectory contract and window-budget training policy scale from a handful of homogeneous SITL logs to a balanced 24-flight, four-maneuver-family corpus. On that expanded corpus, the structured model's leave-one-maneuver-family-out error changes only modestly relative to the smaller corpus while complete-flight rollout stays poor, indicating the model is the limiting factor rather than the amount of repeated data.
 
 > **Recorded before the 2026-09-01 estimator revisions.** The artifacts behind
 > this page were not regenerated because the run is long, so three conventions
@@ -39,15 +39,6 @@ The original maneuver-family profile corpus contains eight flights and 150.1 sec
 The expanded `multirotor_v2` corpus contains 24 raw ULogs, 24 ground-truth trajectories, and 24 estimated-state trajectories. Its 428.0 seconds of usable ground truth are balanced at six flights per maneuver family, eight per excitation condition, and twelve per initial heading; all artifacts are finite and share the verified canonical motor schema. Peak speed reaches 3.16 m/s.
 
 ## Reproduce
-
-For recorded profile corpora, re-extract them into the current trajectory format with:
-
-```bash
-uv run python scripts/reextract_profile_dataset.py \
-  artifacts/sitl/multirotor_v2 \
-  --platform multirotor \
-  --vehicle-id px4_sih_quadx
-```
 
 Build a consistent 50 Hz dataset from a directory of raw ULogs:
 
@@ -94,13 +85,11 @@ uv run glassbox profile-benchmark \
   --output-dir artifacts/sitl/profile_benchmark
 ```
 
-This leave-one-maneuver-family-out benchmark measures extrapolation to a type of motion absent from training rather than interpolation to another execution of a familiar flight. `summary.json` applies the versioned `multirotor_prediction_v1` development contract: a horizon passes only when both the equal-profile aggregate and worst held-out profile satisfy position and attitude limits, and full-flight position error is normalized by logged path length. These targets evaluate predictive usefulness and are not flight-safety or certification limits.
+This leave-one-maneuver-family-out benchmark measures extrapolation to a type of motion absent from training rather than interpolation to another execution of a familiar flight.
 
 ## Results
 
 On a four-flight/two-flight split of the six-log SITL corpus, the ground-truth model trained at 0.1, 0.5, and 2 seconds reaches roughly 0.66 m position and 1.98 degrees attitude RMSE across the two complete holdouts; the estimated-state counterpart reaches roughly 0.43 m and 2.38 degrees. This is a more conservative baseline than the earlier homogeneous three-log result, and the scaled benchmark is a pipeline stress test, not evidence of general dynamics coverage.
-
-The ground-truth position/attitude development targets are 0.001 m/0.25 degrees at 0.1 s, 0.01 m/1 degree at 0.5 s, 0.05 m/2 degrees at 1 s, 0.20 m/5 degrees at 2 s, and 0.75 m/10 degrees at 5 s. Estimated-state targets are 0.02 m/0.5 degrees, 0.08 m/2 degrees, 0.15 m/4 degrees, 0.30 m/7 degrees, and 1.0 m/12 degrees at the same horizons. Full-flight targets are at most 10% of path length and 10 degrees for ground truth, or 15% and 15 degrees for estimated state. The 0.1, 0.5, 1, and 2-second horizons plus full flight are required for an overall pass; missing required horizons produce an `incomplete` result.
 
 On the original eight-flight profile corpus, the structured model's equal-profile ground-truth benchmark reaches 0.00014 m / 0.12 degrees at 0.1 seconds, 0.024 m / 3.52 degrees at 1 second, and 0.165 m / 6.51 degrees at 2 seconds. Complete 17-20-second open-loop rollouts reach 6.71 m / 15.27 degrees. Estimated-state training reaches 0.266 m / 6.73 degrees at 2 seconds and 7.59 m / 16.08 degrees over complete flights. Same-profile replicate holdouts have nearly identical error, showing that systematic rollout drift, not merely unseen profile labels, is the dominant limitation.
 
@@ -108,4 +97,4 @@ Re-extracting the retained ULogs through canonical format v3 and rerunning the e
 
 ## Boundary
 
-Both development-contract horizons fail on the expanded corpus: position meets the ground-truth target through 2 seconds, while attitude meets it only at 0.1 seconds. The modest local change relative to the smaller corpus, combined with poor full-flight behavior over a broader motion envelope, indicates that the structured model is the limiting factor, not the amount of repeated data.
+The modest local change relative to the smaller corpus, combined with poor full-flight behavior over a broader motion envelope, indicates that the structured model is the limiting factor, not the amount of repeated data.

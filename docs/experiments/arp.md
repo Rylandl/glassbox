@@ -16,7 +16,7 @@
 
 ## Purpose
 
-ARP Laboratory's four large-quadrotor ULogs are the first real PX4 multirotor references beyond synthetic and NanoDrone data. Glassbox uses logs 63-65 for all rotational-structure and authority development decisions, then evaluates the selected candidate once on protected log 66.
+ARP Laboratory's four large-quadrotor ULogs are the first real PX4 multirotor references beyond synthetic and NanoDrone data. Glassbox uses logs 63-65 for all rotational-structure development decisions, then evaluates the selected candidate once on protected log 66.
 
 ## Data
 
@@ -36,7 +36,7 @@ The rotational-structure and command-offset candidates below were compared with 
 
 ### Rotational-structure candidate
 
-Glassbox used logs 63-65 for all rotational-structure and authority decisions, then evaluated the selected candidate once on protected log 66. On the development folds, a learned latent rotational response with cross-axis control coupling improved the instantaneous diagonal reference by 4.93%; the shared train-only authority selector then chose 0.75 for a further 4.62% improvement.
+Glassbox used logs 63-65 for all rotational-structure decisions, then evaluated the selected candidate once on protected log 66. On the development folds, a learned latent rotational response with cross-axis control coupling improved the instantaneous diagonal reference by 4.93%. The shared train-only angular-authority selection sweep was retired at this commit and the improvement it reported here is withdrawn because it had no recorded artifact.
 
 On protected log 66, the combined candidate improved the fitted reference's equal-horizon, equal-metric geometric score by 11.49%, with its worst individual metric changing by only +0.07%. It reduced the aggregate rotational score by 17.91% and delayed the first configured complete-rollout divergence threshold from 1.06 to 2.00 seconds. However, it remained 34.08% worse than kinematic persistence overall and still crossed the divergence threshold. At 0.5 seconds, candidate position and velocity errors were 1.63x and 1.68x persistence; at one second they were 2.03x and 2.39x. The promotion result is therefore `improves_reference_only`, not a promoted default or a complete-flight claim.
 
@@ -44,7 +44,7 @@ On protected log 66, the combined candidate improved the fitted reference's equa
 
 The next development-only comparison added one shared bounded command offset to the v3 multirotor force law. The zero-offset map remains the normal fitting default, and the experimental parameter is available only through maintainer evaluation code; there is no new CLI knob. Control semantics enforce the boundary: normalized motor commands may fit the offset, while measured squared-rotor-speed thrust proxies must use the identity map.
 
-On leave-one-recording-out folds over logs 63-65, the offset alone was rejected: it improved the aggregate score by only 0.40% and its worst individual metric regressed 79.0%. Jointly scoring the fixed authority grid against the original zero-offset reference instead selected offset plus 0.5 angular authority. That composite improved the reference by 6.27%, with a 19.32% worst individual regression, and beat kinematic persistence by 27.85% geometrically; its worst persistence cell was 4.19% higher. The three held-out fits learned consistent offsets of -0.111, -0.105, and -0.072 normalized command.
+On leave-one-recording-out folds over logs 63-65, the offset alone was rejected: it improved the aggregate score by only 0.40% and its worst individual metric regressed 79.0%. The composite of the offset with a fixed angular authority was scored against the same reference, but the angular-authority selection sweep was retired at this commit and that composite's numbers are withdrawn because they had no recorded artifact. The three held-out fits learned consistent offsets of -0.111, -0.105, and -0.072 normalized command.
 
 ## Boundary
 

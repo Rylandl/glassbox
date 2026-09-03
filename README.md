@@ -97,10 +97,10 @@ demand.
 | `belief` | `belief`, `belief_io`, `parameter_evidence`, `parameter_prior`, `adaptation` |
 | `control` | `nmpc/`, `flight_supervisor`, `bootstrap_identification`, `online_bootstrap` |
 | `io` | `px4_ulog`, `sitl_profile`, `fixedwing_sitl_profile`, `arp_reference`, `idf_reference`, `nanodrone_reference`, `x8_reference`, `epfl_reference` |
-| `workflows` | `fitting`, `profile_benchmark`, `source_group_benchmark`, `predictive_ensemble`, `policy_selection`, `acceptance`, `fixedwing_gate`, `nmpc_benchmark`, `adaptation_benchmark`, `adaptive_recovery_benchmark`, `observation_*`, `*_evaluation`, `nanodrone_rotation`, `angular_authority` |
+| `workflows` | `fitting`, `profile_benchmark`, `source_group_benchmark`, `nmpc_benchmark`, `adaptive_recovery_benchmark`, `observation_identification`, `nanodrone_evaluation`, `x8_evaluation`, `epfl_evaluation`, `record_results` |
 | `cli` | `synthetic_demo`, `fixedwing`, `ulog`, `prior`, `nanodrone`, `x8`, `epfl` |
 | `integrations` | `px4`, `px4_nmpc_shadow`, `cascade` |
-| `experimental` | Re-exports of the bootstrap identifiers, the flight supervisor, and the predictive-ensemble workflow. These APIs can change without notice. |
+| `experimental` | Re-exports of the bootstrap identifiers and the flight supervisor. These APIs can change without notice. |
 
 The canonical state is 13 wide: NWU position and velocity, a WXYZ unit
 quaternion from body to world, and FLU body rates. Commands are normalized
@@ -118,14 +118,9 @@ glassbox synthetic               synthetic multirotor parameter recovery
 glassbox fixedwing-synthetic     synthetic fixed-wing trajectory generator
 glassbox profile-benchmark       maneuver-family holdout benchmark
 glassbox source-benchmark        source-group holdout benchmark
-glassbox ensemble-benchmark      predictive-ensemble uncertainty diagnostic
-glassbox select-policy           cross-platform fitting-policy selection
-glassbox adaptation-benchmark    belief-adaptation diagnostic
 glassbox adaptive-recovery       belief adaptation through NMPC recovery
 glassbox nmpc-benchmark          closed-loop NMPC acceptance suite
 glassbox record-results          regenerate the recorded artifacts under docs/results/
-glassbox fixedwing-gate          cross-airframe fixed-wing development gate
-    evaluate | compare | screen
 glassbox sitl-profile            record scripted PX4 SITL maneuver profiles     [px4]
 glassbox fixedwing-sitl-profile  the fixed-wing SITL profiles                   [px4]
 glassbox px4-nmpc-shadow         passive NMPC shadow on live PX4; never sends   [px4]
@@ -168,8 +163,7 @@ The [documentation index](docs/README.md) lists every page. The main entries:
 - Concepts: [dynamics beliefs](docs/concepts/dynamics-beliefs.md),
   [NMPC](docs/concepts/nmpc.md),
   [flight supervisor](docs/concepts/flight-supervisor.md),
-  [bootstrap identification](docs/concepts/bootstrap-identification.md),
-  [predictive ensembles](docs/concepts/predictive-ensembles.md)
+  [bootstrap identification](docs/concepts/bootstrap-identification.md)
 - Experiments: one page per corpus, simulator diagnostic, and gate under
   [`docs/experiments/`](docs/experiments/), each citing its recorded artifact
   in [`docs/results/`](docs/results/)

@@ -339,7 +339,7 @@ def test_fixed_wing_artifacts_fit_platform_neutral_residual(
     assert rollout_loss["dynamic_envelope"]["body_velocity_half_width_m_s"][0] > 0.0
 
 
-def test_fixed_wing_profile_benchmark_does_not_apply_multirotor_contract(
+def test_fixed_wing_profile_benchmark_reports_the_fixed_wing_platform(
     tmp_path,
     fixedwing_flight,
 ) -> None:
@@ -358,5 +358,3 @@ def test_fixed_wing_profile_benchmark_does_not_apply_multirotor_contract(
     )
 
     assert summary["platform"] == "fixedwing"
-    assert summary["acceptance"]["status"] == "not_scored"
-    assert "no versioned fixed-wing" in summary["acceptance"]["reason"]

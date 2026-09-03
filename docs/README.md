@@ -17,8 +17,6 @@ artifact each experiment page cites.
   freshness, bounds, attitude, and rate-arrest layer.
 - [Bootstrap identification](concepts/bootstrap-identification.md): the
   no-prior contract for local authority identification.
-- [Predictive ensembles](concepts/predictive-ensembles.md): the diagnostic
-  uncertainty workflow and its promotion boundary.
 
 ## Guides
 
@@ -43,11 +41,6 @@ Fixed wing:
 - [Cascade X8 validation](experiments/cascade-x8-validation.md)
 - [EPFL TOPOPlane2 reference](experiments/epfl.md)
 - [PX4 SITL fixed-wing corpora](experiments/px4-sitl-fixedwing.md)
-- [Cross-airframe fixed-wing gate](experiments/fixedwing-gate.md)
-
-Cross-platform:
-
-- [Fitting-policy selection](experiments/fitting-policy.md)
 
 ## Background
 

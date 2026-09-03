@@ -1,6 +1,6 @@
 # PX4 SITL Fixed-Wing Baseline and Platform-Neutral Objective
 
-**What this establishes:** the shared fixed-wing model-family contract, force law, and long-rollout training objective produce a stable baseline on both a closed-world synthetic corpus and a real PX4 SIH airplane maneuver-family corpus. Short and medium-horizon accuracy is strong, but complete-profile open-loop rollout still diverges on both corpora, and neither participates in the real-flight cross-airframe development contract.
+**What this establishes:** the shared fixed-wing model-family contract, force law, and long-rollout training objective produce a stable baseline on both a closed-world synthetic corpus and a real PX4 SIH airplane maneuver-family corpus. Short and medium-horizon accuracy is strong, but complete-profile open-loop rollout still diverges on both corpora, and neither corpus is real-flight evidence.
 
 > **Recorded before the 2026-09-01 estimator revisions.** The artifacts behind
 > this page were not regenerated because the run is long, so three conventions
@@ -16,7 +16,7 @@
 
 ## Purpose
 
-Every fixed-wing fit in Glassbox shares one model-family contract, force law, and long-rollout training objective. This page defines that contract for both the compact structured law and its optional structured residual, then benchmarks the structured baseline first on a synthetic smoke corpus and then on a real PX4 SITL fixed-wing maneuver-family corpus. For real-flight fixed-wing results, see [IDF-DS](idf.md) and [X8](x8.md); those feed the [cross-airframe development gate](fixedwing-gate.md) that this simulator-only corpus does not.
+Every fixed-wing fit in Glassbox shares one model-family contract, force law, and long-rollout training objective. This page defines that contract for both the compact structured law and its optional structured residual, then benchmarks the structured baseline first on a synthetic smoke corpus and then on a real PX4 SITL fixed-wing maneuver-family corpus. For real-flight fixed-wing results, see [IDF-DS](idf.md) and [X8](x8.md); this simulator-only corpus is not real-flight evidence.
 
 The shared model-family contract separates platform, control names, semantic roles, latent applied-control state, and residual support. Fixed-wing requires the roles `throttle`, `roll`, and `pitch`; `yaw` and `flap` are optional. Control columns may use airframe-specific names or order because the dynamics indexes the static role layout carried by `TrajectorySpec`. A conventional trajectory uses `throttle, aileron, elevator, rudder`, while a flying wing can use `throttle, roll, pitch`. Each fit compiles one fixed layout, so incompatible configurations are rejected during pooling rather than mixed inside a JAX batch.
 
@@ -82,4 +82,4 @@ On the held-out synthetic fixed-wing smoke flight, the shared long-rollout objec
 
 ## Boundary
 
-The synthetic corpus verifies the pipeline, not real-airframe accuracy, and does not participate in the real-flight fixed-wing development contract. The `fixedwing_v2` results do not participate in the real-flight cross-airframe contract either: the threshold-setting data and scoring data are the same single-airframe, single-replicate-per-condition corpus, and complete-profile rollout still diverges. The structured model remains the recommended default until a residual improves leave-profile-out long-rollout accuracy without destabilizing another motion family.
+The synthetic corpus verifies the pipeline, not real-airframe accuracy. The `fixedwing_v2` results are not real-flight evidence either: they come from one single-airframe, single-replicate-per-condition simulator corpus, and complete-profile rollout still diverges. The structured model remains the recommended default until a residual improves leave-profile-out long-rollout accuracy without destabilizing another motion family.

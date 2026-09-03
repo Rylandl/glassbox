@@ -409,42 +409,6 @@ MANIFEST: tuple[ArtifactSpec, ...] = (
         doc_page="docs/experiments/cascade-x8-validation.md",
     ),
     ArtifactSpec(
-        name="predictive-ensemble-results",
-        output="docs/results/predictive-ensemble-results.json",
-        doc_page="docs/concepts/predictive-ensembles.md",
-        unavailable_reason=(
-            "multi-hour predictive-ensemble corpus run; source telemetry is not "
-            "checked into the repo"
-        ),
-    ),
-    ArtifactSpec(
-        name="predictive-ensemble-calibration-results",
-        output="docs/results/predictive-ensemble-calibration-results.json",
-        doc_page="docs/concepts/predictive-ensembles.md",
-        unavailable_reason=(
-            "multi-hour predictive-ensemble corpus run; source telemetry is not "
-            "checked into the repo"
-        ),
-    ),
-    ArtifactSpec(
-        name="predictive-ensemble-balanced-calibration-results",
-        output="docs/results/predictive-ensemble-balanced-calibration-results.json",
-        doc_page="docs/concepts/predictive-ensembles.md",
-        unavailable_reason=(
-            "multi-hour predictive-ensemble corpus run; source telemetry is not "
-            "checked into the repo"
-        ),
-    ),
-    ArtifactSpec(
-        name="predictive-ensemble-idf-results",
-        output="docs/results/predictive-ensemble-idf-results.json",
-        doc_page="docs/concepts/predictive-ensembles.md",
-        unavailable_reason=(
-            "multi-hour predictive-ensemble corpus run; source telemetry is not "
-            "checked into the repo"
-        ),
-    ),
-    ArtifactSpec(
         name="multirotor-profile-results",
         output="docs/results/multirotor-profile-results.json",
         doc_page="docs/experiments/px4-sitl-multirotor.md",

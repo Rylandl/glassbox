@@ -266,10 +266,7 @@ belief = belief.recalibrate_predictive_error(calibration_telemetry)
 ```
 
 `glassbox prior` builds the artifact from fitted vehicle beliefs without tuning
-flags. `glassbox adaptation-benchmark` then exercises prior initialization,
-family-level predictive error, an immutable live update, and disjoint held-out
-prediction for both maintained vehicle families. It is deliberately a
-directional synthetic diagnostic rather than a fractional-performance gate.
+flags.
 
 `LocalGaussianParameterBelief` still covers only the compact structured
 coefficient block. A residual network remains fixed during fast conditioning

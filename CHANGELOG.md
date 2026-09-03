@@ -146,6 +146,42 @@ All notable changes to Glassbox are recorded here. The format follows
   innovation diagnostic, and the rejected residual-innovation observer. The
   literature review keeps the decision and the numbers as prose. Last commit
   carrying the code and artifacts: `4c119a8`.
+- The predictive-ensemble uncertainty workflow: `workflows/predictive_ensemble.py`,
+  the `glassbox ensemble-benchmark` leaf, `docs/concepts/predictive-ensembles.md`,
+  its four recorded notes under `docs/results/` with their manifest entries, the
+  seven `glassbox.experimental` re-exports, and `tests/test_predictive_ensemble.py`.
+  Five versions ended in a clean negative on the IDF-DS corpus; the literature
+  review keeps the finding as prose. Last commit carrying the code and
+  artifacts: `bd48419`.
+- `workflows/adaptation_benchmark.py`, its `glassbox adaptation-benchmark` leaf,
+  and `tests/test_adaptation_benchmark.py`. The benchmark asserted that every
+  update applied while its own report recorded the acceptance gate as failed, it
+  backed no recorded artifact, and the adaptive-recovery benchmark already
+  covers the belief-to-control path. Last commit carrying it: `bd48419`.
+- The research promotion machinery: `workflows/policy_selection.py`,
+  `workflows/fixedwing_gate.py`, `workflows/acceptance.py`,
+  `workflows/selection.py`, the `glassbox select-policy` and
+  `glassbox fixedwing-gate` leaves, `docs/experiments/fitting-policy.md`,
+  `docs/experiments/fixedwing-gate.md`, and their three tests. The verdicts were
+  already recorded and nothing in CI ran the contracts, so `profile-benchmark`
+  no longer reports an accuracy-contract status. The two reusable divergence
+  helpers moved into `core.evaluation` as the public `summarize_divergence` and
+  `p90_horizons`; the literature review keeps the verdicts as prose. Last commit
+  carrying the code: `bd48419`.
+- `workflows/angular_authority.py`, `workflows/nanodrone_rotation.py`, and their
+  two tests. The angular-authority selection sweep was maintainer-only and its
+  numbers had no recorded artifact, so the NanoDrone and ARP paragraphs that
+  rested on it are withdrawn on those pages.
+  `core.dynamics.with_angular_dynamics_authority` is untouched. Last commit
+  carrying the code: `bd48419`.
+- The dead `Group` class in `cli/_tree.py`, the `Node` union, and the
+  `isinstance` branches over them in `cli/__init__.py` and the console-script
+  test: the command tree has no groups, and every leaf sits at the top level.
+  Last commit carrying it: `bd48419`.
+- `scripts/reextract_profile_dataset.py`, a one-off migration into canonical
+  trajectory format v3, and its invocation on the PX4 SITL multirotor page.
+  Corpora are re-extracted from raw telemetry instead. Last commit carrying
+  it: `bd48419`.
 
 ### Fixed
 - `glassbox fit --model --report` no longer fails on a NumPy scalar.

@@ -12,7 +12,6 @@ from glassbox.core.data import load_trajectory_npz
 from glassbox.core.evaluation import aggregate_rollout_metrics
 from glassbox.core.model_io import save_dynamics_model
 from glassbox.core.runtime import runtime_spec_from_fit_report
-from glassbox.workflows.acceptance import evaluate_multirotor_accuracy
 from glassbox.workflows.fitting import fit_trajectory_artifacts
 
 
@@ -204,25 +203,9 @@ def benchmark_profiles(
         },
         "per_profile": per_profile,
     }
-    summary["acceptance"] = (
-        evaluate_multirotor_accuracy(
-            state_source=state_source,
-            aggregate_full_rollout=summary["aggregate"]["full_rollout"],
-            aggregate_horizon_rollouts=summary["aggregate"]["horizon_rollouts"],
-            per_profile=per_profile,
-        )
-        if platform == "multirotor"
-        else {
-            "status": "not_scored",
-            "passed": None,
-            "platform": platform,
-            "reason": "no versioned fixed-wing accuracy contract is defined yet",
-        }
-    )
     summary_path = destination / "summary.json"
     summary_path.write_text(json.dumps(summary, indent=2) + "\n")
     print(f"wrote {summary_path}")
-    print(f"accuracy contract: {summary['acceptance']['status']}")
     return summary
 
 

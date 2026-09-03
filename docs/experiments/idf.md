@@ -66,4 +66,4 @@ At two seconds the p90 held-out-session errors are 1.19 m, 1.33 m/s, 12.63 degre
 
 ## Boundary
 
-These are strong model-selection results on one conventional airframe, not evidence of zero-shot parameter transfer. The result feeds the [cross-airframe fixed-wing development gate](fixedwing-gate.md) rather than standing alone as a performance claim.
+These are strong model-selection results on one conventional airframe, not evidence of zero-shot parameter transfer, and they do not stand alone as a performance claim.
