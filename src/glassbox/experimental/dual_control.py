@@ -468,6 +468,12 @@ class DualControlConfig:
     #: exceed it is charged wherever it does.  Without this the limit is
     #: charged only on the steps the goal horizon admits.
     rate_limit_on_mean: bool = False
+    #: Scale the goal-derived seeds (righting, collective, the goal descents
+    #: and their composites) by the identifier's overall information
+    #: authority, so a plan that acts on a barely learned map starts gentle
+    #: and the full slew is only proposed once the map has been earned.  The
+    #: excitation seeds are not scaled: learning is what earns the authority.
+    goal_seed_authority: bool = False
     #: The declared per-interval slew limit, as a fraction of the command
     #: range.  Under ``"slew_moves"`` this is a hard box on every block's move,
     #: so the executed command never leaves the previous one by more than this
@@ -716,6 +722,7 @@ class DualControlConfig:
             "excitation_basis": self.excitation_basis,
             "authority_scaled_maps": self.authority_scaled_maps,
             "rate_limit_on_mean": self.rate_limit_on_mean,
+            "goal_seed_authority": self.goal_seed_authority,
             "goal_seeds": self.goal_seeds,
             "warm_start_shift": self.warm_start_shift,
             "slew_per_interval": self.slew_per_interval,
@@ -807,6 +814,8 @@ class _Posterior(NamedTuple):
     #: Prior precision of an unlearned coefficient in each regression.
     collective_prior_precision: Array = jnp.asarray(1e-3)
     angular_prior_precision: Array = jnp.asarray(1e-3)
+    #: The identifier's overall information authority, in ``[0, 1]``.
+    information_authority: Array = jnp.asarray(1.0)
 
 
 class _Rollout(NamedTuple):
@@ -1338,8 +1347,13 @@ class DualControlNMPC:
         # is exactly zero-mean over any two cycles.
         polarity = jnp.where((index // _COMMAND_SIZE) % 2 == 0, 1.0, -1.0)
         alternating = polarity[:, None] * cycle
-        righting = hold.at[0].set(self._righting_move(state, posterior))
-        collective = hold.at[0].set(self._collective_move(posterior))
+        gain = (
+            posterior.information_authority
+            if self.config.goal_seed_authority
+            else jnp.asarray(1.0)
+        )
+        righting = hold.at[0].set(gain * self._righting_move(state, posterior))
+        collective = hold.at[0].set(gain * self._collective_move(posterior))
         seeds = jnp.stack(
             (
                 warm_blocks,
@@ -1354,7 +1368,7 @@ class DualControlNMPC:
         )
         if not self.config.goal_seeds:
             return seeds
-        goals = self._goal_moves(state, posterior, previous_command)
+        goals = gain * self._goal_moves(state, posterior, previous_command)
         # Each goal seed laid over the excitation cycle: a plan that pursues
         # the goal and learns at the same time, so "thrust while probing" is
         # on the table as a whole rather than only as something the gradient
@@ -2922,6 +2936,7 @@ class DualControlNMPC:
             ),
             collective_prior_precision=jnp.asarray(collective_prior),
             angular_prior_precision=jnp.asarray(angular_prior),
+            information_authority=jnp.asarray(float(belief.information_authority)),
             collective_information=jnp.asarray(belief.collective_information),
             angular_information=jnp.asarray(belief.angular_information),
             angular_residual_variance=jnp.asarray(

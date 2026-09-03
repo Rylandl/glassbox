@@ -1497,6 +1497,9 @@ def test_pass_six_declares_its_switches_and_refuses_malformed_ones() -> None:
     assert config.horizon_neighbourhood == "box"
     assert config.authority_scaled_maps is True
     assert config.warm_start_shift == "step"
+    # Measured and rejected; kept as switches, off.
+    assert config.rate_limit_on_mean is False
+    assert config.goal_seed_authority is False
     assert config.horizon_steps == 100 and config.block_steps == 5
     assert dual_control_config("pass5").excitation_basis == "motor"
     for field, value in (
