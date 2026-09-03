@@ -1448,12 +1448,38 @@ before they can right, in flights that last under a second.
 
 ### What this leaves
 
-The early floor contacts remain, at about 50 of 112 through three rounds.
-The releases that still crash are the low, fast, tumbling ones, and on the
-gate the remaining failure is a body-rate spin-up driven by the controller's
-own differential commands on a partially learned map, before the map is
-good enough to right with. The declared rate limit is charged only where the
-posterior can see, which at that moment is almost nowhere.
+The early floor contacts remain, at about 50 of 112 through three rounds,
+and two more controller-side ideas for them were measured and rejected:
+charging the declared rate limit on the mean prediction over the whole
+horizon (a one-second rollout on a partial map predicts wild rates for every
+plan, so the penalty distorts the choice arbitrarily) and scaling the
+goal-derived seeds by the identifier's authority (gentler seeds, more
+crashes). Both stay as switches, off.
+
+Where the contacts are is the useful reading. Paired against the certified
+cascade on the same 112 releases, the cascade touches the floor on 38 and
+the learned arm on 51, but only 23 are shared: the learned arm saves 15
+releases the cascade loses and loses 28 the cascade saves. Per case the
+learned arm has *fewer* contacts on the canonical, cross-axis tumble, and
+reversed-tumble releases, and more on the state-noise case (15 against 6),
+the mid-flight arm change (11 against 5, on a release the learned arm loses
+5 of 16 of when nothing changes mid-flight, so mostly chaotic spread), and
+the low-energy release (6 against 0). The one structural deficit is
+measurement noise: differenced noisy targets keep the identifier's residual
+high, its authority low, and, now that the maps are used at that authority,
+the controller nearly unable to act. The cascade thrusts at its declared
+midpoint whatever the identifier says, which is exactly the prior this
+design refuses; the honest equivalent is an identifier whose uncertainty
+accounting separates measurement noise from model error, and that is the
+next round, on the identifier rather than the controller.
+
+Two cautions for anyone reading single flights. The same perturbed release
+does not reproduce bit-for-bit between the gate's single process and the
+ensemble's worker processes, and the flights are chaotic enough that a draw
+the ensemble lost can recover on the gate; the gate rejects designs, the
+ensemble ranks them. And the per-case intervals at sixteen releases are
+wide enough that a five-of-sixteen and an eleven-of-sixteen on the same
+release distribution are one number.
 
 The state-noise case recovers nothing in any configuration, and the flight
 shows why: differenced noisy measurements inflate the identifier's residual
