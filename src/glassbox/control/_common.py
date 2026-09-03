@@ -7,11 +7,8 @@ of :mod:`glassbox.control.bootstrap_identification`,
 exactly as they were, in the same operation order, so consolidating them
 changes no number anywhere.
 
-Nothing here is part of the public API.  Two of these helpers are geometry
-rather than control and belong in :mod:`glassbox.core.geometry` once that
-module gains its NumPy rotation support: :func:`quaternion_to_rotation` and
-:func:`quaternion_to_rotation_batch`, with :func:`world_up_body` a reasonable
-third.
+Nothing here is part of the public API. The NumPy and JAX rotation helpers
+that once lived here are public in :mod:`glassbox.core.geometry`.
 """
 
 from __future__ import annotations
@@ -21,9 +18,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
-import jax.numpy as jnp
 import numpy as np
-from jax import Array
 
 from glassbox.core.dynamics import GRAVITY_M_S2
 
@@ -76,91 +71,6 @@ def immutable_array(value: Any, shape: tuple[int, ...], name: str) -> np.ndarray
         raise ValueError(f"{name} must have shape {shape} and contain finite values")
     result.flags.writeable = False
     return result
-
-
-def quaternion_to_rotation(quaternion_wxyz: np.ndarray) -> np.ndarray:
-    """Return the NumPy body-to-world rotation for one non-unit quaternion.
-
-    This is the NumPy mirror of :func:`glassbox.core.dynamics.quaternion_to_rotation`,
-    with the normalization the JAX version leaves to its caller folded in. It
-    is kept separate from
-    :func:`glassbox.core.geometry.quaternion_to_rotation_matrices` on purpose:
-    this version normalizes with ``np.linalg.norm(q)`` while the batched helper
-    reduces along ``axis=-1``, and the two differ in the last ulp for roughly
-    one quaternion in seven. That perturbation sits far below every test
-    tolerance but the recorded closed-loop Crazyflow diagnostics amplify it over
-    hundreds of steps, so swapping helpers silently moves pinned numbers.
-    """
-
-    quaternion = quaternion_wxyz / np.linalg.norm(quaternion_wxyz)
-    w, x, y, z = quaternion
-    return np.asarray(
-        (
-            (
-                1.0 - 2.0 * (y * y + z * z),
-                2.0 * (x * y - z * w),
-                2.0 * (x * z + y * w),
-            ),
-            (
-                2.0 * (x * y + z * w),
-                1.0 - 2.0 * (x * x + z * z),
-                2.0 * (y * z - x * w),
-            ),
-            (
-                2.0 * (x * z - y * w),
-                2.0 * (y * z + x * w),
-                1.0 - 2.0 * (x * x + y * y),
-            ),
-        )
-    )
-
-
-def quaternion_to_rotation_batch(quaternion_wxyz: Array) -> Array:
-    """Return body-to-world rotations for a batch of non-unit quaternions.
-
-    The batched, normalizing JAX counterpart of
-    :func:`glassbox.core.dynamics.quaternion_to_rotation`.  It is written as a
-    single stacked expression rather than a ``vmap`` of the scalar version so
-    the traced graph, and therefore every fitted number, is unchanged.
-    """
-
-    quaternion = quaternion_wxyz / jnp.linalg.norm(
-        quaternion_wxyz, axis=-1, keepdims=True
-    )
-    w, x, y, z = jnp.moveaxis(quaternion, -1, 0)
-    return jnp.stack(
-        (
-            1.0 - 2.0 * (y * y + z * z),
-            2.0 * (x * y - z * w),
-            2.0 * (x * z + y * w),
-            2.0 * (x * y + z * w),
-            1.0 - 2.0 * (x * x + z * z),
-            2.0 * (y * z - x * w),
-            2.0 * (x * z - y * w),
-            2.0 * (y * z + x * w),
-            1.0 - 2.0 * (x * x + y * y),
-        ),
-        axis=-1,
-    ).reshape((-1, 3, 3))
-
-
-def world_up_body(unit_quaternion_wxyz: np.ndarray) -> np.ndarray:
-    """Return world up expressed in the body frame of a unit quaternion.
-
-    This is the third row of the body-to-world rotation, written out directly
-    so no full matrix is built for the one column that is needed.  The
-    quaternion must already be normalized; callers own that step because they
-    differ in how they reject a degenerate norm.
-    """
-
-    w, x, y, z = unit_quaternion_wxyz
-    return np.asarray(
-        (
-            2.0 * (x * z - w * y),
-            2.0 * (y * z + w * x),
-            1.0 - 2.0 * (x * x + y * y),
-        )
-    )
 
 
 @dataclass(frozen=True)

@@ -9,8 +9,9 @@ from typing import Any
 
 import numpy as np
 
-from glassbox.control._common import finite_tuple, world_up_body
+from glassbox.control._common import finite_tuple
 from glassbox.core.dynamics import MOTOR_MIXER
+from glassbox.core.geometry import world_up_body
 
 
 def _tilt_error_body(body_up: np.ndarray) -> np.ndarray:

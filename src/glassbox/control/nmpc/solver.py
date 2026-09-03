@@ -92,7 +92,7 @@ def _projected_gradient_norm(blocks: Array, gradient: Array) -> Array:
 
 
 @dataclass(frozen=True)
-class _SolverPolicy:
+class SolverPolicy:
     horizon_steps: int
     block_count: int
     maximum_iterations: int = 8
@@ -269,7 +269,7 @@ class _SolveAbort(Exception):
         self.message = message
 
 
-def _default_policy(model: RuntimeDynamicsModel) -> _SolverPolicy:
+def _default_policy(model: RuntimeDynamicsModel) -> SolverPolicy:
     dt_s = model.runtime_spec.sample_period_s
     target_horizon_s = 0.6 if model.input_spec.vehicle.family == "multirotor" else 1.0
     certified = model.runtime_spec.certified_prediction_horizon_s
@@ -281,7 +281,7 @@ def _default_policy(model: RuntimeDynamicsModel) -> _SolverPolicy:
         steps = duration_to_steps(certified, dt_s)
     if steps < 1:
         raise ValueError("certified prediction horizon is shorter than one model step")
-    return _SolverPolicy(
+    return SolverPolicy(
         horizon_steps=steps,
         block_count=_maintained_block_count(steps),
     )
@@ -337,15 +337,15 @@ class _DirectShootingBackend:
         tolerances: TrackingTolerances,
         safety_envelope: SafetyEnvelope,
         *,
-        _policy: _SolverPolicy | None = None,
+        policy: SolverPolicy | None = None,
     ) -> None:
         self.belief = belief
         self.model = belief.nominal
         self._active_parameters = self.model.params
         self.tolerances = tolerances
         self.safety_envelope = safety_envelope
-        self._policy = _default_policy(self.model) if _policy is None else _policy
-        if _policy is None and belief.maximum_error_horizon_s is not None:
+        self._policy = _default_policy(self.model) if policy is None else policy
+        if policy is None and belief.maximum_error_horizon_s is not None:
             supported_steps = math.floor(
                 belief.maximum_error_horizon_s / self.model.runtime_spec.sample_period_s
                 + 1e-9
@@ -2210,7 +2210,7 @@ class NMPCController:
         tolerances: TrackingTolerances | None = None,
         safety_envelope: SafetyEnvelope | None = None,
         *,
-        _policy: _SolverPolicy | None = None,
+        policy: SolverPolicy | None = None,
     ) -> None:
         belief = _runtime_belief(model)
         self.belief = belief
@@ -2227,7 +2227,7 @@ class NMPCController:
             belief,
             self.tolerances,
             self.safety_envelope,
-            _policy=_policy,
+            policy=policy,
         )
 
     def rebind_belief(

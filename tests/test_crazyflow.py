@@ -502,7 +502,7 @@ def test_integrated_supervisor_fault_campaign_keeps_hidden_plant_bounded() -> No
             trajectory.spec,
             runtime_spec_from_trajectory(trajectory),
         ),
-        _policy=_crazyflow_solver_policy(),
+        policy=_crazyflow_solver_policy(),
     )
 
     report = _simulate_supervisor_fault_campaign(controller)

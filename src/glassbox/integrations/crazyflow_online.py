@@ -329,7 +329,7 @@ def _simulate_online_adaptation_recovery(
     hover = np.full(4, plant.hover_motor_thrust_fraction, dtype=np.float64)
     reference_state = resting_state()
     reference_state[2] = 1.0
-    stale_controller = NMPCController(belief, _policy=_crazyflow_solver_policy())
+    stale_controller = NMPCController(belief, policy=_crazyflow_solver_policy())
     reference = stale_controller.hold_reference(jnp.asarray(reference_state))
 
     prewarm_started_at = time.perf_counter()
@@ -343,7 +343,7 @@ def _simulate_online_adaptation_recovery(
 
     controller_template = NMPCController(
         _post_update_controller_template(belief),
-        _policy=_crazyflow_solver_policy(),
+        policy=_crazyflow_solver_policy(),
     )
     template_reference = controller_template.hold_reference(
         jnp.asarray(reference_state)

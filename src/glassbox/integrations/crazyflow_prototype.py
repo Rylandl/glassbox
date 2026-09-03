@@ -235,12 +235,12 @@ def run_crazyflow_adaptive_recovery_prototype() -> dict[str, Any]:
         (
             "stale_belief",
             "prechange telemetry fit plus current fleet forecast error",
-            NMPCController(belief, _policy=_crazyflow_solver_policy()),
+            NMPCController(belief, policy=_crazyflow_solver_policy()),
         ),
         (
             "adapted_belief",
             "transactionally adapted mean plus parameter uncertainty",
-            NMPCController(updated, _policy=_crazyflow_solver_policy()),
+            NMPCController(updated, policy=_crazyflow_solver_policy()),
         ),
         (
             "adapted_mean_point",
@@ -252,7 +252,7 @@ def run_crazyflow_adaptive_recovery_prototype() -> dict[str, Any]:
                     point_runtime_spec,
                     actuation,
                 ),
-                _policy=_crazyflow_solver_policy(),
+                policy=_crazyflow_solver_policy(),
             ),
         ),
         (
@@ -260,7 +260,7 @@ def run_crazyflow_adaptive_recovery_prototype() -> dict[str, Any]:
             "independent full target-configuration telemetry fit",
             NMPCController(
                 oracle_runtime,
-                _policy=_crazyflow_solver_policy(),
+                policy=_crazyflow_solver_policy(),
             ),
         ),
     )

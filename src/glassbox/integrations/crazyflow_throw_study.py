@@ -30,7 +30,6 @@ from typing import Any
 
 import numpy as np
 
-from glassbox.control._common import quaternion_to_rotation
 from glassbox.control.online_bootstrap import (
     ProgressiveBootstrapController,
     RecursiveBootstrapBelief,
@@ -38,6 +37,7 @@ from glassbox.control.online_bootstrap import (
     RecursiveBootstrapIdentifier,
 )
 from glassbox.core.dynamics import GRAVITY_M_S2
+from glassbox.core.geometry import quaternion_to_rotation
 from glassbox.experimental.dual_control import (
     DualControlConfig,
     DualControlNMPC,

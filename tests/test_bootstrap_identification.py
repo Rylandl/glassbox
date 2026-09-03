@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import replace
+from dataclasses import fields, replace
 
 import numpy as np
 import pytest
@@ -14,6 +14,7 @@ from glassbox.control.bootstrap_identification import (
 )
 from glassbox.control.online_bootstrap import (
     ProgressiveBootstrapController,
+    RecursiveBootstrapBelief,
     RecursiveBootstrapConfig,
     RecursiveBootstrapIdentifier,
 )
@@ -1281,3 +1282,54 @@ def test_the_integrated_collective_fit_is_honest_under_velocity_noise() -> None:
         on.belief.collective_information, off.belief.collective_information
     )
     assert np.allclose(on.belief.angular_information, off.belief.angular_information)
+
+
+# The dual-control controller in glassbox-throw reads this belief field by
+# field, so the field list is a downstream contract: a rename or removal has to
+# be made here on purpose, and mirrored there.
+RECURSIVE_BOOTSTRAP_BELIEF_FIELDS = (
+    "interval_count",
+    "effective_interval_count",
+    "collective_acceleration_per_command",
+    "collective_velocity_coefficient",
+    "collective_intercept_m_s2",
+    "angular_acceleration_per_command",
+    "angular_rate_coefficient",
+    "angular_rate_product_coefficient",
+    "angular_intercept_rad_s2",
+    "normalized_command_support_projector",
+    "normalized_command_singular_values",
+    "normalized_command_information",
+    "supported_collective_effect_covariance",
+    "supported_angular_effect_covariance",
+    "collective_information",
+    "angular_information",
+    "command_evidence_rank",
+    "angular_effect_rank",
+    "collective_nuisance_rank",
+    "angular_nuisance_rank",
+    "angular_output_support_projector",
+    "collective_support_fraction",
+    "minimum_supported_information_singular_value",
+    "information_authority",
+    "collective_effect_signal_to_noise",
+    "angular_effect_signal_to_noise",
+    "collective_residual_std_m_s2",
+    "angular_residual_std_rad_s2",
+    "exploration_completion",
+    "collective_authority",
+    "angular_axis_authority",
+    "hover_command",
+    "update_wall_time_s",
+    "collective_nuisance_staged",
+    "angular_nuisance_staged",
+    "collective_staging_interval_count",
+    "angular_staging_interval_count",
+    "collective_sign_projection_count",
+    "collective_sign_projection_magnitude",
+)
+
+
+def test_recursive_bootstrap_belief_fields_are_a_downstream_contract() -> None:
+    names = tuple(field.name for field in fields(RecursiveBootstrapBelief))
+    assert names == RECURSIVE_BOOTSTRAP_BELIEF_FIELDS

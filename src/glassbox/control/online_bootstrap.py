@@ -20,10 +20,10 @@ from glassbox.control._common import (
     ThrustCascade,
     finite_vector,
     immutable_array,
-    quaternion_to_rotation,
     thrust_cascade,
 )
 from glassbox.core.dynamics import GRAVITY_M_S2
+from glassbox.core.geometry import quaternion_to_rotation
 
 
 @dataclass(frozen=True)

@@ -1,6 +1,6 @@
 """Opinionated nonlinear model-predictive control for Glassbox models."""
 
-from glassbox.control.nmpc.solver import NMPCController
+from glassbox.control.nmpc.solver import NMPCController, SolverPolicy
 from glassbox.control.nmpc.types import (
     NMPCDiagnostics,
     NMPCResult,
@@ -21,6 +21,7 @@ __all__ = [
     "ReferenceTrajectory",
     "SafetyEnvelope",
     "SolveStatus",
+    "SolverPolicy",
     "SupportFilterMode",
     "TrackingTolerances",
     "quaternion_log_error",

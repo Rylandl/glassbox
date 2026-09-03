@@ -29,11 +29,11 @@ from glassbox.control.nmpc import (
     quaternion_log_error,
 )
 from glassbox.control.nmpc.solver import (
+    SolverPolicy,
     _block_steps_for,
     _blocks_cover_horizon,
     _maintained_block_count,
     _projected_gradient_norm,
-    _SolverPolicy,
 )
 from glassbox.core.data import (
     RIGID_BODY_STATE_SCHEMA,
@@ -173,11 +173,11 @@ def _flying_wing_runtime() -> RuntimeDynamicsModel:
     )
 
 
-def _test_policy(*, horizon_steps: int = 6) -> _SolverPolicy:
+def _test_policy(*, horizon_steps: int = 6) -> SolverPolicy:
     block_count = max(
         count for count in range(1, 4) if _blocks_cover_horizon(horizon_steps, count)
     )
-    return _SolverPolicy(
+    return SolverPolicy(
         horizon_steps=horizon_steps,
         block_count=block_count,
         maximum_iterations=4,
@@ -224,7 +224,7 @@ def test_quaternion_error_is_sign_invariant_and_has_finite_identity_gradient() -
 
 def test_control_blocks_expand_and_commands_remain_bounded() -> None:
     model = _multirotor_runtime()
-    controller = NMPCController(model, _policy=_test_policy(horizon_steps=5))
+    controller = NMPCController(model, policy=_test_policy(horizon_steps=5))
     blocks = jnp.asarray(
         [
             [-1.0] * 4,
@@ -281,12 +281,12 @@ def test_default_multirotor_block_layout_has_no_dead_blocks_at_fifty_hertz() -> 
 
 def test_solver_policy_rejects_a_layout_with_dead_command_blocks() -> None:
     with pytest.raises(ValueError, match="drive no prediction step"):
-        _SolverPolicy(horizon_steps=4, block_count=3)
+        SolverPolicy(horizon_steps=4, block_count=3)
 
 
 def test_solver_propagates_latent_state_and_returns_bounded_plan() -> None:
     model = _multirotor_runtime()
-    controller = NMPCController(model, _policy=_test_policy())
+    controller = NMPCController(model, policy=_test_policy())
     target = resting_state()
     state = target.copy()
     state[2] = -0.2
@@ -335,7 +335,7 @@ def test_solver_consumes_predictive_and_parameter_uncertainty() -> None:
             effective_sample_count=4.0,
         ),
     )
-    controller = NMPCController(belief, _policy=_test_policy(horizon_steps=4))
+    controller = NMPCController(belief, policy=_test_policy(horizon_steps=4))
     target = resting_state()
     previous = hover_control(true_parameters())
 
@@ -371,8 +371,8 @@ def test_large_model_uncertainty_bounds_command_authority() -> None:
         ),
     )
     policy = _test_policy(horizon_steps=4)
-    nominal_controller = NMPCController(model, _policy=policy)
-    uncertain_controller = NMPCController(belief, _policy=policy)
+    nominal_controller = NMPCController(model, policy=policy)
+    uncertain_controller = NMPCController(belief, policy=policy)
     target = resting_state()
     state = target.copy()
     state[2] = -0.2
@@ -458,7 +458,7 @@ def test_stale_predictive_error_does_not_cap_default_horizon() -> None:
 
 def test_applied_command_initializes_latent_actuator_state() -> None:
     model = _multirotor_runtime()
-    controller = NMPCController(model, _policy=_test_policy())
+    controller = NMPCController(model, policy=_test_policy())
     target = resting_state()
     previous = hover_control(true_parameters())
     applied = jnp.clip(previous - 0.05, 0.0, 1.0)
@@ -479,7 +479,7 @@ def test_applied_command_initializes_latent_actuator_state() -> None:
 
 def test_warm_start_is_selected_only_when_no_worse_than_cold_start() -> None:
     model = _multirotor_runtime()
-    controller = NMPCController(model, _policy=_test_policy())
+    controller = NMPCController(model, policy=_test_policy())
     target = resting_state()
     state = target.copy()
     state[0] = 0.3
@@ -502,7 +502,7 @@ def test_warm_start_is_selected_only_when_no_worse_than_cold_start() -> None:
 
 def test_warm_start_seed_advances_the_previous_plan_by_one_block() -> None:
     model = _multirotor_runtime()
-    controller = NMPCController(model, _policy=_test_policy(horizon_steps=6))
+    controller = NMPCController(model, policy=_test_policy(horizon_steps=6))
     backend = controller._backend
     block_values = (0.2, 0.5, 0.8)
     previous_blocks = np.asarray(
@@ -527,7 +527,7 @@ def test_warm_start_seed_advances_the_previous_plan_by_one_block() -> None:
 
 def test_invalid_estimate_and_deadline_return_bounded_fallback() -> None:
     model = _multirotor_runtime()
-    controller = NMPCController(model, _policy=_test_policy())
+    controller = NMPCController(model, policy=_test_policy())
     target = resting_state()
     previous = hover_control(true_parameters())
     invalid = target.copy()
@@ -556,7 +556,7 @@ def test_invalid_estimate_and_deadline_return_bounded_fallback() -> None:
 
 def test_previous_command_within_rounding_of_a_bound_is_accepted() -> None:
     model = _multirotor_runtime()
-    controller = NMPCController(model, _policy=_test_policy())
+    controller = NMPCController(model, policy=_test_policy())
     target = resting_state()
     reference = controller.hold_reference(jnp.asarray(target))
     maximum = np.asarray(model.command_maximum, dtype=np.float64)
@@ -585,7 +585,7 @@ def test_deadline_includes_prediction_diagnostics(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     model = _multirotor_runtime()
-    controller = NMPCController(model, _policy=_test_policy())
+    controller = NMPCController(model, policy=_test_policy())
     target = resting_state()
     previous = hover_control(true_parameters())
     reference = controller.hold_reference(jnp.asarray(target))
@@ -613,14 +613,14 @@ def test_deadline_includes_prediction_diagnostics(
 
 def test_forced_line_search_failure_returns_bounded_fallback() -> None:
     model = _multirotor_runtime()
-    policy = _SolverPolicy(
+    policy = SolverPolicy(
         horizon_steps=6,
         block_count=3,
         maximum_iterations=2,
         line_search_steps=1,
         armijo_fraction=1e6,
     )
-    controller = NMPCController(model, _policy=policy)
+    controller = NMPCController(model, policy=policy)
     target = resting_state()
     state = target.copy()
     state[2] = -0.3
@@ -655,7 +655,7 @@ def test_projected_gradient_measures_stationarity_inside_the_command_box() -> No
 def test_converged_status_requires_the_first_order_criterion() -> None:
     model = _multirotor_runtime()
     policy = _test_policy()
-    controller = NMPCController(model, _policy=policy)
+    controller = NMPCController(model, policy=policy)
     target = resting_state()
     previous = hover_control(true_parameters())
 
@@ -675,7 +675,7 @@ def test_converged_status_requires_the_first_order_criterion() -> None:
 
 def test_improvement_stall_is_reported_as_stalled_rather_than_converged() -> None:
     model = _multirotor_runtime()
-    policy = _SolverPolicy(
+    policy = SolverPolicy(
         horizon_steps=6,
         block_count=3,
         maximum_iterations=4,
@@ -683,7 +683,7 @@ def test_improvement_stall_is_reported_as_stalled_rather_than_converged() -> Non
         gradient_tolerance=1e-9,
         relative_improvement_tolerance=1.0,
     )
-    controller = NMPCController(model, _policy=policy)
+    controller = NMPCController(model, policy=policy)
     target = resting_state()
     state = target.copy()
     state[2] = -0.2
@@ -708,7 +708,7 @@ def test_improvement_stall_is_reported_as_stalled_rather_than_converged() -> Non
 
 def test_line_search_stall_after_progress_keeps_the_improved_plan() -> None:
     model = _multirotor_runtime()
-    policy = _SolverPolicy(
+    policy = SolverPolicy(
         horizon_steps=6,
         block_count=3,
         maximum_iterations=12,
@@ -718,7 +718,7 @@ def test_line_search_stall_after_progress_keeps_the_improved_plan() -> None:
         gradient_tolerance=1e-9,
         relative_improvement_tolerance=1e-12,
     )
-    controller = NMPCController(model, _policy=policy)
+    controller = NMPCController(model, policy=policy)
     target = resting_state()
     state = target.copy()
     state[0] = 0.3
@@ -741,7 +741,7 @@ def test_line_search_stall_after_progress_keeps_the_improved_plan() -> None:
 
 def test_support_candidates_are_vehicle_agnostic_nmpc_projections() -> None:
     model = _fixed_wing_runtime()
-    controller = NMPCController(model, _policy=_test_policy(horizon_steps=4))
+    controller = NMPCController(model, policy=_test_policy(horizon_steps=4))
     previous = np.asarray(fixed_wing_trim_control(model.params, TRIM_AIRSPEED_M_S))
     nominal = np.clip(
         previous + np.asarray((0.1, 0.2, -0.2, 0.1)),
@@ -766,7 +766,7 @@ def test_support_candidates_are_vehicle_agnostic_nmpc_projections() -> None:
 
 def test_support_filter_keeps_next_step_inside_from_envelope_boundary() -> None:
     model = _narrow_rate_envelope_multirotor()
-    controller = NMPCController(model, _policy=_test_policy(horizon_steps=4))
+    controller = NMPCController(model, policy=_test_policy(horizon_steps=4))
     state = resting_state()
     state[10] = 0.19
     previous = np.full(4, 0.5)
@@ -803,8 +803,8 @@ def test_support_filter_tightens_boundary_for_predictive_error() -> None:
         ),
     )
     policy = _test_policy(horizon_steps=4)
-    point_controller = NMPCController(model, _policy=policy)
-    belief_controller = NMPCController(belief, _policy=policy)
+    point_controller = NMPCController(model, policy=policy)
+    belief_controller = NMPCController(belief, policy=policy)
     state = resting_state()
     state[10] = 0.10
     previous = np.full(4, 0.5)
@@ -833,7 +833,7 @@ def test_support_filter_tightens_boundary_for_predictive_error() -> None:
 
 def test_support_filter_requires_validity_and_rate_progress_outside_envelope() -> None:
     model = _narrow_rate_envelope_multirotor()
-    controller = NMPCController(model, _policy=_test_policy(horizon_steps=4))
+    controller = NMPCController(model, policy=_test_policy(horizon_steps=4))
     state = resting_state()
     state[10] = 0.25
     previous = np.full(4, 0.5)
@@ -858,14 +858,14 @@ def test_support_filter_requires_validity_and_rate_progress_outside_envelope() -
 
 def test_solver_failure_does_not_inject_an_independent_controller() -> None:
     model = _multirotor_runtime()
-    policy = _SolverPolicy(
+    policy = SolverPolicy(
         horizon_steps=6,
         block_count=3,
         maximum_iterations=2,
         line_search_steps=1,
         armijo_fraction=1e6,
     )
-    controller = NMPCController(model, _policy=policy)
+    controller = NMPCController(model, policy=policy)
     target = resting_state()
     state = target.copy()
     state[2] = -0.3
@@ -889,7 +889,7 @@ def test_safety_envelope_reports_normalized_prediction_violation() -> None:
     controller = NMPCController(
         model,
         safety_envelope=SafetyEnvelope(maximum_position_m=(0.1, 0.1, 0.1)),
-        _policy=_test_policy(),
+        policy=_test_policy(),
     )
     state = resting_state()
     state[0] = 0.3
@@ -921,7 +921,7 @@ def test_objective_gradient_agrees_with_central_difference(model_kind: str) -> N
         state[0] = 0.1
         target = resting_state()
         previous = hover_control(true_parameters())
-    controller = NMPCController(model, _policy=_test_policy())
+    controller = NMPCController(model, policy=_test_policy())
     reference = controller.hold_reference(jnp.asarray(target))
     latent = model.initial_latent_state(previous)
     exogenous = jnp.zeros((controller.prediction_steps, model.exogenous_size))
@@ -978,7 +978,7 @@ def test_objective_gradient_agrees_with_central_difference(model_kind: str) -> N
 
 def test_compatible_belief_rebind_reuses_compiled_parameterized_kernels() -> None:
     model = _multirotor_runtime()
-    controller = NMPCController(model, _policy=_test_policy(horizon_steps=4))
+    controller = NMPCController(model, policy=_test_policy(horizon_steps=4))
     state = resting_state()
     state[7] = 0.08
     state[10] = 0.3
@@ -1020,7 +1020,7 @@ def test_compatible_belief_rebind_reuses_compiled_parameterized_kernels() -> Non
 
 def test_belief_rebind_rejects_a_changed_runtime_contract() -> None:
     model = _multirotor_runtime()
-    controller = NMPCController(model, _policy=_test_policy(horizon_steps=4))
+    controller = NMPCController(model, policy=_test_policy(horizon_steps=4))
     changed_runtime = replace(
         model,
         runtime_spec=replace(model.runtime_spec, sample_period_s=0.01),
@@ -1032,7 +1032,7 @@ def test_belief_rebind_rejects_a_changed_runtime_contract() -> None:
 
 def test_incompatible_warm_start_is_safely_ignored() -> None:
     model = _fixed_wing_runtime()
-    controller = NMPCController(model, _policy=_test_policy())
+    controller = NMPCController(model, policy=_test_policy())
     state = fixed_wing_trim_state()
     previous = fixed_wing_trim_control(true_fixed_wing_parameters(), TRIM_AIRSPEED_M_S)
     warm_start = NMPCWarmStart(jnp.zeros((2, 2)))
@@ -1049,7 +1049,7 @@ def test_incompatible_warm_start_is_safely_ignored() -> None:
 
 def test_fixedwing_generalized_roles_support_flying_wing_command_names() -> None:
     model = _flying_wing_runtime()
-    controller = NMPCController(model, _policy=_test_policy())
+    controller = NMPCController(model, policy=_test_policy())
     state = fixed_wing_trim_state()
     previous = fixed_wing_trim_control(
         true_fixed_wing_parameters(),
@@ -1086,7 +1086,7 @@ def test_exogenous_wind_forecast_flows_through_prediction() -> None:
         _runtime_spec(trajectory.nominal_dt_s),
         DirectActuationMap(spec.controls),
     )
-    controller = NMPCController(model, _policy=_test_policy())
+    controller = NMPCController(model, policy=_test_policy())
     target = resting_state()
     previous = hover_control(true_parameters())
 

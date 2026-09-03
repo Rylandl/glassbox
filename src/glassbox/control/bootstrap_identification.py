@@ -23,12 +23,14 @@ from jax import Array
 from glassbox.control._common import (
     finite_tuple,
     immutable_array,
-    quaternion_to_rotation,
-    quaternion_to_rotation_batch,
     thrust_cascade,
-    world_up_body,
 )
 from glassbox.core.dynamics import GRAVITY_M_S2
+from glassbox.core.geometry import (
+    quaternion_to_rotation,
+    quaternion_to_rotation_batch,
+    world_up_body,
+)
 
 
 @dataclass(frozen=True)

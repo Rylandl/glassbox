@@ -15,7 +15,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
-from glassbox.control.nmpc.solver import _SolverPolicy
+from glassbox.control.nmpc.solver import SolverPolicy
 from glassbox.core.data import (
     ObservationChannel,
     Trajectory,
@@ -168,10 +168,10 @@ def prewarm_controller(
     return cold, warm
 
 
-def _crazyflow_solver_policy() -> _SolverPolicy:
+def _crazyflow_solver_policy() -> SolverPolicy:
     """Return the fixed 50 Hz prototype policy with explicit timing headroom."""
 
-    return _SolverPolicy(
+    return SolverPolicy(
         horizon_steps=CONTROL_HORIZON_STEPS,
         block_count=10,
         maximum_iterations=6,

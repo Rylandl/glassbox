@@ -19,12 +19,12 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
-from glassbox.control._common import quaternion_to_rotation
 from glassbox.control.online_bootstrap import (
     RecursiveBootstrapBelief,
     RecursiveBootstrapIdentifier,
 )
 from glassbox.core.dynamics import GRAVITY_M_S2
+from glassbox.core.geometry import quaternion_to_rotation
 from glassbox.experimental.dual_control import (
     DUAL_CONTROL_VARIANTS,
     DualControlConfig,
