@@ -182,6 +182,16 @@ All notable changes to Glassbox are recorded here. The format follows
   trajectory format v3, and its invocation on the PX4 SITL multirotor page.
   Corpora are re-extracted from raw telemetry instead. Last commit carrying
   it: `bd48419`.
+- `RuntimeDynamicsBelief.assess_plan` and the public `PlanAssessment` type, with their four test sites and the plan-scoring
+  block of `docs/concepts/dynamics-beliefs.md`. Nothing in the package called
+  them, and every ingredient an exploration policy needs is already on the
+  rollout and on `parameter_evidence`. Last commit carrying them: `478c063`.
+- `EmpiricalHorizonPredictiveError.group_radius_quantiles` and its
+  `radius_quantiles` interpolator, the matching `PredictiveTrajectory` field,
+  and the `TANGENT_GROUP_SLICES` and weighted-quantile helpers behind them. No
+  recorded artifact carried the key and nothing read the radii. The
+  predictive-error payload is now format version 3; the loader still accepts
+  version 2 and ignores the key. Last commit carrying them: `478c063`.
 
 ### Fixed
 - `glassbox fit --model --report` no longer fails on a NumPy scalar.

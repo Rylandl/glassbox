@@ -40,7 +40,6 @@ EXPECTED_PUBLIC_API = (
     "NMPCWarmStart",
     "NonActionableModelError",
     "ObservationChannel",
-    "PlanAssessment",
     "PointParameterBelief",
     "PredictiveTrajectory",
     "ReferenceTrajectory",

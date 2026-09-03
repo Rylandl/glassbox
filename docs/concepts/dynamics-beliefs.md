@@ -67,7 +67,6 @@ A rollout returns:
 - the nominal state trajectory;
 - the evidence-corrected predictive mean;
 - tangent-space bias and covariance at every horizon;
-- empirical group-radius quantiles when available;
 - latent applied-control state;
 - validity-envelope utilization; and
 - whether the requested horizon is supported by the error evidence.
@@ -90,11 +89,10 @@ changing fitting, serialization, or NMPC.
 The initial `EmpiricalHorizonPredictiveError` is fitted only from held-out
 rollout endpoints. It gives every independent source group equal mass, then
 every trajectory within a group equal mass, then every endpoint within a
-trajectory equal mass. It records bias, full tangent covariance, empirical
-state-group radii, raw sample count, effective sample count, and independent
-group count. Covariance and radii are centered on the reported predictive bias.
-These are forecast-error statistics, not a posterior or calibrated probability
-distribution.
+trajectory equal mass. It records bias, full tangent covariance, raw sample
+count, effective sample count, and independent group count. The covariance is
+centered on the reported predictive bias. These are forecast-error statistics,
+not a posterior or calibrated probability distribution.
 
 Every empirical covariance carries one of two scopes:
 
@@ -112,8 +110,8 @@ Every artifact the shipped CLIs write carries `total_forecast_error`:
 `glassbox fit` fits held-out rollout error and records that scope, and the
 local parameter information it stores inherits the scope of the predictive
 error it was whitened with. No flag changes this. Everything in this document
-that depends on `conditional_innovation_error` -- `assess_plan` information
-gain, commit-time covariance contraction, and conditioning contraction -- is
+that depends on `conditional_innovation_error` -- commit-time covariance
+contraction and conditioning contraction -- is
 therefore reachable only by a caller who builds and attaches conditional
 innovation evidence programmatically, having separately justified that the
 covariance is measurement and process noise conditional on the parameters.
@@ -181,8 +179,8 @@ API requires callers to supply this context explicitly; missing or malformed
 history returns the original belief unchanged.
 
 Stale predictive-error artifacts remain attached for provenance and
-recalibration, but runtime forecasts and NMPC no longer apply their bias,
-covariance, or quantiles. Independently maintained parameter uncertainty remains
+recalibration, but runtime forecasts and NMPC no longer apply their bias or
+covariance. Independently maintained parameter uncertainty remains
 active around the updated nominal model. Because a commit stales the bias, a
 candidate is scored without it; see the acceptance criterion below.
 
@@ -344,9 +342,8 @@ therefore mark the held-out predictive-error model not current. This is
 deliberately different from deleting it, carrying it forward as if it still
 applied, or treating it as newly validated. The artifact stays attached for
 provenance, runtime forecasts still expose it together with the stale flag, but
-its bias, covariance, and quantiles stop being applied, the NMPC horizon cap
-disappears, and further updates and plan-information claims are rejected until
-the evidence is refreshed.
+its bias and covariance stop being applied, the NMPC horizon cap disappears, and
+further updates are rejected until the evidence is refreshed.
 
 `belief.recalibrate_predictive_error(telemetry)` is the way back. It rolls out
 nonoverlapping windows at the maintained horizons around the belief's
@@ -406,27 +403,18 @@ to the controller and neither substitutes for the other.
 
 ## Active exploration
 
-Safe exploration needs expected information, not merely large uncertainty. For
-a candidate control sequence, the runtime belief must be able to expose:
-
-```python
-runtime = belief.compile_for_nmpc()
-assessment = runtime.assess_plan(state, candidate_commands)
-
-assessment.prediction
-assessment.maximum_validity_utilization
-assessment.expected_parameter_information_gain_nats
-assessment.expected_parameter_covariance
-```
-
-`assess_plan()` differentiates the candidate endpoint with respect to the local
-structured coefficients. It reports Gaussian information gain only when the
-predictive-error evidence is current and explicitly conditional, so a shipped
-total-forecast artifact reports the prediction, validity utilization, and
-propagated parameter covariance but says information is unavailable; the gain
-is available to a caller who attaches conditional-innovation evidence.
-Rank-zero directions report information unavailable rather than enormous
-precision.
+Safe exploration needs expected information, not merely large uncertainty. The
+belief exposes the pieces that calculation is built from rather than a scoring
+entry point of its own. A rollout from `compile_for_nmpc()` returns the
+parameter tangent Jacobian, the propagated parameter covariance at every
+horizon, and validity utilization along the candidate path, and
+`parameter_evidence` carries the local information matrix with its numerical
+rank. An exploration policy forms expected information gain from those, on the
+coordinates and horizon it cares about, and must decide for itself that a
+rank-zero direction carries no information rather than enormous precision.
+Whether that gain is meaningful still depends on the error scope: only
+conditional innovation covariance can be inverted to claim contraction, and no
+shipped artifact carries it.
 Constraint risk remains a controller or exploration-policy concern because it
 depends on a mission safety envelope, not only the system model.
 

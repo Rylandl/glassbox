@@ -21,7 +21,6 @@ import numpy as np
 from jax import Array
 from jax.flatten_util import ravel_pytree
 
-from glassbox.core.covariance import supported_covariance
 from glassbox.core.data import TrajectorySpec
 from glassbox.core.dynamics import (
     ModelParams,
@@ -67,13 +66,10 @@ TANGENT_GROUP_ORDER = (
     "attitude",
     "angular_velocity",
 )
-TANGENT_GROUP_SLICES = (
-    slice(0, 3),
-    slice(3, 6),
-    slice(6, 9),
-    slice(9, 12),
-)
-PREDICTIVE_ERROR_FORMAT_VERSION = 2
+PREDICTIVE_ERROR_FORMAT_VERSION = 3
+# Version 2 carried per-state-group error radius quantiles. Nothing read them,
+# so the loader accepts that payload and ignores the key.
+SUPPORTED_PREDICTIVE_ERROR_FORMAT_VERSIONS = frozenset({2, 3})
 PARAMETER_BELIEF_FORMAT_VERSION = 1
 PARAMETER_EVIDENCE_FORMAT_VERSION = 2
 
@@ -91,18 +87,6 @@ def _owned_array(value: np.ndarray, *, dtype: Any = np.float64) -> np.ndarray:
     array = np.array(value, dtype=dtype, copy=True)
     array.setflags(write=False)
     return array
-
-
-def _weighted_quantile(
-    values: np.ndarray,
-    weights: np.ndarray,
-    level: float,
-) -> float:
-    order = np.argsort(values, kind="stable")
-    sorted_values = values[order]
-    cumulative = np.cumsum(weights[order])
-    index = min(int(np.searchsorted(cumulative, level, side="left")), len(values) - 1)
-    return float(sorted_values[index])
 
 
 @dataclass(frozen=True)
@@ -175,7 +159,6 @@ class EmpiricalHorizonPredictiveError:
     tangent_bias: np.ndarray
     tangent_covariance: np.ndarray
     quantile_levels: tuple[float, ...]
-    group_radius_quantiles: np.ndarray
     raw_sample_count: tuple[int, ...]
     effective_sample_count: tuple[float, ...]
     independent_group_count: tuple[int, ...]
@@ -200,24 +183,13 @@ class EmpiricalHorizonPredictiveError:
             raise ValueError("quantile levels must be increasing values within (0, 1)")
         bias = np.asarray(self.tangent_bias, dtype=np.float64)
         covariance = np.asarray(self.tangent_covariance, dtype=np.float64)
-        radii = np.asarray(self.group_radius_quantiles, dtype=np.float64)
         count = len(horizons)
         if bias.shape != (count, TANGENT_STATE_SIZE):
             raise ValueError("tangent bias must have shape (horizon, 12)")
         if covariance.shape != (count, TANGENT_STATE_SIZE, TANGENT_STATE_SIZE):
             raise ValueError("tangent covariance must have shape (horizon, 12, 12)")
-        if radii.shape != (count, len(levels), len(TANGENT_GROUP_ORDER)):
-            raise ValueError(
-                "group radii must have shape (horizon, quantile, state_group)"
-            )
-        if not (
-            np.all(np.isfinite(bias))
-            and np.all(np.isfinite(covariance))
-            and np.all(np.isfinite(radii))
-        ):
+        if not (np.all(np.isfinite(bias)) and np.all(np.isfinite(covariance))):
             raise ValueError("predictive-error statistics must be finite")
-        if np.any(radii < 0.0):
-            raise ValueError("predictive-error radii cannot be negative")
         if not np.allclose(covariance, np.swapaxes(covariance, 1, 2), atol=1e-10):
             raise ValueError("tangent covariance must be symmetric")
         if any(np.min(np.linalg.eigvalsh(item)) < -1e-9 for item in covariance):
@@ -242,7 +214,6 @@ class EmpiricalHorizonPredictiveError:
         object.__setattr__(self, "quantile_levels", levels)
         object.__setattr__(self, "tangent_bias", _owned_array(bias))
         object.__setattr__(self, "tangent_covariance", _owned_array(covariance))
-        object.__setattr__(self, "group_radius_quantiles", _owned_array(radii))
         object.__setattr__(self, "raw_sample_count", counts)
         object.__setattr__(self, "effective_sample_count", effective)
         object.__setattr__(self, "independent_group_count", groups)
@@ -271,7 +242,6 @@ class EmpiricalHorizonPredictiveError:
         horizons = tuple(sorted(float(value) for value in samples_by_horizon))
         biases = []
         covariances = []
-        radius_quantiles = []
         raw_counts = []
         effective_counts = []
         group_counts = []
@@ -314,23 +284,6 @@ class EmpiricalHorizonPredictiveError:
             covariance = 0.5 * (covariance + covariance.T)
             eigenvalues, eigenvectors = np.linalg.eigh(covariance)
             covariance = (eigenvectors * np.maximum(eigenvalues, 0.0)) @ eigenvectors.T
-            group_radii = np.column_stack(
-                [
-                    np.linalg.norm(centered[:, group_slice], axis=1)
-                    for group_slice in TANGENT_GROUP_SLICES
-                ]
-            )
-            radius_quantiles.append(
-                np.asarray(
-                    [
-                        [
-                            _weighted_quantile(group_radii[:, index], weights, level)
-                            for index in range(len(TANGENT_GROUP_ORDER))
-                        ]
-                        for level in quantile_levels
-                    ]
-                )
-            )
             biases.append(bias)
             covariances.append(covariance)
             raw_counts.append(len(errors))
@@ -341,7 +294,6 @@ class EmpiricalHorizonPredictiveError:
             tangent_bias=np.asarray(biases),
             tangent_covariance=np.asarray(covariances),
             quantile_levels=quantile_levels,
-            group_radius_quantiles=np.asarray(radius_quantiles),
             raw_sample_count=tuple(raw_counts),
             effective_sample_count=tuple(effective_counts),
             independent_group_count=tuple(group_counts),
@@ -383,22 +335,6 @@ class EmpiricalHorizonPredictiveError:
         ).reshape((TANGENT_STATE_SIZE, TANGENT_STATE_SIZE))
         return bias, 0.5 * (covariance + covariance.T)
 
-    def radius_quantiles(self, horizon_s: Array | float) -> Array:
-        """Interpolate empirical state-group error radii at one horizon."""
-
-        horizon = jnp.maximum(jnp.asarray(horizon_s), 0.0)
-        knots = jnp.asarray((0.0, *self.horizons_s))
-        values = jnp.concatenate(
-            (
-                jnp.zeros((1, len(self.quantile_levels), len(TANGENT_GROUP_ORDER))),
-                jnp.asarray(self.group_radius_quantiles),
-            ),
-            axis=0,
-        )
-        return jax.vmap(lambda series: jnp.interp(horizon, knots, series))(
-            values.reshape((len(knots), -1)).T
-        ).reshape((len(self.quantile_levels), len(TANGENT_GROUP_ORDER)))
-
     def to_dict(self) -> dict[str, Any]:
         return {
             "format_version": PREDICTIVE_ERROR_FORMAT_VERSION,
@@ -415,7 +351,6 @@ class EmpiricalHorizonPredictiveError:
             "tangent_bias": self.tangent_bias.tolist(),
             "tangent_covariance": self.tangent_covariance.tolist(),
             "quantile_levels": list(self.quantile_levels),
-            "group_radius_quantiles": self.group_radius_quantiles.tolist(),
             "raw_sample_count": list(self.raw_sample_count),
             "effective_sample_count": list(self.effective_sample_count),
             "independent_group_count": list(self.independent_group_count),
@@ -428,7 +363,7 @@ PredictiveErrorModel = UnavailablePredictiveError | EmpiricalHorizonPredictiveEr
 def predictive_error_from_dict(payload: Mapping[str, Any]) -> PredictiveErrorModel:
     """Restore one versioned predictive-error implementation."""
 
-    if payload.get("format_version") != PREDICTIVE_ERROR_FORMAT_VERSION:
+    if payload.get("format_version") not in SUPPORTED_PREDICTIVE_ERROR_FORMAT_VERSIONS:
         raise ValueError("unsupported predictive-error format")
     kind = payload.get("kind")
     if kind == "unavailable":
@@ -443,7 +378,6 @@ def predictive_error_from_dict(payload: Mapping[str, Any]) -> PredictiveErrorMod
             tangent_bias=np.asarray(payload["tangent_bias"]),
             tangent_covariance=np.asarray(payload["tangent_covariance"]),
             quantile_levels=tuple(payload["quantile_levels"]),
-            group_radius_quantiles=np.asarray(payload["group_radius_quantiles"]),
             raw_sample_count=tuple(payload["raw_sample_count"]),
             effective_sample_count=tuple(payload["effective_sample_count"]),
             independent_group_count=tuple(payload["independent_group_count"]),
@@ -1117,7 +1051,6 @@ class PredictiveTrajectory:
     parameter_tangent_covariance: Array
     parameter_tangent_jacobian: Array | None
     quantile_levels: tuple[float, ...]
-    group_radius_quantiles: Array | None
     validity_utilization: Array
     predictive_error_available: bool
     predictive_error_current: bool
@@ -1161,46 +1094,6 @@ class PredictiveTrajectory:
         return jnp.sqrt(
             jnp.maximum(jnp.diagonal(self.tangent_covariance, axis1=-2, axis2=-1), 0.0)
         )
-
-
-@dataclass(frozen=True)
-class PlanAssessment:
-    """Forecast and local information geometry for one candidate maneuver."""
-
-    prediction: PredictiveTrajectory
-    maximum_validity_utilization: float
-    expected_parameter_information_gain_nats: float | None
-    expected_parameter_covariance: np.ndarray | None
-    information_available: bool
-    information_unavailable_reason: str | None = None
-
-    def __post_init__(self) -> None:
-        if not np.isfinite(self.maximum_validity_utilization):
-            raise ValueError("plan validity utilization must be finite")
-        if self.information_available:
-            if (
-                self.expected_parameter_information_gain_nats is None
-                or not np.isfinite(self.expected_parameter_information_gain_nats)
-                or self.expected_parameter_information_gain_nats < 0.0
-                or self.expected_parameter_covariance is None
-            ):
-                raise ValueError("available plan information must be finite")
-            if self.information_unavailable_reason is not None:
-                raise ValueError("available plan information cannot have a reason")
-            covariance = np.asarray(
-                self.expected_parameter_covariance, dtype=np.float64
-            )
-            if (
-                covariance.ndim != 2
-                or covariance.shape[0] != covariance.shape[1]
-                or not np.all(np.isfinite(covariance))
-                or not np.allclose(covariance, covariance.T, atol=1e-9)
-                or np.min(np.linalg.eigvalsh(covariance)) < -1e-8
-            ):
-                raise ValueError("expected parameter covariance must be finite PSD")
-            object.__setattr__(self, "expected_parameter_covariance", covariance)
-        elif not self.information_unavailable_reason:
-            raise ValueError("unavailable plan information requires a reason")
 
 
 @dataclass(frozen=True)
@@ -1852,22 +1745,8 @@ class RuntimeDynamicsBelief:
             )
             and self.predictive_error_current
         ):
-            future_radii = jax.vmap(self.predictive_error.radius_quantiles)(horizons)
-            group_radius_quantiles = jnp.concatenate(
-                (
-                    jnp.zeros(
-                        (
-                            1,
-                            len(self.predictive_error.quantile_levels),
-                            len(TANGENT_GROUP_ORDER),
-                        )
-                    ),
-                    future_radii,
-                )
-            )
             quantile_levels = self.predictive_error.quantile_levels
         else:
-            group_radius_quantiles = None
             quantile_levels = ()
         initial_context = exogenous[0]
         validity = jnp.concatenate(
@@ -1889,7 +1768,6 @@ class RuntimeDynamicsBelief:
             parameter_tangent_covariance=parameter_tangent_covariance,
             parameter_tangent_jacobian=parameter_jacobian,
             quantile_levels=quantile_levels,
-            group_radius_quantiles=group_radius_quantiles,
             validity_utilization=validity,
             predictive_error_available=self.predictive_error_available,
             predictive_error_current=self.predictive_error_current,
@@ -1908,114 +1786,4 @@ class RuntimeDynamicsBelief:
                 and self.predictive_error_current
                 else None
             ),
-        )
-
-    def assess_plan(
-        self,
-        initial_state: Array,
-        commands: Array,
-        *,
-        command_history: Array | None = None,
-        initial_latent_state: Array | None = None,
-        exogenous: Array | None = None,
-    ) -> PlanAssessment:
-        """Evaluate model support and expected local information for a plan."""
-
-        prediction = self.rollout(
-            initial_state,
-            commands,
-            command_history=command_history,
-            initial_latent_state=initial_latent_state,
-            exogenous=exogenous,
-        )
-        maximum_validity = float(np.max(np.asarray(prediction.validity_utilization)))
-        unavailable_reason = None
-        if not isinstance(self.parameter_belief, LocalGaussianParameterBelief):
-            unavailable_reason = "parameter uncertainty is unavailable"
-        elif not self.predictive_error_available:
-            unavailable_reason = "predictive-error covariance is unavailable"
-        elif not self.predictive_error_current:
-            unavailable_reason = "predictive-error evidence is stale"
-        elif not prediction.predictive_error_horizon_supported:
-            unavailable_reason = "candidate plan exceeds predictive-error evidence"
-        elif prediction.parameter_tangent_jacobian is None:
-            unavailable_reason = "parameter sensitivity is unavailable"
-        elif not isinstance(
-            self.predictive_error,
-            EmpiricalHorizonPredictiveError,
-        ) or (
-            self.predictive_error.covariance_scope
-            != ErrorCovarianceScope.CONDITIONAL_INNOVATION
-        ):
-            unavailable_reason = (
-                "parameter information requires conditional innovation covariance"
-            )
-        if unavailable_reason is not None:
-            return PlanAssessment(
-                prediction=prediction,
-                maximum_validity_utilization=maximum_validity,
-                expected_parameter_information_gain_nats=None,
-                expected_parameter_covariance=None,
-                information_available=False,
-                information_unavailable_reason=unavailable_reason,
-            )
-
-        prior = np.asarray(self.parameter_belief.covariance, dtype=np.float64)
-        prior_support = supported_covariance(prior)
-        if prior_support.rank == 0:
-            return PlanAssessment(
-                prediction=prediction,
-                maximum_validity_utilization=maximum_validity,
-                expected_parameter_information_gain_nats=None,
-                expected_parameter_covariance=None,
-                information_available=False,
-                information_unavailable_reason=(
-                    "parameter covariance has no supported direction"
-                ),
-            )
-        jacobian = np.asarray(
-            prediction.parameter_tangent_jacobian[-1], dtype=np.float64
-        )
-        residual_support = supported_covariance(
-            np.asarray(prediction.empirical_error_tangent_covariance[-1])
-        )
-        if residual_support.rank == 0:
-            return PlanAssessment(
-                prediction=prediction,
-                maximum_validity_utilization=maximum_validity,
-                expected_parameter_information_gain_nats=None,
-                expected_parameter_covariance=None,
-                information_available=False,
-                information_unavailable_reason=(
-                    "conditional innovation covariance has rank zero"
-                ),
-            )
-        prior_factor = prior_support.basis * np.sqrt(prior_support.variances)
-        whitened_jacobian = residual_support.whiten_rows(jacobian @ prior_factor)
-        normalized_information = (
-            np.eye(prior_support.rank) + whitened_jacobian.T @ whitened_jacobian
-        )
-        sign, logdet = np.linalg.slogdet(normalized_information)
-        if sign <= 0.0 or not np.isfinite(logdet):
-            return PlanAssessment(
-                prediction=prediction,
-                maximum_validity_utilization=maximum_validity,
-                expected_parameter_information_gain_nats=None,
-                expected_parameter_covariance=None,
-                information_available=False,
-                information_unavailable_reason=(
-                    "conditional information geometry is non-finite"
-                ),
-            )
-        posterior = prior_factor @ np.linalg.solve(
-            normalized_information,
-            prior_factor.T,
-        )
-        posterior = 0.5 * (posterior + posterior.T)
-        return PlanAssessment(
-            prediction=prediction,
-            maximum_validity_utilization=maximum_validity,
-            expected_parameter_information_gain_nats=float(0.5 * logdet),
-            expected_parameter_covariance=posterior,
-            information_available=True,
         )

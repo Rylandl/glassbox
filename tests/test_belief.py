@@ -8,7 +8,6 @@ import numpy as np
 import pytest
 
 from glassbox.belief.belief import (
-    TANGENT_GROUP_ORDER,
     DynamicsBelief,
     EmpiricalErrorSample,
     EmpiricalHorizonPredictiveError,
@@ -173,7 +172,6 @@ def test_belief_round_trip_and_runtime_forecast(tmp_path, quadrotor_flight) -> N
     assert forecast.mean_states.shape == (6, 13)
     assert forecast.tangent_covariance.shape == (6, 12, 12)
     assert forecast.quantile_levels == (0.5, 0.8, 0.9)
-    assert forecast.group_radius_quantiles.shape == (6, 3, 4)
     assert forecast.validity_utilization.shape == (6, 6)
     assert not np.allclose(forecast.mean_states[1:], forecast.nominal_states[1:])
     assert nominal_from_legacy_loader.command_size == runtime.nominal.command_size
@@ -215,7 +213,7 @@ def test_runtime_rollout_enforces_declared_command_bounds(quadrotor_flight) -> N
     np.testing.assert_array_equal(clipped.commands, bounded.commands)
 
 
-def test_parameter_belief_propagates_and_scores_candidate_information(
+def test_parameter_belief_propagates_through_the_rollout(
     tmp_path, quadrotor_flight
 ) -> None:
     trajectory = quadrotor_flight(7, 0.3)
@@ -235,20 +233,16 @@ def test_parameter_belief_propagates_and_scores_candidate_information(
     restored = DynamicsBelief.load(path)
     runtime = restored.compile_for_nmpc()
     commands = jnp.asarray(trajectory.controls[:5])
-    assessment = runtime.assess_plan(
+    prediction = runtime.rollout(
         jnp.asarray(trajectory.states[0]),
         commands,
     )
 
     assert isinstance(restored.parameter_belief, LocalGaussianParameterBelief)
-    assert assessment.information_available
-    assert assessment.expected_parameter_information_gain_nats > 0.0
-    assert assessment.expected_parameter_covariance is not None
-    assert np.trace(assessment.expected_parameter_covariance) < np.trace(
-        restored.parameter_belief.covariance
-    )
-    assert assessment.prediction.parameter_uncertainty_available
-    assert np.max(assessment.prediction.parameter_tangent_covariance) > 0.0
+    assert prediction.parameter_uncertainty_available
+    assert prediction.parameter_tangent_jacobian is not None
+    assert np.max(prediction.parameter_tangent_covariance) > 0.0
+    assert prediction.parameter_covariance_combined_with_empirical_error
 
 
 def test_local_parameter_information_preserves_unresolved_directions(
@@ -644,13 +638,11 @@ def test_live_update_moves_structured_parameters_and_preserves_error_provenance(
         structured_parameter_vector(belief.params),
     )
     assert updated.provenance["online_adaptation"]["last_update"]["applied"]
-    stale_assessment = updated.compile_for_nmpc().assess_plan(
+    stale_prediction = updated.compile_for_nmpc().rollout(
         jnp.asarray(telemetry.states[0]),
         jnp.asarray(telemetry.controls[:5]),
     )
-    assert not stale_assessment.information_available
-    assert "stale" in stale_assessment.information_unavailable_reason
-    stale_prediction = stale_assessment.prediction
+    assert not stale_prediction.predictive_error_current
     assert updated.compile_for_nmpc().maximum_error_horizon_s is None
     np.testing.assert_allclose(
         stale_prediction.mean_states,
@@ -660,7 +652,7 @@ def test_live_update_moves_structured_parameters_and_preserves_error_provenance(
         stale_prediction.empirical_error_tangent_covariance,
         np.zeros_like(stale_prediction.empirical_error_tangent_covariance),
     )
-    assert stale_prediction.group_radius_quantiles is None
+    assert stale_prediction.quantile_levels == ()
     assert stale_prediction.empirical_error_covariance_scope is None
     assert stale_prediction.parameter_uncertainty_available
     assert stale_prediction.uncertainty_available
@@ -909,27 +901,22 @@ def test_evidence_dataclasses_own_immutable_array_inputs() -> None:
 
     bias = np.zeros((1, 12))
     covariance = 0.01 * np.eye(12)[None, :, :]
-    radii = 0.1 * np.ones((1, 3, len(TANGENT_GROUP_ORDER)))
     model = EmpiricalHorizonPredictiveError(
         horizons_s=(0.1,),
         tangent_bias=bias,
         tangent_covariance=covariance,
         quantile_levels=(0.5, 0.8, 0.9),
-        group_radius_quantiles=radii,
         raw_sample_count=(4,),
         effective_sample_count=(4.0,),
         independent_group_count=(2,),
     )
     bias[0, 0] = 99.0
     covariance[0, 0, 0] = 99.0
-    radii[0, 0, 0] = 99.0
 
     assert model.tangent_bias[0, 0] == 0.0
     assert model.tangent_covariance[0, 0, 0] == pytest.approx(0.01)
-    assert model.group_radius_quantiles[0, 0, 0] == pytest.approx(0.1)
     assert not model.tangent_bias.flags.writeable
     assert not model.tangent_covariance.flags.writeable
-    assert not model.group_radius_quantiles.flags.writeable
 
     params = true_parameters()
     names = structured_parameter_names(params)

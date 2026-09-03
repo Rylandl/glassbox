@@ -105,11 +105,10 @@ def test_total_forecast_error_does_not_double_count_parameter_spread(
         covariance_scope=ErrorCovarianceScope.TOTAL_FORECAST,
     )
 
-    assessment = belief.compile_for_nmpc().assess_plan(
+    prediction = belief.compile_for_nmpc().rollout(
         jnp.asarray(telemetry.states[0]),
         jnp.asarray(telemetry.controls[:5]),
     )
-    prediction = assessment.prediction
 
     np.testing.assert_allclose(
         prediction.tangent_covariance,
@@ -117,8 +116,6 @@ def test_total_forecast_error_does_not_double_count_parameter_spread(
     )
     assert np.max(prediction.parameter_tangent_covariance) > 0.0
     assert not prediction.parameter_covariance_combined_with_empirical_error
-    assert not assessment.information_available
-    assert "conditional innovation" in assessment.information_unavailable_reason
 
 
 def test_total_forecast_error_can_move_mean_without_contracting_covariance(
@@ -351,14 +348,8 @@ def test_rank_zero_conditional_error_cannot_create_information(
         ),
     )
 
-    assessment = belief.compile_for_nmpc().assess_plan(
-        jnp.asarray(telemetry.states[0]),
-        jnp.asarray(telemetry.controls[:5]),
-    )
     updated, report = belief.update(telemetry)
 
-    assert not assessment.information_available
-    assert "rank zero" in assessment.information_unavailable_reason
     assert updated is belief
     assert not report.applied
     assert "no supported direction" in report.reason
