@@ -907,8 +907,6 @@ def test_continuous_throw_campaign_retains_successes_and_failed_gates() -> None:
     )
 
 
-@pytest.mark.crazyflow
-@pytest.mark.crazyflow
 def test_the_ensemble_never_throws_weaker_than_the_case_and_varies_the_impulse() -> (
     None
 ):
@@ -944,6 +942,7 @@ def test_the_ensemble_never_throws_weaker_than_the_case_and_varies_the_impulse()
         )
 
 
+@pytest.mark.crazyflow
 def test_a_throw_trial_stops_at_its_first_floor_contact() -> None:
     """Floor contact ends the trial and marks it failed.
 
@@ -1086,6 +1085,7 @@ def test_render_crazyflow_throw_trace_accepts_an_uncertified_dual_arm_trace(
     ffmpeg encoder all mocked out) accepts the trace and names the arm
     correctly, in well under a second.
     """
+    pytest.importorskip("PIL")
 
     sample_count = 40
     sample_period_s = 0.01

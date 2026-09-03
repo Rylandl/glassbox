@@ -18,7 +18,7 @@ jobs:
         with:
           enable-cache: true
       - run: uv python install 3.12
-      - run: uv sync --dev
+      - run: uv sync --locked --dev
       - run: uv run ruff check src tests scripts
       - run: uv run ruff format --check src tests scripts
 
@@ -33,7 +33,7 @@ jobs:
         with:
           enable-cache: true
       - run: uv python install ${{ matrix.python-version }}
-      - run: uv sync --python ${{ matrix.python-version }}
+      - run: uv sync --locked --python ${{ matrix.python-version }}
       - run: uv run --python ${{ matrix.python-version }} python -c "import glassbox; print(glassbox.__name__)"
 
   test:
@@ -45,6 +45,6 @@ jobs:
         with:
           enable-cache: true
       - run: uv python install 3.12
-      - run: uv sync --dev
+      - run: uv sync --locked --dev
       # Simulator-backed tests need optional extras and skip cleanly without them.
       - run: uv run pytest -q -p no:cacheprovider -m "not crazyflow and not cascade and not px4_sitl"

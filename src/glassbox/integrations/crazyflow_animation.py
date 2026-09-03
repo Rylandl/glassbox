@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import math
 import os
 import shutil
@@ -1159,9 +1160,11 @@ def render_crazyflow_bootstrap_animation(
             last_frame = frame
         _finish_encoder(encoder)
     except Exception:
-        encoder.kill()
-        encoder.wait()
-        output.unlink(missing_ok=True)
+        # Cleanup must not replace the exception that caused it.
+        with contextlib.suppress(Exception):
+            encoder.kill()
+            encoder.wait()
+            output.unlink(missing_ok=True)
         raise
     finally:
         render_plant.close()
@@ -1258,9 +1261,11 @@ def render_crazyflow_throw_trace(
             last_frame = frame
         _finish_encoder(encoder)
     except Exception:
-        encoder.kill()
-        encoder.wait()
-        output.unlink(missing_ok=True)
+        # Cleanup must not replace the exception that caused it.
+        with contextlib.suppress(Exception):
+            encoder.kill()
+            encoder.wait()
+            output.unlink(missing_ok=True)
         raise
     finally:
         render_plant.close()
