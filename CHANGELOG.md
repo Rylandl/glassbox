@@ -139,6 +139,13 @@ All notable changes to Glassbox are recorded here. The format follows
   the Crazyflow plant adapter, the throw trial and study, the bootstrap and
   prototype trials, the annotated animation renderer, and the experimental
   dual-control NMPC.
+- The frozen 2026-08-29 observation research program: static observation
+  correction, first-order temporal filtering, state-channel timing alignment,
+  and body-rate observation rollout scoring, along with its seven recorded
+  artifacts, including the observation-first spike, the post-freeze
+  innovation diagnostic, and the rejected residual-innovation observer. The
+  literature review keeps the decision and the numbers as prose. Last commit
+  carrying the code and artifacts: `4c119a8`.
 
 ### Fixed
 - `glassbox fit --model --report` no longer fails on a NumPy scalar.

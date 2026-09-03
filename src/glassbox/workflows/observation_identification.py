@@ -168,10 +168,9 @@ def _zero_order_hold_lag_response(
 
     Each interval holds the command logged for the interval before it, which is
     the causal convention the rollout dynamics use, so a sample can only
-    respond to an input that was already applied. Contrast
-    ``observation_compatibility._exponential_smoothing_response``, which blends
-    toward the current sample instead and models estimator filtering rather
-    than actuator physics.
+    respond to an input that was already applied. Contrast an exponential
+    smoothing response that blends toward the current sample instead and
+    models estimator filtering rather than actuator physics.
     """
 
     commands = np.asarray(commands, dtype=np.float64)

@@ -1,8 +1,10 @@
 # Recorded results
 
-Every quantitative claim in the documentation points at a checked-in
-artifact under `docs/results/`. This guide covers how those artifacts are
-tested, when to regenerate one, and the command that does it.
+Every quantitative claim on an experiment or concept page points at a
+checked-in artifact under `docs/results/`. This guide covers how those
+artifacts are tested, when to regenerate one, and the command that does it.
+The literature review is the exception: its negative results are recorded
+as prose in the decision record, not as machine-readable artifacts.
 
 ## Two tiers of recorded-result tests
 
