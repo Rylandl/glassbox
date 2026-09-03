@@ -29,11 +29,6 @@ TREE: tuple[Command, ...] = (
         summary="fit a dynamics belief and report from trajectory NPZ files",
     ),
     Command(
-        name="prior",
-        target="glassbox.cli.prior:main",
-        summary="build one explicit fleet/configuration prior from fitted beliefs",
-    ),
-    Command(
         name="synthetic",
         target="glassbox.cli.synthetic_demo:main",
         summary="run the synthetic multirotor parameter-recovery demonstration",

@@ -419,7 +419,7 @@ def test_solver_consumes_predictive_and_parameter_uncertainty(
         parameter_belief=LocalGaussianParameterBelief(
             parameter_names=structured_parameter_names(model.params),
             covariance=parameter_covariance,
-            source="fleet_prior",
+            source="configuration_members",
             evidence_count=4,
             effective_sample_count=4.0,
         ),

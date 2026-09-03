@@ -38,7 +38,6 @@ from glassbox.belief.belief import (
     with_structured_parameter_vector,
 )
 from glassbox.belief.belief_io import load_dynamics_belief, save_dynamics_belief
-from glassbox.belief.parameter_prior import StructuredParameterPrior
 from glassbox.control.nmpc import (
     NMPCController,
     NMPCDiagnostics,
@@ -146,7 +145,6 @@ __all__ = [
     "SafetyEnvelope",
     "SolveStatus",
     "SolverPolicy",
-    "StructuredParameterPrior",
     "SupportFilterMode",
     "TrackingTolerances",
     "Trajectory",

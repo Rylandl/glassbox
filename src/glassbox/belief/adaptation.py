@@ -1812,9 +1812,9 @@ def recalibrate_predictive_error(
 ) -> DynamicsBelief:
     """Rebuild predictive-error evidence around the belief's current parameters.
 
-    A commit and ``condition_parameter_prior`` both move the parameters and mark
-    the attached error evidence stale, because that evidence describes a model
-    the belief no longer holds. This is the documented way back: measure the
+    A commit moves the parameters and marks the attached error evidence stale,
+    because that evidence describes a model the belief no longer holds. This is
+    the documented way back: measure the
     forecast errors of the *current* parameters on fresh telemetry and attach
     them, which makes the refreshed belief current again.
 

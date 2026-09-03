@@ -192,6 +192,20 @@ All notable changes to Glassbox are recorded here. The format follows
   recorded artifact carried the key and nothing read the radii. The
   predictive-error payload is now format version 3; the loader still accepts
   version 2 and ignores the key. Last commit carrying them: `478c063`.
+- The fleet parameter prior: `belief/parameter_prior.py` with
+  `StructuredParameterPrior` and `initialize_belief`,
+  `DynamicsBelief.condition_parameter_prior`,
+  `DynamicsBelief.with_parameter_members`, the `glassbox prior` leaf, and
+  `tests/test_parameter_prior.py` with the four conditioning tests in
+  `tests/test_belief.py`. At the only scale it ever ran, five members over
+  twenty-two parameters, 99.6 percent of the prior's normalized covariance
+  trace was unit-ball assumption on the unresolved nullspace, and nothing in
+  the package conditioned on it in production. An information seed replaces it
+  when a real fleet exists; `LocalGaussianParameterBelief.from_members` already
+  summarizes members that do span a direction. The adaptive-recovery benchmark
+  now takes its configuration-delta covariance from that, so
+  `docs/results/adaptive-recovery-results.json` is re-recorded at method
+  version 5. Last commit carrying the code: `478c063`.
 
 ### Fixed
 - `glassbox fit --model --report` no longer fails on a NumPy scalar.

@@ -9,7 +9,7 @@ describe empirical residuals as a Bayesian posterior.
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from enum import StrEnum
 from itertools import pairwise
 from pathlib import Path
@@ -42,7 +42,6 @@ from glassbox.core.runtime import (
 
 if TYPE_CHECKING:
     from glassbox.belief.adaptation import BeliefUpdateProposal, BeliefUpdateReport
-    from glassbox.belief.parameter_prior import StructuredParameterPrior
     from glassbox.core.data import Trajectory
 
 TANGENT_STATE_SIZE = 12
@@ -1185,193 +1184,6 @@ class DynamicsBelief:
             predictive_error_parameter_update_count=(
                 self.predictive_error_parameter_update_count
             ),
-        )
-
-    def with_parameter_members(
-        self,
-        members: Sequence[DynamicsBelief | ModelParams],
-        *,
-        source: str,
-        weights: Sequence[float] | None = None,
-    ) -> DynamicsBelief:
-        """Attach a fleet, configuration, or resampling-derived local prior."""
-
-        member_params = tuple(
-            member.params if isinstance(member, DynamicsBelief) else member
-            for member in members
-        )
-        parameter_belief = LocalGaussianParameterBelief.from_members(
-            self.params,
-            member_params,
-            source=source,
-            weights=weights,
-            update_count=self.parameter_belief.update_count,
-        )
-        return replace(self, parameter_belief=parameter_belief)
-
-    def condition_parameter_prior(
-        self,
-        prior: StructuredParameterPrior,
-    ) -> DynamicsBelief:
-        """Combine local loss geometry with a fleet/configuration prior.
-
-        Conditional innovation covariance supports a local Gaussian contraction.
-        Total forecast covariance supports a regularized mean update only, so
-        the prior covariance is preserved.
-
-        Only the resolved subspace of the local geometry conditions the prior:
-        the information and the score are both projected with the same
-        eigenvector basis the rank test uses (see
-        ``LocalParameterInformation.resolved_local_geometry``). An unresolved
-        direction therefore contributes no information and no gradient, and a
-        prior that is uncorrelated with the resolved subspace keeps its mean
-        and covariance there exactly. Correlated prior directions still move
-        and contract through the prior's own covariance, which is the prior's
-        claim rather than the local evidence's.
-
-        The local geometry is a linearization about ``parameter_evidence.center``
-        and the conditioned mean is expressed in the same coordinates, so this
-        refuses to run once the parameters have moved away from that center. The
-        conditioned belief moves the parameters, which marks the attached
-        predictive-error evidence stale; refresh it with
-        ``recalibrate_predictive_error`` before assessing plans or updating.
-        """
-
-        if not isinstance(self.parameter_evidence, LocalParameterInformation):
-            raise ValueError("conditioning requires local parameter information")
-        prior.validate_input_spec(self.input_spec)
-        names = self.parameter_evidence.parameter_names
-        if prior.parameter_names != names:
-            raise ValueError("parameter prior and local evidence are incompatible")
-        current_vector = np.asarray(
-            structured_parameter_vector(self.params),
-            dtype=np.float64,
-        )
-        evidence_center = np.asarray(
-            self.parameter_evidence.center,
-            dtype=np.float64,
-        )
-        # A serialization round trip may perturb the last bits; any parameter
-        # movement worth preserving is many orders of magnitude larger.
-        if not np.allclose(current_vector, evidence_center, rtol=1e-12, atol=1e-12):
-            raise ValueError(
-                "local parameter evidence is stale: the belief parameters no "
-                "longer equal parameter_evidence.center, so conditioning would "
-                "discard the intervening update; refit the local evidence "
-                "around the current parameters first"
-            )
-        prior_center = np.asarray(prior.mean, dtype=np.float64)
-        prior_covariance = np.asarray(prior.covariance, dtype=np.float64)
-        eigenvalues = np.linalg.eigvalsh(prior_covariance)
-        tolerance = (
-            np.finfo(np.float64).eps
-            * max(prior_covariance.shape)
-            * float(np.max(eigenvalues))
-        )
-        if np.min(eigenvalues) <= tolerance:
-            raise ValueError(
-                "conditioning requires a full-rank prior covariance; "
-                "empirical subspace spread is incomplete"
-            )
-        prior_precision = np.linalg.solve(
-            prior_covariance,
-            np.eye(len(prior_covariance)),
-        )
-        # Only the resolved subspace conditions. The rank test classifies
-        # directions the evidence never excited as unresolved, and adding their
-        # numerical-noise curvature would contract and move them as if it were
-        # evidence.
-        resolved = self.parameter_evidence.resolved_local_geometry()
-        local_information = resolved.information_matrix
-        conditioned_precision = prior_precision + local_information
-        conditional_covariance = np.linalg.solve(
-            conditioned_precision,
-            np.eye(len(conditioned_precision)),
-        )
-        conditional_covariance = 0.5 * (
-            conditional_covariance + conditional_covariance.T
-        )
-        conditioned_center = conditional_covariance @ (
-            prior_precision @ prior_center
-            + local_information @ self.parameter_evidence.center
-            - resolved.score_vector
-        )
-        contracts_covariance = (
-            self.parameter_evidence.covariance_scope
-            == ErrorCovarianceScope.CONDITIONAL_INNOVATION
-        )
-        conditioned_covariance = (
-            conditional_covariance if contracts_covariance else prior_covariance
-        )
-        update_count = self.parameter_belief.update_count + 1
-        parameter_belief = LocalGaussianParameterBelief(
-            parameter_names=names,
-            covariance=conditioned_covariance,
-            source=(
-                f"conditional_parameter_prior:{prior.source}"
-                if contracts_covariance
-                else f"parameter_prior_mean_update:{prior.source}"
-            ),
-            evidence_count=(
-                prior.member_count
-                + (
-                    self.parameter_evidence.independent_group_count
-                    if contracts_covariance
-                    else 0
-                )
-            ),
-            effective_sample_count=(
-                prior.member_count
-                + (
-                    self.parameter_evidence.independent_group_count
-                    if contracts_covariance
-                    else 0
-                )
-            ),
-            update_count=update_count,
-        )
-        provenance = dict(self.provenance)
-        provenance["parameter_prior_conditioning"] = {
-            "prior_source": prior.source,
-            "prior_method": prior.method,
-            "prior_member_count": prior.member_count,
-            "prior_empirical_rank": prior.empirical_rank,
-            "prior_completion_fraction_in_natural_coordinates": (
-                prior.completion_fraction_in_natural_coordinates
-            ),
-            "prior_artifact": prior.to_dict(),
-            "local_evidence_source": self.parameter_evidence.source,
-            "local_information_rank": self.parameter_evidence.numerical_rank,
-            "local_information_resolved_rank": resolved.rank,
-            "local_information_discarded_fraction": (
-                resolved.discarded_information_fraction
-            ),
-            "local_information_projection": (
-                "resolved_subspace_of_scale_normalized_fitted_information"
-            ),
-            "local_covariance_scope": (self.parameter_evidence.covariance_scope.value),
-            "parameter_covariance_updated": contracts_covariance,
-            "local_independent_group_count": (
-                self.parameter_evidence.independent_group_count
-            ),
-            # Conditioning moves the parameters, so held-out error evidence
-            # measured around the previous parameters is no longer current.
-            "predictive_error_marked_stale": True,
-        }
-        return DynamicsBelief(
-            params=with_structured_parameter_vector(
-                self.params,
-                jnp.asarray(conditioned_center),
-            ),
-            input_spec=self.input_spec,
-            runtime_spec=self.runtime_spec,
-            predictive_error=self.predictive_error,
-            parameter_belief=parameter_belief,
-            parameter_evidence=self.parameter_evidence,
-            predictive_error_parameter_update_count=(
-                self.predictive_error_parameter_update_count
-            ),
-            provenance=provenance,
         )
 
     def update(

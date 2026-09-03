@@ -27,7 +27,6 @@ from glassbox.belief.belief import (
     structured_parameter_vector,
     with_structured_parameter_vector,
 )
-from glassbox.belief.parameter_prior import StructuredParameterPrior
 from glassbox.control.nmpc import NMPCController, TrackingTolerances
 from glassbox.core.data import Trajectory
 from glassbox.core.dynamics import (
@@ -61,11 +60,10 @@ RECOVERY_DURATION_S = 1.2
 RECOVERY_TAIL_DURATION_S = 0.4
 FLEET_LOG_ARM_LENGTH_RATIOS = (-0.25, -0.125, 0.0, 0.125, 0.25)
 TARGET_LOG_ARM_LENGTH_RATIO = 0.20
-BENCHMARK_METHOD_VERSION = 4
+BENCHMARK_METHOD_VERSION = 5
 BENCHMARK_SOURCE_FILES = (
     "belief/adaptation.py",
     "belief/belief.py",
-    "belief/parameter_prior.py",
     "control/nmpc/__init__.py",
     "control/nmpc/solver.py",
     "control/nmpc/types.py",
@@ -232,7 +230,6 @@ def _build_beliefs() -> tuple[
     DynamicsBelief,
     DynamicsBelief,
     DynamicsParams,
-    StructuredParameterPrior,
     dict[str, Any],
 ]:
     base = true_parameters()
@@ -250,27 +247,6 @@ def _build_beliefs() -> tuple[
     )
     member_labels = tuple(
         f"arm-ratio-{math.exp(value):.6f}" for value in FLEET_LOG_ARM_LENGTH_RATIOS
-    )
-    members = tuple(
-        DynamicsBelief(
-            params=params,
-            input_spec=_configuration_trajectory(
-                params,
-                log_ratio,
-                seed=800 + index,
-                duration_s=0.2,
-                source_group=member_labels[index],
-            ).spec,
-            runtime_spec=runtime_spec,
-        )
-        for index, (params, log_ratio) in enumerate(
-            zip(member_params, FLEET_LOG_ARM_LENGTH_RATIOS)
-        )
-    )
-    fleet_prior = StructuredParameterPrior.from_beliefs(
-        members,
-        source="synthetic_adjustable_arm_configuration_fleet",
-        member_labels=member_labels,
     )
 
     samples_by_horizon: dict[float, list[EmpiricalErrorSample]] = {
@@ -342,15 +318,13 @@ def _build_beliefs() -> tuple[
 
     # The vehicle was identified before its geometry changed. Unchanged
     # coefficients are therefore anchored by that vehicle-local evidence, while
-    # the fleet-derived between-configuration covariance describes the supported
-    # arm-change direction. The broad fleet completion is reported but is not
-    # substituted for evidence that unchanged coefficients moved.
-    parameter_belief = LocalGaussianParameterBelief(
-        parameter_names=structured_parameter_names(base),
-        covariance=fleet_prior.between_member_covariance,
-        source="prewarmed_vehicle_plus_fleet_configuration_delta",
-        evidence_count=fleet_prior.member_count,
-        effective_sample_count=float(fleet_prior.member_count),
+    # the spread of the sibling configurations around it describes the supported
+    # arm-change direction. Directions no configuration moved carry no variance
+    # and no step: nothing here completes them with an assumption.
+    parameter_belief = LocalGaussianParameterBelief.from_members(
+        base,
+        member_params,
+        source="prewarmed_vehicle_plus_configuration_delta",
     )
     belief = DynamicsBelief(
         params=base,
@@ -395,15 +369,9 @@ def _build_beliefs() -> tuple[
     after_rms = float(np.sqrt(np.mean(np.square(after_errors / tolerances))))
     evidence = {
         "fleet": {
-            "member_count": fleet_prior.member_count,
-            "parameter_count": len(fleet_prior.parameter_names),
-            "empirical_rank": fleet_prior.empirical_rank,
-            "completion_fraction_in_natural_coordinates": (
-                fleet_prior.completion_fraction_in_natural_coordinates
-            ),
-            "configuration_delta_covariance_rank": int(
-                np.linalg.matrix_rank(fleet_prior.between_member_covariance)
-            ),
+            "member_count": len(member_params),
+            "parameter_count": len(parameter_belief.parameter_names),
+            "configuration_delta_covariance_rank": (parameter_belief.effective_rank),
             "predictive_error_horizons_s": list(predictive_error.horizons_s),
             "predictive_error_group_count": list(
                 predictive_error.independent_group_count
@@ -420,7 +388,7 @@ def _build_beliefs() -> tuple[
             "normalized_rms_ratio": after_rms / before_rms,
         },
     }
-    return belief, updated, target_params, fleet_prior, evidence
+    return belief, updated, target_params, evidence
 
 
 def _recovery_initial_state(belief: DynamicsBelief) -> np.ndarray:
@@ -645,7 +613,7 @@ def _simulate_recovery(
 def run_adaptive_recovery_benchmark() -> dict[str, Any]:
     """Run one fixed diagnostic with no acceptance thresholds or tuning surface."""
 
-    belief, updated, target_params, fleet_prior, evidence = _build_beliefs()
+    belief, updated, target_params, evidence = _build_beliefs()
     initial_state = _recovery_initial_state(belief)
     equal_horizon_runtime = replace(
         belief.runtime_spec,
@@ -721,6 +689,7 @@ def run_adaptive_recovery_benchmark() -> dict[str, Any]:
         "posterior_calibration_claim": False,
         "prechange_vehicle_anchors_unchanged_parameters": True,
         "configuration_delta_direction_derived_from_fleet": True,
+        "unexcited_parameter_directions_completed_by_assumption": False,
         "adaptation_and_evaluation_telemetry_disjoint": True,
         "validation_actuator_context_excluded_from_evidence": True,
         "stale_predictive_error_is_not_applied_at_runtime": True,
@@ -737,7 +706,6 @@ def run_adaptive_recovery_benchmark() -> dict[str, Any]:
         "reported_tail_duration_s": RECOVERY_TAIL_DURATION_S,
         "fleet_profile_base_seeds": list(FLEET_PROFILE_BASE_SEEDS),
         "support_trajectory_seed": 700,
-        "fleet_member_spec_seed_start": 800,
         "adaptation_trajectory_seed": 21,
         "evaluation_trajectory_seed": 22,
         "arm_length_ratio_before": 1.0,
@@ -862,11 +830,8 @@ def run_adaptive_recovery_benchmark() -> dict[str, Any]:
             "The support filter evaluates held projected commands over a bounded actuator-reaction horizon with componentwise one-standard-deviation margins; it is not a hard full-prediction-horizon or flight-safety guarantee.",
             "If no enumerated candidate satisfies the inside-support or recovery-progress condition, the least-bad bounded command is returned and labeled best effort.",
             "Boundary filtering requires additional belief rollouts; this diagnostic does not establish a hard real-time deadline on other hardware or uncertainty representations.",
-            "Fleet completion uncertainty is reported but not treated as evidence that every coefficient changed.",
+            "The configuration spread is a rank-one direction; the benchmark says nothing about coefficients no sibling configuration moved.",
         ],
-        "fleet_prior_completion_fraction": (
-            fleet_prior.completion_fraction_in_natural_coordinates
-        ),
     }
 
 

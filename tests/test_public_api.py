@@ -52,7 +52,6 @@ EXPECTED_PUBLIC_API = (
     "SafetyEnvelope",
     "SolveStatus",
     "SolverPolicy",
-    "StructuredParameterPrior",
     "SupportFilterMode",
     "TrackingTolerances",
     "Trajectory",

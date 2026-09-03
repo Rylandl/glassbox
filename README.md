@@ -78,8 +78,8 @@ update is transactional: it proposes a bounded local move on early telemetry
 and commits only when disjoint later telemetry shows the moved parameters,
 scored without the held-out bias correction that a commit makes stale, beating
 the corrected forecast the vehicle flies today by more than the noise in that
-evidence. Otherwise it returns the original belief. A commit, like
-`condition_parameter_prior`, marks the error evidence stale; rebuild it around
+evidence. Otherwise it returns the original belief. A commit moves the
+parameters, which marks the held-out error evidence stale; rebuild it around
 the new parameters with `belief.recalibrate_predictive_error(trajectory)`. See
 [dynamics beliefs](docs/concepts/dynamics-beliefs.md) and
 [NMPC](docs/concepts/nmpc.md) for the full contracts.
@@ -94,11 +94,11 @@ demand.
 | Subpackage | Modules |
 | --- | --- |
 | `core` | `data`, `dynamics`, `families`, `geometry`, `px4_frames`, `linearization`, `covariance`, `identification`, `evaluation`, `runtime`, `model_io`, `streaming_evaluation`, `adapter`, `synthetic`, `fixedwing_synthetic` |
-| `belief` | `belief`, `belief_io`, `parameter_evidence`, `parameter_prior`, `adaptation` |
+| `belief` | `belief`, `belief_io`, `parameter_evidence`, `adaptation` |
 | `control` | `nmpc/`, `flight_supervisor`, `bootstrap_identification`, `online_bootstrap` |
 | `io` | `px4_ulog`, `sitl_profile`, `fixedwing_sitl_profile`, `arp_reference`, `idf_reference`, `nanodrone_reference`, `x8_reference`, `epfl_reference` |
 | `workflows` | `fitting`, `profile_benchmark`, `source_group_benchmark`, `nmpc_benchmark`, `adaptive_recovery_benchmark`, `observation_identification`, `nanodrone_evaluation`, `x8_evaluation`, `epfl_evaluation`, `record_results` |
-| `cli` | `synthetic_demo`, `fixedwing`, `ulog`, `prior`, `nanodrone`, `x8`, `epfl` |
+| `cli` | `synthetic_demo`, `fixedwing`, `ulog`, `nanodrone`, `x8`, `epfl` |
 | `integrations` | `px4`, `px4_nmpc_shadow`, `cascade` |
 | `experimental` | Re-exports of the bootstrap identifiers and the flight supervisor. These APIs can change without notice. |
 
@@ -113,7 +113,6 @@ whole tree, and every leaf prints its own flags with `--help`.
 
 ```text
 glassbox fit                     fit a dynamics belief and report from NPZ flights
-glassbox prior                   build a fleet parameter prior from fitted beliefs
 glassbox synthetic               synthetic multirotor parameter recovery
 glassbox fixedwing-synthetic     synthetic fixed-wing trajectory generator
 glassbox profile-benchmark       maneuver-family holdout benchmark

@@ -1,9 +1,10 @@
 # Adaptive configuration-change recovery
 
 `glassbox adaptive-recovery` is a fixed synthetic diagnostic for the complete
-belief-to-control path. It asks whether fleet evidence and 0.8 seconds of
-telemetry from a previously unseen adjustable-arm configuration can improve a
-prewarmed NMPC recovery without hiding uncertainty behind a point estimate.
+belief-to-control path. It asks whether the spread of a few sibling arm
+configurations and 0.8 seconds of telemetry from a previously unseen
+adjustable-arm configuration can improve a prewarmed NMPC recovery without
+hiding uncertainty behind a point estimate.
 
 The diagnostic is deliberately not a pass/fail gate. It records the result of
 one reproducible scenario, including negative evidence, so estimator or
@@ -18,9 +19,10 @@ requiring a geometric airframe decomposition.
 
 The evidence path is:
 
-1. Build a five-configuration fleet prior. Only one natural-coordinate
-   direction is empirically spanned; assumed completion of the other directions
-   remains separately reported.
+1. Summarize five sibling arm configurations as the parameter covariance around
+   the prechange model. One direction carries the whole spread; directions no
+   configuration moved carry no variance and take no step, and nothing
+   completes them with an assumption.
 2. Start from the known prechange vehicle model.
 3. Propose an update from the first half of 0.8 seconds of target telemetry and
    validate it on the disjoint second half. Pre-split commands initialize the
@@ -40,42 +42,47 @@ and alternative projection paths are compiled during prewarming.
 
 ## Recorded result
 
-Recorded on 2026-09-01 with the current acceptance criterion (candidate scored
+Recorded on 2026-09-03 with the current acceptance criterion (candidate scored
 without the held-out bias against the bias-corrected incumbent, with a
 noise-scaled margin, and no whitened prior coordinate moving more than one
 standard deviation), rollout error statistics that exclude the shared initial
-sample, and the block-granular NMPC warm start.
+sample, and the block-granular NMPC warm start. This run is the first without
+the structured fleet prior. The configuration spread is now the plain sample
+covariance of the five members around the prechange model, which is four fifths
+of the prior's between-member covariance along the same single direction, so
+the bounded step is slightly shorter and every number below moved a little.
 
 The accepted update reduced independent normalized 0.6-second prediction RMS
-from `0.033394` to `0.013680` (`0.410x`). The
-recovery advantage that earlier runs attributed to adaptation has largely
-disappeared now that the warm start actually advances the plan: relative to the
-stale belief, the adapted belief produced `0.990x` recovery-tail tracking
-RMS and `0.894x` recovery-tail attitude/rate RMS, and relative to the
-oracle point model those ratios were `1.049x` and `1.092x`. Useful
-parameter evidence reaches the predictive mean; whether it reaches command
-selection in a way that matters is not established by this scenario.
+from `0.033394` to `0.015286` (`0.458x`). The recovery advantage that earlier
+runs attributed to adaptation has disappeared now that the warm start actually
+advances the plan: relative to the stale belief, the adapted belief produced
+`1.001x` recovery-tail tracking RMS and `0.915x` recovery-tail attitude/rate
+RMS, and relative to the oracle point model those ratios were `1.062x` and
+`1.117x`. Useful parameter evidence reaches the predictive mean; whether it
+reaches command selection in a way that matters is not established by this
+scenario, and on tracking it does not reach it at all.
 
 With actuator history correctly carried across the split, the disjoint
-validation RMS is `1.1994 → 0.4875`. The earlier `1.7534 → 1.6154` values came
+validation RMS is `1.1994 → 0.5447`. The earlier `1.7534 → 1.6154` values came
 from incorrectly treating the first post-split command as a steady actuator
 state; they are no longer part of the recorded evidence.
 
 Those numbers show that the architecture can move useful configuration evidence
 through an immutable belief update into the predictive mean. They are not an
 acceptance threshold or a general recovery claim, and the recovery-tail ratios
-no longer support a claim about command selection.
+do not support a claim about command selection.
 
 The support result is intentionally negative. Maximum actual validity
-utilization was `1.101`, `1.090`, `1.090`, and `1.136` for stale belief, adapted
+utilization was `1.101`, `1.081`, `1.081`, and `1.136` for stale belief, adapted
 belief, adapted point mean, and oracle point mean. Maximum returned one-step
-robust utilization was `1.106`, `1.094`, `1.091`, and `1.136`; reaction-horizon
-utilization reached `1.261`, `1.362`, `1.146`, and `1.200`. All traces remained
-finite and bounded with no solver fallback, but every trace left support and
-some steps had no enumerated projection satisfying the progress condition. The
-adapted belief's forecast spread never exceeded a tracking tolerance in this
-run (minimum command authority fraction `1.0`), so the adapted belief and
-adapted point mean produced the same commands.
+robust utilization was `1.106`, `1.086`, `1.082`, and `1.136`; reaction-horizon
+utilization reached `1.261`, `1.300`, `1.134`, and `1.200`. All traces remained
+finite and bounded with no solver fallback, but every trace left support, and on
+the stale belief and the oracle point model one step had no enumerated
+projection satisfying the progress condition. The adapted belief's forecast
+spread never exceeded a tracking tolerance in this run (minimum command
+authority fraction `1.0`), so the adapted belief and adapted point mean produced
+the same commands.
 
 This is the behavior the diagnostic should expose. Removing the independent
 quadrotor recovery law eliminates the earlier appearance that the generic NMPC

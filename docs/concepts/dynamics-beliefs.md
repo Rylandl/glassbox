@@ -18,16 +18,15 @@ The opinionated public lifecycle is:
 
 ```python
 belief = glassbox.DynamicsBelief.load("artifacts/vehicle-belief.json")
-fleet_prior = glassbox.StructuredParameterPrior.load("artifacts/fleet-prior.json")
-
-# Conditioning moves the parameters, so the attached error evidence becomes
-# stale. Measuring it again around the new parameters is what makes the belief
-# usable for plan assessment, horizon capping, and further updates.
-belief = belief.condition_parameter_prior(fleet_prior)
-belief = belief.recalibrate_predictive_error(calibration_telemetry)
 
 forecast = belief.compile_for_nmpc().rollout(initial_state, commands)
 updated_belief, update = belief.update(recent_telemetry)
+
+# The commit moved the parameters, so the attached error evidence is stale.
+# Measuring it again around the new parameters is what makes the belief usable
+# for horizon capping and further updates.
+updated_belief = updated_belief.recalibrate_predictive_error(calibration_telemetry)
+
 controller = glassbox.NMPCController(updated_belief)
 result = controller.solve(state, reference, previous_command)
 ```
@@ -110,13 +109,12 @@ Every artifact the shipped CLIs write carries `total_forecast_error`:
 `glassbox fit` fits held-out rollout error and records that scope, and the
 local parameter information it stores inherits the scope of the predictive
 error it was whitened with. No flag changes this. Everything in this document
-that depends on `conditional_innovation_error` -- commit-time covariance
-contraction and conditioning contraction -- is
-therefore reachable only by a caller who builds and attaches conditional
-innovation evidence programmatically, having separately justified that the
-covariance is measurement and process noise conditional on the parameters.
-With a shipped artifact those paths report unavailable and the parameter
-covariance is preserved rather than contracted.
+that depends on `conditional_innovation_error`, commit-time covariance
+contraction above all, is therefore reachable only by a caller who builds and
+attaches conditional innovation evidence programmatically, having separately
+justified that the covariance is measurement and process noise conditional on
+the parameters. With a shipped artifact those paths report unavailable and the
+parameter covariance is preserved rather than contracted.
 
 Held-out rollout errors default to `total_forecast_error`. Zero empirical
 eigenvalues are absent evidence, not noiseless measurements: whitening and
@@ -199,78 +197,16 @@ without rerunning the fitter.
 
 The distinction matters: inverting a rank-deficient Hessian would assign zero
 variance to directions the flight never excited. Glassbox leaves the ordinary
-fit as a point belief plus partial information instead. A complete full-rank
-fleet or configuration prior can be combined with that geometry using
-`fit_belief.condition_parameter_prior(fleet_prior)`. Supported directions move
-toward the vehicle fit. Covariance contracts only when the geometry used
-conditional innovation noise, which is not the scope a shipped artifact
-carries; total-forecast-scaled geometry performs a regularized mean update and
-preserves prior covariance.
+fit as a point belief plus partial information instead, and the online update
+takes no step along a direction that information does not resolve.
 
-Conditioning uses only the resolved subspace. The rank test and the
-conditioning step share one set of coordinates -- the scale-normalized fitted
-block, `diag(parameter_scale) @ information @ diag(parameter_scale)` -- and
-with `V diag(lambda) V^T` its eigendecomposition, only the eigenpairs with
-`lambda > rank_relative_tolerance * lambda_max` are kept. Both the information
-and the score are projected onto that subspace, so a direction the rank test
-calls unresolved contributes no curvature and no gradient: it keeps its prior
-mean and covariance exactly unless the prior's own covariance correlates it
-with a resolved direction, in which case it moves and contracts through that
-prior correlation rather than through local evidence. The conditioning
-provenance records the resolved rank and the fraction of the normalized
-information trace the projection discarded. Conditioning is valid only around the
-center the geometry was linearized at, so it refuses to run once the parameters
-have moved away from `parameter_evidence.center`, and the belief it returns
-carries stale error evidence until that evidence is recalibrated.
-
-`StructuredParameterPrior` makes the unavoidable completion of a small fleet
-explicit. In natural structured-parameter coordinates it stores three separate
-terms:
-
-```text
-between-vehicle covariance      empirical
-+ mean within-vehicle covariance empirical, when every member supplies it
-+ unit covariance only on the unresolved numerical nullspace
-                                 structural prior assumption
-```
-
-The completion does not perturb directions spanned by fleet evidence and is
-never relabeled as observed variance, a posterior, or a calibrated
-distribution. Mixed fleets in which only some members supply covariance are
-rejected because their within-vehicle uncertainty has no coherent weighting.
-State schema, vehicle family, shared control semantics, and target control-role
-coverage are checked at the artifact boundary. Shared and optional parameter
-blocks are configuration-aware. Shared aerodynamics use every compatible
-member; yaw-surface coordinates use only yaw-equipped members; flap coordinates
-use only flap-equipped members. Cross-block covariance is deliberately zero
-rather than inferred from unmatched samples. A prior built only from flapless
-aircraft cannot initialize a flap-equipped target, while flapless members still
-contribute valid evidence to its shared aerodynamic block.
-
-The two supported entry paths are intentionally distinct:
-
-```python
-# Existing vehicle telemetry supplies local loss geometry. The conditioned
-# parameters need error evidence measured around them before they can be used
-# for plan assessment, horizon capping, or another update.
-belief = vehicle_fit.condition_parameter_prior(fleet_prior)
-belief = belief.recalibrate_predictive_error(calibration_telemetry)
-
-# No vehicle-local fit yet; a typed shell supplies controls/runtime/error model.
-# Moving to the prior mean stales the shell's error evidence too, unless the
-# caller asserts it is family-level evidence that already holds at the mean.
-belief = fleet_prior.initialize_belief(vehicle_shell)
-belief = belief.recalibrate_predictive_error(calibration_telemetry)
-```
-
-`glassbox prior` builds the artifact from fitted vehicle beliefs without tuning
-flags.
-
-`LocalGaussianParameterBelief` still covers only the compact structured
-coefficient block. A residual network remains fixed during fast conditioning
-and online updates. `with_parameter_members()` is useful for recording empirical
-fleet spread, but its covariance is not automatically a complete prior when the
-members do not span every structured coordinate.
+Where a covariance over the structured block is genuinely available, for
+instance from several vehicles of one family or from several configurations of
+one vehicle, `LocalGaussianParameterBelief.from_members` summarizes those
+members around the nominal model. That covariance is exactly the spread the
+members show: directions no member moved carry no variance, and nothing
+completes them with an assumption. It covers only the compact structured
+coefficient block, and a residual network stays fixed during an online update.
 
 `belief.update(recent_telemetry)` is the opinionated one-call transaction. It
 splits complete horizon-aligned windows into early proposal and later validation
@@ -337,10 +273,10 @@ configuration surface exposes it.
 
 ### Stale error evidence and recalibration
 
-Both a commit and `condition_parameter_prior` move the parameters, and both
-therefore mark the held-out predictive-error model not current. This is
-deliberately different from deleting it, carrying it forward as if it still
-applied, or treating it as newly validated. The artifact stays attached for
+A commit moves the parameters and therefore marks the held-out predictive-error
+model not current. This is deliberately different from deleting it, carrying it
+forward as if it still applied, or treating it as newly validated. The artifact
+stays attached for
 provenance, runtime forecasts still expose it together with the stale flag, but
 its bias and covariance stop being applied, the NMPC horizon cap disappears, and
 further updates are rejected until the evidence is refreshed.
@@ -356,11 +292,11 @@ window-and-endpoint routine, `endpoint_error_evidence_by_horizon`, backs both
 this path and the held-out evaluation that `glassbox fit` reports, so online and
 offline error evidence are fitted identically.
 
-`condition_parameter_prior` refuses to run when the belief's parameters no
-longer equal `parameter_evidence.center`. The local information is a
-linearization about that center, so conditioning after an online update would
-silently discard the update while still incrementing the evidence counters.
-Refit the local geometry around the current parameters instead.
+`parameter_evidence` carries the same caveat in the other coordinate. It is a
+linearization about `parameter_evidence.center`, so once an online update has
+moved the parameters away from that center the stored geometry describes the
+belief the fit produced, not the belief in hand. Refit the local geometry around
+the current parameters before reading it as current curvature.
 
 ## NMPC compilation
 

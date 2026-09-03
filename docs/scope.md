@@ -39,8 +39,7 @@ behavior to forces, torques, and accelerations.
 - **Dynamics beliefs.** The fitted artifact is a `DynamicsBelief`: the nominal
   model, held-out predictive error in 12 local rigid-body coordinates,
   rank-aware local parameter information, a validity envelope, and update
-  provenance. Fleet priors can be built from several beliefs. See
-  [dynamics beliefs](concepts/dynamics-beliefs.md).
+  provenance. See [dynamics beliefs](concepts/dynamics-beliefs.md).
 - **Online adaptation.** A transactional propose, validate, commit update from
   recent telemetry that returns the original belief when disjoint later
   telemetry does not improve. See the same page.
