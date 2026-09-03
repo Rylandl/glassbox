@@ -230,9 +230,11 @@ its rows pair with this page's table by construction. The reports are
 `report-pass6-round2-step-shift-ensemble-arm-only.json` (round two: the
 knowledge term over the posterior's hover distribution, with the block and the
 real-time warm start), and `report-pass6-round2-ensemble-arm-only.json` (the
-committed round two, with the composite seeds, re-measured under the
+round two with the composite seeds, re-measured under the
 stop-at-floor-contact rule: the same 54 recoveries, since the flight up to
-contact is unchanged, in a little over half the compute).
+contact is unchanged, in a little over half the compute), and
+`report-pass6-round3-ensemble-arm-only.json` (the committed round three,
+with the mean maps used at the identifier's authority).
 
 | arm | recovered | rate | Wilson 95 | on the floor | airborne, outside envelope |
 | --- | --- | --- | --- | --- | --- |
@@ -241,12 +243,14 @@ contact is unchanged, in a little over half the compute).
 | pass6, round one | 10/112 | 0.089 | 0.049-0.157 | 52 | 48 |
 | pass6, round two, block warm start | 47/112 | 0.420 | 0.332-0.512 | 51 | 9 |
 | pass6, round two, real-time warm start | 47/112 | 0.420 | 0.332-0.512 | 61 | 1 |
-| pass6, round two, with composite seeds (committed) | 54/112 | 0.482 | 0.392-0.574 | 50 | 8 |
+| pass6, round two, with composite seeds | 54/112 | 0.482 | 0.392-0.574 | 50 | 8 |
+| pass6, round three, authority-scaled maps (committed) | 57/112 | 0.509 | 0.418-0.600 | 51 | 4 |
 
 The round-one intervals exclude `pass5`'s point estimate and include
-`pass2b`'s. The committed round two's interval, 0.392-0.574, excludes every
+`pass2b`'s. The committed round three's interval, 0.418-0.600, excludes every
 earlier learned arm and the working cascade (0.223) and contains the certified
-cascade's point estimate (0.545). The design page records the configurations
+cascade's point estimate (0.545); every release that stays off the floor now
+reaches the envelope. The design page records the configurations
 that were measured on the single-release gate and dropped, and why.
 
 ## Limitations

@@ -1417,15 +1417,43 @@ bang-bang commands that the step shift carried forward into execution — and
 three of four when every block was bound to one slew. Uniform five-step
 blocks stay; `block_lengths` remains available.
 
+### Round three: the maps at the identifier's trust
+
+With trials stopped at floor contact and the ensemble's own perturbed
+releases flyable on the gate, the crashed releases could be watched one by
+one. They share a signature: within a tenth of a second the goal seeds drive
+every command to zero, the vehicle falls for half a second with the motors
+off, and the command map never reaches rank four. Exposing every multi-start
+candidate's objective on the result showed the trade. At the failing
+interval the angular map has rank one and attributes the free tumble to the
+collective command; at a 74° tilt the tilt term, normalized by a 0.05 rad
+tolerance, dominates every other term; and under that map the way to stop
+tilting is to cut thrust. Every candidate's knowledge term is saturated at
+the cap, so information cannot outbid it, and with the motors off there is
+no excitation to teach the map.
+
+The identifier already publishes how far each fit has been earned: a
+collective authority and a per-axis angular authority, ramped on its own
+information singular values, which is what the cascade acts through. The
+mean rollout now uses the maps at that trust, each angular axis scaled by
+its authority and the collective map by its own. A map fitted from a handful
+of samples in one direction then predicts almost nothing, the goal has no
+lever to cut thrust with, and the collective and excitation seeds decide.
+On the ensemble this recovers 57 of 112 (0.509, Wilson 0.418-0.600); the
+first-0.3 s collective rises from 0.32 to 0.54 of the range, the level the
+cascade thrusts at; and every release that stays off the floor reaches the
+envelope. The floor contacts themselves are unchanged at 51: the arrest now
+begins earlier, and the releases that still crash spin up on a partial map
+before they can right, in flights that last under a second.
+
 ### What this leaves
 
-The early floor contacts remain, at about 50 of 112 in every round-two
-configuration: the changes that fixed the hover did not move the arrest. The
-right reading of them is still that the controller does not yet know how
-much to thrust before it knows the map, and every mechanism tried for
-charging blind action was decided by a prior scale. A reading of the
-response scale from the first measured transitions, rather than from a
-constant, is the untested direction.
+The early floor contacts remain, at about 50 of 112 through three rounds.
+The releases that still crash are the low, fast, tumbling ones, and on the
+gate the remaining failure is a body-rate spin-up driven by the controller's
+own differential commands on a partially learned map, before the map is
+good enough to right with. The declared rate limit is charged only where the
+posterior can see, which at that moment is almost nowhere.
 
 The state-noise case recovers nothing in any configuration, and the flight
 shows why: differenced noisy measurements inflate the identifier's residual

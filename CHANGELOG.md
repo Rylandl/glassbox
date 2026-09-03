@@ -33,7 +33,12 @@ All notable changes to Glassbox are recorded here. The format follows
   Committed round two recovers 54 of 112 on the arm-only ensemble, an interval
   that excludes every earlier learned arm and the working cascade and contains
   the certified cascade's point estimate. Explicit `block_lengths` are
-  available and were measured as a negative result. Six rejected formulations are recorded in
+  available and were measured as a negative result. Round three uses the
+  posterior-mean maps in the rollout at the identifier's own authority, which
+  stops a rank-one map from driving the goal the wrong way, and recovers 57
+  of 112. `DualControlResult` exposes every multi-start candidate's objective,
+  and the gate can fly any of the ensemble's own perturbed releases
+  (`--draw`) and print the lowest candidates (`--candidates`). Six rejected formulations are recorded in
   `docs/concepts/dual-control-nmpc.md`.
 - Throw-study trials stop at the first floor contact and are failures from
   then on: the contact sample is kept, the contact time is recorded, and the

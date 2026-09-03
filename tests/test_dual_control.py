@@ -291,9 +291,14 @@ def test_the_superseded_first_pass_mode_still_runs_the_canonical_case() -> None:
     assert metrics["flight"]["non_finite_value_count"] == 0
     assert metrics["flight"]["command_bound_violation_count"] == 0
     dual = metrics["dual_control"]
-    assert len(dual["information_gain_per_step"]) == 900
-    assert len(dual["command_information_log_determinant"]) == 900
-    assert len(dual["early_commands"]) == 30
+    # The first pass falls to the floor, and a trial now stops at its first
+    # floor contact: the per-interval series run to the contact and no further.
+    assert metrics["flight"]["floor_contact_time_s"] is not None
+    interval_count = metrics["identification"]["working_interval_count"]
+    assert 0 < interval_count < 900
+    assert len(dual["information_gain_per_step"]) == interval_count
+    assert len(dual["command_information_log_determinant"]) == interval_count
+    assert len(dual["early_commands"]) == min(30, interval_count)
     assert dual["solve_iterations"]["total"] > 0
     assert set(dual["status_counts"]) <= {
         "converged",
@@ -910,12 +915,35 @@ def test_the_cascade_arms_reproduce_the_archived_single_release_report() -> None
     assert json.dumps(fresh["case"], sort_keys=True) == json.dumps(
         want["case"], sort_keys=True
     )
+
+    def on_archived_keys(fresh_value: object, archived_value: object) -> object:
+        """Restrict the fresh report to the keys the archive carries.
+
+        The stop-at-floor-contact rule added ``floor_contact_time_s`` to every
+        flight section after the archive was written; a canonical release that
+        never touches the floor is otherwise unchanged, and that is what this
+        asserts.
+        """
+
+        if isinstance(fresh_value, dict) and isinstance(archived_value, dict):
+            return {
+                key: on_archived_keys(fresh_value[key], archived_value[key])
+                for key in archived_value
+                if key in fresh_value
+            }
+        return fresh_value
+
     for model in ("certified", "working"):
-        assert json.dumps(fresh["modes"][model], sort_keys=True) == json.dumps(
-            want["modes"][model], sort_keys=True
-        ), model
+        assert json.dumps(
+            on_archived_keys(fresh["modes"][model], want["modes"][model]),
+            sort_keys=True,
+        ) == json.dumps(want["modes"][model], sort_keys=True), model
     assert json.dumps(
-        fresh["difference_working_minus_certified"], sort_keys=True
+        on_archived_keys(
+            fresh["difference_working_minus_certified"],
+            want["difference_working_minus_certified"],
+        ),
+        sort_keys=True,
     ) == json.dumps(want["difference_working_minus_certified"], sort_keys=True)
 
 
@@ -1467,6 +1495,8 @@ def test_pass_six_declares_its_switches_and_refuses_malformed_ones() -> None:
     assert config.excitation_basis == "hadamard"
     assert config.information_neighbourhood == "hover"
     assert config.horizon_neighbourhood == "box"
+    assert config.authority_scaled_maps is True
+    assert config.warm_start_shift == "step"
     assert config.horizon_steps == 100 and config.block_steps == 5
     assert dual_control_config("pass5").excitation_basis == "motor"
     for field, value in (
@@ -1662,3 +1692,44 @@ def test_explicit_block_lengths_expand_bound_and_shift_exactly() -> None:
     assert np.allclose(shifted_commands[:3], plan[1:4], atol=1e-9)
     with pytest.raises(ValueError):
         _pass_six(block_lengths=(1, 2, 3))
+
+
+def test_authority_scaled_maps_use_the_posterior_at_the_identifier_trust() -> None:
+    """A map the identifier has not earned is not acted on at face value.
+
+    Each angular axis is scaled by its own authority and the collective map by
+    the collective authority, so at zero authority the mean rollout sees no
+    command effect at all, and at full authority it sees the fitted maps.
+    """
+
+    from dataclasses import replace
+
+    belief = _belief_after(60)
+    scaled = _pass_six()
+    plain = _pass_six(authority_scaled_maps=False)
+    full = replace(
+        belief,
+        collective_authority=1.0,
+        angular_axis_authority=np.ones(3),
+    )
+    none = replace(
+        belief,
+        collective_authority=0.0,
+        angular_axis_authority=np.zeros(3),
+    )
+    assert np.allclose(
+        np.asarray(scaled._posterior(full).angular_per_command),
+        np.asarray(plain._posterior(full).angular_per_command),
+    )
+    assert np.allclose(np.asarray(scaled._posterior(none).angular_per_command), 0.0)
+    assert np.allclose(np.asarray(scaled._posterior(none).collective_per_command), 0.0)
+    half = replace(
+        belief,
+        collective_authority=0.5,
+        angular_axis_authority=np.asarray((1.0, 0.5, 0.0)),
+    )
+    rows = np.asarray(scaled._posterior(half).angular_per_command)
+    reference = np.asarray(plain._posterior(half).angular_per_command)
+    assert np.allclose(rows[0], reference[0])
+    assert np.allclose(rows[1], 0.5 * reference[1])
+    assert np.allclose(rows[2], 0.0)

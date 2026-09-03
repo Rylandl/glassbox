@@ -29,7 +29,9 @@ from glassbox.integrations.crazyflow_throw_study import (
     CRAZYFLOW_THROW_STUDY_CASES,
     DUAL_CONTROL_PASS5_MODEL,
     MODEL_ENABLE_DELAY_S,
+    ThrowEnsembleConfig,
     _fly_trial,
+    build_ensemble_cases,
     tilt_rad,
 )
 
@@ -51,6 +53,18 @@ def main() -> int:
     parser.add_argument(
         "--every", type=int, default=1, help="tabulate every n-th interval"
     )
+    parser.add_argument(
+        "--candidates",
+        type=int,
+        default=0,
+        help="print the n lowest multi-start candidate objectives per row",
+    )
+    parser.add_argument(
+        "--draw",
+        type=int,
+        default=None,
+        help="fly the n-th perturbed release of each case from the ensemble draws",
+    )
     args = parser.parse_args()
     overrides = dict(_parse_override(item) for item in args.set)
     cases = {case.name: case for case in CRAZYFLOW_THROW_STUDY_CASES}
@@ -61,10 +75,21 @@ def main() -> int:
         | overrides
     )
     config = DualControlConfig(**merged)
+    from glassbox.experimental.dual_control import DualControlNMPC
+
+    candidate_names = DualControlNMPC(config).candidate_names
     print("config:", args.variant, overrides)
     try:
         for name in args.cases.split(","):
             case = cases[name]
+            if args.draw is not None:
+                index = [c.name for c in CRAZYFLOW_THROW_STUDY_CASES].index(name)
+                draws = build_ensemble_cases(case, index, ThrowEnsembleConfig())
+                case = draws[args.draw]
+                print(
+                    f"  draw {args.draw}: "
+                    f"{json.dumps(case.release_perturbation.to_dict())}"
+                )
             start = time.perf_counter()
             record, telemetry, _requested, _identification, _trace = _fly_trial(
                 case, DUAL_CONTROL_PASS5_MODEL, plant, dual_config=config
@@ -115,6 +140,15 @@ def main() -> int:
                     f"{result.altitude_penalty:6.1e} {result.iterations:2d} "
                     f"{result.status.name[:4]} {result.plan_amplitude:.2f}"
                 )
+                if args.candidates and len(result.candidate_objectives):
+                    order = np.argsort(result.candidate_objectives)[: args.candidates]
+                    print(
+                        "        candidates: "
+                        + "  ".join(
+                            f"{candidate_names[i]}={result.candidate_objectives[i]:.3g}"
+                            for i in order
+                        )
+                    )
     finally:
         plant.close()
     return 0

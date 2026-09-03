@@ -94,7 +94,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Literal, NamedTuple
 
 import jax
@@ -294,6 +294,7 @@ DUAL_CONTROL_VARIANTS: dict[str, dict[str, Any]] = {
         "excitation_basis": "hadamard",
         "goal_seeds": True,
         "warm_start_shift": "step",
+        "authority_scaled_maps": True,
         "horizon_steps": 100,
         "block_steps": 5,
     },
@@ -453,6 +454,20 @@ class DualControlConfig:
     #: the vehicle at the loop rate while still seeing a full horizon with few
     #: variables.  ``None`` means uniform blocks of ``block_steps``.
     block_lengths: tuple[int, ...] | None = None
+    #: Use the posterior-mean command maps in the mean rollout at the trust the
+    #: identifier assigns them: each angular axis scaled by its own authority
+    #: and the collective map by the collective authority.  A map fitted from
+    #: a handful of samples in one direction exists long before it means
+    #: anything, and a goal charged on its prediction can be driven the wrong
+    #: way by it; the authority is the identifier's own statement of how far
+    #: the fit has been earned, and it is already what the cascade acts on.
+    authority_scaled_maps: bool = False
+    #: Charge the declared body-rate limit on the mean prediction over the
+    #: whole horizon, whatever the posterior can see: the limit is declared
+    #: and the prediction is the plan's own intent, so a plan that intends to
+    #: exceed it is charged wherever it does.  Without this the limit is
+    #: charged only on the steps the goal horizon admits.
+    rate_limit_on_mean: bool = False
     #: The declared per-interval slew limit, as a fraction of the command
     #: range.  Under ``"slew_moves"`` this is a hard box on every block's move,
     #: so the executed command never leaves the previous one by more than this
@@ -699,6 +714,8 @@ class DualControlConfig:
             "empirical_prior_scale": self.empirical_prior_scale,
             "regressor_trust": self.regressor_trust,
             "excitation_basis": self.excitation_basis,
+            "authority_scaled_maps": self.authority_scaled_maps,
+            "rate_limit_on_mean": self.rate_limit_on_mean,
             "goal_seeds": self.goal_seeds,
             "warm_start_shift": self.warm_start_shift,
             "slew_per_interval": self.slew_per_interval,
@@ -889,6 +906,9 @@ class DualControlResult:
     #: Intervals the first block of ``plan`` has already been executed for.
     #: Zero after a block shift; the next solve's warm start reads it.
     plan_phase: int = 0
+    #: Objective value of every multi-start candidate, in ``candidate_names``
+    #: order, before the gradient refinement; infinite for an unusable one.
+    candidate_objectives: np.ndarray = field(default_factory=lambda: np.zeros(0))
 
     def __post_init__(self) -> None:
         command = np.asarray(self.command, dtype=np.float64)
@@ -957,6 +977,10 @@ class DualControlResult:
             "used_warm_start": self.used_warm_start,
             "selected_candidate": self.selected_candidate,
             "selected_candidate_index": self.selected_candidate_index,
+            "candidate_objectives": [
+                None if not math.isfinite(value) else float(value)
+                for value in self.candidate_objectives
+            ],
             "selected_amplitude": self.selected_amplitude,
             "plan_amplitude": self.plan_amplitude,
             "planned_information_rank": self.planned_information_rank,
@@ -2326,7 +2350,11 @@ class DualControlNMPC:
             tracking = jnp.sum(jnp.where(known, rollout.tracking_terms, 0.0))
             altitude_supported = altitude_known
             tilt_supported = tilt_known
-            rate_supported = rate_known
+            rate_supported = (
+                jnp.ones_like(rate_known)
+                if self.config.rate_limit_on_mean
+                else rate_known
+            )
         else:
             tracking = jnp.sum(rollout.tracking)
             rate_supported = jnp.ones_like(rate_spread, dtype=bool)
@@ -2704,6 +2732,7 @@ class DualControlNMPC:
             amplitude,
             rank,
             terms,
+            values,
         )
 
     # ------------------------------------------------------------------
@@ -2863,15 +2892,20 @@ class DualControlNMPC:
     def _posterior(self, belief: RecursiveBootstrapBelief) -> _Posterior:
         variance = float(np.mean(np.square(belief.angular_residual_std_rad_s2)))
         collective_prior, angular_prior = self._prior_precisions(belief)
+        collective_map = np.asarray(belief.collective_acceleration_per_command)
+        angular_map = np.asarray(belief.angular_acceleration_per_command)
+        if self.config.authority_scaled_maps:
+            collective_map = collective_map * float(belief.collective_authority)
+            angular_map = (
+                angular_map * np.asarray(belief.angular_axis_authority)[:, None]
+            )
         return _Posterior(
-            collective_per_command=jnp.asarray(
-                belief.collective_acceleration_per_command
-            ),
+            collective_per_command=jnp.asarray(collective_map),
             collective_velocity_coefficient=jnp.asarray(
                 belief.collective_velocity_coefficient
             ),
             collective_intercept=jnp.asarray(belief.collective_intercept_m_s2),
-            angular_per_command=jnp.asarray(belief.angular_acceleration_per_command),
+            angular_per_command=jnp.asarray(angular_map),
             angular_rate_coefficient=jnp.asarray(belief.angular_rate_coefficient),
             angular_rate_product_coefficient=jnp.asarray(
                 belief.angular_rate_product_coefficient
@@ -3052,6 +3086,7 @@ class DualControlNMPC:
             plan_amplitude,
             planned_rank,
             terms,
+            candidate_values,
         ) = self._program(
             jnp.asarray(warm),
             jnp.asarray(warm_valid),
@@ -3120,6 +3155,7 @@ class DualControlNMPC:
             used_warm_start=index == 0,
             selected_candidate=self._candidate_names[index],
             selected_candidate_index=index,
+            candidate_objectives=np.asarray(candidate_values, dtype=np.float64),
             selected_amplitude=float(self._candidate_amplitudes[index]),
             plan_amplitude=float(plan_amplitude),
             planned_information_rank=int(planned_rank),
