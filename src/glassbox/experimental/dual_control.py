@@ -179,8 +179,9 @@ SpreadModel = Literal["command_marginal", "planned_trajectory"]
 #: every seed from the current posterior and the current state.
 SeedFamily = Literal["declared_designs", "posterior_moves"]
 GoalHorizon = Literal["declared", "posterior"]
-InformationNeighbourhood = Literal["box", "slew", "visited"]
+InformationNeighbourhood = Literal["box", "slew", "visited", "hover"]
 ExcitationBasis = Literal["motor", "hadamard"]
+WarmStartShift = Literal["block", "step"]
 
 #: The posterior-derived seeds, in the order the program stacks them after the
 #: warm start and the held command.  Four excitation cycles along the command
@@ -201,6 +202,10 @@ _GOAL_SEED_NAMES: tuple[str, ...] = (
     "goal_rate",
     "goal_tilt",
     "goal_floor",
+    "goal_velocity+excite",
+    "goal_rate+excite",
+    "goal_tilt+excite",
+    "goal_floor+excite",
 )
 
 #: The studied configurations.  Pass one is kept selectable so its failure stays
@@ -282,11 +287,13 @@ DUAL_CONTROL_VARIANTS: dict[str, dict[str, Any]] = {
         "charge_body_rate_limit": True,
         "goal_horizon": "posterior",
         "clip_action_spread": True,
-        "information_neighbourhood": "box",
+        "information_neighbourhood": "hover",
+        "horizon_neighbourhood": "box",
         "empirical_prior_scale": False,
         "regressor_trust": False,
         "excitation_basis": "hadamard",
         "goal_seeds": True,
+        "warm_start_shift": "step",
         "horizon_steps": 100,
         "block_steps": 5,
     },
@@ -405,6 +412,9 @@ class DualControlConfig:
     #: Which commands the knowledge term averages over: the whole command box,
     #: or the commands within one slew of the held command.
     information_neighbourhood: InformationNeighbourhood = "box"
+    #: Which commands the *goal horizon* is decided over, when it differs from
+    #: the knowledge term's neighbourhood.  ``None`` means the same.
+    horizon_neighbourhood: InformationNeighbourhood | None = None
     #: Take the prior spread of an unlearned command direction from the
     #: effects already learned: once any direction of a map is supported, an
     #: unlearned direction is presumed as strong as the learned ones, which is
@@ -431,6 +441,18 @@ class DualControlConfig:
     #: steepest-descent plan of the velocity, rate, tilt, and floor costs with
     #: respect to the moves, at the held command, scaled to the slew.
     goal_seeds: bool = False
+    #: How the previous plan is advanced before it seeds the next solve.
+    #: ``"block"`` drops the first block every interval, which with blocks of
+    #: several steps executes the seeded plan several times faster than it was
+    #: planned.  ``"step"`` keeps the block plan for ``block_steps`` intervals
+    #: and drops the first block only when it has been executed in full, so
+    #: the seeded plan progresses in real time; the phase rides on the result.
+    warm_start_shift: WarmStartShift = "block"
+    #: Optional explicit block lengths, in steps, summing to ``horizon_steps``.
+    #: Short blocks first and long blocks last let the plan probe and right
+    #: the vehicle at the loop rate while still seeing a full horizon with few
+    #: variables.  ``None`` means uniform blocks of ``block_steps``.
+    block_lengths: tuple[int, ...] | None = None
     #: The declared per-interval slew limit, as a fraction of the command
     #: range.  Under ``"slew_moves"`` this is a hard box on every block's move,
     #: so the executed command never leaves the previous one by more than this
@@ -492,7 +514,20 @@ class DualControlConfig:
     def block_count(self) -> int:
         """Command blocks the horizon is parameterized by."""
 
+        if self.block_lengths is not None:
+            return len(self.block_lengths)
         return math.ceil(self.horizon_steps / self.block_steps)
+
+    @property
+    def block_length_array(self) -> np.ndarray:
+        """Length of every block in steps, uniform or explicit."""
+
+        if self.block_lengths is not None:
+            return np.asarray(self.block_lengths, dtype=np.int64)
+        count = self.block_count
+        lengths = np.full(count, self.block_steps, dtype=np.int64)
+        lengths[-1] = self.horizon_steps - self.block_steps * (count - 1)
+        return lengths
 
     @property
     def horizon_s(self) -> float:
@@ -540,6 +575,13 @@ class DualControlConfig:
             raise ValueError("horizon_steps and block_steps must be positive")
         if self.block_steps > self.horizon_steps:
             raise ValueError("block_steps cannot exceed the prediction horizon")
+        if self.block_lengths is not None:
+            lengths = tuple(int(length) for length in self.block_lengths)
+            if not lengths or any(length < 1 for length in lengths):
+                raise ValueError("block_lengths must be positive")
+            if sum(lengths) != self.horizon_steps:
+                raise ValueError("block_lengths must sum to horizon_steps")
+            object.__setattr__(self, "block_lengths", lengths)
         if self.iteration_count < 1 or self.line_search_steps < 1:
             raise ValueError("solver iteration counts must be positive")
         if self.objective not in ("information_gain", "expected_cost"):
@@ -561,11 +603,24 @@ class DualControlConfig:
                 "'command_marginal_coupled', 'command_marginal_full', "
                 "'sequential', or 'act_know'"
             )
+        if self.warm_start_shift not in ("block", "step"):
+            raise ValueError("warm_start_shift must be 'block' or 'step'")
         if self.excitation_basis not in ("motor", "hadamard"):
             raise ValueError("excitation_basis must be 'motor' or 'hadamard'")
-        if self.information_neighbourhood not in ("box", "slew", "visited"):
+        if (
+            self.horizon_neighbourhood is not None
+            and self.horizon_neighbourhood
+            not in (
+                "box",
+                "slew",
+                "visited",
+                "hover",
+            )
+        ):
+            raise ValueError("horizon_neighbourhood must be a neighbourhood or None")
+        if self.information_neighbourhood not in ("box", "slew", "visited", "hover"):
             raise ValueError(
-                "information_neighbourhood must be 'box', 'slew', or 'visited'"
+                "information_neighbourhood must be 'box', 'slew', 'visited', or 'hover'"
             )
         if self.goal_horizon not in ("declared", "posterior"):
             raise ValueError("goal_horizon must be 'declared' or 'posterior'")
@@ -623,6 +678,9 @@ class DualControlConfig:
             "horizon_steps": self.horizon_steps,
             "block_steps": self.block_steps,
             "block_count": self.block_count,
+            "block_lengths": (
+                None if self.block_lengths is None else list(self.block_lengths)
+            ),
             "objective": self.objective,
             "residualize_information": self.residualize_information,
             "multi_start": self.multi_start,
@@ -637,10 +695,12 @@ class DualControlConfig:
             "goal_horizon": self.goal_horizon,
             "clip_action_spread": self.clip_action_spread,
             "information_neighbourhood": self.information_neighbourhood,
+            "horizon_neighbourhood": self.horizon_neighbourhood,
             "empirical_prior_scale": self.empirical_prior_scale,
             "regressor_trust": self.regressor_trust,
             "excitation_basis": self.excitation_basis,
             "goal_seeds": self.goal_seeds,
+            "warm_start_shift": self.warm_start_shift,
             "slew_per_interval": self.slew_per_interval,
             "w_rate": self.w_rate,
             "w_info": self.w_info,
@@ -826,6 +886,10 @@ class DualControlResult:
     charged_initial_transition: bool
     reason: str = "dual_control_nmpc"
 
+    #: Intervals the first block of ``plan`` has already been executed for.
+    #: Zero after a block shift; the next solve's warm start reads it.
+    plan_phase: int = 0
+
     def __post_init__(self) -> None:
         command = np.asarray(self.command, dtype=np.float64)
         if command.shape != (_COMMAND_SIZE,):
@@ -899,6 +963,7 @@ class DualControlResult:
             "design_center": self.design_center.tolist(),
             "design_center_source": self.design_center_source,
             "charged_initial_transition": self.charged_initial_transition,
+            "plan_phase": self.plan_phase,
         }
 
 
@@ -944,6 +1009,14 @@ class DualControlNMPC:
         self._slew_step = self.config.slew_per_interval * self._span
         self._jit_slew_step = jnp.asarray(self._slew_step)
         self._jit_hadamard_basis = jnp.asarray(_HADAMARD_ROWS / 2.0)
+        self._block_lengths = self.config.block_length_array
+        self._jit_block_lengths = jnp.asarray(self._block_lengths)
+        # Every block, whatever its length, is a move of at most one slew: the
+        # tail of the plan then cannot hold bang-bang commands that the step
+        # shift would carry forward into execution.
+        self._jit_block_slew = jnp.asarray(
+            np.ones((len(self._block_lengths), 1)) * self._slew_step[None, :]
+        )
         # Amplitude labels line up with the candidate order the program builds:
         # warm start, held command, then both polarities of every amplitude.
         polarities = (1.0, -1.0)
@@ -1016,8 +1089,15 @@ class DualControlNMPC:
     def _expand(self, blocks: Array) -> Array:
         """Hold each block over its steps and truncate to the horizon."""
 
-        expanded = jnp.repeat(blocks, self.config.block_steps, axis=0)
-        return expanded[: self.config.horizon_steps]
+        if self.config.block_lengths is None:
+            expanded = jnp.repeat(blocks, self.config.block_steps, axis=0)
+            return expanded[: self.config.horizon_steps]
+        return jnp.repeat(
+            blocks,
+            self._jit_block_lengths,
+            axis=0,
+            total_repeat_length=self.config.horizon_steps,
+        )
 
     def _commands_from_normalized(self, normalized: Array) -> Array:
         return (
@@ -1039,7 +1119,7 @@ class DualControlNMPC:
         """
 
         if self.config.plan_parameterization == "slew_moves":
-            moves = jnp.clip(blocks, -1.0, 1.0) * self._jit_slew_step
+            moves = jnp.clip(blocks, -1.0, 1.0) * self._jit_block_slew
             return jnp.clip(
                 previous_command[None, :] + jnp.cumsum(moves, axis=0),
                 self._jit_minimum,
@@ -1189,6 +1269,7 @@ class DualControlNMPC:
             state,
             False,
             previous_command,
+            self.config.horizon_neighbourhood,
         )
         known = jnp.stack(
             (
@@ -1250,7 +1331,12 @@ class DualControlNMPC:
         if not self.config.goal_seeds:
             return seeds
         goals = self._goal_moves(state, posterior, previous_command)
-        return jnp.concatenate((seeds, goals))
+        # Each goal seed laid over the excitation cycle: a plan that pursues
+        # the goal and learns at the same time, so "thrust while probing" is
+        # on the table as a whole rather than only as something the gradient
+        # refinement might assemble from the pure seeds.
+        composites = jnp.clip(goals + cycle[None, :, :], -1.0, 1.0)
+        return jnp.concatenate((seeds, goals, composites))
 
     def _candidate_blocks(
         self,
@@ -1633,6 +1719,81 @@ class DualControlNMPC:
         altitude_spread = jnp.cumsum(period * velocity_spread)
         return rate_spread, tilt_spread, velocity_spread, altitude_spread
 
+    def _hover_command_moment(
+        self,
+        posterior: _Posterior,
+        collective_rest: Array,
+        angular_rest: Array,
+    ) -> tuple[Array, Array]:
+        """Mean and second moment of the hover command under the box prior.
+
+        Hover is the command at which the posterior-mean maps give specific
+        force ``g`` and zero angular acceleration: four linear equations in the
+        four normalized commands.  Their information about the hover command
+        is ``M^T D^-1 M`` with ``M`` the stacked maps and ``D`` the predictive
+        variance of each output at the held command, so an unlearned map
+        direction contributes nothing and a well-learned one pins the command
+        tightly.  Combined with the box as the prior — uniform on the box, so
+        zero mean and ``1/12`` variance per axis in normalized coordinates —
+        this is exactly the box at zero information and collapses onto the
+        hover point as the maps are learned, with nothing in between declared.
+        """
+
+        span = self._jit_span
+        collective = posterior.collective_per_command * span
+        angular = posterior.angular_per_command * span[None, :]
+        maps = jnp.concatenate((collective[None, :], angular), axis=0)
+        collective_offset = (
+            posterior.collective_per_command @ self._jit_midpoint
+            + posterior.collective_intercept
+            + posterior.collective_velocity_coefficient @ collective_rest[:3]
+        )
+        angular_offset = (
+            posterior.angular_per_command @ self._jit_midpoint
+            + posterior.angular_intercept
+            + posterior.angular_rate_coefficient @ angular_rest[:3]
+            + posterior.angular_rate_product_coefficient @ angular_rest[3:6]
+        )
+        targets = jnp.concatenate(
+            (jnp.asarray((GRAVITY_M_S2,)) - collective_offset[None], -angular_offset)
+        )
+
+        def predictive(
+            gram: Array, variance: Array, feature: Array, prior: Array
+        ) -> Array:
+            precision = gram / jnp.maximum(variance, 1e-12) + prior * jnp.eye(
+                gram.shape[0]
+            )
+            return feature @ jnp.linalg.solve(precision, feature)
+
+        held = self._jit_held_feature
+        collective_feature = jnp.concatenate((held, collective_rest))
+        angular_feature = jnp.concatenate((held, angular_rest))
+        collective_variance = predictive(
+            posterior.collective_information,
+            posterior.collective_residual_variance,
+            collective_feature,
+            posterior.collective_prior_precision,
+        )
+        angular_variances = jax.vmap(
+            lambda variance: predictive(
+                posterior.angular_information,
+                variance,
+                angular_feature,
+                posterior.angular_prior_precision,
+            )
+        )(posterior.angular_residual_variance)
+        weights = 1.0 / jnp.maximum(
+            jnp.concatenate((collective_variance[None], angular_variances)), 1e-12
+        )
+        information = maps.T @ (weights[:, None] * maps)
+        precision = 12.0 * jnp.eye(_COMMAND_SIZE) + information
+        mean = jnp.linalg.solve(precision, maps.T @ (weights * targets))
+        # Keep the mean inside the box the prior lives on.
+        mean = jnp.clip(mean, -0.5, 0.5)
+        covariance = jnp.linalg.inv(precision)
+        return mean, covariance + jnp.outer(mean, mean)
+
     def _spreads_marginal_full(
         self,
         rollout: _Rollout,
@@ -1640,6 +1801,7 @@ class DualControlNMPC:
         state: Array,
         planned: bool,
         held: Array,
+        neighbourhood: str | None = None,
     ) -> tuple[Array, Array, Array, Array]:
         """Full-regressor spread at the measured state, over one slew of command.
 
@@ -1698,15 +1860,25 @@ class DualControlNMPC:
             angular_gram = posterior.angular_information
 
         held_feature = (held - self._jit_midpoint) / self._jit_span
+        self._jit_held_feature = held_feature
         local_variance = self.config.slew_per_interval**2 / 3.0
 
-        if self.config.information_neighbourhood == "box":
+        if neighbourhood is None:
+            neighbourhood = self.config.information_neighbourhood
+        if neighbourhood == "box":
             # Uniform on the box: zero-mean command features with variance
             # ``1 / 12`` per axis.
             held_feature = jnp.zeros(_COMMAND_SIZE)
             local_variance = 1.0 / 12.0
 
-        visited = self.config.information_neighbourhood == "visited"
+        visited = neighbourhood == "visited"
+        hover = neighbourhood == "hover"
+        if hover:
+            collective_rest_now = jnp.concatenate((body_velocity, jnp.ones(1)))
+            angular_rest_now = jnp.concatenate((rates, rate_products, jnp.ones(1)))
+            hover_mean, hover_moment = self._hover_command_moment(
+                posterior, collective_rest_now, angular_rest_now
+            )
 
         def box_variance(
             gram: Array, variance: Array, rest: Array, prior: Array
@@ -1715,6 +1887,16 @@ class DualControlNMPC:
                 gram.shape[0]
             )
             covariance = jnp.linalg.inv(precision)
+            if hover:
+                # Second moment of the full regressor under the hover command
+                # distribution, with the nuisance block at the measured state.
+                size = gram.shape[0]
+                moment = jnp.zeros((size, size))
+                moment = moment.at[:4, :4].set(hover_moment)
+                moment = moment.at[:4, 4:].set(jnp.outer(hover_mean, rest))
+                moment = moment.at[4:, :4].set(jnp.outer(rest, hover_mean))
+                moment = moment.at[4:, 4:].set(jnp.outer(rest, rest))
+                return jnp.trace(covariance @ moment)
             if visited:
                 # Average the predictive variance over the regressors the
                 # identifier has actually seen, with the box as a single
@@ -2027,13 +2209,18 @@ class DualControlNMPC:
             "act_know",
         ):
             current = self._spreads_marginal_full(
-                rollout, posterior, state, False, previous_command
+                rollout,
+                posterior,
+                state,
+                False,
+                previous_command,
+                self.config.horizon_neighbourhood,
             )
         else:
             current = (rate_spread, tilt_spread, vertical_speed_spread, altitude_spread)
         # The executed block is always charged: the goal must never vanish
         # from the objective, however poor the posterior.
-        executed = jnp.arange(rate_spread.shape[0]) < self.config.block_steps
+        executed = jnp.arange(rate_spread.shape[0]) < int(self._block_lengths[0])
         rate_known = (current[0] <= rate_cap) | executed
         tilt_known = (current[1] <= tilt_cap) | executed
         velocity_known = (current[2] <= velocity_cap) | executed
@@ -2726,10 +2913,25 @@ class DualControlNMPC:
             and math.isfinite(belief.collective_residual_std_m_s2)
         )
 
+    def _warm_phase(self, warm_start: Any) -> tuple[bool, int]:
+        """Whether to drop the previous plan's first block, and the new phase."""
+
+        if self.config.warm_start_shift == "block" or warm_start is None:
+            return True, 0
+        if self.config.block_lengths is not None:
+            # Explicit blocks are shifted step by step and re-blocked, which
+            # needs no phase.
+            return True, 0
+        phase = int(getattr(warm_start, "plan_phase", 0)) + 1
+        if phase >= self.config.block_steps:
+            return True, 0
+        return False, phase
+
     def _warm_blocks(
         self,
         warm_start: Any,
         held: np.ndarray,
+        shift: bool = True,
     ) -> tuple[np.ndarray, bool]:
         """Shift the previous plan by one block, or say it cannot be used.
 
@@ -2768,7 +2970,22 @@ class DualControlNMPC:
         ):
             return cold, False
         bounded = np.clip(commands, self._minimum, self._maximum)
-        shifted = np.concatenate((bounded[1:], bounded[-1:]), axis=0)
+        if (
+            self.config.block_lengths is not None
+            and self.config.warm_start_shift == "step"
+        ):
+            # Advance one step in real time: expand to steps, drop the first,
+            # repeat the last, and read each block's command at its start.
+            per_step = np.repeat(bounded, self._block_lengths, axis=0)
+            per_step = np.concatenate((per_step[1:], per_step[-1:]), axis=0)
+            starts = np.concatenate(([0], np.cumsum(self._block_lengths)[:-1]))
+            shifted = per_step[starts]
+        else:
+            shifted = (
+                np.concatenate((bounded[1:], bounded[-1:]), axis=0)
+                if shift
+                else bounded
+            )
         if moves:
             steps = np.diff(
                 np.concatenate((held[None, :], shifted), axis=0),
@@ -2820,7 +3037,8 @@ class DualControlNMPC:
                 charged_initial_transition=charged,
             )
 
-        warm, warm_valid = self._warm_blocks(warm_start, held)
+        shift, phase = self._warm_phase(warm_start)
+        warm, warm_valid = self._warm_blocks(warm_start, held, shift=shift)
         (
             command,
             plan,
@@ -2913,4 +3131,5 @@ class DualControlNMPC:
             design_center=center,
             design_center_source=center_source,
             charged_initial_transition=charged,
+            plan_phase=phase,
         )

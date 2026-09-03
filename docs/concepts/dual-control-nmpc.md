@@ -1334,20 +1334,104 @@ collective than the airborne releases (0.245 against 0.362 of the range) and
 the same time to rank four, so they are spending the early window learning
 rather than thrusting, not learning more slowly.
 
-### What this leaves
+### Round two: the neighbourhood the goal needs
 
 The drift is an objective problem, not a solver problem: it survives a
-tenfold solver budget. At hover the box-averaged knowledge term is still near
-its cap, because "how well is the response known over the whole command box"
-never gets small, and the optimizer keeps trading a little tracking for a
-little information. Every attempt to shrink that term at hover also removed
-the global learning the early phase needs, so the two phases want different
-neighbourhoods and the honest way to get both is still open. The
-value-of-information proxy should concentrate on the commands the goal will
-need, and what that set is has to come from the posterior.
+tenfold solver budget. At hover the box-averaged knowledge term was still
+near its cap, because "how well is the response known over the whole command
+box" never gets small, and the optimizer kept trading a little tracking for a
+little information. Every attempt to shrink that term at hover by declaring a
+smaller neighbourhood also removed the global learning the early phase needs.
 
-The early floor contacts are the other half. The right reading of them is
-that the controller does not yet know how much to thrust before it knows the
-map, and every mechanism tried for charging blind action was decided by a
-prior scale. A reading of the response scale from the first measured
-transitions, rather than from a constant, is the untested direction.
+The neighbourhood the goal needs can be read off the posterior. Hover is the
+command at which the posterior-mean maps give specific force `g` and zero
+angular acceleration: four linear equations in the four normalized commands.
+Their information about the hover command is `M^T D^-1 M`, with `M` the
+stacked maps and `D` the predictive variance of each output at the held
+command, so an unlearned map direction contributes nothing and a learned one
+pins the command. Combined with the box as the prior, which is already the
+command contract's statement about where hover is (uniform on the box, so
+zero mean and `1/12` variance per axis), this gives a Gaussian over the hover
+command that is exactly the box at zero information and collapses onto the
+hover point as the maps are learned. The knowledge term averages the
+predictive variance over that distribution. Nothing between the two limits is
+declared.
+
+Used for both the knowledge term and the goal horizon, it removed the drift
+and introduced an overshoot: with the hover point pinned, the goal horizon
+lengthened into the part of the mean rollout that extrapolates the fitted
+damping and coupling terms, the arrest climbed to eight metres, and the
+vertical settle took longer than the window. Used for the knowledge term
+only, with the goal horizon still decided over the box, the canonical and
+reversed-tumble releases settle into a true hover, within 0.02 m/s and level,
+with no overshoot. On the arm-only ensemble, same releases, this
+configuration with the block warm start recovers 47 of 112 (0.420, Wilson
+0.332-0.512), against 10 of 112 for the box-averaged knowledge term. The
+floor contacts are unchanged at 51; of the 61 releases that stay airborne,
+52 now reach the envelope. The drift is gone, and the arm is above the
+working cascade (0.223) and inside the certified cascade's interval
+(0.452-0.634). The state-noise case is the exception: 0 of 16, with a median
+terminal speed of 0.9 m/s, so under measurement noise the hover itself is
+not held. That is the committed `pass6`: the knowledge term over the
+posterior's hover distribution, the goal horizon over the box.
+
+### The warm start was executing the plan five times too fast
+
+Found while looking at why the arrests bottom out so low. The plan is
+parameterized in blocks of five steps and re-solved every step, and the warm
+start dropped the previous plan's first block every solve. The seed the
+optimizer refines therefore advanced by one block per interval: an
+excitation cycle planned as four fifty-millisecond blocks was executed as
+four ten-millisecond ones, and every seed's later blocks arrived five times
+sooner than the objective had priced them. The second pass onwards carried
+this, at three steps per block. Under `"step"` the phase rides on the
+result: the block plan is kept for `block_steps` intervals and shifted only
+when its first block has been executed in full, so the seeded plan progresses
+in real time. On the gate the two arrests that had bottomed out within
+0.2 m of the floor now stop at 1.2 m and 2.5 m, and the reversed tumble,
+which had stopped at 2.5 m, now stops at 0.4 m: the same chaotic spread the
+ensemble exists to average over. On the ensemble the two warm starts recover
+the same 47 of 112 and split the losses differently: the block shift touches
+the floor on 51 releases and leaves 9 airborne outside the envelope, the
+real-time shift touches the floor on 61 and leaves 1. The compressed
+execution was, by accident, a faster excitation cycle, and the early phase
+is sensitive to exactly that.
+
+### Composite seeds
+
+The pure seeds offer the optimizer either a goal plan or an excitation plan,
+and ten iterations of projected gradient rarely assemble "thrust while
+probing" from the two. Each goal seed is therefore also offered laid over the
+excitation cycle, clipped to the slew box: four more candidates, no new
+numbers. With the real-time warm start this recovers 54 of 112 (0.482,
+Wilson 0.392-0.574), floor contacts 50, and 57 of the 62 airborne releases
+in the envelope. The interval excludes every earlier learned arm and the
+working cascade, and contains the certified cascade's point estimate. That
+is the committed `pass6`.
+
+Two more block structures were measured and dropped. Blocks of one step at
+the front lengthening to 44 at the back, so the plan probes at the loop rate
+and still sees a second, crashed four of four on the gate when each block
+could move one slew per step it lasts — the uncharged tail of the plan held
+bang-bang commands that the step shift carried forward into execution — and
+three of four when every block was bound to one slew. Uniform five-step
+blocks stay; `block_lengths` remains available.
+
+### What this leaves
+
+The early floor contacts remain, at about 50 of 112 in every round-two
+configuration: the changes that fixed the hover did not move the arrest. The
+right reading of them is still that the controller does not yet know how
+much to thrust before it knows the map, and every mechanism tried for
+charging blind action was decided by a prior scale. A reading of the
+response scale from the first measured transitions, rather than from a
+constant, is the untested direction.
+
+The state-noise case recovers nothing in any configuration, and the flight
+shows why: differenced noisy measurements inflate the identifier's residual
+variance, the posterior never tightens, the hover neighbourhood never
+collapses, the early phase barely thrusts, and the post-contact hover
+drifts. That is an identifier problem, not a controller one.
+
+The ensemble protocol and the recorded numbers are in
+[the release-ensemble page](../experiments/dual-control-throw-ensemble.md).

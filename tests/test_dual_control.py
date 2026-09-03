@@ -1453,8 +1453,10 @@ def test_a_diverged_release_is_recorded_rather_than_ending_the_ensemble() -> Non
 # ----------------------------------------------------------------------
 
 
-def _pass_six(**overrides) -> DualControlNMPC:
-    return DualControlNMPC(dual_control_config("pass6", **overrides))
+def _pass_six(**overrides: object) -> DualControlNMPC:
+    return DualControlNMPC(
+        DualControlConfig(**(dict(DUAL_CONTROL_VARIANTS["pass6"]) | overrides))
+    )
 
 
 def test_pass_six_declares_its_switches_and_refuses_malformed_ones() -> None:
@@ -1463,7 +1465,8 @@ def test_pass_six_declares_its_switches_and_refuses_malformed_ones() -> None:
     assert config.spread_model == "command_marginal_full"
     assert config.goal_horizon == "posterior"
     assert config.excitation_basis == "hadamard"
-    assert config.information_neighbourhood == "box"
+    assert config.information_neighbourhood == "hover"
+    assert config.horizon_neighbourhood == "box"
     assert config.horizon_steps == 100 and config.block_steps == 5
     assert dual_control_config("pass5").excitation_basis == "motor"
     for field, value in (
@@ -1509,9 +1512,10 @@ def test_pass_six_probes_the_collective_first_at_zero_information() -> None:
 
 def test_pass_six_seeds_include_one_descent_plan_per_goal_term() -> None:
     controller = _pass_six()
-    assert controller.config.candidate_count == 2 + 10
+    assert controller.config.candidate_count == 2 + 14
     names = controller.candidate_names
-    assert names[-4:] == ("goal_velocity", "goal_rate", "goal_tilt", "goal_floor")
+    assert names[-8:-4] == ("goal_velocity", "goal_rate", "goal_tilt", "goal_floor")
+    assert all(name.endswith("+excite") for name in names[-4:])
     belief = _belief_after(60)
     posterior = controller._posterior(belief)
     held = jnp.full(4, 0.5)
@@ -1539,3 +1543,122 @@ def test_pass_six_solves_from_zero_information_within_the_slew() -> None:
     assert np.all(result.command >= 0.0) and np.all(result.command <= 1.0)
     assert result.selected_candidate != "hold"
     assert np.max(result.command) > 0.05
+
+
+def test_the_hover_neighbourhood_is_the_box_until_the_maps_pin_hover() -> None:
+    """The knowledge term's neighbourhood is derived, never declared.
+
+    At zero information the hover solution carries no information and the
+    neighbourhood is the box prior: zero mean, ``1/12`` variance per axis.
+    Once the maps are learned the mean is a command the belief's own collective
+    map says produces hover thrust, and the spread around it is far tighter
+    than the box.
+    """
+
+    controller = _pass_six()
+    posterior = controller._posterior(_belief_after(0))
+    rest_c = jnp.concatenate((jnp.zeros(3), jnp.ones(1)))
+    rest_a = jnp.concatenate((jnp.zeros(6), jnp.ones(1)))
+    controller._jit_held_feature = jnp.zeros(4)
+    mean, moment = controller._hover_command_moment(posterior, rest_c, rest_a)
+    assert np.allclose(np.asarray(mean), 0.0, atol=1e-9)
+    assert np.allclose(np.asarray(moment), np.eye(4) / 12.0, atol=1e-9)
+
+    belief = _belief_after(200)
+    posterior = controller._posterior(belief)
+    mean, moment = controller._hover_command_moment(posterior, rest_c, rest_a)
+    command = np.asarray(controller._jit_midpoint + controller._jit_span * mean)
+    predicted = float(
+        belief.collective_acceleration_per_command @ command
+        + belief.collective_intercept_m_s2
+    )
+    assert abs(predicted - GRAVITY_M_S2) < 0.1 * GRAVITY_M_S2
+    covariance = np.asarray(moment) - np.outer(np.asarray(mean), np.asarray(mean))
+    assert np.trace(covariance) < 0.1 * (4.0 / 12.0)
+
+
+def test_the_step_warm_start_advances_the_plan_in_real_time() -> None:
+    """A block plan is kept for ``block_steps`` intervals, then shifted.
+
+    Under ``"block"`` every solve drops the first block, so a plan of
+    five-step blocks is executed five times faster than it was planned.  Under
+    ``"step"`` the phase rides on the result: the block is kept until it has
+    been executed in full, and only then does the next block become first.
+    """
+
+    from types import SimpleNamespace
+
+    controller = _pass_six()
+    assert controller.config.warm_start_shift == "step"
+    assert controller._warm_phase(None) == (True, 0)
+    previous = SimpleNamespace(plan_phase=0)
+    for phase in range(1, controller.config.block_steps):
+        assert controller._warm_phase(previous) == (False, phase)
+        previous = SimpleNamespace(plan_phase=phase)
+    assert controller._warm_phase(previous) == (True, 0)
+
+    blocked = _pass_six(warm_start_shift="block")
+    assert blocked._warm_phase(SimpleNamespace(plan_phase=0)) == (True, 0)
+
+    held = np.full(4, 0.4)
+    plan = np.linspace(0.3, 0.6, controller.block_count)[:, None] * np.ones((1, 4))
+    kept, valid = controller._warm_blocks(SimpleNamespace(plan=plan), held, shift=False)
+    shifted, _ = controller._warm_blocks(SimpleNamespace(plan=plan), held, shift=True)
+    assert valid
+    kept_commands = np.asarray(
+        controller._plan_command_blocks(jnp.asarray(kept), jnp.asarray(held))
+    )
+    shifted_commands = np.asarray(
+        controller._plan_command_blocks(jnp.asarray(shifted), jnp.asarray(held))
+    )
+    assert np.allclose(kept_commands[0], plan[0], atol=1e-9)
+    assert np.allclose(shifted_commands[0], plan[1], atol=1e-9)
+
+
+def test_explicit_block_lengths_expand_bound_and_shift_exactly() -> None:
+    """Short blocks first, long blocks last, and a real-time warm start.
+
+    The plan expands to exactly the horizon with each block held for its own
+    length, a block may move by one slew per step it lasts so the executed
+    command still moves at most one slew per interval, and the step shift
+    re-blocks the previous plan one step later: the first block becomes the
+    second, exactly, because the leading blocks are one step long.
+    """
+
+    from types import SimpleNamespace
+
+    controller = _pass_six(block_lengths=(1, 1, 1, 1, 2, 3, 5, 8, 13, 21, 44))
+    config = controller.config
+    assert config.block_lengths is not None
+    assert sum(config.block_lengths) == config.horizon_steps
+    assert config.block_count == len(config.block_lengths)
+    blocks = jnp.asarray(np.arange(config.block_count, dtype=np.float64))[
+        :, None
+    ] * jnp.ones((1, 4))
+    expanded = np.asarray(controller._expand(blocks))
+    assert expanded.shape == (config.horizon_steps, 4)
+    starts = np.concatenate(([0], np.cumsum(config.block_lengths)[:-1]))
+    assert np.allclose(expanded[starts, 0], np.arange(config.block_count))
+    assert np.allclose(expanded[-1], config.block_count - 1)
+
+    held = jnp.full(4, 0.5)
+    full = jnp.ones((config.block_count, 4))
+    commands = np.asarray(controller._plan_command_blocks(full, held))
+    moves = np.diff(np.concatenate((np.full((1, 4), 0.5), commands)), axis=0)
+    expected = np.minimum(
+        config.slew_per_interval,
+        np.maximum(1.0 - np.concatenate((np.full((1, 4), 0.5), commands))[:-1], 0.0),
+    )
+    assert np.allclose(moves, expected, atol=1e-9)
+
+    plan = np.linspace(0.3, 0.6, config.block_count)[:, None] * np.ones((1, 4))
+    shifted, valid = controller._warm_blocks(
+        SimpleNamespace(plan=plan), np.full(4, 0.3)
+    )
+    assert valid
+    shifted_commands = np.asarray(
+        controller._plan_command_blocks(jnp.asarray(shifted), jnp.full(4, 0.3))
+    )
+    assert np.allclose(shifted_commands[:3], plan[1:4], atol=1e-9)
+    with pytest.raises(ValueError):
+        _pass_six(block_lengths=(1, 2, 3))

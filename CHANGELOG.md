@@ -24,7 +24,16 @@ All notable changes to Glassbox are recorded here. The format follows
   recoveries against the fifth pass's zero, with the remaining losses split
   between early floor contacts and a lateral drift just outside the hover
   envelope. `run_throw_study_trial` accepts a `dual_config` override for
-  single-release iteration, and `scripts/throw_gate.py` is that gate. Six rejected formulations are recorded in
+  single-release iteration, and `scripts/throw_gate.py` is that gate.
+  Round two derives the knowledge term's neighbourhood from the posterior's
+  own hover solution combined with the box prior, decides the goal horizon
+  over the box, and advances the warm start in real time (`"step"`) instead
+  of one block per interval, and offers each goal seed laid over the
+  excitation cycle as a further candidate; pass five keeps the block shift.
+  Committed round two recovers 54 of 112 on the arm-only ensemble, an interval
+  that excludes every earlier learned arm and the working cascade and contains
+  the certified cascade's point estimate. Explicit `block_lengths` are
+  available and were measured as a negative result. Six rejected formulations are recorded in
   `docs/concepts/dual-control-nmpc.md`.
 - The Crazyflow plant raises `CrazyflowDivergenceError`, a `ValueError`, when
   the simulator hands back a non-finite state, and the throw ensemble records

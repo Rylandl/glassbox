@@ -212,17 +212,27 @@ its rows pair with this page's table by construction. The reports are
 `artifacts/crazyflow_throw_study/report-pass6-ensemble-arm-only.json`
 (`pass6` as committed), `report-pass6-pre-switch-ensemble-arm-only.json`
 (the same design before the switches that keep the fifth pass bit-identical),
-and `report-pass6-motor-basis-ensemble-arm-only.json` (motor-basis probes).
+`report-pass6-motor-basis-ensemble-arm-only.json` (motor-basis probes), and
+`report-pass6-round2-block-shift-ensemble-arm-only.json` and
+`report-pass6-round2-step-shift-ensemble-arm-only.json` (round two: the
+knowledge term over the posterior's hover distribution, with the block and the
+real-time warm start), and `report-pass6-round2-ensemble-arm-only.json` (the
+committed round two, with the composite seeds).
 
 | arm | recovered | rate | Wilson 95 | on the floor | airborne, outside envelope |
 | --- | --- | --- | --- | --- | --- |
 | pass6, motor-basis probes | 14/112 | 0.125 | 0.076-0.199 | 48 | 50 |
 | pass6, before the switches | 11/112 | 0.098 | 0.056-0.167 | 50 | 51 |
-| pass6 | 10/112 | 0.089 | 0.049-0.157 | 52 | 48 |
+| pass6, round one | 10/112 | 0.089 | 0.049-0.157 | 52 | 48 |
+| pass6, round two, block warm start | 47/112 | 0.420 | 0.332-0.512 | 51 | 9 |
+| pass6, round two, real-time warm start | 47/112 | 0.420 | 0.332-0.512 | 61 | 1 |
+| pass6, round two, with composite seeds (committed) | 54/112 | 0.482 | 0.392-0.574 | 50 | 5 |
 
-Both intervals exclude `pass5`'s point estimate and include `pass2b`'s. The
-design page records the six configurations that were measured on the
-single-release gate and dropped, and why.
+The round-one intervals exclude `pass5`'s point estimate and include
+`pass2b`'s. The committed round two's interval, 0.392-0.574, excludes every
+earlier learned arm and the working cascade (0.223) and contains the certified
+cascade's point estimate (0.545). The design page records the configurations
+that were measured on the single-release gate and dropped, and why.
 
 ## Limitations
 
