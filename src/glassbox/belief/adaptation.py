@@ -21,7 +21,11 @@ from glassbox.belief.belief import (
     structured_parameter_vector,
     with_structured_parameter_vector,
 )
-from glassbox.core.covariance import SupportedCovariance, supported_covariance
+from glassbox.belief.covariance import SupportedCovariance, supported_covariance
+from glassbox.belief.linearization import (
+    compiled_batched_endpoint_tangent_error,
+    compiled_batched_endpoint_tangent_linearization,
+)
 from glassbox.core.data import Trajectory, duration_to_steps
 from glassbox.core.dynamics import (
     ModelParams,
@@ -29,10 +33,6 @@ from glassbox.core.dynamics import (
     step_with_latent,
 )
 from glassbox.core.evaluation import windowed_rollout_evaluation
-from glassbox.core.linearization import (
-    compiled_batched_endpoint_tangent_error,
-    compiled_batched_endpoint_tangent_linearization,
-)
 from glassbox.core.runtime import model_validity_utilization_from_components
 
 MAXIMUM_ONLINE_UPDATE_WINDOWS = 64

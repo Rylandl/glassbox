@@ -4,7 +4,7 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
-from glassbox.core.streaming_evaluation import StreamingOneStepEvaluator
+from glassbox.integrations.streaming_evaluation import StreamingOneStepEvaluator
 
 
 class ConstantAccelerationModel:

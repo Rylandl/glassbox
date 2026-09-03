@@ -78,6 +78,13 @@ All notable changes to Glassbox are recorded here. The format follows
   `--only`, and `--include-slow`.
 
 ### Changed
+- Four modules move out of `core` to the layer that owns them, with no logic
+  change: `glassbox.core.px4_frames` is now `glassbox.io.px4_frames`,
+  `glassbox.core.streaming_evaluation` is now
+  `glassbox.integrations.streaming_evaluation`, `glassbox.core.linearization`
+  is now `glassbox.belief.linearization`, and `glassbox.core.covariance` is now
+  `glassbox.belief.covariance`. The linearization move removes a core-to-belief
+  import inversion. None of these modules were on the public `glassbox` surface.
 - Rollout error statistics exclude the measured initial sample and every metrics
   dict carries a `metric_policy` identifier; the minibatch objective averages
   sampled windows uniformly (`deterministic_weighted_minibatch_v3`); complete

@@ -17,7 +17,6 @@ import numpy as np
 
 from glassbox.control.nmpc import NMPCController, NMPCWarmStart
 from glassbox.core.runtime import RuntimeDynamicsModel
-from glassbox.core.streaming_evaluation import StreamingOneStepEvaluator
 from glassbox.integrations.px4 import (
     PX4AppliedCommandSample,
     PX4MavlinkStateSource,
@@ -25,6 +24,7 @@ from glassbox.integrations.px4 import (
     PX4TelemetryError,
     px4_boot_time_skew_s,
 )
+from glassbox.integrations.streaming_evaluation import StreamingOneStepEvaluator
 
 _BOOT_TIME_MODULUS_MS = 2**32
 _MAXIMUM_APPLIED_COMMAND_STATE_SKEW_S = 0.10

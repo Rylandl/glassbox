@@ -26,7 +26,7 @@ from glassbox.core.data import (
     specific_force_observation_channels,
 )
 from glassbox.core.dynamics import FIXED_WING_CONTROL_NAMES, QUADROTOR_CONTROL_NAMES
-from glassbox.core.px4_frames import (
+from glassbox.io.px4_frames import (
     PX4_FRD_TO_FLU_SIGNS,
     frd_to_flu,
     ned_frd_quaternion_to_nwu_flu,

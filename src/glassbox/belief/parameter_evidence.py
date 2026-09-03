@@ -15,7 +15,10 @@ from glassbox.belief.belief import (
     structured_parameter_names,
     structured_parameter_vector,
 )
-from glassbox.core.covariance import supported_covariance
+from glassbox.belief.covariance import supported_covariance
+from glassbox.belief.linearization import (
+    compiled_batched_endpoint_tangent_linearization,
+)
 from glassbox.core.data import TrajectoryWindows
 from glassbox.core.dynamics import (
     FixedWingDynamicsParams,
@@ -24,7 +27,6 @@ from glassbox.core.dynamics import (
     model_family,
     structured_parameters,
 )
-from glassbox.core.linearization import compiled_batched_endpoint_tangent_linearization
 
 MAX_PARAMETER_EVIDENCE_WINDOWS_PER_HORIZON = 96
 _FLOAT32_EPSILON = float(np.finfo(np.float32).eps)
