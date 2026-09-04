@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -161,6 +162,34 @@ _FILENAME_PATTERN = re.compile(
     r"^(?P<profile>chirp|random|square|melon)_"
     r"(?P<date>\d{8})_run(?P<replicate>\d+)\.csv$"
 )
+
+
+def validate_benchmark_test_trajectories(
+    trajectories: Sequence[Trajectory],
+) -> float:
+    """Check the pinned test-split contract and return the shared interval.
+
+    The published protocol evaluates the three Melon recordings of the official
+    test split at one sample rate. A trajectory that is not one of those is a
+    different measurement, not a worse score.
+    """
+
+    if not trajectories:
+        raise ValueError("at least one benchmark test trajectory is required")
+    expected_spec = nanodrone_trajectory_spec()
+    dt_s = trajectories[0].nominal_dt_s
+    for trajectory in trajectories:
+        if trajectory.spec != expected_spec:
+            raise ValueError(
+                "trajectory does not use the pinned Nano-drone benchmark spec"
+            )
+        if trajectory.labels.get("benchmark_split") != "test":
+            raise ValueError("benchmark evaluation requires test-split trajectories")
+        if trajectory.labels.get("profile") != "melon":
+            raise ValueError("benchmark evaluation requires Melon trajectories")
+        if not np.isclose(trajectory.nominal_dt_s, dt_s, atol=1e-7, rtol=0.0):
+            raise ValueError("benchmark trajectories must share one sample interval")
+    return dt_s
 
 
 def _sha256(path: Path) -> str:

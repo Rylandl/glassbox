@@ -68,11 +68,11 @@ def test_cascade_plant_exposes_the_x8_control_layout() -> None:
 
 
 @pytest.mark.cascade
-def test_predict_windows_reproduces_a_cascade_generated_trajectory() -> None:
+def test_cascade_window_predictions_reproduce_a_cascade_generated_trajectory() -> None:
     pytest.importorskip("cascade")
     from glassbox.integrations.cascade import (
         CascadePlant,
-        predict_windows,
+        cascade_window_predictions,
         trajectory_from_plant_samples,
     )
 
@@ -86,7 +86,9 @@ def test_predict_windows_reproduces_a_cascade_generated_trajectory() -> None:
     )
     windows = trajectory_windows([trajectory], horizon=8, stride=4)
 
-    predicted = predict_windows([plant.model], windows, vertical_wind_fractions=[1.0])
+    predicted = cascade_window_predictions(
+        [plant.model], windows, vertical_wind_fractions=[1.0]
+    )
 
     assert predicted.shape == (1, windows.initial_states.shape[0], 9, 13)
     assert np.allclose(predicted[0], windows.target_states, atol=1e-3)
@@ -104,7 +106,10 @@ def test_published_x8_variants_are_finite_and_the_documented_one_beats_persisten
     """
 
     pytest.importorskip("cascade")
-    from glassbox.integrations.cascade import predict_windows, x8_variant_models
+    from glassbox.integrations.cascade import (
+        cascade_window_predictions,
+        x8_variant_models,
+    )
 
     trajectory = _load_x8_validation()
     windows = trajectory_windows([trajectory], horizon=20, stride=1)
@@ -123,7 +128,9 @@ def test_published_x8_variants_are_finite_and_the_documented_one_beats_persisten
     )
     assert any(variant.primary for variant in variants)
 
-    predicted = predict_windows(models, windows, vertical_wind_fractions=fractions)
+    predicted = cascade_window_predictions(
+        models, windows, vertical_wind_fractions=fractions
+    )
     persistence = kinematic_persistence_windowed_metrics(
         trajectory, horizon_steps=20, stride=1
     )

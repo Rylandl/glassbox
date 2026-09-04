@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -15,6 +16,7 @@ from glassbox.core.data import (
     Trajectory,
     TrajectorySpec,
     VehicleConfigurationSpec,
+    load_trajectory_npz,
     save_trajectory_npz,
 )
 from glassbox.io.pinned_download import download_verified, file_digest
@@ -180,6 +182,26 @@ X8_RECORDINGS = (
 )
 
 _RECORDING_BY_FILENAME = {recording.filename: recording for recording in X8_RECORDINGS}
+
+
+def load_validation_trajectories(
+    paths: Sequence[str | Path],
+) -> tuple[list[Path], list[Trajectory]]:
+    """Load the upstream validation maneuvers and check their pinned identity."""
+
+    resolved = [Path(path).resolve() for path in paths]
+    if not resolved:
+        raise ValueError("at least one Skywalker X8 validation trajectory is required")
+    trajectories = [load_trajectory_npz(path) for path in resolved]
+    expected_spec = x8_trajectory_spec()
+    for path, trajectory in zip(resolved, trajectories):
+        if trajectory.spec != expected_spec:
+            raise ValueError(f"trajectory does not match the Skywalker X8 spec: {path}")
+        if trajectory.labels.get("benchmark_split") != "validation":
+            raise ValueError(
+                f"trajectory is not in the upstream validation split: {path}"
+            )
+    return resolved, trajectories
 
 
 def _md5(path: Path) -> str:

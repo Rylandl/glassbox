@@ -13,10 +13,13 @@ from glassbox.io.epfl_reference import (
     extract_epfl_topoplane_reference,
     fetch_epfl_topoplane_reference,
 )
-from glassbox.workflows.epfl_evaluation import (
-    evaluate_epfl_characterization,
-    save_epfl_characterization,
-)
+from glassbox.workflows.evaluate import evaluate_fit_reports, save_report
+
+# The retained TOPOPlane2 segments all come from one published flight, so the
+# 0.2-second horizon the campaign reports is one sample at 5 Hz and the score
+# is taken over the three longer horizons only.
+EPFL_CHARACTERIZATION_HORIZONS_S = (0.2, 0.5, 1.0, 2.0)
+EPFL_SCORE_HORIZONS_S = (0.5, 1.0, 2.0)
 
 
 def _adapter(args: argparse.Namespace) -> EPFLTopoplaneAdapter:
@@ -74,16 +77,32 @@ def _prepare(args: argparse.Namespace) -> None:
 
 
 def _evaluate(args: argparse.Namespace) -> None:
-    report = evaluate_epfl_characterization(
-        args.structured_report,
-        args.residual_report,
+    report = evaluate_fit_reports(
+        {
+            "structured": args.structured_report,
+            "structured_residual": args.residual_report,
+        },
+        protocol="windowed",
+        horizons_s=EPFL_CHARACTERIZATION_HORIZONS_S,
+        score_horizons_s=EPFL_SCORE_HORIZONS_S,
     )
-    save_epfl_characterization(report, args.output)
+    report["evaluation"] = "epfl_topoplane2_same_flight_characterization"
+    report["split"] = "chronological_segments_within_one_source_flight"
+    report["interpretation"] = (
+        "useful same-flight airframe characterization; independent flights "
+        "are required before this result can enter the promotion gate"
+    )
+    report["limitations"] = [
+        "all retained segments come from one published flight",
+        "angular velocity is derived from attitude at 5 Hz",
+        "the requested 0.5-second horizon resolves to 0.4 seconds at 5 Hz",
+        "complete-segment open-loop errors are diagnostic, not an operational claim",
+    ]
+    save_report(report, args.output)
     for name, model in report["models"].items():
         metrics = model["aggregate_horizon_rollouts"]["2s"]
         print(
-            f"{name}: score/persistence="
-            f"{model['score_vs_kinematic_persistence']:.3f}  "
+            f"{name}: score/persistence={model['score_vs_baseline']:.3f}  "
             f"2s position={metrics['position_rmse_m']:.3f}m  "
             f"attitude={metrics['attitude_rmse_deg']:.2f}deg"
         )

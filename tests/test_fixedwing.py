@@ -28,7 +28,7 @@ from glassbox.core.fixedwing_synthetic import (
 from glassbox.core.identification import fit_dynamics
 from glassbox.core.metrics import predict, rollout_metrics
 from glassbox.fitting import FitSpec, fit
-from glassbox.workflows.profile_benchmark import benchmark_profiles
+from glassbox.workflows.holdout import evaluate_holdout
 
 
 def test_fixed_wing_family_declares_canonical_controls() -> None:
@@ -341,7 +341,7 @@ def test_fixed_wing_artifacts_fit_platform_neutral_residual(
     assert rollout_loss["dynamic_envelope"]["body_velocity_half_width_m_s"][0] > 0.0
 
 
-def test_fixed_wing_profile_benchmark_reports_the_fixed_wing_platform(
+def test_fixed_wing_profile_holdout_reports_the_fixed_wing_platform(
     tmp_path,
     fixedwing_flight,
 ) -> None:
@@ -351,12 +351,11 @@ def test_fixed_wing_profile_benchmark_reports_the_fixed_wing_platform(
         save_trajectory_npz(fixedwing_flight(seed, 0.3), path)
         paths.append(path)
 
-    summary = benchmark_profiles(
+    summary = evaluate_holdout(
         paths,
-        tmp_path / "fixed_wing_benchmark",
-        training_horizons_s=(0.1,),
-        evaluation_horizons_s=(0.1,),
-        steps=1,
+        hold_out="profile",
+        spec=FitSpec(horizons_s=(0.1,), evaluation_horizons_s=(0.1,), steps=1),
+        output_dir=tmp_path / "fixed_wing_benchmark",
     )
 
     assert summary["platform"] == "fixedwing"

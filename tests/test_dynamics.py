@@ -14,7 +14,6 @@ from glassbox.core.dynamics import (
     state_derivative,
     step,
     step_with_latent,
-    with_constant_angular_rate,
     with_instantaneous_rotational_response,
     with_thrust_command_offset,
 )
@@ -144,15 +143,6 @@ def test_rotational_control_cross_coupling_is_bounded_and_expressive() -> None:
     assert float(derivative[10]) > 0.0
     assert float(derivative[11]) > float(derivative[10])
     assert np.max(np.abs(params.physical()["angular_control_cross_coupling"])) <= 0.5
-
-
-def test_constant_rate_diagnostic_disables_angular_acceleration() -> None:
-    params = with_constant_angular_rate(true_parameters())
-    state = jnp.asarray(resting_state()).at[10:13].set(jnp.asarray([0.4, -0.2, 0.1]))
-    derivative = state_derivative(params, state, hover_control(params))
-
-    np.testing.assert_allclose(derivative[10:13], 0.0, atol=1e-8)
-    assert float(jnp.linalg.norm(derivative[6:10])) > 0.0
 
 
 def test_zero_initialized_residual_matches_structured_model() -> None:

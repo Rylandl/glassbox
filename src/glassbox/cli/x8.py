@@ -6,18 +6,24 @@ import argparse
 import json
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Any
 
 from glassbox.core.data import save_trajectory_npz
 from glassbox.io.x8_reference import (
     X8_RECORDINGS,
     X8_REFERENCE_DOI,
+    X8_REFERENCE_NAME,
+    X8_REFERENCE_VERSION,
     X8ReferenceAdapter,
     extract_x8_reference,
     fetch_x8_reference,
+    load_validation_trajectories,
+    x8_trajectory_spec,
 )
-from glassbox.workflows.x8_evaluation import (
-    evaluate_x8_reference_models,
-    save_x8_reference_report,
+from glassbox.workflows.evaluate import (
+    evaluate,
+    save_report,
+    score_against_baseline,
 )
 
 
@@ -98,14 +104,69 @@ def _evaluate(args: argparse.Namespace) -> None:
     validation_paths = tuple(
         sorted((args.destination / "canonical" / "validation").glob("*.npz"))
     )
-    report = evaluate_x8_reference_models(
-        {
-            "structured": args.structured_model,
-            "structured_residual": args.residual_model,
+    paths, trajectories = load_validation_trajectories(validation_paths)
+    expected_spec = x8_trajectory_spec().to_dict()
+    models: dict[str, Any] = {}
+    baseline: dict[str, Any] | None = None
+    for name, model_path in (
+        ("structured", args.structured_model),
+        ("structured_residual", args.residual_model),
+    ):
+        scored = evaluate(model_path, trajectories, protocol="x8")
+        if scored["model_artifact"]["input_spec"] != expected_spec:
+            raise ValueError(
+                f"model input spec does not match Skywalker X8: {model_path}"
+            )
+        baseline = scored["baseline_metrics"]
+        models[name] = {
+            "path": scored["model_artifact"]["path"],
+            "model_type": scored["model_artifact"]["model_type"],
+            "aggregate": scored["model"],
+            "per_trajectory": scored["per_trajectory"],
+            "score_vs_kinematic_persistence": scored["score_vs_baseline"],
+            "score_horizons_s": scored["scoring"]["horizons_s"],
+        }
+    report = {
+        "format_version": 1,
+        "benchmark": {
+            "name": X8_REFERENCE_NAME,
+            "doi": X8_REFERENCE_DOI,
+            "version": X8_REFERENCE_VERSION,
         },
-        validation_paths,
-    )
-    save_x8_reference_report(report, args.report)
+        "protocol": "x8",
+        "baseline": "kinematic_persistence",
+        "stride": "one_sample",
+        "independent_holdout": True,
+        "can_promote_model": True,
+        "split": "upstream_validation",
+        "dataset": {
+            "validation_trajectory_count": len(trajectories),
+            "validation_duration_s": float(
+                sum(trajectory.time_s[-1] for trajectory in trajectories)
+            ),
+            "trajectory_spec": expected_spec,
+            "trajectories": [str(path) for path in paths],
+        },
+        "kinematic_persistence": baseline,
+        "models": models,
+        "comparisons": {
+            f"{candidate}_vs_{reference}": {
+                "ratio_definition": (
+                    "candidate/reference geometric mean over four state metrics "
+                    "and every horizon; values below one favor the candidate"
+                ),
+                "score": score_against_baseline(
+                    models[candidate]["aggregate"]["horizon_rollouts"],
+                    models[reference]["aggregate"]["horizon_rollouts"],
+                    protocol="x8",
+                ),
+            }
+            for candidate in models
+            for reference in models
+            if candidate != reference
+        },
+    }
+    save_report(report, args.report)
     for name, model in report["models"].items():
         metrics = model["aggregate"]["horizon_rollouts"]["2s"]
         print(

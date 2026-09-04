@@ -20,14 +20,14 @@ from glassbox.io.nanodrone_reference import (
     BenchmarkRecording,
     NanoDroneBenchmarkAdapter,
     fetch_nanodrone_benchmark,
+    validate_benchmark_test_trajectories,
 )
-from glassbox.workflows.nanodrone_evaluation import (
+from glassbox.workflows.evaluate import (
     PUBLISHED_PHYS_PLUS_RES,
-    _per_horizon_errors,
     _published_reference_comparison,
-    evaluate_nanodrone_benchmark,
-    evaluate_nanodrone_model_artifact,
-    save_nanodrone_benchmark_report,
+    _step_errors,
+    evaluate,
+    save_report,
 )
 
 
@@ -172,21 +172,28 @@ def test_benchmark_protocol_uses_every_start_and_euclidean_mae(tmp_path) -> None
     source = _write_fixture(tmp_path / "melon_20251017_run1.csv")
     trajectory = NanoDroneBenchmarkAdapter(verify_checksum=False).load(source)
 
-    report = evaluate_nanodrone_benchmark(
-        initial_parameter_guess(), [trajectory], max_horizon_steps=2
+    report = evaluate(
+        initial_parameter_guess(),
+        [trajectory],
+        protocol="nanodrone",
+        maximum_horizon_steps=2,
     )
 
     one_step_displacement = np.linalg.norm([0.1, 0.2, 0.3])
-    assert report["naive"]["window_count"] == 2
-    assert report["naive"]["per_horizon"]["position_mae_m"] == pytest.approx(
+    assert report["baseline_metrics"]["window_count"] == 2
+    assert report["baseline_metrics"]["per_horizon"]["position_mae_m"] == pytest.approx(
         [one_step_displacement, 2.0 * one_step_displacement]
     )
-    assert report["naive"]["cumulative_simulation_error"][
+    assert report["baseline_metrics"]["cumulative_simulation_error"][
         "position_mae_m"
     ] == pytest.approx(3.0 * one_step_displacement)
-    assert report["protocol"]["start_stride_steps"] == 1
-    assert report["protocol"]["flight_boundaries_crossed"] is False
-    assert report["protocol"]["maximum_horizon_steps"] == 2
+    assert report["protocol"] == "nanodrone"
+    assert report["baseline"] == "hold_state"
+    assert report["stride"] == "one_sample"
+    assert report["floors"] is None
+    assert report["independent_holdout"] is True
+    assert report["dataset"]["flight_boundaries_crossed"] is False
+    assert report["maximum_horizon_steps"] == 2
 
 
 def test_benchmark_attitude_metric_resolves_quaternion_double_cover() -> None:
@@ -195,7 +202,7 @@ def test_benchmark_attitude_metric_resolves_quaternion_double_cover() -> None:
     predicted[..., 6] = 1.0
     target[..., 6] = -1.0
 
-    errors = _per_horizon_errors(predicted, target)
+    errors = _step_errors(predicted, target)
 
     assert errors["attitude_mae_rad"] == pytest.approx([0.0])
 
@@ -213,7 +220,7 @@ def test_published_reference_comparison_reports_direct_ratios() -> None:
         ),
     }
 
-    comparison = _published_reference_comparison(summary)
+    comparison = _published_reference_comparison(summary, PUBLISHED_PHYS_PLUS_RES)
 
     assert comparison is not None
     assert comparison["cumulative_equal_metric_geometric_ratio"] == pytest.approx(1.0)
@@ -238,16 +245,19 @@ def test_saved_model_benchmark_report_round_trip(tmp_path) -> None:
         model_path,
     )
 
-    report = evaluate_nanodrone_model_artifact(
-        model_path, [trajectory_path], max_horizon_steps=2
+    report = evaluate(
+        model_path,
+        [trajectory_path],
+        protocol="nanodrone",
+        maximum_horizon_steps=2,
     )
-    save_nanodrone_benchmark_report(report, report_path)
+    save_report(report, report_path)
 
     assert report["model_artifact"]["model_type"] == (
         "effective_quadrotor_command_offset_rotational_response_v3"
     )
-    assert report["constant_angular_rate_diagnostic"]["window_count"] > 0
-    assert report["test_artifacts"] == [str(trajectory_path)]
+    assert report["model"]["window_count"] > 0
+    assert report["dataset"]["trajectories"] == [str(trajectory_path.resolve())]
     assert report_path.read_text().endswith("\n")
 
 
@@ -256,6 +266,4 @@ def test_benchmark_evaluation_rejects_training_profile(tmp_path) -> None:
     trajectory = NanoDroneBenchmarkAdapter(verify_checksum=False).load(source)
 
     with pytest.raises(ValueError, match="test-split"):
-        evaluate_nanodrone_benchmark(
-            initial_parameter_guess(), [trajectory], max_horizon_steps=2
-        )
+        validate_benchmark_test_trajectories([trajectory])

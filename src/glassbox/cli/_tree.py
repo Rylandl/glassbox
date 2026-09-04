@@ -40,12 +40,12 @@ TREE: tuple[Command, ...] = (
     ),
     Command(
         name="profile-benchmark",
-        target="glassbox.workflows.profile_benchmark:main",
+        target="glassbox.workflows.holdout:profile_main",
         summary="run leave-one-maneuver-profile-out dynamics identification",
     ),
     Command(
         name="source-benchmark",
-        target="glassbox.workflows.source_group_benchmark:main",
+        target="glassbox.workflows.holdout:source_group_main",
         summary="run leave-one-source-group-out dynamics identification",
     ),
     Command(

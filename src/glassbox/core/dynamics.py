@@ -612,31 +612,6 @@ def with_diagonal_angular_control(params: ModelParams) -> ModelParams:
     return updated
 
 
-def with_constant_angular_rate(params: ModelParams) -> ModelParams:
-    """Return a diagnostic model that holds measured body rate constant.
-
-    Translational structured and residual behavior is retained. The rotational
-    control, damping, and residual-acceleration terms are disabled so attitude
-    evolves only by integrating the rollout's initial measured angular rate.
-    """
-
-    base = structured_parameters(params)
-    if isinstance(base, FixedWingDynamicsParams):
-        raise TypeError("constant-rate diagnostic is currently multirotor-only")
-    updated = base._replace(
-        log_angular_accel=jnp.log(jnp.full((3,), 1e-9)),
-        log_angular_drag=jnp.log(jnp.full((3,), 1e-9)),
-        log_angular_response_time_constant=jnp.log(jnp.full((3,), 1e-4)),
-        angular_control_cross_coupling_unconstrained=jnp.zeros((3, 3)),
-    )
-    if not isinstance(params, ResidualDynamicsParams):
-        return updated
-    return params._replace(
-        base=updated,
-        output_weights=params.output_weights.at[3:6].set(0.0),
-    )
-
-
 def zero_rotational_response_gradient(params: ModelParams) -> ModelParams:
     """Freeze multirotor rotational-memory and cross-coupling parameters."""
 

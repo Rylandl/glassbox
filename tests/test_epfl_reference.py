@@ -10,6 +10,7 @@ import numpy as np
 import pytest
 
 import glassbox.io.epfl_reference as epfl_module
+from glassbox.cli.epfl import EPFL_CHARACTERIZATION_HORIZONS_S, EPFL_SCORE_HORIZONS_S
 from glassbox.core.adapter import TrajectoryAdapter
 from glassbox.core.data import save_trajectory_npz
 from glassbox.io.epfl_reference import (
@@ -21,7 +22,7 @@ from glassbox.io.epfl_reference import (
     fetch_epfl_topoplane_reference,
     topoplane_trajectory_spec,
 )
-from glassbox.workflows.epfl_evaluation import evaluate_epfl_characterization
+from glassbox.workflows.evaluate import evaluate_fit_reports
 
 
 def _streams() -> _TopoplaneStreams:
@@ -204,11 +205,19 @@ def test_characterization_evaluator_preserves_same_flight_limit(tmp_path) -> Non
     structured = write_report("structured", "structured", 2.0)
     residual = write_report("residual", "structured_residual", 1.0)
 
-    report = evaluate_epfl_characterization(structured, residual)
+    report = evaluate_fit_reports(
+        {"structured": structured, "structured_residual": residual},
+        protocol="windowed",
+        horizons_s=EPFL_CHARACTERIZATION_HORIZONS_S,
+        score_horizons_s=EPFL_SCORE_HORIZONS_S,
+    )
 
     assert report["selected_model"] == "structured_residual"
     assert report["can_promote_model"] is False
-    assert report["protocol"]["independent_source_group_holdout"] is False
-    assert report["protocol"]["requested_and_effective_horizons"]["0.5s"][
+    assert report["independent_holdout"] is False
+    assert report["protocol"] == "windowed"
+    assert report["baseline"] == "kinematic_persistence"
+    assert report["stride"] == "one_horizon"
+    assert report["scoring"]["requested_and_effective_horizons"]["0.5s"][
         "effective_s"
     ] == pytest.approx(0.4)

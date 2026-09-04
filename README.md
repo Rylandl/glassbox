@@ -110,7 +110,7 @@ demand.
 | `belief` | `belief`, `belief_io`, `parameter_evidence`, `linearization`, `covariance`, `adaptation` |
 | `control` | `plan`, `solver`, `fitted`, `flight_supervisor`, `online_bootstrap` |
 | `io` | `px4_ulog`, `px4_frames`, `sitl_profile`, `fixedwing_sitl_profile`, `arp_reference`, `idf_reference`, `nanodrone_reference`, `x8_reference`, `epfl_reference` |
-| `workflows` | `fitting`, `profile_benchmark`, `source_group_benchmark`, `nmpc_benchmark`, `adaptive_recovery_benchmark`, `nanodrone_evaluation`, `x8_evaluation`, `epfl_evaluation`, `record_results` |
+| `workflows` | `evaluate`, `holdout`, `adaptive_recovery_benchmark`, `nmpc_benchmark`, `record_results` |
 | `cli` | `synthetic_demo`, `fixedwing`, `ulog`, `nanodrone`, `x8`, `epfl` |
 | `integrations` | `px4`, `px4_nmpc_shadow`, `streaming_evaluation`, `cascade` |
 | `experimental` | Re-exports of the recursive bootstrap identifier and the flight supervisor. These APIs can change without notice. |

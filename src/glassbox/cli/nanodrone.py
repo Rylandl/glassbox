@@ -7,19 +7,20 @@ import json
 from collections.abc import Sequence
 from pathlib import Path
 
-from glassbox.core.data import save_trajectory_npz
+from glassbox.core.data import load_trajectory_npz, save_trajectory_npz
 from glassbox.io.nanodrone_reference import (
     BENCHMARK_COMMIT,
+    BENCHMARK_DOI,
     BENCHMARK_RECORDINGS,
+    BENCHMARK_REPOSITORY,
     NanoDroneBenchmarkAdapter,
     extract_nanodrone_benchmark,
     fetch_nanodrone_benchmark,
+    validate_benchmark_test_trajectories,
 )
-from glassbox.workflows.nanodrone_evaluation import (
-    BENCHMARK_MAX_HORIZON_STEPS,
-    evaluate_nanodrone_model_artifact,
-    save_nanodrone_benchmark_report,
-)
+from glassbox.workflows.evaluate import PROTOCOLS, evaluate, save_report
+
+BENCHMARK_MAX_HORIZON_STEPS = PROTOCOLS["nanodrone"].maximum_horizon_steps
 
 
 def _adapter(args: argparse.Namespace) -> NanoDroneBenchmarkAdapter:
@@ -101,11 +102,21 @@ def _prepare(args: argparse.Namespace) -> None:
 
 
 def _evaluate(args: argparse.Namespace) -> None:
-    report = evaluate_nanodrone_model_artifact(
+    trajectories = [load_trajectory_npz(path) for path in args.trajectory]
+    validate_benchmark_test_trajectories(trajectories)
+    report = evaluate(
         args.model,
-        args.trajectory,
-        max_horizon_steps=args.max_horizon,
+        trajectories,
+        protocol="nanodrone",
+        maximum_horizon_steps=args.max_horizon,
     )
+    report["benchmark"] = {
+        "repository": BENCHMARK_REPOSITORY,
+        "commit": BENCHMARK_COMMIT,
+        "doi": BENCHMARK_DOI,
+        "test_profile": "melon",
+    }
+    report["test_artifacts"] = [str(path) for path in args.trajectory]
     selected = report["model"]["selected_horizons"]
     for step in selected:
         metrics = selected[step]
@@ -118,7 +129,7 @@ def _evaluate(args: argparse.Namespace) -> None:
             f"{metrics['angular_velocity_mae_rad_s']:.5f}rad/s"
         )
     if args.report is not None:
-        save_nanodrone_benchmark_report(report, args.report)
+        save_report(report, args.report)
         print(f"wrote benchmark report {args.report}")
     elif args.json:
         print(json.dumps(report, indent=2))

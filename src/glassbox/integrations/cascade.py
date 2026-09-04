@@ -33,14 +33,16 @@ from glassbox.io.x8_reference import (
     X8_REFERENCE_DOI,
     X8_REFERENCE_NAME,
     X8_REFERENCE_VERSION,
-)
-from glassbox.workflows.x8_evaluation import (
-    X8_EVALUATION_HORIZONS_S,
-    aggregate_horizon_rollouts,
-    geometric_ratio,
-    horizon_steps_for_duration,
     load_validation_trajectories,
 )
+from glassbox.workflows.evaluate import (
+    PROTOCOLS,
+    aggregate_horizon_rollouts,
+    horizon_steps_for_duration,
+    score_against_baseline,
+)
+
+X8_EVALUATION_HORIZONS_S = PROTOCOLS["x8"].horizons_s
 
 X8_CONTROL_ROLES = ("throttle", "roll", "pitch")
 # Gryte et al. 2018 report the pitch triple about a nominal CG 0.44 m aft of the nose and warn
@@ -392,7 +394,7 @@ def actuator_states_over_controls(
     )
 
 
-def predict_windows(
+def cascade_window_predictions(
     models: Sequence[Any],
     windows: TrajectoryWindows,
     *,
@@ -527,7 +529,7 @@ def evaluate_x8_cascade(
         rollouts: list[dict[str, dict[str, Any]]] = [{} for _ in variants]
         for label, steps in horizon_steps.items():
             windows = trajectory_windows([trajectory], horizon=steps, stride=1)
-            predicted = predict_windows(
+            predicted = cascade_window_predictions(
                 models,
                 windows,
                 vertical_wind_fractions=fractions,
@@ -560,8 +562,8 @@ def evaluate_x8_cascade(
             },
             "aggregate": {"horizon_rollouts": aggregate},
             "per_trajectory": per_trajectory,
-            "score_vs_kinematic_persistence": geometric_ratio(
-                aggregate, persistence_aggregate
+            "score_vs_kinematic_persistence": score_against_baseline(
+                aggregate, persistence_aggregate, protocol="x8"
             ),
             "all_finite": all(
                 np.isfinite(
@@ -590,8 +592,8 @@ def evaluate_x8_cascade(
                     "candidate/reference geometric mean over four state metrics and every "
                     "horizon; values below one favor the candidate"
                 ),
-                "score": geometric_ratio(
-                    row["aggregate"]["horizon_rollouts"], aggregate
+                "score": score_against_baseline(
+                    row["aggregate"]["horizon_rollouts"], aggregate, protocol="x8"
                 ),
             }
 

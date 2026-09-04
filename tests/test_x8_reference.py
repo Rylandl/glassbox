@@ -16,9 +16,10 @@ from glassbox.io.x8_reference import (
     X8Recording,
     X8ReferenceAdapter,
     fetch_x8_reference,
+    load_validation_trajectories,
     x8_trajectory_spec,
 )
-from glassbox.workflows.x8_evaluation import evaluate_x8_reference_models
+from glassbox.workflows.evaluate import evaluate
 
 
 def _write_fixture(path) -> np.ndarray:
@@ -153,13 +154,20 @@ def test_x8_evaluation_requires_and_scores_upstream_validation(tmp_path) -> None
         model_path,
     )
 
-    report = evaluate_x8_reference_models(
-        {"structured": model_path},
-        [trajectory_path],
+    paths, trajectories = load_validation_trajectories([trajectory_path])
+    report = evaluate(
+        model_path,
+        trajectories,
+        protocol="x8",
         horizons_s=(0.025,),
     )
 
-    assert report["protocol"]["split"] == "upstream_validation"
-    assert report["dataset"]["validation_trajectory_count"] == 1
-    assert "0.025s" in report["models"]["structured"]["aggregate"]["horizon_rollouts"]
-    assert np.isfinite(report["models"]["structured"]["score_vs_kinematic_persistence"])
+    assert paths == [trajectory_path.resolve()]
+    assert report["protocol"] == "x8"
+    assert report["baseline"] == "kinematic_persistence"
+    assert report["stride"] == "one_sample"
+    assert report["floors"] == dict.fromkeys(report["floors"], 1e-12)
+    assert report["independent_holdout"] is True
+    assert report["dataset"]["trajectory_count"] == 1
+    assert "0.025s" in report["model"]["horizon_rollouts"]
+    assert np.isfinite(report["score_vs_baseline"])

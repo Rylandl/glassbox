@@ -25,7 +25,7 @@ from glassbox.fitting import (
     build_training_windows,
     fit,
 )
-from glassbox.workflows.profile_benchmark import benchmark_profiles
+from glassbox.workflows.holdout import evaluate_holdout
 
 
 def _px4_provenance(*, motor_index: int, surface_indices: list[int]) -> dict:
@@ -452,9 +452,7 @@ def test_profile_labeled_training_balances_profiles_before_flights(
     assert shares == pytest.approx([0.25, 0.25, 0.5])
 
 
-def test_profile_benchmark_runs_one_fold_per_profile(
-    tmp_path, quadrotor_flight
-) -> None:
+def test_profile_holdout_runs_one_fold_per_profile(tmp_path, quadrotor_flight) -> None:
     paths = []
     for seed, profile in enumerate(("vertical", "lateral", "yaw")):
         path = tmp_path / f"flight_{seed}.npz"
@@ -466,16 +464,16 @@ def test_profile_benchmark_runs_one_fold_per_profile(
         save_trajectory_npz(trajectory, path)
         paths.append(path)
 
-    summary = benchmark_profiles(
+    summary = evaluate_holdout(
         paths,
-        tmp_path / "benchmark",
-        training_horizons_s=(0.1,),
-        evaluation_horizons_s=(0.1,),
-        steps=1,
+        hold_out="profile",
+        spec=FitSpec(horizons_s=(0.1,), evaluation_horizons_s=(0.1,), steps=1),
+        output_dir=tmp_path / "benchmark",
     )
 
-    assert summary["profile_count"] == 3
-    assert set(summary["per_profile"]) == {"vertical", "lateral", "yaw"}
+    assert summary["evaluation"] == "leave_one_profile_out"
+    assert summary["fold_count"] == 3
+    assert set(summary["per_fold"]) == {"vertical", "lateral", "yaw"}
     assert summary["aggregate"]["weighting"] == "equal_profile"
     assert summary["configuration"]["control_names"] == [
         "motor_front_left",

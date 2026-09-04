@@ -1,10 +1,11 @@
 from dataclasses import replace
 
 from glassbox.core.data import save_trajectory_npz
-from glassbox.workflows.source_group_benchmark import benchmark_source_groups
+from glassbox.fitting import FitSpec
+from glassbox.workflows.holdout import evaluate_holdout
 
 
-def test_source_group_benchmark_moves_every_segment_into_the_same_fold(
+def test_source_group_holdout_moves_every_segment_into_the_same_fold(
     tmp_path, monkeypatch, fixedwing_flight
 ) -> None:
     paths = []
@@ -19,31 +20,32 @@ def test_source_group_benchmark_moves_every_segment_into_the_same_fold(
         save_trajectory_npz(trajectory, path)
         paths.append(path)
 
-    summary = benchmark_source_groups(
+    summary = evaluate_holdout(
         paths,
-        tmp_path / "benchmark",
-        training_horizons_s=(0.1,),
-        evaluation_horizons_s=(0.1,),
-        steps=1,
+        hold_out="source_group",
+        spec=FitSpec(horizons_s=(0.1,), evaluation_horizons_s=(0.1,), steps=1),
+        output_dir=tmp_path / "benchmark",
     )
 
     assert summary["evaluation"] == "leave_one_source_group_out"
-    assert summary["source_group_count"] == 3
-    assert set(summary["per_source_group"]) == {
+    assert summary["holdout_label"] == "source_group"
+    assert summary["protocol"] == "windowed"
+    assert summary["fold_count"] == 3
+    assert set(summary["per_fold"]) == {
         "session-a",
         "session-b",
         "session-c",
     }
-    assert summary["per_source_group"]["session-a"]["validation_trajectory_count"] == 2
+    assert summary["per_fold"]["session-a"]["validation_trajectory_count"] == 2
     assert summary["aggregate"]["weighting"] == "equal_source_group"
     assert summary["configuration"]["exogenous_size"] == 0
     assert summary["configuration"]["exogenous_names"] == []
     assert summary["configuration"]["exogenous_roles"] == []
-    assert summary["configuration"]["multirotor_thrust_command_offset"] == (
-        "not_applicable_fixedwing"
-    )
-    assert "0.1s" in summary["aggregate"]["kinematic_persistence_horizon_rollouts"]
-    assert set(summary["aggregate"]["model_over_kinematic_persistence"]["0.1s"]) == {
+    assert summary["configuration"]["learn_thrust_command_offset"] is False
+    assert summary["configuration"]["instantaneous_rotational_response"] is True
+    assert summary["configuration"]["holdout_label"] == "source_group"
+    assert "0.1s" in summary["aggregate"]["baseline_horizon_rollouts"]
+    assert set(summary["aggregate"]["model_over_baseline"]["0.1s"]) == {
         "position_rmse_m",
         "velocity_rmse_m_s",
         "attitude_rmse_deg",
@@ -55,7 +57,7 @@ def test_source_group_benchmark_moves_every_segment_into_the_same_fold(
     assert position_distribution["minimum"] <= position_distribution["median"]
     assert position_distribution["median"] <= position_distribution["p90"]
     assert position_distribution["p90"] <= position_distribution["maximum"]
-    for fold in summary["per_source_group"].values():
+    for fold in summary["per_fold"].values():
         assert fold["training_window_selection"]["budget_policy"] == (
             "automatic_corpus_and_horizon"
         )
@@ -64,17 +66,16 @@ def test_source_group_benchmark_moves_every_segment_into_the_same_fold(
 
     summary_path.unlink()
     monkeypatch.setattr(
-        "glassbox.workflows.source_group_benchmark.fit",
+        "glassbox.workflows.holdout.fit",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(
             AssertionError("completed folds must be resumed")
         ),
     )
-    resumed = benchmark_source_groups(
+    resumed = evaluate_holdout(
         paths,
-        tmp_path / "benchmark",
-        training_horizons_s=(0.1,),
-        evaluation_horizons_s=(0.1,),
-        steps=1,
+        hold_out="source_group",
+        spec=FitSpec(horizons_s=(0.1,), evaluation_horizons_s=(0.1,), steps=1),
+        output_dir=tmp_path / "benchmark",
     )
 
     assert resumed == summary

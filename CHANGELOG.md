@@ -6,6 +6,33 @@ All notable changes to Glassbox are recorded here. The format follows
 ## Unreleased
 
 ### Added
+- `glassbox.workflows.evaluate.evaluate(belief_or_params, trajectories,
+  protocol=..., horizons_s=..., maximum_horizon_steps=...,
+  independent_holdout=..., report_path=...)` scores one model on held-out
+  flight under one of three named `ScoringPolicy` values in `PROTOCOLS`:
+  `windowed`, `x8` and `nanodrone`. Every report it writes carries `protocol`,
+  `baseline`, `stride`, `floors` and `independent_holdout`, plus the whole
+  policy under `scoring`, so two numbers produced under different conventions
+  can be told apart. `can_promote_model` restates `independent_holdout`: a
+  same-flight characterization cannot promote a model.
+- `evaluate_fit_reports` scores models whose held-out horizon tables one fit
+  already measured, against the policy's baseline over the same flights. This
+  is what the EPFL same-flight characterization is: two fit reports, one
+  baseline, and `can_promote_model: false`. `baseline_horizon_rollouts` and
+  `score_against_baseline` expose the two halves for callers that hold their
+  own metrics, and `save_report` writes any of them.
+- `glassbox.workflows.holdout.evaluate_holdout(trajectories, hold_out=...,
+  spec=..., output_dir=..., resume=True)` is one leave-one-label-out runner.
+  `hold_out` names the label the folds are keyed by, as the key itself or as
+  the `Holdout` rule carrying it. `profile-benchmark` and `source-benchmark`
+  both call it, and both gain the other's flags: the profile leaf gains
+  resume, and the source-group leaf gains every training knob. Each keeps its
+  own `--steps` and `--learning-rate` defaults, and both gain `--hold-out` and
+  `--no-resume`.
+- `io/x8_reference.load_validation_trajectories` and
+  `io/nanodrone_reference.validate_benchmark_test_trajectories` hold the two
+  corpus split contracts, which belong with the corpus rather than with the
+  scorer.
 - `glassbox.predict(params, trajectory)` and
   `glassbox.predict_windows(params, trajectory, horizon_steps=..., stride=...)`
   are the two prediction entry points, returning a `RolloutPrediction` that
@@ -95,6 +122,39 @@ All notable changes to Glassbox are recorded here. The format follows
   surface, and `import glassbox` still loads only core, belief and control.
 
 ### Changed
+- One evaluation, three named policies. `workflows/nanodrone_evaluation.py`,
+  `workflows/x8_evaluation.py` and `workflows/epfl_evaluation.py` are folded
+  into `workflows/evaluate.py`; `workflows/profile_benchmark.py` and
+  `workflows/source_group_benchmark.py` into `workflows/holdout.py`. The
+  `nanodrone evaluate`, `x8 evaluate`, `epfl evaluate`, `profile-benchmark`
+  and `source-benchmark` commands keep every flag they had and are now thin
+  callers. Each policy reproduces its module's numbers exactly;
+  `tests/test_evaluate.py` pins all three. Last commit carrying the five
+  modules: `c250233`.
+- The holdout summary is keyed by the label, not by the label's name. `folds`,
+  `fold_count`, `per_fold`, `baseline_horizon_rollouts` and
+  `model_over_baseline` replace `profiles`/`source_groups`,
+  `profile_count`/`source_group_count`, `per_profile`/`per_source_group`,
+  `kinematic_persistence_horizon_rollouts` and
+  `model_over_kinematic_persistence`. `aggregate.weighting` stays
+  `equal_profile` or `equal_source_group`, named after the label held out.
+  The summary carries `holdout_label`, and both runners now report the
+  persistence baseline and the fold distribution, which only the source-group
+  runner did.
+- The holdout runner's fold `configuration` records the loss policy directly
+  (`learn_thrust_command_offset`, `instantaneous_rotational_response`,
+  `diagonal_angular_control`, `ablations`) instead of the two derived prose
+  strings `multirotor_thrust_command_offset` and `rotational_response` that
+  were computed from them.
+- Every fold is planned with `Holdout.by_label`, where the source-group
+  benchmark reordered paths and used `Holdout.by_group(1)`. The split is the
+  same and so are the numbers; each fold report's `split.mode` is now
+  `leave_labeled_out`. The resume request records the fold label key, so a
+  directory written by the previous runner refits rather than resuming.
+- `integrations/cascade.py`'s window predictor is
+  `cascade_window_predictions`, so it no longer shares a name with
+  `glassbox.predict_windows`. Its scores come from the `x8` policy through
+  `score_against_baseline`, which is the same reduction over the same floors.
 - `core/evaluation.py` splits into `core/metrics.py` (predictions, the rollout
   RMSE convention, the kinematic-persistence baseline, both persistence-score
   reductions, both floor tables, divergence and aggregation) and
@@ -365,6 +425,18 @@ All notable changes to Glassbox are recorded here. The format follows
   learned. No flag was removed.
 
 ### Removed
+- `with_constant_angular_rate` and the `constant_angular_rate_diagnostic` arm
+  of the nanodrone report. The published protocol's baseline is hold-state, so
+  the constant-rate arm was a model variant with no artifact and no reader; it
+  is the last of the model variants the migration retires. Last commit
+  carrying it: `c250233`.
+- `evaluate_nanodrone_benchmark`, `evaluate_nanodrone_model_artifact`,
+  `save_nanodrone_benchmark_report`, `evaluate_x8_reference_models`,
+  `save_x8_reference_report`, `geometric_ratio`,
+  `evaluate_epfl_characterization`, `save_epfl_characterization`,
+  `benchmark_profiles` and `benchmark_source_groups`, with the five modules
+  that held them. `evaluate`, `evaluate_fit_reports` and `evaluate_holdout`
+  replace them. Last commit carrying them: `c250233`.
 - `rollout_divergence_metrics` no longer reports `final_errors` or
   `first_nonfinite_time_s`; nothing in the package, its tests, its recorded
   artifacts or its documentation read either. `stable_fraction` stays because
