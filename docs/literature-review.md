@@ -348,3 +348,123 @@ protected promotion check and the reference fitting defaults were retained,
 and the fixed-wing residual was selected for continued development while
 missing the cross-airframe development contract by 0.0023 m of p90 IDF
 position error at the half-second horizon.
+
+## What Phases 0 to 3 retired, 2026-09-04
+
+The migration from the research repository to a production library removed
+about twenty-four thousand lines. Every removal below is a research mechanism
+whose verdict was already recorded, and each names the last commit that can
+still run it. The code and its artifacts are not kept; this list plus the
+prose above is the record.
+
+**The observation program.** Typed observation channels stayed, but every
+mechanism built on top of them went: static observation correction, first-order
+temporal filtering, state-channel timing alignment, body-rate observation
+rollout scoring, and the seven recorded artifacts behind them, at `4c119a8`.
+The observation-first initializer that survived as a fit stage followed at
+`2e16ebc`; it initialized nothing, because its parameters were discarded at
+both call sites and the forty report keys it emitted were read by nothing. The
+Phase A, post-freeze and Phase B results above are the whole finding.
+
+**The fleet prior and plan assessment.** `StructuredParameterPrior`,
+`initialize_belief`, `DynamicsBelief.condition_parameter_prior`,
+`with_parameter_members` and the `glassbox prior` command went at `478c063`.
+At the only scale the prior ever ran, five members over twenty-two parameters,
+99.6 percent of its normalized covariance trace was unit-ball assumption on
+the unresolved nullspace, and nothing in the package conditioned on it in
+production. `ParameterInformation.seeded_from_members` is the forty-line
+replacement, and it invents no precision on a direction no member moved. The
+same commit removed `RuntimeDynamicsBelief.assess_plan` and `PlanAssessment`,
+which had no caller, and the error-radius quantiles, which no artifact carried.
+
+**The transaction.** The transactional belief update, 2,006 lines, went at
+`8d3400f`: `propose_dynamics_belief_update`,
+`validate_and_commit_dynamics_belief_update`, the thirty-five-field report,
+the two-sigma improvement margin, the maximum-norm trust bound, the line
+search, the revision fingerprints and the replay detection. The reason was not
+cost. On every path a shipped artifact could reach, the account of what is
+unknown never changed: the fit wrote total-forecast-scoped evidence and every
+contraction mechanism was gated on a conditional innovation scope nothing
+produced, so the recorded artifact of the day said covariance not updated,
+posterior trace equal to prior trace, information gain null. A commit then
+zeroed the error moments, which removed the controller's horizon cap and
+showed it zero model uncertainty, so adapting made it more confident than its
+evidence supported. The margin and the trust bound existed to patch the
+null-acceptance rate of an improvement-threshold gate, which is the mechanism
+the design does not want. The runtime tangent bias went with it, because it
+was the root cause of the staleness lifecycle. `absorb` is the recursion the
+in-flight identifier already ran, generalized by one Jacobian, and the 64-seed
+null-acceptance calibration is replaced by a pinned step-size property at the
+same 64 seeds.
+
+**The batch identifier and the cascade controller.** `BootstrapMultirotorIdentifier`
+with its excitation planner and arrest commands, and
+`ProgressiveBootstrapController` with `ThrustCascade` and its fixed
+pseudo-random excitation scan, both went at `aab0b42`. The recursive
+identifier's Gram accumulation is the same fit, so a batch fit is folding N
+transitions and reading the belief; and the cascade controller was the
+hand-gained baseline arm of a comparison that lives in the demo repository and
+was retired there by the learned controller. The same commit removed the
+identifier's own certification transaction, which was the same gate twice, and
+the three switches measured worse on the release ensemble: staged regressors,
+the collective sign rule and the prequential residual as implemented. The last
+two switches, the aggregation window and the integrated collective, became the
+only behaviour at `2f5adc2` after the measurement that selected them.
+
+**The support filter.** `SupportFilterMode` with its six modes, the candidate
+enumeration and batched candidate kernel, the actuator-reaction horizon, and
+the bounded-authority post-pass went at `9570fa1`, together with the eighteen
+diagnostic fields only they wrote. Neither backed a recorded claim. What the
+belief knows about its own error is now charged inside the objective instead,
+so it shapes the plan the optimizer converges to rather than editing the plan
+afterwards.
+
+**The gates and the selection machinery.** `policy_selection`,
+`fixedwing_gate`, `acceptance` and `selection`, with the
+`glassbox select-policy` and `glassbox fixedwing-gate` commands and the
+fitting-policy and fixed-wing-gate pages, went at `bd48419`. They were
+research promotion rules whose verdicts were already recorded and which
+nothing in continuous integration ran: the cross-platform fitting-policy sweep
+failed its protected promotion check and the reference fitting defaults were
+retained, and the fixed-wing residual was selected for continued development
+while missing the cross-airframe development contract by 0.0023 m of p90 IDF
+position error at the half-second horizon. The two reusable divergence helpers
+were promoted into evaluation first and then removed at `2faf563` when the
+gates that called them were gone. The adaptation benchmark went at the same
+commit as the gates: it asserted that every update applied while its own
+report recorded the acceptance gate as failed.
+
+**The predictive ensemble.** The workflow, its `ensemble-benchmark` command,
+its concept page and its four recorded notes went at `bd48419`. The finding is
+recorded above: across 13 IDF-DS source-group folds and 78 fitted members,
+coverage held but disagreement ranked held-out error at a median Spearman of
+0.20 against the 0.30 the gate required, and the calibrated set score came out
+1.89 percent worse than the constant-radius baseline it was meant to beat.
+
+**The authority sweep.** `workflows/angular_authority.py` and
+`workflows/nanodrone_rotation.py` went at `bd48419`, and the two doc
+paragraphs that rested on the sweep were withdrawn then, because its selection
+numbers had no recorded artifact. The transform it selected with,
+`core.dynamics.with_angular_dynamics_authority`, had no caller left and went at
+`2e16ebc`; `with_constant_angular_rate` went at `c250233` once the published
+Nano-drone protocol's own hold-state baseline made a constant-rate model
+variant redundant. The command-offset candidate measured on ARP logs 63 to 65
+goes with them as a development-only result: it improved the aggregate score
+by 0.40 percent while its worst individual metric regressed 79.0 percent, and
+the three held-out fits learned consistent offsets of -0.111, -0.105 and
+-0.072 normalized command. It was never promoted, because log 66 was already
+spent on the rotational-structure evaluation below.
+
+**The lagged rotational response.** The branch, its sentinel machinery and the
+fitting switches that selected it went at `9d59e4a`. The negative result is
+recorded above under the deferred ideas; the multirotor torque map is now
+memoryless, the latent state is four wide instead of seven, and the bounded
+cross-axis mixer the branch was measured with survives as part of that map.
+
+Two recorded files went with the same pass because they were not machine
+output. `docs/results/multirotor-profile-results.json` was a hand-written lab
+note in JSON clothing, with `date`, `hypothesis` and `decision` keys, produced
+by no command and pinned by no test; it went at `c35224e` and its numbers are
+now prose on [validation](validation.md#px4-sitl-corpora). The four
+predictive-ensemble notes went with their workflow. Every artifact under
+`docs/results/` is now machine output produced by one manifest entry.
