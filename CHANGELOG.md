@@ -333,6 +333,29 @@ All notable changes to Glassbox are recorded here. The format follows
   parameters, so an implementer states its numbers in one object.
 
 ### Changed
+- Phase 2 in summary, on the two regenerable local artifacts. Every number in
+  `docs/results/adaptive-recovery-results.json` moved once, at the start of the
+  phase, for three causes recorded with that re-record below: the benchmark's
+  belief is seeded by inverting the sibling configurations' sample covariance
+  to precision, the update is `absorb` over every one-step transition instead
+  of a transaction over a proposal and a validation half, and the held-out
+  forecast bias is no longer applied at runtime. Six values in
+  `docs/results/nmpc-acceptance-results.json` moved by between 1e-9 and 1e-8
+  relative in the same re-record, because the solver's mean rollout stopped
+  applying a zero tangent correction. Nothing after that re-record moved a
+  recorded number. The bootstrap family, the compile cache keyed on shape, the
+  fit fold, the one window budget, the deleted certified horizon and the one
+  persistence reduction each regenerate both artifacts unchanged except for
+  timing and, where the change touched a source file the recovery benchmark
+  fingerprints, the `implementation.source_sha256` that names those sources. Three of Phase 2's
+  changes move numbers that no local artifact records, and each is measured in
+  its own line above: single-horizon fits move by the loss normalization, the
+  IDF corpus's long-horizon folds train on a thinner window set, and the X8
+  scoring policy reduces in the sequential order. Those land in the corpus
+  tier, which re-records in Phase 3.
+  `docs/results/cascade-x8-validation-results.json` is byte for byte what it
+  was before Phase 2, and `docs/results/multirotor-profile-results.json` is a
+  hand-written note and untouched.
 - The `x8` scoring policy reduces its score in the one remaining order. The
   reassociation is smaller than it looks: on the pinned X8 protocol test in
   `tests/test_evaluate.py`, whose score is a geometric mean over two horizons

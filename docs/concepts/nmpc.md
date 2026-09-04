@@ -11,8 +11,8 @@ evidence boundary.
 
 The layer is three modules with one seam between them. `control.plan` declares
 `PlanModel`, the whole interface a solver has to a model: command bounds, a
-horizon, a rollout that returns predicted states with their tangent covariance,
-and a stage cost. `control.solver` is `BoundedShootingSolver`, which knows
+horizon, the `PlanValues` its numbers travel in, a rollout that returns
+predicted states with their tangent covariance, and a stage cost. `control.solver` is `BoundedShootingSolver`, which knows
 nothing about beliefs; it moves normalized command blocks inside their box and
 returns an auditable result. `control.fitted` is the boundary between them:
 `plan_model(belief, tolerances, envelope)` presents a fitted belief as a
@@ -21,13 +21,16 @@ raises `NonActionableModelError` for a model with no command space.
 `NMPCController` is the thin factory that wires the two together, and it is
 what most callers use.
 
-Compiling a solver costs seconds, so the compiled kernels are cached at module
-scope under the plan model's static signature: the input and runtime specs, the
-tolerances, the envelope, the policy, the parameter tree structure, and the
-belief's own evidence. The fitted parameters are an argument to every kernel
-rather than part of that signature, so two controllers built from the same
-configuration, or one belief re-fitted from another, share compiled code and
-only the first pays for it.
+Compiling a solver costs orders of magnitude more than solving with it, so the
+compiled kernels are cached at module scope under the plan model's static
+signature: the input and runtime specs, the tolerances, the envelope, the
+policy, the parameter tree's structure and leaf shapes, and the shape of what
+the belief resolved. No belief value is in that signature. The parameters, the
+factor of the resolved parameter covariance and the stage forecast-error
+covariance travel to every kernel together as `PlanValues`, so two controllers
+built from the same configuration share compiled code, and so does a belief
+that absorbs telemetry every control interval: only a change of resolved rank
+compiles again.
 
 The controller is independent of reference generation, state estimation, PX4
 transport, and hardware mixing. Terminal-pose docking is not part of this
@@ -222,7 +225,7 @@ On the recorded Apple M3 CPU run with JAX's CPU backend and a 50 ms model step:
 
 Each scenario records median, p90, and maximum post-JIT time. Cold compilation
 took multiple seconds for each novel model/control shape. On the recorded run
-even the maximum observed solve stayed at roughly half the 50 ms model step.
+even the maximum observed solve stayed under half the model step.
 Absolute times depend on the host and its load, so they live only in the
 results artifact; they establish margin for that benchmark and hardware
 combination, not a portable hard real-time guarantee. No flight-safety claim
