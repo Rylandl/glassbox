@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 from _recorded import assert_recorded_close, recorded_result
 
-from glassbox.workflows.adaptive_recovery_benchmark import (
+from glassbox.workflows.benchmarks.recovery import (
     normalized_adaptive_recovery_report,
     run_adaptive_recovery_benchmark,
 )

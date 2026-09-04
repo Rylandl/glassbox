@@ -179,7 +179,7 @@ def _evaluate(args: argparse.Namespace) -> None:
 
 
 def _evaluate_cascade(args: argparse.Namespace) -> None:
-    from glassbox.integrations.cascade import (
+    from glassbox.workflows.benchmarks.cascade_x8 import (
         evaluate_x8_cascade,
         save_x8_cascade_report,
     )
@@ -226,7 +226,7 @@ def _evaluate_cascade(args: argparse.Namespace) -> None:
 
 
 def _diagnose_cascade(args: argparse.Namespace) -> None:
-    from glassbox.integrations.cascade import diagnose_x8_cascade
+    from glassbox.workflows.benchmarks.cascade_x8 import diagnose_x8_cascade
 
     report = diagnose_x8_cascade(
         args.destination,

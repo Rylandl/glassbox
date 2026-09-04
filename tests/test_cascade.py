@@ -72,9 +72,9 @@ def test_cascade_window_predictions_reproduce_a_cascade_generated_trajectory() -
     pytest.importorskip("cascade")
     from glassbox.integrations.cascade import (
         CascadePlant,
-        cascade_window_predictions,
         trajectory_from_plant_samples,
     )
+    from glassbox.workflows.benchmarks.cascade_x8 import cascade_window_predictions
 
     plant = CascadePlant()
     command = np.array([0.45, 0.02, 0.01])
@@ -106,7 +106,7 @@ def test_published_x8_variants_are_finite_and_the_documented_one_beats_persisten
     """
 
     pytest.importorskip("cascade")
-    from glassbox.integrations.cascade import (
+    from glassbox.workflows.benchmarks.cascade_x8 import (
         cascade_window_predictions,
         x8_variant_models,
     )
@@ -147,9 +147,9 @@ def test_residual_regressions_vanish_on_a_cascade_generated_trajectory() -> None
     pytest.importorskip("cascade")
     from glassbox.integrations.cascade import (
         CascadePlant,
-        residual_regressions,
         trajectory_from_plant_samples,
     )
+    from glassbox.workflows.benchmarks.cascade_x8 import residual_regressions
 
     plant = CascadePlant()
     samples = [plant.reset(LEVEL_18_M_S, applied_control=np.array([0.45, 0.0, 0.05]))]
@@ -172,3 +172,161 @@ def test_residual_regressions_vanish_on_a_cascade_generated_trajectory() -> None
         mean_bound, rms_bound = (0.1, 0.5) if item.unit == "N" else (0.02, 0.05)
         assert abs(item.mean) < mean_bound, (channel, item.mean)
         assert item.rms < rms_bound, (channel, item.rms)
+
+
+def _flying_wing_model(command_bounds, sample_period_s):
+    """A synthetic fixed-wing model whose command box is the plant's own.
+
+    This is deliberately not a model of the Cascade X8: nothing here is fitted
+    to it. It exists so the loop has a controller that produces bounded,
+    writable commands, which is what the smoke test below is about.
+    """
+
+    from glassbox.core.data import (
+        Channel,
+        TrajectorySpec,
+        VehicleConfigurationSpec,
+    )
+    from glassbox.core.fixedwing_synthetic import true_fixed_wing_parameters
+    from glassbox.core.model import (
+        DirectActuationMap,
+        ExecutableModel,
+        ModelValidityEnvelope,
+        RuntimeModelSpec,
+    )
+
+    minimum, maximum = command_bounds
+    controls = (
+        Channel(
+            name="propulsion_command",
+            role="throttle",
+            semantic="normalized_command",
+            unit="1",
+            kind="control",
+            minimum=float(minimum[0]),
+            maximum=float(maximum[0]),
+        ),
+        Channel(
+            name="elevon_roll_command",
+            role="roll",
+            semantic="normalized_generalized_command",
+            unit="1",
+            kind="control",
+            frame="FLU",
+            minimum=float(minimum[1]),
+            maximum=float(maximum[1]),
+        ),
+        Channel(
+            name="elevon_pitch_command",
+            role="pitch",
+            semantic="normalized_generalized_command",
+            unit="1",
+            kind="control",
+            frame="FLU",
+            minimum=float(minimum[2]),
+            maximum=float(maximum[2]),
+        ),
+    )
+    spec = TrajectorySpec(
+        state_schema=RIGID_BODY_STATE_SCHEMA,
+        observation_source="simulator_truth",
+        channels=controls,
+        vehicle=VehicleConfigurationSpec(
+            family="fixedwing",
+            configuration_id="synthetic_flying_wing",
+            controlled_axes=("roll", "pitch"),
+        ),
+    )
+    return ExecutableModel(
+        true_fixed_wing_parameters(),
+        spec,
+        RuntimeModelSpec(
+            sample_period_s=sample_period_s,
+            validity_envelope=ModelValidityEnvelope(
+                body_velocity_center_m_s=(0.0, 0.0, 0.0),
+                body_velocity_half_width_m_s=(100.0, 100.0, 100.0),
+                angular_velocity_center_rad_s=(0.0, 0.0, 0.0),
+                angular_velocity_half_width_rad_s=(100.0, 100.0, 100.0),
+            ),
+        ),
+        DirectActuationMap(spec.controls),
+    )
+
+
+@pytest.mark.cascade
+def test_a_cascade_plant_is_a_link_one_control_loop_flies() -> None:
+    """The plant, the solver and the loop, with nothing between them."""
+
+    pytest.importorskip("cascade")
+    from glassbox.control.fitted import NMPCController
+    from glassbox.control.plan import SolverPolicy
+    from glassbox.integrations.cascade import CascadePlant
+    from glassbox.integrations.loop import LoopSample, VehicleLink, run_control_loop
+
+    plant = CascadePlant()
+    plant.reset(LEVEL_18_M_S, applied_control=np.array([0.45, 0.0, 0.0]))
+
+    assert isinstance(plant, VehicleLink)
+    assert plant.writable
+    assert plant.command_size == 3
+    minimum, maximum = plant.command_bounds
+    np.testing.assert_allclose(minimum, [0.0, -0.7, -0.7])
+    np.testing.assert_allclose(maximum, [1.0, 0.7, 0.7])
+
+    model = _flying_wing_model(plant.command_bounds, plant.sample_period_s)
+    controller = NMPCController(
+        model,
+        policy=SolverPolicy(
+            horizon_steps=4,
+            block_count=2,
+            maximum_iterations=3,
+            line_search_steps=4,
+        ),
+    )
+    exogenous = np.zeros(model.exogenous_size)
+    # One solve outside the loop pays the compile, which no control interval can
+    # absorb; inside the loop it would be recorded as a deadline miss.
+    warmup = plant.read(timeout_s=0.0)
+    controller.solve(
+        warmup.state,
+        controller.hold_reference(warmup.state, exogenous=exogenous),
+        warmup.applied_command,
+    )
+    records: list[LoopSample] = []
+
+    summary = run_control_loop(
+        plant,
+        controller,
+        steps=5,
+        reference=lambda observation: controller.hold_reference(
+            observation.state, exogenous=exogenous
+        ),
+        on_sample=records.append,
+    )
+
+    assert summary.steps == 5
+    assert summary.written_command_count == 5
+    assert sum(summary.status_counts.values()) == 5
+    assert summary.usable_command_count + summary.fallback_count == 5
+    assert summary.usable_command_count >= 1
+    assert summary.interval_s == pytest.approx(plant.sample_period_s)
+    # Five intervals were written, so the plant advanced five control periods.
+    assert plant.snapshot().time_s == pytest.approx(5.0 * plant.sample_period_s)
+    for record in records:
+        assert record.written
+        assert np.all(record.command >= minimum - 1e-9)
+        assert np.all(record.command <= maximum + 1e-9)
+        assert np.all(np.isfinite(record.observation.state))
+        if record.result.used_fallback:
+            # A host too slow for this interval is not a reason to stop flying:
+            # the interval holds the command the plant was already applying.
+            np.testing.assert_allclose(
+                record.command,
+                record.observation.applied_command,
+                atol=1e-9,
+            )
+    # Each observation is the plant's own clock, one interval apart.
+    times = [record.observation.source_time_s for record in records]
+    np.testing.assert_allclose(
+        np.diff(times), plant.sample_period_s * np.ones(4), atol=1e-9
+    )

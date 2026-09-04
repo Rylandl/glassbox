@@ -50,12 +50,12 @@ TREE: tuple[Command, ...] = (
     ),
     Command(
         name="adaptive-recovery",
-        target="glassbox.workflows.adaptive_recovery_benchmark:main",
+        target="glassbox.workflows.benchmarks.recovery:main",
         summary="prewarmed synthetic recovery after a configuration change",
     ),
     Command(
         name="nmpc-benchmark",
-        target="glassbox.workflows.nmpc_benchmark:main",
+        target="glassbox.workflows.benchmarks.nmpc:main",
         summary="maintained closed-loop NMPC acceptance and timing benchmark",
     ),
     Command(

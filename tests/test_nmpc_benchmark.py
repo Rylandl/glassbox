@@ -1,6 +1,6 @@
 import pytest
 
-from glassbox.workflows.nmpc_benchmark import run_nmpc_benchmark
+from glassbox.workflows.benchmarks.nmpc import run_nmpc_benchmark
 
 
 @pytest.mark.slow

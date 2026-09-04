@@ -145,6 +145,34 @@ All notable changes to Glassbox are recorded here. The format follows
   from a controller.
 
 ### Changed
+- `integrations/cascade.py` keeps the plant and nothing else. The X8 validation,
+  the residual regressions and the variant grid move to
+  `glassbox.workflows.benchmarks.cascade_x8`, which is where a fixed-wing corpus
+  experiment belongs: `X8Variant`, `x8_variant_models`,
+  `shift_center_of_gravity`, `shift_center_of_gravity_of_spec`,
+  `actuator_states_over_controls`, `cascade_window_predictions`,
+  `evaluate_x8_cascade`, `save_x8_cascade_report`, `ResidualRegression`,
+  `residual_regressions`, `diagnose_x8_cascade` and the four X8 constants.
+  `x8 evaluate-cascade` and `x8 diagnose-cascade` keep every flag and are now
+  callers of the new module, which produces byte-identical output to the module
+  it was split out of.
+- `CascadePlant` is a writable `VehicleLink`: `read` reports where the plant is,
+  carrying its `applied_control` as the applied command and its own clock as the
+  source time, and `write` advances it one control interval. `command_size` and
+  `command_bounds` come from the aircraft specification, propellers as
+  normalized throttle and each control channel bounded by the tightest surface
+  deflection limit it drives. The one control loop that shadows PX4 telemetry
+  flies a simulated aircraft unchanged.
+- `require_cascade` is public, so the benchmark that needs the optional
+  simulator does not reach for a private name in another module.
+- `workflows/nmpc_benchmark.py` and `workflows/adaptive_recovery_benchmark.py`
+  are `workflows/benchmarks/nmpc.py` and `workflows/benchmarks/recovery.py`.
+  `nmpc-benchmark` and `adaptive-recovery` keep their names and every flag. The
+  recovery artifact's `source_files` provenance follows the move, which is the
+  only thing about it that changes.
+  `adaptive_recovery_source_fingerprint` now anchors that list at the
+  `glassbox` package root rather than at the module's own depth inside it, so
+  the digest does not depend on where in the package the benchmark lives.
 - `MultirotorFlightSupervisor(config, *, allocate=None)` no longer assumes the
   canonical motor mixer. `allocate` maps the desired `(roll, pitch, yaw)`
   differential to the four motor increments the arrest adds to the configured

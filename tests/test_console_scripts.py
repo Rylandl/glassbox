@@ -27,6 +27,7 @@ _LEAF_IDS = [" ".join(path) for path in _LEAF_PATHS]
 _OPTIONAL_MODULES = (
     "cascade",
     "glassbox.integrations.cascade",
+    "glassbox.workflows.benchmarks.cascade_x8",
 )
 
 

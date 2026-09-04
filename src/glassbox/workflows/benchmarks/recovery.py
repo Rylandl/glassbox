@@ -17,6 +17,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
+import glassbox
 from glassbox.belief.belief import (
     DynamicsBelief,
     EmpiricalErrorSample,
@@ -75,7 +76,7 @@ BENCHMARK_SOURCE_FILES = (
     "core/metrics.py",
     "core/model.py",
     "core/synthetic.py",
-    "workflows/adaptive_recovery_benchmark.py",
+    "workflows/benchmarks/recovery.py",
 )
 _NONDETERMINISTIC_RECOVERY_FIELDS = frozenset(
     {
@@ -99,9 +100,14 @@ def _json_fingerprint(payload: Any) -> str:
 
 
 def adaptive_recovery_source_fingerprint() -> str:
-    """Bind evidence to the maintained source modules that produce it."""
+    """Bind evidence to the maintained source modules that produce it.
 
-    source_root = Path(__file__).resolve().parents[1]
+    Every entry of :data:`BENCHMARK_SOURCE_FILES` is written relative to the
+    ``glassbox`` package root, so the root is resolved from the package rather
+    than from this module's own depth inside it.
+    """
+
+    source_root = Path(glassbox.__file__).resolve().parent
     digest = hashlib.sha256()
     for relative_path in BENCHMARK_SOURCE_FILES:
         path = source_root / relative_path
