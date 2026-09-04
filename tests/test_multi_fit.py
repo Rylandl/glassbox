@@ -9,6 +9,7 @@ from glassbox.core.data import load_trajectory_npz, save_trajectory_npz
 from glassbox.core.fixedwing_synthetic import (
     true_fixed_wing_parameters,
 )
+from glassbox.core.identification import window_budget
 from glassbox.core.metrics import (
     kinematic_persistence_windowed_metrics,
     predict_windows,
@@ -19,7 +20,6 @@ from glassbox.core.synthetic import true_parameters
 from glassbox.fitting import (
     FitSpec,
     Holdout,
-    _automatic_training_window_budget,
     _dataset_contract,
     build_training_windows,
     fit,
@@ -171,23 +171,15 @@ def test_divergence_diagnostic_validates_threshold_names(fixedwing_flight) -> No
         )
 
 
-def test_training_window_budget_scales_with_diversity_and_horizon() -> None:
-    assert (
-        _automatic_training_window_budget(horizon_steps=100, source_group_count=1)
-        == 5_242
-    )
-    assert (
-        _automatic_training_window_budget(horizon_steps=100, source_group_count=12)
-        == 5_242
-    )
-    assert (
-        _automatic_training_window_budget(horizon_steps=1_000, source_group_count=12)
-        == 524
-    )
-    assert (
-        _automatic_training_window_budget(horizon_steps=5, source_group_count=40)
-        == 8_192
-    )
+def test_one_window_budget_scales_with_diversity_and_horizon() -> None:
+    # The fitter and the optimizer read the same budget, so a fitted window
+    # set is exactly one gradient step's batch unless the source groups
+    # outnumber it.
+    assert window_budget(100) == 655
+    assert window_budget(100, minimum=12) == 655
+    assert window_budget(1_000, minimum=12) == 65
+    assert window_budget(5, minimum=40) == 8_192
+    assert window_budget(100, minimum=2_000) == 2_000
 
 
 @pytest.mark.slow
@@ -355,7 +347,7 @@ def test_source_group_training_weights_equalize_groups_not_segments(
         "equal_source_group_then_equal_window"
     )
     selection = report["configuration"]["training_window_selection"]
-    assert selection["budget_policy"] == "automatic_corpus_and_horizon"
+    assert selection["budget_policy"] == "one_window_budget_v1"
     assert selection["source_group_count"] == 2
     assert selection["stratification"] == "source_group"
 

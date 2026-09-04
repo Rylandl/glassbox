@@ -27,7 +27,7 @@ import numpy as np
 from glassbox.belief.belief_io import save_dynamics_belief
 from glassbox.core.data import Trajectory, load_trajectory_npz
 from glassbox.core.identification import (
-    MAX_OPTIMIZATION_WINDOWS_PER_HORIZON,
+    MAXIMUM_WINDOWS_PER_HORIZON,
     OPTIMIZATION_POLICY_VERSION,
 )
 from glassbox.core.metrics import (
@@ -191,9 +191,7 @@ def evaluate_holdout(
         "learn_thrust_command_offset": spec.loss.learn_thrust_command_offset,
         "diagonal_angular_control": spec.loss.diagonal_angular_control,
         "optimization_policy": OPTIMIZATION_POLICY_VERSION,
-        "maximum_optimization_windows_per_horizon": (
-            MAX_OPTIMIZATION_WINDOWS_PER_HORIZON
-        ),
+        "maximum_windows_per_horizon": MAXIMUM_WINDOWS_PER_HORIZON,
         "control_size": flights[0].control_size,
         "control_names": list(reference_spec.control_names),
         "control_semantics": list(reference_spec.control_semantics),

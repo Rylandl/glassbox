@@ -53,10 +53,14 @@ from glassbox.core.families import (
 )
 from glassbox.core.fixedwing_synthetic import initial_fixed_wing_parameter_guess
 from glassbox.core.identification import (
+    MAXIMUM_TRANSITIONS_PER_HORIZON,
+    MAXIMUM_WINDOWS_PER_HORIZON,
     OPTIMIZATION_POLICY_VERSION,
+    WINDOW_BUDGET_POLICY,
     fit_dynamics,
     residual_initialization_statistics,
     rollout_loss_configuration,
+    window_budget,
 )
 from glassbox.core.metrics import (
     aggregate_rollout_metrics,
@@ -71,33 +75,7 @@ from glassbox.core.model import (
 from glassbox.core.model_io import parameter_dict
 from glassbox.core.synthetic import initial_parameter_guess
 
-_MAX_TRAINING_WINDOWS_PER_HORIZON = 8_192
-_MAX_TRAINING_TRANSITIONS_PER_HORIZON = 524_288
-
 _MODEL_CLASSES = ("structured", "structured_residual")
-
-
-def _automatic_training_window_budget(
-    *, horizon_steps: int, source_group_count: int
-) -> int:
-    """Use all available windows up to fixed memory and transition bounds.
-
-    ``trajectory_windows`` applies this ceiling after candidate construction, so
-    small and medium corpora retain every valid window.  Large corpora are still
-    bounded by both the number of windows and total unrolled transitions.
-    """
-
-    transition_limit = max(
-        source_group_count,
-        _MAX_TRAINING_TRANSITIONS_PER_HORIZON // horizon_steps,
-    )
-    return max(
-        source_group_count,
-        min(
-            _MAX_TRAINING_WINDOWS_PER_HORIZON,
-            transition_limit,
-        ),
-    )
 
 
 def _configured_initial_params(
@@ -1088,11 +1066,7 @@ def build_training_windows(plan: HoldoutPlan, spec: FitSpec) -> TrainingWindows:
         else len(training)
     )
     maximum_windows_by_horizon = tuple(
-        _automatic_training_window_budget(
-            horizon_steps=steps,
-            source_group_count=diversity_count,
-        )
-        for steps in horizon_steps
+        window_budget(steps, minimum=diversity_count) for steps in horizon_steps
     )
     window_sets = tuple(
         trajectory_windows(
@@ -1183,7 +1157,9 @@ def _training_weight_sections(
 
 def _window_selection_section(windows: TrainingWindows) -> dict[str, Any]:
     return {
-        "budget_policy": "automatic_corpus_and_horizon",
+        "budget_policy": WINDOW_BUDGET_POLICY,
+        "maximum_windows_per_horizon": MAXIMUM_WINDOWS_PER_HORIZON,
+        "maximum_transitions_per_horizon": MAXIMUM_TRANSITIONS_PER_HORIZON,
         "maximum_windows_by_horizon": dict(
             zip(windows.horizon_labels, windows.maximum_windows_by_horizon)
         ),
@@ -1201,7 +1177,7 @@ def _fit_statistics_section(spec: FitSpec) -> dict[str, Any]:
         "data_derived_values": [
             "state_error_scales",
             "dynamic_envelope",
-            "multi_horizon_initial_loss_normalizers",
+            "initial_loss_normalizers",
             *(
                 [
                     "residual_feature_center_and_scale",

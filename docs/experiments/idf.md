@@ -40,7 +40,7 @@ uv run glassbox evaluate --hold-out source_group \
   --output-dir artifacts/idf_reference/source_benchmark_structured
 ```
 
-Every dropout-separated segment from the held-out ULog moves into the same fold. Training uses the automatic deterministic window budget, and the summary reports equal-session macro metrics plus median, 90th-percentile, and worst-fold errors. The default policy evaluates every source group using the standard 0.1, 0.5, and 2-second training horizons; it intentionally exposes no dataset-specific sampling or optimizer knobs. Dataset inputs are SHA-256 recorded, and each completed fold is resumable only when that exact request still matches.
+Every dropout-separated segment from the held-out ULog moves into the same fold. Training uses the one deterministic window budget the fitter and the optimizer share, and the summary reports equal-session macro metrics plus median, 90th-percentile, and worst-fold errors. This is the one registry corpus large enough for that budget to bind differently than it did when the fitter extracted under a looser transition ceiling than the optimizer batched under: the numbers below were recorded under the old pair, and a rerun trains on 2,621 windows at 0.5 seconds and 655 at 2 seconds where it used to keep 8,192 and 5,242. The 0.1-second horizon is unchanged. The default policy evaluates every source group using the standard 0.1, 0.5, and 2-second training horizons; it intentionally exposes no dataset-specific sampling or optimizer knobs. Dataset inputs are SHA-256 recorded, and each completed fold is resumable only when that exact request still matches.
 
 Use `--model-class structured_residual` with a separate output directory to compare the generic residual under exactly the same folds:
 

@@ -100,8 +100,10 @@ contributes equal total loss weight with uniform weight inside the group;
 without source groups each training flight contributes equally, and when every
 flight declares a maneuver profile each family contributes equally before its
 replicates split it. Large candidate sets are deterministically thinned across
-every group's timeline under an automatic corpus- and horizon-aware compute
-budget. Every model class uses equal semantic state-group loss after scaling by
+every group's timeline under one window budget, a window ceiling and an
+unrolled-transition ceiling per horizon, which is the same budget the
+optimizer batches under, so the set a fit is extracted on is the set one
+gradient step processes. Every model class uses equal semantic state-group loss after scaling by
 training-window motion, linearly emphasizes later rollout steps, and softly
 penalizes velocity or rate escape beyond a generous training-derived body-frame
 envelope. For a structured residual, frame-invariant feature normalization and

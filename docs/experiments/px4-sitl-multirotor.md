@@ -56,7 +56,7 @@ uv run glassbox fit artifacts/dataset_50hz/*_ground_truth.npz \
   --report artifacts/scaled_report.json
 ```
 
-Multi-flight training gives every complete source group equal total loss weight by default and weights windows uniformly inside each group, so a long log cannot dominate and splitting one log around dropouts cannot increase its influence. Large corpora use an automatic deterministic window budget rather than exposing another fitting knob; small and medium corpora use every valid window, and only the fixed memory bound and the transition cost of long horizons thin large corpora.
+Multi-flight training gives every complete source group equal total loss weight by default and weights windows uniformly inside each group, so a long log cannot dominate and splitting one log around dropouts cannot increase its influence. Large corpora use one deterministic window budget rather than exposing another fitting knob; a corpus with fewer windows than the budget uses every valid one, and only the fixed window ceiling and the transition cost of long horizons thin the rest. The fitter and the optimizer read the same budget, so the extracted set is the set one gradient step processes.
 
 Record the 24-flight expansion matrix (four bounded PX4 SITL profiles, three excitation conditions, and two replicates):
 

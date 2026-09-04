@@ -59,7 +59,7 @@ def test_source_group_holdout_moves_every_segment_into_the_same_fold(
     assert position_distribution["p90"] <= position_distribution["maximum"]
     for fold in summary["per_fold"].values():
         assert fold["training_window_selection"]["budget_policy"] == (
-            "automatic_corpus_and_horizon"
+            "one_window_budget_v1"
         )
     summary_path = tmp_path / "benchmark" / "summary.json"
     assert summary_path.exists()

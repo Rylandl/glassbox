@@ -36,8 +36,42 @@ from glassbox.core.dynamics import (
 from glassbox.core.geometry import quaternion_to_rotation_matrices
 
 OPTIMIZATION_POLICY_VERSION = "deterministic_weighted_minibatch_v3"
-MAX_OPTIMIZATION_WINDOWS_PER_HORIZON = 8_192
-MAX_OPTIMIZATION_TRANSITIONS_PER_HORIZON = 65_536
+WINDOW_BUDGET_POLICY = "one_window_budget_v1"
+MAXIMUM_WINDOWS_PER_HORIZON = 8_192
+MAXIMUM_TRANSITIONS_PER_HORIZON = 65_536
+
+
+def window_budget(horizon_steps: int, *, minimum: int = 1) -> int:
+    """How many rollout windows one horizon is fit on.
+
+    One budget, stated once and read by everything that thins a window set:
+    the fitter, which extracts this many windows per horizon, and the
+    optimizer, which processes at most this many in one gradient step. They
+    are the same number on purpose. A fitter that kept more than the optimizer
+    can take in a step would hand a set that is silently resampled under a
+    second constant, and the report would name a training set the gradient
+    never saw whole.
+
+    The ceiling is a window count and an unrolled-transition count, because a
+    long horizon costs more per window: a set is capped at
+    :data:`MAXIMUM_WINDOWS_PER_HORIZON` windows and at
+    :data:`MAXIMUM_TRANSITIONS_PER_HORIZON` transitions, whichever binds
+    first. ``minimum`` raises the floor for a caller that must represent more
+    independent sources than the budget admits; that is the one case where the
+    optimizer still batches a fitted set, and it is a deliberate one.
+    """
+
+    if horizon_steps < 1:
+        raise ValueError("horizon_steps must be positive")
+    if minimum < 1:
+        raise ValueError("minimum must be positive")
+    return max(
+        minimum,
+        min(
+            MAXIMUM_WINDOWS_PER_HORIZON,
+            max(1, MAXIMUM_TRANSITIONS_PER_HORIZON // horizon_steps),
+        ),
+    )
 
 
 @dataclass(frozen=True)
@@ -153,7 +187,7 @@ def deterministic_weighted_batch_schedule(
     *,
     window_count: int,
     steps: int,
-    maximum_batch_size: int = MAX_OPTIMIZATION_WINDOWS_PER_HORIZON,
+    maximum_batch_size: int = MAXIMUM_WINDOWS_PER_HORIZON,
 ) -> npt.NDArray[np.int64]:
     """Return reproducible systematic samples spanning the weighted window set."""
 
@@ -192,14 +226,7 @@ def _optimization_batch_schedules(
             windows.window_weights,
             window_count=len(windows.initial_states),
             steps=steps,
-            maximum_batch_size=min(
-                MAX_OPTIMIZATION_WINDOWS_PER_HORIZON,
-                max(
-                    1,
-                    MAX_OPTIMIZATION_TRANSITIONS_PER_HORIZON
-                    // windows.controls.shape[1],
-                ),
-            ),
+            maximum_batch_size=window_budget(windows.controls.shape[1]),
         )
         for windows in window_sets
     )

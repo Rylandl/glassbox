@@ -333,6 +333,38 @@ All notable changes to Glassbox are recorded here. The format follows
   parameters, so an implementer states its numbers in one object.
 
 ### Changed
+- One window budget, declared once. `core/identification.py` exports
+  `window_budget(horizon_steps, minimum=1)` over
+  `MAXIMUM_WINDOWS_PER_HORIZON` (8192) and `MAXIMUM_TRANSITIONS_PER_HORIZON`
+  (65536), which replace `MAX_OPTIMIZATION_WINDOWS_PER_HORIZON` and
+  `MAX_OPTIMIZATION_TRANSITIONS_PER_HORIZON` and the fitter's private
+  `_MAX_TRAINING_WINDOWS_PER_HORIZON` (8192),
+  `_MAX_TRAINING_TRANSITIONS_PER_HORIZON` (524288) and
+  `_automatic_training_window_budget`. The fitter extracts this many windows
+  per horizon and the optimizer batches at most this many in one gradient
+  step, so an extracted set is exactly one step's batch and is no longer
+  resampled under a second constant; the deterministic minibatch still runs
+  for a caller-built set larger than the budget and for the one fitted case
+  that exceeds it, where the independent source groups outnumber the budget
+  and every group must be represented. The fit report's
+  `training_window_selection.budget_policy` is `one_window_budget_v1` rather
+  than `automatic_corpus_and_horizon` and carries
+  `maximum_windows_per_horizon` and `maximum_transitions_per_horizon` beside
+  the resolved `maximum_windows_by_horizon`; the holdout request's
+  `maximum_optimization_windows_per_horizon` is `maximum_windows_per_horizon`;
+  and `fit.statistics.data_derived_values` names
+  `initial_loss_normalizers` rather than
+  `multi_horizon_initial_loss_normalizers`, following the fit fold above.
+  At the default stride, where windows do not overlap, the budget binds on a
+  training set of more than 65536 samples, which is about 1311 seconds at 50
+  Hz and 655 seconds at 100 Hz. Of the five registry corpora, only IDF is
+  above that: at 34909.56 seconds of retained 50 Hz telemetry its
+  leave-one-session-out folds now keep 2621 windows at the 0.5-second horizon
+  and 655 at the 2-second horizon, where they kept 8192 and 5242, and its
+  0.1-second horizon is unchanged at 8192. Nano-drone, X8, EPFL, ARP and both
+  PX4 SITL corpora are under the budget at every documented horizon and do
+  not change. Neither recorded local artifact moves, and no test fit is large
+  enough to reach the budget. Last commit carrying the two budgets: `005c3c6`.
 - `core/identification.py` has one fit. `fit_dynamics(window_sets, ...)` is
   what `fit_dynamics_multi_horizon` was, and the old single-horizon
   `fit_dynamics(windows, ...)` is gone; one training horizon is a one-element

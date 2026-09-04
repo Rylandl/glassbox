@@ -11,7 +11,7 @@ from glassbox.core.dynamics import (
     with_thrust_command_offset,
 )
 from glassbox.core.identification import (
-    MAX_OPTIMIZATION_WINDOWS_PER_HORIZON,
+    MAXIMUM_WINDOWS_PER_HORIZON,
     _optimization_batch_schedules,
     deterministic_weighted_batch_schedule,
     dynamic_envelope_penalty,
@@ -74,7 +74,7 @@ def test_deterministic_weighted_batches_span_large_window_sets() -> None:
 
 
 def test_affordable_fit_uses_every_window(quadrotor_trajectory_seed11_dur0_4s) -> None:
-    # Any window count under MAX_OPTIMIZATION_WINDOWS_PER_HORIZON (8192)
+    # Any window count under MAXIMUM_WINDOWS_PER_HORIZON (8192)
     # selects the full-batch policy; a 0.4s rollout at horizon 1 already
     # produces one, so the rollout no longer has to be eleven seconds long.
     windows = trajectory_windows(
@@ -108,7 +108,7 @@ def test_automatic_minibatch_caps_large_short_horizon_window_set(
         horizon=1,
         stride=1,
     )
-    repeated_count = MAX_OPTIMIZATION_WINDOWS_PER_HORIZON + 10
+    repeated_count = MAXIMUM_WINDOWS_PER_HORIZON + 10
     repeated = replace(
         windows,
         initial_states=np.resize(
@@ -140,7 +140,7 @@ def test_automatic_minibatch_caps_large_short_horizon_window_set(
     schedules = _optimization_batch_schedules((repeated,), steps=2)
 
     assert schedules is not None
-    assert schedules[0].shape == (2, MAX_OPTIMIZATION_WINDOWS_PER_HORIZON)
+    assert schedules[0].shape == (2, MAXIMUM_WINDOWS_PER_HORIZON)
 
 
 def test_motor_time_constant_can_be_held_fixed(quadrotor_flight) -> None:
