@@ -1,0 +1,1569 @@
+{
+  "artifact_type": "glassbox_corpus_validation",
+  "baseline": {
+    "baseline_metrics": {
+      "horizon_rollouts": {
+        "0.1s": {
+          "angular_velocity_rmse_rad_s": 0.14301786440217779,
+          "angular_velocity_rmse_xyz_rad_s": [
+            0.14014287367257175,
+            0.17240190757581303,
+            0.10954399042162725
+          ],
+          "attitude_rmse_deg": 0.7689249091222847,
+          "attitude_rotation_vector_rmse_xyz_deg": [
+            0.4118077059147374,
+            0.5181983707566307,
+            0.3913187674588597
+          ],
+          "duration_s": 0.09999999999990905,
+          "final_position_error_m": 0.014241227964286604,
+          "metric_policy": "rollout_error_excludes_measured_initial_sample_v2",
+          "position_rmse_m": 0.0053925129829216385,
+          "position_rmse_xyz_m": [
+            0.006706557912607376,
+            0.0054832057898533204,
+            0.003492008597340178
+          ],
+          "rollout_count": 763,
+          "sample_count": 3815,
+          "velocity_rmse_m_s": 0.045167747763049416,
+          "velocity_rmse_xyz_m_s": [
+            0.024524212391465582,
+            0.02053285787556371,
+            0.07139566561073259
+          ],
+          "weighting": "equal"
+        },
+        "0.5s": {
+          "angular_velocity_rmse_rad_s": 0.35853913491895617,
+          "angular_velocity_rmse_xyz_rad_s": [
+            0.2987524403874066,
+            0.36592046704317355,
+            0.4031130424171052
+          ],
+          "attitude_rmse_deg": 7.710530045719922,
+          "attitude_rotation_vector_rmse_xyz_deg": [
+            3.902222938843172,
+            4.362944254334536,
+            5.018928885239116
+          ],
+          "duration_s": 0.49999999999954525,
+          "final_position_error_m": 0.13260626140204385,
+          "metric_policy": "rollout_error_excludes_measured_initial_sample_v2",
+          "position_rmse_m": 0.03857673183398599,
+          "position_rmse_xyz_m": [
+            0.028156566977991695,
+            0.024293478854844758,
+            0.05551150635784332
+          ],
+          "rollout_count": 152,
+          "sample_count": 3800,
+          "velocity_rmse_m_s": 0.17623732320874164,
+          "velocity_rmse_xyz_m_s": [
+            0.0947055394855495,
+            0.07519358996074864,
+            0.28027766071328813
+          ],
+          "weighting": "equal"
+        },
+        "1s": {
+          "angular_velocity_rmse_rad_s": 0.4522039136772099,
+          "angular_velocity_rmse_xyz_rad_s": [
+            0.3069808568212563,
+            0.36924769673844976,
+            0.618776236319393
+          ],
+          "attitude_rmse_deg": 18.822548992489292,
+          "attitude_rotation_vector_rmse_xyz_deg": [
+            8.536638446717854,
+            7.910844970748432,
+            14.792994505963453
+          ],
+          "duration_s": 0.9999999999990905,
+          "final_position_error_m": 0.38048080464651235,
+          "metric_policy": "rollout_error_excludes_measured_initial_sample_v2",
+          "position_rmse_m": 0.1142432562093787,
+          "position_rmse_xyz_m": [
+            0.0681444323000593,
+            0.06086035166595182,
+            0.1755189981442593
+          ],
+          "rollout_count": 76,
+          "sample_count": 3800,
+          "velocity_rmse_m_s": 0.26392693258885563,
+          "velocity_rmse_xyz_m_s": [
+            0.1686181528653654,
+            0.13391742605707144,
+            0.40324473804354616
+          ],
+          "weighting": "equal"
+        },
+        "2s": {
+          "angular_velocity_rmse_rad_s": 0.5595467012825891,
+          "angular_velocity_rmse_xyz_rad_s": [
+            0.3174851667517115,
+            0.39316710932231236,
+            0.8269826635356121
+          ],
+          "attitude_rmse_deg": 42.69036526450319,
+          "attitude_rotation_vector_rmse_xyz_deg": [
+            20.019099468440462,
+            12.859056111838349,
+            35.444994270023216
+          ],
+          "duration_s": 1.999999999998181,
+          "final_position_error_m": 0.8876645724275958,
+          "metric_policy": "rollout_error_excludes_measured_initial_sample_v2",
+          "position_rmse_m": 0.29011086750168913,
+          "position_rmse_xyz_m": [
+            0.16742521185997428,
+            0.15993140303236414,
+            0.44596377777291574
+          ],
+          "rollout_count": 38,
+          "sample_count": 3800,
+          "velocity_rmse_m_s": 0.3311240741107016,
+          "velocity_rmse_xyz_m_s": [
+            0.2560994702825374,
+            0.2061660291585457,
+            0.4699341306066308
+          ],
+          "weighting": "equal"
+        }
+      }
+    },
+    "baseline_per_trajectory": [
+      {
+        "horizon_rollouts": {
+          "0.1s": {
+            "angular_velocity_rmse_rad_s": 0.14301786440217779,
+            "angular_velocity_rmse_xyz_rad_s": [
+              0.14014287367257175,
+              0.17240190757581303,
+              0.10954399042162725
+            ],
+            "attitude_rmse_deg": 0.7689249091222847,
+            "attitude_rotation_vector_rmse_xyz_deg": [
+              0.4118077059147374,
+              0.5181983707566307,
+              0.3913187674588597
+            ],
+            "duration_s": 0.09999999999990905,
+            "final_position_error_m": 0.014241227964286604,
+            "metric_policy": "rollout_error_excludes_measured_initial_sample_v2",
+            "position_rmse_m": 0.0053925129829216385,
+            "position_rmse_xyz_m": [
+              0.006706557912607376,
+              0.0054832057898533204,
+              0.003492008597340178
+            ],
+            "rollout_count": 763,
+            "sample_count": 3815,
+            "velocity_rmse_m_s": 0.045167747763049416,
+            "velocity_rmse_xyz_m_s": [
+              0.024524212391465582,
+              0.02053285787556371,
+              0.07139566561073259
+            ]
+          },
+          "0.5s": {
+            "angular_velocity_rmse_rad_s": 0.35853913491895617,
+            "angular_velocity_rmse_xyz_rad_s": [
+              0.2987524403874066,
+              0.36592046704317355,
+              0.4031130424171052
+            ],
+            "attitude_rmse_deg": 7.710530045719922,
+            "attitude_rotation_vector_rmse_xyz_deg": [
+              3.902222938843172,
+              4.362944254334536,
+              5.018928885239116
+            ],
+            "duration_s": 0.49999999999954525,
+            "final_position_error_m": 0.13260626140204385,
+            "metric_policy": "rollout_error_excludes_measured_initial_sample_v2",
+            "position_rmse_m": 0.03857673183398599,
+            "position_rmse_xyz_m": [
+              0.028156566977991695,
+              0.024293478854844758,
+              0.05551150635784332
+            ],
+            "rollout_count": 152,
+            "sample_count": 3800,
+            "velocity_rmse_m_s": 0.17623732320874164,
+            "velocity_rmse_xyz_m_s": [
+              0.0947055394855495,
+              0.07519358996074864,
+              0.28027766071328813
+            ]
+          },
+          "1s": {
+            "angular_velocity_rmse_rad_s": 0.4522039136772099,
+            "angular_velocity_rmse_xyz_rad_s": [
+              0.3069808568212563,
+              0.36924769673844976,
+              0.618776236319393
+            ],
+            "attitude_rmse_deg": 18.822548992489292,
+            "attitude_rotation_vector_rmse_xyz_deg": [
+              8.536638446717854,
+              7.910844970748432,
+              14.792994505963453
+            ],
+            "duration_s": 0.9999999999990905,
+            "final_position_error_m": 0.38048080464651235,
+            "metric_policy": "rollout_error_excludes_measured_initial_sample_v2",
+            "position_rmse_m": 0.1142432562093787,
+            "position_rmse_xyz_m": [
+              0.0681444323000593,
+              0.06086035166595182,
+              0.1755189981442593
+            ],
+            "rollout_count": 76,
+            "sample_count": 3800,
+            "velocity_rmse_m_s": 0.26392693258885563,
+            "velocity_rmse_xyz_m_s": [
+              0.1686181528653654,
+              0.13391742605707144,
+              0.40324473804354616
+            ]
+          },
+          "2s": {
+            "angular_velocity_rmse_rad_s": 0.5595467012825891,
+            "angular_velocity_rmse_xyz_rad_s": [
+              0.3174851667517115,
+              0.39316710932231236,
+              0.8269826635356121
+            ],
+            "attitude_rmse_deg": 42.69036526450319,
+            "attitude_rotation_vector_rmse_xyz_deg": [
+              20.019099468440462,
+              12.859056111838349,
+              35.444994270023216
+            ],
+            "duration_s": 1.999999999998181,
+            "final_position_error_m": 0.8876645724275958,
+            "metric_policy": "rollout_error_excludes_measured_initial_sample_v2",
+            "position_rmse_m": 0.29011086750168913,
+            "position_rmse_xyz_m": [
+              0.16742521185997428,
+              0.15993140303236414,
+              0.44596377777291574
+            ],
+            "rollout_count": 38,
+            "sample_count": 3800,
+            "velocity_rmse_m_s": 0.3311240741107016,
+            "velocity_rmse_xyz_m_s": [
+              0.2560994702825374,
+              0.2061660291585457,
+              0.4699341306066308
+            ]
+          }
+        },
+        "path": "trajectory_0"
+      }
+    ],
+    "name": "kinematic_persistence"
+  },
+  "corpus": {
+    "citation": {
+      "doi_or_url": "https://arxiv.org/abs/2404.07837",
+      "license": "MIT",
+      "pinned_version": "2d267dd07b4262f579ee223d20b26a6dc9d17147"
+    },
+    "evaluation_split": null,
+    "files": [
+      {
+        "algorithm": "sha256",
+        "digest": "887fb128983d767449112409143224874ff57c04b5efb8941582748a3aec9cf9",
+        "relative_path": "logs_large/log_63_2024-1-8-16-37-54.ulg",
+        "size_bytes": 12336011
+      },
+      {
+        "algorithm": "sha256",
+        "digest": "f9517b747ef97a7f3d51b28043bcdd9fc50983c7e938d4b26ff22e8aff7a771d",
+        "relative_path": "logs_large/log_64_2024-1-8-16-39-44.ulg",
+        "size_bytes": 13568823
+      },
+      {
+        "algorithm": "sha256",
+        "digest": "d2ce8a3c9ce5605cd8d73e9351b8a46640b11d5044b1746bbf15f63854178553",
+        "relative_path": "logs_large/log_65_2024-1-8-16-40-52.ulg",
+        "size_bytes": 14023152
+      },
+      {
+        "algorithm": "sha256",
+        "digest": "8eafd19ecceeaf11812f94057bb8ee804f10adb457788d5d1889751a6a193ee6",
+        "relative_path": "logs_large/log_66_2024-1-8-16-42-48.ulg",
+        "size_bytes": 18518753
+      }
+    ],
+    "name": "arp",
+    "summary": "ARP Laboratory large-quadrotor system-identification ULogs"
+  },
+  "environment": {
+    "jax": "0.11.1",
+    "jax_backend": "cpu",
+    "platform": "macOS-26.6.1-arm64-arm-64bit",
+    "python": "3.12.12"
+  },
+  "fit": {
+    "structured": {
+      "fit": {
+        "component_losses": {
+          "0.1s": {
+            "final_loss": 0.08879135549068451,
+            "initial_loss": 0.13985009491443634,
+            "loss_reduction": 1.5750417835338557
+          },
+          "0.5s": {
+            "final_loss": 0.5495434403419495,
+            "initial_loss": 1.7674530744552612,
+            "loss_reduction": 3.2162208566359674
+          },
+          "2s": {
+            "final_loss": 8.11279582977295,
+            "initial_loss": 45.836788177490234,
+            "loss_reduction": 5.649937350731166
+          }
+        },
+        "final_loss": 0.3742733895778656,
+        "initial_loss": 0.9999996423721313,
+        "loss_normalizers": {
+          "0.1s": 0.1398502141237259,
+          "0.5s": 1.7674531936645508,
+          "2s": 45.836788177490234
+        },
+        "loss_reduction": 2.671842749761099,
+        "optimization_data_policy": {
+          "automatic_policy": "deterministic_weighted_minibatch_v3",
+          "completed_steps": 400,
+          "diverged": false,
+          "full_window_initial_and_final_scoring": true,
+          "policy": "full_batch_v1"
+        },
+        "rollout_loss": {
+          "dynamic_envelope": {
+            "angular_velocity_center_rad_s": [
+              -4.4621286654081163e-07,
+              0.0015328757098884017,
+              -0.0008497408536412309
+            ],
+            "angular_velocity_half_width_rad_s": [
+              3.6309949540449016,
+              3.5969746712027764,
+              0.6170887968361362
+            ],
+            "body_velocity_center_m_s": [
+              -0.018779021660920443,
+              0.005580548562386105,
+              -0.035176806069459464
+            ],
+            "body_velocity_half_width_m_s": [
+              3.3575983613761227,
+              3.2276121544836784,
+              4.2482241811548676
+            ]
+          },
+          "endpoint_weight": 3.0,
+          "stability_regularization": 0.01,
+          "state_error_scales": {
+            "angular_velocity_xyz_rad_s": [
+              0.44384548086262154,
+              0.5051261658578263,
+              0.1
+            ],
+            "attitude_rad": 0.27038626044946745,
+            "position_xyz_m": [
+              0.34656808840329845,
+              0.3171744799754827,
+              0.3322937314642567
+            ],
+            "velocity_xyz_m_s": [
+              0.3718942618692369,
+              0.45802141937881913,
+              0.47253803493616736
+            ]
+          },
+          "state_group_weighting": "equal_semantic_groups",
+          "time_weighting": "linear_from_one_to_endpoint_weight"
+        },
+        "statistics_source": "member_training_windows",
+        "wall_time_s": 16.806986207840964
+      },
+      "parameter_evidence": {
+        "coordinate_system": "unconstrained_structured_parameter_vector",
+        "effective_count": 512.0,
+        "estimable": [
+          true,
+          false,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ],
+        "estimable_count": 9,
+        "format_version": 1,
+        "innovation_noise": [
+          4.525170880659947e-06,
+          2.8666286421187957e-06,
+          6.315252525772489e-07,
+          0.00013273894800725552,
+          8.747839621189866e-05,
+          0.001012588338924004,
+          9.852762854442825e-07,
+          1.2225317684546712e-06,
+          7.069856641514872e-06,
+          0.004112048447788913,
+          0.004059145235907576,
+          0.0018838577475979148
+        ],
+        "kind": "structured_parameter_information",
+        "names": [
+          "log_thrust_accel",
+          "thrust_command_offset_unconstrained",
+          "log_angular_accel[0]",
+          "log_angular_accel[1]",
+          "log_angular_accel[2]",
+          "log_linear_drag",
+          "log_angular_drag[0]",
+          "log_angular_drag[1]",
+          "log_angular_drag[2]",
+          "log_motor_time_constant",
+          "angular_control_cross_coupling_unconstrained[0,0]",
+          "angular_control_cross_coupling_unconstrained[0,1]",
+          "angular_control_cross_coupling_unconstrained[0,2]",
+          "angular_control_cross_coupling_unconstrained[1,0]",
+          "angular_control_cross_coupling_unconstrained[1,1]",
+          "angular_control_cross_coupling_unconstrained[1,2]",
+          "angular_control_cross_coupling_unconstrained[2,0]",
+          "angular_control_cross_coupling_unconstrained[2,1]",
+          "angular_control_cross_coupling_unconstrained[2,2]"
+        ],
+        "noise_floor": [
+          1e-08,
+          1e-08,
+          1e-08,
+          1e-06,
+          1e-06,
+          1e-06,
+          1e-08,
+          1e-08,
+          1e-08,
+          1e-06,
+          1e-06,
+          1e-06
+        ],
+        "parameter_scale_semantics": "one_transformed_unit_or_same_axis_effective_authority",
+        "precision": [
+          [
+            29734.57904274488,
+            0.0,
+            -1.2155493986230201,
+            -1.1974792970391905,
+            -1.6824703420649345e-05,
+            -388.5003347536224,
+            -0.18626838812142846,
+            0.010772829305883344,
+            1.6837650465481887e-05,
+            -17.72624589306554,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            -1.2155493986230201,
+            0.0,
+            310.4243269561573,
+            -0.0006930592851467858,
+            0.0025149264231410194,
+            -0.23652702419498514,
+            12.983352193260945,
+            -0.00116964307191333,
+            0.0029155361353608187,
+            -75.71094720168134,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            -1.1974792970391905,
+            0.0,
+            -0.0006930592851467858,
+            280.3971327089781,
+            -0.001347519507070797,
+            -0.8525617427992984,
+            -0.001260207162085409,
+            9.483081245657683,
+            -0.0029595922240868476,
+            -54.20777232982747,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            -1.6824703420649345e-05,
+            0.0,
+            0.0025149264231410194,
+            -0.001347519507070797,
+            5.44800062753285,
+            6.7538447667455664e-06,
+            0.002311553440728017,
+            -0.0021354392088078146,
+            -1.457778182035148,
+            -0.06272900381412033,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            -388.5003347536224,
+            0.0,
+            -0.23652702419498514,
+            -0.8525617427992984,
+            6.7538447667455664e-06,
+            3097.376417783139,
+            -0.4902334724817663,
+            -0.7497899353479681,
+            3.6249363475029864e-05,
+            -53.18870066146599,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            -0.18626838812142846,
+            0.0,
+            12.983352193260945,
+            -0.001260207162085409,
+            0.002311553440728017,
+            -0.4902334724817663,
+            148.4627790781104,
+            9.555241669513407e-05,
+            0.001132881221066766,
+            -24.887504920422714,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.010772829305883344,
+            0.0,
+            -0.00116964307191333,
+            9.483081245657683,
+            -0.0021354392088078146,
+            -0.7497899353479681,
+            9.555241669513407e-05,
+            216.74733292539318,
+            -0.00013290813846880293,
+            -38.67468053158731,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            1.6837650465481887e-05,
+            0.0,
+            0.0029155361353608187,
+            -0.0029595922240868476,
+            -1.457778182035148,
+            3.6249363475029864e-05,
+            0.001132881221066766,
+            -0.00013290813846880293,
+            4.697712333978897,
+            -0.2597933677888289,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            -17.72624589306554,
+            0.0,
+            -75.71094720168134,
+            -54.20777232982747,
+            -0.06272900381412033,
+            -53.18870066146599,
+            -24.887504920422714,
+            -38.67468053158731,
+            -0.2597933677888289,
+            149.8374045984906,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "rank_relative_tolerance": 0.000732421875,
+        "resolved_rank": 7,
+        "scale": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "source": "training_one_step_information:source_group"
+      },
+      "spec": {
+        "ablations": [],
+        "angular_control_coupling": "diagonal_mixer_reference",
+        "diagnostics": false,
+        "endpoint_weight": 3.0,
+        "evaluation_horizons_s": [
+          0.1,
+          0.5,
+          1.0,
+          2.0
+        ],
+        "fixed_response_time_constant_s": null,
+        "learning_rate": 0.02,
+        "model_class": "structured",
+        "model_family": "effective_quadrotor",
+        "multirotor_thrust_command_offset": "fixed_zero_reference",
+        "optimization_steps_per_model": 400,
+        "platform": "multirotor",
+        "stability_regularization": 0.01,
+        "training_flight_weighting": "equal_source_group_then_equal_window",
+        "training_horizon_steps": [
+          5,
+          25,
+          100
+        ],
+        "training_horizons_s": [
+          0.0999999999999801,
+          0.4999999999999005,
+          1.999999999999602
+        ],
+        "training_window_selection": {
+          "budget_policy": "one_window_budget_v1",
+          "maximum_transitions_per_horizon": 65536,
+          "maximum_windows_by_horizon": {
+            "0.1s": 8192,
+            "0.5s": 2621,
+            "2s": 655
+          },
+          "maximum_windows_per_horizon": 8192,
+          "selected_windows_by_horizon": {
+            "0.1s": 1394,
+            "0.5s": 278,
+            "2s": 68
+          },
+          "source_group_count": 3,
+          "stratification": "source_group"
+        },
+        "training_windows": 1740,
+        "training_windows_by_horizon": {
+          "0.1s": 1394,
+          "0.5s": 278,
+          "2s": 68
+        }
+      },
+      "split": {
+        "holdout": {
+          "count": 1,
+          "key": "source_group",
+          "rule": "group"
+        },
+        "independent_source_group_holdout": true,
+        "mode": "leave_source_groups_out",
+        "training": {
+          "count": 3,
+          "duration_s": 139.6,
+          "paths": [
+            "artifacts/arp_reference/canonical/log_63_2024-1-8-16-37-54.npz",
+            "artifacts/arp_reference/canonical/log_64_2024-1-8-16-39-44.npz",
+            "artifacts/arp_reference/canonical/log_65_2024-1-8-16-40-52.npz"
+          ]
+        },
+        "training_source_groups": [
+          "arp_data_driven_system_identification:logs_large/log_63_2024-1-8-16-37-54.ulg",
+          "arp_data_driven_system_identification:logs_large/log_64_2024-1-8-16-39-44.ulg",
+          "arp_data_driven_system_identification:logs_large/log_65_2024-1-8-16-40-52.ulg"
+        ],
+        "validation": {
+          "count": 1,
+          "duration_s": 76.38,
+          "paths": [
+            "artifacts/arp_reference/canonical/log_66_2024-1-8-16-42-48.npz"
+          ]
+        },
+        "validation_source_groups": [
+          "arp_data_driven_system_identification:logs_large/log_66_2024-1-8-16-42-48.ulg"
+        ]
+      }
+    }
+  },
+  "format_version": 1,
+  "implementation": {
+    "method_version": 1,
+    "source_files": [
+      "belief/belief.py",
+      "belief/belief_io.py",
+      "belief/forecast_error.py",
+      "belief/information.py",
+      "belief/parameter_evidence.py",
+      "core/data.py",
+      "core/dynamics.py",
+      "core/geometry.py",
+      "core/identification.py",
+      "core/metrics.py",
+      "core/model.py",
+      "core/model_io.py",
+      "fitting.py",
+      "io/corpus.py",
+      "workflows/evaluate.py",
+      "workflows/holdout.py"
+    ],
+    "source_sha256": "89f4fca8bbb4a65b6f3b8f617280e12440221f8bbd58f45eeff4968e6eb7d1f4"
+  },
+  "protocol": {
+    "baseline": "kinematic_persistence",
+    "can_promote_model": true,
+    "floors": {
+      "angular_velocity_rmse_rad_s": 0.001,
+      "attitude_rmse_deg": 0.01,
+      "position_rmse_m": 0.001,
+      "velocity_rmse_m_s": 0.001
+    },
+    "independent_holdout": true,
+    "protocol": "windowed",
+    "scoring": {
+      "aggregation": "equal_flight",
+      "baseline": "kinematic_persistence",
+      "definition": "back-to-back fixed-horizon rollouts scored as rigid-body RMSE, against a constant-world-velocity and constant-body-rate baseline, with the physically meaningful equality floors",
+      "exact_horizons": false,
+      "floors": {
+        "angular_velocity_rmse_rad_s": 0.001,
+        "attitude_rmse_deg": 0.01,
+        "position_rmse_m": 0.001,
+        "velocity_rmse_m_s": 0.001
+      },
+      "horizons_s": [
+        0.1,
+        0.5,
+        1.0,
+        2.0
+      ],
+      "maximum_horizon_steps": null,
+      "name": "windowed",
+      "requested_and_effective_horizons": {
+        "0.1s": {
+          "effective_s": 0.09999999999990905,
+          "requested_s": 0.1,
+          "steps": 5
+        },
+        "0.5s": {
+          "effective_s": 0.49999999999954525,
+          "requested_s": 0.5,
+          "steps": 25
+        },
+        "1s": {
+          "effective_s": 0.9999999999990905,
+          "requested_s": 1.0,
+          "steps": 50
+        },
+        "2s": {
+          "effective_s": 1.999999999998181,
+          "requested_s": 2.0,
+          "steps": 100
+        }
+      },
+      "score_reduction": "sequential_log_mean",
+      "statistic": "windowed_rmse",
+      "stride": "one_horizon"
+    },
+    "stride": "one_horizon"
+  },
+  "results": {
+    "dataset": {
+      "duration_s": 76.38,
+      "flight_boundaries_crossed": false,
+      "state_correction_during_rollout": false,
+      "trajectories": [
+        "trajectory_0"
+      ],
+      "trajectory_count": 1,
+      "trajectory_spec": {
+        "channels": [
+          {
+            "frame": null,
+            "kind": "control",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "name": "motor_front_left",
+            "role": "motor_front_left",
+            "semantic": "normalized_command",
+            "unit": "1"
+          },
+          {
+            "frame": null,
+            "kind": "control",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "name": "motor_front_right",
+            "role": "motor_front_right",
+            "semantic": "normalized_command",
+            "unit": "1"
+          },
+          {
+            "frame": null,
+            "kind": "control",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "name": "motor_rear_right",
+            "role": "motor_rear_right",
+            "semantic": "normalized_command",
+            "unit": "1"
+          },
+          {
+            "frame": null,
+            "kind": "control",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "name": "motor_rear_left",
+            "role": "motor_rear_left",
+            "semantic": "normalized_command",
+            "unit": "1"
+          },
+          {
+            "frame": "FLU",
+            "kind": "observation",
+            "maximum": null,
+            "minimum": null,
+            "name": "specific_force_x_m_s2",
+            "role": "specific_force_x",
+            "semantic": "accelerometer_specific_force_including_gravity",
+            "unit": "m/s^2"
+          },
+          {
+            "frame": "FLU",
+            "kind": "observation",
+            "maximum": null,
+            "minimum": null,
+            "name": "specific_force_y_m_s2",
+            "role": "specific_force_y",
+            "semantic": "accelerometer_specific_force_including_gravity",
+            "unit": "m/s^2"
+          },
+          {
+            "frame": "FLU",
+            "kind": "observation",
+            "maximum": null,
+            "minimum": null,
+            "name": "specific_force_z_m_s2",
+            "role": "specific_force_z",
+            "semantic": "accelerometer_specific_force_including_gravity",
+            "unit": "m/s^2"
+          },
+          {
+            "frame": "FLU",
+            "kind": "observation",
+            "maximum": null,
+            "minimum": null,
+            "name": "angular_acceleration_x_rad_s2",
+            "role": "angular_acceleration_x",
+            "semantic": "bias_corrected_body_angular_acceleration",
+            "unit": "rad/s^2"
+          },
+          {
+            "frame": "FLU",
+            "kind": "observation",
+            "maximum": null,
+            "minimum": null,
+            "name": "angular_acceleration_y_rad_s2",
+            "role": "angular_acceleration_y",
+            "semantic": "bias_corrected_body_angular_acceleration",
+            "unit": "rad/s^2"
+          },
+          {
+            "frame": "FLU",
+            "kind": "observation",
+            "maximum": null,
+            "minimum": null,
+            "name": "angular_acceleration_z_rad_s2",
+            "role": "angular_acceleration_z",
+            "semantic": "bias_corrected_body_angular_acceleration",
+            "unit": "rad/s^2"
+          }
+        ],
+        "observation_source": "estimated",
+        "state_schema": "rigid_body_13_nwu_flu_wxyz_v1",
+        "vehicle": {
+          "auxiliary_controls": [],
+          "configuration_id": "arp_iros_2024_large_quadrotor",
+          "controlled_axes": [
+            "roll",
+            "pitch",
+            "yaw"
+          ],
+          "family": "multirotor",
+          "fixed_states": {}
+        }
+      }
+    },
+    "format_version": 1,
+    "model": {
+      "horizon_rollouts": {
+        "0.1s": {
+          "angular_velocity_rmse_rad_s": 0.13049763137725884,
+          "angular_velocity_rmse_xyz_rad_s": [
+            0.13800065264708106,
+            0.14533036452111497,
+            0.10451698619059224
+          ],
+          "attitude_rmse_deg": 0.6874928264616288,
+          "attitude_rotation_vector_rmse_xyz_deg": [
+            0.3751555922265038,
+            0.4310698111767233,
+            0.382208694237582
+          ],
+          "duration_s": 0.09999999999990905,
+          "final_position_error_m": 0.015219124357358862,
+          "metric_policy": "rollout_error_excludes_measured_initial_sample_v2",
+          "position_rmse_m": 0.005668206927635802,
+          "position_rmse_xyz_m": [
+            0.006836012676005196,
+            0.005377942948630881,
+            0.00455328119692416
+          ],
+          "rollout_count": 763,
+          "sample_count": 3815,
+          "velocity_rmse_m_s": 0.05949395606924645,
+          "velocity_rmse_xyz_m_s": [
+            0.03229069409913889,
+            0.022744600280943276,
+            0.09517660772986306
+          ],
+          "weighting": "equal"
+        },
+        "0.5s": {
+          "angular_velocity_rmse_rad_s": 0.31307913867163745,
+          "angular_velocity_rmse_xyz_rad_s": [
+            0.3510779441068805,
+            0.2848769980590441,
+            0.29940777269916796
+          ],
+          "attitude_rmse_deg": 7.033129847955887,
+          "attitude_rotation_vector_rmse_xyz_deg": [
+            4.611674043188271,
+            3.474406876595003,
+            4.015703529079595
+          ],
+          "duration_s": 0.49999999999954525,
+          "final_position_error_m": 0.1682418915135251,
+          "metric_policy": "rollout_error_excludes_measured_initial_sample_v2",
+          "position_rmse_m": 0.04753221090553011,
+          "position_rmse_xyz_m": [
+            0.03739453043355264,
+            0.03148708136426967,
+            0.06624308282015072
+          ],
+          "rollout_count": 152,
+          "sample_count": 3800,
+          "velocity_rmse_m_s": 0.22515516492299492,
+          "velocity_rmse_xyz_m_s": [
+            0.1596788749868961,
+            0.14846579019321107,
+            0.323334363932644
+          ],
+          "weighting": "equal"
+        },
+        "1s": {
+          "angular_velocity_rmse_rad_s": 0.38085683022791994,
+          "angular_velocity_rmse_xyz_rad_s": [
+            0.4502466632000751,
+            0.31030126275119546,
+            0.3689808179377186
+          ],
+          "attitude_rmse_deg": 16.947190523489695,
+          "attitude_rotation_vector_rmse_xyz_deg": [
+            12.478353858433204,
+            6.606417122878961,
+            9.37300402334903
+          ],
+          "duration_s": 0.9999999999990905,
+          "final_position_error_m": 0.6897732891820922,
+          "metric_policy": "rollout_error_excludes_measured_initial_sample_v2",
+          "position_rmse_m": 0.17899865514871194,
+          "position_rmse_xyz_m": [
+            0.14605366842288808,
+            0.15611168930861213,
+            0.2245418046524319
+          ],
+          "rollout_count": 76,
+          "sample_count": 3800,
+          "velocity_rmse_m_s": 0.5030232916845405,
+          "velocity_rmse_xyz_m_s": [
+            0.4530372830868289,
+            0.5224481047232978,
+            0.5300023527643908
+          ],
+          "weighting": "equal"
+        },
+        "2s": {
+          "angular_velocity_rmse_rad_s": 0.42370260082009825,
+          "angular_velocity_rmse_xyz_rad_s": [
+            0.5166832681939741,
+            0.32951621218247296,
+            0.4037686814284334
+          ],
+          "attitude_rmse_deg": 36.170396851564554,
+          "attitude_rotation_vector_rmse_xyz_deg": [
+            27.330702699646423,
+            14.900416525537553,
+            18.420311770127626
+          ],
+          "duration_s": 1.999999999998181,
+          "final_position_error_m": 3.481598590400439,
+          "metric_policy": "rollout_error_excludes_measured_initial_sample_v2",
+          "position_rmse_m": 0.8342219328617176,
+          "position_rmse_xyz_m": [
+            0.7198760130466785,
+            1.017359363486765,
+            0.7311204765074243
+          ],
+          "rollout_count": 38,
+          "sample_count": 3800,
+          "velocity_rmse_m_s": 1.3361772857299332,
+          "velocity_rmse_xyz_m_s": [
+            1.2199604402064004,
+            1.6131354078060438,
+            1.1249888431071984
+          ],
+          "weighting": "equal"
+        }
+      }
+    },
+    "model_artifact": {
+      "input_spec": {
+        "channels": [
+          {
+            "frame": null,
+            "kind": "control",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "name": "motor_front_left",
+            "role": "motor_front_left",
+            "semantic": "normalized_command",
+            "unit": "1"
+          },
+          {
+            "frame": null,
+            "kind": "control",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "name": "motor_front_right",
+            "role": "motor_front_right",
+            "semantic": "normalized_command",
+            "unit": "1"
+          },
+          {
+            "frame": null,
+            "kind": "control",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "name": "motor_rear_right",
+            "role": "motor_rear_right",
+            "semantic": "normalized_command",
+            "unit": "1"
+          },
+          {
+            "frame": null,
+            "kind": "control",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "name": "motor_rear_left",
+            "role": "motor_rear_left",
+            "semantic": "normalized_command",
+            "unit": "1"
+          }
+        ],
+        "observation_source": "estimated",
+        "state_schema": "rigid_body_13_nwu_flu_wxyz_v1",
+        "vehicle": {
+          "auxiliary_controls": [],
+          "configuration_id": "arp_iros_2024_large_quadrotor",
+          "controlled_axes": [
+            "roll",
+            "pitch",
+            "yaw"
+          ],
+          "family": "multirotor",
+          "fixed_states": {}
+        }
+      },
+      "model_family": "effective_quadrotor",
+      "model_type": "effective_quadrotor_command_offset_v4",
+      "parameters": {
+        "angular_accel": [
+          21.862844467163086,
+          17.710491180419922,
+          1.2091041803359985
+        ],
+        "angular_control_cross_coupling": [
+          [
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "angular_drag": [
+          2.9946417808532715,
+          3.5247344970703125,
+          2.128624677658081
+        ],
+        "linear_drag": 1.17620849609375,
+        "motor_time_constant": 0.05978919565677643,
+        "thrust_accel": 5.601893901824951,
+        "thrust_command_offset": 0.0
+      },
+      "path": "artifacts/arp_reference/model.json",
+      "provenance": {
+        "fit_report": "artifacts/arp_reference/report.json",
+        "training_trajectories": [
+          "artifacts/arp_reference/canonical/log_63_2024-1-8-16-37-54.npz",
+          "artifacts/arp_reference/canonical/log_64_2024-1-8-16-39-44.npz",
+          "artifacts/arp_reference/canonical/log_65_2024-1-8-16-40-52.npz"
+        ],
+        "validation_trajectories": [
+          "artifacts/arp_reference/canonical/log_66_2024-1-8-16-42-48.npz"
+        ]
+      },
+      "sha256": "1ae242a273ec7594d55fb7f56086cb98900154711b3b8a926a4408f42b533af0"
+    },
+    "per_trajectory": [
+      {
+        "horizon_rollouts": {
+          "0.1s": {
+            "angular_velocity_rmse_rad_s": 0.13049763137725884,
+            "angular_velocity_rmse_xyz_rad_s": [
+              0.13800065264708106,
+              0.14533036452111497,
+              0.10451698619059224
+            ],
+            "attitude_rmse_deg": 0.6874928264616288,
+            "attitude_rotation_vector_rmse_xyz_deg": [
+              0.3751555922265038,
+              0.4310698111767233,
+              0.382208694237582
+            ],
+            "duration_s": 0.09999999999990905,
+            "final_position_error_m": 0.015219124357358862,
+            "metric_policy": "rollout_error_excludes_measured_initial_sample_v2",
+            "position_rmse_m": 0.005668206927635802,
+            "position_rmse_xyz_m": [
+              0.006836012676005196,
+              0.005377942948630881,
+              0.00455328119692416
+            ],
+            "rollout_count": 763,
+            "sample_count": 3815,
+            "velocity_rmse_m_s": 0.05949395606924645,
+            "velocity_rmse_xyz_m_s": [
+              0.03229069409913889,
+              0.022744600280943276,
+              0.09517660772986306
+            ]
+          },
+          "0.5s": {
+            "angular_velocity_rmse_rad_s": 0.31307913867163745,
+            "angular_velocity_rmse_xyz_rad_s": [
+              0.3510779441068805,
+              0.2848769980590441,
+              0.29940777269916796
+            ],
+            "attitude_rmse_deg": 7.033129847955887,
+            "attitude_rotation_vector_rmse_xyz_deg": [
+              4.611674043188271,
+              3.474406876595003,
+              4.015703529079595
+            ],
+            "duration_s": 0.49999999999954525,
+            "final_position_error_m": 0.1682418915135251,
+            "metric_policy": "rollout_error_excludes_measured_initial_sample_v2",
+            "position_rmse_m": 0.04753221090553011,
+            "position_rmse_xyz_m": [
+              0.03739453043355264,
+              0.03148708136426967,
+              0.06624308282015072
+            ],
+            "rollout_count": 152,
+            "sample_count": 3800,
+            "velocity_rmse_m_s": 0.22515516492299492,
+            "velocity_rmse_xyz_m_s": [
+              0.1596788749868961,
+              0.14846579019321107,
+              0.323334363932644
+            ]
+          },
+          "1s": {
+            "angular_velocity_rmse_rad_s": 0.38085683022791994,
+            "angular_velocity_rmse_xyz_rad_s": [
+              0.4502466632000751,
+              0.31030126275119546,
+              0.3689808179377186
+            ],
+            "attitude_rmse_deg": 16.947190523489695,
+            "attitude_rotation_vector_rmse_xyz_deg": [
+              12.478353858433204,
+              6.606417122878961,
+              9.37300402334903
+            ],
+            "duration_s": 0.9999999999990905,
+            "final_position_error_m": 0.6897732891820922,
+            "metric_policy": "rollout_error_excludes_measured_initial_sample_v2",
+            "position_rmse_m": 0.17899865514871194,
+            "position_rmse_xyz_m": [
+              0.14605366842288808,
+              0.15611168930861213,
+              0.2245418046524319
+            ],
+            "rollout_count": 76,
+            "sample_count": 3800,
+            "velocity_rmse_m_s": 0.5030232916845405,
+            "velocity_rmse_xyz_m_s": [
+              0.4530372830868289,
+              0.5224481047232978,
+              0.5300023527643908
+            ]
+          },
+          "2s": {
+            "angular_velocity_rmse_rad_s": 0.42370260082009825,
+            "angular_velocity_rmse_xyz_rad_s": [
+              0.5166832681939741,
+              0.32951621218247296,
+              0.4037686814284334
+            ],
+            "attitude_rmse_deg": 36.170396851564554,
+            "attitude_rotation_vector_rmse_xyz_deg": [
+              27.330702699646423,
+              14.900416525537553,
+              18.420311770127626
+            ],
+            "duration_s": 1.999999999998181,
+            "final_position_error_m": 3.481598590400439,
+            "metric_policy": "rollout_error_excludes_measured_initial_sample_v2",
+            "position_rmse_m": 0.8342219328617176,
+            "position_rmse_xyz_m": [
+              0.7198760130466785,
+              1.017359363486765,
+              0.7311204765074243
+            ],
+            "rollout_count": 38,
+            "sample_count": 3800,
+            "velocity_rmse_m_s": 1.3361772857299332,
+            "velocity_rmse_xyz_m_s": [
+              1.2199604402064004,
+              1.6131354078060438,
+              1.1249888431071984
+            ]
+          }
+        },
+        "path": "trajectory_0"
+      }
+    ],
+    "score_vs_baseline": 1.2193288302569325
+  },
+  "smoke": false
+}
