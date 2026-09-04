@@ -33,6 +33,18 @@ raises `NonActionableModelError` and says so. The belief is also the one
 artifact the library writes; a bare model payload is still read, as a belief
 with rank-zero information and no envelope.
 
+One belief type carries either model family. A fit over a corpus produces a
+belief whose model is a structured multirotor or fixed-wing model; the
+in-flight `RecursiveBootstrapIdentifier` produces a belief whose model is the
+bootstrap parameterization, `BootstrapMultirotorParams`, whose free parameters
+are the direct command effects it can learn from motor input and output alone.
+Both are an `ExecutableModel`, a `ParameterInformation` over that model's
+structured parameters, and a forecast-error envelope when held-out evidence
+measured one. Nothing downstream branches on which: `plan_model` takes either,
+and the solver reads a mean, a tangent covariance and a command box.
+[Bootstrap identification](bootstrap-identification.md) covers what the second
+family estimates and what it deliberately does not.
+
 The motivating runtime is broader than ordinary batch identification. A vehicle
 may enter with only a family seed, stabilize using conservative authority
 estimates, learn from the resulting motion, and then choose increasingly

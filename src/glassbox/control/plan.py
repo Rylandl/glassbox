@@ -92,9 +92,14 @@ class TrackingTolerances:
 
     @classmethod
     def for_platform(cls, platform: str) -> TrackingTolerances:
-        """Return the maintained physical defaults for a vehicle family."""
+        """Return the maintained physical defaults for a vehicle family.
 
-        if platform == "multirotor":
+        Both multirotor families share one set: the bootstrap parameterization
+        describes the same vehicle as a fitted multirotor model and is tracked
+        to the same physical errors.
+        """
+
+        if platform in {"multirotor", "multirotor_bootstrap"}:
             return cls(
                 position_m=0.4,
                 velocity_m_s=0.5,

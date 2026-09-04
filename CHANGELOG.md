@@ -6,6 +6,55 @@ All notable changes to Glassbox are recorded here. The format follows
 ## Unreleased
 
 ### Added
+- `glassbox.BootstrapMultirotorParams` is the bootstrap parameterization as a
+  model family: the collective map
+  (`collective_acceleration_per_command`, `collective_velocity_coefficient`,
+  `collective_intercept_m_s2`), the angular maps
+  (`angular_acceleration_per_command`, `angular_rate_coefficient`,
+  `angular_rate_product_coefficient`, `angular_intercept_rad_s2`), and
+  `hover_command()` derived from the collective map rather than fitted. It
+  joins the `ModelParams` union in `glassbox.core.dynamics`, and its forty-one
+  structured parameter names, in that field order, are the coordinate system
+  every information state over the family is stated in. Its `state_derivative`
+  is the identifier's own prediction on the thirteen-wide canonical state:
+  body-`z` specific force from the collective map, body angular acceleration
+  from the angular maps, and exactly zero on the other two body force axes,
+  which the identifier never modeled.
+- `glassbox.core.families.BOOTSTRAP_MULTIROTOR_FAMILY` registers it under the
+  platform `multirotor_bootstrap`, with the four motor commands and the
+  applied-command latent layout. The family models no actuator lag:
+  `glassbox.core.dynamics.models_actuator_lag(params)` says so, the latent
+  applied command is the command, and
+  `latent_response_time_constants` returns an empty array rather than a zero.
+  `DynamicsModelFamily.has_one_control_layout` replaces the multirotor
+  platform test that decided whether control names and roles are checked
+  against the declared order; it is true for any family with no optional
+  roles, which is both multirotor families.
+- `glassbox.BootstrapEvidence` is what the recursive identifier's own
+  thresholds say about one accumulated fit: the two Grams in its own feature
+  order, the residual scales, the ranks and support projectors, the per-axis
+  authority, the exploration completion, and the hover command when the
+  collective map implies one inside the command box. `supported` and
+  `has_any_control_authority` are properties on it, and `to_dict()` records it.
+  `RecursiveBootstrapIdentifier.evidence` returns it, and the same payload is
+  in `belief.provenance["bootstrap_evidence"]`.
+- `RecursiveBootstrapConfig.sample_period_s` declares the control period the
+  identified model is executed at, defaulting to `0.01`. Every transition is
+  still assimilated at its own measured interval; this is the period the
+  produced belief's runtime contract declares, so a plan model over it has a
+  stable timing contract from the first sample.
+- `glassbox.control.identifier.TRANSITION_AGGREGATION_STEPS` and
+  `BOOTSTRAP_VALIDITY_ENVELOPE` are the two constants the identifier now
+  declares instead of configuring: the window width, two, and the wide
+  operating envelope the bootstrap parameterization claims, which is wide
+  enough never to bind because the family is affine in body velocity and body
+  rate with no saturation and the identifier measures no supported region.
+- `glassbox.core.model_io` reads and writes the family:
+  `BOOTSTRAP_MODEL_TYPE` is `recursive_bootstrap_multirotor_command_effects_v1`
+  at model format 4, `BOOTSTRAP_PARAMETER_NAMES` is its payload contract, and
+  the parameters are recorded in double precision because they are direct
+  estimates in physical units. A bootstrap belief therefore saves and loads
+  through `belief_io` like any other.
 - `glassbox.ParameterInformation` is the belief's account of what it knows:
   `names`, an accumulated `precision` over the structured coefficient block,
   the per-coordinate `scale` the rank test is stated in, the `estimable` mask
@@ -278,6 +327,52 @@ All notable changes to Glassbox are recorded here. The format follows
   from a controller.
 
 ### Changed
+- `RecursiveBootstrapIdentifier.update` and `.belief` return a
+  `glassbox.DynamicsBelief` over `BootstrapMultirotorParams` instead of a
+  `RecursiveBootstrapBelief`. The estimator is unchanged, number for number:
+  the Gram accumulation, the Schur-complement support fit, the residual floors,
+  the hover-command solve and every authority scalar are bit-for-bit what they
+  were. What changed is the container. The eight parameter fields are
+  `belief.model.params`; `effective_interval_count` is
+  `belief.information.effective_count`; everything else is
+  `RecursiveBootstrapIdentifier.evidence`. `belief.information.precision` is
+  the two Grams congruence-transformed into the parameters' own coordinates and
+  divided by each regression's residual variance, with the angular Gram
+  entering once per body axis at that axis's own residual, so the collective
+  block is eight coordinates and each angular axis eleven, forty-one in all,
+  every one of them estimable. `belief.information.scale` declares the
+  normalized coordinate the rank test is stated in: one unit is the coefficient
+  perturbation that moves that regression's prediction by one residual standard
+  deviation at the reference excitation. `belief.forecast_error` is `None`,
+  because the identifier holds nothing out.
+- `glassbox.plan_model` now accepts both families. A belief the identifier
+  built in flight goes through the same adapter and the same
+  `BoundedShootingSolver` as a belief fitted from a corpus, charging the
+  tangent covariance from `belief.information.covariance()` through the same
+  factored path; the solver never learns which family it is planning over. A
+  rank-zero bootstrap belief resolves nothing, contributes exactly zero spread,
+  and is priced by the point objective.
+- `glassbox.control.fitted.FittedPlanModel` is `BeliefPlanModel`. The class
+  serves both families, so a name that says "fitted" would be wrong; the module
+  keeps its path.
+- `TrackingTolerances.for_platform` returns the multirotor defaults for
+  `multirotor_bootstrap`, and `default_solver_policy` gives both multirotor
+  families the same 0.6-second, 40-step horizon cap. The horizon is a property
+  of the vehicle rather than of how its model was obtained.
+- `physics_parameters`, `with_thrust_command_offset` and
+  `with_diagonal_angular_control` refuse any structured block that is not the
+  fitted multirotor one, rather than only the fixed-wing one, and their
+  messages say so. `zero_response_time_gradient`,
+  `zero_thrust_command_offset_gradient` and
+  `zero_angular_cross_coupling_gradient` return the parameters unchanged for a
+  family that has no such leaf.
+- `docs/concepts/bootstrap-identification.md` is written around the identifier
+  producing a `DynamicsBelief`, and states the window and the integrated
+  collective as behaviour rather than as switches.
+  `docs/concepts/dynamics-beliefs.md` records that one belief type carries
+  either family. The `ParameterInformation` docstring states what one unit of
+  precision means for the bootstrap collective block, where the exported Gram
+  is rescaled to the declared force floor.
 - `docs/results/adaptive-recovery-results.json` was re-recorded at format 5 and
   method version 7, and every number in it moved. Three causes, in order of
   size. The benchmark's belief is now seeded by inverting the five sibling
@@ -874,6 +969,24 @@ All notable changes to Glassbox are recorded here. The format follows
   learned. No flag was removed.
 
 ### Removed
+- `RecursiveBootstrapConfig.transition_aggregation_steps` and
+  `RecursiveBootstrapConfig.integrated_collective`, the identifier's last two
+  research switches, and every branch on them. The window is
+  `TRANSITION_AGGREGATION_STEPS`, two, and the collective map is always fit on
+  the integrated target: both were measured better on the release ensemble in
+  the dual-control design and are now the only behaviour. The last commit that
+  could run either alternative is `2f5adc2`.
+- `RecursiveBootstrapBelief`, its thirty-three fields, its `to_dict`, its
+  `predict_collective_specific_force` and `predict_angular_acceleration`
+  methods, and the field-list contract test
+  `RECURSIVE_BOOTSTRAP_BELIEF_FIELDS`. The identifier produces a
+  `DynamicsBelief` instead; the parameters are on the model, the prediction
+  methods are the model's `transition`, and the estimator-specific fields are
+  `BootstrapEvidence`. `update_wall_time_s` went with it, since the belief a
+  transition produces is now a pure function of the evidence and the elapsed
+  time is already on `RecursiveBootstrapSampleReport`. The new contract test
+  pins the family's forty-one parameter names in order and the evidence
+  summary's twenty-four fields. Last commit with the old belief: `2f5adc2`.
 - The transactional belief update, at `glassbox/belief/adaptation.py`, 2,006
   lines. `BeliefUpdateProposal`, `BeliefUpdateReport` and its thirty-five
   fields, `propose_dynamics_belief_update`,

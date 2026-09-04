@@ -18,7 +18,7 @@ from glassbox.belief.forecast_error import (
     ForecastErrorEnvelope,
 )
 from glassbox.belief.information import ParameterInformation
-from glassbox.control.fitted import FittedPlanModel, NMPCController
+from glassbox.control.fitted import BeliefPlanModel, NMPCController
 from glassbox.control.plan import (
     NMPCWarmStart,
     SafetyEnvelope,
@@ -432,7 +432,7 @@ def test_solver_consumes_predictive_and_parameter_uncertainty(
 
 
 def _point_objective(
-    plan: FittedPlanModel,
+    plan: BeliefPlanModel,
     blocks: jax.Array,
     state: jax.Array,
     latent: jax.Array,

@@ -1,8 +1,12 @@
-"""The plan model a fitted dynamics belief presents to a bounded solver.
+"""The plan model a dynamics belief presents to a bounded solver.
 
 This module is the control boundary. Everything that knows what a
 :class:`~glassbox.belief.belief.DynamicsBelief` is lives here; nothing on the
-other side of :class:`~glassbox.control.plan.PlanModel` does.
+other side of :class:`~glassbox.control.plan.PlanModel` does. One adapter
+serves both families: a belief fitted from a corpus and a belief the in-flight
+identifier built from nothing state their mean, their resolved parameter
+covariance and their forecast-error evidence in the same three objects, so the
+solver never learns which it is planning over.
 """
 
 from __future__ import annotations
@@ -83,14 +87,19 @@ def parameter_covariance_factor(belief: DynamicsBelief) -> np.ndarray | None:
 
 
 def default_solver_policy(model: ExecutableModel) -> SolverPolicy:
-    """The maintained horizon and command-block layout for one model."""
+    """The maintained horizon and command-block layout for one model.
+
+    The horizon is a property of the vehicle rather than of how its model was
+    obtained, so both multirotor families share one.
+    """
 
     dt_s = model.runtime_spec.sample_period_s
-    target_horizon_s = 0.6 if model.input_spec.vehicle.family == "multirotor" else 1.0
+    fixed_wing = model.input_spec.vehicle.family == "fixedwing"
+    target_horizon_s = 1.0 if fixed_wing else 0.6
     certified = model.runtime_spec.certified_prediction_horizon_s
     if certified is not None:
         target_horizon_s = min(target_horizon_s, certified)
-    maximum_steps = 40 if model.input_spec.vehicle.family == "multirotor" else 50
+    maximum_steps = 50 if fixed_wing else 40
     steps = min(maximum_steps, max(2, duration_to_steps(target_horizon_s, dt_s)))
     if certified is not None and steps * dt_s > certified + 1e-12:
         steps = duration_to_steps(certified, dt_s)
@@ -151,13 +160,14 @@ def _compile_signature(
 
 
 @dataclass(frozen=True, eq=False)
-class FittedPlanModel:
-    """A fitted belief seen as something a bounded solver can plan over.
+class BeliefPlanModel:
+    """One belief seen as something a bounded solver can plan over.
 
     The belief supplies the mean the plan is rolled out through and the spread
     the plan is charged for. Both robustness terms in :meth:`stage_cost` are
-    exactly zero when the belief carries no covariance, so a point model is
-    priced by the point objective.
+    exactly zero when the belief carries no covariance, so a point model, and
+    equally a bootstrap belief that has resolved nothing yet, is priced by the
+    point objective.
     """
 
     belief: DynamicsBelief
@@ -538,13 +548,15 @@ def plan_model(
     safety_envelope: SafetyEnvelope,
     *,
     policy: SolverPolicy | None = None,
-) -> FittedPlanModel:
-    """Present one fitted belief to a bounded solver, or refuse to.
+) -> BeliefPlanModel:
+    """Present one belief to a bounded solver, or refuse to.
 
-    The horizon contract is settled here rather than in the solver, because it
-    is a statement about evidence rather than about optimization: a maintained
-    default horizon is shortened to the forecast-error evidence that supports
-    it, and a horizon longer than a certified one is refused outright.
+    The belief may come from a fit or from the in-flight identifier, and
+    nothing here distinguishes them. The horizon contract is settled here
+    rather than in the solver, because it is a statement about evidence rather
+    than about optimization: a maintained default horizon is shortened to the
+    forecast-error evidence that supports it, and a horizon longer than a
+    certified one is refused outright.
     """
 
     model = belief.model
@@ -572,7 +584,7 @@ def plan_model(
     if certified is not None and horizon_s > certified + 1e-12:
         raise ValueError("solver horizon exceeds the model's certified horizon")
     covariance_factor = parameter_covariance_factor(belief)
-    return FittedPlanModel(
+    return BeliefPlanModel(
         belief=belief,
         tolerances=tolerances,
         safety_envelope=safety_envelope,
@@ -589,7 +601,7 @@ def plan_model(
 
 
 class NMPCController:
-    """Opinionated NMPC over one fitted belief or one executable model.
+    """Opinionated NMPC over one belief or one executable model.
 
     A thin factory: it resolves the maintained tolerances and envelope, builds
     the plan model that is the control boundary, and hands the result to a

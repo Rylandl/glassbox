@@ -127,10 +127,10 @@ example `from glassbox.core.data import load_trajectory_npz`.
 | --- | --- |
 | Telemetry | `Channel`, `Trajectory`, `TrajectorySpec` |
 | The fit | `fit`, `FitSpec`, `FitOutcome`, `Holdout`, `LossPolicy`, `WeightingPolicy` |
-| Parameters and rollout | `ModelParams`, `DynamicsParams`, `FixedWingDynamicsParams`, `rollout`, `step` |
+| Parameters and rollout | `ModelParams`, `DynamicsParams`, `FixedWingDynamicsParams`, `BootstrapMultirotorParams`, `rollout`, `step` |
 | The belief | `DynamicsBelief`, `ParameterInformation`, `ForecastErrorEnvelope`, `UpdateResult`, `ExecutableModel`, `ActuationMap`, `NonActionableModelError` |
 | Control | `PlanModel`, `plan_model`, `BoundedShootingSolver`, `SolverPolicy`, `SolveResult`, `SolveStatus`, `NMPCController`, `ReferenceTrajectory`, `SafetyEnvelope`, `TrackingTolerances`, `Prediction` |
-| In-flight identification and supervision | `RecursiveBootstrapIdentifier`, `RecursiveBootstrapConfig`, `MultirotorFlightSupervisor`, `MultirotorSupervisorConfig`, `SupervisorMode`, `SupervisorReason` |
+| In-flight identification and supervision | `RecursiveBootstrapIdentifier`, `RecursiveBootstrapConfig`, `BootstrapEvidence`, `MultirotorFlightSupervisor`, `MultirotorSupervisorConfig`, `SupervisorMode`, `SupervisorReason` |
 
 The canonical state is 13 wide: NWU position and velocity, a WXYZ unit
 quaternion from body to world, and FLU body rates. Commands are normalized

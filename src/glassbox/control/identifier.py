@@ -1,9 +1,14 @@
 """Recursive, support-aware identification from motor input and output alone.
 
-The identifier keeps a working local belief updated after every measured
-actuation interval and gives control authority only to output directions
-supported by that belief.  There is deliberately no
-evidence-collection/model-running phase boundary.
+The identifier updates one :class:`~glassbox.belief.belief.DynamicsBelief`
+over the bootstrap parameterization after every measured actuation interval,
+and gives control authority only to output directions its evidence supports.
+There is deliberately no evidence-collection/model-running phase boundary.
+
+The belief is the same type a fit produces: an executable model, an
+information state, and a provenance record. What is specific to this
+estimator, the ranks and supports its own thresholds define and the per-axis
+authority they imply, is a :class:`BootstrapEvidence` summary alongside it.
 """
 
 from __future__ import annotations
@@ -11,14 +16,57 @@ from __future__ import annotations
 import math
 import time
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from typing import Any
 
 import numpy as np
 
+from glassbox.belief.belief import DynamicsBelief
+from glassbox.belief.information import (
+    ParameterInformation,
+    default_rank_relative_tolerance,
+    innovation_noise_floor,
+)
 from glassbox.control._common import finite_vector, immutable_array
-from glassbox.core.dynamics import GRAVITY_M_S2
-from glassbox.core.geometry import quaternion_to_rotation
+from glassbox.core.data import (
+    RIGID_BODY_STATE_SCHEMA,
+    Channel,
+    TrajectorySpec,
+    VehicleConfigurationSpec,
+)
+from glassbox.core.dynamics import (
+    GRAVITY_M_S2,
+    BootstrapMultirotorParams,
+    structured_parameter_names,
+)
+from glassbox.core.families import BOOTSTRAP_MULTIROTOR_FAMILY
+from glassbox.core.geometry import TANGENT_GROUP_INDICES, quaternion_to_rotation
+from glassbox.core.model import (
+    DirectActuationMap,
+    ExecutableModel,
+    ModelValidityEnvelope,
+    RuntimeModelSpec,
+)
+
+#: Transitions per assimilated sample.  Differencing a noisy measurement over
+#: one interval multiplies the noise by the loop rate; the mean over a window
+#: telescopes most of it away, while weighting the sample by the window length
+#: keeps the sample count, the support thresholds, and the residual floor
+#: exactly per transition, so with a noise-free measurement the information
+#: rate is unchanged.  Two is the width measured on the release ensemble.
+TRANSITION_AGGREGATION_STEPS = 2
+
+#: The bootstrap parameterization claims no operating envelope.  It is affine
+#: in body velocity and body rate with no saturation anywhere, and the
+#: identifier measures no supported region, so the envelope it declares is
+#: wide enough never to bind and the per-direction authority is what governs
+#: how far a plan may trust it.
+BOOTSTRAP_VALIDITY_ENVELOPE = ModelValidityEnvelope(
+    body_velocity_center_m_s=(0.0, 0.0, 0.0),
+    body_velocity_half_width_m_s=(100.0, 100.0, 100.0),
+    angular_velocity_center_rad_s=(0.0, 0.0, 0.0),
+    angular_velocity_half_width_rad_s=(50.0, 50.0, 50.0),
+)
 
 
 @dataclass(frozen=True)
@@ -37,27 +85,11 @@ class RecursiveBootstrapConfig:
     full_authority_effect_signal_to_noise: float = 3.0
     collective_residual_std_floor_m_s2: float = 0.05
     angular_residual_std_floor_rad_s2: float = 0.50
-    #: Assimilate one sample per this many measured transitions, built from
-    #: the window's mean features and mean targets and weighted by the window
-    #: length.  Differencing a noisy measurement over one interval multiplies
-    #: the noise by the loop rate; the mean over a window telescopes most of
-    #: it away, while the weight keeps the sample count, the support
-    #: thresholds, and the residual floor exactly per transition, so with a
-    #: noise-free measurement the information rate is unchanged.  One means
-    #: every transition is its own sample, which is bit-for-bit the identifier
-    #: as it was.
-    transition_aggregation_steps: int = 1
-    #: Fit the collective map on the integrated target rather than on the
-    #: per-interval one.  The per-interval target multiplies measurement noise
-    #: on the velocity by the loop rate; the cumulative target since the first
-    #: observation, regressed on the cumulative features with one constant
-    #: column for the anchor's own noise, carries that noise once per row and
-    #: is the exact least-squares form for white measurement noise.  The integrated system's information is
-    #: exported to the rest of the identifier as an equivalent per-transition
-    #: Gram at the declared residual floor, so support, authority, the belief,
-    #: and any planner reading the belief see the honest information without
-    #: changing.  Off, the default, is bit-for-bit the identifier as it was.
-    integrated_collective: bool = False
+    #: The control period the identified model is executed at.  Every
+    #: transition is assimilated at its own measured interval; this is the
+    #: period the produced belief's runtime contract declares, so a plan model
+    #: over that belief has a stable timing contract from the first sample.
+    sample_period_s: float = 0.01
 
     def __post_init__(self) -> None:
         minimum = finite_vector("command_minimum", self.command_minimum, 4)
@@ -73,11 +105,6 @@ class RecursiveBootstrapConfig:
             value = float(getattr(self, name))
             if not math.isfinite(value) or not 0.0 < value < 1.0:
                 raise ValueError(f"{name} must lie strictly between zero and one")
-        if (
-            not isinstance(self.transition_aggregation_steps, int)
-            or self.transition_aggregation_steps < 1
-        ):
-            raise ValueError("transition_aggregation_steps must be a positive integer")
         positive_fields = (
             "minimum_information_singular_value",
             "full_authority_information_singular_value",
@@ -85,6 +112,7 @@ class RecursiveBootstrapConfig:
             "full_authority_effect_signal_to_noise",
             "collective_residual_std_floor_m_s2",
             "angular_residual_std_floor_rad_s2",
+            "sample_period_s",
         )
         for name in positive_fields:
             if (
@@ -105,71 +133,66 @@ class RecursiveBootstrapConfig:
 
 
 @dataclass(frozen=True)
-class RecursiveBootstrapBelief:
-    """One auditable snapshot of the continuously updated local model."""
+class BootstrapEvidence:
+    """What this estimator's own thresholds say about one accumulated fit.
+
+    The belief carries the model and the information state.  This carries the
+    part that is specific to how the bootstrap identifier reaches them: the
+    two accumulated Grams in its own feature order, the residual scales it
+    estimated, the ranks and support projectors its declared tolerances
+    define, and the per-direction authority that follows.  It is a pure
+    function of the evidence, so two identifiers fed the same transitions
+    produce the same summary.
+
+    The two Grams are the whole evidence both fits are solved from, before any
+    support rule, Schur complement, or rescaling to raw command units.  The
+    belief's ``information.precision`` is that same evidence mapped into the
+    parameters' own coordinates and whitened by the residual scales here; a
+    planner whose plan moves the nuisance regressors reads either, and a
+    planner that wants the identifier's own rank test reads this.
+    """
 
     interval_count: int
-    effective_interval_count: float
-    collective_acceleration_per_command: np.ndarray
-    collective_velocity_coefficient: np.ndarray
-    collective_intercept_m_s2: float
-    angular_acceleration_per_command: np.ndarray
-    angular_rate_coefficient: np.ndarray
-    angular_rate_product_coefficient: np.ndarray
-    angular_intercept_rad_s2: np.ndarray
+    #: Accumulated, per-transition Gram of each regression in the identifier's
+    #: own feature order: ``[normalized command (4), body velocity (3), 1]``
+    #: for the collective fit and ``[normalized command (4), body rate (3),
+    #: rate products (3), 1]`` for the angular one.
+    collective_information: np.ndarray
+    angular_information: np.ndarray
+    collective_residual_std_m_s2: float
+    angular_residual_std_rad_s2: np.ndarray
     normalized_command_support_projector: np.ndarray
     normalized_command_singular_values: np.ndarray
     normalized_command_information: np.ndarray
+    angular_output_support_projector: np.ndarray
     supported_collective_effect_covariance: np.ndarray
     supported_angular_effect_covariance: np.ndarray
-    #: The raw accumulated, forgetting-weighted Gram of each regression, in the
-    #: identifier's own feature order: ``[normalized command (4), body velocity
-    #: (3), 1]`` for the collective fit and ``[normalized command (4), body rate
-    #: (3), rate products (3), 1]`` for the angular one.  These are the whole
-    #: evidence the fits are solved from, before any support rule, Schur
-    #: complement, or rescaling to raw command units; the two covariance fields
-    #: above are what that evidence implies about the *command* block alone.
-    #: A planner that wants the posterior of the full regressor set — because
-    #: its plan moves the nuisance regressors as well as the commands — needs
-    #: these rather than the reduced summaries.
-    collective_information: np.ndarray
-    angular_information: np.ndarray
     command_evidence_rank: int
     angular_effect_rank: int
     collective_nuisance_rank: int
     angular_nuisance_rank: int
-    angular_output_support_projector: np.ndarray
     collective_support_fraction: float
     minimum_supported_information_singular_value: float
     information_authority: float
     collective_effect_signal_to_noise: float
     angular_effect_signal_to_noise: np.ndarray
-    collective_residual_std_m_s2: float
-    angular_residual_std_rad_s2: np.ndarray
-    exploration_completion: float
     collective_authority: float
     angular_axis_authority: np.ndarray
+    exploration_completion: float
     hover_command: np.ndarray | None
-    update_wall_time_s: float
 
     def __post_init__(self) -> None:
         arrays = {
-            "collective_acceleration_per_command": (4,),
-            "collective_velocity_coefficient": (3,),
-            "angular_acceleration_per_command": (3, 4),
-            "angular_rate_coefficient": (3, 3),
-            "angular_rate_product_coefficient": (3, 3),
-            "angular_intercept_rad_s2": (3,),
+            "collective_information": (8, 8),
+            "angular_information": (11, 11),
+            "angular_residual_std_rad_s2": (3,),
             "normalized_command_support_projector": (4, 4),
             "normalized_command_singular_values": (4,),
             "normalized_command_information": (4, 4),
+            "angular_output_support_projector": (3, 3),
             "supported_collective_effect_covariance": (4, 4),
             "supported_angular_effect_covariance": (3, 4, 4),
-            "collective_information": (8, 8),
-            "angular_information": (11, 11),
-            "angular_output_support_projector": (3, 3),
             "angular_effect_signal_to_noise": (3,),
-            "angular_residual_std_rad_s2": (3,),
             "angular_axis_authority": (3,),
         }
         for name, shape in arrays.items():
@@ -185,42 +208,37 @@ class RecursiveBootstrapBelief:
                 immutable_array(self.hover_command, (4,), "hover_command"),
             )
         scalars = (
-            self.effective_interval_count,
-            self.collective_intercept_m_s2,
+            self.collective_residual_std_m_s2,
             self.collective_support_fraction,
             self.minimum_supported_information_singular_value,
             self.information_authority,
             self.collective_effect_signal_to_noise,
-            self.collective_residual_std_m_s2,
-            self.exploration_completion,
             self.collective_authority,
-            self.update_wall_time_s,
+            self.exploration_completion,
         )
         if self.interval_count < 0 or not np.all(np.isfinite(scalars)):
-            raise ValueError("recursive belief counts and scalars must be finite")
+            raise ValueError("bootstrap evidence counts and scalars must be finite")
         if not (
             0 <= self.command_evidence_rank <= 4
             and 0 <= self.angular_effect_rank <= 3
             and 0 <= self.collective_nuisance_rank <= 4
             and 0 <= self.angular_nuisance_rank <= 7
         ):
-            raise ValueError("recursive belief ranks lie outside model dimensions")
+            raise ValueError("bootstrap evidence ranks lie outside model dimensions")
         if not (
             0.0 <= self.collective_support_fraction <= 1.0 + 1e-9
             and 0.0 <= self.information_authority <= 1.0
             and 0.0 <= self.exploration_completion <= 1.0
             and 0.0 <= self.collective_authority <= 1.0
         ):
-            raise ValueError(
-                "recursive belief support and authority must lie in [0, 1]"
-            )
+            raise ValueError("bootstrap support and authority must lie in [0, 1]")
         if (
             self.collective_effect_signal_to_noise < 0.0
             or np.any(self.angular_effect_signal_to_noise < 0.0)
             or self.collective_residual_std_m_s2 <= 0.0
             or np.any(self.angular_residual_std_rad_s2 <= 0.0)
         ):
-            raise ValueError("recursive uncertainty statistics must be positive")
+            raise ValueError("bootstrap uncertainty statistics must be positive")
         if np.any(self.angular_axis_authority < 0.0) or np.any(
             self.angular_axis_authority > 1.0
         ):
@@ -232,110 +250,39 @@ class RecursiveBootstrapBelief:
             self.collective_authority > 0.0 or np.any(self.angular_axis_authority > 0.0)
         )
 
-    def predict_collective_specific_force(
-        self,
-        command: Sequence[float],
-        body_velocity_m_s: Sequence[float],
-    ) -> float:
-        command_array = finite_vector("command", command, 4)
-        body_velocity = finite_vector("body_velocity_m_s", body_velocity_m_s, 3)
-        return float(
-            self.collective_acceleration_per_command @ command_array
-            + self.collective_velocity_coefficient @ body_velocity
-            + self.collective_intercept_m_s2
-        )
+    @property
+    def supported(self) -> bool:
+        """Whether the evidence spans everything control has to command.
 
-    def predict_angular_acceleration(
-        self,
-        command: Sequence[float],
-        angular_velocity_rad_s: Sequence[float],
-    ) -> np.ndarray:
-        command_array = finite_vector("command", command, 4)
-        angular_velocity = finite_vector(
-            "angular_velocity_rad_s", angular_velocity_rad_s, 3
-        )
-        rate_products = np.asarray(
-            (
-                angular_velocity[0] * angular_velocity[1],
-                angular_velocity[0] * angular_velocity[2],
-                angular_velocity[1] * angular_velocity[2],
-            )
-        )
-        return (
-            self.angular_acceleration_per_command @ command_array
-            + self.angular_rate_coefficient @ angular_velocity
-            + self.angular_rate_product_coefficient @ rate_products
-            + self.angular_intercept_rad_s2
+        The conditions are what the evidence spans and nothing else: the
+        command evidence spans all four motors, the fitted angular effect
+        spans all three body axes, and the collective effect implies a hover
+        command inside the command box.  How far to trust evidence that meets
+        them is a question for the per-direction authority, not for this rule.
+        """
+
+        return bool(
+            self.command_evidence_rank == 4
+            and self.angular_effect_rank == 3
+            and self.hover_command is not None
         )
 
     def to_dict(self) -> dict[str, Any]:
-        return {
-            "method": "recursive_rank_supported_multirotor_bootstrap_v1",
+        payload: dict[str, Any] = {
+            "method": "recursive_rank_supported_multirotor_bootstrap_v2",
             "airframe_parameter_prior_used": False,
             "canonical_motor_mixer_assumed": False,
-            "interval_count": self.interval_count,
-            "effective_interval_count": self.effective_interval_count,
-            "collective_acceleration_per_command": (
-                self.collective_acceleration_per_command.tolist()
-            ),
-            "collective_velocity_coefficient": (
-                self.collective_velocity_coefficient.tolist()
-            ),
-            "collective_intercept_m_s2": self.collective_intercept_m_s2,
-            "angular_acceleration_per_command": (
-                self.angular_acceleration_per_command.tolist()
-            ),
-            "angular_rate_coefficient": self.angular_rate_coefficient.tolist(),
-            "angular_rate_product_coefficient": (
-                self.angular_rate_product_coefficient.tolist()
-            ),
-            "angular_intercept_rad_s2": self.angular_intercept_rad_s2.tolist(),
-            "normalized_command_support_projector": (
-                self.normalized_command_support_projector.tolist()
-            ),
-            "normalized_command_singular_values": (
-                self.normalized_command_singular_values.tolist()
-            ),
-            "normalized_command_information": (
-                self.normalized_command_information.tolist()
-            ),
-            "supported_collective_effect_covariance": (
-                self.supported_collective_effect_covariance.tolist()
-            ),
-            "supported_angular_effect_covariance": (
-                self.supported_angular_effect_covariance.tolist()
-            ),
-            "collective_information": self.collective_information.tolist(),
-            "angular_information": self.angular_information.tolist(),
+            "transition_aggregation_steps": TRANSITION_AGGREGATION_STEPS,
+            "collective_target": "integrated",
             "effect_covariance_scope": "supported_subspace_only",
-            "command_evidence_rank": self.command_evidence_rank,
-            "angular_effect_rank": self.angular_effect_rank,
-            "collective_nuisance_rank": self.collective_nuisance_rank,
-            "angular_nuisance_rank": self.angular_nuisance_rank,
-            "angular_output_support_projector": (
-                self.angular_output_support_projector.tolist()
-            ),
-            "collective_support_fraction": self.collective_support_fraction,
-            "minimum_supported_information_singular_value": (
-                self.minimum_supported_information_singular_value
-            ),
-            "information_authority": self.information_authority,
-            "collective_effect_signal_to_noise": (
-                self.collective_effect_signal_to_noise
-            ),
-            "angular_effect_signal_to_noise": (
-                self.angular_effect_signal_to_noise.tolist()
-            ),
-            "collective_residual_std_m_s2": self.collective_residual_std_m_s2,
-            "angular_residual_std_rad_s2": (self.angular_residual_std_rad_s2.tolist()),
-            "exploration_completion": self.exploration_completion,
-            "collective_authority": self.collective_authority,
-            "angular_axis_authority": self.angular_axis_authority.tolist(),
-            "hover_command": (
-                None if self.hover_command is None else self.hover_command.tolist()
-            ),
-            "update_wall_time_s": self.update_wall_time_s,
         }
+        for entry in fields(self):
+            value = getattr(self, entry.name)
+            if value is None or isinstance(value, (int, float)):
+                payload[entry.name] = value
+            else:
+                payload[entry.name] = np.asarray(value).tolist()
+        return payload
 
 
 @dataclass(frozen=True)
@@ -418,6 +365,131 @@ class _BeliefAuthority:
     exploration_completion: float
 
 
+def _bootstrap_input_spec(minimum: np.ndarray, maximum: np.ndarray) -> TrajectorySpec:
+    """Declare the command box the identifier was told the vehicle accepts.
+
+    Actuation is the identity on these four normalized motor commands, which
+    is what "measured applied motor input" means: the identifier regresses on
+    the command the vehicle actually applied, so the model's input is the
+    command itself.
+    """
+
+    family = BOOTSTRAP_MULTIROTOR_FAMILY
+    channels = tuple(
+        Channel(
+            name=name,
+            role=role,
+            semantic="normalized_command",
+            unit="1",
+            kind="control",
+            minimum=float(minimum[index]),
+            maximum=float(maximum[index]),
+        )
+        for index, (name, role) in enumerate(
+            zip(family.control_names, family.control_roles, strict=True)
+        )
+    )
+    return TrajectorySpec(
+        state_schema=RIGID_BODY_STATE_SCHEMA,
+        observation_source="measured_applied_motor_command",
+        channels=channels,
+        vehicle=VehicleConfigurationSpec(
+            family=family.platform,
+            controlled_axes=("roll", "pitch", "yaw"),
+        ),
+    )
+
+
+def _structured_index_blocks() -> tuple[np.ndarray, tuple[np.ndarray, ...]]:
+    """Locate each regression's coefficients in the structured parameter order.
+
+    The collective regression's eight coefficients are one contiguous block;
+    each angular axis's eleven are scattered across four fields, because the
+    structured order lists every axis of a field together.  Both are looked up
+    by name so the layout follows the parameterization rather than restating
+    it.
+    """
+
+    names = structured_parameter_names(
+        BootstrapMultirotorParams(
+            collective_acceleration_per_command=np.zeros(4),
+            collective_velocity_coefficient=np.zeros(3),
+            collective_intercept_m_s2=np.zeros(()),
+            angular_acceleration_per_command=np.zeros((3, 4)),
+            angular_rate_coefficient=np.zeros((3, 3)),
+            angular_rate_product_coefficient=np.zeros((3, 3)),
+            angular_intercept_rad_s2=np.zeros(3),
+        )
+    )
+    index_of = {name: index for index, name in enumerate(names)}
+    collective = np.asarray(
+        [
+            index_of[f"collective_acceleration_per_command[{motor}]"]
+            for motor in range(4)
+        ]
+        + [index_of[f"collective_velocity_coefficient[{axis}]"] for axis in range(3)]
+        + [index_of["collective_intercept_m_s2"]]
+    )
+    angular = tuple(
+        np.asarray(
+            [
+                index_of[f"angular_acceleration_per_command[{axis},{motor}]"]
+                for motor in range(4)
+            ]
+            + [
+                index_of[f"angular_rate_coefficient[{axis},{other}]"]
+                for other in range(3)
+            ]
+            + [
+                index_of[f"angular_rate_product_coefficient[{axis},{pair}]"]
+                for pair in range(3)
+            ]
+            + [index_of[f"angular_intercept_rad_s2[{axis}]"]]
+        )
+        for axis in range(3)
+    )
+    return collective, angular
+
+
+PARAMETER_NAMES = structured_parameter_names(
+    BootstrapMultirotorParams(
+        collective_acceleration_per_command=np.zeros(4),
+        collective_velocity_coefficient=np.zeros(3),
+        collective_intercept_m_s2=np.zeros(()),
+        angular_acceleration_per_command=np.zeros((3, 4)),
+        angular_rate_coefficient=np.zeros((3, 3)),
+        angular_rate_product_coefficient=np.zeros((3, 3)),
+        angular_intercept_rad_s2=np.zeros(3),
+    )
+)
+_COLLECTIVE_INDICES, _ANGULAR_INDICES = _structured_index_blocks()
+
+
+def _feature_to_parameter_transform(
+    span: np.ndarray,
+    midpoint: np.ndarray,
+    nuisance_size: int,
+) -> np.ndarray:
+    """Map the parameters onto the coefficients one regression solves for.
+
+    A regression runs on normalized commands, so its command coefficient is
+    ``span`` times the parameter, and its constant column absorbs the
+    parameters' intercept plus the command effect at the box midpoint.  Every
+    other feature is in its own units and passes through.  Congruence by this
+    matrix carries a Gram in the regression's coordinates into precision in
+    the parameters'.
+    """
+
+    size = 4 + nuisance_size
+    transform = np.zeros((size, size), dtype=np.float64)
+    transform[np.arange(4), np.arange(4)] = span
+    passthrough = np.arange(4, size - 1)
+    transform[passthrough, passthrough] = 1.0
+    transform[size - 1, :4] = midpoint
+    transform[size - 1, size - 1] = 1.0
+    return transform
+
+
 class RecursiveBootstrapIdentifier:
     """Update direct motor effects after every observed actuation interval."""
 
@@ -450,7 +522,31 @@ class RecursiveBootstrapIdentifier:
         self._angular_gram = np.zeros((11, 11), dtype=np.float64)
         self._angular_rhs = np.zeros((11, 3), dtype=np.float64)
         self._angular_target_sum_squares = np.zeros(3, dtype=np.float64)
-        self._belief = self._empty_belief()
+        self._input_spec = _bootstrap_input_spec(self._minimum, self._maximum)
+        self._actuation = DirectActuationMap(self._input_spec.controls)
+        self._runtime_spec = RuntimeModelSpec(
+            sample_period_s=float(self.config.sample_period_s),
+            validity_envelope=BOOTSTRAP_VALIDITY_ENVELOPE,
+        )
+        self._collective_transform = _feature_to_parameter_transform(
+            self._span, self._midpoint, self._FORCE_NUISANCE_SIZE
+        )
+        self._angular_transform = _feature_to_parameter_transform(
+            self._span, self._midpoint, self._ANGULAR_NUISANCE_SIZE
+        )
+        self._evidence = self._empty_evidence()
+        self._belief = self._belief_from(
+            BootstrapMultirotorParams(
+                collective_acceleration_per_command=np.zeros(4),
+                collective_velocity_coefficient=np.zeros(3),
+                collective_intercept_m_s2=np.zeros(()),
+                angular_acceleration_per_command=np.zeros((3, 4)),
+                angular_rate_coefficient=np.zeros((3, 3)),
+                angular_rate_product_coefficient=np.zeros((3, 3)),
+                angular_intercept_rad_s2=np.zeros(3),
+            ),
+            self._evidence,
+        )
         self._last_sample_report = RecursiveBootstrapSampleReport(
             interval_count=0,
             accepted=False,
@@ -459,34 +555,11 @@ class RecursiveBootstrapIdentifier:
         )
         self._rejected_sample_count = 0
 
-    def _empty_belief(self) -> RecursiveBootstrapBelief:
-        return RecursiveBootstrapBelief(
+    def _empty_evidence(self) -> BootstrapEvidence:
+        return BootstrapEvidence(
             interval_count=0,
-            effective_interval_count=0.0,
-            collective_acceleration_per_command=np.zeros(4),
-            collective_velocity_coefficient=np.zeros(3),
-            collective_intercept_m_s2=0.0,
-            angular_acceleration_per_command=np.zeros((3, 4)),
-            angular_rate_coefficient=np.zeros((3, 3)),
-            angular_rate_product_coefficient=np.zeros((3, 3)),
-            angular_intercept_rad_s2=np.zeros(3),
-            normalized_command_support_projector=np.zeros((4, 4)),
-            normalized_command_singular_values=np.zeros(4),
-            normalized_command_information=np.zeros((4, 4)),
-            supported_collective_effect_covariance=np.zeros((4, 4)),
-            supported_angular_effect_covariance=np.zeros((3, 4, 4)),
             collective_information=np.zeros((8, 8)),
             angular_information=np.zeros((11, 11)),
-            command_evidence_rank=0,
-            angular_effect_rank=0,
-            collective_nuisance_rank=0,
-            angular_nuisance_rank=0,
-            angular_output_support_projector=np.zeros((3, 3)),
-            collective_support_fraction=0.0,
-            minimum_supported_information_singular_value=0.0,
-            information_authority=0.0,
-            collective_effect_signal_to_noise=0.0,
-            angular_effect_signal_to_noise=np.zeros(3),
             collective_residual_std_m_s2=(
                 self.config.collective_residual_std_floor_m_s2
             ),
@@ -494,39 +567,150 @@ class RecursiveBootstrapIdentifier:
                 3,
                 self.config.angular_residual_std_floor_rad_s2,
             ),
-            exploration_completion=0.0,
+            normalized_command_support_projector=np.zeros((4, 4)),
+            normalized_command_singular_values=np.zeros(4),
+            normalized_command_information=np.zeros((4, 4)),
+            angular_output_support_projector=np.zeros((3, 3)),
+            supported_collective_effect_covariance=np.zeros((4, 4)),
+            supported_angular_effect_covariance=np.zeros((3, 4, 4)),
+            command_evidence_rank=0,
+            angular_effect_rank=0,
+            collective_nuisance_rank=0,
+            angular_nuisance_rank=0,
+            collective_support_fraction=0.0,
+            minimum_supported_information_singular_value=0.0,
+            information_authority=0.0,
+            collective_effect_signal_to_noise=0.0,
+            angular_effect_signal_to_noise=np.zeros(3),
             collective_authority=0.0,
             angular_axis_authority=np.zeros(3),
+            exploration_completion=0.0,
             hover_command=None,
-            update_wall_time_s=0.0,
+        )
+
+    def _parameter_information(
+        self, evidence: BootstrapEvidence
+    ) -> ParameterInformation:
+        """State this evidence as precision over the structured parameters.
+
+        Each regression's Gram is congruence-transformed into the parameters'
+        own coordinates and divided by that regression's residual variance, so
+        one unit of precision is one transition's worth of information at the
+        estimated residual scale.  The angular Gram is shared by the three
+        body axes and enters once per axis at that axis's own residual.  Under
+        the integrated collective target the exported collective Gram is
+        already rescaled so that dividing it by the declared force floor,
+        which is then the residual it reports, gives exactly the integrated
+        system's precision; so one unit of collective precision is one
+        transition's worth of information at that declared floor.
+
+        One normalized unit is the coefficient perturbation that moves that
+        regression's prediction by one residual standard deviation at the
+        reference excitation, the full command box for a command coefficient
+        and a unit feature for a nuisance one.  That is the scale the rank
+        test needs: it removes the physical units, so a collective coefficient
+        in metres per second squared and an angular one in radians per second
+        squared are compared by how well the evidence pins each down rather
+        than by how large its units happen to be.
+
+        Nothing is floored into a small variance: an unexcited direction stays
+        at zero precision and the rank test reports it as unresolved.
+        """
+
+        size = len(PARAMETER_NAMES)
+        precision = np.zeros((size, size), dtype=np.float64)
+        scale = np.ones(size, dtype=np.float64)
+        collective = (
+            self._collective_transform.T
+            @ (
+                evidence.collective_information
+                / evidence.collective_residual_std_m_s2**2
+            )
+            @ self._collective_transform
+        )
+        precision[np.ix_(_COLLECTIVE_INDICES, _COLLECTIVE_INDICES)] = collective
+        scale[_COLLECTIVE_INDICES] = evidence.collective_residual_std_m_s2
+        scale[_COLLECTIVE_INDICES[:4]] /= self._span
+        for axis, indices in enumerate(_ANGULAR_INDICES):
+            block = (
+                self._angular_transform.T
+                @ (
+                    evidence.angular_information
+                    / evidence.angular_residual_std_rad_s2[axis] ** 2
+                )
+                @ self._angular_transform
+            )
+            precision[np.ix_(indices, indices)] = block
+            scale[indices] = evidence.angular_residual_std_rad_s2[axis]
+            scale[indices[:4]] /= self._span
+        period_s = float(self.config.sample_period_s)
+        floor = innovation_noise_floor()
+        noise = np.array(floor, dtype=np.float64)
+        declared = np.array(floor, dtype=np.float64)
+        velocity = list(TANGENT_GROUP_INDICES["velocity"])
+        angular = list(TANGENT_GROUP_INDICES["angular_velocity"])
+        noise[velocity] = (period_s * evidence.collective_residual_std_m_s2) ** 2
+        noise[angular] = (period_s * evidence.angular_residual_std_rad_s2) ** 2
+        declared[velocity] = (
+            period_s * self.config.collective_residual_std_floor_m_s2
+        ) ** 2
+        declared[angular] = (
+            period_s * self.config.angular_residual_std_floor_rad_s2
+        ) ** 2
+        return ParameterInformation(
+            names=PARAMETER_NAMES,
+            precision=0.5 * (precision + precision.T),
+            scale=scale,
+            estimable=np.ones(size, dtype=bool),
+            innovation_noise=noise,
+            noise_floor=declared,
+            effective_count=self._weight,
+            rank_relative_tolerance=default_rank_relative_tolerance(
+                evidence.interval_count, size
+            ),
+            source="recursive_bootstrap_identifier",
+        )
+
+    def _belief_from(
+        self,
+        params: BootstrapMultirotorParams,
+        evidence: BootstrapEvidence,
+    ) -> DynamicsBelief:
+        """Assemble the belief this evidence and these parameters make."""
+
+        return DynamicsBelief(
+            model=ExecutableModel(
+                params,
+                self._input_spec,
+                self._runtime_spec,
+                self._actuation,
+            ),
+            information=self._parameter_information(evidence),
+            forecast_error=None,
+            provenance={
+                "source": "recursive_bootstrap_identifier",
+                "interval_count": evidence.interval_count,
+                "bootstrap_evidence": evidence.to_dict(),
+            },
         )
 
     @property
-    def belief(self) -> RecursiveBootstrapBelief:
+    def belief(self) -> DynamicsBelief:
+        """The belief every measured transition so far supports."""
+
         return self._belief
 
-    @staticmethod
-    def _belief_is_supported(belief: RecursiveBootstrapBelief) -> bool:
-        """Whether one belief spans everything control has to command.
+    @property
+    def evidence(self) -> BootstrapEvidence:
+        """This estimator's own account of what that belief rests on."""
 
-        The conditions are what the evidence spans and nothing else: the
-        command evidence spans all four motors, the fitted angular effect spans
-        all three body axes, and the collective effect implies a hover command
-        inside the command box.  How far to trust a belief that meets them is a
-        question for the per-direction authority, not for this rule.
-        """
-
-        return bool(
-            belief.command_evidence_rank == 4
-            and belief.angular_effect_rank == 3
-            and belief.hover_command is not None
-        )
+        return self._evidence
 
     @property
     def working_belief_supported(self) -> bool:
-        """Whether the working belief currently meets the support conditions."""
+        """Whether the evidence currently meets the support conditions."""
 
-        return self._belief_is_supported(self._belief)
+        return self._evidence.supported
 
     @property
     def last_sample_report(self) -> RecursiveBootstrapSampleReport:
@@ -716,7 +900,7 @@ class RecursiveBootstrapIdentifier:
         self,
         rejection: str,
         started_at: float,
-    ) -> RecursiveBootstrapBelief:
+    ) -> DynamicsBelief:
         """Record why a transition was unusable and keep the belief unchanged."""
 
         self._rejected_sample_count += 1
@@ -901,11 +1085,10 @@ class RecursiveBootstrapIdentifier:
 
         force_gram, force_rhs = self._force_gram, self._force_rhs
         self._force_gram_equivalent = None
-        if self.config.integrated_collective:
-            integrated = self._integrated_force_system()
-            if integrated is not None:
-                force_gram, force_rhs = integrated[0], integrated[1][:, None]
-                self._force_gram_equivalent = force_gram
+        integrated = self._integrated_force_system()
+        if integrated is not None:
+            force_gram, force_rhs = integrated[0], integrated[1][:, None]
+            self._force_gram_equivalent = force_gram
         force = self._supported_fit(
             force_gram,
             force_rhs,
@@ -1158,40 +1341,46 @@ class RecursiveBootstrapIdentifier:
             exploration_completion=exploration_completion,
         )
 
-    def _assimilated_belief(
-        self,
-        fit: _EffectFit,
-        authority: _BeliefAuthority,
-        started_at: float,
-    ) -> RecursiveBootstrapBelief:
-        """Assemble the working belief this sample leaves the identifier in."""
+    def _assimilated_parameters(self, fit: _EffectFit) -> BootstrapMultirotorParams:
+        """The bootstrap model this sample leaves the identifier holding."""
 
-        return RecursiveBootstrapBelief(
-            interval_count=self._interval_count,
-            effective_interval_count=self._weight,
+        return BootstrapMultirotorParams(
             collective_acceleration_per_command=fit.force_effect,
             collective_velocity_coefficient=fit.force_nuisance[:3, 0],
-            collective_intercept_m_s2=fit.force_intercept,
+            collective_intercept_m_s2=np.asarray(fit.force_intercept),
             angular_acceleration_per_command=fit.angular_effect,
             angular_rate_coefficient=fit.angular_nuisance[:3].T,
             angular_rate_product_coefficient=fit.angular_nuisance[3:6].T,
             angular_intercept_rad_s2=fit.angular_intercept,
-            normalized_command_support_projector=fit.angular_support,
-            normalized_command_singular_values=fit.angular_singular_values,
-            normalized_command_information=fit.angular_residual_information,
-            supported_collective_effect_covariance=fit.collective_effect_covariance,
-            supported_angular_effect_covariance=fit.angular_effect_covariance,
+        )
+
+    def _assimilated_evidence(
+        self,
+        fit: _EffectFit,
+        authority: _BeliefAuthority,
+    ) -> BootstrapEvidence:
+        """This estimator's own account of the evidence behind that model."""
+
+        return BootstrapEvidence(
+            interval_count=self._interval_count,
             collective_information=(
                 self._force_gram
                 if self._force_gram_equivalent is None
                 else self._force_gram_equivalent
             ),
             angular_information=self._angular_gram,
+            collective_residual_std_m_s2=fit.force_residual_std,
+            angular_residual_std_rad_s2=fit.angular_residual_std,
+            normalized_command_support_projector=fit.angular_support,
+            normalized_command_singular_values=fit.angular_singular_values,
+            normalized_command_information=fit.angular_residual_information,
+            angular_output_support_projector=authority.angular_output_support,
+            supported_collective_effect_covariance=fit.collective_effect_covariance,
+            supported_angular_effect_covariance=fit.angular_effect_covariance,
             command_evidence_rank=fit.angular_command_rank,
             angular_effect_rank=authority.angular_effect_rank,
             collective_nuisance_rank=fit.force_nuisance_rank,
             angular_nuisance_rank=fit.angular_nuisance_rank,
-            angular_output_support_projector=authority.angular_output_support,
             collective_support_fraction=authority.collective_support,
             minimum_supported_information_singular_value=(
                 authority.minimum_supported_information
@@ -1201,13 +1390,10 @@ class RecursiveBootstrapIdentifier:
                 authority.collective_effect_signal_to_noise
             ),
             angular_effect_signal_to_noise=authority.angular_effect_signal_to_noise,
-            collective_residual_std_m_s2=fit.force_residual_std,
-            angular_residual_std_rad_s2=fit.angular_residual_std,
-            exploration_completion=authority.exploration_completion,
             collective_authority=authority.collective_authority,
             angular_axis_authority=authority.angular_axis_authority,
+            exploration_completion=authority.exploration_completion,
             hover_command=authority.hover_command,
-            update_wall_time_s=time.perf_counter() - started_at,
         )
 
     def update(
@@ -1216,8 +1402,14 @@ class RecursiveBootstrapIdentifier:
         current_state: Sequence[float],
         average_applied_motor_command: Sequence[float],
         sample_period_s: float,
-    ) -> RecursiveBootstrapBelief:
+    ) -> DynamicsBelief:
         """Assimilate one measured transition and return the current belief.
+
+        Transitions are assimilated in windows of
+        :data:`TRANSITION_AGGREGATION_STEPS`, as the window's mean features
+        and mean targets weighted by its length, so the sample count, the
+        support thresholds, and the residual floor all stay per transition.
+        The collective map is fit on the integrated target throughout.
 
         A transition that is not usable evidence is refused rather than raised
         on, because a single non-finite estimator sample must not end a control
@@ -1237,35 +1429,30 @@ class RecursiveBootstrapIdentifier:
             assert rejection is not None
             return self._refused_sample(rejection, started_at)
         features = self._sample_features(*sample, sample_period_s)
-        if self.config.integrated_collective:
-            self._accumulate_integrated_collective(*sample, sample_period_s, features)
-        window = self.config.transition_aggregation_steps
-        if window > 1:
-            self._pending_transitions.append(features)
-            if len(self._pending_transitions) < window:
-                # The window is not full: the belief stands as it was.
-                self._last_sample_report = RecursiveBootstrapSampleReport(
-                    interval_count=self._interval_count,
-                    accepted=True,
-                    reason="sample_buffered",
-                    update_wall_time_s=time.perf_counter() - started_at,
-                )
-                return self._belief
-            features = self._aggregated_sample(self._pending_transitions)
-            self._pending_transitions = []
-            self._accumulate_sample(features, weight=float(window))
-        else:
-            self._accumulate_sample(features)
+        self._accumulate_integrated_collective(*sample, sample_period_s, features)
+        self._pending_transitions.append(features)
+        if len(self._pending_transitions) < TRANSITION_AGGREGATION_STEPS:
+            # The window is not full: the belief stands as it was.
+            self._last_sample_report = RecursiveBootstrapSampleReport(
+                interval_count=self._interval_count,
+                accepted=True,
+                reason="sample_buffered",
+                update_wall_time_s=time.perf_counter() - started_at,
+            )
+            return self._belief
+        features = self._aggregated_sample(self._pending_transitions)
+        self._pending_transitions = []
+        self._accumulate_sample(features, weight=float(TRANSITION_AGGREGATION_STEPS))
         fit = self._fit_supported_effects()
-        self._belief = self._assimilated_belief(
-            fit,
-            self._belief_authority(fit),
-            started_at,
+        self._evidence = self._assimilated_evidence(fit, self._belief_authority(fit))
+        self._belief = self._belief_from(
+            self._assimilated_parameters(fit),
+            self._evidence,
         )
         self._last_sample_report = RecursiveBootstrapSampleReport(
             interval_count=self._interval_count,
             accepted=True,
             reason="sample_assimilated",
-            update_wall_time_s=self._belief.update_wall_time_s,
+            update_wall_time_s=time.perf_counter() - started_at,
         )
         return self._belief

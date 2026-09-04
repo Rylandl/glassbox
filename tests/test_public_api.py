@@ -26,7 +26,8 @@ EXPECTED_PUBLIC_API = (
     "LossPolicy",
     "WeightingPolicy",
     "fit",
-    # The parameters a fit produces and the two functions that execute them.
+    # The three parameter families and the two functions that execute them.
+    "BootstrapMultirotorParams",
     "DynamicsParams",
     "FixedWingDynamicsParams",
     "ModelParams",
@@ -55,6 +56,7 @@ EXPECTED_PUBLIC_API = (
     "TrackingTolerances",
     "plan_model",
     # Learning a model in flight, and bounding the command that comes out.
+    "BootstrapEvidence",
     "MultirotorFlightSupervisor",
     "MultirotorSupervisorConfig",
     "RecursiveBootstrapConfig",

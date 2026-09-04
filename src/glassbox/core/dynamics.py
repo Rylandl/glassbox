@@ -1,4 +1,4 @@
-"""Compact differentiable multirotor and fixed-wing dynamics families."""
+"""Compact differentiable multirotor, fixed-wing and bootstrap families."""
 
 from __future__ import annotations
 
@@ -12,6 +12,7 @@ from jax import Array
 from jax.flatten_util import ravel_pytree
 
 from glassbox.core.families import (
+    BOOTSTRAP_MULTIROTOR_FAMILY,
     FIXED_WING_FAMILY,
     MULTIROTOR_FAMILY,
     DynamicsModelFamily,
@@ -299,7 +300,62 @@ class FixedWingDynamicsParams(NamedTuple):
         }
 
 
-BaseDynamicsParams = DynamicsParams | FixedWingDynamicsParams
+class BootstrapMultirotorParams(NamedTuple):
+    """The bootstrap parameterization: direct command effects, no airframe.
+
+    This is what an in-flight identifier can learn about a multirotor it has
+    never seen, and nothing more. Body-``z`` specific force is affine in the
+    motor command and the body velocity; body angular acceleration is affine
+    in the motor command, the body rate, and the three body-rate products. No
+    mixer, mass, inertia, arm length, or thrust coefficient appears, and there
+    is no actuator lag, because the identifier regresses on the applied
+    command it measured rather than on a requested one.
+
+    Every coefficient is stated in the raw command units of the box the
+    vehicle is flown in, so the parameters are directly readable and the
+    structured parameter vector needs no rescaling. The order of the fields is
+    the order of :func:`structured_parameter_names`, and it is a contract: an
+    information state accumulated over these coordinates is stated in it.
+    """
+
+    #: Body-``z`` specific force per unit of each motor command, m/s^2.
+    collective_acceleration_per_command: Array
+    #: Body-``z`` specific force per unit of body velocity, 1/s.
+    collective_velocity_coefficient: Array
+    #: Body-``z`` specific force at zero command and zero velocity, m/s^2.
+    collective_intercept_m_s2: Array
+    #: Body angular acceleration per unit of each motor command, rad/s^2.
+    angular_acceleration_per_command: Array
+    #: Body angular acceleration per unit of body rate, 1/s.
+    angular_rate_coefficient: Array
+    #: Body angular acceleration per unit of the three body-rate products, 1/s.
+    angular_rate_product_coefficient: Array
+    #: Body angular acceleration at zero command and zero rate, rad/s^2.
+    angular_intercept_rad_s2: Array
+
+    def hover_command(self) -> Array:
+        """Return the equal motor command this map says holds a level hover.
+
+        It is a derived quantity rather than a parameter: the collective map
+        and its intercept determine it. It is finite only when the four
+        command effects sum to something positive, and whether it lies inside
+        the command box is a question for the evidence that produced the map,
+        not for the map itself. Like every other model computation it is
+        evaluated in the execution precision, so a caller that needs the
+        estimator's own double-precision value reads it from the evidence that
+        produced the map.
+        """
+
+        collective_sum = jnp.sum(self.collective_acceleration_per_command)
+        return jnp.full(
+            (QUADROTOR_CONTROL_SIZE,),
+            (GRAVITY_M_S2 - self.collective_intercept_m_s2) / collective_sum,
+        )
+
+
+BaseDynamicsParams = (
+    DynamicsParams | FixedWingDynamicsParams | BootstrapMultirotorParams
+)
 
 
 class ResidualDynamicsParams(NamedTuple):
@@ -329,11 +385,22 @@ def model_family(params: ModelParams) -> DynamicsModelFamily:
     """Return the static vehicle-family contract for a parameter tree."""
 
     base = structured_parameters(params)
-    return (
-        FIXED_WING_FAMILY
-        if isinstance(base, FixedWingDynamicsParams)
-        else MULTIROTOR_FAMILY
-    )
+    if isinstance(base, FixedWingDynamicsParams):
+        return FIXED_WING_FAMILY
+    if isinstance(base, BootstrapMultirotorParams):
+        return BOOTSTRAP_MULTIROTOR_FAMILY
+    return MULTIROTOR_FAMILY
+
+
+def models_actuator_lag(params: ModelParams) -> bool:
+    """Whether this family carries a first-order latent actuator response.
+
+    The bootstrap parameterization does not: its latent applied command is the
+    command itself, because the identifier that produces it regresses on the
+    applied command it measured. Every fitted family does.
+    """
+
+    return not isinstance(structured_parameters(params), BootstrapMultirotorParams)
 
 
 def validate_control_schema(
@@ -353,12 +420,20 @@ def _response_time_constant(params: ModelParams) -> Array:
     base = structured_parameters(params)
     if isinstance(base, FixedWingDynamicsParams):
         return jnp.exp(base.log_actuator_time_constant)
+    if isinstance(base, BootstrapMultirotorParams):
+        raise TypeError("the bootstrap parameterization fits no actuator lag")
     return jnp.exp(base.log_motor_time_constant)
 
 
 def latent_response_time_constants(params: ModelParams) -> Array:
-    """Return every fitted first-order latent-response time constant in seconds."""
+    """Return every fitted first-order latent-response time constant in seconds.
 
+    A family that models no actuator lag returns an empty array rather than a
+    zero, because it fitted no time constant at all.
+    """
+
+    if not models_actuator_lag(params):
+        return jnp.zeros(0)
     return jnp.atleast_1d(_response_time_constant(params))
 
 
@@ -387,6 +462,8 @@ def with_response_time_constant(
 
     log_value = jnp.log(jnp.asarray(response_time_constant_s))
     base = structured_parameters(params)
+    if isinstance(base, BootstrapMultirotorParams):
+        raise TypeError("the bootstrap parameterization fits no actuator lag")
     if isinstance(base, FixedWingDynamicsParams):
         updated = base._replace(log_actuator_time_constant=log_value)
     else:
@@ -411,8 +488,8 @@ def with_thrust_command_offset(
             f"{MAX_THRUST_COMMAND_OFFSET:g}"
         )
     base = structured_parameters(params)
-    if isinstance(base, FixedWingDynamicsParams):
-        raise TypeError("fixed-wing models do not have a motor command offset")
+    if not isinstance(base, DynamicsParams):
+        raise TypeError("only the fitted multirotor model has a command offset")
     updated = base._replace(
         thrust_command_offset_unconstrained=jnp.arctanh(
             jnp.asarray(thrust_command_offset / MAX_THRUST_COMMAND_OFFSET)
@@ -427,6 +504,8 @@ def zero_response_time_gradient(params: ModelParams) -> ModelParams:
     """Zero only the family-specific response-time leaf in a gradient tree."""
 
     base = structured_parameters(params)
+    if isinstance(base, BootstrapMultirotorParams):
+        return params
     if isinstance(base, FixedWingDynamicsParams):
         updated = base._replace(
             log_actuator_time_constant=jnp.zeros_like(base.log_actuator_time_constant)
@@ -444,7 +523,7 @@ def zero_thrust_command_offset_gradient(params: ModelParams) -> ModelParams:
     """Freeze the multirotor command offset for physical thrust-proxy inputs."""
 
     base = structured_parameters(params)
-    if isinstance(base, FixedWingDynamicsParams):
+    if not isinstance(base, DynamicsParams):
         return params
     updated = base._replace(
         thrust_command_offset_unconstrained=jnp.zeros_like(
@@ -460,8 +539,8 @@ def with_diagonal_angular_control(params: ModelParams) -> ModelParams:
     """Return a multirotor model using only the canonical mixer axes."""
 
     base = structured_parameters(params)
-    if isinstance(base, FixedWingDynamicsParams):
-        raise TypeError("fixed-wing models do not have a multirotor mixer")
+    if not isinstance(base, DynamicsParams):
+        raise TypeError("only the fitted multirotor model has a mixer")
     updated = base._replace(
         angular_control_cross_coupling_unconstrained=jnp.zeros((3, 3))
     )
@@ -474,7 +553,7 @@ def zero_angular_cross_coupling_gradient(params: ModelParams) -> ModelParams:
     """Freeze only multirotor cross-axis control coupling."""
 
     base = structured_parameters(params)
-    if isinstance(base, FixedWingDynamicsParams):
+    if not isinstance(base, DynamicsParams):
         return params
     updated = base._replace(
         angular_control_cross_coupling_unconstrained=jnp.zeros_like(
@@ -652,8 +731,8 @@ def physics_parameters(params: ModelParams) -> DynamicsParams:
     """Return multirotor physics, rejecting other structured families."""
 
     base = structured_parameters(params)
-    if isinstance(base, FixedWingDynamicsParams):
-        raise TypeError("fixed-wing parameters do not contain quadrotor physics")
+    if not isinstance(base, DynamicsParams):
+        raise TypeError("only the fitted multirotor model carries airframe physics")
     return base
 
 
@@ -873,6 +952,47 @@ def state_derivative(
                 angular_acceleration,
             )
         )
+    elif isinstance(base, BootstrapMultirotorParams):
+        require_quadrotor_control_size(applied_motor_state.shape[-1])
+
+        velocity = state[3:6]
+        quaternion = state[6:10]
+        angular_velocity = state[10:13]
+        rotation = quaternion_to_rotation(quaternion)
+        body_velocity = rotation.T @ velocity
+        # The identifier explains the body-z specific force and nothing else,
+        # so the other two body axes carry exactly zero rather than an
+        # invented coefficient.
+        specific_force_z = (
+            base.collective_acceleration_per_command @ applied_motor_state
+            + base.collective_velocity_coefficient @ body_velocity
+            + base.collective_intercept_m_s2
+        )
+        body_specific_force = jnp.stack(
+            (jnp.zeros(()), jnp.zeros(()), specific_force_z)
+        )
+        world_acceleration = (
+            jnp.asarray([0.0, 0.0, -GRAVITY_M_S2]) + rotation @ body_specific_force
+        )
+        rate_products = jnp.stack(
+            (
+                angular_velocity[0] * angular_velocity[1],
+                angular_velocity[0] * angular_velocity[2],
+                angular_velocity[1] * angular_velocity[2],
+            )
+        )
+        angular_acceleration = (
+            base.angular_acceleration_per_command @ applied_motor_state
+            + base.angular_rate_coefficient @ angular_velocity
+            + base.angular_rate_product_coefficient @ rate_products
+            + base.angular_intercept_rad_s2
+        )
+        quaternion_rate = 0.5 * quaternion_multiply(
+            quaternion, jnp.concatenate((jnp.zeros(1), angular_velocity))
+        )
+        derivative = jnp.concatenate(
+            (velocity, world_acceleration, quaternion_rate, angular_acceleration)
+        )
     else:
         require_quadrotor_control_size(applied_motor_state.shape[-1])
 
@@ -955,11 +1075,17 @@ def step_with_latent(
     applied_control_state = _validated_latent_state(latent_state, control_size)
     require_model_control_size(params, applied_control_state.shape[-1], roles)
 
-    response_time_constant = _response_time_constant(params)
+    if models_actuator_lag(params):
+        response_time_constant = _response_time_constant(params)
 
-    def motor_at(time_s: float) -> Array:
-        decay = jnp.exp(-time_s / response_time_constant)
-        return control + (applied_control_state - control) * decay
+        def motor_at(time_s: float) -> Array:
+            decay = jnp.exp(-time_s / response_time_constant)
+            return control + (applied_control_state - control) * decay
+    else:
+
+        def motor_at(time_s: float) -> Array:
+            del time_s
+            return control
 
     substep_count = max(1, math.ceil(dt_s / MAX_INTERNAL_INTEGRATION_STEP_S))
     integration_dt_s = dt_s / substep_count
@@ -1114,6 +1240,10 @@ def control_state_after_history(
     if control_history.ndim != 2:
         raise ValueError("control history must be two-dimensional")
     _resolved_control_roles(params, control_history.shape[-1], control_roles)
+    if not models_actuator_lag(params):
+        # Without a lag the applied control is the last command, whatever came
+        # before it.
+        return control_history[-1]
 
     decay = jnp.exp(-dt_s / _response_time_constant(params))
 
@@ -1167,7 +1297,10 @@ def rollout(
 def hover_control(params: ModelParams) -> Array:
     """Return equal motor commands that balance gravity at level attitude."""
 
-    if isinstance(params, FixedWingDynamicsParams):
+    base = structured_parameters(params)
+    if isinstance(base, BootstrapMultirotorParams):
+        return base.hover_command()
+    if isinstance(base, FixedWingDynamicsParams):
         raise TypeError("fixed-wing models do not have a hover control")
     motor_command = GRAVITY_M_S2 / (
         4.0 * jnp.exp(physics_parameters(params).log_thrust_accel)

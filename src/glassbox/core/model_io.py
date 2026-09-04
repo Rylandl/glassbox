@@ -17,6 +17,7 @@ from glassbox.core.data import (
     TrajectorySpec,
 )
 from glassbox.core.dynamics import (
+    BootstrapMultirotorParams,
     DynamicsParams,
     FixedWingDynamicsParams,
     ModelParams,
@@ -32,6 +33,7 @@ MODEL_FORMAT_VERSION = 4
 MODEL_TYPE = "effective_quadrotor_command_offset_v4"
 RESIDUAL_MODEL_TYPE = "structured_acceleration_residual_v1"
 FIXED_WING_MODEL_TYPE = "effective_fixedwing_role_aerodynamic_lag_v3"
+BOOTSTRAP_MODEL_TYPE = "recursive_bootstrap_multirotor_command_effects_v1"
 
 # Format 3 is every model and belief written before the multirotor
 # rotational-response branch was deleted. Its multirotor payloads carry one
@@ -69,6 +71,15 @@ FIXED_WING_PARAMETER_NAMES = (
     "flap_trim",
     "actuator_time_constant",
 )
+BOOTSTRAP_PARAMETER_NAMES = (
+    "collective_acceleration_per_command",
+    "collective_velocity_coefficient",
+    "collective_intercept_m_s2",
+    "angular_acceleration_per_command",
+    "angular_rate_coefficient",
+    "angular_rate_product_coefficient",
+    "angular_intercept_rad_s2",
+)
 RESIDUAL_ARRAY_NAMES = (
     "hidden_weights",
     "hidden_bias",
@@ -90,6 +101,13 @@ def parameter_dict(params: ModelParams) -> dict[str, Any]:
     """Convert physical parameter arrays to JSON-compatible values."""
 
     base = structured_parameters(params)
+    if isinstance(base, BootstrapMultirotorParams):
+        # The bootstrap parameterization is already stated in the units it is
+        # read in, so the payload is the parameters themselves.
+        return {
+            name: np.asarray(getattr(base, name), dtype=np.float64).tolist()
+            for name in BOOTSTRAP_PARAMETER_NAMES
+        }
     if isinstance(base, FixedWingDynamicsParams):
         physical = base.physical()
         result: dict[str, Any] = {
@@ -171,6 +189,7 @@ def model_payload(
     input_spec = input_spec.prediction_spec()
     base = structured_parameters(params)
     fixed_wing = isinstance(base, FixedWingDynamicsParams)
+    bootstrap = isinstance(base, BootstrapMultirotorParams)
     family = model_family(params)
     if input_spec.vehicle.family != family.platform:
         raise ValueError(
@@ -179,7 +198,7 @@ def model_payload(
         )
     family.validate_control_schema(input_spec.control_names, input_spec.control_roles)
     thrust_mapping = None
-    if not fixed_wing:
+    if not fixed_wing and not bootstrap:
         semantics = frozenset(input_spec.control_semantics)
         if semantics <= NORMALIZED_MOTOR_COMMAND_SEMANTICS:
             thrust_mapping = "shared_normalized_command_offset"
@@ -204,6 +223,8 @@ def model_payload(
         "model_type": (
             RESIDUAL_MODEL_TYPE
             if residual
+            else BOOTSTRAP_MODEL_TYPE
+            if bootstrap
             else FIXED_WING_MODEL_TYPE
             if fixed_wing
             else MODEL_TYPE
@@ -213,6 +234,8 @@ def model_payload(
         "parameterization": (
             "structured_base_plus_body_acceleration_residual"
             if residual
+            else "direct_command_effect_maps_without_airframe_constants"
+            if bootstrap
             else "effective_quadratic_aerodynamics"
             if fixed_wing
             else "effective_positive_coefficients_with_bounded_command_offset"
@@ -381,6 +404,35 @@ def _fixed_wing_from_payload(
     )
 
 
+def _bootstrap_from_payload(
+    parameters: Mapping[str, Any],
+) -> BootstrapMultirotorParams:
+    values = _decoded_parameters(
+        parameters, BOOTSTRAP_PARAMETER_NAMES, kind="bootstrap multirotor"
+    )
+    shapes = {
+        "collective_acceleration_per_command": (4,),
+        "collective_velocity_coefficient": (3,),
+        "collective_intercept_m_s2": (),
+        "angular_acceleration_per_command": (3, 4),
+        "angular_rate_coefficient": (3, 3),
+        "angular_rate_product_coefficient": (3, 3),
+        "angular_intercept_rad_s2": (3,),
+    }
+    decoded: dict[str, Any] = {}
+    for name, shape in shapes.items():
+        array = np.asarray(values[name], dtype=np.float64)
+        if array.shape != shape or not np.all(np.isfinite(array)):
+            raise ValueError(
+                f"bootstrap multirotor payload parameter {name} must be a "
+                f"finite array of shape {shape}"
+            )
+        # Kept in double precision rather than converted: these are direct
+        # estimates in physical units, and the payload records them exactly.
+        decoded[name] = array
+    return BootstrapMultirotorParams(**decoded)
+
+
 def dynamics_model_from_payload(
     payload: Mapping[str, Any],
 ) -> tuple[ModelParams, dict[str, Any]]:
@@ -397,6 +449,8 @@ def dynamics_model_from_payload(
         params: ModelParams = _physics_from_payload(payload["parameters"])
     elif model_type == FIXED_WING_MODEL_TYPE:
         params = _fixed_wing_from_payload(payload["parameters"])
+    elif model_type == BOOTSTRAP_MODEL_TYPE:
+        params = _bootstrap_from_payload(payload["parameters"])
     elif model_type == RESIDUAL_MODEL_TYPE:
         parameters = _decoded_parameters(
             payload["parameters"],

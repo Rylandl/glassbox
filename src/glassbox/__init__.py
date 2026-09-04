@@ -20,6 +20,7 @@ from glassbox.belief.information import ParameterInformation
 from glassbox.belief.update import UpdateResult
 from glassbox.control.fitted import NMPCController, plan_model
 from glassbox.control.identifier import (
+    BootstrapEvidence,
     RecursiveBootstrapConfig,
     RecursiveBootstrapIdentifier,
 )
@@ -42,6 +43,7 @@ from glassbox.control.supervisor import (
 )
 from glassbox.core.data import Channel, Trajectory, TrajectorySpec
 from glassbox.core.dynamics import (
+    BootstrapMultirotorParams,
     DynamicsParams,
     FixedWingDynamicsParams,
     ModelParams,
@@ -72,7 +74,8 @@ __all__ = [  # noqa: RUF022
     "LossPolicy",
     "WeightingPolicy",
     "fit",
-    # The parameters a fit produces and the two functions that execute them.
+    # The three parameter families and the two functions that execute them.
+    "BootstrapMultirotorParams",
     "DynamicsParams",
     "FixedWingDynamicsParams",
     "ModelParams",
@@ -101,6 +104,7 @@ __all__ = [  # noqa: RUF022
     "TrackingTolerances",
     "plan_model",
     # Learning a model in flight, and bounding the command that comes out.
+    "BootstrapEvidence",
     "MultirotorFlightSupervisor",
     "MultirotorSupervisorConfig",
     "RecursiveBootstrapConfig",

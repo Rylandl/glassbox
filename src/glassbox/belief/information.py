@@ -250,6 +250,18 @@ class ParameterInformation:
     rows and columns outside it are exactly zero. ``innovation_noise`` is the
     per-coordinate one-step innovation variance ``R`` in the twelve rigid-body
     tangent coordinates, never below ``noise_floor``.
+
+    One unit of precision is one observation's worth of information at the
+    noise the producing estimator declared, which is what makes
+    ``effective_count`` comparable to it. For a belief the in-flight
+    identifier produced over the bootstrap parameterization, the collective
+    block is the exception worth stating: that estimator fits the collective
+    map on the integrated target and exports its information as an equivalent
+    per-transition Gram, rescaled so that dividing it by the declared force
+    floor gives the integrated system's precision. So one unit of collective
+    precision there is one transition's worth of information at that declared
+    floor, not at the residual a per-interval fit would have measured. Its
+    angular block carries no such rescaling.
     """
 
     names: tuple[str, ...]
