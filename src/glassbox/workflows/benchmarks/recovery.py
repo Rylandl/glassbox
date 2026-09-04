@@ -18,15 +18,16 @@ import jax.numpy as jnp
 import numpy as np
 
 import glassbox
-from glassbox.belief.belief import (
-    DynamicsBelief,
+from glassbox.belief.belief import DynamicsBelief
+from glassbox.belief.forecast_error import (
     EmpiricalErrorSample,
-    EmpiricalHorizonPredictiveError,
-    LocalGaussianParameterBelief,
-    structured_parameter_names,
-    structured_parameter_vector,
-    with_structured_parameter_vector,
+    ForecastErrorEnvelope,
 )
+from glassbox.belief.information import (
+    ParameterInformation,
+    estimable_structured_parameters,
+)
+from glassbox.belief.parameter_evidence import innovation_noise
 from glassbox.control.fitted import NMPCController
 from glassbox.control.plan import TrackingTolerances
 from glassbox.core.data import Trajectory
@@ -36,6 +37,9 @@ from glassbox.core.dynamics import (
     hover_control,
     quaternion_to_rotation,
     step_with_latent,
+    structured_parameter_names,
+    structured_parameter_vector,
+    with_structured_parameter_vector,
 )
 from glassbox.core.geometry import (
     quaternion_from_euler,
@@ -61,12 +65,14 @@ RECOVERY_DURATION_S = 1.2
 RECOVERY_TAIL_DURATION_S = 0.4
 FLEET_LOG_ARM_LENGTH_RATIOS = (-0.25, -0.125, 0.0, 0.125, 0.25)
 TARGET_LOG_ARM_LENGTH_RATIO = 0.20
-BENCHMARK_METHOD_VERSION = 6
+BENCHMARK_METHOD_VERSION = 7
 BENCHMARK_SOURCE_FILES = (
-    "belief/adaptation.py",
     "belief/belief.py",
-    "belief/covariance.py",
+    "belief/forecast_error.py",
+    "belief/information.py",
     "belief/linearization.py",
+    "belief/parameter_evidence.py",
+    "belief/update.py",
     "control/fitted.py",
     "control/plan.py",
     "control/solver.py",
@@ -74,6 +80,7 @@ BENCHMARK_SOURCE_FILES = (
     "core/dynamics.py",
     "core/geometry.py",
     "core/metrics.py",
+    "core/diagnostics.py",
     "core/model.py",
     "core/synthetic.py",
     "workflows/benchmarks/recovery.py",
@@ -148,8 +155,8 @@ class RecoveryMetrics:
 
     condition: str
     model_role: str
-    predictive_error_current: bool | None
-    parameter_uncertainty_available: bool
+    forecast_error_available: bool
+    parameter_information_rank: int
     prediction_horizon_s: float
     normalized_tracking_rms: float
     tail_normalized_tracking_rms: float
@@ -250,6 +257,7 @@ def _build_beliefs() -> tuple[
         ADAPTATION_HORIZON_STEPS * SAMPLE_DT_S: [],
         CONTROL_HORIZON_STEPS * SAMPLE_DT_S: [],
     }
+    fleet_trajectories: list[Trajectory] = []
     for profile_index, base_seed in enumerate(FLEET_PROFILE_BASE_SEEDS):
         for index, (params, log_ratio, label) in enumerate(
             zip(member_params, FLEET_LOG_ARM_LENGTH_RATIOS, member_labels)
@@ -261,6 +269,7 @@ def _build_beliefs() -> tuple[
                 duration_s=SHORT_HORIZON_FLEET_DURATION_S,
                 source_group=label,
             )
+            fleet_trajectories.append(short_trajectory)
             errors = predict_windows(
                 base,
                 short_trajectory,
@@ -294,12 +303,13 @@ def _build_beliefs() -> tuple[
                     trajectory_id=f"{label}-control-profile-{profile_index}",
                 )
             )
-    predictive_error = replace(
-        EmpiricalHorizonPredictiveError.from_samples(
+    forecast_error = replace(
+        ForecastErrorEnvelope.from_samples(
             {horizon: tuple(samples) for horizon, samples in samples_by_horizon.items()}
         ),
         source="synthetic_arm_fleet_rollout_endpoints",
     )
+    noise = innovation_noise(base, [(item, None) for item in fleet_trajectories])
 
     target_params = _arm_configuration_parameters(
         base,
@@ -313,20 +323,23 @@ def _build_beliefs() -> tuple[
         source_group="target-configuration-adaptation",
     )
 
-    # The vehicle was identified before its geometry changed. Unchanged
-    # coefficients are therefore anchored by that vehicle-local evidence, while
-    # the spread of the sibling configurations around it describes the supported
-    # arm-change direction. Directions no configuration moved carry no variance
-    # and no step: nothing here completes them with an assumption.
-    parameter_belief = LocalGaussianParameterBelief.from_members(
+    # What the sibling configurations hand a new belief is one direction and
+    # its spread: that subspace inverts to precision and everything else stays
+    # at zero precision, which is to say unknown. The prechange mean is where
+    # the belief starts, not something it claims to know; the telemetry is what
+    # resolves the rest, and a direction the telemetry does not excite takes no
+    # step at all.
+    information = ParameterInformation.seeded_from_members(
         base,
         member_params,
-        source="prewarmed_vehicle_plus_configuration_delta",
+        innovation_noise=noise,
+        estimable=estimable_structured_parameters(base),
+        source="prewarmed_vehicle_configuration_spread",
     )
     belief = DynamicsBelief(
         model=ExecutableModel(base, adaptation_telemetry.spec, runtime_spec),
-        predictive_error=predictive_error,
-        parameter_belief=parameter_belief,
+        information=information,
+        forecast_error=forecast_error,
         provenance={
             "benchmark_role": "prechange_vehicle_belief",
             "configuration_change": {
@@ -336,7 +349,11 @@ def _build_beliefs() -> tuple[
             },
         },
     )
-    updated, update_report = belief.update(adaptation_telemetry)
+    updated, update_result = belief.absorb(adaptation_telemetry)
+    if not update_result.absorbed:
+        raise RuntimeError(
+            f"the recovery telemetry was refused: {update_result.reason}"
+        )
 
     evaluation_telemetry = _configuration_trajectory(
         target_params,
@@ -365,17 +382,20 @@ def _build_beliefs() -> tuple[
     evidence = {
         "fleet": {
             "member_count": len(member_params),
-            "parameter_count": len(parameter_belief.parameter_names),
-            "configuration_delta_covariance_rank": (parameter_belief.effective_rank),
-            "predictive_error_horizons_s": list(predictive_error.horizons_s),
-            "predictive_error_group_count": list(
-                predictive_error.independent_group_count
+            "parameter_count": len(information.names),
+            "estimable_parameter_count": information.estimable_count,
+            "seed_resolved_rank": information.resolved_rank(),
+            "posterior_resolved_rank": updated.information.resolved_rank(),
+            "prior_covariance_trace": float(np.trace(information.covariance())),
+            "posterior_covariance_trace": float(
+                np.trace(updated.information.covariance())
             ),
-            "predictive_error_raw_endpoint_count": list(
-                predictive_error.raw_sample_count
-            ),
+            "one_step_innovation_noise": noise.tolist(),
+            "forecast_error_horizons_s": list(forecast_error.horizons_s),
+            "forecast_error_group_count": list(forecast_error.independent_group_count),
+            "forecast_error_raw_endpoint_count": list(forecast_error.raw_sample_count),
         },
-        "adaptation": update_report.to_dict(),
+        "adaptation": update_result.to_dict(),
         "independent_prediction": {
             "horizon_s": CONTROL_HORIZON_STEPS * SAMPLE_DT_S,
             "normalized_rms_before": before_rms,
@@ -526,14 +546,8 @@ def _simulate_recovery(
     return RecoveryMetrics(
         condition=condition,
         model_role=model_role,
-        predictive_error_current=(
-            runtime_belief.predictive_error_current
-            if runtime_belief.predictive_error_available
-            else None
-        ),
-        parameter_uncertainty_available=(
-            runtime_belief.parameter_uncertainty_available
-        ),
+        forecast_error_available=runtime_belief.forecast_error_available,
+        parameter_information_rank=runtime_belief.information.resolved_rank(),
         prediction_horizon_s=controller.prediction_horizon_s,
         normalized_tracking_rms=float(np.sqrt(np.mean(np.square(normalized)))),
         tail_normalized_tracking_rms=float(
@@ -584,12 +598,12 @@ def run_adaptive_recovery_benchmark() -> dict[str, Any]:
     controllers = (
         (
             "stale_belief",
-            "prechange mean plus current fleet forecast error",
+            "prechange mean plus the fleet seed and its forecast envelope",
             NMPCController(belief),
         ),
         (
             "adapted_belief",
-            "adapted mean plus parameter uncertainty; forecast error stale",
+            "adapted mean plus the information the absorb accumulated",
             NMPCController(updated),
         ),
         (
@@ -646,12 +660,18 @@ def run_adaptive_recovery_benchmark() -> dict[str, Any]:
         "flight_safety_claim": False,
         "throw_to_recover_claim": False,
         "posterior_calibration_claim": False,
-        "prechange_vehicle_anchors_unchanged_parameters": True,
         "configuration_delta_direction_derived_from_fleet": True,
         "unexcited_parameter_directions_completed_by_assumption": False,
         "adaptation_and_evaluation_telemetry_disjoint": True,
-        "validation_actuator_context_excluded_from_evidence": True,
-        "stale_predictive_error_is_not_applied_at_runtime": True,
+        # The update is one recursive absorb: every usable transition adds its
+        # information, nothing proposes, nothing validates on a second split,
+        # and no margin decides whether the step happens.
+        "update_is_a_recursive_information_absorb": True,
+        "update_proposal_and_validation_split": False,
+        "update_improvement_margin": False,
+        "parameter_covariance_updated_by_the_update": True,
+        "information_discounted_or_forgotten": False,
+        "held_out_forecast_bias_applied_at_runtime": False,
     }
     configuration = {
         "sample_period_s": SAMPLE_DT_S,
@@ -687,7 +707,7 @@ def run_adaptive_recovery_benchmark() -> dict[str, Any]:
         },
     }
     return {
-        "format_version": 4,
+        "format_version": 5,
         "artifact_type": "glassbox_synthetic_adaptive_recovery_diagnostic",
         "implementation": {
             "method_version": BENCHMARK_METHOD_VERSION,
@@ -731,7 +751,11 @@ def run_adaptive_recovery_benchmark() -> dict[str, Any]:
             ),
         },
         "observations": {
-            "update_applied": evidence["adaptation"]["applied"],
+            "update_absorbed": evidence["adaptation"]["absorbed"],
+            "posterior_resolves_more_than_the_seed": (
+                evidence["fleet"]["posterior_resolved_rank"]
+                > evidence["fleet"]["seed_resolved_rank"]
+            ),
             "independent_prediction_improved": (
                 evidence["independent_prediction"]["normalized_rms_after"]
                 < evidence["independent_prediction"]["normalized_rms_before"]
@@ -765,11 +789,11 @@ def run_adaptive_recovery_benchmark() -> dict[str, Any]:
             "The plant, fleet, telemetry, and configuration change are synthetic.",
             "Controller compilation is prewarmed and excluded from recovery timing.",
             "No independent fallback or airframe-specific recovery controller is included; a failed solve returns a bounded hold of the previous command.",
-            "The prechange vehicle model anchors coefficients not affected by the known arm change.",
+            "The belief starts from the prechange mean but claims to know only the one direction the sibling configurations moved; every other coefficient is resolved, or not, by the telemetry itself.",
             "The benchmark starts from a bounded in-envelope disturbance, not an unknown physical throw.",
             "The objective charges predicted spread in the tracking cost and a componentwise one-standard-deviation margin on the validity envelope; neither is a hard prediction-horizon constraint or a flight-safety guarantee.",
             "Charging spread requires one extra forward rollout per resolved parameter direction; this diagnostic does not establish a hard real-time deadline on other hardware or uncertainty representations.",
-            "The configuration spread is a rank-one direction; the benchmark says nothing about coefficients no sibling configuration moved.",
+            "The seed's spread is a rank-one direction; what the belief learns about every other coefficient comes from 0.8 seconds of one telemetry block.",
         ],
     }
 

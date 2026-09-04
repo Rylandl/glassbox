@@ -268,14 +268,14 @@ def test_rollout_applies_per_step_exogenous_inputs(fixedwing_flight) -> None:
 
 
 def test_structured_parameters_carry_no_rotational_response_coordinate() -> None:
-    from glassbox.belief.belief import structured_parameter_names
-    from glassbox.belief.parameter_evidence import fitted_structured_parameter_mask
+    from glassbox.belief.information import estimable_structured_parameters
+    from glassbox.core.dynamics import structured_parameter_names
 
     names = structured_parameter_names(true_parameters())
 
     assert len(names) == 19
     assert not any("angular_response" in name for name in names)
-    assert fitted_structured_parameter_mask(true_parameters()).shape == (19,)
+    assert estimable_structured_parameters(true_parameters()).shape == (19,)
 
 
 def test_from_physical_rejects_out_of_range_inputs() -> None:

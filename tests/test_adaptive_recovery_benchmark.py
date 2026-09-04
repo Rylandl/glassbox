@@ -37,7 +37,7 @@ def test_adaptive_recovery_benchmark_is_finite_and_auditable() -> None:
     assert report["artifact_type"] == (
         "glassbox_synthetic_adaptive_recovery_diagnostic"
     )
-    assert report["format_version"] == 4
+    assert report["format_version"] == 5
     assert report["semantics"]["diagnostic_only"]
     assert not report["semantics"]["acceptance_gate"]
     assert not report["semantics"]["flight_safety_claim"]
@@ -51,8 +51,14 @@ def test_adaptive_recovery_benchmark_is_finite_and_auditable() -> None:
     assert not report["semantics"][
         "hard_prediction_horizon_validity_constraint_included"
     ]
-    assert report["semantics"]["validation_actuator_context_excluded_from_evidence"]
-    assert report["semantics"]["stale_predictive_error_is_not_applied_at_runtime"]
+    # The update is one recursive absorb, and its covariance really moves:
+    # that is the whole point of retargeting this diagnostic.
+    assert report["semantics"]["update_is_a_recursive_information_absorb"]
+    assert not report["semantics"]["update_proposal_and_validation_split"]
+    assert not report["semantics"]["update_improvement_margin"]
+    assert report["semantics"]["parameter_covariance_updated_by_the_update"]
+    assert not report["semantics"]["information_discounted_or_forgotten"]
+    assert not report["semantics"]["held_out_forecast_bias_applied_at_runtime"]
     # The source digest is provenance: the artifact records which sources
     # produced its numbers, and a source edit that leaves every number
     # unchanged does not make the artifact stale. It is checked for shape
@@ -60,10 +66,14 @@ def test_adaptive_recovery_benchmark_is_finite_and_auditable() -> None:
     assert re.fullmatch(r"[0-9a-f]{64}", report["implementation"]["source_sha256"])
     assert report["implementation"]["source_files"]
     assert (
-        report["observations"]["update_applied"]
-        == report["evidence"]["adaptation"]["applied"]
+        report["observations"]["update_absorbed"]
+        == report["evidence"]["adaptation"]["absorbed"]
     )
-    assert report["evidence"]["adaptation"]["predictive_error_marked_stale"]
+    assert report["evidence"]["adaptation"]["absorbed"]
+    assert report["evidence"]["adaptation"]["information_gain_nats"] > 0.0
+    fleet = report["evidence"]["fleet"]
+    assert fleet["posterior_resolved_rank"] > fleet["seed_resolved_rank"]
+    assert report["observations"]["posterior_resolves_more_than_the_seed"]
     assert report["observations"]["independent_prediction_improved"] == (
         report["evidence"]["independent_prediction"]["normalized_rms_after"]
         < report["evidence"]["independent_prediction"]["normalized_rms_before"]

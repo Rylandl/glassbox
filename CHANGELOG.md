@@ -6,6 +6,69 @@ All notable changes to Glassbox are recorded here. The format follows
 ## Unreleased
 
 ### Added
+- `glassbox.ParameterInformation` is the belief's account of what it knows:
+  `names`, an accumulated `precision` over the structured coefficient block,
+  the per-coordinate `scale` the rank test is stated in, the `estimable` mask
+  the fitter declares, the one-step `innovation_noise` `R` with the declared
+  `noise_floor` beside it, an `effective_count`, and a
+  `rank_relative_tolerance`. `resolved_rank()` and `resolved_subspace()` say
+  what the evidence resolved; `covariance()` is the pseudo-inverse of the
+  precision on that subspace, exactly zero along every direction it does not
+  resolve; `authority(direction)` is in `[0, 1]`, one along the best-resolved
+  direction and zero off the resolved subspace; `information_gain_nats(delta)`
+  prices an increment along the directions already resolved; `unknown(params)`
+  is the rank-zero point estimate; and
+  `seeded_from_members(nominal, members)` inverts the members' sample
+  covariance on its supported subspace to precision, which is the forty-line
+  replacement for the deleted fleet prior. It lives in
+  `glassbox.belief.information`, together with the folded-in
+  `SupportedCovariance`, `supported_covariance`, `structured_parameter_scale`
+  and `estimable_structured_parameters`.
+- `glassbox.ForecastErrorEnvelope` is the held-out forecast-error second moment
+  by horizon in the twelve rigid-body local coordinates, with
+  `covariance_at(horizon_s)` and `maximum_horizon_s`. It lives in
+  `glassbox.belief.forecast_error` with `EmpiricalErrorSample`,
+  `mean_error_by_horizon`, `HorizonEndpointErrorEvidence` and
+  `endpoint_error_evidence_by_horizon`.
+- `DynamicsBelief.absorb(telemetry) -> (DynamicsBelief, UpdateResult)` in
+  `glassbox.belief.update` is the recursive information update. It takes
+  one-step windows at the belief's own sample period, drops any sample that is
+  non-finite or outside the model's validity envelope, adds
+  `sum_w J_w' R^-1 J_w` to the accumulated precision, and steps by that
+  precision's pseudo-inverse applied to the whitened innovation, which is
+  exactly zero along every unresolved direction and is bounded by the current
+  covariance rather than by a declared trust region. Information accumulates
+  and is never discounted. The realized error can raise the noise floor only by
+  the part the step did not explain, so the error an empty belief makes is
+  explained away by its own first step instead of being recorded as irreducible
+  noise. `glassbox.UpdateResult` carries `absorbed`, `reason`, `window_count`,
+  `innovation_rms_before`, `innovation_rms_after`, `information_gain_nats`,
+  `step_norm_prior_sigma` and `maximum_validity_utilization`; the belief's
+  `provenance` accumulates `update_count` and
+  `parameter_distance_since_measurement`.
+- `DynamicsBelief.support` is the model's own validity envelope, and
+  `DynamicsBelief.sample_period_s`, `update_count` and
+  `parameter_distance_since_measurement` are properties.
+- `core/diagnostics.py::one_step_innovations(params, trajectory)` returns every
+  interval's one-step innovation in the twelve local coordinates. It is the
+  array the diagnostics report already summarized, and it is now also the
+  belief's noise model.
+- `core/geometry.py::state_plus_tangent(state, tangent)` is the retraction
+  inverse to `rigid_body_local_error`. It is the body of the deleted
+  `apply_tangent_correction`, moved to the module that owns the log map so the
+  tangent contract is complete in one place.
+- `belief/parameter_evidence.py::innovation_noise(params, flights)` measures the
+  noise model, and `parameter_information(model, trajectories, groups, ...)`
+  accumulates the precision. The fit report's `models[*].validation` gains
+  `innovation_noise` and `held_out_mean_tangent_error`.
+- `tests/test_absorb.py` pins the update: a direction the evidence cannot
+  resolve receives no step, a well-resolved direction moves less than a poorly
+  resolved one for the same innovation, information accumulates and never
+  decays, the realized noise rises only by what the step could not explain,
+  out-of-envelope and non-finite telemetry are refused with a reason, absorb is
+  a pure function of the belief it is given, and a fit-then-absorb round trip on
+  a synthetic vehicle whose configuration changed reduces the one-step
+  innovation and raises the resolved rank from zero.
 - `glassbox.control` exports the in-flight identifier and the command
   supervisor: `RecursiveBootstrapIdentifier`, `RecursiveBootstrapConfig`,
   `RecursiveBootstrapBelief`, `RecursiveBootstrapSampleReport`,
@@ -215,6 +278,144 @@ All notable changes to Glassbox are recorded here. The format follows
   from a controller.
 
 ### Changed
+- `docs/results/adaptive-recovery-results.json` was re-recorded at format 5 and
+  method version 7, and every number in it moved. Three causes, in order of
+  size. The benchmark's belief is now seeded by inverting the five sibling
+  configurations' sample covariance to precision, so it starts knowing one
+  direction rather than declaring one direction uncertain and the other
+  eighteen certain. The update is `absorb` over all forty one-step transitions
+  instead of the transaction over eight windows split into a proposal half and
+  a validation half. And the held-out forecast bias is no longer applied at
+  runtime, so the envelope is the uncentered second moment and a moved
+  parameter vector no longer stales it. Resolved rank goes from `1` to `9` of
+  `15` estimable coordinates, the information gain is `1.698` nats where the
+  transaction recorded `null`, the whitened one-step innovation on the absorbed
+  telemetry falls `0.2514` to `0.0264`, and independent 0.6-second prediction
+  RMS falls `0.033394` to `0.010120`, a ratio of `0.303x` against the
+  transaction's `0.458x`. The recovery comparison changes sign: adapted against
+  seeded is `0.993x` tail tracking and `0.830x` tail attitude/rate, against
+  `1.059x` and `1.003x` before, and adapted against oracle is `1.078x` and
+  `1.049x`, against `1.123x` and `1.223x`. Maximum actual validity utilization
+  is `1.085`, `1.056`, `1.091`, `1.136`. The `oracle_mean_point` arm, which
+  carries no evidence at all, moved only by between 1e-8 and 1e-7 relative,
+  because dropping the bias correction also drops a quaternion multiply by the
+  identity and a renormalization from every predicted stage. The
+  `evidence.adaptation` block is `UpdateResult`'s eight fields in place of
+  `BeliefUpdateReport`'s thirty-five, `evidence.fleet` records the seed and
+  posterior rank, both covariance traces and the measured noise model, the
+  `semantics` keys describe an absorb rather than a transaction, and the two
+  per-trace fields `predictive_error_current` and
+  `parameter_uncertainty_available` are `forecast_error_available` and
+  `parameter_information_rank`.
+- `docs/results/nmpc-acceptance-results.json` was re-recorded. It builds point
+  models, which carried no bias, so nothing about it moved structurally. Six
+  non-timing values moved by between 1e-9 and 1e-8 relative, for the same
+  reason the oracle recovery arm did: the solver's mean rollout no longer
+  applies a zero tangent correction, and that correction was a quaternion
+  multiply by the identity followed by a renormalization. The suite still
+  passes every check and the two numbers `docs/concepts/nmpc.md` quotes,
+  `0.651x` nominal and `0.552x` mismatch, are unchanged at the precision they
+  are quoted. `docs/results/cascade-x8-validation-results.json` is untouched.
+- The belief is three objects: `DynamicsBelief(model, information,
+  forecast_error, provenance)`. `ParameterInformation` replaces
+  `LocalParameterInformation`, `LocalGaussianParameterBelief` and
+  `PointParameterBelief`, which are gone along with `UnavailableParameterEvidence`,
+  `ParameterBelief`, `ParameterEvidence`, `parameter_belief_from_dict`,
+  `parameter_evidence_from_dict` and `ResolvedLocalGeometry`; a point belief is
+  rank zero rather than a separate type. `ForecastErrorEnvelope` replaces
+  `EmpiricalHorizonPredictiveError` and `UnavailablePredictiveError`, which are
+  gone along with `PredictiveErrorModel` and `predictive_error_from_dict`; an
+  absent envelope is `None` rather than a type that answers zero. The
+  `DynamicsBelief` fields `predictive_error`, `parameter_belief`,
+  `parameter_evidence` and `predictive_error_parameter_update_count` and the
+  properties `predictive_error_available`, `predictive_error_current`,
+  `parameter_uncertainty_available` and `error_moments` are gone;
+  `error_covariance(horizon_s)` is what a caller reads now. Last commit
+  carrying the replaced types: `8d3400f`.
+- `ErrorCovarianceScope` is deleted and with it every branch keyed on it. The
+  fit measures one-step innovation covariance and that is the only kind of
+  noise the belief has. `LocalParameterInformation`'s `group_score_vectors`,
+  `group_score_second_moment`, `score_vector`, `unresolved_direction_basis`,
+  `center`, `horizons_s`, `window_count_by_horizon`,
+  `residual_precision_rank_by_horizon`, `group_labels`,
+  `independent_group_count`, `trajectory_count` and the three provenance
+  strings go with it; the sandwich inputs backed no production reader.
+- The runtime forecast bias is gone. `EmpiricalHorizonPredictiveError.tangent_bias`,
+  `apply_tangent_correction`, `DynamicsBelief.corrected_state` and the `bias`
+  argument of every entry point in `belief/linearization.py` are deleted, and
+  the forecast-error envelope is the **uncentered** second moment of the
+  held-out endpoint error rather than a covariance about a bias that nothing
+  applies. The held-out mean error is recorded as
+  `models[*].validation.aggregate.held_out_mean_tangent_error` and read by
+  nothing. This is what removes the staleness lifecycle: with no correction to
+  invalidate, a moved parameter vector does not invalidate the envelope, so the
+  NMPC horizon cap never disappears and the controller never becomes more
+  confident because it adapted.
+- `PredictiveTrajectory` is `states`, `latent_states`, `commands`,
+  `forecast_error_covariance`, `parameter_covariance`, `validity_utilization`,
+  `forecast_error_available`, `forecast_error_horizon_supported` and
+  `parameter_information_rank`, with `tangent_covariance` the sum of the two
+  covariances. `nominal_states` and `mean_states` were the same trajectory once
+  the bias went, so there is one; `tangent_bias`, `quantile_levels`,
+  `parameter_tangent_jacobian`, `predictive_error_current`,
+  `empirical_error_covariance_scope`, `parameter_covariance_combined_with_empirical_error`
+  and `uncertainty_horizon_supported` are gone. The parameter contribution is
+  computed through a factor of the covariance, one forward rollout per resolved
+  direction, instead of a full reverse-mode Jacobian.
+- `control/fitted.py` reads `belief.information.covariance()` and
+  `belief.forecast_error`. `parameter_covariance_factor` returns `None` only
+  when the belief resolves no direction at all, so a belief that has parameter
+  information now charges its predicted spread in the objective on every path
+  rather than on none. The solver's mean rollout is the model's own rollout,
+  with no bias correction applied to it.
+- `belief_io` writes format 5: `nominal_model`, `information`,
+  `forecast_error` and `provenance`. A belief written under format 3 or 4 loads
+  with a warning. Its predictive-error bias is folded back into the envelope,
+  which is exact because the uncentered second moment is the centered
+  covariance plus the outer product of the bias. Its parameter *covariance*, if
+  it carried one, converts exactly, by the same inversion on the supported
+  subspace that seeds a belief from members. Its rank-aware parameter
+  *evidence* does not convert: it was whitened by a horizon-averaged held-out
+  forecast covariance rather than by a one-step innovation covariance, and
+  neither the noise it assumed nor the number of independent transitions behind
+  it can be recovered from the artifact, so such a belief loads at rank zero
+  with a second warning, keeping its names, scale and estimable mask. The
+  tolerance covers the fitted corpus models under the gitignored `artifacts/`
+  tree and goes away when Phase 3 re-records them.
+- The fit's parameter evidence is accumulated over the training flights'
+  one-step transitions rather than over the training windows' endpoints, under
+  a budget of 512 windows spread evenly across the independent source groups.
+  The declared noise model is one-step innovation covariance, so one-step
+  windows are the windows it weights correctly: whitening a multi-step endpoint
+  by it would overstate the information by roughly the horizon and would count
+  the same transition once per training horizon. The fit and `absorb` therefore
+  run the same estimator and their information is in one currency. The fit
+  report's `configuration.parameter_evidence` records
+  `method: training_one_step_information_v1`, `maximum_windows` and
+  `noise_model` in place of `method: grouped_local_rollout_information_v1`,
+  `maximum_windows_per_horizon` and `residual_scale_source`, and
+  `models[*].parameter_evidence` is the serialized `ParameterInformation`.
+  `FitSpec.parameter_evidence` still governs the precision; the noise model is
+  measured on every fit, because a belief that cannot say how wrong its
+  one-step predictions are cannot weight the next observation either.
+- `models[*].validation.predictive_error` is `models[*].validation.forecast_error`
+  and is `null` rather than an unavailable object when the held-out flights
+  were shorter than every evaluation horizon.
+- `structured_parameter_names`, `structured_parameter_vector` and
+  `with_structured_parameter_vector` moved from `glassbox.belief.belief` to
+  `glassbox.core.dynamics`, beside `structured_parameters`, and
+  `TANGENT_STATE_SIZE`, `TANGENT_STATE_ORDER` and `TANGENT_GROUP_ORDER` moved
+  to `glassbox.core.geometry`, beside `rigid_body_local_error`. Neither was
+  public and the values are unchanged; the move is what lets the information
+  and envelope modules exist without importing the belief that holds them.
+- `fitted_structured_parameter_mask` is
+  `glassbox.belief.information.estimable_structured_parameters` and returns the
+  same mask.
+- `glassbox.__all__` is thirty-eight names. `ParameterInformation`,
+  `ForecastErrorEnvelope` and `UpdateResult` join it;
+  `LocalParameterInformation`, `LocalGaussianParameterBelief`,
+  `PointParameterBelief` and `EmpiricalHorizonPredictiveError` leave it with
+  the types they named.
 - The multirotor latent state is four wide, the applied motor commands, down
   from seven. `ExecutableModel.latent_size` is one entry per declared control
   channel for both families, `DynamicsParams` has nineteen structured
@@ -673,6 +874,43 @@ All notable changes to Glassbox are recorded here. The format follows
   learned. No flag was removed.
 
 ### Removed
+- The transactional belief update, at `glassbox/belief/adaptation.py`, 2,006
+  lines. `BeliefUpdateProposal`, `BeliefUpdateReport` and its thirty-five
+  fields, `propose_dynamics_belief_update`,
+  `validate_and_commit_dynamics_belief_update`, `update_dynamics_belief`,
+  `recalibrate_predictive_error`, `DynamicsBelief.update`, `propose_update`,
+  `commit_update` and `recalibrate_predictive_error`, the two-sigma improvement
+  margin `IMPROVEMENT_MARGIN_STANDARD_ERRORS`, the maximum-norm trust bound
+  `MAXIMUM_LOCAL_PARAMETER_STEP_SIGMA`, the line-search fractions, the revision
+  and control-history fingerprints and the transition replay detection are all
+  gone, together with `tests/test_adaptation.py` and its nineteen tests.
+  `HorizonEndpointErrorEvidence` and `endpoint_error_evidence_by_horizon` moved
+  to `glassbox.belief.forecast_error`, which is the only part of the module
+  anything else read.
+
+  The reason is not cost. On every path a shipped artifact could reach, the
+  account of what is unknown never changed: the fit wrote total-forecast-scoped
+  evidence and every contraction mechanism was gated on a conditional
+  innovation scope that nothing produced, so the recorded artifact said
+  covariance not updated, posterior trace equal to prior trace, information
+  gain null. A commit then zeroed the error moments, which removed the NMPC
+  horizon cap and showed the controller zero model uncertainty, so adapting
+  made it more confident than its evidence supported. The margin and the trust
+  bound existed to patch the null-acceptance rate of an improvement-threshold
+  gate, which is the mechanism the design does not want. `absorb` is the
+  recursion the in-flight identifier already ran, generalized by one Jacobian.
+  Last commit carrying the transaction: `8d3400f`.
+- The 64-seed null-acceptance calibration, which measured how often the
+  transaction's threshold committed when there was nothing to learn. With no
+  gate there is no acceptance rate to calibrate; `tests/test_absorb.py` pins a
+  step-size property in its place, at the same 64 seeds. Under the null the
+  step has covariance `P dL P = P - P L P`, at most the posterior covariance
+  and therefore at most the prior covariance, so the mean step over `S` seeds
+  along any resolved direction is within `k / sqrt(S)` prior sigma; the test
+  uses `k = 4`, a bound of `0.5` prior sigma. The constant is derived from that
+  inequality rather than from a run.
+- `glassbox/belief/covariance.py`, folded into
+  `glassbox/belief/information.py` with its contents unchanged.
 - The lagged multirotor rotational-response branch and its sentinel machinery:
   `INSTANTANEOUS_ROTATIONAL_RESPONSE_S`, `_angular_response_at`,
   `_split_latent_state`, `_initial_latent_state`,

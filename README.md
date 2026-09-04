@@ -7,11 +7,12 @@ control. It targets multirotors and fixed-wing aircraft flown by PX4, with
 adapters for several published system-identification datasets and two
 simulators.
 
-The fitted artifact is a **dynamics belief**: a structured rigid-body model
-with learned actuator lag and an optional compact residual, surrounded by the
-prediction error observed on held-out flights, a rank-aware parameter
-information matrix, a validity envelope, and update provenance. Evaluation,
-online updates, and the NMPC controller all consume that one artifact.
+The fitted artifact is a **dynamics belief**: one executable rigid-body model
+with learned actuator lag and an optional compact residual, the accumulated
+information saying which of its coefficients the evidence has resolved and how
+precisely, and the forecast-error envelope saying how wrong its predictions
+have been on flights it did not see. Evaluation, live updates, and the NMPC
+controller all consume that one artifact.
 
 ## Install
 
@@ -86,14 +87,14 @@ result = controller.solve(
 command = result.command  # bounded even when result.command_usable is False
 ```
 
-Update the belief from recent telemetry with `belief.update(trajectory)`. The
-update is transactional: it proposes a bounded local move on early telemetry
-and commits only when disjoint later telemetry shows the moved parameters,
-scored without the held-out bias correction that a commit makes stale, beating
-the corrected forecast the vehicle flies today by more than the noise in that
-evidence. Otherwise it returns the original belief. A commit moves the
-parameters, which marks the held-out error evidence stale; rebuild it around
-the new parameters with `belief.recalibrate_predictive_error(trajectory)`. See
+Update the belief from recent telemetry with `belief.absorb(trajectory)`,
+which returns a new belief and an `UpdateResult`. Every usable one-step
+transition adds `J' R^-1 J` to the accumulated precision and the step is that
+precision's pseudo-inverse applied to the whitened innovation, so a
+well-resolved coefficient moves less than a poorly resolved one and a
+direction the telemetry does not excite does not move at all. There is no
+proposal, no validation split and no acceptance threshold; information
+accumulates and is never discounted. See
 [dynamics beliefs](docs/concepts/dynamics-beliefs.md) and
 [NMPC](docs/concepts/nmpc.md) for the full contracts.
 
@@ -108,7 +109,7 @@ imported on demand.
 | --- | --- |
 | root | `fitting` (`fit`, `FitSpec`, `Holdout`, the fit report) |
 | `core` | `data`, `dynamics`, `families`, `geometry`, `identification`, `metrics`, `diagnostics`, `model`, `model_io`, `synthetic`, `fixedwing_synthetic` |
-| `belief` | `belief`, `belief_io`, `parameter_evidence`, `linearization`, `covariance`, `adaptation` |
+| `belief` | `belief`, `information`, `forecast_error`, `update`, `parameter_evidence`, `belief_io`, `linearization` |
 | `control` | `plan`, `solver`, `fitted`, `identifier`, `supervisor` |
 | `io` | `corpus`, `px4_ulog`, `px4_frames`, `pinned_download`, `sitl_profile`, `arp_reference`, `idf_reference`, `nanodrone_reference`, `x8_reference`, `epfl_reference` |
 | `workflows` | `evaluate`, `holdout`, `record_results`, `benchmarks/` (`nmpc`, `recovery`, `cascade_x8`) |
@@ -127,7 +128,7 @@ example `from glassbox.core.data import load_trajectory_npz`.
 | Telemetry | `Channel`, `Trajectory`, `TrajectorySpec` |
 | The fit | `fit`, `FitSpec`, `FitOutcome`, `Holdout`, `LossPolicy`, `WeightingPolicy` |
 | Parameters and rollout | `ModelParams`, `DynamicsParams`, `FixedWingDynamicsParams`, `rollout`, `step` |
-| The belief | `DynamicsBelief`, `ExecutableModel`, `ActuationMap`, `LocalParameterInformation`, `LocalGaussianParameterBelief`, `PointParameterBelief`, `EmpiricalHorizonPredictiveError`, `NonActionableModelError` |
+| The belief | `DynamicsBelief`, `ParameterInformation`, `ForecastErrorEnvelope`, `UpdateResult`, `ExecutableModel`, `ActuationMap`, `NonActionableModelError` |
 | Control | `PlanModel`, `plan_model`, `BoundedShootingSolver`, `SolverPolicy`, `SolveResult`, `SolveStatus`, `NMPCController`, `ReferenceTrajectory`, `SafetyEnvelope`, `TrackingTolerances`, `Prediction` |
 | In-flight identification and supervision | `RecursiveBootstrapIdentifier`, `RecursiveBootstrapConfig`, `MultirotorFlightSupervisor`, `MultirotorSupervisorConfig`, `SupervisorMode`, `SupervisorReason` |
 

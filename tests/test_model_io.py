@@ -312,33 +312,145 @@ def test_format_three_multirotor_payload_drops_the_rotational_response(
     assert not any("angular_response" in name for name in restored._asdict())
 
 
-def test_format_three_belief_drops_the_rotational_response_coordinates(
+def _legacy_belief_payload(
+    belief: DynamicsBelief,
+    *,
+    parameter_belief: dict | None = None,
+) -> dict:
+    """Reshape a current payload into the format-4 one a belief used to write."""
+
+    payload = belief_payload(belief)
+    payload.pop("information")
+    payload.pop("forecast_error")
+    payload["format_version"] = 4
+    names = list(structured_parameter_names(true_parameters()))
+    payload["parameter_belief"] = parameter_belief or {
+        "format_version": 1,
+        "kind": "point_estimate",
+        "uncertainty_available": False,
+        "scenario_count": 1,
+        "update_count": 0,
+    }
+    payload["parameter_evidence"] = {
+        "format_version": 2,
+        "kind": "local_structured_parameter_information",
+        "coordinate_system": "unconstrained_structured_parameter_vector",
+        "parameter_scale_semantics": (
+            "one_transformed_unit_or_same_axis_effective_authority"
+        ),
+        "parameter_names": names,
+        "center": np.asarray(
+            structured_parameter_vector(true_parameters()), dtype=float
+        ).tolist(),
+        "information_matrix": np.eye(len(names)).tolist(),
+        "parameter_scale": np.ones(len(names)).tolist(),
+        "fitted_parameter_mask": np.ones(len(names), dtype=bool).tolist(),
+        "rank_relative_tolerance": 1e-6,
+        "group_score_vectors": np.zeros((1, len(names))).tolist(),
+    }
+    payload["predictive_error"] = {
+        "format_version": 3,
+        "kind": "empirical_horizon_tangent_moments",
+        "horizons_s": [0.1],
+        "tangent_bias": [[0.1] + [0.0] * 11],
+        "tangent_covariance": [np.diag([0.04] + [0.01] * 11).tolist()],
+        "quantile_levels": [0.5],
+        "raw_sample_count": [8],
+        "effective_sample_count": [8.0],
+        "independent_group_count": [2],
+        "source": "held_out_rollout_endpoints",
+        "weighting": "equal_source_group_then_trajectory_then_endpoint",
+    }
+    payload["predictive_error_parameter_update_count"] = 0
+    return payload
+
+
+def test_legacy_belief_folds_the_forecast_bias_into_the_envelope(
     tmp_path, quadrotor_trajectory_seed0_dur0_1s
 ) -> None:
-    from glassbox.belief.belief import LocalParameterInformation
-
     path = tmp_path / "legacy_belief.json"
     input_spec = quadrotor_trajectory_seed0_dur0_1s.spec
     belief = DynamicsBelief(
         model=ExecutableModel(true_parameters(), input_spec, _runtime_spec()),
-        parameter_evidence=LocalParameterInformation(
-            parameter_names=structured_parameter_names(true_parameters()),
-            center=np.asarray(structured_parameter_vector(true_parameters())),
-            information_matrix=np.eye(19),
-            parameter_scale=np.ones(19),
-            fitted_parameter_mask=np.ones(19, dtype=bool),
-            horizons_s=(0.1,),
-            window_count_by_horizon=(4,),
-            residual_precision_rank_by_horizon=(12,),
-            group_labels=("a",),
-            group_score_vectors=np.zeros((1, 19)),
-            independent_group_count=1,
-            trajectory_count=1,
-            rank_relative_tolerance=1e-6,
-            source="test",
-        ),
     )
-    payload = belief_payload(belief)
+    path.write_text(json.dumps(_legacy_belief_payload(belief)))
+
+    with pytest.warns(UserWarning, match="format 4"):
+        restored = load_dynamics_belief(path)
+
+    # The old model corrected the bias and reported the covariance about it.
+    # Nothing corrects it now, so the envelope is the uncentered second moment
+    # and the conversion is exact rather than lossy.
+    expected = np.diag([0.04] + [0.01] * 11)
+    expected[0, 0] += 0.01
+    np.testing.assert_allclose(
+        restored.forecast_error.tangent_covariance[0], expected, atol=1e-12
+    )
+
+
+def test_legacy_belief_without_a_parameter_covariance_loads_at_rank_zero(
+    tmp_path, quadrotor_trajectory_seed0_dur0_1s
+) -> None:
+    path = tmp_path / "legacy_belief.json"
+    input_spec = quadrotor_trajectory_seed0_dur0_1s.spec
+    belief = DynamicsBelief(
+        model=ExecutableModel(true_parameters(), input_spec, _runtime_spec()),
+    )
+    path.write_text(json.dumps(_legacy_belief_payload(belief)))
+
+    with pytest.warns(UserWarning, match="cannot be converted"):
+        restored = load_dynamics_belief(path)
+
+    assert restored.information.resolved_rank() == 0
+    assert restored.information.names == structured_parameter_names(true_parameters())
+    assert restored.information.source == "legacy_artifact"
+
+
+def test_legacy_parameter_covariance_converts_to_precision_exactly(
+    tmp_path, quadrotor_trajectory_seed0_dur0_1s
+) -> None:
+    path = tmp_path / "legacy_belief.json"
+    input_spec = quadrotor_trajectory_seed0_dur0_1s.spec
+    names = list(structured_parameter_names(true_parameters()))
+    covariance = np.zeros((len(names), len(names)))
+    covariance[0, 0] = 0.04
+    belief = DynamicsBelief(
+        model=ExecutableModel(true_parameters(), input_spec, _runtime_spec()),
+    )
+    payload = _legacy_belief_payload(
+        belief,
+        parameter_belief={
+            "format_version": 1,
+            "kind": "local_gaussian_structured_parameters",
+            "coordinate_system": "unconstrained_structured_parameter_vector",
+            "parameter_names": names,
+            "covariance": covariance.tolist(),
+            "source": "configuration_members",
+            "evidence_count": 5,
+            "effective_sample_count": 5.0,
+            "update_count": 0,
+        },
+    )
+    path.write_text(json.dumps(payload))
+
+    with pytest.warns(UserWarning, match="format 4"):
+        restored = load_dynamics_belief(path)
+
+    assert restored.information.resolved_rank() == 1
+    np.testing.assert_allclose(
+        restored.information.covariance(), covariance, atol=1e-12
+    )
+
+
+def test_format_three_belief_drops_the_rotational_response_coordinates(
+    tmp_path, quadrotor_trajectory_seed0_dur0_1s
+) -> None:
+    path = tmp_path / "legacy_belief.json"
+    input_spec = quadrotor_trajectory_seed0_dur0_1s.spec
+    belief = DynamicsBelief(
+        model=ExecutableModel(true_parameters(), input_spec, _runtime_spec()),
+    )
+    payload = _legacy_belief_payload(belief)
     payload["format_version"] = 3
     payload["nominal_model"]["format_version"] = 3
     payload["nominal_model"]["model_type"] = (
@@ -360,8 +472,6 @@ def test_format_three_belief_drops_the_rotational_response_coordinates(
     matrix = np.asarray(evidence["information_matrix"], dtype=float)
     matrix = np.insert(np.insert(matrix, [10] * 3, 0.0, axis=0), [10] * 3, 0.0, axis=1)
     evidence["information_matrix"] = matrix.tolist()
-    scores = np.asarray(evidence["group_score_vectors"], dtype=float)
-    evidence["group_score_vectors"] = np.insert(scores, [10] * 3, 0.0, axis=1).tolist()
     path.write_text(json.dumps(payload))
 
     with pytest.warns(UserWarning, match="format 3"):
@@ -371,12 +481,8 @@ def test_format_three_belief_drops_the_rotational_response_coordinates(
         true_parameters(), restored.params, strict=True
     ):
         np.testing.assert_allclose(restored_leaf, expected_leaf, rtol=1e-6)
-    assert restored.parameter_evidence.parameter_names == (
-        structured_parameter_names(true_parameters())
-    )
-    np.testing.assert_array_equal(
-        restored.parameter_evidence.information_matrix, np.eye(19)
-    )
+    assert restored.information.names == structured_parameter_names(true_parameters())
+    assert restored.information.resolved_rank() == 0
 
 
 def test_format_three_belief_refuses_information_on_a_deleted_coordinate(
@@ -415,7 +521,6 @@ def test_belief_loader_reads_a_bare_model_as_a_point_belief(
         np.testing.assert_allclose(restored_leaf, original_leaf, rtol=1e-6)
     assert belief.input_spec == input_spec.prediction_spec()
     assert belief.runtime_spec == _runtime_spec()
-    assert belief.predictive_error.available is False
-    assert belief.parameter_evidence.available is False
-    assert belief.parameter_belief.uncertainty_available is False
+    assert belief.forecast_error is None
+    assert belief.information.resolved_rank() == 0
     assert belief.provenance == {"flight": "fixture"}

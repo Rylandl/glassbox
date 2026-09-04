@@ -17,13 +17,7 @@ import jax.numpy as jnp
 import numpy as np
 from jax import Array
 
-from glassbox.belief.belief import (
-    DynamicsBelief,
-    EmpiricalHorizonPredictiveError,
-    ErrorCovarianceScope,
-    structured_parameter_vector,
-    with_structured_parameter_vector,
-)
+from glassbox.belief.belief import DynamicsBelief
 from glassbox.control.plan import (
     PlanMeasurements,
     Prediction,
@@ -34,7 +28,12 @@ from glassbox.control.plan import (
 )
 from glassbox.control.solver import BoundedShootingSolver
 from glassbox.core.data import duration_to_steps
-from glassbox.core.dynamics import ModelParams, quaternion_to_rotation
+from glassbox.core.dynamics import (
+    ModelParams,
+    quaternion_to_rotation,
+    structured_parameter_vector,
+    with_structured_parameter_vector,
+)
 from glassbox.core.geometry import rigid_body_local_error
 from glassbox.core.model import ExecutableModel, NonActionableModelError
 
@@ -65,33 +64,22 @@ def parameter_covariance_factor(belief: DynamicsBelief) -> np.ndarray | None:
     each one forward-mode rollout, so a covariance the evidence resolved along
     one direction costs one extra rollout instead of a full Jacobian.
 
-    ``None`` means the belief contributes no parameter spread, either because
-    it carries no parameter uncertainty or because its forecast-error evidence
-    already scopes the total forecast error, which is what
-    :attr:`PredictiveTrajectory.tangent_covariance` reports in that case.
+    ``None`` means the belief resolves no parameter direction at all, which is
+    a point model: it contributes exactly zero spread and is priced by the
+    point objective. A direction the evidence did not resolve is absent from
+    the factor rather than present with a large variance, because the
+    information state says nothing about it and inventing a spread there would
+    be an assumption the belief does not hold.
     """
 
-    if not belief.parameter_uncertainty_available:
-        return None
-    if _error_covariance_scope(belief) == ErrorCovarianceScope.TOTAL_FORECAST:
-        return None
-    covariance = np.asarray(belief.parameter_belief.covariance, dtype=np.float64)
+    assert belief.information is not None
+    covariance = belief.information.covariance()
     eigenvalues, eigenvectors = np.linalg.eigh(0.5 * (covariance + covariance.T))
     floor = _MINIMUM_COVARIANCE_EIGENVALUE_FRACTION * max(float(eigenvalues[-1]), 0.0)
     retained = eigenvalues > max(floor, 0.0)
     if not np.any(retained):
         return None
     return eigenvectors[:, retained] * np.sqrt(eigenvalues[retained])
-
-
-def _error_covariance_scope(belief: DynamicsBelief) -> ErrorCovarianceScope | None:
-    predictive_error = belief.predictive_error
-    if (
-        isinstance(predictive_error, EmpiricalHorizonPredictiveError)
-        and belief.predictive_error_current
-    ):
-        return predictive_error.covariance_scope
-    return None
 
 
 def default_solver_policy(model: ExecutableModel) -> SolverPolicy:
@@ -149,8 +137,11 @@ def _compile_signature(
     for leaf in leaves:
         array = np.asarray(leaf)
         add((array.shape, str(array.dtype)))
-    add(belief.predictive_error_current)
-    add(json.dumps(belief.predictive_error.to_dict(), sort_keys=True))
+    add(
+        "no_forecast_error"
+        if belief.forecast_error is None
+        else json.dumps(belief.forecast_error.to_dict(), sort_keys=True)
+    )
     if covariance_factor is None:
         add("no_parameter_covariance")
     else:
@@ -257,9 +248,8 @@ class FittedPlanModel:
         """Predict the horizon and the forecast-error covariance along it.
 
         The returned covariance is the belief's own forecast-error covariance
-        at each predicted stage, which the correction step already evaluates;
-        the parameter contribution is added separately by
-        :meth:`_tangent_covariance`, because it depends on the plan.
+        at each predicted stage; the parameter contribution is added separately
+        by :meth:`_tangent_covariance`, because it depends on the plan.
         """
 
         model = self.model
@@ -289,13 +279,8 @@ class FittedPlanModel:
         horizons = model.runtime_spec.sample_period_s * jnp.arange(
             1, self.horizon_steps + 1
         )
-        corrected_states, _, error_covariance = jax.vmap(self.belief.corrected_state)(
-            future_states,
-            horizons,
-            commands,
-            exogenous,
-        )
-        states = jnp.concatenate((initial_state[None, :], corrected_states), axis=0)
+        error_covariance = jax.vmap(self.belief.error_covariance)(horizons)
+        states = jnp.concatenate((initial_state[None, :], future_states), axis=0)
         latent = jnp.concatenate((initial_latent[None, :], future_latent), axis=0)
         return states, latent, commands, error_covariance
 

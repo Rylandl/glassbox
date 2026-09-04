@@ -9,6 +9,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 from jax import Array
+from jax.flatten_util import ravel_pytree
 
 from glassbox.core.families import (
     FIXED_WING_FAMILY,
@@ -603,6 +604,48 @@ def structured_parameters(params: ModelParams) -> BaseDynamicsParams:
     """Return the structured base parameter block from any model class."""
 
     return params.base if isinstance(params, ResidualDynamicsParams) else params
+
+
+def structured_parameter_names(params: ModelParams) -> tuple[str, ...]:
+    """Return stable scalar names in JAX's structured-parameter leaf order."""
+
+    base = structured_parameters(params)
+    names: list[str] = []
+    for field_name, value in base._asdict().items():
+        array = np.asarray(value)
+        if array.ndim == 0:
+            names.append(field_name)
+            continue
+        names.extend(
+            f"{field_name}[{','.join(str(index) for index in location)}]"
+            for location in np.ndindex(array.shape)
+        )
+    return tuple(names)
+
+
+def structured_parameter_vector(params: ModelParams) -> Array:
+    """Flatten only the interpretable structured coefficient block."""
+
+    vector, _ = ravel_pytree(structured_parameters(params))
+    return vector
+
+
+def with_structured_parameter_vector(params: ModelParams, vector: Array) -> ModelParams:
+    """Replace the structured block while leaving any residual network fixed."""
+
+    expected, unravel = ravel_pytree(structured_parameters(params))
+    vector = jnp.asarray(vector)
+    if vector.shape != expected.shape:
+        raise ValueError(
+            f"structured parameter vector has shape {vector.shape}, "
+            f"expected {expected.shape}"
+        )
+    updated_base = unravel(vector)
+    return (
+        params._replace(base=updated_base)
+        if isinstance(params, ResidualDynamicsParams)
+        else updated_base
+    )
 
 
 def physics_parameters(params: ModelParams) -> DynamicsParams:

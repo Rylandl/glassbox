@@ -12,14 +12,12 @@ import numpy as np
 import pytest
 
 import glassbox.control.solver as nmpc_solver
-from glassbox.belief.belief import (
-    DynamicsBelief,
+from glassbox.belief.belief import DynamicsBelief
+from glassbox.belief.forecast_error import (
     EmpiricalErrorSample,
-    EmpiricalHorizonPredictiveError,
-    LocalGaussianParameterBelief,
-    structured_parameter_names,
-    structured_parameter_vector,
+    ForecastErrorEnvelope,
 )
+from glassbox.belief.information import ParameterInformation
 from glassbox.control.fitted import FittedPlanModel, NMPCController
 from glassbox.control.plan import (
     NMPCWarmStart,
@@ -42,6 +40,7 @@ from glassbox.core.dynamics import (
     fixed_wing_trim_control,
     hover_control,
     initial_residual_parameters,
+    structured_parameter_vector,
 )
 from glassbox.core.fixedwing_synthetic import (
     TRIM_AIRSPEED_M_S,
@@ -390,13 +389,21 @@ def test_solver_propagates_latent_state_and_returns_bounded_plan(
     assert np.all(np.isfinite(result.predicted_states))
 
 
+def _information_with_variance(
+    model: ExecutableModel, index: int, variance: float
+) -> ParameterInformation:
+    """One coordinate resolved to a stated variance, everything else unknown."""
+
+    information = ParameterInformation.unknown(model.params)
+    precision = np.zeros_like(information.precision)
+    precision[index, index] = 1.0 / variance
+    return information.with_precision(precision, effective_count=4.0)
+
+
 def test_solver_consumes_predictive_and_parameter_uncertainty(
     multirotor_model: ExecutableModel,
 ) -> None:
     model = multirotor_model
-    parameter_count = len(structured_parameter_vector(model.params))
-    parameter_covariance = np.zeros((parameter_count, parameter_count))
-    parameter_covariance[0, 0] = 0.04
     endpoint_errors = 0.02 * np.concatenate((np.eye(12), -np.eye(12)))
     error_samples = (
         EmpiricalErrorSample(endpoint_errors, "group-a", "flight-a"),
@@ -404,15 +411,9 @@ def test_solver_consumes_predictive_and_parameter_uncertainty(
     )
     belief = DynamicsBelief(
         model=ExecutableModel(model.params, model.input_spec, model.runtime_spec),
-        predictive_error=EmpiricalHorizonPredictiveError.from_samples(
+        information=_information_with_variance(model, 0, 0.04),
+        forecast_error=ForecastErrorEnvelope.from_samples(
             {0.1: error_samples, 0.2: error_samples}
-        ),
-        parameter_belief=LocalGaussianParameterBelief(
-            parameter_names=structured_parameter_names(model.params),
-            covariance=parameter_covariance,
-            source="configuration_members",
-            evidence_count=4,
-            effective_sample_count=4.0,
         ),
     )
     controller = NMPCController(belief, policy=_test_policy(horizon_steps=4))
@@ -513,17 +514,9 @@ def test_a_belief_with_covariance_is_charged_more_than_a_point_belief(
 ) -> None:
     model = multirotor_model
     parameter_count = len(structured_parameter_vector(model.params))
-    covariance = np.zeros((parameter_count, parameter_count))
-    covariance[0, 0] = 0.04
     belief = DynamicsBelief(
         model=ExecutableModel(model.params, model.input_spec, model.runtime_spec),
-        parameter_belief=LocalGaussianParameterBelief(
-            parameter_names=structured_parameter_names(model.params),
-            covariance=covariance,
-            source="configuration_members",
-            evidence_count=4,
-            effective_sample_count=4.0,
-        ),
+        information=_information_with_variance(model, 0, 0.04),
     )
     uncertain = NMPCController(belief, policy=_test_policy(horizon_steps=4))
     arguments = _objective_arguments(multirotor_controller_four_step)
@@ -547,7 +540,7 @@ def test_default_horizon_does_not_exceed_predictive_error_evidence(
     )
     belief = DynamicsBelief(
         model=ExecutableModel(model.params, model.input_spec, model.runtime_spec),
-        predictive_error=EmpiricalHorizonPredictiveError.from_samples({0.1: samples}),
+        forecast_error=ForecastErrorEnvelope.from_samples({0.1: samples}),
     )
 
     controller = NMPCController(belief)
@@ -560,37 +553,6 @@ def test_default_multirotor_horizon_snaps_near_integer_sample_ratio(
 ) -> None:
     controller = NMPCController(multirotor_model)
 
-    assert controller.prediction_steps == 30
-    assert controller.prediction_horizon_s == pytest.approx(0.6)
-
-
-def test_stale_predictive_error_does_not_cap_default_horizon(
-    multirotor_model: ExecutableModel,
-) -> None:
-    model = multirotor_model
-    endpoint_errors = 0.02 * np.concatenate((np.eye(12), -np.eye(12)))
-    samples = (
-        EmpiricalErrorSample(endpoint_errors, "group-a", "flight-a"),
-        EmpiricalErrorSample(endpoint_errors, "group-b", "flight-b"),
-    )
-    parameter_count = len(structured_parameter_names(model.params))
-    stale_belief = DynamicsBelief(
-        model=ExecutableModel(model.params, model.input_spec, model.runtime_spec),
-        predictive_error=EmpiricalHorizonPredictiveError.from_samples({0.1: samples}),
-        parameter_belief=LocalGaussianParameterBelief(
-            parameter_names=structured_parameter_names(model.params),
-            covariance=np.eye(parameter_count),
-            source="updated parameter belief",
-            evidence_count=1,
-            effective_sample_count=1.0,
-            update_count=1,
-        ),
-        predictive_error_parameter_update_count=0,
-    )
-
-    controller = NMPCController(stale_belief)
-
-    assert controller.belief.maximum_error_horizon_s is None
     assert controller.prediction_steps == 30
     assert controller.prediction_horizon_s == pytest.approx(0.6)
 

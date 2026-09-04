@@ -236,10 +236,16 @@ def test_multi_flight_fit_reserves_complete_final_flight(
             "horizon_rollouts"
         ]
     )
-    predictive_error = report["models"]["learned_lag"]["validation"]["predictive_error"]
-    assert predictive_error["kind"] == "empirical_horizon_tangent_moments"
-    assert predictive_error["horizons_s"] == [0.1]
-    assert predictive_error["independent_group_count"] == [1]
+    forecast_error = report["models"]["learned_lag"]["validation"]["forecast_error"]
+    assert forecast_error["kind"] == "held_out_horizon_tangent_second_moments"
+    assert forecast_error["centered"] is False
+    assert forecast_error["horizons_s"] == [0.1]
+    assert forecast_error["independent_group_count"] == [1]
+    # The noise model is measured on every fit, whether or not the caller asked
+    # for the precision the belief accumulates around it.
+    validation_block = report["models"]["learned_lag"]["validation"]
+    assert len(validation_block["innovation_noise"]) == 12
+    assert "0.1s" in validation_block["aggregate"]["held_out_mean_tangent_error"]
     # Innovation diagnostics are opt-in, so nothing runs them by default.
     validation = report["models"]["learned_lag"]["validation"]
     assert report["configuration"]["diagnostics"] is False
@@ -264,7 +270,7 @@ def _write_benchmark_split_flights(tmp_path, quadrotor_flight, splits) -> list[P
     return paths
 
 
-def test_requested_fit_builds_rank_aware_parameter_evidence(
+def test_requested_fit_builds_the_information_its_training_supports(
     tmp_path, quadrotor_flight
 ) -> None:
     # A label holdout reserves exactly the flight positional holdout would
@@ -294,12 +300,12 @@ def test_requested_fit_builds_rank_aware_parameter_evidence(
     }
     assert report["configuration"]["holdout_count"] == 1
     evidence = report["models"]["learned_lag"]["parameter_evidence"]
-    assert evidence["kind"] == "local_structured_parameter_information"
-    assert evidence["posterior"] is False
-    assert evidence["complete_parameter_uncertainty"] is False
-    assert evidence["independent_group_count"] == 2
-    assert evidence["fitted_parameter_count"] == 9
-    assert evidence["numerical_rank"] <= evidence["fitted_parameter_count"]
+    assert evidence["kind"] == "structured_parameter_information"
+    assert evidence["estimable_count"] == 9
+    assert 0 < evidence["resolved_rank"] <= evidence["estimable_count"]
+    assert evidence["effective_count"] > 0.0
+    assert len(evidence["innovation_noise"]) == 12
+    assert len(evidence["noise_floor"]) == 12
     assert report["configuration"]["parameter_evidence"]["requested"] is True
     # The report is written with plain ``json.dumps``; every leaf must be JSON-native.
     assert type(evidence["rank_relative_tolerance"]) is float

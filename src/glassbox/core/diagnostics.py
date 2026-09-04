@@ -318,6 +318,37 @@ def _strongest_input_correlation(
     return max(candidates, key=lambda item: abs(item[0]))
 
 
+def one_step_innovations(
+    params: ModelParams,
+    trajectory: Trajectory,
+    *,
+    control_history: np.ndarray | None = None,
+) -> np.ndarray:
+    """Return every interval's one-step innovation in the twelve local coordinates.
+
+    Each interval starts from the measured rigid-body state while the model's
+    latent actuator state is carried causally through the command sequence, so
+    the result is prediction error conditional on the parameters rather than
+    accumulated rollout drift. This is the residual an information update
+    weights by, and the same array the diagnostics report summarizes.
+    """
+
+    predicted = _measured_state_reset_predictions(
+        params,
+        trajectory,
+        control_history=control_history,
+    )
+    observed = trajectory.states[1:]
+    return np.column_stack(
+        (
+            observed[:, 0:3] - predicted[:, 0:3],
+            observed[:, 3:6] - predicted[:, 3:6],
+            attitude_innovation(predicted[:, 6:10], observed[:, 6:10]),
+            observed[:, 10:13] - predicted[:, 10:13],
+        )
+    )
+
+
 def one_step_innovation_diagnostics(
     params: ModelParams,
     trajectory: Trajectory,
@@ -332,19 +363,10 @@ def one_step_innovation_diagnostics(
     current or past controls exposes unexplained input-response structure.
     """
 
-    predicted = _measured_state_reset_predictions(
+    innovations = one_step_innovations(
         params,
         trajectory,
         control_history=control_history,
-    )
-    observed = trajectory.states[1:]
-    innovations = np.column_stack(
-        (
-            observed[:, 0:3] - predicted[:, 0:3],
-            observed[:, 3:6] - predicted[:, 3:6],
-            attitude_innovation(predicted[:, 6:10], observed[:, 6:10]),
-            observed[:, 10:13] - predicted[:, 10:13],
-        )
     )
     controls = np.asarray(trajectory.controls, dtype=np.float64)
     finite = np.all(np.isfinite(innovations), axis=1) & np.all(

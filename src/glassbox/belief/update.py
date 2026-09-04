@@ -1,0 +1,347 @@
+"""The recursive information update: telemetry in, a better-known belief out.
+
+``absorb`` is the whole of how a belief learns. It has no proposal, no
+validation split, no improvement margin and no gate. Every usable one-step
+transition adds ``J' R^-1 J`` to the accumulated precision, and the step it
+takes is the pseudo-inverse of that precision applied to the whitened
+innovation, which is exactly zero along every direction the evidence does not
+resolve. Information only accumulates: nothing here forgets, discounts, or
+rolls back.
+
+The one thing the update may weaken is its own noise model, and only by the
+part of the realized error the step could not explain. An empty belief makes a
+large first error and explains all of it with its own first step; it does not
+get to record that error as irreducible noise.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Mapping
+from dataclasses import dataclass, replace
+from typing import Any
+
+import jax
+import jax.numpy as jnp
+import numpy as np
+
+from glassbox.belief.belief import DynamicsBelief
+from glassbox.belief.linearization import (
+    compiled_batched_endpoint_tangent_error,
+    compiled_batched_endpoint_tangent_linearization,
+)
+from glassbox.core.data import Trajectory
+from glassbox.core.dynamics import (
+    structured_parameter_vector,
+    with_structured_parameter_vector,
+)
+from glassbox.core.model import ExecutableModel
+
+# One second of preceding commands reconstructs the latent actuator state to
+# far below the resolution of any fitted actuator time constant, which is how
+# a batched one-step window carries the same causal latent state the streaming
+# innovation diagnostics carry through their scan.
+ACTUATOR_HISTORY_DURATION_S = 1.0
+VALIDITY_BOUNDARY_TOLERANCE = 1e-6
+
+
+@dataclass(frozen=True)
+class UpdateResult:
+    """What one :meth:`DynamicsBelief.absorb` did, and on what evidence.
+
+    ``innovation_rms_before`` and ``innovation_rms_after`` are the one-step
+    innovation, whitened by the belief's own noise model before the update, of
+    the incoming and the updated parameters on the same windows.
+    ``information_gain_nats`` is the gain along the directions the belief
+    already resolved; a belief that resolved nothing reports zero and states
+    its progress through its rank instead. ``step_norm_prior_sigma`` is the
+    length of the step in the metric of the prior precision, which is how many
+    standard deviations of what was already known the step moved.
+    """
+
+    absorbed: bool
+    reason: str | None
+    window_count: int
+    innovation_rms_before: float | None
+    innovation_rms_after: float | None
+    information_gain_nats: float | None
+    step_norm_prior_sigma: float | None
+    maximum_validity_utilization: float | None
+
+    def __post_init__(self) -> None:
+        if self.absorbed and self.reason is not None:
+            raise ValueError("an absorbed update has no refusal reason")
+        if not self.absorbed and not (self.reason or "").strip():
+            raise ValueError("a refused update must say why")
+        if self.window_count < 0:
+            raise ValueError("window count cannot be negative")
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "absorbed": self.absorbed,
+            "reason": self.reason,
+            "window_count": self.window_count,
+            "innovation_rms_before": self.innovation_rms_before,
+            "innovation_rms_after": self.innovation_rms_after,
+            "information_gain_nats": self.information_gain_nats,
+            "step_norm_prior_sigma": self.step_norm_prior_sigma,
+            "maximum_validity_utilization": self.maximum_validity_utilization,
+        }
+
+
+def _refused(reason: str, *, window_count: int = 0, validity: float | None = None):
+    return UpdateResult(
+        absorbed=False,
+        reason=reason,
+        window_count=window_count,
+        innovation_rms_before=None,
+        innovation_rms_after=None,
+        information_gain_nats=None,
+        step_norm_prior_sigma=None,
+        maximum_validity_utilization=validity,
+    )
+
+
+def _require_compatible(belief: DynamicsBelief, telemetry: Trajectory) -> None:
+    """Refuse telemetry that does not describe the model's own interface."""
+
+    expected = belief.input_spec
+    actual = telemetry.spec.prediction_spec()
+    if actual.state_schema != expected.state_schema:
+        raise ValueError("telemetry state schema does not match belief")
+    if actual.vehicle.family != expected.vehicle.family:
+        raise ValueError("telemetry vehicle family does not match belief")
+    for attribute in ("control_roles", "control_semantics", "exogenous_roles"):
+        if getattr(actual, attribute) != getattr(expected, attribute):
+            raise ValueError(f"telemetry {attribute} do not match belief")
+    for attribute in ("unit", "frame"):
+        if tuple(getattr(channel, attribute) for channel in actual.controls) != tuple(
+            getattr(channel, attribute) for channel in expected.controls
+        ):
+            raise ValueError(f"telemetry control {attribute}s do not match belief")
+    for attribute in ("unit", "semantic", "frame"):
+        if tuple(getattr(channel, attribute) for channel in actual.exogenous) != tuple(
+            getattr(channel, attribute) for channel in expected.exogenous
+        ):
+            raise ValueError(f"telemetry exogenous {attribute}s do not match belief")
+
+
+def usable_one_step_transitions(
+    model: ExecutableModel,
+    telemetry: Trajectory,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Return which transitions are usable and each sample's envelope use.
+
+    A sample outside the model's validity envelope is not evidence about the
+    model: the fit never claimed to describe that region, so an innovation
+    measured there would be charged against parameters that were never fitted
+    to explain it. Such a sample is dropped rather than downweighted.
+    """
+
+    states = np.asarray(telemetry.states, dtype=np.float64)
+    controls = np.asarray(telemetry.controls, dtype=np.float64)
+    exogenous = np.asarray(telemetry.exogenous, dtype=np.float64)
+    finite_states = np.all(np.isfinite(states), axis=1)
+    finite_exogenous = np.all(np.isfinite(exogenous), axis=1)
+    safe = np.where((finite_states & finite_exogenous)[:, None], states, 0.0)
+    utilization = np.asarray(
+        jax.vmap(model.validity_utilization)(
+            jnp.asarray(safe),
+            jnp.asarray(np.where(finite_exogenous[:, None], exogenous, 0.0)),
+        )
+    )
+    per_sample = np.where(
+        finite_states & finite_exogenous,
+        np.max(utilization, axis=1),
+        np.inf,
+    )
+    usable_sample = per_sample <= 1.0 + VALIDITY_BOUNDARY_TOLERANCE
+    usable = (
+        usable_sample[:-1] & usable_sample[1:] & np.all(np.isfinite(controls), axis=1)
+    )
+    return usable, per_sample
+
+
+def _worst_utilization(per_sample: np.ndarray, starts: np.ndarray) -> float | None:
+    """Return the envelope use of the samples an update actually read."""
+
+    if not len(starts):
+        finite = per_sample[np.isfinite(per_sample)]
+        return float(np.max(finite)) if len(finite) else None
+    return float(max(np.max(per_sample[starts]), np.max(per_sample[starts + 1])))
+
+
+def _control_histories(
+    telemetry: Trajectory,
+    starts: np.ndarray,
+    history_steps: int,
+) -> np.ndarray:
+    """Return the preceding commands each window's latent state is built from."""
+
+    controls = np.asarray(telemetry.controls, dtype=np.float64)
+    histories = np.empty((len(starts), history_steps, controls.shape[1]))
+    for row, start in enumerate(starts):
+        available = controls[max(0, int(start) - history_steps) : int(start)]
+        if not len(available):
+            available = controls[0:1]
+        padding = np.repeat(available[0:1], history_steps - len(available), axis=0)
+        histories[row] = np.concatenate((padding, available), axis=0)
+    return histories
+
+
+def one_step_linearization(
+    model: ExecutableModel,
+    telemetry: Trajectory,
+    starts: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Return one-step innovations and their structured-parameter Jacobians.
+
+    ``innovations`` is measured minus predicted in the twelve rigid-body local
+    coordinates, and ``jacobians`` is the derivative of the predicted endpoint
+    tangent with respect to the structured parameters, which is what an
+    information update accumulates and what its step is solved against. The
+    latent actuator state of each window is rebuilt from the preceding
+    ``ACTUATOR_HISTORY_DURATION_S`` of commands, so a batched set of windows
+    carries the same causal latent state a streaming scan would.
+    """
+
+    dt_s = float(model.runtime_spec.sample_period_s)
+    history_steps = max(1, int(np.ceil(ACTUATOR_HISTORY_DURATION_S / dt_s)))
+    histories = _control_histories(telemetry, starts, history_steps)
+    center = np.asarray(structured_parameter_vector(model.params), dtype=np.float64)
+    errors, jacobians = compiled_batched_endpoint_tangent_linearization(
+        jnp.asarray(center),
+        model.params,
+        jnp.asarray(telemetry.states[starts]),
+        jnp.asarray(histories),
+        jnp.asarray(telemetry.controls[starts][:, None, :]),
+        jnp.asarray(telemetry.states[starts + 1]),
+        jnp.asarray(telemetry.exogenous[starts][:, None, :]),
+        dt_s=dt_s,
+        control_roles=telemetry.spec.control_roles,
+        exogenous_roles=telemetry.spec.exogenous_roles,
+    )
+    return (
+        -np.asarray(errors, dtype=np.float64),
+        np.asarray(jacobians, dtype=np.float64),
+    )
+
+
+def absorb(
+    belief: DynamicsBelief,
+    telemetry: Trajectory,
+) -> tuple[DynamicsBelief, UpdateResult]:
+    """Add one telemetry block's information to a belief and return both.
+
+    The returned belief carries strictly more precision than the one passed in
+    and its parameters have moved by the pseudo-inverse of that precision
+    applied to the whitened innovation, so a well-resolved direction moves less
+    than a poorly resolved one for the same innovation and an unresolved
+    direction does not move at all.
+    """
+
+    if not isinstance(telemetry, Trajectory):
+        raise TypeError("absorbing evidence requires one canonical Trajectory")
+    _require_compatible(belief, telemetry)
+    information = belief.information
+    assert information is not None
+
+    intervals = np.diff(np.asarray(telemetry.time_s, dtype=np.float64))
+    if len(intervals) < 1:
+        return belief, _refused("telemetry carries no transition")
+    observed_dt_s = float(np.median(intervals))
+    if not np.allclose(intervals, observed_dt_s, atol=1e-7, rtol=0.0):
+        return belief, _refused("absorbing evidence requires fixed-rate telemetry")
+    dt_s = float(belief.sample_period_s)
+    if not np.isclose(observed_dt_s, dt_s, atol=1e-7, rtol=0.0):
+        return belief, _refused(
+            "telemetry sample period does not match the runtime model"
+        )
+
+    usable, per_sample = usable_one_step_transitions(belief.model, telemetry)
+    starts = np.flatnonzero(usable)
+    worst_validity = _worst_utilization(per_sample, starts)
+    if not len(starts):
+        return belief, _refused(
+            "no telemetry transition is finite and inside the validity envelope",
+            validity=worst_validity,
+        )
+
+    center = np.asarray(structured_parameter_vector(belief.params), dtype=np.float64)
+    innovations, sensitivity = one_step_linearization(belief.model, telemetry, starts)
+    if not (np.all(np.isfinite(innovations)) and np.all(np.isfinite(sensitivity))):
+        return belief, _refused(
+            "one-step linearization is non-finite on this telemetry",
+            window_count=len(starts),
+            validity=worst_validity,
+        )
+    sensitivity[..., ~information.estimable] = 0.0
+
+    noise = information.innovation_noise
+    weight = 1.0 / noise
+    increment = np.einsum(
+        "wip,i,wiq->pq", sensitivity, weight, sensitivity, optimize=True
+    )
+    increment = 0.5 * (increment + increment.T)
+    score = np.einsum("wip,i,wi->p", sensitivity, weight, innovations, optimize=True)
+
+    updated_information = information.with_precision(
+        information.precision + increment,
+        effective_count=information.effective_count + len(starts),
+    )
+    step = updated_information.covariance() @ score
+    updated_params = with_structured_parameter_vector(
+        belief.params, jnp.asarray(center + step)
+    )
+
+    residual = innovations - np.einsum("wip,p->wi", sensitivity, step, optimize=True)
+    realized_noise = np.maximum(noise, np.mean(np.square(residual), axis=0))
+    updated_information = updated_information.with_precision(
+        updated_information.precision,
+        innovation_noise=realized_noise,
+    )
+
+    history_steps = max(1, int(np.ceil(ACTUATOR_HISTORY_DURATION_S / dt_s)))
+    updated_errors = np.asarray(
+        compiled_batched_endpoint_tangent_error(
+            jnp.asarray(center + step),
+            belief.params,
+            jnp.asarray(telemetry.states[starts]),
+            jnp.asarray(_control_histories(telemetry, starts, history_steps)),
+            jnp.asarray(telemetry.controls[starts][:, None, :]),
+            jnp.asarray(telemetry.states[starts + 1]),
+            jnp.asarray(telemetry.exogenous[starts][:, None, :]),
+            dt_s=dt_s,
+            control_roles=telemetry.spec.control_roles,
+            exogenous_roles=telemetry.spec.exogenous_roles,
+        ),
+        dtype=np.float64,
+    )
+    prior_rank = information.resolved_rank()
+    provenance: Mapping[str, Any] = {
+        **belief.provenance,
+        "update_count": belief.update_count + 1,
+        "parameter_distance_since_measurement": (
+            belief.parameter_distance_since_measurement
+            + float(np.linalg.norm(step / information.scale))
+        ),
+    }
+    updated = DynamicsBelief(
+        model=replace(belief.model, params=updated_params),
+        information=updated_information,
+        forecast_error=belief.forecast_error,
+        provenance=provenance,
+    )
+    return updated, UpdateResult(
+        absorbed=True,
+        reason=None,
+        window_count=len(starts),
+        innovation_rms_before=float(np.sqrt(np.mean(np.square(innovations) / noise))),
+        innovation_rms_after=float(np.sqrt(np.mean(np.square(updated_errors) / noise))),
+        information_gain_nats=information.information_gain_nats(increment),
+        step_norm_prior_sigma=(
+            float(np.sqrt(max(step @ information.precision @ step, 0.0)))
+            if prior_rank > 0
+            else None
+        ),
+        maximum_validity_utilization=worst_validity,
+    )

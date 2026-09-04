@@ -7,41 +7,36 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
-from glassbox.belief.belief import (
-    DynamicsBelief,
+from glassbox.belief.belief import DynamicsBelief
+from glassbox.belief.forecast_error import (
     EmpiricalErrorSample,
-    EmpiricalHorizonPredictiveError,
-    ErrorCovarianceScope,
-    LocalGaussianParameterBelief,
-    LocalParameterInformation,
-    apply_tangent_correction,
+    ForecastErrorEnvelope,
+)
+from glassbox.belief.information import (
+    ParameterInformation,
+    estimable_structured_parameters,
+)
+from glassbox.belief.parameter_evidence import innovation_noise, parameter_information
+from glassbox.core.dynamics import (
+    ResidualDynamicsParams,
+    initial_residual_parameters,
     structured_parameter_names,
     structured_parameter_vector,
     with_structured_parameter_vector,
 )
-from glassbox.belief.parameter_evidence import (
-    estimate_local_parameter_information,
-    fitted_structured_parameter_mask,
-)
-from glassbox.core.data import trajectory_windows
-from glassbox.core.dynamics import ResidualDynamicsParams, initial_residual_parameters
-from glassbox.core.fixedwing_synthetic import (
-    true_fixed_wing_parameters,
-)
-from glassbox.core.metrics import rigid_body_tangent_errors
+from glassbox.core.fixedwing_synthetic import true_fixed_wing_parameters
 from glassbox.core.model import (
     ExecutableModel,
     ModelValidityEnvelope,
-    NonActionableModelError,
     runtime_spec_from_trajectory,
 )
-from glassbox.core.synthetic import generate_trajectory, true_parameters
+from glassbox.core.synthetic import true_parameters
 
 
-def _error_model(value: float = 0.0) -> EmpiricalHorizonPredictiveError:
+def _envelope(value: float = 0.0) -> ForecastErrorEnvelope:
     first = np.full((3, 12), value, dtype=np.float64)
     second = np.full((2, 12), 2.0 * value, dtype=np.float64)
-    return EmpiricalHorizonPredictiveError.from_samples(
+    return ForecastErrorEnvelope.from_samples(
         {
             0.1: (
                 EmpiricalErrorSample(first, "group-a", "flight-a"),
@@ -55,29 +50,22 @@ def _error_model(value: float = 0.0) -> EmpiricalHorizonPredictiveError:
     )
 
 
-def _nonsingular_error_model(
-    scale: float = 0.02,
-    *,
-    covariance_scope: ErrorCovarianceScope = ErrorCovarianceScope.TOTAL_FORECAST,
-) -> EmpiricalHorizonPredictiveError:
+def _nonsingular_envelope(scale: float = 0.02) -> ForecastErrorEnvelope:
     errors = scale * np.concatenate((np.eye(12), -np.eye(12)), axis=0)
     samples = (
         EmpiricalErrorSample(errors, "group-a", "flight-a"),
         EmpiricalErrorSample(errors, "group-b", "flight-b"),
     )
-    return EmpiricalHorizonPredictiveError.from_samples(
-        {0.1: samples, 0.2: samples},
-        covariance_scope=covariance_scope,
-    )
+    return ForecastErrorEnvelope.from_samples({0.1: samples, 0.2: samples})
 
 
-def _parameter_belief(params, *, spread: float = 0.2):
+def _member_information(params, *, spread: float = 0.2) -> ParameterInformation:
     center = np.asarray(structured_parameter_vector(params))
     positive = center.copy()
     negative = center.copy()
     positive[0] += spread
     negative[0] -= spread
-    return LocalGaussianParameterBelief.from_members(
+    return ParameterInformation.seeded_from_members(
         params,
         (
             with_structured_parameter_vector(params, jnp.asarray(positive)),
@@ -87,48 +75,26 @@ def _parameter_belief(params, *, spread: float = 0.2):
     )
 
 
-def test_tangent_error_and_correction_use_quaternion_geometry() -> None:
-    state = np.asarray(
-        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-    )
-    correction = np.asarray(
-        [1.0, -2.0, 3.0, 0.1, 0.2, 0.3, 0.0, 0.0, 0.2, 0.4, 0.5, 0.6]
-    )
+def test_forecast_envelope_balances_complete_source_groups() -> None:
+    envelope = _envelope(1.0)
 
-    corrected = np.asarray(
-        apply_tangent_correction(jnp.asarray(state), jnp.asarray(correction))
-    )
-    recovered = rigid_body_tangent_errors(state[None, :], corrected[None, :])[0]
-    sign_equivalent = corrected.copy()
-    sign_equivalent[6:10] *= -1.0
-
-    np.testing.assert_allclose(recovered, correction, atol=1e-7)
+    assert envelope.raw_sample_count == (5, 5)
+    assert envelope.effective_sample_count[0] == pytest.approx(4.8)
+    assert envelope.independent_group_count == (2, 2)
+    assert np.min(np.linalg.eigvalsh(envelope.tangent_covariance[0])) >= -1e-10
+    # The envelope is the uncentered second moment, because nothing subtracts
+    # the mean error from a runtime forecast: half the samples err by 1 and
+    # half by 2, so the group-balanced second moment is 2.5 rather than the
+    # 0.25 a covariance about the mean of 1.5 would report.
+    np.testing.assert_allclose(envelope.tangent_covariance[0], 2.5)
     np.testing.assert_allclose(
-        rigid_body_tangent_errors(corrected[None, :], sign_equivalent[None, :]),
-        0.0,
+        envelope.covariance_at(0.05),
+        0.5 * envelope.tangent_covariance[0],
         atol=1e-7,
     )
 
 
-def test_empirical_error_model_balances_complete_source_groups() -> None:
-    model = _error_model(1.0)
-
-    assert model.available
-    assert model.raw_sample_count == (5, 5)
-    np.testing.assert_allclose(model.tangent_bias, 1.5)
-    assert model.effective_sample_count[0] == pytest.approx(4.8)
-    assert model.independent_group_count == (2, 2)
-    assert np.min(np.linalg.eigvalsh(model.tangent_covariance[0])) >= -1e-10
-    bias, covariance = model.moments(0.05)
-    np.testing.assert_allclose(bias, 0.75)
-    np.testing.assert_allclose(
-        covariance,
-        0.5 * model.tangent_covariance[0],
-        atol=1e-7,
-    )
-
-
-def test_structured_parameter_belief_is_generic_and_leaves_residual_fixed() -> None:
+def test_structured_parameter_block_is_generic_and_leaves_residual_fixed() -> None:
     residual = initial_residual_parameters(true_fixed_wing_parameters(), hidden_units=3)
     vector = np.asarray(structured_parameter_vector(residual))
     changed = vector.copy()
@@ -144,37 +110,37 @@ def test_structured_parameter_belief_is_generic_and_leaves_residual_fixed() -> N
 
 def test_belief_round_trip_and_runtime_forecast(tmp_path, quadrotor_flight) -> None:
     trajectory = quadrotor_flight(4, 0.3)
-    error_model = _error_model(0.01)
     belief = DynamicsBelief(
         model=ExecutableModel(
             true_parameters(), trajectory.spec, runtime_spec_from_trajectory(trajectory)
         ),
-        predictive_error=error_model,
+        forecast_error=_envelope(0.01),
         provenance={"fixture": True},
     )
     path = tmp_path / "belief.json"
 
     belief.save(path)
     restored = DynamicsBelief.load(path)
-    runtime = restored
     commands = jnp.asarray(trajectory.controls[:5])
-    forecast = runtime.rollout(
-        jnp.asarray(trajectory.states[0]),
-        commands,
-    )
+    forecast = restored.rollout(jnp.asarray(trajectory.states[0]), commands)
     nominal_from_legacy_loader = ExecutableModel.load(path)
 
     assert restored.provenance == {"fixture": True}
-    assert restored.predictive_error.available
+    assert restored.forecast_error_available
+    assert restored.maximum_error_horizon_s == pytest.approx(0.2)
+    assert restored.support == restored.runtime_spec.validity_envelope
     assert forecast.uncertainty_available
-    assert forecast.uncertainty_horizon_supported
-    assert forecast.nominal_states.shape == (6, 13)
-    assert forecast.mean_states.shape == (6, 13)
+    assert forecast.forecast_error_horizon_supported
+    assert forecast.states.shape == (6, 13)
     assert forecast.tangent_covariance.shape == (6, 12, 12)
-    assert forecast.quantile_levels == (0.5, 0.8, 0.9)
     assert forecast.validity_utilization.shape == (6, 6)
-    assert not np.allclose(forecast.mean_states[1:], forecast.nominal_states[1:])
-    assert nominal_from_legacy_loader.command_size == runtime.model.command_size
+    # A point belief resolves nothing, so the whole spread is the envelope's.
+    assert forecast.parameter_information_rank == 0
+    np.testing.assert_array_equal(
+        forecast.parameter_covariance,
+        np.zeros_like(forecast.parameter_covariance),
+    )
+    assert nominal_from_legacy_loader.command_size == restored.model.command_size
 
 
 def test_runtime_rollout_enforces_declared_command_bounds(quadrotor_flight) -> None:
@@ -183,18 +149,17 @@ def test_runtime_rollout_enforces_declared_command_bounds(quadrotor_flight) -> N
         model=ExecutableModel(
             true_parameters(), trajectory.spec, runtime_spec_from_trajectory(trajectory)
         ),
-        predictive_error=_error_model(0.01),
+        forecast_error=_envelope(0.01),
     )
-    runtime = belief
     initial_state = jnp.asarray(trajectory.states[0])
     commands = jnp.asarray(trajectory.controls[:5])
     channel_name = trajectory.spec.control_names[2]
 
     unbounded = commands.at[3, 2].set(7.5)
     with pytest.raises(ValueError, match=f"{channel_name!r}=7.5 outside"):
-        runtime.rollout(initial_state, unbounded)
+        belief.rollout(initial_state, unbounded)
     with pytest.raises(ValueError, match="command history lies outside"):
-        runtime.rollout(
+        belief.rollout(
             initial_state,
             commands,
             command_history=commands.at[0, 2].set(-3.0),
@@ -206,14 +171,14 @@ def test_runtime_rollout_enforces_declared_command_bounds(quadrotor_flight) -> N
     slack[3, 2] = 1.0 + 1e-9
     exact = np.array(trajectory.controls[:5], dtype=np.float64)
     exact[3, 2] = 1.0
-    clipped = runtime.rollout(initial_state, slack)
-    bounded = runtime.rollout(initial_state, exact)
+    clipped = belief.rollout(initial_state, slack)
+    bounded = belief.rollout(initial_state, exact)
 
-    np.testing.assert_array_equal(clipped.mean_states, bounded.mean_states)
+    np.testing.assert_array_equal(clipped.states, bounded.states)
     np.testing.assert_array_equal(clipped.commands, bounded.commands)
 
 
-def test_parameter_belief_propagates_through_the_rollout(
+def test_resolved_information_propagates_through_the_rollout(
     tmp_path, quadrotor_flight
 ) -> None:
     trajectory = quadrotor_flight(7, 0.3)
@@ -222,292 +187,154 @@ def test_parameter_belief_propagates_through_the_rollout(
         model=ExecutableModel(
             params, trajectory.spec, runtime_spec_from_trajectory(trajectory)
         ),
-        predictive_error=_nonsingular_error_model(
-            covariance_scope=ErrorCovarianceScope.CONDITIONAL_INNOVATION
-        ),
-        parameter_belief=_parameter_belief(params),
+        information=_member_information(params),
+        forecast_error=_nonsingular_envelope(),
     )
-    path = tmp_path / "parameter-belief.json"
+    path = tmp_path / "information-belief.json"
     belief.save(path)
 
     restored = DynamicsBelief.load(path)
-    runtime = restored
-    commands = jnp.asarray(trajectory.controls[:5])
-    prediction = runtime.rollout(
+    prediction = restored.rollout(
         jnp.asarray(trajectory.states[0]),
-        commands,
+        jnp.asarray(trajectory.controls[:5]),
     )
 
-    assert isinstance(restored.parameter_belief, LocalGaussianParameterBelief)
-    assert prediction.parameter_uncertainty_available
-    assert prediction.parameter_tangent_jacobian is not None
-    assert np.max(prediction.parameter_tangent_covariance) > 0.0
-    assert prediction.parameter_covariance_combined_with_empirical_error
+    assert restored.information.resolved_rank() == 1
+    np.testing.assert_allclose(
+        restored.information.covariance(),
+        belief.information.covariance(),
+        atol=1e-12,
+    )
+    assert prediction.parameter_information_rank == 1
+    assert np.max(prediction.parameter_covariance) > 0.0
+    # The two covariances answer different questions and are added, never
+    # substituted for one another.
+    np.testing.assert_allclose(
+        prediction.tangent_covariance,
+        prediction.forecast_error_covariance + prediction.parameter_covariance,
+    )
 
 
-def test_local_parameter_information_preserves_unresolved_directions(
-    tmp_path, quadrotor_flight
-) -> None:
-    trajectory = quadrotor_flight(9, 0.3)
+def test_information_leaves_unresolved_directions_at_exactly_zero() -> None:
     params = true_parameters()
-    names = structured_parameter_names(params)
-    center = np.asarray(structured_parameter_vector(params))
-    information = np.zeros((len(names), len(names)))
-    information[0, 0] = 4.0
-    group_scores = np.zeros((2, len(names)))
-    group_scores[:, 0] = 0.1
-    evidence = LocalParameterInformation(
-        parameter_names=names,
-        center=center,
-        information_matrix=information,
-        parameter_scale=np.maximum(np.abs(center), 1.0),
-        fitted_parameter_mask=np.ones(len(names), dtype=bool),
-        horizons_s=(0.1,),
-        window_count_by_horizon=(8,),
-        residual_precision_rank_by_horizon=(12,),
-        group_labels=("group-a", "group-b"),
-        group_score_vectors=group_scores,
-        independent_group_count=2,
-        trajectory_count=2,
-        rank_relative_tolerance=1e-5,
-    )
-    belief = DynamicsBelief(
-        model=ExecutableModel(
-            params, trajectory.spec, runtime_spec_from_trajectory(trajectory)
-        ),
-        predictive_error=_nonsingular_error_model(),
-        parameter_evidence=evidence,
-    )
-    path = tmp_path / "parameter-evidence.json"
+    information = ParameterInformation.unknown(params)
+    precision = np.zeros_like(information.precision)
+    precision[0, 0] = 4.0
+    resolved = information.with_precision(precision, effective_count=8.0)
 
-    belief.save(path)
-    restored = DynamicsBelief.load(path)
+    covariance = resolved.covariance()
+    subspace = resolved.resolved_subspace()
 
-    assert isinstance(restored.parameter_evidence, LocalParameterInformation)
-    assert restored.parameter_evidence.numerical_rank == 1
-    assert restored.parameter_evidence.unresolved_fitted_direction_count == (
-        len(names) - 1
-    )
-    assert restored.parameter_evidence.unresolved_direction_basis.shape == (
-        len(names),
-        len(names) - 1,
-    )
-    assert restored.parameter_evidence.score_vector[0] == pytest.approx(0.2)
-    assert not restored.parameter_belief.uncertainty_available
+    assert resolved.resolved_rank() == 1
+    assert subspace.shape == (len(resolved.names), 1)
+    assert covariance[0, 0] == pytest.approx(0.25)
+    np.testing.assert_array_equal(covariance[1:, :], 0.0)
+    np.testing.assert_array_equal(covariance[:, 1:], 0.0)
 
 
-def test_grouped_rollout_information_uses_only_fitted_structured_coordinates(
+def test_authority_is_one_on_the_best_direction_and_zero_off_the_subspace() -> None:
+    params = true_parameters()
+    information = ParameterInformation.unknown(params)
+    precision = np.zeros_like(information.precision)
+    precision[0, 0] = 4.0
+    precision[2, 2] = 1.0
+    resolved = information.with_precision(precision, effective_count=8.0)
+    size = len(resolved.names)
+
+    best = np.zeros(size)
+    best[0] = 1.0
+    weaker = np.zeros(size)
+    weaker[2] = 1.0
+    unresolved = np.zeros(size)
+    unresolved[3] = 1.0
+
+    assert resolved.authority(best) == pytest.approx(1.0)
+    assert resolved.authority(weaker) == pytest.approx(0.25)
+    assert resolved.authority(unresolved) == 0.0
+    assert ParameterInformation.unknown(params).authority(best) == 0.0
+
+
+def test_information_gain_is_reported_only_where_the_belief_already_resolves() -> None:
+    params = true_parameters()
+    information = ParameterInformation.unknown(params)
+    precision = np.zeros_like(information.precision)
+    precision[0, 0] = 4.0
+    resolved = information.with_precision(precision, effective_count=8.0)
+    increment = np.zeros_like(precision)
+    increment[0, 0] = 12.0
+
+    # Four to sixteen along the resolved direction is one halving of the
+    # standard deviation, which is 0.5 * log(4) nats.
+    assert resolved.information_gain_nats(increment) == pytest.approx(0.5 * np.log(4.0))
+    # A rank-zero belief has no direction to state a finite gain along; the
+    # rank change is what reports its progress.
+    assert information.information_gain_nats(increment) == 0.0
+
+
+def test_training_information_uses_only_estimable_structured_coordinates(
     quadrotor_flight,
 ) -> None:
     trajectories = tuple(
-        replace(
-            quadrotor_flight(seed, 0.3),
-            labels={"source_group": group},
-        )
+        replace(quadrotor_flight(seed, 0.3), labels={"source_group": group})
         for seed, group in ((1, "group-a"), (2, "group-b"))
     )
-    windows = trajectory_windows(
-        trajectories,
-        horizon=5,
-        stride=5,
-        weights={"group-a": 1.0, "group-b": 1.0},
-    )
     params = true_parameters()
-    fitted_mask = fitted_structured_parameter_mask(
+    model = ExecutableModel(
         params,
-        diagonal_angular_control=True,
+        trajectories[0].spec,
+        _permissive_runtime_spec(trajectories[0]),
     )
+    estimable = estimable_structured_parameters(params, diagonal_angular_control=True)
 
-    evidence = estimate_local_parameter_information(
-        params,
-        (windows,),
-        _nonsingular_error_model(),
+    information = parameter_information(
+        model,
+        trajectories,
         ("group-a", "group-b"),
-        fitted_parameter_mask=fitted_mask,
+        innovation_noise=innovation_noise(
+            params, [(item, None) for item in trajectories]
+        ),
+        estimable=estimable,
     )
 
-    assert isinstance(evidence, LocalParameterInformation)
-    assert evidence.independent_group_count == 2
-    assert evidence.window_count_by_horizon == (6,)
-    assert evidence.fitted_parameter_count == 9
-    assert 0 < evidence.numerical_rank <= evidence.fitted_parameter_count
-    assert np.all(np.isfinite(evidence.information_matrix))
-    assert evidence.group_score_vectors.shape == (2, len(evidence.parameter_names))
-    assert np.allclose(evidence.information_matrix[~fitted_mask], 0.0)
+    assert information.estimable_count == 9
+    assert 0 < information.resolved_rank() <= information.estimable_count
+    assert information.effective_count > 0.0
+    assert np.all(np.isfinite(information.precision))
+    assert np.allclose(information.precision[~estimable], 0.0)
 
 
-def test_grouped_rollout_information_is_vehicle_family_generic(
-    fixedwing_flight,
-) -> None:
+def test_training_information_is_vehicle_family_generic(fixedwing_flight) -> None:
     trajectories = tuple(fixedwing_flight(seed, 0.3) for seed in (1, 2))
-    windows = trajectory_windows(
-        trajectories,
-        horizon=5,
-        stride=5,
-        weights={"0": 1.0, "1": 1.0},
-    )
     params = true_fixed_wing_parameters()
-    fitted_mask = fitted_structured_parameter_mask(params)
-    fixed_response_mask = fitted_structured_parameter_mask(
+    model = ExecutableModel(
         params,
-        fixed_response_time=True,
+        trajectories[0].spec,
+        _permissive_runtime_spec(trajectories[0]),
     )
+    fixed_response = estimable_structured_parameters(params, fixed_response_time=True)
 
-    evidence = estimate_local_parameter_information(
-        params,
-        (windows,),
-        _nonsingular_error_model(),
+    information = parameter_information(
+        model,
+        trajectories,
         ("fixedwing-a", "fixedwing-b"),
-        fitted_parameter_mask=fitted_mask,
-    )
-
-    assert isinstance(evidence, LocalParameterInformation)
-    assert evidence.fitted_parameter_count == len(structured_parameter_names(params))
-    assert 0 < evidence.numerical_rank <= evidence.fitted_parameter_count
-    assert np.count_nonzero(fixed_response_mask) == (
-        evidence.fitted_parameter_count - 1
-    )
-
-
-def test_live_update_moves_structured_parameters_and_preserves_error_provenance(
-    quadrotor_trajectory_seed11_dur0_4s,
-) -> None:
-    telemetry = quadrotor_trajectory_seed11_dur0_4s
-    true_vector = np.asarray(structured_parameter_vector(true_parameters()))
-    nominal_vector = true_vector.copy()
-    nominal_vector[0] += 0.25
-    nominal = with_structured_parameter_vector(
-        true_parameters(), jnp.asarray(nominal_vector)
-    )
-    belief = DynamicsBelief(
-        model=ExecutableModel(
-            nominal, telemetry.spec, runtime_spec_from_trajectory(telemetry)
-        ),
-        predictive_error=_nonsingular_error_model(
-            scale=0.05,
-            covariance_scope=ErrorCovarianceScope.CONDITIONAL_INNOVATION,
-        ),
-        parameter_belief=_parameter_belief(nominal, spread=0.4),
-    )
-
-    updated, report = belief.update(telemetry)
-
-    assert report.applied
-    assert report.used_window_count == 4
-    assert report.proposal_window_count == 2
-    assert report.validation_window_count == 2
-    assert report.validation_performed
-    assert report.normalized_innovation_rms_after < (
-        report.normalized_innovation_rms_before
-    )
-    assert report.posterior_covariance_trace < report.prior_covariance_trace
-    assert updated.parameter_belief.update_count == 1
-    assert not updated.predictive_error_current
-    assert updated.predictive_error_parameter_update_count == 0
-    assert not np.allclose(
-        structured_parameter_vector(updated.params),
-        structured_parameter_vector(belief.params),
-    )
-    assert updated.provenance["online_adaptation"]["last_update"]["applied"]
-    stale_prediction = updated.rollout(
-        jnp.asarray(telemetry.states[0]),
-        jnp.asarray(telemetry.controls[:5]),
-    )
-    assert not stale_prediction.predictive_error_current
-    assert updated.maximum_error_horizon_s is None
-    np.testing.assert_allclose(
-        stale_prediction.mean_states,
-        stale_prediction.nominal_states,
-    )
-    np.testing.assert_array_equal(
-        stale_prediction.empirical_error_tangent_covariance,
-        np.zeros_like(stale_prediction.empirical_error_tangent_covariance),
-    )
-    assert stale_prediction.quantile_levels == ()
-    assert stale_prediction.empirical_error_covariance_scope is None
-    assert stale_prediction.parameter_uncertainty_available
-    assert stale_prediction.uncertainty_available
-    assert np.max(stale_prediction.parameter_tangent_covariance) > 0.0
-    np.testing.assert_allclose(
-        stale_prediction.tangent_covariance,
-        stale_prediction.parameter_tangent_covariance,
-    )
-
-    updated_again, second_report = updated.update(telemetry)
-    assert not second_report.applied
-    assert "stale" in second_report.reason
-    assert updated_again.parameter_belief.update_count == 1
-    assert updated_again.predictive_error_parameter_update_count == 0
-
-
-def test_live_update_does_not_require_actionable_control_semantics(
-    quadrotor_flight,
-) -> None:
-    telemetry = quadrotor_flight(3, 0.2)
-    physical_spec = replace(
-        telemetry.spec,
-        channels=tuple(
-            replace(
-                channel,
-                semantic="squared_rotor_speed_ratio",
-                minimum=None,
-                maximum=None,
-            )
-            for channel in telemetry.spec.channels
+        innovation_noise=innovation_noise(
+            params, [(item, None) for item in trajectories]
         ),
     )
-    telemetry = replace(telemetry, spec=physical_spec)
-    params = true_parameters()
-    vector = np.asarray(structured_parameter_vector(params)).copy()
-    vector[0] += 0.25
-    nominal = with_structured_parameter_vector(params, jnp.asarray(vector))
-    belief = DynamicsBelief(
-        model=ExecutableModel(
-            nominal, physical_spec, runtime_spec_from_trajectory(telemetry)
-        ),
-        predictive_error=_nonsingular_error_model(
-            scale=0.05,
-            covariance_scope=ErrorCovarianceScope.CONDITIONAL_INNOVATION,
-        ),
-        parameter_belief=_parameter_belief(nominal, spread=0.4),
-    )
 
-    assert belief.model.actuation is None
-    with pytest.raises(NonActionableModelError, match="no command space"):
-        assert belief.model.command_minimum is not None
-    _, report = belief.update(telemetry)
-
-    assert report.applied
+    assert information.estimable_count == len(structured_parameter_names(params))
+    assert 0 < information.resolved_rank() <= information.estimable_count
+    assert np.count_nonzero(fixed_response) == information.estimable_count - 1
 
 
-def test_parameter_evidence_coerces_numpy_scalar_tolerance_to_json_native_float() -> (
-    None
-):
-    params = true_parameters()
-    names = structured_parameter_names(params)
-    center = np.asarray(structured_parameter_vector(params))
-    information = np.zeros((len(names), len(names)))
-    information[0, 0] = 4.0
-    group_scores = np.zeros((2, len(names)))
-    group_scores[:, 0] = 0.1
-    evidence = LocalParameterInformation(
-        parameter_names=names,
-        center=center,
-        information_matrix=information,
-        parameter_scale=np.maximum(np.abs(center), 1.0),
-        fitted_parameter_mask=np.ones(len(names), dtype=bool),
-        horizons_s=(0.1,),
-        window_count_by_horizon=(8,),
-        residual_precision_rank_by_horizon=(12,),
-        group_labels=("group-a", "group-b"),
-        group_score_vectors=group_scores,
-        independent_group_count=2,
-        trajectory_count=2,
+def test_information_coerces_numpy_scalar_tolerance_to_json_native_float() -> None:
+    information = replace(
+        ParameterInformation.unknown(true_parameters()),
         rank_relative_tolerance=np.float32(1e-5),
     )
 
-    assert type(evidence.rank_relative_tolerance) is float
-    payload = json.loads(json.dumps(evidence.to_dict()))
+    assert type(information.rank_relative_tolerance) is float
+    payload = json.loads(json.dumps(information.to_dict()))
     assert payload["rank_relative_tolerance"] == pytest.approx(1e-5)
 
 
@@ -523,80 +350,6 @@ def _permissive_runtime_spec(trajectory):
     )
 
 
-def test_recalibration_returns_a_moved_belief_to_a_usable_lifecycle(
-    quadrotor_flight,
-) -> None:
-    trajectory = quadrotor_flight(12, 0.3)
-    params = true_parameters()
-    fitted = DynamicsBelief(
-        model=ExecutableModel(
-            params, trajectory.spec, _permissive_runtime_spec(trajectory)
-        ),
-        predictive_error=_nonsingular_error_model(
-            covariance_scope=ErrorCovarianceScope.CONDITIONAL_INNOVATION,
-        ),
-        parameter_belief=_parameter_belief(params, spread=0.4),
-    )
-    drifted_vector = np.asarray(structured_parameter_vector(params)).copy()
-    drifted_vector[0] += 0.2
-    drifted = with_structured_parameter_vector(params, jnp.asarray(drifted_vector))
-
-    moved, first_report = fitted.update(
-        generate_trajectory(seed=15, duration_s=1.0, params=drifted)
-    )
-
-    # The commit moved the parameters, so the inherited error evidence is no
-    # longer current: the horizon cap disappears and updates fail closed.
-    assert first_report.applied
-    assert not moved.predictive_error_current
-    assert moved.maximum_error_horizon_s is None
-    _, stale_report = moved.update(quadrotor_flight(13, 0.4))
-    assert not stale_report.applied
-    assert "stale" in stale_report.reason
-
-    calibration = quadrotor_flight(14, 2.0)
-    refreshed = moved.recalibrate_predictive_error(calibration)
-
-    assert refreshed.predictive_error_current
-    assert refreshed.maximum_error_horizon_s == pytest.approx(0.2)
-    assert refreshed.predictive_error.horizons_s == (0.1, 0.2)
-    assert (
-        refreshed.predictive_error.covariance_scope
-        == ErrorCovarianceScope.CONDITIONAL_INNOVATION
-    )
-    np.testing.assert_array_equal(
-        structured_parameter_vector(refreshed.params),
-        structured_parameter_vector(moved.params),
-    )
-    recalibration = refreshed.provenance["predictive_error_recalibration"]
-    assert recalibration["source"] == "recalibrated_from_telemetry"
-    assert recalibration["parameter_update_count"] == 1
-    assert recalibration["window_count_by_horizon"] == [20, 10]
-    assert recalibration["horizon_steps"] == [5, 10]
-    assert len(recalibration["telemetry_content_hash"]) == 64
-    assert (
-        recalibration["telemetry_content_hash"]
-        != refreshed.recalibrate_predictive_error(quadrotor_flight(16, 2.0)).provenance[
-            "predictive_error_recalibration"
-        ]["telemetry_content_hash"]
-    )
-
-    # The refreshed belief can be updated again. The bounded first step moved
-    # only part of the way, so further telemetry from the drifted vehicle
-    # commits, and the commit stales the refreshed evidence in turn.
-    updated, report = refreshed.update(
-        generate_trajectory(seed=17, duration_s=1.0, params=drifted)
-    )
-
-    assert report.applied
-    assert report.validation_performed
-    assert report.normalized_validation_improvement > (
-        report.normalized_validation_improvement_margin
-    )
-    assert updated.parameter_belief.update_count == 2
-    assert not updated.predictive_error_current
-
-
 def test_evidence_dataclasses_own_immutable_array_inputs() -> None:
     errors = np.zeros((3, 12))
     errors[0, 0] = 0.1
@@ -608,66 +361,85 @@ def test_evidence_dataclasses_own_immutable_array_inputs() -> None:
     with pytest.raises(ValueError, match="read-only"):
         sample.errors[0, 0] = 1.0
 
-    bias = np.zeros((1, 12))
     covariance = 0.01 * np.eye(12)[None, :, :]
-    model = EmpiricalHorizonPredictiveError(
+    envelope = ForecastErrorEnvelope(
         horizons_s=(0.1,),
-        tangent_bias=bias,
         tangent_covariance=covariance,
-        quantile_levels=(0.5, 0.8, 0.9),
         raw_sample_count=(4,),
         effective_sample_count=(4.0,),
         independent_group_count=(2,),
     )
-    bias[0, 0] = 99.0
     covariance[0, 0, 0] = 99.0
 
-    assert model.tangent_bias[0, 0] == 0.0
-    assert model.tangent_covariance[0, 0, 0] == pytest.approx(0.01)
-    assert not model.tangent_bias.flags.writeable
-    assert not model.tangent_covariance.flags.writeable
+    assert envelope.tangent_covariance[0, 0, 0] == pytest.approx(0.01)
+    assert not envelope.tangent_covariance.flags.writeable
 
     params = true_parameters()
     names = structured_parameter_names(params)
-    center = np.asarray(structured_parameter_vector(params)).copy()
-    information = np.zeros((len(names), len(names)))
-    information[0, 0] = 4.0
-    scale = np.maximum(np.abs(center), 1.0)
+    precision = np.zeros((len(names), len(names)))
+    precision[0, 0] = 4.0
+    scale = np.ones(len(names))
     mask = np.ones(len(names), dtype=bool)
-    scores = np.zeros((2, len(names)))
-    scores[:, 0] = 0.1
-    evidence = LocalParameterInformation(
-        parameter_names=names,
-        center=center,
-        information_matrix=information,
-        parameter_scale=scale,
-        fitted_parameter_mask=mask,
-        horizons_s=(0.1,),
-        window_count_by_horizon=(8,),
-        residual_precision_rank_by_horizon=(12,),
-        group_labels=("group-a", "group-b"),
-        group_score_vectors=scores,
-        independent_group_count=2,
-        trajectory_count=2,
-        rank_relative_tolerance=1e-5,
+    noise = np.full(12, 1e-4)
+    information = ParameterInformation(
+        names=names,
+        precision=precision,
+        scale=scale,
+        estimable=mask,
+        innovation_noise=noise,
+        noise_floor=np.full(12, 1e-8),
+        effective_count=8.0,
     )
-    stored_center = np.array(evidence.center, copy=True)
-    center[0] += 99.0
-    information[0, 0] = 99.0
+    precision[0, 0] = 99.0
     scale[0] = 99.0
     mask[1] = False
-    scores[0, 0] = 99.0
+    noise[0] = 99.0
 
-    np.testing.assert_array_equal(evidence.center, stored_center)
-    assert evidence.information_matrix[0, 0] == pytest.approx(4.0)
-    assert evidence.parameter_scale[0] != 99.0
-    assert bool(evidence.fitted_parameter_mask[1])
-    assert evidence.group_score_vectors[0, 0] == pytest.approx(0.1)
+    assert information.precision[0, 0] == pytest.approx(4.0)
+    assert information.scale[0] != 99.0
+    assert bool(information.estimable[1])
+    assert information.innovation_noise[0] == pytest.approx(1e-4)
     for array in (
-        evidence.center,
-        evidence.information_matrix,
-        evidence.parameter_scale,
-        evidence.fitted_parameter_mask,
-        evidence.group_score_vectors,
+        information.precision,
+        information.scale,
+        information.estimable,
+        information.innovation_noise,
+        information.noise_floor,
     ):
         assert not array.flags.writeable
+
+
+def test_information_refuses_precision_outside_the_estimable_mask() -> None:
+    params = true_parameters()
+    names = structured_parameter_names(params)
+    precision = np.zeros((len(names), len(names)))
+    precision[1, 1] = 4.0
+    mask = np.ones(len(names), dtype=bool)
+    mask[1] = False
+
+    with pytest.raises(ValueError, match="outside the estimable mask"):
+        ParameterInformation(
+            names=names,
+            precision=precision,
+            scale=np.ones(len(names)),
+            estimable=mask,
+            innovation_noise=np.full(12, 1e-4),
+            noise_floor=np.full(12, 1e-8),
+            effective_count=1.0,
+        )
+
+
+def test_information_refuses_noise_below_its_declared_floor() -> None:
+    params = true_parameters()
+    names = structured_parameter_names(params)
+
+    with pytest.raises(ValueError, match="below its declared floor"):
+        ParameterInformation(
+            names=names,
+            precision=np.zeros((len(names), len(names))),
+            scale=np.ones(len(names)),
+            estimable=np.ones(len(names), dtype=bool),
+            innovation_noise=np.full(12, 1e-9),
+            noise_floor=np.full(12, 1e-8),
+            effective_count=0.0,
+        )

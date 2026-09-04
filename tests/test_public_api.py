@@ -36,12 +36,11 @@ EXPECTED_PUBLIC_API = (
     # wrong the forecasts have been.
     "ActuationMap",
     "DynamicsBelief",
-    "EmpiricalHorizonPredictiveError",
     "ExecutableModel",
-    "LocalGaussianParameterBelief",
-    "LocalParameterInformation",
+    "ForecastErrorEnvelope",
     "NonActionableModelError",
-    "PointParameterBelief",
+    "ParameterInformation",
+    "UpdateResult",
     # Control: the plan-model seam, the solver behind it, and the bounded
     # result every solve returns.
     "BoundedShootingSolver",

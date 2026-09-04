@@ -11,20 +11,23 @@ from typing import Any
 
 import numpy as np
 
-from glassbox.belief.adaptation import endpoint_error_evidence_by_horizon
-from glassbox.belief.belief import (
-    DynamicsBelief,
+from glassbox.belief.belief import DynamicsBelief
+from glassbox.belief.forecast_error import (
     EmpiricalErrorSample,
-    EmpiricalHorizonPredictiveError,
-    UnavailableParameterEvidence,
-    UnavailablePredictiveError,
-    parameter_evidence_from_dict,
-    predictive_error_from_dict,
+    ForecastErrorEnvelope,
+    endpoint_error_evidence_by_horizon,
+    forecast_error_from_dict,
+    mean_error_by_horizon,
+)
+from glassbox.belief.information import (
+    ParameterInformation,
+    estimable_structured_parameters,
+    parameter_information_from_dict,
 )
 from glassbox.belief.parameter_evidence import (
-    MAX_PARAMETER_EVIDENCE_WINDOWS_PER_HORIZON,
-    estimate_local_parameter_information,
-    fitted_structured_parameter_mask,
+    MAXIMUM_PARAMETER_INFORMATION_WINDOWS,
+    innovation_noise,
+    parameter_information,
 )
 from glassbox.core.data import (
     Trajectory,
@@ -915,12 +918,10 @@ def _evaluate_model(
     available_error_samples = {
         horizon: samples for horizon, samples in error_samples.items() if samples
     }
-    predictive_error = (
-        EmpiricalHorizonPredictiveError.from_samples(available_error_samples)
+    forecast_error = (
+        ForecastErrorEnvelope.from_samples(available_error_samples)
         if available_error_samples
-        else UnavailablePredictiveError(
-            "held-out trajectories were shorter than every evaluation horizon"
-        )
+        else None
     )
 
     aggregate: dict[str, Any] = {
@@ -932,6 +933,10 @@ def _evaluate_model(
             for label, items in horizon_metrics.items()
             if items
         },
+        # The systematic part of the held-out error, recorded and not applied.
+        # Subtracting a mean measured on other flights would move the model
+        # without moving the account of what is known about it.
+        "held_out_mean_tangent_error": mean_error_by_horizon(available_error_samples),
     }
     if diagnostics:
         aggregate["one_step_innovation"] = aggregate_innovation_diagnostics(
@@ -945,7 +950,13 @@ def _evaluate_model(
             "horizon_rollouts": aggregate_horizons,
         },
         "per_flight": per_flight,
-        "predictive_error": predictive_error.to_dict(),
+        "forecast_error": (
+            None if forecast_error is None else forecast_error.to_dict()
+        ),
+        "innovation_noise": innovation_noise(
+            params,
+            [(flight.trajectory, flight.control_history) for flight in flights],
+        ).tolist(),
     }
 
 
@@ -1306,10 +1317,10 @@ def _configuration_section(
         "diagnostics": spec.diagnostics,
         "parameter_evidence": {
             "requested": spec.parameter_evidence,
-            "method": "grouped_local_rollout_information_v1",
-            "maximum_windows_per_horizon": (MAX_PARAMETER_EVIDENCE_WINDOWS_PER_HORIZON),
+            "method": "training_one_step_information_v1",
+            "maximum_windows": MAXIMUM_PARAMETER_INFORMATION_WINDOWS,
             "independence_unit": independence_unit,
-            "residual_scale_source": "held_out_tangent_covariance",
+            "noise_model": "held_out_one_step_innovation_covariance",
         },
     }
 
@@ -1341,41 +1352,62 @@ def build_fit_report(
     }
 
 
-def _parameter_evidence(
+def _estimable_mask(
     params: ModelParams,
-    model_report: dict[str, Any],
     *,
-    plan: HoldoutPlan,
-    windows: TrainingWindows,
     spec: FitSpec,
     fixed_response_time: bool,
-) -> dict[str, Any]:
-    predictive_error = predictive_error_from_dict(
-        model_report["validation"]["predictive_error"]
-    )
-    if not isinstance(predictive_error, EmpiricalHorizonPredictiveError):
-        return UnavailableParameterEvidence(
-            "held-out fixed-horizon residual covariance is unavailable"
-        ).to_dict()
-    fitted_mask = fitted_structured_parameter_mask(
+) -> np.ndarray:
+    return estimable_structured_parameters(
         params,
         fixed_response_time=fixed_response_time,
         learn_thrust_command_offset=spec.loss.learn_thrust_command_offset,
         diagonal_angular_control=spec.loss.diagonal_angular_control,
     )
+
+
+def _information(
+    model: ExecutableModel,
+    model_report: Mapping[str, Any],
+    *,
+    plan: HoldoutPlan,
+    spec: FitSpec,
+    fixed_response_time: bool,
+) -> ParameterInformation:
+    """Build the belief's information state from this fit's own evidence.
+
+    The noise model is measured on the held-out flights whether or not the
+    caller asked for parameter evidence, because a belief that cannot say how
+    wrong its one-step predictions are cannot weight the next observation
+    either. The precision costs one Jacobian per training transition and is
+    only accumulated when the fit asks for it; without it the belief is an
+    honest point estimate that knows its own noise and is ready to absorb.
+    """
+
+    noise = np.asarray(model_report["validation"]["innovation_noise"])
+    estimable = _estimable_mask(
+        model.params, spec=spec, fixed_response_time=fixed_response_time
+    )
+    if not spec.parameter_evidence:
+        return ParameterInformation.unknown(
+            model.params,
+            innovation_noise=noise,
+            estimable=estimable,
+            source="held_out_one_step_noise_only",
+        )
     groups = (
         list(plan.training_source_groups)
         if plan.training_source_groups is not None
         else list(plan.training_labels)
     )
-    return estimate_local_parameter_information(
-        params,
-        windows.window_sets,
-        predictive_error,
+    return parameter_information(
+        model,
+        plan.training,
         groups,
-        fitted_parameter_mask=fitted_mask,
-        independence_unit=evidence_independence_unit(plan),
-    ).to_dict()
+        innovation_noise=noise,
+        estimable=estimable,
+        source=f"training_one_step_information:{evidence_independence_unit(plan)}",
+    )
 
 
 DEFAULT_FIT_SPEC = FitSpec()
@@ -1420,16 +1452,12 @@ def _belief(
     input_spec: TrajectorySpec,
     provenance: Mapping[str, Any],
 ) -> DynamicsBelief:
-    evidence = model_report.get("parameter_evidence")
+    forecast_error = model_report["validation"]["forecast_error"]
     return DynamicsBelief(
         model=ExecutableModel(params, input_spec, _runtime_spec(dataset, model_report)),
-        predictive_error=predictive_error_from_dict(
-            model_report["validation"]["predictive_error"]
-        ),
-        parameter_evidence=(
-            UnavailableParameterEvidence("parameter evidence was not requested")
-            if evidence is None
-            else parameter_evidence_from_dict(evidence)
+        information=parameter_information_from_dict(model_report["parameter_evidence"]),
+        forecast_error=(
+            None if forecast_error is None else forecast_error_from_dict(forecast_error)
         ),
         provenance=dict(provenance),
     )
@@ -1454,6 +1482,7 @@ def fit(
     dataset = resolve_dataset(paths, trajectories, spec)
     plan = spec.holdout.plan(trajectories, paths)
     windows = build_training_windows(plan, spec)
+    input_spec = trajectories[0].spec
 
     def fit_model(
         *, fixed_motor_time_constant_s: float | None, fixed_response_time: bool
@@ -1477,15 +1506,13 @@ def fit(
             horizon_seconds=spec.evaluation_horizons_s,
             diagnostics=spec.diagnostics,
         )
-        if spec.parameter_evidence:
-            model_report["parameter_evidence"] = _parameter_evidence(
-                params,
-                model_report,
-                plan=plan,
-                windows=windows,
-                spec=spec,
-                fixed_response_time=fixed_response_time,
-            )
+        model_report["parameter_evidence"] = _information(
+            ExecutableModel(params, input_spec, _runtime_spec(dataset, model_report)),
+            model_report,
+            plan=plan,
+            spec=spec,
+            fixed_response_time=fixed_response_time,
+        ).to_dict()
         return params, model_report
 
     learned_params, learned_report = fit_model(
@@ -1514,7 +1541,6 @@ def fit(
         models=models,
         comparison=comparison,
     )
-    input_spec = trajectories[0].spec
     provenance = {
         "training_trajectories": list(plan.training_labels),
         "validation_trajectories": [flight.path for flight in plan.validation],

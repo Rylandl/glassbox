@@ -1,4 +1,10 @@
-"""Shared differentiable rollout linearizations in rigid-body tangent space."""
+"""Shared differentiable rollout linearizations in rigid-body tangent space.
+
+Every entry point returns the endpoint error ``predicted - measured`` in the
+twelve rigid-body local coordinates, and its Jacobian is therefore the
+derivative of the *predicted* endpoint tangent with respect to the structured
+parameters, which is what an information update accumulates.
+"""
 
 from __future__ import annotations
 
@@ -6,17 +12,13 @@ import jax
 import jax.numpy as jnp
 from jax import Array
 
-from glassbox.belief.belief import (
-    TANGENT_STATE_SIZE,
-    apply_tangent_correction,
-    with_structured_parameter_vector,
-)
 from glassbox.core.dynamics import (
     ModelParams,
     control_state_after_history,
     step_with_latent,
+    with_structured_parameter_vector,
 )
-from glassbox.core.geometry import rigid_body_local_error
+from glassbox.core.geometry import TANGENT_STATE_SIZE, rigid_body_local_error
 
 
 def endpoint_tangent_error(
@@ -27,7 +29,6 @@ def endpoint_tangent_error(
     controls: Array,
     target: Array,
     context: Array,
-    bias: Array,
     *,
     dt_s: float,
     control_roles: tuple[str, ...],
@@ -62,8 +63,7 @@ def endpoint_tangent_error(
         (initial_state, latent),
         (controls, context),
     )
-    predicted_mean = apply_tangent_correction(predicted, bias)
-    return rigid_body_local_error(target, predicted_mean)
+    return rigid_body_local_error(target, predicted)
 
 
 def endpoint_tangent_error_and_jacobian(
@@ -74,7 +74,6 @@ def endpoint_tangent_error_and_jacobian(
     controls: Array,
     target: Array,
     context: Array,
-    bias: Array,
     *,
     dt_s: float,
     control_roles: tuple[str, ...],
@@ -90,7 +89,6 @@ def endpoint_tangent_error_and_jacobian(
         controls,
         target,
         context,
-        bias,
     )
     keywords = {
         "dt_s": dt_s,
@@ -119,7 +117,6 @@ def batched_endpoint_tangent_error(
     controls: Array,
     targets: Array,
     contexts: Array,
-    biases: Array,
     *,
     dt_s: float,
     control_roles: tuple[str, ...],
@@ -128,7 +125,7 @@ def batched_endpoint_tangent_error(
     """Vectorize endpoint errors across equal-horizon update windows."""
 
     return jax.vmap(
-        lambda initial, history, command, target, context, bias: endpoint_tangent_error(
+        lambda initial, history, command, target, context: endpoint_tangent_error(
             vector,
             template_params,
             initial,
@@ -136,7 +133,6 @@ def batched_endpoint_tangent_error(
             command,
             target,
             context,
-            bias,
             dt_s=dt_s,
             control_roles=control_roles,
             exogenous_roles=exogenous_roles,
@@ -147,7 +143,6 @@ def batched_endpoint_tangent_error(
         controls,
         targets,
         contexts,
-        biases,
     )
 
 
@@ -159,7 +154,6 @@ def batched_endpoint_tangent_error_and_jacobian(
     controls: Array,
     targets: Array,
     contexts: Array,
-    biases: Array,
     *,
     dt_s: float,
     control_roles: tuple[str, ...],
@@ -168,7 +162,7 @@ def batched_endpoint_tangent_error_and_jacobian(
     """Vectorize endpoint errors and Jacobians across equal-horizon windows."""
 
     return jax.vmap(
-        lambda initial, history, command, target, context, bias: (
+        lambda initial, history, command, target, context: (
             endpoint_tangent_error_and_jacobian(
                 vector,
                 template_params,
@@ -177,7 +171,6 @@ def batched_endpoint_tangent_error_and_jacobian(
                 command,
                 target,
                 context,
-                bias,
                 dt_s=dt_s,
                 control_roles=control_roles,
                 exogenous_roles=exogenous_roles,
@@ -189,7 +182,6 @@ def batched_endpoint_tangent_error_and_jacobian(
         controls,
         targets,
         contexts,
-        biases,
     )
 
 

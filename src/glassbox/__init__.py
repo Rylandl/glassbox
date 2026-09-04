@@ -14,13 +14,10 @@ that owns them, for example ``from glassbox.core.data import
 load_trajectory_npz``.
 """
 
-from glassbox.belief.belief import (
-    DynamicsBelief,
-    EmpiricalHorizonPredictiveError,
-    LocalGaussianParameterBelief,
-    LocalParameterInformation,
-    PointParameterBelief,
-)
+from glassbox.belief.belief import DynamicsBelief
+from glassbox.belief.forecast_error import ForecastErrorEnvelope
+from glassbox.belief.information import ParameterInformation
+from glassbox.belief.update import UpdateResult
 from glassbox.control.fitted import NMPCController, plan_model
 from glassbox.control.identifier import (
     RecursiveBootstrapConfig,
@@ -85,12 +82,11 @@ __all__ = [  # noqa: RUF022
     # wrong the forecasts have been.
     "ActuationMap",
     "DynamicsBelief",
-    "EmpiricalHorizonPredictiveError",
     "ExecutableModel",
-    "LocalGaussianParameterBelief",
-    "LocalParameterInformation",
+    "ForecastErrorEnvelope",
     "NonActionableModelError",
-    "PointParameterBelief",
+    "ParameterInformation",
+    "UpdateResult",
     # Control: the plan-model seam, the solver behind it, and the bounded
     # result every solve returns.
     "BoundedShootingSolver",
