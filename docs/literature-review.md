@@ -351,10 +351,10 @@ position error at the half-second horizon.
 
 ## What Phases 0 to 3 retired, 2026-09-04
 
-The migration from the research repository to a production library removed
-about twenty-four thousand lines. Every removal below is a research mechanism
-whose verdict was already recorded, and each names the last commit that can
-still run it. The code and its artifacts are not kept; this list plus the
+The migration from the research repository to a production library took the
+package from about 41,700 to about 28,200 source lines. Every removal below is
+a research mechanism whose verdict was already recorded, and each names the
+last commit that can still run it. The code and its artifacts are not kept; this list plus the
 prose above is the record.
 
 **The observation program.** Typed observation channels stayed, but every
@@ -413,7 +413,7 @@ only behaviour at `2f5adc2` after the measurement that selected them.
 
 **The support filter.** `SupportFilterMode` with its six modes, the candidate
 enumeration and batched candidate kernel, the actuator-reaction horizon, and
-the bounded-authority post-pass went at `9570fa1`, together with the eighteen
+the bounded-authority post-pass went at `9570fa1`, together with the
 diagnostic fields only they wrote. Neither backed a recorded claim. What the
 belief knows about its own error is now charged inside the objective instead,
 so it shapes the plan the optimizer converges to rather than editing the plan

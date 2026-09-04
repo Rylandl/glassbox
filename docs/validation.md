@@ -131,10 +131,14 @@ group identity.
 The recorded chain is the leave-one-source-group-out run of the structured
 residual over all 13 sessions: every session is held out in turn, the fold
 count is `results.fold_count` and the equal-session macro table is
-`results.aggregate.horizon_rollouts` with the ratios against kinematic
+`results.aggregate.horizon_rollouts`, with the ratios against kinematic
 persistence in `results.aggregate.model_over_baseline` and the fold spread in
 `results.distribution`. There is no single scalar score for this corpus; the
-comparison is per horizon and per metric.
+comparison is per horizon and per metric. Read the ratios in the direction
+this artifact states them, model error over baseline error, so a value below
+one favours the model. That is the opposite direction from the Nano-Quadrotor
+artifact's `model_vs_baseline`, which is baseline over model, and the two must
+not be quoted in the same sentence without saying which is which.
 
 The boundary is that this is a model-selection and generalization result on
 one conventional airframe, not evidence of zero-shot parameter transfer.
@@ -162,8 +166,9 @@ constant-body-rate persistence. The structured residual scores `0.4383` and
 the structured model `0.5069`
 (`results.models[<name>].score_vs_kinematic_persistence`), and the residual is
 `0.8646` of the structured model over every horizon and state metric
-(`results.comparisons.structured_residual_vs_structured.score`). This is the
-strongest transfer evidence in the matrix.
+(`results.comparisons.structured_residual_vs_structured.score`). Of the rows
+recorded so far it is the only one where a fitted model beats persistence on
+an independent holdout.
 
 The boundary is that this is characterization evidence for one flying-wing
 airframe under a trusted wind estimate; it does not claim that every
@@ -245,16 +250,17 @@ adapted belief produced `0.993` recovery-tail tracking RMS and `0.830`
 recovery-tail attitude and rate RMS; against the hidden oracle point model
 those ratios were `1.078` and `1.049` (`comparisons`).
 
-Two results stay negative and are recorded as such. Every one of the four
+One result stays negative and is recorded as such. Every one of the four
 traces left the validity envelope: maximum actual utilization was `1.085`,
-`1.056`, `1.091` and `1.136` for the seeded belief, the adapted belief, the
-adapted point mean and the oracle point mean
+`1.056`, `1.091` and `1.136` for the `stale_belief`, `adapted_belief`,
+`adapted_mean_point` and `oracle_mean_point` arms
 (`recovery[*].maximum_actual_validity_utilization`), and
 `observations.all_actual_recovery_within_validity_support` is false. The
 ordering is the one the charged spread should buy: the arm carrying the most
 parameter information stays closest to supported ground. The belief's reported
 spread also moves with the evidence, from a maximum normalized model
-uncertainty of `0.661` on the seeded arm to `0.342` on the adapted one, while
+uncertainty of `0.661` on the seeded arm to `0.342` on the adapted one
+(`recovery[*].maximum_normalized_model_uncertainty_standard_deviation`), while
 the covariance trace rises from `0.0625` to `0.3164`, which is not a
 contradiction: an unresolved direction contributes exactly zero variance under
 the pseudo-inverse convention, so resolving eight new directions adds eight new
@@ -286,17 +292,26 @@ component-panel variant of the same airframe scores `2.185` as published and
 `0.661` at its own best variant (`component_panels`), within `0.02` of the
 coefficient table's best.
 
-Read together with the lag-aware equation-error regressions the same command
-records under `residual_diagnostics`, the finding is that the published model
-is untrimmed at the flight condition, that the campaign's inferred vertical
-wind is inconsistent with the published lift curve by about a factor of two,
-that the instrumented airframe's inertia is about twice the bare-airframe
-pendulum value, and that the XFLR5 damping derivatives are too large for this
-airframe. All four are testable outside this campaign. This is
-characterization evidence for the simulator and the campaign, not a candidate
-under any development contract, and the sweep rows are not a fit. The fitted
-reference arms this artifact compares against are the same two X8 fits the
-corpus row above records, at the same scores
+The same command records lag-aware equation-error regressions over all 17
+maneuvers under `residual_diagnostics`. On the row the sweep's best variant
+sits nearest, at a 50 mm forward reference point and 0.4 of the inferred
+vertical wind, the fit explains the pitch moment well and the roll moment
+less well (`channels.pitch.r_squared` `0.8295`, `channels.roll.r_squared`
+`0.7069`), and the body-force residuals carry constant offsets of a few
+newtons: `+2.67` forward, `-2.63` to the right and `-2.68` downward
+(`channels.{X,Y,Z}.mean`). Three things follow, and all three are testable
+outside this campaign. The published model is untrimmed at the flight
+condition, which is why every scoring row above the baseline moves the
+pitching-moment reference point forward. Its inertia is understated, because
+the sweep's interior optimum is the bifilar-pendulum tensor doubled
+(`best_model`). And the campaign's inferred vertical wind is too large: every
+best-scoring row applies a fraction of it, half for the coefficient table and
+a quarter for the panels (`best_model`, `component_panels.best_model`).
+
+This is characterization evidence for the simulator and the campaign, not a
+candidate under any development contract, and the sweep rows are not a fit.
+The fitted reference arms this artifact compares against are the same two X8
+fits the corpus row above records, at the same scores
 (`glassbox_reference_models[<name>].score_vs_kinematic_persistence`).
 
 ## PX4 SITL corpora

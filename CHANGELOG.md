@@ -5,9 +5,10 @@ All notable changes to Glassbox are recorded here. The format follows
 
 ## 0.2.0 - 2026-09-04
 
-Glassbox becomes a production library. Forty commits removed about
-twenty-four thousand lines of research machinery, folded three runtime types
-into one, and replaced the transactional belief update with a recursive one.
+Glassbox becomes a production library. Forty commits took the package from
+about 41,700 to about 28,200 source lines and its suite from about 14,900 to
+about 13,100, folded three runtime types into one, and replaced the
+transactional belief update with a recursive one.
 The result is one type per concept and one path per job: telemetry becomes one
 canonical flight object, a fit produces one `DynamicsBelief`, `absorb` keeps
 it current from live telemetry, and one bounded solver turns it into a command

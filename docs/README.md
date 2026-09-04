@@ -1,7 +1,8 @@
 # Glassbox documentation
 
-Eight pages. Start with [scope](scope.md) for what the library covers and
-where its boundary is; go to [validation](validation.md) for the evidence.
+Eight pages: the repository [README](../README.md) and the seven below. Start
+with [scope](scope.md) for what the library covers and where its boundary is;
+go to [validation](validation.md) for the evidence.
 
 - [Scope and current boundary](scope.md): the question, the system boundary,
   what exists today, the evidence standard, and what is not claimed.
