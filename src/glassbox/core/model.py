@@ -145,36 +145,15 @@ class RuntimeModelSpec:
 
     sample_period_s: float
     validity_envelope: ModelValidityEnvelope
-    certified_prediction_horizon_s: float | None = None
-    certification_source: str | None = None
 
     def __post_init__(self) -> None:
         if not np.isfinite(self.sample_period_s) or self.sample_period_s <= 0.0:
             raise ValueError("sample_period_s must be finite and positive")
-        if self.certified_prediction_horizon_s is None:
-            if self.certification_source is not None:
-                raise ValueError(
-                    "certification_source requires a certified prediction horizon"
-                )
-        else:
-            if (
-                not np.isfinite(self.certified_prediction_horizon_s)
-                or self.certified_prediction_horizon_s <= 0.0
-            ):
-                raise ValueError(
-                    "certified_prediction_horizon_s must be finite and positive"
-                )
-            if not self.certification_source or not self.certification_source.strip():
-                raise ValueError(
-                    "a certified prediction horizon requires certification_source"
-                )
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "sample_period_s": self.sample_period_s,
             "validity_envelope": self.validity_envelope.to_dict(),
-            "certified_prediction_horizon_s": self.certified_prediction_horizon_s,
-            "certification_source": self.certification_source,
         }
 
     @classmethod
@@ -183,16 +162,6 @@ class RuntimeModelSpec:
             sample_period_s=float(payload["sample_period_s"]),
             validity_envelope=ModelValidityEnvelope.from_dict(
                 payload["validity_envelope"]
-            ),
-            certified_prediction_horizon_s=(
-                None
-                if payload.get("certified_prediction_horizon_s") is None
-                else float(payload["certified_prediction_horizon_s"])
-            ),
-            certification_source=(
-                None
-                if payload.get("certification_source") is None
-                else str(payload["certification_source"])
             ),
         )
 
@@ -270,12 +239,7 @@ def _robust_half_width(values: np.ndarray, *, floor: float) -> np.ndarray:
     )
 
 
-def runtime_spec_from_trajectory(
-    trajectory: Trajectory,
-    *,
-    certified_prediction_horizon_s: float | None = None,
-    certification_source: str | None = None,
-) -> RuntimeModelSpec:
+def runtime_spec_from_trajectory(trajectory: Trajectory) -> RuntimeModelSpec:
     """Build a runtime contract for synthetic or externally supplied models."""
 
     quaternions = jnp.asarray(trajectory.states[:, 6:10])
@@ -297,8 +261,6 @@ def runtime_spec_from_trajectory(
                 _robust_half_width(angular_velocity, floor=0.1)
             ),
         ),
-        certified_prediction_horizon_s=certified_prediction_horizon_s,
-        certification_source=certification_source,
     )
 
 

@@ -138,7 +138,6 @@ class Controller:
                 maximum_normalized_model_uncertainty_standard_deviation=0.0,
                 warm_start_used=warm_start is not None,
                 prediction_horizon_s=0.4,
-                prediction_horizon_certified=False,
             ),
             used_fallback=False,
             message="",

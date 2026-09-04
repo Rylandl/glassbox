@@ -1049,21 +1049,3 @@ def test_exogenous_wind_forecast_flows_through_prediction(
 
     assert result.predicted_states.shape == (controller.prediction_steps + 1, 13)
     assert np.all(np.isfinite(result.predicted_states))
-
-
-def test_controller_honors_certified_prediction_horizon(
-    multirotor_model: ExecutableModel,
-) -> None:
-    model = multirotor_model
-    certified_runtime = RuntimeModelSpec(
-        sample_period_s=model.runtime_spec.sample_period_s,
-        validity_envelope=model.runtime_spec.validity_envelope,
-        certified_prediction_horizon_s=0.1,
-        certification_source="synthetic horizon audit",
-    )
-    certified_model = replace(model, runtime_spec=certified_runtime)
-
-    controller = NMPCController(certified_model)
-
-    assert controller.prediction_horizon_s <= 0.1
-    assert controller.prediction_steps == 5

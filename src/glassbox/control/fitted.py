@@ -97,15 +97,8 @@ def default_solver_policy(model: ExecutableModel) -> SolverPolicy:
     dt_s = model.runtime_spec.sample_period_s
     fixed_wing = model.input_spec.vehicle.family == "fixedwing"
     target_horizon_s = 1.0 if fixed_wing else 0.6
-    certified = model.runtime_spec.certified_prediction_horizon_s
-    if certified is not None:
-        target_horizon_s = min(target_horizon_s, certified)
     maximum_steps = 50 if fixed_wing else 40
     steps = min(maximum_steps, max(2, duration_to_steps(target_horizon_s, dt_s)))
-    if certified is not None and steps * dt_s > certified + 1e-12:
-        steps = duration_to_steps(certified, dt_s)
-    if steps < 1:
-        raise ValueError("certified prediction horizon is shorter than one model step")
     return SolverPolicy(
         horizon_steps=steps,
         block_count=maintained_block_count(steps),
@@ -215,10 +208,6 @@ class BeliefPlanModel:
     @property
     def sample_period_s(self) -> float:
         return self.model.runtime_spec.sample_period_s
-
-    @property
-    def certified_horizon_s(self) -> float | None:
-        return self.model.runtime_spec.certified_prediction_horizon_s
 
     @property
     def uncertainty_available(self) -> bool:
@@ -570,9 +559,9 @@ def plan_model(
     The belief may come from a fit or from the in-flight identifier, and
     nothing here distinguishes them. The horizon contract is settled here
     rather than in the solver, because it is a statement about evidence rather
-    than about optimization: a maintained default horizon is shortened to the
-    forecast-error evidence that supports it, and a horizon longer than a
-    certified one is refused outright.
+    than about optimization: the maintained default horizon is shortened to
+    the forecast-error evidence that supports it, and that envelope is the
+    only thing that caps it.
     """
 
     model = belief.model
@@ -595,10 +584,6 @@ def plan_model(
                 horizon_steps=supported_steps,
                 block_count=maintained_block_count(supported_steps),
             )
-    horizon_s = resolved.horizon_steps * model.runtime_spec.sample_period_s
-    certified = model.runtime_spec.certified_prediction_horizon_s
-    if certified is not None and horizon_s > certified + 1e-12:
-        raise ValueError("solver horizon exceeds the model's certified horizon")
     values = _plan_values(belief, resolved)
     return BeliefPlanModel(
         belief=belief,

@@ -254,8 +254,8 @@ class NMPCDiagnostics:
 
     Every field is a measurement of the plan that was returned. The objective
     values and the bound-projected gradient norm describe the optimization,
-    the three maxima describe the predicted horizon, and the last two describe
-    the horizon the plan covers.
+    the three maxima describe the predicted horizon, and the last one is the
+    horizon the plan covers.
     """
 
     iterations: int
@@ -269,7 +269,6 @@ class NMPCDiagnostics:
     maximum_normalized_model_uncertainty_standard_deviation: float
     warm_start_used: bool
     prediction_horizon_s: float
-    prediction_horizon_certified: bool
 
 
 @dataclass(frozen=True)
@@ -418,7 +417,6 @@ class PlanModel(Protocol):
     command_size: int
     exogenous_size: int
     latent_size: int
-    certified_horizon_s: float | None
     uncertainty_available: bool
     command_minimum: Array
     command_maximum: Array

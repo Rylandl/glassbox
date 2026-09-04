@@ -94,9 +94,11 @@ entering a timed control loop. Compilation must never happen after arming.
 ## Eligible models and airframes
 
 The runtime contract requires a sample period, a training-derived body-velocity
-and angular-rate envelope, complete control roles and bounds, latent actuator
-state semantics, and an optional prediction-horizon certificate. Loading the
-artifact never invents missing runtime facts.
+and angular-rate envelope, complete control roles and bounds, and latent
+actuator state semantics. Loading the artifact never invents missing runtime
+facts. Nothing in the contract certifies a prediction horizon: what shortens
+the horizon is the belief's own held-out forecast-error envelope, and a model
+with no envelope plans the maintained default for its vehicle.
 
 Direct control is allowed only for `normalized_command` and
 `normalized_generalized_command` channels. Measured RPM, squared rotor speed,
@@ -168,7 +170,7 @@ Important result fields are:
   infinity norm, and solve time;
 - maximum command-bound violation, model-validity utilization, normalized
   safety-limit violation, and normalized model-uncertainty standard deviation;
-- the prediction horizon and whether it is within a certified horizon; and
+- the prediction horizon the plan covers; and
 - an opaque `warm_start` for the next receding-horizon solve.
 
 `converged` is reserved for the first-order criterion. That criterion tests the
@@ -424,7 +426,6 @@ A control-eligible artifact must carry:
 - the typed prediction `TrajectorySpec`;
 - its fixed integration/sample period;
 - the training-derived body-velocity and angular-rate validity envelope;
-- an optional prediction horizon certified by named external evidence;
 - the complete latent applied-control state layout; and
 - an actionable command mapping with finite command bounds.
 

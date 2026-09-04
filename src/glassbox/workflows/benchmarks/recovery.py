@@ -589,11 +589,11 @@ def run_adaptive_recovery_benchmark() -> dict[str, Any]:
 
     belief, updated, target_params, evidence = _build_beliefs()
     initial_state = _recovery_initial_state(belief)
-    equal_horizon_runtime = replace(
-        belief.runtime_spec,
-        certified_prediction_horizon_s=CONTROL_HORIZON_STEPS * SAMPLE_DT_S,
-        certification_source="synthetic equal-horizon recovery comparison",
-    )
+    # The point arms carry the belief's own runtime contract, so every arm
+    # plans the same horizon: the maintained multirotor default is
+    # CONTROL_HORIZON_STEPS at this sample period, and the two belief arms
+    # reach the same number through their forecast envelope's own cap.
+    equal_horizon_runtime = belief.runtime_spec
     actuation = DirectActuationMap(belief.input_spec.controls)
     controllers = (
         (

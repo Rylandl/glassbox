@@ -533,10 +533,6 @@ class BoundedShootingSolver:
             self.model.command_maximum,
         )
 
-    def _certified(self) -> bool:
-        certified = self.model.certified_horizon_s
-        return certified is not None and self.prediction_horizon_s <= certified + 1e-12
-
     def _failure_result(
         self,
         status: SolveStatus,
@@ -571,7 +567,6 @@ class BoundedShootingSolver:
                 ),
                 warm_start_used=warm_start_used,
                 prediction_horizon_s=self.prediction_horizon_s,
-                prediction_horizon_certified=self._certified(),
             ),
             used_fallback=True,
             message=message,
@@ -877,7 +872,6 @@ class BoundedShootingSolver:
                 ),
                 warm_start_used=progress.warm_start_used,
                 prediction_horizon_s=self.prediction_horizon_s,
-                prediction_horizon_certified=self._certified(),
             ),
             used_fallback=False,
             message=(

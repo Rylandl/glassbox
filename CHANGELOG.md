@@ -1056,6 +1056,30 @@ All notable changes to Glassbox are recorded here. The format follows
   learned. No flag was removed.
 
 ### Removed
+- `RuntimeModelSpec.certified_prediction_horizon_s` and
+  `certification_source`, their validation, their two keys in the runtime
+  spec's serialized form, and the `certified_prediction_horizon_s` and
+  `certification_source` arguments of `runtime_spec_from_trajectory`. The
+  library certifies nothing, and the fields had one producer: the recovery
+  benchmark set them so its two point arms would plan the same horizon as its
+  two belief arms. That is now the maintained default for the vehicle, which
+  is the same number, so the benchmark passes the belief's own runtime spec to
+  every arm. With them go `PlanModel.certified_horizon_s`,
+  `BeliefPlanModel.certified_horizon_s`,
+  `NMPCDiagnostics.prediction_horizon_certified`,
+  `BoundedShootingSolver._certified`, the certified branches of
+  `default_solver_policy`, and `plan_model`'s refusal of a horizon longer than
+  a certified one. `plan_model` still shortens the maintained horizon to the
+  belief's forecast-error evidence: `ForecastErrorEnvelope.maximum_horizon_s`
+  is the one thing that caps a horizon, and
+  `test_default_horizon_does_not_exceed_predictive_error_evidence` pins it.
+  Neither recorded local artifact moves, because the certified horizon in the
+  recovery benchmark was 0.6 seconds and so is the maintained multirotor
+  default at its sample period; all four arms still plan
+  `0.6000000000000005` seconds. `docs/concepts/nmpc.md` no longer lists a
+  prediction-horizon certificate in the runtime contract or in the solve
+  result. Last commit carrying the fields: `f5656a9`.
+
 - `RecursiveBootstrapConfig.transition_aggregation_steps` and
   `RecursiveBootstrapConfig.integrated_collective`, the identifier's last two
   research switches, and every branch on them. The window is

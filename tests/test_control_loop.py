@@ -41,7 +41,6 @@ def diagnostics(*, solve_time_s: float = 0.001) -> NMPCDiagnostics:
         maximum_normalized_model_uncertainty_standard_deviation=math.inf,
         warm_start_used=False,
         prediction_horizon_s=0.12,
-        prediction_horizon_certified=False,
     )
 
 
