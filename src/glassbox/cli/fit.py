@@ -14,7 +14,7 @@ from glassbox.belief.belief import (
 )
 from glassbox.belief.belief_io import save_dynamics_belief
 from glassbox.core.data import TrajectorySpec
-from glassbox.core.model import runtime_spec_from_fit_report
+from glassbox.core.model import ExecutableModel, runtime_spec_from_fit_report
 from glassbox.workflows.fitting import (
     BenchmarkSplitHoldoutConflict,
     fit_trajectory_artifacts,
@@ -227,9 +227,9 @@ def main(argv: Sequence[str] | None = None) -> None:
         )
         save_dynamics_belief(
             DynamicsBelief(
-                params=params,
-                input_spec=input_spec,
-                runtime_spec=runtime_spec_from_fit_report(report),
+                model=ExecutableModel(
+                    params, input_spec, runtime_spec_from_fit_report(report)
+                ),
                 predictive_error=predictive_error,
                 parameter_evidence=parameter_evidence,
                 provenance=provenance,
@@ -247,10 +247,10 @@ def main(argv: Sequence[str] | None = None) -> None:
             }
             save_dynamics_belief(
                 DynamicsBelief(
-                    params=baseline_params,
-                    input_spec=input_spec,
-                    runtime_spec=runtime_spec_from_fit_report(
-                        report, model_name="no_lag"
+                    model=ExecutableModel(
+                        baseline_params,
+                        input_spec,
+                        runtime_spec_from_fit_report(report, model_name="no_lag"),
                     ),
                     predictive_error=predictive_error_from_dict(
                         report["models"]["no_lag"]["validation"]["predictive_error"]

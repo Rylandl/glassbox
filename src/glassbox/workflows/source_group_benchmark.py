@@ -25,7 +25,7 @@ from glassbox.core.identification import (
     MAX_OPTIMIZATION_WINDOWS_PER_HORIZON,
     OPTIMIZATION_POLICY_VERSION,
 )
-from glassbox.core.model import runtime_spec_from_fit_report
+from glassbox.core.model import ExecutableModel, runtime_spec_from_fit_report
 from glassbox.core.model_io import (
     FIXED_WING_MODEL_TYPE,
     MODEL_TYPE,
@@ -278,9 +278,11 @@ def benchmark_source_groups(
             report_path.write_text(json.dumps(report, indent=2) + "\n")
             save_dynamics_belief(
                 DynamicsBelief(
-                    params=learned,
-                    input_spec=reference_spec,
-                    runtime_spec=runtime_spec_from_fit_report(report),
+                    model=ExecutableModel(
+                        learned,
+                        reference_spec,
+                        runtime_spec_from_fit_report(report),
+                    ),
                     provenance={
                         "evaluation": "leave_one_source_group_out",
                         "held_out_source_group": group,
@@ -294,10 +296,10 @@ def benchmark_source_groups(
                 baseline_path = expected_baseline_path
                 save_dynamics_belief(
                     DynamicsBelief(
-                        params=baseline,
-                        input_spec=reference_spec,
-                        runtime_spec=runtime_spec_from_fit_report(
-                            report, model_name="no_lag"
+                        model=ExecutableModel(
+                            baseline,
+                            reference_spec,
+                            runtime_spec_from_fit_report(report, model_name="no_lag"),
                         ),
                         provenance={
                             "evaluation": "leave_one_source_group_out",

@@ -32,6 +32,7 @@ from glassbox.core.fixedwing_synthetic import (
 from glassbox.core.model import (
     ExecutableModel,
     ModelValidityEnvelope,
+    NonActionableModelError,
     runtime_spec_from_trajectory,
 )
 from glassbox.core.synthetic import generate_trajectory, true_parameters
@@ -145,9 +146,9 @@ def test_belief_round_trip_and_runtime_forecast(tmp_path, quadrotor_flight) -> N
     trajectory = quadrotor_flight(4, 0.3)
     error_model = _error_model(0.01)
     belief = DynamicsBelief(
-        params=true_parameters(),
-        input_spec=trajectory.spec,
-        runtime_spec=runtime_spec_from_trajectory(trajectory),
+        model=ExecutableModel(
+            true_parameters(), trajectory.spec, runtime_spec_from_trajectory(trajectory)
+        ),
         predictive_error=error_model,
         provenance={"fixture": True},
     )
@@ -155,7 +156,7 @@ def test_belief_round_trip_and_runtime_forecast(tmp_path, quadrotor_flight) -> N
 
     belief.save(path)
     restored = DynamicsBelief.load(path)
-    runtime = restored.compile_for_nmpc()
+    runtime = restored
     commands = jnp.asarray(trajectory.controls[:5])
     forecast = runtime.rollout(
         jnp.asarray(trajectory.states[0]),
@@ -179,12 +180,12 @@ def test_belief_round_trip_and_runtime_forecast(tmp_path, quadrotor_flight) -> N
 def test_runtime_rollout_enforces_declared_command_bounds(quadrotor_flight) -> None:
     trajectory = quadrotor_flight(5, 0.3)
     belief = DynamicsBelief(
-        params=true_parameters(),
-        input_spec=trajectory.spec,
-        runtime_spec=runtime_spec_from_trajectory(trajectory),
+        model=ExecutableModel(
+            true_parameters(), trajectory.spec, runtime_spec_from_trajectory(trajectory)
+        ),
         predictive_error=_error_model(0.01),
     )
-    runtime = belief.compile_for_nmpc()
+    runtime = belief
     initial_state = jnp.asarray(trajectory.states[0])
     commands = jnp.asarray(trajectory.controls[:5])
     channel_name = trajectory.spec.control_names[2]
@@ -218,9 +219,9 @@ def test_parameter_belief_propagates_through_the_rollout(
     trajectory = quadrotor_flight(7, 0.3)
     params = true_parameters()
     belief = DynamicsBelief(
-        params=params,
-        input_spec=trajectory.spec,
-        runtime_spec=runtime_spec_from_trajectory(trajectory),
+        model=ExecutableModel(
+            params, trajectory.spec, runtime_spec_from_trajectory(trajectory)
+        ),
         predictive_error=_nonsingular_error_model(
             covariance_scope=ErrorCovarianceScope.CONDITIONAL_INNOVATION
         ),
@@ -230,7 +231,7 @@ def test_parameter_belief_propagates_through_the_rollout(
     belief.save(path)
 
     restored = DynamicsBelief.load(path)
-    runtime = restored.compile_for_nmpc()
+    runtime = restored
     commands = jnp.asarray(trajectory.controls[:5])
     prediction = runtime.rollout(
         jnp.asarray(trajectory.states[0]),
@@ -271,9 +272,9 @@ def test_local_parameter_information_preserves_unresolved_directions(
         rank_relative_tolerance=1e-5,
     )
     belief = DynamicsBelief(
-        params=params,
-        input_spec=trajectory.spec,
-        runtime_spec=runtime_spec_from_trajectory(trajectory),
+        model=ExecutableModel(
+            params, trajectory.spec, runtime_spec_from_trajectory(trajectory)
+        ),
         predictive_error=_nonsingular_error_model(),
         parameter_evidence=evidence,
     )
@@ -380,9 +381,9 @@ def test_live_update_moves_structured_parameters_and_preserves_error_provenance(
         true_parameters(), jnp.asarray(nominal_vector)
     )
     belief = DynamicsBelief(
-        params=nominal,
-        input_spec=telemetry.spec,
-        runtime_spec=runtime_spec_from_trajectory(telemetry),
+        model=ExecutableModel(
+            nominal, telemetry.spec, runtime_spec_from_trajectory(telemetry)
+        ),
         predictive_error=_nonsingular_error_model(
             scale=0.05,
             covariance_scope=ErrorCovarianceScope.CONDITIONAL_INNOVATION,
@@ -409,12 +410,12 @@ def test_live_update_moves_structured_parameters_and_preserves_error_provenance(
         structured_parameter_vector(belief.params),
     )
     assert updated.provenance["online_adaptation"]["last_update"]["applied"]
-    stale_prediction = updated.compile_for_nmpc().rollout(
+    stale_prediction = updated.rollout(
         jnp.asarray(telemetry.states[0]),
         jnp.asarray(telemetry.controls[:5]),
     )
     assert not stale_prediction.predictive_error_current
-    assert updated.compile_for_nmpc().maximum_error_horizon_s is None
+    assert updated.maximum_error_horizon_s is None
     np.testing.assert_allclose(
         stale_prediction.mean_states,
         stale_prediction.nominal_states,
@@ -462,9 +463,9 @@ def test_live_update_does_not_require_actionable_control_semantics(
     vector[0] += 0.25
     nominal = with_structured_parameter_vector(params, jnp.asarray(vector))
     belief = DynamicsBelief(
-        params=nominal,
-        input_spec=physical_spec,
-        runtime_spec=runtime_spec_from_trajectory(telemetry),
+        model=ExecutableModel(
+            nominal, physical_spec, runtime_spec_from_trajectory(telemetry)
+        ),
         predictive_error=_nonsingular_error_model(
             scale=0.05,
             covariance_scope=ErrorCovarianceScope.CONDITIONAL_INNOVATION,
@@ -472,8 +473,9 @@ def test_live_update_does_not_require_actionable_control_semantics(
         parameter_belief=_parameter_belief(nominal, spread=0.4),
     )
 
-    with pytest.raises(ValueError, match="direct NMPC actuation"):
-        belief.compile_for_nmpc()
+    assert belief.model.actuation is None
+    with pytest.raises(NonActionableModelError, match="no command space"):
+        assert belief.model.command_minimum is not None
     _, report = belief.update(telemetry)
 
     assert report.applied
@@ -528,9 +530,9 @@ def test_recalibration_returns_a_moved_belief_to_a_usable_lifecycle(
     trajectory = quadrotor_flight(12, 0.3)
     params = true_parameters()
     fitted = DynamicsBelief(
-        params=params,
-        input_spec=trajectory.spec,
-        runtime_spec=_permissive_runtime_spec(trajectory),
+        model=ExecutableModel(
+            params, trajectory.spec, _permissive_runtime_spec(trajectory)
+        ),
         predictive_error=_nonsingular_error_model(
             covariance_scope=ErrorCovarianceScope.CONDITIONAL_INNOVATION,
         ),
@@ -548,7 +550,7 @@ def test_recalibration_returns_a_moved_belief_to_a_usable_lifecycle(
     # longer current: the horizon cap disappears and updates fail closed.
     assert first_report.applied
     assert not moved.predictive_error_current
-    assert moved.compile_for_nmpc().maximum_error_horizon_s is None
+    assert moved.maximum_error_horizon_s is None
     _, stale_report = moved.update(quadrotor_flight(13, 0.4))
     assert not stale_report.applied
     assert "stale" in stale_report.reason
@@ -557,7 +559,7 @@ def test_recalibration_returns_a_moved_belief_to_a_usable_lifecycle(
     refreshed = moved.recalibrate_predictive_error(calibration)
 
     assert refreshed.predictive_error_current
-    assert refreshed.compile_for_nmpc().maximum_error_horizon_s == pytest.approx(0.2)
+    assert refreshed.maximum_error_horizon_s == pytest.approx(0.2)
     assert refreshed.predictive_error.horizons_s == (0.1, 0.2)
     assert (
         refreshed.predictive_error.covariance_scope

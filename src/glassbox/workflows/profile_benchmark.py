@@ -12,7 +12,7 @@ from glassbox.belief.belief import DynamicsBelief
 from glassbox.belief.belief_io import save_dynamics_belief
 from glassbox.core.data import load_trajectory_npz
 from glassbox.core.evaluation import aggregate_rollout_metrics
-from glassbox.core.model import runtime_spec_from_fit_report
+from glassbox.core.model import ExecutableModel, runtime_spec_from_fit_report
 from glassbox.workflows.fitting import fit_trajectory_artifacts
 
 
@@ -112,9 +112,11 @@ def benchmark_profiles(
         report_path.write_text(json.dumps(report, indent=2) + "\n")
         save_dynamics_belief(
             DynamicsBelief(
-                params=learned,
-                input_spec=trajectories[0].spec,
-                runtime_spec=runtime_spec_from_fit_report(report),
+                model=ExecutableModel(
+                    learned,
+                    trajectories[0].spec,
+                    runtime_spec_from_fit_report(report),
+                ),
                 provenance={
                     "held_out_profile": profile,
                     "fit_report": str(report_path),
@@ -128,10 +130,10 @@ def benchmark_profiles(
             baseline_path = destination / f"holdout_{profile}_{lag_label}.json"
             save_dynamics_belief(
                 DynamicsBelief(
-                    params=baseline,
-                    input_spec=trajectories[0].spec,
-                    runtime_spec=runtime_spec_from_fit_report(
-                        report, model_name="no_lag"
+                    model=ExecutableModel(
+                        baseline,
+                        trajectories[0].spec,
+                        runtime_spec_from_fit_report(report, model_name="no_lag"),
                     ),
                     provenance={
                         "held_out_profile": profile,

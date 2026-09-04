@@ -22,7 +22,11 @@ from glassbox.core.evaluation import (
     rigid_body_tangent_errors,
     windowed_rollout_evaluation,
 )
-from glassbox.core.model import ModelValidityEnvelope, runtime_spec_from_trajectory
+from glassbox.core.model import (
+    ExecutableModel,
+    ModelValidityEnvelope,
+    runtime_spec_from_trajectory,
+)
 from glassbox.core.synthetic import generate_trajectory, true_parameters
 
 
@@ -55,12 +59,12 @@ def _shifted_belief(
     covariance = np.zeros((len(vector), len(vector)))
     covariance[0, 0] = 0.16
     return DynamicsBelief(
-        params=nominal,
-        input_spec=telemetry.spec,
-        runtime_spec=(
+        model=ExecutableModel(
+            nominal,
+            telemetry.spec,
             runtime_spec_from_trajectory(telemetry)
             if runtime_spec is None
-            else runtime_spec
+            else runtime_spec,
         ),
         predictive_error=_error_model(
             0.1,
@@ -105,7 +109,7 @@ def test_total_forecast_error_does_not_double_count_parameter_spread(
         covariance_scope=ErrorCovarianceScope.TOTAL_FORECAST,
     )
 
-    prediction = belief.compile_for_nmpc().rollout(
+    prediction = belief.rollout(
         jnp.asarray(telemetry.states[0]),
         jnp.asarray(telemetry.controls[:5]),
     )
@@ -632,9 +636,9 @@ def _self_calibrated_belief(
         duration_s=calibration_duration_s,
     )
     shell = DynamicsBelief(
-        params=nominal,
-        input_spec=calibration.spec,
-        runtime_spec=runtime_spec_from_trajectory(calibration),
+        model=ExecutableModel(
+            nominal, calibration.spec, runtime_spec_from_trajectory(calibration)
+        ),
         parameter_belief=LocalGaussianParameterBelief(
             parameter_names=structured_parameter_names(nominal),
             covariance=covariance,
@@ -659,7 +663,7 @@ def _runtime_endpoint_errors(
 ) -> np.ndarray:
     """Score the forecast the controller actually consumes, bias included."""
 
-    runtime = belief.compile_for_nmpc()
+    runtime = belief
     errors = []
     for start in range(0, horizon_steps * window_count, horizon_steps):
         forecast = runtime.rollout(
@@ -751,9 +755,7 @@ def test_null_acceptance_rate_stays_within_one_in_twenty(quadrotor_flight) -> No
         ),
     )
     shell = DynamicsBelief(
-        params=truth,
-        input_spec=calibration.spec,
-        runtime_spec=permissive,
+        model=ExecutableModel(truth, calibration.spec, permissive),
         parameter_belief=LocalGaussianParameterBelief(
             parameter_names=names,
             covariance=covariance,

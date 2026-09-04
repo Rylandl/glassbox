@@ -26,9 +26,7 @@ def _write_model(params, path, *, input_spec, runtime_spec) -> None:
 
     save_dynamics_belief(
         DynamicsBelief(
-            params=params,
-            input_spec=input_spec,
-            runtime_spec=runtime_spec,
+            model=ExecutableModel(params, input_spec, runtime_spec),
         ),
         path,
     )
@@ -153,9 +151,17 @@ def test_traced_commands_stay_the_caller_s_contract(
     assert np.all(np.isfinite(compiled(jnp.full(4, 0.4))))
 
 
-def test_direct_actuation_rejects_measured_rotor_speed_model(
+def test_measured_rotor_speed_model_loads_without_a_command_space(
     tmp_path, quadrotor_trajectory_seed0_dur0_1s
 ) -> None:
+    """Executable is not the same as actionable.
+
+    A model whose inputs are measured rotor speeds still integrates, still
+    reports validity, and still round-trips. It has no command space, and
+    every method that needs one says so by name instead of the model refusing
+    to exist.
+    """
+
     trajectory = quadrotor_trajectory_seed0_dur0_1s
     path = tmp_path / "nanodrone_model.json"
     _write_model(
@@ -165,8 +171,25 @@ def test_direct_actuation_rejects_measured_rotor_speed_model(
         runtime_spec=runtime_spec_from_trajectory(trajectory),
     )
 
+    model = ExecutableModel.load(path)
+
+    assert model.actuation is None
+    assert model.latent_size == 7
+    assert np.all(
+        np.isfinite(
+            np.asarray(model.validity_utilization(jnp.asarray(trajectory.states[0])))
+        )
+    )
+    for command_space in (
+        lambda: model.command_size,
+        lambda: model.command_minimum,
+        lambda: model.command_maximum,
+        lambda: model.initial_latent_state(jnp.zeros(4)),
+    ):
+        with pytest.raises(NonActionableModelError, match="no command space"):
+            command_space()
     with pytest.raises(NonActionableModelError, match="command semantics"):
-        ExecutableModel.load(path)
+        DirectActuationMap(model.input_spec.controls)
 
 
 @dataclass(frozen=True)

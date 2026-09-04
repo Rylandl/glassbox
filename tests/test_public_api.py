@@ -47,7 +47,6 @@ EXPECTED_PUBLIC_API = (
     "ResidualDynamicsParams",
     "ResolvedLocalGeometry",
     "RolloutLossConfiguration",
-    "RuntimeDynamicsBelief",
     "RuntimeModelSpec",
     "SafetyEnvelope",
     "SolveStatus",

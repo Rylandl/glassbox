@@ -78,6 +78,20 @@ All notable changes to Glassbox are recorded here. The format follows
   `--only`, and `--include-slow`.
 
 ### Changed
+- The belief owns one executable model. `DynamicsBelief.model` replaces the flat
+  `params`, `input_spec` and `runtime_spec` triple, which stay as read-only
+  properties delegating to the model, and the belief's serialized JSON keys are
+  unchanged: a belief written before this change reloads to identical
+  parameters, evidence and error moments. `ExecutableModel.actuation` is now
+  optional and defaults to the identity map on the declared control channels,
+  which is what every actionable model was already given; a model whose inputs
+  are observations of actuation gets no map instead of refusing to exist, still
+  integrates, still reports validity, still serializes, and raises
+  `NonActionableModelError` from `command_size`, `command_minimum`,
+  `command_maximum`, `initial_latent_state` and `transition`. `NMPCController`
+  raises the same error when handed one. Constructing an `ExecutableModel` with
+  the identity map no longer traces and differentiates it to check it, because
+  it is the identity; a caller's own map is still checked.
 - The NMPC objective charges what the belief knows about its own error, in two
   terms and with no configuration of its own. The tracking cost is now an
   expectation: every predicted stage charges `l(mean) + trace(W Sigma)` for the
@@ -187,6 +201,14 @@ All notable changes to Glassbox are recorded here. The format follows
   learned. No flag was removed.
 
 ### Removed
+- `RuntimeDynamicsBelief` and `DynamicsBelief.compile_for_nmpc`. The belief now
+  holds the executable model directly, so the compiled view had nothing left to
+  hold: `rollout`, `corrected_state`, `error_moments`, `maximum_error_horizon_s`,
+  `uncertainty_available`, `predictive_error_available` and
+  `parameter_uncertainty_available` are methods and properties of
+  `DynamicsBelief` itself, with the same signatures and the same numbers.
+  `RuntimeDynamicsBelief` leaves the public `glassbox` surface. Last commit
+  carrying it: `2123c94`.
 - The NMPC support filter and the bounded-authority post-pass, and with them
   every field only they wrote. `SupportFilterMode` and its six members are gone
   from `glassbox` and `glassbox.control.nmpc`; `_select_support_command` and the

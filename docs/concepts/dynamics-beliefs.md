@@ -5,14 +5,22 @@ parameter file and not a bootstrap ensemble. The belief preserves a compact,
 differentiable nominal model while making prediction error, parameter evidence,
 operating support, and update history explicit.
 
-The nominal model has one type. `ExecutableModel` binds fitted parameters to
-the input spec, the runtime spec, and an actuation map, and it is what runs:
-one transition, one rollout, validity utilization, and the hard command bounds.
-Binding commands is what `compile_for_nmpc` does, and the compiled result is a
-view over this belief rather than a second belief with evidence of its own, so
-there is one place where prediction error and parameter uncertainty are
-answered. The belief is also the one artifact the library writes; a bare model
-payload is still read, as a belief with no evidence attached.
+The nominal model has one type, and the belief owns one of them.
+`ExecutableModel` binds fitted parameters to the input spec, the runtime spec,
+and an actuation map, and it is what runs: one transition, one rollout,
+validity utilization, and the hard command bounds. The belief holds that model
+as its `model` field and answers `params`, `input_spec` and `runtime_spec` from
+it, so there is exactly one place where the mean lives and exactly one place
+where prediction error and parameter uncertainty are answered.
+
+Executable is not the same as actionable. The actuation map is optional: it is
+the identity on the declared control channels when those channels are commands
+with finite bounds, and it is absent when they are observations of actuation,
+such as measured rotor speeds. A model without one still integrates, still
+reports validity, and still serializes; every method that needs a command space
+raises `NonActionableModelError` and says so. The belief is also the one
+artifact the library writes; a bare model payload is still read, as a belief
+with no evidence attached.
 
 The motivating runtime is broader than ordinary batch identification. A vehicle
 may enter with only an airframe-family prior, stabilize using conservative
@@ -28,7 +36,7 @@ The opinionated public lifecycle is:
 ```python
 belief = glassbox.DynamicsBelief.load("artifacts/vehicle-belief.json")
 
-forecast = belief.compile_for_nmpc().rollout(initial_state, commands)
+forecast = belief.rollout(initial_state, commands)
 updated_belief, update = belief.update(recent_telemetry)
 
 # The commit moved the parameters, so the attached error evidence is stale.
@@ -347,9 +355,8 @@ to the controller and neither substitutes for the other.
 
 Safe exploration needs expected information, not merely large uncertainty. The
 belief exposes the pieces that calculation is built from rather than a scoring
-entry point of its own. A rollout from `compile_for_nmpc()` returns the
-parameter tangent Jacobian, the propagated parameter covariance at every
-horizon, and validity utilization along the candidate path, and
+entry point of its own. `belief.rollout(...)` returns the parameter tangent
+Jacobian, the propagated parameter covariance at every horizon, and validity utilization along the candidate path, and
 `parameter_evidence` carries the local information matrix with its numerical
 rank. An exploration policy forms expected information gain from those, on the
 coordinates and horizon it cares about, and must decide for itself that a

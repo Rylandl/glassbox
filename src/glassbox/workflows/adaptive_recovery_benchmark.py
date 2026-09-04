@@ -317,9 +317,7 @@ def _build_beliefs() -> tuple[
         source="prewarmed_vehicle_plus_configuration_delta",
     )
     belief = DynamicsBelief(
-        params=base,
-        input_spec=adaptation_telemetry.spec,
-        runtime_spec=runtime_spec,
+        model=ExecutableModel(base, adaptation_telemetry.spec, runtime_spec),
         predictive_error=predictive_error,
         parameter_belief=parameter_belief,
         provenance={

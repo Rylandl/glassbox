@@ -379,6 +379,23 @@ class DirectActuationMap:
         return jnp.asarray(command)
 
 
+def default_actuation(input_spec: TrajectorySpec) -> ActuationMap | None:
+    """Return the identity actuation map when the inputs are actionable.
+
+    Executable is not the same as actionable. A model whose control channels
+    are commands with finite bounds is directly actionable, and its actuation
+    map is the identity on those channels. A model whose inputs are measured
+    rotor speeds or surface angles is a perfectly good model of the dynamics
+    and simply has no command space; it gets ``None`` rather than an error,
+    and only a caller that asks for commands is refused.
+    """
+
+    try:
+        return DirectActuationMap(input_spec.controls)
+    except NonActionableModelError:
+        return None
+
+
 @dataclass(frozen=True)
 class ExecutableModel:
     """A fitted model bound to its executable timing and actuation contract.
@@ -390,20 +407,35 @@ class ExecutableModel:
     far a state sits outside the training support and callers decide what to do
     with it, because leaving the envelope makes a forecast unsupported rather
     than impossible.
+
+    ``actuation`` defaults to the identity map on the declared control channels
+    when those channels are commands, and to nothing when they are observations
+    of actuation. Without a map the model still integrates, still reports
+    validity, and still serializes; it simply has no command space, and every
+    method that needs one raises :class:`NonActionableModelError`.
     """
 
     params: ModelParams
     input_spec: TrajectorySpec
     runtime_spec: RuntimeModelSpec
-    actuation: ActuationMap
+    actuation: ActuationMap | None = None
 
     def __post_init__(self) -> None:
         family = model_family(self.params)
+        # Training-only observations are not part of the executable contract.
+        # A spec that already carries none is kept as it is, so rebinding
+        # parameters keeps sharing one spec object with the model it came from.
+        if self.input_spec.observations:
+            object.__setattr__(self, "input_spec", self.input_spec.prediction_spec())
         if self.input_spec.vehicle.family != family.platform:
             raise ValueError("runtime input spec does not match model family")
         family.validate_control_schema(
             self.input_spec.control_names, self.input_spec.control_roles
         )
+        if self.actuation is None:
+            object.__setattr__(self, "actuation", default_actuation(self.input_spec))
+        if self.actuation is None:
+            return
         if self.actuation.model_control_size != len(self.input_spec.controls):
             raise ValueError(
                 "actuation map output size does not match model control size"
@@ -425,6 +457,12 @@ class ExecutableModel:
         maximum = np.asarray(
             [channel.maximum for channel in self.actuation.command_channels]
         )
+        if isinstance(self.actuation, DirectActuationMap):
+            # The identity map is traceable, differentiable with an identity
+            # Jacobian, and already checked its own semantics and bounds. The
+            # traced checks below exist for a caller's own map, and running
+            # them on the identity costs a compile on every model built.
+            return
         expected_shape = (len(self.input_spec.controls),)
         midpoint = 0.5 * (minimum + maximum)
         for sample in (minimum, midpoint, maximum):
@@ -452,6 +490,17 @@ class ExecutableModel:
             np.isfinite(jacobian)
         ):
             raise ValueError("actuation map produced an invalid command Jacobian")
+
+    @property
+    def actuation_map(self) -> ActuationMap:
+        """The actuation map, or a refusal naming what the model cannot do."""
+
+        if self.actuation is None:
+            raise NonActionableModelError(
+                "this model has no actuation map, so it has no command space; "
+                "its inputs are observations of actuation rather than commands"
+            )
+        return self.actuation
 
     def rebind_parameters(self, params: ModelParams) -> ExecutableModel:
         """Reuse validated static contracts with compatible dynamic parameters."""
@@ -488,23 +537,23 @@ class ExecutableModel:
         input_spec = TrajectorySpec.from_dict(payload["input_spec"])
         runtime_spec = RuntimeModelSpec.from_dict(payload["runtime_spec"])
         if actuation is None:
-            actuation = DirectActuationMap(input_spec.controls)
+            actuation = default_actuation(input_spec)
         return cls(params, input_spec, runtime_spec, actuation)
 
     @property
     def command_size(self) -> int:
-        return len(self.actuation.command_channels)
+        return len(self.actuation_map.command_channels)
 
     @property
     def command_minimum(self) -> Array:
         return jnp.asarray(
-            [channel.minimum for channel in self.actuation.command_channels]
+            [channel.minimum for channel in self.actuation_map.command_channels]
         )
 
     @property
     def command_maximum(self) -> Array:
         return jnp.asarray(
-            [channel.maximum for channel in self.actuation.command_channels]
+            [channel.maximum for channel in self.actuation_map.command_channels]
         )
 
     @property
@@ -538,7 +587,7 @@ class ExecutableModel:
             history = history[jnp.newaxis, :]
         if history.ndim != 2 or history.shape[1] != self.command_size:
             raise ValueError("command history must have shape (time, command_size)")
-        model_history = jax.vmap(self.actuation.model_control)(history)
+        model_history = jax.vmap(self.actuation_map.model_control)(history)
         return control_state_after_history(
             params,
             model_history,
@@ -602,7 +651,7 @@ class ExecutableModel:
             raise ValueError("command does not match runtime command size")
         command = commands_within_declared_bounds(
             command,
-            self.actuation.command_channels,
+            self.actuation_map.command_channels,
         )
         if exogenous is None:
             exogenous = jnp.zeros(self.exogenous_size)
@@ -612,7 +661,7 @@ class ExecutableModel:
             params,
             state,
             latent_state,
-            self.actuation.model_control(command),
+            self.actuation_map.model_control(command),
             interval_s,
             self.input_spec.control_roles,
             exogenous,

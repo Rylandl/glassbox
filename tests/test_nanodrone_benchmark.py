@@ -12,7 +12,7 @@ from glassbox.belief.belief_io import save_dynamics_belief
 from glassbox.core.adapter import TrajectoryAdapter
 from glassbox.core.data import save_trajectory_npz
 from glassbox.core.dynamics import QUADROTOR_CONTROL_NAMES
-from glassbox.core.model import runtime_spec_from_trajectory
+from glassbox.core.model import ExecutableModel, runtime_spec_from_trajectory
 from glassbox.core.synthetic import initial_parameter_guess
 from glassbox.io.nanodrone_reference import (
     BENCHMARK_COMMIT,
@@ -229,9 +229,11 @@ def test_saved_model_benchmark_report_round_trip(tmp_path) -> None:
     save_trajectory_npz(trajectory, trajectory_path)
     save_dynamics_belief(
         DynamicsBelief(
-            params=initial_parameter_guess(),
-            input_spec=trajectory.spec,
-            runtime_spec=runtime_spec_from_trajectory(trajectory),
+            model=ExecutableModel(
+                initial_parameter_guess(),
+                trajectory.spec,
+                runtime_spec_from_trajectory(trajectory),
+            ),
         ),
         model_path,
     )

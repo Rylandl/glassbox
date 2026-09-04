@@ -16,7 +16,7 @@ from glassbox.belief.belief import (
     predictive_error_from_dict,
 )
 from glassbox.core.data import TrajectorySpec
-from glassbox.core.model import RuntimeModelSpec
+from glassbox.core.model import ExecutableModel, RuntimeModelSpec, default_actuation
 from glassbox.core.model_io import dynamics_model_from_payload, model_payload
 
 BELIEF_FORMAT_VERSION = 3
@@ -82,14 +82,34 @@ def save_dynamics_belief(belief: DynamicsBelief, path: str | Path) -> None:
     )
 
 
+def _executable_model(
+    payload: Mapping[str, Any],
+) -> tuple[ExecutableModel, Mapping[str, Any]]:
+    """Rebuild the belief's mean from the nominal-model half of a payload.
+
+    The artifact records no actuation map, because the map is a property of the
+    command interface rather than of the fit. It is rebuilt from the declared
+    control channels, which yields the identity map for an actionable model and
+    no map at all for one whose inputs are observations of actuation.
+    """
+
+    params, nominal = dynamics_model_from_payload(payload)
+    input_spec = TrajectorySpec.from_dict(nominal["input_spec"])
+    model = ExecutableModel(
+        params,
+        input_spec,
+        RuntimeModelSpec.from_dict(nominal["runtime_spec"]),
+        default_actuation(input_spec),
+    )
+    return model, nominal
+
+
 def _point_belief_from_model_payload(payload: Mapping[str, Any]) -> DynamicsBelief:
     """Wrap a bare nominal-model payload as a belief carrying no evidence."""
 
-    params, nominal = dynamics_model_from_payload(payload)
+    model, nominal = _executable_model(payload)
     return DynamicsBelief(
-        params=params,
-        input_spec=TrajectorySpec.from_dict(nominal["input_spec"]),
-        runtime_spec=RuntimeModelSpec.from_dict(nominal["runtime_spec"]),
+        model=model,
         provenance=dict(nominal.get("provenance", {})),
     )
 
@@ -108,12 +128,9 @@ def dynamics_belief_from_payload(payload: Mapping[str, Any]) -> DynamicsBelief:
         return _point_belief_from_model_payload(payload)
     if payload.get("format_version") != BELIEF_FORMAT_VERSION:
         raise ValueError("unsupported dynamics-belief format")
-    nominal_payload = payload["nominal_model"]
-    params, nominal = dynamics_model_from_payload(nominal_payload)
+    model, _ = _executable_model(payload["nominal_model"])
     return DynamicsBelief(
-        params=params,
-        input_spec=TrajectorySpec.from_dict(nominal["input_spec"]),
-        runtime_spec=RuntimeModelSpec.from_dict(nominal["runtime_spec"]),
+        model=model,
         predictive_error=predictive_error_from_dict(payload["predictive_error"]),
         parameter_belief=parameter_belief_from_dict(payload["parameter_belief"]),
         parameter_evidence=parameter_evidence_from_dict(payload["parameter_evidence"]),

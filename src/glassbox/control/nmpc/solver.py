@@ -15,7 +15,6 @@ from glassbox.belief.belief import (
     DynamicsBelief,
     EmpiricalHorizonPredictiveError,
     ErrorCovarianceScope,
-    RuntimeDynamicsBelief,
     structured_parameter_vector,
     with_structured_parameter_vector,
 )
@@ -31,7 +30,7 @@ from glassbox.control.nmpc.types import (
 from glassbox.core.data import duration_to_steps
 from glassbox.core.dynamics import ModelParams, quaternion_to_rotation
 from glassbox.core.geometry import rigid_body_local_error
-from glassbox.core.model import ExecutableModel
+from glassbox.core.model import ExecutableModel, NonActionableModelError
 
 _MAXIMUM_COMMAND_BLOCKS = 10
 _COMMAND_BOUND_RELATIVE_TOLERANCE = 1e-6
@@ -252,7 +251,7 @@ def _default_policy(model: ExecutableModel) -> SolverPolicy:
     )
 
 
-def _parameter_covariance_factor(belief: RuntimeDynamicsBelief) -> np.ndarray | None:
+def _parameter_covariance_factor(belief: DynamicsBelief) -> np.ndarray | None:
     """Return a factor ``L`` with ``L @ L.T`` equal to the parameter covariance.
 
     The objective charges predicted spread, and the parameter contribution to
@@ -286,16 +285,17 @@ def _parameter_covariance_factor(belief: RuntimeDynamicsBelief) -> np.ndarray | 
     return eigenvectors[:, retained] * np.sqrt(eigenvalues[retained])
 
 
-def _runtime_belief(
-    model: ExecutableModel | RuntimeDynamicsBelief | DynamicsBelief,
-) -> RuntimeDynamicsBelief:
-    return (
-        model.compile_for_nmpc()
-        if isinstance(model, DynamicsBelief)
-        else model
-        if isinstance(model, RuntimeDynamicsBelief)
-        else RuntimeDynamicsBelief.from_nominal(model)
-    )
+def _controlled_belief(model: ExecutableModel | DynamicsBelief) -> DynamicsBelief:
+    """Accept either a bare executable model or the belief that carries one."""
+
+    belief = model if isinstance(model, DynamicsBelief) else DynamicsBelief(model)
+    if belief.model.actuation is None:
+        # Fail closed here rather than at the first solve: a model whose inputs
+        # are observations of actuation has no command space to optimize over.
+        raise NonActionableModelError(
+            "NMPC needs a command space; this model has no actuation map"
+        )
+    return belief
 
 
 class _DirectShootingBackend:
@@ -303,7 +303,7 @@ class _DirectShootingBackend:
 
     def __init__(
         self,
-        belief: RuntimeDynamicsBelief,
+        belief: DynamicsBelief,
         tolerances: TrackingTolerances,
         safety_envelope: SafetyEnvelope,
         *,
@@ -1454,13 +1454,13 @@ class NMPCController:
 
     def __init__(
         self,
-        model: ExecutableModel | RuntimeDynamicsBelief | DynamicsBelief,
+        model: ExecutableModel | DynamicsBelief,
         tolerances: TrackingTolerances | None = None,
         safety_envelope: SafetyEnvelope | None = None,
         *,
         policy: SolverPolicy | None = None,
     ) -> None:
-        belief = _runtime_belief(model)
+        belief = _controlled_belief(model)
         self.belief = belief
         self.model = belief.model
         self.tolerances = (

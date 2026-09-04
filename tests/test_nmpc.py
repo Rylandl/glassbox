@@ -405,9 +405,7 @@ def test_solver_consumes_predictive_and_parameter_uncertainty(
         EmpiricalErrorSample(endpoint_errors, "group-b", "flight-b"),
     )
     belief = DynamicsBelief(
-        params=model.params,
-        input_spec=model.input_spec,
-        runtime_spec=model.runtime_spec,
+        model=ExecutableModel(model.params, model.input_spec, model.runtime_spec),
         predictive_error=EmpiricalHorizonPredictiveError.from_samples(
             {0.1: error_samples, 0.2: error_samples}
         ),
@@ -515,9 +513,7 @@ def test_a_belief_with_covariance_is_charged_more_than_a_point_belief(
     covariance = np.zeros((parameter_count, parameter_count))
     covariance[0, 0] = 0.04
     belief = DynamicsBelief(
-        params=model.params,
-        input_spec=model.input_spec,
-        runtime_spec=model.runtime_spec,
+        model=ExecutableModel(model.params, model.input_spec, model.runtime_spec),
         parameter_belief=LocalGaussianParameterBelief(
             parameter_names=structured_parameter_names(model.params),
             covariance=covariance,
@@ -552,9 +548,7 @@ def test_default_horizon_does_not_exceed_predictive_error_evidence(
         EmpiricalErrorSample(endpoint_errors, "group-b", "flight-b"),
     )
     belief = DynamicsBelief(
-        params=model.params,
-        input_spec=model.input_spec,
-        runtime_spec=model.runtime_spec,
+        model=ExecutableModel(model.params, model.input_spec, model.runtime_spec),
         predictive_error=EmpiricalHorizonPredictiveError.from_samples({0.1: samples}),
     )
 
@@ -583,9 +577,7 @@ def test_stale_predictive_error_does_not_cap_default_horizon(
     )
     parameter_count = len(structured_parameter_names(model.params))
     stale_belief = DynamicsBelief(
-        params=model.params,
-        input_spec=model.input_spec,
-        runtime_spec=model.runtime_spec,
+        model=ExecutableModel(model.params, model.input_spec, model.runtime_spec),
         predictive_error=EmpiricalHorizonPredictiveError.from_samples({0.1: samples}),
         parameter_belief=LocalGaussianParameterBelief(
             parameter_names=structured_parameter_names(model.params),

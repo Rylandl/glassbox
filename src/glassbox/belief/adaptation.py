@@ -1669,12 +1669,12 @@ def validate_and_commit_dynamics_belief_update(
             "last_update": report.to_dict(),
         }
         updated = DynamicsBelief(
-            params=with_structured_parameter_vector(
-                belief.params,
-                jnp.asarray(selected),
+            model=belief.model.rebind_parameters(
+                with_structured_parameter_vector(
+                    belief.params,
+                    jnp.asarray(selected),
+                )
             ),
-            input_spec=belief.input_spec,
-            runtime_spec=belief.runtime_spec,
             predictive_error=belief.predictive_error,
             parameter_belief=updated_parameter_belief,
             parameter_evidence=belief.parameter_evidence,
@@ -1909,9 +1909,7 @@ def recalibrate_predictive_error(
         "maximum_validity_utilization": maximum_validity,
     }
     return DynamicsBelief(
-        params=belief.params,
-        input_spec=belief.input_spec,
-        runtime_spec=belief.runtime_spec,
+        model=belief.model,
         predictive_error=predictive_error,
         parameter_belief=belief.parameter_belief,
         parameter_evidence=belief.parameter_evidence,

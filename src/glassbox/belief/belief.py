@@ -26,15 +26,12 @@ from glassbox.core.dynamics import (
     ModelParams,
     ResidualDynamicsParams,
     control_state_after_history,
-    model_family,
     quaternion_multiply,
     step_with_latent,
     structured_parameters,
 )
 from glassbox.core.geometry import rigid_body_local_error
 from glassbox.core.model import (
-    ActuationMap,
-    DirectActuationMap,
     ExecutableModel,
     RuntimeModelSpec,
     commands_within_declared_bounds,
@@ -1097,11 +1094,22 @@ class PredictiveTrajectory:
 
 @dataclass(frozen=True)
 class DynamicsBelief:
-    """Serializable fitted dynamics plus the errors supported by evidence."""
+    """One executable model plus the errors the evidence supports.
 
-    params: ModelParams
-    input_spec: TrajectorySpec
-    runtime_spec: RuntimeModelSpec
+    The model is the belief's mean: the fitted parameters, the prediction
+    contract, the executable timing and validity envelope, and the actuation
+    map when the model's inputs are commands. Every other field says how wrong
+    that mean has been and which of its parameters the evidence resolved.
+
+    Declared command bounds are enforced on every concrete rollout: a command
+    outside them raises and names the channel. The validity envelope stays
+    advisory -- :attr:`PredictiveTrajectory.validity_utilization` reports how
+    far the forecast leaves the training support, and the caller decides,
+    because an unsupported forecast is still a forecast while an unexecutable
+    command is not a command.
+    """
+
+    model: ExecutableModel
     predictive_error: PredictiveErrorModel = field(
         default_factory=UnavailablePredictiveError
     )
@@ -1113,14 +1121,6 @@ class DynamicsBelief:
     provenance: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        prediction_spec = self.input_spec.prediction_spec()
-        family = model_family(self.params)
-        if prediction_spec.vehicle.family != family.platform:
-            raise ValueError("belief input spec does not match model family")
-        family.validate_control_schema(
-            prediction_spec.control_names,
-            prediction_spec.control_roles,
-        )
         names = structured_parameter_names(self.params)
         if (
             isinstance(self.parameter_belief, LocalGaussianParameterBelief)
@@ -1143,7 +1143,6 @@ class DynamicsBelief:
             raise ValueError(
                 "predictive-error update count cannot exceed the parameter belief"
             )
-        object.__setattr__(self, "input_spec", prediction_spec)
         object.__setattr__(
             self,
             "predictive_error_parameter_update_count",
@@ -1152,159 +1151,16 @@ class DynamicsBelief:
         object.__setattr__(self, "provenance", dict(self.provenance))
 
     @property
-    def predictive_error_current(self) -> bool:
-        return (
-            self.predictive_error.available
-            and self.predictive_error_parameter_update_count
-            == self.parameter_belief.update_count
-        )
-
-    def compile_for_nmpc(
-        self,
-        *,
-        actuation: ActuationMap | None = None,
-    ) -> RuntimeDynamicsBelief:
-        """Bind actionable commands and return the compact runtime belief."""
-
-        selected_actuation = (
-            DirectActuationMap(self.input_spec.controls)
-            if actuation is None
-            else actuation
-        )
-        return RuntimeDynamicsBelief(
-            belief=self,
-            model=ExecutableModel(
-                self.params,
-                self.input_spec,
-                self.runtime_spec,
-                selected_actuation,
-            ),
-        )
-
-    def update(
-        self, telemetry: Trajectory
-    ) -> tuple[DynamicsBelief, BeliefUpdateReport]:
-        """Propose on early telemetry and commit after disjoint validation."""
-
-        from glassbox.belief.adaptation import update_dynamics_belief
-
-        return update_dynamics_belief(self, telemetry)
-
-    def recalibrate_predictive_error(
-        self,
-        telemetry: Trajectory,
-        *,
-        horizons_s: Sequence[float] | None = None,
-        quantile_levels: tuple[float, ...] | None = None,
-        covariance_scope: ErrorCovarianceScope | None = None,
-        source_group: str | None = None,
-        trajectory_id: str | None = None,
-    ) -> DynamicsBelief:
-        """Rebuild predictive-error evidence around the current parameters."""
-
-        from glassbox.belief.adaptation import recalibrate_predictive_error
-
-        return recalibrate_predictive_error(
-            self,
-            telemetry,
-            horizons_s=horizons_s,
-            quantile_levels=quantile_levels,
-            covariance_scope=covariance_scope,
-            source_group=source_group,
-            trajectory_id=trajectory_id,
-        )
-
-    def propose_update(
-        self,
-        telemetry: Trajectory,
-    ) -> tuple[BeliefUpdateProposal | None, BeliefUpdateReport]:
-        """Create a bounded update proposal without changing this belief."""
-
-        from glassbox.belief.adaptation import propose_dynamics_belief_update
-
-        return propose_dynamics_belief_update(self, telemetry)
-
-    def commit_update(
-        self,
-        proposal: BeliefUpdateProposal,
-        validation_telemetry: Trajectory,
-        *,
-        validation_control_history: np.ndarray | None = None,
-    ) -> tuple[DynamicsBelief, BeliefUpdateReport]:
-        """Validate and commit using explicit pre-segment actuator context."""
-
-        from glassbox.belief.adaptation import (
-            validate_and_commit_dynamics_belief_update,
-        )
-
-        return validate_and_commit_dynamics_belief_update(
-            self,
-            proposal,
-            validation_telemetry,
-            validation_control_history=validation_control_history,
-        )
-
-    def save(self, path: str | Path) -> None:
-        from glassbox.belief.belief_io import save_dynamics_belief
-
-        save_dynamics_belief(self, path)
-
-    @classmethod
-    def load(cls, path: str | Path) -> DynamicsBelief:
-        from glassbox.belief.belief_io import load_dynamics_belief
-
-        return load_dynamics_belief(path)
-
-
-@dataclass(frozen=True)
-class RuntimeDynamicsBelief:
-    """One dynamics belief viewed through a command-bound executable model.
-
-    This type owns no evidence of its own. It pairs a :class:`DynamicsBelief`
-    with the :class:`ExecutableModel` compiled from it, and every question about
-    error or parameter uncertainty is answered by the belief.
-
-    Declared command bounds are enforced on every concrete rollout: a command
-    outside them raises and names the channel. The validity envelope stays
-    advisory -- ``PredictiveTrajectory.validity_utilization`` reports how far
-    the forecast leaves the training support, and the caller decides, because
-    an unsupported forecast is still a forecast while an unexecutable command
-    is not a command.
-    """
-
-    belief: DynamicsBelief
-    model: ExecutableModel
-
-    def __post_init__(self) -> None:
-        if structured_parameter_names(self.model.params) != structured_parameter_names(
-            self.belief.params
-        ):
-            raise ValueError("compiled model does not match the belief parameters")
-
-    @classmethod
-    def from_nominal(cls, model: ExecutableModel) -> RuntimeDynamicsBelief:
-        """View one executable model as a belief with no error evidence."""
-
-        return cls(
-            belief=DynamicsBelief(
-                params=model.params,
-                input_spec=model.input_spec,
-                runtime_spec=model.runtime_spec,
-            ),
-            model=model,
-        )
+    def params(self) -> ModelParams:
+        return self.model.params
 
     @property
-    def predictive_error(self) -> PredictiveErrorModel:
-        return self.belief.predictive_error
+    def input_spec(self) -> TrajectorySpec:
+        return self.model.input_spec
 
     @property
-    def parameter_belief(self) -> ParameterBelief:
-        return self.belief.parameter_belief
-
-    @property
-    def predictive_error_parameter_update_count(self) -> int | None:
-        return self.belief.predictive_error_parameter_update_count
+    def runtime_spec(self) -> RuntimeModelSpec:
+        return self.model.runtime_spec
 
     @property
     def predictive_error_available(self) -> bool:
@@ -1320,7 +1176,11 @@ class RuntimeDynamicsBelief:
 
     @property
     def predictive_error_current(self) -> bool:
-        return self.belief.predictive_error_current
+        return (
+            self.predictive_error.available
+            and self.predictive_error_parameter_update_count
+            == self.parameter_belief.update_count
+        )
 
     @property
     def maximum_error_horizon_s(self) -> float | None:
@@ -1373,9 +1233,9 @@ class RuntimeDynamicsBelief:
         initial_latent_state: Array | None,
         exogenous: Array,
     ) -> tuple[Array, Array, Array]:
-        model_controls = jax.vmap(self.model.actuation.model_control)(commands)
+        model_controls = jax.vmap(self.model.actuation_map.model_control)(commands)
         if initial_latent_state is None:
-            history_controls = jax.vmap(self.model.actuation.model_control)(
+            history_controls = jax.vmap(self.model.actuation_map.model_control)(
                 command_history
             )
             initial_latent = control_state_after_history(
@@ -1467,7 +1327,7 @@ class RuntimeDynamicsBelief:
             raise ValueError("belief rollout requires at least one command")
         commands = commands_within_declared_bounds(
             commands,
-            self.model.actuation.command_channels,
+            self.model.actuation_map.command_channels,
         )
         if exogenous is None:
             exogenous = jnp.zeros((len(commands), self.model.exogenous_size))
@@ -1485,7 +1345,7 @@ class RuntimeDynamicsBelief:
             raise ValueError("command history must have shape (time, command_size)")
         history = commands_within_declared_bounds(
             history,
-            self.model.actuation.command_channels,
+            self.model.actuation_map.command_channels,
             label="command history",
         )
         provided_latent = (
@@ -1599,3 +1459,77 @@ class RuntimeDynamicsBelief:
                 else None
             ),
         )
+
+    def update(
+        self, telemetry: Trajectory
+    ) -> tuple[DynamicsBelief, BeliefUpdateReport]:
+        """Propose on early telemetry and commit after disjoint validation."""
+
+        from glassbox.belief.adaptation import update_dynamics_belief
+
+        return update_dynamics_belief(self, telemetry)
+
+    def recalibrate_predictive_error(
+        self,
+        telemetry: Trajectory,
+        *,
+        horizons_s: Sequence[float] | None = None,
+        quantile_levels: tuple[float, ...] | None = None,
+        covariance_scope: ErrorCovarianceScope | None = None,
+        source_group: str | None = None,
+        trajectory_id: str | None = None,
+    ) -> DynamicsBelief:
+        """Rebuild predictive-error evidence around the current parameters."""
+
+        from glassbox.belief.adaptation import recalibrate_predictive_error
+
+        return recalibrate_predictive_error(
+            self,
+            telemetry,
+            horizons_s=horizons_s,
+            quantile_levels=quantile_levels,
+            covariance_scope=covariance_scope,
+            source_group=source_group,
+            trajectory_id=trajectory_id,
+        )
+
+    def propose_update(
+        self,
+        telemetry: Trajectory,
+    ) -> tuple[BeliefUpdateProposal | None, BeliefUpdateReport]:
+        """Create a bounded update proposal without changing this belief."""
+
+        from glassbox.belief.adaptation import propose_dynamics_belief_update
+
+        return propose_dynamics_belief_update(self, telemetry)
+
+    def commit_update(
+        self,
+        proposal: BeliefUpdateProposal,
+        validation_telemetry: Trajectory,
+        *,
+        validation_control_history: np.ndarray | None = None,
+    ) -> tuple[DynamicsBelief, BeliefUpdateReport]:
+        """Validate and commit using explicit pre-segment actuator context."""
+
+        from glassbox.belief.adaptation import (
+            validate_and_commit_dynamics_belief_update,
+        )
+
+        return validate_and_commit_dynamics_belief_update(
+            self,
+            proposal,
+            validation_telemetry,
+            validation_control_history=validation_control_history,
+        )
+
+    def save(self, path: str | Path) -> None:
+        from glassbox.belief.belief_io import save_dynamics_belief
+
+        save_dynamics_belief(self, path)
+
+    @classmethod
+    def load(cls, path: str | Path) -> DynamicsBelief:
+        from glassbox.belief.belief_io import load_dynamics_belief
+
+        return load_dynamics_belief(path)

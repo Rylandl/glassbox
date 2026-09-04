@@ -13,7 +13,11 @@ from glassbox.core.dynamics import (
 from glassbox.core.fixedwing_synthetic import (
     true_fixed_wing_parameters,
 )
-from glassbox.core.model import ModelValidityEnvelope, RuntimeModelSpec
+from glassbox.core.model import (
+    ExecutableModel,
+    ModelValidityEnvelope,
+    RuntimeModelSpec,
+)
 from glassbox.core.model_io import load_dynamics_model, model_payload
 from glassbox.core.synthetic import true_parameters
 from glassbox.io.nanodrone_reference import nanodrone_trajectory_spec
@@ -92,9 +96,7 @@ def test_nominal_loader_unwraps_dynamics_belief(
     path = tmp_path / "belief.json"
     input_spec = quadrotor_trajectory_seed0_dur0_1s.spec
     DynamicsBelief(
-        params=true_parameters(),
-        input_spec=input_spec,
-        runtime_spec=_runtime_spec(),
+        model=ExecutableModel(true_parameters(), input_spec, _runtime_spec()),
         provenance={"flight": "fixture"},
     ).save(path)
 
