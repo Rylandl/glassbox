@@ -217,7 +217,6 @@ def main(argv: Sequence[str] | None = None) -> None:
             model_class=args.model_class,
             ablations=ablations,
             diagnostics=args.diagnostics,
-            parameter_evidence=args.model is not None,
             fixed_response_time_constant_s=args.fixed_motor_time_constant,
             loss=LossPolicy(
                 endpoint_weight=args.endpoint_weight,

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -77,29 +78,39 @@ from glassbox.core.synthetic import initial_parameter_guess
 
 _MODEL_CLASSES = ("structured", "structured_residual")
 
+VOLATILE_FIT_REPORT_KEYS = frozenset({"wall_time_s"})
+"""Fit-report keys whose value is wall-clock timing rather than a result.
 
-def _configured_initial_params(
-    fixed_motor_time_constant_s: float | None,
-    *,
-    platform: str,
-) -> ModelParams:
-    params: ModelParams = (
-        initial_fixed_wing_parameter_guess()
-        if platform == "fixedwing"
-        else initial_parameter_guess()
-    )
-    if fixed_motor_time_constant_s is not None:
-        params = with_response_time_constant(params, fixed_motor_time_constant_s)
-    return params
+A run's duration is worth printing and worth recording, and it is not part of
+what the run produced: the same code on the same inputs writes a different
+number every time. Anything that identifies a report by its content therefore
+excludes these keys at every depth, and any comparison against a recorded
+artifact declares them volatile.
+"""
 
 
-def _trajectory_platform(trajectory: Trajectory) -> str:
-    family = family_for_platform(trajectory.spec.vehicle.family)
-    family.validate_control_schema(
-        trajectory.control_names,
-        trajectory.spec.control_roles,
-    )
-    return family.platform
+def fit_report_digest(report: Mapping[str, Any]) -> str:
+    """Identify one fit report by its content, timing excluded.
+
+    The digest is taken over the report as a canonical JSON document with
+    every :data:`VOLATILE_FIT_REPORT_KEYS` entry removed, not over the file's
+    bytes, so two runs of the same fit on the same inputs agree and a
+    recorded provenance digest does not move with the clock.
+    """
+
+    def without_timing(value: Any) -> Any:
+        if isinstance(value, Mapping):
+            return {
+                key: without_timing(item)
+                for key, item in value.items()
+                if key not in VOLATILE_FIT_REPORT_KEYS
+            }
+        if isinstance(value, list):
+            return [without_timing(item) for item in value]
+        return value
+
+    payload = json.dumps(without_timing(report), sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
 def _fit_on_windows(
@@ -116,41 +127,31 @@ def _fit_on_windows(
     learn_thrust_command_offset: bool = False,
     diagonal_angular_control: bool = True,
 ) -> tuple[ModelParams, dict[str, Any]]:
-    physics_params = _configured_initial_params(
-        fixed_motor_time_constant_s,
-        platform=platform,
+    physics_params: ModelParams = (
+        initial_fixed_wing_parameter_guess()
+        if platform == "fixedwing"
+        else initial_parameter_guess()
     )
-    normalization_physics_params = _configured_initial_params(
-        fixed_motor_time_constant_s,
-        platform=platform,
-    )
+    if fixed_motor_time_constant_s is not None:
+        physics_params = with_response_time_constant(
+            physics_params, fixed_motor_time_constant_s
+        )
     diagonal_angular_control = diagonal_angular_control and platform == "multirotor"
     window_sets = windows if isinstance(windows, tuple) else (windows,)
-    normalization_window_sets = window_sets
     loss_configuration = rollout_loss_configuration(
-        normalization_window_sets,
+        window_sets,
         endpoint_weight=endpoint_weight,
         stability_regularization=stability_regularization,
     )
     if model_class == "structured_residual":
-        residual_statistics = residual_initialization_statistics(
-            normalization_window_sets
-        )
         initial_params: ModelParams = initial_residual_parameters(
             physics_params,
             control_size=window_sets[0].control_size,
             exogenous_size=window_sets[0].initial_exogenous.shape[1],
-            **residual_statistics,
-        )
-        normalization_params: ModelParams = initial_residual_parameters(
-            normalization_physics_params,
-            control_size=window_sets[0].control_size,
-            exogenous_size=window_sets[0].initial_exogenous.shape[1],
-            **residual_statistics,
+            **residual_initialization_statistics(window_sets),
         )
     else:
         initial_params = physics_params
-        normalization_params = normalization_physics_params
     if horizon_labels is None:
         horizon_labels = tuple(
             f"{item.controls.shape[1] * item.dt_s:g}s" for item in window_sets
@@ -168,8 +169,6 @@ def _fit_on_windows(
         learn_thrust_command_offset=learn_thrust_command_offset,
         diagonal_angular_control=diagonal_angular_control,
         loss_configuration=loss_configuration,
-        loss_normalization_params=normalization_params,
-        loss_normalization_window_sets=normalization_window_sets,
     )
     wall_time_s = perf_counter() - start
     component_losses = {}
@@ -604,7 +603,7 @@ class FitSpec:
     model_class: str = "structured"
     ablations: tuple[str, ...] = ()
     diagnostics: bool = False
-    parameter_evidence: bool = False
+    parameter_evidence: bool = True
     fixed_response_time_constant_s: float | None = None
     loss: LossPolicy = LossPolicy()
     weighting: WeightingPolicy = WeightingPolicy()
@@ -647,7 +646,6 @@ class FitSpec:
 def _trajectory_summary(path: str, trajectory: Trajectory) -> dict[str, Any]:
     position = trajectory.states[:, 0:3]
     velocity = trajectory.states[:, 3:6]
-    angular_velocity = trajectory.states[:, 10:13]
     return {
         "path": path,
         "duration_s": float(trajectory.time_s[-1]),
@@ -659,12 +657,7 @@ def _trajectory_summary(path: str, trajectory: Trajectory) -> dict[str, Any]:
             "path_length_m": float(
                 np.sum(np.linalg.norm(np.diff(position, axis=0), axis=1))
             ),
-            "net_displacement_m": float(np.linalg.norm(position[-1] - position[0])),
-            "position_range_xyz_m": np.ptp(position, axis=0).tolist(),
             "maximum_speed_m_s": float(np.max(np.linalg.norm(velocity, axis=1))),
-            "maximum_angular_speed_rad_s": float(
-                np.max(np.linalg.norm(angular_velocity, axis=1))
-            ),
         },
         "spec": trajectory.spec.to_dict(),
         "labels": dict(trajectory.labels),
@@ -704,12 +697,6 @@ def _dataset_contract(
     spec_payload = consistent_value("trajectory_spec", spec_payloads, serialize=True)
     reference_spec = trajectories[0].spec
 
-    profiles = [trajectory.labels.get("profile") for trajectory in trajectories]
-    profile_counts = {
-        str(profile): profiles.count(profile)
-        for profile in dict.fromkeys(profiles)
-        if profile is not None
-    }
     source_types = []
     for trajectory in trajectories:
         adapter = trajectory.provenance.get("adapter", {})
@@ -743,9 +730,6 @@ def _dataset_contract(
     contract = {
         "pooling_basis": "canonical_trajectory_spec",
         "flight_count": len(trajectories),
-        "total_duration_s": float(
-            sum(trajectory.time_s[-1] for trajectory in trajectories)
-        ),
         "sample_rate_hz": reference_rate,
         "control_size": len(reference_spec.controls),
         "control_names": list(reference_spec.control_names),
@@ -754,18 +738,11 @@ def _dataset_contract(
         "exogenous_size": len(reference_spec.exogenous),
         "exogenous_names": list(reference_spec.exogenous_names),
         "exogenous_roles": list(reference_spec.exogenous_roles),
-        "observation_size": len(reference_spec.observations),
-        "observation_names": list(reference_spec.observation_names),
-        "observation_roles": list(reference_spec.observation_roles),
         "platform": platform,
-        "source_type": (source_types[0] if len(source_type_counts) == 1 else "mixed"),
         "source_type_counts": source_type_counts,
         "state_source": spec_payload["observation_source"],
         "state_schema": spec_payload["state_schema"],
-        "coordinate_frames": {"world": "NWU", "body": "FLU"},
-        "vehicle_configuration": spec_payload["vehicle"],
         "trajectory_spec": spec_payload,
-        "profile_counts": profile_counts,
     }
     return contract
 
@@ -792,20 +769,12 @@ def resolve_dataset(
         if source_groups is not None
         else len(trajectories)
     )
-    contract["source_grouping"] = (
-        "trajectory_label:source_group"
-        if source_groups is not None
-        else "one_group_per_trajectory"
-    )
-    platform = _trajectory_platform(trajectories[0])
-    if contract["platform"] is not None:
-        platform = str(contract["platform"])
+    platform = str(contract["platform"])
     family = family_for_platform(platform)
     family.validate_control_schema(
         trajectories[0].control_names,
         trajectories[0].spec.control_roles,
     )
-    contract["platform"] = platform
     contract["model_family"] = family.key
     if spec.model_class == "structured_residual" and not family.supports_residual:
         raise ValueError(
@@ -875,11 +844,6 @@ def _evaluate_model(
             flight_report["one_step_innovation"] = innovation_diagnostics[-1]
         per_flight.append(flight_report)
 
-    aggregate_horizons: dict[str, Any] = {}
-    for label, items in horizon_metrics.items():
-        if items:
-            aggregate_horizons[label] = aggregate_rollout_metrics(items)
-
     available_error_samples = {
         horizon: samples for horizon, samples in error_samples.items() if samples
     }
@@ -909,11 +873,6 @@ def _evaluate_model(
         )
     return {
         "aggregate": aggregate,
-        "sample_weighted_aggregate": {
-            "flight_count": len(flights),
-            "full_rollout": aggregate_rollout_metrics(full_metrics),
-            "horizon_rollouts": aggregate_horizons,
-        },
         "per_flight": per_flight,
         "forecast_error": (
             None if forecast_error is None else forecast_error.to_dict()
@@ -1128,31 +1087,19 @@ def _split_section(plan: HoldoutPlan, spec: FitSpec) -> dict[str, Any]:
     }
 
 
-def _training_weight_sections(
+def _training_windows_per_flight(
     plan: HoldoutPlan, windows: TrainingWindows
 ) -> dict[str, Any]:
-    """Per-flight and per-source-group shares of the total training weight."""
+    """Each training flight's share of the extracted windows, by horizon."""
 
     labels = plan.training_labels
-
-    def per_flight(window_set: TrajectoryWindows) -> dict[str, int]:
-        return {
+    return _by_horizon(
+        windows,
+        lambda window_set: {
             labels[index]: int(np.sum(window_set.trajectory_indices == index))
             for index in range(len(labels))
-        }
-
-    def candidates(window_set: TrajectoryWindows) -> dict[str, int]:
-        return {
-            labels[index]: int(window_set.candidate_window_counts[index])
-            for index in range(len(labels))
-        }
-
-    return {
-        "training_windows_per_flight_by_horizon": _by_horizon(windows, per_flight),
-        "candidate_training_windows_per_flight_by_horizon": _by_horizon(
-            windows, candidates
-        ),
-    }
+        },
+    )
 
 
 def _window_selection_section(windows: TrainingWindows) -> dict[str, Any]:
@@ -1168,25 +1115,6 @@ def _window_selection_section(windows: TrainingWindows) -> dict[str, Any]:
         ),
         "source_group_count": windows.diversity_count,
         "stratification": windows.stratification,
-    }
-
-
-def _fit_statistics_section(spec: FitSpec) -> dict[str, Any]:
-    return {
-        "policy": "member_training_windows_v1",
-        "data_derived_values": [
-            "state_error_scales",
-            "dynamic_envelope",
-            "initial_loss_normalizers",
-            *(
-                [
-                    "residual_feature_center_and_scale",
-                    "residual_correction_scale",
-                ]
-                if spec.model_class == "structured_residual"
-                else []
-            ),
-        ],
     }
 
 
@@ -1209,7 +1137,6 @@ def _configuration_section(
 ) -> dict[str, Any]:
     dt_s = windows.dt_s
     platform = dataset.platform
-    group_weights = spec.weighting.group_weights
     return {
         "holdout_count": len(plan.validation),
         "holdout_source_group_count": len(
@@ -1220,13 +1147,8 @@ def _configuration_section(
             }
         ),
         "horizon_steps": max(windows.horizon_steps),
-        "horizon_duration_s": max(windows.horizon_steps) * dt_s,
         "training_horizon_steps": list(windows.horizon_steps),
         "training_horizons_s": [steps * dt_s for steps in windows.horizon_steps],
-        "stride_steps_by_horizon": {
-            label: spec.stride_for(steps)
-            for label, steps in zip(windows.horizon_labels, windows.horizon_steps)
-        },
         "control_history_duration_s": (
             windows.window_sets[0].control_histories.shape[1] * dt_s
         ),
@@ -1267,16 +1189,9 @@ def _configuration_section(
         "platform": platform,
         "model_family": dataset.family.key,
         "training_flight_weighting": _TRAINING_FLIGHT_WEIGHTING[windows.stratification],
-        **_training_weight_sections(plan, windows),
-        "training_source_group_weights": (
-            None
-            if group_weights is None
-            else {
-                str(group): float(group_weights[group])
-                for group in plan.training_group_order
-            }
+        "training_windows_per_flight_by_horizon": _training_windows_per_flight(
+            plan, windows
         ),
-        "fit_statistics": _fit_statistics_section(spec),
         "diagnostics": spec.diagnostics,
         "parameter_evidence": {
             "requested": spec.parameter_evidence,
@@ -1315,20 +1230,6 @@ def build_fit_report(
     }
 
 
-def _estimable_mask(
-    params: ModelParams,
-    *,
-    spec: FitSpec,
-    fixed_response_time: bool,
-) -> np.ndarray:
-    return estimable_structured_parameters(
-        params,
-        fixed_response_time=fixed_response_time,
-        learn_thrust_command_offset=spec.loss.learn_thrust_command_offset,
-        diagonal_angular_control=spec.loss.diagonal_angular_control,
-    )
-
-
 def _information(
     model: ExecutableModel,
     model_report: Mapping[str, Any],
@@ -1339,17 +1240,20 @@ def _information(
 ) -> ParameterInformation:
     """Build the belief's information state from this fit's own evidence.
 
-    The noise model is measured on the held-out flights whether or not the
-    caller asked for parameter evidence, because a belief that cannot say how
-    wrong its one-step predictions are cannot weight the next observation
-    either. The precision costs one Jacobian per training transition and is
-    only accumulated when the fit asks for it; without it the belief is an
-    honest point estimate that knows its own noise and is ready to absorb.
+    The noise model is measured on the held-out flights and the precision is
+    accumulated from the training transitions' own Jacobians, so the belief a
+    fit returns says both how wrong its one-step predictions have been and
+    which parameter directions the evidence resolved. Clearing
+    ``FitSpec.parameter_evidence`` leaves the point estimate with its noise
+    model alone, at rank zero; no command does that.
     """
 
     noise = np.asarray(model_report["validation"]["innovation_noise"])
-    estimable = _estimable_mask(
-        model.params, spec=spec, fixed_response_time=fixed_response_time
+    estimable = estimable_structured_parameters(
+        model.params,
+        fixed_response_time=fixed_response_time,
+        learn_thrust_command_offset=spec.loss.learn_thrust_command_offset,
+        diagonal_angular_control=spec.loss.diagonal_angular_control,
     )
     if not spec.parameter_evidence:
         return ParameterInformation.unknown(

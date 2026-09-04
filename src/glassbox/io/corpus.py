@@ -252,7 +252,7 @@ class ReferenceCorpus:
         worse number, so the check runs before the score.
         """
 
-        resolved = [Path(path).resolve() for path in paths]
+        resolved = [Path(path) for path in paths]
         if not resolved:
             raise ValueError(f"at least one {self.name} trajectory is required")
         trajectories = [load_trajectory_npz(path) for path in resolved]

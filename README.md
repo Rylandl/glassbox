@@ -202,7 +202,11 @@ flight-safety claim. See [scope](docs/scope.md) for the boundary and
 
 [glassbox-throw](https://github.com/Rylandl/glassbox-throw) is a demo built on
 this package: a simulated quadrotor thrown with no prior model, learned in
-flight and recovered.
+flight and recovered. It is pinned to glassbox `d10bb24`, the revision before
+this refactor, and stays there until it is resynced once. Resyncing means
+planning through `plan_model` over the bootstrap belief instead of a
+reimplemented solver, and driving the identifier through its current API; at
+that point most of the demo's own 3,258-line controller is glassbox.
 
 ## License and citation
 

@@ -63,7 +63,7 @@ def _file_record(path: Path) -> dict[str, Any]:
         for chunk in iter(lambda: source.read(1024 * 1024), b""):
             digest.update(chunk)
     return {
-        "path": str(path.resolve()),
+        "path": str(path),
         "size_bytes": path.stat().st_size,
         "sha256": digest.hexdigest(),
     }
@@ -158,7 +158,7 @@ def evaluate_holdout(
     """
 
     key = _holdout_key(hold_out)
-    paths = [Path(path).resolve() for path in trajectories]
+    paths = [Path(path) for path in trajectories]
     if len(paths) < 2:
         raise ValueError(f"a {key} holdout requires at least two trajectories")
     flights = [load_trajectory_npz(path) for path in paths]

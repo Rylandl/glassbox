@@ -419,11 +419,13 @@ def test_fit_then_absorb_recovers_a_changed_configuration(tmp_path) -> None:
     before = one_step_innovations(belief.params, telemetry)
     after = one_step_innovations(updated.params, telemetry)
     assert result.absorbed
-    # The default fit hands back a point belief that knows its own one-step
-    # noise and nothing else. Flying the changed vehicle is what resolves the
-    # coefficients, and the resolved rank is where that shows.
-    assert belief.information.resolved_rank() == 0
-    assert updated.information.resolved_rank() > 0
+    # The fit hands back a belief whose training evidence already resolved
+    # some directions. Absorbing telemetry from the changed vehicle adds to
+    # that evidence rather than replacing it: the effective count grows and no
+    # resolved direction is given back.
+    assert belief.information.resolved_rank() > 0
+    assert updated.information.resolved_rank() >= belief.information.resolved_rank()
+    assert updated.information.effective_count > belief.information.effective_count
     assert result.innovation_rms_after < result.innovation_rms_before
     assert np.sqrt(np.mean(np.square(after))) < np.sqrt(np.mean(np.square(before)))
 

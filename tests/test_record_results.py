@@ -24,12 +24,11 @@ from glassbox.workflows.record_results import (
     assemble_corpus_validation_report,
     build_manifest,
     check_selected,
-    matches_path,
     missing_requirements,
-    recorded_differences,
     run_selected,
     select_artifacts,
 )
+from glassbox.workflows.recorded import matches_path, recorded_differences
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 _RESULTS_DIR = _REPO_ROOT / "docs" / "results"
@@ -314,7 +313,7 @@ def test_cascade_assembly_reproduces_the_recorded_artifact() -> None:
     spec = next(
         item for item in MANIFEST if item.name == "cascade-x8-validation-results"
     )
-    assert not recorded_differences(produced, recorded, tolerance=spec.tolerance)
+    assert not recorded_differences(produced, recorded, tolerances=spec.tolerance)
 
 
 @pytest.mark.skipif(
@@ -431,7 +430,7 @@ def test_recorded_differences_skips_volatile_paths() -> None:
     recorded = {"environment": {"python": "3.12.1"}, "value": 1.0}
     produced = {"environment": {"python": "3.13.0"}, "value": 1.0}
 
-    assert recorded_differences(produced, recorded, volatile=("environment",)) == []
+    assert recorded_differences(produced, recorded, ignore=("environment",)) == []
 
 
 def test_recorded_differences_reports_a_missing_or_extra_key() -> None:

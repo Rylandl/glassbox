@@ -874,19 +874,14 @@ def fit_dynamics(
     loss_configuration: RolloutLossConfiguration | None = None,
     endpoint_weight: float = 3.0,
     stability_regularization: float = 0.01,
-    loss_normalization_params: ModelParams | None = None,
-    loss_normalization_window_sets: (
-        tuple[TrajectoryWindows, ...] | list[TrajectoryWindows] | None
-    ) = None,
 ) -> FitResult:
     """Fit one model to the normalized rollout losses of its window sets.
 
-    Each component of the objective is divided by the loss the normalization
-    parameters make on that same component, held at its initial value, so no
-    horizon is preferred merely for carrying larger errors and the gradient
-    clip means the same thing at every horizon. A single horizon is a
-    one-element sequence of window sets, fit on its own normalized loss like
-    any other.
+    Each component of the objective is divided by the loss the initial
+    parameters make on that same component, so no horizon is preferred merely
+    for carrying larger errors and the gradient clip means the same thing at
+    every horizon. A single horizon is a one-element sequence of window sets,
+    fit on its own normalized loss like any other.
     """
 
     if not window_sets:
@@ -897,11 +892,6 @@ def fit_dynamics(
         raise ValueError("learning_rate must be positive")
     for windows in window_sets:
         _validate_window_schema(initial_params, windows)
-    if loss_normalization_window_sets is not None:
-        if len(loss_normalization_window_sets) != len(window_sets):
-            raise ValueError("loss_normalization_window_sets must match window_sets")
-        for windows in loss_normalization_window_sets:
-            _validate_window_schema(initial_params, windows)
     learn_thrust_command_offset = _resolved_thrust_command_offset_policy(
         initial_params, tuple(window_sets), learn_thrust_command_offset
     )
@@ -925,28 +915,9 @@ def fit_dynamics(
         initial_params = with_thrust_command_offset(initial_params, 0.0)
     if diagonal_angular_control:
         initial_params = with_diagonal_angular_control(initial_params)
-    if loss_normalization_params is not None:
-        loss_normalization_params = _configured_initial_params(
-            loss_normalization_params, fixed_motor_time_constant_s
-        )
-        if (
-            not learn_thrust_command_offset
-            and model_family(loss_normalization_params).platform == "multirotor"
-        ):
-            loss_normalization_params = with_thrust_command_offset(
-                loss_normalization_params, 0.0
-            )
-        if diagonal_angular_control:
-            loss_normalization_params = with_diagonal_angular_control(
-                loss_normalization_params
-            )
     if loss_configuration is None:
         loss_configuration = rollout_loss_configuration(
-            (
-                window_sets
-                if loss_normalization_window_sets is None
-                else loss_normalization_window_sets
-            ),
+            window_sets,
             endpoint_weight=endpoint_weight,
             stability_regularization=stability_regularization,
         )
@@ -959,26 +930,9 @@ def fit_dynamics(
             ]
         )
 
-    normalization_params = (
-        initial_params
-        if loss_normalization_params is None
-        else loss_normalization_params
+    normalizers = jax.lax.stop_gradient(
+        jnp.maximum(component_objective(initial_params), 1e-12)
     )
-    initial_component_losses = (
-        component_objective(normalization_params)
-        if loss_normalization_window_sets is None
-        else jnp.stack(
-            [
-                _window_loss(
-                    normalization_params,
-                    windows,
-                    loss_configuration,
-                )
-                for windows in loss_normalization_window_sets
-            ]
-        )
-    )
-    normalizers = jax.lax.stop_gradient(jnp.maximum(initial_component_losses, 1e-12))
 
     def objective(params: ModelParams) -> Array:
         return jnp.sum(

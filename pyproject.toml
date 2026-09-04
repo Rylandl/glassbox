@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "glassbox"
-version = "0.1.0"
+version = "0.2.0"
 description = "Telemetry-driven differentiable vehicle dynamics identification"
 readme = "README.md"
 license = "Apache-2.0"

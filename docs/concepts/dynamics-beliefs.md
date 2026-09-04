@@ -52,7 +52,7 @@ import glassbox
 from glassbox.core.data import load_trajectory_npz
 
 flight_paths = sorted(Path("flights").glob("*.npz"))
-outcome = glassbox.fit(flight_paths, glassbox.FitSpec(parameter_evidence=True))
+outcome = glassbox.fit(flight_paths, glassbox.FitSpec())
 belief = outcome.belief
 
 # or, from an artifact a previous fit wrote:
@@ -119,8 +119,7 @@ without anything being recovered from the report afterwards.
 
 Every fit measures the one-step innovation of the model it just produced on the
 held-out flights, per coordinate, as a second moment about zero. That is the
-belief's `innovation_noise`, and it is measured whether or not the caller asked
-for parameter evidence: a belief that cannot say how wrong its one-step
+belief's `innovation_noise`: a belief that cannot say how wrong its one-step
 predictions are cannot weight the next observation either. A declared per-group
 floor travels beside it as `noise_floor` and the measured value never falls
 below it, which keeps the whitening finite when a model reproduces held-out
@@ -135,11 +134,13 @@ than only its spread about a correction that is never made.
 
 ### The information
 
-`FitSpec.parameter_evidence` additionally accumulates `sum_w J_w' R^-1 J_w`
-over the training flights' one-step transitions, with the fitter's estimable
-mask, a bounded window budget spread evenly across the independent source
-groups, and the balanced effective count. Without it the belief is an honest
-point estimate that knows its own noise and is ready to absorb.
+Every fit also accumulates `sum_w J_w' R^-1 J_w` over the training flights'
+one-step transitions, with the fitter's estimable mask, a bounded window
+budget spread evenly across the independent source groups, and the balanced
+effective count. That is what makes the returned belief say which parameter
+directions its evidence resolved, so it is not optional: `FitSpec` carries
+`parameter_evidence` for a caller who wants the point estimate alone, and no
+command turns it off.
 
 This is deliberately the same estimator `absorb` runs. The noise model is
 one-step innovation covariance, so the windows it weights correctly are

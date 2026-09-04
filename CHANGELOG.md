@@ -17,7 +17,10 @@ with none.
 
 This is a breaking release. Every consumer resyncs once;
 [glassbox-throw](https://github.com/Rylandl/glassbox-throw) stays pinned at
-`d10bb24`, the last revision before the migration.
+`d10bb24`, the last revision before the migration. Its resync targets
+`plan_model` over the bootstrap belief and the current identifier API, which
+is what its own 3,258-line controller was reimplementing, so most of that
+controller goes when it lands.
 
 ### The public surface
 
@@ -30,7 +33,12 @@ of their arguments or return values.
 - **The fit.** `fit(sources, FitSpec) -> FitOutcome` is the one entry point.
   `FitSpec` replaces `FitRequest`'s twenty-two fields with a spec, a
   `LossPolicy` and a `WeightingPolicy`; `Holdout` has three rules
-  (`by_label`, `by_group`, `temporal`) instead of six modes.
+  (`by_label`, `by_group`, `temporal`) instead of six modes. Every fit now
+  accumulates its own parameter evidence, so the belief it returns knows which
+  directions the data resolved and not only how noisy its one-step
+  predictions are. `glassbox fit` no longer ties that to `--model` and has no
+  flag to turn it off; it costs about a fifth more on a three-flight synthetic
+  fit and leaves every loss and metric unchanged.
 - **The belief.** `DynamicsBelief(model, information, forecast_error)` plus
   provenance. `ExecutableModel` replaces three runtime types and is owned by
   the belief. `ParameterInformation` replaces four parameter-belief types; a
@@ -106,6 +114,20 @@ rests on. The range is `d10bb24..8f55517`.
   `with_constant_angular_rate` (`c250233`); `rebind_belief` and the solver
   backend protocol (`aab0b42`); `RuntimeDynamicsBelief` (`2123c94`); the
   vectorized log-mean reduction (`68eb163`).
+- Eighteen write-only fit-report keys, read by no module, test, page or
+  recorded artifact: the `fit_statistics` block, `horizon_duration_s`,
+  `stride_steps_by_horizon`, `training_source_group_weights` and
+  `candidate_training_windows_per_flight_by_horizon` from the configuration;
+  `total_duration_s`, `source_type`, `source_grouping`, `coordinate_frames`,
+  `vehicle_configuration`, `profile_counts` and the three `observation_*`
+  fields from the pooled dataset contract; `sample_weighted_aggregate` from
+  each model's validation; and `net_displacement_m`, `position_range_xyz_m`
+  and `maximum_angular_speed_rad_s` from each flight's characteristics. The
+  characterization report's `fit_report.size_bytes` goes with them.
+- `fit_dynamics`'s `loss_normalization_params` and
+  `loss_normalization_window_sets`, which every caller passed a copy of the
+  fit's own initial parameters and window sets, and the duplicate platform
+  validation `resolve_dataset` already ran.
 - Two recorded files that were not machine output:
   `docs/results/multirotor-profile-results.json` and the four
   predictive-ensemble notes.
@@ -152,8 +174,8 @@ reduces in the sequential order.
   local` runs in continuous integration; the corpus tier needs the pinned
   corpora on disk and is a maintainer job. The five corpus validation
   artifacts are new entries: the headline claims on the Nano-Quadrotor, ARP,
-  IDF-DS, X8 and EPFL corpora had no artifact before this release. The
-  All eight are now recorded.
+  IDF-DS, X8 and EPFL corpora had no artifact before this release. All
+  eight are now recorded.
 - Each manifest entry's `doc_page` names the section of `docs/validation.md` a
   re-record has to update, anchor included, and a test checks that both the
   file and the heading exist. The Cascade X8 assembly is pinned under its
@@ -167,6 +189,20 @@ reduces in the sequential order.
   and into `docs/concepts/nmpc.md`. `docs/scope.md` restates the evidence
   standard: negative results are prose in the literature review with the
   commit that carried their code, and their code and artifacts are not kept.
+- A report records a path as the command named it. Resolving inputs made two
+  artifacts carry this machine's absolute paths, and made the EPFL entry
+  record the directory its `artifacts/epfl_topoplane` symlink points at
+  instead of the one the manifest documents; both now reproduce on any
+  checkout.
+- A fit report is identified by a digest of its content with the wall-clock
+  keys removed, not by the bytes of the file, so a provenance digest cannot
+  move with the clock while the numbers stand still. `wall_time_s` is
+  declared volatile once and covers every fit block a validation artifact
+  carries.
+- One recursive comparison, in `glassbox.workflows.recorded`, backs both
+  `record-results --check` and every pinned test, so a manifest entry's
+  volatile paths and its test's ignore list cannot disagree about what counts
+  as a difference.
 - `docs/literature-review.md` gains a dated section recording every mechanism
   this release retired, grouped, each with its last commit.
 

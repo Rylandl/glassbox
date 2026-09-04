@@ -38,6 +38,7 @@ from glassbox.core.metrics import (
     rollout_metrics,
 )
 from glassbox.core.model_io import load_dynamics_model, parameter_dict
+from glassbox.fitting import fit_report_digest
 
 WINDOWED_RMSE = "windowed_rmse"
 ROLLING_STEP_MAE = "rolling_step_mae"
@@ -277,6 +278,14 @@ def _resolve_model(
 def _resolve_trajectories(
     trajectories: Sequence[Trajectory | str | Path],
 ) -> tuple[list[str], list[Trajectory]]:
+    """Load each flight and label it by the path the caller named.
+
+    A report records the path it was given, not the one the filesystem
+    resolves it to: an absolute path is this machine's, and a resolved one
+    also loses the directory name a symlinked corpus is documented under, so
+    neither reproduces on another checkout.
+    """
+
     if not trajectories:
         raise ValueError("at least one trajectory is required")
     labels: list[str] = []
@@ -286,7 +295,7 @@ def _resolve_trajectories(
             labels.append(str(item.provenance.get("path", f"trajectory_{index}")))
             resolved.append(item)
         else:
-            path = Path(item).resolve()
+            path = Path(item)
             labels.append(str(path))
             resolved.append(load_trajectory_npz(path))
     return labels, resolved
@@ -899,9 +908,8 @@ def evaluate_fit_reports(
             )
         models[name] = {
             "fit_report": {
-                "path": str(paths[name].resolve()),
-                "size_bytes": paths[name].stat().st_size,
-                "sha256": _sha256(paths[name]),
+                "path": str(paths[name]),
+                "sha256": fit_report_digest(report),
             },
             "fit": learned["fit"],
             "model_class": report["configuration"]["model_class"],
