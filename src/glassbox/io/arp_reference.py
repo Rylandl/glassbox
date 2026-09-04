@@ -8,8 +8,9 @@ from typing import Any
 
 import numpy as np
 
-from glassbox.core.data import Trajectory, save_trajectory_npz
-from glassbox.io.pinned_download import download_verified, file_digest
+from glassbox.core.data import Trajectory
+from glassbox.io.corpus import PinnedFile
+from glassbox.io.pinned_download import file_digest
 from glassbox.io.px4_ulog import PX4IngestConfig, inspect_ulog, load_px4_trajectory
 
 ARP_REFERENCE_REPOSITORY = (
@@ -69,6 +70,17 @@ ARP_RECORDINGS = (
 )
 
 _RECORDING_BY_FILENAME = {recording.filename: recording for recording in ARP_RECORDINGS}
+
+
+PINNED_FILES: tuple[PinnedFile, ...] = tuple(
+    PinnedFile(
+        url=f"{ARP_REFERENCE_MEDIA_ROOT}/{recording.relative_path}",
+        relative_path=recording.relative_path,
+        size_bytes=recording.size_bytes,
+        digest=recording.sha256,
+    )
+    for recording in ARP_RECORDINGS
+)
 
 
 def _sha256(path: Path) -> str:
@@ -230,61 +242,3 @@ class ARPReferenceAdapter:
             },
             provenance=provenance,
         )
-
-
-def fetch_arp_reference(
-    destination: str | Path,
-    *,
-    overwrite: bool = False,
-    timeout_s: float = 60.0,
-) -> tuple[Path, ...]:
-    """Download and verify the four-ULog pinned ARP snapshot."""
-
-    if timeout_s <= 0.0:
-        raise ValueError("timeout_s must be positive")
-    destination_root = Path(destination)
-    fetched: list[Path] = []
-    for recording in ARP_RECORDINGS:
-        target = destination_root / recording.relative_path
-        fetched.append(
-            download_verified(
-                f"{ARP_REFERENCE_MEDIA_ROOT}/{recording.relative_path}",
-                target,
-                size_bytes=recording.size_bytes,
-                digest=recording.sha256,
-                algorithm="sha256",
-                user_agent="glassbox-arp-reference-adapter/1",
-                overwrite=overwrite,
-                timeout_s=timeout_s,
-                existing_mismatch_message=(
-                    f"existing file does not match pinned ARP reference: {target}"
-                ),
-                size_mismatch_message=(
-                    f"downloaded size mismatch for {recording.relative_path}"
-                ),
-                digest_mismatch_message=(
-                    f"downloaded checksum mismatch for {recording.relative_path}"
-                ),
-            )
-        )
-    return tuple(fetched)
-
-
-def extract_arp_reference(
-    source_root: str | Path,
-    output_root: str | Path,
-    *,
-    adapter: ARPReferenceAdapter | None = None,
-) -> tuple[Path, ...]:
-    """Convert the complete pinned ARP snapshot into canonical NPZ files."""
-
-    source_directory = Path(source_root)
-    output_directory = Path(output_root)
-    selected_adapter = ARPReferenceAdapter() if adapter is None else adapter
-    outputs: list[Path] = []
-    for recording in ARP_RECORDINGS:
-        source_path = source_directory / recording.relative_path
-        output_path = output_directory / Path(recording.filename).with_suffix(".npz")
-        save_trajectory_npz(selected_adapter.load(source_path), output_path)
-        outputs.append(output_path)
-    return tuple(outputs)

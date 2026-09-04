@@ -257,12 +257,14 @@ MANIFEST: tuple[ArtifactSpec, ...] = (
         name="cascade-x8-validation-results",
         output="docs/results/cascade-x8-validation-results.json",
         steps=(
-            _cli("x8", "prepare", "artifacts/x8_reference"),
+            _cli("corpus", "prepare", "x8", "artifacts/x8_reference"),
             _cli(
+                "corpus",
+                "prepare",
                 "x8",
-                "extract-dataset",
+                "artifacts/x8_cascade",
+                "--raw",
                 "artifacts/x8_reference/raw",
-                "artifacts/x8_cascade/canonical",
             ),
             _cli(
                 "fit",

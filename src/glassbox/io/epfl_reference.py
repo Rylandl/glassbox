@@ -22,9 +22,9 @@ from glassbox.core.data import (
     Trajectory,
     TrajectorySpec,
     VehicleConfigurationSpec,
-    save_trajectory_npz,
 )
-from glassbox.io.pinned_download import download_verified, file_digest
+from glassbox.io.corpus import PinnedFile
+from glassbox.io.pinned_download import file_digest
 
 EPFL_REFERENCE_NAME = "epfl_vdm_navigation_flight_data"
 EPFL_REFERENCE_DOI = "10.5281/zenodo.10337559"
@@ -41,6 +41,16 @@ TOPOPLANE_DOWNLOAD_URL = (
 )
 TOPOPLANE_CONFIGURATION_ID = "epfl_topoplane2_conventional_fixedwing"
 TOPOPLANE_SAMPLE_RATE_HZ = 5.0
+
+PINNED_FILES: tuple[PinnedFile, ...] = (
+    PinnedFile(
+        url=TOPOPLANE_DOWNLOAD_URL,
+        relative_path=TOPOPLANE_FILENAME,
+        size_bytes=TOPOPLANE_SIZE_BYTES,
+        digest=TOPOPLANE_MD5,
+        algorithm="md5",
+    ),
+)
 
 _REQUIRED_TOPICS = ("/GIINAV_POSE", "/cc_tagged", "/airData")
 _CONTROL_PWM_MIN = 800.0
@@ -718,49 +728,3 @@ class EPFLTopoplaneAdapter:
 
         trajectories = self.load_all(path)
         return max(trajectories, key=lambda trajectory: trajectory.time_s[-1])
-
-
-def fetch_epfl_topoplane_reference(
-    destination: str | Path,
-    *,
-    overwrite: bool = False,
-    timeout_s: float = 600.0,
-) -> Path:
-    """Download and verify the pinned TOPOPlane2 bag."""
-
-    if timeout_s <= 0.0:
-        raise ValueError("timeout_s must be positive")
-    target = Path(destination) / TOPOPLANE_FILENAME
-    return download_verified(
-        TOPOPLANE_DOWNLOAD_URL,
-        target,
-        size_bytes=TOPOPLANE_SIZE_BYTES,
-        digest=TOPOPLANE_MD5,
-        algorithm="md5",
-        user_agent="glassbox-epfl-topoplane-adapter/1",
-        overwrite=overwrite,
-        timeout_s=timeout_s,
-        existing_mismatch_message=(
-            f"existing file does not match pinned EPFL reference: {target}"
-        ),
-        size_mismatch_message="downloaded size mismatch for EPFL TOPOPlane2 bag",
-        digest_mismatch_message="downloaded MD5 mismatch for EPFL TOPOPlane2 bag",
-    )
-
-
-def extract_epfl_topoplane_reference(
-    source: str | Path,
-    output_directory: str | Path,
-    *,
-    adapter: EPFLTopoplaneAdapter | None = None,
-) -> tuple[Path, ...]:
-    """Convert all healthy segments to canonical trajectory artifacts."""
-
-    selected_adapter = EPFLTopoplaneAdapter() if adapter is None else adapter
-    output_root = Path(output_directory)
-    outputs = []
-    for index, trajectory in enumerate(selected_adapter.load_all(source), start=1):
-        output = output_root / f"topoplane2_segment_{index:02d}.npz"
-        save_trajectory_npz(trajectory, output)
-        outputs.append(output)
-    return tuple(outputs)

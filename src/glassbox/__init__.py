@@ -51,7 +51,6 @@ from glassbox.control.plan import (
     TrackingTolerances,
 )
 from glassbox.control.solver import BoundedShootingSolver
-from glassbox.core.adapter import TrajectoryAdapter
 from glassbox.core.data import (
     RIGID_BODY_STATE_SCHEMA,
     Channel,
@@ -160,7 +159,6 @@ __all__ = [
     "SolverPolicy",
     "TrackingTolerances",
     "Trajectory",
-    "TrajectoryAdapter",
     "TrajectorySpec",
     "TrajectoryWindows",
     "UnavailableParameterEvidence",

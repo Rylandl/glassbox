@@ -35,9 +35,9 @@ uv run glassbox ulog extract flight.ulg flight.npz --rate 50
 ```
 
 The [PX4 ULog guide](docs/guides/px4-ulog.md) covers fixed-wing logs,
-ground-truth versus estimated states, and gap handling. The reference-corpus
-commands (`glassbox nanodrone`, `glassbox x8`, `glassbox epfl`, and
-`glassbox ulog prepare-arp` and `prepare-idf`) produce the same NPZ format.
+ground-truth versus estimated states, and gap handling. The pinned reference
+corpora (`glassbox corpus list`, then `glassbox corpus prepare NAME DIR`)
+produce the same NPZ format.
 
 Fit a belief on several flights. The final source group, or the final flight
 when the flights are not grouped, is held out for validation; add

@@ -1,15 +1,10 @@
-import hashlib
-import io
-import urllib.request
 from pathlib import Path
 
 import numpy as np
 import pytest
 
-import glassbox.io.nanodrone_reference as benchmark_module
 from glassbox.belief.belief import DynamicsBelief
 from glassbox.belief.belief_io import save_dynamics_belief
-from glassbox.core.adapter import TrajectoryAdapter
 from glassbox.core.data import save_trajectory_npz
 from glassbox.core.dynamics import QUADROTOR_CONTROL_NAMES
 from glassbox.core.model import ExecutableModel, runtime_spec_from_trajectory
@@ -17,9 +12,7 @@ from glassbox.core.synthetic import initial_parameter_guess
 from glassbox.io.nanodrone_reference import (
     BENCHMARK_COMMIT,
     SOURCE_COLUMNS,
-    BenchmarkRecording,
     NanoDroneBenchmarkAdapter,
-    fetch_nanodrone_benchmark,
     validate_benchmark_test_trajectories,
 )
 from glassbox.workflows.evaluate import (
@@ -69,7 +62,6 @@ def test_adapter_emits_strict_canonical_trajectory(tmp_path) -> None:
     source = _write_fixture(tmp_path / "chirp_20251017_run1.csv")
     adapter = NanoDroneBenchmarkAdapter(verify_checksum=False)
 
-    assert isinstance(adapter, TrajectoryAdapter)
     trajectory = adapter.load(source)
 
     assert trajectory.time_s.tolist() == pytest.approx([0.0, 0.01, 0.02, 0.03])
@@ -142,30 +134,6 @@ def test_adapter_rejects_nonuniform_timing(tmp_path) -> None:
 
     with pytest.raises(ValueError, match="not uniformly sampled"):
         NanoDroneBenchmarkAdapter(verify_checksum=False).load(source)
-
-
-def test_fetch_verifies_download_and_reuses_valid_file(tmp_path, monkeypatch) -> None:
-    payload = b"pinned benchmark bytes"
-    recording = BenchmarkRecording(
-        "data/train/test.csv",
-        hashlib.sha256(payload).hexdigest(),
-        len(payload),
-    )
-    calls = []
-
-    def fake_urlopen(request, timeout):
-        calls.append((request.full_url, timeout))
-        return io.BytesIO(payload)
-
-    monkeypatch.setattr(benchmark_module, "BENCHMARK_RECORDINGS", (recording,))
-    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
-
-    first = fetch_nanodrone_benchmark(tmp_path)
-    second = fetch_nanodrone_benchmark(tmp_path)
-
-    assert first == second == (tmp_path / recording.relative_path,)
-    assert first[0].read_bytes() == payload
-    assert len(calls) == 1
 
 
 def test_benchmark_protocol_uses_every_start_and_euclidean_mae(tmp_path) -> None:

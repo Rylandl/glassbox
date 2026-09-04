@@ -31,11 +31,11 @@ from glassbox.core.metrics import (
     state_error_metrics,
 )
 from glassbox.integrations.cascade import CascadeUnavailableError, require_cascade
+from glassbox.io.corpus import REFERENCE_CORPORA
 from glassbox.io.x8_reference import (
     X8_REFERENCE_DOI,
     X8_REFERENCE_NAME,
     X8_REFERENCE_VERSION,
-    load_validation_trajectories,
 )
 from glassbox.workflows.evaluate import (
     PROTOCOLS,
@@ -405,7 +405,9 @@ def evaluate_x8_cascade(
     validation_paths = tuple(
         sorted((destination / "canonical" / "validation").glob("*.npz"))
     )
-    paths, trajectories = load_validation_trajectories(validation_paths)
+    paths, trajectories = REFERENCE_CORPORA["x8"].load_evaluation_trajectories(
+        validation_paths
+    )
     horizon_steps = {
         f"{horizon:g}s": horizon_steps_for_duration(trajectories[0], horizon)
         for horizon in horizons_s

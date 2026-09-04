@@ -20,7 +20,7 @@ The [IDSIA Nano-Quadrotor benchmark](https://github.com/idsia-robotics/nanodrone
 
 ## Data
 
-`glassbox nanodrone prepare` downloads all 15 official CSV recordings from the pinned upstream commit, verifies their Git LFS SHA-256 values, and writes 12 canonical training trajectories and three canonical Melon test trajectories under `artifacts/nanodrone/canonical/`. The raw upstream files remain separate under `artifacts/nanodrone/raw/`; Glassbox does not vendor the dataset. Checksum verification is strict by default so an upstream revision cannot silently change a benchmark run. For individual files, use `glassbox nanodrone inspect` or `glassbox nanodrone extract`.
+`glassbox corpus prepare nanodrone` downloads all 15 official CSV recordings from the pinned upstream commit, verifies their Git LFS SHA-256 values, and writes 12 canonical training trajectories and three canonical Melon test trajectories under `artifacts/nanodrone/canonical/`. The raw upstream files remain separate under `artifacts/nanodrone/raw/`; Glassbox does not vendor the dataset. Checksum verification cannot be turned off, so an upstream revision cannot silently change a benchmark run.
 
 The adapter preserves the benchmark's 100 Hz sampling, 13-state rigid-body trajectory, and three published body-specific-force channels. The state is a processed mixed-source observation, not uniform ground truth: position and attitude include motion capture, while velocity and angular rate come from onboard sensing/estimation. The accelerometer outputs are typed as state-aligned FLU observations used only during identification. The upstream world and body frames already have Glassbox's z-up/FLU signs; the adapter reorders the scalar-last quaternion to wxyz.
 
@@ -31,7 +31,7 @@ The v3 multirotor model can represent one bounded shared normalized-command offs
 ## Reproduce
 
 ```bash
-uv run glassbox nanodrone prepare artifacts/nanodrone
+uv run glassbox corpus prepare nanodrone artifacts/nanodrone
 ```
 
 Fit against the benchmark's trajectory-level split:

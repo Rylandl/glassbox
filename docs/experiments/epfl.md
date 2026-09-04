@@ -29,7 +29,7 @@ All segments come from one flight, so no train/validation partition can establis
 ## Reproduce
 
 ```bash
-uv run glassbox epfl prepare artifacts/epfl_topoplane
+uv run glassbox corpus prepare epfl artifacts/epfl_topoplane
 ```
 
 Fit the two maintained model classes on the canonical segments, using one consistent artifact directory:

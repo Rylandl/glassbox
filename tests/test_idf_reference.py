@@ -1,6 +1,3 @@
-import hashlib
-import io
-import urllib.request
 import zipfile
 import zlib
 from types import SimpleNamespace
@@ -8,7 +5,6 @@ from types import SimpleNamespace
 import numpy as np
 
 import glassbox.io.idf_reference as idf_module
-from glassbox.core.adapter import TrajectoryAdapter
 from glassbox.core.data import (
     Trajectory,
     make_trajectory_spec,
@@ -20,10 +16,8 @@ from glassbox.io.idf_reference import (
     IDF_REFERENCE_NAME,
     IDFFixedWingAdapter,
     IDFRecording,
-    extract_idf_ulogs,
-    fetch_idf_archive,
     idf_corpus_report,
-    save_idf_corpus_report,
+    unpack_pinned_ulogs,
 )
 
 
@@ -60,7 +54,6 @@ def test_adapter_preserves_every_dropout_safe_segment(tmp_path, monkeypatch) -> 
     monkeypatch.setattr(idf_module, "load_px4_trajectories", fake_load)
     adapter = IDFFixedWingAdapter(verify_checksum=False)
 
-    assert isinstance(adapter, TrajectoryAdapter)
     trajectories = adapter.load_all(source)
 
     config = captured["config"]
@@ -88,27 +81,7 @@ def test_adapter_preserves_every_dropout_safe_segment(tmp_path, monkeypatch) -> 
     assert len(adapter.load(source).controls) == 30
 
 
-def test_fetch_archive_verifies_and_reuses_snapshot(tmp_path, monkeypatch) -> None:
-    payload = b"pinned IDF archive bytes"
-    calls = []
-
-    def fake_urlopen(request, timeout):
-        calls.append((request.full_url, timeout))
-        return io.BytesIO(payload)
-
-    monkeypatch.setattr(idf_module, "IDF_ARCHIVE_SIZE_BYTES", len(payload))
-    monkeypatch.setattr(idf_module, "IDF_ARCHIVE_MD5", hashlib.md5(payload).hexdigest())
-    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
-
-    first = fetch_idf_archive(tmp_path)
-    second = fetch_idf_archive(tmp_path)
-
-    assert first == second
-    assert first.read_bytes() == payload
-    assert len(calls) == 1
-
-
-def test_extract_ulogs_selects_only_pinned_raw_members(tmp_path, monkeypatch) -> None:
+def test_unpacking_selects_only_pinned_raw_members(tmp_path, monkeypatch) -> None:
     payload = b"raw ULog fixture"
     recording = IDFRecording(
         "reference.ulg",
@@ -124,8 +97,8 @@ def test_extract_ulogs_selects_only_pinned_raw_members(tmp_path, monkeypatch) ->
         output.writestr("Holybro Pixhawk/processed/ignored.csv", b"ignored")
     monkeypatch.setattr(idf_module, "IDF_RECORDINGS", (recording,))
 
-    first = extract_idf_ulogs(archive, tmp_path / "raw")
-    second = extract_idf_ulogs(archive, tmp_path / "raw")
+    first = unpack_pinned_ulogs(archive, tmp_path / "raw")
+    second = unpack_pinned_ulogs(archive, tmp_path / "raw")
 
     assert first == second == (tmp_path / "raw" / recording.filename,)
     assert first[0].read_bytes() == payload
@@ -166,8 +139,6 @@ def test_corpus_report_records_coverage_and_excitation(tmp_path, monkeypatch) ->
     save_trajectory_npz(trajectory, trajectory_path)
 
     report = idf_corpus_report((trajectory_path,), raw_root)
-    report_path = tmp_path / "report.json"
-    save_idf_corpus_report(report, report_path)
 
     assert report["canonical"]["trajectory_count"] == 1
     assert report["canonical"]["duration_s"] == 0.5
@@ -179,4 +150,3 @@ def test_corpus_report_records_coverage_and_excitation(tmp_path, monkeypatch) ->
         "rudder",
     ]
     assert report["sessions"][0]["segment_count"] == 1
-    assert report_path.read_text().endswith("\n")

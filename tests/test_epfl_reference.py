@@ -1,9 +1,6 @@
 from __future__ import annotations
 
-import hashlib
-import io
 import json
-import urllib.request
 from pathlib import Path
 
 import numpy as np
@@ -11,7 +8,6 @@ import pytest
 
 import glassbox.io.epfl_reference as epfl_module
 from glassbox.cli.epfl import EPFL_CHARACTERIZATION_HORIZONS_S, EPFL_SCORE_HORIZONS_S
-from glassbox.core.adapter import TrajectoryAdapter
 from glassbox.core.data import save_trajectory_npz
 from glassbox.io.epfl_reference import (
     EPFLTopoplaneAdapter,
@@ -19,7 +15,6 @@ from glassbox.io.epfl_reference import (
     _build_trajectories,
     _canonical_quaternion,
     _TopoplaneStreams,
-    fetch_epfl_topoplane_reference,
     topoplane_trajectory_spec,
 )
 from glassbox.workflows.evaluate import evaluate_fit_reports
@@ -62,7 +57,6 @@ def test_topoplane_spec_describes_conventional_four_axis_airframe() -> None:
         "surface_layout": "aileron_elevator_rudder",
         "surface_mixing": "independent",
     }
-    assert isinstance(EPFLTopoplaneAdapter(), TrajectoryAdapter)
 
 
 def test_scalar_first_quaternion_reorder_and_rate_sign() -> None:
@@ -124,27 +118,6 @@ def test_adapter_returns_longest_segment_for_minimal_protocol(
     assert inventory["dynamics_ready"] is True
     assert inventory["checksum_matches_pinned_snapshot"] is False
     assert inventory["quality"]["published_angular_velocity_max_abs"] == 0.0
-
-
-def test_fetch_verifies_and_reuses_pinned_bag(tmp_path, monkeypatch) -> None:
-    payload = b"pinned EPFL bag bytes"
-    digest = hashlib.md5(payload).hexdigest()
-    calls = []
-
-    def fake_urlopen(request, timeout):
-        calls.append((request.full_url, timeout))
-        return io.BytesIO(payload)
-
-    monkeypatch.setattr(epfl_module, "TOPOPLANE_SIZE_BYTES", len(payload))
-    monkeypatch.setattr(epfl_module, "TOPOPLANE_MD5", digest)
-    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
-
-    first = fetch_epfl_topoplane_reference(tmp_path, timeout_s=5.0)
-    second = fetch_epfl_topoplane_reference(tmp_path, timeout_s=5.0)
-
-    assert first == second == tmp_path / epfl_module.TOPOPLANE_FILENAME
-    assert first.read_bytes() == payload
-    assert len(calls) == 1
 
 
 def test_characterization_evaluator_preserves_same_flight_limit(tmp_path) -> None:

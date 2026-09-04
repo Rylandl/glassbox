@@ -1,22 +1,15 @@
 from __future__ import annotations
 
-import hashlib
-import io
-import urllib.request
-
 import numpy as np
 
-import glassbox.io.x8_reference as x8_module
 from glassbox.belief.belief import DynamicsBelief
 from glassbox.belief.belief_io import save_dynamics_belief
 from glassbox.core.data import Trajectory, save_trajectory_npz
 from glassbox.core.fixedwing_synthetic import true_fixed_wing_parameters
 from glassbox.core.model import ExecutableModel, runtime_spec_from_trajectory
+from glassbox.io.corpus import REFERENCE_CORPORA
 from glassbox.io.x8_reference import (
-    X8Recording,
     X8ReferenceAdapter,
-    fetch_x8_reference,
-    load_validation_trajectories,
     x8_trajectory_spec,
 )
 from glassbox.workflows.evaluate import evaluate
@@ -96,37 +89,6 @@ def test_x8_adapter_can_exclude_the_wind_estimate_for_ablation(tmp_path) -> None
     )
 
 
-def test_x8_fetch_verifies_pinned_files(tmp_path, monkeypatch) -> None:
-    readme_payload = b"pinned x8 readme"
-    csv_payload = b"pinned x8 csv"
-    recording = X8Recording(
-        filename="lateral_121_1.csv",
-        split="training",
-        file_id=20,
-        size_bytes=len(csv_payload),
-        md5=hashlib.md5(csv_payload).hexdigest(),
-    )
-    monkeypatch.setattr(x8_module, "X8_RECORDINGS", (recording,))
-    monkeypatch.setattr(x8_module, "X8_README_FILE_ID", 10)
-    monkeypatch.setattr(x8_module, "X8_README_SIZE_BYTES", len(readme_payload))
-    monkeypatch.setattr(
-        x8_module, "X8_README_MD5", hashlib.md5(readme_payload).hexdigest()
-    )
-
-    def fake_urlopen(request, timeout):
-        assert timeout == 5.0
-        payload = readme_payload if request.full_url.endswith("/10") else csv_payload
-        return io.BytesIO(payload)
-
-    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
-
-    paths = fetch_x8_reference(tmp_path, timeout_s=5.0)
-
-    assert paths == (tmp_path / "training" / recording.filename,)
-    assert (tmp_path / x8_module.X8_README_FILENAME).read_bytes() == readme_payload
-    assert paths[0].read_bytes() == csv_payload
-
-
 def test_x8_evaluation_requires_and_scores_upstream_validation(tmp_path) -> None:
     source = tmp_path / "lateral_121_1.csv"
     _write_fixture(source)
@@ -154,7 +116,9 @@ def test_x8_evaluation_requires_and_scores_upstream_validation(tmp_path) -> None
         model_path,
     )
 
-    paths, trajectories = load_validation_trajectories([trajectory_path])
+    paths, trajectories = REFERENCE_CORPORA["x8"].load_evaluation_trajectories(
+        [trajectory_path]
+    )
     report = evaluate(
         model_path,
         trajectories,

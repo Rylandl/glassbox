@@ -59,7 +59,6 @@ EXPECTED_PUBLIC_API = (
     "SolverPolicy",
     "TrackingTolerances",
     "Trajectory",
-    "TrajectoryAdapter",
     "TrajectorySpec",
     "TrajectoryWindows",
     "UnavailableParameterEvidence",

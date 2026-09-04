@@ -30,13 +30,13 @@ from glassbox.core.fixedwing_synthetic import (
 )
 from glassbox.core.model import ExecutableModel, runtime_spec_from_trajectory
 from glassbox.core.synthetic import initial_parameter_guess
+from glassbox.io.corpus import REFERENCE_CORPORA
 from glassbox.io.nanodrone_reference import (
     SOURCE_COLUMNS,
     NanoDroneBenchmarkAdapter,
 )
 from glassbox.io.x8_reference import (
     X8ReferenceAdapter,
-    load_validation_trajectories,
     x8_trajectory_spec,
 )
 from glassbox.workflows.evaluate import (
@@ -309,7 +309,9 @@ def test_nanodrone_policy_reproduces_the_published_protocol(tmp_path) -> None:
 
 def test_x8_policy_reproduces_the_campaign_protocol(tmp_path) -> None:
     model_path, trajectory_path = _x8_model_and_trajectory(tmp_path)
-    _, trajectories = load_validation_trajectories([trajectory_path])
+    _, trajectories = REFERENCE_CORPORA["x8"].load_evaluation_trajectories(
+        [trajectory_path]
+    )
 
     report = evaluate(model_path, trajectories, protocol="x8", horizons_s=(0.025, 0.05))
 

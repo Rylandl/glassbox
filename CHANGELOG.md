@@ -6,6 +6,30 @@ All notable changes to Glassbox are recorded here. The format follows
 ## Unreleased
 
 ### Added
+- `glassbox.io.corpus` is one registry of the pinned reference corpora.
+  `ReferenceCorpus(name, citation, files, adapter, extra, protocol, ...)`
+  carries a `Citation(doi_or_url, license, pinned_version)`, a table of
+  `PinnedFile(url, relative_path, size_bytes, digest, algorithm)`, the concrete
+  adapter class that parses them, the optional extra that adapter needs, and
+  the published scoring protocol its evaluation uses. `fetch(dest)` and
+  `prepare(dest)` are implemented once over `io/pinned_download.py` for all
+  five corpora, and `REFERENCE_CORPORA` maps `nanodrone`, `arp`, `idf`, `x8`
+  and `epfl` to their entries. An entry names its parser module rather than
+  importing it, so `glassbox corpus list` renders with no optional extra
+  installed.
+- `glassbox corpus list | fetch NAME DIR | prepare NAME DIR` replaces the
+  fetch, prepare, inspect, extract and extract-dataset subcommands of
+  `glassbox nanodrone`, `glassbox x8`, `glassbox epfl`, and
+  `glassbox ulog prepare-arp` and `prepare-idf`. `prepare` writes verified
+  sources under `DIR/raw` and canonical trajectories under `DIR/canonical`,
+  preserving the upstream split as subdirectories where the corpus publishes
+  one, and `--raw` reuses an already-verified source tree so a second canonical
+  copy of one corpus does not download it twice.
+- `ReferenceCorpus.load_evaluation_trajectories(paths)` loads a set of
+  trajectories and checks it against the corpus's published evaluation split,
+  which the entry also describes in `validation_split`. The X8 and Nano-drone
+  evaluations get their split contract from the registry rather than importing
+  it from an adapter module.
 - `glassbox.workflows.evaluate.evaluate(belief_or_params, trajectories,
   protocol=..., horizons_s=..., maximum_horizon_steps=...,
   independent_holdout=..., report_path=...)` scores one model on held-out
@@ -145,6 +169,22 @@ All notable changes to Glassbox are recorded here. The format follows
   from a controller.
 
 ### Changed
+- The reference-corpus adapters keep their parsing and lose their plumbing.
+  Each one now declares its immutable file table as `PINNED_FILES` and the
+  registry owns the download-and-convert loop: `fetch_nanodrone_benchmark`,
+  `extract_nanodrone_benchmark`, `fetch_arp_reference`,
+  `extract_arp_reference`, `fetch_idf_archive`, `extract_idf_reference`,
+  `fetch_x8_reference`, `extract_x8_reference`,
+  `fetch_epfl_topoplane_reference` and `extract_epfl_topoplane_reference` are
+  gone. `extract_idf_ulogs` is `unpack_pinned_ulogs`, the archive-member
+  verification the registry calls before the adapter runs, and
+  `io.x8_reference.load_validation_trajectories` is
+  `validate_validation_trajectories`, which checks loaded trajectories rather
+  than loading them.
+- `idf_corpus_report` is part of `glassbox corpus prepare idf`, which writes it
+  to `DIR/corpus_report.json`; `save_idf_corpus_report` is gone, because the
+  registry writes every corpus audit the same way. The IDF page's retained
+  duration and segment counts still come from that file.
 - `integrations/cascade.py` keeps the plant and nothing else. The X8 validation,
   the residual regressions and the variant grid move to
   `glassbox.workflows.benchmarks.cascade_x8`, which is where a fixed-wing corpus
@@ -504,6 +544,15 @@ All notable changes to Glassbox are recorded here. The format follows
   learned. No flag was removed.
 
 ### Removed
+- `--skip-checksum` on every corpus command. A pinned corpus that does not
+  verify is a different corpus, and a number measured on it is not comparable
+  to the published one, so verification is not optional on the command line.
+  Last commit carrying it: `3db7ce5`.
+- `glassbox.core.adapter` and the `TrajectoryAdapter` protocol, with its entry
+  in the public surface. It had no production consumer; the registry's
+  `adapter` field is typed by the concrete adapter class's `inspect`, `load`
+  and `load_all` shape, which the registry's docstring states. Last commit
+  carrying it: `3db7ce5`.
 - The shadow runner's report: `schema_version` 6, the forty-key sample rows,
   the cold and warm warm-up rows, the clock-ratio audit, and every summary key
   derived from them. No recorded artifact was produced from it and no test

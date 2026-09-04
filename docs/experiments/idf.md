@@ -20,7 +20,7 @@ The [IDF-DS fixed-wing telemetry release](https://zenodo.org/records/16992976) m
 
 ## Data
 
-`glassbox ulog prepare-idf` is a substantial acquisition: the pinned Holybro archive is 2.12 GB. Glassbox verifies its published MD5, extracts only the 13 raw ULogs, verifies each member's size and CRC32, and converts every telemetry-complete interval to 50 Hz canonical trajectories. A 0.2-second gap tolerance accommodates the logged 10 Hz actuator streams; gaps are never bridged into a rollout, and only contiguous segments of at least 10 seconds are retained. The command also writes `artifacts/idf_reference/corpus_report.json` with retained-duration coverage, per-session segment counts, duration quantiles, motion ranges, control excitation, and the common typed trajectory contract.
+`glassbox corpus prepare idf` is a substantial acquisition: the pinned Holybro archive is 2.12 GB. Glassbox verifies its published MD5, extracts only the 13 raw ULogs, verifies each member's size and CRC32, and converts every telemetry-complete interval to 50 Hz canonical trajectories. A 0.2-second gap tolerance accommodates the logged 10 Hz actuator streams; gaps are never bridged into a rollout, and only contiguous segments of at least 10 seconds are retained. The command also writes `artifacts/idf_reference/corpus_report.json` with retained-duration coverage, per-session segment counts, duration quantiles, motion ranges, control excitation, and the common typed trajectory contract.
 
 The pinned extraction contains 119 contiguous trajectories from 13 independent sessions and retains 34,909.56 seconds (9.70 hours) of telemetry, per `corpus_report.json`. Session identity, rather than segment count or duration, determines both training weight and held-out folds.
 
@@ -29,7 +29,7 @@ The archive's 120 published "flights" are processed circuit laps, not 120 raw UL
 ## Reproduce
 
 ```bash
-uv run glassbox ulog prepare-idf artifacts/idf_reference
+uv run glassbox corpus prepare idf artifacts/idf_reference
 ```
 
 Measure generalization across recording sessions with the opinionated leave-one-source-group-out benchmark:

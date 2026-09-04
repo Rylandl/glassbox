@@ -4,7 +4,7 @@ Date: 2026-09-01. Reproduce with:
 
 ```bash
 uv sync --inexact --extra cascade
-uv run glassbox x8 extract-dataset artifacts/x8_reference/raw artifacts/x8_cascade/canonical
+uv run glassbox corpus prepare x8 artifacts/x8_cascade --raw artifacts/x8_reference/raw
 uv run glassbox x8 evaluate-cascade artifacts/x8_cascade \
   --report artifacts/x8_cascade/cascade_report.json \
   --reference-report artifacts/x8_reference/benchmark_report.json \

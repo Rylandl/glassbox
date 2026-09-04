@@ -8,20 +8,7 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
-from glassbox.core.data import load_trajectory_npz, save_trajectory_npz
-from glassbox.io.arp_reference import (
-    ARP_REFERENCE_COMMIT,
-    extract_arp_reference,
-    fetch_arp_reference,
-)
-from glassbox.io.idf_reference import (
-    IDF_ARCHIVE_SIZE_BYTES,
-    extract_idf_reference,
-    extract_idf_ulogs,
-    fetch_idf_archive,
-    idf_corpus_report,
-    save_idf_corpus_report,
-)
+from glassbox.core.data import save_trajectory_npz
 from glassbox.io.px4_ulog import PX4IngestConfig, inspect_ulog, load_px4_trajectory
 
 
@@ -155,44 +142,6 @@ def _extract_fixedwing(args: argparse.Namespace) -> None:
         f"({mapping['actuator_mapping_source']})"
     )
     _report_segments(trajectory)
-
-
-def _prepare_arp(args: argparse.Namespace) -> None:
-    raw_root = args.destination / "raw"
-    canonical_root = args.destination / "canonical"
-    paths = fetch_arp_reference(raw_root, overwrite=args.overwrite)
-    outputs = extract_arp_reference(raw_root, canonical_root)
-    total_duration_s = sum(
-        float(load_trajectory_npz(output).time_s[-1]) for output in outputs
-    )
-    print(
-        f"prepared pinned ARP reference commit {ARP_REFERENCE_COMMIT}: "
-        f"{len(paths)} verified ULogs in {raw_root}, "
-        f"{len(outputs)} trajectories ({total_duration_s:.1f}s) in {canonical_root}"
-    )
-
-
-def _prepare_idf(args: argparse.Namespace) -> None:
-    raw_root = args.destination / "raw"
-    ulog_root = raw_root / "ulogs"
-    canonical_root = args.destination / "canonical"
-    print(
-        "preparing the pinned IDF-DS Holybro archive "
-        f"({IDF_ARCHIVE_SIZE_BYTES / 1_000_000_000:.2f} GB)"
-    )
-    archive = fetch_idf_archive(raw_root, overwrite=args.overwrite)
-    ulogs = extract_idf_ulogs(archive, ulog_root, overwrite=args.overwrite)
-    outputs = extract_idf_reference(ulog_root, canonical_root)
-    report_path = args.destination / "corpus_report.json"
-    report = idf_corpus_report(outputs, ulog_root)
-    save_idf_corpus_report(report, report_path)
-    total_duration_s = float(report["canonical"]["duration_s"])
-    print(
-        f"prepared IDF-DS fixed-wing reference: {len(ulogs)} verified ULogs, "
-        f"{len(outputs)} dropout-safe trajectories "
-        f"({total_duration_s / 3600.0:.2f}h) in {canonical_root}; "
-        f"audit in {report_path}"
-    )
 
 
 def main(argv: Sequence[str] | None = None) -> None:
@@ -340,22 +289,6 @@ def main(argv: Sequence[str] | None = None) -> None:
         help="stable physical vehicle identity used to validate dataset pooling",
     )
     fixedwing_parser.set_defaults(handler=_extract_fixedwing)
-
-    arp_parser = subparsers.add_parser(
-        "prepare-arp",
-        help="fetch and convert the pinned ARP quadrotor system-ID ULogs",
-    )
-    arp_parser.add_argument("destination", type=Path)
-    arp_parser.add_argument("--overwrite", action="store_true")
-    arp_parser.set_defaults(handler=_prepare_arp)
-
-    idf_parser = subparsers.add_parser(
-        "prepare-idf",
-        help="fetch and convert the pinned IDF-DS fixed-wing PX4 ULogs",
-    )
-    idf_parser.add_argument("destination", type=Path)
-    idf_parser.add_argument("--overwrite", action="store_true")
-    idf_parser.set_defaults(handler=_prepare_idf)
 
     args = parser.parse_args(argv)
     args.handler(args)
