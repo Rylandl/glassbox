@@ -28,6 +28,14 @@ All segments come from one flight, so no train/validation partition can establis
 
 ## Reproduce
 
+One command records this page's artifact, running every step below in order:
+
+```bash
+uv run glassbox record-results --only validation-epfl-results
+```
+
+The steps it runs, and the way to run them one at a time:
+
 ```bash
 uv run glassbox corpus prepare epfl artifacts/epfl_topoplane
 ```

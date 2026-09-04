@@ -332,6 +332,52 @@ All notable changes to Glassbox are recorded here. The format follows
   as `values` and what every kernel entry point takes in place of the bare
   parameters, so an implementer states its numbers in one object.
 
+- The manifest describes eight artifacts in two tiers, and the five corpus
+  validation artifacts are new entries:
+  `validation-{nanodrone,arp,idf,x8,epfl}-results.json`. Each is one chain,
+  `glassbox corpus prepare` then `glassbox fit` then `glassbox evaluate` under
+  the corpus's own protocol, and one assembled contract: `artifact_type`,
+  `format_version`, `smoke`, `corpus` (the registry's citation, license,
+  pinned version and every pinned file's digest), `protocol` (the named
+  scoring policy and its fields as the evaluation recorded them), `fit` (one
+  block per scored model, or one per fold for a leave-one-out run, carrying
+  the fit specification, the split, the optimization record and the parameter
+  evidence), `results`, `baseline`, `implementation` and `environment`. The
+  five are pending their first recorded run, which is the maintainer job; the
+  manifest carries their chain and their contract now.
+- `glassbox.workflows.record_results.RecordingPlan` is where one run reads its
+  corpora, writes its outputs, and how far it fits: `corpus_root`,
+  `results_root`, `source_root`, `fit_steps`, `fold_limit` and `smoke`.
+  `build_manifest(plan)` builds the manifest for one plan and `MANIFEST` is the
+  default, so a recording, a check and a smoke run are the same chain pointed
+  at different directories. `ArtifactSpec` declares its `tier`, `inputs`,
+  `volatile` paths, comparison `tolerance` and `awaiting_first_record`, and
+  `FitArm` is one fitted model in a corpus chain.
+- `assemble_corpus_validation_report` and `write_corpus_validation_report`
+  assemble one corpus validation artifact from the chain's own reports, so the
+  JSON is machine output rather than a hand-edited note. `source_fingerprint`
+  digests the modules a validation number passes through, listed in
+  `VALIDATION_SOURCE_FILES`.
+- `glassbox record-results --check` regenerates the selected artifacts into a
+  temporary directory and compares each against the committed file, excluding
+  the paths that entry declares volatile, and exits non-zero when one no
+  longer reproduces. `recorded_differences`, `matches_path`, `check_selected`
+  and `CheckResult` implement it with the same path-pattern rule
+  `tests/_recorded.py` uses. A `recorded-results` CI job runs
+  `glassbox record-results --check --tier local` after the test job.
+- `glassbox record-results --smoke DIR` exercises the corpus tier on a tiny fit
+  budget, writing every prepared trajectory, report and artifact under DIR
+  instead of into the repository, and marking each artifact `"smoke": true` so
+  it can never be read as evidence. `--fit-steps N` and `--limit-folds N` set
+  the shortened budgets; `--source-root DIR` reuses corpora already fetched and
+  verified under DIR instead of downloading them again.
+- `glassbox evaluate --hold-out KEY --limit-folds N` and
+  `evaluate_holdout(fold_limit=N)` fit only the first N folds. The summary
+  records the shortened `fold_selection`, which is part of the request a resume
+  must match, so a shortened run cannot be mistaken for the complete one.
+- `glassbox record-results --list` and `--dry-run` print each entry's inputs
+  beside its tier and status.
+
 ### Changed
 - Phase 2 in summary, on the two regenerable local artifacts. Every number in
   `docs/results/adaptive-recovery-results.json` moved once, at the start of the
@@ -1092,6 +1138,31 @@ All notable changes to Glassbox are recorded here. The format follows
   it as `fixed_response_time_constant_s`, null when the response time is
   learned. No flag was removed.
 
+- `evaluate_models` reports carry `floors` and the whole `scoring` policy, as
+  `evaluate` and `evaluate_fit_reports` already did. Two numbers produced under
+  different conventions are not comparable, so every report states its
+  convention. The leave-one-label-out summary carries `scoring` for the same
+  reason.
+- `docs/guides/recorded-results.md` is the eight-artifact table: each artifact's
+  tier, its inputs and the one command that regenerates it, plus what a corpus
+  validation artifact contains and how to exercise a chain without recording.
+  `CONTRIBUTING.md` documents the corpus tier as a maintainer job that needs
+  the pinned corpora, the `px4`, `ros` and `cascade` extras and hours of
+  fitting, and is not run in CI.
+- The `Reproduce` block of each of the five corpus experiment pages names
+  `glassbox record-results --only <artifact>` as the canonical command and
+  keeps the manual chain beneath it. The ARP page gains the fit and evaluation
+  commands it never had: the artifact's protocol is a fit on logs 63 to 65 with
+  the standard 0.1, 0.5 and 2-second horizons and one windowed score on the
+  reserved log 66.
+- The pinned test for `adaptive-recovery-results.json` takes its `ignore` table
+  from the manifest entry's `volatile` table, so the test and
+  `record-results --check` exclude exactly the same paths by construction.
+- `docs/experiments/px4-sitl-multirotor.md` carries the numbers that were in
+  `multirotor-profile-results.json` as prose, and says that recording a PX4
+  SITL corpus needs a running SITL container, so the SITL benchmarks are not
+  manifest entries and no artifact backs that page.
+
 ### Removed
 - `core/metrics.py::VECTORIZED_LOG_MEAN` and the `aggregation` argument of
   `persistence_score`. Two floating-point orders of the same geometric mean
@@ -1450,7 +1521,27 @@ All notable changes to Glassbox are recorded here. The format follows
   `glassbox fit` lose their branches over the two report shapes. Last commit
   carrying it: `2e16ebc`.
 
+- `docs/results/multirotor-profile-results.json` and its manifest entry. It was
+  a hand-written lab note in JSON clothing, with `date`, `hypothesis` and
+  `decision` keys, produced by no command and pinned by no test; its numbers
+  are now prose on the PX4 SITL multirotor page. Last commit carrying it:
+  `c35224e`.
+- `workflows.benchmarks.recovery.normalized_adaptive_recovery_report` and
+  `_NONDETERMINISTIC_RECOVERY_FIELDS`. Which paths vary with the host and the
+  source tree is now declared once, as the manifest entry's `volatile` table,
+  and both the pinned test and `record-results --check` read it from there.
+  Last commit carrying them: `c35224e`.
+- `ArtifactSpec.unavailable_reason`, `ArtifactSpec.regenerable` and
+  `ArtifactSpec.required_data`. Every entry in the manifest is regenerable
+  given the corpora and the extras, and every corpus chain now begins with the
+  `corpus prepare` that obtains its own inputs, so both declarations had no
+  users left; `missing_requirements` still reports a missing optional extra.
+  Last commit carrying them: `c35224e`.
+
 ### Fixed
+- `glassbox evaluate --protocol nanodrone` no longer fails when it prints its
+  summary. The per-step protocol scores prediction steps rather than a horizon
+  table and records a null score, which the command formatted as a float.
 - `glassbox fit --model --report` no longer fails on a NumPy scalar.
 - Fits stop on non-finite loss and return the best finite iterate with a flag.
 - Physical parameter constructors validate their inputs instead of clipping.

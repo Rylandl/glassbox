@@ -49,3 +49,20 @@ jobs:
       # Simulator-backed and PX4-SITL tests need optional extras or a live
       # container and skip cleanly without them.
       - run: uv run pytest -q -p no:cacheprovider -m "not cascade and not px4_sitl"
+
+  recorded-results:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv python install 3.12
+      - run: uv sync --locked --dev
+      # Regenerates the local tier and fails when any non-timing,
+      # non-provenance content differs from the committed artifact. The corpus
+      # tier is a maintainer job: it needs the pinned corpora on disk, the
+      # cascade extra, and hours of fitting, so it does not run here.
+      - run: uv run glassbox record-results --check --tier local

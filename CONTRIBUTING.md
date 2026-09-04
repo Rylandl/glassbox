@@ -23,25 +23,30 @@ SITL contract tests are opt-in with `GLASSBOX_RUN_PX4_SITL=1`.
 
 ## Checks
 
-CI runs `ruff check`, `ruff format --check`, and the default test suite on every
-push and pull request. Run the same locally with:
+CI runs `ruff check`, `ruff format --check`, the default test suite, and the
+local tier of the recorded-results manifest on every push and pull request.
+Run the same locally with:
 
 ```bash
 uv run ruff check src tests scripts && uv run ruff format --check src tests scripts
+uv run glassbox record-results --check --tier local
 ```
 
 ## Recorded results
 
-Several benchmarks pin a recorded artifact under `docs/results/` and compare a
-fresh run against it. See [the recorded-results guide](docs/guides/recorded-results.md)
-for the two-tier test policy and when to re-record: in short, re-record after
-an intentional behavior change on that artifact's path, not in response to its
-own provenance metadata changing on its own.
+One manifest names every artifact under `docs/results/`, in two tiers, and one
+command produces or checks each of them. See
+[the recorded-results guide](docs/guides/recorded-results.md) for the table,
+the two-tier test policy and when to re-record: in short, re-record after an
+intentional behavior change on that artifact's path, not in response to its own
+provenance metadata changing on its own.
 
-`glassbox benchmark recovery` also records a SHA-256 hash of the source files
-that produced its artifact (`workflows.benchmarks.recovery.BENCHMARK_SOURCE_FILES`).
-That hash is provenance, not a trigger; it is expected to drift between
-recordings and does not by itself require a re-record.
+The adaptive-recovery artifact and every corpus validation artifact record a
+SHA-256 hash of the source files that produced them. That hash is provenance,
+not a trigger; it is expected to drift between recordings and does not by
+itself require a re-record, which is why their manifest entries list it as
+volatile and neither the pinned tests nor `record-results --check` compares
+it.
 
 Regenerate a recorded artifact with:
 
@@ -52,6 +57,38 @@ uv run glassbox record-results --only <artifact-name>
 or see `uv run glassbox record-results --list` for every artifact's name and
 status. Commit the JSON alongside the change that motivated it. Never edit a
 recorded JSON by hand, and never pick a re-run for its timings.
+
+### The corpus tier is a maintainer job
+
+`record-results --check --tier local` is what CI runs: two synthetic-scenario
+artifacts and no download. The corpus tier is not run in CI. It needs
+
+- the five pinned public corpora fetched and verified on disk, which is
+  several gigabytes and includes one 2.12 GB archive,
+- the `px4`, `ros` and `cascade` extras, the last of which is a Git dependency
+  on the Cascade fixed-wing simulator,
+- and hours of fitting: thirteen leave-one-session-out folds on the IDF-DS
+  corpus alone.
+
+Run it deliberately, on a machine that has the corpora:
+
+```bash
+uv run --all-extras glassbox record-results --tier corpus
+```
+
+Before running it for real, exercise the chain on a tiny budget, which touches
+nothing in the repository:
+
+```bash
+uv run --all-extras glassbox record-results --tier corpus \
+  --smoke /tmp/glassbox-smoke --source-root artifacts
+```
+
+Every artifact a smoke run produces carries `"smoke": true` and is evidence of
+nothing except that the chain runs.
+
+The PX4 SITL benchmarks are not in the manifest at all: recording one needs a
+running SITL container, so their pages carry their numbers as prose and say so.
 
 ## Documentation conventions
 

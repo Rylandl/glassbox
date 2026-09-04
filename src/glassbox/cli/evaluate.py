@@ -12,7 +12,9 @@ Three shapes, one command:
     the leave-one-label-out runner: one fold per value of the label KEY, each
     fold fitted on the rest and scored on the held-out flights, plus the
     equal-fold aggregate and the distribution across folds. ``profile`` and
-    ``source_group`` are the two labels the corpora carry.
+    ``source_group`` are the two labels the corpora carry. ``--limit-folds N``
+    fits only the first N of them, for exercising the chain without waiting
+    for a corpus-scale run; the summary records the shortened fold selection.
 
 ``glassbox evaluate --fit-reports A B``
     score models whose held-out horizon tables one fit already measured,
@@ -154,6 +156,15 @@ def build_parser() -> argparse.ArgumentParser:
         default="structured",
     )
     holdout.add_argument("--no-resume", dest="resume", action="store_false")
+    holdout.add_argument(
+        "--limit-folds",
+        type=int,
+        metavar="N",
+        help=(
+            "fit only the first N folds; a shortened run for exercising the "
+            "chain, recorded as such in the summary's fold selection"
+        ),
+    )
 
     characterization = parser.add_argument_group("fit-report characterization")
     characterization.add_argument(
@@ -193,6 +204,7 @@ def _run_holdout(args: argparse.Namespace, parser: argparse.ArgumentParser) -> N
         ),
         output_dir=args.output_dir,
         resume=args.resume,
+        fold_limit=args.limit_folds,
     )
 
 
@@ -316,8 +328,9 @@ def main(argv: Sequence[str] | None = None) -> None:
             independent_holdout=independent,
         )
         _print_horizons(report["model"])
-        if "score_vs_baseline" in report:
-            print(f"score/{report['baseline']}={report['score_vs_baseline']:.3f}")
+        score = report.get("score_vs_baseline")
+        if score is not None:
+            print(f"score/{report['baseline']}={score:.3f}")
     if args.corpus is not None:
         report["corpus"] = _corpus_block(args.corpus)
     _write(report, args)

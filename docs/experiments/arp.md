@@ -26,11 +26,49 @@ These recordings omit the usual arming and land-detection streams, and their loc
 
 ## Reproduce
 
+One command records this page's artifact, running every step below in order:
+
+```bash
+uv run glassbox record-results --only validation-arp-results
+```
+
+The steps it runs, and the way to run them one at a time:
+
 ```bash
 uv run glassbox corpus prepare arp artifacts/arp_reference
 ```
 
-The command-offset candidate below was compared with maintainer-owned evaluation code rather than a public CLI flag: it is an airframe-neutral selection mechanism with a fixed candidate policy, not an additional end-user fitting knob, so this page has no further command to reproduce it beyond the prepared corpus.
+Fit on the development logs and reserve the protected one. The four recordings
+carry one `source_group` each in log order, so `--holdout-count 1` reserves log
+66 and trains on 63 to 65:
+
+```bash
+uv run glassbox fit \
+  artifacts/arp_reference/canonical/*.npz \
+  --holdout-count 1 \
+  --training-horizons 0.1,0.5,2.0 \
+  --model artifacts/arp_reference/model.json \
+  --report artifacts/arp_reference/report.json
+```
+
+Score the reserved log against kinematic persistence under the windowed
+protocol:
+
+```bash
+uv run glassbox evaluate \
+  artifacts/arp_reference/model.json \
+  artifacts/arp_reference/canonical/log_66*.npz \
+  --protocol windowed --corpus arp \
+  --report artifacts/arp_reference/benchmark_report.json
+```
+
+This chain is the corpus's recorded protocol. The page documented no fit or
+evaluation command before the artifact existed, so the horizons are the
+project's standard 0.1, 0.5 and 2-second triple and the remaining settings are
+the fitter's defaults; the holdout follows this page's own rule of developing
+on logs 63 to 65 and touching log 66 once.
+
+The command-offset candidate below was compared with maintainer-owned evaluation code rather than a public CLI flag: it is an airframe-neutral selection mechanism with a fixed candidate policy, not an additional end-user fitting knob, so it has no command of its own and its numbers have no artifact.
 
 ## Results
 

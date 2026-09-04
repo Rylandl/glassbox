@@ -1,6 +1,15 @@
 # Cascade Skywalker X8: an unfitted physics model against the NTNU flight campaign
 
-Date: 2026-09-01. Reproduce with:
+Date: 2026-09-01. Record this page's artifact with one command, which runs the
+whole chain from the pinned corpus through both reference fits, the campaign
+evaluation, the Cascade sweeps and the diagnostics:
+
+```bash
+uv sync --inexact --extra cascade
+uv run glassbox record-results --only cascade-x8-validation-results
+```
+
+The two steps this page's numbers come from directly:
 
 ```bash
 uv sync --inexact --extra cascade

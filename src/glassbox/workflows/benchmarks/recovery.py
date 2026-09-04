@@ -85,14 +85,6 @@ BENCHMARK_SOURCE_FILES = (
     "core/synthetic.py",
     "workflows/benchmarks/recovery.py",
 )
-_NONDETERMINISTIC_RECOVERY_FIELDS = frozenset(
-    {
-        "prewarm_wall_time_s",
-        "solve_time_median_s",
-        "solve_time_p90_s",
-        "solve_time_maximum_s",
-    }
-)
 
 
 def _json_fingerprint(payload: Any) -> str:
@@ -121,32 +113,6 @@ def adaptive_recovery_source_fingerprint() -> str:
         digest.update(relative_path.encode("utf-8"))
         digest.update(path.read_bytes())
     return digest.hexdigest()
-
-
-def normalized_adaptive_recovery_report(report: dict[str, Any]) -> dict[str, Any]:
-    """Remove machine-, timing-, and provenance-dependent fields.
-
-    A freshness check compares the numbers a run produces, not where it ran or
-    which source tree produced them. The environment block and the per-trace
-    wall-clock fields vary with the host. The implementation provenance fields
-    (the source file list and its ``source_sha256`` digest) vary with any
-    source edit, including edits that leave every recorded number unchanged;
-    such an edit does not make the artifact stale, so the digest must not gate
-    the comparison. The artifact still records it, as the statement of which
-    sources produced these numbers.
-    """
-
-    normalized = json.loads(json.dumps(report, allow_nan=False))
-    for field_name in ("environment", "git_revision"):
-        normalized.pop(field_name, None)
-    implementation = normalized.get("implementation")
-    if isinstance(implementation, dict):
-        for field_name in ("source_files", "source_sha256"):
-            implementation.pop(field_name, None)
-    for recovery in normalized.get("recovery", []):
-        for field_name in _NONDETERMINISTIC_RECOVERY_FIELDS:
-            recovery.pop(field_name, None)
-    return normalized
 
 
 @dataclass(frozen=True)

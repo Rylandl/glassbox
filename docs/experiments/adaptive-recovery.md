@@ -102,11 +102,17 @@ On the recorded run, the adapted belief cost several times the point-model
 solve per step against a `20 ms` model period, because charging the spread
 costs one extra forward rollout per resolved parameter direction and this
 belief resolves nine. Absolute solve times depend on the host and its load, so
-they are kept only in the results artifact, where the benchmark marks them
-nondeterministic and excludes them from its comparison. This is not a hard
-real-time claim.
+they are kept only in the results artifact, where the manifest entry lists them
+as volatile so neither the pinned test nor `record-results --check` compares
+them. This is not a hard real-time claim.
 
 ## Reproduce
+
+```bash
+uv run glassbox record-results --only adaptive-recovery-results
+```
+
+which is one step:
 
 ```bash
 uv run glassbox benchmark recovery \

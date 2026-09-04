@@ -26,8 +26,9 @@ artifact each experiment page cites.
   `glassbox extract` and recording reproducible SITL flights. The pinned
   public corpora are obtained with `glassbox corpus`, whose registry names
   each one's citation, license, and evaluation split.
-- [Recorded results](guides/recorded-results.md): the two-tier recorded-result
-  tests, when to re-record, and the `glassbox record-results` command.
+- [Recorded results](guides/recorded-results.md): the eight artifacts, their
+  two tiers, the two-tier recorded-result tests, when to re-record, and the
+  `glassbox record-results` command that produces and checks each one.
 
 ## Experiments
 

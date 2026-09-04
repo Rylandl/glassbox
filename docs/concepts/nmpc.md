@@ -393,8 +393,14 @@ to real actuators.
 ## Reproducing the gate
 
 ```bash
+uv run glassbox record-results --only nmpc-acceptance-results
+```
+
+which is one step:
+
+```bash
 uv run glassbox benchmark nmpc \
-  --output artifacts/nmpc-acceptance-results.json
+  --output docs/results/nmpc-acceptance-results.json
 ```
 
 The report names the runtime environment, baseline, normalized error, fixed

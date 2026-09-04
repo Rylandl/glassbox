@@ -795,6 +795,8 @@ def evaluate_models(
         "protocol": policy.name,
         "baseline": policy.baseline,
         "stride": policy.stride,
+        "floors": None if policy.floors is None else dict(policy.floors),
+        "scoring": policy.to_dict(),
         "independent_holdout": independent_holdout,
         "can_promote_model": independent_holdout,
         "dataset": {

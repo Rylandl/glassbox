@@ -7,10 +7,8 @@ import numpy as np
 import pytest
 from _recorded import assert_recorded_close, recorded_result
 
-from glassbox.workflows.benchmarks.recovery import (
-    normalized_adaptive_recovery_report,
-    run_adaptive_recovery_benchmark,
-)
+from glassbox.workflows.benchmarks.recovery import run_adaptive_recovery_benchmark
+from glassbox.workflows.record_results import ADAPTIVE_RECOVERY_VOLATILE
 
 # Recorded-tier policy for docs/results/adaptive-recovery-results.json.
 _ADAPTIVE_RECOVERY_TOLERANCES = {
@@ -23,10 +21,9 @@ _ADAPTIVE_RECOVERY_EXACT = (
     # Seeds, durations, the initial state, and offline functions of them.
     "configuration.*",
 )
-_ADAPTIVE_RECOVERY_IGNORE = (
-    # Nothing further: ``normalized_adaptive_recovery_report`` already drops
-    # the environment block, per-trace wall clock, and source provenance.
-)
+# The manifest declares which paths vary with the host and the source tree,
+# so ``record-results --check`` and this test exclude exactly the same ones.
+_ADAPTIVE_RECOVERY_IGNORE = ADAPTIVE_RECOVERY_VOLATILE
 
 
 @pytest.mark.slow
@@ -113,10 +110,8 @@ def test_adaptive_recovery_benchmark_is_finite_and_auditable() -> None:
 
     # Recorded tier.
     assert_recorded_close(
-        normalized_adaptive_recovery_report(report),
-        normalized_adaptive_recovery_report(
-            recorded_result("adaptive-recovery-results.json")
-        ),
+        report,
+        recorded_result("adaptive-recovery-results.json"),
         tolerances=_ADAPTIVE_RECOVERY_TOLERANCES,
         exact=_ADAPTIVE_RECOVERY_EXACT,
         ignore=_ADAPTIVE_RECOVERY_IGNORE,

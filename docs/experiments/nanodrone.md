@@ -30,6 +30,14 @@ The v3 multirotor model can represent one bounded shared normalized-command offs
 
 ## Reproduce
 
+One command records this page's artifact, running every step below in order:
+
+```bash
+uv run glassbox record-results --only validation-nanodrone-results
+```
+
+The steps it runs, and the way to run them one at a time:
+
 ```bash
 uv run glassbox corpus prepare nanodrone artifacts/nanodrone
 ```

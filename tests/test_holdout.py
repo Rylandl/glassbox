@@ -1,4 +1,7 @@
+import json
 from dataclasses import replace
+
+import pytest
 
 from glassbox.core.data import save_trajectory_npz
 from glassbox.fitting import FitSpec
@@ -80,3 +83,58 @@ def test_source_group_holdout_moves_every_segment_into_the_same_fold(
 
     assert resumed == summary
     assert summary_path.exists()
+
+
+def test_a_fold_limit_shortens_the_run_and_records_that_it_did(
+    tmp_path, fixedwing_flight
+) -> None:
+    paths = []
+    for seed, group in enumerate(("session-a", "session-b", "session-c")):
+        trajectory = fixedwing_flight(seed, 0.3)
+        trajectory = replace(
+            trajectory, labels={**trajectory.labels, "source_group": group}
+        )
+        path = tmp_path / f"segment_{seed}.npz"
+        save_trajectory_npz(trajectory, path)
+        paths.append(path)
+    spec = FitSpec(horizons_s=(0.1,), evaluation_horizons_s=(0.1,), steps=1)
+
+    summary = evaluate_holdout(
+        paths,
+        hold_out="source_group",
+        spec=spec,
+        output_dir=tmp_path / "shortened",
+        fold_limit=2,
+    )
+
+    assert summary["fold_count"] == 2
+    assert summary["folds"] == ["session-a", "session-b"]
+    assert set(summary["per_fold"]) == {"session-a", "session-b"}
+    # The shortened selection is recorded, and it is part of the request a
+    # resume must match, so a shortened run cannot stand in for a whole one.
+    assert (
+        summary["configuration"]["fold_selection"] == "first_2_of_3_source_group_values"
+    )
+    request = json.loads((tmp_path / "shortened" / "request.json").read_text())
+    assert request["folds"] == ["session-a", "session-b"]
+
+
+def test_a_fold_limit_below_two_is_refused(tmp_path, fixedwing_flight) -> None:
+    paths = []
+    for seed, group in enumerate(("session-a", "session-b")):
+        trajectory = fixedwing_flight(seed, 0.3)
+        trajectory = replace(
+            trajectory, labels={**trajectory.labels, "source_group": group}
+        )
+        path = tmp_path / f"segment_{seed}.npz"
+        save_trajectory_npz(trajectory, path)
+        paths.append(path)
+
+    with pytest.raises(ValueError, match="at least two folds"):
+        evaluate_holdout(
+            paths,
+            hold_out="source_group",
+            spec=FitSpec(horizons_s=(0.1,), evaluation_horizons_s=(0.1,), steps=1),
+            output_dir=tmp_path / "too-short",
+            fold_limit=1,
+        )

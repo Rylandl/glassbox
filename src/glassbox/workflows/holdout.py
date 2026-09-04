@@ -41,7 +41,7 @@ from glassbox.core.model_io import (
     RESIDUAL_MODEL_TYPE,
 )
 from glassbox.fitting import DEFAULT_FIT_SPEC, FitSpec, Holdout, LossPolicy, fit
-from glassbox.workflows.evaluate import baseline_horizon_rollouts
+from glassbox.workflows.evaluate import baseline_horizon_rollouts, policy_for
 
 _DISTRIBUTION_METRICS = (
     "position_rmse_m",
@@ -136,6 +136,7 @@ def evaluate_holdout(
     spec: FitSpec = DEFAULT_FIT_SPEC,
     output_dir: str | Path,
     resume: bool = True,
+    fold_limit: int | None = None,
 ) -> dict[str, Any]:
     """Fit one fold per distinct value of a holdout label and summarize them.
 
@@ -144,6 +145,12 @@ def evaluate_holdout(
     distinct value of that label becomes one fold that reserves every flight
     carrying it. ``spec`` shapes each fold's fit, except for its holdout rule,
     which the fold supplies.
+
+    ``fold_limit`` keeps only the first few folds. A corpus with a session per
+    fold takes hours to run in full, and a shortened run is how the chain is
+    exercised without waiting for it; the summary records the shortened fold
+    selection, and that selection is part of the request a resume must match,
+    so a shortened run can never be mistaken for the complete one.
 
     With ``resume``, a fold whose request, report, belief and any requested
     ablation are already on disk is reused instead of refitted, and a complete
@@ -159,6 +166,10 @@ def evaluate_holdout(
     folds = tuple(dict.fromkeys(values))
     if len(folds) < 2:
         raise ValueError(f"a {key} holdout requires at least two distinct {key} values")
+    if fold_limit is not None:
+        if fold_limit < 2:
+            raise ValueError("fold_limit must keep at least two folds")
+        folds = folds[:fold_limit]
 
     reference_spec = flights[0].spec
     if any(flight.spec != reference_spec for flight in flights[1:]):
@@ -198,7 +209,11 @@ def evaluate_holdout(
         "exogenous_size": flights[0].exogenous_size,
         "exogenous_names": list(reference_spec.exogenous_names),
         "exogenous_roles": list(reference_spec.exogenous_roles),
-        "fold_selection": f"all_{key}_values",
+        "fold_selection": (
+            f"all_{key}_values"
+            if fold_limit is None
+            else f"first_{len(folds)}_of_{len(set(values))}_{key}_values"
+        ),
     }
     request = {
         "format_version": 1,
@@ -335,6 +350,7 @@ def evaluate_holdout(
         "holdout_label": key,
         "protocol": "windowed",
         "baseline": "kinematic_persistence",
+        "scoring": policy_for("windowed").to_dict(),
         "floors": dict(METRIC_FLOORS),
         "independent_holdout": True,
         "platform": family,
