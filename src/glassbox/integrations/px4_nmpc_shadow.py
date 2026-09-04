@@ -14,7 +14,8 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
-from glassbox.control.nmpc import NMPCController, NMPCWarmStart
+from glassbox.control.fitted import NMPCController
+from glassbox.control.plan import NMPCWarmStart
 from glassbox.core.model import ExecutableModel
 from glassbox.integrations.px4 import (
     PX4AppliedCommandSample,

@@ -37,17 +37,20 @@ from glassbox.belief.belief import (
     with_structured_parameter_vector,
 )
 from glassbox.belief.belief_io import load_dynamics_belief, save_dynamics_belief
-from glassbox.control.nmpc import (
-    NMPCController,
+from glassbox.control.fitted import NMPCController, plan_model
+from glassbox.control.plan import (
     NMPCDiagnostics,
-    NMPCResult,
     NMPCWarmStart,
+    PlanModel,
+    Prediction,
     ReferenceTrajectory,
     SafetyEnvelope,
+    SolveResult,
     SolverPolicy,
     SolveStatus,
     TrackingTolerances,
 )
+from glassbox.control.solver import BoundedShootingSolver
 from glassbox.core.adapter import TrajectoryAdapter
 from glassbox.core.data import (
     RIGID_BODY_STATE_SCHEMA,
@@ -110,6 +113,7 @@ __all__ = [
     "BaseDynamicsParams",
     "BeliefUpdateProposal",
     "BeliefUpdateReport",
+    "BoundedShootingSolver",
     "ControlChannel",
     "DirectActuationMap",
     "DynamicsBelief",
@@ -128,11 +132,12 @@ __all__ = [
     "ModelValidityEnvelope",
     "NMPCController",
     "NMPCDiagnostics",
-    "NMPCResult",
     "NMPCWarmStart",
     "NonActionableModelError",
     "ObservationChannel",
+    "PlanModel",
     "PointParameterBelief",
+    "Prediction",
     "PredictiveTrajectory",
     "ReferenceTrajectory",
     "ResidualDynamicsParams",
@@ -140,6 +145,7 @@ __all__ = [
     "RolloutLossConfiguration",
     "RuntimeModelSpec",
     "SafetyEnvelope",
+    "SolveResult",
     "SolveStatus",
     "SolverPolicy",
     "TrackingTolerances",
@@ -160,6 +166,7 @@ __all__ = [
     "load_trajectory_npz",
     "make_trajectory_spec",
     "model_family",
+    "plan_model",
     "propose_dynamics_belief_update",
     "recalibrate_predictive_error",
     "rollout",

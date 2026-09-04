@@ -78,6 +78,31 @@ All notable changes to Glassbox are recorded here. The format follows
   `--only`, and `--include-slow`.
 
 ### Changed
+- The control layer is a solver, a protocol, and one adapter.
+  `glassbox.control.nmpc` is gone as a subpackage and its contents are three
+  flat modules. `glassbox.control.plan` carries the public `PlanModel` protocol,
+  the new `Prediction` and `PlanMeasurements` types, `SolverPolicy`,
+  `SolveStatus`, `TrackingTolerances`, `SafetyEnvelope`, `ReferenceTrajectory`,
+  `NMPCWarmStart`, `NMPCDiagnostics`, and the command-block layout helpers,
+  which are now public as `block_steps_for`, `blocks_cover_horizon` and
+  `maintained_block_count`. `glassbox.control.solver` carries
+  `BoundedShootingSolver`, which imports nothing from the belief layer.
+  `glassbox.control.fitted` carries `plan_model`, `FittedPlanModel` and
+  `NMPCController`. `NMPCResult` is renamed `SolveResult`; its fields and its
+  `command_usable` property are unchanged. `PlanModel`, `Prediction`,
+  `SolveResult`, `BoundedShootingSolver` and `plan_model` join the public
+  `glassbox` surface. Every recorded acceptance and recovery number is
+  unchanged, which is what says the split reproduced the objective. The
+  recursive identifier's belief does not get an adapter here; `PlanModel` is
+  the protocol the demo's dual-control controller will target when it resyncs.
+- Compiled solver kernels are cached at module scope under the plan model's
+  static signature: the input and runtime specs, the tolerances, the envelope,
+  the policy, the parameter tree structure, and the belief's own forecast-error
+  and parameter-covariance content. The fitted parameters travel through every
+  kernel as an argument rather than as part of the signature, so a re-fitted or
+  re-adapted belief reuses the compiled code of the belief it came from. Two
+  controllers built from one configuration used to compile twice; the second
+  now compiles nothing.
 - The belief owns one executable model. `DynamicsBelief.model` replaces the flat
   `params`, `input_spec` and `runtime_spec` triple, which stay as read-only
   properties delegating to the model, and the belief's serialized JSON keys are

@@ -26,7 +26,8 @@ from glassbox.belief.belief import (
     structured_parameter_vector,
     with_structured_parameter_vector,
 )
-from glassbox.control.nmpc import NMPCController, TrackingTolerances
+from glassbox.control.fitted import NMPCController
+from glassbox.control.plan import TrackingTolerances
 from glassbox.core.data import Trajectory
 from glassbox.core.dynamics import (
     DynamicsParams,
@@ -65,9 +66,9 @@ BENCHMARK_SOURCE_FILES = (
     "belief/belief.py",
     "belief/covariance.py",
     "belief/linearization.py",
-    "control/nmpc/__init__.py",
-    "control/nmpc/solver.py",
-    "control/nmpc/types.py",
+    "control/fitted.py",
+    "control/plan.py",
+    "control/solver.py",
     "core/data.py",
     "core/dynamics.py",
     "core/evaluation.py",

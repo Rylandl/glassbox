@@ -15,7 +15,8 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
-from glassbox.control.nmpc import NMPCController, ReferenceTrajectory
+from glassbox.control.fitted import NMPCController
+from glassbox.control.plan import ReferenceTrajectory
 from glassbox.core.data import TrajectorySpec, make_trajectory_spec
 from glassbox.core.dynamics import (
     FIXED_WING_CONTROL_NAMES,

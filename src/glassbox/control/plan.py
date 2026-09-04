@@ -1,14 +1,61 @@
-"""Public data contracts for nonlinear model-predictive control."""
+"""What a bounded solver plans over: the model contract and its data types.
+
+Nothing here knows how a plan is obtained. :class:`PlanModel` is the whole
+interface between a solver and whatever supplies its dynamics, so one solver
+drives a fitted belief, a recursively identified belief, or any other model
+that can roll a command plan out and price it.
+"""
 
 from __future__ import annotations
 
+import math
 from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import StrEnum
+from typing import NamedTuple, Protocol, runtime_checkable
 
 import jax.numpy as jnp
 import numpy as np
 from jax import Array
+
+MAXIMUM_COMMAND_BLOCKS = 10
+
+
+def block_steps_for(horizon_steps: int, block_count: int) -> int:
+    """Return the model steps each command block is held for."""
+
+    return math.ceil(horizon_steps / block_count)
+
+
+def blocks_cover_horizon(horizon_steps: int, block_count: int) -> bool:
+    """Whether every block of this layout drives at least one model step."""
+
+    return (block_count - 1) * block_steps_for(horizon_steps, block_count) < (
+        horizon_steps
+    )
+
+
+def maintained_block_count(horizon_steps: int) -> int:
+    """Choose the maintained command-block layout for one horizon length.
+
+    The layout is the largest divisor of ``horizon_steps`` no greater than
+    ``MAXIMUM_COMMAND_BLOCKS``, so every block is held for the same number of
+    model steps and the expansion covers the horizon exactly. A horizon of ten
+    steps or fewer therefore uses one block per step. When the horizon is a
+    prime longer than that cap the only divisor available is one, which would
+    throw away nearly all command authority; in that case the largest block
+    count whose last block is merely truncated, and never empty, is used
+    instead.
+    """
+
+    limit = min(MAXIMUM_COMMAND_BLOCKS, horizon_steps)
+    for count in range(limit, 1, -1):
+        if horizon_steps % count == 0:
+            return count
+    for count in range(limit, 0, -1):
+        if blocks_cover_horizon(horizon_steps, count):
+            return count
+    raise AssertionError("a single block always covers the horizon")
 
 
 def _positive_triplet(
@@ -221,7 +268,7 @@ class NMPCDiagnostics:
 
 
 @dataclass(frozen=True)
-class NMPCResult:
+class SolveResult:
     """Command, prediction, warm start, and explicit solver outcome."""
 
     status: SolveStatus
@@ -246,3 +293,131 @@ class NMPCResult:
         """
 
         return not self.used_fallback
+
+
+@dataclass(frozen=True)
+class SolverPolicy:
+    """Horizon, command blocking, line search, and objective weights."""
+
+    horizon_steps: int
+    block_count: int
+    maximum_iterations: int = 8
+    line_search_steps: int = 8
+    initial_step_size: float = 0.2
+    gradient_tolerance: float = 2e-3
+    relative_improvement_tolerance: float = 1e-5
+    armijo_fraction: float = 1e-4
+    command_change_fraction: float = 0.25
+    command_change_weight: float = 0.03
+    validity_weight: float = 20.0
+    safety_weight: float = 40.0
+    terminal_weight: float = 2.0
+
+    @property
+    def block_steps(self) -> int:
+        """Model steps each command block is held for."""
+
+        return block_steps_for(self.horizon_steps, self.block_count)
+
+    def __post_init__(self) -> None:
+        if self.horizon_steps < 1:
+            raise ValueError("horizon_steps must be positive")
+        if not 1 <= self.block_count <= self.horizon_steps:
+            raise ValueError("block_count must be within the prediction horizon")
+        if not blocks_cover_horizon(self.horizon_steps, self.block_count):
+            raise ValueError(
+                "block_count leaves trailing command blocks that drive no "
+                "prediction step"
+            )
+        if self.maximum_iterations < 1 or self.line_search_steps < 1:
+            raise ValueError("solver iteration counts must be positive")
+        positive = (
+            self.initial_step_size,
+            self.gradient_tolerance,
+            self.relative_improvement_tolerance,
+            self.armijo_fraction,
+            self.command_change_fraction,
+            self.validity_weight,
+            self.safety_weight,
+            self.terminal_weight,
+        )
+        if not np.all(np.isfinite(positive)) or np.any(np.asarray(positive) <= 0):
+            raise ValueError("solver policy values must be finite and positive")
+        if (
+            not np.isfinite(self.command_change_weight)
+            or self.command_change_weight < 0
+        ):
+            raise ValueError("command_change_weight must be finite and nonnegative")
+
+
+class Prediction(NamedTuple):
+    """One rolled-out command plan and what the model believes about it.
+
+    The exogenous forecast the plan was rolled out under travels with it,
+    because pricing the plan and measuring it both read the same context and
+    reading a different one would price a different plan.
+    """
+
+    mean_states: Array
+    tangent_covariance: Array
+    commands: Array
+    latent_states: Array
+    exogenous: Array
+
+
+class PlanMeasurements(NamedTuple):
+    """Constraint and uncertainty margins of one predicted horizon."""
+
+    maximum_validity_utilization: Array
+    maximum_normalized_safety_violation: Array
+    maximum_normalized_uncertainty: Array
+
+
+@runtime_checkable
+class PlanModel(Protocol):
+    """Everything a bounded shooting solver needs from a model.
+
+    A plan is a sequence of normalized command blocks in ``[-1, 1]``. The model
+    expands them, rolls them out, and prices them; the solver moves them and
+    projects them back into the box. The fitted parameters travel as an
+    argument rather than as part of the model, so one compiled kernel serves
+    every model that shares this model's static signature.
+    """
+
+    horizon_steps: int
+    block_count: int
+    sample_period_s: float
+    command_size: int
+    exogenous_size: int
+    latent_size: int
+    certified_horizon_s: float | None
+    uncertainty_available: bool
+    command_minimum: Array
+    command_maximum: Array
+    parameters: object
+    compile_signature: str
+
+    def initial_latent(self, command_history: Array, parameters: object) -> Array:
+        """Infer the actuator state a horizon starting now would begin from."""
+
+    def rollout(
+        self,
+        blocks: Array,
+        initial_state: Array,
+        initial_latent: Array,
+        exogenous: Array,
+        parameters: object,
+    ) -> Prediction:
+        """Predict the horizon this plan drives, with its tangent covariance."""
+
+    def stage_cost(
+        self,
+        prediction: Prediction,
+        reference_states: Array,
+        previous_command: Array,
+        policy: SolverPolicy,
+    ) -> Array:
+        """Price one prediction against a reference under one policy."""
+
+    def measure(self, prediction: Prediction) -> PlanMeasurements:
+        """Measure the margins the result reports for one finished plan."""

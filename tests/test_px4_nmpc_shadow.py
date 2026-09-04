@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 
 import glassbox.integrations.px4_nmpc_shadow as px4_nmpc_shadow
-from glassbox.control.nmpc import NMPCWarmStart
+from glassbox.control.plan import NMPCWarmStart
 from glassbox.core.dynamics import hover_control
 from glassbox.core.model import (
     DirectActuationMap,

@@ -11,7 +11,7 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
-import glassbox.control.nmpc.solver as nmpc_solver
+import glassbox.control.solver as nmpc_solver
 from glassbox.belief.belief import (
     DynamicsBelief,
     EmpiricalErrorSample,
@@ -20,21 +20,17 @@ from glassbox.belief.belief import (
     structured_parameter_names,
     structured_parameter_vector,
 )
-from glassbox.control.nmpc import (
-    NMPCController,
+from glassbox.control.fitted import FittedPlanModel, NMPCController
+from glassbox.control.plan import (
     NMPCWarmStart,
     SafetyEnvelope,
-    SolveStatus,
-    quaternion_log_error,
-    rigid_body_local_error,
-)
-from glassbox.control.nmpc.solver import (
     SolverPolicy,
-    _block_steps_for,
-    _blocks_cover_horizon,
-    _maintained_block_count,
-    _projected_gradient_norm,
+    SolveStatus,
+    block_steps_for,
+    blocks_cover_horizon,
+    maintained_block_count,
 )
+from glassbox.control.solver import _objective, _projected_gradient_norm
 from glassbox.core.data import (
     RIGID_BODY_STATE_SCHEMA,
     ControlChannel,
@@ -53,6 +49,7 @@ from glassbox.core.fixedwing_synthetic import (
     fixed_wing_trim_state,
     true_fixed_wing_parameters,
 )
+from glassbox.core.geometry import quaternion_log_error, rigid_body_local_error
 from glassbox.core.model import (
     DirectActuationMap,
     ExecutableModel,
@@ -176,7 +173,7 @@ def _flying_wing_runtime() -> ExecutableModel:
 
 def _test_policy(*, horizon_steps: int = 6) -> SolverPolicy:
     block_count = max(
-        count for count in range(1, 4) if _blocks_cover_horizon(horizon_steps, count)
+        count for count in range(1, 4) if blocks_cover_horizon(horizon_steps, count)
     )
     return SolverPolicy(
         horizon_steps=horizon_steps,
@@ -309,8 +306,8 @@ def test_control_blocks_expand_and_commands_remain_bounded(
         ]
     )
 
-    expanded = controller._backend._expand_normalized_blocks(blocks)
-    commands = controller._backend._commands_from_normalized(expanded)
+    expanded = controller.plan._expand_normalized_blocks(blocks)
+    commands = controller.plan._commands_from_normalized(expanded)
 
     np.testing.assert_allclose(expanded[:, 0], [-1.0, -1.0, 0.0, 0.0, 1.0])
     assert np.min(commands) >= 0.0
@@ -319,8 +316,8 @@ def test_control_blocks_expand_and_commands_remain_bounded(
 
 def test_maintained_block_layout_covers_every_horizon_without_dead_blocks() -> None:
     for horizon_steps in range(1, 61):
-        block_count = _maintained_block_count(horizon_steps)
-        block_steps = _block_steps_for(horizon_steps, block_count)
+        block_count = maintained_block_count(horizon_steps)
+        block_steps = block_steps_for(horizon_steps, block_count)
         expanded = np.repeat(np.arange(block_count), block_steps)[:horizon_steps]
 
         assert 1 <= block_count <= 10
@@ -343,20 +340,20 @@ def test_default_multirotor_block_layout_has_no_dead_blocks_at_fifty_hertz(
     controller = NMPCController(
         _multirotor_runtime(quadrotor_trajectory_seed0_dur0_1s, sample_period_s=0.05)
     )
-    backend = controller._backend
+    plan = controller.plan
     blocks = jnp.repeat(
-        jnp.linspace(-1.0, 1.0, backend.command_block_count)[:, None],
+        jnp.linspace(-1.0, 1.0, plan.block_count)[:, None],
         controller.model.command_size,
         axis=1,
     )
 
-    expanded = np.asarray(backend._expand_normalized_blocks(blocks))
+    expanded = np.asarray(plan._expand_normalized_blocks(blocks))
 
     assert controller.prediction_steps == 12
-    assert backend.command_block_count == 6
-    assert backend._block_steps * backend.command_block_count == 12
+    assert plan.block_count == 6
+    assert plan.policy.block_steps * plan.block_count == 12
     assert expanded.shape == (12, controller.model.command_size)
-    assert len(np.unique(expanded[:, 0])) == backend.command_block_count
+    assert len(np.unique(expanded[:, 0])) == plan.block_count
 
 
 def test_solver_policy_rejects_a_layout_with_dead_command_blocks() -> None:
@@ -433,7 +430,7 @@ def test_solver_consumes_predictive_and_parameter_uncertainty(
 
 
 def _point_objective(
-    backend: nmpc_solver._DirectShootingBackend,
+    plan: FittedPlanModel,
     blocks: jax.Array,
     state: jax.Array,
     latent: jax.Array,
@@ -447,47 +444,53 @@ def _point_objective(
     asked to preserve is stated independently of the solver.
     """
 
-    states, _, commands, _ = backend._rollout(
-        blocks, state, latent, exogenous, backend._active_parameters
+    policy = plan.policy
+    states, _, commands, _ = plan._mean_rollout(
+        blocks, state, latent, exogenous, plan.parameters
     )
     local_error = jax.vmap(rigid_body_local_error)(reference_states[1:], states[1:])
-    normalized_error = local_error / backend.tolerances.local_state_scale
+    normalized_error = local_error / plan.tolerances.local_state_scale
     tracking = jnp.mean(jnp.sum(jnp.square(normalized_error), axis=1))
-    terminal = backend._policy.terminal_weight * jnp.sum(
-        jnp.square(normalized_error[-1])
-    )
-    command_range = backend.model.command_maximum - backend.model.command_minimum
+    terminal = policy.terminal_weight * jnp.sum(jnp.square(normalized_error[-1]))
+    command_range = plan.command_maximum - plan.command_minimum
     command_delta = jnp.diff(
         jnp.concatenate((previous_command[None, :], commands), axis=0), axis=0
     )
-    normalized_delta = command_delta / (
-        backend._policy.command_change_fraction * command_range
-    )
-    smoothness = backend._policy.command_change_weight * jnp.mean(
-        jnp.square(normalized_delta)
-    )
-    utilization = jax.vmap(backend._validity_utilization)(states[1:], exogenous)
-    validity = backend._policy.validity_weight * jnp.mean(
+    normalized_delta = command_delta / (policy.command_change_fraction * command_range)
+    smoothness = policy.command_change_weight * jnp.mean(jnp.square(normalized_delta))
+    utilization = jax.vmap(plan._validity_utilization)(states[1:], exogenous)
+    validity = policy.validity_weight * jnp.mean(
         jnp.square(jax.nn.relu(utilization - 1.0))
     )
-    safety = backend._policy.safety_weight * jnp.mean(
-        jnp.square(jax.vmap(backend._safety_violation)(states[1:]))
+    safety = policy.safety_weight * jnp.mean(
+        jnp.square(jax.vmap(plan._safety_violation)(states[1:]))
     )
     return tracking + terminal + smoothness + validity + safety
+
+
+def _charged_objective(controller: NMPCController, *arguments: jax.Array) -> float:
+    return float(
+        _objective(
+            controller.plan,
+            controller.plan.policy,
+            *arguments,
+            controller.plan.parameters,
+        )
+    )
 
 
 def _objective_arguments(
     controller: NMPCController,
 ) -> tuple[jax.Array, jax.Array, jax.Array, jax.Array, jax.Array, jax.Array]:
-    backend = controller._backend
+    solver = controller.solver
     target = resting_state()
     state = target.copy()
     state[2] = -0.2
     previous = jnp.asarray(hover_control(true_parameters()))
-    latent = backend._initial_latent(previous, None, None)
+    latent = solver._initial_latent(previous, None, None)
     reference = controller.hold_reference(jnp.asarray(target))
-    exogenous = backend._exogenous_forecast(reference)
-    blocks = 0.25 + 0.5 * backend._cold_blocks(previous)
+    exogenous = solver._exogenous_forecast(reference)
+    blocks = 0.25 + 0.5 * solver._cold_blocks(previous)
     return blocks, jnp.asarray(state), latent, reference.states, previous, exogenous
 
 
@@ -495,12 +498,11 @@ def test_point_model_objective_is_the_point_objective_bit_for_bit(
     multirotor_controller_four_step: NMPCController,
 ) -> None:
     controller = multirotor_controller_four_step
-    backend = controller._backend
     arguments = _objective_arguments(controller)
 
-    assert backend._covariance_factor is None
-    charged = float(backend._objective(*arguments, backend._active_parameters))
-    point = float(_point_objective(backend, *arguments))
+    assert controller.plan.covariance_factor is None
+    charged = _charged_objective(controller, *arguments)
+    point = float(_point_objective(controller.plan, *arguments))
     assert charged == point
 
 
@@ -523,18 +525,13 @@ def test_a_belief_with_covariance_is_charged_more_than_a_point_belief(
         ),
     )
     uncertain = NMPCController(belief, policy=_test_policy(horizon_steps=4))
-    point_backend = multirotor_controller_four_step._backend
     arguments = _objective_arguments(multirotor_controller_four_step)
 
-    point_value = float(
-        point_backend._objective(*arguments, point_backend._active_parameters)
-    )
-    uncertain_value = float(
-        uncertain._backend._objective(*arguments, uncertain._backend._active_parameters)
-    )
+    point_value = _charged_objective(multirotor_controller_four_step, *arguments)
+    uncertain_value = _charged_objective(uncertain, *arguments)
 
-    assert uncertain._backend._covariance_factor is not None
-    assert uncertain._backend._covariance_factor.shape == (parameter_count, 1)
+    assert uncertain.plan.covariance_factor is not None
+    assert uncertain.plan.covariance_factor.shape == (parameter_count, 1)
     assert uncertain_value > point_value
 
 
@@ -648,17 +645,18 @@ def test_warm_start_seed_advances_the_previous_plan_by_one_block(
     multirotor_model: ExecutableModel, multirotor_controller: NMPCController
 ) -> None:
     model = multirotor_model
-    backend = multirotor_controller._backend
+    solver = multirotor_controller.solver
+    plan = multirotor_controller.plan
     block_values = (0.2, 0.5, 0.8)
     previous_blocks = np.asarray(
         [[value] * model.command_size for value in block_values]
     )
-    previous_plan = np.repeat(previous_blocks, backend._block_steps, axis=0)
+    previous_plan = np.repeat(previous_blocks, plan.policy.block_steps, axis=0)
 
-    seed = backend._warm_blocks(NMPCWarmStart(jnp.asarray(previous_plan)))
-    seed_commands = np.asarray(backend._commands_from_normalized(seed))
+    seed = solver._warm_blocks(NMPCWarmStart(jnp.asarray(previous_plan)))
+    seed_commands = np.asarray(plan._commands_from_normalized(seed))
 
-    assert backend._block_steps == 2
+    assert plan.policy.block_steps == 2
     np.testing.assert_allclose(seed_commands[0], previous_blocks[1], atol=1e-6)
     np.testing.assert_allclose(seed_commands[-1], previous_blocks[-1], atol=1e-6)
     np.testing.assert_allclose(
@@ -962,15 +960,16 @@ def test_objective_gradient_agrees_with_central_difference(
     reference = controller.hold_reference(jnp.asarray(target))
     latent = model.initial_latent_state(previous)
     exogenous = jnp.zeros((controller.prediction_steps, model.exogenous_size))
-    blocks = controller._backend._cold_blocks(previous) + jnp.asarray(
+    blocks = controller.solver._cold_blocks(previous) + jnp.asarray(
         [
             [0.10, 0.08, -0.06, 0.05],
             [0.02, -0.10, 0.07, -0.04],
             [-0.05, 0.03, 0.04, 0.02],
         ]
     )
-    objective = jax.jit(controller._backend._objective)
-    _, analytic = controller._backend._objective_and_gradient(
+    plan = controller.plan
+    objective = jax.jit(lambda *arguments: _objective(plan, plan.policy, *arguments))
+    _, analytic = controller.solver._kernels.objective_and_gradient(
         blocks,
         jnp.asarray(state),
         latent,

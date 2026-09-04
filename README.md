@@ -87,7 +87,7 @@ the new parameters with `belief.recalibrate_predictive_error(trajectory)`. See
 ## Layout
 
 The package is a set of subpackages under `src/glassbox`. `import glassbox`
-loads only `core`, `belief`, and `control.nmpc`; workflows, command-line front
+loads only `core`, `belief`, and `control`; workflows, command-line front
 ends, corpus adapters, integrations, and experimental APIs are imported on
 demand.
 
@@ -95,7 +95,7 @@ demand.
 | --- | --- |
 | `core` | `data`, `dynamics`, `families`, `geometry`, `identification`, `evaluation`, `model`, `model_io`, `adapter`, `synthetic`, `fixedwing_synthetic` |
 | `belief` | `belief`, `belief_io`, `parameter_evidence`, `linearization`, `covariance`, `adaptation` |
-| `control` | `nmpc/`, `flight_supervisor`, `online_bootstrap` |
+| `control` | `plan`, `solver`, `fitted`, `flight_supervisor`, `online_bootstrap` |
 | `io` | `px4_ulog`, `px4_frames`, `sitl_profile`, `fixedwing_sitl_profile`, `arp_reference`, `idf_reference`, `nanodrone_reference`, `x8_reference`, `epfl_reference` |
 | `workflows` | `fitting`, `profile_benchmark`, `source_group_benchmark`, `nmpc_benchmark`, `adaptive_recovery_benchmark`, `nanodrone_evaluation`, `x8_evaluation`, `epfl_evaluation`, `record_results` |
 | `cli` | `synthetic_demo`, `fixedwing`, `ulog`, `nanodrone`, `x8`, `epfl` |

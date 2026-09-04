@@ -1,16 +1,33 @@
 # Glassbox nonlinear model-predictive control
 
 Glassbox NMPC turns one eligible fitted dynamics belief into a finite-horizon
-rigid-body tracker. The interface is intentionally small: a runtime belief, a
-state estimate, a state reference, the previous command, optional applied
-control or latent actuator state, physical tracking tolerances, and optional
-state limits. The runtime belief is a view: it pairs the dynamics belief with
-the `ExecutableModel` compiled from it, which is what carries the actuation map
-and the declared command bounds, and every question about error or parameter
-uncertainty is answered by the belief behind it. Horizon length, command blocking, line search, regularization,
-and iteration count are maintained policies rather than routine user knobs.
-When a belief supplies predictive-error evidence, the maintained horizon is
-capped at that evidence boundary.
+rigid-body tracker. The interface is intentionally small: a belief, a state
+estimate, a state reference, the previous command, optional applied control or
+latent actuator state, physical tracking tolerances, and optional state limits.
+Horizon length, command blocking, line search, regularization, and iteration
+count are maintained policies rather than routine user knobs. When a belief
+supplies predictive-error evidence, the maintained horizon is capped at that
+evidence boundary.
+
+The layer is three modules with one seam between them. `control.plan` declares
+`PlanModel`, the whole interface a solver has to a model: command bounds, a
+horizon, a rollout that returns predicted states with their tangent covariance,
+and a stage cost. `control.solver` is `BoundedShootingSolver`, which knows
+nothing about beliefs; it moves normalized command blocks inside their box and
+returns an auditable result. `control.fitted` is the boundary between them:
+`plan_model(belief, tolerances, envelope)` presents a fitted belief as a
+`PlanModel`, settles the horizon against the belief's own error evidence, and
+raises `NonActionableModelError` for a model with no command space.
+`NMPCController` is the thin factory that wires the two together, and it is
+what most callers use.
+
+Compiling a solver costs seconds, so the compiled kernels are cached at module
+scope under the plan model's static signature: the input and runtime specs, the
+tolerances, the envelope, the policy, the parameter tree structure, and the
+belief's own evidence. The fitted parameters are an argument to every kernel
+rather than part of that signature, so two controllers built from the same
+configuration, or one belief re-fitted from another, share compiled code and
+only the first pays for it.
 
 The controller is independent of reference generation, state estimation, PX4
 transport, and hardware mixing. Terminal-pose docking is not part of this
