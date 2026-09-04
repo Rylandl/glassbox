@@ -534,9 +534,9 @@ class ExecutableModel:
 
     @property
     def latent_size(self) -> int:
-        return len(self.input_spec.controls) + (
-            3 if model_family(self.params).platform == "multirotor" else 0
-        )
+        """One applied value per declared control channel, both families."""
+
+        return len(self.input_spec.controls)
 
     @property
     def latent_response_time_constants_s(self) -> Array:

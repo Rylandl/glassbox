@@ -229,7 +229,7 @@ def test_squared_rotor_speed_proxy_fixes_thrust_offset_to_zero(
     assert float(result.params.physical()["thrust_command_offset"]) == 0.0
 
 
-def test_rotational_response_ablation_is_held_instantaneous_and_diagonal(
+def test_diagonal_angular_control_holds_the_mixer_on_its_canonical_axes(
     quadrotor_flight,
 ) -> None:
     windows = trajectory_windows(
@@ -238,43 +238,19 @@ def test_rotational_response_ablation_is_held_instantaneous_and_diagonal(
         stride=5,
     )
 
-    result = fit_dynamics(
-        windows,
-        initial_parameter_guess(),
-        steps=3,
-        instantaneous_rotational_response=True,
-    )
-    physical = result.params.physical()
-
-    np.testing.assert_allclose(
-        physical["angular_response_time_constant"], 1e-4, rtol=1e-6
-    )
-    np.testing.assert_allclose(
-        physical["angular_control_cross_coupling"], 0.0, atol=1e-8
-    )
-
-
-def test_diagonal_control_fit_still_learns_rotational_memory(quadrotor_flight) -> None:
-    windows = trajectory_windows(
-        [quadrotor_flight(14, 0.5)],
-        horizon=5,
-        stride=5,
-    )
-
-    result = fit_dynamics(
+    held = fit_dynamics(
         windows,
         initial_parameter_guess(),
         steps=3,
         diagonal_angular_control=True,
     )
-    physical = result.params.physical()
+    learned = fit_dynamics(windows, initial_parameter_guess(), steps=3)
 
     np.testing.assert_allclose(
-        physical["angular_control_cross_coupling"], 0.0, atol=1e-8
+        held.params.physical()["angular_control_cross_coupling"], 0.0, atol=1e-8
     )
     assert not np.allclose(
-        physical["angular_response_time_constant"],
-        initial_parameter_guess().physical()["angular_response_time_constant"],
+        learned.params.physical()["angular_control_cross_coupling"], 0.0, atol=1e-8
     )
 
 
@@ -407,14 +383,6 @@ def test_minibatch_realizes_window_weights_exactly_once(quadrotor_flight) -> Non
     squared_weight_mean = float(np.sum(weights**2 * per_window) / np.sum(weights**2))
     assert realized == pytest.approx(weighted_full, rel=0.02)
     assert abs(realized - weighted_full) < abs(realized - squared_weight_mean)
-
-
-def test_fit_warns_when_rotational_response_starts_at_the_sentinel(
-    quadrotor_flight,
-) -> None:
-    windows = trajectory_windows([quadrotor_flight(3, 0.4)], horizon=5, stride=5)
-    with pytest.warns(UserWarning, match="memoryless sentinel"):
-        fit_dynamics(windows, true_parameters(), steps=1)
 
 
 def test_fit_reports_divergence_and_returns_finite_parameters(quadrotor_flight) -> None:

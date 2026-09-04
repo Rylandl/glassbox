@@ -3,8 +3,12 @@ import json
 import numpy as np
 import pytest
 
-from glassbox.belief.belief import DynamicsBelief
-from glassbox.belief.belief_io import load_dynamics_belief
+from glassbox.belief.belief import (
+    DynamicsBelief,
+    structured_parameter_names,
+    structured_parameter_vector,
+)
+from glassbox.belief.belief_io import belief_payload, load_dynamics_belief
 from glassbox.core.data import Channel, make_trajectory_spec
 from glassbox.core.dynamics import (
     initial_residual_parameters,
@@ -80,12 +84,10 @@ def test_model_json_round_trip(tmp_path, quadrotor_trajectory_seed0_dur0_1s) -> 
 
     for original_leaf, restored_leaf in zip(original, restored, strict=True):
         np.testing.assert_allclose(restored_leaf, original_leaf, rtol=1e-6)
-    assert payload["model_type"] == (
-        "effective_quadrotor_command_offset_rotational_response_v3"
-    )
+    assert payload["model_type"] == "effective_quadrotor_command_offset_v4"
     assert payload["multirotor_thrust_mapping"] == ("shared_normalized_command_offset")
     assert payload["parameters"]["thrust_command_offset"] == pytest.approx(-0.12)
-    assert payload["format_version"] == 3
+    assert payload["format_version"] == 4
     assert payload["provenance"] == {"flight": "fixture"}
     assert payload["input_spec"] == input_spec.prediction_spec().to_dict()
 
@@ -104,9 +106,7 @@ def test_nominal_loader_unwraps_dynamics_belief(
 
     for expected_leaf, restored_leaf in zip(true_parameters(), restored, strict=True):
         np.testing.assert_allclose(restored_leaf, expected_leaf)
-    assert payload["model_type"] == (
-        "effective_quadrotor_command_offset_rotational_response_v3"
-    )
+    assert payload["model_type"] == "effective_quadrotor_command_offset_v4"
     assert payload["provenance"] == {"flight": "fixture"}
 
 
@@ -131,9 +131,9 @@ def test_residual_model_json_round_trip(
     np.testing.assert_allclose(restored.feature_scale, original.feature_scale)
     assert payload["model_type"] == "structured_acceleration_residual_v1"
     assert payload["parameters"]["base_model_type"] == (
-        "effective_quadrotor_command_offset_rotational_response_v3"
+        "effective_quadrotor_command_offset_v4"
     )
-    assert payload["format_version"] == 3
+    assert payload["format_version"] == 4
 
 
 def test_physical_rotor_thrust_proxy_requires_identity_offset() -> None:
@@ -237,7 +237,7 @@ def test_fixed_wing_model_json_round_trip(
     for original_leaf, restored_leaf in zip(original, restored, strict=True):
         np.testing.assert_allclose(restored_leaf, original_leaf, rtol=1e-6)
     assert payload["model_type"] == "effective_fixedwing_role_aerodynamic_lag_v3"
-    assert payload["format_version"] == 3
+    assert payload["format_version"] == 4
     assert payload["platform"] == "fixedwing"
     assert payload["control_order"] == [
         "throttle",
@@ -263,8 +263,136 @@ def test_rejects_noncurrent_model_format(
     payload["format_version"] = 1
     path.write_text(json.dumps(payload))
 
-    with pytest.raises(ValueError, match="unsupported model format/type"):
+    with pytest.raises(ValueError, match="unsupported model format version"):
         load_dynamics_model(path)
+
+
+def test_strict_decoder_refuses_unknown_and_missing_parameters(
+    tmp_path, quadrotor_trajectory_seed0_dur0_1s
+) -> None:
+    path = tmp_path / "model.json"
+    payload = model_payload(
+        true_parameters(),
+        input_spec=quadrotor_trajectory_seed0_dur0_1s.spec,
+        runtime_spec=_runtime_spec(),
+    )
+
+    unknown = json.loads(json.dumps(payload))
+    unknown["parameters"]["rotor_inertia"] = 0.1
+    path.write_text(json.dumps(unknown))
+    with pytest.raises(ValueError, match="unknown parameter"):
+        load_dynamics_model(path)
+
+    missing = json.loads(json.dumps(payload))
+    del missing["parameters"]["linear_drag"]
+    path.write_text(json.dumps(missing))
+    with pytest.raises(ValueError, match="missing parameter"):
+        load_dynamics_model(path)
+
+
+def test_format_three_multirotor_payload_drops_the_rotational_response(
+    tmp_path, quadrotor_trajectory_seed0_dur0_1s
+) -> None:
+    path = tmp_path / "legacy_model.json"
+    payload = model_payload(
+        true_parameters(),
+        input_spec=quadrotor_trajectory_seed0_dur0_1s.spec,
+        runtime_spec=_runtime_spec(),
+    )
+    payload["format_version"] = 3
+    payload["model_type"] = "effective_quadrotor_command_offset_rotational_response_v3"
+    payload["parameters"]["angular_response_time_constant"] = [0.04, 0.04, 0.06]
+    path.write_text(json.dumps(payload))
+
+    with pytest.warns(UserWarning, match="angular_response_time_constant"):
+        restored, _ = load_dynamics_model(path)
+
+    for expected_leaf, restored_leaf in zip(true_parameters(), restored, strict=True):
+        np.testing.assert_allclose(restored_leaf, expected_leaf, rtol=1e-6)
+    assert not any("angular_response" in name for name in restored._asdict())
+
+
+def test_format_three_belief_drops_the_rotational_response_coordinates(
+    tmp_path, quadrotor_trajectory_seed0_dur0_1s
+) -> None:
+    from glassbox.belief.belief import LocalParameterInformation
+
+    path = tmp_path / "legacy_belief.json"
+    input_spec = quadrotor_trajectory_seed0_dur0_1s.spec
+    belief = DynamicsBelief(
+        model=ExecutableModel(true_parameters(), input_spec, _runtime_spec()),
+        parameter_evidence=LocalParameterInformation(
+            parameter_names=structured_parameter_names(true_parameters()),
+            center=np.asarray(structured_parameter_vector(true_parameters())),
+            information_matrix=np.eye(19),
+            parameter_scale=np.ones(19),
+            fitted_parameter_mask=np.ones(19, dtype=bool),
+            horizons_s=(0.1,),
+            window_count_by_horizon=(4,),
+            residual_precision_rank_by_horizon=(12,),
+            group_labels=("a",),
+            group_score_vectors=np.zeros((1, 19)),
+            independent_group_count=1,
+            trajectory_count=1,
+            rank_relative_tolerance=1e-6,
+            source="test",
+        ),
+    )
+    payload = belief_payload(belief)
+    payload["format_version"] = 3
+    payload["nominal_model"]["format_version"] = 3
+    payload["nominal_model"]["model_type"] = (
+        "effective_quadrotor_command_offset_rotational_response_v3"
+    )
+    payload["nominal_model"]["parameters"]["angular_response_time_constant"] = [
+        1e-4,
+        1e-4,
+        1e-4,
+    ]
+    evidence = payload["parameter_evidence"]
+    names = list(evidence["parameter_names"])
+    names[10:10] = [f"log_angular_response_time_constant[{axis}]" for axis in range(3)]
+    evidence["parameter_names"] = names
+    for key in ("center", "parameter_scale", "fitted_parameter_mask"):
+        values = list(evidence[key])
+        values[10:10] = [0.0, 0.0, 0.0]
+        evidence[key] = values
+    matrix = np.asarray(evidence["information_matrix"], dtype=float)
+    matrix = np.insert(np.insert(matrix, [10] * 3, 0.0, axis=0), [10] * 3, 0.0, axis=1)
+    evidence["information_matrix"] = matrix.tolist()
+    scores = np.asarray(evidence["group_score_vectors"], dtype=float)
+    evidence["group_score_vectors"] = np.insert(scores, [10] * 3, 0.0, axis=1).tolist()
+    path.write_text(json.dumps(payload))
+
+    with pytest.warns(UserWarning, match="format 3"):
+        restored = load_dynamics_belief(path)
+
+    for expected_leaf, restored_leaf in zip(
+        true_parameters(), restored.params, strict=True
+    ):
+        np.testing.assert_allclose(restored_leaf, expected_leaf, rtol=1e-6)
+    assert restored.parameter_evidence.parameter_names == (
+        structured_parameter_names(true_parameters())
+    )
+    np.testing.assert_array_equal(
+        restored.parameter_evidence.information_matrix, np.eye(19)
+    )
+
+
+def test_format_three_belief_refuses_information_on_a_deleted_coordinate(
+    tmp_path, quadrotor_trajectory_seed0_dur0_1s
+) -> None:
+    from glassbox.belief.belief_io import _without_dropped_parameters
+
+    names = list(structured_parameter_names(true_parameters()))
+    names[10:10] = [f"log_angular_response_time_constant[{axis}]" for axis in range(3)]
+    matrix = np.eye(22)
+
+    with pytest.raises(ValueError, match="cannot be read by the memoryless"):
+        _without_dropped_parameters(
+            {"parameter_names": names, "information_matrix": matrix.tolist()},
+            matrix_keys=("information_matrix",),
+        )
 
 
 def test_belief_loader_reads_a_bare_model_as_a_point_belief(

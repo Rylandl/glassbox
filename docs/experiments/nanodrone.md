@@ -74,7 +74,7 @@ Boundary-safe errors for the structured no-lag model are:
 
 The cumulative 1-to-50-step errors are 2.2875 m, 11.2634 m/s, 7.4349 rad, and 39.6054 rad/s, respectively. Relative to the boundary-safe hold-state naive baseline, this is 7.73x better on position, 3.44x on velocity, 1.10x on attitude, and 0.73x on angular velocity. The hold-state naive baseline holds the initial state fixed rather than propagating constant velocity, so it is weaker than the kinematic constant-velocity persistence baseline used by the other benchmarks in this project. The last value is the important failure: the compact structured angular-rate model is worse than holding the measured rate constant.
 
-The platform-neutral structured residual is trained at 0.1, 0.5, and 1.0 seconds with the shared long-rollout objective. The default multirotor reference uses the exact memoryless torque map because these inputs are measured rotor speed. Automatic batching is governed by unrolled transition count, so this medium corpus uses all 7,192 valid multi-horizon windows while larger or longer-horizon corpora remain bounded.
+The platform-neutral structured residual is trained at 0.1, 0.5, and 1.0 seconds with the shared long-rollout objective. The multirotor torque map is memoryless: control-generated torque follows the applied motor state with no lag of its own. Automatic batching is governed by unrolled transition count, so this medium corpus uses all 7,192 valid multi-horizon windows while larger or longer-horizon corpora remain bounded.
 
 The maintainer-owned train-only sweep that selected the bounded angular-dynamics authority behind the promoted artifact was retired at this commit, and its selection numbers are withdrawn because they had no recorded artifact.
 
@@ -83,7 +83,5 @@ The promoted NanoDrone artifact has boundary-safe cumulative 1-to-50-step positi
 Against Phys+Res in the paper's Table 6, its equal-metric geometric cumulative ratio is 0.9957, effectively parity: Glassbox is better on cumulative position and attitude, 17.6% worse on velocity, and 0.66% worse on angular rate. At 0.5 seconds position, velocity, and attitude are within 5.2% of the published values, while angular-rate error remains 18.6% higher. The comparison is near-comparable, not exact, because Glassbox never crosses recording boundaries while the released upstream metric code concatenates the three Melon runs. This is competitive benchmark performance, not a state-of-the-art claim or evidence of complete-flight open-loop stability.
 
 ## Boundary
-
-A learned latent rotational response and cross-axis mixer were also evaluated. They improved the training-profile score but failed the one-shot Melon promotion check, so neither is enabled by default. The expressive implementation and audit artifacts remain available for future airframes whose telemetry supports them.
 
 The angular-rate model remains worse than the hold-state naive baseline at the cumulative 1-to-50-step horizon (`0.73x`), the clearest open weakness in this benchmark. The upstream metric concatenates the three Melon runs across recording boundaries; Glassbox's boundary-safe protocol is a deliberate deviation, so published comparisons are near-comparable rather than exact.

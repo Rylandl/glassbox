@@ -60,12 +60,12 @@ def test_runtime_model_loads_timing_bounds_and_latent_state(
         trajectory.nominal_dt_s
     )
     assert runtime.command_size == 4
-    assert runtime.latent_size == 7
-    assert latent.shape == (7,)
+    assert runtime.latent_size == 4
+    assert latent.shape == (4,)
     assert next_state.shape == (13,)
-    assert next_latent.shape == (7,)
+    assert next_latent.shape == (4,)
     assert irregular_state.shape == (13,)
-    assert irregular_latent.shape == (7,)
+    assert irregular_latent.shape == (4,)
     assert np.all(np.isfinite(next_state))
     assert np.all(np.isfinite(irregular_state))
     assert runtime.validity_utilization(next_state).shape == (6,)
@@ -173,7 +173,7 @@ def test_measured_rotor_speed_model_loads_without_a_command_space(
     model = ExecutableModel.load(path)
 
     assert model.actuation is None
-    assert model.latent_size == 7
+    assert model.latent_size == 4
     assert np.all(
         np.isfinite(
             np.asarray(model.validity_utilization(jnp.asarray(trajectory.states[0])))

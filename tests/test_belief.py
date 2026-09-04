@@ -315,7 +315,6 @@ def test_grouped_rollout_information_uses_only_fitted_structured_coordinates(
     params = true_parameters()
     fitted_mask = fitted_structured_parameter_mask(
         params,
-        instantaneous_rotational_response=True,
         diagonal_angular_control=True,
     )
 

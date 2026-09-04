@@ -42,7 +42,7 @@ def test_source_group_holdout_moves_every_segment_into_the_same_fold(
     assert summary["configuration"]["exogenous_names"] == []
     assert summary["configuration"]["exogenous_roles"] == []
     assert summary["configuration"]["learn_thrust_command_offset"] is False
-    assert summary["configuration"]["instantaneous_rotational_response"] is True
+    assert summary["configuration"]["diagonal_angular_control"] is True
     assert summary["configuration"]["holdout_label"] == "source_group"
     assert "0.1s" in summary["aggregate"]["baseline_horizon_rollouts"]
     assert set(summary["aggregate"]["model_over_baseline"]["0.1s"]) == {

@@ -295,6 +295,29 @@ dynamics learner.
   but the project does not yet have enough consistently observed platforms to
   identify what should be shared.
 
+The lagged multirotor rotational response is closed as a negative result.
+The hypothesis was that control-generated torque follows the applied motor
+state through a first-order lag of its own, so that slow rotor and aerodynamic
+torque dynamics could be identified without delaying collective thrust. It was
+tested on both real multirotor corpora and failed promotion on each. On the
+Nano-drone benchmark a learned latent rotational response with a cross-axis
+mixer improved the training-profile score but failed the one-shot Melon
+promotion check, so neither was ever enabled by default. On the ARP PX4 logs it
+improved the instantaneous diagonal reference by 4.93 percent on the
+development folds (logs 63-65) and, on protected log 66, improved the fitted
+reference's equal-horizon, equal-metric geometric score by 11.49 percent with
+its worst individual metric changing by +0.07 percent, reduced the aggregate
+rotational score by 17.91 percent, and delayed the first configured
+complete-rollout divergence threshold from 1.06 to 2.00 seconds, while
+remaining 34.08 percent worse than kinematic persistence overall and still
+crossing that threshold; the verdict was `improves_reference_only`. No shipped
+caller ever selected the branch, and it cost three latent dimensions on every
+multirotor rollout and three frozen coordinates in every multirotor parameter
+vector. The branch, its memoryless sentinel, and the fitting switches that
+selected it were removed at this commit; the last commit carrying them is
+`9d59e4a`. The multirotor torque map is now memoryless, and the bounded
+cross-axis mixer it was measured with survives as part of that map.
+
 Grouped predictive ensembles are closed as a negative result. The hypothesis
 was that disagreement across a grouped bootstrap ensemble carries predictive
 information beyond a constant residual radius, and it was tested through five

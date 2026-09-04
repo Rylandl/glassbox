@@ -189,9 +189,6 @@ def evaluate_holdout(
         "endpoint_weight": spec.loss.endpoint_weight,
         "stability_regularization": spec.loss.stability_regularization,
         "learn_thrust_command_offset": spec.loss.learn_thrust_command_offset,
-        "instantaneous_rotational_response": (
-            spec.loss.instantaneous_rotational_response
-        ),
         "diagonal_angular_control": spec.loss.diagonal_angular_control,
         "optimization_policy": OPTIMIZATION_POLICY_VERSION,
         "maximum_optimization_windows_per_horizon": (

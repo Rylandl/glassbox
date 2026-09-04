@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import warnings
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -27,10 +28,62 @@ from glassbox.core.dynamics import (
 )
 from glassbox.core.model import RuntimeModelSpec
 
-MODEL_FORMAT_VERSION = 3
-MODEL_TYPE = "effective_quadrotor_command_offset_rotational_response_v3"
+MODEL_FORMAT_VERSION = 4
+MODEL_TYPE = "effective_quadrotor_command_offset_v4"
 RESIDUAL_MODEL_TYPE = "structured_acceleration_residual_v1"
 FIXED_WING_MODEL_TYPE = "effective_fixedwing_role_aerodynamic_lag_v3"
+
+# Format 3 is every model and belief written before the multirotor
+# rotational-response branch was deleted. Its multirotor payloads carry one
+# parameter this model no longer has, and its type string names that branch.
+LEGACY_MODEL_FORMAT_VERSION = 3
+LEGACY_MULTIROTOR_MODEL_TYPE = (
+    "effective_quadrotor_command_offset_rotational_response_v3"
+)
+DROPPED_MULTIROTOR_PARAMETERS = ("angular_response_time_constant",)
+
+MULTIROTOR_PARAMETER_NAMES = (
+    "thrust_accel",
+    "thrust_command_offset",
+    "angular_accel",
+    "linear_drag",
+    "angular_drag",
+    "motor_time_constant",
+    "angular_control_cross_coupling",
+)
+FIXED_WING_PARAMETER_NAMES = (
+    "thrust_accel",
+    "lift_accel_per_speed_sq",
+    "lift_alpha_accel_per_speed_sq",
+    "drag_accel_per_speed_sq",
+    "side_force_accel_per_speed",
+    "surface_angular_accel_per_speed_sq",
+    "lateral_surface_cross_angular_accel_per_speed_sq",
+    "pitch_stability_accel_per_speed_sq",
+    "lateral_stability_angular_accel_per_speed_sq",
+    "angular_drag_per_speed",
+    "surface_trim",
+    "flap_lift_accel_per_speed_sq",
+    "flap_drag_accel_per_speed_sq",
+    "flap_pitch_angular_accel_per_speed_sq",
+    "flap_trim",
+    "actuator_time_constant",
+)
+RESIDUAL_ARRAY_NAMES = (
+    "hidden_weights",
+    "hidden_bias",
+    "output_weights",
+    "feature_mean",
+    "feature_scale",
+    "correction_scale",
+)
+_RESIDUAL_ANNOTATION_NAMES = (
+    "feature_order",
+    "correction_order",
+    "bounded_output",
+    "estimated_wind_correction_target",
+)
+_MULTIROTOR_MODEL_TYPES = (MODEL_TYPE, LEGACY_MULTIROTOR_MODEL_TYPE)
 
 
 def parameter_dict(params: ModelParams) -> dict[str, Any]:
@@ -84,9 +137,6 @@ def parameter_dict(params: ModelParams) -> dict[str, Any]:
             "linear_drag": float(physical["linear_drag"]),
             "angular_drag": np.asarray(physical["angular_drag"]).tolist(),
             "motor_time_constant": float(physical["motor_time_constant"]),
-            "angular_response_time_constant": np.asarray(
-                physical["angular_response_time_constant"]
-            ).tolist(),
             "angular_control_cross_coupling": np.asarray(
                 physical["angular_control_cross_coupling"]
             ).tolist(),
@@ -180,16 +230,7 @@ def model_payload(
             channel.to_dict() for channel in identification_observations
         ],
         "latent_state_order": [
-            *[f"applied_{channel.name}" for channel in input_spec.controls],
-            *(
-                []
-                if fixed_wing
-                else [
-                    "control_generated_roll_angular_acceleration",
-                    "control_generated_pitch_angular_acceleration",
-                    "control_generated_yaw_angular_acceleration",
-                ]
-            ),
+            f"applied_{channel.name}" for channel in input_spec.controls
         ],
         "control_order": list(input_spec.control_names),
         "control_roles": list(input_spec.control_roles),
@@ -238,19 +279,66 @@ def model_payload(
     return payload
 
 
+def _decoded_parameters(
+    parameters: Mapping[str, Any],
+    expected: tuple[str, ...],
+    *,
+    kind: str,
+    dropped: tuple[str, ...] = (),
+) -> dict[str, Any]:
+    """Return exactly the expected parameters, refusing every other name.
+
+    A payload is only as trustworthy as the parameter set it declares, so a
+    missing name and an unrecognized name are both errors rather than a
+    silently different model. The one tolerated exception is a multirotor
+    payload written under format 3, which carries the deleted
+    ``angular_response_time_constant``: that entry is dropped with a warning so
+    beliefs and fitted models recorded before the rotational-response branch
+    was removed still load. The tolerance goes away when those artifacts are
+    re-recorded.
+    """
+
+    if not isinstance(parameters, Mapping):
+        raise ValueError(f"{kind} parameters must be a mapping")
+    supplied = set(parameters)
+    missing = sorted(set(expected) - supplied)
+    if missing:
+        raise ValueError(
+            f"{kind} payload is missing parameter(s): {', '.join(missing)}"
+        )
+    legacy = sorted(supplied.intersection(dropped))
+    unknown = sorted(supplied - set(expected) - set(legacy))
+    if unknown:
+        raise ValueError(
+            f"{kind} payload declares unknown parameter(s): {', '.join(unknown)}"
+        )
+    if legacy:
+        warnings.warn(
+            f"dropping {', '.join(legacy)} from a {kind} payload written under "
+            f"format {LEGACY_MODEL_FORMAT_VERSION}; the multirotor model no "
+            "longer has a lagged rotational response, so re-record the "
+            "artifact to keep its parameter set exact",
+            stacklevel=3,
+        )
+    return {name: parameters[name] for name in expected}
+
+
 def _physics_from_payload(parameters: Mapping[str, Any]) -> DynamicsParams:
+    values = _decoded_parameters(
+        parameters,
+        MULTIROTOR_PARAMETER_NAMES,
+        kind="multirotor",
+        dropped=DROPPED_MULTIROTOR_PARAMETERS,
+    )
     return DynamicsParams.from_physical(
-        thrust_accel=float(parameters["thrust_accel"]),
-        thrust_command_offset=float(parameters["thrust_command_offset"]),
-        angular_accel=tuple(parameters["angular_accel"]),
-        linear_drag=float(parameters["linear_drag"]),
-        angular_drag=tuple(parameters["angular_drag"]),
-        motor_time_constant=float(parameters["motor_time_constant"]),
-        angular_response_time_constant=tuple(
-            parameters["angular_response_time_constant"]
-        ),
+        thrust_accel=float(values["thrust_accel"]),
+        thrust_command_offset=float(values["thrust_command_offset"]),
+        angular_accel=tuple(values["angular_accel"]),
+        linear_drag=float(values["linear_drag"]),
+        angular_drag=tuple(values["angular_drag"]),
+        motor_time_constant=float(values["motor_time_constant"]),
         angular_control_cross_coupling=tuple(
-            tuple(row) for row in parameters["angular_control_cross_coupling"]
+            tuple(row) for row in values["angular_control_cross_coupling"]
         ),
     )
 
@@ -258,6 +346,9 @@ def _physics_from_payload(parameters: Mapping[str, Any]) -> DynamicsParams:
 def _fixed_wing_from_payload(
     parameters: Mapping[str, Any],
 ) -> FixedWingDynamicsParams:
+    parameters = _decoded_parameters(
+        parameters, FIXED_WING_PARAMETER_NAMES, kind="fixed-wing"
+    )
     return FixedWingDynamicsParams.from_physical(
         thrust_accel=float(parameters["thrust_accel"]),
         lift_accel_per_speed_sq=float(parameters["lift_accel_per_speed_sq"]),
@@ -300,15 +391,25 @@ def dynamics_model_from_payload(
     model_type = payload.get("model_type")
     input_spec = TrajectorySpec.from_dict(payload["input_spec"])
     RuntimeModelSpec.from_dict(payload["runtime_spec"])
-    if version == MODEL_FORMAT_VERSION and model_type == MODEL_TYPE:
+    if version not in (MODEL_FORMAT_VERSION, LEGACY_MODEL_FORMAT_VERSION):
+        raise ValueError(f"unsupported model format version: {version}")
+    if model_type in _MULTIROTOR_MODEL_TYPES:
         params: ModelParams = _physics_from_payload(payload["parameters"])
-    elif version == MODEL_FORMAT_VERSION and model_type == FIXED_WING_MODEL_TYPE:
+    elif model_type == FIXED_WING_MODEL_TYPE:
         params = _fixed_wing_from_payload(payload["parameters"])
-    elif version == MODEL_FORMAT_VERSION and model_type == RESIDUAL_MODEL_TYPE:
-        parameters = payload["parameters"]
-        residual = parameters["residual"]
+    elif model_type == RESIDUAL_MODEL_TYPE:
+        parameters = _decoded_parameters(
+            payload["parameters"],
+            ("base_model_type", "base", "residual"),
+            kind="structured residual",
+        )
+        residual = _decoded_parameters(
+            parameters["residual"],
+            RESIDUAL_ARRAY_NAMES + _RESIDUAL_ANNOTATION_NAMES,
+            kind="residual network",
+        )
         base_model_type = parameters["base_model_type"]
-        if base_model_type == MODEL_TYPE:
+        if base_model_type in _MULTIROTOR_MODEL_TYPES:
             base = _physics_from_payload(parameters["base"])
         elif base_model_type == FIXED_WING_MODEL_TYPE:
             base = _fixed_wing_from_payload(parameters["base"])
@@ -345,9 +446,7 @@ def dynamics_model_from_payload(
                 "residual output_weights must map hidden units to six accelerations"
             )
     else:
-        raise ValueError(
-            f"unsupported model format/type: version={version}, type={model_type}"
-        )
+        raise ValueError(f"unsupported model type: {model_type}")
     family = model_family(params)
     if input_spec.vehicle.family != family.platform:
         raise ValueError("model input_spec vehicle family does not match model type")

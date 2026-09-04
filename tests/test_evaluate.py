@@ -44,25 +44,25 @@ from glassbox.workflows.evaluate import (
 PINNED_NANODRONE = {
     "model_selected_horizons": {
         "1": {
-            "angular_velocity_mae_rad_s": 0.01912245314472867,
-            "attitude_mae_rad": 0.008826631783468463,
+            "angular_velocity_mae_rad_s": 0.019139076960815876,
+            "attitude_mae_rad": 0.00882666713560621,
             "position_mae_m": 0.3706644317638345,
             "time_s": 0.01,
             "velocity_mae_m_s": 0.05976445460124762,
         },
         "2": {
-            "angular_velocity_mae_rad_s": 0.03823575521503636,
-            "attitude_mae_rad": 0.01775801611765676,
+            "angular_velocity_mae_rad_s": 0.038321592666469964,
+            "attitude_mae_rad": 0.0177583286834975,
             "position_mae_m": 0.7418086562111033,
             "time_s": 0.02,
-            "velocity_mae_m_s": 0.11923846837717267,
+            "velocity_mae_m_s": 0.11923846841716843,
         },
     },
     "model_cumulative": {
-        "angular_velocity_mae_rad_s": 0.05735820835976503,
-        "attitude_mae_rad": 0.026584647901125226,
+        "angular_velocity_mae_rad_s": 0.05746066962728584,
+        "attitude_mae_rad": 0.02658499581910371,
         "position_mae_m": 1.1124730879749378,
-        "velocity_mae_m_s": 0.1790029229784203,
+        "velocity_mae_m_s": 0.17900292301841605,
     },
     "baseline_cumulative": {
         "angular_velocity_mae_rad_s": 0.0,

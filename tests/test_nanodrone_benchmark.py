@@ -222,7 +222,7 @@ def test_saved_model_benchmark_report_round_trip(tmp_path) -> None:
     save_report(report, report_path)
 
     assert report["model_artifact"]["model_type"] == (
-        "effective_quadrotor_command_offset_rotational_response_v3"
+        "effective_quadrotor_command_offset_v4"
     )
     assert report["model"]["window_count"] > 0
     assert report["dataset"]["trajectories"] == [str(trajectory_path.resolve())]

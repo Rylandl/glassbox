@@ -1,6 +1,6 @@
 # ARP Quadrotor System Identification
 
-**What this establishes:** on ARP Laboratory's four-log real-multirotor PX4 dataset, a learned rotational-response candidate improves the fitted reference's equal-horizon, equal-metric score on a protected held-out log by 11.49%, but the result remains `improves_reference_only`: it is 34.08% worse than kinematic persistence overall and still crosses the configured divergence threshold. A separate command-offset candidate shows dataset evidence for a more expressive force law but is not promoted because the protected log is already spent.
+**What this establishes:** ARP Laboratory's four-log real-multirotor PX4 dataset ingests through the public corpus registry into four canonical 50 Hz trajectories with a per-recording source group. A command-offset candidate measured on it shows dataset evidence for a more expressive force law but is not promoted because the protected log is already spent. The rotational-response candidate this corpus was also used to select failed promotion and its branch has been deleted; the finding is recorded in the [literature review](../literature-review.md).
 
 > **Recorded before the 2026-09-01 estimator revisions.** The artifacts behind
 > this page were not regenerated because the run is long, so three conventions
@@ -16,7 +16,7 @@
 
 ## Purpose
 
-ARP Laboratory's four large-quadrotor ULogs are the first real PX4 multirotor references beyond synthetic and NanoDrone data. Glassbox uses logs 63-65 for all rotational-structure development decisions, then evaluates the selected candidate once on protected log 66.
+ARP Laboratory's four large-quadrotor ULogs are the first real PX4 multirotor references beyond synthetic and NanoDrone data. Glassbox uses logs 63-65 for all development decisions, then evaluates a selected candidate once on protected log 66.
 
 ## Data
 
@@ -30,24 +30,18 @@ These recordings omit the usual arming and land-detection streams, and their loc
 uv run glassbox corpus prepare arp artifacts/arp_reference
 ```
 
-The rotational-structure and command-offset candidates below were compared with maintainer-owned evaluation code rather than a public CLI flag: both are airframe-neutral selection mechanisms with fixed candidate policies, not additional end-user fitting knobs, so this page has no further command to reproduce them beyond the prepared corpus.
+The command-offset candidate below was compared with maintainer-owned evaluation code rather than a public CLI flag: it is an airframe-neutral selection mechanism with a fixed candidate policy, not an additional end-user fitting knob, so this page has no further command to reproduce it beyond the prepared corpus.
 
 ## Results
 
-### Rotational-structure candidate
-
-Glassbox used logs 63-65 for all rotational-structure decisions, then evaluated the selected candidate once on protected log 66. On the development folds, a learned latent rotational response with cross-axis control coupling improved the instantaneous diagonal reference by 4.93%. The shared train-only angular-authority selection sweep was retired at this commit and the improvement it reported here is withdrawn because it had no recorded artifact.
-
-On protected log 66, the combined candidate improved the fitted reference's equal-horizon, equal-metric geometric score by 11.49%, with its worst individual metric changing by only +0.07%. It reduced the aggregate rotational score by 17.91% and delayed the first configured complete-rollout divergence threshold from 1.06 to 2.00 seconds. However, it remained 34.08% worse than kinematic persistence overall and still crossed the divergence threshold. At 0.5 seconds, candidate position and velocity errors were 1.63x and 1.68x persistence; at one second they were 2.03x and 2.39x. The promotion result is therefore `improves_reference_only`, not a promoted default or a complete-flight claim.
-
 ### Command-offset candidate
 
-The next development-only comparison added one shared bounded command offset to the v3 multirotor force law. The zero-offset map remains the normal fitting default, and the experimental parameter is available only through maintainer evaluation code; there is no new CLI knob. Control semantics enforce the boundary: normalized motor commands may fit the offset, while measured squared-rotor-speed thrust proxies must use the identity map.
+A development-only comparison added one shared bounded command offset to the structured multirotor force law. The zero-offset map remains the normal fitting default, and the experimental parameter is available only through maintainer evaluation code; there is no new CLI knob. Control semantics enforce the boundary: normalized motor commands may fit the offset, while measured squared-rotor-speed thrust proxies must use the identity map.
 
 On leave-one-recording-out folds over logs 63-65, the offset alone was rejected: it improved the aggregate score by only 0.40% and its worst individual metric regressed 79.0%. The composite of the offset with a fixed angular authority was scored against the same reference, but the angular-authority selection sweep was retired at this commit and that composite's numbers are withdrawn because they had no recorded artifact. The three held-out fits learned consistent offsets of -0.111, -0.105, and -0.072 normalized command.
 
 ## Boundary
 
-The rotational structure transfers as a useful hypothesis, while normalized motor-command-to-translational-acceleration modeling is the clearest multirotor limitation to address on development data.
+Normalized motor-command-to-translational-acceleration modeling is the clearest multirotor limitation this corpus exposes on development data.
 
-The command-offset result is useful development evidence for a more expressive force law, but it is not promoted: log 66 was already consumed by the preceding one-shot evaluation, so an untouched second normalized-command airframe is required for a valid promotion decision.
+The command-offset result is useful development evidence for a more expressive force law, but it is not promoted: log 66 was already consumed by the one-shot rotational-structure evaluation recorded in the literature review, so an untouched second normalized-command airframe is required for a valid promotion decision.

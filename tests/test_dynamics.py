@@ -14,7 +14,6 @@ from glassbox.core.dynamics import (
     state_derivative,
     step,
     step_with_latent,
-    with_instantaneous_rotational_response,
     with_thrust_command_offset,
 )
 from glassbox.core.metrics import predict, rollout_metrics
@@ -89,39 +88,42 @@ def test_motor_state_has_a_first_order_step_response() -> None:
     assert bool(jnp.all(motor_states[-1] < command))
 
 
-def test_rotational_response_can_lag_measured_motor_state() -> None:
-    params = DynamicsParams.from_physical(
-        thrust_accel=5.4,
-        angular_accel=(18.0, 16.5, 7.5),
-        linear_drag=0.18,
-        angular_drag=(0.24, 0.21, 0.13),
-        motor_time_constant=1e-4,
-        angular_response_time_constant=(0.1, 0.1, 0.1),
-    )
-    state = jnp.asarray(resting_state())
-    hover = hover_control(params)
-    command = hover + 0.02 * MOTOR_MIXER[0]
-
-    _, latent = step_with_latent(params, state, hover, command, 0.02)
-    target = params.physical()["angular_control_matrix"] @ (MOTOR_MIXER @ command)
-
-    assert latent.shape == (7,)
-    assert float(latent[4]) > 0.0
-    assert float(latent[4]) < float(target[0])
-    np.testing.assert_allclose(latent[5:], 0.0, atol=1e-6)
-
-
-def test_instantaneous_rotational_response_ignores_stale_latent_state() -> None:
-    params = with_instantaneous_rotational_response(true_parameters())
+def test_multirotor_latent_state_is_exactly_the_applied_controls() -> None:
+    params = true_parameters()
     state = jnp.asarray(resting_state())
     applied = jnp.asarray([0.4, 0.4, 0.4, 0.4])
     command = jnp.asarray([0.8, 0.2, 0.2, 0.8])
 
-    reference, _ = step_with_latent(params, state, applied, command, 0.01)
-    stale_latent = jnp.concatenate((applied, jnp.asarray([99.0, -99.0, 50.0])))
-    actual, _ = step_with_latent(params, state, stale_latent, command, 0.01)
+    next_state, latent = step_with_latent(params, state, applied, command, 0.01)
 
-    np.testing.assert_allclose(actual, reference, rtol=1e-6, atol=1e-7)
+    assert latent.shape == (4,)
+    decay = float(jnp.exp(-0.01 / params.physical()["motor_time_constant"]))
+    np.testing.assert_allclose(
+        latent, command + (applied - command) * decay, rtol=1e-6, atol=1e-7
+    )
+    assert bool(jnp.all(jnp.isfinite(next_state)))
+
+    with pytest.raises(ValueError, match="one applied value per control channel"):
+        step_with_latent(
+            params,
+            state,
+            jnp.concatenate((applied, jnp.zeros(3))),
+            command,
+            0.01,
+        )
+
+
+def test_control_generated_torque_follows_the_applied_control_with_no_memory() -> None:
+    params = true_parameters()
+    state = jnp.asarray(resting_state())
+    hover = hover_control(params)
+    command = hover + 0.02 * MOTOR_MIXER[0]
+
+    applied = step_with_latent(params, state, hover, command, 0.02)[1]
+    derivative = state_derivative(params, state, applied)
+    expected = params.physical()["angular_control_matrix"] @ (MOTOR_MIXER @ applied)
+
+    np.testing.assert_allclose(derivative[10:13], expected, rtol=1e-6, atol=1e-7)
 
 
 def test_rotational_control_cross_coupling_is_bounded_and_expressive() -> None:
@@ -265,55 +267,15 @@ def test_rollout_applies_per_step_exogenous_inputs(fixedwing_flight) -> None:
         )
 
 
-def test_memoryless_sentinel_is_detected_and_excluded_from_the_fitted_mask() -> None:
+def test_structured_parameters_carry_no_rotational_response_coordinate() -> None:
     from glassbox.belief.belief import structured_parameter_names
     from glassbox.belief.parameter_evidence import fitted_structured_parameter_mask
-    from glassbox.core.dynamics import has_instantaneous_rotational_response
-    from glassbox.core.synthetic import initial_parameter_guess
-
-    assert has_instantaneous_rotational_response(true_parameters())
-    assert not has_instantaneous_rotational_response(initial_parameter_guess())
 
     names = structured_parameter_names(true_parameters())
-    response_leaves = [
-        index
-        for index, name in enumerate(names)
-        if name.startswith("log_angular_response_time_constant[")
-    ]
-    assert len(response_leaves) == 3
-    sentinel_mask = fitted_structured_parameter_mask(true_parameters())
-    assert not sentinel_mask[response_leaves].any()
-    lagged_mask = fitted_structured_parameter_mask(initial_parameter_guess())
-    assert lagged_mask[response_leaves].all()
 
-
-def test_cascaded_lag_is_smooth_near_equal_time_constants() -> None:
-    from glassbox.core.dynamics import _angular_response_at
-
-    def response(delta: float) -> np.ndarray:
-        params = DynamicsParams.from_physical(
-            thrust_accel=5.4,
-            angular_accel=(18.0, 16.5, 7.5),
-            linear_drag=0.18,
-            angular_drag=(0.24, 0.21, 0.13),
-            motor_time_constant=0.05,
-            angular_response_time_constant=tuple(
-                0.05 * (1.0 + delta) for _ in range(3)
-            ),
-        )
-        initial_applied = hover_control(params)
-        commanded = initial_applied + 0.1 * MOTOR_MIXER[1]
-        return np.asarray(
-            _angular_response_at(params, initial_applied, jnp.zeros(3), commanded, 0.02)
-        )
-
-    reference = response(0.0)
-    assert np.all(np.isfinite(reference)) and float(np.max(np.abs(reference))) > 1e-3
-    for delta in (1e-7, 1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1):
-        deviation = np.max(
-            np.abs(response(delta) - reference) / np.maximum(np.abs(reference), 1e-6)
-        )
-        assert deviation <= 5.0 * delta + 2e-4, (delta, deviation)
+    assert len(names) == 19
+    assert not any("angular_response" in name for name in names)
+    assert fitted_structured_parameter_mask(true_parameters()).shape == (19,)
 
 
 def test_from_physical_rejects_out_of_range_inputs() -> None:
@@ -358,4 +320,17 @@ def test_from_physical_rejects_out_of_range_inputs() -> None:
     with pytest.raises(ValueError, match="lift_accel_per_speed_sq must be finite"):
         FixedWingDynamicsParams.from_physical(
             **{**kwargs, "lift_accel_per_speed_sq": float("nan")}
+        )
+    with pytest.raises(ValueError, match="thrust_command_offset must be finite"):
+        DynamicsParams.from_physical(
+            thrust_accel=5.4,
+            thrust_command_offset=0.3,
+            angular_accel=(18.0, 16.5, 7.5),
+            linear_drag=0.18,
+            angular_drag=(0.24, 0.21, 0.13),
+            motor_time_constant=0.08,
+        )
+    with pytest.raises(ValueError, match="actuator_time_constant must be finite"):
+        FixedWingDynamicsParams.from_physical(
+            **{**kwargs, "actuator_time_constant": -0.05}
         )

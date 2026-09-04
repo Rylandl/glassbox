@@ -134,7 +134,6 @@ def _fit_on_windows(
     endpoint_weight: float = 3.0,
     stability_regularization: float = 0.01,
     learn_thrust_command_offset: bool = False,
-    instantaneous_rotational_response: bool = True,
     diagonal_angular_control: bool = True,
 ) -> tuple[ModelParams, dict[str, Any]]:
     physics_params = _configured_initial_params(
@@ -144,9 +143,6 @@ def _fit_on_windows(
     normalization_physics_params = _configured_initial_params(
         fixed_motor_time_constant_s,
         platform=platform,
-    )
-    instantaneous_rotational_response = (
-        instantaneous_rotational_response and platform == "multirotor"
     )
     diagonal_angular_control = diagonal_angular_control and platform == "multirotor"
     window_sets = windows if isinstance(windows, tuple) else (windows,)
@@ -191,7 +187,6 @@ def _fit_on_windows(
             learning_rate=learning_rate,
             fixed_motor_time_constant_s=fixed_motor_time_constant_s,
             learn_thrust_command_offset=learn_thrust_command_offset,
-            instantaneous_rotational_response=instantaneous_rotational_response,
             diagonal_angular_control=diagonal_angular_control,
             loss_configuration=loss_configuration,
         )
@@ -203,7 +198,6 @@ def _fit_on_windows(
             learning_rate=learning_rate,
             fixed_motor_time_constant_s=fixed_motor_time_constant_s,
             learn_thrust_command_offset=learn_thrust_command_offset,
-            instantaneous_rotational_response=instantaneous_rotational_response,
             diagonal_angular_control=diagonal_angular_control,
             loss_configuration=loss_configuration,
             loss_normalization_params=normalization_params,
@@ -582,7 +576,6 @@ class LossPolicy:
     endpoint_weight: float = 3.0
     stability_regularization: float = 0.01
     learn_thrust_command_offset: bool = False
-    instantaneous_rotational_response: bool = True
     diagonal_angular_control: bool = True
 
     def __post_init__(self) -> None:
@@ -1279,14 +1272,12 @@ def _configuration_section(
             if spec.loss.learn_thrust_command_offset
             else "fixed_zero_reference"
         ),
-        "rotational_response": (
+        "angular_control_coupling": (
             "not_applicable_fixedwing"
             if platform != "multirotor"
-            else "instantaneous_diagonal_reference"
-            if spec.loss.instantaneous_rotational_response
-            else "learned_latent_diagonal"
+            else "diagonal_mixer_reference"
             if spec.loss.diagonal_angular_control
-            else "learned_latent_cross_coupled"
+            else "learned_cross_coupled_mixer"
         ),
         "training_windows": sum(
             len(window_set.initial_states) for window_set in windows.window_sets
@@ -1370,7 +1361,6 @@ def _parameter_evidence(
         params,
         fixed_response_time=fixed_response_time,
         learn_thrust_command_offset=spec.loss.learn_thrust_command_offset,
-        instantaneous_rotational_response=spec.loss.instantaneous_rotational_response,
         diagonal_angular_control=spec.loss.diagonal_angular_control,
     )
     groups = (
@@ -1479,9 +1469,6 @@ def fit(
             endpoint_weight=spec.loss.endpoint_weight,
             stability_regularization=spec.loss.stability_regularization,
             learn_thrust_command_offset=spec.loss.learn_thrust_command_offset,
-            instantaneous_rotational_response=(
-                spec.loss.instantaneous_rotational_response
-            ),
             diagonal_angular_control=spec.loss.diagonal_angular_control,
         )
         model_report["validation"] = _evaluate_model(

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import math
-import warnings
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 
@@ -22,19 +21,16 @@ from glassbox.core.dynamics import (
     ModelParams,
     ResidualDynamicsParams,
     control_state_after_history,
-    has_instantaneous_rotational_response,
     model_family,
     quaternion_to_rotation,
     rollout_with_latent,
     validate_control_schema,
     with_diagonal_angular_control,
-    with_instantaneous_rotational_response,
     with_response_time_constant,
     with_thrust_command_offset,
     zero_angular_cross_coupling_gradient,
     zero_residual_configuration_gradient,
     zero_response_time_gradient,
-    zero_rotational_response_gradient,
     zero_thrust_command_offset_gradient,
 )
 from glassbox.core.geometry import quaternion_to_rotation_matrices
@@ -150,19 +146,6 @@ def _all_leaves_finite(tree: ModelParams) -> bool:
             jnp.stack([jnp.all(jnp.isfinite(leaf)) for leaf in jax.tree.leaves(tree)])
         )
     )
-
-
-def _warn_if_rotational_response_frozen(params: ModelParams) -> None:
-    """Warn when a fit starts at the memoryless sentinel it can never leave."""
-
-    if has_instantaneous_rotational_response(params):
-        warnings.warn(
-            "the rotational-response time constants start at the memoryless "
-            "sentinel, where their loss gradient is exactly zero, so this fit "
-            "cannot learn rotational lag; pass instantaneous_rotational_response="
-            "True to declare that mode or start from a positive time constant",
-            stacklevel=3,
-        )
 
 
 def deterministic_weighted_batch_schedule(
@@ -601,7 +584,6 @@ def _fit_objective(
     gradient_clip_norm: float,
     fixed_motor_time_constant: bool,
     fixed_thrust_command_offset: bool,
-    fixed_rotational_response: bool = False,
     fixed_angular_cross_coupling: bool = False,
     loss_configuration: RolloutLossConfiguration,
     batch_objective: Callable[[ModelParams, tuple[Array, ...]], Array] | None = None,
@@ -656,9 +638,7 @@ def _fit_objective(
             gradients = zero_response_time_gradient(gradients)
         if fixed_thrust_command_offset:
             gradients = zero_thrust_command_offset_gradient(gradients)
-        if fixed_rotational_response:
-            gradients = zero_rotational_response_gradient(gradients)
-        elif fixed_angular_cross_coupling:
+        if fixed_angular_cross_coupling:
             gradients = zero_angular_cross_coupling_gradient(gradients)
         gradient_norm = jnp.sqrt(
             sum(jnp.sum(jnp.square(leaf)) for leaf in jax.tree.leaves(gradients))
@@ -862,7 +842,6 @@ def fit_dynamics(
     gradient_clip_norm: float = 10.0,
     fixed_motor_time_constant_s: float | None = None,
     learn_thrust_command_offset: bool = False,
-    instantaneous_rotational_response: bool = False,
     diagonal_angular_control: bool = False,
     loss_configuration: RolloutLossConfiguration | None = None,
     endpoint_weight: float = 3.0,
@@ -886,12 +865,8 @@ def fit_dynamics(
         and model_family(initial_params).platform == "multirotor"
     ):
         initial_params = with_thrust_command_offset(initial_params, 0.0)
-    if instantaneous_rotational_response:
-        initial_params = with_instantaneous_rotational_response(initial_params)
-    else:
-        if diagonal_angular_control:
-            initial_params = with_diagonal_angular_control(initial_params)
-        _warn_if_rotational_response_frozen(initial_params)
+    if diagonal_angular_control:
+        initial_params = with_diagonal_angular_control(initial_params)
     if loss_configuration is None:
         loss_configuration = rollout_loss_configuration(
             [windows],
@@ -924,7 +899,6 @@ def fit_dynamics(
         gradient_clip_norm=gradient_clip_norm,
         fixed_motor_time_constant=fixed_motor_time_constant_s is not None,
         fixed_thrust_command_offset=not learn_thrust_command_offset,
-        fixed_rotational_response=instantaneous_rotational_response,
         fixed_angular_cross_coupling=diagonal_angular_control,
         loss_configuration=loss_configuration,
         batch_objective=(None if batch_schedules is None else batch_objective),
@@ -944,7 +918,6 @@ def fit_dynamics_multi_horizon(
     gradient_clip_norm: float = 10.0,
     fixed_motor_time_constant_s: float | None = None,
     learn_thrust_command_offset: bool = False,
-    instantaneous_rotational_response: bool = False,
     diagonal_angular_control: bool = False,
     horizon_weights: tuple[float, ...] | list[float] | None = None,
     loss_configuration: RolloutLossConfiguration | None = None,
@@ -991,12 +964,8 @@ def fit_dynamics_multi_horizon(
         and model_family(initial_params).platform == "multirotor"
     ):
         initial_params = with_thrust_command_offset(initial_params, 0.0)
-    if instantaneous_rotational_response:
-        initial_params = with_instantaneous_rotational_response(initial_params)
-    else:
-        if diagonal_angular_control:
-            initial_params = with_diagonal_angular_control(initial_params)
-        _warn_if_rotational_response_frozen(initial_params)
+    if diagonal_angular_control:
+        initial_params = with_diagonal_angular_control(initial_params)
     if loss_normalization_params is not None:
         loss_normalization_params = _configured_initial_params(
             loss_normalization_params, fixed_motor_time_constant_s
@@ -1008,11 +977,7 @@ def fit_dynamics_multi_horizon(
             loss_normalization_params = with_thrust_command_offset(
                 loss_normalization_params, 0.0
             )
-        if instantaneous_rotational_response:
-            loss_normalization_params = with_instantaneous_rotational_response(
-                loss_normalization_params
-            )
-        elif diagonal_angular_control:
+        if diagonal_angular_control:
             loss_normalization_params = with_diagonal_angular_control(
                 loss_normalization_params
             )
@@ -1088,7 +1053,6 @@ def fit_dynamics_multi_horizon(
         gradient_clip_norm=gradient_clip_norm,
         fixed_motor_time_constant=fixed_motor_time_constant_s is not None,
         fixed_thrust_command_offset=not learn_thrust_command_offset,
-        fixed_rotational_response=instantaneous_rotational_response,
         fixed_angular_cross_coupling=diagonal_angular_control,
         loss_configuration=loss_configuration,
         batch_objective=(None if batch_schedules is None else batch_objective),

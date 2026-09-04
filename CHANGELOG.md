@@ -215,6 +215,63 @@ All notable changes to Glassbox are recorded here. The format follows
   from a controller.
 
 ### Changed
+- The multirotor latent state is four wide, the applied motor commands, down
+  from seven. `ExecutableModel.latent_size` is one entry per declared control
+  channel for both families, `DynamicsParams` has nineteen structured
+  coordinates instead of twenty-two, and `state_derivative` no longer takes a
+  `rotational_response_state` argument. Control-generated torque is the
+  memoryless map `diag(angular_accel) @ (I + cross_coupling) @ MOTOR_MIXER @
+  applied_control`; the bounded cross-axis coupling is part of that map and is
+  kept.
+- `DynamicsParams.from_physical` no longer accepts
+  `angular_response_time_constant`, and `physical()` no longer reports it.
+  `fit_dynamics` and `fit_dynamics_multi_horizon` no longer accept
+  `instantaneous_rotational_response`, and `LossPolicy` no longer carries it.
+  The fit report's `rotational_response` key is `angular_control_coupling`,
+  whose values are `diagonal_mixer_reference`, `learned_cross_coupled_mixer`
+  or `not_applicable_fixedwing`, and the leave-one-label-out summary drops
+  `instantaneous_rotational_response` and keeps `diagonal_angular_control`.
+  `fitted_structured_parameter_mask` drops its
+  `instantaneous_rotational_response` argument.
+- The model payload format is version 4 and the multirotor model type is
+  `effective_quadrotor_command_offset_v4`, because the old type string named
+  the deleted branch. The dynamics-belief format is version 4. Its
+  `latent_state_order` is one applied-control entry per channel with no
+  control-generated angular-acceleration entries.
+- `core/model_io.py` decodes model payloads strictly: a parameter set that is
+  missing an expected name or declares an unrecognized one is refused instead
+  of producing a silently different model. The one tolerated exception is a
+  format-3 multirotor payload carrying `angular_response_time_constant`, which
+  loads with that entry dropped and a warning, and a format-3 belief, whose
+  parameter evidence and parameter belief have their three rotational-response
+  coordinates projected out with a warning. Those coordinates were frozen on
+  every path that ever wrote an artifact, so the projection is exact and a
+  payload that does carry information there is refused rather than quietly
+  weakened. The tolerance covers every belief and model written before this
+  change, including the fitted corpus models under the gitignored `artifacts/`
+  tree, and goes away when Phase 3 re-records them.
+- `docs/results/adaptive-recovery-results.json` and
+  `nmpc-acceptance-results.json` were re-recorded. One number moved
+  structurally: the recovery artifact's `evidence.fleet.parameter_count` is 19
+  instead of 22, because the multirotor structured parameter vector loses the
+  three `log_angular_response_time_constant` coordinates. Every other
+  non-timing number that moved is a multirotor closed-loop value that moved by
+  between 2e-8 and 6e-6 relative. The rollouts themselves are bit-identical;
+  what changed is the reverse-mode accumulation order, because the deleted
+  latent carried a second differentiable path from the command into the
+  control-generated torque whose forward value equalled the memoryless map
+  exactly. The solver's line search consumes that gradient, so the closed-loop
+  traces drift at the same scale. No fixed-wing scenario moved at all, and
+  `docs/results/cascade-x8-validation-results.json` is untouched. The NMPC
+  acceptance suite still passes every check, and the two numbers the docs quote
+  from it, `0.651x` nominal and `0.552x` mismatch, are unchanged at the
+  precision they are quoted.
+- `tests/test_metrics.py` and `tests/test_evaluate.py` re-pin the values
+  measured from `initial_parameter_guess()`, which was the one object in the
+  package that selected the lagged branch. It was only ever a starting point:
+  every fit replaced its rotational-response leaves with the memoryless
+  sentinel before the first loss evaluation, so no fitted coefficient, loss
+  value or held-out metric in any fit report moved.
 - `glassbox.__all__` is thirty-nine names, down from eighty-eight. A name is
   public because the README or a `docs/concepts` page uses it, or because it
   is the type of one of their arguments or return values; the list is grouped
@@ -616,6 +673,19 @@ All notable changes to Glassbox are recorded here. The format follows
   learned. No flag was removed.
 
 ### Removed
+- The lagged multirotor rotational-response branch and its sentinel machinery:
+  `INSTANTANEOUS_ROTATIONAL_RESPONSE_S`, `_angular_response_at`,
+  `_split_latent_state`, `_initial_latent_state`,
+  `MULTIROTOR_ROTATIONAL_STATE_SIZE`,
+  `with_instantaneous_rotational_response`,
+  `has_instantaneous_rotational_response`,
+  `zero_rotational_response_gradient` and
+  `_warn_if_rotational_response_frozen`. No caller in the package, its tests or
+  the parked demo ever selected the branch, and it cost three latent dimensions
+  on every multirotor rollout and three frozen coordinates in every multirotor
+  parameter vector. Its promotion failures on the Nano-drone and ARP corpora
+  are recorded in `docs/literature-review.md`; the two experiment pages no
+  longer carry them. Last commit carrying the branch: `9d59e4a`.
 - The `glassbox.experimental` subpackage. It re-exported the recursive
   bootstrap identifier and the flight supervisor under a promise that their
   contracts could change without notice; both are now ordinary components of

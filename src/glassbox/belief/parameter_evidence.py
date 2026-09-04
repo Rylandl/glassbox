@@ -23,7 +23,6 @@ from glassbox.core.data import TrajectoryWindows
 from glassbox.core.dynamics import (
     FixedWingDynamicsParams,
     ModelParams,
-    has_instantaneous_rotational_response,
     model_family,
     structured_parameters,
 )
@@ -37,7 +36,6 @@ def fitted_structured_parameter_mask(
     *,
     fixed_response_time: bool = False,
     learn_thrust_command_offset: bool = False,
-    instantaneous_rotational_response: bool | None = None,
     diagonal_angular_control: bool = False,
 ) -> np.ndarray:
     """Return the structured coordinates actually varied by the fitter."""
@@ -45,13 +43,6 @@ def fitted_structured_parameter_mask(
     names = structured_parameter_names(params)
     fitted = np.ones(len(names), dtype=bool)
     platform = model_family(params).platform
-    if instantaneous_rotational_response is None:
-        # A model whose rotational-response leaves sit at the memoryless
-        # sentinel has an exactly zero gradient there, so the fitter could not
-        # have varied them regardless of what the caller intended.
-        instantaneous_rotational_response = has_instantaneous_rotational_response(
-            params
-        )
     for index, name in enumerate(names):
         if fixed_response_time and name in {
             "log_motor_time_constant",
@@ -67,14 +58,8 @@ def fitted_structured_parameter_mask(
                 "angular_control_cross_coupling_unconstrained["
             ).removesuffix("]")
             row, column = (int(value) for value in location.split(","))
-            if row == column:
+            if row == column or diagonal_angular_control:
                 fitted[index] = False
-            if instantaneous_rotational_response or diagonal_angular_control:
-                fitted[index] = False
-        if instantaneous_rotational_response and name.startswith(
-            "log_angular_response_time_constant["
-        ):
-            fitted[index] = False
     return fitted
 
 
