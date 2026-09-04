@@ -98,7 +98,7 @@ def test_cascade_window_predictions_reproduce_a_cascade_generated_trajectory() -
 def test_published_x8_variants_are_finite_and_the_documented_one_beats_persistence() -> (
     None
 ):
-    """Regression of the recorded validation result, see docs/cascade-x8-validation.md.
+    """Regression of the recorded validation result, see docs/validation.md.
 
     The published model as-is is untrimmed at the flight condition and loses to persistence;
     the documented variant (50 mm forward CG within the paper's stated uncertainty, half the

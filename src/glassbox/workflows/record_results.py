@@ -237,6 +237,16 @@ class ArtifactSpec:
 
         return self.awaiting_first_record is None
 
+    @property
+    def doc_path(self) -> str:
+        """The file :attr:`doc_page` names, without its section anchor.
+
+        One page carries the prose for every artifact, so an entry names the
+        section a re-record has to update and not only the file.
+        """
+
+        return self.doc_page.partition("#")[0]
+
 
 def _cli(command: str) -> CliStep:
     """One step, written the way its experiment page documents the command.
@@ -709,7 +719,7 @@ def build_manifest(plan: RecordingPlan = RECORDING) -> tuple[ArtifactSpec, ...]:
             steps=(_cli(f"benchmark recovery --output {recovery}"),),
             inputs=("synthetic scenarios generated in-process",),
             tier=LOCAL_TIER,
-            doc_page="docs/experiments/adaptive-recovery.md",
+            doc_page="docs/validation.md#adaptive-recovery",
             volatile=ADAPTIVE_RECOVERY_VOLATILE,
         ),
         ArtifactSpec(
@@ -718,7 +728,7 @@ def build_manifest(plan: RecordingPlan = RECORDING) -> tuple[ArtifactSpec, ...]:
             steps=(_cli(f"benchmark nmpc --output {nmpc}"),),
             inputs=("synthetic scenarios generated in-process",),
             tier=LOCAL_TIER,
-            doc_page="docs/concepts/nmpc.md",
+            doc_page="docs/validation.md#nmpc-acceptance",
             volatile=NMPC_ACCEPTANCE_VOLATILE,
         ),
         _corpus_validation(
@@ -726,7 +736,7 @@ def build_manifest(plan: RecordingPlan = RECORDING) -> tuple[ArtifactSpec, ...]:
             name="validation-nanodrone-results",
             corpus="nanodrone",
             directory="nanodrone",
-            doc_page="docs/experiments/nanodrone.md",
+            doc_page="docs/validation.md#nano-quadrotor",
             fits={
                 "structured_residual": FitArm(
                     "report.json",
@@ -746,14 +756,13 @@ def build_manifest(plan: RecordingPlan = RECORDING) -> tuple[ArtifactSpec, ...]:
                 f"--report {nanodrone}/benchmark_report.json"
             ),
             evaluation_report="benchmark_report.json",
-            awaiting_first_record=_PENDING_CORPUS_RECORD,
         ),
         _corpus_validation(
             plan,
             name="validation-arp-results",
             corpus="arp",
             directory="arp_reference",
-            doc_page="docs/experiments/arp.md",
+            doc_page="docs/validation.md#arp",
             fits={
                 "structured": FitArm(
                     "report.json",
@@ -768,14 +777,13 @@ def build_manifest(plan: RecordingPlan = RECORDING) -> tuple[ArtifactSpec, ...]:
                 f"--report {arp}/benchmark_report.json"
             ),
             evaluation_report="benchmark_report.json",
-            awaiting_first_record=_PENDING_CORPUS_RECORD,
         ),
         _corpus_validation(
             plan,
             name="validation-idf-results",
             corpus="idf",
             directory="idf_reference",
-            doc_page="docs/experiments/idf.md",
+            doc_page="docs/validation.md#idf-ds",
             fits={},
             evaluation=(
                 f"--hold-out source_group {idf}/canonical/*.npz "
@@ -791,7 +799,7 @@ def build_manifest(plan: RecordingPlan = RECORDING) -> tuple[ArtifactSpec, ...]:
             name="validation-x8-results",
             corpus="x8",
             directory="x8_reference",
-            doc_page="docs/experiments/x8.md",
+            doc_page="docs/validation.md#skywalker-x8",
             fits={
                 "structured": FitArm(
                     "structured_report.json",
@@ -814,14 +822,13 @@ def build_manifest(plan: RecordingPlan = RECORDING) -> tuple[ArtifactSpec, ...]:
                 f"--report {x8}/benchmark_report.json"
             ),
             evaluation_report="benchmark_report.json",
-            awaiting_first_record=_PENDING_CORPUS_RECORD,
         ),
         _corpus_validation(
             plan,
             name="validation-epfl-results",
             corpus="epfl",
             directory="epfl_topoplane",
-            doc_page="docs/experiments/epfl.md",
+            doc_page="docs/validation.md#epfl-topoplane2",
             fits={
                 "structured": FitArm(
                     "structured_report.json",
@@ -848,7 +855,6 @@ def build_manifest(plan: RecordingPlan = RECORDING) -> tuple[ArtifactSpec, ...]:
                 f"--report {epfl}/characterization_report.json"
             ),
             evaluation_report="characterization_report.json",
-            awaiting_first_record=_PENDING_CORPUS_RECORD,
         ),
         ArtifactSpec(
             name="cascade-x8-validation-results",
@@ -916,7 +922,7 @@ def build_manifest(plan: RecordingPlan = RECORDING) -> tuple[ArtifactSpec, ...]:
             extra="cascade",
             inputs=("corpus x8", "the Cascade fixed-wing simulator"),
             tier=CORPUS_TIER,
-            doc_page="docs/experiments/cascade-x8-validation.md",
+            doc_page="docs/validation.md#cascade-x8",
         ),
     )
 

@@ -73,10 +73,19 @@ def test_pending_entries_are_corpus_tier_and_not_yet_on_disk() -> None:
         assert not (_REPO_ROOT / spec.output).exists(), spec.name
 
 
-def test_every_manifest_entry_names_a_doc_page() -> None:
+def test_every_manifest_entry_names_a_doc_page_and_its_section() -> None:
     for spec in MANIFEST:
         assert spec.doc_page, spec.name
-        assert (_REPO_ROOT / spec.doc_page).exists(), spec.name
+        assert (_REPO_ROOT / spec.doc_path).exists(), spec.name
+        anchor = spec.doc_page.partition("#")[2]
+        if anchor:
+            headings = (_REPO_ROOT / spec.doc_path).read_text().splitlines()
+            slugs = {
+                line.lstrip("# ").lower().replace(" ", "-")
+                for line in headings
+                if line.startswith("#")
+            }
+            assert anchor in slugs, f"{spec.name} -> {spec.doc_page}"
 
 
 def test_every_entry_declares_a_tier_its_inputs_and_its_steps() -> None:
@@ -293,8 +302,14 @@ def test_cascade_assembly_reproduces_the_recorded_artifact() -> None:
 
     # No field in this artifact is host- or timing-dependent (unlike
     # adaptive-recovery-results.json, it carries no environment block or
-    # source hash), so nothing is excluded from the comparison.
-    assert produced == recorded
+    # source hash), so nothing is excluded from the comparison. It is compared
+    # under the manifest entry's own tolerance rather than for equality: the
+    # reference-model scores it folds in come from the X8 fits, which the
+    # corpus tier refits, and a refit moves a geometric mean's last bit.
+    spec = next(
+        item for item in MANIFEST if item.name == "cascade-x8-validation-results"
+    )
+    assert not recorded_differences(produced, recorded, tolerance=spec.tolerance)
 
 
 @pytest.mark.skipif(
