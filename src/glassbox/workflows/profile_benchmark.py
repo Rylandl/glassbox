@@ -13,7 +13,7 @@ from glassbox.belief.belief_io import save_dynamics_belief
 from glassbox.core.data import load_trajectory_npz
 from glassbox.core.evaluation import aggregate_rollout_metrics
 from glassbox.core.model import ExecutableModel, runtime_spec_from_fit_report
-from glassbox.workflows.fitting import fit_trajectory_artifacts
+from glassbox.workflows.fitting import Holdout, fit_trajectory_artifacts
 
 
 def _horizons(value: str) -> tuple[float, ...]:
@@ -95,7 +95,7 @@ def benchmark_profiles(
         print(f"holding out profile: {profile}")
         learned, baseline, report = fit_trajectory_artifacts(
             paths,
-            holdout_profiles=(profile,),
+            holdout=Holdout.by_label("profile", (profile,)),
             training_horizons_s=training_horizons_s,
             steps=steps,
             learning_rate=learning_rate,

@@ -55,8 +55,7 @@ Fit the optional structured residual on any fixed-wing trajectory set:
 ```bash
 uv run glassbox fit trajectory_1.npz trajectory_2.npz trajectory_3.npz \
   --model-class structured_residual \
-  --training-horizons 0.1,0.5,2.0,5.0 \
-  --skip-no-lag-ablation
+  --training-horizons 0.1,0.5,2.0,5.0
 ```
 
 The wrapper retains the selected vehicle family's force law, exact rigid-body position/quaternion kinematics, and latent applied-control response. A 16-unit network predicts only six bounded corrections: body-linear and body-angular acceleration. Its inputs are the frame-invariant body velocity, angular rate, the typed canonical applied controls, and any typed start-of-rollout exogenous context. Feature normalization and correction bounds are derived from the training windows and serialized with the model; there are no multirotor motor indices, hover assumptions, fixed-wing surface names, or NanoDrone operating-range constants in the residual. Zero initialization exactly reproduces the structured base model on both current vehicle families.

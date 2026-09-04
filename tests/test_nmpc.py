@@ -33,8 +33,7 @@ from glassbox.control.plan import (
 from glassbox.control.solver import _objective, _projected_gradient_norm
 from glassbox.core.data import (
     RIGID_BODY_STATE_SCHEMA,
-    ControlChannel,
-    ExogenousChannel,
+    Channel,
     Trajectory,
     TrajectorySpec,
     VehicleConfigurationSpec,
@@ -125,42 +124,44 @@ def _fixed_wing_runtime(trajectory: Trajectory) -> ExecutableModel:
 
 def _flying_wing_runtime() -> ExecutableModel:
     controls = (
-        ControlChannel(
-            "propulsion_command",
-            "throttle",
-            "normalized_command",
-            "1",
-            0.0,
-            1.0,
+        Channel(
+            name="propulsion_command",
+            role="throttle",
+            semantic="normalized_command",
+            unit="1",
+            kind="control",
+            minimum=0.0,
+            maximum=1.0,
         ),
-        ControlChannel(
-            "elevon_roll_command",
-            "roll",
-            "normalized_generalized_command",
-            "1",
-            -1.0,
-            1.0,
-            "FLU",
+        Channel(
+            name="elevon_roll_command",
+            role="roll",
+            semantic="normalized_generalized_command",
+            unit="1",
+            kind="control",
+            frame="FLU",
+            minimum=-1.0,
+            maximum=1.0,
         ),
-        ControlChannel(
-            "elevon_pitch_command",
-            "pitch",
-            "normalized_generalized_command",
-            "1",
-            -1.0,
-            1.0,
-            "FLU",
+        Channel(
+            name="elevon_pitch_command",
+            role="pitch",
+            semantic="normalized_generalized_command",
+            unit="1",
+            kind="control",
+            frame="FLU",
+            minimum=-1.0,
+            maximum=1.0,
         ),
     )
     spec = TrajectorySpec(
         state_schema=RIGID_BODY_STATE_SCHEMA,
         observation_source="simulator_truth",
-        controls=controls,
+        channels=controls,
         vehicle=VehicleConfigurationSpec(
             family="fixedwing",
             configuration_id="synthetic_flying_wing",
             controlled_axes=("roll", "pitch"),
-            propulsion="single_propeller",
         ),
     )
     return ExecutableModel(
@@ -1055,16 +1056,17 @@ def test_exogenous_wind_forecast_flows_through_prediction(
 ) -> None:
     trajectory = quadrotor_trajectory_seed0_dur0_1s
     exogenous = tuple(
-        ExogenousChannel(
+        Channel(
             name=f"wind_{axis}_m_s",
             role=f"wind_{axis}",
             semantic="forecast_world_wind",
             unit="m/s",
+            kind="exogenous",
             frame="NWU",
         )
         for axis in ("north", "west", "up")
     )
-    spec = replace(trajectory.spec, exogenous=exogenous)
+    spec = replace(trajectory.spec, channels=(*trajectory.spec.channels, *exogenous))
     model = ExecutableModel(
         true_parameters(),
         spec,

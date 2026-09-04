@@ -73,7 +73,7 @@ def test_fit_cli_writes_belief_and_report_together(tmp_path, quadrotor_flight) -
     )
 
 
-def test_fit_cli_rejects_holdout_count_when_benchmark_split_labels_are_present(
+def test_fit_cli_rejects_two_holdout_rules_at_once(
     tmp_path, capsys, quadrotor_flight
 ) -> None:
     paths = _write_benchmark_split_flights(
@@ -81,9 +81,49 @@ def test_fit_cli_rejects_holdout_count_when_benchmark_split_labels_are_present(
     )
 
     with pytest.raises(SystemExit) as excinfo:
-        cli.main(["fit", *paths, "--holdout-count", "2", "--steps", "1"])
+        cli.main(
+            [
+                "fit",
+                *paths,
+                "--holdout-label",
+                "benchmark_split=validation",
+                "--holdout-count",
+                "1",
+                "--steps",
+                "1",
+            ]
+        )
 
     assert excinfo.value.code == 2
     stderr = capsys.readouterr().err
-    assert "benchmark_split" in stderr
+    assert "select different holdouts" in stderr
     assert stderr.startswith("usage: glassbox fit")
+
+
+def test_fit_cli_reserves_flights_by_label(tmp_path, quadrotor_flight) -> None:
+    paths = _write_benchmark_split_flights(
+        tmp_path, quadrotor_flight, ("training", "training", "validation")
+    )
+    report_path = tmp_path / "report.json"
+
+    cli.main(
+        [
+            "fit",
+            *paths,
+            "--holdout-label",
+            "benchmark_split=validation",
+            "--horizon",
+            "5",
+            "--steps",
+            "1",
+            "--skip-no-lag-ablation",
+            "--report",
+            str(report_path),
+        ]
+    )
+
+    report = json.loads(report_path.read_text())
+    assert report["split"]["mode"] == "leave_labeled_out"
+    assert [item["path"] for item in report["split"]["validation_flights"]] == [
+        paths[-1]
+    ]

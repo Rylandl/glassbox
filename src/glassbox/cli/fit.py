@@ -15,17 +15,7 @@ from glassbox.belief.belief import (
 from glassbox.belief.belief_io import save_dynamics_belief
 from glassbox.core.data import TrajectorySpec
 from glassbox.core.model import ExecutableModel, runtime_spec_from_fit_report
-from glassbox.workflows.fitting import (
-    BenchmarkSplitHoldoutConflict,
-    fit_trajectory_artifacts,
-)
-
-_COMPLETE_HOLDOUT_MODES = {
-    "leave_complete_flights_out",
-    "leave_profiles_out",
-    "leave_source_groups_out",
-    "benchmark_split_holdout",
-}
+from glassbox.workflows.fitting import Holdout, fit_trajectory_artifacts
 
 
 def _evaluation_horizons(value: str) -> tuple[float, ...]:
@@ -38,6 +28,13 @@ def _evaluation_horizons(value: str) -> tuple[float, ...]:
     if not horizons or any(item <= 0.0 for item in horizons):
         raise argparse.ArgumentTypeError("evaluation horizons must be positive")
     return tuple(dict.fromkeys(horizons))
+
+
+def _holdout_label(value: str) -> tuple[str, str]:
+    key, separator, label = value.partition("=")
+    if not separator or not key.strip() or not label.strip():
+        raise argparse.ArgumentTypeError("a holdout label must be given as KEY=VALUE")
+    return key.strip(), label.strip()
 
 
 def _no_lag_model_path(model_path: Path) -> Path:
@@ -54,25 +51,34 @@ def build_parser() -> argparse.ArgumentParser:
         help="output no-lag dynamics-belief JSON; defaults beside --model",
     )
     parser.add_argument("--report", type=Path, help="output fit report JSON")
-    parser.add_argument("--train-fraction", type=float, default=0.70)
+    parser.add_argument(
+        "--train-fraction",
+        type=float,
+        default=0.70,
+        help="training share of the one flight a single-trajectory fit splits",
+    )
     parser.add_argument(
         "--holdout-count",
         type=int,
-        default=1,
         help=(
-            "number of final source groups reserved completely for validation; "
-            "falls back to input trajectories when groups are unlabeled; "
-            "rejected when every trajectory carries a benchmark_split label, "
-            "which determines the holdout instead"
+            "number of final source groups reserved completely for validation, "
+            "one by default; falls back to input trajectories in argument order "
+            "when the source_group label separates nothing"
         ),
     )
     parser.add_argument(
         "--holdout-profile",
         action="append",
+        help=("maneuver profile to reserve completely; repeat for multiple profiles"),
+    )
+    parser.add_argument(
+        "--holdout-label",
+        action="append",
+        type=_holdout_label,
+        metavar="KEY=VALUE",
         help=(
-            "maneuver profile to reserve completely; repeat for multiple profiles "
-            "and supersedes --holdout-count; rejected when every trajectory "
-            "carries a benchmark_split label, which determines the holdout instead"
+            "reserve every flight whose KEY label is VALUE; repeat for several "
+            "values of one key, for example benchmark_split=validation"
         ),
     )
     parser.add_argument("--horizon", type=int, default=25)
@@ -140,6 +146,41 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _resolve_holdout(
+    parser: argparse.ArgumentParser, args: argparse.Namespace
+) -> Holdout:
+    """Pick the one holdout rule the requested flags and inputs describe."""
+
+    requested = [
+        name
+        for name, value in (
+            ("--holdout-label", args.holdout_label),
+            ("--holdout-profile", args.holdout_profile),
+            ("--holdout-count", args.holdout_count),
+        )
+        if value is not None
+    ]
+    if len(requested) > 1:
+        parser.error(f"{' and '.join(requested)} select different holdouts")
+    if args.holdout_label:
+        keys = {key for key, _ in args.holdout_label}
+        if len(keys) > 1:
+            parser.error("every --holdout-label must name the same key")
+        return Holdout.by_label(
+            args.holdout_label[0][0], tuple(value for _, value in args.holdout_label)
+        )
+    if args.holdout_profile:
+        return Holdout.by_label("profile", tuple(args.holdout_profile))
+    if len(args.trajectory) == 1:
+        if args.holdout_count is not None:
+            parser.error(
+                "one trajectory is split chronologically by --train-fraction; "
+                "--holdout-count needs at least two"
+            )
+        return Holdout.temporal(args.train_fraction)
+    return Holdout.by_group(1 if args.holdout_count is None else args.holdout_count)
+
+
 def main(argv: Sequence[str] | None = None) -> None:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -154,35 +195,31 @@ def main(argv: Sequence[str] | None = None) -> None:
             "the ablation pins the same response time"
         )
 
-    try:
-        params, baseline_params, report = fit_trajectory_artifacts(
-            args.trajectory,
-            train_fraction=args.train_fraction,
-            holdout_count=args.holdout_count,
-            horizon=args.horizon,
-            stride=args.stride,
-            training_horizons_s=args.training_horizons,
-            steps=args.steps,
-            learning_rate=args.learning_rate,
-            evaluation_horizons_s=args.evaluation_horizons,
-            fixed_motor_time_constant_s=args.fixed_motor_time_constant,
-            run_no_lag_ablation=not args.skip_no_lag_ablation,
-            balance_training_flights=not args.duration_weighted_training,
-            holdout_profiles=args.holdout_profile,
-            model_class=args.model_class,
-            endpoint_weight=args.endpoint_weight,
-            stability_regularization=args.stability_regularization,
-            build_parameter_evidence=args.model is not None,
-        )
-    except BenchmarkSplitHoldoutConflict as error:
-        parser.error(str(error))
+    holdout = _resolve_holdout(parser, args)
+    params, baseline_params, report = fit_trajectory_artifacts(
+        args.trajectory,
+        holdout=holdout,
+        horizon=args.horizon,
+        stride=args.stride,
+        training_horizons_s=args.training_horizons,
+        steps=args.steps,
+        learning_rate=args.learning_rate,
+        evaluation_horizons_s=args.evaluation_horizons,
+        fixed_motor_time_constant_s=args.fixed_motor_time_constant,
+        run_no_lag_ablation=not args.skip_no_lag_ablation,
+        balance_training_flights=not args.duration_weighted_training,
+        model_class=args.model_class,
+        endpoint_weight=args.endpoint_weight,
+        stability_regularization=args.stability_regularization,
+        build_parameter_evidence=args.model is not None,
+    )
     learned = report["models"]["learned_lag"]
     learned_fit = learned["fit"]
     learned_full = learned["validation"]["aggregate"]["full_rollout"]
     validation_label = (
-        "held-out complete-source rollout"
-        if report["split"]["mode"] in _COMPLETE_HOLDOUT_MODES
-        else "held-out temporal rollout"
+        "held-out temporal rollout"
+        if report["split"]["mode"] == "temporal_within_flight"
+        else "held-out complete-source rollout"
     )
     print(
         f"learned-lag loss: {learned_fit['initial_loss']:.6g} -> "

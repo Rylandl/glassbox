@@ -8,7 +8,7 @@ from jax import Array
 
 from glassbox.belief.belief import DynamicsBelief
 from glassbox.belief.belief_io import save_dynamics_belief
-from glassbox.core.data import ControlChannel
+from glassbox.core.data import Channel
 from glassbox.core.dynamics import initial_residual_parameters
 from glassbox.core.model import (
     DirectActuationMap,
@@ -194,7 +194,7 @@ def test_measured_rotor_speed_model_loads_without_a_command_space(
 
 @dataclass(frozen=True)
 class SquaredSpeedActuation:
-    command_channels: tuple[ControlChannel, ...]
+    command_channels: tuple[Channel, ...]
     model_control_size: int = 4
 
     def model_control(self, command: Array) -> Array:
@@ -213,11 +213,12 @@ def test_explicit_actuation_map_can_bind_noncommand_model(
         runtime_spec=runtime_spec_from_trajectory(trajectory),
     )
     command_channels = tuple(
-        ControlChannel(
+        Channel(
             name=f"motor_{index}_command",
             role=f"motor_{index}_command",
             semantic="normalized_command",
             unit="1",
+            kind="control",
             minimum=0.0,
             maximum=1.0,
         )
@@ -237,7 +238,7 @@ def test_explicit_actuation_map_can_bind_noncommand_model(
 
 @dataclass(frozen=True)
 class InvalidActuationOutput:
-    command_channels: tuple[ControlChannel, ...]
+    command_channels: tuple[Channel, ...]
     model_control_size: int = 4
 
     def model_control(self, command: Array) -> Array:
@@ -246,7 +247,7 @@ class InvalidActuationOutput:
 
 @dataclass(frozen=True)
 class InvalidActuationBoundary:
-    command_channels: tuple[ControlChannel, ...]
+    command_channels: tuple[Channel, ...]
     model_control_size: int = 4
 
     def model_control(self, command: Array) -> Array:
@@ -359,11 +360,12 @@ def test_runtime_spec_extracts_fit_envelope_and_refuses_implicit_certificate() -
 
 
 def test_direct_actuation_requires_complete_command_bounds() -> None:
-    channel = ControlChannel(
+    channel = Channel(
         name="command",
         role="command",
         semantic="normalized_command",
         unit="1",
+        kind="control",
     )
 
     with pytest.raises(NonActionableModelError, match="finite bounds"):

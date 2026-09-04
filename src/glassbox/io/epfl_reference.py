@@ -18,8 +18,7 @@ except ImportError as error:  # pragma: no cover - exercised without the extra
 
 from glassbox.core.data import (
     RIGID_BODY_STATE_SCHEMA,
-    ControlChannel,
-    ExogenousChannel,
+    Channel,
     Trajectory,
     TrajectorySpec,
     VehicleConfigurationSpec,
@@ -179,61 +178,63 @@ def topoplane_trajectory_spec() -> TrajectorySpec:
     return TrajectorySpec(
         state_schema=RIGID_BODY_STATE_SCHEMA,
         observation_source="offline_ins_gnss_solution",
-        controls=(
-            ControlChannel(
+        channels=(
+            Channel(
                 name="throttle",
                 role="throttle",
                 semantic="normalized_actuator_output",
                 unit="1",
+                kind="control",
                 minimum=0.0,
                 maximum=1.0,
             ),
-            ControlChannel(
+            Channel(
                 name="aileron",
                 role="roll",
                 semantic="normalized_actuator_output",
                 unit="1",
+                kind="control",
+                frame="FLU",
                 minimum=-1.0,
                 maximum=1.0,
-                frame="FLU",
             ),
-            ControlChannel(
+            Channel(
                 name="elevator",
                 role="pitch",
                 semantic="normalized_actuator_output",
                 unit="1",
+                kind="control",
+                frame="FLU",
                 minimum=-1.0,
                 maximum=1.0,
-                frame="FLU",
             ),
-            ControlChannel(
+            Channel(
                 name="rudder",
                 role="yaw",
                 semantic="normalized_actuator_output",
                 unit="1",
+                kind="control",
+                frame="FLU",
                 minimum=-1.0,
                 maximum=1.0,
-                frame="FLU",
+            ),
+            Channel(
+                name="pitot_airspeed",
+                role="airspeed",
+                semantic="measured_pitot_airspeed",
+                unit="m/s",
+                kind="exogenous",
             ),
         ),
         vehicle=VehicleConfigurationSpec(
             family="fixedwing",
             configuration_id=TOPOPLANE_CONFIGURATION_ID,
             controlled_axes=("roll", "pitch", "yaw"),
-            propulsion="single_propeller",
             fixed_states={
                 "airframe_layout": "conventional_tail",
                 "surface_layout": "aileron_elevator_rudder",
                 "surface_mixing": "independent",
             },
-        ),
-        exogenous=(
-            ExogenousChannel(
-                name="pitot_airspeed",
-                role="airspeed",
-                semantic="measured_pitot_airspeed",
-                unit="m/s",
-            ),
         ),
     )
 

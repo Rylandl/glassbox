@@ -31,7 +31,7 @@ from glassbox.core.model_io import (
     MODEL_TYPE,
     RESIDUAL_MODEL_TYPE,
 )
-from glassbox.workflows.fitting import fit_trajectory_artifacts
+from glassbox.workflows.fitting import Holdout, fit_trajectory_artifacts
 
 _DISTRIBUTION_METRICS = (
     "position_rmse_m",
@@ -258,7 +258,7 @@ def benchmark_source_groups(
         else:
             learned, baseline, report = fit_trajectory_artifacts(
                 fold_paths,
-                holdout_count=1,
+                holdout=Holdout.by_group(1),
                 training_horizons_s=training_horizons_s,
                 steps=steps,
                 learning_rate=learning_rate,

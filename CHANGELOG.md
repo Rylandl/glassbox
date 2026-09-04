@@ -78,6 +78,64 @@ All notable changes to Glassbox are recorded here. The format follows
   `--only`, and `--include-slow`.
 
 ### Changed
+- One channel type. `ControlChannel`, `ExogenousChannel` and `ObservationChannel`
+  are one frozen `Channel(name, role, semantic, unit, kind, frame, minimum,
+  maximum)` with `kind` in `control`, `exogenous`, `observation`, and one
+  `to_dict`/`from_dict`. `TrajectorySpec` holds one ordered `channels` tuple and
+  exposes `controls`, `exogenous` and `observations` as filtered views, so a
+  call site that reads `spec.controls[i].name` is unchanged. `Channel` joins the
+  public `glassbox` surface and the three old names leave it. Canonical
+  trajectory NPZ files are written at format version 4, whose spec payload is
+  one `channels` list; `load_trajectory_npz` reads version 3 as well, because
+  the corpora extracted under the untracked `artifacts/` tree are version 3
+  until Phase 3 re-extracts them. The per-channel `source` of an observation
+  channel is gone with the three types, so
+  `specific_force_observation_channels` and
+  `angular_acceleration_observation_channels` take no argument; the PX4 ULog
+  adapter already recorded the source topic in provenance.
+  `VehicleConfigurationSpec` drops `propulsion`, which nothing read; `family`,
+  `configuration_id`, `controlled_axes`, `fixed_states` and `auxiliary_controls`
+  stay, the last two because the NMPC benchmark and three corpus tests read
+  them.
+- Three holdout rules, one value. `plan_holdout` and its six modes are one
+  frozen `Holdout` with `Holdout.by_label(key, values)`,
+  `Holdout.by_group(count, key="source_group")` and
+  `Holdout.temporal(fraction)`, and `Holdout.plan(trajectories, paths)` returns
+  the same `HoldoutPlan`. The automatic `benchmark_split` rule is gone: a label
+  holdout is now requested, which is what `--holdout-label KEY=VALUE` is for,
+  and the profile holdout is `Holdout.by_label("profile", ...)`. `by_group`
+  falls back to whole flights in argument order whenever its label separates
+  nothing, which covers both an absent label and the single-group
+  characterization corpora, so `chronological_segments_within_source_group_characterization`
+  is now reported as `leave_complete_flights_out` and
+  `benchmark_split_holdout`/`leave_profiles_out` as `leave_labeled_out`. The
+  fit report's `split` section records the rule under `holdout` and drops
+  `held_out_profiles`, `benchmark_split_holdout`, `benchmark_split_training`
+  and `benchmark_split_validation`; `configuration` drops
+  `train_fraction_for_single_flight`, whose value the rule now carries.
+  `BenchmarkSplitHoldoutConflict` is gone, since no two rules can be requested
+  at once. `glassbox fit` keeps `--holdout-count`, `--holdout-profile` and
+  `--train-fraction`, adds `--holdout-label`, and rejects two rules at once
+  instead of silently preferring one. The X8 fit commands on
+  `docs/experiments/x8.md` and in the recorded-artifact manifest now pass
+  `--holdout-label benchmark_split=validation` and reserve exactly the four
+  maneuvers they reserved before.
+- One weighting mode. `trajectory_windows` takes `weights`, a mapping from
+  group key to that group's share of the total loss weight, and `group_of`, a
+  `(index, trajectory) -> str` key function defaulting to the trajectory's
+  `source_group` label and otherwise its index. It replaces
+  `balance_trajectories`, `trajectory_weights`, `trajectory_groups` and
+  `trajectory_group_weights`, which were mutually exclusive; every one of them
+  is expressible in the new form and the resulting `window_weights`,
+  `trajectory_indices`, `start_indices` and selection policy are bit-identical,
+  which a pinned three-flight test asserts. `FitRequest` keeps
+  `balance_training_flights` and `training_source_group_weights` and expresses
+  them in the new form. `FitRequest.normalization_source_group_weights` and the
+  shared outer-training statistics it selected are deleted with the predictive
+  ensemble that was their only caller, so the fit report's `fit_statistics`
+  block keeps `policy` and `data_derived_values` and drops
+  `shared_across_resampled_members`, `normalization_source_group_weights` and
+  its `selected_windows_by_horizon`. Last commit carrying them: `2750399`.
 - The control layer is a solver, a protocol, and one adapter.
   `glassbox.control.nmpc` is gone as a subpackage and its contents are three
   flat modules. `glassbox.control.plan` carries the public `PlanModel` protocol,

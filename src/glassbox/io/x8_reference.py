@@ -11,8 +11,7 @@ import numpy as np
 
 from glassbox.core.data import (
     RIGID_BODY_STATE_SCHEMA,
-    ControlChannel,
-    ExogenousChannel,
+    Channel,
     Trajectory,
     TrajectorySpec,
     VehicleConfigurationSpec,
@@ -321,36 +320,40 @@ def x8_trajectory_spec(*, trusted_wind: bool = True) -> TrajectorySpec:
     """Return the typed three-control flying-wing contract."""
 
     controls = (
-        ControlChannel(
+        Channel(
             name="throttle",
             role="throttle",
             semantic="normalized_command",
             unit="1",
+            kind="control",
             minimum=0.0,
             maximum=1.0,
         ),
-        ControlChannel(
+        Channel(
             name="aileron",
             role="roll",
             semantic="generalized_surface_angle",
             unit="rad",
+            kind="control",
             frame="FLU",
         ),
-        ControlChannel(
+        Channel(
             name="elevator",
             role="pitch",
             semantic="generalized_surface_angle",
             unit="rad",
+            kind="control",
             frame="FLU",
         ),
     )
     exogenous = (
         tuple(
-            ExogenousChannel(
+            Channel(
                 name=f"estimated_wind_{axis}",
                 role=f"wind_{axis}",
                 semantic="estimated_wind_velocity",
                 unit="m/s",
+                kind="exogenous",
                 frame="NWU",
             )
             for axis in ("north", "west", "up")
@@ -361,19 +364,17 @@ def x8_trajectory_spec(*, trusted_wind: bool = True) -> TrajectorySpec:
     return TrajectorySpec(
         state_schema=RIGID_BODY_STATE_SCHEMA,
         observation_source="onboard_estimate",
-        controls=controls,
+        channels=(*controls, *exogenous),
         vehicle=VehicleConfigurationSpec(
             family="fixedwing",
             configuration_id=X8_CONFIGURATION_ID,
             controlled_axes=("roll", "pitch"),
-            propulsion="single_propeller",
             fixed_states={
                 "airframe_layout": "flying_wing",
                 "surface_layout": "left_right_elevon",
                 "generalized_surface_coordinates": "roll_pitch",
             },
         ),
-        exogenous=exogenous,
     )
 
 

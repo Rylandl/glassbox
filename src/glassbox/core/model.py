@@ -12,7 +12,7 @@ import jax.numpy as jnp
 import numpy as np
 from jax import Array
 
-from glassbox.core.data import ControlChannel, Trajectory, TrajectorySpec
+from glassbox.core.data import Channel, Trajectory, TrajectorySpec
 from glassbox.core.dynamics import (
     ModelParams,
     control_state_after_history,
@@ -38,7 +38,7 @@ class NonActionableModelError(ValueError):
 
 def commands_within_declared_bounds(
     commands: Array,
-    channels: Sequence[ControlChannel],
+    channels: Sequence[Channel],
     *,
     label: str = "command",
 ) -> Array:
@@ -334,7 +334,7 @@ def runtime_spec_from_trajectory(
 class ActuationMap(Protocol):
     """JAX-compatible mapping from bounded commands to model input channels."""
 
-    command_channels: tuple[ControlChannel, ...]
+    command_channels: tuple[Channel, ...]
     model_control_size: int
 
     def model_control(self, command: Array) -> Array:
@@ -345,7 +345,7 @@ class ActuationMap(Protocol):
 class DirectActuationMap:
     """Identity command mapping for explicitly actionable model inputs."""
 
-    command_channels: tuple[ControlChannel, ...]
+    command_channels: tuple[Channel, ...]
 
     def __post_init__(self) -> None:
         channels = tuple(self.command_channels)

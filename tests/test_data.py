@@ -1,11 +1,11 @@
+import json
+
 import numpy as np
 import pytest
 
 from glassbox.core.data import (
     RIGID_BODY_STATE_SCHEMA,
-    ControlChannel,
-    ExogenousChannel,
-    ObservationChannel,
+    Channel,
     Trajectory,
     TrajectorySpec,
     VehicleConfigurationSpec,
@@ -16,6 +16,8 @@ from glassbox.core.data import (
     split_trajectory,
     trajectory_windows,
 )
+
+_SESSIONS = ("a", "a", "b")
 
 
 def test_duration_to_steps_is_stable_at_half_sample_boundary() -> None:
@@ -107,7 +109,8 @@ def test_balanced_windows_give_each_trajectory_equal_total_weight() -> None:
         [make_trajectory(intervals=10), make_trajectory(intervals=20)],
         horizon=5,
         stride=5,
-        balance_trajectories=True,
+        weights={"0": 1.0, "1": 1.0},
+        group_of=lambda index, _trajectory: str(index),
     )
 
     assert windows.trajectory_indices is not None
@@ -133,7 +136,8 @@ def test_explicit_trajectory_weights_are_distributed_over_each_flights_windows()
         ],
         horizon=5,
         stride=5,
-        trajectory_weights=(0.5, 0.5, 1.0),
+        weights={"0": 0.5, "1": 0.5, "2": 1.0},
+        group_of=lambda index, _trajectory: str(index),
     )
 
     assert windows.trajectory_indices is not None
@@ -154,7 +158,8 @@ def test_group_balancing_is_uniform_per_window_within_equal_groups() -> None:
         ],
         horizon=5,
         stride=5,
-        trajectory_groups=("session-a", "session-a", "session-b"),
+        weights={"a": 1.0, "b": 1.0},
+        group_of=lambda index, _trajectory: _SESSIONS[index],
     )
 
     assert windows.trajectory_indices is not None
@@ -175,7 +180,8 @@ def test_window_cap_is_deterministic_and_spans_each_source_group() -> None:
     arguments = {
         "horizon": 5,
         "stride": 5,
-        "trajectory_groups": ("session-a", "session-a", "session-b"),
+        "weights": {"a": 1.0, "b": 1.0},
+        "group_of": lambda index, _trajectory: _SESSIONS[index],
         "maximum_windows": 12,
     }
 
@@ -200,6 +206,53 @@ def test_window_cap_is_deterministic_and_spans_each_source_group() -> None:
     assert np.max(first.start_indices[second_group]) == 70
 
 
+def test_default_weighting_reproduces_the_pinned_window_weights() -> None:
+    """Three flights of different lengths, weighted as they were before.
+
+    The values below were measured at ``2750399``, the last commit that had
+    the four mutually exclusive weighting modes, on the same window counts.
+    Weights depend only on how many windows each group contributes, so any
+    three trajectories of these lengths reproduce them.
+    """
+
+    trajectories = [
+        make_trajectory(intervals=150),
+        make_trajectory(intervals=100),
+        make_trajectory(intervals=60),
+    ]
+
+    per_flight = trajectory_windows(
+        trajectories,
+        horizon=10,
+        weights={"0": 1.0, "1": 1.0, "2": 1.0},
+        group_of=lambda index, _trajectory: str(index),
+    )
+    grouped = trajectory_windows(
+        trajectories,
+        horizon=10,
+        weights={"a": 1.0, "b": 1.0},
+        group_of=lambda index, _trajectory: _SESSIONS[index],
+    )
+    weighted = trajectory_windows(
+        trajectories,
+        horizon=10,
+        weights={"a": 1.0, "b": 3.0},
+        group_of=lambda index, _trajectory: _SESSIONS[index],
+    )
+
+    np.testing.assert_array_equal(per_flight.candidate_window_counts, [15, 10, 6])
+    np.testing.assert_array_equal(
+        per_flight.window_weights,
+        np.repeat([1 / 15, 1 / 10, 1 / 6], [15, 10, 6]),
+    )
+    np.testing.assert_array_equal(
+        grouped.window_weights, np.repeat([1 / 25, 1 / 6], [25, 6])
+    )
+    np.testing.assert_array_equal(
+        weighted.window_weights, np.repeat([1 / 25, 0.5], [25, 6])
+    )
+
+
 def test_window_cap_must_be_positive() -> None:
     with pytest.raises(ValueError, match="maximum_windows must be positive"):
         trajectory_windows([make_trajectory()], horizon=5, maximum_windows=0)
@@ -217,22 +270,23 @@ def test_npz_round_trip(tmp_path) -> None:
             observation_source="simulator_truth",
             configuration_id="test-plane",
             exogenous=(
-                ExogenousChannel(
+                Channel(
                     name="wind_north_m_s",
                     role="wind_north",
                     semantic="estimated_environment_at_prediction_start",
                     unit="m/s",
+                    kind="exogenous",
                     frame="NWU",
                 ),
             ),
             observations=(
-                ObservationChannel(
+                Channel(
                     name="specific_force_z_m_s2",
                     role="specific_force_z",
                     semantic="accelerometer_specific_force_including_gravity",
                     unit="m/s^2",
+                    kind="observation",
                     frame="FLU",
-                    source="simulator_imu",
                 ),
             ),
         ),
@@ -257,7 +311,7 @@ def test_npz_round_trip(tmp_path) -> None:
     assert restored.provenance == trajectory.provenance
 
     with np.load(path, allow_pickle=False) as archive:
-        assert int(archive["format_version"]) == 3
+        assert int(archive["format_version"]) == 4
         np.testing.assert_array_equal(archive["exogenous"], trajectory.exogenous)
         np.testing.assert_array_equal(archive["observations"], trajectory.observations)
         assert set(archive.files) == {
@@ -278,30 +332,31 @@ def test_typed_spec_labels_and_provenance_round_trip(tmp_path) -> None:
     spec = TrajectorySpec(
         state_schema=RIGID_BODY_STATE_SCHEMA,
         observation_source="mocap",
-        controls=(
-            ControlChannel(
+        channels=(
+            Channel(
                 name="throttle",
                 role="throttle",
                 semantic="normalized_command",
                 unit="1",
+                kind="control",
                 minimum=0.0,
                 maximum=1.0,
             ),
-            ControlChannel(
+            Channel(
                 name="roll_command",
                 role="roll",
                 semantic="normalized_generalized_command",
                 unit="1",
+                kind="control",
+                frame="FLU",
                 minimum=-1.0,
                 maximum=1.0,
-                frame="FLU",
             ),
         ),
         vehicle=VehicleConfigurationSpec(
             family="fixedwing",
             configuration_id="flying-wing-01",
             controlled_axes=("roll",),
-            propulsion="single_propeller",
             fixed_states={"flap": 0.0},
             auxiliary_controls=("flap",),
         ),
@@ -326,6 +381,38 @@ def test_typed_spec_labels_and_provenance_round_trip(tmp_path) -> None:
     assert restored.control_names == ("throttle", "roll_command")
     assert restored.labels == {"profile": "roll_steps", "replicate": 2}
     assert restored.provenance == trajectory.provenance
+
+
+def test_format_three_trajectories_still_load(tmp_path) -> None:
+    """Corpora extracted before the one-channel change are read, not migrated."""
+
+    trajectory = make_trajectory(control_size=1, control_names=("throttle",))
+    payload = trajectory.spec.to_dict()
+    channels = payload.pop("channels")
+    payload["controls"] = [
+        {key: value for key, value in channel.items() if key != "kind"}
+        for channel in channels
+    ]
+    payload["exogenous"] = []
+    payload["observations"] = []
+    path = tmp_path / "v3.npz"
+    np.savez_compressed(
+        path,
+        format_version=np.asarray(3, dtype=np.int64),
+        time_s=trajectory.time_s,
+        states=trajectory.states,
+        controls=trajectory.controls,
+        exogenous=trajectory.exogenous,
+        observations=trajectory.observations,
+        spec_json=np.asarray(json.dumps(payload, sort_keys=True)),
+        labels_json=np.asarray("{}"),
+        provenance_json=np.asarray("{}"),
+    )
+
+    restored = load_trajectory_npz(path)
+
+    assert restored.spec == trajectory.spec
+    assert restored.spec.channels[0].kind == "control"
 
 
 def test_rejects_noncurrent_trajectory_format(tmp_path) -> None:

@@ -310,7 +310,7 @@ def test_grouped_rollout_information_uses_only_fitted_structured_coordinates(
         trajectories,
         horizon=5,
         stride=5,
-        trajectory_groups=("group-a", "group-b"),
+        weights={"group-a": 1.0, "group-b": 1.0},
     )
     params = true_parameters()
     fitted_mask = fitted_structured_parameter_mask(
@@ -345,7 +345,7 @@ def test_grouped_rollout_information_is_vehicle_family_generic(
         trajectories,
         horizon=5,
         stride=5,
-        trajectory_groups=("fixedwing-a", "fixedwing-b"),
+        weights={"0": 1.0, "1": 1.0},
     )
     params = true_fixed_wing_parameters()
     fitted_mask = fitted_structured_parameter_mask(params)
@@ -447,14 +447,14 @@ def test_live_update_does_not_require_actionable_control_semantics(
     telemetry = quadrotor_flight(3, 0.2)
     physical_spec = replace(
         telemetry.spec,
-        controls=tuple(
+        channels=tuple(
             replace(
                 channel,
                 semantic="squared_rotor_speed_ratio",
                 minimum=None,
                 maximum=None,
             )
-            for channel in telemetry.spec.controls
+            for channel in telemetry.spec.channels
         ),
     )
     telemetry = replace(telemetry, spec=physical_spec)

@@ -5,7 +5,7 @@ import pytest
 
 from glassbox.belief.belief import DynamicsBelief
 from glassbox.belief.belief_io import load_dynamics_belief
-from glassbox.core.data import ExogenousChannel, make_trajectory_spec
+from glassbox.core.data import Channel, make_trajectory_spec
 from glassbox.core.dynamics import (
     initial_residual_parameters,
     with_thrust_command_offset,
@@ -144,7 +144,10 @@ def test_physical_rotor_thrust_proxy_requires_identity_offset() -> None:
     )
 
     assert payload["multirotor_thrust_mapping"] == ("identity_physical_thrust_proxy")
-    assert payload["input_spec"]["observations"] == []
+    assert all(
+        channel["kind"] != "observation"
+        for channel in payload["input_spec"]["channels"]
+    )
     assert [channel["role"] for channel in payload["identification_observations"]] == [
         "specific_force_x",
         "specific_force_y",
@@ -161,11 +164,12 @@ def test_physical_rotor_thrust_proxy_requires_identity_offset() -> None:
 def test_residual_model_serializes_typed_exogenous_features(tmp_path) -> None:
     path = tmp_path / "context_residual_model.json"
     channels = tuple(
-        ExogenousChannel(
+        Channel(
             name=f"wind_{axis}_m_s",
             role=f"estimated_wind_{axis}",
             semantic="estimated_environment_at_prediction_start",
             unit="m/s",
+            kind="exogenous",
             frame="NWU",
         )
         for axis in ("north", "west")

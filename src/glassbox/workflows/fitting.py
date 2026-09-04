@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from time import perf_counter
@@ -218,9 +218,6 @@ def _fit_on_windows(
     learn_thrust_command_offset: bool = False,
     instantaneous_rotational_response: bool = True,
     diagonal_angular_control: bool = True,
-    normalization_windows: (
-        TrajectoryWindows | tuple[TrajectoryWindows, ...] | None
-    ) = None,
 ) -> tuple[ModelParams, dict[str, Any]]:
     physics_params = _configured_initial_params(
         fixed_motor_time_constant_s,
@@ -235,15 +232,7 @@ def _fit_on_windows(
     )
     diagonal_angular_control = diagonal_angular_control and platform == "multirotor"
     window_sets = windows if isinstance(windows, tuple) else (windows,)
-    normalization_window_sets = (
-        window_sets
-        if normalization_windows is None
-        else normalization_windows
-        if isinstance(normalization_windows, tuple)
-        else (normalization_windows,)
-    )
-    if len(normalization_window_sets) != len(window_sets):
-        raise ValueError("normalization_windows must match fitting horizons")
+    normalization_window_sets = window_sets
     loss_configuration = rollout_loss_configuration(
         normalization_window_sets,
         endpoint_weight=endpoint_weight,
@@ -343,11 +332,7 @@ def _fit_on_windows(
                 if fit.loss_configuration is not None
                 else None
             ),
-            "statistics_source": (
-                "member_training_windows"
-                if normalization_windows is None
-                else "shared_outer_training_windows"
-            ),
+            "statistics_source": "member_training_windows",
             "optimization_data_policy": {
                 "policy": fit.optimization_policy,
                 "diverged": fit.diverged,
@@ -392,100 +377,6 @@ def _fit_on_windows(
 
 
 @dataclass(frozen=True)
-class FitRequest:
-    """Every knob that shapes a multi-flight fit, validated on construction.
-
-    The defaults are the library defaults of :func:`fit_trajectory_artifacts`,
-    which builds one of these from its keyword arguments.
-    """
-
-    train_fraction: float = 0.70
-    holdout_count: int = 1
-    horizon: int = 25
-    stride: int | None = None
-    training_horizons_s: tuple[float, ...] | None = None
-    steps: int = 400
-    learning_rate: float = 0.02
-    evaluation_horizons_s: tuple[float, ...] = (0.1, 0.5, 1.0, 2.0)
-    fixed_motor_time_constant_s: float | None = None
-    run_no_lag_ablation: bool = True
-    balance_training_flights: bool = True
-    holdout_profiles: tuple[str, ...] | None = None
-    training_source_group_weights: Mapping[str | int, float] | None = None
-    normalization_source_group_weights: Mapping[str | int, float] | None = None
-    model_class: str = "structured"
-    endpoint_weight: float = 3.0
-    stability_regularization: float = 0.01
-    learn_thrust_command_offset: bool = False
-    instantaneous_rotational_response: bool = True
-    diagonal_angular_control: bool = True
-    build_parameter_evidence: bool = False
-    respect_benchmark_split: bool = True
-
-    def __post_init__(self) -> None:
-        for name in ("evaluation_horizons_s", "training_horizons_s"):
-            value = getattr(self, name)
-            if value is not None:
-                object.__setattr__(self, name, tuple(value))
-        if self.holdout_profiles is not None:
-            object.__setattr__(self, "holdout_profiles", tuple(self.holdout_profiles))
-
-        if any(seconds <= 0.0 for seconds in self.evaluation_horizons_s):
-            raise ValueError("evaluation horizons must be positive")
-        if self.training_horizons_s is not None and any(
-            seconds <= 0.0 for seconds in self.training_horizons_s
-        ):
-            raise ValueError("training horizons must be positive")
-        if self.model_class not in _MODEL_CLASSES:
-            raise ValueError("model_class must be structured or structured_residual")
-        if self.fixed_motor_time_constant_s is not None:
-            if self.fixed_motor_time_constant_s <= 0.0:
-                raise ValueError("fixed_motor_time_constant_s must be positive")
-            if self.run_no_lag_ablation:
-                raise ValueError(
-                    "fixed_motor_time_constant_s already pins the applied-control "
-                    "response time, so the no-lag ablation does not apply"
-                )
-        if self.endpoint_weight < 1.0:
-            raise ValueError("endpoint_weight must be at least one")
-        if self.stability_regularization < 0.0:
-            raise ValueError("stability_regularization must be nonnegative")
-        if self.training_source_group_weights is not None:
-            weights = np.asarray(
-                list(self.training_source_group_weights.values()), dtype=np.float64
-            )
-            if (
-                not np.all(np.isfinite(weights))
-                or np.any(weights < 0.0)
-                or not np.any(weights > 0.0)
-            ):
-                raise ValueError(
-                    "training_source_group_weights values must be finite and "
-                    "nonnegative with at least one positive group"
-                )
-        if self.normalization_source_group_weights is not None and any(
-            not np.isfinite(weight) or weight <= 0.0
-            for weight in self.normalization_source_group_weights.values()
-        ):
-            raise ValueError(
-                "normalization_source_group_weights values must be finite and positive"
-            )
-        if (
-            self.normalization_source_group_weights is not None
-            and self.training_source_group_weights is None
-        ):
-            raise ValueError(
-                "normalization_source_group_weights requires explicit training "
-                "source-group weights"
-            )
-
-    def stride_for(self, horizon_steps: int) -> int:
-        """Return the window stride used at one training horizon."""
-
-        return horizon_steps if self.stride is None else self.stride
-
-
-@dataclass(frozen=True)
 class EvaluationFlight:
     """One held-out flight and the control history that precedes it."""
 
@@ -495,66 +386,41 @@ class EvaluationFlight:
     source_group: str | int | None = None
 
 
-class BenchmarkSplitHoldoutConflict(ValueError):
-    """Raised when --holdout-count/--holdout-profile conflict with labels.
-
-    Every input trajectory carries a ``labels["benchmark_split"]`` of
-    ``"training"`` or ``"validation"``, so the holdout is derived from that
-    label rather than from argument order or an explicit holdout request.
-    """
-
-
-_BENCHMARK_SPLIT_HOLDOUT_VALUES = ("training", "validation")
-
-
-def _benchmark_split_holdout_indices(
-    trajectories: Sequence[Trajectory],
-) -> tuple[list[int], list[int]] | None:
-    """Return (training, validation) indices from upstream split labels.
-
-    Returns ``None`` unless every trajectory carries a
-    ``labels["benchmark_split"]`` of exactly ``"training"`` or
-    ``"validation"`` and at least one trajectory has each value; callers fall
-    back to argument-order-based splitting in every other case.
-    """
-
-    splits = [trajectory.labels.get("benchmark_split") for trajectory in trajectories]
-    if any(split not in _BENCHMARK_SPLIT_HOLDOUT_VALUES for split in splits):
-        return None
-    training_indices = [
-        index for index, split in enumerate(splits) if split == "training"
-    ]
-    validation_indices = [
-        index for index, split in enumerate(splits) if split == "validation"
-    ]
-    if not training_indices or not validation_indices:
-        return None
-    return training_indices, validation_indices
-
-
 def _source_groups(
     paths: Sequence[Path], trajectories: Sequence[Trajectory]
 ) -> list[str | int] | None:
-    values = [trajectory.labels.get("source_group") for trajectory in trajectories]
+    return _label_values(paths, trajectories, "source_group")
+
+
+def _label_values(
+    paths: Sequence[Path], trajectories: Sequence[Trajectory], key: str
+) -> list[str | int] | None:
+    """Return one label value per trajectory, or ``None`` if none carry it.
+
+    A label that some but not all trajectories carry is an error: a split on
+    it would silently mix labeled and unlabeled flights.
+    """
+
+    values = [trajectory.labels.get(key) for trajectory in trajectories]
     if all(value is None for value in values):
         return None
     if any(value is None for value in values):
         missing = [str(path) for path, value in zip(paths, values) if value is None]
         raise ValueError(
-            "source-group splitting requires every trajectory to have a "
-            f"source_group label; unlabeled: {', '.join(missing)}"
+            f"splitting on {key} requires every trajectory to have a "
+            f"{key} label; unlabeled: {', '.join(missing)}"
         )
     if any(
         not isinstance(value, (str, int))
         or (isinstance(value, str) and not value.strip())
         for value in values
     ):
-        raise ValueError("source_group labels must be non-empty strings or integers")
-    source_groups = [value for value in values if isinstance(value, (str, int))]
-    unique_groups = tuple(dict.fromkeys(source_groups))
-    if len({str(group) for group in unique_groups}) != len(unique_groups):
-        raise ValueError("source_group labels must have unique string representations")
-    return source_groups
+        raise ValueError(f"{key} labels must be non-empty strings or integers")
+    resolved = [value for value in values if isinstance(value, (str, int))]
+    unique = tuple(dict.fromkeys(resolved))
+    if len({str(value) for value in unique}) != len(unique):
+        raise ValueError(f"{key} labels must have unique string representations")
+    return resolved
 
 
 @dataclass(frozen=True)
@@ -596,106 +462,212 @@ def _default_holdout_paths(count: int) -> list[Path]:
     return [Path(f"trajectory_{index}") for index in range(count)]
 
 
-def plan_holdout(
-    trajectories: Sequence[Trajectory],
-    request: FitRequest,
-    paths: Sequence[str | Path] | None = None,
-) -> HoldoutPlan:
-    """Decide the training/validation split without loading or fitting anything.
+_HOLDOUT_RULES = ("label", "group", "temporal")
 
-    Four rules are tried in order, and the first that applies wins:
 
-    1. a single trajectory is split temporally by ``train_fraction``;
-    2. ``labels["benchmark_split"]`` on every flight reserves the flights
-       labeled ``"validation"``, independent of argument order;
-    3. ``holdout_profiles`` reserves every flight in the named profiles;
-    4. ``labels["source_group"]`` reserves the last ``holdout_count`` groups;
-    5. otherwise the last ``holdout_count`` flights are reserved positionally.
+@dataclass(frozen=True)
+class Holdout:
+    """One rule for reserving evidence the fit is not allowed to see.
 
-    ``paths`` only supplies the labels used in the report and error messages;
-    it defaults to positional placeholders so the planner can be exercised on
-    in-memory trajectories.
+    There are three, and each is constructed by its own classmethod:
+    :meth:`by_label` reserves every flight whose label matches,
+    :meth:`by_group` reserves the final groups of a label, and
+    :meth:`temporal` splits one flight chronologically.
     """
 
-    if not trajectories:
-        raise ValueError("at least one trajectory is required")
-    resolved_paths = (
-        _default_holdout_paths(len(trajectories))
-        if paths is None
-        else [Path(path) for path in paths]
-    )
-    if len(resolved_paths) != len(trajectories):
-        raise ValueError("paths must label every trajectory")
-    source_groups = _source_groups(resolved_paths, trajectories)
+    rule: str
+    key: str = "source_group"
+    values: tuple[str, ...] = ()
+    count: int = 1
+    fraction: float = 0.70
 
-    if request.holdout_profiles and len(trajectories) == 1:
-        raise ValueError("profile holdout requires multiple trajectories")
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "values", tuple(str(value) for value in self.values))
+        if self.rule not in _HOLDOUT_RULES:
+            raise ValueError(f"holdout rule must be one of {', '.join(_HOLDOUT_RULES)}")
+        if not self.key.strip():
+            raise ValueError("holdout key cannot be empty")
+        if self.rule == "label" and not self.values:
+            raise ValueError("a label holdout needs at least one held-out value")
+        if any(not value.strip() for value in self.values):
+            raise ValueError("holdout values cannot be empty")
+        if self.count < 1:
+            raise ValueError("holdout count must be at least one")
+        if not 0.0 < self.fraction < 1.0:
+            raise ValueError("holdout fraction must be between zero and one")
 
-    if len(trajectories) == 1:
-        return _temporal_holdout(
-            trajectories[0], resolved_paths[0], request, source_groups
-        )
+    @classmethod
+    def by_label(cls, key: str, values: Sequence[str]) -> Holdout:
+        """Reserve every flight whose ``key`` label is one of ``values``."""
 
-    benchmark_split_indices = (
-        _benchmark_split_holdout_indices(trajectories)
-        if request.respect_benchmark_split
-        else None
-    )
-    if benchmark_split_indices is not None:
-        _reject_explicit_holdout_with_benchmark_split(request)
-        training_indices, validation_indices = benchmark_split_indices
-        mode = "benchmark_split_holdout"
-    elif request.holdout_profiles:
-        training_indices, validation_indices = _profile_holdout_indices(
-            trajectories, resolved_paths, request.holdout_profiles
+        return cls(rule="label", key=key, values=tuple(dict.fromkeys(values)))
+
+    @classmethod
+    def by_group(cls, count: int = 1, *, key: str = "source_group") -> Holdout:
+        """Reserve the final ``count`` groups of the ``key`` label.
+
+        When the label separates nothing, because no flight carries it or
+        because they all share one value, the final ``count`` flights are
+        reserved in argument order instead.
+        """
+
+        return cls(rule="group", key=key, count=count)
+
+    @classmethod
+    def temporal(cls, fraction: float = 0.70) -> Holdout:
+        """Split one flight chronologically, training on the first fraction."""
+
+        return cls(rule="temporal", fraction=fraction)
+
+    def to_dict(self) -> dict[str, Any]:
+        payload: dict[str, Any] = {"rule": self.rule}
+        if self.rule == "label":
+            payload["key"] = self.key
+            payload["values"] = list(self.values)
+        elif self.rule == "group":
+            payload["key"] = self.key
+            payload["count"] = self.count
+        else:
+            payload["fraction"] = self.fraction
+        return payload
+
+    def plan(
+        self,
+        trajectories: Sequence[Trajectory],
+        paths: Sequence[str | Path] | None = None,
+    ) -> HoldoutPlan:
+        """Decide the split without loading or fitting anything.
+
+        ``paths`` only supplies the labels used in the report and error
+        messages; it defaults to positional placeholders so the rule can be
+        exercised on in-memory trajectories.
+        """
+
+        if not trajectories:
+            raise ValueError("at least one trajectory is required")
+        resolved_paths = (
+            _default_holdout_paths(len(trajectories))
+            if paths is None
+            else [Path(path) for path in paths]
         )
-        mode = "leave_profiles_out"
-    elif source_groups is not None:
-        training_indices, validation_indices, mode = _source_group_holdout_indices(
-            trajectories, source_groups, request.holdout_count
-        )
-    else:
-        if not 1 <= request.holdout_count < len(trajectories):
+        if len(resolved_paths) != len(trajectories):
+            raise ValueError("paths must label every trajectory")
+        source_groups = _source_groups(resolved_paths, trajectories)
+
+        if self.rule == "temporal":
+            if len(trajectories) != 1:
+                raise ValueError(
+                    "a temporal holdout splits exactly one trajectory; "
+                    f"got {len(trajectories)}"
+                )
+            return _temporal_plan(
+                trajectories[0], resolved_paths[0], self.fraction, source_groups
+            )
+        if len(trajectories) < 2:
             raise ValueError(
-                "holdout_count must reserve at least one but not all flights"
+                f"a {self.rule} holdout requires multiple trajectories; "
+                "use Holdout.temporal to split one flight chronologically"
             )
-        training_indices = list(range(len(trajectories) - request.holdout_count))
-        validation_indices = list(
-            range(len(trajectories) - request.holdout_count, len(trajectories))
+        if self.rule == "label":
+            training_indices, validation_indices = self._label_indices(
+                trajectories, resolved_paths
+            )
+            mode = "leave_labeled_out"
+        else:
+            training_indices, validation_indices, mode = self._group_indices(
+                trajectories, resolved_paths
+            )
+
+        def group_of(index: int) -> str | int | None:
+            return None if source_groups is None else source_groups[index]
+
+        return HoldoutPlan(
+            mode=mode,
+            training=tuple(trajectories[index] for index in training_indices),
+            training_labels=tuple(
+                str(resolved_paths[index]) for index in training_indices
+            ),
+            training_source_groups=(
+                None
+                if source_groups is None
+                else tuple(source_groups[index] for index in training_indices)
+            ),
+            validation=tuple(
+                EvaluationFlight(
+                    path=str(resolved_paths[index]),
+                    trajectory=trajectories[index],
+                    source_group=group_of(index),
+                )
+                for index in validation_indices
+            ),
         )
-        mode = "leave_complete_flights_out"
 
-    def group_of(index: int) -> str | int | None:
-        return None if source_groups is None else source_groups[index]
-
-    return HoldoutPlan(
-        mode=mode,
-        training=tuple(trajectories[index] for index in training_indices),
-        training_labels=tuple(str(resolved_paths[index]) for index in training_indices),
-        training_source_groups=(
-            None
-            if source_groups is None
-            else tuple(source_groups[index] for index in training_indices)
-        ),
-        validation=tuple(
-            EvaluationFlight(
-                path=str(resolved_paths[index]),
-                trajectory=trajectories[index],
-                source_group=group_of(index),
+    def _label_indices(
+        self, trajectories: Sequence[Trajectory], paths: Sequence[Path]
+    ) -> tuple[list[int], list[int]]:
+        values = _label_values(paths, trajectories, self.key)
+        if values is None:
+            raise ValueError(
+                f"a {self.key} holdout requires every trajectory to have a "
+                f"{self.key} label"
             )
-            for index in validation_indices
-        ),
-    )
+        present = {str(value) for value in values}
+        missing = [value for value in self.values if value not in present]
+        if missing:
+            raise ValueError(
+                f"held-out {self.key} values are absent: {', '.join(missing)}"
+            )
+        held_out = set(self.values)
+        training_indices = [
+            index for index, value in enumerate(values) if str(value) not in held_out
+        ]
+        if not training_indices:
+            raise ValueError(f"a {self.key} holdout cannot reserve every trajectory")
+        validation_indices = [
+            index for index, value in enumerate(values) if str(value) in held_out
+        ]
+        return training_indices, validation_indices
+
+    def _group_indices(
+        self, trajectories: Sequence[Trajectory], paths: Sequence[Path]
+    ) -> tuple[list[int], list[int], str]:
+        values = _label_values(paths, trajectories, self.key)
+        group_order = [] if values is None else list(dict.fromkeys(values))
+        if len(group_order) < 2:
+            if not 1 <= self.count < len(trajectories):
+                raise ValueError(
+                    "holdout count must reserve at least one but not all flights"
+                )
+            split = len(trajectories) - self.count
+            return (
+                list(range(split)),
+                list(range(split, len(trajectories))),
+                "leave_complete_flights_out",
+            )
+        if not 1 <= self.count < len(group_order):
+            raise ValueError(
+                "holdout count must reserve at least one but not all source groups"
+            )
+        held_out = set(group_order[-self.count :])
+        assert values is not None
+        return (
+            [index for index, value in enumerate(values) if value not in held_out],
+            [index for index, value in enumerate(values) if value in held_out],
+            "leave_source_groups_out",
+        )
 
 
-def _temporal_holdout(
+DEFAULT_HOLDOUT = Holdout.by_group()
+
+
+def _temporal_plan(
     trajectory: Trajectory,
     path: Path,
-    request: FitRequest,
+    fraction: float,
     source_groups: list[str | int] | None,
 ) -> HoldoutPlan:
     training_segment, validation_segment = split_trajectory(
-        trajectory, train_fraction=request.train_fraction
+        trajectory, train_fraction=fraction
     )
     return HoldoutPlan(
         mode="temporal_within_flight",
@@ -713,102 +685,79 @@ def _temporal_holdout(
     )
 
 
-def _reject_explicit_holdout_with_benchmark_split(request: FitRequest) -> None:
-    preamble = (
-        "every trajectory carries a benchmark_split label of 'training'/'validation'; "
-    )
-    suffix = (
-        " because the validation split is determined by the label "
-        "(pass respect_benchmark_split=False to override)"
-    )
-    if request.holdout_profiles:
-        raise BenchmarkSplitHoldoutConflict(
-            f"{preamble}holdout_profiles is not applicable{suffix}"
-        )
-    if request.holdout_count != 1:
-        raise BenchmarkSplitHoldoutConflict(
-            f"{preamble}holdout_count is not applicable{suffix}"
-        )
+@dataclass(frozen=True)
+class FitRequest:
+    """Every knob that shapes a multi-flight fit, validated on construction.
 
+    The defaults are the library defaults of :func:`fit_trajectory_artifacts`,
+    which builds one of these from its keyword arguments.
+    """
 
-def _profile_holdout_indices(
-    trajectories: Sequence[Trajectory],
-    paths: Sequence[Path],
-    holdout_profiles: Sequence[str],
-) -> tuple[list[int], list[int]]:
-    selected_profiles = tuple(dict.fromkeys(holdout_profiles))
-    profile_by_flight = [
-        trajectory.labels.get("profile") for trajectory in trajectories
-    ]
-    if any(profile is None for profile in profile_by_flight):
-        unlabeled = [
-            str(path)
-            for path, profile in zip(paths, profile_by_flight)
-            if profile is None
-        ]
-        raise ValueError(
-            "profile holdout requires every trajectory to have a profile; "
-            f"unlabeled: {', '.join(unlabeled)}"
-        )
-    missing = [
-        profile for profile in selected_profiles if profile not in profile_by_flight
-    ]
-    if missing:
-        raise ValueError(f"holdout profiles are absent: {', '.join(missing)}")
-    training_indices = [
-        index
-        for index, profile in enumerate(profile_by_flight)
-        if profile not in selected_profiles
-    ]
-    validation_indices = [
-        index
-        for index, profile in enumerate(profile_by_flight)
-        if profile in selected_profiles
-    ]
-    if not training_indices:
-        raise ValueError("profile holdout cannot reserve every trajectory")
-    return training_indices, validation_indices
+    holdout: Holdout = DEFAULT_HOLDOUT
+    horizon: int = 25
+    stride: int | None = None
+    training_horizons_s: tuple[float, ...] | None = None
+    steps: int = 400
+    learning_rate: float = 0.02
+    evaluation_horizons_s: tuple[float, ...] = (0.1, 0.5, 1.0, 2.0)
+    fixed_motor_time_constant_s: float | None = None
+    run_no_lag_ablation: bool = True
+    balance_training_flights: bool = True
+    training_source_group_weights: Mapping[str | int, float] | None = None
+    model_class: str = "structured"
+    endpoint_weight: float = 3.0
+    stability_regularization: float = 0.01
+    learn_thrust_command_offset: bool = False
+    instantaneous_rotational_response: bool = True
+    diagonal_angular_control: bool = True
+    build_parameter_evidence: bool = False
 
+    def __post_init__(self) -> None:
+        for name in ("evaluation_horizons_s", "training_horizons_s"):
+            value = getattr(self, name)
+            if value is not None:
+                object.__setattr__(self, name, tuple(value))
 
-def _source_group_holdout_indices(
-    trajectories: Sequence[Trajectory],
-    source_groups: Sequence[str | int],
-    holdout_count: int,
-) -> tuple[list[int], list[int], str]:
-    group_order = list(dict.fromkeys(source_groups))
-    characterization_only = all(
-        trajectory.labels.get("benchmark_split") == "characterization_only"
-        for trajectory in trajectories
-    )
-    if len(group_order) == 1 and characterization_only:
-        if not 1 <= holdout_count < len(trajectories):
-            raise ValueError(
-                "holdout_count must reserve at least one but not all "
-                "characterization segments"
+        if not isinstance(self.holdout, Holdout):
+            raise TypeError("holdout must be a Holdout")
+        if any(seconds <= 0.0 for seconds in self.evaluation_horizons_s):
+            raise ValueError("evaluation horizons must be positive")
+        if self.training_horizons_s is not None and any(
+            seconds <= 0.0 for seconds in self.training_horizons_s
+        ):
+            raise ValueError("training horizons must be positive")
+        if self.model_class not in _MODEL_CLASSES:
+            raise ValueError("model_class must be structured or structured_residual")
+        if self.fixed_motor_time_constant_s is not None:
+            if self.fixed_motor_time_constant_s <= 0.0:
+                raise ValueError("fixed_motor_time_constant_s must be positive")
+            if self.run_no_lag_ablation:
+                raise ValueError(
+                    "fixed_motor_time_constant_s already pins the applied-control "
+                    "response time, so the no-lag ablation does not apply"
+                )
+        if self.endpoint_weight < 1.0:
+            raise ValueError("endpoint_weight must be at least one")
+        if self.stability_regularization < 0.0:
+            raise ValueError("stability_regularization must be nonnegative")
+        if self.training_source_group_weights is not None:
+            weights = np.asarray(
+                list(self.training_source_group_weights.values()), dtype=np.float64
             )
-        return (
-            list(range(len(trajectories) - holdout_count)),
-            list(range(len(trajectories) - holdout_count, len(trajectories))),
-            "chronological_segments_within_source_group_characterization",
-        )
-    if not 1 <= holdout_count < len(group_order):
-        raise ValueError(
-            "holdout_count must reserve at least one but not all source groups"
-        )
-    held_out_groups = set(group_order[-holdout_count:])
-    return (
-        [
-            index
-            for index, group in enumerate(source_groups)
-            if group not in held_out_groups
-        ],
-        [
-            index
-            for index, group in enumerate(source_groups)
-            if group in held_out_groups
-        ],
-        "leave_source_groups_out",
-    )
+            if (
+                not np.all(np.isfinite(weights))
+                or np.any(weights < 0.0)
+                or not np.any(weights > 0.0)
+            ):
+                raise ValueError(
+                    "training_source_group_weights values must be finite and "
+                    "nonnegative with at least one positive group"
+                )
+
+    def stride_for(self, horizon_steps: int) -> int:
+        """Return the window stride used at one training horizon."""
+
+        return horizon_steps if self.stride is None else self.stride
 
 
 def _trajectory_summary(path: str, trajectory: Trajectory) -> dict[str, Any]:
@@ -874,6 +823,7 @@ def _dataset_contract(
 
     spec_payloads = [trajectory.spec.to_dict() for trajectory in trajectories]
     spec_payload = consistent_value("trajectory_spec", spec_payloads, serialize=True)
+    reference_spec = trajectories[0].spec
 
     profiles = [trajectory.labels.get("profile") for trajectory in trajectories]
     profile_counts = {
@@ -924,22 +874,16 @@ def _dataset_contract(
             sum(trajectory.time_s[-1] for trajectory in trajectories)
         ),
         "sample_rate_hz": reference_rate,
-        "control_size": len(spec_payload["controls"]),
-        "control_names": [channel["name"] for channel in spec_payload["controls"]],
-        "control_roles": [channel["role"] for channel in spec_payload["controls"]],
-        "control_semantics": [
-            channel["semantic"] for channel in spec_payload["controls"]
-        ],
-        "exogenous_size": len(spec_payload["exogenous"]),
-        "exogenous_names": [channel["name"] for channel in spec_payload["exogenous"]],
-        "exogenous_roles": [channel["role"] for channel in spec_payload["exogenous"]],
-        "observation_size": len(spec_payload["observations"]),
-        "observation_names": [
-            channel["name"] for channel in spec_payload["observations"]
-        ],
-        "observation_roles": [
-            channel["role"] for channel in spec_payload["observations"]
-        ],
+        "control_size": len(reference_spec.controls),
+        "control_names": list(reference_spec.control_names),
+        "control_roles": list(reference_spec.control_roles),
+        "control_semantics": list(reference_spec.control_semantics),
+        "exogenous_size": len(reference_spec.exogenous),
+        "exogenous_names": list(reference_spec.exogenous_names),
+        "exogenous_roles": list(reference_spec.exogenous_roles),
+        "observation_size": len(reference_spec.observations),
+        "observation_names": list(reference_spec.observation_names),
+        "observation_roles": list(reference_spec.observation_roles),
         "platform": platform,
         "source_type": (source_types[0] if len(source_type_counts) == 1 else "mixed"),
         "source_type_counts": source_type_counts,
@@ -1154,47 +1098,71 @@ class TrainingWindows:
     horizon_labels: tuple[str, ...]
     maximum_windows_by_horizon: tuple[int, ...]
     diversity_count: int
-    group_balanced: bool
-    profile_balanced_weights: tuple[float, ...] | None
+    stratification: str
     window_sets: tuple[TrajectoryWindows, ...]
-    normalization_window_sets: tuple[TrajectoryWindows, ...] | None = None
 
     @property
     def fitting_windows(self) -> TrajectoryWindows | tuple[TrajectoryWindows, ...]:
         return self.window_sets[0] if len(self.window_sets) == 1 else self.window_sets
 
-    @property
-    def normalization_fitting_windows(
-        self,
-    ) -> TrajectoryWindows | tuple[TrajectoryWindows, ...] | None:
-        sets = self.normalization_window_sets
-        if sets is None:
-            return None
-        return sets[0] if len(sets) == 1 else sets
 
+def _training_weights(
+    plan: HoldoutPlan, request: FitRequest
+) -> tuple[
+    Mapping[str, float] | None,
+    Callable[[int, Trajectory], str] | None,
+    str,
+]:
+    """Resolve the one weighting the training windows are extracted under.
 
-def _validate_group_weights(plan: HoldoutPlan, request: FitRequest) -> None:
-    group_order = plan.training_group_order
-    if request.training_source_group_weights is not None:
-        if plan.training_source_groups is None:
+    Returns the group weights, the key function that assigns each training
+    flight to a group, and the name of the resulting stratification.
+    """
+
+    training = plan.training
+    source_groups = plan.training_source_groups
+    declared = request.training_source_group_weights
+    if declared is not None:
+        if source_groups is None:
             raise ValueError(
                 "training_source_group_weights requires source_group labels"
             )
-        if set(request.training_source_group_weights) != set(group_order):
+        if set(declared) != set(plan.training_group_order):
             raise ValueError(
                 "training_source_group_weights must contain exactly the "
                 "training source groups"
             )
-    if request.normalization_source_group_weights is not None:
-        if plan.training_source_groups is None:
-            raise ValueError(
-                "normalization_source_group_weights requires source_group labels"
-            )
-        if set(request.normalization_source_group_weights) != set(group_order):
-            raise ValueError(
-                "normalization_source_group_weights must contain exactly the "
-                "training source groups"
-            )
+        return (
+            {str(group): float(weight) for group, weight in declared.items()},
+            None,
+            "weighted_source_group",
+        )
+    if not request.balance_training_flights or len(training) < 2:
+        return None, None, "global_timeline"
+    if source_groups is not None:
+        return (
+            {str(group): 1.0 for group in plan.training_group_order},
+            None,
+            "source_group",
+        )
+    profiles = [trajectory.labels.get("profile") for trajectory in training]
+    if all(profile is not None for profile in profiles):
+        counts = {
+            profile: profiles.count(profile) for profile in dict.fromkeys(profiles)
+        }
+        return (
+            {
+                str(index): 1.0 / counts[profile]
+                for index, profile in enumerate(profiles)
+            },
+            lambda index, _trajectory: str(index),
+            "weighted_trajectory",
+        )
+    return (
+        {str(index): 1.0 for index in range(len(training))},
+        lambda index, _trajectory: str(index),
+        "trajectory",
+    )
 
 
 def build_training_windows(plan: HoldoutPlan, request: FitRequest) -> TrainingWindows:
@@ -1213,40 +1181,10 @@ def build_training_windows(plan: HoldoutPlan, request: FitRequest) -> TrainingWi
         )
     horizon_labels = tuple(f"{steps * dt_s:g}s" for steps in horizon_steps)
 
-    _validate_group_weights(plan, request)
-
-    training_source_groups = (
-        None
-        if plan.training_source_groups is None
-        else list(plan.training_source_groups)
-    )
-    group_balanced = (
-        request.balance_training_flights
-        and (len(training) > 1 or request.training_source_group_weights is not None)
-        and training_source_groups is not None
-        and (
-            not request.holdout_profiles
-            or request.training_source_group_weights is not None
-        )
-    )
-    training_profiles = [trajectory.labels.get("profile") for trajectory in training]
-    profile_balanced_weights = None
-    if (
-        not group_balanced
-        and request.balance_training_flights
-        and len(training) > 1
-        and all(profile is not None for profile in training_profiles)
-    ):
-        profile_counts = {
-            profile: training_profiles.count(profile)
-            for profile in dict.fromkeys(training_profiles)
-        }
-        profile_balanced_weights = tuple(
-            1.0 / profile_counts[profile] for profile in training_profiles
-        )
+    weights, group_of, stratification = _training_weights(plan, request)
     diversity_count = (
-        len(dict.fromkeys(training_source_groups))
-        if training_source_groups is not None
+        len(plan.training_group_order)
+        if plan.training_source_groups is not None
         else len(training)
     )
     maximum_windows_by_horizon = tuple(
@@ -1261,35 +1199,11 @@ def build_training_windows(plan: HoldoutPlan, request: FitRequest) -> TrainingWi
             training,
             horizon=steps,
             stride=request.stride_for(steps),
-            balance_trajectories=(
-                request.balance_training_flights
-                and len(training) > 1
-                and not group_balanced
-                and profile_balanced_weights is None
-            ),
-            trajectory_weights=profile_balanced_weights,
-            trajectory_groups=(training_source_groups if group_balanced else None),
-            trajectory_group_weights=(
-                request.training_source_group_weights if group_balanced else None
-            ),
+            weights=weights,
+            group_of=group_of,
             maximum_windows=maximum_windows,
         )
         for steps, maximum_windows in zip(horizon_steps, maximum_windows_by_horizon)
-    )
-    normalization_window_sets = (
-        None
-        if request.normalization_source_group_weights is None
-        else tuple(
-            trajectory_windows(
-                training,
-                horizon=steps,
-                stride=request.stride_for(steps),
-                trajectory_groups=training_source_groups,
-                trajectory_group_weights=request.normalization_source_group_weights,
-                maximum_windows=maximum_windows,
-            )
-            for steps, maximum_windows in zip(horizon_steps, maximum_windows_by_horizon)
-        )
     )
     return TrainingWindows(
         dt_s=dt_s,
@@ -1297,10 +1211,8 @@ def build_training_windows(plan: HoldoutPlan, request: FitRequest) -> TrainingWi
         horizon_labels=horizon_labels,
         maximum_windows_by_horizon=maximum_windows_by_horizon,
         diversity_count=diversity_count,
-        group_balanced=group_balanced,
-        profile_balanced_weights=profile_balanced_weights,
+        stratification=stratification,
         window_sets=window_sets,
-        normalization_window_sets=normalization_window_sets,
     )
 
 
@@ -1334,11 +1246,7 @@ def _split_section(plan: HoldoutPlan, request: FitRequest) -> dict[str, Any]:
         "mode": plan.mode,
         "independent_source_group_holdout": bool(plan.training_source_groups)
         and set(plan.training_source_groups).isdisjoint(plan.validation_group_order),
-        "held_out_profiles": (
-            list(dict.fromkeys(request.holdout_profiles))
-            if request.holdout_profiles
-            else []
-        ),
+        "holdout": request.holdout.to_dict(),
         "training_source_groups": plan.training_group_order,
         "validation_source_groups": plan.validation_group_order,
         "training_flights": [
@@ -1347,14 +1255,6 @@ def _split_section(plan: HoldoutPlan, request: FitRequest) -> dict[str, Any]:
         ],
         "validation_flights": [
             _trajectory_summary(flight.path, flight.trajectory)
-            for flight in plan.validation
-        ],
-        "benchmark_split_holdout": plan.mode == "benchmark_split_holdout",
-        "benchmark_split_training": [
-            trajectory.labels.get("benchmark_split") for trajectory in plan.training
-        ],
-        "benchmark_split_validation": [
-            flight.trajectory.labels.get("benchmark_split")
             for flight in plan.validation
         ],
     }
@@ -1429,9 +1329,7 @@ def _training_weight_sections(
     }
 
 
-def _window_selection_section(
-    plan: HoldoutPlan, windows: TrainingWindows, request: FitRequest
-) -> dict[str, Any]:
+def _window_selection_section(windows: TrainingWindows) -> dict[str, Any]:
     return {
         "budget_policy": "automatic_corpus_and_horizon",
         "selection_policy_by_horizon": _by_horizon(
@@ -1453,49 +1351,13 @@ def _window_selection_section(
             ),
         ),
         "source_group_count": windows.diversity_count,
-        "stratification": (
-            "weighted_source_group"
-            if windows.group_balanced
-            and request.training_source_group_weights is not None
-            else "source_group"
-            if windows.group_balanced
-            else "weighted_trajectory"
-            if windows.profile_balanced_weights is not None
-            else "trajectory"
-            if request.balance_training_flights and len(plan.training) > 1
-            else "global_timeline"
-        ),
+        "stratification": windows.stratification,
     }
 
 
-def _fit_statistics_section(
-    plan: HoldoutPlan, windows: TrainingWindows, request: FitRequest
-) -> dict[str, Any]:
-    normalization_window_sets = windows.normalization_window_sets
-    group_order = plan.training_group_order
-    weights = request.normalization_source_group_weights
+def _fit_statistics_section(request: FitRequest) -> dict[str, Any]:
     return {
-        "policy": (
-            "member_training_windows_v1"
-            if normalization_window_sets is None
-            else "shared_outer_training_windows_v1"
-        ),
-        "shared_across_resampled_members": bool(normalization_window_sets is not None),
-        "normalization_source_group_weights": (
-            None
-            if weights is None
-            else {str(group): float(weights[group]) for group in group_order}
-        ),
-        "selected_windows_by_horizon": (
-            None
-            if normalization_window_sets is None
-            else {
-                label: len(window_set.initial_states)
-                for label, window_set in zip(
-                    windows.horizon_labels, normalization_window_sets
-                )
-            }
-        ),
+        "policy": "member_training_windows_v1",
         "data_derived_values": [
             "state_error_scales",
             "dynamic_envelope",
@@ -1512,6 +1374,15 @@ def _fit_statistics_section(
     }
 
 
+_TRAINING_FLIGHT_WEIGHTING = {
+    "weighted_source_group": "weighted_source_group_then_equal_window",
+    "source_group": "equal_source_group_then_equal_window",
+    "weighted_trajectory": "equal_profile_then_equal_flight",
+    "trajectory": "equal_flight",
+    "global_timeline": "window_count",
+}
+
+
 def _configuration_section(
     *,
     request: FitRequest,
@@ -1524,7 +1395,6 @@ def _configuration_section(
     platform = dataset.platform
     group_weights = request.training_source_group_weights
     return {
-        "train_fraction_for_single_flight": request.train_fraction,
         "holdout_count": len(plan.validation),
         "holdout_source_group_count": len(
             {
@@ -1575,24 +1445,14 @@ def _configuration_section(
         "training_windows_by_horizon": _by_horizon(
             windows, lambda window_set: len(window_set.initial_states)
         ),
-        "training_window_selection": _window_selection_section(plan, windows, request),
+        "training_window_selection": _window_selection_section(windows),
         "evaluation_horizons_s": list(request.evaluation_horizons_s),
         "fixed_response_time_constant_s": request.fixed_motor_time_constant_s,
         "no_lag_ablation": request.run_no_lag_ablation,
         "model_class": request.model_class,
         "platform": platform,
         "model_family": dataset.family.key,
-        "training_flight_weighting": (
-            "weighted_source_group_then_equal_window"
-            if windows.group_balanced and group_weights is not None
-            else "equal_source_group_then_equal_window"
-            if windows.group_balanced
-            else "equal_profile_then_equal_flight"
-            if windows.profile_balanced_weights is not None
-            else "equal_flight"
-            if request.balance_training_flights
-            else "window_count"
-        ),
+        "training_flight_weighting": _TRAINING_FLIGHT_WEIGHTING[windows.stratification],
         **_training_weight_sections(plan, windows),
         "training_source_group_weights": (
             None
@@ -1602,7 +1462,7 @@ def _configuration_section(
                 for group in plan.training_group_order
             }
         ),
-        "fit_statistics": _fit_statistics_section(plan, windows, request),
+        "fit_statistics": _fit_statistics_section(request),
         "parameter_evidence": {
             "requested": request.build_parameter_evidence,
             "method": "grouped_local_rollout_information_v1",
@@ -1701,7 +1561,7 @@ def fit_from_request(
     paths = [Path(path) for path in trajectory_paths]
     trajectories = [load_trajectory_npz(path) for path in paths]
     dataset = resolve_dataset(paths, trajectories, request)
-    plan = plan_holdout(trajectories, request, paths)
+    plan = request.holdout.plan(trajectories, paths)
     windows = build_training_windows(plan, request)
 
     def fit_model(
@@ -1720,7 +1580,6 @@ def fit_from_request(
             learn_thrust_command_offset=request.learn_thrust_command_offset,
             instantaneous_rotational_response=request.instantaneous_rotational_response,
             diagonal_angular_control=request.diagonal_angular_control,
-            normalization_windows=windows.normalization_fitting_windows,
         )
         model_report["validation"] = _evaluate_model(
             params,
@@ -1769,8 +1628,7 @@ def fit_from_request(
 def fit_trajectory_artifacts(
     trajectory_paths: list[str | Path] | tuple[str | Path, ...],
     *,
-    train_fraction: float = 0.70,
-    holdout_count: int = 1,
+    holdout: Holdout = DEFAULT_HOLDOUT,
     horizon: int = 25,
     stride: int | None = None,
     training_horizons_s: tuple[float, ...] | None = None,
@@ -1780,9 +1638,7 @@ def fit_trajectory_artifacts(
     fixed_motor_time_constant_s: float | None = None,
     run_no_lag_ablation: bool = True,
     balance_training_flights: bool = True,
-    holdout_profiles: tuple[str, ...] | list[str] | None = None,
     training_source_group_weights: Mapping[str | int, float] | None = None,
-    normalization_source_group_weights: (Mapping[str | int, float] | None) = None,
     model_class: str = "structured",
     endpoint_weight: float = 3.0,
     stability_regularization: float = 0.01,
@@ -1790,18 +1646,8 @@ def fit_trajectory_artifacts(
     instantaneous_rotational_response: bool = True,
     diagonal_angular_control: bool = True,
     build_parameter_evidence: bool = False,
-    respect_benchmark_split: bool = True,
 ) -> tuple[ModelParams, ModelParams | None, dict[str, Any]]:
-    """Fit across flights and reserve complete flights when multiple are given.
-
-    When ``respect_benchmark_split`` is true (the default) and every input
-    trajectory carries a ``labels["benchmark_split"]`` of ``"training"`` or
-    ``"validation"``, the flights labeled ``"validation"`` are reserved
-    regardless of ``trajectory_paths`` order or ``holdout_count``/
-    ``holdout_profiles``; passing either of those explicitly in that case
-    raises :class:`BenchmarkSplitHoldoutConflict`. Positional,
-    argument-order-based holdout selection applies only when the label is
-    absent from at least one trajectory.
+    """Fit across flights under one explicit :class:`Holdout` rule.
 
     Every keyword is a field of :class:`FitRequest`; callers holding a request
     already can use :func:`fit_from_request` instead.
@@ -1810,8 +1656,7 @@ def fit_trajectory_artifacts(
     if not trajectory_paths:
         raise ValueError("at least one trajectory path is required")
     request = FitRequest(
-        train_fraction=train_fraction,
-        holdout_count=holdout_count,
+        holdout=holdout,
         horizon=horizon,
         stride=stride,
         training_horizons_s=training_horizons_s,
@@ -1821,9 +1666,7 @@ def fit_trajectory_artifacts(
         fixed_motor_time_constant_s=fixed_motor_time_constant_s,
         run_no_lag_ablation=run_no_lag_ablation,
         balance_training_flights=balance_training_flights,
-        holdout_profiles=holdout_profiles,
         training_source_group_weights=training_source_group_weights,
-        normalization_source_group_weights=normalization_source_group_weights,
         model_class=model_class,
         endpoint_weight=endpoint_weight,
         stability_regularization=stability_regularization,
@@ -1831,6 +1674,5 @@ def fit_trajectory_artifacts(
         instantaneous_rotational_response=instantaneous_rotational_response,
         diagonal_angular_control=diagonal_angular_control,
         build_parameter_evidence=build_parameter_evidence,
-        respect_benchmark_split=respect_benchmark_split,
     )
     return fit_from_request(trajectory_paths, request)

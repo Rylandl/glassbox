@@ -73,7 +73,7 @@ uv run glassbox fit artifacts/flight.npz \
   --report artifacts/flight_fit.json
 ```
 
-With one trajectory, the fitter uses the first 70% for multi-step training and reserves the final 30% for a contiguous held-out rollout. With multiple trajectories, it reserves the final complete source group when `source_group` labels are present; otherwise it falls back to the final input trajectory:
+There are three holdout rules and one is always chosen. With one trajectory the fit is split chronologically, training on the first 70% (`--train-fraction`) and reserving the rest for a contiguous held-out rollout. With multiple trajectories the final complete source group is reserved when `source_group` labels separate the flights, and the final input trajectories in argument order otherwise (`--holdout-count`). `--holdout-profile` and the general `--holdout-label KEY=VALUE` instead reserve every flight whose label matches, whatever the argument order:
 
 ```bash
 uv run glassbox fit artifacts/flight_1.npz artifacts/flight_2.npz \

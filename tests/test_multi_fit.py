@@ -17,6 +17,7 @@ from glassbox.core.fixedwing_synthetic import (
 )
 from glassbox.core.synthetic import true_parameters
 from glassbox.workflows.fitting import (
+    Holdout,
     _automatic_training_window_budget,
     _dataset_contract,
     fit_trajectory_artifacts,
@@ -294,16 +295,17 @@ def _write_benchmark_split_flights(tmp_path, quadrotor_flight, splits) -> list[P
 def test_requested_fit_builds_rank_aware_parameter_evidence(
     tmp_path, quadrotor_flight
 ) -> None:
-    # Labelling the three flights reserves exactly the flight that positional
-    # holdout would have reserved, so this single fit also carries the
-    # benchmark-split section of the report. Which flights the labels select is
-    # pinned on the planner in ``test_holdout_plan.py``.
+    # A label holdout reserves exactly the flight positional holdout would
+    # have reserved, so this single fit also carries the label rule in its
+    # split section. Which flights the labels select is pinned on the rules in
+    # ``test_holdout_plan.py``.
     paths = _write_benchmark_split_flights(
         tmp_path, quadrotor_flight, ("training", "training", "validation")
     )
 
     _, _, report = fit_trajectory_artifacts(
         paths,
+        holdout=Holdout.by_label("benchmark_split", ("validation",)),
         horizon=5,
         steps=1,
         evaluation_horizons_s=(0.1,),
@@ -311,10 +313,12 @@ def test_requested_fit_builds_rank_aware_parameter_evidence(
         build_parameter_evidence=True,
     )
 
-    assert report["split"]["mode"] == "benchmark_split_holdout"
-    assert report["split"]["benchmark_split_holdout"] is True
-    assert report["split"]["benchmark_split_training"] == ["training", "training"]
-    assert report["split"]["benchmark_split_validation"] == ["validation"]
+    assert report["split"]["mode"] == "leave_labeled_out"
+    assert report["split"]["holdout"] == {
+        "rule": "label",
+        "key": "benchmark_split",
+        "values": ["validation"],
+    }
     assert report["configuration"]["holdout_count"] == 1
     evidence = report["models"]["learned_lag"]["parameter_evidence"]
     assert evidence["kind"] == "local_structured_parameter_information"
@@ -417,7 +421,7 @@ def test_profile_labeled_training_balances_profiles_before_flights(
 
     _, _, report = fit_trajectory_artifacts(
         paths,
-        holdout_profiles=("yaw",),
+        holdout=Holdout.by_label("profile", ("yaw",)),
         horizon=5,
         steps=1,
         run_no_lag_ablation=False,

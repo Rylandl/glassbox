@@ -267,6 +267,8 @@ MANIFEST: tuple[ArtifactSpec, ...] = (
             _cli(
                 "fit",
                 *_X8_FIT_TRAJECTORIES,
+                "--holdout-label",
+                "benchmark_split=validation",
                 "--training-horizons",
                 "0.1,0.5,2.0",
                 "--skip-no-lag-ablation",
@@ -278,6 +280,8 @@ MANIFEST: tuple[ArtifactSpec, ...] = (
             _cli(
                 "fit",
                 *_X8_FIT_TRAJECTORIES,
+                "--holdout-label",
+                "benchmark_split=validation",
                 "--training-horizons",
                 "0.1,0.5,2.0",
                 "--model-class",

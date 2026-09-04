@@ -44,7 +44,6 @@ uv run glassbox fit \
   --training-horizons 0.1,0.5,1.0 \
   --evaluation-horizons 0.1,0.5,1.0 \
   --model-class structured_residual \
-  --skip-no-lag-ablation \
   --model artifacts/nanodrone/model.json \
   --report artifacts/nanodrone/report.json
 ```

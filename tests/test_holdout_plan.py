@@ -1,7 +1,7 @@
-"""Unit tests for the pure holdout planner behind ``fit_trajectory_artifacts``.
+"""Unit tests for the three holdout rules behind ``fit_trajectory_artifacts``.
 
-``plan_holdout`` decides which flights train and which are reserved without
-loading a file or fitting anything, so every split rule is exercised here on
+:meth:`Holdout.plan` decides which flights train and which are reserved without
+loading a file or fitting anything, so every rule is exercised here on
 in-memory trajectories in milliseconds.
 """
 
@@ -11,11 +11,7 @@ from dataclasses import replace
 
 import pytest
 
-from glassbox.workflows.fitting import (
-    BenchmarkSplitHoldoutConflict,
-    FitRequest,
-    plan_holdout,
-)
+from glassbox.workflows.fitting import FitRequest, Holdout
 
 
 @pytest.fixture
@@ -48,10 +44,10 @@ def _paths(count: int) -> list[str]:
     return [f"flight_{index}.npz" for index in range(count)]
 
 
-def test_single_trajectory_is_split_temporally(flights) -> None:
+def test_temporal_splits_one_trajectory_chronologically(flights) -> None:
     trajectories = flights(1)
 
-    plan = plan_holdout(trajectories, FitRequest(train_fraction=0.5), ["only.npz"])
+    plan = Holdout.temporal(0.5).plan(trajectories, ["only.npz"])
 
     assert plan.mode == "temporal_within_flight"
     assert plan.training_labels == ("only.npz#training",)
@@ -61,15 +57,20 @@ def test_single_trajectory_is_split_temporally(flights) -> None:
     assert plan.training_source_groups is None
 
 
-def test_positional_holdout_reserves_the_final_flights_in_argument_order(
+def test_temporal_rejects_more_than_one_trajectory(flights) -> None:
+    with pytest.raises(ValueError, match="exactly one trajectory"):
+        Holdout.temporal(0.5).plan(flights(2), _paths(2))
+
+
+def test_group_holdout_falls_back_to_argument_order_without_the_label(
     flights,
 ) -> None:
     trajectories = flights(3)
     paths = _paths(3)
 
-    forward = plan_holdout(trajectories, FitRequest(), paths)
-    reversed_plan = plan_holdout(
-        list(reversed(trajectories)), FitRequest(), list(reversed(paths))
+    forward = Holdout.by_group().plan(trajectories, paths)
+    reversed_plan = Holdout.by_group().plan(
+        list(reversed(trajectories)), list(reversed(paths))
     )
 
     assert forward.mode == "leave_complete_flights_out"
@@ -79,8 +80,8 @@ def test_positional_holdout_reserves_the_final_flights_in_argument_order(
     assert [flight.path for flight in reversed_plan.validation] == ["flight_0.npz"]
 
 
-def test_positional_holdout_honours_an_explicit_count(flights) -> None:
-    plan = plan_holdout(flights(4), FitRequest(holdout_count=2), _paths(4))
+def test_group_holdout_honours_an_explicit_count(flights) -> None:
+    plan = Holdout.by_group(2).plan(flights(4), _paths(4))
 
     assert len(plan.training) == 2
     assert [flight.path for flight in plan.validation] == [
@@ -89,23 +90,27 @@ def test_positional_holdout_honours_an_explicit_count(flights) -> None:
     ]
 
 
-def test_positional_holdout_cannot_reserve_every_flight(flights) -> None:
+def test_group_holdout_cannot_reserve_every_flight(flights) -> None:
     with pytest.raises(ValueError, match="not all flights"):
-        plan_holdout(flights(2), FitRequest(holdout_count=2), _paths(2))
+        Holdout.by_group(2).plan(flights(2), _paths(2))
 
 
-def test_benchmark_split_labels_determine_the_holdout_in_any_order(flights) -> None:
+def test_group_holdout_needs_more_than_one_trajectory(flights) -> None:
+    with pytest.raises(ValueError, match="requires multiple trajectories"):
+        Holdout.by_group().plan(flights(1), _paths(1))
+
+
+def test_label_holdout_is_independent_of_argument_order(flights) -> None:
     splits = ("training", "training", "training", "validation")
     trajectories = flights(4, benchmark_split=splits)
     paths = _paths(4)
+    holdout = Holdout.by_label("benchmark_split", ("validation",))
 
-    forward = plan_holdout(trajectories, FitRequest(), paths)
-    backward = plan_holdout(
-        list(reversed(trajectories)), FitRequest(), list(reversed(paths))
-    )
+    forward = holdout.plan(trajectories, paths)
+    backward = holdout.plan(list(reversed(trajectories)), list(reversed(paths)))
 
     for plan in (forward, backward):
-        assert plan.mode == "benchmark_split_holdout"
+        assert plan.mode == "leave_labeled_out"
         assert [flight.path for flight in plan.validation] == ["flight_3.npz"]
         assert set(plan.training_labels) == {
             "flight_0.npz",
@@ -114,51 +119,12 @@ def test_benchmark_split_labels_determine_the_holdout_in_any_order(flights) -> N
         }
 
 
-def test_benchmark_split_labels_reject_an_explicit_holdout_count(flights) -> None:
-    trajectories = flights(2, benchmark_split=("training", "validation"))
-
-    with pytest.raises(BenchmarkSplitHoldoutConflict, match="holdout_count"):
-        plan_holdout(trajectories, FitRequest(holdout_count=2), _paths(2))
-
-
-def test_benchmark_split_labels_reject_explicit_holdout_profiles(flights) -> None:
-    trajectories = flights(
-        2,
-        benchmark_split=("training", "validation"),
-        profile=("hover", "hover"),
-    )
-
-    with pytest.raises(BenchmarkSplitHoldoutConflict, match="holdout_profiles"):
-        plan_holdout(trajectories, FitRequest(holdout_profiles=("hover",)), _paths(2))
-
-
-def test_benchmark_split_labels_can_be_overridden(flights) -> None:
-    trajectories = flights(3, benchmark_split=("validation", "training", "training"))
-
-    plan = plan_holdout(
-        trajectories, FitRequest(respect_benchmark_split=False), _paths(3)
-    )
-
-    assert plan.mode == "leave_complete_flights_out"
-    assert [flight.path for flight in plan.validation] == ["flight_2.npz"]
-
-
-def test_partial_benchmark_split_labels_fall_back_to_argument_order(flights) -> None:
-    trajectories = flights(3, benchmark_split=("training", "validation", None))
-
-    plan = plan_holdout(trajectories, FitRequest(), _paths(3))
-
-    assert plan.mode == "leave_complete_flights_out"
-
-
-def test_profile_holdout_reserves_every_flight_in_the_named_profiles(flights) -> None:
+def test_label_holdout_reserves_every_flight_in_the_named_values(flights) -> None:
     trajectories = flights(3, profile=("hover", "lateral", "lateral"))
 
-    plan = plan_holdout(
-        trajectories, FitRequest(holdout_profiles=("lateral",)), _paths(3)
-    )
+    plan = Holdout.by_label("profile", ("lateral",)).plan(trajectories, _paths(3))
 
-    assert plan.mode == "leave_profiles_out"
+    assert plan.mode == "leave_labeled_out"
     assert plan.training_labels == ("flight_0.npz",)
     assert [flight.path for flight in plan.validation] == [
         "flight_1.npz",
@@ -166,39 +132,44 @@ def test_profile_holdout_reserves_every_flight_in_the_named_profiles(flights) ->
     ]
 
 
-def test_profile_holdout_requires_every_flight_to_carry_a_profile(flights) -> None:
+def test_label_holdout_requires_every_flight_to_carry_the_label(flights) -> None:
     trajectories = flights(3, profile=("hover", "lateral", None))
 
     with pytest.raises(ValueError, match=r"unlabeled: flight_2\.npz"):
-        plan_holdout(trajectories, FitRequest(holdout_profiles=("hover",)), _paths(3))
+        Holdout.by_label("profile", ("hover",)).plan(trajectories, _paths(3))
 
 
-def test_profile_holdout_rejects_an_absent_profile(flights) -> None:
+def test_label_holdout_rejects_an_absent_value(flights) -> None:
     trajectories = flights(2, profile=("hover", "lateral"))
 
-    with pytest.raises(ValueError, match="holdout profiles are absent: yaw"):
-        plan_holdout(trajectories, FitRequest(holdout_profiles=("yaw",)), _paths(2))
+    with pytest.raises(ValueError, match="profile values are absent: yaw"):
+        Holdout.by_label("profile", ("yaw",)).plan(trajectories, _paths(2))
 
 
-def test_profile_holdout_cannot_reserve_every_trajectory(flights) -> None:
+def test_label_holdout_cannot_reserve_every_trajectory(flights) -> None:
     trajectories = flights(2, profile=("hover", "hover"))
 
     with pytest.raises(ValueError, match="cannot reserve every trajectory"):
-        plan_holdout(trajectories, FitRequest(holdout_profiles=("hover",)), _paths(2))
+        Holdout.by_label("profile", ("hover",)).plan(trajectories, _paths(2))
 
 
-def test_profile_holdout_requires_multiple_trajectories(flights) -> None:
+def test_label_holdout_needs_more_than_one_trajectory(flights) -> None:
     trajectories = flights(1, profile=("hover",))
 
     with pytest.raises(ValueError, match="requires multiple trajectories"):
-        plan_holdout(trajectories, FitRequest(holdout_profiles=("hover",)), _paths(1))
+        Holdout.by_label("profile", ("hover",)).plan(trajectories, _paths(1))
 
 
-def test_source_group_holdout_keeps_every_segment_of_a_group_together(flights) -> None:
+def test_label_holdout_needs_at_least_one_held_out_value() -> None:
+    with pytest.raises(ValueError, match="at least one held-out value"):
+        Holdout.by_label("profile", ())
+
+
+def test_group_holdout_keeps_every_segment_of_a_group_together(flights) -> None:
     groups = ("session-1", "session-1", "session-2", "session-3", "session-3")
     trajectories = flights(5, source_group=groups)
 
-    plan = plan_holdout(trajectories, FitRequest(), _paths(5))
+    plan = Holdout.by_group().plan(trajectories, _paths(5))
 
     assert plan.mode == "leave_source_groups_out"
     assert plan.training_group_order == ["session-1", "session-2"]
@@ -210,39 +181,47 @@ def test_source_group_holdout_keeps_every_segment_of_a_group_together(flights) -
     ]
 
 
-def test_source_group_holdout_cannot_reserve_every_group(flights) -> None:
+def test_group_holdout_cannot_reserve_every_group(flights) -> None:
     trajectories = flights(3, source_group=("a", "b", "c"))
 
     with pytest.raises(ValueError, match="not all source groups"):
-        plan_holdout(trajectories, FitRequest(holdout_count=3), _paths(3))
+        Holdout.by_group(3).plan(trajectories, _paths(3))
 
 
 def test_source_group_labels_must_cover_every_trajectory(flights) -> None:
     trajectories = flights(2, source_group=("a", None))
 
     with pytest.raises(ValueError, match=r"unlabeled: flight_1\.npz"):
-        plan_holdout(trajectories, FitRequest(), _paths(2))
+        Holdout.by_group().plan(trajectories, _paths(2))
 
 
-def test_single_group_characterization_falls_back_to_chronological_segments(
-    flights,
-) -> None:
-    trajectories = flights(
-        3,
-        source_group=("one-recording",) * 3,
-        benchmark_split=("characterization_only",) * 3,
-    )
+def test_one_group_falls_back_to_chronological_segments(flights) -> None:
+    """A label that separates nothing splits the flights in argument order."""
 
-    plan = plan_holdout(trajectories, FitRequest(), _paths(3))
+    trajectories = flights(3, source_group=("one-recording",) * 3)
 
-    assert plan.mode == "chronological_segments_within_source_group_characterization"
+    plan = Holdout.by_group().plan(trajectories, _paths(3))
+
+    assert plan.mode == "leave_complete_flights_out"
     assert len(plan.training) == 2
     assert [flight.path for flight in plan.validation] == ["flight_2.npz"]
     assert not set(plan.training_source_groups).isdisjoint(plan.validation_group_order)
 
 
+def test_group_holdout_can_split_on_another_label(flights) -> None:
+    trajectories = flights(4, vehicle_id=("a", "a", "b", "b"), source_group=("s",) * 4)
+
+    plan = Holdout.by_group(key="vehicle_id").plan(trajectories, _paths(4))
+
+    assert plan.mode == "leave_source_groups_out"
+    assert [flight.path for flight in plan.validation] == [
+        "flight_2.npz",
+        "flight_3.npz",
+    ]
+
+
 def test_paths_default_to_positional_placeholders(flights) -> None:
-    plan = plan_holdout(flights(2), FitRequest())
+    plan = Holdout.by_group().plan(flights(2))
 
     assert plan.training_labels == ("trajectory_0",)
     assert [flight.path for flight in plan.validation] == ["trajectory_1"]
@@ -250,12 +229,41 @@ def test_paths_default_to_positional_placeholders(flights) -> None:
 
 def test_paths_must_label_every_trajectory(flights) -> None:
     with pytest.raises(ValueError, match="paths must label every trajectory"):
-        plan_holdout(flights(2), FitRequest(), ["only-one.npz"])
+        Holdout.by_group().plan(flights(2), ["only-one.npz"])
 
 
 def test_planning_requires_at_least_one_trajectory() -> None:
     with pytest.raises(ValueError, match="at least one trajectory is required"):
-        plan_holdout([], FitRequest())
+        Holdout.by_group().plan([])
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "message"),
+    (
+        ({"rule": "nope"}, "holdout rule must be one of"),
+        ({"rule": "group", "count": 0}, "holdout count must be at least one"),
+        ({"rule": "temporal", "fraction": 1.0}, "fraction must be between"),
+        ({"rule": "group", "key": " "}, "holdout key cannot be empty"),
+        ({"rule": "label", "values": (" ",)}, "holdout values cannot be empty"),
+    ),
+)
+def test_holdout_validates_its_arguments(kwargs: dict, message: str) -> None:
+    with pytest.raises(ValueError, match=message):
+        Holdout(**kwargs)
+
+
+def test_holdout_serializes_only_the_arguments_its_rule_uses() -> None:
+    assert Holdout.by_group(2).to_dict() == {
+        "rule": "group",
+        "key": "source_group",
+        "count": 2,
+    }
+    assert Holdout.by_label("profile", ("hover", "hover")).to_dict() == {
+        "rule": "label",
+        "key": "profile",
+        "values": ["hover"],
+    }
+    assert Holdout.temporal(0.6).to_dict() == {"rule": "temporal", "fraction": 0.6}
 
 
 @pytest.mark.parametrize(
@@ -273,10 +281,6 @@ def test_planning_requires_at_least_one_trajectory() -> None:
             {"training_source_group_weights": {"a": -1.0}},
             "training_source_group_weights values must be finite",
         ),
-        (
-            {"normalization_source_group_weights": {"a": 1.0}},
-            "normalization_source_group_weights requires explicit training",
-        ),
     ),
 )
 def test_fit_request_validates_its_knobs(kwargs: dict, message: str) -> None:
@@ -288,12 +292,10 @@ def test_fit_request_normalizes_sequence_knobs_to_tuples() -> None:
     request = FitRequest(
         evaluation_horizons_s=[0.1, 0.5],
         training_horizons_s=[0.2],
-        holdout_profiles=["hover", "hover"],
     )
 
     assert request.evaluation_horizons_s == (0.1, 0.5)
     assert request.training_horizons_s == (0.2,)
-    assert request.holdout_profiles == ("hover", "hover")
 
 
 def test_fit_request_stride_defaults_to_the_horizon() -> None:

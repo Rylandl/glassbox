@@ -23,7 +23,12 @@ except ImportError as error:  # pragma: no cover - exercised without the extra
         "uv sync --extra px4, or pip install 'glassbox[px4]'"
     ) from error
 
-from glassbox.core.data import Trajectory, load_trajectory_npz, save_trajectory_npz
+from glassbox.core.data import (
+    Trajectory,
+    TrajectorySpec,
+    load_trajectory_npz,
+    save_trajectory_npz,
+)
 from glassbox.io.pinned_download import download_verified, file_digest
 from glassbox.io.px4_ulog import (
     PX4IngestConfig,
@@ -301,7 +306,14 @@ class IDFFixedWingAdapter:
                     time_s=trajectory.time_s,
                     states=trajectory.states,
                     controls=trajectory.controls,
-                    spec=replace(trajectory.spec, exogenous=()),
+                    spec=replace(
+                        trajectory.spec,
+                        channels=tuple(
+                            channel
+                            for channel in trajectory.spec.channels
+                            if channel.kind != "exogenous"
+                        ),
+                    ),
                     observations=trajectory.observations,
                     labels={
                         **trajectory.labels,
@@ -457,6 +469,7 @@ def idf_corpus_report(
     control_minimum: np.ndarray | None = None
     control_maximum: np.ndarray | None = None
     spec_payload: dict[str, Any] | None = None
+    reference_spec: TrajectorySpec | None = None
     canonical_by_session: dict[int, dict[str, float | int]] = {}
 
     for path in paths:
@@ -464,6 +477,7 @@ def idf_corpus_report(
         current_spec = trajectory.spec.to_dict()
         if spec_payload is None:
             spec_payload = current_spec
+            reference_spec = trajectory.spec
         elif current_spec != spec_payload:
             raise ValueError(f"inconsistent IDF-DS trajectory spec: {path}")
 
@@ -507,6 +521,7 @@ def idf_corpus_report(
         control_count += len(controls)
 
     assert spec_payload is not None
+    assert reference_spec is not None
     assert control_sum is not None
     assert control_square_sum is not None
     assert control_minimum is not None
@@ -589,8 +604,8 @@ def idf_corpus_report(
             "maximum_speed_m_s": maximum_speed_m_s,
             "maximum_angular_speed_rad_s": maximum_angular_speed_rad_s,
             "control_statistics": {
-                "names": [channel["name"] for channel in spec_payload["controls"]],
-                "roles": [channel["role"] for channel in spec_payload["controls"]],
+                "names": list(reference_spec.control_names),
+                "roles": list(reference_spec.control_roles),
                 "minimum": control_minimum.tolist(),
                 "maximum": control_maximum.tolist(),
                 "mean": control_mean.tolist(),

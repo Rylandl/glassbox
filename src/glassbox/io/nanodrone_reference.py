@@ -12,7 +12,7 @@ import numpy as np
 
 from glassbox.core.data import (
     RIGID_BODY_STATE_SCHEMA,
-    ControlChannel,
+    Channel,
     Trajectory,
     TrajectorySpec,
     VehicleConfigurationSpec,
@@ -260,35 +260,32 @@ def nanodrone_trajectory_spec(
     if not np.isfinite(rotor_speed_reference_rad_s) or rotor_speed_reference_rad_s <= 0:
         raise ValueError("rotor_speed_reference_rad_s must be positive and finite")
     controls = tuple(
-        ControlChannel(
+        Channel(
             name=name,
             role=name,
             semantic="squared_rotor_speed_ratio",
             unit="1",
+            kind="control",
+            frame="FLU",
             minimum=0.0,
             maximum=None,
-            frame="FLU",
         )
         for name in QUADROTOR_CONTROL_NAMES
     )
     return TrajectorySpec(
         state_schema=RIGID_BODY_STATE_SCHEMA,
         observation_source=BENCHMARK_OBSERVATION_SOURCE,
-        controls=controls,
+        channels=(*controls, *specific_force_observation_channels()),
         vehicle=VehicleConfigurationSpec(
             family="multirotor",
             configuration_id=BENCHMARK_CONFIGURATION_ID,
             controlled_axes=("roll", "pitch", "yaw"),
-            propulsion="quadrotor",
             fixed_states={
                 "mass_kg": 0.045,
                 "rotor_layout": "x",
                 "rotor_speed_reference_rad_s": rotor_speed_reference_rad_s,
                 "control_transform": "(rotor_speed_rad_s / reference_rad_s)^2",
             },
-        ),
-        observations=specific_force_observation_channels(
-            "processed_onboard_accelerometer"
         ),
     )
 

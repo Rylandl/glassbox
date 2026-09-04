@@ -39,7 +39,7 @@ def _trajectory(intervals: int) -> Trajectory:
             family="fixedwing",
             observation_source="estimated",
             configuration_id=IDF_CONFIGURATION_ID,
-            observations=specific_force_observation_channels("fixture_imu"),
+            observations=specific_force_observation_channels(),
         ),
         observations=np.tile([0.1, 0.2, 9.7], (intervals + 1, 1)),
         labels={"profile": "waypoint_circuit"},
