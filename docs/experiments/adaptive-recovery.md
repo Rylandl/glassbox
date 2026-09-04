@@ -1,6 +1,6 @@
 # Adaptive configuration-change recovery
 
-`glassbox adaptive-recovery` is a fixed synthetic diagnostic for the complete
+`glassbox benchmark recovery` is a fixed synthetic diagnostic for the complete
 belief-to-control path. It asks whether the spread of a few sibling arm
 configurations and 0.8 seconds of telemetry from a previously unseen
 adjustable-arm configuration can improve a prewarmed NMPC recovery without
@@ -97,7 +97,7 @@ excludes them from its comparison. This is not a hard real-time claim.
 ## Reproduce
 
 ```bash
-uv run glassbox adaptive-recovery \
+uv run glassbox benchmark recovery \
   --output docs/results/adaptive-recovery-results.json
 ```
 

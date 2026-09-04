@@ -51,9 +51,10 @@ uv run glassbox fit \
 Score either saved model with the benchmark's rolling 1-to-50-step metrics:
 
 ```bash
-uv run glassbox nanodrone evaluate \
+uv run glassbox evaluate \
   artifacts/nanodrone/model.json \
   artifacts/nanodrone/canonical/test/*.npz \
+  --protocol nanodrone --corpus nanodrone \
   --report artifacts/nanodrone/benchmark_report.json
 ```
 

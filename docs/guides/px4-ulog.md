@@ -13,13 +13,13 @@ This guide covers inspecting and extracting PX4 ULogs into Glassbox's canonical 
 Inspect the topics and fields in a log:
 
 ```bash
-uv run glassbox ulog inspect path/to/flight.ulg
+uv run glassbox extract --inspect path/to/flight.ulg
 ```
 
 Extract estimated state and actuator commands to the canonical trajectory format:
 
 ```bash
-uv run glassbox ulog extract path/to/flight.ulg artifacts/flight.npz \
+uv run glassbox extract path/to/flight.ulg artifacts/flight.npz \
   --rate 50
 ```
 
@@ -30,7 +30,7 @@ PX4 motor function order depends on the airframe configuration. Glassbox derives
 For fixed-wing logs, join the normalized motor and servo allocator topics with:
 
 ```bash
-uv run glassbox ulog extract-fixedwing path/to/plane.ulg \
+uv run glassbox extract --family fixedwing path/to/plane.ulg \
   artifacts/plane.npz --rate 50
 ```
 
@@ -42,7 +42,7 @@ Two independent tolerances gate how much of a flight survives extraction. `--max
 
 PX4's default logging profile publishes actuator topics roughly every 100 ms with ordinary scheduling jitter. Reusing `--max-gap` for the actuator hold-age tolerance treats that normal jitter as a dropout and fragments an otherwise continuous flight into many short segments, keeping only the longest one and silently discarding the rest. Unless you pass `--actuator-hold-max-age` explicitly, Glassbox resolves the hold-age tolerance per log as `max(max_gap_s, 1.5 * median actuator sample period)`, measured from the actuator topic actually used (the motor topic, and for fixed-wing logs the larger of the motor and servo topics). Pass `--actuator-hold-max-age` to pin an explicit value instead, for example to reproduce one fixed tolerance across a corpus recorded at different logging rates.
 
-After extraction, `glassbox ulog extract` and `extract-fixedwing` report how many contiguous valid segments the log produced and what fraction of the armed/in-air span the written segment covers:
+After extraction, `glassbox extract` reports how many contiguous valid segments the log produced and what fraction of the armed/in-air span the written segment covers:
 
 ```
 wrote artifacts/flight.npz: 9000 intervals, 180.020s at 50 Hz
@@ -60,10 +60,10 @@ Every extracted trajectory records `provenance["px4"]["source_rates"]`, a mappin
 With Docker Desktop running, record a PX4 SIH quadrotor takeoff-hover-landing flight and extract both estimated and ground-truth trajectories:
 
 ```bash
-./scripts/record_sitl.sh
+./scripts/record_sitl_profiles.sh --family multirotor artifacts/sitl/baseline baseline
 ```
 
-The script uses the same immutable multi-architecture PX4 SIH image digest as the integration gate and stores generated data under the ignored `artifacts/sitl/` directory. Set `GLASSBOX_PX4_IMAGE` only to make an explicit image comparison. [`logger_topics.txt`](../../config/logging/logger_topics.txt) overrides the dynamics topics to their full publication rates; the default PX4 logging profile is intended for flight review and records some actuator signals too slowly for identification. For SIH, the script extracts the normalized `actuator_outputs_sim` signal consumed by the simulator at 250 Hz.
+The `baseline` profile flies PX4's own takeoff and landing rather than an offboard maneuver table, and fits a model from the ground-truth extraction. The script uses the same immutable multi-architecture PX4 SIH image digest as the integration gate and stores generated data under the ignored `artifacts/sitl/` directory. Set `GLASSBOX_PX4_IMAGE` only to make an explicit image comparison. [`logger_topics.txt`](../../config/logging/logger_topics.txt) overrides the dynamics topics to their full publication rates; the default PX4 logging profile is intended for flight review and records some actuator signals too slowly for identification. For SIH, the script extracts the normalized `actuator_outputs_sim` signal consumed by the simulator at 250 Hz.
 
 The same fitting step can be run on any extracted trajectory:
 

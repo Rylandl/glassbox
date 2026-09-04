@@ -56,10 +56,12 @@ uv run glassbox fit \
 Combine their reports into a same-flight characterization:
 
 ```bash
-uv run glassbox epfl evaluate \
-  --structured-report artifacts/epfl_topoplane/structured_report.json \
-  --residual-report artifacts/epfl_topoplane/residual_report.json \
-  --output artifacts/epfl_topoplane/characterization_report.json
+uv run glassbox evaluate \
+  --fit-reports \
+    structured=artifacts/epfl_topoplane/structured_report.json \
+    structured_residual=artifacts/epfl_topoplane/residual_report.json \
+  --horizons 0.2,0.5,1,2 --score-horizons 0.5,1,2 \
+  --report artifacts/epfl_topoplane/characterization_report.json
 ```
 
 The evaluator scores the chronological final segments against kinematic persistence, records that training and validation share a source flight, and refuses to mark either model as promotable.

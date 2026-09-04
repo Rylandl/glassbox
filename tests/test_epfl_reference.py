@@ -7,7 +7,6 @@ import numpy as np
 import pytest
 
 import glassbox.io.epfl_reference as epfl_module
-from glassbox.cli.epfl import EPFL_CHARACTERIZATION_HORIZONS_S, EPFL_SCORE_HORIZONS_S
 from glassbox.core.data import save_trajectory_npz
 from glassbox.io.epfl_reference import (
     EPFLTopoplaneAdapter,
@@ -181,8 +180,10 @@ def test_characterization_evaluator_preserves_same_flight_limit(tmp_path) -> Non
     report = evaluate_fit_reports(
         {"structured": structured, "structured_residual": residual},
         protocol="windowed",
-        horizons_s=EPFL_CHARACTERIZATION_HORIZONS_S,
-        score_horizons_s=EPFL_SCORE_HORIZONS_S,
+        # TOPOPlane2 samples at 5 Hz, so the campaign's 0.2-second horizon is
+        # one sample and the score is taken over the three longer horizons.
+        horizons_s=(0.2, 0.5, 1.0, 2.0),
+        score_horizons_s=(0.5, 1.0, 2.0),
     )
 
     assert report["selected_model"] == "structured_residual"

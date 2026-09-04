@@ -86,20 +86,22 @@ def test_top_level_help_runs_without_any_optional_extra(
 def test_a_command_needing_a_missing_extra_reports_it_without_a_traceback(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setitem(sys.modules, "glassbox.integrations.px4_nmpc_shadow", None)
+    monkeypatch.setitem(sys.modules, "pymavlink", None)
+    for cached in ("glassbox.cli.sitl_profile", "glassbox.io.sitl_profile"):
+        monkeypatch.delitem(sys.modules, cached, raising=False)
 
     with pytest.raises(SystemExit) as excinfo:
-        cli.main(["px4-nmpc-shadow", "--help"])
+        cli.main(["sitl-profile", "--help"])
 
     message = excinfo.value.code
     assert isinstance(message, str)
-    assert "glassbox px4-nmpc-shadow needs the optional 'px4' extra" in message
+    assert "glassbox sitl-profile needs the optional 'px4' extra" in message
     assert "uv run --extra px4" in message
 
 
 @pytest.mark.parametrize(
     "argv",
-    ([], ["not-a-command"], ["x8"], ["x8", "not-a-command"]),
+    ([], ["not-a-command"], ["corpus"], ["corpus", "not-a-command"]),
     ids=[
         "no-command",
         "unknown-command",

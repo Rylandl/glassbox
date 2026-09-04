@@ -270,13 +270,13 @@ def test_the_link_never_transmits_a_command() -> None:
 def test_interval_records_are_written_one_json_object_per_line(
     tmp_path: Path,
 ) -> None:
-    from glassbox.integrations import px4_nmpc_shadow
+    from glassbox.cli import px4_shadow
 
     model = runtime_model()
     link = px4_shadow_link(StateSource(), model, previous_command=np.full(4, 0.5))
     output = tmp_path / "nested" / "shadow.jsonl"
 
-    with px4_nmpc_shadow._line_writer(output) as write_line:
+    with px4_shadow._line_writer(output) as write_line:
         run_px4_nmpc_shadow(link, Controller(model), steps=3, write_line=write_line)
 
     lines = output.read_text().splitlines()

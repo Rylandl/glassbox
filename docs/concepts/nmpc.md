@@ -303,7 +303,7 @@ GLASSBOX_PX4_NMPC_COMMAND=0.5,0.5,0.5,0.5 \
 For an already-running PX4 instance, the equivalent operator-facing command is:
 
 ```bash
-uv run glassbox px4-nmpc-shadow artifacts/px4/model.json \
+uv run glassbox px4-shadow artifacts/px4/model.json \
   --previous-command 0.5,0.5,0.5,0.5 \
   --output artifacts/px4/nmpc-shadow.jsonl
 ```
@@ -388,7 +388,7 @@ to real actuators.
 ## Reproducing the gate
 
 ```bash
-uv run glassbox nmpc-benchmark \
+uv run glassbox benchmark nmpc \
   --output artifacts/nmpc-acceptance-results.json
 ```
 

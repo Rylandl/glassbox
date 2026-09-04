@@ -80,9 +80,10 @@ uv run glassbox fit \
 When all inputs have profile labels, training first gives every included maneuver family equal total loss weight and then divides each family's weight equally among its replicate flights. Run every holdout fold and write a macro summary with:
 
 ```bash
-uv run glassbox profile-benchmark \
+uv run glassbox evaluate --hold-out profile \
   $(find artifacts/sitl/profile_dataset -name '*_ground_truth.npz' | sort) \
-  --output-dir artifacts/sitl/profile_benchmark
+  --output-dir artifacts/sitl/profile_benchmark \
+  --steps 2500 --learning-rate 0.01
 ```
 
 This leave-one-maneuver-family-out benchmark measures extrapolation to a type of motion absent from training rather than interpolation to another execution of a familiar flight.

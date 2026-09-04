@@ -19,10 +19,6 @@ import pytest
 
 from glassbox.belief.belief import DynamicsBelief
 from glassbox.belief.belief_io import save_dynamics_belief
-from glassbox.cli.epfl import (
-    EPFL_CHARACTERIZATION_HORIZONS_S,
-    EPFL_SCORE_HORIZONS_S,
-)
 from glassbox.core.data import save_trajectory_npz
 from glassbox.core.fixedwing_synthetic import (
     generate_fixed_wing_trajectory,
@@ -335,8 +331,10 @@ def test_windowed_policy_reproduces_the_same_flight_characterization(
     report = evaluate_fit_reports(
         _epfl_fit_reports(tmp_path),
         protocol="windowed",
-        horizons_s=EPFL_CHARACTERIZATION_HORIZONS_S,
-        score_horizons_s=EPFL_SCORE_HORIZONS_S,
+        # TOPOPlane2 samples at 5 Hz, so the campaign's 0.2-second horizon is
+        # one sample and the score is taken over the three longer horizons.
+        horizons_s=(0.2, 0.5, 1.0, 2.0),
+        score_horizons_s=(0.5, 1.0, 2.0),
     )
 
     assert report["protocol"] == "windowed"

@@ -24,61 +24,9 @@ class Command:
 
 TREE: tuple[Command, ...] = (
     Command(
-        name="fit",
-        target="glassbox.cli.fit:main",
-        summary="fit a dynamics belief and report from trajectory NPZ files",
-    ),
-    Command(
-        name="synthetic",
-        target="glassbox.cli.synthetic_demo:main",
-        summary="run the synthetic multirotor parameter-recovery demonstration",
-    ),
-    Command(
-        name="fixedwing-synthetic",
-        target="glassbox.cli.fixedwing:main",
-        summary="generate canonical synthetic fixed-wing trajectories",
-    ),
-    Command(
-        name="profile-benchmark",
-        target="glassbox.workflows.holdout:profile_main",
-        summary="run leave-one-maneuver-profile-out dynamics identification",
-    ),
-    Command(
-        name="source-benchmark",
-        target="glassbox.workflows.holdout:source_group_main",
-        summary="run leave-one-source-group-out dynamics identification",
-    ),
-    Command(
-        name="adaptive-recovery",
-        target="glassbox.workflows.benchmarks.recovery:main",
-        summary="prewarmed synthetic recovery after a configuration change",
-    ),
-    Command(
-        name="nmpc-benchmark",
-        target="glassbox.workflows.benchmarks.nmpc:main",
-        summary="maintained closed-loop NMPC acceptance and timing benchmark",
-    ),
-    Command(
-        name="record-results",
-        target="glassbox.workflows.record_results:main",
-        summary="regenerate the recorded artifacts under docs/results/",
-    ),
-    Command(
-        name="sitl-profile",
-        target="glassbox.io.sitl_profile:main",
-        summary="fly bounded PX4 SITL position/yaw profiles over MAVLink",
-        extra="px4",
-    ),
-    Command(
-        name="fixedwing-sitl-profile",
-        target="glassbox.io.fixedwing_sitl_profile:main",
-        summary="fly bounded PX4 fixed-wing attitude/throttle profiles",
-        extra="px4",
-    ),
-    Command(
-        name="px4-nmpc-shadow",
-        target="glassbox.integrations.px4_nmpc_shadow:main",
-        summary="passive NMPC shadow against live PX4 telemetry; never transmits",
+        name="extract",
+        target="glassbox.cli.extract:main",
+        summary="convert PX4 ULogs to canonical trajectory NPZ files",
         extra="px4",
     ),
     Command(
@@ -88,30 +36,42 @@ TREE: tuple[Command, ...] = (
         subcommands=("list", "fetch", "prepare"),
     ),
     Command(
-        name="ulog",
-        target="glassbox.cli.ulog:main",
-        summary="inspect PX4 ULogs and extract canonical trajectories",
+        name="synthetic",
+        target="glassbox.cli.synthetic:main",
+        summary="generate canonical synthetic trajectories for either family",
+    ),
+    Command(
+        name="fit",
+        target="glassbox.cli.fit:main",
+        summary="fit a dynamics belief and report from trajectory NPZ files",
+    ),
+    Command(
+        name="evaluate",
+        target="glassbox.cli.evaluate:main",
+        summary="score models on held-out flight under one named protocol",
+    ),
+    Command(
+        name="benchmark",
+        target="glassbox.cli.benchmark:main",
+        summary="run one maintained closed-loop or corpus benchmark",
+        subcommands=("nmpc", "recovery", "cascade-x8"),
+    ),
+    Command(
+        name="record-results",
+        target="glassbox.cli.record_results:main",
+        summary="regenerate the recorded artifacts under docs/results/",
+    ),
+    Command(
+        name="sitl-profile",
+        target="glassbox.cli.sitl_profile:main",
+        summary="fly one bounded PX4 SITL maneuver profile over MAVLink",
         extra="px4",
-        subcommands=("inspect", "extract", "extract-fixedwing"),
     ),
     Command(
-        name="nanodrone",
-        target="glassbox.cli.nanodrone:main",
-        summary="evaluate a model on the IDSIA Nano-Quadrotor benchmark",
-        subcommands=("evaluate",),
-    ),
-    Command(
-        name="x8",
-        target="glassbox.cli.x8:main",
-        summary="evaluate models and the Cascade plant on the Skywalker X8 campaign",
-        subcommands=("evaluate", "evaluate-cascade", "diagnose-cascade"),
-    ),
-    Command(
-        name="epfl",
-        target="glassbox.cli.epfl:main",
-        summary="characterize models on the EPFL TOPOPlane2 release",
-        extra="ros",
-        subcommands=("evaluate",),
+        name="px4-shadow",
+        target="glassbox.cli.px4_shadow:main",
+        summary="passive NMPC shadow against live PX4 telemetry; never transmits",
+        extra="px4",
     ),
 )
 

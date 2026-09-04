@@ -31,7 +31,7 @@ test suite exercises them.
 Turn telemetry into canonical trajectories. From a PX4 ULog:
 
 ```bash
-uv run glassbox ulog extract flight.ulg flight.npz --rate 50
+uv run glassbox extract flight.ulg flight.npz --rate 50
 ```
 
 The [PX4 ULog guide](docs/guides/px4-ulog.md) covers fixed-wing logs,
@@ -125,30 +125,21 @@ Every workflow lives behind one console command. `glassbox --help` lists the
 whole tree, and every leaf prints its own flags with `--help`.
 
 ```text
-glassbox fit                     fit a dynamics belief and report from NPZ flights
-glassbox synthetic               synthetic multirotor parameter recovery
-glassbox fixedwing-synthetic     synthetic fixed-wing trajectory generator
-glassbox profile-benchmark       maneuver-family holdout benchmark
-glassbox source-benchmark        source-group holdout benchmark
-glassbox adaptive-recovery       belief adaptation through NMPC recovery
-glassbox nmpc-benchmark          closed-loop NMPC acceptance suite
-glassbox record-results          regenerate the recorded artifacts under docs/results/
-glassbox sitl-profile            record scripted PX4 SITL maneuver profiles     [px4]
-glassbox fixedwing-sitl-profile  the fixed-wing SITL profiles                   [px4]
-glassbox px4-nmpc-shadow         passive NMPC shadow on live PX4; never sends   [px4]
-glassbox ulog                    inspect PX4 ULogs; prepare ARP and IDF-DS      [px4]
-    inspect | extract | extract-fixedwing | prepare-arp | prepare-idf
-glassbox nanodrone               the IDSIA nano-quadrotor corpus
-    inspect | extract | fetch | extract-dataset | prepare | evaluate
-glassbox x8                      the NTNU Skywalker X8 campaign
-    inspect | extract | fetch | extract-dataset | prepare | evaluate
-    evaluate-cascade | diagnose-cascade                                     [cascade]
-glassbox epfl                    the EPFL TOPOPlane2 release                    [ros]
-    inspect | extract | fetch | prepare | evaluate
+glassbox extract      PX4 ULogs to canonical trajectory NPZ files          [px4]
+glassbox corpus       the pinned reference corpora
+    list | fetch | prepare
+glassbox synthetic    synthetic trajectories for either vehicle family
+glassbox fit          fit a dynamics belief and report from NPZ flights
+glassbox evaluate     score models on held-out flight under one protocol
+glassbox benchmark    the maintained closed-loop and corpus benchmarks
+    nmpc | recovery | cascade-x8                        (cascade-x8: [cascade])
+glassbox record-results  regenerate the recorded artifacts under docs/results/
+glassbox sitl-profile    fly one bounded PX4 SITL maneuver profile         [px4]
+glassbox px4-shadow      passive NMPC shadow on live PX4; never sends      [px4]
 ```
 
 A bracketed name is the optional extra a command needs, for example
-`uv run --extra px4 glassbox px4-nmpc-shadow ...`.
+`uv run --extra px4 glassbox px4-shadow ...`.
 
 ## Tests
 

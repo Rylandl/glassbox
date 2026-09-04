@@ -1,4 +1,4 @@
-"""Regenerate the recorded artifacts under ``docs/results/`` from one command.
+"""The manifest of recorded artifacts and the runner that regenerates them.
 
 Recorded results are produced by many different CLI leaves and one bespoke
 assembly step, and the command that regenerates each one lives on whatever
@@ -16,7 +16,6 @@ artifact, update the prose on its page by hand from the new JSON.
 
 from __future__ import annotations
 
-import argparse
 import glob
 import importlib.util
 import json
@@ -32,6 +31,10 @@ import glassbox.cli as cli
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 
 _EXTRA_MODULES = {"cascade": "cascade"}
+
+LOCAL_TIER = "local"
+CORPUS_TIER = "corpus"
+TIERS = (LOCAL_TIER, CORPUS_TIER)
 
 
 class StepFailed(RuntimeError):
@@ -113,7 +116,7 @@ class ArtifactSpec:
     steps: tuple[Step, ...] = ()
     extra: str | None = None
     required_data: tuple[str, ...] = ()
-    duration: str | None = None
+    tier: str = "local"
     doc_page: str = ""
     unavailable_reason: str | None = None
 
@@ -232,12 +235,13 @@ MANIFEST: tuple[ArtifactSpec, ...] = (
         output="docs/results/adaptive-recovery-results.json",
         steps=(
             _cli(
-                "adaptive-recovery",
+                "benchmark",
+                "recovery",
                 "--output",
                 "docs/results/adaptive-recovery-results.json",
             ),
         ),
-        duration="fast",
+        tier="local",
         doc_page="docs/experiments/adaptive-recovery.md",
     ),
     ArtifactSpec(
@@ -245,12 +249,13 @@ MANIFEST: tuple[ArtifactSpec, ...] = (
         output="docs/results/nmpc-acceptance-results.json",
         steps=(
             _cli(
-                "nmpc-benchmark",
+                "benchmark",
+                "nmpc",
                 "--output",
                 "docs/results/nmpc-acceptance-results.json",
             ),
         ),
-        duration="fast",
+        tier="local",
         doc_page="docs/concepts/nmpc.md",
     ),
     ArtifactSpec(
@@ -293,21 +298,24 @@ MANIFEST: tuple[ArtifactSpec, ...] = (
                 "artifacts/x8_reference/residual_report.json",
             ),
             _cli(
-                "x8",
                 "evaluate",
-                "artifacts/x8_reference",
-                "--structured-model",
-                "artifacts/x8_reference/structured_model.json",
-                "--residual-model",
-                "artifacts/x8_reference/residual_model.json",
+                "artifacts/x8_reference/canonical/validation/*.npz",
+                "--protocol",
+                "x8",
+                "--corpus",
+                "x8",
+                "--model",
+                "structured=artifacts/x8_reference/structured_model.json",
+                "--model",
+                "structured_residual=artifacts/x8_reference/residual_model.json",
                 "--report",
                 "artifacts/x8_reference/benchmark_report.json",
             ),
             _cli(
-                "x8",
-                "evaluate-cascade",
+                "benchmark",
+                "cascade-x8",
                 "artifacts/x8_cascade",
-                "--report",
+                "--output",
                 "artifacts/x8_cascade/cascade_report.json",
                 "--reference-report",
                 "artifacts/x8_reference/benchmark_report.json",
@@ -319,12 +327,12 @@ MANIFEST: tuple[ArtifactSpec, ...] = (
                 "0.25,0.5,1",
             ),
             _cli(
-                "x8",
-                "evaluate-cascade",
+                "benchmark",
+                "cascade-x8",
                 "artifacts/x8_cascade",
                 "--aircraft",
                 "skywalker_x8_panels",
-                "--report",
+                "--output",
                 "artifacts/x8_cascade/cascade_panels_report.json",
                 "--reference-report",
                 "artifacts/x8_reference/benchmark_report.json",
@@ -336,9 +344,10 @@ MANIFEST: tuple[ArtifactSpec, ...] = (
                 "0.25,0.5,1",
             ),
             _cli(
-                "x8",
-                "diagnose-cascade",
+                "benchmark",
+                "cascade-x8",
                 "artifacts/x8_cascade",
+                "--diagnose",
                 "--split",
                 "all",
                 "--cg-shift",
@@ -349,13 +358,14 @@ MANIFEST: tuple[ArtifactSpec, ...] = (
                 "1",
                 "--mass",
                 "3.364",
-                "--report",
+                "--output",
                 "artifacts/x8_cascade/diagnostic_cg005_w04_i1.json",
             ),
             _cli(
-                "x8",
-                "diagnose-cascade",
+                "benchmark",
+                "cascade-x8",
                 "artifacts/x8_cascade",
+                "--diagnose",
                 "--split",
                 "all",
                 "--cg-shift",
@@ -366,13 +376,14 @@ MANIFEST: tuple[ArtifactSpec, ...] = (
                 "3.5",
                 "--mass",
                 "3.364",
-                "--report",
+                "--output",
                 "artifacts/x8_cascade/diagnostic_cg005_w04_i3.5.json",
             ),
             _cli(
-                "x8",
-                "diagnose-cascade",
+                "benchmark",
+                "cascade-x8",
                 "artifacts/x8_cascade",
+                "--diagnose",
                 "--aircraft",
                 "skywalker_x8_panels",
                 "--split",
@@ -385,7 +396,7 @@ MANIFEST: tuple[ArtifactSpec, ...] = (
                 "1",
                 "--mass",
                 "3.364",
-                "--report",
+                "--output",
                 "artifacts/x8_cascade/diagnostic_skywalker_x8_panels_cg005_w04.json",
             ),
             PythonStep(
@@ -409,12 +420,13 @@ MANIFEST: tuple[ArtifactSpec, ...] = (
         ),
         extra="cascade",
         required_data=("artifacts/x8_reference/raw",),
-        duration="slow",
+        tier="corpus",
         doc_page="docs/experiments/cascade-x8-validation.md",
     ),
     ArtifactSpec(
         name="multirotor-profile-results",
         output="docs/results/multirotor-profile-results.json",
+        tier="corpus",
         doc_page="docs/experiments/px4-sitl-multirotor.md",
         unavailable_reason=(
             "PX4 SITL multirotor corpus rerun; source ULogs are not checked into "
@@ -452,9 +464,11 @@ def missing_requirements(spec: ArtifactSpec) -> list[str]:
     return problems
 
 
-def _resolve_names(
+def resolve_names(
     manifest: Sequence[ArtifactSpec], names: Sequence[str]
 ) -> list[ArtifactSpec]:
+    """Return the named manifest entries, or say which names are unknown."""
+
     by_name = {spec.name: spec for spec in manifest}
     unknown = [name for name in names if name not in by_name]
     if unknown:
@@ -465,25 +479,24 @@ def _resolve_names(
 def select_artifacts(
     manifest: Sequence[ArtifactSpec],
     *,
-    only: Sequence[str] | None,
-    include_slow: bool,
+    only: Sequence[str] | None = None,
+    tier: str = LOCAL_TIER,
 ) -> list[ArtifactSpec]:
     """Choose which manifest entries a run or dry run would act on.
 
-    ``--only`` selects specific artifacts by name and, being explicit,
-    bypasses the fast/slow duration gate; each selected entry can still be
-    skipped individually for a missing extra or missing local data. Without
-    ``--only``, every regenerable fast artifact is selected, plus the slow
-    ones when ``include_slow`` is set.
+    ``only`` selects specific artifacts by name and, being explicit, bypasses
+    the tier gate; each selected entry can still be skipped individually for a
+    missing extra or missing local data. Otherwise every regenerable artifact
+    in ``tier`` is selected: the ``local`` tier is what runs in this repository
+    with no download, and the ``corpus`` tier is the maintainer job that needs
+    a pinned corpus on disk.
     """
 
     if only:
-        return _resolve_names(manifest, only)
-    return [
-        spec
-        for spec in manifest
-        if spec.regenerable and (include_slow or spec.duration == "fast")
-    ]
+        return resolve_names(manifest, only)
+    if tier not in TIERS:
+        raise ValueError(f"unknown tier {tier!r}; choose one of {', '.join(TIERS)}")
+    return [spec for spec in manifest if spec.regenerable and spec.tier == tier]
 
 
 def run_selected(selected: Sequence[ArtifactSpec]) -> list[tuple[ArtifactSpec, str]]:
@@ -516,111 +529,3 @@ def run_selected(selected: Sequence[ArtifactSpec]) -> list[tuple[ArtifactSpec, s
                 raise SystemExit(1) from error
         results.append((spec, "ok"))
     return results
-
-
-def _status_text(spec: ArtifactSpec) -> str:
-    problems = missing_requirements(spec)
-    if not spec.regenerable:
-        return f"not regenerable: {spec.unavailable_reason}"
-    if problems:
-        return f"blocked: {'; '.join(problems)}"
-    return "regenerable"
-
-
-def _print_manifest(manifest: Sequence[ArtifactSpec]) -> None:
-    name_width = max((len(spec.name) for spec in manifest), default=0)
-    duration_width = max((len(spec.duration or "-") for spec in manifest), default=0)
-    for spec in manifest:
-        print(
-            f"{spec.name:<{name_width}}  "
-            f"{(spec.duration or '-'):<{duration_width}}  "
-            f"{_status_text(spec)}  "
-            f"[{spec.output}]"
-        )
-
-
-def _print_dry_run(selected: Sequence[ArtifactSpec]) -> None:
-    for spec in selected:
-        problems = missing_requirements(spec)
-        print(f"{spec.name} -> {spec.output}")
-        if problems:
-            print(f"  skipped: {'; '.join(problems)}")
-            continue
-        for index, step in enumerate(spec.steps, start=1):
-            print(f"  {index}. {step.describe()}")
-
-
-def _print_summary(results: Sequence[tuple[ArtifactSpec, str]]) -> None:
-    if not results:
-        print("nothing selected")
-        return
-    print()
-    print("summary:")
-    name_width = max(len(spec.name) for spec, _ in results)
-    for spec, status in results:
-        print(f"  {spec.name:<{name_width}}  {status:<8}  {spec.doc_page}")
-    print()
-    print(
-        "Doc prose numbers are hand-written and are not updated by this command. "
-        "For each artifact regenerated above, update the numbers on its listed "
-        "page from the new JSON."
-    )
-
-
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description="Regenerate the recorded artifacts under docs/results/.",
-    )
-    parser.add_argument(
-        "--only",
-        nargs="+",
-        metavar="NAME",
-        help="regenerate only these artifacts by name; overrides the fast-only default",
-    )
-    parser.add_argument(
-        "--include-slow",
-        action="store_true",
-        help="also run slow regenerable artifacts (roughly five minutes or more)",
-    )
-    parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="print the steps that would run, without running them",
-    )
-    parser.add_argument(
-        "--list",
-        action="store_true",
-        help="print the full manifest with status and exit",
-    )
-    return parser
-
-
-def main(argv: Sequence[str] | None = None) -> None:
-    parser = build_parser()
-    args = parser.parse_args(argv)
-
-    if args.list:
-        try:
-            shown = _resolve_names(MANIFEST, args.only) if args.only else MANIFEST
-        except UnknownArtifactNames as error:
-            parser.error(str(error))
-        _print_manifest(shown)
-        return
-
-    try:
-        selected = select_artifacts(
-            MANIFEST, only=args.only, include_slow=args.include_slow
-        )
-    except UnknownArtifactNames as error:
-        parser.error(str(error))
-
-    if args.dry_run:
-        _print_dry_run(selected)
-        return
-
-    results = run_selected(selected)
-    _print_summary(results)
-
-
-if __name__ == "__main__":
-    main()

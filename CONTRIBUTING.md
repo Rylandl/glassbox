@@ -38,7 +38,7 @@ for the two-tier test policy and when to re-record: in short, re-record after
 an intentional behavior change on that artifact's path, not in response to its
 own provenance metadata changing on its own.
 
-`glassbox adaptive-recovery` also records a SHA-256 hash of the source files
+`glassbox benchmark recovery` also records a SHA-256 hash of the source files
 that produced its artifact (`workflows.benchmarks.recovery.BENCHMARK_SOURCE_FILES`).
 That hash is provenance, not a trigger; it is expected to drift between
 recordings and does not by itself require a re-record.

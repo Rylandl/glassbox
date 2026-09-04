@@ -33,13 +33,14 @@ The `fixedwing_v2` profile-only PX4 SIH corpus contains 12 ULogs, 12 ground-trut
 Generate and benchmark the closed-world synthetic smoke corpus:
 
 ```bash
-uv run glassbox fixedwing-synthetic artifacts/fixedwing/synthetic_v1 \
-  --flights 6 --duration 3
-uv run glassbox profile-benchmark artifacts/fixedwing/synthetic_v1/*.npz \
+uv run glassbox synthetic artifacts/fixedwing/synthetic_v1 \
+  --family fixedwing --flights 6 --duration 3
+uv run glassbox evaluate --hold-out profile \
+  artifacts/fixedwing/synthetic_v1/*.npz \
   --output-dir artifacts/fixedwing/profile_benchmark_synthetic_v1 \
   --training-horizons 0.1,0.5,1.0 \
   --evaluation-horizons 0.1,0.5,1.0,2.0 \
-  --steps 600
+  --steps 600 --learning-rate 0.01
 ```
 
 Record the standard PX4 SIH airplane matrix:

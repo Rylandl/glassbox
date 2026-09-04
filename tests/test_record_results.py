@@ -9,9 +9,11 @@ from pathlib import Path
 import pytest
 
 import glassbox.cli as cli
-from glassbox.workflows import record_results
+import glassbox.workflows.record_results as manifest_module
+from glassbox.cli import record_results
 from glassbox.workflows.record_results import (
     MANIFEST,
+    TIERS,
     ArtifactSpec,
     PythonStep,
     StepFailed,
@@ -67,10 +69,10 @@ def test_not_regenerable_entries_carry_a_reason_and_no_steps() -> None:
             assert spec.steps == ()
 
 
-def test_regenerable_entries_declare_a_duration_class() -> None:
+def test_every_entry_declares_a_tier() -> None:
     for spec in MANIFEST:
+        assert spec.tier in TIERS
         if spec.regenerable:
-            assert spec.duration in ("fast", "slow")
             assert spec.steps
 
 
@@ -99,12 +101,13 @@ def test_dry_run_runs_without_any_optional_extra_and_executes_nothing(
     calls: list[list[str]] = []
     monkeypatch.setattr(cli, "main", lambda argv: calls.append(list(argv)))
 
-    record_results.main(["--dry-run", "--include-slow"])
+    record_results.main(["--dry-run"])
 
     assert calls == []
     stdout = capsys.readouterr().out
-    assert "adaptive-recovery-results" in stdout
-    assert "glassbox adaptive-recovery --output" in stdout
+    for spec in MANIFEST:
+        assert spec.name in stdout
+    assert "glassbox benchmark recovery --output" in stdout
 
 
 def test_dry_run_reports_blocked_entries_without_executing(
@@ -133,32 +136,36 @@ def test_only_with_an_unknown_name_exits_with_status_two(
     assert "unknown artifact name(s): not-a-real-artifact" in capsys.readouterr().err
 
 
-def test_select_artifacts_defaults_to_fast_regenerable_only() -> None:
-    selected = select_artifacts(MANIFEST, only=None, include_slow=False)
+def test_select_artifacts_defaults_to_the_local_tier() -> None:
+    selected = select_artifacts(MANIFEST)
 
     assert selected
     assert all(spec.regenerable for spec in selected)
-    assert all(spec.duration == "fast" for spec in selected)
+    assert all(spec.tier == "local" for spec in selected)
     assert "cascade-x8-validation-results" not in {spec.name for spec in selected}
 
 
-def test_select_artifacts_include_slow_adds_slow_entries() -> None:
-    selected = select_artifacts(MANIFEST, only=None, include_slow=True)
+def test_select_artifacts_corpus_tier_selects_the_maintainer_job() -> None:
+    selected = select_artifacts(MANIFEST, tier="corpus")
 
     assert "cascade-x8-validation-results" in {spec.name for spec in selected}
+    assert "adaptive-recovery-results" not in {spec.name for spec in selected}
 
 
-def test_select_artifacts_only_bypasses_the_duration_gate() -> None:
-    selected = select_artifacts(
-        MANIFEST, only=["cascade-x8-validation-results"], include_slow=False
-    )
+def test_select_artifacts_only_bypasses_the_tier_gate() -> None:
+    selected = select_artifacts(MANIFEST, only=["cascade-x8-validation-results"])
 
     assert [spec.name for spec in selected] == ["cascade-x8-validation-results"]
 
 
 def test_select_artifacts_only_unknown_name_raises() -> None:
     with pytest.raises(UnknownArtifactNames):
-        select_artifacts(MANIFEST, only=["nope"], include_slow=False)
+        select_artifacts(MANIFEST, only=["nope"])
+
+
+def test_select_artifacts_rejects_an_unknown_tier() -> None:
+    with pytest.raises(ValueError, match="unknown tier"):
+        select_artifacts(MANIFEST, tier="everything")
 
 
 # ---------------------------------------------------------------------------
@@ -181,14 +188,14 @@ def test_run_selected_calls_steps_in_order_and_stops_on_first_failure() -> None:
         name="fake-first",
         output="docs/results/does-not-exist-first.json",
         steps=(_step("first.a"), _step("first.b", fail=True), _step("first.c")),
-        duration="fast",
+        tier="local",
         doc_page="docs/README.md",
     )
     second_artifact = ArtifactSpec(
         name="fake-second",
         output="docs/results/does-not-exist-second.json",
         steps=(_step("second.a"),),
-        duration="fast",
+        tier="local",
         doc_page="docs/README.md",
     )
 
@@ -210,18 +217,18 @@ def test_run_selected_skips_entries_with_unmet_requirements_and_continues(
         output="docs/results/does-not-exist-blocked.json",
         steps=(PythonStep("unreachable", lambda: calls.append("unreachable")),),
         extra="cascade",
-        duration="fast",
+        tier="local",
         doc_page="docs/README.md",
     )
     runnable = ArtifactSpec(
         name="fake-runnable",
         output="docs/results/does-not-exist-runnable.json",
         steps=(PythonStep("ran", lambda: calls.append("ran")),),
-        duration="fast",
+        tier="local",
         doc_page="docs/README.md",
     )
 
-    monkeypatch.setattr(record_results, "_importable", lambda name: False)
+    monkeypatch.setattr(manifest_module, "_importable", lambda name: False)
     results = run_selected([blocked, runnable])
 
     assert calls == ["ran"]
@@ -236,7 +243,7 @@ def test_missing_requirements_reports_missing_data_path(tmp_path: Path) -> None:
         output="docs/results/does-not-exist.json",
         steps=(),
         required_data=("this/path/does/not/exist",),
-        duration="fast",
+        tier="local",
         doc_page="docs/README.md",
     )
 
@@ -250,7 +257,7 @@ def test_missing_requirements_empty_for_a_fully_available_entry() -> None:
         name="fake-available",
         output="docs/results/adaptive-recovery-results.json",
         steps=(),
-        duration="fast",
+        tier="local",
         doc_page="docs/README.md",
     )
 

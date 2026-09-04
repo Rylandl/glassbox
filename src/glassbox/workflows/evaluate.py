@@ -742,6 +742,102 @@ def evaluate(
     return report
 
 
+def evaluate_models(
+    models: Mapping[str, Any],
+    trajectories: Sequence[Trajectory | str | Path],
+    *,
+    protocol: str = "windowed",
+    horizons_s: Sequence[float] | None = None,
+    independent_holdout: bool = True,
+    expected_spec: Mapping[str, Any] | None = None,
+    benchmark: Mapping[str, Any] | None = None,
+    split: str | None = None,
+    report_path: str | Path | None = None,
+) -> dict[str, Any]:
+    """Score several named models on one held-out set under one policy.
+
+    Every model is scored by :func:`evaluate` against the same flights and the
+    same baseline, so the models can be compared to the baseline and to each
+    other: ``comparisons`` holds the ordered pair scores. ``expected_spec``, if
+    given, is the trajectory spec every model must declare, which is how a
+    model fitted to a different vehicle is caught before it is scored.
+    """
+
+    policy = policy_for(protocol)
+    if not models:
+        raise ValueError("at least one named model is required")
+    labels, resolved = _resolve_trajectories(trajectories)
+    scored_models: dict[str, Any] = {}
+    baseline: dict[str, Any] | None = None
+    for name, model in models.items():
+        scored = evaluate(
+            model,
+            resolved,
+            protocol=protocol,
+            horizons_s=horizons_s,
+            independent_holdout=independent_holdout,
+        )
+        artifact = scored.get("model_artifact")
+        if expected_spec is not None and artifact is not None:
+            if artifact["input_spec"] != dict(expected_spec):
+                raise ValueError(f"model input spec does not match the corpus: {model}")
+        baseline = scored["baseline_metrics"]
+        scored_models[name] = {
+            "path": None if artifact is None else artifact["path"],
+            "model_type": None if artifact is None else artifact["model_type"],
+            "aggregate": scored["model"],
+            "per_trajectory": scored["per_trajectory"],
+            f"score_vs_{policy.baseline}": scored["score_vs_baseline"],
+            "score_horizons_s": scored["scoring"]["horizons_s"],
+        }
+
+    report: dict[str, Any] = {
+        "format_version": 1,
+        "protocol": policy.name,
+        "baseline": policy.baseline,
+        "stride": policy.stride,
+        "independent_holdout": independent_holdout,
+        "can_promote_model": independent_holdout,
+        "dataset": {
+            "validation_trajectory_count": len(resolved),
+            "validation_duration_s": float(
+                sum(trajectory.time_s[-1] for trajectory in resolved)
+            ),
+            "trajectory_spec": (
+                resolved[0].spec.to_dict()
+                if expected_spec is None
+                else dict(expected_spec)
+            ),
+            "trajectories": list(labels),
+        },
+        policy.baseline: baseline,
+        "models": scored_models,
+        "comparisons": {
+            f"{candidate}_vs_{reference}": {
+                "ratio_definition": (
+                    "candidate/reference geometric mean over four state metrics "
+                    "and every horizon; values below one favor the candidate"
+                ),
+                "score": score_against_baseline(
+                    scored_models[candidate]["aggregate"]["horizon_rollouts"],
+                    scored_models[reference]["aggregate"]["horizon_rollouts"],
+                    protocol=protocol,
+                ),
+            }
+            for candidate in scored_models
+            for reference in scored_models
+            if candidate != reference
+        },
+    }
+    if benchmark is not None:
+        report["benchmark"] = dict(benchmark)
+    if split is not None:
+        report["split"] = split
+    if report_path is not None:
+        save_report(report, report_path)
+    return report
+
+
 def evaluate_fit_reports(
     fit_reports: Mapping[str, str | Path],
     *,

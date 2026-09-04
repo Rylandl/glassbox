@@ -63,20 +63,22 @@ timings; commit whatever the command wrote.
 uv run glassbox record-results --list
 ```
 
-lists every artifact under `docs/results/`: whether it can be regenerated in
-this repository, what optional extra and local data it needs, and its
-duration class (fast, under about five minutes, or slow).
+lists every artifact under `docs/results/`: its tier, whether it can be
+regenerated in this repository, and what optional extra and local data it
+needs.
 
 ```bash
 uv run glassbox record-results
 ```
 
-regenerates every fast, regenerable artifact whose requirements are met, and
-prints a reason for each one it skips. Add `--include-slow` to also run the
-slow ones. `--only NAME [NAME ...]` regenerates specific artifacts by name
-and, being an explicit request, runs even a slow one without
-`--include-slow`. `--dry-run` prints the exact steps a run would take,
-without running them.
+regenerates every artifact in the local tier whose requirements are met, and
+prints a reason for each one it skips. The local tier is what runs in this
+repository with nothing downloaded, and is what continuous integration runs;
+`--tier corpus` is the maintainer job that needs a pinned corpus on disk.
+`--only NAME [NAME ...]` regenerates specific artifacts by name and, being an
+explicit request, ignores the tier gate. `--dry-run` prints the exact steps a
+run would take, without running them; with neither `--only` nor `--tier` it
+prints the plan for every artifact in the manifest.
 
 Every step is one `glassbox` subcommand, run in-process, exactly as
 documented on the artifact's own experiment or concept page; the Cascade X8

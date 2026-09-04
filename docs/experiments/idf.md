@@ -35,7 +35,7 @@ uv run glassbox corpus prepare idf artifacts/idf_reference
 Measure generalization across recording sessions with the opinionated leave-one-source-group-out benchmark:
 
 ```bash
-uv run glassbox source-benchmark \
+uv run glassbox evaluate --hold-out source_group \
   artifacts/idf_reference/canonical/*.npz \
   --output-dir artifacts/idf_reference/source_benchmark_structured
 ```
@@ -45,7 +45,7 @@ Every dropout-separated segment from the held-out ULog moves into the same fold.
 Use `--model-class structured_residual` with a separate output directory to compare the generic residual under exactly the same folds:
 
 ```bash
-uv run glassbox source-benchmark \
+uv run glassbox evaluate --hold-out source_group \
   artifacts/idf_reference/canonical/*.npz \
   --model-class structured_residual \
   --output-dir artifacts/idf_reference/source_benchmark_structured_residual

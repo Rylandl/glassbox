@@ -11,11 +11,8 @@ the vehicle: the link is not writable, so the loop never calls its writer.
 
 from __future__ import annotations
 
-import argparse
-import contextlib
 import json
-from collections.abc import Callable, Iterator, Sequence
-from pathlib import Path
+from collections.abc import Callable
 
 import numpy as np
 
@@ -31,16 +28,6 @@ from glassbox.integrations.loop import (
 from glassbox.integrations.px4 import PX4MavlinkLink, PX4MavlinkStateSource
 
 _MAXIMUM_APPLIED_COMMAND_STATE_SKEW_S = 0.10
-
-
-def _command(value: str, *, expected_size: int) -> np.ndarray:
-    try:
-        command = np.asarray([float(item) for item in value.split(",")])
-    except ValueError as error:
-        raise ValueError("previous command must be comma-separated numbers") from error
-    if command.shape != (expected_size,) or not np.all(np.isfinite(command)):
-        raise ValueError(f"previous command must contain {expected_size} finite values")
-    return command
 
 
 def px4_shadow_link(
@@ -95,69 +82,3 @@ def run_px4_nmpc_shadow(
         reference=reference,
         on_sample=None if write_line is None else on_sample,
     )
-
-
-@contextlib.contextmanager
-def _line_writer(output: Path | None) -> Iterator[Callable[[str], None]]:
-    """Write interval lines to ``output``, or to standard output without one."""
-
-    if output is None:
-        yield print
-        return
-    output.parent.mkdir(parents=True, exist_ok=True)
-    with output.open("w") as handle:
-
-        def write_line(line: str) -> None:
-            handle.write(line + "\n")
-
-        yield write_line
-
-
-def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description=(
-            "Run a fitted Glassbox model against passive PX4 MAVLink telemetry. "
-            "No command messages are transmitted."
-        )
-    )
-    parser.add_argument("model", type=Path)
-    parser.add_argument(
-        "--previous-command",
-        required=True,
-        help="comma-separated command currently applied to the vehicle",
-    )
-    parser.add_argument(
-        "--connection",
-        default="udpin:0.0.0.0:14550",
-        help="passive pymavlink connection string",
-    )
-    parser.add_argument("--samples", type=int, default=10)
-    parser.add_argument(
-        "--output",
-        type=Path,
-        help="file to write one JSON interval record per line to",
-    )
-    return parser
-
-
-def main(argv: Sequence[str] | None = None) -> None:
-    args = _parser().parse_args(argv)
-    model = ExecutableModel.load(args.model)
-    previous_command = _command(args.previous_command, expected_size=model.command_size)
-    controller = NMPCController(model)
-    with PX4MavlinkStateSource.connect(args.connection) as state_source:
-        link = px4_shadow_link(state_source, model, previous_command=previous_command)
-        with _line_writer(args.output) as write_line:
-            summary = run_px4_nmpc_shadow(
-                link,
-                controller,
-                steps=args.samples,
-                write_line=write_line,
-            )
-    print(json.dumps(summary.to_dict(), indent=2, sort_keys=True, allow_nan=False))
-    if args.output is not None:
-        print(f"wrote {args.output}")
-
-
-if __name__ == "__main__":
-    main()

@@ -6,6 +6,44 @@ All notable changes to Glassbox are recorded here. The format follows
 ## Unreleased
 
 ### Added
+- The `glassbox` command tree is nine commands: `extract`, `corpus`,
+  `synthetic`, `fit`, `evaluate`, `benchmark`, `record-results`,
+  `sitl-profile` and `px4-shadow`. Each has one summary line in
+  `glassbox --help` and its full contract in its own `--help`, and `cli/` is
+  one module per command plus the static tree.
+- `glassbox extract LOG... OUT [--family multirotor|fixedwing] [--inspect]`
+  replaces `ulog inspect`, `ulog extract` and `ulog extract-fixedwing`. One
+  log writes one NPZ; several logs write `OUT/<log stem>_<state source>.npz`
+  each, which is what `scripts/extract_ulog_dataset.sh` looped to do.
+  `--inspect` prints what `ulog inspect` printed.
+- `glassbox evaluate` replaces `nanodrone evaluate`, `x8 evaluate`,
+  `epfl evaluate`, `profile-benchmark` and `source-benchmark`. It scores one
+  model (`MODEL NPZ...`), several named models (`--model NAME=PATH`, repeated),
+  a leave-one-label-out sweep (`--hold-out KEY`), or models one fit already
+  measured (`--fit-reports`). `--corpus NAME` checks the flights against that
+  corpus's published evaluation split and records its citation.
+- `glassbox.workflows.evaluate.evaluate_models(models, trajectories, ...)`
+  scores several named models on one held-out set under one policy and reports
+  every ordered pair's comparison. The X8 multi-model report assembled in
+  `cli/x8.py` is this function, so the cascade benchmark and the manifest keep
+  reading `models[name]["aggregate"]` and `score_vs_kinematic_persistence`.
+- `glassbox benchmark nmpc | recovery | cascade-x8 [--diagnose]` replaces
+  `nmpc-benchmark`, `adaptive-recovery`, `x8 evaluate-cascade` and
+  `x8 diagnose-cascade`.
+- `glassbox synthetic OUT --family multirotor|fixedwing` replaces
+  `fixedwing-synthetic` and writes both families' synthetic corpora.
+- `glassbox record-results --tier local|corpus` replaces `--include-slow`.
+  The local tier is what runs in this repository with nothing downloaded; the
+  corpus tier is the maintainer job that needs a pinned corpus on disk. A
+  `--dry-run` with neither `--only` nor `--tier` prints the plan for every
+  artifact in the manifest.
+- `glassbox sitl-profile PROFILE --family multirotor|fixedwing` replaces
+  `sitl-profile` and `fixedwing-sitl-profile`, and
+  `scripts/record_sitl_profiles.sh --family` replaces the two recorder
+  scripts. Its `baseline` profile is the old `scripts/record_sitl.sh`: PX4's
+  own takeoff and landing, extracted at 250 Hz from `actuator_outputs_sim`
+  and fitted.
+- `glassbox px4-shadow` is `px4-nmpc-shadow` renamed.
 - `glassbox.io.corpus` is one registry of the pinned reference corpora.
   `ReferenceCorpus(name, citation, files, adapter, extra, protocol, ...)`
   carries a `Citation(doi_or_url, license, pinned_version)`, a table of
@@ -169,6 +207,22 @@ All notable changes to Glassbox are recorded here. The format follows
   from a controller.
 
 ### Changed
+- `io/sitl_profile.py` is one recorder for both families: two target types,
+  two profile tables, two condition tables and one streaming loop.
+  `io/fixedwing_sitl_profile.py` is gone, and `PROFILES` and `CONDITIONS` are
+  keyed by family because both families declare a `combined` profile.
+- The leave-one-label-out runner has one set of defaults, `--steps 400` and
+  `--learning-rate 0.02`, instead of one pair per leaf. The two documented
+  invocations that relied on the old profile defaults now pass their values
+  explicitly, so the command in the docs is the command that produced the
+  numbers beside it.
+- `glassbox extract --actuator-topic` and `--actuator-field` name the motor
+  topic for both families; the fixed-wing `--motor-topic` and `--motor-field`
+  spellings are gone, and `--servo-topic` and `--servo-field` are unchanged.
+- The argparse front ends of the recorded-results manifest, the SITL recorder
+  and the PX4 shadow moved into `glassbox.cli`; `workflows.record_results`,
+  `io.sitl_profile` and `integrations.px4_nmpc_shadow` keep the work and no
+  longer parse arguments.
 - The reference-corpus adapters keep their parsing and lose their plumbing.
   Each one now declares its immutable file table as `PINNED_FILES` and the
   registry owns the download-and-convert loop: `fetch_nanodrone_benchmark`,
@@ -544,6 +598,22 @@ All notable changes to Glassbox are recorded here. The format follows
   learned. No flag was removed.
 
 ### Removed
+- The synthetic parameter-recovery demonstration behind `glassbox synthetic`,
+  which fitted a model on generated flights and printed the loss reduction. It
+  was a demonstration with no artifact and no test; `glassbox synthetic` now
+  writes the corpus and `glassbox fit` fits it. Last commit carrying it:
+  `e17c88c`.
+- `scripts/extract_ulog_dataset.sh`, `scripts/record_sitl.sh` and
+  `scripts/record_fixedwing_sitl_profiles.sh`. The first is
+  `glassbox extract LOG... OUTDIR`, and the other two are
+  `scripts/record_sitl_profiles.sh --family` and its `baseline` profile. Last
+  commit carrying them: `e17c88c`.
+- The EPFL characterization report's `evaluation`, `split`, `interpretation`
+  and `limitations` keys, which were prose the command pasted into JSON. The
+  EPFL page carries that interpretation. Last commit carrying them: `e17c88c`.
+- The Nano-drone benchmark report's `benchmark` and `test_artifacts` keys, in
+  favour of the `corpus` block `--corpus NAME` records for any corpus. Last
+  commit carrying them: `e17c88c`.
 - `--skip-checksum` on every corpus command. A pinned corpus that does not
   verify is a different corpus, and a number measured on it is not comparable
   to the published one, so verification is not optional on the command line.
