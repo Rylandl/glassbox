@@ -229,7 +229,16 @@ class ArtifactSpec:
 
     tolerance: tuple[float, float] = DEFAULT_TOLERANCE
     awaiting_first_record: str | None = None
-    """Set while this entry's first recorded run has not been committed yet."""
+    """Why this entry's artifact is declared but not committed yet.
+
+    A corpus entry is written before its first recording exists: the chain and
+    the contract are reviewable in an afternoon, and the run that produces the
+    artifact is a maintainer job measured in hours. Set while that gap is open,
+    so ``--check`` reports the entry as not yet recorded instead of failing on
+    a missing file, and the coverage test compares ``docs/results/`` against
+    the entries that claim to be in it. Every entry is recorded today; the
+    field is what the next corpus artifact will be added under.
+    """
 
     @property
     def recorded(self) -> bool:
@@ -683,8 +692,6 @@ def _corpus_validation(
     )
 
 
-_PENDING_CORPUS_RECORD = "awaiting the maintainer's first corpus run"
-
 RECORDING = RecordingPlan()
 """The default plan: the corpora under ``artifacts``, the artifacts committed."""
 
@@ -792,7 +799,6 @@ def build_manifest(plan: RecordingPlan = RECORDING) -> tuple[ArtifactSpec, ...]:
                 f"{plan.steps()} {plan.folds()}"
             ),
             evaluation_report="source_benchmark_structured_residual/summary.json",
-            awaiting_first_record=_PENDING_CORPUS_RECORD,
         ),
         _corpus_validation(
             plan,

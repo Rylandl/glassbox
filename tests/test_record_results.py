@@ -23,6 +23,7 @@ from glassbox.workflows.record_results import (
     assemble_cascade_x8_validation_report,
     assemble_corpus_validation_report,
     build_manifest,
+    check_selected,
     matches_path,
     missing_requirements,
     recorded_differences,
@@ -63,14 +64,18 @@ def test_every_recorded_entrys_output_exists() -> None:
             assert (_REPO_ROOT / spec.output).exists(), spec.name
 
 
-def test_pending_entries_are_corpus_tier_and_not_yet_on_disk() -> None:
-    pending = [spec for spec in MANIFEST if not spec.recorded]
+def test_every_manifest_entry_is_recorded() -> None:
+    """Phase 3's job was to leave nothing declared but unrecorded.
 
-    assert pending, "the corpus validation entries are still awaiting their run"
-    for spec in pending:
-        assert spec.tier == "corpus", spec.name
-        assert spec.awaiting_first_record
-        assert not (_REPO_ROOT / spec.output).exists(), spec.name
+    Every claim in the documentation is now backed by an artifact that one
+    command produced and that is committed beside it. An entry awaiting its
+    first recording is a legitimate transient state, tested below on a spec of
+    its own, but it is not a state the manifest is allowed to rest in.
+    """
+
+    unrecorded = [spec.name for spec in MANIFEST if not spec.recorded]
+
+    assert not unrecorded, f"declared but never recorded: {', '.join(unrecorded)}"
 
 
 def test_every_manifest_entry_names_a_doc_page_and_its_section() -> None:
@@ -649,3 +654,54 @@ def test_a_recorded_corpus_validation_artifact_satisfies_the_contract() -> None:
         assert document["smoke"] is False, spec.name
         assert document["corpus"]["files"], spec.name
         assert document["fit"], spec.name
+
+
+# ---------------------------------------------------------------------------
+# The one transient state an entry can be in: declared, not yet recorded. No
+# entry is in it today, so its behavior is pinned on a spec written here.
+
+
+def _pending_spec() -> ArtifactSpec:
+    return ArtifactSpec(
+        name="fake-pending",
+        output="docs/results/not-recorded-yet.json",
+        steps=(PythonStep("unreachable", lambda: None),),
+        inputs=("corpus fake",),
+        tier="corpus",
+        doc_page="docs/validation.md",
+        awaiting_first_record="the maintainer job has not run yet",
+    )
+
+
+def test_a_pending_entry_is_not_recorded() -> None:
+    assert not _pending_spec().recorded
+    assert all(spec.recorded for spec in MANIFEST)
+
+
+def test_check_skips_a_pending_entry_instead_of_failing_on_a_missing_file(
+    tmp_path: Path,
+) -> None:
+    """A declared entry with no committed artifact is not a check failure.
+
+    Comparing against a file that was never recorded would report a difference
+    that says nothing about the code, so the check names the entry and moves
+    on. The reason it prints is the entry's own.
+    """
+
+    results = check_selected([_pending_spec()], tmp_path)
+
+    assert [item.status for item in results] == [
+        "skipped: the maintainer job has not run yet"
+    ]
+    assert not results[0].differences
+
+
+def test_list_reports_a_pending_entry_as_pending(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(record_results, "MANIFEST", (_pending_spec(),))
+
+    record_results.main(["--list"])
+
+    stdout = capsys.readouterr().out
+    assert "pending: the maintainer job has not run yet" in stdout
