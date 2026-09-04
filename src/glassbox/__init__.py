@@ -47,7 +47,6 @@ from glassbox.control.nmpc import (
     SafetyEnvelope,
     SolverPolicy,
     SolveStatus,
-    SupportFilterMode,
     TrackingTolerances,
 )
 from glassbox.core.adapter import TrajectoryAdapter
@@ -145,7 +144,6 @@ __all__ = [
     "SafetyEnvelope",
     "SolveStatus",
     "SolverPolicy",
-    "SupportFilterMode",
     "TrackingTolerances",
     "Trajectory",
     "TrajectoryAdapter",

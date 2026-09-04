@@ -183,17 +183,6 @@ class SolveStatus(StrEnum):
     DEADLINE_EXCEEDED = "deadline_exceeded"
 
 
-class SupportFilterMode(StrEnum):
-    """How the returned command relates to the learned validity envelope."""
-
-    NOMINAL_SAFE = "nominal_safe"
-    BOUNDARY_FILTERED = "boundary_filtered"
-    BOUNDARY_BEST_EFFORT = "boundary_best_effort"
-    RECOVERY_FILTERED = "recovery_filtered"
-    RECOVERY_BEST_EFFORT = "recovery_best_effort"
-    SOLVER_FALLBACK = "solver_fallback"
-
-
 @dataclass(frozen=True)
 class NMPCWarmStart:
     """Opaque receding-horizon seed returned by a previous solve."""
@@ -209,40 +198,26 @@ class NMPCWarmStart:
 
 @dataclass(frozen=True)
 class NMPCDiagnostics:
-    """Auditable numerical and constraint diagnostics from one solve."""
+    """Auditable numerical and constraint diagnostics from one solve.
+
+    Every field is a measurement of the plan that was returned. The objective
+    values and the bound-projected gradient norm describe the optimization,
+    the three maxima describe the predicted horizon, and the last two describe
+    the horizon the plan covers.
+    """
 
     iterations: int
     solve_time_s: float
     initial_objective: float
     final_objective: float
-    final_gradient_inf_norm: float
     final_projected_gradient_inf_norm: float
     maximum_command_bound_violation: float
     maximum_validity_utilization: float
     maximum_normalized_safety_violation: float
     maximum_normalized_model_uncertainty_standard_deviation: float
-    command_authority_fraction: float
-    uncertainty_aware_command_selection: bool
-    model_uncertainty_available: bool
-    prediction_error_model_available: bool
-    prediction_error_model_current: bool
-    prediction_error_horizon_supported: bool
-    parameter_uncertainty_available: bool
     warm_start_used: bool
     prediction_horizon_s: float
     prediction_horizon_certified: bool
-    support_filter_mode: SupportFilterMode
-    support_filter_applied: bool
-    support_command_fraction: float
-    current_validity_utilization: float
-    next_step_mean_validity_utilization: float
-    next_step_robust_validity_utilization: float
-    current_angular_rate_energy: float
-    next_step_angular_rate_energy: float
-    support_horizon_s: float
-    support_horizon_maximum_robust_validity_utilization: float
-    support_horizon_terminal_robust_validity_utilization: float
-    support_horizon_terminal_angular_rate_energy: float
 
 
 @dataclass(frozen=True)

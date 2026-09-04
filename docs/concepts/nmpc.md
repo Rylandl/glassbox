@@ -70,10 +70,9 @@ controller's actionable command coordinates. Advanced estimators can instead
 provide the complete `latent_state`; passing both is rejected. If neither is
 available, the controller initializes lag state from `previous_command`.
 
-The first cold solve compiles both nominal and support-filter paths; the first
-warm-started solve compiles the receding-horizon path. Run both and discard
-their commands before entering a timed control loop. Compilation must never
-happen after arming.
+The first cold solve compiles the solve path; the first warm-started solve
+compiles the receding-horizon path. Run both and discard their commands before
+entering a timed control loop. Compilation must never happen after arming.
 
 ## Eligible models and airframes
 
@@ -109,12 +108,7 @@ components are never subtracted as a tracking metric. Errors are divided by
 physical tolerances before aggregation.
 
 Command limits are hard: every direct-shooting iterate is projected into the
-typed channel bounds. After nominal optimization, Glassbox evaluates total
-forecast spread in the same normalized tracking coordinates. If its maximum
-standard deviation exceeds one declared tracking tolerance, the optimized
-change from the previous command is scaled by the reciprocal spread. The
-diagnostic `command_authority_fraction` records the result. This is a maintained
-bounded-authority policy, not an uncertainty calibration claim.
+typed channel bounds.
 
 Command change, full-horizon model-validity excess, and `SafetyEnvelope` state
 limits remain dimensionless soft penalties. `SafetyEnvelope` currently supports
@@ -122,25 +116,30 @@ minimum/maximum world position, maximum world speed, and maximum body angular
 speed. These mission limits are preferences, not invariant-set or collision
 guarantees.
 
-The command returned for the next interval has a separate belief-support
-projection. It derives an actuator-reaction horizon from twice the model's
-slowest learned actuator time constant, bounded to 0.1--0.3 seconds and never
-longer than the NMPC horizon. The optimized sequence is evaluated first. If it
-is unsupported,
-Glassbox evaluates maintained blends between the optimized NMPC command and the
-previous bounded command. This path uses only the typed dynamics belief and the
-NMPC solution; it contains no motor mixer, control-surface law, family-specific
-recovery policy, or independently operating controller.
+### The two robustness terms
 
-Inside the learned envelope, a candidate is accepted only when its predicted
-body velocity and angular rate stay within support over that reaction horizon.
-The margin adds one componentwise standard deviation from the current dynamics
-belief; a point model contributes no invented spread. Outside support, the
-terminal robust utilization and normalized angular-rate energy must both
-decrease. If no maintained candidate satisfies the relevant condition, the
-least-bad bounded command is returned with an explicit `boundary_best_effort`
-or `recovery_best_effort` mode. The full NMPC prediction can still leave support:
-this receding projection is not a robust invariant-set proof.
+Nothing edits the command after optimization. What the belief knows about its
+own error is charged inside the objective, in two places, with no configuration
+of its own.
+
+The tracking cost is an expectation rather than a point evaluation. At every
+predicted stage it charges `l(mean) + trace(W Sigma)`, where `W` is the
+diagonal tracking weight the objective already builds from the declared
+tolerances and `Sigma` is the predicted tangent covariance: the belief's
+forecast-error covariance at that horizon plus, where the evidence scopes it
+separately, the parameter covariance carried through the plan. A plan that
+drives the vehicle into a region the belief forecasts poorly therefore costs
+more than the same tracking error in a region it forecasts well.
+
+The model-validity term charges the robust utilization instead of the mean
+utilization. The tangent covariance is mapped onto the six envelope features,
+body velocity and body rates, and each feature's marginal standard deviation is
+added to its mean utilization before the excess over one is squared.
+
+Both terms are exactly zero for a belief that carries no covariance, so a point
+model is scored by the point objective it was always scored by. Neither is a
+calibration claim, an invariant-set proof, or a hard constraint: the full
+prediction can still leave support, and the result records how far it did.
 
 Important result fields are:
 
@@ -148,16 +147,11 @@ Important result fields are:
   failure;
 - `command_usable`: whether the command comes from a finite optimized plan;
 - `predicted_states`, `predicted_latent_states`, and `predicted_commands`;
-- initial/final objective, iteration count, raw and bound-projected gradient
-  infinity norms, and solve time;
-- maximum command-bound violation, model-validity utilization, and normalized
-  safety-limit violation;
-- total normalized model uncertainty, the uncertainty-aware command-authority
-  fraction, plus separate predictive-error availability, error-evidence
-  currency, horizon support, and parameter-uncertainty flags;
-- support-filter mode and intervention, current/next-step robust utilization,
-  reaction-horizon maximum and terminal utilization, rate energy, retained
-  nominal-command fraction; and
+- initial and final objective, iteration count, the bound-projected gradient
+  infinity norm, and solve time;
+- maximum command-bound violation, model-validity utilization, normalized
+  safety-limit violation, and normalized model-uncertainty standard deviation;
+- the prediction horizon and whether it is within a certified horizon; and
 - an opaque `warm_start` for the next receding-horizon solve.
 
 `converged` is reserved for the first-order criterion. That criterion tests the
@@ -165,8 +159,8 @@ bound-projected gradient, `blocks - clip(blocks - gradient)`, against the
 maintained tolerance rather than the raw gradient, because a raw gradient
 component pointing outward at an active command bound never shrinks however
 optimal the iterate is. The projected residual is reported as
-`final_projected_gradient_inf_norm` next to the raw
-`final_gradient_inf_norm`, so the status can be audited from the result.
+`final_projected_gradient_inf_norm`, so the status can be audited from the
+result.
 
 Two outcomes report a finite bounded best plan without claiming convergence.
 An iteration-limit result exhausted the maintained iteration budget. A
@@ -288,9 +282,8 @@ The shadow runner executes cold and warm-up controller solves before sampling,
 holds the current state as the regulation reference, and applies the artifact's
 sample period as the deadline for every measured solve. It records solver
 status, fallback rate, model-period deadline misses, message skew, estimated
-source-clock lag and real-time ratio, current and predicted validity, and
-command bounds. It also records support-filter modes, interventions, and
-reaction-horizon robustness. Returned commands are written
+source-clock lag and real-time ratio, current and predicted validity, command
+bounds, and predicted model-uncertainty spread. Returned commands are written
 only to the report. The previous command remains the measured/applied command
 because the shadow command is not being actuated.
 
@@ -449,13 +442,14 @@ plan unshifted. The shifted seed is used only when its objective is no worse
 than the controller's cold-start policy.
 
 For a dynamics belief, the default prediction horizon cannot exceed maintained
-predictive-error evidence. After direct-shooting optimization, total forecast
-standard deviation is normalized by the declared tracking tolerances. Spread
-above one tolerance proportionally bounds the optimized change from the
-previous command. This small discrete safety coupling avoids differentiating
-through covariance Jacobians inside every solver iteration and remains visible
-as `command_authority_fraction`. Glassbox deliberately does not embed a second
-airframe-specific controller behind this NMPC path.
+predictive-error evidence. Predicted spread is charged inside the objective, as
+described under [the two robustness terms](#the-two-robustness-terms), so it
+shapes the plan the optimizer converges to rather than editing the plan
+afterwards. The parameter contribution is carried through one forward-mode
+rollout per resolved parameter direction, which is why a belief whose evidence
+resolved a single direction costs one extra rollout rather than a full Jacobian.
+Glassbox deliberately does not embed a second airframe-specific controller
+behind this NMPC path.
 
 Rigid-body error has 12 local coordinates: position, velocity, the shortest
 quaternion log-map rotation vector, and angular velocity. Quaternion component

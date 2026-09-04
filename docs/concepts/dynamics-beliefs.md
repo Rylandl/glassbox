@@ -318,23 +318,20 @@ belief:
 - typed validity support; and
 - no training data or optimizer state.
 
-NMPC first optimizes the predictive mean, then bounds how far the command plan
-may move from the previous command when forecast spread exceeds one of the same
-physical tracking tolerances used by its objective. The normal horizon is
-capped at the maintained predictive-error evidence. Its
-diagnostics separately state whether empirical predictive error and parameter
-uncertainty are available, whether error evidence is current, whether the
-requested error horizon is supported, and the selected command-authority
-fraction.
+NMPC optimizes the expected cost of its own forecast rather than the cost of
+the predictive mean alone. Predicted tangent spread is charged in the tracking
+cost against the same physical tracking tolerances the objective already uses,
+and the model-validity term is widened by the marginal standard deviation of
+the six envelope features, so a belief that knows less plans nearer to ground
+it has evidence for. The normal horizon is capped at the maintained
+predictive-error evidence, and the diagnostics record the largest normalized
+spread the returned plan carries.
 
-The returned next command then passes through a belief-aware support projection.
-It tests the optimized sequence over a bounded actuator-reaction horizon and,
-when needed, searches maintained blends between that NMPC command and the
-previous bounded command. The mechanism is vehicle-agnostic and cannot generate
-a command from a separate attitude, rate, mixer, or airframe-specific control
-law. Optimizer failure stays explicit and returns only a bounded hold with
-`command_usable=False`; it does not silently transfer authority to another
-controller.
+Nothing edits the command after optimization. The mechanism is vehicle-agnostic
+and cannot generate a command from a separate attitude, rate, mixer, or
+airframe-specific control law. Optimizer failure stays explicit and returns only
+a bounded hold with `command_usable=False`; it does not silently transfer
+authority to another controller.
 
 The complete NMPC horizon and mission state limits are still soft; CVaR,
 worst-scenario objectives, or invariant-set methods can evolve through the same

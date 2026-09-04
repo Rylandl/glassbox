@@ -25,8 +25,8 @@ from glassbox.control.nmpc import (
     NMPCWarmStart,
     SafetyEnvelope,
     SolveStatus,
-    SupportFilterMode,
     quaternion_log_error,
+    rigid_body_local_error,
 )
 from glassbox.control.nmpc.solver import (
     SolverPolicy,
@@ -44,7 +44,6 @@ from glassbox.core.data import (
     VehicleConfigurationSpec,
 )
 from glassbox.core.dynamics import (
-    MOTOR_MIXER,
     fixed_wing_trim_control,
     hover_control,
     initial_residual_parameters,
@@ -213,9 +212,7 @@ def _scripted_perf_counter(readings: tuple[float, ...]) -> Callable[[], float]:
 # milliseconds, and the compiled kernels live on the instance rather than on
 # the class.  One controller per distinct (model or belief, policy, tolerance,
 # envelope) combination is therefore shared across every test that only reads
-# solve results.  Nothing here is mutated by a solve except the compile-warming
-# flag ``_support_batch_warmed``, so the one test that asserts on that flag
-# keeps building its own controller.
+# solve results.  A solve mutates nothing on the controller.
 
 
 @pytest.fixture(scope="module")
@@ -369,11 +366,10 @@ def test_solver_policy_rejects_a_layout_with_dead_command_blocks() -> None:
 
 def test_solver_propagates_latent_state_and_returns_bounded_plan(
     multirotor_model: ExecutableModel,
+    multirotor_controller: NMPCController,
 ) -> None:
-    # Deliberately not the shared controller: the final assertion is that this
-    # solve is what warms the batched support kernel.
     model = multirotor_model
-    controller = NMPCController(model, policy=_test_policy())
+    controller = multirotor_controller
     target = resting_state()
     state = target.copy()
     state[2] = -0.2
@@ -394,7 +390,6 @@ def test_solver_propagates_latent_state_and_returns_bounded_plan(
     )
     assert result.diagnostics.maximum_command_bound_violation <= 1e-6
     assert np.all(np.isfinite(result.predicted_states))
-    assert controller._backend._support_batch_warmed
 
 
 def test_solver_consumes_predictive_and_parameter_uncertainty(
@@ -434,60 +429,117 @@ def test_solver_consumes_predictive_and_parameter_uncertainty(
         previous,
     )
 
-    assert result.diagnostics.model_uncertainty_available
-    assert result.diagnostics.prediction_error_model_available
-    assert result.diagnostics.prediction_error_model_current
-    assert result.diagnostics.parameter_uncertainty_available
     assert (
         result.diagnostics.maximum_normalized_model_uncertainty_standard_deviation > 0.0
     )
-    assert result.diagnostics.uncertainty_aware_command_selection
 
 
-def test_large_model_uncertainty_bounds_command_authority(
+def _point_objective(
+    backend: nmpc_solver._DirectShootingBackend,
+    blocks: jax.Array,
+    state: jax.Array,
+    latent: jax.Array,
+    reference_states: jax.Array,
+    previous_command: jax.Array,
+    exogenous: jax.Array,
+) -> jax.Array:
+    """The point objective the solver scored before it charged spread.
+
+    Written out here rather than imported, so that the identity the solver is
+    asked to preserve is stated independently of the solver.
+    """
+
+    states, _, commands, _ = backend._rollout(
+        blocks, state, latent, exogenous, backend._active_parameters
+    )
+    local_error = jax.vmap(rigid_body_local_error)(reference_states[1:], states[1:])
+    normalized_error = local_error / backend.tolerances.local_state_scale
+    tracking = jnp.mean(jnp.sum(jnp.square(normalized_error), axis=1))
+    terminal = backend._policy.terminal_weight * jnp.sum(
+        jnp.square(normalized_error[-1])
+    )
+    command_range = backend.model.command_maximum - backend.model.command_minimum
+    command_delta = jnp.diff(
+        jnp.concatenate((previous_command[None, :], commands), axis=0), axis=0
+    )
+    normalized_delta = command_delta / (
+        backend._policy.command_change_fraction * command_range
+    )
+    smoothness = backend._policy.command_change_weight * jnp.mean(
+        jnp.square(normalized_delta)
+    )
+    utilization = jax.vmap(backend._validity_utilization)(states[1:], exogenous)
+    validity = backend._policy.validity_weight * jnp.mean(
+        jnp.square(jax.nn.relu(utilization - 1.0))
+    )
+    safety = backend._policy.safety_weight * jnp.mean(
+        jnp.square(jax.vmap(backend._safety_violation)(states[1:]))
+    )
+    return tracking + terminal + smoothness + validity + safety
+
+
+def _objective_arguments(
+    controller: NMPCController,
+) -> tuple[jax.Array, jax.Array, jax.Array, jax.Array, jax.Array, jax.Array]:
+    backend = controller._backend
+    target = resting_state()
+    state = target.copy()
+    state[2] = -0.2
+    previous = jnp.asarray(hover_control(true_parameters()))
+    latent = backend._initial_latent(previous, None, None)
+    reference = controller.hold_reference(jnp.asarray(target))
+    exogenous = backend._exogenous_forecast(reference)
+    blocks = 0.25 + 0.5 * backend._cold_blocks(previous)
+    return blocks, jnp.asarray(state), latent, reference.states, previous, exogenous
+
+
+def test_point_model_objective_is_the_point_objective_bit_for_bit(
+    multirotor_controller_four_step: NMPCController,
+) -> None:
+    controller = multirotor_controller_four_step
+    backend = controller._backend
+    arguments = _objective_arguments(controller)
+
+    assert backend._covariance_factor is None
+    charged = float(backend._objective(*arguments, backend._active_parameters))
+    point = float(_point_objective(backend, *arguments))
+    assert charged == point
+
+
+def test_a_belief_with_covariance_is_charged_more_than_a_point_belief(
     multirotor_model: ExecutableModel,
     multirotor_controller_four_step: NMPCController,
 ) -> None:
     model = multirotor_model
-    endpoint_errors = 2.0 * np.concatenate((np.eye(12), -np.eye(12)))
-    error_samples = (
-        EmpiricalErrorSample(endpoint_errors, "group-a", "flight-a"),
-        EmpiricalErrorSample(endpoint_errors, "group-b", "flight-b"),
-    )
+    parameter_count = len(structured_parameter_vector(model.params))
+    covariance = np.zeros((parameter_count, parameter_count))
+    covariance[0, 0] = 0.04
     belief = DynamicsBelief(
         params=model.params,
         input_spec=model.input_spec,
         runtime_spec=model.runtime_spec,
-        predictive_error=EmpiricalHorizonPredictiveError.from_samples(
-            {0.1: error_samples, 0.2: error_samples}
+        parameter_belief=LocalGaussianParameterBelief(
+            parameter_names=structured_parameter_names(model.params),
+            covariance=covariance,
+            source="configuration_members",
+            evidence_count=4,
+            effective_sample_count=4.0,
         ),
     )
-    nominal_controller = multirotor_controller_four_step
-    uncertain_controller = NMPCController(belief, policy=_test_policy(horizon_steps=4))
-    target = resting_state()
-    state = target.copy()
-    state[2] = -0.2
-    previous = hover_control(true_parameters())
+    uncertain = NMPCController(belief, policy=_test_policy(horizon_steps=4))
+    point_backend = multirotor_controller_four_step._backend
+    arguments = _objective_arguments(multirotor_controller_four_step)
 
-    nominal = nominal_controller.solve(
-        jnp.asarray(state),
-        nominal_controller.hold_reference(jnp.asarray(target)),
-        previous,
+    point_value = float(
+        point_backend._objective(*arguments, point_backend._active_parameters)
     )
-    uncertain = uncertain_controller.solve(
-        jnp.asarray(state),
-        uncertain_controller.hold_reference(jnp.asarray(target)),
-        previous,
+    uncertain_value = float(
+        uncertain._backend._objective(*arguments, uncertain._backend._active_parameters)
     )
 
-    authority = uncertain.diagnostics.command_authority_fraction
-    assert 0.0 < authority < 1.0
-    assert uncertain.diagnostics.uncertainty_aware_command_selection
-    np.testing.assert_allclose(
-        uncertain.command - previous,
-        authority * (nominal.command - previous),
-        atol=1e-5,
-    )
+    assert uncertain._backend._covariance_factor is not None
+    assert uncertain._backend._covariance_factor.shape == (parameter_count, 1)
+    assert uncertain_value > point_value
 
 
 def test_default_horizon_does_not_exceed_predictive_error_evidence(
@@ -842,133 +894,6 @@ def test_line_search_stall_after_progress_keeps_the_improved_plan(
     assert not np.allclose(np.asarray(result.command), np.asarray(previous))
 
 
-def test_support_candidates_are_vehicle_agnostic_nmpc_projections(
-    fixedwing_model: ExecutableModel,
-) -> None:
-    model = fixedwing_model
-    controller = NMPCController(model, policy=_test_policy(horizon_steps=4))
-    previous = np.asarray(fixed_wing_trim_control(model.params, TRIM_AIRSPEED_M_S))
-    nominal = np.clip(
-        previous + np.asarray((0.1, 0.2, -0.2, 0.1)),
-        np.asarray(model.command_minimum),
-        np.asarray(model.command_maximum),
-    )
-
-    candidates, fractions = controller._backend._support_candidates(
-        nominal,
-        previous,
-    )
-
-    assert not hasattr(controller, "supervisor")
-    assert fractions == [1.0, 0.75, 0.5, 0.25, 0.0]
-    for candidate, fraction in zip(candidates, fractions):
-        np.testing.assert_allclose(
-            candidate,
-            previous + fraction * (nominal - previous),
-            atol=1e-7,
-        )
-
-
-def test_support_filter_keeps_next_step_inside_from_envelope_boundary(
-    narrow_envelope_model: ExecutableModel,
-    narrow_envelope_controller: NMPCController,
-) -> None:
-    model = narrow_envelope_model
-    controller = narrow_envelope_controller
-    state = resting_state()
-    state[10] = 0.19
-    previous = np.full(4, 0.5)
-    nominal = np.clip(previous + 0.15 * np.asarray(MOTOR_MIXER[0]), 0.0, 1.0)
-    decision = controller._backend._select_support_command(
-        jnp.asarray(state),
-        model.initial_latent_state(previous),
-        jnp.asarray(nominal),
-        jnp.asarray(previous),
-        jnp.zeros(0),
-    )
-
-    assert decision.mode is SupportFilterMode.BOUNDARY_FILTERED
-    assert decision.applied
-    assert decision.nominal_fraction < 1.0
-    assert decision.current_validity <= 1.0
-    assert decision.support_horizon_maximum_robust_validity <= 1.0 + 1e-6
-
-
-def test_support_filter_tightens_boundary_for_predictive_error(
-    narrow_envelope_model: ExecutableModel,
-    narrow_envelope_controller: NMPCController,
-) -> None:
-    model = narrow_envelope_model
-    endpoint_errors = np.zeros((4, 12))
-    endpoint_errors[:, 9] = (-0.04, 0.04, -0.04, 0.04)
-    samples = (
-        EmpiricalErrorSample(endpoint_errors, "group-a", "flight-a"),
-        EmpiricalErrorSample(-endpoint_errors, "group-b", "flight-b"),
-    )
-    belief = DynamicsBelief(
-        params=model.params,
-        input_spec=model.input_spec,
-        runtime_spec=model.runtime_spec,
-        predictive_error=EmpiricalHorizonPredictiveError.from_samples(
-            {model.runtime_spec.sample_period_s: samples}
-        ),
-    )
-    point_controller = narrow_envelope_controller
-    belief_controller = NMPCController(belief, policy=_test_policy(horizon_steps=4))
-    state = resting_state()
-    state[10] = 0.10
-    previous = np.full(4, 0.5)
-    nominal = np.clip(previous + 0.04 * np.asarray(MOTOR_MIXER[0]), 0.0, 1.0)
-
-    def decide(controller: NMPCController):
-        return controller._backend._select_support_command(
-            jnp.asarray(state),
-            controller.model.initial_latent_state(previous),
-            jnp.asarray(nominal),
-            jnp.asarray(previous),
-            jnp.zeros(0),
-        )
-
-    point = decide(point_controller)
-    uncertain = decide(belief_controller)
-
-    assert point.mode is SupportFilterMode.NOMINAL_SAFE
-    assert not point.applied
-    assert uncertain.mode is SupportFilterMode.BOUNDARY_FILTERED
-    assert uncertain.applied
-    assert uncertain.nominal_fraction < 1.0
-    assert uncertain.next_mean_validity < point.next_mean_validity
-    assert uncertain.support_horizon_maximum_robust_validity <= 1.0 + 1e-6
-
-
-def test_support_filter_requires_validity_and_rate_progress_outside_envelope(
-    narrow_envelope_model: ExecutableModel,
-    narrow_envelope_controller: NMPCController,
-) -> None:
-    model = narrow_envelope_model
-    controller = narrow_envelope_controller
-    state = resting_state()
-    state[10] = 0.25
-    previous = np.full(4, 0.5)
-    nominal = np.clip(previous + 0.15 * np.asarray(MOTOR_MIXER[0]), 0.0, 1.0)
-    decision = controller._backend._select_support_command(
-        jnp.asarray(state),
-        model.initial_latent_state(previous),
-        jnp.asarray(nominal),
-        jnp.asarray(previous),
-        jnp.zeros(0),
-    )
-
-    assert decision.mode is SupportFilterMode.RECOVERY_FILTERED
-    assert decision.applied
-    assert decision.nominal_fraction < 1.0
-    assert decision.current_validity > 1.0
-    assert decision.support_horizon_terminal_robust_validity < decision.current_validity
-    assert decision.support_horizon_terminal_rate_energy < (
-        decision.current_rate_energy
-    )
-
-
 def test_solver_failure_does_not_inject_an_independent_controller(
     line_search_failure_controller: NMPCController,
 ) -> None:
@@ -987,7 +912,6 @@ def test_solver_failure_does_not_inject_an_independent_controller(
 
     assert result.status is SolveStatus.LINE_SEARCH_FAILED
     assert result.used_fallback
-    assert result.diagnostics.support_filter_mode is SupportFilterMode.SOLVER_FALLBACK
     np.testing.assert_allclose(result.command, previous)
 
 

@@ -8,7 +8,6 @@ import json
 import math
 import platform
 import time
-from collections import Counter
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
@@ -60,7 +59,7 @@ RECOVERY_DURATION_S = 1.2
 RECOVERY_TAIL_DURATION_S = 0.4
 FLEET_LOG_ARM_LENGTH_RATIOS = (-0.25, -0.125, 0.0, 0.125, 0.25)
 TARGET_LOG_ARM_LENGTH_RATIO = 0.20
-BENCHMARK_METHOD_VERSION = 5
+BENCHMARK_METHOD_VERSION = 6
 BENCHMARK_SOURCE_FILES = (
     "belief/adaptation.py",
     "belief/belief.py",
@@ -155,18 +154,9 @@ class RecoveryMetrics:
     maximum_actual_validity_utilization: float
     maximum_predicted_validity_utilization: float
     maximum_command_bound_violation: float
-    minimum_command_authority_fraction: float
-    median_command_authority_fraction: float
     maximum_normalized_model_uncertainty_standard_deviation: float
-    maximum_next_step_robust_validity_utilization: float
-    support_horizon_s: float
-    maximum_support_horizon_robust_validity_utilization: float
-    support_filter_mode_counts: dict[str, int]
-    support_filter_applied_count: int
     inside_support_step_count: int
-    inside_support_best_effort_count: int
     outside_support_step_count: int
-    outside_support_best_effort_count: int
     fallback_count: int
     finite: bool
     prewarm_wall_time_s: float
@@ -472,14 +462,8 @@ def _simulate_recovery(
     reference = controller.hold_reference(jnp.asarray(resting_state()))
     warm_start = None
     solve_times: list[float] = []
-    authority: list[float] = []
     uncertainty: list[float] = []
     predicted_validity: list[float] = []
-    next_step_robust_validity: list[float] = []
-    support_horizon_robust_validity: list[float] = []
-    current_validity: list[float] = []
-    support_modes: list[str] = []
-    support_filter_applied_count = 0
     fallback_count = 0
     for index in range(interval_count):
         result = controller.solve(
@@ -493,20 +477,10 @@ def _simulate_recovery(
         warm_start = result.warm_start
         commands[index] = np.asarray(command)
         solve_times.append(result.diagnostics.solve_time_s)
-        authority.append(result.diagnostics.command_authority_fraction)
         uncertainty.append(
             result.diagnostics.maximum_normalized_model_uncertainty_standard_deviation
         )
         predicted_validity.append(result.diagnostics.maximum_validity_utilization)
-        next_step_robust_validity.append(
-            result.diagnostics.next_step_robust_validity_utilization
-        )
-        support_horizon_robust_validity.append(
-            result.diagnostics.support_horizon_maximum_robust_validity_utilization
-        )
-        current_validity.append(result.diagnostics.current_validity_utilization)
-        support_modes.append(result.diagnostics.support_filter_mode.value)
-        support_filter_applied_count += int(result.diagnostics.support_filter_applied)
         fallback_count += int(result.used_fallback)
         next_state, plant_latent = step_with_latent(
             target_params,
@@ -532,6 +506,8 @@ def _simulate_recovery(
     actual_validity = np.asarray(
         jax.vmap(controller.model.validity_utilization)(jnp.asarray(states))
     )
+    # The state each solve saw, which is every state but the last.
+    solved_validity = np.max(actual_validity[:-1], axis=1)
     minimum = np.asarray(controller.model.command_minimum)
     maximum = np.asarray(controller.model.command_maximum)
     command_violation = float(
@@ -573,30 +549,9 @@ def _simulate_recovery(
         maximum_actual_validity_utilization=float(np.max(actual_validity)),
         maximum_predicted_validity_utilization=max(predicted_validity),
         maximum_command_bound_violation=command_violation,
-        minimum_command_authority_fraction=min(authority),
-        median_command_authority_fraction=float(np.median(authority)),
         maximum_normalized_model_uncertainty_standard_deviation=max(uncertainty),
-        maximum_next_step_robust_validity_utilization=max(next_step_robust_validity),
-        support_horizon_s=result.diagnostics.support_horizon_s,
-        maximum_support_horizon_robust_validity_utilization=max(
-            support_horizon_robust_validity
-        ),
-        support_filter_mode_counts=dict(sorted(Counter(support_modes).items())),
-        support_filter_applied_count=support_filter_applied_count,
-        inside_support_step_count=sum(
-            value <= 1.0 + 1e-6 for value in current_validity
-        ),
-        inside_support_best_effort_count=sum(
-            current <= 1.0 + 1e-6 and mode == "boundary_best_effort"
-            for current, mode in zip(current_validity, support_modes)
-        ),
-        outside_support_step_count=sum(
-            value > 1.0 + 1e-6 for value in current_validity
-        ),
-        outside_support_best_effort_count=sum(
-            current > 1.0 + 1e-6 and mode == "recovery_best_effort"
-            for current, mode in zip(current_validity, support_modes)
-        ),
+        inside_support_step_count=int(np.count_nonzero(solved_validity <= 1.0 + 1e-6)),
+        outside_support_step_count=int(np.count_nonzero(solved_validity > 1.0 + 1e-6)),
         fallback_count=fallback_count,
         finite=bool(
             np.all(np.isfinite(states))
@@ -678,12 +633,11 @@ def run_adaptive_recovery_benchmark() -> dict[str, Any]:
         "prewarmed_controller": True,
         "compile_latency_excluded_from_recovery_timing": True,
         "independent_fallback_controller_included": False,
-        "support_candidates_derived_only_from_nmpc_and_previous_command": True,
         "solver_failure_returns_explicit_bounded_hold": True,
         "independent_flight_watchdog_included": False,
-        "actuator_reaction_horizon_belief_support_filter_included": True,
+        "predicted_spread_charged_in_the_tracking_cost": True,
+        "robust_validity_charged_in_the_objective": True,
         "hard_prediction_horizon_validity_constraint_included": False,
-        "support_filter_best_effort_when_no_candidate_is_feasible": True,
         "flight_safety_claim": False,
         "throw_to_recover_claim": False,
         "posterior_calibration_claim": False,
@@ -787,30 +741,11 @@ def run_adaptive_recovery_benchmark() -> dict[str, Any]:
             "all_actual_recovery_within_validity_support": all(
                 item.maximum_actual_validity_utilization <= 1.0 for item in recovery
             ),
-            "all_next_step_robust_predictions_within_validity_support": all(
-                item.maximum_next_step_robust_validity_utilization <= 1.0
-                for item in recovery
-            ),
-            "all_support_horizon_projections_within_validity_support": all(
-                item.maximum_support_horizon_robust_validity_utilization <= 1.0
-                for item in recovery
-            ),
             "all_full_nmpc_predictions_within_validity_support": all(
                 item.maximum_predicted_validity_utilization <= 1.0 for item in recovery
             ),
-            "support_filter_intervened": any(
-                item.support_filter_applied_count > 0 for item in recovery
-            ),
-            "all_inside_support_steps_found_supported_commands": all(
-                item.inside_support_best_effort_count == 0 for item in recovery
-            ),
-            "outside_support_progress_condition_exercised": any(
+            "any_solve_started_outside_validity_support": any(
                 item.outside_support_step_count > 0 for item in recovery
-            ),
-            "all_outside_support_steps_found_progress_commands": (
-                all(item.outside_support_best_effort_count == 0 for item in recovery)
-                if any(item.outside_support_step_count > 0 for item in recovery)
-                else None
             ),
             "adapted_tail_tracking_better_than_stale": (
                 adapted.tail_normalized_tracking_rms
@@ -824,12 +759,11 @@ def run_adaptive_recovery_benchmark() -> dict[str, Any]:
         "limitations": [
             "The plant, fleet, telemetry, and configuration change are synthetic.",
             "Controller compilation is prewarmed and excluded from recovery timing.",
-            "No independent fallback or airframe-specific recovery controller is included; support candidates are projections between the optimized NMPC command and the previous bounded command.",
+            "No independent fallback or airframe-specific recovery controller is included; a failed solve returns a bounded hold of the previous command.",
             "The prechange vehicle model anchors coefficients not affected by the known arm change.",
             "The benchmark starts from a bounded in-envelope disturbance, not an unknown physical throw.",
-            "The support filter evaluates held projected commands over a bounded actuator-reaction horizon with componentwise one-standard-deviation margins; it is not a hard full-prediction-horizon or flight-safety guarantee.",
-            "If no enumerated candidate satisfies the inside-support or recovery-progress condition, the least-bad bounded command is returned and labeled best effort.",
-            "Boundary filtering requires additional belief rollouts; this diagnostic does not establish a hard real-time deadline on other hardware or uncertainty representations.",
+            "The objective charges predicted spread in the tracking cost and a componentwise one-standard-deviation margin on the validity envelope; neither is a hard prediction-horizon constraint or a flight-safety guarantee.",
+            "Charging spread requires one extra forward rollout per resolved parameter direction; this diagnostic does not establish a hard real-time deadline on other hardware or uncertainty representations.",
             "The configuration spread is a rank-one direction; the benchmark says nothing about coefficients no sibling configuration moved.",
         ],
     }

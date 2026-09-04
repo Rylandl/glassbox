@@ -35,9 +35,9 @@
     "nominal_geometric_mean_tracking_ratio": 0.6508963839843308,
     "mismatch_geometric_mean_tracking_ratio": 0.5520431835576953,
     "post_jit_solve_time_s": {
-      "median_of_scenario_medians": 0.014993624936323613,
-      "maximum_scenario_p90": 0.02015614190604538,
-      "maximum_observed": 0.024555083131417632
+      "median_of_scenario_medians": 0.014606135489884764,
+      "maximum_scenario_p90": 0.01803257060237229,
+      "maximum_observed": 0.022171417018398643
     }
   },
   "scenarios": [
@@ -53,10 +53,10 @@
       "maximum_auxiliary_command_excursion": 0.0,
       "fallback_count": 0,
       "finite": true,
-      "warmup_solve_time_s": 4.652928958879784,
-      "solve_time_median_s": 0.007480749976821244,
-      "solve_time_p90_s": 0.008427308592945337,
-      "solve_time_maximum_s": 0.010550874983891845
+      "warmup_solve_time_s": 3.679963167058304,
+      "solve_time_median_s": 0.006338499952107668,
+      "solve_time_p90_s": 0.006658804230391979,
+      "solve_time_maximum_s": 0.007033999776467681
     },
     {
       "name": "multirotor_hover",
@@ -70,10 +70,10 @@
       "maximum_auxiliary_command_excursion": 0.0,
       "fallback_count": 0,
       "finite": true,
-      "warmup_solve_time_s": 0.007363583892583847,
-      "solve_time_median_s": 0.007148333475925028,
-      "solve_time_p90_s": 0.007447696384042501,
-      "solve_time_maximum_s": 0.007712499937042594
+      "warmup_solve_time_s": 0.006645041052252054,
+      "solve_time_median_s": 0.006271166377700865,
+      "solve_time_p90_s": 0.0065567752346396444,
+      "solve_time_maximum_s": 0.006976624950766563
     },
     {
       "name": "multirotor_translation",
@@ -87,10 +87,10 @@
       "maximum_auxiliary_command_excursion": 0.0,
       "fallback_count": 0,
       "finite": true,
-      "warmup_solve_time_s": 0.008481791941449046,
-      "solve_time_median_s": 0.008696687407791615,
-      "solve_time_p90_s": 0.009963650000281632,
-      "solve_time_maximum_s": 0.011473665945231915
+      "warmup_solve_time_s": 0.006545084062963724,
+      "solve_time_median_s": 0.006185395992361009,
+      "solve_time_p90_s": 0.006491112522780895,
+      "solve_time_maximum_s": 0.006776582915335894
     },
     {
       "name": "multirotor_translation",
@@ -104,10 +104,10 @@
       "maximum_auxiliary_command_excursion": 0.0,
       "fallback_count": 0,
       "finite": true,
-      "warmup_solve_time_s": 0.008142499951645732,
-      "solve_time_median_s": 0.007107417099177837,
-      "solve_time_p90_s": 0.00787101627793163,
-      "solve_time_maximum_s": 0.008903790963813663
+      "warmup_solve_time_s": 0.006363084074109793,
+      "solve_time_median_s": 0.0061720204539597034,
+      "solve_time_p90_s": 0.006514884112402797,
+      "solve_time_maximum_s": 0.006661250023171306
     },
     {
       "name": "multirotor_attitude",
@@ -121,10 +121,10 @@
       "maximum_auxiliary_command_excursion": 0.0,
       "fallback_count": 0,
       "finite": true,
-      "warmup_solve_time_s": 0.007252374896779656,
-      "solve_time_median_s": 0.007113937404938042,
-      "solve_time_p90_s": 0.007452920707874,
-      "solve_time_maximum_s": 0.007710957899689674
+      "warmup_solve_time_s": 0.006423124810680747,
+      "solve_time_median_s": 0.006289582932367921,
+      "solve_time_p90_s": 0.006448354292660952,
+      "solve_time_maximum_s": 0.00725416699424386
     },
     {
       "name": "multirotor_attitude",
@@ -138,10 +138,10 @@
       "maximum_auxiliary_command_excursion": 0.0,
       "fallback_count": 0,
       "finite": true,
-      "warmup_solve_time_s": 0.007230832939967513,
-      "solve_time_median_s": 0.007307604537345469,
-      "solve_time_p90_s": 0.008251274656504392,
-      "solve_time_maximum_s": 0.009762166067957878
+      "warmup_solve_time_s": 0.006852540886029601,
+      "solve_time_median_s": 0.006316187558695674,
+      "solve_time_p90_s": 0.006511679315008223,
+      "solve_time_maximum_s": 0.006639083148911595
     },
     {
       "name": "fixedwing_trim",
@@ -155,10 +155,10 @@
       "maximum_auxiliary_command_excursion": 0.0,
       "fallback_count": 0,
       "finite": true,
-      "warmup_solve_time_s": 5.5308040420059115,
-      "solve_time_median_s": 0.015101749915629625,
-      "solve_time_p90_s": 0.016953553655184805,
-      "solve_time_maximum_s": 0.02034683316014707
+      "warmup_solve_time_s": 4.714024540968239,
+      "solve_time_median_s": 0.014474687515757978,
+      "solve_time_p90_s": 0.015507920528762043,
+      "solve_time_maximum_s": 0.016835834132507443
     },
     {
       "name": "fixedwing_trim",
@@ -172,10 +172,10 @@
       "maximum_auxiliary_command_excursion": 0.0,
       "fallback_count": 0,
       "finite": true,
-      "warmup_solve_time_s": 0.015494042076170444,
-      "solve_time_median_s": 0.015126687590964139,
-      "solve_time_p90_s": 0.01632564626634121,
-      "solve_time_maximum_s": 0.019022959051653743
+      "warmup_solve_time_s": 0.014937999891117215,
+      "solve_time_median_s": 0.014994229073636234,
+      "solve_time_p90_s": 0.015784462518058717,
+      "solve_time_maximum_s": 0.016177833080291748
     },
     {
       "name": "fixedwing_altitude",
@@ -189,10 +189,10 @@
       "maximum_auxiliary_command_excursion": 0.0,
       "fallback_count": 0,
       "finite": true,
-      "warmup_solve_time_s": 0.01500995783135295,
-      "solve_time_median_s": 0.0148854999570176,
-      "solve_time_p90_s": 0.01613037930801511,
-      "solve_time_maximum_s": 0.019875750178471208
+      "warmup_solve_time_s": 0.014603749848902225,
+      "solve_time_median_s": 0.01473758346401155,
+      "solve_time_p90_s": 0.01569337067194283,
+      "solve_time_maximum_s": 0.016602500109001994
     },
     {
       "name": "fixedwing_altitude",
@@ -206,10 +206,10 @@
       "maximum_auxiliary_command_excursion": 0.0,
       "fallback_count": 0,
       "finite": true,
-      "warmup_solve_time_s": 0.01381287514232099,
-      "solve_time_median_s": 0.015271583572030067,
-      "solve_time_p90_s": 0.015989212598651648,
-      "solve_time_maximum_s": 0.01684916694648564
+      "warmup_solve_time_s": 0.014926916919648647,
+      "solve_time_median_s": 0.01499560393858701,
+      "solve_time_p90_s": 0.015796558698639274,
+      "solve_time_maximum_s": 0.01657791598699987
     },
     {
       "name": "fixedwing_path",
@@ -223,10 +223,10 @@
       "maximum_auxiliary_command_excursion": 0.0,
       "fallback_count": 0,
       "finite": true,
-      "warmup_solve_time_s": 0.015980083029717207,
-      "solve_time_median_s": 0.014854041510261595,
-      "solve_time_p90_s": 0.015949891950003802,
-      "solve_time_maximum_s": 0.016331707825884223
+      "warmup_solve_time_s": 0.015018749982118607,
+      "solve_time_median_s": 0.014431500108912587,
+      "solve_time_p90_s": 0.015655895858071745,
+      "solve_time_maximum_s": 0.015927999978885055
     },
     {
       "name": "fixedwing_path",
@@ -240,10 +240,10 @@
       "maximum_auxiliary_command_excursion": 0.0,
       "fallback_count": 0,
       "finite": true,
-      "warmup_solve_time_s": 0.019186583114787936,
-      "solve_time_median_s": 0.01756233291234821,
-      "solve_time_p90_s": 0.018704670760780574,
-      "solve_time_maximum_s": 0.019773625070229173
+      "warmup_solve_time_s": 0.015270333038643003,
+      "solve_time_median_s": 0.015014458098448813,
+      "solve_time_p90_s": 0.015851066866889595,
+      "solve_time_maximum_s": 0.016022375086322427
     },
     {
       "name": "fixedwing_turn",
@@ -257,10 +257,10 @@
       "maximum_auxiliary_command_excursion": 0.0,
       "fallback_count": 0,
       "finite": true,
-      "warmup_solve_time_s": 0.01458758395165205,
-      "solve_time_median_s": 0.015249312506057322,
-      "solve_time_p90_s": 0.016217025159858168,
-      "solve_time_maximum_s": 0.017453541047871113
+      "warmup_solve_time_s": 0.015182332834228873,
+      "solve_time_median_s": 0.01517377095296979,
+      "solve_time_p90_s": 0.016081395465880634,
+      "solve_time_maximum_s": 0.0175328750628978
     },
     {
       "name": "fixedwing_turn",
@@ -274,10 +274,10 @@
       "maximum_auxiliary_command_excursion": 0.0,
       "fallback_count": 0,
       "finite": true,
-      "warmup_solve_time_s": 0.014775458024814725,
-      "solve_time_median_s": 0.015429520979523659,
-      "solve_time_p90_s": 0.017082671402022243,
-      "solve_time_maximum_s": 0.018973083002492785
+      "warmup_solve_time_s": 0.014455541968345642,
+      "solve_time_median_s": 0.014971499564126134,
+      "solve_time_p90_s": 0.0156992792384699,
+      "solve_time_maximum_s": 0.01605108380317688
     },
     {
       "name": "fixedwing_flap",
@@ -291,10 +291,10 @@
       "maximum_auxiliary_command_excursion": 0.03621983528137207,
       "fallback_count": 0,
       "finite": true,
-      "warmup_solve_time_s": 5.888482665875927,
-      "solve_time_median_s": 0.01854037563316524,
-      "solve_time_p90_s": 0.02015614190604538,
-      "solve_time_maximum_s": 0.024555083131417632
+      "warmup_solve_time_s": 4.978032457875088,
+      "solve_time_median_s": 0.01580685400404036,
+      "solve_time_p90_s": 0.016628587432205678,
+      "solve_time_maximum_s": 0.01842879201285541
     },
     {
       "name": "fixedwing_flap",
@@ -308,10 +308,10 @@
       "maximum_auxiliary_command_excursion": 0.03621983528137207,
       "fallback_count": 0,
       "finite": true,
-      "warmup_solve_time_s": 0.015973042231053114,
-      "solve_time_median_s": 0.016475395997986197,
-      "solve_time_p90_s": 0.018726608203724026,
-      "solve_time_maximum_s": 0.024266624823212624
+      "warmup_solve_time_s": 0.017342417035251856,
+      "solve_time_median_s": 0.016586771118454635,
+      "solve_time_p90_s": 0.01803257060237229,
+      "solve_time_maximum_s": 0.022171417018398643
     }
   ]
 }

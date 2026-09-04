@@ -33,12 +33,13 @@ The evidence path is:
    bounded initial disturbance: stale belief, adapted belief, adapted point
    mean, and hidden oracle point mean.
 
-The controller includes the maintained vehicle-agnostic belief-support
-projection. Every alternative is a blend between the optimized NMPC command
-and the previous bounded command. It includes no motor mixer, attitude/rate law,
-independent fallback controller, PX4 integration, or flight-authority handoff.
-Compilation time is excluded, while per-solve runtime is reported. Both nominal
-and alternative projection paths are compiled during prewarming.
+The controller charges the belief's own predicted spread inside its objective:
+the tracking cost carries the trace of the predicted tangent covariance against
+the tracking weights, and the validity term carries the mean utilization plus a
+componentwise one-standard-deviation margin. Nothing edits the optimized command
+afterwards. It includes no motor mixer, attitude/rate law, independent fallback
+controller, PX4 integration, or flight-authority handoff. Compilation time is
+excluded, while per-solve runtime is reported.
 
 ## Recorded result
 
@@ -55,12 +56,12 @@ the bounded step is slightly shorter and every number below moved a little.
 The accepted update reduced independent normalized 0.6-second prediction RMS
 from `0.033394` to `0.015286` (`0.458x`). The recovery advantage that earlier
 runs attributed to adaptation has disappeared now that the warm start actually
-advances the plan: relative to the stale belief, the adapted belief produced
-`1.001x` recovery-tail tracking RMS and `0.915x` recovery-tail attitude/rate
-RMS, and relative to the oracle point model those ratios were `1.062x` and
-`1.117x`. Useful parameter evidence reaches the predictive mean; whether it
-reaches command selection in a way that matters is not established by this
-scenario, and on tracking it does not reach it at all.
+advances the plan, and charging the spread in the objective removes what was
+left of it: relative to the stale belief, the adapted belief produced `1.059x`
+recovery-tail tracking RMS and `1.003x` recovery-tail attitude/rate RMS, and
+relative to the oracle point model those ratios were `1.123x` and `1.223x`.
+Useful parameter evidence reaches the predictive mean; on this scenario it
+buys support, not tracking.
 
 With actuator history correctly carried across the split, the disjoint
 validation RMS is `1.1994 → 0.5447`. The earlier `1.7534 → 1.6154` values came
@@ -73,29 +74,25 @@ acceptance threshold or a general recovery claim, and the recovery-tail ratios
 do not support a claim about command selection.
 
 The support result is intentionally negative. Maximum actual validity
-utilization was `1.101`, `1.081`, `1.081`, and `1.136` for stale belief, adapted
-belief, adapted point mean, and oracle point mean. Maximum returned one-step
-robust utilization was `1.106`, `1.086`, `1.082`, and `1.136`; reaction-horizon
-utilization reached `1.261`, `1.300`, `1.134`, and `1.200`. All traces remained
-finite and bounded with no solver fallback, but every trace left support, and on
-the stale belief and the oracle point model one step had no enumerated
-projection satisfying the progress condition. The adapted belief's forecast
-spread never exceeded a tracking tolerance in this run (minimum command
-authority fraction `1.0`), so the adapted belief and adapted point mean produced
-the same commands.
+utilization was `1.101`, `1.045`, `1.081`, and `1.137` for stale belief, adapted
+belief, adapted point mean, and oracle point mean, and the maximum utilization
+the full prediction reached was `1.282`, `1.146`, `1.152`, and `1.226`. All
+traces remained finite and bounded with no solver fallback, and every trace
+still left support. What the charged spread does buy is visible in the ordering:
+the adapted belief, the only arm carrying parameter uncertainty, is the arm that
+stays closest to supported ground on both measures, and it is the arm that pays
+for it in tracking.
 
-This is the behavior the diagnostic should expose. Removing the independent
-quadrotor recovery law eliminates the earlier appearance that the generic NMPC
-path kept the experiment inside support. The benchmark now establishes useful
-adaptation evidence and a clear controller limitation—not an invariant-set,
-envelope-expansion, flight-safety, or throw-to-recover result.
+This is the behavior the diagnostic should expose. The benchmark establishes
+useful adaptation evidence and a clear controller limitation, not an
+invariant-set, envelope-expansion, flight-safety, or throw-to-recover result.
 
 On the recorded run, the uncertainty-bearing adapted belief cost roughly twice
-the point-model solve per step against a `20 ms` model period. Alternative-path
-compilation was prewarmed. Absolute solve times depend on the host and its
-load, so they are kept only in the results artifact, where the benchmark marks
-them nondeterministic and excludes them from its comparison. This is not a
-hard real-time claim.
+the point-model solve per step against a `20 ms` model period, because charging
+the spread costs one extra forward rollout per resolved parameter direction.
+Absolute solve times depend on the host and its load, so they are kept only in
+the results artifact, where the benchmark marks them nondeterministic and
+excludes them from its comparison. This is not a hard real-time claim.
 
 ## Reproduce
 

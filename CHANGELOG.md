@@ -78,6 +78,19 @@ All notable changes to Glassbox are recorded here. The format follows
   `--only`, and `--include-slow`.
 
 ### Changed
+- The NMPC objective charges what the belief knows about its own error, in two
+  terms and with no configuration of its own. The tracking cost is now an
+  expectation: every predicted stage charges `l(mean) + trace(W Sigma)` for the
+  tracking weight `W` the objective already builds from `TrackingTolerances` and
+  the predicted tangent covariance `Sigma`. The model-validity term charges the
+  robust utilization, the mean utilization plus each envelope feature's marginal
+  standard deviation, in place of the mean utilization alone. Both terms are
+  exactly zero when the belief carries no covariance, so a point model is scored
+  by the objective it was always scored by, bit for bit, and the recorded NMPC
+  acceptance numbers are unchanged. The parameter contribution is carried
+  through one forward-mode rollout per resolved parameter direction rather than
+  a full parameter Jacobian. Every recovery number in
+  `docs/results/adaptive-recovery-results.json` moved.
 - One executable model type, owned by one belief. `core/runtime.py` becomes
   `core/model.py` and `RuntimeDynamicsModel` becomes `ExecutableModel`, keeping
   its fields and methods; `RuntimeModelSpec`, `ModelValidityEnvelope`,
@@ -174,6 +187,24 @@ All notable changes to Glassbox are recorded here. The format follows
   learned. No flag was removed.
 
 ### Removed
+- The NMPC support filter and the bounded-authority post-pass, and with them
+  every field only they wrote. `SupportFilterMode` and its six members are gone
+  from `glassbox` and `glassbox.control.nmpc`; `_select_support_command` and the
+  candidate enumeration, the batched candidate kernel, the actuator-reaction
+  horizon, and `_bounded_authority_plan` are gone from the solver. `SolveStatus`,
+  the bounded hold on every failure, `hold_reference`, warm starts, the
+  certified-horizon cap, latent state, and exogenous forecasts are unchanged.
+  `NMPCDiagnostics` drops `final_gradient_inf_norm`,
+  `command_authority_fraction`, `uncertainty_aware_command_selection`,
+  `model_uncertainty_available`, `prediction_error_model_available`,
+  `prediction_error_model_current`, `prediction_error_horizon_supported`,
+  `parameter_uncertainty_available`, and the twelve support fields; the twelve
+  that remain describe the plan that was returned. The PX4 shadow report drops
+  the support rows and records the predicted spread instead (schema version 6),
+  and the adaptive-recovery artifact drops the authority and support rows,
+  reports `inside_support_step_count` and `outside_support_step_count` from the
+  states the solves actually saw, and is at method version 6. Last commit
+  carrying them: `9570fa1`.
 - The Crazyflow throw demo moved to
   [glassbox-throw](https://github.com/Rylandl/glassbox-throw) at this commit:
   the Crazyflow plant adapter, the throw trial and study, the bootstrap and

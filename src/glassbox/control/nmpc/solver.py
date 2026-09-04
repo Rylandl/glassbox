@@ -11,7 +11,14 @@ import jax.numpy as jnp
 import numpy as np
 from jax import Array
 
-from glassbox.belief.belief import DynamicsBelief, RuntimeDynamicsBelief
+from glassbox.belief.belief import (
+    DynamicsBelief,
+    EmpiricalHorizonPredictiveError,
+    ErrorCovarianceScope,
+    RuntimeDynamicsBelief,
+    structured_parameter_vector,
+    with_structured_parameter_vector,
+)
 from glassbox.control.nmpc.types import (
     NMPCDiagnostics,
     NMPCResult,
@@ -19,7 +26,6 @@ from glassbox.control.nmpc.types import (
     ReferenceTrajectory,
     SafetyEnvelope,
     SolveStatus,
-    SupportFilterMode,
     TrackingTolerances,
 )
 from glassbox.core.data import duration_to_steps
@@ -27,12 +33,9 @@ from glassbox.core.dynamics import ModelParams, quaternion_to_rotation
 from glassbox.core.geometry import rigid_body_local_error
 from glassbox.core.model import ExecutableModel
 
-_MINIMUM_SUPPORT_HORIZON_S = 0.1
-_MAXIMUM_SUPPORT_HORIZON_S = 0.3
-_ACTUATOR_TIME_CONSTANT_MULTIPLIER = 2.0
-_SUPPORT_INTERPOLATION_FRACTIONS = (0.75, 0.5, 0.25, 0.0)
 _MAXIMUM_COMMAND_BLOCKS = 10
 _COMMAND_BOUND_RELATIVE_TOLERANCE = 1e-6
+_MINIMUM_COVARIANCE_EIGENVALUE_FRACTION = 1e-10
 
 # iteration, blocks, value, gradient, step size, converged, stalled,
 # line-search failure, and whether any outer iteration was accepted.
@@ -73,6 +76,21 @@ def _maintained_block_count(horizon_steps: int) -> int:
         if _blocks_cover_horizon(horizon_steps, count):
             return count
     raise AssertionError("a single block always covers the horizon")
+
+
+def _marginal_standard_deviation(variance: Array) -> Array:
+    """Square root of a variance whose gradient is finite where it vanishes.
+
+    The square root has an infinite slope at zero, and a point model predicts
+    exactly zero spread on every axis at every stage. Differentiating the naive
+    expression therefore hands the line search a non-finite gradient on the one
+    case that must reduce to the point objective. The masked form returns zero
+    with a zero derivative there, which is the derivative of the constant the
+    function actually is when the belief carries no covariance.
+    """
+
+    positive = variance > 0.0
+    return jnp.where(positive, jnp.sqrt(jnp.where(positive, variance, 1.0)), 0.0)
 
 
 def _projected_gradient_norm(blocks: Array, gradient: Array) -> Array:
@@ -143,61 +161,15 @@ class SolverPolicy:
 
 
 @dataclass(frozen=True)
-class _SupportDecision:
-    command: np.ndarray
-    mode: SupportFilterMode
-    applied: bool
-    nominal_fraction: float
-    current_validity: float
-    next_mean_validity: float
-    next_robust_validity: float
-    current_rate_energy: float
-    next_rate_energy: float
-    support_horizon_s: float
-    support_horizon_maximum_robust_validity: float
-    support_horizon_terminal_robust_validity: float
-    support_horizon_terminal_rate_energy: float
-
-
-@dataclass(frozen=True)
-class _SupportMetrics:
-    """Per-candidate support metrics, non-finite entries masked to infinity.
-
-    Masking rather than dropping keeps every array aligned with the candidate
-    list, and infinity makes a candidate whose forecast went non-finite lose
-    every comparison without a separate branch.
-    """
-
-    next_mean_validity: np.ndarray
-    next_robust_validity: np.ndarray
-    next_rate_energy: np.ndarray
-    horizon_maximum_robust_validity: np.ndarray
-    horizon_terminal_robust_validity: np.ndarray
-    horizon_terminal_rate_energy: np.ndarray
-
-    def at(self, index: int) -> tuple[float, float, float, float, float, float]:
-        """Return one candidate's six metrics in decision-record order."""
-
-        return (
-            float(self.next_mean_validity[index]),
-            float(self.next_robust_validity[index]),
-            float(self.next_rate_energy[index]),
-            float(self.horizon_maximum_robust_validity[index]),
-            float(self.horizon_terminal_robust_validity[index]),
-            float(self.horizon_terminal_rate_energy[index]),
-        )
-
-
-@dataclass(frozen=True)
 class _PlanEvaluation:
-    """One command plan with its objective, gradient norms, and prediction."""
+    """One command plan with its objective, gradient norm, and prediction."""
 
     blocks: Array
     value: Array
     gradient: Array
     value_float: float
-    gradient_inf_norm: float
     projected_gradient_inf_norm: float
+    maximum_normalized_uncertainty: float
     states: Array
     latent_states: Array
     commands: Array
@@ -219,12 +191,7 @@ class _PlanEvaluation:
 
 @dataclass
 class _OptimizerOutcome:
-    """What the bounded optimizer produced and how it terminated.
-
-    ``converged`` and ``stalled`` are cleared by any later edit to the command
-    blocks, because a plan that was changed after the line search no longer
-    satisfies the criterion the line search reported.
-    """
+    """What the bounded optimizer produced and how it terminated."""
 
     blocks: Array
     value: Array
@@ -285,6 +252,40 @@ def _default_policy(model: ExecutableModel) -> SolverPolicy:
     )
 
 
+def _parameter_covariance_factor(belief: RuntimeDynamicsBelief) -> np.ndarray | None:
+    """Return a factor ``L`` with ``L @ L.T`` equal to the parameter covariance.
+
+    The objective charges predicted spread, and the parameter contribution to
+    that spread is ``J C J.T`` for the plan's parameter Jacobian ``J``. Written
+    through a factor it becomes a sum of ``len(L.T)`` directional derivatives,
+    each one forward-mode rollout, so a covariance the evidence resolved along
+    one direction costs one extra rollout instead of a full Jacobian.
+
+    ``None`` means the belief contributes no parameter spread, either because
+    it carries no parameter uncertainty or because its forecast-error evidence
+    already scopes the total forecast error, which is what
+    :attr:`PredictiveTrajectory.tangent_covariance` reports in that case.
+    """
+
+    if not belief.parameter_uncertainty_available:
+        return None
+    scope = (
+        belief.predictive_error.covariance_scope
+        if isinstance(belief.predictive_error, EmpiricalHorizonPredictiveError)
+        and belief.predictive_error_current
+        else None
+    )
+    if scope == ErrorCovarianceScope.TOTAL_FORECAST:
+        return None
+    covariance = np.asarray(belief.parameter_belief.covariance, dtype=np.float64)
+    eigenvalues, eigenvectors = np.linalg.eigh(0.5 * (covariance + covariance.T))
+    floor = _MINIMUM_COVARIANCE_EIGENVALUE_FRACTION * max(float(eigenvalues[-1]), 0.0)
+    retained = eigenvalues > max(floor, 0.0)
+    if not np.any(retained):
+        return None
+    return eigenvectors[:, retained] * np.sqrt(eigenvalues[retained])
+
+
 def _runtime_belief(
     model: ExecutableModel | RuntimeDynamicsBelief | DynamicsBelief,
 ) -> RuntimeDynamicsBelief:
@@ -334,27 +335,7 @@ class _DirectShootingBackend:
         if certified is not None and horizon_s > certified + 1e-12:
             raise ValueError("solver horizon exceeds the model's certified horizon")
         self._block_steps = self._policy.block_steps
-        response_time_constants = np.asarray(
-            self.model.latent_response_time_constants_s,
-            dtype=np.float64,
-        )
-        slowest_actuator_s = float(np.max(response_time_constants))
-        support_horizon_s = min(
-            _MAXIMUM_SUPPORT_HORIZON_S,
-            max(
-                _MINIMUM_SUPPORT_HORIZON_S,
-                _ACTUATOR_TIME_CONSTANT_MULTIPLIER * slowest_actuator_s,
-            ),
-        )
-        self._support_horizon_steps = min(
-            self._policy.horizon_steps,
-            max(
-                1,
-                math.ceil(
-                    support_horizon_s / self.model.runtime_spec.sample_period_s - 1e-9
-                ),
-            ),
-        )
+        self._covariance_factor = _parameter_covariance_factor(belief)
         self._objective_gradient = jax.value_and_grad(self._objective)
         self._objective_and_gradient = jax.jit(self._objective_gradient)
         self._initial_latent_compiled = jax.jit(
@@ -364,17 +345,7 @@ class _DirectShootingBackend:
         self._rollout_compiled = jax.jit(self._rollout)
         self._validity_compiled = jax.jit(self._maximum_validity_utilization)
         self._safety_compiled = jax.jit(self._maximum_safety_violation)
-        self._uncertainty_support_compiled = jax.jit(
-            self._model_uncertainty_and_support_metrics
-        )
-        self._support_metric_compiled = jax.jit(self._support_horizon_metrics)
-        self._support_metrics_compiled = jax.jit(
-            jax.vmap(
-                self._support_horizon_metrics,
-                in_axes=(None, None, 0, None, None),
-            )
-        )
-        self._support_batch_warmed = False
+        self._uncertainty_compiled = jax.jit(self._maximum_normalized_uncertainty)
 
     @property
     def prediction_steps(self) -> int:
@@ -417,7 +388,15 @@ class _DirectShootingBackend:
         initial_latent: Array,
         exogenous: Array,
         model_parameters: ModelParams,
-    ) -> tuple[Array, Array, Array]:
+    ) -> tuple[Array, Array, Array, Array]:
+        """Predict the horizon and the forecast-error covariance along it.
+
+        The returned covariance is the belief's own forecast-error covariance
+        at each predicted stage, which the correction step already evaluates;
+        the parameter contribution is added separately by
+        :meth:`_tangent_covariance`, because it depends on the plan.
+        """
+
         normalized_commands = self._expand_normalized_blocks(blocks)
         commands = self._commands_from_normalized(normalized_commands)
 
@@ -444,7 +423,7 @@ class _DirectShootingBackend:
         horizons = self.model.runtime_spec.sample_period_s * jnp.arange(
             1, self.prediction_steps + 1
         )
-        corrected_states, _, _ = jax.vmap(self.belief.corrected_state)(
+        corrected_states, _, error_covariance = jax.vmap(self.belief.corrected_state)(
             future_states,
             horizons,
             commands,
@@ -452,7 +431,7 @@ class _DirectShootingBackend:
         )
         states = jnp.concatenate((initial_state[None, :], corrected_states), axis=0)
         latent = jnp.concatenate((initial_latent[None, :], future_latent), axis=0)
-        return states, latent, commands
+        return states, latent, commands, error_covariance
 
     def _validity_utilization(self, state: Array, exogenous: Array) -> Array:
         return self.model.validity_utilization(state, exogenous)
@@ -503,18 +482,45 @@ class _DirectShootingBackend:
         exogenous: Array,
         model_parameters: ModelParams,
     ) -> Array:
-        states, _, commands = self._rollout(
+        """Score one command plan as the expected cost of its own forecast.
+
+        Tracking charges ``E[l] = l(mean) + trace(W Sigma)`` at every predicted
+        stage, where ``W`` is the diagonal tracking weight built from the
+        declared tolerances and ``Sigma`` is the belief's predicted tangent
+        covariance. Validity charges the robust utilization, the mean
+        utilization plus the belief's own marginal radius on the same envelope
+        features. A belief that carries no covariance contributes exactly zero
+        to both, so a point model is scored by the point objective.
+        """
+
+        states, _, commands, error_covariance = self._rollout(
             blocks,
             initial_state,
             initial_latent,
             exogenous,
             model_parameters,
         )
+        covariance = self._tangent_covariance(
+            blocks,
+            initial_state,
+            initial_latent,
+            exogenous,
+            model_parameters,
+            states,
+            error_covariance,
+        )
         local_error = jax.vmap(rigid_body_local_error)(reference_states[1:], states[1:])
         normalized_error = local_error / self.tolerances.local_state_scale
-        tracking_cost = jnp.mean(jnp.sum(jnp.square(normalized_error), axis=1))
-        terminal_cost = self._policy.terminal_weight * jnp.sum(
-            jnp.square(normalized_error[-1])
+        normalized_spread = jnp.sum(
+            jnp.diagonal(covariance, axis1=-2, axis2=-1)
+            / jnp.square(self.tolerances.local_state_scale),
+            axis=1,
+        )
+        tracking_cost = jnp.mean(
+            jnp.sum(jnp.square(normalized_error), axis=1) + normalized_spread
+        )
+        terminal_cost = self._policy.terminal_weight * (
+            jnp.sum(jnp.square(normalized_error[-1])) + normalized_spread[-1]
         )
 
         command_range = self.model.command_maximum - self.model.command_minimum
@@ -528,7 +534,9 @@ class _DirectShootingBackend:
             jnp.square(normalized_delta)
         )
 
-        utilization = jax.vmap(self._validity_utilization)(states[1:], exogenous)
+        utilization = jax.vmap(self._robust_validity_utilization)(
+            states[1:], covariance, exogenous
+        )
         validity_cost = self._policy.validity_weight * jnp.mean(
             jnp.square(jax.nn.relu(utilization - 1.0))
         )
@@ -550,54 +558,96 @@ class _DirectShootingBackend:
     def _maximum_safety_violation(self, states: Array) -> Array:
         return jnp.max(jax.vmap(self._safety_violation)(states[1:]))
 
-    def _model_uncertainty_and_support_metrics(
+    def _tangent_covariance(
         self,
+        blocks: Array,
         initial_state: Array,
         initial_latent: Array,
-        commands: Array,
         exogenous: Array,
         model_parameters: ModelParams,
-    ) -> tuple[Array, Array, Array, Array, Array, Array, Array]:
-        forecast = self.belief.rollout(
-            initial_state,
-            commands,
-            model_parameters=model_parameters,
-            initial_latent_state=initial_latent,
-            exogenous=exogenous,
-        )
-        maximum_uncertainty = jnp.max(
-            forecast.tangent_standard_deviation[1:]
-            / self.tolerances.local_state_scale[None, :]
-        )
-        support_steps = min(self._support_horizon_steps, len(commands))
-        mean_validity, robust_validity, rate_energy = jax.vmap(
-            self._support_state_metrics
-        )(
-            forecast.mean_states[1 : support_steps + 1],
-            forecast.tangent_covariance[1 : support_steps + 1],
-            exogenous[:support_steps],
-        )
-        return (
-            maximum_uncertainty,
-            mean_validity[0],
-            robust_validity[0],
-            rate_energy[0],
-            jnp.max(robust_validity),
-            robust_validity[-1],
-            rate_energy[-1],
-        )
+        states: Array,
+        error_covariance: Array,
+    ) -> Array:
+        """Add the plan's parameter spread to the forecast-error covariance.
 
-    def _support_state_metrics(
+        The parameter contribution is ``J C J.T`` for the Jacobian of the
+        predicted tangent error with respect to the fitted parameters. Written
+        through the covariance factor it is the sum of the outer products of
+        one directional derivative per retained direction, and each of those is
+        a single forward-mode rollout rather than a column of a full Jacobian.
+        """
+
+        if self._covariance_factor is None:
+            return error_covariance
+        center = structured_parameter_vector(model_parameters)
+
+        def varied_error(vector: Array) -> Array:
+            varied_parameters = with_structured_parameter_vector(
+                model_parameters, vector
+            )
+            varied_states, _, _, _ = self._rollout(
+                blocks,
+                initial_state,
+                initial_latent,
+                exogenous,
+                varied_parameters,
+            )
+            return jax.vmap(rigid_body_local_error)(states[1:], varied_states[1:])
+
+        def direction(column: Array) -> Array:
+            return jax.jvp(varied_error, (center,), (column,))[1]
+
+        directions = jax.vmap(direction)(jnp.asarray(self._covariance_factor.T))
+        return error_covariance + jnp.einsum("kti,ktj->tij", directions, directions)
+
+    def _maximum_normalized_uncertainty(
+        self,
+        blocks: Array,
+        initial_state: Array,
+        initial_latent: Array,
+        exogenous: Array,
+        model_parameters: ModelParams,
+    ) -> Array:
+        """Largest predicted tangent spread in tracking-tolerance units."""
+
+        states, _, _, error_covariance = self._rollout(
+            blocks,
+            initial_state,
+            initial_latent,
+            exogenous,
+            model_parameters,
+        )
+        covariance = self._tangent_covariance(
+            blocks,
+            initial_state,
+            initial_latent,
+            exogenous,
+            model_parameters,
+            states,
+            error_covariance,
+        )
+        standard_deviation = _marginal_standard_deviation(
+            jnp.diagonal(covariance, axis1=-2, axis2=-1)
+        )
+        return jnp.max(standard_deviation / self.tolerances.local_state_scale[None, :])
+
+    def _robust_validity_utilization(
         self,
         mean_state: Array,
         covariance: Array,
         exogenous: Array,
-    ) -> tuple[Array, Array, Array]:
-        """Return mean/marginal-radius validity and normalized rate energy."""
+    ) -> Array:
+        """Return per-axis validity utilization widened by its own spread.
+
+        The envelope is stated on body velocity and body rates, so the tangent
+        covariance is mapped onto those six features and the marginal standard
+        deviation of each is added to that feature's mean utilization. A belief
+        with no covariance adds exactly zero and the metric is the mean
+        utilization it has always been.
+        """
 
         envelope = self.model.runtime_spec.validity_envelope
         mean_utilization = self.model.validity_utilization(mean_state, exogenous)
-        mean_validity = jnp.max(mean_utilization)
 
         roles = self.model.input_spec.exogenous_roles
         wind = jnp.stack(
@@ -627,441 +677,10 @@ class _DirectShootingBackend:
             )
         )
         marginal_radius = (
-            jnp.sqrt(jnp.maximum(jnp.diag(feature_covariance), 0.0))
+            _marginal_standard_deviation(jnp.diag(feature_covariance))
             / feature_half_width
         )
-        robust_validity = jnp.max(mean_utilization + marginal_radius)
-        normalized_rate = (
-            mean_state[10:13] - jnp.asarray(envelope.angular_velocity_center_rad_s)
-        ) / jnp.asarray(envelope.angular_velocity_half_width_rad_s)
-        rate_energy = jnp.sum(jnp.square(normalized_rate))
-        return mean_validity, robust_validity, rate_energy
-
-    def _support_horizon_metrics(
-        self,
-        state: Array,
-        latent: Array,
-        command: Array,
-        exogenous: Array,
-        model_parameters: ModelParams,
-    ) -> tuple[Array, Array, Array, Array, Array, Array]:
-        """Evaluate one held command over the actuator reaction horizon."""
-
-        commands = jnp.repeat(
-            command[None, :],
-            self._support_horizon_steps,
-            axis=0,
-        )
-        exogenous_forecast = jnp.repeat(
-            exogenous[None, :], self._support_horizon_steps, axis=0
-        )
-        forecast = self.belief.rollout(
-            state,
-            commands,
-            model_parameters=model_parameters,
-            initial_latent_state=latent,
-            exogenous=exogenous_forecast,
-        )
-        mean_validity, robust_validity, rate_energy = jax.vmap(
-            self._support_state_metrics
-        )(
-            forecast.mean_states[1:],
-            forecast.tangent_covariance[1:],
-            exogenous_forecast,
-        )
-        return (
-            mean_validity[0],
-            robust_validity[0],
-            rate_energy[0],
-            jnp.max(robust_validity),
-            robust_validity[-1],
-            rate_energy[-1],
-        )
-
-    def _current_support_metrics(
-        self,
-        state: np.ndarray,
-        exogenous: np.ndarray,
-    ) -> tuple[float, float]:
-        current_validity = float(
-            np.max(
-                np.asarray(
-                    self.model.validity_utilization(
-                        jnp.asarray(state),
-                        jnp.asarray(exogenous),
-                    )
-                )
-            )
-        )
-        envelope = self.model.runtime_spec.validity_envelope
-        normalized_rate = (
-            state[10:13] - np.asarray(envelope.angular_velocity_center_rad_s)
-        ) / np.asarray(envelope.angular_velocity_half_width_rad_s)
-        return current_validity, float(normalized_rate @ normalized_rate)
-
-    def _uncertainty_support_values(
-        self,
-        state: Array,
-        latent: Array,
-        commands: Array,
-        exogenous: Array,
-    ) -> tuple[float, tuple[float, float, float, float, float, float]]:
-        values = tuple(
-            float(np.asarray(value))
-            for value in self._uncertainty_support_compiled(
-                state,
-                latent,
-                commands,
-                exogenous,
-                self._active_parameters,
-            )
-        )
-        return values[0], values[1:]  # type: ignore[return-value]
-
-    def _support_candidates(
-        self,
-        nominal_command: np.ndarray,
-        previous_command: np.ndarray,
-    ) -> tuple[list[np.ndarray], list[float]]:
-        minimum = np.asarray(self.model.command_minimum, dtype=np.float64)
-        maximum = np.asarray(self.model.command_maximum, dtype=np.float64)
-        candidates = [np.clip(nominal_command, minimum, maximum)]
-        nominal_fractions = [1.0]
-        anchor = np.clip(previous_command, minimum, maximum)
-
-        for fraction in _SUPPORT_INTERPOLATION_FRACTIONS:
-            candidate = np.clip(
-                anchor + fraction * (nominal_command - anchor),
-                minimum,
-                maximum,
-            )
-            candidates.append(candidate)
-            nominal_fractions.append(fraction)
-        return candidates, nominal_fractions
-
-    def _warm_support_batch(
-        self,
-        state: Array,
-        latent: Array,
-        candidates: list[np.ndarray],
-        exogenous: Array,
-    ) -> None:
-        """Compile the batched candidate kernel on a solve that does not need it.
-
-        The recovery and boundary paths must not pay a first-call compile at the
-        moment they are reached, so the first nominal-safe solve warms the same
-        kernel with the candidates it would otherwise have evaluated.
-        """
-
-        if self._support_batch_warmed:
-            return
-        warmed = self._support_metrics_compiled(
-            state,
-            latent,
-            jnp.asarray(np.asarray(candidates[1:])),
-            exogenous,
-            self._active_parameters,
-        )
-        jax.block_until_ready(warmed)
-        self._support_batch_warmed = True
-
-    def _candidate_support_metrics(
-        self,
-        state: Array,
-        latent: Array,
-        candidates: list[np.ndarray],
-        nominal_metrics: tuple[float, float, float, float, float, float],
-        exogenous: Array,
-    ) -> _SupportMetrics:
-        """Evaluate every candidate over the actuator reaction horizon.
-
-        The nominal candidate's metrics are already known, so only the
-        interpolated alternatives go through the batched kernel; the two are
-        then concatenated back into candidate order.
-        """
-
-        alternative_metrics = (
-            self._support_metrics_compiled(
-                state,
-                latent,
-                jnp.asarray(np.asarray(candidates[1:])),
-                exogenous,
-                self._active_parameters,
-            )
-            if len(candidates) > 1
-            else tuple(np.empty(0) for _ in range(6))
-        )
-        self._support_batch_warmed = True
-        columns = [
-            np.asarray(
-                np.concatenate(
-                    (
-                        np.asarray((nominal_metrics[index],), dtype=np.float64),
-                        np.asarray(alternative_metrics[index], dtype=np.float64),
-                    )
-                ),
-                dtype=np.float64,
-            )
-            for index in range(6)
-        ]
-        finite = np.logical_and.reduce([np.isfinite(column) for column in columns])
-        return _SupportMetrics(
-            *(np.where(finite, column, np.inf) for column in columns)
-        )
-
-    def _acceptable_support(
-        self,
-        metrics: _SupportMetrics,
-        *,
-        inside_support: bool,
-        current_validity: float,
-        current_rate_energy: float,
-    ) -> np.ndarray:
-        """Mark the candidates whose support-horizon forecast is acceptable.
-
-        Inside the validity envelope a candidate is acceptable when it never
-        leaves the envelope over the whole support horizon.  Outside it no
-        candidate can already be safe, so acceptability becomes strict progress
-        instead: terminal robust validity and terminal rate energy must both
-        fall by more than the rounding width of the value they are measured
-        against, which stops a numerically flat candidate from being mistaken
-        for a recovering one.
-        """
-
-        if inside_support:
-            return metrics.horizon_maximum_robust_validity <= 1.0 + 1e-6
-        validity_tolerance = (
-            32.0
-            * np.finfo(np.float64).eps
-            * max(
-                1.0,
-                current_validity,
-            )
-        )
-        energy_tolerance = (
-            32.0
-            * np.finfo(np.float64).eps
-            * max(
-                1.0,
-                current_rate_energy,
-            )
-        )
-        validity_progress = (
-            metrics.horizon_terminal_robust_validity
-            < current_validity - validity_tolerance
-        )
-        rate_progress = np.where(
-            current_rate_energy > energy_tolerance,
-            metrics.horizon_terminal_rate_energy
-            < current_rate_energy - energy_tolerance,
-            metrics.horizon_terminal_rate_energy <= energy_tolerance,
-        )
-        return validity_progress & rate_progress
-
-    def _selected_support_candidate(
-        self,
-        metrics: _SupportMetrics,
-        acceptable: np.ndarray,
-        nominal_fractions: list[float],
-        *,
-        inside_support: bool,
-        current_validity: float,
-        current_rate_energy: float,
-    ) -> tuple[int, SupportFilterMode]:
-        """Pick one candidate and name the mode that picked it.
-
-        With acceptable candidates available the choice is the most nominal one
-        inside the envelope, and the one that recovers hardest outside it.  With
-        none, the same orderings are applied as a best effort so a command is
-        still returned, and the mode records that no candidate met the bar.
-        """
-
-        acceptable_indices = np.flatnonzero(acceptable)
-        if len(acceptable_indices):
-            selected_index = (
-                int(acceptable_indices[0])
-                if inside_support
-                else min(
-                    (int(index) for index in acceptable_indices),
-                    key=lambda index: (
-                        metrics.horizon_maximum_robust_validity[index],
-                        metrics.horizon_terminal_robust_validity[index]
-                        / max(current_validity, 1e-12),
-                        metrics.horizon_terminal_rate_energy[index]
-                        / max(current_rate_energy, 1e-12),
-                        -nominal_fractions[index],
-                    ),
-                )
-            )
-            return selected_index, (
-                SupportFilterMode.NOMINAL_SAFE
-                if inside_support and selected_index == 0
-                else SupportFilterMode.BOUNDARY_FILTERED
-                if inside_support
-                else SupportFilterMode.RECOVERY_FILTERED
-            )
-
-        if inside_support:
-            scores = np.stack(
-                (
-                    metrics.horizon_maximum_robust_validity,
-                    metrics.horizon_terminal_robust_validity,
-                    metrics.horizon_terminal_rate_energy,
-                ),
-                axis=1,
-            )
-        else:
-            validity_scale = max(current_validity, 1e-12)
-            rate_scale = max(current_rate_energy, 1e-12)
-            maximum_validity_ratio = (
-                metrics.horizon_maximum_robust_validity / validity_scale
-            )
-            terminal_validity_ratio = (
-                metrics.horizon_terminal_robust_validity / validity_scale
-            )
-            terminal_rate_ratio = metrics.horizon_terminal_rate_energy / rate_scale
-            scores = np.stack(
-                (
-                    maximum_validity_ratio,
-                    np.maximum(terminal_validity_ratio, terminal_rate_ratio),
-                    terminal_validity_ratio + terminal_rate_ratio,
-                ),
-                axis=1,
-            )
-        selected_index = min(
-            range(len(nominal_fractions)),
-            key=lambda index: (
-                scores[index, 0],
-                scores[index, 1],
-                scores[index, 2],
-                -nominal_fractions[index],
-            ),
-        )
-        return selected_index, (
-            SupportFilterMode.BOUNDARY_BEST_EFFORT
-            if inside_support
-            else SupportFilterMode.RECOVERY_BEST_EFFORT
-        )
-
-    def _support_decision(
-        self,
-        command: np.ndarray,
-        mode: SupportFilterMode,
-        *,
-        applied: bool,
-        nominal_fraction: float,
-        current_validity: float,
-        current_rate_energy: float,
-        metrics: tuple[float, float, float, float, float, float],
-    ) -> _SupportDecision:
-        """Assemble one auditable support-filter decision record."""
-
-        return _SupportDecision(
-            command=command,
-            mode=mode,
-            applied=applied,
-            nominal_fraction=nominal_fraction,
-            current_validity=current_validity,
-            next_mean_validity=metrics[0],
-            next_robust_validity=metrics[1],
-            current_rate_energy=current_rate_energy,
-            next_rate_energy=metrics[2],
-            support_horizon_s=(
-                self._support_horizon_steps * self.model.runtime_spec.sample_period_s
-            ),
-            support_horizon_maximum_robust_validity=metrics[3],
-            support_horizon_terminal_robust_validity=metrics[4],
-            support_horizon_terminal_rate_energy=metrics[5],
-        )
-
-    def _select_support_command(
-        self,
-        state: Array,
-        latent: Array,
-        nominal_command: Array,
-        previous_command: Array,
-        exogenous: Array,
-        nominal_support_metrics: tuple[float, float, float, float, float, float]
-        | None = None,
-    ) -> _SupportDecision:
-        """Choose the first command the belief can actually support.
-
-        The nominal command is kept untouched whenever the vehicle is inside its
-        validity envelope and the nominal plan keeps it there across the whole
-        actuator reaction horizon.  Otherwise the interpolation toward the
-        previous command is searched, and the mode records whether the result
-        was safe, filtered, or the best available with nothing acceptable.
-        """
-
-        state_np = np.asarray(state, dtype=np.float64)
-        nominal_np = np.asarray(nominal_command, dtype=np.float64)
-        previous_np = np.asarray(previous_command, dtype=np.float64)
-        exogenous_np = np.asarray(exogenous, dtype=np.float64)
-        candidates, nominal_fractions = self._support_candidates(
-            nominal_np, previous_np
-        )
-        current_validity, current_rate_energy = self._current_support_metrics(
-            state_np,
-            exogenous_np,
-        )
-        inside_support = current_validity <= 1.0 + 1e-6
-        nominal_metrics = (
-            tuple(
-                float(np.asarray(value))
-                for value in self._support_metric_compiled(
-                    state,
-                    latent,
-                    jnp.asarray(candidates[0]),
-                    exogenous,
-                    self._active_parameters,
-                )
-            )
-            if nominal_support_metrics is None
-            else nominal_support_metrics
-        )
-        nominal_finite = bool(np.all(np.isfinite(nominal_metrics)))
-        if nominal_finite and inside_support and nominal_metrics[3] <= 1.0 + 1e-6:
-            self._warm_support_batch(state, latent, candidates, exogenous)
-            return self._support_decision(
-                candidates[0],
-                SupportFilterMode.NOMINAL_SAFE,
-                applied=False,
-                nominal_fraction=1.0,
-                current_validity=current_validity,
-                current_rate_energy=current_rate_energy,
-                metrics=nominal_metrics,
-            )
-
-        metrics = self._candidate_support_metrics(
-            state,
-            latent,
-            candidates,
-            nominal_metrics,
-            exogenous,
-        )
-        selected_index, mode = self._selected_support_candidate(
-            metrics,
-            self._acceptable_support(
-                metrics,
-                inside_support=inside_support,
-                current_validity=current_validity,
-                current_rate_energy=current_rate_energy,
-            ),
-            nominal_fractions,
-            inside_support=inside_support,
-            current_validity=current_validity,
-            current_rate_energy=current_rate_energy,
-        )
-        selected = candidates[selected_index]
-        return self._support_decision(
-            selected,
-            mode,
-            applied=not np.allclose(selected, nominal_np, rtol=0.0, atol=1e-12),
-            nominal_fraction=nominal_fractions[selected_index],
-            current_validity=current_validity,
-            current_rate_energy=current_rate_energy,
-            metrics=metrics.at(selected_index),
-        )
+        return mean_utilization + marginal_radius
 
     def _optimize(
         self,
@@ -1353,7 +972,6 @@ class _DirectShootingBackend:
                 solve_time_s=time.perf_counter() - started_at,
                 initial_objective=initial_objective,
                 final_objective=math.inf,
-                final_gradient_inf_norm=math.inf,
                 final_projected_gradient_inf_norm=math.inf,
                 maximum_command_bound_violation=0.0,
                 maximum_validity_utilization=math.inf,
@@ -1361,38 +979,12 @@ class _DirectShootingBackend:
                 maximum_normalized_model_uncertainty_standard_deviation=(
                     math.inf if self.belief.uncertainty_available else 0.0
                 ),
-                command_authority_fraction=0.0,
-                uncertainty_aware_command_selection=(self.belief.uncertainty_available),
-                model_uncertainty_available=self.belief.uncertainty_available,
-                prediction_error_model_available=(
-                    self.belief.predictive_error_available
-                ),
-                prediction_error_model_current=self.belief.predictive_error_current,
-                prediction_error_horizon_supported=False,
-                parameter_uncertainty_available=(
-                    self.belief.parameter_uncertainty_available
-                ),
                 warm_start_used=warm_start_used,
                 prediction_horizon_s=self.prediction_horizon_s,
                 prediction_horizon_certified=(
                     certified is not None
                     and self.prediction_horizon_s <= certified + 1e-12
                 ),
-                support_filter_mode=SupportFilterMode.SOLVER_FALLBACK,
-                support_filter_applied=False,
-                support_command_fraction=0.0,
-                current_validity_utilization=math.inf,
-                next_step_mean_validity_utilization=math.inf,
-                next_step_robust_validity_utilization=math.inf,
-                current_angular_rate_energy=math.inf,
-                next_step_angular_rate_energy=math.inf,
-                support_horizon_s=(
-                    self._support_horizon_steps
-                    * self.model.runtime_spec.sample_period_s
-                ),
-                support_horizon_maximum_robust_validity_utilization=math.inf,
-                support_horizon_terminal_robust_validity_utilization=math.inf,
-                support_horizon_terminal_angular_rate_energy=math.inf,
             ),
             used_fallback=True,
             message=message,
@@ -1608,49 +1200,44 @@ class _DirectShootingBackend:
         blocks: Array,
         state: Array,
         latent: Array,
-        reference: ReferenceTrajectory,
-        previous_command: Array,
         exogenous: Array,
-        *,
-        value: Array | None = None,
-        gradient: Array | None = None,
+        value: Array,
+        gradient: Array,
     ) -> _PlanEvaluation:
-        """Score one command plan and roll it out across the whole horizon.
+        """Roll out the optimized plan and measure what it forecasts.
 
-        Every site that edits the command blocks after optimization, namely the
-        uncertainty-bounded authority scaling and the support filter, has to
-        recompute the objective, the gradient norms, and the prediction that go
-        with the edited plan.  ``value`` and ``gradient`` are passed only by the
-        caller that already holds them for exactly these blocks, which is how
-        the optimizer's own result is carried through without re-evaluating it.
+        The optimizer already holds this plan's objective and gradient, so they
+        are carried through rather than recomputed; nothing edits the command
+        blocks after optimization, so no plan is ever scored twice.
         """
 
-        if value is None or gradient is None:
-            value, gradient = self._objective_and_gradient(
-                blocks,
-                state,
-                latent,
-                reference.states,
-                previous_command,
-                exogenous,
-                self._active_parameters,
-            )
-        states, latent_states, commands = self._rollout_compiled(
+        states, latent_states, commands, _ = self._rollout_compiled(
             blocks,
             state,
             latent,
             exogenous,
             self._active_parameters,
         )
+        maximum_uncertainty = float(
+            np.asarray(
+                self._uncertainty_compiled(
+                    blocks,
+                    state,
+                    latent,
+                    exogenous,
+                    self._active_parameters,
+                )
+            )
+        )
         return _PlanEvaluation(
             blocks=blocks,
             value=value,
             gradient=gradient,
             value_float=float(np.asarray(value)),
-            gradient_inf_norm=float(np.max(np.abs(np.asarray(gradient)))),
             projected_gradient_inf_norm=float(
                 np.asarray(_projected_gradient_norm(blocks, gradient))
             ),
+            maximum_normalized_uncertainty=maximum_uncertainty,
             states=states,
             latent_states=latent_states,
             commands=commands,
@@ -1658,129 +1245,6 @@ class _DirectShootingBackend:
             latent_np=np.asarray(latent_states),
             commands_np=np.asarray(commands),
         )
-
-    def _bounded_authority_plan(
-        self,
-        plan: _PlanEvaluation,
-        cold_blocks: Array,
-        maximum_model_uncertainty: float,
-        support_metrics: tuple[float, float, float, float, float, float],
-        outcome: _OptimizerOutcome,
-        state: Array,
-        latent: Array,
-        reference: ReferenceTrajectory,
-        previous_command: Array,
-        exogenous: Array,
-    ) -> tuple[
-        float,
-        _PlanEvaluation,
-        float,
-        tuple[float, float, float, float, float, float],
-    ]:
-        """Pull the plan toward the previous command when the belief is weak.
-
-        Command authority is the reciprocal of the largest normalized predicted
-        uncertainty, so a forecast whose spread already fills the tracking
-        tolerance keeps only the fraction of the optimized departure the belief
-        can still stand behind.  The scaled plan is a different plan, so it is
-        rescored and its uncertainty forecast is recomputed.
-        """
-
-        command_authority = (
-            min(1.0, 1.0 / maximum_model_uncertainty)
-            if self.belief.uncertainty_available and maximum_model_uncertainty > 0.0
-            else 1.0
-        )
-        if command_authority < 1.0:
-            plan = self._evaluate_blocks(
-                jnp.clip(
-                    cold_blocks + command_authority * (plan.blocks - cold_blocks),
-                    -1.0,
-                    1.0,
-                ),
-                state,
-                latent,
-                reference,
-                previous_command,
-                exogenous,
-            )
-            (
-                maximum_model_uncertainty,
-                support_metrics,
-            ) = self._uncertainty_support_values(
-                state,
-                latent,
-                plan.commands,
-                exogenous,
-            )
-            outcome.converged = False
-            outcome.stalled = False
-        if not (plan.prediction_finite and np.isfinite(maximum_model_uncertainty)):
-            raise _SolveAbort(
-                SolveStatus.NONFINITE_OBJECTIVE,
-                "uncertainty-bounded prediction is non-finite",
-            )
-        return command_authority, plan, maximum_model_uncertainty, support_metrics
-
-    def _support_filtered_plan(
-        self,
-        plan: _PlanEvaluation,
-        support_metrics: tuple[float, float, float, float, float, float],
-        maximum_model_uncertainty: float,
-        outcome: _OptimizerOutcome,
-        state: Array,
-        latent: Array,
-        reference: ReferenceTrajectory,
-        previous_command: Array,
-        exogenous: Array,
-    ) -> tuple[_SupportDecision, _PlanEvaluation, float]:
-        """Project the first command onto the support the belief actually has.
-
-        Only the first block is edited, because only the first command is
-        applied; the rest of the horizon is left for the next solve to revisit.
-        As with authority scaling, an edited plan is rescored before it is
-        reported.
-        """
-
-        support_decision = self._select_support_command(
-            state,
-            latent,
-            plan.commands[0],
-            previous_command,
-            exogenous[0],
-            support_metrics,
-        )
-        if support_decision.applied:
-            plan = self._evaluate_blocks(
-                plan.blocks.at[0].set(
-                    jnp.clip(
-                        self._normalized_from_commands(
-                            jnp.asarray(support_decision.command)
-                        ),
-                        -1.0,
-                        1.0,
-                    )
-                ),
-                state,
-                latent,
-                reference,
-                previous_command,
-                exogenous,
-            )
-            maximum_model_uncertainty, _ = self._uncertainty_support_values(
-                state,
-                latent,
-                plan.commands,
-                exogenous,
-            )
-            outcome.converged = False
-            outcome.stalled = False
-        if not (plan.prediction_finite and np.isfinite(maximum_model_uncertainty)):
-            raise _SolveAbort(
-                SolveStatus.NONFINITE_OBJECTIVE,
-                "support-filtered prediction is non-finite",
-            )
-        return support_decision, plan, maximum_model_uncertainty
 
     def _prediction_diagnostics(
         self,
@@ -1811,10 +1275,7 @@ class _DirectShootingBackend:
         self,
         plan: _PlanEvaluation,
         outcome: _OptimizerOutcome,
-        support_decision: _SupportDecision,
         prediction: _PredictionDiagnostics,
-        maximum_model_uncertainty: float,
-        command_authority: float,
         progress: _SolveProgress,
     ) -> NMPCResult:
         """Assemble the auditable result for one finite, bounded solve."""
@@ -1839,7 +1300,6 @@ class _DirectShootingBackend:
                 solve_time_s=time.perf_counter() - progress.started_at,
                 initial_objective=progress.initial_objective,
                 final_objective=plan.value_float,
-                final_gradient_inf_norm=plan.gradient_inf_norm,
                 final_projected_gradient_inf_norm=(plan.projected_gradient_inf_norm),
                 maximum_command_bound_violation=(
                     prediction.maximum_command_bound_violation
@@ -1849,22 +1309,7 @@ class _DirectShootingBackend:
                     prediction.maximum_normalized_safety_violation
                 ),
                 maximum_normalized_model_uncertainty_standard_deviation=(
-                    maximum_model_uncertainty
-                ),
-                command_authority_fraction=command_authority,
-                uncertainty_aware_command_selection=(self.belief.uncertainty_available),
-                model_uncertainty_available=self.belief.uncertainty_available,
-                prediction_error_model_available=(
-                    self.belief.predictive_error_available
-                ),
-                prediction_error_model_current=self.belief.predictive_error_current,
-                prediction_error_horizon_supported=(
-                    self.belief.maximum_error_horizon_s is not None
-                    and self.prediction_horizon_s
-                    <= self.belief.maximum_error_horizon_s + 1e-12
-                ),
-                parameter_uncertainty_available=(
-                    self.belief.parameter_uncertainty_available
+                    plan.maximum_normalized_uncertainty
                 ),
                 warm_start_used=progress.warm_start_used,
                 prediction_horizon_s=self.prediction_horizon_s,
@@ -1872,42 +1317,10 @@ class _DirectShootingBackend:
                     certified is not None
                     and self.prediction_horizon_s <= certified + 1e-12
                 ),
-                support_filter_mode=support_decision.mode,
-                support_filter_applied=support_decision.applied,
-                support_command_fraction=support_decision.nominal_fraction,
-                current_validity_utilization=support_decision.current_validity,
-                next_step_mean_validity_utilization=(
-                    support_decision.next_mean_validity
-                ),
-                next_step_robust_validity_utilization=(
-                    support_decision.next_robust_validity
-                ),
-                current_angular_rate_energy=(support_decision.current_rate_energy),
-                next_step_angular_rate_energy=support_decision.next_rate_energy,
-                support_horizon_s=support_decision.support_horizon_s,
-                support_horizon_maximum_robust_validity_utilization=(
-                    support_decision.support_horizon_maximum_robust_validity
-                ),
-                support_horizon_terminal_robust_validity_utilization=(
-                    support_decision.support_horizon_terminal_robust_validity
-                ),
-                support_horizon_terminal_angular_rate_energy=(
-                    support_decision.support_horizon_terminal_rate_energy
-                ),
             ),
             used_fallback=False,
             message=(
-                f"finite plan returned with {support_decision.mode.value} projection"
-                if support_decision.applied
-                or support_decision.mode
-                in {
-                    SupportFilterMode.RECOVERY_FILTERED,
-                    SupportFilterMode.RECOVERY_BEST_EFFORT,
-                    SupportFilterMode.BOUNDARY_BEST_EFFORT,
-                }
-                else "finite plan returned with belief-bounded command authority"
-                if command_authority < 1.0
-                else "first-order convergence criterion satisfied"
+                "first-order convergence criterion satisfied"
                 if outcome.converged
                 else outcome.stall_message
                 if outcome.stalled
@@ -1929,10 +1342,9 @@ class _DirectShootingBackend:
         """Optimize one bounded command and return an auditable receding horizon.
 
         The solve is a fixed sequence of steps: refuse an unusable request, seed
-        the plan, optimize it, roll it out, bound its authority by the belief's
-        own uncertainty, project the first command onto supported ground, and
-        measure the result.  Any step may abort, and every abort returns the
-        same bounded previous-command hold rather than raising.
+        the plan, optimize it, roll it out, and measure the result. Any step may
+        abort, and every abort returns the same bounded previous-command hold
+        rather than raising.
         """
 
         started_at = time.perf_counter()
@@ -2005,64 +1417,18 @@ class _DirectShootingBackend:
                 outcome.blocks,
                 state,
                 latent,
-                reference,
-                previous_command,
                 exogenous,
-                value=outcome.value,
-                gradient=outcome.gradient,
+                outcome.value,
+                outcome.gradient,
             )
-            if not plan.prediction_finite:
+            if not (
+                plan.prediction_finite
+                and np.isfinite(plan.maximum_normalized_uncertainty)
+            ):
                 raise _SolveAbort(
                     SolveStatus.NONFINITE_OBJECTIVE,
                     "optimized prediction is non-finite",
                 )
-            (
-                maximum_model_uncertainty,
-                support_metrics,
-            ) = self._uncertainty_support_values(
-                state,
-                latent,
-                plan.commands,
-                exogenous,
-            )
-            if not np.isfinite(maximum_model_uncertainty):
-                raise _SolveAbort(
-                    SolveStatus.NONFINITE_OBJECTIVE,
-                    "model-uncertainty forecast is non-finite",
-                )
-
-            (
-                command_authority,
-                plan,
-                maximum_model_uncertainty,
-                support_metrics,
-            ) = self._bounded_authority_plan(
-                plan,
-                cold_blocks,
-                maximum_model_uncertainty,
-                support_metrics,
-                outcome,
-                state,
-                latent,
-                reference,
-                previous_command,
-                exogenous,
-            )
-            (
-                support_decision,
-                plan,
-                maximum_model_uncertainty,
-            ) = self._support_filtered_plan(
-                plan,
-                support_metrics,
-                maximum_model_uncertainty,
-                outcome,
-                state,
-                latent,
-                reference,
-                previous_command,
-                exogenous,
-            )
 
             prediction = self._prediction_diagnostics(plan, exogenous)
             self._require_deadline(
@@ -2080,15 +1446,7 @@ class _DirectShootingBackend:
                 iterations=progress.iterations,
                 warm_start_used=progress.warm_start_used,
             )
-        return self._solved_result(
-            plan,
-            outcome,
-            support_decision,
-            prediction,
-            maximum_model_uncertainty,
-            command_authority,
-            progress,
-        )
+        return self._solved_result(plan, outcome, prediction, progress)
 
 
 class NMPCController:
