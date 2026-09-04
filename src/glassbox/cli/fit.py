@@ -81,8 +81,9 @@ def build_parser() -> argparse.ArgumentParser:
         "--training-horizons",
         type=_evaluation_horizons,
         help=(
-            "comma-separated rollout horizons in seconds; combines normalized "
-            "losses and supersedes --horizon"
+            "comma-separated rollout horizons in seconds; each is normalized "
+            "by its own initial loss and they are combined with equal weight. "
+            "Supersedes --horizon"
         ),
     )
     parser.add_argument("--steps", type=int, default=400)

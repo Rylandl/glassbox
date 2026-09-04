@@ -145,7 +145,7 @@ def test_flying_wing_three_role_rollout_has_no_required_yaw_channel() -> None:
     metrics = rollout_metrics(predict(params, trajectory))
     windows = trajectory_windows([trajectory], horizon=4, stride=4)
     fit = fit_dynamics(
-        windows,
+        [windows],
         initial_fixed_wing_parameter_guess(),
         steps=1,
         learning_rate=0.01,
@@ -246,7 +246,7 @@ def test_fixed_wing_fit_reduces_multistep_loss(fixedwing_flight) -> None:
     windows = trajectory_windows(trajectories, horizon=10, stride=10)
 
     result = fit_dynamics(
-        windows,
+        [windows],
         initial_fixed_wing_parameter_guess(),
         steps=60,
         learning_rate=0.02,

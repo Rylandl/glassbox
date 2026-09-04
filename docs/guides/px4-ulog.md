@@ -88,7 +88,7 @@ uv run glassbox fit artifacts/flight_1.npz artifacts/flight_2.npz \
 
 Every trajectory extracted from a PX4 ULog carries the source recording as its `source_group`. If telemetry gaps produce multiple retained intervals, those segments keep the same group, preventing a flight from leaking across a source-level holdout.
 
-`--training-horizons` expresses rollout lengths in seconds, so the objective is independent of telemetry sample rate. One value trains at that horizon; multiple comma-separated values combine their initial-loss-normalized objectives. Longer horizons directly penalize compounding rollout drift, while shorter horizons emphasize fast local dynamics.
+`--training-horizons` expresses rollout lengths in seconds, so the objective is independent of telemetry sample rate. Every horizon is trained on its own initial-loss-normalized objective, and several comma-separated values combine those objectives with equal weight. Longer horizons directly penalize compounding rollout drift, while shorter horizons emphasize fast local dynamics.
 
 The SITL recorder uses a 2-second training horizon. This substantially reduces uninterrupted long-rollout drift while the evaluation report still exposes 0.1, 0.5, 1, and 2-second behavior. The same multi-flight command works for simulator ground-truth and estimated-state artifacts; estimated-state coefficients should be interpreted as predictive effective values because estimator filtering and noise are part of the observed signal.
 

@@ -333,6 +333,33 @@ All notable changes to Glassbox are recorded here. The format follows
   parameters, so an implementer states its numbers in one object.
 
 ### Changed
+- `core/identification.py` has one fit. `fit_dynamics(window_sets, ...)` is
+  what `fit_dynamics_multi_horizon` was, and the old single-horizon
+  `fit_dynamics(windows, ...)` is gone; one training horizon is a one-element
+  sequence of window sets and is fit on the same multi-horizon normalized
+  objective, each component divided by
+  `stop_gradient(max(initial_component_loss, 1e-12))`. `horizon_weights`,
+  `loss_normalization_params` and `loss_normalization_window_sets` keep the
+  meaning they had. `glassbox.fitting` makes one call for any number of
+  horizons, and the fit report's `fit.multi_horizon_loss_normalizers` is
+  `fit.loss_normalizers`, now recorded for every fit rather than only for
+  fits of more than one horizon. Single-horizon fits move, because the old
+  path did not normalize and `gradient_clip_norm` is applied to the
+  un-normalized gradient, so the clip bound a different quantity: on a
+  three-flight synthetic quadrotor fit at one 0.2-second horizon with 60
+  steps, the fitted structured parameters move by at most 4.7e-5 relative,
+  the training component's final loss goes `2.2281185e-4` to `2.2280312e-4`,
+  and the held-out full-rollout position RMSE goes `0.1427541673750601` to
+  `0.14275201092998774` metres. `fit.initial_loss` and `fit.final_loss` for a
+  one-horizon fit are now on the normalized scale, near one at the start,
+  rather than on the raw rollout-loss scale; the raw numbers are still
+  `fit.component_losses`. Neither recorded local artifact moves: neither
+  benchmark fits a dynamics model. Every documented corpus recipe passes
+  several `--training-horizons`, so the corpora this changes are the ones fit
+  at one horizon, which today is `glassbox fit` run without
+  `--training-horizons` and the one-horizon example in
+  `docs/guides/px4-ulog.md`. Last commit carrying the un-normalized single
+  horizon: `ebf70a9`.
 - The solver's compile cache keys on shape, never on a belief's values.
   `PlanModel.parameters` becomes `PlanModel.values`, a `PlanValues` carrying
   the parameters, the factor of the resolved parameter covariance, and the

@@ -94,8 +94,8 @@ Fitted parameters are effective predictive coefficients, not uniquely
 recovered physical constants. Complete-flight holdout results test
 cross-flight generalization; the `no_lag` ablation's ratios above one say that
 modeling latent applied-control response improved prediction on evidence the
-fit did not see. Multiple training horizons are normalized by their initial
-losses before being combined with equal weight. Each labeled source group
+fit did not see. Every training horizon is normalized by its own initial
+loss, and several are then combined with equal weight. Each labeled source group
 contributes equal total loss weight with uniform weight inside the group;
 without source groups each training flight contributes equally, and when every
 flight declares a maneuver profile each family contributes equally before its

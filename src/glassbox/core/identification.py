@@ -834,82 +834,6 @@ def _window_loss(
 
 
 def fit_dynamics(
-    windows: TrajectoryWindows,
-    initial_params: ModelParams,
-    *,
-    steps: int = 400,
-    learning_rate: float = 0.03,
-    gradient_clip_norm: float = 10.0,
-    fixed_motor_time_constant_s: float | None = None,
-    learn_thrust_command_offset: bool = False,
-    diagonal_angular_control: bool = False,
-    loss_configuration: RolloutLossConfiguration | None = None,
-    endpoint_weight: float = 3.0,
-    stability_regularization: float = 0.01,
-) -> FitResult:
-    """Fit dynamics parameters with Adam and return the complete loss history."""
-
-    if steps < 1:
-        raise ValueError("steps must be positive")
-    if learning_rate <= 0.0:
-        raise ValueError("learning_rate must be positive")
-    _validate_window_schema(initial_params, windows)
-    learn_thrust_command_offset = _resolved_thrust_command_offset_policy(
-        initial_params, (windows,), learn_thrust_command_offset
-    )
-    initial_params = _configured_initial_params(
-        initial_params, fixed_motor_time_constant_s
-    )
-    if (
-        not learn_thrust_command_offset
-        and model_family(initial_params).platform == "multirotor"
-    ):
-        initial_params = with_thrust_command_offset(initial_params, 0.0)
-    if diagonal_angular_control:
-        initial_params = with_diagonal_angular_control(initial_params)
-    if loss_configuration is None:
-        loss_configuration = rollout_loss_configuration(
-            [windows],
-            endpoint_weight=endpoint_weight,
-            stability_regularization=stability_regularization,
-        )
-
-    def component_objective(params: ModelParams) -> Array:
-        return jnp.asarray([_window_loss(params, windows, loss_configuration)])
-
-    def objective(params: ModelParams) -> Array:
-        return component_objective(params)[0] + _residual_regularization(params)
-
-    batch_schedules = _optimization_batch_schedules([windows], steps=steps)
-
-    def batch_objective(params: ModelParams, batch_indices: tuple[Array, ...]) -> Array:
-        return _window_loss(
-            params,
-            windows,
-            loss_configuration,
-            indices=batch_indices[0],
-        ) + _residual_regularization(params)
-
-    return _fit_objective(
-        objective,
-        component_objective,
-        initial_params,
-        steps=steps,
-        learning_rate=learning_rate,
-        gradient_clip_norm=gradient_clip_norm,
-        fixed_motor_time_constant=fixed_motor_time_constant_s is not None,
-        fixed_thrust_command_offset=not learn_thrust_command_offset,
-        fixed_angular_cross_coupling=diagonal_angular_control,
-        loss_configuration=loss_configuration,
-        batch_objective=(None if batch_schedules is None else batch_objective),
-        batch_schedules=batch_schedules,
-        batch_window_counts=(
-            None if batch_schedules is None else (len(windows.initial_states),)
-        ),
-    )
-
-
-def fit_dynamics_multi_horizon(
     window_sets: tuple[TrajectoryWindows, ...] | list[TrajectoryWindows],
     initial_params: ModelParams,
     *,
@@ -928,7 +852,15 @@ def fit_dynamics_multi_horizon(
         tuple[TrajectoryWindows, ...] | list[TrajectoryWindows] | None
     ) = None,
 ) -> FitResult:
-    """Fit one model to normalized rollout losses at several horizons."""
+    """Fit one model to the normalized rollout losses of its window sets.
+
+    Each component of the objective is divided by the loss the normalization
+    parameters make on that same component, held at its initial value, so no
+    horizon is preferred merely for carrying larger errors and the gradient
+    clip means the same thing at every horizon. A single horizon is a
+    one-element sequence of window sets, fit on its own normalized loss like
+    any other.
+    """
 
     if not window_sets:
         raise ValueError("at least one window set is required")

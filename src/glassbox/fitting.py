@@ -55,7 +55,6 @@ from glassbox.core.fixedwing_synthetic import initial_fixed_wing_parameter_guess
 from glassbox.core.identification import (
     OPTIMIZATION_POLICY_VERSION,
     fit_dynamics,
-    fit_dynamics_multi_horizon,
     residual_initialization_statistics,
     rollout_loss_configuration,
 )
@@ -182,30 +181,18 @@ def _fit_on_windows(
         raise ValueError("horizon_labels must match the supplied window sets")
 
     start = perf_counter()
-    if len(window_sets) == 1:
-        fit = fit_dynamics(
-            window_sets[0],
-            initial_params,
-            steps=steps,
-            learning_rate=learning_rate,
-            fixed_motor_time_constant_s=fixed_motor_time_constant_s,
-            learn_thrust_command_offset=learn_thrust_command_offset,
-            diagonal_angular_control=diagonal_angular_control,
-            loss_configuration=loss_configuration,
-        )
-    else:
-        fit = fit_dynamics_multi_horizon(
-            window_sets,
-            initial_params,
-            steps=steps,
-            learning_rate=learning_rate,
-            fixed_motor_time_constant_s=fixed_motor_time_constant_s,
-            learn_thrust_command_offset=learn_thrust_command_offset,
-            diagonal_angular_control=diagonal_angular_control,
-            loss_configuration=loss_configuration,
-            loss_normalization_params=normalization_params,
-            loss_normalization_window_sets=normalization_window_sets,
-        )
+    fit = fit_dynamics(
+        window_sets,
+        initial_params,
+        steps=steps,
+        learning_rate=learning_rate,
+        fixed_motor_time_constant_s=fixed_motor_time_constant_s,
+        learn_thrust_command_offset=learn_thrust_command_offset,
+        diagonal_angular_control=diagonal_angular_control,
+        loss_configuration=loss_configuration,
+        loss_normalization_params=normalization_params,
+        loss_normalization_window_sets=normalization_window_sets,
+    )
     wall_time_s = perf_counter() - start
     component_losses = {}
     if (
@@ -231,7 +218,7 @@ def _fit_on_windows(
             "loss_reduction": fit.initial_loss / fit.final_loss,
             "wall_time_s": wall_time_s,
             "component_losses": component_losses,
-            "multi_horizon_loss_normalizers": (
+            "loss_normalizers": (
                 None
                 if fit.component_loss_normalizers is None
                 else {

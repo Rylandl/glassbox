@@ -36,7 +36,7 @@ def test_multistep_fit_reduces_training_loss(quadrotor_flight) -> None:
     windows = trajectory_windows(trajectories, horizon=10, stride=10)
 
     result = fit_dynamics(
-        windows,
+        [windows],
         initial_parameter_guess(),
         steps=80,
         learning_rate=0.03,
@@ -84,7 +84,7 @@ def test_affordable_fit_uses_every_window(quadrotor_trajectory_seed11_dur0_4s) -
     )
 
     result = fit_dynamics(
-        windows,
+        [windows],
         initial_parameter_guess(),
         steps=1,
         learning_rate=0.01,
@@ -151,7 +151,7 @@ def test_motor_time_constant_can_be_held_fixed(quadrotor_flight) -> None:
     )
 
     result = fit_dynamics(
-        windows,
+        [windows],
         initial_parameter_guess(),
         steps=5,
         fixed_motor_time_constant_s=0.001,
@@ -177,7 +177,7 @@ def test_normalized_motor_commands_support_shared_thrust_offset(
     )
 
     result = fit_dynamics(
-        windows,
+        [windows],
         initial_parameter_guess(),
         steps=3,
     )
@@ -194,7 +194,7 @@ def test_normalized_motor_command_offset_is_recoverable() -> None:
     )
 
     result = fit_dynamics(
-        windows,
+        [windows],
         initial_parameter_guess(),
         steps=20,
         learning_rate=0.03,
@@ -221,7 +221,7 @@ def test_squared_rotor_speed_proxy_fixes_thrust_offset_to_zero(
     )
 
     result = fit_dynamics(
-        windows,
+        [windows],
         initial_parameter_guess(),
         steps=3,
     )
@@ -239,12 +239,12 @@ def test_diagonal_angular_control_holds_the_mixer_on_its_canonical_axes(
     )
 
     held = fit_dynamics(
-        windows,
+        [windows],
         initial_parameter_guess(),
         steps=3,
         diagonal_angular_control=True,
     )
-    learned = fit_dynamics(windows, initial_parameter_guess(), steps=3)
+    learned = fit_dynamics([windows], initial_parameter_guess(), steps=3)
 
     np.testing.assert_allclose(
         held.params.physical()["angular_control_cross_coupling"], 0.0, atol=1e-8
@@ -282,7 +282,7 @@ def test_fit_records_configured_long_rollout_policy(quadrotor_flight) -> None:
     windows = trajectory_windows([quadrotor_flight(2, 0.4)], horizon=5, stride=5)
 
     result = fit_dynamics(
-        windows,
+        [windows],
         initial_parameter_guess(),
         steps=1,
         endpoint_weight=2.5,
@@ -314,7 +314,7 @@ def test_residual_parameters_can_be_fit_through_rollouts(quadrotor_flight) -> No
         initial_parameter_guess(), hidden_units=4, **statistics
     )
 
-    result = fit_dynamics(windows, initial, steps=3, learning_rate=0.01)
+    result = fit_dynamics([windows], initial, steps=3, learning_rate=0.01)
 
     assert jnp.linalg.norm(result.params.output_weights) > 0.0
     np.testing.assert_allclose(result.params.feature_mean, initial.feature_mean)
@@ -336,7 +336,7 @@ def test_quadrotor_fit_rejects_non_quadrotor_control_schema(quadrotor_flight) ->
     windows = trajectory_windows([six_channel], horizon=5)
 
     with pytest.raises(ValueError, match="requires ordered control roles"):
-        fit_dynamics(windows, initial_parameter_guess(), steps=1)
+        fit_dynamics([windows], initial_parameter_guess(), steps=1)
 
 
 def test_minibatch_realizes_window_weights_exactly_once(quadrotor_flight) -> None:
@@ -389,7 +389,7 @@ def test_fit_reports_divergence_and_returns_finite_parameters(quadrotor_flight) 
     windows = trajectory_windows([quadrotor_flight(5, 0.4)], horizon=5, stride=5)
 
     result = fit_dynamics(
-        windows, initial_parameter_guess(), steps=20, learning_rate=50.0
+        [windows], initial_parameter_guess(), steps=20, learning_rate=50.0
     )
 
     assert result.diverged
