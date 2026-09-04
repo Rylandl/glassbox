@@ -13,6 +13,20 @@ from glassbox.core.dynamics import MOTOR_MIXER
 from glassbox.core.synthetic import resting_state
 
 
+def _motor_allocation(differential: np.ndarray) -> np.ndarray:
+    """The quad-X allocation these cases assume, handed in explicitly.
+
+    The supervisor no longer assumes a mixer, so every case that expects a
+    differential arrest has to say which one it means.
+    """
+
+    return 0.25 * np.asarray(MOTOR_MIXER).T @ differential
+
+
+def _supervisor(config: MultirotorSupervisorConfig) -> MultirotorFlightSupervisor:
+    return MultirotorFlightSupervisor(config, allocate=_motor_allocation)
+
+
 def _roll_quaternion(angle_rad: float) -> np.ndarray:
     return np.asarray(
         (
@@ -50,9 +64,7 @@ def _decision(
 
 
 def test_nominal_fresh_command_passes_unchanged() -> None:
-    supervisor = MultirotorFlightSupervisor(
-        MultirotorSupervisorConfig(collective_hold_command=0.35)
-    )
+    supervisor = _supervisor(MultirotorSupervisorConfig(collective_hold_command=0.35))
     candidate = np.asarray((0.31, 0.42, 0.39, 0.36))
 
     decision = _decision(
@@ -73,7 +85,7 @@ def test_nominal_fresh_command_passes_unchanged() -> None:
 
 def test_stale_command_uses_bounded_attitude_and_rate_arrest() -> None:
     config = MultirotorSupervisorConfig(collective_hold_command=0.35)
-    supervisor = MultirotorFlightSupervisor(config)
+    supervisor = _supervisor(config)
     state = resting_state()
     state[6:10] = _roll_quaternion(0.30)
     state[10:13] = (0.8, -0.2, 0.3)
@@ -97,7 +109,7 @@ def test_stale_command_uses_bounded_attitude_and_rate_arrest() -> None:
 
 def test_invalid_or_stale_state_uses_collective_hold() -> None:
     config = MultirotorSupervisorConfig(collective_hold_command=0.35)
-    supervisor = MultirotorFlightSupervisor(config)
+    supervisor = _supervisor(config)
     invalid = resting_state()
     invalid[3] = np.nan
 
@@ -136,7 +148,7 @@ def test_remaining_telemetry_faults_select_collective_hold(
         state[6:10] = 0.0
 
     decision = _decision(
-        MultirotorFlightSupervisor(config),
+        _supervisor(config),
         state=state,
         state_received_at_s=state_received_at_s,
     )
@@ -159,7 +171,7 @@ def test_remaining_command_timestamp_faults_select_bounded_rate_arrest(
 ) -> None:
     config = MultirotorSupervisorConfig(collective_hold_command=0.35)
     decision = _decision(
-        MultirotorFlightSupervisor(config),
+        _supervisor(config),
         command_generated_at_s=command_generated_at_s,
     )
 
@@ -181,14 +193,14 @@ def test_limits_and_unusable_or_invalid_commands_trigger_arrest() -> None:
     state[6:10] = _roll_quaternion(0.6)
     state[10] = 2.5
 
-    limit = _decision(MultirotorFlightSupervisor(config), state=state)
-    unusable = _decision(MultirotorFlightSupervisor(config), usable=False)
+    limit = _decision(_supervisor(config), state=state)
+    unusable = _decision(_supervisor(config), usable=False)
     invalid = _decision(
-        MultirotorFlightSupervisor(config),
+        _supervisor(config),
         candidate=np.full(4, np.nan),
     )
     unbounded = _decision(
-        MultirotorFlightSupervisor(config),
+        _supervisor(config),
         candidate=np.asarray((0.2, 0.3, 1.1, 0.4)),
     )
 
@@ -204,7 +216,7 @@ def test_limits_and_unusable_or_invalid_commands_trigger_arrest() -> None:
 
 
 def test_arrest_latches_until_minimum_duration_and_release_thresholds() -> None:
-    supervisor = MultirotorFlightSupervisor(
+    supervisor = _supervisor(
         MultirotorSupervisorConfig(
             collective_hold_command=0.35,
             minimum_arrest_duration_s=0.10,
@@ -222,7 +234,7 @@ def test_arrest_latches_until_minimum_duration_and_release_thresholds() -> None:
 
 
 def test_time_regression_never_reuses_nominal_authority() -> None:
-    supervisor = MultirotorFlightSupervisor(MultirotorSupervisorConfig())
+    supervisor = _supervisor(MultirotorSupervisorConfig())
     assert _decision(supervisor, now_s=1.0).mode == SupervisorMode.NOMINAL
 
     regressed = _decision(supervisor, now_s=0.5)
@@ -264,9 +276,9 @@ def _arrest_command(
 
 def test_arrest_keeps_restoring_authority_near_inversion() -> None:
     config = MultirotorSupervisorConfig()
-    upright = _arrest_command(MultirotorFlightSupervisor(config), 1.0)
-    inverted = _arrest_command(MultirotorFlightSupervisor(config), 3.0)
-    exactly_inverted = _arrest_command(MultirotorFlightSupervisor(config), math.pi)
+    upright = _arrest_command(_supervisor(config), 1.0)
+    inverted = _arrest_command(_supervisor(config), 3.0)
+    exactly_inverted = _arrest_command(_supervisor(config), math.pi)
 
     upright_spread = float(np.max(upright) - np.min(upright))
     inverted_spread = float(np.max(inverted) - np.min(inverted))
@@ -293,13 +305,13 @@ def test_small_tilt_arrest_matches_the_linearized_cross_product() -> None:
             (config.tilt_gain * linearized[0], config.tilt_gain * linearized[1], 0.0)
         )
 
-        command = _arrest_command(MultirotorFlightSupervisor(config), roll_rad)
+        command = _arrest_command(_supervisor(config), roll_rad)
 
         np.testing.assert_allclose(command, expected, atol=1e-6)
 
 
 def test_rounding_width_bound_overshoot_is_clipped_not_arrested() -> None:
-    supervisor = MultirotorFlightSupervisor(MultirotorSupervisorConfig())
+    supervisor = _supervisor(MultirotorSupervisorConfig())
 
     decision = _decision(supervisor, candidate=np.asarray((1.0 + 1e-9, 0.4, 0.4, 0.4)))
 
@@ -315,9 +327,7 @@ def test_rounding_width_bound_overshoot_is_clipped_not_arrested() -> None:
 
 
 def test_time_regression_latch_still_serves_the_minimum_arrest_duration() -> None:
-    supervisor = MultirotorFlightSupervisor(
-        MultirotorSupervisorConfig(minimum_arrest_duration_s=0.10)
-    )
+    supervisor = _supervisor(MultirotorSupervisorConfig(minimum_arrest_duration_s=0.10))
     assert _decision(supervisor, now_s=1.0).mode == SupervisorMode.NOMINAL
 
     regressed = _decision(supervisor, now_s=0.5)
@@ -328,3 +338,69 @@ def test_time_regression_latch_still_serves_the_minimum_arrest_duration() -> Non
     assert early.mode == SupervisorMode.RATE_ARREST
     assert early.reasons == (SupervisorReason.ARREST_LATCHED,)
     assert released.mode == SupervisorMode.NOMINAL
+
+
+def test_without_an_allocation_the_arrest_is_a_latched_collective_hold() -> None:
+    config = MultirotorSupervisorConfig(collective_hold_command=0.35)
+    supervisor = MultirotorFlightSupervisor(config)
+    state = resting_state()
+    state[6:10] = _roll_quaternion(0.30)
+    state[10:13] = (0.8, -0.2, 0.3)
+
+    assert not supervisor.has_allocation
+    refused = _decision(supervisor, state=state, usable=False)
+    latched = _decision(supervisor, state=state, now_s=1.05)
+
+    assert refused.mode == SupervisorMode.COLLECTIVE_HOLD
+    assert SupervisorReason.CONTROLLER_UNUSABLE in refused.reasons
+    assert SupervisorReason.NO_ALLOCATION in refused.reasons
+    assert not refused.nominal_command_accepted
+    np.testing.assert_allclose(refused.command, config.collective_hold_command)
+    # The latch is the supervisor's own machine and does not need a mixer.
+    assert latched.mode == SupervisorMode.COLLECTIVE_HOLD
+    assert SupervisorReason.ARREST_LATCHED in latched.reasons
+    assert SupervisorReason.NO_ALLOCATION in latched.reasons
+
+
+def test_an_injected_allocation_is_the_only_source_of_differential() -> None:
+    config = MultirotorSupervisorConfig(collective_hold_command=0.35)
+    state = resting_state()
+    state[6:10] = _roll_quaternion(0.30)
+    state[10:13] = (0.8, -0.2, 0.3)
+    seen: list[np.ndarray] = []
+
+    def allocate(differential: np.ndarray) -> np.ndarray:
+        seen.append(np.asarray(differential, dtype=np.float64))
+        return _motor_allocation(differential)
+
+    supervisor = MultirotorFlightSupervisor(config, allocate=allocate)
+    allocated = _decision(supervisor, state=state, usable=False)
+    expected = _decision(_supervisor(config), state=state, usable=False)
+
+    assert supervisor.has_allocation
+    assert allocated.mode == SupervisorMode.RATE_ARREST
+    assert SupervisorReason.NO_ALLOCATION not in allocated.reasons
+    assert len(seen) == 1
+    assert seen[0].shape == (3,)
+    np.testing.assert_array_equal(allocated.command, expected.command)
+
+
+def test_an_arrest_without_an_allocation_still_rate_limits_the_motor_step() -> None:
+    config = MultirotorSupervisorConfig(
+        collective_hold_command=0.9,
+        maximum_arrest_motor_step=0.05,
+    )
+    supervisor = MultirotorFlightSupervisor(config)
+
+    decision = supervisor.supervise(
+        state=resting_state(),
+        state_received_at_s=1.0,
+        candidate_command=np.full(4, 0.4),
+        command_generated_at_s=1.0,
+        now_s=1.0,
+        controller_command_usable=False,
+        previous_applied_command=np.full(4, 0.5),
+    )
+
+    assert decision.mode == SupervisorMode.COLLECTIVE_HOLD
+    np.testing.assert_allclose(decision.command, np.full(4, 0.55))

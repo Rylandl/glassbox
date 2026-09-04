@@ -13,6 +13,20 @@ or excessive tilt/body rates select a bounded geometric attitude/rate-arrest
 command. Arrest remains latched for a minimum interval and until tighter release
 limits are met.
 
+The supervisor does not know how this airframe turns a desired body-axis
+differential into motor commands, and it must not assume one: an identifier that
+has not resolved the canonical mixer says so in its own report, and a supervisor
+that assumed it anyway would command the wrong motors during the one interval it
+exists for. That knowledge is injected by whoever holds it. `allocate` maps the
+desired `(roll, pitch, yaw)` differential to the four motor increments the
+arrest adds to the configured collective hold; `has_allocation` reports whether
+one was given. Constructed without it, the supervisor still runs every freshness
+rule, every limit, and the latch, but its arrest is the collective hold alone,
+rate-limited toward the previously applied command and reported as
+`SupervisorMode.COLLECTIVE_HOLD` carrying `SupervisorReason.NO_ALLOCATION`, so a
+refusal to guess is visible in the audit rather than mistaken for an attitude
+arrest.
+
 The arrest command drives the geodesic attitude error, which is the rotation
 vector that would level the vehicle. Its magnitude is the tilt angle itself, so
 restoring authority holds across the whole `[0, pi]` range instead of fading out
@@ -29,6 +43,9 @@ skip the minimum arrest duration.
 ```python
 import time
 
+import numpy as np
+
+from glassbox.core.dynamics import MOTOR_MIXER
 from glassbox.experimental import (
     MultirotorFlightSupervisor,
     MultirotorSupervisorConfig,
@@ -39,7 +56,8 @@ supervisor = MultirotorFlightSupervisor(
         collective_hold_command=(0.53, 0.53, 0.53, 0.53),
         maximum_state_age_s=0.04,
         maximum_command_age_s=0.02,
-    )
+    ),
+    allocate=lambda differential: 0.25 * np.asarray(MOTOR_MIXER).T @ differential,
 )
 
 now = time.perf_counter()
@@ -58,9 +76,9 @@ plant.write_motor_command(decision.command)
 The caller must use one monotonic clock for all timestamps. State layout is the
 canonical 13-element Glassbox rigid-body state with WXYZ quaternion storage and
 FLU body rates. Motor order and normalized command semantics must match the
-canonical multirotor mixer. The collective hold command, command bounds, limits,
-gains, and maximum arrest slew are vehicle integration values—not identified
-dynamics parameters.
+allocation that was handed in. The collective hold command, command bounds,
+limits, gains, and maximum arrest slew are vehicle integration values, not
+identified dynamics parameters.
 
 Every decision reports a `SupervisorMode`, typed `SupervisorReason` values,
 state and command ages, measured tilt/rate, whether the nominal command was

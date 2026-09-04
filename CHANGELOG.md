@@ -145,6 +145,17 @@ All notable changes to Glassbox are recorded here. The format follows
   from a controller.
 
 ### Changed
+- `MultirotorFlightSupervisor(config, *, allocate=None)` no longer assumes the
+  canonical motor mixer. `allocate` maps the desired `(roll, pitch, yaw)`
+  differential to the four motor increments the arrest adds to the configured
+  collective hold, and `has_allocation` reports whether one was given. Without
+  it the supervisor still runs every freshness rule, every limit and the latch,
+  but its arrest is the collective hold alone, rate-limited toward the
+  previously applied command, reported as `SupervisorMode.COLLECTIVE_HOLD` and
+  carrying the new `SupervisorReason.NO_ALLOCATION`. With an allocation every
+  arrest command is bit-identical to before. `MOTOR_MIXER` keeps its one home
+  in `core/dynamics.py`, where the multirotor family defines it; the supervisor
+  no longer imports it.
 - `glassbox px4-nmpc-shadow` is one control loop instead of one report
   assembly. It writes one JSON object per interval, carrying the state that was
   read, the applied and solved commands, the solver's status and solve time,

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
@@ -10,7 +11,6 @@ from typing import Any
 import numpy as np
 
 from glassbox.control._common import finite_tuple
-from glassbox.core.dynamics import MOTOR_MIXER
 from glassbox.core.geometry import world_up_body
 
 
@@ -64,6 +64,7 @@ class SupervisorReason(StrEnum):
     TILT_LIMIT = "tilt_limit"
     ANGULAR_RATE_LIMIT = "angular_rate_limit"
     ARREST_LATCHED = "arrest_latched"
+    NO_ALLOCATION = "no_allocation"
 
 
 @dataclass(frozen=True)
@@ -233,26 +234,51 @@ def _state_metrics(state: Any) -> tuple[np.ndarray | None, float | None, float |
 
 
 class MultirotorFlightSupervisor:
-    """Stateful, model-independent boundary around one multirotor controller."""
+    """Stateful, model-independent boundary around one multirotor controller.
+
+    The supervisor knows the freshness rules, the attitude and rate limits, and
+    the latch. What it does not know is how this airframe turns a desired
+    body-axis differential into motor commands, and it must not assume one: an
+    identifier that has not resolved the canonical mixer says so, and a
+    supervisor that assumes it anyway would command the wrong motors during the
+    one interval it exists for. ``allocate`` is that knowledge, injected by
+    whoever has it: it maps the desired ``(roll, pitch, yaw)`` differential to
+    the four motor increments the arrest adds to the configured collective
+    hold. Without it there is no differential to add, so the arrest is the
+    collective hold alone, still rate-limited toward the previously applied
+    command and still latched, and the decision records
+    :attr:`SupervisorReason.NO_ALLOCATION` so the refusal is visible in the
+    audit rather than mistaken for an attitude arrest.
+    """
 
     #: Candidate commands are accepted this far outside the configured bounds
     #: and then clipped, so a rounding-width overshoot cannot latch an arrest.
     _BOUND_TOLERANCE_FRACTION = 1e-6
 
-    def __init__(self, config: MultirotorSupervisorConfig) -> None:
+    def __init__(
+        self,
+        config: MultirotorSupervisorConfig,
+        *,
+        allocate: Callable[[np.ndarray], np.ndarray] | None = None,
+    ) -> None:
         self.config = config
+        self._allocate = allocate
         self._arrest_started_at_s: float | None = None
         self._last_time_s: float | None = None
+
+    @property
+    def has_allocation(self) -> bool:
+        """Whether this supervisor can turn a differential into motor commands."""
+
+        return self._allocate is not None
 
     def reset(self) -> None:
         self._arrest_started_at_s = None
         self._last_time_s = None
 
-    def _rate_arrest_command(
-        self,
-        state: np.ndarray,
-        previous_applied_command: Any,
-    ) -> np.ndarray:
+    def _differential(self, state: np.ndarray) -> np.ndarray:
+        """Return the bounded body-axis differential that would arrest ``state``."""
+
         quaternion = state[6:10] / np.linalg.norm(state[6:10])
         tilt_error_body = _tilt_error_body(world_up_body(quaternion))
         rates = state[10:13]
@@ -266,14 +292,20 @@ class MultirotorFlightSupervisor:
             )
         )
         maximum_differential = np.asarray(self.config.maximum_axis_differential)
-        differential = np.clip(
+        return np.clip(
             differential,
             -maximum_differential,
             maximum_differential,
         )
-        command = np.asarray(self.config.collective_hold_command) + (
-            0.25 * np.asarray(MOTOR_MIXER).T @ differential
-        )
+
+    def _arrest_command(
+        self,
+        state: np.ndarray,
+        previous_applied_command: Any,
+    ) -> np.ndarray:
+        command = np.asarray(self.config.collective_hold_command)
+        if self._allocate is not None:
+            command = command + self._allocate(self._differential(state))
         try:
             previous = np.asarray(previous_applied_command, dtype=np.float64)
         except (TypeError, ValueError):
@@ -405,13 +437,19 @@ class MultirotorFlightSupervisor:
                 reasons.append(SupervisorReason.ARREST_LATCHED)
 
         if reasons or latch_active:
-            command = self._rate_arrest_command(
+            command = self._arrest_command(
                 state_values,
                 previous_applied_command,
             )
+            if not self.has_allocation:
+                reasons.append(SupervisorReason.NO_ALLOCATION)
             return SupervisedCommand(
                 command=command,
-                mode=SupervisorMode.RATE_ARREST,
+                mode=(
+                    SupervisorMode.RATE_ARREST
+                    if self.has_allocation
+                    else SupervisorMode.COLLECTIVE_HOLD
+                ),
                 reasons=tuple(dict.fromkeys(reasons)),
                 state_age_s=state_age,
                 command_age_s=command_age,
