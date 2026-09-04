@@ -5,17 +5,11 @@ from __future__ import annotations
 import argparse
 import json
 from collections.abc import Sequence
+from dataclasses import replace
 from pathlib import Path
 
-from glassbox.belief.belief import (
-    DynamicsBelief,
-    parameter_evidence_from_dict,
-    predictive_error_from_dict,
-)
 from glassbox.belief.belief_io import save_dynamics_belief
-from glassbox.core.data import TrajectorySpec
-from glassbox.core.model import ExecutableModel, runtime_spec_from_fit_report
-from glassbox.workflows.fitting import Holdout, fit_trajectory_artifacts
+from glassbox.fitting import FitSpec, Holdout, LossPolicy, WeightingPolicy, fit
 
 
 def _evaluation_horizons(value: str) -> tuple[float, ...]:
@@ -121,9 +115,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="comma-separated held-out rollout horizons in seconds",
     )
     parser.add_argument(
-        "--skip-no-lag-ablation",
-        action="store_true",
-        help="fit only the learned-lag model",
+        "--ablation",
+        action="append",
+        choices=("no-lag",),
+        default=[],
+        help=(
+            "also fit this ablation and write it beside --model; repeatable. "
+            "no-lag pins a near-zero applied-control response and reports the "
+            "learned-lag improvement over it"
+        ),
     )
     parser.add_argument(
         "--duration-weighted-training",
@@ -140,7 +140,7 @@ def build_parser() -> argparse.ArgumentParser:
         type=float,
         help=(
             "pin the family-specific applied-control response time instead of "
-            "learning it; requires --skip-no-lag-ablation"
+            "learning it; incompatible with --ablation no-lag"
         ),
     )
     return parser
@@ -184,35 +184,39 @@ def _resolve_holdout(
 def main(argv: Sequence[str] | None = None) -> None:
     parser = build_parser()
     args = parser.parse_args(argv)
+    ablations = tuple(name.replace("-", "_") for name in args.ablation)
     if args.baseline_model is not None and args.model is None:
         parser.error("--baseline-model requires --model")
-    if args.baseline_model is not None and args.skip_no_lag_ablation:
-        parser.error("--baseline-model cannot be used when the ablation is skipped")
-
-    if args.fixed_motor_time_constant is not None and not args.skip_no_lag_ablation:
+    if args.baseline_model is not None and "no_lag" not in ablations:
+        parser.error("--baseline-model requires --ablation no-lag")
+    if args.fixed_motor_time_constant is not None and "no_lag" in ablations:
         parser.error(
-            "--fixed-response-time-constant requires --skip-no-lag-ablation; "
+            "--fixed-response-time-constant cannot be used with --ablation no-lag; "
             "the ablation pins the same response time"
         )
 
-    holdout = _resolve_holdout(parser, args)
-    params, baseline_params, report = fit_trajectory_artifacts(
+    outcome = fit(
         args.trajectory,
-        holdout=holdout,
-        horizon=args.horizon,
-        stride=args.stride,
-        training_horizons_s=args.training_horizons,
-        steps=args.steps,
-        learning_rate=args.learning_rate,
-        evaluation_horizons_s=args.evaluation_horizons,
-        fixed_motor_time_constant_s=args.fixed_motor_time_constant,
-        run_no_lag_ablation=not args.skip_no_lag_ablation,
-        balance_training_flights=not args.duration_weighted_training,
-        model_class=args.model_class,
-        endpoint_weight=args.endpoint_weight,
-        stability_regularization=args.stability_regularization,
-        build_parameter_evidence=args.model is not None,
+        FitSpec(
+            holdout=_resolve_holdout(parser, args),
+            horizons_s=args.training_horizons,
+            horizon_steps=args.horizon,
+            stride=args.stride,
+            steps=args.steps,
+            learning_rate=args.learning_rate,
+            evaluation_horizons_s=args.evaluation_horizons,
+            model_class=args.model_class,
+            ablations=ablations,
+            parameter_evidence=args.model is not None,
+            fixed_response_time_constant_s=args.fixed_motor_time_constant,
+            loss=LossPolicy(
+                endpoint_weight=args.endpoint_weight,
+                stability_regularization=args.stability_regularization,
+            ),
+            weighting=WeightingPolicy(balanced=not args.duration_weighted_training),
+        ),
     )
+    report = outcome.report
     learned = report["models"]["learned_lag"]
     learned_fit = learned["fit"]
     learned_full = learned["validation"]["aggregate"]["full_rollout"]
@@ -231,9 +235,10 @@ def main(argv: Sequence[str] | None = None) -> None:
         f"position={learned_full['position_rmse_m']:.4f} m  "
         f"attitude={learned_full['attitude_rmse_deg']:.3f} deg"
     )
-    if baseline_params is not None:
-        baseline = report["models"]["no_lag"]
-        baseline_full = baseline["validation"]["aggregate"]["full_rollout"]
+    if "no_lag" in outcome.ablations:
+        baseline_full = report["models"]["no_lag"]["validation"]["aggregate"][
+            "full_rollout"
+        ]
         ratios = report["comparison"]["aggregate_full_rollout"]
         print(
             "no-lag ablation: "
@@ -246,59 +251,19 @@ def main(argv: Sequence[str] | None = None) -> None:
             f"attitude={ratios['attitude_rmse_deg']:.2f}x"
         )
 
-    training_paths = [item["path"] for item in report["split"]["training_flights"]]
-    validation_paths = [item["path"] for item in report["split"]["validation_flights"]]
-
     if args.model is not None:
-        input_spec = TrajectorySpec.from_dict(report["dataset"]["trajectory_spec"])
-        provenance = {
-            "training_trajectories": training_paths,
-            "validation_trajectories": validation_paths,
-            "fit_report": str(args.report) if args.report else None,
-        }
-        predictive_error = predictive_error_from_dict(
-            report["models"]["learned_lag"]["validation"]["predictive_error"]
-        )
-        parameter_evidence = parameter_evidence_from_dict(
-            report["models"]["learned_lag"]["parameter_evidence"]
-        )
-        save_dynamics_belief(
-            DynamicsBelief(
-                model=ExecutableModel(
-                    params, input_spec, runtime_spec_from_fit_report(report)
-                ),
-                predictive_error=predictive_error,
-                parameter_evidence=parameter_evidence,
-                provenance=provenance,
-            ),
-            args.model,
-        )
-        print(f"wrote dynamics belief {args.model}")
-        if baseline_params is not None:
-            baseline_path = args.baseline_model or _no_lag_model_path(args.model)
-            baseline_provenance = {
-                "training_trajectories": training_paths,
-                "validation_trajectories": validation_paths,
-                "fit_report": str(args.report) if args.report else None,
-                "ablation": "fixed near-zero applied-control response",
-            }
-            save_dynamics_belief(
-                DynamicsBelief(
-                    model=ExecutableModel(
-                        baseline_params,
-                        input_spec,
-                        runtime_spec_from_fit_report(report, model_name="no_lag"),
-                    ),
-                    predictive_error=predictive_error_from_dict(
-                        report["models"]["no_lag"]["validation"]["predictive_error"]
-                    ),
-                    parameter_evidence=parameter_evidence_from_dict(
-                        report["models"]["no_lag"]["parameter_evidence"]
-                    ),
-                    provenance=baseline_provenance,
-                ),
-                baseline_path,
+        report_path = str(args.report) if args.report else None
+
+        def stamped(belief):
+            return replace(
+                belief, provenance={**belief.provenance, "fit_report": report_path}
             )
+
+        save_dynamics_belief(stamped(outcome.belief), args.model)
+        print(f"wrote dynamics belief {args.model}")
+        if "no_lag" in outcome.ablations:
+            baseline_path = args.baseline_model or _no_lag_model_path(args.model)
+            save_dynamics_belief(stamped(outcome.ablations["no_lag"]), baseline_path)
             print(f"wrote no-lag dynamics belief {baseline_path}")
     if args.report is not None:
         args.report.parent.mkdir(parents=True, exist_ok=True)

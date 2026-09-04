@@ -7,12 +7,12 @@ import hashlib
 import json
 import re
 from collections.abc import Mapping, Sequence
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 
-from glassbox.belief.belief import DynamicsBelief
 from glassbox.belief.belief_io import save_dynamics_belief
 from glassbox.core.data import Trajectory, duration_to_steps, load_trajectory_npz
 from glassbox.core.evaluation import (
@@ -25,13 +25,12 @@ from glassbox.core.identification import (
     MAX_OPTIMIZATION_WINDOWS_PER_HORIZON,
     OPTIMIZATION_POLICY_VERSION,
 )
-from glassbox.core.model import ExecutableModel, runtime_spec_from_fit_report
 from glassbox.core.model_io import (
     FIXED_WING_MODEL_TYPE,
     MODEL_TYPE,
     RESIDUAL_MODEL_TYPE,
 )
-from glassbox.workflows.fitting import Holdout, fit_trajectory_artifacts
+from glassbox.fitting import FitSpec, Holdout, LossPolicy, fit
 
 _DISTRIBUTION_METRICS = (
     "position_rmse_m",
@@ -256,33 +255,36 @@ def benchmark_source_groups(
             report = json.loads(report_path.read_text())
             baseline_path = expected_baseline_path if run_no_lag_ablation else None
         else:
-            learned, baseline, report = fit_trajectory_artifacts(
+            outcome = fit(
                 fold_paths,
-                holdout=Holdout.by_group(1),
-                training_horizons_s=training_horizons_s,
-                steps=steps,
-                learning_rate=learning_rate,
-                evaluation_horizons_s=evaluation_horizons_s,
-                run_no_lag_ablation=run_no_lag_ablation,
-                model_class=model_class,
-                endpoint_weight=endpoint_weight,
-                stability_regularization=stability_regularization,
-                learn_thrust_command_offset=learn_thrust_command_offset,
-                instantaneous_rotational_response=(instantaneous_rotational_response),
-                diagonal_angular_control=diagonal_angular_control,
+                FitSpec(
+                    holdout=Holdout.by_group(1),
+                    horizons_s=training_horizons_s,
+                    steps=steps,
+                    learning_rate=learning_rate,
+                    evaluation_horizons_s=evaluation_horizons_s,
+                    model_class=model_class,
+                    ablations=("no_lag",) if run_no_lag_ablation else (),
+                    loss=LossPolicy(
+                        endpoint_weight=endpoint_weight,
+                        stability_regularization=stability_regularization,
+                        learn_thrust_command_offset=learn_thrust_command_offset,
+                        instantaneous_rotational_response=(
+                            instantaneous_rotational_response
+                        ),
+                        diagonal_angular_control=diagonal_angular_control,
+                    ),
+                ),
             )
+            report = outcome.report
             if report["split"]["validation_source_groups"] != [group]:
                 raise RuntimeError(
                     "source-group fold did not preserve its holdout boundary"
                 )
             report_path.write_text(json.dumps(report, indent=2) + "\n")
             save_dynamics_belief(
-                DynamicsBelief(
-                    model=ExecutableModel(
-                        learned,
-                        reference_spec,
-                        runtime_spec_from_fit_report(report),
-                    ),
+                replace(
+                    outcome.belief,
                     provenance={
                         "evaluation": "leave_one_source_group_out",
                         "held_out_source_group": group,
@@ -292,15 +294,11 @@ def benchmark_source_groups(
                 model_path,
             )
             baseline_path = None
-            if baseline is not None:
+            if "no_lag" in outcome.ablations:
                 baseline_path = expected_baseline_path
                 save_dynamics_belief(
-                    DynamicsBelief(
-                        model=ExecutableModel(
-                            baseline,
-                            reference_spec,
-                            runtime_spec_from_fit_report(report, model_name="no_lag"),
-                        ),
+                    replace(
+                        outcome.ablations["no_lag"],
                         provenance={
                             "evaluation": "leave_one_source_group_out",
                             "held_out_source_group": group,

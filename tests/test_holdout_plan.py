@@ -1,4 +1,4 @@
-"""Unit tests for the three holdout rules behind ``fit_trajectory_artifacts``.
+"""Unit tests for the three holdout rules and the spec behind ``fit``.
 
 :meth:`Holdout.plan` decides which flights train and which are reserved without
 loading a file or fitting anything, so every rule is exercised here on
@@ -11,7 +11,7 @@ from dataclasses import replace
 
 import pytest
 
-from glassbox.workflows.fitting import FitRequest, Holdout
+from glassbox.fitting import FitSpec, Holdout, LossPolicy, WeightingPolicy
 
 
 @pytest.fixture
@@ -270,34 +270,55 @@ def test_holdout_serializes_only_the_arguments_its_rule_uses() -> None:
     ("kwargs", "message"),
     (
         ({"evaluation_horizons_s": (0.0,)}, "evaluation horizons must be positive"),
-        ({"training_horizons_s": (-1.0,)}, "training horizons must be positive"),
+        ({"horizons_s": (-1.0,)}, "training horizons must be positive"),
         ({"model_class": "nope"}, "model_class must be structured"),
+        ({"ablations": ("nope",)}, "unknown ablation"),
+        (
+            {
+                "fixed_response_time_constant_s": 0.05,
+                "ablations": ("no_lag",),
+            },
+            "the no-lag ablation does not apply",
+        ),
+    ),
+)
+def test_fit_spec_validates_its_knobs(kwargs: dict, message: str) -> None:
+    with pytest.raises(ValueError, match=message):
+        FitSpec(**kwargs)
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "message"),
+    (
         ({"endpoint_weight": 0.5}, "endpoint_weight must be at least one"),
         (
             {"stability_regularization": -1.0},
             "stability_regularization must be nonnegative",
         ),
-        (
-            {"training_source_group_weights": {"a": -1.0}},
-            "training_source_group_weights values must be finite",
-        ),
     ),
 )
-def test_fit_request_validates_its_knobs(kwargs: dict, message: str) -> None:
+def test_loss_policy_validates_its_knobs(kwargs: dict, message: str) -> None:
     with pytest.raises(ValueError, match=message):
-        FitRequest(**kwargs)
+        LossPolicy(**kwargs)
 
 
-def test_fit_request_normalizes_sequence_knobs_to_tuples() -> None:
-    request = FitRequest(
+def test_weighting_policy_rejects_impossible_group_weights() -> None:
+    with pytest.raises(ValueError, match="group_weights values must be finite"):
+        WeightingPolicy(group_weights={"a": -1.0})
+
+
+def test_fit_spec_normalizes_sequence_knobs_to_tuples() -> None:
+    request = FitSpec(
         evaluation_horizons_s=[0.1, 0.5],
-        training_horizons_s=[0.2],
+        horizons_s=[0.2],
+        ablations=["no_lag", "no_lag"],
     )
 
     assert request.evaluation_horizons_s == (0.1, 0.5)
-    assert request.training_horizons_s == (0.2,)
+    assert request.horizons_s == (0.2,)
+    assert request.ablations == ("no_lag",)
 
 
-def test_fit_request_stride_defaults_to_the_horizon() -> None:
-    assert FitRequest().stride_for(25) == 25
-    assert FitRequest(stride=3).stride_for(25) == 3
+def test_fit_spec_stride_defaults_to_the_horizon() -> None:
+    assert FitSpec().stride_for(25) == 25
+    assert FitSpec(stride=3).stride_for(25) == 3

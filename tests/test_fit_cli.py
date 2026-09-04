@@ -63,7 +63,10 @@ def test_fit_cli_writes_belief_and_report_together(tmp_path, quadrotor_flight) -
 
     belief = DynamicsBelief.load(model_path)
     assert isinstance(belief.parameter_evidence, LocalParameterInformation)
-    assert (tmp_path / "belief_no_motor_lag.json").exists()
+    assert belief.provenance["fit_report"] == str(report_path)
+    # The no-lag ablation is opt-in, so it is not written unless asked for.
+    assert not (tmp_path / "belief_no_motor_lag.json").exists()
+    assert "no_lag" not in json.loads(report_path.read_text())["models"]
     report = json.loads(report_path.read_text())
     evidence = report["models"]["learned_lag"]["parameter_evidence"]
     assert evidence["kind"] == "local_structured_parameter_information"
@@ -116,7 +119,6 @@ def test_fit_cli_reserves_flights_by_label(tmp_path, quadrotor_flight) -> None:
             "5",
             "--steps",
             "1",
-            "--skip-no-lag-ablation",
             "--report",
             str(report_path),
         ]
@@ -127,3 +129,40 @@ def test_fit_cli_reserves_flights_by_label(tmp_path, quadrotor_flight) -> None:
     assert [item["path"] for item in report["split"]["validation_flights"]] == [
         paths[-1]
     ]
+
+
+def test_fit_cli_writes_the_no_lag_ablation_when_asked(
+    tmp_path, quadrotor_flight
+) -> None:
+    paths = _write_flights(tmp_path, quadrotor_flight)
+    model_path = tmp_path / "belief.json"
+    report_path = tmp_path / "report.json"
+
+    cli.main(
+        [
+            "fit",
+            *paths,
+            "--ablation",
+            "no-lag",
+            "--horizon",
+            "5",
+            "--steps",
+            "1",
+            "--evaluation-horizons",
+            "0.1",
+            "--model",
+            str(model_path),
+            "--report",
+            str(report_path),
+        ]
+    )
+
+    ablation_path = tmp_path / "belief_no_motor_lag.json"
+    assert ablation_path.exists()
+    ablation = DynamicsBelief.load(ablation_path)
+    assert ablation.provenance["ablation"] == (
+        "fixed near-zero applied-control response"
+    )
+    report = json.loads(report_path.read_text())
+    assert report["configuration"]["ablations"] == ["no_lag"]
+    assert report["comparison"]["aggregate_full_rollout"]["position_rmse_m"] > 0.0

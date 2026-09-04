@@ -64,7 +64,7 @@ def test_source_group_benchmark_moves_every_segment_into_the_same_fold(
 
     summary_path.unlink()
     monkeypatch.setattr(
-        "glassbox.workflows.source_group_benchmark.fit_trajectory_artifacts",
+        "glassbox.workflows.source_group_benchmark.fit",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(
             AssertionError("completed folds must be resumed")
         ),

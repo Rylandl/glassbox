@@ -14,7 +14,6 @@ from glassbox.core.model import (
     DirectActuationMap,
     ExecutableModel,
     NonActionableModelError,
-    runtime_spec_from_fit_report,
     runtime_spec_from_trajectory,
 )
 from glassbox.core.synthetic import true_parameters
@@ -330,33 +329,6 @@ def test_runtime_rebinds_only_compatible_finite_parameter_numerics(
         runtime.rebind_parameters(params._replace(log_angular_accel=jnp.zeros(2)))
     with pytest.raises(ValueError, match="must be finite"):
         runtime.rebind_parameters(params._replace(log_linear_drag=jnp.asarray(np.nan)))
-
-
-def test_runtime_spec_extracts_fit_envelope_and_refuses_implicit_certificate() -> None:
-    report = {
-        "dataset": {"sample_rate_hz": 50.0},
-        "models": {
-            "learned_lag": {
-                "fit": {
-                    "rollout_loss": {
-                        "dynamic_envelope": {
-                            "body_velocity_center_m_s": [1.0, 2.0, 3.0],
-                            "body_velocity_half_width_m_s": [4.0, 5.0, 6.0],
-                            "angular_velocity_center_rad_s": [0.1, 0.2, 0.3],
-                            "angular_velocity_half_width_rad_s": [0.4, 0.5, 0.6],
-                        }
-                    }
-                }
-            }
-        },
-    }
-
-    runtime_spec = runtime_spec_from_fit_report(report)
-
-    assert runtime_spec.sample_period_s == pytest.approx(0.02)
-    assert runtime_spec.certified_prediction_horizon_s is None
-    with pytest.raises(ValueError, match="requires certification_source"):
-        runtime_spec_from_fit_report(report, certified_prediction_horizon_s=0.5)
 
 
 def test_direct_actuation_requires_complete_command_bounds() -> None:

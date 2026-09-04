@@ -248,34 +248,6 @@ def model_validity_utilization(
     )
 
 
-def runtime_spec_from_fit_report(
-    report: Mapping[str, Any],
-    *,
-    model_name: str = "learned_lag",
-    certified_prediction_horizon_s: float | None = None,
-    certification_source: str | None = None,
-) -> RuntimeModelSpec:
-    """Extract the runtime period and training envelope from a fit report."""
-
-    try:
-        sample_rate_hz = float(report["dataset"]["sample_rate_hz"])
-        envelope = report["models"][model_name]["fit"]["rollout_loss"][
-            "dynamic_envelope"
-        ]
-    except (KeyError, TypeError) as error:
-        raise ValueError(
-            f"fit report does not contain runtime data for model {model_name!r}"
-        ) from error
-    if not np.isfinite(sample_rate_hz) or sample_rate_hz <= 0.0:
-        raise ValueError("fit report sample rate must be finite and positive")
-    return RuntimeModelSpec(
-        sample_period_s=1.0 / sample_rate_hz,
-        validity_envelope=ModelValidityEnvelope.from_dict(envelope),
-        certified_prediction_horizon_s=certified_prediction_horizon_s,
-        certification_source=certification_source,
-    )
-
-
 def _wind_world(trajectory: Trajectory) -> np.ndarray:
     wind = np.zeros((len(trajectory.states), 3), dtype=np.float64)
     roles = trajectory.spec.exogenous_roles

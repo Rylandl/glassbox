@@ -39,12 +39,25 @@ ground-truth versus estimated states, and gap handling. The reference-corpus
 commands (`glassbox nanodrone`, `glassbox x8`, `glassbox epfl`, and
 `glassbox ulog prepare-arp` and `prepare-idf`) produce the same NPZ format.
 
-Fit a belief on several flights. The final flight is held out for validation
-and a no-lag ablation is written beside the model:
+Fit a belief on several flights. The final source group, or the final flight
+when the flights are not grouped, is held out for validation; add
+`--ablation no-lag` to fit the near-zero-lag comparison beside the model:
 
 ```bash
 uv run glassbox fit flights/*.npz \
   --model artifacts/belief.json --report artifacts/report.json
+```
+
+The same fit in Python, where the belief is the return value rather than a
+file:
+
+```python
+from pathlib import Path
+
+from glassbox import FitSpec, fit
+
+outcome = fit(sorted(Path("flights").glob("*.npz")), FitSpec(steps=400))
+belief = outcome.belief
 ```
 
 Use the belief for control:

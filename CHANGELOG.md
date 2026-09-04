@@ -76,8 +76,55 @@ All notable changes to Glassbox are recorded here. The format follows
 - `glassbox record-results` regenerates the recorded artifacts under
   `docs/results/` from one manifest, in-process, with `--list`, `--dry-run`,
   `--only`, and `--include-slow`.
+- `glassbox.fit(sources, spec=FitSpec()) -> FitOutcome` is public Python. It
+  returns the belief the fit supports, the report that records how it was
+  produced, and one belief per requested ablation, so a caller no longer
+  assembles a belief out of a report. `fit`, `FitSpec`, `FitOutcome`,
+  `Holdout`, `LossPolicy` and `WeightingPolicy` join the public `glassbox`
+  surface, and `import glassbox` still loads only core, belief and control.
 
 ### Changed
+- One fit spec. `workflows/fitting.py` is now `glassbox/fitting.py`, because
+  `fit` is public and `glassbox.workflows` is a deferred subpackage.
+  `FitRequest`'s twenty-two fields become `FitSpec`'s eleven plus a
+  `LossPolicy` holding the loss geometry (`endpoint_weight`,
+  `stability_regularization`, `learn_thrust_command_offset`,
+  `instantaneous_rotational_response`, `diagonal_angular_control`) and a
+  `WeightingPolicy` holding `balanced` and `group_weights`.
+  `training_horizons_s` is `horizons_s`, `horizon` is `horizon_steps`,
+  `fixed_motor_time_constant_s` is `fixed_response_time_constant_s`, and
+  `build_parameter_evidence` is `parameter_evidence`.
+  `fit_trajectory_artifacts` and `fit_from_request` are replaced by `fit`.
+- The no-lag ablation is opt-in. `FitSpec.ablations` defaults to no ablation
+  and `ablations=("no_lag",)` fits it, so a plain fit is half the work it was.
+  `glassbox fit` drops `--skip-no-lag-ablation` and gains `--ablation no-lag`;
+  `--baseline-model` requires it, and `--fixed-response-time-constant` is
+  simply incompatible with it rather than requiring another flag. Every
+  documented corpus command that turned the ablation off just drops the flag.
+  The fit report's `configuration.no_lag_ablation` becomes
+  `configuration.ablations`.
+- The fit resolves the runtime contract. `ExecutableModel.runtime_spec` is
+  built by the fitter from the pooled sample rate and the objective's own
+  training envelope and travels on the returned belief, so
+  `core.model.runtime_spec_from_fit_report` is deleted along with its four
+  callers and leaves the public `glassbox` surface;
+  `runtime_spec_from_trajectory` is unchanged. A belief written before this
+  change reloads to identical parameters, error moments, parameter evidence,
+  input spec and runtime spec. Last commit carrying it: `733548d`.
+- The fit report drops the keys nothing read: the `interpretation` prose,
+  which is now in `docs/concepts/dynamics-beliefs.md`; the per-flight and
+  training `excitation` blocks; `dataset.condition_counts`,
+  `dataset.unlabeled_flight_count` and `dataset.unlabeled_condition_count`;
+  `configuration.training_weight_share_per_flight_by_horizon` and
+  `configuration.training_weight_share_per_source_group_by_horizon`;
+  `training_window_selection.selection_policy_by_horizon`,
+  `candidate_windows_by_horizon` and `selection_fraction_by_horizon`; and
+  `optimization_data_policy.batch_size_by_horizon`,
+  `window_coverage_by_horizon`, `maximum_windows_per_horizon_per_step` and
+  `maximum_transitions_per_horizon_per_step`. `dataset`, `split`, `fit` with
+  its losses and loss configuration, `models[*].validation`, `configuration`
+  and provenance are unchanged. The weighting guarantees the deleted share
+  keys carried are now asserted directly on the extracted window weights.
 - One channel type. `ControlChannel`, `ExogenousChannel` and `ObservationChannel`
   are one frozen `Channel(name, role, semantic, unit, kind, frame, minimum,
   maximum)` with `kind` in `control`, `exogenous`, `observation`, and one
@@ -108,7 +155,8 @@ All notable changes to Glassbox are recorded here. The format follows
   nothing, which covers both an absent label and the single-group
   characterization corpora, so `chronological_segments_within_source_group_characterization`
   is now reported as `leave_complete_flights_out` and
-  `benchmark_split_holdout`/`leave_profiles_out` as `leave_labeled_out`. The
+  `benchmark_split_holdout`/`leave_profiles_out` as `leave_labeled_out`, which
+  the EPFL corpus evaluation's split check follows. The
   fit report's `split` section records the rule under `holdout` and drops
   `held_out_profiles`, `benchmark_split_holdout`, `benchmark_split_training`
   and `benchmark_split_validation`; `configuration` drops

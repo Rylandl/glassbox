@@ -34,6 +34,10 @@ flight-envelope exploration demo is part of the current roadmap.
 The opinionated public lifecycle is:
 
 ```python
+outcome = glassbox.fit(flight_paths, glassbox.FitSpec())
+belief = outcome.belief
+
+# or, from an artifact a previous fit wrote:
 belief = glassbox.DynamicsBelief.load("artifacts/vehicle-belief.json")
 
 forecast = belief.rollout(initial_state, commands)
@@ -75,6 +79,41 @@ the corresponding component says `available: false`; absence is never encoded
 as zero uncertainty. Deterministic parameters remain available as the nominal
 member so existing differentiable dynamics do not become conditional on a
 probabilistic framework.
+
+## What the fit produces
+
+`glassbox.fit(sources, spec)` returns a `FitOutcome`: the belief the fit
+supports, the report that records how it was produced, and one belief per
+requested ablation. `FitSpec` carries the user's choices, with the loss
+geometry in a `LossPolicy` and the training weighting in a `WeightingPolicy`,
+and the `Holdout` names which evidence the fit is not allowed to see.
+
+Fitted parameters are effective predictive coefficients, not uniquely
+recovered physical constants. Complete-flight holdout results test
+cross-flight generalization; the `no_lag` ablation's ratios above one say that
+modeling latent applied-control response improved prediction on evidence the
+fit did not see. Multiple training horizons are normalized by their initial
+losses before being combined with equal weight. Each labeled source group
+contributes equal total loss weight with uniform weight inside the group;
+without source groups each training flight contributes equally, and when every
+flight declares a maneuver profile each family contributes equally before its
+replicates split it. Large candidate sets are deterministically thinned across
+every group's timeline under an automatic corpus- and horizon-aware compute
+budget. Every model class uses equal semantic state-group loss after scaling by
+training-window motion, linearly emphasizes later rollout steps, and softly
+penalizes velocity or rate escape beyond a generous training-derived body-frame
+envelope. For a structured residual, frame-invariant feature normalization and
+six-axis correction bounds are derived only from the training windows, kept
+fixed during fitting, and serialized with the model. When parameter evidence is
+requested, local structured-parameter information uses bounded rollout
+Jacobians, gives each independent training group one unit of evidence, averages
+correlated horizons, and whitens only the held-out residual subspace supported
+numerically; its rank and group scores are diagnostics, not an inferred
+parameter covariance.
+
+The fit also resolves the model's runtime contract, the sample period and the
+training-supported validity envelope, so the belief it returns is executable
+without anything being recovered from the report afterwards.
 
 ## Prediction contract
 

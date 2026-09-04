@@ -169,9 +169,7 @@ def test_characterization_evaluator_preserves_same_flight_limit(tmp_path) -> Non
                     "dataset": {"platform": "fixedwing"},
                     "configuration": {"model_class": model_class},
                     "split": {
-                        "mode": (
-                            "chronological_segments_within_source_group_characterization"
-                        ),
+                        "mode": "leave_complete_flights_out",
                         "independent_source_group_holdout": False,
                         "training_flights": [{"path": str(trajectory_path)}],
                         "validation_flights": [{"path": str(trajectory_path)}],

@@ -5,7 +5,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from glassbox.core.data import save_trajectory_npz
+from glassbox.core.data import load_trajectory_npz, save_trajectory_npz
 from glassbox.core.evaluation import (
     kinematic_persistence_windowed_metrics,
     rollout_divergence_metrics,
@@ -16,11 +16,13 @@ from glassbox.core.fixedwing_synthetic import (
     true_fixed_wing_parameters,
 )
 from glassbox.core.synthetic import true_parameters
-from glassbox.workflows.fitting import (
+from glassbox.fitting import (
+    FitSpec,
     Holdout,
     _automatic_training_window_budget,
     _dataset_contract,
-    fit_trajectory_artifacts,
+    build_training_windows,
+    fit,
 )
 from glassbox.workflows.profile_benchmark import benchmark_profiles
 
@@ -228,24 +230,24 @@ def test_multi_flight_fit_reserves_complete_final_flight(
         save_trajectory_npz(quadrotor_flight(seed), path)
         paths.append(path)
 
-    _, baseline_params, report = fit_trajectory_artifacts(
+    outcome = fit(
         paths,
-        horizon=5,
-        training_horizons_s=(0.1, 0.2),
-        steps=5,
-        evaluation_horizons_s=(0.1,),
+        FitSpec(
+            horizon_steps=5,
+            horizons_s=(0.1, 0.2),
+            steps=5,
+            evaluation_horizons_s=(0.1,),
+            ablations=("no_lag",),
+        ),
     )
+    report = outcome.report
 
     assert report["split"]["mode"] == "leave_complete_flights_out"
     assert len(report["split"]["training_flights"]) == 2
     assert report["split"]["validation_flights"][0]["path"] == str(paths[2])
-    assert baseline_params is not None
+    assert set(outcome.ablations) == {"no_lag"}
     assert report["configuration"]["training_horizon_steps"] == [5, 10]
     assert report["configuration"]["training_flight_weighting"] == "equal_flight"
-    shares = report["configuration"]["training_weight_share_per_flight_by_horizon"][
-        "0.1s"
-    ]
-    assert list(shares.values()) == pytest.approx([0.5, 0.5])
     assert (
         report["models"]["learned_lag"]["validation"]["aggregate"]["weighting"]
         == "equal_flight"
@@ -303,15 +305,16 @@ def test_requested_fit_builds_rank_aware_parameter_evidence(
         tmp_path, quadrotor_flight, ("training", "training", "validation")
     )
 
-    _, _, report = fit_trajectory_artifacts(
+    report = fit(
         paths,
-        holdout=Holdout.by_label("benchmark_split", ("validation",)),
-        horizon=5,
-        steps=1,
-        evaluation_horizons_s=(0.1,),
-        run_no_lag_ablation=False,
-        build_parameter_evidence=True,
-    )
+        FitSpec(
+            holdout=Holdout.by_label("benchmark_split", ("validation",)),
+            horizon_steps=5,
+            steps=1,
+            evaluation_horizons_s=(0.1,),
+            parameter_evidence=True,
+        ),
+    ).report
 
     assert report["split"]["mode"] == "leave_labeled_out"
     assert report["split"]["holdout"] == {
@@ -365,29 +368,31 @@ def test_source_group_training_weights_equalize_groups_not_segments(
         save_trajectory_npz(trajectory, path)
         paths.append(path)
 
-    _, _, report = fit_trajectory_artifacts(
+    report = fit(
         paths,
-        horizon=5,
-        steps=1,
-        run_no_lag_ablation=False,
-        evaluation_horizons_s=(0.1,),
-    )
+        FitSpec(horizon_steps=5, steps=1, evaluation_horizons_s=(0.1,)),
+    ).report
 
     assert report["dataset"]["source_group_count"] == 3
     assert report["configuration"]["holdout_source_group_count"] == 1
     assert report["configuration"]["training_flight_weighting"] == (
         "equal_source_group_then_equal_window"
     )
-    group_shares = report["configuration"][
-        "training_weight_share_per_source_group_by_horizon"
-    ]["0.1s"]
-    assert group_shares == pytest.approx({"session-1": 0.5, "session-2": 0.5})
     selection = report["configuration"]["training_window_selection"]
     assert selection["budget_policy"] == "automatic_corpus_and_horizon"
-    assert selection["selection_policy_by_horizon"] == {"0.1s": "all_candidates"}
-    assert selection["candidate_windows_by_horizon"] == {
-        "0.1s": selection["selected_windows_by_horizon"]["0.1s"]
-    }
+    assert selection["source_group_count"] == 2
+    assert selection["stratification"] == "source_group"
+
+    # Each training source group carries half the total weight, whatever the
+    # window counts of its member flights.
+    windows = build_training_windows(
+        Holdout.by_group().plan([load_trajectory_npz(path) for path in paths], paths),
+        FitSpec(horizon_steps=5),
+    ).window_sets[0]
+    groups = np.asarray([0, 0, 1])[windows.trajectory_indices]
+    total = float(np.sum(windows.window_weights))
+    assert np.sum(windows.window_weights[groups == 0]) / total == pytest.approx(0.5)
+    assert np.sum(windows.window_weights[groups == 1]) / total == pytest.approx(0.5)
 
 
 def test_multi_flight_fit_rejects_mixed_sample_rates(
@@ -401,7 +406,7 @@ def test_multi_flight_fit_rejects_mixed_sample_rates(
         paths.append(path)
 
     with pytest.raises(ValueError, match="inconsistent dataset sample_rate_hz"):
-        fit_trajectory_artifacts(paths, steps=1)
+        fit(paths, FitSpec(steps=1))
 
 
 def test_profile_labeled_training_balances_profiles_before_flights(
@@ -419,22 +424,28 @@ def test_profile_labeled_training_balances_profiles_before_flights(
         save_trajectory_npz(trajectory, path)
         paths.append(path)
 
-    _, _, report = fit_trajectory_artifacts(
-        paths,
+    spec = FitSpec(
         holdout=Holdout.by_label("profile", ("yaw",)),
-        horizon=5,
+        horizon_steps=5,
         steps=1,
-        run_no_lag_ablation=False,
     )
+    report = fit(paths, spec).report
 
     assert report["configuration"]["training_flight_weighting"] == (
         "equal_profile_then_equal_flight"
     )
-    shares = list(
-        report["configuration"]["training_weight_share_per_flight_by_horizon"][
-            "0.1s"
-        ].values()
-    )
+    # Each maneuver family carries equal total weight and its replicates split
+    # it, so the two vertical flights get a quarter each and lateral a half.
+    windows = build_training_windows(
+        spec.holdout.plan([load_trajectory_npz(path) for path in paths], paths),
+        spec,
+    ).window_sets[0]
+    total = float(np.sum(windows.window_weights))
+    shares = [
+        float(np.sum(windows.window_weights[windows.trajectory_indices == index]))
+        / total
+        for index in range(3)
+    ]
     assert shares == pytest.approx([0.25, 0.25, 0.5])
 
 

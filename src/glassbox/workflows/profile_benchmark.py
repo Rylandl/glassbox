@@ -5,15 +5,14 @@ from __future__ import annotations
 import argparse
 import json
 from collections.abc import Sequence
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
-from glassbox.belief.belief import DynamicsBelief
 from glassbox.belief.belief_io import save_dynamics_belief
 from glassbox.core.data import load_trajectory_npz
 from glassbox.core.evaluation import aggregate_rollout_metrics
-from glassbox.core.model import ExecutableModel, runtime_spec_from_fit_report
-from glassbox.workflows.fitting import Holdout, fit_trajectory_artifacts
+from glassbox.fitting import FitSpec, Holdout, LossPolicy, fit
 
 
 def _horizons(value: str) -> tuple[float, ...]:
@@ -93,30 +92,33 @@ def benchmark_profiles(
 
     for profile in profiles:
         print(f"holding out profile: {profile}")
-        learned, baseline, report = fit_trajectory_artifacts(
+        outcome = fit(
             paths,
-            holdout=Holdout.by_label("profile", (profile,)),
-            training_horizons_s=training_horizons_s,
-            steps=steps,
-            learning_rate=learning_rate,
-            evaluation_horizons_s=evaluation_horizons_s,
-            run_no_lag_ablation=run_no_lag_ablation,
-            model_class=model_class,
-            endpoint_weight=endpoint_weight,
-            stability_regularization=stability_regularization,
-            instantaneous_rotational_response=instantaneous_rotational_response,
-            diagonal_angular_control=diagonal_angular_control,
+            FitSpec(
+                holdout=Holdout.by_label("profile", (profile,)),
+                horizons_s=training_horizons_s,
+                steps=steps,
+                learning_rate=learning_rate,
+                evaluation_horizons_s=evaluation_horizons_s,
+                model_class=model_class,
+                ablations=("no_lag",) if run_no_lag_ablation else (),
+                loss=LossPolicy(
+                    endpoint_weight=endpoint_weight,
+                    stability_regularization=stability_regularization,
+                    instantaneous_rotational_response=(
+                        instantaneous_rotational_response
+                    ),
+                    diagonal_angular_control=diagonal_angular_control,
+                ),
+            ),
         )
+        report = outcome.report
         report_path = destination / f"holdout_{profile}_report.json"
         model_path = destination / f"holdout_{profile}_model.json"
         report_path.write_text(json.dumps(report, indent=2) + "\n")
         save_dynamics_belief(
-            DynamicsBelief(
-                model=ExecutableModel(
-                    learned,
-                    trajectories[0].spec,
-                    runtime_spec_from_fit_report(report),
-                ),
+            replace(
+                outcome.belief,
                 provenance={
                     "held_out_profile": profile,
                     "fit_report": str(report_path),
@@ -125,16 +127,12 @@ def benchmark_profiles(
             model_path,
         )
         baseline_path = None
-        if baseline is not None:
+        if "no_lag" in outcome.ablations:
             lag_label = "no_motor_lag" if platform == "multirotor" else "no_control_lag"
             baseline_path = destination / f"holdout_{profile}_{lag_label}.json"
             save_dynamics_belief(
-                DynamicsBelief(
-                    model=ExecutableModel(
-                        baseline,
-                        trajectories[0].spec,
-                        runtime_spec_from_fit_report(report, model_name="no_lag"),
-                    ),
+                replace(
+                    outcome.ablations["no_lag"],
                     provenance={
                         "held_out_profile": profile,
                         "fit_report": str(report_path),

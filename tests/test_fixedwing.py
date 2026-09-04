@@ -27,7 +27,7 @@ from glassbox.core.fixedwing_synthetic import (
     true_fixed_wing_parameters,
 )
 from glassbox.core.identification import fit_dynamics
-from glassbox.workflows.fitting import fit_trajectory_artifacts
+from glassbox.fitting import FitSpec, fit
 from glassbox.workflows.profile_benchmark import benchmark_profiles
 
 
@@ -289,16 +289,15 @@ def test_fixed_wing_artifacts_select_model_family_automatically(
         save_trajectory_npz(fixedwing_flight(seed, 0.6), path)
         paths.append(path)
 
-    params, baseline, report = fit_trajectory_artifacts(
+    outcome = fit(
         paths,
-        horizon=5,
-        steps=3,
-        evaluation_horizons_s=(0.1,),
-        run_no_lag_ablation=False,
+        FitSpec(horizon_steps=5, steps=3, evaluation_horizons_s=(0.1,)),
     )
+    params = outcome.belief.model.params
+    report = outcome.report
 
     assert params.__class__.__name__ == "FixedWingDynamicsParams"
-    assert baseline is None
+    assert outcome.ablations == {}
     assert report["dataset"]["platform"] == "fixedwing"
     assert report["dataset"]["model_family"] == "effective_fixedwing"
     assert report["configuration"]["control_history_duration_s"] == pytest.approx(1.0)
@@ -314,14 +313,17 @@ def test_fixed_wing_artifacts_fit_platform_neutral_residual(
         save_trajectory_npz(fixedwing_flight(seed, 0.6), path)
         paths.append(path)
 
-    params, _, report = fit_trajectory_artifacts(
+    outcome = fit(
         paths,
-        horizon=5,
-        steps=2,
-        evaluation_horizons_s=(0.1,),
-        run_no_lag_ablation=False,
-        model_class="structured_residual",
+        FitSpec(
+            horizon_steps=5,
+            steps=2,
+            evaluation_horizons_s=(0.1,),
+            model_class="structured_residual",
+        ),
     )
+    params = outcome.belief.model.params
+    report = outcome.report
 
     assert params.base.__class__.__name__ == "FixedWingDynamicsParams"
     assert params.feature_mean.shape == (10,)

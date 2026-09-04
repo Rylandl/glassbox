@@ -78,9 +78,7 @@ def evaluate_epfl_characterization(
     for name, report in reports.items():
         if report["configuration"]["model_class"] != expected_classes[name]:
             raise ValueError(f"{name} fit report has the wrong model class")
-        if report["split"]["mode"] != (
-            "chronological_segments_within_source_group_characterization"
-        ):
+        if report["split"]["mode"] != "leave_complete_flights_out":
             raise ValueError(f"{name} report is not an EPFL characterization split")
         if report["split"]["independent_source_group_holdout"] is not False:
             raise ValueError(
