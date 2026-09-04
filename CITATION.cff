@@ -5,19 +5,25 @@ title: "Glassbox: telemetry-driven differentiable vehicle dynamics identificatio
 authors:
   - family-names: Lillibridge
     given-names: Ryland
-version: 0.1.0
-date-released: 2026-09-01
+version: 0.2.0
+date-released: 2026-09-04
 license: Apache-2.0
 repository-code: "https://github.com/Rylandl/glassbox"
 abstract: >-
-  Glassbox learns differentiable multirotor and fixed-wing dynamics from
-  recorded state and actuator telemetry, represents the fitted model as a
-  dynamics belief with held-out predictive error and parameter uncertainty,
-  and supports online belief adaptation, bootstrap identification, and
-  belief-aware nonlinear model-predictive control.
+  Glassbox turns multirotor and fixed-wing telemetry into one canonical flight
+  object and fits a differentiable rigid-body model whose free parameters are
+  the map from actuator behaviour to forces and torques. The fitted artifact is
+  a dynamics belief: one executable model, the accumulated information saying
+  which of its coefficients the evidence resolved and how precisely, and the
+  held-out forecast-error envelope saying how wrong its predictions have been.
+  A recursive information update keeps that belief current from live telemetry
+  without a proposal, a validation split or an acceptance threshold, and one
+  bounded model-predictive solver turns it into a command every control
+  interval, for a vehicle with a fitted model and for a vehicle with none.
 keywords:
   - system identification
   - differentiable dynamics
+  - uncertainty quantification
   - JAX
   - PX4
   - model predictive control
