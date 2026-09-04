@@ -126,6 +126,14 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--diagnostics",
+        action="store_true",
+        help=(
+            "also run the one-step innovation diagnostics on every held-out "
+            "flight and record them in the report"
+        ),
+    )
+    parser.add_argument(
         "--duration-weighted-training",
         action="store_true",
         help=(
@@ -207,6 +215,7 @@ def main(argv: Sequence[str] | None = None) -> None:
             evaluation_horizons_s=args.evaluation_horizons,
             model_class=args.model_class,
             ablations=ablations,
+            diagnostics=args.diagnostics,
             parameter_evidence=args.model is not None,
             fixed_response_time_constant_s=args.fixed_motor_time_constant,
             loss=LossPolicy(

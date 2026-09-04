@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from glassbox.core.data import duration_to_steps, load_trajectory_npz
-from glassbox.core.evaluation import (
+from glassbox.core.metrics import (
     METRIC_FLOORS,
     ROLLOUT_METRICS,
     aggregate_rollout_metrics,
@@ -119,7 +119,7 @@ def evaluate_epfl_characterization(
                 kinematic_persistence_windowed_metrics(
                     trajectory,
                     horizon_steps=steps,
-                    stride_steps=steps,
+                    stride=steps,
                 )
             )
         if len(step_counts) != 1:

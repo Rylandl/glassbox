@@ -18,9 +18,10 @@ from glassbox.belief.belief import (
     with_structured_parameter_vector,
 )
 from glassbox.core.data import duration_to_steps
-from glassbox.core.evaluation import (
+from glassbox.core.metrics import (
+    predict_windows,
     rigid_body_tangent_errors,
-    windowed_rollout_evaluation,
+    rollout_metrics,
 )
 from glassbox.core.model import (
     ExecutableModel,
@@ -799,12 +800,14 @@ def test_endpoint_error_evidence_matches_the_previous_inline_recipe(
             steps = duration_to_steps(seconds, trajectory.nominal_dt_s)
             if steps > len(trajectory.controls):
                 continue
-            metrics, endpoint_errors = windowed_rollout_evaluation(
+            prediction = predict_windows(
                 params,
                 trajectory,
                 horizon_steps=steps,
-                stride_steps=steps,
+                stride=steps,
             )
+            endpoint_errors = prediction.endpoint_tangent_errors()
+            metrics = rollout_metrics(prediction)
             metrics["requested_horizon_s"] = seconds
             metrics["horizon_steps"] = steps
             expected_metrics.append(metrics)

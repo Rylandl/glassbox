@@ -12,8 +12,8 @@ import numpy as np
 
 from glassbox.core.data import Trajectory, load_trajectory_npz
 from glassbox.core.dynamics import ModelParams, with_constant_angular_rate
-from glassbox.core.evaluation import parameter_dict, windowed_rollout_predictions
-from glassbox.core.model_io import load_dynamics_model
+from glassbox.core.metrics import predict_windows
+from glassbox.core.model_io import load_dynamics_model, parameter_dict
 from glassbox.io.nanodrone_reference import (
     BENCHMARK_COMMIT,
     BENCHMARK_DOI,
@@ -276,24 +276,28 @@ def evaluate_nanodrone_benchmark(
         if max_horizon_steps > len(trajectory.controls):
             raise ValueError("benchmark horizon exceeds a trajectory length")
 
-        predicted, target, prediction_dt_s = windowed_rollout_predictions(
+        prediction = predict_windows(
             params,
             trajectory,
             horizon_steps=max_horizon_steps,
-            stride_steps=1,
+            stride=1,
         )
-        if not np.isclose(prediction_dt_s, dt_s, atol=1e-7, rtol=0.0):
+        predicted = prediction.predicted
+        target = prediction.target
+        if not np.isclose(prediction.dt_s, dt_s, atol=1e-7, rtol=0.0):
             raise ValueError("prediction sample interval changed unexpectedly")
         model_values = _per_horizon_errors(predicted, target)
-        constant_rate_predicted, _, constant_rate_dt_s = windowed_rollout_predictions(
+        constant_rate_prediction = predict_windows(
             constant_rate_params,
             trajectory,
             horizon_steps=max_horizon_steps,
-            stride_steps=1,
+            stride=1,
         )
-        if not np.isclose(constant_rate_dt_s, dt_s, atol=1e-7, rtol=0.0):
+        if not np.isclose(constant_rate_prediction.dt_s, dt_s, atol=1e-7, rtol=0.0):
             raise ValueError("constant-rate diagnostic sample interval changed")
-        constant_rate_values = _per_horizon_errors(constant_rate_predicted, target)
+        constant_rate_values = _per_horizon_errors(
+            constant_rate_prediction.predicted, target
+        )
         naive_values = _per_horizon_errors(_naive_predictions(target), target)
         window_count = len(predicted)
         model_flights.append((window_count, model_values))

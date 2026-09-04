@@ -3,7 +3,7 @@ from dataclasses import replace
 import numpy as np
 import pytest
 
-from glassbox.core.evaluation import (
+from glassbox.core.diagnostics import (
     aggregate_innovation_diagnostics,
     one_step_innovation_diagnostics,
     state_kinematic_compatibility_diagnostics,

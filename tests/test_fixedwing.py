@@ -18,7 +18,6 @@ from glassbox.core.dynamics import (
     step,
     step_with_latent,
 )
-from glassbox.core.evaluation import rollout_metrics
 from glassbox.core.families import FIXED_WING_FAMILY, family_for_platform
 from glassbox.core.fixedwing_synthetic import (
     TRIM_AIRSPEED_M_S,
@@ -27,6 +26,7 @@ from glassbox.core.fixedwing_synthetic import (
     true_fixed_wing_parameters,
 )
 from glassbox.core.identification import fit_dynamics
+from glassbox.core.metrics import predict, rollout_metrics
 from glassbox.fitting import FitSpec, fit
 from glassbox.workflows.profile_benchmark import benchmark_profiles
 
@@ -142,7 +142,7 @@ def test_flying_wing_three_role_rollout_has_no_required_yaw_channel() -> None:
             configuration_id="synthetic_flying_wing",
         ),
     )
-    metrics = rollout_metrics(params, trajectory)
+    metrics = rollout_metrics(predict(params, trajectory))
     windows = trajectory_windows([trajectory], horizon=4, stride=4)
     fit = fit_dynamics(
         windows,
@@ -232,7 +232,7 @@ def test_lateral_surface_cross_coupling_adds_adverse_moments() -> None:
 def test_fixed_wing_true_model_has_zero_rollout_error(fixedwing_flight) -> None:
     trajectory = fixedwing_flight(4, 0.4)
 
-    metrics = rollout_metrics(true_fixed_wing_parameters(), trajectory)
+    metrics = rollout_metrics(predict(true_fixed_wing_parameters(), trajectory))
 
     assert metrics["position_rmse_m"] < 1e-5
     assert metrics["attitude_rmse_deg"] < 1e-5
@@ -272,7 +272,7 @@ def test_fixed_wing_rollout_indexes_controls_by_semantic_role(fixedwing_flight) 
         provenance=trajectory.provenance,
     )
 
-    metrics = rollout_metrics(true_fixed_wing_parameters(), reordered)
+    metrics = rollout_metrics(predict(true_fixed_wing_parameters(), reordered))
 
     assert reordered.spec is not None
     assert reordered.spec.control_roles == ("throttle", "pitch", "roll", "yaw")

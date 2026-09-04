@@ -25,7 +25,7 @@ from glassbox.core.data import (
     TrajectoryWindows,
     trajectory_windows,
 )
-from glassbox.core.evaluation import (
+from glassbox.core.metrics import (
     kinematic_persistence_windowed_metrics,
     state_error_metrics,
 )
@@ -518,7 +518,7 @@ def evaluate_x8_cascade(
                 "path": str(path),
                 "horizon_rollouts": {
                     label: kinematic_persistence_windowed_metrics(
-                        trajectory, horizon_steps=steps, stride_steps=1
+                        trajectory, horizon_steps=steps, stride=1
                     )
                     for label, steps in horizon_steps.items()
                 },

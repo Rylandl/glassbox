@@ -51,6 +51,7 @@ EXPECTED_PUBLIC_API = (
     "ResidualDynamicsParams",
     "ResolvedLocalGeometry",
     "RolloutLossConfiguration",
+    "RolloutPrediction",
     "RuntimeModelSpec",
     "SafetyEnvelope",
     "SolveResult",
@@ -77,6 +78,8 @@ EXPECTED_PUBLIC_API = (
     "make_trajectory_spec",
     "model_family",
     "plan_model",
+    "predict",
+    "predict_windows",
     "propose_dynamics_belief_update",
     "recalibrate_predictive_error",
     "rollout",
@@ -96,7 +99,6 @@ EXPECTED_PUBLIC_API = (
     "trajectory_windows",
     "update_dynamics_belief",
     "validate_and_commit_dynamics_belief_update",
-    "windowed_rollout_metrics",
     "with_structured_parameter_vector",
 )
 

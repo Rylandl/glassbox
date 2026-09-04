@@ -106,7 +106,7 @@ demand.
 
 | Subpackage | Modules |
 | --- | --- |
-| `core` | `data`, `dynamics`, `families`, `geometry`, `identification`, `evaluation`, `model`, `model_io`, `adapter`, `synthetic`, `fixedwing_synthetic` |
+| `core` | `data`, `dynamics`, `families`, `geometry`, `identification`, `metrics`, `diagnostics`, `model`, `model_io`, `adapter`, `synthetic`, `fixedwing_synthetic` |
 | `belief` | `belief`, `belief_io`, `parameter_evidence`, `linearization`, `covariance`, `adaptation` |
 | `control` | `plan`, `solver`, `fitted`, `flight_supervisor`, `online_bootstrap` |
 | `io` | `px4_ulog`, `px4_frames`, `sitl_profile`, `fixedwing_sitl_profile`, `arp_reference`, `idf_reference`, `nanodrone_reference`, `x8_reference`, `epfl_reference` |

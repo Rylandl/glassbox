@@ -6,6 +6,17 @@ All notable changes to Glassbox are recorded here. The format follows
 ## Unreleased
 
 ### Added
+- `glassbox.predict(params, trajectory)` and
+  `glassbox.predict_windows(params, trajectory, horizon_steps=..., stride=...)`
+  are the two prediction entry points, returning a `RolloutPrediction` that
+  carries the predicted and measured states, the scored duration and the sample
+  interval. `glassbox.rollout_metrics(prediction)` scores one of them, and
+  `RolloutPrediction.endpoint_tangent_errors()` returns each window's final-step
+  error in the twelve rigid-body local coordinates. All three names, and
+  `RolloutPrediction`, are public.
+- `FitSpec.diagnostics` and `glassbox fit --diagnostics` run the one-step
+  innovation diagnostics on every held-out flight. They default to off, and the
+  fit report records the choice as `configuration.diagnostics`.
 - Dual-control NMPC pass five (`dual_control_nmpc_pass5`): one goal over a
   one-second horizon of slew-bounded moves, with the spread propagated from the
   full-regressor planned posterior along the planned trajectory and coupled
@@ -84,6 +95,28 @@ All notable changes to Glassbox are recorded here. The format follows
   surface, and `import glassbox` still loads only core, belief and control.
 
 ### Changed
+- `core/evaluation.py` splits into `core/metrics.py` (predictions, the rollout
+  RMSE convention, the kinematic-persistence baseline, both persistence-score
+  reductions, both floor tables, divergence and aggregation) and
+  `core/diagnostics.py` (one-step innovation, kinematic compatibility, the
+  Pearson helpers, `attitude_innovation`). `parameter_dict` moves to
+  `core/model_io.py`, which is what serializes it. Every metric value is
+  bit-identical; `tests/test_metrics.py` pins the numbers on two synthetic
+  flights and compares them exactly. Last commit carrying `core/evaluation.py`:
+  `b342624`.
+- Five prediction entry points become two. `rollout_predictions`,
+  `windowed_rollout_predictions`, `windowed_rollout_evaluation`,
+  `windowed_rollout_metrics` and the old `rollout_metrics(params, trajectory)`
+  are replaced by `predict`, `predict_windows` and
+  `rollout_metrics(prediction)`. `windowed_rollout_metrics` leaves the public
+  `glassbox` surface; `predict`, `predict_windows` and `RolloutPrediction`
+  join it.
+- The window stride keyword is `stride` everywhere. `predict_windows` and
+  `kinematic_persistence_windowed_metrics` take `stride`, matching
+  `trajectory_windows`, where the deleted entry points took `stride_steps`.
+- The innovation diagnostics no longer run on every fit. `validation.aggregate`
+  and each `validation.per_flight` entry carry `one_step_innovation` only when
+  the fit asked for diagnostics.
 - One fit spec. `workflows/fitting.py` is now `glassbox/fitting.py`, because
   `fit` is public and `glassbox.workflows` is a deferred subpackage.
   `FitRequest`'s twenty-two fields become `FitSpec`'s eleven plus a
@@ -332,6 +365,10 @@ All notable changes to Glassbox are recorded here. The format follows
   learned. No flag was removed.
 
 ### Removed
+- `rollout_divergence_metrics` no longer reports `final_errors` or
+  `first_nonfinite_time_s`; nothing in the package, its tests, its recorded
+  artifacts or its documentation read either. `stable_fraction` stays because
+  `summarize_divergence` reduces it. Last commit carrying them: `b342624`.
 - `RuntimeDynamicsBelief` and `DynamicsBelief.compile_for_nmpc`. The belief now
   holds the executable model directly, so the compiled view had nothing left to
   hold: `rollout`, `corrected_state`, `error_moments`, `maximum_error_horizon_s`,

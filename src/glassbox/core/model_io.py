@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 import jax.numpy as jnp
+import numpy as np
 
 from glassbox.core.data import (
     NORMALIZED_MOTOR_COMMAND_SEMANTICS,
@@ -21,15 +22,89 @@ from glassbox.core.dynamics import (
     ResidualDynamicsParams,
     initial_residual_parameters,
     model_family,
+    physics_parameters,
     structured_parameters,
 )
-from glassbox.core.evaluation import parameter_dict
 from glassbox.core.model import RuntimeModelSpec
 
 MODEL_FORMAT_VERSION = 3
 MODEL_TYPE = "effective_quadrotor_command_offset_rotational_response_v3"
 RESIDUAL_MODEL_TYPE = "structured_acceleration_residual_v1"
 FIXED_WING_MODEL_TYPE = "effective_fixedwing_role_aerodynamic_lag_v3"
+
+
+def parameter_dict(params: ModelParams) -> dict[str, Any]:
+    """Convert physical parameter arrays to JSON-compatible values."""
+
+    base = structured_parameters(params)
+    if isinstance(base, FixedWingDynamicsParams):
+        physical = base.physical()
+        result: dict[str, Any] = {
+            "thrust_accel": float(physical["thrust_accel"]),
+            "lift_accel_per_speed_sq": float(physical["lift_accel_per_speed_sq"]),
+            "lift_alpha_accel_per_speed_sq": float(
+                physical["lift_alpha_accel_per_speed_sq"]
+            ),
+            "drag_accel_per_speed_sq": float(physical["drag_accel_per_speed_sq"]),
+            "side_force_accel_per_speed": float(physical["side_force_accel_per_speed"]),
+            "surface_angular_accel_per_speed_sq": np.asarray(
+                physical["surface_angular_accel_per_speed_sq"]
+            ).tolist(),
+            "lateral_surface_cross_angular_accel_per_speed_sq": np.asarray(
+                physical["lateral_surface_cross_angular_accel_per_speed_sq"]
+            ).tolist(),
+            "pitch_stability_accel_per_speed_sq": float(
+                physical["pitch_stability_accel_per_speed_sq"]
+            ),
+            "lateral_stability_angular_accel_per_speed_sq": np.asarray(
+                physical["lateral_stability_angular_accel_per_speed_sq"]
+            ).tolist(),
+            "angular_drag_per_speed": np.asarray(
+                physical["angular_drag_per_speed"]
+            ).tolist(),
+            "surface_trim": np.asarray(physical["surface_trim"]).tolist(),
+            "flap_lift_accel_per_speed_sq": float(
+                physical["flap_lift_accel_per_speed_sq"]
+            ),
+            "flap_drag_accel_per_speed_sq": float(
+                physical["flap_drag_accel_per_speed_sq"]
+            ),
+            "flap_pitch_angular_accel_per_speed_sq": float(
+                physical["flap_pitch_angular_accel_per_speed_sq"]
+            ),
+            "flap_trim": float(physical["flap_trim"]),
+            "actuator_time_constant": float(physical["actuator_time_constant"]),
+        }
+    else:
+        physical = physics_parameters(params).physical()
+        result = {
+            "thrust_accel": float(physical["thrust_accel"]),
+            "thrust_command_offset": float(physical["thrust_command_offset"]),
+            "angular_accel": np.asarray(physical["angular_accel"]).tolist(),
+            "linear_drag": float(physical["linear_drag"]),
+            "angular_drag": np.asarray(physical["angular_drag"]).tolist(),
+            "motor_time_constant": float(physical["motor_time_constant"]),
+            "angular_response_time_constant": np.asarray(
+                physical["angular_response_time_constant"]
+            ).tolist(),
+            "angular_control_cross_coupling": np.asarray(
+                physical["angular_control_cross_coupling"]
+            ).tolist(),
+        }
+    if isinstance(params, ResidualDynamicsParams):
+        result["residual"] = {
+            "input_features": int(params.feature_mean.shape[0]),
+            "hidden_units": int(params.hidden_weights.shape[0]),
+            "output_accelerations": 6,
+            "hidden_weight_norm": float(np.linalg.norm(params.hidden_weights)),
+            "output_weight_norm": float(np.linalg.norm(params.output_weights)),
+            "feature_mean": np.asarray(params.feature_mean).tolist(),
+            "feature_scale": np.asarray(params.feature_scale).tolist(),
+            "correction_scale": np.asarray(params.correction_scale).tolist(),
+            "frame": "body",
+            "bounded_output": True,
+        }
+    return result
 
 
 def model_payload(

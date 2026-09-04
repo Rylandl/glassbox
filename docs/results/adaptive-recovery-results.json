@@ -13,13 +13,13 @@
       "control/solver.py",
       "core/data.py",
       "core/dynamics.py",
-      "core/evaluation.py",
       "core/geometry.py",
+      "core/metrics.py",
       "core/model.py",
       "core/synthetic.py",
       "workflows/adaptive_recovery_benchmark.py"
     ],
-    "source_sha256": "fe2bc3b34e2a2cc125e30137b879ee7d534dcb53d0bd441dba5ac2a3d8a454b3",
+    "source_sha256": "4af76526d0dfdd321cb7775715de416f47ae7737b52652010ae79046f2017baa",
     "scenario_sha256": "2fd7271a8c586876a7de77ba6f1a333b5775f16c3330b5e96c5c2629db70e3aa"
   },
   "semantics": {

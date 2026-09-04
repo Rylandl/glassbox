@@ -25,10 +25,10 @@ from glassbox.belief.parameter_evidence import (
 )
 from glassbox.core.data import trajectory_windows
 from glassbox.core.dynamics import ResidualDynamicsParams, initial_residual_parameters
-from glassbox.core.evaluation import rigid_body_tangent_errors
 from glassbox.core.fixedwing_synthetic import (
     true_fixed_wing_parameters,
 )
+from glassbox.core.metrics import rigid_body_tangent_errors
 from glassbox.core.model import (
     ExecutableModel,
     ModelValidityEnvelope,

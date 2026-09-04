@@ -74,6 +74,42 @@ def test_fit_cli_writes_belief_and_report_together(tmp_path, quadrotor_flight) -
         evidence["rank_relative_tolerance"]
         == belief.parameter_evidence.rank_relative_tolerance
     )
+    # The innovation diagnostics are opt-in, so the report carries no block.
+    validation = report["models"]["learned_lag"]["validation"]
+    assert report["configuration"]["diagnostics"] is False
+    assert "one_step_innovation" not in validation["aggregate"]
+    assert "one_step_innovation" not in validation["per_flight"][0]
+
+
+def test_fit_cli_records_innovation_diagnostics_when_asked(
+    tmp_path, quadrotor_flight
+) -> None:
+    paths = _write_flights(tmp_path, quadrotor_flight)
+    report_path = tmp_path / "report.json"
+
+    cli.main(
+        [
+            "fit",
+            *paths,
+            "--horizon",
+            "5",
+            "--steps",
+            "1",
+            "--evaluation-horizons",
+            "0.1",
+            "--diagnostics",
+            "--report",
+            str(report_path),
+        ]
+    )
+
+    report = json.loads(report_path.read_text())
+    validation = report["models"]["learned_lag"]["validation"]
+    assert report["configuration"]["diagnostics"] is True
+    assert validation["aggregate"]["one_step_innovation"]["status"] == "ok"
+    assert validation["per_flight"][0]["one_step_innovation"]["policy"] == (
+        "measured_state_reset_innovation_v1"
+    )
 
 
 def test_fit_cli_rejects_two_holdout_rules_at_once(

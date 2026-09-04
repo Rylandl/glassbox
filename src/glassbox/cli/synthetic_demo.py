@@ -10,8 +10,9 @@ from time import perf_counter
 from typing import Any
 
 from glassbox.core.data import trajectory_windows
-from glassbox.core.evaluation import parameter_dict, rollout_metrics
 from glassbox.core.identification import fit_dynamics
+from glassbox.core.metrics import predict, rollout_metrics
+from glassbox.core.model_io import parameter_dict
 from glassbox.core.synthetic import (
     generate_trajectory,
     initial_parameter_guess,
@@ -65,9 +66,9 @@ def run_demo(
             "wall_time_s": fit_time_s,
         },
         "held_out_rollout": {
-            "initial": rollout_metrics(initial_params, held_out),
-            "fitted": rollout_metrics(fit.params, held_out),
-            "true": rollout_metrics(true_parameters(), held_out),
+            "initial": rollout_metrics(predict(initial_params, held_out)),
+            "fitted": rollout_metrics(predict(fit.params, held_out)),
+            "true": rollout_metrics(predict(true_parameters(), held_out)),
         },
     }
 

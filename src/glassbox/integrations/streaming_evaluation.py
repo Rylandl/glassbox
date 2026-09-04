@@ -8,7 +8,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
-from glassbox.core.evaluation import (
+from glassbox.core.metrics import (
     METRIC_FLOORS,
     ROLLOUT_METRICS,
     state_error_magnitudes,

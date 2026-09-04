@@ -15,15 +15,15 @@ import numpy as np
 
 from glassbox.belief.belief_io import save_dynamics_belief
 from glassbox.core.data import Trajectory, duration_to_steps, load_trajectory_npz
-from glassbox.core.evaluation import (
+from glassbox.core.identification import (
+    MAX_OPTIMIZATION_WINDOWS_PER_HORIZON,
+    OPTIMIZATION_POLICY_VERSION,
+)
+from glassbox.core.metrics import (
     METRIC_FLOORS,
     ROLLOUT_METRICS,
     aggregate_rollout_metrics,
     kinematic_persistence_windowed_metrics,
-)
-from glassbox.core.identification import (
-    MAX_OPTIMIZATION_WINDOWS_PER_HORIZON,
-    OPTIMIZATION_POLICY_VERSION,
 )
 from glassbox.core.model_io import (
     FIXED_WING_MODEL_TYPE,
@@ -327,7 +327,7 @@ def benchmark_source_groups(
                     kinematic_persistence_windowed_metrics(
                         trajectory,
                         horizon_steps=horizon_steps,
-                        stride_steps=horizon_steps,
+                        stride=horizon_steps,
                     )
                 )
             persistence = aggregate_rollout_metrics(

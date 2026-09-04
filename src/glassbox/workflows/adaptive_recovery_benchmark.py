@@ -36,11 +36,11 @@ from glassbox.core.dynamics import (
     quaternion_to_rotation,
     step_with_latent,
 )
-from glassbox.core.evaluation import windowed_rollout_evaluation
 from glassbox.core.geometry import (
     quaternion_from_euler,
     rigid_body_local_error,
 )
+from glassbox.core.metrics import predict_windows
 from glassbox.core.model import (
     DirectActuationMap,
     ExecutableModel,
@@ -71,8 +71,8 @@ BENCHMARK_SOURCE_FILES = (
     "control/solver.py",
     "core/data.py",
     "core/dynamics.py",
-    "core/evaluation.py",
     "core/geometry.py",
+    "core/metrics.py",
     "core/model.py",
     "core/synthetic.py",
     "workflows/adaptive_recovery_benchmark.py",
@@ -255,12 +255,12 @@ def _build_beliefs() -> tuple[
                 duration_s=SHORT_HORIZON_FLEET_DURATION_S,
                 source_group=label,
             )
-            _, errors = windowed_rollout_evaluation(
+            errors = predict_windows(
                 base,
                 short_trajectory,
                 horizon_steps=ADAPTATION_HORIZON_STEPS,
-                stride_steps=ADAPTATION_HORIZON_STEPS,
-            )
+                stride=ADAPTATION_HORIZON_STEPS,
+            ).endpoint_tangent_errors()
             samples_by_horizon[ADAPTATION_HORIZON_STEPS * SAMPLE_DT_S].append(
                 EmpiricalErrorSample(
                     errors=errors,
@@ -275,12 +275,12 @@ def _build_beliefs() -> tuple[
                 duration_s=CONTROL_HORIZON_FLEET_DURATION_S,
                 source_group=label,
             )
-            _, errors = windowed_rollout_evaluation(
+            errors = predict_windows(
                 base,
                 control_trajectory,
                 horizon_steps=CONTROL_HORIZON_STEPS,
-                stride_steps=CONTROL_HORIZON_STEPS,
-            )
+                stride=CONTROL_HORIZON_STEPS,
+            ).endpoint_tangent_errors()
             samples_by_horizon[CONTROL_HORIZON_STEPS * SAMPLE_DT_S].append(
                 EmpiricalErrorSample(
                     errors=errors,
@@ -339,18 +339,18 @@ def _build_beliefs() -> tuple[
         duration_s=EVALUATION_DURATION_S,
         source_group="target-configuration-independent-evaluation",
     )
-    _, before_errors = windowed_rollout_evaluation(
+    before_errors = predict_windows(
         belief.params,
         evaluation_telemetry,
         horizon_steps=CONTROL_HORIZON_STEPS,
-        stride_steps=CONTROL_HORIZON_STEPS,
-    )
-    _, after_errors = windowed_rollout_evaluation(
+        stride=CONTROL_HORIZON_STEPS,
+    ).endpoint_tangent_errors()
+    after_errors = predict_windows(
         updated.params,
         evaluation_telemetry,
         horizon_steps=CONTROL_HORIZON_STEPS,
-        stride_steps=CONTROL_HORIZON_STEPS,
-    )
+        stride=CONTROL_HORIZON_STEPS,
+    ).endpoint_tangent_errors()
     tolerances = np.asarray(
         TrackingTolerances.for_platform("multirotor").local_state_scale
     )

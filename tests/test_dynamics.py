@@ -18,7 +18,7 @@ from glassbox.core.dynamics import (
     with_instantaneous_rotational_response,
     with_thrust_command_offset,
 )
-from glassbox.core.evaluation import rollout_metrics
+from glassbox.core.metrics import predict, rollout_metrics
 from glassbox.core.synthetic import resting_state, true_parameters
 
 
@@ -66,7 +66,7 @@ def test_rollout_is_differentiable_with_respect_to_controls() -> None:
 def test_true_model_has_zero_attitude_rollout_error(quadrotor_flight) -> None:
     trajectory = quadrotor_flight(4, 0.2)
 
-    metrics = rollout_metrics(true_parameters(), trajectory)
+    metrics = rollout_metrics(predict(true_parameters(), trajectory))
 
     assert metrics["attitude_rmse_deg"] < 1e-5
 

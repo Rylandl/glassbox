@@ -11,7 +11,7 @@ from typing import Any
 
 from glassbox.belief.belief_io import save_dynamics_belief
 from glassbox.core.data import load_trajectory_npz
-from glassbox.core.evaluation import aggregate_rollout_metrics
+from glassbox.core.metrics import aggregate_rollout_metrics
 from glassbox.fitting import FitSpec, Holdout, LossPolicy, fit
 
 

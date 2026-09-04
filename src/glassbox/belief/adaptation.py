@@ -32,7 +32,7 @@ from glassbox.core.dynamics import (
     control_state_after_history,
     step_with_latent,
 )
-from glassbox.core.evaluation import windowed_rollout_evaluation
+from glassbox.core.metrics import predict_windows, rollout_metrics
 from glassbox.core.model import model_validity_utilization_from_components
 
 MAXIMUM_ONLINE_UPDATE_WINDOWS = 64
@@ -1753,12 +1753,14 @@ def endpoint_error_evidence_by_horizon(
         steps = duration_to_steps(requested, trajectory.nominal_dt_s)
         if steps > len(trajectory.controls):
             continue
-        metrics, endpoint_errors = windowed_rollout_evaluation(
+        prediction = predict_windows(
             params,
             trajectory,
             horizon_steps=steps,
-            stride_steps=steps,
+            stride=steps,
         )
+        endpoint_errors = prediction.endpoint_tangent_errors()
+        metrics = rollout_metrics(prediction)
         metrics["requested_horizon_s"] = requested
         metrics["horizon_steps"] = steps
         records.append(

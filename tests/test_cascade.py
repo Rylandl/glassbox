@@ -10,7 +10,7 @@ from glassbox.core.data import (
     load_trajectory_npz,
     trajectory_windows,
 )
-from glassbox.core.evaluation import (
+from glassbox.core.metrics import (
     kinematic_persistence_windowed_metrics,
     state_error_metrics,
 )
@@ -125,7 +125,7 @@ def test_published_x8_variants_are_finite_and_the_documented_one_beats_persisten
 
     predicted = predict_windows(models, windows, vertical_wind_fractions=fractions)
     persistence = kinematic_persistence_windowed_metrics(
-        trajectory, horizon_steps=20, stride_steps=1
+        trajectory, horizon_steps=20, stride=1
     )
     metrics = state_error_metrics(
         predicted[documented], windows.target_states, duration_s=0.5

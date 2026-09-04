@@ -35,17 +35,14 @@ from glassbox.core.data import (
     split_trajectory,
     trajectory_windows,
 )
+from glassbox.core.diagnostics import (
+    aggregate_innovation_diagnostics,
+    one_step_innovation_diagnostics,
+)
 from glassbox.core.dynamics import (
     ModelParams,
     initial_residual_parameters,
     with_response_time_constant,
-)
-from glassbox.core.evaluation import (
-    aggregate_innovation_diagnostics,
-    aggregate_rollout_metrics,
-    one_step_innovation_diagnostics,
-    parameter_dict,
-    rollout_metrics,
 )
 from glassbox.core.families import (
     DynamicsModelFamily,
@@ -59,11 +56,17 @@ from glassbox.core.identification import (
     residual_initialization_statistics,
     rollout_loss_configuration,
 )
+from glassbox.core.metrics import (
+    aggregate_rollout_metrics,
+    predict,
+    rollout_metrics,
+)
 from glassbox.core.model import (
     ExecutableModel,
     ModelValidityEnvelope,
     RuntimeModelSpec,
 )
+from glassbox.core.model_io import parameter_dict
 from glassbox.core.synthetic import initial_parameter_guess
 
 _MAX_TRAINING_WINDOWS_PER_HORIZON = 8_192
@@ -639,6 +642,7 @@ class FitSpec:
     evaluation_horizons_s: tuple[float, ...] = (0.1, 0.5, 1.0, 2.0)
     model_class: str = "structured"
     ablations: tuple[str, ...] = ()
+    diagnostics: bool = False
     parameter_evidence: bool = False
     fixed_response_time_constant_s: float | None = None
     loss: LossPolicy = LossPolicy()
@@ -859,6 +863,7 @@ def _evaluate_model(
     flights: Sequence[EvaluationFlight],
     *,
     horizon_seconds: tuple[float, ...],
+    diagnostics: bool,
 ) -> dict[str, Any]:
     per_flight: list[dict[str, Any]] = []
     full_metrics: list[dict[str, Any]] = []
@@ -873,17 +878,17 @@ def _evaluate_model(
     for flight in flights:
         trajectory = flight.trajectory
         full = rollout_metrics(
-            params,
-            trajectory,
-            control_history=flight.control_history,
+            predict(params, trajectory, control_history=flight.control_history)
         )
         full_metrics.append(full)
-        innovation = one_step_innovation_diagnostics(
-            params,
-            trajectory,
-            control_history=flight.control_history,
-        )
-        innovation_diagnostics.append(innovation)
+        if diagnostics:
+            innovation_diagnostics.append(
+                one_step_innovation_diagnostics(
+                    params,
+                    trajectory,
+                    control_history=flight.control_history,
+                )
+            )
         per_horizon: dict[str, Any] = {}
         for evidence in endpoint_error_evidence_by_horizon(
             params,
@@ -899,15 +904,15 @@ def _evaluate_model(
             horizon_metrics[label].append(evidence.window_metrics)
             error_samples[evidence.horizon_s].append(evidence.sample)
 
-        per_flight.append(
-            {
-                "path": flight.path,
-                "duration_s": float(trajectory.time_s[-1]),
-                "full_rollout": full,
-                "horizon_rollouts": per_horizon,
-                "one_step_innovation": innovation,
-            }
-        )
+        flight_report: dict[str, Any] = {
+            "path": flight.path,
+            "duration_s": float(trajectory.time_s[-1]),
+            "full_rollout": full,
+            "horizon_rollouts": per_horizon,
+        }
+        if diagnostics:
+            flight_report["one_step_innovation"] = innovation_diagnostics[-1]
+        per_flight.append(flight_report)
 
     aggregate_horizons: dict[str, Any] = {}
     for label, items in horizon_metrics.items():
@@ -925,20 +930,22 @@ def _evaluate_model(
         )
     )
 
-    return {
-        "aggregate": {
-            "flight_count": len(flights),
-            "weighting": "equal_flight",
-            "full_rollout": aggregate_rollout_metrics(full_metrics, weighting="equal"),
-            "horizon_rollouts": {
-                label: aggregate_rollout_metrics(items, weighting="equal")
-                for label, items in horizon_metrics.items()
-                if items
-            },
-            "one_step_innovation": aggregate_innovation_diagnostics(
-                innovation_diagnostics
-            ),
+    aggregate: dict[str, Any] = {
+        "flight_count": len(flights),
+        "weighting": "equal_flight",
+        "full_rollout": aggregate_rollout_metrics(full_metrics, weighting="equal"),
+        "horizon_rollouts": {
+            label: aggregate_rollout_metrics(items, weighting="equal")
+            for label, items in horizon_metrics.items()
+            if items
         },
+    }
+    if diagnostics:
+        aggregate["one_step_innovation"] = aggregate_innovation_diagnostics(
+            innovation_diagnostics
+        )
+    return {
+        "aggregate": aggregate,
         "sample_weighted_aggregate": {
             "flight_count": len(flights),
             "full_rollout": aggregate_rollout_metrics(full_metrics),
@@ -1305,6 +1312,7 @@ def _configuration_section(
             }
         ),
         "fit_statistics": _fit_statistics_section(spec),
+        "diagnostics": spec.diagnostics,
         "parameter_evidence": {
             "requested": spec.parameter_evidence,
             "method": "grouped_local_rollout_information_v1",
@@ -1480,6 +1488,7 @@ def fit(
             params,
             plan.validation,
             horizon_seconds=spec.evaluation_horizons_s,
+            diagnostics=spec.diagnostics,
         )
         if spec.parameter_evidence:
             model_report["parameter_evidence"] = _parameter_evidence(

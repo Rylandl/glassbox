@@ -79,18 +79,20 @@ from glassbox.core.dynamics import (
     step,
     step_with_latent,
 )
-from glassbox.core.evaluation import (
-    aggregate_rollout_metrics,
-    rollout_divergence_metrics,
-    rollout_metrics,
-    windowed_rollout_metrics,
-)
 from glassbox.core.identification import (
     FitResult,
     RolloutLossConfiguration,
     fit_dynamics,
     fit_dynamics_multi_horizon,
     rollout_loss_configuration,
+)
+from glassbox.core.metrics import (
+    RolloutPrediction,
+    aggregate_rollout_metrics,
+    predict,
+    predict_windows,
+    rollout_divergence_metrics,
+    rollout_metrics,
 )
 from glassbox.core.model import (
     ActuationMap,
@@ -150,6 +152,7 @@ __all__ = [
     "ResidualDynamicsParams",
     "ResolvedLocalGeometry",
     "RolloutLossConfiguration",
+    "RolloutPrediction",
     "RuntimeModelSpec",
     "SafetyEnvelope",
     "SolveResult",
@@ -176,6 +179,8 @@ __all__ = [
     "make_trajectory_spec",
     "model_family",
     "plan_model",
+    "predict",
+    "predict_windows",
     "propose_dynamics_belief_update",
     "recalibrate_predictive_error",
     "rollout",
@@ -195,6 +200,5 @@ __all__ = [
     "trajectory_windows",
     "update_dynamics_belief",
     "validate_and_commit_dynamics_belief_update",
-    "windowed_rollout_metrics",
     "with_structured_parameter_vector",
 ]

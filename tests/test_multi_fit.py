@@ -6,14 +6,15 @@ import numpy as np
 import pytest
 
 from glassbox.core.data import load_trajectory_npz, save_trajectory_npz
-from glassbox.core.evaluation import (
-    kinematic_persistence_windowed_metrics,
-    rollout_divergence_metrics,
-    summarize_divergence,
-    windowed_rollout_metrics,
-)
 from glassbox.core.fixedwing_synthetic import (
     true_fixed_wing_parameters,
+)
+from glassbox.core.metrics import (
+    kinematic_persistence_windowed_metrics,
+    predict_windows,
+    rollout_divergence_metrics,
+    rollout_metrics,
+    summarize_divergence,
 )
 from glassbox.core.synthetic import true_parameters
 from glassbox.fitting import (
@@ -107,10 +108,12 @@ def test_dataset_pooling_rejects_different_vehicle_configuration_ids(
 def test_windowed_metrics_cover_multiple_initial_conditions(quadrotor_flight) -> None:
     trajectory = quadrotor_flight(9)
 
-    metrics = windowed_rollout_metrics(
-        true_parameters(),
-        trajectory,
-        horizon_steps=5,
+    metrics = rollout_metrics(
+        predict_windows(
+            true_parameters(),
+            trajectory,
+            horizon_steps=5,
+        )
     )
 
     assert metrics["rollout_count"] == 4
@@ -270,11 +273,11 @@ def test_multi_flight_fit_reserves_complete_final_flight(
     assert predictive_error["kind"] == "empirical_horizon_tangent_moments"
     assert predictive_error["horizons_s"] == [0.1]
     assert predictive_error["independent_group_count"] == [1]
-    innovation = report["models"]["learned_lag"]["validation"]
-    assert innovation["aggregate"]["one_step_innovation"]["status"] == "ok"
-    assert innovation["per_flight"][0]["one_step_innovation"]["policy"] == (
-        "measured_state_reset_innovation_v1"
-    )
+    # Innovation diagnostics are opt-in, so nothing runs them by default.
+    validation = report["models"]["learned_lag"]["validation"]
+    assert report["configuration"]["diagnostics"] is False
+    assert "one_step_innovation" not in validation["aggregate"]
+    assert "one_step_innovation" not in validation["per_flight"][0]
     assert np.isfinite(
         report["comparison"]["aggregate_full_rollout"]["position_rmse_m"]
     )
@@ -484,7 +487,7 @@ def test_profile_benchmark_runs_one_fold_per_profile(
 
 
 def test_rollout_error_excludes_the_measured_initial_sample() -> None:
-    from glassbox.core.evaluation import ROLLOUT_METRIC_POLICY, state_error_metrics
+    from glassbox.core.metrics import ROLLOUT_METRIC_POLICY, state_error_metrics
     from glassbox.core.synthetic import resting_state
 
     horizon = 5

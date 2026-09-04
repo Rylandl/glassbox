@@ -10,14 +10,15 @@ from typing import Any
 import numpy as np
 
 from glassbox.core.data import Trajectory, duration_to_steps, load_trajectory_npz
-from glassbox.core.evaluation import (
+from glassbox.core.metrics import (
     NEGLIGIBLE_METRIC_FLOORS,
     ROLLOUT_METRICS,
     VECTORIZED_LOG_MEAN,
     aggregate_rollout_metrics,
     kinematic_persistence_windowed_metrics,
     persistence_score,
-    windowed_rollout_metrics,
+    predict_windows,
+    rollout_metrics,
 )
 from glassbox.core.model_io import load_dynamics_model
 from glassbox.io.x8_reference import (
@@ -124,7 +125,7 @@ def evaluate_x8_reference_models(
                     label: kinematic_persistence_windowed_metrics(
                         trajectory,
                         horizon_steps=steps,
-                        stride_steps=1,
+                        stride=1,
                     )
                     for label, steps in horizon_steps.items()
                 },
@@ -148,11 +149,13 @@ def evaluate_x8_reference_models(
                 {
                     "path": str(path),
                     "horizon_rollouts": {
-                        label: windowed_rollout_metrics(
-                            params,
-                            trajectory,
-                            horizon_steps=steps,
-                            stride_steps=1,
+                        label: rollout_metrics(
+                            predict_windows(
+                                params,
+                                trajectory,
+                                horizon_steps=steps,
+                                stride=1,
+                            )
                         )
                         for label, steps in horizon_steps.items()
                     },
