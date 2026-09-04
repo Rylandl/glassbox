@@ -208,17 +208,18 @@ uv run glassbox benchmark nmpc \
   --output docs/results/nmpc-acceptance-results.json
 ```
 
-On the recorded run the equal-scenario geometric mean of normalized tracking
-RMS was `0.6509` of the non-optimizing trim baseline nominally and `0.5520`
-under parameter mismatch
-(`summary.nominal_geometric_mean_tracking_ratio` and
-`summary.mismatch_geometric_mean_tracking_ratio`), all 16 scenarios were
-finite with no fallback and no command-bound violation, and all nine checks in
-`summary.checks` passed. [Validation](../validation.md#nmpc-acceptance) has
-the rest, including the thresholds fixed before tuning and the per-scenario
-timing distribution. Absolute solve times depend on the host and its load, so
-they live in the artifact and not in prose; passing the functional gates is
-not a real-time claim and not a flight-safety claim.
+What that run measured is on
+[validation](../validation.md#nmpc-acceptance), which is the one page that
+quotes the numbers: the equal-scenario tracking ratios against the
+non-optimizing trim baseline, nominally and under parameter mismatch, the nine
+checks in `summary.checks`, and the per-scenario timing distribution. They are
+not restated here, so a re-record moves one page rather than two. In outline,
+the optimizing controller tracked better than the baseline in both conditions
+and by a wider margin under mismatch, every scenario was finite with no
+fallback and no command-bound violation, and no individual scenario hid inside
+an aggregate. Absolute solve times depend on the host and its load, so they
+live in the artifact and not in prose; passing the functional gates is not a
+real-time claim and not a flight-safety claim.
 
 The acceptance thresholds themselves are recorded in the artifact's
 `thresholds` block and are part of the contract rather than of a run: every

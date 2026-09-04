@@ -162,6 +162,10 @@ noise into a false regression signal.
 - Every quantitative claim on `docs/validation.md` or a concept page is the
   literal content of a recorded artifact, cited by its path and its key so a
   reader can check it. A claim with no artifact is not published as a number.
+- A recorded number is written down once. `docs/validation.md` is where it
+  lives; a concept page describes what the measurement establishes and links
+  to the section, so a re-record moves one page rather than two. Each manifest
+  entry's `doc_page` names the section that has to be updated.
 - Negative results and withdrawn approaches are recorded as prose in
   [`docs/literature-review.md`](docs/literature-review.md) with the last commit
   that carried their code. Their code and their artifacts are not kept.

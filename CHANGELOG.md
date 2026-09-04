@@ -152,7 +152,15 @@ reduces in the sequential order.
   local` runs in continuous integration; the corpus tier needs the pinned
   corpora on disk and is a maintainer job. The five corpus validation
   artifacts are new entries: the headline claims on the Nano-Quadrotor, ARP,
-  IDF-DS, X8 and EPFL corpora had no artifact before this release.
+  IDF-DS, X8 and EPFL corpora had no artifact before this release. The
+  Nano-Quadrotor, ARP, X8 and EPFL entries have now been recorded; IDF-DS is
+  the one entry still awaiting its first run.
+- Each manifest entry's `doc_page` names the section of `docs/validation.md` a
+  re-record has to update, anchor included, and a test checks that both the
+  file and the heading exist. The Cascade X8 assembly is pinned under its
+  entry's own tolerance rather than compared for exact equality, because it
+  folds in the X8 reference-model scores and moved by one ulp when those
+  refit.
 - The documentation is eight pages, down from twenty-two. `docs/validation.md`
   is new and is the library's evidence, every number named by the artifact and
   key it comes from. The eleven experiment pages, the recorded-results guide
