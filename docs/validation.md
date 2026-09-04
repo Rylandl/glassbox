@@ -31,15 +31,16 @@ read.
 | --- | --- | --- | --- | --- | --- | --- |
 | Nano-Quadrotor | 27 g quadrotor, measured rotor speeds | commit `2d921b57` | `nanodrone`, rolling 1 to 50 steps against hold-state | the three protected Melon flights, by label | no single score; per metric below | [`validation-nanodrone-results.json`](results/validation-nanodrone-results.json) |
 | ARP | 3.35 kg PX4 quadrotor, normalized motor commands | commit `2d267dd0` | `windowed`, against kinematic persistence | log 66 reserved, logs 63 to 65 trained | `1.219`, worse than persistence | [`validation-arp-results.json`](results/validation-arp-results.json) |
-| IDF-DS | conventional fixed wing, one motor and three surfaces | Zenodo record `16992976` | `windowed`, leave one source group out over 13 sessions | every session held out in turn | pending first record | `results/validation-idf-results.json` |
+| IDF-DS | conventional fixed wing, one motor and three surfaces | Zenodo record `16992976` | `windowed`, leave one source group out over 13 sessions | every session held out in turn | no single score; beats persistence at 1 s and 2 s, loses at 0.1 s | [`validation-idf-results.json`](results/validation-idf-results.json) |
 | Skywalker X8 | flying wing, throttle and generalized elevons | Dataverse `1.0` | `x8`, boundary-safe rolling windows | the four upstream validation maneuvers, by label | `0.438` residual, `0.507` structured | [`validation-x8-results.json`](results/validation-x8-results.json) |
 | EPFL TOPOPlane2 | conventional fixed wing, 5 Hz fused state | Zenodo `v1` | `windowed` over two fit reports | the last two chronological segments of one flight | `0.863` residual, `1.123` structured | [`validation-epfl-results.json`](results/validation-epfl-results.json) |
 
 The abbreviated pins above are the leading characters of each artifact's own
-`corpus.citation.pinned_version`, which carries the full value. A row marked
-pending has a manifest entry and a chain but no first recording yet; its
-number is deliberately absent rather than carried over from an earlier page,
-because the code that produced the earlier numbers no longer exists.
+`corpus.citation.pinned_version`, which carries the full value. Every row is
+now recorded. No number here was carried over from the experiment pages this
+page replaced, because the code that produced those numbers no longer exists;
+where a corpus has no scalar score its protocol says so and the section below
+gives the comparison the artifact actually records.
 
 ## Diagnostics
 
@@ -129,22 +130,42 @@ seconds. Every dropout-separated segment of a session keeps that session's
 group identity.
 
 The recorded chain is the leave-one-source-group-out run of the structured
-residual over all 13 sessions: every session is held out in turn, the fold
-count is `results.fold_count` and the equal-session macro table is
-`results.aggregate.horizon_rollouts`, with the ratios against kinematic
-persistence in `results.aggregate.model_over_baseline` and the fold spread in
-`results.distribution`. There is no single scalar score for this corpus; the
-comparison is per horizon and per metric. Read the ratios in the direction
-this artifact states them, model error over baseline error, so a value below
-one favours the model. That is the opposite direction from the Nano-Quadrotor
-artifact's `model_vs_baseline`, which is baseline over model, and the two must
-not be quoted in the same sentence without saying which is which.
+residual over all 13 sessions (`results.fold_count`), 119 trajectories of
+estimated state in total. There is no single scalar score for this corpus. The
+equal-session macro table is `results.aggregate.horizon_rollouts` and the
+comparison against kinematic persistence is
+`results.aggregate.model_over_baseline`, per horizon and per metric. Read
+those ratios in the direction the artifact states them, model error over
+baseline error, so a value below one favours the model. That is the opposite
+direction from the Nano-Quadrotor artifact's `model_vs_baseline`, which is
+baseline over model, and the two must not be quoted in the same sentence
+without saying which is which.
 
-The boundary is that this is a model-selection and generalization result on
-one conventional airframe, not evidence of zero-shot parameter transfer.
-Multi-minute sessions still expose long-rollout instability, and the corpus is
-the one registry entry large enough for the window budget to bind, so its
-numbers move when that budget changes.
+The result is a horizon crossover, and it is the most useful thing this corpus
+records. At 0.1 seconds the fitted model is worse than constant-velocity,
+constant-body-rate persistence on all four metrics, by `2.949` on position,
+`3.214` on velocity, `2.056` on attitude and `1.922` on angular velocity. At
+0.5 seconds it is still behind on position, velocity and attitude and ahead on
+angular velocity (`1.375`, `1.010`, `1.184`, `0.954`). At 1 second it is ahead
+on all four (`0.754`, `0.588`, `0.740`, `0.684`) and at 2 seconds it is roughly
+twice as good as the baseline (`0.492`, `0.468`, `0.462`, `0.537`). Persistence
+is simply very strong over one or two samples and degrades with horizon, so a
+learned dynamics model earns its place at the horizons a controller plans
+over, not at the horizons an estimator already covers.
+
+The spread across sessions is tight for a thirteen-fold leave-one-out. At two
+seconds the p90 held-out-session errors are `1.128` m, `1.279` m/s, `13.15`
+degrees and `0.176` rad/s against medians of `0.928` m, `1.074` m/s, `10.46`
+degrees and `0.150` rad/s (`results.distribution.horizon_rollouts["2s"]`),
+with the worst session at `1.202` m.
+
+The boundary is that this is a cross-session generalization result on one
+conventional airframe, not evidence of zero-shot parameter transfer, and this
+artifact compares the model only against the persistence baseline: it runs no
+comparison against an earlier model class, so nothing here ranks one
+parameterization against another. Multi-minute sessions still expose
+long-rollout instability, and this is the one registry entry large enough for
+the window budget to bind, so its numbers move when that budget changes.
 
 ## Skywalker X8
 

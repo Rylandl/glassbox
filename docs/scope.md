@@ -99,9 +99,12 @@ PX4 ULog ingestion. Fixed-wing ingestion joins motor and servo allocator
 topics, reconstructs signed aerodynamic-axis controls from logged allocation
 parameters, and rejects unverifiable mappings.
 
-The present boundary is model validity. Fixed-wing short and medium rollouts
-transfer across maneuver families, recording sessions, and both a conventional
-tail configuration and a three-control flying wing. Multirotor results are
+The present boundary is model validity. Fixed-wing rollouts transfer across
+maneuver families, recording sessions, and both a conventional tail
+configuration and a three-control flying wing, at the horizons a controller
+plans over. At the shortest horizon they need not: on the IDF-DS sessions a
+kinematic persistence baseline is the better predictor at a tenth of a second
+and the fitted model overtakes it by one second. Multirotor results are
 weaker: on the Nano-Quadrotor benchmark the fitted model is about nine percent
 behind its published structured-residual reference on the aggregate metric and
 still behind a hold-state baseline on angular rate, and on the protected ARP

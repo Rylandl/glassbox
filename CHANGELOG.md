@@ -153,8 +153,7 @@ reduces in the sequential order.
   corpora on disk and is a maintainer job. The five corpus validation
   artifacts are new entries: the headline claims on the Nano-Quadrotor, ARP,
   IDF-DS, X8 and EPFL corpora had no artifact before this release. The
-  Nano-Quadrotor, ARP, X8 and EPFL entries have now been recorded; IDF-DS is
-  the one entry still awaiting its first run.
+  All eight are now recorded.
 - Each manifest entry's `doc_page` names the section of `docs/validation.md` a
   re-record has to update, anchor included, and a test checks that both the
   file and the heading exist. The Cascade X8 assembly is pinned under its
