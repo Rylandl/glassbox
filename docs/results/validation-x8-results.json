@@ -343,7 +343,7 @@
           "time_weighting": "linear_from_one_to_endpoint_weight"
         },
         "statistics_source": "member_training_windows",
-        "wall_time_s": 37.86756104207598
+        "wall_time_s": 35.13020712486468
       },
       "parameter_evidence": {
         "coordinate_system": "unconstrained_structured_parameter_vector",
@@ -1105,6 +1105,13 @@
         "model_family": "effective_fixedwing",
         "multirotor_thrust_command_offset": "not_applicable_fixedwing",
         "optimization_steps_per_model": 400,
+        "parameter_evidence": {
+          "independence_unit": "source_group",
+          "maximum_windows": 512,
+          "method": "training_one_step_information_v1",
+          "noise_model": "held_out_one_step_innovation_covariance",
+          "requested": true
+        },
         "platform": "fixedwing",
         "stability_regularization": 0.01,
         "training_flight_weighting": "equal_source_group_then_equal_window",
@@ -1285,7 +1292,7 @@
           "time_weighting": "linear_from_one_to_endpoint_weight"
         },
         "statistics_source": "member_training_windows",
-        "wall_time_s": 63.02946624998003
+        "wall_time_s": 57.913145208964124
       },
       "parameter_evidence": {
         "coordinate_system": "unconstrained_structured_parameter_vector",
@@ -2047,6 +2054,13 @@
         "model_family": "effective_fixedwing",
         "multirotor_thrust_command_offset": "not_applicable_fixedwing",
         "optimization_steps_per_model": 400,
+        "parameter_evidence": {
+          "independence_unit": "source_group",
+          "maximum_windows": 512,
+          "method": "training_one_step_information_v1",
+          "noise_model": "held_out_one_step_innovation_covariance",
+          "requested": true
+        },
         "platform": "fixedwing",
         "stability_regularization": 0.01,
         "training_flight_weighting": "equal_source_group_then_equal_window",
@@ -2168,7 +2182,7 @@
       "workflows/evaluate.py",
       "workflows/holdout.py"
     ],
-    "source_sha256": "89f4fca8bbb4a65b6f3b8f617280e12440221f8bbd58f45eeff4968e6eb7d1f4"
+    "source_sha256": "a2bed7418aa6ea76640d7d2347e043e0040d1f26df5b23e4d7358cd35440a192"
   },
   "protocol": {
     "baseline": "kinematic_persistence",
