@@ -241,7 +241,7 @@
           "time_weighting": "linear_from_one_to_endpoint_weight"
         },
         "statistics_source": "member_training_windows",
-        "wall_time_s": 139.9655283750035
+        "wall_time_s": 137.52424679114483
       },
       "parameter_evidence": {
         "coordinate_system": "unconstrained_structured_parameter_vector",
@@ -1003,6 +1003,13 @@
         "model_family": "effective_fixedwing",
         "multirotor_thrust_command_offset": "not_applicable_fixedwing",
         "optimization_steps_per_model": 400,
+        "parameter_evidence": {
+          "independence_unit": "source_group",
+          "maximum_windows": 512,
+          "method": "training_one_step_information_v1",
+          "noise_model": "held_out_one_step_innovation_covariance",
+          "requested": true
+        },
         "platform": "fixedwing",
         "stability_regularization": 0.01,
         "training_flight_weighting": "equal_source_group_then_equal_window",
@@ -1156,7 +1163,7 @@
           "time_weighting": "linear_from_one_to_endpoint_weight"
         },
         "statistics_source": "member_training_windows",
-        "wall_time_s": 259.30607895809226
+        "wall_time_s": 252.03227891610004
       },
       "parameter_evidence": {
         "coordinate_system": "unconstrained_structured_parameter_vector",
@@ -1918,6 +1925,13 @@
         "model_family": "effective_fixedwing",
         "multirotor_thrust_command_offset": "not_applicable_fixedwing",
         "optimization_steps_per_model": 400,
+        "parameter_evidence": {
+          "independence_unit": "source_group",
+          "maximum_windows": 512,
+          "method": "training_one_step_information_v1",
+          "noise_model": "held_out_one_step_innovation_covariance",
+          "requested": true
+        },
         "platform": "fixedwing",
         "stability_regularization": 0.01,
         "training_flight_weighting": "equal_source_group_then_equal_window",
@@ -2012,7 +2026,7 @@
       "workflows/evaluate.py",
       "workflows/holdout.py"
     ],
-    "source_sha256": "89f4fca8bbb4a65b6f3b8f617280e12440221f8bbd58f45eeff4968e6eb7d1f4"
+    "source_sha256": "a2bed7418aa6ea76640d7d2347e043e0040d1f26df5b23e4d7358cd35440a192"
   },
   "protocol": {
     "baseline": "kinematic_persistence",
@@ -2077,8 +2091,8 @@
       "duration_s": 85.39999999996508,
       "training_flight_count": 5,
       "trajectories": [
-        "/Users/ryland/projects/glassbox/artifacts/epfl_concordes/canonical/topoplane2_segment_06.npz",
-        "/Users/ryland/projects/glassbox/artifacts/epfl_concordes/canonical/topoplane2_segment_07.npz"
+        "artifacts/epfl_topoplane/canonical/topoplane2_segment_06.npz",
+        "artifacts/epfl_topoplane/canonical/topoplane2_segment_07.npz"
       ],
       "trajectory_count": 2
     },
@@ -2327,12 +2341,11 @@
             "time_weighting": "linear_from_one_to_endpoint_weight"
           },
           "statistics_source": "member_training_windows",
-          "wall_time_s": 139.9655283750035
+          "wall_time_s": 137.52424679114483
         },
         "fit_report": {
-          "path": "/Users/ryland/projects/glassbox/artifacts/epfl_concordes/structured_report.json",
-          "sha256": "b4ba753ae713e6f7eb27eae9147d4443cc999fed837169ac10d1673325a90dfc",
-          "size_bytes": 149617
+          "path": "artifacts/epfl_topoplane/structured_report.json",
+          "sha256": "9308b2e1d68b3009271144f5d200f977a10524d1ba71ec34f18ad1cb45221879"
         },
         "model_class": "structured",
         "score_horizons_s": [
@@ -2585,12 +2598,11 @@
             "time_weighting": "linear_from_one_to_endpoint_weight"
           },
           "statistics_source": "member_training_windows",
-          "wall_time_s": 259.30607895809226
+          "wall_time_s": 252.03227891610004
         },
         "fit_report": {
-          "path": "/Users/ryland/projects/glassbox/artifacts/epfl_concordes/residual_report.json",
-          "sha256": "498d5dc7ed9ad90a3130b066d4245193b11c634930a394432d174632dccca6f3",
-          "size_bytes": 152652
+          "path": "artifacts/epfl_topoplane/residual_report.json",
+          "sha256": "ea7f99c5f42c87cdf388e168af6bffc7922b0a1309ad5e3e618bd1953b138e92"
         },
         "model_class": "structured_residual",
         "score_horizons_s": [
