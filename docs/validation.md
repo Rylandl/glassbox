@@ -146,9 +146,9 @@ records. At 0.1 seconds the fitted model is worse than constant-velocity,
 constant-body-rate persistence on all four metrics, by `2.949` on position,
 `3.214` on velocity, `2.056` on attitude and `1.922` on angular velocity. At
 0.5 seconds it is still behind on position, velocity and attitude and ahead on
-angular velocity (`1.375`, `1.010`, `1.184`, `0.954`). At 1 second it is ahead
-on all four (`0.754`, `0.588`, `0.740`, `0.684`) and at 2 seconds it is roughly
-twice as good as the baseline (`0.492`, `0.468`, `0.462`, `0.537`). Persistence
+angular velocity (`1.375`, `1.010`, `1.183`, `0.954`). At 1 second it is ahead
+on all four (`0.754`, `0.588`, `0.739`, `0.683`) and at 2 seconds it is roughly
+twice as good as the baseline (`0.492`, `0.467`, `0.462`, `0.537`). Persistence
 is simply very strong over one or two samples and degrades with horizon, so a
 learned dynamics model earns its place at the horizons a controller plans
 over, not at the horizons an estimator already covers.
