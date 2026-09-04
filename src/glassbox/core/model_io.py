@@ -24,7 +24,7 @@ from glassbox.core.dynamics import (
     structured_parameters,
 )
 from glassbox.core.evaluation import parameter_dict
-from glassbox.core.runtime import RuntimeModelSpec
+from glassbox.core.model import RuntimeModelSpec
 
 MODEL_FORMAT_VERSION = 3
 MODEL_TYPE = "effective_quadrotor_command_offset_rotational_response_v3"
@@ -161,32 +161,6 @@ def model_payload(
     else:
         payload["parameters"] = parameter_dict(params)
     return payload
-
-
-def save_dynamics_model(
-    params: ModelParams,
-    path: str | Path,
-    *,
-    input_spec: TrajectorySpec,
-    runtime_spec: RuntimeModelSpec,
-    provenance: Mapping[str, Any] | None = None,
-) -> None:
-    """Write a fitted dynamics model as readable JSON."""
-
-    output_path = Path(path)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(
-        json.dumps(
-            model_payload(
-                params,
-                input_spec=input_spec,
-                runtime_spec=runtime_spec,
-                provenance=provenance,
-            ),
-            indent=2,
-        )
-        + "\n"
-    )
 
 
 def _physics_from_payload(parameters: Mapping[str, Any]) -> DynamicsParams:

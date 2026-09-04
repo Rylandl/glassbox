@@ -78,6 +78,28 @@ All notable changes to Glassbox are recorded here. The format follows
   `--only`, and `--include-slow`.
 
 ### Changed
+- One executable model type, owned by one belief. `core/runtime.py` becomes
+  `core/model.py` and `RuntimeDynamicsModel` becomes `ExecutableModel`, keeping
+  its fields and methods; `RuntimeModelSpec`, `ModelValidityEnvelope`,
+  `ActuationMap`, `DirectActuationMap`, `NonActionableModelError`,
+  `runtime_spec_from_trajectory` and `runtime_spec_from_fit_report` move with it
+  under their own names. `ExecutableModel.rebind_parameters` keeps its
+  structure, shape, dtype and finiteness checks and then uses
+  `dataclasses.replace`. `RuntimeDynamicsBelief` is now a frozen view holding a
+  `DynamicsBelief` and the `ExecutableModel` compiled from it: its `nominal`
+  field is `model`, and `predictive_error`, `parameter_belief`,
+  `predictive_error_parameter_update_count` and `predictive_error_current`
+  delegate to the belief instead of being re-implemented. `compile_for_nmpc` is
+  unchanged for callers.
+- The belief is the only artifact the library writes.
+  `core.model_io.save_dynamics_model` is deleted; the profile and source-group
+  benchmarks write a point belief through `belief_io.save_dynamics_belief`.
+  `model_payload` and `parameter_dict` stay where they were. As a temporary
+  tolerance, `load_dynamics_belief` reads a bare nominal-model payload and wraps
+  it as a belief with no predictive-error and no parameter evidence, because
+  model-only artifacts written before this change still exist under the
+  untracked `artifacts/` tree; the tolerance is removed once those are
+  re-recorded.
 - Four modules move out of `core` to the layer that owns them, with no logic
   change: `glassbox.core.px4_frames` is now `glassbox.io.px4_frames`,
   `glassbox.core.streaming_evaluation` is now

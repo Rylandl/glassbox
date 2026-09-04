@@ -6,13 +6,14 @@ import numpy as np
 import pytest
 from jax import Array
 
+from glassbox.belief.belief import DynamicsBelief
+from glassbox.belief.belief_io import save_dynamics_belief
 from glassbox.core.data import ControlChannel
 from glassbox.core.dynamics import initial_residual_parameters
-from glassbox.core.model_io import save_dynamics_model
-from glassbox.core.runtime import (
+from glassbox.core.model import (
     DirectActuationMap,
+    ExecutableModel,
     NonActionableModelError,
-    RuntimeDynamicsModel,
     runtime_spec_from_fit_report,
     runtime_spec_from_trajectory,
 )
@@ -20,19 +21,32 @@ from glassbox.core.synthetic import true_parameters
 from glassbox.io.nanodrone_reference import nanodrone_trajectory_spec
 
 
+def _write_model(params, path, *, input_spec, runtime_spec) -> None:
+    """Write the model as the point belief the library now writes."""
+
+    save_dynamics_belief(
+        DynamicsBelief(
+            params=params,
+            input_spec=input_spec,
+            runtime_spec=runtime_spec,
+        ),
+        path,
+    )
+
+
 def test_runtime_model_loads_timing_bounds_and_latent_state(
     tmp_path, quadrotor_trajectory_seed2_dur0_2s
 ) -> None:
     trajectory = quadrotor_trajectory_seed2_dur0_2s
     path = tmp_path / "model.json"
-    save_dynamics_model(
+    _write_model(
         true_parameters(),
         path,
         input_spec=trajectory.spec,
         runtime_spec=runtime_spec_from_trajectory(trajectory),
     )
 
-    runtime = RuntimeDynamicsModel.load(path)
+    runtime = ExecutableModel.load(path)
     command = jnp.full(4, 0.4)
     latent = runtime.initial_latent_state(command)
     next_state, next_latent = runtime.transition(
@@ -72,13 +86,13 @@ def test_transition_enforces_declared_command_bounds(
 ) -> None:
     trajectory = quadrotor_trajectory_seed2_dur0_2s
     path = tmp_path / "model.json"
-    save_dynamics_model(
+    _write_model(
         true_parameters(),
         path,
         input_spec=trajectory.spec,
         runtime_spec=runtime_spec_from_trajectory(trajectory),
     )
-    runtime = RuntimeDynamicsModel.load(path)
+    runtime = ExecutableModel.load(path)
     state = jnp.asarray(trajectory.states[0])
     command = jnp.full(4, 0.4)
     latent = runtime.initial_latent_state(command)
@@ -120,13 +134,13 @@ def test_traced_commands_stay_the_caller_s_contract(
 ) -> None:
     trajectory = quadrotor_trajectory_seed2_dur0_2s
     path = tmp_path / "model.json"
-    save_dynamics_model(
+    _write_model(
         true_parameters(),
         path,
         input_spec=trajectory.spec,
         runtime_spec=runtime_spec_from_trajectory(trajectory),
     )
-    runtime = RuntimeDynamicsModel.load(path)
+    runtime = ExecutableModel.load(path)
     state = jnp.asarray(trajectory.states[0])
     latent = runtime.initial_latent_state(jnp.full(4, 0.4))
 
@@ -144,7 +158,7 @@ def test_direct_actuation_rejects_measured_rotor_speed_model(
 ) -> None:
     trajectory = quadrotor_trajectory_seed0_dur0_1s
     path = tmp_path / "nanodrone_model.json"
-    save_dynamics_model(
+    _write_model(
         true_parameters(),
         path,
         input_spec=nanodrone_trajectory_spec(),
@@ -152,7 +166,7 @@ def test_direct_actuation_rejects_measured_rotor_speed_model(
     )
 
     with pytest.raises(NonActionableModelError, match="command semantics"):
-        RuntimeDynamicsModel.load(path)
+        ExecutableModel.load(path)
 
 
 @dataclass(frozen=True)
@@ -169,7 +183,7 @@ def test_explicit_actuation_map_can_bind_noncommand_model(
 ) -> None:
     trajectory = quadrotor_trajectory_seed0_dur0_1s
     path = tmp_path / "nanodrone_model.json"
-    save_dynamics_model(
+    _write_model(
         true_parameters(),
         path,
         input_spec=nanodrone_trajectory_spec(),
@@ -187,7 +201,7 @@ def test_explicit_actuation_map_can_bind_noncommand_model(
         for index in range(4)
     )
 
-    runtime = RuntimeDynamicsModel.load(
+    runtime = ExecutableModel.load(
         path,
         actuation=SquaredSpeedActuation(command_channels),
     )
@@ -221,7 +235,7 @@ def test_runtime_validates_actual_actuation_map_output(
 ) -> None:
     trajectory = quadrotor_trajectory_seed0_dur0_1s
     path = tmp_path / "model.json"
-    save_dynamics_model(
+    _write_model(
         true_parameters(),
         path,
         input_spec=trajectory.spec,
@@ -230,13 +244,13 @@ def test_runtime_validates_actual_actuation_map_output(
     command_channels = tuple(trajectory.spec.controls)
 
     with pytest.raises(ValueError, match="produced shape"):
-        RuntimeDynamicsModel.load(
+        ExecutableModel.load(
             path,
             actuation=InvalidActuationOutput(command_channels),
         )
 
     with pytest.raises(ValueError, match="non-finite"):
-        RuntimeDynamicsModel.load(
+        ExecutableModel.load(
             path,
             actuation=InvalidActuationBoundary(command_channels),
         )
@@ -248,14 +262,14 @@ def test_runtime_supports_structured_residual_transition(
     trajectory = quadrotor_flight(1, 0.1)
     path = tmp_path / "residual.json"
     params = initial_residual_parameters(true_parameters(), hidden_units=3)
-    save_dynamics_model(
+    _write_model(
         params,
         path,
         input_spec=trajectory.spec,
         runtime_spec=runtime_spec_from_trajectory(trajectory),
     )
 
-    runtime = RuntimeDynamicsModel.load(path)
+    runtime = ExecutableModel.load(path)
     command = jnp.asarray(trajectory.controls[0])
     latent = runtime.initial_latent_state(command)
     next_state, _ = runtime.transition(
@@ -271,13 +285,13 @@ def test_runtime_rebinds_only_compatible_finite_parameter_numerics(
     trajectory = quadrotor_flight(4, 0.1)
     path = tmp_path / "model.json"
     params = true_parameters()
-    save_dynamics_model(
+    _write_model(
         params,
         path,
         input_spec=trajectory.spec,
         runtime_spec=runtime_spec_from_trajectory(trajectory),
     )
-    runtime = RuntimeDynamicsModel.load(path)
+    runtime = ExecutableModel.load(path)
     rebound = runtime.rebind_parameters(
         params._replace(log_linear_drag=params.log_linear_drag + 0.1)
     )

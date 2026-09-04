@@ -14,7 +14,7 @@ from glassbox.belief.belief import (
 )
 from glassbox.belief.belief_io import save_dynamics_belief
 from glassbox.core.data import TrajectorySpec
-from glassbox.core.runtime import runtime_spec_from_fit_report
+from glassbox.core.model import runtime_spec_from_fit_report
 from glassbox.workflows.fitting import (
     BenchmarkSplitHoldoutConflict,
     fit_trajectory_artifacts,

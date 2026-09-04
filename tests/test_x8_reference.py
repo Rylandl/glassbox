@@ -7,10 +7,11 @@ import urllib.request
 import numpy as np
 
 import glassbox.io.x8_reference as x8_module
+from glassbox.belief.belief import DynamicsBelief
+from glassbox.belief.belief_io import save_dynamics_belief
 from glassbox.core.data import Trajectory, save_trajectory_npz
 from glassbox.core.fixedwing_synthetic import true_fixed_wing_parameters
-from glassbox.core.model_io import save_dynamics_model
-from glassbox.core.runtime import runtime_spec_from_trajectory
+from glassbox.core.model import runtime_spec_from_trajectory
 from glassbox.io.x8_reference import (
     X8Recording,
     X8ReferenceAdapter,
@@ -141,11 +142,13 @@ def test_x8_evaluation_requires_and_scores_upstream_validation(tmp_path) -> None
     trajectory_path = tmp_path / "validation.npz"
     model_path = tmp_path / "model.json"
     save_trajectory_npz(trajectory, trajectory_path)
-    save_dynamics_model(
-        true_fixed_wing_parameters(),
+    save_dynamics_belief(
+        DynamicsBelief(
+            params=true_fixed_wing_parameters(),
+            input_spec=x8_trajectory_spec(),
+            runtime_spec=runtime_spec_from_trajectory(trajectory),
+        ),
         model_path,
-        input_spec=x8_trajectory_spec(),
-        runtime_spec=runtime_spec_from_trajectory(trajectory),
     )
 
     report = evaluate_x8_reference_models(

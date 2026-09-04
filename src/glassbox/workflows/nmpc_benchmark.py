@@ -34,9 +34,9 @@ from glassbox.core.fixedwing_synthetic import (
     true_fixed_wing_parameters,
 )
 from glassbox.core.geometry import quaternion_from_euler, rigid_body_local_error
-from glassbox.core.runtime import (
+from glassbox.core.model import (
     DirectActuationMap,
-    RuntimeDynamicsModel,
+    ExecutableModel,
     RuntimeModelSpec,
     runtime_spec_from_trajectory,
 )
@@ -315,7 +315,7 @@ def _model_contracts() -> dict[
     }
 
 
-def _trim_command(model: RuntimeDynamicsModel) -> jax.Array:
+def _trim_command(model: ExecutableModel) -> jax.Array:
     if model.input_spec.vehicle.family == "multirotor":
         return hover_control(model.params)
     assert isinstance(model.params, FixedWingDynamicsParams)
@@ -404,7 +404,7 @@ def _normalized_rms(
     return float(np.sqrt(np.mean(np.square(normalized))))
 
 
-def _maximum_actual_validity(model: RuntimeDynamicsModel, states: np.ndarray) -> float:
+def _maximum_actual_validity(model: ExecutableModel, states: np.ndarray) -> float:
     utilization = jax.vmap(model.validity_utilization)(jnp.asarray(states))
     return float(np.max(np.asarray(utilization)))
 
@@ -499,7 +499,7 @@ def run_nmpc_benchmark() -> dict[str, object]:
     contracts = _model_contracts()
     controllers: dict[str, NMPCController] = {}
     for key, (params, spec, runtime_spec) in contracts.items():
-        model = RuntimeDynamicsModel(
+        model = ExecutableModel(
             params,
             spec,
             runtime_spec,

@@ -16,7 +16,7 @@ import jax.numpy as jnp
 import numpy as np
 
 from glassbox.control.nmpc import NMPCController, NMPCWarmStart
-from glassbox.core.runtime import RuntimeDynamicsModel
+from glassbox.core.model import ExecutableModel
 from glassbox.integrations.px4 import (
     PX4AppliedCommandSample,
     PX4MavlinkStateSource,
@@ -185,7 +185,7 @@ def _solve_row(
     return row, result.warm_start
 
 
-def _validated_command(model: RuntimeDynamicsModel, command: np.ndarray) -> np.ndarray:
+def _validated_command(model: ExecutableModel, command: np.ndarray) -> np.ndarray:
     command = np.asarray(command, dtype=np.float64)
     expected_shape = (model.command_size,)
     if command.shape != expected_shape or not np.all(np.isfinite(command)):
@@ -201,7 +201,7 @@ def _validated_command(model: RuntimeDynamicsModel, command: np.ndarray) -> np.n
 
 def _next_applied_command(
     source: AppliedCommandSource,
-    model: RuntimeDynamicsModel,
+    model: ExecutableModel,
     *,
     time_boot_ms: int,
     timeout_s: float,
@@ -212,7 +212,7 @@ def _next_applied_command(
 
 def run_px4_nmpc_shadow(
     source: PX4MavlinkStateSource,
-    model: RuntimeDynamicsModel,
+    model: ExecutableModel,
     previous_command: np.ndarray | None = None,
     *,
     applied_command_source: AppliedCommandSource | None = None,
@@ -437,7 +437,7 @@ def _parser() -> argparse.ArgumentParser:
 
 def main(argv: Sequence[str] | None = None) -> None:
     args = _parser().parse_args(argv)
-    model = RuntimeDynamicsModel.load(args.model)
+    model = ExecutableModel.load(args.model)
     previous_command = _command(args.previous_command, expected_size=model.command_size)
     with PX4MavlinkStateSource.connect(args.connection) as source:
         report = run_px4_nmpc_shadow(

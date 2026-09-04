@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
@@ -380,7 +380,7 @@ class DirectActuationMap:
 
 
 @dataclass(frozen=True)
-class RuntimeDynamicsModel:
+class ExecutableModel:
     """A fitted model bound to its executable timing and actuation contract.
 
     Command bounds and the validity envelope are different kinds of contract.
@@ -453,7 +453,7 @@ class RuntimeDynamicsModel:
         ):
             raise ValueError("actuation map produced an invalid command Jacobian")
 
-    def rebind_parameters(self, params: ModelParams) -> RuntimeDynamicsModel:
+    def rebind_parameters(self, params: ModelParams) -> ExecutableModel:
         """Reuse validated static contracts with compatible dynamic parameters."""
 
         template_leaves, template_structure = jax.tree_util.tree_flatten(self.params)
@@ -473,12 +473,7 @@ class RuntimeDynamicsModel:
                 raise ValueError("rebound parameter dtype changed")
             if not np.all(np.isfinite(candidate_array)):
                 raise ValueError("rebound parameters must be finite")
-        rebound = object.__new__(RuntimeDynamicsModel)
-        object.__setattr__(rebound, "params", params)
-        object.__setattr__(rebound, "input_spec", self.input_spec)
-        object.__setattr__(rebound, "runtime_spec", self.runtime_spec)
-        object.__setattr__(rebound, "actuation", self.actuation)
-        return rebound
+        return replace(self, params=params)
 
     @classmethod
     def load(
@@ -486,7 +481,7 @@ class RuntimeDynamicsModel:
         path: str | Path,
         *,
         actuation: ActuationMap | None = None,
-    ) -> RuntimeDynamicsModel:
+    ) -> ExecutableModel:
         from glassbox.core.model_io import load_dynamics_model
 
         params, payload = load_dynamics_model(path)

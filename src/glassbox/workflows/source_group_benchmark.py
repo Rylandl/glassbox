@@ -12,6 +12,8 @@ from typing import Any
 
 import numpy as np
 
+from glassbox.belief.belief import DynamicsBelief
+from glassbox.belief.belief_io import save_dynamics_belief
 from glassbox.core.data import Trajectory, duration_to_steps, load_trajectory_npz
 from glassbox.core.evaluation import (
     METRIC_FLOORS,
@@ -23,13 +25,12 @@ from glassbox.core.identification import (
     MAX_OPTIMIZATION_WINDOWS_PER_HORIZON,
     OPTIMIZATION_POLICY_VERSION,
 )
+from glassbox.core.model import runtime_spec_from_fit_report
 from glassbox.core.model_io import (
     FIXED_WING_MODEL_TYPE,
     MODEL_TYPE,
     RESIDUAL_MODEL_TYPE,
-    save_dynamics_model,
 )
-from glassbox.core.runtime import runtime_spec_from_fit_report
 from glassbox.workflows.fitting import fit_trajectory_artifacts
 
 _DISTRIBUTION_METRICS = (
@@ -275,33 +276,37 @@ def benchmark_source_groups(
                     "source-group fold did not preserve its holdout boundary"
                 )
             report_path.write_text(json.dumps(report, indent=2) + "\n")
-            save_dynamics_model(
-                learned,
-                model_path,
-                input_spec=reference_spec,
-                runtime_spec=runtime_spec_from_fit_report(report),
-                provenance={
-                    "evaluation": "leave_one_source_group_out",
-                    "held_out_source_group": group,
-                    "fit_report": str(report_path),
-                },
-            )
-            baseline_path = None
-            if baseline is not None:
-                baseline_path = expected_baseline_path
-                save_dynamics_model(
-                    baseline,
-                    baseline_path,
+            save_dynamics_belief(
+                DynamicsBelief(
+                    params=learned,
                     input_spec=reference_spec,
-                    runtime_spec=runtime_spec_from_fit_report(
-                        report, model_name="no_lag"
-                    ),
+                    runtime_spec=runtime_spec_from_fit_report(report),
                     provenance={
                         "evaluation": "leave_one_source_group_out",
                         "held_out_source_group": group,
                         "fit_report": str(report_path),
-                        "ablation": lag_label,
                     },
+                ),
+                model_path,
+            )
+            baseline_path = None
+            if baseline is not None:
+                baseline_path = expected_baseline_path
+                save_dynamics_belief(
+                    DynamicsBelief(
+                        params=baseline,
+                        input_spec=reference_spec,
+                        runtime_spec=runtime_spec_from_fit_report(
+                            report, model_name="no_lag"
+                        ),
+                        provenance={
+                            "evaluation": "leave_one_source_group_out",
+                            "held_out_source_group": group,
+                            "fit_report": str(report_path),
+                            "ablation": lag_label,
+                        },
+                    ),
+                    baseline_path,
                 )
             fold_request_path.write_text(json.dumps(fold_request, indent=2) + "\n")
 

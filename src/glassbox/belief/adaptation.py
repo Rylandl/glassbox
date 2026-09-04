@@ -33,7 +33,7 @@ from glassbox.core.dynamics import (
     step_with_latent,
 )
 from glassbox.core.evaluation import windowed_rollout_evaluation
-from glassbox.core.runtime import model_validity_utilization_from_components
+from glassbox.core.model import model_validity_utilization_from_components
 
 MAXIMUM_ONLINE_UPDATE_WINDOWS = 64
 ACTUATOR_HISTORY_DURATION_S = 1.0

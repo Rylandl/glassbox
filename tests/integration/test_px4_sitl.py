@@ -13,7 +13,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from glassbox.core.runtime import RuntimeDynamicsModel
+from glassbox.core.model import ExecutableModel
 from glassbox.integrations.px4 import (
     PX4HILActuatorSource,
     PX4MavlinkStateSource,
@@ -151,7 +151,7 @@ def test_eligible_artifact_runs_complete_nmpc_shadow_path_when_provided(
             "GLASSBOX_PX4_NMPC_MODEL and GLASSBOX_PX4_NMPC_COMMAND must be set together"
         )
 
-    model = RuntimeDynamicsModel.load(model_path)
+    model = ExecutableModel.load(model_path)
     if model.input_spec.vehicle.family != "multirotor":
         pytest.fail("the maintained PX4 SIH fixture is a multirotor")
     try:
@@ -218,7 +218,7 @@ def test_flown_profile_pairs_real_applied_commands_with_shadow_solver(
     if model_path is None:
         pytest.fail("the flown shadow test requires GLASSBOX_PX4_NMPC_MODEL")
 
-    model = RuntimeDynamicsModel.load(model_path)
+    model = ExecutableModel.load(model_path)
     expected_roles = (
         "motor_front_left",
         "motor_front_right",

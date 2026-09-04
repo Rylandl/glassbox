@@ -29,9 +29,9 @@ from glassbox.core.evaluation import rigid_body_tangent_errors
 from glassbox.core.fixedwing_synthetic import (
     true_fixed_wing_parameters,
 )
-from glassbox.core.runtime import (
+from glassbox.core.model import (
+    ExecutableModel,
     ModelValidityEnvelope,
-    RuntimeDynamicsModel,
     runtime_spec_from_trajectory,
 )
 from glassbox.core.synthetic import generate_trajectory, true_parameters
@@ -161,7 +161,7 @@ def test_belief_round_trip_and_runtime_forecast(tmp_path, quadrotor_flight) -> N
         jnp.asarray(trajectory.states[0]),
         commands,
     )
-    nominal_from_legacy_loader = RuntimeDynamicsModel.load(path)
+    nominal_from_legacy_loader = ExecutableModel.load(path)
 
     assert restored.provenance == {"fixture": True}
     assert restored.predictive_error.available
@@ -173,7 +173,7 @@ def test_belief_round_trip_and_runtime_forecast(tmp_path, quadrotor_flight) -> N
     assert forecast.quantile_levels == (0.5, 0.8, 0.9)
     assert forecast.validity_utilization.shape == (6, 6)
     assert not np.allclose(forecast.mean_states[1:], forecast.nominal_states[1:])
-    assert nominal_from_legacy_loader.command_size == runtime.nominal.command_size
+    assert nominal_from_legacy_loader.command_size == runtime.model.command_size
 
 
 def test_runtime_rollout_enforces_declared_command_bounds(quadrotor_flight) -> None:

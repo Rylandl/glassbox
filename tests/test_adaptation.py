@@ -22,7 +22,7 @@ from glassbox.core.evaluation import (
     rigid_body_tangent_errors,
     windowed_rollout_evaluation,
 )
-from glassbox.core.runtime import ModelValidityEnvelope, runtime_spec_from_trajectory
+from glassbox.core.model import ModelValidityEnvelope, runtime_spec_from_trajectory
 from glassbox.core.synthetic import generate_trajectory, true_parameters
 
 

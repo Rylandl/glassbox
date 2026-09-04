@@ -54,10 +54,10 @@ from glassbox.core.fixedwing_synthetic import (
     fixed_wing_trim_state,
     true_fixed_wing_parameters,
 )
-from glassbox.core.runtime import (
+from glassbox.core.model import (
     DirectActuationMap,
+    ExecutableModel,
     ModelValidityEnvelope,
-    RuntimeDynamicsModel,
     RuntimeModelSpec,
 )
 from glassbox.core.synthetic import (
@@ -83,11 +83,11 @@ def _multirotor_runtime(
     *,
     residual: bool = False,
     sample_period_s: float | None = None,
-) -> RuntimeDynamicsModel:
+) -> ExecutableModel:
     params = true_parameters()
     if residual:
         params = initial_residual_parameters(params, hidden_units=3)
-    return RuntimeDynamicsModel(
+    return ExecutableModel(
         params,
         trajectory.spec,
         _runtime_spec(
@@ -99,7 +99,7 @@ def _multirotor_runtime(
 
 def _narrow_rate_envelope_multirotor(
     trajectory: Trajectory,
-) -> RuntimeDynamicsModel:
+) -> ExecutableModel:
     model = _multirotor_runtime(trajectory)
     runtime_spec = replace(
         model.runtime_spec,
@@ -110,7 +110,7 @@ def _narrow_rate_envelope_multirotor(
             angular_velocity_half_width_rad_s=(0.2, 0.2, 0.2),
         ),
     )
-    return RuntimeDynamicsModel(
+    return ExecutableModel(
         model.params,
         model.input_spec,
         runtime_spec,
@@ -118,8 +118,8 @@ def _narrow_rate_envelope_multirotor(
     )
 
 
-def _fixed_wing_runtime(trajectory: Trajectory) -> RuntimeDynamicsModel:
-    return RuntimeDynamicsModel(
+def _fixed_wing_runtime(trajectory: Trajectory) -> ExecutableModel:
+    return ExecutableModel(
         true_fixed_wing_parameters(),
         trajectory.spec,
         _runtime_spec(trajectory.nominal_dt_s),
@@ -127,7 +127,7 @@ def _fixed_wing_runtime(trajectory: Trajectory) -> RuntimeDynamicsModel:
     )
 
 
-def _flying_wing_runtime() -> RuntimeDynamicsModel:
+def _flying_wing_runtime() -> ExecutableModel:
     controls = (
         ControlChannel(
             "propulsion_command",
@@ -167,7 +167,7 @@ def _flying_wing_runtime() -> RuntimeDynamicsModel:
             propulsion="single_propeller",
         ),
     )
-    return RuntimeDynamicsModel(
+    return ExecutableModel(
         true_fixed_wing_parameters(),
         spec,
         _runtime_spec(0.02),
@@ -221,26 +221,26 @@ def _scripted_perf_counter(readings: tuple[float, ...]) -> Callable[[], float]:
 @pytest.fixture(scope="module")
 def multirotor_model(
     quadrotor_trajectory_seed0_dur0_1s: Trajectory,
-) -> RuntimeDynamicsModel:
+) -> ExecutableModel:
     return _multirotor_runtime(quadrotor_trajectory_seed0_dur0_1s)
 
 
 @pytest.fixture(scope="module")
 def narrow_envelope_model(
     quadrotor_trajectory_seed0_dur0_1s: Trajectory,
-) -> RuntimeDynamicsModel:
+) -> ExecutableModel:
     return _narrow_rate_envelope_multirotor(quadrotor_trajectory_seed0_dur0_1s)
 
 
 @pytest.fixture(scope="module")
 def fixedwing_model(
     fixedwing_trajectory_seed0_dur0_1s: Trajectory,
-) -> RuntimeDynamicsModel:
+) -> ExecutableModel:
     return _fixed_wing_runtime(fixedwing_trajectory_seed0_dur0_1s)
 
 
 @pytest.fixture(scope="module")
-def multirotor_controller(multirotor_model: RuntimeDynamicsModel) -> NMPCController:
+def multirotor_controller(multirotor_model: ExecutableModel) -> NMPCController:
     """Default multirotor controller on the six-step test policy."""
 
     return NMPCController(multirotor_model, policy=_test_policy())
@@ -248,20 +248,20 @@ def multirotor_controller(multirotor_model: RuntimeDynamicsModel) -> NMPCControl
 
 @pytest.fixture(scope="module")
 def multirotor_controller_four_step(
-    multirotor_model: RuntimeDynamicsModel,
+    multirotor_model: ExecutableModel,
 ) -> NMPCController:
     return NMPCController(multirotor_model, policy=_test_policy(horizon_steps=4))
 
 
 @pytest.fixture(scope="module")
 def narrow_envelope_controller(
-    narrow_envelope_model: RuntimeDynamicsModel,
+    narrow_envelope_model: ExecutableModel,
 ) -> NMPCController:
     return NMPCController(narrow_envelope_model, policy=_test_policy(horizon_steps=4))
 
 
 @pytest.fixture(scope="module")
-def fixedwing_controller(fixedwing_model: RuntimeDynamicsModel) -> NMPCController:
+def fixedwing_controller(fixedwing_model: ExecutableModel) -> NMPCController:
     return NMPCController(fixedwing_model, policy=_test_policy())
 
 
@@ -280,7 +280,7 @@ def line_search_failure_policy() -> SolverPolicy:
 
 @pytest.fixture(scope="module")
 def line_search_failure_controller(
-    multirotor_model: RuntimeDynamicsModel, line_search_failure_policy: SolverPolicy
+    multirotor_model: ExecutableModel, line_search_failure_policy: SolverPolicy
 ) -> NMPCController:
     return NMPCController(multirotor_model, policy=line_search_failure_policy)
 
@@ -301,7 +301,7 @@ def test_quaternion_error_is_sign_invariant_and_has_finite_identity_gradient() -
 
 
 def test_control_blocks_expand_and_commands_remain_bounded(
-    multirotor_model: RuntimeDynamicsModel,
+    multirotor_model: ExecutableModel,
 ) -> None:
     controller = NMPCController(multirotor_model, policy=_test_policy(horizon_steps=5))
     blocks = jnp.asarray(
@@ -368,7 +368,7 @@ def test_solver_policy_rejects_a_layout_with_dead_command_blocks() -> None:
 
 
 def test_solver_propagates_latent_state_and_returns_bounded_plan(
-    multirotor_model: RuntimeDynamicsModel,
+    multirotor_model: ExecutableModel,
 ) -> None:
     # Deliberately not the shared controller: the final assertion is that this
     # solve is what warms the batched support kernel.
@@ -398,7 +398,7 @@ def test_solver_propagates_latent_state_and_returns_bounded_plan(
 
 
 def test_solver_consumes_predictive_and_parameter_uncertainty(
-    multirotor_model: RuntimeDynamicsModel,
+    multirotor_model: ExecutableModel,
 ) -> None:
     model = multirotor_model
     parameter_count = len(structured_parameter_vector(model.params))
@@ -445,7 +445,7 @@ def test_solver_consumes_predictive_and_parameter_uncertainty(
 
 
 def test_large_model_uncertainty_bounds_command_authority(
-    multirotor_model: RuntimeDynamicsModel,
+    multirotor_model: ExecutableModel,
     multirotor_controller_four_step: NMPCController,
 ) -> None:
     model = multirotor_model
@@ -491,7 +491,7 @@ def test_large_model_uncertainty_bounds_command_authority(
 
 
 def test_default_horizon_does_not_exceed_predictive_error_evidence(
-    multirotor_model: RuntimeDynamicsModel,
+    multirotor_model: ExecutableModel,
 ) -> None:
     model = multirotor_model
     endpoint_errors = 0.02 * np.concatenate((np.eye(12), -np.eye(12)))
@@ -512,7 +512,7 @@ def test_default_horizon_does_not_exceed_predictive_error_evidence(
 
 
 def test_default_multirotor_horizon_snaps_near_integer_sample_ratio(
-    multirotor_model: RuntimeDynamicsModel,
+    multirotor_model: ExecutableModel,
 ) -> None:
     controller = NMPCController(multirotor_model)
 
@@ -521,7 +521,7 @@ def test_default_multirotor_horizon_snaps_near_integer_sample_ratio(
 
 
 def test_stale_predictive_error_does_not_cap_default_horizon(
-    multirotor_model: RuntimeDynamicsModel,
+    multirotor_model: ExecutableModel,
 ) -> None:
     model = multirotor_model
     endpoint_errors = 0.02 * np.concatenate((np.eye(12), -np.eye(12)))
@@ -554,7 +554,7 @@ def test_stale_predictive_error_does_not_cap_default_horizon(
 
 
 def test_applied_command_initializes_latent_actuator_state(
-    multirotor_model: RuntimeDynamicsModel, multirotor_controller: NMPCController
+    multirotor_model: ExecutableModel, multirotor_controller: NMPCController
 ) -> None:
     model = multirotor_model
     controller = multirotor_controller
@@ -601,7 +601,7 @@ def test_warm_start_is_selected_only_when_no_worse_than_cold_start(
 
 
 def test_warm_start_seed_advances_the_previous_plan_by_one_block(
-    multirotor_model: RuntimeDynamicsModel, multirotor_controller: NMPCController
+    multirotor_model: ExecutableModel, multirotor_controller: NMPCController
 ) -> None:
     model = multirotor_model
     backend = multirotor_controller._backend
@@ -627,7 +627,7 @@ def test_warm_start_seed_advances_the_previous_plan_by_one_block(
 
 
 def test_invalid_estimate_and_deadline_return_bounded_fallback(
-    multirotor_model: RuntimeDynamicsModel, multirotor_controller: NMPCController
+    multirotor_model: ExecutableModel, multirotor_controller: NMPCController
 ) -> None:
     model = multirotor_model
     controller = multirotor_controller
@@ -658,7 +658,7 @@ def test_invalid_estimate_and_deadline_return_bounded_fallback(
 
 
 def test_previous_command_within_rounding_of_a_bound_is_accepted(
-    multirotor_model: RuntimeDynamicsModel, multirotor_controller: NMPCController
+    multirotor_model: ExecutableModel, multirotor_controller: NMPCController
 ) -> None:
     model = multirotor_model
     controller = multirotor_controller
@@ -773,7 +773,7 @@ def test_converged_status_requires_the_first_order_criterion(
 
 
 def test_improvement_stall_is_reported_as_stalled_rather_than_converged(
-    multirotor_model: RuntimeDynamicsModel,
+    multirotor_model: ExecutableModel,
 ) -> None:
     model = multirotor_model
     policy = SolverPolicy(
@@ -808,7 +808,7 @@ def test_improvement_stall_is_reported_as_stalled_rather_than_converged(
 
 
 def test_line_search_stall_after_progress_keeps_the_improved_plan(
-    multirotor_model: RuntimeDynamicsModel,
+    multirotor_model: ExecutableModel,
 ) -> None:
     model = multirotor_model
     policy = SolverPolicy(
@@ -843,7 +843,7 @@ def test_line_search_stall_after_progress_keeps_the_improved_plan(
 
 
 def test_support_candidates_are_vehicle_agnostic_nmpc_projections(
-    fixedwing_model: RuntimeDynamicsModel,
+    fixedwing_model: ExecutableModel,
 ) -> None:
     model = fixedwing_model
     controller = NMPCController(model, policy=_test_policy(horizon_steps=4))
@@ -870,7 +870,7 @@ def test_support_candidates_are_vehicle_agnostic_nmpc_projections(
 
 
 def test_support_filter_keeps_next_step_inside_from_envelope_boundary(
-    narrow_envelope_model: RuntimeDynamicsModel,
+    narrow_envelope_model: ExecutableModel,
     narrow_envelope_controller: NMPCController,
 ) -> None:
     model = narrow_envelope_model
@@ -895,7 +895,7 @@ def test_support_filter_keeps_next_step_inside_from_envelope_boundary(
 
 
 def test_support_filter_tightens_boundary_for_predictive_error(
-    narrow_envelope_model: RuntimeDynamicsModel,
+    narrow_envelope_model: ExecutableModel,
     narrow_envelope_controller: NMPCController,
 ) -> None:
     model = narrow_envelope_model
@@ -942,7 +942,7 @@ def test_support_filter_tightens_boundary_for_predictive_error(
 
 
 def test_support_filter_requires_validity_and_rate_progress_outside_envelope(
-    narrow_envelope_model: RuntimeDynamicsModel,
+    narrow_envelope_model: ExecutableModel,
     narrow_envelope_controller: NMPCController,
 ) -> None:
     model = narrow_envelope_model
@@ -992,7 +992,7 @@ def test_solver_failure_does_not_inject_an_independent_controller(
 
 
 def test_safety_envelope_reports_normalized_prediction_violation(
-    multirotor_model: RuntimeDynamicsModel,
+    multirotor_model: ExecutableModel,
 ) -> None:
     controller = NMPCController(
         multirotor_model,
@@ -1016,7 +1016,7 @@ def test_safety_envelope_reports_normalized_prediction_violation(
 def test_objective_gradient_agrees_with_central_difference(
     model_kind: str,
     quadrotor_trajectory_seed0_dur0_1s: Trajectory,
-    fixedwing_model: RuntimeDynamicsModel,
+    fixedwing_model: ExecutableModel,
     multirotor_controller: NMPCController,
     fixedwing_controller: NMPCController,
 ) -> None:
@@ -1150,7 +1150,7 @@ def test_exogenous_wind_forecast_flows_through_prediction(
         for axis in ("north", "west", "up")
     )
     spec = replace(trajectory.spec, exogenous=exogenous)
-    model = RuntimeDynamicsModel(
+    model = ExecutableModel(
         true_parameters(),
         spec,
         _runtime_spec(trajectory.nominal_dt_s),
@@ -1173,7 +1173,7 @@ def test_exogenous_wind_forecast_flows_through_prediction(
 
 
 def test_controller_honors_certified_prediction_horizon(
-    multirotor_model: RuntimeDynamicsModel,
+    multirotor_model: ExecutableModel,
 ) -> None:
     model = multirotor_model
     certified_runtime = RuntimeModelSpec(

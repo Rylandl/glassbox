@@ -5,6 +5,15 @@ parameter file and not a bootstrap ensemble. The belief preserves a compact,
 differentiable nominal model while making prediction error, parameter evidence,
 operating support, and update history explicit.
 
+The nominal model has one type. `ExecutableModel` binds fitted parameters to
+the input spec, the runtime spec, and an actuation map, and it is what runs:
+one transition, one rollout, validity utilization, and the hard command bounds.
+Binding commands is what `compile_for_nmpc` does, and the compiled result is a
+view over this belief rather than a second belief with evidence of its own, so
+there is one place where prediction error and parameter uncertainty are
+answered. The belief is also the one artifact the library writes; a bare model
+payload is still read, as a belief with no evidence attached.
+
 The motivating runtime is broader than ordinary batch identification. A vehicle
 may enter with only an airframe-family prior, stabilize using conservative
 authority estimates, learn from the resulting motion, and then choose

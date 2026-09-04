@@ -25,7 +25,7 @@ from glassbox.control.nmpc.types import (
 from glassbox.core.data import duration_to_steps
 from glassbox.core.dynamics import ModelParams, quaternion_to_rotation
 from glassbox.core.geometry import rigid_body_local_error
-from glassbox.core.runtime import RuntimeDynamicsModel
+from glassbox.core.model import ExecutableModel
 
 _MINIMUM_SUPPORT_HORIZON_S = 0.1
 _MAXIMUM_SUPPORT_HORIZON_S = 0.3
@@ -267,7 +267,7 @@ class _SolveAbort(Exception):
         self.message = message
 
 
-def _default_policy(model: RuntimeDynamicsModel) -> SolverPolicy:
+def _default_policy(model: ExecutableModel) -> SolverPolicy:
     dt_s = model.runtime_spec.sample_period_s
     target_horizon_s = 0.6 if model.input_spec.vehicle.family == "multirotor" else 1.0
     certified = model.runtime_spec.certified_prediction_horizon_s
@@ -286,7 +286,7 @@ def _default_policy(model: RuntimeDynamicsModel) -> SolverPolicy:
 
 
 def _runtime_belief(
-    model: RuntimeDynamicsModel | RuntimeDynamicsBelief | DynamicsBelief,
+    model: ExecutableModel | RuntimeDynamicsBelief | DynamicsBelief,
 ) -> RuntimeDynamicsBelief:
     return (
         model.compile_for_nmpc()
@@ -309,7 +309,7 @@ class _DirectShootingBackend:
         policy: SolverPolicy | None = None,
     ) -> None:
         self.belief = belief
-        self.model = belief.nominal
+        self.model = belief.model
         self._active_parameters = self.model.params
         self.tolerances = tolerances
         self.safety_envelope = safety_envelope
@@ -2096,7 +2096,7 @@ class NMPCController:
 
     def __init__(
         self,
-        model: RuntimeDynamicsModel | RuntimeDynamicsBelief | DynamicsBelief,
+        model: ExecutableModel | RuntimeDynamicsBelief | DynamicsBelief,
         tolerances: TrackingTolerances | None = None,
         safety_envelope: SafetyEnvelope | None = None,
         *,
@@ -2104,7 +2104,7 @@ class NMPCController:
     ) -> None:
         belief = _runtime_belief(model)
         self.belief = belief
-        self.model = belief.nominal
+        self.model = belief.model
         self.tolerances = (
             TrackingTolerances.for_platform(self.model.input_spec.vehicle.family)
             if tolerances is None

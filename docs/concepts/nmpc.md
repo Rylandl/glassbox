@@ -4,7 +4,10 @@ Glassbox NMPC turns one eligible fitted dynamics belief into a finite-horizon
 rigid-body tracker. The interface is intentionally small: a runtime belief, a
 state estimate, a state reference, the previous command, optional applied
 control or latent actuator state, physical tracking tolerances, and optional
-state limits. Horizon length, command blocking, line search, regularization,
+state limits. The runtime belief is a view: it pairs the dynamics belief with
+the `ExecutableModel` compiled from it, which is what carries the actuation map
+and the declared command bounds, and every question about error or parameter
+uncertainty is answered by the belief behind it. Horizon length, command blocking, line search, regularization,
 and iteration count are maintained policies rather than routine user knobs.
 When a belief supplies predictive-error evidence, the maintained horizon is
 capped at that evidence boundary.
@@ -389,7 +392,7 @@ mixing remain separate projects or adapters.
 The dependency direction is deliberately one-way:
 
 ```text
-dynamics belief -> compact runtime belief -> NMPC -> canonical command
+dynamics belief -> executable model view -> NMPC -> canonical command
                                                |              |
                          state/reference/context       actuation adapter
 ```

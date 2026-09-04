@@ -32,10 +32,10 @@ from glassbox.core.dynamics import (
     structured_parameters,
 )
 from glassbox.core.geometry import rigid_body_local_error
-from glassbox.core.runtime import (
+from glassbox.core.model import (
     ActuationMap,
     DirectActuationMap,
-    RuntimeDynamicsModel,
+    ExecutableModel,
     RuntimeModelSpec,
     commands_within_declared_bounds,
 )
@@ -1171,18 +1171,13 @@ class DynamicsBelief:
             if actuation is None
             else actuation
         )
-        nominal = RuntimeDynamicsModel(
-            self.params,
-            self.input_spec,
-            self.runtime_spec,
-            selected_actuation,
-        )
         return RuntimeDynamicsBelief(
-            nominal=nominal,
-            predictive_error=self.predictive_error,
-            parameter_belief=self.parameter_belief,
-            predictive_error_parameter_update_count=(
-                self.predictive_error_parameter_update_count
+            belief=self,
+            model=ExecutableModel(
+                self.params,
+                self.input_spec,
+                self.runtime_spec,
+                selected_actuation,
             ),
         )
 
@@ -1263,7 +1258,11 @@ class DynamicsBelief:
 
 @dataclass(frozen=True)
 class RuntimeDynamicsBelief:
-    """Executable nominal dynamics and compact predictive-error model.
+    """One dynamics belief viewed through a command-bound executable model.
+
+    This type owns no evidence of its own. It pairs a :class:`DynamicsBelief`
+    with the :class:`ExecutableModel` compiled from it, and every question about
+    error or parameter uncertainty is answered by the belief.
 
     Declared command bounds are enforced on every concrete rollout: a command
     outside them raises and names the channel. The validity envelope stays
@@ -1273,34 +1272,39 @@ class RuntimeDynamicsBelief:
     is not a command.
     """
 
-    nominal: RuntimeDynamicsModel
-    predictive_error: PredictiveErrorModel = field(
-        default_factory=UnavailablePredictiveError
-    )
-    parameter_belief: ParameterBelief = field(default_factory=PointParameterBelief)
-    predictive_error_parameter_update_count: int | None = None
+    belief: DynamicsBelief
+    model: ExecutableModel
 
     def __post_init__(self) -> None:
-        if isinstance(
-            self.parameter_belief, LocalGaussianParameterBelief
-        ) and self.parameter_belief.parameter_names != structured_parameter_names(
-            self.nominal.params
+        if structured_parameter_names(self.model.params) != structured_parameter_names(
+            self.belief.params
         ):
-            raise ValueError("runtime parameter belief does not match nominal model")
-        error_update_count = self.predictive_error_parameter_update_count
-        if error_update_count is None:
-            error_update_count = self.parameter_belief.update_count
-        if not 0 <= error_update_count <= self.parameter_belief.update_count:
-            raise ValueError("invalid runtime predictive-error update count")
-        object.__setattr__(
-            self,
-            "predictive_error_parameter_update_count",
-            error_update_count,
-        )
+            raise ValueError("compiled model does not match the belief parameters")
 
     @classmethod
-    def from_nominal(cls, nominal: RuntimeDynamicsModel) -> RuntimeDynamicsBelief:
-        return cls(nominal=nominal)
+    def from_nominal(cls, model: ExecutableModel) -> RuntimeDynamicsBelief:
+        """View one executable model as a belief with no error evidence."""
+
+        return cls(
+            belief=DynamicsBelief(
+                params=model.params,
+                input_spec=model.input_spec,
+                runtime_spec=model.runtime_spec,
+            ),
+            model=model,
+        )
+
+    @property
+    def predictive_error(self) -> PredictiveErrorModel:
+        return self.belief.predictive_error
+
+    @property
+    def parameter_belief(self) -> ParameterBelief:
+        return self.belief.parameter_belief
+
+    @property
+    def predictive_error_parameter_update_count(self) -> int | None:
+        return self.belief.predictive_error_parameter_update_count
 
     @property
     def predictive_error_available(self) -> bool:
@@ -1316,11 +1320,7 @@ class RuntimeDynamicsBelief:
 
     @property
     def predictive_error_current(self) -> bool:
-        return (
-            self.predictive_error.available
-            and self.predictive_error_parameter_update_count
-            == self.parameter_belief.update_count
-        )
+        return self.belief.predictive_error_current
 
     @property
     def maximum_error_horizon_s(self) -> float | None:
@@ -1373,16 +1373,16 @@ class RuntimeDynamicsBelief:
         initial_latent_state: Array | None,
         exogenous: Array,
     ) -> tuple[Array, Array, Array]:
-        model_controls = jax.vmap(self.nominal.actuation.model_control)(commands)
+        model_controls = jax.vmap(self.model.actuation.model_control)(commands)
         if initial_latent_state is None:
-            history_controls = jax.vmap(self.nominal.actuation.model_control)(
+            history_controls = jax.vmap(self.model.actuation.model_control)(
                 command_history
             )
             initial_latent = control_state_after_history(
                 params,
                 history_controls,
-                self.nominal.runtime_spec.sample_period_s,
-                self.nominal.input_spec.control_roles,
+                self.model.runtime_spec.sample_period_s,
+                self.model.input_spec.control_roles,
             )
         else:
             initial_latent = initial_latent_state
@@ -1398,10 +1398,10 @@ class RuntimeDynamicsBelief:
                 state,
                 latent,
                 control,
-                self.nominal.runtime_spec.sample_period_s,
-                self.nominal.input_spec.control_roles,
+                self.model.runtime_spec.sample_period_s,
+                self.model.input_spec.control_roles,
                 context,
-                self.nominal.input_spec.exogenous_roles,
+                self.model.input_spec.exogenous_roles,
             )
             return (next_state, next_latent), (next_state, next_latent)
 
@@ -1461,19 +1461,19 @@ class RuntimeDynamicsBelief:
         """
 
         commands = jnp.asarray(commands)
-        if commands.ndim != 2 or commands.shape[1] != self.nominal.command_size:
+        if commands.ndim != 2 or commands.shape[1] != self.model.command_size:
             raise ValueError("commands must have shape (time, command_size)")
         if len(commands) < 1:
             raise ValueError("belief rollout requires at least one command")
         commands = commands_within_declared_bounds(
             commands,
-            self.nominal.actuation.command_channels,
+            self.model.actuation.command_channels,
         )
         if exogenous is None:
-            exogenous = jnp.zeros((len(commands), self.nominal.exogenous_size))
+            exogenous = jnp.zeros((len(commands), self.model.exogenous_size))
         else:
             exogenous = jnp.asarray(exogenous)
-        if exogenous.shape != (len(commands), self.nominal.exogenous_size):
+        if exogenous.shape != (len(commands), self.model.exogenous_size):
             raise ValueError("exogenous forecast does not match command timeline")
         initial_state = jnp.asarray(initial_state)
         history = (
@@ -1481,18 +1481,18 @@ class RuntimeDynamicsBelief:
         )
         if history.ndim == 1:
             history = history[None, :]
-        if history.ndim != 2 or history.shape[1] != self.nominal.command_size:
+        if history.ndim != 2 or history.shape[1] != self.model.command_size:
             raise ValueError("command history must have shape (time, command_size)")
         history = commands_within_declared_bounds(
             history,
-            self.nominal.actuation.command_channels,
+            self.model.actuation.command_channels,
             label="command history",
         )
         provided_latent = (
             None if initial_latent_state is None else jnp.asarray(initial_latent_state)
         )
         selected_parameters = (
-            self.nominal.params if model_parameters is None else model_parameters
+            self.model.params if model_parameters is None else model_parameters
         )
         future_states, future_latent, resolved_initial_latent = (
             self._rollout_with_params(
@@ -1508,7 +1508,7 @@ class RuntimeDynamicsBelief:
         latent_states = jnp.concatenate(
             (resolved_initial_latent[None, :], future_latent)
         )
-        horizons = self.nominal.runtime_spec.sample_period_s * jnp.arange(
+        horizons = self.model.runtime_spec.sample_period_s * jnp.arange(
             1, len(commands) + 1
         )
         mean_future, bias, residual_covariance = jax.vmap(self.corrected_state)(
@@ -1563,10 +1563,10 @@ class RuntimeDynamicsBelief:
         initial_context = exogenous[0]
         validity = jnp.concatenate(
             (
-                self.nominal.validity_utilization(initial_state, initial_context)[
+                self.model.validity_utilization(initial_state, initial_context)[
                     None, :
                 ],
-                jax.vmap(self.nominal.validity_utilization)(mean_future, exogenous),
+                jax.vmap(self.model.validity_utilization)(mean_future, exogenous),
             )
         )
         maximum_horizon = self.maximum_error_horizon_s
@@ -1585,7 +1585,7 @@ class RuntimeDynamicsBelief:
             predictive_error_current=self.predictive_error_current,
             predictive_error_horizon_supported=(
                 maximum_horizon is not None
-                and len(commands) * self.nominal.runtime_spec.sample_period_s
+                and len(commands) * self.model.runtime_spec.sample_period_s
                 <= maximum_horizon + 1e-12
             ),
             parameter_uncertainty_available=self.parameter_uncertainty_available,

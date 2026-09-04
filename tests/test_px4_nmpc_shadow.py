@@ -10,10 +10,10 @@ import pytest
 import glassbox.integrations.px4_nmpc_shadow as px4_nmpc_shadow
 from glassbox.control.nmpc import NMPCWarmStart
 from glassbox.core.dynamics import hover_control
-from glassbox.core.runtime import (
+from glassbox.core.model import (
     DirectActuationMap,
+    ExecutableModel,
     ModelValidityEnvelope,
-    RuntimeDynamicsModel,
     RuntimeModelSpec,
 )
 from glassbox.core.synthetic import generate_trajectory, resting_state, true_parameters
@@ -25,10 +25,10 @@ from glassbox.integrations.px4 import (
 from glassbox.integrations.px4_nmpc_shadow import run_px4_nmpc_shadow
 
 
-def runtime_model() -> RuntimeDynamicsModel:
+def runtime_model() -> ExecutableModel:
     params = true_parameters()
     spec = generate_trajectory(seed=0, duration_s=0.02).spec
-    return RuntimeDynamicsModel(
+    return ExecutableModel(
         params,
         spec,
         RuntimeModelSpec(
@@ -70,7 +70,7 @@ def test_shadow_runner_exercises_both_warmup_paths_without_transmission(
     class Controller:
         prediction_horizon_s = 0.4
 
-        def __init__(self, received_model: RuntimeDynamicsModel) -> None:
+        def __init__(self, received_model: ExecutableModel) -> None:
             assert received_model is model
             self.model = received_model
 
@@ -192,7 +192,7 @@ def test_shadow_runner_uses_aligned_applied_command_telemetry(
     class Controller:
         prediction_horizon_s = 0.4
 
-        def __init__(self, received_model: RuntimeDynamicsModel) -> None:
+        def __init__(self, received_model: ExecutableModel) -> None:
             assert received_model is model
             self.model = received_model
 

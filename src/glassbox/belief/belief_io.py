@@ -16,8 +16,8 @@ from glassbox.belief.belief import (
     predictive_error_from_dict,
 )
 from glassbox.core.data import TrajectorySpec
+from glassbox.core.model import RuntimeModelSpec
 from glassbox.core.model_io import dynamics_model_from_payload, model_payload
-from glassbox.core.runtime import RuntimeModelSpec
 
 BELIEF_FORMAT_VERSION = 3
 BELIEF_ARTIFACT_TYPE = "glassbox_dynamics_belief"
@@ -82,13 +82,32 @@ def save_dynamics_belief(belief: DynamicsBelief, path: str | Path) -> None:
     )
 
 
-def dynamics_belief_from_payload(payload: Mapping[str, Any]) -> DynamicsBelief:
-    """Restore a dynamics belief from an already decoded payload."""
+def _point_belief_from_model_payload(payload: Mapping[str, Any]) -> DynamicsBelief:
+    """Wrap a bare nominal-model payload as a belief carrying no evidence."""
 
+    params, nominal = dynamics_model_from_payload(payload)
+    return DynamicsBelief(
+        params=params,
+        input_spec=TrajectorySpec.from_dict(nominal["input_spec"]),
+        runtime_spec=RuntimeModelSpec.from_dict(nominal["runtime_spec"]),
+        provenance=dict(nominal.get("provenance", {})),
+    )
+
+
+def dynamics_belief_from_payload(payload: Mapping[str, Any]) -> DynamicsBelief:
+    """Restore a dynamics belief from an already decoded payload.
+
+    A payload that is a bare nominal model rather than a belief is accepted and
+    wrapped as a point belief with no predictive-error and no parameter
+    evidence. This tolerance is temporary: model-only artifacts under the
+    untracked ``artifacts/`` tree predate the single belief format, and it is
+    removed once those artifacts are re-recorded.
+    """
+
+    if payload.get("artifact_type") != BELIEF_ARTIFACT_TYPE:
+        return _point_belief_from_model_payload(payload)
     if payload.get("format_version") != BELIEF_FORMAT_VERSION:
         raise ValueError("unsupported dynamics-belief format")
-    if payload.get("artifact_type") != BELIEF_ARTIFACT_TYPE:
-        raise ValueError("artifact is not a Glassbox dynamics belief")
     nominal_payload = payload["nominal_model"]
     params, nominal = dynamics_model_from_payload(nominal_payload)
     return DynamicsBelief(
@@ -106,6 +125,11 @@ def dynamics_belief_from_payload(payload: Mapping[str, Any]) -> DynamicsBelief:
 
 
 def load_dynamics_belief(path: str | Path) -> DynamicsBelief:
-    """Load a belief written by :func:`save_dynamics_belief`."""
+    """Load a belief written by :func:`save_dynamics_belief`.
+
+    A bare nominal-model artifact is read as a point belief; see
+    :func:`dynamics_belief_from_payload` for why that tolerance exists and when
+    it goes away.
+    """
 
     return dynamics_belief_from_payload(json.loads(Path(path).read_text()))

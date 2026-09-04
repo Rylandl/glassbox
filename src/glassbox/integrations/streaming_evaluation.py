@@ -14,7 +14,7 @@ from glassbox.core.evaluation import (
     state_error_magnitudes,
     state_rmse_metrics,
 )
-from glassbox.core.runtime import RuntimeDynamicsModel
+from glassbox.core.model import ExecutableModel
 
 _MINIMUM_INTERVAL_MULTIPLE = 0.5
 _MAXIMUM_INTERVAL_MULTIPLE = 2.5
@@ -87,7 +87,7 @@ class StreamingOneStepEvaluator:
     but not scored because their intermediate commands were not observed.
     """
 
-    def __init__(self, model: RuntimeDynamicsModel) -> None:
+    def __init__(self, model: ExecutableModel) -> None:
         self.model = model
         self._initial_latent_compiled = jax.jit(model.initial_latent_state)
         self._compiled_transitions: dict[int, Any] = {}

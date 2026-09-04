@@ -41,9 +41,9 @@ from glassbox.core.geometry import (
     quaternion_from_euler,
     rigid_body_local_error,
 )
-from glassbox.core.runtime import (
+from glassbox.core.model import (
     DirectActuationMap,
-    RuntimeDynamicsModel,
+    ExecutableModel,
     runtime_spec_from_trajectory,
 )
 from glassbox.core.synthetic import generate_trajectory, resting_state, true_parameters
@@ -73,7 +73,7 @@ BENCHMARK_SOURCE_FILES = (
     "core/dynamics.py",
     "core/evaluation.py",
     "core/geometry.py",
-    "core/runtime.py",
+    "core/model.py",
     "core/synthetic.py",
     "workflows/adaptive_recovery_benchmark.py",
 )
@@ -636,7 +636,7 @@ def run_adaptive_recovery_benchmark() -> dict[str, Any]:
             "adapted_mean_point",
             "adapted mean without uncertainty",
             NMPCController(
-                RuntimeDynamicsModel(
+                ExecutableModel(
                     updated.params,
                     belief.input_spec,
                     equal_horizon_runtime,
@@ -648,7 +648,7 @@ def run_adaptive_recovery_benchmark() -> dict[str, Any]:
             "oracle_mean_point",
             "hidden target mean without uncertainty",
             NMPCController(
-                RuntimeDynamicsModel(
+                ExecutableModel(
                     target_params,
                     belief.input_spec,
                     equal_horizon_runtime,

@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 
 from glassbox.belief.belief import DynamicsBelief
+from glassbox.belief.belief_io import load_dynamics_belief
 from glassbox.core.data import ExogenousChannel, make_trajectory_spec
 from glassbox.core.dynamics import (
     initial_residual_parameters,
@@ -12,14 +13,39 @@ from glassbox.core.dynamics import (
 from glassbox.core.fixedwing_synthetic import (
     true_fixed_wing_parameters,
 )
-from glassbox.core.model_io import (
-    load_dynamics_model,
-    model_payload,
-    save_dynamics_model,
-)
-from glassbox.core.runtime import ModelValidityEnvelope, RuntimeModelSpec
+from glassbox.core.model import ModelValidityEnvelope, RuntimeModelSpec
+from glassbox.core.model_io import load_dynamics_model, model_payload
 from glassbox.core.synthetic import true_parameters
 from glassbox.io.nanodrone_reference import nanodrone_trajectory_spec
+
+
+def _write_model_payload(
+    params,
+    path,
+    *,
+    input_spec,
+    runtime_spec,
+    provenance=None,
+) -> None:
+    """Write a bare nominal-model artifact.
+
+    The library itself only writes beliefs. Model-only payloads still exist on
+    disk from before that fold, so both loaders have to keep reading them; this
+    helper is how those payloads are produced for the tests that pin it.
+    """
+
+    path.write_text(
+        json.dumps(
+            model_payload(
+                params,
+                input_spec=input_spec,
+                runtime_spec=runtime_spec,
+                provenance=provenance,
+            ),
+            indent=2,
+        )
+        + "\n"
+    )
 
 
 def _runtime_spec() -> RuntimeModelSpec:
@@ -39,7 +65,7 @@ def test_model_json_round_trip(tmp_path, quadrotor_trajectory_seed0_dur0_1s) -> 
     original = with_thrust_command_offset(true_parameters(), -0.12)
 
     input_spec = quadrotor_trajectory_seed0_dur0_1s.spec
-    save_dynamics_model(
+    _write_model_payload(
         original,
         path,
         input_spec=input_spec,
@@ -88,7 +114,7 @@ def test_residual_model_json_round_trip(
     path = tmp_path / "residual_model.json"
     original = initial_residual_parameters(true_parameters(), hidden_units=5)
 
-    save_dynamics_model(
+    _write_model_payload(
         original,
         path,
         input_spec=quadrotor_trajectory_seed0_dur0_1s.spec,
@@ -157,7 +183,7 @@ def test_residual_model_serializes_typed_exogenous_features(tmp_path) -> None:
         true_parameters(), hidden_units=4, exogenous_size=2
     )
 
-    save_dynamics_model(
+    _write_model_payload(
         original, path, input_spec=input_spec, runtime_spec=_runtime_spec()
     )
     restored, payload = load_dynamics_model(path)
@@ -175,7 +201,7 @@ def test_fixed_wing_residual_model_json_round_trip(tmp_path, fixedwing_flight) -
     original = initial_residual_parameters(base, hidden_units=4)
     input_spec = fixedwing_flight(1, 0.1).spec
 
-    save_dynamics_model(
+    _write_model_payload(
         original, path, input_spec=input_spec, runtime_spec=_runtime_spec()
     )
     restored, payload = load_dynamics_model(path)
@@ -197,7 +223,7 @@ def test_fixed_wing_model_json_round_trip(
     original = true_fixed_wing_parameters()
 
     input_spec = fixedwing_trajectory_seed0_dur0_1s.spec
-    save_dynamics_model(
+    _write_model_payload(
         original, path, input_spec=input_spec, runtime_spec=_runtime_spec()
     )
     restored, payload = load_dynamics_model(path)
@@ -233,3 +259,29 @@ def test_rejects_noncurrent_model_format(
 
     with pytest.raises(ValueError, match="unsupported model format/type"):
         load_dynamics_model(path)
+
+
+def test_belief_loader_reads_a_bare_model_as_a_point_belief(
+    tmp_path, quadrotor_trajectory_seed0_dur0_1s
+) -> None:
+    path = tmp_path / "model.json"
+    params = with_thrust_command_offset(true_parameters(), -0.05)
+    input_spec = quadrotor_trajectory_seed0_dur0_1s.spec
+    _write_model_payload(
+        params,
+        path,
+        input_spec=input_spec,
+        runtime_spec=_runtime_spec(),
+        provenance={"flight": "fixture"},
+    )
+
+    belief = load_dynamics_belief(path)
+
+    for original_leaf, restored_leaf in zip(params, belief.params, strict=True):
+        np.testing.assert_allclose(restored_leaf, original_leaf, rtol=1e-6)
+    assert belief.input_spec == input_spec.prediction_spec()
+    assert belief.runtime_spec == _runtime_spec()
+    assert belief.predictive_error.available is False
+    assert belief.parameter_evidence.available is False
+    assert belief.parameter_belief.uncertainty_available is False
+    assert belief.provenance == {"flight": "fixture"}

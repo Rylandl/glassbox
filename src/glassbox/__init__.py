@@ -93,12 +93,12 @@ from glassbox.core.identification import (
     fit_dynamics_multi_horizon,
     rollout_loss_configuration,
 )
-from glassbox.core.runtime import (
+from glassbox.core.model import (
     ActuationMap,
     DirectActuationMap,
+    ExecutableModel,
     ModelValidityEnvelope,
     NonActionableModelError,
-    RuntimeDynamicsModel,
     RuntimeModelSpec,
     runtime_spec_from_fit_report,
     runtime_spec_from_trajectory,
@@ -119,6 +119,7 @@ __all__ = [
     "EmpiricalErrorSample",
     "EmpiricalHorizonPredictiveError",
     "ErrorCovarianceScope",
+    "ExecutableModel",
     "ExogenousChannel",
     "FitResult",
     "FixedWingDynamicsParams",
@@ -140,7 +141,6 @@ __all__ = [
     "ResolvedLocalGeometry",
     "RolloutLossConfiguration",
     "RuntimeDynamicsBelief",
-    "RuntimeDynamicsModel",
     "RuntimeModelSpec",
     "SafetyEnvelope",
     "SolveStatus",
