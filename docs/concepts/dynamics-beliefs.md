@@ -1,17 +1,28 @@
 # Dynamics beliefs
 
-Glassbox's primary product object is a predictive dynamics belief, not a point
-parameter file and not a bootstrap ensemble. The belief preserves a compact,
-differentiable nominal model while making prediction error, parameter evidence,
-operating support, and update history explicit.
+Glassbox's primary product object is a dynamics belief, not a point parameter
+file and not a bootstrap ensemble. A belief is three things and nothing else:
 
-The nominal model has one type, and the belief owns one of them.
-`ExecutableModel` binds fitted parameters to the input spec, the runtime spec,
-and an actuation map, and it is what runs: one transition, one rollout,
-validity utilization, and the hard command bounds. The belief holds that model
-as its `model` field and answers `params`, `input_spec` and `runtime_spec` from
-it, so there is exactly one place where the mean lives and exactly one place
-where prediction error and parameter uncertainty are answered.
+```text
+DynamicsBelief
+├── model             ExecutableModel: the parameters, the typed prediction
+│                     contract, the runtime timing and validity envelope, and
+│                     the actuation map when its inputs are commands
+├── information       ParameterInformation: which directions of the structured
+│                     coefficient block the evidence has resolved, how
+│                     precisely, and the one-step innovation noise that weights
+│                     every new observation
+└── forecast_error    ForecastErrorEnvelope: how wrong forecasts of a given
+                      length have been on flights the fit did not see
+```
+
+plus `provenance`, which records where those came from and how far the
+parameters have moved since. `belief.support` is the model's own validity
+envelope, the operating region the evidence covers.
+
+The model is the belief's mean and the one place it lives; `params`,
+`input_spec` and `runtime_spec` are answered from it. Everything else says how
+wrong that mean has been and which of its coefficients the evidence resolved.
 
 Executable is not the same as actionable. The actuation map is optional: it is
 the identity on the declared control channels when those channels are commands
@@ -20,18 +31,16 @@ such as measured rotor speeds. A model without one still integrates, still
 reports validity, and still serializes; every method that needs a command space
 raises `NonActionableModelError` and says so. The belief is also the one
 artifact the library writes; a bare model payload is still read, as a belief
-with no evidence attached.
+with rank-zero information and no envelope.
 
 The motivating runtime is broader than ordinary batch identification. A vehicle
-may enter with only an airframe-family prior, stabilize using conservative
-authority estimates, learn from the resulting motion, and then choose
-increasingly informative maneuvers while respecting the support accumulated so
-far. The architecture must permit that lifecycle even though no autonomous
-flight-envelope exploration demo is part of the current roadmap.
+may enter with only a family seed, stabilize using conservative authority
+estimates, learn from the resulting motion, and then choose increasingly
+informative maneuvers while respecting the support accumulated so far. The
+architecture permits that lifecycle because information is a first-class,
+monotone quantity rather than a label.
 
 ## Product contract
-
-The opinionated public lifecycle is:
 
 ```python
 outcome = glassbox.fit(flight_paths, glassbox.FitSpec())
@@ -41,44 +50,25 @@ belief = outcome.belief
 belief = glassbox.DynamicsBelief.load("artifacts/vehicle-belief.json")
 
 forecast = belief.rollout(initial_state, commands)
-updated_belief, update = belief.update(recent_telemetry)
+belief, update = belief.absorb(recent_telemetry)
 
-# The commit moved the parameters, so the attached error evidence is stale.
-# Measuring it again around the new parameters is what makes the belief usable
-# for horizon capping and further updates.
-updated_belief = updated_belief.recalibrate_predictive_error(calibration_telemetry)
-
-controller = glassbox.NMPCController(updated_belief)
+controller = glassbox.NMPCController(belief)
 result = controller.solve(state, reference, previous_command)
 ```
 
-`recent_telemetry` must be disjoint from `calibration_telemetry`; the
-recalibration provenance records a content hash of the telemetry it consumed so
-that can be shown after the fact. A belief that was fitted offline with fresh
-held-out flights already carries current evidence and does not need the
-recalibration step until its parameters move.
+There is no recalibration step and no lifecycle to keep in mind. `absorb`
+returns a belief that is strictly better informed than the one it was given,
+and the controller reads that belief directly.
 
-The serialized object owns:
+## The twelve local coordinates
 
-```text
-DynamicsBelief
-├── nominal differentiable dynamics and latent actuator state
-├── typed state, control, exogenous, timing, and validity contract
-├── parameter belief and update history
-├── rank-aware local parameter information from grouped training evidence
-├── predictive error model in 12 rigid-body tangent coordinates
-└── evidence and provenance
-```
-
-The 12 local coordinates are position, velocity, shortest-path attitude
-rotation vector, and body angular velocity. Quaternion components are never
-assigned Euclidean covariance or independent error bars.
-
-Every user-facing fitted artifact is a belief. When parameter or error evidence is absent,
-the corresponding component says `available: false`; absence is never encoded
-as zero uncertainty. Deterministic parameters remain available as the nominal
-member so existing differentiable dynamics do not become conditional on a
-probabilistic framework.
+Prediction error, parameter sensitivity and innovation noise are all stated in
+the same twelve rigid-body local coordinates: position, velocity, shortest-path
+attitude rotation vector, and body angular velocity. `rigid_body_local_error`
+is the map into them and `state_plus_tangent` is the retraction back out, so a
+tangent-space error, a tangent-space perturbation and a tangent-space
+covariance describe the same thing. Quaternion components are never assigned
+Euclidean covariance or independent error bars.
 
 ## What the fit produces
 
@@ -104,27 +94,120 @@ training-window motion, linearly emphasizes later rollout steps, and softly
 penalizes velocity or rate escape beyond a generous training-derived body-frame
 envelope. For a structured residual, frame-invariant feature normalization and
 six-axis correction bounds are derived only from the training windows, kept
-fixed during fitting, and serialized with the model. When parameter evidence is
-requested, local structured-parameter information uses bounded rollout
-Jacobians, gives each independent training group one unit of evidence, averages
-correlated horizons, and whitens only the held-out residual subspace supported
-numerically; its rank and group scores are diagnostics, not an inferred
-parameter covariance.
+fixed during fitting, and serialized with the model.
 
 The fit also resolves the model's runtime contract, the sample period and the
 training-supported validity envelope, so the belief it returns is executable
 without anything being recovered from the report afterwards.
 
+### The noise model
+
+Every fit measures the one-step innovation of the model it just produced on the
+held-out flights, per coordinate, as a second moment about zero. That is the
+belief's `innovation_noise`, and it is measured whether or not the caller asked
+for parameter evidence: a belief that cannot say how wrong its one-step
+predictions are cannot weight the next observation either. A declared per-group
+floor travels beside it as `noise_floor` and the measured value never falls
+below it, which keeps the whitening finite when a model reproduces held-out
+telemetry to integration accuracy.
+
+The held-out **mean** error is recorded in the fit report's validation block,
+under `held_out_mean_tangent_error`, and nothing applies it. Correcting a
+forecast by a mean measured on other flights moves the model without moving the
+account of what is known about it, which is why the envelope is the uncentered
+second moment: it carries the whole of how wrong the forecast has been rather
+than only its spread about a correction that is never made.
+
+### The information
+
+`FitSpec.parameter_evidence` additionally accumulates
+`sum_w J_w' R^-1 J_w` over the training flights' one-step transitions, with the
+fitter's estimable mask, a bounded window budget spread evenly across the
+independent source groups, and the balanced effective count. Without it the
+belief is an honest point estimate that knows its own noise and is ready to
+absorb.
+
+This is deliberately the same estimator `absorb` runs. The noise model is
+one-step innovation covariance, so the windows it weights correctly are
+one-step windows: whitening a multi-step endpoint by it would overstate the
+information by roughly the horizon and would count the same transition once per
+training horizon. A fitted belief and a belief that has absorbed telemetry
+therefore state their information in one currency and can be added.
+
+## `ParameterInformation`
+
+```python
+ParameterInformation(names, precision, scale, estimable, innovation_noise,
+                     noise_floor, effective_count, rank_relative_tolerance)
+```
+
+`precision` is the accumulated information in parameter coordinates. `scale`
+defines the normalized coordinate `u` by `parameters = center + diag(scale) u`,
+so the normalized precision `diag(scale) @ precision @ diag(scale)` has
+eigenvalues comparable across coordinates of different physical units, and the
+rank test is stated on those: a direction is *resolved* when its normalized
+eigenvalue exceeds `rank_relative_tolerance` times the largest.
+`estimable` is the mask the fitter declares; a coordinate outside it is held
+fixed by construction, such as the diagonal of the angular control coupling
+that the effective angular authority already carries, and its rows and columns
+of the precision are exactly zero.
+
+- `resolved_rank()` and `resolved_subspace()` report what the evidence has
+  resolved.
+- `covariance()` is the pseudo-inverse of the precision on that subspace. An
+  unresolved direction has **exactly zero** variance rather than a large one:
+  this object is what is known, and inventing a spread along a direction it
+  says nothing about would be an assumption. The complementary statement, that
+  such a direction may be arbitrarily wrong, is carried by the rank.
+- `authority(direction)` is in `[0, 1]`: the variance along the direction
+  compared against the smallest the evidence achieves anywhere, scaled by the
+  share of the direction inside the resolved subspace. It is one along the
+  single best-resolved direction, `lambda_i / lambda_max` along any other
+  resolved eigendirection, and exactly zero for a direction the evidence does
+  not resolve, so a mixed direction is dominated by its worst-resolved
+  supported component.
+- `information_gain_nats(delta)` is `0.5 log det(I + Lambda^-1 V' dL V)` on the
+  directions already resolved. Directions an increment newly resolves are a
+  rank change rather than a finite gain, so a rank-zero belief reports zero
+  gain and states its progress through its rank instead.
+- `seeded_from_members(nominal, members)` is what a family of related vehicles
+  or configurations can hand a new belief: the members' sample covariance
+  around the nominal inverts, on its supported subspace, to precision, and
+  every other direction stays at zero precision, which is to say unknown. It
+  invents no precision on directions no member moved.
+
+Rank zero is a point estimate. Inverting a rank-deficient information matrix
+would assign zero variance to directions the flight never excited; the
+pseudo-inverse on the resolved subspace assigns them zero *information*
+instead, and the update takes no step along them.
+
+## `ForecastErrorEnvelope`
+
+The envelope is fitted only from held-out rollout endpoints. It gives every
+independent source group equal mass, then every trajectory within a group equal
+mass, then every endpoint within a trajectory equal mass, and records the
+uncentered tangent second moment per horizon along with the raw, effective and
+independent-group counts. Zero empirical eigenvalues are absent evidence, not
+noiseless measurements. These are forecast-error statistics, not a posterior or
+a calibrated probability distribution.
+
+Two things read it: the NMPC horizon cap, which shortens a maintained horizon
+to the evidence that supports it, and the solver's charged spread.
+
+Group-bootstrap disagreement is one possible future input to the belief. The
+IDF-DS evidence shows that it should not define the abstraction or be the
+default error model: independently calibrated residual error was more useful
+than adaptive bootstrap spread on that corpus.
+
 ## Prediction contract
 
-A rollout returns:
-
-- the nominal state trajectory;
-- the evidence-corrected predictive mean;
-- tangent-space bias and covariance at every horizon;
-- latent applied-control state;
-- validity-envelope utilization; and
-- whether the requested horizon is supported by the error evidence.
+`belief.rollout(...)` returns the state trajectory, the latent applied-control
+state, the commands, the forecast-error covariance and the parameter covariance
+at every horizon, validity-envelope utilization, and whether the requested
+horizon is supported by the envelope. `tangent_covariance` is the sum of the
+two covariances: the envelope was measured on held-out flights of the model as
+it was fitted, the parameter contribution is the plan's own sensitivity to the
+coefficients the evidence resolved, and they answer different questions.
 
 Declared command bounds and the validity envelope are enforced differently, on
 purpose. Bounds are a hard execution contract: a rollout or runtime transition
@@ -136,254 +219,117 @@ caller decides, because an out-of-envelope forecast is unsupported rather than
 impossible. Bound checks need concrete values, so a JAX-traced command is left
 to its caller; NMPC constructs every command inside the bounds.
 
-The error-model interface accepts horizon, nominal state, command, and
-exogenous context. The first implementation is deliberately horizon-only, but
-the signature permits heteroscedastic state/control-conditioned errors without
-changing fitting, serialization, or NMPC.
+## `absorb`
 
-The initial `EmpiricalHorizonPredictiveError` is fitted only from held-out
-rollout endpoints. It gives every independent source group equal mass, then
-every trajectory within a group equal mass, then every endpoint within a
-trajectory equal mass. It records bias, full tangent covariance, raw sample
-count, effective sample count, and independent group count. The covariance is
-centered on the reported predictive bias. These are forecast-error statistics,
-not a posterior or calibrated probability distribution.
-
-Every empirical covariance carries one of two scopes:
-
-- `total_forecast_error` is the complete held-out error around the nominal
-  forecast. It may already contain parameter variation, process variability,
-  observation error, and model-form error. Runtime returns it directly as total
-  covariance; adding propagated parameter covariance could count the same
-  variation twice.
-- `conditional_innovation_error` is separately justified measurement/process
-  error conditional on the parameter state. Only this scope may be added to
-  propagated parameter covariance or inverted to claim information gain and
-  covariance contraction.
-
-Every artifact the shipped CLIs write carries `total_forecast_error`:
-`glassbox fit` fits held-out rollout error and records that scope, and the
-local parameter information it stores inherits the scope of the predictive
-error it was whitened with. No flag changes this. Everything in this document
-that depends on `conditional_innovation_error`, commit-time covariance
-contraction above all, is therefore reachable only by a caller who builds and
-attaches conditional innovation evidence programmatically, having separately
-justified that the covariance is measurement and process noise conditional on
-the parameters. With a shipped artifact those paths report unavailable and the
-parameter covariance is preserved rather than contracted.
-
-Held-out rollout errors default to `total_forecast_error`. Zero empirical
-eigenvalues are absent evidence, not noiseless measurements: whitening and
-information calculations use only the numerically supported subspace.
-
-Group-bootstrap disagreement is one possible future input to the belief. The
-IDF-DS evidence shows that it should not define the abstraction or be the
-default error model: independently calibrated residual error was more useful
-than adaptive bootstrap spread on that corpus.
-
-## Parameter belief and live updates
-
-Parameter evidence is distinct from predictive residual error. A useful online
-implementation needs a local belief over the small structured block of
-effective coefficients—control authority, damping, trim or command offset, and
-actuator response—without requiring the residual network to move on every
-control cycle.
-
-The maintained update is a bounded proposal followed by disjoint validation:
-
-```text
-early measured transitions
-        ↓
-prediction innovations and parameter Jacobians
-        ↓
-prior-scaled proposal, no coordinate past one prior standard deviation
-        ↓
-later, nonoverlapping validation transitions
-        ↓
-uncorrected candidate scored against the bias-corrected incumbent
-        ↓
-commit only past a noise-scaled margin, else return the original belief
-        ↓
-predictive-error evidence marked stale after commit
+```python
+updated, result = belief.absorb(telemetry)
 ```
 
-Updates are functional: they produce a new immutable belief and an audit report.
-Proposal arrays are owned, read-only copies and each proposal fingerprints the
-complete belief revision and target trajectory specification. Transition replay
-is detected from physical transition content rather than absolute timestamps.
-The report records whether a proposal existed, whether validation ran, why a
-commit was accepted or rejected, coefficient movement, the bounded and
-root-mean-square prior-standardized step, validity utilization, and evidence
-counts. Unsupported horizons,
-out-of-envelope telemetry or candidate paths, stale or changed belief evidence,
-reused proposal transitions, target-configuration changes, non-finite rollouts,
-and validation improvements inside the noise margin all fail closed.
-Covariance contraction happens only for a belief whose error evidence is
-conditional innovation, which no shipped artifact is; when it does, it is
-recomputed from the disjoint validation evidence, so proposal-carried geometry
-cannot make the committed belief overconfident. A total-forecast belief commits
-the mean move and leaves its parameter covariance alone. One contiguous
-telemetry block is one evidence unit regardless of its window count.
+1. One-step windows are taken at the belief's own sample period. A sample
+   outside the model's validity envelope, or a non-finite one, is dropped
+   rather than downweighted: the fit never claimed to describe that region, so
+   an innovation measured there would be charged against parameters that were
+   never fitted to explain it. If nothing remains the belief comes back
+   unchanged with `absorbed=False` and a reason.
+2. Each window contributes an innovation, measured minus predicted from the
+   measured previous state under the applied command, with the latent actuator
+   state carried causally, and a Jacobian of the predicted endpoint tangent
+   with respect to the structured parameters, restricted to the estimable
+   coordinates.
+3. `dL = sum_w J_w' R^-1 J_w` and `L' = L + dL`. There is no forgetting factor
+   and no discount. Information accumulates, always.
+4. `P` is the pseudo-inverse of `L'` on its resolved subspace and the step is
+   `P sum_w J_w' R^-1 nu_w`. It is exactly zero along every unresolved
+   direction by construction, and a well-resolved direction moves less than a
+   poorly resolved one for the same innovation, because the step is bounded by
+   what the belief already knows rather than by a declared trust region.
+5. `R' = max(R, mean_w (nu_w - J_w dtheta)^2)`, per coordinate. Realized error
+   can raise the noise floor only by the part the step did not explain: the
+   error an empty belief makes is explained away by its own first step and does
+   not get recorded as irreducible noise. This is the prequential lesson stated
+   so that it discounts ignorance.
 
-Actuator commands immediately preceding the validation boundary are carried as
-separately fingerprinted initialization context. They are used to recompute the
-candidate-dependent latent actuator state, but they are not validation samples
-and are excluded from transition-overlap checks. The low-level two-stage commit
-API requires callers to supply this context explicitly; missing or malformed
-history returns the original belief unchanged.
+`UpdateResult` carries `absorbed`, the `reason` when it is not, the window
+count, the whitened one-step innovation before and after, the information gain
+in nats, the step's length in the metric of the prior precision, and the worst
+validity utilization the evidence reached. `provenance` accumulates the update
+count and `parameter_distance_since_measurement`, the normalized distance the
+parameters have moved since the envelope was measured. Nothing gates on that
+distance; it is the number a caller reads to decide whether an envelope
+measured around older parameters still describes the model in hand.
 
-Stale predictive-error artifacts remain attached for provenance and
-recalibration, but runtime forecasts and NMPC no longer apply their bias or
-covariance. Independently maintained parameter uncertainty remains
-active around the updated nominal model. Because a commit stales the bias, a
-candidate is scored without it; see the acceptance criterion below.
+Updates are functional: `absorb` returns a new immutable belief and never
+mutates the one it was given.
 
-Ordinary point fits explicitly use a `PointParameterBelief`; they do not invent
-covariance. When `glassbox fit` writes a model, it also differentiates a bounded,
-group-balanced sample of the training rollouts and stores
-`LocalParameterInformation`. This is local loss geometry around the
-fitted structured coefficients, not a posterior. Each complete source group
-contributes one unit of information, horizons are averaged within a group, and
-the tangent predictive-error covariance is inverted only on the subspace
-supported by held-out errors. The artifact records the numerical rank,
-information spectrum, coordinates excluded by the fitter, unresolved
-directions, and one local score vector per independent group. Those group scores
-preserve the ingredients for cluster-robust sandwich or influence diagnostics
-without rerunning the fitter.
+### The pinned step-size property
 
-The distinction matters: inverting a rank-deficient Hessian would assign zero
-variance to directions the flight never excited. Glassbox leaves the ordinary
-fit as a point belief plus partial information instead, and the online update
-takes no step along a direction that information does not resolve.
+Under the null the belief is already at the true parameters and sees telemetry
+whose one-step innovations are i.i.d. with exactly the declared covariance `R`.
+The step then has covariance `P dL P = P - P L P`, which is at most the
+posterior covariance `P` and therefore at most the prior covariance. So the
+mean step over `S` independent seeds, measured along any resolved direction in
+prior standard deviations, has standard deviation at most `1 / sqrt(S)`.
+`tests/test_absorb.py` pins that at `S = 64` seeds and `k = 4`, a bound of
+`0.5` prior sigma with a two-sided level near `6e-5` per direction. The
+constant is derived from the inequality above, not from what a run produced.
 
-Where a covariance over the structured block is genuinely available, for
-instance from several vehicles of one family or from several configurations of
-one vehicle, `LocalGaussianParameterBelief.from_members` summarizes those
-members around the nominal model. That covariance is exactly the spread the
-members show: directions no member moved carry no variance, and nothing
-completes them with an assumption. It covers only the compact structured
-coefficient block, and a residual network stays fixed during an online update.
+This replaces the 64-seed null-acceptance calibration the transactional update
+carried. That statistic answered a question about a gate: how often does the
+threshold let a step through when there is nothing to learn. The recursive
+update has no gate, so the honest question is about size rather than
+acceptance: when there is nothing to learn, is the step as small as the
+belief's own covariance says it should be.
 
-`belief.update(recent_telemetry)` is the opinionated one-call transaction. It
-splits complete horizon-aligned windows into early proposal and later validation
-partitions. Streaming callers may instead use
-`belief.propose_update(telemetry)` and
-`belief.commit_update(proposal, later_telemetry)`. The proposal is a
-prior-scaled batch Gauss--Newton move, bounded and line-searched for
-improvement. The bound is a maximum, not an average: the step is scaled down
-uniformly, keeping its direction, until no whitened supported prior coordinate
-moves by more than one prior standard deviation
-(`MAXIMUM_LOCAL_PARAMETER_STEP_SIGMA = 1.0`). A root-mean-square bound would be
-a weaker claim, since a step concentrated in one direction of the rank-22
-structured block could move about 4.7 standard deviations along it. The report
-records both the bounded maximum, `prior_standardized_step_max`, and the
-root-mean-square spread of the same step. Commit line-searches again on disjoint
-telemetry. Total forecast error supplies generalized loss coordinates but leaves
-parameter covariance unchanged; conditional innovation error additionally
-supports rank-aware contraction and information-gain reporting, and only a
-caller who attaches that evidence programmatically has it.
+### What was retired, and why
 
-### The acceptance criterion
+The transactional update was deleted at commit `8d3400f`. It proposed a bounded
+local move on early telemetry, validated it on a disjoint later split, and
+committed only past a two-sigma improvement margin, then marked the held-out
+error evidence stale. It also carried a maximum-norm trust bound, a line
+search, revision fingerprints and replay detection, and a 35-field report.
 
-A commit stales the held-out bias, so the runtime stops applying it. The
-acceptance test scores each side the way the vehicle would actually fly it:
+The reason it went is not that it was expensive. It is that on every path a
+shipped artifact could reach, the account of what is unknown never changed. The
+fit wrote total-forecast-scoped error evidence, and every mechanism that would
+have contracted or grown the parameter information was gated on a conditional
+innovation scope that nothing produced. The recorded adaptive-recovery artifact
+said so plainly: covariance not updated, posterior trace equal to prior trace,
+information gain null. Worse, a commit zeroed the error moments, so the
+controller lost its horizon cap and saw zero model uncertainty: adaptation made
+it more confident than its evidence supported. The two-sigma margin and the
+trust bound existed to patch the null-acceptance rate of a gate that the owner
+had already decided against, and an improvement threshold is exactly the
+mechanism the design does not want.
 
-- the **incumbent** is the current parameters *with* the bias correction the
-  runtime applies today;
-- a **candidate** is the moved parameters *without* any bias correction.
+The recursive information update was already running elsewhere in the library,
+in the in-flight identifier, and it is the design that works: a step bounded by
+the current covariance, zero along unresolved directions, no proposal, no
+split, no margin, no staleness. The runtime forecast bias went with the
+transaction, because it was the root cause of the staleness lifecycle; the
+held-out mean error it applied stays in the fit report as a number.
 
-Both are measured on the same disjoint validation windows as whitened endpoint
-error in the 12 rigid-body tangent coordinates, and the Gauss--Newton proposal
-is linearized on the same uncorrected objective it will be judged by. A commit
-therefore cannot trade a good corrected forecast for a worse uncorrected one.
-The report records this convention as
-`validation_scoring: candidate_uncorrected_vs_nominal_bias_corrected`, keeps
-`normalized_validation_rms_before` for the bias-corrected incumbent, and keeps
-`normalized_validation_rms_after` for the accepted uncorrected candidate.
+## NMPC
 
-Improvement is an effect size, not a sign test. Windows are the independent
-evidence units, so for each validation window the paired reduction in whitened
-squared error, incumbent minus candidate, is summed and compared against a
-one-sided margin of `IMPROVEMENT_MARGIN_STANDARD_ERRORS = 2.0` standard errors
-of that total. The per-window variance behind that standard error is the sample
-variance across validation windows, floored by the chi-square scale of the
-incumbent's own error: `2 s^2 / k` for `k` supported error dimensions per window
-and mean incumbent whitened squared error `s`. A short evidence block whose
-window-to-window spread happens to be small therefore cannot manufacture
-significance, and a single window still carries a usable scale. The floor is
-anchored to the error level actually observed rather than assuming `s = k`,
-because held-out error covariance is empirical and not calibrated; the two
-expressions agree exactly when the whitening is calibrated.
-
-Two standard errors is a one-sided level of roughly two percent under a normal
-approximation, and the same hurdle is cleared twice on disjoint telemetry, once
-to propose and once to commit, so the transaction as a whole is much more
-conservative than its per-stage level. Under the null, a belief already at the
-true parameters observed through i.i.d. state noise, the pre-margin rule
-committed on 30 to 54 percent of seeds while this rule committed on none of 64.
-The achieved statistic and the margin it had to clear are both recorded in the
-report, at the proposal stage and at the validation stage.
-
-The constant is a documented library invariant, not a tuning knob: no
-configuration surface exposes it.
-
-### Stale error evidence and recalibration
-
-A commit moves the parameters and therefore marks the held-out predictive-error
-model not current. This is deliberately different from deleting it, carrying it
-forward as if it still applied, or treating it as newly validated. The artifact
-stays attached for
-provenance, runtime forecasts still expose it together with the stale flag, but
-its bias and covariance stop being applied, the NMPC horizon cap disappears, and
-further updates are rejected until the evidence is refreshed.
-
-`belief.recalibrate_predictive_error(telemetry)` is the way back. It rolls out
-nonoverlapping windows at the maintained horizons around the belief's
-**current** parameters, refits the empirical tangent moments from those
-endpoints, and returns a belief whose error evidence is current again. Its
-provenance records `source: recalibrated_from_telemetry`, the horizons, window
-counts, and a content hash of the telemetry, so a caller can later show that
-recalibration evidence was not the block that validated an update. The same
-window-and-endpoint routine, `endpoint_error_evidence_by_horizon`, backs both
-this path and the held-out evaluation that `glassbox fit` reports, so online and
-offline error evidence are fitted identically.
-
-`parameter_evidence` carries the same caveat in the other coordinate. It is a
-linearization about `parameter_evidence.center`, so once an online update has
-moved the parameters away from that center the stored geometry describes the
-belief the fit produced, not the belief in hand. Refit the local geometry around
-the current parameters before reading it as current curvature.
-
-## NMPC compilation
-
-Offline evidence can be rich, but the control loop consumes a compact runtime
-belief:
-
-- one nominal differentiable model;
-- a small structured-parameter covariance or deterministic sigma points;
-- a differentiable predictive-error model;
-- typed validity support; and
-- no training data or optimizer state.
+The control loop consumes a compact runtime belief: one differentiable model,
+the resolved parameter covariance, the forecast-error envelope, typed validity
+support, and no training data or optimizer state.
 
 NMPC optimizes the expected cost of its own forecast rather than the cost of
 the predictive mean alone. Predicted tangent spread is charged in the tracking
 cost against the same physical tracking tolerances the objective already uses,
 and the model-validity term is widened by the marginal standard deviation of
 the six envelope features, so a belief that knows less plans nearer to ground
-it has evidence for. The normal horizon is capped at the maintained
-predictive-error evidence, and the diagnostics record the largest normalized
-spread the returned plan carries.
+it has evidence for. The parameter contribution is written through a factor of
+the covariance, so a belief that resolves two directions costs two extra
+forward rollouts rather than a full Jacobian, and a point belief costs nothing
+and is priced by the point objective. The normal horizon is capped at the
+forecast-error evidence that supports it.
 
 Nothing edits the command after optimization. The mechanism is vehicle-agnostic
 and cannot generate a command from a separate attitude, rate, mixer, or
 airframe-specific control law. Optimizer failure stays explicit and returns only
 a bounded hold with `command_usable=False`; it does not silently transfer
 authority to another controller.
-
-The complete NMPC horizon and mission state limits are still soft; CVaR,
-worst-scenario objectives, or invariant-set methods can evolve through the same
-runtime boundary. A large offline bootstrap ensemble is never required in the
-real-time loop.
 
 The model-validity envelope and predictive uncertainty have different meanings.
 The former asks whether a query resembles observed operating conditions; the
@@ -394,21 +340,18 @@ to the controller and neither substitutes for the other.
 
 Safe exploration needs expected information, not merely large uncertainty. The
 belief exposes the pieces that calculation is built from rather than a scoring
-entry point of its own. `belief.rollout(...)` returns the parameter tangent
-Jacobian, the propagated parameter covariance at every horizon, and validity utilization along the candidate path, and
-`parameter_evidence` carries the local information matrix with its numerical
-rank. An exploration policy forms expected information gain from those, on the
-coordinates and horizon it cares about, and must decide for itself that a
-rank-zero direction carries no information rather than enormous precision.
-Whether that gain is meaningful still depends on the error scope: only
-conditional innovation covariance can be inverted to claim contraction, and no
-shipped artifact carries it.
-Constraint risk remains a controller or exploration-policy concern because it
-depends on a mission safety envelope, not only the system model.
+entry point of its own: `information.covariance()` and
+`information.resolved_subspace()` say what a plan would be improving on,
+`information.authority(direction)` says how well one direction is currently
+known, `information.information_gain_nats(delta)` prices a candidate increment,
+and `belief.rollout(...)` reports the propagated parameter covariance and the
+validity utilization along a candidate path. An exploration policy forms
+expected information gain from those, on the coordinates and horizon it cares
+about.
 
 This supports the conceptual progression:
 
-1. **Arrest and stabilize.** Use a family prior, broad uncertainty, known command
+1. **Arrest and stabilize.** Use a family seed, broad uncertainty, known command
    bounds, and belief-aware NMPC. An entirely unknown thrown vehicle cannot be
    guaranteed recoverable before it produces informative motion.
 2. **Exploit passive excitation.** The throw and recovery provide transitions
@@ -436,8 +379,7 @@ This keeps negative results useful:
 - the IDF bootstrap result rejects bootstrap disagreement as the current
   fixed-wing runtime signal;
 - it does not reject predictive-error modeling;
-- the matched held-out total-forecast model becomes the honest initial
-  implementation;
-  and
-- future error or parameter-belief candidates can be compared without another
+- the matched held-out forecast envelope becomes the honest initial
+  implementation; and
+- future error or information candidates can be compared without another
   system-wide artifact migration.

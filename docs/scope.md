@@ -36,13 +36,15 @@ behavior to forces, torques, and accelerations.
   RK4 rollouts in JAX, and multi-horizon rollout fitting with group-balanced
   losses. Evaluation uses complete-flight and maneuver-family holdouts against
   a kinematic persistence baseline.
-- **Dynamics beliefs.** The fitted artifact is a `DynamicsBelief`: the nominal
-  model, held-out predictive error in 12 local rigid-body coordinates,
-  rank-aware local parameter information, a validity envelope, and update
-  provenance. See [dynamics beliefs](concepts/dynamics-beliefs.md).
-- **Online adaptation.** A transactional propose, validate, commit update from
-  recent telemetry that returns the original belief when disjoint later
-  telemetry does not improve. See the same page.
+- **Dynamics beliefs.** The fitted artifact is a `DynamicsBelief`: one
+  executable model, the accumulated `ParameterInformation` saying which of its
+  coefficients the evidence resolved and how precisely, and the
+  `ForecastErrorEnvelope` of held-out error in 12 local rigid-body coordinates.
+  See [dynamics beliefs](concepts/dynamics-beliefs.md).
+- **Live updates.** `belief.absorb(telemetry)` adds every usable one-step
+  transition's information and takes a step bounded by the current covariance,
+  exactly zero along directions the telemetry does not resolve. There is no
+  proposal, no validation split and no acceptance threshold. See the same page.
 - **Bootstrap identification.** For a vehicle with no prior, a smaller contract
   that recursively fits collective acceleration and a
   motor-to-angular-acceleration map from applied motor inputs. See

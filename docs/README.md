@@ -7,8 +7,8 @@ artifact each experiment page cites.
 
 ## Concepts
 
-- [Dynamics beliefs and live adaptation](concepts/dynamics-beliefs.md): the
-  fitted artifact, its error and parameter evidence, and the transactional
+- [Dynamics beliefs](concepts/dynamics-beliefs.md): the fitted artifact, its
+  information state and forecast-error envelope, and the recursive `absorb`
   update.
 - [Nonlinear model-predictive control](concepts/nmpc.md): the controller
   interface, eligible artifacts, safety boundaries, PX4 SITL shadow mode, and
