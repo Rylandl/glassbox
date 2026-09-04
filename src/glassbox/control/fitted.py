@@ -644,6 +644,10 @@ class NMPCController:
         return self.solver.prediction_steps
 
     @property
+    def sample_period_s(self) -> float:
+        return self.solver.sample_period_s
+
+    @property
     def prediction_horizon_s(self) -> float:
         return self.solver.prediction_horizon_s
 

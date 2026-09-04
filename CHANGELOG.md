@@ -120,8 +120,48 @@ All notable changes to Glassbox are recorded here. The format follows
   assembles a belief out of a report. `fit`, `FitSpec`, `FitOutcome`,
   `Holdout`, `LossPolicy` and `WeightingPolicy` join the public `glassbox`
   surface, and `import glassbox` still loads only core, belief and control.
+- `glassbox.integrations.loop` is the one control interval. `VehicleLink` is a
+  vehicle a loop can read an `Observation` from and, when it is `writable`,
+  hand a bounded command to; a read-only link raises from `write` rather than
+  accepting a command it will never transmit. `run_control_loop(link,
+  controller, supervisor=None, *, steps, reference, on_sample=None)` reads the
+  link, solves from the previous interval's warm start with the controller's
+  sample period as both the read timeout and the solver deadline, supervises
+  the candidate when a supervisor is given, writes it when the link accepts
+  writes, and returns a `LoopSummary`. Every interval reaches the caller as a
+  `LoopSample` through `on_sample` as it happens, so a long run costs whatever
+  the caller keeps rather than a growing document. A failed solve never ends a
+  run: the solver's bounded hold is what the loop records and passes on.
+- `Observation` carries the state, the command the vehicle was applying, the
+  host receive clock, and the alignment diagnostics a link measures while
+  pairing them: `source_time_s`, `message_skew_s`, `receive_age_s`,
+  `source_clock_lag_s`, `applied_command_skew_s` and `armed`.
+- `PX4MavlinkLink` is the read-only PX4 `VehicleLink`. It pairs canonical state
+  with either a declared fixed command or the vehicle's own actuator
+  telemetry, refuses a pair further apart than its alignment limit, and raises
+  from `write`. `px4_shadow_link` builds one from a fitted artifact.
+- `BoundedShootingSolver.sample_period_s` and `NMPCController.sample_period_s`
+  report the control interval a solver plans on, which is what a loop needs
+  from a controller.
 
 ### Changed
+- `glassbox px4-nmpc-shadow` is one control loop instead of one report
+  assembly. It writes one JSON object per interval, carrying the state that was
+  read, the applied and solved commands, the solver's status and solve time,
+  and the plan's diagnostics, and prints a closing summary of status counts,
+  usable and fallback counts, deadline misses, solve-time median, p90 and
+  maximum, and the worst message skew, receive age, source-clock lag and
+  state-to-command skew. `--output` now names a JSON-lines file rather than one
+  document. `run_px4_nmpc_shadow(link, controller, *, steps, write_line=None)`
+  takes the link and the controller it drives and returns a `LoopSummary`; it
+  no longer builds a controller, a report, or the cold and warm warm-up solves
+  that only existed to be recorded in one.
+- One latched PX4 receiver. `PX4MavlinkStateSource` and `PX4HILActuatorSource`
+  were the same daemon-thread receiver twice, differing in how a message is
+  decoded and how a reader selects from what has been latched, so both are now
+  thin decoders over one `_LatchedReceiver` sharing the heartbeat check, the
+  drain loop, the source-system filter, the sequence gate, and the close path.
+  The state assembler, frame conversions and boot-clock unwrap are untouched.
 - One evaluation, three named policies. `workflows/nanodrone_evaluation.py`,
   `workflows/x8_evaluation.py` and `workflows/epfl_evaluation.py` are folded
   into `workflows/evaluate.py`; `workflows/profile_benchmark.py` and
@@ -425,6 +465,21 @@ All notable changes to Glassbox are recorded here. The format follows
   learned. No flag was removed.
 
 ### Removed
+- The shadow runner's report: `schema_version` 6, the forty-key sample rows,
+  the cold and warm warm-up rows, the clock-ratio audit, and every summary key
+  derived from them. No recorded artifact was produced from it and no test
+  outside its own read it. `run_control_loop`'s per-interval record and
+  `LoopSummary` replace it. Last commit carrying it: `1acdd50`.
+- `glassbox.integrations.streaming_evaluation` and
+  `StreamingOneStepEvaluator`, with `tests/test_streaming_evaluation.py`. The
+  shadow report was its only consumer, and a live transport fixture is not
+  evidence about prediction quality; the held-out horizon tables in the fit
+  report are. Last commit carrying it: `1acdd50`.
+- `AppliedCommandSource`, `run_px4_nmpc_shadow`'s `source`, `model`,
+  `previous_command`, `applied_command_source`, `sample_count` and
+  `telemetry_timeout_s` parameters, and the `PX4TelemetryError` branch that
+  reported a receiver publishing an empty sample, which no path could reach.
+  Last commit carrying them: `1acdd50`.
 - `with_constant_angular_rate` and the `constant_angular_rate_diagnostic` arm
   of the nanodrone report. The published protocol's baseline is hold-state, so
   the constant-rate arm was a model variant with no artifact and no reader; it

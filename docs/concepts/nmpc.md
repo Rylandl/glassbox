@@ -240,6 +240,17 @@ code. The maintained external fixture uses PX4's internal SIH physics, so the
 only heavyweight component is a disposable prebuilt container owned by the
 integration test.
 
+One control interval is the same everywhere. `glassbox.integrations.loop`
+declares `VehicleLink`, which is a vehicle a loop can read an `Observation`
+from and, if it is writable, hand a bounded command to; `run_control_loop`
+reads the link, solves from the previous interval's warm start with the
+interval as the deadline, supervises the candidate when a supervisor is given,
+writes it when the link accepts writes, and records what happened. PX4
+telemetry is a read-only link and the Cascade plant is a writable one, so
+shadow mode and simulated closed-loop control are the same code differing by
+one property of the link. A failed solve never ends a run: the solver's bounded
+hold is what the loop records and passes on.
+
 The live boundary in `glassbox.integrations.px4` passively receives
 `LOCAL_POSITION_NED` and `ATTITUDE_QUATERNION`. It verifies the PX4 heartbeat and
 source system, pairs fresh messages with bounded boot-time skew, normalizes and
@@ -248,8 +259,10 @@ NWU/FLU/WXYZ representation. Its frame operations are the same functions used
 by offline ULog ingestion. The source exposes no send method and never requests
 stream rates, arms, changes mode, or transmits a setpoint.
 
-The MAVLink reader runs continuously on a daemon thread and retains only the
-latest coherent state. This is required even in shadow mode: a solver can block
+The MAVLink reader runs continuously on a daemon thread and retains only what
+it has latched: the latest coherent state here, and a bounded recent history
+for the actuator stream. One receiver serves both, differing only in how each
+message is decoded and how a reader selects from the history. This is required even in shadow mode: a solver can block
 long enough for a UDP receive buffer to preserve old datagrams while dropping
 newer ones. Each state also reports estimated source-clock lag relative to the
 best observed PX4-boot-time/host-time alignment. That diagnostic reveals
@@ -292,17 +305,20 @@ For an already-running PX4 instance, the equivalent operator-facing command is:
 ```bash
 uv run glassbox px4-nmpc-shadow artifacts/px4/model.json \
   --previous-command 0.5,0.5,0.5,0.5 \
-  --output artifacts/px4/nmpc-shadow.json
+  --output artifacts/px4/nmpc-shadow.jsonl
 ```
 
-The shadow runner executes cold and warm-up controller solves before sampling,
-holds the current state as the regulation reference, and applies the artifact's
-sample period as the deadline for every measured solve. It records solver
-status, fallback rate, model-period deadline misses, message skew, estimated
-source-clock lag and real-time ratio, current and predicted validity, command
-bounds, and predicted model-uncertainty spread. Returned commands are written
-only to the report. The previous command remains the measured/applied command
-because the shadow command is not being actuated.
+The leaf is one `run_control_loop` over a read-only `PX4MavlinkLink`. It holds
+the current state as the regulation reference, applies the artifact's sample
+period as both the telemetry timeout and the solver deadline, and writes one
+JSON object per interval carrying the state that was read, the command PX4 was
+applying, the command the solver returned, its status, its solve time, and the
+plan's diagnostics. The closing summary counts statuses, usable commands,
+fallbacks and deadline misses, and reports solve-time median, p90 and maximum
+alongside the worst message skew, receive age, source-clock lag and
+state-to-command skew the run saw. Nothing is transmitted: the link is not
+writable, so the loop never calls its writer. The previous command remains the
+measured applied command because the shadow command is not being actuated.
 
 The maintained fixture can also exercise a dynamically flown profile matrix
 using the commands PX4 actually applies rather than a constant supplied by the
@@ -331,39 +347,29 @@ only process that transmits anything.
 Every measured applied command is checked against the artifact's dimensions and
 bounds before solving. State and command source timestamps must be within one
 model sample period on PX4's boot clock, with a 100 ms absolute ceiling;
-otherwise evaluation stops instead of silently pairing unrelated samples. The
-report includes their actual skew, receive age, armed state, and per-channel
-peak-to-peak excitation. This makes the fixture evidence for asynchronous
-telemetry, varying commands, moving states, solver deadlines, and cleanup—not a
-closed-loop control test and not a general claim that HIL actuator order is
-shared by other PX4 configurations.
+otherwise evaluation stops instead of silently pairing unrelated samples. Each
+interval record carries its own state-to-command skew, receive age and armed
+state, and the per-channel excitation is read off the recorded applied
+commands. This makes the fixture evidence for asynchronous telemetry, varying
+commands, moving states, solver deadlines, and cleanup, not a closed-loop
+control test and not a general claim that HIL actuator order is shared by other
+PX4 configurations.
 
-The same report performs a short-horizon logged-input model audit. Each
-prediction starts from a measured state, carries the model's latent actuator
-state, holds the timestamp-aligned starting command, and integrates the
-continuous dynamics across the state stream's actual source-time interval.
-This matters because the maintained onboard estimator stream advances at a
-quantized 24/32/40 ms cadence even though the fitted model and controller use a
-20 ms period. Intervals from 0.5 to 2.5 model periods are scored at their actual
-duration; larger coalesced gaps are reported and re-anchored because their
-intermediate inputs are unknown.
-
-The audit reports position, velocity, attitude, and body-rate RMSE against both
-the next telemetry state and a constant-world-velocity/constant-body-rate
-persistence baseline, plus their ratios. It is diagnostic evidence, not an
-acceptance gate. The maneuver matrix has shown why one global ratio would be
-misleading: a model can improve translational prediction while exposing a
-rotational deficiency on the same profile. Model promotion remains the job of
-held-out recorded-flight benchmarks with airframe-relevant horizons. This live
-fixture gates at least 90% temporal eligibility, finiteness of every error and
-ratio, maneuver-specific excitation, synchronization, command bounds, and
-cleanup.
+The fixture gates what the loop measures: every interval produces a record,
+every applied command lies inside the artifact's dimensions and bounds, state
+and command stay inside the alignment limit, the commands actually vary, the
+profile excites the states it claims to, and the container is always cleaned
+up. Model promotion remains the job of held-out recorded-flight benchmarks with
+airframe-relevant horizons; a live transport fixture is not evidence about
+prediction quality, and no longer pretends to be by scoring one-step
+predictions against a persistence baseline in the same document.
 
 A transport test can pass while the real-time gate fails. In particular, PX4
-SIH and JAX share host resources in this fixture, so the report treats source
-clock progress and solver latency as separate measurements. Any
-`deadline_exceeded` sample returns the bounded previous command and is counted
-as a fallback; it is not presented as a usable controller output.
+SIH and JAX share host resources in this fixture, so the summary keeps
+telemetry skew and solver latency as separate measurements rather than folding
+them into one number. Any `deadline_exceeded` sample returns the bounded
+previous command and is counted as a fallback; it is not presented as a usable
+controller output.
 
 The fixed-command shadow and flown-telemetry matrix are deliberately separate
 opt-in modes. When the flown flag is set, the fixed-command test is skipped even

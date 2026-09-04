@@ -402,6 +402,12 @@ class BoundedShootingSolver:
         return self.model.horizon_steps
 
     @property
+    def sample_period_s(self) -> float:
+        """The control interval this solver plans on, one block step apart."""
+
+        return self.model.sample_period_s
+
+    @property
     def prediction_horizon_s(self) -> float:
         return self.prediction_steps * self.model.sample_period_s
 

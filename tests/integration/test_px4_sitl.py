@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import subprocess
@@ -13,12 +14,13 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from glassbox.control.fitted import NMPCController
 from glassbox.core.model import ExecutableModel
 from glassbox.integrations.px4 import (
     PX4HILActuatorSource,
     PX4MavlinkStateSource,
 )
-from glassbox.integrations.px4_nmpc_shadow import run_px4_nmpc_shadow
+from glassbox.integrations.px4_nmpc_shadow import px4_shadow_link, run_px4_nmpc_shadow
 
 PX4_SITL_IMAGE = (
     "px4io/px4-sitl@"
@@ -27,7 +29,6 @@ PX4_SITL_IMAGE = (
 RUN_PX4_SITL = os.environ.get("GLASSBOX_RUN_PX4_SITL") == "1"
 RUN_PX4_FLIGHT_SHADOW = os.environ.get("GLASSBOX_RUN_PX4_FLIGHT_SHADOW") == "1"
 SIH_QUADX_CANONICAL_MOTOR_INDICES = (2, 0, 3, 1)
-MINIMUM_EVALUATED_TRANSITION_FRACTION = 0.90
 FLIGHT_SHADOW_PROFILES = (
     "vertical_steps",
     "lateral_steps",
@@ -159,21 +160,30 @@ def test_eligible_artifact_runs_complete_nmpc_shadow_path_when_provided(
     except ValueError:
         pytest.fail("GLASSBOX_PX4_NMPC_COMMAND must be comma-separated numbers")
 
-    report = run_px4_nmpc_shadow(
+    link = px4_shadow_link(
         px4_state_source,
         model,
-        previous_command,
-        sample_count=3,
+        previous_command=previous_command,
     )
+    lines: list[str] = []
+    summary = run_px4_nmpc_shadow(
+        link,
+        NMPCController(model),
+        steps=3,
+        write_line=lines.append,
+    )
+    samples = [json.loads(line) for line in lines]
 
-    assert report["commands_transmitted"] is False
-    assert report["summary"]["sample_count"] == 3
+    assert link.writable is False
+    assert summary.written_command_count == 0
+    assert summary.steps == 3
+    assert len(samples) == 3
     assert all(
-        sample["maximum_command_bound_violation"] <= 1e-6
-        for sample in report["samples"]
+        sample["diagnostics"]["maximum_command_bound_violation"] <= 1e-6
+        for sample in samples
     )
-    for sample in report["samples"]:
-        if sample["solve_time_s"] > report["model_sample_period_s"]:
+    for sample in samples:
+        if sample["solve_time_s"] > summary.interval_s:
             assert sample["status"] == "deadline_exceeded"
             assert sample["used_fallback"]
 
@@ -293,11 +303,17 @@ def test_flown_profile_pairs_real_applied_commands_with_shadow_solver(
                 stderr=subprocess.STDOUT,
                 text=True,
             )
-            report = run_px4_nmpc_shadow(
+            link = px4_shadow_link(
                 px4_sitl.state_source,
                 model,
                 applied_command_source=actuator_source,
-                sample_count=160,
+            )
+            lines: list[str] = []
+            summary = run_px4_nmpc_shadow(
+                link,
+                NMPCController(model),
+                steps=160,
+                write_line=lines.append,
             )
             output, _ = driver.communicate(timeout=50.0)
             if driver.returncode != 0:
@@ -311,30 +327,21 @@ def test_flown_profile_pairs_real_applied_commands_with_shadow_solver(
                     driver.kill()
                     driver.communicate(timeout=5.0)
 
-    states = np.asarray([sample["state"] for sample in report["samples"]])
-    command_range = np.asarray(report["summary"]["applied_command_peak_to_peak"])
-    one_step_audit = report["summary"]["one_step_model_audit"]
-    assert report["commands_transmitted"] is False
-    assert report["applied_command_source"] == "telemetry"
-    assert report["summary"]["all_applied_command_samples_armed"] is True
-    assert report["summary"]["maximum_applied_command_state_skew_s"] <= min(
+    samples = [json.loads(line) for line in lines]
+    states = np.asarray([sample["state"] for sample in samples])
+    applied_commands = np.asarray([sample["applied_command"] for sample in samples])
+    assert link.writable is False
+    assert summary.written_command_count == 0
+    assert link.applied_command_source_kind == "telemetry"
+    assert summary.steps == len(samples) == 160
+    assert all(sample["armed"] is True for sample in samples)
+    assert summary.maximum_applied_command_skew_s <= min(
         0.10, model.runtime_spec.sample_period_s
     )
-    assert report["summary"]["maximum_applied_command_receive_age_s"] <= 0.25
-    assert np.max(command_range) > 0.02
+    assert summary.maximum_receive_age_s <= 0.25
+    assert np.max(np.ptp(applied_commands, axis=0)) > 0.02
     _assert_profile_excitation(profile, states)
-    assert (
-        one_step_audit["evaluated_transition_fraction"]
-        >= MINIMUM_EVALUATED_TRANSITION_FRACTION
-    ), one_step_audit
-    assert one_step_audit["model"] is not None
-    assert one_step_audit["kinematic_persistence"] is not None
-    assert np.all(np.isfinite(list(one_step_audit["model"].values())))
-    assert np.all(np.isfinite(list(one_step_audit["kinematic_persistence"].values())))
-    assert np.all(
-        np.isfinite(list(one_step_audit["model_to_kinematic_ratio"].values()))
-    )
     assert all(
-        sample["maximum_command_bound_violation"] <= 1e-6
-        for sample in report["samples"]
+        sample["diagnostics"]["maximum_command_bound_violation"] <= 1e-6
+        for sample in samples
     )

@@ -1,44 +1,36 @@
-"""PX4 telemetry-to-NMPC shadow runner that never transmits commands."""
+"""Run a fitted artifact against live PX4 telemetry without transmitting.
+
+This leaf is one :func:`~glassbox.integrations.loop.run_control_loop` over a
+read-only :class:`~glassbox.integrations.px4.PX4MavlinkLink`. It writes one
+compact JSON object per interval, carrying the state that was read, the command
+that was solved for, the solver's status and timing, and the plan's
+diagnostics, followed by one summary object recording status counts, solve-time
+median and p90, and the telemetry skew the run saw. Nothing is transmitted to
+the vehicle: the link is not writable, so the loop never calls its writer.
+"""
 
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
-import platform
-import time
-from collections.abc import Sequence
+from collections.abc import Callable, Iterator, Sequence
 from pathlib import Path
-from typing import Any, Protocol
 
-import jax
-import jax.numpy as jnp
 import numpy as np
 
 from glassbox.control.fitted import NMPCController
-from glassbox.control.plan import NMPCWarmStart
+from glassbox.control.plan import ReferenceTrajectory
 from glassbox.core.model import ExecutableModel
-from glassbox.integrations.px4 import (
-    PX4AppliedCommandSample,
-    PX4MavlinkStateSource,
-    PX4StateSample,
-    PX4TelemetryError,
-    px4_boot_time_skew_s,
+from glassbox.integrations.loop import (
+    LoopSample,
+    LoopSummary,
+    Observation,
+    run_control_loop,
 )
-from glassbox.integrations.streaming_evaluation import StreamingOneStepEvaluator
+from glassbox.integrations.px4 import PX4MavlinkLink, PX4MavlinkStateSource
 
-_BOOT_TIME_MODULUS_MS = 2**32
 _MAXIMUM_APPLIED_COMMAND_STATE_SKEW_S = 0.10
-
-
-class AppliedCommandSource(Protocol):
-    """Read-only source of canonical commands actually applied by the vehicle."""
-
-    def sample_nearest(
-        self,
-        time_boot_ms: int,
-        *,
-        timeout_s: float = 1.0,
-    ) -> PX4AppliedCommandSample: ...
 
 
 def _command(value: str, *, expected_size: int) -> np.ndarray:
@@ -51,331 +43,74 @@ def _command(value: str, *, expected_size: int) -> np.ndarray:
     return command
 
 
-def _held_reference(controller: NMPCController, state: np.ndarray):
-    exogenous = np.zeros(controller.model.exogenous_size, dtype=np.float64)
-    return controller.hold_reference(state, exogenous=exogenous)
-
-
-def _finite_or_none(value: float) -> float | None:
-    result = float(value)
-    return result if np.isfinite(result) else None
-
-
-def _optional_max(rows: list[dict[str, Any]], key: str) -> float | None:
-    values = [float(row[key]) for row in rows if row[key] is not None]
-    return max(values) if values else None
-
-
-def _source_clock_advance_s(first_ms: int, last_ms: int) -> float | None:
-    advance_ms = (
-        last_ms - first_ms + _BOOT_TIME_MODULUS_MS // 2
-    ) % _BOOT_TIME_MODULUS_MS - _BOOT_TIME_MODULUS_MS // 2
-    return advance_ms * 1e-3 if advance_ms >= 0 else None
-
-
-def _clock_ratio(source_advance_s: float | None, host_elapsed_s: float) -> float | None:
-    if source_advance_s is None or host_elapsed_s <= 0.0:
-        return None
-    return source_advance_s / host_elapsed_s
-
-
-def _solve_row(
-    controller: NMPCController,
-    sample: PX4StateSample,
-    applied_command: np.ndarray,
-    warm_start: NMPCWarmStart | None,
-    *,
-    applied_sample: PX4AppliedCommandSample | None = None,
-    deadline_s: float | None = None,
-) -> tuple[dict[str, Any], NMPCWarmStart | None]:
-    applied_command_state_skew_s = (
-        None
-        if applied_sample is None
-        else px4_boot_time_skew_s(
-            sample.position_time_boot_ms,
-            (applied_sample.source_time_us // 1_000) % _BOOT_TIME_MODULUS_MS,
-        )
-    )
-    maximum_applied_command_state_skew_s = min(
-        _MAXIMUM_APPLIED_COMMAND_STATE_SKEW_S,
-        controller.model.runtime_spec.sample_period_s,
-    )
-    if (
-        applied_command_state_skew_s is not None
-        and applied_command_state_skew_s > maximum_applied_command_state_skew_s + 1e-12
-    ):
-        raise PX4TelemetryError(
-            "PX4 state and applied-command telemetry exceed the "
-            f"{maximum_applied_command_state_skew_s * 1_000:g} ms alignment limit"
-        )
-    result = controller.solve(
-        jnp.asarray(sample.state),
-        _held_reference(controller, sample.state),
-        jnp.asarray(applied_command),
-        applied_command=jnp.asarray(applied_command),
-        warm_start=warm_start,
-        deadline_s=deadline_s,
-    )
-    current_validity = np.asarray(
-        controller.model.validity_utilization(
-            jnp.asarray(sample.state),
-            jnp.zeros(controller.model.exogenous_size),
-        )
-    )
-    row = {
-        "position_time_boot_ms": sample.position_time_boot_ms,
-        "attitude_time_boot_ms": sample.attitude_time_boot_ms,
-        "message_skew_s": sample.message_skew_s,
-        "maximum_receive_age_s": sample.maximum_receive_age_s,
-        "estimated_source_clock_lag_s": sample.estimated_source_clock_lag_s,
-        "state": sample.state.tolist(),
-        "current_maximum_validity_utilization": float(np.max(current_validity)),
-        "status": result.status.value,
-        "command_usable": result.command_usable,
-        "used_fallback": result.used_fallback,
-        "solve_time_s": result.diagnostics.solve_time_s,
-        "iterations": result.diagnostics.iterations,
-        "maximum_predicted_validity_utilization": _finite_or_none(
-            result.diagnostics.maximum_validity_utilization
-        ),
-        "maximum_command_bound_violation": (
-            result.diagnostics.maximum_command_bound_violation
-        ),
-        "maximum_normalized_model_uncertainty_standard_deviation": _finite_or_none(
-            result.diagnostics.maximum_normalized_model_uncertainty_standard_deviation
-        ),
-        "applied_command": applied_command.tolist(),
-        "applied_command_source_time_us": (
-            None if applied_sample is None else applied_sample.source_time_us
-        ),
-        "applied_command_state_skew_s": applied_command_state_skew_s,
-        "applied_command_receive_age_s": (
-            None if applied_sample is None else applied_sample.receive_age_s
-        ),
-        "applied_command_armed": (
-            None if applied_sample is None else applied_sample.armed
-        ),
-        "applied_command_mav_mode": (
-            None if applied_sample is None else applied_sample.mav_mode
-        ),
-        "shadow_command": np.asarray(result.command).tolist(),
-    }
-    return row, result.warm_start
-
-
-def _validated_command(model: ExecutableModel, command: np.ndarray) -> np.ndarray:
-    command = np.asarray(command, dtype=np.float64)
-    expected_shape = (model.command_size,)
-    if command.shape != expected_shape or not np.all(np.isfinite(command)):
-        raise ValueError(
-            f"applied command must have shape {expected_shape} and be finite"
-        )
-    minimum = np.asarray(model.command_minimum)
-    maximum = np.asarray(model.command_maximum)
-    if np.any(command < minimum) or np.any(command > maximum):
-        raise ValueError("applied command must lie inside the artifact bounds")
-    return command
-
-
-def _next_applied_command(
-    source: AppliedCommandSource,
+def px4_shadow_link(
+    state_source: PX4MavlinkStateSource,
     model: ExecutableModel,
     *,
-    time_boot_ms: int,
-    timeout_s: float,
-) -> tuple[np.ndarray, PX4AppliedCommandSample]:
-    sample = source.sample_nearest(time_boot_ms, timeout_s=timeout_s)
-    return _validated_command(model, sample.command), sample
+    previous_command: np.ndarray | None = None,
+    applied_command_source: object | None = None,
+) -> PX4MavlinkLink:
+    """Build the read-only link one artifact is shadowed against.
+
+    The alignment limit is the tighter of the module's fixed limit and the
+    artifact's own sample period: a command further from its state than one
+    control interval is not the command that produced it.
+    """
+
+    return PX4MavlinkLink(
+        state_source,
+        command_size=model.command_size,
+        command_bounds=(model.command_minimum, model.command_maximum),
+        applied_command_source=applied_command_source,
+        fixed_command=previous_command,
+        maximum_applied_command_state_skew_s=min(
+            _MAXIMUM_APPLIED_COMMAND_STATE_SKEW_S,
+            model.runtime_spec.sample_period_s,
+        ),
+    )
 
 
 def run_px4_nmpc_shadow(
-    source: PX4MavlinkStateSource,
-    model: ExecutableModel,
-    previous_command: np.ndarray | None = None,
+    link: PX4MavlinkLink,
+    controller: NMPCController,
     *,
-    applied_command_source: AppliedCommandSource | None = None,
-    sample_count: int = 10,
-    telemetry_timeout_s: float = 5.0,
-) -> dict[str, Any]:
-    """Run an artifact against live PX4 state without sending its commands."""
+    steps: int = 10,
+    write_line: Callable[[str], None] | None = None,
+) -> LoopSummary:
+    """Solve against live PX4 telemetry, holding the measured state."""
 
-    if sample_count < 1:
-        raise ValueError("sample_count must be positive")
-    if applied_command_source is None and previous_command is None:
-        raise ValueError(
-            "provide either a fixed previous_command or an applied_command_source"
-        )
-    if applied_command_source is not None and previous_command is not None:
-        raise ValueError(
-            "previous_command and applied_command_source are mutually exclusive"
-        )
-    fixed_command = (
-        None
-        if previous_command is None
-        else _validated_command(model, previous_command)
-    )
+    exogenous = np.zeros(controller.model.exogenous_size, dtype=np.float64)
 
-    controller = NMPCController(model)
-    one_step_evaluator = StreamingOneStepEvaluator(model)
-    first_sample = source.next_sample(timeout_s=telemetry_timeout_s)
-    if applied_command_source is None:
-        if fixed_command is None:  # pragma: no cover - guarded above
-            raise RuntimeError("fixed applied command was not initialized")
-        first_command = fixed_command
-        first_applied_sample = None
-    else:
-        first_command, first_applied_sample = _next_applied_command(
-            applied_command_source,
-            model,
-            time_boot_ms=first_sample.position_time_boot_ms,
-            timeout_s=telemetry_timeout_s,
-        )
-    one_step_evaluator.observe(
-        first_sample.state,
-        first_command,
-        elapsed_s=0.0,
-    )
-    audit_elapsed_s = 0.0
-    audit_position_boot_ms = first_sample.position_time_boot_ms
-    first_sample_host_s = time.monotonic()
-    cold_row, warm_start = _solve_row(
+    def reference(observation: Observation) -> ReferenceTrajectory:
+        return controller.hold_reference(observation.state, exogenous=exogenous)
+
+    def on_sample(sample: LoopSample) -> None:
+        assert write_line is not None
+        write_line(json.dumps(sample.to_dict(), sort_keys=True, allow_nan=False))
+
+    return run_control_loop(
+        link,
         controller,
-        first_sample,
-        first_command,
-        None,
-        applied_sample=first_applied_sample,
-    )
-    warm_row, warm_start = _solve_row(
-        controller,
-        first_sample,
-        first_command,
-        warm_start,
-        applied_sample=first_applied_sample,
+        steps=steps,
+        reference=reference,
+        on_sample=None if write_line is None else on_sample,
     )
 
-    rows: list[dict[str, Any]] = []
-    sample_host_times_s: list[float] = []
-    model_period_s = model.runtime_spec.sample_period_s
-    for _ in range(sample_count):
-        sample = source.next_sample(timeout_s=telemetry_timeout_s)
-        if applied_command_source is None:
-            if fixed_command is None:  # pragma: no cover - guarded above
-                raise RuntimeError("fixed applied command was not initialized")
-            applied_command = fixed_command
-            applied_sample = None
-        else:
-            applied_command, applied_sample = _next_applied_command(
-                applied_command_source,
-                model,
-                time_boot_ms=sample.position_time_boot_ms,
-                timeout_s=telemetry_timeout_s,
-            )
-        sample_host_s = time.monotonic()
-        audit_advance_s = _source_clock_advance_s(
-            audit_position_boot_ms,
-            sample.position_time_boot_ms,
-        )
-        if audit_advance_s is not None:
-            audit_elapsed_s += audit_advance_s
-        one_step_audit = one_step_evaluator.observe(
-            sample.state,
-            applied_command,
-            elapsed_s=audit_elapsed_s,
-        )
-        audit_position_boot_ms = sample.position_time_boot_ms
-        row, warm_start = _solve_row(
-            controller,
-            sample,
-            applied_command,
-            warm_start,
-            applied_sample=applied_sample,
-            deadline_s=model_period_s,
-        )
-        row["one_step_model_audit"] = one_step_audit
-        row["sample_host_elapsed_s"] = sample_host_s - first_sample_host_s
-        rows.append(row)
-        sample_host_times_s.append(sample_host_s)
 
-    solve_times = np.asarray([row["solve_time_s"] for row in rows])
-    warmup_host_elapsed_s = sample_host_times_s[0] - first_sample_host_s
-    warmup_source_advance_s = _source_clock_advance_s(
-        first_sample.position_time_boot_ms,
-        int(rows[0]["position_time_boot_ms"]),
-    )
-    sample_host_elapsed_s = sample_host_times_s[-1] - sample_host_times_s[0]
-    sample_source_advance_s = _source_clock_advance_s(
-        int(rows[0]["position_time_boot_ms"]),
-        int(rows[-1]["position_time_boot_ms"]),
-    )
-    applied_commands = np.asarray([row["applied_command"] for row in rows])
-    return {
-        "schema_version": 6,
-        "mode": "read_only_shadow",
-        "commands_transmitted": False,
-        "applied_command_source": (
-            "fixed" if applied_command_source is None else "telemetry"
-        ),
-        "platform": model.input_spec.vehicle.family,
-        "model_sample_period_s": model_period_s,
-        "prediction_horizon_s": controller.prediction_horizon_s,
-        "command_roles": [channel.role for channel in model.actuation.command_channels],
-        "initial_applied_command": first_command.tolist(),
-        "runtime": {
-            "python": platform.python_version(),
-            "jax": jax.__version__,
-            "jax_backend": jax.default_backend(),
-        },
-        "warmup": {"cold": cold_row, "warm": warm_row},
-        "samples": rows,
-        "summary": {
-            "sample_count": len(rows),
-            "usable_command_count": sum(row["command_usable"] for row in rows),
-            "fallback_count": sum(row["used_fallback"] for row in rows),
-            "model_period_deadline_miss_count": int(
-                np.count_nonzero(solve_times > model_period_s)
-            ),
-            "solve_time_median_s": float(np.median(solve_times)),
-            "solve_time_p90_s": float(np.quantile(solve_times, 0.9)),
-            "solve_time_maximum_s": float(np.max(solve_times)),
-            "maximum_message_skew_s": max(row["message_skew_s"] for row in rows),
-            "maximum_estimated_source_clock_lag_s": max(
-                row["estimated_source_clock_lag_s"] for row in rows
-            ),
-            "maximum_applied_command_state_skew_s": _optional_max(
-                rows, "applied_command_state_skew_s"
-            ),
-            "maximum_applied_command_receive_age_s": _optional_max(
-                rows, "applied_command_receive_age_s"
-            ),
-            "all_applied_command_samples_armed": (
-                None
-                if applied_command_source is None
-                else all(row["applied_command_armed"] for row in rows)
-            ),
-            "applied_command_peak_to_peak": np.ptp(applied_commands, axis=0).tolist(),
-            "one_step_model_audit": one_step_evaluator.summary(),
-            "warmup_host_elapsed_s": warmup_host_elapsed_s,
-            "warmup_source_clock_advance_s": warmup_source_advance_s,
-            "warmup_source_clock_realtime_ratio": _clock_ratio(
-                warmup_source_advance_s, warmup_host_elapsed_s
-            ),
-            "sample_host_elapsed_s": sample_host_elapsed_s,
-            "sample_source_clock_advance_s": sample_source_advance_s,
-            "sample_source_clock_realtime_ratio": _clock_ratio(
-                sample_source_advance_s, sample_host_elapsed_s
-            ),
-            "maximum_current_validity_utilization": max(
-                row["current_maximum_validity_utilization"] for row in rows
-            ),
-            "maximum_predicted_validity_utilization": _optional_max(
-                rows, "maximum_predicted_validity_utilization"
-            ),
-            "maximum_normalized_model_uncertainty_standard_deviation": _optional_max(
-                rows,
-                "maximum_normalized_model_uncertainty_standard_deviation",
-            ),
-        },
-    }
+@contextlib.contextmanager
+def _line_writer(output: Path | None) -> Iterator[Callable[[str], None]]:
+    """Write interval lines to ``output``, or to standard output without one."""
+
+    if output is None:
+        yield print
+        return
+    output.parent.mkdir(parents=True, exist_ok=True)
+    with output.open("w") as handle:
+
+        def write_line(line: str) -> None:
+            handle.write(line + "\n")
+
+        yield write_line
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -397,7 +132,11 @@ def _parser() -> argparse.ArgumentParser:
         help="passive pymavlink connection string",
     )
     parser.add_argument("--samples", type=int, default=10)
-    parser.add_argument("--output", type=Path)
+    parser.add_argument(
+        "--output",
+        type=Path,
+        help="file to write one JSON interval record per line to",
+    )
     return parser
 
 
@@ -405,19 +144,18 @@ def main(argv: Sequence[str] | None = None) -> None:
     args = _parser().parse_args(argv)
     model = ExecutableModel.load(args.model)
     previous_command = _command(args.previous_command, expected_size=model.command_size)
-    with PX4MavlinkStateSource.connect(args.connection) as source:
-        report = run_px4_nmpc_shadow(
-            source,
-            model,
-            previous_command,
-            sample_count=args.samples,
-        )
-    serialized = json.dumps(report, indent=2, sort_keys=True, allow_nan=False)
-    if args.output is None:
-        print(serialized)
-    else:
-        args.output.parent.mkdir(parents=True, exist_ok=True)
-        args.output.write_text(serialized + "\n")
+    controller = NMPCController(model)
+    with PX4MavlinkStateSource.connect(args.connection) as state_source:
+        link = px4_shadow_link(state_source, model, previous_command=previous_command)
+        with _line_writer(args.output) as write_line:
+            summary = run_px4_nmpc_shadow(
+                link,
+                controller,
+                steps=args.samples,
+                write_line=write_line,
+            )
+    print(json.dumps(summary.to_dict(), indent=2, sort_keys=True, allow_nan=False))
+    if args.output is not None:
         print(f"wrote {args.output}")
 
 
