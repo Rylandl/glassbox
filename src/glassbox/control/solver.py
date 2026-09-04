@@ -21,6 +21,7 @@ from glassbox.control.plan import (
     NMPCWarmStart,
     PlanMeasurements,
     PlanModel,
+    PlanValues,
     Prediction,
     ReferenceTrajectory,
     SolveResult,
@@ -143,14 +144,14 @@ def _objective(
     reference_states: Array,
     previous_command: Array,
     exogenous: Array,
-    parameters: object,
+    values: PlanValues,
 ) -> Array:
     prediction = model.rollout(
         blocks,
         initial_state,
         initial_latent,
         exogenous,
-        parameters,
+        values,
     )
     return model.stage_cost(prediction, reference_states, previous_command, policy)
 
@@ -166,7 +167,7 @@ def _optimize_step(
     reference_states: Array,
     previous_command: Array,
     exogenous: Array,
-    parameters: object,
+    values: PlanValues,
 ) -> tuple[Array, Array, Array, Array, Array, Array, Array, Array, Array]:
     """Run the fixed maintained policy as one compiled JAX operation."""
 
@@ -224,7 +225,7 @@ def _optimize_step(
                 reference_states,
                 previous_command,
                 exogenous,
-                parameters,
+                values,
             )
             projected_decrease = jnp.sum(gradient * (blocks - candidate))
             candidate_accepted = finite(candidate_value, candidate_gradient) & (
@@ -315,7 +316,13 @@ def _optimize_step(
 
 def _build_kernels(model: PlanModel, policy: SolverPolicy) -> _Kernels:
     def objective(
-        blocks, initial_state, initial_latent, reference_states, previous, exogenous, p
+        blocks,
+        initial_state,
+        initial_latent,
+        reference_states,
+        previous,
+        exogenous,
+        values,
     ):
         return _objective(
             model,
@@ -326,7 +333,7 @@ def _build_kernels(model: PlanModel, policy: SolverPolicy) -> _Kernels:
             reference_states,
             previous,
             exogenous,
-            p,
+            values,
         )
 
     objective_gradient = jax.value_and_grad(objective)
@@ -340,7 +347,7 @@ def _build_kernels(model: PlanModel, policy: SolverPolicy) -> _Kernels:
         reference_states,
         previous,
         exogenous,
-        p,
+        values,
     ):
         return _optimize_step(
             policy,
@@ -353,7 +360,7 @@ def _build_kernels(model: PlanModel, policy: SolverPolicy) -> _Kernels:
             reference_states,
             previous,
             exogenous,
-            p,
+            values,
         )
 
     return _Kernels(
@@ -370,10 +377,10 @@ def solver_kernels(model: PlanModel, policy: SolverPolicy) -> _Kernels:
 
     Compiling a controller costs seconds and every kernel is a pure function of
     the model's static signature and the policy, so two solvers built from the
-    same configuration share one set. The fitted parameters are an argument to
-    every kernel rather than part of the signature, which is what lets a
-    re-fitted or re-adapted belief reuse the compiled code of the belief it
-    came from.
+    same configuration share one set. Every number the model believes is an
+    argument to every kernel rather than part of the signature, which is what
+    lets a belief that absorbs telemetry each control interval reuse the
+    compiled code of the belief it came from instead of paying a rebuild.
     """
 
     key = (model.compile_signature, policy)
@@ -636,7 +643,7 @@ class BoundedShootingSolver:
                 self.model.command_minimum,
                 self.model.command_maximum,
             ),
-            self.model.parameters,
+            self.model.values,
         )
 
     def _seed_plan(
@@ -663,7 +670,7 @@ class BoundedShootingSolver:
             reference.states,
             previous_command,
             exogenous,
-            self.model.parameters,
+            self.model.values,
         )
         value_float = float(np.asarray(value))
         if not np.isfinite(value_float) or not np.all(
@@ -685,7 +692,7 @@ class BoundedShootingSolver:
                     reference.states,
                     previous_command,
                     exogenous,
-                    self.model.parameters,
+                    self.model.values,
                 )
                 warm_value_float = float(np.asarray(warm_value))
                 if (
@@ -732,7 +739,7 @@ class BoundedShootingSolver:
             reference.states,
             previous_command,
             exogenous,
-            self.model.parameters,
+            self.model.values,
         )
         return _OptimizerOutcome(
             blocks=blocks,
@@ -796,7 +803,7 @@ class BoundedShootingSolver:
             state,
             latent,
             exogenous,
-            self.model.parameters,
+            self.model.values,
         )
         measurements = self._kernels.measure(prediction)
         return _PlanEvaluation(

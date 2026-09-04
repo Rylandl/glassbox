@@ -378,15 +378,38 @@ class PlanMeasurements(NamedTuple):
     maximum_normalized_uncertainty: Array
 
 
+class PlanValues(NamedTuple):
+    """Everything a compiled kernel reads as an argument, not as a constant.
+
+    A kernel is compiled once per static signature and then serves every model
+    that shares it, so every number a belief holds travels here: the model
+    parameters the horizon is rolled out through, the factor of the resolved
+    parameter covariance the plan is charged spread for, and the
+    forecast-error covariance at each predicted stage. A belief that absorbs
+    telemetry every control interval moves all three every interval and still
+    reuses the code compiled for the belief it came from.
+
+    ``covariance_factor`` is ``None`` for a belief that resolves no parameter
+    direction. That is a different traced structure rather than a different
+    set of values, because such a belief really is priced by the point
+    objective, and the signature records it as such.
+    """
+
+    parameters: object
+    covariance_factor: Array | None
+    forecast_error_covariance: Array
+
+
 @runtime_checkable
 class PlanModel(Protocol):
     """Everything a bounded shooting solver needs from a model.
 
     A plan is a sequence of normalized command blocks in ``[-1, 1]``. The model
     expands them, rolls them out, and prices them; the solver moves them and
-    projects them back into the box. The fitted parameters travel as an
-    argument rather than as part of the model, so one compiled kernel serves
-    every model that shares this model's static signature.
+    projects them back into the box. Everything the model believes numerically
+    travels as :class:`PlanValues` rather than as part of the model, so one
+    compiled kernel serves every model that shares this model's static
+    signature.
     """
 
     horizon_steps: int
@@ -399,10 +422,10 @@ class PlanModel(Protocol):
     uncertainty_available: bool
     command_minimum: Array
     command_maximum: Array
-    parameters: object
+    values: PlanValues
     compile_signature: str
 
-    def initial_latent(self, command_history: Array, parameters: object) -> Array:
+    def initial_latent(self, command_history: Array, values: PlanValues) -> Array:
         """Infer the actuator state a horizon starting now would begin from."""
 
     def rollout(
@@ -411,7 +434,7 @@ class PlanModel(Protocol):
         initial_state: Array,
         initial_latent: Array,
         exogenous: Array,
-        parameters: object,
+        values: PlanValues,
     ) -> Prediction:
         """Predict the horizon this plan drives, with its tangent covariance."""
 

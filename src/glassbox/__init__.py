@@ -26,6 +26,7 @@ from glassbox.control.identifier import (
 )
 from glassbox.control.plan import (
     PlanModel,
+    PlanValues,
     Prediction,
     ReferenceTrajectory,
     SafetyEnvelope,
@@ -95,6 +96,7 @@ __all__ = [  # noqa: RUF022
     "BoundedShootingSolver",
     "NMPCController",
     "PlanModel",
+    "PlanValues",
     "Prediction",
     "ReferenceTrajectory",
     "SafetyEnvelope",

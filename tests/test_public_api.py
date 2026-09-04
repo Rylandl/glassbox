@@ -47,6 +47,7 @@ EXPECTED_PUBLIC_API = (
     "BoundedShootingSolver",
     "NMPCController",
     "PlanModel",
+    "PlanValues",
     "Prediction",
     "ReferenceTrajectory",
     "SafetyEnvelope",

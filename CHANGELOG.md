@@ -326,7 +326,35 @@ All notable changes to Glassbox are recorded here. The format follows
   report the control interval a solver plans on, which is what a loop needs
   from a controller.
 
+- `glassbox.PlanValues(parameters, covariance_factor,
+  forecast_error_covariance)` is everything a compiled solve kernel reads as an
+  argument rather than as a traced constant. It is what a `PlanModel` carries
+  as `values` and what every kernel entry point takes in place of the bare
+  parameters, so an implementer states its numbers in one object.
+
 ### Changed
+- The solver's compile cache keys on shape, never on a belief's values.
+  `PlanModel.parameters` becomes `PlanModel.values`, a `PlanValues` carrying
+  the parameters, the factor of the resolved parameter covariance, and the
+  forecast-error covariance at each predicted stage; `initial_latent` and
+  `rollout` take one in place of the parameters. `BeliefPlanModel.parameters`
+  and `.covariance_factor` are `values.parameters` and
+  `values.covariance_factor`, and `_compile_signature` hashes the factor's
+  shape, the stage-covariance table's shape and the information state's
+  resolved rank instead of the factor's entries and the whole serialized
+  forecast-error envelope. Before this, a belief that absorbed telemetry every
+  interval got a new signature every interval and rebuilt the solve kernel:
+  measured on a synthetic quadrotor whose belief had already saturated at rank
+  13, building a plan model, absorbing one flight, and building a second plan
+  model compiled two kernel sets, and the second solver's first solve cost as
+  much as the first. The two now share one signature and one compiled kernel
+  set, and the second solver's first solve is more than two orders of
+  magnitude cheaper than the first, which is a warm solve rather than a
+  rebuild. A belief of a different resolved rank still gets its own signature
+  and compiles. The solve itself is bit-identical either way: on that vehicle
+  the command, both objectives, the iteration count, the two horizon maxima,
+  and the exclusive-or of the bit patterns of every predicted state and
+  command agree exactly before and after. No recorded number moves.
 - `RecursiveBootstrapIdentifier.update` and `.belief` return a
   `glassbox.DynamicsBelief` over `BootstrapMultirotorParams` instead of a
   `RecursiveBootstrapBelief`. The estimator is unchanged, number for number:

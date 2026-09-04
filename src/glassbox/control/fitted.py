@@ -24,6 +24,7 @@ from jax import Array
 from glassbox.belief.belief import DynamicsBelief
 from glassbox.control.plan import (
     PlanMeasurements,
+    PlanValues,
     Prediction,
     SafetyEnvelope,
     SolverPolicy,
@@ -111,21 +112,46 @@ def default_solver_policy(model: ExecutableModel) -> SolverPolicy:
     )
 
 
+def _plan_values(belief: DynamicsBelief, policy: SolverPolicy) -> PlanValues:
+    """Read one belief's numbers out into the arguments the kernels take.
+
+    All three are read once, here, rather than inside a traced kernel. The
+    forecast-error covariance is evaluated at the horizon's own stage times,
+    which the policy fixes, so the envelope's interpolation table never enters
+    a compiled kernel as a constant and a re-measured envelope of the same
+    length costs no recompile.
+    """
+
+    horizons = belief.model.runtime_spec.sample_period_s * jnp.arange(
+        1, policy.horizon_steps + 1
+    )
+    factor = parameter_covariance_factor(belief)
+    return PlanValues(
+        parameters=belief.model.params,
+        covariance_factor=None if factor is None else jnp.asarray(factor),
+        forecast_error_covariance=jax.vmap(belief.error_covariance)(horizons),
+    )
+
+
 def _compile_signature(
     belief: DynamicsBelief,
     tolerances: TrackingTolerances,
     safety_envelope: SafetyEnvelope,
     policy: SolverPolicy,
-    covariance_factor: np.ndarray | None,
+    values: PlanValues,
 ) -> str:
-    """Digest everything a compiled kernel for this plan model bakes in.
+    """Digest the static structure a compiled kernel for this plan model traces.
 
-    The fitted parameters are deliberately absent: they travel through every
-    kernel as an argument, so two beliefs that differ only in their parameter
-    values share compiled code. Everything else the traced computation reads as
-    a constant is here, including the forecast-error evidence and the parameter
-    covariance factor, because a kernel compiled for one belief's evidence
-    would silently answer for another's.
+    No belief value reaches this digest. The parameters, the parameter
+    covariance factor and the stage forecast-error covariance all travel
+    through every kernel as :class:`PlanValues`, so a belief that absorbs
+    telemetry every control interval keeps the code compiled for the belief it
+    came from. What is here is what the trace itself depends on: the model's
+    declared specs, the tolerances, the envelope and the policy the objective
+    is written from, the parameter tree's structure and leaf shapes, whether
+    the belief resolves any parameter direction at all and how wide the factor
+    of that resolution is, and the rank the information state says it
+    resolved. A kernel compiled for one of those cannot answer for another.
     """
 
     digest = hashlib.sha256()
@@ -146,16 +172,13 @@ def _compile_signature(
     for leaf in leaves:
         array = np.asarray(leaf)
         add((array.shape, str(array.dtype)))
-    add(
-        "no_forecast_error"
-        if belief.forecast_error is None
-        else json.dumps(belief.forecast_error.to_dict(), sort_keys=True)
-    )
-    if covariance_factor is None:
+    add(values.forecast_error_covariance.shape)
+    if values.covariance_factor is None:
         add("no_parameter_covariance")
     else:
-        digest.update(np.ascontiguousarray(covariance_factor, dtype=np.float64).data)
-        add(covariance_factor.shape)
+        add(values.covariance_factor.shape)
+    assert belief.information is not None
+    add(belief.information.resolved_rank())
     return digest.hexdigest()
 
 
@@ -174,16 +197,12 @@ class BeliefPlanModel:
     tolerances: TrackingTolerances
     safety_envelope: SafetyEnvelope
     policy: SolverPolicy
-    covariance_factor: np.ndarray | None
+    values: PlanValues
     compile_signature: str
 
     @property
     def model(self) -> ExecutableModel:
         return self.belief.model
-
-    @property
-    def parameters(self) -> ModelParams:
-        return self.belief.model.params
 
     @property
     def horizon_steps(self) -> int:
@@ -225,9 +244,9 @@ class BeliefPlanModel:
     def command_maximum(self) -> Array:
         return self.model.command_maximum
 
-    def initial_latent(self, command_history: Array, parameters: ModelParams) -> Array:
+    def initial_latent(self, command_history: Array, values: PlanValues) -> Array:
         return self.model.initial_latent_state_with_parameters(
-            parameters, command_history
+            values.parameters, command_history
         )
 
     def _expand_normalized_blocks(self, blocks: Array) -> Array:
@@ -254,12 +273,13 @@ class BeliefPlanModel:
         initial_latent: Array,
         exogenous: Array,
         parameters: ModelParams,
-    ) -> tuple[Array, Array, Array, Array]:
-        """Predict the horizon and the forecast-error covariance along it.
+    ) -> tuple[Array, Array, Array]:
+        """Predict the horizon one plan drives through one parameter vector.
 
-        The returned covariance is the belief's own forecast-error covariance
-        at each predicted stage; the parameter contribution is added separately
-        by :meth:`_tangent_covariance`, because it depends on the plan.
+        This is the mean only. Both parts of the spread are added by
+        :meth:`rollout`: the belief's stage forecast-error covariance travels
+        with the plan values, and the parameter contribution depends on the
+        plan and is computed by :meth:`_tangent_covariance`.
         """
 
         model = self.model
@@ -286,13 +306,9 @@ class BeliefPlanModel:
             (initial_state, initial_latent),
             (commands, exogenous),
         )
-        horizons = model.runtime_spec.sample_period_s * jnp.arange(
-            1, self.horizon_steps + 1
-        )
-        error_covariance = jax.vmap(self.belief.error_covariance)(horizons)
         states = jnp.concatenate((initial_state[None, :], future_states), axis=0)
         latent = jnp.concatenate((initial_latent[None, :], future_latent), axis=0)
-        return states, latent, commands, error_covariance
+        return states, latent, commands
 
     def _tangent_covariance(
         self,
@@ -300,9 +316,8 @@ class BeliefPlanModel:
         initial_state: Array,
         initial_latent: Array,
         exogenous: Array,
-        parameters: ModelParams,
+        values: PlanValues,
         states: Array,
-        error_covariance: Array,
     ) -> Array:
         """Add the plan's parameter spread to the forecast-error covariance.
 
@@ -313,13 +328,15 @@ class BeliefPlanModel:
         a single forward-mode rollout rather than a column of a full Jacobian.
         """
 
-        if self.covariance_factor is None:
+        error_covariance = values.forecast_error_covariance
+        if values.covariance_factor is None:
             return error_covariance
+        parameters = values.parameters
         center = structured_parameter_vector(parameters)
 
         def varied_error(vector: Array) -> Array:
             varied_parameters = with_structured_parameter_vector(parameters, vector)
-            varied_states, _, _, _ = self._mean_rollout(
+            varied_states, _, _ = self._mean_rollout(
                 blocks,
                 initial_state,
                 initial_latent,
@@ -331,7 +348,7 @@ class BeliefPlanModel:
         def direction(column: Array) -> Array:
             return jax.jvp(varied_error, (center,), (column,))[1]
 
-        directions = jax.vmap(direction)(jnp.asarray(self.covariance_factor.T))
+        directions = jax.vmap(direction)(values.covariance_factor.T)
         return error_covariance + jnp.einsum("kti,ktj->tij", directions, directions)
 
     def rollout(
@@ -340,25 +357,24 @@ class BeliefPlanModel:
         initial_state: Array,
         initial_latent: Array,
         exogenous: Array,
-        parameters: ModelParams,
+        values: PlanValues,
     ) -> Prediction:
         """Predict the horizon this plan drives, with its tangent covariance."""
 
-        states, latent, commands, error_covariance = self._mean_rollout(
+        states, latent, commands = self._mean_rollout(
             blocks,
             initial_state,
             initial_latent,
             exogenous,
-            parameters,
+            values.parameters,
         )
         covariance = self._tangent_covariance(
             blocks,
             initial_state,
             initial_latent,
             exogenous,
-            parameters,
+            values,
             states,
-            error_covariance,
         )
         return Prediction(
             mean_states=states,
@@ -583,19 +599,19 @@ def plan_model(
     certified = model.runtime_spec.certified_prediction_horizon_s
     if certified is not None and horizon_s > certified + 1e-12:
         raise ValueError("solver horizon exceeds the model's certified horizon")
-    covariance_factor = parameter_covariance_factor(belief)
+    values = _plan_values(belief, resolved)
     return BeliefPlanModel(
         belief=belief,
         tolerances=tolerances,
         safety_envelope=safety_envelope,
         policy=resolved,
-        covariance_factor=covariance_factor,
+        values=values,
         compile_signature=_compile_signature(
             belief,
             tolerances,
             safety_envelope,
             resolved,
-            covariance_factor,
+            values,
         ),
     )
 

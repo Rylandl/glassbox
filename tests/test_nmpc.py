@@ -447,8 +447,8 @@ def _point_objective(
     """
 
     policy = plan.policy
-    states, _, commands, _ = plan._mean_rollout(
-        blocks, state, latent, exogenous, plan.parameters
+    states, _, commands = plan._mean_rollout(
+        blocks, state, latent, exogenous, plan.values.parameters
     )
     local_error = jax.vmap(rigid_body_local_error)(reference_states[1:], states[1:])
     normalized_error = local_error / plan.tolerances.local_state_scale
@@ -476,7 +476,7 @@ def _charged_objective(controller: NMPCController, *arguments: jax.Array) -> flo
             controller.plan,
             controller.plan.policy,
             *arguments,
-            controller.plan.parameters,
+            controller.plan.values,
         )
     )
 
@@ -502,7 +502,7 @@ def test_point_model_objective_is_the_point_objective_bit_for_bit(
     controller = multirotor_controller_four_step
     arguments = _objective_arguments(controller)
 
-    assert controller.plan.covariance_factor is None
+    assert controller.plan.values.covariance_factor is None
     charged = _charged_objective(controller, *arguments)
     point = float(_point_objective(controller.plan, *arguments))
     assert charged == point
@@ -524,8 +524,8 @@ def test_a_belief_with_covariance_is_charged_more_than_a_point_belief(
     point_value = _charged_objective(multirotor_controller_four_step, *arguments)
     uncertain_value = _charged_objective(uncertain, *arguments)
 
-    assert uncertain.plan.covariance_factor is not None
-    assert uncertain.plan.covariance_factor.shape == (parameter_count, 1)
+    assert uncertain.plan.values.covariance_factor is not None
+    assert uncertain.plan.values.covariance_factor.shape == (parameter_count, 1)
     assert uncertain_value > point_value
 
 
@@ -939,7 +939,7 @@ def test_objective_gradient_agrees_with_central_difference(
         reference.states,
         previous,
         exogenous,
-        model.params,
+        plan.values,
     )
     epsilon = 2e-3
     finite_difference = np.empty(blocks.shape)
@@ -952,7 +952,7 @@ def test_objective_gradient_agrees_with_central_difference(
             reference.states,
             previous,
             exogenous,
-            model.params,
+            plan.values,
         )
         minus = objective(
             blocks - direction,
@@ -961,7 +961,7 @@ def test_objective_gradient_agrees_with_central_difference(
             reference.states,
             previous,
             exogenous,
-            model.params,
+            plan.values,
         )
         finite_difference[index] = float((plus - minus) / (2.0 * epsilon))
 
