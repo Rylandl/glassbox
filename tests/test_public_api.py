@@ -9,104 +9,66 @@ import sys
 
 import glassbox
 
-# Snapshot of the stable surface. Additions and removals both have to be made
-# here on purpose, so a name never leaves the public API by accident.
+# Snapshot of the stable surface, grouped in the order a reader meets it. A
+# name belongs here only if the README or a docs/concepts page uses it, or if
+# it is the type of a public function's argument or return value. Additions
+# and removals are both deliberate edits here, so a name never enters or
+# leaves the public API by accident.
 EXPECTED_PUBLIC_API = (
-    "RIGID_BODY_STATE_SCHEMA",
-    "TANGENT_GROUP_ORDER",
-    "TANGENT_STATE_ORDER",
-    "ActuationMap",
-    "BaseDynamicsParams",
-    "BeliefUpdateProposal",
-    "BeliefUpdateReport",
-    "BoundedShootingSolver",
+    # The telemetry a fit consumes, and the typed contract it carries.
     "Channel",
-    "DirectActuationMap",
-    "DynamicsBelief",
-    "DynamicsParams",
-    "EmpiricalErrorSample",
-    "EmpiricalHorizonPredictiveError",
-    "ErrorCovarianceScope",
-    "ExecutableModel",
+    "Trajectory",
+    "TrajectorySpec",
+    # The fit: one call, one spec, one outcome.
     "FitOutcome",
-    "FitResult",
     "FitSpec",
-    "FixedWingDynamicsParams",
     "Holdout",
-    "HorizonEndpointErrorEvidence",
+    "LossPolicy",
+    "WeightingPolicy",
+    "fit",
+    # The parameters a fit produces and the two functions that execute them.
+    "DynamicsParams",
+    "FixedWingDynamicsParams",
+    "ModelParams",
+    "rollout",
+    "step",
+    # The belief: one executable model, what the evidence resolved, and how
+    # wrong the forecasts have been.
+    "ActuationMap",
+    "DynamicsBelief",
+    "EmpiricalHorizonPredictiveError",
+    "ExecutableModel",
     "LocalGaussianParameterBelief",
     "LocalParameterInformation",
-    "LossPolicy",
-    "ModelParams",
-    "ModelValidityEnvelope",
-    "NMPCController",
-    "NMPCDiagnostics",
-    "NMPCWarmStart",
     "NonActionableModelError",
-    "PlanModel",
     "PointParameterBelief",
+    # Control: the plan-model seam, the solver behind it, and the bounded
+    # result every solve returns.
+    "BoundedShootingSolver",
+    "NMPCController",
+    "PlanModel",
     "Prediction",
-    "PredictiveTrajectory",
     "ReferenceTrajectory",
-    "ResidualDynamicsParams",
-    "ResolvedLocalGeometry",
-    "RolloutLossConfiguration",
-    "RolloutPrediction",
-    "RuntimeModelSpec",
     "SafetyEnvelope",
     "SolveResult",
     "SolveStatus",
     "SolverPolicy",
     "TrackingTolerances",
-    "Trajectory",
-    "TrajectorySpec",
-    "TrajectoryWindows",
-    "UnavailableParameterEvidence",
-    "UnavailablePredictiveError",
-    "VehicleConfigurationSpec",
-    "WeightingPolicy",
-    "aggregate_rollout_metrics",
-    "apply_tangent_correction",
-    "duration_to_steps",
-    "endpoint_error_evidence_by_horizon",
-    "fit",
-    "fit_dynamics",
-    "fit_dynamics_multi_horizon",
-    "load_dynamics_belief",
-    "load_trajectory_npz",
-    "make_trajectory_spec",
-    "model_family",
     "plan_model",
-    "predict",
-    "predict_windows",
-    "propose_dynamics_belief_update",
-    "recalibrate_predictive_error",
-    "rollout",
-    "rollout_divergence_metrics",
-    "rollout_loss_configuration",
-    "rollout_metrics",
-    "rollout_with_latent",
-    "runtime_spec_from_trajectory",
-    "save_dynamics_belief",
-    "save_trajectory_npz",
-    "split_trajectory",
-    "step",
-    "step_with_latent",
-    "structured_parameter_names",
-    "structured_parameter_vector",
-    "trajectory_segment",
-    "trajectory_windows",
-    "update_dynamics_belief",
-    "validate_and_commit_dynamics_belief_update",
-    "with_structured_parameter_vector",
+    # Learning a model in flight, and bounding the command that comes out.
+    "MultirotorFlightSupervisor",
+    "MultirotorSupervisorConfig",
+    "RecursiveBootstrapConfig",
+    "RecursiveBootstrapIdentifier",
+    "SupervisorMode",
+    "SupervisorReason",
 )
 
 # Subpackages that a bare ``import glassbox`` must never pull in: workflows and
-# command-line front ends are heavy, corpus and integration adapters need
-# optional extras, and the experimental surface is opt-in by design.
+# command-line front ends are heavy, and corpus and integration adapters need
+# optional extras.
 DEFERRED_SUBPACKAGES = (
     "cli",
-    "experimental",
     "integrations",
     "io",
     "workflows",

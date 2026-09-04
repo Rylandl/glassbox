@@ -20,10 +20,10 @@ uv sync --dev
 ```
 
 Python 3.11 to 3.13. JAX runs on the CPU backend in float32 by default.
-The core package depends only on JAX and NumPy. Optional extras: `px4` for PX4
-ULog ingestion and SITL recording (`pyulog`, `pymavlink`), `ros` for the EPFL
-rosbag adapter, and `cascade` for the Cascade fixed-wing plant, which installs
-from GitHub. `uv sync --dev` installs the telemetry extras because the default
+The core package depends only on JAX and NumPy. There are three optional
+extras: `px4` for PX4 ULog ingestion and SITL recording (`pyulog`,
+`pymavlink`), `ros` for the EPFL rosbag adapter (`rosbags`), and `cascade` for
+the Cascade fixed-wing plant, which installs from GitHub. `uv sync --dev` installs the telemetry extras because the default
 test suite exercises them.
 
 ## Quickstart
@@ -100,20 +100,36 @@ the new parameters with `belief.recalibrate_predictive_error(trajectory)`. See
 ## Layout
 
 The package is a set of subpackages under `src/glassbox`. `import glassbox`
-loads only `core`, `belief`, and `control`; workflows, command-line front
-ends, corpus adapters, integrations, and experimental APIs are imported on
-demand.
+loads only `core`, `belief`, `control`, and the one public `fitting` module;
+workflows, command-line front ends, corpus adapters, and integrations are
+imported on demand.
 
 | Subpackage | Modules |
 | --- | --- |
-| `core` | `data`, `dynamics`, `families`, `geometry`, `identification`, `metrics`, `diagnostics`, `model`, `model_io`, `adapter`, `synthetic`, `fixedwing_synthetic` |
+| root | `fitting` (`fit`, `FitSpec`, `Holdout`, the fit report) |
+| `core` | `data`, `dynamics`, `families`, `geometry`, `identification`, `metrics`, `diagnostics`, `model`, `model_io`, `synthetic`, `fixedwing_synthetic` |
 | `belief` | `belief`, `belief_io`, `parameter_evidence`, `linearization`, `covariance`, `adaptation` |
-| `control` | `plan`, `solver`, `fitted`, `flight_supervisor`, `online_bootstrap` |
-| `io` | `px4_ulog`, `px4_frames`, `sitl_profile`, `fixedwing_sitl_profile`, `arp_reference`, `idf_reference`, `nanodrone_reference`, `x8_reference`, `epfl_reference` |
+| `control` | `plan`, `solver`, `fitted`, `identifier`, `supervisor` |
+| `io` | `corpus`, `px4_ulog`, `px4_frames`, `pinned_download`, `sitl_profile`, `arp_reference`, `idf_reference`, `nanodrone_reference`, `x8_reference`, `epfl_reference` |
 | `workflows` | `evaluate`, `holdout`, `record_results`, `benchmarks/` (`nmpc`, `recovery`, `cascade_x8`) |
-| `cli` | `synthetic_demo`, `fixedwing`, `ulog`, `nanodrone`, `x8`, `epfl` |
+| `cli` | one module per command, plus the static `_tree` |
 | `integrations` | `loop`, `px4`, `px4_nmpc_shadow`, `cascade` |
-| `experimental` | Re-exports of the recursive bootstrap identifier and the flight supervisor. These APIs can change without notice. |
+
+### The stable surface
+
+`glassbox.__all__` is these names. A name is here because the README or a
+concept page uses it, or because it is the type of one of their arguments or
+return values; everything else is imported from the module that owns it, for
+example `from glassbox.core.data import load_trajectory_npz`.
+
+| Group | Names |
+| --- | --- |
+| Telemetry | `Channel`, `Trajectory`, `TrajectorySpec` |
+| The fit | `fit`, `FitSpec`, `FitOutcome`, `Holdout`, `LossPolicy`, `WeightingPolicy` |
+| Parameters and rollout | `ModelParams`, `DynamicsParams`, `FixedWingDynamicsParams`, `rollout`, `step` |
+| The belief | `DynamicsBelief`, `ExecutableModel`, `ActuationMap`, `LocalParameterInformation`, `LocalGaussianParameterBelief`, `PointParameterBelief`, `EmpiricalHorizonPredictiveError`, `NonActionableModelError` |
+| Control | `PlanModel`, `plan_model`, `BoundedShootingSolver`, `SolverPolicy`, `SolveResult`, `SolveStatus`, `NMPCController`, `ReferenceTrajectory`, `SafetyEnvelope`, `TrackingTolerances`, `Prediction` |
+| In-flight identification and supervision | `RecursiveBootstrapIdentifier`, `RecursiveBootstrapConfig`, `MultirotorFlightSupervisor`, `MultirotorSupervisorConfig`, `SupervisorMode`, `SupervisorReason` |
 
 The canonical state is 13 wide: NWU position and velocity, a WXYZ unit
 quaternion from body to world, and FLU body rates. Commands are normalized

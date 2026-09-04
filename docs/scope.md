@@ -52,9 +52,12 @@ behavior to forces, torques, and accelerations.
   projection, plus a model-independent flight supervisor. See
   [NMPC](concepts/nmpc.md) and [the supervisor](concepts/flight-supervisor.md).
 - **Telemetry and corpora.** PX4 ULog ingestion for multirotors and fixed
-  wings, scripted PX4 SITL recording, and adapters for the Nano-Quadrotor, ARP,
-  IDF-DS, Skywalker X8, and EPFL TOPOPlane2 reference datasets. See the
-  [PX4 ULog guide](guides/px4-ulog.md) and the experiment pages.
+  wings, scripted PX4 SITL recording, and one pinned reference-corpus registry
+  (`glassbox.io.corpus`) covering the Nano-Quadrotor, ARP, IDF-DS, Skywalker
+  X8, and EPFL TOPOPlane2 datasets. The registry states each corpus's
+  citation, license, pinned files, parser, and published evaluation split, and
+  `glassbox corpus fetch` and `prepare` verify every file against its pin. See
+  the [PX4 ULog guide](guides/px4-ulog.md) and the experiment pages.
 - **Simulator integrations.** The Cascade plant used as an independently
   implemented vehicle for closed-loop diagnostics. The Crazyflow integration
   and its dual-control NMPC throw demo moved to

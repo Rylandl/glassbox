@@ -14,14 +14,18 @@ artifact each experiment page cites.
   interface, eligible artifacts, safety boundaries, PX4 SITL shadow mode, and
   the design and acceptance contract.
 - [Flight supervisor](concepts/flight-supervisor.md): the model-independent
-  freshness, bounds, attitude, and rate-arrest layer.
+  freshness, bounds, attitude, and rate-arrest layer, in
+  `glassbox.control.supervisor`.
 - [Bootstrap identification](concepts/bootstrap-identification.md): the
-  no-prior contract for local authority identification.
+  no-prior contract for local authority identification, in
+  `glassbox.control.identifier`.
 
 ## Guides
 
-- [PX4 ULogs](guides/px4-ulog.md): extracting canonical trajectories and
-  recording reproducible SITL flights.
+- [PX4 ULogs](guides/px4-ulog.md): extracting canonical trajectories with
+  `glassbox extract` and recording reproducible SITL flights. The pinned
+  public corpora are obtained with `glassbox corpus`, whose registry names
+  each one's citation, license, and evaluation split.
 - [Recorded results](guides/recorded-results.md): the two-tier recorded-result
   tests, when to re-record, and the `glassbox record-results` command.
 

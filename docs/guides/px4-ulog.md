@@ -60,7 +60,9 @@ Every extracted trajectory records `provenance["px4"]["source_rates"]`, a mappin
 With Docker Desktop running, record a PX4 SIH quadrotor takeoff-hover-landing flight and extract both estimated and ground-truth trajectories:
 
 ```bash
-./scripts/record_sitl_profiles.sh --family multirotor artifacts/sitl/baseline baseline
+GLASSBOX_PROFILE_CONDITIONS=medium GLASSBOX_PROFILE_REPLICATES=1 \
+  ./scripts/record_sitl_profiles.sh --family multirotor \
+  artifacts/sitl/baseline baseline
 ```
 
 The `baseline` profile flies PX4's own takeoff and landing rather than an offboard maneuver table, and fits a model from the ground-truth extraction. The script uses the same immutable multi-architecture PX4 SIH image digest as the integration gate and stores generated data under the ignored `artifacts/sitl/` directory. Set `GLASSBOX_PX4_IMAGE` only to make an explicit image comparison. [`logger_topics.txt`](../../config/logging/logger_topics.txt) overrides the dynamics topics to their full publication rates; the default PX4 logging profile is intended for flight review and records some actuator signals too slowly for identification. For SIH, the script extracts the normalized `actuator_outputs_sim` signal consumed by the simulator at 250 Hz.

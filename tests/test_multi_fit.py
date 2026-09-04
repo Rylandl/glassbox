@@ -14,7 +14,6 @@ from glassbox.core.metrics import (
     predict_windows,
     rollout_divergence_metrics,
     rollout_metrics,
-    summarize_divergence,
 )
 from glassbox.core.synthetic import true_parameters
 from glassbox.fitting import (
@@ -170,38 +169,6 @@ def test_divergence_diagnostic_validates_threshold_names(fixedwing_flight) -> No
             trajectory,
             thresholds={"unknown": 1.0},
         )
-
-
-def test_divergence_summary_reports_the_distribution_over_rollouts() -> None:
-    summary = summarize_divergence(
-        [
-            {
-                "stable_through_s": 2.0,
-                "stable_fraction": 0.5,
-                "divergence_causes": ["attitude_error_deg"],
-                "full_rollout_finite": True,
-                "diverged": True,
-            },
-            {
-                "stable_through_s": 4.0,
-                "stable_fraction": 1.0,
-                "divergence_causes": [],
-                "full_rollout_finite": True,
-                "diverged": False,
-            },
-        ]
-    )
-
-    assert summary["trajectory_count"] == 2
-    assert summary["full_rollout_finite_fraction"] == 1.0
-    assert summary["diverged_fraction"] == 0.5
-    assert summary["stable_through_s"]["median"] == 3.0
-    assert summary["cause_counts"] == {"attitude_error_deg": 1}
-
-
-def test_divergence_summary_requires_at_least_one_rollout() -> None:
-    with pytest.raises(ValueError, match="at least one rollout"):
-        summarize_divergence([])
 
 
 def test_training_window_budget_scales_with_diversity_and_horizon() -> None:

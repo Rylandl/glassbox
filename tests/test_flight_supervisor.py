@@ -3,7 +3,7 @@ import math
 import numpy as np
 import pytest
 
-from glassbox.control.flight_supervisor import (
+from glassbox.control.supervisor import (
     MultirotorFlightSupervisor,
     MultirotorSupervisorConfig,
     SupervisorMode,

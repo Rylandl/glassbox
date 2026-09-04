@@ -46,10 +46,7 @@ import time
 import numpy as np
 
 from glassbox.core.dynamics import MOTOR_MIXER
-from glassbox.experimental import (
-    MultirotorFlightSupervisor,
-    MultirotorSupervisorConfig,
-)
+from glassbox import MultirotorFlightSupervisor, MultirotorSupervisorConfig
 
 supervisor = MultirotorFlightSupervisor(
     MultirotorSupervisorConfig(

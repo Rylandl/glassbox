@@ -1,8 +1,8 @@
 """Shared, private helpers for the bootstrap identifier and the supervisor.
 
 Every function here previously existed as a byte-for-byte copy in two or more
-of :mod:`glassbox.control.online_bootstrap` and
-:mod:`glassbox.control.flight_supervisor`.  The implementations are kept
+of :mod:`glassbox.control.identifier` and
+:mod:`glassbox.control.supervisor`.  The implementations are kept
 exactly as they were, in the same operation order, so consolidating them
 changes no number anywhere.
 

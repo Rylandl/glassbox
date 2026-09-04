@@ -6,6 +6,14 @@ All notable changes to Glassbox are recorded here. The format follows
 ## Unreleased
 
 ### Added
+- `glassbox.control` exports the in-flight identifier and the command
+  supervisor: `RecursiveBootstrapIdentifier`, `RecursiveBootstrapConfig`,
+  `RecursiveBootstrapBelief`, `RecursiveBootstrapSampleReport`,
+  `MultirotorFlightSupervisor`, `MultirotorSupervisorConfig`,
+  `SupervisedCommand`, `SupervisorMode` and `SupervisorReason`. They are
+  library components with the same standing as the solver: what they compute
+  is a belief and a bounded command, not an experiment. The six the README or
+  a concept page names are also exported from the root.
 - The `glassbox` command tree is nine commands: `extract`, `corpus`,
   `synthetic`, `fit`, `evaluate`, `benchmark`, `record-results`,
   `sitl-profile` and `px4-shadow`. Each has one summary line in
@@ -207,6 +215,16 @@ All notable changes to Glassbox are recorded here. The format follows
   from a controller.
 
 ### Changed
+- `glassbox.__all__` is thirty-nine names, down from eighty-eight. A name is
+  public because the README or a `docs/concepts` page uses it, or because it
+  is the type of one of their arguments or return values; the list is grouped
+  in the order a reader meets it, and `tests/test_public_api.py` carries the
+  same grouping with its reason per group. Every other name is unchanged and
+  is imported from the module that owns it, for example
+  `from glassbox.core.data import load_trajectory_npz`. README's layout
+  section lists the surface.
+- `control/online_bootstrap.py` is `control/identifier.py` and
+  `control/flight_supervisor.py` is `control/supervisor.py`.
 - `io/sitl_profile.py` is one recorder for both families: two target types,
   two profile tables, two condition tables and one streaming loop.
   `io/fixedwing_sitl_profile.py` is gone, and `PROFILES` and `CONDITIONS` are
@@ -598,6 +616,14 @@ All notable changes to Glassbox are recorded here. The format follows
   learned. No flag was removed.
 
 ### Removed
+- The `glassbox.experimental` subpackage. It re-exported the recursive
+  bootstrap identifier and the flight supervisor under a promise that their
+  contracts could change without notice; both are now ordinary components of
+  `glassbox.control`, and the deferred-subpackage test no longer names an
+  experimental tier. Last commit carrying it: `2faf563`.
+- `core/metrics.py::p90_horizons` and `summarize_divergence`, which had no
+  caller left after the gates that used them were deleted. Last commit
+  carrying them: `2faf563`.
 - The synthetic parameter-recovery demonstration behind `glassbox synthetic`,
   which fitted a model on generated flights and printed the loss reduction. It
   was a demonstration with no artifact and no test; `glassbox synthetic` now

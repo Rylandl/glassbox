@@ -11,7 +11,6 @@ than baked into a per-protocol entry point.
 from __future__ import annotations
 
 import math
-from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -573,46 +572,6 @@ def rollout_divergence_metrics(
     }
 
 
-def summarize_divergence(items: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
-    """Summarize a set of :func:`rollout_divergence_metrics` reports.
-
-    Reports how many rollouts stayed finite, how many crossed a threshold, the
-    distribution of stable duration and stable fraction over the set, how often
-    each error channel was the first to diverge, and the per-rollout reports
-    themselves.
-    """
-
-    if not items:
-        raise ValueError("divergence summary requires at least one rollout")
-    stable_times = np.asarray(
-        [float(item["stable_through_s"]) for item in items], dtype=np.float64
-    )
-    stable_fractions = np.asarray(
-        [float(item["stable_fraction"]) for item in items], dtype=np.float64
-    )
-    causes = Counter(cause for item in items for cause in item["divergence_causes"])
-    finite_count = sum(bool(item["full_rollout_finite"]) for item in items)
-    return {
-        "trajectory_count": len(items),
-        "full_rollout_finite_fraction": finite_count / len(items),
-        "diverged_fraction": sum(bool(item["diverged"]) for item in items) / len(items),
-        "stable_through_s": {
-            "minimum": float(np.min(stable_times)),
-            "p10": float(np.quantile(stable_times, 0.1)),
-            "median": float(np.median(stable_times)),
-            "maximum": float(np.max(stable_times)),
-        },
-        "stable_fraction": {
-            "minimum": float(np.min(stable_fractions)),
-            "p10": float(np.quantile(stable_fractions, 0.1)),
-            "median": float(np.median(stable_fractions)),
-            "maximum": float(np.max(stable_fractions)),
-        },
-        "cause_counts": dict(sorted(causes.items())),
-        "per_trajectory": list(items),
-    }
-
-
 def persistence_score(
     candidate: Mapping[str, Mapping[str, Any]],
     persistence: Mapping[str, Mapping[str, Any]],
@@ -734,36 +693,4 @@ def aggregate_rollout_metrics(
             "metric_policy": ROLLOUT_METRIC_POLICY,
         }
     )
-    return result
-
-
-def p90_horizons(
-    per_item: Sequence[Mapping[str, Any]],
-    horizons_s: Sequence[float],
-) -> dict[str, dict[str, float]]:
-    """Return the 90th-percentile rollout metric at each horizon over items.
-
-    Each item carries a ``horizon_rollouts`` mapping keyed by the ``"%gs"``
-    horizon label. The quantile is taken across items rather than across
-    samples, so one badly predicted flight cannot be averaged away by many
-    good ones.
-    """
-
-    if not per_item:
-        raise ValueError("p90 horizon summary requires at least one item")
-    result: dict[str, dict[str, float]] = {}
-    for seconds in horizons_s:
-        label = f"{seconds:g}s"
-        result[label] = {
-            metric: float(
-                np.quantile(
-                    [
-                        float(item["horizon_rollouts"][label][metric])
-                        for item in per_item
-                    ],
-                    0.9,
-                )
-            )
-            for metric in ROLLOUT_METRICS
-        }
     return result

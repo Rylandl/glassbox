@@ -5,7 +5,7 @@ from dataclasses import fields
 import numpy as np
 import pytest
 
-from glassbox.control.online_bootstrap import (
+from glassbox.control.identifier import (
     RecursiveBootstrapBelief,
     RecursiveBootstrapConfig,
     RecursiveBootstrapIdentifier,
@@ -333,7 +333,7 @@ def test_transition_aggregation_assimilates_window_means_weighted_by_the_window(
 
     import numpy as np
 
-    from glassbox.control.online_bootstrap import (
+    from glassbox.control.identifier import (
         RecursiveBootstrapConfig,
         RecursiveBootstrapIdentifier,
     )
@@ -412,7 +412,7 @@ def test_the_integrated_collective_fit_is_honest_under_velocity_noise() -> None:
 
     import numpy as np
 
-    from glassbox.control.online_bootstrap import (
+    from glassbox.control.identifier import (
         RecursiveBootstrapConfig,
         RecursiveBootstrapIdentifier,
     )
