@@ -13,7 +13,7 @@
   "comparisons": {
     "cg=+0.03m,mass=3.364kg,cnr=-0.012,inertia=x1,vertical_wind=0.25_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.9713274493384103
+      "score": 1.97132744933841
     },
     "cg=+0.03m,mass=3.364kg,cnr=-0.012,inertia=x1,vertical_wind=0.25_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
@@ -41,7 +41,7 @@
     },
     "cg=+0.03m,mass=3.364kg,cnr=-0.012,inertia=x2,vertical_wind=0.25_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 2.150091332983945
+      "score": 2.1500913329839455
     },
     "cg=+0.03m,mass=3.364kg,cnr=-0.012,inertia=x2,vertical_wind=0.5_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
@@ -61,7 +61,7 @@
     },
     "cg=+0.03m,mass=3.364kg,cnr=-0.012,inertia=x3.5,vertical_wind=0.25_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.888915973615919
+      "score": 1.8889159736159191
     },
     "cg=+0.03m,mass=3.364kg,cnr=-0.012,inertia=x3.5,vertical_wind=0.25_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
@@ -69,11 +69,11 @@
     },
     "cg=+0.03m,mass=3.364kg,cnr=-0.012,inertia=x3.5,vertical_wind=0.5_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.917642881063861
+      "score": 1.9176428810638608
     },
     "cg=+0.03m,mass=3.364kg,cnr=-0.012,inertia=x3.5,vertical_wind=0.5_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 2.217987797244163
+      "score": 2.2179877972441635
     },
     "cg=+0.03m,mass=3.364kg,cnr=-0.012,inertia=x3.5,vertical_wind=1_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
@@ -81,7 +81,7 @@
     },
     "cg=+0.03m,mass=3.364kg,cnr=-0.012,inertia=x3.5,vertical_wind=1_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 2.686677209972373
+      "score": 2.6866772099723732
     },
     "cg=+0.03m,mass=4kg,cnr=-0.012,inertia=x1,vertical_wind=0.25_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
@@ -97,7 +97,7 @@
     },
     "cg=+0.03m,mass=4kg,cnr=-0.012,inertia=x1,vertical_wind=0.5_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.8860626750185054
+      "score": 1.8860626750185052
     },
     "cg=+0.03m,mass=4kg,cnr=-0.012,inertia=x1,vertical_wind=1_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
@@ -105,7 +105,7 @@
     },
     "cg=+0.03m,mass=4kg,cnr=-0.012,inertia=x1,vertical_wind=1_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 2.3533723112374316
+      "score": 2.353372311237431
     },
     "cg=+0.03m,mass=4kg,cnr=-0.012,inertia=x2,vertical_wind=0.25_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
@@ -149,7 +149,7 @@
     },
     "cg=+0.03m,mass=4kg,cnr=-0.012,inertia=x3.5,vertical_wind=1_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.9942122788930188
+      "score": 1.9942122788930186
     },
     "cg=+0.03m,mass=4kg,cnr=-0.012,inertia=x3.5,vertical_wind=1_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
@@ -173,7 +173,7 @@
     },
     "cg=+0.05m,mass=3.364kg,cnr=-0.012,inertia=x1,vertical_wind=1_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.9470753368072116
+      "score": 1.9470753368072118
     },
     "cg=+0.05m,mass=3.364kg,cnr=-0.012,inertia=x1,vertical_wind=1_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
@@ -185,7 +185,7 @@
     },
     "cg=+0.05m,mass=3.364kg,cnr=-0.012,inertia=x2,vertical_wind=0.25_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.5801020137230843
+      "score": 1.5801020137230841
     },
     "cg=+0.05m,mass=3.364kg,cnr=-0.012,inertia=x2,vertical_wind=0.5_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
@@ -205,7 +205,7 @@
     },
     "cg=+0.05m,mass=3.364kg,cnr=-0.012,inertia=x3.5,vertical_wind=0.25_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.4637492943429085
+      "score": 1.4637492943429082
     },
     "cg=+0.05m,mass=3.364kg,cnr=-0.012,inertia=x3.5,vertical_wind=0.25_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
@@ -217,7 +217,7 @@
     },
     "cg=+0.05m,mass=3.364kg,cnr=-0.012,inertia=x3.5,vertical_wind=0.5_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.6886196463863539
+      "score": 1.688619646386354
     },
     "cg=+0.05m,mass=3.364kg,cnr=-0.012,inertia=x3.5,vertical_wind=1_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
@@ -269,7 +269,7 @@
     },
     "cg=+0.05m,mass=4kg,cnr=-0.012,inertia=x2,vertical_wind=1_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.7182511932624775
+      "score": 1.7182511932624773
     },
     "cg=+0.05m,mass=4kg,cnr=-0.012,inertia=x2,vertical_wind=1_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
@@ -293,7 +293,7 @@
     },
     "cg=+0.05m,mass=4kg,cnr=-0.012,inertia=x3.5,vertical_wind=1_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.7393186722652603
+      "score": 1.7393186722652605
     },
     "cg=+0.05m,mass=4kg,cnr=-0.012,inertia=x3.5,vertical_wind=1_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
@@ -309,7 +309,7 @@
     },
     "cg=+0m,mass=3.364kg,cnr=-0.012,inertia=x1,vertical_wind=0.5_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 4.83384272704264
+      "score": 4.833842727042639
     },
     "cg=+0m,mass=3.364kg,cnr=-0.012,inertia=x1,vertical_wind=0.5_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
@@ -329,7 +329,7 @@
     },
     "cg=+0m,mass=3.364kg,cnr=-0.012,inertia=x2,vertical_wind=0.25_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 4.593259827282573
+      "score": 4.593259827282574
     },
     "cg=+0m,mass=3.364kg,cnr=-0.012,inertia=x2,vertical_wind=0.5_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
@@ -349,7 +349,7 @@
     },
     "cg=+0m,mass=3.364kg,cnr=-0.012,inertia=x3.5,vertical_wind=0.25_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 3.4654298890001844
+      "score": 3.465429889000185
     },
     "cg=+0m,mass=3.364kg,cnr=-0.012,inertia=x3.5,vertical_wind=0.25_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
@@ -369,7 +369,7 @@
     },
     "cg=+0m,mass=3.364kg,cnr=-0.012,inertia=x3.5,vertical_wind=1_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 4.892146765183065
+      "score": 4.892146765183064
     },
     "cg=+0m,mass=4kg,cnr=-0.012,inertia=x1,vertical_wind=0.25_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
@@ -377,11 +377,11 @@
     },
     "cg=+0m,mass=4kg,cnr=-0.012,inertia=x1,vertical_wind=0.25_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 4.8199625988345955
+      "score": 4.819962598834594
     },
     "cg=+0m,mass=4kg,cnr=-0.012,inertia=x1,vertical_wind=0.5_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 4.244576598152688
+      "score": 4.244576598152687
     },
     "cg=+0m,mass=4kg,cnr=-0.012,inertia=x1,vertical_wind=0.5_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
@@ -417,11 +417,11 @@
     },
     "cg=+0m,mass=4kg,cnr=-0.012,inertia=x2,vertical_wind=1_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 4.910456939296108
+      "score": 4.910456939296109
     },
     "cg=+0m,mass=4kg,cnr=-0.012,inertia=x3.5,vertical_wind=0.25_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 3.19869969570002
+      "score": 3.198699695700021
     },
     "cg=+0m,mass=4kg,cnr=-0.012,inertia=x3.5,vertical_wind=0.25_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
@@ -593,7 +593,7 @@
       "cg=+0.03m,mass=4kg,cnr=-0.012,inertia=x1,vertical_wind=0.5": 0.7507546499761587,
       "cg=+0.03m,mass=4kg,cnr=-0.012,inertia=x1,vertical_wind=1": 1.0527509355609586,
       "cg=+0.03m,mass=4kg,cnr=-0.012,inertia=x2,vertical_wind=0.25": 0.7153516994627229,
-      "cg=+0.03m,mass=4kg,cnr=-0.012,inertia=x2,vertical_wind=0.5": 0.7240245172495972,
+      "cg=+0.03m,mass=4kg,cnr=-0.012,inertia=x2,vertical_wind=0.5": 0.724024517249597,
       "cg=+0.03m,mass=4kg,cnr=-0.012,inertia=x2,vertical_wind=1": 0.996118468372395,
       "cg=+0.03m,mass=4kg,cnr=-0.012,inertia=x3.5,vertical_wind=0.25": 0.7714052774087614,
       "cg=+0.03m,mass=4kg,cnr=-0.012,inertia=x3.5,vertical_wind=0.5": 0.7681116107278207,
@@ -606,7 +606,7 @@
       "cg=+0.05m,mass=3.364kg,cnr=-0.012,inertia=x2,vertical_wind=1": 0.9534318188184959,
       "cg=+0.05m,mass=3.364kg,cnr=-0.012,inertia=x3.5,vertical_wind=0.25": 0.7115577269087184,
       "cg=+0.05m,mass=3.364kg,cnr=-0.012,inertia=x3.5,vertical_wind=0.5": 0.7296121709744019,
-      "cg=+0.05m,mass=3.364kg,cnr=-0.012,inertia=x3.5,vertical_wind=1": 0.9726591093465005,
+      "cg=+0.05m,mass=3.364kg,cnr=-0.012,inertia=x3.5,vertical_wind=1": 0.9726591093465004,
       "cg=+0.05m,mass=4kg,cnr=-0.012,inertia=x1,vertical_wind=0.25": 0.7491914301293032,
       "cg=+0.05m,mass=4kg,cnr=-0.012,inertia=x1,vertical_wind=0.5": 0.7188971835088726,
       "cg=+0.05m,mass=4kg,cnr=-0.012,inertia=x1,vertical_wind=1": 0.9459687807303819,
@@ -619,13 +619,13 @@
       "cg=+0m,mass=3.364kg,cnr=-0.012,inertia=x1,vertical_wind=0.25": 1.7116664901662189,
       "cg=+0m,mass=3.364kg,cnr=-0.012,inertia=x1,vertical_wind=0.5": 1.8133960856073679,
       "cg=+0m,mass=3.364kg,cnr=-0.012,inertia=x1,vertical_wind=1": 2.18514534089043,
-      "cg=+0m,mass=3.364kg,cnr=-0.012,inertia=x2,vertical_wind=0.25": 1.534050376244384,
+      "cg=+0m,mass=3.364kg,cnr=-0.012,inertia=x2,vertical_wind=0.25": 1.5340503762443838,
       "cg=+0m,mass=3.364kg,cnr=-0.012,inertia=x2,vertical_wind=0.5": 1.6197685961180175,
-      "cg=+0m,mass=3.364kg,cnr=-0.012,inertia=x2,vertical_wind=1": 1.9568538233112467,
+      "cg=+0m,mass=3.364kg,cnr=-0.012,inertia=x2,vertical_wind=1": 1.956853823311247,
       "cg=+0m,mass=3.364kg,cnr=-0.012,inertia=x3.5,vertical_wind=0.25": 1.4186834277089078,
       "cg=+0m,mass=3.364kg,cnr=-0.012,inertia=x3.5,vertical_wind=0.5": 1.4967347048570119,
       "cg=+0m,mass=3.364kg,cnr=-0.012,inertia=x3.5,vertical_wind=1": 1.8334132974990713,
-      "cg=+0m,mass=4kg,cnr=-0.012,inertia=x1,vertical_wind=0.25": 1.5576148561460503,
+      "cg=+0m,mass=4kg,cnr=-0.012,inertia=x1,vertical_wind=0.25": 1.55761485614605,
       "cg=+0m,mass=4kg,cnr=-0.012,inertia=x1,vertical_wind=0.5": 1.604281328756926,
       "cg=+0m,mass=4kg,cnr=-0.012,inertia=x1,vertical_wind=1": 1.977435522469873,
       "cg=+0m,mass=4kg,cnr=-0.012,inertia=x2,vertical_wind=0.25": 1.4010167017060702,
@@ -776,7 +776,7 @@
           }
         }
       },
-      "score_vs_kinematic_persistence": 0.5068951132949687
+      "score_vs_kinematic_persistence": 0.5068951132949688
     },
     "structured_residual": {
       "aggregate": {
@@ -2352,7 +2352,7 @@
         "yaw_damping_cnr": -0.012
       },
       "primary": false,
-      "score_vs_kinematic_persistence": 1.1774491917668493
+      "score_vs_kinematic_persistence": 1.177449191766849
     },
     "cg=+0.03m,mass=4kg,cnr=-0.012,inertia=x1,vertical_wind=0.25": {
       "aggregate": {
@@ -2497,7 +2497,7 @@
         "yaw_damping_cnr": -0.012
       },
       "primary": false,
-      "score_vs_kinematic_persistence": 0.8444874119504296
+      "score_vs_kinematic_persistence": 0.8444874119504298
     },
     "cg=+0.03m,mass=4kg,cnr=-0.012,inertia=x1,vertical_wind=0.5": {
       "aggregate": {
@@ -3077,7 +3077,7 @@
         "yaw_damping_cnr": -0.012
       },
       "primary": false,
-      "score_vs_kinematic_persistence": 0.7840885159377402
+      "score_vs_kinematic_persistence": 0.7840885159377401
     },
     "cg=+0.03m,mass=4kg,cnr=-0.012,inertia=x2,vertical_wind=1": {
       "aggregate": {
@@ -4092,7 +4092,7 @@
         "yaw_damping_cnr": -0.012
       },
       "primary": false,
-      "score_vs_kinematic_persistence": 0.9869629734447312
+      "score_vs_kinematic_persistence": 0.986962973444731
     },
     "cg=+0.05m,mass=3.364kg,cnr=-0.012,inertia=x2,vertical_wind=0.25": {
       "aggregate": {
@@ -4527,7 +4527,7 @@
         "yaw_damping_cnr": -0.012
       },
       "primary": false,
-      "score_vs_kinematic_persistence": 0.9300961147196342
+      "score_vs_kinematic_persistence": 0.930096114719634
     },
     "cg=+0.05m,mass=3.364kg,cnr=-0.012,inertia=x3.5,vertical_wind=0.25": {
       "aggregate": {
@@ -5252,7 +5252,7 @@
         "yaw_damping_cnr": -0.012
       },
       "primary": false,
-      "score_vs_kinematic_persistence": 0.7336772690522261
+      "score_vs_kinematic_persistence": 0.733677269052226
     },
     "cg=+0.05m,mass=4kg,cnr=-0.012,inertia=x1,vertical_wind=1": {
       "aggregate": {
@@ -5832,7 +5832,7 @@
         "yaw_damping_cnr": -0.012
       },
       "primary": false,
-      "score_vs_kinematic_persistence": 0.8709731332779989
+      "score_vs_kinematic_persistence": 0.8709731332779987
     },
     "cg=+0.05m,mass=4kg,cnr=-0.012,inertia=x3.5,vertical_wind=0.25": {
       "aggregate": {
@@ -8442,7 +8442,7 @@
         "yaw_damping_cnr": -0.012
       },
       "primary": false,
-      "score_vs_kinematic_persistence": 2.15203133927636
+      "score_vs_kinematic_persistence": 2.1520313392763595
     },
     "cg=+0m,mass=4kg,cnr=-0.012,inertia=x3.5,vertical_wind=0.25": {
       "aggregate": {
@@ -8911,114 +8911,114 @@
       "channels": {
         "X": {
           "corrections": {
-            "1": 0.2271016598378042,
-            "alpha": 0.39456098983749177,
-            "beta": 0.03931611865698267,
-            "delta_a": -0.08046916154522238,
-            "delta_e": 0.2410787084561264,
+            "1": 0.21878774987858238,
+            "alpha": 0.38376265242453983,
+            "beta": 0.0338239321930859,
+            "delta_a": -0.0367571224577488,
+            "delta_e": 0.11661506601855678,
             "delta_r": 0.0,
-            "p_hat": -0.017904528577313707,
-            "q_hat": -0.1263291959572057,
-            "r_hat": 0.02804967539927356,
-            "throttle": -0.46538149552572783
+            "p_hat": -0.10841355611274904,
+            "q_hat": -1.4707949499039292,
+            "r_hat": -0.028829380210186734,
+            "throttle": -0.4512639027547936
           },
           "mean": 2.66937678339104,
-          "r_squared": 0.41340859867897195,
+          "r_squared": 0.3808879614628421,
           "rms": 5.451403597670852,
           "sample_count": 6759,
           "unit": "N"
         },
         "Y": {
           "corrections": {
-            "1": 0.02388038602914993,
-            "alpha": -0.10251818742344533,
-            "beta": -0.2925391907261374,
-            "delta_a": 0.31521503444527993,
-            "delta_e": -0.10749982990914744,
+            "1": 0.012998500005788352,
+            "alpha": -0.10063205405690019,
+            "beta": -0.26109860722581785,
+            "delta_a": 0.16867267995836097,
+            "delta_e": -0.03850089873801262,
             "delta_r": 0.0,
-            "p_hat": -0.4399865446075233,
-            "q_hat": -1.297574149282633,
-            "r_hat": 0.9994098065592609,
-            "throttle": -0.034587064228368755
+            "p_hat": -0.029841434757218403,
+            "q_hat": -0.6531327069906255,
+            "r_hat": 0.9729455983516141,
+            "throttle": -0.022624602092704765
           },
           "mean": -2.629320918445116,
-          "r_squared": 0.5218349553330757,
+          "r_squared": 0.48909094326140434,
           "rms": 5.803011844887786,
           "sample_count": 6759,
           "unit": "N"
         },
         "Z": {
           "corrections": {
-            "1": 0.25040584308165714,
-            "alpha": -1.517110366075377,
-            "beta": -0.07834201052256881,
-            "delta_a": -0.42071048926115784,
-            "delta_e": -0.364091798825941,
+            "1": 0.2871420356307603,
+            "alpha": -1.5427600606174834,
+            "beta": -0.12743768498152755,
+            "delta_a": -0.239011659232647,
+            "delta_e": -0.12950145346991593,
             "delta_r": 0.0,
-            "p_hat": -0.2924665352786178,
-            "q_hat": -2.5407354072083166,
-            "r_hat": -1.1365325451161175,
-            "throttle": -0.49222737515872056
+            "p_hat": -0.8785971367947227,
+            "q_hat": 0.017454815118785202,
+            "r_hat": -0.9147964644494421,
+            "throttle": -0.5313045661808263
           },
           "mean": -2.6775298431468006,
-          "r_squared": 0.5816923181475556,
+          "r_squared": 0.5671449168276537,
           "rms": 18.655082013533598,
           "sample_count": 6759,
           "unit": "N"
         },
         "pitch": {
           "corrections": {
-            "1": 0.02428414530673367,
-            "alpha": -0.3705006270851819,
-            "beta": -0.008865480664117645,
-            "delta_a": -0.036300362033570864,
-            "delta_e": -0.08765777292281378,
+            "1": 0.031506907749405066,
+            "alpha": -0.3663329493744748,
+            "beta": -0.013556383392733292,
+            "delta_a": -0.01593005917365943,
+            "delta_e": -0.04345603668253026,
             "delta_r": 0.0,
-            "p_hat": -0.07643605641697018,
-            "q_hat": -1.3760410053592396,
-            "r_hat": 0.058831570468099816,
-            "throttle": -0.03342143391149734
+            "p_hat": -0.13991272855998815,
+            "q_hat": -0.8766957348936734,
+            "r_hat": 0.08239307663776363,
+            "throttle": -0.043719749690905405
           },
           "mean": -0.12927689057055317,
-          "r_squared": 0.8407425092762475,
+          "r_squared": 0.8295182887001338,
           "rms": 1.3246131044145217,
           "sample_count": 6759,
           "unit": "N m"
         },
         "roll": {
           "corrections": {
-            "1": 0.010267085588354373,
-            "alpha": 0.015920395487945042,
-            "beta": -0.07384699516721516,
-            "delta_a": 0.05763622320088837,
-            "delta_e": 0.012190297440989335,
+            "1": 0.005678151855272512,
+            "alpha": 0.014944807958171758,
+            "beta": -0.06786557000229146,
+            "delta_a": 0.024153778892451364,
+            "delta_e": 0.006849831179300834,
             "delta_r": 0.0,
-            "p_hat": -0.30680074406876734,
-            "q_hat": 0.038440092711592835,
-            "r_hat": -0.1350750641469113,
-            "throttle": -0.02977637271868314
+            "p_hat": -0.21835610161961386,
+            "q_hat": -0.040518562639865814,
+            "r_hat": -0.13817401981513314,
+            "throttle": -0.023871666211674632
           },
           "mean": -2.745465075107978,
-          "r_squared": 0.7928124456278683,
+          "r_squared": 0.7069193322786551,
           "rms": 3.4424719878492005,
           "sample_count": 6759,
           "unit": "N m"
         },
         "yaw": {
           "corrections": {
-            "1": -0.0012180464353528783,
-            "alpha": 0.0010899363061991248,
-            "beta": 0.02180653611331017,
-            "delta_a": 0.001704572741567478,
-            "delta_e": -0.00014455066028027337,
+            "1": -0.001002115930421589,
+            "alpha": 0.001330606380017132,
+            "beta": 0.022030526114620707,
+            "delta_a": 0.0030968109373303017,
+            "delta_e": 0.00011028243340933406,
             "delta_r": 0.0,
-            "p_hat": 0.01744411212950128,
-            "q_hat": -0.03572551066091408,
-            "r_hat": 0.03894756591101291,
-            "throttle": 0.0035218403428578233
+            "p_hat": 0.016485730363526744,
+            "q_hat": -0.03273076516658781,
+            "r_hat": 0.03523531707705439,
+            "throttle": 0.0031744553037337574
           },
           "mean": 0.37935999692761,
-          "r_squared": 0.677003332493141,
+          "r_squared": 0.6974899548146816,
           "rms": 0.608315578501536,
           "sample_count": 6759,
           "unit": "N m"
@@ -9036,114 +9036,114 @@
       "channels": {
         "X": {
           "corrections": {
-            "1": 0.2271016598378042,
-            "alpha": 0.39456098983749177,
-            "beta": 0.03931611865698267,
-            "delta_a": -0.08046916154522238,
-            "delta_e": 0.2410787084561264,
+            "1": 0.21878774987858238,
+            "alpha": 0.38376265242453983,
+            "beta": 0.0338239321930859,
+            "delta_a": -0.0367571224577488,
+            "delta_e": 0.11661506601855678,
             "delta_r": 0.0,
-            "p_hat": -0.017904528577313707,
-            "q_hat": -0.1263291959572057,
-            "r_hat": 0.02804967539927356,
-            "throttle": -0.46538149552572783
+            "p_hat": -0.10841355611274904,
+            "q_hat": -1.4707949499039292,
+            "r_hat": -0.028829380210186734,
+            "throttle": -0.4512639027547936
           },
           "mean": 2.66937678339104,
-          "r_squared": 0.41340859867897195,
+          "r_squared": 0.3808879614628421,
           "rms": 5.451403597670852,
           "sample_count": 6759,
           "unit": "N"
         },
         "Y": {
           "corrections": {
-            "1": 0.02388038602914993,
-            "alpha": -0.10251818742344533,
-            "beta": -0.2925391907261374,
-            "delta_a": 0.31521503444527993,
-            "delta_e": -0.10749982990914744,
+            "1": 0.012998500005788352,
+            "alpha": -0.10063205405690019,
+            "beta": -0.26109860722581785,
+            "delta_a": 0.16867267995836097,
+            "delta_e": -0.03850089873801262,
             "delta_r": 0.0,
-            "p_hat": -0.4399865446075233,
-            "q_hat": -1.297574149282633,
-            "r_hat": 0.9994098065592609,
-            "throttle": -0.034587064228368755
+            "p_hat": -0.029841434757218403,
+            "q_hat": -0.6531327069906255,
+            "r_hat": 0.9729455983516141,
+            "throttle": -0.022624602092704765
           },
           "mean": -2.629320918445116,
-          "r_squared": 0.5218349553330757,
+          "r_squared": 0.48909094326140434,
           "rms": 5.803011844887786,
           "sample_count": 6759,
           "unit": "N"
         },
         "Z": {
           "corrections": {
-            "1": 0.25040584308165714,
-            "alpha": -1.517110366075377,
-            "beta": -0.07834201052256881,
-            "delta_a": -0.42071048926115784,
-            "delta_e": -0.364091798825941,
+            "1": 0.2871420356307603,
+            "alpha": -1.5427600606174834,
+            "beta": -0.12743768498152755,
+            "delta_a": -0.239011659232647,
+            "delta_e": -0.12950145346991593,
             "delta_r": 0.0,
-            "p_hat": -0.2924665352786178,
-            "q_hat": -2.5407354072083166,
-            "r_hat": -1.1365325451161175,
-            "throttle": -0.49222737515872056
+            "p_hat": -0.8785971367947227,
+            "q_hat": 0.017454815118785202,
+            "r_hat": -0.9147964644494421,
+            "throttle": -0.5313045661808263
           },
           "mean": -2.6775298431468006,
-          "r_squared": 0.5816923181475556,
+          "r_squared": 0.5671449168276537,
           "rms": 18.655082013533598,
           "sample_count": 6759,
           "unit": "N"
         },
         "pitch": {
           "corrections": {
-            "1": 0.10310178046577889,
-            "alpha": 0.10464034147448495,
-            "beta": -0.012621739998139493,
-            "delta_a": -0.1324993378346231,
-            "delta_e": 0.2641834651575524,
+            "1": 0.09778586817369653,
+            "alpha": 0.08271092428348482,
+            "beta": -0.023113070152245115,
+            "delta_a": -0.045253402012738864,
+            "delta_e": 0.14600871466257118,
             "delta_r": 0.0,
-            "p_hat": -0.0757364701227175,
-            "q_hat": -0.9382706117321454,
-            "r_hat": 0.18467924712294936,
-            "throttle": -0.22364540791666343
+            "p_hat": -0.26281503499751924,
+            "q_hat": -2.2374386259692556,
+            "r_hat": 0.11007578812738768,
+            "throttle": -0.21022958148362336
           },
           "mean": -0.14638487585507337,
-          "r_squared": 0.380230397265527,
+          "r_squared": 0.34450214465517504,
           "rms": 1.7317723207929923,
           "sample_count": 6759,
           "unit": "N m"
         },
         "roll": {
           "corrections": {
-            "1": 0.0033884946745079245,
-            "alpha": 0.049250762361941314,
-            "beta": -0.04666512957476144,
-            "delta_a": -0.1013357600689524,
-            "delta_e": 0.05241809733620525,
+            "1": 0.004149365944589681,
+            "alpha": 0.04877000489328471,
+            "beta": -0.05683307306825235,
+            "delta_a": -0.06870239702498933,
+            "delta_e": 0.016459398504534734,
             "delta_r": 0.0,
-            "p_hat": -0.05686667890278522,
-            "q_hat": 0.27672875807892483,
-            "r_hat": -0.6261927759169661,
-            "throttle": -0.03205930071673636
+            "p_hat": -0.1651961745051052,
+            "q_hat": -0.07740026861320658,
+            "r_hat": -0.6013539684351006,
+            "throttle": -0.032402174298915204
           },
           "mean": -2.756864382963998,
-          "r_squared": 0.4263595516538131,
+          "r_squared": 0.45214589877602696,
           "rms": 5.069999454013724,
           "sample_count": 6759,
           "unit": "N m"
         },
         "yaw": {
           "corrections": {
-            "1": 0.0010733102974629348,
-            "alpha": 0.004579336443440821,
-            "beta": 0.0054964866318540345,
-            "delta_a": 0.013885588441857223,
-            "delta_e": -0.0017989626131267806,
+            "1": 0.001459798382265003,
+            "alpha": 0.005356539862157263,
+            "beta": 0.007083092730677042,
+            "delta_a": 0.014969822022648429,
+            "delta_e": 0.0001572249269628815,
             "delta_r": 0.0,
-            "p_hat": 0.05388865001754086,
-            "q_hat": -0.15878304445609046,
-            "r_hat": 0.1742355266294167,
-            "throttle": 0.0009197347533189091
+            "p_hat": 0.06114949001982015,
+            "q_hat": -0.1396656109468263,
+            "r_hat": 0.16041447619268803,
+            "throttle": 0.00015839607699924698
           },
           "mean": 0.40553124000503016,
-          "r_squared": 0.3560202509705712,
+          "r_squared": 0.41669275613929935,
           "rms": 1.244198267578711,
           "sample_count": 6759,
           "unit": "N m"
@@ -9161,114 +9161,114 @@
       "channels": {
         "X": {
           "corrections": {
-            "1": 0.2271016598378042,
-            "alpha": 0.39456098983749177,
-            "beta": 0.03931611865698267,
-            "delta_a": -0.08046916154522238,
-            "delta_e": 0.2410787084561264,
+            "1": 0.21878774987858238,
+            "alpha": 0.38376265242453983,
+            "beta": 0.0338239321930859,
+            "delta_a": -0.0367571224577488,
+            "delta_e": 0.11661506601855678,
             "delta_r": 0.0,
-            "p_hat": -0.017904528577313707,
-            "q_hat": -0.1263291959572057,
-            "r_hat": 0.02804967539927356,
-            "throttle": -0.46538149552572783
+            "p_hat": -0.10841355611274904,
+            "q_hat": -1.4707949499039292,
+            "r_hat": -0.028829380210186734,
+            "throttle": -0.4512639027547936
           },
           "mean": 2.66937678339104,
-          "r_squared": 0.41340859867897195,
+          "r_squared": 0.3808879614628421,
           "rms": 5.451403597670852,
           "sample_count": 6759,
           "unit": "N"
         },
         "Y": {
           "corrections": {
-            "1": 0.02388038602914993,
-            "alpha": -0.10251818742344533,
-            "beta": -0.2925391907261374,
-            "delta_a": 0.31521503444527993,
-            "delta_e": -0.10749982990914744,
+            "1": 0.012998500005788352,
+            "alpha": -0.10063205405690019,
+            "beta": -0.26109860722581785,
+            "delta_a": 0.16867267995836097,
+            "delta_e": -0.03850089873801262,
             "delta_r": 0.0,
-            "p_hat": -0.4399865446075233,
-            "q_hat": -1.297574149282633,
-            "r_hat": 0.9994098065592609,
-            "throttle": -0.034587064228368755
+            "p_hat": -0.029841434757218403,
+            "q_hat": -0.6531327069906255,
+            "r_hat": 0.9729455983516141,
+            "throttle": -0.022624602092704765
           },
           "mean": -2.629320918445116,
-          "r_squared": 0.5218349553330757,
+          "r_squared": 0.48909094326140434,
           "rms": 5.803011844887786,
           "sample_count": 6759,
           "unit": "N"
         },
         "Z": {
           "corrections": {
-            "1": 0.25040584308165714,
-            "alpha": -1.517110366075377,
-            "beta": -0.07834201052256881,
-            "delta_a": -0.42071048926115784,
-            "delta_e": -0.364091798825941,
+            "1": 0.2871420356307603,
+            "alpha": -1.5427600606174834,
+            "beta": -0.12743768498152755,
+            "delta_a": -0.239011659232647,
+            "delta_e": -0.12950145346991593,
             "delta_r": 0.0,
-            "p_hat": -0.2924665352786178,
-            "q_hat": -2.5407354072083166,
-            "r_hat": -1.1365325451161175,
-            "throttle": -0.49222737515872056
+            "p_hat": -0.8785971367947227,
+            "q_hat": 0.017454815118785202,
+            "r_hat": -0.9147964644494421,
+            "throttle": -0.5313045661808263
           },
           "mean": -2.6775298431468006,
-          "r_squared": 0.5816923181475556,
+          "r_squared": 0.5671449168276537,
           "rms": 18.655082013533598,
           "sample_count": 6759,
           "unit": "N"
         },
         "pitch": {
           "corrections": {
-            "1": 0.02428414530673367,
-            "alpha": -0.3705006270851819,
-            "beta": -0.008865480664117645,
-            "delta_a": -0.036300362033570864,
-            "delta_e": -0.08765777292281378,
+            "1": 0.031506907749405066,
+            "alpha": -0.3663329493744748,
+            "beta": -0.013556383392733292,
+            "delta_a": -0.01593005917365943,
+            "delta_e": -0.04345603668253026,
             "delta_r": 0.0,
-            "p_hat": -0.07643605641697018,
-            "q_hat": -1.3760410053592396,
-            "r_hat": 0.058831570468099816,
-            "throttle": -0.03342143391149734
+            "p_hat": -0.13991272855998815,
+            "q_hat": -0.8766957348936734,
+            "r_hat": 0.08239307663776363,
+            "throttle": -0.043719749690905405
           },
           "mean": -0.12927689057055317,
-          "r_squared": 0.8407425092762475,
+          "r_squared": 0.8295182887001338,
           "rms": 1.3246131044145217,
           "sample_count": 6759,
           "unit": "N m"
         },
         "roll": {
           "corrections": {
-            "1": 0.010267085588354373,
-            "alpha": 0.015920395487945042,
-            "beta": -0.07384699516721516,
-            "delta_a": 0.05763622320088837,
-            "delta_e": 0.012190297440989335,
+            "1": 0.005678151855272512,
+            "alpha": 0.014944807958171758,
+            "beta": -0.06786557000229146,
+            "delta_a": 0.024153778892451364,
+            "delta_e": 0.006849831179300834,
             "delta_r": 0.0,
-            "p_hat": -0.30680074406876734,
-            "q_hat": 0.038440092711592835,
-            "r_hat": -0.1350750641469113,
-            "throttle": -0.02977637271868314
+            "p_hat": -0.21835610161961386,
+            "q_hat": -0.040518562639865814,
+            "r_hat": -0.13817401981513314,
+            "throttle": -0.023871666211674632
           },
           "mean": -2.745465075107978,
-          "r_squared": 0.7928124456278683,
+          "r_squared": 0.7069193322786551,
           "rms": 3.4424719878492005,
           "sample_count": 6759,
           "unit": "N m"
         },
         "yaw": {
           "corrections": {
-            "1": -0.0012180464353528783,
-            "alpha": 0.0010899363061991248,
-            "beta": 0.02180653611331017,
-            "delta_a": 0.001704572741567478,
-            "delta_e": -0.00014455066028027337,
+            "1": -0.001002115930421589,
+            "alpha": 0.001330606380017132,
+            "beta": 0.022030526114620707,
+            "delta_a": 0.0030968109373303017,
+            "delta_e": 0.00011028243340933406,
             "delta_r": 0.0,
-            "p_hat": 0.01744411212950128,
-            "q_hat": -0.03572551066091408,
-            "r_hat": 0.03894756591101291,
-            "throttle": 0.0035218403428578233
+            "p_hat": 0.016485730363526744,
+            "q_hat": -0.03273076516658781,
+            "r_hat": 0.03523531707705439,
+            "throttle": 0.0031744553037337574
           },
           "mean": 0.37935999692761,
-          "r_squared": 0.677003332493141,
+          "r_squared": 0.6974899548146816,
           "rms": 0.608315578501536,
           "sample_count": 6759,
           "unit": "N m"
