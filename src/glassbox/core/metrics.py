@@ -59,8 +59,9 @@ METRIC_FLOORS = {
 # than the physically meaningful equality floors above.
 NEGLIGIBLE_METRIC_FLOORS = dict.fromkeys(ROLLOUT_METRICS, 1e-12)
 
+# The one floating-point order the geometric mean of the scored ratios is
+# taken in, and the name every report records for it.
 SEQUENTIAL_LOG_MEAN = "sequential_log_mean"
-VECTORIZED_LOG_MEAN = "vectorized_log_mean"
 
 
 @dataclass(frozen=True)
@@ -579,7 +580,6 @@ def persistence_score(
     horizons: Sequence[float] | None,
     floors: Mapping[str, float],
     metrics: Sequence[str] = ROLLOUT_METRICS,
-    aggregation: str = SEQUENTIAL_LOG_MEAN,
 ) -> float:
     """Score one candidate against a baseline over horizons and state metrics.
 
@@ -593,12 +593,10 @@ def persistence_score(
     own order. ``floors`` supplies the per-metric value below which a term is
     treated as equal, which stops numerical noise near zero from dominating.
 
-    ``aggregation`` selects the floating-point reduction. The two options
-    compute the same geometric mean but round differently, and recorded reports
-    pin the one that produced them: ``SEQUENTIAL_LOG_MEAN`` sums
-    :func:`math.log` terms in order, while ``VECTORIZED_LOG_MEAN`` takes
-    NumPy's pairwise-summed mean of :func:`numpy.log`, which is what the
-    recorded Skywalker X8 scores were produced with.
+    There is one reduction, ``SEQUENTIAL_LOG_MEAN``: the :func:`math.log`
+    terms are summed in the order the labels and metrics are listed. Every
+    report records that name, so two numbers can be compared knowing they were
+    reduced the same way.
     """
 
     labels = (
@@ -614,11 +612,7 @@ def persistence_score(
     ]
     if not ratios:
         raise ValueError("cannot average an empty score collection")
-    if aggregation == SEQUENTIAL_LOG_MEAN:
-        return float(math.exp(sum(math.log(value) for value in ratios) / len(ratios)))
-    if aggregation == VECTORIZED_LOG_MEAN:
-        return float(np.exp(np.mean(np.log(ratios))))
-    raise ValueError(f"unknown persistence score aggregation: {aggregation!r}")
+    return float(math.exp(sum(math.log(value) for value in ratios) / len(ratios)))
 
 
 def aggregate_rollout_metrics(

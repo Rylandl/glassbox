@@ -22,7 +22,7 @@
       "core/synthetic.py",
       "workflows/benchmarks/recovery.py"
     ],
-    "source_sha256": "a0f43fa5be904f684cd089d9e997ff43749a884bc38dd5e6752e9a5862458011",
+    "source_sha256": "723f8bcc42c9f3ba86627f726381cfbb8d45a8b744c15b3060d3dd9d7de97c9a",
     "scenario_sha256": "c47470b8184a34cc4bd9119f13765abe938d53f6b86a1d197ad3e0430251d57b"
   },
   "semantics": {
@@ -212,10 +212,10 @@
       "outside_support_step_count": 9,
       "fallback_count": 0,
       "finite": true,
-      "prewarm_wall_time_s": 6.3538468750193715,
-      "solve_time_median_s": 0.013433957938104868,
-      "solve_time_p90_s": 0.01447181215044111,
-      "solve_time_maximum_s": 0.015238499967381358
+      "prewarm_wall_time_s": 6.29643570818007,
+      "solve_time_median_s": 0.01360922900494188,
+      "solve_time_p90_s": 0.014491383265703917,
+      "solve_time_maximum_s": 0.014983834000304341
     },
     {
       "condition": "adapted_belief",
@@ -238,10 +238,10 @@
       "outside_support_step_count": 6,
       "fallback_count": 0,
       "finite": true,
-      "prewarm_wall_time_s": 7.882684292038903,
-      "solve_time_median_s": 0.03309902048204094,
-      "solve_time_p90_s": 0.03778966679237783,
-      "solve_time_maximum_s": 0.03867133310995996
+      "prewarm_wall_time_s": 7.460034833056852,
+      "solve_time_median_s": 0.03186393703799695,
+      "solve_time_p90_s": 0.03237129184417427,
+      "solve_time_maximum_s": 0.033735375152900815
     },
     {
       "condition": "adapted_mean_point",
@@ -264,10 +264,10 @@
       "outside_support_step_count": 8,
       "fallback_count": 0,
       "finite": true,
-      "prewarm_wall_time_s": 2.548774749971926,
-      "solve_time_median_s": 0.005519770551472902,
-      "solve_time_p90_s": 0.006077216356061399,
-      "solve_time_maximum_s": 0.006468916777521372
+      "prewarm_wall_time_s": 1.9824877080973238,
+      "solve_time_median_s": 0.005388166522607207,
+      "solve_time_p90_s": 0.005651316442526877,
+      "solve_time_maximum_s": 0.006088458001613617
     },
     {
       "condition": "oracle_mean_point",
@@ -290,10 +290,10 @@
       "outside_support_step_count": 8,
       "fallback_count": 0,
       "finite": true,
-      "prewarm_wall_time_s": 0.009983958909288049,
-      "solve_time_median_s": 0.005297478986904025,
-      "solve_time_p90_s": 0.005612500011920929,
-      "solve_time_maximum_s": 0.006344333058223128
+      "prewarm_wall_time_s": 0.010623082984238863,
+      "solve_time_median_s": 0.005277979071252048,
+      "solve_time_p90_s": 0.005503829242661596,
+      "solve_time_maximum_s": 0.006229417165741324
     }
   ],
   "comparisons": {

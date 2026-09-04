@@ -31,7 +31,6 @@ from glassbox.core.metrics import (
     NEGLIGIBLE_METRIC_FLOORS,
     ROLLOUT_METRICS,
     SEQUENTIAL_LOG_MEAN,
-    VECTORIZED_LOG_MEAN,
     aggregate_rollout_metrics,
     kinematic_persistence_windowed_metrics,
     persistence_score,
@@ -97,9 +96,10 @@ class ScoringPolicy:
     a prediction is initialized: :data:`ONE_HORIZON` gives back-to-back windows,
     :data:`ONE_SAMPLE` starts one at every admissible sample. ``baseline`` names
     what the model is scored against, ``floors`` the per-metric value below
-    which two numbers count as equal, and ``score_reduction`` which
-    floating-point reduction produces the geometric mean, because recorded
-    reports pin the one that produced them.
+    which two numbers count as equal, and ``score_reduction`` names the
+    reduction that produces the geometric mean, which every report records.
+    There is one, so a policy that scores a horizon table names it and a
+    policy that scores none, like the Nano-drone convention, leaves it unset.
     """
 
     name: str
@@ -152,7 +152,7 @@ PROTOCOLS: dict[str, ScoringPolicy] = {
         aggregation="equal_flight",
         horizons_s=(0.1, 0.5, 1.0, 2.0),
         floors=NEGLIGIBLE_METRIC_FLOORS,
-        score_reduction=VECTORIZED_LOG_MEAN,
+        score_reduction=SEQUENTIAL_LOG_MEAN,
         exact_horizons=True,
         definition=(
             "the NTNU Skywalker X8 campaign convention: a rollout initialized "
@@ -240,7 +240,6 @@ def score_against_baseline(
         horizons=horizons_s,
         floors=policy.floors,
         metrics=ROLLOUT_METRICS,
-        aggregation=policy.score_reduction,
     )
 
 

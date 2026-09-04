@@ -22,8 +22,6 @@ from glassbox.core.metrics import (
     METRIC_FLOORS,
     NEGLIGIBLE_METRIC_FLOORS,
     ROLLOUT_METRICS,
-    SEQUENTIAL_LOG_MEAN,
-    VECTORIZED_LOG_MEAN,
     aggregate_rollout_metrics,
     kinematic_persistence_windowed_metrics,
     persistence_score,
@@ -111,8 +109,8 @@ PINNED = {
             "sample_count": 1560,
             "rollout_count": 156,
         },
-        "score_sequential_metric_floors": 0.1623975288317861,
-        "score_vectorized_negligible_floors": 3.2425028973587664e-06,
+        "score_metric_floors": 0.1623975288317861,
+        "score_negligible_floors": 3.2425028973587664e-06,
         "divergence": {
             "diverged": 0,
             "divergence_time_s": None,
@@ -193,8 +191,8 @@ PINNED = {
             "sample_count": 1560,
             "rollout_count": 156,
         },
-        "score_sequential_metric_floors": 0.710800006825542,
-        "score_vectorized_negligible_floors": 0.710800006825542,
+        "score_metric_floors": 0.710800006825542,
+        "score_negligible_floors": 0.710800006825542,
         "divergence": {
             "diverged": False,
             "divergence_time_s": None,
@@ -275,8 +273,8 @@ PINNED = {
             "sample_count": 1560,
             "rollout_count": 156,
         },
-        "score_sequential_metric_floors": 0.035142400490184626,
-        "score_vectorized_negligible_floors": 9.135398691177555e-07,
+        "score_metric_floors": 0.035142400490184626,
+        "score_negligible_floors": 9.135398691177538e-07,
         "divergence": {
             "diverged": 0,
             "divergence_time_s": None,
@@ -324,21 +322,19 @@ def _measured(case: str) -> dict[str, dict]:
         "persistence_stride_one": persistence_stride_one,
         "aggregate_sample": aggregate_rollout_metrics(both, weighting="sample"),
         "aggregate_equal": aggregate_rollout_metrics(both, weighting="equal"),
-        "score_sequential_metric_floors": persistence_score(
+        "score_metric_floors": persistence_score(
             {label: windowed_stride_one},
             {label: persistence_stride_one},
             horizons=None,
             floors=METRIC_FLOORS,
             metrics=ROLLOUT_METRICS,
-            aggregation=SEQUENTIAL_LOG_MEAN,
         ),
-        "score_vectorized_negligible_floors": persistence_score(
+        "score_negligible_floors": persistence_score(
             {label: windowed_stride_one},
             {label: persistence_stride_one},
             horizons=None,
             floors=NEGLIGIBLE_METRIC_FLOORS,
             metrics=ROLLOUT_METRICS,
-            aggregation=VECTORIZED_LOG_MEAN,
         ),
         "divergence": rollout_divergence_metrics(params, trajectory),
     }

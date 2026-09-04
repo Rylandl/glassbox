@@ -333,6 +333,20 @@ All notable changes to Glassbox are recorded here. The format follows
   parameters, so an implementer states its numbers in one object.
 
 ### Changed
+- The `x8` scoring policy reduces its score in the one remaining order. The
+  reassociation is smaller than it looks: on the pinned X8 protocol test in
+  `tests/test_evaluate.py`, whose score is a geometric mean over two horizons
+  and four metrics, the two orders agree bit for bit and
+  `score_vs_baseline` is unchanged at `218404657.41271302`. It does move on a
+  four-ratio reduction: `tests/test_metrics.py`'s `multirotor_true` score with
+  the negligible floors, which was recorded under the vectorized order as
+  `score_vectorized_negligible_floors`, is re-pinned from
+  `9.135398691177555e-07` to `9.135398691177538e-07`, and the two pinned keys
+  are `score_metric_floors` and `score_negligible_floors` since neither names
+  an order any more. `docs/results/cascade-x8-validation-results.json` is
+  untouched here and re-records with the rest of the corpus tier in Phase 3;
+  its comparison scores were produced under the vectorized order. Neither
+  recorded local artifact uses `persistence_score` at all.
 - One window budget, declared once. `core/identification.py` exports
   `window_budget(horizon_steps, minimum=1)` over
   `MAXIMUM_WINDOWS_PER_HORIZON` (8192) and `MAXIMUM_TRANSITIONS_PER_HORIZON`
@@ -1056,6 +1070,16 @@ All notable changes to Glassbox are recorded here. The format follows
   learned. No flag was removed.
 
 ### Removed
+- `core/metrics.py::VECTORIZED_LOG_MEAN` and the `aggregation` argument of
+  `persistence_score`. Two floating-point orders of the same geometric mean
+  were kept as a public choice because the recorded Skywalker X8 scores had
+  been produced under the vectorized one. There is one order now: the
+  `math.log` terms summed in the order the labels and metrics are listed.
+  `SEQUENTIAL_LOG_MEAN` stays as the name every report records for it, and
+  `ScoringPolicy.score_reduction` still distinguishes a policy that scores a
+  horizon table from the Nano-drone convention, which scores none. Last commit
+  carrying the vectorized order: `68eb163`.
+
 - `RuntimeModelSpec.certified_prediction_horizon_s` and
   `certification_source`, their validation, their two keys in the runtime
   spec's serialized form, and the `certified_prediction_horizon_s` and
