@@ -5,8 +5,9 @@ carries an accumulated precision over the structured coefficient block, the
 per-coordinate scale that makes directions of different physical units
 comparable, the mask of coordinates a fitter is allowed to move, and the
 one-step innovation noise that weights every new observation. Rank zero is a
-point estimate: nothing is known, no direction is resolved, and no update takes
-a step. Nothing here is floored into small variances, so an unexcited direction
+point estimate: nothing is known and no direction is resolved. New evidence
+can resolve directions before an update takes its step. Nothing here is
+floored into small variances, so an unexcited direction
 stays unresolved instead of becoming a high-precision observation.
 """
 
@@ -28,7 +29,7 @@ from glassbox.core.dynamics import (
 )
 from glassbox.core.geometry import TANGENT_GROUP_INDICES, TANGENT_STATE_SIZE
 
-PARAMETER_INFORMATION_FORMAT_VERSION = 1
+PARAMETER_INFORMATION_FORMAT_VERSION = 2
 _FLOAT32_EPSILON = float(np.finfo(np.float32).eps)
 
 # The declared floor on one-step innovation variance, one entry per rigid-body
@@ -246,7 +247,10 @@ class ParameterInformation:
     ``u`` by ``parameters = center + diag(scale) @ u``, so the normalized
     precision ``diag(scale) @ precision @ diag(scale)`` has eigenvalues that
     are comparable across coordinates of different physical units, and the rank
-    test is stated on those. ``estimable`` is the mask the fitter declares;
+    test is stated on those. The first nonzero matrix sets ``rank_threshold``
+    from the relative tolerance. Subsequent ``with_precision`` calls preserve
+    this absolute threshold, so adding information cannot erase an unrelated
+    resolved direction. ``estimable`` is the mask the fitter declares;
     rows and columns outside it are exactly zero. ``innovation_noise`` is the
     per-coordinate one-step innovation variance ``R`` in the twelve rigid-body
     tangent coordinates, never below ``noise_floor``.
@@ -273,6 +277,7 @@ class ParameterInformation:
     effective_count: float
     rank_relative_tolerance: float = 0.01
     source: str = "declared"
+    rank_threshold: float | None = None
 
     def __post_init__(self) -> None:
         names = tuple(str(name) for name in self.names)
@@ -334,6 +339,13 @@ class ParameterInformation:
         object.__setattr__(self, "noise_floor", _owned_array(floor))
         object.__setattr__(self, "effective_count", float(self.effective_count))
         object.__setattr__(self, "rank_relative_tolerance", tolerance)
+        threshold = self.rank_threshold
+        if threshold is None:
+            largest = float(np.max(np.linalg.eigvalsh(self.normalized_precision)))
+            threshold = tolerance * largest if largest > 0.0 else None
+        if threshold is not None and (not np.isfinite(threshold) or threshold < 0.0):
+            raise ValueError("absolute rank threshold must be finite and nonnegative")
+        object.__setattr__(self, "rank_threshold", threshold)
 
     @classmethod
     def unknown(
@@ -451,7 +463,7 @@ class ParameterInformation:
         """Eigendecompose the estimable block of the normalized precision.
 
         Returns the estimable indices, the clipped eigenvalues, their
-        eigenvectors, and the relative threshold that separates resolved
+        eigenvectors, and the absolute threshold that separates resolved
         directions from unresolved ones.
         """
 
@@ -461,7 +473,8 @@ class ParameterInformation:
         )
         eigenvalues = np.maximum(eigenvalues, 0.0)
         largest = float(np.max(eigenvalues)) if len(eigenvalues) else 0.0
-        threshold = self.rank_relative_tolerance * largest if largest > 0.0 else np.inf
+        threshold = self.rank_threshold if largest > 0.0 else np.inf
+        assert threshold is not None
         return indices, eigenvalues, eigenvectors, threshold
 
     def resolved_rank(self) -> int:
@@ -469,6 +482,21 @@ class ParameterInformation:
 
         _, eigenvalues, _, threshold = self._normalized_spectrum()
         return int(np.count_nonzero(eigenvalues > threshold))
+
+    @property
+    def complete(self) -> bool:
+        """Whether every estimable direction has finite supported covariance."""
+
+        return self.resolved_rank() == self.estimable_count
+
+    def unresolved_subspace(self) -> np.ndarray:
+        """Unknown directions, in parameter coordinates; not zero-variance ones."""
+
+        indices, eigenvalues, eigenvectors, threshold = self._normalized_spectrum()
+        unresolved = eigenvalues <= threshold
+        basis = np.zeros((len(self.names), int(np.count_nonzero(unresolved))))
+        basis[indices] = eigenvectors[:, unresolved]
+        return self.scale[:, None] * basis
 
     def resolved_subspace(self) -> np.ndarray:
         """Return the resolved directions as columns in parameter coordinates.
@@ -487,11 +515,10 @@ class ParameterInformation:
     def covariance(self) -> np.ndarray:
         """Return the pseudo-inverse of the precision on its resolved subspace.
 
-        Unresolved directions have exactly zero variance rather than a large
-        one: this object is what is known, and a direction it does not resolve
-        contributes nothing rather than an invented spread. The complementary
-        statement, that such a direction may be arbitrarily wrong, is carried
-        by the rank, not by the covariance.
+        This is a partial covariance padded with zeros, not a zero-variance
+        claim outside its support. Consumers must also use ``complete`` and
+        ``unresolved_subspace``. In particular a controller cannot price this
+        as a complete uncertainty bound without an explicit assumption.
         """
 
         indices, eigenvalues, eigenvectors, threshold = self._normalized_spectrum()
@@ -504,6 +531,20 @@ class ParameterInformation:
         normalized[np.ix_(indices, indices)] = (basis / eigenvalues[resolved]) @ basis.T
         covariance = self.scale[:, None] * normalized * self.scale[None, :]
         return 0.5 * (covariance + covariance.T)
+
+    def covariance_factor(self) -> np.ndarray:
+        """Factor the resolved covariance without a second numerical-rank test.
+
+        Small parameter variances can have large predicted effects. Select
+        directions using the information's existing threshold, then invert
+        those eigenvalues directly instead of thresholding the covariance.
+        """
+
+        indices, eigenvalues, eigenvectors, threshold = self._normalized_spectrum()
+        retained = np.flatnonzero(eigenvalues > threshold)[::-1]
+        factor = np.zeros((len(self.names), len(retained)))
+        factor[indices] = eigenvectors[:, retained] / np.sqrt(eigenvalues[retained])
+        return self.scale[:, None] * factor
 
     def authority(self, direction: np.ndarray) -> float:
         """Return how well one parameter direction is resolved, in ``[0, 1]``.
@@ -595,6 +636,7 @@ class ParameterInformation:
             ),
             rank_relative_tolerance=self.rank_relative_tolerance,
             source=self.source if source is None else source,
+            rank_threshold=self.rank_threshold,
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -613,6 +655,8 @@ class ParameterInformation:
             "noise_floor": self.noise_floor.tolist(),
             "effective_count": self.effective_count,
             "rank_relative_tolerance": self.rank_relative_tolerance,
+            "rank_threshold": self.rank_threshold,
+            "parameter_uncertainty_complete": self.complete,
             "resolved_rank": self.resolved_rank(),
             "estimable_count": self.estimable_count,
             "source": self.source,
@@ -624,7 +668,7 @@ def parameter_information_from_dict(
 ) -> ParameterInformation:
     """Restore one serialized :class:`ParameterInformation`."""
 
-    if payload.get("format_version") != PARAMETER_INFORMATION_FORMAT_VERSION:
+    if payload.get("format_version") not in (1, PARAMETER_INFORMATION_FORMAT_VERSION):
         raise ValueError("unsupported parameter-information format")
     if payload.get("coordinate_system") != (
         "unconstrained_structured_parameter_vector"
@@ -644,4 +688,5 @@ def parameter_information_from_dict(
         effective_count=float(payload["effective_count"]),
         rank_relative_tolerance=float(payload["rank_relative_tolerance"]),
         source=str(payload["source"]),
+        rank_threshold=payload.get("rank_threshold"),
     )

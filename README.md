@@ -68,10 +68,10 @@ belief.save("artifacts/belief.json")
 ```
 
 Update the belief from recent telemetry. Every usable one-step transition adds
-`J' R^-1 J` to the accumulated precision and the step is that precision's
-pseudo-inverse applied to the whitened innovation, so a direction the
-telemetry does not excite does not move at all. There is no proposal, no
-validation split and no acceptance threshold:
+`J' R^-1 J` to the accumulated precision. Its pseudo-inverse supplies an
+update direction, restricted to resolved parameters. A bounded step and
+backtracking on the actual nonlinear error keep the updated model finite.
+There is no held-out acceptance split:
 
 ```python
 from glassbox.core.data import load_trajectory_npz
@@ -99,6 +99,11 @@ result = controller.solve(
 )
 command = result.command  # bounded even when result.command_usable is False
 ```
+
+A belief with unresolved parameters returns `SolveStatus.UNRESOLVED_MODEL`
+and a bounded hold by default. Simulation callers can explicitly set
+`SolverPolicy.allow_unresolved_parameters=True`; the result still reports
+that its parameter uncertainty is incomplete.
 
 See [dynamics beliefs](docs/concepts/dynamics-beliefs.md) and
 [NMPC](docs/concepts/nmpc.md) for the full contracts.

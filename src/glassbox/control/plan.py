@@ -233,6 +233,8 @@ class SolveStatus(StrEnum):
     INVALID_INPUT = "invalid_input"
     NONFINITE_OBJECTIVE = "nonfinite_objective"
     DEADLINE_EXCEEDED = "deadline_exceeded"
+    COMMAND_BOUND_VIOLATION = "command_bound_violation"
+    UNRESOLVED_MODEL = "unresolved_model"
 
 
 @dataclass(frozen=True)
@@ -269,6 +271,8 @@ class NMPCDiagnostics:
     maximum_normalized_model_uncertainty_standard_deviation: float
     warm_start_used: bool
     prediction_horizon_s: float
+    parameter_uncertainty_complete: bool = True
+    unresolved_parameters_allowed: bool = False
 
 
 @dataclass(frozen=True)
@@ -306,7 +310,7 @@ class SolverPolicy:
     horizon_steps: int
     block_count: int
     maximum_iterations: int = 8
-    line_search_steps: int = 8
+    line_search_steps: int = 16
     initial_step_size: float = 0.2
     gradient_tolerance: float = 2e-3
     relative_improvement_tolerance: float = 1e-5
@@ -316,6 +320,9 @@ class SolverPolicy:
     validity_weight: float = 20.0
     safety_weight: float = 40.0
     terminal_weight: float = 2.0
+    #: Explicitly accept a cost that omits unknown parameter directions.
+    #: Diagnostics continue to report incomplete, unbounded uncertainty.
+    allow_unresolved_parameters: bool = False
 
     @property
     def block_steps(self) -> int:
@@ -324,6 +331,8 @@ class SolverPolicy:
         return block_steps_for(self.horizon_steps, self.block_count)
 
     def __post_init__(self) -> None:
+        if not isinstance(self.allow_unresolved_parameters, bool):
+            raise TypeError("allow_unresolved_parameters must be a bool")
         if self.horizon_steps < 1:
             raise ValueError("horizon_steps must be positive")
         if not 1 <= self.block_count <= self.horizon_steps:
@@ -418,6 +427,7 @@ class PlanModel(Protocol):
     exogenous_size: int
     latent_size: int
     uncertainty_available: bool
+    uncertainty_complete: bool
     command_minimum: Array
     command_maximum: Array
     values: PlanValues

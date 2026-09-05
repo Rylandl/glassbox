@@ -562,11 +562,11 @@ class BoundedShootingSolver:
                 maximum_command_bound_violation=0.0,
                 maximum_validity_utilization=math.inf,
                 maximum_normalized_safety_violation=math.inf,
-                maximum_normalized_model_uncertainty_standard_deviation=(
-                    math.inf if self.model.uncertainty_available else 0.0
-                ),
+                maximum_normalized_model_uncertainty_standard_deviation=(math.inf),
                 warm_start_used=warm_start_used,
                 prediction_horizon_s=self.prediction_horizon_s,
+                parameter_uncertainty_complete=self.model.uncertainty_complete,
+                unresolved_parameters_allowed=self.policy.allow_unresolved_parameters,
             ),
             used_fallback=True,
             message=message,
@@ -598,6 +598,15 @@ class BoundedShootingSolver:
             raise _SolveAbort(
                 SolveStatus.DEADLINE_EXCEEDED,
                 "deadline must be finite and positive",
+            )
+        if (
+            not self.model.uncertainty_complete
+            and not self.policy.allow_unresolved_parameters
+        ):
+            raise _SolveAbort(
+                SolveStatus.UNRESOLVED_MODEL,
+                "model has unresolved parameters; provide more evidence or explicitly "
+                "set SolverPolicy.allow_unresolved_parameters=True for partial-information planning",
             )
 
     def _require_deadline(
@@ -869,9 +878,13 @@ class BoundedShootingSolver:
                 ),
                 maximum_normalized_model_uncertainty_standard_deviation=(
                     plan.maximum_normalized_uncertainty
+                    if self.model.uncertainty_complete
+                    else math.inf
                 ),
                 warm_start_used=progress.warm_start_used,
                 prediction_horizon_s=self.prediction_horizon_s,
+                parameter_uncertainty_complete=self.model.uncertainty_complete,
+                unresolved_parameters_allowed=self.policy.allow_unresolved_parameters,
             ),
             used_fallback=False,
             message=(
@@ -980,6 +993,11 @@ class BoundedShootingSolver:
                 raise _SolveAbort(
                     SolveStatus.NONFINITE_OBJECTIVE,
                     "optimized prediction is non-finite",
+                )
+            if self._maximum_command_bound_violation(plan) > 0.0:
+                raise _SolveAbort(
+                    SolveStatus.COMMAND_BOUND_VIOLATION,
+                    "plan model returned commands outside the declared bounds",
                 )
             self._require_deadline(
                 deadline_s,

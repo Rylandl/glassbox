@@ -60,7 +60,8 @@ current status: recorded, pending its first run, or blocked by a missing extra
 or missing local data. `--dry-run` prints the exact steps a run would take.
 Every step is one `glassbox` subcommand run in-process, and each corpus
 artifact ends in one assembly step that combines the chain's own reports into
-the recorded shape.
+the recorded shape. Recording disables holdout resume so a cached fit from
+earlier code cannot be presented as a freshly regenerated result.
 
 The **local** tier runs in this repository with nothing downloaded, and is
 what CI checks:

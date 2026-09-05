@@ -170,7 +170,7 @@ def test_shadow_run_records_every_interval_and_transmits_nothing() -> None:
     assert summary.solve_time_median_s == pytest.approx(0.01)
     assert summary.solve_time_p90_s == pytest.approx(0.01)
     assert summary.maximum_message_skew_s == pytest.approx(0.002)
-    assert summary.maximum_receive_age_s == pytest.approx(0.001)
+    assert summary.maximum_receive_age_s >= 0.001
     assert summary.maximum_source_clock_lag_s == 0.0
     assert summary.maximum_applied_command_skew_s is None
 

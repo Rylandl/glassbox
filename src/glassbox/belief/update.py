@@ -1,23 +1,16 @@
-"""The recursive information update: telemetry in, a better-known belief out.
+"""Recursive information assimilation with a safeguarded nonlinear mean update.
 
-``absorb`` is the whole of how a belief learns. It has no proposal, no
-validation split, no improvement margin and no gate. Every usable one-step
-transition adds ``J' R^-1 J`` to the accumulated precision, and the step it
-takes is the pseudo-inverse of that precision applied to the whitened
-innovation, which is exactly zero along every direction the evidence does not
-resolve. Information only accumulates: nothing here forgets, discounts, or
-rolls back.
-
-The one thing the update may weaken is its own noise model, and only by the
-part of the realized error the step could not explain. An empty belief makes a
-large first error and explains all of it with its own first step; it does not
-get to record that error as irreducible noise.
+Every usable transition adds J' R^-1 J once. Its resolved inverse supplies a
+parameter direction; a scale bound and backtracking on the actual nonlinear
+error plus prior quadratic determine a finite displacement. Information is
+retained even if no mean step is usable. Noise is measured from the actual
+accepted model, not a cancellation in its linear approximation.
 """
 
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from typing import Any
 
 import jax
@@ -29,7 +22,7 @@ from glassbox.belief.linearization import (
     compiled_batched_endpoint_tangent_error,
     compiled_batched_endpoint_tangent_linearization,
 )
-from glassbox.core.data import Trajectory
+from glassbox.core.data import Trajectory, control_history_before
 from glassbox.core.dynamics import (
     structured_parameter_vector,
     with_structured_parameter_vector,
@@ -42,6 +35,8 @@ from glassbox.core.model import ExecutableModel
 # innovation diagnostics carry through their scan.
 ACTUATOR_HISTORY_DURATION_S = 1.0
 VALIDITY_BOUNDARY_TOLERANCE = 1e-6
+MAXIMUM_NORMALIZED_PARAMETER_STEP = 1.0
+MAXIMUM_BACKTRACKING_STEPS = 20
 
 
 @dataclass(frozen=True)
@@ -177,15 +172,12 @@ def _control_histories(
 ) -> np.ndarray:
     """Return the preceding commands each window's latent state is built from."""
 
-    controls = np.asarray(telemetry.controls, dtype=np.float64)
-    histories = np.empty((len(starts), history_steps, controls.shape[1]))
-    for row, start in enumerate(starts):
-        available = controls[max(0, int(start) - history_steps) : int(start)]
-        if not len(available):
-            available = controls[0:1]
-        padding = np.repeat(available[0:1], history_steps - len(available), axis=0)
-        histories[row] = np.concatenate((padding, available), axis=0)
-    return histories
+    return np.stack(
+        [
+            control_history_before(telemetry, int(start), history_steps)
+            for start in starts
+        ]
+    )
 
 
 def one_step_linearization(
@@ -232,11 +224,10 @@ def absorb(
 ) -> tuple[DynamicsBelief, UpdateResult]:
     """Add one telemetry block's information to a belief and return both.
 
-    The returned belief carries strictly more precision than the one passed in
-    and its parameters have moved by the pseudo-inverse of that precision
-    applied to the whitened innovation, so a well-resolved direction moves less
-    than a poorly resolved one for the same innovation and an unresolved
-    direction does not move at all.
+    Usable transitions add precision. The resolved inverse gives a direction,
+    capped in parameter-scale coordinates and backtracked against the actual
+    nonlinear error plus the prior quadratic. A rejected candidate cannot
+    replace the finite mean, and unresolved directions receive no step.
     """
 
     if not isinstance(telemetry, Trajectory):
@@ -288,33 +279,74 @@ def absorb(
         information.precision + increment,
         effective_count=information.effective_count + len(starts),
     )
-    step = updated_information.covariance() @ score
-    updated_params = with_structured_parameter_vector(
-        belief.params, jnp.asarray(center + step)
+    direction = updated_information.covariance() @ score
+    normalized_length = float(np.linalg.norm(direction / information.scale))
+    if not np.isfinite(normalized_length):
+        return belief, _refused(
+            "parameter update direction is non-finite",
+            window_count=len(starts),
+            validity=worst_validity,
+        )
+    step_scale = min(
+        1.0, MAXIMUM_NORMALIZED_PARAMETER_STEP / max(normalized_length, 1e-30)
     )
+    history_steps = max(1, int(np.ceil(ACTUATOR_HISTORY_DURATION_S / dt_s)))
+    arguments = (
+        belief.params,
+        jnp.asarray(telemetry.states[starts]),
+        jnp.asarray(_control_histories(telemetry, starts, history_steps)),
+        jnp.asarray(telemetry.controls[starts][:, None, :]),
+        jnp.asarray(telemetry.states[starts + 1]),
+        jnp.asarray(telemetry.exogenous[starts][:, None, :]),
+    )
+    baseline = float(np.sum(np.square(innovations) / noise))
+    updated_model = belief.model
+    updated_errors = -innovations
+    step = np.zeros_like(direction)
+    # Information is assimilated once. Only the parameter displacement is
+    # backtracked, on the actual nonlinear residual plus the prior quadratic.
+    # Failure to find a descent step keeps a finite mean and still records the
+    # information in this block; it never commits a divergent candidate.
+    for _ in range(MAXIMUM_BACKTRACKING_STEPS):
+        candidate_step = step_scale * direction
+        candidate_vector = jnp.asarray(center + candidate_step)
+        candidate_params = with_structured_parameter_vector(
+            belief.params, candidate_vector
+        )
+        try:
+            candidate_model = belief.model.rebind_parameters(candidate_params)
+        except ValueError:
+            step_scale *= 0.5
+            continue
+        errors = np.asarray(
+            compiled_batched_endpoint_tangent_error(
+                candidate_vector,
+                *arguments,
+                dt_s=dt_s,
+                control_roles=telemetry.spec.control_roles,
+                exogenous_roles=telemetry.spec.exogenous_roles,
+            ),
+            dtype=np.float64,
+        )
+        value = float(np.sum(np.square(errors) / noise))
+        prior_cost = float(candidate_step @ information.precision @ candidate_step)
+        if (
+            np.all(np.isfinite(errors))
+            and np.isfinite(prior_cost)
+            and value + prior_cost <= baseline
+        ):
+            updated_model, updated_errors, step = (
+                candidate_model,
+                errors,
+                candidate_step,
+            )
+            break
+        step_scale *= 0.5
 
-    residual = innovations - np.einsum("wip,p->wi", sensitivity, step, optimize=True)
-    realized_noise = np.maximum(noise, np.mean(np.square(residual), axis=0))
+    realized_noise = np.maximum(noise, np.mean(np.square(updated_errors), axis=0))
     updated_information = updated_information.with_precision(
         updated_information.precision,
         innovation_noise=realized_noise,
-    )
-
-    history_steps = max(1, int(np.ceil(ACTUATOR_HISTORY_DURATION_S / dt_s)))
-    updated_errors = np.asarray(
-        compiled_batched_endpoint_tangent_error(
-            jnp.asarray(center + step),
-            belief.params,
-            jnp.asarray(telemetry.states[starts]),
-            jnp.asarray(_control_histories(telemetry, starts, history_steps)),
-            jnp.asarray(telemetry.controls[starts][:, None, :]),
-            jnp.asarray(telemetry.states[starts + 1]),
-            jnp.asarray(telemetry.exogenous[starts][:, None, :]),
-            dt_s=dt_s,
-            control_roles=telemetry.spec.control_roles,
-            exogenous_roles=telemetry.spec.exogenous_roles,
-        ),
-        dtype=np.float64,
     )
     prior_rank = information.resolved_rank()
     provenance: Mapping[str, Any] = {
@@ -326,7 +358,7 @@ def absorb(
         ),
     }
     updated = DynamicsBelief(
-        model=replace(belief.model, params=updated_params),
+        model=updated_model,
         information=updated_information,
         forecast_error=belief.forecast_error,
         provenance=provenance,

@@ -701,7 +701,7 @@ CORPUS_CHAINS = (
         anchor="idf-ds",
         evaluation=(
             "--hold-out source_group {work}/canonical/*.npz "
-            "--model-class structured_residual "
+            "--model-class structured_residual --no-resume "
             "--output-dir {work}/source_benchmark_structured_residual "
             "{steps} {folds}"
         ),

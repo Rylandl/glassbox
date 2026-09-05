@@ -176,6 +176,7 @@ def _test_policy(*, horizon_steps: int = 6) -> SolverPolicy:
         count for count in range(1, 4) if blocks_cover_horizon(horizon_steps, count)
     )
     return SolverPolicy(
+        allow_unresolved_parameters=True,
         horizon_steps=horizon_steps,
         block_count=block_count,
         maximum_iterations=4,
@@ -264,6 +265,7 @@ def line_search_failure_policy() -> SolverPolicy:
     """A policy whose Armijo condition no step can satisfy."""
 
     return SolverPolicy(
+        allow_unresolved_parameters=True,
         horizon_steps=6,
         block_count=3,
         maximum_iterations=2,
@@ -358,7 +360,7 @@ def test_default_multirotor_block_layout_has_no_dead_blocks_at_fifty_hertz(
 
 def test_solver_policy_rejects_a_layout_with_dead_command_blocks() -> None:
     with pytest.raises(ValueError, match="drive no prediction step"):
-        SolverPolicy(horizon_steps=4, block_count=3)
+        SolverPolicy(allow_unresolved_parameters=True, horizon_steps=4, block_count=3)
 
 
 def test_solver_propagates_latent_state_and_returns_bounded_plan(
@@ -782,6 +784,7 @@ def test_improvement_stall_is_reported_as_stalled_rather_than_converged(
 ) -> None:
     model = multirotor_model
     policy = SolverPolicy(
+        allow_unresolved_parameters=True,
         horizon_steps=6,
         block_count=3,
         maximum_iterations=4,
@@ -817,6 +820,7 @@ def test_line_search_stall_after_progress_keeps_the_improved_plan(
 ) -> None:
     model = multirotor_model
     policy = SolverPolicy(
+        allow_unresolved_parameters=True,
         horizon_steps=6,
         block_count=3,
         maximum_iterations=12,

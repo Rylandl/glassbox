@@ -1,11 +1,8 @@
 """Pinned numbers for the three named scoring policies.
 
-The values below were produced by ``workflows/nanodrone_evaluation.py``,
-``workflows/x8_evaluation.py`` and ``workflows/epfl_evaluation.py`` before the
-three modules were folded into :func:`glassbox.workflows.evaluate.evaluate` as
-policies. They are compared for exact equality: the whole point of keeping the
-conventions named rather than unifying them is that a published comparison
-stays the comparison it was.
+The values pin the named scoring conventions on deterministic fixtures. They
+were regenerated after the actuator quadrature correction changed predictions
+and synthetic baseline trajectories; the scoring conventions are unchanged.
 """
 
 from __future__ import annotations
@@ -48,21 +45,21 @@ PINNED_NANODRONE = {
             "attitude_mae_rad": 0.00882666713560621,
             "position_mae_m": 0.3706644317638345,
             "time_s": 0.01,
-            "velocity_mae_m_s": 0.05976445460124762,
+            "velocity_mae_m_s": 0.05976444715072663,
         },
         "2": {
-            "angular_velocity_mae_rad_s": 0.038321592666469964,
+            "angular_velocity_mae_rad_s": 0.038321607260316866,
             "attitude_mae_rad": 0.0177583286834975,
             "position_mae_m": 0.7418086562111033,
             "time_s": 0.02,
-            "velocity_mae_m_s": 0.11923846841716843,
+            "velocity_mae_m_s": 0.11923844606578798,
         },
     },
     "model_cumulative": {
-        "angular_velocity_mae_rad_s": 0.05746066962728584,
+        "angular_velocity_mae_rad_s": 0.05746068422113274,
         "attitude_mae_rad": 0.02658499581910371,
         "position_mae_m": 1.1124730879749378,
-        "velocity_mae_m_s": 0.17900292301841605,
+        "velocity_mae_m_s": 0.1790028932165146,
     },
     "baseline_cumulative": {
         "angular_velocity_mae_rad_s": 0.0,
@@ -79,13 +76,13 @@ PINNED_NANODRONE = {
 }
 
 PINNED_X8 = {
-    "score_vs_baseline": 218404657.41271302,
+    "score_vs_baseline": 218404657.32186955,
     "model_horizon_rollouts": {
         "0.025s": {
             "position_rmse_m": 0.0019531181008086921,
             "velocity_rmse_m_s": 0.15190138364789585,
-            "attitude_rmse_deg": 1.5240335138958447,
-            "angular_velocity_rmse_rad_s": 0.8599528463388723,
+            "attitude_rmse_deg": 1.5240335098404667,
+            "angular_velocity_rmse_rad_s": 0.8599528462540712,
             "final_position_error_m": 0.003382899783783087,
             "sample_count": 3,
             "rollout_count": 3,
@@ -93,8 +90,8 @@ PINNED_X8 = {
         "0.05s": {
             "position_rmse_m": 0.005392502358289542,
             "velocity_rmse_m_s": 0.22342080697946254,
-            "attitude_rmse_deg": 3.763235772424415,
-            "angular_velocity_rmse_rad_s": 1.33375903017084,
+            "attitude_rmse_deg": 3.7632357681456665,
+            "angular_velocity_rmse_rad_s": 1.3337590309297693,
             "final_position_error_m": 0.012768369528573138,
             "sample_count": 4,
             "rollout_count": 2,
@@ -118,34 +115,34 @@ PINNED_X8 = {
 
 PINNED_EPFL = {
     "scores": {
-        "structured": 6.2967675763778415,
-        "structured_residual": 3.148383788188921,
+        "structured": 6.296769188863287,
+        "structured_residual": 3.148384594431643,
     },
     "selected_model": "structured_residual",
     "baseline_horizon_rollouts": {
         "0.2s": {
-            "position_rmse_m": 0.0039391640290234314,
-            "velocity_rmse_m_s": 0.039840475393643826,
-            "attitude_rmse_deg": 0.1344833938271598,
-            "angular_velocity_rmse_rad_s": 0.013652109498898052,
+            "position_rmse_m": 0.003939168878054266,
+            "velocity_rmse_m_s": 0.039840444039191784,
+            "attitude_rmse_deg": 0.1344836047770969,
+            "angular_velocity_rmse_rad_s": 0.013652105124748468,
         },
         "0.5s": {
-            "position_rmse_m": 0.011189942395923557,
-            "velocity_rmse_m_s": 0.06167318101493113,
-            "attitude_rmse_deg": 0.3791972505013004,
-            "angular_velocity_rmse_rad_s": 0.020979199782071526,
+            "position_rmse_m": 0.011189945157114264,
+            "velocity_rmse_m_s": 0.06167312559694999,
+            "attitude_rmse_deg": 0.37919738091333444,
+            "angular_velocity_rmse_rad_s": 0.020979189730036193,
         },
         "1s": {
-            "position_rmse_m": 0.046851946053629516,
-            "velocity_rmse_m_s": 0.11474736009925932,
-            "attitude_rmse_deg": 1.6088144746163684,
-            "angular_velocity_rmse_rad_s": 0.038674595522518077,
+            "position_rmse_m": 0.046851934653634145,
+            "velocity_rmse_m_s": 0.11474725769420675,
+            "attitude_rmse_deg": 1.6088153116345778,
+            "angular_velocity_rmse_rad_s": 0.03867459668658846,
         },
         "2s": {
-            "position_rmse_m": 0.17764807675369315,
-            "velocity_rmse_m_s": 0.17688285430957118,
-            "attitude_rmse_deg": 5.220851723160359,
-            "angular_velocity_rmse_rad_s": 0.05467641467466178,
+            "position_rmse_m": 0.17764801578160733,
+            "velocity_rmse_m_s": 0.17688272800344937,
+            "attitude_rmse_deg": 5.220850331025655,
+            "angular_velocity_rmse_rad_s": 0.05467639408315728,
         },
     },
 }

@@ -28,7 +28,7 @@ from glassbox.belief.information import (
     estimable_structured_parameters,
 )
 from glassbox.belief.parameter_evidence import innovation_noise
-from glassbox.control.fitted import NMPCController
+from glassbox.control.fitted import NMPCController, default_solver_policy
 from glassbox.control.plan import TrackingTolerances
 from glassbox.core.data import Trajectory
 from glassbox.core.dynamics import (
@@ -65,7 +65,7 @@ RECOVERY_DURATION_S = 1.2
 RECOVERY_TAIL_DURATION_S = 0.4
 FLEET_LOG_ARM_LENGTH_RATIOS = (-0.25, -0.125, 0.0, 0.125, 0.25)
 TARGET_LOG_ARM_LENGTH_RATIO = 0.20
-BENCHMARK_METHOD_VERSION = 7
+BENCHMARK_METHOD_VERSION = 8
 BENCHMARK_SOURCE_FILES = (
     "belief/belief.py",
     "belief/forecast_error.py",
@@ -132,12 +132,15 @@ class RecoveryMetrics:
     terminal_angular_velocity_error_rad_s: float
     terminal_attitude_rate_tolerance_entry_time_s: float | None
     maximum_actual_validity_utilization: float
-    maximum_predicted_validity_utilization: float
+    maximum_predicted_validity_utilization: float | None
     maximum_command_bound_violation: float
-    maximum_normalized_model_uncertainty_standard_deviation: float
+    maximum_normalized_model_uncertainty_standard_deviation: float | None
+    parameter_uncertainty_complete: bool
+    unresolved_parameters_allowed: bool
     inside_support_step_count: int
     outside_support_step_count: int
     fallback_count: int
+    solve_status_counts: dict[str, int]
     finite: bool
     prewarm_wall_time_s: float
     solve_time_median_s: float
@@ -456,6 +459,7 @@ def _simulate_recovery(
     uncertainty: list[float] = []
     predicted_validity: list[float] = []
     fallback_count = 0
+    solve_status_counts: dict[str, int] = {}
     for index in range(interval_count):
         result = controller.solve(
             jnp.asarray(states[index]),
@@ -473,6 +477,8 @@ def _simulate_recovery(
         )
         predicted_validity.append(result.diagnostics.maximum_validity_utilization)
         fallback_count += int(result.used_fallback)
+        status = result.status.value
+        solve_status_counts[status] = solve_status_counts.get(status, 0) + 1
         next_state, plant_latent = step_with_latent(
             target_params,
             jnp.asarray(states[index]),
@@ -532,12 +538,19 @@ def _simulate_recovery(
             controller.tolerances,
         ),
         maximum_actual_validity_utilization=float(np.max(actual_validity)),
-        maximum_predicted_validity_utilization=max(predicted_validity),
+        maximum_predicted_validity_utilization=(
+            max(predicted_validity) if np.isfinite(max(predicted_validity)) else None
+        ),
         maximum_command_bound_violation=command_violation,
-        maximum_normalized_model_uncertainty_standard_deviation=max(uncertainty),
+        maximum_normalized_model_uncertainty_standard_deviation=(
+            max(uncertainty) if np.isfinite(max(uncertainty)) else None
+        ),
+        parameter_uncertainty_complete=controller.plan.uncertainty_complete,
+        unresolved_parameters_allowed=controller.plan.policy.allow_unresolved_parameters,
         inside_support_step_count=int(np.count_nonzero(solved_validity <= 1.0 + 1e-6)),
         outside_support_step_count=int(np.count_nonzero(solved_validity > 1.0 + 1e-6)),
         fallback_count=fallback_count,
+        solve_status_counts=solve_status_counts,
         finite=bool(
             np.all(np.isfinite(states))
             and np.all(np.isfinite(commands))
@@ -547,6 +560,15 @@ def _simulate_recovery(
         solve_time_median_s=float(np.median(solve_times)),
         solve_time_p90_s=float(np.quantile(solve_times, 0.90)),
         solve_time_maximum_s=max(solve_times),
+    )
+
+
+def _diagnostic_controller(model: DynamicsBelief | ExecutableModel) -> NMPCController:
+    """The simulation comparison explicitly permits partial parameter evidence."""
+
+    return NMPCController(
+        model,
+        policy=replace(default_solver_policy(model), allow_unresolved_parameters=True),
     )
 
 
@@ -565,17 +587,17 @@ def run_adaptive_recovery_benchmark() -> dict[str, Any]:
         (
             "stale_belief",
             "prechange mean plus the fleet seed and its forecast envelope",
-            NMPCController(belief),
+            _diagnostic_controller(belief),
         ),
         (
             "adapted_belief",
             "adapted mean plus the information the absorb accumulated",
-            NMPCController(updated),
+            _diagnostic_controller(updated),
         ),
         (
             "adapted_mean_point",
             "adapted mean without uncertainty",
-            NMPCController(
+            _diagnostic_controller(
                 ExecutableModel(
                     updated.params,
                     belief.input_spec,
@@ -587,7 +609,7 @@ def run_adaptive_recovery_benchmark() -> dict[str, Any]:
         (
             "oracle_mean_point",
             "hidden target mean without uncertainty",
-            NMPCController(
+            _diagnostic_controller(
                 ExecutableModel(
                     target_params,
                     belief.input_spec,
@@ -631,10 +653,12 @@ def run_adaptive_recovery_benchmark() -> dict[str, Any]:
         "adaptation_and_evaluation_telemetry_disjoint": True,
         # The update is one recursive absorb: every usable transition adds its
         # information, nothing proposes, nothing validates on a second split,
-        # and no margin decides whether the step happens.
+        # and numerical backtracking uses this block's actual residual.
         "update_is_a_recursive_information_absorb": True,
         "update_proposal_and_validation_split": False,
         "update_improvement_margin": False,
+        "nonlinear_update_backtracking": True,
+        "unresolved_parameter_planning_explicitly_allowed": True,
         "parameter_covariance_updated_by_the_update": True,
         "information_discounted_or_forgotten": False,
         "held_out_forecast_bias_applied_at_runtime": False,
@@ -673,7 +697,7 @@ def run_adaptive_recovery_benchmark() -> dict[str, Any]:
         },
     }
     return {
-        "format_version": 5,
+        "format_version": 6,
         "artifact_type": "glassbox_synthetic_adaptive_recovery_diagnostic",
         "implementation": {
             "method_version": BENCHMARK_METHOD_VERSION,
@@ -737,7 +761,9 @@ def run_adaptive_recovery_benchmark() -> dict[str, Any]:
                 item.maximum_actual_validity_utilization <= 1.0 for item in recovery
             ),
             "all_full_nmpc_predictions_within_validity_support": all(
-                item.maximum_predicted_validity_utilization <= 1.0 for item in recovery
+                item.maximum_predicted_validity_utilization is not None
+                and item.maximum_predicted_validity_utilization <= 1.0
+                for item in recovery
             ),
             "any_solve_started_outside_validity_support": any(
                 item.outside_support_step_count > 0 for item in recovery

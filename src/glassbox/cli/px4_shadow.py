@@ -16,12 +16,13 @@ import argparse
 import contextlib
 import json
 from collections.abc import Callable, Iterator, Sequence
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
 
-from glassbox.control.fitted import NMPCController
-from glassbox.core.model import ExecutableModel
+from glassbox.belief.belief import DynamicsBelief
+from glassbox.control.fitted import NMPCController, default_solver_policy
 from glassbox.integrations.px4 import PX4MavlinkStateSource
 from glassbox.integrations.px4_nmpc_shadow import px4_shadow_link, run_px4_nmpc_shadow
 
@@ -75,6 +76,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--samples", type=int, default=10)
     parser.add_argument(
+        "--allow-unresolved-parameters",
+        action="store_true",
+        help="explicitly permit shadow plans with incomplete parameter uncertainty",
+    )
+    parser.add_argument(
         "--output",
         type=Path,
         help="file to write one JSON interval record per line to",
@@ -84,9 +90,16 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: Sequence[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
-    model = ExecutableModel.load(args.model)
+    belief = DynamicsBelief.load(args.model)
+    model = belief.model
     previous_command = _command(args.previous_command, expected_size=model.command_size)
-    controller = NMPCController(model)
+    controller = NMPCController(
+        belief,
+        policy=replace(
+            default_solver_policy(belief),
+            allow_unresolved_parameters=args.allow_unresolved_parameters,
+        ),
+    )
     with PX4MavlinkStateSource.connect(args.connection) as state_source:
         link = px4_shadow_link(state_source, model, previous_command=previous_command)
         with _line_writer(args.output) as write_line:

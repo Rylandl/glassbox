@@ -3,6 +3,28 @@
 All notable changes to Glassbox are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## Unreleased
+
+- Allow up to 16 line-search trials, so newly retained parameter uncertainty
+  can produce a descent step without changing the objective or its weights.
+- Fix controller cache identity for custom actuator maps and changed command
+  bounds; reject out-of-bounds plan output before marking a command usable.
+- Bound and backtrack nonlinear belief updates; validate transformed physical
+  coefficients and measure noise from the accepted model's actual residual.
+- Preserve the absolute rank cutoff as information accumulates. Carry unknown
+  parameter support explicitly into predictions and controller diagnostics.
+  Planning with unresolved parameters now requires an explicit policy override.
+  Propagate every resolved direction without applying another covariance cutoff.
+- Belief format 6 preserves direct-map bounds and requires explicit rebinding
+  for external actuator maps. Formats 3 through 5 remain readable.
+- Share actuator history extraction between fitting and absorption, including
+  prefixes on segments, and preserve PX4 reception timestamps through alignment.
+- Match the first two exponential actuator-response moments in RK4, fixing the
+  instantaneous-response limit and the no-lag ablation. This changes rollout,
+  fit, and benchmark numbers; affected recorded artifacts are regenerated.
+- Disable cached holdout reuse during result recording, and report failed
+  recovery diagnostics as JSON `null` with explicit solve-status counts.
+
 ## 0.2.0 - 2026-09-04
 
 Glassbox becomes a production library. Forty commits took the package from

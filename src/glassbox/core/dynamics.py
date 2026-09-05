@@ -1048,6 +1048,53 @@ def _normalized_state(state: Array) -> Array:
     return state.at[6:10].set(quaternion)
 
 
+def _actuator_quadrature_decay(ratio: Array) -> tuple[Array, Array, Array]:
+    """Fit RK stage controls to the first two exponential response moments.
+
+    For x=h/tau, A=int_0^1 exp(-xs) ds and B=int_0^1 (1-s)exp(-xs) ds.
+    Keeping the middle-stage decay m=exp(-x/2), the stage decays a,b satisfy
+    (a+4m+b)/6=A and (a+2m)/6=B. Thus affine actuator forcing gives the exact
+    velocity AND position increment, including the instantaneous-response
+    limit. Small-x series avoid cancellation. At fixed tau the endpoint
+    changes are opposite O(h^3), preserving the RK4 order for smooth forces.
+    """
+
+    small = jnp.minimum(ratio, 0.5)
+    large = jnp.maximum(ratio, 0.5)
+    mean = jnp.where(
+        ratio < 0.5,
+        1
+        - small / 2
+        + small**2 / 6
+        - small**3 / 24
+        + small**4 / 120
+        - small**5 / 720
+        + small**6 / 5040
+        - small**7 / 40320
+        + small**8 / 362880,
+        -jnp.expm1(-large) / large,
+    )
+    first_moment = jnp.where(
+        ratio < 0.5,
+        0.5
+        - small / 6
+        + small**2 / 24
+        - small**3 / 120
+        + small**4 / 720
+        - small**5 / 5040
+        + small**6 / 40320
+        - small**7 / 362880
+        + small**8 / 3628800,
+        (1 - mean) / large,
+    )
+    middle = jnp.exp(-ratio / 2)
+    return (
+        jnp.clip(6 * first_moment - 2 * middle, 0.0, 1.0),
+        middle,
+        jnp.clip(6 * (mean - first_moment) - 2 * middle, 0.0, 1.0),
+    )
+
+
 def step_with_latent(
     params: ModelParams,
     state: Array,
@@ -1058,11 +1105,13 @@ def step_with_latent(
     exogenous: Array | None = None,
     exogenous_roles: tuple[str, ...] | None = None,
 ) -> tuple[Array, Array]:
-    """Advance vehicle and latent actuator states with bounded RK4 steps.
+    """Advance vehicle and actuator states with exponential-fitted RK4 steps.
 
     The latent state is the applied-control vector, one value per control
     channel. Actuator response is integrated analytically for the
-    piecewise-constant input, and the control-generated torque follows that
+    piecewise-constant input. RK stage controls match its first two integral
+    moments, so a fast actuator cannot retain a spurious old-command impulse.
+    The control-generated torque follows that
     applied control with no memory of its own. This keeps the rollout stable
     even while optimization explores time constants much shorter than the
     telemetry sample interval. Telemetry intervals above 25 ms are integrated
@@ -1090,14 +1139,22 @@ def step_with_latent(
     substep_count = max(1, math.ceil(dt_s / MAX_INTERNAL_INTEGRATION_STEP_S))
     integration_dt_s = dt_s / substep_count
     half_integration_dt_s = 0.5 * integration_dt_s
+    if models_actuator_lag(params):
+        decay_start, decay_middle, decay_end = _actuator_quadrature_decay(
+            integration_dt_s / response_time_constant
+        )
     next_vehicle = state
     for index in range(substep_count):
         start_time_s = index * integration_dt_s
-        middle_time_s = start_time_s + half_integration_dt_s
-        end_time_s = start_time_s + integration_dt_s
-        start_motor_state = motor_at(start_time_s)
-        middle_motor_state = motor_at(middle_time_s)
-        end_motor_state = motor_at(end_time_s)
+        if models_actuator_lag(params):
+            amplitude = (applied_control_state - control) * jnp.exp(
+                -start_time_s / response_time_constant
+            )
+            start_motor_state = control + amplitude * decay_start
+            middle_motor_state = control + amplitude * decay_middle
+            end_motor_state = control + amplitude * decay_end
+        else:
+            start_motor_state = middle_motor_state = end_motor_state = control
         k1 = state_derivative(
             params,
             next_vehicle,

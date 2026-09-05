@@ -8,14 +8,14 @@ import math
 import platform
 import subprocess
 from collections.abc import Callable, Sequence
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 
 import jax
 import jax.numpy as jnp
 import numpy as np
 
-from glassbox.control.fitted import NMPCController
+from glassbox.control.fitted import NMPCController, default_solver_policy
 from glassbox.control.plan import ReferenceTrajectory
 from glassbox.core.data import TrajectorySpec, make_trajectory_spec
 from glassbox.core.dynamics import (
@@ -506,7 +506,12 @@ def run_nmpc_benchmark() -> dict[str, object]:
             runtime_spec,
             DirectActuationMap(spec.controls),
         )
-        controllers[key] = NMPCController(model)
+        controllers[key] = NMPCController(
+            model,
+            policy=replace(
+                default_solver_policy(model), allow_unresolved_parameters=True
+            ),
+        )
 
     results: list[ScenarioMetrics] = []
     for scenario in _scenario_definitions():
@@ -558,6 +563,7 @@ def run_nmpc_benchmark() -> dict[str, object]:
     }
     return {
         "format_version": 1,
+        "unresolved_parameter_planning_explicitly_allowed": True,
         "baseline": "constant model-derived hover or level-flight trim command",
         "normalized_error": (
             "RMS of 12 local rigid-body errors divided by maintained physical "

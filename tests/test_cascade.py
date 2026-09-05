@@ -277,6 +277,7 @@ def test_a_cascade_plant_is_a_link_one_control_loop_flies() -> None:
     controller = NMPCController(
         model,
         policy=SolverPolicy(
+            allow_unresolved_parameters=True,
             horizon_steps=4,
             block_count=2,
             maximum_iterations=3,

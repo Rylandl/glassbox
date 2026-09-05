@@ -36,6 +36,7 @@ from glassbox.core.dynamics import (
 )
 from glassbox.core.geometry import TANGENT_STATE_SIZE, rigid_body_local_error
 from glassbox.core.model import (
+    ActuationMap,
     ExecutableModel,
     ModelValidityEnvelope,
     RuntimeModelSpec,
@@ -60,15 +61,19 @@ class PredictiveTrajectory:
     forecast_error_available: bool
     forecast_error_horizon_supported: bool
     parameter_information_rank: int
+    parameter_information_complete: bool
+    unresolved_parameter_basis: Array
 
     @property
     def tangent_covariance(self) -> Array:
-        """Return total local model uncertainty from its two distinct parts.
+        """Return the supported local covariance from its two distinct parts.
 
         The forecast-error envelope is measured on held-out flights of the
         model as it was fitted, and the parameter contribution is the plan's
         own sensitivity to the coefficients the evidence has resolved. They
         answer different questions and are added rather than substituted.
+        This covariance omits unresolved parameters; consult
+        ``parameter_information_complete`` and ``unresolved_parameter_basis``.
         """
 
         return self.forecast_error_covariance + self.parameter_covariance
@@ -79,9 +84,14 @@ class PredictiveTrajectory:
 
     @property
     def tangent_standard_deviation(self) -> Array:
-        return jnp.sqrt(
+        deviation = jnp.sqrt(
             jnp.maximum(jnp.diagonal(self.tangent_covariance, axis1=-2, axis2=-1), 0.0)
         )
+        if not self.parameter_information_complete:
+            # The initial state is supplied, but a future marginal cannot be
+            # bounded from a covariance that omits unknown coefficients.
+            return jnp.full_like(deviation, jnp.inf).at[0].set(0.0)
+        return deviation
 
 
 @dataclass(frozen=True)
@@ -149,6 +159,11 @@ class DynamicsBelief:
     def uncertainty_available(self) -> bool:
         assert self.information is not None
         return self.forecast_error is not None or self.information.resolved_rank() > 0
+
+    @property
+    def parameter_information_complete(self) -> bool:
+        assert self.information is not None
+        return self.information.complete
 
     @property
     def maximum_error_horizon_s(self) -> float | None:
@@ -380,6 +395,10 @@ class DynamicsBelief:
                 <= maximum_horizon + 1e-12
             ),
             parameter_information_rank=self.information.resolved_rank(),
+            parameter_information_complete=self.information.complete,
+            unresolved_parameter_basis=jnp.asarray(
+                self.information.unresolved_subspace()
+            ),
         )
 
     def absorb(self, telemetry: Trajectory) -> tuple[DynamicsBelief, UpdateResult]:
@@ -395,7 +414,9 @@ class DynamicsBelief:
         save_dynamics_belief(self, path)
 
     @classmethod
-    def load(cls, path: str | Path) -> DynamicsBelief:
+    def load(
+        cls, path: str | Path, *, actuation: ActuationMap | None = None
+    ) -> DynamicsBelief:
         from glassbox.belief.belief_io import load_dynamics_belief
 
-        return load_dynamics_belief(path)
+        return load_dynamics_belief(path, actuation=actuation)

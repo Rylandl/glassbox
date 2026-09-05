@@ -67,6 +67,7 @@ class PX4StateSample:
     message_skew_s: float
     maximum_receive_age_s: float
     estimated_source_clock_lag_s: float = 0.0
+    received_at_s: float | None = None
 
     def __post_init__(self) -> None:
         state = np.asarray(self.state, dtype=np.float64)
@@ -90,6 +91,8 @@ class PX4StateSample:
                 "PX4 state timing diagnostics must be finite and nonnegative"
             )
         object.__setattr__(self, "state", state)
+        if self.received_at_s is not None and not np.isfinite(self.received_at_s):
+            raise ValueError("PX4 reception timestamp must be finite")
 
 
 @dataclass(frozen=True)
@@ -481,6 +484,9 @@ class PX4StateAssembler:
             estimated_source_clock_lag_s=self._source_clock_lag_s(
                 position_boot_ms, now_s
             ),
+            received_at_s=min(
+                position.received_monotonic_s, attitude.received_monotonic_s
+            ),
         )
 
 
@@ -767,6 +773,13 @@ class PX4MavlinkLink:
         """Return one canonical state paired with the command PX4 applied."""
 
         sample = self._state_source.next_sample(timeout_s=timeout_s)
+        # Preserve the oldest state component's reception time through both
+        # receiver buffering and the wait for matching actuator telemetry.
+        received_at_s = (
+            time.monotonic() - sample.maximum_receive_age_s
+            if sample.received_at_s is None
+            else sample.received_at_s
+        )
         if self._applied_command_source is None:
             if self._fixed_command is None:  # pragma: no cover - guarded above
                 raise RuntimeError("fixed applied command was not initialized")
@@ -793,10 +806,10 @@ class PX4MavlinkLink:
         return Observation(
             state=sample.state,
             applied_command=command,
-            received_at_s=time.monotonic(),
+            received_at_s=received_at_s,
             source_time_s=sample.position_time_boot_ms * 1e-3,
             message_skew_s=sample.message_skew_s,
-            receive_age_s=sample.maximum_receive_age_s,
+            receive_age_s=max(0.0, time.monotonic() - received_at_s),
             source_clock_lag_s=sample.estimated_source_clock_lag_s,
             applied_command_skew_s=skew_s,
             armed=armed,

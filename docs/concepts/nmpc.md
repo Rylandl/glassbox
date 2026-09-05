@@ -8,9 +8,10 @@ length, command blocking, line search, regularization and iteration count are
 maintained policies rather than routine user knobs.
 
 The layer is three modules with one seam between them. `control.plan` declares
-`PlanModel`, the whole interface a solver has to a model: command bounds, a
-horizon, the `PlanValues` its numbers travel in, a rollout that returns
-predicted states with their tangent covariance, and a stage cost.
+`PlanModel`, the whole interface a solver has to a model: command bounds,
+uncertainty completeness, a horizon, the `PlanValues` its numbers travel in,
+a rollout that returns predicted states with their tangent covariance, and a
+stage cost.
 `control.solver` is `BoundedShootingSolver`, which knows nothing about
 beliefs; it moves normalized command blocks inside their box and returns an
 auditable result. `control.fitted` is the boundary between them:
@@ -27,13 +28,21 @@ belief fitted from a corpus and a belief built in flight from nothing. See
 Compiling a solver costs orders of magnitude more than solving with it, so the
 compiled kernels are cached at module scope under the plan model's static
 signature: the input and runtime specs, the tolerances, the envelope, the
-policy, the parameter tree's structure and leaf shapes, and the shape of what
-the belief resolved. No belief value is in that signature. The parameters, the
+policy, the actuator map and its command bounds, the parameter tree's
+structure and leaf shapes, and the shape of what the belief resolved. No belief
+value is in that signature. The parameters, the
 factor of the resolved parameter covariance and the stage forecast-error
 covariance travel to every kernel together as `PlanValues`, so two controllers
 built from the same configuration share compiled code, and so does a belief
 that absorbs telemetry every control interval: only a change of resolved rank
-compiles again.
+compiles again. Direct maps with equal channels share kernels. Arbitrary
+maps share only when they are the same immutable instance; construct a new
+map when calibration changes. A final command-bound check also guards against
+incorrect output from a custom plan model.
+
+The parameter covariance factor uses the information's resolved directions
+directly. It applies no second relative cutoff to their variances: a small
+parameter variance can still have a large effect on a sensitive prediction.
 
 The controller is independent of reference generation, state estimation, PX4
 transport and hardware mixing. Terminal-pose docking is not part of this
@@ -76,6 +85,27 @@ result = controller.solve(
 command = result.command  # bounded even when result.command_usable is False
 ```
 
+If the belief does not resolve every estimable parameter direction, a solve
+returns `UNRESOLVED_MODEL` and a bounded hold. A caller deliberately accepting
+partial parameter uncertainty can opt in:
+
+```python
+from dataclasses import replace
+from glassbox.control.fitted import default_solver_policy
+
+controller = NMPCController(
+    belief,
+    policy=replace(default_solver_policy(belief), allow_unresolved_parameters=True),
+)
+```
+
+This override permits a cost based on the mean and supported covariance; it
+supplies no uncertainty bound for unresolved directions. Diagnostics report
+`parameter_uncertainty_complete=False`, `unresolved_parameters_allowed=True`,
+and an infinite uncertainty margin (JSON `null`). The simulation benchmarks
+make this choice explicitly. PX4 shadow exposes the same choice through
+`--allow-unresolved-parameters` and retains the loaded belief's information.
+
 A `ReferenceTrajectory`'s `states` must have `controller.prediction_steps + 1`
 rows and 13 columns; `controller.hold_reference(state)` is the short path for
 regulation. An exogenous forecast has one row per prediction interval in the
@@ -86,11 +116,12 @@ controller's actionable command coordinates. Advanced estimators can instead
 provide the complete `latent_state`; passing both is rejected. If neither is
 available, the controller initializes lag state from `previous_command`.
 
-The first cold solve compiles the solve path and the first warm-started solve
+The first eligible cold solve compiles the solve path and the first warm-started solve
 compiles the receding-horizon path, which is why the snippet above solves
 twice. Run both and discard their commands before entering a timed control
 loop, and pass `deadline_s` only afterwards. Compilation must never happen
-after arming.
+after arming. A request rejected as `UNRESOLVED_MODEL` does not compile either
+path; prewarm again after choosing an explicit override.
 
 ## Eligible models and airframes
 
@@ -152,8 +183,9 @@ utilization. The tangent covariance is mapped onto the six envelope features,
 body velocity and body rates, and each feature's marginal standard deviation
 is added to its mean utilization before the excess over one is squared.
 
-Both terms are exactly zero for a belief that carries no covariance, so a
-point model is scored by the point objective it was always scored by. The
+Both covariance terms vanish for a mean without evidence. Such a cost is
+available only through the explicit unresolved-parameter override; it does
+not turn missing evidence into zero risk. The
 parameter contribution is written through a factor of the covariance, so a
 belief that resolves two directions costs two extra forward rollouts rather
 than a full Jacobian. Neither term is a calibration claim, an invariant-set
@@ -164,12 +196,14 @@ the result records how far it did.
 
 `SolveResult` carries the status, the bounded command, the predicted state,
 latent and command traces, an opaque `warm_start` for the next
-receding-horizon solve, `used_fallback`, an optional message, and eleven
+receding-horizon solve, `used_fallback`, an optional message, and
 `NMPCDiagnostics` fields: iterations, solve time, initial and final objective,
 the bound-projected gradient infinity norm, maximum command-bound violation,
 maximum validity utilization, normalized safety violation, normalized model
 uncertainty standard deviation, whether a warm start was used, and the
-prediction horizon the plan covers. `command_usable` says whether the command
+prediction horizon the plan covers. Two flags record whether parameter
+uncertainty is complete and whether the caller permits unresolved parameters.
+`command_usable` says whether the command
 came from a finite optimized plan.
 
 `converged` is reserved for the first-order criterion, and that criterion
@@ -188,7 +222,8 @@ remained after at least one accepted iteration. Both are finite optimized
 plans with `used_fallback=False` and `command_usable=True`, and neither is
 labeled converged.
 
-`invalid_input`, `nonfinite_objective`, `line_search_failed` before any
+`invalid_input`, `unresolved_model`, `command_bound_violation`,
+`nonfinite_objective`, `line_search_failed` before any
 iteration is accepted, and `deadline_exceeded` set `used_fallback=True` and
 `command_usable=False`. The returned value is only an explicit bounded hold of
 the previous command, or the channel midpoint if the previous command is

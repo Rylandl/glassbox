@@ -32,8 +32,8 @@ read.
 | Nano-Quadrotor | 27 g quadrotor, measured rotor speeds | commit `2d921b57` | `nanodrone`, rolling 1 to 50 steps against hold-state | the three protected Melon flights, by label | no single score; per metric below | [`validation-nanodrone-results.json`](results/validation-nanodrone-results.json) |
 | ARP | 3.35 kg PX4 quadrotor, normalized motor commands | commit `2d267dd0` | `windowed`, against kinematic persistence | log 66 reserved, logs 63 to 65 trained | `1.219`, worse than persistence | [`validation-arp-results.json`](results/validation-arp-results.json) |
 | IDF-DS | conventional fixed wing, one motor and three surfaces | Zenodo record `16992976` | `windowed`, leave one source group out over 13 sessions | every session held out in turn | no single score; beats persistence at 1 s and 2 s, loses at 0.1 s | [`validation-idf-results.json`](results/validation-idf-results.json) |
-| Skywalker X8 | flying wing, throttle and generalized elevons | Dataverse `1.0` | `x8`, boundary-safe rolling windows | the four upstream validation maneuvers, by label | `0.438` residual, `0.507` structured | [`validation-x8-results.json`](results/validation-x8-results.json) |
-| EPFL TOPOPlane2 | conventional fixed wing, 5 Hz fused state | Zenodo `v1` | `windowed` over two fit reports | the last two chronological segments of one flight | `0.863` residual, `1.123` structured | [`validation-epfl-results.json`](results/validation-epfl-results.json) |
+| Skywalker X8 | flying wing, throttle and generalized elevons | Dataverse `1.0` | `x8`, boundary-safe rolling windows | the four upstream validation maneuvers, by label | `0.436` residual, `0.507` structured | [`validation-x8-results.json`](results/validation-x8-results.json) |
+| EPFL TOPOPlane2 | conventional fixed wing, 5 Hz fused state | Zenodo `v1` | `windowed` over two fit reports | the last two chronological segments of one flight | `0.864` residual, `1.123` structured | [`validation-epfl-results.json`](results/validation-epfl-results.json) |
 
 The abbreviated pins above are the leading characters of each artifact's own
 `corpus.citation.pinned_version`, which carries the full value. Every row is
@@ -50,7 +50,7 @@ on the library, and none is a flight-safety claim.
 | Diagnostic | What it measures | Tier | Headline | Artifact |
 | --- | --- | --- | --- | --- |
 | NMPC acceptance | the solver on 16 synthetic scenarios, 8 nominal and 8 under parameter mismatch | local | tracking ratio `0.651` nominal and `0.552` under mismatch | [`nmpc-acceptance-results.json`](results/nmpc-acceptance-results.json) |
-| Adaptive recovery | the whole belief-to-control path across a configuration change | local | resolved rank `1` to `9`, independent prediction ratio `0.303` | [`adaptive-recovery-results.json`](results/adaptive-recovery-results.json) |
+| Adaptive recovery | the whole belief-to-control path across a configuration change | local | resolved rank `1` to `15`, independent prediction ratio `0.868` | [`adaptive-recovery-results.json`](results/adaptive-recovery-results.json) |
 | Cascade X8 | an unfitted published physics model against the same X8 campaign | corpus | `2.760` as published, `0.679` at its best documented variant | [`cascade-x8-validation-results.json`](results/cascade-x8-validation-results.json) |
 
 ## Nano-Quadrotor
@@ -71,12 +71,12 @@ The recorded run fits the structured residual on the twelve training flights
 with the Melon profile reserved by label
 (`fit.structured_residual.split.holdout`), across 7,192 training windows
 (`fit.structured_residual.spec.training_windows`). Against the boundary-safe
-hold-state baseline the cumulative 1-to-50-step ratios are `7.026` on
-position, `2.811` on velocity, `1.422` on attitude and `0.922` on angular
+hold-state baseline the cumulative 1-to-50-step ratios are `7.661` on
+position, `3.044` on velocity, `1.385` on attitude and `0.918` on angular
 velocity (`results.model_vs_baseline.cumulative_simulation_error`, defined as
 baseline error over model error, above one favouring the model). Against the
 published Physics plus Residual reference the equal-metric geometric
-cumulative ratio is `1.094` and both
+cumulative ratio is `1.058` and both
 `beats_every_published_cumulative_metric` and
 `beats_every_published_50_step_metric` are false
 (`results.published_reference_comparison`). The `nanodrone` policy scores
@@ -143,21 +143,21 @@ without saying which is which.
 
 The result is a horizon crossover, and it is the most useful thing this corpus
 records. At 0.1 seconds the fitted model is worse than constant-velocity,
-constant-body-rate persistence on all four metrics, by `2.949` on position,
-`3.214` on velocity, `2.056` on attitude and `1.922` on angular velocity. At
+constant-body-rate persistence on all four metrics, by `2.951` on position,
+`3.216` on velocity, `2.056` on attitude and `1.922` on angular velocity. At
 0.5 seconds it is still behind on position, velocity and attitude and ahead on
-angular velocity (`1.375`, `1.010`, `1.183`, `0.954`). At 1 second it is ahead
-on all four (`0.754`, `0.588`, `0.739`, `0.683`) and at 2 seconds it is roughly
-twice as good as the baseline (`0.492`, `0.467`, `0.462`, `0.537`). Persistence
+angular velocity (`1.376`, `1.011`, `1.184`, `0.954`). At 1 second it is ahead
+on all four (`0.754`, `0.589`, `0.740`, `0.684`) and at 2 seconds it is roughly
+twice as good as the baseline (`0.493`, `0.469`, `0.462`, `0.538`). Persistence
 is simply very strong over one or two samples and degrades with horizon, so a
 learned dynamics model earns its place at the horizons a controller plans
 over, not at the horizons an estimator already covers.
 
 The spread across sessions is tight for a thirteen-fold leave-one-out. At two
-seconds the p90 held-out-session errors are `1.128` m, `1.279` m/s, `13.15`
-degrees and `0.176` rad/s against medians of `0.928` m, `1.074` m/s, `10.46`
+seconds the p90 held-out-session errors are `1.135` m, `1.287` m/s, `13.12`
+degrees and `0.176` rad/s against medians of `0.927` m, `1.069` m/s, `10.47`
 degrees and `0.150` rad/s (`results.distribution.horizon_rollouts["2s"]`),
-with the worst session at `1.202` m.
+with the worst session at `1.216` m.
 
 The boundary is that this is a cross-session generalization result on one
 conventional airframe, not evidence of zero-shot parameter transfer, and this
@@ -183,10 +183,10 @@ staircase-like.
 The recorded chain fits both maintained model classes on the exact upstream
 split, reserving the four flights labeled `benchmark_split=validation`, then
 runs the boundary-safe rolling comparison against constant-velocity,
-constant-body-rate persistence. The structured residual scores `0.4383` and
+constant-body-rate persistence. The structured residual scores `0.4359` and
 the structured model `0.5069`
 (`results.models[<name>].score_vs_kinematic_persistence`), and the residual is
-`0.8646` of the structured model over every horizon and state metric
+`0.8600` of the structured model over every horizon and state metric
 (`results.comparisons.structured_residual_vs_structured.score`). Of the rows
 recorded so far it is the only one where a fitted model beats persistence on
 an independent holdout.
@@ -209,7 +209,7 @@ mode, and removes two seconds around every boundary.
 
 The recorded chain fits both model classes on the canonical segments with the
 last two chronological segments reserved, then combines the two fit reports
-into one characterization. The structured residual scores `0.8628` against
+into one characterization. The structured residual scores `0.8641` against
 kinematic persistence and the structured model `1.1228`
 (`results.models[<name>].score_vs_baseline`), and `results.selected_model` is
 the residual with promotion refused.
@@ -234,7 +234,7 @@ On the recorded run all 16 scenarios were finite with no fallback and no
 command-bound violation, every mismatch case stayed inside the fitted validity
 envelope, and every one of the nine checks in `summary.checks` passed. The
 equal-scenario geometric mean of normalized tracking RMS was `0.6509` of the
-non-optimizing trim baseline nominally and `0.5520` under parameter mismatch
+non-optimizing trim baseline nominally and `0.5522` under parameter mismatch
 (`summary.nominal_geometric_mean_tracking_ratio` and
 `summary.mismatch_geometric_mean_tracking_ratio`), against a declared maximum
 of `0.80` nominally. No individual scenario hid inside those aggregates, which
@@ -243,8 +243,8 @@ is what `summary.checks.nominal_individual` and `mismatch_individual` assert.
 Post-JIT solve time is recorded per scenario as median, p90 and maximum under
 `summary.post_jit_solve_time_s` and per scenario in `scenarios[*]`. Those
 figures depend on the host and its load, so they live in the artifact and not
-in this prose; on the recorded run every scenario's median and maximum stayed
-well inside the benchmark's own model step. Passing the functional gates is
+in this prose. This benchmark applies no elapsed-time acceptance gate.
+Passing the functional gates is
 not a real-time claim and not a flight-safety claim.
 
 ## Adaptive recovery
@@ -259,34 +259,42 @@ telemetry from the changed vehicle, is evaluated on independent 0.6-second
 prediction windows, and drives four prewarmed closed-loop recoveries from one
 bounded initial disturbance.
 
-The update raised the resolved rank from `1` to `9` of the `15` estimable
+The update raised the resolved rank from `1` to `15` of the `15` estimable
 coordinates and reported an information gain of `1.698` nats over 40 windows
 (`evidence.fleet.seed_resolved_rank`, `posterior_resolved_rank`,
 `estimable_parameter_count`, and `evidence.adaptation`). The whitened one-step
-innovation fell from `0.2514` to `0.0264` and the step was `0.321` of the
+innovation fell from `0.2514` to `0.2111` and the step was `0.0084` of the
 prior precision's own standard deviation. Independent normalized 0.6-second
-prediction RMS fell from `0.033394` to `0.010120`, a ratio of `0.303`
-(`evidence.independent_prediction`). Against the arm it started from, the
-adapted belief produced `0.993` recovery-tail tracking RMS and `0.830`
-recovery-tail attitude and rate RMS; against the hidden oracle point model
-those ratios were `1.078` and `1.049` (`comparisons`).
+prediction RMS fell from `0.033394` to `0.028970`, a ratio of `0.868`
+(`evidence.independent_prediction`).
 
-One result stays negative and is recorded as such. Every one of the four
-traces left the validity envelope: maximum actual utilization was `1.085`,
-`1.056`, `1.091` and `1.136` for the `stale_belief`, `adapted_belief`,
-`adapted_mean_point` and `oracle_mean_point` arms
-(`recovery[*].maximum_actual_validity_utilization`), and
-`observations.all_actual_recovery_within_validity_support` is false. The
-ordering is the one the charged spread should buy: the arm carrying the most
-parameter information stays closest to supported ground. The belief's reported
-spread also moves with the evidence, from a maximum normalized model
-uncertainty of `0.661` on the seeded arm to `0.342` on the adapted one
-(`recovery[*].maximum_normalized_model_uncertainty_standard_deviation`), while
-the covariance trace rises from `0.0625` to `0.3164`, which is not a
-contradiction: an unresolved direction contributes exactly zero variance under
-the pseudo-inverse convention, so resolving eight new directions adds eight new
-variances while shrinking the one that was already there. The rank, not the
-trace, says how much is known.
+Better prediction did not produce better recovery. Against the stale arm, the
+adapted belief produced `1.683` recovery-tail tracking RMS and `1.120`
+recovery-tail attitude and rate RMS; against the hidden oracle point model
+those ratios were `1.827` and `1.416` (`comparisons`). Every trace was finite,
+all commands stayed within bounds, and no solve fell back
+(`observations.all_recovery_traces_finite`, `all_commands_within_bounds`,
+`all_recovery_traces_without_fallback`). The negative tracking comparison is
+part of the evidence, not an acceptance threshold.
+
+Every trace also left the validity envelope. Maximum actual utilization was
+`1.085`, `1.173`, `1.063` and `1.136` for the `stale_belief`,
+`adapted_belief`, `adapted_mean_point` and `oracle_mean_point` arms
+(`recovery[*].maximum_actual_validity_utilization`), so
+`observations.all_actual_recovery_within_validity_support` is false.
+
+The absolute rank cutoff retains weakly informed directions as stronger ones
+accumulate information. The posterior covariance trace is consequently
+`3954.364`, compared with `0.0625` on the seed's single resolved direction
+(`evidence.fleet`). These are not comparable total uncertainty bounds: the
+seed has unresolved parameters. The three incomplete arms explicitly allow
+partial-information planning and report an unbounded uncertainty margin as
+JSON `null`; the complete adapted arm reports `1.491`
+(`recovery[*].parameter_uncertainty_complete`, `unresolved_parameters_allowed`,
+`maximum_normalized_model_uncertainty_standard_deviation`). Resolving a
+parameter direction does not mean estimating it precisely. This diagnostic
+exposes that limitation instead of deleting weak directions from the reported
+uncertainty.
 
 ## Cascade X8
 
@@ -307,7 +315,7 @@ best documented variant, a 50 mm forward reference point at 4 kg with the
 inertia doubled and half the inferred vertical wind, scores `0.679`
 (`models[<name>].score_vs_kinematic_persistence`, with `primary_model` and
 `best_model` naming the two rows). The artifact records that best row as
-`1.339` and `1.549` times the fitted structured and structured-residual
+`1.339` and `1.558` times the fitted structured and structured-residual
 reference arms it was recorded beside (`comparisons`). The from-geometry
 component-panel variant of the same airframe scores `2.185` as published and
 `0.661` at its own best variant (`component_panels`), within `0.02` of the

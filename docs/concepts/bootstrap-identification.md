@@ -122,7 +122,10 @@ The same `plan_model` and the same `BoundedShootingSolver` serve a belief
 fitted from a corpus and a belief built in flight from nothing. The solver
 never learns which it is planning over: it reads a mean, a tangent covariance
 and a command box. A fresh identifier's belief resolves nothing, so its
-covariance is exactly zero and the point objective prices the plan.
+resolved covariance is zero, while its parameter uncertainty is unknown.
+The solver returns a bounded hold with `UNRESOLVED_MODEL` unless the caller
+explicitly enables `SolverPolicy.allow_unresolved_parameters`. That override
+prices the mean and supported covariance and records incomplete uncertainty.
 
 `BootstrapEvidence` carries what is specific to this estimator rather than to
 beliefs in general: the two accumulated Grams in the identifier's own feature

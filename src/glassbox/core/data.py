@@ -754,7 +754,7 @@ def _selected_window_locations(
     return locations, "deterministic_stratified_midpoint"
 
 
-def _control_window_history(
+def control_history_before(
     trajectory: Trajectory, start: int, motor_history_steps: int
 ) -> npt.NDArray[np.float64]:
     """Return the ``motor_history_steps`` controls immediately before ``start``.
@@ -967,7 +967,7 @@ def trajectory_windows(
         stop = start + horizon
         initial_states.append(trajectory.states[start])
         control_histories.append(
-            _control_window_history(trajectory, start, motor_history_steps)
+            control_history_before(trajectory, start, motor_history_steps)
         )
         controls.append(trajectory.controls[start:stop])
         targets.append(trajectory.states[start : stop + 1])

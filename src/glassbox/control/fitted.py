@@ -14,7 +14,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 
 import jax
 import jax.numpy as jnp
@@ -40,9 +40,11 @@ from glassbox.core.dynamics import (
     with_structured_parameter_vector,
 )
 from glassbox.core.geometry import rigid_body_local_error
-from glassbox.core.model import ExecutableModel, NonActionableModelError
-
-_MINIMUM_COVARIANCE_EIGENVALUE_FRACTION = 1e-10
+from glassbox.core.model import (
+    DirectActuationMap,
+    ExecutableModel,
+    NonActionableModelError,
+)
 
 
 def _marginal_standard_deviation(variance: Array) -> Array:
@@ -69,36 +71,36 @@ def parameter_covariance_factor(belief: DynamicsBelief) -> np.ndarray | None:
     each one forward-mode rollout, so a covariance the evidence resolved along
     one direction costs one extra rollout instead of a full Jacobian.
 
-    ``None`` means the belief resolves no parameter direction at all, which is
-    a point model: it contributes exactly zero spread and is priced by the
-    point objective. A direction the evidence did not resolve is absent from
-    the factor rather than present with a large variance, because the
-    information state says nothing about it and inventing a spread there would
-    be an assumption the belief does not hold.
+    ``None`` means no direction is resolved. This is a factor of the partial
+    covariance only. The plan's ``uncertainty_complete`` flag travels alongside
+    it; the solver requires explicit permission to optimize with missing
+    parameter support and reports an unbounded uncertainty margin in that case.
     """
 
     assert belief.information is not None
-    covariance = belief.information.covariance()
-    eigenvalues, eigenvectors = np.linalg.eigh(0.5 * (covariance + covariance.T))
-    floor = _MINIMUM_COVARIANCE_EIGENVALUE_FRACTION * max(float(eigenvalues[-1]), 0.0)
-    retained = eigenvalues > max(floor, 0.0)
-    if not np.any(retained):
-        return None
-    return eigenvectors[:, retained] * np.sqrt(eigenvalues[retained])
+    factor = belief.information.covariance_factor()
+    return factor if factor.shape[1] else None
 
 
-def default_solver_policy(model: ExecutableModel) -> SolverPolicy:
+def default_solver_policy(model: ExecutableModel | DynamicsBelief) -> SolverPolicy:
     """The maintained horizon and command-block layout for one model.
 
     The horizon is a property of the vehicle rather than of how its model was
     obtained, so both multirotor families share one.
     """
 
-    dt_s = model.runtime_spec.sample_period_s
-    fixed_wing = model.input_spec.vehicle.family == "fixedwing"
+    belief = model if isinstance(model, DynamicsBelief) else None
+    runtime = model.model if belief is not None else model
+    dt_s = runtime.runtime_spec.sample_period_s
+    fixed_wing = runtime.input_spec.vehicle.family == "fixedwing"
     target_horizon_s = 1.0 if fixed_wing else 0.6
     maximum_steps = 50 if fixed_wing else 40
     steps = min(maximum_steps, max(2, duration_to_steps(target_horizon_s, dt_s)))
+    if belief is not None and belief.maximum_error_horizon_s is not None:
+        supported_steps = math.floor(belief.maximum_error_horizon_s / dt_s + 1e-9)
+        if supported_steps < 1:
+            raise ValueError("predictive-error evidence is shorter than one model step")
+        steps = min(steps, supported_steps)
     return SolverPolicy(
         horizon_steps=steps,
         block_count=maintained_block_count(steps),
@@ -156,7 +158,14 @@ def _compile_signature(
     model = belief.model
     add(json.dumps(model.input_spec.to_dict(), sort_keys=True))
     add(json.dumps(model.runtime_spec.to_dict(), sort_keys=True))
-    add(type(model.actuation).__name__)
+    actuation = model.actuation_map
+    add(tuple(channel.to_dict() for channel in actuation.command_channels))
+    add((type(actuation).__module__, type(actuation).__qualname__))
+    if type(actuation) is not DirectActuationMap:
+        # Arbitrary Python maps have no portable value identity. Share their
+        # kernels only when the exact same immutable map is rebound to new
+        # dynamics parameters. The cached closure keeps that instance alive.
+        add(id(actuation))
     add(tolerances)
     add(safety_envelope)
     add(policy)
@@ -183,7 +192,7 @@ class BeliefPlanModel:
     the plan is charged for. Both robustness terms in :meth:`stage_cost` are
     exactly zero when the belief carries no covariance, so a point model, and
     equally a bootstrap belief that has resolved nothing yet, is priced by the
-    point objective.
+    point objective only when the caller explicitly permits unresolved parameters.
     """
 
     belief: DynamicsBelief
@@ -212,6 +221,10 @@ class BeliefPlanModel:
     @property
     def uncertainty_available(self) -> bool:
         return self.belief.uncertainty_available
+
+    @property
+    def uncertainty_complete(self) -> bool:
+        return self.belief.parameter_information_complete
 
     @property
     def command_size(self) -> int:
@@ -253,7 +266,11 @@ class BeliefPlanModel:
     def _commands_from_normalized(self, normalized: Array) -> Array:
         minimum = self.command_minimum
         command_range = self.command_maximum - minimum
-        return minimum + 0.5 * (jnp.clip(normalized, -1.0, 1.0) + 1.0) * command_range
+        return jnp.clip(
+            minimum + 0.5 * (jnp.clip(normalized, -1.0, 1.0) + 1.0) * command_range,
+            minimum,
+            self.command_maximum,
+        )
 
     def _mean_rollout(
         self,
@@ -571,19 +588,7 @@ def plan_model(
             "because its inputs are observations of actuation rather than "
             "commands"
         )
-    resolved = default_solver_policy(model) if policy is None else policy
-    if policy is None and belief.maximum_error_horizon_s is not None:
-        supported_steps = math.floor(
-            belief.maximum_error_horizon_s / model.runtime_spec.sample_period_s + 1e-9
-        )
-        if supported_steps < 1:
-            raise ValueError("predictive-error evidence is shorter than one model step")
-        if supported_steps < resolved.horizon_steps:
-            resolved = replace(
-                resolved,
-                horizon_steps=supported_steps,
-                block_count=maintained_block_count(supported_steps),
-            )
+    resolved = default_solver_policy(belief) if policy is None else policy
     values = _plan_values(belief, resolved)
     return BeliefPlanModel(
         belief=belief,

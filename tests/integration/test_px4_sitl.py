@@ -8,13 +8,13 @@ import sys
 import time
 import uuid
 from collections.abc import Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import numpy as np
 import pytest
 
-from glassbox.control.fitted import NMPCController
+from glassbox.control.fitted import NMPCController, default_solver_policy
 from glassbox.core.model import ExecutableModel
 from glassbox.integrations.px4 import (
     PX4HILActuatorSource,
@@ -168,7 +168,12 @@ def test_eligible_artifact_runs_complete_nmpc_shadow_path_when_provided(
     lines: list[str] = []
     summary = run_px4_nmpc_shadow(
         link,
-        NMPCController(model),
+        NMPCController(
+            model,
+            policy=replace(
+                default_solver_policy(model), allow_unresolved_parameters=True
+            ),
+        ),
         steps=3,
         write_line=lines.append,
     )
@@ -311,7 +316,12 @@ def test_flown_profile_pairs_real_applied_commands_with_shadow_solver(
             lines: list[str] = []
             summary = run_px4_nmpc_shadow(
                 link,
-                NMPCController(model),
+                NMPCController(
+                    model,
+                    policy=replace(
+                        default_solver_policy(model), allow_unresolved_parameters=True
+                    ),
+                ),
                 steps=160,
                 write_line=lines.append,
             )

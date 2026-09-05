@@ -13,435 +13,435 @@
   "comparisons": {
     "cg=+0.03m,mass=3.364kg,cnr=-0.012,inertia=x1,vertical_wind=0.25_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.97132744933841
+      "score": 1.9713278488391912
     },
     "cg=+0.03m,mass=3.364kg,cnr=-0.012,inertia=x1,vertical_wind=0.25_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 2.2800805458518774
+      "score": 2.2923405412332984
     },
     "cg=+0.03m,mass=3.364kg,cnr=-0.012,inertia=x1,vertical_wind=0.5_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.9938623507688098
+      "score": 1.9938627548364174
     },
     "cg=+0.03m,mass=3.364kg,cnr=-0.012,inertia=x1,vertical_wind=0.5_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 2.3061449068850424
+      "score": 2.318545050361875
     },
     "cg=+0.03m,mass=3.364kg,cnr=-0.012,inertia=x1,vertical_wind=1_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 2.3982541670651525
+      "score": 2.3982546530850746
     },
     "cg=+0.03m,mass=3.364kg,cnr=-0.012,inertia=x1,vertical_wind=1_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 2.773873347205011
+      "score": 2.7887884669744643
     },
     "cg=+0.03m,mass=3.364kg,cnr=-0.012,inertia=x2,vertical_wind=0.25_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.8589404970833052
+      "score": 1.8589408738082276
     },
     "cg=+0.03m,mass=3.364kg,cnr=-0.012,inertia=x2,vertical_wind=0.25_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 2.1500913329839455
+      "score": 2.161652376237427
     },
     "cg=+0.03m,mass=3.364kg,cnr=-0.012,inertia=x2,vertical_wind=0.5_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.8812590306553956
+      "score": 1.8812594119032964
     },
     "cg=+0.03m,mass=3.364kg,cnr=-0.012,inertia=x2,vertical_wind=0.5_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 2.175905438208698
+      "score": 2.187605283931859
     },
     "cg=+0.03m,mass=3.364kg,cnr=-0.012,inertia=x2,vertical_wind=1_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 2.277579611476734
+      "score": 2.277580073041267
     },
     "cg=+0.03m,mass=3.364kg,cnr=-0.012,inertia=x2,vertical_wind=1_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 2.63429851063039
+      "score": 2.6484631363636204
     },
     "cg=+0.03m,mass=3.364kg,cnr=-0.012,inertia=x3.5,vertical_wind=0.25_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.8889159736159191
+      "score": 1.8889163564155431
     },
     "cg=+0.03m,mass=3.364kg,cnr=-0.012,inertia=x3.5,vertical_wind=0.25_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 2.1847616263020795
+      "score": 2.1965090917574988
     },
     "cg=+0.03m,mass=3.364kg,cnr=-0.012,inertia=x3.5,vertical_wind=0.5_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.9176428810638608
+      "score": 1.917643269685157
     },
     "cg=+0.03m,mass=3.364kg,cnr=-0.012,inertia=x3.5,vertical_wind=0.5_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 2.2179877972441635
+      "score": 2.2299139198540563
     },
     "cg=+0.03m,mass=3.364kg,cnr=-0.012,inertia=x3.5,vertical_wind=1_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 2.3228655413801085
+      "score": 2.3228660121220943
     },
     "cg=+0.03m,mass=3.364kg,cnr=-0.012,inertia=x3.5,vertical_wind=1_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 2.6866772099723732
+      "score": 2.701123476024489
     },
     "cg=+0.03m,mass=4kg,cnr=-0.012,inertia=x1,vertical_wind=0.25_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.6660003022341459
+      "score": 1.6660006398586344
     },
     "cg=+0.03m,mass=4kg,cnr=-0.012,inertia=x1,vertical_wind=0.25_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.9269324737411146
+      "score": 1.9372935915846727
     },
     "cg=+0.03m,mass=4kg,cnr=-0.012,inertia=x1,vertical_wind=0.5_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.6306648154166334
+      "score": 1.6306651458801835
     },
     "cg=+0.03m,mass=4kg,cnr=-0.012,inertia=x1,vertical_wind=0.5_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.8860626750185052
+      "score": 1.8962040359133494
     },
     "cg=+0.03m,mass=4kg,cnr=-0.012,inertia=x1,vertical_wind=1_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 2.03469453923261
+      "score": 2.0346949515750943
     },
     "cg=+0.03m,mass=4kg,cnr=-0.012,inertia=x1,vertical_wind=1_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 2.353372311237431
+      "score": 2.3660263965148243
     },
     "cg=+0.03m,mass=4kg,cnr=-0.012,inertia=x2,vertical_wind=0.25_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.5858946833890801
+      "score": 1.585895004779707
     },
     "cg=+0.03m,mass=4kg,cnr=-0.012,inertia=x2,vertical_wind=0.25_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.8342805588076732
+      "score": 1.8441434872117268
     },
     "cg=+0.03m,mass=4kg,cnr=-0.012,inertia=x2,vertical_wind=0.5_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.5468456794561143
+      "score": 1.5468459929332372
     },
     "cg=+0.03m,mass=4kg,cnr=-0.012,inertia=x2,vertical_wind=0.5_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.7891156247768865
+      "score": 1.7987357012853666
     },
     "cg=+0.03m,mass=4kg,cnr=-0.012,inertia=x2,vertical_wind=1_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.9325869129074613
+      "score": 1.9325873045572508
     },
     "cg=+0.03m,mass=4kg,cnr=-0.012,inertia=x2,vertical_wind=1_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 2.23527239209654
+      "score": 2.247291453990287
     },
     "cg=+0.03m,mass=4kg,cnr=-0.012,inertia=x3.5,vertical_wind=0.25_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.6658872245995748
+      "score": 1.6658875622011475
     },
     "cg=+0.03m,mass=4kg,cnr=-0.012,inertia=x3.5,vertical_wind=0.25_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.926801685669938
+      "score": 1.9371621002659065
     },
     "cg=+0.03m,mass=4kg,cnr=-0.012,inertia=x3.5,vertical_wind=0.5_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.6196623743712284
+      "score": 1.619662702605071
     },
     "cg=+0.03m,mass=4kg,cnr=-0.012,inertia=x3.5,vertical_wind=0.5_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.8733370104958866
+      "score": 1.883409945479832
     },
     "cg=+0.03m,mass=4kg,cnr=-0.012,inertia=x3.5,vertical_wind=1_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.9942122788930186
+      "score": 1.994212683031541
     },
     "cg=+0.03m,mass=4kg,cnr=-0.012,inertia=x3.5,vertical_wind=1_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 2.3065496414250712
+      "score": 2.3189519611599314
     },
     "cg=+0.05m,mass=3.364kg,cnr=-0.012,inertia=x1,vertical_wind=0.25_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.4388640108141912
+      "score": 1.4388643024082115
     },
     "cg=+0.05m,mass=3.364kg,cnr=-0.012,inertia=x1,vertical_wind=0.25_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.6642216595141892
+      "score": 1.6731701810462134
     },
     "cg=+0.05m,mass=3.364kg,cnr=-0.012,inertia=x1,vertical_wind=0.5_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.4567279537079034
+      "score": 1.4567282489221536
     },
     "cg=+0.05m,mass=3.364kg,cnr=-0.012,inertia=x1,vertical_wind=0.5_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.6848834875011285
+      "score": 1.6939431077029572
     },
     "cg=+0.05m,mass=3.364kg,cnr=-0.012,inertia=x1,vertical_wind=1_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.9470753368072118
+      "score": 1.9470757313931633
     },
     "cg=+0.05m,mass=3.364kg,cnr=-0.012,inertia=x1,vertical_wind=1_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 2.2520300208126436
+      "score": 2.2641391884928006
     },
     "cg=+0.05m,mass=3.364kg,cnr=-0.012,inertia=x2,vertical_wind=0.25_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.366135278893594
+      "score": 1.366135555748721
     },
     "cg=+0.05m,mass=3.364kg,cnr=-0.012,inertia=x2,vertical_wind=0.25_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.5801020137230841
+      "score": 1.5885982238353376
     },
     "cg=+0.05m,mass=3.364kg,cnr=-0.012,inertia=x2,vertical_wind=0.5_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.373064246438218
+      "score": 1.3730645246975397
     },
     "cg=+0.05m,mass=3.364kg,cnr=-0.012,inertia=x2,vertical_wind=0.5_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.5881162094908334
+      "score": 1.5966555119417662
     },
     "cg=+0.05m,mass=3.364kg,cnr=-0.012,inertia=x2,vertical_wind=1_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.8348886985193704
+      "score": 1.8348890703700582
     },
     "cg=+0.05m,mass=3.364kg,cnr=-0.012,inertia=x2,vertical_wind=1_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 2.122272495470786
+      "score": 2.133683956807064
     },
     "cg=+0.05m,mass=3.364kg,cnr=-0.012,inertia=x3.5,vertical_wind=0.25_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.4637492943429082
+      "score": 1.4637495909800735
     },
     "cg=+0.05m,mass=3.364kg,cnr=-0.012,inertia=x3.5,vertical_wind=0.25_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.693004524010333
+      "score": 1.702107811033615
     },
     "cg=+0.05m,mass=3.364kg,cnr=-0.012,inertia=x3.5,vertical_wind=0.5_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.4599581872094936
+      "score": 1.4599584830783692
     },
     "cg=+0.05m,mass=3.364kg,cnr=-0.012,inertia=x3.5,vertical_wind=0.5_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.688619646386354
+      "score": 1.697699355918255
     },
     "cg=+0.05m,mass=3.364kg,cnr=-0.012,inertia=x3.5,vertical_wind=1_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.8779706814830637
+      "score": 1.8779710620645618
     },
     "cg=+0.05m,mass=3.364kg,cnr=-0.012,inertia=x3.5,vertical_wind=1_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 2.172102061464607
+      "score": 2.183781456427201
     },
     "cg=+0.05m,mass=4kg,cnr=-0.012,inertia=x1,vertical_wind=0.25_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.5141503649871302
+      "score": 1.5141506718383606
     },
     "cg=+0.05m,mass=4kg,cnr=-0.012,inertia=x1,vertical_wind=0.25_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.7512995072738005
+      "score": 1.7607162464805461
     },
     "cg=+0.05m,mass=4kg,cnr=-0.012,inertia=x1,vertical_wind=0.5_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.4473946380802645
+      "score": 1.447394931403065
     },
     "cg=+0.05m,mass=4kg,cnr=-0.012,inertia=x1,vertical_wind=0.5_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.674088370029388
+      "score": 1.6830899448737462
     },
     "cg=+0.05m,mass=4kg,cnr=-0.012,inertia=x1,vertical_wind=1_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.840150417285283
+      "score": 1.8401507902022882
     },
     "cg=+0.05m,mass=4kg,cnr=-0.012,inertia=x1,vertical_wind=1_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 2.12835831474953
+      "score": 2.1398024995421725
     },
     "cg=+0.05m,mass=4kg,cnr=-0.012,inertia=x2,vertical_wind=0.25_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.4140906483360687
+      "score": 1.4140909349096253
     },
     "cg=+0.05m,mass=4kg,cnr=-0.012,inertia=x2,vertical_wind=0.25_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.635568245358839
+      "score": 1.644362697454217
     },
     "cg=+0.05m,mass=4kg,cnr=-0.012,inertia=x2,vertical_wind=0.5_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.3394030427085464
+      "score": 1.3394033141462327
     },
     "cg=+0.05m,mass=4kg,cnr=-0.012,inertia=x2,vertical_wind=0.5_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.5491829232933838
+      "score": 1.5575128814253922
     },
     "cg=+0.05m,mass=4kg,cnr=-0.012,inertia=x2,vertical_wind=1_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.7182511932624773
+      "score": 1.7182515414759076
     },
     "cg=+0.05m,mass=4kg,cnr=-0.012,inertia=x2,vertical_wind=1_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.9873669998149577
+      "score": 1.9980530741658162
     },
     "cg=+0.05m,mass=4kg,cnr=-0.012,inertia=x3.5,vertical_wind=0.25_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.478273339163413
+      "score": 1.478273638743959
     },
     "cg=+0.05m,mass=4kg,cnr=-0.012,inertia=x3.5,vertical_wind=0.25_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.709803352664308
+      "score": 1.7189969670061076
     },
     "cg=+0.05m,mass=4kg,cnr=-0.012,inertia=x3.5,vertical_wind=0.5_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.393460143899594
+      "score": 1.3934604262922607
     },
     "cg=+0.05m,mass=4kg,cnr=-0.012,inertia=x3.5,vertical_wind=0.5_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.6117065516394602
+      "score": 1.6203726993837817
     },
     "cg=+0.05m,mass=4kg,cnr=-0.012,inertia=x3.5,vertical_wind=1_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 1.7393186722652605
+      "score": 1.739319024748136
     },
     "cg=+0.05m,mass=4kg,cnr=-0.012,inertia=x3.5,vertical_wind=1_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 2.0117341078976407
+      "score": 2.0225512042130944
     },
     "cg=+0m,mass=3.364kg,cnr=-0.012,inertia=x1,vertical_wind=0.25_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 4.6125385088795
+      "score": 4.612539443636807
     },
     "cg=+0m,mass=3.364kg,cnr=-0.012,inertia=x1,vertical_wind=0.25_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 5.334963161304498
+      "score": 5.3636492635725235
     },
     "cg=+0m,mass=3.364kg,cnr=-0.012,inertia=x1,vertical_wind=0.5_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 4.833842727042639
+      "score": 4.833843706648511
     },
     "cg=+0m,mass=3.364kg,cnr=-0.012,inertia=x1,vertical_wind=0.5_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 5.590928471744464
+      "score": 5.620990899743398
     },
     "cg=+0m,mass=3.364kg,cnr=-0.012,inertia=x1,vertical_wind=1_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 5.4458954234046
+      "score": 5.445896527046451
     },
     "cg=+0m,mass=3.364kg,cnr=-0.012,inertia=x1,vertical_wind=1_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 6.2988420385542
+      "score": 6.3327109185117365
     },
     "cg=+0m,mass=3.364kg,cnr=-0.012,inertia=x2,vertical_wind=0.25_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 3.971271627197058
+      "score": 3.971272431997964
     },
     "cg=+0m,mass=3.364kg,cnr=-0.012,inertia=x2,vertical_wind=0.25_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 4.593259827282574
+      "score": 4.617957789979814
     },
     "cg=+0m,mass=3.364kg,cnr=-0.012,inertia=x2,vertical_wind=0.5_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 4.12503576613488
+      "score": 4.1250366020969675
     },
     "cg=+0m,mass=3.364kg,cnr=-0.012,inertia=x2,vertical_wind=0.5_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 4.771106801391037
+      "score": 4.796761047446395
     },
     "cg=+0m,mass=3.364kg,cnr=-0.012,inertia=x2,vertical_wind=1_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 4.752571942011892
+      "score": 4.752572905147775
     },
     "cg=+0m,mass=3.364kg,cnr=-0.012,inertia=x2,vertical_wind=1_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 5.4969289000564086
+      "score": 5.526485892264117
     },
     "cg=+0m,mass=3.364kg,cnr=-0.012,inertia=x3.5,vertical_wind=0.25_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 3.465429889000185
+      "score": 3.4654305912893695
     },
     "cg=+0m,mass=3.364kg,cnr=-0.012,inertia=x3.5,vertical_wind=0.25_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 4.008192183178259
+      "score": 4.029744236566467
     },
     "cg=+0m,mass=3.364kg,cnr=-0.012,inertia=x3.5,vertical_wind=0.5_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 3.5968255233649087
+      "score": 3.5968262522821703
     },
     "cg=+0m,mass=3.364kg,cnr=-0.012,inertia=x3.5,vertical_wind=0.5_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 4.1601672545066775
+      "score": 4.1825364780058125
     },
     "cg=+0m,mass=3.364kg,cnr=-0.012,inertia=x3.5,vertical_wind=1_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 4.2296853161361945
+      "score": 4.229686173306112
     },
     "cg=+0m,mass=3.364kg,cnr=-0.012,inertia=x3.5,vertical_wind=1_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 4.892146765183064
+      "score": 4.918451843245106
     },
     "cg=+0m,mass=4kg,cnr=-0.012,inertia=x1,vertical_wind=0.25_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 4.1672758417037095
+      "score": 4.16727668622599
     },
     "cg=+0m,mass=4kg,cnr=-0.012,inertia=x1,vertical_wind=0.25_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 4.819962598834594
+      "score": 4.845879542561797
     },
     "cg=+0m,mass=4kg,cnr=-0.012,inertia=x1,vertical_wind=0.5_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 4.244576598152687
+      "score": 4.244577458340407
     },
     "cg=+0m,mass=4kg,cnr=-0.012,inertia=x1,vertical_wind=0.5_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 4.90937034842896
+      "score": 4.935768037715386
     },
     "cg=+0m,mass=4kg,cnr=-0.012,inertia=x1,vertical_wind=1_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 4.838247233706568
+      "score": 4.838248214205037
     },
     "cg=+0m,mass=4kg,cnr=-0.012,inertia=x1,vertical_wind=1_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 5.596022820713159
+      "score": 5.6261126410316065
     },
     "cg=+0m,mass=4kg,cnr=-0.012,inertia=x2,vertical_wind=0.25_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 3.626697014763252
+      "score": 3.626697749734141
     },
     "cg=+0m,mass=4kg,cnr=-0.012,inertia=x2,vertical_wind=0.25_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 4.19471727633882
+      "score": 4.217272275339992
     },
     "cg=+0m,mass=4kg,cnr=-0.012,inertia=x2,vertical_wind=0.5_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 3.650340017915138
+      "score": 3.650340757677418
     },
     "cg=+0m,mass=4kg,cnr=-0.012,inertia=x2,vertical_wind=0.5_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 4.222063292116272
+      "score": 4.244765330671701
     },
     "cg=+0m,mass=4kg,cnr=-0.012,inertia=x2,vertical_wind=1_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 4.245516050228846
+      "score": 4.245516910606953
     },
     "cg=+0m,mass=4kg,cnr=-0.012,inertia=x2,vertical_wind=1_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 4.910456939296109
+      "score": 4.936860471182717
     },
     "cg=+0m,mass=4kg,cnr=-0.012,inertia=x3.5,vertical_wind=0.25_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 3.198699695700021
+      "score": 3.1987003439348065
     },
     "cg=+0m,mass=4kg,cnr=-0.012,inertia=x3.5,vertical_wind=0.25_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 3.69968619400882
+      "score": 3.719579410383906
     },
     "cg=+0m,mass=4kg,cnr=-0.012,inertia=x3.5,vertical_wind=0.5_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 3.213159405221742
+      "score": 3.213160056386871
     },
     "cg=+0m,mass=4kg,cnr=-0.012,inertia=x3.5,vertical_wind=0.5_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 3.716410611045782
+      "score": 3.7363937546280463
     },
     "cg=+0m,mass=4kg,cnr=-0.012,inertia=x3.5,vertical_wind=1_vs_structured": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 3.8247223682789318
+      "score": 3.8247231433807913
     },
     "cg=+0m,mass=4kg,cnr=-0.012,inertia=x3.5,vertical_wind=1_vs_structured_residual": {
       "ratio_definition": "candidate/reference geometric mean over four state metrics and every horizon; values below one favor the candidate",
-      "score": 4.423757741578663
+      "score": 4.447544291391102
     }
   },
   "component_panels": {
@@ -647,271 +647,271 @@
       "aggregate": {
         "horizon_rollouts": {
           "0.1s": {
-            "angular_velocity_rmse_rad_s": 0.17854509584922176,
+            "angular_velocity_rmse_rad_s": 0.17854496456509156,
             "angular_velocity_rmse_xyz_rad_s": [
-              0.1942004385604048,
-              0.15187285091545707,
-              0.18669729664133122
+              0.19420027908294574,
+              0.15187269152883234,
+              0.18669721552970087
             ],
-            "attitude_rmse_deg": 1.0477258802842122,
+            "attitude_rmse_deg": 1.0477257185194753,
             "attitude_rotation_vector_rmse_xyz_deg": [
-              0.7063862847610443,
-              0.5563424439920405,
-              0.5378020285692104
+              0.7063865931627561,
+              0.5563419838399701,
+              0.5378017843643591
             ],
             "duration_s": 0.4000000000000008,
-            "final_position_error_m": 0.020157999938084075,
+            "final_position_error_m": 0.02015800044198153,
             "metric_policy": "rollout_error_excludes_measured_initial_sample_v2",
-            "position_rmse_m": 0.0070618766888579975,
+            "position_rmse_m": 0.0070618767054983255,
             "position_rmse_xyz_m": [
-              0.008407293827504686,
-              0.0029231695858091297,
-              0.008389445582188971
+              0.008407293895818926,
+              0.0029231677730896704,
+              0.008389446187363944
             ],
             "rollout_count": 1613,
             "sample_count": 6452,
-            "velocity_rmse_m_s": 0.15720719192401328,
+            "velocity_rmse_m_s": 0.1572072104719027,
             "velocity_rmse_xyz_m_s": [
-              0.18809397463441357,
-              0.06555984597947684,
-              0.18564715693830725
+              0.1880939853479002,
+              0.06555984703332488,
+              0.18564719283087006
             ],
             "weighting": "equal"
           },
           "0.5s": {
-            "angular_velocity_rmse_rad_s": 0.22151518780906035,
+            "angular_velocity_rmse_rad_s": 0.22151499078577438,
             "angular_velocity_rmse_xyz_rad_s": [
-              0.27116246395162674,
-              0.2083675976825793,
-              0.17395630965826883
+              0.2711622077089632,
+              0.2083673243253488,
+              0.17395628385419534
             ],
-            "attitude_rmse_deg": 4.390572721560319,
+            "attitude_rmse_deg": 4.390570664212207,
             "attitude_rotation_vector_rmse_xyz_deg": [
-              3.1134919318936536,
-              1.7415199401667363,
-              2.559375922240754
+              3.113490871881723,
+              1.7415172098700507,
+              2.559375540220281
             ],
             "duration_s": 2.000000000000004,
-            "final_position_error_m": 0.2651648995136908,
+            "final_position_error_m": 0.2651649698923798,
             "metric_policy": "rollout_error_excludes_measured_initial_sample_v2",
-            "position_rmse_m": 0.08136790585024416,
+            "position_rmse_m": 0.08136792878082531,
             "position_rmse_xyz_m": [
-              0.1002921681201745,
-              0.03368293171912707,
-              0.0931082672587235
+              0.10029218914424433,
+              0.03368294922795276,
+              0.09310829839604352
             ],
             "rollout_count": 1549,
             "sample_count": 30980,
-            "velocity_rmse_m_s": 0.3780397546541039,
+            "velocity_rmse_m_s": 0.3780397937233688,
             "velocity_rmse_xyz_m_s": [
-              0.4243161793414615,
-              0.16773829040149787,
-              0.46964009004667945
+              0.42431629802329324,
+              0.16773831093298375,
+              0.4696400698326107
             ],
             "weighting": "equal"
           },
           "1s": {
-            "angular_velocity_rmse_rad_s": 0.2306766906830719,
+            "angular_velocity_rmse_rad_s": 0.2306765119762763,
             "angular_velocity_rmse_xyz_rad_s": [
-              0.2878474550411968,
-              0.22236060804697053,
-              0.16533242116647365
+              0.2878472321801607,
+              0.2223603594038632,
+              0.1653323955691356
             ],
-            "attitude_rmse_deg": 5.441258953970419,
+            "attitude_rmse_deg": 5.4412567241968794,
             "attitude_rotation_vector_rmse_xyz_deg": [
-              3.907205061189682,
-              2.168739188545404,
-              3.1044513115920616
+              3.907203612864719,
+              2.1687382356056304,
+              3.1044498919548014
             ],
             "duration_s": 4.000000000000008,
-            "final_position_error_m": 0.670716713747756,
+            "final_position_error_m": 0.6707169412403217,
             "metric_policy": "rollout_error_excludes_measured_initial_sample_v2",
-            "position_rmse_m": 0.20717994882960228,
+            "position_rmse_m": 0.2071800094414224,
             "position_rmse_xyz_m": [
-              0.24626112337919281,
-              0.09957910785796464,
-              0.24126759828319191
+              0.2462612216702958,
+              0.09957912835061118,
+              0.2412676456444789
             ],
             "rollout_count": 1469,
             "sample_count": 58760,
-            "velocity_rmse_m_s": 0.48367133319860306,
+            "velocity_rmse_m_s": 0.4836714285729937,
             "velocity_rmse_xyz_m_s": [
-              0.5287011357590456,
-              0.25715616497822896,
-              0.5967911624137261
+              0.5287013658870778,
+              0.2571562130866726,
+              0.5967911697014139
             ],
             "weighting": "equal"
           },
           "2s": {
-            "angular_velocity_rmse_rad_s": 0.2275956387765436,
+            "angular_velocity_rmse_rad_s": 0.22759547384913079,
             "angular_velocity_rmse_xyz_rad_s": [
-              0.2824771262895687,
-              0.22639652838163593,
-              0.1560468180714978
+              0.28247692540937247,
+              0.22639628748905796,
+              0.15604680955492578
             ],
-            "attitude_rmse_deg": 7.246524933298704,
+            "attitude_rmse_deg": 7.246521144099114,
             "attitude_rotation_vector_rmse_xyz_deg": [
-              5.613109343830342,
-              2.550704771848098,
-              3.80775948163709
+              5.613106714653662,
+              2.5507038538420392,
+              3.807756761110426
             ],
             "duration_s": 8.000000000000016,
-            "final_position_error_m": 1.7321244208782132,
+            "final_position_error_m": 1.7321249540350547,
             "metric_policy": "rollout_error_excludes_measured_initial_sample_v2",
-            "position_rmse_m": 0.5335642733448349,
+            "position_rmse_m": 0.5335644463846411,
             "position_rmse_xyz_m": [
-              0.6081648723281114,
-              0.3302519810874786,
-              0.6124880557398082
+              0.608165184863826,
+              0.33025210075721506,
+              0.6124881331113589
             ],
             "rollout_count": 1309,
             "sample_count": 104720,
-            "velocity_rmse_m_s": 0.6332033787790856,
+            "velocity_rmse_m_s": 0.6332034533172006,
             "velocity_rmse_xyz_m_s": [
-              0.6947120968554096,
-              0.4372647598463006,
-              0.7273336160051082
+              0.6947121136369032,
+              0.4372650403186831,
+              0.7273336260339781
             ],
             "weighting": "equal"
           }
         }
       },
-      "score_vs_kinematic_persistence": 0.5068951132949688
+      "score_vs_kinematic_persistence": 0.5068950105697961
     },
     "structured_residual": {
       "aggregate": {
         "horizon_rollouts": {
           "0.1s": {
-            "angular_velocity_rmse_rad_s": 0.14765901065335052,
+            "angular_velocity_rmse_rad_s": 0.14715766719644144,
             "angular_velocity_rmse_xyz_rad_s": [
-              0.1656214077753193,
-              0.16185789291526492,
-              0.1085408774099917
+              0.16628611100262214,
+              0.16006478116653095,
+              0.10814033549897119
             ],
-            "attitude_rmse_deg": 0.8556741561448761,
+            "attitude_rmse_deg": 0.8553212222822065,
             "attitude_rotation_vector_rmse_xyz_deg": [
-              0.5989904516437629,
-              0.5299232483913188,
-              0.3042532681001643
+              0.6010042396331827,
+              0.527539844301427,
+              0.3034304037255721
             ],
             "duration_s": 0.4000000000000008,
-            "final_position_error_m": 0.017577648301064886,
+            "final_position_error_m": 0.01746500370916102,
             "metric_policy": "rollout_error_excludes_measured_initial_sample_v2",
-            "position_rmse_m": 0.006225205653251556,
+            "position_rmse_m": 0.00618960932671039,
             "position_rmse_xyz_m": [
-              0.0057762978834337555,
-              0.0025126265346826675,
-              0.008751036906268467
+              0.005833206777355433,
+              0.002480932064916318,
+              0.008645950823002955
             ],
             "rollout_count": 1613,
             "sample_count": 6452,
-            "velocity_rmse_m_s": 0.1361910532111766,
+            "velocity_rmse_m_s": 0.13523629788864475,
             "velocity_rmse_xyz_m_s": [
-              0.12791715765530923,
-              0.05508364132534288,
-              0.1903864547703864
+              0.12920436686940215,
+              0.05428357412649342,
+              0.18768615815187115
             ],
             "weighting": "equal"
           },
           "0.5s": {
-            "angular_velocity_rmse_rad_s": 0.1882072909203497,
+            "angular_velocity_rmse_rad_s": 0.18762558757436792,
             "angular_velocity_rmse_xyz_rad_s": [
-              0.22919764785880178,
-              0.19240750938131534,
-              0.12928163681050497
+              0.22933909978644354,
+              0.19080228082812653,
+              0.128872612597901
             ],
-            "attitude_rmse_deg": 3.7243133282329643,
+            "attitude_rmse_deg": 3.714672458874426,
             "attitude_rotation_vector_rmse_xyz_deg": [
-              2.667754653579105,
-              1.7168318377290621,
-              1.9509185826481772
+              2.6688447140450084,
+              1.7069107761162776,
+              1.9397203332990343
             ],
             "duration_s": 2.000000000000004,
-            "final_position_error_m": 0.19292097134869818,
+            "final_position_error_m": 0.19046047284020243,
             "metric_policy": "rollout_error_excludes_measured_initial_sample_v2",
-            "position_rmse_m": 0.06073574196193235,
+            "position_rmse_m": 0.05990833233868799,
             "position_rmse_xyz_m": [
-              0.06178752123338506,
-              0.023003285776118456,
-              0.08197342324397285
+              0.06269940216786733,
+              0.021959351409547603,
+              0.07970945178755207
             ],
             "rollout_count": 1549,
             "sample_count": 30980,
-            "velocity_rmse_m_s": 0.2771351299125636,
+            "velocity_rmse_m_s": 0.27351087360840287,
             "velocity_rmse_xyz_m_s": [
-              0.256161724424613,
-              0.11821447263894007,
-              0.388353125510104
+              0.2602667374384076,
+              0.11361752218975021,
+              0.37917921617715783
             ],
             "weighting": "equal"
           },
           "1s": {
-            "angular_velocity_rmse_rad_s": 0.19064462139679225,
+            "angular_velocity_rmse_rad_s": 0.19034597918504875,
             "angular_velocity_rmse_xyz_rad_s": [
-              0.23250888338415462,
-              0.19996946181238107,
-              0.12242527717958827
+              0.23301573603568448,
+              0.1984696909226336,
+              0.12250805655371227
             ],
-            "attitude_rmse_deg": 5.621651425813809,
+            "attitude_rmse_deg": 5.603418473600935,
             "attitude_rotation_vector_rmse_xyz_deg": [
-              4.433280700425215,
-              2.1894107684688278,
-              2.6749705552596073
+              4.442647008974088,
+              2.143919422001447,
+              2.6579683323757544
             ],
             "duration_s": 4.000000000000008,
-            "final_position_error_m": 0.5011542427605039,
+            "final_position_error_m": 0.49721662735568684,
             "metric_policy": "rollout_error_excludes_measured_initial_sample_v2",
-            "position_rmse_m": 0.15111327145520748,
+            "position_rmse_m": 0.14975277676526508,
             "position_rmse_xyz_m": [
-              0.1462048976322272,
-              0.07442074357460426,
-              0.20393955786908657
+              0.1496774674296865,
+              0.06925125874117058,
+              0.20019640694408244
             ],
             "rollout_count": 1469,
             "sample_count": 58760,
-            "velocity_rmse_m_s": 0.3751482020212089,
+            "velocity_rmse_m_s": 0.37125614005408025,
             "velocity_rmse_xyz_m_s": [
-              0.35210174633004515,
-              0.2040618551860202,
-              0.5065487537528934
+              0.3615401239523986,
+              0.1901895397420366,
+              0.4965984719355879
             ],
             "weighting": "equal"
           },
           "2s": {
-            "angular_velocity_rmse_rad_s": 0.19198651668326142,
+            "angular_velocity_rmse_rad_s": 0.19181142862227343,
             "angular_velocity_rmse_xyz_rad_s": [
-              0.23585091736727587,
-              0.1974243259863034,
-              0.1263900630998543
+              0.23615910852112232,
+              0.19649580639304243,
+              0.12646401062282234
             ],
-            "attitude_rmse_deg": 8.717204795493146,
+            "attitude_rmse_deg": 8.689520819307313,
             "attitude_rotation_vector_rmse_xyz_deg": [
-              7.231894294877073,
-              3.0424919124752585,
-              3.7990271539984235
+              7.247309498510441,
+              2.9462469539881324,
+              3.7820505004683347
             ],
             "duration_s": 8.000000000000016,
-            "final_position_error_m": 1.8175266665528211,
+            "final_position_error_m": 1.8109763427885106,
             "metric_policy": "rollout_error_excludes_measured_initial_sample_v2",
-            "position_rmse_m": 0.48613417794892555,
+            "position_rmse_m": 0.4837457625184638,
             "position_rmse_xyz_m": [
-              0.5223228808193927,
-              0.31049765033362714,
-              0.582880205719887
+              0.5430171257832256,
+              0.2842942351077915,
+              0.571260953728075
             ],
             "rollout_count": 1309,
             "sample_count": 104720,
-            "velocity_rmse_m_s": 0.6794824957955068,
+            "velocity_rmse_m_s": 0.6772150436608994,
             "velocity_rmse_xyz_m_s": [
-              0.797530750129206,
-              0.45019362556823866,
-              0.7391615441657826
+              0.822879048449176,
+              0.4176054982158721,
+              0.72411074123034
             ],
             "weighting": "equal"
           }
         }
       },
-      "score_vs_kinematic_persistence": 0.4382548031436038
+      "score_vs_kinematic_persistence": 0.4359109097447917
     }
   },
   "kinematic_persistence": {

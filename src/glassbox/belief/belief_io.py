@@ -20,11 +20,18 @@ from glassbox.belief.information import (
     parameter_information_from_dict,
     supported_covariance,
 )
-from glassbox.core.data import TrajectorySpec
-from glassbox.core.model import ExecutableModel, RuntimeModelSpec, default_actuation
+from glassbox.core.data import Channel, TrajectorySpec
+from glassbox.core.model import (
+    ActuationMap,
+    DirectActuationMap,
+    ExecutableModel,
+    NonActionableModelError,
+    RuntimeModelSpec,
+    default_actuation,
+)
 from glassbox.core.model_io import dynamics_model_from_payload, model_payload
 
-BELIEF_FORMAT_VERSION = 5
+BELIEF_FORMAT_VERSION = 6
 BELIEF_ARTIFACT_TYPE = "glassbox_dynamics_belief"
 
 # Formats 3 and 4 are every belief written before the parameter belief, the
@@ -57,12 +64,62 @@ def belief_payload(belief: DynamicsBelief) -> dict[str, Any]:
             runtime_spec=belief.runtime_spec,
             provenance=belief.provenance,
         ),
+        "actuation": _actuation_payload(belief.model.actuation),
         "information": belief.information.to_dict(),
         "forecast_error": (
             None if belief.forecast_error is None else belief.forecast_error.to_dict()
         ),
         "provenance": dict(belief.provenance),
     }
+
+
+def _actuation_payload(actuation: ActuationMap | None) -> dict[str, Any]:
+    """Serialize identity maps; mark arbitrary code as requiring rebinding."""
+
+    if actuation is None:
+        return {"kind": "none"}
+    return {
+        "kind": "direct" if type(actuation) is DirectActuationMap else "external",
+        "type": f"{type(actuation).__module__}.{type(actuation).__qualname__}",
+        "command_channels": [
+            channel.to_dict() for channel in actuation.command_channels
+        ],
+        "model_control_size": actuation.model_control_size,
+    }
+
+
+def _restore_actuation(
+    payload: Mapping[str, Any] | None,
+    input_spec: TrajectorySpec,
+    override: ActuationMap | None,
+) -> ActuationMap | None:
+    if payload is None:  # Formats through 5 recorded only the model inputs.
+        return default_actuation(input_spec) if override is None else override
+    kind = payload.get("kind")
+    if kind not in {"none", "direct", "external"}:
+        raise ValueError("unsupported actuation mapping format")
+    if kind == "external":
+        if override is None:
+            raise NonActionableModelError(
+                f"artifact requires external actuation map {payload.get('type')!r}; "
+                "load it with actuation=your_map"
+            )
+        if [channel.to_dict() for channel in override.command_channels] != payload[
+            "command_channels"
+        ] or override.model_control_size != payload["model_control_size"]:
+            raise ValueError("rebound actuation map does not match the saved interface")
+    if override is not None:
+        return override
+    if kind == "none":
+        if default_actuation(input_spec) is not None:
+            raise ValueError("absent actuation conflicts with actionable model inputs")
+        return None
+    restored = DirectActuationMap(
+        tuple(Channel.from_dict(channel) for channel in payload["command_channels"])
+    )
+    if restored.model_control_size != payload["model_control_size"]:
+        raise ValueError("direct actuation dimensions do not match the saved interface")
+    return restored
 
 
 def save_dynamics_belief(belief: DynamicsBelief, path: str | Path) -> None:
@@ -118,14 +175,11 @@ def _without_dropped_parameters(
 
 def _executable_model(
     payload: Mapping[str, Any],
+    *,
+    actuation: ActuationMap | None = None,
+    actuation_payload: Mapping[str, Any] | None = None,
 ) -> tuple[ExecutableModel, Mapping[str, Any]]:
-    """Rebuild the belief's mean from the nominal-model half of a payload.
-
-    The artifact records no actuation map, because the map is a property of the
-    command interface rather than of the fit. It is rebuilt from the declared
-    control channels, which yields the identity map for an actionable model and
-    no map at all for one whose inputs are observations of actuation.
-    """
+    """Rebuild the mean and its saved or explicitly rebound command interface."""
 
     params, nominal = dynamics_model_from_payload(payload)
     input_spec = TrajectorySpec.from_dict(nominal["input_spec"])
@@ -133,7 +187,7 @@ def _executable_model(
         params,
         input_spec,
         RuntimeModelSpec.from_dict(nominal["runtime_spec"]),
-        default_actuation(input_spec),
+        _restore_actuation(actuation_payload, input_spec, actuation),
     )
     return model, nominal
 
@@ -221,17 +275,21 @@ def _legacy_information(
     )
 
 
-def _point_belief_from_model_payload(payload: Mapping[str, Any]) -> DynamicsBelief:
+def _point_belief_from_model_payload(
+    payload: Mapping[str, Any], *, actuation: ActuationMap | None = None
+) -> DynamicsBelief:
     """Wrap a bare nominal-model payload as a belief carrying no evidence."""
 
-    model, nominal = _executable_model(payload)
+    model, nominal = _executable_model(payload, actuation=actuation)
     return DynamicsBelief(
         model=model,
         provenance=dict(nominal.get("provenance", {})),
     )
 
 
-def dynamics_belief_from_payload(payload: Mapping[str, Any]) -> DynamicsBelief:
+def dynamics_belief_from_payload(
+    payload: Mapping[str, Any], *, actuation: ActuationMap | None = None
+) -> DynamicsBelief:
     """Restore a dynamics belief from an already decoded payload.
 
     A payload that is a bare nominal model rather than a belief is accepted and
@@ -246,10 +304,18 @@ def dynamics_belief_from_payload(payload: Mapping[str, Any]) -> DynamicsBelief:
     """
 
     if payload.get("artifact_type") != BELIEF_ARTIFACT_TYPE:
-        return _point_belief_from_model_payload(payload)
+        return _point_belief_from_model_payload(payload, actuation=actuation)
     version = payload.get("format_version")
-    if version == BELIEF_FORMAT_VERSION:
-        model, _ = _executable_model(payload["nominal_model"])
+    if version in (5, BELIEF_FORMAT_VERSION):
+        if version == BELIEF_FORMAT_VERSION and not isinstance(
+            payload.get("actuation"), Mapping
+        ):
+            raise ValueError("belief artifact is missing its actuation contract")
+        model, _ = _executable_model(
+            payload["nominal_model"],
+            actuation=actuation,
+            actuation_payload=payload.get("actuation") if version >= 6 else None,
+        )
         forecast_error = payload.get("forecast_error")
         return DynamicsBelief(
             model=model,
@@ -270,7 +336,7 @@ def dynamics_belief_from_payload(payload: Mapping[str, Any]) -> DynamicsBelief:
         "artifact",
         stacklevel=3,
     )
-    model, _ = _executable_model(payload["nominal_model"])
+    model, _ = _executable_model(payload["nominal_model"], actuation=actuation)
     parameter_belief = dict(payload["parameter_belief"])
     parameter_evidence = dict(payload["parameter_evidence"])
     if version == 3:
@@ -288,7 +354,9 @@ def dynamics_belief_from_payload(payload: Mapping[str, Any]) -> DynamicsBelief:
     )
 
 
-def load_dynamics_belief(path: str | Path) -> DynamicsBelief:
+def load_dynamics_belief(
+    path: str | Path, *, actuation: ActuationMap | None = None
+) -> DynamicsBelief:
     """Load a belief written by :func:`save_dynamics_belief`.
 
     A bare nominal-model artifact is read as a point belief; see
@@ -296,4 +364,6 @@ def load_dynamics_belief(path: str | Path) -> DynamicsBelief:
     it goes away.
     """
 
-    return dynamics_belief_from_payload(json.loads(Path(path).read_text()))
+    return dynamics_belief_from_payload(
+        json.loads(Path(path).read_text()), actuation=actuation
+    )

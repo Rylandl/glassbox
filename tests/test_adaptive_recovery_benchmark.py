@@ -34,7 +34,7 @@ def test_adaptive_recovery_benchmark_is_finite_and_auditable() -> None:
     assert report["artifact_type"] == (
         "glassbox_synthetic_adaptive_recovery_diagnostic"
     )
-    assert report["format_version"] == 5
+    assert report["format_version"] == 6
     assert report["semantics"]["diagnostic_only"]
     assert not report["semantics"]["acceptance_gate"]
     assert not report["semantics"]["flight_safety_claim"]
@@ -51,6 +51,8 @@ def test_adaptive_recovery_benchmark_is_finite_and_auditable() -> None:
     # The update is one recursive absorb, and its covariance really moves:
     # that is the whole point of retargeting this diagnostic.
     assert report["semantics"]["update_is_a_recursive_information_absorb"]
+    assert report["semantics"]["nonlinear_update_backtracking"]
+    assert report["semantics"]["unresolved_parameter_planning_explicitly_allowed"]
     assert not report["semantics"]["update_proposal_and_validation_split"]
     assert not report["semantics"]["update_improvement_margin"]
     assert report["semantics"]["parameter_covariance_updated_by_the_update"]
@@ -83,6 +85,8 @@ def test_adaptive_recovery_benchmark_is_finite_and_auditable() -> None:
     }
     for item in report["recovery"]:
         assert item["finite"]
+        assert sum(item["solve_status_counts"].values()) == 60
+        assert item["unresolved_parameters_allowed"]
         assert item["fallback_count"] == 0
         assert item["maximum_command_bound_violation"] <= 1e-6
         assert item["prediction_horizon_s"] == pytest.approx(0.6)
@@ -102,7 +106,8 @@ def test_adaptive_recovery_benchmark_is_finite_and_auditable() -> None:
     assert report["observations"][
         "all_full_nmpc_predictions_within_validity_support"
     ] == all(
-        item["maximum_predicted_validity_utilization"] <= 1.0
+        item["maximum_predicted_validity_utilization"] is not None
+        and item["maximum_predicted_validity_utilization"] <= 1.0
         for item in report["recovery"]
     )
     assert all(np.isfinite(value) for value in report["comparisons"].values())

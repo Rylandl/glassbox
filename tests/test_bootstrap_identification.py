@@ -736,10 +736,15 @@ def test_the_scripted_plant_estimates_are_pinned() -> None:
 def _bootstrap_solver(
     belief: DynamicsBelief,
 ) -> BoundedShootingSolver:
+    from dataclasses import replace
+
+    from glassbox.control.fitted import default_solver_policy
+
     plan = plan_model(
         belief,
         TrackingTolerances.for_platform(belief.model.input_spec.vehicle.family),
         SafetyEnvelope(maximum_speed_m_s=8.0, maximum_angular_velocity_rad_s=8.0),
+        policy=replace(default_solver_policy(belief), allow_unresolved_parameters=True),
     )
     return BoundedShootingSolver(plan, plan.policy)
 
@@ -781,11 +786,11 @@ def test_a_bootstrap_belief_drives_the_bounded_solver() -> None:
 
 
 def test_a_rank_zero_bootstrap_belief_still_solves() -> None:
-    """A fresh identifier's belief plans, with zero spread and a bounded hold.
+    """A fresh belief can plan under an explicit partial-uncertainty override.
 
-    Nothing is resolved, so the covariance is exactly zero and the objective is
-    the point objective. The zero map makes every command equivalent, so the
-    solver returns the previous command rather than inventing one.
+    Nothing is resolved, so only the point objective is available and the
+    diagnostic uncertainty is unbounded. The zero map makes every command
+    equivalent, so the solver returns the previous command.
     """
 
     belief = RecursiveBootstrapIdentifier().belief
@@ -803,8 +808,10 @@ def test_a_rank_zero_bootstrap_belief_still_solves() -> None:
     assert np.isfinite(result.diagnostics.final_objective)
     assert (
         result.diagnostics.maximum_normalized_model_uncertainty_standard_deviation
-        == 0.0
+        == np.inf
     )
+    assert not result.diagnostics.parameter_uncertainty_complete
+    assert result.diagnostics.unresolved_parameters_allowed
     np.testing.assert_allclose(result.command, previous_command, atol=1e-9)
     assert np.all(result.command >= 0.0)
     assert np.all(result.command <= 1.0)

@@ -69,9 +69,11 @@ result = controller.solve(
 )
 ```
 
-There is no recalibration step and no lifecycle to keep in mind. `absorb`
-returns a belief that is strictly better informed than the one it was given,
-and the controller reads that belief directly.
+`absorb` adds information from usable transitions and safeguards the mean
+update against nonlinear divergence. The forecast envelope remains measured
+at the earlier parameters; `parameter_distance_since_measurement` records
+that drift. The controller refuses unresolved parameter uncertainty by default.
+Explicit partial-information planning is described in [NMPC](nmpc.md).
 
 ## The twelve local coordinates
 
@@ -160,18 +162,22 @@ ParameterInformation(names, precision, scale, estimable, innovation_noise,
 defines the normalized coordinate `u` by `parameters = center + diag(scale) u`,
 so the normalized precision `diag(scale) @ precision @ diag(scale)` has
 eigenvalues comparable across coordinates of different physical units, and the
-rank test is stated on those: a direction is *resolved* when its normalized
-eigenvalue exceeds `rank_relative_tolerance` times the largest. `estimable` is
+rank test is stated on those. The first nonzero precision sets an absolute
+`rank_threshold` using `rank_relative_tolerance` times its largest normalized
+eigenvalue. `with_precision` preserves that threshold as information grows,
+so strengthening one direction cannot erase previously resolved directions.
+The threshold is serialized with the information state. `estimable` is
 the mask the fitter declares; a coordinate outside it is held fixed by
 construction, and its rows and columns of the precision are exactly zero.
 
 - `resolved_rank()` and `resolved_subspace()` report what the evidence has
   resolved.
-- `covariance()` is the pseudo-inverse of the precision on that subspace. An
-  unresolved direction has **exactly zero** variance rather than a large one:
-  this object is what is known, and inventing a spread along a direction it
-  says nothing about would be an assumption. The complementary statement, that
-  such a direction may be arbitrarily wrong, is carried by the rank.
+- `covariance()` is the inverse on the resolved subspace, padded with zeros.
+  It is a partial covariance, not a claim of zero variance elsewhere.
+  `unresolved_subspace()` carries the missing directions, and `complete`
+  reports whether all estimable directions are resolved. Prediction reports
+  unbounded future standard deviations when that completeness is missing;
+  the controller requires an explicit override to plan in that case.
 - `authority(direction)` is in `[0, 1]`: the variance along the direction
   compared against the smallest the evidence achieves anywhere, scaled by the
   share of the direction inside the resolved subspace. It is one along the
@@ -189,10 +195,10 @@ construction, and its rows and columns of the precision are exactly zero.
   every other direction stays at zero precision, which is to say unknown. It
   invents no precision on directions no member moved.
 
-Rank zero is a point estimate. Inverting a rank-deficient information matrix
-would assign zero variance to directions the flight never excited; the
-pseudo-inverse on the resolved subspace assigns them zero *information*
-instead, and the update takes no step along them.
+Rank zero describes a mean with no resolved parameter uncertainty. Its zero
+pseudoinverse is useful for linear algebra but cannot represent certainty.
+The unresolved basis and completeness flag must accompany it into prediction
+and control.
 
 ## `ForecastErrorEnvelope`
 
@@ -219,7 +225,8 @@ result and the commit that carried its code.
 the latent applied-control state, the commands, the forecast-error covariance
 and the parameter covariance at every horizon, validity-envelope utilization,
 whether the requested horizon is supported by the envelope, and the parameter
-information rank behind it. The two covariances are reported separately because
+information rank, completeness, and unresolved basis behind it. The two
+covariances are reported separately because
 they answer different questions: the envelope was measured on held-out flights
 of the model as it was fitted, and the parameter contribution is the plan's own
 sensitivity to the coefficients the evidence resolved. The plan model sums them
@@ -241,59 +248,47 @@ to its caller; NMPC constructs every command inside the bounds.
 updated, result = belief.absorb(telemetry)
 ```
 
-1. One-step windows are taken at the belief's own sample period. A sample
-   outside the model's validity envelope, or a non-finite one, is dropped
-   rather than downweighted: the fit never claimed to describe that region, so
-   an innovation measured there would be charged against parameters that were
-   never fitted to explain it. If nothing remains the belief comes back
-   unchanged with `absorbed=False` and a reason.
-2. Each window contributes an innovation, measured minus predicted from the
-   measured previous state under the applied command, with the latent actuator
-   state carried causally, and a Jacobian of the predicted endpoint tangent
-   with respect to the structured parameters, restricted to the estimable
-   coordinates.
-3. `dL = sum_w J_w' R^-1 J_w` and `L' = L + dL`. There is no forgetting factor
-   and no discount. Information accumulates, always.
-4. `P` is the pseudo-inverse of `L'` on its resolved subspace and the step is
-   `P sum_w J_w' R^-1 nu_w`. It is exactly zero along every unresolved
-   direction by construction, and a well-resolved direction moves less than a
-   poorly resolved one for the same innovation, because the step is bounded by
-   what the belief already knows rather than by a declared trust region.
-5. `R' = max(R, mean_w (nu_w - J_w dtheta)^2)`, per coordinate. Realized error
-   can raise the noise floor only by the part the step did not explain: the
-   error an empty belief makes is explained away by its own first step and does
-   not get recorded as irreducible noise. This is the prequential lesson stated
-   so that it discounts ignorance.
+1. Finite one-step transitions inside the validity envelope are selected at
+   the model's sample period. No usable transition returns the original belief
+   and a refusal reason.
+2. Innovations and structured-parameter Jacobians share one causal actuator
+   history, including `Trajectory.control_prefix` on segments. Fitting and
+   absorption use the same history extraction.
+3. `dL = sum_w J_w' R^-1 J_w` and `L' = L + dL`. Information is added once;
+   there is no forgetting or held-out acceptance split.
+4. The resolved pseudoinverse gives a direction `d = P sum_w J_w' R^-1 nu_w`.
+   Its norm in parameter-scale coordinates is capped at one. Up to twenty
+   halvings find a finite physical model whose actual whitened squared error
+   plus the prior quadratic `step' L step` does not exceed the incoming error.
+   If no such step is found, the mean stays unchanged and the information is
+   still recorded. Scaling preserves the unresolved null space.
+5. The innovation noise increases, when necessary, to the actual nonlinear
+   residual's mean square after the accepted step. A linearized cancellation
+   cannot conceal a divergent or poorly fitting model.
 
-`UpdateResult` carries `absorbed`, the `reason` when it is not, the window
-count, the whitened one-step innovation before and after, the information gain
-in nats, the step's length in the metric of the prior precision, and the worst
-validity utilization the evidence reached. `provenance` accumulates the update
-count and `parameter_distance_since_measurement`, the normalized distance the
-parameters have moved since the envelope was measured. Nothing gates on that
-distance; it is the number a caller reads to decide whether an envelope
-measured around older parameters still describes the model in hand.
+`UpdateResult` reports the measured innovation before and after, information
+gain on the previously resolved subspace, the step length in prior standard
+deviations, the usable window count, and validity utilization. Updates are
+functional. The original belief remains unchanged.
 
-Updates are functional: `absorb` returns a new immutable belief and never
-mutates the one it was given. The
-[adaptive recovery diagnostic](../validation.md#adaptive-recovery) is the
-recorded end-to-end measurement of this update driving a controller.
+The covariance argument for an unscaled linear Gaussian update describes a
+statistical null, not a deterministic trust region for a nonlinear model.
+`tests/test_absorb.py` checks that null empirically; separate regressions check
+large initial model errors, finite physical coefficients, and actual descent.
+The [adaptive recovery diagnostic](../validation.md#adaptive-recovery) records
+the resulting estimator driving a controller.
 
-### The pinned step-size property
+## Saving the command interface
 
-Under the null the belief is already at the true parameters and sees telemetry
-whose one-step innovations are independent with exactly the declared covariance
-`R`. The step then has covariance `P dL P = P - P L P`, which is at most the
-posterior covariance `P` and therefore at most the prior covariance. So the
-mean step over `S` independent seeds, measured along any resolved direction in
-prior standard deviations, has standard deviation at most `1 / sqrt(S)`.
-`tests/test_absorb.py` pins that at `S = 64` seeds and `k = 4`, a bound of
-`0.5` prior sigma with a two-sided level near `6e-5` per direction. The
-constant is derived from the inequality above, not from what a run produced.
+Belief format 6 records direct actuator maps with their own command channels
+and bounds. Arbitrary JAX/Python maps are recorded as external dependencies;
+loading them requires `DynamicsBelief.load(path, actuation=your_map)` or
+`ExecutableModel.load(path, actuation=your_map)`. The supplied map must match
+the saved channel contract, and the caller owns its calibration. No loader
+silently substitutes an identity map for an external map.
 
-The transactional update this replaced is retired. Its record, and the commit
-that carried it, are in the
-[literature review](../literature-review.md#what-phases-0-to-3-retired-2026-09-04).
+Formats 3 through 5 remain readable with their historical command-interface
+assumptions; they did not record external mappings.
 
 ## Active exploration
 

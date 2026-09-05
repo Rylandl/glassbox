@@ -20,6 +20,7 @@ from glassbox.core.dynamics import (
     model_family,
     quaternion_to_rotation,
     step_with_latent,
+    structured_parameters,
 )
 
 ACTIONABLE_CONTROL_SEMANTICS = frozenset(
@@ -266,7 +267,11 @@ def runtime_spec_from_trajectory(trajectory: Trajectory) -> RuntimeModelSpec:
 
 @runtime_checkable
 class ActuationMap(Protocol):
-    """JAX-compatible mapping from bounded commands to model input channels."""
+    """Immutable JAX mapping from bounded commands to model input channels.
+
+    Construct a new map when calibration or bounds change. Compiled kernels
+    capture this object; mutating it in place cannot update a traced function.
+    """
 
     command_channels: tuple[Channel, ...]
     model_control_size: int
@@ -456,6 +461,14 @@ class ExecutableModel:
                 raise ValueError("rebound parameter dtype changed")
             if not np.all(np.isfinite(candidate_array)):
                 raise ValueError("rebound parameters must be finite")
+        base = structured_parameters(params)
+        for name, value in zip(base._fields, base, strict=True):
+            if name.startswith("log_"):
+                physical = np.asarray(jnp.exp(value))
+                if not np.all(np.isfinite(physical)) or np.any(physical <= 0.0):
+                    raise ValueError(
+                        "rebound physical parameters must be finite and positive"
+                    )
         return replace(self, params=params)
 
     @classmethod
@@ -465,14 +478,9 @@ class ExecutableModel:
         *,
         actuation: ActuationMap | None = None,
     ) -> ExecutableModel:
-        from glassbox.core.model_io import load_dynamics_model
+        from glassbox.belief.belief_io import load_dynamics_belief
 
-        params, payload = load_dynamics_model(path)
-        input_spec = TrajectorySpec.from_dict(payload["input_spec"])
-        runtime_spec = RuntimeModelSpec.from_dict(payload["runtime_spec"])
-        if actuation is None:
-            actuation = default_actuation(input_spec)
-        return cls(params, input_spec, runtime_spec, actuation)
+        return load_dynamics_belief(path, actuation=actuation).model
 
     @property
     def command_size(self) -> int:

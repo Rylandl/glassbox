@@ -50,9 +50,9 @@ The package is four layers and one entry point per job.
   `ParameterInformation` over its structured coefficients, and one
   `ForecastErrorEnvelope` of held-out error in 12 local rigid-body
   coordinates. `belief.absorb(telemetry)` adds every usable one-step
-  transition's information and takes a step bounded by the current covariance,
-  exactly zero along directions the telemetry does not resolve. There is no
-  proposal, no validation split and no acceptance threshold. See
+  transition's information and takes a bounded, backtracked parameter step,
+  with no displacement along unresolved directions. Backtracking uses the
+  actual nonlinear residual and prior precision, without a held-out split. See
   [dynamics beliefs](concepts/dynamics-beliefs.md).
 - **Control.** One `PlanModel` protocol and one `BoundedShootingSolver` with
   hard command bounds, explicit failure statuses and a bounded hold on every

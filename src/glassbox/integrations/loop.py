@@ -192,6 +192,8 @@ def _diagnostics_dict(diagnostics: NMPCDiagnostics) -> dict[str, Any]:
         ),
         "warm_start_used": bool(diagnostics.warm_start_used),
         "prediction_horizon_s": float(diagnostics.prediction_horizon_s),
+        "parameter_uncertainty_complete": diagnostics.parameter_uncertainty_complete,
+        "unresolved_parameters_allowed": diagnostics.unresolved_parameters_allowed,
     }
 
 
