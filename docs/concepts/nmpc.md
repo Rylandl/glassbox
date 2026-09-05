@@ -209,8 +209,12 @@ maximum validity utilization, normalized safety violation, normalized model
 uncertainty standard deviation, whether a warm start was used, and the
 prediction horizon the plan covers. Two flags record whether parameter
 uncertainty is complete and whether the caller permits unresolved parameters.
-`command_usable` says whether the command
-came from a finite optimized plan.
+`command_usable` says whether the command came from a finite optimized plan
+within command bounds and permitted parameter support. It does not establish
+that the predicted motion stays inside the model's validity envelope.
+`maximum_validity_utilization` measures the mean trajectory, including the
+initial state. A value above one means some declared feature bound is exceeded;
+the objective's covariance-expanded validity penalty is a separate quantity.
 
 `converged` is reserved for the first-order criterion, and that criterion
 tests the bound-projected gradient, `blocks - clip(blocks - gradient)`,
@@ -305,6 +309,13 @@ supervisor interventions and deadline misses, and reports the solve-time
 median, p90 and maximum alongside the worst message skew, receive age,
 source-clock lag and state-to-command skew the run saw.
 
+The loop passes `result.diagnostics.maximum_validity_utilization` to the
+supervisor as `controller_maximum_validity_utilization`. Custom implementations
+of `CommandSupervisor` must accept this keyword. An optional `clock` callable
+supplies supervision timestamps for discrete simulations; observation reception
+timestamps must use that same clock. Its default is `time.monotonic`. Solver
+CPU durations and `host_elapsed_s` still use the actual host clock.
+
 PX4 telemetry is a read-only link and the Cascade plant is a writable one, so
 shadow mode and simulated closed-loop control are the same code differing by
 one property of the link.
@@ -385,12 +396,22 @@ it sits outside `NMPCController` and must be configured by the vehicle
 integration.
 
 For fresh valid telemetry and a fresh, finite, bounded, command-usable
-candidate, the supervisor returns the candidate unchanged. Invalid or stale
+candidate whose reported plan remains inside model support, the supervisor
+returns the candidate unchanged. Invalid or stale
 telemetry selects a configured collective hold, because geometric arrest
 cannot be trusted without a usable attitude and body rate. Command faults, an
-unusable controller, or excessive tilt or body rates select a bounded
+unusable controller, unknown or exceeded model support, or excessive tilt or body rates select a bounded
 geometric attitude and rate-arrest command. Arrest remains latched for a
 minimum interval and until tighter release limits are met.
+
+The support input must be finite, nonnegative and at most `1 + 1e-6`.
+Omitting it withholds nominal control with `MODEL_SUPPORT_UNKNOWN`; an
+exceeded envelope produces `MODEL_SUPPORT_EXCEEDED`. The supervisor consumes
+the controller's reported support rather than evaluating a model itself.
+Its physical tilt and rate limits remain independent. A supported nominal
+forecast does not prove that arrest commands or subsequent physical states
+remain inside that envelope. The [supervised recovery investigation](../recovery-investigation.md#supervised-recovery-and-model-support)
+records this distinction and the tested fault responses.
 
 The supervisor does not know how this airframe turns a desired body-axis
 differential into motor commands, and it must not assume one: an identifier
@@ -445,6 +466,7 @@ decision = supervisor.supervise(
     command_generated_at_s=now,
     now_s=now,
     controller_command_usable=result.command_usable,
+    controller_maximum_validity_utilization=result.diagnostics.maximum_validity_utilization,
     previous_applied_command=np.asarray(result.command),
 )
 motor_command = decision.command
@@ -455,7 +477,8 @@ normalized command semantics must match the allocation that was handed in. The
 collective hold command, command bounds, limits, gains and maximum arrest slew
 are vehicle integration values, not identified dynamics parameters. Every
 decision reports a `SupervisorMode`, typed `SupervisorReason` values, state
-and command ages, measured tilt and rate, whether the nominal command was
+and command ages, measured tilt and rate, `maximum_model_validity_utilization`
+(`None` when unknown), whether the nominal command was
 accepted, and an immutable four-motor command; `reset()` clears the time and
 arrest latch for an explicit lifecycle restart.
 

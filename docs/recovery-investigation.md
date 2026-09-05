@@ -139,6 +139,121 @@ remain unchanged. Improving solver efficiency is a separate opportunity,
 supported by the offline reference, rather than the explanation for this
 uncertainty regression.
 
+## Supervised recovery and model support
+
+The [supervised investigation](investigations/supervised-recovery.json) drives
+the production `run_control_loop` and `MultirotorFlightSupervisor` against the
+same synthetic target, after the additional identification evidence above.
+It records twelve cases, support exits by feature, counterfactual prediction
+errors, solver outcomes and supervisor transitions. Reproduce it with:
+
+```bash
+uv run python scripts/investigate_supervised_recovery.py \
+  --output docs/investigations/supervised-recovery.json
+```
+
+Each recovery lasts 2.4 seconds, with tracking RMS measured over the final
+0.4 seconds. These tails therefore differ from the earlier 1.2-second runs.
+The supervisor uses a discrete clock shared with observation timestamps.
+Nominal offline solves have no CPU deadline; durations remain recorded as host
+time. The controller objective, gains, iteration budget and physical supervisor
+limits are unchanged. No command reaches hardware.
+
+### An unsupported nominal plan was allowed through
+
+Previously, the supervisor saw `command_usable` but no model-support diagnostic.
+A numerically usable plan could leave the declared envelope while staying
+within the independent physical attitude and rate limits. In
+`scenarios[name=original_without_supervisor]`, the first unsupported forecast
+appears at 0.02 seconds and predicts a roll-rate exit 0.18 seconds ahead.
+The actual state first crosses at 0.22 seconds and reaches utilization 1.136139.
+
+The loop now forwards `maximum_validity_utilization`, including the initial
+state, and the supervisor withholds nominal commands for unknown or exceeded
+support. A missing, negative or nonfinite value records `MODEL_SUPPORT_UNKNOWN`;
+a value above `1 + 1e-6` records `MODEL_SUPPORT_EXCEEDED`. Direct callers must
+provide this input, and custom loop supervisors must accept the keyword.
+This is the mean trajectory's support; the objective separately charges
+covariance-expanded utilization. Neither is a physical safety certificate.
+
+The counterfactual check propagates each usable candidate's commands through
+the true synthetic model, starting from that candidate's initial state and
+actuator state. It compares planned states with that counterfactual rollout,
+not with the later trajectory after replanning or intervention. For the
+unsupervised original case, normalized prediction RMS is 0.003712 inside
+support and 0.004254 outside it (`counterfactual_planned_prediction_error`).
+The modest error increase does not establish a model breakdown at the box
+edge, or justify ignoring its declared boundary.
+
+### Arrest does not preserve model support
+
+With the original envelope, intervention keeps roll rate inside support but
+lateral body velocity exits at 0.40 seconds, reaching utilization 1.089833.
+The final tracking RMS increases from 0.505660 without supervision to 1.123089
+with it. These are `original_without_supervisor` and
+`original_with_supervisor` in the report. Withholding an unsupported plan
+does not establish that the substitute command preserves support.
+
+The script also tests whether independent roll excitation supplies the missing
+coverage. Two six-second calibration flights, at phases 0 and pi/2, extend
+the original envelope only to observed body-velocity and body-rate extrema.
+They do not change the fitted mean or covariance. Recovery traces and held-out
+flights never contribute to those bounds. The resulting marginal box does
+not establish coverage of every combination of its features.
+
+Independent 0.35-radian profiles at phases pi/4 and 3pi/4 still leave this box,
+reaching utilization 1.153915 and 1.013899. Their prediction errors pass, but
+their coverage fails. The report retains this result under
+`unqualified_higher_amplitude_validation`. Fresh, narrower 0.25-radian profiles
+at phases pi/6 and 5pi/6 remain inside it; their worst component endpoint RMS
+is 0.041334 and 0.064972 times the tracking tolerance. The declared limit is
+0.10 per component over independent 0.6-second windows (`coverage_validation`).
+This narrower check was added after the larger profiles failed; it supports
+only those tested profiles, without retroactively qualifying the larger ones.
+
+Even after this calibration, the original recovery's first unsupported
+forecast is now in pitch rate, and arrest still leaves support in lateral
+velocity. Its maximum actual utilization is 1.059398 and tail RMS is 1.124988
+(`calibrated_original_recovery`). All original-disturbance fault cases also
+leave support. They end with attitude and rates inside the tracking tolerances
+and return to nominal, but fail the requirement to remain within model support.
+
+### Supported small recovery survives the injected faults
+
+The small disturbance uses the same initial state as the earlier investigation.
+Individual faults occupy intervals 10 through 12: stale observations deliver
+the actual state and actuator state from three ticks earlier, with reception
+timestamps 60 ms old; deadline faults pass a negligible solver budget and
+produce `deadline_exceeded`; unresolved-evidence faults use a rank-zero belief
+over the same model and produce `unresolved_model`. The combined case separates
+these faults into intervals 10–12, 30–32 and 50–52. These are delivered stale
+observations and solver failures; link read exceptions are not exercised.
+
+For the calibrated envelope, the report's `calibrated_small_*` scenarios show:
+
+| Case | Tail tracking RMS | Peak actual support utilization | Nominal / arrest / hold intervals |
+| --- | ---: | ---: | ---: |
+| No fault | 0.035306 | 0.306185 | 120 / 0 / 0 |
+| Stale state | 0.033893 | 0.306068 | 113 / 4 / 3 |
+| Deadline exceeded | 0.034049 | 0.306092 | 114 / 6 / 0 |
+| Unresolved parameters | 0.034049 | 0.306092 | 114 / 6 / 0 |
+| Combined | 0.036462 | 0.305277 | 102 / 15 / 3 |
+
+Every case has finite states, bounded commands, supported actual states,
+terminal attitude and rates within tracking tolerances, and a final nominal
+decision. Every accepted nominal command has fresh telemetry, a usable solver
+result and a supported forecast. The report records these checks explicitly;
+the stale case selects collective hold, and solver refusal selects latched
+rate arrest. The slightly lower RMS in some fault cases is specific to these
+traces and does not establish that intervention improves tracking generally.
+
+The next unresolved issue is the fallback's recovery region. Its geometric
+arrest regulates tilt and rates but does not regulate lateral velocity or
+position. Before treating the original disturbance as supported, that fallback
+needs an independently evaluated operating region and a defined response when
+it cannot preserve that region. Expanding the nominal model's envelope alone
+did not resolve this failure.
+
 ## PX4 integration defects found during validation
 
 Two integration issues were independently reproduced and fixed:

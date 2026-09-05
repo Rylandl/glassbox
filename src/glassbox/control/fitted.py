@@ -553,7 +553,11 @@ class BeliefPlanModel:
         )
         return PlanMeasurements(
             maximum_validity_utilization=jnp.max(
-                jax.vmap(self._validity_utilization)(states[1:], exogenous)
+                # Support includes the state we start from, even if the first
+                # predicted transition re-enters the declared envelope.
+                jax.vmap(self._validity_utilization)(
+                    states, jnp.concatenate((exogenous[:1], exogenous), axis=0)
+                )
             ),
             maximum_normalized_safety_violation=jnp.max(
                 jax.vmap(self._safety_violation)(states[1:])

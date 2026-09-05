@@ -124,6 +124,20 @@ The PX4 SITL benchmarks are not in the manifest at all: recording one needs a
 running SITL container, so their numbers are prose on
 [`docs/validation.md`](docs/validation.md) and say so there.
 
+The offline recovery investigations also live outside the manifest. Reproduce
+the supervised cases with:
+
+```bash
+uv run python scripts/investigate_supervised_recovery.py \
+  --output docs/investigations/supervised-recovery.json
+```
+
+This drives the production loop against a synthetic plant with a discrete
+supervision clock and deliberately injected faults. Its nominal solver deadline
+is disabled, so it measures command selection and recovery rather than real-time
+readiness. The [investigation](docs/recovery-investigation.md#supervised-recovery-and-model-support)
+describes the calibration/validation split and retained negative results.
+
 ### When to re-record
 
 Re-record an artifact when a change to the code on its path is an intentional

@@ -47,6 +47,7 @@ def _decision(
     state_received_at_s: float | None = None,
     command_generated_at_s: float | None = None,
     usable: bool = True,
+    model_utilization: float | None = 0.25,
 ):
     return supervisor.supervise(
         state=resting_state() if state is None else state,
@@ -59,6 +60,7 @@ def _decision(
         ),
         now_s=now_s,
         controller_command_usable=usable,
+        controller_maximum_validity_utilization=model_utilization,
         previous_applied_command=np.full(4, 0.35),
     )
 
@@ -81,6 +83,40 @@ def test_nominal_fresh_command_passes_unchanged() -> None:
     np.testing.assert_array_equal(decision.command, candidate)
     with pytest.raises(ValueError):
         decision.command[0] = 0.0
+
+
+@pytest.mark.parametrize("utilization", (None, math.nan, math.inf, -0.1))
+def test_missing_or_invalid_model_support_withholds_a_usable_command(utilization):
+    supervisor = _supervisor(MultirotorSupervisorConfig(collective_hold_command=0.35))
+    decision = _decision(supervisor, model_utilization=utilization)
+    assert decision.mode == SupervisorMode.RATE_ARREST
+    assert SupervisorReason.MODEL_SUPPORT_UNKNOWN in decision.reasons
+    assert not decision.nominal_command_accepted
+    assert decision.maximum_model_validity_utilization is None
+
+
+def test_exceeded_model_support_latches_and_releases_separately_from_physical_limits():
+    supervisor = _supervisor(MultirotorSupervisorConfig(collective_hold_command=0.35))
+    rejected = _decision(supervisor, now_s=1.0, model_utilization=1.2)
+    assert rejected.mode == SupervisorMode.RATE_ARREST
+    assert rejected.reasons == (SupervisorReason.MODEL_SUPPORT_EXCEEDED,)
+    assert rejected.maximum_model_validity_utilization == 1.2
+    assert rejected.tilt_rad == 0.0
+    assert rejected.maximum_angular_rate_rad_s == 0.0
+    latched = _decision(supervisor, now_s=1.05, model_utilization=0.8)
+    assert latched.reasons == (SupervisorReason.ARREST_LATCHED,)
+    released = _decision(supervisor, now_s=1.11, model_utilization=0.8)
+    assert released.nominal_command_accepted
+
+
+def test_model_support_boundary_accepts_only_a_rounding_width():
+    supervisor = _supervisor(MultirotorSupervisorConfig(collective_hold_command=0.35))
+    assert _decision(
+        supervisor, model_utilization=1.0 + 0.5e-6
+    ).nominal_command_accepted
+    assert not _decision(
+        supervisor, model_utilization=1.0 + 2e-6
+    ).nominal_command_accepted
 
 
 def test_stale_command_uses_bounded_attitude_and_rate_arrest() -> None:

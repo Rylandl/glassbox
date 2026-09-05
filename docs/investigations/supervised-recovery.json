@@ -1,0 +1,2855 @@
+{
+  "format_version": 1,
+  "diagnostic_only": true,
+  "environment": {
+    "python": "3.12.12",
+    "jax": "0.11.1",
+    "numpy": "2.5.2"
+  },
+  "semantics": {
+    "synthetic": true,
+    "discrete_supervision_clock": true,
+    "cpu_deadline_gate_disabled_for_nominal_offline_solves": true,
+    "faults_injected": true,
+    "support_box_is_not_a_physical_safety_set": true,
+    "model_mean_and_covariance_unchanged_by_support_calibration": true,
+    "reported_plan_support_uses_mean_trajectory": true,
+    "feature_traces_assume_zero_wind": true
+  },
+  "configuration": {
+    "duration_s": 2.4,
+    "sample_period_s": 0.02,
+    "additional_identification_seeds": [
+      31,
+      32,
+      33,
+      34,
+      35,
+      36
+    ],
+    "calibration_phases_rad": [
+      0.0,
+      1.5707963267948966
+    ],
+    "validation_phases_rad": [
+      0.5235987755982988,
+      2.6179938779914944
+    ],
+    "operating_roll_amplitude_rad": 0.25,
+    "coverage_duration_s": 6.0,
+    "coverage_roll_amplitude_rad": 0.35,
+    "coverage_frequency_hz": 0.8,
+    "maximum_validation_component_rms_fraction": 0.1,
+    "fault_interval_indices": [
+      10,
+      11,
+      12
+    ],
+    "combined_fault_interval_indices": {
+      "stale_state": [
+        10,
+        11,
+        12
+      ],
+      "deadline": [
+        30,
+        31,
+        32
+      ],
+      "unresolved_parameters": [
+        50,
+        51,
+        52
+      ]
+    }
+  },
+  "original_support": {
+    "body_velocity_center_m_s": [
+      -0.22819744138992237,
+      -0.3356640492231272,
+      0.003051849151559982
+    ],
+    "body_velocity_half_width_m_s": [
+      0.7580408152753805,
+      1.0399928062810158,
+      0.5591554071421355
+    ],
+    "angular_velocity_center_rad_s": [
+      0.0,
+      -0.006146674510091543,
+      0.0
+    ],
+    "angular_velocity_half_width_rad_s": [
+      1.079183368862935,
+      0.6258472649084627,
+      0.4
+    ]
+  },
+  "calibrated_support": {
+    "body_velocity_center_m_s": [
+      -0.22819744138992237,
+      0.18302141722711274,
+      0.003051849151559982
+    ],
+    "body_velocity_half_width_m_s": [
+      0.7580408152753805,
+      1.5586782727312556,
+      0.5591554071421355
+    ],
+    "angular_velocity_center_rad_s": [
+      -0.03183877468109131,
+      -0.006146674510091543,
+      0.0
+    ],
+    "angular_velocity_half_width_rad_s": [
+      2.467696785926819,
+      0.6258472649084627,
+      0.4
+    ]
+  },
+  "coverage_validation": [
+    {
+      "phase_rad": 0.5235987755982988,
+      "roll_amplitude_rad": 0.25,
+      "window_count": 10,
+      "normalized_endpoint_component_rms": [
+        0.000562886877495161,
+        0.007057046852248294,
+        0.000913029581008154,
+        0.002654235652185376,
+        0.032266278773369766,
+        0.002072542307153183,
+        0.04133391167233511,
+        0.0035585313844786505,
+        0.0012619922852381204,
+        0.020517040055107308,
+        0.0019818889849985482,
+        5.860469060364527e-05
+      ],
+      "maximum_validity_utilization": 0.7481610774993896,
+      "maximum_original_validity_utilization": 1.6780346632003784,
+      "prediction_error_passed": true,
+      "all_observations_inside_support": true
+    },
+    {
+      "phase_rad": 2.6179938779914944,
+      "roll_amplitude_rad": 0.25,
+      "window_count": 10,
+      "normalized_endpoint_component_rms": [
+        0.000417939911688879,
+        0.007387666634231611,
+        0.001910025512417193,
+        0.0023159815132515137,
+        0.0394842951280324,
+        0.0070062643163552075,
+        0.06497231236127386,
+        0.003987213550445196,
+        0.001007586365143532,
+        0.049168421649285435,
+        0.003813112887854861,
+        0.00011080558134844086
+      ],
+      "maximum_validity_utilization": 0.7391016483306885,
+      "maximum_original_validity_utilization": 1.660551905632019,
+      "prediction_error_passed": true,
+      "all_observations_inside_support": true
+    }
+  ],
+  "unqualified_higher_amplitude_validation": [
+    {
+      "phase_rad": 0.7853981633974483,
+      "roll_amplitude_rad": 0.35,
+      "window_count": 10,
+      "normalized_endpoint_component_rms": [
+        0.0007034524419314824,
+        0.008104025094622306,
+        0.0010017258529458287,
+        0.0031623936348090446,
+        0.03561912954230161,
+        0.00407412696205198,
+        0.043235451540901866,
+        0.003827950936382164,
+        0.0019252069190036265,
+        0.0316490337239652,
+        0.0021521286782582405,
+        6.323678612097581e-05
+      ],
+      "maximum_validity_utilization": 1.1539148092269897,
+      "maximum_original_validity_utilization": 2.3314595222473145,
+      "prediction_error_passed": true,
+      "all_observations_inside_support": false
+    },
+    {
+      "phase_rad": 2.356194490192345,
+      "roll_amplitude_rad": 0.35,
+      "window_count": 10,
+      "normalized_endpoint_component_rms": [
+        0.00044140632075122667,
+        0.008416839630330231,
+        0.003267433211333364,
+        0.002551136588375603,
+        0.047562370023947836,
+        0.014256370777390424,
+        0.08335184390027141,
+        0.004548179608017509,
+        0.001371615409526027,
+        0.07359006064686051,
+        0.005171398229471101,
+        0.00014960602272220714
+      ],
+      "maximum_validity_utilization": 1.0138990879058838,
+      "maximum_original_validity_utilization": 2.2889132499694824,
+      "prediction_error_passed": true,
+      "all_observations_inside_support": false
+    }
+  ],
+  "coverage_validation_passed": true,
+  "scenarios": [
+    {
+      "name": "original_without_supervisor",
+      "disturbance": "original",
+      "supervised": false,
+      "fault": null,
+      "loop": {
+        "steps": 120,
+        "interval_s": 0.02,
+        "status_counts": {
+          "iteration_limit": 105,
+          "stalled": 15
+        },
+        "usable_command_count": 120,
+        "fallback_count": 0,
+        "written_command_count": 120,
+        "supervisor_intervention_count": 0,
+        "deadline_miss_count": 117,
+        "solve_time_median_s": 0.03206402099749539,
+        "solve_time_p90_s": 0.0325801076964126,
+        "solve_time_maximum_s": 8.016279291005048,
+        "maximum_message_skew_s": 0.0,
+        "maximum_receive_age_s": 0.0,
+        "maximum_source_clock_lag_s": 0.0,
+        "maximum_applied_command_skew_s": null,
+        "host_elapsed_s": 12.781505792001553
+      },
+      "initial_normalized_tracking_rms": 0.8074897527694702,
+      "tail_normalized_tracking_rms": 0.5056604146957397,
+      "terminal_normalized_tracking_rms": 0.46787744760513306,
+      "terminal_attitude_rate_within_tolerances": true,
+      "finite": true,
+      "maximum_command_bound_violation": -0.0,
+      "features": {
+        "body_velocity_x": {
+          "maximum_utilization": 0.3408224284648895,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        },
+        "body_velocity_y": {
+          "maximum_utilization": 0.7544044852256775,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        },
+        "body_velocity_z": {
+          "maximum_utilization": 0.4300081133842468,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        },
+        "roll_rate": {
+          "maximum_utilization": 1.136138916015625,
+          "first_exit_s": 0.22,
+          "outside_sample_count": 9
+        },
+        "pitch_rate": {
+          "maximum_utilization": 0.9890256524085999,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        },
+        "yaw_rate": {
+          "maximum_utilization": 0.623377799987793,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        }
+      },
+      "first_unsupported_forecast": {
+        "solve_time_s": 0.02,
+        "first_exit_horizon_s": 0.18,
+        "feature": "roll_rate"
+      },
+      "counterfactual_planned_prediction_error": {
+        "inside": {
+          "stage_count": 3486,
+          "normalized_rms": 0.003711844676085858
+        },
+        "outside": {
+          "stage_count": 114,
+          "normalized_rms": 0.004253977013149538
+        }
+      },
+      "supervisor_mode_counts": {},
+      "supervisor_reason_counts": {},
+      "accepted_nominal_command_count": 0,
+      "all_observed_states_within_support": false,
+      "all_accepted_plans_within_support": true,
+      "all_accepted_commands_usable": true,
+      "all_accepted_states_fresh": true,
+      "supervisor_events": [],
+      "final_supervisor_mode": null
+    },
+    {
+      "name": "original_with_supervisor",
+      "disturbance": "original",
+      "supervised": true,
+      "fault": null,
+      "loop": {
+        "steps": 120,
+        "interval_s": 0.02,
+        "status_counts": {
+          "iteration_limit": 108,
+          "stalled": 12
+        },
+        "usable_command_count": 120,
+        "fallback_count": 0,
+        "written_command_count": 120,
+        "supervisor_intervention_count": 37,
+        "deadline_miss_count": 118,
+        "solve_time_median_s": 0.031171541995718144,
+        "solve_time_p90_s": 0.032365525297063866,
+        "solve_time_maximum_s": 0.03281533299741568,
+        "maximum_message_skew_s": 0.0,
+        "maximum_receive_age_s": 0.0,
+        "maximum_source_clock_lag_s": 0.0,
+        "maximum_applied_command_skew_s": null,
+        "host_elapsed_s": 4.663396249998186
+      },
+      "initial_normalized_tracking_rms": 0.8074897527694702,
+      "tail_normalized_tracking_rms": 1.12308931350708,
+      "terminal_normalized_tracking_rms": 1.0438283681869507,
+      "terminal_attitude_rate_within_tolerances": true,
+      "finite": true,
+      "maximum_command_bound_violation": 0.0,
+      "features": {
+        "body_velocity_x": {
+          "maximum_utilization": 0.8258085250854492,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        },
+        "body_velocity_y": {
+          "maximum_utilization": 1.0898327827453613,
+          "first_exit_s": 0.4,
+          "outside_sample_count": 18
+        },
+        "body_velocity_z": {
+          "maximum_utilization": 0.9892181754112244,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        },
+        "roll_rate": {
+          "maximum_utilization": 0.5796431303024292,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        },
+        "pitch_rate": {
+          "maximum_utilization": 0.731957733631134,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        },
+        "yaw_rate": {
+          "maximum_utilization": 0.8871822357177734,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        }
+      },
+      "first_unsupported_forecast": {
+        "solve_time_s": 0.02,
+        "first_exit_horizon_s": 0.18,
+        "feature": "roll_rate"
+      },
+      "counterfactual_planned_prediction_error": {
+        "inside": {
+          "stage_count": 3280,
+          "normalized_rms": 0.003783785037158203
+        },
+        "outside": {
+          "stage_count": 320,
+          "normalized_rms": 0.004696275696369422
+        }
+      },
+      "supervisor_mode_counts": {
+        "nominal": 83,
+        "rate_arrest": 37
+      },
+      "supervisor_reason_counts": {
+        "model_support_exceeded": 37
+      },
+      "accepted_nominal_command_count": 83,
+      "all_observed_states_within_support": false,
+      "all_accepted_plans_within_support": true,
+      "all_accepted_commands_usable": true,
+      "all_accepted_states_fresh": true,
+      "supervisor_events": [
+        {
+          "time_s": 0.0,
+          "command": [
+            0.002869158983230591,
+            0.6402317881584167,
+            0.7805508375167847,
+            0.4066241681575775
+          ],
+          "mode": "nominal",
+          "reasons": [],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.2931585193835778,
+          "maximum_angular_rate_rad_s": 0.37771417910202726,
+          "nominal_command_accepted": true,
+          "maximum_model_validity_utilization": 0.9850543141365051,
+          "intervened": false
+        },
+        {
+          "time_s": 0.02,
+          "command": [
+            0.33553241449239757,
+            0.479005933242077,
+            0.564385413054199,
+            0.43712247715688307
+          ],
+          "mode": "rate_arrest",
+          "reasons": [
+            "model_support_exceeded"
+          ],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.3016427621613217,
+          "maximum_angular_rate_rad_s": 0.34162282943725586,
+          "nominal_command_accepted": false,
+          "maximum_model_validity_utilization": 1.169913649559021,
+          "intervened": true
+        },
+        {
+          "time_s": 0.76,
+          "command": [
+            0.33895343542099,
+            0.8101146221160889,
+            0.6556589007377625,
+            0.6262116432189941
+          ],
+          "mode": "nominal",
+          "reasons": [],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.04685645761991517,
+          "maximum_angular_rate_rad_s": 0.3188510835170746,
+          "nominal_command_accepted": true,
+          "maximum_model_validity_utilization": 0.9948890805244446,
+          "intervened": false
+        }
+      ],
+      "final_supervisor_mode": "nominal"
+    },
+    {
+      "name": "calibrated_original_recovery",
+      "disturbance": "original",
+      "supervised": true,
+      "fault": null,
+      "loop": {
+        "steps": 120,
+        "interval_s": 0.02,
+        "status_counts": {
+          "iteration_limit": 109,
+          "stalled": 11
+        },
+        "usable_command_count": 120,
+        "fallback_count": 0,
+        "written_command_count": 120,
+        "supervisor_intervention_count": 37,
+        "deadline_miss_count": 117,
+        "solve_time_median_s": 0.03167199950257782,
+        "solve_time_p90_s": 0.032657258396648105,
+        "solve_time_maximum_s": 7.934152166999411,
+        "maximum_message_skew_s": 0.0,
+        "maximum_receive_age_s": 0.0,
+        "maximum_source_clock_lag_s": 0.0,
+        "maximum_applied_command_skew_s": null,
+        "host_elapsed_s": 12.586766916996567
+      },
+      "initial_normalized_tracking_rms": 0.8074897527694702,
+      "tail_normalized_tracking_rms": 1.124988079071045,
+      "terminal_normalized_tracking_rms": 1.045951008796692,
+      "terminal_attitude_rate_within_tolerances": true,
+      "finite": true,
+      "maximum_command_bound_violation": 0.0,
+      "features": {
+        "body_velocity_x": {
+          "maximum_utilization": 0.8259501457214355,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        },
+        "body_velocity_y": {
+          "maximum_utilization": 1.0593979358673096,
+          "first_exit_s": 0.4,
+          "outside_sample_count": 18
+        },
+        "body_velocity_z": {
+          "maximum_utilization": 0.9753080606460571,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        },
+        "roll_rate": {
+          "maximum_utilization": 0.2405736744403839,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        },
+        "pitch_rate": {
+          "maximum_utilization": 0.7319687604904175,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        },
+        "yaw_rate": {
+          "maximum_utilization": 0.8869404196739197,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        }
+      },
+      "first_unsupported_forecast": {
+        "solve_time_s": 0.02,
+        "first_exit_horizon_s": 0.22,
+        "feature": "pitch_rate"
+      },
+      "counterfactual_planned_prediction_error": {
+        "inside": {
+          "stage_count": 3318,
+          "normalized_rms": 0.003843569307671573
+        },
+        "outside": {
+          "stage_count": 282,
+          "normalized_rms": 0.004228251175480154
+        }
+      },
+      "supervisor_mode_counts": {
+        "nominal": 83,
+        "rate_arrest": 37
+      },
+      "supervisor_reason_counts": {
+        "model_support_exceeded": 35,
+        "arrest_latched": 2
+      },
+      "accepted_nominal_command_count": 83,
+      "all_observed_states_within_support": false,
+      "all_accepted_plans_within_support": true,
+      "all_accepted_commands_usable": true,
+      "all_accepted_states_fresh": true,
+      "supervisor_events": [
+        {
+          "time_s": 0.0,
+          "command": [
+            0.0019759535789489746,
+            0.6413372755050659,
+            0.781300961971283,
+            0.4052719175815582
+          ],
+          "mode": "nominal",
+          "reasons": [],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.2931585193835778,
+          "maximum_angular_rate_rad_s": 0.37771417910202726,
+          "nominal_command_accepted": true,
+          "maximum_model_validity_utilization": 0.9655945897102356,
+          "intervened": false
+        },
+        {
+          "time_s": 0.02,
+          "command": [
+            0.3355387702468382,
+            0.4789967317926588,
+            0.5643789491173281,
+            0.43713178678873166
+          ],
+          "mode": "rate_arrest",
+          "reasons": [
+            "model_support_exceeded"
+          ],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.30164209258169594,
+          "maximum_angular_rate_rad_s": 0.34148383140563965,
+          "nominal_command_accepted": false,
+          "maximum_model_validity_utilization": 1.1025786399841309,
+          "intervened": true
+        },
+        {
+          "time_s": 0.04,
+          "command": [
+            0.339516525598751,
+            0.4771226789005404,
+            0.5609022518670693,
+            0.4385047815791959
+          ],
+          "mode": "rate_arrest",
+          "reasons": [
+            "arrest_latched"
+          ],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.30884567899946563,
+          "maximum_angular_rate_rad_s": 0.27224409580230713,
+          "nominal_command_accepted": false,
+          "maximum_model_validity_utilization": 0.9926506280899048,
+          "intervened": true
+        },
+        {
+          "time_s": 0.06,
+          "command": [
+            0.3441739203255227,
+            0.4752349359652632,
+            0.5566696287472198,
+            0.43996775290755097
+          ],
+          "mode": "rate_arrest",
+          "reasons": [
+            "model_support_exceeded"
+          ],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.31447472250685493,
+          "maximum_angular_rate_rad_s": 0.2010459005832672,
+          "nominal_command_accepted": false,
+          "maximum_model_validity_utilization": 1.1344873905181885,
+          "intervened": true
+        },
+        {
+          "time_s": 0.1,
+          "command": [
+            0.35512052601949484,
+            0.47145505765785173,
+            0.5464004779718706,
+            0.4430701762963395
+          ],
+          "mode": "rate_arrest",
+          "reasons": [
+            "arrest_latched"
+          ],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.32082967441733773,
+          "maximum_angular_rate_rad_s": 0.10836858302354813,
+          "nominal_command_accepted": false,
+          "maximum_model_validity_utilization": 0.992843508720398,
+          "intervened": true
+        },
+        {
+          "time_s": 0.12,
+          "command": [
+            0.36122843411538974,
+            0.46958273268263545,
+            0.5405666809084617,
+            0.4446683902390698
+          ],
+          "mode": "rate_arrest",
+          "reasons": [
+            "model_support_exceeded"
+          ],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.32153735083791973,
+          "maximum_angular_rate_rad_s": 0.10380006581544876,
+          "nominal_command_accepted": false,
+          "maximum_model_validity_utilization": 1.168831706047058,
+          "intervened": true
+        },
+        {
+          "time_s": 0.76,
+          "command": [
+            0.33907100558280945,
+            0.8099392652511597,
+            0.6555719375610352,
+            0.6263185739517212
+          ],
+          "mode": "nominal",
+          "reasons": [],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.04695607563725063,
+          "maximum_angular_rate_rad_s": 0.3182823956012726,
+          "nominal_command_accepted": true,
+          "maximum_model_validity_utilization": 0.9958735108375549,
+          "intervened": false
+        }
+      ],
+      "final_supervisor_mode": "nominal"
+    },
+    {
+      "name": "calibrated_small_recovery",
+      "disturbance": "small",
+      "supervised": true,
+      "fault": null,
+      "loop": {
+        "steps": 120,
+        "interval_s": 0.02,
+        "status_counts": {
+          "iteration_limit": 47,
+          "stalled": 73
+        },
+        "usable_command_count": 120,
+        "fallback_count": 0,
+        "written_command_count": 120,
+        "supervisor_intervention_count": 0,
+        "deadline_miss_count": 73,
+        "solve_time_median_s": 0.02581839600316016,
+        "solve_time_p90_s": 0.03237310840122518,
+        "solve_time_maximum_s": 0.03273875000013504,
+        "maximum_message_skew_s": 0.0,
+        "maximum_receive_age_s": 0.0,
+        "maximum_source_clock_lag_s": 0.0,
+        "maximum_applied_command_skew_s": null,
+        "host_elapsed_s": 3.838098459003959
+      },
+      "initial_normalized_tracking_rms": 0.07284313440322876,
+      "tail_normalized_tracking_rms": 0.03530588746070862,
+      "terminal_normalized_tracking_rms": 0.032945986837148666,
+      "terminal_attitude_rate_within_tolerances": true,
+      "finite": true,
+      "maximum_command_bound_violation": 0.0,
+      "features": {
+        "body_velocity_x": {
+          "maximum_utilization": 0.30618545413017273,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        },
+        "body_velocity_y": {
+          "maximum_utilization": 0.1591905951499939,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        },
+        "body_velocity_z": {
+          "maximum_utilization": 0.012835681438446045,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        },
+        "roll_rate": {
+          "maximum_utilization": 0.025333885103464127,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        },
+        "pitch_rate": {
+          "maximum_utilization": 0.11221799999475479,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        },
+        "yaw_rate": {
+          "maximum_utilization": 0.07499999552965164,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        }
+      },
+      "first_unsupported_forecast": null,
+      "counterfactual_planned_prediction_error": {
+        "inside": {
+          "stage_count": 3600,
+          "normalized_rms": 0.0003365334458574172
+        },
+        "outside": {
+          "stage_count": 0,
+          "normalized_rms": null
+        }
+      },
+      "supervisor_mode_counts": {
+        "nominal": 120
+      },
+      "supervisor_reason_counts": {},
+      "accepted_nominal_command_count": 120,
+      "all_observed_states_within_support": true,
+      "all_accepted_plans_within_support": true,
+      "all_accepted_commands_usable": true,
+      "all_accepted_states_fresh": true,
+      "supervisor_events": [
+        {
+          "time_s": 0.0,
+          "command": [
+            0.41130703687667847,
+            0.4682239592075348,
+            0.4801735281944275,
+            0.45906659960746765
+          ],
+          "mode": "nominal",
+          "reasons": [],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.029409938945876783,
+          "maximum_angular_rate_rad_s": 0.03,
+          "nominal_command_accepted": true,
+          "maximum_model_validity_utilization": 0.3010358512401581,
+          "intervened": false
+        }
+      ],
+      "final_supervisor_mode": "nominal"
+    },
+    {
+      "name": "calibrated_original_stale_state",
+      "disturbance": "original",
+      "supervised": true,
+      "fault": "stale_state",
+      "loop": {
+        "steps": 120,
+        "interval_s": 0.02,
+        "status_counts": {
+          "iteration_limit": 113,
+          "stalled": 7
+        },
+        "usable_command_count": 120,
+        "fallback_count": 0,
+        "written_command_count": 120,
+        "supervisor_intervention_count": 52,
+        "deadline_miss_count": 118,
+        "solve_time_median_s": 0.035331978997419355,
+        "solve_time_p90_s": 0.10108041189523649,
+        "solve_time_maximum_s": 0.1829345829974045,
+        "maximum_message_skew_s": 0.0,
+        "maximum_receive_age_s": 0.06,
+        "maximum_source_clock_lag_s": 0.0,
+        "maximum_applied_command_skew_s": null,
+        "host_elapsed_s": 8.127039584003796
+      },
+      "initial_normalized_tracking_rms": 0.8074897527694702,
+      "tail_normalized_tracking_rms": 1.3008462190628052,
+      "terminal_normalized_tracking_rms": 1.2231292724609375,
+      "terminal_attitude_rate_within_tolerances": true,
+      "finite": true,
+      "maximum_command_bound_violation": 0.0,
+      "features": {
+        "body_velocity_x": {
+          "maximum_utilization": 0.8917621374130249,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        },
+        "body_velocity_y": {
+          "maximum_utilization": 1.083450198173523,
+          "first_exit_s": 0.4,
+          "outside_sample_count": 23
+        },
+        "body_velocity_z": {
+          "maximum_utilization": 0.9945829510688782,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        },
+        "roll_rate": {
+          "maximum_utilization": 0.21541471779346466,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        },
+        "pitch_rate": {
+          "maximum_utilization": 0.6673645377159119,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        },
+        "yaw_rate": {
+          "maximum_utilization": 0.9202510714530945,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        }
+      },
+      "first_unsupported_forecast": {
+        "solve_time_s": 0.02,
+        "first_exit_horizon_s": 0.22,
+        "feature": "pitch_rate"
+      },
+      "counterfactual_planned_prediction_error": {
+        "inside": {
+          "stage_count": 3213,
+          "normalized_rms": 0.004014054259260948
+        },
+        "outside": {
+          "stage_count": 387,
+          "normalized_rms": 0.003986318184000576
+        }
+      },
+      "supervisor_mode_counts": {
+        "nominal": 68,
+        "rate_arrest": 49,
+        "collective_hold": 3
+      },
+      "supervisor_reason_counts": {
+        "model_support_exceeded": 47,
+        "arrest_latched": 2,
+        "state_stale": 3
+      },
+      "accepted_nominal_command_count": 68,
+      "all_observed_states_within_support": false,
+      "all_accepted_plans_within_support": true,
+      "all_accepted_commands_usable": true,
+      "all_accepted_states_fresh": true,
+      "supervisor_events": [
+        {
+          "time_s": 0.0,
+          "command": [
+            0.0019759535789489746,
+            0.6413372755050659,
+            0.781300961971283,
+            0.4052719175815582
+          ],
+          "mode": "nominal",
+          "reasons": [],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.2931585193835778,
+          "maximum_angular_rate_rad_s": 0.37771417910202726,
+          "nominal_command_accepted": true,
+          "maximum_model_validity_utilization": 0.9655945897102356,
+          "intervened": false
+        },
+        {
+          "time_s": 0.02,
+          "command": [
+            0.3355387702468382,
+            0.4789967317926588,
+            0.5643789491173281,
+            0.43713178678873166
+          ],
+          "mode": "rate_arrest",
+          "reasons": [
+            "model_support_exceeded"
+          ],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.30164209258169594,
+          "maximum_angular_rate_rad_s": 0.34148383140563965,
+          "nominal_command_accepted": false,
+          "maximum_model_validity_utilization": 1.1025786399841309,
+          "intervened": true
+        },
+        {
+          "time_s": 0.04,
+          "command": [
+            0.339516525598751,
+            0.4771226789005404,
+            0.5609022518670693,
+            0.4385047815791959
+          ],
+          "mode": "rate_arrest",
+          "reasons": [
+            "arrest_latched"
+          ],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.30884567899946563,
+          "maximum_angular_rate_rad_s": 0.27224409580230713,
+          "nominal_command_accepted": false,
+          "maximum_model_validity_utilization": 0.9926506280899048,
+          "intervened": true
+        },
+        {
+          "time_s": 0.06,
+          "command": [
+            0.3441739203255227,
+            0.4752349359652632,
+            0.5566696287472198,
+            0.43996775290755097
+          ],
+          "mode": "rate_arrest",
+          "reasons": [
+            "model_support_exceeded"
+          ],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.31447472250685493,
+          "maximum_angular_rate_rad_s": 0.2010459005832672,
+          "nominal_command_accepted": false,
+          "maximum_model_validity_utilization": 1.1344873905181885,
+          "intervened": true
+        },
+        {
+          "time_s": 0.1,
+          "command": [
+            0.35512052601949484,
+            0.47145505765785173,
+            0.5464004779718706,
+            0.4430701762963395
+          ],
+          "mode": "rate_arrest",
+          "reasons": [
+            "arrest_latched"
+          ],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.32082967441733773,
+          "maximum_angular_rate_rad_s": 0.10836858302354813,
+          "nominal_command_accepted": false,
+          "maximum_model_validity_utilization": 0.992843508720398,
+          "intervened": true
+        },
+        {
+          "time_s": 0.12,
+          "command": [
+            0.36122843411538974,
+            0.46958273268263545,
+            0.5405666809084617,
+            0.4446683902390698
+          ],
+          "mode": "rate_arrest",
+          "reasons": [
+            "model_support_exceeded"
+          ],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.32153735083791973,
+          "maximum_angular_rate_rad_s": 0.10380006581544876,
+          "nominal_command_accepted": false,
+          "maximum_model_validity_utilization": 1.168831706047058,
+          "intervened": true
+        },
+        {
+          "time_s": 0.2,
+          "command": [
+            0.45401155948638916,
+            0.45401155948638916,
+            0.45401155948638916,
+            0.45401155948638916
+          ],
+          "mode": "collective_hold",
+          "reasons": [
+            "state_stale"
+          ],
+          "state_age_s": 0.060000000000002274,
+          "command_age_s": null,
+          "tilt_rad": 0.32062514144037424,
+          "maximum_angular_rate_rad_s": 0.09977026283740997,
+          "nominal_command_accepted": false,
+          "maximum_model_validity_utilization": 1.0108137130737305,
+          "intervened": true
+        },
+        {
+          "time_s": 0.26,
+          "command": [
+            0.40554835571502845,
+            0.4581824660459832,
+            0.49744195388103324,
+            0.4548734623035117
+          ],
+          "mode": "rate_arrest",
+          "reasons": [
+            "model_support_exceeded"
+          ],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.2854260353423196,
+          "maximum_angular_rate_rad_s": 0.3850588798522949,
+          "nominal_command_accepted": false,
+          "maximum_model_validity_utilization": 1.054253101348877,
+          "intervened": true
+        },
+        {
+          "time_s": 0.86,
+          "command": [
+            0.32452958822250366,
+            0.8644782900810242,
+            0.7131859064102173,
+            0.6702630519866943
+          ],
+          "mode": "nominal",
+          "reasons": [],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.05850040367774618,
+          "maximum_angular_rate_rad_s": 0.22359763085842133,
+          "nominal_command_accepted": true,
+          "maximum_model_validity_utilization": 0.9918151497840881,
+          "intervened": false
+        },
+        {
+          "time_s": 1.3,
+          "command": [
+            0.5401284353860051,
+            0.41105659779550024,
+            0.3887657458655208,
+            0.4760954588985305
+          ],
+          "mode": "rate_arrest",
+          "reasons": [
+            "model_support_exceeded"
+          ],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.25410925063582346,
+          "maximum_angular_rate_rad_s": 0.347851037979126,
+          "nominal_command_accepted": false,
+          "maximum_model_validity_utilization": 1.009616494178772,
+          "intervened": true
+        },
+        {
+          "time_s": 1.5,
+          "command": [
+            0.45885759592056274,
+            0.41984331607818604,
+            0.5312278270721436,
+            0.406994491815567
+          ],
+          "mode": "nominal",
+          "reasons": [],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.2242432037778496,
+          "maximum_angular_rate_rad_s": 0.38039112091064453,
+          "nominal_command_accepted": true,
+          "maximum_model_validity_utilization": 0.9889050126075745,
+          "intervened": false
+        }
+      ],
+      "final_supervisor_mode": "nominal"
+    },
+    {
+      "name": "calibrated_original_deadline",
+      "disturbance": "original",
+      "supervised": true,
+      "fault": "deadline",
+      "loop": {
+        "steps": 120,
+        "interval_s": 0.02,
+        "status_counts": {
+          "deadline_exceeded": 3,
+          "iteration_limit": 106,
+          "stalled": 11
+        },
+        "usable_command_count": 117,
+        "fallback_count": 3,
+        "written_command_count": 120,
+        "supervisor_intervention_count": 37,
+        "deadline_miss_count": 115,
+        "solve_time_median_s": 0.031362062498374144,
+        "solve_time_p90_s": 0.03260268359663314,
+        "solve_time_maximum_s": 0.09566845899826149,
+        "maximum_message_skew_s": 0.0,
+        "maximum_receive_age_s": 0.0,
+        "maximum_source_clock_lag_s": 0.0,
+        "maximum_applied_command_skew_s": null,
+        "host_elapsed_s": 4.668593166999926
+      },
+      "initial_normalized_tracking_rms": 0.8074897527694702,
+      "tail_normalized_tracking_rms": 1.124988079071045,
+      "terminal_normalized_tracking_rms": 1.045951008796692,
+      "terminal_attitude_rate_within_tolerances": true,
+      "finite": true,
+      "maximum_command_bound_violation": 0.0,
+      "features": {
+        "body_velocity_x": {
+          "maximum_utilization": 0.8259501457214355,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        },
+        "body_velocity_y": {
+          "maximum_utilization": 1.0593979358673096,
+          "first_exit_s": 0.4,
+          "outside_sample_count": 18
+        },
+        "body_velocity_z": {
+          "maximum_utilization": 0.9753080606460571,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        },
+        "roll_rate": {
+          "maximum_utilization": 0.2405736744403839,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        },
+        "pitch_rate": {
+          "maximum_utilization": 0.7319687604904175,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        },
+        "yaw_rate": {
+          "maximum_utilization": 0.8869404196739197,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        }
+      },
+      "first_unsupported_forecast": {
+        "solve_time_s": 0.02,
+        "first_exit_horizon_s": 0.22,
+        "feature": "pitch_rate"
+      },
+      "counterfactual_planned_prediction_error": {
+        "inside": {
+          "stage_count": 3248,
+          "normalized_rms": 0.00378247131578081
+        },
+        "outside": {
+          "stage_count": 262,
+          "normalized_rms": 0.004095109717775903
+        }
+      },
+      "supervisor_mode_counts": {
+        "nominal": 83,
+        "rate_arrest": 37
+      },
+      "supervisor_reason_counts": {
+        "model_support_exceeded": 32,
+        "arrest_latched": 2,
+        "controller_unusable": 3,
+        "model_support_unknown": 3
+      },
+      "accepted_nominal_command_count": 83,
+      "all_observed_states_within_support": false,
+      "all_accepted_plans_within_support": true,
+      "all_accepted_commands_usable": true,
+      "all_accepted_states_fresh": true,
+      "supervisor_events": [
+        {
+          "time_s": 0.0,
+          "command": [
+            0.0019759535789489746,
+            0.6413372755050659,
+            0.781300961971283,
+            0.4052719175815582
+          ],
+          "mode": "nominal",
+          "reasons": [],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.2931585193835778,
+          "maximum_angular_rate_rad_s": 0.37771417910202726,
+          "nominal_command_accepted": true,
+          "maximum_model_validity_utilization": 0.9655945897102356,
+          "intervened": false
+        },
+        {
+          "time_s": 0.02,
+          "command": [
+            0.3355387702468382,
+            0.4789967317926588,
+            0.5643789491173281,
+            0.43713178678873166
+          ],
+          "mode": "rate_arrest",
+          "reasons": [
+            "model_support_exceeded"
+          ],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.30164209258169594,
+          "maximum_angular_rate_rad_s": 0.34148383140563965,
+          "nominal_command_accepted": false,
+          "maximum_model_validity_utilization": 1.1025786399841309,
+          "intervened": true
+        },
+        {
+          "time_s": 0.04,
+          "command": [
+            0.339516525598751,
+            0.4771226789005404,
+            0.5609022518670693,
+            0.4385047815791959
+          ],
+          "mode": "rate_arrest",
+          "reasons": [
+            "arrest_latched"
+          ],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.30884567899946563,
+          "maximum_angular_rate_rad_s": 0.27224409580230713,
+          "nominal_command_accepted": false,
+          "maximum_model_validity_utilization": 0.9926506280899048,
+          "intervened": true
+        },
+        {
+          "time_s": 0.06,
+          "command": [
+            0.3441739203255227,
+            0.4752349359652632,
+            0.5566696287472198,
+            0.43996775290755097
+          ],
+          "mode": "rate_arrest",
+          "reasons": [
+            "model_support_exceeded"
+          ],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.31447472250685493,
+          "maximum_angular_rate_rad_s": 0.2010459005832672,
+          "nominal_command_accepted": false,
+          "maximum_model_validity_utilization": 1.1344873905181885,
+          "intervened": true
+        },
+        {
+          "time_s": 0.1,
+          "command": [
+            0.35512052601949484,
+            0.47145505765785173,
+            0.5464004779718706,
+            0.4430701762963395
+          ],
+          "mode": "rate_arrest",
+          "reasons": [
+            "arrest_latched"
+          ],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.32082967441733773,
+          "maximum_angular_rate_rad_s": 0.10836858302354813,
+          "nominal_command_accepted": false,
+          "maximum_model_validity_utilization": 0.992843508720398,
+          "intervened": true
+        },
+        {
+          "time_s": 0.12,
+          "command": [
+            0.36122843411538974,
+            0.46958273268263545,
+            0.5405666809084617,
+            0.4446683902390698
+          ],
+          "mode": "rate_arrest",
+          "reasons": [
+            "model_support_exceeded"
+          ],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.32153735083791973,
+          "maximum_angular_rate_rad_s": 0.10380006581544876,
+          "nominal_command_accepted": false,
+          "maximum_model_validity_utilization": 1.168831706047058,
+          "intervened": true
+        },
+        {
+          "time_s": 0.2,
+          "command": [
+            0.38810956896656,
+            0.4624432834272669,
+            0.5145134393740372,
+            0.4509799461776926
+          ],
+          "mode": "rate_arrest",
+          "reasons": [
+            "controller_unusable",
+            "model_support_unknown"
+          ],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.3086788234670632,
+          "maximum_angular_rate_rad_s": 0.2672346830368042,
+          "nominal_command_accepted": false,
+          "maximum_model_validity_utilization": null,
+          "intervened": true
+        },
+        {
+          "time_s": 0.26,
+          "command": [
+            0.4091052437360525,
+            0.4577067321349583,
+            0.49396973425791263,
+            0.4552645278166332
+          ],
+          "mode": "rate_arrest",
+          "reasons": [
+            "model_support_exceeded"
+          ],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.28450408602921035,
+          "maximum_angular_rate_rad_s": 0.4183191657066345,
+          "nominal_command_accepted": false,
+          "maximum_model_validity_utilization": 1.0198017358779907,
+          "intervened": true
+        },
+        {
+          "time_s": 0.76,
+          "command": [
+            0.33907100558280945,
+            0.8099392652511597,
+            0.6555719375610352,
+            0.6263185739517212
+          ],
+          "mode": "nominal",
+          "reasons": [],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.04695607563725063,
+          "maximum_angular_rate_rad_s": 0.3182823956012726,
+          "nominal_command_accepted": true,
+          "maximum_model_validity_utilization": 0.9958735108375549,
+          "intervened": false
+        }
+      ],
+      "final_supervisor_mode": "nominal"
+    },
+    {
+      "name": "calibrated_original_unresolved_parameters",
+      "disturbance": "original",
+      "supervised": true,
+      "fault": "unresolved_parameters",
+      "loop": {
+        "steps": 120,
+        "interval_s": 0.02,
+        "status_counts": {
+          "iteration_limit": 106,
+          "stalled": 11,
+          "unresolved_model": 3
+        },
+        "usable_command_count": 117,
+        "fallback_count": 3,
+        "written_command_count": 120,
+        "supervisor_intervention_count": 37,
+        "deadline_miss_count": 114,
+        "solve_time_median_s": 0.031254666500899475,
+        "solve_time_p90_s": 0.032591716895694844,
+        "solve_time_maximum_s": 0.03327362499840092,
+        "maximum_message_skew_s": 0.0,
+        "maximum_receive_age_s": 0.0,
+        "maximum_source_clock_lag_s": 0.0,
+        "maximum_applied_command_skew_s": null,
+        "host_elapsed_s": 4.554606500001682
+      },
+      "initial_normalized_tracking_rms": 0.8074897527694702,
+      "tail_normalized_tracking_rms": 1.124988079071045,
+      "terminal_normalized_tracking_rms": 1.045951008796692,
+      "terminal_attitude_rate_within_tolerances": true,
+      "finite": true,
+      "maximum_command_bound_violation": 0.0,
+      "features": {
+        "body_velocity_x": {
+          "maximum_utilization": 0.8259501457214355,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        },
+        "body_velocity_y": {
+          "maximum_utilization": 1.0593979358673096,
+          "first_exit_s": 0.4,
+          "outside_sample_count": 18
+        },
+        "body_velocity_z": {
+          "maximum_utilization": 0.9753080606460571,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        },
+        "roll_rate": {
+          "maximum_utilization": 0.2405736744403839,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        },
+        "pitch_rate": {
+          "maximum_utilization": 0.7319687604904175,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        },
+        "yaw_rate": {
+          "maximum_utilization": 0.8869404196739197,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        }
+      },
+      "first_unsupported_forecast": {
+        "solve_time_s": 0.02,
+        "first_exit_horizon_s": 0.22,
+        "feature": "pitch_rate"
+      },
+      "counterfactual_planned_prediction_error": {
+        "inside": {
+          "stage_count": 3248,
+          "normalized_rms": 0.00378247131578081
+        },
+        "outside": {
+          "stage_count": 262,
+          "normalized_rms": 0.004095109717775903
+        }
+      },
+      "supervisor_mode_counts": {
+        "nominal": 83,
+        "rate_arrest": 37
+      },
+      "supervisor_reason_counts": {
+        "model_support_exceeded": 32,
+        "arrest_latched": 2,
+        "controller_unusable": 3,
+        "model_support_unknown": 3
+      },
+      "accepted_nominal_command_count": 83,
+      "all_observed_states_within_support": false,
+      "all_accepted_plans_within_support": true,
+      "all_accepted_commands_usable": true,
+      "all_accepted_states_fresh": true,
+      "supervisor_events": [
+        {
+          "time_s": 0.0,
+          "command": [
+            0.0019759535789489746,
+            0.6413372755050659,
+            0.781300961971283,
+            0.4052719175815582
+          ],
+          "mode": "nominal",
+          "reasons": [],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.2931585193835778,
+          "maximum_angular_rate_rad_s": 0.37771417910202726,
+          "nominal_command_accepted": true,
+          "maximum_model_validity_utilization": 0.9655945897102356,
+          "intervened": false
+        },
+        {
+          "time_s": 0.02,
+          "command": [
+            0.3355387702468382,
+            0.4789967317926588,
+            0.5643789491173281,
+            0.43713178678873166
+          ],
+          "mode": "rate_arrest",
+          "reasons": [
+            "model_support_exceeded"
+          ],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.30164209258169594,
+          "maximum_angular_rate_rad_s": 0.34148383140563965,
+          "nominal_command_accepted": false,
+          "maximum_model_validity_utilization": 1.1025786399841309,
+          "intervened": true
+        },
+        {
+          "time_s": 0.04,
+          "command": [
+            0.339516525598751,
+            0.4771226789005404,
+            0.5609022518670693,
+            0.4385047815791959
+          ],
+          "mode": "rate_arrest",
+          "reasons": [
+            "arrest_latched"
+          ],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.30884567899946563,
+          "maximum_angular_rate_rad_s": 0.27224409580230713,
+          "nominal_command_accepted": false,
+          "maximum_model_validity_utilization": 0.9926506280899048,
+          "intervened": true
+        },
+        {
+          "time_s": 0.06,
+          "command": [
+            0.3441739203255227,
+            0.4752349359652632,
+            0.5566696287472198,
+            0.43996775290755097
+          ],
+          "mode": "rate_arrest",
+          "reasons": [
+            "model_support_exceeded"
+          ],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.31447472250685493,
+          "maximum_angular_rate_rad_s": 0.2010459005832672,
+          "nominal_command_accepted": false,
+          "maximum_model_validity_utilization": 1.1344873905181885,
+          "intervened": true
+        },
+        {
+          "time_s": 0.1,
+          "command": [
+            0.35512052601949484,
+            0.47145505765785173,
+            0.5464004779718706,
+            0.4430701762963395
+          ],
+          "mode": "rate_arrest",
+          "reasons": [
+            "arrest_latched"
+          ],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.32082967441733773,
+          "maximum_angular_rate_rad_s": 0.10836858302354813,
+          "nominal_command_accepted": false,
+          "maximum_model_validity_utilization": 0.992843508720398,
+          "intervened": true
+        },
+        {
+          "time_s": 0.12,
+          "command": [
+            0.36122843411538974,
+            0.46958273268263545,
+            0.5405666809084617,
+            0.4446683902390698
+          ],
+          "mode": "rate_arrest",
+          "reasons": [
+            "model_support_exceeded"
+          ],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.32153735083791973,
+          "maximum_angular_rate_rad_s": 0.10380006581544876,
+          "nominal_command_accepted": false,
+          "maximum_model_validity_utilization": 1.168831706047058,
+          "intervened": true
+        },
+        {
+          "time_s": 0.2,
+          "command": [
+            0.38810956896656,
+            0.4624432834272669,
+            0.5145134393740372,
+            0.4509799461776926
+          ],
+          "mode": "rate_arrest",
+          "reasons": [
+            "controller_unusable",
+            "model_support_unknown"
+          ],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.3086788234670632,
+          "maximum_angular_rate_rad_s": 0.2672346830368042,
+          "nominal_command_accepted": false,
+          "maximum_model_validity_utilization": null,
+          "intervened": true
+        },
+        {
+          "time_s": 0.26,
+          "command": [
+            0.4091052437360525,
+            0.4577067321349583,
+            0.49396973425791263,
+            0.4552645278166332
+          ],
+          "mode": "rate_arrest",
+          "reasons": [
+            "model_support_exceeded"
+          ],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.28450408602921035,
+          "maximum_angular_rate_rad_s": 0.4183191657066345,
+          "nominal_command_accepted": false,
+          "maximum_model_validity_utilization": 1.0198017358779907,
+          "intervened": true
+        },
+        {
+          "time_s": 0.76,
+          "command": [
+            0.33907100558280945,
+            0.8099392652511597,
+            0.6555719375610352,
+            0.6263185739517212
+          ],
+          "mode": "nominal",
+          "reasons": [],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.04695607563725063,
+          "maximum_angular_rate_rad_s": 0.3182823956012726,
+          "nominal_command_accepted": true,
+          "maximum_model_validity_utilization": 0.9958735108375549,
+          "intervened": false
+        }
+      ],
+      "final_supervisor_mode": "nominal"
+    },
+    {
+      "name": "calibrated_original_combined",
+      "disturbance": "original",
+      "supervised": true,
+      "fault": "combined",
+      "loop": {
+        "steps": 120,
+        "interval_s": 0.02,
+        "status_counts": {
+          "deadline_exceeded": 3,
+          "iteration_limit": 105,
+          "stalled": 9,
+          "unresolved_model": 3
+        },
+        "usable_command_count": 114,
+        "fallback_count": 6,
+        "written_command_count": 120,
+        "supervisor_intervention_count": 48,
+        "deadline_miss_count": 112,
+        "solve_time_median_s": 0.03227664600126445,
+        "solve_time_p90_s": 0.03453896730352426,
+        "solve_time_maximum_s": 0.038315791003697086,
+        "maximum_message_skew_s": 0.0,
+        "maximum_receive_age_s": 0.06,
+        "maximum_source_clock_lag_s": 0.0,
+        "maximum_applied_command_skew_s": null,
+        "host_elapsed_s": 4.599281916001928
+      },
+      "initial_normalized_tracking_rms": 0.8074897527694702,
+      "tail_normalized_tracking_rms": 1.317256212234497,
+      "terminal_normalized_tracking_rms": 1.2275980710983276,
+      "terminal_attitude_rate_within_tolerances": true,
+      "finite": true,
+      "maximum_command_bound_violation": 0.0,
+      "features": {
+        "body_velocity_x": {
+          "maximum_utilization": 0.8917621374130249,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        },
+        "body_velocity_y": {
+          "maximum_utilization": 1.083450198173523,
+          "first_exit_s": 0.4,
+          "outside_sample_count": 23
+        },
+        "body_velocity_z": {
+          "maximum_utilization": 0.9441042542457581,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        },
+        "roll_rate": {
+          "maximum_utilization": 0.21541471779346466,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        },
+        "pitch_rate": {
+          "maximum_utilization": 0.6673645377159119,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        },
+        "yaw_rate": {
+          "maximum_utilization": 0.7562466859817505,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        }
+      },
+      "first_unsupported_forecast": {
+        "solve_time_s": 0.02,
+        "first_exit_horizon_s": 0.22,
+        "feature": "pitch_rate"
+      },
+      "counterfactual_planned_prediction_error": {
+        "inside": {
+          "stage_count": 3094,
+          "normalized_rms": 0.003700684665152787
+        },
+        "outside": {
+          "stage_count": 326,
+          "normalized_rms": 0.0043015447140798595
+        }
+      },
+      "supervisor_mode_counts": {
+        "nominal": 72,
+        "rate_arrest": 45,
+        "collective_hold": 3
+      },
+      "supervisor_reason_counts": {
+        "model_support_exceeded": 34,
+        "arrest_latched": 5,
+        "state_stale": 3,
+        "controller_unusable": 6,
+        "model_support_unknown": 6
+      },
+      "accepted_nominal_command_count": 72,
+      "all_observed_states_within_support": false,
+      "all_accepted_plans_within_support": true,
+      "all_accepted_commands_usable": true,
+      "all_accepted_states_fresh": true,
+      "supervisor_events": [
+        {
+          "time_s": 0.0,
+          "command": [
+            0.0019759535789489746,
+            0.6413372755050659,
+            0.781300961971283,
+            0.4052719175815582
+          ],
+          "mode": "nominal",
+          "reasons": [],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.2931585193835778,
+          "maximum_angular_rate_rad_s": 0.37771417910202726,
+          "nominal_command_accepted": true,
+          "maximum_model_validity_utilization": 0.9655945897102356,
+          "intervened": false
+        },
+        {
+          "time_s": 0.02,
+          "command": [
+            0.3355387702468382,
+            0.4789967317926588,
+            0.5643789491173281,
+            0.43713178678873166
+          ],
+          "mode": "rate_arrest",
+          "reasons": [
+            "model_support_exceeded"
+          ],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.30164209258169594,
+          "maximum_angular_rate_rad_s": 0.34148383140563965,
+          "nominal_command_accepted": false,
+          "maximum_model_validity_utilization": 1.1025786399841309,
+          "intervened": true
+        },
+        {
+          "time_s": 0.04,
+          "command": [
+            0.339516525598751,
+            0.4771226789005404,
+            0.5609022518670693,
+            0.4385047815791959
+          ],
+          "mode": "rate_arrest",
+          "reasons": [
+            "arrest_latched"
+          ],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.30884567899946563,
+          "maximum_angular_rate_rad_s": 0.27224409580230713,
+          "nominal_command_accepted": false,
+          "maximum_model_validity_utilization": 0.9926506280899048,
+          "intervened": true
+        },
+        {
+          "time_s": 0.06,
+          "command": [
+            0.3441739203255227,
+            0.4752349359652632,
+            0.5566696287472198,
+            0.43996775290755097
+          ],
+          "mode": "rate_arrest",
+          "reasons": [
+            "model_support_exceeded"
+          ],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.31447472250685493,
+          "maximum_angular_rate_rad_s": 0.2010459005832672,
+          "nominal_command_accepted": false,
+          "maximum_model_validity_utilization": 1.1344873905181885,
+          "intervened": true
+        },
+        {
+          "time_s": 0.1,
+          "command": [
+            0.35512052601949484,
+            0.47145505765785173,
+            0.5464004779718706,
+            0.4430701762963395
+          ],
+          "mode": "rate_arrest",
+          "reasons": [
+            "arrest_latched"
+          ],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.32082967441733773,
+          "maximum_angular_rate_rad_s": 0.10836858302354813,
+          "nominal_command_accepted": false,
+          "maximum_model_validity_utilization": 0.992843508720398,
+          "intervened": true
+        },
+        {
+          "time_s": 0.12,
+          "command": [
+            0.36122843411538974,
+            0.46958273268263545,
+            0.5405666809084617,
+            0.4446683902390698
+          ],
+          "mode": "rate_arrest",
+          "reasons": [
+            "model_support_exceeded"
+          ],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.32153735083791973,
+          "maximum_angular_rate_rad_s": 0.10380006581544876,
+          "nominal_command_accepted": false,
+          "maximum_model_validity_utilization": 1.168831706047058,
+          "intervened": true
+        },
+        {
+          "time_s": 0.2,
+          "command": [
+            0.45401155948638916,
+            0.45401155948638916,
+            0.45401155948638916,
+            0.45401155948638916
+          ],
+          "mode": "collective_hold",
+          "reasons": [
+            "state_stale"
+          ],
+          "state_age_s": 0.060000000000002274,
+          "command_age_s": null,
+          "tilt_rad": 0.32062514144037424,
+          "maximum_angular_rate_rad_s": 0.09977026283740997,
+          "nominal_command_accepted": false,
+          "maximum_model_validity_utilization": 1.0108137130737305,
+          "intervened": true
+        },
+        {
+          "time_s": 0.26,
+          "command": [
+            0.40554835571502845,
+            0.4581824660459832,
+            0.49744195388103324,
+            0.4548734623035117
+          ],
+          "mode": "rate_arrest",
+          "reasons": [
+            "model_support_exceeded"
+          ],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.2854260353423196,
+          "maximum_angular_rate_rad_s": 0.3850588798522949,
+          "nominal_command_accepted": false,
+          "maximum_model_validity_utilization": 1.054253101348877,
+          "intervened": true
+        },
+        {
+          "time_s": 0.6,
+          "command": [
+            0.4822162343872814,
+            0.4473132645724102,
+            0.4222915050076218,
+            0.4642252339782432
+          ],
+          "mode": "rate_arrest",
+          "reasons": [
+            "controller_unusable",
+            "model_support_unknown"
+          ],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.07378393741762168,
+          "maximum_angular_rate_rad_s": 0.5183589458465576,
+          "nominal_command_accepted": false,
+          "maximum_model_validity_utilization": null,
+          "intervened": true
+        },
+        {
+          "time_s": 0.66,
+          "command": [
+            0.48865828035337067,
+            0.4476627085939224,
+            0.4160788487090435,
+            0.4636464002892201
+          ],
+          "mode": "rate_arrest",
+          "reasons": [
+            "model_support_exceeded"
+          ],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.03774291970384521,
+          "maximum_angular_rate_rad_s": 0.4636836349964142,
+          "nominal_command_accepted": false,
+          "maximum_model_validity_utilization": 1.0766525268554688,
+          "intervened": true
+        },
+        {
+          "time_s": 0.86,
+          "command": [
+            0.32452958822250366,
+            0.8644782900810242,
+            0.7131859064102173,
+            0.6702630519866943
+          ],
+          "mode": "nominal",
+          "reasons": [],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.05850040367774618,
+          "maximum_angular_rate_rad_s": 0.22359763085842133,
+          "nominal_command_accepted": true,
+          "maximum_model_validity_utilization": 0.9918151497840881,
+          "intervened": false
+        },
+        {
+          "time_s": 1.0,
+          "command": [
+            0.532314752922684,
+            0.483484673500061,
+            0.3861246156829297,
+            0.46897710128347286
+          ],
+          "mode": "rate_arrest",
+          "reasons": [
+            "controller_unusable",
+            "model_support_unknown"
+          ],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.11380405651355213,
+          "maximum_angular_rate_rad_s": 0.4965559244155884,
+          "nominal_command_accepted": false,
+          "maximum_model_validity_utilization": null,
+          "intervened": true
+        },
+        {
+          "time_s": 1.06,
+          "command": [
+            0.5448321683339038,
+            0.41902798412764886,
+            0.3783657770224652,
+            0.4738203084615388
+          ],
+          "mode": "rate_arrest",
+          "reasons": [
+            "arrest_latched"
+          ],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.14892421290240515,
+          "maximum_angular_rate_rad_s": 0.5357651710510254,
+          "nominal_command_accepted": false,
+          "maximum_model_validity_utilization": 0.8560786843299866,
+          "intervened": true
+        },
+        {
+          "time_s": 1.12,
+          "command": [
+            0.5748522281646729,
+            0.5884896516799927,
+            0.5648253560066223,
+            0.590446949005127
+          ],
+          "mode": "nominal",
+          "reasons": [],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.1813383948373839,
+          "maximum_angular_rate_rad_s": 0.45161035656929016,
+          "nominal_command_accepted": true,
+          "maximum_model_validity_utilization": 0.7931609749794006,
+          "intervened": false
+        }
+      ],
+      "final_supervisor_mode": "nominal"
+    },
+    {
+      "name": "calibrated_small_stale_state",
+      "disturbance": "small",
+      "supervised": true,
+      "fault": "stale_state",
+      "loop": {
+        "steps": 120,
+        "interval_s": 0.02,
+        "status_counts": {
+          "iteration_limit": 49,
+          "stalled": 71
+        },
+        "usable_command_count": 120,
+        "fallback_count": 0,
+        "written_command_count": 120,
+        "supervisor_intervention_count": 7,
+        "deadline_miss_count": 90,
+        "solve_time_median_s": 0.034267749499122147,
+        "solve_time_p90_s": 0.05058564999999364,
+        "solve_time_maximum_s": 0.10916291699686553,
+        "maximum_message_skew_s": 0.0,
+        "maximum_receive_age_s": 0.06,
+        "maximum_source_clock_lag_s": 0.0,
+        "maximum_applied_command_skew_s": null,
+        "host_elapsed_s": 5.06980887499958
+      },
+      "initial_normalized_tracking_rms": 0.07284313440322876,
+      "tail_normalized_tracking_rms": 0.03389345109462738,
+      "terminal_normalized_tracking_rms": 0.03152834251523018,
+      "terminal_attitude_rate_within_tolerances": true,
+      "finite": true,
+      "maximum_command_bound_violation": 0.0,
+      "features": {
+        "body_velocity_x": {
+          "maximum_utilization": 0.30606821179389954,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        },
+        "body_velocity_y": {
+          "maximum_utilization": 0.15893493592739105,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        },
+        "body_velocity_z": {
+          "maximum_utilization": 0.012951389886438847,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        },
+        "roll_rate": {
+          "maximum_utilization": 0.026639549061655998,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        },
+        "pitch_rate": {
+          "maximum_utilization": 0.11490580439567566,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        },
+        "yaw_rate": {
+          "maximum_utilization": 0.07499999552965164,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        }
+      },
+      "first_unsupported_forecast": null,
+      "counterfactual_planned_prediction_error": {
+        "inside": {
+          "stage_count": 3600,
+          "normalized_rms": 0.0003401171319098969
+        },
+        "outside": {
+          "stage_count": 0,
+          "normalized_rms": null
+        }
+      },
+      "supervisor_mode_counts": {
+        "nominal": 113,
+        "collective_hold": 3,
+        "rate_arrest": 4
+      },
+      "supervisor_reason_counts": {
+        "state_stale": 3,
+        "arrest_latched": 4
+      },
+      "accepted_nominal_command_count": 113,
+      "all_observed_states_within_support": true,
+      "all_accepted_plans_within_support": true,
+      "all_accepted_commands_usable": true,
+      "all_accepted_states_fresh": true,
+      "supervisor_events": [
+        {
+          "time_s": 0.0,
+          "command": [
+            0.41130703687667847,
+            0.4682239592075348,
+            0.4801735281944275,
+            0.45906659960746765
+          ],
+          "mode": "nominal",
+          "reasons": [],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.029409938945876783,
+          "maximum_angular_rate_rad_s": 0.03,
+          "nominal_command_accepted": true,
+          "maximum_model_validity_utilization": 0.3010358512401581,
+          "intervened": false
+        },
+        {
+          "time_s": 0.2,
+          "command": [
+            0.45401155948638916,
+            0.45401155948638916,
+            0.45401155948638916,
+            0.45401155948638916
+          ],
+          "mode": "collective_hold",
+          "reasons": [
+            "state_stale"
+          ],
+          "state_age_s": 0.060000000000002274,
+          "command_age_s": null,
+          "tilt_rad": 0.02972212616052952,
+          "maximum_angular_rate_rad_s": 0.049684930592775345,
+          "nominal_command_accepted": false,
+          "maximum_model_validity_utilization": 0.2683298587799072,
+          "intervened": true
+        },
+        {
+          "time_s": 0.26,
+          "command": [
+            0.4577197016536811,
+            0.45221113434362165,
+            0.4512084768392524,
+            0.4549069251090015
+          ],
+          "mode": "rate_arrest",
+          "reasons": [
+            "arrest_latched"
+          ],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.01888628387267382,
+          "maximum_angular_rate_rad_s": 0.09415015578269958,
+          "nominal_command_accepted": false,
+          "maximum_model_validity_utilization": 0.2630007565021515,
+          "intervened": true
+        },
+        {
+          "time_s": 0.34,
+          "command": [
+            0.4650503695011139,
+            0.45562559366226196,
+            0.4411814212799072,
+            0.46042969822883606
+          ],
+          "mode": "nominal",
+          "reasons": [],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.009690264075935894,
+          "maximum_angular_rate_rad_s": 0.09644532203674316,
+          "nominal_command_accepted": true,
+          "maximum_model_validity_utilization": 0.26840293407440186,
+          "intervened": false
+        }
+      ],
+      "final_supervisor_mode": "nominal"
+    },
+    {
+      "name": "calibrated_small_deadline",
+      "disturbance": "small",
+      "supervised": true,
+      "fault": "deadline",
+      "loop": {
+        "steps": 120,
+        "interval_s": 0.02,
+        "status_counts": {
+          "deadline_exceeded": 3,
+          "iteration_limit": 44,
+          "stalled": 73
+        },
+        "usable_command_count": 117,
+        "fallback_count": 3,
+        "written_command_count": 120,
+        "supervisor_intervention_count": 6,
+        "deadline_miss_count": 88,
+        "solve_time_median_s": 0.032952792003925424,
+        "solve_time_p90_s": 0.04502188749684138,
+        "solve_time_maximum_s": 0.10097545799362706,
+        "maximum_message_skew_s": 0.0,
+        "maximum_receive_age_s": 0.0,
+        "maximum_source_clock_lag_s": 0.0,
+        "maximum_applied_command_skew_s": null,
+        "host_elapsed_s": 4.888672041000973
+      },
+      "initial_normalized_tracking_rms": 0.07284313440322876,
+      "tail_normalized_tracking_rms": 0.03404871001839638,
+      "terminal_normalized_tracking_rms": 0.031652938574552536,
+      "terminal_attitude_rate_within_tolerances": true,
+      "finite": true,
+      "maximum_command_bound_violation": 0.0,
+      "features": {
+        "body_velocity_x": {
+          "maximum_utilization": 0.30609235167503357,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        },
+        "body_velocity_y": {
+          "maximum_utilization": 0.15906640887260437,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        },
+        "body_velocity_z": {
+          "maximum_utilization": 0.011451480910182,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        },
+        "roll_rate": {
+          "maximum_utilization": 0.025823924690485,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        },
+        "pitch_rate": {
+          "maximum_utilization": 0.11468518525362015,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        },
+        "yaw_rate": {
+          "maximum_utilization": 0.07499999552965164,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        }
+      },
+      "first_unsupported_forecast": null,
+      "counterfactual_planned_prediction_error": {
+        "inside": {
+          "stage_count": 3510,
+          "normalized_rms": 0.00032333098829120726
+        },
+        "outside": {
+          "stage_count": 0,
+          "normalized_rms": null
+        }
+      },
+      "supervisor_mode_counts": {
+        "nominal": 114,
+        "rate_arrest": 6
+      },
+      "supervisor_reason_counts": {
+        "controller_unusable": 3,
+        "model_support_unknown": 3,
+        "arrest_latched": 3
+      },
+      "accepted_nominal_command_count": 114,
+      "all_observed_states_within_support": true,
+      "all_accepted_plans_within_support": true,
+      "all_accepted_commands_usable": true,
+      "all_accepted_states_fresh": true,
+      "supervisor_events": [
+        {
+          "time_s": 0.0,
+          "command": [
+            0.41130703687667847,
+            0.4682239592075348,
+            0.4801735281944275,
+            0.45906659960746765
+          ],
+          "mode": "nominal",
+          "reasons": [],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.029409938945876783,
+          "maximum_angular_rate_rad_s": 0.03,
+          "nominal_command_accepted": true,
+          "maximum_model_validity_utilization": 0.3010358512401581,
+          "intervened": false
+        },
+        {
+          "time_s": 0.2,
+          "command": [
+            0.4542902813352389,
+            0.4529891473053321,
+            0.4541378142066555,
+            0.4546289950983301
+          ],
+          "mode": "rate_arrest",
+          "reasons": [
+            "controller_unusable",
+            "model_support_unknown"
+          ],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.02512293944445525,
+          "maximum_angular_rate_rad_s": 0.079582579433918,
+          "nominal_command_accepted": false,
+          "maximum_model_validity_utilization": null,
+          "intervened": true
+        },
+        {
+          "time_s": 0.26,
+          "command": [
+            0.45766886675189317,
+            0.4522720346162244,
+            0.4512509070390922,
+            0.45485442953834687
+          ],
+          "mode": "rate_arrest",
+          "reasons": [
+            "arrest_latched"
+          ],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.018895173297463805,
+          "maximum_angular_rate_rad_s": 0.09326566755771637,
+          "nominal_command_accepted": false,
+          "maximum_model_validity_utilization": 0.2575596272945404,
+          "intervened": true
+        },
+        {
+          "time_s": 0.32,
+          "command": [
+            0.460811048746109,
+            0.4550693929195404,
+            0.44662556052207947,
+            0.4575619697570801
+          ],
+          "mode": "nominal",
+          "reasons": [],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.012074774009645422,
+          "maximum_angular_rate_rad_s": 0.09514991194009781,
+          "nominal_command_accepted": true,
+          "maximum_model_validity_utilization": 0.2664632201194763,
+          "intervened": false
+        }
+      ],
+      "final_supervisor_mode": "nominal"
+    },
+    {
+      "name": "calibrated_small_unresolved_parameters",
+      "disturbance": "small",
+      "supervised": true,
+      "fault": "unresolved_parameters",
+      "loop": {
+        "steps": 120,
+        "interval_s": 0.02,
+        "status_counts": {
+          "iteration_limit": 44,
+          "stalled": 73,
+          "unresolved_model": 3
+        },
+        "usable_command_count": 117,
+        "fallback_count": 3,
+        "written_command_count": 120,
+        "supervisor_intervention_count": 6,
+        "deadline_miss_count": 85,
+        "solve_time_median_s": 0.03692497900192393,
+        "solve_time_p90_s": 0.11204704140254762,
+        "solve_time_maximum_s": 0.2756692499970086,
+        "maximum_message_skew_s": 0.0,
+        "maximum_receive_age_s": 0.0,
+        "maximum_source_clock_lag_s": 0.0,
+        "maximum_applied_command_skew_s": null,
+        "host_elapsed_s": 8.132290875000763
+      },
+      "initial_normalized_tracking_rms": 0.07284313440322876,
+      "tail_normalized_tracking_rms": 0.03404871001839638,
+      "terminal_normalized_tracking_rms": 0.031652938574552536,
+      "terminal_attitude_rate_within_tolerances": true,
+      "finite": true,
+      "maximum_command_bound_violation": 0.0,
+      "features": {
+        "body_velocity_x": {
+          "maximum_utilization": 0.30609235167503357,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        },
+        "body_velocity_y": {
+          "maximum_utilization": 0.15906640887260437,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        },
+        "body_velocity_z": {
+          "maximum_utilization": 0.011451480910182,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        },
+        "roll_rate": {
+          "maximum_utilization": 0.025823924690485,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        },
+        "pitch_rate": {
+          "maximum_utilization": 0.11468518525362015,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        },
+        "yaw_rate": {
+          "maximum_utilization": 0.07499999552965164,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        }
+      },
+      "first_unsupported_forecast": null,
+      "counterfactual_planned_prediction_error": {
+        "inside": {
+          "stage_count": 3510,
+          "normalized_rms": 0.00032333098829120726
+        },
+        "outside": {
+          "stage_count": 0,
+          "normalized_rms": null
+        }
+      },
+      "supervisor_mode_counts": {
+        "nominal": 114,
+        "rate_arrest": 6
+      },
+      "supervisor_reason_counts": {
+        "controller_unusable": 3,
+        "model_support_unknown": 3,
+        "arrest_latched": 3
+      },
+      "accepted_nominal_command_count": 114,
+      "all_observed_states_within_support": true,
+      "all_accepted_plans_within_support": true,
+      "all_accepted_commands_usable": true,
+      "all_accepted_states_fresh": true,
+      "supervisor_events": [
+        {
+          "time_s": 0.0,
+          "command": [
+            0.41130703687667847,
+            0.4682239592075348,
+            0.4801735281944275,
+            0.45906659960746765
+          ],
+          "mode": "nominal",
+          "reasons": [],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.029409938945876783,
+          "maximum_angular_rate_rad_s": 0.03,
+          "nominal_command_accepted": true,
+          "maximum_model_validity_utilization": 0.3010358512401581,
+          "intervened": false
+        },
+        {
+          "time_s": 0.2,
+          "command": [
+            0.4542902813352389,
+            0.4529891473053321,
+            0.4541378142066555,
+            0.4546289950983301
+          ],
+          "mode": "rate_arrest",
+          "reasons": [
+            "controller_unusable",
+            "model_support_unknown"
+          ],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.02512293944445525,
+          "maximum_angular_rate_rad_s": 0.079582579433918,
+          "nominal_command_accepted": false,
+          "maximum_model_validity_utilization": null,
+          "intervened": true
+        },
+        {
+          "time_s": 0.26,
+          "command": [
+            0.45766886675189317,
+            0.4522720346162244,
+            0.4512509070390922,
+            0.45485442953834687
+          ],
+          "mode": "rate_arrest",
+          "reasons": [
+            "arrest_latched"
+          ],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.018895173297463805,
+          "maximum_angular_rate_rad_s": 0.09326566755771637,
+          "nominal_command_accepted": false,
+          "maximum_model_validity_utilization": 0.2575596272945404,
+          "intervened": true
+        },
+        {
+          "time_s": 0.32,
+          "command": [
+            0.460811048746109,
+            0.4550693929195404,
+            0.44662556052207947,
+            0.4575619697570801
+          ],
+          "mode": "nominal",
+          "reasons": [],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.012074774009645422,
+          "maximum_angular_rate_rad_s": 0.09514991194009781,
+          "nominal_command_accepted": true,
+          "maximum_model_validity_utilization": 0.2664632201194763,
+          "intervened": false
+        }
+      ],
+      "final_supervisor_mode": "nominal"
+    },
+    {
+      "name": "calibrated_small_combined",
+      "disturbance": "small",
+      "supervised": true,
+      "fault": "combined",
+      "loop": {
+        "steps": 120,
+        "interval_s": 0.02,
+        "status_counts": {
+          "deadline_exceeded": 3,
+          "iteration_limit": 45,
+          "stalled": 69,
+          "unresolved_model": 3
+        },
+        "usable_command_count": 114,
+        "fallback_count": 6,
+        "written_command_count": 120,
+        "supervisor_intervention_count": 18,
+        "deadline_miss_count": 75,
+        "solve_time_median_s": 0.02475064600002952,
+        "solve_time_p90_s": 0.03588392079545884,
+        "solve_time_maximum_s": 0.05165783299889881,
+        "maximum_message_skew_s": 0.0,
+        "maximum_receive_age_s": 0.06,
+        "maximum_source_clock_lag_s": 0.0,
+        "maximum_applied_command_skew_s": null,
+        "host_elapsed_s": 4.071796208001615
+      },
+      "initial_normalized_tracking_rms": 0.07284313440322876,
+      "tail_normalized_tracking_rms": 0.03646223247051239,
+      "terminal_normalized_tracking_rms": 0.03430528938770294,
+      "terminal_attitude_rate_within_tolerances": true,
+      "finite": true,
+      "maximum_command_bound_violation": 0.0,
+      "features": {
+        "body_velocity_x": {
+          "maximum_utilization": 0.3052769899368286,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        },
+        "body_velocity_y": {
+          "maximum_utilization": 0.15893493592739105,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        },
+        "body_velocity_z": {
+          "maximum_utilization": 0.010009896010160446,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        },
+        "roll_rate": {
+          "maximum_utilization": 0.026639549061655998,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        },
+        "pitch_rate": {
+          "maximum_utilization": 0.11490580439567566,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        },
+        "yaw_rate": {
+          "maximum_utilization": 0.07499999552965164,
+          "first_exit_s": null,
+          "outside_sample_count": 0
+        }
+      },
+      "first_unsupported_forecast": null,
+      "counterfactual_planned_prediction_error": {
+        "inside": {
+          "stage_count": 3420,
+          "normalized_rms": 0.00034667645140456377
+        },
+        "outside": {
+          "stage_count": 0,
+          "normalized_rms": null
+        }
+      },
+      "supervisor_mode_counts": {
+        "nominal": 102,
+        "collective_hold": 3,
+        "rate_arrest": 15
+      },
+      "supervisor_reason_counts": {
+        "state_stale": 3,
+        "arrest_latched": 9,
+        "controller_unusable": 6,
+        "model_support_unknown": 6
+      },
+      "accepted_nominal_command_count": 102,
+      "all_observed_states_within_support": true,
+      "all_accepted_plans_within_support": true,
+      "all_accepted_commands_usable": true,
+      "all_accepted_states_fresh": true,
+      "supervisor_events": [
+        {
+          "time_s": 0.0,
+          "command": [
+            0.41130703687667847,
+            0.4682239592075348,
+            0.4801735281944275,
+            0.45906659960746765
+          ],
+          "mode": "nominal",
+          "reasons": [],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.029409938945876783,
+          "maximum_angular_rate_rad_s": 0.03,
+          "nominal_command_accepted": true,
+          "maximum_model_validity_utilization": 0.3010358512401581,
+          "intervened": false
+        },
+        {
+          "time_s": 0.2,
+          "command": [
+            0.45401155948638916,
+            0.45401155948638916,
+            0.45401155948638916,
+            0.45401155948638916
+          ],
+          "mode": "collective_hold",
+          "reasons": [
+            "state_stale"
+          ],
+          "state_age_s": 0.060000000000002274,
+          "command_age_s": null,
+          "tilt_rad": 0.02972212616052952,
+          "maximum_angular_rate_rad_s": 0.049684930592775345,
+          "nominal_command_accepted": false,
+          "maximum_model_validity_utilization": 0.2683298587799072,
+          "intervened": true
+        },
+        {
+          "time_s": 0.26,
+          "command": [
+            0.4577197016536811,
+            0.45221113434362165,
+            0.4512084768392524,
+            0.4549069251090015
+          ],
+          "mode": "rate_arrest",
+          "reasons": [
+            "arrest_latched"
+          ],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.01888628387267382,
+          "maximum_angular_rate_rad_s": 0.09415015578269958,
+          "nominal_command_accepted": false,
+          "maximum_model_validity_utilization": 0.2630007565021515,
+          "intervened": true
+        },
+        {
+          "time_s": 0.34,
+          "command": [
+            0.4650503695011139,
+            0.45562559366226196,
+            0.4411814212799072,
+            0.46042969822883606
+          ],
+          "mode": "nominal",
+          "reasons": [],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.009690264075935894,
+          "maximum_angular_rate_rad_s": 0.09644532203674316,
+          "nominal_command_accepted": true,
+          "maximum_model_validity_utilization": 0.26840293407440186,
+          "intervened": false
+        },
+        {
+          "time_s": 0.6,
+          "command": [
+            0.4605932177595578,
+            0.45209773290702615,
+            0.4488511351503648,
+            0.4545041521286079
+          ],
+          "mode": "rate_arrest",
+          "reasons": [
+            "controller_unusable",
+            "model_support_unknown"
+          ],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.011317619767909513,
+          "maximum_angular_rate_rad_s": 0.027674132958054543,
+          "nominal_command_accepted": false,
+          "maximum_model_validity_utilization": null,
+          "intervened": true
+        },
+        {
+          "time_s": 0.66,
+          "command": [
+            0.4597472832135895,
+            0.4523790844010124,
+            0.44961915867700786,
+            0.4543007116539469
+          ],
+          "mode": "rate_arrest",
+          "reasons": [
+            "arrest_latched"
+          ],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.01293957501916199,
+          "maximum_angular_rate_rad_s": 0.02238871529698372,
+          "nominal_command_accepted": false,
+          "maximum_model_validity_utilization": 0.29497045278549194,
+          "intervened": true
+        },
+        {
+          "time_s": 0.7000000000000001,
+          "command": [
+            0.45989513397216797,
+            0.45130690932273865,
+            0.4528040587902069,
+            0.4516507387161255
+          ],
+          "mode": "nominal",
+          "reasons": [],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.013495835017661268,
+          "maximum_angular_rate_rad_s": 0.021495210006833076,
+          "nominal_command_accepted": true,
+          "maximum_model_validity_utilization": 0.29277440905570984,
+          "intervened": false
+        },
+        {
+          "time_s": 1.0,
+          "command": [
+            0.4556104980387777,
+            0.45368826696863424,
+            0.45283142479350275,
+            0.453916048144642
+          ],
+          "mode": "rate_arrest",
+          "reasons": [
+            "controller_unusable",
+            "model_support_unknown"
+          ],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.010088090385359707,
+          "maximum_angular_rate_rad_s": 0.01665342040359974,
+          "nominal_command_accepted": false,
+          "maximum_model_validity_utilization": null,
+          "intervened": true
+        },
+        {
+          "time_s": 1.06,
+          "command": [
+            0.45519424384807766,
+            0.45379497787371176,
+            0.45314319627011596,
+            0.4539138199536512
+          ],
+          "mode": "rate_arrest",
+          "reasons": [
+            "arrest_latched"
+          ],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.008947872536657542,
+          "maximum_angular_rate_rad_s": 0.016838306561112404,
+          "nominal_command_accepted": false,
+          "maximum_model_validity_utilization": 0.3032935559749603,
+          "intervened": true
+        },
+        {
+          "time_s": 1.12,
+          "command": [
+            0.4525376856327057,
+            0.45327016711235046,
+            0.45616602897644043,
+            0.4526829421520233
+          ],
+          "mode": "nominal",
+          "reasons": [],
+          "state_age_s": 0.0,
+          "command_age_s": 0.0,
+          "tilt_rad": 0.007739869180517332,
+          "maximum_angular_rate_rad_s": 0.0178395863622427,
+          "nominal_command_accepted": true,
+          "maximum_model_validity_utilization": 0.30205053091049194,
+          "intervened": false
+        }
+      ],
+      "final_supervisor_mode": "nominal"
+    }
+  ],
+  "source_sha256": {
+    "scripts/investigate_supervised_recovery.py": "59c462815d346bf8f90d577ca69f2f763a238dadbe0635befa1bfae13e007801",
+    "scripts/investigate_recovery.py": "100a4ce290d08a32ca8c0a41258af68feb7aabaf2c8747dcd46e177944cfed6d",
+    "src/glassbox/belief/belief.py": "16924b30baef0c3f4035c5919349c2ed905dd7cb75ac3287b2c074f1a089293b",
+    "src/glassbox/belief/forecast_error.py": "09602a8a1b8919b5db35a3c84cb477dd8f0cf6d3774eb755ca10ba68696a482b",
+    "src/glassbox/belief/information.py": "fb890920f34bca4af044e521c5694612a6f5a139a0a2d84c7aa37d4370021237",
+    "src/glassbox/belief/linearization.py": "ef0cf77eeb40445d4d09f2397afdd9fac37058934c4975217401e18620d46182",
+    "src/glassbox/belief/parameter_evidence.py": "81a574bf787bfb3b55163145d96546fda11237c6244b127294299b257ccd7606",
+    "src/glassbox/belief/update.py": "d96ba299309e269bdd9f0a320650e089088ca27aa9f5f3785de36e4b337b8587",
+    "src/glassbox/control/fitted.py": "3339f1bde0557565750c2a4aa635ee541c9fd7d3b233782c24577d42534b0dfb",
+    "src/glassbox/control/plan.py": "7fe915d2d74654da5ecc641629537f81bdfe80d720a2add38d029322127ecc85",
+    "src/glassbox/control/solver.py": "687501f0dcf675d3bd921496140ded896af27c9c575ffd66ffe53d7b8059f800",
+    "src/glassbox/core/data.py": "89543426635a7136ef8da8666fbeee290174ce4c36b08998644492e758f29759",
+    "src/glassbox/core/dynamics.py": "f7d3a65549d6c7d35987d3b55ca8431581f7b7b07976d59fd7dc7e0c27395c01",
+    "src/glassbox/core/geometry.py": "f83708893892c2f34c9e52423f47e53d271fd0b7579cf6a7ece439293c3d07bb",
+    "src/glassbox/core/metrics.py": "1a984d3ef1d3bc875e602f2ee4129e0bb11a1570652920929e1d7be30c4bfc42",
+    "src/glassbox/core/diagnostics.py": "4553e646a755c1254f0fb11b4f5e0eca79ec8eb774a45c4190fc55fd335b673f",
+    "src/glassbox/core/model.py": "8062215ea5886c2c15d2d22e78ee29b8943852f48da140e1a6c06d892b848ed8",
+    "src/glassbox/core/synthetic.py": "6b9bec538e8e0964ca67ec5d61060ac02bc54bc9428fbae50d5f141f4571f8f1",
+    "src/glassbox/workflows/benchmarks/recovery.py": "d459952644f2bec35365d2e9a259956ea8b1cdacc76d53a9fa64e4dba35735e5",
+    "src/glassbox/control/supervisor.py": "38b0d49f0a61967e7a7ab23a1ad67ab41d5fbfd57d43ed07c66e39ac06fdf55d",
+    "src/glassbox/integrations/loop.py": "d499930742e2de7aa10b6bd13a9b8ac2c6ab37c43880d70d8b650bd98583f791"
+  },
+  "complete": true
+}

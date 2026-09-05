@@ -61,6 +61,8 @@ class SupervisorReason(StrEnum):
     COMMAND_INVALID = "command_invalid"
     COMMAND_OUT_OF_BOUNDS = "command_out_of_bounds"
     CONTROLLER_UNUSABLE = "controller_unusable"
+    MODEL_SUPPORT_UNKNOWN = "model_support_unknown"
+    MODEL_SUPPORT_EXCEEDED = "model_support_exceeded"
     TILT_LIMIT = "tilt_limit"
     ANGULAR_RATE_LIMIT = "angular_rate_limit"
     ARREST_LATCHED = "arrest_latched"
@@ -190,6 +192,7 @@ class SupervisedCommand:
     tilt_rad: float | None
     maximum_angular_rate_rad_s: float | None
     nominal_command_accepted: bool
+    maximum_model_validity_utilization: float | None = None
 
     def __post_init__(self) -> None:
         command = np.asarray(self.command, dtype=np.float64).copy()
@@ -212,6 +215,7 @@ class SupervisedCommand:
             "tilt_rad": self.tilt_rad,
             "maximum_angular_rate_rad_s": self.maximum_angular_rate_rad_s,
             "nominal_command_accepted": self.nominal_command_accepted,
+            "maximum_model_validity_utilization": self.maximum_model_validity_utilization,
             "intervened": self.intervened,
         }
 
@@ -332,10 +336,23 @@ class MultirotorFlightSupervisor:
         now_s: float,
         controller_command_usable: bool,
         previous_applied_command: Any,
+        controller_maximum_validity_utilization: float | None = None,
     ) -> SupervisedCommand:
-        """Select a nominal, rate-arrest, or collective-hold command."""
+        """Select a nominal, rate-arrest, or collective-hold command.
+
+        A nominal plan must report finite utilization within its model's
+        declared support, including the initial state. Missing support is
+        unknown, not permission to use the plan. This epistemic check is
+        separate from the supervisor's physical attitude and rate limits.
+        """
 
         reasons: list[SupervisorReason] = []
+        try:
+            support = float(controller_maximum_validity_utilization)
+        except (TypeError, ValueError):
+            support = math.inf
+        if not math.isfinite(support) or support < 0.0:
+            support = None
         time_valid = math.isfinite(now_s)
         if not time_valid or (
             self._last_time_s is not None and now_s < self._last_time_s
@@ -386,6 +403,7 @@ class MultirotorFlightSupervisor:
                 tilt_rad=tilt,
                 maximum_angular_rate_rad_s=maximum_rate,
                 nominal_command_accepted=False,
+                maximum_model_validity_utilization=support,
             )
 
         command_age: float | None = None
@@ -413,6 +431,10 @@ class MultirotorFlightSupervisor:
             reasons.append(SupervisorReason.COMMAND_OUT_OF_BOUNDS)
         if not controller_command_usable:
             reasons.append(SupervisorReason.CONTROLLER_UNUSABLE)
+        if support is None:
+            reasons.append(SupervisorReason.MODEL_SUPPORT_UNKNOWN)
+        elif support > 1.0 + 1e-6:
+            reasons.append(SupervisorReason.MODEL_SUPPORT_EXCEEDED)
         assert tilt is not None
         assert maximum_rate is not None
         if tilt > self.config.maximum_tilt_rad:
@@ -456,6 +478,7 @@ class MultirotorFlightSupervisor:
                 tilt_rad=tilt,
                 maximum_angular_rate_rad_s=maximum_rate,
                 nominal_command_accepted=False,
+                maximum_model_validity_utilization=support,
             )
 
         return SupervisedCommand(
@@ -467,4 +490,5 @@ class MultirotorFlightSupervisor:
             tilt_rad=tilt,
             maximum_angular_rate_rad_s=maximum_rate,
             nominal_command_accepted=True,
+            maximum_model_validity_utilization=support,
         )

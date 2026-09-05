@@ -5,6 +5,13 @@ All notable changes to Glassbox are recorded here. The format follows
 
 ## Unreleased
 
+- Require reported model support before the flight supervisor accepts a nominal
+  command. The control loop forwards the utilization; direct callers must now
+  supply it, and custom supervisors must accept the new keyword. Missing or
+  exceeded support selects the existing latched intervention.
+- Include the initial state in plan-support diagnostics. Add a simulation clock
+  hook and record supervised recovery with stale telemetry, deadline failures,
+  and unresolved parameter evidence, retaining the larger disturbance's failure.
 - Separate passive PX4 telemetry waits from the model's solve deadline. Repair
   the flown SITL fixture's stale CLI entry point and synchronize sampling with
   actual maneuver excitation.

@@ -162,6 +162,7 @@ class CommandSupervisor(Protocol):
         now_s: float,
         controller_command_usable: bool,
         previous_applied_command: Any,
+        controller_maximum_validity_utilization: float,
     ) -> Any:
         """Select the command that is actually allowed to reach the vehicle."""
 
@@ -277,6 +278,7 @@ def run_control_loop(
     reference: Reference,
     on_sample: Callable[[LoopSample], None] | None = None,
     read_timeout_s: float | None = None,
+    clock: Callable[[], float] | None = None,
 ) -> LoopSummary:
     """Run ``steps`` control intervals over one link and summarize them.
 
@@ -286,6 +288,11 @@ def run_control_loop(
     telemetry without extending the solver deadline. ``reference`` is
     either one fixed trajectory or a callable handed each observation, which is
     what a regulator holding the measured state needs.
+
+    ``clock`` supplies supervision timestamps and must use the same clock as
+    observation reception. It defaults to the host monotonic clock; discrete
+    simulations may supply their own. Reported solve and host durations remain
+    actual wall times.
 
     A failed solve never stops the loop. The solver returns a bounded hold with
     an explicit failure status on every failure path, so the loop records the
@@ -305,6 +312,7 @@ def run_control_loop(
     resolve = (
         reference if callable(reference) else (lambda _observation: reference)  # type: ignore[misc, return-value]
     )
+    supervision_clock = time.monotonic if clock is None else clock
 
     status_counts: dict[str, int] = {}
     solve_times_s: list[float] = []
@@ -329,7 +337,7 @@ def run_control_loop(
             warm_start=warm_start,
             deadline_s=interval_s,
         )
-        solved_at_s = time.monotonic()
+        solved_at_s = supervision_clock()
         warm_start = result.warm_start
         command = np.asarray(result.command, dtype=np.float64)
 
@@ -340,8 +348,11 @@ def run_control_loop(
                 state_received_at_s=observation.received_at_s,
                 candidate_command=command,
                 command_generated_at_s=solved_at_s,
-                now_s=time.monotonic(),
+                now_s=supervision_clock(),
                 controller_command_usable=result.command_usable,
+                controller_maximum_validity_utilization=(
+                    result.diagnostics.maximum_validity_utilization
+                ),
                 previous_applied_command=observation.applied_command,
             )
             command = np.asarray(decision.command, dtype=np.float64)

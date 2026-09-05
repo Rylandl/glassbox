@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import math
+from dataclasses import replace
 
 import numpy as np
 import pytest
@@ -15,6 +16,11 @@ from glassbox.control.plan import (
     SolveResult,
     SolveStatus,
 )
+from glassbox.control.supervisor import (
+    MultirotorFlightSupervisor,
+    MultirotorSupervisorConfig,
+)
+from glassbox.core.dynamics import MOTOR_MIXER
 from glassbox.integrations.loop import (
     LoopSample,
     Observation,
@@ -312,8 +318,115 @@ def test_the_supervised_command_is_the_one_that_reaches_the_link() -> None:
         np.testing.assert_allclose(written, np.full(4, 0.5))
     first = supervisor.calls[0]
     assert first["controller_command_usable"] is True
+    assert first["controller_maximum_validity_utilization"] == 0.25
     assert first["state_received_at_s"] == 0.0
     assert first["now_s"] >= first["command_generated_at_s"]
+
+
+def test_loop_sends_support_to_supervisor_and_writes_the_selected_command():
+    link = FakeLink()
+    candidate = solve_result(np.full(4, 0.8))
+    candidate = replace(
+        candidate,
+        diagnostics=replace(candidate.diagnostics, maximum_validity_utilization=1.2),
+    )
+    controller = FakeController(results=(candidate,))
+    supervisor = MultirotorFlightSupervisor(
+        MultirotorSupervisorConfig(collective_hold_command=0.4)
+    )
+    samples = []
+    summary = run_control_loop(
+        link,
+        controller,
+        supervisor,
+        steps=1,
+        reference=ReferenceTrajectory.hold(RESTING_STATE, 2),
+        on_sample=samples.append,
+        clock=lambda: 0.0,
+    )
+    assert samples[0].result.command_usable
+    assert not samples[0].decision.nominal_command_accepted
+    assert "model_support_exceeded" in samples[0].decision.reasons
+    np.testing.assert_allclose(link.written[0], 0.4)
+    assert summary.supervisor_intervention_count == 1
+
+
+def test_supervised_loop_handles_faults_latches_and_returns_nominal():
+    class DelayedObservationLink(FakeLink):
+        def read(self, *, timeout_s):
+            observation = super().read(timeout_s=timeout_s)
+            if self.reads == 2:
+                return replace(
+                    observation,
+                    received_at_s=observation.received_at_s - 0.06,
+                    receive_age_s=0.06,
+                )
+            return observation
+
+        def clock(self):
+            return (self.reads - 1) * INTERVAL_S
+
+    link = DelayedObservationLink()
+    results = [solve_result(np.full(4, 0.8)) for _ in range(37)]
+    for tick, status in (
+        (8, SolveStatus.DEADLINE_EXCEEDED),
+        (15, SolveStatus.UNRESOLVED_MODEL),
+    ):
+        results[tick] = solve_result(
+            np.full(4, 0.9),
+            status=status,
+            used_fallback=True,
+            solve_time_s=2 * INTERVAL_S
+            if status == SolveStatus.DEADLINE_EXCEEDED
+            else 0.001,
+        )
+    for tick, utilization in ((22, 1.2), (29, math.inf)):
+        results[tick] = replace(
+            results[tick],
+            diagnostics=replace(
+                results[tick].diagnostics, maximum_validity_utilization=utilization
+            ),
+        )
+    supervisor = MultirotorFlightSupervisor(
+        MultirotorSupervisorConfig(collective_hold_command=0.4),
+        allocate=lambda differential: 0.25 * np.asarray(MOTOR_MIXER).T @ differential,
+    )
+    samples = []
+    summary = run_control_loop(
+        link,
+        FakeController(results=tuple(results)),
+        supervisor,
+        steps=len(results),
+        reference=ReferenceTrajectory.hold(RESTING_STATE, 2),
+        on_sample=samples.append,
+        clock=link.clock,
+    )
+
+    for tick, reason in (
+        (1, "state_stale"),
+        (8, "controller_unusable"),
+        (15, "controller_unusable"),
+        (22, "model_support_exceeded"),
+        (29, "model_support_unknown"),
+    ):
+        assert samples[tick - 1].decision.nominal_command_accepted
+        assert reason in samples[tick].decision.reasons
+        assert samples[tick].decision.mode == (
+            "collective_hold" if tick == 1 else "rate_arrest"
+        )
+        for sample in samples[tick : tick + 5]:
+            assert not sample.decision.nominal_command_accepted
+            np.testing.assert_allclose(link.written[sample.step], 0.4)
+        assert "arrest_latched" in samples[tick + 1].decision.reasons
+        assert samples[tick + 6].decision.nominal_command_accepted
+        np.testing.assert_allclose(link.written[tick + 6], 0.8)
+    assert samples[1].decision.state_age_s == pytest.approx(0.06)
+    assert summary.fallback_count == 2
+    assert summary.deadline_miss_count == 1
+    assert summary.written_command_count == len(results)
+    assert summary.host_elapsed_s >= 0.0
+    for sample in samples:
+        json.dumps(sample.to_dict(), allow_nan=False)
 
 
 def test_summary_reports_solve_time_and_skew_statistics() -> None:

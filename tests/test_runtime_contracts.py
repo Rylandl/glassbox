@@ -133,6 +133,26 @@ def test_direct_mapping_bounds_are_part_of_cache_identity(model):
     assert first.solver._kernels is rebound.solver._kernels
 
 
+def test_support_measurement_includes_an_initial_state_that_reenters_the_envelope(
+    model,
+):
+    controller = NMPCController(
+        model, policy=SolverPolicy(horizon_steps=2, block_count=2)
+    )
+    rest = jnp.asarray(resting_state())
+    prediction = controller.plan.rollout(
+        jnp.zeros((2, 4)),
+        rest,
+        jnp.full(4, 0.5),
+        jnp.zeros((2, 0)),
+        controller.plan.values,
+    )
+    outside = rest.at[3].set(200.0)
+    prediction = prediction._replace(mean_states=jnp.stack((outside, rest, rest)))
+    measurements = controller.plan.measure(prediction)
+    assert float(measurements.maximum_validity_utilization) == pytest.approx(2.0)
+
+
 def test_solver_refuses_out_of_bounds_output_from_a_plan_model(model, monkeypatch):
     controller = NMPCController(
         model,

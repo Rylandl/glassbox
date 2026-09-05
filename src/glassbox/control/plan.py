@@ -256,8 +256,8 @@ class NMPCDiagnostics:
 
     Every field is a measurement of the plan that was returned. The objective
     values and the bound-projected gradient norm describe the optimization,
-    the three maxima describe the predicted horizon, and the last one is the
-    horizon the plan covers.
+    the maxima describe the predicted horizon (model support also includes
+    the supplied initial state), and the horizon is the time the plan covers.
     """
 
     iterations: int
