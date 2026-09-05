@@ -169,14 +169,20 @@ Nothing edits the command after optimization. What the belief knows about its
 own error is charged inside the objective, in two places, with no
 configuration of its own.
 
-The tracking cost is an expectation rather than a point evaluation. At every
+The tracking cost approximates an expectation using local tangent errors. At every
 predicted stage it charges `l(mean) + trace(W Sigma)`, where `W` is the
 diagonal tracking weight the objective already builds from the declared
 tolerances and `Sigma` is the predicted tangent covariance: the belief's
 forecast-error covariance at that horizon plus the parameter covariance
 carried through the plan. A plan that drives the vehicle into a region the
 belief forecasts poorly therefore costs more than the same tracking error in a
-region it forecasts well.
+region it forecasts well. The parameter term is a first-order propagation,
+`J C J.T`, rather than the exact nonlinear predictive covariance. A complete
+information matrix does not establish that this approximation is accurate:
+weakly observed directions can have very large spread. Check nonlinear
+perturbations and independent prediction evidence before promoting an adapted
+belief for control; the [recovery investigation](../recovery-investigation.md)
+shows a case where rank completeness alone is misleading.
 
 The model-validity term charges the robust utilization instead of the mean
 utilization. The tangent covariance is mapped onto the six envelope features,
@@ -334,8 +340,11 @@ uv run glassbox px4-shadow artifacts/px4/model.json \
 ```
 
 It holds the current state as the regulation reference, applies the artifact's
-sample period as both the telemetry timeout and the solver deadline, and
-writes one JSON object per interval. Nothing is transmitted: the link is not
+sample period as the solver deadline, and writes one JSON object per interval.
+The passive telemetry wait defaults to one second and can be changed with
+`--telemetry-timeout-s`; it neither extends the solve deadline nor resets
+the received state's age. The general control loop retains its sample-period
+read timeout unless `read_timeout_s` is explicitly supplied. Nothing is transmitted: the link is not
 writable, so the loop never calls its writer.
 
 Ordinary `pytest` runs deterministic tests with fake MAVLink messages and

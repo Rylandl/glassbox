@@ -5,6 +5,12 @@ All notable changes to Glassbox are recorded here. The format follows
 
 ## Unreleased
 
+- Separate passive PX4 telemetry waits from the model's solve deadline. Repair
+  the flown SITL fixture's stale CLI entry point and synchronize sampling with
+  actual maneuver excitation.
+- Record recovery uncertainty ablations and an offline optimizer reference.
+  Additional independent telemetry removes the small-disturbance tracking gap;
+  full information rank alone does not qualify a local uncertainty approximation.
 - Allow up to 16 line-search trials, so newly retained parameter uncertainty
   can produce a descent step without changing the objective or its weights.
 - Fix controller cache identity for custom actuator maps and changed command

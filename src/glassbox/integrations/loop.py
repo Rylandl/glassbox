@@ -276,11 +276,14 @@ def run_control_loop(
     steps: int,
     reference: Reference,
     on_sample: Callable[[LoopSample], None] | None = None,
+    read_timeout_s: float | None = None,
 ) -> LoopSummary:
     """Run ``steps`` control intervals over one link and summarize them.
 
-    The interval is the controller's sample period: it is the read timeout, the
-    solver deadline, and what a solve time is compared against. ``reference`` is
+    The interval is the controller's sample period: it is the solver deadline
+    and what a solve time is compared against. The read timeout defaults to
+    that interval; a passive observer can explicitly wait longer for fresh
+    telemetry without extending the solver deadline. ``reference`` is
     either one fixed trajectory or a callable handed each observation, which is
     what a regulator holding the measured state needs.
 
@@ -296,6 +299,9 @@ def run_control_loop(
     interval_s = float(controller.sample_period_s)
     if not np.isfinite(interval_s) or interval_s <= 0.0:
         raise ValueError("the controller's sample period must be finite and positive")
+    read_timeout = interval_s if read_timeout_s is None else float(read_timeout_s)
+    if not np.isfinite(read_timeout) or read_timeout <= 0.0:
+        raise ValueError("read_timeout_s must be finite and positive")
     resolve = (
         reference if callable(reference) else (lambda _observation: reference)  # type: ignore[misc, return-value]
     )
@@ -314,7 +320,7 @@ def run_control_loop(
     started_at_s = time.monotonic()
 
     for step in range(steps):
-        observation = link.read(timeout_s=interval_s)
+        observation = link.read(timeout_s=read_timeout)
         result = controller.solve(
             observation.state,
             resolve(observation),

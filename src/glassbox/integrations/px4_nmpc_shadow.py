@@ -63,8 +63,14 @@ def run_px4_nmpc_shadow(
     *,
     steps: int = 10,
     write_line: Callable[[str], None] | None = None,
+    telemetry_timeout_s: float = 1.0,
 ) -> LoopSummary:
-    """Solve against live PX4 telemetry, holding the measured state."""
+    """Solve against fresh PX4 telemetry, holding the measured state.
+
+    A passive stream need not arrive at the model's sample rate. Allow a
+    bounded wait for the next fresh observation while retaining the model's
+    sample period as the solve deadline and the original reception timestamp.
+    """
 
     exogenous = np.zeros(controller.model.exogenous_size, dtype=np.float64)
 
@@ -81,4 +87,5 @@ def run_px4_nmpc_shadow(
         steps=steps,
         reference=reference,
         on_sample=None if write_line is None else on_sample,
+        read_timeout_s=telemetry_timeout_s,
     )

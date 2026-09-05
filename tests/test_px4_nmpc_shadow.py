@@ -160,7 +160,7 @@ def test_shadow_run_records_every_interval_and_transmits_nothing() -> None:
     assert link.writable is False
     assert link.applied_command_source_kind == "fixed"
     assert state_source.sample_index == 2
-    assert state_source.timeouts_s == [MODEL_PERIOD_S] * 2
+    assert state_source.timeouts_s == [1.0] * 2
     assert controller.deadlines_s == [MODEL_PERIOD_S] * 2
     assert summary.steps == 2
     assert summary.status_counts == {"converged": 2}

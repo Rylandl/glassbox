@@ -76,6 +76,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--samples", type=int, default=10)
     parser.add_argument(
+        "--telemetry-timeout-s",
+        type=float,
+        default=1.0,
+        help="maximum wait for fresh telemetry; does not extend the solve deadline",
+    )
+    parser.add_argument(
         "--allow-unresolved-parameters",
         action="store_true",
         help="explicitly permit shadow plans with incomplete parameter uncertainty",
@@ -108,6 +114,7 @@ def main(argv: Sequence[str] | None = None) -> None:
                 controller,
                 steps=args.samples,
                 write_line=write_line,
+                telemetry_timeout_s=args.telemetry_timeout_s,
             )
     print(json.dumps(summary.to_dict(), indent=2, sort_keys=True, allow_nan=False))
     if args.output is not None:

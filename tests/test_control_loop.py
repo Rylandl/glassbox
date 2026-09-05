@@ -201,6 +201,42 @@ def test_loop_reads_solves_and_writes_one_command_per_interval() -> None:
     assert summary.supervisor_intervention_count == 0
 
 
+def test_passive_telemetry_wait_does_not_extend_solve_deadline() -> None:
+    class DelayedLink(FakeLink):
+        def read(self, *, timeout_s: float) -> Observation:
+            if timeout_s < 0.05:
+                raise TimeoutError("the next fresh sample arrives after 50 ms")
+            return super().read(timeout_s=timeout_s)
+
+    link = DelayedLink(writable=False)
+    controller = FakeController()
+    summary = run_control_loop(
+        link,
+        controller,
+        steps=2,
+        reference=ReferenceTrajectory.hold(RESTING_STATE, 2),
+        read_timeout_s=0.10,
+    )
+    assert link.read_timeouts_s == [0.10, 0.10]
+    assert controller.deadlines_s == [INTERVAL_S, INTERVAL_S]
+    assert summary.interval_s == INTERVAL_S
+    assert summary.written_command_count == 0
+
+
+@pytest.mark.parametrize("timeout", (0.0, -1.0, float("nan"), float("inf")))
+def test_loop_rejects_invalid_read_timeout_before_reading(timeout) -> None:
+    link = FakeLink()
+    with pytest.raises(ValueError, match="read_timeout_s"):
+        run_control_loop(
+            link,
+            FakeController(),
+            steps=1,
+            reference=ReferenceTrajectory.hold(RESTING_STATE, 2),
+            read_timeout_s=timeout,
+        )
+    assert link.reads == 0
+
+
 def test_loop_hands_each_solve_the_previous_interval_warm_start() -> None:
     link = FakeLink()
     controller = FakeController()

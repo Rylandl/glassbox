@@ -26,6 +26,21 @@ are opt-in and need Docker:
 GLASSBOX_RUN_PX4_SITL=1 uv run pytest -m px4_sitl tests/integration/test_px4_sitl.py -v
 ```
 
+To exercise all four airborne shadow profiles, also set
+`GLASSBOX_RUN_PX4_FLIGHT_SHADOW=1` and point `GLASSBOX_PX4_NMPC_MODEL` at an
+actionable quadrotor artifact. The fixture flies a disposable simulator through
+the maintained CLI, prewarms the shadow controller, and waits for the first
+excitation target before checking the recorded motion. Per-profile JSON traces
+and summaries are written under pytest's temporary directory. The separate
+fixed-command test instead requires `GLASSBOX_PX4_NMPC_COMMAND` and leaves
+`GLASSBOX_RUN_PX4_FLIGHT_SHADOW` unset.
+
+The offline recovery investigation is reproduced with
+`uv run python scripts/investigate_recovery.py --output docs/investigations/recovery.json`.
+It is a controlled diagnostic with an independent optimizer reference, outside
+the recorded-results manifest; see [the investigation](docs/recovery-investigation.md)
+for its uncertainty ablations and limits.
+
 ## Checks
 
 CI runs `ruff check`, `ruff format --check`, the default test suite, and the

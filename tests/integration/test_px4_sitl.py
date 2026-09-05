@@ -10,6 +10,7 @@ import uuid
 from collections.abc import Iterator
 from dataclasses import dataclass, replace
 from pathlib import Path
+from threading import Event, Thread
 
 import numpy as np
 import pytest
@@ -224,6 +225,7 @@ def _assert_profile_excitation(profile: str, states: np.ndarray) -> None:
 def test_flown_profile_pairs_real_applied_commands_with_shadow_solver(
     px4_sitl: PX4SITLFixture,
     profile: str,
+    tmp_path: Path,
 ) -> None:
     if not RUN_PX4_FLIGHT_SHADOW:
         pytest.skip(
@@ -247,6 +249,9 @@ def test_flown_profile_pairs_real_applied_commands_with_shadow_solver(
         )
 
     driver: subprocess.Popen[str] | None = None
+    driver_output: list[str] = []
+    excitation_started = Event()
+    reader: Thread | None = None
     with PX4HILActuatorSource.connect(
         command_indices=SIH_QUADX_CANONICAL_MOTOR_INDICES,
         heartbeat_timeout_s=20.0,
@@ -293,12 +298,27 @@ def test_flown_profile_pairs_real_applied_commands_with_shadow_solver(
         if state_sample.state[2] < 0.5:
             pytest.fail("PX4 SIH did not become airborne")
 
+        controller = NMPCController(
+            model,
+            policy=replace(
+                default_solver_policy(model), allow_unresolved_parameters=True
+            ),
+        )
+        # Compile before starting the finite maneuver, so a cold kernel does
+        # not consume the part of the flight the assertions need to observe.
+        controller.solve(
+            state_sample.state,
+            controller.hold_reference(state_sample.state),
+            actuator_sample.command,
+            applied_command=actuator_sample.command,
+        )
         try:
             driver = subprocess.Popen(
                 [
                     sys.executable,
+                    "-u",
                     "-m",
-                    "glassbox.io.sitl_profile",
+                    "glassbox.cli.sitl_profile",
                     profile,
                     "--condition",
                     "high",
@@ -308,6 +328,23 @@ def test_flown_profile_pairs_real_applied_commands_with_shadow_solver(
                 stderr=subprocess.STDOUT,
                 text=True,
             )
+
+            # Sample the maneuver rather than a host-dependent fraction of
+            # the driver's heartbeat wait, offboard warmup, and initial hold.
+            # The second target is the first excitation in every profile.
+            def read_driver_output() -> None:
+                assert driver is not None and driver.stdout is not None
+                for line in driver.stdout:
+                    driver_output.append(line)
+                    if line.startswith("target 2/"):
+                        excitation_started.set()
+
+            reader = Thread(target=read_driver_output, daemon=True)
+            reader.start()
+            if not excitation_started.wait(timeout=15.0):
+                pytest.fail(
+                    "PX4 profile never reached excitation:\n" + "".join(driver_output)
+                )
             link = px4_shadow_link(
                 px4_sitl.state_source,
                 model,
@@ -316,28 +353,29 @@ def test_flown_profile_pairs_real_applied_commands_with_shadow_solver(
             lines: list[str] = []
             summary = run_px4_nmpc_shadow(
                 link,
-                NMPCController(
-                    model,
-                    policy=replace(
-                        default_solver_policy(model), allow_unresolved_parameters=True
-                    ),
-                ),
+                controller,
                 steps=160,
                 write_line=lines.append,
             )
-            output, _ = driver.communicate(timeout=50.0)
+            driver.wait(timeout=50.0)
+            reader.join(timeout=2.0)
             if driver.returncode != 0:
-                pytest.fail(f"PX4 profile driver failed:\n{output}")
+                pytest.fail("PX4 profile driver failed:\n" + "".join(driver_output))
         finally:
             if driver is not None and driver.poll() is None:
                 driver.terminate()
                 try:
-                    driver.communicate(timeout=5.0)
+                    driver.wait(timeout=5.0)
                 except subprocess.TimeoutExpired:
                     driver.kill()
-                    driver.communicate(timeout=5.0)
+                    driver.wait(timeout=5.0)
+            if reader is not None:
+                reader.join(timeout=2.0)
 
     samples = [json.loads(line) for line in lines]
+    (tmp_path / f"{profile}-shadow.json").write_text(
+        json.dumps({"summary": summary.to_dict(), "samples": samples}, indent=2)
+    )
     states = np.asarray([sample["state"] for sample in samples])
     applied_commands = np.asarray([sample["applied_command"] for sample in samples])
     assert link.writable is False

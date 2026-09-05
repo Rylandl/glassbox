@@ -296,6 +296,14 @@ parameter direction does not mean estimating it precisely. This diagnostic
 exposes that limitation instead of deleting weak directions from the reported
 uncertainty.
 
+The [recovery investigation](recovery-investigation.md) separates the parameter
+and forecast-error terms, compares a longer optimizer run with an offline
+reference, and repeats the recovery after additional independent telemetry.
+The short-adaptation covariance fails nonlinear perturbation checks despite
+being full rank. More identifying evidence removes most of the tracking gap
+in the tested small disturbance, without changing the objective or discarding
+weak covariance directions.
+
 ## Cascade X8
 
 `glassbox benchmark cascade-x8` evaluates an unfitted published physics model
