@@ -66,6 +66,34 @@ class _PlanEvaluation:
     latent_np: np.ndarray
     commands_np: np.ndarray
 
+    @classmethod
+    def from_prediction(
+        cls,
+        blocks: Array,
+        value: Array,
+        gradient: Array,
+        prediction: Prediction,
+        measurements: PlanMeasurements,
+    ) -> _PlanEvaluation:
+        """Materialize diagnostics without repeating an existing rollout."""
+        return cls(
+            blocks=blocks,
+            value=value,
+            gradient=gradient,
+            value_float=float(np.asarray(value)),
+            projected_gradient_inf_norm=float(
+                np.asarray(_projected_gradient_norm(blocks, gradient))
+            ),
+            measurements=measurements,
+            maximum_normalized_uncertainty=float(
+                np.asarray(measurements.maximum_normalized_uncertainty)
+            ),
+            prediction=prediction,
+            states_np=np.asarray(prediction.mean_states),
+            latent_np=np.asarray(prediction.latent_states),
+            commands_np=np.asarray(prediction.commands),
+        )
+
     @property
     def prediction_finite(self) -> bool:
         """Whether the rolled-out plan and its objective are all finite."""
@@ -93,6 +121,27 @@ class _OptimizerOutcome:
     progressed: bool
     finite: bool
     stall_message: str
+    # A backend may already have the exact returned plan's rollout and
+    # measurements. The common finite/bounds/deadline checks still apply.
+    evaluation: _PlanEvaluation | None = None
+
+
+@dataclass(frozen=True)
+class _SolveBudget:
+    """One request's absolute host deadline, shared by its solver phases.
+
+    Admission uses a backend's duration estimate plus its output reserve. It
+    cannot preempt an executing device call or certify its worst-case duration;
+    the solve boundary must still reject any late result.
+    """
+
+    deadline_at: float | None
+
+    def permits(self, work_s: float, *, reserve_s: float = 0.0) -> bool:
+        """Whether estimated work leaves the requested time for output."""
+        return self.deadline_at is None or (
+            time.perf_counter() + work_s + reserve_s < self.deadline_at
+        )
 
 
 @dataclass
@@ -659,6 +708,8 @@ class BoundedShootingSolver:
         reference: ReferenceTrajectory,
         previous_command: Array,
         exogenous: Array,
+        *,
+        budget: _SolveBudget | None = None,
     ) -> tuple[Array, Array, Array, float, bool]:
         """Score the cold seed and adopt a warm seed only when it is no worse.
 
@@ -721,6 +772,8 @@ class BoundedShootingSolver:
         reference: ReferenceTrajectory,
         previous_command: Array,
         exogenous: Array,
+        *,
+        budget: _SolveBudget | None = None,
     ) -> _OptimizerOutcome:
         """Run the bounded projected line search and report what it found."""
 
@@ -810,22 +863,8 @@ class BoundedShootingSolver:
             self.model.values,
         )
         measurements = self._kernels.measure(prediction)
-        return _PlanEvaluation(
-            blocks=blocks,
-            value=value,
-            gradient=gradient,
-            value_float=float(np.asarray(value)),
-            projected_gradient_inf_norm=float(
-                np.asarray(_projected_gradient_norm(blocks, gradient))
-            ),
-            measurements=measurements,
-            maximum_normalized_uncertainty=float(
-                np.asarray(measurements.maximum_normalized_uncertainty)
-            ),
-            prediction=prediction,
-            states_np=np.asarray(prediction.mean_states),
-            latent_np=np.asarray(prediction.latent_states),
-            commands_np=np.asarray(prediction.commands),
+        return _PlanEvaluation.from_prediction(
+            blocks, value, gradient, prediction, measurements
         )
 
     def _maximum_command_bound_violation(self, plan: _PlanEvaluation) -> float:
@@ -929,6 +968,9 @@ class BoundedShootingSolver:
                 latent_state,
                 deadline_s,
             )
+            budget = _SolveBudget(
+                None if deadline_s is None else progress.started_at + deadline_s
+            )
             state = jnp.asarray(state)
             # Validation accepts a rounding step outside the bounds; everything
             # downstream sees a strictly bounded command.
@@ -954,6 +996,7 @@ class BoundedShootingSolver:
                 reference,
                 previous_command,
                 exogenous,
+                budget=budget,
             )
             progress.initial_objective = value_float
             progress.warm_start_used = used_warm_start
@@ -972,6 +1015,7 @@ class BoundedShootingSolver:
                 reference,
                 previous_command,
                 exogenous,
+                budget=budget,
             )
             progress.iterations = outcome.iterations
             self._require_deadline(
@@ -981,7 +1025,7 @@ class BoundedShootingSolver:
             )
             self._accept_optimizer_outcome(outcome)
 
-            plan = self._evaluate_blocks(
+            plan = outcome.evaluation or self._evaluate_blocks(
                 outcome.blocks,
                 state,
                 latent,

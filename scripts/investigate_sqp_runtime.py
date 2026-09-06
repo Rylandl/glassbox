@@ -12,6 +12,7 @@ import argparse
 import hashlib
 import json
 import platform
+from dataclasses import asdict, replace
 from pathlib import Path
 
 import jax
@@ -21,6 +22,7 @@ from investigate_constrained_recovery import simulate
 from investigate_recovery import ADDITIONAL_DURATION_S, ADDITIONAL_SEEDS, initial_state
 from investigate_sqp_recovery import (
     CURVATURE_REGULARIZATION,
+    DEFAULT_WORK_ESTIMATES,
     FEASIBILITY_TOLERANCE,
     NUMERICAL_INTERIOR_MARGIN,
     GaussNewtonReference,
@@ -30,7 +32,7 @@ from glassbox.control.fitted import NMPCController
 from glassbox.workflows.benchmarks import recovery
 
 
-def run(output):
+def run(output, *, experiment="seed"):
     stale, belief, target, _ = recovery._build_beliefs()
     for seed in ADDITIONAL_SEEDS:
         trajectory = recovery._configuration_trajectory(
@@ -42,7 +44,8 @@ def run(output):
         )
         belief, _ = belief.absorb(trajectory)
     report = {
-        "format_version": 1,
+        "format_version": 2,
+        "experiment": experiment,
         "diagnostic_only": True,
         "complete": False,
         "semantics": {
@@ -85,12 +88,90 @@ def run(output):
         ("startup_deadline_small", "small", False, 0.02, 0.1),
         ("outside_initial_support", "outside", False, None, None),
     ]
+    # Keep the historical seed comparison available under the current code.
+    cases = [(*case, False, None) for case in cases]
+    if experiment == "budget":
+        cases = [
+            ("unfused_original", "original", False, None, None, False, None),
+            (
+                "budget_without_checkpoint",
+                "original",
+                False,
+                0.02,
+                0.1,
+                True,
+                DEFAULT_WORK_ESTIMATES,
+            ),
+            ("fused_original", "original", False, None, None, True, None),
+            ("fused_small", "small", False, None, None, True, None),
+            (
+                "budgeted_original",
+                "original",
+                False,
+                0.02,
+                0.1,
+                True,
+                DEFAULT_WORK_ESTIMATES,
+            ),
+            ("budgeted_small", "small", False, 0.02, 0.1, True, DEFAULT_WORK_ESTIMATES),
+            (
+                "strict_cold_original",
+                "original",
+                False,
+                0.02,
+                0.02,
+                True,
+                DEFAULT_WORK_ESTIMATES,
+            ),
+            (
+                "larger_reserve_original",
+                "original",
+                False,
+                0.02,
+                0.1,
+                True,
+                replace(DEFAULT_WORK_ESTIMATES, output_reserve_s=0.006),
+            ),
+            (
+                "larger_reserve_small",
+                "small",
+                False,
+                0.02,
+                0.1,
+                True,
+                replace(DEFAULT_WORK_ESTIMATES, output_reserve_s=0.006),
+            ),
+            (
+                "insufficient_seed_budget",
+                "original",
+                False,
+                0.003,
+                0.003,
+                True,
+                DEFAULT_WORK_ESTIMATES,
+            ),
+            (
+                "outside_initial_support",
+                "outside",
+                False,
+                0.02,
+                0.1,
+                True,
+                DEFAULT_WORK_ESTIMATES,
+            ),
+        ]
     output.parent.mkdir(parents=True, exist_ok=True)
-    for name, disturbance, legacy, deadline, startup in cases:
+    for name, disturbance, legacy, deadline, startup, fused, estimates in cases:
         print(name, flush=True)
         controller = NMPCController(belief)
         controller.solver = GaussNewtonReference(
-            controller.plan, controller.plan.policy, legacy_seeding=legacy
+            controller.plan,
+            controller.plan.policy,
+            legacy_seeding=legacy,
+            fused_output=fused,
+            work_estimates=estimates,
+            prepared_checkpoints=experiment == "budget"
+            and name != "budget_without_checkpoint",
         )
         initial = np.asarray(
             initial_state(
@@ -118,6 +199,16 @@ def run(output):
             name=name,
             disturbance=disturbance,
             legacy_seeding=legacy,
+            fused_output=fused,
+            prepared_checkpoints=controller.solver.prepared_checkpoints,
+            prepared_checkpoint_selection_count=sum(
+                entry.get("output_source") == "linearization_checkpoint"
+                for entry in row["constrained_optimizer_reports"]
+            ),
+            work_estimates=None if estimates is None else asdict(estimates),
+            early_feasible_return_count=row["usable_solve_messages"].get(
+                "offline SQP feasible iterate returned at the time budget", 0
+            ),
             cold_solve_time_s=float(times[0]),
             steady_solve_time_median_s=float(np.median(times[1:]))
             if len(times) > 1
@@ -140,6 +231,8 @@ def run(output):
                     "cold_solve_time_s",
                     "steady_solve_time_median_s",
                     "steady_deadline_miss_count",
+                    "early_feasible_return_count",
+                    "prepared_checkpoint_selection_count",
                 )
             },
             flush=True,
@@ -171,4 +264,6 @@ def run(output):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
-    run(parser.parse_args().output)
+    parser.add_argument("--experiment", choices=("seed", "budget"), default="seed")
+    arguments = parser.parse_args()
+    run(arguments.output, experiment=arguments.experiment)

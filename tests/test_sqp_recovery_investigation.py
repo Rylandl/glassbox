@@ -24,7 +24,8 @@ def investigation(monkeypatch):
     return importlib.import_module("investigate_sqp_recovery")
 
 
-def test_residual_form_preserves_objective_and_gradient_with_uncertainty(investigation):
+@pytest.fixture
+def small_controller():
     model = ExecutableModel(
         true_parameters(),
         make_trajectory_spec(
@@ -42,6 +43,13 @@ def test_residual_form_preserves_objective_and_gradient_with_uncertainty(investi
         policy=SolverPolicy(horizon_steps=2, block_count=2),
         safety_envelope=SafetyEnvelope(maximum_speed_m_s=0.2),
     )
+    return controller
+
+
+def test_residual_form_preserves_objective_and_gradient_with_uncertainty(
+    investigation, small_controller
+):
+    controller = small_controller
     plan = controller.plan
     state = jnp.asarray(resting_state()).at[3].set(1.0)
     reference = controller.hold_reference(jnp.asarray(resting_state())).states
@@ -95,7 +103,7 @@ def reference_problem(investigation, *, nonfinite=False):
 
     def with_aux(*args):
         values = packed(*args)
-        return values, values
+        return values, (values, None)
 
     solver = object.__new__(investigation.GaussNewtonReference)
     solver.model = SimpleNamespace(values=None)
@@ -104,8 +112,11 @@ def reference_problem(investigation, *, nonfinite=False):
             jax.value_and_grad(lambda blocks, *_: jnp.sum(blocks**2))
         )
     )
+    solver.work_estimates = None
+    solver.fused_output = False
     solver.reports = []
     solver._seed_derivative = None
+    solver._seed_prediction = None
     solver._seed_linearization_time_s = 0.0
     solver._iteration_budget = 8
     solver.legacy_seeding = False
@@ -240,3 +251,236 @@ def test_sqp_accepts_a_model_with_no_nonlinear_constraints(investigation):
     )
     assert usable
     np.testing.assert_allclose(step, [0.2], atol=1e-6)
+
+
+def budgeted_problem(investigation, monkeypatch, *, seed=0.7):
+    from glassbox.control import solver as solver_module
+
+    solver = reference_problem(investigation)
+    reference = SimpleNamespace(states=None)
+    arguments = solver._seed_plan(
+        jnp.asarray([[seed]]), None, None, None, reference, None, None
+    )[:3]
+    clock = SimpleNamespace(now=0.0)
+    monkeypatch.setattr(
+        solver_module, "time", SimpleNamespace(perf_counter=lambda: clock.now)
+    )
+    solver.work_estimates = investigation.SQPWorkEstimates()
+    budget = solver_module._SolveBudget(0.020)
+    return solver, reference, arguments, clock, budget
+
+
+def test_time_budget_returns_a_checked_seed_without_starting_another_step(
+    investigation, monkeypatch
+):
+    solver, reference, arguments, clock, budget = budgeted_problem(
+        investigation, monkeypatch
+    )
+    clock.now = 0.016
+    monkeypatch.setattr(
+        investigation, "quadratic_step", lambda *_: pytest.fail("must not start a QP")
+    )
+    outcome = solver._optimize_plan(
+        *arguments, None, None, reference, None, None, budget=budget
+    )
+    assert outcome.finite and not outcome.converged
+    np.testing.assert_allclose(outcome.blocks, [[0.7]])
+    np.testing.assert_allclose(outcome.gradient, [[1.4]])
+    assert solver.reports[-1]["iterations"] == 0
+    assert solver.reports[-1]["stop_reason"] == "time_budget"
+    assert "time budget" in outcome.stall_message
+
+
+def test_time_budget_refuses_an_infeasible_seed(investigation, monkeypatch):
+    solver, reference, arguments, clock, budget = budgeted_problem(
+        investigation, monkeypatch, seed=0.0
+    )
+    clock.now = 0.016
+    with pytest.raises(_SolveAbort, match="before finding a feasible plan") as caught:
+        solver._optimize_plan(
+            *arguments, None, None, reference, None, None, budget=budget
+        )
+    assert caught.value.status.value == "deadline_exceeded"
+    assert not solver.reports[-1]["feasible"]
+
+
+@pytest.mark.parametrize("finished_at,returns_plan", [(0.014, True), (0.017, False)])
+def test_time_budget_retains_a_nonlinearly_checked_step_and_protects_output_reserve(
+    investigation, monkeypatch, finished_at, returns_plan
+):
+    solver, reference, arguments, clock, budget = budgeted_problem(
+        investigation, monkeypatch, seed=0.0
+    )
+    evaluate = solver.evaluate
+
+    def slow_evaluation(*args):
+        values = evaluate(*args)
+        clock.now = finished_at
+        return values
+
+    solver.evaluate = slow_evaluation
+    if returns_plan:
+        outcome = solver._optimize_plan(
+            *arguments, None, None, reference, None, None, budget=budget
+        )
+        np.testing.assert_allclose(
+            outcome.blocks, [[0.5 + investigation.NUMERICAL_INTERIOR_MARGIN]], atol=1e-6
+        )
+        assert solver.reports[-1]["iterations"] == 1
+        assert solver.reports[-1]["stop_reason"] == "time_budget"
+    else:
+        with pytest.raises(_SolveAbort, match="insufficient SQP output budget"):
+            solver._optimize_plan(
+                *arguments, None, None, reference, None, None, budget=budget
+            )
+
+
+def test_time_budget_does_not_trust_a_qp_step_without_nonlinear_evaluation(
+    investigation, monkeypatch
+):
+    solver, reference, arguments, clock, budget = budgeted_problem(
+        investigation, monkeypatch
+    )
+    quadratic_step = investigation.quadratic_step
+
+    def slow_quadratic_step(*args):
+        result = quadratic_step(*args)
+        clock.now = 0.0165
+        return result
+
+    monkeypatch.setattr(investigation, "quadratic_step", slow_quadratic_step)
+    solver.evaluate = lambda *_: pytest.fail("no time for a line-search evaluation")
+    outcome = solver._optimize_plan(
+        *arguments, None, None, reference, None, None, budget=budget
+    )
+    np.testing.assert_allclose(outcome.blocks, [[0.7]])
+    assert solver.reports[-1]["stop_reason"] == "time_budget"
+
+
+def test_time_budget_does_not_start_seed_work_that_cannot_finish(
+    investigation, monkeypatch
+):
+    solver, reference, _, clock, budget = budgeted_problem(investigation, monkeypatch)
+    clock.now = 0.019
+    solver.evaluate = lambda *_: pytest.fail("no time for seed evaluation")
+    with pytest.raises(_SolveAbort, match="insufficient SQP seed budget"):
+        solver._seed_plan(
+            jnp.zeros((1, 1)), None, None, None, reference, None, None, budget=budget
+        )
+    assert solver._seed_derivative is None
+
+
+def test_fused_output_preserves_cost_gradient_prediction_and_constraints(
+    investigation, small_controller
+):
+    plan = small_controller.plan
+    solver = investigation.GaussNewtonReference(plan, plan.policy)
+    state = jnp.asarray(resting_state()).at[3].set(0.1)
+    previous = jnp.full(4, 0.5)
+    blocks = jnp.full((2, 4), -0.2)
+    reference = small_controller.hold_reference(jnp.asarray(resting_state())).states
+    exogenous = jnp.zeros((2, 0))
+    context = (state, previous, reference, previous, exogenous, plan.values)
+    (value, (prediction, measurements, margins)), gradient = solver.finalize(
+        blocks, *context
+    )
+    expected_value, expected_gradient = solver._kernels.objective_and_gradient(
+        blocks, *context
+    )
+    expected_prediction = plan.rollout(blocks, state, previous, exogenous, plan.values)
+    expected_measurements = plan.measure(expected_prediction)
+    expected_margins = plan.optimization_terms(
+        expected_prediction, reference, previous, plan.policy
+    ).inequality_margins
+    np.testing.assert_allclose(value, expected_value, rtol=2e-6, atol=2e-6)
+    np.testing.assert_allclose(gradient, expected_gradient, rtol=2e-5, atol=2e-5)
+    for actual, expected in zip(prediction, expected_prediction):
+        np.testing.assert_allclose(actual, expected, rtol=2e-6, atol=2e-6)
+    np.testing.assert_allclose(
+        measurements, expected_measurements, rtol=2e-6, atol=2e-6
+    )
+    np.testing.assert_allclose(margins, expected_margins, rtol=2e-6, atol=2e-6)
+
+    derivative, (terms, prepared) = solver.linearize(blocks, *context)
+    prepared_gradient = (
+        2 * np.asarray(derivative[0]).reshape(-1, blocks.size).T @ np.asarray(terms[0])
+    )
+    np.testing.assert_allclose(
+        prepared_gradient.reshape(blocks.shape), expected_gradient, rtol=2e-5, atol=2e-5
+    )
+    np.testing.assert_allclose(prepared[2], expected_value, rtol=2e-6, atol=2e-6)
+    for actual, expected in zip(prepared[0], expected_prediction):
+        np.testing.assert_allclose(actual, expected, rtol=2e-6, atol=2e-6)
+
+
+def test_fused_output_rechecks_the_returned_plans_constraints(investigation):
+    solver = reference_problem(investigation)
+    solver.fused_output = True
+    solver.finalize = lambda blocks, *_: (
+        (jnp.sum(blocks**2), (None, None, jnp.asarray([-0.01]))),
+        2 * blocks,
+    )
+    with pytest.raises(_SolveAbort, match="final SQP prediction is not feasible"):
+        solver._optimize_plan(
+            jnp.ones((1, 1)),
+            jnp.asarray(1.0),
+            jnp.full((1, 1), 2.0),
+            None,
+            None,
+            SimpleNamespace(states=None),
+            None,
+            None,
+        )
+    assert solver.reports[-1]["feasible"]
+    assert not solver.reports[-1]["finalization_feasible"]
+
+
+@pytest.mark.parametrize("finite_checkpoint", [True, False])
+def test_prepared_checkpoint_needs_no_final_kernel_when_output_time_runs_short(
+    investigation, monkeypatch, finite_checkpoint
+):
+    from glassbox.control.plan import PlanMeasurements, Prediction
+
+    solver, reference, arguments, clock, budget = budgeted_problem(
+        investigation, monkeypatch
+    )
+    prediction = Prediction(
+        mean_states=jnp.ones((2, 13)) * (1.0 if finite_checkpoint else jnp.nan),
+        tangent_covariance=jnp.zeros((1, 12, 12)),
+        commands=arguments[0],
+        latent_states=jnp.zeros((2, 1)),
+        exogenous=jnp.empty((1, 0)),
+    )
+    solver._seed_prediction = (
+        prediction,
+        PlanMeasurements(0.5, 0.0, 0.0),
+        arguments[1],
+    )
+    evaluate = solver.evaluate
+
+    def slow_evaluation(*args):
+        values = evaluate(*args)
+        clock.now = 0.0175
+        return values
+
+    solver.evaluate = slow_evaluation
+    solver._kernels = SimpleNamespace(
+        objective_and_gradient=lambda *_: pytest.fail(
+            "must return the ready checkpoint"
+        )
+    )
+    if finite_checkpoint:
+        outcome = solver._optimize_plan(
+            *arguments, None, None, reference, None, None, budget=budget
+        )
+        assert outcome.evaluation is not None
+        np.testing.assert_allclose(outcome.blocks, [[0.7]])
+        np.testing.assert_allclose(outcome.gradient, [[1.4]])
+        assert solver.reports[-1]["output_source"] == "linearization_checkpoint"
+        assert solver.reports[-1]["stop_reason"] == "time_budget"
+        assert solver._seed_prediction is None
+    else:
+        with pytest.raises(_SolveAbort, match="insufficient SQP output budget"):
+            solver._optimize_plan(
+                *arguments, None, None, reference, None, None, budget=budget
+            )

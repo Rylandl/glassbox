@@ -1176,3 +1176,66 @@ def test_plan_residuals_preserve_point_model_cost_and_derivative(request, fixtur
     assert np.all(np.isfinite(gradients))
     np.testing.assert_allclose(values[0], values[1], rtol=2e-6, atol=2e-6)
     np.testing.assert_allclose(gradients[0], gradients[1], rtol=2e-5, atol=2e-5)
+
+
+@pytest.mark.parametrize("corruption", [None, "states", "commands"])
+def test_optimizer_prediction_reuse_keeps_common_output_checks(
+    monkeypatch, multirotor_controller, corruption
+):
+    solver = multirotor_controller.solver
+    optimize = solver._optimize_plan
+    evaluate = solver._evaluate_blocks
+
+    def prepared_outcome(
+        blocks,
+        value,
+        gradient,
+        state,
+        latent,
+        reference,
+        previous,
+        exogenous,
+        *,
+        budget=None,
+    ):
+        outcome = optimize(
+            blocks,
+            value,
+            gradient,
+            state,
+            latent,
+            reference,
+            previous,
+            exogenous,
+            budget=budget,
+        )
+        plan = evaluate(
+            outcome.blocks, state, latent, exogenous, outcome.value, outcome.gradient
+        )
+        if corruption == "states":
+            plan = replace(plan, states_np=np.full_like(plan.states_np, np.nan))
+        elif corruption == "commands":
+            plan = replace(plan, commands_np=np.full_like(plan.commands_np, 100.0))
+        return replace(outcome, evaluation=plan)
+
+    monkeypatch.setattr(solver, "_optimize_plan", prepared_outcome)
+    monkeypatch.setattr(
+        solver,
+        "_evaluate_blocks",
+        lambda *_: pytest.fail("must reuse the prepared prediction"),
+    )
+    state = jnp.asarray(resting_state())
+    previous = hover_control(true_parameters())
+    result = solver.solve(state, solver.hold_reference(state), previous)
+    if corruption is None:
+        assert result.command_usable
+        assert np.all(np.isfinite(result.predicted_states))
+    else:
+        assert not result.command_usable
+        assert result.status is (
+            SolveStatus.NONFINITE_OBJECTIVE
+            if corruption == "states"
+            else SolveStatus.COMMAND_BOUND_VIOLATION
+        )
+        np.testing.assert_allclose(result.command, previous)
+        assert result.warm_start is None

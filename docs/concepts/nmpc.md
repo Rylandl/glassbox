@@ -260,6 +260,14 @@ check rejects its output afterwards.
 The final deadline check includes result assembly and warm-start validation;
 the reported solve duration includes that work too.
 
+Solver phases now receive the same absolute deadline for their request. The
+[SQP budget experiment](../recovery-investigation.md#cooperative-deadline-budgets-and-fused-output)
+uses it to check whether another seed evaluation, linearization, quadratic step,
+or nonlinear trial leaves time to finalize the output. It can return an already
+checked feasible plan early, while retaining the common rejection of late,
+nonfinite or unbounded outputs. Its time estimates are explicit experiment
+inputs. The default projected-descent kernel remains a single device call.
+
 ## Measured capability
 
 The recorded evidence is

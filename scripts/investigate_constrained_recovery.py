@@ -93,6 +93,8 @@ class SupportConstrainedReference(BoundedShootingSolver):
         reference,
         previous_command,
         exogenous,
+        *,
+        budget=None,
     ):
         shape = blocks.shape
         context = (state, latent, exogenous, self.model.values)
@@ -342,6 +344,9 @@ def simulate(
         if commands
         else None,
         "status_counts": dict(Counter(r.status.value for r in results)),
+        "usable_solve_messages": dict(
+            Counter(r.message for r in results if r.command_usable)
+        ),
         "solve_time_median_s": float(np.median(cpu_times)),
         "solve_time_maximum_s": float(np.max(cpu_times)),
         "solve_time_exceeding_model_interval_count": int(np.sum(cpu_times > DT)),

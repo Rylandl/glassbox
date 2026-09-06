@@ -56,6 +56,8 @@ class OfflineReferenceSolver(BoundedShootingSolver):
         reference,
         previous_command,
         exogenous,
+        *,
+        budget=None,
     ):
         shape = blocks.shape
 

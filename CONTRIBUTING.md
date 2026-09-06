@@ -159,16 +159,24 @@ uv run python scripts/investigate_sqp_recovery.py \
   --output /tmp/glassbox-sqp-recovery.json
 ```
 
-The current runtime follow-up measures seed reuse, the explicit model constraint
+The seed-runtime snapshot (`5607f3f`) measures seed reuse, the explicit model constraint
 interface, and deadline enforcement (including a separately declared startup
 budget):
 
 ```bash
 uv run python scripts/investigate_sqp_runtime.py \
-  --output docs/investigations/sqp-runtime.json
+  --output /tmp/glassbox-sqp-runtime.json
 ```
 
-Run timing comparisons without other benchmark or test processes. Both
+The current deadline-budget follow-up compares fused output evaluation and
+cooperative stopping, including a larger output reserve:
+
+```bash
+uv run python scripts/investigate_sqp_runtime.py --experiment budget \
+  --output docs/investigations/sqp-budget.json
+```
+
+Run timing comparisons without other benchmark or test processes. These experiments
 prewarm each controller and record complete solve times, separating the cold
 optimization from subsequent solves. The first experiment disables deadlines;
 the runtime follow-up records each case's startup and subsequent deadline

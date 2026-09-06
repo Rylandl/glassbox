@@ -1,7 +1,8 @@
 # Recovery after identification: investigation
 
-The uncertainty, supervision, SLSQP and first SQP reports below are historical
-snapshots from commits `0c4ec6a`, `777652f`, `0926d49` and `8a79306`, respectively. Their source
+The uncertainty, supervision, SLSQP, first SQP and seed-runtime reports below
+are historical snapshots from commits `0c4ec6a`, `777652f`, `0926d49`, `8a79306`
+and `5607f3f`, respectively. Their source
 fingerprints identify the code that produced the numbers. The first three precede the
 command-bound derivative and warm-start corrections in the
 [SQP follow-up](#faster-constrained-nmpc-and-correct-bound-derivatives).
@@ -465,7 +466,7 @@ deadlines:
 
 ```bash
 uv run python scripts/investigate_sqp_runtime.py \
-  --output docs/investigations/sqp-runtime.json
+  --output /tmp/glassbox-sqp-runtime.json
 ```
 
 `ConstrainedLeastSquaresPlanModel.optimization_terms` returns `PlanTerms` with
@@ -536,6 +537,110 @@ The next backend work must address cold-start feasibility, interruptible
 iteration budgets, and retaining a checked feasible plan before the output
 budget expires. The constrained algorithm remains an offline reference while
 those runtime behaviors are unresolved.
+
+## Cooperative deadline budgets and fused output
+
+The [deadline-budget report](investigations/sqp-budget.json) measures cooperative
+stopping inside SQP, with the same model, objective, support and uncertainty:
+
+```bash
+uv run python scripts/investigate_sqp_runtime.py --experiment budget \
+  --output docs/investigations/sqp-budget.json
+```
+
+The solve now passes an immutable absolute deadline to its seed and optimizer
+phases. SQP checks that the next seed evaluation, linearization, quadratic
+subproblem or nonlinear trial leaves time for output. Checks occur between
+operations; an executing JAX or SciPy call cannot be preempted. The request's
+final elapsed-time check remains authoritative.
+
+The host estimates are explicit inputs: 5.5 ms for a linearization, 1.5 ms for
+a quadratic subproblem, 0.75 ms for a nonlinear evaluation, and 3 ms reserved
+for output. The output reserve follows the probe's roughly 2.1–2.4 ms final
+kernel and materialization time, with room for the remaining checks and result
+assembly. These are admission estimates, not upper bounds on execution time.
+The larger-reserve arms change only the output reserve to 6 ms.
+
+The optimizer retains each finite, bounded candidate that passes the original
+nonlinear inequalities. A seed is checked against this request's state,
+actuator state, forecast and model values. Its feasibility does not carry over
+from a previous solve. Running out of work budget returns a checked candidate
+if it can be finalized in time, or a previously prepared feasible result.
+Otherwise it returns an explicit deadline failure. A quadratic subproblem's linear constraints alone
+cannot establish a candidate's nonlinear feasibility.
+
+Final scoring, its exact gradient, prediction, measurements and inequality
+margins now share a compiled kernel. The backend can hand that evaluation to
+the common solve boundary without repeating the rollout. Final margins are
+checked again, and the usual finite-value, command-bound and deadline checks
+still apply.
+
+Linearization also provides its prediction, measurements and scalar cost as
+auxiliary outputs. For a feasible point, the residual Jacobian supplies the
+objective gradient through `2 J.T r`, allowing a complete result to be prepared
+without another model evaluation. Tests compare that gradient with the scalar
+objective's derivative. The best prepared result is retained within this solve.
+It is reused directly when selected, or when a better trial cannot be finalized
+in time. This avoids discarding a known feasible plan just because the final
+kernel no longer fits. The outer deadline check still rejects a late return.
+
+Controlled-clock tests cover early return, infeasible seeds,
+unexpectedly slow evaluations, protected output time, and an unchecked
+quadratic step. Tests also compare fused and separate evaluations and inject
+invalid prepared output to verify the common checks still reject it.
+
+The eleven scenarios use fresh identification evidence and prewarmed kernels.
+Except where stated otherwise, budgeted cases allow 100 ms for initialization
+and 20 ms thereafter. Subsequent timings include a failed final solve when a
+run ends early; incomplete runs have no tail tracking score.
+
+| Case | Executed intervals | Subsequent median / maximum (ms) | Subsequent overruns | Usable early returns |
+| --- | ---: | ---: | ---: | ---: |
+| Separate output, original; no deadlines | 120 / 120 | 15.696 / 20.466 | 1 | 0 |
+| Budgeted original without prepared results | 4 / 120 | 18.596 / 19.518 | 0 | 1 |
+| Fused output, original; no deadlines | 120 / 120 | 15.489 / 20.141 | 2 | 0 |
+| Fused output, small; no deadlines | 120 / 120 | 15.286 / 19.003 | 0 | 0 |
+| Budgeted original, 3 ms output reserve | 4 / 120 | 17.239 / 17.568 | 0 | 3 |
+| Budgeted small, 3 ms output reserve | 120 / 120 | 15.329 / 16.979 | 0 | 2 |
+| Original, 20 ms from cold start | 0 / 120 | — | 0 | 0 |
+| Original, 6 ms output reserve | 4 / 120 | 9.871 / 11.223 | 0 | 3 |
+| Small, 6 ms output reserve | 6 / 120 | 15.399 / 43.012 | 1 | 3 |
+| Original, 3 ms total seed budget | 0 / 120 | — | 0 | 0 |
+| Initial support utilization 1.1 | 0 / 120 | — | 0 | 0 |
+
+The completed small recovery with a 3 ms output reserve has tail normalized
+tracking RMS 0.012553, peak actual support utilization 0.339608 and peak robust
+forecast utilization 0.358257. All 119 subsequent solves finish below 17 ms in
+this run. It returns early twice; its 22 prepared-result selections also
+include cases where the prepared point is already the lowest-cost plan.
+
+The original disturbance returns three prepared feasible plans early, then
+stops at the fifth solve before finding another feasible plan in the remaining
+budget. No subsequent solve overruns and no fallback is applied. The arm
+without prepared results also stops at the fifth solve, after finding no
+feasible iterate within its updates. Thus the new output mechanism works but
+does not extend the demonstrated recovery region under a 20 ms budget.
+The 6 ms reserve makes the original case return sooner, without restoring its
+missing fifth plan. A feasible output at one interval does not guarantee that
+its shifted, block-averaged warm start is feasible at the next interval.
+
+Cold feasibility is still unresolved within 20 ms: that case now refuses the
+solve at 14.678 ms, before applying any command. A 3 ms seed budget is refused
+at 0.650 ms, before starting an expensive seed evaluation. An initial state at
+support utilization 1.1 remains infeasible.
+
+A larger output reserve is not a timing guarantee. The small 6 ms-reserve case
+records a 43.012 ms solve and stops after six executed intervals. A prepared
+result existed, but the outer deadline check rejects its late return. The
+profile records the delay inside optimizer work outside its timed
+linearization, quadratic-subproblem and line-search calls; it does not
+establish the cause. This failure remains in the artifact.
+
+The constrained algorithm remains experimental. The next formulation work is
+to preserve a usable plan across horizon shifts so a shortened solve can start
+from a feasible candidate. Deadline admission also needs to remain paired with
+the final rejection check on this host; these measurements establish neither
+worst-case execution time nor delayed-actuation performance in flight.
 
 ## PX4 integration defects found during validation
 
