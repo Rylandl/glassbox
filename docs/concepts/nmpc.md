@@ -133,6 +133,16 @@ this projects it onto the block layout without discarding unexecuted intervals.
 The last command extends the horizon, and a truncated final block averages
 only its actual samples.
 
+Neither this projection nor an exact command shift guarantees feasibility at
+the next request: the initial state and uncertainty forecast change, and the
+new endpoint needs its own support check. The
+[horizon-shift investigation](../recovery-investigation.md#horizon-shifts-and-terminal-feasibility)
+isolates those effects and records why a moving block layout remains experimental.
+`BeliefPlanModel.rollout_commands` evaluates an already supplied physical command
+sequence with the same actuator dynamics and covariance, so validation can
+check the actual waveform without projecting it onto a block layout. It expects
+one finite, bounded command per model interval; it does not clip or certify it.
+
 The first eligible cold solve compiles the solve path and the first warm-started solve
 compiles the receding-horizon path, which is why the snippet above solves
 twice. Run both and discard their commands before entering a timed control

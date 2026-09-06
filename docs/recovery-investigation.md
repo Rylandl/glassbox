@@ -1,8 +1,8 @@
 # Recovery after identification: investigation
 
-The uncertainty, supervision, SLSQP, first SQP and seed-runtime reports below
-are historical snapshots from commits `0c4ec6a`, `777652f`, `0926d49`, `8a79306`
-and `5607f3f`, respectively. Their source
+The uncertainty, supervision, SLSQP, first SQP, seed-runtime and deadline-budget reports below
+are historical snapshots from commits `0c4ec6a`, `777652f`, `0926d49`, `8a79306`,
+`5607f3f` and `98d2fe5`, respectively. Their source
 fingerprints identify the code that produced the numbers. The first three precede the
 command-bound derivative and warm-start corrections in the
 [SQP follow-up](#faster-constrained-nmpc-and-correct-bound-derivatives).
@@ -545,7 +545,7 @@ stopping inside SQP, with the same model, objective, support and uncertainty:
 
 ```bash
 uv run python scripts/investigate_sqp_runtime.py --experiment budget \
-  --output docs/investigations/sqp-budget.json
+  --output /tmp/glassbox-sqp-budget.json
 ```
 
 The solve now passes an immutable absolute deadline to its seed and optimizer
@@ -641,6 +641,102 @@ to preserve a usable plan across horizon shifts so a shortened solve can start
 from a feasible candidate. Deadline admission also needs to remain paired with
 the final rejection check on this host; these measurements establish neither
 worst-case execution time nor delayed-actuation performance in flight.
+
+## Horizon shifts and terminal feasibility
+
+The [horizon-shift report](investigations/horizon-shift.json) separates command
+projection, the updated plant state, and the appended prediction interval:
+
+```bash
+uv run python scripts/investigate_horizon_shift.py \
+  --output docs/investigations/horizon-shift.json
+```
+
+It rebuilds the additional-evidence belief and retains the original objective,
+support, uncertainty, 30-step horizon, and 40 command variables. The deterministic
+audit limits warm solves to one SQP update, reproducing loss of feasibility
+without making that result depend on a host deadline. It evaluates the exact
+shifted commands with the last command repeated, then compares the regular
+block projection. It also starts the exact sequence from the previous plan's
+predicted next state and actuator state to separate plant mismatch.
+
+At the failed fifth solve, at 0.08 seconds, robust support utilization is:
+
+| Seed construction | Retained 29-step prefix | New final step |
+| --- | ---: | ---: |
+| Exact shift, previous prediction's next state and actuator state | 0.983069 | 1.278043 |
+| Exact shift, actual next state and actuator state | 0.980753 | 1.277239 |
+| Regular block averages, actual next state and actuator state | 0.979219 | 1.300649 |
+
+The main violation is at the appended endpoint. Averaging makes that violation
+slightly larger, but removing it does not restore feasibility. An 18-start
+bounded search varies only the last four motor commands while keeping the
+retained prefix fixed. The starts include every command-box vertex, its center,
+and the held command. The best result found still has roll-rate support
+utilization 1.159888. This is a local-search diagnostic, not a proof that no
+terminal command is feasible. It indicates that changing commands earlier in
+the horizon deserves attention.
+
+Nor can the retained prefix inherit its old robust margins without evaluation.
+For example, the first shifted prefix evaluated from the previous predicted
+state reaches 1.000791, even though the previous plan passed. The new forecast
+recomputes parameter and forecast-error covariance from its new initial state.
+Preserving the mean command sequence alone does not preserve those margins.
+
+The experiment also implements moving block boundaries. For three-step blocks,
+the first block cycles through lengths three, two, and one while the last block
+absorbs the extension. After the phase wraps, the expired first block disappears
+and the repeated terminal block splits. This represents the exact shifted
+sequence with the same ten command blocks. The warm start carries its phase;
+report history does not choose it. Foreign or edited warm starts are checked
+for membership in that layout. Each phase has a distinct compilation signature,
+and all phases are prewarmed before timing. Dispatch and result assembly count
+against the solve deadline.
+
+The closed-loop results argue against adopting this layout as a recovery fix:
+
+| Case | Executed intervals | Subsequent median / maximum (ms) | Subsequent solves over 20 ms |
+| --- | ---: | ---: | ---: |
+| Fixed blocks, one update | 4 / 120 | 9.431 / 9.636 | 0 |
+| Moving blocks, one update | 5 / 120 | 10.179 / 15.846 | 0 |
+| Fixed blocks, two updates | 120 / 120 | 15.476 / 20.457 | 2 |
+| Moving blocks, two updates | 9 / 120 | 19.728 / 21.309 | 2 |
+| Moving blocks, original, 100 ms startup then 20 ms | 11 / 120 | 16.998 / 19.345 | 0 |
+| Moving blocks, small, 100 ms startup then 20 ms | 120 / 120 | 15.575 / 18.550 | 0 |
+| Moving blocks, initial support utilization 1.1 | 0 / 120 | — | — |
+
+Deadlines are disabled except in the two explicitly budgeted cases. Timing
+includes the failed final solve where present; no failed command is applied.
+The budgeted original run stops because SQP finds no feasible plan, despite
+staying within its deadline. Its budget-driven early returns alter its command
+history, so eleven intervals do not establish an advantage over the nine-step
+deadline-free run. Every executed trace starting inside support stays inside
+actual support, with finite bounded commands and checked robust forecasts.
+The outside-support case rejects the initial request.
+
+Fixed blocks with two updates retain tail normalized tracking RMS 0.295058 and
+peak actual support utilization 0.999860. The completed small moving-block case
+has tail RMS 0.011607, peak actual utilization 0.339314, and peak robust forecast
+utilization 0.357808. Both complete runs satisfy terminal attitude/rate tolerances.
+The occasional deadline-free overruns still preclude a timing qualification.
+
+`BeliefPlanModel.rollout_commands` now evaluates an exact physical command
+sequence through the same actuator dynamics and uncertainty propagation. The
+simulation uses it to check returned forecasts, replacing reconstruction from
+fixed block starts, which would check a different waveform under a moving
+layout. Tests compare mean and actuator trajectories with direct model steps,
+covariance with a full parameter Jacobian, and costs and derivatives in both
+vehicle families. The maintained solver's formulation and block layout remain
+unchanged; moving blocks stay in this experimental script.
+
+The next formulation target is a terminal condition or optimized terminal
+suffix that accounts for the ability to continue inside support. A supported
+endpoint alone does not establish that ability, especially with actuator lag.
+The current 0.6-second horizon already reaches the belief's maximum
+forecast-error evidence: adding a 0.62-second robust guard would require an
+explicit treatment of that missing evidence. This work belongs inside NMPC;
+the experiment supplies no secondary controller and claims no recursive
+feasibility guarantee.
 
 ## PX4 integration defects found during validation
 

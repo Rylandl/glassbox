@@ -289,12 +289,24 @@ class BeliefPlanModel:
         This is the mean only. Both parts of the spread are added by
         :meth:`rollout`: the belief's stage forecast-error covariance travels
         with the plan values, and the parameter contribution depends on the
-        plan and is computed by :meth:`_tangent_covariance`.
+        plan and is computed by :meth:`_command_tangent_covariance`.
         """
 
-        model = self.model
         normalized_commands = self._expand_normalized_blocks(blocks)
         commands = self._commands_from_normalized(normalized_commands)
+        return self._mean_rollout_commands(
+            commands, initial_state, initial_latent, exogenous, parameters
+        )
+
+    def _mean_rollout_commands(
+        self,
+        commands: Array,
+        initial_state: Array,
+        initial_latent: Array,
+        exogenous: Array,
+        parameters: ModelParams,
+    ) -> tuple[Array, Array, Array]:
+        model = self.model
 
         def transition(
             carry: tuple[Array, Array], inputs: tuple[Array, Array]
@@ -320,9 +332,9 @@ class BeliefPlanModel:
         latent = jnp.concatenate((initial_latent[None, :], future_latent), axis=0)
         return states, latent, commands
 
-    def _tangent_covariance(
+    def _command_tangent_covariance(
         self,
-        blocks: Array,
+        commands: Array,
         initial_state: Array,
         initial_latent: Array,
         exogenous: Array,
@@ -346,8 +358,8 @@ class BeliefPlanModel:
 
         def varied_error(vector: Array) -> Array:
             varied_parameters = with_structured_parameter_vector(parameters, vector)
-            varied_states, _, _ = self._mean_rollout(
-                blocks,
+            varied_states, _, _ = self._mean_rollout_commands(
+                commands,
                 initial_state,
                 initial_latent,
                 exogenous,
@@ -371,20 +383,36 @@ class BeliefPlanModel:
     ) -> Prediction:
         """Predict the horizon this plan drives, with its tangent covariance."""
 
-        states, latent, commands = self._mean_rollout(
-            blocks,
-            initial_state,
-            initial_latent,
-            exogenous,
-            values.parameters,
+        commands = self._commands_from_normalized(
+            self._expand_normalized_blocks(blocks)
         )
-        covariance = self._tangent_covariance(
-            blocks,
-            initial_state,
-            initial_latent,
-            exogenous,
-            values,
-            states,
+        return self.rollout_commands(
+            commands, initial_state, initial_latent, exogenous, values
+        )
+
+    def rollout_commands(
+        self,
+        commands: Array,
+        initial_state: Array,
+        initial_latent: Array,
+        exogenous: Array,
+        values: PlanValues,
+    ) -> Prediction:
+        """Predict an exact physical command sequence with the same uncertainty.
+
+        Commands have shape ``(horizon_steps, command_size)`` and are passed to
+        the actuator model unchanged. This avoids projecting an already supplied
+        sequence onto a different command-block layout during validation. Like
+        ``rollout``, this JAX kernel expects finite, bounded commands from its
+        caller; it does not clip them or certify the resulting trajectory.
+        """
+        if commands.shape != (self.horizon_steps, self.command_size):
+            raise ValueError("commands must have one row per prediction interval")
+        states, latent, commands = self._mean_rollout_commands(
+            commands, initial_state, initial_latent, exogenous, values.parameters
+        )
+        covariance = self._command_tangent_covariance(
+            commands, initial_state, initial_latent, exogenous, values, states
         )
         return Prediction(
             mean_states=states,

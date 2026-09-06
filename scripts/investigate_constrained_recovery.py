@@ -235,6 +235,9 @@ def simulate(
     reference = controller.hold_reference(jnp.asarray(resting_state()))
     prewarm_started = time.perf_counter()
     if prewarm:
+        prepare = getattr(controller.solver, "prewarm", None)
+        if prepare is not None:
+            prepare(state, reference, previous, applied_command=latent)
         first = controller.solve(
             state, reference, previous, applied_command=latent, deadline_s=None
         )
@@ -252,19 +255,18 @@ def simulate(
     prewarm_time = time.perf_counter() - prewarm_started if prewarm else 0.0
 
     @jax.jit
-    def robust_utilization(blocks, state, applied):
+    def robust_utilization(commands, state, applied):
+        prediction = controller.plan.rollout_commands(
+            commands,
+            state,
+            applied,
+            jnp.zeros((controller.prediction_steps, controller.model.exogenous_size)),
+            controller.plan.values,
+        )
         return 1.0 - jnp.min(
-            support_margins(
-                controller.plan,
-                blocks,
-                state,
-                applied,
-                jnp.zeros(
-                    (controller.prediction_steps, controller.model.exogenous_size)
-                ),
-                controller.plan.values,
-                robust=True,
-            )
+            controller.plan.optimization_terms(
+                prediction, reference.states, commands[0], controller.plan.policy
+            ).inequality_margins
         )
 
     for _ in range(INTERVALS):
@@ -281,13 +283,9 @@ def simulate(
             # A failed reference solve ends this arm. A hold or an arrest must
             # not quietly turn an NMPC-only comparison into a different scheme.
             break
-        indices = (
-            np.arange(controller.plan.block_count) * controller.plan.policy.block_steps
+        robust_utilizations.append(
+            float(robust_utilization(result.predicted_commands, state, latent))
         )
-        blocks = controller.solver._normalized_from_commands(
-            result.predicted_commands[indices]
-        )
-        robust_utilizations.append(float(robust_utilization(blocks, state, latent)))
         state, latent = step_with_latent(
             target, state, latent, result.command, DT, belief.input_spec.control_roles
         )

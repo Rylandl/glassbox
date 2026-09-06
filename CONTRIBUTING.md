@@ -168,13 +168,24 @@ uv run python scripts/investigate_sqp_runtime.py \
   --output /tmp/glassbox-sqp-runtime.json
 ```
 
-The current deadline-budget follow-up compares fused output evaluation and
+The deadline-budget snapshot (`98d2fe5`) compares fused output evaluation and
 cooperative stopping, including a larger output reserve:
 
 ```bash
 uv run python scripts/investigate_sqp_runtime.py --experiment budget \
-  --output docs/investigations/sqp-budget.json
+  --output /tmp/glassbox-sqp-budget.json
 ```
+
+The current horizon-shift investigation separates projection, plant mismatch,
+and terminal extension, then compares fixed and moving block layouts:
+
+```bash
+uv run python scripts/investigate_horizon_shift.py \
+  --output docs/investigations/horizon-shift.json
+```
+
+Moving blocks are an experimental ablation. Their shifted command sequence is
+exact, but their recovery results do not justify replacing the fixed layout.
 
 Run timing comparisons without other benchmark or test processes. These experiments
 prewarm each controller and record complete solve times, separating the cold

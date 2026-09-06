@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import importlib
 import itertools
 import math
 from collections.abc import Callable
 from dataclasses import replace
+from pathlib import Path
 from types import SimpleNamespace
 
 import jax
@@ -42,6 +44,7 @@ from glassbox.core.dynamics import (
     hover_control,
     initial_residual_parameters,
     structured_parameter_vector,
+    with_structured_parameter_vector,
 )
 from glassbox.core.fixedwing_synthetic import (
     TRIM_AIRSPEED_M_S,
@@ -530,6 +533,154 @@ def test_a_belief_with_covariance_is_charged_more_than_a_point_belief(
     assert uncertain.plan.values.covariance_factor is not None
     assert uncertain.plan.values.covariance_factor.shape == (parameter_count, 1)
     assert uncertain_value > point_value
+
+
+def test_exact_command_rollout_preserves_actuator_dynamics_and_parameter_covariance(
+    multirotor_controller_four_step,
+):
+    plan = multirotor_controller_four_step.plan
+    state = jnp.asarray(resting_state()).at[10].set(0.2)
+    latent = jnp.full(4, 0.45)
+    commands = jnp.asarray(
+        [
+            [0.3, 0.4, 0.5, 0.6],
+            [0.6, 0.5, 0.4, 0.3],
+            [0.2, 0.7, 0.6, 0.5],
+            [0.7, 0.2, 0.5, 0.6],
+        ]
+    )
+    exogenous = jnp.zeros((4, plan.exogenous_size))
+    center = structured_parameter_vector(plan.values.parameters)
+    factor = 0.02 * jnp.eye(len(center))
+    forecast = jnp.broadcast_to(0.001 * jnp.eye(12), (4, 12, 12))
+    values = plan.values._replace(
+        covariance_factor=factor, forecast_error_covariance=forecast
+    )
+
+    def independent_rollout(parameters):
+        states, latents = [state], [latent]
+        for command, context in zip(commands, exogenous, strict=True):
+            next_state, next_latent = plan.model.transition_at_interval_with_parameters(
+                parameters,
+                states[-1],
+                latents[-1],
+                command,
+                plan.sample_period_s,
+                context,
+            )
+            states.append(next_state)
+            latents.append(next_latent)
+        return jnp.stack(states), jnp.stack(latents)
+
+    expected_states, expected_latent = independent_rollout(values.parameters)
+
+    def errors(vector):
+        parameters = with_structured_parameter_vector(values.parameters, vector)
+        varied, _ = independent_rollout(parameters)
+        return jax.vmap(rigid_body_local_error)(expected_states[1:], varied[1:])
+
+    jacobian = jax.jit(jax.jacfwd(errors))(center)
+    expected_covariance = forecast + jnp.einsum(
+        "tip,pq,tjq->tij", jacobian, factor @ factor.T, jacobian
+    )
+    prediction = jax.jit(plan.rollout_commands)(
+        commands, state, latent, exogenous, values
+    )
+    np.testing.assert_array_equal(prediction.commands, commands)
+    np.testing.assert_allclose(prediction.mean_states, expected_states, atol=2e-7)
+    np.testing.assert_allclose(prediction.latent_states, expected_latent, atol=2e-7)
+    np.testing.assert_allclose(
+        prediction.tangent_covariance, expected_covariance, atol=2e-7
+    )
+    assert np.max(np.asarray(expected_covariance - forecast)) > 1e-5
+    # The within-block changes must survive; sampling old block starts would
+    # produce a different actuator trajectory.
+    assert not np.array_equal(prediction.commands[0], prediction.commands[1])
+    with pytest.raises(ValueError, match="one row per prediction interval"):
+        plan.rollout_commands(commands[:-1], state, latent, exogenous, values)
+
+
+@pytest.mark.parametrize(
+    "fixture_name", ["multirotor_controller", "fixedwing_controller"]
+)
+def test_block_and_physical_command_rollouts_have_same_cost_and_derivative(
+    request,
+    fixture_name,
+):
+    controller = request.getfixturevalue(fixture_name)
+    plan = controller.plan
+    blocks, state, latent, reference, previous, exogenous = _objective_arguments(
+        controller
+    )
+    parameter_count = len(structured_parameter_vector(plan.values.parameters))
+    values = plan.values._replace(
+        covariance_factor=0.02 * jnp.eye(parameter_count)[:, :2],
+        forecast_error_covariance=jnp.broadcast_to(
+            0.001 * jnp.eye(12), (plan.horizon_steps, 12, 12)
+        ),
+    )
+
+    def costs(variables):
+        commands = plan._commands_from_normalized(
+            plan._expand_normalized_blocks(variables)
+        )
+        block_prediction = plan.rollout(variables, state, latent, exogenous, values)
+        command_prediction = plan.rollout_commands(
+            commands, state, latent, exogenous, values
+        )
+        return jnp.asarray(
+            [
+                plan.stage_cost(prediction, reference, previous, plan.policy)
+                for prediction in (block_prediction, command_prediction)
+            ]
+        )
+
+    costs_jit = jax.jit(costs)
+    cost_values = costs_jit(blocks)
+    derivatives = jax.jit(jax.jacfwd(costs))(blocks)
+    np.testing.assert_allclose(cost_values[0], cost_values[1], rtol=2e-6)
+    np.testing.assert_allclose(derivatives[0], derivatives[1], rtol=2e-5, atol=2e-5)
+    direction = jnp.linspace(-0.3, 0.3, blocks.size).reshape(blocks.shape)
+    epsilon = 0.002
+    finite_difference = (
+        costs_jit(blocks + epsilon * direction)[1]
+        - costs_jit(blocks - epsilon * direction)[1]
+    ) / (2 * epsilon)
+    np.testing.assert_allclose(
+        jnp.sum(derivatives[1] * direction), finite_difference, rtol=0.003, atol=0.003
+    )
+
+
+def test_moving_phases_compile_distinct_command_waveforms(
+    monkeypatch, multirotor_controller
+):
+    monkeypatch.syspath_prepend(str(Path(__file__).parents[1] / "scripts"))
+    experiment = importlib.import_module("investigate_horizon_shift")
+    controller = multirotor_controller
+    dispatcher = experiment.MovingBlockSolver(controller.plan, controller.plan.policy)
+    first, second = dispatcher.solvers
+    assert first._kernels is not second._kernels
+    assert first._kernels is not controller.solver._kernels
+    blocks = jnp.asarray([[-0.5] * 4, [0.0] * 4, [0.5] * 4])
+    state = jnp.asarray(resting_state())
+    latent = jnp.full(4, 0.5)
+    exogenous = jnp.zeros((6, controller.plan.exogenous_size))
+    for solver, expected_indices in (
+        (first, [0, 0, 1, 1, 2, 2]),
+        (second, [0, 1, 1, 2, 2, 2]),
+    ):
+        prediction = solver._kernels.rollout(
+            blocks, state, latent, exogenous, solver.model.values
+        )
+        commands = 0.5 * (1 + blocks[jnp.asarray(expected_indices)])
+        np.testing.assert_array_equal(prediction.commands, commands)
+        exact = controller.plan.rollout_commands(
+            commands, state, latent, exogenous, solver.model.values
+        )
+        np.testing.assert_allclose(prediction.mean_states, exact.mean_states, atol=2e-7)
+        np.testing.assert_allclose(
+            prediction.latent_states, exact.latent_states, atol=2e-7
+        )
 
 
 def test_default_horizon_does_not_exceed_predictive_error_evidence(
