@@ -442,26 +442,26 @@ class BoundedShootingSolver:
         return jnp.repeat(normalized[None, :], self.model.block_count, axis=0)
 
     def _warm_blocks(self, warm_start: NMPCWarmStart) -> Array | None:
-        """Recover the previous plan's blocks and advance them by one block.
+        """Advance one elapsed sample and project onto the new command blocks.
 
-        The plan is parameterized at block granularity, so the seed is shifted
-        at that granularity too: its first block is the previous plan's second
-        block, and its final block repeats the previous plan's last block.
-        Shifting the expanded command sequence by a single model step instead
-        would land back inside the same old block whenever a block spans more
-        than one step, which reproduces the previous plan unshifted.
+        The control loop executes one sample, irrespective of block width.
+        Averaging the shifted samples within each new block is the least-squares
+        projection onto this layout, including a truncated final block. Sampling
+        just the first row would lose the shift; advancing a whole block would
+        discard commands for intervals that have not elapsed.
         """
 
-        commands = warm_start.commands
+        commands = np.asarray(warm_start.commands)
         if commands.shape != (self.prediction_steps, self.model.command_size):
             return None
-        indices = jnp.minimum(
-            jnp.arange(self.model.block_count) * self.policy.block_steps,
-            self.prediction_steps - 1,
+        shifted = np.concatenate((commands[1:], commands[-1:]), axis=0)
+        blocks = np.stack(
+            [
+                np.mean(shifted[start : start + self.policy.block_steps], axis=0)
+                for start in range(0, self.prediction_steps, self.policy.block_steps)
+            ]
         )
-        blocks = commands[indices]
-        shifted = jnp.concatenate((blocks[1:], blocks[-1:]), axis=0)
-        return jnp.clip(self._normalized_from_commands(shifted), -1.0, 1.0)
+        return jnp.clip(self._normalized_from_commands(jnp.asarray(blocks)), -1.0, 1.0)
 
     def _input_error(
         self,

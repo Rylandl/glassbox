@@ -133,6 +133,54 @@ def test_direct_mapping_bounds_are_part_of_cache_identity(model):
     assert first.solver._kernels is rebound.solver._kernels
 
 
+@pytest.mark.parametrize("minimum,maximum", ((0.0, 1.0), (-3.0, 0.2)))
+def test_normalized_command_bounds_preserve_feasible_inward_derivatives(
+    model, minimum, maximum
+):
+    channels = tuple(
+        replace(channel, minimum=minimum, maximum=maximum)
+        for channel in model.input_spec.controls
+    )
+    controller = NMPCController(
+        replace(model, actuation=DirectActuationMap(channels)),
+        policy=SolverPolicy(horizon_steps=2, block_count=2),
+    )
+    normalize = controller.plan._commands_from_normalized
+    blocks = jnp.asarray([-1.0, 1.0, -1.0, 1.0])
+    direction = -blocks
+    commands, derivative = jax.jvp(normalize, (blocks,), (direction,))
+    np.testing.assert_array_equal(
+        commands, jnp.asarray([minimum, maximum, minimum, maximum])
+    )
+    np.testing.assert_allclose(derivative, 0.5 * (maximum - minimum) * direction)
+    step = 1e-3
+    inward_difference = (normalize(blocks + step * direction) - commands) / step
+    np.testing.assert_allclose(derivative, inward_difference, rtol=2e-4)
+
+
+def test_rollout_linearization_matches_a_feasible_step_off_active_command_bounds(model):
+    controller = NMPCController(
+        model, policy=SolverPolicy(horizon_steps=2, block_count=2)
+    )
+    plan = controller.plan
+    blocks = jnp.asarray([[-1.0, 1.0, -1.0, 1.0]] * 2)
+    direction = -blocks
+
+    def final_state(candidate):
+        return plan.rollout(
+            candidate,
+            jnp.asarray(resting_state()),
+            jnp.full(4, 0.5),
+            jnp.zeros((2, 0)),
+            plan.values,
+        ).mean_states[-1]
+
+    value, derivative = jax.jvp(final_state, (blocks,), (direction,))
+    step = 1e-3
+    inward_difference = (final_state(blocks + step * direction) - value) / step
+    np.testing.assert_allclose(derivative, inward_difference, rtol=5e-3, atol=1e-4)
+
+
 def test_support_measurement_includes_an_initial_state_that_reenters_the_envelope(
     model,
 ):

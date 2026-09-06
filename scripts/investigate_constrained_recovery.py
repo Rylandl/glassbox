@@ -195,8 +195,17 @@ class SupportConstrainedReference(BoundedShootingSolver):
         )
 
 
-def simulate(belief, target, initial, *, optimizer, maximum_iterations=100):
-    controller = NMPCController(belief)
+def simulate(
+    belief,
+    target,
+    initial,
+    *,
+    optimizer,
+    maximum_iterations=100,
+    controller=None,
+    prewarm=False,
+):
+    controller = NMPCController(belief) if controller is None else controller
     if optimizer == "lbfgsb_soft":
         controller.solver = OfflineReferenceSolver(
             controller.plan, controller.plan.policy
@@ -217,6 +226,23 @@ def simulate(belief, target, initial, *, optimizer, maximum_iterations=100):
     results = []
     robust_utilizations = []
     reference = controller.hold_reference(jnp.asarray(resting_state()))
+    prewarm_started = time.perf_counter()
+    if prewarm:
+        first = controller.solve(
+            state, reference, previous, applied_command=latent, deadline_s=None
+        )
+        if first.warm_start is not None:
+            controller.solve(
+                state,
+                reference,
+                previous,
+                applied_command=latent,
+                warm_start=first.warm_start,
+                deadline_s=None,
+            )
+        if hasattr(controller.solver, "reports"):
+            controller.solver.reports.clear()
+    prewarm_time = time.perf_counter() - prewarm_started if prewarm else 0.0
 
     @jax.jit
     def robust_utilization(blocks, state, applied):
@@ -274,7 +300,11 @@ def simulate(belief, target, initial, *, optimizer, maximum_iterations=100):
     reports = getattr(controller.solver, "reports", [])
     return {
         "optimizer": optimizer,
-        "maximum_slsqp_iterations": maximum_iterations if reports else None,
+        "maximum_slsqp_iterations": maximum_iterations
+        if isinstance(controller.solver, SupportConstrainedReference)
+        else None,
+        "prewarm_time_s": prewarm_time,
+        "solve_times_s": cpu_times.tolist(),
         "complete": complete,
         "executed_intervals": len(commands),
         "stop_status": None if complete else results[-1].status.value,

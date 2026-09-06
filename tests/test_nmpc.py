@@ -606,7 +606,7 @@ def test_warm_start_is_selected_only_when_no_worse_than_cold_start(
     )
 
 
-def test_warm_start_seed_advances_the_previous_plan_by_one_block(
+def test_warm_start_projects_one_elapsed_sample_onto_the_new_blocks(
     multirotor_model: ExecutableModel, multirotor_controller: NMPCController
 ) -> None:
     model = multirotor_model
@@ -622,15 +622,41 @@ def test_warm_start_seed_advances_the_previous_plan_by_one_block(
     seed_commands = np.asarray(plan._commands_from_normalized(seed))
 
     assert plan.policy.block_steps == 2
-    np.testing.assert_allclose(seed_commands[0], previous_blocks[1], atol=1e-6)
+    np.testing.assert_allclose(seed_commands[0], 0.35, atol=1e-6)
     np.testing.assert_allclose(seed_commands[-1], previous_blocks[-1], atol=1e-6)
     np.testing.assert_allclose(
         seed_commands,
-        previous_blocks[[1, 2, 2]],
+        np.asarray([[value] * model.command_size for value in (0.35, 0.65, 0.8)]),
         atol=1e-6,
     )
     # The seed must not simply reproduce the previous unshifted plan.
     assert np.max(np.abs(seed_commands - previous_blocks)) > 0.1
+
+
+def test_warm_start_averages_only_real_samples_in_a_truncated_final_block(
+    multirotor_model: ExecutableModel,
+) -> None:
+    controller = NMPCController(
+        multirotor_model,
+        policy=SolverPolicy(horizon_steps=5, block_count=3),
+    )
+    previous = jnp.asarray([[value] * 4 for value in (0.1, 0.1, 0.5, 0.5, 0.9)])
+    seed = controller.solver._warm_blocks(NMPCWarmStart(previous))
+    commands = controller.plan._commands_from_normalized(seed)
+    np.testing.assert_allclose(commands, [[value] * 4 for value in (0.3, 0.7, 0.9)])
+
+
+def test_unblocked_warm_start_preserves_the_unexecuted_commands(
+    multirotor_model: ExecutableModel,
+) -> None:
+    controller = NMPCController(
+        multirotor_model,
+        policy=SolverPolicy(horizon_steps=3, block_count=3),
+    )
+    previous = jnp.asarray([[value] * 4 for value in (0.1, 0.5, 0.9)])
+    seed = controller.solver._warm_blocks(NMPCWarmStart(previous))
+    commands = controller.plan._commands_from_normalized(seed)
+    np.testing.assert_allclose(commands, previous[[1, 2, 2], :])
 
 
 def test_invalid_estimate_and_deadline_return_bounded_fallback(

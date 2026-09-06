@@ -49,7 +49,7 @@ on the library, and none is a flight-safety claim.
 
 | Diagnostic | What it measures | Tier | Headline | Artifact |
 | --- | --- | --- | --- | --- |
-| NMPC acceptance | the solver on 16 synthetic scenarios, 8 nominal and 8 under parameter mismatch | local | tracking ratio `0.651` nominal and `0.552` under mismatch | [`nmpc-acceptance-results.json`](results/nmpc-acceptance-results.json) |
+| NMPC acceptance | the solver on 16 synthetic scenarios, 8 nominal and 8 under parameter mismatch | local | tracking ratio `0.644` nominal and `0.541` under mismatch | [`nmpc-acceptance-results.json`](results/nmpc-acceptance-results.json) |
 | Adaptive recovery | the whole belief-to-control path across a configuration change | local | resolved rank `1` to `15`, independent prediction ratio `0.868` | [`adaptive-recovery-results.json`](results/adaptive-recovery-results.json) |
 | Cascade X8 | an unfitted published physics model against the same X8 campaign | corpus | `2.760` as published, `0.679` at its best documented variant | [`cascade-x8-validation-results.json`](results/cascade-x8-validation-results.json) |
 
@@ -233,8 +233,8 @@ with fixed thresholds, declared before the solver was tuned and recorded in
 On the recorded run all 16 scenarios were finite with no fallback and no
 command-bound violation, every mismatch case stayed inside the fitted validity
 envelope, and every one of the nine checks in `summary.checks` passed. The
-equal-scenario geometric mean of normalized tracking RMS was `0.6509` of the
-non-optimizing trim baseline nominally and `0.5522` under parameter mismatch
+equal-scenario geometric mean of normalized tracking RMS was `0.6440` of the
+non-optimizing trim baseline nominally and `0.5407` under parameter mismatch
 (`summary.nominal_geometric_mean_tracking_ratio` and
 `summary.mismatch_geometric_mean_tracking_ratio`), against a declared maximum
 of `0.80` nominally. No individual scenario hid inside those aggregates, which
@@ -269,16 +269,16 @@ prediction RMS fell from `0.033394` to `0.028970`, a ratio of `0.868`
 (`evidence.independent_prediction`).
 
 Better prediction did not produce better recovery. Against the stale arm, the
-adapted belief produced `1.683` recovery-tail tracking RMS and `1.120`
+adapted belief produced `1.604` recovery-tail tracking RMS and `1.076`
 recovery-tail attitude and rate RMS; against the hidden oracle point model
-those ratios were `1.827` and `1.416` (`comparisons`). Every trace was finite,
+those ratios were `1.823` and `1.506` (`comparisons`). Every trace was finite,
 all commands stayed within bounds, and no solve fell back
 (`observations.all_recovery_traces_finite`, `all_commands_within_bounds`,
 `all_recovery_traces_without_fallback`). The negative tracking comparison is
 part of the evidence, not an acceptance threshold.
 
 Every trace also left the validity envelope. Maximum actual utilization was
-`1.085`, `1.173`, `1.063` and `1.136` for the `stale_belief`,
+`1.347`, `1.056`, `1.336` and `1.423` for the `stale_belief`,
 `adapted_belief`, `adapted_mean_point` and `oracle_mean_point` arms
 (`recovery[*].maximum_actual_validity_utilization`), so
 `observations.all_actual_recovery_within_validity_support` is false.
@@ -289,7 +289,7 @@ accumulate information. The posterior covariance trace is consequently
 (`evidence.fleet`). These are not comparable total uncertainty bounds: the
 seed has unresolved parameters. The three incomplete arms explicitly allow
 partial-information planning and report an unbounded uncertainty margin as
-JSON `null`; the complete adapted arm reports `1.491`
+JSON `null`; the complete adapted arm reports `1.231`
 (`recovery[*].parameter_uncertainty_complete`, `unresolved_parameters_allowed`,
 `maximum_normalized_model_uncertainty_standard_deviation`). Resolving a
 parameter direction does not mean estimating it precisely. This diagnostic

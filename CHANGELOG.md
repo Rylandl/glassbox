@@ -5,6 +5,13 @@ All notable changes to Glassbox are recorded here. The format follows
 
 ## Unreleased
 
+- Preserve feasible inward derivatives at active command bounds by removing
+  redundant clipping from the planner's affine command map. The solver still
+  projects its variables and checks emitted command bounds.
+- Advance warm starts by one elapsed model sample and average onto the new
+  command blocks, including a truncated final block. Previously a whole block
+  was discarded at each control interval. Re-record both local benchmarks for
+  these changes and add a profiled Gauss-Newton SQP recovery experiment.
 - Add an offline NMPC-only recovery reference with explicit mean or
   covariance-expanded model-support constraints. Record feasibility and
   constrained stationarity separately from the production solver's box-only

@@ -264,13 +264,16 @@ class BeliefPlanModel:
         return expanded[: self.horizon_steps]
 
     def _commands_from_normalized(self, normalized: Array) -> Array:
+        """Map feasible solver variables affinely, preserving inward derivatives.
+
+        The solver owns projection to ``[-1, 1]``. Clipping again here would
+        attenuate the derivative at an active bound, even for feasible inward
+        steps. A convex combination also reproduces both endpoints exactly.
+        """
+
         minimum = self.command_minimum
-        command_range = self.command_maximum - minimum
-        return jnp.clip(
-            minimum + 0.5 * (jnp.clip(normalized, -1.0, 1.0) + 1.0) * command_range,
-            minimum,
-            self.command_maximum,
-        )
+        maximum = self.command_maximum
+        return 0.5 * (1.0 - normalized) * minimum + 0.5 * (1.0 + normalized) * maximum
 
     def _mean_rollout(
         self,

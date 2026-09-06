@@ -116,6 +116,12 @@ controller's actionable command coordinates. Advanced estimators can instead
 provide the complete `latent_state`; passing both is rejected. If neither is
 available, the controller initializes lag state from `previous_command`.
 
+Each warm start advances one model sample, matching the elapsed control
+interval. The shifted command sequence is averaged within the new blocks;
+this projects it onto the block layout without discarding unexecuted intervals.
+The last command extends the horizon, and a truncated final block averages
+only its actual samples.
+
 The first eligible cold solve compiles the solve path and the first warm-started solve
 compiles the receding-horizon path, which is why the snippet above solves
 twice. Run both and discard their commands before entering a timed control
@@ -418,6 +424,9 @@ tests a different response to this mismatch: put support constraints into the
 optimization itself. It holds the belief and envelope fixed and evaluates the
 result without a secondary recovery controller. This remains an offline
 investigation; the production solver still uses soft validity costs.
+The [SQP follow-up](../recovery-investigation.md#faster-constrained-nmpc-and-correct-bound-derivatives)
+profiles a curvature-aware optimizer and records the corrected bound derivatives
+and warm-start alignment needed by that experiment.
 
 The supervisor does not know how this airframe turns a desired body-axis
 differential into motor commands, and it must not assume one: an identifier

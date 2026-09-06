@@ -1,5 +1,13 @@
 # Recovery after identification: investigation
 
+The uncertainty, supervision and SLSQP reports below are historical snapshots
+from commits `0c4ec6a`, `777652f` and `0926d49`, respectively. Their source
+fingerprints identify the code that produced the numbers. They precede the
+command-bound derivative and warm-start corrections in the
+[SQP follow-up](#faster-constrained-nmpc-and-correct-bound-derivatives).
+The earlier commands rerun those experiments against the current code into
+temporary files; reproducing the snapshots requires their recorded revisions.
+
 The recovery regression comes primarily from charging a local linearized
 uncertainty model for parameter directions that 0.8 seconds of telemetry barely
 identifies. Increasing optimizer effort helps tracking, but the uncertainty
@@ -9,11 +17,11 @@ changing the objective, its weights, or the covariance rank cutoff.
 
 The [recorded investigation](investigations/recovery.json) contains 20 controlled
 recoveries, nonlinear uncertainty probes, independent prediction errors, and
-source fingerprints. Reproduce it with:
+source fingerprints. Rerun the experiment with:
 
 ```bash
 uv run python scripts/investigate_recovery.py \
-  --output docs/investigations/recovery.json
+  --output /tmp/glassbox-recovery.json
 ```
 
 This is an offline diagnostic. It retains the original recovery benchmark and
@@ -145,11 +153,11 @@ The [supervised investigation](investigations/supervised-recovery.json) drives
 the production `run_control_loop` and `MultirotorFlightSupervisor` against the
 same synthetic target, after the additional identification evidence above.
 It records twelve cases, support exits by feature, counterfactual prediction
-errors, solver outcomes and supervisor transitions. Reproduce it with:
+errors, solver outcomes and supervisor transitions. Rerun the experiment with:
 
 ```bash
 uv run python scripts/investigate_supervised_recovery.py \
-  --output docs/investigations/supervised-recovery.json
+  --output /tmp/glassbox-supervised-recovery.json
 ```
 
 Each recovery lasts 2.4 seconds, with tracking RMS measured over the final
@@ -263,7 +271,7 @@ It introduces no secondary controller and makes no production solver change.
 
 ```bash
 uv run python scripts/investigate_constrained_recovery.py \
-  --output docs/investigations/constrained-recovery.json
+  --output /tmp/glassbox-constrained-recovery.json
 ```
 
 Each arm uses the additional-evidence belief above, its original model-support
@@ -348,6 +356,106 @@ needs the individual inequalities and their derivatives, with candidate
 selection that preserves feasibility. Its cold-start and subsequent solve costs
 must fit the runtime budget. These experiments supply a reference for that work;
 the production soft-cost solver and its failure responses remain unchanged.
+
+## Faster constrained NMPC and correct bound derivatives
+
+The [SQP investigation](investigations/sqp-recovery.json) exposes two library
+defects while testing a faster constrained optimizer. Both corrections now
+apply to the maintained solver; the new SQP algorithm remains an offline
+experiment. Reproduce this report without concurrent benchmark processes:
+
+```bash
+uv run python scripts/investigate_sqp_recovery.py \
+  --output docs/investigations/sqp-recovery.json
+```
+
+### Derivatives at active command bounds
+
+The planner clipped normalized variables to their box, mapped them into motor
+commands, and clipped those commands again. The optimizer already projected
+its variables into that box. At an exact bound, each redundant JAX clip
+contributed a derivative factor of one half. Their product made the planner
+report one quarter of the true derivative for a feasible inward move.
+
+The command map is now an affine convex combination of the two endpoints.
+It reproduces each endpoint exactly and preserves the inward derivative.
+Projection remains the solver's responsibility, and output command bounds
+are still checked before a result is usable. Regression tests compare the
+map and the full rollout's derivatives with feasible inward finite differences,
+including asymmetric command bounds.
+
+### A warm start must advance the elapsed interval
+
+The loop executes one model sample, but the old warm start advanced an entire
+command block. For three-sample blocks, it discarded two unexecuted samples
+as well. The corrected seed shifts the expanded plan one sample, extends the
+last command, and averages within each new block. This is the least-squares
+projection onto the new block layout. A truncated final block uses only its
+actual samples. Projection alone does not establish nonlinear feasibility;
+the constrained optimizer must still check the resulting plan.
+
+### Curvature-aware constrained steps
+
+The experiment expresses the same objective as squared residuals and obtains
+their Jacobian together with the support-constraint Jacobian in a fused JAX
+linearization. Tests check the residual form against the maintained objective
+and its gradient with uncertainty and active penalties. Gauss-Newton curvature
+plus a `1e-4` numerical regularization defines each quadratic subproblem.
+Whitening its variables gives that subproblem identity curvature; SLSQP then
+solves only the quadratic problem with linear constraints. A nonlinear merit
+line search checks the candidate against the original objective and support.
+
+The subproblem targets a `1e-5` interior numerical margin, while final
+feasibility retains the `1e-6` tolerance. This slightly tightens the numerical
+target without changing the declared model envelope or uncertainty. Every
+evaluated feasible iterate is eligible for retention; a cheaper infeasible
+iterate cannot replace it. No feasible output means no command is applied.
+Neither feasibility nor a subproblem success flag is labeled convergence of
+the nonlinear problem.
+
+All cases use the same additional-evidence belief, original envelope, objective
+and 2.4-second driver. Each controller is prewarmed, then its optimizer state is
+reset before measurement. The SQP cold solve has eight updates; the subsequent
+budget is the controlled variable. The report's `scenarios` record:
+
+| Method | Executed intervals | Tail tracking RMS | Peak actual utilization | Median subsequent solve / model interval |
+| --- | ---: | ---: | ---: | ---: |
+| Full nonlinear SLSQP, 100 iterations | 5 / 120 | — | 0.520645 | 16.974* |
+| SQP, eight subsequent updates | 120 / 120 | 0.295062 | 0.999860 | 2.449 |
+| SQP, two subsequent updates | 120 / 120 | 0.295111 | 0.999860 | 0.902 |
+| Two-update SQP with the old whole-block shift | 1 / 120 | — | 0.350000 | 0.987* |
+| Two-update SQP with the old double clipping | 0 / 120 | — | 0.350000 | — |
+| Two-update SQP, small disturbance | 120 / 120 | 0.012553 | 0.339608 | 0.899 |
+
+The starred timings cover incomplete runs, including their failed solves, and
+are not full-recovery timing comparisons. The renewed full-SLSQP reference
+returns no feasible candidate at the sixth interval under the corrected code;
+its earlier historical result is not silently reused. Every completed SQP arm
+has finite states, bounded commands, supported actual states and robust forecasts,
+and terminal attitude and rates within tracking tolerances. The old derivative
+rule fails even at the cold start. The old shift fails at the next interval,
+where the two-update budget cannot restore a feasible plan.
+
+The reduced budget is promising but does not meet a hard deadline. For the
+original disturbance, 16 of 119 subsequent solves exceed the model interval;
+the maximum is 1.150 intervals and the cold solve takes 3.182 intervals.
+The small case has 15 subsequent misses. These are complete solve durations,
+including seed scoring and output checks, not just the optimizer kernel.
+Deadlines are disabled in the experiment, so this does not demonstrate the
+same trajectory under enforced deadlines. The profile identifies repeated
+linearization as the dominant optimizer cost.
+
+The remaining work is to reduce the worst-case solve cost and integrate an
+explicit constraint contract into the production solver, including cold-start
+feasibility and deadline behavior. This result keeps recovery in NMPC and gives
+that work a measured reference. It does not introduce a secondary controller
+or establish a larger recovery region.
+
+The two library corrections change ordinary soft-cost controller outputs too.
+Both local benchmark artifacts were regenerated, and all NMPC acceptance gates
+still pass. Their current numbers live in
+[validation](validation.md#nmpc-acceptance); the short-adaptation recovery remains
+a negative result.
 
 ## PX4 integration defects found during validation
 

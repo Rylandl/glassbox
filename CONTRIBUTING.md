@@ -124,12 +124,13 @@ The PX4 SITL benchmarks are not in the manifest at all: recording one needs a
 running SITL container, so their numbers are prose on
 [`docs/validation.md`](docs/validation.md) and say so there.
 
-The offline recovery investigations also live outside the manifest. Reproduce
-the supervised cases with:
+The offline recovery investigations also live outside the manifest. Earlier
+reports retain their recorded revisions as historical evidence. Rerun the
+supervised cases against the current code with:
 
 ```bash
 uv run python scripts/investigate_supervised_recovery.py \
-  --output docs/investigations/supervised-recovery.json
+  --output /tmp/glassbox-supervised-recovery.json
 ```
 
 This drives the production loop against a synthetic plant with a discrete
@@ -142,13 +143,26 @@ To compare NMPC alone under soft and explicit model-support constraints:
 
 ```bash
 uv run python scripts/investigate_constrained_recovery.py \
-  --output docs/investigations/constrained-recovery.json
+  --output /tmp/glassbox-constrained-recovery.json
 ```
 
 This reference keeps the original envelope and uncertainty. A failed solve ends
 its scenario without applying a fallback. Its SLSQP feasibility and Lagrangian
 residuals are separate from the production solver's convergence flag; it is an
 offline formulation check and is not wired into the control loop.
+
+The current SQP investigation includes the former clipping and warm-start rules
+as explicit ablations. Record it with:
+
+```bash
+uv run python scripts/investigate_sqp_recovery.py \
+  --output docs/investigations/sqp-recovery.json
+```
+
+Run this timing comparison without other benchmark or test processes. It
+prewarms each controller and records complete solve times, separating the cold
+optimization from subsequent solves. Deadlines remain disabled, so the actual
+deadline-miss counts are part of the result, not a functional acceptance gate.
 
 ### When to re-record
 
