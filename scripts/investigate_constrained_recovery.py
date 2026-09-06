@@ -204,7 +204,12 @@ def simulate(
     maximum_iterations=100,
     controller=None,
     prewarm=False,
+    deadline_s=None,
+    startup_deadline_s=None,
 ):
+    startup_deadline_s = (
+        deadline_s if startup_deadline_s is None else startup_deadline_s
+    )
     controller = NMPCController(belief) if controller is None else controller
     if optimizer == "lbfgsb_soft":
         controller.solver = OfflineReferenceSolver(
@@ -267,7 +272,7 @@ def simulate(
             previous,
             applied_command=latent,
             warm_start=warm,
-            deadline_s=None,
+            deadline_s=startup_deadline_s if not results else deadline_s,
         )
         results.append(result)
         if not result.command_usable:
@@ -304,6 +309,8 @@ def simulate(
         if isinstance(controller.solver, SupportConstrainedReference)
         else None,
         "prewarm_time_s": prewarm_time,
+        "deadline_s": deadline_s,
+        "startup_deadline_s": startup_deadline_s,
         "solve_times_s": cpu_times.tolist(),
         "complete": complete,
         "executed_intervals": len(commands),

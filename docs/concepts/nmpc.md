@@ -21,6 +21,17 @@ settles the horizon against the belief's own error evidence, and raises
 is the thin factory that wires the two together, and it is what most callers
 use.
 
+Models can also implement `ConstrainedLeastSquaresPlanModel`. Its
+`optimization_terms` method returns `PlanTerms`: a residual vector whose squared
+norm equals `stage_cost`, and an inequality-margin vector whose entries must be
+nonnegative. Shapes stay fixed under a compile signature; the optimizer does
+not need to know the model's feature layout. `BeliefPlanModel` provides this
+extension with mean support at the initial state and uncertainty-expanded
+support at every future stage. Its optional `SafetyEnvelope` limits remain
+soft costs. The ordinary `BoundedShootingSolver` continues to use `PlanModel`;
+the [constrained SQP experiment](../recovery-investigation.md#constraint-interface-seed-reuse-and-deadlines)
+consumes the additional contract.
+
 Because the seam is the protocol and not the belief, one solver serves a
 belief fitted from a corpus and a belief built in flight from nothing. See
 [bootstrap identification](bootstrap-identification.md) for the second case.
@@ -246,6 +257,8 @@ the previous command, or the channel midpoint if the previous command is
 invalid; Glassbox does not silently replace NMPC with a second controller. A
 deadline cannot preempt an already executing device call; the elapsed-time
 check rejects its output afterwards.
+The final deadline check includes result assembly and warm-start validation;
+the reported solve duration includes that work too.
 
 ## Measured capability
 

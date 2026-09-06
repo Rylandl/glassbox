@@ -90,9 +90,8 @@ def test_whitened_quadratic_step_handles_ill_conditioned_curvature(investigation
 
 def reference_problem(investigation, *, nonfinite=False):
     def packed(blocks, *_):
-        return jnp.concatenate((blocks.ravel(), blocks.ravel() - 0.5)) * (
-            jnp.nan if nonfinite else 1
-        )
+        multiplier = jnp.nan if nonfinite else 1.0
+        return blocks.ravel() * multiplier, (blocks.ravel() - 0.5) * multiplier
 
     def with_aux(*args):
         values = packed(*args)
@@ -106,7 +105,11 @@ def reference_problem(investigation, *, nonfinite=False):
         )
     )
     solver.reports = []
-    solver.constraint_count = 1
+    solver._seed_derivative = None
+    solver._seed_linearization_time_s = 0.0
+    solver._iteration_budget = 8
+    solver.legacy_seeding = False
+    solver._warm_blocks = lambda warm: warm
     solver.warm_iterations = 2
     solver.linearize = jax.jit(jax.jacfwd(with_aux, has_aux=True))
     solver.evaluate = jax.jit(packed)
@@ -150,3 +153,90 @@ def test_sqp_refuses_nonfinite_linearization(investigation):
         )
     assert solver.reports[-1]["stop_reason"] == "nonfinite_linearization"
     assert not solver.reports[-1]["feasible"]
+
+
+@pytest.mark.parametrize(
+    "cold,warm,expected,warm_used",
+    [
+        (0.0, 0.7, 0.7, True),  # Feasible, despite greater objective.
+        (0.6, 0.7, 0.6, False),  # Cheapest of two feasible seeds.
+        (0.0, 0.4, 0.4, True),  # Less violation while still infeasible.
+        (0.6, float("nan"), 0.6, False),
+        (float("nan"), 0.6, 0.6, True),
+    ],
+)
+def test_sqp_seed_selection_uses_feasibility_before_cost(
+    investigation, cold, warm, expected, warm_used
+):
+    solver = reference_problem(investigation)
+    blocks, _, gradient, cost, used = solver._seed_plan(
+        jnp.asarray([[cold]]),
+        jnp.asarray([[warm]]),
+        None,
+        None,
+        SimpleNamespace(states=None),
+        None,
+        None,
+    )
+    assert used is warm_used
+    np.testing.assert_allclose(blocks, [[expected]])
+    np.testing.assert_allclose(gradient, [[2 * expected]])
+    assert cost == pytest.approx(expected**2)
+
+
+def test_sqp_reuses_selected_linearization_and_resets_cold_budget(investigation):
+    solver = reference_problem(investigation)
+    linearize = solver.linearize
+    calls = []
+
+    def counted(*args):
+        calls.append(np.asarray(args[0]).copy())
+        return linearize(*args)
+
+    solver.linearize = counted
+    reference = SimpleNamespace(states=None)
+    blocks, value, gradient, _, _ = solver._seed_plan(
+        jnp.zeros((1, 1)),
+        jnp.ones((1, 1)),
+        None,
+        None,
+        reference,
+        None,
+        None,
+    )
+    assert solver._iteration_budget == 2
+    solver._optimize_plan(blocks, value, gradient, None, None, reference, None, None)
+    assert len(calls) == solver.reports[-1]["iterations"]
+    assert solver._seed_derivative is None
+    # A fresh request has no warm plan, regardless of reports or previous work.
+    solver._seed_plan(jnp.zeros((1, 1)), None, None, None, reference, None, None)
+    assert solver._iteration_budget == 8
+    np.testing.assert_array_equal(solver._seed_derivative[1][0], [0.0])
+
+
+@pytest.mark.parametrize("constant_margin,usable", [(0.0, True), (-0.1, False)])
+def test_sqp_does_not_tighten_constant_initial_state_constraints(
+    investigation, constant_margin, usable
+):
+    step, _, result_usable, _ = investigation.quadratic_step(
+        np.eye(1),
+        np.asarray([-0.2]),
+        np.asarray([constant_margin]),
+        np.zeros((1, 1)),
+        np.zeros(1),
+    )
+    assert result_usable is usable
+    if usable:
+        np.testing.assert_allclose(step, [0.2], atol=1e-6)
+
+
+def test_sqp_accepts_a_model_with_no_nonlinear_constraints(investigation):
+    step, _, usable, _ = investigation.quadratic_step(
+        np.eye(1),
+        np.asarray([-0.2]),
+        np.empty(0),
+        np.empty((0, 1)),
+        np.zeros(1),
+    )
+    assert usable
+    np.testing.assert_allclose(step, [0.2], atol=1e-6)

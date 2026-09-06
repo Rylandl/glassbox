@@ -1,8 +1,8 @@
 # Recovery after identification: investigation
 
-The uncertainty, supervision and SLSQP reports below are historical snapshots
-from commits `0c4ec6a`, `777652f` and `0926d49`, respectively. Their source
-fingerprints identify the code that produced the numbers. They precede the
+The uncertainty, supervision, SLSQP and first SQP reports below are historical
+snapshots from commits `0c4ec6a`, `777652f`, `0926d49` and `8a79306`, respectively. Their source
+fingerprints identify the code that produced the numbers. The first three precede the
 command-bound derivative and warm-start corrections in the
 [SQP follow-up](#faster-constrained-nmpc-and-correct-bound-derivatives).
 The earlier commands rerun those experiments against the current code into
@@ -366,7 +366,7 @@ experiment. Reproduce this report without concurrent benchmark processes:
 
 ```bash
 uv run python scripts/investigate_sqp_recovery.py \
-  --output docs/investigations/sqp-recovery.json
+  --output /tmp/glassbox-sqp-recovery.json
 ```
 
 ### Derivatives at active command bounds
@@ -456,6 +456,86 @@ Both local benchmark artifacts were regenerated, and all NMPC acceptance gates
 still pass. Their current numbers live in
 [validation](validation.md#nmpc-acceptance); the short-adaptation recovery remains
 a negative result.
+
+## Constraint interface, seed reuse, and deadlines
+
+The [runtime follow-up](investigations/sqp-runtime.json) moves the formulation
+into the model contract and measures complete solves with and without enforced
+deadlines:
+
+```bash
+uv run python scripts/investigate_sqp_runtime.py \
+  --output docs/investigations/sqp-runtime.json
+```
+
+`ConstrainedLeastSquaresPlanModel.optimization_terms` returns `PlanTerms` with
+objective residuals and signed inequality margins. The scalar cost and residual
+form share physical components; tests compare values and derivatives for point
+models in both vehicle families and for command-dependent uncertainty with
+active penalties. The SQP implementation reads these arrays without assuming
+six features or a particular vehicle family. This is an optional extension to
+`PlanModel`; the default bounded solver's objective and policy are unchanged.
+
+For a belief, the margins cover the supplied initial state's mean support,
+then the existing covariance-expanded support at each future stage. An initial
+state outside the declared envelope cannot become feasible by changing future
+commands. Constant constraints at the boundary are not artificially tightened
+by the quadratic subproblem's interior target. Optional safety limits retain
+their existing soft-cost meaning, and unresolved uncertainty remains unknown.
+
+The former seed path evaluated cold and warm objectives with full gradients,
+then differentiated the selected seed again for SQP. The new path evaluates
+residuals and margins first, prefers feasibility before cost, and computes one
+selected-seed linearization that the first update reuses. When neither seed is
+feasible, it prefers the smaller summed violation before cost. All derivatives
+are checked for finiteness, and the returned plan still receives its own final
+objective and gradient. The cached linearization is cleared on every new
+request, including after a deadline rejection.
+
+Iteration budgets now follow the input warm start, rather than whether the
+optimizer has past report entries. A request without a correctly shaped warm
+plan receives the eight-update cold budget even after earlier calls; a warm
+request receives two updates. Reports cannot change controller behavior.
+The production solver also checks the deadline after assembling the result,
+including warm-start validation, and records that elapsed duration. Tests
+exercise just-before, exactly-at, and after-deadline completion.
+
+The seven fresh scenarios retain the same additional-evidence belief, support,
+objective, uncertainty and plant as the earlier experiment. Compilation is
+prewarmed without advancing the plant. Times below include seed work, the
+optimizer, output checks and result assembly; they are host measurements.
+
+| Case | Executed intervals | Cold solve (ms) | Subsequent median / maximum (ms) | Subsequent solves over 20 ms |
+| --- | ---: | ---: | ---: | ---: |
+| Former seed path, deadlines disabled | 120 / 120 | 65.390 | 18.266 / 23.635 | 19 / 119 |
+| Reused seed, original, deadlines disabled | 120 / 120 | 62.285 | 14.996 / 20.252 | 1 / 119 |
+| Reused seed, small, deadlines disabled | 120 / 120 | 28.190 | 15.092 / 19.611 | 0 / 119 |
+| Original, 20 ms from the cold solve | 0 / 120 | 62.575 | — | — |
+| Original, 100 ms startup then 20 ms | 120 / 120 | 62.681 | 15.001 / 19.944 | 0 / 119 |
+| Small, 100 ms startup then 20 ms | 23 / 120 | 28.221 | 15.101 / 22.287* | 1 / 23* |
+| Initial support utilization 1.1, deadlines disabled | 0 / 120 | 28.674 | — | — |
+
+The starred row includes its failed 24th solve. That deadline failure ends the
+scenario before any hold or other command is applied; it has no recovery-tail
+score. The strict cold-start case is likewise rejected, and the outside-support
+case returns no feasible plan. These failures are retained in the report.
+
+The complete original run with seed reuse has tail normalized tracking RMS
+0.295058 and peak actual support utilization 0.999860, compared with 0.295111
+and 0.999860 for the former seed path. Its maximum robust forecast utilization
+is 0.999999344. The small deadline-free run retains tail RMS 0.012553 and peak
+actual utilization 0.339608. Every completed case remains finite and bounded,
+inside actual and forecast support, and within terminal attitude/rate
+tolerances. None is labeled first-order converged.
+
+Seed reuse reduces median solve time by about 18%, but the occasional warm
+overrun and the rejected small-disturbance deadline case prevent a timing
+qualification. The 100 ms startup case is a separately budgeted initialization
+experiment; it does not validate a delayed first command during flight.
+The next backend work must address cold-start feasibility, interruptible
+iteration budgets, and retaining a checked feasible plan before the output
+budget expires. The constrained algorithm remains an offline reference while
+those runtime behaviors are unresolved.
 
 ## PX4 integration defects found during validation
 

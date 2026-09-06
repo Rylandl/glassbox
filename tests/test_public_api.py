@@ -46,7 +46,9 @@ EXPECTED_PUBLIC_API = (
     # result every solve returns.
     "BoundedShootingSolver",
     "NMPCController",
+    "ConstrainedLeastSquaresPlanModel",
     "PlanModel",
+    "PlanTerms",
     "PlanValues",
     "Prediction",
     "ReferenceTrajectory",

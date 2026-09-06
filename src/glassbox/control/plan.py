@@ -386,6 +386,21 @@ class PlanMeasurements(NamedTuple):
     maximum_normalized_uncertainty: Array
 
 
+class PlanTerms(NamedTuple):
+    """A least-squares objective and explicit nonlinear inequality margins.
+
+    Both arrays are one dimensional, with fixed shapes for a compile signature.
+    The objective is ``residuals @ residuals`` (without a factor of one half),
+    equal to ``stage_cost``. Feasibility requires every margin to be nonnegative;
+    an empty margins vector declares no nonlinear constraints. Command bounds
+    remain the solver's responsibility. The model defines the physical meaning
+    and scaling of each margin, including any initial-state requirements.
+    """
+
+    residuals: Array
+    inequality_margins: Array
+
+
 class PlanValues(NamedTuple):
     """Everything a compiled kernel reads as an argument, not as a constant.
 
@@ -457,3 +472,24 @@ class PlanModel(Protocol):
 
     def measure(self, prediction: Prediction) -> PlanMeasurements:
         """Measure the margins the result reports for one finished plan."""
+
+
+@runtime_checkable
+class ConstrainedLeastSquaresPlanModel(PlanModel, Protocol):
+    """Optional model contract for solvers using residuals and constraints.
+
+    The ordinary bounded solver needs only :class:`PlanModel`. Implementing
+    this extension does not enable constraint enforcement in that solver.
+    ``optimization_terms`` must be JAX differentiable with respect to a
+    prediction, and any change to its static structure belongs in the model's
+    compile signature.
+    """
+
+    def optimization_terms(
+        self,
+        prediction: Prediction,
+        reference_states: Array,
+        previous_command: Array,
+        policy: SolverPolicy,
+    ) -> PlanTerms:
+        """Return the objective residuals and all declared inequality margins."""

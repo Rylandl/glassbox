@@ -24,6 +24,7 @@ from jax import Array
 from glassbox.belief.belief import DynamicsBelief
 from glassbox.control.plan import (
     PlanMeasurements,
+    PlanTerms,
     PlanValues,
     Prediction,
     SafetyEnvelope,
@@ -483,6 +484,25 @@ class BeliefPlanModel:
             )
         return jnp.concatenate(violations) if violations else jnp.zeros(1)
 
+    def _cost_components(self, prediction, reference_states, previous_command, policy):
+        """Share physical terms between scalar and least-squares formulations."""
+        states = prediction.mean_states
+        local_error = jax.vmap(rigid_body_local_error)(reference_states[1:], states[1:])
+        error = local_error / self.tolerances.local_state_scale
+        variance = jnp.diagonal(prediction.tangent_covariance, axis1=-2, axis2=-1)
+        delta = jnp.diff(
+            jnp.concatenate((previous_command[None, :], prediction.commands), axis=0),
+            axis=0,
+        ) / (
+            policy.command_change_fraction
+            * (self.command_maximum - self.command_minimum)
+        )
+        utilization = jax.vmap(self._robust_validity_utilization)(
+            states[1:], prediction.tangent_covariance, prediction.exogenous
+        )
+        safety = jax.vmap(self._safety_violation)(states[1:])
+        return error, variance, delta, utilization, safety
+
     def stage_cost(
         self,
         prediction: Prediction,
@@ -500,44 +520,21 @@ class BeliefPlanModel:
         features. A belief that carries no covariance contributes exactly zero
         to both, so a point model is scored by the point objective.
         """
-
-        states = prediction.mean_states
-        commands = prediction.commands
-        covariance = prediction.tangent_covariance
-        exogenous = prediction.exogenous
-        local_error = jax.vmap(rigid_body_local_error)(reference_states[1:], states[1:])
-        normalized_error = local_error / self.tolerances.local_state_scale
-        normalized_spread = jnp.sum(
-            jnp.diagonal(covariance, axis1=-2, axis2=-1)
-            / jnp.square(self.tolerances.local_state_scale),
-            axis=1,
+        error, variance, delta, utilization, safety = self._cost_components(
+            prediction, reference_states, previous_command, policy
         )
-        tracking_cost = jnp.mean(
-            jnp.sum(jnp.square(normalized_error), axis=1) + normalized_spread
+        spread = jnp.sum(
+            variance / jnp.square(self.tolerances.local_state_scale), axis=1
         )
+        tracking_cost = jnp.mean(jnp.sum(jnp.square(error), axis=1) + spread)
         terminal_cost = policy.terminal_weight * (
-            jnp.sum(jnp.square(normalized_error[-1])) + normalized_spread[-1]
+            jnp.sum(jnp.square(error[-1])) + spread[-1]
         )
-
-        command_range = self.command_maximum - self.command_minimum
-        command_delta = jnp.diff(
-            jnp.concatenate((previous_command[None, :], commands), axis=0), axis=0
-        )
-        normalized_delta = command_delta / (
-            policy.command_change_fraction * command_range
-        )
-        smoothness_cost = policy.command_change_weight * jnp.mean(
-            jnp.square(normalized_delta)
-        )
-
-        utilization = jax.vmap(self._robust_validity_utilization)(
-            states[1:], covariance, exogenous
-        )
+        smoothness_cost = policy.command_change_weight * jnp.mean(jnp.square(delta))
         validity_cost = policy.validity_weight * jnp.mean(
             jnp.square(jax.nn.relu(utilization - 1.0))
         )
-        safety_violation = jax.vmap(self._safety_violation)(states[1:])
-        safety_cost = policy.safety_weight * jnp.mean(jnp.square(safety_violation))
+        safety_cost = policy.safety_weight * jnp.mean(jnp.square(safety))
         return (
             tracking_cost
             + terminal_cost
@@ -545,6 +542,51 @@ class BeliefPlanModel:
             + validity_cost
             + safety_cost
         )
+
+    def optimization_terms(
+        self,
+        prediction: Prediction,
+        reference_states: Array,
+        previous_command: Array,
+        policy: SolverPolicy,
+    ) -> PlanTerms:
+        """Expose the same objective and uncertainty-expanded support margins.
+
+        Margins begin with mean support at the supplied initial state, followed
+        by stage-major robust support at every future state. These use the
+        existing per-feature marginal standard deviation, not a joint chance
+        constraint. The initial state cannot be repaired by optimizing future
+        commands. SafetyEnvelope limits retain their documented soft meaning.
+        Unresolved parameter directions remain unknown; a solver must honor
+        ``uncertainty_complete`` before treating these margins as actionable.
+        """
+        error, variance, delta, utilization, safety = self._cost_components(
+            prediction, reference_states, previous_command, policy
+        )
+        spread = (
+            _marginal_standard_deviation(variance) / self.tolerances.local_state_scale
+        )
+        residuals = jnp.concatenate(
+            (
+                (error / jnp.sqrt(len(error))).ravel(),
+                (spread / jnp.sqrt(len(error))).ravel(),
+                jnp.sqrt(policy.terminal_weight) * error[-1],
+                jnp.sqrt(policy.terminal_weight) * spread[-1],
+                (delta * jnp.sqrt(policy.command_change_weight / delta.size)).ravel(),
+                (
+                    jax.nn.relu(utilization - 1.0)
+                    * jnp.sqrt(policy.validity_weight / utilization.size)
+                ).ravel(),
+                (safety * jnp.sqrt(policy.safety_weight / safety.size)).ravel(),
+            )
+        )
+        initial_utilization = self._validity_utilization(
+            prediction.mean_states[0], prediction.exogenous[0]
+        )
+        margins = jnp.concatenate(
+            (1.0 - initial_utilization, (1.0 - utilization).ravel())
+        )
+        return PlanTerms(residuals, margins)
 
     def measure(self, prediction: Prediction) -> PlanMeasurements:
         """Measure the margins the result reports for one finished plan."""

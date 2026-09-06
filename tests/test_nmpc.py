@@ -20,6 +20,7 @@ from glassbox.belief.forecast_error import (
 from glassbox.belief.information import ParameterInformation
 from glassbox.control.fitted import BeliefPlanModel, NMPCController
 from glassbox.control.plan import (
+    ConstrainedLeastSquaresPlanModel,
     NMPCWarmStart,
     SafetyEnvelope,
     SolverPolicy,
@@ -748,6 +749,37 @@ def test_deadline_includes_prediction_diagnostics(
     assert result.diagnostics.solve_time_s == pytest.approx(0.031)
 
 
+@pytest.mark.parametrize(
+    "finished,usable", [(0.019, True), (0.020, False), (0.030, False)]
+)
+def test_deadline_includes_result_assembly(
+    monkeypatch, multirotor_controller, finished, usable
+):
+    controller = multirotor_controller
+    target = jnp.asarray(resting_state())
+    previous = hover_control(true_parameters())
+    reference = controller.hold_reference(target)
+    monkeypatch.setattr(
+        nmpc_solver,
+        "time",
+        SimpleNamespace(
+            perf_counter=_scripted_perf_counter(
+                (0.0, 0.001, 0.002, 0.003, 0.004, finished, finished + 0.001)
+            )
+        ),
+    )
+    result = controller.solve(target, reference, previous, deadline_s=0.020)
+    assert result.command_usable is usable
+    assert result.diagnostics.solve_time_s == pytest.approx(
+        finished if usable else finished + 0.001
+    )
+    if not usable:
+        assert result.status is SolveStatus.DEADLINE_EXCEEDED
+        assert result.message == "solver deadline expired during result assembly"
+        assert result.warm_start is None
+        np.testing.assert_allclose(result.command, previous)
+
+
 def test_forced_line_search_failure_returns_bounded_fallback(
     line_search_failure_controller: NMPCController,
 ) -> None:
@@ -1079,3 +1111,68 @@ def test_exogenous_wind_forecast_flows_through_prediction(
 
     assert result.predicted_states.shape == (controller.prediction_steps + 1, 13)
     assert np.all(np.isfinite(result.predicted_states))
+
+
+def test_plan_terms_include_initial_support_and_uncertainty(narrow_envelope_controller):
+    plan = narrow_envelope_controller.plan
+    assert isinstance(plan, ConstrainedLeastSquaresPlanModel)
+    n = plan.horizon_steps
+    state = jnp.asarray(resting_state())
+    previous = jnp.full(plan.command_size, 0.5)
+    reference = narrow_envelope_controller.hold_reference(state).states
+    prediction = plan.rollout(
+        jnp.zeros((plan.block_count, plan.command_size)),
+        state,
+        previous,
+        jnp.zeros((n, plan.exogenous_size)),
+        plan.values,
+    )._replace(mean_states=jnp.repeat(state[None, :], n + 1, axis=0))
+    envelope = plan.model.runtime_spec.validity_envelope
+    width = envelope.body_velocity_half_width_m_s[0]
+    center = envelope.body_velocity_center_m_s[0]
+    prediction = prediction._replace(
+        mean_states=prediction.mean_states.at[:, 3]
+        .set(center)
+        .at[0, 3]
+        .set(center + 1.2 * width),
+        tangent_covariance=jnp.zeros((n, 12, 12)).at[:, 3, 3].set((0.25 * width) ** 2),
+    )
+    terms = plan.optimization_terms(prediction, reference, previous, plan.policy)
+    assert terms.residuals.ndim == terms.inequality_margins.ndim == 1
+    margins = np.asarray(terms.inequality_margins).reshape(n + 1, 6)
+    assert margins[0, 0] == pytest.approx(-0.2, abs=1e-6)
+    np.testing.assert_allclose(margins[1:, 0], 0.75, atol=1e-6)
+
+
+@pytest.mark.parametrize(
+    "fixture_name", ["multirotor_controller", "fixedwing_controller"]
+)
+def test_plan_residuals_preserve_point_model_cost_and_derivative(request, fixture_name):
+    controller = request.getfixturevalue(fixture_name)
+    plan = controller.plan
+    state = jnp.asarray(resting_state())
+    previous = 0.5 * (plan.command_minimum + plan.command_maximum)
+    reference = controller.hold_reference(state).states
+
+    def costs(blocks):
+        prediction = plan.rollout(
+            blocks,
+            state,
+            plan.initial_latent(previous, plan.values),
+            jnp.zeros((plan.horizon_steps, plan.exogenous_size)),
+            plan.values,
+        )._replace(tangent_covariance=jnp.zeros((plan.horizon_steps, 12, 12)))
+        terms = plan.optimization_terms(prediction, reference, previous, plan.policy)
+        return jnp.stack(
+            (
+                plan.stage_cost(prediction, reference, previous, plan.policy),
+                terms.residuals @ terms.residuals,
+            )
+        )
+
+    blocks = jnp.zeros((plan.block_count, plan.command_size))
+    values = costs(blocks)
+    gradients = jax.jacfwd(costs)(blocks)
+    assert np.all(np.isfinite(gradients))
+    np.testing.assert_allclose(values[0], values[1], rtol=2e-6, atol=2e-6)
+    np.testing.assert_allclose(gradients[0], gradients[1], rtol=2e-5, atol=2e-5)

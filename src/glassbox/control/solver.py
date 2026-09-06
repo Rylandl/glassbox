@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import math
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import jax
 import jax.numpy as jnp
@@ -1004,6 +1004,16 @@ class BoundedShootingSolver:
                 progress,
                 "solver deadline expired during prediction diagnostics",
             )
+            result = self._solved_result(plan, outcome, progress)
+            elapsed = time.perf_counter() - progress.started_at
+            if deadline_s is not None and elapsed >= deadline_s:
+                raise _SolveAbort(
+                    SolveStatus.DEADLINE_EXCEEDED,
+                    "solver deadline expired during result assembly",
+                )
+            return replace(
+                result, diagnostics=replace(result.diagnostics, solve_time_s=elapsed)
+            )
         except _SolveAbort as abort:
             return self._failure_result(
                 abort.status,
@@ -1014,4 +1024,3 @@ class BoundedShootingSolver:
                 iterations=progress.iterations,
                 warm_start_used=progress.warm_start_used,
             )
-        return self._solved_result(plan, outcome, progress)

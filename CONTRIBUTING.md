@@ -151,18 +151,28 @@ its scenario without applying a fallback. Its SLSQP feasibility and Lagrangian
 residuals are separate from the production solver's convergence flag; it is an
 offline formulation check and is not wired into the control loop.
 
-The current SQP investigation includes the former clipping and warm-start rules
-as explicit ablations. Record it with:
+The first SQP investigation (snapshot `8a79306`) includes the former clipping
+and warm-start rules as explicit ablations. Rerun it with:
 
 ```bash
 uv run python scripts/investigate_sqp_recovery.py \
-  --output docs/investigations/sqp-recovery.json
+  --output /tmp/glassbox-sqp-recovery.json
 ```
 
-Run this timing comparison without other benchmark or test processes. It
-prewarms each controller and records complete solve times, separating the cold
-optimization from subsequent solves. Deadlines remain disabled, so the actual
-deadline-miss counts are part of the result, not a functional acceptance gate.
+The current runtime follow-up measures seed reuse, the explicit model constraint
+interface, and deadline enforcement (including a separately declared startup
+budget):
+
+```bash
+uv run python scripts/investigate_sqp_runtime.py \
+  --output docs/investigations/sqp-runtime.json
+```
+
+Run timing comparisons without other benchmark or test processes. Both
+prewarm each controller and record complete solve times, separating the cold
+optimization from subsequent solves. The first experiment disables deadlines;
+the runtime follow-up records each case's startup and subsequent deadline
+budgets and stops immediately when an unusable solve is returned.
 
 ### When to re-record
 

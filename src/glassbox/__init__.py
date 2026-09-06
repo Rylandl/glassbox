@@ -25,7 +25,9 @@ from glassbox.control.identifier import (
     RecursiveBootstrapIdentifier,
 )
 from glassbox.control.plan import (
+    ConstrainedLeastSquaresPlanModel,
     PlanModel,
+    PlanTerms,
     PlanValues,
     Prediction,
     ReferenceTrajectory,
@@ -95,7 +97,9 @@ __all__ = [  # noqa: RUF022
     # result every solve returns.
     "BoundedShootingSolver",
     "NMPCController",
+    "ConstrainedLeastSquaresPlanModel",
     "PlanModel",
+    "PlanTerms",
     "PlanValues",
     "Prediction",
     "ReferenceTrajectory",
