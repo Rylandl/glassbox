@@ -413,6 +413,12 @@ forecast does not prove that arrest commands or subsequent physical states
 remain inside that envelope. The [supervised recovery investigation](../recovery-investigation.md#supervised-recovery-and-model-support)
 records this distinction and the tested fault responses.
 
+The [NMPC-only constrained reference](../recovery-investigation.md#explicit-support-constraints-in-nmpc)
+tests a different response to this mismatch: put support constraints into the
+optimization itself. It holds the belief and envelope fixed and evaluates the
+result without a secondary recovery controller. This remains an offline
+investigation; the production solver still uses soft validity costs.
+
 The supervisor does not know how this airframe turns a desired body-axis
 differential into motor commands, and it must not assume one: an identifier
 that has not resolved the canonical mixer says so in its own report, and a

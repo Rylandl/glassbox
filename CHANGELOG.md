@@ -5,6 +5,10 @@ All notable changes to Glassbox are recorded here. The format follows
 
 ## Unreleased
 
+- Add an offline NMPC-only recovery reference with explicit mean or
+  covariance-expanded model-support constraints. Record feasibility and
+  constrained stationarity separately from the production solver's box-only
+  convergence criterion; no alternate recovery controller is introduced.
 - Require reported model support before the flight supervisor accepts a nominal
   command. The control loop forwards the utilization; direct callers must now
   supply it, and custom supervisors must accept the new keyword. Missing or

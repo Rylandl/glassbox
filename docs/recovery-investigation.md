@@ -247,12 +247,107 @@ the stale case selects collective hold, and solver refusal selects latched
 rate arrest. The slightly lower RMS in some fault cases is specific to these
 traces and does not establish that intervention improves tracking generally.
 
-The next unresolved issue is the fallback's recovery region. Its geometric
-arrest regulates tilt and rates but does not regulate lateral velocity or
-position. Before treating the original disturbance as supported, that fallback
-needs an independently evaluated operating region and a defined response when
-it cannot preserve that region. Expanding the nominal model's envelope alone
-did not resolve this failure.
+The geometric arrest regulates tilt and rates but does not regulate lateral
+velocity or position. Its recovery region remains unestablished, and expanding
+the nominal model's envelope alone did not resolve this failure. This motivates
+testing support constraints inside NMPC before developing a separate recovery
+controller.
+
+## Explicit support constraints in NMPC
+
+The formulation has a mismatch: the objective permits trading model-support
+excess against tracking cost, while the supervisor refuses the resulting plan.
+The [constrained investigation](investigations/constrained-recovery.json) tests
+whether NMPC alone can find a supported recovery under the original envelope.
+It introduces no secondary controller and makes no production solver change.
+
+```bash
+uv run python scripts/investigate_constrained_recovery.py \
+  --output docs/investigations/constrained-recovery.json
+```
+
+Each arm uses the additional-evidence belief above, its original model-support
+box, retained covariance, objective, horizon, command blocks and tracking
+tolerances. The original disturbance is identical across arms. The comparison
+changes the optimizer and adds explicit constraints in the SLSQP arms; it does
+not enlarge the envelope, reduce uncertainty or adjust penalty weights.
+
+The mean constraint requires every predicted feature utilization to remain at
+most one. The robust constraint adds the existing marginal standard-deviation
+radius for that feature, divided by its envelope half-width. This is the same
+covariance expansion the current objective already penalizes. It is a local
+uncertainty calculation, with no joint probability or invariant-set claim.
+The initial state is fixed during optimization and its support is recorded
+separately, including any violation inherited from actual preceding motion.
+
+Two optimizer contracts need different treatment for this reference:
+
+- Feasibility takes precedence over objective improvement. A feasible result
+  may cost more than an infeasible seed. Only feasible candidates compete on
+  objective; an infeasible result cannot replace an available feasible seed.
+- Stationarity includes constraint multipliers. The reference records the
+  projected Lagrangian gradient, complementarity and dual feasibility using
+  SLSQP's multipliers. The ordinary command-box gradient need not vanish at
+  a constrained optimum. Consequently the reference does not set the
+  production `CONVERGED` flag for these solves.
+
+A returned plan must satisfy its explicit constraints to the declared
+`1e-6` numerical tolerance. If neither seed nor optimizer result is feasible,
+the scenario ends before applying a command. There is no hidden hold or arrest
+path. Nominal CPU deadlines are disabled, all timings remain recorded, and
+the smaller SLSQP iteration budget is a separate diagnostic rather than an
+equal-compute comparison with projected descent.
+
+The driver supplies the last emitted command as `previous_command` and the
+current actuator state as `applied_command`, consistently in every arm. The
+preceding supervised experiment supplies the observed actuator value in both
+positions through the production loop. Its metrics are therefore background
+context; the direct comparisons here are the arms in this report.
+
+For the original disturbance, the report's `scenarios` record:
+
+| Optimizer and support treatment | Tail tracking RMS | Peak actual support utilization | Peak robust forecast utilization |
+| --- | ---: | ---: | ---: |
+| Maintained projected descent, soft cost | 0.505589 | 1.136126 | 1.259270 |
+| Offline L-BFGS-B, same soft cost | 0.234357 | 1.495204 | 1.667946 |
+| Offline SLSQP, explicit mean constraints | 0.293031 | 1.000749 | 1.049734 |
+| Offline SLSQP, explicit robust constraints | 0.294711 | 0.999870 | 1.0000005 |
+
+All four arms complete the recovery with finite states, bounded commands and
+terminal attitude and rates within the tracking tolerances. More optimization
+of the soft objective improves tracking while increasing the support excursion.
+Mean constraints nearly eliminate it, but model mismatch still produces a small
+actual exit. With the existing uncertainty radius included in the constraints,
+the tested trajectory stays inside support. Its closest approach is narrow,
+so this is evidence for that trajectory, not a qualified recovery region.
+
+The small-disturbance robust reference also completes: tail tracking RMS is
+0.012787, maximum actual utilization is 0.339054, and maximum robust forecast
+utilization is 0.358299 (`slsqp_robust_small_100`). Its commands remain bounded
+and terminal attitude and rates meet the tolerances. These results establish
+that an NMPC-only supported recovery exists in the tested formulation, without
+broadening the model domain or inserting a conventional recovery controller.
+
+This reference does not establish production readiness. The original robust
+arm's median solve consumes about 15 model intervals. Capping SLSQP at eight
+iterations returns no feasible plan on the original cold start; that scenario
+ends with zero executed intervals and a null tracking tail
+(`slsqp_robust_original_8`). This failure is specific to those seeds and that
+algorithm, rather than evidence that no feasible eight-iteration method exists.
+
+SLSQP reports success for all 120 original robust solves, but only 90 have a
+projected Lagrangian residual below the maintained `2e-3` gradient tolerance;
+the largest residual is 0.383985. Feasible recovery is the supported finding.
+The optimizer's success flag does not establish that every solve meets the
+stricter stationarity check, and the artifact retains the residuals for review.
+
+The next implementation target is constrained NMPC with feasible warm starts
+and explicit feasibility and optimality diagnostics. The current `PlanModel`
+interface exposes an objective and aggregate measurements; a constrained solver
+needs the individual inequalities and their derivatives, with candidate
+selection that preserves feasibility. Its cold-start and subsequent solve costs
+must fit the runtime budget. These experiments supply a reference for that work;
+the production soft-cost solver and its failure responses remain unchanged.
 
 ## PX4 integration defects found during validation
 

@@ -138,6 +138,18 @@ is disabled, so it measures command selection and recovery rather than real-time
 readiness. The [investigation](docs/recovery-investigation.md#supervised-recovery-and-model-support)
 describes the calibration/validation split and retained negative results.
 
+To compare NMPC alone under soft and explicit model-support constraints:
+
+```bash
+uv run python scripts/investigate_constrained_recovery.py \
+  --output docs/investigations/constrained-recovery.json
+```
+
+This reference keeps the original envelope and uncertainty. A failed solve ends
+its scenario without applying a fallback. Its SLSQP feasibility and Lagrangian
+residuals are separate from the production solver's convergence flag; it is an
+offline formulation check and is not wired into the control loop.
+
 ### When to re-record
 
 Re-record an artifact when a change to the code on its path is an intentional
