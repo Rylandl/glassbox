@@ -828,6 +828,12 @@ parity on all 26 saved requests. A broader fusion changed one floating-point
 line-search decision; its failed work-count comparison and branch trace are
 retained. The selected derivative-only path preserves trial scoring and makes
 no host speedup claim.
+The [finite-precision backtracking follow-up](fast-suffix-investigation.md#stopping-backtracking-at-finite-precision)
+preserves full-step acceptance and stops only redundant representable steps or
+selected rejected trials near objective resolution. All six paired deadline-free
+recoveries complete inside support and meet the existing terminal tolerances.
+The earlier pretrial heuristic fails two fixed-input checks and remains recorded;
+the selected option stays experimental and off by default.
 
 The [repeated identification pilot](repeated-uncertainty-calibration.md)
 separately tests uncertainty components using independent training and

@@ -219,6 +219,11 @@ The shared-rollout derivative study records compiled loop structure separately
 from numerical parity. It retains the broader fusion's failed work-count check
 and a saved-array branch trace, then verifies the narrower derivative-only path
 with strict bitwise comparisons. Compiler cost estimates are not measured speedups.
+The finite-precision follow-up separates exact representable-point exhaustion
+from a local-model stopping heuristic. It preserves a rejected pretrial design,
+tests the narrowed rule on saved requests, and then checks paired deadline-free
+recoveries. Keep fixed-input parity, evolving trajectory checks and model-call
+savings distinct when reporting its results.
 The [repeated uncertainty pilot](docs/repeated-uncertainty-calibration.md)
 has its own fixed independent identification/calibration/test design. Its saved
 beliefs and arrays support postprocessing without repeating the six fits.

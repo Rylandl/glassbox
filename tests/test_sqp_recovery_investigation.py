@@ -309,8 +309,9 @@ def test_single_seed_does_not_change_legacy_seeding(investigation, monkeypatch):
 
 
 @pytest.mark.parametrize("use_observation", [False, True])
+@pytest.mark.parametrize("precision_stopping", [False, True])
 def test_single_seed_still_rejects_a_late_linearization_at_solve_boundary(
-    investigation, small_controller, monkeypatch, use_observation
+    investigation, small_controller, monkeypatch, use_observation, precision_stopping
 ):
     from glassbox.control import solver as solver_module
 
@@ -320,6 +321,7 @@ def test_single_seed_still_rejects_a_late_linearization_at_solve_boundary(
         replace(plan.policy, allow_unresolved_parameters=True),
         reuse_single_seed=True,
         use_observed_linearization_cost=use_observation,
+        precision_stopping=precision_stopping,
     )
     clock = SimpleNamespace(now=0.0)
     monkeypatch.setattr(
@@ -907,3 +909,287 @@ def test_normal_sqp_infeasible_request_does_not_certify_fallback(
     assert not result.command_usable
     assert result.nonlinear_feasibility.status == "not_assessed"
     assert result.warm_start is None
+
+
+def precision_problem(
+    investigation,
+    monkeypatch,
+    *,
+    objective_dtype=np.float32,
+    scale=1.0,
+    margin=0.1,
+    checkpoint=True,
+    step=-0.25,
+    success=True,
+):
+    """A prepared synthetic point; expensive kernels are replaced by fixed values.
+
+    QP steps are deliberately supplied so each stopping guard can be falsified
+    independently. The unchanged line search still owns trial acceptance.
+    """
+    from glassbox.control.plan import PlanMeasurements, Prediction
+
+    solver = reference_problem(investigation)
+    solver.precision_stopping = True
+    solver._iteration_budget = 1
+    blocks = jnp.asarray([[0.5]])
+    residuals = np.asarray([np.sqrt(scale)], dtype=float)
+    derivative = (np.asarray([[[np.sqrt(scale) * 2**-26]]]), np.zeros((1, 1, 1)))
+    values = (residuals, np.asarray([margin]))
+
+    def prediction(current):
+        return (
+            Prediction(
+                jnp.ones((2, 13)),
+                jnp.zeros((1, 12, 12)),
+                current,
+                jnp.zeros((2, 1)),
+                jnp.empty((1, 0)),
+            ),
+            PlanMeasurements(0.5, 0.0, 0.0),
+            np.asarray(scale, dtype=objective_dtype),
+        )
+
+    solver._seed_derivative = derivative, values
+    solver._seed_prediction = prediction(blocks) if checkpoint else None
+    solver.linearize = lambda current, *_: (derivative, (values, prediction(current)))
+    calls = []
+
+    def evaluate(current, *_):
+        calls.append(np.asarray(current).copy())
+        return values
+
+    solver.evaluate = evaluate
+    monkeypatch.setattr(
+        investigation,
+        "quadratic_step",
+        lambda *_: (np.asarray([step]), np.ones(1), True, success),
+    )
+    arguments = (
+        blocks,
+        jnp.asarray(scale),
+        jnp.asarray([[scale * 2**-25]]),
+        None,
+        None,
+        SimpleNamespace(states=None),
+        None,
+        None,
+    )
+    return solver, arguments, calls
+
+
+@pytest.mark.parametrize("objective_dtype", [np.float32, np.float64])
+@pytest.mark.parametrize("scale", [2.0**-10, 1.0, 2.0**10])
+def test_precision_resolution_uses_objective_dtype_and_scales_with_cost(
+    investigation, monkeypatch, objective_dtype, scale
+):
+    solver, arguments, calls = precision_problem(
+        investigation, monkeypatch, objective_dtype=objective_dtype, scale=scale
+    )
+    outcome = solver._optimize_plan(*arguments)
+    stopped = objective_dtype == np.float32
+    assert (solver.reports[-1]["stop_reason"] == "model_resolution") == stopped
+    assert len(calls) == (1 if stopped else 12)
+    if stopped:
+        evidence = solver.reports[-1]["precision_stop"]
+        assert evidence["rejected_trial"] == 0
+        assert evidence["objective_dtype"] == "float32"
+        assert evidence["objective_resolution"] == float(np.spacing(np.float32(scale)))
+        assert 0 <= evidence["linear_decrease_bound"] < evidence["objective_resolution"]
+    assert not outcome.converged and outcome.stalled
+    np.testing.assert_array_equal(outcome.blocks, arguments[0])
+    assert outcome.evaluation.nonlinear_feasibility.status == "feasible"
+
+
+@pytest.mark.parametrize(
+    "guard", ["repair", "missing_checkpoint", "failed_qp", "clipped_ray", "non_descent"]
+)
+def test_model_resolution_cannot_suppress_work_when_guard_is_missing(
+    investigation, monkeypatch, guard
+):
+    solver, arguments, calls = precision_problem(
+        investigation,
+        monkeypatch,
+        # Numerically feasible within tolerance, yet requires genuine repair.
+        margin=-0.5 * investigation.FEASIBILITY_TOLERANCE if guard == "repair" else 0.1,
+        checkpoint=guard != "missing_checkpoint",
+        success=guard != "failed_qp",
+        step=-2.0
+        if guard == "clipped_ray"
+        else (0.25 if guard == "non_descent" else -0.25),
+    )
+    outcome = solver._optimize_plan(*arguments)
+    assert calls
+    assert solver.reports[-1]["stop_reason"] != "model_resolution"
+    assert not outcome.converged
+
+
+def test_model_resolution_requires_checkpoint_at_current_iterate(
+    investigation, monkeypatch
+):
+    solver, arguments, calls = precision_problem(investigation, monkeypatch)
+    solver._iteration_budget = 2
+    steps = iter((0.125, -0.125))
+    monkeypatch.setattr(
+        investigation,
+        "quadratic_step",
+        lambda *_: (np.asarray([next(steps)]), np.ones(1), True, True),
+    )
+    # The non-descent first step passes the original nonincrease Armijo test.
+    # Its equal cost leaves the older checkpoint at .5, while current is .625.
+    outcome = solver._optimize_plan(*arguments)
+    assert len(calls) >= 2
+    assert calls[0][0, 0] == 0.625
+    assert solver.reports[-1]["stop_reason"] != "model_resolution"
+    assert not outcome.converged
+
+
+def test_precision_stop_cannot_return_infeasible_seed(investigation, monkeypatch):
+    solver, arguments, calls = precision_problem(
+        investigation, monkeypatch, margin=-0.1
+    )
+    with pytest.raises(_SolveAbort, match="no feasible command plan"):
+        solver._optimize_plan(*arguments)
+    assert calls
+    assert not solver.reports[-1]["feasible"]
+    assert solver.reports[-1]["stop_reason"] != "model_resolution"
+
+
+def test_representable_stop_compares_actual_converted_input(investigation, monkeypatch):
+    with jax.enable_x64(False):
+        ulp = float(np.spacing(np.float32(0.5)))
+        solver, arguments, calls = precision_problem(
+            investigation, monkeypatch, step=0.25 * ulp
+        )
+        # Host arithmetic does move; the actual float32 evaluator input does not.
+        assert np.float64(0.5) + 0.25 * ulp != np.float64(0.5)
+        outcome = solver._optimize_plan(*arguments)
+        assert not calls
+        assert solver.reports[-1]["stop_reason"] == "representable_step"
+        assert solver.reports[-1]["precision_stop"]["trial"] == 0
+        assert not outcome.converged and outcome.stalled
+        np.testing.assert_array_equal(outcome.blocks, arguments[0])
+        assert outcome.evaluation.nonlinear_feasibility.status == "feasible"
+
+
+def test_repeated_intermediate_trial_must_continue_backtracking(
+    investigation, monkeypatch
+):
+    with jax.enable_x64(False):
+        ulp = float(np.spacing(np.float32(0.5)))
+        solver, arguments, calls = precision_problem(
+            investigation, monkeypatch, step=1.1 * ulp
+        )
+        original = solver.evaluate
+
+        def rejected(current, *context):
+            original(current, *context)
+            return np.asarray([2.0]), np.asarray([0.1])
+
+        solver.evaluate = rejected
+        outcome = solver._optimize_plan(*arguments)
+        # alpha1 and alpha1/2 map to the same non-base float32 point. Only
+        # alpha1/4 reaches the base point and permits representable stopping.
+        assert len(calls) == 2
+        np.testing.assert_array_equal(calls[0], calls[1])
+        assert calls[0][0, 0] != 0.5
+        assert solver.reports[-1]["precision_stop"]["trial"] == 2
+        assert solver.reports[-1]["stop_reason"] == "representable_step"
+        assert not outcome.converged
+
+
+def test_representable_stop_with_no_feasible_candidate_rejects(
+    investigation, monkeypatch
+):
+    with jax.enable_x64(False):
+        step = 0.25 * float(np.spacing(np.float32(0.5)))
+        solver, arguments, calls = precision_problem(
+            investigation, monkeypatch, step=step, margin=-0.1
+        )
+        with pytest.raises(_SolveAbort, match="no feasible command plan"):
+            solver._optimize_plan(*arguments)
+        assert not calls
+        assert solver.reports[-1]["stop_reason"] == "representable_step"
+        assert not solver.reports[-1]["feasible"]
+
+
+def test_precision_stopping_remains_opt_in(investigation, monkeypatch):
+    solver, arguments, calls = precision_problem(investigation, monkeypatch)
+    solver.precision_stopping = False
+    outcome = solver._optimize_plan(*arguments)
+    assert calls
+    assert not solver.reports[-1]["precision_stopping_enabled"]
+    assert solver.reports[-1]["precision_stop"] is None
+    assert not outcome.converged
+
+
+def test_unusable_qp_is_not_reclassified_as_precision_stop(investigation, monkeypatch):
+    solver, arguments, calls = precision_problem(investigation, monkeypatch)
+    monkeypatch.setattr(
+        investigation,
+        "quadratic_step",
+        lambda *_: (np.zeros(1), np.ones(1), False, False),
+    )
+    outcome = solver._optimize_plan(*arguments)
+    assert not calls
+    assert solver.reports[-1]["stop_reason"] == "quadratic_step_failed"
+    assert solver.reports[-1]["precision_stop"] is None
+    assert not outcome.converged
+
+
+def test_model_resolution_gives_successful_full_step_original_acceptance(
+    investigation, monkeypatch
+):
+    solver, arguments, calls = precision_problem(investigation, monkeypatch)
+    original = solver.evaluate
+
+    def improved(current, *context):
+        original(current, *context)
+        return np.asarray([0.5]), np.asarray([0.1])
+
+    solver.evaluate = improved
+    outcome = solver._optimize_plan(*arguments)
+    # Its GN decrease bound qualifies for the heuristic, but the checked full
+    # step actually improves the nonlinear cost and must get Armijo priority.
+    assert len(calls) == 1
+    np.testing.assert_array_equal(calls[0], [[0.25]])
+    np.testing.assert_array_equal(outcome.blocks, [[0.25]])
+    assert solver.reports[-1]["stop_reason"] == "iteration_limit"
+    assert solver.reports[-1]["precision_stop"] is None
+    assert not outcome.converged
+
+
+@pytest.mark.parametrize(
+    "trial_kind",
+    [
+        "infeasible",
+        "within_tolerance_violation",
+        "nonfinite_residual",
+        "nonfinite_margin",
+    ],
+)
+def test_model_resolution_does_not_stop_after_unqualified_rejected_trial(
+    investigation, monkeypatch, trial_kind
+):
+    solver, arguments, calls = precision_problem(investigation, monkeypatch)
+    original = solver.evaluate
+
+    def rejected(current, *context):
+        original(current, *context)
+        residual = np.nan if trial_kind == "nonfinite_residual" else 1.0
+        margin = {
+            "infeasible": -0.1,
+            "within_tolerance_violation": -0.5 * investigation.FEASIBILITY_TOLERANCE,
+            "nonfinite_residual": 0.1,
+            "nonfinite_margin": np.nan,
+        }[trial_kind]
+        return np.asarray([residual]), np.asarray([margin])
+
+    solver.evaluate = rejected
+    outcome = solver._optimize_plan(*arguments)
+    assert len(calls) == 12
+    assert solver.reports[-1]["stop_reason"] == "line_search_stalled"
+    assert solver.reports[-1]["precision_stop"] is None
+    np.testing.assert_array_equal(outcome.blocks, arguments[0])
+    assert outcome.evaluation.nonlinear_feasibility.status == "feasible"
+    assert not outcome.converged

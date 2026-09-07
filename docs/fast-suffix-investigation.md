@@ -720,3 +720,98 @@ The trace driver now resolves the actual imported source paths for that provenan
 check. Its archived executed source predates this import-resolution improvement;
 the numerical trace was not repeated after it. No new closed-loop recovery or
 timing qualification follows from the saved-request comparisons.
+
+## Stopping backtracking at finite precision
+
+`GaussNewtonReference(..., precision_stopping=True)` adds two experimental
+stopping checks. The option remains off by default and does not change Armijo
+acceptance, nonlinear feasibility tolerances, the objective or the control
+formulation. The recorded comparison uses the preceding derivative-only solver
+with single-seed reuse enabled in both arms.
+
+The exact check stops when a clipped trial, converted to the evaluator's actual
+dtype, has the same bytes as the current point. Further halving cannot leave that
+point's rounding cell. Equality with a previous trial is insufficient: later
+halving can leave that intermediate plateau, and the Armijo threshold changes
+with step fraction. Such trials still receive the existing acceptance test.
+
+The additional heuristic stops only **after a finite, feasible trial fails
+Armijo**. It requires a prepared checkpoint at the current point, no current
+constraint violation, a successful usable QP, and a full step inside the command
+box without clipping. Its nonnegative full linear predicted decrease, `-g.T p`,
+must be smaller than `spacing(checkpoint.value)` in the reported objective's
+own floating-point dtype. There is no absolute cost floor or host time threshold.
+Tests cover objective dtype and power-of-two cost scaling.
+
+For the positive-definite regularized GN model, the decrease along the remaining
+ray is bounded above by `-g.T p` for step fractions between zero and one. This is
+a statement about that local quadratic model, not a bound on nonlinear
+improvement. A useful full step still gets evaluated and may be accepted.
+Infeasible or nonfinite rejected trials keep backtracking. Either stop returns
+only an already checked feasible candidate; otherwise the solve rejects.
+Neither stop asserts constrained convergence.
+
+The first [pretrial stopping experiment](investigations/precision-stopping/report.json)
+fails two of its 26 saved-request checks. It stops before evaluating the full
+step: `cold_small_60` and `cold_small_68` retain objectives within one scalar
+increment, but their maximum returned-array differences are 3.110e-4 and
+2.518e-4, exceeding the predeclared comparison tolerance. Its planned closed-loop
+extension does not run. This result demonstrates why tiny predicted objective
+improvement alone is insufficient to discard a potentially useful trial.
+
+The narrower [backtracking comparison](investigations/precision-backtracking/report.json)
+passes all 26 fixed requests under the same numerical tolerances. All 20 requests
+without a precision stop retain bitwise outputs, objectives and equal work
+counts. Five stopped requests also return identical outputs and objectives.
+The remaining `cold_small_39` request reduces value evaluations from ten to two
+and needs no finalizer; its largest returned-array difference is 1.311e-6 and its
+objective differs by one scalar increment, 7.451e-9. Across the saved requests,
+linearizations fall from 70 to 66, value evaluations from 78 to 61, and finalizers
+from 21 to 20. All outputs receive independent nonlinear waveform checks.
+
+Both variants then complete all three deadline-free recovery scenarios: **six
+arms of 120 intervals**, all actual states inside support and all existing
+terminal full-state tolerances satisfied. The scheduled kick is reached, and
+each kick arm's preceding history matches its corresponding unperturbed arm.
+
+| Recovery case | Baseline value evaluations | Precision value evaluations | Precision stops |
+| --- | ---: | ---: | --- |
+| Original | 246 | 245 | 1 representable-step stop |
+| Small | 349 | 222 | 22 representable-step and 14 model-resolution stops |
+| Original with kick | 246 | 245 | 1 representable-step stop |
+
+The original and kick arms retain identical state, actuator and forecast arrays.
+The small case develops different request histories: maximum state and actuator
+differences are 1.889e-5 and 1.955e-5, while its maximum forecast-command
+difference is 3.553e-4. Its normalized tracking RMS ratio is 0.999960 relative
+to baseline. Closed-loop checks use support, completion and existing terminal
+tolerances; they do not require identical evolving forecasts. These counts
+establish avoided model calls, without a runtime speedup or stability claim.
+The [saved-data audit](investigations/precision-backtracking-audit.json) checks
+source and fixture hashes, request/forecast/seed identities, applied counts,
+recomputed support and recovery scores, and the matched kick histories. It
+retains the rejected pretrial design and performs no solves or refits.
+
+[Hager and Zhang's line-search analysis](https://people.clas.ufl.edu/hager/files/cg_descent.pdf)
+discusses reduced accuracy of sufficient-decrease tests near a local minimum
+and develops derivative-based approximate Wolfe conditions for smooth
+unconstrained optimization. That is a separate research path; the stopping
+heuristic here does not inherit their convergence results.
+
+The experiment archives its executed sources at baseline `ac0ff55`. Twenty-five
+additional regression cases cover dtype/scaling, checkpoint and feasibility
+guards, accepted full steps, infeasible/nonfinite trial rejection, and both
+precision settings at the common late-result boundary.
+Reproduce the selected comparison into a new directory using the existing fitted
+fixture:
+
+```sh
+uv run python scripts/investigate_precision_stopping.py \
+  --fixtures /tmp/glassbox-nmpc-fixture \
+  --records docs/investigations \
+  --output /tmp/precision-backtracking
+uv run python scripts/audit_precision_stopping.py \
+  --fixtures /tmp/glassbox-nmpc-fixture \
+  --records docs/investigations \
+  --output /tmp/precision-backtracking-audit.json
+```

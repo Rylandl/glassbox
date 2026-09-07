@@ -517,7 +517,6 @@ class GaussNewtonReference(BoundedShootingSolver):
             violation = np.maximum(-margins, 0).sum()
             merit = cost + penalty * violation
             slope = gradient_np @ step - penalty * violation
-            resolution_stop = None
             if precision_stopping:
                 current_blocks = np.asarray(jnp.asarray(vector.reshape(shape)))
                 if (
@@ -538,12 +537,14 @@ class GaussNewtonReference(BoundedShootingSolver):
                         and resolution > 0.0
                         and 0.0 <= decrease_bound < resolution
                     ):
-                        resolution_stop = {
+                        report["stop_reason"] = "model_resolution"
+                        report["precision_stop"] = {
                             "iteration": iteration + 1,
                             "objective_resolution": resolution,
                             "linear_decrease_bound": decrease_bound,
                             "objective_dtype": str(np.asarray(checkpoint.value).dtype),
                         }
+                        break
             begin = time.perf_counter()
             accepted = False
             for trial in range(12):
@@ -572,40 +573,20 @@ class GaussNewtonReference(BoundedShootingSolver):
                     for part in self.evaluate(candidate_blocks, *context)
                 )
                 next_cost = retain(candidate, next_residuals, next_margins)
-                finite_trial = all(
+                if all(
                     np.all(np.isfinite(part))
                     for part in (
                         next_residuals,
                         next_margins,
                     )
-                ) and np.isfinite(next_cost)
-                if finite_trial and next_cost + penalty * np.maximum(
+                ) and next_cost + penalty * np.maximum(
                     -next_margins, 0
                 ).sum() <= merit + 1e-4 * alpha * min(slope, 0.0):
                     vector, accepted = candidate, True
                     break
-                if (
-                    resolution_stop is not None
-                    and finite_trial
-                    and np.min(next_margins, initial=0.0) >= 0.0
-                ):
-                    # Give useful full steps the unchanged acceptance test.
-                    # Only stop backtracking after an actually checked,
-                    # feasible trial fails it; do not truncate feasibility repair.
-                    report["stop_reason"] = "model_resolution"
-                    report["precision_stop"] = {
-                        **resolution_stop,
-                        "rejected_trial": trial,
-                        "rejected_alpha": alpha,
-                    }
-                    break
             report["line_search_time_s"] += time.perf_counter() - begin
             if not accepted:
-                if report["stop_reason"] not in (
-                    "time_budget",
-                    "representable_step",
-                    "model_resolution",
-                ):
+                if report["stop_reason"] not in ("time_budget", "representable_step"):
                     report["stop_reason"] = "line_search_stalled"
                 break
         report["optimizer_elapsed_s"] = time.perf_counter() - started
