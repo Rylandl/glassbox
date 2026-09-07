@@ -308,8 +308,9 @@ def test_single_seed_does_not_change_legacy_seeding(investigation, monkeypatch):
     assert result is sentinel
 
 
+@pytest.mark.parametrize("use_observation", [False, True])
 def test_single_seed_still_rejects_a_late_linearization_at_solve_boundary(
-    investigation, small_controller, monkeypatch
+    investigation, small_controller, monkeypatch, use_observation
 ):
     from glassbox.control import solver as solver_module
 
@@ -318,6 +319,7 @@ def test_single_seed_still_rejects_a_late_linearization_at_solve_boundary(
         plan,
         replace(plan.policy, allow_unresolved_parameters=True),
         reuse_single_seed=True,
+        use_observed_linearization_cost=use_observation,
     )
     clock = SimpleNamespace(now=0.0)
     monkeypatch.setattr(
@@ -419,6 +421,223 @@ def budgeted_problem(investigation, monkeypatch, *, seed=0.7):
     solver.work_estimates = investigation.SQPWorkEstimates()
     budget = solver_module._SolveBudget(0.020)
     return solver, reference, arguments, clock, budget
+
+
+def observed_cost_problem(investigation, monkeypatch, *, scale=1.0, feasible=True):
+    """All costs are synthetic relative units, independent of execution speed."""
+    from glassbox.control.plan import PlanMeasurements, Prediction
+    from glassbox.control.solver import _SolveBudget
+
+    solver, reference, arguments, clock, _ = budgeted_problem(
+        investigation, monkeypatch, seed=0.7 if feasible else 0.0
+    )
+    monkeypatch.setattr(
+        investigation, "time", SimpleNamespace(perf_counter=lambda: clock.now)
+    )
+    solver.work_estimates = investigation.SQPWorkEstimates(
+        linearization_s=scale,
+        quadratic_step_s=0.1 * scale,
+        evaluation_s=0.1 * scale,
+        output_reserve_s=0.2 * scale,
+    )
+    solver.use_observed_linearization_cost = True
+    solver._iteration_budget = 2
+    solver._seed_linearization_time_s = 2 * scale
+    solver._seed_prediction = (
+        Prediction(
+            mean_states=jnp.ones((2, 13)),
+            tangent_covariance=jnp.zeros((1, 12, 12)),
+            commands=arguments[0],
+            latent_states=jnp.zeros((2, 1)),
+            exogenous=jnp.empty((1, 0)),
+        ),
+        PlanMeasurements(0.5, 0.0, 0.0),
+        arguments[1],
+    )
+    calls = {"linearize": 0, "quadratic": 0, "evaluate": 0}
+    linearize, evaluate = solver.linearize, solver.evaluate
+
+    def simulated_linearize(*args):
+        result = linearize(*args)
+        calls["linearize"] += 1
+        clock.now += 2 * scale
+        return result
+
+    def simulated_evaluate(*args):
+        result = evaluate(*args)
+        calls["evaluate"] += 1
+        clock.now += 0.1 * scale
+        return result
+
+    def simulated_quadratic(*args):
+        calls["quadratic"] += 1
+        clock.now += 0.1 * scale
+        # A no-op preserves a feasible seed. The infeasible case improves its
+        # merit but remains outside support, so no candidate can be retained.
+        return (
+            np.zeros_like(args[-1]) + (0.0 if feasible else 0.1),
+            np.ones(1),
+            True,
+            True,
+        )
+
+    solver.linearize, solver.evaluate = simulated_linearize, simulated_evaluate
+    monkeypatch.setattr(investigation, "quadratic_step", simulated_quadratic)
+    clock.now = 2 * scale  # The measured seed work has already completed.
+    return solver, reference, arguments, clock, _SolveBudget(3.5 * scale), calls
+
+
+@pytest.mark.parametrize("scale", [0.001, 1.0, 17.0])
+@pytest.mark.parametrize("feasible", [False, True])
+@pytest.mark.parametrize("enabled", [False, True])
+def test_observed_cost_controls_only_subsequent_linearization(
+    investigation, monkeypatch, scale, feasible, enabled
+):
+    solver, reference, arguments, clock, budget, calls = observed_cost_problem(
+        investigation, monkeypatch, scale=scale, feasible=feasible
+    )
+    solver.use_observed_linearization_cost = enabled
+    configured = solver.work_estimates
+    if feasible:
+        outcome = solver._optimize_plan(
+            *arguments, None, None, reference, None, None, budget=budget
+        )
+        assert outcome.evaluation.nonlinear_feasibility.status == "feasible"
+        np.testing.assert_array_equal(outcome.blocks, arguments[0])
+        assert solver.reports[-1]["output_source"] == "linearization_checkpoint"
+    else:
+        with pytest.raises(_SolveAbort, match="before finding a feasible plan"):
+            solver._optimize_plan(
+                *arguments, None, None, reference, None, None, budget=budget
+            )
+        assert not solver.reports[-1]["feasible"]
+    assert calls == {"linearize": 0 if enabled else 1, "quadratic": 1, "evaluate": 1}
+    assert (clock.now < budget.deadline_at) == enabled
+    assert solver.work_estimates is configured
+    assert configured.linearization_s == scale
+    assert configured.output_reserve_s == 0.2 * scale
+    report = solver.reports[-1]
+    assert report["observed_linearization_floor_applied"] == enabled
+    assert report["linearization_admission_estimate_s"] == (2 if enabled else 1) * scale
+    assert report["stop_reason"] == "time_budget"
+    assert solver._seed_derivative is None and solver._seed_prediction is None
+
+
+@pytest.mark.parametrize(
+    "mode", ["no_budget", "no_deadline", "no_estimates", "no_cache"]
+)
+def test_observed_cost_requires_current_seed_and_explicit_budget(
+    investigation, monkeypatch, mode
+):
+    from glassbox.control.solver import _SolveBudget
+
+    solver, reference, arguments, _, budget, calls = observed_cost_problem(
+        investigation, monkeypatch
+    )
+    if mode == "no_budget":
+        budget = None
+    elif mode == "no_deadline":
+        budget = _SolveBudget(None)
+    elif mode == "no_estimates":
+        solver.work_estimates = None
+    else:
+        solver._seed_derivative = solver._seed_prediction = None
+    if mode == "no_cache":
+        with pytest.raises(_SolveAbort, match="insufficient SQP output budget"):
+            solver._optimize_plan(
+                *arguments, None, None, reference, None, None, budget=budget
+            )
+    else:
+        solver._optimize_plan(
+            *arguments, None, None, reference, None, None, budget=budget
+        )
+    assert calls["linearize"] >= 1
+    assert not solver.reports[-1]["observed_linearization_floor_applied"]
+    assert solver.reports[-1]["linearization_admission_estimate_s"] == (
+        1.0 if mode == "no_cache" else None
+    )
+
+
+@pytest.mark.parametrize("duration", [0.0, -1.0, float("nan"), float("inf"), 0.5])
+def test_invalid_or_short_measurement_cannot_lower_configured_cost(
+    investigation, monkeypatch, duration
+):
+    solver, reference, arguments, _, budget, calls = observed_cost_problem(
+        investigation, monkeypatch
+    )
+    solver._seed_linearization_time_s = duration
+    solver._optimize_plan(*arguments, None, None, reference, None, None, budget=budget)
+    assert calls["linearize"] == 1
+    assert solver.reports[-1]["linearization_admission_estimate_s"] == 1.0
+    assert not solver.reports[-1]["observed_linearization_floor_applied"]
+
+
+def test_next_request_uses_its_own_measurement(investigation, monkeypatch):
+    from glassbox.control.solver import _SolveBudget
+
+    solver, reference, arguments, clock, budget, _ = observed_cost_problem(
+        investigation, monkeypatch
+    )
+    solver._optimize_plan(*arguments, None, None, reference, None, None, budget=budget)
+    assert solver.reports[-1]["observed_linearization_floor_applied"]
+    # A later request's faster linearization replaces the old observation.
+    old = solver.linearize
+
+    def faster(*args):
+        before = clock.now
+        result = old(*args)
+        clock.now = before + 0.5
+        return result
+
+    solver.linearize = faster
+    solver.reuse_single_seed = True
+    arguments = solver._seed_plan(
+        jnp.ones((1, 1)) * 0.7, None, None, None, reference, None, None
+    )[:3]
+    assert solver._seed_linearization_time_s == pytest.approx(0.5)
+    solver._optimize_plan(
+        *arguments,
+        None,
+        None,
+        reference,
+        None,
+        None,
+        budget=_SolveBudget(clock.now + 1.5),
+    )
+    assert not solver.reports[-1]["observed_linearization_floor_applied"]
+    assert solver.reports[-1]["linearization_admission_estimate_s"] == 1.0
+
+
+def test_observed_seed_duration_includes_materialization(investigation, monkeypatch):
+    solver = reference_problem(investigation)
+    solver.reuse_single_seed = True
+    clock = SimpleNamespace(now=0.0)
+    monkeypatch.setattr(
+        investigation, "time", SimpleNamespace(perf_counter=lambda: clock.now)
+    )
+
+    class DeferredArray:
+        def __init__(self, value):
+            self.value = value
+
+        def __array__(self, dtype=None, copy=None):
+            clock.now += 0.5
+            return np.asarray(self.value, dtype=dtype)
+
+    def linearize(*_):
+        clock.now += 0.25
+        return (
+            (DeferredArray(np.ones((1, 1, 1))), DeferredArray(np.zeros((1, 1, 1)))),
+            ((DeferredArray(np.ones(1)), DeferredArray(np.ones(1))), None),
+        )
+
+    solver.linearize = linearize
+    solver._seed_plan(
+        jnp.ones((1, 1)), None, None, None, SimpleNamespace(states=None), None, None
+    )
+    assert (
+        solver._seed_linearization_time_s == 2.25
+    )  # Dispatch + four materializations.
 
 
 def test_time_budget_returns_a_checked_seed_without_starting_another_step(

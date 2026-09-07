@@ -585,11 +585,47 @@ uv run python scripts/audit_single_seed.py \
   --output /tmp/single-seed-reuse-audit.json
 ```
 
-The next bounded admission experiment should use the current request's measured
-seed-linearization duration as a floor on the configured estimate before starting
-another linearization. If that work no longer fits, an already prepared feasible
-candidate can be returned; without one, the request must reject. This would react
-to observed cost within the request, while retaining the existing reserve and
-final elapsed-time checks. It cannot rescue an already late seed or guarantee
-future execution time. No change to the control formulation follows from these
-timing results.
+## Request-local work admission
+
+`GaussNewtonReference(..., use_observed_linearization_cost=True)` now uses the
+larger of the configured linearization estimate and the current seed's measured
+linearization duration before starting another linearization. The measurement
+includes completed array materialization. This option is off by default and
+applies only when work estimates and an explicit deadline are both supplied.
+It neither changes the configured estimates nor carries observations into later
+requests. Missing, nonfinite or nonpositive measurements cannot raise the floor.
+
+The first optimizer round can still use the seed's cached derivative. Quadratic
+step and value-evaluation admission, output reserve, nonlinear feasibility checks
+and final elapsed-time rejection retain their existing behavior. If another
+linearization no longer fits, a prepared feasible candidate can be returned;
+without one, the request must reject. This scheduling hint cannot rescue an
+already late seed or guarantee future execution time.
+
+Deterministic tests use simulated costs at three time scales to check admission,
+feasible checkpoint retention and explicit rejection. They also check request
+reset, invalid measurements, materialization accounting and disabled modes.
+These are scheduling contract tests with no dependency on machine speed.
+The [deadline-free verification](investigations/observed-admission-parity/report.json)
+replays the preceding comparison's 26 saved requests with the option off and on.
+All pass bitwise returned-array parity and equal objective, feasibility, status
+and work counts. Both outputs receive independent nonlinear waveform checks.
+The floor stays inactive throughout because these solves have no deadline.
+
+The verification archives its executed sources at baseline `7c6e88a`. Reproduce
+it using the existing fitted fixture, without a timing acceptance criterion:
+
+```sh
+uv run python scripts/verify_observed_admission.py \
+  --fixtures /tmp/glassbox-nmpc-fixture \
+  --records docs/investigations \
+  --output /tmp/observed-admission-parity
+```
+
+No new host timing study accompanies this option. Earlier deadline outcomes are
+observations under their recorded budgets and host conditions, not portable
+requirements on the model or optimization formulation. Application-specific
+budgets remain a deployment choice. Further performance work should target
+computational cost and repeated work, with numerical correctness assessed
+separately from hardware timing. This change makes no speedup or timed-recovery
+claim and leaves the control formulation unchanged.

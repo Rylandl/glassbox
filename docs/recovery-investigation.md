@@ -816,9 +816,12 @@ variability and the margin available for repair remain unresolved. The costly
 reference solve remains evidence of repairability, not a deployable second controller.
 The [single-seed reuse comparison](fast-suffix-investigation.md#reusing-a-single-seeds-linearization-values)
 removes one redundant rollout evaluation with bitwise parity on 26 saved requests.
-Paired acceptance improves, but all six timed cold-start arms stop. Measured work
-costs exceed the configured admission estimate, so the next runtime question is
-whether request-local observations can prevent starting work that no longer fits.
+Paired acceptance improves, but all six timed cold-start arms stop. The opt-in
+[request-local admission hint](fast-suffix-investigation.md#request-local-work-admission)
+now uses observed seed cost before starting another linearization. Simulated-clock
+tests check its scheduling decisions, and 26 deadline-free requests retain bitwise
+output parity. No new host timing gate accompanies it; numerical correctness and
+hardware-specific deadline observations remain separate evidence.
 
 The [repeated identification pilot](repeated-uncertainty-calibration.md)
 separately tests uncertainty components using independent training and

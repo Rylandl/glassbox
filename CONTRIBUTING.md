@@ -212,6 +212,9 @@ The single-seed reuse comparison gates paired timings on saved-request numerical
 parity, retains competing-seed selection, and separately records cold-start
 outcomes. The optimization remains opt-in; faster seed preparation alone does not
 establish timed recovery.
+The opt-in observed-cost admission hint uses deterministic simulated-clock tests
+and a separate deadline-free parity verifier. Host-specific timing observations
+are optional performance evidence, not portable numerical-correctness gates.
 The [repeated uncertainty pilot](docs/repeated-uncertainty-calibration.md)
 has its own fixed independent identification/calibration/test design. Its saved
 beliefs and arrays support postprocessing without repeating the six fits.
