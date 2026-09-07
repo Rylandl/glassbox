@@ -921,6 +921,7 @@ def test_deadline_includes_result_assembly(
     )
     result = controller.solve(target, reference, previous, deadline_s=0.020)
     assert result.command_usable is usable
+    assert result.deadline_met is usable
     assert result.diagnostics.solve_time_s == pytest.approx(
         finished if usable else finished + 0.001
     )
@@ -1329,7 +1330,7 @@ def test_plan_residuals_preserve_point_model_cost_and_derivative(request, fixtur
     np.testing.assert_allclose(gradients[0], gradients[1], rtol=2e-5, atol=2e-5)
 
 
-@pytest.mark.parametrize("corruption", [None, "states", "commands"])
+@pytest.mark.parametrize("corruption", [None, "states", "commands", "late"])
 def test_optimizer_prediction_reuse_keeps_common_output_checks(
     monkeypatch, multirotor_controller, corruption
 ):
@@ -1363,6 +1364,14 @@ def test_optimizer_prediction_reuse_keeps_common_output_checks(
         plan = evaluate(
             outcome.blocks, state, latent, exogenous, outcome.value, outcome.gradient
         )
+        from glassbox.control.plan import NonlinearFeasibility
+
+        plan = replace(
+            plan,
+            nonlinear_feasibility=NonlinearFeasibility.from_margins(
+                jnp.asarray([0.2, -1e-7]), tolerance=1e-6
+            ),
+        )
         if corruption == "states":
             plan = replace(plan, states_np=np.full_like(plan.states_np, np.nan))
         elif corruption == "commands":
@@ -1377,16 +1386,104 @@ def test_optimizer_prediction_reuse_keeps_common_output_checks(
     )
     state = jnp.asarray(resting_state())
     previous = hover_control(true_parameters())
-    result = solver.solve(state, solver.hold_reference(state), previous)
+    if corruption == "late":
+        monkeypatch.setattr(
+            nmpc_solver,
+            "time",
+            SimpleNamespace(
+                perf_counter=_scripted_perf_counter(
+                    (0.0, 0.001, 0.002, 0.003, 0.004, 0.030, 0.031)
+                )
+            ),
+        )
+    result = solver.solve(
+        state,
+        solver.hold_reference(state),
+        previous,
+        deadline_s=0.020 if corruption == "late" else None,
+    )
     if corruption is None:
         assert result.command_usable
         assert np.all(np.isfinite(result.predicted_states))
+        assert result.nonlinear_feasibility.status == "feasible"
     else:
         assert not result.command_usable
+        assert result.nonlinear_feasibility.status == "not_assessed"
         assert result.status is (
             SolveStatus.NONFINITE_OBJECTIVE
             if corruption == "states"
+            else SolveStatus.DEADLINE_EXCEEDED
+            if corruption == "late"
             else SolveStatus.COMMAND_BOUND_VIOLATION
         )
         np.testing.assert_allclose(result.command, previous)
         assert result.warm_start is None
+
+
+@pytest.mark.parametrize("deadline", [None, 0.0, -1.0, float("nan"), float("inf")])
+def test_invalid_or_missing_deadline_is_not_assessed(multirotor_controller, deadline):
+    state = jnp.asarray(resting_state())
+    previous = hover_control(true_parameters())
+    result = multirotor_controller.solve(
+        state,
+        multirotor_controller.hold_reference(state),
+        previous,
+        deadline_s=deadline,
+    )
+    assert result.deadline_met is None
+    assert result.nonlinear_feasibility.status == "not_assessed"
+
+
+def test_early_invalid_input_can_meet_deadline_without_usable_command(
+    monkeypatch, multirotor_controller
+):
+    monkeypatch.setattr(
+        nmpc_solver,
+        "time",
+        SimpleNamespace(perf_counter=_scripted_perf_counter((0.0, 0.001))),
+    )
+    state = jnp.asarray(resting_state())
+    result = multirotor_controller.solve(
+        state.at[0].set(jnp.nan),
+        multirotor_controller.hold_reference(state),
+        hover_control(true_parameters()),
+        deadline_s=0.020,
+    )
+    assert result.deadline_met is True
+    assert not result.command_usable
+    assert result.nonlinear_feasibility.status == "not_assessed"
+
+
+def test_shift_audit_preserves_old_joint_sensitivity_and_separates_reset(
+    multirotor_controller_four_step, monkeypatch
+):
+    monkeypatch.syspath_prepend(str(Path(__file__).parents[1] / "scripts"))
+    audit = importlib.import_module("audit_shift_uncertainty")
+    plan = multirotor_controller_four_step.plan
+    size = len(structured_parameter_vector(plan.values.parameters))
+    values = plan.values._replace(
+        covariance_factor=0.02 * jnp.eye(size),
+        forecast_error_covariance=jnp.arange(1, 5)[:, None, None] * 0.001 * jnp.eye(12),
+    )
+    plan = replace(plan, values=values)
+    report = audit.audit_plan_shift(
+        plan,
+        jnp.asarray(
+            [
+                [0.3, 0.4, 0.5, 0.6],
+                [0.6, 0.5, 0.4, 0.3],
+                [0.2, 0.7, 0.6, 0.5],
+                [0.7, 0.2, 0.5, 0.6],
+            ]
+        ),
+        jnp.asarray(resting_state()).at[10].set(0.2),
+        jnp.full(4, 0.45),
+    )
+    assert report["mean_matching_endpoint_max_abs_error"] < 1e-6
+    assert report["joint_chain_covariance_max_abs_error"] < 1e-6
+    assert report["sensitivity_additivity_max_abs_error"] < 1e-6
+    assert report["state_carried_sensitivity_norm"] > 1e-6
+    assert report["actuator_carried_sensitivity_norm"] > 1e-6
+    assert report["empirical_covariance_reset_minus_old_eigenvalue_extrema"][1] < 0.0
+    assert report["scalar_probes"]["old_joint_variance"] == 0.0
+    assert report["scalar_probes"]["reset_fixed_parameter_variance"] == 1.0

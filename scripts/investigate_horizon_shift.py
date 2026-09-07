@@ -169,11 +169,14 @@ class MovingBlockSolver(BoundedShootingSolver):
         if deadline is not None and np.isfinite(deadline) and deadline > 0:
             deadline -= time.perf_counter() - started
             if deadline <= 0:
-                return solver._failure_result(
-                    SolveStatus.DEADLINE_EXCEEDED,
-                    "deadline expired during block-phase selection",
-                    previous_command,
-                    started,
+                return replace(
+                    solver._failure_result(
+                        SolveStatus.DEADLINE_EXCEEDED,
+                        "deadline expired during block-phase selection",
+                        previous_command,
+                        started,
+                    ),
+                    deadline_met=False,
                 )
         before = len(self.reports)
         result = solver.solve(
@@ -196,14 +199,23 @@ class MovingBlockSolver(BoundedShootingSolver):
             )
         elapsed = time.perf_counter() - started
         if result.command_usable and deadline_s is not None and elapsed >= deadline_s:
-            return solver._failure_result(
-                SolveStatus.DEADLINE_EXCEEDED,
-                "deadline expired during block-phase result assembly",
-                previous_command,
-                started,
+            return replace(
+                solver._failure_result(
+                    SolveStatus.DEADLINE_EXCEEDED,
+                    "deadline expired during block-phase result assembly",
+                    previous_command,
+                    started,
+                ),
+                deadline_met=False,
             )
         return replace(
-            result, diagnostics=replace(result.diagnostics, solve_time_s=elapsed)
+            result,
+            diagnostics=replace(result.diagnostics, solve_time_s=elapsed),
+            deadline_met=(
+                None
+                if deadline_s is None or not np.isfinite(deadline_s) or deadline_s <= 0
+                else elapsed < deadline_s
+            ),
         )
 
 

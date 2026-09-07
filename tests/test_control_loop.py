@@ -12,6 +12,7 @@ import pytest
 from glassbox.control.plan import (
     NMPCDiagnostics,
     NMPCWarmStart,
+    NonlinearFeasibility,
     ReferenceTrajectory,
     SolveResult,
     SolveStatus,
@@ -475,11 +476,56 @@ def test_every_interval_record_is_json_and_carries_the_solver_outcome() -> None:
     assert first["command"] == pytest.approx([0.5] * 4)
     assert first["supervisor"] == {"mode": "collective_hold"}
     assert first["solve_time_s"] == pytest.approx(0.001)
+    assert first["nonlinear_feasibility"] == {
+        "status": "not_assessed",
+        "constraint_count": None,
+        "maximum_violation": None,
+        "tolerance": None,
+    }
+    assert first["deadline_met"] is None
     # A margin that no evidence bounds is written as null rather than infinity.
     assert (
         first["diagnostics"]["maximum_normalized_model_uncertainty_standard_deviation"]
         is None
     )
+
+
+@pytest.mark.parametrize(
+    "margins,expected_status,expected_violation",
+    [
+        ([0.1, -0.0000005], "feasible", 0.0000005),
+        ([0.1, -0.2], "infeasible", 0.2),
+        ([math.nan], "infeasible", None),
+    ],
+)
+def test_interval_log_separates_feasibility_from_optimizer_and_deadline(
+    margins,
+    expected_status,
+    expected_violation,
+):
+    result = replace(
+        solve_result(np.full(4, 0.5), status=SolveStatus.STALLED),
+        nonlinear_feasibility=NonlinearFeasibility.from_margins(
+            np.asarray(margins), tolerance=1e-6
+        ),
+        deadline_met=True,
+    )
+    sample = LoopSample(
+        step=0,
+        observation=FakeLink().read(timeout_s=INTERVAL_S),
+        result=result,
+        command=result.command,
+        written=False,
+    )
+    record = json.loads(json.dumps(sample.to_dict(), allow_nan=False))
+    assert record["status"] == "stalled"
+    assert record["deadline_met"] is True
+    assert record["nonlinear_feasibility"] == {
+        "status": expected_status,
+        "constraint_count": len(margins),
+        "maximum_violation": expected_violation,
+        "tolerance": 1e-6,
+    }
 
 
 def test_the_loop_refuses_a_controller_without_a_usable_interval() -> None:

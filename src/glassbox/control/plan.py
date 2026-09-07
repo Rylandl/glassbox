@@ -276,6 +276,55 @@ class NMPCDiagnostics:
 
 
 @dataclass(frozen=True)
+class NonlinearFeasibility:
+    """Host assessment of the returned prediction's declared inequalities.
+
+    ``None`` measurements mean not assessed, never certified. A finite maximum
+    violation at or below tolerance means numerically feasible for these
+    margins only; it says nothing about optimizer stationarity or deadlines.
+    Empty margins are assessed as feasible with zero constraints. Nonfinite
+    margins fail assessment with infinite violation. This host record is not a
+    JAX pytree and does not change the model's compiled terms or cache key.
+    """
+
+    constraint_count: int | None = None
+    maximum_violation: float | None = None
+    tolerance: float | None = None
+
+    def __post_init__(self) -> None:
+        fields = (self.constraint_count, self.maximum_violation, self.tolerance)
+        if all(value is None for value in fields):
+            return
+        if any(value is None for value in fields):
+            raise ValueError("feasibility measurements must be provided together")
+        if not isinstance(self.constraint_count, int) or self.constraint_count < 0:
+            raise ValueError("constraint_count must be a nonnegative integer")
+        if np.isnan(self.maximum_violation) or self.maximum_violation < 0:
+            raise ValueError("maximum_violation must be nonnegative")
+        if not np.isfinite(self.tolerance) or self.tolerance < 0:
+            raise ValueError("tolerance must be finite and nonnegative")
+
+    @classmethod
+    def from_margins(cls, margins: Array, *, tolerance: float) -> NonlinearFeasibility:
+        """Materialize the signed ``margin >= 0`` checks for one exact plan."""
+        margins = np.asarray(margins)
+        if margins.ndim != 1:
+            raise ValueError("inequality margins must be one dimensional")
+        violation = (
+            float(max(-np.min(margins, initial=0.0), 0.0))
+            if np.all(np.isfinite(margins))
+            else math.inf
+        )
+        return cls(int(margins.size), violation, tolerance)
+
+    @property
+    def status(self) -> str:
+        if self.maximum_violation is None:
+            return "not_assessed"
+        return "feasible" if self.maximum_violation <= self.tolerance else "infeasible"
+
+
+@dataclass(frozen=True)
 class SolveResult:
     """Command, prediction, warm start, and explicit solver outcome."""
 
@@ -288,6 +337,9 @@ class SolveResult:
     diagnostics: NMPCDiagnostics
     used_fallback: bool
     message: str
+    nonlinear_feasibility: NonlinearFeasibility = NonlinearFeasibility()
+    # Host boundary observation only; None means no deadline was assessed.
+    deadline_met: bool | None = None
 
     @property
     def command_usable(self) -> bool:
@@ -298,6 +350,8 @@ class SolveResult:
         same usability as ``ITERATION_LIMIT``: it reports that optimization
         stopped early, not that the command is a fallback. Only the explicit
         failure statuses set ``used_fallback`` and make the command a hold.
+        Usability does not assert nonlinear feasibility or constrained KKT
+        convergence; inspect the independent assessment and status.
         """
 
         return not self.used_fallback

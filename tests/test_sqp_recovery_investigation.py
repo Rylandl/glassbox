@@ -1,6 +1,7 @@
 """Check the arithmetic and feasibility contracts of the SQP experiment."""
 
 import importlib
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -474,6 +475,8 @@ def test_prepared_checkpoint_needs_no_final_kernel_when_output_time_runs_short(
             *arguments, None, None, reference, None, None, budget=budget
         )
         assert outcome.evaluation is not None
+        assert outcome.evaluation.nonlinear_feasibility.status == "feasible"
+        assert outcome.evaluation.nonlinear_feasibility.constraint_count == 1
         np.testing.assert_allclose(outcome.blocks, [[0.7]])
         np.testing.assert_allclose(outcome.gradient, [[1.4]])
         assert solver.reports[-1]["output_source"] == "linearization_checkpoint"
@@ -484,3 +487,54 @@ def test_prepared_checkpoint_needs_no_final_kernel_when_output_time_runs_short(
             solver._optimize_plan(
                 *arguments, None, None, reference, None, None, budget=budget
             )
+
+
+@pytest.mark.parametrize("prepared", [True, False])
+def test_normal_sqp_result_exposes_only_returned_prediction_feasibility(
+    investigation, small_controller, prepared
+):
+    from glassbox.control.plan import SolveStatus
+
+    plan = small_controller.plan
+    solver = investigation.GaussNewtonReference(
+        plan,
+        replace(plan.policy, allow_unresolved_parameters=True),
+        prepared_checkpoints=prepared,
+    )
+    state = jnp.asarray(resting_state())
+    previous = jnp.full(4, 0.5)
+    reference = small_controller.hold_reference(state)
+    result = solver.solve(state, reference, previous, applied_command=previous)
+    assert result.command_usable
+    assert result.status is SolveStatus.STALLED
+    assert result.deadline_met is None
+    assessment = result.nonlinear_feasibility
+    assert assessment.status == "feasible"
+    blocks = solver._normalized_from_commands(result.predicted_commands)
+    prediction = plan.rollout(blocks, state, previous, jnp.empty((2, 0)), plan.values)
+    margins = np.asarray(
+        plan.optimization_terms(
+            prediction, reference.states, previous, plan.policy
+        ).inequality_margins
+    )
+    assert assessment.constraint_count == margins.size
+    assert assessment.maximum_violation == pytest.approx(
+        max(-np.min(margins), 0.0), abs=1e-7
+    )
+    np.testing.assert_allclose(prediction.mean_states, result.predicted_states)
+    np.testing.assert_array_equal(result.warm_start.commands, result.predicted_commands)
+
+
+def test_normal_sqp_infeasible_request_does_not_certify_fallback(
+    investigation, small_controller
+):
+    plan = small_controller.plan
+    solver = investigation.GaussNewtonReference(
+        plan, replace(plan.policy, allow_unresolved_parameters=True)
+    )
+    state = jnp.asarray(resting_state()).at[3].set(1.0)
+    previous = jnp.full(4, 0.5)
+    result = solver.solve(state, small_controller.hold_reference(state), previous)
+    assert not result.command_usable
+    assert result.nonlinear_feasibility.status == "not_assessed"
+    assert result.warm_start is None

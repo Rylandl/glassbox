@@ -92,6 +92,8 @@ class Result:
     warm_start: object = None
     diagnostics: Diagnostics = Diagnostics()
     command_usable: bool = True
+    deadline_met: bool | None = None
+    status: object = None
 
 
 def fake_dispatcher(investigation):
@@ -107,7 +109,12 @@ def fake_dispatcher(investigation):
             dispatcher.reports.append({})
             return Result(jnp.ones((6, 2)))
 
-        return SimpleNamespace(solve=solve, _failure_result=lambda *args: args)
+        return SimpleNamespace(
+            solve=solve,
+            _failure_result=lambda status, *_: Result(
+                None, command_usable=False, status=status
+            ),
+        )
 
     dispatcher.solvers = [make_solver(phase) for phase in range(3)]
     return dispatcher, calls
@@ -146,9 +153,11 @@ def test_phase_result_assembly_is_included_in_deadline(
     assert calls[0][1]["deadline_s"] == pytest.approx(0.019)
     if usable:
         assert result.command_usable
+        assert result.deadline_met is True
         assert result.diagnostics.solve_time_s == elapsed
     else:
-        assert result[0] == investigation.SolveStatus.DEADLINE_EXCEEDED
+        assert result.status == investigation.SolveStatus.DEADLINE_EXCEEDED
+        assert result.deadline_met is False
 
 
 def test_expired_phase_selection_does_not_start_an_inner_solve(
@@ -161,4 +170,5 @@ def test_expired_phase_selection_does_not_start_an_inner_solve(
     )
     result = dispatcher.solve(None, None, jnp.ones(2), deadline_s=0.02)
     assert not calls
-    assert result[0] == investigation.SolveStatus.DEADLINE_EXCEEDED
+    assert result.status == investigation.SolveStatus.DEADLINE_EXCEEDED
+    assert result.deadline_met is False

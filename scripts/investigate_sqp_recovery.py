@@ -29,7 +29,11 @@ from glassbox.control.fitted import (
     BeliefPlanModel,
     NMPCController,
 )
-from glassbox.control.plan import ConstrainedLeastSquaresPlanModel, SolveStatus
+from glassbox.control.plan import (
+    ConstrainedLeastSquaresPlanModel,
+    NonlinearFeasibility,
+    SolveStatus,
+)
 from glassbox.control.solver import (
     BoundedShootingSolver,
     _OptimizerOutcome,
@@ -367,6 +371,9 @@ class GaussNewtonReference(BoundedShootingSolver):
                     jnp.asarray(gradient_np.reshape(shape)),
                     prediction[0],
                     prediction[1],
+                    NonlinearFeasibility.from_margins(
+                        margins, tolerance=FEASIBILITY_TOLERANCE
+                    ),
                 )
                 if plan.prediction_finite and np.all(np.isfinite(gradient_np)):
                     checkpoint = plan
@@ -543,7 +550,14 @@ class GaussNewtonReference(BoundedShootingSolver):
                     "final SQP prediction is not feasible",
                 )
             evaluation = _PlanEvaluation.from_prediction(
-                output_blocks, final_value, final_gradient, prediction, measurements
+                output_blocks,
+                final_value,
+                final_gradient,
+                prediction,
+                measurements,
+                NonlinearFeasibility.from_margins(
+                    margins, tolerance=FEASIBILITY_TOLERANCE
+                ),
             )
         else:
             final_value, final_gradient = self._kernels.objective_and_gradient(

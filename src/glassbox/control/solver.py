@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import math
 import time
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 
 import jax
 import jax.numpy as jnp
@@ -19,6 +19,7 @@ from jax import Array
 from glassbox.control.plan import (
     NMPCDiagnostics,
     NMPCWarmStart,
+    NonlinearFeasibility,
     PlanMeasurements,
     PlanModel,
     PlanValues,
@@ -65,6 +66,9 @@ class _PlanEvaluation:
     states_np: np.ndarray
     latent_np: np.ndarray
     commands_np: np.ndarray
+    nonlinear_feasibility: NonlinearFeasibility = field(
+        default_factory=NonlinearFeasibility
+    )
 
     @classmethod
     def from_prediction(
@@ -74,12 +78,14 @@ class _PlanEvaluation:
         gradient: Array,
         prediction: Prediction,
         measurements: PlanMeasurements,
+        nonlinear_feasibility: NonlinearFeasibility | None = None,
     ) -> _PlanEvaluation:
         """Materialize diagnostics without repeating an existing rollout."""
         return cls(
             blocks=blocks,
             value=value,
             gradient=gradient,
+            nonlinear_feasibility=nonlinear_feasibility or NonlinearFeasibility(),
             value_float=float(np.asarray(value)),
             projected_gradient_inf_norm=float(
                 np.asarray(_projected_gradient_norm(blocks, gradient))
@@ -926,6 +932,7 @@ class BoundedShootingSolver:
                 unresolved_parameters_allowed=self.policy.allow_unresolved_parameters,
             ),
             used_fallback=False,
+            nonlinear_feasibility=plan.nonlinear_feasibility,
             message=(
                 "first-order convergence criterion satisfied"
                 if outcome.converged
@@ -1048,7 +1055,10 @@ class BoundedShootingSolver:
                 progress,
                 "solver deadline expired during prediction diagnostics",
             )
-            result = self._solved_result(plan, outcome, progress)
+            result = replace(
+                self._solved_result(plan, outcome, progress),
+                deadline_met=True if deadline_s is not None else None,
+            )
             elapsed = time.perf_counter() - progress.started_at
             if deadline_s is not None and elapsed >= deadline_s:
                 raise _SolveAbort(
@@ -1056,10 +1066,11 @@ class BoundedShootingSolver:
                     "solver deadline expired during result assembly",
                 )
             return replace(
-                result, diagnostics=replace(result.diagnostics, solve_time_s=elapsed)
+                result,
+                diagnostics=replace(result.diagnostics, solve_time_s=elapsed),
             )
         except _SolveAbort as abort:
-            return self._failure_result(
+            result = self._failure_result(
                 abort.status,
                 abort.message,
                 progress.previous_command,
@@ -1067,4 +1078,14 @@ class BoundedShootingSolver:
                 initial_objective=progress.initial_objective,
                 iterations=progress.iterations,
                 warm_start_used=progress.warm_start_used,
+            )
+            return replace(
+                result,
+                deadline_met=(
+                    None
+                    if deadline_s is None
+                    or not np.isfinite(deadline_s)
+                    or deadline_s <= 0
+                    else result.diagnostics.solve_time_s < deadline_s
+                ),
             )

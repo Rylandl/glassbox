@@ -127,6 +127,13 @@ controller's actionable command coordinates. Advanced estimators can instead
 provide the complete `latent_state`; passing both is rejected. If neither is
 available, the controller initializes lag state from `previous_command`.
 
+The current prediction treats the supplied physical and actuator states as
+known and uses fixed parameter information for that solve. Passing an estimated
+latent array does not propagate its estimation covariance or its correlation
+with model parameters. The [horizon uncertainty audit](../shift-uncertainty-audit.md)
+derives this assumption and explains why a fresh forecast need not retain the
+previous plan's covariance margins.
+
 Each warm start advances one model sample, matching the elapsed control
 interval. The shifted command sequence is averaged within the new blocks;
 this projects it onto the block layout without discarding unexecuted intervals.
@@ -243,13 +250,39 @@ that the predicted motion stays inside the model's validity envelope.
 initial state. A value above one means some declared feature bound is exceeded;
 the objective's covariance-expanded validity penalty is a separate quantity.
 
+`nonlinear_feasibility` independently describes checked inequalities of the
+returned prediction: `status` is `not_assessed`, `feasible`, or `infeasible`,
+with constraint count, maximum violation, and numerical tolerance. Unknown
+assessments have no measurements; an explicitly checked empty margin vector
+is feasible with zero constraints. Nonfinite margins fail assessment. These
+host measurements do not change the JAX scalar objective, margin vectors,
+or compiled kernel cache keys.
+
+The offline SQP attaches this evidence to its prepared checkpoint or fused
+final prediction. The ordinary bounded solver, the legacy separate-output
+SQP ablation, and the SLSQP reference leave it unassessed. Failed solves return
+an unassessed hold, even if an earlier optimizer candidate was feasible.
+For the fitted model, checked inequalities cover initial mean support and
+future support expanded by marginal uncertainty. `SafetyEnvelope` remains
+soft, and feasibility is neither a joint probability nor recursive support
+guarantee. The independent parameter-uncertainty completeness flag still
+applies: passing numerical margins cannot resolve unknown directions.
+
+`deadline_met` is independent: `None` means completion was not assessed,
+including requests without a valid deadline. Otherwise the boolean reports
+the common host elapsed-time gate. An
+early failed solve can meet its deadline while still returning a fallback.
+An output arriving late is rejected regardless of its feasibility. This is
+an observation of the host solve boundary, not a worst-case timing guarantee.
+
 `converged` is reserved for the first-order criterion, and that criterion
 tests the bound-projected gradient, `blocks - clip(blocks - gradient)`,
 against the maintained tolerance rather than the raw gradient, because a raw
 gradient component pointing outward at an active command bound never shrinks
 however optimal the iterate is. The projected residual is reported as
 `final_projected_gradient_inf_norm`, so the status can be audited from the
-result.
+result. This box-only residual is not a constrained KKT test; offline SQP
+still returns `stalled` without asserting constrained convergence.
 
 Two outcomes report a finite bounded best plan without claiming convergence.
 `iteration_limit` exhausted the maintained iteration budget. `stalled` stopped
@@ -345,6 +378,10 @@ the solver's bounded hold is what the loop records and passes on. The closing
 supervisor interventions and deadline misses, and reports the solve-time
 median, p90 and maximum alongside the worst message skew, receive age,
 source-clock lag and state-to-command skew the run saw.
+
+Each interval's JSON also includes `nonlinear_feasibility` and `deadline_met`.
+The feasibility status is serialized explicitly, so a missing assessment stays
+distinct from a checked result even when nonfinite measurements are written as null.
 
 The loop passes `result.diagnostics.maximum_validity_utilization` to the
 supervisor as `controller_maximum_validity_utilization`. Custom implementations

@@ -176,16 +176,23 @@ uv run python scripts/investigate_sqp_runtime.py --experiment budget \
   --output /tmp/glassbox-sqp-budget.json
 ```
 
-The current horizon-shift investigation separates projection, plant mismatch,
+The horizon-shift snapshot (`4f5cddb`) separates projection, plant mismatch,
 and terminal extension, then compares fixed and moving block layouts:
 
 ```bash
 uv run python scripts/investigate_horizon_shift.py \
-  --output docs/investigations/horizon-shift.json
+  --output /tmp/glassbox-horizon-shift.json
 ```
 
 Moving blocks are an experimental ablation. Their shifted command sequence is
 exact, but their recovery results do not justify replacing the fixed layout.
+
+The [terminal suffix](docs/terminal-suffix-investigation.md) and
+[uncertainty shift](docs/shift-uncertainty-audit.md) probes share a fresh checkpoint
+fixture. Build it once with the command documented on either page, then reuse
+that directory for both probes. The builder
+records source fingerprints and verifies that the known fifth-solve failure was
+reproduced before marking the fixture ready.
 
 Run timing comparisons without other benchmark or test processes. These experiments
 prewarm each controller and record complete solve times, separating the cold

@@ -212,12 +212,24 @@ class LoopSample:
     def to_dict(self) -> dict[str, Any]:
         """Return the compact record one interval contributes to a log."""
 
+        feasibility = self.result.nonlinear_feasibility
         return {
             "step": self.step,
             **self.observation.to_dict(),
             "status": self.result.status.value,
             "command_usable": self.result.command_usable,
             "used_fallback": self.result.used_fallback,
+            "nonlinear_feasibility": {
+                "status": feasibility.status,
+                "constraint_count": feasibility.constraint_count,
+                "maximum_violation": (
+                    None
+                    if feasibility.maximum_violation is None
+                    else _finite_or_none(feasibility.maximum_violation)
+                ),
+                "tolerance": feasibility.tolerance,
+            },
+            "deadline_met": self.result.deadline_met,
             "command": np.asarray(self.command).tolist(),
             "written": self.written,
             "solve_time_s": float(self.result.diagnostics.solve_time_s),

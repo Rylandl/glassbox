@@ -26,6 +26,7 @@ from glassbox.control.identifier import (
 )
 from glassbox.control.plan import (
     ConstrainedLeastSquaresPlanModel,
+    NonlinearFeasibility,
     PlanModel,
     PlanTerms,
     PlanValues,
@@ -104,6 +105,7 @@ __all__ = [  # noqa: RUF022
     "Prediction",
     "ReferenceTrajectory",
     "SafetyEnvelope",
+    "NonlinearFeasibility",
     "SolveResult",
     "SolveStatus",
     "SolverPolicy",

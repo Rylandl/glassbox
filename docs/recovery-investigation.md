@@ -1,8 +1,9 @@
 # Recovery after identification: investigation
 
-The uncertainty, supervision, SLSQP, first SQP, seed-runtime and deadline-budget reports below
-are historical snapshots from commits `0c4ec6a`, `777652f`, `0926d49`, `8a79306`,
-`5607f3f` and `98d2fe5`, respectively. Their source
+The uncertainty, supervision, SLSQP, first SQP, seed-runtime, deadline-budget
+and horizon-shift reports below are historical snapshots from commits
+`0c4ec6a`, `777652f`, `0926d49`, `8a79306`,
+`5607f3f`, `98d2fe5` and `4f5cddb`, respectively. Their source
 fingerprints identify the code that produced the numbers. The first three precede the
 command-bound derivative and warm-start corrections in the
 [SQP follow-up](#faster-constrained-nmpc-and-correct-bound-derivatives).
@@ -649,7 +650,7 @@ projection, the updated plant state, and the appended prediction interval:
 
 ```bash
 uv run python scripts/investigate_horizon_shift.py \
-  --output docs/investigations/horizon-shift.json
+  --output /tmp/glassbox-horizon-shift.json
 ```
 
 It rebuilds the additional-evidence belief and retains the original objective,
@@ -768,3 +769,56 @@ below 4 ms, and maximum recorded state receive age was 52 ms. One solve missed
 the 20 ms deadline and returned the explicit bounded hold; the other 639
 returned finite plans at the iteration limit. Those are usable plans under the
 solver contract, not converged solutions or a hard real-time guarantee.
+
+
+## Parallel terminal, uncertainty, and interface follow-up
+
+Three bounded investigations separated formulation, uncertainty assumptions,
+and result semantics. They shared one freshly rebuilt belief and known failing
+request; each used an isolated checkout. Production control defaults remain
+unchanged.
+
+- The [terminal suffix experiment](terminal-suffix-investigation.md) repairs
+  the failed forecast by optimizing six commands inside the existing horizon.
+  Peak support utilization falls from 1.277239 to 0.980753. A 36-interval
+  continuation remains feasible and within actual support, including twelve
+  intervals applying commands from the optimized suffix. Each restricted solve
+  takes 22–50 SLSQP iterations, so this is a formulation result without a
+  deadline qualification or completed-recovery claim.
+- The [uncertainty audit](shift-uncertainty-audit.md) explains the first
+  shifted-prefix violation through lost cancellation between parameter
+  sensitivities. Carrying the old joint sensitivity reproduces the old
+  covariance to 8.01e-11; resetting a known current state is a different
+  prediction. No covariance shrinking, covariance carry-over, or runtime
+  uncertainty change follows from this result.
+- The interface slice below exposes checked nonlinear feasibility separately
+  from optimizer status and deadline completion. Interval logs preserve these
+  fields, including explicit `not_assessed` outcomes.
+
+The next experiment should put suitable suffix freedom and feasible-candidate
+retention into the primary bounded solve, comparing against fixed-grid warm2.
+The costly suffix solve is evidence of repairability, not a deployable second
+controller. A separate future calibration study can test overlap between
+empirical forecast error and parameter spread; the one-fit audit does not
+establish such double counting.
+
+## Returned-plan feasibility evidence
+
+The normal SQP `SolveResult` now carries `nonlinear_feasibility` for the
+exact prepared checkpoint or fused final prediction selected for return.
+The assessment reports constraint count, maximum signed-margin violation,
+and numerical tolerance, independently of the `stalled` optimizer status
+and the host `deadline_met` observation. Optimizer trial histories remain
+experiment reports. No new timing run or production-backend change
+accompanies this interface.
+
+A rejected late, nonfinite, or unbounded prediction returns an unassessed
+hold. The ordinary bounded solver, SLSQP reference, and separate-output SQP
+ablation remain `not_assessed` because this slice does not bind their
+constraint evaluation to a returned prediction. Checked empty constraints
+mean zero declared inequalities; missing checks never mean feasible.
+The fitted model's checks describe initial mean support and future marginal
+uncertainty-expanded support, not the soft `SafetyEnvelope` preferences,
+a constrained KKT convergence assertion, or a hardware deadline guarantee.
+Passing these numerical margins does not establish completeness of parameter
+uncertainty; that independent diagnostic retains its meaning.

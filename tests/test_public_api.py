@@ -53,6 +53,7 @@ EXPECTED_PUBLIC_API = (
     "Prediction",
     "ReferenceTrajectory",
     "SafetyEnvelope",
+    "NonlinearFeasibility",
     "SolveResult",
     "SolveStatus",
     "SolverPolicy",
