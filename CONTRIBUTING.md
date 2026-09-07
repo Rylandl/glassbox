@@ -194,6 +194,12 @@ that directory for both probes. The builder
 records source fingerprints and verifies that the known fifth-solve failure was
 reproduced before marking the fixture ready.
 
+The [bounded suffix follow-up](docs/fast-suffix-investigation.md) reuses that
+fixture to compare one and two GN-SQP updates, then runs a separate serialized
+deadline check. The [repeated uncertainty pilot](docs/repeated-uncertainty-calibration.md)
+has its own fixed independent identification/calibration/test design. Its saved
+beliefs and arrays support postprocessing without repeating the six fits.
+
 Run timing comparisons without other benchmark or test processes. These experiments
 prewarm each controller and record complete solve times, separating the cold
 optimization from subsequent solves. The first experiment disables deadlines;

@@ -795,12 +795,19 @@ unchanged.
   from optimizer status and deadline completion. Interval logs preserve these
   fields, including explicit `not_assessed` outcomes.
 
-The next experiment should put suitable suffix freedom and feasible-candidate
-retention into the primary bounded solve, comparing against fixed-grid warm2.
-The costly suffix solve is evidence of repairability, not a deployable second
-controller. A separate future calibration study can test overlap between
-empirical forecast error and parameter spread; the one-fit audit does not
-establish such double counting.
+The [bounded GN-SQP follow-up](fast-suffix-investigation.md) now tests suffix
+freedom and feasible-candidate retention through the normal solve boundary.
+Its restricted frozen prefix still needs to be reconciled with near-term
+feedback before it could become a primary control parameterization. The
+costly reference solve remains evidence of repairability, not a deployable
+second controller.
+
+The [repeated identification pilot](repeated-uncertainty-calibration.md)
+separately tests uncertainty components using independent training and
+calibration sources. It exposes substantial estimator bias and a mismatch
+between declared parameter covariance and repeated-fit variation. It does
+not establish calibrated double counting or justify covariance subtraction.
+The note records the small sample count and the test cases outside support.
 
 ## Returned-plan feasibility evidence
 
