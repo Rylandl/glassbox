@@ -196,7 +196,11 @@ reproduced before marking the fixture ready.
 
 The [bounded suffix follow-up](docs/fast-suffix-investigation.md) reuses that
 fixture to compare one and two GN-SQP updates, then runs a separate serialized
-deadline check. The [repeated uncertainty pilot](docs/repeated-uncertainty-calibration.md)
+deadline check. Its head-and-suffix extension tests immediate feedback with the
+same number of variables as the fixed-grid baseline, and compares the existing
+work-admission policy with unconditional two-update work. Each new main script
+is archived beside its recorded JSON so later reporting changes do not erase
+the executed source. The [repeated uncertainty pilot](docs/repeated-uncertainty-calibration.md)
 has its own fixed independent identification/calibration/test design. Its saved
 beliefs and arrays support postprocessing without repeating the six fits.
 

@@ -153,7 +153,115 @@ uv run python scripts/investigate_fast_suffix_runtime.py \
 uv run pytest tests/test_fast_suffix_runtime.py -q
 ```
 
-The next formulation step is to retain suffix freedom while also permitting
-changes to near-term commands in the primary NMPC solve. The frozen-prefix
-restriction cannot be promoted as a general feedback controller solely because
-its warm request fits this budget.
+The frozen-prefix restriction cannot be promoted as a general feedback
+controller solely because its warm request fits this budget. The following
+experiment adds immediate command freedom within the same NMPC solve.
+
+## Immediate feedback with head and suffix freedom
+
+The fixed follow-up frees commands `[0:4]` and `[24:30]`, preserving the supplied
+middle waveform `[4:24]` bitwise. These ten four-component commands give forty
+variables, equal in count to the maintained ten-block problem but in a different
+space. The adapter bypasses uniform block expansion and averaging. Its distinct
+compilation signature and dynamic middle waveform prevent a previous request's
+commands from being embedded in the kernel. Every new request clears the existing
+SQP seed/checkpoint cache. Two updates, the original objective, full covariance,
+support margins, actuator dynamics and 0.6 s horizon were fixed before testing.
+
+The [feasibility report](investigations/feedback-suffix.json) records one nominal
+request and two matched initial roll-rate perturbations, followed by one
+36-interval nominal continuation. The perturbations are ±0.02 of the support
+half-width, or ±0.021583667 rad/s. Seed waveform, actuator state, previous command,
+reference and belief are identical across the three requests. All return feasible
+plans, with independent whole-horizon robust utilization below one:
+
+| Request | Returned second-motor command | Independent cost | Maximum robust utilization |
+| --- | ---: | ---: | ---: |
+| Nominal tick4 | 0.762277365 | 27.439175 | 0.999990404 |
+| Negative perturbation | 0.736622453 | 27.293583 | 0.999990284 |
+| Positive perturbation | 0.808165908 | 27.588997 | 0.999990284 |
+
+The other three immediate motor commands remain at `[0, 1, 0]`. The paired
+difference of 0.071543455 exceeds the predeclared normalized command threshold
+`1e-5`; this demonstrates local state dependence of the command actually returned
+for immediate application. It is stronger evidence than merely allowing early
+variables or changing a later planned command. These matched probes disable
+deadlines; they do not establish the same response under every deadline stop.
+
+The nominal continuation completes 36/36 intervals, with actual support peaking
+at 0.999860466 and ending at 0.999858320. It uses substantially more of the
+declared envelope than the suffix-only trajectory. Initial command24 enters
+the adjustable head at continuation tick21 and may be revised before application,
+so the previous experiment's assertion that twelve original suffix commands were
+applied unchanged no longer applies. Only the current frozen middle is checked
+for exact preservation. This remains a short local continuation, not completed
+recovery or recursive feasibility.
+
+Two subsequent serialized timing runs preserve the negative result and a bounded
+follow-up using the **existing unchanged** SQP work-admission estimates:
+
+| Run | Applied intervals | Returned-plan evidence |
+| --- | ---: | --- |
+| [Full two-update work without admission](investigations/feedback-suffix-runtime.json) | 0 of 36 | The first solve found a feasible plan but exceeded the deadline during prediction diagnostics. Its unassessed hold was not applied. |
+| [Up to two updates with existing admission checks](investigations/feedback-suffix-budget.json) | 36 of 36 | Seven requests returned a checked linearization checkpoint; 29 finalized the latest candidate. Every applied result passed both elapsed deadline gates. |
+
+Both prewarm two identical shifted requests and the failure buffers without
+advancing the plant. Both include shifting, seed preparation, device transfer,
+the complete solve and result assembly within a 20 ms request budget. Independent
+validation and simulated plant steps are outside that budget. Their compilation
+logs ([first](investigations/feedback-suffix-runtime-compilation.log),
+[budgeted](investigations/feedback-suffix-budget-compilation.log)) contain no
+messages during measured requests.
+
+Budgeted requests that returned checkpoints used two value calls and two
+linearizations, with no finalizer. Their reported iteration count of two counts
+optimizer rounds; it does not imply that a second nonlinear trial was accepted.
+The second QP may already have been computed before admission stops its trial
+evaluation. The returned checkpoint is the earlier evaluated waveform, whose
+prediction and feasibility are already available. An unchecked QP step is never
+applied. The largest complete caller duration used approximately 97% of the
+budget (`max(requests[*].caller_elapsed_s) / deadline_s`), leaving narrow headroom.
+Actual support remains inside the declared envelope throughout this run.
+
+No work estimates, iteration limits, weights, support or covariance were tuned
+between the two runtime cases. Host variation prevents treating this pair as a
+latency distribution or attributing every timing difference to admission. The
+seven recorded checkpoint returns do directly show the intended budget mechanism
+operating with feasible results. The estimates are not worst-case execution-time
+bounds; the initial rejected run remains part of the evidence.
+
+Independent physical-waveform evaluation checks mean states, actuator states,
+cost, finite covariance and every original nonlinear margin against the returned
+result. Actuator-state and cost equality assertions were added after the first
+feasibility run; both timing runs use the stronger checks, including all 36
+applied budgeted results. Six adapter/checker tests verify the exact command
+Jacobian, changing dynamic middle values, shifted seed reconstruction, atomic
+rejection of invalid seeds, and rejection of inconsistent returned actuator
+predictions or costs. Existing SQP and waveform-boundary tests cover candidate
+retention and late-result rejection.
+
+The reports preserve source and fixture hashes at baseline `7cc3541`. Each
+executed main script is archived beside its JSON as `.source.py`; the initial
+feasibility snapshot therefore retains the pre-check-strengthening source, and
+the initial runtime snapshot retains the version before adding `--admission`.
+No identification was repeated. Reproduce with the same shared fixture:
+
+```sh
+uv run python scripts/investigate_feedback_suffix.py \
+  --fixtures /tmp/glassbox-nmpc-fixture \
+  --output /tmp/feedback-suffix.json
+uv run python scripts/investigate_feedback_suffix_runtime.py \
+  --fixtures /tmp/glassbox-nmpc-fixture \
+  --output /tmp/feedback-suffix-runtime.json \
+  2> /tmp/feedback-suffix-runtime-compilation.log
+uv run python scripts/investigate_feedback_suffix_runtime.py --admission \
+  --fixtures /tmp/glassbox-nmpc-fixture \
+  --output /tmp/feedback-suffix-budget.json \
+  2> /tmp/feedback-suffix-budget-compilation.log
+```
+
+The next validation target is a full recovery including startup and a disturbance
+after the controller has begun operating. That should precede promoting this
+restricted command layout into the maintained controller. The first four commands
+now provide immediate freedom, but the fixed middle and tight timing headroom
+still require evaluation beyond this local case.

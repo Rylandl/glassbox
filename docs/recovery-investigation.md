@@ -795,12 +795,16 @@ unchanged.
   from optimizer status and deadline completion. Interval logs preserve these
   fields, including explicit `not_assessed` outcomes.
 
-The [bounded GN-SQP follow-up](fast-suffix-investigation.md) now tests suffix
-freedom and feasible-candidate retention through the normal solve boundary.
-Its restricted frozen prefix still needs to be reconciled with near-term
-feedback before it could become a primary control parameterization. The
-costly reference solve remains evidence of repairability, not a deployable
-second controller.
+The [bounded GN-SQP follow-up](fast-suffix-investigation.md) tests suffix freedom
+and feasible-candidate retention through the normal solve boundary. Its
+[head-and-suffix extension](fast-suffix-investigation.md#immediate-feedback-with-head-and-suffix-freedom)
+also permits immediate command changes and demonstrates a local response to
+matched state perturbations. Existing work-admission checks allow a bounded
+continuation to return earlier feasible checkpoints when needed. The note retains
+the failed runtime case and narrow timing headroom. Full recovery, cold startup
+and disturbances during operation remain to be tested before promoting the
+parameterization. The costly reference solve remains evidence of repairability,
+not a deployable second controller.
 
 The [repeated identification pilot](repeated-uncertainty-calibration.md)
 separately tests uncertainty components using independent training and
