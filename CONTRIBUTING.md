@@ -208,6 +208,10 @@ scenario-order pass. Opt-in `--seed-trace` preserves phase and GC records even
 when seeding aborts before an optimizer report exists. Its audit processes saved
 arrays and events without rerunning optimization. Negative timing results remain
 in their original directories; traced observations are separate artifacts.
+The single-seed reuse comparison gates paired timings on saved-request numerical
+parity, retains competing-seed selection, and separately records cold-start
+outcomes. The optimization remains opt-in; faster seed preparation alone does not
+establish timed recovery.
 The [repeated uncertainty pilot](docs/repeated-uncertainty-calibration.md)
 has its own fixed independent identification/calibration/test design. Its saved
 beliefs and arrays support postprocessing without repeating the six fits.

@@ -814,6 +814,11 @@ by JAX-output materialization without overlapping GC; the original spike's cause
 remains unidentified. A timely return can also lack a feasible candidate. Runtime
 variability and the margin available for repair remain unresolved. The costly
 reference solve remains evidence of repairability, not a deployable second controller.
+The [single-seed reuse comparison](fast-suffix-investigation.md#reusing-a-single-seeds-linearization-values)
+removes one redundant rollout evaluation with bitwise parity on 26 saved requests.
+Paired acceptance improves, but all six timed cold-start arms stop. Measured work
+costs exceed the configured admission estimate, so the next runtime question is
+whether request-local observations can prevent starting work that no longer fits.
 
 The [repeated identification pilot](repeated-uncertainty-calibration.md)
 separately tests uncertainty components using independent training and

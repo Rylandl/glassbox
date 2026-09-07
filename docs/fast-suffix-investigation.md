@@ -487,9 +487,109 @@ uv run python scripts/audit_seed_timing.py \
 ```
 
 Admission estimates cannot preempt a dispatched kernel. The next implementation
-slice should reduce repeated rollout work in the single-waveform seed path by
-using the first linearization's already-computed residuals and margins. That
-requires numerical and feasibility parity checks before another fixed runtime
-comparison. It may provide timing margin; it cannot turn cooperative deadline
-checks into an execution-time guarantee. These results do not support changing
-weights, uncertainty, support, horizon length or introducing a second controller.
+slice below reduces repeated rollout work in the single-waveform seed path by
+using the first linearization's already-computed residuals and margins.
+
+## Reusing a single seed's linearization values
+
+`GaussNewtonReference(..., reuse_single_seed=True)` now skips the standalone
+value evaluation when exactly one candidate remains after warm-start compatibility
+checks. The mandatory first linearization already returns that candidate's
+residuals, inequality margins and prepared prediction. With multiple candidates,
+the existing feasibility/violation/cost ranking and warm-seed tie rule remain.
+Legacy seeding bypasses this path. This is an experimental opt-in; the default
+and maintained production solver are unchanged.
+
+The path admits the linearization and existing output reserve without charging
+for the removed evaluation. It still rejects nonfinite residuals, margins,
+Jacobians and squared cost before populating its caches. Finite residual entries
+can have an overflowing squared norm, so checking their entries alone would lose
+a guard previously provided by the standalone evaluation. Caches reset on every
+request. A late linearization still fails at the common solve boundary.
+
+The [fixed comparison](investigations/single-seed-reuse/report.json) first checks
+26 saved requests without deadlines: eight predeclared ticks in each of the
+original, small and perturbed full-recovery histories, plus the two recorded
+runtime failures. All 26 pass **bitwise seed and returned-array parity**, along
+with equal objective, nonlinear feasibility, status and iteration budgets.
+Each seed uses one linearization and zero standalone evaluations instead of one
+of each. Full-solve linearization and finalizer counts also remain equal, with
+exactly one fewer evaluation. Original uncertainty, model support, objective,
+horizon and physical command layout are retained.
+
+Only after that gate passes does the study time 32 baseline/reused/reused/baseline
+blocks for each of the two saved failed requests. Every call resets the exact
+recorded inputs and applies no command. Both variants share the same compiled
+kernels and admission constants. Prewarming covers both seed paths and discards
+its outputs. Independent waveform checks remain outside each request timer.
+
+| Saved request | Baseline accepted | Reused accepted | Baseline median budget fraction | Reused median budget fraction |
+| --- | ---: | ---: | ---: | ---: |
+| Original tick10 | 36/64 | 49/64 | 0.973746 | 0.931367 |
+| Small tick68 | 36/64 | 60/64 | 0.992999 | 0.890118 |
+
+Acceptance totals increase from 72/128 to 109/128 in this run. The
+[saved-data audit](investigations/single-seed-reuse-audit.json) verifies input,
+forecast and source hashes, the paired order, evaluation counts and timing
+summaries. It also identifies one result per variant that remained usable at
+the inner boundary but failed the caller's final elapsed-time check.
+
+These acceptance counts do not imply that two optimizer updates completed.
+Of the accepted outputs, 60 baseline and 93 reused requests performed zero
+optimizer iterations and returned a currently checked seed checkpoint. Other
+requests attempted work before returning a checkpoint. Under the predeclared
+comparison restricted to blocks where all four calls are accepted and return
+the same waveform with the same iteration count, 4 tick10 blocks and 12 small68
+blocks qualify. Their median ratios of mean reused/baseline duration are
+0.964206 and 0.965994. These conditional summaries describe that subset; they
+are not general backend speedup estimates.
+
+The same process then runs one separately initialized cold-start pass per variant
+for each of the three scenarios, in a predeclared, partly counterbalanced order.
+The original startup and warm deadlines and eight/two iteration limits apply.
+All six arms stop:
+
+| Case | Baseline applied intervals | Reused applied intervals |
+| --- | ---: | ---: |
+| Original | 0/120 | 3/120 |
+| Small | 0/120 | 0/120 |
+| Original with scheduled kick | 0/120 | 0/120 |
+
+Five failures occur at startup after a feasible optimizer candidate exists but
+cannot return within the deadline. The original/reused arm completes startup,
+then fails at tick3 before finding a feasible candidate within the remaining
+work budget. All rejected holds remain unapplied and no case receives a
+completed-recovery score. The kick is never reached. Neither variant establishes
+timed recovery in this recording.
+
+At these six failed requests, measured seed-linearization duration is 2.06 to
+2.83 times the configured linearization admission estimate. This duration includes
+materialization, not just dispatch. The records do not establish why the host
+costs differ from earlier runs, and removing an evaluation does not explain the
+shared slowdown. The [compilation log](investigations/single-seed-reuse-compilation.log)
+contains no messages during timed requests. This is one recorded comparison;
+no repetition replaces its negative results.
+
+The directory archives the executed sources at baseline `41a2293`. The audit
+checks these particular saved outcomes without optimizing again. Reproduce the
+comparison into a new directory, or audit the committed observations:
+
+```sh
+uv run python scripts/investigate_single_seed.py \
+  --fixtures /tmp/glassbox-nmpc-fixture \
+  --records docs/investigations \
+  --output /tmp/single-seed-reuse \
+  2> /tmp/single-seed-reuse-compilation.log
+uv run python scripts/audit_single_seed.py \
+  --directory docs/investigations/single-seed-reuse \
+  --output /tmp/single-seed-reuse-audit.json
+```
+
+The next bounded admission experiment should use the current request's measured
+seed-linearization duration as a floor on the configured estimate before starting
+another linearization. If that work no longer fits, an already prepared feasible
+candidate can be returned; without one, the request must reject. This would react
+to observed cost within the request, while retaining the existing reserve and
+final elapsed-time checks. It cannot rescue an already late seed or guarantee
+future execution time. No change to the control formulation follows from these
+timing results.

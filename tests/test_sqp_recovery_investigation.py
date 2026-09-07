@@ -172,15 +172,18 @@ def test_sqp_refuses_nonfinite_linearization(investigation):
     [
         (0.0, 0.7, 0.7, True),  # Feasible, despite greater objective.
         (0.6, 0.7, 0.6, False),  # Cheapest of two feasible seeds.
+        (0.7, 0.7, 0.7, True),  # The existing exact tie selects the warm seed.
         (0.0, 0.4, 0.4, True),  # Less violation while still infeasible.
         (0.6, float("nan"), 0.6, False),
         (float("nan"), 0.6, 0.6, True),
     ],
 )
+@pytest.mark.parametrize("reuse_single_seed", [False, True])
 def test_sqp_seed_selection_uses_feasibility_before_cost(
-    investigation, cold, warm, expected, warm_used
+    investigation, cold, warm, expected, warm_used, reuse_single_seed
 ):
     solver = reference_problem(investigation)
+    solver.reuse_single_seed = reuse_single_seed
     blocks, _, gradient, cost, used = solver._seed_plan(
         jnp.asarray([[cold]]),
         jnp.asarray([[warm]]),
@@ -194,6 +197,153 @@ def test_sqp_seed_selection_uses_feasibility_before_cost(
     np.testing.assert_allclose(blocks, [[expected]])
     np.testing.assert_allclose(gradient, [[2 * expected]])
     assert cost == pytest.approx(expected**2)
+
+
+@pytest.mark.parametrize("mode", ["cold", "warm", "incompatible_warm"])
+def test_single_seed_reuses_values_gradient_and_constraints(investigation, mode):
+    solver = reference_problem(investigation)
+    cold = None if mode == "warm" else jnp.asarray([[0.7]])
+    warm = None if mode == "cold" else jnp.asarray([[0.8]])
+    if mode == "incompatible_warm":
+        solver._warm_blocks = lambda _: None
+    args = cold, warm, None, None, SimpleNamespace(states=None), None, None
+    expected = solver._seed_plan(*args)
+    derivative = solver._seed_derivative
+    solver.reuse_single_seed = True
+    solver.evaluate = lambda *_: pytest.fail("one seed needs no standalone evaluation")
+    linearize, calls = solver.linearize, []
+
+    def counted(*args):
+        calls.append(True)
+        return linearize(*args)
+
+    solver.linearize = counted
+    actual = solver._seed_plan(*args)
+    assert len(calls) == 1
+    assert solver._iteration_budget == (2 if mode == "warm" else 8)
+    assert actual[-1] == (mode == "warm")
+    for a, b in zip(jax.tree.leaves(actual), jax.tree.leaves(expected)):
+        np.testing.assert_array_equal(a, b)
+    for a, b in zip(
+        jax.tree.leaves(solver._seed_derivative), jax.tree.leaves(derivative)
+    ):
+        np.testing.assert_array_equal(a, b)
+
+
+@pytest.mark.parametrize("remaining,accepted", [(0.009, True), (0.008, False)])
+def test_single_seed_admission_charges_only_linearization_and_reserve(
+    investigation, monkeypatch, remaining, accepted
+):
+    solver, reference, _, clock, budget = budgeted_problem(investigation, monkeypatch)
+    clock.now = 0.020 - remaining
+    solver.evaluate = lambda *_: pytest.fail("standalone evaluation is not needed")
+    # This same budget cannot admit the old evaluation-plus-linearization path.
+    with pytest.raises(_SolveAbort, match="insufficient SQP seed budget"):
+        solver._seed_plan(
+            jnp.ones((1, 1)), None, None, None, reference, None, None, budget=budget
+        )
+    solver.reuse_single_seed = True
+    if accepted:
+        solver._seed_plan(
+            jnp.ones((1, 1)), None, None, None, reference, None, None, budget=budget
+        )
+        assert solver._seed_derivative is not None
+    else:
+        solver.linearize = lambda *_: pytest.fail("reserve must remain protected")
+        with pytest.raises(_SolveAbort, match="insufficient SQP linearization budget"):
+            solver._seed_plan(
+                jnp.ones((1, 1)), None, None, None, reference, None, None, budget=budget
+            )
+        assert solver._seed_derivative is None
+        assert solver._seed_prediction is None
+
+
+@pytest.mark.parametrize(
+    "bad_part",
+    ["residual", "margin", "residual_jacobian", "margin_jacobian", "cost_overflow"],
+)
+def test_single_seed_rejects_nonfinite_values_before_caching(investigation, bad_part):
+    solver = reference_problem(investigation)
+    solver.reuse_single_seed = True
+    solver.evaluate = lambda *_: pytest.fail("one seed must use linearization values")
+    args = jnp.ones((1, 1)), None, None, None, SimpleNamespace(states=None), None, None
+    original = solver.linearize
+    solver._seed_plan(*args)
+
+    def invalid(*_):
+        parts = {
+            name: np.ones((1,))
+            for name in ("residual", "margin", "residual_jacobian", "margin_jacobian")
+        }
+        if bad_part == "cost_overflow":
+            parts["residual"][:] = 1e200
+        else:
+            parts[bad_part][:] = np.nan
+        return (
+            (parts["residual_jacobian"], parts["margin_jacobian"]),
+            ((parts["residual"], parts["margin"]), "invalid prepared prediction"),
+        )
+
+    solver.linearize = invalid
+    with np.errstate(over="ignore"), pytest.raises(_SolveAbort, match="non-finite"):
+        solver._seed_plan(*args)
+    assert solver._seed_derivative is None
+    assert solver._seed_prediction is None
+    solver.linearize = original
+    solver._seed_plan(*args)
+    assert solver._seed_derivative is not None
+
+
+def test_single_seed_does_not_change_legacy_seeding(investigation, monkeypatch):
+    from glassbox.control.solver import BoundedShootingSolver
+
+    solver = reference_problem(investigation)
+    solver.reuse_single_seed = solver.legacy_seeding = True
+    sentinel = object()
+    monkeypatch.setattr(BoundedShootingSolver, "_seed_plan", lambda *_a, **_k: sentinel)
+    solver.linearize = lambda *_: pytest.fail("legacy seeding owns its own evaluation")
+    result = solver._seed_plan(
+        jnp.ones((1, 1)), None, None, None, SimpleNamespace(states=None), None, None
+    )
+    assert result is sentinel
+
+
+def test_single_seed_still_rejects_a_late_linearization_at_solve_boundary(
+    investigation, small_controller, monkeypatch
+):
+    from glassbox.control import solver as solver_module
+
+    plan = small_controller.plan
+    solver = investigation.GaussNewtonReference(
+        plan,
+        replace(plan.policy, allow_unresolved_parameters=True),
+        reuse_single_seed=True,
+    )
+    clock = SimpleNamespace(now=0.0)
+    monkeypatch.setattr(
+        solver_module, "time", SimpleNamespace(perf_counter=lambda: clock.now)
+    )
+    linearize = solver.linearize
+
+    def late(*args):
+        result = linearize(*args)
+        clock.now = 0.03
+        return result
+
+    solver.linearize = late
+    solver._optimize_plan = lambda *_a, **_k: pytest.fail("late seeds cannot optimize")
+    state = jnp.asarray(resting_state())
+    previous = jnp.full(4, 0.5)
+    result = solver.solve(
+        state,
+        solver.hold_reference(state),
+        previous,
+        latent_state=previous,
+        deadline_s=0.02,
+    )
+    assert not result.command_usable and result.deadline_met is False
+    assert result.nonlinear_feasibility.status == "not_assessed"
+    assert result.message == "solver deadline expired before optimization"
 
 
 def test_sqp_reuses_selected_linearization_and_resets_cold_budget(investigation):
