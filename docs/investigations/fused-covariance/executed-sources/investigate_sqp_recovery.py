@@ -151,7 +151,6 @@ class GaussNewtonReference(BoundedShootingSolver):
         # Optional research-only observation. Disabled requests retain the
         # original NumPy materialization and no additional readiness fences.
         self._seed_observer = None
-        linearization_rollout = self._linearization_rollout(model)
 
         def packed(blocks, state, latent, reference, previous, exogenous, values):
             prediction = model.rollout(blocks, state, latent, exogenous, values)
@@ -161,7 +160,7 @@ class GaussNewtonReference(BoundedShootingSolver):
             return residuals, margins
 
         def with_aux(blocks, state, latent, reference, previous, exogenous, values):
-            prediction = linearization_rollout(blocks, state, latent, exogenous, values)
+            prediction = model.rollout(blocks, state, latent, exogenous, values)
             terms = residuals_and_margins(
                 model, policy, prediction, reference, previous
             )
@@ -192,10 +191,6 @@ class GaussNewtonReference(BoundedShootingSolver):
             return value, (prediction, measurements, margins)
 
         self.finalize = jax.jit(jax.value_and_grad(final_objective, has_aux=True))
-
-    def _linearization_rollout(self, model):
-        """Bind an equivalent research rollout only for derivative construction."""
-        return model.rollout
 
     def _permits(self, budget, work_s):
         return (

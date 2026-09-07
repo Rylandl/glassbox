@@ -215,6 +215,10 @@ establish timed recovery.
 The opt-in observed-cost admission hint uses deterministic simulated-clock tests
 and a separate deadline-free parity verifier. Host-specific timing observations
 are optional performance evidence, not portable numerical-correctness gates.
+The shared-rollout derivative study records compiled loop structure separately
+from numerical parity. It retains the broader fusion's failed work-count check
+and a saved-array branch trace, then verifies the narrower derivative-only path
+with strict bitwise comparisons. Compiler cost estimates are not measured speedups.
 The [repeated uncertainty pilot](docs/repeated-uncertainty-calibration.md)
 has its own fixed independent identification/calibration/test design. Its saved
 beliefs and arrays support postprocessing without repeating the six fits.

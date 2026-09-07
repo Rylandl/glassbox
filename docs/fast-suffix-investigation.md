@@ -629,3 +629,94 @@ budgets remain a deployment choice. Further performance work should target
 computational cost and repeated work, with numerical correctness assessed
 separately from hardware timing. This change makes no speedup or timed-recovery
 claim and leaves the control formulation unchanged.
+
+## Sharing the nominal rollout during differentiation
+
+`FusedLinearizationSolver` now provides an experimental implementation of the
+same recovery formulation. The baseline predicts a nominal trajectory and then
+predicts it again inside the parameter directional derivative used for covariance.
+The new path returns that derivative's nominal states and actuator states as
+auxiliary outputs, removing the separate nominal pass during linearization.
+Trial evaluation, finalization and the common solver kernels use the baseline
+implementation. The default research solver and maintained production model are
+unchanged.
+
+The parameter state tangents are projected through the existing local-error
+function's actual-state argument. Its reference is fixed for that inner
+parameter derivative, while outer command derivatives still include the moving
+local attitude frame. Actuator tangents remain in the dynamics carry. Forecast
+error, parameter directions, physical commands and the horizon retain their
+definitions. The alternate rollout receives each request's model values and
+frozen middle explicitly; it does not reuse an earlier request's trajectory.
+
+The [derivative-only comparison](investigations/fused-linearization/report.json)
+passes all 26 saved requests with **bitwise equality** of seed Jacobians, seed
+values and prepared predictions, complete returned arrays, and final objective.
+Optimizer status, nonlinear feasibility and solver work counts also agree.
+Both variants' outputs receive independent physical-waveform checks. These
+are deadline-free solves using the existing fitted fixture; no new fitting or
+host timing acceptance criterion is involved.
+
+The compiler retains the separate scans in the baseline. The recorded compiled
+loop sites confirm the bounded change:
+
+| Kernel | Baseline | Derivative-only fusion |
+| --- | ---: | ---: |
+| Physical-command rollout | 2 | 2 |
+| Residual and constraint linearization | 2 | 1 |
+| Final scoring and gradient | 4 | 4 |
+
+These counts describe loop structure, not a proportional runtime reduction.
+The compiler's arithmetic estimate for linearization falls by 0.29%, and its
+estimated bytes accessed by 1.84%. Those compiler/backend estimates are neither
+measured request costs nor portable speedup claims. The structural saving is
+real but modest in arithmetic terms; further performance work should examine
+command and parameter sensitivity propagation.
+
+An earlier [full-rollout fusion comparison](investigations/fused-covariance/report.json)
+also changes trial evaluation and finalization. All 26 seed Jacobians and prepared
+predictions are bitwise equal, all final objectives agree exactly, and all returned
+arrays meet the predeclared numerical tolerance. Only 20 returned-array pairs are
+bitwise equal. One request, `cold_small_39`, takes seven rather than ten value
+evaluations, so that comparison **fails its equal-work-count criterion**. The
+negative result remains recorded; its criterion was not relaxed.
+
+The [separate branch trace](investigations/fused-covariance-branch/report.json)
+reproduces those counts. Both QP rounds have identical variables, gradients,
+steps and multipliers. At the second round's step fraction of 1/32, identical
+candidate commands produce residuals differing by at most 1.49e-8. The merit
+minus Armijo threshold changes from +2.364e-9 to -1.540e-10, flipping acceptance.
+This localizes the branch change to floating-point trial evaluation. It motivates
+limiting fusion to linearization; neither the Armijo rule nor its tolerances
+change. The trace saves the compared arrays, not just their summaries.
+
+Twelve additional mathematical tests cover multirotor and fixed-wing dynamics,
+moving attitude, actuator lag, absent/empty/multiple covariance directions,
+dynamic model values, command Jacobians of covariance/residuals/margins, reverse
+cost gradients and bounded finite differences. The comparisons archive their
+executed sources at baseline `52a1537`. Reproduce the selected variant into a new
+directory:
+
+```sh
+uv run python scripts/investigate_fused_covariance.py \
+  --scope linearization \
+  --fixtures /tmp/glassbox-nmpc-fixture \
+  --records docs/investigations \
+  --output /tmp/fused-linearization
+```
+
+Use `--scope full` for the broader diagnostic variant; its recorded comparison
+fails as described above. To reproduce the branch trace against that recording,
+load its archived research imports before the current scripts:
+
+```sh
+PYTHONPATH=docs/investigations/fused-covariance/executed-sources:scripts \
+  uv run python -c 'import runpy; runpy.run_path("scripts/trace_fused_covariance.py", run_name="__main__")' \
+  --fixtures /tmp/glassbox-nmpc-fixture \
+  --output /tmp/fused-covariance-branch
+```
+
+The trace driver now resolves the actual imported source paths for that provenance
+check. Its archived executed source predates this import-resolution improvement;
+the numerical trace was not repeated after it. No new closed-loop recovery or
+timing qualification follows from the saved-request comparisons.

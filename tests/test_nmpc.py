@@ -1487,3 +1487,185 @@ def test_shift_audit_preserves_old_joint_sensitivity_and_separates_reset(
     assert report["empirical_covariance_reset_minus_old_eigenvalue_extrema"][1] < 0.0
     assert report["scalar_probes"]["old_joint_variance"] == 0.0
     assert report["scalar_probes"]["reset_fixed_parameter_variance"] == 1.0
+
+
+@pytest.fixture
+def fused_covariance_case(request, monkeypatch):
+    """Short existing family fixture with moving attitude and lagged actuators."""
+    from dataclasses import fields
+
+    monkeypatch.syspath_prepend(str(Path(__file__).parents[1] / "scripts"))
+    experiment = importlib.import_module("investigate_fused_covariance")
+    controller = request.getfixturevalue(request.param)
+    plan = controller.plan
+    fused = experiment.FusedCovariancePlan(
+        **{field.name: getattr(plan, field.name) for field in fields(BeliefPlanModel)}
+    )
+    target = (
+        fixed_wing_trim_state()
+        if request.param == "fixedwing_controller"
+        else resting_state()
+    )
+    state = (
+        jnp.asarray(target)
+        .at[6:10]
+        .set(
+            jnp.asarray([0.97, 0.14, -0.12, 0.09])
+            / jnp.linalg.norm(jnp.asarray([0.97, 0.14, -0.12, 0.09]))
+        )
+    )
+    state = state.at[10:13].set(jnp.asarray([0.17, -0.13, 0.11]))
+    state = state.at[3:6].add(jnp.asarray([0.4, -0.3, 0.2]))
+    lower, width = plan.command_minimum, plan.command_maximum - plan.command_minimum
+    fractions = jnp.linspace(
+        0.15, 0.85, plan.horizon_steps * plan.command_size
+    ).reshape(plan.horizon_steps, plan.command_size)
+    commands = lower + fractions * width
+    commands = commands.at[0, 0].set(lower[0])
+    commands = commands.at[-1, -1].set(plan.command_maximum[-1])
+    latent = lower + 0.43 * width
+    previous = lower + 0.57 * width
+    reference = controller.hold_reference(jnp.asarray(target)).states
+    exogenous = jnp.zeros((plan.horizon_steps, plan.exogenous_size))
+    return plan, fused, commands, state, latent, previous, reference, exogenous
+
+
+def _fused_covariance_values(plan, directions):
+    size = len(structured_parameter_vector(plan.values.parameters))
+    # Dense, distinct directions excite attitude/actuator parameters rather than
+    # just the first parameter slots. Forecast covariance is nonzero and PSD.
+    factor = (
+        None
+        if directions is None
+        else 0.04
+        * jnp.sin(jnp.arange(size * directions).reshape(size, directions) + 0.4)
+    )
+    return plan.values._replace(
+        covariance_factor=factor,
+        forecast_error_covariance=jnp.broadcast_to(
+            0.001 * jnp.eye(12), (plan.horizon_steps, 12, 12)
+        ),
+    )
+
+
+@pytest.mark.parametrize(
+    "fused_covariance_case",
+    ["multirotor_controller_four_step", "fixedwing_controller"],
+    indirect=True,
+)
+@pytest.mark.parametrize(
+    "directions", [None, 0, 3], ids=["absent", "empty", "multiple"]
+)
+def test_fused_covariance_prediction_and_dynamic_values(
+    fused_covariance_case, directions
+):
+    plan, fused, commands, state, latent, _previous, _reference, exogenous = (
+        fused_covariance_case
+    )
+    values = _fused_covariance_values(plan, directions)
+    baseline = jax.jit(plan.rollout_commands)
+    shared = jax.jit(fused.rollout_commands)
+    center = structured_parameter_vector(values.parameters)
+    changed = values._replace(
+        parameters=with_structured_parameter_vector(values.parameters, center + 0.01),
+        covariance_factor=None
+        if directions is None
+        else 1.3 * values.covariance_factor,
+        forecast_error_covariance=1.7 * values.forecast_error_covariance,
+    )
+    outputs = []
+    for current in (values, changed):
+        expected = baseline(commands, state, latent, exogenous, current)
+        actual = shared(commands, state, latent, exogenous, current)
+        # In particular, a covariance-direction axis must not leak onto means.
+        assert actual.mean_states.shape == (plan.horizon_steps + 1, 13)
+        assert actual.latent_states.shape == (plan.horizon_steps + 1, plan.latent_size)
+        assert actual.tangent_covariance.shape == (plan.horizon_steps, 12, 12)
+        for a, b in zip(actual, expected, strict=True):
+            assert np.all(np.isfinite(a))
+            np.testing.assert_allclose(a, b, rtol=2e-5, atol=2e-7)
+        np.testing.assert_array_equal(actual.commands, commands)
+        np.testing.assert_array_equal(actual.mean_states[0], state)
+        np.testing.assert_array_equal(actual.latent_states[0], latent)
+        # Commands and actuator states intentionally differ; lag cannot vanish.
+        assert not np.allclose(actual.latent_states[1:], commands)
+        if directions in (None, 0):
+            np.testing.assert_array_equal(
+                actual.tangent_covariance, current.forecast_error_covariance
+            )
+        outputs.append(actual)
+    assert not np.array_equal(
+        outputs[0].tangent_covariance, outputs[1].tangent_covariance
+    )
+    assert not np.array_equal(outputs[0].mean_states, outputs[1].mean_states)
+    with pytest.raises(ValueError, match="one row per prediction interval"):
+        shared(commands[:-1], state, latent, exogenous, values)
+
+
+@pytest.mark.parametrize(
+    "fused_covariance_case",
+    ["multirotor_controller_four_step", "fixedwing_controller"],
+    indirect=True,
+)
+@pytest.mark.parametrize(
+    "directions", [None, 0, 3], ids=["absent", "empty", "multiple"]
+)
+def test_fused_covariance_command_jacobians_and_reverse_cost(
+    fused_covariance_case, directions
+):
+    plan, fused, commands, state, latent, previous, reference, exogenous = (
+        fused_covariance_case
+    )
+    values = _fused_covariance_values(plan, directions)
+
+    def outputs(model, waveform):
+        prediction = model.rollout_commands(waveform, state, latent, exogenous, values)
+        terms = model.optimization_terms(prediction, reference, previous, model.policy)
+        return prediction.tangent_covariance, terms.residuals, terms.inequality_margins
+
+    def baseline(waveform):
+        return outputs(plan, waveform)
+
+    def shared(waveform):
+        return outputs(fused, waveform)
+
+    expected = jax.jit(jax.jacfwd(baseline))(commands)
+    actual = jax.jit(jax.jacfwd(shared))(commands)
+    for index, (a, b) in enumerate(zip(actual, expected, strict=True)):
+        assert np.all(np.isfinite(a))
+        np.testing.assert_allclose(a, b, rtol=2e-5, atol=2e-7 if index == 0 else 2e-5)
+    if directions == 3:
+        assert np.max(np.abs(np.asarray(expected[0]))) > 1e-7
+    else:
+        np.testing.assert_array_equal(actual[0], jnp.zeros_like(actual[0]))
+
+    def cost(model, waveform):
+        prediction = model.rollout_commands(waveform, state, latent, exogenous, values)
+        return model.stage_cost(prediction, reference, previous, model.policy)
+
+    expected_cost, expected_gradient = jax.jit(
+        jax.value_and_grad(lambda u: cost(plan, u))
+    )(commands)
+    actual_cost, actual_gradient = jax.jit(
+        jax.value_and_grad(lambda u: cost(fused, u))
+    )(commands)
+    np.testing.assert_allclose(actual_cost, expected_cost, rtol=2e-5, atol=2e-5)
+    assert np.all(np.isfinite(actual_gradient))
+    np.testing.assert_allclose(actual_gradient, expected_gradient, rtol=2e-5, atol=2e-5)
+
+    if directions != 3:
+        return
+
+    # An independent centered difference probes the moving quaternion frame.
+    # Zero at active box coordinates keeps both physical waveforms bounded.
+    direction = jnp.sin(jnp.arange(commands.size).reshape(commands.shape) + 0.7)
+    direction = direction.at[0, 0].set(0).at[-1, -1].set(0)
+    epsilon = 0.002
+    check = jax.jit(shared)
+    plus, minus = (
+        check(commands + epsilon * direction),
+        check(commands - epsilon * direction),
+    )
+    finite_difference = (plus[0] - minus[0]) / (2 * epsilon)
+    tangent = jnp.tensordot(actual[0], direction, axes=([3, 4], [0, 1]))
+    np.testing.assert_allclose(tangent, finite_difference, rtol=0.01, atol=2e-6)

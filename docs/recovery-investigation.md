@@ -822,6 +822,12 @@ now uses observed seed cost before starting another linearization. Simulated-clo
 tests check its scheduling decisions, and 26 deadline-free requests retain bitwise
 output parity. No new host timing gate accompanies it; numerical correctness and
 hardware-specific deadline observations remain separate evidence.
+The subsequent [shared-rollout derivative implementation](fast-suffix-investigation.md#sharing-the-nominal-rollout-during-differentiation)
+removes a repeated nominal horizon pass during linearization, with strict bitwise
+parity on all 26 saved requests. A broader fusion changed one floating-point
+line-search decision; its failed work-count comparison and branch trace are
+retained. The selected derivative-only path preserves trial scoring and makes
+no host speedup claim.
 
 The [repeated identification pilot](repeated-uncertainty-calibration.md)
 separately tests uncertainty components using independent training and
