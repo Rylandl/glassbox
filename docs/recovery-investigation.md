@@ -806,9 +806,14 @@ the failed runtime case and narrow timing headroom. The subsequent
 completes the original, small and perturbed cases without deadlines, with all
 final-state tolerances satisfied. Two timed cold-start recoveries complete;
 the scheduled-kick arm stops on a seed-stage deadline overrun before its kick.
-An identical request passed in another recorded arm, so runtime timing variability
-remains unresolved. The costly reference solve remains evidence of repairability,
-not a deployable second controller.
+An identical request passed in another recorded arm. The subsequent
+[seed-timing probe](fast-suffix-investigation.md#seed-timing-and-process-history)
+records 256 successful identical-input replays, followed by a separate traced
+scenario-order pass that stops all three cases. A new seed overrun is dominated
+by JAX-output materialization without overlapping GC; the original spike's cause
+remains unidentified. A timely return can also lack a feasible candidate. Runtime
+variability and the margin available for repair remain unresolved. The costly
+reference solve remains evidence of repairability, not a deployable second controller.
 
 The [repeated identification pilot](repeated-uncertainty-calibration.md)
 separately tests uncertainty components using independent training and

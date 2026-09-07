@@ -377,6 +377,119 @@ uv run python scripts/audit_feedback_recovery.py \
 ```
 
 Cold-start recovery and the small in-flight perturbation now have formulation
-evidence. The next priority is to instrument and resolve the seed-stage timing
-variability before considering promotion to the maintained runtime. Additional
-weights, horizon length or a secondary controller do not follow from this result.
+evidence. The following diagnostic investigates the seed-stage timing variability
+before considering promotion to the maintained runtime.
+
+## Seed timing and process history
+
+The [fixed replay](investigations/seed-timing/report.json) resets every request
+to the recorded failed tick10 inputs, including the original unshifted incoming
+waveform. Its physical state, actuator state, previous command and shifted seed
+hashes match both the earlier successful and failed requests. It uses the same
+two-update budget, admission estimates, uncertainty, support and objective.
+No commands are applied and no fitting is repeated.
+
+The predeclared design has 64 blocks of baseline/traced/traced/baseline requests.
+Baseline disables the observation wrappers. Traced requests record wall, process
+CPU and caller-thread CPU clocks around validation, preparation, kernel dispatch,
+seed materialization, host arithmetic and result/failure construction. The seed's
+existing NumPy conversion is split into native-dtype materialization and a host
+float conversion, without synchronizing additional prediction leaves. A separate
+deadline-free parity pair checks bitwise-identical returned commands, physical
+and actuator forecasts, cost and feasibility. GC callbacks observe both arms;
+GC policy and BLAS configuration remain unchanged.
+
+| Replay arm | Accepted requests | Median caller budget fraction | Maximum caller budget fraction |
+| --- | ---: | ---: | ---: |
+| Baseline | 128/128 | 0.879786 | 0.956477 |
+| Traced | 128/128 | 0.886784 | 0.991092 |
+
+All 256 returned waveforms have the same hash and independently pass the physical
+rollout, frozen-middle and nonlinear-feasibility checks. Each performs two
+optimizer iterations and uses its finalizer. The median traced/baseline ratio
+is 1.007954. The original long spike is **not reproduced** by this bounded replay.
+The added tracing consumes budget and allocates records, so its median overhead
+is not a bound on its effect on later requests.
+
+The [saved-data audit](investigations/seed-timing-audit.json) separates the two
+evaluation materializations from the four linearization materializations.
+Their medians consume approximately 1.75% and 23.08% of the warm deadline.
+The post-linearization host gradient calculation consumes a median 0.127% and
+maximum 0.171% of that budget. The 25 observed GC collections are generation0
+or generation1, with the longest consuming 2.94% of the budget. Neither arm's
+slowest request overlaps GC. These observations do not identify the cause of
+the original outlier.
+
+One separately declared [scenario-order pass](investigations/seed-timing-history/report.json)
+then enables the same tracing during the original, small and scheduled-kick
+cases, retaining their prewarming order and original deadlines. Every case still
+stops at its first rejected request. This preserves scenario order, but tracing,
+earlier stops and deadline-dependent checkpoint choices change the subsequent
+process and numerical histories. It is not an exact reproduction of the prior
+runtime process.
+
+| Case | Applied intervals | Failed request's budget fraction | Reason |
+| --- | ---: | ---: | --- |
+| Original | 4/120 | 1.021142 | Feasible optimizer candidate rejected after prediction diagnostics. |
+| Small | 68/120 | 1.156917 | Deadline exceeded during seeding, before optimization. |
+| Original with scheduled kick | 11/120 | 0.858938 | Further work refused before a feasible candidate was retained. The kick is never reached. |
+
+All three returned failures are unassessed holds and none is applied. None
+receives a completed-recovery score. The third case illustrates why deadline
+completion and feasible-plan availability are separate: it returns within the
+deadline, but cannot provide a usable command. It does not establish that the
+underlying optimization problem is infeasible.
+
+The small case localizes a **new** seed overrun: 91.24% of its seed time is
+inside array materialization. Evaluation materialization is 10.34 times the
+median of that case's preceding accepted warm requests, and linearization
+materialization is 2.77 times its corresponding median. The host gradient
+calculation consumes only 0.251% of the request budget. No GC collection overlaps
+this failure. An earlier accepted warm request had a longer linearization
+materialization alone; the combined request cost determines the rejection.
+These spans include waiting for JAX results and host access. They do not separate
+kernel execution from worker scheduling or other host delays. Process CPU includes
+native workers, and the three clocks are sampled sequentially. Nested phase
+totals must not be summed as disjoint contributions.
+
+The audit verifies matching request inputs through tick4 in the original case,
+tick39 in the small case and tick9 in the kick case. Earlier checkpoint selection
+changes small-case inputs from tick40 and kick-case inputs from tick10. Therefore
+neither later failure reproduces the original saved tick10 request. Both
+[replay](investigations/seed-timing-compilation.log) and
+[scenario-order](investigations/seed-timing-history-compilation.log) logs contain
+no JAX compilation messages during measurement. The replay log also preserves
+two setup warnings about the optional configuration-output formatter.
+
+The directories archive the exact executed sources at baseline `f69c80e`, and
+the audit verifies their hashes, input identities and forecast artifacts.
+Subsequent harness cleanup restores temporary class-method wrappers without
+leaving bound-method aliases on the instance; a regression test covers it.
+Neither timing experiment was repeated after that cleanup. Reproduce into new
+output directories:
+
+```sh
+uv run python scripts/investigate_seed_timing.py \
+  --fixtures /tmp/glassbox-nmpc-fixture \
+  --runtime docs/investigations/feedback-recovery-runtime \
+  --output /tmp/seed-timing \
+  2> /tmp/seed-timing-compilation.log
+uv run python scripts/investigate_feedback_recovery.py \
+  --fixtures /tmp/glassbox-nmpc-fixture \
+  --formulation-report docs/investigations/feedback-recovery/report.json \
+  --seed-trace --output /tmp/seed-timing-history \
+  2> /tmp/seed-timing-history-compilation.log
+uv run python scripts/audit_seed_timing.py \
+  --replay docs/investigations/seed-timing \
+  --history docs/investigations/seed-timing-history \
+  --prior docs/investigations/feedback-recovery-runtime \
+  --output /tmp/seed-timing-audit.json
+```
+
+Admission estimates cannot preempt a dispatched kernel. The next implementation
+slice should reduce repeated rollout work in the single-waveform seed path by
+using the first linearization's already-computed residuals and margins. That
+requires numerical and feasibility parity checks before another fixed runtime
+comparison. It may provide timing margin; it cannot turn cooperative deadline
+checks into an execution-time guarantee. These results do not support changing
+weights, uncertainty, support, horizon length or introducing a second controller.

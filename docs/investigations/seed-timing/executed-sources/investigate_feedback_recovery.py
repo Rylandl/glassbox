@@ -8,7 +8,6 @@ import json
 import platform
 import subprocess
 import time
-from contextlib import nullcontext
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -158,20 +157,8 @@ def prewarm(solver, state, latent, previous, seed_request, reference, check):
 
 
 def simulate(
-    solver,
-    plan,
-    target,
-    reference,
-    check,
-    start,
-    *,
-    kick=False,
-    timing=False,
-    seed_trace=False,
+    solver, plan, target, reference, check, start, *, kick=False, timing=False
 ):
-    if seed_trace:
-        from investigate_seed_timing import caller_trace, observe_request
-
     state, latent, previous = [
         jnp.asarray(start[k]) for k in ("state", "latent", "previous")
     ]
@@ -230,8 +217,7 @@ def simulate(
             else None
         )
         before = len(solver.reports)
-        observation = observe_request(solver) if seed_trace else nullcontext(None)
-        with observation as recorder, jax.log_compiles(timing):
+        with jax.log_compiles(timing):
             started = time.perf_counter()
             result = solve_waveform(
                 solver,
@@ -244,8 +230,6 @@ def simulate(
             )
             elapsed = time.perf_counter() - started
         row = describe(solver, result, state, latent, previous, check, before)
-        if recorder is not None:
-            row["seed_trace"] = caller_trace(recorder, started, elapsed)
         commands = row.pop("commands", None)
         row.update(
             absolute_tick=tick,
@@ -337,10 +321,8 @@ def simulate(
     return case, arrays
 
 
-def run(fixtures, output, *, formulation_report=None, seed_trace=False):
-    if seed_trace and formulation_report is None:
-        raise ValueError("seed tracing requires the completed formulation report")
-    output.mkdir(parents=True, exist_ok=not seed_trace)
+def run(fixtures, output, *, formulation_report=None):
+    output.mkdir(parents=True, exist_ok=True)
     (output / "design.json").write_text(json.dumps(DESIGN, indent=2) + "\n")
     belief = DynamicsBelief.load(fixtures / "rich-belief.json")
     checkpoint = np.load(fixtures / "horizon-shift-states.npz")
@@ -414,22 +396,6 @@ def run(fixtures, output, *, formulation_report=None, seed_trace=False):
         ).hexdigest()
     else:
         cases = ["cold_original", "cold_small"]
-    if seed_trace:
-        report["seed_trace_design"] = {
-            "case_order": list(cases),
-            "passes": 1,
-            "observation": "same opt-in seed hooks as the fixed-request study; wall/process/thread clocks and GC callbacks",
-            "baseline": "original recorded runtime report is retained; this is a separate instrumented process-history probe",
-            "limitations": [
-                "Preserves scenario/prewarm order, not exact host scheduling, allocator state or process history.",
-                "Trace records allocate memory and consume request budget; admission may change returned checkpoints and later states.",
-                "Nested phase totals are inclusive; native materialization includes waiting. CPU clocks alone do not establish descheduling.",
-            ],
-        }
-        (output / "design.json").write_text(
-            json.dumps({**DESIGN, "seed_trace": report["seed_trace_design"]}, indent=2)
-            + "\n"
-        )
     cursor = 0
     while cursor < len(cases):
         name = cases[cursor]
@@ -443,7 +409,6 @@ def run(fixtures, output, *, formulation_report=None, seed_trace=False):
             starts[base],
             kick=name.endswith("_kick"),
             timing=timing,
-            seed_trace=seed_trace,
         )
         trace_path = output / (name + ".npz")
         np.savez_compressed(trace_path, **arrays)
@@ -501,18 +466,12 @@ def run(fixtures, output, *, formulation_report=None, seed_trace=False):
         "investigate_fast_suffix.py",
         "investigate_fast_suffix_runtime.py",
         "investigate_recovery.py",
-        "investigate_seed_timing.py",
     ):
         path = Path(__file__).with_name(name)
         report["source_sha256"][f"scripts/{name}"] = hashlib.sha256(
             path.read_bytes()
         ).hexdigest()
     (output / "executed-source.py").write_bytes(Path(__file__).read_bytes())
-    if seed_trace:
-        archive = output / "executed-sources"
-        archive.mkdir()
-        for name in ("investigate_sqp_recovery.py", "investigate_seed_timing.py"):
-            (archive / name).write_bytes(Path(__file__).with_name(name).read_bytes())
     (output / "report.json").write_text(
         json.dumps(json_finite(report), indent=2, allow_nan=False) + "\n"
     )
@@ -523,19 +482,9 @@ if __name__ == "__main__":
     parser.add_argument("--fixtures", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument(
-        "--seed-trace",
-        action="store_true",
-        help="one separately recorded runtime pass with seed phase and GC observation",
-    )
-    parser.add_argument(
         "--formulation-report",
         type=Path,
         help="time only completed cases from this prior report",
     )
     args = parser.parse_args()
-    run(
-        args.fixtures,
-        args.output,
-        formulation_report=args.formulation_report,
-        seed_trace=args.seed_trace,
-    )
+    run(args.fixtures, args.output, formulation_report=args.formulation_report)

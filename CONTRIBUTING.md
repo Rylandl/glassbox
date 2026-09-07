@@ -203,6 +203,11 @@ is archived beside its recorded JSON so later reporting changes do not erase
 the executed source. The full-recovery follow-up distinguishes cold startup,
 completed interval counts, terminal state tolerances, and in-flight disturbances;
 its NPZ traces support score and input-identity audits without rerunning solves.
+The seed-timing follow-up uses a fixed paired replay and one separately recorded
+scenario-order pass. Opt-in `--seed-trace` preserves phase and GC records even
+when seeding aborts before an optimizer report exists. Its audit processes saved
+arrays and events without rerunning optimization. Negative timing results remain
+in their original directories; traced observations are separate artifacts.
 The [repeated uncertainty pilot](docs/repeated-uncertainty-calibration.md)
 has its own fixed independent identification/calibration/test design. Its saved
 beliefs and arrays support postprocessing without repeating the six fits.
