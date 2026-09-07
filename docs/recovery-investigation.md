@@ -801,9 +801,13 @@ and feasible-candidate retention through the normal solve boundary. Its
 also permits immediate command changes and demonstrates a local response to
 matched state perturbations. Existing work-admission checks allow a bounded
 continuation to return earlier feasible checkpoints when needed. The note retains
-the failed runtime case and narrow timing headroom. Full recovery, cold startup
-and disturbances during operation remain to be tested before promoting the
-parameterization. The costly reference solve remains evidence of repairability,
+the failed runtime case and narrow timing headroom. The subsequent
+[cold-start/full-recovery study](fast-suffix-investigation.md#cold-startup-and-full-recovery)
+completes the original, small and perturbed cases without deadlines, with all
+final-state tolerances satisfied. Two timed cold-start recoveries complete;
+the scheduled-kick arm stops on a seed-stage deadline overrun before its kick.
+An identical request passed in another recorded arm, so runtime timing variability
+remains unresolved. The costly reference solve remains evidence of repairability,
 not a deployable second controller.
 
 The [repeated identification pilot](repeated-uncertainty-calibration.md)

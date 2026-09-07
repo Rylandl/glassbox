@@ -200,7 +200,10 @@ deadline check. Its head-and-suffix extension tests immediate feedback with the
 same number of variables as the fixed-grid baseline, and compares the existing
 work-admission policy with unconditional two-update work. Each new main script
 is archived beside its recorded JSON so later reporting changes do not erase
-the executed source. The [repeated uncertainty pilot](docs/repeated-uncertainty-calibration.md)
+the executed source. The full-recovery follow-up distinguishes cold startup,
+completed interval counts, terminal state tolerances, and in-flight disturbances;
+its NPZ traces support score and input-identity audits without rerunning solves.
+The [repeated uncertainty pilot](docs/repeated-uncertainty-calibration.md)
 has its own fixed independent identification/calibration/test design. Its saved
 beliefs and arrays support postprocessing without repeating the six fits.
 

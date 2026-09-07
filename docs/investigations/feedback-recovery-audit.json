@@ -1,0 +1,170 @@
+{
+  "postprocessing_only": true,
+  "local_state_tolerance_scale": [
+    0.4000000059604645,
+    0.4000000059604645,
+    0.4000000059604645,
+    0.5,
+    0.5,
+    0.5,
+    0.15000000596046448,
+    0.15000000596046448,
+    0.15000000596046448,
+    0.5,
+    0.5,
+    0.5
+  ],
+  "rescored": {
+    "formulation": {
+      "cold_original": {
+        "tail_normalized_tracking_rms": 0.2603166103363037,
+        "terminal_attitude_rate_within_tolerances": true,
+        "terminal_full_state_within_tolerances": true,
+        "terminal_normalized_error": [
+          -0.040284447371959686,
+          -0.5679036378860474,
+          -0.006353394594043493,
+          0.03303913399577141,
+          0.45691460371017456,
+          0.005923414137214422,
+          0.12520667910575867,
+          -0.007034731563180685,
+          0.0004430069529917091,
+          -0.02774774469435215,
+          -0.002736938651651144,
+          -0.0005561699508689344
+        ]
+      },
+      "cold_small": {
+        "tail_normalized_tracking_rms": 0.009645335376262665,
+        "terminal_attitude_rate_within_tolerances": true,
+        "terminal_full_state_within_tolerances": true,
+        "terminal_normalized_error": [
+          0.002387664746493101,
+          -0.020862815901637077,
+          -0.0013521682703867555,
+          -0.001867536804638803,
+          0.016698725521564484,
+          0.0015226776013150811,
+          0.004591050092130899,
+          0.0005888637388125062,
+          2.2367650672094896e-05,
+          -0.0011371634900569916,
+          -0.00031328911427408457,
+          -2.4342332835658453e-05
+        ]
+      },
+      "cold_original_kick": {
+        "tail_normalized_tracking_rms": 0.26053231954574585,
+        "terminal_attitude_rate_within_tolerances": true,
+        "terminal_full_state_within_tolerances": true,
+        "terminal_normalized_error": [
+          -0.0402815043926239,
+          -0.5688427090644836,
+          -0.006296243518590927,
+          0.03303789719939232,
+          0.4572966694831848,
+          0.005873274989426136,
+          0.12492115795612335,
+          -0.007035510148853064,
+          0.000443459750385955,
+          -0.027384357526898384,
+          -0.00273479288443923,
+          -0.0005565208848565817
+        ]
+      }
+    },
+    "runtime": {
+      "cold_original": {
+        "tail_normalized_tracking_rms": 0.2603166103363037,
+        "terminal_attitude_rate_within_tolerances": true,
+        "terminal_full_state_within_tolerances": true,
+        "terminal_normalized_error": [
+          -0.040284447371959686,
+          -0.5679036378860474,
+          -0.006353394594043493,
+          0.03303913399577141,
+          0.45691460371017456,
+          0.005923414137214422,
+          0.12520667910575867,
+          -0.007034731563180685,
+          0.0004430069529917091,
+          -0.02774774469435215,
+          -0.002736938651651144,
+          -0.0005561699508689344
+        ]
+      },
+      "cold_small": {
+        "tail_normalized_tracking_rms": 0.009644930250942707,
+        "terminal_attitude_rate_within_tolerances": true,
+        "terminal_full_state_within_tolerances": true,
+        "terminal_normalized_error": [
+          0.002386077307164669,
+          -0.020858358591794968,
+          -0.0013546815607696772,
+          -0.0018669795244932175,
+          0.016701633110642433,
+          0.0015179332112893462,
+          0.004574823193252087,
+          0.0005879521486349404,
+          2.278273314004764e-05,
+          -0.0011439784429967403,
+          -0.00031531378044746816,
+          -2.437916919006966e-05
+        ]
+      },
+      "cold_original_kick": {
+        "tail_normalized_tracking_rms": null,
+        "terminal_attitude_rate_within_tolerances": null,
+        "terminal_full_state_within_tolerances": null,
+        "terminal_normalized_error": [
+          0.588126003742218,
+          -0.8920195698738098,
+          -0.5207799077033997,
+          -0.4198296368122101,
+          -1.93050217628479,
+          -0.8016039133071899,
+          0.9235178828239441,
+          -1.033744215965271,
+          0.9447773694992065,
+          -2.152496337890625,
+          1.226534128189087,
+          -0.35961779952049255
+        ]
+      }
+    }
+  },
+  "kick_comparison": {
+    "absolute_tick": 60,
+    "changed_initial_state_index": 10,
+    "seed_latent_previous_identical": true,
+    "immediate_command_difference": [
+      -0.036620497703552246,
+      0.03736978769302368,
+      0.037419527769088745,
+      -0.03689125180244446
+    ],
+    "immediate_command_difference_inf": 0.037419527769088745
+  },
+  "runtime_failure_comparison": {
+    "absolute_tick": 10,
+    "before_scheduled_kick": true,
+    "same_request_inputs": {
+      "state_sha256": true,
+      "latent_sha256": true,
+      "previous_command_sha256": true,
+      "seed_sha256": true
+    },
+    "identical_prior_state_actuator_and_seed_histories": true,
+    "passed_caller_budget_fraction": 0.9016791504109278,
+    "failed_caller_budget_fraction": 3.2211229496169835,
+    "failed_message": "solver deadline expired before optimization",
+    "interpretation": "The same numerical request passed earlier. The failure preceded the disturbance; its host/kernel scheduling cause is not identified by these recordings."
+  },
+  "source_reports_sha256": {
+    "formulation": "907d28b2814d994bbeb08b9dcc6cc029b84af868168016940e6330f16d867f7b",
+    "runtime": "caaf9d6f69531fb0c22d648dce05b6b5192a02a01324ac39370d0f5b8e021b18"
+  },
+  "belief_sha256": "cd4e3b5201aff055b274a6fc1fe8eee64aa0656b447999b6618122a965d71bd1",
+  "script_sha256": "d3f84263d4641dcca9b3e11d13ab5ef292b92c950d15f0ee092c595bf8dcd8c8"
+}

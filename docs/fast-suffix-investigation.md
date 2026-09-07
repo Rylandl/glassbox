@@ -260,8 +260,123 @@ uv run python scripts/investigate_feedback_suffix_runtime.py --admission \
   2> /tmp/feedback-suffix-budget-compilation.log
 ```
 
-The next validation target is a full recovery including startup and a disturbance
-after the controller has begun operating. That should precede promoting this
-restricted command layout into the maintained controller. The first four commands
-now provide immediate freedom, but the fixed middle and tight timing headroom
-still require evaluation beyond this local case.
+The next validation extends this layout to cold startup and full recovery,
+including a disturbance after control has begun. The results below address that
+formulation question while retaining the unresolved runtime boundary.
+
+## Cold startup and full recovery
+
+The [full-recovery study](investigations/feedback-recovery/report.json) uses the
+same four-command head, six-command suffix, uncertainty and support limits. It
+starts with thirty repetitions of the actual previous command, without any
+solved waveform. An explicit `SeedRequest` creates that hold or shifts a warm
+waveform inside the existing timed preparation boundary. Startup uses the
+reference backend's eight-update allowance; subsequent requests use two.
+Simply omitting a warm start from the earlier adapter would still give two
+updates, so cold/warm mode and the recorded iteration budget are checked explicitly.
+
+The original initial state, actuator state and previous command come directly
+from the verified tick0 fixture. The small case changes only the physical
+disturbance. Every arm ends at absolute tick120, or 2.4 s, and stops on an
+unusable solve or actual support exit. The predeclared tick4 continuation would
+have used 116 intervals if original cold startup failed; it was unnecessary.
+
+All three deadline-free cases complete the full interval count and finish
+within **all twelve** local-state tolerances:
+
+| Case | Applied intervals | Final-20-sample normalized tracking RMS | Maximum actual support utilization |
+| --- | ---: | ---: | ---: |
+| Original cold start | 120/120 | 0.260316610 | 0.999870181 |
+| Small cold start | 120/120 | 0.009645335 | 0.339922905 |
+| Original with roll-rate kick | 120/120 | 0.260532320 | 0.999870181 |
+
+The kick adds 0.02 of the roll-rate support half-width at absolute tick60,
+or 1.2 s. It changes only the current physical roll rate; actuator state,
+previous command and incoming waveform remain identical. State, actuator and
+seed histories match the nominal case up to that event. The
+[saved-data audit](investigations/feedback-recovery-audit.json) confirms the
+immediate command changes by up to 0.037419528 of its physical range. This
+establishes an in-flight feedback response in the deterministic known-state
+simulation, with full uncertainty still present in each NMPC forecast.
+
+Tracking RMS follows the existing benchmark's final twenty samples and twelve
+normalized coordinates. Completing the interval count, meeting attitude/rate
+tolerances and meeting all state tolerances are separate report fields. Truncated
+or support-exiting runs receive no completed-recovery score. The audit recomputes
+every score from the saved trajectories and records the tolerance scale. These
+finite-horizon results do not establish asymptotic stability or robustness to
+larger disturbances, state-estimation error or other plants.
+
+The [serialized runtime study](investigations/feedback-recovery-runtime/report.json)
+uses the existing admission estimates with a declared 100 ms startup deadline
+and 20 ms thereafter. Compilation is prewarmed before the run; hold creation,
+shifting, validation, transfer, complete solve and synchronized result assembly
+are inside the command budget. Prewarming exercises all seed modes and failure
+buffers, then discards its outputs. The actual startup is again seeded by the
+held previous command. Independent waveform validation, simulated plant steps
+and logging are excluded from the measured solver request.
+
+| Runtime case | Applied intervals | Outcome |
+| --- | ---: | --- |
+| Original cold start | 120/120 | All deadlines pass; all final-state tolerances pass. |
+| Small cold start | 120/120 | All deadlines pass; all final-state tolerances pass. |
+| Original with scheduled kick | 10/120 | Request10 exceeds its deadline during seeding. Its unassessed hold is not applied; the tick60 kick is never reached. |
+
+The largest caller durations in the two completed cases consume approximately
+93% and 90% of their respective request budgets. In the stopped run, request10
+consumes approximately 322% of its budget before returning a failure. These are
+`caller_elapsed_s / deadline_s` ratios, not execution-time bounds.
+The [compilation log](investigations/feedback-recovery-compilation.log) contains
+no messages during measured requests.
+
+The audit verifies that failed request10 has **identical** physical state,
+actuator state, previous command and seed to successful request10 in the original
+runtime case; their preceding state, actuator and seed histories also match
+bitwise. The successful call used approximately 90% of its budget. Thus the
+recorded failure precedes the disturbance and does not demonstrate loss of
+feasibility caused by the kick. It also prevents claiming an end-to-end timed
+disturbance recovery. One value call and one linearization were attempted before
+rejection; no optimizer report was produced. The recordings cannot separate
+kernel execution, synchronization, Python overhead or host scheduling as the
+cause of that delay. No timing case was repeated to replace this negative result.
+
+Six harness tests cover explicit eight/two budgets, cold-seed replacement,
+exact one-component kick injection, final-twenty-sample scoring, rejected-command
+handling, and failed-kick/nonfinite diagnostics. A stopped kick preserves the
+post-kick state as the trace endpoint. Nonfinite JSON diagnostics become null
+while raw arrays remain in the NPZ, so intended failure reports remain writable.
+An initial harness launch stopped before any solve on strict sample-period
+float equality; the guard now permits representation error within `1e-8` s.
+The physical integration period was unchanged.
+
+Each study directory contains a predeclared design, report, compact trajectory
+arrays, hashes and the exact executed main source at baseline `0723e96`.
+No fitting was repeated. Reproduce the formulation first, then time its completed
+cases in isolation:
+
+```sh
+uv run python scripts/investigate_feedback_recovery.py \
+  --fixtures /tmp/glassbox-nmpc-fixture \
+  --output /tmp/feedback-recovery
+uv run python scripts/investigate_feedback_recovery.py \
+  --fixtures /tmp/glassbox-nmpc-fixture \
+  --formulation-report /tmp/feedback-recovery/report.json \
+  --output /tmp/feedback-recovery-runtime \
+  2> /tmp/feedback-recovery-compilation.log
+```
+
+The audit command below checks the committed observations, including their
+specific recorded deadline failure; a new timing run may have different stops:
+
+```sh
+uv run python scripts/audit_feedback_recovery.py \
+  --formulation docs/investigations/feedback-recovery \
+  --runtime docs/investigations/feedback-recovery-runtime \
+  --belief /tmp/glassbox-nmpc-fixture/rich-belief.json \
+  --output /tmp/feedback-recovery-audit.json
+```
+
+Cold-start recovery and the small in-flight perturbation now have formulation
+evidence. The next priority is to instrument and resolve the seed-stage timing
+variability before considering promotion to the maintained runtime. Additional
+weights, horizon length or a secondary controller do not follow from this result.
