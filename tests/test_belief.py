@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import replace
+from dataclasses import dataclass, replace
 
 import jax.numpy as jnp
 import numpy as np
@@ -17,6 +17,7 @@ from glassbox.belief.information import (
     estimable_structured_parameters,
 )
 from glassbox.belief.parameter_evidence import innovation_noise, parameter_information
+from glassbox.core.data import Channel
 from glassbox.core.dynamics import (
     ResidualDynamicsParams,
     initial_residual_parameters,
@@ -25,6 +26,7 @@ from glassbox.core.dynamics import (
     with_structured_parameter_vector,
 )
 from glassbox.core.fixedwing_synthetic import true_fixed_wing_parameters
+from glassbox.core.metrics import one_step_innovations
 from glassbox.core.model import (
     ExecutableModel,
     ModelValidityEnvelope,
@@ -132,9 +134,9 @@ def test_belief_round_trip_and_runtime_forecast(tmp_path, quadrotor_flight) -> N
     assert forecast.uncertainty_available
     assert forecast.forecast_error_horizon_supported
     assert forecast.states.shape == (6, 13)
-    assert forecast.tangent_covariance.shape == (6, 12, 12)
+    assert forecast.forecast_error_covariance.shape == (6, 12, 12)
     assert forecast.validity_utilization.shape == (6, 6)
-    # A point belief resolves nothing, so the whole spread is the envelope's.
+    # A point belief has empirical errors but no resolved parameter information.
     assert forecast.parameter_information_rank == 0
     np.testing.assert_array_equal(
         forecast.parameter_covariance,
@@ -178,6 +180,70 @@ def test_runtime_rollout_enforces_declared_command_bounds(quadrotor_flight) -> N
     np.testing.assert_array_equal(clipped.commands, bounded.commands)
 
 
+@dataclass(frozen=True)
+class _SquaredActuation:
+    command_channels: tuple[Channel, ...]
+    model_control_size: int = 4
+
+    def model_control(self, command):
+        return jnp.square(command)
+
+
+@pytest.mark.parametrize("family", ["quadrotor", "fixedwing"])
+def test_forecast_continuation_preserves_actuation_and_wind(
+    family, quadrotor_flight, fixedwing_flight
+) -> None:
+    generate, params = (
+        (quadrotor_flight, true_parameters())
+        if family == "quadrotor"
+        else (fixedwing_flight, true_fixed_wing_parameters())
+    )
+    trajectory = generate(7, 0.3)
+    wind = Channel(
+        name="wind",
+        role="wind_north",
+        semantic="world_wind_velocity",
+        unit="m/s",
+        kind="exogenous",
+        frame="NWU",
+    )
+    model = ExecutableModel(
+        params,
+        replace(trajectory.spec, channels=(*trajectory.spec.channels, wind)),
+        runtime_spec_from_trajectory(trajectory),
+        actuation=_SquaredActuation(trajectory.spec.controls),
+    )
+    belief = DynamicsBelief(model)
+    commands = jnp.asarray(trajectory.controls[:6])
+    history = jnp.asarray(trajectory.controls[6:10])
+    context = jnp.linspace(-3.0, 4.0, len(commands))[:, None]
+
+    full = belief.rollout(
+        trajectory.states[0], commands, command_history=history, exogenous=context
+    )
+    prefix = belief.rollout(
+        trajectory.states[0],
+        commands[:3],
+        command_history=history,
+        exogenous=context[:3],
+    )
+    suffix = belief.rollout(
+        prefix.states[-1],
+        commands[3:],
+        initial_latent_state=prefix.latent_states[-1],
+        exogenous=context[3:],
+    )
+
+    np.testing.assert_array_equal(
+        full.latent_states[0], model.initial_latent_state(history)
+    )
+    np.testing.assert_allclose(full.states[:4], prefix.states, atol=1e-6)
+    np.testing.assert_allclose(full.states[3:], suffix.states, atol=1e-6)
+    np.testing.assert_allclose(full.latent_states[3:], suffix.latent_states, atol=1e-6)
+    calm = belief.rollout(trajectory.states[0], commands, command_history=history)
+    assert np.max(np.abs(np.asarray(full.states - calm.states))) > 1e-5
+
+
 def test_resolved_information_propagates_through_the_rollout(
     tmp_path, quadrotor_flight
 ) -> None:
@@ -207,12 +273,17 @@ def test_resolved_information_propagates_through_the_rollout(
     )
     assert prediction.parameter_information_rank == 1
     assert np.max(prediction.parameter_covariance) > 0.0
-    # The two covariances answer different questions and are added, never
-    # substituted for one another.
-    np.testing.assert_allclose(
-        prediction.tangent_covariance,
-        prediction.forecast_error_covariance + prediction.parameter_covariance,
+    uninformed = replace(restored, information=None).rollout(
+        jnp.asarray(trajectory.states[0]),
+        jnp.asarray(trajectory.controls[:5]),
     )
+    np.testing.assert_array_equal(prediction.states, uninformed.states)
+    np.testing.assert_allclose(
+        prediction.forecast_error_covariance,
+        uninformed.forecast_error_covariance,
+    )
+    assert not uninformed.parameter_information_complete
+    np.testing.assert_array_equal(uninformed.parameter_covariance, 0.0)
 
 
 def test_information_leaves_unresolved_directions_at_exactly_zero() -> None:
@@ -291,7 +362,7 @@ def test_training_information_uses_only_estimable_structured_coordinates(
         trajectories,
         ("group-a", "group-b"),
         innovation_noise=innovation_noise(
-            params, [(item, None) for item in trajectories]
+            one_step_innovations(params, item) for item in trajectories
         ),
         estimable=estimable,
     )
@@ -318,7 +389,7 @@ def test_training_information_is_vehicle_family_generic(fixedwing_flight) -> Non
         trajectories,
         ("fixedwing-a", "fixedwing-b"),
         innovation_noise=innovation_noise(
-            params, [(item, None) for item in trajectories]
+            one_step_innovations(params, item) for item in trajectories
         ),
     )
 

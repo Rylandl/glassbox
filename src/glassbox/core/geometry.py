@@ -88,11 +88,25 @@ def state_plus_tangent(state: Array, tangent: Array) -> Array:
     same thing.
     """
 
-    angle = jnp.linalg.norm(tangent[6:9])
-    quaternion_scale = 0.5 * jnp.sinc(angle / (2.0 * jnp.pi))
+    angle_squared = jnp.sum(jnp.square(tangent[6:9]))
+    small_angle = angle_squared < 1e-8
+    # The exponential map is smooth at zero, but the norm is not. Evaluate
+    # its small-angle terms in squared-angle coordinates, and keep the unused
+    # square-root branch away from zero for both forward and reverse autodiff.
+    angle = jnp.sqrt(jnp.where(small_angle, 1.0, angle_squared))
+    quaternion_scale = jnp.where(
+        small_angle,
+        0.5 - angle_squared / 48.0 + angle_squared**2 / 3840.0,
+        0.5 * jnp.sinc(angle / (2.0 * jnp.pi)),
+    )
+    quaternion_scalar = jnp.where(
+        small_angle,
+        1.0 - angle_squared / 8.0 + angle_squared**2 / 384.0,
+        jnp.cos(0.5 * angle),
+    )
     delta_quaternion = jnp.concatenate(
         (
-            jnp.cos(0.5 * angle)[None],
+            quaternion_scalar[None],
             quaternion_scale * tangent[6:9],
         )
     )

@@ -1,84 +1,137 @@
-# Repeated identification uncertainty pilot
+# Repeated-fit uncertainty
 
-This one predeclared pilot completed six independent production `DynamicsBelief.absorb`
-updates, each on a separate 3 s synthetic training flight. Its combined rate
-uncertainty exceeds observed squared errors in this design, but does **not** establish
-that the recovery covariance counts calibrated sampling variance twice.
+Held-out forecast error is useful evidence of future error scale in this study.
+Local parameter information does not consistently describe repeated-fit error,
+and adding its propagated covariance to empirical error often worsens the estimate.
+`PredictiveTrajectory` therefore exposes the two matrices separately; the combined
+covariance and standard-deviation shortcuts have been removed.
 
-The target is the known recovery arm-ratio shift of 0.20; the common prior is the
-unchanged deterministic recovery parameter grid with the library innovation noise
-floor. There is no process or observation noise. Replication comes from independently
-seeded training excitation, with one bounded update per fit, rather than a converged
-batch optimizer. Evaluation starts from known resting physical and true-hover
-actuator states. Training retains the production actuator history reconstruction;
-its estimation effects are not separately identified.
+The study uses the library's known synthetic quadrotor, 16 independent fits per
+condition, and paired random seeds across conditions. Each fit uses two six-second
+training flights, two separate calibration flights, and the default 400-step
+optimizer at 50 Hz. Three shared test command designs receive independent
+observation noise for each fit. Noise is Gaussian in rigid-body tangent coordinates;
+base standard deviations are 2 mm position, 0.02 m/s velocity, 0.002 rad attitude
+and 0.01 rad/s body rate. The plant has no process noise. The collective condition
+uses equal motor commands throughout training, calibration and testing.
 
-The design was fixed before data generation: training seeds 91000–91005,
-two calibration sources per fit (92000–92011),
-and independent test sources 93000/93001. Calibration and test command sources are
-1.2 s flights; the last 30 commands are replayed open-loop from matched initial
-states, with prefixes scored at 0.1 and 0.6 s. Both test designs are shared across
-fits, giving **six**, not twelve or 144, independent fitted estimates at each design.
-Each E has two independently grouped endpoint samples per horizon. All 150 training
-transitions were retained for each fit; each resolves 15 estimable directions.
-No test or calibration evidence expands support or enters identification.
+At one second, restricting test windows to nominal and true motion inside the
+fitted operating envelope:
 
-For each test design, the saved endpoint error vector is expressed in the truth
-endpoint tangent chart. Its derivative at true parameters times fitted parameter
-error is `l`; `r = error - l` is the nonlinear remainder. Saved full matrices obey
-`error error' = ll' + rr' + lr' + rl'` (maximum absolute closure 8.82e-13).
-The repeated-fit second moment is also split into squared sample mean and centered
-sample variation, using denominator six. This is a descriptive finite-sample
-identity, not an unbiased estimate of population squared bias. Predicted C uses
-the production information model and nominal-chart sensitivity; different attitude
-tangent origins preclude asserting full matrix equality to truth-chart moments.
+| Condition | Empirical error / test MSE | (Empirical + parameter) / test MSE |
+| --- | ---: | ---: |
+| Clean | 0.93–1.11 | 1.07–1.37 |
+| Base noise | 0.88–1.01 | 1.53–2.55 |
+| Triple noise | 0.83–1.09 | 1.54–2.27 |
+| Collective, base noise | 0.83–0.97 | 0.83–1.88 |
 
-At 0.6 s, averaging the two fixed test designs only for compact presentation:
+Ranges span position, velocity, attitude and body-rate groups; each group averages
+its three coordinates. Windows are averaged within each fit before averaging fits.
+Every fit contributes inside-support windows: 89–90% of windows for the first three
+conditions, 100% for collective. The saved report also includes all-window results,
+0.1 and 0.5 second horizons, per-fit ratios and errors against latent truth.
+These are second-moment comparisons, not probability coverage measurements.
 
-| Coordinate | Actual second moment | E | Parameter term | Sum | Sample bias² | Sample centered variation |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Roll rate | 5.188e-6 | 1.812e-5 | 5.641e-5 | 7.453e-5 | 3.383e-6 | 1.805e-6 |
-| Pitch rate | 8.162e-6 | 8.321e-6 | 3.367e-5 | 4.199e-5 | 8.151e-6 | 1.086e-8 |
+Parameter comparisons use each fit's resolved, scaled eigendirections. Squared
+parameter error is weighted by local precision and averaged per direction, then
+fit. Centered variation replaces error against truth with deviation from the
+across-fit mean, with the sample-variance correction.
 
-These are in (rad/s)². The roll-rate nonlinear remainder second moment is
-approximately 4e-9 and its signed cross contribution 1.56e-7. Pitch is strongly
-sample-bias dominated; its cross contribution is 1.38e-7. Thus a large predicted
-parameter term cannot be equated with the observed centered sampling variation.
-The deterministic plant means E includes parameter-induced error, but this alone
-does not show that C measures the same component with the correct magnitude.
-The exact scalar finite-population control separately demonstrates genuine overlap
-when E and the parameter contribution are defined to represent the same variance:
-actual 15, E 15, parameter 15, sum 30, zero remainder and cross term.
+| Condition | Resolved rank / 9 | Parameter error / local variance | Centered variation / local variance |
+| --- | ---: | ---: | ---: |
+| Clean | 3 | 0.055 | 0.0068 |
+| Base noise | 5 | 0.38 | 0.49 |
+| Triple noise | 5–8 | 11.3 | 0.34 |
+| Collective, base noise | 1–4 | 707 | 3.90 |
 
-All 0.1 s evaluations are within each fit's declared support. Both 0.6 s test
-rollouts for replicate 4 exceed support slightly (largest nominal utilization
-1.01483); other replicates remain inside. The table includes those labeled cases
-and is not an inside-support calibration claim. Full per-fit/per-test validity
-arrays and counts are in the report. With two calibration sources, six fits,
-fixed noise-floor assumptions, no observation noise, single-update bias and
-float32 dynamics, this pilot supports no population coverage, covariance
-subtraction, rescaling, or controller change. No timing claims are made.
+No fit resolves all estimable directions. Rank uses a fit-local relative threshold;
+noise-induced parameter bias is especially large with collective excitation.
+The local inverse information is neither a consistent estimate of sampling
+variation nor of total parameter error in these fits.
 
-Artifacts: [machine report](investigations/repeated-uncertainty-calibration/report.json),
-[predeclared design](investigations/repeated-uncertainty-calibration/design.json), and
-`arrays.npz` plus six saved beliefs in the same directory. Source hashes, import
-path, all source seeds/hashes, prior and unresolved flags are included. Validity
-was annotated from saved fits after completion without any additional fit.
-The report preserves separate pilot, annotation and delivered-script hashes.
-The delivered source adds annotation, formatting and explicit binding of the
-immediately evaluated Jacobian closure's test inputs. The six fits were not
-rerun after these changes. Exact historical source bytes were not archived,
-so the final script is a reproduction recipe, not a byte-for-byte copy of the
-executed pilot source; the original hashes remain intact.
+The library retains local information for diagnostics and updates, and empirical
+forecast errors as measured evidence. The planner's covariance sum remains its
+risk-penalty policy.
 
-Reproduce from this checkout (the initial pilot used baseline e15c088):
+[Machine report](investigations/fit-uncertainty/report.json) and
+[evidence archive](investigations/fit-uncertainty/evidence.zip) retain all 64 fits'
+arrays and beliefs, optimization controls, the design, environment versions and
+hash-verified executed sources. The earlier
+[six-update pilot](investigations/repeated-uncertainty-calibration/report.json)
+remains as historical data; this runner replaces its script.
 
 ```sh
-uv run python scripts/calibrate_repeated_uncertainty.py \
-  --output /tmp/repeated-uncertainty-pilot
-uv run pytest tests/test_repeated_uncertainty_calibration.py -q
+uv run python scripts/evaluate_fit_uncertainty.py --output /tmp/fit-uncertainty
+uv run pytest tests/test_fit_uncertainty.py -q
 ```
 
-Exactly one pilot was run, without tuning. The tests falsify omission of a negative
-cross term, check the bias/variation identity, independent seed/hash separation,
-full saved matrix decomposition, component addition and the support annotation.
+## Initial-state follow-up
+
+Fixing each window's initial state to one noisy observation lets the fitted
+damping suppress that noise. In a follow-up on four fresh datasets per condition,
+substituting known initial states reduced parameter MSE by about 98% in the three
+noisy conditions, while the future observations remained noisy.
+
+The candidate instead jointly fitted twelve tangent offsets per window alongside
+the model, charging the initial observation in the loss. This follows the
+[initial-state estimation](https://www.mathworks.com/help/ident/ref/findstates.html)
+approach. Both candidate and current fitter were tested at 400 and 4,000 optimizer
+steps on new training and test seeds.
+
+At 4,000 steps, candidate/current error ratios were:
+
+| Condition | Parameter MSE | Forecast MSE from noisy starts | Forecast MSE from true starts |
+| --- | ---: | ---: | ---: |
+| Base noise | 0.20 | 0.83–0.93 | 0.062–0.085 |
+| Triple noise | 0.82 | 0.95–1.82 | 0.031–0.070 |
+| Collective, base noise | 0.37 | 1.56–12.55 | 0.031–0.041 |
+
+Parameter MSE covers the nine estimable log coordinates. Forecast ratios are at
+one second on common windows inside every compared prediction's and the true
+trajectory's operating support. Ranges span the four state groups; collective
+true-start angular errors are exactly zero for both models, so their ratios are
+omitted. The report retains both iteration budgets, clean controls, absolute
+errors and forecasts from noisy starts scored against latent truth.
+
+The candidate is not the default: its better dynamics estimates do not consistently
+improve the existing noisy-start prediction workflow. Initialization during fitting
+and forecasting needs to be evaluated together.
+
+[Comparison report](investigations/initial-state-fitting/report.json) and
+[executed sources and arrays](investigations/initial-state-fitting/evidence.zip).
+
+## Local state reconstruction
+
+A follow-up prototype solves twelve starting-state coordinates locally using
+the existing rollout. The same numerical solve supports fitting and causal
+reconstruction from past telemetry; it passed quadrotor, fixed-wing and
+three-control residual-model checks.
+
+Adding half a second of past telemetry to the preceding joint-fit candidate
+reduced one-second forecast MSE by 33–78% across state groups in the two excited
+noise conditions, including cold starts. Collective-only motion still had
+regressions, and reconstruction worsened forecasts with the current ARP model.
+A separate 400-step fitting probe tested eliminating the local state variables
+before each parameter update. These remain research variants; production
+defaults are unchanged.
+
+[Comparison report](investigations/state-reconstruction/report.json) and
+[prototype, inputs and arrays](investigations/state-reconstruction/evidence.zip).
+
+## Observation and transition error
+
+Adjacent one-step residuals share an observation. A follow-up likelihood
+prototype modeled that dependence, recovering injected observation-noise scales
+within 5% with the known plant and matching a dense Gaussian conditioning check.
+It largely retained the observed ARP states. However, jointly fitting dynamics
+and noise produced 5.6–23.6 times the current model's one-second ARP forecast
+MSE at 400 steps.
+Reconstructing only training-window starts also failed to improve every group.
+
+The multi-step rollout objective remains in place. Diagnostics now distinguish
+adjacent from longer-lag correlation and preserve timing across missing
+intervals. Full-batch fitting retains its best evaluated iterate after the
+refit probe exposed final-step overshoot.
+
+[Pilot report](investigations/noise-separation/report.json) and
+[executed sources and arrays](investigations/noise-separation/evidence.zip).

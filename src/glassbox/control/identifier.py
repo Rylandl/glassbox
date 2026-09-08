@@ -999,17 +999,8 @@ class RecursiveBootstrapIdentifier:
     ) -> None:
         """Fold one transition into the integrated collective system.
 
-        The per-interval target is the body-``z`` specific force implied by
-        the velocity change over the interval, and its measurement noise is
-        the velocity noise divided by the interval.  Summed over the
-        transitions since the anchor, the terms telescope: the sum of the
-        projected velocity changes carries the anchor's noise and the latest
-        sample's, plus a small term from how far the body axis rotated each
-        step, and the anchor's part is common to every row.  So the integrated
-        system regresses the cumulative target on the cumulative features
-        with one constant column for the anchor, its rows are independent
-        given that column, and it is the exact least-squares form for white
-        measurement noise on the velocity.  One scalar row per transition.
+        Accumulate cumulative body-z specific force and features, with an
+        intercept for the anchor. Temporal error covariance is not whitened.
         """
 
         del previous, current, command

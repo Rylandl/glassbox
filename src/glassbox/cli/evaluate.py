@@ -127,10 +127,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--same-flight",
         action="store_true",
-        help=(
-            "declare that these flights were not withheld from the fit; the "
-            "report's can_promote_model is then false"
-        ),
+        help=("declare that these flights were not withheld from the fit"),
     )
     parser.add_argument("--json", action="store_true", help="print the whole report")
 
@@ -225,9 +222,7 @@ def _run_fit_reports(args: argparse.Namespace, parser: argparse.ArgumentParser) 
             f"{label} position={metrics[label]['position_rmse_m']:.3f}m  "
             f"attitude={metrics[label]['attitude_rmse_deg']:.2f}deg"
         )
-    print(
-        f"selected={report['selected_model']} promotion={report['can_promote_model']}"
-    )
+    print(f"selected={report['selected_model']}")
     _write(report, args)
 
 

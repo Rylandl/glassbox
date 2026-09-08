@@ -1,0 +1,355 @@
+{
+  "design": {
+    "model": "existing quadrotor dynamics and 12-coordinate local geometry",
+    "sample_period_s": 0.02,
+    "covariance_model": "d_t = A_t e_t - e_(t+1) + w_t; independent zero-mean observation e and transition w terms",
+    "variance_parameters": "one observation and one transition variance per existing state group; eight nonnegative nuisance variances",
+    "fit_noise": "500 Adam steps at .05; equally weighted training flights; 100-transition blocks; no test data used",
+    "synthetic": "one fresh training replicate (20) per condition; two six-second flights; truth seed 100200+i, observation seed 200200+i",
+    "noise_std": [
+      0.002,
+      0.02,
+      0.002,
+      0.01
+    ],
+    "conditions": {
+      "clean": 0,
+      "noisy": 1,
+      "noisier": 3,
+      "collective": 1
+    },
+    "collective": "equal motor commands and zero true angular motion",
+    "tests": "three six-second command designs, truth seeds 700000+i; observation seeds 800200+i; i=0,1,2",
+    "forecast": "1-second windows; complete causal state/actuator history; cold start retains first observation; score observed targets at .1, .5 and 1 seconds",
+    "initialization_order": [
+      "raw",
+      "covariance-weighted causal reconstruction"
+    ],
+    "likelihood_fit": "joint dynamics and eight variances, 100-transition windows; 1000 Adam steps at .02, checkpoints at 400 and 1000",
+    "fixed_fit": "existing rollout loss, 25-transition windows; independent 400- and 1000-step runs at .02; additional 100-transition controls for both excited noise conditions",
+    "optimizer_in_probes": "final-iterate selection, preceding the production best-iterate fix",
+    "arp": "training logs 63,64,65 and reserved log 66; the current history-corrected artifact supplies the initial fixed-model probe",
+    "scope": "exploratory single-fit comparisons; all windows, no support filtering; no parameter truth is assumed for ARP",
+    "jax_version": "0.11.1",
+    "x64": false,
+    "python": "3.12.12"
+  },
+  "known_model_observation_std_estimates": {
+    "noisy": [
+      0.002042616717517376,
+      0.01940104179084301,
+      0.0019812691025435925,
+      0.010151009075343609
+    ],
+    "noisier": [
+      0.006127877626568079,
+      0.0582030713558197,
+      0.005943766329437494,
+      0.030453190207481384
+    ],
+    "collective": [
+      0.0020426439587026834,
+      0.019401250407099724,
+      0.00198156014084816,
+      0.010151762515306473
+    ]
+  },
+  "causal_reconstruction_mse_ratio_1s": {
+    "noisy-truth": {
+      "position": 0.20390590804675357,
+      "velocity": 0.4243897077614587,
+      "attitude": 0.21019814340489323,
+      "angular_velocity": 0.5355580016186631
+    },
+    "noisy-wrong": {
+      "position": 1.0030954200893207,
+      "velocity": 1.002187927789061,
+      "attitude": 0.9987424772327447,
+      "angular_velocity": 0.9730830189113465
+    },
+    "noisy-joint": {
+      "position": 0.22861566212314008,
+      "velocity": 0.45657478200897433,
+      "attitude": 0.21463887212783625,
+      "angular_velocity": 0.5463765765494147
+    },
+    "noisier-truth": {
+      "position": 0.20417213042130036,
+      "velocity": 0.4251406346795206,
+      "attitude": 0.21016332202442561,
+      "angular_velocity": 0.5355780909283644
+    },
+    "noisier-wrong": {
+      "position": 1.0348206621966278,
+      "velocity": 1.0142502275132763,
+      "attitude": 0.7703504286980863,
+      "angular_velocity": 0.8198638480731998
+    },
+    "noisier-joint": {
+      "position": 0.22789271979604103,
+      "velocity": 0.45076913762044424,
+      "attitude": 0.21397907033124713,
+      "angular_velocity": 0.541742671378886
+    },
+    "collective-truth": {
+      "position": 0.20277273628163944,
+      "velocity": 0.4163718389244667,
+      "attitude": 0.20762419997934228,
+      "angular_velocity": 0.5357478092396271
+    },
+    "collective-wrong": {
+      "position": 1.0014189567568792,
+      "velocity": 0.9996778433303642,
+      "attitude": 0.20753328212632063,
+      "angular_velocity": 0.5029826621089796
+    },
+    "collective-joint": {
+      "position": 0.21084839947051562,
+      "velocity": 0.40262236222683595,
+      "attitude": 0.20707956942260622,
+      "angular_velocity": 0.4745274260612068
+    },
+    "arp": {
+      "position": 1.000805991225715,
+      "velocity": 1.0008231330660269,
+      "attitude": 1.000861012141669,
+      "angular_velocity": 1.0000461109866694
+    }
+  },
+  "parameter_mse": {
+    "clean": {
+      "likelihood_100": 0.7908967862240025,
+      "likelihood_400": 6.43876979388046e-07,
+      "likelihood_1000": 1.179354421133717e-06,
+      "fixed_400": 0.2571215807741443,
+      "fixed_1000": 8.988731931620148e-09
+    },
+    "noisy": {
+      "likelihood_100": 0.4747147244908992,
+      "likelihood_400": 0.01213290691029556,
+      "likelihood_1000": 0.0012618922732943677,
+      "fixed_400": 0.38691054799834035,
+      "fixed_1000": 0.3954308745010219,
+      "horizon_100_fixed_400": 0.20332011210218484,
+      "horizon_100_fixed_1000": 0.3138592640131503
+    },
+    "noisier": {
+      "likelihood_100": 1.522854444899001,
+      "likelihood_400": 0.32820107949227917,
+      "likelihood_1000": 0.0208849399358589,
+      "fixed_400": 2.0703029559399586,
+      "fixed_1000": 2.0703036230544694,
+      "horizon_100_fixed_400": 2.297450828234653,
+      "horizon_100_fixed_1000": 2.7567521401000716
+    },
+    "collective": {
+      "likelihood_100": 1.570989241100766,
+      "likelihood_400": 11.92206298211564,
+      "likelihood_1000": 13.008805920807097,
+      "fixed_400": 9.141654865833189,
+      "fixed_1000": 11.028425809853406
+    }
+  },
+  "parameter_comparison": {
+    "names": [
+      "log_thrust_accel",
+      "thrust_command_offset_unconstrained",
+      "log_angular_accel[0]",
+      "log_angular_accel[1]",
+      "log_angular_accel[2]",
+      "log_linear_drag",
+      "log_angular_drag[0]",
+      "log_angular_drag[1]",
+      "log_angular_drag[2]",
+      "log_motor_time_constant",
+      "angular_control_cross_coupling_unconstrained[0,0]",
+      "angular_control_cross_coupling_unconstrained[0,1]",
+      "angular_control_cross_coupling_unconstrained[0,2]",
+      "angular_control_cross_coupling_unconstrained[1,0]",
+      "angular_control_cross_coupling_unconstrained[1,1]",
+      "angular_control_cross_coupling_unconstrained[1,2]",
+      "angular_control_cross_coupling_unconstrained[2,0]",
+      "angular_control_cross_coupling_unconstrained[2,1]",
+      "angular_control_cross_coupling_unconstrained[2,2]"
+    ],
+    "free_indices": [
+      0,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9
+    ],
+    "true_vector": [
+      1.686398983001709,
+      0.0,
+      2.890371799468994,
+      2.8033604621887207,
+      2.0149030685424805,
+      -1.7147984504699707,
+      -1.4271163940429688,
+      -1.56064772605896,
+      -2.0402209758758545,
+      -2.525728702545166,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "collective_note": "angular coordinates have no driven true response; their aggregate error does not measure recovery of excited dynamics"
+  },
+  "arp_likelihood_fit_over_current_raw_mse_1s": {
+    "likelihood_400": {
+      "position": 5.6169000870999595,
+      "velocity": 10.563805643690364,
+      "attitude": 11.10822073838045,
+      "angular_velocity": 23.637857357689807
+    },
+    "likelihood_1000": {
+      "position": 5.622505995321854,
+      "velocity": 10.57452179811782,
+      "attitude": 11.122057292649435,
+      "angular_velocity": 23.70344497603944
+    }
+  },
+  "reconstructed_start_refit_over_continued_raw_mse_1s": {
+    "noisy": {
+      "position": 1.108633750417031,
+      "velocity": 1.1346503840696291,
+      "attitude": 0.9931585273664288,
+      "angular_velocity": 0.9091159013724224
+    },
+    "arp": {
+      "position": 1.0031033397914304,
+      "velocity": 1.007222096216385,
+      "attitude": 1.0039641520081604,
+      "angular_velocity": 1.0042170956326246
+    }
+  },
+  "linear_control": {
+    "dense_likelihood_absolute_error": 4.971451552648887e-07,
+    "initial_and_terminal_conditioning": "matches dense Gaussian conditioning",
+    "independent_process_and_observation_noise_samples": 3000,
+    "r_std_ratio": [
+      0.9987229348496593,
+      1.0214130280278768,
+      0.9868921158139761,
+      0.9811261207208306
+    ],
+    "q_std_ratio": [
+      1.0166064141865359,
+      0.998069084889896,
+      1.0239280668533894,
+      1.062618356741497
+    ]
+  },
+  "decision": "retain multi-step prediction fitting; covariance estimation and reconstructed-start refits remain experimental. Production fixes separate adjacent/nonadjacent residual structure, preserve missing-interval timing, and retain the best evaluated full-batch iterate.",
+  "evidence": "the archive includes every reduced forecast array, fitted vectors, exact prototype sources, numerical source snapshot, and per-array metrics",
+  "prototype_source_sha256": {
+    "check_linear.py": "5ba8329fbfec45152dff58687eb7a10eca755311c37c6b83b8c964f8c5effc9f",
+    "fit_arp.py": "eaa68e18e3b5bffa62d46c9f705f693e7f4415188d7715589112f4b4adbf32bd",
+    "fit_probe.py": "1710edb902bcb878e5733167382fbbf4eb657d3c07c35e952afdb3d3ed146df6",
+    "horizon_control.py": "ba4161f96056b337e454604edf8feb5bf3e13b80cc281badaff9cf6e66dd073a",
+    "noise.py": "b35e0e90791e598832fce3169c5dd128bb0c436e649805fefc72ec10591de47c",
+    "polish.py": "742e923be5674cad1ceb4cce3f6162b093bbb45032febd347a0742dacf0dd6f4",
+    "probe.py": "c6de24e7d642ca8409945a66fb9a9239d10b232f891eee670064da792d1d9f70",
+    "summarize.py": "5c450925d7ed4c40d1d51de52a9dfbe97d39307eb9dfce0d84c1a5c821447e30"
+  },
+  "numerical_source_sha256": {
+    "src/glassbox/__init__.py": "54d3e79613def92c4ac6d8935e86d3859e67aa8349778094e996f8e6f3100879",
+    "src/glassbox/belief/__init__.py": "e481c32664c7746248f2862ac5bb21c1ac4b35675e4dd05f63c544a5c5fc203f",
+    "src/glassbox/belief/belief.py": "e5b142cde999bd9dc69055d3bba3cd4652c5a66b3bd05c4280bf4bbff875b18d",
+    "src/glassbox/belief/belief_io.py": "4e4f4bdab4fda2a46605f44faa97c447f27bbddc929fee2198406f364f9583e2",
+    "src/glassbox/belief/forecast_error.py": "09602a8a1b8919b5db35a3c84cb477dd8f0cf6d3774eb755ca10ba68696a482b",
+    "src/glassbox/belief/information.py": "f2ee076b8ae32f7319147881f61c3ae0393d5de751d26000f0d28da338d5883f",
+    "src/glassbox/belief/linearization.py": "0d67ab66bf211e67e3a394060cc633e10d56c91df1bf74a08c5a2eaede02fc69",
+    "src/glassbox/belief/parameter_evidence.py": "76b4922356f759b7a8ce076b4e6e369a35c171866a3d0ea0249e72f0bd04e990",
+    "src/glassbox/belief/update.py": "2ed6a99b8003b6cc3fe002c21a618883a8e0f941a880df490676fc57a00db788",
+    "src/glassbox/cli/__init__.py": "933359702d395a8441f6b95eb44e3671981ea91290d23024490e08f64cf08f7d",
+    "src/glassbox/cli/_tree.py": "85afe620b8e543ec60909fa523ee584a6a78bb23afef1742a8e499e3525a1abb",
+    "src/glassbox/cli/benchmark.py": "2970290de722c4ec5020de282d20bbe94c0dc5afa419bf9cb66f33922931534a",
+    "src/glassbox/cli/corpus.py": "17d918d98fe8aea1f63ac94b7dac596c3daace36bdf71a4c716f4d2b871178be",
+    "src/glassbox/cli/evaluate.py": "3e40099124950ecd9d0369e1b1121f5db8a6e4bdcd75853e02c3e79e1a155169",
+    "src/glassbox/cli/extract.py": "7e177b65b0b0d4169b8ba7bf027f72d87cf77cf77c122410c50adbe8baa8a2ec",
+    "src/glassbox/cli/fit.py": "9f1ae8cfefe00014cfb7eb0d6c048475ed12d2fd11f10caaa7906af1473362da",
+    "src/glassbox/cli/px4_shadow.py": "a37a818a97938b60b52bdd24dbefa22ce26aba4dc0056bf135132e2c5221f527",
+    "src/glassbox/cli/record_results.py": "a16ca9cdebbb02566baecbc0d69af41e7d09af1c7b8d0835ba3ec6b06de54d60",
+    "src/glassbox/cli/sitl_profile.py": "4a25be3ce4870228c7e97c7927cad12d78e298989a3aaf4894960693eecd1f36",
+    "src/glassbox/cli/synthetic.py": "05261c3e0faa721f44ef4930d3859b0a7123c6dbe62f4e1329cf65adadb28c8d",
+    "src/glassbox/control/__init__.py": "889d382d68373d63ca38a4af2e5bc72b362a70869ec148811098e8bf8235f262",
+    "src/glassbox/control/_common.py": "da8dcba33515342ee164859cff03ec7bef1349f046b5d9f7e68eafe6ee869414",
+    "src/glassbox/control/fitted.py": "7571ae1f5b50010b30bd52a9d7786834354e45f8c3dbff59de2a0ed0eb4d98af",
+    "src/glassbox/control/identifier.py": "de9a00d842a55da825513a2faabc7c371722c1c8d4aeaa40995d6532cded6fc3",
+    "src/glassbox/control/plan.py": "d94cf84cbd34e375c4d20013a3fefdeb7f676da839ca5437417751ca790d7121",
+    "src/glassbox/control/solver.py": "ea88fdcd7d737a7d0d86b113a9d9ccea3ffb7ce738a5a6c65096d5e4990231fc",
+    "src/glassbox/control/supervisor.py": "38b0d49f0a61967e7a7ab23a1ad67ab41d5fbfd57d43ed07c66e39ac06fdf55d",
+    "src/glassbox/core/__init__.py": "c210b776f0c52495fd729374e6dcd430de771c7ce995e52f857f75159ae12ad5",
+    "src/glassbox/core/data.py": "86e51130b2a6e4a2bb266fc69c4038733936f9a4519fd6048497c960c94b0c0a",
+    "src/glassbox/core/diagnostics.py": "a0429dbbb27c64c326b7f0f291e4769cdd84e23166eb40907bec049debdb8cc6",
+    "src/glassbox/core/dynamics.py": "92052d901095e52e1640a9e07f66b98fe638c22acfc5e987da20e3be827f646e",
+    "src/glassbox/core/families.py": "73ccb6b963953f47d767e8d62d4ec3f7cd101705ae327fcfca79cc7edd5309cf",
+    "src/glassbox/core/fixedwing_synthetic.py": "e9eff7392d6b949e7e06ee49eb7c828039f8ae365263cb7a25579769efc0c763",
+    "src/glassbox/core/geometry.py": "5d3cd57369d8769628e61deccf71af7de440933c417dd17e53d406596456e7f7",
+    "src/glassbox/core/identification.py": "6938775cb901b8aca7c03c7019532d636ae03fc9370cdf73b4e9ec793eebf0a9",
+    "src/glassbox/core/metrics.py": "b0402877c15e0f304ded590f36e7ba6ccf4c2753a8e15fd49b80d2d5f3a6f9cd",
+    "src/glassbox/core/model.py": "8062215ea5886c2c15d2d22e78ee29b8943852f48da140e1a6c06d892b848ed8",
+    "src/glassbox/core/model_io.py": "49a951ef77179041a27c225c03a95bde4ff4953ec4b29c9446605c97a5889fbc",
+    "src/glassbox/core/synthetic.py": "6b9bec538e8e0964ca67ec5d61060ac02bc54bc9428fbae50d5f141f4571f8f1",
+    "src/glassbox/fitting.py": "196b6b41b9902617e03c3c97f0de8c1c7380074419220078df58c35b710320d1",
+    "src/glassbox/integrations/__init__.py": "db2d013da7d13034b0954064b176550b3f86e0e6628f203b5a472c10bd5236e4",
+    "src/glassbox/integrations/cascade.py": "45f9792c72afe59206ef4058c584d58139feffa6b4d26f8d4a2f794136bee234",
+    "src/glassbox/integrations/loop.py": "7bf516214e1b70d0697d5390860b9ff76b0f411152439182f18ea14b830f42d0",
+    "src/glassbox/integrations/px4.py": "a8617e33586c425512356c61c85db268c5cf1fc1bf343dff3649503a85cc7d54",
+    "src/glassbox/integrations/px4_nmpc_shadow.py": "a9c7e14565cb0a7beb4d9d750c85e806136d8b3fe095667373dafdcd11002b1f",
+    "src/glassbox/io/__init__.py": "4e12982cdeb6806e3e5dd89064b8ea20130a804dd70e278aa899dcfa6ffc2bc5",
+    "src/glassbox/io/arp_reference.py": "608f455da04ef2c60bfa53b0ae9601c8dd26e0ce0be41f5f9098c9752c356e0f",
+    "src/glassbox/io/corpus.py": "9057f1502bb97d2d617dcc9367ee595b4beda41c1c9dfa288f3af2dd22a631b2",
+    "src/glassbox/io/epfl_reference.py": "c57371da9ec0162d605182e5a3d6c21f115d081e58a293473492ac1ae72dd375",
+    "src/glassbox/io/idf_reference.py": "abd057c200286040b34b8e5910d2f16cea5877bc8bcabbe85c5c236254327412",
+    "src/glassbox/io/nanodrone_reference.py": "6e615be5a1614bd6206cc2d4f92767e800d854250faf1afd49ecedbae302d599",
+    "src/glassbox/io/pinned_download.py": "214ab6d37e6791d6bf6a89690b0ca3b7653a59c24a245b7b12af5f64a2efbae5",
+    "src/glassbox/io/px4_frames.py": "d8e4a0330804fc4134febcad580a8a330e7874a281d88aca0eea7d5c4554ee75",
+    "src/glassbox/io/px4_ulog.py": "b8741388614fe8cd51dd7301f567529e54d3a6d087f309863f87fa966015dd94",
+    "src/glassbox/io/sitl_profile.py": "f66d88b7509dbdf253f3f17942c05c2c0fb420f2e97730e8804fa543f2c8d57f",
+    "src/glassbox/io/x8_reference.py": "176874ec860e4b7d93132d12ab3792075d9bdf6a723dc4887efda9e7235eeb76",
+    "src/glassbox/workflows/__init__.py": "2a42641c071cf9417499e72deea8bea5a4f09e81c0d5bb1da50f157f954ad2aa",
+    "src/glassbox/workflows/benchmarks/__init__.py": "fccee819bbf834694afc5b04d017e0b93a06aa9b695457df2c2e204948471d1f",
+    "src/glassbox/workflows/benchmarks/cascade_x8.py": "5272c1a7305a1ccfdda05fd5448cf00736ddfde496cd3068a24adb1e35a39ba3",
+    "src/glassbox/workflows/benchmarks/nmpc.py": "8f0b879a2d0b658197c2a905f823b3ba6aee64feafae90c13c08129cf4603f91",
+    "src/glassbox/workflows/benchmarks/recovery.py": "dd0589a970b9b009274250ff42ea1fa90da21ae9e89ccd654e7050453f07e0d8",
+    "src/glassbox/workflows/evaluate.py": "57a9c35333896b88b81f920a8b747126c542cc7a7be9e2bfe71ea6f0a1d9af38",
+    "src/glassbox/workflows/holdout.py": "0118154dbd4bba8fb425629dd7d391e2697920b6f256f37354341c19e173fd82",
+    "src/glassbox/workflows/record_results.py": "1efc8a5d7799c4bd4de1202f95aa7ef44a46d8ae2362993aa460ef866d94f679",
+    "src/glassbox/workflows/recorded.py": "851827d3f8e911fd7dcbfb3507fa9e9bf89779ec2ed494c822601718484f88ea"
+  },
+  "arp_inputs_sha256": {
+    "artifacts/arp_reference/model.json": "ed8348a79e68a85b299d1182dd4d94cb8d0c64da0bf8f049ed6db06a69ea1968",
+    "artifacts/arp_reference/canonical/log_63_2024-1-8-16-37-54.npz": "4962e0f54196f417ec40470e3e1b381dff5ffdd79c9f746815e799acb1dd921f",
+    "artifacts/arp_reference/canonical/log_64_2024-1-8-16-39-44.npz": "e9bb38e96675a2327d4c626d93bc919cb545b3e757e0db1da68d26b4e85947ae",
+    "artifacts/arp_reference/canonical/log_65_2024-1-8-16-40-52.npz": "59e83e6e485dd4d6880c0ea612252048045a8c0303b377bf1bda7e5dce25cff7",
+    "artifacts/arp_reference/canonical/log_66_2024-1-8-16-42-48.npz": "e9d1a1b3d5f97520b0e1dad00216094683e8a873d6e4be0e36f34b534e37683d"
+  },
+  "input_archive": "../state-reconstruction/evidence.zip contains the unchanged ARP canonical inputs",
+  "verification": {
+    "archived_metric_arrays_and_scalars_checked": 216,
+    "source_hashes_checked": true,
+    "archive_integrity_checked": true,
+    "production_tests": {
+      "passed": 737,
+      "skipped": 6
+    },
+    "recorded_checks": [
+      "adaptive-recovery-results",
+      "nmpc-acceptance-results",
+      "validation-arp-results"
+    ]
+  }
+}

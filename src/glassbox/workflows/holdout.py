@@ -17,8 +17,9 @@ import argparse
 import hashlib
 import json
 import re
+import tempfile
 from collections.abc import Mapping, Sequence
-from dataclasses import replace
+from dataclasses import asdict, replace
 from pathlib import Path
 from typing import Any
 
@@ -74,6 +75,40 @@ def _request_digest(request: Mapping[str, Any]) -> str:
         request, sort_keys=True, separators=(",", ":"), allow_nan=False
     )
     return hashlib.sha256(payload.encode()).hexdigest()
+
+
+def _fit_spec_record(spec: FitSpec) -> dict[str, Any]:
+    """Record every fit setting except the holdout each fold supplies itself."""
+
+    payload = asdict(spec)
+    del payload["holdout"]
+    weights = spec.weighting.group_weights
+    if weights is not None:
+        # JSON object keys would collapse integer labels into strings. Ordered
+        # pairs preserve their types without making insertion order significant.
+        payload["weighting"]["group_weights"] = [
+            [key, float(weights[key])]
+            for key in sorted(weights, key=lambda key: (type(key).__name__, str(key)))
+        ]
+    # Match the representation read back from disk, including tuple fields.
+    return json.loads(json.dumps(payload, allow_nan=False))
+
+
+def _write_json_atomically(path: Path, payload: Mapping[str, Any]) -> None:
+    """Publish a complete resume record, never a partially written JSON file."""
+
+    temporary_path = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", dir=path.parent, prefix=f".{path.name}.", delete=False
+        ) as temporary:
+            temporary_path = Path(temporary.name)
+            json.dump(payload, temporary, indent=2)
+            temporary.write("\n")
+        temporary_path.replace(path)
+    finally:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
 
 
 def _metric_distribution(
@@ -221,12 +256,16 @@ def evaluate_holdout(
         "files": [_file_record(path) for path in paths],
         "folds": list(folds),
         "configuration": configuration,
+        "fit_spec": _fit_spec_record(spec),
     }
     if resume and request_path.exists() and summary_path.exists():
         if json.loads(request_path.read_text()) == request:
             print(f"resume complete {key} holdout: {summary_path}")
             return json.loads(summary_path.read_text())
-    request_path.write_text(json.dumps(request, indent=2) + "\n")
+    # Invalidate completion before publishing a changed request or forcing a
+    # rerun. An interrupted fit must not pair that request with the old summary.
+    summary_path.unlink(missing_ok=True)
+    _write_json_atomically(request_path, request)
     dataset_request_digest = _request_digest(request)
 
     per_fold: dict[str, Any] = {}
@@ -269,6 +308,9 @@ def evaluate_holdout(
             print(f"  resume fold: {report_path}")
             report = json.loads(report_path.read_text())
         else:
+            # A forced rerun can have the same request as an existing fold.
+            # Remove its completion marker before replacing any fold artifacts.
+            fold_request_path.unlink(missing_ok=True)
             outcome = fit(paths, replace(spec, holdout=Holdout.by_label(key, (value,))))
             report = outcome.report
             report_path.write_text(json.dumps(report, indent=2) + "\n")
@@ -289,7 +331,7 @@ def evaluate_holdout(
                     ),
                     baseline_path,
                 )
-            fold_request_path.write_text(json.dumps(fold_request, indent=2) + "\n")
+            _write_json_atomically(fold_request_path, fold_request)
 
         validation = report["models"]["learned_lag"]["validation"]
         full_metrics = validation["aggregate"]["full_rollout"]
@@ -390,7 +432,7 @@ def evaluate_holdout(
         },
         "per_fold": per_fold,
     }
-    summary_path.write_text(json.dumps(summary, indent=2) + "\n")
+    _write_json_atomically(summary_path, summary)
     print(f"wrote {summary_path}")
     return summary
 

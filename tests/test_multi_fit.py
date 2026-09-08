@@ -5,11 +5,13 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from glassbox.belief.forecast_error import ForecastErrorEnvelope
+from glassbox.belief.information import ParameterInformation
 from glassbox.core.data import load_trajectory_npz, save_trajectory_npz
 from glassbox.core.fixedwing_synthetic import (
     true_fixed_wing_parameters,
 )
-from glassbox.core.identification import window_budget
+from glassbox.core.identification import RolloutLossConfiguration, window_budget
 from glassbox.core.metrics import (
     kinematic_persistence_windowed_metrics,
     predict_windows,
@@ -66,6 +68,7 @@ def test_dataset_pooling_uses_canonical_semantics_not_px4_source_layout(
     contract = _dataset_contract(
         [Path("first.npz"), Path("second.npz")],
         [first, second],
+        FitSpec(),
     )
 
     assert contract["pooling_basis"] == "canonical_trajectory_spec"
@@ -101,6 +104,7 @@ def test_dataset_pooling_rejects_different_vehicle_configuration_ids(
         _dataset_contract(
             [Path("plane-a.npz"), Path("plane-b.npz")],
             [first, second],
+            FitSpec(),
         )
 
 
@@ -195,8 +199,8 @@ def test_multi_flight_fit_reserves_complete_final_flight(
     outcome = fit(
         paths,
         FitSpec(
-            horizon_steps=5,
-            horizons_s=(0.1, 0.2),
+            horizon_steps=100,
+            horizons_s=(0.109, 0.209, 0.101),
             steps=5,
             evaluation_horizons_s=(0.1,),
             ablations=("no_lag",),
@@ -209,12 +213,40 @@ def test_multi_flight_fit_reserves_complete_final_flight(
     assert report["split"]["validation_flights"][0]["path"] == str(paths[2])
     assert set(outcome.ablations) == {"no_lag"}
     assert report["configuration"]["training_horizon_steps"] == [5, 10]
+    assert report["configuration"]["horizon_steps"] == 10
+    assert report["configuration"]["training_horizons_s"] == pytest.approx([0.1, 0.2])
+    assert report["configuration"]["training_windows_by_horizon"] == {
+        "0.1s": 8,
+        "0.2s": 4,
+    }
+    assert report["configuration"]["training_window_selection"][
+        "maximum_windows_by_horizon"
+    ] == {"0.1s": window_budget(5, minimum=2), "0.2s": window_budget(10, minimum=2)}
     assert report["configuration"]["training_flight_weighting"] == "equal_flight"
     assert (
         report["models"]["learned_lag"]["validation"]["aggregate"]["weighting"]
         == "equal_flight"
     )
     assert set(report["models"]) == {"learned_lag", "no_lag"}
+    for name, belief in {"learned_lag": outcome.belief, **outcome.ablations}.items():
+        model_report = report["models"][name]
+        assert belief.information.to_dict() == model_report["parameter_evidence"]
+        assert (
+            belief.forecast_error.to_dict()
+            == model_report["validation"]["forecast_error"]
+        )
+        assert (
+            belief.support.to_dict()
+            == model_report["fit"]["rollout_loss"]["dynamic_envelope"]
+        )
+        assert belief.provenance["training_trajectories"] == [
+            str(path) for path in paths[:2]
+        ]
+        assert belief.provenance["validation_trajectories"] == [str(paths[2])]
+    assert "ablation" not in outcome.belief.provenance
+    assert outcome.ablations["no_lag"].provenance["ablation"] == (
+        "fixed near-zero applied-control response"
+    )
     assert set(report["models"]["learned_lag"]["fit"]["component_losses"]) == {
         "0.1s",
         "0.2s",
@@ -260,6 +292,75 @@ def _write_benchmark_split_flights(tmp_path, quadrotor_flight, splits) -> list[P
         save_trajectory_npz(trajectory, path)
         paths.append(path)
     return paths
+
+
+def test_report_serialization_does_not_define_the_fitted_belief(
+    tmp_path, quadrotor_flight, monkeypatch
+) -> None:
+    # A presentation change must not remove the evidence carried by the model.
+    # Exercise the real fit with summaries in place of detailed report payloads.
+    for result_type in (
+        RolloutLossConfiguration,
+        ParameterInformation,
+        ForecastErrorEnvelope,
+    ):
+        monkeypatch.setattr(
+            result_type, "to_dict", lambda self: {"summary": type(self).__name__}
+        )
+    paths = _write_benchmark_split_flights(
+        tmp_path, quadrotor_flight, ("training", "validation")
+    )
+    outcome = fit(
+        paths,
+        FitSpec(steps=1, horizon_steps=5, evaluation_horizons_s=(0.1,)),
+    )
+
+    model_report = outcome.report["models"]["learned_lag"]
+    assert model_report["fit"]["rollout_loss"] == {
+        "summary": "RolloutLossConfiguration"
+    }
+    assert model_report["parameter_evidence"] == {"summary": "ParameterInformation"}
+    assert model_report["validation"]["forecast_error"] == {
+        "summary": "ForecastErrorEnvelope"
+    }
+    assert outcome.belief.information.resolved_rank() > 0
+    assert outcome.belief.forecast_error.horizons_s == (0.1,)
+    assert np.all(np.asarray(outcome.belief.support.body_velocity_half_width_m_s) > 0)
+    trajectory = load_trajectory_npz(paths[-1])
+    prediction = outcome.belief.rollout(trajectory.states[0], trajectory.controls[:2])
+    assert np.all(np.isfinite(prediction.states))
+
+
+def test_model_timing_comes_from_training_when_first_file_is_held_out(
+    tmp_path, quadrotor_flight
+) -> None:
+    paths = _write_benchmark_split_flights(
+        tmp_path, quadrotor_flight, ("validation", "training")
+    )
+    training = load_trajectory_npz(paths[1])
+    # Compatible timestamp rounding may differ across flights. The reserved
+    # file must not choose the executable model's integration period.
+    training = replace(
+        training, time_s=np.arange(len(training.states)) * (0.02 + 1e-12)
+    )
+    save_trajectory_npz(training, paths[1])
+    assert training.nominal_dt_s != load_trajectory_npz(paths[0]).nominal_dt_s
+
+    outcome = fit(
+        paths,
+        FitSpec(
+            holdout=Holdout.by_label("benchmark_split", ("validation",)),
+            horizon_steps=5,
+            steps=1,
+            evaluation_horizons_s=(0.1,),
+            ablations=("no_lag",),
+            parameter_evidence=False,
+        ),
+    )
+
+    for belief in (outcome.belief, *outcome.ablations.values()):
+        assert belief.model.runtime_spec.sample_period_s == training.nominal_dt_s
+        assert belief.input_spec == training.spec.prediction_spec()
 
 
 def test_requested_fit_builds_the_information_its_training_supports(

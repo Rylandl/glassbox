@@ -7,18 +7,24 @@ from dataclasses import replace
 import jax
 import jax.numpy as jnp
 import numpy as np
+import pytest
 
 from glassbox.belief.belief import DynamicsBelief
 from glassbox.belief.information import ParameterInformation, innovation_noise_floor
-from glassbox.core.data import Trajectory
-from glassbox.core.diagnostics import one_step_innovations
+from glassbox.belief.parameter_evidence import parameter_information
+from glassbox.belief.update import one_step_linearization
+from glassbox.core.data import Trajectory, trajectory_segment
 from glassbox.core.dynamics import (
+    rollout_with_latent,
     step_with_latent,
     structured_parameter_names,
     structured_parameter_vector,
+    with_response_time_constant,
     with_structured_parameter_vector,
 )
+from glassbox.core.fixedwing_synthetic import true_fixed_wing_parameters
 from glassbox.core.geometry import state_plus_tangent
+from glassbox.core.metrics import one_step_innovations
 from glassbox.core.model import (
     ExecutableModel,
     ModelValidityEnvelope,
@@ -37,6 +43,86 @@ from glassbox.fitting import FitSpec, Holdout, fit
 # produce.
 NULL_SEED_COUNT = 64
 NULL_STEP_SIGMA_MULTIPLE = 4.0
+
+
+@pytest.mark.parametrize("family", ["multirotor", "fixedwing"])
+def test_one_step_evidence_uses_full_history_and_prefix(
+    family,
+    quadrotor_flight,
+    fixedwing_flight,
+) -> None:
+    with jax.enable_x64(True):
+        template = (
+            quadrotor_flight(8, 2.5)
+            if family == "multirotor"
+            else fixedwing_flight(8, 2.5)
+        )
+        params = with_response_time_constant(
+            true_parameters()
+            if family == "multirotor"
+            else true_fixed_wing_parameters(),
+            2.0,
+        )
+        controls = np.array(template.controls)
+        controls[20:] = controls[20]
+        states, _ = rollout_with_latent(
+            params,
+            jnp.asarray(template.states[0]),
+            jnp.asarray(controls),
+            template.nominal_dt_s,
+            control_roles=template.spec.control_roles,
+            exogenous=jnp.asarray(template.exogenous[:-1]),
+            exogenous_roles=template.spec.exogenous_roles,
+        )
+        full = replace(template, controls=controls, states=np.asarray(states))
+        segment = trajectory_segment(full, 45, len(controls))
+        starts = np.array([0, 50, 75])
+        model = ExecutableModel(params, full.spec, _permissive_runtime_spec(full))
+        errors, jacobians = one_step_linearization(model, segment, starts)
+        full_errors, full_jacobians = one_step_linearization(model, full, starts + 45)
+        np.testing.assert_allclose(errors, 0.0, atol=1e-10)
+        np.testing.assert_allclose(errors, full_errors, atol=1e-10)
+        np.testing.assert_allclose(jacobians, full_jacobians, rtol=1e-10, atol=1e-10)
+
+        center = np.asarray(structured_parameter_vector(params))
+        tau_index = next(
+            i
+            for i, name in enumerate(structured_parameter_names(params))
+            if "time_constant" in name
+        )
+        epsilon = 1e-4
+        delta = np.zeros_like(center)
+        delta[tau_index] = epsilon
+        measured = []
+        for vector in (center - delta, center + delta):
+            candidate = with_structured_parameter_vector(params, jnp.asarray(vector))
+            measured.append(one_step_innovations(candidate, full)[starts + 45])
+        derivative = -(measured[1] - measured[0]) / (2.0 * epsilon)
+        assert np.linalg.norm(derivative) > 1e-6
+        np.testing.assert_allclose(
+            jacobians[..., tau_index],
+            derivative,
+            rtol=1e-5,
+            atol=1e-8,
+        )
+
+
+def test_absorption_and_fit_evidence_accept_jax_float64(quadrotor_flight) -> None:
+    with jax.enable_x64(True):
+        trajectory = quadrotor_flight(19, 0.2)
+        belief = _belief(trajectory)
+        updated, result = belief.absorb(trajectory)
+        assert result.absorbed
+        assert updated.information.effective_count == len(trajectory.controls)
+        evidence = parameter_information(
+            belief.model,
+            [trajectory],
+            ["flight"],
+            innovation_noise=belief.information.innovation_noise,
+        )
+        np.testing.assert_allclose(
+            evidence.precision, updated.information.precision, rtol=1e-8, atol=1e-7
+        )
 
 
 def _permissive_runtime_spec(trajectory: Trajectory):

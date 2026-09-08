@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 
-from glassbox.core.data import Trajectory
+from glassbox.core.data import Trajectory, trajectory_segment
 from glassbox.io.corpus import PinnedFile
 from glassbox.io.pinned_download import file_digest
 from glassbox.io.px4_ulog import PX4IngestConfig, inspect_ulog, load_px4_trajectory
@@ -134,31 +134,20 @@ def _longest_powered_interval(
         raise ValueError("ARP reference trajectory has no sustained powered interval")
     start, stop = max(runs, key=lambda run: run[1] - run[0])
     start_offset_s = float(trajectory.time_s[start] - trajectory.time_s[0])
-    selected_time = trajectory.time_s[start : stop + 1]
-    provenance = dict(trajectory.provenance)
+    selected = trajectory_segment(trajectory, start, stop)
+    provenance = dict(selected.provenance)
     provenance["reference_powered_interval"] = {
         "selection": "longest_contiguous_mean_motor_command_above_threshold",
         "minimum_mean_motor_command": minimum_mean_motor_command,
         "minimum_duration_s": minimum_duration_s,
         "candidate_interval_count": len(runs),
         "start_offset_s": start_offset_s,
-        "duration_s": float(selected_time[-1] - selected_time[0]),
+        "duration_s": float(selected.time_s[-1]),
         "discarded_duration_s": float(
-            trajectory.time_s[-1]
-            - trajectory.time_s[0]
-            - (selected_time[-1] - selected_time[0])
+            trajectory.time_s[-1] - trajectory.time_s[0] - selected.time_s[-1]
         ),
     }
-    return Trajectory(
-        time_s=selected_time - selected_time[0],
-        states=trajectory.states[start : stop + 1],
-        controls=trajectory.controls[start:stop],
-        spec=trajectory.spec,
-        exogenous=trajectory.exogenous[start : stop + 1],
-        observations=trajectory.observations[start : stop + 1],
-        labels=trajectory.labels,
-        provenance=provenance,
-    )
+    return replace(selected, provenance=provenance)
 
 
 @dataclass(frozen=True)
@@ -188,7 +177,7 @@ class ARPReferenceAdapter:
         inventory = inspect_ulog(source_path)
         inventory.update(
             {
-                "adapter": {"name": self.name, "schema_version": 2},
+                "adapter": {"name": self.name, "schema_version": 3},
                 "reference_dataset": _reference_metadata(recording),
                 "sha256": checksum,
                 "checksum_matches_pinned_snapshot": checksum == recording.sha256,
@@ -223,17 +212,12 @@ class ARPReferenceAdapter:
         provenance.update(
             {
                 "source_sha256": checksum,
-                "adapter": {"name": self.name, "schema_version": 2},
+                "adapter": {"name": self.name, "schema_version": 3},
                 "reference_dataset": _reference_metadata(recording),
             }
         )
-        return Trajectory(
-            time_s=trajectory.time_s,
-            states=trajectory.states,
-            controls=trajectory.controls,
-            spec=trajectory.spec,
-            exogenous=trajectory.exogenous,
-            observations=trajectory.observations,
+        return replace(
+            trajectory,
             labels={
                 **trajectory.labels,
                 "benchmark": ARP_REFERENCE_NAME,

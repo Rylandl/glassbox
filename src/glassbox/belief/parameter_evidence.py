@@ -1,17 +1,16 @@
 """Fit-time parameter evidence: the noise model and the information it implies.
 
-The fit answers two questions about the model it just produced. How large is
-its one-step innovation on flights it did not see, which is the noise model
-every later observation is weighted by, and how much information about the
-structured coefficients its own training transitions carry under that noise
-model. Both are the same estimator :func:`glassbox.belief.update.absorb` runs,
-so a belief the fit produces and a belief that has absorbed telemetry state
-their information in one currency.
+Held-out residuals establish the noise model used to weight observations.
+Training transitions establish information about the structured coefficients
+under that noise model, using the same one-step linearization as
+:func:`glassbox.belief.update.absorb`. The fit samples a balanced evidence
+budget; absorption adds new evidence and takes a parameter step. Both state
+their information in the same coordinates.
 """
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 
 import numpy as np
 
@@ -24,8 +23,7 @@ from glassbox.belief.information import (
 )
 from glassbox.belief.update import one_step_linearization, usable_one_step_transitions
 from glassbox.core.data import Trajectory
-from glassbox.core.diagnostics import one_step_innovations
-from glassbox.core.dynamics import ModelParams, structured_parameter_names
+from glassbox.core.dynamics import structured_parameter_names
 from glassbox.core.model import ExecutableModel
 
 # One-step Jacobians are cheap next to a fit, but not free. The budget is
@@ -36,8 +34,7 @@ MAXIMUM_PARAMETER_INFORMATION_WINDOWS = 512
 
 
 def innovation_noise(
-    params: ModelParams,
-    flights: Sequence[tuple[Trajectory, np.ndarray | None]],
+    innovations_by_flight: Iterable[np.ndarray],
 ) -> np.ndarray:
     """Return per-coordinate one-step innovation variance, at or above the floor.
 
@@ -45,14 +42,16 @@ def innovation_noise(
     predictions were on flights the fit did not see, in the twelve rigid-body
     local coordinates. It is a second moment about zero rather than about the
     mean error, because nothing subtracts that mean at runtime.
+    Each array comes from ``core.metrics.one_step_innovations``. Flights with
+    finite residuals receive equal weight, regardless of their duration.
     """
 
     floor = innovation_noise_floor()
     squares: list[np.ndarray] = []
-    for trajectory, control_history in flights:
-        innovations = one_step_innovations(
-            params, trajectory, control_history=control_history
-        )
+    for innovations in innovations_by_flight:
+        innovations = np.asarray(innovations, dtype=np.float64)
+        if innovations.ndim != 2 or innovations.shape[1] != len(floor):
+            raise ValueError("innovations must have shape (interval, 12)")
         finite = innovations[np.all(np.isfinite(innovations), axis=1)]
         if len(finite):
             squares.append(np.mean(np.square(finite), axis=0))
@@ -108,12 +107,7 @@ def parameter_information(
 ) -> ParameterInformation:
     """Accumulate ``J' R^-1 J`` over the training flights' one-step transitions.
 
-    The noise model is one-step innovation covariance, so the windows it
-    weights correctly are one-step windows. Whitening a multi-step endpoint by
-    it would overstate the information by roughly the horizon and would count
-    the same transition once per training horizon; a plain sum over distinct
-    one-step transitions is both the honest Fisher information under the
-    declared noise and, exactly, what absorbing that telemetry would add.
+    Uses the same local linearization and diagonal noise weights as ``absorb``.
     """
 
     names = structured_parameter_names(model.params)

@@ -1,15 +1,4 @@
-"""What the evidence has resolved about one model's structured parameters.
-
-:class:`ParameterInformation` is the belief's account of its own ignorance. It
-carries an accumulated precision over the structured coefficient block, the
-per-coordinate scale that makes directions of different physical units
-comparable, the mask of coordinates a fitter is allowed to move, and the
-one-step innovation noise that weights every new observation. Rank zero is a
-point estimate: nothing is known and no direction is resolved. New evidence
-can resolve directions before an update takes its step. Nothing here is
-floored into small variances, so an unexcited direction
-stays unresolved instead of becoming a high-precision observation.
-"""
+"""Local structured-parameter information for rank diagnostics and updates."""
 
 from __future__ import annotations
 
@@ -32,13 +21,8 @@ from glassbox.core.geometry import TANGENT_GROUP_INDICES, TANGENT_STATE_SIZE
 PARAMETER_INFORMATION_FORMAT_VERSION = 2
 _FLOAT32_EPSILON = float(np.finfo(np.float32).eps)
 
-# The declared floor on one-step innovation variance, one entry per rigid-body
-# tangent group. It is a numerical floor rather than a sensor model: it keeps
-# the whitening finite when a fitted model reproduces held-out telemetry to
-# integration accuracy, and it is far below the innovation any real telemetry
-# produces. Raising it would weaken every observation uniformly; the step is
-# invariant to a uniform rescaling of the noise, so only the ratios between
-# groups carry into the update.
+# Per-group numerical floors keep innovation whitening finite when a model
+# reproduces held-out telemetry to integration accuracy.
 INNOVATION_NOISE_FLOOR_BY_GROUP = {
     "position": 1e-8,
     "velocity": 1e-6,

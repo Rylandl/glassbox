@@ -497,6 +497,11 @@ def _processor_name() -> str:
 def run_nmpc_benchmark() -> dict[str, object]:
     """Run the maintained nominal/mismatch suite and return its evidence."""
 
+    from glassbox.workflows.record_results import (
+        VALIDATION_SOURCE_FILES,
+        source_fingerprint,
+    )
+
     contracts = _model_contracts()
     controllers: dict[str, NMPCController] = {}
     for key, (params, spec, runtime_spec) in contracts.items():
@@ -563,6 +568,10 @@ def run_nmpc_benchmark() -> dict[str, object]:
     }
     return {
         "format_version": 1,
+        "implementation": {
+            "source_files": list(VALIDATION_SOURCE_FILES),
+            "source_sha256": source_fingerprint(VALIDATION_SOURCE_FILES),
+        },
         "unresolved_parameter_planning_explicitly_allowed": True,
         "baseline": "constant model-derived hover or level-flight trim command",
         "normalized_error": (

@@ -403,7 +403,8 @@ def test_unresolved_belief_requires_explicit_planning_override(model):
         prediction.unresolved_parameter_basis.shape[1]
         == belief.information.estimable_count
     )
-    assert np.all(np.isinf(prediction.tangent_standard_deviation[1:]))
+    assert not prediction.parameter_information_complete
+    assert not prediction.uncertainty_available
 
 
 @pytest.mark.parametrize("tau", (1e-6, 1e-4, 0.005, 0.08, 10.0))

@@ -1,14 +1,11 @@
 # Glassbox documentation
 
-Eight pages: the repository [README](../README.md) and the seven below. Start
-with [scope](scope.md) for what the library covers and where its boundary is;
-go to [validation](validation.md) for the evidence.
+Start with the repository [README](../README.md) for the identification workflow.
 
-- [Scope and current boundary](scope.md): the question, the system boundary,
-  what exists today, the evidence standard, and what is not claimed.
-- [Validation](validation.md): the five corpus rows and the three diagnostic
-  rows, each number named by the artifact and key it comes from, with one
-  section per corpus and per diagnostic.
+- [Scope](scope.md): the core workflow and design decisions.
+- [Validation](validation.md): recorded prediction and control comparisons.
+- [Repeated-fit uncertainty](repeated-uncertainty-calibration.md): parameter
+  information and forecast error under observation noise and reduced excitation.
 
 ## Concepts
 
@@ -39,8 +36,8 @@ go to [validation](validation.md) for the evidence.
 
 ## Recorded artifacts
 
-[`results/`](results/) holds the machine-readable artifact behind every number
-on [validation](validation.md). One manifest describes them in two tiers and
+[`results/`](results/) holds the machine-readable comparisons linked from
+[validation](validation.md). One manifest describes them in two tiers and
 one command produces or checks each of them; see
 [`CONTRIBUTING.md`](../CONTRIBUTING.md) for the table and the procedure.
 

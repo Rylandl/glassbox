@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from time import perf_counter
@@ -17,13 +17,11 @@ from glassbox.belief.forecast_error import (
     EmpiricalErrorSample,
     ForecastErrorEnvelope,
     endpoint_error_evidence_by_horizon,
-    forecast_error_from_dict,
     mean_error_by_horizon,
 )
 from glassbox.belief.information import (
     ParameterInformation,
     estimable_structured_parameters,
-    parameter_information_from_dict,
 )
 from glassbox.belief.parameter_evidence import (
     MAXIMUM_PARAMETER_INFORMATION_WINDOWS,
@@ -32,7 +30,6 @@ from glassbox.belief.parameter_evidence import (
 )
 from glassbox.core.data import (
     Trajectory,
-    TrajectorySpec,
     TrajectoryWindows,
     duration_to_steps,
     load_trajectory_npz,
@@ -48,10 +45,7 @@ from glassbox.core.dynamics import (
     initial_residual_parameters,
     with_response_time_constant,
 )
-from glassbox.core.families import (
-    DynamicsModelFamily,
-    family_for_platform,
-)
+from glassbox.core.families import family_for_platform
 from glassbox.core.fixedwing_synthetic import initial_fixed_wing_parameter_guess
 from glassbox.core.identification import (
     MAXIMUM_TRANSITIONS_PER_HORIZON,
@@ -65,12 +59,12 @@ from glassbox.core.identification import (
 )
 from glassbox.core.metrics import (
     aggregate_rollout_metrics,
+    one_step_innovations,
     predict,
     rollout_metrics,
 )
 from glassbox.core.model import (
     ExecutableModel,
-    ModelValidityEnvelope,
     RuntimeModelSpec,
 )
 from glassbox.core.model_io import parameter_dict
@@ -114,36 +108,33 @@ def fit_report_digest(report: Mapping[str, Any]) -> str:
 
 
 def _fit_on_windows(
-    windows: TrajectoryWindows | tuple[TrajectoryWindows, ...],
+    windows: TrainingWindows,
+    spec: FitSpec,
     *,
-    steps: int,
-    learning_rate: float,
-    fixed_motor_time_constant_s: float | None = None,
-    horizon_labels: tuple[str, ...] | None = None,
-    model_class: str = "structured",
-    platform: str = "multirotor",
-    endpoint_weight: float = 3.0,
-    stability_regularization: float = 0.01,
-    learn_thrust_command_offset: bool = False,
-    diagonal_angular_control: bool = True,
-) -> tuple[ModelParams, dict[str, Any]]:
+    fixed_response_time_constant_s: float | None,
+) -> tuple[ExecutableModel, dict[str, Any]]:
+    """Fit and bind the model using the training objective's own support."""
+
+    window_sets = windows.window_sets
+    first = window_sets[0]
+    input_spec = first.input_spec
+    platform = input_spec.vehicle.family
     physics_params: ModelParams = (
         initial_fixed_wing_parameter_guess()
         if platform == "fixedwing"
         else initial_parameter_guess()
     )
-    if fixed_motor_time_constant_s is not None:
+    if fixed_response_time_constant_s is not None:
         physics_params = with_response_time_constant(
-            physics_params, fixed_motor_time_constant_s
+            physics_params, fixed_response_time_constant_s
         )
-    diagonal_angular_control = diagonal_angular_control and platform == "multirotor"
-    window_sets = windows if isinstance(windows, tuple) else (windows,)
+    horizon_labels = tuple(_horizon_label(item) for item in window_sets)
     loss_configuration = rollout_loss_configuration(
         window_sets,
-        endpoint_weight=endpoint_weight,
-        stability_regularization=stability_regularization,
+        endpoint_weight=spec.loss.endpoint_weight,
+        stability_regularization=spec.loss.stability_regularization,
     )
-    if model_class == "structured_residual":
+    if spec.model_class == "structured_residual":
         initial_params: ModelParams = initial_residual_parameters(
             physics_params,
             control_size=window_sets[0].control_size,
@@ -152,25 +143,28 @@ def _fit_on_windows(
         )
     else:
         initial_params = physics_params
-    if horizon_labels is None:
-        horizon_labels = tuple(
-            f"{item.controls.shape[1] * item.dt_s:g}s" for item in window_sets
-        )
-    if len(horizon_labels) != len(window_sets):
-        raise ValueError("horizon_labels must match the supplied window sets")
-
     start = perf_counter()
     fit = fit_dynamics(
         window_sets,
         initial_params,
-        steps=steps,
-        learning_rate=learning_rate,
-        fixed_motor_time_constant_s=fixed_motor_time_constant_s,
-        learn_thrust_command_offset=learn_thrust_command_offset,
-        diagonal_angular_control=diagonal_angular_control,
+        steps=spec.steps,
+        learning_rate=spec.learning_rate,
+        fixed_motor_time_constant_s=fixed_response_time_constant_s,
+        learn_thrust_command_offset=spec.loss.learn_thrust_command_offset,
+        diagonal_angular_control=(
+            spec.loss.diagonal_angular_control and platform == "multirotor"
+        ),
         loss_configuration=loss_configuration,
     )
     wall_time_s = perf_counter() - start
+    model = ExecutableModel(
+        fit.params,
+        input_spec,
+        RuntimeModelSpec(
+            sample_period_s=first.dt_s,
+            validity_envelope=loss_configuration.validity_envelope,
+        ),
+    )
     component_losses = {}
     if (
         fit.component_initial_losses is not None
@@ -188,7 +182,7 @@ def _fit_on_windows(
                 fit.component_final_losses,
             )
         }
-    return fit.params, {
+    return model, {
         "fit": {
             "initial_loss": fit.initial_loss,
             "final_loss": fit.final_loss,
@@ -229,18 +223,11 @@ def _fit_on_windows(
 
 @dataclass(frozen=True)
 class EvaluationFlight:
-    """One held-out flight and the control history that precedes it."""
+    """One held-out trajectory and its evaluation labels."""
 
     path: str
     trajectory: Trajectory
-    control_history: np.ndarray | None = None
     source_group: str | int | None = None
-
-
-def _source_groups(
-    paths: Sequence[Path], trajectories: Sequence[Trajectory]
-) -> list[str | int] | None:
-    return _label_values(paths, trajectories, "source_group")
 
 
 def _label_values(
@@ -403,7 +390,7 @@ class Holdout:
         )
         if len(resolved_paths) != len(trajectories):
             raise ValueError("paths must label every trajectory")
-        source_groups = _source_groups(resolved_paths, trajectories)
+        source_groups = _label_values(resolved_paths, trajectories, "source_group")
 
         if self.rule == "temporal":
             if len(trajectories) != 1:
@@ -529,7 +516,6 @@ def _temporal_plan(
             EvaluationFlight(
                 path=f"{path}#validation",
                 trajectory=validation_segment,
-                control_history=training_segment.controls,
                 source_group=(source_groups[0] if source_groups else None),
             ),
         ),
@@ -666,25 +652,11 @@ def _trajectory_summary(path: str, trajectory: Trajectory) -> dict[str, Any]:
 
 
 def _dataset_contract(
-    paths: list[Path], trajectories: list[Trajectory]
+    paths: list[Path], trajectories: list[Trajectory], spec: FitSpec
 ) -> dict[str, Any]:
-    """Validate canonical semantics, independent of source adapter details."""
+    """Validate the pooled signal contract and report its model compatibility."""
 
-    def consistent_value(
-        name: str, values: list[Any], *, serialize: bool = False
-    ) -> Any:
-        comparable = [
-            json.dumps(value, sort_keys=True) if serialize else value
-            for value in values
-        ]
-        unique = list(dict.fromkeys(comparable))
-        if len(unique) > 1:
-            details = ", ".join(
-                f"{path}={value!r}" for path, value in zip(paths, values)
-            )
-            raise ValueError(f"inconsistent dataset {name}: {details}")
-        return values[0]
-
+    source_groups = _label_values(paths, trajectories, "source_group")
     sample_rates = [1.0 / trajectory.nominal_dt_s for trajectory in trajectories]
     reference_rate = sample_rates[0]
     if not np.allclose(sample_rates, reference_rate, atol=1e-6, rtol=0.0):
@@ -693,9 +665,13 @@ def _dataset_contract(
         )
         raise ValueError(f"inconsistent dataset sample_rate_hz: {details}")
 
-    spec_payloads = [trajectory.spec.to_dict() for trajectory in trajectories]
-    spec_payload = consistent_value("trajectory_spec", spec_payloads, serialize=True)
     reference_spec = trajectories[0].spec
+    if any(trajectory.spec != reference_spec for trajectory in trajectories[1:]):
+        details = ", ".join(
+            f"{path}={trajectory.spec!r}"
+            for path, trajectory in zip(paths, trajectories)
+        )
+        raise ValueError(f"inconsistent dataset trajectory_spec: {details}")
 
     source_types = []
     for trajectory in trajectories:
@@ -706,7 +682,7 @@ def _dataset_contract(
         source_type: source_types.count(source_type)
         for source_type in dict.fromkeys(source_types)
     }
-    platform = str(spec_payload["vehicle"]["family"])
+    platform = reference_spec.vehicle.family
 
     if platform == "fixedwing":
         for path, trajectory, source_type in zip(paths, trajectories, source_types):
@@ -727,7 +703,16 @@ def _dataset_contract(
                     "canonical actuator mapping"
                 )
 
-    contract = {
+    family = family_for_platform(platform)
+    family.validate_control_schema(
+        reference_spec.control_names, reference_spec.control_roles
+    )
+    if spec.model_class == "structured_residual" and not family.supports_residual:
+        raise ValueError(
+            f"structured_residual is not supported for platform {platform!r}"
+        )
+
+    return {
         "pooling_basis": "canonical_trajectory_spec",
         "flight_count": len(trajectories),
         "sample_rate_hz": reference_rate,
@@ -740,52 +725,14 @@ def _dataset_contract(
         "exogenous_roles": list(reference_spec.exogenous_roles),
         "platform": platform,
         "source_type_counts": source_type_counts,
-        "state_source": spec_payload["observation_source"],
-        "state_schema": spec_payload["state_schema"],
-        "trajectory_spec": spec_payload,
+        "state_source": reference_spec.observation_source,
+        "state_schema": reference_spec.state_schema,
+        "trajectory_spec": reference_spec.to_dict(),
+        "source_group_count": (
+            len(set(source_groups)) if source_groups is not None else len(trajectories)
+        ),
+        "model_family": family.key,
     }
-    return contract
-
-
-@dataclass(frozen=True)
-class DatasetResolution:
-    """The validated dataset contract plus the family it selects."""
-
-    contract: dict[str, Any]
-    platform: str
-    family: DynamicsModelFamily
-    source_groups: list[str | int] | None
-
-
-def resolve_dataset(
-    paths: list[Path], trajectories: list[Trajectory], spec: FitSpec
-) -> DatasetResolution:
-    """Validate the pooled dataset and resolve the model family it supports."""
-
-    source_groups = _source_groups(paths, trajectories)
-    contract = _dataset_contract(paths, trajectories)
-    contract["source_group_count"] = (
-        len(dict.fromkeys(source_groups))
-        if source_groups is not None
-        else len(trajectories)
-    )
-    platform = str(contract["platform"])
-    family = family_for_platform(platform)
-    family.validate_control_schema(
-        trajectories[0].control_names,
-        trajectories[0].spec.control_roles,
-    )
-    contract["model_family"] = family.key
-    if spec.model_class == "structured_residual" and not family.supports_residual:
-        raise ValueError(
-            f"structured_residual is not supported for platform {platform!r}"
-        )
-    return DatasetResolution(
-        contract=contract,
-        platform=platform,
-        family=family,
-        source_groups=source_groups,
-    )
 
 
 def _evaluate_model(
@@ -794,7 +741,9 @@ def _evaluate_model(
     *,
     horizon_seconds: tuple[float, ...],
     diagnostics: bool,
-) -> dict[str, Any]:
+) -> tuple[ForecastErrorEnvelope | None, np.ndarray, dict[str, Any]]:
+    """Measure held-out forecast error and noise, then describe that evidence."""
+
     per_flight: list[dict[str, Any]] = []
     full_metrics: list[dict[str, Any]] = []
     innovation_diagnostics: list[dict[str, Any]] = []
@@ -805,20 +754,24 @@ def _evaluate_model(
         seconds: [] for seconds in horizon_seconds
     }
 
-    for flight in flights:
-        trajectory = flight.trajectory
-        full = rollout_metrics(
-            predict(params, trajectory, control_history=flight.control_history)
-        )
-        full_metrics.append(full)
-        if diagnostics:
-            innovation_diagnostics.append(
-                one_step_innovation_diagnostics(
-                    params,
-                    trajectory,
-                    control_history=flight.control_history,
+    def measured_innovations() -> Iterator[np.ndarray]:
+        # Summarize both uses before releasing each flight's residual array.
+        for flight in flights:
+            innovations = one_step_innovations(params, flight.trajectory)
+            if diagnostics:
+                innovation_diagnostics.append(
+                    one_step_innovation_diagnostics(
+                        innovations,
+                        flight.trajectory,
+                    )
                 )
-            )
+            yield innovations
+
+    noise = innovation_noise(measured_innovations())
+    for index, flight in enumerate(flights):
+        trajectory = flight.trajectory
+        full = rollout_metrics(predict(params, trajectory))
+        full_metrics.append(full)
         per_horizon: dict[str, Any] = {}
         for evidence in endpoint_error_evidence_by_horizon(
             params,
@@ -841,7 +794,7 @@ def _evaluate_model(
             "horizon_rollouts": per_horizon,
         }
         if diagnostics:
-            flight_report["one_step_innovation"] = innovation_diagnostics[-1]
+            flight_report["one_step_innovation"] = innovation_diagnostics[index]
         per_flight.append(flight_report)
 
     available_error_samples = {
@@ -871,17 +824,18 @@ def _evaluate_model(
         aggregate["one_step_innovation"] = aggregate_innovation_diagnostics(
             innovation_diagnostics
         )
-    return {
-        "aggregate": aggregate,
-        "per_flight": per_flight,
-        "forecast_error": (
-            None if forecast_error is None else forecast_error.to_dict()
-        ),
-        "innovation_noise": innovation_noise(
-            params,
-            [(flight.trajectory, flight.control_history) for flight in flights],
-        ).tolist(),
-    }
+    return (
+        forecast_error,
+        noise,
+        {
+            "aggregate": aggregate,
+            "per_flight": per_flight,
+            "forecast_error": (
+                None if forecast_error is None else forecast_error.to_dict()
+            ),
+            "innovation_noise": noise.tolist(),
+        },
+    )
 
 
 def _comparison_report(
@@ -933,17 +887,10 @@ def _comparison_report(
 class TrainingWindows:
     """Rollout windows for every training horizon, plus how they were weighted."""
 
-    dt_s: float
-    horizon_steps: tuple[int, ...]
-    horizon_labels: tuple[str, ...]
+    window_sets: tuple[TrajectoryWindows, ...]
     maximum_windows_by_horizon: tuple[int, ...]
     diversity_count: int
     stratification: str
-    window_sets: tuple[TrajectoryWindows, ...]
-
-    @property
-    def fitting_windows(self) -> TrajectoryWindows | tuple[TrajectoryWindows, ...]:
-        return self.window_sets[0] if len(self.window_sets) == 1 else self.window_sets
 
 
 def _training_weights(
@@ -1016,7 +963,6 @@ def build_training_windows(plan: HoldoutPlan, spec: FitSpec) -> TrainingWindows:
                 duration_to_steps(seconds, dt_s) for seconds in spec.horizons_s
             )
         )
-    horizon_labels = tuple(f"{steps * dt_s:g}s" for steps in horizon_steps)
 
     weights, group_of, stratification = _training_weights(plan, spec)
     diversity_count = (
@@ -1039,13 +985,10 @@ def build_training_windows(plan: HoldoutPlan, spec: FitSpec) -> TrainingWindows:
         for steps, maximum_windows in zip(horizon_steps, maximum_windows_by_horizon)
     )
     return TrainingWindows(
-        dt_s=dt_s,
-        horizon_steps=horizon_steps,
-        horizon_labels=horizon_labels,
+        window_sets=window_sets,
         maximum_windows_by_horizon=maximum_windows_by_horizon,
         diversity_count=diversity_count,
         stratification=stratification,
-        window_sets=window_sets,
     )
 
 
@@ -1059,12 +1002,18 @@ def evidence_independence_unit(plan: HoldoutPlan) -> str:
     return "complete_trajectory"
 
 
-def _by_horizon(windows: TrainingWindows, render: Any) -> dict[str, Any]:
+def _horizon_label(windows: TrajectoryWindows) -> str:
+    return f"{windows.controls.shape[1] * windows.dt_s:g}s"
+
+
+def _by_horizon(
+    windows: TrainingWindows, render: Callable[[TrajectoryWindows], Any]
+) -> dict[str, Any]:
     """Map every training-horizon label to ``render(window_set)``."""
 
     return {
-        label: render(window_set)
-        for label, window_set in zip(windows.horizon_labels, windows.window_sets)
+        _horizon_label(window_set): render(window_set)
+        for window_set in windows.window_sets
     }
 
 
@@ -1107,9 +1056,12 @@ def _window_selection_section(windows: TrainingWindows) -> dict[str, Any]:
         "budget_policy": WINDOW_BUDGET_POLICY,
         "maximum_windows_per_horizon": MAXIMUM_WINDOWS_PER_HORIZON,
         "maximum_transitions_per_horizon": MAXIMUM_TRANSITIONS_PER_HORIZON,
-        "maximum_windows_by_horizon": dict(
-            zip(windows.horizon_labels, windows.maximum_windows_by_horizon)
-        ),
+        "maximum_windows_by_horizon": {
+            _horizon_label(window_set): maximum
+            for window_set, maximum in zip(
+                windows.window_sets, windows.maximum_windows_by_horizon
+            )
+        },
         "selected_windows_by_horizon": _by_horizon(
             windows, lambda window_set: len(window_set.initial_states)
         ),
@@ -1130,13 +1082,14 @@ _TRAINING_FLIGHT_WEIGHTING = {
 def _configuration_section(
     *,
     spec: FitSpec,
-    dataset: DatasetResolution,
     plan: HoldoutPlan,
     windows: TrainingWindows,
     independence_unit: str,
 ) -> dict[str, Any]:
-    dt_s = windows.dt_s
-    platform = dataset.platform
+    first = windows.window_sets[0]
+    dt_s = first.dt_s
+    platform = first.input_spec.vehicle.family
+    horizon_steps = [item.controls.shape[1] for item in windows.window_sets]
     return {
         "holdout_count": len(plan.validation),
         "holdout_source_group_count": len(
@@ -1146,14 +1099,14 @@ def _configuration_section(
                 if flight.source_group is not None
             }
         ),
-        "horizon_steps": max(windows.horizon_steps),
-        "training_horizon_steps": list(windows.horizon_steps),
-        "training_horizons_s": [steps * dt_s for steps in windows.horizon_steps],
-        "control_history_duration_s": (
-            windows.window_sets[0].control_histories.shape[1] * dt_s
-        ),
+        "horizon_steps": max(horizon_steps),
+        "training_horizon_steps": horizon_steps,
+        "training_horizons_s": [
+            steps * item.dt_s for steps, item in zip(horizon_steps, windows.window_sets)
+        ],
+        "control_history_duration_s": (first.control_histories.shape[1] * dt_s),
         "motor_history_duration_s": (
-            windows.window_sets[0].control_histories.shape[1] * dt_s
+            first.control_histories.shape[1] * dt_s
             if platform == "multirotor"
             else None
         ),
@@ -1187,7 +1140,7 @@ def _configuration_section(
         "ablations": list(spec.ablations),
         "model_class": spec.model_class,
         "platform": platform,
-        "model_family": dataset.family.key,
+        "model_family": family_for_platform(platform).key,
         "training_flight_weighting": _TRAINING_FLIGHT_WEIGHTING[windows.stratification],
         "training_windows_per_flight_by_horizon": _training_windows_per_flight(
             plan, windows
@@ -1206,7 +1159,7 @@ def _configuration_section(
 def build_fit_report(
     *,
     spec: FitSpec,
-    dataset: DatasetResolution,
+    dataset: dict[str, Any],
     plan: HoldoutPlan,
     windows: TrainingWindows,
     models: dict[str, Any],
@@ -1216,11 +1169,10 @@ def build_fit_report(
 
     return {
         "format_version": 1,
-        "dataset": dataset.contract,
+        "dataset": dataset,
         "split": _split_section(plan, spec),
         "configuration": _configuration_section(
             spec=spec,
-            dataset=dataset,
             plan=plan,
             windows=windows,
             independence_unit=evidence_independence_unit(plan),
@@ -1232,7 +1184,7 @@ def build_fit_report(
 
 def _information(
     model: ExecutableModel,
-    model_report: Mapping[str, Any],
+    noise: np.ndarray,
     *,
     plan: HoldoutPlan,
     spec: FitSpec,
@@ -1248,7 +1200,6 @@ def _information(
     model alone, at rank zero; no command does that.
     """
 
-    noise = np.asarray(model_report["validation"]["innovation_noise"])
     estimable = estimable_structured_parameters(
         model.params,
         fixed_response_time=fixed_response_time,
@@ -1292,44 +1243,6 @@ class FitOutcome:
         object.__setattr__(self, "ablations", dict(self.ablations))
 
 
-def _runtime_spec(
-    dataset: DatasetResolution, model_report: Mapping[str, Any]
-) -> RuntimeModelSpec:
-    """Build the runtime contract the fit itself resolved.
-
-    The sample period is the pooled dataset's declared rate and the validity
-    envelope is the one the rollout objective derived from the training
-    windows, so a fitted model carries its own execution contract instead of
-    having one recovered from its report.
-    """
-
-    return RuntimeModelSpec(
-        sample_period_s=1.0 / float(dataset.contract["sample_rate_hz"]),
-        validity_envelope=ModelValidityEnvelope.from_dict(
-            model_report["fit"]["rollout_loss"]["dynamic_envelope"]
-        ),
-    )
-
-
-def _belief(
-    params: ModelParams,
-    model_report: Mapping[str, Any],
-    *,
-    dataset: DatasetResolution,
-    input_spec: TrajectorySpec,
-    provenance: Mapping[str, Any],
-) -> DynamicsBelief:
-    forecast_error = model_report["validation"]["forecast_error"]
-    return DynamicsBelief(
-        model=ExecutableModel(params, input_spec, _runtime_spec(dataset, model_report)),
-        information=parameter_information_from_dict(model_report["parameter_evidence"]),
-        forecast_error=(
-            None if forecast_error is None else forecast_error_from_dict(forecast_error)
-        ),
-        provenance=dict(provenance),
-    )
-
-
 def fit(
     sources: Sequence[str | Path],
     spec: FitSpec = DEFAULT_FIT_SPEC,
@@ -1346,56 +1259,57 @@ def fit(
         raise ValueError("at least one trajectory path is required")
     paths = [Path(path) for path in sources]
     trajectories = [load_trajectory_npz(path) for path in paths]
-    dataset = resolve_dataset(paths, trajectories, spec)
+    dataset = _dataset_contract(paths, trajectories, spec)
     plan = spec.holdout.plan(trajectories, paths)
     windows = build_training_windows(plan, spec)
-    input_spec = trajectories[0].spec
+    provenance = {
+        "training_trajectories": list(plan.training_labels),
+        "validation_trajectories": [flight.path for flight in plan.validation],
+    }
 
     def fit_model(
-        *, fixed_motor_time_constant_s: float | None, fixed_response_time: bool
-    ) -> tuple[ModelParams, dict[str, Any]]:
-        params, model_report = _fit_on_windows(
-            windows.fitting_windows,
-            steps=spec.steps,
-            learning_rate=spec.learning_rate,
-            fixed_motor_time_constant_s=fixed_motor_time_constant_s,
-            horizon_labels=windows.horizon_labels,
-            model_class=spec.model_class,
-            platform=dataset.platform,
-            endpoint_weight=spec.loss.endpoint_weight,
-            stability_regularization=spec.loss.stability_regularization,
-            learn_thrust_command_offset=spec.loss.learn_thrust_command_offset,
-            diagonal_angular_control=spec.loss.diagonal_angular_control,
+        fixed_response_time_constant_s: float | None, *, ablation: str | None = None
+    ) -> tuple[DynamicsBelief, dict[str, Any]]:
+        model, model_report = _fit_on_windows(
+            windows,
+            spec,
+            fixed_response_time_constant_s=fixed_response_time_constant_s,
         )
-        model_report["validation"] = _evaluate_model(
-            params,
+        forecast_error, noise, validation = _evaluate_model(
+            model.params,
             plan.validation,
             horizon_seconds=spec.evaluation_horizons_s,
             diagnostics=spec.diagnostics,
         )
-        model_report["parameter_evidence"] = _information(
-            ExecutableModel(params, input_spec, _runtime_spec(dataset, model_report)),
-            model_report,
+        information = _information(
+            model,
+            noise,
             plan=plan,
             spec=spec,
-            fixed_response_time=fixed_response_time,
-        ).to_dict()
-        return params, model_report
+            fixed_response_time=fixed_response_time_constant_s is not None,
+        )
+        belief = DynamicsBelief(
+            model=model,
+            information=information,
+            forecast_error=forecast_error,
+            provenance=(
+                provenance
+                if ablation is None
+                else {**provenance, "ablation": _ABLATION_PROVENANCE[ablation]}
+            ),
+        )
+        model_report["validation"] = validation
+        model_report["parameter_evidence"] = information.to_dict()
+        return belief, model_report
 
-    learned_params, learned_report = fit_model(
-        fixed_motor_time_constant_s=spec.fixed_response_time_constant_s,
-        fixed_response_time=spec.fixed_response_time_constant_s is not None,
-    )
+    learned_belief, learned_report = fit_model(spec.fixed_response_time_constant_s)
     models: dict[str, Any] = {"learned_lag": learned_report}
 
-    ablation_params: dict[str, ModelParams] = {}
+    ablations: dict[str, DynamicsBelief] = {}
     comparison = None
     if "no_lag" in spec.ablations:
-        baseline_params, baseline_report = fit_model(
-            fixed_motor_time_constant_s=0.0001, fixed_response_time=True
-        )
+        ablations["no_lag"], baseline_report = fit_model(0.0001, ablation="no_lag")
         models["no_lag"] = baseline_report
-        ablation_params["no_lag"] = baseline_params
         comparison = _comparison_report(
             learned_report["validation"], baseline_report["validation"]
         )
@@ -1408,30 +1322,8 @@ def fit(
         models=models,
         comparison=comparison,
     )
-    provenance = {
-        "training_trajectories": list(plan.training_labels),
-        "validation_trajectories": [flight.path for flight in plan.validation],
-    }
     return FitOutcome(
-        belief=_belief(
-            learned_params,
-            learned_report,
-            dataset=dataset,
-            input_spec=input_spec,
-            provenance=provenance,
-        ),
+        belief=learned_belief,
         report=report,
-        ablations={
-            name: _belief(
-                params,
-                models[name],
-                dataset=dataset,
-                input_spec=input_spec,
-                provenance={
-                    **provenance,
-                    "ablation": _ABLATION_PROVENANCE[name],
-                },
-            )
-            for name, params in ablation_params.items()
-        },
+        ablations=ablations,
     )

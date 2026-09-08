@@ -45,7 +45,7 @@ from glassbox.core.geometry import (
     quaternion_from_euler,
     rigid_body_local_error,
 )
-from glassbox.core.metrics import predict_windows
+from glassbox.core.metrics import one_step_innovations, predict_windows
 from glassbox.core.model import (
     DirectActuationMap,
     ExecutableModel,
@@ -65,7 +65,7 @@ RECOVERY_DURATION_S = 1.2
 RECOVERY_TAIL_DURATION_S = 0.4
 FLEET_LOG_ARM_LENGTH_RATIOS = (-0.25, -0.125, 0.0, 0.125, 0.25)
 TARGET_LOG_ARM_LENGTH_RATIO = 0.20
-BENCHMARK_METHOD_VERSION = 8
+BENCHMARK_METHOD_VERSION = 9
 BENCHMARK_SOURCE_FILES = (
     "belief/belief.py",
     "belief/forecast_error.py",
@@ -78,6 +78,7 @@ BENCHMARK_SOURCE_FILES = (
     "control/solver.py",
     "core/data.py",
     "core/dynamics.py",
+    "core/families.py",
     "core/geometry.py",
     "core/metrics.py",
     "core/diagnostics.py",
@@ -278,7 +279,9 @@ def _build_beliefs() -> tuple[
         ),
         source="synthetic_arm_fleet_rollout_endpoints",
     )
-    noise = innovation_noise(base, [(item, None) for item in fleet_trajectories])
+    noise = innovation_noise(
+        one_step_innovations(base, item) for item in fleet_trajectories
+    )
 
     target_params = _arm_configuration_parameters(
         base,

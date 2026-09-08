@@ -1,4 +1,5 @@
 import json
+from dataclasses import replace
 
 import numpy as np
 import pytest
@@ -13,6 +14,7 @@ from glassbox.core.data import (
     load_trajectory_npz,
     make_trajectory_spec,
     save_trajectory_npz,
+    specific_force_observation_channels,
     split_trajectory,
     trajectory_windows,
 )
@@ -90,7 +92,7 @@ def test_windows_support_named_variable_control_channels() -> None:
     assert windows.controls.shape == (4, 5, 6)
     assert windows.control_histories.shape == (4, 50, 6)
     assert windows.control_size == 6
-    assert windows.control_names == names
+    assert windows.input_spec.control_names == names
 
 
 def test_windows_reject_mixed_control_schemas() -> None:
@@ -102,6 +104,81 @@ def test_windows_reject_mixed_control_schemas() -> None:
             ],
             horizon=5,
         )
+
+
+@pytest.fixture
+def contextual_trajectory() -> Trajectory:
+    trajectory = make_trajectory(
+        control_names=("throttle", "aileron", "elevator"), control_size=3
+    )
+    wind = tuple(
+        Channel(
+            name=role,
+            role=role,
+            semantic="world_wind_velocity",
+            unit="m/s",
+            kind="exogenous",
+            frame="NWU",
+        )
+        for role in ("wind_up", "wind_north")
+    )
+    return replace(
+        trajectory,
+        spec=replace(
+            trajectory.spec,
+            channels=(
+                *wind,
+                *specific_force_observation_channels(),
+                *trajectory.spec.channels,
+            ),
+        ),
+        exogenous=np.arange(22).reshape(11, 2),
+        observations=np.zeros((11, 3)),
+    )
+
+
+def test_windows_keep_ordered_inputs_across_different_observations(
+    contextual_trajectory,
+) -> None:
+    first = contextual_trajectory
+    second = replace(
+        first,
+        spec=replace(
+            first.spec,
+            observation_source="another_estimator",
+            channels=first.spec.prediction_spec().channels,
+        ),
+        observations=np.empty((len(first.states), 0)),
+    )
+
+    windows = trajectory_windows([first, second], horizon=5)
+
+    assert windows.input_spec.controls == first.spec.controls
+    assert windows.input_spec.exogenous == first.spec.exogenous
+    assert windows.input_spec.observations == ()
+    np.testing.assert_array_equal(
+        windows.initial_exogenous, [[0, 1], [10, 11], [0, 1], [10, 11]]
+    )
+    np.testing.assert_array_equal(windows.trajectory_indices, [0, 0, 1, 1])
+
+
+@pytest.mark.parametrize("kind", ("control", "exogenous"))
+@pytest.mark.parametrize(
+    "attribute,value", (("unit", "different_unit"), ("frame", "NED"))
+)
+def test_windows_reject_incompatible_input_units_and_frames(
+    contextual_trajectory, kind, attribute, value
+) -> None:
+    first = contextual_trajectory
+    channels = list(first.spec.channels)
+    index = next(
+        index for index, channel in enumerate(channels) if channel.kind == kind
+    )
+    channels[index] = replace(channels[index], **{attribute: value})
+    second = replace(first, spec=replace(first.spec, channels=tuple(channels)))
+
+    with pytest.raises(ValueError, match=rf"trajectory 1:.*{kind}.*{attribute}"):
+        trajectory_windows([first, second], horizon=5)
 
 
 def test_balanced_windows_give_each_trajectory_equal_total_weight() -> None:
@@ -311,7 +388,7 @@ def test_npz_round_trip(tmp_path) -> None:
     assert restored.provenance == trajectory.provenance
 
     with np.load(path, allow_pickle=False) as archive:
-        assert int(archive["format_version"]) == 4
+        assert int(archive["format_version"]) == 5
         np.testing.assert_array_equal(archive["exogenous"], trajectory.exogenous)
         np.testing.assert_array_equal(archive["observations"], trajectory.observations)
         assert set(archive.files) == {
@@ -383,22 +460,23 @@ def test_typed_spec_labels_and_provenance_round_trip(tmp_path) -> None:
     assert restored.provenance == trajectory.provenance
 
 
-def test_format_three_trajectories_still_load(tmp_path) -> None:
-    """Corpora extracted before the one-channel change are read, not migrated."""
+@pytest.mark.parametrize("version", (3, 4))
+def test_earlier_trajectory_formats_still_load(tmp_path, version) -> None:
 
     trajectory = make_trajectory(control_size=1, control_names=("throttle",))
     payload = trajectory.spec.to_dict()
-    channels = payload.pop("channels")
-    payload["controls"] = [
-        {key: value for key, value in channel.items() if key != "kind"}
-        for channel in channels
-    ]
-    payload["exogenous"] = []
-    payload["observations"] = []
-    path = tmp_path / "v3.npz"
+    if version == 3:
+        channels = payload.pop("channels")
+        payload["controls"] = [
+            {key: value for key, value in channel.items() if key != "kind"}
+            for channel in channels
+        ]
+        payload["exogenous"] = []
+        payload["observations"] = []
+    path = tmp_path / f"v{version}.npz"
     np.savez_compressed(
         path,
-        format_version=np.asarray(3, dtype=np.int64),
+        format_version=np.asarray(version, dtype=np.int64),
         time_s=trajectory.time_s,
         states=trajectory.states,
         controls=trajectory.controls,
@@ -413,6 +491,7 @@ def test_format_three_trajectories_still_load(tmp_path) -> None:
 
     assert restored.spec == trajectory.spec
     assert restored.spec.channels[0].kind == "control"
+    assert restored.control_prefix is None
 
 
 def test_rejects_noncurrent_trajectory_format(tmp_path) -> None:
@@ -508,14 +587,14 @@ def test_windows_without_a_control_prefix_pad_from_the_segments_first_control() 
     )
 
 
-def test_npz_round_trip_drops_the_in_memory_control_prefix(tmp_path) -> None:
+def test_npz_round_trip_preserves_actuator_history(tmp_path) -> None:
     base = make_trajectory(intervals=6, control_size=2)
     trajectory = Trajectory(
         time_s=base.time_s,
         states=base.states,
         controls=base.controls,
         spec=base.spec,
-        control_prefix=np.ones((3, 2)),
+        control_prefix=np.arange(6).reshape(3, 2) / 6.0,
     )
     assert trajectory.control_prefix is not None
     path = tmp_path / "with_prefix.npz"
@@ -523,9 +602,11 @@ def test_npz_round_trip_drops_the_in_memory_control_prefix(tmp_path) -> None:
     save_trajectory_npz(trajectory, path)
     restored = load_trajectory_npz(path)
 
-    assert restored.control_prefix is None
-    with np.load(path, allow_pickle=False) as archive:
-        assert "control_prefix" not in archive.files
+    np.testing.assert_array_equal(restored.control_prefix, trajectory.control_prefix)
+    np.testing.assert_array_equal(
+        trajectory_windows([restored], horizon=2).control_histories,
+        trajectory_windows([trajectory], horizon=2).control_histories,
+    )
 
 
 def test_trajectory_copies_constructor_arrays_instead_of_aliasing_them() -> None:

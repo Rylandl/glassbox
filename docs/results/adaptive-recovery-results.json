@@ -2,7 +2,7 @@
   "format_version": 6,
   "artifact_type": "glassbox_synthetic_adaptive_recovery_diagnostic",
   "implementation": {
-    "method_version": 8,
+    "method_version": 9,
     "source_files": [
       "belief/belief.py",
       "belief/forecast_error.py",
@@ -15,6 +15,7 @@
       "control/solver.py",
       "core/data.py",
       "core/dynamics.py",
+      "core/families.py",
       "core/geometry.py",
       "core/metrics.py",
       "core/diagnostics.py",
@@ -22,8 +23,8 @@
       "core/synthetic.py",
       "workflows/benchmarks/recovery.py"
     ],
-    "source_sha256": "c7c2ae77b19ffc4289a673ea92f208ac193a04a64d223cb2422af89074d2ed62",
-    "scenario_sha256": "f90ab94f014b8edec144d33f30ad135db036223fe18e3e3d45c77a185f268a19"
+    "source_sha256": "f9a8f0145e13e6ef320fe4ed50c093eb578dcd1452519535e639cdc6c5c76a3b",
+    "scenario_sha256": "157cb8bc49dbc1c93fce22c0a96758f4c98b0630af08919866779363e8ea5b4b"
   },
   "semantics": {
     "diagnostic_only": true,
@@ -147,7 +148,7 @@
       "seed_resolved_rank": 1,
       "posterior_resolved_rank": 15,
       "prior_covariance_trace": 0.0625,
-      "posterior_covariance_trace": 3954.3634999047977,
+      "posterior_covariance_trace": 3954.3636161079485,
       "one_step_innovation_noise": [
         1e-08,
         1e-08,
@@ -180,16 +181,16 @@
       "reason": null,
       "window_count": 40,
       "innovation_rms_before": 0.2513872705418033,
-      "innovation_rms_after": 0.21114018283520652,
-      "information_gain_nats": 1.698074695695995,
-      "step_norm_prior_sigma": 0.008400076405101346,
+      "innovation_rms_after": 0.21114022192449713,
+      "information_gain_nats": 1.6980747099558435,
+      "step_norm_prior_sigma": 0.008400071755828567,
       "maximum_validity_utilization": 0.3963615894317627
     },
     "independent_prediction": {
       "horizon_s": 0.6,
       "normalized_rms_before": 0.03339372324562736,
-      "normalized_rms_after": 0.028970294626072573,
-      "normalized_rms_ratio": 0.8675371240571684
+      "normalized_rms_after": 0.028970296020380867,
+      "normalized_rms_ratio": 0.8675371658107724
     }
   },
   "recovery": [
@@ -200,14 +201,14 @@
       "parameter_information_rank": 1,
       "prediction_horizon_s": 0.6000000000000005,
       "normalized_tracking_rms": 0.9622334837913513,
-      "tail_normalized_tracking_rms": 0.7700068950653076,
+      "tail_normalized_tracking_rms": 0.7700068354606628,
       "normalized_attitude_rate_rms": 0.9391282200813293,
-      "tail_normalized_attitude_rate_rms": 0.614902138710022,
-      "terminal_attitude_error_rad": 0.0389910526573658,
-      "terminal_angular_velocity_error_rad_s": 0.43579918146133423,
+      "tail_normalized_attitude_rate_rms": 0.6149020791053772,
+      "terminal_attitude_error_rad": 0.03899102658033371,
+      "terminal_angular_velocity_error_rad_s": 0.4357985556125641,
       "terminal_attitude_rate_tolerance_entry_time_s": 1.1400000000000001,
       "maximum_actual_validity_utilization": 1.3467612266540527,
-      "maximum_predicted_validity_utilization": 1.434982180595398,
+      "maximum_predicted_validity_utilization": 1.4349819421768188,
       "maximum_command_bound_violation": 0.0,
       "maximum_normalized_model_uncertainty_standard_deviation": null,
       "parameter_uncertainty_complete": false,
@@ -220,10 +221,10 @@
         "stalled": 5
       },
       "finite": true,
-      "prewarm_wall_time_s": 6.393986458002473,
-      "solve_time_median_s": 0.012895875501271803,
-      "solve_time_p90_s": 0.013705178501550109,
-      "solve_time_maximum_s": 0.014199666999047622
+      "prewarm_wall_time_s": 14.811425291991327,
+      "solve_time_median_s": 0.027151146001415327,
+      "solve_time_p90_s": 0.03336386253940873,
+      "solve_time_maximum_s": 0.04079433303559199
     },
     {
       "condition": "adapted_belief",
@@ -231,17 +232,17 @@
       "forecast_error_available": true,
       "parameter_information_rank": 15,
       "prediction_horizon_s": 0.6000000000000005,
-      "normalized_tracking_rms": 1.190227746963501,
-      "tail_normalized_tracking_rms": 1.2352290153503418,
-      "normalized_attitude_rate_rms": 0.8540067076683044,
-      "tail_normalized_attitude_rate_rms": 0.6613275408744812,
-      "terminal_attitude_error_rad": 0.23194162547588348,
-      "terminal_angular_velocity_error_rad_s": 0.16982965171337128,
+      "normalized_tracking_rms": 1.1902282238006592,
+      "tail_normalized_tracking_rms": 1.2352296113967896,
+      "normalized_attitude_rate_rms": 0.8540070652961731,
+      "tail_normalized_attitude_rate_rms": 0.6613278985023499,
+      "terminal_attitude_error_rad": 0.23194174468517303,
+      "terminal_angular_velocity_error_rad_s": 0.16982968151569366,
       "terminal_attitude_rate_tolerance_entry_time_s": null,
-      "maximum_actual_validity_utilization": 1.0557292699813843,
+      "maximum_actual_validity_utilization": 1.0557297468185425,
       "maximum_predicted_validity_utilization": 1.7094279527664185,
       "maximum_command_bound_violation": 0.0,
-      "maximum_normalized_model_uncertainty_standard_deviation": 1.2305207252502441,
+      "maximum_normalized_model_uncertainty_standard_deviation": 1.230521559715271,
       "parameter_uncertainty_complete": true,
       "unresolved_parameters_allowed": true,
       "inside_support_step_count": 49,
@@ -252,10 +253,10 @@
         "stalled": 2
       },
       "finite": true,
-      "prewarm_wall_time_s": 7.77757212499273,
-      "solve_time_median_s": 0.035647792006784584,
-      "solve_time_p90_s": 0.03602990059298463,
-      "solve_time_maximum_s": 0.036236083004041575
+      "prewarm_wall_time_s": 24.68996058299672,
+      "solve_time_median_s": 0.11692522952216677,
+      "solve_time_p90_s": 0.14273846730939113,
+      "solve_time_maximum_s": 0.1833187080337666
     },
     {
       "condition": "adapted_mean_point",
@@ -264,14 +265,14 @@
       "parameter_information_rank": 0,
       "prediction_horizon_s": 0.6000000000000005,
       "normalized_tracking_rms": 0.954648494720459,
-      "tail_normalized_tracking_rms": 0.757593035697937,
+      "tail_normalized_tracking_rms": 0.7575929760932922,
       "normalized_attitude_rate_rms": 0.923907458782196,
       "tail_normalized_attitude_rate_rms": 0.5800542235374451,
-      "terminal_attitude_error_rad": 0.045018959790468216,
-      "terminal_angular_velocity_error_rad_s": 0.3930736780166626,
+      "terminal_attitude_error_rad": 0.04501893371343613,
+      "terminal_angular_velocity_error_rad_s": 0.39307379722595215,
       "terminal_attitude_rate_tolerance_entry_time_s": 1.08,
-      "maximum_actual_validity_utilization": 1.3355005979537964,
-      "maximum_predicted_validity_utilization": 1.4371103048324585,
+      "maximum_actual_validity_utilization": 1.3355008363723755,
+      "maximum_predicted_validity_utilization": 1.4371107816696167,
       "maximum_command_bound_violation": 0.0,
       "maximum_normalized_model_uncertainty_standard_deviation": null,
       "parameter_uncertainty_complete": false,
@@ -284,10 +285,10 @@
         "stalled": 4
       },
       "finite": true,
-      "prewarm_wall_time_s": 1.9731565839902032,
-      "solve_time_median_s": 0.005387062992667779,
-      "solve_time_p90_s": 0.005554817200754769,
-      "solve_time_maximum_s": 0.0057819159992504865
+      "prewarm_wall_time_s": 6.330012333986815,
+      "solve_time_median_s": 0.013487854012055323,
+      "solve_time_p90_s": 0.01712928775814362,
+      "solve_time_maximum_s": 0.01947445800760761
     },
     {
       "condition": "oracle_mean_point",
@@ -316,17 +317,17 @@
         "stalled": 5
       },
       "finite": true,
-      "prewarm_wall_time_s": 0.010181000005104579,
-      "solve_time_median_s": 0.0052317079971544445,
-      "solve_time_p90_s": 0.00548138780723093,
-      "solve_time_maximum_s": 0.00565279099100735
+      "prewarm_wall_time_s": 0.021741500007919967,
+      "solve_time_median_s": 0.013102625031024218,
+      "solve_time_p90_s": 0.017577720514964312,
+      "solve_time_maximum_s": 0.03025449998676777
     }
   ],
   "comparisons": {
-    "adapted_vs_stale_tail_tracking_rms_ratio": 1.604179161597737,
-    "adapted_vs_stale_tail_attitude_rate_rms_ratio": 1.075500472744904,
-    "adapted_vs_oracle_tail_tracking_rms_ratio": 1.8234283088736694,
-    "adapted_vs_oracle_tail_attitude_rate_rms_ratio": 1.5061052644153077
+    "adapted_vs_stale_tail_tracking_rms_ratio": 1.6041800598533693,
+    "adapted_vs_stale_tail_attitude_rate_rms_ratio": 1.0755011585983214,
+    "adapted_vs_oracle_tail_tracking_rms_ratio": 1.8234291887493466,
+    "adapted_vs_oracle_tail_attitude_rate_rms_ratio": 1.5061060788758924
   },
   "observations": {
     "update_absorbed": true,

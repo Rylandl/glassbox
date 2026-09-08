@@ -106,7 +106,7 @@ def test_every_corpus_validation_entry_declares_its_adapters_extra() -> None:
         spec = next(
             item for item in MANIFEST if item.name == f"validation-{name}-results"
         )
-        assert spec.extra == corpus.extra, spec.name
+        assert spec.dependency == corpus.extra, spec.name
         assert spec.inputs == (
             f"corpus {name} pinned at {corpus.citation.pinned_version}",
         )
@@ -127,7 +127,7 @@ def test_list_runs_without_any_optional_extra(
     stdout = capsys.readouterr().out
     for spec in MANIFEST:
         assert spec.name in stdout
-    assert "needs the optional 'cascade' extra" in stdout
+    assert "uv sync --group cascade" in stdout
 
 
 def test_dry_run_runs_without_any_optional_extra_and_executes_nothing(
@@ -159,7 +159,7 @@ def test_dry_run_reports_blocked_entries_without_executing(
     stdout = capsys.readouterr().out
     assert "cascade-x8-validation-results" in stdout
     assert "skipped" in stdout
-    assert "needs the optional 'cascade' extra" in stdout
+    assert "uv sync --group cascade" in stdout
 
 
 def test_only_with_an_unknown_name_exits_with_status_two(
@@ -251,7 +251,7 @@ def test_run_selected_skips_entries_with_unmet_requirements_and_continues(
         name="fake-blocked",
         output="docs/results/does-not-exist-blocked.json",
         steps=(PythonStep("unreachable", lambda: calls.append("unreachable")),),
-        extra="cascade",
+        dependency="cascade",
         tier="local",
         doc_page="docs/README.md",
     )
@@ -478,13 +478,12 @@ def _fit_report() -> dict[str, object]:
 
 def _evaluation_report() -> dict[str, object]:
     return {
-        "format_version": 1,
+        "format_version": 2,
         "protocol": "windowed",
         "baseline": "kinematic_persistence",
         "stride": "one_horizon",
         "scoring": {"name": "windowed"},
         "independent_holdout": True,
-        "can_promote_model": True,
         "corpus": {"name": "overwritten by the registry block"},
         "dataset": {"trajectory_count": 1},
         "model": {"horizon_rollouts": {}},

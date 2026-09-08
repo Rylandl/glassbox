@@ -1,32 +1,4 @@
-"""The manifest of recorded artifacts and the runner that regenerates them.
-
-Every quantitative claim in the documentation is the literal content of one
-artifact under ``docs/results/``, and this module owns the one manifest that
-says, for each of them, which tier it belongs to, which inputs it consumes,
-which optional extra it needs, and the exact ``glassbox`` steps that reproduce
-it. Nothing here writes documentation prose: after regenerating an artifact,
-update the prose on its page by hand from the new JSON.
-
-Two tiers. The ``local`` tier runs in this repository with nothing downloaded
-and is what continuous integration checks. The ``corpus`` tier is the
-maintainer job: it needs a pinned public corpus on disk, several hours of
-fitting, and for the Cascade rows the ``cascade`` extra.
-
-The five corpus validation artifacts share one chain, ``corpus prepare`` then
-``fit`` then ``evaluate``, and one assembled contract: the corpus with its
-citation, pinned version and file digests; the scoring policy the evaluation
-ran under; the fit that produced the model, with its split, its optimization
-record and its parameter evidence; the results and the baseline they are
-scored against; and the source fingerprint of the code that produced them.
-The chain is a function of a :class:`RecordingPlan`, so the same manifest
-describes a recording, a check against the committed artifact, and a smoke run
-on a tiny fit budget whose output is marked ``smoke`` and can never be
-mistaken for a recording.
-
-Every step is a ``glassbox`` subcommand run in-process through
-:func:`glassbox.cli.main`, except the assembly steps, which have no subcommand
-form and call this module's own writers.
-"""
+"""Recorded-result manifest, reproduction plans and artifact comparison."""
 
 from __future__ import annotations
 
@@ -49,7 +21,11 @@ from glassbox.workflows.recorded import DEFAULT_TOLERANCE, recorded_differences
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 
-_EXTRA_MODULES = {"cascade": "cascade", "px4": "pyulog", "ros": "rosbags"}
+_OPTIONAL_DEPENDENCIES = {
+    "cascade": ("cascade", "uv sync --group cascade"),
+    "px4": ("pyulog", "uv sync --extra px4"),
+    "ros": ("rosbags", "uv sync --extra ros"),
+}
 
 LOCAL_TIER = "local"
 CORPUS_TIER = "corpus"
@@ -59,30 +35,11 @@ VALIDATION_ARTIFACT_TYPE = "glassbox_corpus_validation"
 VALIDATION_FORMAT_VERSION = 1
 VALIDATION_METHOD_VERSION = 1
 
-VALIDATION_SOURCE_FILES = (
-    "belief/belief.py",
-    "belief/belief_io.py",
-    "belief/forecast_error.py",
-    "belief/information.py",
-    "belief/parameter_evidence.py",
-    "core/data.py",
-    "core/dynamics.py",
-    "core/geometry.py",
-    "core/identification.py",
-    "core/metrics.py",
-    "core/model.py",
-    "core/model_io.py",
-    "fitting.py",
-    "io/corpus.py",
-    "workflows/evaluate.py",
-    "workflows/holdout.py",
+_PACKAGE_ROOT = Path(glassbox.__file__).resolve().parent
+VALIDATION_SOURCE_FILES = tuple(
+    sorted(str(path.relative_to(_PACKAGE_ROOT)) for path in _PACKAGE_ROOT.rglob("*.py"))
 )
-"""The modules a corpus validation number passes through, fingerprinted.
-
-The corpus adapter that produced the trajectories is not in this list because
-the corpus block already pins the inputs by digest: a different adapter output
-is a different corpus, and the pinned files say which one was read.
-"""
+"""Fingerprint package sources, including preprocessing and scoring code."""
 
 
 class StepFailed(RuntimeError):
@@ -212,7 +169,7 @@ class ArtifactSpec:
     name: str
     output: str
     steps: tuple[Step, ...] = ()
-    extra: str | None = None
+    dependency: str | None = None
     inputs: tuple[str, ...] = ()
     tier: str = LOCAL_TIER
     doc_page: str = ""
@@ -339,7 +296,6 @@ _PROTOCOL_KEYS = (
     "evaluation",
     "holdout_label",
     "independent_holdout",
-    "can_promote_model",
 )
 
 _BASELINE_KEYS = (
@@ -613,6 +569,8 @@ rather than a freshness gate and does not take part in a comparison.
 """
 
 NMPC_ACCEPTANCE_VOLATILE = (
+    "implementation.source_files",
+    "implementation.source_sha256",
     "environment",
     "summary.post_jit_solve_time_s",
     "scenarios[*].warmup_solve_time_s",
@@ -815,7 +773,7 @@ def _corpus_validation(plan: RecordingPlan, chain: CorpusChain) -> ArtifactSpec:
                 ),
             ),
         ),
-        extra=corpus.extra,
+        dependency=corpus.extra,
         inputs=(f"corpus {chain.corpus} pinned at {corpus.citation.pinned_version}",),
         tier=CORPUS_TIER,
         doc_page=f"docs/validation.md#{chain.anchor}",
@@ -890,7 +848,7 @@ def _cascade_x8(plan: RecordingPlan, x8_chain: CorpusChain) -> ArtifactSpec:
                 lambda: write_cascade_x8_validation_report(output, cascade, x8),
             ),
         ),
-        extra="cascade",
+        dependency="cascade",
         inputs=("corpus x8", "the Cascade fixed-wing simulator"),
         tier=CORPUS_TIER,
         doc_page="docs/validation.md#cascade-x8",
@@ -951,8 +909,10 @@ def _importable(module_name: str) -> bool:
 def missing_requirements(spec: ArtifactSpec) -> list[str]:
     """Human-readable reasons ``spec`` cannot run right now, if any."""
 
-    if spec.extra is not None and not _importable(_EXTRA_MODULES[spec.extra]):
-        return [f"needs the optional '{spec.extra}' extra"]
+    if spec.dependency is not None:
+        module, install = _OPTIONAL_DEPENDENCIES[spec.dependency]
+        if not _importable(module):
+            return [f"needs {spec.dependency}; run `{install}`"]
     return []
 
 

@@ -1,4 +1,5 @@
 import hashlib
+from dataclasses import replace
 
 import numpy as np
 
@@ -44,7 +45,7 @@ def test_adapter_applies_opinionated_reference_contract(tmp_path, monkeypatch) -
     def fake_load(path, *, config):
         captured["path"] = path
         captured["config"] = config
-        return _base_trajectory()
+        return replace(_base_trajectory(), control_prefix=np.full((4, 4), 0.1))
 
     monkeypatch.setattr(arp_module, "load_px4_trajectory", fake_load)
     adapter = ARPReferenceAdapter(verify_checksum=False)
@@ -65,12 +66,13 @@ def test_adapter_applies_opinionated_reference_contract(tmp_path, monkeypatch) -
     )
     assert trajectory.provenance["adapter"] == {
         "name": "arp_px4_ulog_reference",
-        "schema_version": 2,
+        "schema_version": 3,
     }
     reference = trajectory.provenance["reference_dataset"]
     assert reference["commit"] == ARP_REFERENCE_COMMIT
     assert reference["relative_path"].endswith(source.name)
     assert trajectory.spec.vehicle.configuration_id == ARP_CONFIGURATION_ID
+    np.testing.assert_array_equal(trajectory.control_prefix, np.full((4, 4), 0.1))
 
 
 def test_inspection_adds_pinned_identity(tmp_path, monkeypatch) -> None:
@@ -110,12 +112,17 @@ def test_reference_adapter_selects_longest_powered_interval() -> None:
         states=states,
         controls=controls,
         spec=base.spec,
+        control_prefix=np.full((2, 4), 0.2),
     )
 
     selected = _longest_powered_interval(trajectory, minimum_duration_s=0.1)
 
     assert np.isclose(selected.time_s[-1], 0.3)
     np.testing.assert_allclose(selected.controls, 0.4)
+    np.testing.assert_array_equal(
+        selected.control_prefix,
+        np.concatenate((trajectory.control_prefix, controls[:4])),
+    )
     assert (
         selected.provenance["reference_powered_interval"]["candidate_interval_count"]
         == 2

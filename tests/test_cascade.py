@@ -36,7 +36,7 @@ def _load_x8_validation():
                 continue
     pytest.skip(
         "prepare the X8 campaign at the current trajectory format, e.g. "
-        "`glassbox x8 extract-dataset artifacts/x8_reference/raw artifacts/x8_cascade/canonical`"
+        "`glassbox corpus prepare x8 artifacts/x8_cascade --raw artifacts/x8_reference/raw`"
     )
 
 

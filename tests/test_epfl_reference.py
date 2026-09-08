@@ -187,7 +187,8 @@ def test_characterization_evaluator_preserves_same_flight_limit(tmp_path) -> Non
     )
 
     assert report["selected_model"] == "structured_residual"
-    assert report["can_promote_model"] is False
+    assert "can_promote_model" not in report
+    assert report["format_version"] == 2
     assert report["independent_holdout"] is False
     assert report["protocol"] == "windowed"
     assert report["baseline"] == "kinematic_persistence"

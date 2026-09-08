@@ -1,139 +1,67 @@
 # Scope
 
-Glassbox identifies differentiable vehicle dynamics from recorded state and
-actuator telemetry, wraps the fitted model in an explicit statement of what
-its evidence resolved and how wrong its forecasts have been, and turns that
-belief into a bounded command. This page states what the library covers today,
-what evidence backs it, and where the boundary is. The original August 2026
-proposal is kept as [history](history/idea-2026-08.md); several things it
-listed as out of scope have since been built.
+Glassbox fits differentiable effective dynamics for quadrotors and fixed-wing
+aircraft. Its core workflow is to ingest telemetry, fit a model, evaluate
+reserved motion against a baseline, and update with new telemetry. The model
+and its evidence are the deliverable; control experiments evaluate their use.
 
-## The question
+## Inputs and models
 
-Given recorded vehicle state and actuator telemetry, can Glassbox identify a
-differentiable dynamics model that accurately and efficiently predicts unseen
-vehicle motion, and can that model carry an honest account of its own
-uncertainty into control?
+Inputs are actuator commands or measured actuation, paired with rigid-body
+state. `TrajectorySpec` records their roles, units, frames and timing. The
+canonical state uses NWU position and velocity, a WXYZ body-to-world quaternion,
+and FLU body rates.
 
-## System boundary
+The structured models describe thrust, aerodynamic and rotational acceleration,
+with actuator response and optional learned residuals. Fitted coefficients
+belong to an airframe and its signal contract. See [validation](validation.md)
+for the datasets, prediction horizons and comparisons measured so far.
 
-The model represents the vehicle plant below the flight controller. Its inputs
-are the lowest-level actuator commands reliably present in telemetry, never
-position, velocity or attitude setpoints, so the learned dynamics do not
-absorb controller and estimator behavior.
+## Design
 
-The canonical rigid-body state is position, velocity, attitude and body rate
-in a north-west-up world frame with a forward-left-up body frame and a
-scalar-first unit quaternion. Actuator response is carried as a latent applied
-control state when it is not measured. Known kinematics are kept fixed; the
-identification problem is the map from actuator behavior to forces, torques
-and accelerations.
+Three objects carry the identification workflow:
 
-## What exists
+- `Trajectory`: the recorded signals and their meaning.
+- `ExecutableModel`: equations bound to input channels, sample period, actuation
+  mapping and a training-derived velocity/rate operating envelope.
+- `DynamicsBelief`: the model, local structured-parameter information and
+  empirical forecast error.
 
-The package is four layers and one entry point per job.
+Construct these objects where the fit or measurement produces them. Reports
+summarize results; serialization belongs at artifact boundaries. Prediction,
+parameter information and forecast error have different meanings and remain
+separate in the [belief API](concepts/dynamics-beliefs.md).
 
-- **Telemetry.** One `Channel` type, one `TrajectorySpec`, one `Trajectory`
-  and one NPZ codec. PX4 ULog ingestion for both families, one pinned
-  reference-corpus registry covering the Nano-Quadrotor, ARP, IDF-DS,
-  Skywalker X8 and EPFL TOPOPlane2 datasets, and one synthetic generator per
-  family. The registry states each corpus's citation, license, pinned files,
-  parser and published evaluation split, and `glassbox corpus fetch` and
-  `prepare` verify every file against its pin. See the
-  [PX4 ULog guide](guides/px4-ulog.md).
-- **The fit.** Structured multirotor and fixed-wing rigid-body models with an
-  optional compact residual, RK4 rollouts in JAX, and multi-horizon rollout
-  fitting under one window budget with group-balanced losses. `glassbox.fit`
-  takes a `FitSpec` with three holdout rules and returns a `FitOutcome`: the
-  belief, the report, and one belief per requested ablation.
-- **The belief.** `DynamicsBelief` is one `ExecutableModel`, one
-  `ParameterInformation` over its structured coefficients, and one
-  `ForecastErrorEnvelope` of held-out error in 12 local rigid-body
-  coordinates. `belief.absorb(telemetry)` adds every usable one-step
-  transition's information and takes a bounded, backtracked parameter step,
-  with no displacement along unresolved directions. Backtracking uses the
-  actual nonlinear residual and prior precision, without a held-out split. See
-  [dynamics beliefs](concepts/dynamics-beliefs.md).
-- **Control.** One `PlanModel` protocol and one `BoundedShootingSolver` with
-  hard command bounds, explicit failure statuses and a bounded hold on every
-  failure. `plan_model` adapts a fitted belief; the in-flight
-  `RecursiveBootstrapIdentifier` produces a belief over the bootstrap
-  parameterization for a vehicle with no prior, and the same solver plans over
-  it. `MultirotorFlightSupervisor` is the bounded command's last check, with
-  its allocation injected rather than assumed. One `VehicleLink` and one
-  `run_control_loop` are the control interval for PX4 shadow mode and for the
-  Cascade plant alike. See [NMPC](concepts/nmpc.md) and
-  [bootstrap identification](concepts/bootstrap-identification.md).
-- **Evaluation and evidence.** One `evaluate` with three named scoring
-  policies, one `evaluate_holdout` by label, three maintained benchmarks, and
-  one manifest of recorded artifacts in two tiers. See
-  [validation](validation.md).
+| Responsibility | Owner |
+| --- | --- |
+| Signal contract and flight boundaries | `core.data`; source translation in `io` |
+| Fit orchestration and numerical optimization | `fitting` and `core.identification` |
+| Vehicle/actuator rollout and prediction errors | `core.dynamics` and `core.metrics` |
+| Parameter evidence, updates and forecast-error statistics | `belief` |
+| Scoring protocols and reserved-data evaluation | `workflows.evaluate` and `workflows.holdout` |
+| Planning, bootstrap and supervision | `control`; transport in `integrations` |
 
-## Evidence standard
+Reuse these owners before introducing another representation or interface.
+Keep parameter updates and calibration on the same prediction equations used
+by evaluation. Split modules when responsibilities need independent ownership,
+not to distribute line count.
 
-Every number on [validation](validation.md) and on the concept pages is the
-literal content of an artifact under [`results/`](results/), regenerated by
-one `glassbox record-results` entry and named on the page by its path and its
-key. Artifacts are machine output; none is written or edited by hand.
+## Downstream work
 
-Holdouts are complete flights, recording sessions or maneuver families, never
-mixed samples. Normalization statistics come from training data only. A corpus
-that does not verify against its pinned digests is a different corpus, and a
-number measured on it is not the published one.
+NMPC, bootstrap identification and simulator integrations are experimental
+consumers of the belief. The current PX4 link is read-only. Controller results
+are simulation experiments, with no flight-safety or hard real-time guarantee.
+Their interfaces and experiments are described under [NMPC](concepts/nmpc.md)
+and [bootstrap identification](concepts/bootstrap-identification.md).
 
-Negative results and withdrawn approaches are recorded as prose in the
-[literature review](literature-review.md), each with the last commit that
-carried its code. Their code and their artifacts are not kept; a page that
-declares its own numbers stale is not evidence, so the record moves to the
-review and the stale material goes.
+Prioritize the identification workflow over additional controller features or
+integration surfaces. Keep research variants tied to their experiments rather
+than extending the production API to accommodate each one.
 
-Absolute timing figures are kept out of prose because they depend on the host
-and its load. They stay in the artifacts, where the manifest marks them
-volatile so neither the pinned tests nor `record-results --check` compares
-them.
+## Evidence
 
-## Current boundary
-
-Both vehicle families have differentiable rollout, fitting, serialization and
-PX4 ULog ingestion. Fixed-wing ingestion joins motor and servo allocator
-topics, reconstructs signed aerodynamic-axis controls from logged allocation
-parameters, and rejects unverifiable mappings.
-
-The present boundary is model validity. Fixed-wing rollouts transfer across
-maneuver families, recording sessions, and both a conventional tail
-configuration and a three-control flying wing, at the horizons a controller
-plans over. At the shortest horizon they need not: on the IDF-DS sessions a
-kinematic persistence baseline is the better predictor at a tenth of a second
-and the fitted model overtakes it by one second. Multirotor results are
-weaker: on the Nano-Quadrotor benchmark the fitted model is about nine percent
-behind its published structured-residual reference on the aggregate metric and
-still behind a hold-state baseline on angular rate, and on the protected ARP
-log the fitted model loses to kinematic persistence outright. Parameter
-artifacts remain airframe specific: the evidence validates the shared
-interfaces and testable model hypotheses, not zero-shot coefficient
-transfer.
-
-Multi-minute IDF sessions, complete X8 maneuvers and the protected ARP flight
-still expose long-rollout instability. Flap-equipped and configuration-changing
-aircraft remain unvalidated. More same-vehicle segments are therefore lower
-value than another airframe or configuration, or a better generally applicable
-command-to-force model.
-
-Two bodies of evidence sit outside the manifest and say so on the page that
-carries them. The PX4 SITL corpora need a running simulator container to
-record, so their numbers are prose on [validation](validation.md), marked as
-recorded before the current estimator. The demo's dual-control results are in
-[glassbox-throw](https://github.com/Rylandl/glassbox-throw), which is pinned
-to the last revision before this migration and resyncs once.
-
-## Not claimed
-
-- Flight safety or certification of any kind. Every controller result is a
-  simulation diagnostic with bounded commands, not a safety case.
-- Hard real-time guarantees. Solve and update times are recorded per run and
-  marked volatile.
-- Hardware demonstrations. Physical propeller, estimator startup and hand
-  contact remain outside every recorded result.
-- Zero-shot transfer of fitted coefficients between airframes.
-- A certified prediction horizon. What shortens a horizon is the belief's own
-  held-out forecast-error envelope, and the library certifies nothing.
+[Validation](validation.md) owns the recorded comparisons and their artifact
+links. [Contributing](../CONTRIBUTING.md#recorded-results) describes reproduction.
+The [literature review](literature-review.md) and investigation pages retain
+experimental decisions; the [original proposal](history/idea-2026-08.md) is
+historical background.

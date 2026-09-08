@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "glassbox"
-version = "0.2.0"
+version = "0.3.0rc1"
 description = "Telemetry-driven differentiable vehicle dynamics identification"
 readme = "README.md"
 license = "Apache-2.0"
@@ -27,9 +27,6 @@ px4 = [
 ros = [
     "rosbags>=0.11.5",
 ]
-cascade = [
-    "cascade-flight",
-]
 
 [project.scripts]
 glassbox = "glassbox.cli:main"
@@ -41,6 +38,7 @@ exclude = ["/docs/results", "/docs/history", "/tasks"]
 cascade-flight = { git = "https://github.com/Rylandl/cascade", branch = "main" }
 
 [dependency-groups]
+cascade = ["cascade-flight"]
 dev = [
     "pytest>=8.3",
     "ruff>=0.16.5,<0.17",

@@ -8,8 +8,14 @@ Exact comparisons continue to pin metric reductions and both floor tables.
 
 from __future__ import annotations
 
+from dataclasses import replace
+
+import jax.numpy as jnp
+import numpy as np
 import pytest
 
+from glassbox.core.data import trajectory_segment
+from glassbox.core.dynamics import initial_residual_parameters, rollout_with_latent
 from glassbox.core.fixedwing_synthetic import (
     generate_fixed_wing_trajectory,
     true_fixed_wing_parameters,
@@ -20,6 +26,7 @@ from glassbox.core.metrics import (
     ROLLOUT_METRICS,
     aggregate_rollout_metrics,
     kinematic_persistence_windowed_metrics,
+    one_step_innovations,
     persistence_score,
     predict,
     predict_windows,
@@ -31,6 +38,77 @@ from glassbox.core.synthetic import (
     initial_parameter_guess,
     true_parameters,
 )
+from glassbox.fitting import Holdout, _evaluate_model
+
+
+@pytest.mark.parametrize("family", ("quadrotor", "fixedwing", "flyingwing_residual"))
+def test_evaluation_retains_history_through_nested_holdouts(family, request) -> None:
+    fixedwing = family != "quadrotor"
+    trajectory = request.getfixturevalue(
+        "fixedwing_flight" if fixedwing else "quadrotor_flight"
+    )(3, 0.6)
+    params = true_fixed_wing_parameters() if fixedwing else true_parameters()
+    if family == "flyingwing_residual":
+        trajectory = replace(
+            trajectory,
+            controls=trajectory.controls[:, :3],
+            spec=replace(
+                trajectory.spec,
+                channels=tuple(
+                    channel
+                    for channel in trajectory.spec.channels
+                    if channel.role != "yaw"
+                ),
+            ),
+        )
+        params = initial_residual_parameters(params, control_size=3)
+    controls = trajectory.controls.copy()
+    controls[2:, 0] += 0.2
+    states, _ = rollout_with_latent(
+        params,
+        jnp.asarray(trajectory.states[0]),
+        jnp.asarray(controls),
+        trajectory.nominal_dt_s,
+        control_roles=trajectory.spec.control_roles,
+    )
+    trajectory = replace(trajectory, states=np.asarray(states), controls=controls)
+    cropped = trajectory_segment(trajectory, 2, len(controls))
+    plan = Holdout.temporal(0.1).plan([cropped])
+    reserved = plan.validation[0].trajectory
+
+    np.testing.assert_array_equal(
+        reserved.control_prefix,
+        controls[: len(controls) - len(reserved.controls)],
+    )
+    np.testing.assert_allclose(
+        predict(params, reserved).predicted, reserved.states, atol=2e-6
+    )
+    warm = one_step_innovations(params, reserved)
+    cold = one_step_innovations(params, replace(reserved, control_prefix=None))
+    assert np.max(np.abs(warm)) < 2e-6
+    assert np.max(np.abs(cold)) > 1e-4
+
+    _, _, report = _evaluate_model(
+        params, plan.validation, horizon_seconds=(0.1,), diagnostics=True
+    )
+    assert report["aggregate"]["full_rollout"]["velocity_rmse_m_s"] < 2e-6
+    assert (
+        report["per_flight"][0]["one_step_innovation"]["initialization_discard_steps"]
+        == 0
+    )
+
+
+def test_empty_prefix_is_a_cold_start(quadrotor_flight) -> None:
+    trajectory = quadrotor_flight(3)
+    empty = replace(trajectory, control_prefix=np.empty((0, trajectory.control_size)))
+    params = true_parameters()
+    np.testing.assert_array_equal(
+        predict(params, empty).predicted, predict(params, trajectory).predicted
+    )
+    np.testing.assert_array_equal(
+        one_step_innovations(params, empty), one_step_innovations(params, trajectory)
+    )
+
 
 HORIZON_STEPS = 10
 PINNED = {

@@ -24,7 +24,13 @@ from typing import Any
 
 import numpy as np
 
-from glassbox.core.data import Trajectory, duration_to_steps, load_trajectory_npz
+from glassbox.core.data import (
+    Trajectory,
+    TrajectorySpec,
+    _require_compatible_inputs,
+    duration_to_steps,
+    load_trajectory_npz,
+)
 from glassbox.core.dynamics import ModelParams
 from glassbox.core.metrics import (
     METRIC_FLOORS,
@@ -254,25 +260,30 @@ def _sha256(path: Path) -> str:
 
 def _resolve_model(
     belief_or_params: Any,
-) -> tuple[ModelParams, dict[str, Any] | None]:
-    """Return the parameters to roll out and, for a saved belief, its record."""
+) -> tuple[ModelParams, TrajectorySpec | None, dict[str, Any] | None]:
+    """Preserve the model's input contract alongside its parameters and record."""
 
     if isinstance(belief_or_params, (str, Path)):
         path = Path(belief_or_params)
         params, payload = load_dynamics_model(path)
-        return params, {
-            "path": str(path),
-            "sha256": _sha256(path),
-            "model_type": payload["model_type"],
-            "model_family": payload["model_family"],
-            "parameters": parameter_dict(params),
-            "input_spec": payload["input_spec"],
-            "provenance": payload.get("provenance", {}),
-        }
-    params = getattr(getattr(belief_or_params, "model", None), "params", None)
+        return (
+            params,
+            TrajectorySpec.from_dict(payload["input_spec"]),
+            {
+                "path": str(path),
+                "sha256": _sha256(path),
+                "model_type": payload["model_type"],
+                "model_family": payload["model_family"],
+                "parameters": parameter_dict(params),
+                "input_spec": payload["input_spec"],
+                "provenance": payload.get("provenance", {}),
+            },
+        )
+    model = getattr(belief_or_params, "model", None)
+    params = getattr(model, "params", None)
     if params is not None:
-        return params, None
-    return belief_or_params, None
+        return params, model.input_spec, None
+    return belief_or_params, None, None
 
 
 def _resolve_trajectories(
@@ -657,18 +668,20 @@ def evaluate(
     ``belief_or_params`` is a :class:`~glassbox.DynamicsBelief`, bare model
     parameters, or a path to a saved belief, in which case the report records
     which artifact produced its numbers. ``trajectories`` are canonical
-    trajectories or paths to them.
+    trajectories or paths to them. A belief's declared control and exogenous
+    roles, semantics, units and frames must match every evaluated trajectory.
+    Bare parameters carry no input spec; their interpretation is the caller's.
 
-    ``independent_holdout`` is the caller's declaration that these flights were
-    withheld from the fit. Passing ``False`` marks the report as a same-flight
-    characterization: useful for airframe characterization, but its
-    ``can_promote_model`` is false, because a model cannot be promoted on
-    evidence it was fitted to.
+    ``independent_holdout`` records the caller's split declaration. Use ``False``
+    for same-flight characterization.
     """
 
     policy = policy_for(protocol)
-    params, artifact = _resolve_model(belief_or_params)
+    params, input_spec, artifact = _resolve_model(belief_or_params)
     labels, resolved = _resolve_trajectories(trajectories)
+    if input_spec is not None:
+        for label, trajectory in zip(labels, resolved):
+            _require_compatible_inputs(input_spec, trajectory.spec, label=label)
 
     body: dict[str, Any]
     effective: dict[str, Any] | None = None
@@ -718,13 +731,12 @@ def evaluate(
         }
 
     report: dict[str, Any] = {
-        "format_version": 1,
+        "format_version": 2,
         "protocol": policy.name,
         "baseline": policy.baseline,
         "stride": policy.stride,
         "floors": None if policy.floors is None else dict(policy.floors),
         "independent_holdout": independent_holdout,
-        "can_promote_model": independent_holdout,
         "scoring": policy.to_dict(),
         "dataset": {
             "trajectory_count": len(resolved),
@@ -800,14 +812,13 @@ def evaluate_models(
         }
 
     report: dict[str, Any] = {
-        "format_version": 1,
+        "format_version": 2,
         "protocol": policy.name,
         "baseline": policy.baseline,
         "stride": policy.stride,
         "floors": None if policy.floors is None else dict(policy.floors),
         "scoring": policy.to_dict(),
         "independent_holdout": independent_holdout,
-        "can_promote_model": independent_holdout,
         "dataset": {
             "validation_trajectory_count": len(resolved),
             "validation_duration_s": float(
@@ -930,13 +941,12 @@ def evaluate_fit_reports(
     scoring = policy.to_dict()
     scoring["requested_and_effective_horizons"] = effective
     return {
-        "format_version": 1,
+        "format_version": 2,
         "protocol": policy.name,
         "baseline": policy.baseline,
         "stride": policy.stride,
         "floors": None if policy.floors is None else dict(policy.floors),
         "independent_holdout": independent_holdout,
-        "can_promote_model": independent_holdout,
         "scoring": scoring,
         "dataset": {
             "trajectory_count": len(resolved),

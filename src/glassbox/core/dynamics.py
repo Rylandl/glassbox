@@ -1294,21 +1294,37 @@ def control_state_after_history(
     assumption decays away.
     """
 
-    if control_history.ndim != 2:
-        raise ValueError("control history must be two-dimensional")
-    _resolved_control_roles(params, control_history.shape[-1], control_roles)
+    return control_state_trace(params, control_history, dt_s, control_roles)[-1]
+
+
+def control_state_trace(
+    params: ModelParams,
+    controls: Array,
+    dt_s: float,
+    control_roles: tuple[str, ...] | None = None,
+    initial_state: Array | None = None,
+) -> Array:
+    """Return applied-control states at every command boundary, including zero."""
+
+    if controls.ndim != 2 or controls.shape[0] == 0:
+        raise ValueError("control history must be a nonempty two-dimensional array")
+    _resolved_control_roles(params, controls.shape[-1], control_roles)
+    initial = (
+        controls[0]
+        if initial_state is None
+        else _validated_latent_state(initial_state, controls.shape[-1])
+    )
     if not models_actuator_lag(params):
-        # Without a lag the applied control is the last command, whatever came
-        # before it.
-        return control_history[-1]
+        return jnp.concatenate((initial[jnp.newaxis, :], controls))
 
     decay = jnp.exp(-dt_s / _response_time_constant(params))
 
-    def scan_step(applied_control: Array, control: Array) -> tuple[Array, None]:
-        return control + (applied_control - control) * decay, None
+    def scan_step(applied_control: Array, control: Array) -> tuple[Array, Array]:
+        applied = control + (applied_control - control) * decay
+        return applied, applied
 
-    final_latent_state, _ = jax.lax.scan(scan_step, control_history[0], control_history)
-    return final_latent_state
+    _, trace = jax.lax.scan(scan_step, initial, controls)
+    return jnp.concatenate((initial[jnp.newaxis, :], trace))
 
 
 def _per_step_exogenous(exogenous: Array | None, step_count: int) -> Array | None:

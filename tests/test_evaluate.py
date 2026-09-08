@@ -14,14 +14,20 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from glassbox import cli
 from glassbox.belief.belief import DynamicsBelief
 from glassbox.belief.belief_io import save_dynamics_belief
-from glassbox.core.data import save_trajectory_npz
+from glassbox.core.data import (
+    Channel,
+    save_trajectory_npz,
+    specific_force_observation_channels,
+)
 from glassbox.core.fixedwing_synthetic import (
     generate_fixed_wing_trajectory,
     true_fixed_wing_parameters,
 )
 from glassbox.core.model import ExecutableModel, runtime_spec_from_trajectory
+from glassbox.core.model_io import parameter_dict
 from glassbox.core.synthetic import initial_parameter_guess
 from glassbox.io.corpus import REFERENCE_CORPORA
 from glassbox.io.nanodrone_reference import (
@@ -35,7 +41,6 @@ from glassbox.io.x8_reference import (
 from glassbox.workflows.evaluate import (
     PROTOCOLS,
     evaluate,
-    evaluate_fit_reports,
 )
 
 PINNED_NANODRONE = {
@@ -324,28 +329,42 @@ def test_x8_policy_reproduces_the_campaign_protocol(tmp_path) -> None:
 
 def test_windowed_policy_reproduces_the_same_flight_characterization(
     tmp_path,
+    capsys,
 ) -> None:
-    report = evaluate_fit_reports(
-        _epfl_fit_reports(tmp_path),
-        protocol="windowed",
-        # TOPOPlane2 samples at 5 Hz, so the campaign's 0.2-second horizon is
-        # one sample and the score is taken over the three longer horizons.
-        horizons_s=(0.2, 0.5, 1.0, 2.0),
-        score_horizons_s=(0.5, 1.0, 2.0),
+    reports = _epfl_fit_reports(tmp_path)
+    output = tmp_path / "comparison.json"
+    cli.main(
+        [
+            "evaluate",
+            "--fit-reports",
+            *(f"{name}={path}" for name, path in reports.items()),
+            "--horizons",
+            "0.2,0.5,1,2",
+            "--score-horizons",
+            "0.5,1,2",
+            "--report",
+            str(output),
+        ]
     )
+    report = json.loads(output.read_text())
+    assert f"selected={report['selected_model']}" in capsys.readouterr().out
 
     assert report["protocol"] == "windowed"
     assert report["stride"] == "one_horizon"
     assert report["floors"] == dict(PROTOCOLS["windowed"].floors)
     assert report["independent_holdout"] is False
-    assert report["can_promote_model"] is False
+    assert "can_promote_model" not in report
     assert report["selected_model"] == PINNED_EPFL["selected_model"]
     for name, score in PINNED_EPFL["scores"].items():
-        assert report["models"][name]["score_vs_baseline"] == score
+        assert report["models"][name]["score_vs_baseline"] == pytest.approx(
+            score, rel=1e-12, abs=1e-12
+        )
     for label, expected in PINNED_EPFL["baseline_horizon_rollouts"].items():
         measured = report["baseline_metrics"]["horizon_rollouts"][label]
         for metric, value in expected.items():
-            assert measured[metric] == value, f"{label}.{metric}"
+            assert measured[metric] == pytest.approx(value, rel=1e-12, abs=1e-12), (
+                f"{label}.{metric}"
+            )
     assert report["scoring"]["requested_and_effective_horizons"]["0.5s"][
         "effective_s"
     ] == pytest.approx(0.4)
@@ -365,10 +384,130 @@ def test_every_report_says_which_convention_produced_it(tmp_path) -> None:
     assert set(PROTOCOLS) == {"windowed", "x8", "nanodrone"}
     for key in ("protocol", "baseline", "stride", "floors", "independent_holdout"):
         assert key in report
-    assert report["can_promote_model"] is False
+    assert "can_promote_model" not in report
     assert report["scoring"]["definition"]
 
 
 def test_unknown_protocol_names_the_ones_that_exist(tmp_path) -> None:
     with pytest.raises(ValueError, match="unknown evaluation protocol"):
         evaluate(initial_parameter_guess(), [], protocol="nope")
+
+
+@pytest.fixture
+def evaluation_belief(quadrotor_flight):
+    flight = quadrotor_flight(0, 0.2)
+    wind = Channel(
+        name="wind_north_m_s",
+        role="wind_north",
+        semantic="world_wind_velocity",
+        unit="m/s",
+        kind="exogenous",
+        frame="NWU",
+    )
+    flight = replace(
+        flight,
+        spec=replace(flight.spec, channels=(*flight.spec.channels, wind)),
+        exogenous=np.zeros((len(flight.states), 1)),
+    )
+    belief = DynamicsBelief(
+        model=ExecutableModel(
+            initial_parameter_guess(), flight.spec, runtime_spec_from_trajectory(flight)
+        )
+    )
+    return belief, flight
+
+
+@pytest.mark.parametrize("saved", [False, True], ids=["in-memory", "saved"])
+@pytest.mark.parametrize(
+    "kind,attribute,value",
+    [
+        ("control", "role", "different_motor"),
+        ("control", "semantic", "measured_rotor_speed"),
+        ("control", "unit", "rad/s"),
+        ("control", "frame", "FRD"),
+        ("exogenous", "role", "wind_west"),
+        ("exogenous", "semantic", "body_wind_velocity"),
+        ("exogenous", "unit", "km/h"),
+        ("exogenous", "frame", "NED"),
+        ("vehicle", "family", "fixedwing"),
+    ],
+)
+def test_evaluation_and_absorption_reject_the_same_mismatched_inputs(
+    evaluation_belief, tmp_path, monkeypatch, saved, kind, attribute, value
+) -> None:
+    belief, flight = evaluation_belief
+    model = belief
+    if saved:
+        model = tmp_path / "belief.json"
+        belief.save(model)
+    if kind == "vehicle":
+        spec = replace(flight.spec, vehicle=replace(flight.spec.vehicle, family=value))
+    else:
+        channels = list(flight.spec.channels)
+        index = next(i for i, channel in enumerate(channels) if channel.kind == kind)
+        channels[index] = replace(channels[index], **{attribute: value})
+        spec = replace(flight.spec, channels=tuple(channels))
+    incompatible = replace(flight, spec=spec)
+
+    def unexpected_scoring(*_args, **_kwargs):
+        pytest.fail("validate all trajectories before generating predictions")
+
+    monkeypatch.setattr(
+        "glassbox.workflows.evaluate.predict_windows", unexpected_scoring
+    )
+    monkeypatch.setattr(
+        "glassbox.belief.update.one_step_linearization", unexpected_scoring
+    )
+    with pytest.raises(ValueError, match=rf"trajectory_1:.*{attribute}"):
+        evaluate(model, [flight, incompatible], horizons_s=(0.04,))
+    update_belief = DynamicsBelief.load(model) if saved else belief
+    with pytest.raises(ValueError, match=rf"belief update:.*{attribute}"):
+        update_belief.absorb(incompatible)
+
+
+def test_evaluation_and_absorption_allow_observation_metadata_and_exogenous_names(
+    evaluation_belief,
+) -> None:
+    belief, flight = evaluation_belief
+    observed = replace(
+        flight,
+        spec=replace(
+            flight.spec,
+            observation_source="another_estimator",
+            channels=(
+                *(
+                    replace(channel, name=f"recorded_{channel.name}")
+                    if channel.kind == "exogenous"
+                    else channel
+                    for channel in flight.spec.channels
+                ),
+                *specific_force_observation_channels(),
+            ),
+        ),
+        observations=np.zeros((len(flight.states), 3)),
+    )
+    scored = evaluate(belief, [observed], horizons_s=(0.04,))
+    expected = evaluate(belief.params, [flight], horizons_s=(0.04,))
+    assert scored["model"] == expected["model"]
+    updated, update = belief.absorb(observed)
+    expected_belief, expected_update = belief.absorb(flight)
+    assert update == expected_update
+    assert updated.information.to_dict() == expected_belief.information.to_dict()
+    assert parameter_dict(updated.params) == parameter_dict(expected_belief.params)
+
+
+def test_bare_parameters_still_use_the_callers_input_semantics(
+    evaluation_belief,
+) -> None:
+    belief, flight = evaluation_belief
+    spec = replace(
+        flight.spec,
+        channels=tuple(
+            replace(channel, semantic="measured_rotor_speed", unit="rad/s")
+            if channel.kind == "control"
+            else channel
+            for channel in flight.spec.channels
+        ),
+    )
+    scored = evaluate(belief.params, [replace(flight, spec=spec)], horizons_s=(0.04,))
+    assert scored["model"]["horizon_rollouts"]

@@ -1,11 +1,13 @@
 """Rollout predictions and the metrics that score them.
 
-Two prediction entry points cover every protocol the library runs.
+Three prediction modes answer distinct questions about held-out telemetry.
 :func:`predict` rolls one complete flight from its measured start;
 :func:`predict_windows` rolls fixed-horizon windows initialized throughout a
 flight. Both return a :class:`RolloutPrediction`, and the metric functions here
 score that object, so a scoring convention is chosen once by the caller rather
-than baked into a per-protocol entry point.
+than baked into a per-protocol entry point. :func:`one_step_innovations` resets
+the measured state each interval to measure local error for noise calibration
+and optional diagnostics while carrying actuator state causally.
 """
 
 from __future__ import annotations
@@ -24,6 +26,7 @@ from glassbox.core.dynamics import (
     ModelParams,
     control_state_after_history,
     rollout_with_latent,
+    step_with_latent,
     validate_control_schema,
 )
 
@@ -87,12 +90,19 @@ class RolloutPrediction:
         )
 
 
-def predict(
-    params: ModelParams,
-    trajectory: Trajectory,
-    *,
-    control_history: np.ndarray | None = None,
-) -> RolloutPrediction:
+def _initial_actuator_state(params: ModelParams, trajectory: Trajectory) -> jax.Array:
+    history = trajectory.control_prefix
+    if history is None or len(history) == 0:
+        return jnp.asarray(trajectory.controls[0])
+    return control_state_after_history(
+        params,
+        jnp.asarray(history),
+        trajectory.nominal_dt_s,
+        trajectory.spec.control_roles,
+    )
+
+
+def predict(params: ModelParams, trajectory: Trajectory) -> RolloutPrediction:
     """Return one complete logged-input prediction from the measured start.
 
     Logged exogenous context such as wind is applied per step, so a complete
@@ -107,23 +117,13 @@ def predict(
         trajectory.spec.control_roles,
     )
 
-    initial_motor_state = None
-    if control_history is not None:
-        if len(control_history) < 1:
-            raise ValueError("control_history must be nonempty when provided")
-        initial_motor_state = control_state_after_history(
-            params,
-            jnp.asarray(control_history),
-            trajectory.nominal_dt_s,
-            trajectory.spec.control_roles,
-        )
     predicted = np.asarray(
         rollout_with_latent(
             params,
             jnp.asarray(trajectory.states[0]),
             jnp.asarray(trajectory.controls),
             trajectory.nominal_dt_s,
-            initial_motor_state,
+            _initial_actuator_state(params, trajectory),
             trajectory.spec.control_roles,
             jnp.asarray(trajectory.exogenous[:-1]),
             trajectory.spec.exogenous_roles,
@@ -165,7 +165,7 @@ def predict_windows(
     )
     initial_motor_states = jax.vmap(
         lambda history: control_state_after_history(
-            params, history, windows.dt_s, windows.control_roles
+            params, history, windows.dt_s, windows.input_spec.control_roles
         )
     )(jnp.asarray(windows.control_histories))
     predicted, _ = jax.vmap(
@@ -175,9 +175,9 @@ def predict_windows(
             control_sequence,
             windows.dt_s,
             initial_control,
-            windows.control_roles,
+            windows.input_spec.control_roles,
             context,
-            windows.exogenous_roles,
+            windows.input_spec.exogenous_roles,
         )
     )(
         jnp.asarray(windows.initial_states),
@@ -446,6 +446,51 @@ def rigid_body_tangent_errors(
     )
 
 
+def one_step_innovations(params: ModelParams, trajectory: Trajectory) -> np.ndarray:
+    """Return every interval's one-step innovation in the twelve local coordinates.
+
+    Each interval starts from the measured rigid-body state while the model's
+    latent actuator state is carried causally through the command sequence, so
+    the result is prediction error conditional on the parameters rather than
+    accumulated rollout drift. This is the residual an information update
+    weights by, and the same array the diagnostics report summarizes.
+    """
+
+    validate_control_schema(
+        params,
+        trajectory.control_names,
+        trajectory.spec.control_roles,
+    )
+
+    def scan_step(
+        latent_state: jax.Array,
+        samples: tuple[jax.Array, jax.Array, jax.Array],
+    ) -> tuple[jax.Array, jax.Array]:
+        measured_state, control, exogenous = samples
+        predicted_state, next_latent = step_with_latent(
+            params,
+            measured_state,
+            latent_state,
+            control,
+            trajectory.nominal_dt_s,
+            trajectory.spec.control_roles,
+            exogenous,
+            trajectory.spec.exogenous_roles,
+        )
+        return next_latent, predicted_state
+
+    _, predictions = jax.lax.scan(
+        scan_step,
+        _initial_actuator_state(params, trajectory),
+        (
+            jnp.asarray(trajectory.states[:-1]),
+            jnp.asarray(trajectory.controls),
+            jnp.asarray(trajectory.exogenous[:-1]),
+        ),
+    )
+    return rigid_body_tangent_errors(predictions, trajectory.states[1:])
+
+
 def kinematic_persistence_windowed_metrics(
     trajectory: Trajectory,
     *,
@@ -490,7 +535,6 @@ def rollout_divergence_metrics(
     params: ModelParams,
     trajectory: Trajectory,
     *,
-    control_history: np.ndarray | None = None,
     thresholds: dict[str, float] | None = None,
 ) -> dict[str, Any]:
     """Report when a complete rollout first exceeds a useful error envelope."""
@@ -508,7 +552,7 @@ def rollout_divergence_metrics(
     ):
         raise ValueError("divergence thresholds must be finite and positive")
 
-    prediction = predict(params, trajectory, control_history=control_history)
+    prediction = predict(params, trajectory)
     predicted = prediction.predicted
     target = prediction.target
     predicted_quaternion_norm = np.linalg.norm(predicted[:, 6:10], axis=1)

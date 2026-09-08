@@ -31,7 +31,7 @@ def require_cascade() -> Any:
         from cascade.canonical import CANONICAL_STATE_SCHEMA
     except ImportError as error:
         raise CascadeUnavailableError(
-            "install the optional simulator with `uv sync --extra cascade`"
+            "install the optional simulator with `uv sync --group cascade`"
         ) from error
     if CANONICAL_STATE_SCHEMA != RIGID_BODY_STATE_SCHEMA:
         raise CascadeUnavailableError(

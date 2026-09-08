@@ -316,7 +316,7 @@ class TrajectorySpec:
 
     @classmethod
     def from_dict(cls, payload: Mapping[str, Any]) -> TrajectorySpec:
-        """Rebuild a spec from a format-3 or format-4 payload.
+        """Rebuild a spec from a serialized payload.
 
         Format 3 split the channels across ``controls``, ``exogenous`` and
         ``observations`` lists whose entries carried no kind of their own;
@@ -341,6 +341,34 @@ class TrajectorySpec:
             channels=channels,
             vehicle=VehicleConfigurationSpec.from_dict(payload["vehicle"]),
         )
+
+
+def _require_compatible_inputs(
+    expected: TrajectorySpec, actual: TrajectorySpec, *, label: str
+) -> None:
+    """Require the same ordered prediction semantics for scoring and updates.
+
+    Observation sources and training-only channels can differ. Model-family
+    channel layouts, runtime command bounds and full dataset pooling have
+    their own checks beyond this comparison of prediction semantics.
+    """
+
+    if actual.state_schema != expected.state_schema:
+        raise ValueError(f"{label}: telemetry state schema does not match model")
+    if actual.vehicle.family != expected.vehicle.family:
+        raise ValueError(f"{label}: telemetry vehicle family does not match model")
+    for kind in ("controls", "exogenous"):
+        for attribute in ("role", "semantic", "unit", "frame"):
+            observed = tuple(
+                getattr(channel, attribute) for channel in getattr(actual, kind)
+            )
+            declared = tuple(
+                getattr(channel, attribute) for channel in getattr(expected, kind)
+            )
+            if observed != declared:
+                raise ValueError(
+                    f"{label}: telemetry {kind} {attribute}s do not match model"
+                )
 
 
 def _control_channel_for_name(name: str, platform: str) -> Channel:
@@ -426,12 +454,9 @@ class Trajectory:
     construction raises.
 
     ``control_prefix``, when given, holds the real controls immediately
-    preceding this trajectory (oldest first, same channel count as
-    ``controls``), for segments cut mid-flight so window extraction can pad
-    early motor histories from true prior commands instead of repeating the
-    segment's own first control. It is an in-memory-only convenience: it is
-    never written by :func:`save_trajectory_npz` and is always ``None`` after
-    :func:`load_trajectory_npz`.
+    preceding this trajectory, oldest first, at the same sample period and
+    channel count as ``controls``. It initializes actuator response for a
+    segment cut mid-flight and is preserved by NPZ serialization.
     """
 
     time_s: npt.NDArray[np.float64]
@@ -571,79 +596,20 @@ class Trajectory:
 
 @dataclass(frozen=True)
 class TrajectoryWindows:
-    """Fixed-horizon rollout windows from one or more trajectories."""
+    """Fixed-horizon arrays and their input contract, built by trajectory_windows."""
 
     initial_states: npt.NDArray[np.float64]
     control_histories: npt.NDArray[np.float64]
     controls: npt.NDArray[np.float64]
     target_states: npt.NDArray[np.float64]
     dt_s: float
-    initial_exogenous: npt.NDArray[np.float64] | None = None
+    input_spec: TrajectorySpec
+    initial_exogenous: npt.NDArray[np.float64]
     window_weights: npt.NDArray[np.float64] | None = None
     trajectory_indices: npt.NDArray[np.int64] | None = None
     start_indices: npt.NDArray[np.int64] | None = None
     candidate_window_counts: npt.NDArray[np.int64] | None = None
     selection_policy: str = "all_candidates"
-    control_names: tuple[str, ...] | None = None
-    control_roles: tuple[str, ...] | None = None
-    control_semantics: tuple[str, ...] | None = None
-    exogenous_names: tuple[str, ...] | None = None
-    exogenous_roles: tuple[str, ...] | None = None
-
-    def __post_init__(self) -> None:
-        """Fill in optional defaults and fix the dtypes the package indexes with.
-
-        :func:`trajectory_windows` is the one constructor and validates every
-        input before it reaches here, so this does no checking of its own.
-        """
-
-        count = self.initial_states.shape[0]
-        initial_exogenous = (
-            np.empty((count, 0), dtype=np.float64)
-            if self.initial_exogenous is None
-            else np.asarray(self.initial_exogenous, dtype=np.float64)
-        )
-        object.__setattr__(self, "initial_exogenous", initial_exogenous)
-        control_names = (
-            tuple(f"control_{index}" for index in range(self.controls.shape[2]))
-            if self.control_names is None
-            else tuple(self.control_names)
-        )
-        object.__setattr__(self, "control_names", control_names)
-        object.__setattr__(
-            self,
-            "control_roles",
-            control_names if self.control_roles is None else tuple(self.control_roles),
-        )
-        object.__setattr__(
-            self,
-            "control_semantics",
-            tuple("unspecified" for _ in control_names)
-            if self.control_semantics is None
-            else tuple(self.control_semantics),
-        )
-        exogenous_names = (
-            tuple(f"exogenous_{index}" for index in range(initial_exogenous.shape[1]))
-            if self.exogenous_names is None
-            else tuple(self.exogenous_names)
-        )
-        object.__setattr__(self, "exogenous_names", exogenous_names)
-        object.__setattr__(
-            self,
-            "exogenous_roles",
-            exogenous_names
-            if self.exogenous_roles is None
-            else tuple(self.exogenous_roles),
-        )
-        for name, dtype in (
-            ("window_weights", np.float64),
-            ("trajectory_indices", np.int64),
-            ("start_indices", np.int64),
-            ("candidate_window_counts", np.int64),
-        ):
-            value = getattr(self, name)
-            if value is not None:
-                object.__setattr__(self, name, np.asarray(value, dtype=dtype))
 
     @property
     def control_size(self) -> int:
@@ -872,12 +838,7 @@ def trajectory_windows(
             )
 
     dt_s = trajectories[0].nominal_dt_s
-    control_size = trajectories[0].control_size
-    control_names = trajectories[0].control_names
-    control_roles = trajectories[0].spec.control_roles
-    control_semantics = trajectories[0].spec.control_semantics
-    exogenous_names = trajectories[0].spec.exogenous_names
-    exogenous_roles = trajectories[0].spec.exogenous_roles
+    input_spec = trajectories[0].spec.prediction_spec()
     history_ratio = motor_history_s / dt_s
     nearest_history_steps = round(history_ratio)
     if np.isclose(history_ratio, nearest_history_steps, atol=1e-9, rtol=0.0):
@@ -888,30 +849,12 @@ def trajectory_windows(
     candidate_counts: list[int] = []
 
     for trajectory_index, trajectory in enumerate(trajectories):
-        if trajectory.control_size != control_size:
-            raise ValueError(
-                "all trajectories must have the same control channel count"
-            )
-        if trajectory.control_names != control_names:
-            raise ValueError(
-                "all trajectories must have the same ordered control_names"
-            )
-        if trajectory.spec.control_roles != control_roles:
-            raise ValueError(
-                "all trajectories must have the same ordered control_roles"
-            )
-        if trajectory.spec.control_semantics != control_semantics:
-            raise ValueError(
-                "all trajectories must have the same ordered control_semantics"
-            )
-        if trajectory.spec.exogenous_names != exogenous_names:
-            raise ValueError(
-                "all trajectories must have the same ordered exogenous_names"
-            )
-        if trajectory.spec.exogenous_roles != exogenous_roles:
-            raise ValueError(
-                "all trajectories must have the same ordered exogenous_roles"
-            )
+        for names in ("control_names", "exogenous_names"):
+            if getattr(trajectory.spec, names) != getattr(input_spec, names):
+                raise ValueError(f"all trajectories must have the same ordered {names}")
+        _require_compatible_inputs(
+            input_spec, trajectory.spec, label=f"trajectory {trajectory_index}"
+        )
         intervals = np.diff(trajectory.time_s)
         if not np.allclose(intervals, dt_s, atol=dt_tolerance_s, rtol=0.0):
             raise ValueError(
@@ -993,32 +936,24 @@ def trajectory_windows(
         controls=np.stack(controls),
         target_states=np.stack(targets),
         dt_s=dt_s,
+        input_spec=input_spec,
         initial_exogenous=np.stack(initial_exogenous),
         window_weights=window_weights,
         trajectory_indices=trajectory_index_array,
         start_indices=np.asarray(start_indices, dtype=np.int64),
         candidate_window_counts=selection_candidate_counts,
         selection_policy=selection_policy,
-        control_names=control_names,
-        control_roles=control_roles,
-        control_semantics=control_semantics,
-        exogenous_names=exogenous_names,
-        exogenous_roles=exogenous_roles,
     )
 
 
 def save_trajectory_npz(trajectory: Trajectory, path: str | Path) -> None:
-    """Write a canonical trajectory to a compressed, self-describing NPZ file.
-
-    ``trajectory.control_prefix`` is in-memory only and is not written here;
-    :func:`load_trajectory_npz` always returns ``control_prefix=None``.
-    """
+    """Write a canonical trajectory, including prior actuator history, to NPZ."""
 
     output_path = Path(path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(
         output_path,
-        format_version=np.asarray(4, dtype=np.int64),
+        format_version=np.asarray(5, dtype=np.int64),
         time_s=trajectory.time_s,
         states=trajectory.states,
         controls=trajectory.controls,
@@ -1029,21 +964,24 @@ def save_trajectory_npz(trajectory: Trajectory, path: str | Path) -> None:
         provenance_json=np.asarray(
             json.dumps(dict(trajectory.provenance), sort_keys=True)
         ),
+        **(
+            {}
+            if trajectory.control_prefix is None
+            else {"control_prefix": trajectory.control_prefix}
+        ),
     )
 
 
 def load_trajectory_npz(path: str | Path) -> Trajectory:
     """Load a canonical trajectory written by :func:`save_trajectory_npz`.
 
-    Format 4 carries one ``channels`` list on the spec; format 3 split it
-    across ``controls``, ``exogenous`` and ``observations``, and is still read
-    because extracted corpora under the untracked ``artifacts/`` tree were
-    written at format 3 and are re-extracted rather than migrated.
+    Formats 3 and 4 remain readable without a control prefix. Format 5
+    preserves the optional prefix for trajectories cut from a longer flight.
     """
 
     with np.load(Path(path), allow_pickle=False) as archive:
         version = int(archive["format_version"])
-        if version not in (3, 4):
+        if version not in (3, 4, 5):
             raise ValueError(f"unsupported trajectory format version: {version}")
         return Trajectory(
             time_s=archive["time_s"],
@@ -1054,6 +992,9 @@ def load_trajectory_npz(path: str | Path) -> Trajectory:
             spec=TrajectorySpec.from_dict(json.loads(str(archive["spec_json"]))),
             labels=json.loads(str(archive["labels_json"])),
             provenance=json.loads(str(archive["provenance_json"])),
+            control_prefix=(
+                archive["control_prefix"] if "control_prefix" in archive else None
+            ),
         )
 
 

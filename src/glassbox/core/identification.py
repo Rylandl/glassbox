@@ -16,6 +16,7 @@ from glassbox.core.data import (
     NORMALIZED_MOTOR_COMMAND_SEMANTICS,
     PHYSICAL_MOTOR_THRUST_SEMANTICS,
     TrajectoryWindows,
+    _require_compatible_inputs,
 )
 from glassbox.core.dynamics import (
     ModelParams,
@@ -34,6 +35,7 @@ from glassbox.core.dynamics import (
     zero_thrust_command_offset_gradient,
 )
 from glassbox.core.geometry import quaternion_to_rotation_matrices
+from glassbox.core.model import ModelValidityEnvelope
 
 OPTIMIZATION_POLICY_VERSION = "deterministic_weighted_minibatch_v3"
 WINDOW_BUDGET_POLICY = "one_window_budget_v1"
@@ -76,16 +78,13 @@ def window_budget(horizon_steps: int, *, minimum: int = 1) -> int:
 
 @dataclass(frozen=True)
 class RolloutLossConfiguration:
-    """Training-only scales and stability envelope for rigid-body rollouts."""
+    """Training-only error scales and the support carried into model execution."""
 
     position_scale_m: npt.NDArray[np.float64]
     velocity_scale_m_s: npt.NDArray[np.float64]
     attitude_scale_rad: float
     angular_velocity_scale_rad_s: npt.NDArray[np.float64]
-    body_velocity_center_m_s: npt.NDArray[np.float64]
-    body_velocity_bound_m_s: npt.NDArray[np.float64]
-    angular_velocity_center_rad_s: npt.NDArray[np.float64]
-    angular_velocity_bound_rad_s: npt.NDArray[np.float64]
+    validity_envelope: ModelValidityEnvelope
     endpoint_weight: float = 3.0
     stability_regularization: float = 0.01
 
@@ -94,10 +93,6 @@ class RolloutLossConfiguration:
             "position_scale_m",
             "velocity_scale_m_s",
             "angular_velocity_scale_rad_s",
-            "body_velocity_center_m_s",
-            "body_velocity_bound_m_s",
-            "angular_velocity_center_rad_s",
-            "angular_velocity_bound_rad_s",
         ):
             values = np.asarray(getattr(self, name), dtype=np.float64)
             if values.shape != (3,) or not np.all(np.isfinite(values)):
@@ -107,8 +102,6 @@ class RolloutLossConfiguration:
             "position_scale_m",
             "velocity_scale_m_s",
             "angular_velocity_scale_rad_s",
-            "body_velocity_bound_m_s",
-            "angular_velocity_bound_rad_s",
         ):
             if np.any(getattr(self, name) <= 0.0):
                 raise ValueError(f"{name} must be positive")
@@ -132,16 +125,7 @@ class RolloutLossConfiguration:
                     self.angular_velocity_scale_rad_s.tolist()
                 ),
             },
-            "dynamic_envelope": {
-                "body_velocity_center_m_s": (self.body_velocity_center_m_s.tolist()),
-                "body_velocity_half_width_m_s": (self.body_velocity_bound_m_s.tolist()),
-                "angular_velocity_center_rad_s": (
-                    self.angular_velocity_center_rad_s.tolist()
-                ),
-                "angular_velocity_half_width_rad_s": (
-                    self.angular_velocity_bound_rad_s.tolist()
-                ),
-            },
+            "dynamic_envelope": self.validity_envelope.to_dict(),
             "endpoint_weight": self.endpoint_weight,
             "stability_regularization": self.stability_regularization,
             "state_group_weighting": "equal_semantic_groups",
@@ -253,7 +237,7 @@ def _window_wind_world(windows: TrajectoryWindows) -> npt.NDArray[np.float64]:
     """Return one NWU wind vector for each rollout window."""
 
     values = np.asarray(windows.initial_exogenous, dtype=np.float64)
-    roles = windows.exogenous_roles
+    roles = windows.input_spec.exogenous_roles
     wind = np.zeros((len(values), 3), dtype=np.float64)
     for axis, role in enumerate(("wind_north", "wind_west", "wind_up")):
         if role in roles:
@@ -361,10 +345,12 @@ def rollout_loss_configuration(
         angular_velocity_scale_rad_s=_robust_axis_scale(
             angular_velocity_change, floor=0.1
         ),
-        body_velocity_center_m_s=body_velocity_center,
-        body_velocity_bound_m_s=body_velocity_bound,
-        angular_velocity_center_rad_s=angular_velocity_center,
-        angular_velocity_bound_rad_s=angular_velocity_bound,
+        validity_envelope=ModelValidityEnvelope(
+            body_velocity_center_m_s=body_velocity_center,
+            body_velocity_half_width_m_s=body_velocity_bound,
+            angular_velocity_center_rad_s=angular_velocity_center,
+            angular_velocity_half_width_rad_s=angular_velocity_bound,
+        ),
         endpoint_weight=endpoint_weight,
         stability_regularization=stability_regularization,
     )
@@ -387,18 +373,11 @@ def residual_initialization_statistics(
     features = []
     accelerations = []
     expected_control_size = window_sets[0].control_size
-    expected_roles = window_sets[0].control_roles
     expected_exogenous_size = window_sets[0].initial_exogenous.shape[1]
-    expected_exogenous_roles = window_sets[0].exogenous_roles
     for windows in window_sets:
-        if windows.control_size != expected_control_size:
-            raise ValueError("residual window sets must share a control size")
-        if windows.control_roles != expected_roles:
-            raise ValueError("residual window sets must share control roles")
-        if windows.initial_exogenous.shape[1] != expected_exogenous_size:
-            raise ValueError("residual window sets must share an exogenous size")
-        if windows.exogenous_roles != expected_exogenous_roles:
-            raise ValueError("residual window sets must share exogenous roles")
+        _require_compatible_inputs(
+            window_sets[0].input_spec, windows.input_spec, label="residual windows"
+        )
         states = np.asarray(windows.target_states[:, :-1], dtype=np.float64)
         next_states = np.asarray(windows.target_states[:, 1:], dtype=np.float64)
         controls = np.asarray(windows.controls, dtype=np.float64)
@@ -570,15 +549,13 @@ def dynamic_envelope_penalty(
         rotations,
         predicted_states[..., 3:6] - wind_world[:, None, :],
     )
-    body_velocity_bound = jnp.asarray(loss_configuration.body_velocity_bound_m_s)
-    angular_velocity_bound = jnp.asarray(
-        loss_configuration.angular_velocity_bound_rad_s
-    )
+    envelope = loss_configuration.validity_envelope
+    body_velocity_bound = jnp.asarray(envelope.body_velocity_half_width_m_s)
+    angular_velocity_bound = jnp.asarray(envelope.angular_velocity_half_width_rad_s)
     body_velocity_excess = (
         jax.nn.relu(
             jnp.abs(
-                predicted_body_velocity
-                - jnp.asarray(loss_configuration.body_velocity_center_m_s)
+                predicted_body_velocity - jnp.asarray(envelope.body_velocity_center_m_s)
             )
             - body_velocity_bound
         )
@@ -588,7 +565,7 @@ def dynamic_envelope_penalty(
         jax.nn.relu(
             jnp.abs(
                 predicted_states[..., 10:13]
-                - jnp.asarray(loss_configuration.angular_velocity_center_rad_s)
+                - jnp.asarray(envelope.angular_velocity_center_rad_s)
             )
             - angular_velocity_bound
         )
@@ -716,6 +693,11 @@ def _fit_objective(
         params = best_params
         final_loss = float(jax.jit(objective)(params))
         history = history[: completed_steps + 1]
+    elif batch_schedules is None and best_loss < final_loss:
+        # Full-batch losses are comparable across iterations. A final Adam
+        # step can overshoot a better fit, especially when resuming near it.
+        params = best_params
+        final_loss = best_loss
     if diverged:
         history = np.append(history, final_loss)
     else:
@@ -762,14 +744,6 @@ def _configured_initial_params(
     return with_response_time_constant(initial_params, fixed_motor_time_constant_s)
 
 
-def _validate_window_schema(params: ModelParams, windows: TrajectoryWindows) -> None:
-    validate_control_schema(
-        params,
-        windows.control_names,
-        windows.control_roles,
-    )
-
-
 def supports_multirotor_thrust_command_offset(
     params: ModelParams,
     windows: TrajectoryWindows,
@@ -778,7 +752,7 @@ def supports_multirotor_thrust_command_offset(
 
     if model_family(params).platform != "multirotor":
         return False
-    semantics = frozenset(windows.control_semantics)
+    semantics = frozenset(windows.input_spec.control_semantics)
     if semantics <= NORMALIZED_MOTOR_COMMAND_SEMANTICS:
         return True
     if semantics <= PHYSICAL_MOTOR_THRUST_SEMANTICS:
@@ -854,9 +828,9 @@ def _window_loss(
         windows.dt_s,
         loss_configuration,
         window_weights,
-        windows.control_roles,
+        windows.input_spec.control_roles,
         initial_exogenous,
-        windows.exogenous_roles,
+        windows.input_spec.exogenous_roles,
     )
 
 
@@ -891,7 +865,14 @@ def fit_dynamics(
     if learning_rate <= 0.0:
         raise ValueError("learning_rate must be positive")
     for windows in window_sets:
-        _validate_window_schema(initial_params, windows)
+        validate_control_schema(
+            initial_params,
+            windows.input_spec.control_names,
+            windows.input_spec.control_roles,
+        )
+        _require_compatible_inputs(
+            window_sets[0].input_spec, windows.input_spec, label="training windows"
+        )
     learn_thrust_command_offset = _resolved_thrust_command_offset_policy(
         initial_params, tuple(window_sets), learn_thrust_command_offset
     )

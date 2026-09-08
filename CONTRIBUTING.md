@@ -3,12 +3,11 @@
 ## Setup
 
 ```bash
-uv sync --dev --extra cascade
-uv run pre-commit install   # optional; mirrors CI locally
+uv sync --dev --group cascade
 ```
 
 `uv sync` makes the environment exact, so a later `uv sync --dev` without the
-extra removes the simulator and its tests skip. Pass the extra every time, or
+group removes the simulator and its tests skip. Pass the group every time, or
 the simulator-backed tests silently stop running.
 
 ## Tests
@@ -18,7 +17,7 @@ uv run pytest
 ```
 
 The default suite takes several minutes. `-m "not slow"` skips the
-benchmark-scale tests. Tests marked `cascade` need that extra and skip cleanly
+benchmark-scale tests. Tests marked `cascade` need that group and skip cleanly
 without it; deselect them with `-m "not cascade"`. The PX4 SITL contract tests
 are opt-in and need Docker:
 
@@ -45,6 +44,8 @@ for its uncertainty ablations and limits.
 
 CI runs `ruff check`, `ruff format --check`, the default test suite, and the
 local tier of the recorded-results manifest on every push and pull request.
+It also builds the distribution and tests the installed wheel's identification
+workflow on Python 3.11–3.13, outside the checkout.
 Run the same locally with:
 
 ```bash
@@ -52,12 +53,32 @@ uv run ruff check src tests scripts && uv run ruff format --check src tests scri
 uv run glassbox record-results --check --tier local
 ```
 
+To reproduce the installed-wheel check with a selected Python version:
+
+```bash
+uv build
+uv venv /tmp/glassbox-release --python 3.12
+uv pip install --python /tmp/glassbox-release/bin/python dist/*.whl pytest
+repo="$PWD"
+cd /tmp
+/tmp/glassbox-release/bin/glassbox --help
+/tmp/glassbox-release/bin/python -m pytest --import-mode=importlib -q \
+  "$repo/tests/test_fit_cli.py::test_fit_cli_writes_belief_and_report_together" \
+  "$repo/tests/test_evaluate.py::test_windowed_policy_reproduces_the_same_flight_characterization"
+```
+
+## Release candidates
+
+Update the version in `pyproject.toml`, `uv.lock`, and `CITATION.cff`, and date
+the matching changelog entry. Merge the candidate and wait for CI on `main` to
+pass before pushing its `vX.Y.ZrcN` tag. The release workflow publishes a GitHub
+prerelease with the distributions tested by that CI run, their checksums, and
+the changelog entry. Package-registry publication is separate.
+
 ## Recorded results
 
 One manifest names every artifact under `docs/results/`, in two tiers, and one
-command produces or checks each of them. Every quantitative claim in
-[`docs/validation.md`](docs/validation.md) and on the concept pages is the
-literal content of one of these files, named there by its path and its key.
+command produces or checks each of them. Link reported results to the artifact and key that produced them.
 
 | Artifact | Tier | Inputs | Regenerate with |
 | --- | --- | --- | --- |
@@ -68,7 +89,7 @@ literal content of one of these files, named there by its path and its key.
 | `validation-idf-results.json` | corpus | pinned `idf` corpus, `px4` extra | `glassbox record-results --only validation-idf-results` |
 | `validation-x8-results.json` | corpus | pinned `x8` corpus | `glassbox record-results --only validation-x8-results` |
 | `validation-epfl-results.json` | corpus | pinned `epfl` corpus, `ros` extra | `glassbox record-results --only validation-epfl-results` |
-| `cascade-x8-validation-results.json` | corpus | pinned `x8` corpus, `cascade` extra | `glassbox record-results --only cascade-x8-validation-results` |
+| `cascade-x8-validation-results.json` | corpus | pinned `x8` corpus, `cascade` group | `glassbox record-results --only cascade-x8-validation-results` |
 
 `glassbox record-results --list` prints the same table with each artifact's
 current status: recorded, pending its first run, or blocked by a missing extra
@@ -97,22 +118,22 @@ The corpus tier is not run in CI. It needs
 
 - the five pinned public corpora fetched and verified on disk, which is
   several gigabytes and includes one 2.12 GB archive,
-- the `px4`, `ros` and `cascade` extras, the last of which is a Git dependency
-  on the Cascade fixed-wing simulator,
+- the `px4` and `ros` extras and the `cascade` dependency group, which installs
+  the simulator from its pinned Git revision,
 - and hours of fitting: thirteen leave-one-session-out folds on the IDF-DS
   corpus alone.
 
 Run it deliberately, on a machine that has the corpora:
 
 ```bash
-uv run --all-extras glassbox record-results --tier corpus
+uv run --all-extras --group cascade glassbox record-results --tier corpus
 ```
 
 Before running it for real, exercise the chain on a tiny budget, which touches
 nothing in the repository:
 
 ```bash
-uv run --all-extras glassbox record-results --tier corpus \
+uv run --all-extras --group cascade glassbox record-results --tier corpus \
   --smoke /tmp/glassbox-smoke --source-root artifacts
 ```
 
@@ -121,8 +142,7 @@ nothing except that the chain runs. `--fit-steps N` and `--limit-folds N`
 change the shortened budgets.
 
 The PX4 SITL benchmarks are not in the manifest at all: recording one needs a
-running SITL container, so their numbers are prose on
-[`docs/validation.md`](docs/validation.md) and say so there.
+running SITL container; see the [PX4 guide](docs/guides/px4-ulog.md).
 
 The offline recovery investigations also live outside the manifest. Earlier
 reports retain their recorded revisions as historical evidence. Rerun the
@@ -224,9 +244,9 @@ from a local-model stopping heuristic. It preserves a rejected pretrial design,
 tests the narrowed rule on saved requests, and then checks paired deadline-free
 recoveries. Keep fixed-input parity, evolving trajectory checks and model-call
 savings distinct when reporting its results.
-The [repeated uncertainty pilot](docs/repeated-uncertainty-calibration.md)
-has its own fixed independent identification/calibration/test design. Its saved
-beliefs and arrays support postprocessing without repeating the six fits.
+The [repeated-fit uncertainty study](docs/repeated-uncertainty-calibration.md)
+compares parameter information and forecast errors across observation noise and
+excitation conditions. Saved arrays support postprocessing without refitting.
 
 Run timing comparisons without other benchmark or test processes. These experiments
 prewarm each controller and record complete solve times, separating the cold
@@ -283,18 +303,14 @@ noise into a false regression signal.
 
 ## Documentation conventions
 
-- The documentation is eight pages. Adding a ninth needs a reason; folding a
-  section into an existing page is the default.
-- Every quantitative claim on `docs/validation.md` or a concept page is the
-  literal content of a recorded artifact, cited by its path and its key so a
-  reader can check it. A claim with no artifact is not published as a number.
-- A recorded number is written down once. `docs/validation.md` is where it
-  lives; a concept page describes what the measurement establishes and links
-  to the section, so a re-record moves one page rather than two. Each manifest
-  entry's `doc_page` names the section that has to be updated.
-- Negative results and withdrawn approaches are recorded as prose in
-  [`docs/literature-review.md`](docs/literature-review.md) with the last commit
-  that carried their code. Their code and their artifacts are not kept.
+- Prefer existing pages. Document workflows, input contracts and non-obvious
+  decisions; let types and tests describe routine behavior.
+- Remove stale claims and duplicated inventories instead of surrounding them
+  with qualifications. Keep assumptions next to the operation they affect.
+- Keep numerical results in `docs/validation.md` or the relevant investigation,
+  linked to their artifact and key. Concept pages link to those results.
+- Keep experimental decisions with their recorded revision and reproduction
+  command; distinguish historical snapshots from maintained code.
 - Do not quote absolute wall-clock timings in prose; they depend on the host.
   Ratios and bounded statements are fine. Timing fields in artifacts are
   marked volatile.

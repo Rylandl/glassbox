@@ -10,10 +10,11 @@ from __future__ import annotations
 import json
 from dataclasses import replace
 
+import numpy as np
 import pytest
 
 from glassbox import DynamicsBelief, cli
-from glassbox.core.data import save_trajectory_npz
+from glassbox.core.data import load_trajectory_npz, save_trajectory_npz
 
 
 def _write_flights(tmp_path, quadrotor_flight, count: int = 3) -> list[str]:
@@ -39,15 +40,19 @@ def _write_benchmark_split_flights(tmp_path, quadrotor_flight, splits) -> list[s
     return paths
 
 
-def test_fit_cli_writes_belief_and_report_together(tmp_path, quadrotor_flight) -> None:
-    paths = _write_flights(tmp_path, quadrotor_flight)
+@pytest.mark.parametrize("family", ["multirotor", "fixedwing"])
+def test_fit_cli_writes_belief_and_report_together(
+    tmp_path, quadrotor_flight, fixedwing_flight, family
+) -> None:
+    generate = quadrotor_flight if family == "multirotor" else fixedwing_flight
+    paths = _write_flights(tmp_path, generate)
     model_path = tmp_path / "belief.json"
     report_path = tmp_path / "report.json"
 
     cli.main(
         [
             "fit",
-            *paths,
+            *paths[:2],
             "--horizon",
             "5",
             "--steps",
@@ -85,6 +90,32 @@ def test_fit_cli_writes_belief_and_report_together(tmp_path, quadrotor_flight) -
     assert report["configuration"]["diagnostics"] is False
     assert "one_step_innovation" not in validation["aggregate"]
     assert "one_step_innovation" not in validation["per_flight"][0]
+
+    evaluation_path = tmp_path / "evaluation.json"
+    cli.main(
+        [
+            "evaluate",
+            str(model_path),
+            paths[2],
+            "--horizons",
+            "0.1",
+            "--report",
+            str(evaluation_path),
+        ]
+    )
+    evaluation = json.loads(evaluation_path.read_text())
+    assert evaluation["independent_holdout"] is True
+    assert np.isfinite(evaluation["score_vs_baseline"])
+
+    updated, _ = belief.absorb(load_trajectory_npz(paths[2]))
+    updated_path = tmp_path / "updated.json"
+    updated.save(updated_path)
+    restored = DynamicsBelief.load(updated_path)
+    assert restored.information.effective_count > belief.information.effective_count
+    np.testing.assert_array_equal(
+        restored.information.precision, updated.information.precision
+    )
+    assert np.isfinite(restored.information.precision).all()
 
 
 def test_fit_cli_records_innovation_diagnostics_when_asked(

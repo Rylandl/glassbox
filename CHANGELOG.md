@@ -3,70 +3,71 @@
 All notable changes to Glassbox are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## Unreleased
+## 0.3.0rc1 - 2026-09-08
 
-- Preserve feasible inward derivatives at active command bounds by removing
-  redundant clipping from the planner's affine command map. The solver still
-  projects its variables and checks emitted command bounds.
-- Advance warm starts by one elapsed model sample and average onto the new
-  command blocks, including a truncated final block. Previously a whole block
-  was discarded at each control interval. Re-record both local benchmarks for
-  these changes and add a profiled Gauss-Newton SQP recovery experiment.
-- Add an offline NMPC-only recovery reference with explicit mean or
-  covariance-expanded model-support constraints. Record feasibility and
-  constrained stationarity separately from the production solver's box-only
-  convergence criterion; no alternate recovery controller is introduced.
-- Require reported model support before the flight supervisor accepts a nominal
-  command. The control loop forwards the utilization; direct callers must now
-  supply it, and custom supervisors must accept the new keyword. Missing or
-  exceeded support selects the existing latched intervention.
-- Include the initial state in plan-support diagnostics. Add a simulation clock
-  hook and record supervised recovery with stale telemetry, deadline failures,
-  and unresolved parameter evidence, retaining the larger disturbance's failure.
-- Separate passive PX4 telemetry waits from the model's solve deadline. Repair
-  the flown SITL fixture's stale CLI entry point and synchronize sampling with
-  actual maneuver excitation.
-- Record recovery uncertainty ablations and an offline optimizer reference.
-  Additional independent telemetry removes the small-disturbance tracking gap;
-  full information rank alone does not qualify a local uncertainty approximation.
-- Allow up to 16 line-search trials, so newly retained parameter uncertainty
-  can produce a descent step without changing the objective or its weights.
-- Fix controller cache identity for custom actuator maps and changed command
-  bounds; reject out-of-bounds plan output before marking a command usable.
-- Bound and backtrack nonlinear belief updates; validate transformed physical
-  coefficients and measure noise from the accepted model's actual residual.
-- Preserve the absolute rank cutoff as information accumulates. Carry unknown
-  parameter support explicitly into predictions and controller diagnostics.
-  Planning with unresolved parameters now requires an explicit policy override.
-  Propagate every resolved direction without applying another covariance cutoff.
-- Belief format 6 preserves direct-map bounds and requires explicit rebinding
-  for external actuator maps. Formats 3 through 5 remain readable.
-- Share actuator history extraction between fitting and absorption, including
-  prefixes on segments, and preserve PX4 reception timestamps through alignment.
-- Match the first two exponential actuator-response moments in RK4, fixing the
-  instantaneous-response limit and the no-lag ablation. This changes rollout,
-  fit, and benchmark numbers; affected recorded artifacts are regenerated.
-- Disable cached holdout reuse during result recording, and report failed
-  recovery diagnostics as JSON `null` with explicit solve-status counts.
+This candidate streamlines the identification workflow and corrects actuator
+history, numerical derivatives, parameter evidence, and controller behavior.
+
+### Migration from 0.2
+
+- The main `fit(sources, FitSpec)`, `DynamicsBelief.save/load`, and `absorb`
+  entry points remain. Fitted models now derive their input contract and sample
+  period directly from training windows.
+- `TrajectoryWindows.input_spec` replaces its separate channel metadata fields.
+  Build windows with the existing extraction functions. Trajectories own their
+  preceding controls; prediction and diagnostics no longer take a separate
+  control-history argument.
+- Canonical NPZ format 5 preserves preceding commands; formats 3 and 4 remain
+  readable. Belief format 6 preserves direct-map bounds; formats 3–5 remain
+  readable, and external actuator maps require explicit rebinding. Legacy
+  parameter evidence that cannot be converted loads at rank zero with a warning;
+  refit to recover parameter information.
+- Forecasts expose `forecast_error_covariance` and `parameter_covariance`
+  separately. The combined `tangent_covariance` and `tangent_standard_deviation`
+  shortcuts are removed.
+- Evaluation report format 2 removes `can_promote_model`.
+  `independent_holdout` records the caller's split declaration.
+- Install the source-only Cascade simulator with `uv sync --dev --group cascade`
+  instead of `--extra cascade`. Published telemetry extras remain `px4` and `ros`.
+- `one_step_innovations` lives in `core.metrics`. Pass its residuals to
+  `one_step_innovation_diagnostics` and `innovation_noise`. Use
+  `RolloutLossConfiguration.validity_envelope` in place of separate support arrays.
+- Direct flight-supervisor callers must supply model-support utilization;
+  custom supervisors must accept that keyword. Missing or exceeded support
+  selects the existing latched intervention.
+
+### Corrections
+
+- Preserve causal actuator history through ingestion, nested holdouts, forecasts,
+  parameter evidence, and updates. Correct the RK4 actuator-response quadrature,
+  including the instantaneous-response limit.
+- Keep rotation derivatives finite at zero, preserve feasible derivatives at
+  command bounds, and retain the best evaluated full-batch optimizer iterate.
+- Backtrack nonlinear belief updates, measure accepted-model innovations, and
+  preserve the information rank cutoff as evidence accumulates. Keep unresolved
+  parameter directions explicit in predictions and planning.
+- Advance controller warm starts by one model sample, fix cache identity for
+  actuator maps and bounds, and check command bounds and initial-state support.
+- Invalidate interrupted holdout runs and include effective fit settings in
+  resume checks. Recorded-result generation always refits its folds.
+- Fix `evaluate --fit-reports` after the evaluation schema change, preserve PX4
+  reception times, and repair the flown SITL command fixture.
+
+### Verification
+
+- CI builds a source distribution and wheel, installs the wheel outside the
+  checkout, and exercises fitting, evaluation, persistence, and updates on
+  Python 3.11, 3.12, and 3.13.
+- Re-record all six corpus chains at their documented budgets, including all
+  13 IDF folds. Refresh EPFL and IDF figures; other headline scores are unchanged.
+- Recorded results fingerprint package sources, including adapters. Numerical
+  investigations retain their executed sources and results under
+  `docs/investigations/`.
 
 ## 0.2.0 - 2026-09-04
 
-Glassbox becomes a production library. Forty commits took the package from
-about 41,700 to about 28,200 source lines and its suite from about 14,900 to
-about 13,100, folded three runtime types into one, and replaced the
-transactional belief update with a recursive one.
-The result is one type per concept and one path per job: telemetry becomes one
-canonical flight object, a fit produces one `DynamicsBelief`, `absorb` keeps
-it current from live telemetry, and one bounded solver turns it into a command
-every control interval, for a vehicle with a fitted model and for a vehicle
-with none.
-
-This is a breaking release. Every consumer resyncs once;
-[glassbox-throw](https://github.com/Rylandl/glassbox-throw) stays pinned at
-`d10bb24`, the last revision before the migration. Its resync targets
-`plan_model` over the bootstrap belief and the current identifier API, which
-is what its own 3,258-line controller was reimplementing, so most of that
-controller goes when it lands.
+This breaking release consolidates telemetry into `Trajectory`, fitted models
+and evidence into `DynamicsBelief`, and planning behind `PlanModel`.
 
 ### The public surface
 

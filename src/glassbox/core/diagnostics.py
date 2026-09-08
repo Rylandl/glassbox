@@ -1,28 +1,12 @@
-"""Opt-in innovation and kinematic-compatibility diagnostics.
-
-These score a fit rather than a forecast: one-step innovations expose model
-error that a rollout metric hides inside accumulated drift, and the kinematic
-compatibility check uses no model at all, so it separates telemetry
-inconsistency from prediction error. They are the answer to "why is the
-rollout wrong", not to "how wrong is it", and run only when a caller asks
-(:attr:`glassbox.fitting.FitSpec.diagnostics`, ``glassbox fit --diagnostics``).
-"""
+"""Measured residual structure and model-free kinematic compatibility."""
 
 from __future__ import annotations
 
 from typing import Any
 
-import jax
-import jax.numpy as jnp
 import numpy as np
 
 from glassbox.core.data import Trajectory
-from glassbox.core.dynamics import (
-    ModelParams,
-    control_state_after_history,
-    step_with_latent,
-    validate_control_schema,
-)
 from glassbox.core.geometry import quaternion_to_rotation_matrices
 
 INNOVATION_MAXIMUM_LAG_S = 0.5
@@ -193,75 +177,13 @@ def state_kinematic_compatibility_diagnostics(
     }
 
 
-def _measured_state_reset_predictions(
-    params: ModelParams,
-    trajectory: Trajectory,
-    *,
-    control_history: np.ndarray | None,
-) -> np.ndarray:
-    """Predict every next sample while carrying only the latent actuator state."""
-
-    validate_control_schema(
-        params,
-        trajectory.control_names,
-        trajectory.spec.control_roles,
-    )
-    history = (
-        trajectory.controls[:1]
-        if control_history is None
-        else np.asarray(control_history, dtype=np.float64)
-    )
-    if history.ndim != 2 or history.shape[1] != trajectory.control_size:
-        raise ValueError(
-            "control_history must have the same channel count as the trajectory"
-        )
-    if len(history) < 1:
-        raise ValueError("control_history must be nonempty when provided")
-    initial_latent = control_state_after_history(
-        params,
-        jnp.asarray(history),
-        trajectory.nominal_dt_s,
-        trajectory.spec.control_roles,
-    )
-
-    def scan_step(
-        latent_state: jax.Array,
-        samples: tuple[jax.Array, jax.Array, jax.Array],
-    ) -> tuple[jax.Array, jax.Array]:
-        measured_state, control, exogenous = samples
-        predicted_state, next_latent = step_with_latent(
-            params,
-            measured_state,
-            latent_state,
-            control,
-            trajectory.nominal_dt_s,
-            trajectory.spec.control_roles,
-            exogenous,
-            trajectory.spec.exogenous_roles,
-        )
-        return next_latent, predicted_state
-
-    _, predictions = jax.lax.scan(
-        scan_step,
-        initial_latent,
-        (
-            jnp.asarray(trajectory.states[:-1]),
-            jnp.asarray(trajectory.controls),
-            jnp.asarray(trajectory.exogenous[:-1]),
-        ),
-    )
-    return np.asarray(predictions, dtype=np.float64)
-
-
 def pearson_correlation(left: np.ndarray, right: np.ndarray) -> float:
-    """Return the centered correlation of two equal-length one-dimensional signals.
-
-    Series shorter than three samples, and pairs where either side is
-    effectively constant, score zero rather than an unstable ratio.
-    """
+    """Return centered correlation over finite pairs, or zero if unresolved."""
 
     left = np.asarray(left, dtype=np.float64)
     right = np.asarray(right, dtype=np.float64)
+    finite = np.isfinite(left) & np.isfinite(right)
+    left, right = left[finite], right[finite]
     if len(left) < 3:
         return 0.0
     left = left - np.mean(left)
@@ -293,12 +215,14 @@ def _simultaneous_correlation_bound(
 def _strongest_autocorrelation(
     values: np.ndarray,
     maximum_lag_steps: int,
+    *,
+    minimum_lag_steps: int = 1,
 ) -> tuple[float, int]:
     candidates = [
         (pearson_correlation(values[:-lag], values[lag:]), lag)
-        for lag in range(1, maximum_lag_steps + 1)
+        for lag in range(minimum_lag_steps, maximum_lag_steps + 1)
     ]
-    return max(candidates, key=lambda item: abs(item[0]))
+    return max(candidates, key=lambda item: abs(item[0]), default=(0.0, 0))
 
 
 def _strongest_input_correlation(
@@ -318,65 +242,33 @@ def _strongest_input_correlation(
     return max(candidates, key=lambda item: abs(item[0]))
 
 
-def one_step_innovations(
-    params: ModelParams,
-    trajectory: Trajectory,
-    *,
-    control_history: np.ndarray | None = None,
-) -> np.ndarray:
-    """Return every interval's one-step innovation in the twelve local coordinates.
-
-    Each interval starts from the measured rigid-body state while the model's
-    latent actuator state is carried causally through the command sequence, so
-    the result is prediction error conditional on the parameters rather than
-    accumulated rollout drift. This is the residual an information update
-    weights by, and the same array the diagnostics report summarizes.
-    """
-
-    predicted = _measured_state_reset_predictions(
-        params,
-        trajectory,
-        control_history=control_history,
-    )
-    observed = trajectory.states[1:]
-    return np.column_stack(
-        (
-            observed[:, 0:3] - predicted[:, 0:3],
-            observed[:, 3:6] - predicted[:, 3:6],
-            attitude_innovation(predicted[:, 6:10], observed[:, 6:10]),
-            observed[:, 10:13] - predicted[:, 10:13],
-        )
-    )
-
-
 def one_step_innovation_diagnostics(
-    params: ModelParams,
+    innovations: np.ndarray,
     trajectory: Trajectory,
-    *,
-    control_history: np.ndarray | None = None,
 ) -> dict[str, Any]:
     """Diagnose held-out local residual structure without rollout drift.
 
-    Each interval starts from the measured rigid-body state while the model's
-    latent actuator state is carried causally through the command sequence.
-    Residual autocorrelation exposes omitted temporal state; correlation with
-    current or past controls exposes unexplained input-response structure.
+    Summarize the array from :func:`glassbox.core.metrics.one_step_innovations`.
+    Adjacent residuals share an observed state, so independent observation
+    noise can produce lag-one correlation. Longer-lag and input correlations
+    are reported separately without assigning their cause.
+    With no preceding command history, discard an initial transient for these
+    diagnostics only. The supplied residuals remain unchanged for calibration.
     """
 
-    innovations = one_step_innovations(
-        params,
-        trajectory,
-        control_history=control_history,
-    )
+    innovations = np.asarray(innovations, dtype=np.float64)
+    if innovations.shape != (len(trajectory.controls), len(INNOVATION_CHANNELS)):
+        raise ValueError("innovations must have one twelve-coordinate row per interval")
     controls = np.asarray(trajectory.controls, dtype=np.float64)
     finite = np.all(np.isfinite(innovations), axis=1) & np.all(
         np.isfinite(controls), axis=1
     )
-    innovations = innovations[finite]
-    controls = controls[finite]
+    # Keep missing intervals in place so lag k always means k sample periods.
+    innovations = np.where(finite[:, None], innovations, np.nan)
+    controls = np.where(finite[:, None], controls, np.nan)
     initialization_discard_steps = (
         0
-        if control_history is not None
+        if trajectory.control_prefix is not None and len(trajectory.control_prefix)
         else min(
             int(np.floor(0.5 / trajectory.nominal_dt_s)),
             len(innovations) // 10,
@@ -384,7 +276,7 @@ def one_step_innovation_diagnostics(
     )
     innovations = innovations[initialization_discard_steps:]
     controls = controls[initialization_discard_steps:]
-    sample_count = len(innovations)
+    sample_count = int(np.sum(finite[initialization_discard_steps:]))
     common = {
         "policy": "measured_state_reset_innovation_v1",
         "interval_count": len(trajectory.controls),
@@ -415,27 +307,52 @@ def one_step_innovation_diagnostics(
         max(1, int(np.floor(INNOVATION_MAXIMUM_LAG_S / trajectory.nominal_dt_s))),
         max(1, sample_count // 4),
     )
-    autocorrelation_bound = _simultaneous_correlation_bound(
-        sample_count, maximum_lag_steps
-    )
-    input_correlation_bound = _simultaneous_correlation_bound(
-        sample_count,
-        (maximum_lag_steps + 1) * trajectory.control_size,
-    )
+
+    def pair_bound(left: np.ndarray, right: np.ndarray, comparisons: int) -> float:
+        count = int(np.sum(np.isfinite(left) & np.isfinite(right)))
+        return _simultaneous_correlation_bound(count, comparisons)
+
     channels: dict[str, Any] = {}
     for index, (name, unit) in enumerate(INNOVATION_CHANNELS):
         values = innovations[:, index]
         autocorrelation, autocorrelation_lag = _strongest_autocorrelation(
             values, maximum_lag_steps
         )
+        nonadjacent_correlation, nonadjacent_lag = _strongest_autocorrelation(
+            values, maximum_lag_steps, minimum_lag_steps=2
+        )
         input_correlation, input_lag, input_index = _strongest_input_correlation(
             values, controls, maximum_lag_steps
         )
+        autocorrelation_bound = pair_bound(
+            values[:-autocorrelation_lag],
+            values[autocorrelation_lag:],
+            maximum_lag_steps,
+        )
+        nonadjacent_bound = (
+            pair_bound(
+                values[:-nonadjacent_lag], values[nonadjacent_lag:], maximum_lag_steps
+            )
+            if nonadjacent_lag
+            else 1.0
+        )
+        input_correlation_bound = pair_bound(
+            controls[:-input_lag, input_index]
+            if input_lag
+            else controls[:, input_index],
+            values[input_lag:],
+            (maximum_lag_steps + 1) * trajectory.control_size,
+        )
         channels[name] = {
             "unit": unit,
-            "mean": float(np.mean(values)),
-            "standard_deviation": float(np.std(values)),
-            "rmse": float(np.sqrt(np.mean(np.square(values)))),
+            "mean": float(np.nanmean(values)),
+            "standard_deviation": float(np.nanstd(values)),
+            "rmse": float(np.sqrt(np.nanmean(np.square(values)))),
+            "lag_one_autocorrelation": pearson_correlation(values[:-1], values[1:]),
+            "strongest_nonadjacent_autocorrelation": nonadjacent_correlation,
+            "nonadjacent_autocorrelation_lag_steps": nonadjacent_lag,
+            "nonadjacent_autocorrelation_bound": nonadjacent_bound,
+            "nonadjacent_correlated": abs(nonadjacent_correlation) > nonadjacent_bound,
             "strongest_autocorrelation": autocorrelation,
             "autocorrelation_lag_steps": autocorrelation_lag,
             "autocorrelation_lag_s": (autocorrelation_lag * trajectory.nominal_dt_s),
@@ -461,6 +378,9 @@ def one_step_innovation_diagnostics(
                 bool(item["temporally_colored"]) for item in items
             ),
             "input_correlated": any(bool(item["input_correlated"]) for item in items),
+            "nonadjacent_correlated": any(
+                bool(item["nonadjacent_correlated"]) for item in items
+            ),
             "maximum_abs_autocorrelation": max(
                 abs(float(item["strongest_autocorrelation"])) for item in items
             ),
@@ -484,17 +404,18 @@ def one_step_innovation_diagnostics(
             "input_correlated_group_count": sum(
                 bool(item["input_correlated"]) for item in groups.values()
             ),
+            "nonadjacent_correlated_group_count": sum(
+                bool(item["nonadjacent_correlated"]) for item in groups.values()
+            ),
             "structured_innovation_detected": any(
                 bool(item["temporally_colored"] or item["input_correlated"])
                 for item in groups.values()
             ),
         },
         "interpretation": (
-            "Correlation flags use a conservative simultaneous noise envelope. "
-            "They distinguish white local error from structured held-out mismatch. "
-            "Closed-loop feedback, estimator filtering, and state inconsistency can "
-            "all create input correlation, so a flag is not a causal model term or "
-            "permission to increase model complexity."
+            "Adjacent residuals share observation error. Longer-lag or input "
+            "correlation can reflect dynamics, feedback, or telemetry filtering; "
+            "these flags do not separate their contributions."
         ),
     }
 
@@ -521,6 +442,9 @@ def aggregate_innovation_diagnostics(
             ),
             "input_correlated_flight_fraction": float(
                 np.mean([bool(item["input_correlated"]) for item in items])
+            ),
+            "nonadjacent_correlated_flight_fraction": float(
+                np.mean([bool(item["nonadjacent_correlated"]) for item in items])
             ),
             "mean_maximum_abs_autocorrelation": float(
                 np.mean([item["maximum_abs_autocorrelation"] for item in items])

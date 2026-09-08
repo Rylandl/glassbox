@@ -1,35 +1,10 @@
 """Regenerate the recorded artifacts under ``docs/results/`` from one manifest.
 
-Every number quoted in the documentation is the literal content of one
-artifact, and this command is how each of those artifacts is produced. The
-manifest names, for every artifact, the exact ``glassbox`` steps that
-reproduce it, the inputs it consumes, the optional extra it needs, and the
-page whose prose cites it.
+The local tier runs without downloads. The corpus tier needs pinned datasets
+and the relevant extras. Missing inputs are reported as skips.
 
-``--tier local`` is what runs in this repository with nothing downloaded.
-``--tier corpus`` is the maintainer job that needs a pinned corpus on disk
-and, for the Cascade rows, the ``cascade`` extra; an artifact whose
-requirements are not met is skipped by name and reason rather than failing the
-run. ``--only NAME`` regenerates artifacts by name and ignores the tier gate.
-
-``--list`` prints the whole manifest with each artifact's tier, inputs and
-status. ``--dry-run`` prints the steps that would run; with neither ``--only``
-nor ``--tier`` it prints the plan for every artifact in the manifest.
-
-``--check`` regenerates into a temporary directory and compares each result
-against the committed artifact, ignoring the host-dependent and provenance
-paths that entry declares. It is one command, so continuous integration runs
-``record-results --check --tier local`` and fails when a supposedly
-behavior-preserving change moved a recorded number.
-
-``--smoke DIR`` exercises the corpus tier on a tiny fit budget, writing every
-output under DIR instead of into the repository. Its artifacts are marked
-``"smoke": true`` and are evidence of nothing except that the chain runs.
-``--source-root DIR`` reuses corpora already fetched and verified under DIR,
-laid out with one directory per corpus, instead of downloading them again.
-
-This command writes JSON, never prose. After regenerating an artifact, update
-the numbers on its page by hand from the new file.
+Use ``--check`` to compare fresh runs with recorded results, or ``--smoke DIR``
+to exercise a corpus chain with a small fit budget outside the repository.
 """
 
 from __future__ import annotations

@@ -1,8 +1,12 @@
 from dataclasses import replace
 
+import jax
+import jax.numpy as jnp
 import numpy as np
 import pytest
 
+from glassbox.belief.information import innovation_noise_floor
+from glassbox.belief.parameter_evidence import innovation_noise
 from glassbox.core.diagnostics import (
     aggregate_innovation_diagnostics,
     one_step_innovation_diagnostics,
@@ -12,6 +16,8 @@ from glassbox.core.fixedwing_synthetic import (
     initial_fixed_wing_parameter_guess,
     true_fixed_wing_parameters,
 )
+from glassbox.core.geometry import state_plus_tangent
+from glassbox.core.metrics import one_step_innovations
 from glassbox.core.synthetic import (
     initial_parameter_guess,
     true_parameters,
@@ -46,7 +52,9 @@ def misspecified_case(request):
 
 def test_matching_model_has_no_structured_one_step_innovation(matching_case) -> None:
     trajectory, params = matching_case
-    report = one_step_innovation_diagnostics(params, trajectory)
+    report = one_step_innovation_diagnostics(
+        one_step_innovations(params, trajectory), trajectory
+    )
 
     assert report["status"] == "ok"
     assert report["latent_actuator_state_carried"] is True
@@ -63,11 +71,75 @@ def test_misspecified_model_exposes_temporal_and_input_structure(
     misspecified_case,
 ) -> None:
     trajectory, params = misspecified_case
-    report = one_step_innovation_diagnostics(params, trajectory)
+    report = one_step_innovation_diagnostics(
+        one_step_innovations(params, trajectory), trajectory
+    )
 
     assert report["summary"]["structured_innovation_detected"] is True
     assert report["summary"]["temporally_colored_group_count"] >= 2
     assert report["summary"]["input_correlated_group_count"] >= 2
+    assert report["summary"]["nonadjacent_correlated_group_count"] >= 2
+
+
+def test_observation_noise_creates_adjacent_residual_correlation(matching_case) -> None:
+    trajectory, params = matching_case
+    noise = np.random.default_rng(482).normal(size=(len(trajectory.states), 12))
+    noise *= np.repeat((0.002, 0.02, 0.002, 0.01), 3)
+    observed = replace(
+        trajectory,
+        states=np.asarray(
+            jax.vmap(state_plus_tangent)(
+                jnp.asarray(trajectory.states), jnp.asarray(noise)
+            )
+        ),
+    )
+    report = one_step_innovation_diagnostics(
+        one_step_innovations(params, observed), observed
+    )
+
+    assert report["summary"]["temporally_colored_group_count"] == 4
+    assert report["summary"]["nonadjacent_correlated_group_count"] == 0
+    assert all(
+        report["channels"][f"{group}_{axis}_{unit}"]["lag_one_autocorrelation"] < -0.3
+        for group, unit in (("position", "m"), ("attitude", "rad"))
+        for axis in "xyz"
+    )
+
+
+def test_missing_intervals_do_not_become_adjacent(quadrotor_trajectory_seed9_dur4_0s):
+    trajectory = replace(
+        quadrotor_trajectory_seed9_dur4_0s,
+        control_prefix=quadrotor_trajectory_seed9_dur4_0s.controls[:1],
+    )
+    innovations = np.repeat(np.arange(len(trajectory.controls))[:, None], 12, axis=1)
+    innovations = innovations.astype(float)
+    innovations[1::2] = np.nan
+
+    report = one_step_innovation_diagnostics(innovations, trajectory)
+
+    assert report["sample_count"] == len(innovations[::2])
+    assert all(
+        channel["lag_one_autocorrelation"] == 0.0
+        and channel["nonadjacent_autocorrelation_lag_steps"] % 2 == 0
+        and channel["nonadjacent_correlated"]
+        for channel in report["channels"].values()
+    )
+
+
+def test_slow_sampling_has_no_nonadjacent_lag_in_diagnostic_window(
+    quadrotor_trajectory_seed9_dur4_0s,
+):
+    trajectory = replace(
+        quadrotor_trajectory_seed9_dur4_0s,
+        time_s=np.arange(len(quadrotor_trajectory_seed9_dur4_0s.states)) * 0.6,
+    )
+    report = one_step_innovation_diagnostics(
+        np.ones((len(trajectory.controls), 12)),
+        trajectory,
+    )
+
+    assert report["maximum_lag_steps"] == 1
+    assert report["summary"]["nonadjacent_correlated_group_count"] == 0
 
 
 def test_quaternion_double_cover_does_not_create_attitude_innovation(
@@ -77,8 +149,9 @@ def test_quaternion_double_cover_does_not_create_attitude_innovation(
     states = trajectory.states.copy()
     states[:, 6:10] *= -1.0
 
+    observed = replace(trajectory, states=states)
     report = one_step_innovation_diagnostics(
-        true_parameters(), replace(trajectory, states=states)
+        one_step_innovations(true_parameters(), observed), observed
     )
 
     attitude = report["groups"]["attitude"]
@@ -92,10 +165,56 @@ def test_quaternion_double_cover_does_not_create_attitude_innovation(
 def test_short_trajectory_reports_insufficient_samples(quadrotor_flight) -> None:
     trajectory = quadrotor_flight(2, 0.1)
 
-    report = one_step_innovation_diagnostics(true_parameters(), trajectory)
+    report = one_step_innovation_diagnostics(
+        one_step_innovations(true_parameters(), trajectory), trajectory
+    )
 
     assert report["status"] == "insufficient_samples"
     assert report["sample_count"] < report["minimum_sample_count"]
+
+
+def test_noise_weights_flights_equally_without_subtracting_bias() -> None:
+    short = np.full((2, 12), 2.0)
+    long = np.full((20, 12), 4.0)
+    # A partially nonfinite row contributes no coordinates. An empty flight
+    # contributes no weight, and the floor applies after averaging flights.
+    short[0, 3] = np.nan
+    long[0, 5] = np.inf
+    short[:, 0] = 0.0
+    long[:, 0] = 0.0
+    expected = np.full(12, (2.0**2 + 4.0**2) / 2)
+    expected[0] = innovation_noise_floor()[0]
+
+    np.testing.assert_array_equal(
+        innovation_noise(iter((short, long, np.empty((0, 12))))), expected
+    )
+    np.testing.assert_array_equal(
+        innovation_noise([np.full((3, 12), np.nan)]), innovation_noise_floor()
+    )
+
+
+def test_diagnostic_transient_trimming_does_not_change_noise(quadrotor_flight) -> None:
+    trajectory = quadrotor_flight(2, 1.0)
+    innovations = np.zeros((len(trajectory.controls), 12))
+    transient_count = len(innovations) // 10
+    innovations[:transient_count, 0] = 9.0
+    original = innovations.copy()
+    noise = innovation_noise([innovations])
+
+    cold = one_step_innovation_diagnostics(innovations, trajectory)
+    initialized = one_step_innovation_diagnostics(
+        innovations, replace(trajectory, control_prefix=trajectory.controls[:1])
+    )
+
+    assert cold["initialization_discard_steps"] == transient_count
+    assert cold["channels"]["position_x_m"]["rmse"] == 0.0
+    assert initialized["initialization_discard_steps"] == 0
+    assert initialized["channels"]["position_x_m"]["rmse"] == pytest.approx(
+        np.sqrt(noise[0])
+    )
+    assert noise[0] == pytest.approx(81.0 * transient_count / len(innovations))
+    np.testing.assert_array_equal(innovations, original)
+    np.testing.assert_array_equal(innovation_noise([innovations]), noise)
 
 
 def test_state_compatibility_separates_inconsistent_pose_and_velocity(
@@ -119,8 +238,12 @@ def test_aggregate_diagnostics_weight_flights_equally(
     quadrotor_trajectory_seed9_dur4_0s,
 ) -> None:
     trajectory = quadrotor_trajectory_seed9_dur4_0s
-    clean = one_step_innovation_diagnostics(true_parameters(), trajectory)
-    structured = one_step_innovation_diagnostics(initial_parameter_guess(), trajectory)
+    clean = one_step_innovation_diagnostics(
+        one_step_innovations(true_parameters(), trajectory), trajectory
+    )
+    structured = one_step_innovation_diagnostics(
+        one_step_innovations(initial_parameter_guess(), trajectory), trajectory
+    )
 
     report = aggregate_innovation_diagnostics([clean, structured])
 

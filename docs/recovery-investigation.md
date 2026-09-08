@@ -835,12 +835,9 @@ recoveries complete inside support and meet the existing terminal tolerances.
 The earlier pretrial heuristic fails two fixed-input checks and remains recorded;
 the selected option stays experimental and off by default.
 
-The [repeated identification pilot](repeated-uncertainty-calibration.md)
-separately tests uncertainty components using independent training and
-calibration sources. It exposes substantial estimator bias and a mismatch
-between declared parameter covariance and repeated-fit variation. It does
-not establish calibrated double counting or justify covariance subtraction.
-The note records the small sample count and the test cases outside support.
+The [repeated-fit study](repeated-uncertainty-calibration.md) compares parameter
+information and empirical forecast errors with independent outcomes. The
+planner's covariance sum remains a risk-penalty policy.
 
 ## Returned-plan feasibility evidence
 

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 
+import numpy as np
 import pytest
 
 from glassbox.fitting import FitSpec, Holdout, LossPolicy, WeightingPolicy
@@ -52,8 +53,9 @@ def test_temporal_splits_one_trajectory_chronologically(flights) -> None:
     assert plan.mode == "temporal_within_flight"
     assert plan.training_labels == ("only.npz#training",)
     assert [flight.path for flight in plan.validation] == ["only.npz#validation"]
-    # The held-out segment is scored with the training controls as its history.
-    assert plan.validation[0].control_history is plan.training[0].controls
+    np.testing.assert_array_equal(
+        plan.validation[0].trajectory.control_prefix, plan.training[0].controls
+    )
     assert plan.training_source_groups is None
 
 

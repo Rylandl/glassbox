@@ -200,10 +200,10 @@ def x8_variant_models(
 
 
 def _check_control_layout(windows: TrajectoryWindows) -> None:
-    if windows.control_roles != X8_CONTROL_ROLES:
+    if windows.input_spec.control_roles != X8_CONTROL_ROLES:
         raise ValueError(
             f"Cascade X8 prediction expects control roles {X8_CONTROL_ROLES}, "
-            f"got {windows.control_roles}"
+            f"got {windows.input_spec.control_roles}"
         )
 
 
@@ -212,7 +212,7 @@ def _initial_wind_nwu(windows: TrajectoryWindows) -> np.ndarray:
 
     count = windows.initial_states.shape[0]
     wind = np.zeros((count, 3), dtype=np.float64)
-    roles = windows.exogenous_roles or ()
+    roles = windows.input_spec.exogenous_roles
     for column, axis in enumerate(("wind_north", "wind_west", "wind_up")):
         if axis in roles:
             wind[:, column] = windows.initial_exogenous[:, roles.index(axis)]

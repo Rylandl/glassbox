@@ -1,10 +1,7 @@
 """Shared pytest configuration: markers and session-scoped fixture trajectories.
 
-The ``cascade`` marker (see ``pyproject.toml``) is an opt-in contract against
-an optional simulator extra. Without this hook, a test carrying that marker
-fails outright when the extra is not installed, instead of skipping cleanly.
-When the extra *is* installed, tests keep running by default; there is
-deliberately no environment-variable gate on top of that.
+Tests marked ``cascade`` run when the simulator dependency group is installed
+and skip otherwise.
 
 The ``slow`` marker, declared in ``pyproject.toml``, identifies the three
 benchmark-scale tests that take over a minute; ``-m "not slow"`` skips them.
@@ -55,7 +52,7 @@ def pytest_collection_modifyitems(
     for item in items:
         for marker_name, (
             module_name,
-            extra_name,
+            group_name,
         ) in _OPTIONAL_SIMULATOR_MARKERS.items():
             if item.get_closest_marker(marker_name) is None:
                 continue
@@ -66,7 +63,7 @@ def pytest_collection_modifyitems(
                     pytest.mark.skip(
                         reason=(
                             f"{module_name!r} is not importable; run "
-                            f"`uv sync --extra {extra_name}` to enable "
+                            f"`uv sync --group {group_name}` to enable "
                             f"@pytest.mark.{marker_name} tests"
                         )
                     )

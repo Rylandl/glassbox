@@ -19,21 +19,19 @@ import numpy as np
 
 from glassbox.belief.belief import DynamicsBelief
 from glassbox.belief.linearization import (
-    compiled_batched_endpoint_tangent_error,
-    compiled_batched_endpoint_tangent_linearization,
+    compiled_one_step_tangent_error,
+    compiled_one_step_tangent_linearization,
 )
-from glassbox.core.data import Trajectory, control_history_before
+from glassbox.core.data import (
+    Trajectory,
+    _require_compatible_inputs,
+)
 from glassbox.core.dynamics import (
     structured_parameter_vector,
     with_structured_parameter_vector,
 )
 from glassbox.core.model import ExecutableModel
 
-# One second of preceding commands reconstructs the latent actuator state to
-# far below the resolution of any fitted actuator time constant, which is how
-# a batched one-step window carries the same causal latent state the streaming
-# innovation diagnostics carry through their scan.
-ACTUATOR_HISTORY_DURATION_S = 1.0
 VALIDITY_BOUNDARY_TOLERANCE = 1e-6
 MAXIMUM_NORMALIZED_PARAMETER_STEP = 1.0
 MAXIMUM_BACKTRACKING_STEPS = 20
@@ -96,40 +94,13 @@ def _refused(reason: str, *, window_count: int = 0, validity: float | None = Non
     )
 
 
-def _require_compatible(belief: DynamicsBelief, telemetry: Trajectory) -> None:
-    """Refuse telemetry that does not describe the model's own interface."""
-
-    expected = belief.input_spec
-    actual = telemetry.spec.prediction_spec()
-    if actual.state_schema != expected.state_schema:
-        raise ValueError("telemetry state schema does not match belief")
-    if actual.vehicle.family != expected.vehicle.family:
-        raise ValueError("telemetry vehicle family does not match belief")
-    for attribute in ("control_roles", "control_semantics", "exogenous_roles"):
-        if getattr(actual, attribute) != getattr(expected, attribute):
-            raise ValueError(f"telemetry {attribute} do not match belief")
-    for attribute in ("unit", "frame"):
-        if tuple(getattr(channel, attribute) for channel in actual.controls) != tuple(
-            getattr(channel, attribute) for channel in expected.controls
-        ):
-            raise ValueError(f"telemetry control {attribute}s do not match belief")
-    for attribute in ("unit", "semantic", "frame"):
-        if tuple(getattr(channel, attribute) for channel in actual.exogenous) != tuple(
-            getattr(channel, attribute) for channel in expected.exogenous
-        ):
-            raise ValueError(f"telemetry exogenous {attribute}s do not match belief")
-
-
 def usable_one_step_transitions(
     model: ExecutableModel,
     telemetry: Trajectory,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Return which transitions are usable and each sample's envelope use.
 
-    A sample outside the model's validity envelope is not evidence about the
-    model: the fit never claimed to describe that region, so an innovation
-    measured there would be charged against parameters that were never fitted
-    to explain it. Such a sample is dropped rather than downweighted.
+    Both endpoints must be finite and inside the operating envelope.
     """
 
     states = np.asarray(telemetry.states, dtype=np.float64)
@@ -165,18 +136,21 @@ def _worst_utilization(per_sample: np.ndarray, starts: np.ndarray) -> float | No
     return float(max(np.max(per_sample[starts]), np.max(per_sample[starts + 1])))
 
 
-def _control_histories(
+def _one_step_arguments(
     telemetry: Trajectory,
     starts: np.ndarray,
-    history_steps: int,
-) -> np.ndarray:
-    """Return the preceding commands each window's latent state is built from."""
+) -> tuple[jax.Array, ...]:
+    """Keep the selected states and all commands leading to them."""
 
-    return np.stack(
-        [
-            control_history_before(telemetry, int(start), history_steps)
-            for start in starts
-        ]
+    stop = int(np.max(starts)) + 1
+    prefix = telemetry.control_prefix
+    history = prefix if prefix is not None and len(prefix) else telemetry.controls[:1]
+    return (
+        jnp.asarray(telemetry.states[: stop + 1]),
+        jnp.asarray(history),
+        jnp.asarray(telemetry.controls[:stop]),
+        jnp.asarray(starts),
+        jnp.asarray(telemetry.exogenous[:stop]),
     )
 
 
@@ -188,33 +162,23 @@ def one_step_linearization(
     """Return one-step innovations and their structured-parameter Jacobians.
 
     ``innovations`` is measured minus predicted in the twelve rigid-body local
-    coordinates, and ``jacobians`` is the derivative of the predicted endpoint
-    tangent with respect to the structured parameters, which is what an
-    information update accumulates and what its step is solved against. The
-    latent actuator state of each window is rebuilt from the preceding
-    ``ACTUATOR_HISTORY_DURATION_S`` of commands, so a batched set of windows
-    carries the same causal latent state a streaming scan would.
+    coordinates. ``jacobians`` differentiates the predicted endpoint tangent,
+    including actuator response to all preceding commands and any control prefix.
     """
 
     dt_s = float(model.runtime_spec.sample_period_s)
-    history_steps = max(1, int(np.ceil(ACTUATOR_HISTORY_DURATION_S / dt_s)))
-    histories = _control_histories(telemetry, starts, history_steps)
     center = np.asarray(structured_parameter_vector(model.params), dtype=np.float64)
-    errors, jacobians = compiled_batched_endpoint_tangent_linearization(
+    errors, jacobians = compiled_one_step_tangent_linearization(
         jnp.asarray(center),
         model.params,
-        jnp.asarray(telemetry.states[starts]),
-        jnp.asarray(histories),
-        jnp.asarray(telemetry.controls[starts][:, None, :]),
-        jnp.asarray(telemetry.states[starts + 1]),
-        jnp.asarray(telemetry.exogenous[starts][:, None, :]),
+        *_one_step_arguments(telemetry, starts),
         dt_s=dt_s,
         control_roles=telemetry.spec.control_roles,
         exogenous_roles=telemetry.spec.exogenous_roles,
     )
     return (
         -np.asarray(errors, dtype=np.float64),
-        np.asarray(jacobians, dtype=np.float64),
+        np.array(jacobians, dtype=np.float64, copy=True),
     )
 
 
@@ -222,7 +186,7 @@ def absorb(
     belief: DynamicsBelief,
     telemetry: Trajectory,
 ) -> tuple[DynamicsBelief, UpdateResult]:
-    """Add one telemetry block's information to a belief and return both.
+    """Add a fresh, nonoverlapping telemetry block and return the updated belief.
 
     Usable transitions add precision. The resolved inverse gives a direction,
     capped in parameter-scale coordinates and backtracked against the actual
@@ -232,7 +196,7 @@ def absorb(
 
     if not isinstance(telemetry, Trajectory):
         raise TypeError("absorbing evidence requires one canonical Trajectory")
-    _require_compatible(belief, telemetry)
+    _require_compatible_inputs(belief.input_spec, telemetry.spec, label="belief update")
     information = belief.information
     assert information is not None
 
@@ -290,15 +254,7 @@ def absorb(
     step_scale = min(
         1.0, MAXIMUM_NORMALIZED_PARAMETER_STEP / max(normalized_length, 1e-30)
     )
-    history_steps = max(1, int(np.ceil(ACTUATOR_HISTORY_DURATION_S / dt_s)))
-    arguments = (
-        belief.params,
-        jnp.asarray(telemetry.states[starts]),
-        jnp.asarray(_control_histories(telemetry, starts, history_steps)),
-        jnp.asarray(telemetry.controls[starts][:, None, :]),
-        jnp.asarray(telemetry.states[starts + 1]),
-        jnp.asarray(telemetry.exogenous[starts][:, None, :]),
-    )
+    arguments = (belief.params, *_one_step_arguments(telemetry, starts))
     baseline = float(np.sum(np.square(innovations) / noise))
     updated_model = belief.model
     updated_errors = -innovations
@@ -319,7 +275,7 @@ def absorb(
             step_scale *= 0.5
             continue
         errors = np.asarray(
-            compiled_batched_endpoint_tangent_error(
+            compiled_one_step_tangent_error(
                 candidate_vector,
                 *arguments,
                 dt_s=dt_s,

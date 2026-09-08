@@ -1,15 +1,4 @@
-"""One vehicle's belief: an executable model, what is known, and how wrong it is.
-
-A belief is three objects and nothing else. The model is the mean: fitted
-parameters bound to a prediction contract, an execution timing and validity
-envelope, and an actuation map when its inputs are commands. The
-:class:`~glassbox.belief.information.ParameterInformation` says which
-directions of that model's structured parameters the evidence has resolved and
-how precisely. The :class:`~glassbox.belief.forecast_error.ForecastErrorEnvelope`
-says how wrong forecasts of a given length have been on evidence the fit did
-not see. Telemetry enters through :meth:`DynamicsBelief.absorb`, which adds
-information and never discounts it.
-"""
+"""Executable dynamics with local parameter information and held-out forecast error."""
 
 from __future__ import annotations
 
@@ -29,7 +18,7 @@ from glassbox.core.data import TrajectorySpec
 from glassbox.core.dynamics import (
     ModelParams,
     control_state_after_history,
-    step_with_latent,
+    rollout_with_latent,
     structured_parameter_names,
     structured_parameter_vector,
     with_structured_parameter_vector,
@@ -50,7 +39,7 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class PredictiveTrajectory:
-    """One rollout with the two covariances a belief can state about it."""
+    """One rollout with empirical error and propagated parameter information."""
 
     states: Array
     latent_states: Array
@@ -65,33 +54,8 @@ class PredictiveTrajectory:
     unresolved_parameter_basis: Array
 
     @property
-    def tangent_covariance(self) -> Array:
-        """Return the supported local covariance from its two distinct parts.
-
-        The forecast-error envelope is measured on held-out flights of the
-        model as it was fitted, and the parameter contribution is the plan's
-        own sensitivity to the coefficients the evidence has resolved. They
-        answer different questions and are added rather than substituted.
-        This covariance omits unresolved parameters; consult
-        ``parameter_information_complete`` and ``unresolved_parameter_basis``.
-        """
-
-        return self.forecast_error_covariance + self.parameter_covariance
-
-    @property
     def uncertainty_available(self) -> bool:
         return self.forecast_error_available or self.parameter_information_rank > 0
-
-    @property
-    def tangent_standard_deviation(self) -> Array:
-        deviation = jnp.sqrt(
-            jnp.maximum(jnp.diagonal(self.tangent_covariance, axis1=-2, axis2=-1), 0.0)
-        )
-        if not self.parameter_information_complete:
-            # The initial state is supplied, but a future marginal cannot be
-            # bounded from a covariance that omits unknown coefficients.
-            return jnp.full_like(deviation, jnp.inf).at[0].set(0.0)
-        return deviation
 
 
 @dataclass(frozen=True)
@@ -207,7 +171,7 @@ class DynamicsBelief:
         command_history: Array,
         initial_latent_state: Array | None,
         exogenous: Array,
-    ) -> tuple[Array, Array, Array]:
+    ) -> tuple[Array, Array]:
         model_controls = jax.vmap(self.model.actuation_map.model_control)(commands)
         if initial_latent_state is None:
             history_controls = jax.vmap(self.model.actuation_map.model_control)(
@@ -222,30 +186,16 @@ class DynamicsBelief:
         else:
             initial_latent = initial_latent_state
 
-        def transition(
-            carry: tuple[Array, Array],
-            inputs: tuple[Array, Array],
-        ) -> tuple[tuple[Array, Array], tuple[Array, Array]]:
-            state, latent = carry
-            control, context = inputs
-            next_state, next_latent = step_with_latent(
-                params,
-                state,
-                latent,
-                control,
-                self.model.runtime_spec.sample_period_s,
-                self.model.input_spec.control_roles,
-                context,
-                self.model.input_spec.exogenous_roles,
-            )
-            return (next_state, next_latent), (next_state, next_latent)
-
-        _, (future_states, future_latent) = jax.lax.scan(
-            transition,
-            (initial_state, initial_latent),
-            (model_controls, exogenous),
+        return rollout_with_latent(
+            params,
+            initial_state,
+            model_controls,
+            self.model.runtime_spec.sample_period_s,
+            initial_motor_state=initial_latent,
+            control_roles=self.model.input_spec.control_roles,
+            exogenous=exogenous,
+            exogenous_roles=self.model.input_spec.exogenous_roles,
         )
-        return future_states, future_latent, initial_latent
 
     def _parameter_covariance(
         self,
@@ -277,7 +227,7 @@ class DynamicsBelief:
         center = structured_parameter_vector(params)
 
         def varied_error(vector: Array) -> Array:
-            varied_states, _, _ = self._rollout_with_params(
+            varied_states, _ = self._rollout_with_params(
                 with_structured_parameter_vector(params, vector),
                 initial_state,
                 commands,
@@ -285,7 +235,7 @@ class DynamicsBelief:
                 initial_latent_state,
                 exogenous,
             )
-            return jax.vmap(rigid_body_local_error)(future_states, varied_states)
+            return jax.vmap(rigid_body_local_error)(future_states, varied_states[1:])
 
         directions = jax.vmap(
             lambda column: jax.jvp(varied_error, (center,), (column,))[1]
@@ -342,20 +292,15 @@ class DynamicsBelief:
         selected_parameters = (
             self.model.params if model_parameters is None else model_parameters
         )
-        future_states, future_latent, resolved_initial_latent = (
-            self._rollout_with_params(
-                selected_parameters,
-                initial_state,
-                commands,
-                history,
-                provided_latent,
-                exogenous,
-            )
+        states, latent_states = self._rollout_with_params(
+            selected_parameters,
+            initial_state,
+            commands,
+            history,
+            provided_latent,
+            exogenous,
         )
-        states = jnp.concatenate((initial_state[None, :], future_states))
-        latent_states = jnp.concatenate(
-            (resolved_initial_latent[None, :], future_latent)
-        )
+        future_states = states[1:]
         horizons = self.model.runtime_spec.sample_period_s * jnp.arange(
             1, len(commands) + 1
         )
@@ -402,7 +347,7 @@ class DynamicsBelief:
         )
 
     def absorb(self, telemetry: Trajectory) -> tuple[DynamicsBelief, UpdateResult]:
-        """Add the information one telemetry block carries; never discount."""
+        """Update with fresh, nonoverlapping telemetry."""
 
         from glassbox.belief.update import absorb
 

@@ -12,6 +12,7 @@ from glassbox.core.dynamics import (
 )
 from glassbox.core.identification import (
     MAXIMUM_WINDOWS_PER_HORIZON,
+    _fit_objective,
     _optimization_batch_schedules,
     deterministic_weighted_batch_schedule,
     dynamic_envelope_penalty,
@@ -20,6 +21,7 @@ from glassbox.core.identification import (
     rollout_loss_configuration,
     supports_multirotor_thrust_command_offset,
 )
+from glassbox.core.model import ModelValidityEnvelope, model_validity_utilization
 from glassbox.core.synthetic import (
     generate_trajectory,
     initial_parameter_guess,
@@ -43,6 +45,39 @@ def test_multistep_fit_reduces_training_loss(quadrotor_flight) -> None:
     )
 
     assert result.final_loss < 0.25 * result.initial_loss
+
+
+@pytest.mark.parametrize("minibatch", [False, True])
+def test_final_iterate_selection_uses_comparable_losses(quadrotor_flight, minibatch):
+    initial = initial_parameter_guess()
+    target = initial.log_thrust_accel + 1.0
+
+    def objective(params):
+        return (params.log_thrust_accel - target) ** 2
+
+    configuration = rollout_loss_configuration(
+        [trajectory_windows([quadrotor_flight(0, 0.2)], horizon=5)]
+    )
+    result = _fit_objective(
+        objective,
+        lambda params: jnp.atleast_1d(objective(params)),
+        initial,
+        steps=1 if minibatch else 2,
+        learning_rate=0.5 if minibatch else 1.0,
+        gradient_clip_norm=10.0,
+        fixed_motor_time_constant=False,
+        fixed_thrust_command_offset=False,
+        loss_configuration=configuration,
+        batch_objective=(
+            (lambda params, indices: 0.001 * objective(params)) if minibatch else None
+        ),
+        batch_schedules=(np.zeros((1, 1), dtype=np.int64),) if minibatch else None,
+        batch_window_counts=(2,) if minibatch else None,
+    )
+
+    assert result.final_loss == pytest.approx(float(objective(result.params)))
+    assert result.final_loss == pytest.approx(0.25 if minibatch else 0.0, abs=1e-5)
+    assert result.completed_steps == (1 if minibatch else 2)
 
 
 def test_deterministic_weighted_batches_span_large_window_sets() -> None:
@@ -273,8 +308,8 @@ def test_rollout_loss_configuration_ignores_world_position_origin(
 
     np.testing.assert_allclose(original.position_scale_m, shifted.position_scale_m)
     np.testing.assert_allclose(
-        original.body_velocity_bound_m_s,
-        shifted.body_velocity_bound_m_s,
+        original.validity_envelope.body_velocity_half_width_m_s,
+        shifted.validity_envelope.body_velocity_half_width_m_s,
     )
 
 
@@ -299,12 +334,53 @@ def test_dynamic_envelope_penalizes_velocity_escape(quadrotor_flight) -> None:
     windows = trajectory_windows([quadrotor_flight(6, 0.4)], horizon=5, stride=5)
     configuration = rollout_loss_configuration([windows])
     states = jnp.asarray(windows.target_states[:, 1:])
-    escaped = states.at[..., 3].add(10.0 * configuration.body_velocity_bound_m_s[0])
+    escaped = states.at[..., 3].add(
+        10.0 * configuration.validity_envelope.body_velocity_half_width_m_s[0]
+    )
 
     nominal_penalty = dynamic_envelope_penalty(states, configuration)
     escaped_penalty = dynamic_envelope_penalty(escaped, configuration)
 
     assert float(jnp.mean(escaped_penalty)) > float(jnp.mean(nominal_penalty)) + 1.0
+
+
+@pytest.mark.parametrize("coordinate", range(6))
+def test_training_and_runtime_use_the_same_support_in_body_coordinates(
+    quadrotor_flight, coordinate
+) -> None:
+    flight = quadrotor_flight(6, 0.4)
+    windows = trajectory_windows([flight], horizon=5, stride=5)
+    envelope = ModelValidityEnvelope(
+        (1.0, -2.0, 0.5), (2.0, 3.0, 4.0), (0.1, -0.2, 0.3), (0.5, 0.6, 0.7)
+    )
+    configuration = replace(
+        rollout_loss_configuration([windows]), validity_envelope=envelope
+    )
+    # A 180-degree yaw makes world and body velocities differ without
+    # introducing roundoff from an approximately represented quaternion.
+    rotation = np.diag([-1.0, -1.0, 1.0])
+    center = np.r_[
+        envelope.body_velocity_center_m_s, envelope.angular_velocity_center_rad_s
+    ]
+    widths = np.r_[
+        envelope.body_velocity_half_width_m_s,
+        envelope.angular_velocity_half_width_rad_s,
+    ]
+    for fraction in (0.5, 2.0):
+        local = center.copy()
+        local[coordinate] -= fraction * widths[coordinate]
+        state = jnp.asarray(
+            np.r_[np.zeros(3), rotation @ local[:3], 0, 0, 0, 1, local[3:]]
+        )
+        utilization = model_validity_utilization(
+            state, jnp.empty(0), flight.spec, envelope
+        )
+        penalty = dynamic_envelope_penalty(state[None, None, :], configuration)
+
+        assert float(jnp.max(utilization)) == pytest.approx(fraction)
+        assert float(penalty[0, 0]) == pytest.approx(
+            max(fraction - 1.0, 0.0) ** 2 / 6.0, abs=1e-7
+        )
 
 
 def test_residual_parameters_can_be_fit_through_rollouts(quadrotor_flight) -> None:
@@ -337,6 +413,26 @@ def test_quadrotor_fit_rejects_non_quadrotor_control_schema(quadrotor_flight) ->
 
     with pytest.raises(ValueError, match="requires ordered control roles"):
         fit_dynamics([windows], initial_parameter_guess(), steps=1)
+
+
+@pytest.mark.parametrize("operation", ("fit", "residual_statistics"))
+def test_training_horizons_must_share_input_units(quadrotor_flight, operation) -> None:
+    trajectory = quadrotor_flight(7, 0.4)
+    channels = list(trajectory.spec.channels)
+    channels[0] = replace(channels[0], unit="rad/s")
+    different_units = replace(
+        trajectory, spec=replace(trajectory.spec, channels=tuple(channels))
+    )
+    window_sets = [
+        trajectory_windows([trajectory], horizon=5),
+        trajectory_windows([different_units], horizon=10),
+    ]
+
+    with pytest.raises(ValueError, match=r"windows:.*controls units"):
+        if operation == "fit":
+            fit_dynamics(window_sets, initial_parameter_guess(), steps=1)
+        else:
+            residual_initialization_statistics(window_sets)
 
 
 def test_minibatch_realizes_window_weights_exactly_once(quadrotor_flight) -> None:

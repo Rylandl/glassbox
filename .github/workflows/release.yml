@@ -1,0 +1,53 @@
+name: Release candidate
+
+on:
+  push:
+    tags: ["v*rc*"]
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read candidate version and release notes
+        run: |
+          python3 - <<'PY'
+          import os
+          import re
+          import tomllib
+          from pathlib import Path
+
+          version = tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"]
+          assert re.fullmatch(r"\d+\.\d+\.\d+rc\d+", version), version
+          assert os.environ["GITHUB_REF_NAME"] == f"v{version}"
+          sections = Path("CHANGELOG.md").read_text().split("\n## ")[1:]
+          section, = (entry for entry in sections if entry.startswith(f"{version} - "))
+          Path("release-notes.md").write_text(section.split("\n", 1)[1].strip() + "\n")
+          PY
+      - name: Download distributions from successful main CI
+        run: |
+          release_sha=$(git rev-parse HEAD)
+          release_run=$(gh run list --workflow ci.yml --branch main --event push \
+            --commit "$release_sha" --status success --limit 1 \
+            --json databaseId --jq '.[0].databaseId')
+          test -n "$release_run" && test "$release_run" != null
+          gh run download "$release_run" --name release-dist --dir dist
+      - name: Verify distribution checksums
+        working-directory: dist
+        run: sha256sum --check SHA256SUMS
+      - name: Publish the candidate
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/*.whl dist/*.tar.gz dist/SHA256SUMS \
+            --verify-tag --prerelease --title "Glassbox $GITHUB_REF_NAME" \
+            --notes-file release-notes.md
