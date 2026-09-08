@@ -81,6 +81,28 @@ def test_misspecified_model_exposes_temporal_and_input_structure(
     assert report["summary"]["nonadjacent_correlated_group_count"] >= 2
 
 
+@pytest.mark.parametrize("amplitude, detected", [(1e-8, False), (1e-3, True)])
+def test_input_correlation_requires_resolved_residuals(
+    quadrotor_trajectory_seed9_dur4_0s, amplitude, detected
+) -> None:
+    trajectory = quadrotor_trajectory_seed9_dur4_0s
+    innovations = amplitude * np.repeat(trajectory.controls[:, :1], 12, axis=1)
+    original = innovations.copy()
+
+    report = one_step_innovation_diagnostics(innovations, trajectory)
+
+    assert report["summary"]["structured_innovation_detected"] is detected
+    assert all(
+        channel["input_correlated"] is detected
+        for channel in report["channels"].values()
+    )
+    assert all(
+        channel["strongest_past_or_current_input_correlation"] > 0.99
+        for channel in report["channels"].values()
+    )
+    np.testing.assert_array_equal(innovations, original)
+
+
 def test_observation_noise_creates_adjacent_residual_correlation(matching_case) -> None:
     trajectory, params = matching_case
     noise = np.random.default_rng(482).normal(size=(len(trajectory.states), 12))

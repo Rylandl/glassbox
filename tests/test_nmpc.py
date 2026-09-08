@@ -1145,7 +1145,6 @@ def test_objective_gradient_agrees_with_central_difference(
         ]
     )
     plan = controller.plan
-    objective = jax.jit(lambda *arguments: _objective(plan, plan.policy, *arguments))
     _, analytic = controller.solver._kernels.objective_and_gradient(
         blocks,
         jnp.asarray(state),
@@ -1155,29 +1154,21 @@ def test_objective_gradient_agrees_with_central_difference(
         exogenous,
         plan.values,
     )
-    epsilon = 2e-3
     finite_difference = np.empty(blocks.shape)
-    for index in np.ndindex(*blocks.shape):
-        direction = jnp.zeros_like(blocks).at[index].set(epsilon)
-        plus = objective(
-            blocks + direction,
-            jnp.asarray(state),
-            latent,
-            reference.states,
-            previous,
-            exogenous,
-            plan.values,
+    # Keep the production gradient in float32; avoid cancellation in its
+    # independent finite-difference reference by evaluating that in float64.
+    with jax.enable_x64(True):
+        arguments = jax.tree_util.tree_map(
+            lambda value: jnp.asarray(value, dtype=jnp.float64),
+            (blocks, state, latent, reference.states, previous, exogenous, plan.values),
         )
-        minus = objective(
-            blocks - direction,
-            jnp.asarray(state),
-            latent,
-            reference.states,
-            previous,
-            exogenous,
-            plan.values,
-        )
-        finite_difference[index] = float((plus - minus) / (2.0 * epsilon))
+        objective = jax.jit(lambda *args: _objective(plan, plan.policy, *args))
+        epsilon = 1e-4
+        for index in np.ndindex(*blocks.shape):
+            direction = jnp.zeros_like(arguments[0]).at[index].set(epsilon)
+            plus = objective(arguments[0] + direction, *arguments[1:])
+            minus = objective(arguments[0] - direction, *arguments[1:])
+            finite_difference[index] = float((plus - minus) / (2.0 * epsilon))
 
     analytic_array = np.asarray(analytic)
     relative_error = np.linalg.norm(analytic_array - finite_difference) / max(

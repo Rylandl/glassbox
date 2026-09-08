@@ -45,7 +45,8 @@ jobs:
           "$RUNNER_TEMP/glassbox-release/bin/glassbox" --help
           "$RUNNER_TEMP/glassbox-release/bin/python" -m pytest --import-mode=importlib -q \
             "$GITHUB_WORKSPACE/tests/test_fit_cli.py::test_fit_cli_writes_belief_and_report_together" \
-            "$GITHUB_WORKSPACE/tests/test_evaluate.py::test_windowed_policy_reproduces_the_same_flight_characterization"
+            "$GITHUB_WORKSPACE/tests/test_evaluate.py::test_windowed_policy_reproduces_the_same_flight_characterization" \
+            "$GITHUB_WORKSPACE/tests/test_innovation_diagnostics.py"
       - name: Install and import the telemetry extras
         if: matrix.python-version == '3.12'
         run: |

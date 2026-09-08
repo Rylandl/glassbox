@@ -3,7 +3,7 @@
 The table records the maintained prediction and persistence entry points on
 fixed synthetic flights. It was regenerated after the actuator quadrature
 correction, which intentionally changes those flights and their predictions.
-Exact comparisons continue to pin metric reductions and both floor tables.
+Comparisons allow float32 rollout roundoff across CPU architectures.
 """
 
 from __future__ import annotations
@@ -415,15 +415,22 @@ def _measured(case: str) -> dict[str, dict]:
 
 
 @pytest.mark.parametrize("case", sorted(PINNED))
-def test_metrics_reproduce_the_pinned_values_exactly(case: str) -> None:
+def test_metrics_reproduce_the_pinned_values(case: str) -> None:
     measured = _measured(case)
 
     for section, expected in PINNED[case].items():
         if not isinstance(expected, dict):
-            assert measured[section] == expected, section
+            assert measured[section] == pytest.approx(expected, rel=1e-5, abs=5e-6), (
+                section
+            )
             continue
         for name, value in expected.items():
-            assert measured[section][name] == value, f"{section}.{name}"
+            expected_value = (
+                pytest.approx(value, rel=1e-5, abs=5e-6)
+                if isinstance(value, float)
+                else value
+            )
+            assert measured[section][name] == expected_value, f"{section}.{name}"
 
 
 def test_divergence_report_carries_only_thresholds_and_the_first_crossing() -> None:

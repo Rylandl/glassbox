@@ -52,6 +52,8 @@ history, numerical derivatives, parameter evidence, and controller behavior.
   resume checks. Recorded-result generation always refits its folds.
 - Fix `evaluate --fit-reports` after the evaluation schema change, preserve PX4
   reception times, and repair the flown SITL command fixture.
+- Suppress innovation-correlation flags below numerical resolution and use a
+  fixed starting state for the recovery benchmark across CPU architectures.
 
 ### Verification
 

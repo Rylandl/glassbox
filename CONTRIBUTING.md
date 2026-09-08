@@ -64,7 +64,8 @@ cd /tmp
 /tmp/glassbox-release/bin/glassbox --help
 /tmp/glassbox-release/bin/python -m pytest --import-mode=importlib -q \
   "$repo/tests/test_fit_cli.py::test_fit_cli_writes_belief_and_report_together" \
-  "$repo/tests/test_evaluate.py::test_windowed_policy_reproduces_the_same_flight_characterization"
+  "$repo/tests/test_evaluate.py::test_windowed_policy_reproduces_the_same_flight_characterization" \
+  "$repo/tests/test_innovation_diagnostics.py"
 ```
 
 ## Release candidates

@@ -2,7 +2,7 @@
   "format_version": 6,
   "artifact_type": "glassbox_synthetic_adaptive_recovery_diagnostic",
   "implementation": {
-    "method_version": 9,
+    "method_version": 10,
     "source_files": [
       "belief/belief.py",
       "belief/forecast_error.py",
@@ -23,8 +23,8 @@
       "core/synthetic.py",
       "workflows/benchmarks/recovery.py"
     ],
-    "source_sha256": "f9a8f0145e13e6ef320fe4ed50c093eb578dcd1452519535e639cdc6c5c76a3b",
-    "scenario_sha256": "157cb8bc49dbc1c93fce22c0a96758f4c98b0630af08919866779363e8ea5b4b"
+    "source_sha256": "e5186d512c6105fb88ff171608348bce2a4ba264f35711faf21cc54ebd5d00f1",
+    "scenario_sha256": "2c1627bae114372cd02b917e7c26f6cea210e609ba6a911f8a0dee4423cae8db"
   },
   "semantics": {
     "diagnostic_only": true,
@@ -221,10 +221,10 @@
         "stalled": 5
       },
       "finite": true,
-      "prewarm_wall_time_s": 14.811425291991327,
-      "solve_time_median_s": 0.027151146001415327,
-      "solve_time_p90_s": 0.03336386253940873,
-      "solve_time_maximum_s": 0.04079433303559199
+      "prewarm_wall_time_s": 7.179803458973765,
+      "solve_time_median_s": 0.013867437490262091,
+      "solve_time_p90_s": 0.015124837210169061,
+      "solve_time_maximum_s": 0.01659929199377075
     },
     {
       "condition": "adapted_belief",
@@ -253,10 +253,10 @@
         "stalled": 2
       },
       "finite": true,
-      "prewarm_wall_time_s": 24.68996058299672,
-      "solve_time_median_s": 0.11692522952216677,
-      "solve_time_p90_s": 0.14273846730939113,
-      "solve_time_maximum_s": 0.1833187080337666
+      "prewarm_wall_time_s": 8.50400587497279,
+      "solve_time_median_s": 0.03686360450228676,
+      "solve_time_p90_s": 0.03878027879982256,
+      "solve_time_maximum_s": 0.04223587503656745
     },
     {
       "condition": "adapted_mean_point",
@@ -285,10 +285,10 @@
         "stalled": 4
       },
       "finite": true,
-      "prewarm_wall_time_s": 6.330012333986815,
-      "solve_time_median_s": 0.013487854012055323,
-      "solve_time_p90_s": 0.01712928775814362,
-      "solve_time_maximum_s": 0.01947445800760761
+      "prewarm_wall_time_s": 2.1240159170120023,
+      "solve_time_median_s": 0.005593563022557646,
+      "solve_time_p90_s": 0.0061539206362795085,
+      "solve_time_maximum_s": 0.006647165981121361
     },
     {
       "condition": "oracle_mean_point",
@@ -317,10 +317,10 @@
         "stalled": 5
       },
       "finite": true,
-      "prewarm_wall_time_s": 0.021741500007919967,
-      "solve_time_median_s": 0.013102625031024218,
-      "solve_time_p90_s": 0.017577720514964312,
-      "solve_time_maximum_s": 0.03025449998676777
+      "prewarm_wall_time_s": 0.01706554100383073,
+      "solve_time_median_s": 0.0055269584991037846,
+      "solve_time_p90_s": 0.005801029474241659,
+      "solve_time_maximum_s": 0.006428125023376197
     }
   ],
   "comparisons": {

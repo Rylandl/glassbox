@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+import jax
 import numpy as np
 
 from glassbox.core.data import Trajectory
@@ -278,7 +279,7 @@ def one_step_innovation_diagnostics(
     controls = controls[initialization_discard_steps:]
     sample_count = int(np.sum(finite[initialization_discard_steps:]))
     common = {
-        "policy": "measured_state_reset_innovation_v1",
+        "policy": "measured_state_reset_innovation_v2",
         "interval_count": len(trajectory.controls),
         "sample_count": sample_count,
         "nonfinite_interval_count": int(np.sum(~finite)),
@@ -312,9 +313,20 @@ def one_step_innovation_diagnostics(
         count = int(np.sum(np.isfinite(left) & np.isfinite(right)))
         return _simultaneous_correlation_bound(count, comparisons)
 
+    # Correlations of rollout roundoff do not establish residual structure.
+    states = trajectory.states[initialization_discard_steps:]
+    state_rms = np.sqrt(np.nanmean(np.square(states), axis=0))
+    tangent_scale = np.concatenate((state_rms[:6], np.ones(3), state_rms[10:13]))
+    numerical_floor = (
+        8
+        * np.finfo(jax.dtypes.canonicalize_dtype(float)).eps
+        * np.maximum(1.0, tangent_scale)
+    )
     channels: dict[str, Any] = {}
     for index, (name, unit) in enumerate(INNOVATION_CHANNELS):
         values = innovations[:, index]
+        rmse = float(np.sqrt(np.nanmean(np.square(values))))
+        resolved = bool(rmse > numerical_floor[index])
         autocorrelation, autocorrelation_lag = _strongest_autocorrelation(
             values, maximum_lag_steps
         )
@@ -347,17 +359,21 @@ def one_step_innovation_diagnostics(
             "unit": unit,
             "mean": float(np.nanmean(values)),
             "standard_deviation": float(np.nanstd(values)),
-            "rmse": float(np.sqrt(np.nanmean(np.square(values)))),
+            "rmse": rmse,
+            "numerical_floor": float(numerical_floor[index]),
             "lag_one_autocorrelation": pearson_correlation(values[:-1], values[1:]),
             "strongest_nonadjacent_autocorrelation": nonadjacent_correlation,
             "nonadjacent_autocorrelation_lag_steps": nonadjacent_lag,
             "nonadjacent_autocorrelation_bound": nonadjacent_bound,
-            "nonadjacent_correlated": abs(nonadjacent_correlation) > nonadjacent_bound,
+            "nonadjacent_correlated": (
+                resolved and abs(nonadjacent_correlation) > nonadjacent_bound
+            ),
             "strongest_autocorrelation": autocorrelation,
             "autocorrelation_lag_steps": autocorrelation_lag,
             "autocorrelation_lag_s": (autocorrelation_lag * trajectory.nominal_dt_s),
             "autocorrelation_bound": autocorrelation_bound,
-            "temporally_colored": abs(autocorrelation) > autocorrelation_bound,
+            "temporally_colored": resolved
+            and abs(autocorrelation) > autocorrelation_bound,
             "strongest_past_or_current_input_correlation": input_correlation,
             "input_correlation_control": trajectory.control_names[input_index],
             "input_correlation_control_role": trajectory.spec.control_roles[
@@ -366,7 +382,8 @@ def one_step_innovation_diagnostics(
             "input_correlation_lag_steps": input_lag,
             "input_correlation_lag_s": input_lag * trajectory.nominal_dt_s,
             "input_correlation_bound": input_correlation_bound,
-            "input_correlated": abs(input_correlation) > input_correlation_bound,
+            "input_correlated": resolved
+            and abs(input_correlation) > input_correlation_bound,
         }
 
     groups = {}

@@ -316,15 +316,21 @@ def test_x8_policy_reproduces_the_campaign_protocol(tmp_path) -> None:
     assert report["protocol"] == "x8"
     assert report["stride"] == "one_sample"
     assert report["floors"] == dict(PROTOCOLS["x8"].floors)
-    assert report["score_vs_baseline"] == PINNED_X8["score_vs_baseline"]
+    assert report["score_vs_baseline"] == pytest.approx(
+        PINNED_X8["score_vs_baseline"], rel=1e-6
+    )
     for label, expected in PINNED_X8["model_horizon_rollouts"].items():
         measured = report["model"]["horizon_rollouts"][label]
         for name, value in expected.items():
-            assert measured[name] == value, f"{label}.{name}"
+            assert measured[name] == pytest.approx(value, rel=1e-6, abs=1e-7), (
+                f"{label}.{name}"
+            )
     for label, expected in PINNED_X8["baseline_horizon_rollouts"].items():
         measured = report["baseline_metrics"]["horizon_rollouts"][label]
         for name, value in expected.items():
-            assert measured[name] == value, f"baseline.{label}.{name}"
+            assert measured[name] == pytest.approx(value, rel=1e-6, abs=1e-7), (
+                f"baseline.{label}.{name}"
+            )
 
 
 def test_windowed_policy_reproduces_the_same_flight_characterization(

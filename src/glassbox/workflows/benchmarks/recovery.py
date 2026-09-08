@@ -35,14 +35,12 @@ from glassbox.core.dynamics import (
     DynamicsParams,
     control_state_after_history,
     hover_control,
-    quaternion_to_rotation,
     step_with_latent,
     structured_parameter_names,
     structured_parameter_vector,
     with_structured_parameter_vector,
 )
 from glassbox.core.geometry import (
-    quaternion_from_euler,
     rigid_body_local_error,
 )
 from glassbox.core.metrics import one_step_innovations, predict_windows
@@ -65,7 +63,7 @@ RECOVERY_DURATION_S = 1.2
 RECOVERY_TAIL_DURATION_S = 0.4
 FLEET_LOG_ARM_LENGTH_RATIOS = (-0.25, -0.125, 0.0, 0.125, 0.25)
 TARGET_LOG_ARM_LENGTH_RATIO = 0.20
-BENCHMARK_METHOD_VERSION = 9
+BENCHMARK_METHOD_VERSION = 10
 BENCHMARK_SOURCE_FILES = (
     "belief/belief.py",
     "belief/forecast_error.py",
@@ -378,23 +376,25 @@ def _build_beliefs() -> tuple[
     return belief, updated, target_params, evidence
 
 
-def _recovery_initial_state(belief: DynamicsBelief) -> np.ndarray:
-    state = resting_state()
-    state[0:3] = (0.25, -0.20, -0.15)
-    quaternion = quaternion_from_euler(0.24, -0.17, 0.12)
-    state[6:10] = quaternion
-    envelope = belief.runtime_spec.validity_envelope
-    body_velocity = np.asarray(envelope.body_velocity_center_m_s) + 0.25 * np.asarray(
-        envelope.body_velocity_half_width_m_s
-    ) * np.asarray((1.0, -1.0, -1.0))
-    state[3:6] = np.asarray(quaternion_to_rotation(jnp.asarray(quaternion))) @ (
-        body_velocity
+def _recovery_initial_state() -> np.ndarray:
+    """Fixed start from the recorded scenario, independent of support roundoff."""
+    return np.asarray(
+        (
+            0.25,
+            -0.2,
+            -0.15,
+            0.07360907288829387,
+            -0.5411664544096493,
+            -0.276997858355163,
+            0.9868347724186003,
+            0.12411956301262572,
+            -0.07698297415717102,
+            0.0694628513163726,
+            0.37771417910202726,
+            -0.22519321722805347,
+            0.13999999999999999,
+        )
     )
-    state[10:13] = np.asarray(envelope.angular_velocity_center_rad_s) + 0.35 * (
-        np.asarray(envelope.angular_velocity_half_width_rad_s)
-        * np.asarray((1.0, -1.0, 1.0))
-    )
-    return state
 
 
 def _prewarm_controller(
@@ -579,7 +579,7 @@ def run_adaptive_recovery_benchmark() -> dict[str, Any]:
     """Run one fixed diagnostic with no acceptance thresholds or tuning surface."""
 
     belief, updated, target_params, evidence = _build_beliefs()
-    initial_state = _recovery_initial_state(belief)
+    initial_state = _recovery_initial_state()
     # The point arms carry the belief's own runtime contract, so every arm
     # plans the same horizon: the maintained multirotor default is
     # CONTROL_HORIZON_STEPS at this sample period, and the two belief arms

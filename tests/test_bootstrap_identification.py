@@ -664,13 +664,7 @@ def _scripted_identifier() -> RecursiveBootstrapIdentifier:
 
 
 def test_the_scripted_plant_estimates_are_pinned() -> None:
-    """What the estimator computes, held fixed across container changes.
-
-    These are the two hundredth interval's estimates: the maps, the intercepts,
-    the hover command, both accumulated Grams, the residual scales and every
-    rank and authority. The container around them changed at this commit and
-    the numbers did not, which is what this pins.
-    """
+    """Pin the 200th update, allowing float64 linear-algebra roundoff."""
 
     identifier = _scripted_identifier()
     params = identifier.belief.model.params
@@ -679,15 +673,17 @@ def test_the_scripted_plant_estimates_are_pinned() -> None:
     np.testing.assert_allclose(
         params.collective_acceleration_per_command,
         (4.727309360698963, 5.239587007309757, 5.099312954764219, 4.791217957595088),
-        rtol=1e-12,
+        rtol=1e-10,
+        atol=1e-10,
     )
     np.testing.assert_allclose(
         params.collective_velocity_coefficient,
         (0.00012675058623564522, -0.003769984446337915, -0.10551079688093523),
-        rtol=1e-12,
+        rtol=1e-10,
+        atol=1e-10,
     )
     assert float(params.collective_intercept_m_s2) == pytest.approx(
-        0.10019540162772955, rel=1e-12
+        0.10019540162772955, rel=1e-10, abs=1e-10
     )
     np.testing.assert_allclose(
         params.angular_acceleration_per_command[0],
@@ -697,22 +693,26 @@ def test_the_scripted_plant_estimates_are_pinned() -> None:
             -36.93245865659684,
             34.90298993506994,
         ),
-        rtol=1e-12,
+        rtol=1e-10,
+        atol=1e-10,
     )
     np.testing.assert_allclose(
         params.angular_intercept_rad_s2,
         (-1.4191461859189711, -2.4452076997306156, -1.2719091564257448),
-        rtol=1e-12,
+        rtol=1e-10,
+        atol=1e-10,
     )
     np.testing.assert_allclose(
         evidence.hover_command,
         np.full(4, 0.4888072589327078),
-        rtol=1e-12,
+        rtol=1e-10,
+        atol=1e-10,
     )
     np.testing.assert_allclose(
         evidence.angular_residual_std_rad_s2,
         (0.7633902499641877, 0.7143143806083629, 0.712011432222831),
-        rtol=1e-12,
+        rtol=1e-10,
+        atol=1e-10,
     )
     assert evidence.collective_residual_std_m_s2 == 0.05
     assert evidence.interval_count == 200
@@ -721,15 +721,19 @@ def test_the_scripted_plant_estimates_are_pinned() -> None:
     assert evidence.angular_effect_rank == 3
     assert evidence.collective_nuisance_rank == 2
     assert evidence.angular_nuisance_rank == 7
-    assert evidence.information_authority == pytest.approx(1.0, rel=1e-12)
-    assert evidence.collective_authority == pytest.approx(0.9999999999999996, rel=1e-12)
-    np.testing.assert_allclose(evidence.angular_axis_authority, 1.0, rtol=1e-12)
-    assert evidence.exploration_completion == pytest.approx(1.0, rel=1e-12)
+    assert evidence.information_authority == pytest.approx(1.0, rel=1e-10, abs=1e-10)
+    assert evidence.collective_authority == pytest.approx(
+        0.9999999999999996, rel=1e-10, abs=1e-10
+    )
+    np.testing.assert_allclose(
+        evidence.angular_axis_authority, 1.0, rtol=1e-10, atol=1e-10
+    )
+    assert evidence.exploration_completion == pytest.approx(1.0, rel=1e-10, abs=1e-10)
     assert float(np.trace(evidence.collective_information)) == pytest.approx(
-        11099.438987179006, rel=1e-12
+        11099.438987179006, rel=1e-10, abs=1e-10
     )
     assert float(np.trace(evidence.angular_information)) == pytest.approx(
-        303.38838980129236, rel=1e-12
+        303.38838980129236, rel=1e-10, abs=1e-10
     )
 
 
