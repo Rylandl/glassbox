@@ -603,6 +603,7 @@ NMPC_ACCEPTANCE_TOLERANCES = {
     "thresholds.*": (0.0, 0.0),
     "scenarios[*].normalized_tracking_rms": CLOSED_LOOP_METRIC_TOLERANCE,
     "scenarios[*].tracking_ratio": CLOSED_LOOP_METRIC_TOLERANCE,
+    "scenarios[*].maximum_validity_utilization": CLOSED_LOOP_METRIC_TOLERANCE,
     "summary.*geometric_mean_tracking_ratio": CLOSED_LOOP_METRIC_TOLERANCE,
     "*": DEFAULT_TOLERANCE,
 }
