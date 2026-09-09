@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -11,14 +12,13 @@ import numpy as np
 
 from glassbox.core.data import (
     RIGID_BODY_STATE_SCHEMA,
-    ControlChannel,
-    ExogenousChannel,
+    Channel,
     Trajectory,
     TrajectorySpec,
     VehicleConfigurationSpec,
-    save_trajectory_npz,
 )
-from glassbox.io.pinned_download import download_verified, file_digest
+from glassbox.io.corpus import PinnedFile
+from glassbox.io.pinned_download import file_digest
 
 X8_REFERENCE_NAME = "ntnu_skywalker_x8_system_identification"
 X8_REFERENCE_DOI = "10.18710/U4TLYV"
@@ -183,6 +183,46 @@ X8_RECORDINGS = (
 _RECORDING_BY_FILENAME = {recording.filename: recording for recording in X8_RECORDINGS}
 
 
+PINNED_FILES: tuple[PinnedFile, ...] = (
+    PinnedFile(
+        url=f"{_DATAVERSE_ACCESS_ROOT}/{X8_README_FILE_ID}",
+        relative_path=X8_README_FILENAME,
+        size_bytes=X8_README_SIZE_BYTES,
+        digest=X8_README_MD5,
+        algorithm="md5",
+        converted=False,
+    ),
+    *(
+        PinnedFile(
+            url=f"{_DATAVERSE_ACCESS_ROOT}/{recording.file_id}",
+            relative_path=recording.relative_path,
+            size_bytes=recording.size_bytes,
+            digest=recording.md5,
+            algorithm="md5",
+        )
+        for recording in X8_RECORDINGS
+    ),
+)
+
+
+def validate_validation_trajectories(trajectories: Sequence[Trajectory]) -> None:
+    """Check the upstream validation split's contract on loaded trajectories.
+
+    The campaign publishes which maneuvers are held out. A trajectory carrying
+    a different spec or a different split is a different measurement, so it is
+    rejected rather than scored.
+    """
+
+    if not trajectories:
+        raise ValueError("at least one Skywalker X8 validation trajectory is required")
+    expected_spec = x8_trajectory_spec()
+    for trajectory in trajectories:
+        if trajectory.spec != expected_spec:
+            raise ValueError("trajectory does not match the Skywalker X8 spec")
+        if trajectory.labels.get("benchmark_split") != "validation":
+            raise ValueError("trajectory is not in the upstream validation split")
+
+
 def _md5(path: Path) -> str:
     return file_digest(path, algorithm="md5")
 
@@ -321,36 +361,40 @@ def x8_trajectory_spec(*, trusted_wind: bool = True) -> TrajectorySpec:
     """Return the typed three-control flying-wing contract."""
 
     controls = (
-        ControlChannel(
+        Channel(
             name="throttle",
             role="throttle",
             semantic="normalized_command",
             unit="1",
+            kind="control",
             minimum=0.0,
             maximum=1.0,
         ),
-        ControlChannel(
+        Channel(
             name="aileron",
             role="roll",
             semantic="generalized_surface_angle",
             unit="rad",
+            kind="control",
             frame="FLU",
         ),
-        ControlChannel(
+        Channel(
             name="elevator",
             role="pitch",
             semantic="generalized_surface_angle",
             unit="rad",
+            kind="control",
             frame="FLU",
         ),
     )
     exogenous = (
         tuple(
-            ExogenousChannel(
+            Channel(
                 name=f"estimated_wind_{axis}",
                 role=f"wind_{axis}",
                 semantic="estimated_wind_velocity",
                 unit="m/s",
+                kind="exogenous",
                 frame="NWU",
             )
             for axis in ("north", "west", "up")
@@ -361,19 +405,17 @@ def x8_trajectory_spec(*, trusted_wind: bool = True) -> TrajectorySpec:
     return TrajectorySpec(
         state_schema=RIGID_BODY_STATE_SCHEMA,
         observation_source="onboard_estimate",
-        controls=controls,
+        channels=(*controls, *exogenous),
         vehicle=VehicleConfigurationSpec(
             family="fixedwing",
             configuration_id=X8_CONFIGURATION_ID,
             controlled_axes=("roll", "pitch"),
-            propulsion="single_propeller",
             fixed_states={
                 "airframe_layout": "flying_wing",
                 "surface_layout": "left_right_elevon",
                 "generalized_surface_coordinates": "roll_pitch",
             },
         ),
-        exogenous=exogenous,
     )
 
 
@@ -572,85 +614,3 @@ class X8ReferenceAdapter:
                 "quality": quality,
             },
         )
-
-
-def _fetch_one(
-    *,
-    file_id: int,
-    target: Path,
-    size_bytes: int,
-    md5: str,
-    overwrite: bool,
-    timeout_s: float,
-) -> Path:
-    return download_verified(
-        f"{_DATAVERSE_ACCESS_ROOT}/{file_id}",
-        target,
-        size_bytes=size_bytes,
-        digest=md5,
-        algorithm="md5",
-        user_agent="glassbox-skywalker-x8-adapter/1",
-        overwrite=overwrite,
-        timeout_s=timeout_s,
-        existing_mismatch_message=(
-            f"existing file does not match pinned Skywalker X8 source: {target}"
-        ),
-        size_mismatch_message=f"downloaded size mismatch for {target.name}",
-        digest_mismatch_message=f"downloaded MD5 mismatch for {target.name}",
-    )
-
-
-def fetch_x8_reference(
-    destination: str | Path,
-    *,
-    overwrite: bool = False,
-    timeout_s: float = 60.0,
-) -> tuple[Path, ...]:
-    """Download and verify the README and 17 canonical-source CSVs."""
-
-    if timeout_s <= 0.0:
-        raise ValueError("timeout_s must be positive")
-    destination_root = Path(destination)
-    _fetch_one(
-        file_id=X8_README_FILE_ID,
-        target=destination_root / X8_README_FILENAME,
-        size_bytes=X8_README_SIZE_BYTES,
-        md5=X8_README_MD5,
-        overwrite=overwrite,
-        timeout_s=timeout_s,
-    )
-    return tuple(
-        _fetch_one(
-            file_id=recording.file_id,
-            target=destination_root / recording.relative_path,
-            size_bytes=recording.size_bytes,
-            md5=recording.md5,
-            overwrite=overwrite,
-            timeout_s=timeout_s,
-        )
-        for recording in X8_RECORDINGS
-    )
-
-
-def extract_x8_reference(
-    source_root: str | Path,
-    output_root: str | Path,
-    *,
-    adapter: X8ReferenceAdapter | None = None,
-) -> tuple[Path, ...]:
-    """Convert all pinned maneuvers while preserving the upstream split."""
-
-    source_directory = Path(source_root)
-    output_directory = Path(output_root)
-    selected_adapter = X8ReferenceAdapter() if adapter is None else adapter
-    outputs: list[Path] = []
-    for recording in X8_RECORDINGS:
-        source_path = source_directory / recording.relative_path
-        output_path = (
-            output_directory
-            / recording.split
-            / Path(recording.filename).with_suffix(".npz")
-        )
-        save_trajectory_npz(selected_adapter.load(source_path), output_path)
-        outputs.append(output_path)
-    return tuple(outputs)

@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 
-from glassbox.core.data import Trajectory, save_trajectory_npz
-from glassbox.io.pinned_download import download_verified, file_digest
+from glassbox.core.data import Trajectory, trajectory_segment
+from glassbox.io.corpus import PinnedFile
+from glassbox.io.pinned_download import file_digest
 from glassbox.io.px4_ulog import PX4IngestConfig, inspect_ulog, load_px4_trajectory
 
 ARP_REFERENCE_REPOSITORY = (
@@ -71,6 +72,17 @@ ARP_RECORDINGS = (
 _RECORDING_BY_FILENAME = {recording.filename: recording for recording in ARP_RECORDINGS}
 
 
+PINNED_FILES: tuple[PinnedFile, ...] = tuple(
+    PinnedFile(
+        url=f"{ARP_REFERENCE_MEDIA_ROOT}/{recording.relative_path}",
+        relative_path=recording.relative_path,
+        size_bytes=recording.size_bytes,
+        digest=recording.sha256,
+    )
+    for recording in ARP_RECORDINGS
+)
+
+
 def _sha256(path: Path) -> str:
     return file_digest(path, algorithm="sha256")
 
@@ -122,31 +134,20 @@ def _longest_powered_interval(
         raise ValueError("ARP reference trajectory has no sustained powered interval")
     start, stop = max(runs, key=lambda run: run[1] - run[0])
     start_offset_s = float(trajectory.time_s[start] - trajectory.time_s[0])
-    selected_time = trajectory.time_s[start : stop + 1]
-    provenance = dict(trajectory.provenance)
+    selected = trajectory_segment(trajectory, start, stop)
+    provenance = dict(selected.provenance)
     provenance["reference_powered_interval"] = {
         "selection": "longest_contiguous_mean_motor_command_above_threshold",
         "minimum_mean_motor_command": minimum_mean_motor_command,
         "minimum_duration_s": minimum_duration_s,
         "candidate_interval_count": len(runs),
         "start_offset_s": start_offset_s,
-        "duration_s": float(selected_time[-1] - selected_time[0]),
+        "duration_s": float(selected.time_s[-1]),
         "discarded_duration_s": float(
-            trajectory.time_s[-1]
-            - trajectory.time_s[0]
-            - (selected_time[-1] - selected_time[0])
+            trajectory.time_s[-1] - trajectory.time_s[0] - selected.time_s[-1]
         ),
     }
-    return Trajectory(
-        time_s=selected_time - selected_time[0],
-        states=trajectory.states[start : stop + 1],
-        controls=trajectory.controls[start:stop],
-        spec=trajectory.spec,
-        exogenous=trajectory.exogenous[start : stop + 1],
-        observations=trajectory.observations[start : stop + 1],
-        labels=trajectory.labels,
-        provenance=provenance,
-    )
+    return replace(selected, provenance=provenance)
 
 
 @dataclass(frozen=True)
@@ -176,7 +177,7 @@ class ARPReferenceAdapter:
         inventory = inspect_ulog(source_path)
         inventory.update(
             {
-                "adapter": {"name": self.name, "schema_version": 2},
+                "adapter": {"name": self.name, "schema_version": 3},
                 "reference_dataset": _reference_metadata(recording),
                 "sha256": checksum,
                 "checksum_matches_pinned_snapshot": checksum == recording.sha256,
@@ -211,17 +212,12 @@ class ARPReferenceAdapter:
         provenance.update(
             {
                 "source_sha256": checksum,
-                "adapter": {"name": self.name, "schema_version": 2},
+                "adapter": {"name": self.name, "schema_version": 3},
                 "reference_dataset": _reference_metadata(recording),
             }
         )
-        return Trajectory(
-            time_s=trajectory.time_s,
-            states=trajectory.states,
-            controls=trajectory.controls,
-            spec=trajectory.spec,
-            exogenous=trajectory.exogenous,
-            observations=trajectory.observations,
+        return replace(
+            trajectory,
             labels={
                 **trajectory.labels,
                 "benchmark": ARP_REFERENCE_NAME,
@@ -230,61 +226,3 @@ class ARPReferenceAdapter:
             },
             provenance=provenance,
         )
-
-
-def fetch_arp_reference(
-    destination: str | Path,
-    *,
-    overwrite: bool = False,
-    timeout_s: float = 60.0,
-) -> tuple[Path, ...]:
-    """Download and verify the four-ULog pinned ARP snapshot."""
-
-    if timeout_s <= 0.0:
-        raise ValueError("timeout_s must be positive")
-    destination_root = Path(destination)
-    fetched: list[Path] = []
-    for recording in ARP_RECORDINGS:
-        target = destination_root / recording.relative_path
-        fetched.append(
-            download_verified(
-                f"{ARP_REFERENCE_MEDIA_ROOT}/{recording.relative_path}",
-                target,
-                size_bytes=recording.size_bytes,
-                digest=recording.sha256,
-                algorithm="sha256",
-                user_agent="glassbox-arp-reference-adapter/1",
-                overwrite=overwrite,
-                timeout_s=timeout_s,
-                existing_mismatch_message=(
-                    f"existing file does not match pinned ARP reference: {target}"
-                ),
-                size_mismatch_message=(
-                    f"downloaded size mismatch for {recording.relative_path}"
-                ),
-                digest_mismatch_message=(
-                    f"downloaded checksum mismatch for {recording.relative_path}"
-                ),
-            )
-        )
-    return tuple(fetched)
-
-
-def extract_arp_reference(
-    source_root: str | Path,
-    output_root: str | Path,
-    *,
-    adapter: ARPReferenceAdapter | None = None,
-) -> tuple[Path, ...]:
-    """Convert the complete pinned ARP snapshot into canonical NPZ files."""
-
-    source_directory = Path(source_root)
-    output_directory = Path(output_root)
-    selected_adapter = ARPReferenceAdapter() if adapter is None else adapter
-    outputs: list[Path] = []
-    for recording in ARP_RECORDINGS:
-        source_path = source_directory / recording.relative_path
-        output_path = output_directory / Path(recording.filename).with_suffix(".npz")
-        save_trajectory_npz(selected_adapter.load(source_path), output_path)
-        outputs.append(output_path)
-    return tuple(outputs)

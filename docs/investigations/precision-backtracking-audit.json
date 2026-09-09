@@ -1,0 +1,256 @@
+{
+  "postprocessing_only": true,
+  "solves_or_refits": 0,
+  "host_speedup_claim": false,
+  "reports_sha256": {
+    "revised": "f389cb8eb1e706daced6bbeb81a21d9e3be9bed4c7ef74589054a15c6fbde3ea",
+    "rejected": "a87c9423a89beb9ea4d9d7562840ac5e59b4797d7e511f20ec7a47c3f137865b"
+  },
+  "archives_verified": {
+    "revised": [
+      "investigate_fast_suffix.py",
+      "investigate_fast_suffix_runtime.py",
+      "investigate_feedback_recovery.py",
+      "investigate_feedback_suffix.py",
+      "investigate_fused_covariance.py",
+      "investigate_precision_stopping.py",
+      "investigate_recovery.py",
+      "investigate_single_seed.py",
+      "investigate_sqp_recovery.py"
+    ],
+    "rejected": [
+      "investigate_fast_suffix.py",
+      "investigate_fast_suffix_runtime.py",
+      "investigate_feedback_recovery.py",
+      "investigate_feedback_suffix.py",
+      "investigate_fused_covariance.py",
+      "investigate_precision_stopping.py",
+      "investigate_recovery.py",
+      "investigate_single_seed.py",
+      "investigate_sqp_recovery.py"
+    ]
+  },
+  "rejected_design": {
+    "passed": 24,
+    "failures": [
+      {
+        "input": "cold_small_60",
+        "array_max_abs_difference": 0.0003110170364379883,
+        "objective_max_abs_difference": 0.0
+      },
+      {
+        "input": "cold_small_68",
+        "array_max_abs_difference": 0.0002518296241760254,
+        "objective_max_abs_difference": 7.450580596923828e-09
+      }
+    ],
+    "strict_unchanged_requests": [
+      "cold_original_4",
+      "cold_original_10",
+      "cold_original_39",
+      "cold_original_60",
+      "cold_original_68",
+      "cold_original_100",
+      "cold_original_119",
+      "cold_small_4",
+      "cold_small_10",
+      "cold_original_kick_4",
+      "cold_original_kick_10",
+      "cold_original_kick_39",
+      "cold_original_kick_60",
+      "cold_original_kick_68",
+      "cold_original_kick_100",
+      "cold_original_kick_119",
+      "recorded_tick10",
+      "recorded_small68"
+    ],
+    "stops": {
+      "model_resolution": 8
+    },
+    "baseline_kernel_calls": {
+      "linearize": 70,
+      "evaluate": 78,
+      "finalize": 21
+    },
+    "precision_kernel_calls": {
+      "linearize": 66,
+      "evaluate": 58,
+      "finalize": 18
+    },
+    "maximum_returned_array_difference": 0.0003110170364379883
+  },
+  "revised_design": {
+    "passed": 26,
+    "failures": [],
+    "strict_unchanged_requests": [
+      "cold_original_4",
+      "cold_original_10",
+      "cold_original_39",
+      "cold_original_60",
+      "cold_original_68",
+      "cold_original_100",
+      "cold_original_119",
+      "cold_small_4",
+      "cold_small_10",
+      "cold_small_60",
+      "cold_small_68",
+      "cold_original_kick_4",
+      "cold_original_kick_10",
+      "cold_original_kick_39",
+      "cold_original_kick_60",
+      "cold_original_kick_68",
+      "cold_original_kick_100",
+      "cold_original_kick_119",
+      "recorded_tick10",
+      "recorded_small68"
+    ],
+    "stops": {
+      "representable_step": 5,
+      "model_resolution": 1
+    },
+    "baseline_kernel_calls": {
+      "linearize": 70,
+      "evaluate": 78,
+      "finalize": 21
+    },
+    "precision_kernel_calls": {
+      "linearize": 66,
+      "evaluate": 61,
+      "finalize": 20
+    },
+    "maximum_returned_array_difference": 1.3113021850585938e-06
+  },
+  "cases": {
+    "cold_original_baseline": {
+      "applied_intervals": 120,
+      "kernel_calls": {
+        "linearize": 246,
+        "evaluate": 246,
+        "finalize": 119
+      },
+      "precision_stops": {},
+      "support_recomputed_maximum": 0.9998701810836792,
+      "tail_rms": 0.2603166103363037,
+      "terminal_full_state_within_tolerances": true
+    },
+    "cold_original_precision": {
+      "applied_intervals": 120,
+      "kernel_calls": {
+        "linearize": 246,
+        "evaluate": 245,
+        "finalize": 119
+      },
+      "precision_stops": {
+        "representable_step": 1
+      },
+      "support_recomputed_maximum": 0.9998701810836792,
+      "tail_rms": 0.2603166103363037,
+      "terminal_full_state_within_tolerances": true
+    },
+    "cold_small_baseline": {
+      "applied_intervals": 120,
+      "kernel_calls": {
+        "linearize": 246,
+        "evaluate": 349,
+        "finalize": 97
+      },
+      "precision_stops": {},
+      "support_recomputed_maximum": 0.3399229049682617,
+      "tail_rms": 0.009645335376262665,
+      "terminal_full_state_within_tolerances": true
+    },
+    "cold_small_precision": {
+      "applied_intervals": 120,
+      "kernel_calls": {
+        "linearize": 242,
+        "evaluate": 222,
+        "finalize": 84
+      },
+      "precision_stops": {
+        "representable_step": 22,
+        "model_resolution": 14
+      },
+      "support_recomputed_maximum": 0.3399246037006378,
+      "tail_rms": 0.009644949808716774,
+      "terminal_full_state_within_tolerances": true
+    },
+    "cold_original_kick_baseline": {
+      "applied_intervals": 120,
+      "kernel_calls": {
+        "linearize": 246,
+        "evaluate": 246,
+        "finalize": 119
+      },
+      "precision_stops": {},
+      "support_recomputed_maximum": 0.9998701810836792,
+      "tail_rms": 0.26053231954574585,
+      "terminal_full_state_within_tolerances": true
+    },
+    "cold_original_kick_precision": {
+      "applied_intervals": 120,
+      "kernel_calls": {
+        "linearize": 246,
+        "evaluate": 245,
+        "finalize": 119
+      },
+      "precision_stops": {
+        "representable_step": 1
+      },
+      "support_recomputed_maximum": 0.9998701810836792,
+      "tail_rms": 0.26053231954574585,
+      "terminal_full_state_within_tolerances": true
+    }
+  },
+  "comparisons": {
+    "cold_original": {
+      "precision_to_baseline_tail_rms_ratio": 1.0,
+      "maximum_absolute_differences": {
+        "states": 0.0,
+        "latent_states": 0.0,
+        "decoded_forecasts": 0.0,
+        "seed_waveforms": 0.0
+      },
+      "kernel_call_reduction": {
+        "linearize": 0,
+        "evaluate": 1,
+        "finalize": 0
+      }
+    },
+    "cold_small": {
+      "precision_to_baseline_tail_rms_ratio": 0.9999600254909913,
+      "maximum_absolute_differences": {
+        "states": 1.8884427845478058e-05,
+        "latent_states": 1.9550323486328125e-05,
+        "decoded_forecasts": 0.0003553330898284912,
+        "seed_waveforms": 0.0003553330898284912
+      },
+      "kernel_call_reduction": {
+        "linearize": 4,
+        "evaluate": 127,
+        "finalize": 13
+      }
+    },
+    "cold_original_kick": {
+      "precision_to_baseline_tail_rms_ratio": 1.0,
+      "maximum_absolute_differences": {
+        "states": 0.0,
+        "latent_states": 0.0,
+        "decoded_forecasts": 0.0,
+        "seed_waveforms": 0.0
+      },
+      "kernel_call_reduction": {
+        "linearize": 0,
+        "evaluate": 1,
+        "finalize": 0
+      }
+    }
+  },
+  "limitations": [
+    "Saved-request output parity is audited from recorded comparisons: their full returned arrays were not archived.",
+    "Future nonlinear forecasts and plant dynamics are not rerun. Forecast waveform identity, recorded nonlinear assessments, actual-state support and terminal scores are checked.",
+    "No timing inference; operation counts describe this bounded experiment only."
+  ],
+  "matched_kick_prefixes_verified": true,
+  "audit_source_sha256": "e24deacf60479b5adb97e18485c5e2c284e88e7fb1daea88520b585eb2fc7168",
+  "all_checks_passed": true
+}

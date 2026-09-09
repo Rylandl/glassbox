@@ -1,0 +1,2835 @@
+{
+  "diagnostic_only": true,
+  "recursive_feasibility_claim": false,
+  "glassbox_import": "/private/tmp/glassbox-astra-20260906/terminal/src/glassbox/__init__.py",
+  "horizon_steps": 30,
+  "maximum_error_horizon_s": 0.6,
+  "sample_period_s": 0.020000000000000018,
+  "suffix_steps": 6,
+  "suffix_variables": 24,
+  "baseline_variables": 40,
+  "parameterization": "24 frozen per-step commands, six independent per-step commands; no block averaging",
+  "fitted_actuator_time_constants_s": [
+    0.07919038832187653
+  ],
+  "fixture_failure": "tick4 original disturbance warm1",
+  "continuation": [
+    {
+      "tick": 0,
+      "actual_support_utilization": 0.46444016695022583,
+      "next_solve": {
+        "optimizer_success": true,
+        "optimizer_message": "Optimization terminated successfully",
+        "iterations": 30,
+        "evaluations": 42,
+        "derivatives": 60,
+        "initial_cost": 29.003509521484375,
+        "final_iterate_cost": 28.684139251708984,
+        "initial_maximum_utilization": 0.9774139523506165,
+        "initial_prefix_utilization": 0.9774139523506165,
+        "initial_tail_utilization": 0.4867135286331177,
+        "final_iterate_maximum_utilization": 0.9774139523506165,
+        "feasible_found": true,
+        "accepted_cost": 28.684139251708984,
+        "maximum_utilization": 0.9774139523506165,
+        "suffix_maximum_command_change": 0.49563297629356384,
+        "terminal_latent": [
+          0.24226106703281403,
+          0.3063466250896454,
+          0.5756596326828003,
+          0.18681558966636658
+        ],
+        "terminal_command": [
+          0.0,
+          0.31713318824768066,
+          1.0,
+          0.0
+        ],
+        "suffix_commands": [
+          [
+            0.6759730577468872,
+            0.7087380886077881,
+            0.45304250717163086,
+            1.0
+          ],
+          [
+            0.6794677972793579,
+            0.2530190348625183,
+            0.0066017210483551025,
+            0.35974639654159546
+          ],
+          [
+            0.3072338104248047,
+            0.03371787071228027,
+            0.004656106233596802,
+            0.0
+          ],
+          [
+            0.0,
+            0.0801733136177063,
+            0.41177424788475037,
+            0.0
+          ],
+          [
+            0.0,
+            0.2261645793914795,
+            0.8337466716766357,
+            0.0
+          ],
+          [
+            0.0,
+            0.31713318824768066,
+            1.0,
+            0.0
+          ]
+        ],
+        "tail_utilization": 0.4859285354614258
+      }
+    },
+    {
+      "tick": 1,
+      "actual_support_utilization": 0.5832128524780273,
+      "next_solve": {
+        "optimizer_success": true,
+        "optimizer_message": "Optimization terminated successfully",
+        "iterations": 34,
+        "evaluations": 47,
+        "derivatives": 68,
+        "initial_cost": 29.029281616210938,
+        "final_iterate_cost": 28.709461212158203,
+        "initial_maximum_utilization": 0.9741264581680298,
+        "initial_prefix_utilization": 0.9741264581680298,
+        "initial_tail_utilization": 0.47482359409332275,
+        "final_iterate_maximum_utilization": 0.9741264581680298,
+        "feasible_found": true,
+        "accepted_cost": 28.709461212158203,
+        "maximum_utilization": 0.9741264581680298,
+        "suffix_maximum_command_change": 0.44546908140182495,
+        "terminal_latent": [
+          0.22413036227226257,
+          0.28340500593185425,
+          0.5697248578071594,
+          0.1701744794845581
+        ],
+        "terminal_command": [
+          0.0,
+          0.2963740825653076,
+          1.0,
+          0.0
+        ],
+        "suffix_commands": [
+          [
+            0.6342794895172119,
+            0.5490777492523193,
+            0.4333162009716034,
+            0.7565926313400269
+          ],
+          [
+            0.5559293627738953,
+            0.16722765564918518,
+            0.012420028448104858,
+            0.0
+          ],
+          [
+            0.17759305238723755,
+            0.0,
+            0.005752444267272949,
+            0.0
+          ],
+          [
+            0.0,
+            0.058082133531570435,
+            0.3882775902748108,
+            0.0
+          ],
+          [
+            0.0,
+            0.20620468258857727,
+            0.8515436053276062,
+            0.0
+          ],
+          [
+            0.0,
+            0.2963740825653076,
+            1.0,
+            0.0
+          ]
+        ],
+        "tail_utilization": 0.4747525453567505
+      }
+    },
+    {
+      "tick": 2,
+      "actual_support_utilization": 0.7243210077285767,
+      "next_solve": {
+        "optimizer_success": true,
+        "optimizer_message": "Optimization terminated successfully",
+        "iterations": 33,
+        "evaluations": 45,
+        "derivatives": 66,
+        "initial_cost": 28.993432998657227,
+        "final_iterate_cost": 28.655719757080078,
+        "initial_maximum_utilization": 0.9704899191856384,
+        "initial_prefix_utilization": 0.9704899191856384,
+        "initial_tail_utilization": 0.4582129716873169,
+        "final_iterate_maximum_utilization": 0.9704899191856384,
+        "feasible_found": true,
+        "accepted_cost": 28.655719757080078,
+        "maximum_utilization": 0.9704899191856384,
+        "suffix_maximum_command_change": 0.4937218427658081,
+        "terminal_latent": [
+          0.20788350701332092,
+          0.27342042326927185,
+          0.5566377639770508,
+          0.1575540453195572
+        ],
+        "terminal_command": [
+          0.0,
+          0.29239773750305176,
+          1.0,
+          0.0
+        ],
+        "suffix_commands": [
+          [
+            0.5582998991012573,
+            0.43885326385498047,
+            0.45365360379219055,
+            0.40170392394065857
+          ],
+          [
+            0.46155405044555664,
+            0.12431725859642029,
+            0.02832910418510437,
+            0.0
+          ],
+          [
+            0.10082849860191345,
+            0.0006744265556335449,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.06814000010490417,
+            0.3578217625617981,
+            0.0
+          ],
+          [
+            0.0,
+            0.2119152843952179,
+            0.8171931505203247,
+            0.0
+          ],
+          [
+            0.0,
+            0.29239773750305176,
+            1.0,
+            0.0
+          ]
+        ],
+        "tail_utilization": 0.4580249786376953
+      }
+    },
+    {
+      "tick": 3,
+      "actual_support_utilization": 0.822770893573761,
+      "next_solve": {
+        "optimizer_success": true,
+        "optimizer_message": "Optimization terminated successfully",
+        "iterations": 34,
+        "evaluations": 47,
+        "derivatives": 68,
+        "initial_cost": 28.928659439086914,
+        "final_iterate_cost": 28.585420608520508,
+        "initial_maximum_utilization": 0.9674007892608643,
+        "initial_prefix_utilization": 0.9674007892608643,
+        "initial_tail_utilization": 0.4432797431945801,
+        "final_iterate_maximum_utilization": 0.9674007892608643,
+        "feasible_found": true,
+        "accepted_cost": 28.585420608520508,
+        "maximum_utilization": 0.9674007892608643,
+        "suffix_maximum_command_change": 0.5012905597686768,
+        "terminal_latent": [
+          0.19479206204414368,
+          0.2669626772403717,
+          0.5380935668945312,
+          0.14831990003585815
+        ],
+        "terminal_command": [
+          0.0,
+          0.2901979386806488,
+          0.9779399037361145,
+          0.0
+        ],
+        "suffix_commands": [
+          [
+            0.49052920937538147,
+            0.39789092540740967,
+            0.47659099102020264,
+            0.41072511672973633
+          ],
+          [
+            0.40692174434661865,
+            0.1256023645401001,
+            0.030952662229537964,
+            0.0
+          ],
+          [
+            0.0630829930305481,
+            0.01263517141342163,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.07704928517341614,
+            0.31590259075164795,
+            0.0
+          ],
+          [
+            0.0,
+            0.21363142132759094,
+            0.778285026550293,
+            0.0
+          ],
+          [
+            0.0,
+            0.2901979386806488,
+            0.9779399037361145,
+            0.0
+          ]
+        ],
+        "tail_utilization": 0.4429285526275635
+      }
+    },
+    {
+      "tick": 4,
+      "actual_support_utilization": 0.8880532383918762,
+      "next_solve": {
+        "optimizer_success": true,
+        "optimizer_message": "Optimization terminated successfully",
+        "iterations": 35,
+        "evaluations": 52,
+        "derivatives": 70,
+        "initial_cost": 28.84133529663086,
+        "final_iterate_cost": 28.501354217529297,
+        "initial_maximum_utilization": 0.9660055041313171,
+        "initial_prefix_utilization": 0.9660055041313171,
+        "initial_tail_utilization": 0.429459810256958,
+        "final_iterate_maximum_utilization": 0.9660055041313171,
+        "feasible_found": true,
+        "accepted_cost": 28.501354217529297,
+        "maximum_utilization": 0.9660053849220276,
+        "suffix_maximum_command_change": 0.5010086894035339,
+        "terminal_latent": [
+          0.18564952909946442,
+          0.26177138090133667,
+          0.5156543850898743,
+          0.14199361205101013
+        ],
+        "terminal_command": [
+          0.0,
+          0.2855352759361267,
+          0.9418520927429199,
+          0.0
+        ],
+        "suffix_commands": [
+          [
+            0.44503554701805115,
+            0.40140581130981445,
+            0.48913270235061646,
+            0.4241398870944977
+          ],
+          [
+            0.3821544945240021,
+            0.1446634829044342,
+            0.02713748812675476,
+            0.0
+          ],
+          [
+            0.05730384588241577,
+            0.024293839931488037,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.07991087436676025,
+            0.27727633714675903,
+            0.0
+          ],
+          [
+            0.0,
+            0.20973649621009827,
+            0.7290055155754089,
+            0.0
+          ],
+          [
+            0.0,
+            0.2855352759361267,
+            0.9418520927429199,
+            0.0
+          ]
+        ],
+        "tail_utilization": 0.4289517402648926
+      }
+    },
+    {
+      "tick": 5,
+      "actual_support_utilization": 0.9287816286087036,
+      "next_solve": {
+        "optimizer_success": true,
+        "optimizer_message": "Optimization terminated successfully",
+        "iterations": 33,
+        "evaluations": 47,
+        "derivatives": 66,
+        "initial_cost": 28.722431182861328,
+        "final_iterate_cost": 28.395755767822266,
+        "initial_maximum_utilization": 0.9653357863426208,
+        "initial_prefix_utilization": 0.9653357863426208,
+        "initial_tail_utilization": 0.4163095951080322,
+        "final_iterate_maximum_utilization": 0.9653357863426208,
+        "feasible_found": true,
+        "accepted_cost": 28.395755767822266,
+        "maximum_utilization": 0.9653357863426208,
+        "suffix_maximum_command_change": 0.46330517530441284,
+        "terminal_latent": [
+          0.17945699393749237,
+          0.25153014063835144,
+          0.4997316300868988,
+          0.13749417662620544
+        ],
+        "terminal_command": [
+          0.0,
+          0.2681042551994324,
+          0.9095096588134766,
+          0.0
+        ],
+        "suffix_commands": [
+          [
+            0.43284446001052856,
+            0.4357345998287201,
+            0.4706886112689972,
+            0.430711567401886
+          ],
+          [
+            0.3755340576171875,
+            0.16718646883964539,
+            0.01456749439239502,
+            0.0
+          ],
+          [
+            0.05906304717063904,
+            0.02529558539390564,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.06683412194252014,
+            0.2657003402709961,
+            0.0
+          ],
+          [
+            0.0,
+            0.18930700421333313,
+            0.701874315738678,
+            0.0
+          ],
+          [
+            0.0,
+            0.2681042551994324,
+            0.9095096588134766,
+            0.0
+          ]
+        ],
+        "tail_utilization": 0.4157595634460449
+      }
+    },
+    {
+      "tick": 6,
+      "actual_support_utilization": 0.9515587687492371,
+      "next_solve": {
+        "optimizer_success": true,
+        "optimizer_message": "Optimization terminated successfully",
+        "iterations": 30,
+        "evaluations": 43,
+        "derivatives": 60,
+        "initial_cost": 28.603103637695312,
+        "final_iterate_cost": 28.28839874267578,
+        "initial_maximum_utilization": 0.9646689891815186,
+        "initial_prefix_utilization": 0.9646689891815186,
+        "initial_tail_utilization": 0.40383440256118774,
+        "final_iterate_maximum_utilization": 0.9646689891815186,
+        "feasible_found": true,
+        "accepted_cost": 28.28839874267578,
+        "maximum_utilization": 0.9646689891815186,
+        "suffix_maximum_command_change": 0.44963720440864563,
+        "terminal_latent": [
+          0.17529015243053436,
+          0.2408793866634369,
+          0.48354607820510864,
+          0.1344956010580063
+        ],
+        "terminal_command": [
+          0.0,
+          0.24935036897659302,
+          0.8739687204360962,
+          0.0
+        ],
+        "suffix_commands": [
+          [
+            0.43150681257247925,
+            0.4634394645690918,
+            0.46332842111587524,
+            0.43857839703559875
+          ],
+          [
+            0.3784054219722748,
+            0.17364075779914856,
+            0.015188366174697876,
+            0.0
+          ],
+          [
+            0.06116262078285217,
+            0.017822951078414917,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.05149418115615845,
+            0.25223711133003235,
+            0.0
+          ],
+          [
+            0.0,
+            0.16869410872459412,
+            0.6734799742698669,
+            0.0
+          ],
+          [
+            0.0,
+            0.24935036897659302,
+            0.8739687204360962,
+            0.0
+          ]
+        ],
+        "tail_utilization": 0.40319323539733887
+      }
+    },
+    {
+      "tick": 7,
+      "actual_support_utilization": 0.9603981971740723,
+      "next_solve": {
+        "optimizer_success": true,
+        "optimizer_message": "Optimization terminated successfully",
+        "iterations": 32,
+        "evaluations": 48,
+        "derivatives": 64,
+        "initial_cost": 28.48244857788086,
+        "final_iterate_cost": 28.183420181274414,
+        "initial_maximum_utilization": 0.9638136029243469,
+        "initial_prefix_utilization": 0.9638136029243469,
+        "initial_tail_utilization": 0.39181697368621826,
+        "final_iterate_maximum_utilization": 0.9638136029243469,
+        "feasible_found": true,
+        "accepted_cost": 28.183420181274414,
+        "maximum_utilization": 0.9638136029243469,
+        "suffix_maximum_command_change": 0.44575485587120056,
+        "terminal_latent": [
+          0.17248623073101044,
+          0.23323792219161987,
+          0.4681311547756195,
+          0.1323578804731369
+        ],
+        "terminal_command": [
+          0.0,
+          0.23505538702011108,
+          0.8396611213684082,
+          0.0
+        ],
+        "suffix_commands": [
+          [
+            0.4366632103919983,
+            0.46493759751319885,
+            0.46094322204589844,
+            0.44161275029182434
+          ],
+          [
+            0.3807608187198639,
+            0.16719532012939453,
+            0.018770813941955566,
+            0.0
+          ],
+          [
+            0.06372293829917908,
+            0.012201398611068726,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.04442024230957031,
+            0.24000564217567444,
+            0.0
+          ],
+          [
+            0.0,
+            0.15692996978759766,
+            0.6444488763809204,
+            0.0
+          ],
+          [
+            0.0,
+            0.23505538702011108,
+            0.8396611213684082,
+            0.0
+          ]
+        ],
+        "tail_utilization": 0.39112675189971924
+      }
+    },
+    {
+      "tick": 8,
+      "actual_support_utilization": 0.9614924192428589,
+      "next_solve": {
+        "optimizer_success": true,
+        "optimizer_message": "Optimization terminated successfully",
+        "iterations": 38,
+        "evaluations": 50,
+        "derivatives": 76,
+        "initial_cost": 28.374500274658203,
+        "final_iterate_cost": 28.0909423828125,
+        "initial_maximum_utilization": 0.9617236256599426,
+        "initial_prefix_utilization": 0.9617236256599426,
+        "initial_tail_utilization": 0.3807027339935303,
+        "final_iterate_maximum_utilization": 0.9617236256599426,
+        "feasible_found": true,
+        "accepted_cost": 28.0909423828125,
+        "maximum_utilization": 0.9617236256599426,
+        "suffix_maximum_command_change": 0.4454420208930969,
+        "terminal_latent": [
+          0.17021524906158447,
+          0.22852429747581482,
+          0.4558594226837158,
+          0.13093890249729156
+        ],
+        "terminal_command": [
+          0.0,
+          0.2244584560394287,
+          0.8104209303855896,
+          0.0
+        ],
+        "suffix_commands": [
+          [
+            0.4563234746456146,
+            0.45148715376853943,
+            0.46045634150505066,
+            0.4454420208930969
+          ],
+          [
+            0.38199833035469055,
+            0.16366636753082275,
+            0.028620094060897827,
+            0.0
+          ],
+          [
+            0.05342257022857666,
+            0.012647002935409546,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.04333546757698059,
+            0.23044031858444214,
+            0.0
+          ],
+          [
+            0.0,
+            0.15206384658813477,
+            0.6204326152801514,
+            0.0
+          ],
+          [
+            0.0,
+            0.2244584560394287,
+            0.8104209303855896,
+            0.0
+          ]
+        ],
+        "tail_utilization": 0.3799480199813843
+      }
+    },
+    {
+      "tick": 9,
+      "actual_support_utilization": 0.9593996405601501,
+      "next_solve": {
+        "optimizer_success": true,
+        "optimizer_message": "Optimization terminated successfully",
+        "iterations": 38,
+        "evaluations": 50,
+        "derivatives": 76,
+        "initial_cost": 28.28378677368164,
+        "final_iterate_cost": 28.010868072509766,
+        "initial_maximum_utilization": 0.9593996405601501,
+        "initial_prefix_utilization": 0.9571686387062073,
+        "initial_tail_utilization": 0.3701203465461731,
+        "final_iterate_maximum_utilization": 0.9593996405601501,
+        "feasible_found": true,
+        "accepted_cost": 28.010868072509766,
+        "maximum_utilization": 0.9593996405601501,
+        "suffix_maximum_command_change": 0.4460906684398651,
+        "terminal_latent": [
+          0.16816695034503937,
+          0.22239121794700623,
+          0.4411192536354065,
+          0.12987758219242096
+        ],
+        "terminal_command": [
+          0.0,
+          0.2113073170185089,
+          0.776768684387207,
+          0.0
+        ],
+        "suffix_commands": [
+          [
+            0.4600253403186798,
+            0.45094048976898193,
+            0.467408686876297,
+            0.4460906684398651
+          ],
+          [
+            0.3756883144378662,
+            0.16772910952568054,
+            0.03743097186088562,
+            0.0
+          ],
+          [
+            0.046119093894958496,
+            0.0132981538772583,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.03776279091835022,
+            0.2142566740512848,
+            0.0
+          ],
+          [
+            0.0,
+            0.14086121320724487,
+            0.5895463228225708,
+            0.0
+          ],
+          [
+            0.0,
+            0.2113073170185089,
+            0.776768684387207,
+            0.0
+          ]
+        ],
+        "tail_utilization": 0.3693159818649292
+      }
+    },
+    {
+      "tick": 10,
+      "actual_support_utilization": 0.9548388719558716,
+      "next_solve": {
+        "optimizer_success": true,
+        "optimizer_message": "Optimization terminated successfully",
+        "iterations": 41,
+        "evaluations": 57,
+        "derivatives": 82,
+        "initial_cost": 28.204437255859375,
+        "final_iterate_cost": 27.944379806518555,
+        "initial_maximum_utilization": 0.9548388719558716,
+        "initial_prefix_utilization": 0.9513606429100037,
+        "initial_tail_utilization": 0.3600252866744995,
+        "final_iterate_maximum_utilization": 0.9548388719558716,
+        "feasible_found": true,
+        "accepted_cost": 27.944379806518555,
+        "maximum_utilization": 0.9548388719558716,
+        "suffix_maximum_command_change": 0.4485408067703247,
+        "terminal_latent": [
+          0.16638661921024323,
+          0.21669746935367584,
+          0.4278551936149597,
+          0.12920786440372467
+        ],
+        "terminal_command": [
+          0.0,
+          0.19809237122535706,
+          0.7471892237663269,
+          0.0
+        ],
+        "suffix_commands": [
+          [
+            0.46160387992858887,
+            0.4533940851688385,
+            0.47157806158065796,
+            0.4485408067703247
+          ],
+          [
+            0.3706032633781433,
+            0.17297792434692383,
+            0.04000025987625122,
+            0.0
+          ],
+          [
+            0.03782644867897034,
+            0.013539820909500122,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.03182321786880493,
+            0.1980094313621521,
+            0.0
+          ],
+          [
+            0.0,
+            0.13019409775733948,
+            0.5628587603569031,
+            0.0
+          ],
+          [
+            0.0,
+            0.19809237122535706,
+            0.7471892237663269,
+            0.0
+          ]
+        ],
+        "tail_utilization": 0.35919344425201416
+      }
+    },
+    {
+      "tick": 11,
+      "actual_support_utilization": 0.9400984048843384,
+      "next_solve": {
+        "optimizer_success": true,
+        "optimizer_message": "Optimization terminated successfully",
+        "iterations": 35,
+        "evaluations": 48,
+        "derivatives": 70,
+        "initial_cost": 28.134437561035156,
+        "final_iterate_cost": 27.88399314880371,
+        "initial_maximum_utilization": 0.9498751163482666,
+        "initial_prefix_utilization": 0.9498751163482666,
+        "initial_tail_utilization": 0.3496978282928467,
+        "final_iterate_maximum_utilization": 0.9498751163482666,
+        "feasible_found": true,
+        "accepted_cost": 27.88399314880371,
+        "maximum_utilization": 0.9498751163482666,
+        "suffix_maximum_command_change": 0.45120781660079956,
+        "terminal_latent": [
+          0.16625073552131653,
+          0.21764683723449707,
+          0.4170081615447998,
+          0.1288558542728424
+        ],
+        "terminal_command": [
+          0.0,
+          0.19364437460899353,
+          0.7135095000267029,
+          0.0
+        ],
+        "suffix_commands": [
+          [
+            0.45596519112586975,
+            0.43737977743148804,
+            0.459352970123291,
+            0.45120781660079956
+          ],
+          [
+            0.35575371980667114,
+            0.16406691074371338,
+            0.04365244507789612,
+            0.0
+          ],
+          [
+            0.05517682433128357,
+            0.024159252643585205,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.04762575030326843,
+            0.2030932903289795,
+            0.0
+          ],
+          [
+            0.0,
+            0.13517040014266968,
+            0.5426933169364929,
+            0.0
+          ],
+          [
+            0.0,
+            0.19364437460899353,
+            0.7135095000267029,
+            0.0
+          ]
+        ],
+        "tail_utilization": 0.3488960266113281
+      }
+    },
+    {
+      "tick": 12,
+      "actual_support_utilization": 0.9274644255638123,
+      "next_solve": {
+        "optimizer_success": true,
+        "optimizer_message": "Optimization terminated successfully",
+        "iterations": 35,
+        "evaluations": 52,
+        "derivatives": 70,
+        "initial_cost": 28.089454650878906,
+        "final_iterate_cost": 27.849987030029297,
+        "initial_maximum_utilization": 0.9490796327590942,
+        "initial_prefix_utilization": 0.9490796327590942,
+        "initial_tail_utilization": 0.33990514278411865,
+        "final_iterate_maximum_utilization": 0.9490796327590942,
+        "feasible_found": true,
+        "accepted_cost": 27.849987030029297,
+        "maximum_utilization": 0.9490796327590942,
+        "suffix_maximum_command_change": 0.4508874714374542,
+        "terminal_latent": [
+          0.1648900955915451,
+          0.2107233852148056,
+          0.4028684198856354,
+          0.12856225669384003
+        ],
+        "terminal_command": [
+          0.0,
+          0.1797698736190796,
+          0.684190571308136,
+          0.0
+        ],
+        "suffix_commands": [
+          [
+            0.4592002332210541,
+            0.454181432723999,
+            0.47737058997154236,
+            0.4508874714374542
+          ],
+          [
+            0.3625279366970062,
+            0.18016982078552246,
+            0.04934951663017273,
+            0.0
+          ],
+          [
+            0.04048207402229309,
+            0.023491978645324707,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.033261656761169434,
+            0.17763906717300415,
+            0.0
+          ],
+          [
+            0.0,
+            0.11742508411407471,
+            0.5130748152732849,
+            0.0
+          ],
+          [
+            0.0,
+            0.1797698736190796,
+            0.684190571308136,
+            0.0
+          ]
+        ],
+        "tail_utilization": 0.3389871120452881
+      }
+    },
+    {
+      "tick": 13,
+      "actual_support_utilization": 0.9454611539840698,
+      "next_solve": {
+        "optimizer_success": true,
+        "optimizer_message": "Optimization terminated successfully",
+        "iterations": 37,
+        "evaluations": 51,
+        "derivatives": 74,
+        "initial_cost": 28.0733642578125,
+        "final_iterate_cost": 27.84524917602539,
+        "initial_maximum_utilization": 0.9484867453575134,
+        "initial_prefix_utilization": 0.9484867453575134,
+        "initial_tail_utilization": 0.3303762674331665,
+        "final_iterate_maximum_utilization": 0.9484867453575134,
+        "feasible_found": true,
+        "accepted_cost": 27.84524917602539,
+        "maximum_utilization": 0.9484867453575134,
+        "suffix_maximum_command_change": 0.43341314792633057,
+        "terminal_latent": [
+          0.1627236157655716,
+          0.20456594228744507,
+          0.39530572295188904,
+          0.12880584597587585
+        ],
+        "terminal_command": [
+          0.0,
+          0.1671401858329773,
+          0.6668235659599304,
+          0.0
+        ],
+        "suffix_commands": [
+          [
+            0.47499576210975647,
+            0.464274525642395,
+            0.4673028886318207,
+            0.43341314792633057
+          ],
+          [
+            0.3626989722251892,
+            0.18548020720481873,
+            0.041989684104919434,
+            0.019377201795578003
+          ],
+          [
+            0.01288461685180664,
+            0.01804208755493164,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.021575331687927246,
+            0.17017775774002075,
+            0.0
+          ],
+          [
+            0.0,
+            0.10461482405662537,
+            0.5024642944335938,
+            0.0
+          ],
+          [
+            0.0,
+            0.1671401858329773,
+            0.6668235659599304,
+            0.0
+          ]
+        ],
+        "tail_utilization": 0.32948100566864014
+      }
+    },
+    {
+      "tick": 14,
+      "actual_support_utilization": 0.947463870048523,
+      "next_solve": {
+        "optimizer_success": true,
+        "optimizer_message": "Optimization terminated successfully",
+        "iterations": 36,
+        "evaluations": 48,
+        "derivatives": 72,
+        "initial_cost": 28.07494354248047,
+        "final_iterate_cost": 27.848230361938477,
+        "initial_maximum_utilization": 0.947463870048523,
+        "initial_prefix_utilization": 0.9380588531494141,
+        "initial_tail_utilization": 0.32029950618743896,
+        "final_iterate_maximum_utilization": 0.947463870048523,
+        "feasible_found": true,
+        "accepted_cost": 27.848230361938477,
+        "maximum_utilization": 0.947463870048523,
+        "suffix_maximum_command_change": 0.41056737303733826,
+        "terminal_latent": [
+          0.16099190711975098,
+          0.20335422456264496,
+          0.3910067081451416,
+          0.13010941445827484
+        ],
+        "terminal_command": [
+          0.0,
+          0.16230729222297668,
+          0.6560107469558716,
+          0.0
+        ],
+        "suffix_commands": [
+          [
+            0.47833243012428284,
+            0.4533906877040863,
+            0.4525570571422577,
+            0.4189300239086151
+          ],
+          [
+            0.3486287593841553,
+            0.1789047122001648,
+            0.03908458352088928,
+            0.059392303228378296
+          ],
+          [
+            0.0,
+            0.020113319158554077,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.02533891797065735,
+            0.17288804054260254,
+            0.0
+          ],
+          [
+            0.0,
+            0.1040535569190979,
+            0.49730491638183594,
+            0.0
+          ],
+          [
+            0.0,
+            0.16230729222297668,
+            0.6560107469558716,
+            0.0
+          ]
+        ],
+        "tail_utilization": 0.3194096088409424
+      }
+    },
+    {
+      "tick": 15,
+      "actual_support_utilization": 0.9366340041160583,
+      "next_solve": {
+        "optimizer_success": true,
+        "optimizer_message": "Optimization terminated successfully",
+        "iterations": 36,
+        "evaluations": 48,
+        "derivatives": 72,
+        "initial_cost": 28.11343002319336,
+        "final_iterate_cost": 27.8901309967041,
+        "initial_maximum_utilization": 0.9366340041160583,
+        "initial_prefix_utilization": 0.9176064133644104,
+        "initial_tail_utilization": 0.3105957508087158,
+        "final_iterate_maximum_utilization": 0.9366340041160583,
+        "feasible_found": true,
+        "accepted_cost": 27.8901309967041,
+        "maximum_utilization": 0.9366340041160583,
+        "suffix_maximum_command_change": 0.4078903794288635,
+        "terminal_latent": [
+          0.1597040742635727,
+          0.20399110019207,
+          0.38700324296951294,
+          0.1321502923965454
+        ],
+        "terminal_command": [
+          0.0,
+          0.1594921052455902,
+          0.6456409096717834,
+          0.0
+        ],
+        "suffix_commands": [
+          [
+            0.4686984419822693,
+            0.44014474749565125,
+            0.4469749629497528,
+            0.41710978746414185
+          ],
+          [
+            0.3330036997795105,
+            0.17832446098327637,
+            0.044979989528656006,
+            0.10454219579696655
+          ],
+          [
+            0.0,
+            0.028592228889465332,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.03325042128562927,
+            0.1750088334083557,
+            0.0
+          ],
+          [
+            0.0,
+            0.10619214177131653,
+            0.49020349979400635,
+            0.0
+          ],
+          [
+            0.0,
+            0.1594921052455902,
+            0.6456409096717834,
+            0.0
+          ]
+        ],
+        "tail_utilization": 0.30964934825897217
+      }
+    },
+    {
+      "tick": 16,
+      "actual_support_utilization": 0.9158421754837036,
+      "next_solve": {
+        "optimizer_success": true,
+        "optimizer_message": "Optimization terminated successfully",
+        "iterations": 30,
+        "evaluations": 42,
+        "derivatives": 60,
+        "initial_cost": 28.19082260131836,
+        "final_iterate_cost": 27.97164535522461,
+        "initial_maximum_utilization": 0.9158421754837036,
+        "initial_prefix_utilization": 0.8819020390510559,
+        "initial_tail_utilization": 0.3010384440422058,
+        "final_iterate_maximum_utilization": 0.9158421754837036,
+        "feasible_found": true,
+        "accepted_cost": 27.97164535522461,
+        "maximum_utilization": 0.9158421754837036,
+        "suffix_maximum_command_change": 0.39948201179504395,
+        "terminal_latent": [
+          0.15861451625823975,
+          0.20412607491016388,
+          0.38441526889801025,
+          0.13463528454303741
+        ],
+        "terminal_command": [
+          0.0,
+          0.15683969855308533,
+          0.6350977420806885,
+          0.0
+        ],
+        "suffix_commands": [
+          [
+            0.4556427001953125,
+            0.44039663672447205,
+            0.44446200132369995,
+            0.4230380654335022
+          ],
+          [
+            0.32991015911102295,
+            0.18432730436325073,
+            0.04857179522514343,
+            0.14607909321784973
+          ],
+          [
+            0.0,
+            0.0365179181098938,
+            0.0012401342391967773,
+            0.0
+          ],
+          [
+            0.0,
+            0.037256330251693726,
+            0.17853263020515442,
+            0.0
+          ],
+          [
+            0.0,
+            0.10411494970321655,
+            0.4900725185871124,
+            0.0
+          ],
+          [
+            0.0,
+            0.15683969855308533,
+            0.6350977420806885,
+            0.0
+          ]
+        ],
+        "tail_utilization": 0.3000662922859192
+      }
+    },
+    {
+      "tick": 17,
+      "actual_support_utilization": 0.8798983097076416,
+      "next_solve": {
+        "optimizer_success": true,
+        "optimizer_message": "Optimization terminated successfully",
+        "iterations": 32,
+        "evaluations": 44,
+        "derivatives": 64,
+        "initial_cost": 28.301605224609375,
+        "final_iterate_cost": 28.0875244140625,
+        "initial_maximum_utilization": 0.8798983097076416,
+        "initial_prefix_utilization": 0.8277356624603271,
+        "initial_tail_utilization": 0.2916114330291748,
+        "final_iterate_maximum_utilization": 0.8798983097076416,
+        "feasible_found": true,
+        "accepted_cost": 28.0875244140625,
+        "maximum_utilization": 0.8798983097076416,
+        "suffix_maximum_command_change": 0.40504664182662964,
+        "terminal_latent": [
+          0.15795552730560303,
+          0.20327796041965485,
+          0.3806195855140686,
+          0.13696545362472534
+        ],
+        "terminal_command": [
+          0.0,
+          0.1530533730983734,
+          0.6264276504516602,
+          0.0
+        ],
+        "suffix_commands": [
+          [
+            0.4496224522590637,
+            0.4444698691368103,
+            0.45361843705177307,
+            0.42577624320983887
+          ],
+          [
+            0.3344864845275879,
+            0.19174516201019287,
+            0.054201334714889526,
+            0.18113312125205994
+          ],
+          [
+            0.0,
+            0.040842264890670776,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.036720842123031616,
+            0.17355099320411682,
+            0.0
+          ],
+          [
+            0.0,
+            0.10038992762565613,
+            0.48295068740844727,
+            0.0
+          ],
+          [
+            0.0,
+            0.1530533730983734,
+            0.6264276504516602,
+            0.0
+          ]
+        ],
+        "tail_utilization": 0.290530800819397
+      }
+    },
+    {
+      "tick": 18,
+      "actual_support_utilization": 0.8253785967826843,
+      "next_solve": {
+        "optimizer_success": true,
+        "optimizer_message": "Optimization terminated successfully",
+        "iterations": 34,
+        "evaluations": 48,
+        "derivatives": 68,
+        "initial_cost": 28.448745727539062,
+        "final_iterate_cost": 28.23842430114746,
+        "initial_maximum_utilization": 0.8253785967826843,
+        "initial_prefix_utilization": 0.7591118216514587,
+        "initial_tail_utilization": 0.2822777032852173,
+        "final_iterate_maximum_utilization": 0.8253785967826843,
+        "feasible_found": true,
+        "accepted_cost": 28.23842430114746,
+        "maximum_utilization": 0.8253785967826843,
+        "suffix_maximum_command_change": 0.394774466753006,
+        "terminal_latent": [
+          0.157446026802063,
+          0.20382335782051086,
+          0.379774272441864,
+          0.13926482200622559
+        ],
+        "terminal_command": [
+          0.0,
+          0.15069669485092163,
+          0.6246974468231201,
+          0.0
+        ],
+        "suffix_commands": [
+          [
+            0.45121562480926514,
+            0.4418095648288727,
+            0.4489758014678955,
+            0.4273401200771332
+          ],
+          [
+            0.3368338644504547,
+            0.19642719626426697,
+            0.05280345678329468,
+            0.21316978335380554
+          ],
+          [
+            0.0,
+            0.04671314358711243,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.040014177560806274,
+            0.17513558268547058,
+            0.0
+          ],
+          [
+            0.0,
+            0.10076785087585449,
+            0.4826842248439789,
+            0.0
+          ],
+          [
+            0.0,
+            0.15069669485092163,
+            0.6246974468231201,
+            0.0
+          ]
+        ],
+        "tail_utilization": 0.28119611740112305
+      }
+    },
+    {
+      "tick": 19,
+      "actual_support_utilization": 0.756460964679718,
+      "next_solve": {
+        "optimizer_success": true,
+        "optimizer_message": "Optimization terminated successfully",
+        "iterations": 32,
+        "evaluations": 46,
+        "derivatives": 64,
+        "initial_cost": 28.62688446044922,
+        "final_iterate_cost": 28.417287826538086,
+        "initial_maximum_utilization": 0.756460964679718,
+        "initial_prefix_utilization": 0.6739634275436401,
+        "initial_tail_utilization": 0.2731700539588928,
+        "final_iterate_maximum_utilization": 0.756460964679718,
+        "feasible_found": true,
+        "accepted_cost": 28.417287826538086,
+        "maximum_utilization": 0.756460964679718,
+        "suffix_maximum_command_change": 0.38281309604644775,
+        "terminal_latent": [
+          0.15719835460186005,
+          0.20570416748523712,
+          0.38278689980506897,
+          0.14182139933109283
+        ],
+        "terminal_command": [
+          0.0,
+          0.14915651082992554,
+          0.6269498467445374,
+          0.0
+        ],
+        "suffix_commands": [
+          [
+            0.45507529377937317,
+            0.43706244230270386,
+            0.43561655282974243,
+            0.43000054359436035
+          ],
+          [
+            0.3364500105381012,
+            0.2023564577102661,
+            0.05694538354873657,
+            0.2454695999622345
+          ],
+          [
+            0.0008013546466827393,
+            0.05589151382446289,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0469089150428772,
+            0.18785697221755981,
+            0.0
+          ],
+          [
+            0.0,
+            0.10359135270118713,
+            0.4924999177455902,
+            0.0
+          ],
+          [
+            0.0,
+            0.14915651082992554,
+            0.6269498467445374,
+            0.0
+          ]
+        ],
+        "tail_utilization": 0.2721022367477417
+      }
+    },
+    {
+      "tick": 20,
+      "actual_support_utilization": 0.671323299407959,
+      "next_solve": {
+        "optimizer_success": true,
+        "optimizer_message": "Optimization terminated successfully",
+        "iterations": 34,
+        "evaluations": 47,
+        "derivatives": 68,
+        "initial_cost": 28.86461067199707,
+        "final_iterate_cost": 28.661212921142578,
+        "initial_maximum_utilization": 0.671323299407959,
+        "initial_prefix_utilization": 0.6247530579566956,
+        "initial_tail_utilization": 0.26437604427337646,
+        "final_iterate_maximum_utilization": 0.671323299407959,
+        "feasible_found": true,
+        "accepted_cost": 28.661212921142578,
+        "maximum_utilization": 0.671323299407959,
+        "suffix_maximum_command_change": 0.408346027135849,
+        "terminal_latent": [
+          0.1579977124929428,
+          0.20089191198349,
+          0.37404298782348633,
+          0.14529693126678467
+        ],
+        "terminal_command": [
+          0.0,
+          0.13549280166625977,
+          0.6094011664390564,
+          0.0
+        ],
+        "suffix_commands": [
+          [
+            0.42407745122909546,
+            0.45362406969070435,
+            0.46529141068458557,
+            0.40543752908706665
+          ],
+          [
+            0.3440614640712738,
+            0.2176680564880371,
+            0.0717499852180481,
+            0.27616173028945923
+          ],
+          [
+            0.023460686206817627,
+            0.05706760287284851,
+            0.0,
+            0.0247056782245636
+          ],
+          [
+            0.0,
+            0.03731885552406311,
+            0.16458505392074585,
+            0.0
+          ],
+          [
+            0.0,
+            0.08980458974838257,
+            0.47055453062057495,
+            0.0
+          ],
+          [
+            0.0,
+            0.13549280166625977,
+            0.6094011664390564,
+            0.0
+          ]
+        ],
+        "tail_utilization": 0.2629238963127136
+      }
+    },
+    {
+      "tick": 21,
+      "actual_support_utilization": 0.5771118402481079,
+      "next_solve": {
+        "optimizer_success": true,
+        "optimizer_message": "Optimization terminated successfully",
+        "iterations": 35,
+        "evaluations": 49,
+        "derivatives": 70,
+        "initial_cost": 29.126049041748047,
+        "final_iterate_cost": 28.93035888671875,
+        "initial_maximum_utilization": 0.6235171556472778,
+        "initial_prefix_utilization": 0.6235171556472778,
+        "initial_tail_utilization": 0.2569756507873535,
+        "final_iterate_maximum_utilization": 0.6235171556472778,
+        "feasible_found": true,
+        "accepted_cost": 28.93035888671875,
+        "maximum_utilization": 0.6235172152519226,
+        "suffix_maximum_command_change": 0.3906288146972656,
+        "terminal_latent": [
+          0.16037248075008392,
+          0.20003676414489746,
+          0.36941099166870117,
+          0.15095213055610657
+        ],
+        "terminal_command": [
+          0.0,
+          0.12684524059295654,
+          0.5972194075584412,
+          0.0
+        ],
+        "suffix_commands": [
+          [
+            0.40908336639404297,
+            0.450420618057251,
+            0.4623787999153137,
+            0.38864150643348694
+          ],
+          [
+            0.35749930143356323,
+            0.2178519070148468,
+            0.06731292605400085,
+            0.30199092626571655
+          ],
+          [
+            0.06102955341339111,
+            0.06272956728935242,
+            0.0,
+            0.08073833584785461
+          ],
+          [
+            0.0,
+            0.04165855050086975,
+            0.1633269488811493,
+            0.0
+          ],
+          [
+            0.0,
+            0.08782497048377991,
+            0.45956629514694214,
+            0.0
+          ],
+          [
+            0.0,
+            0.12684524059295654,
+            0.5972194075584412,
+            0.0
+          ]
+        ],
+        "tail_utilization": 0.255401074886322
+      }
+    },
+    {
+      "tick": 22,
+      "actual_support_utilization": 0.5620724558830261,
+      "next_solve": {
+        "optimizer_success": true,
+        "optimizer_message": "Optimization terminated successfully",
+        "iterations": 27,
+        "evaluations": 39,
+        "derivatives": 54,
+        "initial_cost": 29.408172607421875,
+        "final_iterate_cost": 29.218772888183594,
+        "initial_maximum_utilization": 0.623322069644928,
+        "initial_prefix_utilization": 0.623322069644928,
+        "initial_tail_utilization": 0.2506290674209595,
+        "final_iterate_maximum_utilization": 0.623322069644928,
+        "feasible_found": true,
+        "accepted_cost": 29.218772888183594,
+        "maximum_utilization": 0.623322069644928,
+        "suffix_maximum_command_change": 0.37734517455101013,
+        "terminal_latent": [
+          0.1661733239889145,
+          0.2056364268064499,
+          0.3643544018268585,
+          0.15791624784469604
+        ],
+        "terminal_command": [
+          0.0,
+          0.12720242142677307,
+          0.5728769302368164,
+          0.0
+        ],
+        "suffix_commands": [
+          [
+            0.39313435554504395,
+            0.4345758557319641,
+            0.444658100605011,
+            0.394673228263855
+          ],
+          [
+            0.35431015491485596,
+            0.20550480484962463,
+            0.07096308469772339,
+            0.31547313928604126
+          ],
+          [
+            0.14823812246322632,
+            0.07894757390022278,
+            0.0,
+            0.15031489729881287
+          ],
+          [
+            0.0,
+            0.06731000542640686,
+            0.18953925371170044,
+            0.0
+          ],
+          [
+            0.0,
+            0.10049384832382202,
+            0.443777859210968,
+            0.0
+          ],
+          [
+            0.0,
+            0.12720242142677307,
+            0.5728769302368164,
+            0.0
+          ]
+        ],
+        "tail_utilization": 0.24894267320632935
+      }
+    },
+    {
+      "tick": 23,
+      "actual_support_utilization": 0.5469645261764526,
+      "next_solve": {
+        "optimizer_success": true,
+        "optimizer_message": "Optimization terminated successfully",
+        "iterations": 28,
+        "evaluations": 40,
+        "derivatives": 56,
+        "initial_cost": 29.755775451660156,
+        "final_iterate_cost": 29.584346771240234,
+        "initial_maximum_utilization": 0.6252206563949585,
+        "initial_prefix_utilization": 0.6252206563949585,
+        "initial_tail_utilization": 0.24930012226104736,
+        "final_iterate_maximum_utilization": 0.6252206563949585,
+        "feasible_found": true,
+        "accepted_cost": 29.584346771240234,
+        "maximum_utilization": 0.625220775604248,
+        "suffix_maximum_command_change": 0.3786684572696686,
+        "terminal_latent": [
+          0.1698538362979889,
+          0.20641788840293884,
+          0.3615800738334656,
+          0.16412772238254547
+        ],
+        "terminal_command": [
+          0.0,
+          0.12043628096580505,
+          0.561166524887085,
+          0.0
+        ],
+        "suffix_commands": [
+          [
+            0.39291998744010925,
+            0.4276154637336731,
+            0.44963154196739197,
+            0.39083755016326904
+          ],
+          [
+            0.40281179547309875,
+            0.2254202961921692,
+            0.08598208427429199,
+            0.3541862368583679
+          ],
+          [
+            0.16861647367477417,
+            0.09444823861122131,
+            0.0,
+            0.19134840369224548
+          ],
+          [
+            0.0,
+            0.07112717628479004,
+            0.18170669674873352,
+            0.0008185207843780518
+          ],
+          [
+            0.0,
+            0.09828662872314453,
+            0.44328197836875916,
+            0.0
+          ],
+          [
+            0.0,
+            0.12043628096580505,
+            0.561166524887085,
+            0.0
+          ]
+        ],
+        "tail_utilization": 0.24751293659210205
+      }
+    },
+    {
+      "tick": 24,
+      "actual_support_utilization": 0.5318930745124817,
+      "next_solve": {
+        "optimizer_success": true,
+        "optimizer_message": "Optimization terminated successfully",
+        "iterations": 28,
+        "evaluations": 41,
+        "derivatives": 56,
+        "initial_cost": 30.067426681518555,
+        "final_iterate_cost": 29.891437530517578,
+        "initial_maximum_utilization": 0.622484564781189,
+        "initial_prefix_utilization": 0.622484564781189,
+        "initial_tail_utilization": 0.24199092388153076,
+        "final_iterate_maximum_utilization": 0.622484564781189,
+        "feasible_found": true,
+        "accepted_cost": 29.891437530517578,
+        "maximum_utilization": 0.622484564781189,
+        "suffix_maximum_command_change": 0.359281063079834,
+        "terminal_latent": [
+          0.17541170120239258,
+          0.21311484277248383,
+          0.3650980293750763,
+          0.17044466733932495
+        ],
+        "terminal_command": [
+          0.0,
+          0.12517160177230835,
+          0.5662356615066528,
+          0.0
+        ],
+        "suffix_commands": [
+          [
+            0.4036930799484253,
+            0.42565062642097473,
+            0.445263147354126,
+            0.43128490447998047
+          ],
+          [
+            0.438906729221344,
+            0.239536315202713,
+            0.08546498417854309,
+            0.393474280834198
+          ],
+          [
+            0.20497560501098633,
+            0.1137319803237915,
+            0.0,
+            0.20779964327812195
+          ],
+          [
+            0.0,
+            0.08582943677902222,
+            0.1915338933467865,
+            0.0
+          ],
+          [
+            0.0,
+            0.1066998541355133,
+            0.4523223638534546,
+            0.0
+          ],
+          [
+            0.0,
+            0.12517160177230835,
+            0.5662356615066528,
+            0.0
+          ]
+        ],
+        "tail_utilization": 0.2403048872947693
+      }
+    },
+    {
+      "tick": 25,
+      "actual_support_utilization": 0.5169123411178589,
+      "next_solve": {
+        "optimizer_success": true,
+        "optimizer_message": "Optimization terminated successfully",
+        "iterations": 22,
+        "evaluations": 35,
+        "derivatives": 44,
+        "initial_cost": 30.348663330078125,
+        "final_iterate_cost": 30.175308227539062,
+        "initial_maximum_utilization": 0.6217942833900452,
+        "initial_prefix_utilization": 0.6217942833900452,
+        "initial_tail_utilization": 0.23264920711517334,
+        "final_iterate_maximum_utilization": 0.6217942833900452,
+        "feasible_found": true,
+        "accepted_cost": 30.175308227539062,
+        "maximum_utilization": 0.6217942833900452,
+        "suffix_maximum_command_change": 0.3273107707500458,
+        "terminal_latent": [
+          0.1806177794933319,
+          0.22402489185333252,
+          0.3688708543777466,
+          0.17620587348937988
+        ],
+        "terminal_command": [
+          0.0,
+          0.13717204332351685,
+          0.5586398243904114,
+          0.0
+        ],
+        "suffix_commands": [
+          [
+            0.4390697181224823,
+            0.42008066177368164,
+            0.41277575492858887,
+            0.4740651547908783
+          ],
+          [
+            0.447406142950058,
+            0.24221271276474,
+            0.08013361692428589,
+            0.3915694057941437
+          ],
+          [
+            0.2355462908744812,
+            0.13483184576034546,
+            0.03585222363471985,
+            0.19404417276382446
+          ],
+          [
+            0.0,
+            0.11253413558006287,
+            0.22623798251152039,
+            0.02582991123199463
+          ],
+          [
+            0.0,
+            0.1257908046245575,
+            0.4516676366329193,
+            0.0
+          ],
+          [
+            0.0,
+            0.13717204332351685,
+            0.5586398243904114,
+            0.0
+          ]
+        ],
+        "tail_utilization": 0.23107695579528809
+      }
+    },
+    {
+      "tick": 26,
+      "actual_support_utilization": 0.5020695328712463,
+      "next_solve": {
+        "optimizer_success": true,
+        "optimizer_message": "Optimization terminated successfully",
+        "iterations": 26,
+        "evaluations": 39,
+        "derivatives": 52,
+        "initial_cost": 30.629886627197266,
+        "final_iterate_cost": 30.46347427368164,
+        "initial_maximum_utilization": 0.6214793920516968,
+        "initial_prefix_utilization": 0.6214793920516968,
+        "initial_tail_utilization": 0.22431796789169312,
+        "final_iterate_maximum_utilization": 0.6214793920516968,
+        "feasible_found": true,
+        "accepted_cost": 30.46347427368164,
+        "maximum_utilization": 0.6214793920516968,
+        "suffix_maximum_command_change": 0.3328571021556854,
+        "terminal_latent": [
+          0.1831601858139038,
+          0.23429693281650543,
+          0.3804885745048523,
+          0.17675134539604187
+        ],
+        "terminal_command": [
+          0.0,
+          0.1539229154586792,
+          0.580190896987915,
+          0.0
+        ],
+        "suffix_commands": [
+          [
+            0.4608684182167053,
+            0.41742953658103943,
+            0.4129907190799713,
+            0.4764496088027954
+          ],
+          [
+            0.46873536705970764,
+            0.25933021306991577,
+            0.10058578848838806,
+            0.39776769280433655
+          ],
+          [
+            0.2203451693058014,
+            0.15162211656570435,
+            0.04490730166435242,
+            0.19746968150138855
+          ],
+          [
+            0.0,
+            0.12552303075790405,
+            0.23657548427581787,
+            0.0
+          ],
+          [
+            0.0,
+            0.14112070202827454,
+            0.4785718023777008,
+            0.0
+          ],
+          [
+            0.0,
+            0.1539229154586792,
+            0.580190896987915,
+            0.0
+          ]
+        ],
+        "tail_utilization": 0.2228681445121765
+      }
+    },
+    {
+      "tick": 27,
+      "actual_support_utilization": 0.48737531900405884,
+      "next_solve": {
+        "optimizer_success": true,
+        "optimizer_message": "Optimization terminated successfully",
+        "iterations": 22,
+        "evaluations": 35,
+        "derivatives": 44,
+        "initial_cost": 30.935596466064453,
+        "final_iterate_cost": 30.767166137695312,
+        "initial_maximum_utilization": 0.6207102537155151,
+        "initial_prefix_utilization": 0.6207102537155151,
+        "initial_tail_utilization": 0.2172260284423828,
+        "final_iterate_maximum_utilization": 0.6207102537155151,
+        "feasible_found": true,
+        "accepted_cost": 30.767166137695312,
+        "maximum_utilization": 0.6207102537155151,
+        "suffix_maximum_command_change": 0.3307357132434845,
+        "terminal_latent": [
+          0.18571648001670837,
+          0.24084296822547913,
+          0.3803773820400238,
+          0.1819199174642563
+        ],
+        "terminal_command": [
+          0.0,
+          0.16214430332183838,
+          0.5693040490150452,
+          0.0
+        ],
+        "suffix_commands": [
+          [
+            0.4658200740814209,
+            0.4360741078853607,
+            0.43132150173187256,
+            0.45305174589157104
+          ],
+          [
+            0.4526338577270508,
+            0.26866281032562256,
+            0.11218267679214478,
+            0.3715824782848358
+          ],
+          [
+            0.2364828884601593,
+            0.16024523973464966,
+            0.06929242610931396,
+            0.1974555253982544
+          ],
+          [
+            0.0,
+            0.13508915901184082,
+            0.2493714988231659,
+            0.04691538214683533
+          ],
+          [
+            0.0,
+            0.14907148480415344,
+            0.4635064899921417,
+            0.0
+          ],
+          [
+            0.0,
+            0.16214430332183838,
+            0.5693040490150452,
+            0.0
+          ]
+        ],
+        "tail_utilization": 0.21559613943099976
+      }
+    },
+    {
+      "tick": 28,
+      "actual_support_utilization": 0.4728304445743561,
+      "next_solve": {
+        "optimizer_success": true,
+        "optimizer_message": "Optimization terminated successfully",
+        "iterations": 30,
+        "evaluations": 44,
+        "derivatives": 60,
+        "initial_cost": 31.242542266845703,
+        "final_iterate_cost": 31.079267501831055,
+        "initial_maximum_utilization": 0.6200224757194519,
+        "initial_prefix_utilization": 0.6200224757194519,
+        "initial_tail_utilization": 0.2101636528968811,
+        "final_iterate_maximum_utilization": 0.6200224757194519,
+        "feasible_found": true,
+        "accepted_cost": 31.079267501831055,
+        "maximum_utilization": 0.6200224757194519,
+        "suffix_maximum_command_change": 0.3524559736251831,
+        "terminal_latent": [
+          0.18606926500797272,
+          0.24883687496185303,
+          0.39258497953414917,
+          0.18202345073223114
+        ],
+        "terminal_command": [
+          0.0,
+          0.18051022291183472,
+          0.6110265254974365,
+          0.0
+        ],
+        "suffix_commands": [
+          [
+            0.45810267329216003,
+            0.4396089017391205,
+            0.4646386504173279,
+            0.42453914880752563
+          ],
+          [
+            0.479888916015625,
+            0.28255417943000793,
+            0.13709229230880737,
+            0.4033854007720947
+          ],
+          [
+            0.20717838406562805,
+            0.16169863939285278,
+            0.028559327125549316,
+            0.23437342047691345
+          ],
+          [
+            0.0,
+            0.13445469737052917,
+            0.2232939898967743,
+            0.0075304508209228516
+          ],
+          [
+            0.0,
+            0.1616344153881073,
+            0.502520740032196,
+            0.0
+          ],
+          [
+            0.0,
+            0.18051022291183472,
+            0.6110265254974365,
+            0.0
+          ]
+        ],
+        "tail_utilization": 0.2085745930671692
+      }
+    },
+    {
+      "tick": 29,
+      "actual_support_utilization": 0.47614338994026184,
+      "next_solve": {
+        "optimizer_success": true,
+        "optimizer_message": "Optimization terminated successfully",
+        "iterations": 33,
+        "evaluations": 47,
+        "derivatives": 66,
+        "initial_cost": 31.570941925048828,
+        "final_iterate_cost": 31.398677825927734,
+        "initial_maximum_utilization": 0.6194671988487244,
+        "initial_prefix_utilization": 0.6194671988487244,
+        "initial_tail_utilization": 0.20337259769439697,
+        "final_iterate_maximum_utilization": 0.6194671988487244,
+        "feasible_found": true,
+        "accepted_cost": 31.398677825927734,
+        "maximum_utilization": 0.6194671988487244,
+        "suffix_maximum_command_change": 0.3281240165233612,
+        "terminal_latent": [
+          0.18767516314983368,
+          0.25614917278289795,
+          0.39874571561813354,
+          0.18727785348892212
+        ],
+        "terminal_command": [
+          0.0,
+          0.19429084658622742,
+          0.6321129202842712,
+          0.0
+        ],
+        "suffix_commands": [
+          [
+            0.4462774693965912,
+            0.443194180727005,
+            0.4652163088321686,
+            0.41842395067214966
+          ],
+          [
+            0.4814957082271576,
+            0.2851104140281677,
+            0.12722089886665344,
+            0.41243985295295715
+          ],
+          [
+            0.2194785177707672,
+            0.1674184501171112,
+            0.025009512901306152,
+            0.2576373219490051
+          ],
+          [
+            0.0,
+            0.14195239543914795,
+            0.22168022394180298,
+            0.0318695604801178
+          ],
+          [
+            0.0,
+            0.17195579409599304,
+            0.5102958679199219,
+            0.0
+          ],
+          [
+            0.0,
+            0.19429084658622742,
+            0.6321129202842712,
+            0.0
+          ]
+        ],
+        "tail_utilization": 0.2016446590423584
+      }
+    },
+    {
+      "tick": 30,
+      "actual_support_utilization": 0.5085890889167786,
+      "next_solve": {
+        "optimizer_success": true,
+        "optimizer_message": "Optimization terminated successfully",
+        "iterations": 27,
+        "evaluations": 40,
+        "derivatives": 54,
+        "initial_cost": 31.896366119384766,
+        "final_iterate_cost": 31.722190856933594,
+        "initial_maximum_utilization": 0.6189699172973633,
+        "initial_prefix_utilization": 0.6189699172973633,
+        "initial_tail_utilization": 0.19652867317199707,
+        "final_iterate_maximum_utilization": 0.6189699172973633,
+        "feasible_found": true,
+        "accepted_cost": 31.722190856933594,
+        "maximum_utilization": 0.6189699172973633,
+        "suffix_maximum_command_change": 0.324088454246521,
+        "terminal_latent": [
+          0.1903609186410904,
+          0.26405051350593567,
+          0.396958589553833,
+          0.19268588721752167
+        ],
+        "terminal_command": [
+          0.0,
+          0.20311236381530762,
+          0.6153796911239624,
+          0.0
+        ],
+        "suffix_commands": [
+          [
+            0.44379621744155884,
+            0.4412726163864136,
+            0.45130935311317444,
+            0.44202935695648193
+          ],
+          [
+            0.46275681257247925,
+            0.2788656949996948,
+            0.10663491487503052,
+            0.41128063201904297
+          ],
+          [
+            0.259804368019104,
+            0.1748025119304657,
+            0.04821613430976868,
+            0.25008711218833923
+          ],
+          [
+            0.0,
+            0.16109344363212585,
+            0.24667954444885254,
+            0.07440680265426636
+          ],
+          [
+            0.0,
+            0.18764787912368774,
+            0.4961094260215759,
+            0.0
+          ],
+          [
+            0.0,
+            0.20311236381530762,
+            0.6153796911239624,
+            0.0
+          ]
+        ],
+        "tail_utilization": 0.19482290744781494
+      }
+    },
+    {
+      "tick": 31,
+      "actual_support_utilization": 0.5328369736671448,
+      "next_solve": {
+        "optimizer_success": true,
+        "optimizer_message": "Optimization terminated successfully",
+        "iterations": 34,
+        "evaluations": 50,
+        "derivatives": 68,
+        "initial_cost": 32.217594146728516,
+        "final_iterate_cost": 32.04936218261719,
+        "initial_maximum_utilization": 0.6184329390525818,
+        "initial_prefix_utilization": 0.6184329390525818,
+        "initial_tail_utilization": 0.18977457284927368,
+        "final_iterate_maximum_utilization": 0.6184329390525818,
+        "feasible_found": true,
+        "accepted_cost": 32.04936218261719,
+        "maximum_utilization": 0.6184329390525818,
+        "suffix_maximum_command_change": 0.33663272857666016,
+        "terminal_latent": [
+          0.19142089784145355,
+          0.2678076922893524,
+          0.4105904698371887,
+          0.19489096105098724
+        ],
+        "terminal_command": [
+          0.0,
+          0.21520626544952393,
+          0.657832682132721,
+          0.0
+        ],
+        "suffix_commands": [
+          [
+            0.43609747290611267,
+            0.44957903027534485,
+            0.4432676434516907,
+            0.42697468400001526
+          ],
+          [
+            0.4962240755558014,
+            0.29211896657943726,
+            0.12072780728340149,
+            0.43355047702789307
+          ],
+          [
+            0.24866023659706116,
+            0.17746028304100037,
+            0.028771907091140747,
+            0.2829345464706421
+          ],
+          [
+            0.0,
+            0.15351134538650513,
+            0.2379060685634613,
+            0.05563318729400635
+          ],
+          [
+            0.0,
+            0.1871461272239685,
+            0.5336784720420837,
+            0.0
+          ],
+          [
+            0.0,
+            0.21520626544952393,
+            0.657832682132721,
+            0.0
+          ]
+        ],
+        "tail_utilization": 0.1880720853805542
+      }
+    },
+    {
+      "tick": 32,
+      "actual_support_utilization": 0.5512797832489014,
+      "next_solve": {
+        "optimizer_success": true,
+        "optimizer_message": "Optimization terminated successfully",
+        "iterations": 28,
+        "evaluations": 45,
+        "derivatives": 56,
+        "initial_cost": 32.55712127685547,
+        "final_iterate_cost": 32.379234313964844,
+        "initial_maximum_utilization": 0.6178117394447327,
+        "initial_prefix_utilization": 0.6178117394447327,
+        "initial_tail_utilization": 0.18298780918121338,
+        "final_iterate_maximum_utilization": 0.6178117394447327,
+        "feasible_found": true,
+        "accepted_cost": 32.379234313964844,
+        "maximum_utilization": 0.6178117394447327,
+        "suffix_maximum_command_change": 0.31768637895584106,
+        "terminal_latent": [
+          0.19420035183429718,
+          0.27744296193122864,
+          0.4099065065383911,
+          0.19883012771606445
+        ],
+        "terminal_command": [
+          0.0,
+          0.2261110246181488,
+          0.6442681550979614,
+          0.0
+        ],
+        "suffix_commands": [
+          [
+            0.43908199667930603,
+            0.43483829498291016,
+            0.43841418623924255,
+            0.4525667428970337
+          ],
+          [
+            0.48428159952163696,
+            0.2845032215118408,
+            0.11046719551086426,
+            0.43214520812034607
+          ],
+          [
+            0.2863718867301941,
+            0.18651291728019714,
+            0.05509260296821594,
+            0.2747880220413208
+          ],
+          [
+            0.0,
+            0.17769309878349304,
+            0.25901782512664795,
+            0.08301994204521179
+          ],
+          [
+            0.0,
+            0.20973962545394897,
+            0.5227710008621216,
+            0.0
+          ],
+          [
+            0.0,
+            0.2261110246181488,
+            0.6442681550979614,
+            0.0
+          ]
+        ],
+        "tail_utilization": 0.1813117265701294
+      }
+    },
+    {
+      "tick": 33,
+      "actual_support_utilization": 0.5654647350311279,
+      "next_solve": {
+        "optimizer_success": true,
+        "optimizer_message": "Optimization terminated successfully",
+        "iterations": 29,
+        "evaluations": 43,
+        "derivatives": 58,
+        "initial_cost": 32.884029388427734,
+        "final_iterate_cost": 32.710235595703125,
+        "initial_maximum_utilization": 0.6170536279678345,
+        "initial_prefix_utilization": 0.6170536279678345,
+        "initial_tail_utilization": 0.1761242151260376,
+        "final_iterate_maximum_utilization": 0.6170536279678345,
+        "feasible_found": true,
+        "accepted_cost": 32.710235595703125,
+        "maximum_utilization": 0.6170536279678345,
+        "suffix_maximum_command_change": 0.32331961393356323,
+        "terminal_latent": [
+          0.19617873430252075,
+          0.28299176692962646,
+          0.4128616750240326,
+          0.20163369178771973
+        ],
+        "terminal_command": [
+          0.0,
+          0.23327091336250305,
+          0.6426539421081543,
+          0.0
+        ],
+        "suffix_commands": [
+          [
+            0.4416297972202301,
+            0.435890257358551,
+            0.4337868094444275,
+            0.4494708180427551
+          ],
+          [
+            0.49335840344429016,
+            0.29289090633392334,
+            0.11824756860733032,
+            0.4308920204639435
+          ],
+          [
+            0.29814404249191284,
+            0.1965307593345642,
+            0.06706202030181885,
+            0.2826404571533203
+          ],
+          [
+            0.0,
+            0.18614718317985535,
+            0.268943727016449,
+            0.09292340278625488
+          ],
+          [
+            0.0,
+            0.21694698929786682,
+            0.5273672342300415,
+            0.0
+          ],
+          [
+            0.0,
+            0.23327091336250305,
+            0.6426539421081543,
+            0.0
+          ]
+        ],
+        "tail_utilization": 0.17445898056030273
+      }
+    },
+    {
+      "tick": 34,
+      "actual_support_utilization": 0.5767217874526978,
+      "next_solve": {
+        "optimizer_success": true,
+        "optimizer_message": "Optimization terminated successfully",
+        "iterations": 35,
+        "evaluations": 53,
+        "derivatives": 70,
+        "initial_cost": 33.21751022338867,
+        "final_iterate_cost": 33.044185638427734,
+        "initial_maximum_utilization": 0.6161108613014221,
+        "initial_prefix_utilization": 0.6161108613014221,
+        "initial_tail_utilization": 0.16930371522903442,
+        "final_iterate_maximum_utilization": 0.6161108613014221,
+        "feasible_found": true,
+        "accepted_cost": 33.044185638427734,
+        "maximum_utilization": 0.6161108613014221,
+        "suffix_maximum_command_change": 0.3102760314941406,
+        "terminal_latent": [
+          0.19732367992401123,
+          0.2851760685443878,
+          0.42759639024734497,
+          0.20468679070472717
+        ],
+        "terminal_command": [
+          0.0,
+          0.2421875298023224,
+          0.6835070848464966,
+          0.0
+        ],
+        "suffix_commands": [
+          [
+            0.44523850083351135,
+            0.455586314201355,
+            0.42852360010147095,
+            0.4311780333518982
+          ],
+          [
+            0.5152335166931152,
+            0.30333778262138367,
+            0.13119184970855713,
+            0.4410135746002197
+          ],
+          [
+            0.2898503839969635,
+            0.19804534316062927,
+            0.06329399347305298,
+            0.30518659949302673
+          ],
+          [
+            0.0,
+            0.17805659770965576,
+            0.27337709069252014,
+            0.09621968865394592
+          ],
+          [
+            0.0,
+            0.212117999792099,
+            0.5575917959213257,
+            0.0
+          ],
+          [
+            0.0,
+            0.2421875298023224,
+            0.6835070848464966,
+            0.0
+          ]
+        ],
+        "tail_utilization": 0.16764676570892334
+      }
+    },
+    {
+      "tick": 35,
+      "actual_support_utilization": 0.5861146450042725
+    }
+  ],
+  "repair": {
+    "optimizer_success": true,
+    "optimizer_message": "Optimization terminated successfully",
+    "iterations": 50,
+    "evaluations": 68,
+    "derivatives": 100,
+    "initial_cost": 44.85150146484375,
+    "final_iterate_cost": 28.630416870117188,
+    "initial_maximum_utilization": 1.2772386074066162,
+    "initial_prefix_utilization": 0.9807529449462891,
+    "initial_tail_utilization": 1.2772386074066162,
+    "final_iterate_maximum_utilization": 0.9807529449462891,
+    "feasible_found": true,
+    "accepted_cost": 28.630416870117188,
+    "maximum_utilization": 0.9807529449462891,
+    "suffix_maximum_command_change": 1.0,
+    "terminal_latent": [
+      0.25900477170944214,
+      0.323920339345932,
+      0.5929182767868042,
+      0.1984729915857315
+    ],
+    "terminal_command": [
+      0.0,
+      0.3351200819015503,
+      1.0,
+      0.0
+    ],
+    "suffix_commands": [
+      [
+        0.5222760438919067,
+        0.854066014289856,
+        0.6506895422935486,
+        1.0
+      ],
+      [
+        0.8067212104797363,
+        0.48700788617134094,
+        0.02654939889907837,
+        0.9461066722869873
+      ],
+      [
+        0.4681491553783417,
+        0.13560405373573303,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.065948486328125,
+        0.3869919180870056,
+        0.0
+      ],
+      [
+        0.0,
+        0.20890578627586365,
+        0.9074072241783142,
+        0.0
+      ],
+      [
+        0.0,
+        0.3351200819015503,
+        1.0,
+        0.0
+      ]
+    ],
+    "tail_utilization": 0.49825072288513184
+  },
+  "repair_tick": 4,
+  "continuation_applied_intervals": 36,
+  "initial_observation_intervals": 10,
+  "extended_run_limit_intervals": 36,
+  "first_repaired_suffix_application_tick": 24,
+  "continuation_applied_repaired_suffix_commands": true,
+  "applied_intervals_originating_in_optimized_suffix": 12,
+  "executed_script_sha256": {
+    "investigate_terminal_suffix.py": "715cc12e16f91723f9191428f3ae1cf0b4d00a804015699ae426342a2e2eb7ac"
+  },
+  "source_sha256": {
+    "scripts/investigate_terminal_suffix.py": "1a8d1cbbd21443abb547aa5bcec353d24241b7b9c6a1a90d90c279b457fbbdd6",
+    "scripts/investigate_sqp_recovery.py": "f080b852202cd09a0d09b90036010dd57742fae20df5a6513709f9bb5d3d5ead",
+    "src/glassbox/belief/belief.py": "16924b30baef0c3f4035c5919349c2ed905dd7cb75ac3287b2c074f1a089293b",
+    "src/glassbox/belief/forecast_error.py": "09602a8a1b8919b5db35a3c84cb477dd8f0cf6d3774eb755ca10ba68696a482b",
+    "src/glassbox/belief/information.py": "fb890920f34bca4af044e521c5694612a6f5a139a0a2d84c7aa37d4370021237",
+    "src/glassbox/belief/linearization.py": "ef0cf77eeb40445d4d09f2397afdd9fac37058934c4975217401e18620d46182",
+    "src/glassbox/belief/parameter_evidence.py": "81a574bf787bfb3b55163145d96546fda11237c6244b127294299b257ccd7606",
+    "src/glassbox/belief/update.py": "d96ba299309e269bdd9f0a320650e089088ca27aa9f5f3785de36e4b337b8587",
+    "src/glassbox/control/fitted.py": "7571ae1f5b50010b30bd52a9d7786834354e45f8c3dbff59de2a0ed0eb4d98af",
+    "src/glassbox/control/plan.py": "2ce8236c225bda2aa402b422e856ea496bd3b80fb1b863171d282009669397ba",
+    "src/glassbox/control/solver.py": "f42771cf33c789b56551e174711edd64c18a5c3b6dd8c3608abd195cfb8c9c5d",
+    "src/glassbox/core/data.py": "89543426635a7136ef8da8666fbeee290174ce4c36b08998644492e758f29759",
+    "src/glassbox/core/dynamics.py": "f7d3a65549d6c7d35987d3b55ca8431581f7b7b07976d59fd7dc7e0c27395c01",
+    "src/glassbox/core/geometry.py": "f83708893892c2f34c9e52423f47e53d271fd0b7579cf6a7ece439293c3d07bb",
+    "src/glassbox/core/metrics.py": "1a984d3ef1d3bc875e602f2ee4129e0bb11a1570652920929e1d7be30c4bfc42",
+    "src/glassbox/core/diagnostics.py": "4553e646a755c1254f0fb11b4f5e0eca79ec8eb774a45c4190fc55fd335b673f",
+    "src/glassbox/core/model.py": "8062215ea5886c2c15d2d22e78ee29b8943852f48da140e1a6c06d892b848ed8",
+    "src/glassbox/core/synthetic.py": "6b9bec538e8e0964ca67ec5d61060ac02bc54bc9428fbae50d5f141f4571f8f1",
+    "src/glassbox/workflows/benchmarks/recovery.py": "d459952644f2bec35365d2e9a259956ea8b1cdacc76d53a9fa64e4dba35735e5"
+  },
+  "fixture_sha256": {
+    "rich-belief.json": "cd4e3b5201aff055b274a6fc1fe8eee64aa0656b447999b6618122a965d71bd1",
+    "horizon-shift-states.npz": "d6ff2734b99951078410022ac7aa88134a1ca8c93f1ed353bdb2a6855da40a0b",
+    "manifest.json": "79bdc99faaf11bfa9f91268b3437b4b07ac3ff2563d70b062eb423b17c171b70"
+  },
+  "fixture_manifest": {
+    "baseline_revision": "4f5cddb1b0095010235ea919fbd2aa6553b2589c",
+    "tick_results": [
+      {
+        "tick": 0,
+        "status": "stalled",
+        "usable": true,
+        "message": "offline SQP feasible iterate; convergence not asserted"
+      },
+      {
+        "tick": 1,
+        "status": "stalled",
+        "usable": true,
+        "message": "offline SQP feasible iterate; convergence not asserted"
+      },
+      {
+        "tick": 2,
+        "status": "stalled",
+        "usable": true,
+        "message": "offline SQP feasible iterate; convergence not asserted"
+      },
+      {
+        "tick": 3,
+        "status": "stalled",
+        "usable": true,
+        "message": "offline SQP feasible iterate; convergence not asserted"
+      },
+      {
+        "tick": 4,
+        "status": "line_search_failed",
+        "usable": false,
+        "message": "SQP returned no feasible command plan"
+      }
+    ],
+    "array_shapes": {
+      "reference_states": [
+        31,
+        13
+      ],
+      "tick0_state": [
+        13
+      ],
+      "tick0_latent": [
+        4
+      ],
+      "tick0_previous_command": [
+        4
+      ],
+      "tick0_predicted_states": [
+        31,
+        13
+      ],
+      "tick0_predicted_latent_states": [
+        31,
+        4
+      ],
+      "tick0_predicted_commands": [
+        30,
+        4
+      ],
+      "tick1_state": [
+        13
+      ],
+      "tick1_latent": [
+        4
+      ],
+      "tick1_previous_command": [
+        4
+      ],
+      "tick1_warm_commands": [
+        30,
+        4
+      ],
+      "tick1_shifted_commands": [
+        30,
+        4
+      ],
+      "tick1_predicted_states": [
+        31,
+        13
+      ],
+      "tick1_predicted_latent_states": [
+        31,
+        4
+      ],
+      "tick1_predicted_commands": [
+        30,
+        4
+      ],
+      "tick2_state": [
+        13
+      ],
+      "tick2_latent": [
+        4
+      ],
+      "tick2_previous_command": [
+        4
+      ],
+      "tick2_warm_commands": [
+        30,
+        4
+      ],
+      "tick2_shifted_commands": [
+        30,
+        4
+      ],
+      "tick2_predicted_states": [
+        31,
+        13
+      ],
+      "tick2_predicted_latent_states": [
+        31,
+        4
+      ],
+      "tick2_predicted_commands": [
+        30,
+        4
+      ],
+      "tick3_state": [
+        13
+      ],
+      "tick3_latent": [
+        4
+      ],
+      "tick3_previous_command": [
+        4
+      ],
+      "tick3_warm_commands": [
+        30,
+        4
+      ],
+      "tick3_shifted_commands": [
+        30,
+        4
+      ],
+      "tick3_predicted_states": [
+        31,
+        13
+      ],
+      "tick3_predicted_latent_states": [
+        31,
+        4
+      ],
+      "tick3_predicted_commands": [
+        30,
+        4
+      ],
+      "tick4_state": [
+        13
+      ],
+      "tick4_latent": [
+        4
+      ],
+      "tick4_previous_command": [
+        4
+      ],
+      "tick4_warm_commands": [
+        30,
+        4
+      ],
+      "tick4_shifted_commands": [
+        30,
+        4
+      ]
+    },
+    "source_sha256": {
+      "scripts/investigate_sqp_recovery.py": "f080b852202cd09a0d09b90036010dd57742fae20df5a6513709f9bb5d3d5ead",
+      "scripts/investigate_recovery.py": "683901f143ec7c44c5494202fcb48be66b3a63883931804f54cf3a85410833dc",
+      "src/glassbox/belief/belief.py": "16924b30baef0c3f4035c5919349c2ed905dd7cb75ac3287b2c074f1a089293b",
+      "src/glassbox/belief/forecast_error.py": "09602a8a1b8919b5db35a3c84cb477dd8f0cf6d3774eb755ca10ba68696a482b",
+      "src/glassbox/belief/information.py": "fb890920f34bca4af044e521c5694612a6f5a139a0a2d84c7aa37d4370021237",
+      "src/glassbox/belief/linearization.py": "ef0cf77eeb40445d4d09f2397afdd9fac37058934c4975217401e18620d46182",
+      "src/glassbox/belief/parameter_evidence.py": "81a574bf787bfb3b55163145d96546fda11237c6244b127294299b257ccd7606",
+      "src/glassbox/belief/update.py": "d96ba299309e269bdd9f0a320650e089088ca27aa9f5f3785de36e4b337b8587",
+      "src/glassbox/control/fitted.py": "7571ae1f5b50010b30bd52a9d7786834354e45f8c3dbff59de2a0ed0eb4d98af",
+      "src/glassbox/control/plan.py": "2ce8236c225bda2aa402b422e856ea496bd3b80fb1b863171d282009669397ba",
+      "src/glassbox/control/solver.py": "f42771cf33c789b56551e174711edd64c18a5c3b6dd8c3608abd195cfb8c9c5d",
+      "src/glassbox/core/data.py": "89543426635a7136ef8da8666fbeee290174ce4c36b08998644492e758f29759",
+      "src/glassbox/core/dynamics.py": "f7d3a65549d6c7d35987d3b55ca8431581f7b7b07976d59fd7dc7e0c27395c01",
+      "src/glassbox/core/geometry.py": "f83708893892c2f34c9e52423f47e53d271fd0b7579cf6a7ece439293c3d07bb",
+      "src/glassbox/core/metrics.py": "1a984d3ef1d3bc875e602f2ee4129e0bb11a1570652920929e1d7be30c4bfc42",
+      "src/glassbox/core/diagnostics.py": "4553e646a755c1254f0fb11b4f5e0eca79ec8eb774a45c4190fc55fd335b673f",
+      "src/glassbox/core/model.py": "8062215ea5886c2c15d2d22e78ee29b8943852f48da140e1a6c06d892b848ed8",
+      "src/glassbox/core/synthetic.py": "6b9bec538e8e0964ca67ec5d61060ac02bc54bc9428fbae50d5f141f4571f8f1",
+      "src/glassbox/workflows/benchmarks/recovery.py": "d459952644f2bec35365d2e9a259956ea8b1cdacc76d53a9fa64e4dba35735e5"
+    }
+  },
+  "stop_reason": "bounded_continuation_complete",
+  "post_run_reporting_only_changes": "Added fixture/dependency fingerprints and persistent negative actual-support/nonfinite/optimizer-stop reporting after completed 36-interval run; numerical formulation unchanged."
+}

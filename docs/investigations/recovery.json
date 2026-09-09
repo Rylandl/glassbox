@@ -1,0 +1,1809 @@
+{
+  "format_version": 1,
+  "diagnostic_only": true,
+  "implementation": {
+    "recovery_source_sha256": "36d313499ea0b249d9827e78dc7f272499fb4fc751906bcccb8d8d10a5cc2520",
+    "script_sha256": "100a4ce290d08a32ca8c0a41258af68feb7aabaf2c8747dcd46e177944cfed6d",
+    "python": "3.12.12",
+    "jax": "0.11.1",
+    "numpy": "2.5.2",
+    "scipy": "1.18.1"
+  },
+  "configuration": {
+    "additional_telemetry_seeds": [
+      31,
+      32,
+      33,
+      34,
+      35,
+      36
+    ],
+    "additional_duration_per_seed_s": 2.0,
+    "disturbance_states": {
+      "small": [
+        0.025,
+        -0.02,
+        -0.015,
+        0.0,
+        0.0,
+        0.0,
+        0.9998732687083579,
+        0.012050057936713935,
+        -0.008427137435116226,
+        0.006101309763925086,
+        0.03,
+        -0.03,
+        0.03
+      ],
+      "original": [
+        0.25,
+        -0.2,
+        -0.15,
+        0.07360907288829387,
+        -0.5411664544096493,
+        -0.276997858355163,
+        0.9868347724186003,
+        0.12411956301262572,
+        -0.07698297415717102,
+        0.0694628513163726,
+        0.37771417910202726,
+        -0.22519321722805347,
+        0.13999999999999999
+      ]
+    },
+    "contributions": [
+      "point",
+      "forecast",
+      "parameter",
+      "both"
+    ],
+    "reference": "offline L-BFGS-B, identical objective and command bounds"
+  },
+  "initial_evidence": {
+    "fleet": {
+      "member_count": 5,
+      "parameter_count": 19,
+      "estimable_parameter_count": 15,
+      "seed_resolved_rank": 1,
+      "posterior_resolved_rank": 15,
+      "prior_covariance_trace": 0.0625,
+      "posterior_covariance_trace": 3954.3634999047977,
+      "one_step_innovation_noise": [
+        1e-08,
+        1e-08,
+        1e-08,
+        1e-06,
+        1e-06,
+        1e-06,
+        1e-08,
+        1e-08,
+        1e-08,
+        1.5829724058011114e-06,
+        1.3290463422890511e-06,
+        1e-06
+      ],
+      "forecast_error_horizons_s": [
+        0.1,
+        0.6
+      ],
+      "forecast_error_group_count": [
+        5,
+        5
+      ],
+      "forecast_error_raw_endpoint_count": [
+        180,
+        45
+      ]
+    },
+    "adaptation": {
+      "absorbed": true,
+      "reason": null,
+      "window_count": 40,
+      "innovation_rms_before": 0.2513872705418033,
+      "innovation_rms_after": 0.21114018283520652,
+      "information_gain_nats": 1.698074695695995,
+      "step_norm_prior_sigma": 0.008400076405101346,
+      "maximum_validity_utilization": 0.3963615894317627
+    },
+    "independent_prediction": {
+      "horizon_s": 0.6,
+      "normalized_rms_before": 0.03339372324562736,
+      "normalized_rms_after": 0.028970294626072573,
+      "normalized_rms_ratio": 0.8675371240571684
+    }
+  },
+  "covariance_probes": {
+    "short_adaptation": {
+      "resolved_rank": 15,
+      "complete": true,
+      "maximum_normalized_parameter_standard_deviation": 52.71358726826436,
+      "nonfinite_sigma_point_count": 4,
+      "sigma_point_count": 30,
+      "modes": [
+        {
+          "factor_index": 13,
+          "linearized_tracking_spread_cost": 0.552177814015518,
+          "cost_fraction": 0.6550851684901242,
+          "largest_parameter_displacements": {
+            "log_angular_drag[1]": 26.403728485107422,
+            "log_angular_drag[0]": 17.236772537231445,
+            "angular_control_cross_coupling_unconstrained[1,0]": 2.0784199237823486,
+            "angular_control_cross_coupling_unconstrained[1,2]": -1.9876954555511475,
+            "angular_control_cross_coupling_unconstrained[0,1]": -1.3145626783370972
+          },
+          "relative_nonlinear_error_plus_minus": [
+            null,
+            0.9577234715158108
+          ]
+        },
+        {
+          "factor_index": 14,
+          "linearized_tracking_spread_cost": 0.2435717679490181,
+          "cost_fraction": 0.288965345213663,
+          "largest_parameter_displacements": {
+            "log_angular_drag[2]": 52.555152893066406,
+            "angular_control_cross_coupling_unconstrained[2,1]": 2.9258220195770264,
+            "log_angular_accel[2]": 2.783402681350708,
+            "angular_control_cross_coupling_unconstrained[2,0]": -0.6085825562477112,
+            "log_angular_drag[0]": 0.007332216016948223
+          },
+          "relative_nonlinear_error_plus_minus": [
+            null,
+            0.9804073124129483
+          ]
+        },
+        {
+          "factor_index": 12,
+          "linearized_tracking_spread_cost": 0.045452509054555265,
+          "cost_fraction": 0.05392332650196889,
+          "largest_parameter_displacements": {
+            "log_angular_drag[0]": -10.672425270080566,
+            "log_angular_drag[1]": 6.94951868057251,
+            "angular_control_cross_coupling_unconstrained[0,2]": -0.6865010261535645,
+            "angular_control_cross_coupling_unconstrained[1,2]": -0.682295560836792,
+            "angular_control_cross_coupling_unconstrained[0,1]": 0.410169392824173
+          },
+          "relative_nonlinear_error_plus_minus": [
+            null,
+            null
+          ]
+        },
+        {
+          "factor_index": 10,
+          "linearized_tracking_spread_cost": 0.0013649591933343752,
+          "cost_fraction": 0.001619341633169029,
+          "largest_parameter_displacements": {
+            "log_linear_drag": -1.0478646755218506,
+            "angular_control_cross_coupling_unconstrained[1,0]": 0.1990080177783966,
+            "angular_control_cross_coupling_unconstrained[0,1]": -0.19648082554340363,
+            "log_angular_accel[0]": -0.10047627985477448,
+            "log_angular_accel[1]": 0.09251164644956589
+          },
+          "relative_nonlinear_error_plus_minus": [
+            0.35080373318418717,
+            0.6439522357505204
+          ]
+        },
+        {
+          "factor_index": 0,
+          "linearized_tracking_spread_cost": 0.00021630758938059557,
+          "cost_fraction": 0.00025662004165762775,
+          "largest_parameter_displacements": {
+            "log_thrust_accel": 0.0008050390752032399,
+            "log_motor_time_constant": -2.1935784388915636e-06,
+            "log_linear_drag": 4.3903355617658235e-07,
+            "log_angular_accel[0]": 2.0866179617495817e-10,
+            "log_angular_accel[1]": 1.8448044480923187e-10
+          },
+          "relative_nonlinear_error_plus_minus": [
+            0.0004673025263079287,
+            0.000517665868749686
+          ]
+        },
+        {
+          "factor_index": 9,
+          "linearized_tracking_spread_cost": 9.616925461767333e-05,
+          "cost_fraction": 0.00011409196596771943,
+          "largest_parameter_displacements": {
+            "angular_control_cross_coupling_unconstrained[0,1]": -0.5934057831764221,
+            "angular_control_cross_coupling_unconstrained[1,0]": 0.4580423831939697,
+            "log_linear_drag": 0.26679301261901855,
+            "log_angular_accel[0]": -0.26576194167137146,
+            "log_angular_accel[1]": 0.24902454018592834
+          },
+          "relative_nonlinear_error_plus_minus": [
+            0.1206196753691584,
+            0.10315827012982696
+          ]
+        },
+        {
+          "factor_index": 7,
+          "linearized_tracking_spread_cost": 1.831442306093458e-05,
+          "cost_fraction": 2.172761493154554e-05,
+          "largest_parameter_displacements": {
+            "log_motor_time_constant": -0.08449164032936096,
+            "angular_control_cross_coupling_unconstrained[1,2]": -0.07613992691040039,
+            "angular_control_cross_coupling_unconstrained[2,0]": -0.07610684633255005,
+            "angular_control_cross_coupling_unconstrained[2,1]": 0.0633883848786354,
+            "angular_control_cross_coupling_unconstrained[0,2]": 0.05368868261575699
+          },
+          "relative_nonlinear_error_plus_minus": [
+            0.0005200839970120681,
+            0.0009315057724174427
+          ]
+        },
+        {
+          "factor_index": 6,
+          "linearized_tracking_spread_cost": 4.239733366878646e-06,
+          "cost_fraction": 5.0298769282259605e-06,
+          "largest_parameter_displacements": {
+            "angular_control_cross_coupling_unconstrained[2,0]": -0.0817512571811676,
+            "angular_control_cross_coupling_unconstrained[2,1]": 0.06365165114402771,
+            "angular_control_cross_coupling_unconstrained[1,2]": 0.04701549932360649,
+            "log_motor_time_constant": 0.04086241126060486,
+            "log_angular_accel[2]": 0.03743034228682518
+          },
+          "relative_nonlinear_error_plus_minus": [
+            0.0002385505701939154,
+            0.0009675866136823253
+          ]
+        },
+        {
+          "factor_index": 3,
+          "linearized_tracking_spread_cost": 3.7922688707344322e-06,
+          "cost_fraction": 4.499020114696428e-06,
+          "largest_parameter_displacements": {
+            "log_motor_time_constant": -0.039025381207466125,
+            "angular_control_cross_coupling_unconstrained[0,2]": -0.029231984168291092,
+            "angular_control_cross_coupling_unconstrained[1,2]": 0.023765498772263527,
+            "angular_control_cross_coupling_unconstrained[0,1]": 0.014146333560347557,
+            "log_angular_accel[1]": -0.01106276921927929
+          },
+          "relative_nonlinear_error_plus_minus": [
+            0.0011794649373422503,
+            0.00014266028331954455
+          ]
+        },
+        {
+          "factor_index": 8,
+          "linearized_tracking_spread_cost": 1.6665967823269041e-06,
+          "cost_fraction": 1.9771943135785548e-06,
+          "largest_parameter_displacements": {
+            "angular_control_cross_coupling_unconstrained[1,0]": 0.32306069135665894,
+            "angular_control_cross_coupling_unconstrained[0,1]": 0.2767491638660431,
+            "log_angular_accel[1]": 0.17078958451747894,
+            "angular_control_cross_coupling_unconstrained[1,2]": 0.11789020150899887,
+            "angular_control_cross_coupling_unconstrained[0,2]": 0.11506251990795135
+          },
+          "relative_nonlinear_error_plus_minus": [
+            0.003975839768886358,
+            0.002863349236013713
+          ]
+        },
+        {
+          "factor_index": 11,
+          "linearized_tracking_spread_cost": 1.3253617386270515e-06,
+          "cost_fraction": 1.5723645460236946e-06,
+          "largest_parameter_displacements": {
+            "angular_control_cross_coupling_unconstrained[2,1]": -1.497000813484192,
+            "angular_control_cross_coupling_unconstrained[2,0]": -1.3025132417678833,
+            "log_angular_accel[2]": -0.26811641454696655,
+            "log_angular_drag[2]": 0.08245756477117538,
+            "log_linear_drag": -0.024524759501218796
+          },
+          "relative_nonlinear_error_plus_minus": [
+            0.027256238895965085,
+            0.026158835544857675
+          ]
+        },
+        {
+          "factor_index": 1,
+          "linearized_tracking_spread_cost": 6.347697577536245e-07,
+          "cost_fraction": 7.530694699348828e-07,
+          "largest_parameter_displacements": {
+            "log_angular_accel[1]": -0.02610306441783905,
+            "log_motor_time_constant": 0.01598832942545414,
+            "log_angular_accel[0]": -0.015493229031562805,
+            "angular_control_cross_coupling_unconstrained[1,0]": 0.011926759965717793,
+            "angular_control_cross_coupling_unconstrained[1,2]": 0.006918907631188631
+          },
+          "relative_nonlinear_error_plus_minus": [
+            0.0016136595283560602,
+            0.0008961477375378831
+          ]
+        },
+        {
+          "factor_index": 5,
+          "linearized_tracking_spread_cost": 3.5501398585568375e-07,
+          "cost_fraction": 4.211766406357017e-07,
+          "largest_parameter_displacements": {
+            "angular_control_cross_coupling_unconstrained[0,2]": 0.05632106959819794,
+            "angular_control_cross_coupling_unconstrained[1,2]": 0.04901181161403656,
+            "angular_control_cross_coupling_unconstrained[1,0]": -0.02390078641474247,
+            "log_angular_accel[0]": -0.022285012528300285,
+            "log_motor_time_constant": -0.011510437354445457
+          },
+          "relative_nonlinear_error_plus_minus": [
+            0.0018462333394726703,
+            0.00171780879596048
+          ]
+        },
+        {
+          "factor_index": 2,
+          "linearized_tracking_spread_cost": 7.947186058590594e-08,
+          "cost_fraction": 9.428273983619121e-08,
+          "largest_parameter_displacements": {
+            "log_angular_accel[0]": 0.03018231689929962,
+            "log_angular_accel[1]": -0.019509613513946533,
+            "angular_control_cross_coupling_unconstrained[0,1]": -0.01487702876329422,
+            "angular_control_cross_coupling_unconstrained[1,2]": 0.008172418922185898,
+            "angular_control_cross_coupling_unconstrained[1,0]": 0.007858327589929104
+          },
+          "relative_nonlinear_error_plus_minus": [
+            0.0036027225110503444,
+            0.0027699647050757415
+          ]
+        },
+        {
+          "factor_index": 4,
+          "linearized_tracking_spread_cost": 2.6596982840171816e-08,
+          "cost_fraction": 3.155376500638116e-08,
+          "largest_parameter_displacements": {
+            "log_angular_accel[2]": -0.0682184025645256,
+            "angular_control_cross_coupling_unconstrained[2,1]": 0.020428091287612915,
+            "angular_control_cross_coupling_unconstrained[0,2]": -0.010484497994184494,
+            "angular_control_cross_coupling_unconstrained[2,0]": -0.009322401136159897,
+            "angular_control_cross_coupling_unconstrained[1,2]": 0.00449404027312994
+          },
+          "relative_nonlinear_error_plus_minus": [
+            0.004699692338993452,
+            0.006091066179468636
+          ]
+        }
+      ]
+    },
+    "additional_evidence": {
+      "resolved_rank": 15,
+      "complete": true,
+      "maximum_normalized_parameter_standard_deviation": 0.3452246997941261,
+      "nonfinite_sigma_point_count": 0,
+      "sigma_point_count": 30,
+      "modes": [
+        {
+          "factor_index": 0,
+          "linearized_tracking_spread_cost": 1.397065946526142e-05,
+          "cost_fraction": 0.39643325390847706,
+          "largest_parameter_displacements": {
+            "log_thrust_accel": 0.00020457235223148018,
+            "log_motor_time_constant": 5.8555205129096066e-08,
+            "log_linear_drag": -4.985523816003479e-08,
+            "log_angular_accel[0]": -8.745387226893886e-12,
+            "log_angular_accel[1]": -7.962398101968304e-12
+          },
+          "relative_nonlinear_error_plus_minus": [
+            0.0002227960621343919,
+            0.00017076334945552524
+          ]
+        },
+        {
+          "factor_index": 14,
+          "linearized_tracking_spread_cost": 1.0190889500074235e-05,
+          "cost_fraction": 0.28917800872477034,
+          "largest_parameter_displacements": {
+            "log_angular_drag[2]": 0.3417489230632782,
+            "log_angular_drag[1]": 0.034502964466810226,
+            "log_angular_drag[0]": 0.03135821595788002,
+            "log_angular_accel[2]": 0.008751163259148598,
+            "log_motor_time_constant": 0.008265448734164238
+          },
+          "relative_nonlinear_error_plus_minus": [
+            0.17287015386966045,
+            0.14134299730927768
+          ]
+        },
+        {
+          "factor_index": 13,
+          "linearized_tracking_spread_cost": 7.2580231569490635e-06,
+          "cost_fraction": 0.20595461110529287,
+          "largest_parameter_displacements": {
+            "log_angular_drag[1]": 0.11452034115791321,
+            "log_angular_drag[0]": 0.10424268245697021,
+            "log_angular_drag[2]": -0.021547649055719376,
+            "log_motor_time_constant": 0.017865397036075592,
+            "log_angular_accel[0]": 0.0037020978052169085
+          },
+          "relative_nonlinear_error_plus_minus": [
+            0.05032799138200648,
+            0.04746139154289295
+          ]
+        },
+        {
+          "factor_index": 12,
+          "linearized_tracking_spread_cost": 2.989500197028653e-06,
+          "cost_fraction": 0.08483044723944431,
+          "largest_parameter_displacements": {
+            "log_angular_drag[0]": -0.07404408603906631,
+            "log_angular_drag[1]": 0.06729309260845184,
+            "angular_control_cross_coupling_unconstrained[1,2]": 0.00418885238468647,
+            "angular_control_cross_coupling_unconstrained[1,0]": -0.001577734830789268,
+            "log_angular_accel[0]": -0.0013060994679108262
+          },
+          "relative_nonlinear_error_plus_minus": [
+            0.03206717529422992,
+            0.032423282135151735
+          ]
+        },
+        {
+          "factor_index": 11,
+          "linearized_tracking_spread_cost": 8.216025111857048e-07,
+          "cost_fraction": 0.023313899944280844,
+          "largest_parameter_displacements": {
+            "log_linear_drag": -0.026646267622709274,
+            "log_motor_time_constant": -0.0014316587476059794,
+            "angular_control_cross_coupling_unconstrained[2,1]": -0.0006573828286491334,
+            "angular_control_cross_coupling_unconstrained[1,2]": 0.0005230479291640222,
+            "log_angular_drag[1]": 0.00038343199412338436
+          },
+          "relative_nonlinear_error_plus_minus": [
+            0.01253184507244078,
+            0.012654012098004716
+          ]
+        },
+        {
+          "factor_index": 6,
+          "linearized_tracking_spread_cost": 5.799038650276424e-09,
+          "cost_fraction": 0.000164554276581323,
+          "largest_parameter_displacements": {
+            "log_motor_time_constant": 0.012059626169502735,
+            "angular_control_cross_coupling_unconstrained[1,2]": 0.0062043918296694756,
+            "log_angular_accel[2]": 0.003594278823584318,
+            "log_angular_accel[0]": 0.0013662467245012522,
+            "log_angular_drag[1]": -0.001355260843411088
+          },
+          "relative_nonlinear_error_plus_minus": [
+            0.002681790809034133,
+            0.003687221628583462
+          ]
+        },
+        {
+          "factor_index": 7,
+          "linearized_tracking_spread_cost": 1.6892471476328987e-09,
+          "cost_fraction": 4.79342972360677e-05,
+          "largest_parameter_displacements": {
+            "angular_control_cross_coupling_unconstrained[1,2]": 0.013752184808254242,
+            "angular_control_cross_coupling_unconstrained[0,2]": -0.0076656523160636425,
+            "log_motor_time_constant": -0.005589752923697233,
+            "angular_control_cross_coupling_unconstrained[0,1]": 0.00476014893501997,
+            "angular_control_cross_coupling_unconstrained[1,0]": -0.003515742253512144
+          },
+          "relative_nonlinear_error_plus_minus": [
+            0.007444507776981181,
+            0.05252374744289698
+          ]
+        },
+        {
+          "factor_index": 8,
+          "linearized_tracking_spread_cost": 1.311808041155519e-09,
+          "cost_fraction": 3.722403595561813e-05,
+          "largest_parameter_displacements": {
+            "angular_control_cross_coupling_unconstrained[0,2]": -0.013786003924906254,
+            "angular_control_cross_coupling_unconstrained[0,1]": 0.008163918741047382,
+            "angular_control_cross_coupling_unconstrained[1,2]": -0.007295981980860233,
+            "log_motor_time_constant": 0.004950908478349447,
+            "angular_control_cross_coupling_unconstrained[1,0]": 0.0019764024764299393
+          },
+          "relative_nonlinear_error_plus_minus": [
+            0.0027418418570884853,
+            0.00428990190549643
+          ]
+        },
+        {
+          "factor_index": 10,
+          "linearized_tracking_spread_cost": 9.099184519828702e-10,
+          "cost_fraction": 2.581996459135537e-05,
+          "largest_parameter_displacements": {
+            "angular_control_cross_coupling_unconstrained[2,1]": 0.021995466202497482,
+            "angular_control_cross_coupling_unconstrained[2,0]": 0.007838967256247997,
+            "log_angular_accel[2]": -0.007609745021909475,
+            "log_motor_time_constant": 0.0010954231256619096,
+            "log_linear_drag": -0.0007468690746463835
+          },
+          "relative_nonlinear_error_plus_minus": [
+            0.0812137565860499,
+            0.00896920000942621
+          ]
+        },
+        {
+          "factor_index": 5,
+          "linearized_tracking_spread_cost": 3.021004832303967e-10,
+          "cost_fraction": 8.572442687630026e-06,
+          "largest_parameter_displacements": {
+            "log_angular_accel[2]": 0.011311409063637257,
+            "angular_control_cross_coupling_unconstrained[2,1]": 0.0033640204928815365,
+            "log_motor_time_constant": -0.002981750760227442,
+            "angular_control_cross_coupling_unconstrained[2,0]": 0.0019643937703222036,
+            "angular_control_cross_coupling_unconstrained[1,2]": -0.0008938852697610855
+          },
+          "relative_nonlinear_error_plus_minus": [
+            0.10992093204665022,
+            0.11003678398168668
+          ]
+        },
+        {
+          "factor_index": 9,
+          "linearized_tracking_spread_cost": 1.1464216445149561e-10,
+          "cost_fraction": 3.2531010008242813e-06,
+          "largest_parameter_displacements": {
+            "angular_control_cross_coupling_unconstrained[2,0]": -0.017891444265842438,
+            "angular_control_cross_coupling_unconstrained[2,1]": 0.006787030026316643,
+            "angular_control_cross_coupling_unconstrained[1,2]": 0.0013956583570688963,
+            "log_motor_time_constant": -0.0013047283282503486,
+            "angular_control_cross_coupling_unconstrained[0,2]": 0.0009602321079000831
+          },
+          "relative_nonlinear_error_plus_minus": [
+            0.05017197238734252,
+            0.2350384744496792
+          ]
+        },
+        {
+          "factor_index": 3,
+          "linearized_tracking_spread_cost": 3.817278170031134e-11,
+          "cost_fraction": 1.083195828931417e-06,
+          "largest_parameter_displacements": {
+            "angular_control_cross_coupling_unconstrained[1,0]": -0.01106906495988369,
+            "angular_control_cross_coupling_unconstrained[1,2]": -0.0023060967214405537,
+            "log_motor_time_constant": 0.0009867000626400113,
+            "log_angular_accel[1]": 0.000467443693196401,
+            "log_angular_accel[2]": -0.0003088132943958044
+          },
+          "relative_nonlinear_error_plus_minus": [
+            0.021582656760304103,
+            0.023507742013037503
+          ]
+        },
+        {
+          "factor_index": 2,
+          "linearized_tracking_spread_cost": 2.038559617398293e-11,
+          "cost_fraction": 5.78464334071794e-07,
+          "largest_parameter_displacements": {
+            "log_angular_accel[1]": -0.006080749910324812,
+            "angular_control_cross_coupling_unconstrained[1,2]": -0.0010125210974365473,
+            "log_motor_time_constant": 0.0008389978902414441,
+            "log_angular_accel[0]": 0.0005256219883449376,
+            "log_angular_drag[1]": 5.2999239414930344e-05
+          },
+          "relative_nonlinear_error_plus_minus": [
+            0.2064616737810571,
+            0.2059544631126583
+          ]
+        },
+        {
+          "factor_index": 1,
+          "linearized_tracking_spread_cost": 1.701007475776547e-11,
+          "cost_fraction": 4.826800984030164e-07,
+          "largest_parameter_displacements": {
+            "log_angular_accel[0]": 0.005609365180134773,
+            "log_motor_time_constant": -0.0007181894034147263,
+            "log_angular_accel[1]": 0.00038059239159338176,
+            "angular_control_cross_coupling_unconstrained[0,2]": 0.00034148653503507376,
+            "log_angular_drag[0]": -9.501454042037949e-05
+          },
+          "relative_nonlinear_error_plus_minus": [
+            0.39095934748634636,
+            0.39032872425927706
+          ]
+        },
+        {
+          "factor_index": 4,
+          "linearized_tracking_spread_cost": 9.748313708896052e-12,
+          "cost_fraction": 2.766194203893984e-07,
+          "largest_parameter_displacements": {
+            "angular_control_cross_coupling_unconstrained[0,1]": -0.010098063386976719,
+            "angular_control_cross_coupling_unconstrained[0,2]": -0.006086066365242004,
+            "log_motor_time_constant": -0.0005605670157819986,
+            "log_angular_accel[2]": 0.0003094192943535745,
+            "log_angular_accel[0]": 0.0002978458069264889
+          },
+          "relative_nonlinear_error_plus_minus": [
+            0.40102728861111986,
+            0.40089840220704304
+          ]
+        }
+      ]
+    }
+  },
+  "additional_updates": [
+    {
+      "seed": 31,
+      "absorbed": true,
+      "reason": null,
+      "window_count": 100,
+      "innovation_rms_before": 0.6398287548193438,
+      "innovation_rms_after": 0.07124051836571604,
+      "information_gain_nats": 27.817680272407152,
+      "step_norm_prior_sigma": 1.4516171313587933,
+      "maximum_validity_utilization": 0.5261078476905823
+    },
+    {
+      "seed": 32,
+      "absorbed": true,
+      "reason": null,
+      "window_count": 82,
+      "innovation_rms_before": 0.16116651170198223,
+      "innovation_rms_after": 0.07010291340761701,
+      "information_gain_nats": 5.872992992055492,
+      "step_norm_prior_sigma": 0.8647359568588017,
+      "maximum_validity_utilization": 0.9987162947654724
+    },
+    {
+      "seed": 33,
+      "absorbed": true,
+      "reason": null,
+      "window_count": 100,
+      "innovation_rms_before": 0.3132608620974504,
+      "innovation_rms_after": 0.061077358827077884,
+      "information_gain_nats": 5.623301887782373,
+      "step_norm_prior_sigma": 3.6301650293185226,
+      "maximum_validity_utilization": 0.5874471664428711
+    },
+    {
+      "seed": 34,
+      "absorbed": true,
+      "reason": null,
+      "window_count": 100,
+      "innovation_rms_before": 0.1370340736597625,
+      "innovation_rms_after": 0.03918225013742889,
+      "information_gain_nats": 3.144864020547531,
+      "step_norm_prior_sigma": 2.031088912670964,
+      "maximum_validity_utilization": 0.8831825852394104
+    },
+    {
+      "seed": 35,
+      "absorbed": true,
+      "reason": null,
+      "window_count": 100,
+      "innovation_rms_before": 0.03882819539414675,
+      "innovation_rms_after": 0.02980663907970395,
+      "information_gain_nats": 1.6593059830858892,
+      "step_norm_prior_sigma": 0.5644904870360419,
+      "maximum_validity_utilization": 0.8516963124275208
+    },
+    {
+      "seed": 36,
+      "absorbed": true,
+      "reason": null,
+      "window_count": 100,
+      "innovation_rms_before": 0.038580138140147664,
+      "innovation_rms_after": 0.02887808568452959,
+      "information_gain_nats": 1.3477961291968816,
+      "step_norm_prior_sigma": 0.5729696806243264,
+      "maximum_validity_utilization": 0.5558035373687744
+    }
+  ],
+  "runs": [
+    {
+      "belief": "short_adaptation",
+      "disturbance": "small",
+      "contributions": "point",
+      "optimizer": "projected_8",
+      "uncertainty_contributions_omitted": true,
+      "metrics": {
+        "condition": "point",
+        "model_role": "controlled diagnostic ablation",
+        "forecast_error_available": true,
+        "parameter_information_rank": 15,
+        "prediction_horizon_s": 0.6000000000000005,
+        "normalized_tracking_rms": 0.07380663603544235,
+        "tail_normalized_tracking_rms": 0.058947399258613586,
+        "normalized_attitude_rate_rms": 0.07415221631526947,
+        "tail_normalized_attitude_rate_rms": 0.04069211706519127,
+        "terminal_attitude_error_rad": 0.009073578752577305,
+        "terminal_angular_velocity_error_rad_s": 0.025223910808563232,
+        "terminal_attitude_rate_tolerance_entry_time_s": 0.0,
+        "maximum_actual_validity_utilization": 0.33013126254081726,
+        "maximum_predicted_validity_utilization": 0.342964768409729,
+        "maximum_command_bound_violation": 0.0,
+        "maximum_normalized_model_uncertainty_standard_deviation": 0.0,
+        "parameter_uncertainty_complete": true,
+        "unresolved_parameters_allowed": true,
+        "inside_support_step_count": 60,
+        "outside_support_step_count": 0,
+        "fallback_count": 0,
+        "solve_status_counts": {
+          "iteration_limit": 37,
+          "stalled": 23
+        },
+        "finite": true,
+        "prewarm_wall_time_s": 8.269768499994825,
+        "solve_time_median_s": 0.03169777100265492,
+        "solve_time_p90_s": 0.033152145604981344,
+        "solve_time_maximum_s": 0.03386212499754038
+      },
+      "median_projected_gradient_inf_norm": 0.0862390324473381,
+      "maximum_projected_gradient_inf_norm": 1.076210379600525,
+      "first_solve": {
+        "iterations": 8,
+        "solve_time_s": 0.030099957999482285,
+        "initial_objective": 1.0359809398651123,
+        "final_objective": 0.20864562690258026,
+        "final_projected_gradient_inf_norm": 1.076210379600525,
+        "maximum_command_bound_violation": 0.0,
+        "maximum_validity_utilization": 0.3181855082511902,
+        "maximum_normalized_safety_violation": 0.0,
+        "maximum_normalized_model_uncertainty_standard_deviation": 0.0,
+        "warm_start_used": false,
+        "prediction_horizon_s": 0.6000000000000005,
+        "parameter_uncertainty_complete": true,
+        "unresolved_parameters_allowed": true
+      }
+    },
+    {
+      "belief": "short_adaptation",
+      "disturbance": "small",
+      "contributions": "forecast",
+      "optimizer": "projected_8",
+      "uncertainty_contributions_omitted": true,
+      "metrics": {
+        "condition": "forecast",
+        "model_role": "controlled diagnostic ablation",
+        "forecast_error_available": true,
+        "parameter_information_rank": 15,
+        "prediction_horizon_s": 0.6000000000000005,
+        "normalized_tracking_rms": 0.07380663603544235,
+        "tail_normalized_tracking_rms": 0.058947399258613586,
+        "normalized_attitude_rate_rms": 0.07415221631526947,
+        "tail_normalized_attitude_rate_rms": 0.04069211706519127,
+        "terminal_attitude_error_rad": 0.009073578752577305,
+        "terminal_angular_velocity_error_rad_s": 0.025223910808563232,
+        "terminal_attitude_rate_tolerance_entry_time_s": 0.0,
+        "maximum_actual_validity_utilization": 0.33013126254081726,
+        "maximum_predicted_validity_utilization": 0.342964768409729,
+        "maximum_command_bound_violation": 0.0,
+        "maximum_normalized_model_uncertainty_standard_deviation": 0.0817008763551712,
+        "parameter_uncertainty_complete": true,
+        "unresolved_parameters_allowed": true,
+        "inside_support_step_count": 60,
+        "outside_support_step_count": 0,
+        "fallback_count": 0,
+        "solve_status_counts": {
+          "iteration_limit": 37,
+          "stalled": 23
+        },
+        "finite": true,
+        "prewarm_wall_time_s": 0.06241654200130142,
+        "solve_time_median_s": 0.031796875002328306,
+        "solve_time_p90_s": 0.033214658599899846,
+        "solve_time_maximum_s": 0.034040333004668355
+      },
+      "median_projected_gradient_inf_norm": 0.0862390324473381,
+      "maximum_projected_gradient_inf_norm": 1.076210379600525,
+      "first_solve": {
+        "iterations": 8,
+        "solve_time_s": 0.03058158399653621,
+        "initial_objective": 1.1005858182907104,
+        "final_objective": 0.27325043082237244,
+        "final_projected_gradient_inf_norm": 1.076210379600525,
+        "maximum_command_bound_violation": 0.0,
+        "maximum_validity_utilization": 0.3181855082511902,
+        "maximum_normalized_safety_violation": 0.0,
+        "maximum_normalized_model_uncertainty_standard_deviation": 0.0817008763551712,
+        "warm_start_used": false,
+        "prediction_horizon_s": 0.6000000000000005,
+        "parameter_uncertainty_complete": true,
+        "unresolved_parameters_allowed": true
+      }
+    },
+    {
+      "belief": "short_adaptation",
+      "disturbance": "small",
+      "contributions": "parameter",
+      "optimizer": "projected_8",
+      "uncertainty_contributions_omitted": true,
+      "metrics": {
+        "condition": "parameter",
+        "model_role": "controlled diagnostic ablation",
+        "forecast_error_available": true,
+        "parameter_information_rank": 15,
+        "prediction_horizon_s": 0.6000000000000005,
+        "normalized_tracking_rms": 0.10190456360578537,
+        "tail_normalized_tracking_rms": 0.11252682656049728,
+        "normalized_attitude_rate_rms": 0.08003668487071991,
+        "tail_normalized_attitude_rate_rms": 0.05341792106628418,
+        "terminal_attitude_error_rad": 0.01694737933576107,
+        "terminal_angular_velocity_error_rad_s": 0.03191741555929184,
+        "terminal_attitude_rate_tolerance_entry_time_s": 0.0,
+        "maximum_actual_validity_utilization": 0.3227561414241791,
+        "maximum_predicted_validity_utilization": 0.3355332911014557,
+        "maximum_command_bound_violation": 0.0,
+        "maximum_normalized_model_uncertainty_standard_deviation": 0.17851470410823822,
+        "parameter_uncertainty_complete": true,
+        "unresolved_parameters_allowed": true,
+        "inside_support_step_count": 60,
+        "outside_support_step_count": 0,
+        "fallback_count": 0,
+        "solve_status_counts": {
+          "iteration_limit": 59,
+          "stalled": 1
+        },
+        "finite": true,
+        "prewarm_wall_time_s": 0.06787329100188799,
+        "solve_time_median_s": 0.035776562996034045,
+        "solve_time_p90_s": 0.036219362502743026,
+        "solve_time_maximum_s": 0.036660541998571716
+      },
+      "median_projected_gradient_inf_norm": 0.4819364547729492,
+      "maximum_projected_gradient_inf_norm": 1.0988478660583496,
+      "first_solve": {
+        "iterations": 8,
+        "solve_time_s": 0.03445733300031861,
+        "initial_objective": 1.8788909912109375,
+        "final_objective": 0.5565794706344604,
+        "final_projected_gradient_inf_norm": 1.0863014459609985,
+        "maximum_command_bound_violation": 0.0,
+        "maximum_validity_utilization": 0.31818509101867676,
+        "maximum_normalized_safety_violation": 0.0,
+        "maximum_normalized_model_uncertainty_standard_deviation": 0.15382379293441772,
+        "warm_start_used": false,
+        "prediction_horizon_s": 0.6000000000000005,
+        "parameter_uncertainty_complete": true,
+        "unresolved_parameters_allowed": true
+      }
+    },
+    {
+      "belief": "short_adaptation",
+      "disturbance": "small",
+      "contributions": "both",
+      "optimizer": "projected_8",
+      "uncertainty_contributions_omitted": false,
+      "metrics": {
+        "condition": "both",
+        "model_role": "controlled diagnostic ablation",
+        "forecast_error_available": true,
+        "parameter_information_rank": 15,
+        "prediction_horizon_s": 0.6000000000000005,
+        "normalized_tracking_rms": 0.10190456360578537,
+        "tail_normalized_tracking_rms": 0.11252682656049728,
+        "normalized_attitude_rate_rms": 0.08003668487071991,
+        "tail_normalized_attitude_rate_rms": 0.05341792106628418,
+        "terminal_attitude_error_rad": 0.01694737933576107,
+        "terminal_angular_velocity_error_rad_s": 0.03191741555929184,
+        "terminal_attitude_rate_tolerance_entry_time_s": 0.0,
+        "maximum_actual_validity_utilization": 0.3227561414241791,
+        "maximum_predicted_validity_utilization": 0.3355332911014557,
+        "maximum_command_bound_violation": 0.0,
+        "maximum_normalized_model_uncertainty_standard_deviation": 0.17851980030536652,
+        "parameter_uncertainty_complete": true,
+        "unresolved_parameters_allowed": true,
+        "inside_support_step_count": 60,
+        "outside_support_step_count": 0,
+        "fallback_count": 0,
+        "solve_status_counts": {
+          "iteration_limit": 59,
+          "stalled": 1
+        },
+        "finite": true,
+        "prewarm_wall_time_s": 0.06872941599431215,
+        "solve_time_median_s": 0.035615416996733984,
+        "solve_time_p90_s": 0.03603773690192611,
+        "solve_time_maximum_s": 0.03616916699684225
+      },
+      "median_projected_gradient_inf_norm": 0.4819364547729492,
+      "maximum_projected_gradient_inf_norm": 1.0988478660583496,
+      "first_solve": {
+        "iterations": 8,
+        "solve_time_s": 0.033776375006709713,
+        "initial_objective": 1.9434959888458252,
+        "final_objective": 0.6211842894554138,
+        "final_projected_gradient_inf_norm": 1.0863014459609985,
+        "maximum_command_bound_violation": 0.0,
+        "maximum_validity_utilization": 0.31818509101867676,
+        "maximum_normalized_safety_violation": 0.0,
+        "maximum_normalized_model_uncertainty_standard_deviation": 0.1538296937942505,
+        "warm_start_used": false,
+        "prediction_horizon_s": 0.6000000000000005,
+        "parameter_uncertainty_complete": true,
+        "unresolved_parameters_allowed": true
+      }
+    },
+    {
+      "belief": "short_adaptation",
+      "disturbance": "small",
+      "contributions": "point",
+      "optimizer": "projected_128",
+      "uncertainty_contributions_omitted": true,
+      "metrics": {
+        "condition": "point",
+        "model_role": "controlled diagnostic ablation",
+        "forecast_error_available": true,
+        "parameter_information_rank": 15,
+        "prediction_horizon_s": 0.6000000000000005,
+        "normalized_tracking_rms": 0.06320668756961823,
+        "tail_normalized_tracking_rms": 0.03745526447892189,
+        "normalized_attitude_rate_rms": 0.07285062968730927,
+        "tail_normalized_attitude_rate_rms": 0.028706010431051254,
+        "terminal_attitude_error_rad": 0.001255879527889192,
+        "terminal_angular_velocity_error_rad_s": 0.015767624601721764,
+        "terminal_attitude_rate_tolerance_entry_time_s": 0.0,
+        "maximum_actual_validity_utilization": 0.3421071469783783,
+        "maximum_predicted_validity_utilization": 0.34224236011505127,
+        "maximum_command_bound_violation": 0.0,
+        "maximum_normalized_model_uncertainty_standard_deviation": 0.0,
+        "parameter_uncertainty_complete": true,
+        "unresolved_parameters_allowed": true,
+        "inside_support_step_count": 60,
+        "outside_support_step_count": 0,
+        "fallback_count": 0,
+        "solve_status_counts": {
+          "iteration_limit": 34,
+          "stalled": 21,
+          "converged": 5
+        },
+        "finite": true,
+        "prewarm_wall_time_s": 8.645186000001559,
+        "solve_time_median_s": 0.3448017289993004,
+        "solve_time_p90_s": 0.3470990919988253,
+        "solve_time_maximum_s": 0.34824425000260817
+      },
+      "median_projected_gradient_inf_norm": 0.008065484464168549,
+      "maximum_projected_gradient_inf_norm": 0.08534348011016846,
+      "first_solve": {
+        "iterations": 128,
+        "solve_time_s": 0.3440931669974816,
+        "initial_objective": 1.0359809398651123,
+        "final_objective": 0.10452501475811005,
+        "final_projected_gradient_inf_norm": 0.08534348011016846,
+        "maximum_command_bound_violation": 0.0,
+        "maximum_validity_utilization": 0.3181869387626648,
+        "maximum_normalized_safety_violation": 0.0,
+        "maximum_normalized_model_uncertainty_standard_deviation": 0.0,
+        "warm_start_used": false,
+        "prediction_horizon_s": 0.6000000000000005,
+        "parameter_uncertainty_complete": true,
+        "unresolved_parameters_allowed": true
+      }
+    },
+    {
+      "belief": "short_adaptation",
+      "disturbance": "small",
+      "contributions": "forecast",
+      "optimizer": "projected_128",
+      "uncertainty_contributions_omitted": true,
+      "metrics": {
+        "condition": "forecast",
+        "model_role": "controlled diagnostic ablation",
+        "forecast_error_available": true,
+        "parameter_information_rank": 15,
+        "prediction_horizon_s": 0.6000000000000005,
+        "normalized_tracking_rms": 0.06321806460618973,
+        "tail_normalized_tracking_rms": 0.03742382302880287,
+        "normalized_attitude_rate_rms": 0.07287796586751938,
+        "tail_normalized_attitude_rate_rms": 0.028643516823649406,
+        "terminal_attitude_error_rad": 0.0012533582048490644,
+        "terminal_angular_velocity_error_rad_s": 0.015342941507697105,
+        "terminal_attitude_rate_tolerance_entry_time_s": 0.0,
+        "maximum_actual_validity_utilization": 0.3420533537864685,
+        "maximum_predicted_validity_utilization": 0.3421746790409088,
+        "maximum_command_bound_violation": 0.0,
+        "maximum_normalized_model_uncertainty_standard_deviation": 0.0817008763551712,
+        "parameter_uncertainty_complete": true,
+        "unresolved_parameters_allowed": true,
+        "inside_support_step_count": 60,
+        "outside_support_step_count": 0,
+        "fallback_count": 0,
+        "solve_status_counts": {
+          "iteration_limit": 32,
+          "stalled": 23,
+          "converged": 5
+        },
+        "finite": true,
+        "prewarm_wall_time_s": 0.6906632909958716,
+        "solve_time_median_s": 0.3450025630008895,
+        "solve_time_p90_s": 0.34757544590247563,
+        "solve_time_maximum_s": 0.35310933299479075
+      },
+      "median_projected_gradient_inf_norm": 0.007824897766113281,
+      "maximum_projected_gradient_inf_norm": 0.08534348011016846,
+      "first_solve": {
+        "iterations": 128,
+        "solve_time_s": 0.3448599170005764,
+        "initial_objective": 1.1005858182907104,
+        "final_objective": 0.16912983357906342,
+        "final_projected_gradient_inf_norm": 0.08534348011016846,
+        "maximum_command_bound_violation": 0.0,
+        "maximum_validity_utilization": 0.3181869387626648,
+        "maximum_normalized_safety_violation": 0.0,
+        "maximum_normalized_model_uncertainty_standard_deviation": 0.0817008763551712,
+        "warm_start_used": false,
+        "prediction_horizon_s": 0.6000000000000005,
+        "parameter_uncertainty_complete": true,
+        "unresolved_parameters_allowed": true
+      }
+    },
+    {
+      "belief": "short_adaptation",
+      "disturbance": "small",
+      "contributions": "parameter",
+      "optimizer": "projected_128",
+      "uncertainty_contributions_omitted": true,
+      "metrics": {
+        "condition": "parameter",
+        "model_role": "controlled diagnostic ablation",
+        "forecast_error_available": true,
+        "parameter_information_rank": 15,
+        "prediction_horizon_s": 0.6000000000000005,
+        "normalized_tracking_rms": 0.07929619401693344,
+        "tail_normalized_tracking_rms": 0.07519316673278809,
+        "normalized_attitude_rate_rms": 0.07451305538415909,
+        "tail_normalized_attitude_rate_rms": 0.04474237933754921,
+        "terminal_attitude_error_rad": 0.007678746245801449,
+        "terminal_angular_velocity_error_rad_s": 0.03662664815783501,
+        "terminal_attitude_rate_tolerance_entry_time_s": 0.0,
+        "maximum_actual_validity_utilization": 0.3599230647087097,
+        "maximum_predicted_validity_utilization": 0.3658217489719391,
+        "maximum_command_bound_violation": 0.0,
+        "maximum_normalized_model_uncertainty_standard_deviation": 0.18020890653133392,
+        "parameter_uncertainty_complete": true,
+        "unresolved_parameters_allowed": true,
+        "inside_support_step_count": 60,
+        "outside_support_step_count": 0,
+        "fallback_count": 0,
+        "solve_status_counts": {
+          "iteration_limit": 42,
+          "stalled": 18
+        },
+        "finite": true,
+        "prewarm_wall_time_s": 0.7007557500037365,
+        "solve_time_median_s": 0.3489196670016099,
+        "solve_time_p90_s": 0.3505664079995768,
+        "solve_time_maximum_s": 0.35110808300669305
+      },
+      "median_projected_gradient_inf_norm": 0.042628973722457886,
+      "maximum_projected_gradient_inf_norm": 0.43044614791870117,
+      "first_solve": {
+        "iterations": 128,
+        "solve_time_s": 0.34686079200037057,
+        "initial_objective": 1.8788909912109375,
+        "final_objective": 0.3438788950443268,
+        "final_projected_gradient_inf_norm": 0.43044614791870117,
+        "maximum_command_bound_violation": 0.0,
+        "maximum_validity_utilization": 0.3181858956813812,
+        "maximum_normalized_safety_violation": 0.0,
+        "maximum_normalized_model_uncertainty_standard_deviation": 0.18020890653133392,
+        "warm_start_used": false,
+        "prediction_horizon_s": 0.6000000000000005,
+        "parameter_uncertainty_complete": true,
+        "unresolved_parameters_allowed": true
+      }
+    },
+    {
+      "belief": "short_adaptation",
+      "disturbance": "small",
+      "contributions": "both",
+      "optimizer": "projected_128",
+      "uncertainty_contributions_omitted": false,
+      "metrics": {
+        "condition": "both",
+        "model_role": "controlled diagnostic ablation",
+        "forecast_error_available": true,
+        "parameter_information_rank": 15,
+        "prediction_horizon_s": 0.6000000000000005,
+        "normalized_tracking_rms": 0.07929036021232605,
+        "tail_normalized_tracking_rms": 0.07517796009778976,
+        "normalized_attitude_rate_rms": 0.07451531291007996,
+        "tail_normalized_attitude_rate_rms": 0.04474929720163345,
+        "terminal_attitude_error_rad": 0.00765782967209816,
+        "terminal_angular_velocity_error_rad_s": 0.03661995753645897,
+        "terminal_attitude_rate_tolerance_entry_time_s": 0.0,
+        "maximum_actual_validity_utilization": 0.3599095344543457,
+        "maximum_predicted_validity_utilization": 0.3658071458339691,
+        "maximum_command_bound_violation": 0.0,
+        "maximum_normalized_model_uncertainty_standard_deviation": 0.18021394312381744,
+        "parameter_uncertainty_complete": true,
+        "unresolved_parameters_allowed": true,
+        "inside_support_step_count": 60,
+        "outside_support_step_count": 0,
+        "fallback_count": 0,
+        "solve_status_counts": {
+          "iteration_limit": 31,
+          "stalled": 29
+        },
+        "finite": true,
+        "prewarm_wall_time_s": 0.6964699160016607,
+        "solve_time_median_s": 0.3477899795034318,
+        "solve_time_p90_s": 0.3502109416956955,
+        "solve_time_maximum_s": 0.6140737080058898
+      },
+      "median_projected_gradient_inf_norm": 0.03624609112739563,
+      "maximum_projected_gradient_inf_norm": 0.43044614791870117,
+      "first_solve": {
+        "iterations": 128,
+        "solve_time_s": 0.34602433299733093,
+        "initial_objective": 1.9434959888458252,
+        "final_objective": 0.40848371386528015,
+        "final_projected_gradient_inf_norm": 0.43044614791870117,
+        "maximum_command_bound_violation": 0.0,
+        "maximum_validity_utilization": 0.3181858956813812,
+        "maximum_normalized_safety_violation": 0.0,
+        "maximum_normalized_model_uncertainty_standard_deviation": 0.18021394312381744,
+        "warm_start_used": false,
+        "prediction_horizon_s": 0.6000000000000005,
+        "parameter_uncertainty_complete": true,
+        "unresolved_parameters_allowed": true
+      }
+    },
+    {
+      "belief": "short_adaptation",
+      "disturbance": "small",
+      "contributions": "point",
+      "optimizer": "lbfgsb_500",
+      "uncertainty_contributions_omitted": true,
+      "metrics": {
+        "condition": "point",
+        "model_role": "controlled diagnostic ablation",
+        "forecast_error_available": true,
+        "parameter_information_rank": 15,
+        "prediction_horizon_s": 0.6000000000000005,
+        "normalized_tracking_rms": 0.05575229227542877,
+        "tail_normalized_tracking_rms": 0.02888876013457775,
+        "normalized_attitude_rate_rms": 0.06540652364492416,
+        "tail_normalized_attitude_rate_rms": 0.016722192987799644,
+        "terminal_attitude_error_rad": 0.0012046231422573328,
+        "terminal_angular_velocity_error_rad_s": 0.008556253276765347,
+        "terminal_attitude_rate_tolerance_entry_time_s": 0.0,
+        "maximum_actual_validity_utilization": 0.3391011655330658,
+        "maximum_predicted_validity_utilization": 0.3391866981983185,
+        "maximum_command_bound_violation": 0.0,
+        "maximum_normalized_model_uncertainty_standard_deviation": 0.0,
+        "parameter_uncertainty_complete": true,
+        "unresolved_parameters_allowed": true,
+        "inside_support_step_count": 60,
+        "outside_support_step_count": 0,
+        "fallback_count": 0,
+        "solve_status_counts": {
+          "converged": 60
+        },
+        "finite": true,
+        "prewarm_wall_time_s": 1.0118091250042198,
+        "solve_time_median_s": 0.07890177100125584,
+        "solve_time_p90_s": 0.20148394580246531,
+        "solve_time_maximum_s": 0.5426608749985462
+      },
+      "median_projected_gradient_inf_norm": 0.0014961063861846924,
+      "maximum_projected_gradient_inf_norm": 0.0019962266087532043,
+      "first_solve": {
+        "iterations": 130,
+        "solve_time_s": 0.5426608749985462,
+        "initial_objective": 1.0359809398651123,
+        "final_objective": 0.08190830796957016,
+        "final_projected_gradient_inf_norm": 0.0016137808561325073,
+        "maximum_command_bound_violation": 0.0,
+        "maximum_validity_utilization": 0.31819096207618713,
+        "maximum_normalized_safety_violation": 0.0,
+        "maximum_normalized_model_uncertainty_standard_deviation": 0.0,
+        "warm_start_used": false,
+        "prediction_horizon_s": 0.6000000000000005,
+        "parameter_uncertainty_complete": true,
+        "unresolved_parameters_allowed": true
+      }
+    },
+    {
+      "belief": "short_adaptation",
+      "disturbance": "small",
+      "contributions": "both",
+      "optimizer": "lbfgsb_500",
+      "uncertainty_contributions_omitted": false,
+      "metrics": {
+        "condition": "both",
+        "model_role": "controlled diagnostic ablation",
+        "forecast_error_available": true,
+        "parameter_information_rank": 15,
+        "prediction_horizon_s": 0.6000000000000005,
+        "normalized_tracking_rms": 0.06497462838888168,
+        "tail_normalized_tracking_rms": 0.05528228357434273,
+        "normalized_attitude_rate_rms": 0.06606341153383255,
+        "tail_normalized_attitude_rate_rms": 0.0306436475366354,
+        "terminal_attitude_error_rad": 0.0013700101990252733,
+        "terminal_angular_velocity_error_rad_s": 0.024989858269691467,
+        "terminal_attitude_rate_tolerance_entry_time_s": 0.0,
+        "maximum_actual_validity_utilization": 0.3587644398212433,
+        "maximum_predicted_validity_utilization": 0.36065834760665894,
+        "maximum_command_bound_violation": 0.0,
+        "maximum_normalized_model_uncertainty_standard_deviation": 0.27149683237075806,
+        "parameter_uncertainty_complete": true,
+        "unresolved_parameters_allowed": true,
+        "inside_support_step_count": 60,
+        "outside_support_step_count": 0,
+        "fallback_count": 0,
+        "solve_status_counts": {
+          "converged": 58,
+          "stalled": 2
+        },
+        "finite": true,
+        "prewarm_wall_time_s": 1.8349401669984218,
+        "solve_time_median_s": 0.1683550625020871,
+        "solve_time_p90_s": 0.35154787500214296,
+        "solve_time_maximum_s": 0.9933400829977472
+      },
+      "median_projected_gradient_inf_norm": 0.0016277842223644257,
+      "maximum_projected_gradient_inf_norm": 0.0025632381439208984,
+      "first_solve": {
+        "iterations": 231,
+        "solve_time_s": 0.9861256670046714,
+        "initial_objective": 1.9434959888458252,
+        "final_objective": 0.3261284828186035,
+        "final_projected_gradient_inf_norm": 0.0017760694026947021,
+        "maximum_command_bound_violation": 0.0,
+        "maximum_validity_utilization": 0.3181910216808319,
+        "maximum_normalized_safety_violation": 0.0,
+        "maximum_normalized_model_uncertainty_standard_deviation": 0.27149683237075806,
+        "warm_start_used": false,
+        "prediction_horizon_s": 0.6000000000000005,
+        "parameter_uncertainty_complete": true,
+        "unresolved_parameters_allowed": true
+      }
+    },
+    {
+      "belief": "short_adaptation",
+      "disturbance": "original",
+      "contributions": "point",
+      "optimizer": "lbfgsb_500",
+      "uncertainty_contributions_omitted": true,
+      "metrics": {
+        "condition": "point",
+        "model_role": "controlled diagnostic ablation",
+        "forecast_error_available": true,
+        "parameter_information_rank": 15,
+        "prediction_horizon_s": 0.6000000000000005,
+        "normalized_tracking_rms": 0.8690773844718933,
+        "tail_normalized_tracking_rms": 0.5324834585189819,
+        "normalized_attitude_rate_rms": 0.8880825042724609,
+        "tail_normalized_attitude_rate_rms": 0.32539790868759155,
+        "terminal_attitude_error_rad": 0.0296892412006855,
+        "terminal_angular_velocity_error_rad_s": 0.16995322704315186,
+        "terminal_attitude_rate_tolerance_entry_time_s": 0.76,
+        "maximum_actual_validity_utilization": 1.4749200344085693,
+        "maximum_predicted_validity_utilization": 1.7015855312347412,
+        "maximum_command_bound_violation": 0.0,
+        "maximum_normalized_model_uncertainty_standard_deviation": 0.0,
+        "parameter_uncertainty_complete": true,
+        "unresolved_parameters_allowed": true,
+        "inside_support_step_count": 38,
+        "outside_support_step_count": 22,
+        "fallback_count": 0,
+        "solve_status_counts": {
+          "converged": 13,
+          "stalled": 47
+        },
+        "finite": true,
+        "prewarm_wall_time_s": 1.2349983329986571,
+        "solve_time_median_s": 0.4671462705009617,
+        "solve_time_p90_s": 0.732457383396104,
+        "solve_time_maximum_s": 0.8816120419942308
+      },
+      "median_projected_gradient_inf_norm": 0.0039549581706523895,
+      "maximum_projected_gradient_inf_norm": 0.7822397947311401,
+      "first_solve": {
+        "iterations": 139,
+        "solve_time_s": 0.4502078329969663,
+        "initial_objective": 137.86569213867188,
+        "final_objective": 21.569095611572266,
+        "final_projected_gradient_inf_norm": 0.0017895400524139404,
+        "maximum_command_bound_violation": 0.0,
+        "maximum_validity_utilization": 1.5942144393920898,
+        "maximum_normalized_safety_violation": 0.0,
+        "maximum_normalized_model_uncertainty_standard_deviation": 0.0,
+        "warm_start_used": false,
+        "prediction_horizon_s": 0.6000000000000005,
+        "parameter_uncertainty_complete": true,
+        "unresolved_parameters_allowed": true
+      }
+    },
+    {
+      "belief": "short_adaptation",
+      "disturbance": "original",
+      "contributions": "both",
+      "optimizer": "lbfgsb_500",
+      "uncertainty_contributions_omitted": false,
+      "metrics": {
+        "condition": "both",
+        "model_role": "controlled diagnostic ablation",
+        "forecast_error_available": true,
+        "parameter_information_rank": 15,
+        "prediction_horizon_s": 0.6000000000000005,
+        "normalized_tracking_rms": 0.9602768421173096,
+        "tail_normalized_tracking_rms": 0.7855257987976074,
+        "normalized_attitude_rate_rms": 0.8685250282287598,
+        "tail_normalized_attitude_rate_rms": 0.49851641058921814,
+        "terminal_attitude_error_rad": 0.0648413598537445,
+        "terminal_angular_velocity_error_rad_s": 0.3868829607963562,
+        "terminal_attitude_rate_tolerance_entry_time_s": 0.98,
+        "maximum_actual_validity_utilization": 1.343552589416504,
+        "maximum_predicted_validity_utilization": 1.4728258848190308,
+        "maximum_command_bound_violation": 0.0,
+        "maximum_normalized_model_uncertainty_standard_deviation": 1.0825715065002441,
+        "parameter_uncertainty_complete": true,
+        "unresolved_parameters_allowed": true,
+        "inside_support_step_count": 48,
+        "outside_support_step_count": 12,
+        "fallback_count": 0,
+        "solve_status_counts": {
+          "stalled": 60
+        },
+        "finite": true,
+        "prewarm_wall_time_s": 2.004853833997913,
+        "solve_time_median_s": 0.651915000500594,
+        "solve_time_p90_s": 1.0307634756012705,
+        "solve_time_maximum_s": 1.2258710829992197
+      },
+      "median_projected_gradient_inf_norm": 0.01796007063239813,
+      "maximum_projected_gradient_inf_norm": 1.5504485368728638,
+      "first_solve": {
+        "iterations": 222,
+        "solve_time_s": 1.0215514590017847,
+        "initial_objective": 184.33047485351562,
+        "final_objective": 44.71902084350586,
+        "final_projected_gradient_inf_norm": 0.0179672222584486,
+        "maximum_command_bound_violation": 0.0,
+        "maximum_validity_utilization": 1.1335432529449463,
+        "maximum_normalized_safety_violation": 0.0,
+        "maximum_normalized_model_uncertainty_standard_deviation": 1.075814962387085,
+        "warm_start_used": false,
+        "prediction_horizon_s": 0.6000000000000005,
+        "parameter_uncertainty_complete": true,
+        "unresolved_parameters_allowed": true
+      }
+    },
+    {
+      "belief": "additional_evidence",
+      "disturbance": "small",
+      "contributions": "point",
+      "optimizer": "projected_8",
+      "uncertainty_contributions_omitted": true,
+      "metrics": {
+        "condition": "point",
+        "model_role": "controlled diagnostic ablation",
+        "forecast_error_available": true,
+        "parameter_information_rank": 15,
+        "prediction_horizon_s": 0.6000000000000005,
+        "normalized_tracking_rms": 0.06982288509607315,
+        "tail_normalized_tracking_rms": 0.052998144179582596,
+        "normalized_attitude_rate_rms": 0.0711103230714798,
+        "tail_normalized_attitude_rate_rms": 0.03346166014671326,
+        "terminal_attitude_error_rad": 0.007343174424022436,
+        "terminal_angular_velocity_error_rad_s": 0.018442830070853233,
+        "terminal_attitude_rate_tolerance_entry_time_s": 0.0,
+        "maximum_actual_validity_utilization": 0.32875388860702515,
+        "maximum_predicted_validity_utilization": 0.3399319350719452,
+        "maximum_command_bound_violation": 0.0,
+        "maximum_normalized_model_uncertainty_standard_deviation": 0.0,
+        "parameter_uncertainty_complete": true,
+        "unresolved_parameters_allowed": true,
+        "inside_support_step_count": 60,
+        "outside_support_step_count": 0,
+        "fallback_count": 0,
+        "solve_status_counts": {
+          "iteration_limit": 48,
+          "stalled": 12
+        },
+        "finite": true,
+        "prewarm_wall_time_s": 0.1542090409930097,
+        "solve_time_median_s": 0.07142281299820752,
+        "solve_time_p90_s": 0.10148478270202758,
+        "solve_time_maximum_s": 0.1394957919983426
+      },
+      "median_projected_gradient_inf_norm": 0.05012268200516701,
+      "maximum_projected_gradient_inf_norm": 0.7159600257873535,
+      "first_solve": {
+        "iterations": 8,
+        "solve_time_s": 0.07705516600253759,
+        "initial_objective": 1.0367534160614014,
+        "final_objective": 0.18365389108657837,
+        "final_projected_gradient_inf_norm": 0.7159600257873535,
+        "maximum_command_bound_violation": 0.0,
+        "maximum_validity_utilization": 0.31818559765815735,
+        "maximum_normalized_safety_violation": 0.0,
+        "maximum_normalized_model_uncertainty_standard_deviation": 0.0,
+        "warm_start_used": false,
+        "prediction_horizon_s": 0.6000000000000005,
+        "parameter_uncertainty_complete": true,
+        "unresolved_parameters_allowed": true
+      }
+    },
+    {
+      "belief": "additional_evidence",
+      "disturbance": "small",
+      "contributions": "both",
+      "optimizer": "projected_8",
+      "uncertainty_contributions_omitted": false,
+      "metrics": {
+        "condition": "both",
+        "model_role": "controlled diagnostic ablation",
+        "forecast_error_available": true,
+        "parameter_information_rank": 15,
+        "prediction_horizon_s": 0.6000000000000005,
+        "normalized_tracking_rms": 0.06983643770217896,
+        "tail_normalized_tracking_rms": 0.053015951067209244,
+        "normalized_attitude_rate_rms": 0.07115893065929413,
+        "tail_normalized_attitude_rate_rms": 0.03362274169921875,
+        "terminal_attitude_error_rad": 0.0072937048971652985,
+        "terminal_angular_velocity_error_rad_s": 0.01938188634812832,
+        "terminal_attitude_rate_tolerance_entry_time_s": 0.0,
+        "maximum_actual_validity_utilization": 0.32889240980148315,
+        "maximum_predicted_validity_utilization": 0.3397357761859894,
+        "maximum_command_bound_violation": 0.0,
+        "maximum_normalized_model_uncertainty_standard_deviation": 0.08186355978250504,
+        "parameter_uncertainty_complete": true,
+        "unresolved_parameters_allowed": true,
+        "inside_support_step_count": 60,
+        "outside_support_step_count": 0,
+        "fallback_count": 0,
+        "solve_status_counts": {
+          "iteration_limit": 48,
+          "stalled": 12
+        },
+        "finite": true,
+        "prewarm_wall_time_s": 0.07027658299921313,
+        "solve_time_median_s": 0.032877750498300884,
+        "solve_time_p90_s": 0.03362567140356987,
+        "solve_time_maximum_s": 0.035120125001412816
+      },
+      "median_projected_gradient_inf_norm": 0.051383184269070625,
+      "maximum_projected_gradient_inf_norm": 0.716465413570404,
+      "first_solve": {
+        "iterations": 8,
+        "solve_time_s": 0.03318254099576734,
+        "initial_objective": 1.101393461227417,
+        "final_objective": 0.2484554499387741,
+        "final_projected_gradient_inf_norm": 0.716465413570404,
+        "maximum_command_bound_violation": 0.0,
+        "maximum_validity_utilization": 0.31818559765815735,
+        "maximum_normalized_safety_violation": 0.0,
+        "maximum_normalized_model_uncertainty_standard_deviation": 0.08178573846817017,
+        "warm_start_used": false,
+        "prediction_horizon_s": 0.6000000000000005,
+        "parameter_uncertainty_complete": true,
+        "unresolved_parameters_allowed": true
+      }
+    },
+    {
+      "belief": "additional_evidence",
+      "disturbance": "small",
+      "contributions": "point",
+      "optimizer": "lbfgsb_500",
+      "uncertainty_contributions_omitted": true,
+      "metrics": {
+        "condition": "point",
+        "model_role": "controlled diagnostic ablation",
+        "forecast_error_available": true,
+        "parameter_information_rank": 15,
+        "prediction_horizon_s": 0.6000000000000005,
+        "normalized_tracking_rms": 0.05467645078897476,
+        "tail_normalized_tracking_rms": 0.028191955760121346,
+        "normalized_attitude_rate_rms": 0.06406836956739426,
+        "tail_normalized_attitude_rate_rms": 0.015220359899103642,
+        "terminal_attitude_error_rad": 0.0016188116278499365,
+        "terminal_angular_velocity_error_rad_s": 0.008390995673835278,
+        "terminal_attitude_rate_tolerance_entry_time_s": 0.0,
+        "maximum_actual_validity_utilization": 0.33794766664505005,
+        "maximum_predicted_validity_utilization": 0.3383622169494629,
+        "maximum_command_bound_violation": 0.0,
+        "maximum_normalized_model_uncertainty_standard_deviation": 0.0,
+        "parameter_uncertainty_complete": true,
+        "unresolved_parameters_allowed": true,
+        "inside_support_step_count": 60,
+        "outside_support_step_count": 0,
+        "fallback_count": 0,
+        "solve_status_counts": {
+          "converged": 60
+        },
+        "finite": true,
+        "prewarm_wall_time_s": 0.35677687499992317,
+        "solve_time_median_s": 0.038974708502792055,
+        "solve_time_p90_s": 0.09641073750026409,
+        "solve_time_maximum_s": 0.18167737500334624
+      },
+      "median_projected_gradient_inf_norm": 0.0013895537704229355,
+      "maximum_projected_gradient_inf_norm": 0.0019984766840934753,
+      "first_solve": {
+        "iterations": 89,
+        "solve_time_s": 0.18167737500334624,
+        "initial_objective": 1.0367534160614014,
+        "final_objective": 0.08252150565385818,
+        "final_projected_gradient_inf_norm": 0.0013913027942180634,
+        "maximum_command_bound_violation": 0.0,
+        "maximum_validity_utilization": 0.3181908130645752,
+        "maximum_normalized_safety_violation": 0.0,
+        "maximum_normalized_model_uncertainty_standard_deviation": 0.0,
+        "warm_start_used": false,
+        "prediction_horizon_s": 0.6000000000000005,
+        "parameter_uncertainty_complete": true,
+        "unresolved_parameters_allowed": true
+      }
+    },
+    {
+      "belief": "additional_evidence",
+      "disturbance": "small",
+      "contributions": "both",
+      "optimizer": "lbfgsb_500",
+      "uncertainty_contributions_omitted": false,
+      "metrics": {
+        "condition": "both",
+        "model_role": "controlled diagnostic ablation",
+        "forecast_error_available": true,
+        "parameter_information_rank": 15,
+        "prediction_horizon_s": 0.6000000000000005,
+        "normalized_tracking_rms": 0.05466369912028313,
+        "tail_normalized_tracking_rms": 0.028239775449037552,
+        "normalized_attitude_rate_rms": 0.06403332203626633,
+        "tail_normalized_attitude_rate_rms": 0.015243557281792164,
+        "terminal_attitude_error_rad": 0.0016404453199356794,
+        "terminal_angular_velocity_error_rad_s": 0.008384744636714458,
+        "terminal_attitude_rate_tolerance_entry_time_s": 0.0,
+        "maximum_actual_validity_utilization": 0.3379516899585724,
+        "maximum_predicted_validity_utilization": 0.33833053708076477,
+        "maximum_command_bound_violation": 0.0,
+        "maximum_normalized_model_uncertainty_standard_deviation": 0.08290485292673111,
+        "parameter_uncertainty_complete": true,
+        "unresolved_parameters_allowed": true,
+        "inside_support_step_count": 60,
+        "outside_support_step_count": 0,
+        "fallback_count": 0,
+        "solve_status_counts": {
+          "converged": 60
+        },
+        "finite": true,
+        "prewarm_wall_time_s": 0.3726660000029369,
+        "solve_time_median_s": 0.04174658299962175,
+        "solve_time_p90_s": 0.09785665390154463,
+        "solve_time_maximum_s": 0.2064386249985546
+      },
+      "median_projected_gradient_inf_norm": 0.001424156129360199,
+      "maximum_projected_gradient_inf_norm": 0.00196065753698349,
+      "first_solve": {
+        "iterations": 85,
+        "solve_time_s": 0.18866162500489736,
+        "initial_objective": 1.101393461227417,
+        "final_objective": 0.1473846137523651,
+        "final_projected_gradient_inf_norm": 0.0018852651119232178,
+        "maximum_command_bound_violation": 0.0,
+        "maximum_validity_utilization": 0.3181907832622528,
+        "maximum_normalized_safety_violation": 0.0,
+        "maximum_normalized_model_uncertainty_standard_deviation": 0.0818181112408638,
+        "warm_start_used": false,
+        "prediction_horizon_s": 0.6000000000000005,
+        "parameter_uncertainty_complete": true,
+        "unresolved_parameters_allowed": true
+      }
+    },
+    {
+      "belief": "additional_evidence",
+      "disturbance": "original",
+      "contributions": "point",
+      "optimizer": "projected_8",
+      "uncertainty_contributions_omitted": true,
+      "metrics": {
+        "condition": "point",
+        "model_role": "controlled diagnostic ablation",
+        "forecast_error_available": true,
+        "parameter_information_rank": 15,
+        "prediction_horizon_s": 0.6000000000000005,
+        "normalized_tracking_rms": 0.9300605058670044,
+        "tail_normalized_tracking_rms": 0.788296103477478,
+        "normalized_attitude_rate_rms": 0.7995640635490417,
+        "tail_normalized_attitude_rate_rms": 0.45680615305900574,
+        "terminal_attitude_error_rad": 0.08985774219036102,
+        "terminal_angular_velocity_error_rad_s": 0.2641877830028534,
+        "terminal_attitude_rate_tolerance_entry_time_s": 0.98,
+        "maximum_actual_validity_utilization": 1.1365602016448975,
+        "maximum_predicted_validity_utilization": 1.2386151552200317,
+        "maximum_command_bound_violation": 0.0,
+        "maximum_normalized_model_uncertainty_standard_deviation": 0.0,
+        "parameter_uncertainty_complete": true,
+        "unresolved_parameters_allowed": true,
+        "inside_support_step_count": 51,
+        "outside_support_step_count": 9,
+        "fallback_count": 0,
+        "solve_status_counts": {
+          "iteration_limit": 58,
+          "stalled": 2
+        },
+        "finite": true,
+        "prewarm_wall_time_s": 0.06891808399814181,
+        "solve_time_median_s": 0.03379206249883282,
+        "solve_time_p90_s": 0.034693229199183405,
+        "solve_time_maximum_s": 0.035251125002105255
+      },
+      "median_projected_gradient_inf_norm": 0.7440369129180908,
+      "maximum_projected_gradient_inf_norm": 1.3704274892807007,
+      "first_solve": {
+        "iterations": 8,
+        "solve_time_s": 0.0335052500013262,
+        "initial_objective": 136.9427947998047,
+        "final_objective": 33.76111602783203,
+        "final_projected_gradient_inf_norm": 1.2215136289596558,
+        "maximum_command_bound_violation": 0.0,
+        "maximum_validity_utilization": 0.988040030002594,
+        "maximum_normalized_safety_violation": 0.0,
+        "maximum_normalized_model_uncertainty_standard_deviation": 0.0,
+        "warm_start_used": false,
+        "prediction_horizon_s": 0.6000000000000005,
+        "parameter_uncertainty_complete": true,
+        "unresolved_parameters_allowed": true
+      }
+    },
+    {
+      "belief": "additional_evidence",
+      "disturbance": "original",
+      "contributions": "both",
+      "optimizer": "projected_8",
+      "uncertainty_contributions_omitted": false,
+      "metrics": {
+        "condition": "both",
+        "model_role": "controlled diagnostic ablation",
+        "forecast_error_available": true,
+        "parameter_information_rank": 15,
+        "prediction_horizon_s": 0.6000000000000005,
+        "normalized_tracking_rms": 0.9302162528038025,
+        "tail_normalized_tracking_rms": 0.7885144352912903,
+        "normalized_attitude_rate_rms": 0.7996048331260681,
+        "tail_normalized_attitude_rate_rms": 0.45686694979667664,
+        "terminal_attitude_error_rad": 0.08977789431810379,
+        "terminal_angular_velocity_error_rad_s": 0.265879362821579,
+        "terminal_attitude_rate_tolerance_entry_time_s": 0.98,
+        "maximum_actual_validity_utilization": 1.1361263990402222,
+        "maximum_predicted_validity_utilization": 1.2375298738479614,
+        "maximum_command_bound_violation": 0.0,
+        "maximum_normalized_model_uncertainty_standard_deviation": 0.10159187018871307,
+        "parameter_uncertainty_complete": true,
+        "unresolved_parameters_allowed": true,
+        "inside_support_step_count": 51,
+        "outside_support_step_count": 9,
+        "fallback_count": 0,
+        "solve_status_counts": {
+          "iteration_limit": 57,
+          "stalled": 3
+        },
+        "finite": true,
+        "prewarm_wall_time_s": 0.0671539169998141,
+        "solve_time_median_s": 0.03391956249834038,
+        "solve_time_p90_s": 0.03491867140328395,
+        "solve_time_maximum_s": 0.035507000000507105
+      },
+      "median_projected_gradient_inf_norm": 0.7980962991714478,
+      "maximum_projected_gradient_inf_norm": 1.3691719770431519,
+      "first_solve": {
+        "iterations": 8,
+        "solve_time_s": 0.03173841699754121,
+        "initial_objective": 137.0548095703125,
+        "final_objective": 33.88204574584961,
+        "final_projected_gradient_inf_norm": 1.2220191955566406,
+        "maximum_command_bound_violation": 0.0,
+        "maximum_validity_utilization": 0.9850543141365051,
+        "maximum_normalized_safety_violation": 0.0,
+        "maximum_normalized_model_uncertainty_standard_deviation": 0.08782296627759933,
+        "warm_start_used": false,
+        "prediction_horizon_s": 0.6000000000000005,
+        "parameter_uncertainty_complete": true,
+        "unresolved_parameters_allowed": true
+      }
+    },
+    {
+      "belief": "additional_evidence",
+      "disturbance": "original",
+      "contributions": "point",
+      "optimizer": "lbfgsb_500",
+      "uncertainty_contributions_omitted": true,
+      "metrics": {
+        "condition": "point",
+        "model_role": "controlled diagnostic ablation",
+        "forecast_error_available": true,
+        "parameter_information_rank": 15,
+        "prediction_horizon_s": 0.6000000000000005,
+        "normalized_tracking_rms": 0.8612600564956665,
+        "tail_normalized_tracking_rms": 0.5365965366363525,
+        "normalized_attitude_rate_rms": 0.874829113483429,
+        "tail_normalized_attitude_rate_rms": 0.32375940680503845,
+        "terminal_attitude_error_rad": 0.03594362363219261,
+        "terminal_angular_velocity_error_rad_s": 0.17472802102565765,
+        "terminal_attitude_rate_tolerance_entry_time_s": 0.74,
+        "maximum_actual_validity_utilization": 1.4937437772750854,
+        "maximum_predicted_validity_utilization": 1.6519638299942017,
+        "maximum_command_bound_violation": 0.0,
+        "maximum_normalized_model_uncertainty_standard_deviation": 0.0,
+        "parameter_uncertainty_complete": true,
+        "unresolved_parameters_allowed": true,
+        "inside_support_step_count": 41,
+        "outside_support_step_count": 19,
+        "fallback_count": 0,
+        "solve_status_counts": {
+          "stalled": 42,
+          "converged": 18
+        },
+        "finite": true,
+        "prewarm_wall_time_s": 0.6677207079992513,
+        "solve_time_median_s": 0.2567343749979045,
+        "solve_time_p90_s": 0.372879845895659,
+        "solve_time_maximum_s": 0.46198024999466725
+      },
+      "median_projected_gradient_inf_norm": 0.0032465197145938873,
+      "maximum_projected_gradient_inf_norm": 0.517975926399231,
+      "first_solve": {
+        "iterations": 123,
+        "solve_time_s": 0.35599050000018906,
+        "initial_objective": 136.9427947998047,
+        "final_objective": 23.087942123413086,
+        "final_projected_gradient_inf_norm": 0.004383891820907593,
+        "maximum_command_bound_violation": 0.0,
+        "maximum_validity_utilization": 1.552970290184021,
+        "maximum_normalized_safety_violation": 0.0,
+        "maximum_normalized_model_uncertainty_standard_deviation": 0.0,
+        "warm_start_used": false,
+        "prediction_horizon_s": 0.6000000000000005,
+        "parameter_uncertainty_complete": true,
+        "unresolved_parameters_allowed": true
+      }
+    },
+    {
+      "belief": "additional_evidence",
+      "disturbance": "original",
+      "contributions": "both",
+      "optimizer": "lbfgsb_500",
+      "uncertainty_contributions_omitted": false,
+      "metrics": {
+        "condition": "both",
+        "model_role": "controlled diagnostic ablation",
+        "forecast_error_available": true,
+        "parameter_information_rank": 15,
+        "prediction_horizon_s": 0.6000000000000005,
+        "normalized_tracking_rms": 0.8610657453536987,
+        "tail_normalized_tracking_rms": 0.5366454720497131,
+        "normalized_attitude_rate_rms": 0.8741471171379089,
+        "tail_normalized_attitude_rate_rms": 0.3230436444282532,
+        "terminal_attitude_error_rad": 0.03592890128493309,
+        "terminal_angular_velocity_error_rad_s": 0.17862717807292938,
+        "terminal_attitude_rate_tolerance_entry_time_s": 0.74,
+        "maximum_actual_validity_utilization": 1.4952044486999512,
+        "maximum_predicted_validity_utilization": 1.6313849687576294,
+        "maximum_command_bound_violation": 0.0,
+        "maximum_normalized_model_uncertainty_standard_deviation": 0.12406787276268005,
+        "parameter_uncertainty_complete": true,
+        "unresolved_parameters_allowed": true,
+        "inside_support_step_count": 41,
+        "outside_support_step_count": 19,
+        "fallback_count": 0,
+        "solve_status_counts": {
+          "stalled": 42,
+          "converged": 18
+        },
+        "finite": true,
+        "prewarm_wall_time_s": 0.8305311250005616,
+        "solve_time_median_s": 0.2563589374985895,
+        "solve_time_p90_s": 0.3762360746979539,
+        "solve_time_maximum_s": 0.4410352079939912
+      },
+      "median_projected_gradient_inf_norm": 0.003718852996826172,
+      "maximum_projected_gradient_inf_norm": 0.4078407883644104,
+      "first_solve": {
+        "iterations": 120,
+        "solve_time_s": 0.41209887500008335,
+        "initial_objective": 137.0548095703125,
+        "final_objective": 23.229602813720703,
+        "final_projected_gradient_inf_norm": 0.0031678378582000732,
+        "maximum_command_bound_violation": 0.0,
+        "maximum_validity_utilization": 1.532389521598816,
+        "maximum_normalized_safety_violation": 0.0,
+        "maximum_normalized_model_uncertainty_standard_deviation": 0.0888376459479332,
+        "warm_start_used": false,
+        "prediction_horizon_s": 0.6000000000000005,
+        "parameter_uncertainty_complete": true,
+        "unresolved_parameters_allowed": true
+      }
+    }
+  ],
+  "independent_prediction_rms": {
+    "stale": 0.03339372324562736,
+    "short_adaptation": 0.028970294626072573,
+    "additional_evidence": 0.002003528193232035
+  },
+  "complete": true
+}

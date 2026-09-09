@@ -1,9 +1,20 @@
+"""Both families' bounded SITL profiles and the one loop that flies them."""
+
 from types import SimpleNamespace
 
+import numpy as np
 import pytest
 
 import glassbox.io.sitl_profile as sitl_profile
-from glassbox.io.sitl_profile import fly_profile, profile_targets
+from glassbox.io.sitl_profile import (
+    PROFILES,
+    TRIM_PITCH_DEG,
+    TRIM_THROTTLE,
+    _quaternion_from_euler,
+    family_of,
+    fly_profile,
+    profile_targets,
+)
 
 
 def test_excitation_condition_scales_translation_and_dwell() -> None:
@@ -80,3 +91,37 @@ def test_flight_error_is_not_suppressed_after_successful_landing(
         fly_profile("vertical_steps", landing_timeout_s=1.0)
 
     assert landed
+
+
+def test_fixedwing_low_and_high_conditions_scale_around_trim() -> None:
+    base = PROFILES["fixedwing"]["combined"][0]
+    low = profile_targets("combined", family="fixedwing", condition="low")[0]
+    high = profile_targets("combined", family="fixedwing", condition="high")[0]
+
+    assert abs(low.roll_deg) < abs(base.roll_deg) < abs(high.roll_deg)
+    assert (
+        abs(low.pitch_deg - TRIM_PITCH_DEG)
+        < abs(base.pitch_deg - TRIM_PITCH_DEG)
+        < abs(high.pitch_deg - TRIM_PITCH_DEG)
+    )
+    assert (
+        abs(low.throttle - TRIM_THROTTLE)
+        < abs(base.throttle - TRIM_THROTTLE)
+        < abs(high.throttle - TRIM_THROTTLE)
+    )
+
+
+def test_attitude_quaternion_is_unit_length() -> None:
+    quaternion = _quaternion_from_euler(0.2, -0.1, 1.1)
+    np.testing.assert_allclose(np.linalg.norm(quaternion), 1.0, atol=1e-12)
+
+
+def test_each_family_owns_its_profile_names_except_the_shared_one() -> None:
+    """One profile name is declared by both families, so it needs --family."""
+
+    assert family_of("vertical_steps") == "multirotor"
+    assert family_of("roll_steps") == "fixedwing"
+    with pytest.raises(ValueError, match="more than one family"):
+        family_of("combined")
+    with pytest.raises(ValueError, match="unknown profile"):
+        family_of("not_a_profile")

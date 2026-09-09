@@ -1,0 +1,143 @@
+{
+  "format_version": 1,
+  "recorded_date": "2026-09-05",
+  "diagnostic_only": true,
+  "px4_image": "px4io/px4-sitl@sha256:01866d912ac22ca6119a996b830cf628a6d47dfb60fdccc41cd9f44b62935a44",
+  "model_source": "artifacts/sitl/px4_runtime_model.json",
+  "model_source_sha256": "1f49d610a490a5e56d6798b607d39ab5683ed5e3ebc7f671b8558d27e3690046",
+  "loaded_model_format": 6,
+  "model_used_as": "explicit point-model shadow comparison",
+  "source_sha256": {
+    "tests/integration/test_px4_sitl.py": "9af4c718f59b08c46ab30071833cf082cc4e1a62f876377baac3d7a63f392a5d",
+    "src/glassbox/integrations/loop.py": "aca210905424df6fc206f0578430018349daed8c58b891a8510d279b33343310",
+    "src/glassbox/integrations/px4.py": "a8617e33586c425512356c61c85db268c5cf1fc1bf343dff3649503a85cc7d54",
+    "src/glassbox/integrations/px4_nmpc_shadow.py": "a9c7e14565cb0a7beb4d9d750c85e806136d8b3fe095667373dafdcd11002b1f"
+  },
+  "profiles": [
+    {
+      "profile": "vertical_steps",
+      "summary": {
+        "steps": 160,
+        "interval_s": 0.019999999999999574,
+        "status_counts": {
+          "deadline_exceeded": 1,
+          "iteration_limit": 159
+        },
+        "usable_command_count": 159,
+        "fallback_count": 1,
+        "written_command_count": 0,
+        "supervisor_intervention_count": 0,
+        "deadline_miss_count": 1,
+        "solve_time_median_s": 0.00882837499739253,
+        "solve_time_p90_s": 0.009641412501514424,
+        "solve_time_maximum_s": 0.2149239169957582,
+        "maximum_message_skew_s": 0.024,
+        "maximum_receive_age_s": 0.033606083001359366,
+        "maximum_source_clock_lag_s": 2.0950138330008485,
+        "maximum_applied_command_skew_s": 0.004,
+        "host_elapsed_s": 5.9555993329995545
+      },
+      "excitation": {
+        "vertical_span_m": 1.2110595703125,
+        "horizontal_span_m": 0.4100971892476082,
+        "attitude_span_deg": 4.485929161073088,
+        "maximum_applied_command_span": 0.5503932535648346
+      },
+      "all_armed": true,
+      "maximum_command_bound_violation": 0.0
+    },
+    {
+      "profile": "lateral_steps",
+      "summary": {
+        "steps": 160,
+        "interval_s": 0.019999999999999574,
+        "status_counts": {
+          "iteration_limit": 160
+        },
+        "usable_command_count": 160,
+        "fallback_count": 0,
+        "written_command_count": 0,
+        "supervisor_intervention_count": 0,
+        "deadline_miss_count": 0,
+        "solve_time_median_s": 0.008407812001678394,
+        "solve_time_p90_s": 0.009337099704862338,
+        "solve_time_maximum_s": 0.010777874995255843,
+        "maximum_message_skew_s": 0.016,
+        "maximum_receive_age_s": 0.038232083003094885,
+        "maximum_source_clock_lag_s": 1.1348027499989257,
+        "maximum_applied_command_skew_s": 0.004,
+        "host_elapsed_s": 5.622328749996086
+      },
+      "excitation": {
+        "vertical_span_m": 0.203857421875,
+        "horizontal_span_m": 4.151291131973267,
+        "attitude_span_deg": 39.79613132406479,
+        "maximum_applied_command_span": 0.5147884488105774
+      },
+      "all_armed": true,
+      "maximum_command_bound_violation": 0.0
+    },
+    {
+      "profile": "yaw_steps",
+      "summary": {
+        "steps": 160,
+        "interval_s": 0.019999999999999574,
+        "status_counts": {
+          "iteration_limit": 160
+        },
+        "usable_command_count": 160,
+        "fallback_count": 0,
+        "written_command_count": 0,
+        "supervisor_intervention_count": 0,
+        "deadline_miss_count": 0,
+        "solve_time_median_s": 0.007841083497623913,
+        "solve_time_p90_s": 0.009055888102011522,
+        "solve_time_maximum_s": 0.01064254200173309,
+        "maximum_message_skew_s": 0.02,
+        "maximum_receive_age_s": 0.05194679200212704,
+        "maximum_source_clock_lag_s": 1.6680665409949142,
+        "maximum_applied_command_skew_s": 0.004,
+        "host_elapsed_s": 5.766506915999344
+      },
+      "excitation": {
+        "vertical_span_m": 0.223541259765625,
+        "horizontal_span_m": 0.28517382591962814,
+        "attitude_span_deg": 179.26655727427246,
+        "maximum_applied_command_span": 1.0
+      },
+      "all_armed": true,
+      "maximum_command_bound_violation": 0.0
+    },
+    {
+      "profile": "combined",
+      "summary": {
+        "steps": 160,
+        "interval_s": 0.019999999999999574,
+        "status_counts": {
+          "iteration_limit": 160
+        },
+        "usable_command_count": 160,
+        "fallback_count": 0,
+        "written_command_count": 0,
+        "supervisor_intervention_count": 0,
+        "deadline_miss_count": 0,
+        "solve_time_median_s": 0.007609624997712672,
+        "solve_time_p90_s": 0.009021220797876595,
+        "solve_time_maximum_s": 0.013112374996126164,
+        "maximum_message_skew_s": 0.024,
+        "maximum_receive_age_s": 0.04210366600455018,
+        "maximum_source_clock_lag_s": 1.1946112500008894,
+        "maximum_applied_command_skew_s": 0.004,
+        "host_elapsed_s": 5.666473792000033
+      },
+      "excitation": {
+        "vertical_span_m": 0.93414306640625,
+        "horizontal_span_m": 3.977821111679077,
+        "attitude_span_deg": 179.48202789907,
+        "maximum_applied_command_span": 0.9134302139282227
+      },
+      "all_armed": true,
+      "maximum_command_bound_violation": 0.0
+    }
+  ]
+}

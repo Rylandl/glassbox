@@ -739,7 +739,7 @@ def test_source_rates_reports_period_method_and_sample_count() -> None:
 def test_cli_extract_warns_when_coverage_is_incomplete(
     tmp_path, monkeypatch, capsys
 ) -> None:
-    import glassbox.cli.ulog as ulog_cli
+    import glassbox.cli.extract as extract_cli
 
     fragmented_trajectory = trajectory_from_datasets(
         make_jittered_actuator_datasets(),
@@ -753,20 +753,19 @@ def test_cli_extract_warns_when_coverage_is_incomplete(
     def fake_load(path, *, config):
         return fragmented_trajectory
 
-    monkeypatch.setattr(ulog_cli, "load_px4_trajectory", fake_load)
+    monkeypatch.setattr(extract_cli, "load_px4_trajectory", fake_load)
     output_path = tmp_path / "flight.npz"
     monkeypatch.setattr(
         sys,
         "argv",
         [
-            "glassbox ulog",
-            "extract",
+            "glassbox extract",
             str(tmp_path / "flight.ulg"),
             str(output_path),
         ],
     )
 
-    ulog_cli.main()
+    extract_cli.main()
 
     captured = capsys.readouterr()
     assert "segments: 20 valid" in captured.out

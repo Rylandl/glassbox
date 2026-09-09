@@ -1,0 +1,19 @@
+{
+  "absolute_tick": 10,
+  "deadline_s": 0.02,
+  "blocks": 64,
+  "order_per_block": [
+    "baseline",
+    "traced",
+    "traced",
+    "baseline"
+  ],
+  "measured_requests": 256,
+  "prewarm_requests": 2,
+  "deadline_free_parity_requests": 2,
+  "request": "same saved state, actuator state, previous command and incoming unshifted forecast9 every time",
+  "no_plant_steps": true,
+  "gc_policy": "unchanged; collection callbacks observed in both arms",
+  "blas_policy": "unchanged",
+  "traced_materialization": "np.asarray(array) at existing seed materialization points, followed by np.asarray(host, dtype=float); no additional readiness fences"
+}

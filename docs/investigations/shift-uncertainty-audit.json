@@ -1,0 +1,262 @@
+{
+  "known_initial_physical_and_actuator_state": true,
+  "parameter_observation_update": false,
+  "retained_endpoint_count": 29,
+  "mean_matching_endpoint_max_abs_error": 0.0,
+  "joint_chain_covariance_max_abs_error": 8.003553375601768e-11,
+  "sensitivity_additivity_max_abs_error": 4.190951585769653e-09,
+  "critical_shifted_stage_one_based": 15,
+  "critical_feature_axis": 3,
+  "critical_matching_endpoint": {
+    "old": {
+      "mean": 0.9718493223190308,
+      "parameter": 0.9845542311668396,
+      "empirical": 0.9969471096992493,
+      "both": 0.9999796152114868
+    },
+    "reset": {
+      "mean": 0.9718493223190308,
+      "parameter": 0.9880362749099731,
+      "empirical": 0.9958414435386658,
+      "both": 1.000791311264038
+    }
+  },
+  "maximum_retained_utilization": {
+    "old": {
+      "mean": 0.981095016002655,
+      "parameter": 0.999989926815033,
+      "empirical": 0.9980268478393555,
+      "both": 0.9999902844429016
+    },
+    "reset": {
+      "mean": 0.981095016002655,
+      "parameter": 0.9996485710144043,
+      "empirical": 0.9971587657928467,
+      "both": 1.000791311264038
+    }
+  },
+  "parameter_covariance_reset_minus_old_eigenvalue_extrema": [
+    -0.00014647480566054583,
+    0.0004695495299529284
+  ],
+  "empirical_covariance_reset_minus_old_eigenvalue_extrema": [
+    -9.413805673830211e-05,
+    2.7933111379496722e-09
+  ],
+  "state_carried_sensitivity_norm": 0.009811554104089737,
+  "actuator_carried_sensitivity_norm": 0.06895742565393448,
+  "scalar_probes": {
+    "old_joint_variance": 0.0,
+    "reset_fixed_parameter_variance": 1.0,
+    "conditioned_parameter_variance_noisy_observation": 0.5,
+    "conditioned_future_variance_noisy_observation": 0.0,
+    "conditioned_parameter_variance_exact_observation": 0.0,
+    "parameter_only_error_second_moment": 1.0,
+    "empirical_plus_parameter_if_same_source": 2.0
+  },
+  "critical_rate_parameter_variance_decomposition": {
+    "reset": 0.000305154942907393,
+    "carried_state": 1.3259129900689004e-06,
+    "carried_actuator": 0.00011037421063520014,
+    "carried_joint": 0.00013387479702942073,
+    "twice_reset_carried_cross": -0.00025103974621742964,
+    "old_reconstructed": 0.0001879900082712993
+  },
+  "actual_maximum_retained_utilization": {
+    "mean": 0.9793800115585327,
+    "parameter": 0.9996613264083862,
+    "empirical": 0.9954946041107178,
+    "both": 0.9996613264083862
+  },
+  "input_sha256": {
+    "/private/tmp/glassbox-astra-20260906/fixtures/rich-belief.json": "cd4e3b5201aff055b274a6fc1fe8eee64aa0656b447999b6618122a965d71bd1",
+    "/private/tmp/glassbox-first-plan-audit-20260906.npz": "b9bb3b644cac02c3140e74a5b0b4f871ec5cf731f6ae710bc57bc115475f0a41"
+  },
+  "fixture_manifest": {
+    "baseline_revision": "4f5cddb1b0095010235ea919fbd2aa6553b2589c",
+    "tick_results": [
+      {
+        "tick": 0,
+        "status": "stalled",
+        "usable": true,
+        "message": "offline SQP feasible iterate; convergence not asserted"
+      },
+      {
+        "tick": 1,
+        "status": "stalled",
+        "usable": true,
+        "message": "offline SQP feasible iterate; convergence not asserted"
+      },
+      {
+        "tick": 2,
+        "status": "stalled",
+        "usable": true,
+        "message": "offline SQP feasible iterate; convergence not asserted"
+      },
+      {
+        "tick": 3,
+        "status": "stalled",
+        "usable": true,
+        "message": "offline SQP feasible iterate; convergence not asserted"
+      },
+      {
+        "tick": 4,
+        "status": "line_search_failed",
+        "usable": false,
+        "message": "SQP returned no feasible command plan"
+      }
+    ],
+    "array_shapes": {
+      "reference_states": [
+        31,
+        13
+      ],
+      "tick0_state": [
+        13
+      ],
+      "tick0_latent": [
+        4
+      ],
+      "tick0_previous_command": [
+        4
+      ],
+      "tick0_predicted_states": [
+        31,
+        13
+      ],
+      "tick0_predicted_latent_states": [
+        31,
+        4
+      ],
+      "tick0_predicted_commands": [
+        30,
+        4
+      ],
+      "tick1_state": [
+        13
+      ],
+      "tick1_latent": [
+        4
+      ],
+      "tick1_previous_command": [
+        4
+      ],
+      "tick1_warm_commands": [
+        30,
+        4
+      ],
+      "tick1_shifted_commands": [
+        30,
+        4
+      ],
+      "tick1_predicted_states": [
+        31,
+        13
+      ],
+      "tick1_predicted_latent_states": [
+        31,
+        4
+      ],
+      "tick1_predicted_commands": [
+        30,
+        4
+      ],
+      "tick2_state": [
+        13
+      ],
+      "tick2_latent": [
+        4
+      ],
+      "tick2_previous_command": [
+        4
+      ],
+      "tick2_warm_commands": [
+        30,
+        4
+      ],
+      "tick2_shifted_commands": [
+        30,
+        4
+      ],
+      "tick2_predicted_states": [
+        31,
+        13
+      ],
+      "tick2_predicted_latent_states": [
+        31,
+        4
+      ],
+      "tick2_predicted_commands": [
+        30,
+        4
+      ],
+      "tick3_state": [
+        13
+      ],
+      "tick3_latent": [
+        4
+      ],
+      "tick3_previous_command": [
+        4
+      ],
+      "tick3_warm_commands": [
+        30,
+        4
+      ],
+      "tick3_shifted_commands": [
+        30,
+        4
+      ],
+      "tick3_predicted_states": [
+        31,
+        13
+      ],
+      "tick3_predicted_latent_states": [
+        31,
+        4
+      ],
+      "tick3_predicted_commands": [
+        30,
+        4
+      ],
+      "tick4_state": [
+        13
+      ],
+      "tick4_latent": [
+        4
+      ],
+      "tick4_previous_command": [
+        4
+      ],
+      "tick4_warm_commands": [
+        30,
+        4
+      ],
+      "tick4_shifted_commands": [
+        30,
+        4
+      ]
+    },
+    "source_sha256": {
+      "scripts/investigate_sqp_recovery.py": "f080b852202cd09a0d09b90036010dd57742fae20df5a6513709f9bb5d3d5ead",
+      "scripts/investigate_recovery.py": "683901f143ec7c44c5494202fcb48be66b3a63883931804f54cf3a85410833dc",
+      "src/glassbox/belief/belief.py": "16924b30baef0c3f4035c5919349c2ed905dd7cb75ac3287b2c074f1a089293b",
+      "src/glassbox/belief/forecast_error.py": "09602a8a1b8919b5db35a3c84cb477dd8f0cf6d3774eb755ca10ba68696a482b",
+      "src/glassbox/belief/information.py": "fb890920f34bca4af044e521c5694612a6f5a139a0a2d84c7aa37d4370021237",
+      "src/glassbox/belief/linearization.py": "ef0cf77eeb40445d4d09f2397afdd9fac37058934c4975217401e18620d46182",
+      "src/glassbox/belief/parameter_evidence.py": "81a574bf787bfb3b55163145d96546fda11237c6244b127294299b257ccd7606",
+      "src/glassbox/belief/update.py": "d96ba299309e269bdd9f0a320650e089088ca27aa9f5f3785de36e4b337b8587",
+      "src/glassbox/control/fitted.py": "7571ae1f5b50010b30bd52a9d7786834354e45f8c3dbff59de2a0ed0eb4d98af",
+      "src/glassbox/control/plan.py": "2ce8236c225bda2aa402b422e856ea496bd3b80fb1b863171d282009669397ba",
+      "src/glassbox/control/solver.py": "f42771cf33c789b56551e174711edd64c18a5c3b6dd8c3608abd195cfb8c9c5d",
+      "src/glassbox/core/data.py": "89543426635a7136ef8da8666fbeee290174ce4c36b08998644492e758f29759",
+      "src/glassbox/core/dynamics.py": "f7d3a65549d6c7d35987d3b55ca8431581f7b7b07976d59fd7dc7e0c27395c01",
+      "src/glassbox/core/geometry.py": "f83708893892c2f34c9e52423f47e53d271fd0b7579cf6a7ece439293c3d07bb",
+      "src/glassbox/core/metrics.py": "1a984d3ef1d3bc875e602f2ee4129e0bb11a1570652920929e1d7be30c4bfc42",
+      "src/glassbox/core/diagnostics.py": "4553e646a755c1254f0fb11b4f5e0eca79ec8eb774a45c4190fc55fd335b673f",
+      "src/glassbox/core/model.py": "8062215ea5886c2c15d2d22e78ee29b8943852f48da140e1a6c06d892b848ed8",
+      "src/glassbox/core/synthetic.py": "6b9bec538e8e0964ca67ec5d61060ac02bc54bc9428fbae50d5f141f4571f8f1",
+      "src/glassbox/workflows/benchmarks/recovery.py": "d459952644f2bec35365d2e9a259956ea8b1cdacc76d53a9fa64e4dba35735e5"
+    }
+  }
+}

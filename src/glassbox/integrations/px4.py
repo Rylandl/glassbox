@@ -4,13 +4,15 @@ from __future__ import annotations
 
 import time
 from collections import deque
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from threading import Condition, Event, Thread
-from typing import Protocol
+from typing import Any, Protocol, TypeVar
 
 import numpy as np
 
-from glassbox.core.px4_frames import (
+from glassbox.integrations.loop import Observation
+from glassbox.io.px4_frames import (
     frd_to_flu,
     ned_frd_quaternion_to_nwu_flu,
     ned_to_nwu,
@@ -23,6 +25,9 @@ _RECEIVE_POLL_TIMEOUT_S = 0.10
 _MAXIMUM_DRAIN_MESSAGES = 4096
 _MAV_MODE_FLAG_SAFETY_ARMED = 128
 _HIL_ACTUATOR_HISTORY_SIZE = 512
+_MAXIMUM_APPLIED_COMMAND_STATE_SKEW_S = 0.10
+
+Item = TypeVar("Item")
 
 
 class PX4TelemetryError(RuntimeError):
@@ -62,6 +67,7 @@ class PX4StateSample:
     message_skew_s: float
     maximum_receive_age_s: float
     estimated_source_clock_lag_s: float = 0.0
+    received_at_s: float | None = None
 
     def __post_init__(self) -> None:
         state = np.asarray(self.state, dtype=np.float64)
@@ -85,6 +91,8 @@ class PX4StateSample:
                 "PX4 state timing diagnostics must be finite and nonnegative"
             )
         object.__setattr__(self, "state", state)
+        if self.received_at_s is not None and not np.isfinite(self.received_at_s):
+            raise ValueError("PX4 reception timestamp must be finite")
 
 
 @dataclass(frozen=True)
@@ -137,6 +145,195 @@ def px4_boot_time_skew_s(first_ms: int, second_ms: int) -> float:
     """Return the absolute distance between wrapping PX4 boot timestamps."""
 
     return abs(_px4_boot_time_difference_ms(first_ms, second_ms)) * 1e-3
+
+
+def _connect_px4(
+    connection_string: str,
+    heartbeat_timeout_s: float,
+) -> tuple[_MAVLinkConnection, int]:
+    """Open a passive MAVLink listener and verify one PX4 heartbeat."""
+
+    if not np.isfinite(heartbeat_timeout_s) or heartbeat_timeout_s <= 0:
+        raise ValueError("heartbeat_timeout_s must be finite and positive")
+    from pymavlink import mavutil
+
+    connection = mavutil.mavlink_connection(connection_string)
+    heartbeat = connection.wait_heartbeat(timeout=float(heartbeat_timeout_s))
+    if heartbeat is None:
+        connection.close()
+        raise PX4TelemetryError(f"no PX4 heartbeat received from {connection_string!r}")
+    if int(getattr(heartbeat, "autopilot", -1)) != int(
+        mavutil.mavlink.MAV_AUTOPILOT_PX4
+    ):
+        connection.close()
+        raise PX4TelemetryError(
+            f"heartbeat from {connection_string!r} is not a PX4 autopilot"
+        )
+    return connection, int(heartbeat.get_srcSystem())
+
+
+class _LatchedReceiver:
+    """One passive MAVLink receive thread with a latched decode history.
+
+    Both PX4 sources in this module are the same machine: a daemon thread blocks
+    on one message-type set, drains whatever else the transport has already
+    buffered, decodes each message through a source-specific decoder, and
+    publishes the results under a condition variable so a reader can wait for
+    something fresh. Retaining only what has been latched is required even in
+    shadow mode, because a solver can block long enough for a receive buffer to
+    preserve old datagrams while dropping newer ones.
+
+    What differs between the two sources is the decoder and the rule a reader
+    selects the history by, so those are the two things this receiver takes.
+    ``source_time_of`` is the third: when a source carries a vehicle clock, a
+    backwards step in it means PX4 restarted, and everything latched from the
+    previous boot is dropped rather than left to compete for selection.
+    """
+
+    def __init__(
+        self,
+        connection: _MAVLinkConnection,
+        message_types: Sequence[str],
+        decode: Callable[[_MAVLinkMessage], Any | None],
+        *,
+        label: str,
+        thread_name: str,
+        source_system: int | None = None,
+        history_size: int = 1,
+        source_time_of: Callable[[Any], int] | None = None,
+    ) -> None:
+        self._connection = connection
+        self._message_types = list(message_types)
+        self._decode = decode
+        self._label = label
+        self._source_system = source_system
+        self._source_time_of = source_time_of
+        self._condition = Condition()
+        self._stop_requested = Event()
+        self.history: deque[Any] = deque(maxlen=history_size)
+        self.latest_sequence = 0
+        self.delivered_sequence = 0
+        self._receiver_error: Exception | None = None
+        self._closed = False
+        self._receiver = Thread(
+            target=self._receive_forever,
+            name=thread_name,
+            daemon=True,
+        )
+        self._receiver.start()
+
+    def _decoded(self, message: _MAVLinkMessage) -> Any | None:
+        if (
+            self._source_system is not None
+            and int(message.get_srcSystem()) != self._source_system
+        ):
+            return None
+        return self._decode(message)
+
+    def _receive_batch(self) -> list[Any]:
+        """Block for one message, then drain the transport, decoding as we go."""
+
+        decoded: list[Any] = []
+        message = self._connection.recv_match(
+            type=self._message_types,
+            blocking=True,
+            timeout=_RECEIVE_POLL_TIMEOUT_S,
+        )
+        if message is None:
+            return decoded
+        for _ in range(_MAXIMUM_DRAIN_MESSAGES):
+            item = self._decoded(message)
+            if item is not None:
+                decoded.append(item)
+            message = self._connection.recv_match(
+                type=self._message_types,
+                blocking=False,
+                timeout=0.0,
+            )
+            if message is None:
+                break
+        return decoded
+
+    def _drop_previous_boot(self, items: list[Any]) -> list[Any]:
+        source_time_of = self._source_time_of
+        if source_time_of is None:
+            return items
+        previous = source_time_of(self.history[-1]) if self.history else None
+        reset_index: int | None = None
+        for index, item in enumerate(items):
+            current = source_time_of(item)
+            if previous is not None and current < previous:
+                reset_index = index
+            previous = current
+        if reset_index is None:
+            return items
+        # PX4 restarted; samples from the previous boot must never compete in
+        # nearest-timestamp selection.
+        self.history.clear()
+        return items[reset_index:]
+
+    def _receive_forever(self) -> None:
+        try:
+            while not self._stop_requested.is_set():
+                items = self._receive_batch()
+                if not items:
+                    continue
+                with self._condition:
+                    retained = self._drop_previous_boot(items)
+                    self.history.extend(retained)
+                    self.latest_sequence += len(retained)
+                    self._condition.notify_all()
+        except Exception as error:
+            with self._condition:
+                if not self._closed:
+                    self._receiver_error = error
+                    self._condition.notify_all()
+
+    def take_fresh(self) -> Any | None:
+        """Return the newest latched item once, or ``None`` until one arrives."""
+
+        if self.latest_sequence <= self.delivered_sequence:
+            return None
+        self.delivered_sequence = self.latest_sequence
+        return self.history[-1]
+
+    def wait(
+        self,
+        select: Callable[[], Item | None],
+        *,
+        timeout_s: float,
+        timeout_message: str,
+    ) -> Item:
+        """Wait until ``select`` accepts the latched history, or time out."""
+
+        if not np.isfinite(timeout_s) or timeout_s <= 0:
+            raise ValueError("timeout_s must be finite and positive")
+        deadline = time.monotonic() + timeout_s
+        with self._condition:
+            while True:
+                if self._receiver_error is not None:
+                    raise PX4TelemetryError(
+                        f"{self._label} receiver failed"
+                    ) from self._receiver_error
+                if self._closed:
+                    raise PX4TelemetryError(f"{self._label} source is closed")
+                selected = select()
+                if selected is not None:
+                    return selected
+                remaining_s = deadline - time.monotonic()
+                if remaining_s <= 0.0:
+                    raise PX4TelemetryError(timeout_message)
+                self._condition.wait(timeout=remaining_s)
+
+    def close(self) -> None:
+        with self._condition:
+            if self._closed:
+                return
+            self._closed = True
+            self._stop_requested.set()
+            self._condition.notify_all()
+        self._connection.close()
+        self._receiver.join(timeout=1.0)
 
 
 class PX4StateAssembler:
@@ -287,6 +484,9 @@ class PX4StateAssembler:
             estimated_source_clock_lag_s=self._source_clock_lag_s(
                 position_boot_ms, now_s
             ),
+            received_at_s=min(
+                position.received_monotonic_s, attitude.received_monotonic_s
+            ),
         )
 
 
@@ -300,22 +500,15 @@ class PX4MavlinkStateSource:
         assembler: PX4StateAssembler | None = None,
         source_system: int | None = None,
     ) -> None:
-        self._connection = connection
         self._assembler = PX4StateAssembler() if assembler is None else assembler
-        self._source_system = source_system
-        self._condition = Condition()
-        self._stop_requested = Event()
-        self._latest_sample: PX4StateSample | None = None
-        self._latest_sequence = 0
-        self._delivered_sequence = 0
-        self._receiver_error: Exception | None = None
-        self._closed = False
-        self._receiver = Thread(
-            target=self._receive_forever,
-            name="glassbox-px4-telemetry",
-            daemon=True,
+        self._receiver = _LatchedReceiver(
+            connection,
+            PX4_STATE_MESSAGE_TYPES,
+            self._assembler.ingest,
+            label="PX4 telemetry",
+            thread_name="glassbox-px4-telemetry",
+            source_system=source_system,
         )
-        self._receiver.start()
 
     @classmethod
     def connect(
@@ -327,111 +520,23 @@ class PX4MavlinkStateSource:
     ) -> PX4MavlinkStateSource:
         """Open a passive MAVLink listener and wait for a PX4 heartbeat."""
 
-        if not np.isfinite(heartbeat_timeout_s) or heartbeat_timeout_s <= 0:
-            raise ValueError("heartbeat_timeout_s must be finite and positive")
-        from pymavlink import mavutil
-
-        connection = mavutil.mavlink_connection(connection_string)
-        heartbeat = connection.wait_heartbeat(timeout=float(heartbeat_timeout_s))
-        if heartbeat is None:
-            connection.close()
-            raise PX4TelemetryError(
-                f"no PX4 heartbeat received from {connection_string!r}"
-            )
-        if int(getattr(heartbeat, "autopilot", -1)) != int(
-            mavutil.mavlink.MAV_AUTOPILOT_PX4
-        ):
-            connection.close()
-            raise PX4TelemetryError(
-                f"heartbeat from {connection_string!r} is not a PX4 autopilot"
-            )
-        return cls(
-            connection,
-            assembler=assembler,
-            source_system=int(heartbeat.get_srcSystem()),
-        )
-
-    def _ingest_selected(self, message: _MAVLinkMessage) -> PX4StateSample | None:
-        if (
-            self._source_system is not None
-            and int(message.get_srcSystem()) != self._source_system
-        ):
-            return None
-        return self._assembler.ingest(message)
-
-    def _receive_forever(self) -> None:
-        try:
-            while not self._stop_requested.is_set():
-                message = self._connection.recv_match(
-                    type=list(PX4_STATE_MESSAGE_TYPES),
-                    blocking=True,
-                    timeout=_RECEIVE_POLL_TIMEOUT_S,
-                )
-                if message is None:
-                    continue
-                latest = self._ingest_selected(message)
-                for _ in range(_MAXIMUM_DRAIN_MESSAGES):
-                    pending = self._connection.recv_match(
-                        type=list(PX4_STATE_MESSAGE_TYPES),
-                        blocking=False,
-                        timeout=0.0,
-                    )
-                    if pending is None:
-                        break
-                    sample = self._ingest_selected(pending)
-                    if sample is not None:
-                        latest = sample
-                if latest is None:
-                    continue
-                with self._condition:
-                    self._latest_sample = latest
-                    self._latest_sequence += 1
-                    self._condition.notify_all()
-        except Exception as error:
-            with self._condition:
-                if not self._closed:
-                    self._receiver_error = error
-                    self._condition.notify_all()
+        connection, source_system = _connect_px4(connection_string, heartbeat_timeout_s)
+        return cls(connection, assembler=assembler, source_system=source_system)
 
     def next_sample(self, *, timeout_s: float = 1.0) -> PX4StateSample:
         """Wait for the next fresh, time-aligned canonical state sample."""
 
-        if not np.isfinite(timeout_s) or timeout_s <= 0:
-            raise ValueError("timeout_s must be finite and positive")
-        deadline = time.monotonic() + timeout_s
-        with self._condition:
-            while True:
-                if self._receiver_error is not None:
-                    raise PX4TelemetryError(
-                        "PX4 telemetry receiver failed"
-                    ) from self._receiver_error
-                if self._closed:
-                    raise PX4TelemetryError("PX4 telemetry source is closed")
-                if self._latest_sequence > self._delivered_sequence:
-                    sample = self._latest_sample
-                    if sample is None:
-                        raise PX4TelemetryError(
-                            "PX4 telemetry receiver published an empty sample"
-                        )
-                    self._delivered_sequence = self._latest_sequence
-                    return sample
-                remaining_s = deadline - time.monotonic()
-                if remaining_s <= 0.0:
-                    raise PX4TelemetryError(
-                        "timed out waiting for fresh LOCAL_POSITION_NED and "
-                        "ATTITUDE_QUATERNION messages"
-                    )
-                self._condition.wait(timeout=remaining_s)
+        return self._receiver.wait(
+            self._receiver.take_fresh,
+            timeout_s=timeout_s,
+            timeout_message=(
+                "timed out waiting for fresh LOCAL_POSITION_NED and "
+                "ATTITUDE_QUATERNION messages"
+            ),
+        )
 
     def close(self) -> None:
-        with self._condition:
-            if self._closed:
-                return
-            self._closed = True
-            self._stop_requested.set()
-            self._condition.notify_all()
-        self._connection.close()
-        self._receiver.join(timeout=1.0)
+        self._receiver.close()
 
     def __enter__(self) -> PX4MavlinkStateSource:
         return self
@@ -467,26 +572,18 @@ class PX4HILActuatorSource:
             )
         if not np.isfinite(maximum_receive_age_s) or maximum_receive_age_s <= 0:
             raise ValueError("maximum_receive_age_s must be finite and positive")
-        self._connection = connection
         self._command_indices = command_indices
-        self._source_system = source_system
         self._maximum_receive_age_s = float(maximum_receive_age_s)
-        self._condition = Condition()
-        self._stop_requested = Event()
-        self._latest: _ReceivedAppliedCommand | None = None
-        self._history: deque[_ReceivedAppliedCommand] = deque(
-            maxlen=_HIL_ACTUATOR_HISTORY_SIZE
+        self._receiver = _LatchedReceiver(
+            connection,
+            PX4_HIL_ACTUATOR_MESSAGE_TYPES,
+            self._decode,
+            label="PX4 HIL actuator",
+            thread_name="glassbox-px4-hil-actuators",
+            source_system=source_system,
+            history_size=_HIL_ACTUATOR_HISTORY_SIZE,
+            source_time_of=lambda item: item.source_time_us,
         )
-        self._latest_sequence = 0
-        self._delivered_sequence = 0
-        self._receiver_error: Exception | None = None
-        self._closed = False
-        self._receiver = Thread(
-            target=self._receive_forever,
-            name="glassbox-px4-hil-actuators",
-            daemon=True,
-        )
-        self._receiver.start()
 
     @classmethod
     def connect(
@@ -499,42 +596,15 @@ class PX4HILActuatorSource:
     ) -> PX4HILActuatorSource:
         """Open a passive PX4 HIL actuator listener and verify its heartbeat."""
 
-        if not np.isfinite(heartbeat_timeout_s) or heartbeat_timeout_s <= 0:
-            raise ValueError("heartbeat_timeout_s must be finite and positive")
-        from pymavlink import mavutil
-
-        connection = mavutil.mavlink_connection(connection_string)
-        heartbeat = connection.wait_heartbeat(timeout=float(heartbeat_timeout_s))
-        if heartbeat is None:
-            connection.close()
-            raise PX4TelemetryError(
-                f"no PX4 heartbeat received from {connection_string!r}"
-            )
-        if int(getattr(heartbeat, "autopilot", -1)) != int(
-            mavutil.mavlink.MAV_AUTOPILOT_PX4
-        ):
-            connection.close()
-            raise PX4TelemetryError(
-                f"heartbeat from {connection_string!r} is not a PX4 autopilot"
-            )
+        connection, source_system = _connect_px4(connection_string, heartbeat_timeout_s)
         return cls(
             connection,
             command_indices=command_indices,
-            source_system=int(heartbeat.get_srcSystem()),
+            source_system=source_system,
             maximum_receive_age_s=maximum_receive_age_s,
         )
 
-    def _receive_one(self, *, blocking: bool) -> _ReceivedAppliedCommand | None:
-        message = self._connection.recv_match(
-            type=list(PX4_HIL_ACTUATOR_MESSAGE_TYPES),
-            blocking=blocking,
-            timeout=_RECEIVE_POLL_TIMEOUT_S if blocking else 0.0,
-        )
-        if message is None or (
-            self._source_system is not None
-            and int(message.get_srcSystem()) != self._source_system
-        ):
-            return None
+    def _decode(self, message: _MAVLinkMessage) -> _ReceivedAppliedCommand:
         controls = np.asarray(message.controls, dtype=np.float64)
         highest_index = max(self._command_indices)
         if controls.ndim != 1 or controls.size <= highest_index:
@@ -555,78 +625,6 @@ class PX4HILActuatorSource:
             received_monotonic_s=time.monotonic(),
         )
 
-    def _receive_forever(self) -> None:
-        try:
-            while not self._stop_requested.is_set():
-                received: list[_ReceivedAppliedCommand] = []
-                first = self._receive_one(blocking=True)
-                if first is not None:
-                    received.append(first)
-                for _ in range(_MAXIMUM_DRAIN_MESSAGES):
-                    pending = self._receive_one(blocking=False)
-                    if pending is None:
-                        break
-                    received.append(pending)
-                if not received:
-                    continue
-                with self._condition:
-                    previous_source_time_us = (
-                        self._history[-1].source_time_us if self._history else None
-                    )
-                    reset_index: int | None = None
-                    for index, item in enumerate(received):
-                        if (
-                            previous_source_time_us is not None
-                            and item.source_time_us < previous_source_time_us
-                        ):
-                            reset_index = index
-                        previous_source_time_us = item.source_time_us
-                    if reset_index is not None:
-                        # PX4 restarted; samples from the previous boot must
-                        # never compete in nearest-timestamp selection.
-                        self._history.clear()
-                        received = received[reset_index:]
-                    self._history.extend(received)
-                    self._latest = received[-1]
-                    self._latest_sequence += len(received)
-                    self._condition.notify_all()
-        except Exception as error:
-            with self._condition:
-                if not self._closed:
-                    self._receiver_error = error
-                    self._condition.notify_all()
-
-    def next_sample(self, *, timeout_s: float = 1.0) -> PX4AppliedCommandSample:
-        """Wait for the next fresh canonical applied-command sample."""
-
-        if not np.isfinite(timeout_s) or timeout_s <= 0:
-            raise ValueError("timeout_s must be finite and positive")
-        deadline = time.monotonic() + timeout_s
-        with self._condition:
-            while True:
-                if self._receiver_error is not None:
-                    raise PX4TelemetryError(
-                        "PX4 HIL actuator receiver failed"
-                    ) from self._receiver_error
-                if self._closed:
-                    raise PX4TelemetryError("PX4 HIL actuator source is closed")
-                if self._latest_sequence > self._delivered_sequence:
-                    latest = self._latest
-                    if latest is None:
-                        raise PX4TelemetryError(
-                            "PX4 HIL actuator receiver published an empty sample"
-                        )
-                    self._delivered_sequence = self._latest_sequence
-                    sample = self._sample(latest)
-                    if sample is not None:
-                        return sample
-                remaining_s = deadline - time.monotonic()
-                if remaining_s <= 0.0:
-                    raise PX4TelemetryError(
-                        "timed out waiting for fresh HIL_ACTUATOR_CONTROLS"
-                    )
-                self._condition.wait(timeout=remaining_s)
-
     def _sample(
         self, received: _ReceivedAppliedCommand
     ) -> PX4AppliedCommandSample | None:
@@ -641,6 +639,35 @@ class PX4HILActuatorSource:
             receive_age_s=receive_age_s,
         )
 
+    def _fresh_sample(self) -> PX4AppliedCommandSample | None:
+        received = self._receiver.take_fresh()
+        return None if received is None else self._sample(received)
+
+    def _nearest_sample(self, time_boot_ms: int) -> PX4AppliedCommandSample | None:
+        history = self._receiver.history
+        if not history:
+            return None
+        latest_boot_ms = (history[-1].source_time_us // 1_000) % _BOOT_TIME_MODULUS_MS
+        if _px4_boot_time_difference_ms(latest_boot_ms, time_boot_ms) < 0:
+            return None
+        nearest = min(
+            history,
+            key=lambda item: px4_boot_time_skew_s(
+                (item.source_time_us // 1_000) % _BOOT_TIME_MODULUS_MS,
+                time_boot_ms,
+            ),
+        )
+        return self._sample(nearest)
+
+    def next_sample(self, *, timeout_s: float = 1.0) -> PX4AppliedCommandSample:
+        """Wait for the next fresh canonical applied-command sample."""
+
+        return self._receiver.wait(
+            self._fresh_sample,
+            timeout_s=timeout_s,
+            timeout_message="timed out waiting for fresh HIL_ACTUATOR_CONTROLS",
+        )
+
     def sample_nearest(
         self,
         time_boot_ms: int,
@@ -651,52 +678,146 @@ class PX4HILActuatorSource:
 
         if not 0 <= time_boot_ms < _BOOT_TIME_MODULUS_MS:
             raise ValueError("PX4 target boot timestamp is outside uint32 range")
-        if not np.isfinite(timeout_s) or timeout_s <= 0:
-            raise ValueError("timeout_s must be finite and positive")
-        deadline = time.monotonic() + timeout_s
-        with self._condition:
-            while True:
-                if self._receiver_error is not None:
-                    raise PX4TelemetryError(
-                        "PX4 HIL actuator receiver failed"
-                    ) from self._receiver_error
-                if self._closed:
-                    raise PX4TelemetryError("PX4 HIL actuator source is closed")
-                if self._history:
-                    latest_boot_ms = (
-                        self._history[-1].source_time_us // 1_000
-                    ) % _BOOT_TIME_MODULUS_MS
-                    if _px4_boot_time_difference_ms(latest_boot_ms, time_boot_ms) >= 0:
-                        nearest = min(
-                            self._history,
-                            key=lambda item: px4_boot_time_skew_s(
-                                (item.source_time_us // 1_000) % _BOOT_TIME_MODULUS_MS,
-                                time_boot_ms,
-                            ),
-                        )
-                        sample = self._sample(nearest)
-                        if sample is not None:
-                            return sample
-                remaining_s = deadline - time.monotonic()
-                if remaining_s <= 0.0:
-                    raise PX4TelemetryError(
-                        "timed out waiting for HIL actuator telemetry at PX4 "
-                        f"boot time {time_boot_ms} ms"
-                    )
-                self._condition.wait(timeout=remaining_s)
+        return self._receiver.wait(
+            lambda: self._nearest_sample(time_boot_ms),
+            timeout_s=timeout_s,
+            timeout_message=(
+                "timed out waiting for HIL actuator telemetry at PX4 "
+                f"boot time {time_boot_ms} ms"
+            ),
+        )
 
     def close(self) -> None:
-        with self._condition:
-            if self._closed:
-                return
-            self._closed = True
-            self._stop_requested.set()
-            self._condition.notify_all()
-        self._connection.close()
-        self._receiver.join(timeout=1.0)
+        self._receiver.close()
 
     def __enter__(self) -> PX4HILActuatorSource:
         return self
 
     def __exit__(self, *_args: object) -> None:
         self.close()
+
+
+class PX4MavlinkLink:
+    """A read-only vehicle link over passive PX4 MAVLink telemetry.
+
+    Shadow mode is the product feature this link exists for: it reads canonical
+    state paired with the command PX4 actually applied, and refuses to write.
+    The applied command is either a constant the operator declares or the
+    vehicle's own actuator telemetry; when it comes from telemetry, a state and
+    a command further apart than the alignment limit are refused rather than
+    paired, because a solve against a mismatched pair measures nothing.
+    """
+
+    writable = False
+
+    def __init__(
+        self,
+        state_source: PX4MavlinkStateSource,
+        *,
+        command_size: int,
+        command_bounds: tuple[Any, Any],
+        applied_command_source: Any | None = None,
+        fixed_command: Any | None = None,
+        maximum_applied_command_state_skew_s: float = (
+            _MAXIMUM_APPLIED_COMMAND_STATE_SKEW_S
+        ),
+    ) -> None:
+        if command_size < 1:
+            raise ValueError("command_size must be positive")
+        minimum, maximum = (
+            np.asarray(bound, dtype=np.float64) for bound in command_bounds
+        )
+        if minimum.shape != (command_size,) or maximum.shape != (command_size,):
+            raise ValueError(f"command bounds must each contain {command_size} values")
+        if applied_command_source is None and fixed_command is None:
+            raise ValueError(
+                "provide either a fixed applied command or an applied_command_source"
+            )
+        if applied_command_source is not None and fixed_command is not None:
+            raise ValueError(
+                "fixed_command and applied_command_source are mutually exclusive"
+            )
+        skew_limit = float(maximum_applied_command_state_skew_s)
+        if not np.isfinite(skew_limit) or skew_limit <= 0.0:
+            raise ValueError(
+                "maximum_applied_command_state_skew_s must be finite and positive"
+            )
+        self.command_size = int(command_size)
+        self.command_bounds = (minimum, maximum)
+        self._state_source = state_source
+        self._applied_command_source = applied_command_source
+        self._maximum_applied_command_state_skew_s = skew_limit
+        self._fixed_command = (
+            None if fixed_command is None else self._bounded(fixed_command)
+        )
+
+    @property
+    def applied_command_source_kind(self) -> str:
+        """Where each interval's applied command comes from."""
+
+        return "fixed" if self._applied_command_source is None else "telemetry"
+
+    def _bounded(self, command: Any) -> np.ndarray:
+        command = np.asarray(command, dtype=np.float64)
+        expected_shape = (self.command_size,)
+        if command.shape != expected_shape or not np.all(np.isfinite(command)):
+            raise ValueError(
+                f"applied command must have shape {expected_shape} and be finite"
+            )
+        minimum, maximum = self.command_bounds
+        if np.any(command < minimum) or np.any(command > maximum):
+            raise ValueError("applied command must lie inside the artifact bounds")
+        return command
+
+    def read(self, *, timeout_s: float) -> Observation:
+        """Return one canonical state paired with the command PX4 applied."""
+
+        sample = self._state_source.next_sample(timeout_s=timeout_s)
+        # Preserve the oldest state component's reception time through both
+        # receiver buffering and the wait for matching actuator telemetry.
+        received_at_s = (
+            time.monotonic() - sample.maximum_receive_age_s
+            if sample.received_at_s is None
+            else sample.received_at_s
+        )
+        if self._applied_command_source is None:
+            if self._fixed_command is None:  # pragma: no cover - guarded above
+                raise RuntimeError("fixed applied command was not initialized")
+            command = self._fixed_command
+            skew_s: float | None = None
+            armed: bool | None = None
+        else:
+            applied = self._applied_command_source.sample_nearest(
+                sample.position_time_boot_ms,
+                timeout_s=timeout_s,
+            )
+            command = self._bounded(applied.command)
+            skew_s = px4_boot_time_skew_s(
+                sample.position_time_boot_ms,
+                (applied.source_time_us // 1_000) % _BOOT_TIME_MODULUS_MS,
+            )
+            limit = self._maximum_applied_command_state_skew_s
+            if skew_s > limit + 1e-12:
+                raise PX4TelemetryError(
+                    "PX4 state and applied-command telemetry exceed the "
+                    f"{limit * 1_000:g} ms alignment limit"
+                )
+            armed = applied.armed
+        return Observation(
+            state=sample.state,
+            applied_command=command,
+            received_at_s=received_at_s,
+            source_time_s=sample.position_time_boot_ms * 1e-3,
+            message_skew_s=sample.message_skew_s,
+            receive_age_s=max(0.0, time.monotonic() - received_at_s),
+            source_clock_lag_s=sample.estimated_source_clock_lag_s,
+            applied_command_skew_s=skew_s,
+            armed=armed,
+        )
+
+    def write(self, command: Any) -> None:
+        """Refuse every command: this link exists to never transmit one."""
+
+        raise PX4TelemetryError(
+            "the PX4 MAVLink link is read-only and never transmits commands"
+        )

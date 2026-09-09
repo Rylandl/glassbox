@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -17,6 +17,7 @@ NORMALIZED_MOTOR_COMMAND_SEMANTICS = frozenset(
     {"normalized_command", "normalized_actuator_output"}
 )
 PHYSICAL_MOTOR_THRUST_SEMANTICS = frozenset({"squared_rotor_speed_ratio"})
+CHANNEL_KINDS = ("control", "exogenous", "observation")
 
 
 def duration_to_steps(duration_s: float, dt_s: float) -> int:
@@ -37,122 +38,47 @@ def duration_to_steps(duration_s: float, dt_s: float) -> int:
 
 
 @dataclass(frozen=True)
-class ControlChannel:
-    """Meaning of one column in a canonical trajectory control array."""
+class Channel:
+    """Meaning of one column in a canonical trajectory array.
 
-    name: str
-    role: str
-    semantic: str
-    unit: str
-    minimum: float | None = None
-    maximum: float | None = None
-    frame: str | None = None
-
-    def __post_init__(self) -> None:
-        for field_name in ("name", "role", "semantic", "unit"):
-            value = getattr(self, field_name)
-            if not value.strip():
-                raise ValueError(f"control channel {field_name} cannot be empty")
-        if self.minimum is not None and not np.isfinite(self.minimum):
-            raise ValueError("control channel minimum must be finite")
-        if self.maximum is not None and not np.isfinite(self.maximum):
-            raise ValueError("control channel maximum must be finite")
-        if (
-            self.minimum is not None
-            and self.maximum is not None
-            and self.minimum >= self.maximum
-        ):
-            raise ValueError("control channel minimum must be less than maximum")
-        if self.frame is not None and not self.frame.strip():
-            raise ValueError("control channel frame cannot be empty")
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "name": self.name,
-            "role": self.role,
-            "semantic": self.semantic,
-            "unit": self.unit,
-            "minimum": self.minimum,
-            "maximum": self.maximum,
-            "frame": self.frame,
-        }
-
-    @classmethod
-    def from_dict(cls, payload: Mapping[str, Any]) -> ControlChannel:
-        return cls(
-            name=str(payload["name"]),
-            role=str(payload["role"]),
-            semantic=str(payload["semantic"]),
-            unit=str(payload["unit"]),
-            minimum=(
-                None if payload.get("minimum") is None else float(payload["minimum"])
-            ),
-            maximum=(
-                None if payload.get("maximum") is None else float(payload["maximum"])
-            ),
-            frame=(None if payload.get("frame") is None else str(payload["frame"])),
-        )
-
-
-@dataclass(frozen=True)
-class ExogenousChannel:
-    """Meaning of one measured, non-control input available at prediction time."""
-
-    name: str
-    role: str
-    semantic: str
-    unit: str
-    frame: str | None = None
-
-    def __post_init__(self) -> None:
-        for field_name in ("name", "role", "semantic", "unit"):
-            value = getattr(self, field_name)
-            if not value.strip():
-                raise ValueError(f"exogenous channel {field_name} cannot be empty")
-        if self.frame is not None and not self.frame.strip():
-            raise ValueError("exogenous channel frame cannot be empty")
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "name": self.name,
-            "role": self.role,
-            "semantic": self.semantic,
-            "unit": self.unit,
-            "frame": self.frame,
-        }
-
-    @classmethod
-    def from_dict(cls, payload: Mapping[str, Any]) -> ExogenousChannel:
-        return cls(
-            name=str(payload["name"]),
-            role=str(payload["role"]),
-            semantic=str(payload["semantic"]),
-            unit=str(payload["unit"]),
-            frame=(None if payload.get("frame") is None else str(payload["frame"])),
-        )
-
-
-@dataclass(frozen=True)
-class ObservationChannel:
-    """Meaning of one state-aligned measurement used during identification.
-
-    Observations are measured outputs such as accelerometer specific force.
-    Unlike exogenous channels, they are not assumed to be available when a
-    fitted model is rolled forward.
+    ``kind`` says which array the column belongs to: ``"control"`` for a
+    commanded actuator input, ``"exogenous"`` for a measured non-control input
+    available at prediction time, and ``"observation"`` for a state-aligned
+    measurement, such as accelerometer specific force, that identification may
+    read but a rolled-forward model may not.
     """
 
     name: str
     role: str
     semantic: str
     unit: str
-    frame: str
-    source: str
+    kind: str
+    frame: str | None = None
+    minimum: float | None = None
+    maximum: float | None = None
 
     def __post_init__(self) -> None:
-        for field_name in ("name", "role", "semantic", "unit", "frame", "source"):
+        for field_name in ("name", "role", "semantic", "unit"):
             value = getattr(self, field_name)
             if not value.strip():
-                raise ValueError(f"observation channel {field_name} cannot be empty")
+                raise ValueError(f"channel {field_name} cannot be empty")
+        if self.kind not in CHANNEL_KINDS:
+            raise ValueError(
+                f"channel kind must be one of {', '.join(CHANNEL_KINDS)}; "
+                f"got {self.kind!r}"
+            )
+        if self.minimum is not None and not np.isfinite(self.minimum):
+            raise ValueError("channel minimum must be finite")
+        if self.maximum is not None and not np.isfinite(self.maximum):
+            raise ValueError("channel maximum must be finite")
+        if (
+            self.minimum is not None
+            and self.maximum is not None
+            and self.minimum >= self.maximum
+        ):
+            raise ValueError("channel minimum must be less than maximum")
+        if self.frame is not None and not self.frame.strip():
+            raise ValueError("channel frame cannot be empty")
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -160,53 +86,66 @@ class ObservationChannel:
             "role": self.role,
             "semantic": self.semantic,
             "unit": self.unit,
+            "kind": self.kind,
             "frame": self.frame,
-            "source": self.source,
+            "minimum": self.minimum,
+            "maximum": self.maximum,
         }
 
     @classmethod
-    def from_dict(cls, payload: Mapping[str, Any]) -> ObservationChannel:
+    def from_dict(
+        cls, payload: Mapping[str, Any], *, kind: str | None = None
+    ) -> Channel:
+        """Rebuild one channel.
+
+        ``kind`` supplies the column class for a format-3 payload, whose
+        channels were split across three lists instead of carrying their own
+        kind.
+        """
+
         return cls(
             name=str(payload["name"]),
             role=str(payload["role"]),
             semantic=str(payload["semantic"]),
             unit=str(payload["unit"]),
-            frame=str(payload["frame"]),
-            source=str(payload["source"]),
+            kind=str(payload["kind"]) if kind is None else kind,
+            frame=(None if payload.get("frame") is None else str(payload["frame"])),
+            minimum=(
+                None if payload.get("minimum") is None else float(payload["minimum"])
+            ),
+            maximum=(
+                None if payload.get("maximum") is None else float(payload["maximum"])
+            ),
         )
 
 
-def specific_force_observation_channels(
-    source: str,
-) -> tuple[ObservationChannel, ObservationChannel, ObservationChannel]:
+def specific_force_observation_channels() -> tuple[Channel, Channel, Channel]:
     """Return the canonical FLU accelerometer output contract."""
 
     return tuple(
-        ObservationChannel(
+        Channel(
             name=f"specific_force_{axis}_m_s2",
             role=f"specific_force_{axis}",
             semantic="accelerometer_specific_force_including_gravity",
             unit="m/s^2",
+            kind="observation",
             frame="FLU",
-            source=source,
         )
         for axis in ("x", "y", "z")
     )  # type: ignore[return-value]
 
 
-def angular_acceleration_observation_channels(
-    source: str,
-) -> tuple[ObservationChannel, ObservationChannel, ObservationChannel]:
+def angular_acceleration_observation_channels() -> tuple[Channel, Channel, Channel]:
     """Return the canonical FLU body-angular-acceleration contract."""
 
     return tuple(
-        ObservationChannel(
+        Channel(
             name=f"angular_acceleration_{axis}_rad_s2",
             role=f"angular_acceleration_{axis}",
             semantic="bias_corrected_body_angular_acceleration",
             unit="rad/s^2",
+            kind="observation",
             frame="FLU",
-            source=source,
         )
         for axis in ("x", "y", "z")
     )  # type: ignore[return-value]
@@ -219,7 +158,6 @@ class VehicleConfigurationSpec:
     family: str
     configuration_id: str | None = None
     controlled_axes: tuple[str, ...] = ()
-    propulsion: str = "unknown"
     fixed_states: Mapping[str, Any] = field(default_factory=dict)
     auxiliary_controls: tuple[str, ...] = ()
 
@@ -228,8 +166,6 @@ class VehicleConfigurationSpec:
             raise ValueError("vehicle family cannot be empty")
         if self.configuration_id is not None and not self.configuration_id.strip():
             raise ValueError("vehicle configuration_id cannot be empty")
-        if not self.propulsion.strip():
-            raise ValueError("vehicle propulsion cannot be empty")
         controlled_axes = tuple(str(axis) for axis in self.controlled_axes)
         auxiliary_controls = tuple(str(role) for role in self.auxiliary_controls)
         if any(not axis.strip() for axis in controlled_axes):
@@ -251,7 +187,6 @@ class VehicleConfigurationSpec:
             "family": self.family,
             "configuration_id": self.configuration_id,
             "controlled_axes": list(self.controlled_axes),
-            "propulsion": self.propulsion,
             "fixed_states": dict(self.fixed_states),
             "auxiliary_controls": list(self.auxiliary_controls),
         }
@@ -268,7 +203,6 @@ class VehicleConfigurationSpec:
             controlled_axes=tuple(
                 str(value) for value in payload.get("controlled_axes", ())
             ),
-            propulsion=str(payload.get("propulsion", "unknown")),
             fixed_states=dict(payload.get("fixed_states", {})),
             auxiliary_controls=tuple(
                 str(value) for value in payload.get("auxiliary_controls", ())
@@ -278,14 +212,17 @@ class VehicleConfigurationSpec:
 
 @dataclass(frozen=True)
 class TrajectorySpec:
-    """Versioned semantic contract for canonical state and control arrays."""
+    """Versioned semantic contract for canonical state and control arrays.
+
+    One ordered tuple of :class:`Channel` carries every column of every array;
+    :attr:`controls`, :attr:`exogenous` and :attr:`observations` are the
+    filtered views a call site indexes by column.
+    """
 
     state_schema: str
     observation_source: str
-    controls: tuple[ControlChannel, ...]
+    channels: tuple[Channel, ...]
     vehicle: VehicleConfigurationSpec
-    exogenous: tuple[ExogenousChannel, ...] = ()
-    observations: tuple[ObservationChannel, ...] = ()
 
     def __post_init__(self) -> None:
         if self.state_schema != RIGID_BODY_STATE_SCHEMA:
@@ -295,32 +232,39 @@ class TrajectorySpec:
             )
         if not self.observation_source.strip():
             raise ValueError("observation_source cannot be empty")
-        controls = tuple(self.controls)
-        if not controls:
+        channels = tuple(self.channels)
+        if not any(channel.kind == "control" for channel in channels):
             raise ValueError("trajectory spec needs at least one control channel")
-        names = tuple(channel.name for channel in controls)
-        roles = tuple(channel.role for channel in controls)
-        if len(set(names)) != len(names):
-            raise ValueError("trajectory spec control names must be unique")
-        if len(set(roles)) != len(roles):
-            raise ValueError("trajectory spec control roles must be unique")
-        exogenous = tuple(self.exogenous)
-        exogenous_names = tuple(channel.name for channel in exogenous)
-        exogenous_roles = tuple(channel.role for channel in exogenous)
-        if len(set(exogenous_names)) != len(exogenous_names):
-            raise ValueError("trajectory spec exogenous names must be unique")
-        if len(set(exogenous_roles)) != len(exogenous_roles):
-            raise ValueError("trajectory spec exogenous roles must be unique")
-        observations = tuple(self.observations)
-        observation_names = tuple(channel.name for channel in observations)
-        observation_roles = tuple(channel.role for channel in observations)
-        if len(set(observation_names)) != len(observation_names):
-            raise ValueError("trajectory spec observation names must be unique")
-        if len(set(observation_roles)) != len(observation_roles):
-            raise ValueError("trajectory spec observation roles must be unique")
-        object.__setattr__(self, "controls", controls)
-        object.__setattr__(self, "exogenous", exogenous)
-        object.__setattr__(self, "observations", observations)
+        for kind in CHANNEL_KINDS:
+            selected = [channel for channel in channels if channel.kind == kind]
+            names = tuple(channel.name for channel in selected)
+            roles = tuple(channel.role for channel in selected)
+            if len(set(names)) != len(names):
+                raise ValueError(f"trajectory spec {kind} names must be unique")
+            if len(set(roles)) != len(roles):
+                raise ValueError(f"trajectory spec {kind} roles must be unique")
+        object.__setattr__(self, "channels", channels)
+
+    def _of_kind(self, kind: str) -> tuple[Channel, ...]:
+        return tuple(channel for channel in self.channels if channel.kind == kind)
+
+    @property
+    def controls(self) -> tuple[Channel, ...]:
+        """Commanded actuator columns, in control-array order."""
+
+        return self._of_kind("control")
+
+    @property
+    def exogenous(self) -> tuple[Channel, ...]:
+        """Measured non-control input columns, in exogenous-array order."""
+
+        return self._of_kind("exogenous")
+
+    @property
+    def observations(self) -> tuple[Channel, ...]:
+        """Training-only measurement columns, in observation-array order."""
+
+        return self._of_kind("observation")
 
     @property
     def control_names(self) -> tuple[str, ...]:
@@ -356,43 +300,78 @@ class TrajectorySpec:
         return TrajectorySpec(
             state_schema=self.state_schema,
             observation_source=self.observation_source,
-            controls=self.controls,
+            channels=tuple(
+                channel for channel in self.channels if channel.kind != "observation"
+            ),
             vehicle=self.vehicle,
-            exogenous=self.exogenous,
         )
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "state_schema": self.state_schema,
             "observation_source": self.observation_source,
-            "controls": [channel.to_dict() for channel in self.controls],
+            "channels": [channel.to_dict() for channel in self.channels],
             "vehicle": self.vehicle.to_dict(),
-            "exogenous": [channel.to_dict() for channel in self.exogenous],
-            "observations": [channel.to_dict() for channel in self.observations],
         }
 
     @classmethod
     def from_dict(cls, payload: Mapping[str, Any]) -> TrajectorySpec:
+        """Rebuild a spec from a serialized payload.
+
+        Format 3 split the channels across ``controls``, ``exogenous`` and
+        ``observations`` lists whose entries carried no kind of their own;
+        format 4 writes one ``channels`` list.
+        """
+
+        if "channels" in payload:
+            channels = tuple(
+                Channel.from_dict(channel) for channel in payload["channels"]
+            )
+        else:
+            channels = tuple(
+                Channel.from_dict(channel, kind=kind)
+                for kind, key in zip(
+                    CHANNEL_KINDS, ("controls", "exogenous", "observations")
+                )
+                for channel in payload.get(key, ())
+            )
         return cls(
             state_schema=str(payload["state_schema"]),
             observation_source=str(payload["observation_source"]),
-            controls=tuple(
-                ControlChannel.from_dict(channel)
-                for channel in payload.get("controls", ())
-            ),
+            channels=channels,
             vehicle=VehicleConfigurationSpec.from_dict(payload["vehicle"]),
-            exogenous=tuple(
-                ExogenousChannel.from_dict(channel)
-                for channel in payload.get("exogenous", ())
-            ),
-            observations=tuple(
-                ObservationChannel.from_dict(channel)
-                for channel in payload.get("observations", ())
-            ),
         )
 
 
-def _control_channel_for_name(name: str, platform: str) -> ControlChannel:
+def _require_compatible_inputs(
+    expected: TrajectorySpec, actual: TrajectorySpec, *, label: str
+) -> None:
+    """Require the same ordered prediction semantics for scoring and updates.
+
+    Observation sources and training-only channels can differ. Model-family
+    channel layouts, runtime command bounds and full dataset pooling have
+    their own checks beyond this comparison of prediction semantics.
+    """
+
+    if actual.state_schema != expected.state_schema:
+        raise ValueError(f"{label}: telemetry state schema does not match model")
+    if actual.vehicle.family != expected.vehicle.family:
+        raise ValueError(f"{label}: telemetry vehicle family does not match model")
+    for kind in ("controls", "exogenous"):
+        for attribute in ("role", "semantic", "unit", "frame"):
+            observed = tuple(
+                getattr(channel, attribute) for channel in getattr(actual, kind)
+            )
+            declared = tuple(
+                getattr(channel, attribute) for channel in getattr(expected, kind)
+            )
+            if observed != declared:
+                raise ValueError(
+                    f"{label}: telemetry {kind} {attribute}s do not match model"
+                )
+
+
+def _control_channel_for_name(name: str, platform: str) -> Channel:
     fixed_wing_roles = {
         "throttle": "throttle",
         "aileron": "roll",
@@ -415,14 +394,15 @@ def _control_channel_for_name(name: str, platform: str) -> ControlChannel:
         else "normalized_command"
     )
     frame = "FLU" if role in {"roll", "pitch", "yaw"} else None
-    return ControlChannel(
+    return Channel(
         name=name,
         role=role,
         semantic=semantic,
         unit="1",
+        kind="control",
+        frame=frame,
         minimum=minimum,
         maximum=maximum,
-        frame=frame,
     )
 
 
@@ -433,8 +413,8 @@ def make_trajectory_spec(
     observation_source: str,
     configuration_id: str | None = None,
     fixed_states: Mapping[str, Any] | None = None,
-    exogenous: Sequence[ExogenousChannel] = (),
-    observations: Sequence[ObservationChannel] = (),
+    exogenous: Sequence[Channel] = (),
+    observations: Sequence[Channel] = (),
 ) -> TrajectorySpec:
     """Build the standard canonical contract for one vehicle control layout."""
 
@@ -444,28 +424,20 @@ def make_trajectory_spec(
     controlled_axes = tuple(axis for axis in ("roll", "pitch", "yaw") if axis in roles)
     if family == "multirotor" and any(name.startswith("motor_") for name in names):
         controlled_axes = ("roll", "pitch", "yaw")
-        propulsion = "quadrotor" if len(names) == 4 else "distributed_electric"
-    elif family == "fixedwing":
-        propulsion = "single_propeller"
-    else:
-        propulsion = "unknown"
     auxiliary_controls = tuple(
         role for role in ("flap", "spoiler", "airbrake") if role in roles
     )
     return TrajectorySpec(
         state_schema=RIGID_BODY_STATE_SCHEMA,
         observation_source=observation_source,
-        controls=channels,
+        channels=(*channels, *exogenous, *observations),
         vehicle=VehicleConfigurationSpec(
             family=family,
             configuration_id=configuration_id,
             controlled_axes=controlled_axes,
-            propulsion=propulsion,
             fixed_states={} if fixed_states is None else fixed_states,
             auxiliary_controls=auxiliary_controls,
         ),
-        exogenous=tuple(exogenous),
-        observations=tuple(observations),
     )
 
 
@@ -482,12 +454,9 @@ class Trajectory:
     construction raises.
 
     ``control_prefix``, when given, holds the real controls immediately
-    preceding this trajectory (oldest first, same channel count as
-    ``controls``), for segments cut mid-flight so window extraction can pad
-    early motor histories from true prior commands instead of repeating the
-    segment's own first control. It is an in-memory-only convenience: it is
-    never written by :func:`save_trajectory_npz` and is always ``None`` after
-    :func:`load_trajectory_npz`.
+    preceding this trajectory, oldest first, at the same sample period and
+    channel count as ``controls``. It initializes actuator response for a
+    segment cut mid-flight and is preserved by NPZ serialization.
     """
 
     time_s: npt.NDArray[np.float64]
@@ -627,169 +596,20 @@ class Trajectory:
 
 @dataclass(frozen=True)
 class TrajectoryWindows:
-    """Fixed-horizon rollout windows from one or more trajectories."""
+    """Fixed-horizon arrays and their input contract, built by trajectory_windows."""
 
     initial_states: npt.NDArray[np.float64]
     control_histories: npt.NDArray[np.float64]
     controls: npt.NDArray[np.float64]
     target_states: npt.NDArray[np.float64]
     dt_s: float
-    initial_exogenous: npt.NDArray[np.float64] | None = None
+    input_spec: TrajectorySpec
+    initial_exogenous: npt.NDArray[np.float64]
     window_weights: npt.NDArray[np.float64] | None = None
     trajectory_indices: npt.NDArray[np.int64] | None = None
     start_indices: npt.NDArray[np.int64] | None = None
     candidate_window_counts: npt.NDArray[np.int64] | None = None
     selection_policy: str = "all_candidates"
-    control_names: tuple[str, ...] | None = None
-    control_roles: tuple[str, ...] | None = None
-    control_semantics: tuple[str, ...] | None = None
-    exogenous_names: tuple[str, ...] | None = None
-    exogenous_roles: tuple[str, ...] | None = None
-
-    def __post_init__(self) -> None:
-        count = self.initial_states.shape[0]
-        if self.initial_states.shape != (count, STATE_SIZE):
-            raise ValueError("initial_states has an invalid shape")
-        if self.controls.ndim != 3 or self.controls.shape[0] != count:
-            raise ValueError("controls must have shape (windows, horizon, controls)")
-        if self.controls.shape[2] < 1:
-            raise ValueError("controls must contain at least one channel")
-        if (
-            self.control_histories.ndim != 3
-            or self.control_histories.shape[0] != count
-            or self.control_histories.shape[2] != self.controls.shape[2]
-            or self.control_histories.shape[1] < 1
-        ):
-            raise ValueError(
-                "control_histories must have shape "
-                "(windows, positive history, controls)"
-            )
-        expected_targets = (count, self.controls.shape[1] + 1, STATE_SIZE)
-        if self.target_states.shape != expected_targets:
-            raise ValueError(
-                f"target_states must have shape {expected_targets}, "
-                f"got {self.target_states.shape}"
-            )
-        if self.dt_s <= 0.0:
-            raise ValueError("dt_s must be positive")
-        initial_exogenous = (
-            np.empty((count, 0), dtype=np.float64)
-            if self.initial_exogenous is None
-            else np.asarray(self.initial_exogenous, dtype=np.float64)
-        )
-        if initial_exogenous.ndim != 2 or initial_exogenous.shape[0] != count:
-            raise ValueError(
-                "initial_exogenous must have shape (windows, exogenous channels)"
-            )
-        if not np.all(np.isfinite(initial_exogenous)):
-            raise ValueError("initial_exogenous values must be finite")
-        object.__setattr__(self, "initial_exogenous", initial_exogenous)
-        control_names = self.control_names
-        if control_names is None:
-            control_names = tuple(
-                f"control_{index}" for index in range(self.controls.shape[2])
-            )
-        else:
-            control_names = tuple(control_names)
-        if len(control_names) != self.controls.shape[2]:
-            raise ValueError("control_names must contain one name per control channel")
-        if any(not name.strip() for name in control_names):
-            raise ValueError("control_names cannot contain empty names")
-        if len(set(control_names)) != len(control_names):
-            raise ValueError("control_names must be unique")
-        object.__setattr__(self, "control_names", control_names)
-        control_roles = self.control_roles
-        if control_roles is None:
-            control_roles = control_names
-        else:
-            control_roles = tuple(control_roles)
-        if len(control_roles) != self.controls.shape[2]:
-            raise ValueError("control_roles must contain one role per control channel")
-        if any(not role.strip() for role in control_roles):
-            raise ValueError("control_roles cannot contain empty values")
-        if len(set(control_roles)) != len(control_roles):
-            raise ValueError("control_roles must be unique")
-        object.__setattr__(self, "control_roles", control_roles)
-        control_semantics = self.control_semantics
-        if control_semantics is None:
-            control_semantics = tuple("unspecified" for _ in control_names)
-        else:
-            control_semantics = tuple(control_semantics)
-        if len(control_semantics) != self.controls.shape[2]:
-            raise ValueError(
-                "control_semantics must contain one semantic per control channel"
-            )
-        if any(not semantic.strip() for semantic in control_semantics):
-            raise ValueError("control_semantics cannot contain empty values")
-        object.__setattr__(self, "control_semantics", control_semantics)
-        exogenous_names = (
-            tuple(f"exogenous_{index}" for index in range(initial_exogenous.shape[1]))
-            if self.exogenous_names is None
-            else tuple(self.exogenous_names)
-        )
-        exogenous_roles = (
-            exogenous_names
-            if self.exogenous_roles is None
-            else tuple(self.exogenous_roles)
-        )
-        if len(exogenous_names) != initial_exogenous.shape[1]:
-            raise ValueError(
-                "exogenous_names must contain one name per exogenous channel"
-            )
-        if len(exogenous_roles) != initial_exogenous.shape[1]:
-            raise ValueError(
-                "exogenous_roles must contain one role per exogenous channel"
-            )
-        if len(set(exogenous_names)) != len(exogenous_names):
-            raise ValueError("exogenous_names must be unique")
-        if len(set(exogenous_roles)) != len(exogenous_roles):
-            raise ValueError("exogenous_roles must be unique")
-        object.__setattr__(self, "exogenous_names", exogenous_names)
-        object.__setattr__(self, "exogenous_roles", exogenous_roles)
-        if self.window_weights is not None:
-            window_weights = np.asarray(self.window_weights, dtype=np.float64)
-            if window_weights.shape != (count,):
-                raise ValueError("window_weights must have shape (windows,)")
-            if not np.all(np.isfinite(window_weights)) or np.any(window_weights <= 0.0):
-                raise ValueError("window_weights must be finite and positive")
-            object.__setattr__(self, "window_weights", window_weights)
-        if self.trajectory_indices is not None:
-            trajectory_indices = np.asarray(self.trajectory_indices, dtype=np.int64)
-            if trajectory_indices.shape != (count,):
-                raise ValueError("trajectory_indices must have shape (windows,)")
-            if np.any(trajectory_indices < 0):
-                raise ValueError("trajectory_indices cannot be negative")
-            object.__setattr__(self, "trajectory_indices", trajectory_indices)
-        if self.start_indices is not None:
-            start_indices = np.asarray(self.start_indices, dtype=np.int64)
-            if start_indices.shape != (count,):
-                raise ValueError("start_indices must have shape (windows,)")
-            if np.any(start_indices < 0):
-                raise ValueError("start_indices cannot be negative")
-            object.__setattr__(self, "start_indices", start_indices)
-        if self.candidate_window_counts is not None:
-            candidate_window_counts = np.asarray(
-                self.candidate_window_counts, dtype=np.int64
-            )
-            if candidate_window_counts.ndim != 1:
-                raise ValueError("candidate_window_counts must be one-dimensional")
-            if np.any(candidate_window_counts < 0):
-                raise ValueError("candidate_window_counts cannot be negative")
-            if int(np.sum(candidate_window_counts)) < count:
-                raise ValueError(
-                    "candidate_window_counts cannot total fewer than selected windows"
-                )
-            if (
-                self.trajectory_indices is not None
-                and count > 0
-                and int(np.max(self.trajectory_indices)) >= len(candidate_window_counts)
-            ):
-                raise ValueError(
-                    "candidate_window_counts must cover every trajectory index"
-                )
-            object.__setattr__(self, "candidate_window_counts", candidate_window_counts)
-        if not self.selection_policy.strip():
-            raise ValueError("selection_policy cannot be empty")
 
     @property
     def control_size(self) -> int:
@@ -847,10 +667,8 @@ def _selected_window_locations(
     *,
     stride: int,
     maximum_windows: int | None,
-    balance_trajectories: bool,
-    trajectory_weights: Sequence[float] | None,
-    trajectory_groups: Sequence[str | int] | None,
-    trajectory_group_weights: Mapping[str | int, float] | None,
+    strata: Sequence[Sequence[int]] | None,
+    stratum_weights: npt.NDArray[np.float64] | None,
 ) -> tuple[list[tuple[int, int]], str]:
     """Select midpoint-stratified windows without materializing all candidates."""
 
@@ -865,32 +683,7 @@ def _selected_window_locations(
             "all_candidates",
         )
 
-    if trajectory_groups is not None:
-        group_order = tuple(dict.fromkeys(trajectory_groups))
-        strata = [
-            [
-                index
-                for index, group in enumerate(trajectory_groups)
-                if group == selected_group
-            ]
-            for selected_group in group_order
-        ]
-        stratum_weights = np.asarray(
-            [
-                1.0
-                if trajectory_group_weights is None
-                else trajectory_group_weights[group]
-                for group in group_order
-            ],
-            dtype=np.float64,
-        )
-    elif balance_trajectories:
-        strata = [[index] for index in range(len(candidate_counts))]
-        stratum_weights = np.ones(len(strata), dtype=np.float64)
-    elif trajectory_weights is not None:
-        strata = [[index] for index in range(len(candidate_counts))]
-        stratum_weights = np.asarray(trajectory_weights, dtype=np.float64)
-    else:
+    if strata is None or stratum_weights is None:
         strata = [list(range(len(candidate_counts)))]
         stratum_weights = np.ones(1, dtype=np.float64)
 
@@ -910,7 +703,7 @@ def _selected_window_locations(
         candidate_ordinals = (
             (2 * np.arange(int(allocation), dtype=np.int64) + 1) * int(capacity)
         ) // (2 * int(allocation))
-        member_counts = candidate_counts[stratum]
+        member_counts = candidate_counts[list(stratum)]
         cumulative_counts = np.cumsum(member_counts)
         member_offsets = np.concatenate(
             (np.zeros(1, dtype=np.int64), cumulative_counts[:-1])
@@ -927,7 +720,7 @@ def _selected_window_locations(
     return locations, "deterministic_stratified_midpoint"
 
 
-def _control_window_history(
+def control_history_before(
     trajectory: Trajectory, start: int, motor_history_steps: int
 ) -> npt.NDArray[np.float64]:
     """Return the ``motor_history_steps`` controls immediately before ``start``.
@@ -962,6 +755,29 @@ def _control_window_history(
     return np.concatenate((padding, prefix, local_history), axis=0)
 
 
+def default_group_key(index: int, trajectory: Trajectory) -> str:
+    """Return the weighting group a trajectory belongs to by default.
+
+    A trajectory that declares a ``source_group`` label belongs to that group,
+    so every segment cut from one recording carries one weight between them;
+    an unlabeled trajectory is its own group.
+    """
+
+    group = trajectory.labels.get("source_group")
+    return str(index) if group is None else str(group)
+
+
+def _group_keys(
+    trajectories: Sequence[Trajectory],
+    group_of: Callable[[int, Trajectory], str] | None,
+) -> tuple[str, ...]:
+    resolve = default_group_key if group_of is None else group_of
+    keys = tuple(str(resolve(index, item)) for index, item in enumerate(trajectories))
+    if any(not key.strip() for key in keys):
+        raise ValueError("weighting group keys cannot be empty")
+    return keys
+
+
 def trajectory_windows(
     trajectories: list[Trajectory] | tuple[Trajectory, ...],
     *,
@@ -969,22 +785,20 @@ def trajectory_windows(
     stride: int | None = None,
     motor_history_s: float = 1.0,
     dt_tolerance_s: float = 1e-7,
-    balance_trajectories: bool = False,
-    trajectory_weights: Sequence[float] | None = None,
-    trajectory_groups: Sequence[str | int] | None = None,
-    trajectory_group_weights: Mapping[str | int, float] | None = None,
+    weights: Mapping[str, float] | None = None,
+    group_of: Callable[[int, Trajectory], str] | None = None,
     maximum_windows: int | None = None,
 ) -> TrajectoryWindows:
     """Extract rollout windows without crossing flight boundaries.
 
-    When ``balance_trajectories`` is enabled, each trajectory contributes equal
-    total loss weight regardless of its duration or number of extracted windows.
-    ``maximum_windows`` applies deterministic midpoint sampling across the same
-    weighting strata, preserving broad temporal and source coverage without first
-    materializing every candidate window. ``trajectory_group_weights`` changes
-    the total contribution of each group while retaining uniform weight among
-    windows in that group; a zero group weight excludes that group's windows. It
-    is intended for complete-group resampling.
+    Without ``weights`` every window carries the same loss weight, so a long
+    flight contributes in proportion to its duration. With ``weights``, each
+    group named by ``group_of`` receives its declared share of the total loss
+    weight and the windows inside a group are weighted uniformly; a zero weight
+    excludes that group's windows entirely. ``maximum_windows`` applies
+    deterministic midpoint sampling across the same weighting strata,
+    preserving broad temporal and source coverage without first materializing
+    every candidate window.
     """
 
     if not trajectories:
@@ -999,61 +813,32 @@ def trajectory_windows(
         raise ValueError("motor_history_s must be positive")
     if maximum_windows is not None and maximum_windows < 1:
         raise ValueError("maximum_windows must be positive")
-    weighting_modes = sum(
-        (
-            bool(balance_trajectories),
-            trajectory_weights is not None,
-            trajectory_groups is not None,
+    if group_of is not None and weights is None:
+        raise ValueError("group_of has no effect without weights")
+
+    group_keys: tuple[str, ...] = ()
+    group_order: tuple[str, ...] = ()
+    group_weight_values = np.ones(0, dtype=np.float64)
+    if weights is not None:
+        group_keys = _group_keys(trajectories, group_of)
+        group_order = tuple(dict.fromkeys(group_keys))
+        if set(weights) != set(group_order):
+            raise ValueError("weights must contain exactly the weighting groups")
+        group_weight_values = np.asarray(
+            [float(weights[group]) for group in group_order], dtype=np.float64
         )
-    )
-    if weighting_modes > 1:
-        raise ValueError(
-            "balance_trajectories, trajectory_weights, and trajectory_groups "
-            "are mutually exclusive"
-        )
-    if trajectory_weights is not None:
-        if len(trajectory_weights) != len(trajectories):
-            raise ValueError("trajectory_weights must match trajectories")
-        if any(weight <= 0.0 for weight in trajectory_weights):
-            raise ValueError("trajectory_weights must be positive")
-    if trajectory_groups is not None:
-        if len(trajectory_groups) != len(trajectories):
-            raise ValueError("trajectory_groups must match trajectories")
-        trajectory_groups = tuple(trajectory_groups)
-        if any(
-            not isinstance(group, (str, int))
-            or (isinstance(group, str) and not group.strip())
-            for group in trajectory_groups
-        ):
-            raise ValueError(
-                "trajectory_groups must contain non-empty strings or integers"
-            )
-    if trajectory_group_weights is not None:
-        if trajectory_groups is None:
-            raise ValueError("trajectory_group_weights requires trajectory_groups")
-        group_order = tuple(dict.fromkeys(trajectory_groups))
-        if set(trajectory_group_weights) != set(group_order):
-            raise ValueError(
-                "trajectory_group_weights must contain exactly the trajectory groups"
-            )
-        weights = np.asarray(list(trajectory_group_weights.values()), dtype=np.float64)
         if (
-            not np.all(np.isfinite(weights))
-            or np.any(weights < 0.0)
-            or not np.any(weights > 0.0)
+            not np.all(np.isfinite(group_weight_values))
+            or np.any(group_weight_values < 0.0)
+            or not np.any(group_weight_values > 0.0)
         ):
             raise ValueError(
-                "trajectory_group_weights values must be finite and nonnegative "
-                "with at least one positive group"
+                "weights must be finite and nonnegative with at least one "
+                "positive group"
             )
 
     dt_s = trajectories[0].nominal_dt_s
-    control_size = trajectories[0].control_size
-    control_names = trajectories[0].control_names
-    control_roles = trajectories[0].spec.control_roles
-    control_semantics = trajectories[0].spec.control_semantics
-    exogenous_names = trajectories[0].spec.exogenous_names
-    exogenous_roles = trajectories[0].spec.exogenous_roles
+    input_spec = trajectories[0].spec.prediction_spec()
     history_ratio = motor_history_s / dt_s
     nearest_history_steps = round(history_ratio)
     if np.isclose(history_ratio, nearest_history_steps, atol=1e-9, rtol=0.0):
@@ -1064,30 +849,12 @@ def trajectory_windows(
     candidate_counts: list[int] = []
 
     for trajectory_index, trajectory in enumerate(trajectories):
-        if trajectory.control_size != control_size:
-            raise ValueError(
-                "all trajectories must have the same control channel count"
-            )
-        if trajectory.control_names != control_names:
-            raise ValueError(
-                "all trajectories must have the same ordered control_names"
-            )
-        if trajectory.spec.control_roles != control_roles:
-            raise ValueError(
-                "all trajectories must have the same ordered control_roles"
-            )
-        if trajectory.spec.control_semantics != control_semantics:
-            raise ValueError(
-                "all trajectories must have the same ordered control_semantics"
-            )
-        if trajectory.spec.exogenous_names != exogenous_names:
-            raise ValueError(
-                "all trajectories must have the same ordered exogenous_names"
-            )
-        if trajectory.spec.exogenous_roles != exogenous_roles:
-            raise ValueError(
-                "all trajectories must have the same ordered exogenous_roles"
-            )
+        for names in ("control_names", "exogenous_names"):
+            if getattr(trajectory.spec, names) != getattr(input_spec, names):
+                raise ValueError(f"all trajectories must have the same ordered {names}")
+        _require_compatible_inputs(
+            input_spec, trajectory.spec, label=f"trajectory {trajectory_index}"
+        )
         intervals = np.diff(trajectory.time_s)
         if not np.allclose(intervals, dt_s, atol=dt_tolerance_s, rtol=0.0):
             raise ValueError(
@@ -1096,7 +863,7 @@ def trajectory_windows(
 
         candidate_count = len(range(0, len(trajectory.controls) - horizon + 1, stride))
         candidate_counts.append(candidate_count)
-        if weighting_modes and candidate_count == 0:
+        if weights is not None and candidate_count == 0:
             raise ValueError(
                 f"trajectory {trajectory_index} is too short for horizon {horizon}"
             )
@@ -1105,11 +872,16 @@ def trajectory_windows(
     if not np.any(candidate_count_array):
         raise ValueError("no windows fit within the provided trajectories")
 
+    strata: list[list[int]] | None = None
     selection_candidate_counts = candidate_count_array.copy()
-    if trajectory_groups is not None and trajectory_group_weights is not None:
+    if weights is not None:
+        strata = [
+            [index for index, key in enumerate(group_keys) if key == group]
+            for group in group_order
+        ]
         selection_candidate_counts = np.asarray(
             [
-                count if trajectory_group_weights[trajectory_groups[index]] > 0.0 else 0
+                count if weights[group_keys[index]] > 0.0 else 0
                 for index, count in enumerate(candidate_count_array)
             ],
             dtype=np.int64,
@@ -1118,10 +890,8 @@ def trajectory_windows(
         selection_candidate_counts,
         stride=stride,
         maximum_windows=maximum_windows,
-        balance_trajectories=balance_trajectories,
-        trajectory_weights=trajectory_weights,
-        trajectory_groups=trajectory_groups,
-        trajectory_group_weights=trajectory_group_weights,
+        strata=strata,
+        stratum_weights=group_weight_values if weights is not None else None,
     )
     if (
         not np.array_equal(selection_candidate_counts, candidate_count_array)
@@ -1140,7 +910,7 @@ def trajectory_windows(
         stop = start + horizon
         initial_states.append(trajectory.states[start])
         control_histories.append(
-            _control_window_history(trajectory, start, motor_history_steps)
+            control_history_before(trajectory, start, motor_history_steps)
         )
         controls.append(trajectory.controls[start:stop])
         targets.append(trajectory.states[start : stop + 1])
@@ -1150,35 +920,15 @@ def trajectory_windows(
 
     trajectory_index_array = np.asarray(trajectory_indices, dtype=np.int64)
     window_weights = None
-    if balance_trajectories:
-        counts = np.bincount(trajectory_index_array, minlength=len(trajectories))
-        window_weights = 1.0 / counts[trajectory_index_array]
-    elif trajectory_weights is not None:
-        counts = np.bincount(trajectory_index_array, minlength=len(trajectories))
-        weights = np.asarray(trajectory_weights, dtype=np.float64)
-        window_weights = (
-            weights[trajectory_index_array] / counts[trajectory_index_array]
-        )
-    elif trajectory_groups is not None:
-        group_order = tuple(dict.fromkeys(trajectory_groups))
+    if weights is not None:
         group_indices = np.asarray(
-            [
-                group_order.index(trajectory_groups[index])
-                for index in trajectory_index_array
-            ],
+            [group_order.index(group_keys[index]) for index in trajectory_index_array],
             dtype=np.int64,
         )
         group_counts = np.bincount(group_indices, minlength=len(group_order))
-        group_weights = np.asarray(
-            [
-                1.0
-                if trajectory_group_weights is None
-                else trajectory_group_weights[group]
-                for group in group_order
-            ],
-            dtype=np.float64,
+        window_weights = (
+            group_weight_values[group_indices] / group_counts[group_indices]
         )
-        window_weights = group_weights[group_indices] / group_counts[group_indices]
 
     return TrajectoryWindows(
         initial_states=np.stack(initial_states),
@@ -1186,32 +936,24 @@ def trajectory_windows(
         controls=np.stack(controls),
         target_states=np.stack(targets),
         dt_s=dt_s,
+        input_spec=input_spec,
         initial_exogenous=np.stack(initial_exogenous),
         window_weights=window_weights,
         trajectory_indices=trajectory_index_array,
         start_indices=np.asarray(start_indices, dtype=np.int64),
         candidate_window_counts=selection_candidate_counts,
         selection_policy=selection_policy,
-        control_names=control_names,
-        control_roles=control_roles,
-        control_semantics=control_semantics,
-        exogenous_names=exogenous_names,
-        exogenous_roles=exogenous_roles,
     )
 
 
 def save_trajectory_npz(trajectory: Trajectory, path: str | Path) -> None:
-    """Write a canonical trajectory to a compressed, self-describing NPZ file.
-
-    ``trajectory.control_prefix`` is in-memory only and is not written here;
-    :func:`load_trajectory_npz` always returns ``control_prefix=None``.
-    """
+    """Write a canonical trajectory, including prior actuator history, to NPZ."""
 
     output_path = Path(path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(
         output_path,
-        format_version=np.asarray(3, dtype=np.int64),
+        format_version=np.asarray(5, dtype=np.int64),
         time_s=trajectory.time_s,
         states=trajectory.states,
         controls=trajectory.controls,
@@ -1222,15 +964,24 @@ def save_trajectory_npz(trajectory: Trajectory, path: str | Path) -> None:
         provenance_json=np.asarray(
             json.dumps(dict(trajectory.provenance), sort_keys=True)
         ),
+        **(
+            {}
+            if trajectory.control_prefix is None
+            else {"control_prefix": trajectory.control_prefix}
+        ),
     )
 
 
 def load_trajectory_npz(path: str | Path) -> Trajectory:
-    """Load a canonical trajectory written by :func:`save_trajectory_npz`."""
+    """Load a canonical trajectory written by :func:`save_trajectory_npz`.
+
+    Formats 3 and 4 remain readable without a control prefix. Format 5
+    preserves the optional prefix for trajectories cut from a longer flight.
+    """
 
     with np.load(Path(path), allow_pickle=False) as archive:
         version = int(archive["format_version"])
-        if version != 3:
+        if version not in (3, 4, 5):
             raise ValueError(f"unsupported trajectory format version: {version}")
         return Trajectory(
             time_s=archive["time_s"],
@@ -1241,6 +992,9 @@ def load_trajectory_npz(path: str | Path) -> Trajectory:
             spec=TrajectorySpec.from_dict(json.loads(str(archive["spec_json"]))),
             labels=json.loads(str(archive["labels_json"])),
             provenance=json.loads(str(archive["provenance_json"])),
+            control_prefix=(
+                archive["control_prefix"] if "control_prefix" in archive else None
+            ),
         )
 
 

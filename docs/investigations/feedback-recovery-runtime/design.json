@@ -1,0 +1,14 @@
+{
+  "end_absolute_tick": 120,
+  "sample_period_s": 0.02,
+  "cold_updates": 8,
+  "warm_updates": 2,
+  "kick_absolute_tick": 60,
+  "kick_roll_half_width_fraction": 0.02,
+  "startup_deadline_s": 0.1,
+  "warm_deadline_s": 0.02,
+  "cold_seed": "30 repeated previous commands; no solved plan",
+  "formulation": "free commands0:4 and24:30; exact supplied middle4:24",
+  "selection": "cold original and small; if original cannot finish, separately labeled tick4 continuation; matched kick on completed original or fixture arm",
+  "timing_selection": "only cases that completed the deadline-free formulation study"
+}

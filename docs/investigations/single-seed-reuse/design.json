@@ -1,0 +1,66 @@
+{
+  "parity_ticks": [
+    0,
+    4,
+    10,
+    39,
+    60,
+    68,
+    100,
+    119
+  ],
+  "parity_cases": [
+    "cold_original",
+    "cold_small",
+    "cold_original_kick"
+  ],
+  "additional_parity_inputs": [
+    "recorded_tick10",
+    "recorded_small68"
+  ],
+  "paired_inputs": [
+    "recorded_tick10",
+    "recorded_small68"
+  ],
+  "paired_blocks_per_input": 32,
+  "paired_order": [
+    "baseline",
+    "reused",
+    "reused",
+    "baseline"
+  ],
+  "paired_requests": 256,
+  "warm_deadline_s": 0.02,
+  "cold_deadline_s": 0.1,
+  "cold_updates": 8,
+  "warm_updates": 2,
+  "closed_loop_order": [
+    [
+      "cold_original",
+      "baseline"
+    ],
+    [
+      "cold_original",
+      "reused"
+    ],
+    [
+      "cold_small",
+      "reused"
+    ],
+    [
+      "cold_small",
+      "baseline"
+    ],
+    [
+      "cold_original_kick",
+      "baseline"
+    ],
+    [
+      "cold_original_kick",
+      "reused"
+    ]
+  ],
+  "closed_loop_limit": 120,
+  "selection": "run all fixed pairs and one pass per closed-loop arm only after all 26 deadline-free seed/result parity checks pass",
+  "unchanged": "model, covariance, support, objective, horizon, head/middle/tail layout, iteration limits, admission estimates and output reserve"
+}

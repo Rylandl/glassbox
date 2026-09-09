@@ -3,70 +3,329 @@
 ## Setup
 
 ```bash
-uv sync --dev --extra cascade
-uv run pre-commit install   # optional; mirrors CI locally
+uv sync --dev --group cascade
 ```
 
 `uv sync` makes the environment exact, so a later `uv sync --dev` without the
-extra removes the simulator and its tests skip. Pass the extra every time, or
+group removes the simulator and its tests skip. Pass the group every time, or
 the simulator-backed tests silently stop running.
 
-The default suite takes several minutes; `-m "not slow"` skips the three
-benchmark-scale tests:
+## Tests
 
 ```bash
 uv run pytest
 ```
 
-Tests marked `cascade` need that extra and skip cleanly without it. The PX4
-SITL contract tests are opt-in with `GLASSBOX_RUN_PX4_SITL=1`.
+The default suite takes several minutes. `-m "not slow"` skips the
+benchmark-scale tests. Tests marked `cascade` need that group and skip cleanly
+without it; deselect them with `-m "not cascade"`. The PX4 SITL contract tests
+are opt-in and need Docker:
+
+```bash
+GLASSBOX_RUN_PX4_SITL=1 uv run pytest -m px4_sitl tests/integration/test_px4_sitl.py -v
+```
+
+To exercise all four airborne shadow profiles, also set
+`GLASSBOX_RUN_PX4_FLIGHT_SHADOW=1` and point `GLASSBOX_PX4_NMPC_MODEL` at an
+actionable quadrotor artifact. The fixture flies a disposable simulator through
+the maintained CLI, prewarms the shadow controller, and waits for the first
+excitation target before checking the recorded motion. Per-profile JSON traces
+and summaries are written under pytest's temporary directory. The separate
+fixed-command test instead requires `GLASSBOX_PX4_NMPC_COMMAND` and leaves
+`GLASSBOX_RUN_PX4_FLIGHT_SHADOW` unset.
+
+The offline recovery investigation is reproduced with
+`uv run python scripts/investigate_recovery.py --output docs/investigations/recovery.json`.
+It is a controlled diagnostic with an independent optimizer reference, outside
+the recorded-results manifest; see [the investigation](docs/recovery-investigation.md)
+for its uncertainty ablations and limits.
 
 ## Checks
 
-CI runs `ruff check`, `ruff format --check`, and the default test suite on every
-push and pull request. Run the same locally with:
+CI runs `ruff check`, `ruff format --check`, the default test suite, and the
+local tier of the recorded-results manifest on every push and pull request.
+It also builds the distribution and tests the installed wheel's identification
+workflow on Python 3.11–3.13, outside the checkout.
+Run the same locally with:
 
 ```bash
 uv run ruff check src tests scripts && uv run ruff format --check src tests scripts
+uv run glassbox record-results --check --tier local
 ```
+
+To reproduce the installed-wheel check with a selected Python version:
+
+```bash
+uv build
+uv venv /tmp/glassbox-release --python 3.12
+uv pip install --python /tmp/glassbox-release/bin/python dist/*.whl pytest
+repo="$PWD"
+cd /tmp
+/tmp/glassbox-release/bin/glassbox --help
+/tmp/glassbox-release/bin/python -m pytest --import-mode=importlib -q \
+  "$repo/tests/test_fit_cli.py::test_fit_cli_writes_belief_and_report_together" \
+  "$repo/tests/test_evaluate.py::test_windowed_policy_reproduces_the_same_flight_characterization" \
+  "$repo/tests/test_innovation_diagnostics.py"
+```
+
+## Release candidates
+
+Update the version in `pyproject.toml`, `uv.lock`, and `CITATION.cff`, and date
+the matching changelog entry. Merge the candidate and wait for CI on `main` to
+pass before pushing its `vX.Y.ZrcN` tag. The release workflow publishes a GitHub
+prerelease with the distributions tested by that CI run, their checksums, and
+the changelog entry. Package-registry publication is separate.
 
 ## Recorded results
 
-Several benchmarks pin a recorded artifact under `docs/results/` and compare a
-fresh run against it. See [the recorded-results guide](docs/guides/recorded-results.md)
-for the two-tier test policy and when to re-record: in short, re-record after
-an intentional behavior change on that artifact's path, not in response to its
-own provenance metadata changing on its own.
+One manifest names every artifact under `docs/results/`, in two tiers, and one
+command produces or checks each of them. Link reported results to the artifact and key that produced them.
 
-`glassbox adaptive-recovery` also records a SHA-256 hash of the source files
-that produced its artifact (`adaptive_recovery_benchmark.BENCHMARK_SOURCE_FILES`).
-That hash is provenance, not a trigger; it is expected to drift between
-recordings and does not by itself require a re-record.
+| Artifact | Tier | Inputs | Regenerate with |
+| --- | --- | --- | --- |
+| `adaptive-recovery-results.json` | local | synthetic scenarios generated in-process | `glassbox record-results --only adaptive-recovery-results` |
+| `nmpc-acceptance-results.json` | local | synthetic scenarios generated in-process | `glassbox record-results --only nmpc-acceptance-results` |
+| `validation-nanodrone-results.json` | corpus | pinned `nanodrone` corpus | `glassbox record-results --only validation-nanodrone-results` |
+| `validation-arp-results.json` | corpus | pinned `arp` corpus, `px4` extra | `glassbox record-results --only validation-arp-results` |
+| `validation-idf-results.json` | corpus | pinned `idf` corpus, `px4` extra | `glassbox record-results --only validation-idf-results` |
+| `validation-x8-results.json` | corpus | pinned `x8` corpus | `glassbox record-results --only validation-x8-results` |
+| `validation-epfl-results.json` | corpus | pinned `epfl` corpus, `ros` extra | `glassbox record-results --only validation-epfl-results` |
+| `cascade-x8-validation-results.json` | corpus | pinned `x8` corpus, `cascade` group | `glassbox record-results --only cascade-x8-validation-results` |
 
-Regenerate a recorded artifact with:
+`glassbox record-results --list` prints the same table with each artifact's
+current status: recorded, pending its first run, or blocked by a missing extra
+or missing local data. `--dry-run` prints the exact steps a run would take.
+Every step is one `glassbox` subcommand run in-process, and each corpus
+artifact ends in one assembly step that combines the chain's own reports into
+the recorded shape. Recording disables holdout resume so a cached fit from
+earlier code cannot be presented as a freshly regenerated result.
+
+The **local** tier runs in this repository with nothing downloaded, and is
+what CI checks:
 
 ```bash
-uv run glassbox record-results --only <artifact-name>
+uv run glassbox record-results --check --tier local
 ```
 
-or see `uv run glassbox record-results --list` for every artifact's name and
-status. Commit the JSON alongside the change that motivated it. Never edit a
-recorded JSON by hand, and never pick a re-run for its timings.
+That regenerates both local artifacts into a temporary directory and compares
+each against the committed file, ignoring only the paths that entry declares
+volatile: the environment block, the source fingerprint and per-trace wall
+clock. Numerical tolerances are declared by the manifest. Closed-loop metrics
+allow CPU-dependent optimizer variation, as does the recovery benchmark's split
+between its two finite stopping statuses. Scenario inputs, acceptance thresholds,
+fallback counts, ranks, and support decisions remain checked.
+
+### The corpus tier is a maintainer job
+
+The corpus tier is not run in CI. It needs
+
+- the five pinned public corpora fetched and verified on disk, which is
+  several gigabytes and includes one 2.12 GB archive,
+- the `px4` and `ros` extras and the `cascade` dependency group, which installs
+  the simulator from its pinned Git revision,
+- and hours of fitting: thirteen leave-one-session-out folds on the IDF-DS
+  corpus alone.
+
+Run it deliberately, on a machine that has the corpora:
+
+```bash
+uv run --all-extras --group cascade glassbox record-results --tier corpus
+```
+
+Before running it for real, exercise the chain on a tiny budget, which touches
+nothing in the repository:
+
+```bash
+uv run --all-extras --group cascade glassbox record-results --tier corpus \
+  --smoke /tmp/glassbox-smoke --source-root artifacts
+```
+
+Every artifact a smoke run produces carries `"smoke": true` and is evidence of
+nothing except that the chain runs. `--fit-steps N` and `--limit-folds N`
+change the shortened budgets.
+
+The PX4 SITL benchmarks are not in the manifest at all: recording one needs a
+running SITL container; see the [PX4 guide](docs/guides/px4-ulog.md).
+
+The offline recovery investigations also live outside the manifest. Earlier
+reports retain their recorded revisions as historical evidence. Rerun the
+supervised cases against the current code with:
+
+```bash
+uv run python scripts/investigate_supervised_recovery.py \
+  --output /tmp/glassbox-supervised-recovery.json
+```
+
+This drives the production loop against a synthetic plant with a discrete
+supervision clock and deliberately injected faults. Its nominal solver deadline
+is disabled, so it measures command selection and recovery rather than real-time
+readiness. The [investigation](docs/recovery-investigation.md#supervised-recovery-and-model-support)
+describes the calibration/validation split and retained negative results.
+
+To compare NMPC alone under soft and explicit model-support constraints:
+
+```bash
+uv run python scripts/investigate_constrained_recovery.py \
+  --output /tmp/glassbox-constrained-recovery.json
+```
+
+This reference keeps the original envelope and uncertainty. A failed solve ends
+its scenario without applying a fallback. Its SLSQP feasibility and Lagrangian
+residuals are separate from the production solver's convergence flag; it is an
+offline formulation check and is not wired into the control loop.
+
+The first SQP investigation (snapshot `8a79306`) includes the former clipping
+and warm-start rules as explicit ablations. Rerun it with:
+
+```bash
+uv run python scripts/investigate_sqp_recovery.py \
+  --output /tmp/glassbox-sqp-recovery.json
+```
+
+The seed-runtime snapshot (`5607f3f`) measures seed reuse, the explicit model constraint
+interface, and deadline enforcement (including a separately declared startup
+budget):
+
+```bash
+uv run python scripts/investigate_sqp_runtime.py \
+  --output /tmp/glassbox-sqp-runtime.json
+```
+
+The deadline-budget snapshot (`98d2fe5`) compares fused output evaluation and
+cooperative stopping, including a larger output reserve:
+
+```bash
+uv run python scripts/investigate_sqp_runtime.py --experiment budget \
+  --output /tmp/glassbox-sqp-budget.json
+```
+
+The horizon-shift snapshot (`4f5cddb`) separates projection, plant mismatch,
+and terminal extension, then compares fixed and moving block layouts:
+
+```bash
+uv run python scripts/investigate_horizon_shift.py \
+  --output /tmp/glassbox-horizon-shift.json
+```
+
+Moving blocks are an experimental ablation. Their shifted command sequence is
+exact, but their recovery results do not justify replacing the fixed layout.
+
+The [terminal suffix](docs/terminal-suffix-investigation.md) and
+[uncertainty shift](docs/shift-uncertainty-audit.md) probes share a fresh checkpoint
+fixture. Build it once with the command documented on either page, then reuse
+that directory for both probes. The builder
+records source fingerprints and verifies that the known fifth-solve failure was
+reproduced before marking the fixture ready.
+
+The [bounded suffix follow-up](docs/fast-suffix-investigation.md) reuses that
+fixture to compare one and two GN-SQP updates, then runs a separate serialized
+deadline check. Its head-and-suffix extension tests immediate feedback with the
+same number of variables as the fixed-grid baseline, and compares the existing
+work-admission policy with unconditional two-update work. Each new main script
+is archived beside its recorded JSON so later reporting changes do not erase
+the executed source. The full-recovery follow-up distinguishes cold startup,
+completed interval counts, terminal state tolerances, and in-flight disturbances;
+its NPZ traces support score and input-identity audits without rerunning solves.
+The seed-timing follow-up uses a fixed paired replay and one separately recorded
+scenario-order pass. Opt-in `--seed-trace` preserves phase and GC records even
+when seeding aborts before an optimizer report exists. Its audit processes saved
+arrays and events without rerunning optimization. Negative timing results remain
+in their original directories; traced observations are separate artifacts.
+The single-seed reuse comparison gates paired timings on saved-request numerical
+parity, retains competing-seed selection, and separately records cold-start
+outcomes. The optimization remains opt-in; faster seed preparation alone does not
+establish timed recovery.
+The opt-in observed-cost admission hint uses deterministic simulated-clock tests
+and a separate deadline-free parity verifier. Host-specific timing observations
+are optional performance evidence, not portable numerical-correctness gates.
+The shared-rollout derivative study records compiled loop structure separately
+from numerical parity. It retains the broader fusion's failed work-count check
+and a saved-array branch trace, then verifies the narrower derivative-only path
+with strict bitwise comparisons. Compiler cost estimates are not measured speedups.
+The finite-precision follow-up separates exact representable-point exhaustion
+from a local-model stopping heuristic. It preserves a rejected pretrial design,
+tests the narrowed rule on saved requests, and then checks paired deadline-free
+recoveries. Keep fixed-input parity, evolving trajectory checks and model-call
+savings distinct when reporting its results.
+The [repeated-fit uncertainty study](docs/repeated-uncertainty-calibration.md)
+compares parameter information and forecast errors across observation noise and
+excitation conditions. Saved arrays support postprocessing without refitting.
+
+Run timing comparisons without other benchmark or test processes. These experiments
+prewarm each controller and record complete solve times, separating the cold
+optimization from subsequent solves. The first experiment disables deadlines;
+the runtime follow-up records each case's startup and subsequent deadline
+budgets and stops immediately when an unusable solve is returned.
+
+### When to re-record
+
+Re-record an artifact when a change to the code on its path is an intentional
+behavior change: a bug fix, a new feature, a deliberate change to a formula or
+a default. **A change that moves a recorded number re-records that artifact in
+the same commit, and the commit message says which numbers moved and why.**
+The recorded tier and `--check` exist to catch the other case, where a refactor
+was supposed to be behavior-preserving but the numbers moved anyway.
+
+Re-recording is not a response to provenance metadata changing on its own. The
+adaptive-recovery artifact and every corpus validation artifact record a
+SHA-256 hash of the source files that produced them. That hash is provenance,
+not a trigger; it is expected to drift between recordings, which is why those
+manifest entries list it as volatile and neither the pinned tests nor
+`record-results --check` compares it.
+
+Never edit a recorded JSON by hand, and never pick a re-run for its timings.
+Commit whatever the command wrote, alongside the change that motivated it.
+
+`glassbox record-results` writes JSON, not prose. After regenerating an
+artifact, open the page that cites it and update the numbers by hand from the
+new file.
+
+### The two tiers of recorded-result tests
+
+Each recorded artifact has a test with two tiers. The **contract** tier
+asserts the claims the documentation actually makes and that survive
+floating-point noise: that a report has the expected shape, that its semantics
+flags say what the prose says they say, that specific comparisons hold in the
+direction claimed. It does not compare against the checked-in JSON at all, so
+it stays meaningful even when the recorded numbers move.
+
+The **recorded** tier compares a fresh run against the checked-in artifact,
+field by field, under a tolerance chosen per quantity and never tighter than
+that quantity's own sensitivity. `tests/_recorded.py` implements this as
+`assert_recorded_close`, driven by three pattern tables next to each test:
+`tolerances`, `exact` and `ignore`. A float that matches no pattern is a test
+failure rather than a silent pass, so the table cannot quietly stop covering
+part of an artifact. The `ignore` table is the manifest entry's own `volatile`
+table, so the test and `record-results --check` exclude exactly the same
+paths: wall-clock timing, platform strings, the source fingerprint, and
+chaotic derived quantities such as counts accumulated over a long closed-loop
+simulation whose last-bit differences can flip a branch taken hundreds of
+steps earlier. Those counts stay in the artifact because they are real
+recorded evidence, but asserting on them would turn ordinary floating-point
+noise into a false regression signal.
 
 ## Documentation conventions
 
-- Every quantitative claim points at a recorded artifact or a reproducible
-  command. Superseded numbers are labeled, not deleted.
+- Prefer existing pages. Document workflows, input contracts and non-obvious
+  decisions; let types and tests describe routine behavior.
+- Remove stale claims and duplicated inventories instead of surrounding them
+  with qualifications. Keep assumptions next to the operation they affect.
+- Keep numerical results in `docs/validation.md` or the relevant investigation,
+  linked to their artifact and key. Concept pages link to those results.
+- Keep experimental decisions with their recorded revision and reproduction
+  command; distinguish historical snapshots from maintained code.
 - Do not quote absolute wall-clock timings in prose; they depend on the host.
   Ratios and bounded statements are fine. Timing fields in artifacts are
-  marked nondeterministic.
-- Experiment pages follow one layout: what this establishes, purpose, data,
-  reproduce, results, boundary.
+  marked volatile.
+- Every command shown in a page must resolve against the current CLI tree, and
+  every relative link must resolve.
+- Every Python snippet on the README or a concept page runs. A page's snippets
+  are read in order, so a later one may use names an earlier one defined.
 - Plain prose, no em-dashes.
 
 ## Layout
 
-`import glassbox` must load only `glassbox.core`, `glassbox.belief`, and
-`glassbox.control.nmpc`; the `workflows`, `io`, `cli`, `integrations`, and
-`experimental` subpackages import on demand. `tests/test_public_api.py` guards
-this and pins the exported names.
+`import glassbox` must load only `glassbox.core`, `glassbox.belief` and
+`glassbox.control`; the `workflows`, `io`, `cli` and `integrations`
+subpackages import on demand. `tests/test_public_api.py` guards this and pins
+the exported names.

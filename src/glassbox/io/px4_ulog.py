@@ -19,14 +19,14 @@ except ImportError as error:  # pragma: no cover - exercised without the extra
     ) from error
 
 from glassbox.core.data import (
-    ExogenousChannel,
+    Channel,
     Trajectory,
     angular_acceleration_observation_channels,
     make_trajectory_spec,
     specific_force_observation_channels,
 )
 from glassbox.core.dynamics import FIXED_WING_CONTROL_NAMES, QUADROTOR_CONTROL_NAMES
-from glassbox.core.px4_frames import (
+from glassbox.io.px4_frames import (
     PX4_FRD_TO_FLU_SIGNS,
     frd_to_flu,
     ned_frd_quaternion_to_nwu_flu,
@@ -50,32 +50,36 @@ PX4_WIND_TOPIC = "airspeed_wind"
 PX4_SPECIFIC_FORCE_TOPIC = "vehicle_acceleration"
 PX4_WIND_MAX_GAP_S = 2.5
 WIND_EXOGENOUS_CHANNELS = (
-    ExogenousChannel(
+    Channel(
         name="wind_north_m_s",
         role="estimated_wind_north",
         semantic="estimated_environment_at_prediction_start",
         unit="m/s",
+        kind="exogenous",
         frame="NWU",
     ),
-    ExogenousChannel(
+    Channel(
         name="wind_west_m_s",
         role="estimated_wind_west",
         semantic="estimated_environment_at_prediction_start",
         unit="m/s",
+        kind="exogenous",
         frame="NWU",
     ),
-    ExogenousChannel(
+    Channel(
         name="wind_north_variance_m2_s2",
         role="estimated_wind_north_variance",
         semantic="estimated_environment_uncertainty_at_prediction_start",
         unit="(m/s)^2",
+        kind="exogenous",
         frame="NWU",
     ),
-    ExogenousChannel(
+    Channel(
         name="wind_west_variance_m2_s2",
         role="estimated_wind_west_variance",
         semantic="estimated_environment_uncertainty_at_prediction_start",
         unit="(m/s)^2",
+        kind="exogenous",
         frame="NWU",
     ),
 )
@@ -758,11 +762,7 @@ def trajectories_from_datasets(
             _array_field(specific_force_data, "xyz", 3),
         )
         observation_series.append((specific_force_time, specific_force_frd))
-        observation_channels.extend(
-            specific_force_observation_channels(
-                "px4_vehicle_acceleration_bias_corrected"
-            )
-        )
+        observation_channels.extend(specific_force_observation_channels())
         observation_topic_metadata["specific_force"] = {
             "topic": PX4_SPECIFIC_FORCE_TOPIC,
             "multi_id": 0,
@@ -782,11 +782,7 @@ def trajectories_from_datasets(
             _array_field(angular_data, "xyz_derivative", 3),
         )
         observation_series.append((angular_acceleration_time, angular_acceleration_frd))
-        observation_channels.extend(
-            angular_acceleration_observation_channels(
-                "px4_vehicle_angular_velocity_derivative"
-            )
-        )
+        observation_channels.extend(angular_acceleration_observation_channels())
         observation_topic_metadata["angular_acceleration"] = {
             "topic": topics["angular_velocity"],
             "multi_id": 0,

@@ -16,9 +16,9 @@ from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from typing import Any
 
-from glassbox.cli._tree import TREE, Command, Group, Node, find, leaf_paths
+from glassbox.cli._tree import TREE, Command, find, leaf_paths
 
-__all__ = ["TREE", "Command", "Group", "find", "leaf_paths", "main"]
+__all__ = ["TREE", "Command", "find", "leaf_paths", "main"]
 
 _DESCRIPTION = "Telemetry-driven differentiable vehicle dynamics identification."
 
@@ -30,21 +30,16 @@ def _program(path: Sequence[str]) -> str:
 def _nested_commands() -> str:
     lines = ["nested commands:"]
     for node in TREE:
-        children = (
-            [item.name for item in node.commands]
-            if isinstance(node, Group)
-            else list(node.subcommands)
-        )
-        if not children:
+        if not node.subcommands:
             continue
-        lines.append(f"  {_program((node.name,))} {' | '.join(children)}")
+        lines.append(f"  {_program((node.name,))} {' | '.join(node.subcommands)}")
     lines.append("")
     lines.append("Run 'glassbox <command> --help' for one command's own options.")
     return "\n".join(lines)
 
 
 def _level_parser(
-    path: Sequence[str], nodes: Sequence[Node], summary: str
+    path: Sequence[str], nodes: Sequence[Command], summary: str
 ) -> argparse.ArgumentParser:
     """Build the parser that renders help and rejects unknown names at one level.
 
@@ -107,7 +102,7 @@ def _unavailable_message(
 
 
 def _dispatch(
-    nodes: Sequence[Node], path: tuple[str, ...], argv: Sequence[str], summary: str
+    nodes: Sequence[Command], path: tuple[str, ...], argv: Sequence[str], summary: str
 ) -> int | None:
     parser = _level_parser(path, nodes, summary)
     head = argv[0] if argv else None
@@ -123,8 +118,6 @@ def _dispatch(
 
     node = next(item for item in nodes if item.name == head)
     rest = list(argv[1:])
-    if isinstance(node, Group):
-        return _dispatch(node.commands, (*path, node.name), rest, node.summary)
     leaf_path = (*path, node.name)
     with _invoked_as(_program(leaf_path), rest):
         return _entry_point(node, leaf_path)(rest)

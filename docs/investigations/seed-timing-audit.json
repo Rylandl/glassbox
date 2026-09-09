@@ -1,0 +1,540 @@
+{
+  "postprocessing_only": true,
+  "source_reports_sha256": {
+    "replay": "590ddc6b06ea5d4b435860f04f1747a5e50d291c2cd4f50fcc8d215ed627c28b",
+    "history": "675136d2604a08ce806a848475a93d7ef778f87937896a710fe0a9099b05b7a8",
+    "prior": "caaf9d6f69531fb0c22d648dce05b6b5192a02a01324ac39370d0f5b8e021b18"
+  },
+  "archived_sources_verified": {
+    "replay": [
+      "investigate_fast_suffix.py",
+      "investigate_fast_suffix_runtime.py",
+      "investigate_feedback_recovery.py",
+      "investigate_feedback_suffix.py",
+      "investigate_seed_timing.py",
+      "investigate_sqp_recovery.py"
+    ],
+    "history": [
+      "investigate_seed_timing.py",
+      "investigate_sqp_recovery.py",
+      "investigate_feedback_recovery.py"
+    ]
+  },
+  "replay": {
+    "accepted_forecast_hash_counts": {
+      "6edc8c27d2ca5e6281ffd3412ad8e3377a9d8d9f703d67706dde7ddf1a547b3e": 256
+    },
+    "gc": {
+      "collections_overlapping_caller_by_generation": {
+        "0": 23,
+        "1": 2
+      },
+      "collection_duration_s": {
+        "median": 6.075000000000004e-05,
+        "max": 0.0005883750000000004
+      },
+      "overlap_duration_s": {
+        "median": 6.075000000000004e-05,
+        "max": 0.0005883750000000004
+      }
+    },
+    "completed_seed_materialization_samples": 128,
+    "evaluation_materialization_s": {
+      "median": 0.00034916700000000016,
+      "max": 0.0005200420000000001
+    },
+    "linearization_materialization_s": {
+      "median": 0.0046154375,
+      "max": 0.005086666
+    }
+  },
+  "history": {
+    "cold_original": {
+      "applied_intervals": 4,
+      "complete": false,
+      "tail_normalized_tracking_rms": null,
+      "terminal_full_state_within_tolerances": null,
+      "maximum_caller_budget_fraction": 1.021141700039152,
+      "status_counts": {
+        "stalled": 4,
+        "deadline_exceeded": 1
+      },
+      "optimizer_candidate_sources": {
+        "linearization_checkpoint": 1,
+        "finalizer": 4
+      },
+      "prior_matching_request_prefix_ticks": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "first_input_difference_tick": null,
+      "gc": {
+        "collections_overlapping_caller_by_generation": {},
+        "collection_duration_s": null,
+        "overlap_duration_s": null
+      },
+      "accepted_warm_seed_materialization_s": {
+        "evaluation_s": {
+          "median": 0.0004160829999999997,
+          "max": 0.000448375
+        },
+        "linearization_s": {
+          "median": 0.004794458000000001,
+          "max": 0.005180376
+        }
+      },
+      "failed_requests": [
+        {
+          "tick": 4,
+          "message": "solver deadline expired during prediction diagnostics",
+          "budget_fraction": 1.021141700039152,
+          "nonlinear_feasibility": {
+            "constraint_count": null,
+            "maximum_violation": null,
+            "tolerance": null
+          },
+          "phase_totals_s": {
+            "set_seed": [
+              0.00030858400000000004,
+              0.00030900000000000003,
+              0.00030995800000000004
+            ],
+            "_reject_invalid_request": [
+              0.00018970800000000002,
+              0.00018400000000000008,
+              0.00018525000000000003
+            ],
+            "_initial_latent": [
+              9.666999999999987e-06,
+              1.0000000000000026e-05,
+              9.042000000000013e-06
+            ],
+            "_exogenous_forecast": [
+              5.012500000000004e-05,
+              5.000000000000002e-05,
+              5.087500000000003e-05
+            ],
+            "_cold_blocks": [
+              0.0003407500000000001,
+              0.0003110000000000001,
+              0.00031400000000000004
+            ],
+            "evaluate.dispatch": [
+              0.00014741800000000202,
+              0.0001499999999999993,
+              0.00013504099999999937
+            ],
+            "seed.materialize": [
+              0.005296001000000001,
+              0.011177000000000001,
+              4.825100000000024e-05
+            ],
+            "seed.float_conversion": [
+              2.533400000000142e-05,
+              4.0000000000000755e-05,
+              2.570799999999972e-05
+            ],
+            "seed.rank": [
+              1.666699999999994e-05,
+              1.5999999999999955e-05,
+              1.679099999999994e-05
+            ],
+            "linearize.dispatch": [
+              8.695799999999831e-05,
+              0.00010099999999999931,
+              8.691600000000003e-05
+            ],
+            "seed.finite": [
+              2.7374999999999622e-05,
+              2.8000000000000247e-05,
+              2.7707999999999986e-05
+            ],
+            "seed.cost": [
+              8.000000000000194e-06,
+              7.000000000000062e-06,
+              8.125000000000103e-06
+            ],
+            "seed.gradient": [
+              3.141699999999973e-05,
+              3.099999999999978e-05,
+              3.166600000000007e-05
+            ],
+            "seed.return_arrays": [
+              0.00010204099999999976,
+              0.00010300000000000066,
+              0.00010295900000000012
+            ],
+            "_seed_plan": [
+              0.005670125000000001,
+              0.0116,
+              0.00041608300000000003
+            ],
+            "finalize.dispatch": [
+              7.891700000000126e-05,
+              8.000000000000021e-05,
+              7.783399999999972e-05
+            ],
+            "_optimize_plan": [
+              0.013161042000000001,
+              0.02435,
+              0.004719582999999999
+            ],
+            "_failure_result": [
+              0.0003402079999999981,
+              0.00034,
+              0.0003396670000000001
+            ]
+          },
+          "seed_materialization": {
+            "evaluation_s": 0.0004402500000000001,
+            "linearization_s": 0.004855751
+          },
+          "gc_events_in_caller": []
+        }
+      ]
+    },
+    "cold_small": {
+      "applied_intervals": 68,
+      "complete": false,
+      "tail_normalized_tracking_rms": null,
+      "terminal_full_state_within_tolerances": null,
+      "maximum_caller_budget_fraction": 1.1569167007110082,
+      "status_counts": {
+        "stalled": 68,
+        "deadline_exceeded": 1
+      },
+      "optimizer_candidate_sources": {
+        "linearization_checkpoint": 4,
+        "finalizer": 64
+      },
+      "prior_matching_request_prefix_ticks": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39
+      ],
+      "first_input_difference_tick": 40,
+      "gc": {
+        "collections_overlapping_caller_by_generation": {
+          "1": 2,
+          "0": 13
+        },
+        "collection_duration_s": {
+          "median": 6.283299999999999e-05,
+          "max": 0.000696541
+        },
+        "overlap_duration_s": {
+          "median": 6.283299999999999e-05,
+          "max": 0.000696541
+        }
+      },
+      "accepted_warm_seed_materialization_s": {
+        "evaluation_s": {
+          "median": 0.000420916,
+          "max": 0.0008342490000000001
+        },
+        "linearization_s": {
+          "median": 0.00477675,
+          "max": 0.013925375000000004
+        }
+      },
+      "failed_requests": [
+        {
+          "tick": 68,
+          "message": "solver deadline expired before optimization",
+          "budget_fraction": 1.1569167007110082,
+          "nonlinear_feasibility": {
+            "constraint_count": null,
+            "maximum_violation": null,
+            "tolerance": null
+          },
+          "phase_totals_s": {
+            "set_seed": [
+              0.00034420800000000004,
+              0.000344,
+              0.00034475
+            ],
+            "_reject_invalid_request": [
+              0.00019604100000000004,
+              0.000196,
+              0.00019654199999999996
+            ],
+            "_initial_latent": [
+              8.54099999999993e-06,
+              7.999999999999978e-06,
+              8.167000000000005e-06
+            ],
+            "_exogenous_forecast": [
+              4.779199999999995e-05,
+              4.800000000000008e-05,
+              4.8375000000000024e-05
+            ],
+            "_cold_blocks": [
+              0.000189459,
+              0.00019000000000000006,
+              0.00019004100000000006
+            ],
+            "evaluate.dispatch": [
+              4.0832999999999885e-05,
+              4.100000000000002e-05,
+              4.095800000000001e-05
+            ],
+            "seed.materialize": [
+              0.017579833,
+              0.015919000000000003,
+              0.00017195800000000005
+            ],
+            "seed.float_conversion": [
+              6.90429999999978e-05,
+              6.999999999999802e-05,
+              7.00420000000002e-05
+            ],
+            "seed.rank": [
+              4.279199999999983e-05,
+              4.199999999999994e-05,
+              4.32500000000001e-05
+            ],
+            "linearize.dispatch": [
+              0.0009693750000000006,
+              0.001418,
+              0.00022241699999999993
+            ],
+            "seed.finite": [
+              5.6957999999999315e-05,
+              5.7000000000001494e-05,
+              5.725000000000001e-05
+            ],
+            "seed.cost": [
+              1.833299999999885e-05,
+              1.8000000000000654e-05,
+              1.8582999999999968e-05
+            ],
+            "seed.gradient": [
+              5.029200000000039e-05,
+              5.100000000000243e-05,
+              5.104200000000006e-05
+            ],
+            "seed.return_arrays": [
+              0.00023758299999999954,
+              0.00023699999999999763,
+              0.0002399590000000001
+            ],
+            "_seed_plan": [
+              0.019267334,
+              0.018054,
+              0.0010788750000000002
+            ],
+            "_failure_result": [
+              0.0018802920000000022,
+              0.0008649999999999977,
+              0.0008757500000000002
+            ]
+          },
+          "seed_materialization": {
+            "evaluation_s": 0.0043511669999999995,
+            "linearization_s": 0.013228666
+          },
+          "gc_events_in_caller": []
+        }
+      ]
+    },
+    "cold_original_kick": {
+      "applied_intervals": 11,
+      "complete": false,
+      "tail_normalized_tracking_rms": null,
+      "terminal_full_state_within_tolerances": null,
+      "maximum_caller_budget_fraction": 0.9916353999869898,
+      "status_counts": {
+        "stalled": 11,
+        "deadline_exceeded": 1
+      },
+      "optimizer_candidate_sources": {
+        "linearization_checkpoint": 3,
+        "finalizer": 8,
+        "no_returned_plan": 1
+      },
+      "prior_matching_request_prefix_ticks": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "first_input_difference_tick": 10,
+      "gc": {
+        "collections_overlapping_caller_by_generation": {
+          "0": 2
+        },
+        "collection_duration_s": {
+          "median": 0.00010939650000000006,
+          "max": 0.0001540840000000005
+        },
+        "overlap_duration_s": {
+          "median": 0.00010939650000000006,
+          "max": 0.0001540840000000005
+        }
+      },
+      "accepted_warm_seed_materialization_s": {
+        "evaluation_s": {
+          "median": 0.00043818750000000015,
+          "max": 0.0008216250000000001
+        },
+        "linearization_s": {
+          "median": 0.004796812500000001,
+          "max": 0.006181709
+        }
+      },
+      "failed_requests": [
+        {
+          "tick": 11,
+          "message": "SQP budget exhausted before finding a feasible plan",
+          "budget_fraction": 0.8589375007431954,
+          "nonlinear_feasibility": {
+            "constraint_count": null,
+            "maximum_violation": null,
+            "tolerance": null
+          },
+          "phase_totals_s": {
+            "set_seed": [
+              0.000311083,
+              0.000311,
+              0.0003115
+            ],
+            "_reject_invalid_request": [
+              0.00017383400000000004,
+              0.00017500000000000003,
+              0.00017429200000000004
+            ],
+            "_initial_latent": [
+              1.0875000000000034e-05,
+              1.0999999999999942e-05,
+              1.0708000000000007e-05
+            ],
+            "_exogenous_forecast": [
+              3.912499999999999e-05,
+              3.799999999999995e-05,
+              3.954199999999994e-05
+            ],
+            "_cold_blocks": [
+              0.00017133299999999997,
+              0.00017100000000000004,
+              0.00017175000000000003
+            ],
+            "evaluate.dispatch": [
+              7.708300000000036e-05,
+              7.899999999999791e-05,
+              7.633300000000004e-05
+            ],
+            "seed.materialize": [
+              0.0061549149999999995,
+              0.012794,
+              6.687499999999999e-05
+            ],
+            "seed.float_conversion": [
+              2.9164999999999617e-05,
+              4.399999999999955e-05,
+              2.950000000000012e-05
+            ],
+            "seed.rank": [
+              2.354099999999997e-05,
+              2.3000000000000017e-05,
+              2.3999999999999933e-05
+            ],
+            "linearize.dispatch": [
+              8.63760000000002e-05,
+              0.0001220000000000021,
+              8.670900000000003e-05
+            ],
+            "seed.finite": [
+              3.354100000000065e-05,
+              3.300000000000004e-05,
+              3.395799999999995e-05
+            ],
+            "seed.cost": [
+              1.0417000000000412e-05,
+              1.0999999999998858e-05,
+              1.0499999999999876e-05
+            ],
+            "seed.gradient": [
+              3.5625000000000066e-05,
+              3.5999999999999574e-05,
+              3.600000000000001e-05
+            ],
+            "seed.return_arrays": [
+              0.00013437499999999995,
+              0.0001349999999999997,
+              0.0001347500000000001
+            ],
+            "_seed_plan": [
+              0.006596792,
+              0.013279000000000001,
+              0.0005005
+            ],
+            "_optimize_plan": [
+              0.009226625000000002,
+              0.015365,
+              0.004375875
+            ],
+            "_failure_result": [
+              0.0004604999999999991,
+              0.0004600000000000021,
+              0.00046149999999999924
+            ]
+          },
+          "seed_materialization": {
+            "evaluation_s": 0.0004311240000000002,
+            "linearization_s": 0.005723791
+          },
+          "gc_events_in_caller": []
+        }
+      ]
+    }
+  },
+  "source_sha256": {
+    "audit_seed_timing.py": "58178396505fb86814d2a8f3e73fb3e38f48e2f2e50f7dcde36fe9d16eef9ebe"
+  }
+}

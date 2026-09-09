@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 
 from glassbox import cli
-from glassbox.cli._tree import Command, Group
+from glassbox.cli._tree import Command
 
 _PYPROJECT_PATH = Path(__file__).resolve().parent.parent / "pyproject.toml"
 
@@ -27,6 +27,7 @@ _LEAF_IDS = [" ".join(path) for path in _LEAF_PATHS]
 _OPTIONAL_MODULES = (
     "cascade",
     "glassbox.integrations.cascade",
+    "glassbox.workflows.benchmarks.cascade_x8",
 )
 
 
@@ -65,12 +66,7 @@ def test_top_level_help_lists_every_command(
     stdout = capsys.readouterr().out
     for node in cli.TREE:
         assert node.name in stdout
-        children = (
-            [item.name for item in node.commands]
-            if isinstance(node, Group)
-            else list(node.subcommands)
-        )
-        for child in children:
+        for child in node.subcommands:
             assert child in stdout
 
 
@@ -90,20 +86,22 @@ def test_top_level_help_runs_without_any_optional_extra(
 def test_a_command_needing_a_missing_extra_reports_it_without_a_traceback(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setitem(sys.modules, "glassbox.integrations.px4_nmpc_shadow", None)
+    monkeypatch.setitem(sys.modules, "pymavlink", None)
+    for cached in ("glassbox.cli.sitl_profile", "glassbox.io.sitl_profile"):
+        monkeypatch.delitem(sys.modules, cached, raising=False)
 
     with pytest.raises(SystemExit) as excinfo:
-        cli.main(["px4-nmpc-shadow", "--help"])
+        cli.main(["sitl-profile", "--help"])
 
     message = excinfo.value.code
     assert isinstance(message, str)
-    assert "glassbox px4-nmpc-shadow needs the optional 'px4' extra" in message
+    assert "glassbox sitl-profile needs the optional 'px4' extra" in message
     assert "uv run --extra px4" in message
 
 
 @pytest.mark.parametrize(
     "argv",
-    ([], ["not-a-command"], ["x8"], ["x8", "not-a-command"]),
+    ([], ["not-a-command"], ["corpus"], ["corpus", "not-a-command"]),
     ids=[
         "no-command",
         "unknown-command",

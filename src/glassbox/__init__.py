@@ -1,193 +1,122 @@
-"""Core API for telemetry-driven differentiable dynamics identification.
+"""The stable API for telemetry-driven differentiable dynamics identification.
 
-Source adapters (``glassbox.io``), benchmark workflows (``glassbox.workflows``),
-command-line applications (``glassbox.cli``), live-system boundaries
-(``glassbox.integrations``), and research-grade APIs (``glassbox.experimental``)
-live in their own subpackages. Keeping them out of the package root makes the
-stable API small and prevents a core import from loading experiment code.
+Everything here is a name a reader meets in the README or in one of the
+concept pages, or the type of one of their arguments or return values. The
+rest of the library is not hidden, it is simply somewhere more specific:
+corpus adapters in ``glassbox.io``, evaluation and benchmarks in
+``glassbox.workflows``, command-line front ends in ``glassbox.cli``, and live
+vehicle boundaries in ``glassbox.integrations``. Those four subpackages are
+never imported by a bare ``import glassbox``, so the core import stays small
+and needs no optional extra.
+
+Names that left this list did not become private; import them from the module
+that owns them, for example ``from glassbox.core.data import
+load_trajectory_npz``.
 """
 
-from glassbox.belief.adaptation import (
-    BeliefUpdateProposal,
-    BeliefUpdateReport,
-    HorizonEndpointErrorEvidence,
-    endpoint_error_evidence_by_horizon,
-    propose_dynamics_belief_update,
-    recalibrate_predictive_error,
-    update_dynamics_belief,
-    validate_and_commit_dynamics_belief_update,
+from glassbox.belief.belief import DynamicsBelief
+from glassbox.belief.forecast_error import ForecastErrorEnvelope
+from glassbox.belief.information import ParameterInformation
+from glassbox.belief.update import UpdateResult
+from glassbox.control.fitted import NMPCController, plan_model
+from glassbox.control.identifier import (
+    BootstrapEvidence,
+    RecursiveBootstrapConfig,
+    RecursiveBootstrapIdentifier,
 )
-from glassbox.belief.belief import (
-    TANGENT_GROUP_ORDER,
-    TANGENT_STATE_ORDER,
-    DynamicsBelief,
-    EmpiricalErrorSample,
-    EmpiricalHorizonPredictiveError,
-    ErrorCovarianceScope,
-    LocalGaussianParameterBelief,
-    LocalParameterInformation,
-    PlanAssessment,
-    PointParameterBelief,
-    PredictiveTrajectory,
-    ResolvedLocalGeometry,
-    RuntimeDynamicsBelief,
-    UnavailableParameterEvidence,
-    UnavailablePredictiveError,
-    apply_tangent_correction,
-    structured_parameter_names,
-    structured_parameter_vector,
-    with_structured_parameter_vector,
-)
-from glassbox.belief.belief_io import load_dynamics_belief, save_dynamics_belief
-from glassbox.belief.parameter_prior import StructuredParameterPrior
-from glassbox.control.nmpc import (
-    NMPCController,
-    NMPCDiagnostics,
-    NMPCResult,
-    NMPCWarmStart,
+from glassbox.control.plan import (
+    ConstrainedLeastSquaresPlanModel,
+    NonlinearFeasibility,
+    PlanModel,
+    PlanTerms,
+    PlanValues,
+    Prediction,
     ReferenceTrajectory,
     SafetyEnvelope,
+    SolveResult,
     SolverPolicy,
     SolveStatus,
-    SupportFilterMode,
     TrackingTolerances,
 )
-from glassbox.core.adapter import TrajectoryAdapter
-from glassbox.core.data import (
-    RIGID_BODY_STATE_SCHEMA,
-    ControlChannel,
-    ExogenousChannel,
-    ObservationChannel,
-    Trajectory,
-    TrajectorySpec,
-    TrajectoryWindows,
-    VehicleConfigurationSpec,
-    duration_to_steps,
-    load_trajectory_npz,
-    make_trajectory_spec,
-    save_trajectory_npz,
-    split_trajectory,
-    trajectory_segment,
-    trajectory_windows,
+from glassbox.control.solver import BoundedShootingSolver
+from glassbox.control.supervisor import (
+    MultirotorFlightSupervisor,
+    MultirotorSupervisorConfig,
+    SupervisorMode,
+    SupervisorReason,
 )
+from glassbox.core.data import Channel, Trajectory, TrajectorySpec
 from glassbox.core.dynamics import (
-    BaseDynamicsParams,
+    BootstrapMultirotorParams,
     DynamicsParams,
     FixedWingDynamicsParams,
     ModelParams,
-    ResidualDynamicsParams,
-    model_family,
     rollout,
-    rollout_with_latent,
     step,
-    step_with_latent,
 )
-from glassbox.core.evaluation import (
-    aggregate_rollout_metrics,
-    rollout_divergence_metrics,
-    rollout_metrics,
-    windowed_rollout_metrics,
-)
-from glassbox.core.identification import (
-    FitResult,
-    RolloutLossConfiguration,
-    fit_dynamics,
-    fit_dynamics_multi_horizon,
-    rollout_loss_configuration,
-)
-from glassbox.core.runtime import (
-    ActuationMap,
-    DirectActuationMap,
-    ModelValidityEnvelope,
-    NonActionableModelError,
-    RuntimeDynamicsModel,
-    RuntimeModelSpec,
-    runtime_spec_from_fit_report,
-    runtime_spec_from_trajectory,
+from glassbox.core.model import ActuationMap, ExecutableModel, NonActionableModelError
+from glassbox.fitting import (
+    FitOutcome,
+    FitSpec,
+    Holdout,
+    LossPolicy,
+    WeightingPolicy,
+    fit,
 )
 
-__all__ = [
-    "RIGID_BODY_STATE_SCHEMA",
-    "TANGENT_GROUP_ORDER",
-    "TANGENT_STATE_ORDER",
-    "ActuationMap",
-    "BaseDynamicsParams",
-    "BeliefUpdateProposal",
-    "BeliefUpdateReport",
-    "ControlChannel",
-    "DirectActuationMap",
-    "DynamicsBelief",
+# Grouped in the order a reader meets these names, not alphabetically: the
+# groups are the argument of the surface, and each one carries its reason.
+__all__ = [  # noqa: RUF022
+    # The telemetry a fit consumes, and the typed contract it carries.
+    "Channel",
+    "Trajectory",
+    "TrajectorySpec",
+    # The fit: one call, one spec, one outcome.
+    "FitOutcome",
+    "FitSpec",
+    "Holdout",
+    "LossPolicy",
+    "WeightingPolicy",
+    "fit",
+    # The three parameter families and the two functions that execute them.
+    "BootstrapMultirotorParams",
     "DynamicsParams",
-    "EmpiricalErrorSample",
-    "EmpiricalHorizonPredictiveError",
-    "ErrorCovarianceScope",
-    "ExogenousChannel",
-    "FitResult",
     "FixedWingDynamicsParams",
-    "HorizonEndpointErrorEvidence",
-    "LocalGaussianParameterBelief",
-    "LocalParameterInformation",
     "ModelParams",
-    "ModelValidityEnvelope",
-    "NMPCController",
-    "NMPCDiagnostics",
-    "NMPCResult",
-    "NMPCWarmStart",
+    "rollout",
+    "step",
+    # The belief: one executable model, what the evidence resolved, and how
+    # wrong the forecasts have been.
+    "ActuationMap",
+    "DynamicsBelief",
+    "ExecutableModel",
+    "ForecastErrorEnvelope",
     "NonActionableModelError",
-    "ObservationChannel",
-    "PlanAssessment",
-    "PointParameterBelief",
-    "PredictiveTrajectory",
+    "ParameterInformation",
+    "UpdateResult",
+    # Control: the plan-model seam, the solver behind it, and the bounded
+    # result every solve returns.
+    "BoundedShootingSolver",
+    "NMPCController",
+    "ConstrainedLeastSquaresPlanModel",
+    "PlanModel",
+    "PlanTerms",
+    "PlanValues",
+    "Prediction",
     "ReferenceTrajectory",
-    "ResidualDynamicsParams",
-    "ResolvedLocalGeometry",
-    "RolloutLossConfiguration",
-    "RuntimeDynamicsBelief",
-    "RuntimeDynamicsModel",
-    "RuntimeModelSpec",
     "SafetyEnvelope",
+    "NonlinearFeasibility",
+    "SolveResult",
     "SolveStatus",
     "SolverPolicy",
-    "StructuredParameterPrior",
-    "SupportFilterMode",
     "TrackingTolerances",
-    "Trajectory",
-    "TrajectoryAdapter",
-    "TrajectorySpec",
-    "TrajectoryWindows",
-    "UnavailableParameterEvidence",
-    "UnavailablePredictiveError",
-    "VehicleConfigurationSpec",
-    "aggregate_rollout_metrics",
-    "apply_tangent_correction",
-    "duration_to_steps",
-    "endpoint_error_evidence_by_horizon",
-    "fit_dynamics",
-    "fit_dynamics_multi_horizon",
-    "load_dynamics_belief",
-    "load_trajectory_npz",
-    "make_trajectory_spec",
-    "model_family",
-    "propose_dynamics_belief_update",
-    "recalibrate_predictive_error",
-    "rollout",
-    "rollout_divergence_metrics",
-    "rollout_loss_configuration",
-    "rollout_metrics",
-    "rollout_with_latent",
-    "runtime_spec_from_fit_report",
-    "runtime_spec_from_trajectory",
-    "save_dynamics_belief",
-    "save_trajectory_npz",
-    "split_trajectory",
-    "step",
-    "step_with_latent",
-    "structured_parameter_names",
-    "structured_parameter_vector",
-    "trajectory_segment",
-    "trajectory_windows",
-    "update_dynamics_belief",
-    "validate_and_commit_dynamics_belief_update",
-    "windowed_rollout_metrics",
-    "with_structured_parameter_vector",
+    "plan_model",
+    # Learning a model in flight, and bounding the command that comes out.
+    "BootstrapEvidence",
+    "MultirotorFlightSupervisor",
+    "MultirotorSupervisorConfig",
+    "RecursiveBootstrapConfig",
+    "RecursiveBootstrapIdentifier",
+    "SupervisorMode",
+    "SupervisorReason",
 ]

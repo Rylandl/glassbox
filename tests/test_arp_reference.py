@@ -1,20 +1,16 @@
 import hashlib
-import io
-import urllib.request
+from dataclasses import replace
 
 import numpy as np
 
 import glassbox.io.arp_reference as arp_module
-from glassbox.core.adapter import TrajectoryAdapter
 from glassbox.core.data import Trajectory, make_trajectory_spec
 from glassbox.io.arp_reference import (
     ARP_CONFIGURATION_ID,
     ARP_REFERENCE_COMMIT,
     ARP_REFERENCE_NAME,
-    ARPRecording,
     ARPReferenceAdapter,
     _longest_powered_interval,
-    fetch_arp_reference,
 )
 
 
@@ -49,12 +45,11 @@ def test_adapter_applies_opinionated_reference_contract(tmp_path, monkeypatch) -
     def fake_load(path, *, config):
         captured["path"] = path
         captured["config"] = config
-        return _base_trajectory()
+        return replace(_base_trajectory(), control_prefix=np.full((4, 4), 0.1))
 
     monkeypatch.setattr(arp_module, "load_px4_trajectory", fake_load)
     adapter = ARPReferenceAdapter(verify_checksum=False)
 
-    assert isinstance(adapter, TrajectoryAdapter)
     trajectory = adapter.load(source)
 
     config = captured["config"]
@@ -71,12 +66,13 @@ def test_adapter_applies_opinionated_reference_contract(tmp_path, monkeypatch) -
     )
     assert trajectory.provenance["adapter"] == {
         "name": "arp_px4_ulog_reference",
-        "schema_version": 2,
+        "schema_version": 3,
     }
     reference = trajectory.provenance["reference_dataset"]
     assert reference["commit"] == ARP_REFERENCE_COMMIT
     assert reference["relative_path"].endswith(source.name)
     assert trajectory.spec.vehicle.configuration_id == ARP_CONFIGURATION_ID
+    np.testing.assert_array_equal(trajectory.control_prefix, np.full((4, 4), 0.1))
 
 
 def test_inspection_adds_pinned_identity(tmp_path, monkeypatch) -> None:
@@ -116,38 +112,18 @@ def test_reference_adapter_selects_longest_powered_interval() -> None:
         states=states,
         controls=controls,
         spec=base.spec,
+        control_prefix=np.full((2, 4), 0.2),
     )
 
     selected = _longest_powered_interval(trajectory, minimum_duration_s=0.1)
 
     assert np.isclose(selected.time_s[-1], 0.3)
     np.testing.assert_allclose(selected.controls, 0.4)
+    np.testing.assert_array_equal(
+        selected.control_prefix,
+        np.concatenate((trajectory.control_prefix, controls[:4])),
+    )
     assert (
         selected.provenance["reference_powered_interval"]["candidate_interval_count"]
         == 2
     )
-
-
-def test_fetch_verifies_download_and_reuses_valid_file(tmp_path, monkeypatch) -> None:
-    payload = b"pinned ARP ULog bytes"
-    recording = ARPRecording(
-        "logs_large/reference.ulg",
-        hashlib.sha256(payload).hexdigest(),
-        len(payload),
-        1,
-    )
-    calls = []
-
-    def fake_urlopen(request, timeout):
-        calls.append((request.full_url, timeout))
-        return io.BytesIO(payload)
-
-    monkeypatch.setattr(arp_module, "ARP_RECORDINGS", (recording,))
-    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
-
-    first = fetch_arp_reference(tmp_path)
-    second = fetch_arp_reference(tmp_path)
-
-    assert first == second == (tmp_path / recording.relative_path,)
-    assert first[0].read_bytes() == payload
-    assert len(calls) == 1

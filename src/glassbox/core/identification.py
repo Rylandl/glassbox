@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import math
-import warnings
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 
@@ -17,45 +16,75 @@ from glassbox.core.data import (
     NORMALIZED_MOTOR_COMMAND_SEMANTICS,
     PHYSICAL_MOTOR_THRUST_SEMANTICS,
     TrajectoryWindows,
+    _require_compatible_inputs,
 )
 from glassbox.core.dynamics import (
     ModelParams,
     ResidualDynamicsParams,
     control_state_after_history,
-    has_instantaneous_rotational_response,
     model_family,
     quaternion_to_rotation,
     rollout_with_latent,
     validate_control_schema,
     with_diagonal_angular_control,
-    with_instantaneous_rotational_response,
     with_response_time_constant,
     with_thrust_command_offset,
     zero_angular_cross_coupling_gradient,
     zero_residual_configuration_gradient,
     zero_response_time_gradient,
-    zero_rotational_response_gradient,
     zero_thrust_command_offset_gradient,
 )
 from glassbox.core.geometry import quaternion_to_rotation_matrices
+from glassbox.core.model import ModelValidityEnvelope
 
 OPTIMIZATION_POLICY_VERSION = "deterministic_weighted_minibatch_v3"
-MAX_OPTIMIZATION_WINDOWS_PER_HORIZON = 8_192
-MAX_OPTIMIZATION_TRANSITIONS_PER_HORIZON = 65_536
+WINDOW_BUDGET_POLICY = "one_window_budget_v1"
+MAXIMUM_WINDOWS_PER_HORIZON = 8_192
+MAXIMUM_TRANSITIONS_PER_HORIZON = 65_536
+
+
+def window_budget(horizon_steps: int, *, minimum: int = 1) -> int:
+    """How many rollout windows one horizon is fit on.
+
+    One budget, stated once and read by everything that thins a window set:
+    the fitter, which extracts this many windows per horizon, and the
+    optimizer, which processes at most this many in one gradient step. They
+    are the same number on purpose. A fitter that kept more than the optimizer
+    can take in a step would hand a set that is silently resampled under a
+    second constant, and the report would name a training set the gradient
+    never saw whole.
+
+    The ceiling is a window count and an unrolled-transition count, because a
+    long horizon costs more per window: a set is capped at
+    :data:`MAXIMUM_WINDOWS_PER_HORIZON` windows and at
+    :data:`MAXIMUM_TRANSITIONS_PER_HORIZON` transitions, whichever binds
+    first. ``minimum`` raises the floor for a caller that must represent more
+    independent sources than the budget admits; that is the one case where the
+    optimizer still batches a fitted set, and it is a deliberate one.
+    """
+
+    if horizon_steps < 1:
+        raise ValueError("horizon_steps must be positive")
+    if minimum < 1:
+        raise ValueError("minimum must be positive")
+    return max(
+        minimum,
+        min(
+            MAXIMUM_WINDOWS_PER_HORIZON,
+            max(1, MAXIMUM_TRANSITIONS_PER_HORIZON // horizon_steps),
+        ),
+    )
 
 
 @dataclass(frozen=True)
 class RolloutLossConfiguration:
-    """Training-only scales and stability envelope for rigid-body rollouts."""
+    """Training-only error scales and the support carried into model execution."""
 
     position_scale_m: npt.NDArray[np.float64]
     velocity_scale_m_s: npt.NDArray[np.float64]
     attitude_scale_rad: float
     angular_velocity_scale_rad_s: npt.NDArray[np.float64]
-    body_velocity_center_m_s: npt.NDArray[np.float64]
-    body_velocity_bound_m_s: npt.NDArray[np.float64]
-    angular_velocity_center_rad_s: npt.NDArray[np.float64]
-    angular_velocity_bound_rad_s: npt.NDArray[np.float64]
+    validity_envelope: ModelValidityEnvelope
     endpoint_weight: float = 3.0
     stability_regularization: float = 0.01
 
@@ -64,10 +93,6 @@ class RolloutLossConfiguration:
             "position_scale_m",
             "velocity_scale_m_s",
             "angular_velocity_scale_rad_s",
-            "body_velocity_center_m_s",
-            "body_velocity_bound_m_s",
-            "angular_velocity_center_rad_s",
-            "angular_velocity_bound_rad_s",
         ):
             values = np.asarray(getattr(self, name), dtype=np.float64)
             if values.shape != (3,) or not np.all(np.isfinite(values)):
@@ -77,8 +102,6 @@ class RolloutLossConfiguration:
             "position_scale_m",
             "velocity_scale_m_s",
             "angular_velocity_scale_rad_s",
-            "body_velocity_bound_m_s",
-            "angular_velocity_bound_rad_s",
         ):
             if np.any(getattr(self, name) <= 0.0):
                 raise ValueError(f"{name} must be positive")
@@ -102,16 +125,7 @@ class RolloutLossConfiguration:
                     self.angular_velocity_scale_rad_s.tolist()
                 ),
             },
-            "dynamic_envelope": {
-                "body_velocity_center_m_s": (self.body_velocity_center_m_s.tolist()),
-                "body_velocity_half_width_m_s": (self.body_velocity_bound_m_s.tolist()),
-                "angular_velocity_center_rad_s": (
-                    self.angular_velocity_center_rad_s.tolist()
-                ),
-                "angular_velocity_half_width_rad_s": (
-                    self.angular_velocity_bound_rad_s.tolist()
-                ),
-            },
+            "dynamic_envelope": self.validity_envelope.to_dict(),
             "endpoint_weight": self.endpoint_weight,
             "stability_regularization": self.stability_regularization,
             "state_group_weighting": "equal_semantic_groups",
@@ -152,25 +166,12 @@ def _all_leaves_finite(tree: ModelParams) -> bool:
     )
 
 
-def _warn_if_rotational_response_frozen(params: ModelParams) -> None:
-    """Warn when a fit starts at the memoryless sentinel it can never leave."""
-
-    if has_instantaneous_rotational_response(params):
-        warnings.warn(
-            "the rotational-response time constants start at the memoryless "
-            "sentinel, where their loss gradient is exactly zero, so this fit "
-            "cannot learn rotational lag; pass instantaneous_rotational_response="
-            "True to declare that mode or start from a positive time constant",
-            stacklevel=3,
-        )
-
-
 def deterministic_weighted_batch_schedule(
     window_weights: npt.NDArray[np.float64] | None,
     *,
     window_count: int,
     steps: int,
-    maximum_batch_size: int = MAX_OPTIMIZATION_WINDOWS_PER_HORIZON,
+    maximum_batch_size: int = MAXIMUM_WINDOWS_PER_HORIZON,
 ) -> npt.NDArray[np.int64]:
     """Return reproducible systematic samples spanning the weighted window set."""
 
@@ -209,14 +210,7 @@ def _optimization_batch_schedules(
             windows.window_weights,
             window_count=len(windows.initial_states),
             steps=steps,
-            maximum_batch_size=min(
-                MAX_OPTIMIZATION_WINDOWS_PER_HORIZON,
-                max(
-                    1,
-                    MAX_OPTIMIZATION_TRANSITIONS_PER_HORIZON
-                    // windows.controls.shape[1],
-                ),
-            ),
+            maximum_batch_size=window_budget(windows.controls.shape[1]),
         )
         for windows in window_sets
     )
@@ -243,7 +237,7 @@ def _window_wind_world(windows: TrajectoryWindows) -> npt.NDArray[np.float64]:
     """Return one NWU wind vector for each rollout window."""
 
     values = np.asarray(windows.initial_exogenous, dtype=np.float64)
-    roles = windows.exogenous_roles
+    roles = windows.input_spec.exogenous_roles
     wind = np.zeros((len(values), 3), dtype=np.float64)
     for axis, role in enumerate(("wind_north", "wind_west", "wind_up")):
         if role in roles:
@@ -351,10 +345,12 @@ def rollout_loss_configuration(
         angular_velocity_scale_rad_s=_robust_axis_scale(
             angular_velocity_change, floor=0.1
         ),
-        body_velocity_center_m_s=body_velocity_center,
-        body_velocity_bound_m_s=body_velocity_bound,
-        angular_velocity_center_rad_s=angular_velocity_center,
-        angular_velocity_bound_rad_s=angular_velocity_bound,
+        validity_envelope=ModelValidityEnvelope(
+            body_velocity_center_m_s=body_velocity_center,
+            body_velocity_half_width_m_s=body_velocity_bound,
+            angular_velocity_center_rad_s=angular_velocity_center,
+            angular_velocity_half_width_rad_s=angular_velocity_bound,
+        ),
         endpoint_weight=endpoint_weight,
         stability_regularization=stability_regularization,
     )
@@ -377,18 +373,11 @@ def residual_initialization_statistics(
     features = []
     accelerations = []
     expected_control_size = window_sets[0].control_size
-    expected_roles = window_sets[0].control_roles
     expected_exogenous_size = window_sets[0].initial_exogenous.shape[1]
-    expected_exogenous_roles = window_sets[0].exogenous_roles
     for windows in window_sets:
-        if windows.control_size != expected_control_size:
-            raise ValueError("residual window sets must share a control size")
-        if windows.control_roles != expected_roles:
-            raise ValueError("residual window sets must share control roles")
-        if windows.initial_exogenous.shape[1] != expected_exogenous_size:
-            raise ValueError("residual window sets must share an exogenous size")
-        if windows.exogenous_roles != expected_exogenous_roles:
-            raise ValueError("residual window sets must share exogenous roles")
+        _require_compatible_inputs(
+            window_sets[0].input_spec, windows.input_spec, label="residual windows"
+        )
         states = np.asarray(windows.target_states[:, :-1], dtype=np.float64)
         next_states = np.asarray(windows.target_states[:, 1:], dtype=np.float64)
         controls = np.asarray(windows.controls, dtype=np.float64)
@@ -560,15 +549,13 @@ def dynamic_envelope_penalty(
         rotations,
         predicted_states[..., 3:6] - wind_world[:, None, :],
     )
-    body_velocity_bound = jnp.asarray(loss_configuration.body_velocity_bound_m_s)
-    angular_velocity_bound = jnp.asarray(
-        loss_configuration.angular_velocity_bound_rad_s
-    )
+    envelope = loss_configuration.validity_envelope
+    body_velocity_bound = jnp.asarray(envelope.body_velocity_half_width_m_s)
+    angular_velocity_bound = jnp.asarray(envelope.angular_velocity_half_width_rad_s)
     body_velocity_excess = (
         jax.nn.relu(
             jnp.abs(
-                predicted_body_velocity
-                - jnp.asarray(loss_configuration.body_velocity_center_m_s)
+                predicted_body_velocity - jnp.asarray(envelope.body_velocity_center_m_s)
             )
             - body_velocity_bound
         )
@@ -578,7 +565,7 @@ def dynamic_envelope_penalty(
         jax.nn.relu(
             jnp.abs(
                 predicted_states[..., 10:13]
-                - jnp.asarray(loss_configuration.angular_velocity_center_rad_s)
+                - jnp.asarray(envelope.angular_velocity_center_rad_s)
             )
             - angular_velocity_bound
         )
@@ -601,7 +588,6 @@ def _fit_objective(
     gradient_clip_norm: float,
     fixed_motor_time_constant: bool,
     fixed_thrust_command_offset: bool,
-    fixed_rotational_response: bool = False,
     fixed_angular_cross_coupling: bool = False,
     loss_configuration: RolloutLossConfiguration,
     batch_objective: Callable[[ModelParams, tuple[Array, ...]], Array] | None = None,
@@ -656,9 +642,7 @@ def _fit_objective(
             gradients = zero_response_time_gradient(gradients)
         if fixed_thrust_command_offset:
             gradients = zero_thrust_command_offset_gradient(gradients)
-        if fixed_rotational_response:
-            gradients = zero_rotational_response_gradient(gradients)
-        elif fixed_angular_cross_coupling:
+        if fixed_angular_cross_coupling:
             gradients = zero_angular_cross_coupling_gradient(gradients)
         gradient_norm = jnp.sqrt(
             sum(jnp.sum(jnp.square(leaf)) for leaf in jax.tree.leaves(gradients))
@@ -709,6 +693,11 @@ def _fit_objective(
         params = best_params
         final_loss = float(jax.jit(objective)(params))
         history = history[: completed_steps + 1]
+    elif batch_schedules is None and best_loss < final_loss:
+        # Full-batch losses are comparable across iterations. A final Adam
+        # step can overshoot a better fit, especially when resuming near it.
+        params = best_params
+        final_loss = best_loss
     if diverged:
         history = np.append(history, final_loss)
     else:
@@ -755,14 +744,6 @@ def _configured_initial_params(
     return with_response_time_constant(initial_params, fixed_motor_time_constant_s)
 
 
-def _validate_window_schema(params: ModelParams, windows: TrajectoryWindows) -> None:
-    validate_control_schema(
-        params,
-        windows.control_names,
-        windows.control_roles,
-    )
-
-
 def supports_multirotor_thrust_command_offset(
     params: ModelParams,
     windows: TrajectoryWindows,
@@ -771,7 +752,7 @@ def supports_multirotor_thrust_command_offset(
 
     if model_family(params).platform != "multirotor":
         return False
-    semantics = frozenset(windows.control_semantics)
+    semantics = frozenset(windows.input_spec.control_semantics)
     if semantics <= NORMALIZED_MOTOR_COMMAND_SEMANTICS:
         return True
     if semantics <= PHYSICAL_MOTOR_THRUST_SEMANTICS:
@@ -847,95 +828,13 @@ def _window_loss(
         windows.dt_s,
         loss_configuration,
         window_weights,
-        windows.control_roles,
+        windows.input_spec.control_roles,
         initial_exogenous,
-        windows.exogenous_roles,
+        windows.input_spec.exogenous_roles,
     )
 
 
 def fit_dynamics(
-    windows: TrajectoryWindows,
-    initial_params: ModelParams,
-    *,
-    steps: int = 400,
-    learning_rate: float = 0.03,
-    gradient_clip_norm: float = 10.0,
-    fixed_motor_time_constant_s: float | None = None,
-    learn_thrust_command_offset: bool = False,
-    instantaneous_rotational_response: bool = False,
-    diagonal_angular_control: bool = False,
-    loss_configuration: RolloutLossConfiguration | None = None,
-    endpoint_weight: float = 3.0,
-    stability_regularization: float = 0.01,
-) -> FitResult:
-    """Fit dynamics parameters with Adam and return the complete loss history."""
-
-    if steps < 1:
-        raise ValueError("steps must be positive")
-    if learning_rate <= 0.0:
-        raise ValueError("learning_rate must be positive")
-    _validate_window_schema(initial_params, windows)
-    learn_thrust_command_offset = _resolved_thrust_command_offset_policy(
-        initial_params, (windows,), learn_thrust_command_offset
-    )
-    initial_params = _configured_initial_params(
-        initial_params, fixed_motor_time_constant_s
-    )
-    if (
-        not learn_thrust_command_offset
-        and model_family(initial_params).platform == "multirotor"
-    ):
-        initial_params = with_thrust_command_offset(initial_params, 0.0)
-    if instantaneous_rotational_response:
-        initial_params = with_instantaneous_rotational_response(initial_params)
-    else:
-        if diagonal_angular_control:
-            initial_params = with_diagonal_angular_control(initial_params)
-        _warn_if_rotational_response_frozen(initial_params)
-    if loss_configuration is None:
-        loss_configuration = rollout_loss_configuration(
-            [windows],
-            endpoint_weight=endpoint_weight,
-            stability_regularization=stability_regularization,
-        )
-
-    def component_objective(params: ModelParams) -> Array:
-        return jnp.asarray([_window_loss(params, windows, loss_configuration)])
-
-    def objective(params: ModelParams) -> Array:
-        return component_objective(params)[0] + _residual_regularization(params)
-
-    batch_schedules = _optimization_batch_schedules([windows], steps=steps)
-
-    def batch_objective(params: ModelParams, batch_indices: tuple[Array, ...]) -> Array:
-        return _window_loss(
-            params,
-            windows,
-            loss_configuration,
-            indices=batch_indices[0],
-        ) + _residual_regularization(params)
-
-    return _fit_objective(
-        objective,
-        component_objective,
-        initial_params,
-        steps=steps,
-        learning_rate=learning_rate,
-        gradient_clip_norm=gradient_clip_norm,
-        fixed_motor_time_constant=fixed_motor_time_constant_s is not None,
-        fixed_thrust_command_offset=not learn_thrust_command_offset,
-        fixed_rotational_response=instantaneous_rotational_response,
-        fixed_angular_cross_coupling=diagonal_angular_control,
-        loss_configuration=loss_configuration,
-        batch_objective=(None if batch_schedules is None else batch_objective),
-        batch_schedules=batch_schedules,
-        batch_window_counts=(
-            None if batch_schedules is None else (len(windows.initial_states),)
-        ),
-    )
-
-
-def fit_dynamics_multi_horizon(
     window_sets: tuple[TrajectoryWindows, ...] | list[TrajectoryWindows],
     initial_params: ModelParams,
     *,
@@ -944,18 +843,20 @@ def fit_dynamics_multi_horizon(
     gradient_clip_norm: float = 10.0,
     fixed_motor_time_constant_s: float | None = None,
     learn_thrust_command_offset: bool = False,
-    instantaneous_rotational_response: bool = False,
     diagonal_angular_control: bool = False,
     horizon_weights: tuple[float, ...] | list[float] | None = None,
     loss_configuration: RolloutLossConfiguration | None = None,
     endpoint_weight: float = 3.0,
     stability_regularization: float = 0.01,
-    loss_normalization_params: ModelParams | None = None,
-    loss_normalization_window_sets: (
-        tuple[TrajectoryWindows, ...] | list[TrajectoryWindows] | None
-    ) = None,
 ) -> FitResult:
-    """Fit one model to normalized rollout losses at several horizons."""
+    """Fit one model to the normalized rollout losses of its window sets.
+
+    Each component of the objective is divided by the loss the initial
+    parameters make on that same component, so no horizon is preferred merely
+    for carrying larger errors and the gradient clip means the same thing at
+    every horizon. A single horizon is a one-element sequence of window sets,
+    fit on its own normalized loss like any other.
+    """
 
     if not window_sets:
         raise ValueError("at least one window set is required")
@@ -964,12 +865,14 @@ def fit_dynamics_multi_horizon(
     if learning_rate <= 0.0:
         raise ValueError("learning_rate must be positive")
     for windows in window_sets:
-        _validate_window_schema(initial_params, windows)
-    if loss_normalization_window_sets is not None:
-        if len(loss_normalization_window_sets) != len(window_sets):
-            raise ValueError("loss_normalization_window_sets must match window_sets")
-        for windows in loss_normalization_window_sets:
-            _validate_window_schema(initial_params, windows)
+        validate_control_schema(
+            initial_params,
+            windows.input_spec.control_names,
+            windows.input_spec.control_roles,
+        )
+        _require_compatible_inputs(
+            window_sets[0].input_spec, windows.input_spec, label="training windows"
+        )
     learn_thrust_command_offset = _resolved_thrust_command_offset_policy(
         initial_params, tuple(window_sets), learn_thrust_command_offset
     )
@@ -991,38 +894,11 @@ def fit_dynamics_multi_horizon(
         and model_family(initial_params).platform == "multirotor"
     ):
         initial_params = with_thrust_command_offset(initial_params, 0.0)
-    if instantaneous_rotational_response:
-        initial_params = with_instantaneous_rotational_response(initial_params)
-    else:
-        if diagonal_angular_control:
-            initial_params = with_diagonal_angular_control(initial_params)
-        _warn_if_rotational_response_frozen(initial_params)
-    if loss_normalization_params is not None:
-        loss_normalization_params = _configured_initial_params(
-            loss_normalization_params, fixed_motor_time_constant_s
-        )
-        if (
-            not learn_thrust_command_offset
-            and model_family(loss_normalization_params).platform == "multirotor"
-        ):
-            loss_normalization_params = with_thrust_command_offset(
-                loss_normalization_params, 0.0
-            )
-        if instantaneous_rotational_response:
-            loss_normalization_params = with_instantaneous_rotational_response(
-                loss_normalization_params
-            )
-        elif diagonal_angular_control:
-            loss_normalization_params = with_diagonal_angular_control(
-                loss_normalization_params
-            )
+    if diagonal_angular_control:
+        initial_params = with_diagonal_angular_control(initial_params)
     if loss_configuration is None:
         loss_configuration = rollout_loss_configuration(
-            (
-                window_sets
-                if loss_normalization_window_sets is None
-                else loss_normalization_window_sets
-            ),
+            window_sets,
             endpoint_weight=endpoint_weight,
             stability_regularization=stability_regularization,
         )
@@ -1035,26 +911,9 @@ def fit_dynamics_multi_horizon(
             ]
         )
 
-    normalization_params = (
-        initial_params
-        if loss_normalization_params is None
-        else loss_normalization_params
+    normalizers = jax.lax.stop_gradient(
+        jnp.maximum(component_objective(initial_params), 1e-12)
     )
-    initial_component_losses = (
-        component_objective(normalization_params)
-        if loss_normalization_window_sets is None
-        else jnp.stack(
-            [
-                _window_loss(
-                    normalization_params,
-                    windows,
-                    loss_configuration,
-                )
-                for windows in loss_normalization_window_sets
-            ]
-        )
-    )
-    normalizers = jax.lax.stop_gradient(jnp.maximum(initial_component_losses, 1e-12))
 
     def objective(params: ModelParams) -> Array:
         return jnp.sum(
@@ -1088,7 +947,6 @@ def fit_dynamics_multi_horizon(
         gradient_clip_norm=gradient_clip_norm,
         fixed_motor_time_constant=fixed_motor_time_constant_s is not None,
         fixed_thrust_command_offset=not learn_thrust_command_offset,
-        fixed_rotational_response=instantaneous_rotational_response,
         fixed_angular_cross_coupling=diagonal_angular_control,
         loss_configuration=loss_configuration,
         batch_objective=(None if batch_schedules is None else batch_objective),

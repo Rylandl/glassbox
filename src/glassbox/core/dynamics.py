@@ -1,4 +1,4 @@
-"""Compact differentiable multirotor and fixed-wing dynamics families."""
+"""Compact differentiable multirotor, fixed-wing and bootstrap families."""
 
 from __future__ import annotations
 
@@ -9,8 +9,10 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 from jax import Array
+from jax.flatten_util import ravel_pytree
 
 from glassbox.core.families import (
+    BOOTSTRAP_MULTIROTOR_FAMILY,
     FIXED_WING_FAMILY,
     MULTIROTOR_FAMILY,
     DynamicsModelFamily,
@@ -23,18 +25,11 @@ FIXED_WING_CONTROL_NAMES = FIXED_WING_FAMILY.control_names
 FIXED_WING_CONTROL_ROLES = FIXED_WING_FAMILY.control_roles
 WIND_EXOGENOUS_ROLES = ("wind_north", "wind_west")
 MAX_INTERNAL_INTEGRATION_STEP_S = 0.025
-MULTIROTOR_ROTATIONAL_STATE_SIZE = 3
 MAX_ANGULAR_CONTROL_CROSS_COUPLING = 0.5
 MAX_THRUST_COMMAND_OFFSET = 0.3
 
 # Motor order: front-left, front-right, rear-right, rear-left.
 # Each row maps motor commands to a roll, pitch, or yaw differential.
-# A rotational-response time constant at or below this value selects the exact
-# memoryless torque map in ``_angular_response_at``. At the sentinel the loss
-# gradient with respect to that leaf is exactly zero, so a fit can never move
-# it; use ``has_instantaneous_rotational_response`` to detect the mode.
-INSTANTANEOUS_ROTATIONAL_RESPONSE_S = 1e-4
-
 MOTOR_MIXER = jnp.asarray(
     [
         [1.0, -1.0, -1.0, 1.0],
@@ -75,7 +70,6 @@ class DynamicsParams(NamedTuple):
     log_linear_drag: Array
     log_angular_drag: Array
     log_motor_time_constant: Array
-    log_angular_response_time_constant: Array
     angular_control_cross_coupling_unconstrained: Array
 
     @classmethod
@@ -88,11 +82,6 @@ class DynamicsParams(NamedTuple):
         linear_drag: float,
         angular_drag: tuple[float, float, float],
         motor_time_constant: float,
-        angular_response_time_constant: tuple[float, float, float] = (
-            INSTANTANEOUS_ROTATIONAL_RESPONSE_S,
-            INSTANTANEOUS_ROTATIONAL_RESPONSE_S,
-            INSTANTANEOUS_ROTATIONAL_RESPONSE_S,
-        ),
         angular_control_cross_coupling: tuple[
             tuple[float, float, float],
             tuple[float, float, float],
@@ -117,9 +106,6 @@ class DynamicsParams(NamedTuple):
         _require_positive("linear_drag", linear_drag)
         _require_positive("angular_drag", angular_drag)
         _require_positive("motor_time_constant", motor_time_constant)
-        _require_positive(
-            "angular_response_time_constant", angular_response_time_constant
-        )
         cross_coupling = jnp.asarray(angular_control_cross_coupling)
         if cross_coupling.shape != (3, 3):
             raise ValueError("angular_control_cross_coupling must have shape (3, 3)")
@@ -138,9 +124,6 @@ class DynamicsParams(NamedTuple):
             log_linear_drag=jnp.log(jnp.asarray(linear_drag)),
             log_angular_drag=jnp.log(jnp.asarray(angular_drag)),
             log_motor_time_constant=jnp.log(jnp.asarray(motor_time_constant)),
-            log_angular_response_time_constant=jnp.log(
-                jnp.asarray(angular_response_time_constant)
-            ),
             angular_control_cross_coupling_unconstrained=jnp.arctanh(
                 normalized_cross_coupling
             ),
@@ -160,9 +143,6 @@ class DynamicsParams(NamedTuple):
             "linear_drag": jnp.exp(self.log_linear_drag),
             "angular_drag": jnp.exp(self.log_angular_drag),
             "motor_time_constant": jnp.exp(self.log_motor_time_constant),
-            "angular_response_time_constant": jnp.exp(
-                self.log_angular_response_time_constant
-            ),
             "angular_control_cross_coupling": cross_coupling,
             "angular_control_matrix": jnp.diag(angular_accel)
             @ (jnp.eye(3) + cross_coupling),
@@ -320,7 +300,62 @@ class FixedWingDynamicsParams(NamedTuple):
         }
 
 
-BaseDynamicsParams = DynamicsParams | FixedWingDynamicsParams
+class BootstrapMultirotorParams(NamedTuple):
+    """The bootstrap parameterization: direct command effects, no airframe.
+
+    This is what an in-flight identifier can learn about a multirotor it has
+    never seen, and nothing more. Body-``z`` specific force is affine in the
+    motor command and the body velocity; body angular acceleration is affine
+    in the motor command, the body rate, and the three body-rate products. No
+    mixer, mass, inertia, arm length, or thrust coefficient appears, and there
+    is no actuator lag, because the identifier regresses on the applied
+    command it measured rather than on a requested one.
+
+    Every coefficient is stated in the raw command units of the box the
+    vehicle is flown in, so the parameters are directly readable and the
+    structured parameter vector needs no rescaling. The order of the fields is
+    the order of :func:`structured_parameter_names`, and it is a contract: an
+    information state accumulated over these coordinates is stated in it.
+    """
+
+    #: Body-``z`` specific force per unit of each motor command, m/s^2.
+    collective_acceleration_per_command: Array
+    #: Body-``z`` specific force per unit of body velocity, 1/s.
+    collective_velocity_coefficient: Array
+    #: Body-``z`` specific force at zero command and zero velocity, m/s^2.
+    collective_intercept_m_s2: Array
+    #: Body angular acceleration per unit of each motor command, rad/s^2.
+    angular_acceleration_per_command: Array
+    #: Body angular acceleration per unit of body rate, 1/s.
+    angular_rate_coefficient: Array
+    #: Body angular acceleration per unit of the three body-rate products, 1/s.
+    angular_rate_product_coefficient: Array
+    #: Body angular acceleration at zero command and zero rate, rad/s^2.
+    angular_intercept_rad_s2: Array
+
+    def hover_command(self) -> Array:
+        """Return the equal motor command this map says holds a level hover.
+
+        It is a derived quantity rather than a parameter: the collective map
+        and its intercept determine it. It is finite only when the four
+        command effects sum to something positive, and whether it lies inside
+        the command box is a question for the evidence that produced the map,
+        not for the map itself. Like every other model computation it is
+        evaluated in the execution precision, so a caller that needs the
+        estimator's own double-precision value reads it from the evidence that
+        produced the map.
+        """
+
+        collective_sum = jnp.sum(self.collective_acceleration_per_command)
+        return jnp.full(
+            (QUADROTOR_CONTROL_SIZE,),
+            (GRAVITY_M_S2 - self.collective_intercept_m_s2) / collective_sum,
+        )
+
+
+BaseDynamicsParams = (
+    DynamicsParams | FixedWingDynamicsParams | BootstrapMultirotorParams
+)
 
 
 class ResidualDynamicsParams(NamedTuple):
@@ -350,11 +385,22 @@ def model_family(params: ModelParams) -> DynamicsModelFamily:
     """Return the static vehicle-family contract for a parameter tree."""
 
     base = structured_parameters(params)
-    return (
-        FIXED_WING_FAMILY
-        if isinstance(base, FixedWingDynamicsParams)
-        else MULTIROTOR_FAMILY
-    )
+    if isinstance(base, FixedWingDynamicsParams):
+        return FIXED_WING_FAMILY
+    if isinstance(base, BootstrapMultirotorParams):
+        return BOOTSTRAP_MULTIROTOR_FAMILY
+    return MULTIROTOR_FAMILY
+
+
+def models_actuator_lag(params: ModelParams) -> bool:
+    """Whether this family carries a first-order latent actuator response.
+
+    The bootstrap parameterization does not: its latent applied command is the
+    command itself, because the identifier that produces it regresses on the
+    applied command it measured. Every fitted family does.
+    """
+
+    return not isinstance(structured_parameters(params), BootstrapMultirotorParams)
 
 
 def validate_control_schema(
@@ -374,21 +420,21 @@ def _response_time_constant(params: ModelParams) -> Array:
     base = structured_parameters(params)
     if isinstance(base, FixedWingDynamicsParams):
         return jnp.exp(base.log_actuator_time_constant)
+    if isinstance(base, BootstrapMultirotorParams):
+        raise TypeError("the bootstrap parameterization fits no actuator lag")
     return jnp.exp(base.log_motor_time_constant)
 
 
 def latent_response_time_constants(params: ModelParams) -> Array:
-    """Return every fitted first-order latent-response time constant in seconds."""
+    """Return every fitted first-order latent-response time constant in seconds.
 
-    base = structured_parameters(params)
-    if isinstance(base, FixedWingDynamicsParams):
-        return jnp.atleast_1d(jnp.exp(base.log_actuator_time_constant))
-    return jnp.concatenate(
-        (
-            jnp.atleast_1d(jnp.exp(base.log_motor_time_constant)),
-            jnp.atleast_1d(jnp.exp(base.log_angular_response_time_constant)),
-        )
-    )
+    A family that models no actuator lag returns an empty array rather than a
+    zero, because it fitted no time constant at all.
+    """
+
+    if not models_actuator_lag(params):
+        return jnp.zeros(0)
+    return jnp.atleast_1d(_response_time_constant(params))
 
 
 def _angular_control_target(params: ModelParams, applied_control: Array) -> Array:
@@ -398,94 +444,15 @@ def _angular_control_target(params: ModelParams, applied_control: Array) -> Arra
     return physical["angular_control_matrix"] @ (MOTOR_MIXER @ applied_control)
 
 
-def _initial_latent_state(params: ModelParams, applied_control: Array) -> Array:
-    """Return a steady latent state for one observed applied-control vector."""
+def _validated_latent_state(latent_state: Array, control_size: int) -> Array:
+    """Reject a latent state that is not one applied value per control channel."""
 
-    if isinstance(structured_parameters(params), FixedWingDynamicsParams):
-        return applied_control
-    return jnp.concatenate(
-        (applied_control, _angular_control_target(params, applied_control))
-    )
-
-
-def _split_latent_state(
-    params: ModelParams,
-    latent_state: Array,
-    control_size: int,
-) -> tuple[Array, Array | None]:
-    """Split canonical applied controls from optional multirotor torque state."""
-
-    base = structured_parameters(params)
-    if isinstance(base, FixedWingDynamicsParams):
-        if latent_state.shape[-1] != control_size:
-            raise ValueError(
-                "fixed-wing latent state must contain one applied value per control"
-            )
-        return latent_state, None
-    if latent_state.shape[-1] == control_size:
-        applied_control = latent_state
-        return applied_control, _angular_control_target(params, applied_control)
-    expected_size = control_size + MULTIROTOR_ROTATIONAL_STATE_SIZE
-    if latent_state.shape[-1] != expected_size:
+    if latent_state.shape[-1] != control_size:
         raise ValueError(
-            "multirotor latent state must contain applied controls and three "
-            f"rotational-response states; expected {expected_size}, got "
-            f"{latent_state.shape[-1]}"
+            "the latent state must contain one applied value per control channel; "
+            f"expected {control_size}, got {latent_state.shape[-1]}"
         )
-    return latent_state[:control_size], latent_state[control_size:]
-
-
-def _angular_response_at(
-    params: ModelParams,
-    initial_applied_control: Array,
-    initial_angular_response: Array,
-    commanded_control: Array,
-    time_s: float,
-) -> Array:
-    """Analytically propagate cascaded control and rotational response lags."""
-
-    physical = physics_parameters(params).physical()
-    motor_time_constant = physical["motor_time_constant"]
-    response_time_constant = physical["angular_response_time_constant"]
-    initial_target = _angular_control_target(params, initial_applied_control)
-    commanded_target = _angular_control_target(params, commanded_control)
-    motor_decay = jnp.exp(-time_s / motor_time_constant)
-    response_decay = jnp.exp(-time_s / response_time_constant)
-    denominator = motor_time_constant - response_time_constant
-    # The exact factor tau_m / (tau_m - tau_r) * (exp(-t/tau_m) - exp(-t/tau_r))
-    # cancels catastrophically in float32 when the time constants are close.
-    # With x = t (tau_m - tau_r) / (tau_m tau_r) it equals
-    # (t / tau_r) exp(-t/tau_r) expm1(x) / x, whose x -> 0 limit is the
-    # equal-time-constant factor, so a short series is used near x = 0.
-    x = time_s * denominator / (motor_time_constant * response_time_constant)
-    near_equal = jnp.abs(x) < 2e-2
-    safe_denominator = jnp.where(near_equal, jnp.ones_like(denominator), denominator)
-    distinct_factor = (
-        motor_time_constant / safe_denominator * (motor_decay - response_decay)
-    )
-    series_factor = (
-        time_s
-        / response_time_constant
-        * response_decay
-        * (1.0 + x / 2.0 + x * x / 6.0 + x * x * x / 24.0)
-    )
-    forcing_factor = jnp.where(near_equal, series_factor, distinct_factor)
-    lagged_response = (
-        commanded_target
-        + (initial_angular_response - commanded_target) * response_decay
-        + (initial_target - commanded_target) * forcing_factor
-    )
-    instantaneous_target = _angular_control_target(
-        params,
-        commanded_control + (initial_applied_control - commanded_control) * motor_decay,
-    )
-    # A 0.1 ms value is the serialized sentinel for the exact memoryless
-    # reference model. This makes the simpler model a true nested ablation
-    # rather than an approximation using another fast latent state.
-    instantaneous = response_time_constant <= (
-        1.00001 * INSTANTANEOUS_ROTATIONAL_RESPONSE_S
-    )
-    return jnp.where(instantaneous, instantaneous_target, lagged_response)
+    return latent_state
 
 
 def with_response_time_constant(
@@ -495,6 +462,8 @@ def with_response_time_constant(
 
     log_value = jnp.log(jnp.asarray(response_time_constant_s))
     base = structured_parameters(params)
+    if isinstance(base, BootstrapMultirotorParams):
+        raise TypeError("the bootstrap parameterization fits no actuator lag")
     if isinstance(base, FixedWingDynamicsParams):
         updated = base._replace(log_actuator_time_constant=log_value)
     else:
@@ -519,8 +488,8 @@ def with_thrust_command_offset(
             f"{MAX_THRUST_COMMAND_OFFSET:g}"
         )
     base = structured_parameters(params)
-    if isinstance(base, FixedWingDynamicsParams):
-        raise TypeError("fixed-wing models do not have a motor command offset")
+    if not isinstance(base, DynamicsParams):
+        raise TypeError("only the fitted multirotor model has a command offset")
     updated = base._replace(
         thrust_command_offset_unconstrained=jnp.arctanh(
             jnp.asarray(thrust_command_offset / MAX_THRUST_COMMAND_OFFSET)
@@ -535,6 +504,8 @@ def zero_response_time_gradient(params: ModelParams) -> ModelParams:
     """Zero only the family-specific response-time leaf in a gradient tree."""
 
     base = structured_parameters(params)
+    if isinstance(base, BootstrapMultirotorParams):
+        return params
     if isinstance(base, FixedWingDynamicsParams):
         updated = base._replace(
             log_actuator_time_constant=jnp.zeros_like(base.log_actuator_time_constant)
@@ -552,7 +523,7 @@ def zero_thrust_command_offset_gradient(params: ModelParams) -> ModelParams:
     """Freeze the multirotor command offset for physical thrust-proxy inputs."""
 
     base = structured_parameters(params)
-    if isinstance(base, FixedWingDynamicsParams):
+    if not isinstance(base, DynamicsParams):
         return params
     updated = base._replace(
         thrust_command_offset_unconstrained=jnp.zeros_like(
@@ -564,137 +535,14 @@ def zero_thrust_command_offset_gradient(params: ModelParams) -> ModelParams:
     return updated
 
 
-def with_instantaneous_rotational_response(params: ModelParams) -> ModelParams:
-    """Return a multirotor model with the exact diagonal memoryless torque map."""
-
-    base = structured_parameters(params)
-    if isinstance(base, FixedWingDynamicsParams):
-        raise TypeError("fixed-wing models do not have multirotor torque response")
-    updated = base._replace(
-        log_angular_response_time_constant=jnp.log(
-            jnp.full((3,), INSTANTANEOUS_ROTATIONAL_RESPONSE_S)
-        ),
-        angular_control_cross_coupling_unconstrained=jnp.zeros((3, 3)),
-    )
-    if isinstance(params, ResidualDynamicsParams):
-        return params._replace(base=updated)
-    return updated
-
-
-def has_instantaneous_rotational_response(params: ModelParams) -> bool:
-    """Return whether every rotational-response leaf sits at the memoryless sentinel.
-
-    ``DynamicsParams.from_physical`` defaults to this mode and
-    ``with_instantaneous_rotational_response`` selects it explicitly. Fixed-wing
-    models have no such leaf and always return ``False``.
-    """
-
-    base = structured_parameters(params)
-    if isinstance(base, FixedWingDynamicsParams):
-        return False
-    time_constants = np.exp(
-        np.asarray(base.log_angular_response_time_constant, dtype=np.float64)
-    )
-    return bool(np.all(time_constants <= 1.00001 * INSTANTANEOUS_ROTATIONAL_RESPONSE_S))
-
-
 def with_diagonal_angular_control(params: ModelParams) -> ModelParams:
     """Return a multirotor model using only the canonical mixer axes."""
 
     base = structured_parameters(params)
-    if isinstance(base, FixedWingDynamicsParams):
-        raise TypeError("fixed-wing models do not have a multirotor mixer")
+    if not isinstance(base, DynamicsParams):
+        raise TypeError("only the fitted multirotor model has a mixer")
     updated = base._replace(
         angular_control_cross_coupling_unconstrained=jnp.zeros((3, 3))
-    )
-    if isinstance(params, ResidualDynamicsParams):
-        return params._replace(base=updated)
-    return updated
-
-
-def with_constant_angular_rate(params: ModelParams) -> ModelParams:
-    """Return a diagnostic model that holds measured body rate constant.
-
-    Translational structured and residual behavior is retained. The rotational
-    control, damping, and residual-acceleration terms are disabled so attitude
-    evolves only by integrating the rollout's initial measured angular rate.
-    """
-
-    base = structured_parameters(params)
-    if isinstance(base, FixedWingDynamicsParams):
-        raise TypeError("constant-rate diagnostic is currently multirotor-only")
-    updated = base._replace(
-        log_angular_accel=jnp.log(jnp.full((3,), 1e-9)),
-        log_angular_drag=jnp.log(jnp.full((3,), 1e-9)),
-        log_angular_response_time_constant=jnp.log(jnp.full((3,), 1e-4)),
-        angular_control_cross_coupling_unconstrained=jnp.zeros((3, 3)),
-    )
-    if not isinstance(params, ResidualDynamicsParams):
-        return updated
-    return params._replace(
-        base=updated,
-        output_weights=params.output_weights.at[3:6].set(0.0),
-    )
-
-
-def with_angular_dynamics_authority(
-    params: ModelParams,
-    authority: float | tuple[float, float, float],
-) -> ModelParams:
-    """Scale total multirotor angular acceleration by a bounded authority.
-
-    This is a model-selection transform, not a runtime tuning parameter. One
-    reproduces the fitted model and zero approaches constant measured body rate,
-    while intermediate values retain a conservative fraction of structured and
-    residual angular acceleration: structured angular acceleration and damping
-    and the residual's angular correction bound are all multiplied by the
-    authority, so the total angular acceleration scales exactly. Translation is
-    unchanged directly.
-    """
-
-    values = np.asarray(authority, dtype=np.float64)
-    if values.ndim == 0:
-        values = np.full(3, float(values))
-    if values.shape != (3,) or not np.all(np.isfinite(values)):
-        raise ValueError(
-            "angular dynamics authority must be one or three finite values"
-        )
-    if np.any(values < 0.0) or np.any(values > 1.0):
-        raise ValueError("angular dynamics authority must lie in [0, 1]")
-
-    base = structured_parameters(params)
-    if isinstance(base, FixedWingDynamicsParams):
-        raise TypeError("angular dynamics authority is currently multirotor-only")
-    authority_array = jnp.asarray(values)
-    positive_scale = jnp.maximum(authority_array, 1e-9)
-    updated = base._replace(
-        log_angular_accel=base.log_angular_accel + jnp.log(positive_scale),
-        log_angular_drag=base.log_angular_drag + jnp.log(positive_scale),
-    )
-    if not isinstance(params, ResidualDynamicsParams):
-        return updated
-    # The residual correction is ``correction_scale * tanh(...)``; scaling the
-    # bound scales the realized angular correction exactly, whereas scaling the
-    # pre-activation weights would not.
-    return params._replace(
-        base=updated,
-        correction_scale=params.correction_scale.at[3:6].multiply(authority_array),
-    )
-
-
-def zero_rotational_response_gradient(params: ModelParams) -> ModelParams:
-    """Freeze multirotor rotational-memory and cross-coupling parameters."""
-
-    base = structured_parameters(params)
-    if isinstance(base, FixedWingDynamicsParams):
-        return params
-    updated = base._replace(
-        log_angular_response_time_constant=jnp.zeros_like(
-            base.log_angular_response_time_constant
-        ),
-        angular_control_cross_coupling_unconstrained=jnp.zeros_like(
-            base.angular_control_cross_coupling_unconstrained
-        ),
     )
     if isinstance(params, ResidualDynamicsParams):
         return params._replace(base=updated)
@@ -705,7 +553,7 @@ def zero_angular_cross_coupling_gradient(params: ModelParams) -> ModelParams:
     """Freeze only multirotor cross-axis control coupling."""
 
     base = structured_parameters(params)
-    if isinstance(base, FixedWingDynamicsParams):
+    if not isinstance(base, DynamicsParams):
         return params
     updated = base._replace(
         angular_control_cross_coupling_unconstrained=jnp.zeros_like(
@@ -837,12 +685,54 @@ def structured_parameters(params: ModelParams) -> BaseDynamicsParams:
     return params.base if isinstance(params, ResidualDynamicsParams) else params
 
 
+def structured_parameter_names(params: ModelParams) -> tuple[str, ...]:
+    """Return stable scalar names in JAX's structured-parameter leaf order."""
+
+    base = structured_parameters(params)
+    names: list[str] = []
+    for field_name, value in base._asdict().items():
+        array = np.asarray(value)
+        if array.ndim == 0:
+            names.append(field_name)
+            continue
+        names.extend(
+            f"{field_name}[{','.join(str(index) for index in location)}]"
+            for location in np.ndindex(array.shape)
+        )
+    return tuple(names)
+
+
+def structured_parameter_vector(params: ModelParams) -> Array:
+    """Flatten only the interpretable structured coefficient block."""
+
+    vector, _ = ravel_pytree(structured_parameters(params))
+    return vector
+
+
+def with_structured_parameter_vector(params: ModelParams, vector: Array) -> ModelParams:
+    """Replace the structured block while leaving any residual network fixed."""
+
+    expected, unravel = ravel_pytree(structured_parameters(params))
+    vector = jnp.asarray(vector)
+    if vector.shape != expected.shape:
+        raise ValueError(
+            f"structured parameter vector has shape {vector.shape}, "
+            f"expected {expected.shape}"
+        )
+    updated_base = unravel(vector)
+    return (
+        params._replace(base=updated_base)
+        if isinstance(params, ResidualDynamicsParams)
+        else updated_base
+    )
+
+
 def physics_parameters(params: ModelParams) -> DynamicsParams:
     """Return multirotor physics, rejecting other structured families."""
 
     base = structured_parameters(params)
-    if isinstance(base, FixedWingDynamicsParams):
-        raise TypeError("fixed-wing parameters do not contain quadrotor physics")
+    if not isinstance(base, DynamicsParams):
+        raise TypeError("only the fitted multirotor model carries airframe physics")
     return base
 
 
@@ -961,7 +851,6 @@ def state_derivative(
     control_roles: tuple[str, ...] | None = None,
     exogenous: Array | None = None,
     exogenous_roles: tuple[str, ...] | None = None,
-    rotational_response_state: Array | None = None,
 ) -> Array:
     """Calculate the vehicle derivative from latent applied controls."""
 
@@ -1063,6 +952,47 @@ def state_derivative(
                 angular_acceleration,
             )
         )
+    elif isinstance(base, BootstrapMultirotorParams):
+        require_quadrotor_control_size(applied_motor_state.shape[-1])
+
+        velocity = state[3:6]
+        quaternion = state[6:10]
+        angular_velocity = state[10:13]
+        rotation = quaternion_to_rotation(quaternion)
+        body_velocity = rotation.T @ velocity
+        # The identifier explains the body-z specific force and nothing else,
+        # so the other two body axes carry exactly zero rather than an
+        # invented coefficient.
+        specific_force_z = (
+            base.collective_acceleration_per_command @ applied_motor_state
+            + base.collective_velocity_coefficient @ body_velocity
+            + base.collective_intercept_m_s2
+        )
+        body_specific_force = jnp.stack(
+            (jnp.zeros(()), jnp.zeros(()), specific_force_z)
+        )
+        world_acceleration = (
+            jnp.asarray([0.0, 0.0, -GRAVITY_M_S2]) + rotation @ body_specific_force
+        )
+        rate_products = jnp.stack(
+            (
+                angular_velocity[0] * angular_velocity[1],
+                angular_velocity[0] * angular_velocity[2],
+                angular_velocity[1] * angular_velocity[2],
+            )
+        )
+        angular_acceleration = (
+            base.angular_acceleration_per_command @ applied_motor_state
+            + base.angular_rate_coefficient @ angular_velocity
+            + base.angular_rate_product_coefficient @ rate_products
+            + base.angular_intercept_rad_s2
+        )
+        quaternion_rate = 0.5 * quaternion_multiply(
+            quaternion, jnp.concatenate((jnp.zeros(1), angular_velocity))
+        )
+        derivative = jnp.concatenate(
+            (velocity, world_acceleration, quaternion_rate, angular_acceleration)
+        )
     else:
         require_quadrotor_control_size(applied_motor_state.shape[-1])
 
@@ -1088,13 +1018,8 @@ def state_derivative(
             * (velocity - _wind_world(exogenous, exogenous_roles))
         )
 
-        control_generated_angular_acceleration = (
-            _angular_control_target(params, applied_motor_state)
-            if rotational_response_state is None
-            else rotational_response_state
-        )
         angular_acceleration = (
-            control_generated_angular_acceleration
+            _angular_control_target(params, applied_motor_state)
             - physical["angular_drag"] * angular_velocity
         )
         quaternion_rate = 0.5 * quaternion_multiply(
@@ -1123,6 +1048,53 @@ def _normalized_state(state: Array) -> Array:
     return state.at[6:10].set(quaternion)
 
 
+def _actuator_quadrature_decay(ratio: Array) -> tuple[Array, Array, Array]:
+    """Fit RK stage controls to the first two exponential response moments.
+
+    For x=h/tau, A=int_0^1 exp(-xs) ds and B=int_0^1 (1-s)exp(-xs) ds.
+    Keeping the middle-stage decay m=exp(-x/2), the stage decays a,b satisfy
+    (a+4m+b)/6=A and (a+2m)/6=B. Thus affine actuator forcing gives the exact
+    velocity AND position increment, including the instantaneous-response
+    limit. Small-x series avoid cancellation. At fixed tau the endpoint
+    changes are opposite O(h^3), preserving the RK4 order for smooth forces.
+    """
+
+    small = jnp.minimum(ratio, 0.5)
+    large = jnp.maximum(ratio, 0.5)
+    mean = jnp.where(
+        ratio < 0.5,
+        1
+        - small / 2
+        + small**2 / 6
+        - small**3 / 24
+        + small**4 / 120
+        - small**5 / 720
+        + small**6 / 5040
+        - small**7 / 40320
+        + small**8 / 362880,
+        -jnp.expm1(-large) / large,
+    )
+    first_moment = jnp.where(
+        ratio < 0.5,
+        0.5
+        - small / 6
+        + small**2 / 24
+        - small**3 / 120
+        + small**4 / 720
+        - small**5 / 5040
+        + small**6 / 40320
+        - small**7 / 362880
+        + small**8 / 3628800,
+        (1 - mean) / large,
+    )
+    middle = jnp.exp(-ratio / 2)
+    return (
+        jnp.clip(6 * first_moment - 2 * middle, 0.0, 1.0),
+        middle,
+        jnp.clip(6 * (mean - first_moment) - 2 * middle, 0.0, 1.0),
+    )
+
+
 def step_with_latent(
     params: ModelParams,
     state: Array,
@@ -1133,56 +1105,56 @@ def step_with_latent(
     exogenous: Array | None = None,
     exogenous_roles: tuple[str, ...] | None = None,
 ) -> tuple[Array, Array]:
-    """Advance vehicle and latent actuator states with bounded RK4 steps.
+    """Advance vehicle and actuator states with exponential-fitted RK4 steps.
 
-    Motor response is integrated analytically for the piecewise-constant input.
-    Multirotors additionally carry three learned control-generated angular
-    acceleration states. Their analytic first-order response can represent
-    slow rotor/aerodynamic torque dynamics without delaying collective thrust.
-    This keeps the rollout stable even while optimization explores time constants
-    much shorter than the telemetry sample interval. Telemetry intervals above
-    25 ms are integrated with deterministic internal substeps so low-rate state
-    estimates do not destabilize otherwise unchanged continuous-time dynamics.
+    The latent state is the applied-control vector, one value per control
+    channel. Actuator response is integrated analytically for the
+    piecewise-constant input. RK stage controls match its first two integral
+    moments, so a fast actuator cannot retain a spurious old-command impulse.
+    The control-generated torque follows that
+    applied control with no memory of its own. This keeps the rollout stable
+    even while optimization explores time constants much shorter than the
+    telemetry sample interval. Telemetry intervals above 25 ms are integrated
+    with deterministic internal substeps so low-rate state estimates do not
+    destabilize otherwise unchanged continuous-time dynamics.
     """
 
     roles = _resolved_control_roles(params, control.shape[-1], control_roles)
     control_size = control.shape[-1]
-    applied_control_state, rotational_response_state = _split_latent_state(
-        params, latent_state, control_size
-    )
+    applied_control_state = _validated_latent_state(latent_state, control_size)
     require_model_control_size(params, applied_control_state.shape[-1], roles)
 
-    response_time_constant = _response_time_constant(params)
+    if models_actuator_lag(params):
+        response_time_constant = _response_time_constant(params)
 
-    def motor_at(time_s: float) -> Array:
-        decay = jnp.exp(-time_s / response_time_constant)
-        return control + (applied_control_state - control) * decay
+        def motor_at(time_s: float) -> Array:
+            decay = jnp.exp(-time_s / response_time_constant)
+            return control + (applied_control_state - control) * decay
+    else:
 
-    def angular_response_at(time_s: float) -> Array | None:
-        if rotational_response_state is None:
-            return None
-        return _angular_response_at(
-            params,
-            applied_control_state,
-            rotational_response_state,
-            control,
-            time_s,
-        )
+        def motor_at(time_s: float) -> Array:
+            del time_s
+            return control
 
     substep_count = max(1, math.ceil(dt_s / MAX_INTERNAL_INTEGRATION_STEP_S))
     integration_dt_s = dt_s / substep_count
     half_integration_dt_s = 0.5 * integration_dt_s
+    if models_actuator_lag(params):
+        decay_start, decay_middle, decay_end = _actuator_quadrature_decay(
+            integration_dt_s / response_time_constant
+        )
     next_vehicle = state
     for index in range(substep_count):
         start_time_s = index * integration_dt_s
-        middle_time_s = start_time_s + half_integration_dt_s
-        end_time_s = start_time_s + integration_dt_s
-        start_motor_state = motor_at(start_time_s)
-        middle_motor_state = motor_at(middle_time_s)
-        end_motor_state = motor_at(end_time_s)
-        start_angular_response = angular_response_at(start_time_s)
-        middle_angular_response = angular_response_at(middle_time_s)
-        end_angular_response = angular_response_at(end_time_s)
+        if models_actuator_lag(params):
+            amplitude = (applied_control_state - control) * jnp.exp(
+                -start_time_s / response_time_constant
+            )
+            start_motor_state = control + amplitude * decay_start
+            middle_motor_state = control + amplitude * decay_middle
+            end_motor_state = control + amplitude * decay_end
+        else:
+            start_motor_state = middle_motor_state = end_motor_state = control
         k1 = state_derivative(
             params,
             next_vehicle,
@@ -1190,7 +1162,6 @@ def step_with_latent(
             roles,
             exogenous,
             exogenous_roles,
-            start_angular_response,
         )
         k2 = state_derivative(
             params,
@@ -1199,7 +1170,6 @@ def step_with_latent(
             roles,
             exogenous,
             exogenous_roles,
-            middle_angular_response,
         )
         k3 = state_derivative(
             params,
@@ -1208,7 +1178,6 @@ def step_with_latent(
             roles,
             exogenous,
             exogenous_roles,
-            middle_angular_response,
         )
         k4 = state_derivative(
             params,
@@ -1217,19 +1186,11 @@ def step_with_latent(
             roles,
             exogenous,
             exogenous_roles,
-            end_angular_response,
         )
         next_vehicle = _normalized_state(
             next_vehicle + (integration_dt_s / 6.0) * (k1 + 2.0 * k2 + 2.0 * k3 + k4)
         )
-    next_motor_state = motor_at(dt_s)
-    next_angular_response = angular_response_at(dt_s)
-    next_latent_state = (
-        next_motor_state
-        if next_angular_response is None
-        else jnp.concatenate((next_motor_state, next_angular_response))
-    )
-    return next_vehicle, next_latent_state
+    return next_vehicle, motor_at(dt_s)
 
 
 def step(
@@ -1276,8 +1237,7 @@ def rollout_with_latent(
     When no prior motor state is available, the first recorded command is used
     as the initial applied state. This is exact at steady state and becomes an
     approximation when a telemetry window begins during a fast command change.
-    The returned latent trace remains the canonical applied-control trace; the
-    multirotor rotational-response state is carried internally.
+    The returned latent trace is the canonical applied-control trace.
 
     ``exogenous`` may be one vector, held for every step, or one row per control
     step so that logged wind or other context varies along the rollout.
@@ -1286,20 +1246,13 @@ def rollout_with_latent(
     if controls.ndim != 2:
         raise ValueError("rollout controls must be two-dimensional")
     roles = _resolved_control_roles(params, controls.shape[-1], control_roles)
-    if initial_motor_state is None:
-        initial_latent_state = _initial_latent_state(params, controls[0])
-    else:
-        initial_applied_control, initial_rotational_response = _split_latent_state(
-            params, initial_motor_state, controls.shape[-1]
-        )
-        initial_latent_state = (
-            initial_applied_control
-            if initial_rotational_response is None
-            else jnp.concatenate((initial_applied_control, initial_rotational_response))
-        )
-    initial_combined = jnp.concatenate((initial_state, initial_latent_state))
     control_size = controls.shape[-1]
-    latent_size = initial_latent_state.shape[-1]
+    initial_latent_state = (
+        controls[0]
+        if initial_motor_state is None
+        else _validated_latent_state(initial_motor_state, control_size)
+    )
+    initial_combined = jnp.concatenate((initial_state, initial_latent_state))
     per_step_exogenous = _per_step_exogenous(exogenous, controls.shape[0])
 
     def scan_step(
@@ -1309,7 +1262,7 @@ def rollout_with_latent(
         next_state, next_latent_state = step_with_latent(
             params,
             combined[:13],
-            combined[13 : 13 + latent_size],
+            combined[13 : 13 + control_size],
             control,
             dt_s,
             roles,
@@ -1341,37 +1294,37 @@ def control_state_after_history(
     assumption decays away.
     """
 
-    if control_history.ndim != 2:
-        raise ValueError("control history must be two-dimensional")
-    _resolved_control_roles(params, control_history.shape[-1], control_roles)
+    return control_state_trace(params, control_history, dt_s, control_roles)[-1]
 
-    initial_latent_state = _initial_latent_state(params, control_history[0])
+
+def control_state_trace(
+    params: ModelParams,
+    controls: Array,
+    dt_s: float,
+    control_roles: tuple[str, ...] | None = None,
+    initial_state: Array | None = None,
+) -> Array:
+    """Return applied-control states at every command boundary, including zero."""
+
+    if controls.ndim != 2 or controls.shape[0] == 0:
+        raise ValueError("control history must be a nonempty two-dimensional array")
+    _resolved_control_roles(params, controls.shape[-1], control_roles)
+    initial = (
+        controls[0]
+        if initial_state is None
+        else _validated_latent_state(initial_state, controls.shape[-1])
+    )
+    if not models_actuator_lag(params):
+        return jnp.concatenate((initial[jnp.newaxis, :], controls))
+
     decay = jnp.exp(-dt_s / _response_time_constant(params))
 
-    def scan_step(latent_state: Array, control: Array) -> tuple[Array, None]:
-        applied_control, rotational_response = _split_latent_state(
-            params, latent_state, control_history.shape[-1]
-        )
-        next_applied_control = control + (applied_control - control) * decay
-        if rotational_response is None:
-            next_latent_state = next_applied_control
-        else:
-            next_rotational_response = _angular_response_at(
-                params,
-                applied_control,
-                rotational_response,
-                control,
-                dt_s,
-            )
-            next_latent_state = jnp.concatenate(
-                (next_applied_control, next_rotational_response)
-            )
-        return next_latent_state, None
+    def scan_step(applied_control: Array, control: Array) -> tuple[Array, Array]:
+        applied = control + (applied_control - control) * decay
+        return applied, applied
 
-    final_latent_state, _ = jax.lax.scan(
-        scan_step, initial_latent_state, control_history
-    )
-    return final_latent_state
+    _, trace = jax.lax.scan(scan_step, initial, controls)
+    return jnp.concatenate((initial[jnp.newaxis, :], trace))
 
 
 def _per_step_exogenous(exogenous: Array | None, step_count: int) -> Array | None:
@@ -1417,7 +1370,10 @@ def rollout(
 def hover_control(params: ModelParams) -> Array:
     """Return equal motor commands that balance gravity at level attitude."""
 
-    if isinstance(params, FixedWingDynamicsParams):
+    base = structured_parameters(params)
+    if isinstance(base, BootstrapMultirotorParams):
+        return base.hover_command()
+    if isinstance(base, FixedWingDynamicsParams):
         raise TypeError("fixed-wing models do not have a hover control")
     motor_command = GRAVITY_M_S2 / (
         4.0 * jnp.exp(physics_parameters(params).log_thrust_accel)

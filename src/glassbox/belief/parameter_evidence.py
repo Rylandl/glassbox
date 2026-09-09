@@ -1,107 +1,63 @@
-"""Rank-aware local parameter information from grouped rollout sensitivities."""
+"""Fit-time parameter evidence: the noise model and the information it implies.
+
+Held-out residuals establish the noise model used to weight observations.
+Training transitions establish information about the structured coefficients
+under that noise model, using the same one-step linearization as
+:func:`glassbox.belief.update.absorb`. The fit samples a balanced evidence
+budget; absorption adds new evidence and takes a parameter step. Both state
+their information in the same coordinates.
+"""
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 
-import jax.numpy as jnp
 import numpy as np
 
-from glassbox.belief.belief import (
-    EmpiricalHorizonPredictiveError,
-    LocalParameterInformation,
-    ParameterEvidence,
-    UnavailableParameterEvidence,
-    structured_parameter_names,
-    structured_parameter_vector,
+from glassbox.belief.information import (
+    ParameterInformation,
+    default_rank_relative_tolerance,
+    estimable_structured_parameters,
+    innovation_noise_floor,
+    structured_parameter_scale,
 )
-from glassbox.core.covariance import supported_covariance
-from glassbox.core.data import TrajectoryWindows
-from glassbox.core.dynamics import (
-    FixedWingDynamicsParams,
-    ModelParams,
-    has_instantaneous_rotational_response,
-    model_family,
-    structured_parameters,
-)
-from glassbox.core.linearization import compiled_batched_endpoint_tangent_linearization
+from glassbox.belief.update import one_step_linearization, usable_one_step_transitions
+from glassbox.core.data import Trajectory
+from glassbox.core.dynamics import structured_parameter_names
+from glassbox.core.model import ExecutableModel
 
-MAX_PARAMETER_EVIDENCE_WINDOWS_PER_HORIZON = 96
-_FLOAT32_EPSILON = float(np.finfo(np.float32).eps)
+# One-step Jacobians are cheap next to a fit, but not free. The budget is
+# spread evenly across the independent source groups so a corpus with one long
+# flight and one short one does not state its information mostly about the long
+# one, and the information is the plain sum over the windows actually read.
+MAXIMUM_PARAMETER_INFORMATION_WINDOWS = 512
 
 
-def fitted_structured_parameter_mask(
-    params: ModelParams,
-    *,
-    fixed_response_time: bool = False,
-    learn_thrust_command_offset: bool = False,
-    instantaneous_rotational_response: bool | None = None,
-    diagonal_angular_control: bool = False,
+def innovation_noise(
+    innovations_by_flight: Iterable[np.ndarray],
 ) -> np.ndarray:
-    """Return the structured coordinates actually varied by the fitter."""
+    """Return per-coordinate one-step innovation variance, at or above the floor.
 
-    names = structured_parameter_names(params)
-    fitted = np.ones(len(names), dtype=bool)
-    platform = model_family(params).platform
-    if instantaneous_rotational_response is None:
-        # A model whose rotational-response leaves sit at the memoryless
-        # sentinel has an exactly zero gradient there, so the fitter could not
-        # have varied them regardless of what the caller intended.
-        instantaneous_rotational_response = has_instantaneous_rotational_response(
-            params
-        )
-    for index, name in enumerate(names):
-        if fixed_response_time and name in {
-            "log_motor_time_constant",
-            "log_actuator_time_constant",
-        }:
-            fitted[index] = False
-        if platform != "multirotor":
-            continue
-        if name == "thrust_command_offset_unconstrained":
-            fitted[index] = learn_thrust_command_offset
-        if name.startswith("angular_control_cross_coupling_unconstrained["):
-            location = name.removeprefix(
-                "angular_control_cross_coupling_unconstrained["
-            ).removesuffix("]")
-            row, column = (int(value) for value in location.split(","))
-            if row == column:
-                fitted[index] = False
-            if instantaneous_rotational_response or diagonal_angular_control:
-                fitted[index] = False
-        if instantaneous_rotational_response and name.startswith(
-            "log_angular_response_time_constant["
-        ):
-            fitted[index] = False
-    return fitted
+    This is the belief's noise model: how wrong the fitted model's one-step
+    predictions were on flights the fit did not see, in the twelve rigid-body
+    local coordinates. It is a second moment about zero rather than about the
+    mean error, because nothing subtracts that mean at runtime.
+    Each array comes from ``core.metrics.one_step_innovations``. Flights with
+    finite residuals receive equal weight, regardless of their duration.
+    """
 
-
-def structured_parameter_scale(params: ModelParams) -> np.ndarray:
-    """Return natural perturbation scales for numerical-rank diagnostics."""
-
-    names = structured_parameter_names(params)
-    center = np.asarray(structured_parameter_vector(params), dtype=np.float64)
-    scale = np.ones(len(names), dtype=np.float64)
-    base = structured_parameters(params)
-    if not isinstance(base, FixedWingDynamicsParams):
-        return scale
-    surface_authority = np.asarray(
-        base.physical()["surface_angular_accel_per_speed_sq"],
-        dtype=np.float64,
-    )
-    direct_scales = {
-        "lateral_surface_cross_angular_accel_per_speed_sq[0]": (surface_authority[0]),
-        "lateral_surface_cross_angular_accel_per_speed_sq[1]": (surface_authority[2]),
-        "flap_pitch_angular_accel_per_speed_sq": surface_authority[1],
-    }
-    for index, name in enumerate(names):
-        if name in direct_scales:
-            scale[index] = max(
-                abs(center[index]),
-                float(direct_scales[name]),
-                1e-6,
-            )
-    return scale
+    floor = innovation_noise_floor()
+    squares: list[np.ndarray] = []
+    for innovations in innovations_by_flight:
+        innovations = np.asarray(innovations, dtype=np.float64)
+        if innovations.ndim != 2 or innovations.shape[1] != len(floor):
+            raise ValueError("innovations must have shape (interval, 12)")
+        finite = innovations[np.all(np.isfinite(innovations), axis=1)]
+        if len(finite):
+            squares.append(np.mean(np.square(finite), axis=0))
+    if not squares:
+        return floor
+    return np.maximum(floor, np.mean(np.asarray(squares), axis=0))
 
 
 def _balanced_window_indices(
@@ -109,6 +65,8 @@ def _balanced_window_indices(
     *,
     maximum_windows: int,
 ) -> np.ndarray:
+    """Spread one window budget evenly across groups, then across each timeline."""
+
     group_order = tuple(dict.fromkeys(groups.tolist()))
     budget = min(len(groups), max(maximum_windows, len(group_order)))
     members = [np.flatnonzero(groups == group) for group in group_order]
@@ -137,181 +95,75 @@ def _balanced_window_indices(
     return np.asarray(sorted(selected), dtype=np.int64)
 
 
-def estimate_local_parameter_information(
-    params: ModelParams,
-    window_sets: Sequence[TrajectoryWindows],
-    predictive_error: EmpiricalHorizonPredictiveError,
-    trajectory_groups: Sequence[str | int],
+def parameter_information(
+    model: ExecutableModel,
+    trajectories: Sequence[Trajectory],
+    groups: Sequence[str | int],
     *,
-    fitted_parameter_mask: np.ndarray | None = None,
-    independence_unit: str = "source_group",
-) -> ParameterEvidence:
-    """Estimate conservative local information without refitting the model.
+    innovation_noise: np.ndarray,
+    estimable: np.ndarray | None = None,
+    maximum_windows: int = MAXIMUM_PARAMETER_INFORMATION_WINDOWS,
+    source: str = "training_one_step_information",
+) -> ParameterInformation:
+    """Accumulate ``J' R^-1 J`` over the training flights' one-step transitions.
 
-    Every independent group contributes one unit of information. Windows are
-    averaged within horizon and horizons are averaged within group, preventing
-    denser logs or longer trajectories from creating fictitious evidence.
-    Held-out tangent covariance is inverted only on its numerically supported
-    subspace; unresolved residual directions never become near-infinite weight.
+    Uses the same local linearization and diagonal noise weights as ``absorb``.
     """
 
-    if not window_sets:
-        return UnavailableParameterEvidence("no training rollout windows")
-    names = structured_parameter_names(params)
-    center = np.asarray(structured_parameter_vector(params), dtype=np.float64)
-    fitted = (
-        np.ones(len(names), dtype=bool)
-        if fitted_parameter_mask is None
-        else np.asarray(fitted_parameter_mask, dtype=bool)
+    names = structured_parameter_names(model.params)
+    mask = (
+        estimable_structured_parameters(model.params)
+        if estimable is None
+        else np.asarray(estimable, dtype=bool)
     )
-    if fitted.shape != (len(names),) or not np.any(fitted):
-        raise ValueError("fitted parameter mask must select structured coordinates")
-    trajectory_groups = tuple(trajectory_groups)
-    trajectory_count = len(trajectory_groups)
-    if trajectory_count < 1:
-        raise ValueError("parameter evidence requires trajectory groups")
-    string_groups = tuple(str(group) for group in trajectory_groups)
-    if any(not group.strip() for group in string_groups):
-        raise ValueError("parameter-evidence groups must be nonempty")
-    if len(set(string_groups)) != len(set(trajectory_groups)):
-        raise ValueError("parameter-evidence groups need unique string labels")
-    if not independence_unit.strip():
-        raise ValueError("parameter-evidence independence unit is required")
-
-    group_information: dict[str, list[np.ndarray]] = {}
-    group_scores: dict[str, list[np.ndarray]] = {}
-    included_horizons: list[float] = []
-    window_counts: list[int] = []
-    precision_ranks: list[int] = []
-    total_observation_rows = 0
-    for windows in window_sets:
-        if windows.trajectory_indices is None:
-            raise ValueError("parameter evidence requires window trajectory indices")
-        if (
-            len(windows.trajectory_indices)
-            and int(np.max(windows.trajectory_indices)) >= trajectory_count
-        ):
-            raise ValueError("trajectory groups do not cover every window")
-        horizon_s = float(windows.controls.shape[1] * windows.dt_s)
-        if horizon_s > predictive_error.maximum_horizon_s * (1.0 + 1e-9):
-            continue
-        bias, covariance = predictive_error.moments(horizon_s)
-        supported = supported_covariance(np.asarray(covariance, dtype=np.float64))
-        if supported.rank == 0:
-            continue
-        precision = supported.precision
-        precision_rank = supported.rank
-        window_groups = np.asarray(
-            [string_groups[index] for index in windows.trajectory_indices],
-            dtype=object,
-        )
+    if len(trajectories) != len(groups):
+        raise ValueError("parameter information needs one group per trajectory")
+    labels: list[str] = []
+    sources: list[tuple[int, int]] = []
+    for index, trajectory in enumerate(trajectories):
+        usable, _ = usable_one_step_transitions(model, trajectory)
+        for start in np.flatnonzero(usable):
+            labels.append(str(groups[index]))
+            sources.append((index, int(start)))
+    precision = np.zeros((len(names), len(names)))
+    used = 0
+    if sources:
         selected = _balanced_window_indices(
-            window_groups,
-            maximum_windows=MAX_PARAMETER_EVIDENCE_WINDOWS_PER_HORIZON,
+            np.asarray(labels, dtype=object), maximum_windows=maximum_windows
         )
-        if len(selected) == 0:
-            continue
-        horizon_steps = windows.controls.shape[1]
-        contexts = np.broadcast_to(
-            np.asarray(windows.initial_exogenous)[selected, None, :],
-            (
-                len(selected),
-                horizon_steps,
-                windows.initial_exogenous.shape[1],
-            ),
-        )
-        biases = np.broadcast_to(
-            np.asarray(bias, dtype=np.float64),
-            (len(selected), len(bias)),
-        )
-        errors, jacobians = compiled_batched_endpoint_tangent_linearization(
-            jnp.asarray(center),
-            params,
-            jnp.asarray(windows.initial_states[selected]),
-            jnp.asarray(windows.control_histories[selected]),
-            jnp.asarray(windows.controls[selected]),
-            jnp.asarray(windows.target_states[selected, -1]),
-            jnp.asarray(contexts),
-            jnp.asarray(biases),
-            dt_s=windows.dt_s,
-            control_roles=windows.control_roles,
-            exogenous_roles=windows.exogenous_roles,
-        )
-        errors_np = np.asarray(errors, dtype=np.float64)
-        jacobians_np = np.asarray(jacobians, dtype=np.float64)
-        if not (np.all(np.isfinite(errors_np)) and np.all(np.isfinite(jacobians_np))):
-            return UnavailableParameterEvidence(
-                f"non-finite rollout linearization at {horizon_s:g}s"
+        weight = 1.0 / np.asarray(innovation_noise, dtype=np.float64)
+        for index, _ in enumerate(trajectories):
+            starts = np.asarray(
+                [
+                    sources[ordinal][1]
+                    for ordinal in selected
+                    if sources[ordinal][0] == index
+                ],
+                dtype=np.int64,
             )
-        jacobians_np[..., ~fitted] = 0.0
-        per_window_information = np.einsum(
-            "wip,ij,wjq->wpq",
-            jacobians_np,
-            precision,
-            jacobians_np,
-            optimize=True,
-        )
-        per_window_scores = np.einsum(
-            "wip,ij,wj->wp",
-            jacobians_np,
-            precision,
-            errors_np,
-            optimize=True,
-        )
-        selected_groups = window_groups[selected]
-        for group in dict.fromkeys(selected_groups.tolist()):
-            group_mask = selected_groups == group
-            group_information.setdefault(str(group), []).append(
-                np.mean(per_window_information[group_mask], axis=0)
+            if not len(starts):
+                continue
+            _, jacobians = one_step_linearization(model, trajectories[index], starts)
+            if not np.all(np.isfinite(jacobians)):
+                continue
+            jacobians[..., ~mask] = 0.0
+            precision += np.einsum(
+                "wip,i,wiq->pq", jacobians, weight, jacobians, optimize=True
             )
-            group_scores.setdefault(str(group), []).append(
-                np.mean(per_window_scores[group_mask], axis=0)
-            )
-        included_horizons.append(horizon_s)
-        window_counts.append(len(selected))
-        precision_ranks.append(precision_rank)
-        total_observation_rows += len(selected) * precision_rank
-
-    if not group_information:
-        return UnavailableParameterEvidence(
-            "no training horizon had supported held-out predictive-error covariance"
-        )
-    information = np.sum(
-        [np.mean(per_horizon, axis=0) for per_horizon in group_information.values()],
-        axis=0,
-    )
-    information = 0.5 * (information + information.T)
-    eigenvalues, eigenvectors = np.linalg.eigh(information)
-    information = (eigenvectors * np.maximum(eigenvalues, 0.0)) @ eigenvectors.T
-    information[~fitted, :] = 0.0
-    information[:, ~fitted] = 0.0
-    group_labels = tuple(group_information)
-    score_vectors = np.asarray(
-        [np.mean(group_scores[group], axis=0) for group in group_labels]
-    )
-    score_vectors[:, ~fitted] = 0.0
-    scale = structured_parameter_scale(params)
-    rank_relative_tolerance = min(
-        0.01,
-        max(len(names), total_observation_rows) * _FLOAT32_EPSILON,
-    )
-    ordered = np.argsort(np.asarray(included_horizons), kind="stable")
-    return LocalParameterInformation(
-        parameter_names=names,
-        center=center,
-        information_matrix=information,
-        parameter_scale=scale,
-        fitted_parameter_mask=fitted,
-        horizons_s=tuple(included_horizons[index] for index in ordered),
-        window_count_by_horizon=tuple(window_counts[index] for index in ordered),
-        residual_precision_rank_by_horizon=tuple(
-            precision_ranks[index] for index in ordered
-        ),
-        group_labels=group_labels,
-        group_score_vectors=score_vectors,
-        independent_group_count=len(group_information),
-        trajectory_count=trajectory_count,
-        rank_relative_tolerance=rank_relative_tolerance,
-        covariance_scope=predictive_error.covariance_scope,
-        source=f"grouped_rollout_jacobians:{independence_unit}",
+            used += len(starts)
+    precision = 0.5 * (precision + precision.T)
+    eigenvalues, eigenvectors = np.linalg.eigh(precision)
+    precision = (eigenvectors * np.maximum(eigenvalues, 0.0)) @ eigenvectors.T
+    precision[~mask, :] = 0.0
+    precision[:, ~mask] = 0.0
+    return ParameterInformation(
+        names=names,
+        precision=precision,
+        scale=structured_parameter_scale(model.params),
+        estimable=mask,
+        innovation_noise=np.asarray(innovation_noise, dtype=np.float64),
+        noise_floor=innovation_noise_floor(),
+        effective_count=float(used),
+        rank_relative_tolerance=default_rank_relative_tolerance(used * 12, len(names)),
+        source=source,
     )

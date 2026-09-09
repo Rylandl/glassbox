@@ -18,18 +18,17 @@ from glassbox.core.dynamics import (
     step,
     step_with_latent,
 )
-from glassbox.core.evaluation import rollout_metrics
 from glassbox.core.families import FIXED_WING_FAMILY, family_for_platform
 from glassbox.core.fixedwing_synthetic import (
     TRIM_AIRSPEED_M_S,
     fixed_wing_trim_state,
-    generate_fixed_wing_trajectory,
     initial_fixed_wing_parameter_guess,
     true_fixed_wing_parameters,
 )
 from glassbox.core.identification import fit_dynamics
-from glassbox.workflows.fitting import fit_trajectory_artifacts
-from glassbox.workflows.profile_benchmark import benchmark_profiles
+from glassbox.core.metrics import predict, rollout_metrics
+from glassbox.fitting import FitSpec, fit
+from glassbox.workflows.holdout import evaluate_holdout
 
 
 def test_fixed_wing_family_declares_canonical_controls() -> None:
@@ -143,10 +142,10 @@ def test_flying_wing_three_role_rollout_has_no_required_yaw_channel() -> None:
             configuration_id="synthetic_flying_wing",
         ),
     )
-    metrics = rollout_metrics(params, trajectory)
+    metrics = rollout_metrics(predict(params, trajectory))
     windows = trajectory_windows([trajectory], horizon=4, stride=4)
     fit = fit_dynamics(
-        windows,
+        [windows],
         initial_fixed_wing_parameter_guess(),
         steps=1,
         learning_rate=0.01,
@@ -230,24 +229,24 @@ def test_lateral_surface_cross_coupling_adds_adverse_moments() -> None:
     assert float(aileron[12]) < float(baseline[12])
 
 
-def test_fixed_wing_true_model_has_zero_rollout_error() -> None:
-    trajectory = generate_fixed_wing_trajectory(seed=4, duration_s=0.4)
+def test_fixed_wing_true_model_has_zero_rollout_error(fixedwing_flight) -> None:
+    trajectory = fixedwing_flight(4, 0.4)
 
-    metrics = rollout_metrics(true_fixed_wing_parameters(), trajectory)
+    metrics = rollout_metrics(predict(true_fixed_wing_parameters(), trajectory))
 
     assert metrics["position_rmse_m"] < 1e-5
     assert metrics["attitude_rmse_deg"] < 1e-5
 
 
-def test_fixed_wing_fit_reduces_multistep_loss() -> None:
+def test_fixed_wing_fit_reduces_multistep_loss(fixedwing_flight) -> None:
     trajectories = [
-        generate_fixed_wing_trajectory(seed=0, duration_s=2.0),
-        generate_fixed_wing_trajectory(seed=1, duration_s=2.0),
+        fixedwing_flight(0, 2.0),
+        fixedwing_flight(1, 2.0),
     ]
     windows = trajectory_windows(trajectories, horizon=10, stride=10)
 
     result = fit_dynamics(
-        windows,
+        [windows],
         initial_fixed_wing_parameter_guess(),
         steps=60,
         learning_rate=0.02,
@@ -256,8 +255,8 @@ def test_fixed_wing_fit_reduces_multistep_loss() -> None:
     assert result.final_loss < 0.01 * result.initial_loss
 
 
-def test_fixed_wing_rollout_indexes_controls_by_semantic_role() -> None:
-    trajectory = generate_fixed_wing_trajectory(seed=3, duration_s=0.4)
+def test_fixed_wing_rollout_indexes_controls_by_semantic_role(fixedwing_flight) -> None:
+    trajectory = fixedwing_flight(3, 0.4)
     reordered = trajectory.__class__(
         time_s=trajectory.time_s,
         states=trajectory.states,
@@ -273,7 +272,7 @@ def test_fixed_wing_rollout_indexes_controls_by_semantic_role() -> None:
         provenance=trajectory.provenance,
     )
 
-    metrics = rollout_metrics(true_fixed_wing_parameters(), reordered)
+    metrics = rollout_metrics(predict(true_fixed_wing_parameters(), reordered))
 
     assert reordered.spec is not None
     assert reordered.spec.control_roles == ("throttle", "pitch", "roll", "yaw")
@@ -281,48 +280,50 @@ def test_fixed_wing_rollout_indexes_controls_by_semantic_role() -> None:
     assert metrics["attitude_rmse_deg"] < 1e-5
 
 
-def test_fixed_wing_artifacts_select_model_family_automatically(tmp_path) -> None:
+def test_fixed_wing_artifacts_select_model_family_automatically(
+    tmp_path, fixedwing_flight
+) -> None:
     paths = []
     for seed in range(3):
         path = tmp_path / f"fixed_wing_{seed}.npz"
-        save_trajectory_npz(
-            generate_fixed_wing_trajectory(seed=seed, duration_s=0.6), path
-        )
+        save_trajectory_npz(fixedwing_flight(seed, 0.6), path)
         paths.append(path)
 
-    params, baseline, report = fit_trajectory_artifacts(
+    outcome = fit(
         paths,
-        horizon=5,
-        steps=3,
-        evaluation_horizons_s=(0.1,),
-        run_no_lag_ablation=False,
+        FitSpec(horizon_steps=5, steps=3, evaluation_horizons_s=(0.1,)),
     )
+    params = outcome.belief.model.params
+    report = outcome.report
 
     assert params.__class__.__name__ == "FixedWingDynamicsParams"
-    assert baseline is None
+    assert outcome.ablations == {}
     assert report["dataset"]["platform"] == "fixedwing"
     assert report["dataset"]["model_family"] == "effective_fixedwing"
     assert report["configuration"]["control_history_duration_s"] == pytest.approx(1.0)
     assert report["configuration"]["motor_history_duration_s"] is None
 
 
-def test_fixed_wing_artifacts_fit_platform_neutral_residual(tmp_path) -> None:
+def test_fixed_wing_artifacts_fit_platform_neutral_residual(
+    tmp_path, fixedwing_flight
+) -> None:
     paths = []
     for seed in range(3):
         path = tmp_path / f"fixed_wing_residual_{seed}.npz"
-        save_trajectory_npz(
-            generate_fixed_wing_trajectory(seed=seed, duration_s=0.6), path
-        )
+        save_trajectory_npz(fixedwing_flight(seed, 0.6), path)
         paths.append(path)
 
-    params, _, report = fit_trajectory_artifacts(
+    outcome = fit(
         paths,
-        horizon=5,
-        steps=2,
-        evaluation_horizons_s=(0.1,),
-        run_no_lag_ablation=False,
-        model_class="structured_residual",
+        FitSpec(
+            horizon_steps=5,
+            steps=2,
+            evaluation_horizons_s=(0.1,),
+            model_class="structured_residual",
+        ),
     )
+    params = outcome.belief.model.params
+    report = outcome.report
 
     assert params.base.__class__.__name__ == "FixedWingDynamicsParams"
     assert params.feature_mean.shape == (10,)
@@ -340,25 +341,21 @@ def test_fixed_wing_artifacts_fit_platform_neutral_residual(tmp_path) -> None:
     assert rollout_loss["dynamic_envelope"]["body_velocity_half_width_m_s"][0] > 0.0
 
 
-def test_fixed_wing_profile_benchmark_does_not_apply_multirotor_contract(
+def test_fixed_wing_profile_holdout_reports_the_fixed_wing_platform(
     tmp_path,
+    fixedwing_flight,
 ) -> None:
     paths = []
     for seed in range(3):
         path = tmp_path / f"fixed_wing_profile_{seed}.npz"
-        save_trajectory_npz(
-            generate_fixed_wing_trajectory(seed=seed, duration_s=0.3), path
-        )
+        save_trajectory_npz(fixedwing_flight(seed, 0.3), path)
         paths.append(path)
 
-    summary = benchmark_profiles(
+    summary = evaluate_holdout(
         paths,
-        tmp_path / "fixed_wing_benchmark",
-        training_horizons_s=(0.1,),
-        evaluation_horizons_s=(0.1,),
-        steps=1,
+        hold_out="profile",
+        spec=FitSpec(horizons_s=(0.1,), evaluation_horizons_s=(0.1,), steps=1),
+        output_dir=tmp_path / "fixed_wing_benchmark",
     )
 
     assert summary["platform"] == "fixedwing"
-    assert summary["acceptance"]["status"] == "not_scored"
-    assert "no versioned fixed-wing" in summary["acceptance"]["reason"]

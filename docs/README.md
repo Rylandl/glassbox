@@ -1,61 +1,48 @@
 # Glassbox documentation
 
-Start with [scope](scope.md) for what the library covers and where its
-boundary is. Concept pages explain the contracts; experiment pages record the
-evidence behind every quantitative claim; `results/` holds the machine-readable
-artifact each experiment page cites.
+Start with the repository [README](../README.md) for the identification workflow.
+
+- [Scope](scope.md): the core workflow and design decisions.
+- [Validation](validation.md): recorded prediction and control comparisons.
+- [Repeated-fit uncertainty](repeated-uncertainty-calibration.md): parameter
+  information and forecast error under observation noise and reduced excitation.
 
 ## Concepts
 
-- [Dynamics beliefs and live adaptation](concepts/dynamics-beliefs.md): the
-  fitted artifact, its error and parameter evidence, fleet priors, and the
-  transactional update.
-- [Nonlinear model-predictive control](concepts/nmpc.md): the controller
-  interface, eligible artifacts, safety boundaries, PX4 SITL shadow mode, and
-  the design and acceptance contract.
-- [Flight supervisor](concepts/flight-supervisor.md): the model-independent
-  freshness, bounds, attitude, and rate-arrest layer.
+- [Dynamics beliefs](concepts/dynamics-beliefs.md): the product object, its
+  information state and forecast-error envelope, and the recursive `absorb`
+  update.
+- [Nonlinear model-predictive control](concepts/nmpc.md): the plan-model seam,
+  the bounded solver, the objective and its two robustness terms, the control
+  loop and link contract, and the flight supervisor that is the bounded
+  command's last check.
 - [Bootstrap identification](concepts/bootstrap-identification.md): the
-  no-prior contract for local authority identification.
-- [Predictive ensembles](concepts/predictive-ensembles.md): the diagnostic
-  uncertainty workflow and its promotion boundary.
+  no-prior contract for local authority identification, in
+  `glassbox.control.identifier`.
 
 ## Guides
 
-- [PX4 ULogs](guides/px4-ulog.md): extracting canonical trajectories and
-  recording reproducible SITL flights.
-- [Recorded results](guides/recorded-results.md): the two-tier recorded-result
-  tests, when to re-record, and the `glassbox record-results` command.
-
-## Experiments
-
-Multirotor:
-
-- [Nano-Quadrotor benchmark](experiments/nanodrone.md)
-- [ARP quadrotor corpus](experiments/arp.md)
-- [PX4 SITL multirotor corpora](experiments/px4-sitl-multirotor.md)
-- [Adaptive recovery diagnostic](experiments/adaptive-recovery.md)
-
-Fixed wing:
-
-- [IDF-DS telemetry corpus](experiments/idf.md)
-- [Skywalker X8 benchmark](experiments/x8.md)
-- [Cascade X8 validation](experiments/cascade-x8-validation.md)
-- [EPFL TOPOPlane2 reference](experiments/epfl.md)
-- [PX4 SITL fixed-wing corpora](experiments/px4-sitl-fixedwing.md)
-- [Cross-airframe fixed-wing gate](experiments/fixedwing-gate.md)
-
-Cross-platform:
-
-- [Fitting-policy selection](experiments/fitting-policy.md)
+- [PX4 ULogs](guides/px4-ulog.md): extracting canonical trajectories with
+  `glassbox extract`, the fit flags, and recording a reproducible PX4 SITL
+  flight. The pinned public corpora are obtained with `glassbox corpus`, whose
+  registry names each one's citation, license and evaluation split.
 
 ## Background
 
-- [Literature review](literature-review.md)
-- [Original proposal, August 2026](history/idea-2026-08.md)
+- [Literature review](literature-review.md): the decision record and the
+  negative results, each with the last commit that carried its code.
+- [Original proposal, August 2026](history/idea-2026-08.md): history, kept for
+  the record and excluded from the source distribution.
+
+## Recorded artifacts
+
+[`results/`](results/) holds the machine-readable comparisons linked from
+[validation](validation.md). One manifest describes them in two tiers and
+one command produces or checks each of them; see
+[`CONTRIBUTING.md`](../CONTRIBUTING.md) for the table and the procedure.
 
 ## Related
 
 - [glassbox-throw](https://github.com/Rylandl/glassbox-throw): the Crazyflow
-  throw demo built on this package, including the dual-control NMPC design
-  and the closed-loop bootstrap, prototype, and throw diagnostics.
+  throw demo built on this package, including its dual-control NMPC design and
+  the closed-loop bootstrap, prototype and throw diagnostics.

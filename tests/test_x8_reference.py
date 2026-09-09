@@ -1,23 +1,18 @@
 from __future__ import annotations
 
-import hashlib
-import io
-import urllib.request
-
 import numpy as np
 
-import glassbox.io.x8_reference as x8_module
+from glassbox.belief.belief import DynamicsBelief
+from glassbox.belief.belief_io import save_dynamics_belief
 from glassbox.core.data import Trajectory, save_trajectory_npz
 from glassbox.core.fixedwing_synthetic import true_fixed_wing_parameters
-from glassbox.core.model_io import save_dynamics_model
-from glassbox.core.runtime import runtime_spec_from_trajectory
+from glassbox.core.model import ExecutableModel, runtime_spec_from_trajectory
+from glassbox.io.corpus import REFERENCE_CORPORA
 from glassbox.io.x8_reference import (
-    X8Recording,
     X8ReferenceAdapter,
-    fetch_x8_reference,
     x8_trajectory_spec,
 )
-from glassbox.workflows.x8_evaluation import evaluate_x8_reference_models
+from glassbox.workflows.evaluate import evaluate
 
 
 def _write_fixture(path) -> np.ndarray:
@@ -94,37 +89,6 @@ def test_x8_adapter_can_exclude_the_wind_estimate_for_ablation(tmp_path) -> None
     )
 
 
-def test_x8_fetch_verifies_pinned_files(tmp_path, monkeypatch) -> None:
-    readme_payload = b"pinned x8 readme"
-    csv_payload = b"pinned x8 csv"
-    recording = X8Recording(
-        filename="lateral_121_1.csv",
-        split="training",
-        file_id=20,
-        size_bytes=len(csv_payload),
-        md5=hashlib.md5(csv_payload).hexdigest(),
-    )
-    monkeypatch.setattr(x8_module, "X8_RECORDINGS", (recording,))
-    monkeypatch.setattr(x8_module, "X8_README_FILE_ID", 10)
-    monkeypatch.setattr(x8_module, "X8_README_SIZE_BYTES", len(readme_payload))
-    monkeypatch.setattr(
-        x8_module, "X8_README_MD5", hashlib.md5(readme_payload).hexdigest()
-    )
-
-    def fake_urlopen(request, timeout):
-        assert timeout == 5.0
-        payload = readme_payload if request.full_url.endswith("/10") else csv_payload
-        return io.BytesIO(payload)
-
-    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
-
-    paths = fetch_x8_reference(tmp_path, timeout_s=5.0)
-
-    assert paths == (tmp_path / "training" / recording.filename,)
-    assert (tmp_path / x8_module.X8_README_FILENAME).read_bytes() == readme_payload
-    assert paths[0].read_bytes() == csv_payload
-
-
 def test_x8_evaluation_requires_and_scores_upstream_validation(tmp_path) -> None:
     source = tmp_path / "lateral_121_1.csv"
     _write_fixture(source)
@@ -141,20 +105,33 @@ def test_x8_evaluation_requires_and_scores_upstream_validation(tmp_path) -> None
     trajectory_path = tmp_path / "validation.npz"
     model_path = tmp_path / "model.json"
     save_trajectory_npz(trajectory, trajectory_path)
-    save_dynamics_model(
-        true_fixed_wing_parameters(),
+    save_dynamics_belief(
+        DynamicsBelief(
+            model=ExecutableModel(
+                true_fixed_wing_parameters(),
+                x8_trajectory_spec(),
+                runtime_spec_from_trajectory(trajectory),
+            ),
+        ),
         model_path,
-        input_spec=x8_trajectory_spec(),
-        runtime_spec=runtime_spec_from_trajectory(trajectory),
     )
 
-    report = evaluate_x8_reference_models(
-        {"structured": model_path},
-        [trajectory_path],
+    paths, trajectories = REFERENCE_CORPORA["x8"].load_evaluation_trajectories(
+        [trajectory_path]
+    )
+    report = evaluate(
+        model_path,
+        trajectories,
+        protocol="x8",
         horizons_s=(0.025,),
     )
 
-    assert report["protocol"]["split"] == "upstream_validation"
-    assert report["dataset"]["validation_trajectory_count"] == 1
-    assert "0.025s" in report["models"]["structured"]["aggregate"]["horizon_rollouts"]
-    assert np.isfinite(report["models"]["structured"]["score_vs_kinematic_persistence"])
+    assert paths == [trajectory_path.resolve()]
+    assert report["protocol"] == "x8"
+    assert report["baseline"] == "kinematic_persistence"
+    assert report["stride"] == "one_sample"
+    assert report["floors"] == dict.fromkeys(report["floors"], 1e-12)
+    assert report["independent_holdout"] is True
+    assert report["dataset"]["trajectory_count"] == 1
+    assert "0.025s" in report["model"]["horizon_rollouts"]
+    assert np.isfinite(report["score_vs_baseline"])

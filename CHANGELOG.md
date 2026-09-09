@@ -3,144 +3,263 @@
 All notable changes to Glassbox are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## Unreleased
+## 0.3.0rc1 - 2026-09-08
 
-### Added
-- Dual-control NMPC pass five (`dual_control_nmpc_pass5`): one goal over a
-  one-second horizon of slew-bounded moves, with the spread propagated from the
-  full-regressor planned posterior along the planned trajectory and coupled
-  through `|f| sigma_tilt`, a declared maximum body rate charged as a chance
-  penalty, and every multi-start seed derived from the posterior and the state
-  instead of a declared amplitude ladder. `RecursiveBootstrapBelief` now exposes
-  the two accumulated regression Grams the seeds and the spread read from. The
-  pass is a recorded negative result: it does not recover the throw diagnostic
-  on any release, and `docs/concepts/dual-control-nmpc.md` records why.
-- Dual-control NMPC pass six (`dual_control_nmpc_pass6`): the fifth pass's
-  horizon, slew moves, seeds, and coupling with the spread charged on the box
-  average of the full regressor set, the goal charged only as far as the
-  incumbent posterior can see, one descent seed per goal term, and collective-
-  first probing at zero information. Measured on a sub-minute single-release
-  gate, then the seven cases, then arm-only ensembles: 10 to 14 of 112
-  recoveries against the fifth pass's zero, with the remaining losses split
-  between early floor contacts and a lateral drift just outside the hover
-  envelope. `run_throw_study_trial` accepts a `dual_config` override for
-  single-release iteration, and `scripts/throw_gate.py` is that gate.
-  Round two derives the knowledge term's neighbourhood from the posterior's
-  own hover solution combined with the box prior, decides the goal horizon
-  over the box, and advances the warm start in real time (`"step"`) instead
-  of one block per interval, and offers each goal seed laid over the
-  excitation cycle as a further candidate; pass five keeps the block shift.
-  Committed round two recovers 54 of 112 on the arm-only ensemble, an interval
-  that excludes every earlier learned arm and the working cascade and contains
-  the certified cascade's point estimate. Explicit `block_lengths` are
-  available and were measured as a negative result. Round three uses the
-  posterior-mean maps in the rollout at the identifier's own authority, which
-  stops a rank-one map from driving the goal the wrong way, and recovers 57
-  of 112. `DualControlResult` exposes every multi-start candidate's objective,
-  and the gate can fly any of the ensemble's own perturbed releases
-  (`--draw`) and print the lowest candidates (`--candidates`). Six rejected formulations are recorded in
-  `docs/concepts/dual-control-nmpc.md`.
-- `RecursiveBootstrapConfig.transition_aggregation_steps` assimilates one
-  sample per window of transitions, the window's means weighted by its length,
-  so differenced measurement noise telescopes away while the per-transition
-  counts and floors stand; one is bit-identical to before. The throw study's
-  `_fly_trial` and the release ensemble accept `identifier_options`, and the
-  gate accepts `--identifier key=value`. The learned throw-study arm runs a
-  window of two and recovers 68 of 112 on the arm-only ensemble, above the
-  certified cascade's point estimate for the first time. Round five decides
-  the goal horizon from the command maps' uncertainty alone
-  (`horizon_neighbourhood="box_commands"`), 69 of 112 with fewer floor
-  contacts, and records four switches measured and left off: maps at face
-  value at full rank, a probe overlay until supported, and the identifier's
-  prequential residual in two forms.
-- `RecursiveBootstrapConfig.integrated_collective` fits the collective map on
-  the cumulative target with one anchor column, the exact least-squares form
-  for white measurement noise on the velocity, exported to the rest of the
-  identifier as an equivalent per-transition Gram; off by default and
-  bit-identical when off. On the learned throw-study arm it lifts the
-  state-noise case from one to nine of sixteen and the pooled recovery to 90
-  of 112 on the second release distribution, above the certified cascade's
-  84 on the same releases.
-- The release ensemble's second distribution never throws weaker than the
-  case declares (velocity scale on `[1.0, 1.2]`) and puts its width into the
-  angular impulse (angular velocity scale on `[0.5, 1.5]`); earlier recorded
-  tables were measured on the first distribution and are not comparable.
-- Throw-study trials stop at the first floor contact and are failures from
-  then on: the contact sample is kept, the contact time is recorded, and the
-  terminal and settled metrics are absent rather than read off the ground.
-  Recovery counts are unchanged; post-contact metrics in earlier recorded
-  reports are superseded.
-- The Crazyflow plant raises `CrazyflowDivergenceError`, a `ValueError`, when
-  the simulator hands back a non-finite state, and the throw ensemble records
-  such a release as a diverged, unrecovered trial instead of ending the run.
-- `glassbox record-results` regenerates the recorded artifacts under
-  `docs/results/` from one manifest, in-process, with `--list`, `--dry-run`,
-  `--only`, and `--include-slow`.
+This candidate streamlines the identification workflow and corrects actuator
+history, numerical derivatives, parameter evidence, and controller behavior.
 
-### Changed
-- Rollout error statistics exclude the measured initial sample and every metrics
-  dict carries a `metric_policy` identifier; the minibatch objective averages
-  sampled windows uniformly (`deterministic_weighted_minibatch_v3`); complete
-  flight rollouts apply logged wind per step.
-- Belief updates score candidates without the held-out bias against the
-  bias-corrected incumbent with a noise-scaled margin, bound every whitened
-  prior coordinate to one standard deviation, and condition only on numerically
-  resolved directions. Conditioning, commits, and prior initialization stale
-  predictive-error evidence; `recalibrate_predictive_error` rebuilds it.
-- NMPC reports stalls as `STALLED`, tests convergence on the projected gradient,
-  shifts warm starts by command block, and has no dead command blocks.
-- Bootstrap identifiers threshold nuisance directions at 0.002 of the leading
-  direction and expose nuisance ranks; the online controller returns a bounded
-  unusable decision on non-finite input; the supervisor uses a geodesic tilt
-  error.
-- PX4 ULog ingestion resolves a separate actuator hold-age tolerance and records
-  per-topic source rates and segment coverage.
-- `pymavlink`, `pyulog`, and `rosbags` are optional extras (`px4`, `ros`).
-- The `model_family` module is now `families`.
-- Documentation is restructured around a short README with concept,
-  experiment, and results directories.
-- The 24 `glassbox-*` console scripts are replaced by a single `glassbox`
-  command with a subcommand tree: `glassbox fit`, `glassbox ulog extract`,
-  `glassbox crazyflow throw`, and so on. `glassbox --help` lists every command
-  and runs with no optional extra installed, because subcommand modules are
-  imported only when one is dispatched.
-- `workflows.fitting` is split into a library and a front end. A frozen
-  `FitRequest` carries every fitting knob, `plan_holdout` resolves the
-  training/validation split on its own, report assembly moved into named
-  builders, and the argparse entry point is now `cli.fit`. Fit reports are
-  byte-for-byte unchanged.
-- The package is organized into `core`, `belief`, `control`, `io`, `workflows`,
-  `integrations`, and `cli` subpackages; the root exports the stable surface
-  and `glassbox.experimental` holds bootstrap identification, online
-  bootstrap, the flight supervisor, and predictive ensembles.
-- Duplicated helpers are consolidated: one NumPy quaternion-to-rotation and
-  Euler helper in `core.geometry`, one pinned-download helper in
-  `io.pinned_download`, one persistence score in `core.evaluation`, one set of
-  selection thresholds in `workflows.selection`, and one set of finite-vector,
-  world-up, and thrust-cascade helpers in `control._common`; all verified
-  bit-identical against recorded outputs.
-- `NMPCController.solve`, the recursive bootstrap update, the progressive
-  bootstrap command, and the Crazyflow prototype are split into named phases
-  and modules; the prototype module shrinks from about 2,450 lines to about
-  540 with `crazyflow_telemetry`, `crazyflow_fleet`, `crazyflow_online`, and
-  `crazyflow_supervisor_campaign` beside it.
-- Test collection drops from about 21 s to under 2 s; the three
-  benchmark-scale tests carry a `slow` marker.
-- The NMPC solver policy is public as `SolverPolicy`, exported from
-  `glassbox.control.nmpc` and the package root; `NMPCController` takes it as
-  the `policy` keyword instead of a private one. The NumPy and JAX rotation
-  helpers move from `control._common` to `core.geometry`, verbatim, so no
-  recorded number moves. `RecursiveBootstrapBelief`'s field list is pinned as
-  a downstream contract.
+### Migration from 0.2
+
+- The main `fit(sources, FitSpec)`, `DynamicsBelief.save/load`, and `absorb`
+  entry points remain. Fitted models now derive their input contract and sample
+  period directly from training windows.
+- `TrajectoryWindows.input_spec` replaces its separate channel metadata fields.
+  Build windows with the existing extraction functions. Trajectories own their
+  preceding controls; prediction and diagnostics no longer take a separate
+  control-history argument.
+- Canonical NPZ format 5 preserves preceding commands; formats 3 and 4 remain
+  readable. Belief format 6 preserves direct-map bounds; formats 3–5 remain
+  readable, and external actuator maps require explicit rebinding. Legacy
+  parameter evidence that cannot be converted loads at rank zero with a warning;
+  refit to recover parameter information.
+- Forecasts expose `forecast_error_covariance` and `parameter_covariance`
+  separately. The combined `tangent_covariance` and `tangent_standard_deviation`
+  shortcuts are removed.
+- Evaluation report format 2 removes `can_promote_model`.
+  `independent_holdout` records the caller's split declaration.
+- Install the source-only Cascade simulator with `uv sync --dev --group cascade`
+  instead of `--extra cascade`. Published telemetry extras remain `px4` and `ros`.
+- `one_step_innovations` lives in `core.metrics`. Pass its residuals to
+  `one_step_innovation_diagnostics` and `innovation_noise`. Use
+  `RolloutLossConfiguration.validity_envelope` in place of separate support arrays.
+- Direct flight-supervisor callers must supply model-support utilization;
+  custom supervisors must accept that keyword. Missing or exceeded support
+  selects the existing latched intervention.
+
+### Corrections
+
+- Preserve causal actuator history through ingestion, nested holdouts, forecasts,
+  parameter evidence, and updates. Correct the RK4 actuator-response quadrature,
+  including the instantaneous-response limit.
+- Keep rotation derivatives finite at zero, preserve feasible derivatives at
+  command bounds, and retain the best evaluated full-batch optimizer iterate.
+- Backtrack nonlinear belief updates, measure accepted-model innovations, and
+  preserve the information rank cutoff as evidence accumulates. Keep unresolved
+  parameter directions explicit in predictions and planning.
+- Advance controller warm starts by one model sample, fix cache identity for
+  actuator maps and bounds, and check command bounds and initial-state support.
+- Invalidate interrupted holdout runs and include effective fit settings in
+  resume checks. Recorded-result generation always refits its folds.
+- Fix `evaluate --fit-reports` after the evaluation schema change, preserve PX4
+  reception times, and repair the flown SITL command fixture.
+- Suppress innovation-correlation flags below numerical resolution and use a
+  fixed starting state for the recovery benchmark across CPU architectures.
+
+### Verification
+
+- CI builds a source distribution and wheel, installs the wheel outside the
+  checkout, and exercises fitting, evaluation, persistence, and updates on
+  Python 3.11, 3.12, and 3.13.
+- Re-record all six corpus chains at their documented budgets, including all
+  13 IDF folds. Refresh EPFL and IDF figures; other headline scores are unchanged.
+- Recorded results fingerprint package sources, including adapters. Numerical
+  investigations retain their executed sources and results under
+  `docs/investigations/`.
+
+## 0.2.0 - 2026-09-04
+
+This breaking release consolidates telemetry into `Trajectory`, fitted models
+and evidence into `DynamicsBelief`, and planning behind `PlanModel`.
+
+### The public surface
+
+`glassbox.__all__` is 41 names, down from about a hundred. A name is exported
+because the README or a concept page uses it, or because it is the type of one
+of their arguments or return values.
+
+- **Telemetry.** One `Channel` type replaces three, with `Trajectory` and
+  `TrajectorySpec` over canonical NPZ v4.
+- **The fit.** `fit(sources, FitSpec) -> FitOutcome` is the one entry point.
+  `FitSpec` replaces `FitRequest`'s twenty-two fields with a spec, a
+  `LossPolicy` and a `WeightingPolicy`; `Holdout` has three rules
+  (`by_label`, `by_group`, `temporal`) instead of six modes. Every fit now
+  accumulates its own parameter evidence, so the belief it returns knows which
+  directions the data resolved and not only how noisy its one-step
+  predictions are. `glassbox fit` no longer ties that to `--model` and has no
+  flag to turn it off; it costs about a fifth more on a three-flight synthetic
+  fit and leaves every loss and metric unchanged.
+- **The belief.** `DynamicsBelief(model, information, forecast_error)` plus
+  provenance. `ExecutableModel` replaces three runtime types and is owned by
+  the belief. `ParameterInformation` replaces four parameter-belief types; a
+  point belief is rank zero rather than a separate class.
+  `ForecastErrorEnvelope` is the held-out second moment by horizon.
+  `belief.absorb(telemetry) -> (DynamicsBelief, UpdateResult)` is the update.
+- **Control.** `PlanModel` is the whole interface a solver has to a model, and
+  `BoundedShootingSolver` is the one solver behind it, with a compile cache
+  keyed on shape rather than on belief values. `plan_model` adapts a fitted
+  belief and `NMPCController` is the thin factory over both.
+  `RecursiveBootstrapIdentifier` now produces a `DynamicsBelief` over the new
+  `BootstrapMultirotorParams` family, so the same solver plans over a fitted
+  belief and one built in flight from nothing.
+  `MultirotorFlightSupervisor` takes its allocation by injection instead of
+  assuming a mixer.
+- **Integration.** `VehicleLink` and `run_control_loop` are one control
+  interval for every integration; PX4 is a read-only link and the Cascade
+  plant is a writable one, so shadow mode and closed-loop control differ by
+  one property of the link.
+- **Evaluation.** One `evaluate` with three named scoring policies
+  (`windowed`, `x8`, `nanodrone`), one `evaluate_holdout` by label, and one
+  `ReferenceCorpus` registry over the five pinned corpora.
+- The `glassbox.experimental` subpackage is gone. The identifier and the
+  supervisor are ordinary components of `glassbox.control`.
+
+### The commands
+
+Nine commands, each one line in `glassbox --help` and its whole contract in
+its own `--help`: `extract`, `corpus`, `synthetic`, `fit`, `evaluate`,
+`benchmark`, `record-results`, `sitl-profile` and `px4-shadow`. They replace a
+tree of twenty nodes and forty-two leaves. `glassbox corpus list | fetch |
+prepare` replaces the per-corpus subcommands; `glassbox extract` replaces the
+`ulog` group and `scripts/extract_ulog_dataset.sh`; `glassbox evaluate`
+replaces five scoring entry points; `glassbox benchmark` replaces four
+benchmark leaves; `record-results --tier local|corpus` replaces
+`--include-slow`. `--skip-checksum` is gone from every corpus command: a
+pinned corpus that does not verify is a different corpus.
 
 ### Removed
-- The Crazyflow throw demo moved to
-  [glassbox-throw](https://github.com/Rylandl/glassbox-throw) at this commit:
-  the Crazyflow plant adapter, the throw trial and study, the bootstrap and
-  prototype trials, the annotated animation renderer, and the experimental
-  dual-control NMPC.
+
+Every removal names the last commit that can still run it; the
+[literature review](docs/literature-review.md) records the finding each one
+rests on. The range is `d10bb24..8f55517`.
+
+- The frozen observation research program and its seven artifacts (`4c119a8`),
+  and the observation-first initializer that outlived it (`2e16ebc`).
+- The fleet parameter prior with its conditioning, initialization and `prior`
+  command; plan assessment and `PlanAssessment`; the error-radius quantiles
+  (all `478c063`).
+- The transactional belief update, 2,006 lines, with its improvement margin,
+  trust bound, line search, fingerprints, replay detection and thirty-five
+  field report, and the runtime tangent bias that went with it (`8d3400f`).
+- The batch bootstrap identifier, the cascade controller and thrust cascade,
+  the identifier's certification transaction, and its research switches
+  (`aab0b42`), with the last two switches becoming the only behaviour at
+  `2f5adc2`.
+- The NMPC support filter with its six modes and the bounded-authority
+  post-pass (`9570fa1`); robustness moved into the objective instead.
+- The research promotion machinery: policy selection, the fixed-wing gate,
+  acceptance and selection, with their two pages; the predictive-ensemble
+  workflow with its page and four notes; the angular-authority and
+  Nano-drone-rotation sweeps; the adaptation benchmark; the dead CLI `Group`
+  (all `bd48419`).
+- The lagged multirotor rotational-response branch and its sentinel machinery
+  (`9d59e4a`); the multirotor latent state is four wide instead of seven.
+- The certified prediction horizon and its two runtime-spec fields
+  (`f5656a9`); the forecast-error envelope is the only thing that caps a
+  horizon.
+- The singular fit path and its second report shape, `TrajectoryWindows`
+  re-validation, `with_angular_dynamics_authority` (all `2e16ebc`); the
+  adapter protocol (`3db7ce5`); the shadow runner's forty-key report and
+  streaming evaluation (`1acdd50`); five corpus evaluation modules and
+  `with_constant_angular_rate` (`c250233`); `rebind_belief` and the solver
+  backend protocol (`aab0b42`); `RuntimeDynamicsBelief` (`2123c94`); the
+  vectorized log-mean reduction (`68eb163`).
+- Eighteen write-only fit-report keys, read by no module, test, page or
+  recorded artifact: the `fit_statistics` block, `horizon_duration_s`,
+  `stride_steps_by_horizon`, `training_source_group_weights` and
+  `candidate_training_windows_per_flight_by_horizon` from the configuration;
+  `total_duration_s`, `source_type`, `source_grouping`, `coordinate_frames`,
+  `vehicle_configuration`, `profile_counts` and the three `observation_*`
+  fields from the pooled dataset contract; `sample_weighted_aggregate` from
+  each model's validation; and `net_displacement_m`, `position_range_xyz_m`
+  and `maximum_angular_speed_rad_s` from each flight's characteristics. The
+  characterization report's `fit_report.size_bytes` goes with them.
+- `fit_dynamics`'s `loss_normalization_params` and
+  `loss_normalization_window_sets`, which every caller passed a copy of the
+  fit's own initial parameters and window sets, and the duplicate platform
+  validation `resolve_dataset` already ran.
+- Two recorded files that were not machine output:
+  `docs/results/multirotor-profile-results.json` and the four
+  predictive-ensemble notes.
+
+### Recorded numbers that moved
+
+Every number in `docs/results/adaptive-recovery-results.json` moved once, at
+the start of the number-moving batch, and is now at format 5, method version
+7. Three causes, in order of size:
+
+- the benchmark's belief is seeded by inverting the five sibling
+  configurations' sample covariance to precision, so it starts knowing one
+  direction rather than declaring one uncertain and eighteen certain;
+- the update is `absorb` over all forty one-step transitions instead of a
+  transaction over eight windows split into a proposal half and a validation
+  half;
+- the held-out forecast bias is no longer applied at runtime.
+
+Resolved rank goes from `1` to `9` of `15` estimable coordinates, the
+information gain is `1.698` nats where the transaction recorded `null`, the
+whitened one-step innovation falls `0.2514` to `0.0264`, and independent
+0.6-second prediction RMS falls `0.033394` to `0.010120`, a ratio of `0.303`
+against the transaction's `0.458`. The recovery comparison changes sign:
+adapted against seeded is `0.993` tail tracking and `0.830` tail attitude and
+rate, against `1.059` and `1.003` before.
+
+Six non-timing values in `docs/results/nmpc-acceptance-results.json` moved by
+between 1e-9 and 1e-8 relative in the same re-record, because the solver's
+mean rollout stopped applying a zero tangent correction. The suite still
+passes every check and the two ratios the documentation quotes, `0.651`
+nominal and `0.552` under mismatch, are unchanged at the precision they are
+quoted.
+
+Nothing after that re-record moved a recorded local number. Three changes move
+numbers no local artifact records, and each lands in the corpus tier: a
+single-horizon fit moves by the loss normalization, the IDF corpus's
+long-horizon folds train on a thinner window set, and the X8 scoring policy
+reduces in the sequential order.
+
+### Evidence and documentation
+
+- One manifest describes eight artifacts in two tiers. The local tier runs in
+  this repository with nothing downloaded and `record-results --check --tier
+  local` runs in continuous integration; the corpus tier needs the pinned
+  corpora on disk and is a maintainer job. The five corpus validation
+  artifacts are new entries: the headline claims on the Nano-Quadrotor, ARP,
+  IDF-DS, X8 and EPFL corpora had no artifact before this release. All
+  eight are now recorded.
+- Each manifest entry's `doc_page` names the section of `docs/validation.md` a
+  re-record has to update, anchor included, and a test checks that both the
+  file and the heading exist. The Cascade X8 assembly is pinned under its
+  entry's own tolerance rather than compared for exact equality, because it
+  folds in the X8 reference-model scores and moved by one ulp when those
+  refit.
+- The documentation is eight pages, down from twenty-two. `docs/validation.md`
+  is new and is the library's evidence, every number named by the artifact and
+  key it comes from. The eleven experiment pages, the recorded-results guide
+  and the flight-supervisor page are folded into it, into `CONTRIBUTING.md`
+  and into `docs/concepts/nmpc.md`. `docs/scope.md` restates the evidence
+  standard: negative results are prose in the literature review with the
+  commit that carried their code, and their code and artifacts are not kept.
+- A report records a path as the command named it. Resolving inputs made two
+  artifacts carry this machine's absolute paths, and made the EPFL entry
+  record the directory its `artifacts/epfl_topoplane` symlink points at
+  instead of the one the manifest documents; both now reproduce on any
+  checkout.
+- A fit report is identified by a digest of its content with the wall-clock
+  keys removed, not by the bytes of the file, so a provenance digest cannot
+  move with the clock while the numbers stand still. `wall_time_s` is
+  declared volatile once and covers every fit block a validation artifact
+  carries.
+- One recursive comparison, in `glassbox.workflows.recorded`, backs both
+  `record-results --check` and every pinned test, so a manifest entry's
+  volatile paths and its test's ignore list cannot disagree about what counts
+  as a difference.
+- `docs/literature-review.md` gains a dated section recording every mechanism
+  this release retired, grouped, each with its last commit.
 
 ### Fixed
+
+- `glassbox evaluate --protocol nanodrone` no longer fails when it prints its
+  summary; the per-step protocol records a null score, which the command had
+  formatted as a float.
 - `glassbox fit --model --report` no longer fails on a NumPy scalar.
 - Fits stop on non-finite loss and return the best finite iterate with a flag.
 - Physical parameter constructors validate their inputs instead of clipping.

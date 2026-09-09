@@ -1,0 +1,2621 @@
+{
+  "diagnostic_only": true,
+  "glassbox_import": "/Users/ryland/projects/glassbox/src/glassbox/__init__.py",
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "machine": "arm64",
+  "jax_version": "0.11.1",
+  "scipy_version": "1.18.1",
+  "x64": false,
+  "deadline_s": 0.02,
+  "updates_budget": 2,
+  "interval_limit": 36,
+  "prewarm_requests": 2,
+  "prewarm_shift_branch": true,
+  "prewarm_failure_buffers": true,
+  "compilation_logging_during_measurement": true,
+  "work_estimates": null,
+  "timing_scope": "warm waveform shift/validation/transfer, full solve, synchronized outputs and result assembly; plant step and report logging excluded",
+  "limitations": [
+    "Single serialized run on this host; no hard real-time qualification.",
+    "Supplied previous waveform; construction, compilation and cold recovery startup are not measured.",
+    "No admission estimates; in-flight kernels cannot be preempted. Late outputs are rejected.",
+    "Known physical and actuator states; unchanged fitted uncertainty, support, objective and 0.6 s horizon."
+  ],
+  "requests": [
+    {
+      "tick": 0,
+      "caller_elapsed_s": 0.014535624999552965,
+      "request_elapsed_s": 0.014524958009133115,
+      "status": "stalled",
+      "message": "offline SQP feasible iterate; convergence not asserted",
+      "command_usable": true,
+      "deadline_met": true,
+      "nonlinear_feasibility": {
+        "constraint_count": 186,
+        "maximum_violation": -0.0,
+        "tolerance": 1e-06
+      },
+      "counts": {
+        "evaluate": 3,
+        "linearize": 2,
+        "finalize": 1
+      },
+      "phase_times": {
+        "preparation_s": 0.0007193750061560422
+      },
+      "events": [
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.0008561249997001141
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.003168415976688266
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.00038616699748672545
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.0030047920008655638
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.0003574160218704492
+        },
+        {
+          "phase": "finalize",
+          "elapsed_s": 0.0023272919934242964
+        }
+      ],
+      "optimizer": {
+        "iteration_budget": 2,
+        "iterations": 2,
+        "seed_linearization_time_s": 0.0032167499884963036,
+        "linearization_time_s": 0.0030494579987134784,
+        "quadratic_step_time_s": 0.0012180010380689055,
+        "line_search_time_s": 0.000872292002895847,
+        "qp_unsuccessful_count": 0,
+        "stop_reason": "iteration_limit",
+        "optimizer_elapsed_s": 0.005561375000979751,
+        "feasible": true,
+        "maximum_constraint_violation": -0.0,
+        "finalization_feasible": true,
+        "output_source": "finalizer",
+        "finalization_time_s": 0.002420709002763033
+      },
+      "applied": true,
+      "actual_support_utilization": 0.46444016695022583
+    },
+    {
+      "tick": 1,
+      "caller_elapsed_s": 0.013322791986865923,
+      "request_elapsed_s": 0.013311290997080505,
+      "status": "stalled",
+      "message": "offline SQP feasible iterate; convergence not asserted",
+      "command_usable": true,
+      "deadline_met": true,
+      "nonlinear_feasibility": {
+        "constraint_count": 186,
+        "maximum_violation": -0.0,
+        "tolerance": 1e-06
+      },
+      "counts": {
+        "evaluate": 3,
+        "linearize": 2,
+        "finalize": 1
+      },
+      "phase_times": {
+        "preparation_s": 0.0004522500094026327
+      },
+      "events": [
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.0004681249847635627
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.0032904169929679483
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.00037458399310708046
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.0031419169972650707
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.0003779580001719296
+        },
+        {
+          "phase": "finalize",
+          "elapsed_s": 0.002209333993960172
+        }
+      ],
+      "optimizer": {
+        "iteration_budget": 2,
+        "iterations": 2,
+        "seed_linearization_time_s": 0.003309374995296821,
+        "linearization_time_s": 0.0032037080090958625,
+        "quadratic_step_time_s": 0.0012184170191176236,
+        "line_search_time_s": 0.0008832500025164336,
+        "qp_unsuccessful_count": 0,
+        "stop_reason": "iteration_limit",
+        "optimizer_elapsed_s": 0.005766208021668717,
+        "feasible": true,
+        "maximum_constraint_violation": -0.0,
+        "finalization_feasible": true,
+        "output_source": "finalizer",
+        "finalization_time_s": 0.002277457999298349
+      },
+      "applied": true,
+      "actual_support_utilization": 0.5832128524780273
+    },
+    {
+      "tick": 2,
+      "caller_elapsed_s": 0.013074667018372566,
+      "request_elapsed_s": 0.013065375009318814,
+      "status": "stalled",
+      "message": "offline SQP feasible iterate; convergence not asserted",
+      "command_usable": true,
+      "deadline_met": true,
+      "nonlinear_feasibility": {
+        "constraint_count": 186,
+        "maximum_violation": -0.0,
+        "tolerance": 1e-06
+      },
+      "counts": {
+        "evaluate": 3,
+        "linearize": 2,
+        "finalize": 1
+      },
+      "phase_times": {
+        "preparation_s": 0.00026983401039615273
+      },
+      "events": [
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.00042379199294373393
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.003293083020253107
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.00037937500746920705
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.0031463330087717623
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.00036091700894758105
+        },
+        {
+          "phase": "finalize",
+          "elapsed_s": 0.002391833026194945
+        }
+      ],
+      "optimizer": {
+        "iteration_budget": 2,
+        "iterations": 2,
+        "seed_linearization_time_s": 0.0033129169896710664,
+        "linearization_time_s": 0.0031860409944783896,
+        "quadratic_step_time_s": 0.0012064159964211285,
+        "line_search_time_s": 0.00083725102012977,
+        "qp_unsuccessful_count": 0,
+        "stop_reason": "iteration_limit",
+        "optimizer_elapsed_s": 0.005641208001179621,
+        "feasible": true,
+        "maximum_constraint_violation": -0.0,
+        "finalization_feasible": true,
+        "output_source": "finalizer",
+        "finalization_time_s": 0.0024850419722497463
+      },
+      "applied": true,
+      "actual_support_utilization": 0.7243210077285767
+    },
+    {
+      "tick": 3,
+      "caller_elapsed_s": 0.012684874993283302,
+      "request_elapsed_s": 0.012675500009208918,
+      "status": "stalled",
+      "message": "offline SQP feasible iterate; convergence not asserted",
+      "command_usable": true,
+      "deadline_met": true,
+      "nonlinear_feasibility": {
+        "constraint_count": 186,
+        "maximum_violation": -0.0,
+        "tolerance": 1e-06
+      },
+      "counts": {
+        "evaluate": 3,
+        "linearize": 2,
+        "finalize": 1
+      },
+      "phase_times": {
+        "preparation_s": 0.00025391599046997726
+      },
+      "events": [
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.00041404200601391494
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.0031835830013733357
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.00036033301148563623
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.0032984159770421684
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.0003932919935323298
+        },
+        {
+          "phase": "finalize",
+          "elapsed_s": 0.00206191698089242
+        }
+      ],
+      "optimizer": {
+        "iteration_budget": 2,
+        "iterations": 2,
+        "seed_linearization_time_s": 0.0032007499830797315,
+        "linearization_time_s": 0.00335595800424926,
+        "quadratic_step_time_s": 0.0011567490291781723,
+        "line_search_time_s": 0.0008644169720355421,
+        "qp_unsuccessful_count": 0,
+        "stop_reason": "iteration_limit",
+        "optimizer_elapsed_s": 0.0058528340014163405,
+        "feasible": true,
+        "maximum_constraint_violation": -0.0,
+        "finalization_feasible": true,
+        "output_source": "finalizer",
+        "finalization_time_s": 0.002121875004377216
+      },
+      "applied": true,
+      "actual_support_utilization": 0.822770893573761
+    },
+    {
+      "tick": 4,
+      "caller_elapsed_s": 0.012686875008512288,
+      "request_elapsed_s": 0.012677332997554913,
+      "status": "stalled",
+      "message": "offline SQP feasible iterate; convergence not asserted",
+      "command_usable": true,
+      "deadline_met": true,
+      "nonlinear_feasibility": {
+        "constraint_count": 186,
+        "maximum_violation": -0.0,
+        "tolerance": 1e-06
+      },
+      "counts": {
+        "evaluate": 3,
+        "linearize": 2,
+        "finalize": 1
+      },
+      "phase_times": {
+        "preparation_s": 0.00024862500140443444
+      },
+      "events": [
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.00037741599953733385
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.003422208013944328
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.0003856249968521297
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.0031089999829418957
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.0003652909945230931
+        },
+        {
+          "phase": "finalize",
+          "elapsed_s": 0.00206862497725524
+        }
+      ],
+      "optimizer": {
+        "iteration_budget": 2,
+        "iterations": 2,
+        "seed_linearization_time_s": 0.003442499990342185,
+        "linearization_time_s": 0.003155499987769872,
+        "quadratic_step_time_s": 0.001097541011404246,
+        "line_search_time_s": 0.0008490410109516233,
+        "qp_unsuccessful_count": 0,
+        "stop_reason": "iteration_limit",
+        "optimizer_elapsed_s": 0.005517457990208641,
+        "feasible": true,
+        "maximum_constraint_violation": -0.0,
+        "finalization_feasible": true,
+        "output_source": "finalizer",
+        "finalization_time_s": 0.0021449580090120435
+      },
+      "applied": true,
+      "actual_support_utilization": 0.8880532383918762
+    },
+    {
+      "tick": 5,
+      "caller_elapsed_s": 0.012417416990501806,
+      "request_elapsed_s": 0.012408332986524329,
+      "status": "stalled",
+      "message": "offline SQP feasible iterate; convergence not asserted",
+      "command_usable": true,
+      "deadline_met": true,
+      "nonlinear_feasibility": {
+        "constraint_count": 186,
+        "maximum_violation": -0.0,
+        "tolerance": 1e-06
+      },
+      "counts": {
+        "evaluate": 3,
+        "linearize": 2,
+        "finalize": 1
+      },
+      "phase_times": {
+        "preparation_s": 0.0002771659928839654
+      },
+      "events": [
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.00042120899888686836
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.0032187500037252903
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.00035349998506717384
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.0031772500078659505
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.0003572910209186375
+        },
+        {
+          "phase": "finalize",
+          "elapsed_s": 0.0020642919989768416
+        }
+      ],
+      "optimizer": {
+        "iteration_budget": 2,
+        "iterations": 2,
+        "seed_linearization_time_s": 0.00323633398511447,
+        "linearization_time_s": 0.003217584016965702,
+        "quadratic_step_time_s": 0.0010870420082937926,
+        "line_search_time_s": 0.0008080410188995302,
+        "qp_unsuccessful_count": 0,
+        "stop_reason": "iteration_limit",
+        "optimizer_elapsed_s": 0.005511374998604879,
+        "feasible": true,
+        "maximum_constraint_violation": -0.0,
+        "finalization_feasible": true,
+        "output_source": "finalizer",
+        "finalization_time_s": 0.002122124977177009
+      },
+      "applied": true,
+      "actual_support_utilization": 0.9287816286087036
+    },
+    {
+      "tick": 6,
+      "caller_elapsed_s": 0.012702375010121614,
+      "request_elapsed_s": 0.012693374999798834,
+      "status": "stalled",
+      "message": "offline SQP feasible iterate; convergence not asserted",
+      "command_usable": true,
+      "deadline_met": true,
+      "nonlinear_feasibility": {
+        "constraint_count": 186,
+        "maximum_violation": -0.0,
+        "tolerance": 1e-06
+      },
+      "counts": {
+        "evaluate": 3,
+        "linearize": 2,
+        "finalize": 1
+      },
+      "phase_times": {
+        "preparation_s": 0.0002726250095292926
+      },
+      "events": [
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.0004270409990567714
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.003241708007408306
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.00038233300438150764
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.003129917022306472
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.000415165995946154
+        },
+        {
+          "phase": "finalize",
+          "elapsed_s": 0.0021882500150240958
+        }
+      ],
+      "optimizer": {
+        "iteration_budget": 2,
+        "iterations": 2,
+        "seed_linearization_time_s": 0.0032593749929219484,
+        "linearization_time_s": 0.0031660840031690896,
+        "quadratic_step_time_s": 0.0010751679947134107,
+        "line_search_time_s": 0.0009045839833561331,
+        "qp_unsuccessful_count": 0,
+        "stop_reason": "iteration_limit",
+        "optimizer_elapsed_s": 0.00556420799694024,
+        "feasible": true,
+        "maximum_constraint_violation": -0.0,
+        "finalization_feasible": true,
+        "output_source": "finalizer",
+        "finalization_time_s": 0.0022651250183116645
+      },
+      "applied": true,
+      "actual_support_utilization": 0.9515587687492371
+    },
+    {
+      "tick": 7,
+      "caller_elapsed_s": 0.012985584005946293,
+      "request_elapsed_s": 0.01297633399371989,
+      "status": "stalled",
+      "message": "offline SQP feasible iterate; convergence not asserted",
+      "command_usable": true,
+      "deadline_met": true,
+      "nonlinear_feasibility": {
+        "constraint_count": 186,
+        "maximum_violation": -0.0,
+        "tolerance": 1e-06
+      },
+      "counts": {
+        "evaluate": 3,
+        "linearize": 2,
+        "finalize": 1
+      },
+      "phase_times": {
+        "preparation_s": 0.00025166699197143316
+      },
+      "events": [
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.0004152910260017961
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.003309166000690311
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.0004245830059517175
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.0033953750098589808
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.000386583007639274
+        },
+        {
+          "phase": "finalize",
+          "elapsed_s": 0.001992207980947569
+        }
+      ],
+      "optimizer": {
+        "iteration_budget": 2,
+        "iterations": 2,
+        "seed_linearization_time_s": 0.0033275420137215406,
+        "linearization_time_s": 0.00345579202985391,
+        "quadratic_step_time_s": 0.0011508749739732593,
+        "line_search_time_s": 0.0009380839765071869,
+        "qp_unsuccessful_count": 0,
+        "stop_reason": "iteration_limit",
+        "optimizer_elapsed_s": 0.0060312919958960265,
+        "feasible": true,
+        "maximum_constraint_violation": -0.0,
+        "finalization_feasible": true,
+        "output_source": "finalizer",
+        "finalization_time_s": 0.0020888340077362955
+      },
+      "applied": true,
+      "actual_support_utilization": 0.9603981971740723
+    },
+    {
+      "tick": 8,
+      "caller_elapsed_s": 0.012557167006889358,
+      "request_elapsed_s": 0.012547291000373662,
+      "status": "stalled",
+      "message": "offline SQP feasible iterate; convergence not asserted",
+      "command_usable": true,
+      "deadline_met": true,
+      "nonlinear_feasibility": {
+        "constraint_count": 186,
+        "maximum_violation": -0.0,
+        "tolerance": 1e-06
+      },
+      "counts": {
+        "evaluate": 3,
+        "linearize": 2,
+        "finalize": 1
+      },
+      "phase_times": {
+        "preparation_s": 0.0002468750171829015
+      },
+      "events": [
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.0005391669983509928
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.003328916005557403
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.00037162500666454434
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.0031326250173151493
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.0003472499956842512
+        },
+        {
+          "phase": "finalize",
+          "elapsed_s": 0.0020530420006252825
+        }
+      ],
+      "optimizer": {
+        "iteration_budget": 2,
+        "iterations": 2,
+        "seed_linearization_time_s": 0.003347124991705641,
+        "linearization_time_s": 0.0031697919766884297,
+        "quadratic_step_time_s": 0.0010201669938396662,
+        "line_search_time_s": 0.0008162510057445616,
+        "qp_unsuccessful_count": 0,
+        "stop_reason": "iteration_limit",
+        "optimizer_elapsed_s": 0.005394874984631315,
+        "feasible": true,
+        "maximum_constraint_violation": -0.0,
+        "finalization_feasible": true,
+        "output_source": "finalizer",
+        "finalization_time_s": 0.0021200829942245036
+      },
+      "applied": true,
+      "actual_support_utilization": 0.9614924192428589
+    },
+    {
+      "tick": 9,
+      "caller_elapsed_s": 0.012844541983213276,
+      "request_elapsed_s": 0.012835417001042515,
+      "status": "stalled",
+      "message": "offline SQP feasible iterate; convergence not asserted",
+      "command_usable": true,
+      "deadline_met": true,
+      "nonlinear_feasibility": {
+        "constraint_count": 186,
+        "maximum_violation": -0.0,
+        "tolerance": 1e-06
+      },
+      "counts": {
+        "evaluate": 3,
+        "linearize": 2,
+        "finalize": 1
+      },
+      "phase_times": {
+        "preparation_s": 0.0002773749874904752
+      },
+      "events": [
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.000444125005742535
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.0032476659980602562
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.0003591660060919821
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.003103875002125278
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.00034699999378062785
+        },
+        {
+          "phase": "finalize",
+          "elapsed_s": 0.002488583995727822
+        }
+      ],
+      "optimizer": {
+        "iteration_budget": 2,
+        "iterations": 2,
+        "seed_linearization_time_s": 0.0032657499832566828,
+        "linearization_time_s": 0.0031423330074176192,
+        "quadratic_step_time_s": 0.0010189169843215495,
+        "line_search_time_s": 0.000806500029284507,
+        "qp_unsuccessful_count": 0,
+        "stop_reason": "iteration_limit",
+        "optimizer_elapsed_s": 0.005343124998034909,
+        "feasible": true,
+        "maximum_constraint_violation": -0.0,
+        "finalization_feasible": true,
+        "output_source": "finalizer",
+        "finalization_time_s": 0.002589832991361618
+      },
+      "applied": true,
+      "actual_support_utilization": 0.9593996405601501
+    },
+    {
+      "tick": 10,
+      "caller_elapsed_s": 0.012817209004424512,
+      "request_elapsed_s": 0.01280829100869596,
+      "status": "stalled",
+      "message": "offline SQP feasible iterate; convergence not asserted",
+      "command_usable": true,
+      "deadline_met": true,
+      "nonlinear_feasibility": {
+        "constraint_count": 186,
+        "maximum_violation": -0.0,
+        "tolerance": 1e-06
+      },
+      "counts": {
+        "evaluate": 3,
+        "linearize": 2,
+        "finalize": 1
+      },
+      "phase_times": {
+        "preparation_s": 0.00024970798403955996
+      },
+      "events": [
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.0004122499958612025
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.0032614580122753978
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.0003770840121433139
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.003401333000510931
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.00039591698441654444
+        },
+        {
+          "phase": "finalize",
+          "elapsed_s": 0.00207612500526011
+        }
+      ],
+      "optimizer": {
+        "iteration_budget": 2,
+        "iterations": 2,
+        "seed_linearization_time_s": 0.0032773329876363277,
+        "linearization_time_s": 0.0034534999867901206,
+        "quadratic_step_time_s": 0.001068082987330854,
+        "line_search_time_s": 0.0008759999764151871,
+        "qp_unsuccessful_count": 0,
+        "stop_reason": "iteration_limit",
+        "optimizer_elapsed_s": 0.005844792001880705,
+        "feasible": true,
+        "maximum_constraint_violation": -0.0,
+        "finalization_feasible": true,
+        "output_source": "finalizer",
+        "finalization_time_s": 0.0021397090167738497
+      },
+      "applied": true,
+      "actual_support_utilization": 0.9548388719558716
+    },
+    {
+      "tick": 11,
+      "caller_elapsed_s": 0.012650457996642217,
+      "request_elapsed_s": 0.012641625013202429,
+      "status": "stalled",
+      "message": "offline SQP feasible iterate; convergence not asserted",
+      "command_usable": true,
+      "deadline_met": true,
+      "nonlinear_feasibility": {
+        "constraint_count": 186,
+        "maximum_violation": -0.0,
+        "tolerance": 1e-06
+      },
+      "counts": {
+        "evaluate": 3,
+        "linearize": 2,
+        "finalize": 1
+      },
+      "phase_times": {
+        "preparation_s": 0.0002728340041358024
+      },
+      "events": [
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.000407209008699283
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.003441458015004173
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.0004054589953739196
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.003158582985633984
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.0003578749892767519
+        },
+        {
+          "phase": "finalize",
+          "elapsed_s": 0.0020930410246364772
+        }
+      ],
+      "optimizer": {
+        "iteration_budget": 2,
+        "iterations": 2,
+        "seed_linearization_time_s": 0.003464333014562726,
+        "linearization_time_s": 0.0031924580107443035,
+        "quadratic_step_time_s": 0.0010121669911313802,
+        "line_search_time_s": 0.0008545410237275064,
+        "qp_unsuccessful_count": 0,
+        "stop_reason": "iteration_limit",
+        "optimizer_elapsed_s": 0.005456625018268824,
+        "feasible": true,
+        "maximum_constraint_violation": -0.0,
+        "finalization_feasible": true,
+        "output_source": "finalizer",
+        "finalization_time_s": 0.002152582979761064
+      },
+      "applied": true,
+      "actual_support_utilization": 0.9400984048843384
+    },
+    {
+      "tick": 12,
+      "caller_elapsed_s": 0.012366750015644357,
+      "request_elapsed_s": 0.012358375010080636,
+      "status": "stalled",
+      "message": "offline SQP feasible iterate; convergence not asserted",
+      "command_usable": true,
+      "deadline_met": true,
+      "nonlinear_feasibility": {
+        "constraint_count": 186,
+        "maximum_violation": -0.0,
+        "tolerance": 1e-06
+      },
+      "counts": {
+        "evaluate": 3,
+        "linearize": 2,
+        "finalize": 1
+      },
+      "phase_times": {
+        "preparation_s": 0.00028562499210238457
+      },
+      "events": [
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.00042120800935663283
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.0032238330168183893
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.00036954099778085947
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.003118916996754706
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.00036929099587723613
+        },
+        {
+          "phase": "finalize",
+          "elapsed_s": 0.002142541983630508
+        }
+      ],
+      "optimizer": {
+        "iteration_budget": 2,
+        "iterations": 2,
+        "seed_linearization_time_s": 0.0032402500219177455,
+        "linearization_time_s": 0.0031600830261595547,
+        "quadratic_step_time_s": 0.000981207995209843,
+        "line_search_time_s": 0.0008359169878531247,
+        "qp_unsuccessful_count": 0,
+        "stop_reason": "iteration_limit",
+        "optimizer_elapsed_s": 0.005380208982387558,
+        "feasible": true,
+        "maximum_constraint_violation": -0.0,
+        "finalization_feasible": true,
+        "output_source": "finalizer",
+        "finalization_time_s": 0.0022034580179024488
+      },
+      "applied": true,
+      "actual_support_utilization": 0.9274644255638123
+    },
+    {
+      "tick": 13,
+      "caller_elapsed_s": 0.012503750011092052,
+      "request_elapsed_s": 0.01249462499981746,
+      "status": "stalled",
+      "message": "offline SQP feasible iterate; convergence not asserted",
+      "command_usable": true,
+      "deadline_met": true,
+      "nonlinear_feasibility": {
+        "constraint_count": 186,
+        "maximum_violation": -0.0,
+        "tolerance": 1e-06
+      },
+      "counts": {
+        "evaluate": 3,
+        "linearize": 2,
+        "finalize": 1
+      },
+      "phase_times": {
+        "preparation_s": 0.0002645410131663084
+      },
+      "events": [
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.0003955420106649399
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.003242791019147262
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.0003881250158883631
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.0031499169999733567
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.00035433299490250647
+        },
+        {
+          "phase": "finalize",
+          "elapsed_s": 0.002234457992017269
+        }
+      ],
+      "optimizer": {
+        "iteration_budget": 2,
+        "iterations": 2,
+        "seed_linearization_time_s": 0.0032589590118732303,
+        "linearization_time_s": 0.0031873749976512045,
+        "quadratic_step_time_s": 0.0010151249589398503,
+        "line_search_time_s": 0.0008326659735757858,
+        "qp_unsuccessful_count": 0,
+        "stop_reason": "iteration_limit",
+        "optimizer_elapsed_s": 0.005415332998381928,
+        "feasible": true,
+        "maximum_constraint_violation": -0.0,
+        "finalization_feasible": true,
+        "output_source": "finalizer",
+        "finalization_time_s": 0.002306457987288013
+      },
+      "applied": true,
+      "actual_support_utilization": 0.9454611539840698
+    },
+    {
+      "tick": 14,
+      "caller_elapsed_s": 0.012465417006751522,
+      "request_elapsed_s": 0.012457166973035783,
+      "status": "stalled",
+      "message": "offline SQP feasible iterate; convergence not asserted",
+      "command_usable": true,
+      "deadline_met": true,
+      "nonlinear_feasibility": {
+        "constraint_count": 186,
+        "maximum_violation": -0.0,
+        "tolerance": 1e-06
+      },
+      "counts": {
+        "evaluate": 3,
+        "linearize": 2,
+        "finalize": 1
+      },
+      "phase_times": {
+        "preparation_s": 0.0002503749856259674
+      },
+      "events": [
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.00039216698496602476
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.00326324999332428
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.00036583401379175484
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.0033037919783964753
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.00037716698716394603
+        },
+        {
+          "phase": "finalize",
+          "elapsed_s": 0.00210883398540318
+        }
+      ],
+      "optimizer": {
+        "iteration_budget": 2,
+        "iterations": 2,
+        "seed_linearization_time_s": 0.003279000025941059,
+        "linearization_time_s": 0.0033474990050308406,
+        "quadratic_step_time_s": 0.0009908749780151993,
+        "line_search_time_s": 0.000840041961055249,
+        "qp_unsuccessful_count": 0,
+        "stop_reason": "iteration_limit",
+        "optimizer_elapsed_s": 0.0055697909847367555,
+        "feasible": true,
+        "maximum_constraint_violation": -0.0,
+        "finalization_feasible": true,
+        "output_source": "finalizer",
+        "finalization_time_s": 0.002170040999772027
+      },
+      "applied": true,
+      "actual_support_utilization": 0.947463870048523
+    },
+    {
+      "tick": 15,
+      "caller_elapsed_s": 0.012328207987593487,
+      "request_elapsed_s": 0.012319625006057322,
+      "status": "stalled",
+      "message": "offline SQP feasible iterate; convergence not asserted",
+      "command_usable": true,
+      "deadline_met": true,
+      "nonlinear_feasibility": {
+        "constraint_count": 186,
+        "maximum_violation": -0.0,
+        "tolerance": 1e-06
+      },
+      "counts": {
+        "evaluate": 3,
+        "linearize": 2,
+        "finalize": 1
+      },
+      "phase_times": {
+        "preparation_s": 0.00025145901599898934
+      },
+      "events": [
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.0004149579908698797
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.0034498329914640635
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.0003863750025629997
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.0031611669983249158
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.0003674580075312406
+        },
+        {
+          "phase": "finalize",
+          "elapsed_s": 0.0019218749948777258
+        }
+      ],
+      "optimizer": {
+        "iteration_budget": 2,
+        "iterations": 2,
+        "seed_linearization_time_s": 0.003471583011560142,
+        "linearization_time_s": 0.003198874997906387,
+        "quadratic_step_time_s": 0.0009494590049143881,
+        "line_search_time_s": 0.0008426239946857095,
+        "qp_unsuccessful_count": 0,
+        "stop_reason": "iteration_limit",
+        "optimizer_elapsed_s": 0.005369499995140359,
+        "feasible": true,
+        "maximum_constraint_violation": -0.0,
+        "finalization_feasible": true,
+        "output_source": "finalizer",
+        "finalization_time_s": 0.0019842500041704625
+      },
+      "applied": true,
+      "actual_support_utilization": 0.9366340041160583
+    },
+    {
+      "tick": 16,
+      "caller_elapsed_s": 0.012106750014936551,
+      "request_elapsed_s": 0.012097375001758337,
+      "status": "stalled",
+      "message": "offline SQP feasible iterate; convergence not asserted",
+      "command_usable": true,
+      "deadline_met": true,
+      "nonlinear_feasibility": {
+        "constraint_count": 186,
+        "maximum_violation": -0.0,
+        "tolerance": 1e-06
+      },
+      "counts": {
+        "evaluate": 3,
+        "linearize": 2,
+        "finalize": 1
+      },
+      "phase_times": {
+        "preparation_s": 0.00025233300402760506
+      },
+      "events": [
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.00039874998037703335
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.0032577920064795762
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.00035179100814275444
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.003092290979111567
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.0003442499728407711
+        },
+        {
+          "phase": "finalize",
+          "elapsed_s": 0.002061791979940608
+        }
+      ],
+      "optimizer": {
+        "iteration_budget": 2,
+        "iterations": 2,
+        "seed_linearization_time_s": 0.003273833019193262,
+        "linearization_time_s": 0.003124999988358468,
+        "quadratic_step_time_s": 0.0009416670072823763,
+        "line_search_time_s": 0.0007852929702494293,
+        "qp_unsuccessful_count": 0,
+        "stop_reason": "iteration_limit",
+        "optimizer_elapsed_s": 0.005200166982831433,
+        "feasible": true,
+        "maximum_constraint_violation": -0.0,
+        "finalization_feasible": true,
+        "output_source": "finalizer",
+        "finalization_time_s": 0.0021279169886838645
+      },
+      "applied": true,
+      "actual_support_utilization": 0.9158421754837036
+    },
+    {
+      "tick": 17,
+      "caller_elapsed_s": 0.012165958003606647,
+      "request_elapsed_s": 0.012155875010648742,
+      "status": "stalled",
+      "message": "offline SQP feasible iterate; convergence not asserted",
+      "command_usable": true,
+      "deadline_met": true,
+      "nonlinear_feasibility": {
+        "constraint_count": 186,
+        "maximum_violation": -0.0,
+        "tolerance": 1e-06
+      },
+      "counts": {
+        "evaluate": 3,
+        "linearize": 2,
+        "finalize": 1
+      },
+      "phase_times": {
+        "preparation_s": 0.00026412500301375985
+      },
+      "events": [
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.0003922079922631383
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.00316266599111259
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.0003555000002961606
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.0030940420110709965
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.00035849999403581023
+        },
+        {
+          "phase": "finalize",
+          "elapsed_s": 0.0020899579976685345
+        }
+      ],
+      "optimizer": {
+        "iteration_budget": 2,
+        "iterations": 2,
+        "seed_linearization_time_s": 0.003178290993673727,
+        "linearization_time_s": 0.003130291006527841,
+        "quadratic_step_time_s": 0.0009931250242516398,
+        "line_search_time_s": 0.0008091669878922403,
+        "qp_unsuccessful_count": 0,
+        "stop_reason": "iteration_limit",
+        "optimizer_elapsed_s": 0.005299916985677555,
+        "feasible": true,
+        "maximum_constraint_violation": -0.0,
+        "finalization_feasible": true,
+        "output_source": "finalizer",
+        "finalization_time_s": 0.0021490420040208846
+      },
+      "applied": true,
+      "actual_support_utilization": 0.8798983097076416
+    },
+    {
+      "tick": 18,
+      "caller_elapsed_s": 0.012924292008392513,
+      "request_elapsed_s": 0.012915125000290573,
+      "status": "stalled",
+      "message": "offline SQP feasible iterate; convergence not asserted",
+      "command_usable": true,
+      "deadline_met": true,
+      "nonlinear_feasibility": {
+        "constraint_count": 186,
+        "maximum_violation": -0.0,
+        "tolerance": 1e-06
+      },
+      "counts": {
+        "evaluate": 3,
+        "linearize": 2,
+        "finalize": 1
+      },
+      "phase_times": {
+        "preparation_s": 0.0002513750223442912
+      },
+      "events": [
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.00041158299427479506
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.003207625006325543
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.00040537500171922147
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.0035052080056630075
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.00038820802001282573
+        },
+        {
+          "phase": "finalize",
+          "elapsed_s": 0.0020245839841663837
+        }
+      ],
+      "optimizer": {
+        "iteration_budget": 2,
+        "iterations": 2,
+        "seed_linearization_time_s": 0.0032235409889835864,
+        "linearization_time_s": 0.003558834025170654,
+        "quadratic_step_time_s": 0.001136250008130446,
+        "line_search_time_s": 0.0009119169844780117,
+        "qp_unsuccessful_count": 0,
+        "stop_reason": "iteration_limit",
+        "optimizer_elapsed_s": 0.006085125001845881,
+        "feasible": true,
+        "maximum_constraint_violation": -0.0,
+        "finalization_feasible": true,
+        "output_source": "finalizer",
+        "finalization_time_s": 0.002089290996082127
+      },
+      "applied": true,
+      "actual_support_utilization": 0.8253785967826843
+    },
+    {
+      "tick": 19,
+      "caller_elapsed_s": 0.012576374982018024,
+      "request_elapsed_s": 0.0125671669957228,
+      "status": "stalled",
+      "message": "offline SQP feasible iterate; convergence not asserted",
+      "command_usable": true,
+      "deadline_met": true,
+      "nonlinear_feasibility": {
+        "constraint_count": 186,
+        "maximum_violation": -0.0,
+        "tolerance": 1e-06
+      },
+      "counts": {
+        "evaluate": 3,
+        "linearize": 2,
+        "finalize": 1
+      },
+      "phase_times": {
+        "preparation_s": 0.0002676250005606562
+      },
+      "events": [
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.0003929999948013574
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.0034805419854819775
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.00038883398519828916
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.00314529100432992
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.00035187500179745257
+        },
+        {
+          "phase": "finalize",
+          "elapsed_s": 0.0020252079993952066
+        }
+      ],
+      "optimizer": {
+        "iteration_budget": 2,
+        "iterations": 2,
+        "seed_linearization_time_s": 0.003505166998365894,
+        "linearization_time_s": 0.0031857090070843697,
+        "quadratic_step_time_s": 0.0010117079655174166,
+        "line_search_time_s": 0.0008465830178465694,
+        "qp_unsuccessful_count": 0,
+        "stop_reason": "iteration_limit",
+        "optimizer_elapsed_s": 0.005440708016976714,
+        "feasible": true,
+        "maximum_constraint_violation": -0.0,
+        "finalization_feasible": true,
+        "output_source": "finalizer",
+        "finalization_time_s": 0.0020854589820373803
+      },
+      "applied": true,
+      "actual_support_utilization": 0.756460964679718
+    },
+    {
+      "tick": 20,
+      "caller_elapsed_s": 0.012298749992623925,
+      "request_elapsed_s": 0.01228999998420477,
+      "status": "stalled",
+      "message": "offline SQP feasible iterate; convergence not asserted",
+      "command_usable": true,
+      "deadline_met": true,
+      "nonlinear_feasibility": {
+        "constraint_count": 186,
+        "maximum_violation": -0.0,
+        "tolerance": 1e-06
+      },
+      "counts": {
+        "evaluate": 3,
+        "linearize": 2,
+        "finalize": 1
+      },
+      "phase_times": {
+        "preparation_s": 0.0003719169762916863
+      },
+      "events": [
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.0004084999964106828
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.0032210829958785325
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.0003481250023469329
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.003078167006606236
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.00035608300822786987
+        },
+        {
+          "phase": "finalize",
+          "elapsed_s": 0.002114583010552451
+        }
+      ],
+      "optimizer": {
+        "iteration_budget": 2,
+        "iterations": 2,
+        "seed_linearization_time_s": 0.0032373339927289635,
+        "linearization_time_s": 0.003114666964393109,
+        "quadratic_step_time_s": 0.0009586249943822622,
+        "line_search_time_s": 0.0007965420081745833,
+        "qp_unsuccessful_count": 0,
+        "stop_reason": "iteration_limit",
+        "optimizer_elapsed_s": 0.005238500016275793,
+        "feasible": true,
+        "maximum_constraint_violation": -0.0,
+        "finalization_feasible": true,
+        "output_source": "finalizer",
+        "finalization_time_s": 0.0021753339970018715
+      },
+      "applied": true,
+      "actual_support_utilization": 0.671323299407959
+    },
+    {
+      "tick": 21,
+      "caller_elapsed_s": 0.011961500014876947,
+      "request_elapsed_s": 0.01195279200328514,
+      "status": "stalled",
+      "message": "offline SQP feasible iterate; convergence not asserted",
+      "command_usable": true,
+      "deadline_met": true,
+      "nonlinear_feasibility": {
+        "constraint_count": 186,
+        "maximum_violation": -0.0,
+        "tolerance": 1e-06
+      },
+      "counts": {
+        "evaluate": 3,
+        "linearize": 2,
+        "finalize": 1
+      },
+      "phase_times": {
+        "preparation_s": 0.0002590829972177744
+      },
+      "events": [
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.00040725001599639654
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.003166125010466203
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.000363041996024549
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.0031176659977063537
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.00034916697768494487
+        },
+        {
+          "phase": "finalize",
+          "elapsed_s": 0.0020106660085730255
+        }
+      ],
+      "optimizer": {
+        "iteration_budget": 2,
+        "iterations": 2,
+        "seed_linearization_time_s": 0.0031810830114409328,
+        "linearization_time_s": 0.003150873992126435,
+        "quadratic_step_time_s": 0.0009484999754931778,
+        "line_search_time_s": 0.000801000976935029,
+        "qp_unsuccessful_count": 0,
+        "stop_reason": "iteration_limit",
+        "optimizer_elapsed_s": 0.005250749993138015,
+        "feasible": true,
+        "maximum_constraint_violation": -0.0,
+        "finalization_feasible": true,
+        "output_source": "finalizer",
+        "finalization_time_s": 0.002068125002551824
+      },
+      "applied": true,
+      "actual_support_utilization": 0.5771118402481079
+    },
+    {
+      "tick": 22,
+      "caller_elapsed_s": 0.012185083993244916,
+      "request_elapsed_s": 0.012176458985777572,
+      "status": "stalled",
+      "message": "offline SQP feasible iterate; convergence not asserted",
+      "command_usable": true,
+      "deadline_met": true,
+      "nonlinear_feasibility": {
+        "constraint_count": 186,
+        "maximum_violation": -0.0,
+        "tolerance": 1e-06
+      },
+      "counts": {
+        "evaluate": 3,
+        "linearize": 2,
+        "finalize": 1
+      },
+      "phase_times": {
+        "preparation_s": 0.000254084006883204
+      },
+      "events": [
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.00040262500988319516
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.003265083010774106
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.00037212501047179103
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.0030943339806981385
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.00044616698869504035
+        },
+        {
+          "phase": "finalize",
+          "elapsed_s": 0.002069250011118129
+        }
+      ],
+      "optimizer": {
+        "iteration_budget": 2,
+        "iterations": 2,
+        "seed_linearization_time_s": 0.0032824169902596623,
+        "linearization_time_s": 0.0031336250249296427,
+        "quadratic_step_time_s": 0.0008838759968057275,
+        "line_search_time_s": 0.0009148749813903123,
+        "qp_unsuccessful_count": 0,
+        "stop_reason": "iteration_limit",
+        "optimizer_elapsed_s": 0.005291625013342127,
+        "feasible": true,
+        "maximum_constraint_violation": -0.0,
+        "finalization_feasible": true,
+        "output_source": "finalizer",
+        "finalization_time_s": 0.002129707980202511
+      },
+      "applied": true,
+      "actual_support_utilization": 0.5620724558830261
+    },
+    {
+      "tick": 23,
+      "caller_elapsed_s": 0.012252791988430545,
+      "request_elapsed_s": 0.012244499986991286,
+      "status": "stalled",
+      "message": "offline SQP feasible iterate; convergence not asserted",
+      "command_usable": true,
+      "deadline_met": true,
+      "nonlinear_feasibility": {
+        "constraint_count": 186,
+        "maximum_violation": -0.0,
+        "tolerance": 1e-06
+      },
+      "counts": {
+        "evaluate": 3,
+        "linearize": 2,
+        "finalize": 1
+      },
+      "phase_times": {
+        "preparation_s": 0.00024637498427182436
+      },
+      "events": [
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.0003821660066023469
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.0032452919986099005
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.00035600000410340726
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.0033157499856315553
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.0003848750202450901
+        },
+        {
+          "phase": "finalize",
+          "elapsed_s": 0.0020317090093158185
+        }
+      ],
+      "optimizer": {
+        "iteration_budget": 2,
+        "iterations": 2,
+        "seed_linearization_time_s": 0.003260457975557074,
+        "linearization_time_s": 0.0033550830266904086,
+        "quadratic_step_time_s": 0.0009133329731412232,
+        "line_search_time_s": 0.0008339579799212515,
+        "qp_unsuccessful_count": 0,
+        "stop_reason": "iteration_limit",
+        "optimizer_elapsed_s": 0.0054815410112496465,
+        "feasible": true,
+        "maximum_constraint_violation": -0.0,
+        "finalization_feasible": true,
+        "output_source": "finalizer",
+        "finalization_time_s": 0.0020884159894194454
+      },
+      "applied": true,
+      "actual_support_utilization": 0.5469645261764526
+    },
+    {
+      "tick": 24,
+      "caller_elapsed_s": 0.012124041997594759,
+      "request_elapsed_s": 0.012113750010030344,
+      "status": "stalled",
+      "message": "offline SQP feasible iterate; convergence not asserted",
+      "command_usable": true,
+      "deadline_met": true,
+      "nonlinear_feasibility": {
+        "constraint_count": 186,
+        "maximum_violation": -0.0,
+        "tolerance": 1e-06
+      },
+      "counts": {
+        "evaluate": 3,
+        "linearize": 2,
+        "finalize": 1
+      },
+      "phase_times": {
+        "preparation_s": 0.00024479199782945216
+      },
+      "events": [
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.00038395897718146443
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.0034157079935539514
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.0003783330030273646
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.0030980409937910736
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.0003507919900584966
+        },
+        {
+          "phase": "finalize",
+          "elapsed_s": 0.001995833998080343
+        }
+      ],
+      "optimizer": {
+        "iteration_budget": 2,
+        "iterations": 2,
+        "seed_linearization_time_s": 0.0034338749828748405,
+        "linearization_time_s": 0.0031377919658552855,
+        "quadratic_step_time_s": 0.000858250044984743,
+        "line_search_time_s": 0.0008226250065490603,
+        "qp_unsuccessful_count": 0,
+        "stop_reason": "iteration_limit",
+        "optimizer_elapsed_s": 0.005175750004127622,
+        "feasible": true,
+        "maximum_constraint_violation": -0.0,
+        "finalization_feasible": true,
+        "output_source": "finalizer",
+        "finalization_time_s": 0.002054375014267862
+      },
+      "applied": true,
+      "actual_support_utilization": 0.5318974256515503
+    },
+    {
+      "tick": 25,
+      "caller_elapsed_s": 0.012014124979032204,
+      "request_elapsed_s": 0.0120057089952752,
+      "status": "stalled",
+      "message": "offline SQP feasible iterate; convergence not asserted",
+      "command_usable": true,
+      "deadline_met": true,
+      "nonlinear_feasibility": {
+        "constraint_count": 186,
+        "maximum_violation": -0.0,
+        "tolerance": 1e-06
+      },
+      "counts": {
+        "evaluate": 3,
+        "linearize": 2,
+        "finalize": 1
+      },
+      "phase_times": {
+        "preparation_s": 0.0002672920236364007
+      },
+      "events": [
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.00040520800394006073
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.003214708005543798
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.00035524999839253724
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.00308212501113303
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.0003553749993443489
+        },
+        {
+          "phase": "finalize",
+          "elapsed_s": 0.00206920801429078
+        }
+      ],
+      "optimizer": {
+        "iteration_budget": 2,
+        "iterations": 2,
+        "seed_linearization_time_s": 0.0032298750011250377,
+        "linearization_time_s": 0.003115459025138989,
+        "quadratic_step_time_s": 0.0008593749953433871,
+        "line_search_time_s": 0.000805042014690116,
+        "qp_unsuccessful_count": 0,
+        "stop_reason": "iteration_limit",
+        "optimizer_elapsed_s": 0.005137958010891452,
+        "feasible": true,
+        "maximum_constraint_violation": -0.0,
+        "finalization_feasible": true,
+        "output_source": "finalizer",
+        "finalization_time_s": 0.0021290000004228204
+      },
+      "applied": true,
+      "actual_support_utilization": 0.5169278383255005
+    },
+    {
+      "tick": 26,
+      "caller_elapsed_s": 0.012425624998286366,
+      "request_elapsed_s": 0.012416709010722116,
+      "status": "stalled",
+      "message": "offline SQP feasible iterate; convergence not asserted",
+      "command_usable": true,
+      "deadline_met": true,
+      "nonlinear_feasibility": {
+        "constraint_count": 186,
+        "maximum_violation": -0.0,
+        "tolerance": 1e-06
+      },
+      "counts": {
+        "evaluate": 3,
+        "linearize": 2,
+        "finalize": 1
+      },
+      "phase_times": {
+        "preparation_s": 0.00025499999173916876
+      },
+      "events": [
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.0004204590222798288
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.003235499985748902
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.00039125001057982445
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.003124040988041088
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.000361625017831102
+        },
+        {
+          "phase": "finalize",
+          "elapsed_s": 0.0023575420200359076
+        }
+      ],
+      "optimizer": {
+        "iteration_budget": 2,
+        "iterations": 2,
+        "seed_linearization_time_s": 0.0032523330010008067,
+        "linearization_time_s": 0.0031610419682692736,
+        "quadratic_step_time_s": 0.0008580839785281569,
+        "line_search_time_s": 0.000843707995954901,
+        "qp_unsuccessful_count": 0,
+        "stop_reason": "iteration_limit",
+        "optimizer_elapsed_s": 0.005228374997386709,
+        "feasible": true,
+        "maximum_constraint_violation": -0.0,
+        "finalization_feasible": true,
+        "output_source": "finalizer",
+        "finalization_time_s": 0.0024312919995281845
+      },
+      "applied": true,
+      "actual_support_utilization": 0.5020700097084045
+    },
+    {
+      "tick": 27,
+      "caller_elapsed_s": 0.01205370799289085,
+      "request_elapsed_s": 0.012044792005326599,
+      "status": "stalled",
+      "message": "offline SQP feasible iterate; convergence not asserted",
+      "command_usable": true,
+      "deadline_met": true,
+      "nonlinear_feasibility": {
+        "constraint_count": 186,
+        "maximum_violation": -0.0,
+        "tolerance": 1e-06
+      },
+      "counts": {
+        "evaluate": 3,
+        "linearize": 2,
+        "finalize": 1
+      },
+      "phase_times": {
+        "preparation_s": 0.00024858402321115136
+      },
+      "events": [
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.00039366702549159527
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.003216415992937982
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.0003559589968062937
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.003243541985284537
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.00036395800998434424
+        },
+        {
+          "phase": "finalize",
+          "elapsed_s": 0.0020038750080857426
+        }
+      ],
+      "optimizer": {
+        "iteration_budget": 2,
+        "iterations": 2,
+        "seed_linearization_time_s": 0.0032319159945473075,
+        "linearization_time_s": 0.0032833750010468066,
+        "quadratic_step_time_s": 0.0008422500104643404,
+        "line_search_time_s": 0.0008099569531623274,
+        "qp_unsuccessful_count": 0,
+        "stop_reason": "iteration_limit",
+        "optimizer_elapsed_s": 0.005305083002895117,
+        "feasible": true,
+        "maximum_constraint_violation": -0.0,
+        "finalization_feasible": true,
+        "output_source": "finalizer",
+        "finalization_time_s": 0.002068333007628098
+      },
+      "applied": true,
+      "actual_support_utilization": 0.4873095154762268
+    },
+    {
+      "tick": 28,
+      "caller_elapsed_s": 0.012128125003073364,
+      "request_elapsed_s": 0.012118874990846962,
+      "status": "stalled",
+      "message": "offline SQP feasible iterate; convergence not asserted",
+      "command_usable": true,
+      "deadline_met": true,
+      "nonlinear_feasibility": {
+        "constraint_count": 186,
+        "maximum_violation": -0.0,
+        "tolerance": 1e-06
+      },
+      "counts": {
+        "evaluate": 3,
+        "linearize": 2,
+        "finalize": 1
+      },
+      "phase_times": {
+        "preparation_s": 0.00024979200679808855
+      },
+      "events": [
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.00038316697464324534
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.003350250015500933
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.00039833399932831526
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.003148000017972663
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.0003535000141710043
+        },
+        {
+          "phase": "finalize",
+          "elapsed_s": 0.0019876669975928962
+        }
+      ],
+      "optimizer": {
+        "iteration_budget": 2,
+        "iterations": 2,
+        "seed_linearization_time_s": 0.003372375009348616,
+        "linearization_time_s": 0.003185251000104472,
+        "quadratic_step_time_s": 0.0008142500009853393,
+        "line_search_time_s": 0.0008481240074615926,
+        "qp_unsuccessful_count": 0,
+        "stop_reason": "iteration_limit",
+        "optimizer_elapsed_s": 0.00523675000295043,
+        "feasible": true,
+        "maximum_constraint_violation": -0.0,
+        "finalization_feasible": true,
+        "output_source": "finalizer",
+        "finalization_time_s": 0.0020448750001378357
+      },
+      "applied": true,
+      "actual_support_utilization": 0.47264808416366577
+    },
+    {
+      "tick": 29,
+      "caller_elapsed_s": 0.011962791992118582,
+      "request_elapsed_s": 0.011953082983382046,
+      "status": "stalled",
+      "message": "offline SQP feasible iterate; convergence not asserted",
+      "command_usable": true,
+      "deadline_met": true,
+      "nonlinear_feasibility": {
+        "constraint_count": 186,
+        "maximum_violation": -0.0,
+        "tolerance": 1e-06
+      },
+      "counts": {
+        "evaluate": 3,
+        "linearize": 2,
+        "finalize": 1
+      },
+      "phase_times": {
+        "preparation_s": 0.0002589169889688492
+      },
+      "events": [
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.000403957994421944
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.0032145830045919865
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.00035179199767298996
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.003096916974755004
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.0003595000016503036
+        },
+        {
+          "phase": "finalize",
+          "elapsed_s": 0.002122459001839161
+        }
+      ],
+      "optimizer": {
+        "iteration_budget": 2,
+        "iterations": 2,
+        "seed_linearization_time_s": 0.003231709008105099,
+        "linearization_time_s": 0.0031308339966926724,
+        "quadratic_step_time_s": 0.0007265009917318821,
+        "line_search_time_s": 0.0008024999988265336,
+        "qp_unsuccessful_count": 0,
+        "stop_reason": "iteration_limit",
+        "optimizer_elapsed_s": 0.0050292499945499,
+        "feasible": true,
+        "maximum_constraint_violation": -0.0,
+        "finalization_feasible": true,
+        "output_source": "finalizer",
+        "finalization_time_s": 0.0021908750059083104
+      },
+      "applied": true,
+      "actual_support_utilization": 0.47878772020339966
+    },
+    {
+      "tick": 30,
+      "caller_elapsed_s": 0.01206758400076069,
+      "request_elapsed_s": 0.012059291009791195,
+      "status": "stalled",
+      "message": "offline SQP feasible iterate; convergence not asserted",
+      "command_usable": true,
+      "deadline_met": true,
+      "nonlinear_feasibility": {
+        "constraint_count": 186,
+        "maximum_violation": -0.0,
+        "tolerance": 1e-06
+      },
+      "counts": {
+        "evaluate": 3,
+        "linearize": 2,
+        "finalize": 1
+      },
+      "phase_times": {
+        "preparation_s": 0.0002644580090418458
+      },
+      "events": [
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.00039854200440458953
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.0032178749970626086
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.0003704159753397107
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.003193791984813288
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.00035445799585431814
+        },
+        {
+          "phase": "finalize",
+          "elapsed_s": 0.0020797910110559314
+        }
+      ],
+      "optimizer": {
+        "iteration_budget": 2,
+        "iterations": 2,
+        "seed_linearization_time_s": 0.0032369169930461794,
+        "linearization_time_s": 0.0032305429922416806,
+        "quadratic_step_time_s": 0.0007802090258337557,
+        "line_search_time_s": 0.0008214159752242267,
+        "qp_unsuccessful_count": 0,
+        "stop_reason": "iteration_limit",
+        "optimizer_elapsed_s": 0.005216083984123543,
+        "feasible": true,
+        "maximum_constraint_violation": -0.0,
+        "finalization_feasible": true,
+        "output_source": "finalizer",
+        "finalization_time_s": 0.0021367919980548322
+      },
+      "applied": true,
+      "actual_support_utilization": 0.5133745670318604
+    },
+    {
+      "tick": 31,
+      "caller_elapsed_s": 0.012140167003963143,
+      "request_elapsed_s": 0.012131291994592175,
+      "status": "stalled",
+      "message": "offline SQP feasible iterate; convergence not asserted",
+      "command_usable": true,
+      "deadline_met": true,
+      "nonlinear_feasibility": {
+        "constraint_count": 186,
+        "maximum_violation": -0.0,
+        "tolerance": 1e-06
+      },
+      "counts": {
+        "evaluate": 3,
+        "linearize": 2,
+        "finalize": 1
+      },
+      "phase_times": {
+        "preparation_s": 0.0002501669805496931
+      },
+      "events": [
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.0003927919897250831
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.0031902079936116934
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.0003716249775607139
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.0031149999995250255
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.00046016598935239017
+        },
+        {
+          "phase": "finalize",
+          "elapsed_s": 0.0021306249836925417
+        }
+      ],
+      "optimizer": {
+        "iteration_budget": 2,
+        "iterations": 2,
+        "seed_linearization_time_s": 0.0032065830018837005,
+        "linearization_time_s": 0.003152917022816837,
+        "quadratic_step_time_s": 0.0008029589662328362,
+        "line_search_time_s": 0.0009300419769715518,
+        "qp_unsuccessful_count": 0,
+        "stop_reason": "iteration_limit",
+        "optimizer_elapsed_s": 0.005256916978396475,
+        "feasible": true,
+        "maximum_constraint_violation": -0.0,
+        "finalization_feasible": true,
+        "output_source": "finalizer",
+        "finalization_time_s": 0.0021977080032229424
+      },
+      "applied": true,
+      "actual_support_utilization": 0.5386063456535339
+    },
+    {
+      "tick": 32,
+      "caller_elapsed_s": 0.012092500022845343,
+      "request_elapsed_s": 0.012083084002370015,
+      "status": "stalled",
+      "message": "offline SQP feasible iterate; convergence not asserted",
+      "command_usable": true,
+      "deadline_met": true,
+      "nonlinear_feasibility": {
+        "constraint_count": 186,
+        "maximum_violation": -0.0,
+        "tolerance": 1e-06
+      },
+      "counts": {
+        "evaluate": 3,
+        "linearize": 2,
+        "finalize": 1
+      },
+      "phase_times": {
+        "preparation_s": 0.0002481669944245368
+      },
+      "events": [
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.0003755000070668757
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.0032207499898504466
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.00036508397897705436
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.0032652909867465496
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.0003734589845407754
+        },
+        {
+          "phase": "finalize",
+          "elapsed_s": 0.0020372500002849847
+        }
+      ],
+      "optimizer": {
+        "iteration_budget": 2,
+        "iterations": 2,
+        "seed_linearization_time_s": 0.0032357919844798744,
+        "linearization_time_s": 0.003308084007585421,
+        "quadratic_step_time_s": 0.0007733330130577087,
+        "line_search_time_s": 0.000828541989903897,
+        "qp_unsuccessful_count": 0,
+        "stop_reason": "iteration_limit",
+        "optimizer_elapsed_s": 0.005299042008118704,
+        "feasible": true,
+        "maximum_constraint_violation": -0.0,
+        "finalization_feasible": true,
+        "output_source": "finalizer",
+        "finalization_time_s": 0.002097916993079707
+      },
+      "applied": true,
+      "actual_support_utilization": 0.5570666193962097
+    },
+    {
+      "tick": 33,
+      "caller_elapsed_s": 0.012209624983370304,
+      "request_elapsed_s": 0.012200582976220176,
+      "status": "stalled",
+      "message": "offline SQP feasible iterate; convergence not asserted",
+      "command_usable": true,
+      "deadline_met": true,
+      "nonlinear_feasibility": {
+        "constraint_count": 186,
+        "maximum_violation": -0.0,
+        "tolerance": 1e-06
+      },
+      "counts": {
+        "evaluate": 3,
+        "linearize": 2,
+        "finalize": 1
+      },
+      "phase_times": {
+        "preparation_s": 0.0002616249839775264
+      },
+      "events": [
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.00039062497671693563
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.0033942500012926757
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.0003827500040642917
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.003090791986323893
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.0003486250061541796
+        },
+        {
+          "phase": "finalize",
+          "elapsed_s": 0.0021164579957257956
+        }
+      ],
+      "optimizer": {
+        "iteration_budget": 2,
+        "iterations": 2,
+        "seed_linearization_time_s": 0.0034178339992649853,
+        "linearization_time_s": 0.0031274989887606353,
+        "quadratic_step_time_s": 0.0007527089910581708,
+        "line_search_time_s": 0.0008242089534178376,
+        "qp_unsuccessful_count": 0,
+        "stop_reason": "iteration_limit",
+        "optimizer_elapsed_s": 0.005080041009932756,
+        "feasible": true,
+        "maximum_constraint_violation": -0.0,
+        "finalization_feasible": true,
+        "output_source": "finalizer",
+        "finalization_time_s": 0.0021789169986732304
+      },
+      "applied": true,
+      "actual_support_utilization": 0.5709609389305115
+    },
+    {
+      "tick": 34,
+      "caller_elapsed_s": 0.01190233399393037,
+      "request_elapsed_s": 0.01189366600010544,
+      "status": "stalled",
+      "message": "offline SQP feasible iterate; convergence not asserted",
+      "command_usable": true,
+      "deadline_met": true,
+      "nonlinear_feasibility": {
+        "constraint_count": 186,
+        "maximum_violation": -0.0,
+        "tolerance": 1e-06
+      },
+      "counts": {
+        "evaluate": 3,
+        "linearize": 2,
+        "finalize": 1
+      },
+      "phase_times": {
+        "preparation_s": 0.0002575830148998648
+      },
+      "events": [
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.0004312919918447733
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.003226917004212737
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.00037054199492558837
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.003121957997791469
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.0003605830133892596
+        },
+        {
+          "phase": "finalize",
+          "elapsed_s": 0.002011124975979328
+        }
+      ],
+      "optimizer": {
+        "iteration_budget": 2,
+        "iterations": 2,
+        "seed_linearization_time_s": 0.0032420000061392784,
+        "linearization_time_s": 0.0031549999839626253,
+        "quadratic_step_time_s": 0.0007620840042363852,
+        "line_search_time_s": 0.000822666974272579,
+        "qp_unsuccessful_count": 0,
+        "stop_reason": "iteration_limit",
+        "optimizer_elapsed_s": 0.005104167008539662,
+        "feasible": true,
+        "maximum_constraint_violation": -0.0,
+        "finalization_feasible": true,
+        "output_source": "finalizer",
+        "finalization_time_s": 0.0020677080028690398
+      },
+      "applied": true,
+      "actual_support_utilization": 0.581947386264801
+    },
+    {
+      "tick": 35,
+      "caller_elapsed_s": 0.012300958012929186,
+      "request_elapsed_s": 0.012291791994357482,
+      "status": "stalled",
+      "message": "offline SQP feasible iterate; convergence not asserted",
+      "command_usable": true,
+      "deadline_met": true,
+      "nonlinear_feasibility": {
+        "constraint_count": 186,
+        "maximum_violation": -0.0,
+        "tolerance": 1e-06
+      },
+      "counts": {
+        "evaluate": 3,
+        "linearize": 2,
+        "finalize": 1
+      },
+      "phase_times": {
+        "preparation_s": 0.0002621669846121222
+      },
+      "events": [
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.00040204200195148587
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.003249750006943941
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.00037145899841561913
+        },
+        {
+          "phase": "linearize",
+          "elapsed_s": 0.003117915999609977
+        },
+        {
+          "phase": "evaluate",
+          "elapsed_s": 0.00034050000249408185
+        },
+        {
+          "phase": "finalize",
+          "elapsed_s": 0.0023726249928586185
+        }
+      ],
+      "optimizer": {
+        "iteration_budget": 2,
+        "iterations": 2,
+        "seed_linearization_time_s": 0.0032641249999869615,
+        "linearization_time_s": 0.0031503330392297357,
+        "quadratic_step_time_s": 0.0007593759801238775,
+        "line_search_time_s": 0.0008013330225367099,
+        "qp_unsuccessful_count": 0,
+        "stop_reason": "iteration_limit",
+        "optimizer_elapsed_s": 0.005074916000012308,
+        "feasible": true,
+        "maximum_constraint_violation": -0.0,
+        "finalization_feasible": true,
+        "output_source": "finalizer",
+        "finalization_time_s": 0.0024510000075679272
+      },
+      "applied": true,
+      "actual_support_utilization": 0.5909781455993652
+    }
+  ],
+  "stop_reason": "bounded_36_intervals_complete",
+  "applied_intervals": 36,
+  "source_sha256": {
+    "scripts/investigate_terminal_suffix.py": "1a8d1cbbd21443abb547aa5bcec353d24241b7b9c6a1a90d90c279b457fbbdd6",
+    "scripts/investigate_sqp_recovery.py": "cb5e42512b3e8c27abf63310e8555f4c911b131b0706e93d11a8dd87a291634c",
+    "src/glassbox/belief/belief.py": "16924b30baef0c3f4035c5919349c2ed905dd7cb75ac3287b2c074f1a089293b",
+    "src/glassbox/belief/forecast_error.py": "09602a8a1b8919b5db35a3c84cb477dd8f0cf6d3774eb755ca10ba68696a482b",
+    "src/glassbox/belief/information.py": "fb890920f34bca4af044e521c5694612a6f5a139a0a2d84c7aa37d4370021237",
+    "src/glassbox/belief/linearization.py": "ef0cf77eeb40445d4d09f2397afdd9fac37058934c4975217401e18620d46182",
+    "src/glassbox/belief/parameter_evidence.py": "81a574bf787bfb3b55163145d96546fda11237c6244b127294299b257ccd7606",
+    "src/glassbox/belief/update.py": "d96ba299309e269bdd9f0a320650e089088ca27aa9f5f3785de36e4b337b8587",
+    "src/glassbox/control/fitted.py": "7571ae1f5b50010b30bd52a9d7786834354e45f8c3dbff59de2a0ed0eb4d98af",
+    "src/glassbox/control/plan.py": "d94cf84cbd34e375c4d20013a3fefdeb7f676da839ca5437417751ca790d7121",
+    "src/glassbox/control/solver.py": "ea88fdcd7d737a7d0d86b113a9d9ccea3ffb7ce738a5a6c65096d5e4990231fc",
+    "src/glassbox/core/data.py": "89543426635a7136ef8da8666fbeee290174ce4c36b08998644492e758f29759",
+    "src/glassbox/core/dynamics.py": "f7d3a65549d6c7d35987d3b55ca8431581f7b7b07976d59fd7dc7e0c27395c01",
+    "src/glassbox/core/geometry.py": "f83708893892c2f34c9e52423f47e53d271fd0b7579cf6a7ece439293c3d07bb",
+    "src/glassbox/core/metrics.py": "1a984d3ef1d3bc875e602f2ee4129e0bb11a1570652920929e1d7be30c4bfc42",
+    "src/glassbox/core/diagnostics.py": "4553e646a755c1254f0fb11b4f5e0eca79ec8eb774a45c4190fc55fd335b673f",
+    "src/glassbox/core/model.py": "8062215ea5886c2c15d2d22e78ee29b8943852f48da140e1a6c06d892b848ed8",
+    "src/glassbox/core/synthetic.py": "6b9bec538e8e0964ca67ec5d61060ac02bc54bc9428fbae50d5f141f4571f8f1",
+    "src/glassbox/workflows/benchmarks/recovery.py": "d459952644f2bec35365d2e9a259956ea8b1cdacc76d53a9fa64e4dba35735e5",
+    "scripts/investigate_fast_suffix.py": "e4579bed0e73dcb9dc49784ef428817890ec08572726649086b992d2abe57e30",
+    "scripts/investigate_fast_suffix_runtime.py": "d75caff9122a1d1f41533ca82cddf2ce7dc75ef264d0a03f84c9d2c5069b75e3"
+  },
+  "fixture_sha256": {
+    "rich-belief.json": "cd4e3b5201aff055b274a6fc1fe8eee64aa0656b447999b6618122a965d71bd1",
+    "horizon-shift-states.npz": "d6ff2734b99951078410022ac7aa88134a1ca8c93f1ed353bdb2a6855da40a0b",
+    "manifest.json": "659e7584d59a6472b4ff6c2ef97e30e207803eb081220a0e62695c4386fee16a"
+  },
+  "fixture_manifest": {
+    "scenario_baseline_revision": "4f5cddb1b0095010235ea919fbd2aa6553b2589c",
+    "known_fifth_solve_failure_reproduced": true,
+    "tick_results": [
+      {
+        "tick": 0,
+        "status": "stalled",
+        "usable": true,
+        "message": "offline SQP feasible iterate; convergence not asserted"
+      },
+      {
+        "tick": 1,
+        "status": "stalled",
+        "usable": true,
+        "message": "offline SQP feasible iterate; convergence not asserted"
+      },
+      {
+        "tick": 2,
+        "status": "stalled",
+        "usable": true,
+        "message": "offline SQP feasible iterate; convergence not asserted"
+      },
+      {
+        "tick": 3,
+        "status": "stalled",
+        "usable": true,
+        "message": "offline SQP feasible iterate; convergence not asserted"
+      },
+      {
+        "tick": 4,
+        "status": "line_search_failed",
+        "usable": false,
+        "message": "SQP returned no feasible command plan"
+      }
+    ],
+    "array_shapes": {
+      "reference_states": [
+        31,
+        13
+      ],
+      "tick0_state": [
+        13
+      ],
+      "tick0_latent": [
+        4
+      ],
+      "tick0_previous_command": [
+        4
+      ],
+      "tick0_predicted_states": [
+        31,
+        13
+      ],
+      "tick0_predicted_latent_states": [
+        31,
+        4
+      ],
+      "tick0_predicted_commands": [
+        30,
+        4
+      ],
+      "tick1_state": [
+        13
+      ],
+      "tick1_latent": [
+        4
+      ],
+      "tick1_previous_command": [
+        4
+      ],
+      "tick1_warm_commands": [
+        30,
+        4
+      ],
+      "tick1_shifted_commands": [
+        30,
+        4
+      ],
+      "tick1_predicted_states": [
+        31,
+        13
+      ],
+      "tick1_predicted_latent_states": [
+        31,
+        4
+      ],
+      "tick1_predicted_commands": [
+        30,
+        4
+      ],
+      "tick2_state": [
+        13
+      ],
+      "tick2_latent": [
+        4
+      ],
+      "tick2_previous_command": [
+        4
+      ],
+      "tick2_warm_commands": [
+        30,
+        4
+      ],
+      "tick2_shifted_commands": [
+        30,
+        4
+      ],
+      "tick2_predicted_states": [
+        31,
+        13
+      ],
+      "tick2_predicted_latent_states": [
+        31,
+        4
+      ],
+      "tick2_predicted_commands": [
+        30,
+        4
+      ],
+      "tick3_state": [
+        13
+      ],
+      "tick3_latent": [
+        4
+      ],
+      "tick3_previous_command": [
+        4
+      ],
+      "tick3_warm_commands": [
+        30,
+        4
+      ],
+      "tick3_shifted_commands": [
+        30,
+        4
+      ],
+      "tick3_predicted_states": [
+        31,
+        13
+      ],
+      "tick3_predicted_latent_states": [
+        31,
+        4
+      ],
+      "tick3_predicted_commands": [
+        30,
+        4
+      ],
+      "tick4_state": [
+        13
+      ],
+      "tick4_latent": [
+        4
+      ],
+      "tick4_previous_command": [
+        4
+      ],
+      "tick4_warm_commands": [
+        30,
+        4
+      ],
+      "tick4_shifted_commands": [
+        30,
+        4
+      ]
+    },
+    "source_sha256": {
+      "scripts/build_nmpc_research_fixture.py": "3ba073cc7068d03e8ce4b83e1e7947a173127f8e4ffb3a1cf162032a4260583c",
+      "scripts/investigate_sqp_recovery.py": "cb5e42512b3e8c27abf63310e8555f4c911b131b0706e93d11a8dd87a291634c",
+      "scripts/investigate_recovery.py": "683901f143ec7c44c5494202fcb48be66b3a63883931804f54cf3a85410833dc",
+      "src/glassbox/belief/belief.py": "16924b30baef0c3f4035c5919349c2ed905dd7cb75ac3287b2c074f1a089293b",
+      "src/glassbox/belief/forecast_error.py": "09602a8a1b8919b5db35a3c84cb477dd8f0cf6d3774eb755ca10ba68696a482b",
+      "src/glassbox/belief/information.py": "fb890920f34bca4af044e521c5694612a6f5a139a0a2d84c7aa37d4370021237",
+      "src/glassbox/belief/linearization.py": "ef0cf77eeb40445d4d09f2397afdd9fac37058934c4975217401e18620d46182",
+      "src/glassbox/belief/parameter_evidence.py": "81a574bf787bfb3b55163145d96546fda11237c6244b127294299b257ccd7606",
+      "src/glassbox/belief/update.py": "d96ba299309e269bdd9f0a320650e089088ca27aa9f5f3785de36e4b337b8587",
+      "src/glassbox/control/fitted.py": "7571ae1f5b50010b30bd52a9d7786834354e45f8c3dbff59de2a0ed0eb4d98af",
+      "src/glassbox/control/plan.py": "d94cf84cbd34e375c4d20013a3fefdeb7f676da839ca5437417751ca790d7121",
+      "src/glassbox/control/solver.py": "ea88fdcd7d737a7d0d86b113a9d9ccea3ffb7ce738a5a6c65096d5e4990231fc",
+      "src/glassbox/core/data.py": "89543426635a7136ef8da8666fbeee290174ce4c36b08998644492e758f29759",
+      "src/glassbox/core/dynamics.py": "f7d3a65549d6c7d35987d3b55ca8431581f7b7b07976d59fd7dc7e0c27395c01",
+      "src/glassbox/core/geometry.py": "f83708893892c2f34c9e52423f47e53d271fd0b7579cf6a7ece439293c3d07bb",
+      "src/glassbox/core/metrics.py": "1a984d3ef1d3bc875e602f2ee4129e0bb11a1570652920929e1d7be30c4bfc42",
+      "src/glassbox/core/diagnostics.py": "4553e646a755c1254f0fb11b4f5e0eca79ec8eb774a45c4190fc55fd335b673f",
+      "src/glassbox/core/model.py": "8062215ea5886c2c15d2d22e78ee29b8943852f48da140e1a6c06d892b848ed8",
+      "src/glassbox/core/synthetic.py": "6b9bec538e8e0964ca67ec5d61060ac02bc54bc9428fbae50d5f141f4571f8f1",
+      "src/glassbox/workflows/benchmarks/recovery.py": "d459952644f2bec35365d2e9a259956ea8b1cdacc76d53a9fa64e4dba35735e5"
+    }
+  }
+}

@@ -1,0 +1,89 @@
+{
+  "postprocessing_only": true,
+  "report_sha256": "ed7fcedd68783d0bb6da42b4e89674b6764a2ff272d9a29475aca03b3b76c9e0",
+  "parity_cases": 26,
+  "one_fewer_evaluation_with_same_linearization_and_finalizer_counts": true,
+  "paired_summary_verified": true,
+  "paired_acceptance": {
+    "baseline": {
+      "requests": 128,
+      "accepted": 72,
+      "caller_rejected_usable_outputs": 1,
+      "accepted_optimizer_iteration_counts": {
+        "0": 60,
+        "1": 7,
+        "2": 5
+      }
+    },
+    "reused": {
+      "requests": 128,
+      "accepted": 109,
+      "caller_rejected_usable_outputs": 1,
+      "accepted_optimizer_iteration_counts": {
+        "0": 93,
+        "2": 9,
+        "1": 7
+      }
+    }
+  },
+  "closed_loop": {
+    "cold_original_baseline": {
+      "applied_intervals": 0,
+      "failed_tick": 0,
+      "failed_startup": true,
+      "message": "solver deadline expired during optimization",
+      "caller_budget_fraction": 1.0445379099110141,
+      "seed_linearization_to_admission_estimate_ratio": 2.0561210906387055,
+      "optimizer_had_feasible_candidate": true
+    },
+    "cold_original_reused": {
+      "applied_intervals": 3,
+      "failed_tick": 3,
+      "failed_startup": false,
+      "message": "SQP budget exhausted before finding a feasible plan",
+      "caller_budget_fraction": 0.9456604500883259,
+      "seed_linearization_to_admission_estimate_ratio": 2.065643996254287,
+      "optimizer_had_feasible_candidate": false
+    },
+    "cold_small_reused": {
+      "applied_intervals": 0,
+      "failed_tick": 0,
+      "failed_startup": true,
+      "message": "solver deadline expired during optimization",
+      "caller_budget_fraction": 1.0242283399566077,
+      "seed_linearization_to_admission_estimate_ratio": 2.4467045494185933,
+      "optimizer_had_feasible_candidate": true
+    },
+    "cold_small_baseline": {
+      "applied_intervals": 0,
+      "failed_tick": 0,
+      "failed_startup": true,
+      "message": "solver deadline expired during optimization",
+      "caller_budget_fraction": 1.070765409967862,
+      "seed_linearization_to_admission_estimate_ratio": 2.3949318142099814,
+      "optimizer_had_feasible_candidate": true
+    },
+    "cold_original_kick_baseline": {
+      "applied_intervals": 0,
+      "failed_tick": 0,
+      "failed_startup": true,
+      "message": "deadline expired during waveform result assembly",
+      "caller_budget_fraction": 1.0077387499040924,
+      "seed_linearization_to_admission_estimate_ratio": 2.7595152708024466,
+      "optimizer_had_feasible_candidate": true
+    },
+    "cold_original_kick_reused": {
+      "applied_intervals": 0,
+      "failed_tick": 0,
+      "failed_startup": true,
+      "message": "solver deadline expired during result assembly",
+      "caller_budget_fraction": 1.0084379199543037,
+      "seed_linearization_to_admission_estimate_ratio": 2.8253787313587964,
+      "optimizer_had_feasible_candidate": true
+    }
+  },
+  "scope": "Audit of these saved failed closed-loop observations; a new timing run can have different outcomes.",
+  "source_sha256": {
+    "audit_single_seed.py": "6f437939ca9334cef62bbe800a6a75fd080a4e025500af36849b61cea234c7d1"
+  }
+}

@@ -1,104 +1,67 @@
 # Scope
 
-Glassbox identifies differentiable vehicle dynamics from recorded state and
-actuator telemetry, wraps the fitted model in an explicit statement of its
-predictive error and parameter uncertainty, and uses that belief for bounded
-online adaptation and model-predictive control. This page states what the
-library covers today, what evidence backs it, and where the boundary is. The
-original August 2026 proposal is kept as [history](history/idea-2026-08.md);
-several things it listed as out of scope have since been built.
+Glassbox fits differentiable effective dynamics for quadrotors and fixed-wing
+aircraft. Its core workflow is to ingest telemetry, fit a model, evaluate
+reserved motion against a baseline, and update with new telemetry. The model
+and its evidence are the deliverable; control experiments evaluate their use.
 
-## The question
+## Inputs and models
 
-Given recorded vehicle state and actuator telemetry, can Glassbox identify a
-differentiable dynamics model that accurately and efficiently predicts unseen
-vehicle motion, and can that model carry an honest account of its own
-uncertainty into control?
+Inputs are actuator commands or measured actuation, paired with rigid-body
+state. `TrajectorySpec` records their roles, units, frames and timing. The
+canonical state uses NWU position and velocity, a WXYZ body-to-world quaternion,
+and FLU body rates.
 
-## System boundary
+The structured models describe thrust, aerodynamic and rotational acceleration,
+with actuator response and optional learned residuals. Fitted coefficients
+belong to an airframe and its signal contract. See [validation](validation.md)
+for the datasets, prediction horizons and comparisons measured so far.
 
-The model represents the vehicle plant below the flight controller. Its inputs
-are the lowest-level actuator commands reliably present in telemetry, never
-position, velocity, or attitude setpoints, so the learned dynamics do not absorb
-controller and estimator behavior.
+## Design
 
-The canonical rigid-body state is position, velocity, attitude, and body rate
-in a north-west-up world frame with a forward-left-up body frame and a
-scalar-first unit quaternion (`RIGID_BODY_STATE_SCHEMA`). Actuator response is
-carried as a latent applied-control state when it is not measured. Known
-kinematics are kept fixed; the identification problem is the map from actuator
-behavior to forces, torques, and accelerations.
+Three objects carry the identification workflow:
 
-## What exists
+- `Trajectory`: the recorded signals and their meaning.
+- `ExecutableModel`: equations bound to input channels, sample period, actuation
+  mapping and a training-derived velocity/rate operating envelope.
+- `DynamicsBelief`: the model, local structured-parameter information and
+  empirical forecast error.
 
-- **Dynamics and identification.** Structured multirotor and fixed-wing
-  rigid-body models with analytic actuator lag, an optional compact residual,
-  RK4 rollouts in JAX, and multi-horizon rollout fitting with group-balanced
-  losses. Evaluation uses complete-flight and maneuver-family holdouts against
-  a kinematic persistence baseline.
-- **Dynamics beliefs.** The fitted artifact is a `DynamicsBelief`: the nominal
-  model, held-out predictive error in 12 local rigid-body coordinates,
-  rank-aware local parameter information, a validity envelope, and update
-  provenance. Fleet priors can be built from several beliefs. See
-  [dynamics beliefs](concepts/dynamics-beliefs.md).
-- **Online adaptation.** A transactional propose, validate, commit update from
-  recent telemetry that returns the original belief when disjoint later
-  telemetry does not improve. See the same page.
-- **Bootstrap identification.** For a vehicle with no prior, a smaller contract
-  that fits collective acceleration and a motor-to-angular-acceleration map from
-  applied motor inputs, offline and recursively online. See
-  [bootstrap identification](concepts/bootstrap-identification.md).
-- **Control.** A bounded JAX NMPC controller driven by a belief, with hard
-  command bounds, explicit failure statuses, and belief-aware support
-  projection, plus a model-independent flight supervisor. See
-  [NMPC](concepts/nmpc.md) and [the supervisor](concepts/flight-supervisor.md).
-- **Telemetry and corpora.** PX4 ULog ingestion for multirotors and fixed
-  wings, scripted PX4 SITL recording, and adapters for the Nano-Quadrotor, ARP,
-  IDF-DS, Skywalker X8, and EPFL TOPOPlane2 reference datasets. See the
-  [PX4 ULog guide](guides/px4-ulog.md) and the experiment pages.
-- **Simulator integrations.** The Cascade plant used as an independently
-  implemented vehicle for closed-loop diagnostics. The Crazyflow integration
-  and its dual-control NMPC throw demo moved to
-  [glassbox-throw](https://github.com/Rylandl/glassbox-throw).
+Construct these objects where the fit or measurement produces them. Reports
+summarize results; serialization belongs at artifact boundaries. Prediction,
+parameter information and forecast error have different meanings and remain
+separate in the [belief API](concepts/dynamics-beliefs.md).
 
-## Evidence standard
+| Responsibility | Owner |
+| --- | --- |
+| Signal contract and flight boundaries | `core.data`; source translation in `io` |
+| Fit orchestration and numerical optimization | `fitting` and `core.identification` |
+| Vehicle/actuator rollout and prediction errors | `core.dynamics` and `core.metrics` |
+| Parameter evidence, updates and forecast-error statistics | `belief` |
+| Scoring protocols and reserved-data evaluation | `workflows.evaluate` and `workflows.holdout` |
+| Planning, bootstrap and supervision | `control`; transport in `integrations` |
 
-Every quantitative claim in the documentation points to a recorded artifact in
-`docs/results/` or to a reproducible command. Holdouts are complete flights,
-recording sessions, or maneuver families, never mixed samples. Normalization
-statistics come from training data only. Negative results and withdrawn
-approaches are kept in the record rather than removed. Absolute timing figures
-are kept out of prose because they depend on the host and its load.
+Reuse these owners before introducing another representation or interface.
+Keep parameter updates and calibration on the same prediction equations used
+by evaluation. Split modules when responsibilities need independent ownership,
+not to distribute line count.
 
-## Current boundary
+## Downstream work
 
-Both vehicle families have differentiable rollout, fitting, serialization, and
-PX4 ULog ingestion. Fixed-wing ingestion joins motor and servo allocator
-topics, reconstructs signed aerodynamic-axis controls from logged allocation
-parameters, and rejects unverifiable mappings.
+NMPC, bootstrap identification and simulator integrations are experimental
+consumers of the belief. The current PX4 link is read-only. Controller results
+are simulation experiments, with no flight-safety or hard real-time guarantee.
+Their interfaces and experiments are described under [NMPC](concepts/nmpc.md)
+and [bootstrap identification](concepts/bootstrap-identification.md).
 
-The present boundary is model validity. Fixed-wing short and medium rollouts
-transfer across maneuver families, recording sessions, and both a conventional
-tail configuration and a three-control flying wing. Nano-Quadrotor performance
-is competitive with its published structured-residual reference, while the
-second multirotor airframe shows that normalized-command translation is not yet
-consistently better than kinematic persistence. Parameter artifacts remain
-airframe specific: the evidence validates the shared interfaces and testable
-model hypotheses, not zero-shot coefficient transfer.
+Prioritize the identification workflow over additional controller features or
+integration surfaces. Keep research variants tied to their experiments rather
+than extending the production API to accommodate each one.
 
-Multi-minute IDF sessions, complete X8 maneuvers, and the protected ARP flight
-still expose long-rollout instability. Flap-equipped and configuration-changing
-aircraft remain unvalidated. More same-vehicle segments are therefore lower
-value than another airframe or configuration, or a better generally applicable
-command-to-force model. Use `--include-ground` only with a model that includes
-ground-contact dynamics.
+## Evidence
 
-## Not claimed
-
-- Flight safety or certification of any kind. Every controller result is a
-  simulation diagnostic with bounded commands, not a safety case.
-- Hard real-time guarantees. Solve and update times are recorded per run and
-  marked nondeterministic.
-- Hardware demonstrations. Physical propeller, estimator startup, and hand
-  contact remain outside every recorded result.
-- Zero-shot transfer of fitted coefficients between airframes.
+[Validation](validation.md) owns the recorded comparisons and their artifact
+links. [Contributing](../CONTRIBUTING.md#recorded-results) describes reproduction.
+The [literature review](literature-review.md) and investigation pages retain
+experimental decisions; the [original proposal](history/idea-2026-08.md) is
+historical background.

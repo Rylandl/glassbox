@@ -1,1 +1,1 @@
-"""Dynamics beliefs: parameter evidence, priors, serialization, and adaptation."""
+"""Dynamics beliefs: one model, what it knows, how wrong it has been."""

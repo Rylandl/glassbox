@@ -22,19 +22,48 @@ jobs:
       - run: uv run ruff check src tests scripts
       - run: uv run ruff format --check src tests scripts
 
-  import-matrix:
+  installed-workflow:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     strategy:
       matrix:
-        python-version: ["3.11", "3.13"]
+        python-version: ["3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
       - run: uv python install ${{ matrix.python-version }}
-      - run: uv sync --locked --python ${{ matrix.python-version }}
-      - run: uv run --python ${{ matrix.python-version }} python -c "import glassbox; print(glassbox.__name__)"
+      - run: uv build --python ${{ matrix.python-version }}
+      - run: |
+          uv venv "$RUNNER_TEMP/glassbox-release" --python ${{ matrix.python-version }}
+          uv pip install --python "$RUNNER_TEMP/glassbox-release/bin/python" dist/*.whl pytest
+      - name: Exercise the installed wheel outside the checkout
+        working-directory: ${{ runner.temp }}
+        run: |
+          "$RUNNER_TEMP/glassbox-release/bin/python" -c 'import sys, glassbox; from pathlib import Path; assert Path(glassbox.__file__).is_relative_to(sys.prefix)'
+          "$RUNNER_TEMP/glassbox-release/bin/glassbox" --help
+          "$RUNNER_TEMP/glassbox-release/bin/python" -m pytest --import-mode=importlib -q \
+            "$GITHUB_WORKSPACE/tests/test_fit_cli.py::test_fit_cli_writes_belief_and_report_together" \
+            "$GITHUB_WORKSPACE/tests/test_evaluate.py::test_windowed_policy_reproduces_the_same_flight_characterization" \
+            "$GITHUB_WORKSPACE/tests/test_innovation_diagnostics.py"
+      - name: Install and import the telemetry extras
+        if: matrix.python-version == '3.12'
+        run: |
+          for release_wheel in dist/*.whl; do
+            uv pip install --python "$RUNNER_TEMP/glassbox-release/bin/python" "${release_wheel}[px4,ros]"
+          done
+          "$RUNNER_TEMP/glassbox-release/bin/python" -c 'import pymavlink.mavutil, pyulog, rosbags.highlevel'
+      - name: Checksum the tested distributions
+        if: matrix.python-version == '3.12'
+        working-directory: dist
+        run: sha256sum *.whl *.tar.gz > SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        if: matrix.python-version == '3.12'
+        with:
+          name: release-dist
+          path: dist/
+          if-no-files-found: error
 
   test:
     runs-on: ubuntu-latest
@@ -46,6 +75,23 @@ jobs:
           enable-cache: true
       - run: uv python install 3.12
       - run: uv sync --locked --dev
-      # Simulator-backed and PX4-SITL tests need optional extras or a live
+      # Simulator-backed and PX4-SITL tests need the simulator group or a live
       # container and skip cleanly without them.
       - run: uv run pytest -q -p no:cacheprovider -m "not cascade and not px4_sitl"
+
+  recorded-results:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv python install 3.12
+      - run: uv sync --locked --dev
+      # Regenerates the local tier and fails when any non-timing,
+      # non-provenance content differs from the committed artifact. The corpus
+      # tier is a maintainer job: it needs the pinned corpora on disk, the
+      # cascade dependency group, and hours of fitting, so it does not run here.
+      - run: uv run glassbox record-results --check --tier local

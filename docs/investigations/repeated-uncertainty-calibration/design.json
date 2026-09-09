@@ -1,0 +1,42 @@
+{
+  "replicates": 6,
+  "train_seeds": [
+    91000,
+    91001,
+    91002,
+    91003,
+    91004,
+    91005
+  ],
+  "calibration_seeds": [
+    92000,
+    92001,
+    92002,
+    92003,
+    92004,
+    92005,
+    92006,
+    92007,
+    92008,
+    92009,
+    92010,
+    92011
+  ],
+  "test_seeds": [
+    93000,
+    93001
+  ],
+  "train_duration_s": 3.0,
+  "command_source_duration_s": 1.2,
+  "dt_s": 0.02,
+  "horizons_steps": [
+    5,
+    30
+  ],
+  "command_selection": "last 30 commands; score prefixes",
+  "initial_state": "resting_state",
+  "initial_latent": "true hover",
+  "estimator": "one production DynamicsBelief.absorb per independent training flight; same deterministic prior",
+  "stochasticity": "independent excitation phases only; no process or observation noise",
+  "retuning": false
+}

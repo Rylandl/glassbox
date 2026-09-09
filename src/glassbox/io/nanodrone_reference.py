@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -12,15 +13,15 @@ import numpy as np
 
 from glassbox.core.data import (
     RIGID_BODY_STATE_SCHEMA,
-    ControlChannel,
+    Channel,
     Trajectory,
     TrajectorySpec,
     VehicleConfigurationSpec,
-    save_trajectory_npz,
     specific_force_observation_channels,
 )
 from glassbox.core.dynamics import QUADROTOR_CONTROL_NAMES
-from glassbox.io.pinned_download import download_verified, file_digest
+from glassbox.io.corpus import PinnedFile
+from glassbox.io.pinned_download import file_digest
 
 BENCHMARK_REPOSITORY = "https://github.com/idsia-robotics/nanodrone-sysid-benchmark"
 BENCHMARK_COMMIT = "2d921b57d166fe2debe08a5d39bd07297c5abc39"
@@ -163,6 +164,45 @@ _FILENAME_PATTERN = re.compile(
 )
 
 
+PINNED_FILES: tuple[PinnedFile, ...] = tuple(
+    PinnedFile(
+        url=f"{BENCHMARK_MEDIA_ROOT}/{recording.relative_path}",
+        relative_path=recording.relative_path,
+        size_bytes=recording.size_bytes,
+        digest=recording.sha256,
+    )
+    for recording in BENCHMARK_RECORDINGS
+)
+
+
+def validate_benchmark_test_trajectories(
+    trajectories: Sequence[Trajectory],
+) -> float:
+    """Check the pinned test-split contract and return the shared interval.
+
+    The published protocol evaluates the three Melon recordings of the official
+    test split at one sample rate. A trajectory that is not one of those is a
+    different measurement, not a worse score.
+    """
+
+    if not trajectories:
+        raise ValueError("at least one benchmark test trajectory is required")
+    expected_spec = nanodrone_trajectory_spec()
+    dt_s = trajectories[0].nominal_dt_s
+    for trajectory in trajectories:
+        if trajectory.spec != expected_spec:
+            raise ValueError(
+                "trajectory does not use the pinned Nano-drone benchmark spec"
+            )
+        if trajectory.labels.get("benchmark_split") != "test":
+            raise ValueError("benchmark evaluation requires test-split trajectories")
+        if trajectory.labels.get("profile") != "melon":
+            raise ValueError("benchmark evaluation requires Melon trajectories")
+        if not np.isclose(trajectory.nominal_dt_s, dt_s, atol=1e-7, rtol=0.0):
+            raise ValueError("benchmark trajectories must share one sample interval")
+    return dt_s
+
+
 def _sha256(path: Path) -> str:
     return file_digest(path, algorithm="sha256")
 
@@ -260,35 +300,32 @@ def nanodrone_trajectory_spec(
     if not np.isfinite(rotor_speed_reference_rad_s) or rotor_speed_reference_rad_s <= 0:
         raise ValueError("rotor_speed_reference_rad_s must be positive and finite")
     controls = tuple(
-        ControlChannel(
+        Channel(
             name=name,
             role=name,
             semantic="squared_rotor_speed_ratio",
             unit="1",
+            kind="control",
+            frame="FLU",
             minimum=0.0,
             maximum=None,
-            frame="FLU",
         )
         for name in QUADROTOR_CONTROL_NAMES
     )
     return TrajectorySpec(
         state_schema=RIGID_BODY_STATE_SCHEMA,
         observation_source=BENCHMARK_OBSERVATION_SOURCE,
-        controls=controls,
+        channels=(*controls, *specific_force_observation_channels()),
         vehicle=VehicleConfigurationSpec(
             family="multirotor",
             configuration_id=BENCHMARK_CONFIGURATION_ID,
             controlled_axes=("roll", "pitch", "yaw"),
-            propulsion="quadrotor",
             fixed_states={
                 "mass_kg": 0.045,
                 "rotor_layout": "x",
                 "rotor_speed_reference_rad_s": rotor_speed_reference_rad_s,
                 "control_transform": "(rotor_speed_rad_s / reference_rad_s)^2",
             },
-        ),
-        observations=specific_force_observation_channels(
-            "processed_onboard_accelerometer"
         ),
     )
 
@@ -476,65 +513,3 @@ class NanoDroneBenchmarkAdapter:
                 "quality": quality,
             },
         )
-
-
-def fetch_nanodrone_benchmark(
-    destination: str | Path,
-    *,
-    overwrite: bool = False,
-    timeout_s: float = 60.0,
-) -> tuple[Path, ...]:
-    """Download and verify the pinned 15-recording benchmark snapshot."""
-
-    if timeout_s <= 0.0:
-        raise ValueError("timeout_s must be positive")
-    destination_root = Path(destination)
-    fetched: list[Path] = []
-    for recording in BENCHMARK_RECORDINGS:
-        target = destination_root / recording.relative_path
-        fetched.append(
-            download_verified(
-                f"{BENCHMARK_MEDIA_ROOT}/{recording.relative_path}",
-                target,
-                size_bytes=recording.size_bytes,
-                digest=recording.sha256,
-                algorithm="sha256",
-                user_agent="glassbox-nanodrone-adapter/1",
-                overwrite=overwrite,
-                timeout_s=timeout_s,
-                existing_mismatch_message=(
-                    f"existing file does not match pinned benchmark: {target}"
-                ),
-                size_mismatch_message=(
-                    f"downloaded size mismatch for {recording.relative_path}"
-                ),
-                digest_mismatch_message=(
-                    f"downloaded checksum mismatch for {recording.relative_path}"
-                ),
-            )
-        )
-    return tuple(fetched)
-
-
-def extract_nanodrone_benchmark(
-    source_root: str | Path,
-    output_root: str | Path,
-    *,
-    adapter: NanoDroneBenchmarkAdapter | None = None,
-) -> tuple[Path, ...]:
-    """Convert all pinned benchmark recordings while preserving its split."""
-
-    source_directory = Path(source_root)
-    output_directory = Path(output_root)
-    selected_adapter = NanoDroneBenchmarkAdapter() if adapter is None else adapter
-    outputs: list[Path] = []
-    for recording in BENCHMARK_RECORDINGS:
-        source_path = source_directory / recording.relative_path
-        output_path = (
-            output_directory
-            / recording.split
-            / Path(recording.filename).with_suffix(".npz")
-        )
-        save_trajectory_npz(selected_adapter.load(source_path), output_path)
-        outputs.append(output_path)
-    return tuple(outputs)

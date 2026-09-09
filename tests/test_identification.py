@@ -11,7 +11,8 @@ from glassbox.core.dynamics import (
     with_thrust_command_offset,
 )
 from glassbox.core.identification import (
-    MAX_OPTIMIZATION_WINDOWS_PER_HORIZON,
+    MAXIMUM_WINDOWS_PER_HORIZON,
+    _fit_objective,
     _optimization_batch_schedules,
     deterministic_weighted_batch_schedule,
     dynamic_envelope_penalty,
@@ -20,6 +21,7 @@ from glassbox.core.identification import (
     rollout_loss_configuration,
     supports_multirotor_thrust_command_offset,
 )
+from glassbox.core.model import ModelValidityEnvelope, model_validity_utilization
 from glassbox.core.synthetic import (
     generate_trajectory,
     initial_parameter_guess,
@@ -28,21 +30,54 @@ from glassbox.core.synthetic import (
 from glassbox.io.nanodrone_reference import nanodrone_trajectory_spec
 
 
-def test_multistep_fit_reduces_training_loss() -> None:
+def test_multistep_fit_reduces_training_loss(quadrotor_flight) -> None:
     trajectories = [
-        generate_trajectory(seed=0, duration_s=2.0),
-        generate_trajectory(seed=1, duration_s=2.0),
+        quadrotor_flight(0, 2.0),
+        quadrotor_flight(1, 2.0),
     ]
     windows = trajectory_windows(trajectories, horizon=10, stride=10)
 
     result = fit_dynamics(
-        windows,
+        [windows],
         initial_parameter_guess(),
         steps=80,
         learning_rate=0.03,
     )
 
     assert result.final_loss < 0.25 * result.initial_loss
+
+
+@pytest.mark.parametrize("minibatch", [False, True])
+def test_final_iterate_selection_uses_comparable_losses(quadrotor_flight, minibatch):
+    initial = initial_parameter_guess()
+    target = initial.log_thrust_accel + 1.0
+
+    def objective(params):
+        return (params.log_thrust_accel - target) ** 2
+
+    configuration = rollout_loss_configuration(
+        [trajectory_windows([quadrotor_flight(0, 0.2)], horizon=5)]
+    )
+    result = _fit_objective(
+        objective,
+        lambda params: jnp.atleast_1d(objective(params)),
+        initial,
+        steps=1 if minibatch else 2,
+        learning_rate=0.5 if minibatch else 1.0,
+        gradient_clip_norm=10.0,
+        fixed_motor_time_constant=False,
+        fixed_thrust_command_offset=False,
+        loss_configuration=configuration,
+        batch_objective=(
+            (lambda params, indices: 0.001 * objective(params)) if minibatch else None
+        ),
+        batch_schedules=(np.zeros((1, 1), dtype=np.int64),) if minibatch else None,
+        batch_window_counts=(2,) if minibatch else None,
+    )
+
+    assert result.final_loss == pytest.approx(float(objective(result.params)))
+    assert result.final_loss == pytest.approx(0.25 if minibatch else 0.0, abs=1e-5)
+    assert result.completed_steps == (1 if minibatch else 2)
 
 
 def test_deterministic_weighted_batches_span_large_window_sets() -> None:
@@ -73,15 +108,18 @@ def test_deterministic_weighted_batches_span_large_window_sets() -> None:
     assert np.sum(counts[10:]) == pytest.approx(2.0 * np.sum(counts[:10]), rel=0.02)
 
 
-def test_affordable_fit_uses_every_window() -> None:
+def test_affordable_fit_uses_every_window(quadrotor_trajectory_seed11_dur0_4s) -> None:
+    # Any window count under MAXIMUM_WINDOWS_PER_HORIZON (8192)
+    # selects the full-batch policy; a 0.4s rollout at horizon 1 already
+    # produces one, so the rollout no longer has to be eleven seconds long.
     windows = trajectory_windows(
-        [generate_trajectory(seed=11, duration_s=11.0)],
+        [quadrotor_trajectory_seed11_dur0_4s],
         horizon=1,
         stride=1,
     )
 
     result = fit_dynamics(
-        windows,
+        [windows],
         initial_parameter_guess(),
         steps=1,
         learning_rate=0.01,
@@ -94,13 +132,18 @@ def test_affordable_fit_uses_every_window() -> None:
     assert np.isfinite(result.final_loss)
 
 
-def test_automatic_minibatch_caps_large_short_horizon_window_set() -> None:
+def test_automatic_minibatch_caps_large_short_horizon_window_set(
+    quadrotor_flight,
+) -> None:
+    # The oversized window set below is synthesized with ``np.resize``, which
+    # tiles whatever it is given, so the source rollout only has to be long
+    # enough to yield one window.
     windows = trajectory_windows(
-        [generate_trajectory(seed=12, duration_s=11.0)],
+        [quadrotor_flight(12, 0.4)],
         horizon=1,
         stride=1,
     )
-    repeated_count = MAX_OPTIMIZATION_WINDOWS_PER_HORIZON + 10
+    repeated_count = MAXIMUM_WINDOWS_PER_HORIZON + 10
     repeated = replace(
         windows,
         initial_states=np.resize(
@@ -132,18 +175,18 @@ def test_automatic_minibatch_caps_large_short_horizon_window_set() -> None:
     schedules = _optimization_batch_schedules((repeated,), steps=2)
 
     assert schedules is not None
-    assert schedules[0].shape == (2, MAX_OPTIMIZATION_WINDOWS_PER_HORIZON)
+    assert schedules[0].shape == (2, MAXIMUM_WINDOWS_PER_HORIZON)
 
 
-def test_motor_time_constant_can_be_held_fixed() -> None:
+def test_motor_time_constant_can_be_held_fixed(quadrotor_flight) -> None:
     windows = trajectory_windows(
-        [generate_trajectory(seed=3, duration_s=0.5)],
+        [quadrotor_flight(3, 0.5)],
         horizon=5,
         stride=5,
     )
 
     result = fit_dynamics(
-        windows,
+        [windows],
         initial_parameter_guess(),
         steps=5,
         fixed_motor_time_constant_s=0.001,
@@ -154,9 +197,11 @@ def test_motor_time_constant_can_be_held_fixed() -> None:
     )
 
 
-def test_normalized_motor_commands_support_shared_thrust_offset() -> None:
+def test_normalized_motor_commands_support_shared_thrust_offset(
+    quadrotor_flight,
+) -> None:
     windows = trajectory_windows(
-        [generate_trajectory(seed=15, duration_s=0.5)],
+        [quadrotor_flight(15, 0.5)],
         horizon=5,
         stride=5,
     )
@@ -167,7 +212,7 @@ def test_normalized_motor_commands_support_shared_thrust_offset() -> None:
     )
 
     result = fit_dynamics(
-        windows,
+        [windows],
         initial_parameter_guess(),
         steps=3,
     )
@@ -184,7 +229,7 @@ def test_normalized_motor_command_offset_is_recoverable() -> None:
     )
 
     result = fit_dynamics(
-        windows,
+        [windows],
         initial_parameter_guess(),
         steps=20,
         learning_rate=0.03,
@@ -195,9 +240,11 @@ def test_normalized_motor_command_offset_is_recoverable() -> None:
     assert result.final_loss < 0.05 * result.initial_loss
 
 
-def test_squared_rotor_speed_proxy_fixes_thrust_offset_to_zero() -> None:
+def test_squared_rotor_speed_proxy_fixes_thrust_offset_to_zero(
+    quadrotor_flight,
+) -> None:
     trajectory = replace(
-        generate_trajectory(seed=16, duration_s=0.5),
+        quadrotor_flight(16, 0.5),
         spec=nanodrone_trajectory_spec(),
         observations=np.zeros((26, 3)),
     )
@@ -209,7 +256,7 @@ def test_squared_rotor_speed_proxy_fixes_thrust_offset_to_zero() -> None:
     )
 
     result = fit_dynamics(
-        windows,
+        [windows],
         initial_parameter_guess(),
         steps=3,
     )
@@ -217,57 +264,35 @@ def test_squared_rotor_speed_proxy_fixes_thrust_offset_to_zero() -> None:
     assert float(result.params.physical()["thrust_command_offset"]) == 0.0
 
 
-def test_rotational_response_ablation_is_held_instantaneous_and_diagonal() -> None:
+def test_diagonal_angular_control_holds_the_mixer_on_its_canonical_axes(
+    quadrotor_flight,
+) -> None:
     windows = trajectory_windows(
-        [generate_trajectory(seed=13, duration_s=0.5)],
+        [quadrotor_flight(13, 0.5)],
         horizon=5,
         stride=5,
     )
 
-    result = fit_dynamics(
-        windows,
-        initial_parameter_guess(),
-        steps=3,
-        instantaneous_rotational_response=True,
-    )
-    physical = result.params.physical()
-
-    np.testing.assert_allclose(
-        physical["angular_response_time_constant"], 1e-4, rtol=1e-6
-    )
-    np.testing.assert_allclose(
-        physical["angular_control_cross_coupling"], 0.0, atol=1e-8
-    )
-
-
-def test_diagonal_control_fit_still_learns_rotational_memory() -> None:
-    windows = trajectory_windows(
-        [generate_trajectory(seed=14, duration_s=0.5)],
-        horizon=5,
-        stride=5,
-    )
-
-    result = fit_dynamics(
-        windows,
+    held = fit_dynamics(
+        [windows],
         initial_parameter_guess(),
         steps=3,
         diagonal_angular_control=True,
     )
-    physical = result.params.physical()
+    learned = fit_dynamics([windows], initial_parameter_guess(), steps=3)
 
     np.testing.assert_allclose(
-        physical["angular_control_cross_coupling"], 0.0, atol=1e-8
+        held.params.physical()["angular_control_cross_coupling"], 0.0, atol=1e-8
     )
     assert not np.allclose(
-        physical["angular_response_time_constant"],
-        initial_parameter_guess().physical()["angular_response_time_constant"],
+        learned.params.physical()["angular_control_cross_coupling"], 0.0, atol=1e-8
     )
 
 
-def test_rollout_loss_configuration_ignores_world_position_origin() -> None:
-    windows = trajectory_windows(
-        [generate_trajectory(seed=8, duration_s=0.5)], horizon=5, stride=5
-    )
+def test_rollout_loss_configuration_ignores_world_position_origin(
+    quadrotor_flight,
+) -> None:
+    windows = trajectory_windows([quadrotor_flight(8, 0.5)], horizon=5, stride=5)
     initial_states = np.asarray(windows.initial_states).copy()
     target_states = np.asarray(windows.target_states).copy()
     initial_states[:, 0:3] += np.asarray([100.0, -20.0, 7.0])
@@ -283,18 +308,16 @@ def test_rollout_loss_configuration_ignores_world_position_origin() -> None:
 
     np.testing.assert_allclose(original.position_scale_m, shifted.position_scale_m)
     np.testing.assert_allclose(
-        original.body_velocity_bound_m_s,
-        shifted.body_velocity_bound_m_s,
+        original.validity_envelope.body_velocity_half_width_m_s,
+        shifted.validity_envelope.body_velocity_half_width_m_s,
     )
 
 
-def test_fit_records_configured_long_rollout_policy() -> None:
-    windows = trajectory_windows(
-        [generate_trajectory(seed=2, duration_s=0.4)], horizon=5, stride=5
-    )
+def test_fit_records_configured_long_rollout_policy(quadrotor_flight) -> None:
+    windows = trajectory_windows([quadrotor_flight(2, 0.4)], horizon=5, stride=5)
 
     result = fit_dynamics(
-        windows,
+        [windows],
         initial_parameter_guess(),
         steps=1,
         endpoint_weight=2.5,
@@ -307,13 +330,13 @@ def test_fit_records_configured_long_rollout_policy() -> None:
     assert np.all(result.loss_configuration.position_scale_m > 0.0)
 
 
-def test_dynamic_envelope_penalizes_velocity_escape() -> None:
-    windows = trajectory_windows(
-        [generate_trajectory(seed=6, duration_s=0.4)], horizon=5, stride=5
-    )
+def test_dynamic_envelope_penalizes_velocity_escape(quadrotor_flight) -> None:
+    windows = trajectory_windows([quadrotor_flight(6, 0.4)], horizon=5, stride=5)
     configuration = rollout_loss_configuration([windows])
     states = jnp.asarray(windows.target_states[:, 1:])
-    escaped = states.at[..., 3].add(10.0 * configuration.body_velocity_bound_m_s[0])
+    escaped = states.at[..., 3].add(
+        10.0 * configuration.validity_envelope.body_velocity_half_width_m_s[0]
+    )
 
     nominal_penalty = dynamic_envelope_penalty(states, configuration)
     escaped_penalty = dynamic_envelope_penalty(escaped, configuration)
@@ -321,16 +344,53 @@ def test_dynamic_envelope_penalizes_velocity_escape() -> None:
     assert float(jnp.mean(escaped_penalty)) > float(jnp.mean(nominal_penalty)) + 1.0
 
 
-def test_residual_parameters_can_be_fit_through_rollouts() -> None:
-    windows = trajectory_windows(
-        [generate_trajectory(seed=5, duration_s=0.4)], horizon=5, stride=5
+@pytest.mark.parametrize("coordinate", range(6))
+def test_training_and_runtime_use_the_same_support_in_body_coordinates(
+    quadrotor_flight, coordinate
+) -> None:
+    flight = quadrotor_flight(6, 0.4)
+    windows = trajectory_windows([flight], horizon=5, stride=5)
+    envelope = ModelValidityEnvelope(
+        (1.0, -2.0, 0.5), (2.0, 3.0, 4.0), (0.1, -0.2, 0.3), (0.5, 0.6, 0.7)
     )
+    configuration = replace(
+        rollout_loss_configuration([windows]), validity_envelope=envelope
+    )
+    # A 180-degree yaw makes world and body velocities differ without
+    # introducing roundoff from an approximately represented quaternion.
+    rotation = np.diag([-1.0, -1.0, 1.0])
+    center = np.r_[
+        envelope.body_velocity_center_m_s, envelope.angular_velocity_center_rad_s
+    ]
+    widths = np.r_[
+        envelope.body_velocity_half_width_m_s,
+        envelope.angular_velocity_half_width_rad_s,
+    ]
+    for fraction in (0.5, 2.0):
+        local = center.copy()
+        local[coordinate] -= fraction * widths[coordinate]
+        state = jnp.asarray(
+            np.r_[np.zeros(3), rotation @ local[:3], 0, 0, 0, 1, local[3:]]
+        )
+        utilization = model_validity_utilization(
+            state, jnp.empty(0), flight.spec, envelope
+        )
+        penalty = dynamic_envelope_penalty(state[None, None, :], configuration)
+
+        assert float(jnp.max(utilization)) == pytest.approx(fraction)
+        assert float(penalty[0, 0]) == pytest.approx(
+            max(fraction - 1.0, 0.0) ** 2 / 6.0, abs=1e-7
+        )
+
+
+def test_residual_parameters_can_be_fit_through_rollouts(quadrotor_flight) -> None:
+    windows = trajectory_windows([quadrotor_flight(5, 0.4)], horizon=5, stride=5)
     statistics = residual_initialization_statistics([windows])
     initial = initial_residual_parameters(
         initial_parameter_guess(), hidden_units=4, **statistics
     )
 
-    result = fit_dynamics(windows, initial, steps=3, learning_rate=0.01)
+    result = fit_dynamics([windows], initial, steps=3, learning_rate=0.01)
 
     assert jnp.linalg.norm(result.params.output_weights) > 0.0
     np.testing.assert_allclose(result.params.feature_mean, initial.feature_mean)
@@ -338,8 +398,8 @@ def test_residual_parameters_can_be_fit_through_rollouts() -> None:
     np.testing.assert_allclose(result.params.correction_scale, initial.correction_scale)
 
 
-def test_quadrotor_fit_rejects_non_quadrotor_control_schema() -> None:
-    trajectory = generate_trajectory(seed=7, duration_s=0.4)
+def test_quadrotor_fit_rejects_non_quadrotor_control_schema(quadrotor_flight) -> None:
+    trajectory = quadrotor_flight(7, 0.4)
     six_channel = replace(
         trajectory,
         controls=jnp.zeros((len(trajectory.controls), 6)),
@@ -352,10 +412,30 @@ def test_quadrotor_fit_rejects_non_quadrotor_control_schema() -> None:
     windows = trajectory_windows([six_channel], horizon=5)
 
     with pytest.raises(ValueError, match="requires ordered control roles"):
-        fit_dynamics(windows, initial_parameter_guess(), steps=1)
+        fit_dynamics([windows], initial_parameter_guess(), steps=1)
 
 
-def test_minibatch_realizes_window_weights_exactly_once() -> None:
+@pytest.mark.parametrize("operation", ("fit", "residual_statistics"))
+def test_training_horizons_must_share_input_units(quadrotor_flight, operation) -> None:
+    trajectory = quadrotor_flight(7, 0.4)
+    channels = list(trajectory.spec.channels)
+    channels[0] = replace(channels[0], unit="rad/s")
+    different_units = replace(
+        trajectory, spec=replace(trajectory.spec, channels=tuple(channels))
+    )
+    window_sets = [
+        trajectory_windows([trajectory], horizon=5),
+        trajectory_windows([different_units], horizon=10),
+    ]
+
+    with pytest.raises(ValueError, match=r"windows:.*controls units"):
+        if operation == "fit":
+            fit_dynamics(window_sets, initial_parameter_guess(), steps=1)
+        else:
+            residual_initialization_statistics(window_sets)
+
+
+def test_minibatch_realizes_window_weights_exactly_once(quadrotor_flight) -> None:
     from dataclasses import replace
 
     from glassbox.core.identification import (
@@ -363,7 +443,7 @@ def test_minibatch_realizes_window_weights_exactly_once() -> None:
         deterministic_weighted_batch_schedule,
     )
 
-    trajectories = [generate_trajectory(seed=seed, duration_s=0.4) for seed in range(2)]
+    trajectories = [quadrotor_flight(seed, 0.4) for seed in range(2)]
     windows = trajectory_windows(trajectories, horizon=5, stride=5)
     count = len(windows.initial_states)
     weights = np.where(np.arange(count) < count // 2, 1.0, 3.0)
@@ -401,21 +481,11 @@ def test_minibatch_realizes_window_weights_exactly_once() -> None:
     assert abs(realized - weighted_full) < abs(realized - squared_weight_mean)
 
 
-def test_fit_warns_when_rotational_response_starts_at_the_sentinel() -> None:
-    windows = trajectory_windows(
-        [generate_trajectory(seed=3, duration_s=0.4)], horizon=5, stride=5
-    )
-    with pytest.warns(UserWarning, match="memoryless sentinel"):
-        fit_dynamics(windows, true_parameters(), steps=1)
-
-
-def test_fit_reports_divergence_and_returns_finite_parameters() -> None:
-    windows = trajectory_windows(
-        [generate_trajectory(seed=5, duration_s=0.4)], horizon=5, stride=5
-    )
+def test_fit_reports_divergence_and_returns_finite_parameters(quadrotor_flight) -> None:
+    windows = trajectory_windows([quadrotor_flight(5, 0.4)], horizon=5, stride=5)
 
     result = fit_dynamics(
-        windows, initial_parameter_guess(), steps=20, learning_rate=50.0
+        [windows], initial_parameter_guess(), steps=20, learning_rate=50.0
     )
 
     assert result.diverged

@@ -1,37 +1,45 @@
-"""Regenerate the recorded artifacts under ``docs/results/`` from one command.
-
-Recorded results are produced by many different CLI leaves and one bespoke
-assembly step, and the command that regenerates each one lives on whatever
-experiment or concept page cites it. This module owns one manifest naming
-every artifact under ``docs/results/``: whether it can be regenerated in this
-repository, the exact ``glassbox`` argv steps that reproduce it, what optional
-extra and local data it needs, and how long it takes.
-
-Every step is a ``glassbox`` subcommand run in-process through
-:func:`glassbox.cli.main`, except the Cascade X8 assembly step, which has no
-subcommand form and instead calls :func:`assemble_cascade_x8_validation_report`
-directly. Nothing here writes documentation prose: after regenerating an
-artifact, update the prose on its page by hand from the new JSON.
-"""
+"""Recorded-result manifest, reproduction plans and artifact comparison."""
 
 from __future__ import annotations
 
-import argparse
 import glob
+import hashlib
 import importlib.util
 import json
+import platform as platform_module
 import shutil
 import sys
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import glassbox
 import glassbox.cli as cli
+from glassbox.io.corpus import REFERENCE_CORPORA
+from glassbox.workflows.recorded import DEFAULT_TOLERANCE, recorded_differences
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 
-_EXTRA_MODULES = {"cascade": "cascade"}
+_OPTIONAL_DEPENDENCIES = {
+    "cascade": ("cascade", "uv sync --group cascade"),
+    "px4": ("pyulog", "uv sync --extra px4"),
+    "ros": ("rosbags", "uv sync --extra ros"),
+}
+
+LOCAL_TIER = "local"
+CORPUS_TIER = "corpus"
+TIERS = (LOCAL_TIER, CORPUS_TIER)
+
+VALIDATION_ARTIFACT_TYPE = "glassbox_corpus_validation"
+VALIDATION_FORMAT_VERSION = 1
+VALIDATION_METHOD_VERSION = 1
+
+_PACKAGE_ROOT = Path(glassbox.__file__).resolve().parent
+VALIDATION_SOURCE_FILES = tuple(
+    sorted(str(path.relative_to(_PACKAGE_ROOT)) for path in _PACKAGE_ROOT.rglob("*.py"))
+)
+"""Fingerprint package sources, including preprocessing and scoring code."""
 
 
 class StepFailed(RuntimeError):
@@ -49,11 +57,11 @@ class UnknownArtifactNames(Exception):
 def _expand_globs(argv: Sequence[str]) -> list[str]:
     """Expand any glob-pattern token, relative to the current directory.
 
-    Steps are written exactly as the documented shell command, including
-    glob patterns such as ``artifacts/x8_reference/canonical/training/*.npz``
-    that a shell would normally expand before ``glassbox`` ever saw them.
-    Dispatching in-process bypasses the shell, so expansion happens here,
-    lazily, only when a step actually runs.
+    Steps are written exactly as the documented shell command, including glob
+    patterns such as ``artifacts/x8_reference/canonical/training/*.npz`` that a
+    shell would normally expand before ``glassbox`` ever saw them. Dispatching
+    in-process bypasses the shell, so expansion happens here, lazily, only when
+    a step actually runs and the files a previous step wrote exist.
     """
 
     expanded: list[str] = []
@@ -105,25 +113,346 @@ Step = CliStep | PythonStep
 
 
 @dataclass(frozen=True)
+class RecordingPlan:
+    """Where one run reads its corpora, writes its outputs, and how far it fits.
+
+    The default plan is the recording: prepared corpora under ``artifacts/``,
+    artifacts under ``docs/results/``, every pinned file downloaded and
+    verified on demand, and each fit run for the budget its experiment page
+    documents.
+
+    ``source_root`` reuses already-verified upstream files from a tree laid out
+    with one directory per corpus, so a run that writes elsewhere does not
+    download the corpora a second time. ``fit_steps`` and ``fold_limit``
+    replace the documented optimization budget and the number of held-out folds
+    with a smaller one. ``smoke`` records in every artifact it produces that
+    those budgets were cut, so a smoke output can never be read as evidence.
+    """
+
+    corpus_root: Path = Path("artifacts")
+    results_root: Path = Path("docs/results")
+    source_root: Path | None = None
+    fit_steps: int | None = None
+    fold_limit: int | None = None
+    smoke: bool = False
+
+    def work(self, directory: str) -> Path:
+        """The directory one corpus's prepared data and reports live in."""
+
+        return self.corpus_root / directory
+
+    def raw(self, directory: str) -> str:
+        """The ``--raw`` argument that reuses an already-verified source tree."""
+
+        if self.source_root is None:
+            return ""
+        return f"--raw {self.source_root / directory / 'raw'}"
+
+    def steps(self) -> str:
+        """The ``--steps`` argument that overrides a documented fit budget."""
+
+        return "" if self.fit_steps is None else f"--steps {self.fit_steps}"
+
+    def folds(self) -> str:
+        """The ``--limit-folds`` argument that shortens a holdout run."""
+
+        return "" if self.fold_limit is None else f"--limit-folds {self.fold_limit}"
+
+    def output(self, filename: str) -> Path:
+        return self.results_root / filename
+
+
+@dataclass(frozen=True)
 class ArtifactSpec:
     """One artifact under ``docs/results/`` and how to regenerate it."""
 
     name: str
     output: str
     steps: tuple[Step, ...] = ()
-    extra: str | None = None
-    required_data: tuple[str, ...] = ()
-    duration: str | None = None
+    dependency: str | None = None
+    inputs: tuple[str, ...] = ()
+    tier: str = LOCAL_TIER
     doc_page: str = ""
-    unavailable_reason: str | None = None
+    volatile: tuple[str, ...] = ()
+    """Path patterns whose values vary with the host or the source tree.
+
+    ``--check`` excludes them, and the artifact's pinned test uses the same
+    table as its ``ignore`` collection, so the two agree by construction.
+    """
+
+    tolerance: tuple[float, float] | Mapping[str, tuple[float, float]] = (
+        DEFAULT_TOLERANCE
+    )
+    awaiting_first_record: str | None = None
+    """Why this entry's artifact is declared but not committed yet.
+
+    A corpus entry is written before its first recording exists: the chain and
+    the contract are reviewable in an afternoon, and the run that produces the
+    artifact is a maintainer job measured in hours. Set while that gap is open,
+    so ``--check`` reports the entry as not yet recorded instead of failing on
+    a missing file, and the coverage test compares ``docs/results/`` against
+    the entries that claim to be in it. Every entry is recorded today; the
+    field is what the next corpus artifact will be added under.
+    """
 
     @property
-    def regenerable(self) -> bool:
-        return self.unavailable_reason is None
+    def recorded(self) -> bool:
+        """Whether this entry's output is committed under ``docs/results/``."""
+
+        return self.awaiting_first_record is None
+
+    @property
+    def doc_path(self) -> str:
+        """The file :attr:`doc_page` names, without its section anchor.
+
+        One page carries the prose for every artifact, so an entry names the
+        section a re-record has to update and not only the file.
+        """
+
+        return self.doc_page.partition("#")[0]
 
 
-def _cli(*argv: str) -> CliStep:
-    return CliStep(argv)
+def _cli(command: str) -> CliStep:
+    """One step, written the way its experiment page documents the command.
+
+    The string is split on whitespace, the way a shell splits a command line
+    with no quoting, so a manifest entry reads as the command it documents. No
+    path a run writes to may contain whitespace, and the command line refuses
+    one that does.
+    """
+
+    return CliStep(tuple(command.split()))
+
+
+# ---------------------------------------------------------------------------
+# Provenance shared by every assembled artifact.
+
+
+def source_fingerprint(relative_paths: Sequence[str]) -> str:
+    """Digest the maintained source modules that produce one artifact.
+
+    Every path is written relative to the ``glassbox`` package root, so the
+    root is resolved from the installed package rather than from this module's
+    own depth inside it.
+    """
+
+    source_root = Path(glassbox.__file__).resolve().parent
+    digest = hashlib.sha256()
+    for relative_path in relative_paths:
+        digest.update(relative_path.encode("utf-8"))
+        digest.update((source_root / relative_path).read_bytes())
+    return digest.hexdigest()
+
+
+def _environment() -> dict[str, Any]:
+    import jax
+
+    return {
+        "platform": platform_module.platform(),
+        "python": platform_module.python_version(),
+        "jax": jax.__version__,
+        "jax_backend": jax.default_backend(),
+    }
+
+
+# ---------------------------------------------------------------------------
+# The corpus validation contract.
+
+_FIT_SPEC_KEYS = (
+    "training_horizons_s",
+    "training_horizon_steps",
+    "evaluation_horizons_s",
+    "optimization_steps_per_model",
+    "learning_rate",
+    "endpoint_weight",
+    "stability_regularization",
+    "model_class",
+    "model_family",
+    "platform",
+    "ablations",
+    "fixed_response_time_constant_s",
+    "training_flight_weighting",
+    "multirotor_thrust_command_offset",
+    "angular_control_coupling",
+    "training_windows",
+    "training_windows_by_horizon",
+    "training_window_selection",
+    "diagnostics",
+    "parameter_evidence",
+)
+
+_SPLIT_KEYS = (
+    "mode",
+    "holdout",
+    "independent_source_group_holdout",
+    "training_source_groups",
+    "validation_source_groups",
+)
+
+_PROTOCOL_KEYS = (
+    "protocol",
+    "baseline",
+    "stride",
+    "floors",
+    "scoring",
+    "evaluation",
+    "holdout_label",
+    "independent_holdout",
+)
+
+_BASELINE_KEYS = (
+    "baseline_metrics",
+    "baseline_per_trajectory",
+    "kinematic_persistence",
+    "hold_state",
+)
+
+
+def _flight_paths(summaries: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
+    """Reduce a fit report's per-flight table to identity and duration.
+
+    A fit report records every training and validation flight in full, with its
+    typed spec, labels and provenance. The artifact needs to say which flights
+    were trained on and which were held out, not to restate the corpus, so only
+    the path and the duration survive.
+    """
+
+    items = list(summaries)
+    return {
+        "count": len(items),
+        "duration_s": sum(float(item["duration_s"]) for item in items),
+        "paths": [str(item["path"]) for item in items],
+    }
+
+
+def _fit_arm(report: Mapping[str, Any]) -> dict[str, Any]:
+    """The contract's fit block for one fitted model, from its fit report."""
+
+    configuration = report["configuration"]
+    split = report["split"]
+    learned = report["models"]["learned_lag"]
+    return {
+        "spec": {
+            key: configuration[key] for key in _FIT_SPEC_KEYS if key in configuration
+        },
+        "split": {
+            **{key: split[key] for key in _SPLIT_KEYS if key in split},
+            "training": _flight_paths(split["training_flights"]),
+            "validation": _flight_paths(split["validation_flights"]),
+        },
+        "fit": learned["fit"],
+        "parameter_evidence": learned["parameter_evidence"],
+    }
+
+
+def corpus_block(name: str) -> dict[str, Any]:
+    """What the registry pins about one corpus, digests included."""
+
+    corpus = REFERENCE_CORPORA[name]
+    return {
+        "name": corpus.name,
+        "summary": corpus.summary,
+        "citation": {
+            "doi_or_url": corpus.citation.doi_or_url,
+            "license": corpus.citation.license,
+            "pinned_version": corpus.citation.pinned_version,
+        },
+        "evaluation_split": corpus.validation_split,
+        "files": [
+            {
+                "relative_path": item.relative_path,
+                "size_bytes": item.size_bytes,
+                "algorithm": item.algorithm,
+                "digest": item.digest,
+            }
+            for item in corpus.files
+        ],
+    }
+
+
+def _fit_arms(
+    evaluation: Mapping[str, Any], fit_reports: Mapping[str, Path]
+) -> dict[str, Any]:
+    """Read one fit block per arm the evaluation scored.
+
+    A leave-one-label-out summary has no separate fit reports: each fold is its
+    own fit, and the summary names the report it wrote, so the folds are the
+    arms.
+    """
+
+    if "per_fold" in evaluation:
+        return {
+            value: _fit_arm(json.loads(Path(fold["report"]).read_text()))
+            for value, fold in evaluation["per_fold"].items()
+        }
+    return {
+        name: _fit_arm(json.loads(path.read_text()))
+        for name, path in fit_reports.items()
+    }
+
+
+def assemble_corpus_validation_report(
+    corpus: str,
+    evaluation_report: Path,
+    fit_reports: Mapping[str, Path] | None = None,
+    *,
+    smoke: bool = False,
+) -> dict[str, Any]:
+    """Assemble one corpus validation artifact from the chain's own reports.
+
+    The artifact is a re-keying of machine output, never a transcription: the
+    corpus block comes from the registry, the protocol and results from the
+    evaluation report, and the fit blocks from the fit reports that produced
+    the scored models. What the evaluation report says about itself, its own
+    ``format_version`` included, stays under ``results``; the corpus block it
+    carried is replaced by the registry's, which pins every file by digest.
+    """
+
+    evaluation = json.loads(evaluation_report.read_text())
+    hoisted = {*_PROTOCOL_KEYS, *_BASELINE_KEYS, "corpus"}
+    return {
+        "artifact_type": VALIDATION_ARTIFACT_TYPE,
+        "format_version": VALIDATION_FORMAT_VERSION,
+        "smoke": smoke,
+        "corpus": corpus_block(corpus),
+        "protocol": {
+            key: evaluation[key] for key in _PROTOCOL_KEYS if key in evaluation
+        },
+        "fit": _fit_arms(evaluation, dict(fit_reports or {})),
+        "results": {
+            key: value for key, value in evaluation.items() if key not in hoisted
+        },
+        "baseline": {
+            "name": evaluation["baseline"],
+            **{key: evaluation[key] for key in _BASELINE_KEYS if key in evaluation},
+        },
+        "implementation": {
+            "method_version": VALIDATION_METHOD_VERSION,
+            "source_files": list(VALIDATION_SOURCE_FILES),
+            "source_sha256": source_fingerprint(VALIDATION_SOURCE_FILES),
+        },
+        "environment": _environment(),
+    }
+
+
+def write_corpus_validation_report(
+    output_path: Path,
+    corpus: str,
+    evaluation_report: Path,
+    fit_reports: Mapping[str, Path] | None = None,
+    *,
+    smoke: bool = False,
+) -> None:
+    document = assemble_corpus_validation_report(
+        corpus, evaluation_report, fit_reports, smoke=smoke
+    )
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(document, indent=2, sort_keys=True) + "\n")
+    print(f"wrote {output_path}")
+
+
+# ---------------------------------------------------------------------------
+# The Cascade X8 assembly, which combines several per-step reports.
 
 
 def _strip_per_trajectory(value: Any) -> Any:
@@ -221,304 +550,377 @@ def _copy_diagnostic(source: Path, destination: Path) -> None:
     print(f"copied {source} to {destination}")
 
 
-_X8_FIT_TRAJECTORIES = (
-    "artifacts/x8_reference/canonical/training/*.npz",
-    "artifacts/x8_reference/canonical/validation/*.npz",
+# ---------------------------------------------------------------------------
+# The manifest.
+
+ADAPTIVE_RECOVERY_VOLATILE = (
+    "environment",
+    "git_revision",
+    "implementation.source_files",
+    "implementation.source_sha256",
+    "recovery[*].prewarm_wall_time_s",
+    "recovery[*].solve_time_median_s",
+    "recovery[*].solve_time_p90_s",
+    "recovery[*].solve_time_maximum_s",
+    "recovery[*].solve_status_counts.iteration_limit",
+    "recovery[*].solve_status_counts.stalled",
+)
+"""Host- and source-dependent paths in ``adaptive-recovery-results.json``.
+
+The source digest records which sources produced the numbers; it changes with
+any edit, including one that leaves every number alone, so it is provenance
+rather than a freshness gate and does not take part in a comparison.
+"""
+
+CLOSED_LOOP_METRIC_TOLERANCE = (1e-3, 1e-6)
+
+ADAPTIVE_RECOVERY_TOLERANCES = {
+    "configuration.*": (0.0, 0.0),
+    "evidence.*": (1e-4, 1e-6),
+    "recovery[*].maximum_predicted_validity_utilization": (2e-3, 1e-6),
+    "recovery[*].*": CLOSED_LOOP_METRIC_TOLERANCE,
+    "comparisons.*": CLOSED_LOOP_METRIC_TOLERANCE,
+    "*": DEFAULT_TOLERANCE,
+}
+"""Float32 propagation and iterative-solver variation across CPU architectures.
+
+Scenario inputs remain exact. The two finite stopping statuses can trade counts;
+fallbacks, support decisions, ranks, and the total solve count remain checked.
+"""
+
+NMPC_ACCEPTANCE_VOLATILE = (
+    "implementation.source_files",
+    "implementation.source_sha256",
+    "environment",
+    "summary.post_jit_solve_time_s",
+    "scenarios[*].warmup_solve_time_s",
+    "scenarios[*].solve_time_median_s",
+    "scenarios[*].solve_time_p90_s",
+    "scenarios[*].solve_time_maximum_s",
 )
 
-MANIFEST: tuple[ArtifactSpec, ...] = (
-    ArtifactSpec(
-        name="adaptive-recovery-results",
-        output="docs/results/adaptive-recovery-results.json",
-        steps=(
-            _cli(
-                "adaptive-recovery",
-                "--output",
-                "docs/results/adaptive-recovery-results.json",
-            ),
+NMPC_ACCEPTANCE_TOLERANCES = {
+    "thresholds.*": (0.0, 0.0),
+    "scenarios[*].normalized_tracking_rms": CLOSED_LOOP_METRIC_TOLERANCE,
+    "scenarios[*].tracking_ratio": CLOSED_LOOP_METRIC_TOLERANCE,
+    "scenarios[*].maximum_validity_utilization": CLOSED_LOOP_METRIC_TOLERANCE,
+    "summary.*geometric_mean_tracking_ratio": CLOSED_LOOP_METRIC_TOLERANCE,
+    "*": DEFAULT_TOLERANCE,
+}
+
+VALIDATION_VOLATILE = (
+    "environment",
+    "implementation.source_files",
+    "implementation.source_sha256",
+    "wall_time_s",
+)
+"""Host- and clock-dependent paths in a corpus validation artifact.
+
+``wall_time_s`` is declared once and matches wherever a fit block carries it,
+under ``fit.<arm>`` and under ``results.models.<name>``: how long a fit took
+is not part of what it produced. Nothing that identifies a report by content
+hashes it either, so a provenance digest and this table agree.
+"""
+
+
+@dataclass(frozen=True)
+class CorpusChain:
+    """What distinguishes one corpus validation chain from the other four.
+
+    Every chain is the same four steps: prepare the pinned corpus, fit one
+    model per arm, evaluate them, assemble the artifact. The registry already
+    says which corpus this is, which extra its adapter needs, how it is
+    pinned, and which scoring protocol its published evaluation uses, so what
+    is left here is the flights each step reads and the flags the experiment
+    page documents.
+
+    ``arms`` names the model classes fitted, in command order. A one-arm chain
+    writes ``model.json`` and ``report.json``; a several-arm chain prefixes
+    each with its class stem, so the files say which arm wrote them.
+    ``scored`` names the published evaluation flights, relative to the corpus
+    directory, and is all the model-scoring shape needs. The two chains that
+    do not score saved models, the leave-one-session-out run and the
+    two-report characterization, write their whole ``evaluation`` instead.
+    """
+
+    corpus: str
+    directory: str
+    anchor: str
+    arms: tuple[str, ...] = ()
+    fit_inputs: str = ""
+    fit_options: str = ""
+    scored: str = ""
+    evaluation: str = ""
+    evaluation_report: str = "benchmark_report.json"
+
+    @property
+    def name(self) -> str:
+        return f"validation-{self.corpus}-results"
+
+
+_ARM_STEM = {"structured": "structured", "structured_residual": "residual"}
+
+CORPUS_CHAINS = (
+    CorpusChain(
+        corpus="nanodrone",
+        directory="nanodrone",
+        anchor="nano-quadrotor",
+        arms=("structured_residual",),
+        fit_inputs="canonical/train/*.npz canonical/test/*.npz",
+        fit_options=(
+            "--holdout-profile melon --training-horizons 0.1,0.5,1.0 "
+            "--evaluation-horizons 0.1,0.5,1.0"
         ),
-        duration="fast",
-        doc_page="docs/experiments/adaptive-recovery.md",
+        scored="canonical/test/*.npz",
     ),
-    ArtifactSpec(
-        name="nmpc-acceptance-results",
-        output="docs/results/nmpc-acceptance-results.json",
-        steps=(
-            _cli(
-                "nmpc-benchmark",
-                "--output",
-                "docs/results/nmpc-acceptance-results.json",
-            ),
-        ),
-        duration="fast",
-        doc_page="docs/concepts/nmpc.md",
+    CorpusChain(
+        corpus="arp",
+        directory="arp_reference",
+        anchor="arp",
+        arms=("structured",),
+        fit_inputs="canonical/*.npz",
+        fit_options="--holdout-count 1 --training-horizons 0.1,0.5,2.0",
+        scored="canonical/log_66*.npz",
     ),
-    ArtifactSpec(
-        name="cascade-x8-validation-results",
-        output="docs/results/cascade-x8-validation-results.json",
-        steps=(
-            _cli("x8", "prepare", "artifacts/x8_reference"),
-            _cli(
-                "x8",
-                "extract-dataset",
-                "artifacts/x8_reference/raw",
-                "artifacts/x8_cascade/canonical",
-            ),
-            _cli(
-                "fit",
-                *_X8_FIT_TRAJECTORIES,
-                "--training-horizons",
-                "0.1,0.5,2.0",
-                "--skip-no-lag-ablation",
-                "--model",
-                "artifacts/x8_reference/structured_model.json",
-                "--report",
-                "artifacts/x8_reference/structured_report.json",
-            ),
-            _cli(
-                "fit",
-                *_X8_FIT_TRAJECTORIES,
-                "--training-horizons",
-                "0.1,0.5,2.0",
-                "--model-class",
-                "structured_residual",
-                "--skip-no-lag-ablation",
-                "--model",
-                "artifacts/x8_reference/residual_model.json",
-                "--report",
-                "artifacts/x8_reference/residual_report.json",
-            ),
-            _cli(
-                "x8",
-                "evaluate",
-                "artifacts/x8_reference",
-                "--structured-model",
-                "artifacts/x8_reference/structured_model.json",
-                "--residual-model",
-                "artifacts/x8_reference/residual_model.json",
-                "--report",
-                "artifacts/x8_reference/benchmark_report.json",
-            ),
-            _cli(
-                "x8",
-                "evaluate-cascade",
-                "artifacts/x8_cascade",
-                "--report",
-                "artifacts/x8_cascade/cascade_report.json",
-                "--reference-report",
-                "artifacts/x8_reference/benchmark_report.json",
-                "--cg-shifts",
-                "0,0.03,0.05",
-                "--inertia-scales",
-                "1,2,3.5",
-                "--vertical-wind-fractions",
-                "0.25,0.5,1",
-            ),
-            _cli(
-                "x8",
-                "evaluate-cascade",
-                "artifacts/x8_cascade",
-                "--aircraft",
-                "skywalker_x8_panels",
-                "--report",
-                "artifacts/x8_cascade/cascade_panels_report.json",
-                "--reference-report",
-                "artifacts/x8_reference/benchmark_report.json",
-                "--cg-shifts",
-                "0,0.03,0.05",
-                "--inertia-scales",
-                "1,2,3.5",
-                "--vertical-wind-fractions",
-                "0.25,0.5,1",
-            ),
-            _cli(
-                "x8",
-                "diagnose-cascade",
-                "artifacts/x8_cascade",
-                "--split",
-                "all",
-                "--cg-shift",
-                "0.05",
-                "--vertical-wind-fraction",
-                "0.4",
-                "--inertia-scale",
-                "1",
-                "--mass",
-                "3.364",
-                "--report",
-                "artifacts/x8_cascade/diagnostic_cg005_w04_i1.json",
-            ),
-            _cli(
-                "x8",
-                "diagnose-cascade",
-                "artifacts/x8_cascade",
-                "--split",
-                "all",
-                "--cg-shift",
-                "0.05",
-                "--vertical-wind-fraction",
-                "0.4",
-                "--inertia-scale",
-                "3.5",
-                "--mass",
-                "3.364",
-                "--report",
-                "artifacts/x8_cascade/diagnostic_cg005_w04_i3.5.json",
-            ),
-            _cli(
-                "x8",
-                "diagnose-cascade",
-                "artifacts/x8_cascade",
-                "--aircraft",
-                "skywalker_x8_panels",
-                "--split",
-                "all",
-                "--cg-shift",
-                "0.05",
-                "--vertical-wind-fraction",
-                "0.4",
-                "--inertia-scale",
-                "1",
-                "--mass",
-                "3.364",
-                "--report",
-                "artifacts/x8_cascade/diagnostic_skywalker_x8_panels_cg005_w04.json",
-            ),
-            PythonStep(
-                "copy artifacts/x8_cascade/diagnostic_cg005_w04_i1.json to "
-                "artifacts/x8_cascade/diagnostic_skywalker_x8_cg005_w04.json",
-                lambda: _copy_diagnostic(
-                    _REPO_ROOT / "artifacts/x8_cascade/diagnostic_cg005_w04_i1.json",
-                    _REPO_ROOT
-                    / "artifacts/x8_cascade/diagnostic_skywalker_x8_cg005_w04.json",
-                ),
-            ),
-            PythonStep(
-                "assemble docs/results/cascade-x8-validation-results.json from "
-                "artifacts/x8_cascade and artifacts/x8_reference",
-                lambda: write_cascade_x8_validation_report(
-                    _REPO_ROOT / "docs/results/cascade-x8-validation-results.json",
-                    _REPO_ROOT / "artifacts/x8_cascade",
-                    _REPO_ROOT / "artifacts/x8_reference",
-                ),
-            ),
+    CorpusChain(
+        corpus="idf",
+        directory="idf_reference",
+        anchor="idf-ds",
+        evaluation=(
+            "--hold-out source_group {work}/canonical/*.npz "
+            "--model-class structured_residual --no-resume "
+            "--output-dir {work}/source_benchmark_structured_residual "
+            "{steps} {folds}"
         ),
-        extra="cascade",
-        required_data=("artifacts/x8_reference/raw",),
-        duration="slow",
-        doc_page="docs/experiments/cascade-x8-validation.md",
+        evaluation_report="source_benchmark_structured_residual/summary.json",
     ),
-    ArtifactSpec(
-        name="predictive-ensemble-results",
-        output="docs/results/predictive-ensemble-results.json",
-        doc_page="docs/concepts/predictive-ensembles.md",
-        unavailable_reason=(
-            "multi-hour predictive-ensemble corpus run; source telemetry is not "
-            "checked into the repo"
+    CorpusChain(
+        corpus="x8",
+        directory="x8_reference",
+        anchor="skywalker-x8",
+        arms=("structured", "structured_residual"),
+        fit_inputs="canonical/training/*.npz canonical/validation/*.npz",
+        fit_options=(
+            "--holdout-label benchmark_split=validation --training-horizons 0.1,0.5,2.0"
         ),
+        scored="canonical/validation/*.npz",
     ),
-    ArtifactSpec(
-        name="predictive-ensemble-calibration-results",
-        output="docs/results/predictive-ensemble-calibration-results.json",
-        doc_page="docs/concepts/predictive-ensembles.md",
-        unavailable_reason=(
-            "multi-hour predictive-ensemble corpus run; source telemetry is not "
-            "checked into the repo"
+    CorpusChain(
+        corpus="epfl",
+        directory="epfl_topoplane",
+        anchor="epfl-topoplane2",
+        arms=("structured", "structured_residual"),
+        fit_inputs="canonical/*.npz",
+        fit_options=(
+            "--evaluation-horizons 0.2,0.5,1,2 --training-horizons 0.2,1,2 "
+            "--holdout-count 2"
         ),
-    ),
-    ArtifactSpec(
-        name="predictive-ensemble-balanced-calibration-results",
-        output="docs/results/predictive-ensemble-balanced-calibration-results.json",
-        doc_page="docs/concepts/predictive-ensembles.md",
-        unavailable_reason=(
-            "multi-hour predictive-ensemble corpus run; source telemetry is not "
-            "checked into the repo"
+        evaluation=(
+            "--fit-reports structured={work}/structured_report.json "
+            "structured_residual={work}/residual_report.json "
+            "--horizons 0.2,0.5,1,2 --score-horizons 0.5,1,2 "
+            "--report {work}/characterization_report.json"
         ),
-    ),
-    ArtifactSpec(
-        name="predictive-ensemble-idf-results",
-        output="docs/results/predictive-ensemble-idf-results.json",
-        doc_page="docs/concepts/predictive-ensembles.md",
-        unavailable_reason=(
-            "multi-hour predictive-ensemble corpus run; source telemetry is not "
-            "checked into the repo"
-        ),
-    ),
-    ArtifactSpec(
-        name="multirotor-profile-results",
-        output="docs/results/multirotor-profile-results.json",
-        doc_page="docs/experiments/px4-sitl-multirotor.md",
-        unavailable_reason=(
-            "PX4 SITL multirotor corpus rerun; source ULogs are not checked into "
-            "the repo"
-        ),
-    ),
-    ArtifactSpec(
-        name="observation-spike-results",
-        output="docs/results/observation-spike-results.json",
-        doc_page="docs/literature-review.md",
-        unavailable_reason=(
-            "direct-fit bootstrap-initializer A/B on Nano Melon and ARP "
-            "research-validation flights; source telemetry is not checked into "
-            "the repo"
-        ),
-    ),
-    ArtifactSpec(
-        name="innovation-diagnostic-results",
-        output="docs/results/innovation-diagnostic-results.json",
-        doc_page="docs/literature-review.md",
-        unavailable_reason=(
-            "one-step innovation whiteness diagnostic across Nano, ARP, X8, and "
-            "IDF research-validation flights; source telemetry is not checked "
-            "into the repo"
-        ),
-    ),
-    ArtifactSpec(
-        name="state-observation-correction-results",
-        output="docs/results/state-observation-correction-results.json",
-        doc_page="docs/literature-review.md",
-        unavailable_reason=(
-            "static scale/bias observation-correction transfer test across Nano, "
-            "ARP, X8, and IDF; source telemetry is not checked into the repo"
-        ),
-    ),
-    ArtifactSpec(
-        name="temporal-observation-filter-results",
-        output="docs/results/temporal-observation-filter-results.json",
-        doc_page="docs/literature-review.md",
-        unavailable_reason=(
-            "causal first-order observation-filter transfer test across Nano, "
-            "ARP, X8, and IDF; source telemetry is not checked into the repo"
-        ),
-    ),
-    ArtifactSpec(
-        name="body-rate-observation-rollout-results",
-        output="docs/results/body-rate-observation-rollout-results.json",
-        doc_page="docs/literature-review.md",
-        unavailable_reason=(
-            "body-rate-only rollout A/B on ARP, X8, and IDF; source telemetry is "
-            "not checked into the repo"
-        ),
-    ),
-    ArtifactSpec(
-        name="state-observation-alignment-results",
-        output="docs/results/state-observation-alignment-results.json",
-        doc_page="docs/literature-review.md",
-        unavailable_reason=(
-            "signed timestamp-alignment diagnostic on X8 and IDF; source "
-            "telemetry is not checked into the repo"
-        ),
-    ),
-    ArtifactSpec(
-        name="residual-innovation-observer-results",
-        output="docs/results/residual-innovation-observer-results.json",
-        doc_page="docs/literature-review.md",
-        unavailable_reason=(
-            "bounded causal innovation observer test on Nano, ARP, X8, and IDF; "
-            "source telemetry is not checked into the repo"
-        ),
+        evaluation_report="characterization_report.json",
     ),
 )
+"""The five corpus validation chains, one entry each."""
+
+
+def _arm_prefix(chain: CorpusChain, arm: str) -> str:
+    """The filename prefix one arm's model and report carry."""
+
+    return "" if len(chain.arms) == 1 else f"{_ARM_STEM[arm]}_"
+
+
+def _fit_and_evaluate(plan: RecordingPlan, chain: CorpusChain) -> tuple[Step, ...]:
+    """The chain's fit steps, one per arm, and the evaluation that scores them."""
+
+    work = plan.work(chain.directory)
+    corpus = REFERENCE_CORPORA[chain.corpus]
+    inputs = " ".join(f"{work}/{item}" for item in chain.fit_inputs.split())
+    steps = [
+        _cli(
+            f"fit {inputs} {chain.fit_options} "
+            f"{'' if arm == 'structured' else f'--model-class {arm}'} "
+            f"--model {work}/{_arm_prefix(chain, arm)}model.json "
+            f"--report {work}/{_arm_prefix(chain, arm)}report.json {plan.steps()}"
+        )
+        for arm in chain.arms
+    ]
+    if chain.evaluation:
+        evaluation = chain.evaluation.format(
+            work=work, steps=plan.steps(), folds=plan.folds()
+        )
+    else:
+        one_arm = len(chain.arms) == 1
+        scored = " ".join(f"{work}/{item}" for item in chain.scored.split())
+        named = (
+            ""
+            if one_arm
+            else "".join(
+                f" --model {arm}={work}/{_arm_prefix(chain, arm)}model.json"
+                for arm in chain.arms
+            )
+        )
+        evaluation = (
+            f"{f'{work}/model.json ' if one_arm else ''}{scored} "
+            f"--protocol {corpus.protocol or 'windowed'} --corpus {corpus.name}"
+            f"{named} --report {work}/benchmark_report.json"
+        )
+    steps.append(_cli(f"evaluate {evaluation}"))
+    return tuple(steps)
+
+
+def _corpus_validation(plan: RecordingPlan, chain: CorpusChain) -> ArtifactSpec:
+    """One corpus validation entry: prepare, fit each arm, evaluate, assemble.
+
+    Every path comes from ``plan``, so a recording, a check and a smoke run
+    are the same chain pointed at different directories.
+    """
+
+    work = plan.work(chain.directory)
+    output = plan.output(f"{chain.name}.json")
+    corpus = REFERENCE_CORPORA[chain.corpus]
+    reports = {
+        arm: work / f"{_arm_prefix(chain, arm)}report.json" for arm in chain.arms
+    }
+    return ArtifactSpec(
+        name=chain.name,
+        output=str(output),
+        steps=(
+            _cli(f"corpus prepare {chain.corpus} {work} {plan.raw(chain.directory)}"),
+            *_fit_and_evaluate(plan, chain),
+            PythonStep(
+                f"assemble {output} from {work}",
+                lambda: write_corpus_validation_report(
+                    output,
+                    chain.corpus,
+                    work / chain.evaluation_report,
+                    reports,
+                    smoke=plan.smoke,
+                ),
+            ),
+        ),
+        dependency=corpus.extra,
+        inputs=(f"corpus {chain.corpus} pinned at {corpus.citation.pinned_version}",),
+        tier=CORPUS_TIER,
+        doc_page=f"docs/validation.md#{chain.anchor}",
+        volatile=VALIDATION_VOLATILE,
+    )
+
+
+RECORDING = RecordingPlan()
+"""The default plan: the corpora under ``artifacts``, the artifacts committed."""
+
+_CASCADE_SWEEP = (
+    "--cg-shifts 0,0.03,0.05 --inertia-scales 1,2,3.5 "
+    "--vertical-wind-fractions 0.25,0.5,1"
+)
+
+_CASCADE_DIAGNOSTICS = (
+    ("diagnostic_cg005_w04_i1", "", "1"),
+    ("diagnostic_cg005_w04_i3.5", "", "3.5"),
+    (
+        "diagnostic_skywalker_x8_panels_cg005_w04",
+        "--aircraft skywalker_x8_panels ",
+        "1",
+    ),
+)
+"""Each recorded residual diagnostic: its name, its airframe, its inertia scale."""
+
+
+def _cascade_x8(plan: RecordingPlan, x8_chain: CorpusChain) -> ArtifactSpec:
+    """The Cascade comparison, over the same X8 models the X8 chain fits."""
+
+    x8 = plan.work(x8_chain.directory)
+    cascade = plan.work("x8_cascade")
+    output = plan.output("cascade-x8-validation-results.json")
+    return ArtifactSpec(
+        name="cascade-x8-validation-results",
+        output=str(output),
+        steps=(
+            _cli(f"corpus prepare x8 {x8} {plan.raw('x8_reference')}"),
+            _cli(f"corpus prepare x8 {cascade} --raw {x8}/raw"),
+            *_fit_and_evaluate(plan, x8_chain),
+            *(
+                _cli(
+                    f"benchmark cascade-x8 {cascade} {aircraft}"
+                    f"--output {cascade}/{name}.json "
+                    f"--reference-report {x8}/benchmark_report.json "
+                    f"{_CASCADE_SWEEP}"
+                )
+                for name, aircraft in (
+                    ("cascade_report", ""),
+                    ("cascade_panels_report", "--aircraft skywalker_x8_panels "),
+                )
+            ),
+            *(
+                _cli(
+                    f"benchmark cascade-x8 {cascade} --diagnose {aircraft}"
+                    "--split all --cg-shift 0.05 --vertical-wind-fraction 0.4 "
+                    f"--inertia-scale {scale} --mass 3.364 "
+                    f"--output {cascade}/{name}.json"
+                )
+                for name, aircraft, scale in _CASCADE_DIAGNOSTICS
+            ),
+            PythonStep(
+                f"copy {cascade}/diagnostic_cg005_w04_i1.json to "
+                f"{cascade}/diagnostic_skywalker_x8_cg005_w04.json",
+                lambda: _copy_diagnostic(
+                    cascade / "diagnostic_cg005_w04_i1.json",
+                    cascade / "diagnostic_skywalker_x8_cg005_w04.json",
+                ),
+            ),
+            PythonStep(
+                f"assemble {output} from {cascade} and {x8}",
+                lambda: write_cascade_x8_validation_report(output, cascade, x8),
+            ),
+        ),
+        dependency="cascade",
+        inputs=("corpus x8", "the Cascade fixed-wing simulator"),
+        tier=CORPUS_TIER,
+        doc_page="docs/validation.md#cascade-x8",
+    )
+
+
+def build_manifest(plan: RecordingPlan = RECORDING) -> tuple[ArtifactSpec, ...]:
+    """Build the eight-artifact manifest for one recording plan."""
+
+    recovery = plan.output("adaptive-recovery-results.json")
+    nmpc = plan.output("nmpc-acceptance-results.json")
+    chains = {chain.corpus: chain for chain in CORPUS_CHAINS}
+    return (
+        ArtifactSpec(
+            name="adaptive-recovery-results",
+            output=str(recovery),
+            steps=(_cli(f"benchmark recovery --output {recovery}"),),
+            inputs=("synthetic scenarios generated in-process",),
+            tier=LOCAL_TIER,
+            doc_page="docs/validation.md#adaptive-recovery",
+            volatile=ADAPTIVE_RECOVERY_VOLATILE,
+            tolerance=ADAPTIVE_RECOVERY_TOLERANCES,
+        ),
+        ArtifactSpec(
+            name="nmpc-acceptance-results",
+            output=str(nmpc),
+            steps=(_cli(f"benchmark nmpc --output {nmpc}"),),
+            inputs=("synthetic scenarios generated in-process",),
+            tier=LOCAL_TIER,
+            doc_page="docs/validation.md#nmpc-acceptance",
+            volatile=NMPC_ACCEPTANCE_VOLATILE,
+            tolerance=NMPC_ACCEPTANCE_TOLERANCES,
+        ),
+        *(_corpus_validation(plan, chain) for chain in CORPUS_CHAINS),
+        _cascade_x8(plan, chains["x8"]),
+    )
+
+
+MANIFEST: tuple[ArtifactSpec, ...] = build_manifest()
+
+
+# ---------------------------------------------------------------------------
+# Selection and running.
 
 
 def _importable(module_name: str) -> bool:
@@ -538,20 +940,18 @@ def _importable(module_name: str) -> bool:
 def missing_requirements(spec: ArtifactSpec) -> list[str]:
     """Human-readable reasons ``spec`` cannot run right now, if any."""
 
-    if not spec.regenerable:
-        return [f"not regenerable: {spec.unavailable_reason}"]
-    problems: list[str] = []
-    if spec.extra is not None and not _importable(_EXTRA_MODULES[spec.extra]):
-        problems.append(f"needs the optional '{spec.extra}' extra")
-    for relative in spec.required_data:
-        if not (_REPO_ROOT / relative).exists():
-            problems.append(f"needs data at {relative}")
-    return problems
+    if spec.dependency is not None:
+        module, install = _OPTIONAL_DEPENDENCIES[spec.dependency]
+        if not _importable(module):
+            return [f"needs {spec.dependency}; run `{install}`"]
+    return []
 
 
-def _resolve_names(
+def resolve_names(
     manifest: Sequence[ArtifactSpec], names: Sequence[str]
 ) -> list[ArtifactSpec]:
+    """Return the named manifest entries, or say which names are unknown."""
+
     by_name = {spec.name: spec for spec in manifest}
     unknown = [name for name in names if name not in by_name]
     if unknown:
@@ -562,25 +962,24 @@ def _resolve_names(
 def select_artifacts(
     manifest: Sequence[ArtifactSpec],
     *,
-    only: Sequence[str] | None,
-    include_slow: bool,
+    only: Sequence[str] | None = None,
+    tier: str = LOCAL_TIER,
 ) -> list[ArtifactSpec]:
     """Choose which manifest entries a run or dry run would act on.
 
-    ``--only`` selects specific artifacts by name and, being explicit,
-    bypasses the fast/slow duration gate; each selected entry can still be
-    skipped individually for a missing extra or missing local data. Without
-    ``--only``, every regenerable fast artifact is selected, plus the slow
-    ones when ``include_slow`` is set.
+    ``only`` selects specific artifacts by name and, being explicit, bypasses
+    the tier gate; each selected entry can still be skipped individually for a
+    missing extra or missing local data. Otherwise every artifact in ``tier``
+    is selected: the ``local`` tier is what runs in this repository
+    with no download, and the ``corpus`` tier is the maintainer job that needs
+    a pinned corpus on disk.
     """
 
     if only:
-        return _resolve_names(manifest, only)
-    return [
-        spec
-        for spec in manifest
-        if spec.regenerable and (include_slow or spec.duration == "fast")
-    ]
+        return resolve_names(manifest, only)
+    if tier not in TIERS:
+        raise ValueError(f"unknown tier {tier!r}; choose one of {', '.join(TIERS)}")
+    return [spec for spec in manifest if spec.tier == tier]
 
 
 def run_selected(selected: Sequence[ArtifactSpec]) -> list[tuple[ArtifactSpec, str]]:
@@ -615,109 +1014,47 @@ def run_selected(selected: Sequence[ArtifactSpec]) -> list[tuple[ArtifactSpec, s
     return results
 
 
-def _status_text(spec: ArtifactSpec) -> str:
-    problems = missing_requirements(spec)
-    if not spec.regenerable:
-        return f"not regenerable: {spec.unavailable_reason}"
-    if problems:
-        return f"blocked: {'; '.join(problems)}"
-    return "regenerable"
+@dataclass(frozen=True)
+class CheckResult:
+    """What the check found for one artifact."""
+
+    spec: ArtifactSpec
+    status: str
+    differences: tuple[str, ...] = ()
 
 
-def _print_manifest(manifest: Sequence[ArtifactSpec]) -> None:
-    name_width = max((len(spec.name) for spec in manifest), default=0)
-    duration_width = max((len(spec.duration or "-") for spec in manifest), default=0)
-    for spec in manifest:
-        print(
-            f"{spec.name:<{name_width}}  "
-            f"{(spec.duration or '-'):<{duration_width}}  "
-            f"{_status_text(spec)}  "
-            f"[{spec.output}]"
-        )
+def check_selected(
+    selected: Sequence[ArtifactSpec], produced_root: Path
+) -> list[CheckResult]:
+    """Compare freshly produced artifacts against the committed ones.
 
+    ``produced_root`` is where the run that produced them wrote. Each fresh
+    artifact is compared against the file of the same name under
+    ``docs/results/``, excluding the entry's volatile paths.
+    """
 
-def _print_dry_run(selected: Sequence[ArtifactSpec]) -> None:
+    results: list[CheckResult] = []
     for spec in selected:
-        problems = missing_requirements(spec)
-        print(f"{spec.name} -> {spec.output}")
-        if problems:
-            print(f"  skipped: {'; '.join(problems)}")
+        filename = Path(spec.output).name
+        fresh = produced_root / filename
+        committed = _REPO_ROOT / "docs" / "results" / filename
+        if not spec.recorded:
+            results.append(CheckResult(spec, f"skipped: {spec.awaiting_first_record}"))
             continue
-        for index, step in enumerate(spec.steps, start=1):
-            print(f"  {index}. {step.describe()}")
-
-
-def _print_summary(results: Sequence[tuple[ArtifactSpec, str]]) -> None:
-    if not results:
-        print("nothing selected")
-        return
-    print()
-    print("summary:")
-    name_width = max(len(spec.name) for spec, _ in results)
-    for spec, status in results:
-        print(f"  {spec.name:<{name_width}}  {status:<8}  {spec.doc_page}")
-    print()
-    print(
-        "Doc prose numbers are hand-written and are not updated by this command. "
-        "For each artifact regenerated above, update the numbers on its listed "
-        "page from the new JSON."
-    )
-
-
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description="Regenerate the recorded artifacts under docs/results/.",
-    )
-    parser.add_argument(
-        "--only",
-        nargs="+",
-        metavar="NAME",
-        help="regenerate only these artifacts by name; overrides the fast-only default",
-    )
-    parser.add_argument(
-        "--include-slow",
-        action="store_true",
-        help="also run slow regenerable artifacts (roughly five minutes or more)",
-    )
-    parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="print the steps that would run, without running them",
-    )
-    parser.add_argument(
-        "--list",
-        action="store_true",
-        help="print the full manifest with status and exit",
-    )
-    return parser
-
-
-def main(argv: Sequence[str] | None = None) -> None:
-    parser = build_parser()
-    args = parser.parse_args(argv)
-
-    if args.list:
-        try:
-            shown = _resolve_names(MANIFEST, args.only) if args.only else MANIFEST
-        except UnknownArtifactNames as error:
-            parser.error(str(error))
-        _print_manifest(shown)
-        return
-
-    try:
-        selected = select_artifacts(
-            MANIFEST, only=args.only, include_slow=args.include_slow
+        if not fresh.exists():
+            results.append(CheckResult(spec, "skipped: nothing produced"))
+            continue
+        differences = recorded_differences(
+            json.loads(fresh.read_text()),
+            json.loads(committed.read_text()),
+            ignore=spec.volatile,
+            tolerances=spec.tolerance,
         )
-    except UnknownArtifactNames as error:
-        parser.error(str(error))
-
-    if args.dry_run:
-        _print_dry_run(selected)
-        return
-
-    results = run_selected(selected)
-    _print_summary(results)
-
-
-if __name__ == "__main__":
-    main()
+        results.append(
+            CheckResult(
+                spec,
+                "ok" if not differences else "differs",
+                tuple(differences),
+            )
+        )
+    return results

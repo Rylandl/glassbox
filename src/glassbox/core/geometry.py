@@ -16,6 +16,34 @@ from jax import Array
 
 from glassbox.core.dynamics import quaternion_multiply
 
+TANGENT_STATE_SIZE = 12
+TANGENT_STATE_ORDER = (
+    "position_x",
+    "position_y",
+    "position_z",
+    "velocity_x",
+    "velocity_y",
+    "velocity_z",
+    "attitude_x",
+    "attitude_y",
+    "attitude_z",
+    "angular_velocity_x",
+    "angular_velocity_y",
+    "angular_velocity_z",
+)
+TANGENT_GROUP_ORDER = (
+    "position",
+    "velocity",
+    "attitude",
+    "angular_velocity",
+)
+TANGENT_GROUP_INDICES = {
+    "position": (0, 1, 2),
+    "velocity": (3, 4, 5),
+    "attitude": (6, 7, 8),
+    "angular_velocity": (9, 10, 11),
+}
+
 
 def quaternion_log_error(reference_wxyz: Array, actual_wxyz: Array) -> Array:
     """Return the shortest reference-to-actual rotation vector."""
@@ -44,6 +72,52 @@ def rigid_body_local_error(reference: Array, actual: Array) -> Array:
             actual[3:6] - reference[3:6],
             quaternion_log_error(reference[6:10], actual[6:10]),
             actual[10:13] - reference[10:13],
+        )
+    )
+
+
+def state_plus_tangent(state: Array, tangent: Array) -> Array:
+    """Move one rigid-body state along a local twelve-vector.
+
+    This is the retraction inverse to :func:`rigid_body_local_error`: the
+    position, velocity and body-rate blocks add, and the attitude block is
+    applied as a rotation about the body, so the quaternion stays on the unit
+    sphere instead of acquiring a Euclidean displacement. Composing the two
+    recovers the tangent exactly, which is what makes a tangent-space error, a
+    tangent-space perturbation, and a tangent-space covariance describe the
+    same thing.
+    """
+
+    angle_squared = jnp.sum(jnp.square(tangent[6:9]))
+    small_angle = angle_squared < 1e-8
+    # The exponential map is smooth at zero, but the norm is not. Evaluate
+    # its small-angle terms in squared-angle coordinates, and keep the unused
+    # square-root branch away from zero for both forward and reverse autodiff.
+    angle = jnp.sqrt(jnp.where(small_angle, 1.0, angle_squared))
+    quaternion_scale = jnp.where(
+        small_angle,
+        0.5 - angle_squared / 48.0 + angle_squared**2 / 3840.0,
+        0.5 * jnp.sinc(angle / (2.0 * jnp.pi)),
+    )
+    quaternion_scalar = jnp.where(
+        small_angle,
+        1.0 - angle_squared / 8.0 + angle_squared**2 / 384.0,
+        jnp.cos(0.5 * angle),
+    )
+    delta_quaternion = jnp.concatenate(
+        (
+            quaternion_scalar[None],
+            quaternion_scale * tangent[6:9],
+        )
+    )
+    quaternion = quaternion_multiply(state[6:10], delta_quaternion)
+    quaternion /= jnp.maximum(jnp.linalg.norm(quaternion), 1e-12)
+    return jnp.concatenate(
+        (
+            state[0:3] + tangent[0:3],
+            state[3:6] + tangent[3:6],
+            quaternion,
+            state[10:13] + tangent[9:12],
         )
     )
 

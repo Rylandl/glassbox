@@ -1,0 +1,1418 @@
+{
+  "diagnostic_only": true,
+  "deadline_s": null,
+  "host_timing_acceptance_gate": false,
+  "runtime_performance_claim": false,
+  "design": {
+    "saved_requests": 26,
+    "saved_request_tolerances": {
+      "rtol": 2e-05,
+      "atol": 2e-05
+    },
+    "unchanged_request_criterion": "bitwise outputs/objective and identical work counts when no precision stop occurs",
+    "stopped_request_criterion": "existing output tolerance, usable independently checked feasible result, identical status and no increase in any kernel call count",
+    "closed_loop_order": [
+      [
+        "cold_original",
+        "baseline"
+      ],
+      [
+        "cold_original",
+        "precision"
+      ],
+      [
+        "cold_small",
+        "baseline"
+      ],
+      [
+        "cold_small",
+        "precision"
+      ],
+      [
+        "cold_original_kick",
+        "baseline"
+      ],
+      [
+        "cold_original_kick",
+        "precision"
+      ]
+    ],
+    "closed_loop_criterion": "All six deadline-free arms complete 120 intervals inside support and satisfy existing terminal full-state tolerances. Tracking and work differences are reported, not retuned.",
+    "precision_rule": "Stop with a checked current checkpoint if the successful bounded QP ray has no initial constraint violation and its full linear predicted decrease is nonnegative but below one representable increment of the reported objective. Separately stop if a candidate rounds exactly to the current evaluator input.",
+    "limitations": "The objective-resolution rule is a heuristic about the local model, not a nonlinear improvement bound or KKT/stability guarantee. Armijo and feasibility tolerances are unchanged."
+  },
+  "input_report_sha256": "ed7fcedd68783d0bb6da42b4e89674b6764a2ff272d9a29475aca03b3b76c9e0",
+  "checks": [
+    {
+      "input": "cold_original_0",
+      "source": {
+        "case": "cold_original",
+        "tick": 0,
+        "report_sha256": "907d28b2814d994bbeb08b9dcc6cc029b84af868168016940e6330f16d867f7b",
+        "trace_sha256": "fed33eed30274e8f7172241bd36eec3b4669f0a015316301dc868223edeac477",
+        "state_sha256": "06d4d5390298176b9a204105d6cf944d1b4e09363cdd66e7b00521a67b32a08f",
+        "latent_sha256": "e80db8392fc508228239558a556a6be8aea2f72e626edb3aee06a704bfae7fb5",
+        "previous_command_sha256": "e80db8392fc508228239558a556a6be8aea2f72e626edb3aee06a704bfae7fb5",
+        "seed_sha256": "ea4e7c7598a01821c8c713a275f93f27466fc749e5bfaf6cbb7e07aab7b32ef4"
+      },
+      "returned_arrays": {
+        "bitwise_equal": true,
+        "within_tolerance": true,
+        "maximum_absolute_difference": 0.0
+      },
+      "objective": {
+        "bitwise_equal": true,
+        "within_tolerance": true,
+        "maximum_absolute_difference": 0.0
+      },
+      "baseline_objective": 32.51616287231445,
+      "precision_objective": 32.51616287231445,
+      "both_usable": true,
+      "status_equal": true,
+      "feasibility_equal": true,
+      "baseline_counts": {
+        "linearize": 8,
+        "evaluate": 8
+      },
+      "precision_counts": {
+        "linearize": 8,
+        "evaluate": 7
+      },
+      "precision_stop": {
+        "iteration": 8,
+        "objective_resolution": 3.814697265625e-06,
+        "linear_decrease_bound": 0.0,
+        "objective_dtype": "float32"
+      },
+      "precision_stop_reason": "model_resolution",
+      "output_source": "linearization_checkpoint",
+      "no_more_kernel_calls": true,
+      "passed": true
+    },
+    {
+      "input": "cold_original_4",
+      "source": {
+        "case": "cold_original",
+        "tick": 4,
+        "report_sha256": "907d28b2814d994bbeb08b9dcc6cc029b84af868168016940e6330f16d867f7b",
+        "trace_sha256": "fed33eed30274e8f7172241bd36eec3b4669f0a015316301dc868223edeac477",
+        "state_sha256": "08b85d1fd0bed81271bd95e97a2d5d78b6a70441159bcc8a52107971da2687cb",
+        "latent_sha256": "4e0948d0c93f29f7ceed615d8ba2b9e5bb70d5de481fe3e485ba3c0ee7350b29",
+        "previous_command_sha256": "b87ee4c660c16ee98530868827b7c9f9c37813fcce1f20bc773c1e95d84ac298",
+        "seed_sha256": "e6939499be6f53a688dbead556b7c55fd5b29fd6d1d394c35a9077cf2f43654c"
+      },
+      "returned_arrays": {
+        "bitwise_equal": true,
+        "within_tolerance": true,
+        "maximum_absolute_difference": 0.0
+      },
+      "objective": {
+        "bitwise_equal": true,
+        "within_tolerance": true,
+        "maximum_absolute_difference": 0.0
+      },
+      "baseline_objective": 27.621625900268555,
+      "precision_objective": 27.621625900268555,
+      "both_usable": true,
+      "status_equal": true,
+      "feasibility_equal": true,
+      "baseline_counts": {
+        "linearize": 2,
+        "evaluate": 2,
+        "finalize": 1
+      },
+      "precision_counts": {
+        "linearize": 2,
+        "evaluate": 2,
+        "finalize": 1
+      },
+      "precision_stop": null,
+      "precision_stop_reason": "iteration_limit",
+      "output_source": "finalizer",
+      "no_more_kernel_calls": true,
+      "passed": true
+    },
+    {
+      "input": "cold_original_10",
+      "source": {
+        "case": "cold_original",
+        "tick": 10,
+        "report_sha256": "907d28b2814d994bbeb08b9dcc6cc029b84af868168016940e6330f16d867f7b",
+        "trace_sha256": "fed33eed30274e8f7172241bd36eec3b4669f0a015316301dc868223edeac477",
+        "state_sha256": "fb27e6df0a0e57a522c4ccfc4bc206b677cc45bc5bc609b1b032c9d38f3fcf0a",
+        "latent_sha256": "60254d96b29bde16e66a2db50ff50188c3a6ae88c9074dc793cc2e64b057d1fb",
+        "previous_command_sha256": "ca6565306d34ae20630f39b8311933b25cac7293f193d3fe06d25ffd327c406c",
+        "seed_sha256": "aba4a40d359d46603de8992d64df9e35b2405e25b2600409c3f8d85a9bddf089"
+      },
+      "returned_arrays": {
+        "bitwise_equal": true,
+        "within_tolerance": true,
+        "maximum_absolute_difference": 0.0
+      },
+      "objective": {
+        "bitwise_equal": true,
+        "within_tolerance": true,
+        "maximum_absolute_difference": 0.0
+      },
+      "baseline_objective": 22.60636329650879,
+      "precision_objective": 22.60636329650879,
+      "both_usable": true,
+      "status_equal": true,
+      "feasibility_equal": true,
+      "baseline_counts": {
+        "linearize": 2,
+        "evaluate": 2,
+        "finalize": 1
+      },
+      "precision_counts": {
+        "linearize": 2,
+        "evaluate": 2,
+        "finalize": 1
+      },
+      "precision_stop": null,
+      "precision_stop_reason": "iteration_limit",
+      "output_source": "finalizer",
+      "no_more_kernel_calls": true,
+      "passed": true
+    },
+    {
+      "input": "cold_original_39",
+      "source": {
+        "case": "cold_original",
+        "tick": 39,
+        "report_sha256": "907d28b2814d994bbeb08b9dcc6cc029b84af868168016940e6330f16d867f7b",
+        "trace_sha256": "fed33eed30274e8f7172241bd36eec3b4669f0a015316301dc868223edeac477",
+        "state_sha256": "23920b5d5e17e3f8b29d26b10b429c18b6af287a19baf55bbd8e40048b751db4",
+        "latent_sha256": "b91960b1630c6794ba5942ddd783311ac89c341c75f736f901538db6febc1c75",
+        "previous_command_sha256": "b29c967af6528499c53bf62c663494ed1404308d455aace197391bb1ce0cbb56",
+        "seed_sha256": "57479c26feb419427943cbe2b5b3456098e5ea67bd2845765528477356d8aab0"
+      },
+      "returned_arrays": {
+        "bitwise_equal": true,
+        "within_tolerance": true,
+        "maximum_absolute_difference": 0.0
+      },
+      "objective": {
+        "bitwise_equal": true,
+        "within_tolerance": true,
+        "maximum_absolute_difference": 0.0
+      },
+      "baseline_objective": 10.182912826538086,
+      "precision_objective": 10.182912826538086,
+      "both_usable": true,
+      "status_equal": true,
+      "feasibility_equal": true,
+      "baseline_counts": {
+        "linearize": 2,
+        "evaluate": 2,
+        "finalize": 1
+      },
+      "precision_counts": {
+        "linearize": 2,
+        "evaluate": 2,
+        "finalize": 1
+      },
+      "precision_stop": null,
+      "precision_stop_reason": "iteration_limit",
+      "output_source": "finalizer",
+      "no_more_kernel_calls": true,
+      "passed": true
+    },
+    {
+      "input": "cold_original_60",
+      "source": {
+        "case": "cold_original",
+        "tick": 60,
+        "report_sha256": "907d28b2814d994bbeb08b9dcc6cc029b84af868168016940e6330f16d867f7b",
+        "trace_sha256": "fed33eed30274e8f7172241bd36eec3b4669f0a015316301dc868223edeac477",
+        "state_sha256": "9627baa93c083e9c0e473354a83d97df0b081691ce45311e6bd9cdfd0306cb21",
+        "latent_sha256": "b5204e093e1bd8dbc8a19fe7666be5e49674651c9ff0e257cf6fdc7630082c7b",
+        "previous_command_sha256": "b5e92f04dec1b3b04e88e04c3d10cabfbe95d0a963f679e6029d9ded56fc155d",
+        "seed_sha256": "02fdda5693869b2180bf27380993ce5685b88db2c71fd5a82e3017866460a28d"
+      },
+      "returned_arrays": {
+        "bitwise_equal": true,
+        "within_tolerance": true,
+        "maximum_absolute_difference": 0.0
+      },
+      "objective": {
+        "bitwise_equal": true,
+        "within_tolerance": true,
+        "maximum_absolute_difference": 0.0
+      },
+      "baseline_objective": 5.728330135345459,
+      "precision_objective": 5.728330135345459,
+      "both_usable": true,
+      "status_equal": true,
+      "feasibility_equal": true,
+      "baseline_counts": {
+        "linearize": 2,
+        "evaluate": 2,
+        "finalize": 1
+      },
+      "precision_counts": {
+        "linearize": 2,
+        "evaluate": 2,
+        "finalize": 1
+      },
+      "precision_stop": null,
+      "precision_stop_reason": "iteration_limit",
+      "output_source": "finalizer",
+      "no_more_kernel_calls": true,
+      "passed": true
+    },
+    {
+      "input": "cold_original_68",
+      "source": {
+        "case": "cold_original",
+        "tick": 68,
+        "report_sha256": "907d28b2814d994bbeb08b9dcc6cc029b84af868168016940e6330f16d867f7b",
+        "trace_sha256": "fed33eed30274e8f7172241bd36eec3b4669f0a015316301dc868223edeac477",
+        "state_sha256": "90eed07c2b180d9f0737b0e2ebec8b21d7671aa2f94d27d1137d3e6d150a1ade",
+        "latent_sha256": "d37effb24d68df941b994baf78d9b03f4c081fd7301d7f9af2f26e95884182ca",
+        "previous_command_sha256": "fc1f317586ba836a84932a6276d5f96691580f2572f73937b409fdbdc68f4366",
+        "seed_sha256": "3decfe9000bac441d69cdab16d5eb2ae220c084d2a690b9a0ce6c399ee0b8839"
+      },
+      "returned_arrays": {
+        "bitwise_equal": true,
+        "within_tolerance": true,
+        "maximum_absolute_difference": 0.0
+      },
+      "objective": {
+        "bitwise_equal": true,
+        "within_tolerance": true,
+        "maximum_absolute_difference": 0.0
+      },
+      "baseline_objective": 4.481452941894531,
+      "precision_objective": 4.481452941894531,
+      "both_usable": true,
+      "status_equal": true,
+      "feasibility_equal": true,
+      "baseline_counts": {
+        "linearize": 2,
+        "evaluate": 2,
+        "finalize": 1
+      },
+      "precision_counts": {
+        "linearize": 2,
+        "evaluate": 2,
+        "finalize": 1
+      },
+      "precision_stop": null,
+      "precision_stop_reason": "iteration_limit",
+      "output_source": "finalizer",
+      "no_more_kernel_calls": true,
+      "passed": true
+    },
+    {
+      "input": "cold_original_100",
+      "source": {
+        "case": "cold_original",
+        "tick": 100,
+        "report_sha256": "907d28b2814d994bbeb08b9dcc6cc029b84af868168016940e6330f16d867f7b",
+        "trace_sha256": "fed33eed30274e8f7172241bd36eec3b4669f0a015316301dc868223edeac477",
+        "state_sha256": "0d1ca14dcd515ccbd1d20ad43d857a1a2a6f4b0aebc085bcb5a8ec042e69be7e",
+        "latent_sha256": "66dc4cdcc3613eea1691d06fcbff4b34d3ee1682af9e49da3fcf7ab2ae1f9bff",
+        "previous_command_sha256": "bcf84088b6ea624a1139f5877458fe8f1f5cab2b370cc5b672229ea964a22eae",
+        "seed_sha256": "504773fa177db19e6a122b900dea3c2eede07153742e1d82265dc90e979afb09"
+      },
+      "returned_arrays": {
+        "bitwise_equal": true,
+        "within_tolerance": true,
+        "maximum_absolute_difference": 0.0
+      },
+      "objective": {
+        "bitwise_equal": true,
+        "within_tolerance": true,
+        "maximum_absolute_difference": 0.0
+      },
+      "baseline_objective": 1.4402446746826172,
+      "precision_objective": 1.4402446746826172,
+      "both_usable": true,
+      "status_equal": true,
+      "feasibility_equal": true,
+      "baseline_counts": {
+        "linearize": 2,
+        "evaluate": 2,
+        "finalize": 1
+      },
+      "precision_counts": {
+        "linearize": 2,
+        "evaluate": 2,
+        "finalize": 1
+      },
+      "precision_stop": null,
+      "precision_stop_reason": "iteration_limit",
+      "output_source": "finalizer",
+      "no_more_kernel_calls": true,
+      "passed": true
+    },
+    {
+      "input": "cold_original_119",
+      "source": {
+        "case": "cold_original",
+        "tick": 119,
+        "report_sha256": "907d28b2814d994bbeb08b9dcc6cc029b84af868168016940e6330f16d867f7b",
+        "trace_sha256": "fed33eed30274e8f7172241bd36eec3b4669f0a015316301dc868223edeac477",
+        "state_sha256": "59a06255f45254614dd12abe835e6de2a2e94af211ea0c8b1e85db34f961c3f7",
+        "latent_sha256": "2a08c938622670b4a7e4e2026b57d75c9b9ee0367fb3c950fa81ecd1598f15cf",
+        "previous_command_sha256": "e18bd670e6d45fad275cdc606763d348c8d5edc0fbe2132df6a6f7fa45a8e66f",
+        "seed_sha256": "4644d75c46ad83ac39a072edb25bb680cedf4dba406122547375e324c75fe54c"
+      },
+      "returned_arrays": {
+        "bitwise_equal": true,
+        "within_tolerance": true,
+        "maximum_absolute_difference": 0.0
+      },
+      "objective": {
+        "bitwise_equal": true,
+        "within_tolerance": true,
+        "maximum_absolute_difference": 0.0
+      },
+      "baseline_objective": 0.7092642188072205,
+      "precision_objective": 0.7092642188072205,
+      "both_usable": true,
+      "status_equal": true,
+      "feasibility_equal": true,
+      "baseline_counts": {
+        "linearize": 2,
+        "evaluate": 2,
+        "finalize": 1
+      },
+      "precision_counts": {
+        "linearize": 2,
+        "evaluate": 2,
+        "finalize": 1
+      },
+      "precision_stop": null,
+      "precision_stop_reason": "iteration_limit",
+      "output_source": "finalizer",
+      "no_more_kernel_calls": true,
+      "passed": true
+    },
+    {
+      "input": "cold_small_0",
+      "source": {
+        "case": "cold_small",
+        "tick": 0,
+        "report_sha256": "907d28b2814d994bbeb08b9dcc6cc029b84af868168016940e6330f16d867f7b",
+        "trace_sha256": "4c5f147c0d07858634b329ee4e115250243dc6faa4cc71344fbbf1bfd4a38d6c",
+        "state_sha256": "4d15f5c122001a2d3753e75db9277cc438e4012d4abead2b3f6bf03007a820dc",
+        "latent_sha256": "e80db8392fc508228239558a556a6be8aea2f72e626edb3aee06a704bfae7fb5",
+        "previous_command_sha256": "e80db8392fc508228239558a556a6be8aea2f72e626edb3aee06a704bfae7fb5",
+        "seed_sha256": "ea4e7c7598a01821c8c713a275f93f27466fc749e5bfaf6cbb7e07aab7b32ef4"
+      },
+      "returned_arrays": {
+        "bitwise_equal": true,
+        "within_tolerance": true,
+        "maximum_absolute_difference": 0.0
+      },
+      "objective": {
+        "bitwise_equal": true,
+        "within_tolerance": true,
+        "maximum_absolute_difference": 0.0
+      },
+      "baseline_objective": 0.14907170832157135,
+      "precision_objective": 0.14907170832157135,
+      "both_usable": true,
+      "status_equal": true,
+      "feasibility_equal": true,
+      "baseline_counts": {
+        "linearize": 8,
+        "evaluate": 8
+      },
+      "precision_counts": {
+        "linearize": 4,
+        "evaluate": 3
+      },
+      "precision_stop": {
+        "iteration": 4,
+        "objective_resolution": 1.4901161193847656e-08,
+        "linear_decrease_bound": 0.0,
+        "objective_dtype": "float32"
+      },
+      "precision_stop_reason": "model_resolution",
+      "output_source": "linearization_checkpoint",
+      "no_more_kernel_calls": true,
+      "passed": true
+    },
+    {
+      "input": "cold_small_4",
+      "source": {
+        "case": "cold_small",
+        "tick": 4,
+        "report_sha256": "907d28b2814d994bbeb08b9dcc6cc029b84af868168016940e6330f16d867f7b",
+        "trace_sha256": "4c5f147c0d07858634b329ee4e115250243dc6faa4cc71344fbbf1bfd4a38d6c",
+        "state_sha256": "e9cc99c590253802750bac033c005481615048535cdc1f802fb2f42c027fa234",
+        "latent_sha256": "65f1526f9840221adad5f286e6bd407b8b85e6106950bce24e063598b0fcb47c",
+        "previous_command_sha256": "8d6a5a8ff3aa4657c5825ddf74e8cecac21292434a9c1733d348957a204a978b",
+        "seed_sha256": "4eaf1815b0e4af2ea81b0284b8fe41d399a0ec422595b0d7202ffdf65fd51ea4"
+      },
+      "returned_arrays": {
+        "bitwise_equal": true,
+        "within_tolerance": true,
+        "maximum_absolute_difference": 0.0
+      },
+      "objective": {
+        "bitwise_equal": true,
+        "within_tolerance": true,
+        "maximum_absolute_difference": 0.0
+      },
+      "baseline_objective": 0.12128874659538269,
+      "precision_objective": 0.12128874659538269,
+      "both_usable": true,
+      "status_equal": true,
+      "feasibility_equal": true,
+      "baseline_counts": {
+        "linearize": 2,
+        "evaluate": 2,
+        "finalize": 1
+      },
+      "precision_counts": {
+        "linearize": 2,
+        "evaluate": 2,
+        "finalize": 1
+      },
+      "precision_stop": null,
+      "precision_stop_reason": "iteration_limit",
+      "output_source": "finalizer",
+      "no_more_kernel_calls": true,
+      "passed": true
+    },
+    {
+      "input": "cold_small_10",
+      "source": {
+        "case": "cold_small",
+        "tick": 10,
+        "report_sha256": "907d28b2814d994bbeb08b9dcc6cc029b84af868168016940e6330f16d867f7b",
+        "trace_sha256": "4c5f147c0d07858634b329ee4e115250243dc6faa4cc71344fbbf1bfd4a38d6c",
+        "state_sha256": "4694973aa76fdf745fe1b9f0ef71c4697bfd88e9e2526d049671ddd583ab1f96",
+        "latent_sha256": "4062b0afcbbd2facde0b123eb4682a0fd27ba8ce1042986a1ff7c45a8e35784e",
+        "previous_command_sha256": "9db43b8b83302a469f195a11138955c4f656678845e0fdefd53f00ce67520c66",
+        "seed_sha256": "de4a076afb2856c591ef45d36e1aff1b1177fe373c72551093621f6ce7d94bc5"
+      },
+      "returned_arrays": {
+        "bitwise_equal": true,
+        "within_tolerance": true,
+        "maximum_absolute_difference": 0.0
+      },
+      "objective": {
+        "bitwise_equal": true,
+        "within_tolerance": true,
+        "maximum_absolute_difference": 0.0
+      },
+      "baseline_objective": 0.0988747701048851,
+      "precision_objective": 0.0988747701048851,
+      "both_usable": true,
+      "status_equal": true,
+      "feasibility_equal": true,
+      "baseline_counts": {
+        "linearize": 2,
+        "evaluate": 2,
+        "finalize": 1
+      },
+      "precision_counts": {
+        "linearize": 2,
+        "evaluate": 2,
+        "finalize": 1
+      },
+      "precision_stop": null,
+      "precision_stop_reason": "iteration_limit",
+      "output_source": "finalizer",
+      "no_more_kernel_calls": true,
+      "passed": true
+    },
+    {
+      "input": "cold_small_39",
+      "source": {
+        "case": "cold_small",
+        "tick": 39,
+        "report_sha256": "907d28b2814d994bbeb08b9dcc6cc029b84af868168016940e6330f16d867f7b",
+        "trace_sha256": "4c5f147c0d07858634b329ee4e115250243dc6faa4cc71344fbbf1bfd4a38d6c",
+        "state_sha256": "ba6cf005aac4dd2a55721e38c19a98f1dc4699b253478cc8f6b38b16924c4445",
+        "latent_sha256": "ac26956885a16c9df5eca0c8a8ce298ff9c0a4a00bc1aefa3e8de6351955c677",
+        "previous_command_sha256": "9c011050c2d462bc2401838e80ac02af97233a738f60ef829e6c512e5703d699",
+        "seed_sha256": "f948f3715a98bb0e06d059b56638a7df66a1f4be62e678b8378dd6c1e89e96a4"
+      },
+      "returned_arrays": {
+        "bitwise_equal": false,
+        "within_tolerance": true,
+        "maximum_absolute_difference": 1.3113021850585938e-06
+      },
+      "objective": {
+        "bitwise_equal": false,
+        "within_tolerance": true,
+        "maximum_absolute_difference": 7.450580596923828e-09
+      },
+      "baseline_objective": 0.08014659583568573,
+      "precision_objective": 0.08014660328626633,
+      "both_usable": true,
+      "status_equal": true,
+      "feasibility_equal": true,
+      "baseline_counts": {
+        "linearize": 2,
+        "evaluate": 10,
+        "finalize": 1
+      },
+      "precision_counts": {
+        "linearize": 2,
+        "evaluate": 1
+      },
+      "precision_stop": {
+        "iteration": 2,
+        "objective_resolution": 7.450580596923828e-09,
+        "linear_decrease_bound": 6.000102741285531e-09,
+        "objective_dtype": "float32"
+      },
+      "precision_stop_reason": "model_resolution",
+      "output_source": "linearization_checkpoint",
+      "no_more_kernel_calls": true,
+      "passed": true
+    },
+    {
+      "input": "cold_small_60",
+      "source": {
+        "case": "cold_small",
+        "tick": 60,
+        "report_sha256": "907d28b2814d994bbeb08b9dcc6cc029b84af868168016940e6330f16d867f7b",
+        "trace_sha256": "4c5f147c0d07858634b329ee4e115250243dc6faa4cc71344fbbf1bfd4a38d6c",
+        "state_sha256": "bb355adc161632fd7092848531aa2fdce3422efd056c24a6a78b1eccec18de35",
+        "latent_sha256": "d2d0c213f336f34db73504927471f5fbbdd646eea291d633e456ef9a9892619b",
+        "previous_command_sha256": "22221fbf48935a50b608ff1646f8c73d9518a6104ac0e2bec4d9b81c530e4f09",
+        "seed_sha256": "73b3d7eb0c28ecf7877b2f323952ecce3dacae502bda5dd2b94e203a61129676"
+      },
+      "returned_arrays": {
+        "bitwise_equal": false,
+        "within_tolerance": false,
+        "maximum_absolute_difference": 0.0003110170364379883
+      },
+      "objective": {
+        "bitwise_equal": true,
+        "within_tolerance": true,
+        "maximum_absolute_difference": 0.0
+      },
+      "baseline_objective": 0.0728822648525238,
+      "precision_objective": 0.0728822648525238,
+      "both_usable": true,
+      "status_equal": true,
+      "feasibility_equal": true,
+      "baseline_counts": {
+        "linearize": 2,
+        "evaluate": 2,
+        "finalize": 1
+      },
+      "precision_counts": {
+        "linearize": 2,
+        "evaluate": 1
+      },
+      "precision_stop": {
+        "iteration": 2,
+        "objective_resolution": 7.450580596923828e-09,
+        "linear_decrease_bound": 3.547786667006825e-09,
+        "objective_dtype": "float32"
+      },
+      "precision_stop_reason": "model_resolution",
+      "output_source": "linearization_checkpoint",
+      "no_more_kernel_calls": true,
+      "passed": false
+    },
+    {
+      "input": "cold_small_68",
+      "source": {
+        "case": "cold_small",
+        "tick": 68,
+        "report_sha256": "907d28b2814d994bbeb08b9dcc6cc029b84af868168016940e6330f16d867f7b",
+        "trace_sha256": "4c5f147c0d07858634b329ee4e115250243dc6faa4cc71344fbbf1bfd4a38d6c",
+        "state_sha256": "d29be64e2f96f6755cf227a0e219be15ea2502c5be878c5161f6ccd82bcb6c9c",
+        "latent_sha256": "f68777eb7a742c8920169252caf5b511be0119c3c29f7b93044e7709dad8b76a",
+        "previous_command_sha256": "0844c570c962b7449141b63a6ccca842095e7a00ccc72ee08b7a3209a50f3ae2",
+        "seed_sha256": "add3d66f3881bfdfec05c0ef5eba2153531b2831e1116fa347e8ad1907e14a5d"
+      },
+      "returned_arrays": {
+        "bitwise_equal": false,
+        "within_tolerance": false,
+        "maximum_absolute_difference": 0.0002518296241760254
+      },
+      "objective": {
+        "bitwise_equal": false,
+        "within_tolerance": true,
+        "maximum_absolute_difference": 7.450580596923828e-09
+      },
+      "baseline_objective": 0.07091186940670013,
+      "precision_objective": 0.07091186195611954,
+      "both_usable": true,
+      "status_equal": true,
+      "feasibility_equal": true,
+      "baseline_counts": {
+        "linearize": 2,
+        "evaluate": 2,
+        "finalize": 1
+      },
+      "precision_counts": {
+        "linearize": 2,
+        "evaluate": 1
+      },
+      "precision_stop": {
+        "iteration": 2,
+        "objective_resolution": 7.450580596923828e-09,
+        "linear_decrease_bound": 3.1448482668303914e-09,
+        "objective_dtype": "float32"
+      },
+      "precision_stop_reason": "model_resolution",
+      "output_source": "linearization_checkpoint",
+      "no_more_kernel_calls": true,
+      "passed": false
+    },
+    {
+      "input": "cold_small_100",
+      "source": {
+        "case": "cold_small",
+        "tick": 100,
+        "report_sha256": "907d28b2814d994bbeb08b9dcc6cc029b84af868168016940e6330f16d867f7b",
+        "trace_sha256": "4c5f147c0d07858634b329ee4e115250243dc6faa4cc71344fbbf1bfd4a38d6c",
+        "state_sha256": "0e07e41ff547360e745aece9c3f224fd67b08d7de2dbd06254a0513c2dbfcfe2",
+        "latent_sha256": "4a35bbe4d97e269870a8f5924995920b223e9cb7a2c8324d045b647a58d63d74",
+        "previous_command_sha256": "492b02aae3ab741343c4c80df9da4edcf7c0b322fb24cfda93425c5ce2049366",
+        "seed_sha256": "82b0696ad4cd4418e8fc4573b61e6f57e6a928c5f80141d1f6ea3c934785c231"
+      },
+      "returned_arrays": {
+        "bitwise_equal": true,
+        "within_tolerance": true,
+        "maximum_absolute_difference": 0.0
+      },
+      "objective": {
+        "bitwise_equal": true,
+        "within_tolerance": true,
+        "maximum_absolute_difference": 0.0
+      },
+      "baseline_objective": 0.06649594753980637,
+      "precision_objective": 0.06649594753980637,
+      "both_usable": true,
+      "status_equal": true,
+      "feasibility_equal": true,
+      "baseline_counts": {
+        "linearize": 2,
+        "evaluate": 2
+      },
+      "precision_counts": {
+        "linearize": 2,
+        "evaluate": 1
+      },
+      "precision_stop": {
+        "iteration": 2,
+        "objective_resolution": 7.450580596923828e-09,
+        "linear_decrease_bound": 0.0,
+        "objective_dtype": "float32"
+      },
+      "precision_stop_reason": "model_resolution",
+      "output_source": "linearization_checkpoint",
+      "no_more_kernel_calls": true,
+      "passed": true
+    },
+    {
+      "input": "cold_small_119",
+      "source": {
+        "case": "cold_small",
+        "tick": 119,
+        "report_sha256": "907d28b2814d994bbeb08b9dcc6cc029b84af868168016940e6330f16d867f7b",
+        "trace_sha256": "4c5f147c0d07858634b329ee4e115250243dc6faa4cc71344fbbf1bfd4a38d6c",
+        "state_sha256": "0594bff729c1b0e8e23cc909a398d20ef7d4cd2d804c6d7ae53f120f48962af8",
+        "latent_sha256": "0a55170d2409f70dbec027daf0ae34991faffa9e5049383411968c314e77ba7b",
+        "previous_command_sha256": "228b285fce447622040f8ce2e6e91b790790714fbcfeb36d9f638c76d499e3ae",
+        "seed_sha256": "c67bb5785785c70670456aa1e1b0350567012585587953a854624a01bacb5e27"
+      },
+      "returned_arrays": {
+        "bitwise_equal": true,
+        "within_tolerance": true,
+        "maximum_absolute_difference": 0.0
+      },
+      "objective": {
+        "bitwise_equal": true,
+        "within_tolerance": true,
+        "maximum_absolute_difference": 0.0
+      },
+      "baseline_objective": 0.06549835950136185,
+      "precision_objective": 0.06549835950136185,
+      "both_usable": true,
+      "status_equal": true,
+      "feasibility_equal": true,
+      "baseline_counts": {
+        "linearize": 2,
+        "evaluate": 2
+      },
+      "precision_counts": {
+        "linearize": 2,
+        "evaluate": 1
+      },
+      "precision_stop": {
+        "iteration": 2,
+        "objective_resolution": 7.450580596923828e-09,
+        "linear_decrease_bound": 0.0,
+        "objective_dtype": "float32"
+      },
+      "precision_stop_reason": "model_resolution",
+      "output_source": "linearization_checkpoint",
+      "no_more_kernel_calls": true,
+      "passed": true
+    },
+    {
+      "input": "cold_original_kick_0",
+      "source": {
+        "case": "cold_original_kick",
+        "tick": 0,
+        "report_sha256": "907d28b2814d994bbeb08b9dcc6cc029b84af868168016940e6330f16d867f7b",
+        "trace_sha256": "92ba1567d6365fd3180c3983fe18eeca4eb24bfccd19e20680f0dca385b69256",
+        "state_sha256": "06d4d5390298176b9a204105d6cf944d1b4e09363cdd66e7b00521a67b32a08f",
+        "latent_sha256": "e80db8392fc508228239558a556a6be8aea2f72e626edb3aee06a704bfae7fb5",
+        "previous_command_sha256": "e80db8392fc508228239558a556a6be8aea2f72e626edb3aee06a704bfae7fb5",
+        "seed_sha256": "ea4e7c7598a01821c8c713a275f93f27466fc749e5bfaf6cbb7e07aab7b32ef4"
+      },
+      "returned_arrays": {
+        "bitwise_equal": true,
+        "within_tolerance": true,
+        "maximum_absolute_difference": 0.0
+      },
+      "objective": {
+        "bitwise_equal": true,
+        "within_tolerance": true,
+        "maximum_absolute_difference": 0.0
+      },
+      "baseline_objective": 32.51616287231445,
+      "precision_objective": 32.51616287231445,
+      "both_usable": true,
+      "status_equal": true,
+      "feasibility_equal": true,
+      "baseline_counts": {
+        "linearize": 8,
+        "evaluate": 8
+      },
+      "precision_counts": {
+        "linearize": 8,
+        "evaluate": 7
+      },
+      "precision_stop": {
+        "iteration": 8,
+        "objective_resolution": 3.814697265625e-06,
+        "linear_decrease_bound": 0.0,
+        "objective_dtype": "float32"
+      },
+      "precision_stop_reason": "model_resolution",
+      "output_source": "linearization_checkpoint",
+      "no_more_kernel_calls": true,
+      "passed": true
+    },
+    {
+      "input": "cold_original_kick_4",
+      "source": {
+        "case": "cold_original_kick",
+        "tick": 4,
+        "report_sha256": "907d28b2814d994bbeb08b9dcc6cc029b84af868168016940e6330f16d867f7b",
+        "trace_sha256": "92ba1567d6365fd3180c3983fe18eeca4eb24bfccd19e20680f0dca385b69256",
+        "state_sha256": "08b85d1fd0bed81271bd95e97a2d5d78b6a70441159bcc8a52107971da2687cb",
+        "latent_sha256": "4e0948d0c93f29f7ceed615d8ba2b9e5bb70d5de481fe3e485ba3c0ee7350b29",
+        "previous_command_sha256": "b87ee4c660c16ee98530868827b7c9f9c37813fcce1f20bc773c1e95d84ac298",
+        "seed_sha256": "e6939499be6f53a688dbead556b7c55fd5b29fd6d1d394c35a9077cf2f43654c"
+      },
+      "returned_arrays": {
+        "bitwise_equal": true,
+        "within_tolerance": true,
+        "maximum_absolute_difference": 0.0
+      },
+      "objective": {
+        "bitwise_equal": true,
+        "within_tolerance": true,
+        "maximum_absolute_difference": 0.0
+      },
+      "baseline_objective": 27.621625900268555,
+      "precision_objective": 27.621625900268555,
+      "both_usable": true,
+      "status_equal": true,
+      "feasibility_equal": true,
+      "baseline_counts": {
+        "linearize": 2,
+        "evaluate": 2,
+        "finalize": 1
+      },
+      "precision_counts": {
+        "linearize": 2,
+        "evaluate": 2,
+        "finalize": 1
+      },
+      "precision_stop": null,
+      "precision_stop_reason": "iteration_limit",
+      "output_source": "finalizer",
+      "no_more_kernel_calls": true,
+      "passed": true
+    },
+    {
+      "input": "cold_original_kick_10",
+      "source": {
+        "case": "cold_original_kick",
+        "tick": 10,
+        "report_sha256": "907d28b2814d994bbeb08b9dcc6cc029b84af868168016940e6330f16d867f7b",
+        "trace_sha256": "92ba1567d6365fd3180c3983fe18eeca4eb24bfccd19e20680f0dca385b69256",
+        "state_sha256": "fb27e6df0a0e57a522c4ccfc4bc206b677cc45bc5bc609b1b032c9d38f3fcf0a",
+        "latent_sha256": "60254d96b29bde16e66a2db50ff50188c3a6ae88c9074dc793cc2e64b057d1fb",
+        "previous_command_sha256": "ca6565306d34ae20630f39b8311933b25cac7293f193d3fe06d25ffd327c406c",
+        "seed_sha256": "aba4a40d359d46603de8992d64df9e35b2405e25b2600409c3f8d85a9bddf089"
+      },
+      "returned_arrays": {
+        "bitwise_equal": true,
+        "within_tolerance": true,
+        "maximum_absolute_difference": 0.0
+      },
+      "objective": {
+        "bitwise_equal": true,
+        "within_tolerance": true,
+        "maximum_absolute_difference": 0.0
+      },
+      "baseline_objective": 22.60636329650879,
+      "precision_objective": 22.60636329650879,
+      "both_usable": true,
+      "status_equal": true,
+      "feasibility_equal": true,
+      "baseline_counts": {
+        "linearize": 2,
+        "evaluate": 2,
+        "finalize": 1
+      },
+      "precision_counts": {
+        "linearize": 2,
+        "evaluate": 2,
+        "finalize": 1
+      },
+      "precision_stop": null,
+      "precision_stop_reason": "iteration_limit",
+      "output_source": "finalizer",
+      "no_more_kernel_calls": true,
+      "passed": true
+    },
+    {
+      "input": "cold_original_kick_39",
+      "source": {
+        "case": "cold_original_kick",
+        "tick": 39,
+        "report_sha256": "907d28b2814d994bbeb08b9dcc6cc029b84af868168016940e6330f16d867f7b",
+        "trace_sha256": "92ba1567d6365fd3180c3983fe18eeca4eb24bfccd19e20680f0dca385b69256",
+        "state_sha256": "23920b5d5e17e3f8b29d26b10b429c18b6af287a19baf55bbd8e40048b751db4",
+        "latent_sha256": "b91960b1630c6794ba5942ddd783311ac89c341c75f736f901538db6febc1c75",
+        "previous_command_sha256": "b29c967af6528499c53bf62c663494ed1404308d455aace197391bb1ce0cbb56",
+        "seed_sha256": "57479c26feb419427943cbe2b5b3456098e5ea67bd2845765528477356d8aab0"
+      },
+      "returned_arrays": {
+        "bitwise_equal": true,
+        "within_tolerance": true,
+        "maximum_absolute_difference": 0.0
+      },
+      "objective": {
+        "bitwise_equal": true,
+        "within_tolerance": true,
+        "maximum_absolute_difference": 0.0
+      },
+      "baseline_objective": 10.182912826538086,
+      "precision_objective": 10.182912826538086,
+      "both_usable": true,
+      "status_equal": true,
+      "feasibility_equal": true,
+      "baseline_counts": {
+        "linearize": 2,
+        "evaluate": 2,
+        "finalize": 1
+      },
+      "precision_counts": {
+        "linearize": 2,
+        "evaluate": 2,
+        "finalize": 1
+      },
+      "precision_stop": null,
+      "precision_stop_reason": "iteration_limit",
+      "output_source": "finalizer",
+      "no_more_kernel_calls": true,
+      "passed": true
+    },
+    {
+      "input": "cold_original_kick_60",
+      "source": {
+        "case": "cold_original_kick",
+        "tick": 60,
+        "report_sha256": "907d28b2814d994bbeb08b9dcc6cc029b84af868168016940e6330f16d867f7b",
+        "trace_sha256": "92ba1567d6365fd3180c3983fe18eeca4eb24bfccd19e20680f0dca385b69256",
+        "state_sha256": "84a38842597bc00b00dd0deb6cda5dfbc5c40d20cdbd59522290b0456bf0f659",
+        "latent_sha256": "b5204e093e1bd8dbc8a19fe7666be5e49674651c9ff0e257cf6fdc7630082c7b",
+        "previous_command_sha256": "b5e92f04dec1b3b04e88e04c3d10cabfbe95d0a963f679e6029d9ded56fc155d",
+        "seed_sha256": "02fdda5693869b2180bf27380993ce5685b88db2c71fd5a82e3017866460a28d"
+      },
+      "returned_arrays": {
+        "bitwise_equal": true,
+        "within_tolerance": true,
+        "maximum_absolute_difference": 0.0
+      },
+      "objective": {
+        "bitwise_equal": true,
+        "within_tolerance": true,
+        "maximum_absolute_difference": 0.0
+      },
+      "baseline_objective": 5.727478504180908,
+      "precision_objective": 5.727478504180908,
+      "both_usable": true,
+      "status_equal": true,
+      "feasibility_equal": true,
+      "baseline_counts": {
+        "linearize": 2,
+        "evaluate": 2,
+        "finalize": 1
+      },
+      "precision_counts": {
+        "linearize": 2,
+        "evaluate": 2,
+        "finalize": 1
+      },
+      "precision_stop": null,
+      "precision_stop_reason": "iteration_limit",
+      "output_source": "finalizer",
+      "no_more_kernel_calls": true,
+      "passed": true
+    },
+    {
+      "input": "cold_original_kick_68",
+      "source": {
+        "case": "cold_original_kick",
+        "tick": 68,
+        "report_sha256": "907d28b2814d994bbeb08b9dcc6cc029b84af868168016940e6330f16d867f7b",
+        "trace_sha256": "92ba1567d6365fd3180c3983fe18eeca4eb24bfccd19e20680f0dca385b69256",
+        "state_sha256": "558ab95ce6ca352674053cbcd91d6c2571d0082198ff2c86437686f87c7eba76",
+        "latent_sha256": "7d9ff2fac1ed25751ff86c378e9b0af37febd7668b4659494169fe72ccda12d2",
+        "previous_command_sha256": "fa36747b98cc77dc07c7093d85c41e7913b7d96ce6ae04cf264ad62f95e4fcfd",
+        "seed_sha256": "ffa8a129b680186590ac57740fa6528f6cd73a4da89643f9ad1baa6878f355be"
+      },
+      "returned_arrays": {
+        "bitwise_equal": true,
+        "within_tolerance": true,
+        "maximum_absolute_difference": 0.0
+      },
+      "objective": {
+        "bitwise_equal": true,
+        "within_tolerance": true,
+        "maximum_absolute_difference": 0.0
+      },
+      "baseline_objective": 4.482285976409912,
+      "precision_objective": 4.482285976409912,
+      "both_usable": true,
+      "status_equal": true,
+      "feasibility_equal": true,
+      "baseline_counts": {
+        "linearize": 2,
+        "evaluate": 2,
+        "finalize": 1
+      },
+      "precision_counts": {
+        "linearize": 2,
+        "evaluate": 2,
+        "finalize": 1
+      },
+      "precision_stop": null,
+      "precision_stop_reason": "iteration_limit",
+      "output_source": "finalizer",
+      "no_more_kernel_calls": true,
+      "passed": true
+    },
+    {
+      "input": "cold_original_kick_100",
+      "source": {
+        "case": "cold_original_kick",
+        "tick": 100,
+        "report_sha256": "907d28b2814d994bbeb08b9dcc6cc029b84af868168016940e6330f16d867f7b",
+        "trace_sha256": "92ba1567d6365fd3180c3983fe18eeca4eb24bfccd19e20680f0dca385b69256",
+        "state_sha256": "19f57be3175e30ae7026f68e001fea7df0c56f51cbdaea02d1f0b199c9726288",
+        "latent_sha256": "2b27dc4a306e23e095d83ed189464e4f14ac7127928e4ae96ac9e49c65eee970",
+        "previous_command_sha256": "8e5cb82a4b4be62d51d0374a13980e7dafbba4fa880c3d6f7159ae15c617caf5",
+        "seed_sha256": "5b506df2dc68dfdd529acde0cf2538a870e33c6ff177e241804ae247542b1ccc"
+      },
+      "returned_arrays": {
+        "bitwise_equal": true,
+        "within_tolerance": true,
+        "maximum_absolute_difference": 0.0
+      },
+      "objective": {
+        "bitwise_equal": true,
+        "within_tolerance": true,
+        "maximum_absolute_difference": 0.0
+      },
+      "baseline_objective": 1.4436142444610596,
+      "precision_objective": 1.4436142444610596,
+      "both_usable": true,
+      "status_equal": true,
+      "feasibility_equal": true,
+      "baseline_counts": {
+        "linearize": 2,
+        "evaluate": 2,
+        "finalize": 1
+      },
+      "precision_counts": {
+        "linearize": 2,
+        "evaluate": 2,
+        "finalize": 1
+      },
+      "precision_stop": null,
+      "precision_stop_reason": "iteration_limit",
+      "output_source": "finalizer",
+      "no_more_kernel_calls": true,
+      "passed": true
+    },
+    {
+      "input": "cold_original_kick_119",
+      "source": {
+        "case": "cold_original_kick",
+        "tick": 119,
+        "report_sha256": "907d28b2814d994bbeb08b9dcc6cc029b84af868168016940e6330f16d867f7b",
+        "trace_sha256": "92ba1567d6365fd3180c3983fe18eeca4eb24bfccd19e20680f0dca385b69256",
+        "state_sha256": "90fcf2f6ce844be3e1ce23006f014e8800611bd83a4006f72f49fd46029febc6",
+        "latent_sha256": "1d75ba274aa7911a15dbd13514f2d26ce6d836d0bc4227d5a749880eb949ea5d",
+        "previous_command_sha256": "412eaccb352250914d9372e26bda379ff5861a909fcc6d0bb5f435236ad91158",
+        "seed_sha256": "372b135d51cad4cbc01023f5768a2f9f2dec19e8aa493e90d9397f78dc59d333"
+      },
+      "returned_arrays": {
+        "bitwise_equal": true,
+        "within_tolerance": true,
+        "maximum_absolute_difference": 0.0
+      },
+      "objective": {
+        "bitwise_equal": true,
+        "within_tolerance": true,
+        "maximum_absolute_difference": 0.0
+      },
+      "baseline_objective": 0.7113868594169617,
+      "precision_objective": 0.7113868594169617,
+      "both_usable": true,
+      "status_equal": true,
+      "feasibility_equal": true,
+      "baseline_counts": {
+        "linearize": 2,
+        "evaluate": 2,
+        "finalize": 1
+      },
+      "precision_counts": {
+        "linearize": 2,
+        "evaluate": 2,
+        "finalize": 1
+      },
+      "precision_stop": null,
+      "precision_stop_reason": "iteration_limit",
+      "output_source": "finalizer",
+      "no_more_kernel_calls": true,
+      "passed": true
+    },
+    {
+      "input": "recorded_tick10",
+      "source": {
+        "case": "cold_original_kick",
+        "tick": 10,
+        "report_sha256": "caaf9d6f69531fb0c22d648dce05b6b5192a02a01324ac39370d0f5b8e021b18",
+        "trace_sha256": "9152f1715fbfebcb8664306a1f85a03e458f31540e3d6f957c1bed2df5a1bf05",
+        "state_sha256": "fb27e6df0a0e57a522c4ccfc4bc206b677cc45bc5bc609b1b032c9d38f3fcf0a",
+        "latent_sha256": "60254d96b29bde16e66a2db50ff50188c3a6ae88c9074dc793cc2e64b057d1fb",
+        "previous_command_sha256": "ca6565306d34ae20630f39b8311933b25cac7293f193d3fe06d25ffd327c406c",
+        "seed_sha256": "aba4a40d359d46603de8992d64df9e35b2405e25b2600409c3f8d85a9bddf089"
+      },
+      "returned_arrays": {
+        "bitwise_equal": true,
+        "within_tolerance": true,
+        "maximum_absolute_difference": 0.0
+      },
+      "objective": {
+        "bitwise_equal": true,
+        "within_tolerance": true,
+        "maximum_absolute_difference": 0.0
+      },
+      "baseline_objective": 22.60636329650879,
+      "precision_objective": 22.60636329650879,
+      "both_usable": true,
+      "status_equal": true,
+      "feasibility_equal": true,
+      "baseline_counts": {
+        "linearize": 2,
+        "evaluate": 2,
+        "finalize": 1
+      },
+      "precision_counts": {
+        "linearize": 2,
+        "evaluate": 2,
+        "finalize": 1
+      },
+      "precision_stop": null,
+      "precision_stop_reason": "iteration_limit",
+      "output_source": "finalizer",
+      "no_more_kernel_calls": true,
+      "passed": true
+    },
+    {
+      "input": "recorded_small68",
+      "source": {
+        "case": "cold_small",
+        "tick": 68,
+        "report_sha256": "675136d2604a08ce806a848475a93d7ef778f87937896a710fe0a9099b05b7a8",
+        "trace_sha256": "8e4ad39df28457c8d5e5d85b2c4c250ce3e19cc8a23cf8a5c3f0c4cdd6c462d0",
+        "state_sha256": "033f527ea4a3ce37b81abf9a3edf48b0d3319617bef07c1cef2f93d0959efe02",
+        "latent_sha256": "b43bcb81fb0a1b74a36e2906f653c95b5a905e40ea9dfa83859016148a0ff372",
+        "previous_command_sha256": "e2b7dbab21d0649fb9e97bc48cd548e0cac86b845cff07d512098488ce406de9",
+        "seed_sha256": "9e1310ab3fa5d6cfc55b7192d1447cd9fa04810ce01d66aa474ded49616124c3"
+      },
+      "returned_arrays": {
+        "bitwise_equal": true,
+        "within_tolerance": true,
+        "maximum_absolute_difference": 0.0
+      },
+      "objective": {
+        "bitwise_equal": true,
+        "within_tolerance": true,
+        "maximum_absolute_difference": 0.0
+      },
+      "baseline_objective": 0.07091228663921356,
+      "precision_objective": 0.07091228663921356,
+      "both_usable": true,
+      "status_equal": true,
+      "feasibility_equal": true,
+      "baseline_counts": {
+        "linearize": 2,
+        "evaluate": 2,
+        "finalize": 1
+      },
+      "precision_counts": {
+        "linearize": 2,
+        "evaluate": 2,
+        "finalize": 1
+      },
+      "precision_stop": null,
+      "precision_stop_reason": "iteration_limit",
+      "output_source": "finalizer",
+      "no_more_kernel_calls": true,
+      "passed": true
+    }
+  ],
+  "cases": {},
+  "source_sha256": {
+    "scripts/investigate_terminal_suffix.py": "1a8d1cbbd21443abb547aa5bcec353d24241b7b9c6a1a90d90c279b457fbbdd6",
+    "scripts/investigate_sqp_recovery.py": "ab5d5c8de87d6ace6e99925e9ab509740344ec9386ac3a9163a01c5d3e712b54",
+    "src/glassbox/belief/belief.py": "16924b30baef0c3f4035c5919349c2ed905dd7cb75ac3287b2c074f1a089293b",
+    "src/glassbox/belief/forecast_error.py": "09602a8a1b8919b5db35a3c84cb477dd8f0cf6d3774eb755ca10ba68696a482b",
+    "src/glassbox/belief/information.py": "fb890920f34bca4af044e521c5694612a6f5a139a0a2d84c7aa37d4370021237",
+    "src/glassbox/belief/linearization.py": "ef0cf77eeb40445d4d09f2397afdd9fac37058934c4975217401e18620d46182",
+    "src/glassbox/belief/parameter_evidence.py": "81a574bf787bfb3b55163145d96546fda11237c6244b127294299b257ccd7606",
+    "src/glassbox/belief/update.py": "d96ba299309e269bdd9f0a320650e089088ca27aa9f5f3785de36e4b337b8587",
+    "src/glassbox/control/fitted.py": "7571ae1f5b50010b30bd52a9d7786834354e45f8c3dbff59de2a0ed0eb4d98af",
+    "src/glassbox/control/plan.py": "d94cf84cbd34e375c4d20013a3fefdeb7f676da839ca5437417751ca790d7121",
+    "src/glassbox/control/solver.py": "ea88fdcd7d737a7d0d86b113a9d9ccea3ffb7ce738a5a6c65096d5e4990231fc",
+    "src/glassbox/core/data.py": "89543426635a7136ef8da8666fbeee290174ce4c36b08998644492e758f29759",
+    "src/glassbox/core/dynamics.py": "f7d3a65549d6c7d35987d3b55ca8431581f7b7b07976d59fd7dc7e0c27395c01",
+    "src/glassbox/core/geometry.py": "f83708893892c2f34c9e52423f47e53d271fd0b7579cf6a7ece439293c3d07bb",
+    "src/glassbox/core/metrics.py": "1a984d3ef1d3bc875e602f2ee4129e0bb11a1570652920929e1d7be30c4bfc42",
+    "src/glassbox/core/diagnostics.py": "4553e646a755c1254f0fb11b4f5e0eca79ec8eb774a45c4190fc55fd335b673f",
+    "src/glassbox/core/model.py": "8062215ea5886c2c15d2d22e78ee29b8943852f48da140e1a6c06d892b848ed8",
+    "src/glassbox/core/synthetic.py": "6b9bec538e8e0964ca67ec5d61060ac02bc54bc9428fbae50d5f141f4571f8f1",
+    "src/glassbox/workflows/benchmarks/recovery.py": "d459952644f2bec35365d2e9a259956ea8b1cdacc76d53a9fa64e4dba35735e5",
+    "scripts/investigate_precision_stopping.py": "504b960e7ada09a501c52e6c82e8dedd7f181d73f415d2e873269d56fc742b57",
+    "scripts/investigate_fused_covariance.py": "e6686695d5a133233c41223232ce078111bf96c63b3bbb59e9e72b2d813efe01",
+    "scripts/investigate_single_seed.py": "0cd3405f5bfb99cb84766feafcc92a288c6d7904053a42e9431edaf4f515e1c0",
+    "scripts/investigate_feedback_recovery.py": "e86a973a99f4b719a877b0e827328edd8085dfb21de33589eb29ed5a3bea2739",
+    "scripts/investigate_feedback_suffix.py": "0a084eb885a1994ed6cf9496a74716a3b1940ad537dcda59706a5870c172ae97",
+    "scripts/investigate_fast_suffix.py": "e4579bed0e73dcb9dc49784ef428817890ec08572726649086b992d2abe57e30",
+    "scripts/investigate_fast_suffix_runtime.py": "d75caff9122a1d1f41533ca82cddf2ce7dc75ef264d0a03f84c9d2c5069b75e3",
+    "scripts/investigate_recovery.py": "683901f143ec7c44c5494202fcb48be66b3a63883931804f54cf3a85410833dc"
+  },
+  "fixture_sha256": {
+    "rich-belief.json": "cd4e3b5201aff055b274a6fc1fe8eee64aa0656b447999b6618122a965d71bd1",
+    "horizon-shift-states.npz": "d6ff2734b99951078410022ac7aa88134a1ca8c93f1ed353bdb2a6855da40a0b",
+    "manifest.json": "659e7584d59a6472b4ff6c2ef97e30e207803eb081220a0e62695c4386fee16a"
+  },
+  "fixture_manifest": {
+    "scenario_baseline_revision": "4f5cddb1b0095010235ea919fbd2aa6553b2589c",
+    "known_fifth_solve_failure_reproduced": true,
+    "tick_results": [
+      {
+        "tick": 0,
+        "status": "stalled",
+        "usable": true,
+        "message": "offline SQP feasible iterate; convergence not asserted"
+      },
+      {
+        "tick": 1,
+        "status": "stalled",
+        "usable": true,
+        "message": "offline SQP feasible iterate; convergence not asserted"
+      },
+      {
+        "tick": 2,
+        "status": "stalled",
+        "usable": true,
+        "message": "offline SQP feasible iterate; convergence not asserted"
+      },
+      {
+        "tick": 3,
+        "status": "stalled",
+        "usable": true,
+        "message": "offline SQP feasible iterate; convergence not asserted"
+      },
+      {
+        "tick": 4,
+        "status": "line_search_failed",
+        "usable": false,
+        "message": "SQP returned no feasible command plan"
+      }
+    ],
+    "array_shapes": {
+      "reference_states": [
+        31,
+        13
+      ],
+      "tick0_state": [
+        13
+      ],
+      "tick0_latent": [
+        4
+      ],
+      "tick0_previous_command": [
+        4
+      ],
+      "tick0_predicted_states": [
+        31,
+        13
+      ],
+      "tick0_predicted_latent_states": [
+        31,
+        4
+      ],
+      "tick0_predicted_commands": [
+        30,
+        4
+      ],
+      "tick1_state": [
+        13
+      ],
+      "tick1_latent": [
+        4
+      ],
+      "tick1_previous_command": [
+        4
+      ],
+      "tick1_warm_commands": [
+        30,
+        4
+      ],
+      "tick1_shifted_commands": [
+        30,
+        4
+      ],
+      "tick1_predicted_states": [
+        31,
+        13
+      ],
+      "tick1_predicted_latent_states": [
+        31,
+        4
+      ],
+      "tick1_predicted_commands": [
+        30,
+        4
+      ],
+      "tick2_state": [
+        13
+      ],
+      "tick2_latent": [
+        4
+      ],
+      "tick2_previous_command": [
+        4
+      ],
+      "tick2_warm_commands": [
+        30,
+        4
+      ],
+      "tick2_shifted_commands": [
+        30,
+        4
+      ],
+      "tick2_predicted_states": [
+        31,
+        13
+      ],
+      "tick2_predicted_latent_states": [
+        31,
+        4
+      ],
+      "tick2_predicted_commands": [
+        30,
+        4
+      ],
+      "tick3_state": [
+        13
+      ],
+      "tick3_latent": [
+        4
+      ],
+      "tick3_previous_command": [
+        4
+      ],
+      "tick3_warm_commands": [
+        30,
+        4
+      ],
+      "tick3_shifted_commands": [
+        30,
+        4
+      ],
+      "tick3_predicted_states": [
+        31,
+        13
+      ],
+      "tick3_predicted_latent_states": [
+        31,
+        4
+      ],
+      "tick3_predicted_commands": [
+        30,
+        4
+      ],
+      "tick4_state": [
+        13
+      ],
+      "tick4_latent": [
+        4
+      ],
+      "tick4_previous_command": [
+        4
+      ],
+      "tick4_warm_commands": [
+        30,
+        4
+      ],
+      "tick4_shifted_commands": [
+        30,
+        4
+      ]
+    },
+    "source_sha256": {
+      "scripts/build_nmpc_research_fixture.py": "3ba073cc7068d03e8ce4b83e1e7947a173127f8e4ffb3a1cf162032a4260583c",
+      "scripts/investigate_sqp_recovery.py": "cb5e42512b3e8c27abf63310e8555f4c911b131b0706e93d11a8dd87a291634c",
+      "scripts/investigate_recovery.py": "683901f143ec7c44c5494202fcb48be66b3a63883931804f54cf3a85410833dc",
+      "src/glassbox/belief/belief.py": "16924b30baef0c3f4035c5919349c2ed905dd7cb75ac3287b2c074f1a089293b",
+      "src/glassbox/belief/forecast_error.py": "09602a8a1b8919b5db35a3c84cb477dd8f0cf6d3774eb755ca10ba68696a482b",
+      "src/glassbox/belief/information.py": "fb890920f34bca4af044e521c5694612a6f5a139a0a2d84c7aa37d4370021237",
+      "src/glassbox/belief/linearization.py": "ef0cf77eeb40445d4d09f2397afdd9fac37058934c4975217401e18620d46182",
+      "src/glassbox/belief/parameter_evidence.py": "81a574bf787bfb3b55163145d96546fda11237c6244b127294299b257ccd7606",
+      "src/glassbox/belief/update.py": "d96ba299309e269bdd9f0a320650e089088ca27aa9f5f3785de36e4b337b8587",
+      "src/glassbox/control/fitted.py": "7571ae1f5b50010b30bd52a9d7786834354e45f8c3dbff59de2a0ed0eb4d98af",
+      "src/glassbox/control/plan.py": "d94cf84cbd34e375c4d20013a3fefdeb7f676da839ca5437417751ca790d7121",
+      "src/glassbox/control/solver.py": "ea88fdcd7d737a7d0d86b113a9d9ccea3ffb7ce738a5a6c65096d5e4990231fc",
+      "src/glassbox/core/data.py": "89543426635a7136ef8da8666fbeee290174ce4c36b08998644492e758f29759",
+      "src/glassbox/core/dynamics.py": "f7d3a65549d6c7d35987d3b55ca8431581f7b7b07976d59fd7dc7e0c27395c01",
+      "src/glassbox/core/geometry.py": "f83708893892c2f34c9e52423f47e53d271fd0b7579cf6a7ece439293c3d07bb",
+      "src/glassbox/core/metrics.py": "1a984d3ef1d3bc875e602f2ee4129e0bb11a1570652920929e1d7be30c4bfc42",
+      "src/glassbox/core/diagnostics.py": "4553e646a755c1254f0fb11b4f5e0eca79ec8eb774a45c4190fc55fd335b673f",
+      "src/glassbox/core/model.py": "8062215ea5886c2c15d2d22e78ee29b8943852f48da140e1a6c06d892b848ed8",
+      "src/glassbox/core/synthetic.py": "6b9bec538e8e0964ca67ec5d61060ac02bc54bc9428fbae50d5f141f4571f8f1",
+      "src/glassbox/workflows/benchmarks/recovery.py": "d459952644f2bec35365d2e9a259956ea8b1cdacc76d53a9fa64e4dba35735e5"
+    }
+  },
+  "baseline_revision": "ac0ff5535c11e477daa37e00835bdf084ce00880",
+  "saved_requests_passed": false
+}

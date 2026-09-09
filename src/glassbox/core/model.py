@@ -1,0 +1,629 @@
+"""Typed execution contract for fitted Glassbox dynamics models."""
+
+from __future__ import annotations
+
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, replace
+from pathlib import Path
+from typing import Any, Protocol, runtime_checkable
+
+import jax
+import jax.numpy as jnp
+import numpy as np
+from jax import Array
+
+from glassbox.core.data import Channel, Trajectory, TrajectorySpec
+from glassbox.core.dynamics import (
+    ModelParams,
+    control_state_after_history,
+    latent_response_time_constants,
+    model_family,
+    quaternion_to_rotation,
+    step_with_latent,
+    structured_parameters,
+)
+
+ACTIONABLE_CONTROL_SEMANTICS = frozenset(
+    {"normalized_command", "normalized_generalized_command"}
+)
+
+# Commands within this fraction of a channel's span outside its declared bounds
+# are rounding slack from normalization or serialization and are clipped back
+# onto the bound. Anything beyond it is a caller error, not slack.
+COMMAND_BOUND_RELATIVE_TOLERANCE = 1e-6
+
+
+class NonActionableModelError(ValueError):
+    """Raised when model inputs cannot safely be interpreted as commands."""
+
+
+def commands_within_declared_bounds(
+    commands: Array,
+    channels: Sequence[Channel],
+    *,
+    label: str = "command",
+) -> Array:
+    """Reject commands outside their declared channel bounds; clip slack.
+
+    Command bounds are a hard execution contract: the fitted model saw commands
+    inside them, and an actuator cannot accept anything else. A value more than
+    ``COMMAND_BOUND_RELATIVE_TOLERANCE`` of the channel span outside its bounds
+    raises and names the channel; a value inside that band is clipped onto the
+    bound.
+
+    Enforcement needs concrete values. Under JAX tracing the commands are
+    symbolic, so the traced commands are returned unchanged and the caller owns
+    the bound: NMPC builds every command with ``jnp.clip`` inside the declared
+    range before it reaches a traced transition.
+    """
+
+    if isinstance(commands, jax.core.Tracer):
+        return commands
+    values = np.asarray(commands, dtype=np.float64)
+    minimum = np.asarray([channel.minimum for channel in channels], dtype=np.float64)
+    maximum = np.asarray([channel.maximum for channel in channels], dtype=np.float64)
+    tolerance = COMMAND_BOUND_RELATIVE_TOLERANCE * (maximum - minimum)
+    outside = (values < minimum - tolerance) | (values > maximum + tolerance)
+    if np.any(outside):
+        leading_axes = tuple(range(values.ndim - 1))
+        offending = np.flatnonzero(
+            np.any(outside, axis=leading_axes) if leading_axes else outside
+        )
+        details = []
+        for index in offending:
+            column = np.atleast_1d(np.asarray(values[..., index])).ravel()
+            excess = column - np.clip(column, minimum[index], maximum[index])
+            worst = float(column[int(np.argmax(np.abs(excess)))])
+            details.append(
+                f"{channels[index].name!r}={worst:.6g} outside "
+                f"[{minimum[index]:.6g}, {maximum[index]:.6g}]"
+            )
+        raise ValueError(
+            f"{label} lies outside its declared channel bounds: " + ", ".join(details)
+        )
+    clipped = np.clip(values, minimum, maximum)
+    if np.array_equal(clipped, values):
+        return commands
+    return jnp.asarray(clipped, dtype=jnp.asarray(commands).dtype)
+
+
+def _finite_triplet(name: str, values: Sequence[float]) -> tuple[float, float, float]:
+    result = tuple(float(value) for value in values)
+    if len(result) != 3 or not np.all(np.isfinite(result)):
+        raise ValueError(f"{name} must contain three finite values")
+    return result  # type: ignore[return-value]
+
+
+@dataclass(frozen=True)
+class ModelValidityEnvelope:
+    """Training-supported body-velocity and body-rate operating envelope."""
+
+    body_velocity_center_m_s: tuple[float, float, float]
+    body_velocity_half_width_m_s: tuple[float, float, float]
+    angular_velocity_center_rad_s: tuple[float, float, float]
+    angular_velocity_half_width_rad_s: tuple[float, float, float]
+
+    def __post_init__(self) -> None:
+        for name in (
+            "body_velocity_center_m_s",
+            "body_velocity_half_width_m_s",
+            "angular_velocity_center_rad_s",
+            "angular_velocity_half_width_rad_s",
+        ):
+            object.__setattr__(self, name, _finite_triplet(name, getattr(self, name)))
+        if np.any(np.asarray(self.body_velocity_half_width_m_s) <= 0.0):
+            raise ValueError("body velocity envelope half-widths must be positive")
+        if np.any(np.asarray(self.angular_velocity_half_width_rad_s) <= 0.0):
+            raise ValueError("angular velocity envelope half-widths must be positive")
+
+    def to_dict(self) -> dict[str, list[float]]:
+        return {
+            "body_velocity_center_m_s": list(self.body_velocity_center_m_s),
+            "body_velocity_half_width_m_s": list(self.body_velocity_half_width_m_s),
+            "angular_velocity_center_rad_s": list(self.angular_velocity_center_rad_s),
+            "angular_velocity_half_width_rad_s": list(
+                self.angular_velocity_half_width_rad_s
+            ),
+        }
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> ModelValidityEnvelope:
+        return cls(
+            body_velocity_center_m_s=tuple(payload["body_velocity_center_m_s"]),
+            body_velocity_half_width_m_s=tuple(payload["body_velocity_half_width_m_s"]),
+            angular_velocity_center_rad_s=tuple(
+                payload["angular_velocity_center_rad_s"]
+            ),
+            angular_velocity_half_width_rad_s=tuple(
+                payload["angular_velocity_half_width_rad_s"]
+            ),
+        )
+
+
+@dataclass(frozen=True)
+class RuntimeModelSpec:
+    """Numerical and evidence contract required to execute a fitted model."""
+
+    sample_period_s: float
+    validity_envelope: ModelValidityEnvelope
+
+    def __post_init__(self) -> None:
+        if not np.isfinite(self.sample_period_s) or self.sample_period_s <= 0.0:
+            raise ValueError("sample_period_s must be finite and positive")
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "sample_period_s": self.sample_period_s,
+            "validity_envelope": self.validity_envelope.to_dict(),
+        }
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> RuntimeModelSpec:
+        return cls(
+            sample_period_s=float(payload["sample_period_s"]),
+            validity_envelope=ModelValidityEnvelope.from_dict(
+                payload["validity_envelope"]
+            ),
+        )
+
+
+def model_validity_utilization_from_components(
+    state: Array,
+    exogenous: Array,
+    body_velocity_center_m_s: Array,
+    body_velocity_half_width_m_s: Array,
+    angular_velocity_center_rad_s: Array,
+    angular_velocity_half_width_rad_s: Array,
+    *,
+    exogenous_roles: tuple[str, ...],
+) -> Array:
+    """Evaluate one validity envelope from JAX-compatible components."""
+
+    wind = jnp.stack(
+        tuple(
+            exogenous[exogenous_roles.index(role)]
+            if role in exogenous_roles
+            else jnp.asarray(0.0)
+            for role in ("wind_north", "wind_west", "wind_up")
+        )
+    )
+    rotation = quaternion_to_rotation(state[6:10])
+    body_velocity = rotation.T @ (state[3:6] - wind)
+    return jnp.concatenate(
+        (
+            jnp.abs(body_velocity - body_velocity_center_m_s)
+            / body_velocity_half_width_m_s,
+            jnp.abs(state[10:13] - angular_velocity_center_rad_s)
+            / angular_velocity_half_width_rad_s,
+        )
+    )
+
+
+def model_validity_utilization(
+    state: Array,
+    exogenous: Array,
+    input_spec: TrajectorySpec,
+    envelope: ModelValidityEnvelope,
+) -> Array:
+    """Return typed body-velocity/rate utilization without an actuation contract."""
+
+    return model_validity_utilization_from_components(
+        state,
+        exogenous,
+        jnp.asarray(envelope.body_velocity_center_m_s),
+        jnp.asarray(envelope.body_velocity_half_width_m_s),
+        jnp.asarray(envelope.angular_velocity_center_rad_s),
+        jnp.asarray(envelope.angular_velocity_half_width_rad_s),
+        exogenous_roles=input_spec.exogenous_roles,
+    )
+
+
+def _wind_world(trajectory: Trajectory) -> np.ndarray:
+    wind = np.zeros((len(trajectory.states), 3), dtype=np.float64)
+    roles = trajectory.spec.exogenous_roles
+    for axis, role in enumerate(("wind_north", "wind_west", "wind_up")):
+        if role in roles:
+            wind[:, axis] = trajectory.exogenous[:, roles.index(role)]
+    return wind
+
+
+def _robust_half_width(values: np.ndarray, *, floor: float) -> np.ndarray:
+    median = np.median(values, axis=0)
+    deviation = values - median
+    robust_scale = np.maximum(
+        np.median(np.abs(deviation), axis=0) / 0.6744897501960817,
+        floor,
+    )
+    return np.maximum(
+        np.quantile(np.abs(deviation), 0.995, axis=0),
+        4.0 * robust_scale,
+    )
+
+
+def runtime_spec_from_trajectory(trajectory: Trajectory) -> RuntimeModelSpec:
+    """Build a runtime contract for synthetic or externally supplied models."""
+
+    quaternions = jnp.asarray(trajectory.states[:, 6:10])
+    rotations = np.asarray(jax.vmap(quaternion_to_rotation)(quaternions))
+    relative_velocity = trajectory.states[:, 3:6] - _wind_world(trajectory)
+    body_velocity = np.einsum("nji,nj->ni", rotations, relative_velocity)
+    angular_velocity = trajectory.states[:, 10:13]
+    body_center = np.median(body_velocity, axis=0)
+    angular_center = np.median(angular_velocity, axis=0)
+    return RuntimeModelSpec(
+        sample_period_s=trajectory.nominal_dt_s,
+        validity_envelope=ModelValidityEnvelope(
+            body_velocity_center_m_s=tuple(body_center),
+            body_velocity_half_width_m_s=tuple(
+                _robust_half_width(body_velocity, floor=0.1)
+            ),
+            angular_velocity_center_rad_s=tuple(angular_center),
+            angular_velocity_half_width_rad_s=tuple(
+                _robust_half_width(angular_velocity, floor=0.1)
+            ),
+        ),
+    )
+
+
+@runtime_checkable
+class ActuationMap(Protocol):
+    """Immutable JAX mapping from bounded commands to model input channels.
+
+    Construct a new map when calibration or bounds change. Compiled kernels
+    capture this object; mutating it in place cannot update a traced function.
+    """
+
+    command_channels: tuple[Channel, ...]
+    model_control_size: int
+
+    def model_control(self, command: Array) -> Array:
+        """Map one command vector into the fitted model's control coordinates."""
+
+
+@dataclass(frozen=True)
+class DirectActuationMap:
+    """Identity command mapping for explicitly actionable model inputs."""
+
+    command_channels: tuple[Channel, ...]
+
+    def __post_init__(self) -> None:
+        channels = tuple(self.command_channels)
+        unsupported = [
+            channel.semantic
+            for channel in channels
+            if channel.semantic not in ACTIONABLE_CONTROL_SEMANTICS
+        ]
+        if unsupported:
+            raise NonActionableModelError(
+                "direct NMPC actuation requires command semantics; got "
+                + ", ".join(unsupported)
+            )
+        missing_bounds = [
+            channel.name
+            for channel in channels
+            if channel.minimum is None or channel.maximum is None
+        ]
+        if missing_bounds:
+            raise NonActionableModelError(
+                "direct NMPC actuation requires finite bounds for "
+                + ", ".join(missing_bounds)
+            )
+        object.__setattr__(self, "command_channels", channels)
+
+    @property
+    def model_control_size(self) -> int:
+        return len(self.command_channels)
+
+    def model_control(self, command: Array) -> Array:
+        return jnp.asarray(command)
+
+
+def default_actuation(input_spec: TrajectorySpec) -> ActuationMap | None:
+    """Return the identity actuation map when the inputs are actionable.
+
+    Executable is not the same as actionable. A model whose control channels
+    are commands with finite bounds is directly actionable, and its actuation
+    map is the identity on those channels. A model whose inputs are measured
+    rotor speeds or surface angles is a perfectly good model of the dynamics
+    and simply has no command space; it gets ``None`` rather than an error,
+    and only a caller that asks for commands is refused.
+    """
+
+    try:
+        return DirectActuationMap(input_spec.controls)
+    except NonActionableModelError:
+        return None
+
+
+@dataclass(frozen=True)
+class ExecutableModel:
+    """A fitted model bound to its executable timing and actuation contract.
+
+    Command bounds and the validity envelope are different kinds of contract.
+    Declared command bounds are *enforced*: a transition with a command outside
+    them raises and names the channel, because no actuator could execute it.
+    The validity envelope is *advisory*: ``validity_utilization`` reports how
+    far a state sits outside the training support and callers decide what to do
+    with it, because leaving the envelope makes a forecast unsupported rather
+    than impossible.
+
+    ``actuation`` defaults to the identity map on the declared control channels
+    when those channels are commands, and to nothing when they are observations
+    of actuation. Without a map the model still integrates, still reports
+    validity, and still serializes; it simply has no command space, and every
+    method that needs one raises :class:`NonActionableModelError`.
+    """
+
+    params: ModelParams
+    input_spec: TrajectorySpec
+    runtime_spec: RuntimeModelSpec
+    actuation: ActuationMap | None = None
+
+    def __post_init__(self) -> None:
+        family = model_family(self.params)
+        # Training-only observations are not part of the executable contract.
+        # A spec that already carries none is kept as it is, so rebinding
+        # parameters keeps sharing one spec object with the model it came from.
+        if self.input_spec.observations:
+            object.__setattr__(self, "input_spec", self.input_spec.prediction_spec())
+        if self.input_spec.vehicle.family != family.platform:
+            raise ValueError("runtime input spec does not match model family")
+        family.validate_control_schema(
+            self.input_spec.control_names, self.input_spec.control_roles
+        )
+        if self.actuation is None:
+            object.__setattr__(self, "actuation", default_actuation(self.input_spec))
+        if self.actuation is None:
+            return
+        if self.actuation.model_control_size != len(self.input_spec.controls):
+            raise ValueError(
+                "actuation map output size does not match model control size"
+            )
+        if not self.actuation.command_channels:
+            raise ValueError("actuation map needs at least one command channel")
+        for channel in self.actuation.command_channels:
+            if channel.minimum is None or channel.maximum is None:
+                raise ValueError("NMPC command channels require finite bounds")
+            if (
+                not np.isfinite(channel.minimum)
+                or not np.isfinite(channel.maximum)
+                or channel.minimum >= channel.maximum
+            ):
+                raise ValueError(f"invalid command bounds for channel {channel.name!r}")
+        minimum = np.asarray(
+            [channel.minimum for channel in self.actuation.command_channels]
+        )
+        maximum = np.asarray(
+            [channel.maximum for channel in self.actuation.command_channels]
+        )
+        if isinstance(self.actuation, DirectActuationMap):
+            # The identity map is traceable, differentiable with an identity
+            # Jacobian, and already checked its own semantics and bounds. The
+            # traced checks below exist for a caller's own map, and running
+            # them on the identity costs a compile on every model built.
+            return
+        expected_shape = (len(self.input_spec.controls),)
+        midpoint = 0.5 * (minimum + maximum)
+        for sample in (minimum, midpoint, maximum):
+            try:
+                mapped = np.asarray(
+                    jax.jit(self.actuation.model_control)(jnp.asarray(sample))
+                )
+            except Exception as error:
+                raise ValueError("actuation map must be JAX-traceable") from error
+            if mapped.shape != expected_shape:
+                raise ValueError(
+                    "actuation map produced shape "
+                    f"{mapped.shape}, expected {expected_shape}"
+                )
+            if not np.all(np.isfinite(mapped)):
+                raise ValueError("actuation map produced non-finite model controls")
+        try:
+            jacobian = np.asarray(
+                jax.jacrev(self.actuation.model_control)(jnp.asarray(midpoint))
+            )
+        except Exception as error:
+            raise ValueError("actuation map must be JAX-differentiable") from error
+        expected_jacobian_shape = expected_shape + (len(minimum),)
+        if jacobian.shape != expected_jacobian_shape or not np.all(
+            np.isfinite(jacobian)
+        ):
+            raise ValueError("actuation map produced an invalid command Jacobian")
+
+    @property
+    def actuation_map(self) -> ActuationMap:
+        """The actuation map, or a refusal naming what the model cannot do."""
+
+        if self.actuation is None:
+            raise NonActionableModelError(
+                "this model has no actuation map, so it has no command space; "
+                "its inputs are observations of actuation rather than commands"
+            )
+        return self.actuation
+
+    def rebind_parameters(self, params: ModelParams) -> ExecutableModel:
+        """Reuse validated static contracts with compatible dynamic parameters."""
+
+        template_leaves, template_structure = jax.tree_util.tree_flatten(self.params)
+        candidate_leaves, candidate_structure = jax.tree_util.tree_flatten(params)
+        if candidate_structure != template_structure:
+            raise ValueError("rebound parameter structure changed")
+        for template_leaf, candidate_leaf in zip(
+            template_leaves,
+            candidate_leaves,
+            strict=True,
+        ):
+            template_array = np.asarray(template_leaf)
+            candidate_array = np.asarray(candidate_leaf)
+            if candidate_array.shape != template_array.shape:
+                raise ValueError("rebound parameter shape changed")
+            if candidate_array.dtype != template_array.dtype:
+                raise ValueError("rebound parameter dtype changed")
+            if not np.all(np.isfinite(candidate_array)):
+                raise ValueError("rebound parameters must be finite")
+        base = structured_parameters(params)
+        for name, value in zip(base._fields, base, strict=True):
+            if name.startswith("log_"):
+                physical = np.asarray(jnp.exp(value))
+                if not np.all(np.isfinite(physical)) or np.any(physical <= 0.0):
+                    raise ValueError(
+                        "rebound physical parameters must be finite and positive"
+                    )
+        return replace(self, params=params)
+
+    @classmethod
+    def load(
+        cls,
+        path: str | Path,
+        *,
+        actuation: ActuationMap | None = None,
+    ) -> ExecutableModel:
+        from glassbox.belief.belief_io import load_dynamics_belief
+
+        return load_dynamics_belief(path, actuation=actuation).model
+
+    @property
+    def command_size(self) -> int:
+        return len(self.actuation_map.command_channels)
+
+    @property
+    def command_minimum(self) -> Array:
+        return jnp.asarray(
+            [channel.minimum for channel in self.actuation_map.command_channels]
+        )
+
+    @property
+    def command_maximum(self) -> Array:
+        return jnp.asarray(
+            [channel.maximum for channel in self.actuation_map.command_channels]
+        )
+
+    @property
+    def exogenous_size(self) -> int:
+        return len(self.input_spec.exogenous)
+
+    @property
+    def latent_size(self) -> int:
+        """One applied value per declared control channel, both families."""
+
+        return len(self.input_spec.controls)
+
+    @property
+    def latent_response_time_constants_s(self) -> Array:
+        """Fitted time scales governing the model's latent actuation response."""
+
+        return latent_response_time_constants(self.params)
+
+    def initial_latent_state(self, command_history: Array) -> Array:
+        return self.initial_latent_state_with_parameters(self.params, command_history)
+
+    def initial_latent_state_with_parameters(
+        self,
+        params: ModelParams,
+        command_history: Array,
+    ) -> Array:
+        """Infer actuator state with a compatible dynamic parameter tree."""
+
+        history = jnp.asarray(command_history)
+        if history.ndim == 1:
+            history = history[jnp.newaxis, :]
+        if history.ndim != 2 or history.shape[1] != self.command_size:
+            raise ValueError("command history must have shape (time, command_size)")
+        model_history = jax.vmap(self.actuation_map.model_control)(history)
+        return control_state_after_history(
+            params,
+            model_history,
+            self.runtime_spec.sample_period_s,
+            self.input_spec.control_roles,
+        )
+
+    def transition(
+        self,
+        state: Array,
+        latent_state: Array,
+        command: Array,
+        exogenous: Array | None = None,
+    ) -> tuple[Array, Array]:
+        return self.transition_at_interval(
+            state,
+            latent_state,
+            command,
+            self.runtime_spec.sample_period_s,
+            exogenous,
+        )
+
+    def transition_at_interval(
+        self,
+        state: Array,
+        latent_state: Array,
+        command: Array,
+        interval_s: float,
+        exogenous: Array | None = None,
+    ) -> tuple[Array, Array]:
+        """Advance the continuous dynamics across one explicit interval."""
+
+        return self.transition_at_interval_with_parameters(
+            self.params,
+            state,
+            latent_state,
+            command,
+            interval_s,
+            exogenous,
+        )
+
+    def transition_at_interval_with_parameters(
+        self,
+        params: ModelParams,
+        state: Array,
+        latent_state: Array,
+        command: Array,
+        interval_s: float,
+        exogenous: Array | None = None,
+    ) -> tuple[Array, Array]:
+        """Advance using a compatible parameter PyTree supplied at execution.
+
+        Concrete commands must lie within the declared channel bounds; see
+        ``commands_within_declared_bounds`` for the tolerance and the
+        JAX-tracing carve-out.
+        """
+
+        if not np.isfinite(interval_s) or interval_s <= 0.0:
+            raise ValueError("runtime transition interval must be finite and positive")
+        if command.shape[-1] != self.command_size:
+            raise ValueError("command does not match runtime command size")
+        command = commands_within_declared_bounds(
+            command,
+            self.actuation_map.command_channels,
+        )
+        if exogenous is None:
+            exogenous = jnp.zeros(self.exogenous_size)
+        if exogenous.shape[-1] != self.exogenous_size:
+            raise ValueError("exogenous input does not match runtime spec")
+        return step_with_latent(
+            params,
+            state,
+            latent_state,
+            self.actuation_map.model_control(command),
+            interval_s,
+            self.input_spec.control_roles,
+            exogenous,
+            self.input_spec.exogenous_roles,
+        )
+
+    def validity_utilization(
+        self,
+        state: Array,
+        exogenous: Array | None = None,
+    ) -> Array:
+        """Return per-axis utilization of the fitted dynamic envelope."""
+
+        if exogenous is None:
+            exogenous = jnp.zeros(self.exogenous_size)
+        if exogenous.shape[-1] != self.exogenous_size:
+            raise ValueError("exogenous input does not match runtime spec")
+        return model_validity_utilization(
+            state,
+            exogenous,
+            self.input_spec,
+            self.runtime_spec.validity_envelope,
+        )

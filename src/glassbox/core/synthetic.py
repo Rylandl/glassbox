@@ -36,7 +36,6 @@ def initial_parameter_guess() -> DynamicsParams:
         linear_drag=0.08,
         angular_drag=(0.10, 0.10, 0.07),
         motor_time_constant=0.02,
-        angular_response_time_constant=(0.04, 0.04, 0.06),
     )
 
 

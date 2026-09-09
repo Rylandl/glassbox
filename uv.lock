@@ -148,7 +148,7 @@ wheels = [
 
 [[package]]
 name = "glassbox"
-version = "0.1.0"
+version = "0.3.0rc1"
 source = { editable = "." }
 dependencies = [
     { name = "jax", version = "0.10.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
@@ -158,9 +158,6 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
-cascade = [
-    { name = "cascade-flight" },
-]
 px4 = [
     { name = "pymavlink" },
     { name = "pyulog" },
@@ -170,6 +167,9 @@ ros = [
 ]
 
 [package.dev-dependencies]
+cascade = [
+    { name = "cascade-flight" },
+]
 dev = [
     { name = "pymavlink" },
     { name = "pytest" },
@@ -180,16 +180,16 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cascade-flight", marker = "extra == 'cascade'", git = "https://github.com/Rylandl/cascade?branch=main" },
     { name = "jax", specifier = ">=0.10" },
     { name = "numpy", specifier = ">=1.26" },
     { name = "pymavlink", marker = "extra == 'px4'", specifier = ">=2.4.49" },
     { name = "pyulog", marker = "extra == 'px4'", specifier = ">=1.2.2" },
     { name = "rosbags", marker = "extra == 'ros'", specifier = ">=0.11.5" },
 ]
-provides-extras = ["px4", "ros", "cascade"]
+provides-extras = ["px4", "ros"]
 
 [package.metadata.requires-dev]
+cascade = [{ name = "cascade-flight", git = "https://github.com/Rylandl/cascade?branch=main" }]
 dev = [
     { name = "pymavlink", specifier = ">=2.4.49" },
     { name = "pytest", specifier = ">=8.3" },

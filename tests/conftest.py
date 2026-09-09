@@ -1,10 +1,7 @@
 """Shared pytest configuration: markers and session-scoped fixture trajectories.
 
-The ``cascade`` marker (see ``pyproject.toml``) is an opt-in contract against
-an optional simulator extra. Without this hook, a test carrying that marker
-fails outright when the extra is not installed, instead of skipping cleanly.
-When the extra *is* installed, tests keep running by default; there is
-deliberately no environment-variable gate on top of that.
+Tests marked ``cascade`` run when the simulator dependency group is installed
+and skip otherwise.
 
 The ``slow`` marker, declared in ``pyproject.toml``, identifies the three
 benchmark-scale tests that take over a minute; ``-m "not slow"`` skips them.
@@ -18,11 +15,16 @@ a frozen dataclass with read-only arrays, so sharing one instance across
 tests is safe as long as callers derive edits via ``dataclasses.replace``
 and ``array.copy()`` rather than mutating in place, which is how every
 current caller already works.
+
+``quadrotor_flight`` and ``fixedwing_flight`` generalize that: they are
+session-scoped build-or-reuse factories keyed by ``(seed, duration, dt)``, so
+the short rollouts that module after module builds independently are generated
+once for the whole run. The named fixtures below are thin aliases over them.
 """
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 
 import pytest
 
@@ -50,7 +52,7 @@ def pytest_collection_modifyitems(
     for item in items:
         for marker_name, (
             module_name,
-            extra_name,
+            group_name,
         ) in _OPTIONAL_SIMULATOR_MARKERS.items():
             if item.get_closest_marker(marker_name) is None:
                 continue
@@ -61,64 +63,128 @@ def pytest_collection_modifyitems(
                     pytest.mark.skip(
                         reason=(
                             f"{module_name!r} is not importable; run "
-                            f"`uv sync --extra {extra_name}` to enable "
+                            f"`uv sync --group {group_name}` to enable "
                             f"@pytest.mark.{marker_name} tests"
                         )
                     )
                 )
 
 
+TrajectoryFactory = Callable[..., Trajectory]
+
+
 @pytest.fixture(scope="session")
-def quadrotor_trajectory_seed0_dur0_1s() -> Trajectory:
+def quadrotor_flight() -> TrajectoryFactory:
+    """Build-or-reuse a synthetic quadrotor rollout for ``(seed, duration, dt)``.
+
+    Generating a rollout costs roughly half a second of wall time per simulated
+    second, and the same handful of short rollouts -- seeds 0 upward at 0.4s
+    above all -- is rebuilt by module after module. Routing them through this
+    session-scoped cache builds each one once.
+
+    The read-only-array rule of the named fixtures applies here too: derive
+    variants with ``dataclasses.replace`` and ``array.copy()``. Callers that
+    need non-default ``params`` keep calling ``generate_trajectory`` directly,
+    since those rollouts are not shared.
+    """
+
+    cache: dict[tuple[int, float, float], Trajectory] = {}
+
+    def build(seed: int, duration_s: float = 0.4, dt_s: float = 0.02) -> Trajectory:
+        key = (seed, duration_s, dt_s)
+        if key not in cache:
+            cache[key] = generate_trajectory(
+                seed=seed, duration_s=duration_s, dt_s=dt_s
+            )
+        return cache[key]
+
+    return build
+
+
+@pytest.fixture(scope="session")
+def fixedwing_flight() -> TrajectoryFactory:
+    """The fixed-wing counterpart of :func:`quadrotor_flight`."""
+
+    cache: dict[tuple[int, float, float], Trajectory] = {}
+
+    def build(seed: int, duration_s: float = 0.4, dt_s: float = 0.02) -> Trajectory:
+        key = (seed, duration_s, dt_s)
+        if key not in cache:
+            cache[key] = generate_fixed_wing_trajectory(
+                seed=seed, duration_s=duration_s, dt_s=dt_s
+            )
+        return cache[key]
+
+    return build
+
+
+@pytest.fixture(scope="session")
+def quadrotor_trajectory_seed0_dur0_1s(
+    quadrotor_flight: TrajectoryFactory,
+) -> Trajectory:
     """Quadrotor rollout: seed 0, 0.1s. Shared by short-horizon setup tests."""
 
-    return generate_trajectory(seed=0, duration_s=0.1)
+    return quadrotor_flight(0, 0.1)
 
 
 @pytest.fixture(scope="session")
-def quadrotor_trajectory_seed1_dur0_2s() -> Trajectory:
+def quadrotor_trajectory_seed1_dur0_2s(
+    quadrotor_flight: TrajectoryFactory,
+) -> Trajectory:
     """Quadrotor rollout: seed 1, 0.2s."""
 
-    return generate_trajectory(seed=1, duration_s=0.2)
+    return quadrotor_flight(1, 0.2)
 
 
 @pytest.fixture(scope="session")
-def quadrotor_trajectory_seed2_dur0_2s() -> Trajectory:
+def quadrotor_trajectory_seed2_dur0_2s(
+    quadrotor_flight: TrajectoryFactory,
+) -> Trajectory:
     """Quadrotor rollout: seed 2, 0.2s."""
 
-    return generate_trajectory(seed=2, duration_s=0.2)
+    return quadrotor_flight(2, 0.2)
 
 
 @pytest.fixture(scope="session")
-def quadrotor_trajectory_seed9_dur4_0s() -> Trajectory:
+def quadrotor_trajectory_seed9_dur4_0s(
+    quadrotor_flight: TrajectoryFactory,
+) -> Trajectory:
     """Quadrotor rollout: seed 9, 4.0s. The longer innovation-diagnostics case."""
 
-    return generate_trajectory(seed=9, duration_s=4.0)
+    return quadrotor_flight(9, 4.0)
 
 
 @pytest.fixture(scope="session")
-def quadrotor_trajectory_seed11_dur0_4s() -> Trajectory:
+def quadrotor_trajectory_seed11_dur0_4s(
+    quadrotor_flight: TrajectoryFactory,
+) -> Trajectory:
     """Quadrotor rollout: seed 11, 0.4s."""
 
-    return generate_trajectory(seed=11, duration_s=0.4)
+    return quadrotor_flight(11, 0.4)
 
 
 @pytest.fixture(scope="session")
-def fixedwing_trajectory_seed0_dur0_1s() -> Trajectory:
+def fixedwing_trajectory_seed0_dur0_1s(
+    fixedwing_flight: TrajectoryFactory,
+) -> Trajectory:
     """Fixed-wing rollout: seed 0, 0.1s."""
 
-    return generate_fixed_wing_trajectory(seed=0, duration_s=0.1)
+    return fixedwing_flight(0, 0.1)
 
 
 @pytest.fixture(scope="session")
-def fixedwing_trajectory_seed1_dur0_2s() -> Trajectory:
+def fixedwing_trajectory_seed1_dur0_2s(
+    fixedwing_flight: TrajectoryFactory,
+) -> Trajectory:
     """Fixed-wing rollout: seed 1, 0.2s."""
 
-    return generate_fixed_wing_trajectory(seed=1, duration_s=0.2)
+    return fixedwing_flight(1, 0.2)
 
 
 @pytest.fixture(scope="session")
-def fixedwing_trajectory_seed4_dur4_0s() -> Trajectory:
+def fixedwing_trajectory_seed4_dur4_0s(
+    fixedwing_flight: TrajectoryFactory,
+) -> Trajectory:
     """Fixed-wing rollout: seed 4, 4.0s. The longer innovation-diagnostics case."""
 
-    return generate_fixed_wing_trajectory(seed=4, duration_s=4.0)
+    return fixedwing_flight(4, 4.0)

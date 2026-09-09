@@ -5,30 +5,11 @@ from __future__ import annotations
 import argparse
 import json
 from collections.abc import Sequence
+from dataclasses import replace
 from pathlib import Path
 
-from glassbox.belief.belief import (
-    DynamicsBelief,
-    UnavailableParameterEvidence,
-    UnavailablePredictiveError,
-    parameter_evidence_from_dict,
-    predictive_error_from_dict,
-)
 from glassbox.belief.belief_io import save_dynamics_belief
-from glassbox.core.data import TrajectorySpec
-from glassbox.core.runtime import runtime_spec_from_fit_report
-from glassbox.workflows.fitting import (
-    BenchmarkSplitHoldoutConflict,
-    fit_trajectory_artifact,
-    fit_trajectory_artifacts,
-)
-
-_COMPLETE_HOLDOUT_MODES = {
-    "leave_complete_flights_out",
-    "leave_profiles_out",
-    "leave_source_groups_out",
-    "benchmark_split_holdout",
-}
+from glassbox.fitting import FitSpec, Holdout, LossPolicy, WeightingPolicy, fit
 
 
 def _evaluation_horizons(value: str) -> tuple[float, ...]:
@@ -41,6 +22,13 @@ def _evaluation_horizons(value: str) -> tuple[float, ...]:
     if not horizons or any(item <= 0.0 for item in horizons):
         raise argparse.ArgumentTypeError("evaluation horizons must be positive")
     return tuple(dict.fromkeys(horizons))
+
+
+def _holdout_label(value: str) -> tuple[str, str]:
+    key, separator, label = value.partition("=")
+    if not separator or not key.strip() or not label.strip():
+        raise argparse.ArgumentTypeError("a holdout label must be given as KEY=VALUE")
+    return key.strip(), label.strip()
 
 
 def _no_lag_model_path(model_path: Path) -> Path:
@@ -57,25 +45,34 @@ def build_parser() -> argparse.ArgumentParser:
         help="output no-lag dynamics-belief JSON; defaults beside --model",
     )
     parser.add_argument("--report", type=Path, help="output fit report JSON")
-    parser.add_argument("--train-fraction", type=float, default=0.70)
+    parser.add_argument(
+        "--train-fraction",
+        type=float,
+        default=0.70,
+        help="training share of the one flight a single-trajectory fit splits",
+    )
     parser.add_argument(
         "--holdout-count",
         type=int,
-        default=1,
         help=(
-            "number of final source groups reserved completely for validation; "
-            "falls back to input trajectories when groups are unlabeled; "
-            "rejected when every trajectory carries a benchmark_split label, "
-            "which determines the holdout instead"
+            "number of final source groups reserved completely for validation, "
+            "one by default; falls back to input trajectories in argument order "
+            "when the source_group label separates nothing"
         ),
     )
     parser.add_argument(
         "--holdout-profile",
         action="append",
+        help=("maneuver profile to reserve completely; repeat for multiple profiles"),
+    )
+    parser.add_argument(
+        "--holdout-label",
+        action="append",
+        type=_holdout_label,
+        metavar="KEY=VALUE",
         help=(
-            "maneuver profile to reserve completely; repeat for multiple profiles "
-            "and supersedes --holdout-count; rejected when every trajectory "
-            "carries a benchmark_split label, which determines the holdout instead"
+            "reserve every flight whose KEY label is VALUE; repeat for several "
+            "values of one key, for example benchmark_split=validation"
         ),
     )
     parser.add_argument("--horizon", type=int, default=25)
@@ -84,8 +81,9 @@ def build_parser() -> argparse.ArgumentParser:
         "--training-horizons",
         type=_evaluation_horizons,
         help=(
-            "comma-separated rollout horizons in seconds; combines normalized "
-            "losses and supersedes --horizon"
+            "comma-separated rollout horizons in seconds; each is normalized "
+            "by its own initial loss and they are combined with equal weight. "
+            "Supersedes --horizon"
         ),
     )
     parser.add_argument("--steps", type=int, default=400)
@@ -118,9 +116,23 @@ def build_parser() -> argparse.ArgumentParser:
         help="comma-separated held-out rollout horizons in seconds",
     )
     parser.add_argument(
-        "--skip-no-lag-ablation",
+        "--ablation",
+        action="append",
+        choices=("no-lag",),
+        default=[],
+        help=(
+            "also fit this ablation and write it beside --model; repeatable. "
+            "no-lag pins a near-zero applied-control response and reports the "
+            "learned-lag improvement over it"
+        ),
+    )
+    parser.add_argument(
+        "--diagnostics",
         action="store_true",
-        help="fit only the learned-lag model",
+        help=(
+            "also run the one-step innovation diagnostics on every held-out "
+            "flight and record them in the report"
+        ),
     )
     parser.add_argument(
         "--duration-weighted-training",
@@ -135,187 +147,132 @@ def build_parser() -> argparse.ArgumentParser:
         "--fixed-motor-time-constant",
         dest="fixed_motor_time_constant",
         type=float,
-        help="single-flight mode with a fixed family-specific control response time",
+        help=(
+            "pin the family-specific applied-control response time instead of "
+            "learning it; incompatible with --ablation no-lag"
+        ),
     )
     return parser
+
+
+def _resolve_holdout(
+    parser: argparse.ArgumentParser, args: argparse.Namespace
+) -> Holdout:
+    """Pick the one holdout rule the requested flags and inputs describe."""
+
+    requested = [
+        name
+        for name, value in (
+            ("--holdout-label", args.holdout_label),
+            ("--holdout-profile", args.holdout_profile),
+            ("--holdout-count", args.holdout_count),
+        )
+        if value is not None
+    ]
+    if len(requested) > 1:
+        parser.error(f"{' and '.join(requested)} select different holdouts")
+    if args.holdout_label:
+        keys = {key for key, _ in args.holdout_label}
+        if len(keys) > 1:
+            parser.error("every --holdout-label must name the same key")
+        return Holdout.by_label(
+            args.holdout_label[0][0], tuple(value for _, value in args.holdout_label)
+        )
+    if args.holdout_profile:
+        return Holdout.by_label("profile", tuple(args.holdout_profile))
+    if len(args.trajectory) == 1:
+        if args.holdout_count is not None:
+            parser.error(
+                "one trajectory is split chronologically by --train-fraction; "
+                "--holdout-count needs at least two"
+            )
+        return Holdout.temporal(args.train_fraction)
+    return Holdout.by_group(1 if args.holdout_count is None else args.holdout_count)
 
 
 def main(argv: Sequence[str] | None = None) -> None:
     parser = build_parser()
     args = parser.parse_args(argv)
+    ablations = tuple(name.replace("-", "_") for name in args.ablation)
     if args.baseline_model is not None and args.model is None:
         parser.error("--baseline-model requires --model")
-    if args.baseline_model is not None and args.skip_no_lag_ablation:
-        parser.error("--baseline-model cannot be used when the ablation is skipped")
+    if args.baseline_model is not None and "no_lag" not in ablations:
+        parser.error("--baseline-model requires --ablation no-lag")
+    if args.fixed_motor_time_constant is not None and "no_lag" in ablations:
+        parser.error(
+            "--fixed-response-time-constant cannot be used with --ablation no-lag; "
+            "the ablation pins the same response time"
+        )
 
-    if args.fixed_motor_time_constant is not None:
-        if len(args.trajectory) != 1:
-            parser.error(
-                "--fixed-response-time-constant requires exactly one trajectory"
-            )
-        if args.baseline_model is not None:
-            parser.error("--baseline-model is not used in fixed-response mode")
-        if args.training_horizons is not None:
-            parser.error("--training-horizons is not used in fixed-response mode")
-        if args.model_class != "structured":
-            parser.error(
-                "--fixed-response-time-constant only supports --model-class structured"
-            )
-        params, report = fit_trajectory_artifact(
-            args.trajectory[0],
-            train_fraction=args.train_fraction,
-            horizon=args.horizon,
+    outcome = fit(
+        args.trajectory,
+        FitSpec(
+            holdout=_resolve_holdout(parser, args),
+            horizons_s=args.training_horizons,
+            horizon_steps=args.horizon,
             stride=args.stride,
             steps=args.steps,
             learning_rate=args.learning_rate,
-            fixed_motor_time_constant_s=args.fixed_motor_time_constant,
-            endpoint_weight=args.endpoint_weight,
-            stability_regularization=args.stability_regularization,
-        )
-        baseline_params = None
-        fit = report["fit"]
-        validation = report["validation_rollout"]["fitted"]
-        print(
-            f"loss: {fit['initial_loss']:.6g} -> {fit['final_loss']:.6g} "
-            f"({fit['loss_reduction']:.1f}x reduction)"
-        )
-        print(
-            "held-out validation: "
-            f"position={validation['position_rmse_m']:.4f} m  "
-            f"attitude={validation['attitude_rmse_deg']:.3f} deg"
-        )
-    else:
-        try:
-            params, baseline_params, report = fit_trajectory_artifacts(
-                args.trajectory,
-                train_fraction=args.train_fraction,
-                holdout_count=args.holdout_count,
-                horizon=args.horizon,
-                stride=args.stride,
-                training_horizons_s=args.training_horizons,
-                steps=args.steps,
-                learning_rate=args.learning_rate,
-                evaluation_horizons_s=args.evaluation_horizons,
-                run_no_lag_ablation=not args.skip_no_lag_ablation,
-                balance_training_flights=not args.duration_weighted_training,
-                holdout_profiles=args.holdout_profile,
-                model_class=args.model_class,
+            evaluation_horizons_s=args.evaluation_horizons,
+            model_class=args.model_class,
+            ablations=ablations,
+            diagnostics=args.diagnostics,
+            fixed_response_time_constant_s=args.fixed_motor_time_constant,
+            loss=LossPolicy(
                 endpoint_weight=args.endpoint_weight,
                 stability_regularization=args.stability_regularization,
-                build_parameter_evidence=args.model is not None,
-            )
-        except BenchmarkSplitHoldoutConflict as error:
-            parser.error(str(error))
-        learned = report["models"]["learned_lag"]
-        learned_fit = learned["fit"]
-        learned_full = learned["validation"]["aggregate"]["full_rollout"]
-        validation_label = (
-            "held-out complete-source rollout"
-            if report["split"]["mode"] in _COMPLETE_HOLDOUT_MODES
-            else "held-out temporal rollout"
-        )
-        print(
-            f"learned-lag loss: {learned_fit['initial_loss']:.6g} -> "
-            f"{learned_fit['final_loss']:.6g} "
-            f"({learned_fit['loss_reduction']:.1f}x reduction)"
-        )
-        print(
-            f"{validation_label}: "
-            f"position={learned_full['position_rmse_m']:.4f} m  "
-            f"attitude={learned_full['attitude_rmse_deg']:.3f} deg"
-        )
-        if baseline_params is not None:
-            baseline = report["models"]["no_lag"]
-            baseline_full = baseline["validation"]["aggregate"]["full_rollout"]
-            ratios = report["comparison"]["aggregate_full_rollout"]
-            print(
-                "no-lag ablation: "
-                f"position={baseline_full['position_rmse_m']:.4f} m  "
-                f"attitude={baseline_full['attitude_rmse_deg']:.3f} deg"
-            )
-            print(
-                "learned-lag improvement: "
-                f"position={ratios['position_rmse_m']:.2f}x  "
-                f"attitude={ratios['attitude_rmse_deg']:.2f}x"
-            )
-
-    if "split" in report:
-        training_paths = [item["path"] for item in report["split"]["training_flights"]]
-        validation_paths = [
-            item["path"] for item in report["split"]["validation_flights"]
+            ),
+            weighting=WeightingPolicy(balanced=not args.duration_weighted_training),
+        ),
+    )
+    report = outcome.report
+    learned = report["models"]["learned_lag"]
+    learned_fit = learned["fit"]
+    learned_full = learned["validation"]["aggregate"]["full_rollout"]
+    validation_label = (
+        "held-out temporal rollout"
+        if report["split"]["mode"] == "temporal_within_flight"
+        else "held-out complete-source rollout"
+    )
+    print(
+        f"learned-lag loss: {learned_fit['initial_loss']:.6g} -> "
+        f"{learned_fit['final_loss']:.6g} "
+        f"({learned_fit['loss_reduction']:.1f}x reduction)"
+    )
+    print(
+        f"{validation_label}: "
+        f"position={learned_full['position_rmse_m']:.4f} m  "
+        f"attitude={learned_full['attitude_rmse_deg']:.3f} deg"
+    )
+    if "no_lag" in outcome.ablations:
+        baseline_full = report["models"]["no_lag"]["validation"]["aggregate"][
+            "full_rollout"
         ]
-    else:
-        training_paths = [str(path) for path in args.trajectory]
-        validation_paths = []
+        ratios = report["comparison"]["aggregate_full_rollout"]
+        print(
+            "no-lag ablation: "
+            f"position={baseline_full['position_rmse_m']:.4f} m  "
+            f"attitude={baseline_full['attitude_rmse_deg']:.3f} deg"
+        )
+        print(
+            "learned-lag improvement: "
+            f"position={ratios['position_rmse_m']:.2f}x  "
+            f"attitude={ratios['attitude_rmse_deg']:.2f}x"
+        )
 
     if args.model is not None:
-        input_spec = TrajectorySpec.from_dict(
-            report["dataset"]["trajectory_spec"]
-            if "dataset" in report
-            else report["source"]["spec"]
-        )
-        provenance = {
-            "training_trajectories": training_paths,
-            "validation_trajectories": validation_paths,
-            "fit_report": str(args.report) if args.report else None,
-        }
-        predictive_error = (
-            predictive_error_from_dict(
-                report["models"]["learned_lag"]["validation"]["predictive_error"]
+        report_path = str(args.report) if args.report else None
+
+        def stamped(belief):
+            return replace(
+                belief, provenance={**belief.provenance, "fit_report": report_path}
             )
-            if "models" in report
-            else UnavailablePredictiveError(
-                "single-trajectory fixed-response fitting does not produce "
-                "a fixed-horizon held-out error profile"
-            )
-        )
-        parameter_evidence = (
-            parameter_evidence_from_dict(
-                report["models"]["learned_lag"]["parameter_evidence"]
-            )
-            if "models" in report
-            else UnavailableParameterEvidence(
-                "single-trajectory fixed-response fitting does not evaluate "
-                "grouped local parameter information"
-            )
-        )
-        save_dynamics_belief(
-            DynamicsBelief(
-                params=params,
-                input_spec=input_spec,
-                runtime_spec=runtime_spec_from_fit_report(report),
-                predictive_error=predictive_error,
-                parameter_evidence=parameter_evidence,
-                provenance=provenance,
-            ),
-            args.model,
-        )
+
+        save_dynamics_belief(stamped(outcome.belief), args.model)
         print(f"wrote dynamics belief {args.model}")
-        if baseline_params is not None:
+        if "no_lag" in outcome.ablations:
             baseline_path = args.baseline_model or _no_lag_model_path(args.model)
-            baseline_provenance = {
-                "training_trajectories": training_paths,
-                "validation_trajectories": validation_paths,
-                "fit_report": str(args.report) if args.report else None,
-                "ablation": "fixed near-zero applied-control response",
-            }
-            save_dynamics_belief(
-                DynamicsBelief(
-                    params=baseline_params,
-                    input_spec=input_spec,
-                    runtime_spec=runtime_spec_from_fit_report(
-                        report, model_name="no_lag"
-                    ),
-                    predictive_error=predictive_error_from_dict(
-                        report["models"]["no_lag"]["validation"]["predictive_error"]
-                    ),
-                    parameter_evidence=parameter_evidence_from_dict(
-                        report["models"]["no_lag"]["parameter_evidence"]
-                    ),
-                    provenance=baseline_provenance,
-                ),
-                baseline_path,
-            )
+            save_dynamics_belief(stamped(outcome.ablations["no_lag"]), baseline_path)
             print(f"wrote no-lag dynamics belief {baseline_path}")
     if args.report is not None:
         args.report.parent.mkdir(parents=True, exist_ok=True)

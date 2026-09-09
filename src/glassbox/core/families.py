@@ -47,13 +47,25 @@ class DynamicsModelFamily:
             f"{self.key} requires ordered controls {self.control_names}, got {names}"
         )
 
+    @property
+    def has_one_control_layout(self) -> bool:
+        """Whether every model of this family reads the same ordered controls.
+
+        A family with no optional roles admits exactly one layout, so its
+        control names and roles are checked against the declared order rather
+        than against a required subset. Both multirotor families are of that
+        kind; the fixed-wing family is not, because yaw and flap are optional.
+        """
+
+        return not self.optional_control_roles
+
     def validate_control_roles(self, control_roles: tuple[str, ...]) -> None:
         """Validate one statically ordered role layout supported by the model."""
 
         roles = tuple(control_roles)
         if len(set(roles)) != len(roles):
             raise ValueError("control roles must be unique")
-        if self.platform == "multirotor" and roles != self.control_roles:
+        if self.has_one_control_layout and roles != self.control_roles:
             raise ValueError(
                 f"{self.key} requires ordered control roles "
                 f"{self.control_roles}, got {roles}"
@@ -83,7 +95,7 @@ class DynamicsModelFamily:
         if len(control_names) != len(control_roles):
             raise ValueError("control names and roles must have the same length")
         self.validate_control_roles(control_roles)
-        if self.platform == "multirotor":
+        if self.has_one_control_layout:
             self.validate_control_names(control_names)
 
     def parameter_control_dependency(self, parameter_name: str) -> str | None:
@@ -149,9 +161,24 @@ FIXED_WING_FAMILY = DynamicsModelFamily(
 )
 
 
+BOOTSTRAP_MULTIROTOR_FAMILY = DynamicsModelFamily(
+    key="recursive_bootstrap_multirotor",
+    platform="multirotor_bootstrap",
+    control_names=MULTIROTOR_FAMILY.control_names,
+    control_roles=MULTIROTOR_FAMILY.control_roles,
+    #: The applied command is the latent state, and it equals the command:
+    #: the bootstrap parameterization has no actuator lag to fit, because the
+    #: identifier regresses on the applied command it measured.
+    latent_state_names=MULTIROTOR_FAMILY.latent_state_names,
+    required_control_roles=MULTIROTOR_FAMILY.required_control_roles,
+    supports_residual=False,
+)
+
+
 MODEL_FAMILIES = {
     MULTIROTOR_FAMILY.platform: MULTIROTOR_FAMILY,
     FIXED_WING_FAMILY.platform: FIXED_WING_FAMILY,
+    BOOTSTRAP_MULTIROTOR_FAMILY.platform: BOOTSTRAP_MULTIROTOR_FAMILY,
 }
 
 

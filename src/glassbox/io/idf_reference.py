@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import os
 import shutil
 import tempfile
@@ -23,8 +22,13 @@ except ImportError as error:  # pragma: no cover - exercised without the extra
         "uv sync --extra px4, or pip install 'glassbox[px4]'"
     ) from error
 
-from glassbox.core.data import Trajectory, load_trajectory_npz, save_trajectory_npz
-from glassbox.io.pinned_download import download_verified, file_digest
+from glassbox.core.data import (
+    Trajectory,
+    TrajectorySpec,
+    load_trajectory_npz,
+)
+from glassbox.io.corpus import PinnedFile
+from glassbox.io.pinned_download import file_digest
 from glassbox.io.px4_ulog import (
     PX4IngestConfig,
     inspect_ulog,
@@ -176,6 +180,18 @@ IDF_RECORDINGS = (
 _RECORDING_BY_FILENAME = {recording.filename: recording for recording in IDF_RECORDINGS}
 
 
+PINNED_FILES: tuple[PinnedFile, ...] = (
+    PinnedFile(
+        url=IDF_ARCHIVE_URL,
+        relative_path=IDF_ARCHIVE_FILENAME,
+        size_bytes=IDF_ARCHIVE_SIZE_BYTES,
+        digest=IDF_ARCHIVE_MD5,
+        algorithm="md5",
+        converted=False,
+    ),
+)
+
+
 def _md5(path: Path) -> str:
     return file_digest(path, algorithm="md5")
 
@@ -301,7 +317,14 @@ class IDFFixedWingAdapter:
                     time_s=trajectory.time_s,
                     states=trajectory.states,
                     controls=trajectory.controls,
-                    spec=replace(trajectory.spec, exogenous=()),
+                    spec=replace(
+                        trajectory.spec,
+                        channels=tuple(
+                            channel
+                            for channel in trajectory.spec.channels
+                            if channel.kind != "exogenous"
+                        ),
+                    ),
                     observations=trajectory.observations,
                     labels={
                         **trajectory.labels,
@@ -322,41 +345,13 @@ class IDFFixedWingAdapter:
         return max(self.load_all(path), key=lambda item: len(item.controls))
 
 
-def fetch_idf_archive(
-    destination: str | Path,
-    *,
-    overwrite: bool = False,
-    timeout_s: float = 60.0,
-) -> Path:
-    """Download and verify the pinned 2.1 GB Holybro PX4 archive."""
-
-    if timeout_s <= 0.0:
-        raise ValueError("timeout_s must be positive")
-    target = Path(destination) / IDF_ARCHIVE_FILENAME
-    return download_verified(
-        IDF_ARCHIVE_URL,
-        target,
-        size_bytes=IDF_ARCHIVE_SIZE_BYTES,
-        digest=IDF_ARCHIVE_MD5,
-        algorithm="md5",
-        user_agent="glassbox-idf-reference-adapter/1",
-        overwrite=overwrite,
-        timeout_s=timeout_s,
-        existing_mismatch_message=(
-            f"existing file does not match pinned IDF-DS archive: {target}"
-        ),
-        size_mismatch_message="downloaded IDF-DS archive has the wrong size",
-        digest_mismatch_message="downloaded IDF-DS archive has the wrong MD5",
-    )
-
-
-def extract_idf_ulogs(
+def unpack_pinned_ulogs(
     archive_path: str | Path,
     destination: str | Path,
     *,
     overwrite: bool = False,
 ) -> tuple[Path, ...]:
-    """Extract only the 13 available raw PX4 sessions from the full archive."""
+    """Unpack only the 13 available raw PX4 sessions from the pinned archive."""
 
     archive = Path(archive_path)
     destination_root = Path(destination)
@@ -410,32 +405,6 @@ def extract_idf_ulogs(
     return tuple(extracted)
 
 
-def extract_idf_reference(
-    source_root: str | Path,
-    output_root: str | Path,
-    *,
-    adapter: IDFFixedWingAdapter | None = None,
-) -> tuple[Path, ...]:
-    """Convert all raw sessions into dropout-safe canonical trajectories."""
-
-    source_directory = Path(source_root)
-    output_directory = Path(output_root)
-    selected_adapter = IDFFixedWingAdapter() if adapter is None else adapter
-    outputs: list[Path] = []
-    for recording in IDF_RECORDINGS:
-        source_path = source_directory / recording.filename
-        for segment, trajectory in enumerate(
-            selected_adapter.load_all(source_path), start=1
-        ):
-            output_path = output_directory / (
-                f"idf_session_{recording.session:02d}_"
-                f"{source_path.stem}_segment_{segment:02d}.npz"
-            )
-            save_trajectory_npz(trajectory, output_path)
-            outputs.append(output_path)
-    return tuple(outputs)
-
-
 def idf_corpus_report(
     trajectory_paths: Sequence[str | Path],
     raw_ulog_root: str | Path,
@@ -457,6 +426,7 @@ def idf_corpus_report(
     control_minimum: np.ndarray | None = None
     control_maximum: np.ndarray | None = None
     spec_payload: dict[str, Any] | None = None
+    reference_spec: TrajectorySpec | None = None
     canonical_by_session: dict[int, dict[str, float | int]] = {}
 
     for path in paths:
@@ -464,6 +434,7 @@ def idf_corpus_report(
         current_spec = trajectory.spec.to_dict()
         if spec_payload is None:
             spec_payload = current_spec
+            reference_spec = trajectory.spec
         elif current_spec != spec_payload:
             raise ValueError(f"inconsistent IDF-DS trajectory spec: {path}")
 
@@ -507,6 +478,7 @@ def idf_corpus_report(
         control_count += len(controls)
 
     assert spec_payload is not None
+    assert reference_spec is not None
     assert control_sum is not None
     assert control_square_sum is not None
     assert control_minimum is not None
@@ -589,8 +561,8 @@ def idf_corpus_report(
             "maximum_speed_m_s": maximum_speed_m_s,
             "maximum_angular_speed_rad_s": maximum_angular_speed_rad_s,
             "control_statistics": {
-                "names": [channel["name"] for channel in spec_payload["controls"]],
-                "roles": [channel["role"] for channel in spec_payload["controls"]],
+                "names": list(reference_spec.control_names),
+                "roles": list(reference_spec.control_roles),
                 "minimum": control_minimum.tolist(),
                 "maximum": control_maximum.tolist(),
                 "mean": control_mean.tolist(),
@@ -600,11 +572,3 @@ def idf_corpus_report(
         },
         "sessions": sessions,
     }
-
-
-def save_idf_corpus_report(report: dict[str, Any], path: str | Path) -> None:
-    """Write a deterministic JSON audit of a prepared IDF-DS corpus."""
-
-    output_path = Path(path)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
