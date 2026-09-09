@@ -572,12 +572,14 @@ any edit, including one that leaves every number alone, so it is provenance
 rather than a freshness gate and does not take part in a comparison.
 """
 
+CLOSED_LOOP_METRIC_TOLERANCE = (1e-3, 1e-6)
+
 ADAPTIVE_RECOVERY_TOLERANCES = {
     "configuration.*": (0.0, 0.0),
     "evidence.*": (1e-4, 1e-6),
     "recovery[*].maximum_predicted_validity_utilization": (2e-3, 1e-6),
-    "recovery[*].*": (1e-3, 1e-6),
-    "comparisons.*": (1e-3, 1e-6),
+    "recovery[*].*": CLOSED_LOOP_METRIC_TOLERANCE,
+    "comparisons.*": CLOSED_LOOP_METRIC_TOLERANCE,
     "*": DEFAULT_TOLERANCE,
 }
 """Float32 propagation and iterative-solver variation across CPU architectures.
@@ -596,6 +598,14 @@ NMPC_ACCEPTANCE_VOLATILE = (
     "scenarios[*].solve_time_p90_s",
     "scenarios[*].solve_time_maximum_s",
 )
+
+NMPC_ACCEPTANCE_TOLERANCES = {
+    "thresholds.*": (0.0, 0.0),
+    "scenarios[*].normalized_tracking_rms": CLOSED_LOOP_METRIC_TOLERANCE,
+    "scenarios[*].tracking_ratio": CLOSED_LOOP_METRIC_TOLERANCE,
+    "summary.*geometric_mean_tracking_ratio": CLOSED_LOOP_METRIC_TOLERANCE,
+    "*": DEFAULT_TOLERANCE,
+}
 
 VALIDATION_VOLATILE = (
     "environment",
@@ -898,6 +908,7 @@ def build_manifest(plan: RecordingPlan = RECORDING) -> tuple[ArtifactSpec, ...]:
             tier=LOCAL_TIER,
             doc_page="docs/validation.md#nmpc-acceptance",
             volatile=NMPC_ACCEPTANCE_VOLATILE,
+            tolerance=NMPC_ACCEPTANCE_TOLERANCES,
         ),
         *(_corpus_validation(plan, chain) for chain in CORPUS_CHAINS),
         _cascade_x8(plan, chains["x8"]),

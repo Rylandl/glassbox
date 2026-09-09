@@ -110,10 +110,10 @@ uv run glassbox record-results --check --tier local
 That regenerates both local artifacts into a temporary directory and compares
 each against the committed file, ignoring only the paths that entry declares
 volatile: the environment block, the source fingerprint and per-trace wall
-clock. Numerical tolerances are declared by the manifest. The recovery benchmark
-allows CPU-dependent optimizer variation, including the split between its two
-finite stopping statuses; scenario inputs, fallback counts, ranks, and support
-decisions remain checked.
+clock. Numerical tolerances are declared by the manifest. Closed-loop metrics
+allow CPU-dependent optimizer variation, as does the recovery benchmark's split
+between its two finite stopping statuses. Scenario inputs, acceptance thresholds,
+fallback counts, ranks, and support decisions remain checked.
 
 ### The corpus tier is a maintainer job
 
