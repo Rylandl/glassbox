@@ -180,7 +180,9 @@ class ArtifactSpec:
     table as its ``ignore`` collection, so the two agree by construction.
     """
 
-    tolerance: tuple[float, float] = DEFAULT_TOLERANCE
+    tolerance: tuple[float, float] | Mapping[str, tuple[float, float]] = (
+        DEFAULT_TOLERANCE
+    )
     awaiting_first_record: str | None = None
     """Why this entry's artifact is declared but not committed yet.
 
@@ -560,12 +562,28 @@ ADAPTIVE_RECOVERY_VOLATILE = (
     "recovery[*].solve_time_median_s",
     "recovery[*].solve_time_p90_s",
     "recovery[*].solve_time_maximum_s",
+    "recovery[*].solve_status_counts.iteration_limit",
+    "recovery[*].solve_status_counts.stalled",
 )
 """Host- and source-dependent paths in ``adaptive-recovery-results.json``.
 
 The source digest records which sources produced the numbers; it changes with
 any edit, including one that leaves every number alone, so it is provenance
 rather than a freshness gate and does not take part in a comparison.
+"""
+
+ADAPTIVE_RECOVERY_TOLERANCES = {
+    "configuration.*": (0.0, 0.0),
+    "evidence.*": (1e-4, 1e-6),
+    "recovery[*].maximum_predicted_validity_utilization": (2e-3, 1e-6),
+    "recovery[*].*": (1e-3, 1e-6),
+    "comparisons.*": (1e-3, 1e-6),
+    "*": DEFAULT_TOLERANCE,
+}
+"""Float32 propagation and iterative-solver variation across CPU architectures.
+
+Scenario inputs remain exact. The two finite stopping statuses can trade counts;
+fallbacks, support decisions, ranks, and the total solve count remain checked.
 """
 
 NMPC_ACCEPTANCE_VOLATILE = (
@@ -870,6 +888,7 @@ def build_manifest(plan: RecordingPlan = RECORDING) -> tuple[ArtifactSpec, ...]:
             tier=LOCAL_TIER,
             doc_page="docs/validation.md#adaptive-recovery",
             volatile=ADAPTIVE_RECOVERY_VOLATILE,
+            tolerance=ADAPTIVE_RECOVERY_TOLERANCES,
         ),
         ArtifactSpec(
             name="nmpc-acceptance-results",

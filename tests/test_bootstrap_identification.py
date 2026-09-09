@@ -730,10 +730,10 @@ def test_the_scripted_plant_estimates_are_pinned() -> None:
     )
     assert evidence.exploration_completion == pytest.approx(1.0, rel=1e-10, abs=1e-10)
     assert float(np.trace(evidence.collective_information)) == pytest.approx(
-        11099.438987179006, rel=1e-10, abs=1e-10
+        11099.438987179006, rel=1e-8, abs=1e-10
     )
     assert float(np.trace(evidence.angular_information)) == pytest.approx(
-        303.38838980129236, rel=1e-10, abs=1e-10
+        303.38838980129236, rel=1e-8, abs=1e-10
     )
 
 

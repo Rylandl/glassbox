@@ -8,22 +8,32 @@ import pytest
 from _recorded import assert_recorded_close, recorded_result
 
 from glassbox.workflows.benchmarks.recovery import run_adaptive_recovery_benchmark
-from glassbox.workflows.record_results import ADAPTIVE_RECOVERY_VOLATILE
-
-# Recorded-tier policy for docs/results/adaptive-recovery-results.json.
-_ADAPTIVE_RECOVERY_TOLERANCES = {
-    # One offline JAX rollout with no simulator in the loop: byte-stable
-    # across the refactors so far, so 1e-5 relative (with a 1e-7 absolute
-    # floor for near-zero entries) leaves headroom without accepting drift.
-    "*": (1e-5, 1e-7),
-}
-_ADAPTIVE_RECOVERY_EXACT = (
-    # Seeds, durations, the initial state, and offline functions of them.
-    "configuration.*",
+from glassbox.workflows.record_results import (
+    ADAPTIVE_RECOVERY_TOLERANCES,
+    ADAPTIVE_RECOVERY_VOLATILE,
 )
-# The manifest declares which paths vary with the host and the source tree,
-# so ``record-results --check`` and this test exclude exactly the same ones.
-_ADAPTIVE_RECOVERY_IGNORE = ADAPTIVE_RECOVERY_VOLATILE
+from glassbox.workflows.recorded import recorded_differences
+
+
+@pytest.mark.parametrize("regression", ["tracking", "fallback", "rank", "scenario"])
+def test_portable_comparison_rejects_material_regressions(regression: str) -> None:
+    recorded = recorded_result("adaptive-recovery-results.json")
+    actual = json.loads(json.dumps(recorded))
+    if regression == "tracking":
+        actual["recovery"][0]["tail_normalized_tracking_rms"] *= 1.01
+    elif regression == "fallback":
+        actual["recovery"][0]["fallback_count"] += 1
+    elif regression == "rank":
+        actual["evidence"]["fleet"]["posterior_resolved_rank"] -= 1
+    else:
+        actual["configuration"]["recovery_initial_state"][0] += 1e-9
+
+    assert recorded_differences(
+        actual,
+        recorded,
+        tolerances=ADAPTIVE_RECOVERY_TOLERANCES,
+        ignore=ADAPTIVE_RECOVERY_VOLATILE,
+    )
 
 
 @pytest.mark.slow
@@ -117,7 +127,6 @@ def test_adaptive_recovery_benchmark_is_finite_and_auditable() -> None:
     assert_recorded_close(
         report,
         recorded_result("adaptive-recovery-results.json"),
-        tolerances=_ADAPTIVE_RECOVERY_TOLERANCES,
-        exact=_ADAPTIVE_RECOVERY_EXACT,
-        ignore=_ADAPTIVE_RECOVERY_IGNORE,
+        tolerances=ADAPTIVE_RECOVERY_TOLERANCES,
+        ignore=ADAPTIVE_RECOVERY_VOLATILE,
     )

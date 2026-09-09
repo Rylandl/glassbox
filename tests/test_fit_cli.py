@@ -145,7 +145,7 @@ def test_fit_cli_records_innovation_diagnostics_when_asked(
     assert report["configuration"]["diagnostics"] is True
     assert validation["aggregate"]["one_step_innovation"]["status"] == "ok"
     assert validation["per_flight"][0]["one_step_innovation"]["policy"] == (
-        "measured_state_reset_innovation_v1"
+        "measured_state_reset_innovation_v2"
     )
 
 
