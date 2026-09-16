@@ -6,13 +6,10 @@ There are no caller-selected representations, optimizers or selection policies.
 Configuration identity and ordered channel identities are required data facts;
 adapters must include units, frame and command/measurement meaning in them.
 
-Recipes are versioned. ``fit`` uses the maintained default; a saved model
-carries the recipe that produced it, and ``update`` refits that same recipe so
-an older revision's lineage never silently changes. The retained
-``generic-history-v1-prototype`` reads only a 100 ms history. The default
-``generic-memory-v2-prototype`` keeps that explicit history and adds a causal
-memory over a 500 ms in-recording context, adopted through the M2 acceptance
-record in ``docs/generic-engineering.md``.
+There is one recipe, ``generic-memory-v2-prototype``. It reads an explicit
+100 ms history and a causal memory over a 500 ms in-recording context. A saved
+model carries that recipe and ``update`` refits it; any other saved format is
+rejected rather than migrated.
 """
 
 from __future__ import annotations
@@ -24,6 +21,7 @@ from dataclasses import asdict
 
 import numpy as np
 
+from .arrays import array_fingerprint, load_arrays, save_arrays
 from .sequence_collection import SequenceCollection, SequenceWindows, WindowKey
 from .sequence_model import (
     SequenceBatch,
@@ -31,53 +29,27 @@ from .sequence_model import (
     fit_sequence_model,
     initialize_sequence_model,
 )
-from .structured_regression import array_fingerprint, load_arrays, save_arrays
 
 _ARRAYS = ("past_states", "past_inputs", "future_inputs", "future_states")
-_RECIPES = {
-    "generic-history-v1-prototype": {
-        "id": "generic-history-v1-prototype",
-        "kind": "delay_mlp",
-        "width": 32,
-        "history_s": 0.1,
-        "horizon_s": 0.25,
-        "training_windows": 384,
-        "development_windows": 256,
-        "steps": 1000,
-        "batch_size": 64,
-        "learning_rate": 0.002,
-        "ridge_fraction": 0.01,
-        "seed": 0,
-        "check_every": 100,
-        "hold_scale_floor": 0.01,
-    },
-    "generic-memory-v2-prototype": {
-        "id": "generic-memory-v2-prototype",
-        "kind": "filter_mlp",
-        "width": 32,
-        "memory": 8,
-        "delay_s": 0.1,
-        "context_s": 0.5,
-        "horizon_s": 0.25,
-        "training_windows": 384,
-        "development_windows": 256,
-        "steps": 1000,
-        "batch_size": 64,
-        "learning_rate": 0.002,
-        "ridge_fraction": 0.01,
-        "seed": 0,
-        "check_every": 100,
-        "hold_scale_floor": 0.01,
-    },
+RECIPE = {
+    "id": "generic-memory-v2-prototype",
+    "kind": "filter_mlp",
+    "width": 32,
+    "memory": 8,
+    "delay_s": 0.1,
+    "context_s": 0.5,
+    "horizon_s": 0.25,
+    "training_windows": 384,
+    "development_windows": 256,
+    "steps": 1000,
+    "batch_size": 64,
+    "learning_rate": 0.002,
+    "ridge_fraction": 0.01,
+    "seed": 0,
+    "check_every": 100,
+    "hold_scale_floor": 0.01,
 }
-_FORMATS = {
-    "generic-history-v1-prototype": "glassbox-default-recipe-v1",
-    "generic-memory-v2-prototype": "glassbox-default-recipe-v2",
-}
-# The maintained default, and the retained first recipe that archived research
-# plans and older artifacts refer to.
-_RECIPE = _RECIPES["generic-memory-v2-prototype"]
-_HISTORY_RECIPE = _RECIPES["generic-history-v1-prototype"]
+_FORMAT = "glassbox-default-recipe-v2"
 
 
 def _priority(value):
@@ -124,29 +96,17 @@ def _recording_content(recordings):
     return result
 
 
-def _steps(recipe, dt_s):
+def steps_for(dt_s):
     """Window history (the consumed context), forecast horizon, and explicit delay."""
 
     def count(seconds):
         return max(1, int(np.rint(seconds / dt_s)))
 
-    if recipe["kind"] == "filter_mlp":
-        return dict(
-            history=count(recipe["context_s"]),
-            horizon=count(recipe["horizon_s"]),
-            delay=count(recipe["delay_s"]),
-        )
     return dict(
-        history=count(recipe["history_s"]),
-        horizon=count(recipe["horizon_s"]),
-        delay=None,
+        history=count(RECIPE["context_s"]),
+        horizon=count(RECIPE["horizon_s"]),
+        delay=count(RECIPE["delay_s"]),
     )
-
-
-def _memory(recipe, steps):
-    if recipe["kind"] == "filter_mlp":
-        return dict(memory=recipe["memory"], delay_steps=steps["delay"])
-    return {}
 
 
 def _indices(keys, origins, budget):
@@ -181,8 +141,8 @@ def _subset(windows, indices):
     )
 
 
-def _extract(recordings, names, budget, recipe):
-    steps = _steps(recipe, recordings.segments[0].dt_s)
+def _extract(recordings, names, budget):
+    steps = steps_for(recordings.segments[0].dt_s)
     p, h = steps["history"], steps["horizon"]
     selected = SequenceCollection(
         tuple(s for s in recordings.segments if s.recording_id in names)
@@ -204,7 +164,7 @@ def _extract(recordings, names, budget, recipe):
     return selected.extract([keys[i] for i in chosen], history_steps=p, horizon_steps=h)
 
 
-def _merge_cache(old, fresh, recipe):
+def _merge_cache(old, fresh):
     merged = SequenceWindows(
         SequenceBatch(
             **{
@@ -218,7 +178,7 @@ def _merge_cache(old, fresh, recipe):
     )
     return _subset(
         merged,
-        _indices(merged.keys, merged.source_origins, recipe["training_windows"]),
+        _indices(merged.keys, merged.source_origins, RECIPE["training_windows"]),
     )
 
 
@@ -243,46 +203,43 @@ def _measure(model, windows):
     return result
 
 
-def _train(train, development, contract, seen, recipe, *, previous=None):
+def _train(train, development, contract, seen, *, previous=None):
     b = train.batch
-    steps = _steps(recipe, b.dt_s)
-    memory = _memory(recipe, steps)
-    ridge = recipe["ridge_fraction"] * len(b.past_states) * b.future_states.shape[1]
+    steps = steps_for(b.dt_s)
+    memory = dict(memory=RECIPE["memory"], delay_steps=steps["delay"])
+    ridge = RECIPE["ridge_fraction"] * len(b.past_states) * b.future_states.shape[1]
     initial = initialize_sequence_model(
         b,
-        kind=recipe["kind"],
-        width=recipe["width"],
-        seed=recipe["seed"],
+        width=RECIPE["width"],
+        seed=RECIPE["seed"],
         ridge=ridge,
         **memory,
     )
     hold = np.repeat(b.past_states[:, -1:], b.future_states.shape[1], 1)
     loss_scale = np.maximum(
         np.sqrt(np.mean((hold - b.future_states) ** 2, 0)),
-        recipe["hold_scale_floor"] * initial.norms["state_scale"],
+        RECIPE["hold_scale_floor"] * initial.norms["state_scale"],
     )
     model, optimization = fit_sequence_model(
         b,
         development.batch,
-        kind=recipe["kind"],
-        objective="rollout",
-        width=recipe["width"],
+        width=RECIPE["width"],
         ridge=ridge,
-        seed=recipe["seed"],
-        steps=recipe["steps"],
-        batch_size=recipe["batch_size"],
-        learning_rate=recipe["learning_rate"],
-        check_every=recipe["check_every"],
+        seed=RECIPE["seed"],
+        steps=RECIPE["steps"],
+        batch_size=RECIPE["batch_size"],
+        learning_rate=RECIPE["learning_rate"],
+        check_every=RECIPE["check_every"],
         error_scale=loss_scale,
         **memory,
     )
     train_u = b.future_inputs.reshape(-1, b.future_inputs.shape[-1])
     report = dict(
-        recipe=copy.deepcopy(recipe),
+        recipe=copy.deepcopy(RECIPE),
         previous_revision=previous,
         history_steps=model.history_steps,
         horizon_steps=b.future_states.shape[1],
-        **({} if steps["delay"] is None else dict(delay_steps=steps["delay"])),
+        delay_steps=steps["delay"],
         training=train.coverage(),
         development=development.coverage(),
         optimization=optimization,
@@ -303,13 +260,13 @@ def _train(train, development, contract, seen, recipe, *, previous=None):
 
 
 class LearnedDynamics:
-    """A versioned prototype with fixed fit/update mechanics and error evidence.
+    """One recipe with fixed fit/update mechanics and measured error evidence.
 
     The retained arrays hold at most 384 training and 256 development windows.
     The recording identity ledger grows with updates. Updates require new whole
     recordings, not overlapping chunks of an existing recording, and perform a
-    batch refit of this revision's own recipe. This is not a real-time streaming
-    learner or an active controller.
+    batch refit of the same recipe. This is not a real-time streaming learner
+    or an active controller.
     """
 
     def __init__(self, model, train, development, contract, seen, report):
@@ -318,8 +275,7 @@ class LearnedDynamics:
         self._contract, self._seen, self._report = map(
             copy.deepcopy, (contract, seen, report)
         )
-        recipe = self._report["recipe"]
-        if recipe != _RECIPES.get(recipe.get("id")):
+        if self._report["recipe"] != RECIPE:
             raise ValueError("unsupported default recipe version")
 
     @property
@@ -349,7 +305,7 @@ class LearnedDynamics:
         Use the most recent required history. Commands must use the fitted time
         grid and coordinate contract; no missing history is padded. Horizons
         beyond this recipe's fitted range are rejected, not silently extrapolated.
-        Any memory starts at rest at the first consumed observation; earlier
+        The memory starts at rest at the first consumed observation; earlier
         observations are never implied.
         """
         import jax.numpy as jnp
@@ -382,7 +338,7 @@ class LearnedDynamics:
         return diagnose(self, recordings)
 
     def update(self, recordings):
-        """Refit this revision's recipe with fresh recordings; the current revision stays fixed."""
+        """Refit the recipe with fresh recordings; the current revision stays fixed."""
         if _contract(recordings) != self._contract:
             raise ValueError(
                 "update configuration, channels or sample interval differ from this model"
@@ -392,23 +348,20 @@ class LearnedDynamics:
             raise ValueError("update reuses a known recording identity")
         if set(seen.values()) & set(self._seen.values()):
             raise ValueError("update reuses previously observed recording content")
-        recipe = self._report["recipe"]
-        fresh = _extract(recordings, set(seen), recipe["training_windows"], recipe)
-        training = _merge_cache(self._train, fresh, recipe)
+        fresh = _extract(recordings, set(seen), RECIPE["training_windows"])
+        training = _merge_cache(self._train, fresh)
         return _train(
             training,
             self._development,
             self._contract,
             {**self._seen, **seen},
-            recipe,
             previous=self.fingerprint(),
         )
 
     def _metadata(self):
-        recipe = self._report["recipe"]
         return dict(
-            format=_FORMATS[recipe["id"]],
-            recipe=copy.deepcopy(recipe),
+            format=_FORMAT,
+            recipe=copy.deepcopy(RECIPE),
             model=self._model.metadata(),
             contract=self.contract,
             seen=copy.deepcopy(self._seen),
@@ -442,18 +395,13 @@ class LearnedDynamics:
         return array_fingerprint(self._metadata(), self._arrays())
 
     def save(self, path):
-        """Save model, versioned recipe, evidence, and bounded update caches together."""
+        """Save model, recipe, evidence, and bounded update caches together."""
         save_arrays(path, self._metadata(), self._arrays())
 
     @classmethod
     def load(cls, path):
         meta, arrays = load_arrays(path)
-        recipe = meta.get("recipe") or {}
-        if (
-            recipe.get("id") not in _RECIPES
-            or recipe != _RECIPES[recipe["id"]]
-            or meta.get("format") != _FORMATS[recipe["id"]]
-        ):
+        if meta.get("recipe") != RECIPE or meta.get("format") != _FORMAT:
             raise ValueError("unsupported default recipe version")
         model_meta = dict(meta["model"])
         if model_meta.pop("format") != "glassbox-sequence-v1":
@@ -463,7 +411,7 @@ class LearnedDynamics:
             params={k[6:]: v for k, v in arrays.items() if k.startswith("param_")},
             norms={k[5:]: v for k, v in arrays.items() if k.startswith("norm_")},
         )
-        if model.kind != recipe["kind"]:
+        if model.kind != RECIPE["kind"]:
             raise ValueError("saved model kind differs from its recipe")
         windows = {}
         for role in ("train", "development"):
@@ -485,10 +433,13 @@ class LearnedDynamics:
         )
 
 
-def _fit(recordings, recipe):
-    """Fit one versioned recipe with automatic recording holdout and sampling."""
-    if recipe != _RECIPES.get(recipe.get("id")):
-        raise ValueError("unsupported default recipe version")
+def fit(recordings):
+    """Fit the recipe with automatic recording holdout and window sampling.
+
+    Supply a SequenceCollection carrying configuration and ordered channel facts.
+    At least two distinct recordings are required. No architecture, optimizer,
+    representation, split-policy, or random-seed options are accepted.
+    """
     contract = _contract(recordings)
     seen = _recording_content(recordings)
     names = sorted(seen, key=_priority)
@@ -497,23 +448,6 @@ def _fit(recordings, recipe):
             "fit needs at least two distinct recordings for training and development"
         )
     count = min(len(names) - 1, max(1, int(np.ceil(len(names) / 4))))
-    development = _extract(
-        recordings, names[:count], recipe["development_windows"], recipe
-    )
-    train = _extract(recordings, names[count:], recipe["training_windows"], recipe)
-    return _train(train, development, contract, seen, recipe)
-
-
-def _fit_history(recordings):
-    """Fit the retained first recipe; archived research plans reproduce through this."""
-    return _fit(recordings, _HISTORY_RECIPE)
-
-
-def fit(recordings):
-    """Fit the maintained recipe with automatic recording holdout and window sampling.
-
-    Supply a SequenceCollection carrying configuration and ordered channel facts.
-    At least two distinct recordings are required. No architecture, optimizer,
-    representation, split-policy, or random-seed options are accepted.
-    """
-    return _fit(recordings, _RECIPE)
+    development = _extract(recordings, names[:count], RECIPE["development_windows"])
+    train = _extract(recordings, names[count:], RECIPE["training_windows"])
+    return _train(train, development, contract, seen)
