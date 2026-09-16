@@ -5,6 +5,11 @@ All notable changes to Glassbox are recorded here. The format follows
 
 ## Unreleased
 
+- Add a platform tier to the experimental harness that measures the generic
+  recipe against the structured model on the five pinned corpora. One corpus
+  adapter, a frozen `docs/harness/platform-v1.json`, and
+  `harness platform --corpora ROOT`, whose runs `harness verify` replays from
+  saved artifacts. The recipe and the learner's arithmetic are unchanged.
 - Reduce the experimental generic learner to one recipe, one module and one
   harness. `generic-memory-v2-prototype` is the only recipe and the only saved
   format; `fit(recordings)`, `predict` and `update(recordings)` are unchanged

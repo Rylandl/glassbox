@@ -144,3 +144,72 @@ committed reference is when the replay does not run inside a checkout.
 
 Synthetic results are a fast regression guard, not a place to win. They are
 not platform readiness, control adequacy, or calibrated uncertainty.
+
+## The platform tier
+
+[`harness/platform-v1.json`](harness/platform-v1.json) is the second frozen
+manifest, with its own digest constant. It is the accuracy tier: for each of
+the five pinned corpora it declares the directory below a root, which
+recordings are held out by name pattern, how many recordings each side must
+hold, the evaluation origin stride, the task allowance from
+[accuracy-requirements](accuracy-requirements.md) where one was derived, and
+the structured comparator's arm set and fit options as that corpus's recorded
+validation chain uses them. The corpus root is a command-line argument and
+never a fact in the manifest.
+
+```sh
+uv run python -m glassbox.experimental.harness platform \
+  --manifest docs/harness/platform-v1.json \
+  --corpora /path/to/corpora --output /tmp/platform-run
+uv run python -m glassbox.experimental.harness verify /tmp/platform-run
+```
+
+One adapter turns any canonical trajectory into `SequenceSegment`s, with no
+per-corpus branch. The observed channels are world-frame velocity, body rates
+and the nine body-to-world rotation-matrix entries from the quaternion, in that
+order, with units and frames in their names; position is not modeled. Inputs
+are the recorded controls, named from the trajectory's own spec. Recording
+identity is the file stem, and the sample period is the corpus's declared one,
+checked against every interval. A timing gap or a nonfinite observed row splits
+the recording into segments through `segments_from_mask`, one uniformly sampled
+block at a time, so every retained sample keeps its source row and nothing is
+padded.
+
+`platform` fits `fit(recordings)` on a corpus's training recordings and fits
+the structured model, through `glassbox.fitting.fit` rather than the CLI, on
+exactly those same recordings; the held-out recordings are never passed to
+either fit in any role. Both models then forecast from the same origins with
+the same recorded future commands: the generic model through `predict`, the
+structured model through the library's rollout from that origin's full
+canonical state, initialized from the real command history before it. Every
+origin at the declared stride carries the recipe's whole consumed context
+inside one segment and the whole horizon after it. Velocity and body-rate RMSE
+are reported at the final horizon row and over the whole prefix, for the
+generic model, each structured arm and a hold-current baseline, pooled per
+corpus and per recording.
+
+The recipe's 0.25 s horizon resolves on each corpus's own sample grid, so the
+realized horizon is 0.24 s on the 50 Hz corpora and 0.2 s on the 5 Hz one; each
+run reports the horizon it actually measured. The run saves, per corpus, the
+generic model artifact, each structured belief and fit report, the evaluation
+arrays with both predictions and the hold baseline, the recording identities
+and source origins, a sha256 of every artifact, the wall time of every fit, and
+the decision. Nothing is cached across runs.
+
+`verify` decides which tier a directory holds from the digest of the manifest
+it copied, not from what the copy says about itself, and refuses a manifest
+that matches neither frozen contract. On a platform run it replays the generic
+predictions with the same independent NumPy recurrence the synthetic tier uses,
+replays each structured arm from its saved artifact, recomputes every score and
+the decision from the saved arrays, and rejects any artifact whose bytes moved.
+
+The declared rule is that, on every corpus, the generic model's final-step
+velocity and body-rate RMSE are at or below the structured comparator's on the
+same rows and at or below the allowance where one exists; the comparator is the
+better structured arm on those rows, metric by metric, and both arms are
+reported. The manifest currently carries `"enforced": false`: the rule is
+measured and reported, a run is accepted when the measurement itself is
+complete, and the rule gates merges from the first iteration that changes the
+recipe. Structural problems — a corpus missing, duplicated, undeclared or
+unfinished, a nonfinite score, a row count outside the declared budget, an
+undeclared arm set — always fail closed.
