@@ -1121,6 +1121,19 @@ def platform_score(prediction, targets, ids):
     )
 
 
+def _score(recorded, metric):
+    """One recorded final-step score as a finite float, or None for anything else.
+
+    Missing, null, nonfinite, or not a JSON number at all: a gate that cannot
+    read a number fails closed rather than raising or parsing a string into one.
+    """
+    final = recorded.get("final_step") if isinstance(recorded, dict) else None
+    value = final.get(metric) if isinstance(final, dict) else None
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return float(value) if np.isfinite(value) else None
+
+
 def _comparator(arms, metric):
     """The better arm on these rows, metric by metric, and its value.
 
@@ -1128,10 +1141,7 @@ def _comparator(arms, metric):
     of "the better arm": the generic model has to beat whichever structured arm
     did best on that metric, not an arm chosen for it. Both arms are reported.
     """
-    values = {
-        arm: _finite(score.get("final_step", {}).get(metric, float("nan")))
-        for arm, score in arms.items()
-    }
+    values = {arm: _score(score, metric) for arm, score in arms.items()}
     finite = {arm: value for arm, value in values.items() if value is not None}
     if not finite:
         return None, None, False
@@ -1175,20 +1185,14 @@ def platform_decide(manifest, rows):
             continue
         allowance = entry["allowance"]
         for metric in METRICS:
-            generic = _finite(
-                row.get("generic", {}).get("final_step", {}).get(metric, float("nan"))
-            )
+            generic = _score(row.get("generic", {}), metric)
             arm, comparator, complete = _comparator(arms, metric)
             summary.setdefault(name, {})[metric] = dict(
                 generic=generic,
                 comparator=comparator,
                 comparator_arm=arm,
                 allowance=None if allowance is None else allowance[metric],
-                hold_current=_finite(
-                    row.get("hold_current", {})
-                    .get("final_step", {})
-                    .get(metric, float("nan"))
-                ),
+                hold_current=_score(row.get("hold_current", {}), metric),
             )
             if generic is None or comparator is None or not complete:
                 breaches.append(

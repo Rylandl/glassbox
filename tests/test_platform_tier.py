@@ -400,7 +400,7 @@ def test_missing_duplicate_and_undeclared_corpora_fail_closed(manifest, problem)
     json.dumps(decision, allow_nan=False)
 
 
-@pytest.mark.parametrize("value", [float("nan"), float("inf")])
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), None, "0.1"])
 def test_nonfinite_scores_fail_closed_and_stay_serializable(manifest, value):
     rows = passing_rows(manifest)
     rows[0]["generic"]["final_step"]["velocity_rmse_m_s"] = value
