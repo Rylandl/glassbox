@@ -8,13 +8,16 @@ the same recipe on each pinned corpus of ``docs/harness/platform-v3.json`` with
 whole recordings held out, fits the structured model on exactly the same
 training recordings, and scores both on exactly the same held-out rows.
 ``control`` is the control tier: it collects the frozen Cascade X8 calibration
-of ``docs/harness/control-v4.json``, fits both models on it, and tracks the
-same reference with each of them through the existing NMPC seam. ``live`` is
-the live improvement tier: it collects the same calibration under
-``docs/harness/live-v1.json``, flies the structured arm from the first
-interval, refits the generic recipe on the trial's own streamed transitions
-through the existing transition buffer and refinement worker, and hands it the
-controller when a predeclared held-out block gate passes.
+of ``docs/harness/control-v5.json``, declares that calibration's own additive
+command excitation to the generic learner as part of its recordings, fits both
+models on it, and tracks the same reference with each of them through the
+existing NMPC seam. ``live`` is the live improvement tier: it collects the same
+calibration under ``docs/harness/live-v3.json``, flies the structured arm from
+the first interval under a declared command dither, refits the generic recipe
+on the trial's own streamed transitions -- which carry that dither as their
+declared excitation -- through the existing transition buffer and refinement
+worker, and hands it the controller when a predeclared held-out block gate
+passes.
 ``verify`` replays any tier from its saved artifacts and rejects anything
 that changed. No command takes tuning options.
 
@@ -23,9 +26,9 @@ that changed. No command takes tuning options.
     python -m glassbox.experimental.harness platform \\
         --manifest docs/harness/platform-v3.json --corpora ROOT --output DIR
     python -m glassbox.experimental.harness control \\
-        --manifest docs/harness/control-v4.json --output DIR
+        --manifest docs/harness/control-v5.json --output DIR
     python -m glassbox.experimental.harness live \\
-        --manifest docs/harness/live-v2.json --output DIR
+        --manifest docs/harness/live-v3.json --output DIR
     python -m glassbox.experimental.harness verify DIR [--reference PATH]
 
 A run copies the manifest and the reference it compared into its output, but a
@@ -52,7 +55,13 @@ from pathlib import Path
 
 import numpy as np
 
-from .default_model import RECIPE, LearnedDynamics, fit, steps_for
+from .default_model import (
+    RECIPE,
+    LearnedDynamics,
+    excitation_fraction,
+    fit,
+    steps_for,
+)
 from .sequence_collection import (
     SequenceCollection,
     SequenceSegment,
@@ -1444,7 +1453,9 @@ def command_channels(spec):
     )
 
 
-def trajectory_segments(recording_id, trajectory, *, dt_s, tolerance_fraction):
+def trajectory_segments(
+    recording_id, trajectory, *, dt_s, tolerance_fraction, excitation=None
+):
     """One canonical trajectory as generic segments, on one uniform time grid.
 
     A sample interval that departs from ``dt_s`` ends a segment, and so does a
@@ -1453,12 +1464,22 @@ def trajectory_segments(recording_id, trajectory, *, dt_s, tolerance_fraction):
     a time, so every retained row keeps its source row index. ``dt_s`` is the
     corpus's declared sample period; every interval is checked against it here,
     and it is what the whole corpus shares so one collection can hold it.
+
+    ``excitation``, when the caller declares one, is the exogenous component it
+    injected into each applied command, aligned with the trajectory's controls
+    and cut into segments with them.
     """
     rows = observed_rows(trajectory)
     inputs = np.asarray(trajectory.controls, dtype=float)
     time_s = np.asarray(trajectory.time_s, dtype=float)
     if not np.isfinite(dt_s) or dt_s <= 0:
         raise ValueError("the declared sample interval must be finite and positive")
+    if excitation is not None:
+        excitation = np.asarray(excitation, dtype=float)
+        if excitation.shape != inputs.shape:
+            raise ValueError(
+                f"the declared excitation of {recording_id} is not aligned with its commands"
+            )
     uniform = np.abs(np.diff(time_s) - dt_s) <= tolerance_fraction * dt_s
     valid = np.isfinite(rows).all(axis=1)
     valid[:-1] &= np.isfinite(inputs).all(axis=1)
@@ -1468,7 +1489,14 @@ def trajectory_segments(recording_id, trajectory, *, dt_s, tolerance_fraction):
         block = np.zeros(len(time_s), dtype=bool)
         block[start:stop] = True
         segments.extend(
-            segments_from_mask(recording_id, rows, inputs, valid & block, dt_s=dt_s)
+            segments_from_mask(
+                recording_id,
+                rows,
+                inputs,
+                valid & block,
+                dt_s=dt_s,
+                excitation=excitation,
+            )
         )
     return tuple(segments)
 
@@ -2278,11 +2306,11 @@ def verify_simulated_time_wall(
 # --- the control tier: one Cascade trial set, two arms ----------------------
 
 CONTROL_MANIFEST_SHA256 = (
-    "a2ec4beaf29525343681c8cff834a31fe60b251b990a72c15aeaddaa92ddcd1f"
+    "c87b40e1835c2dc9725f7a9effd47d5de225c692b06e63ea32141e632161cb40"
 )
 """Digest of the frozen control manifest this module is allowed to run."""
 
-COMMITTED_CONTROL_MANIFEST = COMMITTED_MANIFEST.parent / "control-v4.json"
+COMMITTED_CONTROL_MANIFEST = COMMITTED_MANIFEST.parent / "control-v5.json"
 """The frozen control manifest in a source checkout."""
 
 COMMITTED_CONTROL_REFERENCE = COMMITTED_MANIFEST.parent / "control-reference.json"
@@ -2327,6 +2355,10 @@ def frozen_control_manifest(path):
     # reference alone, which a solve cut short for want of time would break.
     if trial["solver_deadline_applied"] is not False:
         raise ValueError("this tier's solver is given no deadline")
+    # The calibration's own excitation is declared to the generic learner, and
+    # the manifest has to say in what form or a run cannot rebuild it.
+    if not str(manifest["calibration"]["excitation"].get("declared_form", "")).strip():
+        raise ValueError("the calibration does not declare the form of its excitation")
     return manifest
 
 
@@ -2461,6 +2493,103 @@ def control_excitation(manifest, recordings):
     )
 
 
+def declared_excitation(*, amplitudes, rates_rad_s, ramp_s, seed, intervals, dt_s):
+    """The known additive command excitation a protocol injects, interval by interval.
+
+    ``ramp * amplitudes * sin(rates * elapsed + phases)`` on this tier's own
+    sample grid, with ``ramp = min(1, elapsed / ramp_s)`` and the phases drawn
+    from one declared seed. It is the form the calibration pilot's excitation
+    already has, written once so the calibration, the live tier's trial dither
+    and both replays compute the same bytes from the same declared constants.
+    Nothing here is measured: a replay recomputes this table from the manifest
+    and the seed rather than believing what a run wrote beside its commands.
+    """
+    amplitudes = np.asarray(amplitudes, dtype=float)
+    rates = np.asarray(rates_rad_s, dtype=float)
+    if amplitudes.shape != rates.shape or amplitudes.ndim != 1:
+        raise ValueError("excitation amplitudes and rates are one per command channel")
+    if not np.isfinite(ramp_s) or ramp_s <= 0 or int(intervals) < 0:
+        raise ValueError("the excitation ramp and interval count must be positive")
+    phases = np.random.default_rng(seed).uniform(0, 2 * np.pi, size=len(amplitudes))
+    elapsed = np.arange(int(intervals)) * float(dt_s)
+    ramp = np.minimum(1.0, elapsed / float(ramp_s))
+    return ramp[:, None] * amplitudes * np.sin(rates * elapsed[:, None] + phases)
+
+
+def calibration_excitation(manifest, seed):
+    """One calibration recording's declared additive excitation, from the manifest."""
+    declared = manifest["calibration"]
+    dt_s = manifest["plant"]["sample_interval_s"]
+    return declared_excitation(
+        amplitudes=declared["excitation_amplitudes"],
+        rates_rad_s=declared["excitation_rates_rad_s"],
+        ramp_s=declared["setpoint"]["ramp_s"],
+        seed=seed,
+        intervals=round(declared["duration_s"] / dt_s),
+        dt_s=dt_s,
+    )
+
+
+def _command_fraction(excitation, commands):
+    """Each channel's excitation standard deviation over its own command range.
+
+    The same quantity the learner's own report measures from its recordings,
+    computed here from a trial's applied commands so a run states what it
+    injected in the units the contract states it in.
+    """
+    excitation = np.asarray(excitation, dtype=float)
+    commands = np.asarray(commands, dtype=float)
+    if not len(excitation) or not len(commands):
+        return None
+    span = commands.max(axis=0) - commands.min(axis=0)
+    deviation = excitation.std(axis=0)
+    return [
+        None if not width > 0 else float(value / width)
+        for value, width in zip(deviation, span, strict=True)
+    ]
+
+
+def _same_fraction(fresh, recorded, label, **tolerance):
+    """One per-channel excitation fraction against the one a run recorded.
+
+    A channel whose command never moves has no range to be excited in and its
+    fraction is ``None`` on both sides; anything else is compared as a number.
+    """
+    if (fresh is None) != (recorded is None):
+        raise ValueError(f"the recorded excitation fraction differs: {label}")
+    if fresh is None:
+        return
+    if len(fresh) != len(recorded):
+        raise ValueError(f"the recorded excitation fraction differs: {label}")
+    for measured, saved in zip(fresh, recorded, strict=True):
+        if (measured is None) != (saved is None):
+            raise ValueError(f"the recorded excitation fraction differs: {label}")
+        if measured is not None:
+            np.testing.assert_allclose(measured, saved, **tolerance)
+
+
+def trial_excitation(manifest, intervals=None):
+    """The live tier's declared trial dither, identical in every trial and both arms.
+
+    The calibration's per-channel amplitudes and rates, on the trial's own
+    sample grid, with the phases drawn from the manifest's declared trial seed.
+    It is the same sequence in every trial, which is what makes "applied
+    identically to the frozen and the adopting arm" a statement a replay can
+    check rather than a claim.
+    """
+    declared = manifest["trial"]["excitation"]
+    calibration = manifest["calibration"]
+    trial = manifest["trial"]
+    return declared_excitation(
+        amplitudes=calibration[declared["amplitudes_from"]],
+        rates_rad_s=calibration[declared["rates_from"]],
+        ramp_s=declared["ramp_s"],
+        seed=declared["phase_seed"],
+        intervals=trial["intervals"] if intervals is None else intervals,
+        dt_s=trial["sample_interval_s"],
+    )
+
+
 def control_excitation_shortfall(manifest, measured, names):
     """The channels of these recordings that fall short of the declared fraction."""
     required = float(
@@ -2583,6 +2712,10 @@ def control_recording(manifest, plant, trim, initial_state, initial_command, see
     cadence, simulator-derived trim feedforward, and small setpoint and command
     perturbations from one seed. Every constant is read from the frozen
     manifest rather than written here.
+
+    Returns the recording and the known additive excitation that went into each
+    of its applied commands, which is a declared function of the manifest and
+    this seed and is what the caller may hand the learner as a data fact.
     """
     import cascade
     import jax
@@ -2627,9 +2760,8 @@ def control_recording(manifest, plant, trim, initial_state, initial_command, see
 
     minimum = np.asarray(manifest["telemetry"]["command_minimum"], dtype=float)
     maximum = np.asarray(manifest["telemetry"]["command_maximum"], dtype=float)
-    amplitudes = np.asarray(declared["excitation_amplitudes"], dtype=float)
-    rates = np.asarray(declared["excitation_rates_rad_s"], dtype=float)
     phases = np.random.default_rng(seed).uniform(0, 2 * np.pi, size=3)
+    injected = calibration_excitation(manifest, seed)
     sample = plant.reset(initial_state, applied_control=initial_command)
     states, commands = [sample.state.copy()], []
     for index in range(round(declared["duration_s"] / dt_s)):
@@ -2655,9 +2787,8 @@ def control_recording(manifest, plant, trim, initial_state, initial_command, see
             ),
         )
         raw, pilot_state = command_for(sample.state, pilot_state, setpoint)
-        excitation = ramp * amplitudes * np.sin(rates * elapsed + phases)
         command = np.clip(
-            np.asarray(raw) + np.r_[0.0, initial_command[1:]] + excitation,
+            np.asarray(raw) + np.r_[0.0, initial_command[1:]] + injected[index],
             minimum,
             maximum,
         )
@@ -2668,29 +2799,37 @@ def control_recording(manifest, plant, trim, initial_state, initial_command, see
             )
         states.append(sample.state.copy())
         commands.append(command.copy())
-    return Trajectory(
-        time_s=np.arange(len(states)) * dt_s,
-        states=np.asarray(states),
-        controls=np.asarray(commands),
-        control_prefix=initial_command[None],
-        spec=control_telemetry_spec(manifest),
-        labels={"source_group": f"cascade-calibration-{seed}"},
-        provenance={
-            "plant": "cascade.skywalker_x8",
-            "seed": seed,
-            "calibration_pilot": declared["pilot"],
-            "command_policy": declared["command_policy"],
-            "initial_history_assumption": declared["initial_history_assumption"],
-        },
+    return (
+        Trajectory(
+            time_s=np.arange(len(states)) * dt_s,
+            states=np.asarray(states),
+            controls=np.asarray(commands),
+            control_prefix=initial_command[None],
+            spec=control_telemetry_spec(manifest),
+            labels={"source_group": f"cascade-calibration-{seed}"},
+            provenance={
+                "plant": "cascade.skywalker_x8",
+                "seed": seed,
+                "calibration_pilot": declared["pilot"],
+                "command_policy": declared["command_policy"],
+                "initial_history_assumption": declared["initial_history_assumption"],
+            },
+        ),
+        injected,
     )
 
 
-def control_collection(manifest, loaded):
+def control_collection(manifest, loaded, excitations=None):
     """Adapt the calibration recordings into the learner's own channels.
 
     The same fifteen-channel contract and the same segment adapter the platform
     tier uses. The control manifest declares the channels, and a recording that
     adapts to anything else fails closed here rather than later.
+
+    ``excitations`` maps each recording's name to the exogenous component the
+    caller injected into its applied commands. It is declared for every
+    recording of a collection or for none of them, which is the recording
+    contract's own rule, and nothing downstream of here reads it.
     """
     from .learned_plan import OBSERVED_CHANNELS as PLAN_CHANNELS
 
@@ -2699,12 +2838,23 @@ def control_collection(manifest, loaded):
         raise ValueError("the manifest's observed channels are not the one contract")
     dt_s = manifest["plant"]["sample_interval_s"]
     channels = command_channels(loaded[0][1].spec)
+    excitations = {} if excitations is None else dict(excitations)
+    if excitations and set(excitations) != {name for name, _ in loaded}:
+        raise ValueError(
+            "every recording of a collection declares its excitation, or none does"
+        )
     segments = []
     for name, trajectory in loaded:
         if command_channels(trajectory.spec) != channels:
             raise ValueError("calibration recordings declare different commands")
         segments.extend(
-            trajectory_segments(name, trajectory, dt_s=dt_s, tolerance_fraction=1e-6)
+            trajectory_segments(
+                name,
+                trajectory,
+                dt_s=dt_s,
+                tolerance_fraction=1e-6,
+                excitation=excitations.get(name),
+            )
         )
     return SequenceCollection(
         tuple(segments),
@@ -2937,7 +3087,7 @@ def _control_trial(manifest, arm, plant, reference_fn, anchor_state, directory):
     saved, so a replay can rebuild the reference and recheck the perturbation.
 
     Nothing a clock measured may reach the trajectory, which is what the live
-    tier already does and what ``control-v4`` adopts. Interval ``k`` is the
+    tier already does and what ``control-v4`` adopted. Interval ``k`` is the
     state at ``k`` times the sample interval: the loop is not paced, the solver
     is given no deadline and therefore never falls back for want of time, and
     the command it solved is the command the plant is stepped with. Solve
@@ -3137,16 +3287,21 @@ def _control_calibrate(manifest, output):
     declared = manifest["calibration"]
     spec, model, trim, initial_state, initial_command = control_fixture(manifest)
     plant = _control_plant(manifest, spec, model)
-    recordings, names = {}, []
+    recordings, names, injected = {}, [], {}
     for seed in declared["seeds"]:
         print(json.dumps(dict(collecting=f"recording-{seed}")), flush=True)
-        flight = control_recording(
+        flight, excited = control_recording(
             manifest, plant, trim, initial_state, initial_command, seed
         )
         name = f"recording-{seed}"
         save_trajectory_npz(flight, output / f"{name}.npz")
         recordings[seed] = flight
+        injected[name] = excited
         names.append(f"{name}.npz")
+    # The declared excitation is a data fact about these recordings, saved
+    # beside them so a replay can recompute it and reject an altered one.
+    np.savez_compressed(output / "calibration-excitation.npz", **injected)
+    names.append("calibration-excitation.npz")
     digests = {
         f"recording-{seed}": trajectory_content_digest(flight)
         for seed, flight in recordings.items()
@@ -3185,14 +3340,26 @@ def _control_calibrate(manifest, output):
     save_dynamics_belief(outcome.belief, output / "structured.json")
     write(output / "structured_report.json", outcome.report)
 
+    # The generic arm's recordings carry what the calibration injected into
+    # their commands; the structured fit above is the same fit it always was
+    # and never sees it. The recipe ignores it too and records that it was
+    # declared, which is why both arms' numbers are the ones control-v4 measured.
     started = time.perf_counter()
-    learned = fit(control_collection(manifest, training))
+    learned = fit(
+        control_collection(
+            manifest,
+            training,
+            {name: injected[name] for name, _ in training},
+        )
+    )
     generic_wall = time.perf_counter() - started
     learned.save(output / "generic.npz")
     if set(learned.report["training"]) | set(learned.report["development"]) != {
         name for name, _ in training
     }:
         raise ValueError("the generic fit did not read the calibration recordings")
+    if learned.report.get("excitation_declared") is not True:
+        raise ValueError("the generic fit was not told what the calibration injected")
 
     reserved_loaded = [(name, recordings[int(name.split("-")[1])]) for name in reserved]
     evidence_arrays = control_evidence_arrays(manifest, reserved_loaded)
@@ -3220,6 +3387,13 @@ def _control_calibrate(manifest, output):
             version=manifest["plant"]["version"],
         ),
         command_excitation=excitation,
+        declared_excitation=dict(
+            form=manifest["calibration"]["excitation"]["declared_form"],
+            arrays="calibration-excitation.npz",
+            standard_deviation_fraction=learned.report[
+                "excitation_standard_deviation_fraction"
+            ],
+        ),
         structured_fit_wall_seconds=structured_wall,
         generic_fit_wall_seconds=generic_wall,
         generic_fingerprint=learned.fingerprint(),
@@ -3566,9 +3740,47 @@ def _verify_calibration(directory, manifest):
     if control_excitation_shortfall(manifest, fresh, calibration["training"]):
         raise ValueError("the saved calibration does not meet the declared excitation")
 
+    # The declared excitation is recomputed from the manifest and each
+    # recording's own seed, not believed: an altered table is rejected here and
+    # by the artifact hash above, and the fractions the fit reported have to be
+    # the ones these arrays and these commands actually give.
+    injected = {}
+    with np.load(directory / "calibration-excitation.npz", allow_pickle=False) as data:
+        if sorted(data.files) != sorted(calibration["recordings"]):
+            raise ValueError("the saved excitation covers different recordings")
+        for name in data.files:
+            rebuilt = calibration_excitation(manifest, int(name.split("-")[1]))
+            if data[name].shape != rebuilt.shape or not np.array_equal(
+                data[name], rebuilt
+            ):
+                raise ValueError(f"the saved declared excitation differs: {name}")
+            injected[name] = data[name]
+
     learned = LearnedDynamics.load(directory / "generic.npz")
     if learned.fingerprint() != calibration["generic_fingerprint"]:
         raise ValueError("generic model fingerprint mismatch")
+    training_loaded = [
+        (name, load_trajectory_npz(directory / f"{name}.npz"))
+        for name in calibration["training"]
+    ]
+    remeasured = excitation_fraction(
+        control_collection(
+            manifest,
+            training_loaded,
+            {name: injected[name] for name, _ in training_loaded},
+        )
+    )
+    saved_fraction = calibration["declared_excitation"]["standard_deviation_fraction"]
+    if learned.report.get("excitation_declared") is not True:
+        raise ValueError("the saved generic fit does not declare its excitation")
+    _same_fraction(
+        remeasured,
+        learned.report["excitation_standard_deviation_fraction"],
+        "the saved generic fit",
+        rtol=0,
+        atol=0,
+    )
+    _same_fraction(remeasured, saved_fraction, "the saved calibration", rtol=0, atol=0)
 
     reserved_loaded = [
         (name, load_trajectory_npz(directory / f"{name}.npz"))
@@ -3773,11 +3985,11 @@ def verify_control(directory, manifest, reference=None):
 # --- the live improvement tier: refit on the flight, swap on held-out evidence
 
 LIVE_MANIFEST_SHA256 = (
-    "393946754050bd3250275bea35fd672bdb953999c06127fb31821918e7a6ace0"
+    "4d39b49536f7fee4fced8702ba9f931894497d4a48f97bdb83de1986efed5fd0"
 )
 """Digest of the frozen live manifest this module is allowed to run."""
 
-COMMITTED_LIVE_MANIFEST = COMMITTED_MANIFEST.parent / "live-v2.json"
+COMMITTED_LIVE_MANIFEST = COMMITTED_MANIFEST.parent / "live-v3.json"
 """The frozen live manifest in a source checkout."""
 
 COMMITTED_LIVE_REFERENCE = COMMITTED_MANIFEST.parent / "live-reference.json"
@@ -3840,6 +4052,26 @@ def frozen_live_manifest(path):
         raise ValueError("this tier's worker is driven synchronously, or not at all")
     if manifest["trial"]["solver_deadline_applied"] is not False:
         raise ValueError("this tier's solver is given no deadline")
+    if not str(manifest["calibration"]["excitation"].get("declared_form", "")).strip():
+        raise ValueError("the calibration does not declare the form of its excitation")
+    # The trial dither is what makes this tier's streamed recordings carry
+    # identifying variation, so it is a declared constant of the manifest: one
+    # seed, the calibration's own per-channel amplitudes and rates, and a ramp.
+    excitation = trial["excitation"]
+    seed = excitation["phase_seed"]
+    if isinstance(seed, bool) or not isinstance(seed, int) or seed < 0:
+        raise ValueError("the trial dither needs one declared non-negative seed")
+    for key in ("amplitudes_from", "rates_from"):
+        if excitation[key] not in manifest["calibration"]:
+            raise ValueError("the trial dither names constants the calibration lacks")
+    table = trial_excitation(manifest)
+    if table.shape != (
+        trial["intervals"],
+        len(manifest["telemetry"]["command_minimum"]),
+    ):
+        raise ValueError("the declared trial dither does not cover every command")
+    if not np.isfinite(table).all():
+        raise ValueError("the declared trial dither is not finite")
     return manifest
 
 
@@ -4316,9 +4548,16 @@ class _LiveRefiner:
     a refit inside a block period leaves no room for a disk write.
     """
 
-    def __init__(self, manifest, learned, belief, *, recording_id, session):
+    def __init__(
+        self, manifest, learned, belief, *, recording_id, session, excitation=None
+    ):
         self._manifest = manifest
         self._belief = belief
+        # The trial's own realized excitation, interval by interval, appended by
+        # the loop as it applies each command. A block's rows are all complete
+        # before the synchronous submit that hands it over, so the slice a block
+        # needs always exists by the time this reads it.
+        self._excitation = excitation
         self._dt_s = manifest["plant"]["sample_interval_s"]
         self._steps = steps_for(self._dt_s)
         self._budget = manifest["live"]["refit"]["budget"]
@@ -4404,7 +4643,17 @@ class _LiveRefiner:
             raise ValueError("blocks must arrive in order on one recording")
         index = len(self._results)
         name = f"{recording_id}-block-{index:03d}"
-        collection = control_collection(self._manifest, [(name, telemetry)])
+        stop = int(start_interval) + len(telemetry.controls)
+        injected = (
+            None
+            if self._excitation is None
+            else np.asarray(self._excitation[int(start_interval) : stop], dtype=float)
+        )
+        collection = control_collection(
+            self._manifest,
+            [(name, telemetry)],
+            None if injected is None else {name: injected},
+        )
         arrays = live_block_rows(self._manifest, telemetry, collection, self._steps)
         scored = self._candidate
         started = time.monotonic()
@@ -4422,8 +4671,12 @@ class _LiveRefiner:
             index=index,
             recording_id=name,
             start_interval=int(start_interval),
-            stop_interval=int(start_interval) + len(telemetry.controls),
+            stop_interval=stop,
             rows=len(arrays["targets"]),
+            excitation_declared=bool(collection.excitation_declared),
+            excitation_standard_deviation_fraction=updated.report.get(
+                "excitation_standard_deviation_fraction"
+            ),
             scored_revision=scored.revision_id,
             scored_fingerprint=scored.fingerprint,
             revision=successor.revision_id,
@@ -4493,6 +4746,7 @@ def _live_prewarm(manifest, artifacts, warmup, reference_fn):
     states = np.asarray(warmup.states, dtype=float)
     commands = np.asarray(warmup.controls, dtype=float)
     spec = control_telemetry_spec(manifest)
+    dither = trial_excitation(manifest)
     for index in range(transport["blocks_per_trial"]):
         start = history + index * block_steps
         if start + block_steps >= len(commands):
@@ -4500,7 +4754,10 @@ def _live_prewarm(manifest, artifacts, warmup, reference_fn):
         block = _live_block_trajectory(
             spec, dt_s, states, commands, start, block_steps, history
         )
-        collection = control_collection(manifest, [(f"prewarm-{index}", block)])
+        name = f"prewarm-{index}"
+        collection = control_collection(
+            manifest, [(name, block)], {name: dither[:block_steps]}
+        )
         arrays = live_block_rows(manifest, block, collection, steps)
         live_block_scores(manifest, scratch, artifacts["structured"], arrays)
         with jax.enable_x64(True):
@@ -4565,6 +4822,15 @@ def _live_trial(
     history_steps = transport["command_history_steps"]
     release_offset = transport["offer_release_offset_intervals"]
 
+    # The declared trial dither: the same seeded sequence in every trial and on
+    # both arms, added to whatever command the active controller solved before
+    # the plant is stepped with it. Nothing about it is measured here -- it is a
+    # function of the manifest's own constants and its declared trial seed.
+    dither = trial_excitation(manifest)
+    minimum = np.asarray(manifest["telemetry"]["command_minimum"], dtype=float)
+    maximum = np.asarray(manifest["telemetry"]["command_maximum"], dtype=float)
+    solved_commands, injected = [], []
+
     arm = _StructuredArm(manifest, artifacts["structured"])
     _control_prewarm(arm, manifest, warmup, reference_fn)
     refiner = _LiveRefiner(
@@ -4573,6 +4839,7 @@ def _live_trial(
         artifacts["structured"],
         recording_id=session,
         session=session,
+        excitation=injected,
     )
     buffer = TransitionBuffer(
         control_telemetry_spec(manifest),
@@ -4711,6 +4978,14 @@ def _live_trial(
                 solver_used.append(False)
                 fallbacks.append(False)
                 statuses.append("model_not_ready")
+            # The dither is added to the solved command and the sum is held in
+            # the declared command box, because a command outside it is not one
+            # this vehicle accepts. What the plant is stepped with is the
+            # applied command, and what the learner is told was injected is the
+            # difference between the two: the exogenous component that actually
+            # reached the aircraft, not the one that was asked for.
+            solved = command
+            command = np.clip(solved + dither[index], minimum, maximum)
             next_state = np.asarray(plant.advance(command), dtype=float)
             if not np.isfinite(next_state).all():
                 failure = "nonfinite plant state"
@@ -4718,6 +4993,8 @@ def _live_trial(
             arm.command_applied(command)
             observed.append(next_state.copy())
             applied.append(command.copy())
+            solved_commands.append(solved.copy())
+            injected.append(command - solved)
             actives.append(swap["swap_revision"] or f"{session}:structured")
             recent_states.append(state.copy())
             recent_commands.append(command.copy())
@@ -4773,8 +5050,15 @@ def _live_trial(
     )
     times = np.arange(len(states_array)) * dt_s
     reference_states = reference_fn(times)
-    minimum = np.asarray(manifest["telemetry"]["command_minimum"], dtype=float)
-    maximum = np.asarray(manifest["telemetry"]["command_maximum"], dtype=float)
+    width = len(plant.initial_command)
+    solved_array = (
+        np.asarray(solved_commands)
+        if solved_commands
+        else np.zeros((0, width), dtype=float)
+    )
+    injected_array = (
+        np.asarray(injected) if injected else np.zeros((0, width), dtype=float)
+    )
     bound_violation = (
         max(
             0.0,
@@ -4787,13 +5071,17 @@ def _live_trial(
     # The trajectory and the clock live in different files. Everything in
     # tracking.npz is a function of the plant, the models and the reference, so
     # two runs of this tier produce it byte for byte; nothing in timing.npz is,
-    # and nothing reads it back.
+    # and nothing reads it back. The solved command and the excitation are
+    # saved beside the applied one so a replay can recompute the declared
+    # dither and check that the applied command is the solved one plus it.
     np.savez_compressed(
         directory / "tracking.npz",
         time_s=times,
         states=states_array,
         reference_states=reference_states,
         commands=commands_array,
+        solved_commands=solved_array,
+        excitation=injected_array,
         solver_used=np.asarray(solver_used, dtype=bool),
         used_fallback=np.asarray(fallbacks, dtype=bool),
         active_revisions=np.asarray(actives, dtype="<U64"),
@@ -4850,6 +5138,24 @@ def _live_trial(
             else None
         ),
         pass_criterion=control_pass_criterion(states_array, anchor_state, manifest),
+        excitation=dict(
+            declared=True,
+            phase_seed=manifest["trial"]["excitation"]["phase_seed"],
+            intervals=len(injected_array),
+            clipped_intervals=int(
+                np.count_nonzero(
+                    np.any(
+                        np.abs(injected_array - dither[: len(injected_array)]) > 0,
+                        axis=1,
+                    )
+                )
+            )
+            if len(injected_array)
+            else 0,
+            standard_deviation_fraction=_command_fraction(
+                injected_array, commands_array
+            ),
+        ),
         **swap,
         blocks=blocks,
         candidate_revisions=len(blocks),
@@ -5067,6 +5373,7 @@ def verify_live(directory, manifest, reference=None):
     steps = steps_for(manifest["plant"]["sample_interval_s"])
     declared = manifest["tracking_reference"]
     release_offset = transport["offer_release_offset_intervals"]
+    dither = trial_excitation(manifest)
     rows = read(directory / "results.json")
     checked, replays, worst = 0, 0, 0.0
     swaps = {}
@@ -5088,12 +5395,23 @@ def verify_live(directory, manifest, reference=None):
             anchor_state = data["reference_anchor_state"]
             times = data["time_s"]
             actives = data["active_revisions"]
+            solved = data["solved_commands"]
+            excitation = data["excitation"]
             if (
                 len(states) != len(commands) + 1
                 or len(times) != len(states)
                 or len(actives) != len(commands)
+                or solved.shape != commands.shape
+                or excitation.shape != commands.shape
             ):
                 raise ValueError(f"saved tracking arrays disagree: {row['directory']}")
+            # The declared dither is recomputed from the manifest and its
+            # declared trial seed, and the applied command has to be the solved
+            # one plus it, held in the declared command box. That is what makes
+            # "the same excitation on both arms" checkable rather than claimed.
+            _verify_trial_excitation(
+                row, manifest, dither, solved, commands, excitation
+            )
             np.testing.assert_allclose(
                 times, np.arange(len(states)) * dt_s, rtol=0, atol=1e-12
             )
@@ -5226,6 +5544,69 @@ def verify_live(directory, manifest, reference=None):
             "reads them."
         ),
     )
+
+
+def _verify_trial_excitation(row, manifest, dither, solved, commands, excitation):
+    """Recompute one trial's declared dither and what it actually injected.
+
+    The dither is a function of the manifest's own constants and its declared
+    trial seed, so it is rebuilt rather than believed. The applied command has
+    to be the solved command plus that dither, held in the declared command
+    box, and the recorded excitation has to be the difference between the two:
+    what reached the aircraft, rather than what was asked for. Both arms of
+    every repetition are checked against the same rebuilt sequence, which is
+    what "applied identically to the frozen and the adopting arm" means here.
+    """
+    label = row["directory"]
+    minimum = np.asarray(manifest["telemetry"]["command_minimum"], dtype=float)
+    maximum = np.asarray(manifest["telemetry"]["command_maximum"], dtype=float)
+    executed = len(commands)
+    if executed > len(dither):
+        raise ValueError(f"the trial ran past its declared dither: {label}")
+    expected = np.clip(solved + dither[:executed], minimum, maximum)
+    if not np.array_equal(expected, commands):
+        raise ValueError(
+            f"the applied commands are not the solved ones plus the declared dither: {label}"
+        )
+    if not np.array_equal(commands - solved, excitation):
+        raise ValueError(f"the recorded excitation is not what was injected: {label}")
+    recorded = row.get("excitation")
+    if not isinstance(recorded, dict) or recorded.get("declared") is not True:
+        raise ValueError(f"the trial does not declare its excitation: {label}")
+    if recorded.get("phase_seed") != manifest["trial"]["excitation"]["phase_seed"]:
+        raise ValueError(f"the trial declares another dither seed: {label}")
+    if recorded.get("intervals") != executed:
+        raise ValueError(f"the declared excitation covers other intervals: {label}")
+    clipped = (
+        int(
+            np.count_nonzero(np.any(np.abs(excitation - dither[:executed]) > 0, axis=1))
+        )
+        if executed
+        else 0
+    )
+    if recorded.get("clipped_intervals") != clipped:
+        raise ValueError(f"the recorded clipped interval count differs: {label}")
+    _same_fraction(
+        _command_fraction(excitation, commands),
+        recorded.get("standard_deviation_fraction"),
+        label,
+        **SCORE_TOLERANCE,
+    )
+    # And that it reached the learner: every streamed block declared it, and
+    # the fraction its refit reported is the one this block's own rows give.
+    for record in row.get("blocks") or ():
+        start, stop = record["start_interval"], record["stop_interval"]
+        block = f"{label}/block-{record['index']:03d}"
+        if record.get("excitation_declared") is not True:
+            raise ValueError(f"a streamed block carried no excitation: {block}")
+        if not 0 <= start < stop <= executed:
+            raise ValueError(f"a streamed block lies outside the trial: {block}")
+        _same_fraction(
+            _command_fraction(excitation[start:stop], commands[start:stop]),
+            record.get("excitation_standard_deviation_fraction"),
+            block,
+            **SCORE_TOLERANCE,
+        )
 
 
 def _same_segments(fresh, saved, label):

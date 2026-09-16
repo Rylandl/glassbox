@@ -1,6 +1,6 @@
 {
-  "id": "live-v2",
-  "purpose": "The live improvement tier: one Cascade X8 tracking trial set flown from the start by the frozen structured arm, while the generic learner refits on the trial's own streamed transitions through the existing transition buffer and refinement worker, and replaces the active plan model when a predeclared held-out block gate passes. The trajectory is a function of the plant, the models and the reference alone: no clock this run reads enters it.",
+  "id": "live-v3",
+  "purpose": "The live improvement tier: one Cascade X8 tracking trial set flown from the start by the frozen structured arm under a declared command dither, while the generic learner refits on the trial's own streamed transitions -- which carry that dither as their declared excitation -- through the existing transition buffer and refinement worker, and replaces the active plan model when a predeclared held-out block gate passes. The trajectory is a function of the plant, the models, the reference and the declared dither alone: no clock this run reads enters it.",
   "frozen_before_any_trial": true,
   "recipe": {
     "id": "generic-memory-v3-prototype",
@@ -138,9 +138,12 @@
       "range_from": "telemetry.command_maximum minus telemetry.command_minimum",
       "measured_over": "each training recording, per command channel",
       "on_shortfall": "the run fails closed before either arm is fitted",
-      "meaning": "Every command channel moves, in each of the three recordings that fit the arms, with a sample standard deviation of at least this fraction of its declared range. control-v2's pilot moved throttle 2.3% to 3.1% of a 1.0 range while it moved pitch 37%, and the throttle column of the learner's design was not identified at any penalty. The airspeed setpoint amplitude is the one constant that changed, from 0.4 to 2.5 m/s; the additive excitation, the pilot, the periods, the seeds and the durations are control-v2's. Excitation is a property of the recordings the caller supplies, applied identically to both arms and measured by the run. It is not platform knowledge, and nothing about it reaches the learner."
+      "meaning": "Every command channel moves, in each of the three recordings that fit the arms, with a sample standard deviation of at least this fraction of its declared range. control-v2's pilot moved throttle 2.3% to 3.1% of a 1.0 range while it moved pitch 37%, and the throttle column of the learner's design was not identified at any penalty. The airspeed setpoint amplitude is the one constant that changed, from 0.4 to 2.5 m/s; the additive excitation, the pilot, the periods, the seeds and the durations are control-v2's. Excitation is a property of the recordings the caller supplies, applied identically to both arms and measured by the run. It is not platform knowledge. Under live-v3 the known additive component of it is also declared to the generic learner as part of its recordings, which is the charter's own reading of a signal the caller supplies; the learner's recipe reads none of it and the measured requirement above is unchanged.",
+      "declared_form": "ramp * calibration.excitation_amplitudes * sin(calibration.excitation_rates_rad_s * elapsed + phases), with ramp = min(1, elapsed / calibration.setpoint.ramp_s) and phases drawn as numpy.random.default_rng(seed).uniform(0, 2*pi, size=3) from the recording's own seed",
+      "declared_to_the_learner": "The known additive component above is recorded per recording, saved as calibration-excitation.npz beside the recordings, and supplied as the excitation of the generic learner's recordings. It is a data fact about the recordings with a declared meaning, like a channel's units and frame, and the caller is the one who injected it. The structured fit is unchanged and is never given it; the recipe ignores it too and records only that it was declared and what fraction of each command's range it moved. The calibration that fits both arms is therefore exactly the one control-v5 collects; what live-v3 adds beyond it is the trial dither below, which does move where the aircraft flies.",
+      "recorded_as": "calibration-excitation.npz, one array per recording aligned row for row and column for column with that recording's applied commands. The replay rebuilds each array from this manifest and the recording's own seed rather than believing the saved one."
     },
-    "meaning": "Three eight-second recordings fit both arms and one further recording is reserved and never enters either fit in any role. The setpoint variation is chosen so the recordings contain the command directions the controller is asked to use."
+    "meaning": "Three eight-second recordings fit both arms and one further recording is reserved and never enters either fit in any role. The setpoint variation is chosen so the recordings contain the command directions the controller is asked to use. The excitation each recording carries is recorded beside it and handed to the generic learner as a declared signal."
   },
   "tracking_reference": {
     "kind": "lateral_and_altitude_tracking",
@@ -187,8 +190,21 @@
     "solve_deadline_s": 0.05,
     "pacing": "none. The loop runs in simulated time: interval k is the state at k times the sample interval, and no wall-clock measurement reaches a command.",
     "plant_prewarm": "one discarded step at the initial command, then a reset, before the trial clock starts",
-    "meaning": "control-v3's trial set, constant for constant, with control-v3's two model arms replaced by two live arms and its wall-clock pacing and solve deadline removed. Both arms of one repetition fly the same freshly reset plant from the same perturbed initial state over the same reference for the same number of intervals, both run the same transport and the same refits, and only the adopting arm may be offered a replacement plan model. Arm order alternates between repetitions, as examples/live_refinement.py alternates its own, and each repetition draws its own initial state from its declared seed.",
-    "solver_deadline_applied": false
+    "meaning": "control-v3's trial set, constant for constant, with control-v3's two model arms replaced by two live arms and its wall-clock pacing and solve deadline removed. Both arms of one repetition fly the same freshly reset plant from the same perturbed initial state over the same reference for the same number of intervals, both run the same transport and the same refits, and only the adopting arm may be offered a replacement plan model. Arm order alternates between repetitions, as examples/live_refinement.py alternates its own, and each repetition draws its own initial state from its declared seed. Under live-v3 a small seeded dither, declared above, is added to whatever command the active controller solved before the plant is stepped with it, identically on both arms and in every repetition, and every streamed transition carries what it injected.",
+    "solver_deadline_applied": false,
+    "excitation": {
+      "applied_to": "the command the active controller solved, on both arms of every trial",
+      "amplitudes_from": "excitation_amplitudes",
+      "rates_from": "excitation_rates_rad_s",
+      "ramp_s": 1.0,
+      "phase_seed": 202,
+      "phase_seed_source": "numpy.random.default_rng(202).uniform(0, 2*pi, size=3)",
+      "form": "ramp * calibration.excitation_amplitudes * sin(calibration.excitation_rates_rad_s * elapsed + phases), with elapsed = interval * trial.sample_interval_s and ramp = min(1, elapsed / ramp_s). One seed, one phase vector, the same sequence in every trial and on both arms.",
+      "applied_command": "clip(solved_command + dither, telemetry.command_minimum, telemetry.command_maximum). The sum is held in the declared command box because a command outside it is not one this vehicle accepts, so what is recorded as injected is the applied command minus the solved one: the exogenous component that actually reached the aircraft.",
+      "declared_to_the_learner": "Every streamed transition carries the excitation of the command the loop applied over it, and each whole block reaches the learner's update as a recording that declares it. The recipe ignores it and records that it was declared; the swap gate is unchanged and reads forecast error alone.",
+      "recorded_as": "solved_commands and excitation in each trial's tracking.npz, beside the applied commands. The replay rebuilds the dither from this manifest and its declared seed, recomputes the applied command from the solved one, and rejects a trial whose arrays say anything else.",
+      "meaning": "live-v2's streamed recordings are closed loop: the command is almost entirely explained by the state, so a held-out forecast comparison in that regime reads no command authority. The reviewer's second recorded decision is that trials excite. The dither is small, declared before any trial, identical on the frozen and the adopting arm and identical between repetitions, so the two arms still differ in the swap and in nothing else; it changes where the aircraft flies, which is why this manifest has no incumbent and writes its own."
+    }
   },
   "controller": {
     "tolerances_platform": "fixedwing",
@@ -290,7 +306,7 @@
       "apply": "at the next solve boundary the control owner seeds the prepared controller with the trial's own retained observed states and applied commands, installs it as the active controller, and acknowledges the offer",
       "history": "carried from the trial, never padded: the observed history is a property of the flight rather than of the revision"
     },
-    "meaning": "Control attempt 2 measured that this calibration flies the plant an order of magnitude harder than the task flies it, so the generic arm's error floor exceeds the motion the controller must resolve. This tier is the charter's own mechanism for that: the learner is given the regime it is asked to control, while it is being controlled, and is allowed to take over only on held-out evidence from that regime. live-v1 measured it once and was replaced rather than kept beside this: its loop was paced against a wall clock and its solver carried a deadline, so a busy host changed which commands were applied and when the swap happened, and its numbers could not be reproduced. Nothing else about the measurement moved.",
+    "meaning": "Control attempt 2 measured that this calibration flies the plant an order of magnitude harder than the task flies it, so the generic arm's error floor exceeds the motion the controller must resolve. This tier is the charter's own mechanism for that: the learner is given the regime it is asked to control, while it is being controlled, and is allowed to take over only on held-out evidence from that regime. live-v2 measured it once and is replaced rather than kept beside this: its trials flew unexcited, so the blocks the swap gate read carried no identifying command variation at all. live-v1 was replaced before it because its loop was paced against a wall clock and its solver carried a deadline, so a busy host changed which commands were applied and when the swap happened, and its numbers could not be reproduced. Nothing else about the measurement moved.",
     "determinism": {
       "claim": "Two runs of this manifest on the same checkout produce identical tracking arrays, identical block evaluation arrays and forecasts, identical block scores and gate outcomes, identical swap intervals and identical metrics, to every digit.",
       "how": [
@@ -298,11 +314,12 @@
         "the solver is given no deadline, so it never returns a fallback command for want of time and its commands depend on the model and the state alone",
         "the refinement worker is driven synchronously inside submit, so no thread schedule can decide when a block was learned from",
         "a candidate is released at a declared interval offset after the block it was scored on, not when a refit happened to finish",
-        "a refit over its wall budget is reported and still offered"
+        "a refit over its wall budget is reported and still offered",
+        "the trial dither is a declared function of the manifest's constants and one declared seed, not of anything a run measured"
       ],
       "recorded_but_not_read": "Interval times, solve times, telemetry times and refit and scoring wall times are measured and saved in timing.npz and in each trial's wall block. Nothing in the trajectory, the block scores, the swap or any metric reads them, and they differ between two runs.",
       "artifacts": {
-        "tracking.npz": "the deterministic trajectory: times, observed states, reference rows, applied commands, the active revision per interval, the perturbed start and the reference anchor",
+        "tracking.npz": "the deterministic trajectory: times, observed states, reference rows, the commands the active controller solved, the commands the plant was stepped with, the excitation between them, the active revision per interval, the perturbed start and the reference anchor",
         "block-NNN.npz": "one block's evaluation rows and both models' forecasts on them",
         "block-NNN-scored.npz": "the revision that block was scored with",
         "timing.npz": "host measurements only; nothing reads them back"
@@ -335,7 +352,8 @@
       "angular_velocity_rmse_rad_s",
       "fallback_count",
       "maximum_command_bound_violation",
-      "pass_criterion"
+      "pass_criterion",
+      "excitation"
     ],
     "pass_criterion": {
       "source": "docs/cascade-accuracy.md",
@@ -357,15 +375,15 @@
     "file": "live-reference.json",
     "relative_tolerance": 0.05,
     "absolute_tolerance": 0.005,
-    "meaning": "The same allowance control-v3 declares, used for two things: the regression gate when the reference file exists beside this manifest, and the rule's own 'no worse' comparison of tracking after the swap against tracking before it. With no reference file there is no regression gate and the rule is reported everywhere.",
+    "meaning": "The same allowance control-v5 declares, used for two things: the regression gate when the reference file exists beside this manifest, and the rule's own 'no worse' comparison of tracking after the swap against tracking before it. live-v2's numbers were measured without a dither and are not this tier's incumbent; live-reference.json is written from the first run of this manifest. With no reference file there is no regression gate and the rule is reported everywhere.",
     "gates_the_rule": "The same recorded value decides which cases the rule gates. With no reference compared there is no case the reference meets, and the rule is reported on every trial rather than gating any of them."
   },
   "decision": {
     "enforced": false,
     "rule": "In every adopting trial the swap happens, no trial terminates, and the adopting arm's position RMSE and attitude RMSE over the intervals after the swap are at or below its own values over the intervals before it, times 1.05 plus 0.005.",
     "rule_met": "Reported separately from the decision, on every run. The live improvement row of docs/status.md is met only when the rule holds on every trial and metric, which is a stronger statement than an accepted run.",
-    "gates_from": "the next candidate, under the same semantics as the other tiers. This manifest is frozen before any trial and its rule is measured rather than enforced, because nothing has measured this row under it; from the next candidate a run is accepted only when no metric regresses past its reference value times 1.05 plus 0.005, the rule holds on every trial and metric the reference already meets it on, and nothing structural fails.",
-    "structural": "Always fails closed, whatever the reference says and whether or not the rule is enforced: a trial missing, duplicated, undeclared, terminated, short of its declared intervals, reporting a refinement-worker error, dropping a streamed block, recording a swap the gates and the declared offset do not require, or carrying a metric that is not a finite number.",
-    "meaning": "A Cascade X8 live-refinement measurement of this trial set only. Not hardware readiness, not a real-time claim, and not calibrated uncertainty. The evidence tier measures envelope coverage on the synthetic, platform and control runs; this tier measures the live improvement row and nothing else."
+    "gates_from": "the next candidate, under the same semantics as the other tiers. This manifest is frozen before any trial and its rule is measured rather than enforced, because nothing has measured this row under a dither; from the next candidate a run is accepted only when no metric regresses past its reference value times 1.05 plus 0.005, the rule holds on every trial and metric the reference already meets it on, and nothing structural fails.",
+    "structural": "Always fails closed, whatever the reference says and whether or not the rule is enforced: a trial missing, duplicated, undeclared, terminated, short of its declared intervals, reporting a refinement-worker error, dropping a streamed block, recording a swap the gates and the declared offset do not require, or carrying a metric that is not a finite number, applying a command that is not the solved one plus the declared dither, or streaming the learner a block that declares no excitation.",
+    "meaning": "A Cascade X8 live-refinement measurement of this trial set only, under the declared trial dither. Not hardware readiness, not a real-time claim, and not calibrated uncertainty. The evidence tier measures envelope coverage on the synthetic, platform and control runs; this tier measures the live improvement row and nothing else."
   }
 }

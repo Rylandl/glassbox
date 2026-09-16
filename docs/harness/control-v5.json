@@ -1,6 +1,6 @@
 {
-  "id": "control-v4",
-  "purpose": "The control tier: Cascade X8 reference tracking through the existing plant and NMPC seam, with the generic learner and the structured belief driving the same trials, computed in simulated time.",
+  "id": "control-v5",
+  "purpose": "The control tier: Cascade X8 reference tracking through the existing plant and NMPC seam, with the generic learner and the structured belief driving the same trials, computed in simulated time, and with the calibration's own known additive command excitation declared to the generic learner as a property of its recordings.",
   "frozen_before_any_candidate_fit": true,
   "recipe": {
     "id": "generic-memory-v2-prototype",
@@ -138,9 +138,12 @@
       "range_from": "telemetry.command_maximum minus telemetry.command_minimum",
       "measured_over": "each training recording, per command channel",
       "on_shortfall": "the run fails closed before either arm is fitted",
-      "meaning": "Every command channel moves, in each of the three recordings that fit the arms, with a sample standard deviation of at least this fraction of its declared range. control-v2's pilot moved throttle 2.3% to 3.1% of a 1.0 range while it moved pitch 37%, and the throttle column of the learner's design was not identified at any penalty. The airspeed setpoint amplitude is the one constant that changed, from 0.4 to 2.5 m/s; the additive excitation, the pilot, the periods, the seeds and the durations are control-v2's. Excitation is a property of the recordings the caller supplies, applied identically to both arms and measured by the run. It is not platform knowledge, and nothing about it reaches the learner."
+      "meaning": "Every command channel moves, in each of the three recordings that fit the arms, with a sample standard deviation of at least this fraction of its declared range. control-v2's pilot moved throttle 2.3% to 3.1% of a 1.0 range while it moved pitch 37%, and the throttle column of the learner's design was not identified at any penalty. The airspeed setpoint amplitude is the one constant that changed, from 0.4 to 2.5 m/s; the additive excitation, the pilot, the periods, the seeds and the durations are control-v2's. Excitation is a property of the recordings the caller supplies, applied identically to both arms and measured by the run. It is not platform knowledge. Under control-v5 the known additive component of it is also declared to the generic learner as part of its recordings, which is the charter's own reading of a signal the caller supplies; the learner's recipe reads none of it and the measured requirement above is unchanged.",
+      "declared_form": "ramp * calibration.excitation_amplitudes * sin(calibration.excitation_rates_rad_s * elapsed + phases), with ramp = min(1, elapsed / calibration.setpoint.ramp_s) and phases drawn as numpy.random.default_rng(seed).uniform(0, 2*pi, size=3) from the recording's own seed",
+      "declared_to_the_learner": "The known additive component above is recorded per recording, saved as calibration-excitation.npz beside the recordings, and supplied as the excitation of the generic learner's recordings. It is a data fact about the recordings with a declared meaning, like a channel's units and frame, and the caller is the one who injected it. The structured fit is unchanged and is never given it; the recipe ignores it too and records only that it was declared and what fraction of each command's range it moved. Both fits therefore read exactly what they read under control-v4, and every tracking number below is that manifest's.",
+      "recorded_as": "calibration-excitation.npz, one array per recording aligned row for row and column for column with that recording's applied commands. The replay rebuilds each array from this manifest and the recording's own seed rather than believing the saved one."
     },
-    "meaning": "Three eight-second recordings fit both arms and one further recording is reserved and never enters either fit in any role. The setpoint variation is chosen so the recordings contain the command directions the controller is asked to use."
+    "meaning": "Three eight-second recordings fit both arms and one further recording is reserved and never enters either fit in any role. The setpoint variation is chosen so the recordings contain the command directions the controller is asked to use. The excitation each recording carries is recorded beside it and handed to the generic learner as a declared signal."
   },
   "tracking_reference": {
     "kind": "lateral_and_altitude_tracking",
@@ -265,7 +268,7 @@
     "file": "control-reference.json",
     "relative_tolerance": 0.05,
     "absolute_tolerance": 0.005,
-    "meaning": "When the reference file exists beside this manifest, no trial's generic position or attitude RMSE may exceed its reference value times 1.05 plus 0.005. A run copies the reference it compared into its output directory and records its sha256, and verify anchors that copy to the committed file rather than believing it. control-reference.json is rewritten from the first accepted run of this manifest, because control-v3's incumbent was measured under a paced loop and a solve deadline.",
+    "meaning": "When the reference file exists beside this manifest, no trial's generic position or attitude RMSE may exceed its reference value times 1.05 plus 0.005. A run copies the reference it compared into its output directory and records its sha256, and verify anchors that copy to the committed file rather than believing it. control-reference.json is rewritten from the first accepted run of this manifest, because the generic artifact's fingerprint moves when its report records the declared excitation, even though every tracking number is the one control-v4 measured.",
     "gates_the_rule": "The same recorded value decides which cases the rule gates. A trial and metric whose reference value is itself at or below this run's structured arm on that trial is a case the reference meets, and the rule is a gate there; a case the reference already fails is reported only. With no reference compared there is no case the reference meets, and the rule is reported everywhere."
   },
   "decision": {
@@ -274,6 +277,6 @@
     "rule_met": "Reported separately from the decision, on every run. The control row of docs/status.md is met only when the rule holds on every trial and metric, which is a stronger statement than an accepted run.",
     "gates_from": "this manifest. A run is accepted only when no metric regresses past its reference value times 1.05 plus 0.005, the rule holds on every trial and metric the reference already meets it on, and nothing structural fails. A case the reference already fails is reported, not gated: an enforced rule the incumbent does not meet would block every change rather than measure one.",
     "structural": "Always fails closed, whatever the reference says: a trial missing, duplicated, undeclared, terminated, short of its declared intervals, or carrying a metric that is not a finite number.",
-    "meaning": "A Cascade X8 tracking measurement of this trial set only, computed in simulated time. Not hardware readiness, not a real-time claim, and not calibrated uncertainty."
+    "meaning": "A Cascade X8 tracking measurement of this trial set only, computed in simulated time, with the calibration's excitation declared to the generic learner. Not hardware readiness, not a real-time claim, and not calibrated uncertainty."
   }
 }

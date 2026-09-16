@@ -58,7 +58,7 @@ from glassbox.experimental.sequence_collection import (
     SequenceSegment,
 )
 
-MANIFEST = Path(__file__).resolve().parents[1] / "docs/harness/control-v4.json"
+MANIFEST = Path(__file__).resolve().parents[1] / "docs/harness/control-v5.json"
 DT_S = 0.05
 MINIMUM = np.array([0.0, -0.35, -0.35])
 MAXIMUM = np.array([1.0, 0.35, 0.35])
@@ -518,7 +518,7 @@ def test_plan_values_carry_history_without_changing_how_a_belief_is_presented():
 
 def test_the_control_manifest_digest_is_the_gate(tmp_path):
     manifest = harness.frozen_control_manifest(MANIFEST)
-    assert manifest["id"] == "control-v4"
+    assert manifest["id"] == "control-v5"
     assert manifest["decision"]["enforced"] is True
     assert "this manifest" in manifest["decision"]["gates_from"]
     assert tuple(manifest["telemetry"]["observed_channels"]) == OBSERVED_CHANNELS
@@ -534,7 +534,7 @@ def test_the_control_manifest_digest_is_the_gate(tmp_path):
     )
     loosened = copy.deepcopy(manifest)
     loosened["decision"]["enforced"] = False
-    path = tmp_path / "control-v4.json"
+    path = tmp_path / "control-v5.json"
     path.write_text(json.dumps(loosened, indent=2) + "\n")
     with pytest.raises(ValueError, match="differs from the frozen harness contract"):
         harness.frozen_control_manifest(path)
@@ -763,7 +763,7 @@ def test_the_committed_control_reference_covers_every_trial(manifest):
 
 
 def test_the_committed_manifest_matches_the_module_constant():
-    assert harness.COMMITTED_CONTROL_MANIFEST.name == "control-v4.json"
+    assert harness.COMMITTED_CONTROL_MANIFEST.name == "control-v5.json"
     assert harness.sha256(MANIFEST) == harness.CONTROL_MANIFEST_SHA256
 
 
@@ -1062,10 +1062,14 @@ def test_a_negative_metric_fails_closed(manifest):
 # --- the replay -------------------------------------------------------------
 
 
+CALIBRATION_ROWS = 161
+"""The declared calibration length, so a fabricated recording's excitation aligns."""
+
+
 def _trajectory(seed):
     """One fabricated calibration recording that meets the declared excitation."""
 
-    states, commands = _recording(f"r{seed}", 20 + seed)
+    states, commands = _recording(f"r{seed}", 20 + seed, rows=CALIBRATION_ROWS)
     commands = np.asarray(commands, dtype=float).copy()
     commands[::2] += np.array([0.25, 0.2, 0.2])
     return Trajectory(
@@ -1078,13 +1082,45 @@ def _trajectory(seed):
     )
 
 
+def _training(manifest):
+    """The fabricated recordings that fit the arms, with what they injected."""
+
+    return [
+        (
+            f"recording-{seed}",
+            _trajectory(seed),
+            harness.calibration_excitation(manifest, seed),
+        )
+        for seed in manifest["calibration"]["training_seeds"]
+    ]
+
+
+@pytest.fixture(scope="module")
+def calibrated(manifest):
+    """A learner really fitted on the fabricated recordings, excitation and all.
+
+    The replay ties the fit to the recordings it was fitted on, so a run whose
+    reported excitation is not the one those recordings carry is rejected. A
+    fabricated run therefore has to be fitted the way a real one is.
+    """
+    training = _training(manifest)
+    with jax.enable_x64(True):
+        return fit(
+            harness.control_collection(
+                manifest,
+                [(name, flight) for name, flight, _ in training],
+                {name: excited for name, _, excited in training},
+            )
+        )
+
+
 def _anchor(directory):
     """Where a fabricated run's committed reference lives, beside the run."""
 
     return Path(directory).parent / "control-reference.json"
 
 
-def _fabricate_run(directory, manifest, learned, offsets, with_reference=True):
+def _fabricate_run(directory, manifest, calibrated, offsets, with_reference=True):
     """A control run directory that was never tracked, for the replay to check."""
 
     directory.mkdir(parents=True, exist_ok=True)
@@ -1093,12 +1129,18 @@ def _fabricate_run(directory, manifest, learned, offsets, with_reference=True):
     shutil.copyfile(MANIFEST, directory / "manifest.json")
     names = []
     digests = {}
+    injected = {
+        f"recording-{seed}": harness.calibration_excitation(manifest, seed)
+        for seed in manifest["calibration"]["seeds"]
+    }
+    np.savez_compressed(directory / "calibration-excitation.npz", **injected)
+    names.append("calibration-excitation.npz")
     for seed in manifest["calibration"]["seeds"]:
         flight = _trajectory(seed)
         save_trajectory_npz(flight, directory / f"recording-{seed}.npz")
         names.append(f"recording-{seed}.npz")
         digests[f"recording-{seed}"] = trajectory_content_digest(flight)
-    learned.save(directory / "generic.npz")
+    calibrated.save(directory / "generic.npz")
     (directory / "structured.json").write_text('{"belief": "fabricated"}\n')
     (directory / "structured_report.json").write_text('{"report": "fabricated"}\n')
 
@@ -1108,7 +1150,7 @@ def _fabricate_run(directory, manifest, learned, offsets, with_reference=True):
     )
     with jax.enable_x64(True):
         prediction, half_width, coverage = harness.control_evidence(
-            learned, evidence_arrays
+            calibrated, evidence_arrays
         )
     np.savez_compressed(
         directory / "evidence.npz",
@@ -1189,12 +1231,19 @@ def _fabricate_run(directory, manifest, learned, offsets, with_reference=True):
             ],
             reserved=reserved,
             evidence=coverage,
-            generic_fingerprint=learned.fingerprint(),
+            generic_fingerprint=calibrated.fingerprint(),
             command_excitation=harness.control_excitation(
                 manifest,
                 [
                     (f"recording-{seed}", _trajectory(seed))
                     for seed in manifest["calibration"]["seeds"]
+                ],
+            ),
+            declared_excitation=dict(
+                form=manifest["calibration"]["excitation"]["declared_form"],
+                arrays="calibration-excitation.npz",
+                standard_deviation_fraction=calibrated.report[
+                    "excitation_standard_deviation_fraction"
                 ],
             ),
             files=harness._files(
@@ -1224,10 +1273,10 @@ def _fabricate_run(directory, manifest, learned, offsets, with_reference=True):
 
 
 def test_the_replay_recomputes_every_metric_and_the_decision(
-    tmp_path, manifest, learned
+    tmp_path, manifest, calibrated
 ):
     directory = tmp_path / "control-run"
-    _fabricate_run(directory, manifest, learned, dict(generic=0.4, structured=0.5))
+    _fabricate_run(directory, manifest, calibrated, dict(generic=0.4, structured=0.5))
     result = harness.verify_control(directory, manifest, _anchor(directory))
     assert result["tier"] == "control"
     assert result["verified_trials"] == 4
@@ -1249,9 +1298,9 @@ def test_the_replay_recomputes_every_metric_and_the_decision(
     assert harness.verify(directory, _anchor(directory))["tier"] == "control"
 
 
-def test_the_replay_rejects_an_altered_tracking_array(tmp_path, manifest, learned):
+def test_the_replay_rejects_an_altered_tracking_array(tmp_path, manifest, calibrated):
     directory = tmp_path / "control-run"
-    _fabricate_run(directory, manifest, learned, dict(generic=0.4, structured=0.5))
+    _fabricate_run(directory, manifest, calibrated, dict(generic=0.4, structured=0.5))
     case = directory / "trial-0" / "generic"
     with np.load(case / "tracking.npz", allow_pickle=False) as data:
         arrays = {key: data[key] for key in data.files}
@@ -1262,10 +1311,10 @@ def test_the_replay_rejects_an_altered_tracking_array(tmp_path, manifest, learne
 
 
 def test_the_replay_rejects_an_altered_calibration_recording(
-    tmp_path, manifest, learned
+    tmp_path, manifest, calibrated
 ):
     directory = tmp_path / "control-run"
-    _fabricate_run(directory, manifest, learned, dict(generic=0.4, structured=0.5))
+    _fabricate_run(directory, manifest, calibrated, dict(generic=0.4, structured=0.5))
     calibration = harness.read(directory / "calibration.json")
     calibration["files"].pop("recording-0.npz")
     harness.write(directory / "calibration.json", calibration)
@@ -1274,9 +1323,60 @@ def test_the_replay_rejects_an_altered_calibration_recording(
         harness.verify_control(directory, manifest, _anchor(directory))
 
 
-def test_the_replay_rejects_an_altered_fitted_model(tmp_path, manifest, learned):
+def test_the_calibration_declares_its_excitation_to_the_generic_arm(
+    tmp_path, manifest, calibrated
+):
+    """The recordings carry it, the fit records it, and the replay rebuilds it."""
     directory = tmp_path / "control-run"
-    _fabricate_run(directory, manifest, learned, dict(generic=0.4, structured=0.5))
+    _fabricate_run(directory, manifest, calibrated, dict(generic=0.4, structured=0.5))
+    with np.load(directory / "calibration-excitation.npz", allow_pickle=False) as data:
+        for seed in manifest["calibration"]["seeds"]:
+            np.testing.assert_array_equal(
+                data[f"recording-{seed}"],
+                harness.calibration_excitation(manifest, seed),
+            )
+    assert calibrated.report["excitation_declared"] is True
+    calibration = harness.read(directory / "calibration.json")
+    assert (
+        calibration["declared_excitation"]["standard_deviation_fraction"]
+        == calibrated.report["excitation_standard_deviation_fraction"]
+    )
+    harness.verify_control(directory, manifest, _anchor(directory))
+
+
+def test_the_replay_rejects_an_invented_declared_excitation(
+    tmp_path, manifest, calibrated
+):
+    directory = tmp_path / "control-run"
+    _fabricate_run(directory, manifest, calibrated, dict(generic=0.4, structured=0.5))
+    with np.load(directory / "calibration-excitation.npz", allow_pickle=False) as data:
+        arrays = {key: data[key] for key in data.files}
+    arrays["recording-0"] = arrays["recording-0"] * 2.0
+    np.savez_compressed(directory / "calibration-excitation.npz", **arrays)
+    calibration = harness.read(directory / "calibration.json")
+    calibration["files"]["calibration-excitation.npz"] = harness.sha256(
+        directory / "calibration-excitation.npz"
+    )
+    harness.write(directory / "calibration.json", calibration)
+    with pytest.raises(ValueError, match="declared excitation differs"):
+        harness.verify_control(directory, manifest, _anchor(directory))
+
+
+def test_the_replay_rejects_a_forged_calibration_excitation_fraction(
+    tmp_path, manifest, calibrated
+):
+    directory = tmp_path / "control-run"
+    _fabricate_run(directory, manifest, calibrated, dict(generic=0.4, structured=0.5))
+    calibration = harness.read(directory / "calibration.json")
+    calibration["declared_excitation"]["standard_deviation_fraction"] = [0.5, 0.5, 0.5]
+    harness.write(directory / "calibration.json", calibration)
+    with pytest.raises(AssertionError):
+        harness.verify_control(directory, manifest, _anchor(directory))
+
+
+def test_the_replay_rejects_an_altered_fitted_model(tmp_path, manifest, calibrated):
+    directory = tmp_path / "control-run"
+    _fabricate_run(directory, manifest, calibrated, dict(generic=0.4, structured=0.5))
     calibration = harness.read(directory / "calibration.json")
     calibration["generic_fingerprint"] = "0" * 64
     calibration["files"].pop("generic.npz")
@@ -1285,9 +1385,11 @@ def test_the_replay_rejects_an_altered_fitted_model(tmp_path, manifest, learned)
         harness.verify_control(directory, manifest, _anchor(directory))
 
 
-def test_the_replay_rejects_a_reference_the_run_invented(tmp_path, manifest, learned):
+def test_the_replay_rejects_a_reference_the_run_invented(
+    tmp_path, manifest, calibrated
+):
     directory = tmp_path / "control-run"
-    _fabricate_run(directory, manifest, learned, dict(generic=0.4, structured=0.5))
+    _fabricate_run(directory, manifest, calibrated, dict(generic=0.4, structured=0.5))
     case = directory / "trial-0" / "generic"
     with np.load(case / "tracking.npz", allow_pickle=False) as data:
         arrays = {key: data[key] for key in data.files}
@@ -1308,10 +1410,10 @@ def test_the_replay_rejects_a_reference_the_run_invented(tmp_path, manifest, lea
 
 
 def test_the_replay_rejects_a_decision_that_does_not_follow(
-    tmp_path, manifest, learned
+    tmp_path, manifest, calibrated
 ):
     directory = tmp_path / "control-run"
-    _fabricate_run(directory, manifest, learned, dict(generic=0.9, structured=0.5))
+    _fabricate_run(directory, manifest, calibrated, dict(generic=0.9, structured=0.5))
     decision = harness.read(directory / "decision.json")
     assert decision["rule_met"] is False
     decision["rule_met"] = True
@@ -1330,12 +1432,12 @@ def _loosen(value, factor=10):
 
 
 def test_a_control_run_cannot_relax_its_own_regression_gate(
-    tmp_path, manifest, learned
+    tmp_path, manifest, calibrated
 ):
     """The replay must not read the threshold the run saved beside itself."""
 
     directory = tmp_path / "control-run"
-    _fabricate_run(directory, manifest, learned, dict(generic=0.4, structured=0.5))
+    _fabricate_run(directory, manifest, calibrated, dict(generic=0.4, structured=0.5))
     copied = directory / "reference.json"
     harness.write(copied, _loosen(harness.read(copied)))
     with pytest.raises(ValueError, match="cannot relax its own regression gate"):
@@ -1343,10 +1445,10 @@ def test_a_control_run_cannot_relax_its_own_regression_gate(
 
 
 def test_a_control_run_and_its_reference_must_agree_about_existing(
-    tmp_path, manifest, learned
+    tmp_path, manifest, calibrated
 ):
     compared = tmp_path / "compared"
-    _fabricate_run(compared, manifest, learned, dict(generic=0.4, structured=0.5))
+    _fabricate_run(compared, manifest, calibrated, dict(generic=0.4, structured=0.5))
     with pytest.raises(ValueError, match="cannot be anchored"):
         harness.verify_control(compared, manifest, tmp_path / "absent.json")
 
@@ -1354,7 +1456,7 @@ def test_a_control_run_and_its_reference_must_agree_about_existing(
     _fabricate_run(
         uncompared,
         manifest,
-        learned,
+        calibrated,
         dict(generic=0.4, structured=0.5),
         with_reference=False,
     )
@@ -1365,10 +1467,10 @@ def test_a_control_run_and_its_reference_must_agree_about_existing(
 
 
 def test_a_forged_control_reference_digest_in_the_decision_is_rejected(
-    tmp_path, manifest, learned
+    tmp_path, manifest, calibrated
 ):
     directory = tmp_path / "control-run"
-    _fabricate_run(directory, manifest, learned, dict(generic=0.4, structured=0.5))
+    _fabricate_run(directory, manifest, calibrated, dict(generic=0.4, structured=0.5))
     decision = harness.read(directory / "decision.json")
     decision["reference_sha256"] = "0" * 64
     harness.write(directory / "decision.json", decision)
@@ -1377,10 +1479,10 @@ def test_a_forged_control_reference_digest_in_the_decision_is_rejected(
 
 
 def test_a_control_replay_recomputes_the_reference_regressions(
-    tmp_path, manifest, learned
+    tmp_path, manifest, calibrated
 ):
     directory = tmp_path / "control-run"
-    _fabricate_run(directory, manifest, learned, dict(generic=0.4, structured=0.5))
+    _fabricate_run(directory, manifest, calibrated, dict(generic=0.4, structured=0.5))
     decision = harness.read(directory / "decision.json")
     decision["reference_regressions"] = [dict(trial="0-generic", gate="invented")]
     harness.write(directory / "decision.json", decision)
@@ -1459,7 +1561,7 @@ def test_the_trial_applies_the_solved_command_and_records_its_solve_times(
 ):
     """The solver's command is the plant's command, and the clock decides nothing.
 
-    control-v4 computes the trajectory in simulated time: the solver is given
+    control-v5 computes the trajectory in simulated time: the solver is given
     no deadline, so nothing it returns is a fallback for want of time, and the
     command it solved is the command the plant is stepped with on every
     interval the model was ready. What a clock measured is still recorded, in
@@ -1523,12 +1625,12 @@ def test_the_trial_applies_the_solved_command_and_records_its_solve_times(
 
 
 def test_the_replay_rejects_a_run_whose_solve_times_assessed_a_deadline(
-    tmp_path, manifest, learned
+    tmp_path, manifest, calibrated
 ):
     """A recorded deadline is a rejected run, not a reported measurement."""
 
     directory = tmp_path / "control-run"
-    _fabricate_run(directory, manifest, learned, dict(generic=0.4, structured=0.5))
+    _fabricate_run(directory, manifest, calibrated, dict(generic=0.4, structured=0.5))
     harness.verify_control(directory, manifest, _anchor(directory))
 
     case = directory / "trial-0" / "generic"
@@ -1543,12 +1645,12 @@ def test_the_replay_rejects_a_run_whose_solve_times_assessed_a_deadline(
 
 
 def test_the_replay_rejects_a_run_that_reports_a_deadline_expiring(
-    tmp_path, manifest, learned
+    tmp_path, manifest, calibrated
 ):
     """A solver status is the other thing that can say a deadline decided."""
 
     directory = tmp_path / "control-run"
-    _fabricate_run(directory, manifest, learned, dict(generic=0.4, structured=0.5))
+    _fabricate_run(directory, manifest, calibrated, dict(generic=0.4, structured=0.5))
     case = directory / "trial-0" / "generic"
     row = harness.read(case / "trial.json")
     row["solver_statuses"] = {"converged": 319, "deadline_exceeded": 1}
@@ -1561,12 +1663,12 @@ def test_the_replay_rejects_a_run_that_reports_a_deadline_expiring(
 
 
 def test_the_replay_recomputes_the_recorded_solve_time_statistics(
-    tmp_path, manifest, learned
+    tmp_path, manifest, calibrated
 ):
     """The counts decide nothing, which is why the replay recomputes them."""
 
     directory = tmp_path / "control-run"
-    _fabricate_run(directory, manifest, learned, dict(generic=0.4, structured=0.5))
+    _fabricate_run(directory, manifest, calibrated, dict(generic=0.4, structured=0.5))
     case = directory / "trial-0" / "generic"
     row = harness.read(case / "trial.json")
     row["wall"]["solves_over_deadline"] = 7
@@ -1598,7 +1700,14 @@ def test_the_harness_collects_the_examples_own_calibration_recording(monkeypatch
     manifest["calibration"]["setpoint"]["airspeed_amplitude_m_s"] = 0.4
     spec, model, trim, state, command = harness.control_fixture(manifest)
     tier_plant = harness._control_plant(manifest, spec, model)
-    mine = harness.control_recording(manifest, tier_plant, trim, state, command, 0)
+    mine, injected = harness.control_recording(
+        manifest, tier_plant, trim, state, command, 0
+    )
+    # And the excitation the tier declares is the one the example's own pilot
+    # adds: the same amplitudes, rates, ramp and phases, recomputed here.
+    np.testing.assert_allclose(
+        injected, harness.calibration_excitation(manifest, 0), rtol=0, atol=0
+    )
 
     plant, example_trim, example_state, example_command = example.fixture()
     theirs = example.collect_recording(
@@ -1658,7 +1767,9 @@ def test_the_committed_calibration_meets_the_declared_excitation():
         recordings = [
             (
                 f"recording-{seed}",
-                harness.control_recording(manifest, plant, trim, state, command, seed),
+                harness.control_recording(manifest, plant, trim, state, command, seed)[
+                    0
+                ],
             )
             for seed in manifest["calibration"]["training_seeds"]
         ]
@@ -1686,15 +1797,21 @@ def test_the_generic_arm_tracks_the_cascade_plant_for_a_short_trial(tmp_path):
 
     spec, model, trim, state, command = harness.control_fixture(manifest)
     plant = harness._control_plant(manifest, spec, model)
-    recordings = [
+    collected = [
         (
             f"recording-{seed}",
             harness.control_recording(manifest, plant, trim, state, command, seed),
         )
         for seed in (0, 1)
     ]
+    recordings = [(name, flight) for name, (flight, _) in collected]
+    injected = {name: excited for name, (_, excited) in collected}
     with jax.enable_x64(True):
-        model = fit(harness.control_collection(manifest, recordings))
+        model = fit(harness.control_collection(manifest, recordings, injected))
+    # The generic arm's recordings declare what was injected into them, and the
+    # recipe records that rather than reading it.
+    assert model.report["excitation_declared"] is True
+    assert len(model.report["excitation_standard_deviation_fraction"]) == 3
     arm = harness._GenericArm(manifest, model)
     assert arm.summary()["uncertainty_available"] is True
     assert arm.summary()["uncertainty_complete"] is False

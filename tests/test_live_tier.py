@@ -17,7 +17,7 @@ import pytest
 
 from glassbox.experimental import harness
 
-MANIFEST = Path(__file__).resolve().parents[1] / "docs/harness/live-v2.json"
+MANIFEST = Path(__file__).resolve().parents[1] / "docs/harness/live-v3.json"
 RMSE_KEYS = (
     "position_rmse_m",
     "velocity_rmse_m_s",
@@ -136,7 +136,7 @@ def _reference():
 
 def test_the_live_manifest_digest_is_the_gate(tmp_path):
     manifest = harness.frozen_live_manifest(MANIFEST)
-    assert manifest["id"] == "live-v2"
+    assert manifest["id"] == "live-v3"
     assert harness.sha256(MANIFEST) == harness.LIVE_MANIFEST_SHA256
     altered = tmp_path / "live.json"
     edited = copy.deepcopy(manifest)
@@ -586,7 +586,11 @@ def _recording(seed, rows=140):
     return states, commands
 
 
-def _trajectory(seed, rows=140):
+CALIBRATION_ROWS = 161
+"""The declared calibration length, so a fabricated recording's excitation aligns."""
+
+
+def _trajectory(seed, rows=CALIBRATION_ROWS):
     """One fabricated calibration recording on the tier's declared contract."""
     from glassbox.core.data import Trajectory
 
@@ -653,6 +657,18 @@ def _rows_for(manifest, block, name="block"):
     return harness.live_block_rows(
         manifest, block, harness.control_collection(manifest, [(name, block)]), steps
     )
+
+
+def test_a_streamed_block_carries_the_excitation_of_its_own_commands():
+    """The declared dither reaches the learner's recordings, row for row."""
+    manifest = harness.frozen_live_manifest(MANIFEST)
+    block = _block(7)
+    dither = harness.trial_excitation(manifest)[20:60]
+    collection = harness.control_collection(manifest, [("b", block)], {"b": dither})
+    assert collection.excitation_declared
+    assert len(collection.segments) == 1
+    np.testing.assert_array_equal(collection.segments[0].excitation, dither)
+    assert not harness.control_collection(manifest, [("b", block)]).excitation_declared
 
 
 def test_a_block_carries_the_same_origins_for_both_models():
@@ -772,7 +788,33 @@ def _anchor(directory):
     return Path(directory).parent / "live-reference.json"
 
 
-def _fabricate_run(directory, manifest, learned, belief, offsets):
+@pytest.fixture(scope="module")
+def calibrated():
+    """A learner really fitted on the fabricated recordings, excitation and all.
+
+    The replay ties the fit to the recordings it was fitted on, so a fabricated
+    run has to be fitted the way a real one is.
+    """
+    from glassbox.experimental.default_model import fit
+
+    manifest = harness.frozen_live_manifest(MANIFEST)
+    training = [f"recording-{s}" for s in manifest["calibration"]["training_seeds"]]
+    with jax.enable_x64(True):
+        return fit(
+            harness.control_collection(
+                manifest,
+                [(name, _trajectory(int(name.split("-")[1]))) for name in training],
+                {
+                    name: harness.calibration_excitation(
+                        manifest, int(name.split("-")[1])
+                    )
+                    for name in training
+                },
+            )
+        )
+
+
+def _fabricate_run(directory, manifest, calibrated, belief, offsets):
     """A live run directory that was never flown, for the replay to check."""
     import shutil
 
@@ -782,12 +824,18 @@ def _fabricate_run(directory, manifest, learned, belief, offsets):
     directory.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(MANIFEST, directory / "manifest.json")
     names, digests = [], {}
+    injected = {
+        f"recording-{seed}": harness.calibration_excitation(manifest, seed)
+        for seed in manifest["calibration"]["seeds"]
+    }
+    np.savez_compressed(directory / "calibration-excitation.npz", **injected)
+    names.append("calibration-excitation.npz")
     for seed in manifest["calibration"]["seeds"]:
         flight = _trajectory(seed)
         save_trajectory_npz(flight, directory / f"recording-{seed}.npz")
         names.append(f"recording-{seed}.npz")
         digests[f"recording-{seed}"] = trajectory_content_digest(flight)
-    learned.save(directory / "generic.npz")
+    calibrated.save(directory / "generic.npz")
     belief.save(directory / "structured.json")
     (directory / "structured_report.json").write_text('{"report": "fabricated"}\n')
 
@@ -797,7 +845,7 @@ def _fabricate_run(directory, manifest, learned, belief, offsets):
     )
     with jax.enable_x64(True):
         prediction, half_width, coverage = harness.control_evidence(
-            learned, evidence_arrays
+            calibrated, evidence_arrays
         )
     np.savez_compressed(
         directory / "evidence.npz",
@@ -812,10 +860,16 @@ def _fabricate_run(directory, manifest, learned, belief, offsets):
     intervals = manifest["trial"]["intervals"]
     times = np.arange(intervals + 1) * DT_S
     reference = harness.control_reference(anchor_state, times, declared)
+    # The applied command is the solved one plus the declared dither, held in
+    # the box; the replay rebuilds both and rejects anything else.
+    dither = harness.trial_excitation(manifest)
+    solved = np.zeros((intervals, 3))
+    commands = np.clip(solved + dither, MINIMUM, MAXIMUM)
+    excitation = commands - solved
     blocks_by_arm = {}
     for arm in harness.LIVE_ARMS:
         records, files = [], []
-        revision = learned
+        revision = calibrated
         for index in range(2):
             block = _block(30 + index, start=20 + 40 * index)
             arrays = _rows_for(manifest, block, name=f"{arm}-{index}")
@@ -836,6 +890,11 @@ def _fabricate_run(directory, manifest, learned, belief, offsets):
                     start_interval=20 + 40 * index,
                     stop_interval=60 + 40 * index,
                     rows=len(arrays["targets"]),
+                    excitation_declared=True,
+                    excitation_standard_deviation_fraction=harness._command_fraction(
+                        excitation[20 + 40 * index : 60 + 40 * index],
+                        commands[20 + 40 * index : 60 + 40 * index],
+                    ),
                     scored_revision=f"live-{arm}:{index}",
                     scored_fingerprint=revision.fingerprint(),
                     revision=f"live-{arm}:{index + 1}",
@@ -879,7 +938,9 @@ def _fabricate_run(directory, manifest, learned, belief, offsets):
                 time_s=times,
                 states=states,
                 reference_states=reference,
-                commands=np.zeros((intervals, 3)),
+                commands=commands,
+                solved_commands=solved,
+                excitation=excitation,
                 solver_used=np.ones(intervals, dtype=bool),
                 used_fallback=np.zeros(intervals, dtype=bool),
                 active_revisions=actives,
@@ -932,6 +993,19 @@ def _fabricate_run(directory, manifest, learned, belief, offsets):
                 pass_criterion=harness.control_pass_criterion(
                     states, anchor_state, manifest
                 ),
+                excitation=dict(
+                    declared=True,
+                    phase_seed=manifest["trial"]["excitation"]["phase_seed"],
+                    intervals=intervals,
+                    clipped_intervals=int(
+                        np.count_nonzero(
+                            np.any(np.abs(excitation - dither) > 0, axis=1)
+                        )
+                    ),
+                    standard_deviation_fraction=harness._command_fraction(
+                        excitation, commands
+                    ),
+                ),
                 segment_swap_interval=swap_interval,
                 segments=harness.live_segments(states, reference, swap_interval),
                 directory=f"trial-{repetition}/{arm}",
@@ -951,12 +1025,19 @@ def _fabricate_run(directory, manifest, learned, belief, offsets):
             ],
             reserved=reserved,
             evidence=coverage,
-            generic_fingerprint=learned.fingerprint(),
+            generic_fingerprint=calibrated.fingerprint(),
             command_excitation=harness.control_excitation(
                 manifest,
                 [
                     (f"recording-{seed}", _trajectory(seed))
                     for seed in manifest["calibration"]["seeds"]
+                ],
+            ),
+            declared_excitation=dict(
+                form=manifest["calibration"]["excitation"]["declared_form"],
+                arrays="calibration-excitation.npz",
+                standard_deviation_fraction=calibrated.report[
+                    "excitation_standard_deviation_fraction"
                 ],
             ),
             files=harness._files(
@@ -972,11 +1053,13 @@ def _fabricate_run(directory, manifest, learned, belief, offsets):
 
 
 @pytest.fixture(scope="module")
-def flown(tmp_path_factory, learned, belief):
+def flown(tmp_path_factory, calibrated, belief):
     """One fabricated run directory, built once for every replay test."""
     manifest = harness.frozen_live_manifest(MANIFEST)
     directory = tmp_path_factory.mktemp("live") / "live-run"
-    _fabricate_run(directory, manifest, learned, belief, dict(adopting=0.4, frozen=0.5))
+    _fabricate_run(
+        directory, manifest, calibrated, belief, dict(adopting=0.4, frozen=0.5)
+    )
     return directory
 
 
@@ -1011,6 +1094,73 @@ def test_the_replay_rejects_an_altered_tracking_array(run):
     arrays["states"] = arrays["reference_states"].copy()
     np.savez_compressed(case / "tracking.npz", **arrays)
     with pytest.raises(ValueError, match="altered artifact"):
+        harness.verify_live(run, manifest)
+
+
+def test_the_declared_dither_is_the_same_sequence_on_both_arms(run):
+    """Both arms of every trial get the declared dither, and it is recorded."""
+    manifest = harness.frozen_live_manifest(MANIFEST)
+    dither = harness.trial_excitation(manifest)
+    seen = []
+    for repetition in range(manifest["trial"]["repetitions"]):
+        for arm in harness.LIVE_ARMS:
+            with np.load(
+                run / f"trial-{repetition}" / arm / "tracking.npz", allow_pickle=False
+            ) as data:
+                solved, commands = data["solved_commands"], data["commands"]
+                excitation = data["excitation"]
+            np.testing.assert_array_equal(
+                commands, np.clip(solved + dither, MINIMUM, MAXIMUM)
+            )
+            np.testing.assert_array_equal(excitation, commands - solved)
+            seen.append(excitation)
+    for other in seen[1:]:
+        np.testing.assert_array_equal(seen[0], other)
+    # And every trial row says so, in the units the recording contract uses.
+    for row in harness.read(run / "results.json"):
+        assert row["excitation"]["declared"] is True
+        assert row["excitation"]["phase_seed"] == 202
+        assert len(row["excitation"]["standard_deviation_fraction"]) == 3
+
+
+def test_the_replay_rejects_a_command_that_is_not_the_dithered_solved_one(run):
+    manifest = harness.frozen_live_manifest(MANIFEST)
+    case = run / "trial-0" / "adopting"
+    row = harness.read(case / "trial.json")
+    with np.load(case / "tracking.npz", allow_pickle=False) as data:
+        arrays = {key: data[key] for key in data.files}
+    arrays["solved_commands"] = arrays["solved_commands"] + 0.01
+    np.savez_compressed(case / "tracking.npz", **arrays)
+    row["files"]["tracking.npz"] = harness.sha256(case / "tracking.npz")
+    harness.write(case / "trial.json", row)
+    rows = harness.read(run / "results.json")
+    rows[[r["directory"] for r in rows].index(row["directory"])] = row
+    harness.write(run / "results.json", rows)
+    with pytest.raises(ValueError, match="solved ones plus the declared dither"):
+        harness.verify_live(run, manifest)
+
+
+def test_the_replay_rejects_a_block_the_learner_was_told_nothing_about(run):
+    manifest = harness.frozen_live_manifest(MANIFEST)
+    rows = harness.read(run / "results.json")
+    row = next(r for r in rows if r["directory"] == "trial-0/adopting")
+    row["blocks"][0]["excitation_declared"] = False
+    harness.write(run / row["directory"] / "trial.json", row)
+    harness.write(run / "results.json", rows)
+    with pytest.raises(ValueError, match="carried no excitation"):
+        harness.verify_live(run, manifest)
+
+
+def test_the_replay_rejects_a_forged_block_excitation_fraction(run):
+    manifest = harness.frozen_live_manifest(MANIFEST)
+    rows = harness.read(run / "results.json")
+    row = next(r for r in rows if r["directory"] == "trial-0/adopting")
+    fraction = list(row["blocks"][0]["excitation_standard_deviation_fraction"])
+    fraction[-1] = 0.5
+    row["blocks"][0]["excitation_standard_deviation_fraction"] = fraction
+    harness.write(run / row["directory"] / "trial.json", row)
+    harness.write(run / "results.json", rows)
+    with pytest.raises(AssertionError):
         harness.verify_live(run, manifest)
 
 
@@ -1163,16 +1313,18 @@ def test_one_short_live_trial_streams_refits_and_may_swap(tmp_path):
 
     spec, model, trim, state, command = harness.control_fixture(manifest)
     plant = harness._control_plant(manifest, spec, model)
-    recordings = [
+    collected = [
         (
             f"recording-{seed}",
             harness.control_recording(manifest, plant, trim, state, command, seed),
         )
         for seed in (0, 1)
     ]
+    recordings = [(name, flight) for name, (flight, _) in collected]
+    injected = {name: excited for name, (_, excited) in collected}
     with jax.enable_x64(True):
         artifacts = dict(
-            generic=fit(harness.control_collection(manifest, recordings)),
+            generic=fit(harness.control_collection(manifest, recordings, injected)),
             structured=structured_fit(
                 [flight for _, flight in recordings],
                 FitSpec(
@@ -1255,16 +1407,18 @@ def test_a_frozen_arm_runs_the_same_learner_and_never_swaps(tmp_path):
 
     spec, model, trim, state, command = harness.control_fixture(manifest)
     plant = harness._control_plant(manifest, spec, model)
-    recordings = [
+    collected = [
         (
             f"recording-{seed}",
             harness.control_recording(manifest, plant, trim, state, command, seed),
         )
         for seed in (0, 1)
     ]
+    recordings = [(name, flight) for name, (flight, _) in collected]
+    injected = {name: excited for name, (_, excited) in collected}
     with jax.enable_x64(True):
         artifacts = dict(
-            generic=fit(harness.control_collection(manifest, recordings)),
+            generic=fit(harness.control_collection(manifest, recordings, injected)),
             structured=structured_fit(
                 [flight for _, flight in recordings],
                 FitSpec(holdout=Holdout.by_group(), steps=3, horizons_s=(0.1, 0.4)),
@@ -1327,7 +1481,7 @@ def test_the_control_command_runs_and_replays_end_to_end(tmp_path, monkeypatch):
     pytest.importorskip("cascade")
 
     source = harness.frozen_control_manifest(
-        Path(__file__).resolve().parents[1] / "docs/harness/control-v4.json"
+        Path(__file__).resolve().parents[1] / "docs/harness/control-v5.json"
     )
     path = _shortened(
         tmp_path / "control.json",
@@ -1336,7 +1490,7 @@ def test_the_control_command_runs_and_replays_end_to_end(tmp_path, monkeypatch):
         "CONTROL_MANIFEST_SHA256",
     )
     decision = harness.control(path, tmp_path / "run")
-    assert decision["manifest"] == "control-v4"
+    assert decision["manifest"] == "control-v5"
     assert decision["trials"] == 4
     rows = harness.read(tmp_path / "run" / "results.json")
     assert len(rows) == 4
@@ -1371,7 +1525,7 @@ def test_the_live_command_runs_and_replays_end_to_end(tmp_path, monkeypatch):
         tmp_path / "live.json", manifest, monkeypatch, "LIVE_MANIFEST_SHA256"
     )
     decision = harness.live(path, tmp_path / "run")
-    assert decision["manifest"] == "live-v2"
+    assert decision["manifest"] == "live-v3"
     assert decision["trials"] == 4
     rows = harness.read(tmp_path / "run" / "results.json")
     assert len(rows) == 4
