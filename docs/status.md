@@ -9,7 +9,7 @@ artifacts actually measured; "not measured" means exactly that.
 | One recipe | **Met.** One recipe (`generic-memory-v3-prototype`) in `experimental/default_model.py`, one model kind, one harness in `experimental/harness.py`; `fit`, `predict`, `update` with no options, and `envelope(horizon_steps)` beside them reporting what every forecast already carries. Seven experimental modules; the harness has synthetic, platform, and control tiers, and `experimental/learned_plan.py` presents the learner to the NMPC seam. | One recipe, one module, one harness; `fit`, `predict`, `update` only. | Lean-down merged at `c5e84ab`. |
 | Accuracy | **Measured, not met.** Platform tier v3 (`docs/harness/platform-v3.json`; the rule gates only where the reference meets it, no metric may regress past its reference), whole recordings held out, both models scored on identical rows at the recipe's horizon; final-step velocity m/s / body rate rad/s, generic versus best structured arm: nanodrone 0.136/0.543 vs 0.179/0.597; x8 0.222/0.132 vs 0.287/0.187; idf 0.158/0.122 vs 0.554/0.174; epfl 0.146/0.070 vs 0.526/0.217; **arp 0.176/0.715 vs 0.174/0.285**, and hold-current 0.149/0.362. Rule met on four of five corpora; inside every declared allowance. The arp failure is roll and pitch rate: worse than hold-current from the first 20 ms step on the development recording, growing linearly to 0.85/0.89 rad/s at 240 ms with a -0.2 rad/s roll-rate bias, while yaw rate beats the structured model (0.154 vs 0.323).. Re-measured at `3c149fa` under the enforced manifest: every corpus reproduces the regression reference to every digit, no reference regression, and the run is rejected on arp for both metrics (0.17586 against the comparator's 0.17437, 0.71546 against 0.28497). | Every pinned corpus, whole recordings held out: generic error at or below the structured model on the same rows, and inside the allowance (nano 0.696/3.706, X8 1.601/0.764, ARP log66 0.709/2.864). | Gate enforced at `783922e` (`platform-v2.json`, digest `f4796e1a`, regression reference `platform-reference.json`). Three attempts below, none accepted. |
 | Capability | **Met.** Harness v1 (manifest digest `1ba15b3f`) accepts 27 of 27 cases end to end through `fit(recordings)`: every M2 cap holds, witness paired-probe first step 0.0029/0.0028/0.0040 against a 0.05 limit and a 0.2 blind floor, tightest cap margin 0.74 of cap. Reference scores frozen in `docs/harness/reference.json`. | Pass the harness caps on every run. | Lean-down merged at `c5e84ab`. |
-| Control | **Measured, not met.** Control tier v3 (`docs/harness/control-v3.json`, digest `69cb4d99`): the tracking task of `docs/cascade-accuracy.md` (lateral sin(0.35 t) m, altitude 100 + 0.75 sin(0.3 t) m, 16 s, seeds 101 and 102), calibration whose setpoint variation moves every command at least 10% of its range (throttle now 12 to 14%, was 2 to 3%), both arms through the same bounded solver under the no-evidence override. Generic arm 60.80 m / 97.2 deg and 49.31 m / 86.5 deg; structured arm 1.18 m / 1.32 deg and 1.18 m / 1.28 deg; no terminated trial. The structured arm holds lateral position to 0.27 m but settles about 2 m high, so it does not pass the page's 0.5 m criterion either (reported, not gated). Holding trim scores 1.22 m / 0.75 deg and 1.73 m / 1.90 deg, so the task now demands authority on position and mostly on attitude. Excitation did not fix the generic arm: it still drives throttle far below trim and rests roll near its bound; the seam prices none of the learner's ignorance because the learner declares none. | Meet or beat the structured model on the matched Cascade trial set. | control-v3 reference merged at `35b85ec`; the envelope (`7224ace`) left tracking identical. |
+| Control | **Measured, not met.** Control tier v3 (`docs/harness/control-v3.json`, digest `69cb4d99`): the tracking task of `docs/cascade-accuracy.md` (lateral sin(0.35 t) m, altitude 100 + 0.75 sin(0.3 t) m, 16 s, seeds 101 and 102), calibration whose setpoint variation moves every command at least 10% of its range (throttle now 12 to 14%, was 2 to 3%), both arms through the same bounded solver under the no-evidence override. Generic arm 60.80 m / 97.2 deg and 49.31 m / 86.5 deg; structured arm 1.18 m / 1.32 deg and 1.18 m / 1.28 deg; no terminated trial. The structured arm holds lateral position to 0.27 m but settles about 2 m high, so it does not pass the page's 0.5 m criterion either (reported, not gated). Holding trim scores 1.22 m / 0.75 deg and 1.73 m / 1.90 deg, so the task now demands authority on position and mostly on attitude. Excitation did not fix the generic arm: it still drives throttle far below trim and rests roll near its bound; the seam prices none of the learner's ignorance because the learner declares none. Attempt 2 diagnosed it and fitted no candidate: the ceiling of a perfect command response is 9.04 m, of perfect command confinement 26.96 m, and of claiming nothing 1.22 m, because the model predicts a 0.172 m/s sink out of a plant resting exactly at trim. | Meet or beat the structured model on the matched Cascade trial set. | control-v3 reference merged at `35b85ec`; the envelope (`7224ace`) left tracking identical. Attempt 2 below, no candidate. |
 | Live improvement | Streaming transport and the background refinement worker exist for the structured belief only. No generic refit-and-swap. | Bounded refit on streamed recordings and a threshold swap during a Cascade run; tracking after the swap no worse. | None. |
 | Evidence | **Measured, not met.** Evidence tier v1 (`docs/harness/evidence-v1.json`): every forecast now carries a split-conformal 90% half-width per horizon step and channel, calibrated only on the recipe's own development windows, stored in the artifact and read through `envelope()`; the plan model maps it into the controller's diagonal tangent covariance and `uncertainty_available` is true. Held-out coverage against the 85 to 95% band at the recipe's horizon, world velocity / body rate / rotation entries: nanodrone 0.906 / 0.858 / 0.886, x8 0.918 / 0.929 / 0.906, idf 0.890 / 0.872 / 0.897, epfl 0.894 / 0.856 / 0.873, **arp 0.755 / 0.689 / 0.717**, control reserved recording 0.833 / 0.797 / 0.799; synthetic matched regimes 0.88 to 0.94, **shifted regimes 0.13 to 0.82**. The development windows of one set of recordings are not exchangeable with a different flight or command regime, and nothing was widened. The seam charges the envelope, but with no resolved parameter direction the charge is the same for every plan and cannot move a command: the generic arm's tracking is identical to the incumbent's. | Every forecast carries an envelope whose held-out coverage lands in the declared band, and the controller's robustness terms consume it. | Evidence tier and `generic-memory-v3-prototype` merged at `7224ace`. |
 | Lean | Generic track done: 48 research scripts, 24 test modules, 11 experimental modules, 85 MB of archives and 18 research pages deleted. Structured core still present (dynamics, identification, fitting, five belief modules); 25 scripts and three structured-evidence pages remain for it. | Learner, harness, telemetry adapters, controller. | Lean-down merged at `c5e84ab`. |
@@ -130,6 +130,106 @@ and the loop returns to arp with the structural change after
 each has a first measurement. If arp's body rate proves to be evidence-limited
 by a four-flight corpus, that is a charter question for the owner, not a
 threshold to move.
+
+## Control attempt 2, no candidate: the regime, not the commands
+
+Everything below is a labelled diagnostic fit or an edited model flown through
+the same seam on the merged `control-v3` artifacts. No candidate was fitted, so
+the recipe, the artifact format and all eight frozen gate files are unchanged,
+and no gate was run.
+
+*Excitation identified roll and pitch, and did not identify throttle.* Against
+the plant's own final-step response to a +0.05 command step, averaged over three
+origins of the reserved recording, the selected checkpoint is throttle
+0.161 / 17.78, roll 0.833 / 0.736 and pitch 0.911 / 1.119 against the structured
+arm's 0.974 / 1.576, 0.843 / 0.795 and 0.892 / 0.759; the affine start is
+0.103 / 9.01, 0.864 / 1.255 and 0.905 / 1.104. Under `control-v2`'s unexcited
+calibration the same throttle numbers were -0.056 / 26.9 and -0.048 / 25.2, so
+four to six times the throttle excitation moved its direction cosine from -0.06
+to 0.16 and no further. Training degrades what the start had: the one-step
+command Jacobian at trim goes from cosine +0.928 to **-0.974** on roll — the
+sign inverts — and from 38.0 to 102.3 in throttle magnitude, while pitch holds
+at 0.998. Across 1,000 Adam steps the development rollout MSE falls 0.2081 to
+0.1564, 25%, so nothing in the objective notices.
+
+*The recordings are not what limits roll and pitch.* Each command column is
+98.9% to 99.3% explained by the rest of the fit's own design (throttle 0.9930,
+roll 0.9893, pitch 0.9913), and the declared exogenous dither is only 0.3% to
+4.4% of each command's variance, so the calibration is overwhelmingly
+closed-loop. Even so, the residualized partial one-step slope those recordings
+identify scores **0.997** on roll and **0.981** on pitch against the plant's own
+one-step Jacobian, at magnitude 0.85 and 0.71. Throttle is identified by
+nothing: the same partial slope scores -0.119 at 32.9 times the plant's
+magnitude, because the plant's whole one-step throttle response at trim has norm
+0.019 across the fifteen channels.
+
+*The flight departs at the first interval a forecast exists.* On trial 0 the
+generic arm holds the initial command for two intervals while its context
+fills, and on the third, `k=2` at 0.10 s, it commands throttle 0.089 against a
+trim of 0.437 — a 0.35 cut, 2.6 calibration standard deviations, on its first
+solve. Throttle reaches a bound at `k=7` (0.35 s) and sits at one on 76% of the
+trial's intervals, where the structured arm touches no bound at all. The two
+flights separate by 0.05 m at `k=11` (0.55 s), 0.25 m at `k=17` (0.85 s) and
+1 m at `k=62` (3.10 s). The solver's commands leave the box the recordings
+covered on 92.5% of throttle intervals, 75.3% of roll and 75.9% of pitch, with
+z-scores to 4.5, and by `k=100` the model's own five-step forecast under its own
+applied commands returns a rotation-matrix entry of -128 and a velocity of
+43 m/s against the plant's 5.6.
+
+*Confinement is measured and is not the remedy.* Flown again on the same trial,
+one repetition each: the recipe 60.797 m / 97.180 deg; confined to the pooled
+calibration command box 50.984 / 86.204; to throttle's part of it alone
+65.854 / 97.579; to one calibration standard deviation about its mean
+63.517 / 93.659; to half of one 46.088 / 73.227; to a quarter 43.495 / 84.106;
+and confined to an **oracle** box drawn from the structured arm's own applied
+commands, padded by 0.02, **26.963 / 65.245**. Forcing the solver into the exact
+region where the flyable solution lives leaves the generic arm 23 times worse
+than the structured arm. Checkpoint zero, the affine start flown through the
+same seam, is **94.431 / 109.549** — worse than the trained model, not better,
+where under `control-v2` it was 10.6 m against 60.3 m.
+
+*Neither is the command response.* Editing the trained model's command columns
+by hand and flying each: throttle muted 61.037 / 96.022; throttle and roll muted
+13.354 / 20.960; every command muted **1.217 / 0.753**, which is holding trim to
+every printed digit. Replacing every command column with the response the
+recordings themselves identify — the partial slope above, roll at 0.997 against
+the plant — gives **9.044 / 8.261**, still 7.7 times the structured arm's
+1.179 m and 7.4 times holding trim. The realizable in-scope version of that
+graft, a training-objective term charging the model's own one-step command
+Jacobian against that measured slope, was prototyped per window and as a batch
+mean over weights 0.001 to 1.0: the best is 52.156 m at weight 0.01, weight 0.1
+collapses roll's magnitude to 0.071 while lifting its cosine to 0.35, and weight
+1.0 stops training improving at all and returns the affine start.
+
+*What is actually wrong is the regime.* Held at trim with the trim command, the
+plant does not move: hold-current's 0.25 s error is 0.0000 on every channel. The
+selected checkpoint predicts a 0.25 s drift of **-0.172 m/s** of vertical
+velocity, **+0.039 rad/s** of roll rate and **-0.064 rad/s** of pitch rate out
+of a stationary aircraft, and the affine start 0.394, the grafted model 0.168
+and the command-muted model 0.339 in the same norm, so the drift belongs to the
+design and the calibration rather than to the optimizer or to any command
+column. Every one of those six errors is *inside* the model's own 90%
+half-width — 0.172 against 0.383, 0.039 against 0.119, 0.064 against 0.259 —
+because the envelope is calibrated on the excited development windows, so the
+Evidence row's instrument prices none of it. On the reserved recording, split
+into five buckets by how far the plant actually moves over 0.25 s, the model's
+final-step error is flat — velocity 0.154 to 0.222 m/s, body rate 0.121 to
+0.154 rad/s — while hold-current's scales with the motion, 0.135 to 0.602 and
+0.185 to 0.434. In the quietest bucket, mean motion 0.390, the model is already
+1.28 times *worse* than hold-current on velocity. The trial is quieter than that
+bucket by an order of magnitude: the structured arm's own 0.25 s motion is 0.030
+at the median and 0.317 at p95.
+
+**No learner change makes this arm fly from these recordings, and the ladder
+says so with numbers.** The ceiling of a perfect command response is 9.044 m,
+the ceiling of perfect confinement 26.963 m, the ceiling of claiming nothing
+1.217 m — and that last still loses position to the structured arm's 1.179 m,
+which is the task working as `control-v3` intended. The calibration excites the
+plant an order of magnitude harder than the task flies it, so the fit's error
+floor is larger than the motion the controller has to resolve. Excitation was
+added to identify the commands and it did, for roll and pitch; it moved the
+calibration further from the regime being controlled at the same time. Those two
+requirements are in tension and this calibration satisfies one of them.
 
 ## Control: the named mechanism, confirmed and refuted
 
@@ -256,22 +356,32 @@ pilot.
 
 ## Next iteration
 
-Control attempt 2, gated, from the calibration that now excites every
-command. Diagnose first, on the control-v3 calibration recordings: re-measure
-the physical command Jacobian of the affine start and of the selected
-checkpoint per command against the plant's step response (throttle was -0.056
-direction cosine and 26.9 magnitude ratio under the unexcited calibration);
-find the first interval where the generic arm's flight departs from the
-structured arm's and which command saturates first; and check whether training
-still degrades the Jacobian the start had (roll 0.764 to 0.594 before, with
-checkpoint zero flying 10.6 m against the selected checkpoint's 60.3 m).
-Name the mechanism with numbers, then one change to the learner or its
-training that follows from it, with no caller option and no platform branch;
-bump the recipe id and format. Gate on the synthetic reference, platform-v3,
-control-v3 and evidence-v1 (the band gates only where the reference meets it);
-report every number whether or not it passes. Live improvement stays queued
-behind a controller that flies; arp's recursion gain stays queued. Two
-questions are for the owner: whether the Evidence band should be declared on
-matched command regimes only, since a development-calibrated envelope cannot
-cover a shifted regime by construction, and whether arp's four-flight corpus
-is evidence-limited.
+Live improvement, measured for the first time. Control attempt 2 inverts the
+ordering the reviewer set after the accuracy attempts: Live was queued behind a
+controller that flies, and the measurement above says the controller cannot fly
+from a calibration collected in a different regime. The learner's forecast error
+is a floor set by the regime it was fitted on — flat at 0.15 to 0.22 m/s of
+velocity and 0.12 to 0.15 rad/s of body rate across every bucket of the reserved
+recording — while the trial it is scored on moves an order of magnitude less
+than the quietest of those buckets. The charter's own mechanism for that is the
+Live row: a bounded refit on streamed recordings and a threshold swap during a
+Cascade run. Recordings from the trial itself are the only ones in the regime
+the trial flies, and `update(recordings)` already refits the same recipe on a
+merged window cache. Measure it: a bounded refit inside a run, a predeclared
+held-out swap threshold, and tracking after the swap against tracking before it.
+Freeze that tier's manifest before any candidate, gate on the synthetic
+reference, platform-v3, control-v3 and evidence-v1 as usual, and report every
+number. Do not spend another iteration on the command Jacobian: roll and pitch
+are identified by these recordings at 0.997 and 0.981 against the plant, and
+grafting the identified response in outright still flies 9.04 m. arp's recursion
+gain stays queued.
+
+Three questions are for the owner. Whether the Evidence band should be declared
+on matched command regimes only, since a development-calibrated envelope cannot
+cover a shifted regime by construction — attempt 2 measured that from the other
+side, with a phantom 0.172 m/s sink sitting comfortably inside a 0.383 m/s
+half-width. Whether arp's four-flight corpus is evidence-limited. And whether
+`control-v3`'s calibration should be required to contain the regime its trial
+flies, not only the command excitation that identifies the commands: those two
+requirements are in tension, the manifest declares only the second, and
+changing it is a manifest decision rather than a threshold to move.
