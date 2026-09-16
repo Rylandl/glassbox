@@ -476,18 +476,36 @@ owner, listed below; neither is a threshold to move.
 
 ## Next iteration
 
-Nothing on the Accuracy row. arp's structural attempt has been made and
-measured; the corpus is recorded as evidence-limited above, and the charter
-question that follows is the owner's. Every other unmet row -- Control, Live
-improvement, Evidence -- traces to the one root cause named above, and none of
-them can be moved without one of the owner decisions below, because the
-identifying variation the generic learner needs is not in the recordings it is
-given and no change to the learner can put it there.
+The last candidate that needs no owner decision: a support-aware envelope
+for the Evidence row. The measured gap is that a split-conformal half-width
+calibrated on development windows covers the matched regime (0.88 to 0.94)
+and collapses under a shifted command regime (0.13 to 0.82), on arp's held-out
+flight (0.69 to 0.78) and on the control tier's reserved recording (0.80 to
+0.83), while a phantom 0.172 m/s sink at trim sat inside a 0.383 m/s
+half-width. One change to the learner's evidence, no caller option: widen the
+half-width with a support statistic the learner already has, such as the
+distance of the query's normalized features and commands from the training
+windows relative to the development windows' own distances, stated as a rule
+without a new tunable, and report the same coverage table. Gate on all five
+tiers under the current semantics; the evidence band gates only where the
+reference meets it. If matched-regime coverage overshoots 95% wherever shifted
+coverage is repaired, report both and stop; that would make the band question
+below concrete.
 
-Questions for the owner, in order of consequence: whether the caller may
-declare exogenous excitation as a signal so command response can be identified
-from closed-loop recordings; whether the calibration protocol must contain the
-regime a trial flies as well as command excitation; whether the Evidence band
-should be declared on matched command regimes only; and whether arp's
-four-flight corpus, now measured as evidence-limited, is accepted as such or
-re-collected.
+After this, every remaining row waits on the owner. In order of consequence:
+
+1. **Declared excitation.** Closed-loop recordings do not identify command
+   response, and every instrument that reads open-loop forecast error is
+   blind to it. May the caller declare the exogenous excitation it injected as
+   a signal, so the learner is made accountable for the response those
+   recordings actually show? Or must the calibration protocol contain it and
+   the learner infer it? Without one of these, Control and Live cannot pass on
+   any recipe this loop can propose.
+2. **Calibration regime.** Must a calibration contain the regime a trial flies
+   as well as the excitation that identifies its commands? The two are in
+   tension and control-v3 declares only the second.
+3. **Evidence band.** Should the 85 to 95% band be declared on matched command
+   regimes only, or must the envelope carry support (the candidate above)?
+4. **arp.** Its four flights are evidence-limited for body rate at 240 ms;
+   four attempts and every ceiling measurement agree. Accept it as such, add
+   recordings, or keep the row open.
