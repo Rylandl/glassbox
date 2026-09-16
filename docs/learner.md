@@ -774,7 +774,9 @@ The dither costs the frozen arm about half a degree of attitude and buys it abou
 0.05 m of position, and it moves the second repetition's swap from interval 140
 to 220. The two arms of a repetition still agree to every printed digit before
 the swap, because up to it they are the same flight and the dither is the same
-sequence on both.
+sequence on both: on all four trials the recorded excitation is the declared
+table to within one unit in the last place wherever the command box does not
+bind, which on the frozen arms is every interval.
 
 The dither is 2.07%, 2.19% and 1.68% of the first adopting arm's own command
 range and 2.32%, 2.31% and 1.81% of the second's. On the frozen arms, whose
