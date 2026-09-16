@@ -1,7 +1,7 @@
 {
   "manifest": "glassbox-harness-platform-v3",
   "manifest_sha256": "74722a9f23eeb3eeacc2d5faefab5bd2c126d60927525eceb306494a6cbf1d79",
-  "source": "The merged platform-v1 run of the generic-memory-v2-prototype recipe, the measurement the accuracy row of docs/status.md reports. A later run's generic final-step RMSE may not exceed these values by more than this manifest's reference allowance on either metric.",
+  "source": "The merged platform-v1 run's numbers, carried forward unchanged by the accepted run of the generic-memory-v3-prototype recipe, the first candidate that reports a measured forecast-error envelope with every forecast. The mean fit is unchanged, so every score below reproduces the previous reference to every digit; the fingerprints moved because the artifact now carries the envelope. A later run's generic final-step RMSE may not exceed these values by more than this manifest's reference allowance on either metric.",
   "environment": {
     "python": "3.12.3 (main, Aug 31 2026, 10:18:26) [GCC 13.3.0]",
     "platform": "Linux-6.8.0-139-generic-x86_64-with-glibc2.39",
@@ -10,11 +10,11 @@
     "x64": true
   },
   "generic_fingerprints": {
-    "nanodrone": "5f82ccb6dc58229acdc0f4290c1df6094e953435294105bb154255baa5009428",
-    "x8": "1ca268fd5284756c45433b7d3487fcd8c34d4f75d7d9b282945870f62ade2827",
-    "arp": "10a97d2045ed7c96a25b57f0024c77d25ddf85577f4f1236bd6d0c5b481a386c",
-    "idf": "dd07b2dbb9d926b0fb11b1c2f3723fba9b3cf5771ed8e3825fde2f84bcc5c3bf",
-    "epfl": "f65c74f8df8bf082c5ca69a3b4df137d3593ce71dc544eee7a1febcb3e09f201"
+    "nanodrone": "7bde0b9a3a0ca62704b06b872013558ec156bcafad25712eb41e6de1c31c5ff5",
+    "x8": "cf85f0d1fa6a267215bcf2010f361caee9d4e1b86ba84b8f27ab015be77b000e",
+    "arp": "2699fc60ee1a681c7433fc002c46e7fb7c5164414dc17d929f461d385d5da781",
+    "idf": "b76209f011a4b8a3290bb9f80ef87afeca878bfbf247226ba80b45092398d8cf",
+    "epfl": "c47e5a1d31cb443f3575bcb865e1cf63ef0837b23542e0cabe6ded74b3d19a2f"
   },
   "final_step_rmse": {
     "nanodrone": {

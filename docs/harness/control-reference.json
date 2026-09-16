@@ -1,7 +1,7 @@
 {
   "manifest": "control-v3",
   "manifest_sha256": "69cb4d995246af95372bf0a685b8e40aa225174de06f249397d89ea47ad4d28e",
-  "source": "The incumbent measurement of control-v3: the generic-memory-v2-prototype recipe and the frozen structured belief, both fitted on the same three calibration recordings and flown through the same seam over the tracking task of docs/cascade-accuracy.md. A later run's generic position or attitude RMSE may not exceed these values by more than this manifest's reference allowance, and the rule gates only a trial and metric the generic arm already met it on. It met it on none of them.",
+  "source": "The incumbent measurement of control-v3, carried forward unchanged by the accepted run of the generic-memory-v3-prototype recipe, the first candidate that reports a measured forecast-error envelope with every forecast. The mean fit is unchanged, so every score below reproduces the previous reference to every digit; the fingerprints moved because the artifact now carries the envelope. Both arms were fitted on the same three calibration recordings and flown through the same seam over the tracking task of docs/cascade-accuracy.md. The generic arm now charges the seam's two robustness terms with its own envelope, which is a plan-independent constant here, so its commands and its tracking are unchanged. A later run's generic position or attitude RMSE may not exceed these values by more than this manifest's reference allowance, and the rule gates only a trial and metric the generic arm already met it on. It met it on none of them.",
   "environment": {
     "python": "3.12.3 (main, Aug 31 2026, 10:18:26) [GCC 13.3.0]",
     "platform": "Linux-6.8.0-139-generic-x86_64-with-glibc2.39",
@@ -9,7 +9,7 @@
     "numpy": "2.5.2",
     "x64": "fits only"
   },
-  "generic_fingerprint": "ad704f5603a02e7657259cbd7cda87175b18b38b7a527d181cab03e7f2e00317",
+  "generic_fingerprint": "9f7e7b17adf2d1eba6cd08a56aac0673031893b5e7cb6b4724a9c8521cb01ba6",
   "command_excitation": {
     "recording-0": [
       0.12124108675585743,

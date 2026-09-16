@@ -1,17 +1,17 @@
 # Status: gap against the charter
 
-Measured on 2026-09-16 at commit `35b85ec`. One row per criterion in
+Measured on 2026-09-16 at commit `3f025f3`. One row per criterion in
 [`charter.md`](charter.md). "Current" is what the harness or the recorded
 artifacts actually measured; "not measured" means exactly that.
 
 | Criterion | Current | Target | Last change |
 | --- | --- | --- | --- |
-| One recipe | **Met.** One recipe (`generic-memory-v2-prototype`) in `experimental/default_model.py`, one model kind, one harness in `experimental/harness.py`; `fit`, `predict`, `update` with no options. Seven experimental modules; the harness has synthetic, platform, and control tiers, and `experimental/learned_plan.py` presents the learner to the NMPC seam. | One recipe, one module, one harness; `fit`, `predict`, `update` only. | Lean-down merged at `c5e84ab`. |
+| One recipe | **Met.** One recipe (`generic-memory-v3-prototype`) in `experimental/default_model.py`, one model kind, one harness in `experimental/harness.py`; `fit`, `predict`, `update` with no options, and `envelope(horizon_steps)` beside them reporting what every forecast already carries. Seven experimental modules; the harness has synthetic, platform, and control tiers, and `experimental/learned_plan.py` presents the learner to the NMPC seam. | One recipe, one module, one harness; `fit`, `predict`, `update` only. | Lean-down merged at `c5e84ab`. |
 | Accuracy | **Measured, not met.** Platform tier v3 (`docs/harness/platform-v3.json`; the rule gates only where the reference meets it, no metric may regress past its reference), whole recordings held out, both models scored on identical rows at the recipe's horizon; final-step velocity m/s / body rate rad/s, generic versus best structured arm: nanodrone 0.136/0.543 vs 0.179/0.597; x8 0.222/0.132 vs 0.287/0.187; idf 0.158/0.122 vs 0.554/0.174; epfl 0.146/0.070 vs 0.526/0.217; **arp 0.176/0.715 vs 0.174/0.285**, and hold-current 0.149/0.362. Rule met on four of five corpora; inside every declared allowance. The arp failure is roll and pitch rate: worse than hold-current from the first 20 ms step on the development recording, growing linearly to 0.85/0.89 rad/s at 240 ms with a -0.2 rad/s roll-rate bias, while yaw rate beats the structured model (0.154 vs 0.323).. Re-measured at `3c149fa` under the enforced manifest: every corpus reproduces the regression reference to every digit, no reference regression, and the run is rejected on arp for both metrics (0.17586 against the comparator's 0.17437, 0.71546 against 0.28497). | Every pinned corpus, whole recordings held out: generic error at or below the structured model on the same rows, and inside the allowance (nano 0.696/3.706, X8 1.601/0.764, ARP log66 0.709/2.864). | Gate enforced at `783922e` (`platform-v2.json`, digest `f4796e1a`, regression reference `platform-reference.json`). Three attempts below, none accepted. |
 | Capability | **Met.** Harness v1 (manifest digest `1ba15b3f`) accepts 27 of 27 cases end to end through `fit(recordings)`: every M2 cap holds, witness paired-probe first step 0.0029/0.0028/0.0040 against a 0.05 limit and a 0.2 blind floor, tightest cap margin 0.74 of cap. Reference scores frozen in `docs/harness/reference.json`. | Pass the harness caps on every run. | Lean-down merged at `c5e84ab`. |
 | Control | **Measured, not met.** Control tier v3 (`docs/harness/control-v3.json`, digest `69cb4d99`): the tracking task of `docs/cascade-accuracy.md` (lateral sin(0.35 t) m, altitude 100 + 0.75 sin(0.3 t) m, 16 s, seeds 101 and 102), calibration whose setpoint variation moves every command at least 10% of its range (throttle now 12 to 14%, was 2 to 3%), both arms through the same bounded solver under the no-evidence override. Generic arm 60.80 m / 97.2 deg and 49.31 m / 86.5 deg; structured arm 1.18 m / 1.32 deg and 1.18 m / 1.28 deg; no terminated trial. The structured arm holds lateral position to 0.27 m but settles about 2 m high, so it does not pass the page's 0.5 m criterion either (reported, not gated). Holding trim scores 1.22 m / 0.75 deg and 1.73 m / 1.90 deg, so the task now demands authority on position and mostly on attitude. Excitation did not fix the generic arm: it still drives throttle far below trim and rests roll near its bound; the seam prices none of the learner's ignorance because the learner declares none. | Meet or beat the structured model on the matched Cascade trial set. | control-v3 and its incumbent reference merged at `35b85ec`. |
 | Live improvement | Streaming transport and the background refinement worker exist for the structured belief only. No generic refit-and-swap. | Bounded refit on streamed recordings and a threshold swap during a Cascade run; tracking after the swap no worse. | None. |
-| Evidence | The learner reports development errors per recording against a hold-current reference, and the harness reports per-horizon and per-recording scaled errors. No forecast carries an envelope, and nothing calibrates one. | Every forecast carries an envelope with held-out coverage in a declared band, consumed by the controller's robustness terms. | None. |
+| Evidence | **Measured, not met.** Every forecast carries a split-conformal envelope calibrated at a nominal 90% on the development windows the recipe already holds out, and the plan model fills `forecast_error_covariance` from it, so `uncertainty_available` is true and the seam's two robustness terms are nonzero for the first time (widest tangent standard deviation 0.2331 on the control trial set). Evidence tier v1 (`docs/harness/evidence-v1.json`, digest `2c2d2f0d`, band 85% to 95%, reported not gated on this first measurement). Coverage at the recipe's horizon, world velocity / body rate / rotation entries: nanodrone 0.906/0.858/0.886, x8 0.918/0.929/0.906, idf 0.890/0.872/0.897, epfl 0.894/0.856/0.873, **arp 0.755/0.689/0.717**, and the control tier's reserved recording 0.833/0.797/0.799. On the synthetic matched regime, pooled coverage runs 0.884 to 0.944 over the nine families; on the shifted regime, where the command distribution is not the one the envelope was calibrated under, it collapses to 0.132 to 0.817. 253 of 405 synthetic cells, 40 of 180 platform cells and 14 of 15 control cells sit outside the band, every one of them the same way except 50 synthetic cells above it. The envelope covers its own calibration distribution and does not transfer to a shifted one or to arp's held-out flight; those are the same two gaps the accuracy row reports, seen from the coverage side. | Every forecast carries an envelope with held-out coverage in a declared band, consumed by the controller's robustness terms. | Envelope and its consumption merged at `3f025f3`; gate frozen at `8a130dd`, reference at `evidence-reference.json`. |
 | Lean | Generic track done: 48 research scripts, 24 test modules, 11 experimental modules, 85 MB of archives and 18 research pages deleted. Structured core still present (dynamics, identification, fitting, five belief modules); 25 scripts and three structured-evidence pages remain for it. | Learner, harness, telemetry adapters, controller. | Lean-down merged at `c5e84ab`. |
 
 ## Diagnosis on record
@@ -213,19 +213,53 @@ holding trim scores 1.22 m / 0.75 deg on one seed and still wins that seed's
 attitude metric against the structured arm, so attitude alone does not yet
 demand authority and the pass criterion is the honest readout.
 
+## Evidence: what the first measurement says
+
+Gate frozen and committed at `8a130dd` 11:52:46Z, first candidate fit 12:01Z
+and its first saved artifact 12:02:08Z. All three tiers accepted the candidate.
+The mean fit is untouched by construction — the envelope is calibrated after
+training, on windows the optimizer never saw — and the measurement confirms it:
+all 51 synthetic case-and-regime overall scaled
+RMSEs and all ten platform final-step RMSEs reproduce their references to every
+digit, and both control repetitions reproduce theirs. Only the fingerprints
+moved, because the artifact now carries the envelope.
+
+*The robustness terms are nonzero and change nothing.* The learner resolves no
+parameter direction, so there is no covariance factor and no plan-dependent
+`J C J.T`; the tangent covariance it hands the seam is the same at every plan.
+The tracking and terminal spread terms therefore add a constant to the
+objective and leave its minimizer alone, and the generic arm's tracking is
+identical to the incumbent's to every printed digit: 60.797 m / 97.180 deg and
+49.308 m / 86.514 deg. Making those terms move a command needs a spread that
+depends on the plan, which is what a resolved parameter direction would supply.
+Meanwhile `maximum_normalized_uncertainty` is reported as infinite by the
+solver, because it withholds that margin until `uncertainty_complete`, and that
+stays false.
+
+*Coverage transfers to the calibration distribution and not past it.* The
+matched synthetic regime, which draws commands the way the calibration
+recordings were drawn, lands inside the band or close to it on every family:
+pooled 0.884 to 0.944. The shifted regime, whose command persistence drops from
+0.65 to 0.25 and whose amplitude rises to 1.25, collapses to 0.132 to 0.817.
+All 40 platform cells outside the band are below it and all but four are arp's:
+arp runs 0.686 to 0.839 over its 36 cells, the same held-out flight whose body
+rate is the accuracy row's one failure, and idf's four are its first-step
+world velocity, 0.752 rising to 0.890 by the final step. nanodrone, x8 and epfl
+are inside the band on all of theirs. The control tier's reserved recording, drawn
+from the same pilot and seeds as the three that fit the arms, is 0.797 to 0.833:
+below the band on 14 of its 15 cells, by two to five points. Nothing here was
+widened to reach the band. The gap is not the estimator — the conformal
+half-width covers its calibration windows at 90% by construction — it is that
+the development windows of a recording are not exchangeable with a different
+flight, a different command distribution, or even a fourth recording of the same
+pilot.
+
 ## Next iteration
 
-Evidence measurement and consumption, one change. Freeze
-`docs/harness/evidence-v1.json` before any fit: a nominal 90% forecast-error
-envelope per horizon and channel group, calibrated only on data the fit already
-holds out, whose held-out coverage must land between 85% and 95% on every
-platform corpus's held-out rows at the recipe's horizon and on the control
-tier's reserved recording; coverage is measured per corpus and per horizon and
-reported, gating from the first candidate after this one. Then the change: the
-learner reports that envelope with every forecast (no caller option), and the
-plan model fills `forecast_error_covariance` from it in the controller's
-tangent coordinates so `uncertainty_available` becomes true and the seam's two
-robustness terms stop being exactly zero. Bump the recipe id and format. Gate on
-the synthetic reference, platform-v3, control-v3, and report the coverage
-table. The generic arm's command Jacobian and arp's recursion gain remain
-queued behind this.
+Live improvement is the remaining row with no measurement at all, and Evidence
+now has its first. The queue behind them is unchanged: the generic arm's command
+Jacobian, which is what would make the new robustness terms move a command
+rather than shift a constant, and arp's recursion gain. The evidence band gates
+from the next candidate under `evidence-reference.json`, and a candidate that
+narrows the coverage gap on arp or on the reserved recording is measured against
+these numbers.
