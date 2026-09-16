@@ -565,26 +565,16 @@ The rejected candidate is `21eb664` and its measurement record is this section.
 
 ## Next iteration
 
-Every remaining row waits on the owner. In order of consequence:
+Control tier in simulated time, harness only. While reviewing the rejected
+evidence candidate, a control-v3 run made while the platform tier and the
+test suite loaded the CPU produced a different structured-arm trajectory
+(1.155 m against the reference's 1.179 m on repetition 0) and the same run
+alone reproduced the reference to every digit. The control loop still pays
+wall-clock solve deadlines with fallback commands, so its measurement depends
+on machine load; the live tier already computes its trajectory in simulated
+time (live-v2). Freeze `control-v4.json` with the same protocol and the
+solved command always applied, solve times recorded and deciding nothing;
+demonstrate two consecutive runs byte-identical under load; and write the
+incumbent reference from that run. No learner change; the synthetic,
+platform, evidence and live tiers must reproduce their references.
 
-1. **Declared excitation.** Closed-loop recordings do not identify command
-   response, and every instrument that reads open-loop forecast error is
-   blind to it. May the caller declare the exogenous excitation it injected as
-   a signal, so the learner is made accountable for the response those
-   recordings actually show? Or must the calibration protocol contain it and
-   the learner infer it? Without one of these, Control and Live cannot pass on
-   any recipe this loop can propose.
-2. **Calibration regime.** Must a calibration contain the regime a trial flies
-   as well as the excitation that identifies its commands? The two are in
-   tension and control-v3 declares only the second.
-3. **Evidence band.** The band is now enforced as `evidence-v2`, and the
-   attempt above is what a support-aware envelope buys and costs under it:
-   arp 0 of 36 band cells to 28 and the control tier's reserved recording 1 of
-   15 to 15, against x8 30 of 30 to 0 by overshooting. Should the 85 to 95%
-   band be declared on matched command regimes only, with something else
-   declared for queries outside the calibration, or must an envelope that
-   covers them overshoot where it was already adequate? Either answer is a
-   manifest change, which is the owner's.
-4. **arp.** Its four flights are evidence-limited for body rate at 240 ms;
-   four attempts and every ceiling measurement agree. Accept it as such, add
-   recordings, or keep the row open.
