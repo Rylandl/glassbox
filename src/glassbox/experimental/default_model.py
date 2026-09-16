@@ -6,11 +6,10 @@ There are no caller-selected representations, optimizers or selection policies.
 Configuration identity and ordered channel identities are required data facts;
 adapters must include units, frame and command/measurement meaning in them.
 
-There is one recipe, ``generic-memory-v4-prototype``. It reads an explicit
-100 ms history and a causal memory over a 500 ms in-recording context, and its
-fit carries a bound on the recursion's gain. A saved model carries that recipe
-and ``update`` refits it; any other saved format is rejected rather than
-migrated.
+There is one recipe, ``generic-memory-v3-prototype``. It reads an explicit
+100 ms history and a causal memory over a 500 ms in-recording context. A saved
+model carries that recipe and ``update`` refits it; any other saved format is
+rejected rather than migrated.
 
 Every forecast carries a measured error envelope. The recipe already reserves a
 quarter of the supplied recordings as its development role, and the windows cut
@@ -50,7 +49,7 @@ records the level it was calibrated at.
 """
 
 RECIPE = {
-    "id": "generic-memory-v4-prototype",
+    "id": "generic-memory-v3-prototype",
     "kind": "filter_mlp",
     "width": 32,
     "memory": 8,
@@ -67,7 +66,7 @@ RECIPE = {
     "check_every": 100,
     "hold_scale_floor": 0.01,
 }
-_FORMAT = "glassbox-default-recipe-v4"
+_FORMAT = "glassbox-default-recipe-v3"
 
 
 def _priority(value):
@@ -494,11 +493,10 @@ class LearnedDynamics:
     def load(cls, path):
         """Load a saved revision of this recipe, or refuse it.
 
-        A ``v3`` artifact, whose recursion carried no bound on its gain, is
-        rejected rather than migrated, exactly as the ``v2`` artifact that
-        carried no envelope was: a forecast whose recursion was never bounded is
-        not a forecast this recipe makes, and neither the bound nor the envelope
-        can be invented on load without being the opposite of measuring it.
+        A ``v2`` artifact, which carried no envelope, is rejected rather than
+        migrated: a forecast without a measured envelope is not a forecast this
+        recipe makes, and inventing one on load would be the opposite of
+        measuring it.
         """
         meta, arrays = load_arrays(path)
         if meta.get("recipe") != RECIPE or meta.get("format") != _FORMAT:

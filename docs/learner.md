@@ -74,12 +74,11 @@ construction; whether it holds anywhere else is measured, not claimed. The
 
 ## The recipe
 
-`generic-memory-v4-prototype` is the only recipe, and a saved model that
-carries anything else is rejected rather than migrated. A `v3` artifact, whose
-recursion carried no bound on its gain, is refused on load exactly as the `v2`
-artifact that carried no envelope was: a forecast whose recursion was never
-bounded is not a forecast this recipe makes, and neither the bound nor the
-envelope can be invented on load without being the opposite of measuring it.
+`generic-memory-v3-prototype` is the only recipe, and a saved model that
+carries anything else is rejected rather than migrated. A `v2` artifact, which
+carried no envelope, is refused on load rather than migrated: a forecast
+without a measured envelope is not a forecast this recipe makes, and inventing
+one on load would be the opposite of measuring it.
 
 | Constant | Value |
 | --- | --- |
@@ -106,44 +105,6 @@ residual, then trained with Adam under gradient clipping, with the
 hold-current loss scales and development-rollout checkpoint selection. At
 50 ms sampling the constants mean a 10-step consumed context, a 2-step
 explicit history and a 5-step forecast horizon.
-
-## The bound on the recursion
-
-A forecast is a recursion, so the fit bounds its gain. Past the first horizon
-step, where the recursion has not run yet and the one-step map is the plant's
-own difference structure, an error the size of the process's own one-step
-motion may not come out of the recursion larger than the process's own motion
-has grown by that step.
-
-Both sides are read off the training windows and nothing else. Hold-current --
-carrying the last observed state forward -- is the process's own free
-response: its error at the first horizon step is the size of an error the
-process makes in one step, which is the unit the perturbation and the
-deviation are both measured in, and the growth of that error over the horizon
-is the ceiling at each later step. The ceiling never falls below one, because
-a recursion that returns an error unchanged is admissible whatever the process
-does; that floor is reachability, not a value chosen for the bound. There is no
-constant a caller could turn, no development or held-out row is read, and no
-target enters the measurement at all, so the bound cannot be met by giving up
-accuracy at the first step.
-
-It is carried inside the fit rather than applied after it. Before the first
-step, and after every step, the gain is measured at every training origin by
-moving the forecast origin and rolling out; when it sits above the ceiling the
-paths from an observed channel back into the next prediction -- the state, its
-explicit differences and the memory readout, which are exactly the feature rows
-the one-step map's Jacobian with respect to the state reads -- are scaled by
-the largest factor that meets it, found by bisection whose lower end stays
-feasible. The command rows are exogenous and are never scaled, so the command
-response the control tier reads is untouched. Training then continues from the
-bounded parameters, which is what separates this from a gain applied to a
-finished fit. At a factor of zero the increment depends on the commands alone
-and the augmented one-step map is the plant's own hold-and-shift, whose gain is
-one at every step, so the bound is always reachable. A fit whose recursion
-already meets it is left untouched, parameter for parameter; a recipe whose
-horizon is one step has no recursion and is never bounded. Every fit reports
-the ceiling, how many steps were bounded, the smallest factor used and the
-gain excess the selected checkpoint carries.
 
 ## The memory contract
 

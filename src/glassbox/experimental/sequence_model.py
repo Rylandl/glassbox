@@ -6,15 +6,6 @@ past observations/inputs. Coordinates are treated as Euclidean: this module
 does not enforce rotation geometry, infer physical bounds, or calibrate
 uncertainty.
 
-Recursion contract: a forecast is a recursion, so the fit bounds its gain. Past
-the first horizon step, where the recursion has not run yet, an error the size
-of the process's own one-step motion may not come out of the recursion larger
-than the process's own motion has grown by that step; a step that leaves it
-larger has the paths from the observed state back into the next prediction
-scaled down until it does not. The ceiling is hold-current's own error growth on
-the training windows, floored at no amplification, and nothing in it reads a
-target, a development row or a held-out row.
-
 Causal memory contract: the model consumes a fixed number of consecutive
 observed transitions before the forecast origin. Its memory starts at rest at
 the first consumed observation, advances once per observed transition inside
@@ -36,16 +27,6 @@ import numpy as np
 from .arrays import array_fingerprint, load_arrays, save_arrays
 
 KIND = "filter_mlp"
-
-_BISECTIONS = 10
-"""Bisections of the recursion factor.
-
-A numerical tolerance on a bracket that is already ``[0, 1]``, not a modelling
-choice: the bound itself is the process's own motion growth and has no free
-value. The search keeps the lower end of the bracket feasible at every step, so
-whatever it returns satisfies the bound whether or not the gain is monotone in
-the factor.
-"""
 
 
 @dataclass(frozen=True)
@@ -116,60 +97,6 @@ def _features(x, u, xpast, upast, hidden, xp=jnp):
         ],
         axis=-1,
     )
-
-
-def recursion_rows(channels, commands, delay_steps, memory):
-    """The feature rows the recursion reads back: state, its differences, memory.
-
-    The command rows of :func:`_features` are exogenous and never appear in the
-    one-step map's Jacobian with respect to the state, so the gain of the
-    recursion is carried by these rows and only by these rows. Scaling them
-    scales every path from an observed channel back into the next prediction,
-    and at a factor of zero the increment depends on the commands alone, which
-    makes the augmented one-step map the plant's own hold-and-shift.
-    """
-    mask = np.zeros((delay_steps + 1) * (channels + commands) + memory, dtype=bool)
-    mask[:channels] = True
-    start = channels + commands
-    mask[start : start + delay_steps * channels] = True
-    mask[-memory:] = True
-    return mask
-
-
-def recursion_ceiling(batch):
-    """The error unit and the gain ceiling the process itself names, per step.
-
-    Hold-current -- carrying the last observed state forward -- is the process's
-    own free response, so its error at the first horizon step is the size of an
-    error the process makes in one step, and the growth of that error over the
-    horizon is how fast the process's own motion runs away from an origin. Both
-    are read off the training windows and nothing else: the unit is hold's
-    per-channel first-step error, and the ceiling at step ``h`` is how much
-    larger hold's error is by then, in those units.
-
-    The ceiling never falls below one. A recursion that returns an error
-    unchanged is admissible whatever the process does, and the hold-and-shift
-    map the factor of zero produces returns exactly that, so flooring the
-    ceiling is what makes the bound reachable rather than a value chosen for it.
-    """
-    horizon = batch.future_states.shape[1]
-    hold = np.repeat(batch.past_states[:, -1:], horizon, 1)
-    motion = np.sqrt(np.mean((hold - batch.future_states) ** 2, axis=0))
-    unit = np.where(motion[0] > 0.0, motion[0], 1.0)
-    return unit, np.maximum(np.sqrt(np.mean((motion / unit) ** 2, axis=1)), 1.0)
-
-
-def _damped(params, rows, factor):
-    """The same parameters with every path from the state scaled by ``factor``."""
-    mask = jnp.asarray(rows)[:, None]
-    return {
-        key: (
-            jnp.where(mask, value * factor, value)
-            if key in ("linear", "w1", "memory")
-            else value
-        )
-        for key, value in params.items()
-    }
 
 
 def _filter(params, norms, x, up, delay, memory=None):
@@ -460,17 +387,6 @@ def fit_sequence_model(
     Every checkpoint is evaluated recursively. By default all future channels
     have equal weight after train-only state scaling. error_scale may instead
     supply positive [horizon,channel] loss scales.
-
-    The fit carries a bound on the recursion's gain, :func:`recursion_ceiling`.
-    Past the first horizon step, where the recursion has not run yet, an error
-    the size of the process's own one-step motion may not come out of the
-    recursion larger than the process's own motion has grown by that step.
-    Whenever a step leaves it larger, the paths from the observed state back
-    into the next prediction are scaled down, by bisection on every training
-    origin, until it does not; the start is bounded the same way before any step
-    is taken. The bound reads no target, no development row and no held-out row,
-    carries no free value, and leaves the parameters untouched wherever the
-    recursion already meets it.
     """
     if steps < 0 or check_every < 1:
         raise ValueError("invalid training steps")
@@ -506,70 +422,14 @@ def fit_sequence_model(
     training = tuple(jnp.asarray(getattr(train, key)) for key in names)
     development = tuple(jnp.asarray(getattr(validation, key)) for key in names)
 
-    rows = recursion_rows(
-        train.past_states.shape[-1],
-        train.past_inputs.shape[-1],
-        delay,
-        memory,
-    )
-    unit, ceiling = recursion_ceiling(train)
-    unit, ceiling = jnp.asarray(unit), jnp.asarray(ceiling)
-    recursive = train.future_states.shape[1] > 1
-    probe = jnp.asarray(
-        np.random.default_rng(seed + 20000).standard_normal(
-            (len(train.past_states), train.past_states.shape[-1])
-        )
-    )
-
     def loss(par, data):
         x, up, uf, target = data
         prediction = _rollout(par, norms, x, up, uf, delay)
         return jnp.mean(((prediction - target) / normalization) ** 2)
 
-    def excess(par, data, direction):
-        """How far the recursion's gain sits above the process's own growth.
-
-        The forecast origin is moved by an error the size of the process's own
-        one-step motion; what the recursion returns at each later step, in those
-        same units, is compared with how far the process itself has moved by
-        then. Nothing here reads a target.
-        """
-        x, up, uf = data[0], data[1], data[2]
-        nominal = _rollout(par, norms, x, up, uf, delay)
-        moved = x.at[:, -1].add(direction * unit)
-        perturbed = _rollout(par, norms, moved, up, uf, delay)
-        deviation = (perturbed - nominal) / unit
-        gain = jnp.sqrt(jnp.mean(deviation**2, axis=(0, 2))) / jnp.sqrt(
-            jnp.mean(direction**2)
-        )
-        return jnp.max(gain[1:] - ceiling[1:])
-
-    def bound(par, data, direction):
-        """Scale the recursion back until its gain meets the process's own."""
-        if not recursive:
-            return par, 1.0
-
-        def search(_index, bracket):
-            low, high = bracket
-            middle = 0.5 * (low + high)
-            met = excess(_damped(par, rows, middle), data, direction) <= 0.0
-            return jnp.where(met, middle, low), jnp.where(met, high, middle)
-
-        def damp(par):
-            low, _ = jax.lax.fori_loop(0, _BISECTIONS, search, (0.0, 1.0))
-            return _damped(par, rows, low), low
-
-        return jax.lax.cond(
-            excess(par, data, direction) > 0.0, damp, lambda par: (par, 1.0), par
-        )
-
     @jax.jit
     def evaluate(par):
         return loss(par, development)
-
-    @jax.jit
-    def start(par):
-        return bound(par, training, probe)
 
     @jax.jit
     def update(par, first, second, index, indices):
@@ -590,18 +450,13 @@ def fit_sequence_model(
             first,
             second,
         )
-        par, factor = bound(par, training, probe)
-        return par, first, second, value, factor
+        return par, first, second, value
 
-    params, factor = start(params)
-    factors = [float(factor)]
     best = params
     best_loss = float(evaluate(params))
     if not np.isfinite(best_loss):
         raise ValueError("initial recursive validation loss is nonfinite")
-    trace = [
-        dict(step=0, validation_rollout_mse=best_loss, recursion_factor=factors[0])
-    ]
+    trace = [dict(step=0, validation_rollout_mse=best_loss)]
     first, second = (jax.tree.map(jnp.zeros_like, params) for _ in range(2))
     rng = np.random.default_rng(seed + 10000)
     best_step = 0
@@ -609,8 +464,7 @@ def fit_sequence_model(
         indices = rng.integers(
             len(train.past_states), size=min(batch_size, len(train.past_states))
         )
-        params, first, second, value, factor = update(params, first, second, i, indices)
-        factors.append(float(factor))
+        params, first, second, value = update(params, first, second, i, indices)
         if i % check_every == 0 or i == steps:
             train_loss, val_loss = float(value), float(evaluate(params))
             if not np.isfinite([train_loss, val_loss]).all():
@@ -620,7 +474,6 @@ def fit_sequence_model(
                     step=i,
                     training_batch_mse=train_loss,
                     validation_rollout_mse=val_loss,
-                    recursion_factor=factors[-1],
                 )
             )
             if val_loss < best_loss:
@@ -633,8 +486,6 @@ def fit_sequence_model(
         jax.tree.map(np.asarray, norms),
         delay,
     )
-    bounded = np.asarray(factors) < 1.0
-    remaining = float(np.asarray(excess(best, training, probe))) if recursive else 0.0
     return result, dict(
         kind=KIND,
         steps=steps,
@@ -642,16 +493,6 @@ def fit_sequence_model(
         validation_rollout_mse=best_loss,
         seed=seed,
         trace=trace,
-        recursion_bound=dict(
-            rule="past the first horizon step, an error the size of the process's own one-step motion may not come out of the recursion larger than the process's own motion has grown by that step",
-            applies=bool(recursive),
-            bisections=_BISECTIONS,
-            bounded_steps=int(bounded.sum()),
-            smallest_factor=float(np.min(factors)),
-            final_factor=factors[-1],
-            ceiling=np.asarray(ceiling).tolist(),
-            selected_gain_excess=remaining,
-        ),
         parameter_count=sum(v.size for v in result.params.values()),
         loss_scale_mode="state_standard_deviation"
         if error_scale is None

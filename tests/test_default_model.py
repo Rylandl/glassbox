@@ -21,11 +21,6 @@ from glassbox.experimental.sequence_collection import (
     SequenceCollection,
     SequenceSegment,
 )
-from glassbox.experimental.sequence_model import (
-    _damped,
-    recursion_ceiling,
-    recursion_rows,
-)
 
 
 def recording(name, seed):
@@ -178,7 +173,7 @@ def test_report_and_contract_are_defensive_copies(fitted):
 
 def test_default_is_the_versioned_memory_recipe(fitted):
     assert fitted.recipe == RECIPE
-    assert fitted.report["recipe"]["id"] == "generic-memory-v4-prototype"
+    assert fitted.report["recipe"]["id"] == "generic-memory-v3-prototype"
     assert fitted._model.kind == "filter_mlp"
     assert (
         fitted.history_steps,
@@ -189,7 +184,7 @@ def test_default_is_the_versioned_memory_recipe(fitted):
         2,
         5,
     )
-    assert fitted._metadata()["format"] == "glassbox-default-recipe-v4"
+    assert fitted._metadata()["format"] == "glassbox-default-recipe-v3"
     assert fitted._train.batch.past_states.shape[1] == 11
 
 
@@ -326,75 +321,3 @@ def test_an_update_recalibrates_on_the_pinned_development_cache(fitted):
         - batch.future_states
     )
     assert (residual <= revised.envelope()).mean(axis=0).min() >= ENVELOPE_COVERAGE
-
-
-def recursion_gain(model, batch, unit, seed=0):
-    """The gain the bound is written against, measured outside the learner."""
-    past = np.asarray(batch.past_states)
-    direction = np.random.default_rng(seed).standard_normal((len(past), past.shape[-1]))
-    nominal = np.asarray(model.rollout(past, batch.past_inputs, batch.future_inputs))
-    moved = past.copy()
-    moved[:, -1] = moved[:, -1] + direction * unit
-    perturbed = np.asarray(model.rollout(moved, batch.past_inputs, batch.future_inputs))
-    deviation = (perturbed - nominal) / unit
-    return np.sqrt(np.mean(deviation**2, axis=(0, 2))) / np.sqrt(np.mean(direction**2))
-
-
-def test_the_fit_bounds_the_recursions_gain_by_the_processes_own(fitted):
-    bound = fitted.report["optimization"]["recursion_bound"]
-    assert bound["applies"] is True
-    unit, ceiling = recursion_ceiling(fitted._train.batch)
-    # The ceiling is the process's own motion growth on the training windows,
-    # floored at no amplification, and nothing else.
-    assert ceiling[0] == pytest.approx(1.0)
-    assert (ceiling >= 1.0).all()
-    gain = recursion_gain(
-        fitted._model, fitted._train.batch, unit, seed=RECIPE["seed"] + 20000
-    )
-    assert (gain[1:] <= ceiling[1:] + 1e-5).all()
-    assert bound["selected_gain_excess"] <= 1e-5
-
-
-def test_damping_the_recursion_is_what_the_bound_moves(fitted):
-    # The factor scales every path from an observed channel back into the next
-    # prediction and nothing else, so a model damped to zero returns an error
-    # unchanged: the hold-and-shift map's gain is one at every step.
-    model = fitted._model
-    rows = recursion_rows(
-        len(model.norms["state_mean"]),
-        len(model.norms["input_mean"]),
-        model.delay_steps,
-        model.params["memory"].shape[1],
-    )
-    assert rows.sum() < rows.size
-    params = jax.tree.map(np.asarray, _damped(model.params, rows, 0.0))
-    frozen = replace(model, params=params)
-    unit, _ = recursion_ceiling(fitted._train.batch)
-    gain = recursion_gain(frozen, fitted._train.batch, unit)
-    np.testing.assert_allclose(gain, np.ones_like(gain), rtol=1e-5, atol=1e-5)
-    # The command rows are untouched, so the rows the factor does not scale are
-    # exactly the exogenous ones plus the biases.
-    for key in ("bias", "b1", "w2", "memory_bias"):
-        np.testing.assert_array_equal(params[key], np.asarray(model.params[key]))
-    for key in ("linear", "w1", "memory"):
-        np.testing.assert_array_equal(
-            params[key][~rows], np.asarray(model.params[key])[~rows]
-        )
-
-
-def test_the_bound_is_not_vacuous(fitted):
-    # Scaling the recursion back up past what the fit settled on breaks the
-    # bound, so the assertion above is a measurement and not an identity.
-    model = fitted._model
-    rows = recursion_rows(
-        len(model.norms["state_mean"]),
-        len(model.norms["input_mean"]),
-        model.delay_steps,
-        model.params["memory"].shape[1],
-    )
-    unit, ceiling = recursion_ceiling(fitted._train.batch)
-    loud = replace(
-        model, params=jax.tree.map(np.asarray, _damped(model.params, rows, 4.0))
-    )
-    gain = recursion_gain(loud, fitted._train.batch, unit)
-    assert (gain[1:] > ceiling[1:]).any()
