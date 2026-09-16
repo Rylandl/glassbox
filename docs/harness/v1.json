@@ -1,0 +1,151 @@
+{
+  "id": "glassbox-harness-v1",
+  "scope": "Offline synthetic capability and regression guard for the one generic learner. Eight ordinary and stressed families plus one delayed-input witness, fitted end to end through fit(recordings) and scored on independent recordings. Not platform readiness, control adequacy, or calibrated uncertainty.",
+  "frozen": "This file and its digest constant in glassbox.experimental.harness are frozen before a candidate is fitted. A threshold, seed, or case changed after scores were seen fails review.",
+  "recipe": {
+    "id": "generic-memory-v2-prototype",
+    "kind": "filter_mlp",
+    "width": 32,
+    "memory": 8,
+    "delay_s": 0.1,
+    "context_s": 0.5,
+    "horizon_s": 0.25,
+    "training_windows": 384,
+    "development_windows": 256,
+    "steps": 1000,
+    "batch_size": 64,
+    "learning_rate": 0.002,
+    "ridge_fraction": 0.01,
+    "seed": 0,
+    "check_every": 100,
+    "hold_scale_floor": 0.01
+  },
+  "information_budget": {
+    "context_steps": 10,
+    "delay_steps": 2,
+    "horizon_steps": 5,
+    "memory_coordinates": 8,
+    "contract": "The memory starts at rest at the first consumed observation, advances once per observed transition inside one recording segment, continues from predicted observations during the forecast, and composes exactly when carried within a recording. A forecast from rest consumes exactly context_steps + 1 observations; nothing earlier is implied."
+  },
+  "dataset": {
+    "purpose": "Platform-neutral synthetic systems with known equations, carried forward verbatim from the M2 acceptance plan.",
+    "dt_s": 0.05,
+    "intervals": 160,
+    "calibration_recordings": 8,
+    "evaluation_recordings_per_regime": 4,
+    "rng_salt": 1207,
+    "evaluation_origin_start": 2,
+    "evaluation_stride": 5,
+    "regimes": {
+      "calibration": {
+        "input_persistence": 0.65,
+        "input_innovation_weight": 0.35,
+        "input_amplitude": 1.0
+      },
+      "matched": {
+        "input_persistence": 0.65,
+        "input_innovation_weight": 0.35,
+        "input_amplitude": 1.0
+      },
+      "shifted": {
+        "input_persistence": 0.25,
+        "input_innovation_weight": 0.75,
+        "input_amplitude": 1.25
+      }
+    },
+    "initial_distribution": "Uniform[-0.4,0.4] for every latent coordinate of the eight families in all regimes; Uniform[-1.5,1.5] for the witness.",
+    "evaluation_origins": "Every fifth row from row 2, keeping the origins that carry a complete consumed context and a complete forecast horizon.",
+    "systems": {
+      "stable_affine": "x_next=A*x+B*u; A=[[.94,.06,0],[0,.70,.05],[.02,0,-.35]], B=[[.10,0],[.03,.18],[0,.15]].",
+      "coupled_nonlinear": "x0_next=.78*x0+.16*tanh(1.5*u0+.7*x1)+.04*x0*x1; x1_next=.65*x1+.20*sin(1.3*u1)+.06*x0^2.",
+      "deadzone_saturation": "x_next=.88*x+.22*clip(sign(u)*max(abs(u)-.2,0),-.45,.45).",
+      "hidden_hysteresis": "h_next=clip(h+.25*u,-.6,.6); x_next=.86*x+.18*h_next+.08*u. Only x is observed; h is latent.",
+      "delayed_nonlinear": "x_next=.72*x+.22*tanh(2*u[k-4]); before k=4 the delayed input is zero.",
+      "near_periodic": "z_next=.98*R(2*pi/5.2)*z+.04*u; observe each coordinate as z+.35*z^3.",
+      "off_periodic": "Same warped observed oscillator with period 8.0 steps.",
+      "noisy_observation": "z_next=.92*z+.14*tanh(1.5*u)+.03*N(0,1); observe x=z+.04*N(0,1). Score observations, not latent state.",
+      "hidden_input_delay": "x_next=.8*x+.2*u[k-3]; independent Uniform[-1,1] commands; before k=3 the delayed input is zero. Only x is observed."
+    }
+  },
+  "families": [
+    "stable_affine",
+    "coupled_nonlinear",
+    "deadzone_saturation",
+    "hidden_hysteresis",
+    "delayed_nonlinear",
+    "near_periodic",
+    "off_periodic",
+    "noisy_observation"
+  ],
+  "data_seeds": [
+    6101,
+    6202,
+    6303
+  ],
+  "evaluation_regimes": [
+    "matched",
+    "shifted"
+  ],
+  "witness": {
+    "family": "hidden_input_delay",
+    "source": "The G05 witness: a fixed 100 ms supplied history cannot identify this system, because identical supplied inputs have different true futures.",
+    "data_seeds": [
+      101,
+      202,
+      303
+    ],
+    "regimes": [
+      "matched"
+    ],
+    "evaluation": "Four independent evaluation recordings drawn from the same command distribution as the eight calibration recordings.",
+    "paired_probe": "From rest, opposite unit commands three intervals before the origin and zero commands otherwise. The two supplied contexts are identical except that one command, so any forecast blind to it answers identically in both branches and cannot beat a first-step paired RMSE of 0.2. The true futures are +/- 0.2 * 0.8**h.",
+    "paired_probe_first_step_rmse_maximum": 0.05
+  },
+  "fit_protocol": "Each case fits the consumer recipe end to end with fit(recordings) on that case's calibration recordings, which perform the recipe's own recording holdout and window sampling. Evaluation uses independent recordings only.",
+  "metric": "Per-horizon and overall RMSE after scaling each channel by the fitted model's training state standard deviation. The overall score pools squared scaled errors equally over horizons and channels. Per-recording scores are retained.",
+  "error_caps": {
+    "stable_affine": {
+      "matched": 0.005,
+      "shifted": 0.01
+    },
+    "coupled_nonlinear": {
+      "matched": 0.04,
+      "shifted": 0.25
+    },
+    "deadzone_saturation": {
+      "matched": 0.08,
+      "shifted": 0.55
+    },
+    "hidden_hysteresis": {
+      "matched": 0.05,
+      "shifted": 0.12
+    },
+    "near_periodic": {
+      "matched": 0.04,
+      "shifted": 0.08
+    },
+    "off_periodic": {
+      "matched": 0.03,
+      "shifted": 0.08
+    },
+    "delayed_nonlinear": {
+      "matched": 0.6,
+      "shifted": 1.5
+    },
+    "noisy_observation": {
+      "matched": 0.45,
+      "shifted": 0.5
+    },
+    "hidden_input_delay": {
+      "matched": 0.9
+    }
+  },
+  "cap_definition": "Every horizon scaled RMSE of every case and regime must lie below its family's absolute cap. The caps are carried forward unchanged from the M2 acceptance. They prevent gross regressions; they are engineering targets, not application tolerances.",
+  "reference": {
+    "file": "reference.json",
+    "relative_tolerance": 0.05,
+    "absolute_tolerance": 0.005,
+    "meaning": "When the reference file exists beside this manifest, no case's overall scaled RMSE may exceed its reference value times 1.05 plus 0.005 in either regime. A run copies the reference it used into its output directory, so verify replays the same comparison."
+  },
+  "decision": "Accept only when every case is present exactly once, every case's horizon scaled RMSE is below its cap, every witness seed's paired-probe first step is below its limit, and, when a reference exists, no case regresses past its reference allowance. Anything missing, duplicated, nonfinite or undeclared fails closed."
+}

@@ -1,0 +1,153 @@
+{
+  "manifest": "glassbox-harness-v1",
+  "manifest_sha256": "1ba15b3f466e91edf548f1d459a52eb0896310e7fbbb6c1c98544ec10513d781",
+  "source": "The first accepted run of this manifest on the lean learner. A later run may not exceed these overall scores by more than the manifest's reference allowance.",
+  "environment": {
+    "python": "3.12.3 (main, Aug 31 2026, 10:18:26) [GCC 13.3.0]",
+    "platform": "Linux-6.8.0-139-generic-x86_64-with-glibc2.39",
+    "jax": "0.11.1",
+    "numpy": "2.5.2",
+    "x64": true
+  },
+  "model_fingerprints": {
+    "stable_affine-6101": "17f5bdfaeff413b145dcae7c69e0fad4f51b7d92ed5558a500324a2424dbc14b",
+    "stable_affine-6202": "2d4c8335d4c2c106ee56cbfa14824c41764a908cb1d791ab4ec998f67562d986",
+    "stable_affine-6303": "fccaa7f38e1dc97dc04549a4484d7385c17540491dda48b0f3c86a66d8b9b668",
+    "coupled_nonlinear-6101": "a0781bdc96af7900009b1f89a7a19aeace3ab8ef3362780572163fb44b3b457c",
+    "coupled_nonlinear-6202": "2a64728a1850a9b1fbe007e00a1be12b2fc9a6a49d4cd74fdec76a9d66fe8c5b",
+    "coupled_nonlinear-6303": "e4f52d90e9df9dc2f9dbdf209e70e2f0d540089c69cfe6af0d5df48ad0e5b23e",
+    "deadzone_saturation-6101": "32d4ba291aaaf11647ce0158a9708764d01c3302217ce2fad9a614d7bce8b3a0",
+    "deadzone_saturation-6202": "0c350cbae711ba443b973e720c7ad38d66e1f57daa374ecf4ce6695a1b16796d",
+    "deadzone_saturation-6303": "0f8123d4ae8cb1228ff57011f15b65f961579537369d7bc227e3db6ec60c33cf",
+    "hidden_hysteresis-6101": "2dc7d323e08028963029b39c878efb8d8d7b108e0252ed7d6dffffda5ee9c6d3",
+    "hidden_hysteresis-6202": "95a63d1e3deba39ccdf2bf788d243a76b3fa5b2b41f2619118a2ebc26eee571f",
+    "hidden_hysteresis-6303": "45a84c621b1a509668d234b623db7c51476f87ec0fdde5436648ec358727fa89",
+    "delayed_nonlinear-6101": "c3cee118ffece151330fa102257950aa3c63c28289035f8ef2f9c2b276684758",
+    "delayed_nonlinear-6202": "40f21df85d7584f81f7cd2d71511b252d99aca176ada8a8e562675682cf138a5",
+    "delayed_nonlinear-6303": "b723999e0540106e4c90fde901b7c2cc8e89c1fd513f13e19274daa5613a95f1",
+    "near_periodic-6101": "779d34209cff014ffea19c48d755f2d7abf8281c01e19f3f727bf56250088a39",
+    "near_periodic-6202": "703f57a5be91a8ee65ce78cc0ba174fdfb678cd21862f3b8aac17f80b6cd6b54",
+    "near_periodic-6303": "ac314d0191825d696295a0902b6b2368a85accbb4c4a9bd1c3e80724c3496902",
+    "off_periodic-6101": "d02b7ca49657b91f975e2945ef73328b31f2f62f9b31cddf2c4a330311d13983",
+    "off_periodic-6202": "e631e112944c8fcaf231fa208e601a9040e4654f8d3958084389eddd9de97e61",
+    "off_periodic-6303": "a3ec9e4eb8fddea427935a83d679a27634938ca89759bf88766e120c2ac233ef",
+    "noisy_observation-6101": "c7181fe171c8fdbbfa3dde3e609b31e5915f7f9c1a32ae896ccd3e4431009bd6",
+    "noisy_observation-6202": "a580509e70e4165b0b29cebe33e4adf5be4041d4c712122b88d68e58eb254c1b",
+    "noisy_observation-6303": "4994add85dba00098f092d4c8fac9149ef20f3794f015a70d4a5882eb634e8cd",
+    "hidden_input_delay-101": "cd162594db7681cbd38e63db483ba3a03f793de01d62797ca50d07b0695f6c95",
+    "hidden_input_delay-202": "9ba738941fa0c0b35fb4973b1f7cb0af8cd67f8e7a5223414db7d8de5adcefae",
+    "hidden_input_delay-303": "1dbcf8c5488cd4a622647e242c98f2f6dacff9c3f68d5f8a5f67828962592885"
+  },
+  "paired_probe_first_step_rmse": {
+    "hidden_input_delay-101": 0.002863222476620276,
+    "hidden_input_delay-202": 0.0027873555036397597,
+    "hidden_input_delay-303": 0.004033817475335519
+  },
+  "overall_scaled_rmse": {
+    "stable_affine-6101": {
+      "matched": 0.00018823552238138373,
+      "shifted": 0.001250920095782919
+    },
+    "stable_affine-6202": {
+      "matched": 4.153120182575643e-05,
+      "shifted": 0.0003311797743651329
+    },
+    "stable_affine-6303": {
+      "matched": 0.00010716832565810778,
+      "shifted": 0.0010171326479665901
+    },
+    "coupled_nonlinear-6101": {
+      "matched": 0.014510776057797629,
+      "shifted": 0.14768656030578536
+    },
+    "coupled_nonlinear-6202": {
+      "matched": 0.013255453039930767,
+      "shifted": 0.1565850529437295
+    },
+    "coupled_nonlinear-6303": {
+      "matched": 0.010593573628757897,
+      "shifted": 0.13188806217159205
+    },
+    "deadzone_saturation-6101": {
+      "matched": 0.027673886324524388,
+      "shifted": 0.3339409816779861
+    },
+    "deadzone_saturation-6202": {
+      "matched": 0.02935362372609504,
+      "shifted": 0.2975715510887364
+    },
+    "deadzone_saturation-6303": {
+      "matched": 0.028225024931530354,
+      "shifted": 0.29649735484159334
+    },
+    "hidden_hysteresis-6101": {
+      "matched": 0.019304695890303453,
+      "shifted": 0.05544862421454224
+    },
+    "hidden_hysteresis-6202": {
+      "matched": 0.01643174208443143,
+      "shifted": 0.04732720326321963
+    },
+    "hidden_hysteresis-6303": {
+      "matched": 0.02151520315987052,
+      "shifted": 0.054350603343094175
+    },
+    "delayed_nonlinear-6101": {
+      "matched": 0.018475186621632306,
+      "shifted": 0.22890453929269408
+    },
+    "delayed_nonlinear-6202": {
+      "matched": 0.01625203801056812,
+      "shifted": 0.194230113898957
+    },
+    "delayed_nonlinear-6303": {
+      "matched": 0.016694646004954457,
+      "shifted": 0.2156121251911131
+    },
+    "near_periodic-6101": {
+      "matched": 0.009679832320959104,
+      "shifted": 0.031424857410374055
+    },
+    "near_periodic-6202": {
+      "matched": 0.005929167724449215,
+      "shifted": 0.027225354306788015
+    },
+    "near_periodic-6303": {
+      "matched": 0.008241424059357454,
+      "shifted": 0.01329012098955703
+    },
+    "off_periodic-6101": {
+      "matched": 0.004859663598270353,
+      "shifted": 0.021660988732008647
+    },
+    "off_periodic-6202": {
+      "matched": 0.005874989760984514,
+      "shifted": 0.026835773475474743
+    },
+    "off_periodic-6303": {
+      "matched": 0.005010888991578064,
+      "shifted": 0.026964688867611008
+    },
+    "noisy_observation-6101": {
+      "matched": 0.2442148734519039,
+      "shifted": 0.28895933756996206
+    },
+    "noisy_observation-6202": {
+      "matched": 0.26116574932969194,
+      "shifted": 0.33274337442238866
+    },
+    "noisy_observation-6303": {
+      "matched": 0.2615963659501094,
+      "shifted": 0.3051552102126856
+    },
+    "hidden_input_delay-101": {
+      "matched": 0.0313289718588975
+    },
+    "hidden_input_delay-202": {
+      "matched": 0.032508815644692844
+    },
+    "hidden_input_delay-303": {
+      "matched": 0.028805933523252697
+    }
+  }
+}

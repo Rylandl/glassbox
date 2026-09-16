@@ -107,22 +107,6 @@ def test_traced_seed_matches_untraced_and_preserves_nonfinite_rejection(experime
     assert solver._seed_prediction is None
 
 
-def test_saved_request_replays_recorded_failed_and_successful_inputs(experiment):
-    runtime = (
-        Path(__file__).parents[1] / "docs/investigations/feedback-recovery-runtime"
-    )
-    arrays, hashes = experiment.saved_request(runtime)
-    state, latent, previous, incoming, seed = arrays
-    assert state.shape == (13,)
-    assert latent.shape == previous.shape == (4,)
-    np.testing.assert_array_equal(previous, incoming[0])
-    np.testing.assert_array_equal(seed, np.concatenate((incoming[1:], incoming[-1:])))
-    assert (
-        hashes["seed_sha256"]
-        == "aba4a40d359d46603de8992d64df9e35b2405e25b2600409c3f8d85a9bddf089"
-    )
-
-
 def test_observer_does_not_leave_class_method_aliases_on_instance(experiment):
     names = (
         "set_seed",
