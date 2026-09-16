@@ -201,29 +201,32 @@ generic arm's throttle sits at a bound on 79% of intervals.
 
 ## Next iteration
 
-**Evidence first, then Control again.** The control failure is now the named
-motivation for the Evidence row: give every forecast a measured error envelope
-whose held-out coverage lands in a declared band, and let the plan model report
-it so the solver's robustness and validity terms stop being exactly zero. Until
-the seam can price a command direction the recordings never excited, a solver
-that believes the learner spends that direction, and the control tier rejects.
+Gate policy and control protocol, harness only, before the Evidence candidate.
+Two defects in the gates were found by measurement and must be fixed before
+any candidate, with no learner change:
 
-Freeze the evidence gate before any candidate, as always: a declared coverage
-band, measured on held-out rows the fit never saw, on the platform corpora and
-on the control tier's reserved recording. Then one change, no options.
+1. **An enforced rule the incumbent already fails blocks every change.** The
+   platform tier rejects any candidate on arp and the control tier rejects any
+   candidate that does not already fly, so an Evidence or Live iteration could
+   never merge. Freeze `platform-v3.json` and `control-v3.json` with the same
+   semantics on every tier: a candidate may not regress any metric past its
+   reference times 1.05 plus 0.005, must keep the rule wherever the reference
+   already meets it, and a row is declared met only when the rule holds
+   everywhere. Nothing else in the platform protocol changes.
+2. **The control trial rewards claiming nothing.** On the cruise reference a
+   model with no command authority scores 0.109 m / 0.000 deg, better than
+   either arm. `control-v3` adopts a reference that demands authority: the
+   lateral position `sin(0.35 t)` m and altitude `100 + 0.75 sin(0.3 t)` m
+   reference of `docs/cascade-accuracy.md`, 16 s trials, with its 0.5 m in 95%
+   of samples after 2 s criterion recorded alongside the RMSE rule. And its
+   calibration must contain the command directions the learner is asked to
+   use: the same pilot and durations, with setpoint variation chosen so every
+   command channel's standard deviation over the calibration recordings is at
+   least a declared fraction of its range, applied to both arms and recorded.
+   Excitation is a data requirement the caller can meet, not platform
+   knowledge, and the learner must still report its absence (the Evidence row).
 
-Two gaps are named and queued behind it. The learner's command Jacobian is
-degraded by training, not only by the start: roll's direction cosine falls from
-0.764 at checkpoint zero to 0.594 at the selected checkpoint, and checkpoint
-zero flies the same trial at 10.557 m against the selected checkpoint's 60.347 m,
-because development-rollout selection reads forecast error and is blind to the
-command Jacobian. And arp's structural attempt — a recursion whose gain is
-carried by the fit — is still queued.
-
-One question is for the owner, not for a threshold. `control-v2`'s calibration
-protocol collects three eight-second recordings under a closed-loop stabilizer
-whose pilot holds throttle within 2.3% to 3.1% of its declared range, and the
-sweep shows that column's direction is wrong at every penalty. No learner change
-identifies a column the recordings do not contain. Whether the protocol should
-excite every command channel over a declared fraction of its range is the same
-kind of charter question as arp's four-flight corpus.
+Then measure both arms once under `control-v3`, write `control-reference.json`
+and refresh `platform-reference.json` from the merged platform-v2 numbers
+unchanged, and report the structured and generic numbers on the new protocol.
+The Evidence candidate follows in the next iteration against those gates.
