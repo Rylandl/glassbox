@@ -1,0 +1,272 @@
+[
+  {
+    "dataset": "arp",
+    "fold": 0,
+    "seed": 60,
+    "far_fraction": 0.007380073800738007,
+    "fraction_of_total_squared_distance": {
+      "current_velocity": 0.14017383171747408,
+      "current_body_rate": 0.014455448713727621,
+      "current_rotation": 0.13704869607923517,
+      "current_input": 0.07788477381104338,
+      "observation_history": 0.43456248304054396,
+      "input_history": 0.19587476663797565
+    },
+    "interpretation": "Contributions to standardized nearest-neighbor distance, not contributions to prediction error."
+  },
+  {
+    "dataset": "arp",
+    "fold": 0,
+    "seed": 61,
+    "far_fraction": 0.007380073800738007,
+    "fraction_of_total_squared_distance": {
+      "current_velocity": 0.14709229788457992,
+      "current_body_rate": 0.010234606474940726,
+      "current_rotation": 0.15584594214020345,
+      "current_input": 0.08371462270552776,
+      "observation_history": 0.4097688143381041,
+      "input_history": 0.1933437164566441
+    },
+    "interpretation": "Contributions to standardized nearest-neighbor distance, not contributions to prediction error."
+  },
+  {
+    "dataset": "arp",
+    "fold": 0,
+    "seed": 62,
+    "far_fraction": 0.01107011070110701,
+    "fraction_of_total_squared_distance": {
+      "current_velocity": 0.15787684228137816,
+      "current_body_rate": 0.00952424190804777,
+      "current_rotation": 0.1417154195259445,
+      "current_input": 0.08196035148276734,
+      "observation_history": 0.401912733808867,
+      "input_history": 0.20701041099299516
+    },
+    "interpretation": "Contributions to standardized nearest-neighbor distance, not contributions to prediction error."
+  },
+  {
+    "dataset": "arp",
+    "fold": 1,
+    "seed": 60,
+    "far_fraction": 0.13877551020408163,
+    "fraction_of_total_squared_distance": {
+      "current_velocity": 0.09899030231778676,
+      "current_body_rate": 0.007706422428087149,
+      "current_rotation": 0.20412901542599649,
+      "current_input": 0.017367582097440715,
+      "observation_history": 0.543250376750476,
+      "input_history": 0.1285563009802129
+    },
+    "interpretation": "Contributions to standardized nearest-neighbor distance, not contributions to prediction error."
+  },
+  {
+    "dataset": "arp",
+    "fold": 1,
+    "seed": 61,
+    "far_fraction": 0.1326530612244898,
+    "fraction_of_total_squared_distance": {
+      "current_velocity": 0.09642900336381958,
+      "current_body_rate": 0.010904118816549156,
+      "current_rotation": 0.199887763614874,
+      "current_input": 0.015973290421860683,
+      "observation_history": 0.5060671592429291,
+      "input_history": 0.17073866453996736
+    },
+    "interpretation": "Contributions to standardized nearest-neighbor distance, not contributions to prediction error."
+  },
+  {
+    "dataset": "arp",
+    "fold": 1,
+    "seed": 62,
+    "far_fraction": 0.09795918367346938,
+    "fraction_of_total_squared_distance": {
+      "current_velocity": 0.09135155316932764,
+      "current_body_rate": 0.00973639833211458,
+      "current_rotation": 0.2140658550533987,
+      "current_input": 0.018050293574676128,
+      "observation_history": 0.49950646322264824,
+      "input_history": 0.16728943664783477
+    },
+    "interpretation": "Contributions to standardized nearest-neighbor distance, not contributions to prediction error."
+  },
+  {
+    "dataset": "arp",
+    "fold": 2,
+    "seed": 60,
+    "far_fraction": 0.29918032786885246,
+    "fraction_of_total_squared_distance": {
+      "current_velocity": 0.0060682270680572515,
+      "current_body_rate": 0.019765423872498175,
+      "current_rotation": 0.08945582041868429,
+      "current_input": 0.0028035048864665617,
+      "observation_history": 0.8518799146189724,
+      "input_history": 0.030027109135321466
+    },
+    "interpretation": "Contributions to standardized nearest-neighbor distance, not contributions to prediction error."
+  },
+  {
+    "dataset": "arp",
+    "fold": 2,
+    "seed": 61,
+    "far_fraction": 0.3176229508196721,
+    "fraction_of_total_squared_distance": {
+      "current_velocity": 0.003498216145471682,
+      "current_body_rate": 0.011496062685063715,
+      "current_rotation": 0.09622428026362898,
+      "current_input": 0.0018924731856024117,
+      "observation_history": 0.865120161253172,
+      "input_history": 0.021768806467061048
+    },
+    "interpretation": "Contributions to standardized nearest-neighbor distance, not contributions to prediction error."
+  },
+  {
+    "dataset": "arp",
+    "fold": 2,
+    "seed": 62,
+    "far_fraction": 0.3114754098360656,
+    "fraction_of_total_squared_distance": {
+      "current_velocity": 0.003945461188757895,
+      "current_body_rate": 0.013358513873950706,
+      "current_rotation": 0.07615478245127753,
+      "current_input": 0.001762304787183736,
+      "observation_history": 0.8840774153342781,
+      "input_history": 0.020701522364552066
+    },
+    "interpretation": "Contributions to standardized nearest-neighbor distance, not contributions to prediction error."
+  },
+  {
+    "dataset": "arp",
+    "fold": 3,
+    "seed": 60,
+    "far_fraction": 0.9758522727272727,
+    "fraction_of_total_squared_distance": {
+      "current_velocity": 0.001758098240183622,
+      "current_body_rate": 0.06545762854692082,
+      "current_rotation": 0.5942142189968683,
+      "current_input": 0.007701844461237191,
+      "observation_history": 0.31760943098508176,
+      "input_history": 0.01325877876970837
+    },
+    "interpretation": "Contributions to standardized nearest-neighbor distance, not contributions to prediction error."
+  },
+  {
+    "dataset": "arp",
+    "fold": 3,
+    "seed": 61,
+    "far_fraction": 0.8792613636363636,
+    "fraction_of_total_squared_distance": {
+      "current_velocity": 0.0022434851441577594,
+      "current_body_rate": 0.08016138509445224,
+      "current_rotation": 0.5961652383791276,
+      "current_input": 0.008701145362427507,
+      "observation_history": 0.2948674642177246,
+      "input_history": 0.017861281802110315
+    },
+    "interpretation": "Contributions to standardized nearest-neighbor distance, not contributions to prediction error."
+  },
+  {
+    "dataset": "arp",
+    "fold": 3,
+    "seed": 62,
+    "far_fraction": 0.9417613636363636,
+    "fraction_of_total_squared_distance": {
+      "current_velocity": 0.0019867006446047,
+      "current_body_rate": 0.07579392999304675,
+      "current_rotation": 0.5704639578235717,
+      "current_input": 0.008820823743304496,
+      "observation_history": 0.3240738351068016,
+      "input_history": 0.018860752688670736
+    },
+    "interpretation": "Contributions to standardized nearest-neighbor distance, not contributions to prediction error."
+  },
+  {
+    "dataset": "nano",
+    "fold": 0,
+    "seed": 60,
+    "far_fraction": 0.027576197387518143,
+    "fraction_of_total_squared_distance": {
+      "current_velocity": 0.02125201571477538,
+      "current_body_rate": 0.013517106134476112,
+      "current_rotation": 0.06734231557366559,
+      "current_input": 0.020580129046242217,
+      "observation_history": 0.688635232265681,
+      "input_history": 0.1886732012651596
+    },
+    "interpretation": "Contributions to standardized nearest-neighbor distance, not contributions to prediction error."
+  },
+  {
+    "dataset": "nano",
+    "fold": 0,
+    "seed": 61,
+    "far_fraction": 0.027576197387518143,
+    "fraction_of_total_squared_distance": {
+      "current_velocity": 0.024432468429931187,
+      "current_body_rate": 0.009349995895582051,
+      "current_rotation": 0.04390708124634759,
+      "current_input": 0.025653460508964856,
+      "observation_history": 0.6321398494490931,
+      "input_history": 0.2645171444700813
+    },
+    "interpretation": "Contributions to standardized nearest-neighbor distance, not contributions to prediction error."
+  },
+  {
+    "dataset": "nano",
+    "fold": 0,
+    "seed": 62,
+    "far_fraction": 0.04862119013062409,
+    "fraction_of_total_squared_distance": {
+      "current_velocity": 0.011402383522681896,
+      "current_body_rate": 0.004622484278808244,
+      "current_rotation": 0.04076107774843726,
+      "current_input": 0.01003732778863598,
+      "observation_history": 0.8217585040793451,
+      "input_history": 0.1114182225820914
+    },
+    "interpretation": "Contributions to standardized nearest-neighbor distance, not contributions to prediction error."
+  },
+  {
+    "dataset": "x8",
+    "fold": 0,
+    "seed": 60,
+    "far_fraction": 0.13705583756345177,
+    "fraction_of_total_squared_distance": {
+      "current_velocity": 0.013528687499613345,
+      "current_body_rate": 0.017274431246454156,
+      "current_rotation": 0.05047259510835494,
+      "current_input": 0.05561209883811055,
+      "observation_history": 0.5214574271134447,
+      "input_history": 0.34165476019402236
+    },
+    "interpretation": "Contributions to standardized nearest-neighbor distance, not contributions to prediction error."
+  },
+  {
+    "dataset": "x8",
+    "fold": 0,
+    "seed": 61,
+    "far_fraction": 0.13451776649746192,
+    "fraction_of_total_squared_distance": {
+      "current_velocity": 0.008660189219589264,
+      "current_body_rate": 0.025770737688689913,
+      "current_rotation": 0.04592509753239976,
+      "current_input": 0.04981938411740228,
+      "observation_history": 0.6624810974084262,
+      "input_history": 0.20734349403349261
+    },
+    "interpretation": "Contributions to standardized nearest-neighbor distance, not contributions to prediction error."
+  },
+  {
+    "dataset": "x8",
+    "fold": 0,
+    "seed": 62,
+    "far_fraction": 0.10406091370558376,
+    "fraction_of_total_squared_distance": {
+      "current_velocity": 0.01569440352189724,
+      "current_body_rate": 0.027852361454835408,
+      "current_rotation": 0.05289318393668286,
+      "current_input": 0.0605467486117855,
+      "observation_history": 0.7256141495123858,
+      "input_history": 0.1173991529624132
+    },
+    "interpretation": "Contributions to standardized nearest-neighbor distance, not contributions to prediction error."
+  }
+]

@@ -1,0 +1,63 @@
+{
+  "branch": "experiment/generic-transition-support",
+  "targeted_source_tests": {
+    "passed": 40,
+    "scope": [
+      "test_error_calibration.py",
+      "test_transition_gp.py",
+      "test_public_api.py",
+      "test_shape_sampling.py"
+    ],
+    "precision": "JAX default float32"
+  },
+  "targeted_float64_tests": {
+    "passed": 31,
+    "scope": [
+      "test_error_calibration.py",
+      "test_transition_gp.py"
+    ]
+  },
+  "packaged_wheel_tests": {
+    "passed": 40,
+    "import_path_verified": "artifacts/error-calibration/wheel-unpacked/glassbox/__init__.py",
+    "experimental_source_bytes_match": true
+  },
+  "independent_audit": {
+    "status": "passed",
+    "models": 25,
+    "calibrations": 160,
+    "maximum_gp_replay_difference": 1.3960610445451493e-11,
+    "checks": [
+      "source CRC and SHA256",
+      "complete planned cases and role budgets",
+      "independent mean/scale/calibration/test IDs",
+      "mean normalization and conditioning from training only",
+      "GP prediction replay in NumPy",
+      "content fingerprint",
+      "scale normalization and residual replay",
+      "score rank and all interval bounds",
+      "paired history ablation observations",
+      "all metrics and seed aggregations"
+    ]
+  },
+  "quality": {
+    "ruff_check": "passed",
+    "ruff_format_check": "255 files formatted",
+    "git_diff_check": "passed",
+    "report_links": "all local links resolved",
+    "figures": "visually inspected; corrected log minor tick labels in report-02"
+  },
+  "builds": [
+    "glassbox-0.3.0rc1-py3-none-any.whl",
+    "glassbox-0.3.0rc1.tar.gz"
+  ],
+  "preservation": "36 preexisting dirty files unchanged; docs/README.md intentionally extended",
+  "source_manifest": "confirmation sources still match current source bytes",
+  "full_suite": "not rerun; additive experimental changes tested with targeted numerical/interface and wheel checks",
+  "limitations": [
+    "synthetic independent resets only",
+    "marginal observation coverage under exchangeability, no local or shifted guarantee",
+    "largest evidence arm uses 1024 additional labels",
+    "history supplied explicitly; oracle error decomposition does not infer causes from telemetry"
+  ]
+}

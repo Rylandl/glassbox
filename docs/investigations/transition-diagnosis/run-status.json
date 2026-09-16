@@ -1,0 +1,10 @@
+{
+  "smoke-01": "Completed two cases with seed 0, 48 mean windows and 4/12 optimization steps; integration only.",
+  "smoke-audit-01": "Passed source/window/GP/ridge replay on both smoke cases.",
+  "smoke-audit-02": "Passed the updated reporter including channel summaries and paired comparisons.",
+  "diagnosis-01": "Completed all 45 predeclared cases, 360 GP components and 45 linear models; executed model/fitter sources unchanged.",
+  "layout-preview": "Figure layout checked on completed seed60 only; not a final statistical figure. Left budget-axis label margin corrected afterward.",
+  "selection": "No method, history, optimization or budget settings changed after viewing diagnostic results.",
+  "data_scope": "No Melon files loaded. Runs 3/4 are known non-training evaluation recordings, not new independent final holdouts.",
+  "report-01": "Full independent audit passed; both final figures visually inspected."
+}

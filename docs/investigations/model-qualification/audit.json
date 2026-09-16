@@ -1,0 +1,11 @@
+{
+  "planned_fits": 27,
+  "completed_fits": 27,
+  "failed_fits": 0,
+  "numerical_checks": 69450,
+  "cached_windows_reconstructed": 17280,
+  "maximum_absolute_difference": 2.2737367544323206e-13,
+  "library_predictions_replayed_in_numpy": true,
+  "sources_verified": true,
+  "limitation": "Synthetic generators and selected input distributions; not vehicle validation. No uncertainty or task-admission guarantee inferred."
+}

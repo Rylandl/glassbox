@@ -1,0 +1,12 @@
+{
+  "cases": 12,
+  "windows": 5280,
+  "auxiliary_refits": 432,
+  "markov_transition_witness_checks": 2304,
+  "numeric_comparisons": 5964,
+  "max_absolute_difference": 2.365108109358971e-12,
+  "relative_tolerance": 1e-07,
+  "absolute_tolerance": 1e-09,
+  "method": "Source/model hashes; regenerated and independently indexed windows; analytic Markov identities; independent NumPy prediction replay; whole-recording folds/donor exclusions; train-only normalization and additive powers; augmented least-squares fits and per-channel/per-recording scoring.",
+  "limits": "Shares data generators, artifact loader, and the prior independent NumPy replay/least-squares code. Audits the new residual-basis comparisons; v1 input-predictability regressions are unchanged and were audited in the earlier investigation."
+}

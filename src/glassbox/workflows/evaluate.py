@@ -29,7 +29,7 @@ from glassbox.core.data import (
     TrajectorySpec,
     _require_compatible_inputs,
     duration_to_steps,
-    load_trajectory_npz,
+    resolve_trajectory_sources,
 )
 from glassbox.core.dynamics import ModelParams
 from glassbox.core.metrics import (
@@ -286,32 +286,6 @@ def _resolve_model(
     return belief_or_params, None, None
 
 
-def _resolve_trajectories(
-    trajectories: Sequence[Trajectory | str | Path],
-) -> tuple[list[str], list[Trajectory]]:
-    """Load each flight and label it by the path the caller named.
-
-    A report records the path it was given, not the one the filesystem
-    resolves it to: an absolute path is this machine's, and a resolved one
-    also loses the directory name a symlinked corpus is documented under, so
-    neither reproduces on another checkout.
-    """
-
-    if not trajectories:
-        raise ValueError("at least one trajectory is required")
-    labels: list[str] = []
-    resolved: list[Trajectory] = []
-    for index, item in enumerate(trajectories):
-        if isinstance(item, Trajectory):
-            labels.append(str(item.provenance.get("path", f"trajectory_{index}")))
-            resolved.append(item)
-        else:
-            path = Path(item)
-            labels.append(str(path))
-            resolved.append(load_trajectory_npz(path))
-    return labels, resolved
-
-
 def _windowed_arm(
     params: ModelParams,
     labels: Sequence[str],
@@ -386,7 +360,7 @@ def baseline_horizon_rollouts(
     policy = policy_for(protocol)
     if policy.baseline != KINEMATIC_PERSISTENCE:
         raise ValueError(f"the {policy.name} protocol has no horizon baseline")
-    labels, resolved = _resolve_trajectories(trajectories)
+    labels, resolved = resolve_trajectory_sources(trajectories)
     horizon_steps, _ = _horizon_steps(resolved, policy, horizons_s)
     arm = _windowed_baseline_arm(
         labels, resolved, policy=policy, horizon_steps=horizon_steps
@@ -678,7 +652,7 @@ def evaluate(
 
     policy = policy_for(protocol)
     params, input_spec, artifact = _resolve_model(belief_or_params)
-    labels, resolved = _resolve_trajectories(trajectories)
+    labels, resolved = resolve_trajectory_sources(trajectories)
     if input_spec is not None:
         for label, trajectory in zip(labels, resolved):
             _require_compatible_inputs(input_spec, trajectory.spec, label=label)
@@ -786,7 +760,7 @@ def evaluate_models(
     policy = policy_for(protocol)
     if not models:
         raise ValueError("at least one named model is required")
-    labels, resolved = _resolve_trajectories(trajectories)
+    labels, resolved = resolve_trajectory_sources(trajectories)
     scored_models: dict[str, Any] = {}
     baseline: dict[str, Any] | None = None
     for name, model in models.items():
@@ -898,7 +872,7 @@ def evaluate_fit_reports(
     validation_paths = [
         _resolve_relative(value, anchor=anchor) for value in reference_split
     ]
-    labels, resolved = _resolve_trajectories(validation_paths)
+    labels, resolved = resolve_trajectory_sources(validation_paths)
     horizon_steps, effective = _horizon_steps(resolved, policy, horizons_s)
     baseline = _windowed_baseline_arm(
         labels, resolved, policy=policy, horizon_steps=horizon_steps

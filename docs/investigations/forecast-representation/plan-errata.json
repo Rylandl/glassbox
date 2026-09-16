@@ -1,0 +1,13 @@
+{
+  "recorded_utc": "2026-09-14T12:51:23.657430+00:00",
+  "artifact": "cf-expanded-01/plan.json",
+  "field": "new_data_budget",
+  "original": "min(384, number of complete training origins), seed 60; same longest powered interval rule; no performance-based segment selection",
+  "correction": "320 windows sampled without replacement from 1,623 complete origins across all ten eligible powered log10 intervals, seed 60. Development/evaluation windows retain the original longest interval.",
+  "explanation": "The shared plan writer inherited the original budget description. Executed expand_training code and usage.json record the actual adaptive policy. The archived plan and executed sources are preserved; current code now writes the correct description.",
+  "affects": "description only; no fitting, selection, evaluation or reported metrics changed",
+  "authority": [
+    "cf-expanded-01-executed-sources.zip:scripts/experiment_forecast_representation.py",
+    "case-reports.zip:cf-expanded-01/usage.json"
+  ]
+}

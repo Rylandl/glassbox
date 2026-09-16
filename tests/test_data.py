@@ -16,10 +16,62 @@ from glassbox.core.data import (
     save_trajectory_npz,
     specific_force_observation_channels,
     split_trajectory,
+    trajectory_content_digest,
     trajectory_windows,
 )
 
 _SESSIONS = ("a", "a", "b")
+
+
+def test_content_identity_tracks_data_and_contract_not_storage_or_labels(
+    contextual_trajectory, tmp_path
+):
+    flight = contextual_trajectory
+    path = tmp_path / "flight.npz"
+    save_trajectory_npz(flight, path)
+    digest = trajectory_content_digest(flight)
+    assert trajectory_content_digest(load_trajectory_npz(path)) == digest
+    bounded = replace(
+        flight,
+        spec=replace(
+            flight.spec,
+            channels=tuple(
+                replace(channel, minimum=-1, maximum=1)
+                for channel in flight.spec.channels
+            ),
+        ),
+    )
+    save_trajectory_npz(bounded, path)
+    assert trajectory_content_digest(bounded) == trajectory_content_digest(
+        load_trajectory_npz(path)
+    )
+    assert (
+        trajectory_content_digest(
+            replace(
+                flight,
+                labels={"source_group": "renamed"},
+                provenance={"path": "elsewhere"},
+            )
+        )
+        == digest
+    )
+    for name in ("time_s", "states", "controls", "exogenous", "observations"):
+        array = getattr(flight, name).copy()
+        array.flat[-1] += 0.001
+        assert trajectory_content_digest(replace(flight, **{name: array})) != digest
+    assert (
+        trajectory_content_digest(replace(flight, control_prefix=flight.controls[:2]))
+        != digest
+    )
+    assert (
+        trajectory_content_digest(
+            replace(
+                flight,
+                spec=replace(flight.spec, observation_source="another-estimator"),
+            )
+        )
+        != digest
+    )
 
 
 def test_duration_to_steps_is_stable_at_half_sample_boundary() -> None:

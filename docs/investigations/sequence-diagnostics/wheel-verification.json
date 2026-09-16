@@ -1,0 +1,9 @@
+{
+  "wheel": "glassbox-0.3.0rc1-py3-none-any.whl",
+  "sha256": "47c4db774fe5dd74efdbb2cd5741061c4aee22dd98d743d3062360c2df491a30",
+  "matching_packaged_python_files": 82,
+  "import_paths": {
+    "glassbox": "/Users/ryland/autonomy/dart/artifacts/sequence-diagnostics/wheel-check/installed/glassbox/__init__.py",
+    "sequence_diagnostics": "/Users/ryland/autonomy/dart/artifacts/sequence-diagnostics/wheel-check/installed/glassbox/experimental/sequence_diagnostics.py"
+  }
+}

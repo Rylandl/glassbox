@@ -1,0 +1,609 @@
+{
+  "training_command_minimum": [
+    0.35501838919218986,
+    -0.35,
+    -0.23826879859545125
+  ],
+  "training_command_maximum": [
+    0.5146369145104454,
+    0.35,
+    0.35
+  ],
+  "trials": [
+    {
+      "seed": 101,
+      "arm": "oracle",
+      "completed_steps": 320,
+      "commands_outside_training_range_fraction": 0.021875,
+      "per_channel_outside_fraction": [
+        0.021875,
+        0.0,
+        0.0
+      ],
+      "first_command": [
+        0.6817344812160091,
+        -0.20062842027487254,
+        0.06811887217729064
+      ],
+      "first_command_outside": true,
+      "command_box_boundary_fraction": 0.0
+    },
+    {
+      "seed": 101,
+      "arm": "mix-025",
+      "completed_steps": 93,
+      "commands_outside_training_range_fraction": 0.9247311827956989,
+      "per_channel_outside_fraction": [
+        0.9247311827956989,
+        0.0,
+        0.053763440860215055
+      ],
+      "first_command": [
+        0.4369888824329277,
+        0.004171881294513127,
+        0.13172665813461729
+      ],
+      "first_command_outside": false,
+      "command_box_boundary_fraction": 0.9032258064516129
+    },
+    {
+      "seed": 101,
+      "arm": "mix-050",
+      "completed_steps": 56,
+      "commands_outside_training_range_fraction": 0.875,
+      "per_channel_outside_fraction": [
+        0.875,
+        0.0,
+        0.17857142857142858
+      ],
+      "first_command": [
+        0.4369888824329277,
+        0.004171881294513127,
+        0.13172665813461729
+      ],
+      "first_command_outside": false,
+      "command_box_boundary_fraction": 0.875
+    },
+    {
+      "seed": 101,
+      "arm": "mix-075",
+      "completed_steps": 54,
+      "commands_outside_training_range_fraction": 0.8518518518518519,
+      "per_channel_outside_fraction": [
+        0.8518518518518519,
+        0.0,
+        0.4074074074074074
+      ],
+      "first_command": [
+        0.4369888824329277,
+        0.004171881294513127,
+        0.13172665813461729
+      ],
+      "first_command_outside": false,
+      "command_box_boundary_fraction": 0.8333333333333334
+    },
+    {
+      "seed": 101,
+      "arm": "learned",
+      "completed_steps": 81,
+      "commands_outside_training_range_fraction": 0.3333333333333333,
+      "per_channel_outside_fraction": [
+        0.2962962962962963,
+        0.0,
+        0.07407407407407407
+      ],
+      "first_command": [
+        0.42658404684446477,
+        0.35,
+        0.08251015513661565
+      ],
+      "first_command_outside": false,
+      "command_box_boundary_fraction": 1.0
+    },
+    {
+      "seed": 101,
+      "arm": "bias-0.1",
+      "completed_steps": 320,
+      "commands_outside_training_range_fraction": 0.009375,
+      "per_channel_outside_fraction": [
+        0.009375,
+        0.0,
+        0.0
+      ],
+      "first_command": [
+        0.6517485150270579,
+        -0.23248429607842816,
+        0.07887299343344925
+      ],
+      "first_command_outside": true,
+      "command_box_boundary_fraction": 0.0
+    },
+    {
+      "seed": 101,
+      "arm": "alternating-0.1",
+      "completed_steps": 320,
+      "commands_outside_training_range_fraction": 0.028125,
+      "per_channel_outside_fraction": [
+        0.028125,
+        0.0,
+        0.0
+      ],
+      "first_command": [
+        0.6517485150270579,
+        -0.23248429607842816,
+        0.07887299343344925
+      ],
+      "first_command_outside": true,
+      "command_box_boundary_fraction": 0.0
+    },
+    {
+      "seed": 101,
+      "arm": "bias-0.3",
+      "completed_steps": 320,
+      "commands_outside_training_range_fraction": 0.009375,
+      "per_channel_outside_fraction": [
+        0.009375,
+        0.0,
+        0.0
+      ],
+      "first_command": [
+        0.6256852497971217,
+        -0.29472316341080546,
+        0.09555230619807943
+      ],
+      "first_command_outside": true,
+      "command_box_boundary_fraction": 0.0
+    },
+    {
+      "seed": 101,
+      "arm": "alternating-0.3",
+      "completed_steps": 320,
+      "commands_outside_training_range_fraction": 0.284375,
+      "per_channel_outside_fraction": [
+        0.284375,
+        0.0,
+        0.0
+      ],
+      "first_command": [
+        0.6256852497971217,
+        -0.29472316341080546,
+        0.09555230619807943
+      ],
+      "first_command_outside": true,
+      "command_box_boundary_fraction": 0.0
+    },
+    {
+      "seed": 101,
+      "arm": "bias-0.6",
+      "completed_steps": 320,
+      "commands_outside_training_range_fraction": 0.0,
+      "per_channel_outside_fraction": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "first_command": [
+        0.44826346198371403,
+        -0.35,
+        0.16345483973076966
+      ],
+      "first_command_outside": false,
+      "command_box_boundary_fraction": 0.003125
+    },
+    {
+      "seed": 101,
+      "arm": "alternating-0.6",
+      "completed_steps": 320,
+      "commands_outside_training_range_fraction": 0.846875,
+      "per_channel_outside_fraction": [
+        0.846875,
+        0.0,
+        0.003125
+      ],
+      "first_command": [
+        0.44826346198371403,
+        -0.35,
+        0.16345483973076966
+      ],
+      "first_command_outside": false,
+      "command_box_boundary_fraction": 0.359375
+    },
+    {
+      "seed": 102,
+      "arm": "mix-025",
+      "completed_steps": 96,
+      "commands_outside_training_range_fraction": 0.96875,
+      "per_channel_outside_fraction": [
+        0.9583333333333334,
+        0.0,
+        0.8645833333333334
+      ],
+      "first_command": [
+        0.4369888824329277,
+        0.004171881294513127,
+        0.13172665813461729
+      ],
+      "first_command_outside": false,
+      "command_box_boundary_fraction": 0.9270833333333334
+    },
+    {
+      "seed": 102,
+      "arm": "mix-050",
+      "completed_steps": 105,
+      "commands_outside_training_range_fraction": 0.9523809523809523,
+      "per_channel_outside_fraction": [
+        0.9523809523809523,
+        0.0,
+        0.7714285714285715
+      ],
+      "first_command": [
+        0.4369888824329277,
+        0.004171881294513127,
+        0.13172665813461729
+      ],
+      "first_command_outside": false,
+      "command_box_boundary_fraction": 0.9428571428571428
+    },
+    {
+      "seed": 102,
+      "arm": "mix-075",
+      "completed_steps": 74,
+      "commands_outside_training_range_fraction": 0.8918918918918919,
+      "per_channel_outside_fraction": [
+        0.8918918918918919,
+        0.0,
+        0.4189189189189189
+      ],
+      "first_command": [
+        0.4369888824329277,
+        0.004171881294513127,
+        0.13172665813461729
+      ],
+      "first_command_outside": false,
+      "command_box_boundary_fraction": 0.918918918918919
+    },
+    {
+      "seed": 102,
+      "arm": "learned",
+      "completed_steps": 101,
+      "commands_outside_training_range_fraction": 0.8910891089108911,
+      "per_channel_outside_fraction": [
+        0.8910891089108911,
+        0.0,
+        0.10891089108910891
+      ],
+      "first_command": [
+        0.4369888824329277,
+        0.004171881294513127,
+        0.13172665813461729
+      ],
+      "first_command_outside": false,
+      "command_box_boundary_fraction": 0.9306930693069307
+    },
+    {
+      "seed": 102,
+      "arm": "bias-0.1",
+      "completed_steps": 320,
+      "commands_outside_training_range_fraction": 0.0125,
+      "per_channel_outside_fraction": [
+        0.0125,
+        0.0,
+        0.0
+      ],
+      "first_command": [
+        0.5780018887911922,
+        -0.35,
+        0.06741487676187069
+      ],
+      "first_command_outside": true,
+      "command_box_boundary_fraction": 0.00625
+    },
+    {
+      "seed": 102,
+      "arm": "alternating-0.1",
+      "completed_steps": 320,
+      "commands_outside_training_range_fraction": 0.028125,
+      "per_channel_outside_fraction": [
+        0.028125,
+        0.0,
+        0.0
+      ],
+      "first_command": [
+        0.5780018887911922,
+        -0.35,
+        0.06741487676187069
+      ],
+      "first_command_outside": true,
+      "command_box_boundary_fraction": 0.003125
+    },
+    {
+      "seed": 102,
+      "arm": "bias-0.3",
+      "completed_steps": 320,
+      "commands_outside_training_range_fraction": 0.00625,
+      "per_channel_outside_fraction": [
+        0.00625,
+        0.0,
+        0.0
+      ],
+      "first_command": [
+        0.4837749869474634,
+        -0.35,
+        0.11899967811037895
+      ],
+      "first_command_outside": false,
+      "command_box_boundary_fraction": 0.00625
+    },
+    {
+      "seed": 102,
+      "arm": "alternating-0.3",
+      "completed_steps": 320,
+      "commands_outside_training_range_fraction": 0.30625,
+      "per_channel_outside_fraction": [
+        0.30625,
+        0.0,
+        0.0
+      ],
+      "first_command": [
+        0.4837749869474634,
+        -0.35,
+        0.11899967811037895
+      ],
+      "first_command_outside": false,
+      "command_box_boundary_fraction": 0.00625
+    },
+    {
+      "seed": 102,
+      "arm": "bias-0.6",
+      "completed_steps": 320,
+      "commands_outside_training_range_fraction": 0.025,
+      "per_channel_outside_fraction": [
+        0.025,
+        0.0,
+        0.0
+      ],
+      "first_command": [
+        0.3755794111695596,
+        -0.35,
+        0.1922123586162555
+      ],
+      "first_command_outside": false,
+      "command_box_boundary_fraction": 0.009375
+    },
+    {
+      "seed": 102,
+      "arm": "alternating-0.6",
+      "completed_steps": 320,
+      "commands_outside_training_range_fraction": 0.946875,
+      "per_channel_outside_fraction": [
+        0.946875,
+        0.0,
+        0.225
+      ],
+      "first_command": [
+        0.3755794111695596,
+        -0.35,
+        0.1922123586162555
+      ],
+      "first_command_outside": false,
+      "command_box_boundary_fraction": 0.7375
+    },
+    {
+      "seed": 102,
+      "arm": "oracle",
+      "completed_steps": 320,
+      "commands_outside_training_range_fraction": 0.025,
+      "per_channel_outside_fraction": [
+        0.025,
+        0.0,
+        0.0
+      ],
+      "first_command": [
+        0.6708549964210242,
+        -0.35,
+        0.0401126000450569
+      ],
+      "first_command_outside": true,
+      "command_box_boundary_fraction": 0.00625
+    },
+    {
+      "seed": 103,
+      "arm": "mix-050",
+      "completed_steps": 112,
+      "commands_outside_training_range_fraction": 0.8660714285714286,
+      "per_channel_outside_fraction": [
+        0.8571428571428571,
+        0.0,
+        0.32142857142857145
+      ],
+      "first_command": [
+        0.4369888824329277,
+        0.004171881294513127,
+        0.13172665813461729
+      ],
+      "first_command_outside": false,
+      "command_box_boundary_fraction": 0.8928571428571429
+    },
+    {
+      "seed": 103,
+      "arm": "mix-075",
+      "completed_steps": 137,
+      "commands_outside_training_range_fraction": 0.8759124087591241,
+      "per_channel_outside_fraction": [
+        0.8759124087591241,
+        0.0,
+        0.22627737226277372
+      ],
+      "first_command": [
+        0.4369888824329277,
+        0.004171881294513127,
+        0.13172665813461729
+      ],
+      "first_command_outside": false,
+      "command_box_boundary_fraction": 0.8905109489051095
+    },
+    {
+      "seed": 103,
+      "arm": "learned",
+      "completed_steps": 104,
+      "commands_outside_training_range_fraction": 0.9711538461538461,
+      "per_channel_outside_fraction": [
+        0.9711538461538461,
+        0.0,
+        0.4326923076923077
+      ],
+      "first_command": [
+        0.45053814826891,
+        0.35,
+        0.128990532505008
+      ],
+      "first_command_outside": false,
+      "command_box_boundary_fraction": 1.0
+    },
+    {
+      "seed": 103,
+      "arm": "bias-0.1",
+      "completed_steps": 320,
+      "commands_outside_training_range_fraction": 0.009375,
+      "per_channel_outside_fraction": [
+        0.009375,
+        0.0,
+        0.0
+      ],
+      "first_command": [
+        0.5154483453792877,
+        -0.35,
+        0.07366538186352073
+      ],
+      "first_command_outside": true,
+      "command_box_boundary_fraction": 0.009375
+    },
+    {
+      "seed": 103,
+      "arm": "alternating-0.1",
+      "completed_steps": 320,
+      "commands_outside_training_range_fraction": 0.021875,
+      "per_channel_outside_fraction": [
+        0.021875,
+        0.0,
+        0.0
+      ],
+      "first_command": [
+        0.5154483453792877,
+        -0.35,
+        0.07366538186352073
+      ],
+      "first_command_outside": true,
+      "command_box_boundary_fraction": 0.009375
+    },
+    {
+      "seed": 103,
+      "arm": "bias-0.3",
+      "completed_steps": 320,
+      "commands_outside_training_range_fraction": 0.015625,
+      "per_channel_outside_fraction": [
+        0.015625,
+        0.0,
+        0.0
+      ],
+      "first_command": [
+        0.41930462706162125,
+        -0.35,
+        0.1317716738426352
+      ],
+      "first_command_outside": false,
+      "command_box_boundary_fraction": 0.009375
+    },
+    {
+      "seed": 103,
+      "arm": "alternating-0.3",
+      "completed_steps": 320,
+      "commands_outside_training_range_fraction": 0.3375,
+      "per_channel_outside_fraction": [
+        0.3375,
+        0.0,
+        0.0
+      ],
+      "first_command": [
+        0.41930462706162125,
+        -0.35,
+        0.1317716738426352
+      ],
+      "first_command_outside": false,
+      "command_box_boundary_fraction": 0.00625
+    },
+    {
+      "seed": 103,
+      "arm": "bias-0.6",
+      "completed_steps": 320,
+      "commands_outside_training_range_fraction": 0.0375,
+      "per_channel_outside_fraction": [
+        0.0375,
+        0.0,
+        0.0
+      ],
+      "first_command": [
+        0.29783147531009435,
+        -0.35,
+        0.21322841838064863
+      ],
+      "first_command_outside": true,
+      "command_box_boundary_fraction": 0.0125
+    },
+    {
+      "seed": 103,
+      "arm": "alternating-0.6",
+      "completed_steps": 320,
+      "commands_outside_training_range_fraction": 0.909375,
+      "per_channel_outside_fraction": [
+        0.909375,
+        0.0,
+        0.028125
+      ],
+      "first_command": [
+        0.29783147531009435,
+        -0.35,
+        0.21322841838064863
+      ],
+      "first_command_outside": true,
+      "command_box_boundary_fraction": 0.61875
+    },
+    {
+      "seed": 103,
+      "arm": "oracle",
+      "completed_steps": 320,
+      "commands_outside_training_range_fraction": 0.028125,
+      "per_channel_outside_fraction": [
+        0.028125,
+        0.0,
+        0.0
+      ],
+      "first_command": [
+        0.5694445544794857,
+        -0.35,
+        0.047405541737943424
+      ],
+      "first_command_outside": true,
+      "command_box_boundary_fraction": 0.009375
+    },
+    {
+      "seed": 103,
+      "arm": "mix-025",
+      "completed_steps": 117,
+      "commands_outside_training_range_fraction": 0.9914529914529915,
+      "per_channel_outside_fraction": [
+        0.9829059829059829,
+        0.0,
+        0.13675213675213677
+      ],
+      "first_command": [
+        0.8191407264029232,
+        -0.35,
+        -0.1511226973091981
+      ],
+      "first_command_outside": true,
+      "command_box_boundary_fraction": 0.9743589743589743
+    }
+  ],
+  "limitation": "Marginal training-window command ranges, not joint support or a causal explanation."
+}

@@ -1,0 +1,478 @@
+{
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/comparison-01/environment.json": {
+    "bytes": 172,
+    "sha256": "1b7214f3d0266cc5afd3d4e8c3b83e2bdd1e60de21b16a767cb53bbf6b4b7399"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/comparison-01/executed-sources.zip": {
+    "bytes": 362062,
+    "sha256": "1c335cfc142e5f5cf51e4f7bd6e0dd459f2a458fa4fc18eada73ed927c0908b1"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/comparison-01/hidden_delay-learned-101/comparison.json": {
+    "bytes": 6869,
+    "sha256": "6744f7111eb4a576ffd98bce3b764ec3483f79320329bd037a9ab0e00f1f4be5"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/comparison-01/hidden_delay-learned-101/diagnostic.json": {
+    "bytes": 7553,
+    "sha256": "2f337f9a9a1bbbb0e357258117789b50adea4bada415a38e35ed5e44c0867f28"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/comparison-01/hidden_delay-learned-101/evidence.npz": {
+    "bytes": 277745,
+    "sha256": "d1105acb14fd46f195503f541b1864e41ba5c92e7eb00d85f0952fe618441d15"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/comparison-01/hidden_delay-learned-101/result.json": {
+    "bytes": 1751,
+    "sha256": "367c97c04031dd6ced8f0ff1f44c39569231f6dab6ddf3230771e15eb5cc7840"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/comparison-01/hidden_delay-learned-202/comparison.json": {
+    "bytes": 6868,
+    "sha256": "6edbfdcb000260e63ed27600f7de1aadac8c6e88935500950d39534f32bf5b43"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/comparison-01/hidden_delay-learned-202/diagnostic.json": {
+    "bytes": 7558,
+    "sha256": "344d448b0514fe70d99dfb2b2e07d40515eadb8ddf4fd14f86d426859b37eb5a"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/comparison-01/hidden_delay-learned-202/evidence.npz": {
+    "bytes": 277729,
+    "sha256": "f88b6ea478a107349854f34e33285492c97bb0c0f6de29772ae606cf604f462d"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/comparison-01/hidden_delay-learned-202/result.json": {
+    "bytes": 1751,
+    "sha256": "fcfb035c414284cac22849c2322cb1efae59b77c099d49a93053a2df2cd4622b"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/comparison-01/hidden_delay-learned-303/comparison.json": {
+    "bytes": 6872,
+    "sha256": "4c967b04b5cb756ee645ff27304647dfa74d0239506151de8114f5c3479750b7"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/comparison-01/hidden_delay-learned-303/diagnostic.json": {
+    "bytes": 7549,
+    "sha256": "ec01a4e3fa258e37053b2ab8128b50a977723b2814ed168193fed03d84a96a2d"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/comparison-01/hidden_delay-learned-303/evidence.npz": {
+    "bytes": 277827,
+    "sha256": "b471b35cd1856597e3a8422644472ae8def27340be42d8112bcf92b398d19f4d"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/comparison-01/hidden_delay-learned-303/result.json": {
+    "bytes": 1753,
+    "sha256": "8c4c9fda42b5be3e5a359dc6656e461cc525b66575daff607448cc646146ce76"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/comparison-01/observed_cycle-hold-101/comparison.json": {
+    "bytes": 17020,
+    "sha256": "7fbf2d732c2c6930a44b8f1dad42c17a24fd9b207af8625ecba7c0647edc3266"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/comparison-01/observed_cycle-hold-101/diagnostic.json": {
+    "bytes": 11002,
+    "sha256": "35862614a79bd1f16936a6ed52ed44cac7c09b4845b90f36f030b53300b193b8"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/comparison-01/observed_cycle-hold-101/evidence.npz": {
+    "bytes": 317085,
+    "sha256": "38aec4e4934298e16eb6b38ea1e5726647f6cee640641a076d1645a91e4178b3"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/comparison-01/observed_cycle-hold-101/result.json": {
+    "bytes": 3786,
+    "sha256": "6cb07d3e4ab0d72bbdad8c4f72257bf7d1a397546da1d7ad52bed8d3a8b3d91a"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/comparison-01/observed_cycle-hold-202/comparison.json": {
+    "bytes": 17024,
+    "sha256": "b42df00af1a60254be736c29ab91e9409eac3c135a5ff8e8fb4143bfd83e820c"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/comparison-01/observed_cycle-hold-202/diagnostic.json": {
+    "bytes": 11017,
+    "sha256": "e2a68367e303323308a153879f08e869181627d3f55d61837849c060a97d9363"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/comparison-01/observed_cycle-hold-202/evidence.npz": {
+    "bytes": 317432,
+    "sha256": "779b50627f9f5e0ab7a4385c8b5da37b2623a7da4c8dc82c0370fb8aaa1489a4"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/comparison-01/observed_cycle-hold-202/result.json": {
+    "bytes": 3781,
+    "sha256": "098cf7736a91a29db6b9a45e2e3f430f4fd3802892eaed7f1994d6eab5fcad4c"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/comparison-01/observed_cycle-hold-303/comparison.json": {
+    "bytes": 17016,
+    "sha256": "9174bb4b8cb9cc3c8479754ec738bb4261151ce772025733e7ef2c1d755efdc1"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/comparison-01/observed_cycle-hold-303/diagnostic.json": {
+    "bytes": 11024,
+    "sha256": "62f6ad0c217d4ab5d9d781320fd41a166d9a16c6a7423a970aeb70af3280c5da"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/comparison-01/observed_cycle-hold-303/evidence.npz": {
+    "bytes": 316772,
+    "sha256": "8026b54540d110e93de3acdb5d122fa986a3881d5b845f1d9245dbe12bf3c3b9"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/comparison-01/observed_cycle-hold-303/result.json": {
+    "bytes": 3787,
+    "sha256": "d6c29c5578f616660670ab15b294aaf389de73381a7211139166fc184fdef9c6"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/comparison-01/observed_cycle-learned-101/comparison.json": {
+    "bytes": 17046,
+    "sha256": "f4aacbfa2b4ed560780529f04bdafeebd38d6d1c35d7662c204f7debab47eff0"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/comparison-01/observed_cycle-learned-101/diagnostic.json": {
+    "bytes": 11019,
+    "sha256": "7436103a5cb84f025fa0b9a74833f31f0fa1389a8ad3af4cde91c537b36c3833"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/comparison-01/observed_cycle-learned-101/evidence.npz": {
+    "bytes": 322204,
+    "sha256": "cca3129fbb85e7142bc8988bd9fa95adf91a0821622082b880cbdc718b010ff9"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/comparison-01/observed_cycle-learned-101/fit-report.json": {
+    "bytes": 9793,
+    "sha256": "59a33523e6218620146dc4ded31bac6a82d9ce627cb21f2d17a3295d7f487faf"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/comparison-01/observed_cycle-learned-101/model.npz": {
+    "bytes": 32775,
+    "sha256": "8542027597ac67c29ac0ef99cc7f8928307261ccdfd5d48b7b81444bb23a96d5"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/comparison-01/observed_cycle-learned-101/result.json": {
+    "bytes": 3811,
+    "sha256": "f764b5a83e35bd8f67f73ceecf122681f3e1c11047cddb2634fcfc2f306278bf"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/comparison-01/observed_cycle-learned-202/comparison.json": {
+    "bytes": 17015,
+    "sha256": "d8b1b91ec8618f3f8d250598988da846b4e5e218df7691ca0351025c6fdbf69d"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/comparison-01/observed_cycle-learned-202/diagnostic.json": {
+    "bytes": 11024,
+    "sha256": "75be2111967b297573432eb444834bec9aa6496404b7198bb5d139d332b79c4e"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/comparison-01/observed_cycle-learned-202/evidence.npz": {
+    "bytes": 323021,
+    "sha256": "eaa67dc228a2a97b329c705bd47de7fbc53e3643cbef1c5992954b1c871dfe48"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/comparison-01/observed_cycle-learned-202/fit-report.json": {
+    "bytes": 9799,
+    "sha256": "d4f76854da8df82c8154b6d8ee10af8970a2df412b03f4c66de3f64bfdc30d65"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/comparison-01/observed_cycle-learned-202/model.npz": {
+    "bytes": 32790,
+    "sha256": "885a31a2952510a7a0d5a58216047ae1e77a4810c77b93093d6ce29dcac77b0e"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/comparison-01/observed_cycle-learned-202/result.json": {
+    "bytes": 3792,
+    "sha256": "2fb22f6664249206c63fc8e51b9c9c6dec792f52d5079ca7961658457f26a6cf"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/comparison-01/observed_cycle-learned-303/comparison.json": {
+    "bytes": 17009,
+    "sha256": "7bf68dd03aa8290021e0f3a2ce75c24548f07a4c91e021d18db716fad1785d0b"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/comparison-01/observed_cycle-learned-303/diagnostic.json": {
+    "bytes": 11026,
+    "sha256": "f1af80d95f94ad709b94db174929070b9feb039ccc9b77651f2853caedda268e"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/comparison-01/observed_cycle-learned-303/evidence.npz": {
+    "bytes": 322309,
+    "sha256": "95a91b493a1c61b642c3303c86cec5ea460593f52f85bd0f0db6175848eb5de5"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/comparison-01/observed_cycle-learned-303/fit-report.json": {
+    "bytes": 9789,
+    "sha256": "70f293106404efe0c2a58237c95065186c35d420f14412a58bcc7a8e0fe9de12"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/comparison-01/observed_cycle-learned-303/model.npz": {
+    "bytes": 32772,
+    "sha256": "8813545b9ddcd9e5baeacff333875b08fb742e20b949b428423c847c1af2128f"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/comparison-01/observed_cycle-learned-303/result.json": {
+    "bytes": 3805,
+    "sha256": "a91864abe21ebd976329088ab79a3e767fa6ac8dbb8af74cf5ac8908acdb35f1"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/comparison-01/plan.json": {
+    "bytes": 3194,
+    "sha256": "ce3128a8ae18bcaa15680a4486cd3117261544c9dd872b4751f5e34c3a5fd23c"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/comparison-01/process_noise-learned-101/comparison.json": {
+    "bytes": 6901,
+    "sha256": "49d566ef4156ea28a1df0b5c1016e1d056b8a69d73137b0d79d32bf8efa40aac"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/comparison-01/process_noise-learned-101/diagnostic.json": {
+    "bytes": 7565,
+    "sha256": "72a10a965b7ca90e7932f57b14303e387cd6bd5993618e15e238a4cafb2d7604"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/comparison-01/process_noise-learned-101/evidence.npz": {
+    "bytes": 277563,
+    "sha256": "5133d245b211951426427a4f5a4049e7d5d79e20e2997b7444bd7df8b9e4c128"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/comparison-01/process_noise-learned-101/result.json": {
+    "bytes": 1766,
+    "sha256": "8297b0a3dc02a743e38b9f0b8afcd0acbc30a345f1edb5ef94be5d38eda29401"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/comparison-01/process_noise-learned-202/comparison.json": {
+    "bytes": 6904,
+    "sha256": "fa4d1edd8d2a7133b7173a73efd6045fc55400cfc1b5c48cc56b41d11f21d436"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/comparison-01/process_noise-learned-202/diagnostic.json": {
+    "bytes": 7566,
+    "sha256": "728468440953a4cc17d76e4d7cd7e83ea564676f2e06e34377ab025db364b0a0"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/comparison-01/process_noise-learned-202/evidence.npz": {
+    "bytes": 277508,
+    "sha256": "eda26df2b257de886712e416cba3d5568212043206ade89fd2f0190e58f460b4"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/comparison-01/process_noise-learned-202/result.json": {
+    "bytes": 1763,
+    "sha256": "f8f6d05759ae5ae445f2d42c7c1b846d932e5f82e53035e08e428d54852abd07"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/comparison-01/process_noise-learned-303/comparison.json": {
+    "bytes": 6904,
+    "sha256": "b6079819e500a76e05ff5c4cc94f48d2982ba94fa49945e97ffa9d9d96a0803a"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/comparison-01/process_noise-learned-303/diagnostic.json": {
+    "bytes": 7572,
+    "sha256": "c52a67a7b71cbd8e43d6b0c5a733fe483641d2e7d9699d381f12c0ffe9379fdc"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/comparison-01/process_noise-learned-303/evidence.npz": {
+    "bytes": 277617,
+    "sha256": "be9f0a45dca99b0aad1a3835c096b3ff23865689c57aa53780648d800d152f22"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/comparison-01/process_noise-learned-303/result.json": {
+    "bytes": 1758,
+    "sha256": "06b1e29ed7c1fb84cd073dc1c7e5dda14fc21bea8306a49d880926f776620902"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/comparison-01/results.json": {
+    "bytes": 35935,
+    "sha256": "b40d3a71e784f73c9b4dd9ef9e233fc2b797a21eb6a466d1144763ee9a77e4f0"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/comparison-01/sources.json": {
+    "bytes": 9348,
+    "sha256": "e4439c6896e503c654c9be8430e5905f9b0a0203b301d29c2edff54fa2222d63"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/final-source-pytest.xml": {
+    "bytes": 7878,
+    "sha256": "0f64c3af5133acd47d8b377005ea2737f4a2235e48db964fea44efd7894f0cb9"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/objective-ablation-plan.json": {
+    "bytes": 1430,
+    "sha256": "748f94780730761e763dbb14a624883a2034223c4b0d2d825282965e889b5af9"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/objective-comparison-01/environment.json": {
+    "bytes": 172,
+    "sha256": "8d57eb15caa51ae80c6158d14bbdaa2f71ddccef88875336781ec64d680046ed"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/objective-comparison-01/executed-sources.zip": {
+    "bytes": 370381,
+    "sha256": "39d6cad560909d387db2027fca43cb62bc8982c99e8227358fc569516918914a"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/objective-comparison-01/hidden_delay-learned-101/candidate.npz": {
+    "bytes": 4824,
+    "sha256": "488393aa127af2eca7ce236b5711aaa75a36d5276f4b0ce300edaa4de9449431"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/objective-comparison-01/hidden_delay-learned-101/evaluation.npz": {
+    "bytes": 71194,
+    "sha256": "9035589b65c88fc4f0d0aea09858f5c9f980639c9f5320670c4eac75d6d0c509"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/objective-comparison-01/hidden_delay-learned-101/fit-report.json": {
+    "bytes": 1895,
+    "sha256": "b2afcde0a7c73482510ac2dfdd06cb8464524e09d30f8bb4985813e58ee9ed9d"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/objective-comparison-01/hidden_delay-learned-101/result.json": {
+    "bytes": 1761,
+    "sha256": "857aca5983a58b16913a995d348096ae81f61ee40b3df2cb6e0d93d45c73940c"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/objective-comparison-01/hidden_delay-learned-202/candidate.npz": {
+    "bytes": 4819,
+    "sha256": "b9082f23a2ee8f5f86ce101c7419a226735603226235f6f6c6dbdba7dbbc232d"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/objective-comparison-01/hidden_delay-learned-202/evaluation.npz": {
+    "bytes": 71256,
+    "sha256": "efddac5d724581ca42fc22e1f8a2d023f4151b902541244fb1ba1148492f9ec6"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/objective-comparison-01/hidden_delay-learned-202/fit-report.json": {
+    "bytes": 1891,
+    "sha256": "4fd8c7bf25e01cada27dee24e36997f7e74257c355847bd5683f90b28a883a5c"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/objective-comparison-01/hidden_delay-learned-202/result.json": {
+    "bytes": 1756,
+    "sha256": "867ca53bcc42dc9c253b9210fc6a74e5d25eaeee8ff3b449c8ba0c04d202036d"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/objective-comparison-01/hidden_delay-learned-303/candidate.npz": {
+    "bytes": 4826,
+    "sha256": "0e89ab5d10f12801e4417fee07b221f7c43f1216081f6a5170ba2bf2849ab6b8"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/objective-comparison-01/hidden_delay-learned-303/evaluation.npz": {
+    "bytes": 71259,
+    "sha256": "367f847cb16dfeeb18f76e85ce83390683a44cccc00b1470b4c7ab568f0d27d4"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/objective-comparison-01/hidden_delay-learned-303/fit-report.json": {
+    "bytes": 1894,
+    "sha256": "42493fd98b5a1c91ade97a6d04b8a91b77f07d148333abadc684578f78ff222d"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/objective-comparison-01/hidden_delay-learned-303/result.json": {
+    "bytes": 1761,
+    "sha256": "da2c149fa9d3ba237a9a1491108208bbd2b23f23b1b506918001b6e70d328e27"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/objective-comparison-01/observed_cycle-learned-101/candidate.npz": {
+    "bytes": 9428,
+    "sha256": "fc0da9975de584f66b0f837d852747a995177f2fcbb3013dc5a9115d66bf7001"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/objective-comparison-01/observed_cycle-learned-101/evaluation.npz": {
+    "bytes": 70786,
+    "sha256": "25a46a7fab4b3b4b0bc9bc611710173bb5957e59c1ffc3e8e9eeb901fc156540"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/objective-comparison-01/observed_cycle-learned-101/fit-report.json": {
+    "bytes": 2453,
+    "sha256": "2216e49cd2775687969479e892cf06e714240a54274d9663abcb444d9736012c"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/objective-comparison-01/observed_cycle-learned-101/result.json": {
+    "bytes": 3483,
+    "sha256": "0733c9008f2346e65881bd1c429f4a2b8d6f88f55ef4074d1572450eed75d896"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/objective-comparison-01/observed_cycle-learned-202/candidate.npz": {
+    "bytes": 9432,
+    "sha256": "88ab308bf1d64fa5055c4ab4664f77a02e8624295edd7cc964ef9e6dc60c742c"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/objective-comparison-01/observed_cycle-learned-202/evaluation.npz": {
+    "bytes": 70742,
+    "sha256": "f9bb5e53a1be5435a7149e20c601de633bdc2cc67fde4dc40510c4e4b65ea090"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/objective-comparison-01/observed_cycle-learned-202/fit-report.json": {
+    "bytes": 2462,
+    "sha256": "55ebd6a831cd29ea7b03e9e9f9b438534ba69d836158a3258994270a96468a62"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/objective-comparison-01/observed_cycle-learned-202/result.json": {
+    "bytes": 3486,
+    "sha256": "9e749af7c81495a197f65f93ff7d1965d78f23732fefa6d986c7524f1c0ba111"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/objective-comparison-01/observed_cycle-learned-303/candidate.npz": {
+    "bytes": 9419,
+    "sha256": "969047f26782834325b78c5c1b0732886ee354960d9b15837d72c52470b8a3cd"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/objective-comparison-01/observed_cycle-learned-303/evaluation.npz": {
+    "bytes": 70677,
+    "sha256": "80d874eb5154ca9e7e1deba58f7194882572e5d24f6b1fd7fb517f237bd41756"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/objective-comparison-01/observed_cycle-learned-303/fit-report.json": {
+    "bytes": 2452,
+    "sha256": "20bf2144a7cef7afddb2e1595a98b55e846bd75be7218657378890f28c1d2e64"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/objective-comparison-01/observed_cycle-learned-303/result.json": {
+    "bytes": 3486,
+    "sha256": "c10a5e40b310b6922f4b6e7a297b58858ad1c38464317a8fad66f194f2b0a5b2"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/objective-comparison-01/plan.json": {
+    "bytes": 1430,
+    "sha256": "748f94780730761e763dbb14a624883a2034223c4b0d2d825282965e889b5af9"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/objective-comparison-01/process_noise-learned-101/candidate.npz": {
+    "bytes": 4817,
+    "sha256": "0f68e94b037d17eb7818a1803d7675408cf1040df6e53df73d28a4cb4cfdba12"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/objective-comparison-01/process_noise-learned-101/evaluation.npz": {
+    "bytes": 71226,
+    "sha256": "9090a41564e0832c4e06af4e780bd6823855e873186e734f410ef998482d6e60"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/objective-comparison-01/process_noise-learned-101/fit-report.json": {
+    "bytes": 1889,
+    "sha256": "ee21d6f1c726b89253e6140cc42fd0e1b0dc3be0e2843934eb9b83a92ae61ea3"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/objective-comparison-01/process_noise-learned-101/result.json": {
+    "bytes": 1760,
+    "sha256": "5db30670bdc273b78bb65ec538d30ea33e2b0705f83fa08a2a729947f22d36db"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/objective-comparison-01/process_noise-learned-202/candidate.npz": {
+    "bytes": 4281,
+    "sha256": "32703b15531e930bf44ac2e0d53b3da4f9a31d46bdbf68291985314d9b928ffc"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/objective-comparison-01/process_noise-learned-202/evaluation.npz": {
+    "bytes": 71191,
+    "sha256": "b928b4dc0a82c5f6a16786d74de305f36ae271ecf0c3f984c91652c9dd56d87b"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/objective-comparison-01/process_noise-learned-202/fit-report.json": {
+    "bytes": 1885,
+    "sha256": "17a71ddf26e6db2abc20628f3aa989c2f38ec03d84d024f0ab73960d35ee4244"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/objective-comparison-01/process_noise-learned-202/result.json": {
+    "bytes": 1758,
+    "sha256": "67d28d68963a3b42c77d1b80634fbb68e0c35568c65f68e2066970fe480291cb"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/objective-comparison-01/process_noise-learned-303/candidate.npz": {
+    "bytes": 4280,
+    "sha256": "63e62177ccbf6a51903d5fa50ce64be5b8e618501e48d9f4ca151e19fe0ea572"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/objective-comparison-01/process_noise-learned-303/evaluation.npz": {
+    "bytes": 71166,
+    "sha256": "1ed851d0c83e888176762516d4ff59ba5728fea39a07002bd3b2b4a3ff7863ed"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/objective-comparison-01/process_noise-learned-303/fit-report.json": {
+    "bytes": 1888,
+    "sha256": "f8224ebf490fe02490a27be3be78410f5bf44d67ab34c9fb2425912f5e288570"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/objective-comparison-01/process_noise-learned-303/result.json": {
+    "bytes": 1759,
+    "sha256": "290bc7cd8a4f6b4559e1a611b2eeb6e48f0e213aaaf2d10785c5aacb6c7060b8"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/objective-comparison-01/replay.json": {
+    "bytes": 317,
+    "sha256": "37dff223144aba4ad2d13f07310dd3cbfa28fbb507f0b8906556b49f0f7886ee"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/objective-comparison-01/results.json": {
+    "bytes": 22894,
+    "sha256": "350c8cc30fbf71ba88ec32922e9034dfcfd21d3a7270711501ba1fd5e4177fd2"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/objective-comparison-01/sources.json": {
+    "bytes": 9567,
+    "sha256": "e81ad2a32548d0ad35927388b5112844dc2b9a82d130f9baba603a34df23ee73"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/objective_probe.py": {
+    "bytes": 3644,
+    "sha256": "91de4176a1693babe9cceb61ab1cda14848dc6934e564227696be473f1312f2b"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/plan.json": {
+    "bytes": 3194,
+    "sha256": "ce3128a8ae18bcaa15680a4486cd3117261544c9dd872b4751f5e34c3a5fd23c"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/report-02/audit.json": {
+    "bytes": 810,
+    "sha256": "0c809c4e303f08919ce7fec0463e754f1928423dab3ad1b9a879e2fbd630f823"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/report-02/history-confounding.png": {
+    "bytes": 117715,
+    "sha256": "ee4992277150712e541713495814544b1ce665c12351dc75e96ae78d52933284"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/report-02/horizon-scaling.png": {
+    "bytes": 216011,
+    "sha256": "57adf1f51a1bd8932c551d0f34e322efe12ceeb1cbe58c629b93e285512aa83d"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/report-02/objective-audit.json": {
+    "bytes": 13996,
+    "sha256": "10b48b8977ef61e9143ff0973a049bb193c0c71c82212ce95b7585b6ae3c6753"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/report-02/objective-comparison-audit.json": {
+    "bytes": 591,
+    "sha256": "8c80fef74a89f05b2c5f1c12776aac8e3e6167aa24c0da0c18b7b33b585ca5f4"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/report-02/objective-comparison-summary.json": {
+    "bytes": 1155,
+    "sha256": "b4e666aee5f0bdcc7b2e26a58ce1f42f6914da1dba9f6e1232f058835d3fc886"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/report-02/summary.json": {
+    "bytes": 24608,
+    "sha256": "f2efe1978090c9b566b43c76afe0f4b379560441f28fd579e680482ca23a4ca5"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/history-confounding/starting-hashes.json": {
+    "bytes": 9085,
+    "sha256": "7f37fdeffef539b6ef91c3fd1358e513cee971b26170282866918a1e40547f4e"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/model-qualification/comparison-01/memory-101-hidden/model.npz": {
+    "bytes": 54234,
+    "sha256": "0f0b50c530c5f38d778800224c025600d9bbb810cfe94192aaa623c5e28bc625"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/model-qualification/comparison-01/memory-202-hidden/model.npz": {
+    "bytes": 54277,
+    "sha256": "b2cc576bd27f1dc06c89b4cba28af49e7617c4b15e5bb5d34f88d4710fa4f772"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/model-qualification/comparison-01/memory-303-hidden/model.npz": {
+    "bytes": 54217,
+    "sha256": "f3692eb863209149e17ef369b12b6b7159cb1928803d98743541f8cedaee4014"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/sequence-diagnostics/comparison-01/process_noise-101/model.npz": {
+    "bytes": 54254,
+    "sha256": "53ebefa90f37301ac24e26cb189cf051af5340f8fe8639ca5c663e91b341194b"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/sequence-diagnostics/comparison-01/process_noise-202/model.npz": {
+    "bytes": 53702,
+    "sha256": "f933ec2d81b4921801b230685db1e557961d7315c3567e589c1db5afa0885617"
+  },
+  "/Users/ryland/autonomy/dart/artifacts/sequence-diagnostics/comparison-01/process_noise-303/model.npz": {
+    "bytes": 53704,
+    "sha256": "c2cc58aa28797acb642b20cbbc845e16e686b2d4ee01fadc25ade753b4e00ef7"
+  }
+}

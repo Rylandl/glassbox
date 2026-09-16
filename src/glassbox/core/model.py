@@ -24,7 +24,7 @@ from glassbox.core.dynamics import (
 )
 
 ACTIONABLE_CONTROL_SEMANTICS = frozenset(
-    {"normalized_command", "normalized_generalized_command"}
+    {"normalized_command", "normalized_generalized_command", "surface_angle_command"}
 )
 
 # Commands within this fraction of a channel's span outside its declared bounds
@@ -282,7 +282,13 @@ class ActuationMap(Protocol):
 
 @dataclass(frozen=True)
 class DirectActuationMap:
-    """Identity command mapping for explicitly actionable model inputs."""
+    """Identity mapping for requested inputs in the fitted channel coordinates.
+
+    ``surface_angle_command`` declares a requested surface angle, including a
+    generalized roll/pitch angle. Its units and bounds remain those of the fitted
+    channel; no normalization is implied. Measured surface angles are distinct
+    and still require an explicit command-to-model mapping.
+    """
 
     command_channels: tuple[Channel, ...]
 

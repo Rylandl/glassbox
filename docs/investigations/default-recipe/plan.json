@@ -1,0 +1,48 @@
+{
+  "created_utc": "2026-09-14T13:45:32.533310+00:00",
+  "recipe_id": "generic-history-v1-prototype",
+  "model": {
+    "kind": "delay_mlp",
+    "width": 32,
+    "history_seconds": 0.1,
+    "rollout_seconds": 0.25,
+    "steps": 1000,
+    "batch_size": 64,
+    "learning_rate": 0.002,
+    "mean_ridge_fraction": 0.01,
+    "seed": 0,
+    "checkpoint_every": 100,
+    "checkpoint_selection": "minimum development recursive MSE with per-horizon/channel training hold-error normalization; same model architecture at every checkpoint including initialization",
+    "loss_floor_fraction": 0.01
+  },
+  "data": {
+    "split": "ceil(1/4 of recording IDs), minimum1 and at least1remaining, ordered by SHA256 of recording ID; no outcome-based selection",
+    "training_windows": 384,
+    "development_windows": 256,
+    "sampling": "balance across recording identities; deterministic SHA256 priority of recording/segment/source origin within each recording",
+    "horizon_rounding": "nearest whole steps, minimum1",
+    "update": "fixed recipe refit from retained training-window cache plus fresh recordings; freeze original development observations and roles; cache stays384windows; reject reused recording IDs or exact content; preserve old revision"
+  },
+  "evaluation": {
+    "datasets": [
+      "nano",
+      "x8",
+      "arp-four-outer-folds",
+      "crazyflie-sensors"
+    ],
+    "seeds": "one fixed seed0; no search",
+    "outer_roles": "existing evaluation recordings excluded from fit/update, but previously inspected",
+    "fresh_update": "reserve one calibration recording by sorted identity for update when at least3 calibration recordings exist; initial fit uses the others, original automatic development split stays pinned through update",
+    "references": [
+      "hold current",
+      "the same model initialization before neural fitting"
+    ],
+    "limits": [
+      "No untouched new recording or platform holdout claim.",
+      "Future logged commands condition forecasts.",
+      "Euclidean observation model does not enforce rotation geometry or infer sensor availability.",
+      "No controller behavior changes or calibrated uncertainty claims.",
+      "This is a candidate frozen default, not a validated replacement for the stable structured fit."
+    ]
+  }
+}

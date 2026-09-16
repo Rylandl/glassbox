@@ -1,0 +1,22 @@
+{
+  "status": "passed",
+  "final_helper_windows_reconstructed": 180576,
+  "final_models_loaded": 72,
+  "legacy_models_loaded": 25,
+  "legacy_calibration_fingerprints_preserved": 160,
+  "original_dirty_files_unchanged": 36,
+  "intentional_original_change": [
+    "docs/README.md"
+  ],
+  "post_run_amendments": [
+    "src/glassbox/experimental/temporal.py",
+    "tests/test_temporal_transition.py"
+  ],
+  "final_sources": {
+    "scripts/experiment_real_transition.py": "8d1e844194551d87471eb2bc3974154a31447d1a1e19c4587bd6d0f5fb56c94c",
+    "src/glassbox/experimental/temporal.py": "1d77e481c9b728eac5f42f3ea1d58d7fe1a64fab4a9c9e8f468fe035ecbb0fdc",
+    "src/glassbox/experimental/transition_gp.py": "b84a178e66e4307234d70d221a63bb8d8096a31d38e4ed54e1c06cbe587e9c69",
+    "src/glassbox/experimental/error_calibration.py": "7f6073832833deba79f13866bda329767be2e5716203aef47ed5ea70120770cb",
+    "tests/test_temporal_transition.py": "de8af09ad7ed91ad093e7d3ceeda0a38cb3578e2f5dfb5ae005dbae2d8c48bc9"
+  }
+}

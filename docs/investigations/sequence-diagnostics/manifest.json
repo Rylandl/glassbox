@@ -1,0 +1,70 @@
+{
+  "README.md": {
+    "bytes": 4873,
+    "sha256": "5e8d20ffe0fe8166a36488015fb3293e6c313397db6a6adef9b5462bd4f100c3"
+  },
+  "audit.json": {
+    "bytes": 690,
+    "sha256": "abef571f0102fd5e9665543d6e337069f97dff5a711cdbafc2444dfdb59acb59"
+  },
+  "diagnostic-results.zip": {
+    "bytes": 93067,
+    "sha256": "fddb1d1f17379a44f0bbbb70b57780398c7512445f4d0d114b41fc6141ed99f9"
+  },
+  "environment.json": {
+    "bytes": 172,
+    "sha256": "8d57eb15caa51ae80c6158d14bbdaa2f71ddccef88875336781ec64d680046ed"
+  },
+  "executed-sources.zip": {
+    "bytes": 359186,
+    "sha256": "d6450d34b9986613f631b5ee3184ef4b9a503c83ffb3e4cfc35c8adf16bb09df"
+  },
+  "final-implementation.zip": {
+    "bytes": 686479,
+    "sha256": "a8d0af3fc7775285b50e404b69a8e12e36093a58f9d4938cd1c8694b3f950762"
+  },
+  "implementation-sources.json": {
+    "bytes": 16451,
+    "sha256": "656f673c1d4d41c8c52f9ee3d67651f53e52380884d39ea9b176e90dbd25f487"
+  },
+  "plan.json": {
+    "bytes": 2240,
+    "sha256": "bd2dd050b94c968face2860f33ac95a39f5bba2cada6ed7069fd07ffe50f1439"
+  },
+  "run-artifacts.json": {
+    "bytes": 25272,
+    "sha256": "e8b1718fc93b704f590223c59a4b1166a1aa3afc8ef91c50b2e72338e12a6d69"
+  },
+  "sequence-diagnostics.png": {
+    "bytes": 150524,
+    "sha256": "ef3a4050fb3dcb71668211c65b73dd955acc780240cc57c2e0714488099b19d1"
+  },
+  "source-pytest.xml": {
+    "bytes": 6805,
+    "sha256": "3bc221782e2f511bd04bd176369380b378bb1a4f4ac906563d5d59a626c73e9c"
+  },
+  "sources.json": {
+    "bytes": 9234,
+    "sha256": "d293c208e620702616d81c6ec3f8ad1cbc6b619108c90a7c05374cff8e3ad70a"
+  },
+  "starting-hashes.json": {
+    "bytes": 8860,
+    "sha256": "048810432c402a11ec207de5068f10bdfb24fcd1c1d614c8094f77d5ec25fd8d"
+  },
+  "summary.json": {
+    "bytes": 9318,
+    "sha256": "b33172291432a5805cf0e2179c6e84befca232e292b91b108a139baeb331e202"
+  },
+  "validation.json": {
+    "bytes": 1463,
+    "sha256": "b5a304d6c110fe1e716b13cbe896f0d2522e87d88437f0c1c68e9d6cdb9324dd"
+  },
+  "wheel-pytest.xml": {
+    "bytes": 8955,
+    "sha256": "d363e38c8ed8fdd9e41440ed03e5b684a4158b3186f78e876602dad1ca0c890e"
+  },
+  "wheel-verification.json": {
+    "bytes": 475,
+    "sha256": "f3a49f150ffc70f61ac87d36be3c1561c4f7e6745ef2f52cc3c8f9300c5401c5"
+  }
+}

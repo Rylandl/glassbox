@@ -1,0 +1,1898 @@
+[
+  {
+    "source": "/Users/ryland/autonomy/dart/artifacts/real-transition/corpus/raw/data/train/chirp_20251017_run1.csv",
+    "adapter": {
+      "name": "idsia_nanodrone_benchmark",
+      "schema_version": 2
+    },
+    "benchmark": {
+      "repository": "https://github.com/idsia-robotics/nanodrone-sysid-benchmark",
+      "commit": "2d921b57d166fe2debe08a5d39bd07297c5abc39",
+      "doi": "10.1016/j.conengprac.2026.106871",
+      "relative_path": "data/train/chirp_20251017_run1.csv",
+      "split": "train"
+    },
+    "rows": 6000,
+    "intervals": 5999,
+    "duration_s": 59.99,
+    "columns": [
+      "t",
+      "x",
+      "y",
+      "z",
+      "qx",
+      "qy",
+      "qz",
+      "qw",
+      "vx",
+      "vy",
+      "vz",
+      "wx",
+      "wy",
+      "wz",
+      "m1_rads",
+      "m2_rads",
+      "m3_rads",
+      "m4_rads",
+      "ax_body",
+      "ay_body",
+      "az_body"
+    ],
+    "labels": {
+      "profile": "chirp",
+      "recording_date": "2025-10-17",
+      "replicate": 1,
+      "benchmark_split": "train"
+    },
+    "quality": {
+      "nominal_dt_s": 0.009999999999999787,
+      "sample_rate_hz": 100.00000000000213,
+      "maximum_timing_error_s": 8.881784197001252e-15,
+      "maximum_quaternion_norm_error": 3.3306690738754696e-16,
+      "motor_speed_minimum_rad_s": [
+        766.7476024460634,
+        633.0312876260869,
+        779.7323055935058,
+        860.5431211725961
+      ],
+      "motor_speed_maximum_rad_s": [
+        2406.626171963569,
+        2423.1615575020714,
+        2419.4733727790326,
+        2377.535750624973
+      ]
+    },
+    "sha256": "00e19738869e223c295232c44771c195f8c2f8c499e5497e27e520c7fc60ca23",
+    "checksum_matches_pinned_snapshot": true,
+    "spec": {
+      "state_schema": "rigid_body_13_nwu_flu_wxyz_v1",
+      "observation_source": "processed_mocap_and_onboard_sensors",
+      "channels": [
+        {
+          "name": "motor_front_left",
+          "role": "motor_front_left",
+          "semantic": "squared_rotor_speed_ratio",
+          "unit": "1",
+          "kind": "control",
+          "frame": "FLU",
+          "minimum": 0.0,
+          "maximum": null
+        },
+        {
+          "name": "motor_front_right",
+          "role": "motor_front_right",
+          "semantic": "squared_rotor_speed_ratio",
+          "unit": "1",
+          "kind": "control",
+          "frame": "FLU",
+          "minimum": 0.0,
+          "maximum": null
+        },
+        {
+          "name": "motor_rear_right",
+          "role": "motor_rear_right",
+          "semantic": "squared_rotor_speed_ratio",
+          "unit": "1",
+          "kind": "control",
+          "frame": "FLU",
+          "minimum": 0.0,
+          "maximum": null
+        },
+        {
+          "name": "motor_rear_left",
+          "role": "motor_rear_left",
+          "semantic": "squared_rotor_speed_ratio",
+          "unit": "1",
+          "kind": "control",
+          "frame": "FLU",
+          "minimum": 0.0,
+          "maximum": null
+        },
+        {
+          "name": "specific_force_x_m_s2",
+          "role": "specific_force_x",
+          "semantic": "accelerometer_specific_force_including_gravity",
+          "unit": "m/s^2",
+          "kind": "observation",
+          "frame": "FLU",
+          "minimum": null,
+          "maximum": null
+        },
+        {
+          "name": "specific_force_y_m_s2",
+          "role": "specific_force_y",
+          "semantic": "accelerometer_specific_force_including_gravity",
+          "unit": "m/s^2",
+          "kind": "observation",
+          "frame": "FLU",
+          "minimum": null,
+          "maximum": null
+        },
+        {
+          "name": "specific_force_z_m_s2",
+          "role": "specific_force_z",
+          "semantic": "accelerometer_specific_force_including_gravity",
+          "unit": "m/s^2",
+          "kind": "observation",
+          "frame": "FLU",
+          "minimum": null,
+          "maximum": null
+        }
+      ],
+      "vehicle": {
+        "family": "multirotor",
+        "configuration_id": "idsia_crazyflie_2_1_brushless_flow_v2_ai_deck",
+        "controlled_axes": [
+          "roll",
+          "pitch",
+          "yaw"
+        ],
+        "fixed_states": {
+          "mass_kg": 0.045,
+          "rotor_layout": "x",
+          "rotor_speed_reference_rad_s": 2500.0,
+          "control_transform": "(rotor_speed_rad_s / reference_rad_s)^2"
+        },
+        "auxiliary_controls": []
+      }
+    }
+  },
+  {
+    "source": "/Users/ryland/autonomy/dart/artifacts/real-transition/corpus/raw/data/train/chirp_20251017_run2.csv",
+    "adapter": {
+      "name": "idsia_nanodrone_benchmark",
+      "schema_version": 2
+    },
+    "benchmark": {
+      "repository": "https://github.com/idsia-robotics/nanodrone-sysid-benchmark",
+      "commit": "2d921b57d166fe2debe08a5d39bd07297c5abc39",
+      "doi": "10.1016/j.conengprac.2026.106871",
+      "relative_path": "data/train/chirp_20251017_run2.csv",
+      "split": "train"
+    },
+    "rows": 6000,
+    "intervals": 5999,
+    "duration_s": 59.99,
+    "columns": [
+      "t",
+      "x",
+      "y",
+      "z",
+      "qx",
+      "qy",
+      "qz",
+      "qw",
+      "vx",
+      "vy",
+      "vz",
+      "wx",
+      "wy",
+      "wz",
+      "m1_rads",
+      "m2_rads",
+      "m3_rads",
+      "m4_rads",
+      "ax_body",
+      "ay_body",
+      "az_body"
+    ],
+    "labels": {
+      "profile": "chirp",
+      "recording_date": "2025-10-17",
+      "replicate": 2,
+      "benchmark_split": "train"
+    },
+    "quality": {
+      "nominal_dt_s": 0.009999999999999787,
+      "sample_rate_hz": 100.00000000000213,
+      "maximum_timing_error_s": 8.881784197001252e-15,
+      "maximum_quaternion_norm_error": 3.3306690738754696e-16,
+      "motor_speed_minimum_rad_s": [
+        1111.8511373730046,
+        1018.1356116116474,
+        869.382716902048,
+        1090.6766608570438
+      ],
+      "motor_speed_maximum_rad_s": [
+        2415.8207255806224,
+        2413.943304216049,
+        2423.870334373965,
+        2361.1032401249463
+      ]
+    },
+    "sha256": "6e5587da5055fc620677aeeb8e016a8e1d8d219464d7b2b82f2667174038c979",
+    "checksum_matches_pinned_snapshot": true,
+    "spec": {
+      "state_schema": "rigid_body_13_nwu_flu_wxyz_v1",
+      "observation_source": "processed_mocap_and_onboard_sensors",
+      "channels": [
+        {
+          "name": "motor_front_left",
+          "role": "motor_front_left",
+          "semantic": "squared_rotor_speed_ratio",
+          "unit": "1",
+          "kind": "control",
+          "frame": "FLU",
+          "minimum": 0.0,
+          "maximum": null
+        },
+        {
+          "name": "motor_front_right",
+          "role": "motor_front_right",
+          "semantic": "squared_rotor_speed_ratio",
+          "unit": "1",
+          "kind": "control",
+          "frame": "FLU",
+          "minimum": 0.0,
+          "maximum": null
+        },
+        {
+          "name": "motor_rear_right",
+          "role": "motor_rear_right",
+          "semantic": "squared_rotor_speed_ratio",
+          "unit": "1",
+          "kind": "control",
+          "frame": "FLU",
+          "minimum": 0.0,
+          "maximum": null
+        },
+        {
+          "name": "motor_rear_left",
+          "role": "motor_rear_left",
+          "semantic": "squared_rotor_speed_ratio",
+          "unit": "1",
+          "kind": "control",
+          "frame": "FLU",
+          "minimum": 0.0,
+          "maximum": null
+        },
+        {
+          "name": "specific_force_x_m_s2",
+          "role": "specific_force_x",
+          "semantic": "accelerometer_specific_force_including_gravity",
+          "unit": "m/s^2",
+          "kind": "observation",
+          "frame": "FLU",
+          "minimum": null,
+          "maximum": null
+        },
+        {
+          "name": "specific_force_y_m_s2",
+          "role": "specific_force_y",
+          "semantic": "accelerometer_specific_force_including_gravity",
+          "unit": "m/s^2",
+          "kind": "observation",
+          "frame": "FLU",
+          "minimum": null,
+          "maximum": null
+        },
+        {
+          "name": "specific_force_z_m_s2",
+          "role": "specific_force_z",
+          "semantic": "accelerometer_specific_force_including_gravity",
+          "unit": "m/s^2",
+          "kind": "observation",
+          "frame": "FLU",
+          "minimum": null,
+          "maximum": null
+        }
+      ],
+      "vehicle": {
+        "family": "multirotor",
+        "configuration_id": "idsia_crazyflie_2_1_brushless_flow_v2_ai_deck",
+        "controlled_axes": [
+          "roll",
+          "pitch",
+          "yaw"
+        ],
+        "fixed_states": {
+          "mass_kg": 0.045,
+          "rotor_layout": "x",
+          "rotor_speed_reference_rad_s": 2500.0,
+          "control_transform": "(rotor_speed_rad_s / reference_rad_s)^2"
+        },
+        "auxiliary_controls": []
+      }
+    }
+  },
+  {
+    "source": "/Users/ryland/autonomy/dart/artifacts/real-transition/corpus/raw/data/train/chirp_20251017_run3.csv",
+    "adapter": {
+      "name": "idsia_nanodrone_benchmark",
+      "schema_version": 2
+    },
+    "benchmark": {
+      "repository": "https://github.com/idsia-robotics/nanodrone-sysid-benchmark",
+      "commit": "2d921b57d166fe2debe08a5d39bd07297c5abc39",
+      "doi": "10.1016/j.conengprac.2026.106871",
+      "relative_path": "data/train/chirp_20251017_run3.csv",
+      "split": "train"
+    },
+    "rows": 6000,
+    "intervals": 5999,
+    "duration_s": 59.99,
+    "columns": [
+      "t",
+      "x",
+      "y",
+      "z",
+      "qx",
+      "qy",
+      "qz",
+      "qw",
+      "vx",
+      "vy",
+      "vz",
+      "wx",
+      "wy",
+      "wz",
+      "m1_rads",
+      "m2_rads",
+      "m3_rads",
+      "m4_rads",
+      "ax_body",
+      "ay_body",
+      "az_body"
+    ],
+    "labels": {
+      "profile": "chirp",
+      "recording_date": "2025-10-17",
+      "replicate": 3,
+      "benchmark_split": "train"
+    },
+    "quality": {
+      "nominal_dt_s": 0.009999999999999787,
+      "sample_rate_hz": 100.00000000000213,
+      "maximum_timing_error_s": 8.881784197001252e-15,
+      "maximum_quaternion_norm_error": 3.3306690738754696e-16,
+      "motor_speed_minimum_rad_s": [
+        804.4908000992673,
+        964.0267587224772,
+        1086.6329868370303,
+        1189.4854339870642
+      ],
+      "motor_speed_maximum_rad_s": [
+        2354.415182092449,
+        2385.293336238279,
+        2351.922531405624,
+        2340.2452830000484
+      ]
+    },
+    "sha256": "f151f009f23da67551e18b422bc7f2471d9df9dcf0a4e5279b469254bce86f91",
+    "checksum_matches_pinned_snapshot": true,
+    "spec": {
+      "state_schema": "rigid_body_13_nwu_flu_wxyz_v1",
+      "observation_source": "processed_mocap_and_onboard_sensors",
+      "channels": [
+        {
+          "name": "motor_front_left",
+          "role": "motor_front_left",
+          "semantic": "squared_rotor_speed_ratio",
+          "unit": "1",
+          "kind": "control",
+          "frame": "FLU",
+          "minimum": 0.0,
+          "maximum": null
+        },
+        {
+          "name": "motor_front_right",
+          "role": "motor_front_right",
+          "semantic": "squared_rotor_speed_ratio",
+          "unit": "1",
+          "kind": "control",
+          "frame": "FLU",
+          "minimum": 0.0,
+          "maximum": null
+        },
+        {
+          "name": "motor_rear_right",
+          "role": "motor_rear_right",
+          "semantic": "squared_rotor_speed_ratio",
+          "unit": "1",
+          "kind": "control",
+          "frame": "FLU",
+          "minimum": 0.0,
+          "maximum": null
+        },
+        {
+          "name": "motor_rear_left",
+          "role": "motor_rear_left",
+          "semantic": "squared_rotor_speed_ratio",
+          "unit": "1",
+          "kind": "control",
+          "frame": "FLU",
+          "minimum": 0.0,
+          "maximum": null
+        },
+        {
+          "name": "specific_force_x_m_s2",
+          "role": "specific_force_x",
+          "semantic": "accelerometer_specific_force_including_gravity",
+          "unit": "m/s^2",
+          "kind": "observation",
+          "frame": "FLU",
+          "minimum": null,
+          "maximum": null
+        },
+        {
+          "name": "specific_force_y_m_s2",
+          "role": "specific_force_y",
+          "semantic": "accelerometer_specific_force_including_gravity",
+          "unit": "m/s^2",
+          "kind": "observation",
+          "frame": "FLU",
+          "minimum": null,
+          "maximum": null
+        },
+        {
+          "name": "specific_force_z_m_s2",
+          "role": "specific_force_z",
+          "semantic": "accelerometer_specific_force_including_gravity",
+          "unit": "m/s^2",
+          "kind": "observation",
+          "frame": "FLU",
+          "minimum": null,
+          "maximum": null
+        }
+      ],
+      "vehicle": {
+        "family": "multirotor",
+        "configuration_id": "idsia_crazyflie_2_1_brushless_flow_v2_ai_deck",
+        "controlled_axes": [
+          "roll",
+          "pitch",
+          "yaw"
+        ],
+        "fixed_states": {
+          "mass_kg": 0.045,
+          "rotor_layout": "x",
+          "rotor_speed_reference_rad_s": 2500.0,
+          "control_transform": "(rotor_speed_rad_s / reference_rad_s)^2"
+        },
+        "auxiliary_controls": []
+      }
+    }
+  },
+  {
+    "source": "/Users/ryland/autonomy/dart/artifacts/real-transition/corpus/raw/data/train/chirp_20251017_run4.csv",
+    "adapter": {
+      "name": "idsia_nanodrone_benchmark",
+      "schema_version": 2
+    },
+    "benchmark": {
+      "repository": "https://github.com/idsia-robotics/nanodrone-sysid-benchmark",
+      "commit": "2d921b57d166fe2debe08a5d39bd07297c5abc39",
+      "doi": "10.1016/j.conengprac.2026.106871",
+      "relative_path": "data/train/chirp_20251017_run4.csv",
+      "split": "train"
+    },
+    "rows": 6000,
+    "intervals": 5999,
+    "duration_s": 59.99,
+    "columns": [
+      "t",
+      "x",
+      "y",
+      "z",
+      "qx",
+      "qy",
+      "qz",
+      "qw",
+      "vx",
+      "vy",
+      "vz",
+      "wx",
+      "wy",
+      "wz",
+      "m1_rads",
+      "m2_rads",
+      "m3_rads",
+      "m4_rads",
+      "ax_body",
+      "ay_body",
+      "az_body"
+    ],
+    "labels": {
+      "profile": "chirp",
+      "recording_date": "2025-10-17",
+      "replicate": 4,
+      "benchmark_split": "train"
+    },
+    "quality": {
+      "nominal_dt_s": 0.009999999999999787,
+      "sample_rate_hz": 100.00000000000213,
+      "maximum_timing_error_s": 5.329070518200751e-15,
+      "maximum_quaternion_norm_error": 3.3306690738754696e-16,
+      "motor_speed_minimum_rad_s": [
+        887.8156897055185,
+        684.327052828321,
+        716.2761677788069,
+        1101.6683927810332
+      ],
+      "motor_speed_maximum_rad_s": [
+        2506.689396117081,
+        2436.687088585973,
+        2530.669388845622,
+        2430.754032169872
+      ]
+    },
+    "sha256": "f07baf341a2ee55c84de7867fd7bebccacace2fa4daa8672a7f881631122b30e",
+    "checksum_matches_pinned_snapshot": true,
+    "spec": {
+      "state_schema": "rigid_body_13_nwu_flu_wxyz_v1",
+      "observation_source": "processed_mocap_and_onboard_sensors",
+      "channels": [
+        {
+          "name": "motor_front_left",
+          "role": "motor_front_left",
+          "semantic": "squared_rotor_speed_ratio",
+          "unit": "1",
+          "kind": "control",
+          "frame": "FLU",
+          "minimum": 0.0,
+          "maximum": null
+        },
+        {
+          "name": "motor_front_right",
+          "role": "motor_front_right",
+          "semantic": "squared_rotor_speed_ratio",
+          "unit": "1",
+          "kind": "control",
+          "frame": "FLU",
+          "minimum": 0.0,
+          "maximum": null
+        },
+        {
+          "name": "motor_rear_right",
+          "role": "motor_rear_right",
+          "semantic": "squared_rotor_speed_ratio",
+          "unit": "1",
+          "kind": "control",
+          "frame": "FLU",
+          "minimum": 0.0,
+          "maximum": null
+        },
+        {
+          "name": "motor_rear_left",
+          "role": "motor_rear_left",
+          "semantic": "squared_rotor_speed_ratio",
+          "unit": "1",
+          "kind": "control",
+          "frame": "FLU",
+          "minimum": 0.0,
+          "maximum": null
+        },
+        {
+          "name": "specific_force_x_m_s2",
+          "role": "specific_force_x",
+          "semantic": "accelerometer_specific_force_including_gravity",
+          "unit": "m/s^2",
+          "kind": "observation",
+          "frame": "FLU",
+          "minimum": null,
+          "maximum": null
+        },
+        {
+          "name": "specific_force_y_m_s2",
+          "role": "specific_force_y",
+          "semantic": "accelerometer_specific_force_including_gravity",
+          "unit": "m/s^2",
+          "kind": "observation",
+          "frame": "FLU",
+          "minimum": null,
+          "maximum": null
+        },
+        {
+          "name": "specific_force_z_m_s2",
+          "role": "specific_force_z",
+          "semantic": "accelerometer_specific_force_including_gravity",
+          "unit": "m/s^2",
+          "kind": "observation",
+          "frame": "FLU",
+          "minimum": null,
+          "maximum": null
+        }
+      ],
+      "vehicle": {
+        "family": "multirotor",
+        "configuration_id": "idsia_crazyflie_2_1_brushless_flow_v2_ai_deck",
+        "controlled_axes": [
+          "roll",
+          "pitch",
+          "yaw"
+        ],
+        "fixed_states": {
+          "mass_kg": 0.045,
+          "rotor_layout": "x",
+          "rotor_speed_reference_rad_s": 2500.0,
+          "control_transform": "(rotor_speed_rad_s / reference_rad_s)^2"
+        },
+        "auxiliary_controls": []
+      }
+    }
+  },
+  {
+    "source": "/Users/ryland/autonomy/dart/artifacts/real-transition/corpus/raw/data/train/random_20251017_run1.csv",
+    "adapter": {
+      "name": "idsia_nanodrone_benchmark",
+      "schema_version": 2
+    },
+    "benchmark": {
+      "repository": "https://github.com/idsia-robotics/nanodrone-sysid-benchmark",
+      "commit": "2d921b57d166fe2debe08a5d39bd07297c5abc39",
+      "doi": "10.1016/j.conengprac.2026.106871",
+      "relative_path": "data/train/random_20251017_run1.csv",
+      "split": "train"
+    },
+    "rows": 6000,
+    "intervals": 5999,
+    "duration_s": 59.99,
+    "columns": [
+      "t",
+      "x",
+      "y",
+      "z",
+      "qx",
+      "qy",
+      "qz",
+      "qw",
+      "vx",
+      "vy",
+      "vz",
+      "wx",
+      "wy",
+      "wz",
+      "m1_rads",
+      "m2_rads",
+      "m3_rads",
+      "m4_rads",
+      "ax_body",
+      "ay_body",
+      "az_body"
+    ],
+    "labels": {
+      "profile": "random",
+      "recording_date": "2025-10-17",
+      "replicate": 1,
+      "benchmark_split": "train"
+    },
+    "quality": {
+      "nominal_dt_s": 0.009999999999998899,
+      "sample_rate_hz": 100.00000000001101,
+      "maximum_timing_error_s": 7.993605777301127e-15,
+      "maximum_quaternion_norm_error": 3.3306690738754696e-16,
+      "motor_speed_minimum_rad_s": [
+        1247.973765978376,
+        1063.637035582382,
+        1032.333689851221,
+        1349.2437831526845
+      ],
+      "motor_speed_maximum_rad_s": [
+        2184.4815933308664,
+        2421.8397402108467,
+        2301.2323231029177,
+        2376.3369743129188
+      ]
+    },
+    "sha256": "44b457f31ac71d6f18f8a680f69b909ac3cadbb270051430f2dd722acff4d890",
+    "checksum_matches_pinned_snapshot": true,
+    "spec": {
+      "state_schema": "rigid_body_13_nwu_flu_wxyz_v1",
+      "observation_source": "processed_mocap_and_onboard_sensors",
+      "channels": [
+        {
+          "name": "motor_front_left",
+          "role": "motor_front_left",
+          "semantic": "squared_rotor_speed_ratio",
+          "unit": "1",
+          "kind": "control",
+          "frame": "FLU",
+          "minimum": 0.0,
+          "maximum": null
+        },
+        {
+          "name": "motor_front_right",
+          "role": "motor_front_right",
+          "semantic": "squared_rotor_speed_ratio",
+          "unit": "1",
+          "kind": "control",
+          "frame": "FLU",
+          "minimum": 0.0,
+          "maximum": null
+        },
+        {
+          "name": "motor_rear_right",
+          "role": "motor_rear_right",
+          "semantic": "squared_rotor_speed_ratio",
+          "unit": "1",
+          "kind": "control",
+          "frame": "FLU",
+          "minimum": 0.0,
+          "maximum": null
+        },
+        {
+          "name": "motor_rear_left",
+          "role": "motor_rear_left",
+          "semantic": "squared_rotor_speed_ratio",
+          "unit": "1",
+          "kind": "control",
+          "frame": "FLU",
+          "minimum": 0.0,
+          "maximum": null
+        },
+        {
+          "name": "specific_force_x_m_s2",
+          "role": "specific_force_x",
+          "semantic": "accelerometer_specific_force_including_gravity",
+          "unit": "m/s^2",
+          "kind": "observation",
+          "frame": "FLU",
+          "minimum": null,
+          "maximum": null
+        },
+        {
+          "name": "specific_force_y_m_s2",
+          "role": "specific_force_y",
+          "semantic": "accelerometer_specific_force_including_gravity",
+          "unit": "m/s^2",
+          "kind": "observation",
+          "frame": "FLU",
+          "minimum": null,
+          "maximum": null
+        },
+        {
+          "name": "specific_force_z_m_s2",
+          "role": "specific_force_z",
+          "semantic": "accelerometer_specific_force_including_gravity",
+          "unit": "m/s^2",
+          "kind": "observation",
+          "frame": "FLU",
+          "minimum": null,
+          "maximum": null
+        }
+      ],
+      "vehicle": {
+        "family": "multirotor",
+        "configuration_id": "idsia_crazyflie_2_1_brushless_flow_v2_ai_deck",
+        "controlled_axes": [
+          "roll",
+          "pitch",
+          "yaw"
+        ],
+        "fixed_states": {
+          "mass_kg": 0.045,
+          "rotor_layout": "x",
+          "rotor_speed_reference_rad_s": 2500.0,
+          "control_transform": "(rotor_speed_rad_s / reference_rad_s)^2"
+        },
+        "auxiliary_controls": []
+      }
+    }
+  },
+  {
+    "source": "/Users/ryland/autonomy/dart/artifacts/real-transition/corpus/raw/data/train/random_20251017_run2.csv",
+    "adapter": {
+      "name": "idsia_nanodrone_benchmark",
+      "schema_version": 2
+    },
+    "benchmark": {
+      "repository": "https://github.com/idsia-robotics/nanodrone-sysid-benchmark",
+      "commit": "2d921b57d166fe2debe08a5d39bd07297c5abc39",
+      "doi": "10.1016/j.conengprac.2026.106871",
+      "relative_path": "data/train/random_20251017_run2.csv",
+      "split": "train"
+    },
+    "rows": 6000,
+    "intervals": 5999,
+    "duration_s": 59.99,
+    "columns": [
+      "t",
+      "x",
+      "y",
+      "z",
+      "qx",
+      "qy",
+      "qz",
+      "qw",
+      "vx",
+      "vy",
+      "vz",
+      "wx",
+      "wy",
+      "wz",
+      "m1_rads",
+      "m2_rads",
+      "m3_rads",
+      "m4_rads",
+      "ax_body",
+      "ay_body",
+      "az_body"
+    ],
+    "labels": {
+      "profile": "random",
+      "recording_date": "2025-10-17",
+      "replicate": 2,
+      "benchmark_split": "train"
+    },
+    "quality": {
+      "nominal_dt_s": 0.009999999999999787,
+      "sample_rate_hz": 100.00000000000213,
+      "maximum_timing_error_s": 5.329070518200751e-15,
+      "maximum_quaternion_norm_error": 3.3306690738754696e-16,
+      "motor_speed_minimum_rad_s": [
+        1100.7391882702486,
+        886.078003634985,
+        968.7824121570902,
+        1191.3050579414314
+      ],
+      "motor_speed_maximum_rad_s": [
+        2241.9679562718875,
+        2400.3913339875867,
+        2324.8853491774653,
+        2368.429770514791
+      ]
+    },
+    "sha256": "64f382ee8c06f71397d6abc42b50b270dc4ba47df5f13ebc3515e43bbfaa0c75",
+    "checksum_matches_pinned_snapshot": true,
+    "spec": {
+      "state_schema": "rigid_body_13_nwu_flu_wxyz_v1",
+      "observation_source": "processed_mocap_and_onboard_sensors",
+      "channels": [
+        {
+          "name": "motor_front_left",
+          "role": "motor_front_left",
+          "semantic": "squared_rotor_speed_ratio",
+          "unit": "1",
+          "kind": "control",
+          "frame": "FLU",
+          "minimum": 0.0,
+          "maximum": null
+        },
+        {
+          "name": "motor_front_right",
+          "role": "motor_front_right",
+          "semantic": "squared_rotor_speed_ratio",
+          "unit": "1",
+          "kind": "control",
+          "frame": "FLU",
+          "minimum": 0.0,
+          "maximum": null
+        },
+        {
+          "name": "motor_rear_right",
+          "role": "motor_rear_right",
+          "semantic": "squared_rotor_speed_ratio",
+          "unit": "1",
+          "kind": "control",
+          "frame": "FLU",
+          "minimum": 0.0,
+          "maximum": null
+        },
+        {
+          "name": "motor_rear_left",
+          "role": "motor_rear_left",
+          "semantic": "squared_rotor_speed_ratio",
+          "unit": "1",
+          "kind": "control",
+          "frame": "FLU",
+          "minimum": 0.0,
+          "maximum": null
+        },
+        {
+          "name": "specific_force_x_m_s2",
+          "role": "specific_force_x",
+          "semantic": "accelerometer_specific_force_including_gravity",
+          "unit": "m/s^2",
+          "kind": "observation",
+          "frame": "FLU",
+          "minimum": null,
+          "maximum": null
+        },
+        {
+          "name": "specific_force_y_m_s2",
+          "role": "specific_force_y",
+          "semantic": "accelerometer_specific_force_including_gravity",
+          "unit": "m/s^2",
+          "kind": "observation",
+          "frame": "FLU",
+          "minimum": null,
+          "maximum": null
+        },
+        {
+          "name": "specific_force_z_m_s2",
+          "role": "specific_force_z",
+          "semantic": "accelerometer_specific_force_including_gravity",
+          "unit": "m/s^2",
+          "kind": "observation",
+          "frame": "FLU",
+          "minimum": null,
+          "maximum": null
+        }
+      ],
+      "vehicle": {
+        "family": "multirotor",
+        "configuration_id": "idsia_crazyflie_2_1_brushless_flow_v2_ai_deck",
+        "controlled_axes": [
+          "roll",
+          "pitch",
+          "yaw"
+        ],
+        "fixed_states": {
+          "mass_kg": 0.045,
+          "rotor_layout": "x",
+          "rotor_speed_reference_rad_s": 2500.0,
+          "control_transform": "(rotor_speed_rad_s / reference_rad_s)^2"
+        },
+        "auxiliary_controls": []
+      }
+    }
+  },
+  {
+    "source": "/Users/ryland/autonomy/dart/artifacts/real-transition/corpus/raw/data/train/random_20251017_run3.csv",
+    "adapter": {
+      "name": "idsia_nanodrone_benchmark",
+      "schema_version": 2
+    },
+    "benchmark": {
+      "repository": "https://github.com/idsia-robotics/nanodrone-sysid-benchmark",
+      "commit": "2d921b57d166fe2debe08a5d39bd07297c5abc39",
+      "doi": "10.1016/j.conengprac.2026.106871",
+      "relative_path": "data/train/random_20251017_run3.csv",
+      "split": "train"
+    },
+    "rows": 6000,
+    "intervals": 5999,
+    "duration_s": 59.99,
+    "columns": [
+      "t",
+      "x",
+      "y",
+      "z",
+      "qx",
+      "qy",
+      "qz",
+      "qw",
+      "vx",
+      "vy",
+      "vz",
+      "wx",
+      "wy",
+      "wz",
+      "m1_rads",
+      "m2_rads",
+      "m3_rads",
+      "m4_rads",
+      "ax_body",
+      "ay_body",
+      "az_body"
+    ],
+    "labels": {
+      "profile": "random",
+      "recording_date": "2025-10-17",
+      "replicate": 3,
+      "benchmark_split": "train"
+    },
+    "quality": {
+      "nominal_dt_s": 0.009999999999999787,
+      "sample_rate_hz": 100.00000000000213,
+      "maximum_timing_error_s": 5.329070518200751e-15,
+      "maximum_quaternion_norm_error": 3.3306690738754696e-16,
+      "motor_speed_minimum_rad_s": [
+        1249.1274602888866,
+        999.2887175691716,
+        1132.6837209957166,
+        1064.7727879497106
+      ],
+      "motor_speed_maximum_rad_s": [
+        2223.230083893661,
+        2368.6336186207286,
+        2282.933564370619,
+        2331.6178746964843
+      ]
+    },
+    "sha256": "716058325a802ea64c772961fd20f21bcf5c1dac6b6dc3d1591dcdf4e69c4ed6",
+    "checksum_matches_pinned_snapshot": true,
+    "spec": {
+      "state_schema": "rigid_body_13_nwu_flu_wxyz_v1",
+      "observation_source": "processed_mocap_and_onboard_sensors",
+      "channels": [
+        {
+          "name": "motor_front_left",
+          "role": "motor_front_left",
+          "semantic": "squared_rotor_speed_ratio",
+          "unit": "1",
+          "kind": "control",
+          "frame": "FLU",
+          "minimum": 0.0,
+          "maximum": null
+        },
+        {
+          "name": "motor_front_right",
+          "role": "motor_front_right",
+          "semantic": "squared_rotor_speed_ratio",
+          "unit": "1",
+          "kind": "control",
+          "frame": "FLU",
+          "minimum": 0.0,
+          "maximum": null
+        },
+        {
+          "name": "motor_rear_right",
+          "role": "motor_rear_right",
+          "semantic": "squared_rotor_speed_ratio",
+          "unit": "1",
+          "kind": "control",
+          "frame": "FLU",
+          "minimum": 0.0,
+          "maximum": null
+        },
+        {
+          "name": "motor_rear_left",
+          "role": "motor_rear_left",
+          "semantic": "squared_rotor_speed_ratio",
+          "unit": "1",
+          "kind": "control",
+          "frame": "FLU",
+          "minimum": 0.0,
+          "maximum": null
+        },
+        {
+          "name": "specific_force_x_m_s2",
+          "role": "specific_force_x",
+          "semantic": "accelerometer_specific_force_including_gravity",
+          "unit": "m/s^2",
+          "kind": "observation",
+          "frame": "FLU",
+          "minimum": null,
+          "maximum": null
+        },
+        {
+          "name": "specific_force_y_m_s2",
+          "role": "specific_force_y",
+          "semantic": "accelerometer_specific_force_including_gravity",
+          "unit": "m/s^2",
+          "kind": "observation",
+          "frame": "FLU",
+          "minimum": null,
+          "maximum": null
+        },
+        {
+          "name": "specific_force_z_m_s2",
+          "role": "specific_force_z",
+          "semantic": "accelerometer_specific_force_including_gravity",
+          "unit": "m/s^2",
+          "kind": "observation",
+          "frame": "FLU",
+          "minimum": null,
+          "maximum": null
+        }
+      ],
+      "vehicle": {
+        "family": "multirotor",
+        "configuration_id": "idsia_crazyflie_2_1_brushless_flow_v2_ai_deck",
+        "controlled_axes": [
+          "roll",
+          "pitch",
+          "yaw"
+        ],
+        "fixed_states": {
+          "mass_kg": 0.045,
+          "rotor_layout": "x",
+          "rotor_speed_reference_rad_s": 2500.0,
+          "control_transform": "(rotor_speed_rad_s / reference_rad_s)^2"
+        },
+        "auxiliary_controls": []
+      }
+    }
+  },
+  {
+    "source": "/Users/ryland/autonomy/dart/artifacts/real-transition/corpus/raw/data/train/random_20251017_run4.csv",
+    "adapter": {
+      "name": "idsia_nanodrone_benchmark",
+      "schema_version": 2
+    },
+    "benchmark": {
+      "repository": "https://github.com/idsia-robotics/nanodrone-sysid-benchmark",
+      "commit": "2d921b57d166fe2debe08a5d39bd07297c5abc39",
+      "doi": "10.1016/j.conengprac.2026.106871",
+      "relative_path": "data/train/random_20251017_run4.csv",
+      "split": "train"
+    },
+    "rows": 5999,
+    "intervals": 5998,
+    "duration_s": 59.98,
+    "columns": [
+      "t",
+      "x",
+      "y",
+      "z",
+      "qx",
+      "qy",
+      "qz",
+      "qw",
+      "vx",
+      "vy",
+      "vz",
+      "wx",
+      "wy",
+      "wz",
+      "m1_rads",
+      "m2_rads",
+      "m3_rads",
+      "m4_rads",
+      "ax_body",
+      "ay_body",
+      "az_body"
+    ],
+    "labels": {
+      "profile": "random",
+      "recording_date": "2025-10-17",
+      "replicate": 4,
+      "benchmark_split": "train"
+    },
+    "quality": {
+      "nominal_dt_s": 0.00999999999999801,
+      "sample_rate_hz": 100.0000000000199,
+      "maximum_timing_error_s": 7.105427357601002e-15,
+      "maximum_quaternion_norm_error": 3.3306690738754696e-16,
+      "motor_speed_minimum_rad_s": [
+        1126.701542258441,
+        838.1127178530121,
+        988.2849712942918,
+        1202.239050478414
+      ],
+      "motor_speed_maximum_rad_s": [
+        2196.4553691743213,
+        2380.1198857266995,
+        2292.68356145547,
+        2353.143840046971
+      ]
+    },
+    "sha256": "15445bf88620a5e875a68e62583a4d77dc514de836d644be5a7e8107686e7d13",
+    "checksum_matches_pinned_snapshot": true,
+    "spec": {
+      "state_schema": "rigid_body_13_nwu_flu_wxyz_v1",
+      "observation_source": "processed_mocap_and_onboard_sensors",
+      "channels": [
+        {
+          "name": "motor_front_left",
+          "role": "motor_front_left",
+          "semantic": "squared_rotor_speed_ratio",
+          "unit": "1",
+          "kind": "control",
+          "frame": "FLU",
+          "minimum": 0.0,
+          "maximum": null
+        },
+        {
+          "name": "motor_front_right",
+          "role": "motor_front_right",
+          "semantic": "squared_rotor_speed_ratio",
+          "unit": "1",
+          "kind": "control",
+          "frame": "FLU",
+          "minimum": 0.0,
+          "maximum": null
+        },
+        {
+          "name": "motor_rear_right",
+          "role": "motor_rear_right",
+          "semantic": "squared_rotor_speed_ratio",
+          "unit": "1",
+          "kind": "control",
+          "frame": "FLU",
+          "minimum": 0.0,
+          "maximum": null
+        },
+        {
+          "name": "motor_rear_left",
+          "role": "motor_rear_left",
+          "semantic": "squared_rotor_speed_ratio",
+          "unit": "1",
+          "kind": "control",
+          "frame": "FLU",
+          "minimum": 0.0,
+          "maximum": null
+        },
+        {
+          "name": "specific_force_x_m_s2",
+          "role": "specific_force_x",
+          "semantic": "accelerometer_specific_force_including_gravity",
+          "unit": "m/s^2",
+          "kind": "observation",
+          "frame": "FLU",
+          "minimum": null,
+          "maximum": null
+        },
+        {
+          "name": "specific_force_y_m_s2",
+          "role": "specific_force_y",
+          "semantic": "accelerometer_specific_force_including_gravity",
+          "unit": "m/s^2",
+          "kind": "observation",
+          "frame": "FLU",
+          "minimum": null,
+          "maximum": null
+        },
+        {
+          "name": "specific_force_z_m_s2",
+          "role": "specific_force_z",
+          "semantic": "accelerometer_specific_force_including_gravity",
+          "unit": "m/s^2",
+          "kind": "observation",
+          "frame": "FLU",
+          "minimum": null,
+          "maximum": null
+        }
+      ],
+      "vehicle": {
+        "family": "multirotor",
+        "configuration_id": "idsia_crazyflie_2_1_brushless_flow_v2_ai_deck",
+        "controlled_axes": [
+          "roll",
+          "pitch",
+          "yaw"
+        ],
+        "fixed_states": {
+          "mass_kg": 0.045,
+          "rotor_layout": "x",
+          "rotor_speed_reference_rad_s": 2500.0,
+          "control_transform": "(rotor_speed_rad_s / reference_rad_s)^2"
+        },
+        "auxiliary_controls": []
+      }
+    }
+  },
+  {
+    "source": "/Users/ryland/autonomy/dart/artifacts/real-transition/corpus/raw/data/train/square_20251017_run1.csv",
+    "adapter": {
+      "name": "idsia_nanodrone_benchmark",
+      "schema_version": 2
+    },
+    "benchmark": {
+      "repository": "https://github.com/idsia-robotics/nanodrone-sysid-benchmark",
+      "commit": "2d921b57d166fe2debe08a5d39bd07297c5abc39",
+      "doi": "10.1016/j.conengprac.2026.106871",
+      "relative_path": "data/train/square_20251017_run1.csv",
+      "split": "train"
+    },
+    "rows": 1900,
+    "intervals": 1899,
+    "duration_s": 18.989999999999995,
+    "columns": [
+      "t",
+      "x",
+      "y",
+      "z",
+      "qx",
+      "qy",
+      "qz",
+      "qw",
+      "vx",
+      "vy",
+      "vz",
+      "wx",
+      "wy",
+      "wz",
+      "m1_rads",
+      "m2_rads",
+      "m3_rads",
+      "m4_rads",
+      "ax_body",
+      "ay_body",
+      "az_body"
+    ],
+    "labels": {
+      "profile": "square",
+      "recording_date": "2025-10-17",
+      "replicate": 1,
+      "benchmark_split": "train"
+    },
+    "quality": {
+      "nominal_dt_s": 0.00999999999999801,
+      "sample_rate_hz": 100.0000000000199,
+      "maximum_timing_error_s": 1.0658141036401503e-14,
+      "maximum_quaternion_norm_error": 3.3306690738754696e-16,
+      "motor_speed_minimum_rad_s": [
+        870.6760843485471,
+        753.6570434454063,
+        721.9497433554798,
+        736.1670346957214
+      ],
+      "motor_speed_maximum_rad_s": [
+        2369.0682374915677,
+        2443.6816359960194,
+        2488.2349828517526,
+        2461.3835194230146
+      ]
+    },
+    "sha256": "9b458d207d0a5e21933ba7ad16945bf505ab2b3abf6d151a1442cdd705d6c0cc",
+    "checksum_matches_pinned_snapshot": true,
+    "spec": {
+      "state_schema": "rigid_body_13_nwu_flu_wxyz_v1",
+      "observation_source": "processed_mocap_and_onboard_sensors",
+      "channels": [
+        {
+          "name": "motor_front_left",
+          "role": "motor_front_left",
+          "semantic": "squared_rotor_speed_ratio",
+          "unit": "1",
+          "kind": "control",
+          "frame": "FLU",
+          "minimum": 0.0,
+          "maximum": null
+        },
+        {
+          "name": "motor_front_right",
+          "role": "motor_front_right",
+          "semantic": "squared_rotor_speed_ratio",
+          "unit": "1",
+          "kind": "control",
+          "frame": "FLU",
+          "minimum": 0.0,
+          "maximum": null
+        },
+        {
+          "name": "motor_rear_right",
+          "role": "motor_rear_right",
+          "semantic": "squared_rotor_speed_ratio",
+          "unit": "1",
+          "kind": "control",
+          "frame": "FLU",
+          "minimum": 0.0,
+          "maximum": null
+        },
+        {
+          "name": "motor_rear_left",
+          "role": "motor_rear_left",
+          "semantic": "squared_rotor_speed_ratio",
+          "unit": "1",
+          "kind": "control",
+          "frame": "FLU",
+          "minimum": 0.0,
+          "maximum": null
+        },
+        {
+          "name": "specific_force_x_m_s2",
+          "role": "specific_force_x",
+          "semantic": "accelerometer_specific_force_including_gravity",
+          "unit": "m/s^2",
+          "kind": "observation",
+          "frame": "FLU",
+          "minimum": null,
+          "maximum": null
+        },
+        {
+          "name": "specific_force_y_m_s2",
+          "role": "specific_force_y",
+          "semantic": "accelerometer_specific_force_including_gravity",
+          "unit": "m/s^2",
+          "kind": "observation",
+          "frame": "FLU",
+          "minimum": null,
+          "maximum": null
+        },
+        {
+          "name": "specific_force_z_m_s2",
+          "role": "specific_force_z",
+          "semantic": "accelerometer_specific_force_including_gravity",
+          "unit": "m/s^2",
+          "kind": "observation",
+          "frame": "FLU",
+          "minimum": null,
+          "maximum": null
+        }
+      ],
+      "vehicle": {
+        "family": "multirotor",
+        "configuration_id": "idsia_crazyflie_2_1_brushless_flow_v2_ai_deck",
+        "controlled_axes": [
+          "roll",
+          "pitch",
+          "yaw"
+        ],
+        "fixed_states": {
+          "mass_kg": 0.045,
+          "rotor_layout": "x",
+          "rotor_speed_reference_rad_s": 2500.0,
+          "control_transform": "(rotor_speed_rad_s / reference_rad_s)^2"
+        },
+        "auxiliary_controls": []
+      }
+    }
+  },
+  {
+    "source": "/Users/ryland/autonomy/dart/artifacts/real-transition/corpus/raw/data/train/square_20251017_run2.csv",
+    "adapter": {
+      "name": "idsia_nanodrone_benchmark",
+      "schema_version": 2
+    },
+    "benchmark": {
+      "repository": "https://github.com/idsia-robotics/nanodrone-sysid-benchmark",
+      "commit": "2d921b57d166fe2debe08a5d39bd07297c5abc39",
+      "doi": "10.1016/j.conengprac.2026.106871",
+      "relative_path": "data/train/square_20251017_run2.csv",
+      "split": "train"
+    },
+    "rows": 1900,
+    "intervals": 1899,
+    "duration_s": 18.99,
+    "columns": [
+      "t",
+      "x",
+      "y",
+      "z",
+      "qx",
+      "qy",
+      "qz",
+      "qw",
+      "vx",
+      "vy",
+      "vz",
+      "wx",
+      "wy",
+      "wz",
+      "m1_rads",
+      "m2_rads",
+      "m3_rads",
+      "m4_rads",
+      "ax_body",
+      "ay_body",
+      "az_body"
+    ],
+    "labels": {
+      "profile": "square",
+      "recording_date": "2025-10-17",
+      "replicate": 2,
+      "benchmark_split": "train"
+    },
+    "quality": {
+      "nominal_dt_s": 0.009999999999999787,
+      "sample_rate_hz": 100.00000000000213,
+      "maximum_timing_error_s": 2.6645352591003757e-15,
+      "maximum_quaternion_norm_error": 2.220446049250313e-16,
+      "motor_speed_minimum_rad_s": [
+        783.5237139301435,
+        792.6893189928852,
+        738.4269008669874,
+        801.4945420594149
+      ],
+      "motor_speed_maximum_rad_s": [
+        2363.461990802993,
+        2457.2210240738614,
+        2430.869384173474,
+        2466.9956304582365
+      ]
+    },
+    "sha256": "3b47b3712915aff4fd301fd0a2f989bbdce0a5ca1af852c923f472ec7d05d084",
+    "checksum_matches_pinned_snapshot": true,
+    "spec": {
+      "state_schema": "rigid_body_13_nwu_flu_wxyz_v1",
+      "observation_source": "processed_mocap_and_onboard_sensors",
+      "channels": [
+        {
+          "name": "motor_front_left",
+          "role": "motor_front_left",
+          "semantic": "squared_rotor_speed_ratio",
+          "unit": "1",
+          "kind": "control",
+          "frame": "FLU",
+          "minimum": 0.0,
+          "maximum": null
+        },
+        {
+          "name": "motor_front_right",
+          "role": "motor_front_right",
+          "semantic": "squared_rotor_speed_ratio",
+          "unit": "1",
+          "kind": "control",
+          "frame": "FLU",
+          "minimum": 0.0,
+          "maximum": null
+        },
+        {
+          "name": "motor_rear_right",
+          "role": "motor_rear_right",
+          "semantic": "squared_rotor_speed_ratio",
+          "unit": "1",
+          "kind": "control",
+          "frame": "FLU",
+          "minimum": 0.0,
+          "maximum": null
+        },
+        {
+          "name": "motor_rear_left",
+          "role": "motor_rear_left",
+          "semantic": "squared_rotor_speed_ratio",
+          "unit": "1",
+          "kind": "control",
+          "frame": "FLU",
+          "minimum": 0.0,
+          "maximum": null
+        },
+        {
+          "name": "specific_force_x_m_s2",
+          "role": "specific_force_x",
+          "semantic": "accelerometer_specific_force_including_gravity",
+          "unit": "m/s^2",
+          "kind": "observation",
+          "frame": "FLU",
+          "minimum": null,
+          "maximum": null
+        },
+        {
+          "name": "specific_force_y_m_s2",
+          "role": "specific_force_y",
+          "semantic": "accelerometer_specific_force_including_gravity",
+          "unit": "m/s^2",
+          "kind": "observation",
+          "frame": "FLU",
+          "minimum": null,
+          "maximum": null
+        },
+        {
+          "name": "specific_force_z_m_s2",
+          "role": "specific_force_z",
+          "semantic": "accelerometer_specific_force_including_gravity",
+          "unit": "m/s^2",
+          "kind": "observation",
+          "frame": "FLU",
+          "minimum": null,
+          "maximum": null
+        }
+      ],
+      "vehicle": {
+        "family": "multirotor",
+        "configuration_id": "idsia_crazyflie_2_1_brushless_flow_v2_ai_deck",
+        "controlled_axes": [
+          "roll",
+          "pitch",
+          "yaw"
+        ],
+        "fixed_states": {
+          "mass_kg": 0.045,
+          "rotor_layout": "x",
+          "rotor_speed_reference_rad_s": 2500.0,
+          "control_transform": "(rotor_speed_rad_s / reference_rad_s)^2"
+        },
+        "auxiliary_controls": []
+      }
+    }
+  },
+  {
+    "source": "/Users/ryland/autonomy/dart/artifacts/real-transition/corpus/raw/data/train/square_20251017_run3.csv",
+    "adapter": {
+      "name": "idsia_nanodrone_benchmark",
+      "schema_version": 2
+    },
+    "benchmark": {
+      "repository": "https://github.com/idsia-robotics/nanodrone-sysid-benchmark",
+      "commit": "2d921b57d166fe2debe08a5d39bd07297c5abc39",
+      "doi": "10.1016/j.conengprac.2026.106871",
+      "relative_path": "data/train/square_20251017_run3.csv",
+      "split": "train"
+    },
+    "rows": 1900,
+    "intervals": 1899,
+    "duration_s": 18.99,
+    "columns": [
+      "t",
+      "x",
+      "y",
+      "z",
+      "qx",
+      "qy",
+      "qz",
+      "qw",
+      "vx",
+      "vy",
+      "vz",
+      "wx",
+      "wy",
+      "wz",
+      "m1_rads",
+      "m2_rads",
+      "m3_rads",
+      "m4_rads",
+      "ax_body",
+      "ay_body",
+      "az_body"
+    ],
+    "labels": {
+      "profile": "square",
+      "recording_date": "2025-10-17",
+      "replicate": 3,
+      "benchmark_split": "train"
+    },
+    "quality": {
+      "nominal_dt_s": 0.009999999999999787,
+      "sample_rate_hz": 100.00000000000213,
+      "maximum_timing_error_s": 5.329070518200751e-15,
+      "maximum_quaternion_norm_error": 3.3306690738754696e-16,
+      "motor_speed_minimum_rad_s": [
+        833.6464443638002,
+        772.2592845104473,
+        748.8094555356602,
+        709.7192135999695
+      ],
+      "motor_speed_maximum_rad_s": [
+        2389.036710538684,
+        2341.551630506184,
+        2349.2089011239595,
+        2340.6431603514
+      ]
+    },
+    "sha256": "199f1de08d8da4830d79c4fff4e62f313af5ff54af9cac53c9d8341d4a73a2d8",
+    "checksum_matches_pinned_snapshot": true,
+    "spec": {
+      "state_schema": "rigid_body_13_nwu_flu_wxyz_v1",
+      "observation_source": "processed_mocap_and_onboard_sensors",
+      "channels": [
+        {
+          "name": "motor_front_left",
+          "role": "motor_front_left",
+          "semantic": "squared_rotor_speed_ratio",
+          "unit": "1",
+          "kind": "control",
+          "frame": "FLU",
+          "minimum": 0.0,
+          "maximum": null
+        },
+        {
+          "name": "motor_front_right",
+          "role": "motor_front_right",
+          "semantic": "squared_rotor_speed_ratio",
+          "unit": "1",
+          "kind": "control",
+          "frame": "FLU",
+          "minimum": 0.0,
+          "maximum": null
+        },
+        {
+          "name": "motor_rear_right",
+          "role": "motor_rear_right",
+          "semantic": "squared_rotor_speed_ratio",
+          "unit": "1",
+          "kind": "control",
+          "frame": "FLU",
+          "minimum": 0.0,
+          "maximum": null
+        },
+        {
+          "name": "motor_rear_left",
+          "role": "motor_rear_left",
+          "semantic": "squared_rotor_speed_ratio",
+          "unit": "1",
+          "kind": "control",
+          "frame": "FLU",
+          "minimum": 0.0,
+          "maximum": null
+        },
+        {
+          "name": "specific_force_x_m_s2",
+          "role": "specific_force_x",
+          "semantic": "accelerometer_specific_force_including_gravity",
+          "unit": "m/s^2",
+          "kind": "observation",
+          "frame": "FLU",
+          "minimum": null,
+          "maximum": null
+        },
+        {
+          "name": "specific_force_y_m_s2",
+          "role": "specific_force_y",
+          "semantic": "accelerometer_specific_force_including_gravity",
+          "unit": "m/s^2",
+          "kind": "observation",
+          "frame": "FLU",
+          "minimum": null,
+          "maximum": null
+        },
+        {
+          "name": "specific_force_z_m_s2",
+          "role": "specific_force_z",
+          "semantic": "accelerometer_specific_force_including_gravity",
+          "unit": "m/s^2",
+          "kind": "observation",
+          "frame": "FLU",
+          "minimum": null,
+          "maximum": null
+        }
+      ],
+      "vehicle": {
+        "family": "multirotor",
+        "configuration_id": "idsia_crazyflie_2_1_brushless_flow_v2_ai_deck",
+        "controlled_axes": [
+          "roll",
+          "pitch",
+          "yaw"
+        ],
+        "fixed_states": {
+          "mass_kg": 0.045,
+          "rotor_layout": "x",
+          "rotor_speed_reference_rad_s": 2500.0,
+          "control_transform": "(rotor_speed_rad_s / reference_rad_s)^2"
+        },
+        "auxiliary_controls": []
+      }
+    }
+  },
+  {
+    "source": "/Users/ryland/autonomy/dart/artifacts/real-transition/corpus/raw/data/train/square_20251017_run4.csv",
+    "adapter": {
+      "name": "idsia_nanodrone_benchmark",
+      "schema_version": 2
+    },
+    "benchmark": {
+      "repository": "https://github.com/idsia-robotics/nanodrone-sysid-benchmark",
+      "commit": "2d921b57d166fe2debe08a5d39bd07297c5abc39",
+      "doi": "10.1016/j.conengprac.2026.106871",
+      "relative_path": "data/train/square_20251017_run4.csv",
+      "split": "train"
+    },
+    "rows": 1900,
+    "intervals": 1899,
+    "duration_s": 18.99,
+    "columns": [
+      "t",
+      "x",
+      "y",
+      "z",
+      "qx",
+      "qy",
+      "qz",
+      "qw",
+      "vx",
+      "vy",
+      "vz",
+      "wx",
+      "wy",
+      "wz",
+      "m1_rads",
+      "m2_rads",
+      "m3_rads",
+      "m4_rads",
+      "ax_body",
+      "ay_body",
+      "az_body"
+    ],
+    "labels": {
+      "profile": "square",
+      "recording_date": "2025-10-17",
+      "replicate": 4,
+      "benchmark_split": "train"
+    },
+    "quality": {
+      "nominal_dt_s": 0.009999999999999787,
+      "sample_rate_hz": 100.00000000000213,
+      "maximum_timing_error_s": 5.329070518200751e-15,
+      "maximum_quaternion_norm_error": 3.3306690738754696e-16,
+      "motor_speed_minimum_rad_s": [
+        875.683365238408,
+        823.5719840752664,
+        746.8285015995052,
+        705.5663773807719
+      ],
+      "motor_speed_maximum_rad_s": [
+        2355.60700117133,
+        2302.0893798316965,
+        2356.233961763417,
+        2333.2247814578823
+      ]
+    },
+    "sha256": "76b6a2e2400612681e65f041ca31e5c6ba6bea063a944d5d4a75481edd82a671",
+    "checksum_matches_pinned_snapshot": true,
+    "spec": {
+      "state_schema": "rigid_body_13_nwu_flu_wxyz_v1",
+      "observation_source": "processed_mocap_and_onboard_sensors",
+      "channels": [
+        {
+          "name": "motor_front_left",
+          "role": "motor_front_left",
+          "semantic": "squared_rotor_speed_ratio",
+          "unit": "1",
+          "kind": "control",
+          "frame": "FLU",
+          "minimum": 0.0,
+          "maximum": null
+        },
+        {
+          "name": "motor_front_right",
+          "role": "motor_front_right",
+          "semantic": "squared_rotor_speed_ratio",
+          "unit": "1",
+          "kind": "control",
+          "frame": "FLU",
+          "minimum": 0.0,
+          "maximum": null
+        },
+        {
+          "name": "motor_rear_right",
+          "role": "motor_rear_right",
+          "semantic": "squared_rotor_speed_ratio",
+          "unit": "1",
+          "kind": "control",
+          "frame": "FLU",
+          "minimum": 0.0,
+          "maximum": null
+        },
+        {
+          "name": "motor_rear_left",
+          "role": "motor_rear_left",
+          "semantic": "squared_rotor_speed_ratio",
+          "unit": "1",
+          "kind": "control",
+          "frame": "FLU",
+          "minimum": 0.0,
+          "maximum": null
+        },
+        {
+          "name": "specific_force_x_m_s2",
+          "role": "specific_force_x",
+          "semantic": "accelerometer_specific_force_including_gravity",
+          "unit": "m/s^2",
+          "kind": "observation",
+          "frame": "FLU",
+          "minimum": null,
+          "maximum": null
+        },
+        {
+          "name": "specific_force_y_m_s2",
+          "role": "specific_force_y",
+          "semantic": "accelerometer_specific_force_including_gravity",
+          "unit": "m/s^2",
+          "kind": "observation",
+          "frame": "FLU",
+          "minimum": null,
+          "maximum": null
+        },
+        {
+          "name": "specific_force_z_m_s2",
+          "role": "specific_force_z",
+          "semantic": "accelerometer_specific_force_including_gravity",
+          "unit": "m/s^2",
+          "kind": "observation",
+          "frame": "FLU",
+          "minimum": null,
+          "maximum": null
+        }
+      ],
+      "vehicle": {
+        "family": "multirotor",
+        "configuration_id": "idsia_crazyflie_2_1_brushless_flow_v2_ai_deck",
+        "controlled_axes": [
+          "roll",
+          "pitch",
+          "yaw"
+        ],
+        "fixed_states": {
+          "mass_kg": 0.045,
+          "rotor_layout": "x",
+          "rotor_speed_reference_rad_s": 2500.0,
+          "control_transform": "(rotor_speed_rad_s / reference_rad_s)^2"
+        },
+        "auxiliary_controls": []
+      }
+    }
+  }
+]

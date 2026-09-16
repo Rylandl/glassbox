@@ -1,0 +1,13 @@
+{
+  "scripts/experiment_model_structures.py": "829662154e22a17dd53b60d967ec2545e383fc6cc4a994940417095a72a09941",
+  "scripts/experiment_transition_diagnosis.py": "f60f2718108bbb491baf7b9407d9ddc76f3e97a053c209b5ab8a579c6827fe94",
+  "scripts/experiment_real_transition.py": "8d1e844194551d87471eb2bc3974154a31447d1a1e19c4587bd6d0f5fb56c94c",
+  "tests/test_model_structures.py": "42b103ce999bb96b1553541070ac01202b677e332d8e24f003fcc53d316845a0",
+  "src/glassbox/experimental/__init__.py": "51f463d0d49c41f3ba362d1622626453a03b1ed04d28f873865a22f525a4602e",
+  "src/glassbox/experimental/error_calibration.py": "7f6073832833deba79f13866bda329767be2e5716203aef47ed5ea70120770cb",
+  "src/glassbox/experimental/outputwise_transition.py": "4ad5f855f80ecf9b48df6fdb4b7b5ce0cf3c2614bb1b70e65b14a989a77dd2fe",
+  "src/glassbox/experimental/sequence_model.py": "3e51c3e98c00107d88556c0c10f242397c04940760ee43430d75d077294f5cc8",
+  "src/glassbox/experimental/structured_regression.py": "e42a8ed7703488fd3428210ffb9a8aa94cbdda6a59f751b4197840c57973351e",
+  "src/glassbox/experimental/temporal.py": "1d77e481c9b728eac5f42f3ea1d58d7fe1a64fab4a9c9e8f468fe035ecbb0fdc",
+  "src/glassbox/experimental/transition_gp.py": "b84a178e66e4307234d70d221a63bb8d8096a31d38e4ed54e1c06cbe587e9c69"
+}

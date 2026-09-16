@@ -1,0 +1,2645 @@
+{
+  "artifact_root": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization",
+  "files": [
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/coupled_nonlinear-4101/baseline-report.json",
+      "bytes": 7280,
+      "sha256": "92f9228e4d3e637d83d158893593f9ac9af1e41cce4ca1a623f266cf75cb07d5"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/coupled_nonlinear-4101/baseline.npz",
+      "bytes": 91313,
+      "sha256": "8d032569b2952bc30e80feb1da56969e04e8b5d360677cdf9c45d0cb69fc4986"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/coupled_nonlinear-4101/matched.npz",
+      "bytes": 51857,
+      "sha256": "acc6ceba5190ddfdd062af56dca88ee3c9ba60585b886c91fa48873ecd1f7e13"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/coupled_nonlinear-4101/pooled-report.json",
+      "bytes": 2090,
+      "sha256": "bdecf7800ca622a12bf58a5c199b121f88aad7197a577800e753672eaf412960"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/coupled_nonlinear-4101/pooled.npz",
+      "bytes": 6810,
+      "sha256": "67e458f286f4386369af13f389745341978a655a80c245cef77d5a5e3507d6b8"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/coupled_nonlinear-4101/result.json",
+      "bytes": 66369,
+      "sha256": "bcf0ce451ecf7cd3ee6d0177ced5033e5cf326b4f2d5c907b9e525f386347405"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/coupled_nonlinear-4101/shifted.npz",
+      "bytes": 51830,
+      "sha256": "cfa970d97182073dbdcdbebad34c03800d1265a79e8e533d53343a8068bae412"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/coupled_nonlinear-4202/baseline-report.json",
+      "bytes": 7273,
+      "sha256": "fe6e616753bb2ebfc29e8e6803e1fa81c1dee2aa3e946c82a8a10c1c7fcd4e75"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/coupled_nonlinear-4202/baseline.npz",
+      "bytes": 91284,
+      "sha256": "6694b3b9334f3c74490e224f664572c5fb40192768e4aeab53756c62432c3df9"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/coupled_nonlinear-4202/matched.npz",
+      "bytes": 51900,
+      "sha256": "6cbf4a7f3b0b856269bdac2618e9fa31a6756b493bf2a850bf04883badd41648"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/coupled_nonlinear-4202/pooled-report.json",
+      "bytes": 2085,
+      "sha256": "5372975d590482db3fdd7b0f150874eeda46319cbba7d5d824add4db5d4dbe07"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/coupled_nonlinear-4202/pooled.npz",
+      "bytes": 6801,
+      "sha256": "c0b92bf89b56beaf3898b28d0fdebb3ca9d6b1ae8e22c9f196902e245e6b0eb0"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/coupled_nonlinear-4202/result.json",
+      "bytes": 66357,
+      "sha256": "8a5a717636f9a03e8340cede725614fd0d8efaeab42ba5901aa6a7bdfe62c003"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/coupled_nonlinear-4202/shifted.npz",
+      "bytes": 51863,
+      "sha256": "f2d0f6f607beb69223fbb62e9f734b3f2243df9341457377825ec33388bb424c"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/coupled_nonlinear-4303/baseline-report.json",
+      "bytes": 7275,
+      "sha256": "03b594c49216c53ac8198deedfd91875b1a30b9bcca7a3141754b002b7156921"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/coupled_nonlinear-4303/baseline.npz",
+      "bytes": 91302,
+      "sha256": "f66e00106ae18f06af04ab5b3beaad6977c7960132db374574d2a442d48448ce"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/coupled_nonlinear-4303/matched.npz",
+      "bytes": 51901,
+      "sha256": "95b617b247b035e116650922af5d7de75264815296385a9811b5b2bcbfcf5cc4"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/coupled_nonlinear-4303/pooled-report.json",
+      "bytes": 2091,
+      "sha256": "a97c02c68e907951b92eef19d459973bfd5f7083867a83104a0b3b1076de944e"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/coupled_nonlinear-4303/pooled.npz",
+      "bytes": 6788,
+      "sha256": "6ca98d05c1198f1196f8d95eeb83c965e66c7b11974249d9c7b1346c42997751"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/coupled_nonlinear-4303/result.json",
+      "bytes": 66362,
+      "sha256": "2ab17f9a31f17d687f07addfdd44d93116b114d04f8beec727c9dd2c9ab6894a"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/coupled_nonlinear-4303/shifted.npz",
+      "bytes": 51873,
+      "sha256": "f7781c9b079a0648a4da2af23916967ccc612ba4170a0928dde394b6b2d699c0"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/deadzone_saturation-4101/baseline-report.json",
+      "bytes": 6305,
+      "sha256": "f7a1f59245a90f871e09f802420049ae9fd0c1bf3535f117278ea3dbda306d95"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/deadzone_saturation-4101/baseline.npz",
+      "bytes": 54881,
+      "sha256": "7381497ee258f2b2aa582aada415f43afd1739a57a3a1dba7bd9471a3f2a2ced"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/deadzone_saturation-4101/matched.npz",
+      "bytes": 27206,
+      "sha256": "4746f1265524f768d304f5f41018fc8b71e2d8c29def6d17e25cfed28247d2d1"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/deadzone_saturation-4101/pooled-report.json",
+      "bytes": 1924,
+      "sha256": "44e814d1000868fdef9876d65e0ade9e3c9d9608458f575cdc0fffe4481081f4"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/deadzone_saturation-4101/pooled.npz",
+      "bytes": 4819,
+      "sha256": "539a45fb236c57d126b5b047bdac356e877bcbeb354d8d02a60dbb6e3ab67661"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/deadzone_saturation-4101/result.json",
+      "bytes": 60684,
+      "sha256": "e5fa7803bd000a1152ec7236d2dda5d5b0784ae68428f389c97e710850b5b7ba"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/deadzone_saturation-4101/shifted.npz",
+      "bytes": 27218,
+      "sha256": "9aa988c1c38da44939600c0cd4bd63caa75098d8f26b47a6e6ff8d910055d4ff"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/deadzone_saturation-4202/baseline-report.json",
+      "bytes": 6301,
+      "sha256": "c22d4c31bc392fb74a4a03b7297d3475070dff4f995067e5bc13f1216653111d"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/deadzone_saturation-4202/baseline.npz",
+      "bytes": 54851,
+      "sha256": "49b6bedac413369b8b2aa6b113b438138060e1f9e5d6c5cc660f1a0f8c470a13"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/deadzone_saturation-4202/matched.npz",
+      "bytes": 27220,
+      "sha256": "457cdd3d50fe9f503bc32c3e67298fe1e6e7dafbecc89aa8633f0e9681f6fa18"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/deadzone_saturation-4202/pooled-report.json",
+      "bytes": 1924,
+      "sha256": "723babe37b0f3233ce283c0a9acee008890ac2caac8e82cb8e45b7d85bf54d6a"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/deadzone_saturation-4202/pooled.npz",
+      "bytes": 4819,
+      "sha256": "2559dd45fc267c0af2f87cc975fbcf9403e727fd28fb82571931b5fcea1f7c15"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/deadzone_saturation-4202/result.json",
+      "bytes": 60662,
+      "sha256": "2c01f825eb07a2b1bc30a44d26e37fe7387ef4e333a3abeb870793389a929df9"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/deadzone_saturation-4202/shifted.npz",
+      "bytes": 27218,
+      "sha256": "c6224f7c6ca2ecf1cbf99dfbae58da4910b678783af79a500e664dbe59f14493"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/deadzone_saturation-4303/baseline-report.json",
+      "bytes": 6296,
+      "sha256": "a72509b710b17a2cd76245b02eeeef08deb8c3fe11a164d51d7ae34f8d03e9ad"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/deadzone_saturation-4303/baseline.npz",
+      "bytes": 54889,
+      "sha256": "6a1945b11476be7350e0847a182a5d7a20ed9c60fc40d1ddd8182e38e167e28c"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/deadzone_saturation-4303/matched.npz",
+      "bytes": 27237,
+      "sha256": "f8a4276cbd66b2e503d6c78f018acdf01c74e521ad7d809181b448c575fac0f2"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/deadzone_saturation-4303/pooled-report.json",
+      "bytes": 1930,
+      "sha256": "7417c28ee6a3d987a437af453e99f25faec8eb7c750b218f42af6ba3c0013de7"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/deadzone_saturation-4303/pooled.npz",
+      "bytes": 4826,
+      "sha256": "af4b3987046bc1ac8767fbcf1d078f6fbafc0124db64b2160d94416100504bee"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/deadzone_saturation-4303/result.json",
+      "bytes": 60633,
+      "sha256": "d1c948a31c81bb40394485013e9e8a1b5bf5aaa888b10e44386c1298ea475661"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/deadzone_saturation-4303/shifted.npz",
+      "bytes": 27218,
+      "sha256": "edaee30aacd3d21d289ee3516ec5c4e2aec0fc500ead0f55a9dce70723b1cc20"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/delayed_nonlinear-4101/baseline-report.json",
+      "bytes": 6237,
+      "sha256": "d7f0f7197ef3f9593747b3cded9eabad95fb9de87011bdff4789a79cbefb3306"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/delayed_nonlinear-4101/baseline.npz",
+      "bytes": 54845,
+      "sha256": "538560e752ca065207c6e9c5b726e8e61f7cda0a1640ce1ba6ae1405426651ae"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/delayed_nonlinear-4101/matched.npz",
+      "bytes": 27252,
+      "sha256": "ad59006a1d8406d875f43497cfd23fa7c67ccd73a6d72d70f94a6d2880d06f85"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/delayed_nonlinear-4101/pooled-report.json",
+      "bytes": 1894,
+      "sha256": "b0700b80c8cc3d17e71983412daf97d61fffe816690a01eb2373ab7b4efccd46"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/delayed_nonlinear-4101/pooled.npz",
+      "bytes": 4824,
+      "sha256": "e70524265531a3ee7b92792210b8c489fff8ad39c200c7a0c751400034a75c3c"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/delayed_nonlinear-4101/result.json",
+      "bytes": 60449,
+      "sha256": "5351de5da5e3202c381ba93c32ed7b7898b775709a73196ed92c7a72e6b0ce3e"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/delayed_nonlinear-4101/shifted.npz",
+      "bytes": 27244,
+      "sha256": "488f7b17c65b873ae6bfd8ce58823c788dc9b6928502155c902758e5aa1ad08a"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/delayed_nonlinear-4202/baseline-report.json",
+      "bytes": 6241,
+      "sha256": "1954e0cf98513089f9269fec12233723bca09e0564e629ebaff88fa908729ff9"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/delayed_nonlinear-4202/baseline.npz",
+      "bytes": 54818,
+      "sha256": "7070bd36dbbe440705356232ab1e3a967f906b28f4bf03256f229872bdf0c225"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/delayed_nonlinear-4202/matched.npz",
+      "bytes": 27246,
+      "sha256": "04d63f16345c5ca8786291cc6e7aa591b0de230df57fac878cfe8dd6d774d791"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/delayed_nonlinear-4202/pooled-report.json",
+      "bytes": 1887,
+      "sha256": "fe224a46974963f05e1b5720ecb3cd03941ed316e99716146b4f3ee4462626b1"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/delayed_nonlinear-4202/pooled.npz",
+      "bytes": 4826,
+      "sha256": "3450c2a2a1ce661bc5f37faf0674a4557a0b1bec04b5533e70b79146db2e3add"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/delayed_nonlinear-4202/result.json",
+      "bytes": 60442,
+      "sha256": "57ad7ca882441c641a75755f60cca89bfdb223f96826aecf526891aaaeba9fcd"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/delayed_nonlinear-4202/shifted.npz",
+      "bytes": 27251,
+      "sha256": "dbc2c2cba07776beedaa1c891a3b45323be4504ea097618ed89ea15c9a20c247"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/delayed_nonlinear-4303/baseline-report.json",
+      "bytes": 6247,
+      "sha256": "5223611c4ad9aadff95666ce09c05e1de9008fde7db3e1ffb89eb53d2dc304c8"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/delayed_nonlinear-4303/baseline.npz",
+      "bytes": 54810,
+      "sha256": "914c5eaa9c7e07d834412d02b8108632cd249ffec810e8e947bfd68000fdb4a8"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/delayed_nonlinear-4303/matched.npz",
+      "bytes": 27227,
+      "sha256": "21cc1b6092be16ac13a97b3056a73dfe1aa0a88bf58652e827ade8bb6b87b068"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/delayed_nonlinear-4303/pooled-report.json",
+      "bytes": 1898,
+      "sha256": "2848794bf10a4caad28597ed0c769147b14d4380da672728fa43ea06397cf4e8"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/delayed_nonlinear-4303/pooled.npz",
+      "bytes": 4826,
+      "sha256": "23debf4ca5fe0ce518468effa9d0c2ba9e7dad965e86c7fcbe3a80393ba2bc28"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/delayed_nonlinear-4303/result.json",
+      "bytes": 60423,
+      "sha256": "03e01c9ee2da68ad784ab5371e5bc20f76ae2b6cd37dfe3c6be835db25e2f68e"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/delayed_nonlinear-4303/shifted.npz",
+      "bytes": 27231,
+      "sha256": "0cb941c85fe3b011500c4e094ed97fdd6bb06cf7f93aa2fdd08683f01d03fa53"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/environment.json",
+      "bytes": 172,
+      "sha256": "8d57eb15caa51ae80c6158d14bbdaa2f71ddccef88875336781ec64d680046ed"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/executed-sources.zip",
+      "bytes": 633133,
+      "sha256": "5f22559ed96c34286ed664408eaeed9fe4357ae073074aabc00bd52248b962ca"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/hidden_hysteresis-4101/baseline-report.json",
+      "bytes": 6291,
+      "sha256": "d7bc81ed0dadda57708e699863bdbb7d77435a67f289be2e5b51b5de6dc8067a"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/hidden_hysteresis-4101/baseline.npz",
+      "bytes": 54786,
+      "sha256": "6c761e23a9fda462b0fee16477642164a9356a286ba225276c34632982ad4b9f"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/hidden_hysteresis-4101/matched.npz",
+      "bytes": 27188,
+      "sha256": "91a867f743b5ae7e6868695528db625efe8e7a3a2fedb9f41338e64eeba443a8"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/hidden_hysteresis-4101/pooled-report.json",
+      "bytes": 1922,
+      "sha256": "82cb183040ebc911a8793efb07bbddcb6d0cc56aaf18f22d9377b67d8d204914"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/hidden_hysteresis-4101/pooled.npz",
+      "bytes": 4827,
+      "sha256": "9b3a774970068b5dbeeae56069adf679093cd4fdf9aa3f011be46aae1c4d5ac6"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/hidden_hysteresis-4101/result.json",
+      "bytes": 60784,
+      "sha256": "adfa92ff2c63a96f2fd8428f782e4a4195aab5f295931bd8d1f5572a24f561b1"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/hidden_hysteresis-4101/shifted.npz",
+      "bytes": 27158,
+      "sha256": "607cc36e034cb22d633d1aead0d848bf99894daad3b489cabad94838f76b0159"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/hidden_hysteresis-4202/baseline-report.json",
+      "bytes": 6296,
+      "sha256": "53cbb1c26e186c71f891ff34b93f9e332a453915a62260084174606974e2bc49"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/hidden_hysteresis-4202/baseline.npz",
+      "bytes": 54833,
+      "sha256": "d316bb288ce29bb1bfdeb8bdc5dfab2759ca7fe99f7a8fcd1dcdae28ce0e1ffb"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/hidden_hysteresis-4202/matched.npz",
+      "bytes": 27209,
+      "sha256": "25486ef9ae04ec684c6f3db8709bfe724f132a03a3f7d19e3357ad96f287028a"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/hidden_hysteresis-4202/pooled-report.json",
+      "bytes": 1926,
+      "sha256": "367a45e26f4766c0e1177491de87a5fb25c8c86eb3f8ecfbe8db013532f109fb"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/hidden_hysteresis-4202/pooled.npz",
+      "bytes": 4824,
+      "sha256": "c912d5987fdc9bc3ea03e0b46b9127c5497c8b2c03446182ede026eed79b7de4"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/hidden_hysteresis-4202/result.json",
+      "bytes": 60758,
+      "sha256": "2b7e7da18f234263f4cd048faedb856e9c463a5bbf0f2343c0bbd721ce2aba34"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/hidden_hysteresis-4202/shifted.npz",
+      "bytes": 27199,
+      "sha256": "cc943f801eb1c2bbf42abbeba4bda535c483d0b3702dfe20ee331e47c212cd94"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/hidden_hysteresis-4303/baseline-report.json",
+      "bytes": 6288,
+      "sha256": "33a2fe496e95dfcd0e899046f018041bf227e230f82dfe2d85272bb7c4a9b3ae"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/hidden_hysteresis-4303/baseline.npz",
+      "bytes": 54776,
+      "sha256": "bfe5911e3b93fa6bc49a86999b61f97914dc4ec3dcc8f04a5b20bf2c20096017"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/hidden_hysteresis-4303/matched.npz",
+      "bytes": 27168,
+      "sha256": "0346b049c2d7a4c5acf70d2d0dd880418e667691b0cbc4b645fc16b242b870ec"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/hidden_hysteresis-4303/pooled-report.json",
+      "bytes": 1924,
+      "sha256": "08f3a7afc6e69b275472ceb9ff32e5ba3eba43fb5e055345f3f7ef20f39a066c"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/hidden_hysteresis-4303/pooled.npz",
+      "bytes": 4834,
+      "sha256": "93531b8b712187b9f24f1d7022beafbea109fc440c08d953fb02255d8429adf8"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/hidden_hysteresis-4303/result.json",
+      "bytes": 60762,
+      "sha256": "acde6adb1dd62d2e17e10d0fc5ced34334d2f806367312447931a429ace1c14d"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/hidden_hysteresis-4303/shifted.npz",
+      "bytes": 27168,
+      "sha256": "2fc1811fd7d8423cddc0038a709790369dea07f098bc960d97cc0ff920037bff"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/near_periodic-4101/baseline-report.json",
+      "bytes": 7285,
+      "sha256": "a315e27cfe41e8d2765ad5bdcd018929d0569927dad157e16e362078ef108eca"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/near_periodic-4101/baseline.npz",
+      "bytes": 91359,
+      "sha256": "46fe7b7656000cc324ef0f8121a21e327bf139f42cd25d23ce1bea34414a1633"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/near_periodic-4101/matched.npz",
+      "bytes": 51855,
+      "sha256": "5acbebfb6c4a06e4bd56f17edbb2ca8a5d1c0eea7e7a820a68a5205dfcb8894c"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/near_periodic-4101/pooled-report.json",
+      "bytes": 2087,
+      "sha256": "555dab1b4ddd2b3d3c78d476e8e3afaf04789725a73fe6ba685771713a8c5370"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/near_periodic-4101/pooled.npz",
+      "bytes": 6797,
+      "sha256": "ad981d04271277bc48111dcc4d05f6a609835536f57d05c6e176fb5b661d5180"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/near_periodic-4101/result.json",
+      "bytes": 66558,
+      "sha256": "2c4f7ea3249db82c98a15a47b1d7a5d56f82b0af3124d2671d418d7b82bdffa5"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/near_periodic-4101/shifted.npz",
+      "bytes": 51815,
+      "sha256": "a0ed4aac53b585538180be073e8b4c49d14c469b474b7161643b1713b6ce9cda"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/near_periodic-4202/baseline-report.json",
+      "bytes": 7271,
+      "sha256": "35da1e311c67ce01594a8172fd13f384c972efb49d9afbb622190b3bf1655a01"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/near_periodic-4202/baseline.npz",
+      "bytes": 91306,
+      "sha256": "a794fa47073af66e129915dfd48c3adf2ffea6c3755af9e0657bde1625d9b6db"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/near_periodic-4202/matched.npz",
+      "bytes": 51886,
+      "sha256": "2d35903e1369b77d1d561b3745611dca84aae4119f368d8229f99ae945c16450"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/near_periodic-4202/pooled-report.json",
+      "bytes": 2097,
+      "sha256": "95bea3edaa600a960f04ac2ed3de5acd17aeafa7d72a900b5dcee647060e73f2"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/near_periodic-4202/pooled.npz",
+      "bytes": 6802,
+      "sha256": "8670c0f6d2ed795e438d9f2fe929ccdb9da4be457d2f6537d9ec5ac420386620"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/near_periodic-4202/result.json",
+      "bytes": 66556,
+      "sha256": "52b2e552018bbb56999112697feea0dfd76bbd7a3917610185afdfdc40ff3c87"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/near_periodic-4202/shifted.npz",
+      "bytes": 51841,
+      "sha256": "26210d70d416d9892d9fa7af52af011f6eb7530f8d033d9f50bb027a542768b2"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/near_periodic-4303/baseline-report.json",
+      "bytes": 7298,
+      "sha256": "bab855fc5e09b93940cb7d4b8f3ac93ffb83611b01dc8502afb78495fb84c0ed"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/near_periodic-4303/baseline.npz",
+      "bytes": 91265,
+      "sha256": "f4ae9f18b16039fb7951047dfd76113ccd50d93e2b30ba1110f79c0b43b69aba"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/near_periodic-4303/matched.npz",
+      "bytes": 51878,
+      "sha256": "9beaa33e98f808c2d5162bb662c3e6396f1927a1ac743e61cd76f964ccc0c5ca"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/near_periodic-4303/pooled-report.json",
+      "bytes": 2094,
+      "sha256": "7cd5e1f2765e3b79c146bd1e863510446ba1f1a793f51bc3d3c97553b2825791"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/near_periodic-4303/pooled.npz",
+      "bytes": 6802,
+      "sha256": "5f4f044ec8141903e9991c99dfa9c880afa17c725330fe14a81fcd62778cb432"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/near_periodic-4303/result.json",
+      "bytes": 66515,
+      "sha256": "b5528a0ca1eebcf5dab1b06826d318b948a23edc3b65d9204b1f395c9939a2ee"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/near_periodic-4303/shifted.npz",
+      "bytes": 51824,
+      "sha256": "bf6514c018ee5abb22af8c28cf1bf86e5433e3cbcd70c69e555b1463dfba24b4"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/noisy_observation-4101/baseline-report.json",
+      "bytes": 6245,
+      "sha256": "77aba0acff95f06a1f036c5682707f1e6bdaa05f3096778b2a99ee6efba78aac"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/noisy_observation-4101/baseline.npz",
+      "bytes": 54236,
+      "sha256": "466f71dbf99b293817deabcd6b4fea0e4ebce4381c21dc569e332cb5fb496e5b"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/noisy_observation-4101/matched.npz",
+      "bytes": 27216,
+      "sha256": "6d5c1bf32641a567872f74d967a57bf8a60632ce8966db3b250f0961fbf15368"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/noisy_observation-4101/pooled-report.json",
+      "bytes": 1894,
+      "sha256": "2ca3ec7b941597cb9f5219249e7a613b82774888e7d0a97f1a19fb732cd1d783"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/noisy_observation-4101/pooled.npz",
+      "bytes": 4282,
+      "sha256": "1b378e3cc86b48703549d0058f67b3b9ac407b9d4cb74910f8ca04befcc76c73"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/noisy_observation-4101/result.json",
+      "bytes": 60494,
+      "sha256": "43d6cb684071424d86468b0fbb045893e74f150a8ad2db932db28347ac93ad2e"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/noisy_observation-4101/shifted.npz",
+      "bytes": 27221,
+      "sha256": "219a3e4b4418de40d95916beb8722933aaac5115dc64daf9a035c216a147dee7"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/noisy_observation-4202/baseline-report.json",
+      "bytes": 6240,
+      "sha256": "a121808b746ee72c2940810ee9ab46821c66c335627f02b3335231241c19900c"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/noisy_observation-4202/baseline.npz",
+      "bytes": 54824,
+      "sha256": "ea9fc604fec4166c89f82183faea8951322ce76d56d3777793345217ac626b5b"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/noisy_observation-4202/matched.npz",
+      "bytes": 27198,
+      "sha256": "80cf516798a3858bd0e99db29969850f510271691f464adb027db8264fe3a21a"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/noisy_observation-4202/pooled-report.json",
+      "bytes": 1896,
+      "sha256": "75452f49376ae535f0cb3fe813efdab3ee52d2005af5b1a6c9af74196f926710"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/noisy_observation-4202/pooled.npz",
+      "bytes": 4811,
+      "sha256": "055d40951087aa86c13f104f7487bc07821ffb3b0d42532ce42875214fb1aceb"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/noisy_observation-4202/result.json",
+      "bytes": 60514,
+      "sha256": "9afe131c9417cb821e89c9c8b9613792b644757fbb7d69018b6a8a782566f342"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/noisy_observation-4202/shifted.npz",
+      "bytes": 27228,
+      "sha256": "afca7ad40152b09bf651181b56cf78f2ab8f8a237fd3e5cc455da9457a44da48"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/noisy_observation-4303/baseline-report.json",
+      "bytes": 6246,
+      "sha256": "8b1e93df164b29eb742f9fb6ba13204786a3ee36130d1732480619452d3ef099"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/noisy_observation-4303/baseline.npz",
+      "bytes": 54804,
+      "sha256": "ece0533b099a3be27c026e02161104fe2d01e706b581b374a1642c668fb946a8"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/noisy_observation-4303/matched.npz",
+      "bytes": 27219,
+      "sha256": "38e56310f65988694215c43c71a55208d5948747c5c94ef9a96a72ca3477b8f3"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/noisy_observation-4303/pooled-report.json",
+      "bytes": 1895,
+      "sha256": "7e768629e81ec565b42bfe93286487f068553e7c4b3cdd642d38fe2d067c9e65"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/noisy_observation-4303/pooled.npz",
+      "bytes": 4829,
+      "sha256": "cbfe45ea7773b6f5d4ea6ae24a88c01c674430eff822885cad1804552f561090"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/noisy_observation-4303/result.json",
+      "bytes": 60508,
+      "sha256": "e0bc386b08bdf2d5a9c599e036ff8da3a450a5078695b30ad13064bf27b9e224"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/noisy_observation-4303/shifted.npz",
+      "bytes": 27240,
+      "sha256": "e3cba65e2c2fac5ae25c38c81f757aea3b0199fc132cf807224fdae839574d31"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/off_periodic-4101/baseline-report.json",
+      "bytes": 7283,
+      "sha256": "b3f9aa66649ca3fcc84cd964f0b24edae8c9527578267fa2c87ffc787ae80a6c"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/off_periodic-4101/baseline.npz",
+      "bytes": 91298,
+      "sha256": "37a9c2d4d6ebffbded5d839ac77cd941bad1db6983603d3c7ffd735b04f469da"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/off_periodic-4101/matched.npz",
+      "bytes": 51925,
+      "sha256": "94bb79ac735fba979c3dbfd218826ecd396efe523c6d86d78240c8a7ba321340"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/off_periodic-4101/pooled-report.json",
+      "bytes": 2093,
+      "sha256": "d974524641dedad2c3a28bfa54cf7ea51bea7cd081ef8814b410855147c35b6e"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/off_periodic-4101/pooled.npz",
+      "bytes": 6787,
+      "sha256": "79e9d9a81ac59790387211b86b0d6264dab7c13954176287cba3722d8952d362"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/off_periodic-4101/result.json",
+      "bytes": 66475,
+      "sha256": "3c71601ffa47cbe897ceb1f3be9c4de9f14d4fbae2f1760d434ed1f5ef09bb55"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/off_periodic-4101/shifted.npz",
+      "bytes": 51891,
+      "sha256": "a9388884dfaafd409cf2956235138b995dcf381ee17197035b23975ebdac08a9"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/off_periodic-4202/baseline-report.json",
+      "bytes": 7281,
+      "sha256": "d9e9fd68bfe5c1b75aaee2d66838f5de391a35b34e7f4fec4c43ada6a3630d4d"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/off_periodic-4202/baseline.npz",
+      "bytes": 91324,
+      "sha256": "be750dc6e6d272108abb70de80e808a795e442356f8408171b0de9c55925e21f"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/off_periodic-4202/matched.npz",
+      "bytes": 51921,
+      "sha256": "2d7e37c834fdcf0e75ba9a6387f25a2aec967329ab1255436229de7af74aa79f"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/off_periodic-4202/pooled-report.json",
+      "bytes": 2085,
+      "sha256": "f46a0c60398497cf1d9dfccfa350d56a7d5af502f5c0ca7ef1be67d52e1750db"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/off_periodic-4202/pooled.npz",
+      "bytes": 6794,
+      "sha256": "e19c76c054ba2230912729e8c4f6cedef81d3322ec65f0c7141b1cfc16093017"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/off_periodic-4202/result.json",
+      "bytes": 66515,
+      "sha256": "0dda32ae7c28a6730c28c406fadbed44d206f7d2c8226396daec20f304e27ab6"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/off_periodic-4202/shifted.npz",
+      "bytes": 51901,
+      "sha256": "3cb12c7b87568d4440bcf9884a601659b742337d522814b0441f09bbca2d90ab"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/off_periodic-4303/baseline-report.json",
+      "bytes": 7273,
+      "sha256": "f78163767440e18b15dbc67f35b60854eb7b1ef976ebed32d0baa077984431f5"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/off_periodic-4303/baseline.npz",
+      "bytes": 91288,
+      "sha256": "4904e3bad8f5155ff52a1d8acf99d5109d67a4ecedce69ad2c5bd036417e54e7"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/off_periodic-4303/matched.npz",
+      "bytes": 51945,
+      "sha256": "f7004721d241c74ef361230fe9e97974a0e5daa43671cbcf6284f0ae1dcd03b1"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/off_periodic-4303/pooled-report.json",
+      "bytes": 2093,
+      "sha256": "b052538e55122ce1281294d45b68816c2bbd07368527b361cb43c62eb1b731e0"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/off_periodic-4303/pooled.npz",
+      "bytes": 6806,
+      "sha256": "ba6e584b2cc3475bfd39d4223ddc11c98d3693b1747406abaa46207d0c538cc5"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/off_periodic-4303/result.json",
+      "bytes": 66447,
+      "sha256": "fb2072a4caf5a7de085fb26e4e8c93ffb787ee748e3d9594088919ccc46cddc5"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/off_periodic-4303/shifted.npz",
+      "bytes": 51896,
+      "sha256": "3f80eae76a23545ba616b48784840a7c779dc054fb4c0b3a1d4eff3890e8c907"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/plan.json",
+      "bytes": 3954,
+      "sha256": "8f9ae4ea9180dd143376f59b2595214946be63f6683f9e288fabae4c23ab6ca2"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/results.json",
+      "bytes": 1742905,
+      "sha256": "bddfe327dda0a95c5b5e2939e115737b45365e1e9265ceb8430c3ff822a3ad41"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/sources.json",
+      "bytes": 15991,
+      "sha256": "9fdd2178c6fb308ef36e36a2c2c139b1cef592a912968b49d2e5da99ae6d8143"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/stable_affine-4101/baseline-report.json",
+      "bytes": 8256,
+      "sha256": "d56a192ae2b91963024ac1eb91ea41cc68056674355acca698a9a27c2f3a8256"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/stable_affine-4101/baseline.npz",
+      "bytes": 111107,
+      "sha256": "36d1cbd03a5c7c980e3b5b576785553e0002d3bbc983475a604d3eda5d92a895"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/stable_affine-4101/matched.npz",
+      "bytes": 69974,
+      "sha256": "fc42ce9b2312aec605f434fc50ce3c0d6fe7e59d6c464a69d0b3239a607b644f"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/stable_affine-4101/pooled-report.json",
+      "bytes": 2227,
+      "sha256": "b73a2e297848a9764006abbe7c6dd20cf529a393ab362bfaa2349c0f63c95845"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/stable_affine-4101/pooled.npz",
+      "bytes": 8027,
+      "sha256": "9875188864c2a70ef18edbb09d0a2b90f93a32db6f62644cfb23d7e56154c622"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/stable_affine-4101/result.json",
+      "bytes": 72583,
+      "sha256": "70aab0998c46608b508e8737cace836eca33cbb16648d3e589dfcde874960d17"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/stable_affine-4101/shifted.npz",
+      "bytes": 69902,
+      "sha256": "cc1d8365074e10d11523108450ea0d221bb0e54b15d88a8c6fbd2976f42008a1"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/stable_affine-4202/baseline-report.json",
+      "bytes": 8269,
+      "sha256": "bf015b5dee60ac85fbf9da13f6addc6984544e59a50f099651b948e03246d84c"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/stable_affine-4202/baseline.npz",
+      "bytes": 111093,
+      "sha256": "32240a9a92ff5b6325cad2777654ef48630e7a18d86bbd6eaf5dbf73f3c056c3"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/stable_affine-4202/matched.npz",
+      "bytes": 69978,
+      "sha256": "2edaa74b048fb6f10d3b2ccbbe8c0978ca5e2950ba65d087238466f2d24382b6"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/stable_affine-4202/pooled-report.json",
+      "bytes": 2229,
+      "sha256": "a62ac4157e6861e2a32a597e007bc362522a6a8a3ff5261dfce7f5508e57c5b1"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/stable_affine-4202/pooled.npz",
+      "bytes": 8027,
+      "sha256": "500348cda1352503fb5f5c646230106ed53e6a16c986bafe6eaf70c4b4f43d5f"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/stable_affine-4202/result.json",
+      "bytes": 72587,
+      "sha256": "e59ffcd68aa08ab88423c595a6998dca770f7f051ef724980c08dbcb0964866f"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/stable_affine-4202/shifted.npz",
+      "bytes": 69935,
+      "sha256": "87a5fde273acbfbc0373c8e72ec1ed52c499a35781a0b05717f737610c66f8c9"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/stable_affine-4303/baseline-report.json",
+      "bytes": 8257,
+      "sha256": "73d50924e3b6c8feedb20be768028ee29a0db56563b4729a8f5c34e13c43e393"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/stable_affine-4303/baseline.npz",
+      "bytes": 111093,
+      "sha256": "36de738aeb0d29773535f8ae86143a1fd9c277332f570a69f02e0a99d5cf2793"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/stable_affine-4303/matched.npz",
+      "bytes": 69964,
+      "sha256": "85939d596113e01dcd6addaa5ad21275f947ed8e1bf1f81d3e2489a512a3b53b"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/stable_affine-4303/pooled-report.json",
+      "bytes": 2221,
+      "sha256": "a80d70dcd10254f3f3da0d67ba276655bc832a9129cd15554183807f7b15f6bf"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/stable_affine-4303/pooled.npz",
+      "bytes": 8019,
+      "sha256": "c8dcca51e125703cf11c808964490b2a31f3ebc0799eabb7cf379e811db165cd"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/stable_affine-4303/result.json",
+      "bytes": 72581,
+      "sha256": "84100e5f731198a36f9748634624f49732c219cc7755d2bb9066033fd3fcfb8b"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/comparison-01/stable_affine-4303/shifted.npz",
+      "bytes": 69926,
+      "sha256": "0b31071292bd4c474fe8692528ec01e5ea98e0c882f25fd587d1e9ea4d068b8e"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/coupled_nonlinear-4101/baseline-report.json",
+      "bytes": 7280,
+      "sha256": "92f9228e4d3e637d83d158893593f9ac9af1e41cce4ca1a623f266cf75cb07d5"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/coupled_nonlinear-4101/baseline.npz",
+      "bytes": 91313,
+      "sha256": "8d032569b2952bc30e80feb1da56969e04e8b5d360677cdf9c45d0cb69fc4986"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/coupled_nonlinear-4101/first_step_floor-report.json",
+      "bytes": 2091,
+      "sha256": "74fd2abdc33c0bb4eaeaa196219f12455fd64364041c147368a597c069b7108b"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/coupled_nonlinear-4101/first_step_floor.npz",
+      "bytes": 6797,
+      "sha256": "d2ad84be2914574dddf7ecdb15483a43030cdcf6a72f124933b127a82461392f"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/coupled_nonlinear-4101/matched.npz",
+      "bytes": 51880,
+      "sha256": "5ec36fad291ff9e2ea0da5adc298fb1b6ed2da5a17c77b4d6d1eea24d672e54f"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/coupled_nonlinear-4101/result.json",
+      "bytes": 66598,
+      "sha256": "471a1c71c38ff72366250bea83e2ca69545d40538e74ac28fe355239573d6aa8"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/coupled_nonlinear-4101/shifted.npz",
+      "bytes": 51859,
+      "sha256": "79ca228b11be9628f1f7f23f654d04e769d4fd79fb11cdfaa31878658080cd28"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/coupled_nonlinear-4202/baseline-report.json",
+      "bytes": 7273,
+      "sha256": "fe6e616753bb2ebfc29e8e6803e1fa81c1dee2aa3e946c82a8a10c1c7fcd4e75"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/coupled_nonlinear-4202/baseline.npz",
+      "bytes": 91284,
+      "sha256": "6694b3b9334f3c74490e224f664572c5fb40192768e4aeab53756c62432c3df9"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/coupled_nonlinear-4202/first_step_floor-report.json",
+      "bytes": 2088,
+      "sha256": "8ce396d5d65347aa53c2194ddff05d1f899ef76cde7e4062a3335a7a9fcac57f"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/coupled_nonlinear-4202/first_step_floor.npz",
+      "bytes": 6790,
+      "sha256": "aa1d4ba33a8a063cc053d9481e8ae9573099d24d4483b94b5f23639ac7ea74ea"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/coupled_nonlinear-4202/matched.npz",
+      "bytes": 51907,
+      "sha256": "b9036d5429aa8064f82fcef1f7d5bbbaadcc391d0a5bf7947d4efeb05ec87059"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/coupled_nonlinear-4202/result.json",
+      "bytes": 66587,
+      "sha256": "3815915591e7e825bbeea7cbce4205535fd7d1f6c0ae5bb891056288bef32137"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/coupled_nonlinear-4202/shifted.npz",
+      "bytes": 51887,
+      "sha256": "c9d4b3b9bf3f6a22f02c2370e3cc46d71f686ffb73a3c87e2a93cf93d468177a"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/coupled_nonlinear-4303/baseline-report.json",
+      "bytes": 7275,
+      "sha256": "03b594c49216c53ac8198deedfd91875b1a30b9bcca7a3141754b002b7156921"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/coupled_nonlinear-4303/baseline.npz",
+      "bytes": 91302,
+      "sha256": "f66e00106ae18f06af04ab5b3beaad6977c7960132db374574d2a442d48448ce"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/coupled_nonlinear-4303/first_step_floor-report.json",
+      "bytes": 2091,
+      "sha256": "212b430e0a610aa8ae9fc5e783f2d0f4f35c1545f0bd32d782ef9129103d6e5d"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/coupled_nonlinear-4303/first_step_floor.npz",
+      "bytes": 6788,
+      "sha256": "d760925bb3f7d5327fe7691174bd7aacc9723ff9c9970d05fabb5e1eec9c3ce9"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/coupled_nonlinear-4303/matched.npz",
+      "bytes": 51942,
+      "sha256": "60db9c9fe5d7399a4e0103ddd3fa58c6d5e859c2905054788c9de89ea885265b"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/coupled_nonlinear-4303/result.json",
+      "bytes": 66595,
+      "sha256": "27abcb9d166d8b1b52ead4db1b5369236d7b6601d21424db959c659f3bd46253"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/coupled_nonlinear-4303/shifted.npz",
+      "bytes": 51894,
+      "sha256": "0e46424c5d7629e560bbd40af4f7f46f1f21bbf550a1b64d1c26f594ec86b45d"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/deadzone_saturation-4101/baseline-report.json",
+      "bytes": 6305,
+      "sha256": "f7a1f59245a90f871e09f802420049ae9fd0c1bf3535f117278ea3dbda306d95"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/deadzone_saturation-4101/baseline.npz",
+      "bytes": 54881,
+      "sha256": "7381497ee258f2b2aa582aada415f43afd1739a57a3a1dba7bd9471a3f2a2ced"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/deadzone_saturation-4101/first_step_floor-report.json",
+      "bytes": 1930,
+      "sha256": "a06e21b907f65db80b48f7382124776a8b620841056eb73097fafb10559268d1"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/deadzone_saturation-4101/first_step_floor.npz",
+      "bytes": 4831,
+      "sha256": "2132d8d94ff3830c14c538f041655b867db25a099e618d788b3af373550cb05d"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/deadzone_saturation-4101/matched.npz",
+      "bytes": 27224,
+      "sha256": "17ed96218933267e2ad1c353f62d540b77ab7976a82d74435be4e46245dd2fe2"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/deadzone_saturation-4101/result.json",
+      "bytes": 60940,
+      "sha256": "41eb4cd4e47e0c2968388f0feef092403aa61646d090359719793e21df38236f"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/deadzone_saturation-4101/shifted.npz",
+      "bytes": 27245,
+      "sha256": "cf323b55afd6e005eaedf4e3f89639f36108e8e79e48cf0c8e7eda0ad5658d41"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/deadzone_saturation-4202/baseline-report.json",
+      "bytes": 6301,
+      "sha256": "c22d4c31bc392fb74a4a03b7297d3475070dff4f995067e5bc13f1216653111d"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/deadzone_saturation-4202/baseline.npz",
+      "bytes": 54851,
+      "sha256": "49b6bedac413369b8b2aa6b113b438138060e1f9e5d6c5cc660f1a0f8c470a13"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/deadzone_saturation-4202/first_step_floor-report.json",
+      "bytes": 1931,
+      "sha256": "807e1b76a7f1f571c1906296f71f67dee8e5457bce671a4b6dec596dcd269759"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/deadzone_saturation-4202/first_step_floor.npz",
+      "bytes": 4826,
+      "sha256": "6f4bab363e6d20e46da1ec96b24b08954c16d6f226efaaac7c67eff26b4ffb06"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/deadzone_saturation-4202/matched.npz",
+      "bytes": 27245,
+      "sha256": "058afb36dec11aea39f51a4e8344536763b4fd0e4defb796e5fd831d44d0f1df"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/deadzone_saturation-4202/result.json",
+      "bytes": 60908,
+      "sha256": "831cd4a9ea9a888427c0fc51531e5a320b42e30982ded6d31e79dfa4d79bbfe4"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/deadzone_saturation-4202/shifted.npz",
+      "bytes": 27237,
+      "sha256": "a9c4c8a07a47f920819e854fe5fe046e27cfc460cf0b08f206ee913d1d9963e6"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/deadzone_saturation-4303/baseline-report.json",
+      "bytes": 6296,
+      "sha256": "a72509b710b17a2cd76245b02eeeef08deb8c3fe11a164d51d7ae34f8d03e9ad"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/deadzone_saturation-4303/baseline.npz",
+      "bytes": 54889,
+      "sha256": "6a1945b11476be7350e0847a182a5d7a20ed9c60fc40d1ddd8182e38e167e28c"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/deadzone_saturation-4303/first_step_floor-report.json",
+      "bytes": 1922,
+      "sha256": "31f0d269266e1b59f4ca0b7f959c00f4258958b800b8b2d82bcec0177e3a799f"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/deadzone_saturation-4303/first_step_floor.npz",
+      "bytes": 4820,
+      "sha256": "43a7ffe3f14c4c97dc0599d0c67ccf152861e4932107b98172977bd7110b12ad"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/deadzone_saturation-4303/matched.npz",
+      "bytes": 27255,
+      "sha256": "4e36e2e3455099d1256e4489a74c7675051373d90fc948d5a9c3d3e564f1c1d2"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/deadzone_saturation-4303/result.json",
+      "bytes": 60871,
+      "sha256": "887eeb715d8c1b5de567dc3a838d5d09226caa323ea99b7b2e909988b8320f3f"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/deadzone_saturation-4303/shifted.npz",
+      "bytes": 27248,
+      "sha256": "117f1ada0f91a4d680392c6979203d898a273e1b43be8c56a4b6d5e1d427c8fb"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/delayed_nonlinear-4101/baseline-report.json",
+      "bytes": 6237,
+      "sha256": "d7f0f7197ef3f9593747b3cded9eabad95fb9de87011bdff4789a79cbefb3306"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/delayed_nonlinear-4101/baseline.npz",
+      "bytes": 54845,
+      "sha256": "538560e752ca065207c6e9c5b726e8e61f7cda0a1640ce1ba6ae1405426651ae"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/delayed_nonlinear-4101/first_step_floor-report.json",
+      "bytes": 1885,
+      "sha256": "35281302b4bb2724070be46bdaed501759c2b0b40c30ac514d3dcb61fe8124d6"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/delayed_nonlinear-4101/first_step_floor.npz",
+      "bytes": 4830,
+      "sha256": "20405cb3a7d3051329194f8de5d7ed734abf929ea42304b8b8a5d6787fbe1d08"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/delayed_nonlinear-4101/matched.npz",
+      "bytes": 27280,
+      "sha256": "3c7fe6eb3cd7b0b8370e18057d4db43210b601ed3f0c34719bfa7976d57ce1af"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/delayed_nonlinear-4101/result.json",
+      "bytes": 60698,
+      "sha256": "3a9bdd204ff11e7b255703c3a1a241d2f400a05e55faac44e422f83e6065275d"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/delayed_nonlinear-4101/shifted.npz",
+      "bytes": 27262,
+      "sha256": "52e7f809b08928f16fdbbec48ddeeebc7665f79c32d9ee8ca9cdeaa98e7c224a"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/delayed_nonlinear-4202/baseline-report.json",
+      "bytes": 6241,
+      "sha256": "1954e0cf98513089f9269fec12233723bca09e0564e629ebaff88fa908729ff9"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/delayed_nonlinear-4202/baseline.npz",
+      "bytes": 54818,
+      "sha256": "7070bd36dbbe440705356232ab1e3a967f906b28f4bf03256f229872bdf0c225"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/delayed_nonlinear-4202/first_step_floor-report.json",
+      "bytes": 1889,
+      "sha256": "f8c0caae9088592cb909279fe5680a0c8d3b8b1411e3887d78d49d46121ba02f"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/delayed_nonlinear-4202/first_step_floor.npz",
+      "bytes": 4823,
+      "sha256": "d3e4465f29186fd132860724ae828c5efc969ee607c95ac4c037b3a31fec6701"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/delayed_nonlinear-4202/matched.npz",
+      "bytes": 27255,
+      "sha256": "244869420abd7d4793e8a863e88a1e02ff82db50627196c0273c9a2bc364c56f"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/delayed_nonlinear-4202/result.json",
+      "bytes": 60681,
+      "sha256": "0e8dc3b37f1bac1d8e6048265e6f3c0bef3c259b90184fb6fc254edaed46ebed"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/delayed_nonlinear-4202/shifted.npz",
+      "bytes": 27266,
+      "sha256": "79f1fbf042cf6cba56c536d1f56a515e7e572630bf25adc3f8d48754ec2952ed"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/delayed_nonlinear-4303/baseline-report.json",
+      "bytes": 6247,
+      "sha256": "5223611c4ad9aadff95666ce09c05e1de9008fde7db3e1ffb89eb53d2dc304c8"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/delayed_nonlinear-4303/baseline.npz",
+      "bytes": 54810,
+      "sha256": "914c5eaa9c7e07d834412d02b8108632cd249ffec810e8e947bfd68000fdb4a8"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/delayed_nonlinear-4303/first_step_floor-report.json",
+      "bytes": 1894,
+      "sha256": "3c597358aac7baffec9fb0fa5633738b7063b6bd7dc2dfcd228b7d3d5bcac6bc"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/delayed_nonlinear-4303/first_step_floor.npz",
+      "bytes": 4825,
+      "sha256": "d6b67d1e616a7250f70460b16a5c335ce7811a228b330d98a94662af70d42515"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/delayed_nonlinear-4303/matched.npz",
+      "bytes": 27251,
+      "sha256": "4b2605a601e06aefd8a92f2550847863c9be847fd9bda91ab1065efa3dd66154"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/delayed_nonlinear-4303/result.json",
+      "bytes": 60658,
+      "sha256": "79b75f6e6b87e839ee0ccd3e4c8c12b08963198192af7b419b640e001c3de256"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/delayed_nonlinear-4303/shifted.npz",
+      "bytes": 27238,
+      "sha256": "1b34a609d40f26840a801e45980a8b849a83836b21fad1200b8fc12cd19eb990"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/environment.json",
+      "bytes": 172,
+      "sha256": "8d57eb15caa51ae80c6158d14bbdaa2f71ddccef88875336781ec64d680046ed"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/executed-sources.zip",
+      "bytes": 636175,
+      "sha256": "ffd1f58b871be75d5e08199de533e561113cbd5e7035b1db99bc1144487b2190"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/hidden_hysteresis-4101/baseline-report.json",
+      "bytes": 6291,
+      "sha256": "d7bc81ed0dadda57708e699863bdbb7d77435a67f289be2e5b51b5de6dc8067a"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/hidden_hysteresis-4101/baseline.npz",
+      "bytes": 54786,
+      "sha256": "6c761e23a9fda462b0fee16477642164a9356a286ba225276c34632982ad4b9f"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/hidden_hysteresis-4101/first_step_floor-report.json",
+      "bytes": 1925,
+      "sha256": "3636737a61af1be79716f4ed5c1698dd4b0d302ae804540918ca20ed204492fe"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/hidden_hysteresis-4101/first_step_floor.npz",
+      "bytes": 4821,
+      "sha256": "908736819e18898d96269996adf8fd6cffa8701f019c4db89b6db2bf3d49d569"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/hidden_hysteresis-4101/matched.npz",
+      "bytes": 27199,
+      "sha256": "6d196be61ea29ae2e47c9269191c86b1cd41e36e9346e2579d6f46672533f352"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/hidden_hysteresis-4101/result.json",
+      "bytes": 61022,
+      "sha256": "d5f4749a9f3c9a12136b2d2f5555af4b8d0787c8fca68754a8375bdd46a8d753"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/hidden_hysteresis-4101/shifted.npz",
+      "bytes": 27182,
+      "sha256": "d6ef23c1efbea86df0fb855dc63883c14e5a70e91bdc6ae3f96dfb6bafa1f038"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/hidden_hysteresis-4202/baseline-report.json",
+      "bytes": 6296,
+      "sha256": "53cbb1c26e186c71f891ff34b93f9e332a453915a62260084174606974e2bc49"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/hidden_hysteresis-4202/baseline.npz",
+      "bytes": 54833,
+      "sha256": "d316bb288ce29bb1bfdeb8bdc5dfab2759ca7fe99f7a8fcd1dcdae28ce0e1ffb"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/hidden_hysteresis-4202/first_step_floor-report.json",
+      "bytes": 1931,
+      "sha256": "ba5b8d5d1266a858858cce695f59c0676645a7d5dd9e01b8307d12bce5ca40a1"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/hidden_hysteresis-4202/first_step_floor.npz",
+      "bytes": 4824,
+      "sha256": "5eddd48e99832385cdd1e4d2e21c2e32599790ee47572092065ea18403f34b71"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/hidden_hysteresis-4202/matched.npz",
+      "bytes": 27230,
+      "sha256": "535a41fb1419481ed9173848566d56bfabad93227fb1e51cf0bbb4e99748b794"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/hidden_hysteresis-4202/result.json",
+      "bytes": 61006,
+      "sha256": "f84c4b65dfc3a68530b7b4ab5858cfbe5f6b2d8aa405b8c81a54edc7ce4be015"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/hidden_hysteresis-4202/shifted.npz",
+      "bytes": 27213,
+      "sha256": "daeef9ee0f2317bb3db8ea561da6444f70c3aa8d1aa4fc7ded6fb412120a85f0"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/hidden_hysteresis-4303/baseline-report.json",
+      "bytes": 6288,
+      "sha256": "33a2fe496e95dfcd0e899046f018041bf227e230f82dfe2d85272bb7c4a9b3ae"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/hidden_hysteresis-4303/baseline.npz",
+      "bytes": 54776,
+      "sha256": "bfe5911e3b93fa6bc49a86999b61f97914dc4ec3dcc8f04a5b20bf2c20096017"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/hidden_hysteresis-4303/first_step_floor-report.json",
+      "bytes": 1923,
+      "sha256": "3b6a67c6769b3f8ba16ab6f10a5ab1bd9b6790f488205c362b9fd07fa3e74c1d"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/hidden_hysteresis-4303/first_step_floor.npz",
+      "bytes": 4830,
+      "sha256": "5a61bf98d93dcab485ad2334a9f7108cf34c4f569404c863f73499b32af3cb2d"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/hidden_hysteresis-4303/matched.npz",
+      "bytes": 27188,
+      "sha256": "8c1851124477ee68c9ec1d85fff554d3de3aff3cc8ffbdd4ccd143d5dba7b16e"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/hidden_hysteresis-4303/result.json",
+      "bytes": 61007,
+      "sha256": "73fad77a7de83e2549afcb5015f138ebfd83b52eb35f096412e93ed6cccff178"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/hidden_hysteresis-4303/shifted.npz",
+      "bytes": 27191,
+      "sha256": "24f75416a6dc1ff27de3e1c84d430d499ab90cd269a1e6b8346b0685d2a14fdc"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/near_periodic-4101/baseline-report.json",
+      "bytes": 7285,
+      "sha256": "a315e27cfe41e8d2765ad5bdcd018929d0569927dad157e16e362078ef108eca"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/near_periodic-4101/baseline.npz",
+      "bytes": 91359,
+      "sha256": "46fe7b7656000cc324ef0f8121a21e327bf139f42cd25d23ce1bea34414a1633"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/near_periodic-4101/first_step_floor-report.json",
+      "bytes": 2091,
+      "sha256": "58ad52731dfd56add4b80427f0e8e154306cecefc85a34ee531e17cf3530d912"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/near_periodic-4101/first_step_floor.npz",
+      "bytes": 6783,
+      "sha256": "febfab7664a45628121c5eceb3fe0326c6b7d64fccfa2dc0900b2e2a7c7af010"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/near_periodic-4101/matched.npz",
+      "bytes": 51870,
+      "sha256": "536630a3efdd81c86bb46b4fdab6576d5944e5c005b0e2c89b5eeee4fbb458f0"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/near_periodic-4101/result.json",
+      "bytes": 66791,
+      "sha256": "3818e7602cee28b4655dccd771d3b4bb7e4fdbda9e32e1fa8d6266109d32a4a0"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/near_periodic-4101/shifted.npz",
+      "bytes": 51837,
+      "sha256": "4f42d501b0bc184791933ecc0a6334fd3d9d03bef03894873fc05f15121d40a1"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/near_periodic-4202/baseline-report.json",
+      "bytes": 7271,
+      "sha256": "35da1e311c67ce01594a8172fd13f384c972efb49d9afbb622190b3bf1655a01"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/near_periodic-4202/baseline.npz",
+      "bytes": 91306,
+      "sha256": "a794fa47073af66e129915dfd48c3adf2ffea6c3755af9e0657bde1625d9b6db"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/near_periodic-4202/first_step_floor-report.json",
+      "bytes": 2091,
+      "sha256": "67b1035c5b7e9820e5c23c9e59643f347c46f6513d8e207a8835f79b449a0143"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/near_periodic-4202/first_step_floor.npz",
+      "bytes": 6788,
+      "sha256": "e537d4cf6da06b624afb05c0b8311034d6041734c71de73975f598bb792af354"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/near_periodic-4202/matched.npz",
+      "bytes": 51896,
+      "sha256": "2693d79a5cf125f945db239552e063adfb8c6cdb3687171fea105e6130bb46f9"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/near_periodic-4202/result.json",
+      "bytes": 66786,
+      "sha256": "1ca3fde5c177650e72d3da9845859c073c4e1a21f7a140e480df6a49878f8883"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/near_periodic-4202/shifted.npz",
+      "bytes": 51871,
+      "sha256": "2d34636ea8c64cb3596f755af89c5996fe103940c2e0d847aedb00ef843f70c1"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/near_periodic-4303/baseline-report.json",
+      "bytes": 7298,
+      "sha256": "bab855fc5e09b93940cb7d4b8f3ac93ffb83611b01dc8502afb78495fb84c0ed"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/near_periodic-4303/baseline.npz",
+      "bytes": 91265,
+      "sha256": "f4ae9f18b16039fb7951047dfd76113ccd50d93e2b30ba1110f79c0b43b69aba"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/near_periodic-4303/first_step_floor-report.json",
+      "bytes": 2096,
+      "sha256": "c376ff9ff9849858fae4a36e24d47feb2900c17441d743e5e274c2526bfec6b3"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/near_periodic-4303/first_step_floor.npz",
+      "bytes": 6792,
+      "sha256": "3d1e2a837df16d59b2fcea8eea3163bbd12478e3c598e0aa23fee5a7a7a75aa0"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/near_periodic-4303/matched.npz",
+      "bytes": 51896,
+      "sha256": "8cf55519ab9e8f09c3893861ef691786ba89c35c37766152d2633c124cc2bdce"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/near_periodic-4303/result.json",
+      "bytes": 66761,
+      "sha256": "b8832581214fb26481e1ca987c1a269ca8a93ad013a160eb21ccfa66bb6c7a8d"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/near_periodic-4303/shifted.npz",
+      "bytes": 51840,
+      "sha256": "cf3462ad9b600aff56e97b2e7df1e318571d5ad97b8ad36455b225eefb7ed1f8"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/noisy_observation-4101/baseline-report.json",
+      "bytes": 6245,
+      "sha256": "77aba0acff95f06a1f036c5682707f1e6bdaa05f3096778b2a99ee6efba78aac"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/noisy_observation-4101/baseline.npz",
+      "bytes": 54236,
+      "sha256": "466f71dbf99b293817deabcd6b4fea0e4ebce4381c21dc569e332cb5fb496e5b"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/noisy_observation-4101/first_step_floor-report.json",
+      "bytes": 1891,
+      "sha256": "c3cb94a5438415a40aec76059bb35e928729b20a34b9ed5d3267fb14a1b923fc"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/noisy_observation-4101/first_step_floor.npz",
+      "bytes": 4282,
+      "sha256": "1b378e3cc86b48703549d0058f67b3b9ac407b9d4cb74910f8ca04befcc76c73"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/noisy_observation-4101/matched.npz",
+      "bytes": 27236,
+      "sha256": "85778678415a7e0a5e751c540e833bd7c5c15c106ab3ee581e19718177ad16c7"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/noisy_observation-4101/result.json",
+      "bytes": 60733,
+      "sha256": "c1b164217c8b238b168342037ceed2d24ed8dafe6d9b702c2036084834331113"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/noisy_observation-4101/shifted.npz",
+      "bytes": 27241,
+      "sha256": "75369578b1fe88d85af4504d85a618e85b517dfbffc779bcbc18ee4050e3dc93"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/noisy_observation-4202/baseline-report.json",
+      "bytes": 6240,
+      "sha256": "a121808b746ee72c2940810ee9ab46821c66c335627f02b3335231241c19900c"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/noisy_observation-4202/baseline.npz",
+      "bytes": 54824,
+      "sha256": "ea9fc604fec4166c89f82183faea8951322ce76d56d3777793345217ac626b5b"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/noisy_observation-4202/first_step_floor-report.json",
+      "bytes": 1886,
+      "sha256": "24c0be9af7375ec40b2e9d7996a8d30b41b1ba14619d10fc4b1a32be786b1f19"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/noisy_observation-4202/first_step_floor.npz",
+      "bytes": 4816,
+      "sha256": "ba02b93694b1c71f626dc1d903ee4fa32e9896e7e0c675d80b01fa52db179c9d"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/noisy_observation-4202/matched.npz",
+      "bytes": 27224,
+      "sha256": "dc898f47478519ded91f50940d8454f7e558cd9358c09896782d71f4dd24fbf5"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/noisy_observation-4202/result.json",
+      "bytes": 60758,
+      "sha256": "69664e9b49bf108a71074d41df817469739888c98c194ffd5559feb0d66c2973"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/noisy_observation-4202/shifted.npz",
+      "bytes": 27246,
+      "sha256": "f1164c9910d5d30daea4a9b4c3d614d23b9aa83bca87e486ae3ff47d10e1f616"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/noisy_observation-4303/baseline-report.json",
+      "bytes": 6246,
+      "sha256": "8b1e93df164b29eb742f9fb6ba13204786a3ee36130d1732480619452d3ef099"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/noisy_observation-4303/baseline.npz",
+      "bytes": 54804,
+      "sha256": "ece0533b099a3be27c026e02161104fe2d01e706b581b374a1642c668fb946a8"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/noisy_observation-4303/first_step_floor-report.json",
+      "bytes": 1893,
+      "sha256": "b5aadb93e1d4c14bb74cfd90bf20ba3a79218a64c6dd6f33c0407161b385ad33"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/noisy_observation-4303/first_step_floor.npz",
+      "bytes": 4823,
+      "sha256": "b4f8aa00afce080314f739c4e9645f3d632d4f21a028535d08c549aa8697d88b"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/noisy_observation-4303/matched.npz",
+      "bytes": 27235,
+      "sha256": "ff24d3ecac6938af159d579cc890eabadeecb9cb32b9e1b15730c45b5aba1e16"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/noisy_observation-4303/result.json",
+      "bytes": 60752,
+      "sha256": "9564cd1d7ca3e31136028e60649596a451a85250544e7724b1f0e0c4c29dd3f1"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/noisy_observation-4303/shifted.npz",
+      "bytes": 27260,
+      "sha256": "0e93dff50086dc2d3daafdf29172a71e82fa93d9b30d05d0f3dacd42e5291791"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/off_periodic-4101/baseline-report.json",
+      "bytes": 7283,
+      "sha256": "b3f9aa66649ca3fcc84cd964f0b24edae8c9527578267fa2c87ffc787ae80a6c"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/off_periodic-4101/baseline.npz",
+      "bytes": 91298,
+      "sha256": "37a9c2d4d6ebffbded5d839ac77cd941bad1db6983603d3c7ffd735b04f469da"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/off_periodic-4101/first_step_floor-report.json",
+      "bytes": 2091,
+      "sha256": "702c14b5b21ae3cc6dcb7bbabfe85385a05f7efaae9b179359cfc5b854496491"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/off_periodic-4101/first_step_floor.npz",
+      "bytes": 6781,
+      "sha256": "71c77da549c100978355bda49004efe6c94cfc87c536c0242a03d9ef6b04dfb4"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/off_periodic-4101/matched.npz",
+      "bytes": 51937,
+      "sha256": "944c2b29894bf2fbc02c6884e52e49cf3b210418d4f95fc58a74c8cb99328b73"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/off_periodic-4101/result.json",
+      "bytes": 66723,
+      "sha256": "fff183157e9e6ce32e2b519960e468ae4dfb24d3bc7f956376b1ee75b2e368c7"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/off_periodic-4101/shifted.npz",
+      "bytes": 51903,
+      "sha256": "14d80d153e0179127eb23b832deae953ff0c9f93844da0c09690ee61610bb42b"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/off_periodic-4202/baseline-report.json",
+      "bytes": 7281,
+      "sha256": "d9e9fd68bfe5c1b75aaee2d66838f5de391a35b34e7f4fec4c43ada6a3630d4d"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/off_periodic-4202/baseline.npz",
+      "bytes": 91324,
+      "sha256": "be750dc6e6d272108abb70de80e808a795e442356f8408171b0de9c55925e21f"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/off_periodic-4202/first_step_floor-report.json",
+      "bytes": 2089,
+      "sha256": "4ba3acbd6e4643ac6c8b918f664a99de9397e2c8df68c7335fde671cf44b5bc1"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/off_periodic-4202/first_step_floor.npz",
+      "bytes": 6792,
+      "sha256": "a027941314bdc3116b443fda8deed0d032cdc0f0b0b05eeb7e047ee376a6237c"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/off_periodic-4202/matched.npz",
+      "bytes": 51946,
+      "sha256": "0a837a89b215a2df484687ee29cab8fbc49d85959fe9dc1d1abf79d7161ae11f"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/off_periodic-4202/result.json",
+      "bytes": 66751,
+      "sha256": "51056253136df7333926d59f09dcefcb46bd46a5487c1cc97f7737ac5b99f039"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/off_periodic-4202/shifted.npz",
+      "bytes": 51918,
+      "sha256": "5c11f6ac7a1aef31bec94f2fc7f03454f179c19dd70f3cb0ea93ed8581f9931c"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/off_periodic-4303/baseline-report.json",
+      "bytes": 7273,
+      "sha256": "f78163767440e18b15dbc67f35b60854eb7b1ef976ebed32d0baa077984431f5"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/off_periodic-4303/baseline.npz",
+      "bytes": 91288,
+      "sha256": "4904e3bad8f5155ff52a1d8acf99d5109d67a4ecedce69ad2c5bd036417e54e7"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/off_periodic-4303/first_step_floor-report.json",
+      "bytes": 2098,
+      "sha256": "4d89318b212d6c4bb1b5bf8c8a998ad012edc7023d435304f4aa500b4dccf645"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/off_periodic-4303/first_step_floor.npz",
+      "bytes": 6793,
+      "sha256": "fbf11a3c7679d36d90f6c5ca5d6661db6b39bf754140639e647eb26ddd27a3b7"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/off_periodic-4303/matched.npz",
+      "bytes": 51959,
+      "sha256": "3cd379973be8a695421d3c57ebdcb8708146b3f117a4fb3768ca86bddbc90bc3"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/off_periodic-4303/result.json",
+      "bytes": 66709,
+      "sha256": "ed6331ff1a7eaf1e7fad2f1b128d0bb9455ce9d583545743c464f8c380cc412e"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/off_periodic-4303/shifted.npz",
+      "bytes": 51916,
+      "sha256": "c05f151010ac2dd03faeccd59448f97914c5b46c64f16625851690c0239a5d78"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/plan.json",
+      "bytes": 4290,
+      "sha256": "cf6e1a3230c0266952024d38601f125d793c1810aee731ffae8ef1374eb9f368"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/results.json",
+      "bytes": 1748947,
+      "sha256": "c6b9851c463c653a59ae0c6f6c5e6e8a21fa1ba9ecfbbc888945014d59fc95e2"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/sources.json",
+      "bytes": 16103,
+      "sha256": "e5923db8aa4953daca51b44d9660ce9fb8ebcf37bed551f62b81a119b9796c74"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/stable_affine-4101/baseline-report.json",
+      "bytes": 8256,
+      "sha256": "d56a192ae2b91963024ac1eb91ea41cc68056674355acca698a9a27c2f3a8256"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/stable_affine-4101/baseline.npz",
+      "bytes": 111107,
+      "sha256": "36d1cbd03a5c7c980e3b5b576785553e0002d3bbc983475a604d3eda5d92a895"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/stable_affine-4101/first_step_floor-report.json",
+      "bytes": 2229,
+      "sha256": "559da1afb4a12be721aae53ab6f72f7b8025444eb668025573f1c6549aaf9c21"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/stable_affine-4101/first_step_floor.npz",
+      "bytes": 8025,
+      "sha256": "6b6bb91f8c0ee965b1be3267515243b7754938602225901a07fc11431a819848"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/stable_affine-4101/matched.npz",
+      "bytes": 69996,
+      "sha256": "e02b444d2ff7f42b79f14510c942ec893628daec3eb9f1acd8562fc1e2dca15b"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/stable_affine-4101/result.json",
+      "bytes": 72828,
+      "sha256": "8cfaa9c8e8256c3ed463b0aee0798db15e4244aa65a7a598c8a589748c5fdfdc"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/stable_affine-4101/shifted.npz",
+      "bytes": 69933,
+      "sha256": "71db71fa88342ee2835c275103f3ce727a66aa69a8e83c05c4a29e2422f8dda9"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/stable_affine-4202/baseline-report.json",
+      "bytes": 8269,
+      "sha256": "bf015b5dee60ac85fbf9da13f6addc6984544e59a50f099651b948e03246d84c"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/stable_affine-4202/baseline.npz",
+      "bytes": 111093,
+      "sha256": "32240a9a92ff5b6325cad2777654ef48630e7a18d86bbd6eaf5dbf73f3c056c3"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/stable_affine-4202/first_step_floor-report.json",
+      "bytes": 2231,
+      "sha256": "1688906f9b9957527c467ebeadb80d9bfd2d3f4d8dffa529211e2ccebe9eba1e"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/stable_affine-4202/first_step_floor.npz",
+      "bytes": 8028,
+      "sha256": "a42612fc1e17783c231cad32bb564ccfb69c70863fec5e511d965790bdb8e0e2"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/stable_affine-4202/matched.npz",
+      "bytes": 70001,
+      "sha256": "fd9b746e85fe6e2c5893a0ae4ed43a377fac68d0d62fe065b7d194df0dbdcb16"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/stable_affine-4202/result.json",
+      "bytes": 72866,
+      "sha256": "91791d2a2f241c9481bb475ea273b193fca5ac704c214658908b463520572563"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/stable_affine-4202/shifted.npz",
+      "bytes": 69954,
+      "sha256": "34fef47ecca9df140f0f90be56ba106e26b9d8ceb8389f075981137c3923c886"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/stable_affine-4303/baseline-report.json",
+      "bytes": 8257,
+      "sha256": "73d50924e3b6c8feedb20be768028ee29a0db56563b4729a8f5c34e13c43e393"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/stable_affine-4303/baseline.npz",
+      "bytes": 111093,
+      "sha256": "36de738aeb0d29773535f8ae86143a1fd9c277332f570a69f02e0a99d5cf2793"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/stable_affine-4303/first_step_floor-report.json",
+      "bytes": 2234,
+      "sha256": "c5c4366ef6fe9316c0bdbd3a02c95890343ce74bd33d02497348340bdb899141"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/stable_affine-4303/first_step_floor.npz",
+      "bytes": 8029,
+      "sha256": "8073b71ce55f6f61906499feff8cba4f6a0052662992a159a5bfe142b4a596ce"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/stable_affine-4303/matched.npz",
+      "bytes": 69991,
+      "sha256": "b0214945c2ef4f3573486b9964e355aad470538bd59d4483bc381c5f25cb1c1e"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/stable_affine-4303/result.json",
+      "bytes": 72839,
+      "sha256": "f07eaeb2db899355a95c975ddd6ac377b3260538d2d44a79f321881a6c2980fd"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-development-01/stable_affine-4303/shifted.npz",
+      "bytes": 69928,
+      "sha256": "6efc012106a0b3942fcb05d05c307f1bb8fdfb80ddb1512d98675a9bcdb1325d"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/coupled_nonlinear-5101/baseline-report.json",
+      "bytes": 7279,
+      "sha256": "2d805a3afc33512e42e5f79750878e9ae1afadada6e6a0559e679b2c69dd0278"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/coupled_nonlinear-5101/baseline.npz",
+      "bytes": 91273,
+      "sha256": "5fe21932593440612ea20c465c907fa977929ef85101f48fbb8fb2a058cbacf4"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/coupled_nonlinear-5101/first_step_floor-report.json",
+      "bytes": 2088,
+      "sha256": "960188a6d1fead20e3cdb7244cb71e0036d53c001a206a457704ae3b5c16375f"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/coupled_nonlinear-5101/first_step_floor.npz",
+      "bytes": 6802,
+      "sha256": "a95be10a5c6a393f8973ae9a391335b5f5bc8c712a83231ab79136c5edba0c56"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/coupled_nonlinear-5101/matched.npz",
+      "bytes": 51879,
+      "sha256": "76ceb31e8d63c4c5c390e88c8411f7e50d9721c6dac11de591b4cc85ec10d8ae"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/coupled_nonlinear-5101/result.json",
+      "bytes": 66570,
+      "sha256": "a73f6db2c16f77659cf23b824cd00188d915f60907802ed11428e741bc987985"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/coupled_nonlinear-5101/shifted.npz",
+      "bytes": 51871,
+      "sha256": "f56e8addc339a3d11804f0345f4dd267e2c2e43d61cbdc53b2720103ab9d7742"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/coupled_nonlinear-5202/baseline-report.json",
+      "bytes": 7281,
+      "sha256": "fadd7645c29e7eaed2072f867c5c4be6a11075ad6f4657c9b20ab772b8ebdbc2"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/coupled_nonlinear-5202/baseline.npz",
+      "bytes": 91273,
+      "sha256": "9c6e872e80607c70956a7d66dd5c29dad517edb45e318ec42e6ed3c6f13e512b"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/coupled_nonlinear-5202/first_step_floor-report.json",
+      "bytes": 2093,
+      "sha256": "c939cda39ba05cbeb62817a4a41562e570cc8c28ffcb18e0d20d47f817542ea7"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/coupled_nonlinear-5202/first_step_floor.npz",
+      "bytes": 6807,
+      "sha256": "5aad6a56471bc8f44c535fea071c6c70bfc7e4660e536a55e88529a969c16ea7"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/coupled_nonlinear-5202/matched.npz",
+      "bytes": 51920,
+      "sha256": "d4ffe07ea0b74c866d496eb4e9da448dd62740679630ba76382981ee344288ab"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/coupled_nonlinear-5202/result.json",
+      "bytes": 66601,
+      "sha256": "00f10a4ec24c981a8ce57ca7c2b8ab54edaf25b725ce49b5da25e3ae6186352c"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/coupled_nonlinear-5202/shifted.npz",
+      "bytes": 51933,
+      "sha256": "f4b67ef6d3aace0b1ac79980e4f2b5738b0fc302130b54f95e46c2ba3267ef3e"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/coupled_nonlinear-5303/baseline-report.json",
+      "bytes": 7279,
+      "sha256": "136b947d19ee7e3820c6d56e2c0ad3a036e390cd951188f6ef2116e4f5167d17"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/coupled_nonlinear-5303/baseline.npz",
+      "bytes": 91297,
+      "sha256": "c0e311af0c29db25eee18120dd20b831fb78a1b65c4fc48afb4451f09c8caecc"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/coupled_nonlinear-5303/first_step_floor-report.json",
+      "bytes": 2093,
+      "sha256": "302406555d8e2b20376d6a8da0a537f4ea954bb847945c529bb9571567ed1378"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/coupled_nonlinear-5303/first_step_floor.npz",
+      "bytes": 6803,
+      "sha256": "cdebc80d0028d0eb292f21e40bb07439558a11289fd91dac348b7b0d881fbb86"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/coupled_nonlinear-5303/matched.npz",
+      "bytes": 51911,
+      "sha256": "6463458921a4864e537d49fc9a224aea634c2abf4118a32b1f3e2943c5b3099b"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/coupled_nonlinear-5303/result.json",
+      "bytes": 66592,
+      "sha256": "41f43d5b19f967dd4f34a4210ee3374c55b2ce1e5a3fb7645d2df43bf9a23227"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/coupled_nonlinear-5303/shifted.npz",
+      "bytes": 51881,
+      "sha256": "3150950e6e8a8452b0e3598f625399f3a28040ab0ebd5bdc0acf5fcc47608070"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/deadzone_saturation-5101/baseline-report.json",
+      "bytes": 6298,
+      "sha256": "48af530c643c222206f2f12b647cc5c6b5455f2869a62cb3c3821b8c4e687b32"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/deadzone_saturation-5101/baseline.npz",
+      "bytes": 54855,
+      "sha256": "ef8013cfb1eac6bfef29eaaeefd7af4bf5ee81346c13255d8504000968d9f74f"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/deadzone_saturation-5101/first_step_floor-report.json",
+      "bytes": 1930,
+      "sha256": "0a44cccb75d8e827c6e7b991caa63fa5be8a6af652bbc4decde9460c6ccec42f"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/deadzone_saturation-5101/first_step_floor.npz",
+      "bytes": 4825,
+      "sha256": "75c2a778f0fecf1a717fe1cc32d6bfd7b5a670dd98835d1ebce379205a40d17e"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/deadzone_saturation-5101/matched.npz",
+      "bytes": 27236,
+      "sha256": "6b4b7c6d32061e51d78fe744935302106239d6efb088f4b400c034703f53c179"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/deadzone_saturation-5101/result.json",
+      "bytes": 60924,
+      "sha256": "f97144bccf09d388c646dbec07315b244cd13f46583737f268e1018769e2265d"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/deadzone_saturation-5101/shifted.npz",
+      "bytes": 27244,
+      "sha256": "4a5f921a7bb0c92ce4f69b1929da7c100c463595c647944adf8da5d707fd242f"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/deadzone_saturation-5202/baseline-report.json",
+      "bytes": 6291,
+      "sha256": "122738cf75f53431d33ec33780278cc6b040b27b32a86a2ea750f00d88a6313f"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/deadzone_saturation-5202/baseline.npz",
+      "bytes": 54863,
+      "sha256": "2811ea0b8d084c925f2ea82986aa51b819d3c7ab6a2841a84495565a0a9cdcad"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/deadzone_saturation-5202/first_step_floor-report.json",
+      "bytes": 1924,
+      "sha256": "5a07c604e5a72a4949cacf1e988d976bcb2483a87e166d9a7da0944812e6b0c2"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/deadzone_saturation-5202/first_step_floor.npz",
+      "bytes": 4822,
+      "sha256": "9161270c66ff4f040a80e3122931547fbcb69b12586f7f2f139c4479971d72a2"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/deadzone_saturation-5202/matched.npz",
+      "bytes": 27235,
+      "sha256": "d9df51cd5d734bb5ba682f972440d5d76ce7fc792c564cfad91d3c6abb5fb387"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/deadzone_saturation-5202/result.json",
+      "bytes": 60894,
+      "sha256": "9b5229f5ae33524a8805da65e3c4cea4d9f2551836051070ad19e6f896f1d4cc"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/deadzone_saturation-5202/shifted.npz",
+      "bytes": 27257,
+      "sha256": "4291025ee22d308ba5cf5f2eabffcc8c6df4e78029e331b2baf9edeaf53150f0"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/deadzone_saturation-5303/baseline-report.json",
+      "bytes": 6298,
+      "sha256": "42117e861bf9b0cc2f49671bcbb5dec1249ffb12c814a7a99a59a7441fd5c880"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/deadzone_saturation-5303/baseline.npz",
+      "bytes": 54868,
+      "sha256": "20a3bf86e98c839b660daf90b2e81173bcdc059d622d85b6b5a5b852ff179161"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/deadzone_saturation-5303/first_step_floor-report.json",
+      "bytes": 1926,
+      "sha256": "2988dad5e06990d91bca084e5c9beea9d310fbe21cb35dc8e7e55816a9503a42"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/deadzone_saturation-5303/first_step_floor.npz",
+      "bytes": 4834,
+      "sha256": "26373d66e65acf10fc9c5fd38de7dd510cb80f0afb2dffe3ff39bf73c529f989"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/deadzone_saturation-5303/matched.npz",
+      "bytes": 27251,
+      "sha256": "36f23e6205f81a8ed1d5b37155cb8843c1c9d169146d23c9275b1453f2141b2a"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/deadzone_saturation-5303/result.json",
+      "bytes": 60921,
+      "sha256": "217c7e20e95327c1d67b1769d06b6f389aa797bd3388d20730430d68559d5703"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/deadzone_saturation-5303/shifted.npz",
+      "bytes": 27227,
+      "sha256": "724bf942ad816673f4739782dfde47eb6279af2863dad482f39ef3839ec52bcd"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/delayed_nonlinear-5101/baseline-report.json",
+      "bytes": 6241,
+      "sha256": "05157beb1f6a6e87141cc02a89963e274878193fee00bb1057967e6b71b5475c"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/delayed_nonlinear-5101/baseline.npz",
+      "bytes": 54808,
+      "sha256": "9464f992bb795431e14bf2f5e02cb87a839e7835103923488a48d930b77ec226"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/delayed_nonlinear-5101/first_step_floor-report.json",
+      "bytes": 1888,
+      "sha256": "50db55929ec9a3986046d1b87905ae1f2e45edaf78fd32c602c30faa6a75d346"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/delayed_nonlinear-5101/first_step_floor.npz",
+      "bytes": 4822,
+      "sha256": "e04a6c7d23d9ea813cdda587b5088bad07293e81282fbf5feb4ded0ca44de49b"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/delayed_nonlinear-5101/matched.npz",
+      "bytes": 27231,
+      "sha256": "0bf5f495ea84fda64245520629dced2b061e2e1db96f79bba74a863c1e529af2"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/delayed_nonlinear-5101/result.json",
+      "bytes": 60675,
+      "sha256": "6088467ed373509d143dcb83bd9400abc654a8bec6afa368da43d108b20f9175"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/delayed_nonlinear-5101/shifted.npz",
+      "bytes": 27262,
+      "sha256": "7938404091166102c8f11c256bdbf23f93236d15e3947218eee27189aa3c09e5"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/delayed_nonlinear-5202/baseline-report.json",
+      "bytes": 6239,
+      "sha256": "41e1cb261e7b77fd28a85d6440e04fbdd54f35ac9df267162f47947e4238ec72"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/delayed_nonlinear-5202/baseline.npz",
+      "bytes": 54835,
+      "sha256": "7517b463e55b174dd3f96b37c3b753cc97105f44b81537d39da148a664578343"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/delayed_nonlinear-5202/first_step_floor-report.json",
+      "bytes": 1890,
+      "sha256": "4e690f7f6ae8654be3f74e19798f10081a5ef4afe88d192780be72e4cd66961a"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/delayed_nonlinear-5202/first_step_floor.npz",
+      "bytes": 4830,
+      "sha256": "66e9e9f59d20e5f923414b7eb4d61d4160e2511b70e4a36b408ae50347cebf4a"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/delayed_nonlinear-5202/matched.npz",
+      "bytes": 27228,
+      "sha256": "016d9d9aad7917552bb21cdbc0e67e92af12eb3675521d1b9b0762ee3882eb3c"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/delayed_nonlinear-5202/result.json",
+      "bytes": 60672,
+      "sha256": "0d459595b1d9bf8c41b6140ce2bbfe1a49fe9f3e399981a15f0271ed108276cd"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/delayed_nonlinear-5202/shifted.npz",
+      "bytes": 27247,
+      "sha256": "0e91e2d43536bee712b989d670d1ea0efe692b88bb342a70f80dc7b218f8f23b"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/delayed_nonlinear-5303/baseline-report.json",
+      "bytes": 6242,
+      "sha256": "319884153c3742d626abe637b56832d41e03ed2df8c1eb62d76e80f5f337e7ab"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/delayed_nonlinear-5303/baseline.npz",
+      "bytes": 54846,
+      "sha256": "78c44b0d874017dee3136e0527a5700bc5674bbf6f0582e4fa63e43fa2268acc"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/delayed_nonlinear-5303/first_step_floor-report.json",
+      "bytes": 1889,
+      "sha256": "ea5c506fb3b07b111265b23bdb28f8f58bbfc405353478cd1457dfd5ce6eedaf"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/delayed_nonlinear-5303/first_step_floor.npz",
+      "bytes": 4820,
+      "sha256": "5511c05461d741ada721dd9bd2858256de652bc6a960305035098bfa3805eb88"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/delayed_nonlinear-5303/matched.npz",
+      "bytes": 27264,
+      "sha256": "6255300e8faa79423b792e663b61c1ab237c40b713c6c20e0d6e3d29c2d4bcb7"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/delayed_nonlinear-5303/result.json",
+      "bytes": 60677,
+      "sha256": "1b8071eaa72cde418038f085f2aa8362f28b721577258f0d999767a17d848ff9"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/delayed_nonlinear-5303/shifted.npz",
+      "bytes": 27234,
+      "sha256": "305d51f70f3e6601f407f052dcea0195884ff9a13677e5544c0991bcc1cf46f0"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/environment.json",
+      "bytes": 172,
+      "sha256": "8d57eb15caa51ae80c6158d14bbdaa2f71ddccef88875336781ec64d680046ed"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/executed-sources.zip",
+      "bytes": 636175,
+      "sha256": "ffd1f58b871be75d5e08199de533e561113cbd5e7035b1db99bc1144487b2190"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/hidden_hysteresis-5101/baseline-report.json",
+      "bytes": 6293,
+      "sha256": "7fa343729a5fc7c2320179aff196eb4cb128f2bd8cfc441e95714636fbd24ee8"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/hidden_hysteresis-5101/baseline.npz",
+      "bytes": 54855,
+      "sha256": "a4fd652151db798ed715a03dd5a6f1805f906b2ad2f078b6ac583167c06a9091"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/hidden_hysteresis-5101/first_step_floor-report.json",
+      "bytes": 1927,
+      "sha256": "6cb2a34f828591e266fdf3bae7a76729d34a784057cdb6a80ee7149828e08aac"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/hidden_hysteresis-5101/first_step_floor.npz",
+      "bytes": 4822,
+      "sha256": "6730709bb4c7398ffdaf9b0bb4e416aaec140bcdab5f0bfe092f8d4c9efe80f6"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/hidden_hysteresis-5101/matched.npz",
+      "bytes": 27197,
+      "sha256": "bf1dee10591d47c497f07d0a75ba504b4110a07371b00c05d931d226be6095ad"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/hidden_hysteresis-5101/result.json",
+      "bytes": 60985,
+      "sha256": "8bbfc0df76c0ce528f7e55968207b3fdab9b2432efd9daac4d30ed07a2fb0226"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/hidden_hysteresis-5101/shifted.npz",
+      "bytes": 27215,
+      "sha256": "a10e2ff910e0586d9af2392a7fc139cfab44b2e48f28ae715d4cd91850147593"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/hidden_hysteresis-5202/baseline-report.json",
+      "bytes": 6288,
+      "sha256": "e40e94b411e2b0a2e8dcad5566053f6fad06ca00fa692eeed1f6aec3006ec8c3"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/hidden_hysteresis-5202/baseline.npz",
+      "bytes": 54775,
+      "sha256": "5e5d6c84ff12211772aa7122cbfc674878e9fd6ee1a913bcd95ac87f38ef6c40"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/hidden_hysteresis-5202/first_step_floor-report.json",
+      "bytes": 1922,
+      "sha256": "f1cbc4a73bc3fc0875f7fcf0fa7b33129da9c70cbd0b70ac0f5fde7a33baba25"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/hidden_hysteresis-5202/first_step_floor.npz",
+      "bytes": 4833,
+      "sha256": "dd3a1a4e832450fba7c2e531dba9ec47f720b734d5dea137de0fcb00858a9f46"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/hidden_hysteresis-5202/matched.npz",
+      "bytes": 27162,
+      "sha256": "8f905a8d2aca55549ccf9898c434bf47b2420f003db7ac31735260c9a0a0d580"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/hidden_hysteresis-5202/result.json",
+      "bytes": 60973,
+      "sha256": "15895fd881153e75e78ea8e86834954fa0084f84235c0ce2953c7fbc8c857362"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/hidden_hysteresis-5202/shifted.npz",
+      "bytes": 27203,
+      "sha256": "7407ff526fe86c4757560fdf5e140450dafe06ec1753c252479c6fe195109f8f"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/hidden_hysteresis-5303/baseline-report.json",
+      "bytes": 6296,
+      "sha256": "a7e0914258b0ef6a134f96c53074d60827b935d71eaa191f3743178648d987ca"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/hidden_hysteresis-5303/baseline.npz",
+      "bytes": 54817,
+      "sha256": "00334e218c12392fadf473096a26a07d411abdd94d2933a443157555f57d14bf"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/hidden_hysteresis-5303/first_step_floor-report.json",
+      "bytes": 1930,
+      "sha256": "243223ca5386e98bdde37b27c69140d142381f9637a470a95ace6f13b330cc6c"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/hidden_hysteresis-5303/first_step_floor.npz",
+      "bytes": 4819,
+      "sha256": "25f6115d0b333918b6cc1890de5368b1fd076ad782bef85d614460f83b84399d"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/hidden_hysteresis-5303/matched.npz",
+      "bytes": 27145,
+      "sha256": "7806908d7b6d8cd7dc4e752ba5951d44b5875200cf94edc8e08deb8762880554"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/hidden_hysteresis-5303/result.json",
+      "bytes": 60993,
+      "sha256": "e26ecb6ded70d3d674ccff80f7ba67fec03075ccdaeca1d4615ad137fa570ac9"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/hidden_hysteresis-5303/shifted.npz",
+      "bytes": 27185,
+      "sha256": "6932d60a16a046321dc02403a0c5afb098dc9708332d88637c863deb2424a27c"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/near_periodic-5101/baseline-report.json",
+      "bytes": 7301,
+      "sha256": "1f05d1f48fdad89b50e23d52b3b8139358b8813885d1f9f4974b3df74a4855df"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/near_periodic-5101/baseline.npz",
+      "bytes": 91352,
+      "sha256": "d0e462d27876ee12d1f5c842d8fdbdddf82fefd4d7ac48c10da8b2478e3f3b2c"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/near_periodic-5101/first_step_floor-report.json",
+      "bytes": 2089,
+      "sha256": "1cab2dcde746d0d0e3f0e8a7977e2daabf33d15d0db08c830302c2944b8f4e37"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/near_periodic-5101/first_step_floor.npz",
+      "bytes": 6798,
+      "sha256": "703e43d4a2285fde7bb5d3f8232c7d365bada5cb7131f02c42e6edf5546a1156"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/near_periodic-5101/matched.npz",
+      "bytes": 51900,
+      "sha256": "648d6ca20fb3a1dc0ed1eb039f6b844396989ce306f603f6b6419e04f451fc64"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/near_periodic-5101/result.json",
+      "bytes": 66780,
+      "sha256": "be083ad56b80c4f2eab0d182137393d83ddc9b9db79e81aa0ef831433e305dc3"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/near_periodic-5101/shifted.npz",
+      "bytes": 51855,
+      "sha256": "6d90acb3a98f26d0fefdd668b887e3367455833972953a2b183d7b1494541cd4"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/near_periodic-5202/baseline-report.json",
+      "bytes": 7286,
+      "sha256": "6808af64269d01d58e1f63af47191f398bff9d5927660a4331b36fb37b3819dc"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/near_periodic-5202/baseline.npz",
+      "bytes": 91317,
+      "sha256": "65161174db167b636d4c854f66233baed5ac75b7b0035993fe549573e0e61a13"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/near_periodic-5202/first_step_floor-report.json",
+      "bytes": 2091,
+      "sha256": "8f3bf9444be3ad19cbcc76c17641679e21875e1219da6e51fa91c6e3a165174b"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/near_periodic-5202/first_step_floor.npz",
+      "bytes": 6794,
+      "sha256": "c4148736a0e0f6277a47df51e93b90b06d3b89648094d5ecad1e9753f176af7e"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/near_periodic-5202/matched.npz",
+      "bytes": 51900,
+      "sha256": "f68d9594b1a82b0b39907e9b5f8854ec4e3e9e0155d71df500c8404a816c3d7a"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/near_periodic-5202/result.json",
+      "bytes": 66748,
+      "sha256": "bc770a6018b5986350cf1bb72134f942571bd4bbaf5a4251560ed0e5d70e4f9c"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/near_periodic-5202/shifted.npz",
+      "bytes": 51861,
+      "sha256": "afcb1b6104221bc49c44f6ad12f3bcb8c4446d506b76393a67342cb14e48d3b5"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/near_periodic-5303/baseline-report.json",
+      "bytes": 7276,
+      "sha256": "64b703f76b247ac44b5e078a65cb20151f7eff2a12604fe0c99a71c2fd519ef6"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/near_periodic-5303/baseline.npz",
+      "bytes": 91300,
+      "sha256": "db2b285d5989d4065d48ee20a1d6ae612debf9190035cedbdf8634ab1222abae"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/near_periodic-5303/first_step_floor-report.json",
+      "bytes": 2093,
+      "sha256": "09dabd73537df1ffbc588985d65069829bc1628ffc48e692d3c2dd2fa37e12ed"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/near_periodic-5303/first_step_floor.npz",
+      "bytes": 6793,
+      "sha256": "e6e4835bc4291797e1e4932d8aba067ee53a656e6b1b6eb96aa4ed237e1adcfb"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/near_periodic-5303/matched.npz",
+      "bytes": 51877,
+      "sha256": "10221659eaae7ababa7f713e38645a84508bf7dc8c3faa84630915a3c692c6ec"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/near_periodic-5303/result.json",
+      "bytes": 66836,
+      "sha256": "28b65978e546eb790207b134d7acf812726ee2f627aae21b3032dfbd87f394f8"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/near_periodic-5303/shifted.npz",
+      "bytes": 51850,
+      "sha256": "40fee573019e7981a0e12ccee994cfdf4cf4745e89c8e5971a70a027d480b6dc"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/noisy_observation-5101/baseline-report.json",
+      "bytes": 6238,
+      "sha256": "5e40f3f43586a1eebaca168c98d31ef7703718da21bc7d643011b0c9087cc39c"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/noisy_observation-5101/baseline.npz",
+      "bytes": 54253,
+      "sha256": "82b1a45b0282cda3d46c8f94f87796b739dcdbcf82d0fc0bd93007af502cd394"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/noisy_observation-5101/first_step_floor-report.json",
+      "bytes": 1885,
+      "sha256": "caa4e42c26a35ae341006a5af00c5e2ca8192a117b7ac2b51ba9e399fa042cd7"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/noisy_observation-5101/first_step_floor.npz",
+      "bytes": 4282,
+      "sha256": "56991522a8569fcca43abfac34053bc9cf5aab7e5e75086e09609cd5f620b1e7"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/noisy_observation-5101/matched.npz",
+      "bytes": 27228,
+      "sha256": "2f608a007c5beee5ed265ac581672cd67dfcf64856b9b7b589d7b480ae56d989"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/noisy_observation-5101/result.json",
+      "bytes": 60741,
+      "sha256": "a268a636c8688d96f2f1a782e0c65190bb8316447bf7ffcdb6084c9215e9df84"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/noisy_observation-5101/shifted.npz",
+      "bytes": 27224,
+      "sha256": "6336cc8306cfecbed96dba3bfa725ef90bbc36831677fde32d57de9c14afcc52"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/noisy_observation-5202/baseline-report.json",
+      "bytes": 6240,
+      "sha256": "b699fbb38439a914d7409ec4cdd2dfc7559290a38ca09d759795a7ca803e4ebe"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/noisy_observation-5202/baseline.npz",
+      "bytes": 54269,
+      "sha256": "6be51ae653c0e2d1a165f238efacd4dc9959ad31832ff34bac72520499633097"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/noisy_observation-5202/first_step_floor-report.json",
+      "bytes": 1888,
+      "sha256": "3573a7fd6be0f5b2cabae71cd9694d5711ec7e35d9a97f5a36281f4381a14710"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/noisy_observation-5202/first_step_floor.npz",
+      "bytes": 4284,
+      "sha256": "29d7f94692680d930e014c29197e21e1273356a841d9e39a9923f4b00fd8f89a"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/noisy_observation-5202/matched.npz",
+      "bytes": 27247,
+      "sha256": "bc6475ac49f1c7481516a262265589ccdcc50de3dc84a5e6cf3dd0a427592370"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/noisy_observation-5202/result.json",
+      "bytes": 60747,
+      "sha256": "e58554a3882a8cf6cae67f658c4340b50888ee885d33cc925839b7379d905031"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/noisy_observation-5202/shifted.npz",
+      "bytes": 27221,
+      "sha256": "f34bd0d83bcbf97d75cab8c739b626bce8649d5c0b7533b691143f519b7173d8"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/noisy_observation-5303/baseline-report.json",
+      "bytes": 6246,
+      "sha256": "e33d8a37f41fc2f32287f534a100b875a2bb3b01a1a95fd37fbddfdd08ea55b6"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/noisy_observation-5303/baseline.npz",
+      "bytes": 54831,
+      "sha256": "9d34d8aa3e7141aa9a8f2face79811a52913346b763ddf7f84593cd7a24fcea1"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/noisy_observation-5303/first_step_floor-report.json",
+      "bytes": 1890,
+      "sha256": "8123f5e1bdf37fa1b8e38d81b5b741548b462c66a80078abc6dc5cb6e9f1a978"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/noisy_observation-5303/first_step_floor.npz",
+      "bytes": 4824,
+      "sha256": "559d438e350e9b043800ab1b4e51362b70ffd4fcb76b661a509b2c9855270762"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/noisy_observation-5303/matched.npz",
+      "bytes": 27260,
+      "sha256": "68f327b32d412d0d5de294a25f6d1f17b99bfd4785160620b3edb61594552fc8"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/noisy_observation-5303/result.json",
+      "bytes": 60772,
+      "sha256": "e9fceb162b69d24705b216aa504c06a6b9a02d06e0f6b3f12f5c5c7630fdeabe"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/noisy_observation-5303/shifted.npz",
+      "bytes": 27237,
+      "sha256": "6d69548332e85c0c9eb13dcb7ead900bec3e03ae78216caaa97b2c4ea0d74a37"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/off_periodic-5101/baseline-report.json",
+      "bytes": 7283,
+      "sha256": "e716f0db306dc230b511a8f496cdd4c568d88ea68a7c91e6955c7b1d9cd6f6b1"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/off_periodic-5101/baseline.npz",
+      "bytes": 91348,
+      "sha256": "72c4c92aa01e880eb0a0ce46e915cc69651c449654bc5212d33717194c0caddc"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/off_periodic-5101/first_step_floor-report.json",
+      "bytes": 2089,
+      "sha256": "582e9985351300b8a613374ea451ff39602c502d7810a464c555a0e84628f472"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/off_periodic-5101/first_step_floor.npz",
+      "bytes": 6792,
+      "sha256": "b9db2741f6e0b1f2877e38e64eae5f76b309a9763666ac780eaf5ccba43d7ea5"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/off_periodic-5101/matched.npz",
+      "bytes": 51951,
+      "sha256": "ec9dd54430bb337195384da741f6d489b6ff370bb7ae3dfd4e3f3e33a2be9c9a"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/off_periodic-5101/result.json",
+      "bytes": 66747,
+      "sha256": "01a9756bbc63224b8d69ba0b4719f6e3a4d5ed425663bfacbf35c0ba2571fe5c"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/off_periodic-5101/shifted.npz",
+      "bytes": 51918,
+      "sha256": "134da698d5db3dd85eba095d85e9fae868bd9726d031d549bc06858e329d3bb5"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/off_periodic-5202/baseline-report.json",
+      "bytes": 7283,
+      "sha256": "5e00e4f5695d165f381b3afa0716f224af7e73bc7e6ea82e917286f206ef68ca"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/off_periodic-5202/baseline.npz",
+      "bytes": 91334,
+      "sha256": "ad7082f76f49e3fcce30be335a4d801cbc5a56229e0cfccc63cc95ee860a3a57"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/off_periodic-5202/first_step_floor-report.json",
+      "bytes": 2091,
+      "sha256": "d856196e2e343e55c965db8384db487400c194a1b16b4f5747b0038e1dbfd667"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/off_periodic-5202/first_step_floor.npz",
+      "bytes": 6786,
+      "sha256": "a96222c7d97576c59c973ee3bba80e66cdf08b7303a04a5e4f724c62170e4f8b"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/off_periodic-5202/matched.npz",
+      "bytes": 51970,
+      "sha256": "2de91051ab875975260858827b0d98ef7cd71a10d5f18c81b2cc1554ebac12de"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/off_periodic-5202/result.json",
+      "bytes": 66737,
+      "sha256": "778f7ae612746fe29eff357c61929035e3a621e18c70bbebd8e11eb480f4368a"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/off_periodic-5202/shifted.npz",
+      "bytes": 51951,
+      "sha256": "769a8c9c20bcdadcf3a5309ad44bfae355c3805d5f195864758b6e0afbb5bae2"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/off_periodic-5303/baseline-report.json",
+      "bytes": 7272,
+      "sha256": "d063b4f376e4194b1e47f9d98c946ea00345e26cb0a0dc787ad4c1e926f49ac5"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/off_periodic-5303/baseline.npz",
+      "bytes": 91213,
+      "sha256": "523df979021c7bd2aaa3bf0ec126269ed2748bb4630f19fcbda4eeefe07c3050"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/off_periodic-5303/first_step_floor-report.json",
+      "bytes": 2086,
+      "sha256": "2c9e19a090ebf1eeacb18e489c00c7904c188fdfe5d3e4e9fd2b7a357d4636d7"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/off_periodic-5303/first_step_floor.npz",
+      "bytes": 6793,
+      "sha256": "176ce340f35de9b39412d2529662e742d590df42ddaf653c2f9d1021401090dc"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/off_periodic-5303/matched.npz",
+      "bytes": 51936,
+      "sha256": "c4092a70141fae5eb718128bc143f7e50ffe45e7a82517f8f794ff1d792fe5a8"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/off_periodic-5303/result.json",
+      "bytes": 66786,
+      "sha256": "1be5d10b70244cdcf0d4d4eeea59ca1aa171e6e62ec2eed517d0b0075d3e4cbd"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/off_periodic-5303/shifted.npz",
+      "bytes": 51899,
+      "sha256": "9f132b94784a3d299270116a545e319a04a590117368ce133a40cd902c24faa1"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/plan.json",
+      "bytes": 4291,
+      "sha256": "b0eb9870573ca12a7a686ed8fec85bdb9a4139ab48bfce8651a3fd64bd8b3a0d"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/results.json",
+      "bytes": 1748867,
+      "sha256": "94aceda7ec30ff3479564c9e4c96ee28f3a96a5e6928fee1ccd43aeb6df06b64"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/sources.json",
+      "bytes": 16103,
+      "sha256": "e5923db8aa4953daca51b44d9660ce9fb8ebcf37bed551f62b81a119b9796c74"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/stable_affine-5101/baseline-report.json",
+      "bytes": 8252,
+      "sha256": "594f37f939b4618c55b9314ea036529f81578470ef8db6cc8a9f8e9c9d4d3e21"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/stable_affine-5101/baseline.npz",
+      "bytes": 111098,
+      "sha256": "aa2734da268d28c21216b5cb95e67fc41f066b5b7a55ebede3aa625129f3473a"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/stable_affine-5101/first_step_floor-report.json",
+      "bytes": 2229,
+      "sha256": "41f087108f13d4f9409e1a1ea95ad93a0368430ef2fd2c65d4f339a0d90d6791"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/stable_affine-5101/first_step_floor.npz",
+      "bytes": 8035,
+      "sha256": "d893293e3d81a1723e89d2ddaa0bd5a9ae6b8a5ed57710e8a7db8cb2ab0c8a66"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/stable_affine-5101/matched.npz",
+      "bytes": 69977,
+      "sha256": "b00a7078442e946014acd92ea8aaff93da94a80e104d1b45477d7dc2bd809d36"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/stable_affine-5101/result.json",
+      "bytes": 72801,
+      "sha256": "5af03fc3cc58e2763e910b58091345f7d7ddaaec39cc62722e6b7f88a7481336"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/stable_affine-5101/shifted.npz",
+      "bytes": 69982,
+      "sha256": "bda46f14b85ebc0dd583567f1929405c219df2f0748039f431b870432a580dee"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/stable_affine-5202/baseline-report.json",
+      "bytes": 8265,
+      "sha256": "026a94e8d10ed30522d4801c9b38839898c386f6cd8d20a26c183bd352fe1b08"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/stable_affine-5202/baseline.npz",
+      "bytes": 111111,
+      "sha256": "b3c6daa8b26a45380e392a96b82a843daec9242e02fcccee7c3e520bb5733485"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/stable_affine-5202/first_step_floor-report.json",
+      "bytes": 2232,
+      "sha256": "de72b04c7e8f87ccaf200b8c3cabcbbab6a6aea7f12e403c30371470e9bc6074"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/stable_affine-5202/first_step_floor.npz",
+      "bytes": 8023,
+      "sha256": "1869111f24fb73cfc70f1791b470f05aa7a8c0f01da02df0535715ef93409470"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/stable_affine-5202/matched.npz",
+      "bytes": 69999,
+      "sha256": "12b623c55d619a02ce561707d5e48b2530227f64510c9cd88a4d0143032dd426"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/stable_affine-5202/result.json",
+      "bytes": 72831,
+      "sha256": "f65742a0318376f68f395a1ae854d0b5ec3c4628cf47f83f527d03e1a3ac3cd3"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/stable_affine-5202/shifted.npz",
+      "bytes": 69918,
+      "sha256": "d1f4da4f9327e953a6ef71a2ba0240dc143827f03c23a3a44817bed4103215a8"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/stable_affine-5303/baseline-report.json",
+      "bytes": 8258,
+      "sha256": "d66a9dbb8bc7ba4eecab5211db6ba11b572d3d02afc2c962a7f4c86d0bc26d77"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/stable_affine-5303/baseline.npz",
+      "bytes": 111092,
+      "sha256": "ee0dee6605e5fafbfd04375e3b47069d60f7bb374bb849da4fdd275684a2fcd4"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/stable_affine-5303/first_step_floor-report.json",
+      "bytes": 2228,
+      "sha256": "d701dd5d3ba6a8e78ca29c1865e6ee51c8aded3e47fe0c9f30a4ed41fd07ce51"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/stable_affine-5303/first_step_floor.npz",
+      "bytes": 8027,
+      "sha256": "eba2ba4feb9ef8b5d0870fca8bf5c7a8decc9e348376efede4d94028ff6a3606"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/stable_affine-5303/matched.npz",
+      "bytes": 69989,
+      "sha256": "e11489366597a2482a4d95820a13ae1a859b26a0f13f423cd3301dda58964fc9"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/stable_affine-5303/result.json",
+      "bytes": 72785,
+      "sha256": "3dea7e7987470717f7925ad0b414f9cd10aadffe215e88c5d97c139ee31e481c"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/first-step-confirmation-01/stable_affine-5303/shifted.npz",
+      "bytes": 69923,
+      "sha256": "ca26788fc199c206360074cc7bad9a6144120b08f7affe2f3fb8f560559e1eee"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/pooled-report-01/audit.json",
+      "bytes": 851,
+      "sha256": "70289536d1119415df77e53f6c634faee783ed7bb7599635680a94cf5f3e0947"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/pooled-report-01/horizon-generalization.png",
+      "bytes": 150910,
+      "sha256": "6f49cb65d77209a075f3d32e99f2c01d9a3d877cc8c9aac2eadb59c64c675d0c"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/pooled-report-01/summary.json",
+      "bytes": 33760,
+      "sha256": "b3bd08120b30653f7e79841d9564bf669939ec177682c02e83509b00dd44ca65"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/development-report-01/audit.json",
+      "bytes": 851,
+      "sha256": "70289536d1119415df77e53f6c634faee783ed7bb7599635680a94cf5f3e0947"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/development-report-01/horizon-generalization.png",
+      "bytes": 134561,
+      "sha256": "354b847d3137adfbeebddc45818fc2e48727a7edc18c748122ee7a92d13dff9c"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/development-report-01/summary.json",
+      "bytes": 27794,
+      "sha256": "635dafc6fd926aacad7bf88824383e59dd9422aba582ef724e1d90b4620a6fe7"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/confirmation-report-01/audit.json",
+      "bytes": 851,
+      "sha256": "70289536d1119415df77e53f6c634faee783ed7bb7599635680a94cf5f3e0947"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/confirmation-report-01/horizon-generalization.png",
+      "bytes": 136004,
+      "sha256": "7335fadeb407205c044ec917644120263f613b8a2e9cddf3f51366ee345e36cb"
+    },
+    {
+      "path": "/Users/ryland/autonomy/dart/artifacts/horizon-generalization/confirmation-report-01/summary.json",
+      "bytes": 28073,
+      "sha256": "f6ad1c80e7ed0f42d2c137dc666962c1fcd5921eb491ecebe8171637c8c8dbf5"
+    }
+  ]
+}

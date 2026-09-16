@@ -1,0 +1,102 @@
+{
+  "scope": "Descriptive paired comparisons over correlated planned configurations, not independent statistical trials. Positive error change means worse prediction.",
+  "cases": 45,
+  "outputwise_lower_training_nll": {
+    "shared": 45,
+    "shared-long": 45
+  },
+  "error_change_against_shared": {
+    "development": {
+      "shared-long": {
+        "velocity_rmse_m_s": {
+          "percent_change": {
+            "mean": 0.3606017871033739,
+            "min": -1.171888222923556,
+            "max": 2.3152145838786664
+          },
+          "cases_better": 9,
+          "cases_worse": 36,
+          "max_absolute_percent_change": 2.3152145838786664
+        },
+        "rate_rmse_rad_s": {
+          "percent_change": {
+            "mean": 0.29996923220721505,
+            "min": -0.9069970831615648,
+            "max": 9.495454667105573
+          },
+          "cases_better": 27,
+          "cases_worse": 18,
+          "max_absolute_percent_change": 9.495454667105573
+        }
+      },
+      "outputwise": {
+        "velocity_rmse_m_s": {
+          "percent_change": {
+            "mean": -4.039238136639716,
+            "min": -24.191934984092857,
+            "max": 5.98221900791529
+          },
+          "cases_better": 31,
+          "cases_worse": 14,
+          "max_absolute_percent_change": 24.191934984092857
+        },
+        "rate_rmse_rad_s": {
+          "percent_change": {
+            "mean": 5.083610277812607,
+            "min": -11.746640927550489,
+            "max": 18.803246233897642
+          },
+          "cases_better": 10,
+          "cases_worse": 35,
+          "max_absolute_percent_change": 18.803246233897642
+        }
+      }
+    },
+    "replication": {
+      "shared-long": {
+        "velocity_rmse_m_s": {
+          "percent_change": {
+            "mean": 0.31164745238575237,
+            "min": -0.916506766303482,
+            "max": 6.532955161040133
+          },
+          "cases_better": 20,
+          "cases_worse": 25,
+          "max_absolute_percent_change": 6.532955161040133
+        },
+        "rate_rmse_rad_s": {
+          "percent_change": {
+            "mean": 0.25232105647634384,
+            "min": -0.8397459379074212,
+            "max": 3.6675802122206225
+          },
+          "cases_better": 20,
+          "cases_worse": 25,
+          "max_absolute_percent_change": 3.6675802122206225
+        }
+      },
+      "outputwise": {
+        "velocity_rmse_m_s": {
+          "percent_change": {
+            "mean": -4.488425968813361,
+            "min": -22.30893999800968,
+            "max": 19.046616298966825
+          },
+          "cases_better": 32,
+          "cases_worse": 13,
+          "max_absolute_percent_change": 22.30893999800968
+        },
+        "rate_rmse_rad_s": {
+          "percent_change": {
+            "mean": 2.474799872643324,
+            "min": -7.084329663440913,
+            "max": 11.483049606072715
+          },
+          "cases_better": 9,
+          "cases_worse": 36,
+          "max_absolute_percent_change": 11.483049606072715
+        }
+      }
+    }
+  }
+}

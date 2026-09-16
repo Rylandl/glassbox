@@ -1,0 +1,13 @@
+{
+  "trials": 33,
+  "forecast_recordings": 2,
+  "forecast_arms": 22,
+  "cached_training_development_windows": 618,
+  "numerical_checks": 2946,
+  "maximum_absolute_difference": 8.848477506262498e-13,
+  "source_archives_verified": true,
+  "all_saved_commands_replayed": true,
+  "learned_forecasts_replayed_in_numpy": true,
+  "all_truncated_intervals_count_as_failures": true,
+  "limitation": "Numerical replay and interface checks, not independent physical truth. Optimizer iterations are not independently re-solved; cost descent and actual bounded commands are checked."
+}

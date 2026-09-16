@@ -1,0 +1,22 @@
+{
+  "adaptive": true,
+  "based_on": "/Users/ryland/autonomy/dart/artifacts/sequence-transfer/comparison-01",
+  "families": [
+    "linear",
+    "delay"
+  ],
+  "ridge_penalties": [
+    1,
+    10,
+    100,
+    1000,
+    10000
+  ],
+  "selection": "minimum development recursive MSE in train-state-standardized units",
+  "hold": "reported separately; no candidate parameter fitting or selection uses evaluation targets",
+  "diagnostics": [
+    "one-step refreshed observations versus open-loop recursion",
+    "homogeneous state/history operator eigenvalues and finite-horizon norm"
+  ],
+  "interpretation": "Regularization can remove unsupported fit directions; no global stability constraint imposed."
+}

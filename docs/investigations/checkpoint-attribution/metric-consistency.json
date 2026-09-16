@@ -1,0 +1,50 @@
+{
+  "timing": "Post-hoc diagnostic after observing coverage results.",
+  "meaning": "Uses the unchanged first-step-floor selection loss on evaluation data. Does not choose or replace any model. The final checkpoint was already a frozen comparator in the path study.",
+  "results": [
+    {
+      "case": "near_periodic-5101-fit0",
+      "regime": "matched",
+      "chosen_step": 200,
+      "comparator_step": 1000,
+      "chosen_evaluation_criterion_mse": 2.359202574142704e-05,
+      "final_evaluation_criterion_mse": 1.5080818088574375e-05,
+      "relative_increase": 0.5643730733215979,
+      "source": "../artifacts/checkpoint-attribution/known-01/near_periodic-5101-fit0/matched.npz",
+      "source_sha256": "fef496c6753f28d82eade03ac8a141f048fd56f66846af59930c186263cd3941"
+    },
+    {
+      "case": "near_periodic-5101-fit0",
+      "regime": "shifted",
+      "chosen_step": 200,
+      "comparator_step": 1000,
+      "chosen_evaluation_criterion_mse": 0.0007325309005246805,
+      "final_evaluation_criterion_mse": 0.0006238080541454171,
+      "relative_increase": 0.1742889429797565,
+      "source": "../artifacts/checkpoint-attribution/known-01/near_periodic-5101-fit0/shifted.npz",
+      "source_sha256": "ca975977b3c4aaae9aab4417f2b71396397a0c9824ecb2359a3cebeae1ba06e0"
+    },
+    {
+      "case": "near_periodic-7303-fit0",
+      "regime": "matched",
+      "chosen_step": 600,
+      "comparator_step": 1000,
+      "chosen_evaluation_criterion_mse": 5.9646936155958984e-05,
+      "final_evaluation_criterion_mse": 4.888543774579906e-05,
+      "relative_increase": 0.22013709821151606,
+      "source": "../artifacts/checkpoint-attribution/coverage-confirmation-paths-01/near_periodic-7303-fit0/matched.npz",
+      "source_sha256": "4df2ad256e647e34f45c5070042b1200a87ce440a25bf6b5838b8f504350ddec"
+    },
+    {
+      "case": "near_periodic-7303-fit0",
+      "regime": "shifted",
+      "chosen_step": 600,
+      "comparator_step": 1000,
+      "chosen_evaluation_criterion_mse": 0.00024612996440226317,
+      "final_evaluation_criterion_mse": 0.00022316370827519738,
+      "relative_increase": 0.10291214599617882,
+      "source": "../artifacts/checkpoint-attribution/coverage-confirmation-paths-01/near_periodic-7303-fit0/shifted.npz",
+      "source_sha256": "becf382559ea28613cec891b9cc6900a8e033077ae90471a569ff40974b53c9b"
+    }
+  ]
+}

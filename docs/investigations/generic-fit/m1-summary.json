@@ -1,0 +1,94 @@
+{
+  "id": "generic-fit-m1-v1",
+  "decision": {
+    "manifest": "generic-fit-m1-v1",
+    "decision": "retain",
+    "accepted": false,
+    "hard_gate_breaches": [
+      {
+        "case": "deadzone_saturation-6101",
+        "regime": "shifted",
+        "gate": "absolute_horizon_error",
+        "value": 0.5508066791607258,
+        "limit": 0.55
+      }
+    ],
+    "primary_ratio": 1.0938087203139688,
+    "required_ratio": 0.95,
+    "per_family_ratios": {
+      "stable_affine": 1.0,
+      "coupled_nonlinear": 1.117619798360924,
+      "deadzone_saturation": 1.0650682658436557,
+      "hidden_hysteresis": 1.0769512514789226,
+      "near_periodic": 1.0549859831735193,
+      "off_periodic": 1.266292464108442
+    },
+    "meaning": "Engineering regression qualification for this manifest only; no platform/control-readiness or uncertainty claim."
+  },
+  "manifest_sha256": "c2c2f157da0c1b2d973b8d6a38d0ab08e2caeb3f8713138491cf4973738d6ae4",
+  "benchmark_candidate_fits": 25,
+  "benchmark_reruns": 0,
+  "required_family_objective_ratios": {
+    "stable_affine": {
+      "train": 0.02285815515999788,
+      "development": 0.03536159207915062
+    },
+    "coupled_nonlinear": {
+      "train": 2.028342331390456,
+      "development": 2.1701778634571536
+    },
+    "deadzone_saturation": {
+      "train": 0.7503462232030178,
+      "development": 0.9079011765467425
+    },
+    "hidden_hysteresis": {
+      "train": 0.7080860509070865,
+      "development": 0.7716694779198163
+    },
+    "near_periodic": {
+      "train": 1.2218705446020923,
+      "development": 1.0279042943598917
+    },
+    "off_periodic": {
+      "train": 1.4860656116116608,
+      "development": 1.1344991734838408
+    }
+  },
+  "diagnostics": {
+    "evaluation_budget_terminations": 25,
+    "gradient_converged": 0,
+    "selected_final_checkpoint": 14,
+    "development_recording_winner_disagreement": 10,
+    "fit_wall_seconds": {
+      "minimum": 0.2807125839171931,
+      "median": 0.29978970799129456,
+      "maximum": 0.5272692909929901
+    },
+    "compute_note": "Full-batch calls count every line-search trial. Work accounting is not equal wall time."
+  },
+  "validation": {
+    "tests_passed": 47,
+    "verified_cases": 25,
+    "model_regime_replays": 100,
+    "corruption_checks": {
+      "altered_saved_prediction": "rejected",
+      "altered_input_cache": "rejected",
+      "altered_manifest": "rejected"
+    },
+    "wheel_smoke": {
+      "wheel_import": "/Users/ryland/autonomy/dart/glassbox/artifacts/m1-bounded-fit/wheel/glassbox-0.3.0rc1-py3-none-any.whl",
+      "fit_predict_save_load_update": "passed",
+      "recipe": "generic-history-v1-prototype",
+      "internal_fitter_importable": true
+    },
+    "existing_library_files_unchanged": 82,
+    "uv_lock": "Offline uv lock panicked in macOS system-configuration initialization; existing resolved SciPy branches added directly and dependency edges structurally validated.",
+    "test_count_note": "47 distinct test cases across the 45-case focused run and the final 13-case acceptance-hardening run; overlapping cases counted once."
+  },
+  "evidence": {
+    "path": "m1-evidence.zip",
+    "bytes": 4944869,
+    "sha256": "94f2ef8a518779f57feb5fb5993015fd8830f79040031522f7f4db901c803124"
+  },
+  "scope": "Synthetic engineering regression qualification on previously inspected families; no platform readiness, convergence guarantee, or calibrated uncertainty claim."
+}

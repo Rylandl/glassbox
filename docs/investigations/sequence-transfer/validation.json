@@ -1,0 +1,87 @@
+{
+  "source_float64": {
+    "passed": 105,
+    "seconds": 15.605
+  },
+  "isolated_wheel_float32": {
+    "passed": 105,
+    "seconds": 15.899
+  },
+  "test_modules": [
+    "model_structures",
+    "outputwise_transition",
+    "diagnosis_sampling",
+    "temporal_transition",
+    "transition_gp",
+    "error_calibration",
+    "nanodrone_benchmark",
+    "public_api",
+    "shape_sampling",
+    "sequence_transfer",
+    "x8_reference",
+    "arp_reference"
+  ],
+  "wheel_sha256": "dc5b11fd48369c8a445562cba52fadf8d3214b853e92875ea0219d04c4620f44",
+  "wheel_bytes": 342606,
+  "wheel_matches_source": true,
+  "full_suite_run": false,
+  "ruff_check": true,
+  "ruff_format": true,
+  "git_diff_check": true,
+  "preexisting_files_checked": 1173,
+  "preexisting_files_changed": [
+    "docs/README.md",
+    "src/glassbox/experimental/sequence_model.py"
+  ],
+  "local_document_links_checked": 31,
+  "figures_visually_inspected": [
+    "sequence-transfer.png"
+  ],
+  "python": "3.12.12 (main, Jan 27 2026, 23:41:44) [Clang 21.1.4 ]",
+  "environment": {
+    "python": "3.12.12 (main, Jan 27 2026, 23:41:44) [Clang 21.1.4 ]",
+    "jax": "0.11.1",
+    "numpy": "2.5.3",
+    "platform": "macOS-26.6.2-arm64-arm-64bit"
+  },
+  "audit": {
+    "models_replayed": 144,
+    "numerical_checks": 2633,
+    "maximum_absolute_difference": 9.523546395939775e-10,
+    "causal_source_rows_checked": 39292,
+    "maximum_source_lookahead_s": 0.0,
+    "source_hashes": {
+      "lateral_121_1": "5110c3278c0e1710583397fb0742987a5734a3468d13fa940f372ad47138d5cd",
+      "lateral_121_2": "b9d9cb2fd2c68a83562d057ee11e899c95f917cb542b1ec541e87f39c4e22678",
+      "lateral_121_3": "9ca0354d3ce97a7b39158304dce06d1d63f5bed3aeb8178fccfb210bcb99b475",
+      "lateral_121_4": "4755ebaf04ec3f3dd68fad11a730617495191783149a120b8c2350120ee9d916",
+      "lateral_doublet_1": "4c341ff3ca911cf961b72c22a5ee6e561a04b7978b3b286522ad7789273ef610",
+      "lateral_doublet_2": "838e08b6e972994f3ca8c3339a9286857ce4596fff4c3f490ed8903fd7172441",
+      "lateral_doublet_3": "e66eacf6f5cc4119a91730c2541645485f6a6efda15e190b2d15bb587454a783",
+      "lateral_doublet_4": "cd1329d642f7b34afe4c227e7dbea40cee6985f1877d4366072d0b1158a25da2",
+      "longitudinal_3211_1": "7e97fa2508977b2de78f64acf6b9a241e6308cb4f42b5a5849f8ce841780871e",
+      "longitudinal_3211_2": "24cfe9056bb991d633c107213981b2432b94926c9ff9b69d0c44dc786f1438d2",
+      "longitudinal_3211_3": "72821abb3a8f6975aec275e5531e0601cc8ec986904e812e98c91853982dd883",
+      "longitudinal_3211_4": "41be754ee1b88975042c6466301d9fc6f052d9a813a33b1f2140bc20179bbc80",
+      "longitudinal_3211_5": "36674dd64dcfa407b5420f90d15ee93fec5b352c823fc2ee7fb78d3f98573daf",
+      "longitudinal_doublet_1": "263a87a857753ea57d105a7d70e3ee420007c2daba53e3c412cbe59c821c7a4e",
+      "longitudinal_doublet_2": "bec1966dd95917fe9d4d93b1557107036624307f31081c8d4710dc75d8cfae81",
+      "longitudinal_doublet_3": "96fe35b0bc3cbe0969ec0f1ba7cc06c446637b68e08dba10d1d4c8073bb44879",
+      "longitudinal_doublet_4": "5fac85cc4027b94509242ba95da85ace9398edd677f416d6f39be8f8070c4c87",
+      "log_63_2024-1-8-16-37-54": "887fb128983d767449112409143224874ff57c04b5efb8941582748a3aec9cf9",
+      "log_64_2024-1-8-16-39-44": "f9517b747ef97a7f3d51b28043bcdd9fc50983c7e938d4b26ff22e8aff7a771d",
+      "log_65_2024-1-8-16-40-52": "d2ce8a3c9ce5605cd8d73e9351b8a46640b11d5044b1746bbf15f63854178553",
+      "log_66_2024-1-8-16-42-48": "8eafd19ecceeaf11812f94057bb8ee804f10adb457788d5d1889751a6a193ee6"
+    },
+    "nano_previous_prediction_reproduction": true,
+    "teacher_refresh_predictions_replayed": true,
+    "affine_operators_rebuilt_from_prediction_perturbations": true,
+    "interpretation": "Prediction/data/selection replay; not independent re-optimization or physical-truth validation."
+  },
+  "guard_roundoff_fix": {
+    "initial_wheel_check": "100 passed, 1 failed: unchanged initialization rejected after eager float32 replay",
+    "regression_tests_added": 4,
+    "recorded_float64_guard_decisions_unchanged": true
+  },
+  "source_archives_verified": true
+}

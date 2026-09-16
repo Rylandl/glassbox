@@ -1,0 +1,81 @@
+{
+  "scope": "saved-array metrics, bounds, interval accounting, gated scored-revision handoffs, artifact counts and source hashes; no numerical rerun",
+  "trials": [
+    {
+      "platform": "multirotor-0",
+      "trial": "frozen",
+      "intervals": 240,
+      "blocks": 12,
+      "skipped_intervals": 190,
+      "applied_adoptions": 0,
+      "passed": true
+    },
+    {
+      "platform": "multirotor-0",
+      "trial": "adopting",
+      "intervals": 240,
+      "blocks": 13,
+      "skipped_intervals": 186,
+      "applied_adoptions": 5,
+      "passed": true
+    },
+    {
+      "platform": "multirotor-1",
+      "trial": "adopting",
+      "intervals": 240,
+      "blocks": 16,
+      "skipped_intervals": 174,
+      "applied_adoptions": 6,
+      "passed": true
+    },
+    {
+      "platform": "multirotor-1",
+      "trial": "frozen",
+      "intervals": 240,
+      "blocks": 16,
+      "skipped_intervals": 174,
+      "applied_adoptions": 0,
+      "passed": true
+    },
+    {
+      "platform": "fixedwing-0",
+      "trial": "frozen",
+      "intervals": 240,
+      "blocks": 14,
+      "skipped_intervals": 182,
+      "applied_adoptions": 0,
+      "passed": true
+    },
+    {
+      "platform": "fixedwing-0",
+      "trial": "adopting",
+      "intervals": 240,
+      "blocks": 14,
+      "skipped_intervals": 182,
+      "applied_adoptions": 5,
+      "passed": true
+    },
+    {
+      "platform": "fixedwing-1",
+      "trial": "adopting",
+      "intervals": 240,
+      "blocks": 11,
+      "skipped_intervals": 194,
+      "applied_adoptions": 4,
+      "passed": true
+    },
+    {
+      "platform": "fixedwing-1",
+      "trial": "frozen",
+      "intervals": 240,
+      "blocks": 12,
+      "skipped_intervals": 190,
+      "applied_adoptions": 0,
+      "passed": true
+    }
+  ],
+  "verified_source_files": 68,
+  "comparison_sha256": "c09c793207d26fdb23187a8dceb36ea7de4aa6dc49a73fb09018944bc12efcde",
+  "audit_source_sha256": "50b8da95bafe48b40bdce552fe5e6668287777ea57b9d8248050eb1a768d1f40",
+  "passed": true
+}

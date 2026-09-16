@@ -3,6 +3,36 @@
 All notable changes to Glassbox are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## Unreleased
+
+- Freeze the generic learner's first engineering acceptance contract and add
+  an internal bounded L-BFGS fitter with explicit budget, termination, and
+  checkpoint evidence. The 25-case comparison rejects this default replacement;
+  preserve the incumbent recipe and provide saved-run verification without refits.
+- Recognize bounded `surface_angle_command` channels as directly actionable in
+  their declared units, preserving the distinction from measured surface angles.
+- Add a Cascade X8 calibration, held-out prediction and streaming tracking
+  example through the shared observation/command plant interface. Update the
+  optional Cascade lock to version 0.2.0 at `d6613886`.
+- Add bounded aligned-transition buffering and a background refinement worker
+  with explicit gap accounting, capped command history and revision retention,
+  and acknowledged controller handoff. Compare frozen and adopting models during
+  synthetic tracking on two platform variants in each supported family.
+- Allow belief rollouts to skip propagated parameter covariance explicitly,
+  returning `None` for that component while retaining the forecast mean,
+  empirical error measurements, and parameter information semantics.
+- Accept in-memory trajectories and mixed trajectory/path sources in `fit`,
+  through the same coordinator and source resolution used by evaluation.
+- Record canonical content identities for fit data and label reserved
+  forecast-error calibration explicitly. Disambiguate colliding in-memory
+  source names in reports.
+- Add a runnable fit, evaluate, predict, and update walkthrough for both
+  supported dynamics families, with separate data roles and update evaluation.
+- Add an experimental recorded-telemetry refinement workflow with pinned active
+  revisions, candidate scoring before absorption, session interval accounting,
+  and explicit adoption of evaluated revisions. Exercise both families with
+  saved model revisions, block forecasts, and an adoption ledger.
+
 ## 0.3.0rc1 - 2026-09-08
 
 This candidate streamlines the identification workflow and corrects actuator

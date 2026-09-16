@@ -1,0 +1,30 @@
+{
+  "created_utc": "2026-09-14T14:25:11.844267+00:00",
+  "purpose": "Quantify empirical forecast allowances and distinguish them from downstream task requirements.",
+  "source_run": "../artifacts/default-recipe/comparison-01",
+  "fits": 0,
+  "arms": [
+    "initial",
+    "updated where present",
+    "initialization",
+    "hold"
+  ],
+  "metric": "Physical vector error for velocity/body rate, accelerometer/gyro in sensor case. Rotation-entry group reported separately, not angular error.",
+  "statistics": [
+    "RMS at each step",
+    "nearest-rank empirical 95th percentile of endpoint error",
+    "nearest-rank empirical 95th percentile of maximum error anywhere through the horizon",
+    "maximum observed prefix error",
+    "per-recording and minimum-across-recordings simultaneous observed fraction within illustrative limits"
+  ],
+  "empirical_fraction": 0.95,
+  "illustrative_limits": {
+    "velocity_m_s": 0.5,
+    "body_rate_rad_s": 1.0,
+    "acceleration_g": 0.2,
+    "gyro_rad_s": 2.0
+  },
+  "limits_interpretation": "Illustrative forecast requirements, not derived task tolerances or recommended flight limits. No fit/selection/adoption uses them.",
+  "control_reasoning": "Analytical scalar error-feedback example: same residual RMS, different temporal structure and contraction; no vehicle controller changes.",
+  "evidence": "All saved evaluation recordings previously inspected; windows overlap; empirical fractions and percentiles are descriptive, not calibrated probabilities. No new closed-loop trial or hardware validation."
+}

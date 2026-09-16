@@ -1,0 +1,47 @@
+{
+  "question": "Does avoiding recursive prediction improve conditional forecasts, and do error/support/age associations repeat across held-out flights?",
+  "datasets": [
+    "nano",
+    "x8",
+    "arp"
+  ],
+  "seeds": [
+    60,
+    61,
+    62
+  ],
+  "families": [
+    "recursive_current",
+    "recursive_history",
+    "direct_current",
+    "direct_history"
+  ],
+  "ridge_fractions": [
+    0.0001,
+    0.001,
+    0.01,
+    0.1,
+    1.0,
+    10.0
+  ],
+  "penalty": "mean squared residual + ridge fraction times squared standardized feature coefficients",
+  "references": [
+    "hold current observation",
+    "least-squares trend over the observed history"
+  ],
+  "horizons": "one step, 100 ms, final 250 ms (ARP 240 ms)",
+  "direct": "separate change-from-current heads; only command prefixes through each target; no future observations",
+  "arp_folds": "each of four recordings evaluates once; preceding recording cyclically develops; other two train",
+  "budget": "384 matched training origins per case; existing Nano/X8 windows; recursive fit uses every one-step transition inside them",
+  "selector": "whole-model train-state-standardized development loss over the three horizons; separate diagnostic selector minimizes each development horizon/group error",
+  "support": "nearest standardized history/current-command reference; training thresholds use neighbors from another recording only; 50th/90th percentiles",
+  "age": "publication/sample age at prediction origin; no future observation ages in predictor or selector",
+  "limits": [
+    "Adaptively motivated by prior inspected results; these are reused flight recordings, not pristine new holdouts.",
+    "Overlapping windows and repeated seeds are not independent flights.",
+    "All predictions condition on future logged inputs.",
+    "Support/age error associations are descriptive, not causal attribution or calibrated uncertainty.",
+    "Cell-wise selection may combine incompatible heads; it is an offline diagnostic, not a physical trajectory model."
+  ],
+  "smoke": false
+}

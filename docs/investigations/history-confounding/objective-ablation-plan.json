@@ -1,0 +1,20 @@
+{
+  "created_utc": "2026-09-14T17:52:21.269374+00:00",
+  "status": "Follow-up frozen after inspecting the cycle objective, before ablation fitting.",
+  "hypothesis": "Pooling hold-reference RMS over forecast horizons avoids excessive weighting of exact-return horizons. Measure causal effect of this one training change on the synthetic witnesses.",
+  "cases": [
+    "observed_cycle-learned",
+    "hidden_delay-learned",
+    "process_noise-learned"
+  ],
+  "seeds": [
+    101,
+    202,
+    303
+  ],
+  "change": "Replace per-horizon/channel hold RMS with one per-channel RMS pooled over training windows and horizons, broadcast to every horizon. Keep 1% training state-standard-deviation floor.",
+  "fixed": "Same saved training/development windows, model kind/width, initialization seed, ridge, optimizer steps, batch size, learning rate, checkpoint schedule. Checkpoints still select by the corresponding development objective.",
+  "evaluation": "Same previously inspected diagnostic histories/current inputs; evaluate all five forecast steps where contiguous data exists. Paired baseline/candidate on identical windows, all cases and horizons reported.",
+  "prediction_interface": "Research SequenceModel candidate only; no default recipe/API replacement.",
+  "limits": "Method-development comparison, not untouched generalization. History and data are not varied, so hidden delay cannot be repaired by this objective change."
+}

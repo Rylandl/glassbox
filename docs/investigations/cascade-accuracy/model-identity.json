@@ -1,0 +1,50 @@
+{
+  "fingerprint": "ac2a669a0458f951e374d2b6f91aaf76b346dce95193658898f734b0c809b5da",
+  "saved_model": {
+    "path": "/Users/ryland/autonomy/dart/artifacts/cascade-accuracy/comparison-01/learned.npz",
+    "sha256": "70cbc55018b38f6e5c828c148ab5a4b7a661bc20a44542277e39db4e9ddc21a5",
+    "bytes": 444970
+  },
+  "recipe": {
+    "id": "generic-history-v1-prototype",
+    "kind": "delay_mlp",
+    "width": 32,
+    "history_s": 0.1,
+    "horizon_s": 0.25,
+    "training_windows": 384,
+    "development_windows": 256,
+    "steps": 1000,
+    "batch_size": 64,
+    "learning_rate": 0.002,
+    "ridge_fraction": 0.01,
+    "seed": 0,
+    "check_every": 100,
+    "hold_scale_floor": 0.01
+  },
+  "contract": {
+    "configuration_id": "cascade_published_x8_cruise",
+    "state_channels": [
+      "velocity_x [m/s,NWU]",
+      "velocity_y [m/s,NWU]",
+      "velocity_z [m/s,NWU]",
+      "body_rate_x [rad/s,FLU]",
+      "body_rate_y [rad/s,FLU]",
+      "body_rate_z [rad/s,FLU]",
+      "rotation_00 [unitless,FLU-to-NWU]",
+      "rotation_01 [unitless,FLU-to-NWU]",
+      "rotation_02 [unitless,FLU-to-NWU]",
+      "rotation_10 [unitless,FLU-to-NWU]",
+      "rotation_11 [unitless,FLU-to-NWU]",
+      "rotation_12 [unitless,FLU-to-NWU]",
+      "rotation_20 [unitless,FLU-to-NWU]",
+      "rotation_21 [unitless,FLU-to-NWU]",
+      "rotation_22 [unitless,FLU-to-NWU]"
+    ],
+    "input_channels": [
+      "throttle [normalized command]",
+      "aileron [rad,requested surface angle]",
+      "elevator [rad,requested surface angle]"
+    ],
+    "dt_s": 0.05
+  }
+}

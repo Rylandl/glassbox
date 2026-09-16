@@ -32,8 +32,9 @@ from glassbox.core.data import (
     Trajectory,
     TrajectoryWindows,
     duration_to_steps,
-    load_trajectory_npz,
+    resolve_trajectory_sources,
     split_trajectory,
+    trajectory_content_digest,
     trajectory_windows,
 )
 from glassbox.core.diagnostics import (
@@ -634,6 +635,7 @@ def _trajectory_summary(path: str, trajectory: Trajectory) -> dict[str, Any]:
     velocity = trajectory.states[:, 3:6]
     return {
         "path": path,
+        "content_sha256": trajectory_content_digest(trajectory),
         "duration_s": float(trajectory.time_s[-1]),
         "intervals": len(trajectory.controls),
         "control_size": trajectory.control_size,
@@ -1020,6 +1022,8 @@ def _by_horizon(
 def _split_section(plan: HoldoutPlan, spec: FitSpec) -> dict[str, Any]:
     return {
         "mode": plan.mode,
+        "validation_role": "forecast_error_calibration",
+        "content_identity": "trajectory_sha256_v1",
         "independent_source_group_holdout": bool(plan.training_source_groups)
         and set(plan.training_source_groups).isdisjoint(plan.validation_group_order),
         "holdout": spec.holdout.to_dict(),
@@ -1244,10 +1248,10 @@ class FitOutcome:
 
 
 def fit(
-    sources: Sequence[str | Path],
+    sources: Sequence[Trajectory | str | Path],
     spec: FitSpec = DEFAULT_FIT_SPEC,
 ) -> FitOutcome:
-    """Fit one vehicle's dynamics belief from canonical trajectory files.
+    """Fit one vehicle's belief from canonical trajectories, files, or both.
 
     This is the coordinator: it loads, validates the pooled dataset, plans the
     holdout, extracts training windows, fits the model and any requested
@@ -1255,16 +1259,21 @@ def fit(
     scoring supports alongside the report that records how it was produced.
     """
 
-    if not sources:
-        raise ValueError("at least one trajectory path is required")
-    paths = [Path(path) for path in sources]
-    trajectories = [load_trajectory_npz(path) for path in paths]
+    labels, trajectories = resolve_trajectory_sources(sources)
+    paths = [Path(label) for label in labels]
     dataset = _dataset_contract(paths, trajectories, spec)
     plan = spec.holdout.plan(trajectories, paths)
     windows = build_training_windows(plan, spec)
     provenance = {
         "training_trajectories": list(plan.training_labels),
         "validation_trajectories": [flight.path for flight in plan.validation],
+        "data_identity": {
+            "algorithm": "trajectory_sha256_v1",
+            "training": [trajectory_content_digest(item) for item in plan.training],
+            "forecast_error_calibration": [
+                trajectory_content_digest(item.trajectory) for item in plan.validation
+            ],
+        },
     }
 
     def fit_model(

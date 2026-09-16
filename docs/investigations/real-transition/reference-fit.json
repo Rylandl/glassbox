@@ -1,0 +1,4416 @@
+{
+  "format_version": 1,
+  "dataset": {
+    "pooling_basis": "canonical_trajectory_spec",
+    "flight_count": 9,
+    "sample_rate_hz": 100.00000000000213,
+    "control_size": 4,
+    "control_names": [
+      "motor_front_left",
+      "motor_front_right",
+      "motor_rear_right",
+      "motor_rear_left"
+    ],
+    "control_roles": [
+      "motor_front_left",
+      "motor_front_right",
+      "motor_rear_right",
+      "motor_rear_left"
+    ],
+    "control_semantics": [
+      "squared_rotor_speed_ratio",
+      "squared_rotor_speed_ratio",
+      "squared_rotor_speed_ratio",
+      "squared_rotor_speed_ratio"
+    ],
+    "exogenous_size": 0,
+    "exogenous_names": [],
+    "exogenous_roles": [],
+    "platform": "multirotor",
+    "source_type_counts": {
+      "idsia_nanodrone_benchmark": 9
+    },
+    "state_source": "processed_mocap_and_onboard_sensors",
+    "state_schema": "rigid_body_13_nwu_flu_wxyz_v1",
+    "trajectory_spec": {
+      "state_schema": "rigid_body_13_nwu_flu_wxyz_v1",
+      "observation_source": "processed_mocap_and_onboard_sensors",
+      "channels": [
+        {
+          "name": "motor_front_left",
+          "role": "motor_front_left",
+          "semantic": "squared_rotor_speed_ratio",
+          "unit": "1",
+          "kind": "control",
+          "frame": "FLU",
+          "minimum": 0.0,
+          "maximum": null
+        },
+        {
+          "name": "motor_front_right",
+          "role": "motor_front_right",
+          "semantic": "squared_rotor_speed_ratio",
+          "unit": "1",
+          "kind": "control",
+          "frame": "FLU",
+          "minimum": 0.0,
+          "maximum": null
+        },
+        {
+          "name": "motor_rear_right",
+          "role": "motor_rear_right",
+          "semantic": "squared_rotor_speed_ratio",
+          "unit": "1",
+          "kind": "control",
+          "frame": "FLU",
+          "minimum": 0.0,
+          "maximum": null
+        },
+        {
+          "name": "motor_rear_left",
+          "role": "motor_rear_left",
+          "semantic": "squared_rotor_speed_ratio",
+          "unit": "1",
+          "kind": "control",
+          "frame": "FLU",
+          "minimum": 0.0,
+          "maximum": null
+        },
+        {
+          "name": "specific_force_x_m_s2",
+          "role": "specific_force_x",
+          "semantic": "accelerometer_specific_force_including_gravity",
+          "unit": "m/s^2",
+          "kind": "observation",
+          "frame": "FLU",
+          "minimum": null,
+          "maximum": null
+        },
+        {
+          "name": "specific_force_y_m_s2",
+          "role": "specific_force_y",
+          "semantic": "accelerometer_specific_force_including_gravity",
+          "unit": "m/s^2",
+          "kind": "observation",
+          "frame": "FLU",
+          "minimum": null,
+          "maximum": null
+        },
+        {
+          "name": "specific_force_z_m_s2",
+          "role": "specific_force_z",
+          "semantic": "accelerometer_specific_force_including_gravity",
+          "unit": "m/s^2",
+          "kind": "observation",
+          "frame": "FLU",
+          "minimum": null,
+          "maximum": null
+        }
+      ],
+      "vehicle": {
+        "family": "multirotor",
+        "configuration_id": "idsia_crazyflie_2_1_brushless_flow_v2_ai_deck",
+        "controlled_axes": [
+          "roll",
+          "pitch",
+          "yaw"
+        ],
+        "fixed_states": {
+          "control_transform": "(rotor_speed_rad_s / reference_rad_s)^2",
+          "mass_kg": 0.045,
+          "rotor_layout": "x",
+          "rotor_speed_reference_rad_s": 2500.0
+        },
+        "auxiliary_controls": []
+      }
+    },
+    "source_group_count": 9,
+    "model_family": "effective_quadrotor"
+  },
+  "split": {
+    "mode": "leave_labeled_out",
+    "validation_role": "forecast_error_calibration",
+    "content_identity": "trajectory_sha256_v1",
+    "independent_source_group_holdout": true,
+    "holdout": {
+      "rule": "label",
+      "key": "data_role",
+      "values": [
+        "scale"
+      ]
+    },
+    "training_source_groups": [
+      "chirp_20251017_run1",
+      "chirp_20251017_run2",
+      "random_20251017_run1",
+      "random_20251017_run2",
+      "square_20251017_run1",
+      "square_20251017_run2"
+    ],
+    "validation_source_groups": [
+      "chirp_20251017_run3",
+      "random_20251017_run3",
+      "square_20251017_run3"
+    ],
+    "training_flights": [
+      {
+        "path": "/Users/ryland/autonomy/dart/artifacts/real-transition/corpus/canonical/train/chirp_20251017_run1.npz",
+        "content_sha256": "a55b315453585e40ca58172f2e0838bdd7902a77d74b6179eae2647292e29fe4",
+        "duration_s": 59.99,
+        "intervals": 5999,
+        "control_size": 4,
+        "control_names": [
+          "motor_front_left",
+          "motor_front_right",
+          "motor_rear_right",
+          "motor_rear_left"
+        ],
+        "sample_rate_hz": 100.00000000000213,
+        "characteristics": {
+          "path_length_m": 50.474120198023826,
+          "maximum_speed_m_s": 2.899955003163259
+        },
+        "spec": {
+          "state_schema": "rigid_body_13_nwu_flu_wxyz_v1",
+          "observation_source": "processed_mocap_and_onboard_sensors",
+          "channels": [
+            {
+              "name": "motor_front_left",
+              "role": "motor_front_left",
+              "semantic": "squared_rotor_speed_ratio",
+              "unit": "1",
+              "kind": "control",
+              "frame": "FLU",
+              "minimum": 0.0,
+              "maximum": null
+            },
+            {
+              "name": "motor_front_right",
+              "role": "motor_front_right",
+              "semantic": "squared_rotor_speed_ratio",
+              "unit": "1",
+              "kind": "control",
+              "frame": "FLU",
+              "minimum": 0.0,
+              "maximum": null
+            },
+            {
+              "name": "motor_rear_right",
+              "role": "motor_rear_right",
+              "semantic": "squared_rotor_speed_ratio",
+              "unit": "1",
+              "kind": "control",
+              "frame": "FLU",
+              "minimum": 0.0,
+              "maximum": null
+            },
+            {
+              "name": "motor_rear_left",
+              "role": "motor_rear_left",
+              "semantic": "squared_rotor_speed_ratio",
+              "unit": "1",
+              "kind": "control",
+              "frame": "FLU",
+              "minimum": 0.0,
+              "maximum": null
+            },
+            {
+              "name": "specific_force_x_m_s2",
+              "role": "specific_force_x",
+              "semantic": "accelerometer_specific_force_including_gravity",
+              "unit": "m/s^2",
+              "kind": "observation",
+              "frame": "FLU",
+              "minimum": null,
+              "maximum": null
+            },
+            {
+              "name": "specific_force_y_m_s2",
+              "role": "specific_force_y",
+              "semantic": "accelerometer_specific_force_including_gravity",
+              "unit": "m/s^2",
+              "kind": "observation",
+              "frame": "FLU",
+              "minimum": null,
+              "maximum": null
+            },
+            {
+              "name": "specific_force_z_m_s2",
+              "role": "specific_force_z",
+              "semantic": "accelerometer_specific_force_including_gravity",
+              "unit": "m/s^2",
+              "kind": "observation",
+              "frame": "FLU",
+              "minimum": null,
+              "maximum": null
+            }
+          ],
+          "vehicle": {
+            "family": "multirotor",
+            "configuration_id": "idsia_crazyflie_2_1_brushless_flow_v2_ai_deck",
+            "controlled_axes": [
+              "roll",
+              "pitch",
+              "yaw"
+            ],
+            "fixed_states": {
+              "control_transform": "(rotor_speed_rad_s / reference_rad_s)^2",
+              "mass_kg": 0.045,
+              "rotor_layout": "x",
+              "rotor_speed_reference_rad_s": 2500.0
+            },
+            "auxiliary_controls": []
+          }
+        },
+        "labels": {
+          "benchmark": "idsia_nanodrone_sysid",
+          "benchmark_split": "train",
+          "condition": "aggressive_real_flight",
+          "profile": "chirp",
+          "recording_date": "2025-10-17",
+          "replicate": 1,
+          "source_group": "chirp_20251017_run1",
+          "data_role": "train"
+        },
+        "provenance": {
+          "adapter": {
+            "name": "idsia_nanodrone_benchmark",
+            "schema_version": 2
+          },
+          "benchmark": {
+            "commit": "2d921b57d166fe2debe08a5d39bd07297c5abc39",
+            "doi": "10.1016/j.conengprac.2026.106871",
+            "expected_sha256": "00e19738869e223c295232c44771c195f8c2f8c499e5497e27e520c7fc60ca23",
+            "expected_size_bytes": 2360840,
+            "relative_path": "data/train/chirp_20251017_run1.csv",
+            "repository": "https://github.com/idsia-robotics/nanodrone-sysid-benchmark"
+          },
+          "quality": {
+            "maximum_quaternion_norm_error": 3.3306690738754696e-16,
+            "maximum_timing_error_s": 8.881784197001252e-15,
+            "motor_speed_maximum_rad_s": [
+              2406.626171963569,
+              2423.1615575020714,
+              2419.4733727790326,
+              2377.535750624973
+            ],
+            "motor_speed_minimum_rad_s": [
+              766.7476024460634,
+              633.0312876260869,
+              779.7323055935058,
+              860.5431211725961
+            ],
+            "nominal_dt_s": 0.009999999999999787,
+            "sample_rate_hz": 100.00000000000213
+          },
+          "source": "/Users/ryland/autonomy/dart/artifacts/real-transition/corpus/raw/data/train/chirp_20251017_run1.csv",
+          "source_schema": {
+            "body_frame": "FLU",
+            "columns": [
+              "t",
+              "x",
+              "y",
+              "z",
+              "qx",
+              "qy",
+              "qz",
+              "qw",
+              "vx",
+              "vy",
+              "vz",
+              "wx",
+              "wy",
+              "wz",
+              "m1_rads",
+              "m2_rads",
+              "m3_rads",
+              "m4_rads",
+              "ax_body",
+              "ay_body",
+              "az_body"
+            ],
+            "motor_order": [
+              "front_right",
+              "rear_right",
+              "rear_left",
+              "front_left"
+            ],
+            "state_order": [
+              "position_world_xyz",
+              "quaternion_body_to_world_xyzw",
+              "velocity_world_xyz",
+              "angular_velocity_body_xyz"
+            ],
+            "world_frame": "z_up_right_handed"
+          },
+          "source_sha256": "00e19738869e223c295232c44771c195f8c2f8c499e5497e27e520c7fc60ca23",
+          "transformations": [
+            {
+              "target": "position_velocity_quaternion_angular_velocity",
+              "type": "state_column_reorder"
+            },
+            {
+              "source": "xyzw",
+              "target": "wxyz",
+              "type": "quaternion_component_reorder"
+            },
+            {
+              "sign_flips": 0,
+              "type": "quaternion_normalization_and_continuity"
+            },
+            {
+              "source_indices": [
+                3,
+                0,
+                1,
+                2
+              ],
+              "target_order": [
+                "motor_front_left",
+                "motor_front_right",
+                "motor_rear_right",
+                "motor_rear_left"
+              ],
+              "type": "motor_column_reorder"
+            },
+            {
+              "formula": "(rotor_speed_rad_s / reference_rad_s)^2",
+              "reference_rad_s": 2500.0,
+              "type": "motor_speed_to_squared_ratio"
+            },
+            {
+              "discarded_final_control_rows": 1,
+              "rule": "control row i applies from state row i to i+1",
+              "type": "sample_to_interval_alignment"
+            },
+            {
+              "sample_alignment": "state_timestamp",
+              "source_columns": [
+                "ax_body",
+                "ay_body",
+                "az_body"
+              ],
+              "target_roles": [
+                "specific_force_x",
+                "specific_force_y",
+                "specific_force_z"
+              ],
+              "type": "observation_retention"
+            }
+          ],
+          "upstream_preprocessing": {
+            "cutoff_hz": {
+              "linear_and_angular_velocity": 18.0,
+              "motor_speed": 20.0,
+              "position": 10.0,
+              "quaternion_log_map": 12.0
+            },
+            "filter": "zero_phase_fourth_order_butterworth",
+            "motor_acceleration_alignment": "cross_correlation",
+            "sample_rate_hz": 100.0,
+            "time_alignment": "source timestamps aligned and uniformly retimed"
+          },
+          "path": "/Users/ryland/autonomy/dart/artifacts/real-transition/corpus/canonical/train/chirp_20251017_run1.npz"
+        }
+      },
+      {
+        "path": "/Users/ryland/autonomy/dart/artifacts/real-transition/corpus/canonical/train/chirp_20251017_run2.npz",
+        "content_sha256": "ee763f7339231aeb982962dd48422207d8b61b52ee3479facda1528d2f70c536",
+        "duration_s": 59.99,
+        "intervals": 5999,
+        "control_size": 4,
+        "control_names": [
+          "motor_front_left",
+          "motor_front_right",
+          "motor_rear_right",
+          "motor_rear_left"
+        ],
+        "sample_rate_hz": 100.00000000000213,
+        "characteristics": {
+          "path_length_m": 50.1896831673817,
+          "maximum_speed_m_s": 2.9637745551552857
+        },
+        "spec": {
+          "state_schema": "rigid_body_13_nwu_flu_wxyz_v1",
+          "observation_source": "processed_mocap_and_onboard_sensors",
+          "channels": [
+            {
+              "name": "motor_front_left",
+              "role": "motor_front_left",
+              "semantic": "squared_rotor_speed_ratio",
+              "unit": "1",
+              "kind": "control",
+              "frame": "FLU",
+              "minimum": 0.0,
+              "maximum": null
+            },
+            {
+              "name": "motor_front_right",
+              "role": "motor_front_right",
+              "semantic": "squared_rotor_speed_ratio",
+              "unit": "1",
+              "kind": "control",
+              "frame": "FLU",
+              "minimum": 0.0,
+              "maximum": null
+            },
+            {
+              "name": "motor_rear_right",
+              "role": "motor_rear_right",
+              "semantic": "squared_rotor_speed_ratio",
+              "unit": "1",
+              "kind": "control",
+              "frame": "FLU",
+              "minimum": 0.0,
+              "maximum": null
+            },
+            {
+              "name": "motor_rear_left",
+              "role": "motor_rear_left",
+              "semantic": "squared_rotor_speed_ratio",
+              "unit": "1",
+              "kind": "control",
+              "frame": "FLU",
+              "minimum": 0.0,
+              "maximum": null
+            },
+            {
+              "name": "specific_force_x_m_s2",
+              "role": "specific_force_x",
+              "semantic": "accelerometer_specific_force_including_gravity",
+              "unit": "m/s^2",
+              "kind": "observation",
+              "frame": "FLU",
+              "minimum": null,
+              "maximum": null
+            },
+            {
+              "name": "specific_force_y_m_s2",
+              "role": "specific_force_y",
+              "semantic": "accelerometer_specific_force_including_gravity",
+              "unit": "m/s^2",
+              "kind": "observation",
+              "frame": "FLU",
+              "minimum": null,
+              "maximum": null
+            },
+            {
+              "name": "specific_force_z_m_s2",
+              "role": "specific_force_z",
+              "semantic": "accelerometer_specific_force_including_gravity",
+              "unit": "m/s^2",
+              "kind": "observation",
+              "frame": "FLU",
+              "minimum": null,
+              "maximum": null
+            }
+          ],
+          "vehicle": {
+            "family": "multirotor",
+            "configuration_id": "idsia_crazyflie_2_1_brushless_flow_v2_ai_deck",
+            "controlled_axes": [
+              "roll",
+              "pitch",
+              "yaw"
+            ],
+            "fixed_states": {
+              "control_transform": "(rotor_speed_rad_s / reference_rad_s)^2",
+              "mass_kg": 0.045,
+              "rotor_layout": "x",
+              "rotor_speed_reference_rad_s": 2500.0
+            },
+            "auxiliary_controls": []
+          }
+        },
+        "labels": {
+          "benchmark": "idsia_nanodrone_sysid",
+          "benchmark_split": "train",
+          "condition": "aggressive_real_flight",
+          "profile": "chirp",
+          "recording_date": "2025-10-17",
+          "replicate": 2,
+          "source_group": "chirp_20251017_run2",
+          "data_role": "train"
+        },
+        "provenance": {
+          "adapter": {
+            "name": "idsia_nanodrone_benchmark",
+            "schema_version": 2
+          },
+          "benchmark": {
+            "commit": "2d921b57d166fe2debe08a5d39bd07297c5abc39",
+            "doi": "10.1016/j.conengprac.2026.106871",
+            "expected_sha256": "6e5587da5055fc620677aeeb8e016a8e1d8d219464d7b2b82f2667174038c979",
+            "expected_size_bytes": 2352232,
+            "relative_path": "data/train/chirp_20251017_run2.csv",
+            "repository": "https://github.com/idsia-robotics/nanodrone-sysid-benchmark"
+          },
+          "quality": {
+            "maximum_quaternion_norm_error": 3.3306690738754696e-16,
+            "maximum_timing_error_s": 8.881784197001252e-15,
+            "motor_speed_maximum_rad_s": [
+              2415.8207255806224,
+              2413.943304216049,
+              2423.870334373965,
+              2361.1032401249463
+            ],
+            "motor_speed_minimum_rad_s": [
+              1111.8511373730046,
+              1018.1356116116474,
+              869.382716902048,
+              1090.6766608570438
+            ],
+            "nominal_dt_s": 0.009999999999999787,
+            "sample_rate_hz": 100.00000000000213
+          },
+          "source": "/Users/ryland/autonomy/dart/artifacts/real-transition/corpus/raw/data/train/chirp_20251017_run2.csv",
+          "source_schema": {
+            "body_frame": "FLU",
+            "columns": [
+              "t",
+              "x",
+              "y",
+              "z",
+              "qx",
+              "qy",
+              "qz",
+              "qw",
+              "vx",
+              "vy",
+              "vz",
+              "wx",
+              "wy",
+              "wz",
+              "m1_rads",
+              "m2_rads",
+              "m3_rads",
+              "m4_rads",
+              "ax_body",
+              "ay_body",
+              "az_body"
+            ],
+            "motor_order": [
+              "front_right",
+              "rear_right",
+              "rear_left",
+              "front_left"
+            ],
+            "state_order": [
+              "position_world_xyz",
+              "quaternion_body_to_world_xyzw",
+              "velocity_world_xyz",
+              "angular_velocity_body_xyz"
+            ],
+            "world_frame": "z_up_right_handed"
+          },
+          "source_sha256": "6e5587da5055fc620677aeeb8e016a8e1d8d219464d7b2b82f2667174038c979",
+          "transformations": [
+            {
+              "target": "position_velocity_quaternion_angular_velocity",
+              "type": "state_column_reorder"
+            },
+            {
+              "source": "xyzw",
+              "target": "wxyz",
+              "type": "quaternion_component_reorder"
+            },
+            {
+              "sign_flips": 0,
+              "type": "quaternion_normalization_and_continuity"
+            },
+            {
+              "source_indices": [
+                3,
+                0,
+                1,
+                2
+              ],
+              "target_order": [
+                "motor_front_left",
+                "motor_front_right",
+                "motor_rear_right",
+                "motor_rear_left"
+              ],
+              "type": "motor_column_reorder"
+            },
+            {
+              "formula": "(rotor_speed_rad_s / reference_rad_s)^2",
+              "reference_rad_s": 2500.0,
+              "type": "motor_speed_to_squared_ratio"
+            },
+            {
+              "discarded_final_control_rows": 1,
+              "rule": "control row i applies from state row i to i+1",
+              "type": "sample_to_interval_alignment"
+            },
+            {
+              "sample_alignment": "state_timestamp",
+              "source_columns": [
+                "ax_body",
+                "ay_body",
+                "az_body"
+              ],
+              "target_roles": [
+                "specific_force_x",
+                "specific_force_y",
+                "specific_force_z"
+              ],
+              "type": "observation_retention"
+            }
+          ],
+          "upstream_preprocessing": {
+            "cutoff_hz": {
+              "linear_and_angular_velocity": 18.0,
+              "motor_speed": 20.0,
+              "position": 10.0,
+              "quaternion_log_map": 12.0
+            },
+            "filter": "zero_phase_fourth_order_butterworth",
+            "motor_acceleration_alignment": "cross_correlation",
+            "sample_rate_hz": 100.0,
+            "time_alignment": "source timestamps aligned and uniformly retimed"
+          },
+          "path": "/Users/ryland/autonomy/dart/artifacts/real-transition/corpus/canonical/train/chirp_20251017_run2.npz"
+        }
+      },
+      {
+        "path": "/Users/ryland/autonomy/dart/artifacts/real-transition/corpus/canonical/train/random_20251017_run1.npz",
+        "content_sha256": "aaa65183b76dc57b1299fcc486824ae84c546e14a524a8fffbdb795b64b08cb6",
+        "duration_s": 59.99,
+        "intervals": 5999,
+        "control_size": 4,
+        "control_names": [
+          "motor_front_left",
+          "motor_front_right",
+          "motor_rear_right",
+          "motor_rear_left"
+        ],
+        "sample_rate_hz": 100.00000000001101,
+        "characteristics": {
+          "path_length_m": 61.270378946473265,
+          "maximum_speed_m_s": 2.6491185290467163
+        },
+        "spec": {
+          "state_schema": "rigid_body_13_nwu_flu_wxyz_v1",
+          "observation_source": "processed_mocap_and_onboard_sensors",
+          "channels": [
+            {
+              "name": "motor_front_left",
+              "role": "motor_front_left",
+              "semantic": "squared_rotor_speed_ratio",
+              "unit": "1",
+              "kind": "control",
+              "frame": "FLU",
+              "minimum": 0.0,
+              "maximum": null
+            },
+            {
+              "name": "motor_front_right",
+              "role": "motor_front_right",
+              "semantic": "squared_rotor_speed_ratio",
+              "unit": "1",
+              "kind": "control",
+              "frame": "FLU",
+              "minimum": 0.0,
+              "maximum": null
+            },
+            {
+              "name": "motor_rear_right",
+              "role": "motor_rear_right",
+              "semantic": "squared_rotor_speed_ratio",
+              "unit": "1",
+              "kind": "control",
+              "frame": "FLU",
+              "minimum": 0.0,
+              "maximum": null
+            },
+            {
+              "name": "motor_rear_left",
+              "role": "motor_rear_left",
+              "semantic": "squared_rotor_speed_ratio",
+              "unit": "1",
+              "kind": "control",
+              "frame": "FLU",
+              "minimum": 0.0,
+              "maximum": null
+            },
+            {
+              "name": "specific_force_x_m_s2",
+              "role": "specific_force_x",
+              "semantic": "accelerometer_specific_force_including_gravity",
+              "unit": "m/s^2",
+              "kind": "observation",
+              "frame": "FLU",
+              "minimum": null,
+              "maximum": null
+            },
+            {
+              "name": "specific_force_y_m_s2",
+              "role": "specific_force_y",
+              "semantic": "accelerometer_specific_force_including_gravity",
+              "unit": "m/s^2",
+              "kind": "observation",
+              "frame": "FLU",
+              "minimum": null,
+              "maximum": null
+            },
+            {
+              "name": "specific_force_z_m_s2",
+              "role": "specific_force_z",
+              "semantic": "accelerometer_specific_force_including_gravity",
+              "unit": "m/s^2",
+              "kind": "observation",
+              "frame": "FLU",
+              "minimum": null,
+              "maximum": null
+            }
+          ],
+          "vehicle": {
+            "family": "multirotor",
+            "configuration_id": "idsia_crazyflie_2_1_brushless_flow_v2_ai_deck",
+            "controlled_axes": [
+              "roll",
+              "pitch",
+              "yaw"
+            ],
+            "fixed_states": {
+              "control_transform": "(rotor_speed_rad_s / reference_rad_s)^2",
+              "mass_kg": 0.045,
+              "rotor_layout": "x",
+              "rotor_speed_reference_rad_s": 2500.0
+            },
+            "auxiliary_controls": []
+          }
+        },
+        "labels": {
+          "benchmark": "idsia_nanodrone_sysid",
+          "benchmark_split": "train",
+          "condition": "aggressive_real_flight",
+          "profile": "random",
+          "recording_date": "2025-10-17",
+          "replicate": 1,
+          "source_group": "random_20251017_run1",
+          "data_role": "train"
+        },
+        "provenance": {
+          "adapter": {
+            "name": "idsia_nanodrone_benchmark",
+            "schema_version": 2
+          },
+          "benchmark": {
+            "commit": "2d921b57d166fe2debe08a5d39bd07297c5abc39",
+            "doi": "10.1016/j.conengprac.2026.106871",
+            "expected_sha256": "44b457f31ac71d6f18f8a680f69b909ac3cadbb270051430f2dd722acff4d890",
+            "expected_size_bytes": 2346029,
+            "relative_path": "data/train/random_20251017_run1.csv",
+            "repository": "https://github.com/idsia-robotics/nanodrone-sysid-benchmark"
+          },
+          "quality": {
+            "maximum_quaternion_norm_error": 3.3306690738754696e-16,
+            "maximum_timing_error_s": 7.993605777301127e-15,
+            "motor_speed_maximum_rad_s": [
+              2184.4815933308664,
+              2421.8397402108467,
+              2301.2323231029177,
+              2376.3369743129188
+            ],
+            "motor_speed_minimum_rad_s": [
+              1247.973765978376,
+              1063.637035582382,
+              1032.333689851221,
+              1349.2437831526845
+            ],
+            "nominal_dt_s": 0.009999999999998899,
+            "sample_rate_hz": 100.00000000001101
+          },
+          "source": "/Users/ryland/autonomy/dart/artifacts/real-transition/corpus/raw/data/train/random_20251017_run1.csv",
+          "source_schema": {
+            "body_frame": "FLU",
+            "columns": [
+              "t",
+              "x",
+              "y",
+              "z",
+              "qx",
+              "qy",
+              "qz",
+              "qw",
+              "vx",
+              "vy",
+              "vz",
+              "wx",
+              "wy",
+              "wz",
+              "m1_rads",
+              "m2_rads",
+              "m3_rads",
+              "m4_rads",
+              "ax_body",
+              "ay_body",
+              "az_body"
+            ],
+            "motor_order": [
+              "front_right",
+              "rear_right",
+              "rear_left",
+              "front_left"
+            ],
+            "state_order": [
+              "position_world_xyz",
+              "quaternion_body_to_world_xyzw",
+              "velocity_world_xyz",
+              "angular_velocity_body_xyz"
+            ],
+            "world_frame": "z_up_right_handed"
+          },
+          "source_sha256": "44b457f31ac71d6f18f8a680f69b909ac3cadbb270051430f2dd722acff4d890",
+          "transformations": [
+            {
+              "target": "position_velocity_quaternion_angular_velocity",
+              "type": "state_column_reorder"
+            },
+            {
+              "source": "xyzw",
+              "target": "wxyz",
+              "type": "quaternion_component_reorder"
+            },
+            {
+              "sign_flips": 0,
+              "type": "quaternion_normalization_and_continuity"
+            },
+            {
+              "source_indices": [
+                3,
+                0,
+                1,
+                2
+              ],
+              "target_order": [
+                "motor_front_left",
+                "motor_front_right",
+                "motor_rear_right",
+                "motor_rear_left"
+              ],
+              "type": "motor_column_reorder"
+            },
+            {
+              "formula": "(rotor_speed_rad_s / reference_rad_s)^2",
+              "reference_rad_s": 2500.0,
+              "type": "motor_speed_to_squared_ratio"
+            },
+            {
+              "discarded_final_control_rows": 1,
+              "rule": "control row i applies from state row i to i+1",
+              "type": "sample_to_interval_alignment"
+            },
+            {
+              "sample_alignment": "state_timestamp",
+              "source_columns": [
+                "ax_body",
+                "ay_body",
+                "az_body"
+              ],
+              "target_roles": [
+                "specific_force_x",
+                "specific_force_y",
+                "specific_force_z"
+              ],
+              "type": "observation_retention"
+            }
+          ],
+          "upstream_preprocessing": {
+            "cutoff_hz": {
+              "linear_and_angular_velocity": 18.0,
+              "motor_speed": 20.0,
+              "position": 10.0,
+              "quaternion_log_map": 12.0
+            },
+            "filter": "zero_phase_fourth_order_butterworth",
+            "motor_acceleration_alignment": "cross_correlation",
+            "sample_rate_hz": 100.0,
+            "time_alignment": "source timestamps aligned and uniformly retimed"
+          },
+          "path": "/Users/ryland/autonomy/dart/artifacts/real-transition/corpus/canonical/train/random_20251017_run1.npz"
+        }
+      },
+      {
+        "path": "/Users/ryland/autonomy/dart/artifacts/real-transition/corpus/canonical/train/random_20251017_run2.npz",
+        "content_sha256": "29f23991960d87d44bf0e8b943d3160b7cf41b1f9b71ad0316de63d3920299b1",
+        "duration_s": 59.99,
+        "intervals": 5999,
+        "control_size": 4,
+        "control_names": [
+          "motor_front_left",
+          "motor_front_right",
+          "motor_rear_right",
+          "motor_rear_left"
+        ],
+        "sample_rate_hz": 100.00000000000213,
+        "characteristics": {
+          "path_length_m": 61.79864555449751,
+          "maximum_speed_m_s": 2.71553977287873
+        },
+        "spec": {
+          "state_schema": "rigid_body_13_nwu_flu_wxyz_v1",
+          "observation_source": "processed_mocap_and_onboard_sensors",
+          "channels": [
+            {
+              "name": "motor_front_left",
+              "role": "motor_front_left",
+              "semantic": "squared_rotor_speed_ratio",
+              "unit": "1",
+              "kind": "control",
+              "frame": "FLU",
+              "minimum": 0.0,
+              "maximum": null
+            },
+            {
+              "name": "motor_front_right",
+              "role": "motor_front_right",
+              "semantic": "squared_rotor_speed_ratio",
+              "unit": "1",
+              "kind": "control",
+              "frame": "FLU",
+              "minimum": 0.0,
+              "maximum": null
+            },
+            {
+              "name": "motor_rear_right",
+              "role": "motor_rear_right",
+              "semantic": "squared_rotor_speed_ratio",
+              "unit": "1",
+              "kind": "control",
+              "frame": "FLU",
+              "minimum": 0.0,
+              "maximum": null
+            },
+            {
+              "name": "motor_rear_left",
+              "role": "motor_rear_left",
+              "semantic": "squared_rotor_speed_ratio",
+              "unit": "1",
+              "kind": "control",
+              "frame": "FLU",
+              "minimum": 0.0,
+              "maximum": null
+            },
+            {
+              "name": "specific_force_x_m_s2",
+              "role": "specific_force_x",
+              "semantic": "accelerometer_specific_force_including_gravity",
+              "unit": "m/s^2",
+              "kind": "observation",
+              "frame": "FLU",
+              "minimum": null,
+              "maximum": null
+            },
+            {
+              "name": "specific_force_y_m_s2",
+              "role": "specific_force_y",
+              "semantic": "accelerometer_specific_force_including_gravity",
+              "unit": "m/s^2",
+              "kind": "observation",
+              "frame": "FLU",
+              "minimum": null,
+              "maximum": null
+            },
+            {
+              "name": "specific_force_z_m_s2",
+              "role": "specific_force_z",
+              "semantic": "accelerometer_specific_force_including_gravity",
+              "unit": "m/s^2",
+              "kind": "observation",
+              "frame": "FLU",
+              "minimum": null,
+              "maximum": null
+            }
+          ],
+          "vehicle": {
+            "family": "multirotor",
+            "configuration_id": "idsia_crazyflie_2_1_brushless_flow_v2_ai_deck",
+            "controlled_axes": [
+              "roll",
+              "pitch",
+              "yaw"
+            ],
+            "fixed_states": {
+              "control_transform": "(rotor_speed_rad_s / reference_rad_s)^2",
+              "mass_kg": 0.045,
+              "rotor_layout": "x",
+              "rotor_speed_reference_rad_s": 2500.0
+            },
+            "auxiliary_controls": []
+          }
+        },
+        "labels": {
+          "benchmark": "idsia_nanodrone_sysid",
+          "benchmark_split": "train",
+          "condition": "aggressive_real_flight",
+          "profile": "random",
+          "recording_date": "2025-10-17",
+          "replicate": 2,
+          "source_group": "random_20251017_run2",
+          "data_role": "train"
+        },
+        "provenance": {
+          "adapter": {
+            "name": "idsia_nanodrone_benchmark",
+            "schema_version": 2
+          },
+          "benchmark": {
+            "commit": "2d921b57d166fe2debe08a5d39bd07297c5abc39",
+            "doi": "10.1016/j.conengprac.2026.106871",
+            "expected_sha256": "64f382ee8c06f71397d6abc42b50b270dc4ba47df5f13ebc3515e43bbfaa0c75",
+            "expected_size_bytes": 2346472,
+            "relative_path": "data/train/random_20251017_run2.csv",
+            "repository": "https://github.com/idsia-robotics/nanodrone-sysid-benchmark"
+          },
+          "quality": {
+            "maximum_quaternion_norm_error": 3.3306690738754696e-16,
+            "maximum_timing_error_s": 5.329070518200751e-15,
+            "motor_speed_maximum_rad_s": [
+              2241.9679562718875,
+              2400.3913339875867,
+              2324.8853491774653,
+              2368.429770514791
+            ],
+            "motor_speed_minimum_rad_s": [
+              1100.7391882702486,
+              886.078003634985,
+              968.7824121570902,
+              1191.3050579414314
+            ],
+            "nominal_dt_s": 0.009999999999999787,
+            "sample_rate_hz": 100.00000000000213
+          },
+          "source": "/Users/ryland/autonomy/dart/artifacts/real-transition/corpus/raw/data/train/random_20251017_run2.csv",
+          "source_schema": {
+            "body_frame": "FLU",
+            "columns": [
+              "t",
+              "x",
+              "y",
+              "z",
+              "qx",
+              "qy",
+              "qz",
+              "qw",
+              "vx",
+              "vy",
+              "vz",
+              "wx",
+              "wy",
+              "wz",
+              "m1_rads",
+              "m2_rads",
+              "m3_rads",
+              "m4_rads",
+              "ax_body",
+              "ay_body",
+              "az_body"
+            ],
+            "motor_order": [
+              "front_right",
+              "rear_right",
+              "rear_left",
+              "front_left"
+            ],
+            "state_order": [
+              "position_world_xyz",
+              "quaternion_body_to_world_xyzw",
+              "velocity_world_xyz",
+              "angular_velocity_body_xyz"
+            ],
+            "world_frame": "z_up_right_handed"
+          },
+          "source_sha256": "64f382ee8c06f71397d6abc42b50b270dc4ba47df5f13ebc3515e43bbfaa0c75",
+          "transformations": [
+            {
+              "target": "position_velocity_quaternion_angular_velocity",
+              "type": "state_column_reorder"
+            },
+            {
+              "source": "xyzw",
+              "target": "wxyz",
+              "type": "quaternion_component_reorder"
+            },
+            {
+              "sign_flips": 0,
+              "type": "quaternion_normalization_and_continuity"
+            },
+            {
+              "source_indices": [
+                3,
+                0,
+                1,
+                2
+              ],
+              "target_order": [
+                "motor_front_left",
+                "motor_front_right",
+                "motor_rear_right",
+                "motor_rear_left"
+              ],
+              "type": "motor_column_reorder"
+            },
+            {
+              "formula": "(rotor_speed_rad_s / reference_rad_s)^2",
+              "reference_rad_s": 2500.0,
+              "type": "motor_speed_to_squared_ratio"
+            },
+            {
+              "discarded_final_control_rows": 1,
+              "rule": "control row i applies from state row i to i+1",
+              "type": "sample_to_interval_alignment"
+            },
+            {
+              "sample_alignment": "state_timestamp",
+              "source_columns": [
+                "ax_body",
+                "ay_body",
+                "az_body"
+              ],
+              "target_roles": [
+                "specific_force_x",
+                "specific_force_y",
+                "specific_force_z"
+              ],
+              "type": "observation_retention"
+            }
+          ],
+          "upstream_preprocessing": {
+            "cutoff_hz": {
+              "linear_and_angular_velocity": 18.0,
+              "motor_speed": 20.0,
+              "position": 10.0,
+              "quaternion_log_map": 12.0
+            },
+            "filter": "zero_phase_fourth_order_butterworth",
+            "motor_acceleration_alignment": "cross_correlation",
+            "sample_rate_hz": 100.0,
+            "time_alignment": "source timestamps aligned and uniformly retimed"
+          },
+          "path": "/Users/ryland/autonomy/dart/artifacts/real-transition/corpus/canonical/train/random_20251017_run2.npz"
+        }
+      },
+      {
+        "path": "/Users/ryland/autonomy/dart/artifacts/real-transition/corpus/canonical/train/square_20251017_run1.npz",
+        "content_sha256": "7a582f74940904775d1309da56ffb1c9fc665b966546e300663ebdbacd7c3fed",
+        "duration_s": 18.989999999999995,
+        "intervals": 1899,
+        "control_size": 4,
+        "control_names": [
+          "motor_front_left",
+          "motor_front_right",
+          "motor_rear_right",
+          "motor_rear_left"
+        ],
+        "sample_rate_hz": 100.0000000000199,
+        "characteristics": {
+          "path_length_m": 16.076196416885022,
+          "maximum_speed_m_s": 2.6353026937283386
+        },
+        "spec": {
+          "state_schema": "rigid_body_13_nwu_flu_wxyz_v1",
+          "observation_source": "processed_mocap_and_onboard_sensors",
+          "channels": [
+            {
+              "name": "motor_front_left",
+              "role": "motor_front_left",
+              "semantic": "squared_rotor_speed_ratio",
+              "unit": "1",
+              "kind": "control",
+              "frame": "FLU",
+              "minimum": 0.0,
+              "maximum": null
+            },
+            {
+              "name": "motor_front_right",
+              "role": "motor_front_right",
+              "semantic": "squared_rotor_speed_ratio",
+              "unit": "1",
+              "kind": "control",
+              "frame": "FLU",
+              "minimum": 0.0,
+              "maximum": null
+            },
+            {
+              "name": "motor_rear_right",
+              "role": "motor_rear_right",
+              "semantic": "squared_rotor_speed_ratio",
+              "unit": "1",
+              "kind": "control",
+              "frame": "FLU",
+              "minimum": 0.0,
+              "maximum": null
+            },
+            {
+              "name": "motor_rear_left",
+              "role": "motor_rear_left",
+              "semantic": "squared_rotor_speed_ratio",
+              "unit": "1",
+              "kind": "control",
+              "frame": "FLU",
+              "minimum": 0.0,
+              "maximum": null
+            },
+            {
+              "name": "specific_force_x_m_s2",
+              "role": "specific_force_x",
+              "semantic": "accelerometer_specific_force_including_gravity",
+              "unit": "m/s^2",
+              "kind": "observation",
+              "frame": "FLU",
+              "minimum": null,
+              "maximum": null
+            },
+            {
+              "name": "specific_force_y_m_s2",
+              "role": "specific_force_y",
+              "semantic": "accelerometer_specific_force_including_gravity",
+              "unit": "m/s^2",
+              "kind": "observation",
+              "frame": "FLU",
+              "minimum": null,
+              "maximum": null
+            },
+            {
+              "name": "specific_force_z_m_s2",
+              "role": "specific_force_z",
+              "semantic": "accelerometer_specific_force_including_gravity",
+              "unit": "m/s^2",
+              "kind": "observation",
+              "frame": "FLU",
+              "minimum": null,
+              "maximum": null
+            }
+          ],
+          "vehicle": {
+            "family": "multirotor",
+            "configuration_id": "idsia_crazyflie_2_1_brushless_flow_v2_ai_deck",
+            "controlled_axes": [
+              "roll",
+              "pitch",
+              "yaw"
+            ],
+            "fixed_states": {
+              "control_transform": "(rotor_speed_rad_s / reference_rad_s)^2",
+              "mass_kg": 0.045,
+              "rotor_layout": "x",
+              "rotor_speed_reference_rad_s": 2500.0
+            },
+            "auxiliary_controls": []
+          }
+        },
+        "labels": {
+          "benchmark": "idsia_nanodrone_sysid",
+          "benchmark_split": "train",
+          "condition": "aggressive_real_flight",
+          "profile": "square",
+          "recording_date": "2025-10-17",
+          "replicate": 1,
+          "source_group": "square_20251017_run1",
+          "data_role": "train"
+        },
+        "provenance": {
+          "adapter": {
+            "name": "idsia_nanodrone_benchmark",
+            "schema_version": 2
+          },
+          "benchmark": {
+            "commit": "2d921b57d166fe2debe08a5d39bd07297c5abc39",
+            "doi": "10.1016/j.conengprac.2026.106871",
+            "expected_sha256": "9b458d207d0a5e21933ba7ad16945bf505ab2b3abf6d151a1442cdd705d6c0cc",
+            "expected_size_bytes": 755523,
+            "relative_path": "data/train/square_20251017_run1.csv",
+            "repository": "https://github.com/idsia-robotics/nanodrone-sysid-benchmark"
+          },
+          "quality": {
+            "maximum_quaternion_norm_error": 3.3306690738754696e-16,
+            "maximum_timing_error_s": 1.0658141036401503e-14,
+            "motor_speed_maximum_rad_s": [
+              2369.0682374915677,
+              2443.6816359960194,
+              2488.2349828517526,
+              2461.3835194230146
+            ],
+            "motor_speed_minimum_rad_s": [
+              870.6760843485471,
+              753.6570434454063,
+              721.9497433554798,
+              736.1670346957214
+            ],
+            "nominal_dt_s": 0.00999999999999801,
+            "sample_rate_hz": 100.0000000000199
+          },
+          "source": "/Users/ryland/autonomy/dart/artifacts/real-transition/corpus/raw/data/train/square_20251017_run1.csv",
+          "source_schema": {
+            "body_frame": "FLU",
+            "columns": [
+              "t",
+              "x",
+              "y",
+              "z",
+              "qx",
+              "qy",
+              "qz",
+              "qw",
+              "vx",
+              "vy",
+              "vz",
+              "wx",
+              "wy",
+              "wz",
+              "m1_rads",
+              "m2_rads",
+              "m3_rads",
+              "m4_rads",
+              "ax_body",
+              "ay_body",
+              "az_body"
+            ],
+            "motor_order": [
+              "front_right",
+              "rear_right",
+              "rear_left",
+              "front_left"
+            ],
+            "state_order": [
+              "position_world_xyz",
+              "quaternion_body_to_world_xyzw",
+              "velocity_world_xyz",
+              "angular_velocity_body_xyz"
+            ],
+            "world_frame": "z_up_right_handed"
+          },
+          "source_sha256": "9b458d207d0a5e21933ba7ad16945bf505ab2b3abf6d151a1442cdd705d6c0cc",
+          "transformations": [
+            {
+              "target": "position_velocity_quaternion_angular_velocity",
+              "type": "state_column_reorder"
+            },
+            {
+              "source": "xyzw",
+              "target": "wxyz",
+              "type": "quaternion_component_reorder"
+            },
+            {
+              "sign_flips": 0,
+              "type": "quaternion_normalization_and_continuity"
+            },
+            {
+              "source_indices": [
+                3,
+                0,
+                1,
+                2
+              ],
+              "target_order": [
+                "motor_front_left",
+                "motor_front_right",
+                "motor_rear_right",
+                "motor_rear_left"
+              ],
+              "type": "motor_column_reorder"
+            },
+            {
+              "formula": "(rotor_speed_rad_s / reference_rad_s)^2",
+              "reference_rad_s": 2500.0,
+              "type": "motor_speed_to_squared_ratio"
+            },
+            {
+              "discarded_final_control_rows": 1,
+              "rule": "control row i applies from state row i to i+1",
+              "type": "sample_to_interval_alignment"
+            },
+            {
+              "sample_alignment": "state_timestamp",
+              "source_columns": [
+                "ax_body",
+                "ay_body",
+                "az_body"
+              ],
+              "target_roles": [
+                "specific_force_x",
+                "specific_force_y",
+                "specific_force_z"
+              ],
+              "type": "observation_retention"
+            }
+          ],
+          "upstream_preprocessing": {
+            "cutoff_hz": {
+              "linear_and_angular_velocity": 18.0,
+              "motor_speed": 20.0,
+              "position": 10.0,
+              "quaternion_log_map": 12.0
+            },
+            "filter": "zero_phase_fourth_order_butterworth",
+            "motor_acceleration_alignment": "cross_correlation",
+            "sample_rate_hz": 100.0,
+            "time_alignment": "source timestamps aligned and uniformly retimed"
+          },
+          "path": "/Users/ryland/autonomy/dart/artifacts/real-transition/corpus/canonical/train/square_20251017_run1.npz"
+        }
+      },
+      {
+        "path": "/Users/ryland/autonomy/dart/artifacts/real-transition/corpus/canonical/train/square_20251017_run2.npz",
+        "content_sha256": "5c1ad8b358bd378b78eca57b9020f0128ef28e33d20ea8e3e87318509030f4fb",
+        "duration_s": 18.99,
+        "intervals": 1899,
+        "control_size": 4,
+        "control_names": [
+          "motor_front_left",
+          "motor_front_right",
+          "motor_rear_right",
+          "motor_rear_left"
+        ],
+        "sample_rate_hz": 100.00000000000213,
+        "characteristics": {
+          "path_length_m": 16.34806318346055,
+          "maximum_speed_m_s": 2.620725655172807
+        },
+        "spec": {
+          "state_schema": "rigid_body_13_nwu_flu_wxyz_v1",
+          "observation_source": "processed_mocap_and_onboard_sensors",
+          "channels": [
+            {
+              "name": "motor_front_left",
+              "role": "motor_front_left",
+              "semantic": "squared_rotor_speed_ratio",
+              "unit": "1",
+              "kind": "control",
+              "frame": "FLU",
+              "minimum": 0.0,
+              "maximum": null
+            },
+            {
+              "name": "motor_front_right",
+              "role": "motor_front_right",
+              "semantic": "squared_rotor_speed_ratio",
+              "unit": "1",
+              "kind": "control",
+              "frame": "FLU",
+              "minimum": 0.0,
+              "maximum": null
+            },
+            {
+              "name": "motor_rear_right",
+              "role": "motor_rear_right",
+              "semantic": "squared_rotor_speed_ratio",
+              "unit": "1",
+              "kind": "control",
+              "frame": "FLU",
+              "minimum": 0.0,
+              "maximum": null
+            },
+            {
+              "name": "motor_rear_left",
+              "role": "motor_rear_left",
+              "semantic": "squared_rotor_speed_ratio",
+              "unit": "1",
+              "kind": "control",
+              "frame": "FLU",
+              "minimum": 0.0,
+              "maximum": null
+            },
+            {
+              "name": "specific_force_x_m_s2",
+              "role": "specific_force_x",
+              "semantic": "accelerometer_specific_force_including_gravity",
+              "unit": "m/s^2",
+              "kind": "observation",
+              "frame": "FLU",
+              "minimum": null,
+              "maximum": null
+            },
+            {
+              "name": "specific_force_y_m_s2",
+              "role": "specific_force_y",
+              "semantic": "accelerometer_specific_force_including_gravity",
+              "unit": "m/s^2",
+              "kind": "observation",
+              "frame": "FLU",
+              "minimum": null,
+              "maximum": null
+            },
+            {
+              "name": "specific_force_z_m_s2",
+              "role": "specific_force_z",
+              "semantic": "accelerometer_specific_force_including_gravity",
+              "unit": "m/s^2",
+              "kind": "observation",
+              "frame": "FLU",
+              "minimum": null,
+              "maximum": null
+            }
+          ],
+          "vehicle": {
+            "family": "multirotor",
+            "configuration_id": "idsia_crazyflie_2_1_brushless_flow_v2_ai_deck",
+            "controlled_axes": [
+              "roll",
+              "pitch",
+              "yaw"
+            ],
+            "fixed_states": {
+              "control_transform": "(rotor_speed_rad_s / reference_rad_s)^2",
+              "mass_kg": 0.045,
+              "rotor_layout": "x",
+              "rotor_speed_reference_rad_s": 2500.0
+            },
+            "auxiliary_controls": []
+          }
+        },
+        "labels": {
+          "benchmark": "idsia_nanodrone_sysid",
+          "benchmark_split": "train",
+          "condition": "aggressive_real_flight",
+          "profile": "square",
+          "recording_date": "2025-10-17",
+          "replicate": 2,
+          "source_group": "square_20251017_run2",
+          "data_role": "train"
+        },
+        "provenance": {
+          "adapter": {
+            "name": "idsia_nanodrone_benchmark",
+            "schema_version": 2
+          },
+          "benchmark": {
+            "commit": "2d921b57d166fe2debe08a5d39bd07297c5abc39",
+            "doi": "10.1016/j.conengprac.2026.106871",
+            "expected_sha256": "3b47b3712915aff4fd301fd0a2f989bbdce0a5ca1af852c923f472ec7d05d084",
+            "expected_size_bytes": 744850,
+            "relative_path": "data/train/square_20251017_run2.csv",
+            "repository": "https://github.com/idsia-robotics/nanodrone-sysid-benchmark"
+          },
+          "quality": {
+            "maximum_quaternion_norm_error": 2.220446049250313e-16,
+            "maximum_timing_error_s": 2.6645352591003757e-15,
+            "motor_speed_maximum_rad_s": [
+              2363.461990802993,
+              2457.2210240738614,
+              2430.869384173474,
+              2466.9956304582365
+            ],
+            "motor_speed_minimum_rad_s": [
+              783.5237139301435,
+              792.6893189928852,
+              738.4269008669874,
+              801.4945420594149
+            ],
+            "nominal_dt_s": 0.009999999999999787,
+            "sample_rate_hz": 100.00000000000213
+          },
+          "source": "/Users/ryland/autonomy/dart/artifacts/real-transition/corpus/raw/data/train/square_20251017_run2.csv",
+          "source_schema": {
+            "body_frame": "FLU",
+            "columns": [
+              "t",
+              "x",
+              "y",
+              "z",
+              "qx",
+              "qy",
+              "qz",
+              "qw",
+              "vx",
+              "vy",
+              "vz",
+              "wx",
+              "wy",
+              "wz",
+              "m1_rads",
+              "m2_rads",
+              "m3_rads",
+              "m4_rads",
+              "ax_body",
+              "ay_body",
+              "az_body"
+            ],
+            "motor_order": [
+              "front_right",
+              "rear_right",
+              "rear_left",
+              "front_left"
+            ],
+            "state_order": [
+              "position_world_xyz",
+              "quaternion_body_to_world_xyzw",
+              "velocity_world_xyz",
+              "angular_velocity_body_xyz"
+            ],
+            "world_frame": "z_up_right_handed"
+          },
+          "source_sha256": "3b47b3712915aff4fd301fd0a2f989bbdce0a5ca1af852c923f472ec7d05d084",
+          "transformations": [
+            {
+              "target": "position_velocity_quaternion_angular_velocity",
+              "type": "state_column_reorder"
+            },
+            {
+              "source": "xyzw",
+              "target": "wxyz",
+              "type": "quaternion_component_reorder"
+            },
+            {
+              "sign_flips": 0,
+              "type": "quaternion_normalization_and_continuity"
+            },
+            {
+              "source_indices": [
+                3,
+                0,
+                1,
+                2
+              ],
+              "target_order": [
+                "motor_front_left",
+                "motor_front_right",
+                "motor_rear_right",
+                "motor_rear_left"
+              ],
+              "type": "motor_column_reorder"
+            },
+            {
+              "formula": "(rotor_speed_rad_s / reference_rad_s)^2",
+              "reference_rad_s": 2500.0,
+              "type": "motor_speed_to_squared_ratio"
+            },
+            {
+              "discarded_final_control_rows": 1,
+              "rule": "control row i applies from state row i to i+1",
+              "type": "sample_to_interval_alignment"
+            },
+            {
+              "sample_alignment": "state_timestamp",
+              "source_columns": [
+                "ax_body",
+                "ay_body",
+                "az_body"
+              ],
+              "target_roles": [
+                "specific_force_x",
+                "specific_force_y",
+                "specific_force_z"
+              ],
+              "type": "observation_retention"
+            }
+          ],
+          "upstream_preprocessing": {
+            "cutoff_hz": {
+              "linear_and_angular_velocity": 18.0,
+              "motor_speed": 20.0,
+              "position": 10.0,
+              "quaternion_log_map": 12.0
+            },
+            "filter": "zero_phase_fourth_order_butterworth",
+            "motor_acceleration_alignment": "cross_correlation",
+            "sample_rate_hz": 100.0,
+            "time_alignment": "source timestamps aligned and uniformly retimed"
+          },
+          "path": "/Users/ryland/autonomy/dart/artifacts/real-transition/corpus/canonical/train/square_20251017_run2.npz"
+        }
+      }
+    ],
+    "validation_flights": [
+      {
+        "path": "/Users/ryland/autonomy/dart/artifacts/real-transition/corpus/canonical/train/chirp_20251017_run3.npz",
+        "content_sha256": "52009629ae7c7dadaa1c818e8ac36b2a18a4daf9348f72351606804278cd8a86",
+        "duration_s": 59.99,
+        "intervals": 5999,
+        "control_size": 4,
+        "control_names": [
+          "motor_front_left",
+          "motor_front_right",
+          "motor_rear_right",
+          "motor_rear_left"
+        ],
+        "sample_rate_hz": 100.00000000000213,
+        "characteristics": {
+          "path_length_m": 49.956364066607094,
+          "maximum_speed_m_s": 3.145687434043105
+        },
+        "spec": {
+          "state_schema": "rigid_body_13_nwu_flu_wxyz_v1",
+          "observation_source": "processed_mocap_and_onboard_sensors",
+          "channels": [
+            {
+              "name": "motor_front_left",
+              "role": "motor_front_left",
+              "semantic": "squared_rotor_speed_ratio",
+              "unit": "1",
+              "kind": "control",
+              "frame": "FLU",
+              "minimum": 0.0,
+              "maximum": null
+            },
+            {
+              "name": "motor_front_right",
+              "role": "motor_front_right",
+              "semantic": "squared_rotor_speed_ratio",
+              "unit": "1",
+              "kind": "control",
+              "frame": "FLU",
+              "minimum": 0.0,
+              "maximum": null
+            },
+            {
+              "name": "motor_rear_right",
+              "role": "motor_rear_right",
+              "semantic": "squared_rotor_speed_ratio",
+              "unit": "1",
+              "kind": "control",
+              "frame": "FLU",
+              "minimum": 0.0,
+              "maximum": null
+            },
+            {
+              "name": "motor_rear_left",
+              "role": "motor_rear_left",
+              "semantic": "squared_rotor_speed_ratio",
+              "unit": "1",
+              "kind": "control",
+              "frame": "FLU",
+              "minimum": 0.0,
+              "maximum": null
+            },
+            {
+              "name": "specific_force_x_m_s2",
+              "role": "specific_force_x",
+              "semantic": "accelerometer_specific_force_including_gravity",
+              "unit": "m/s^2",
+              "kind": "observation",
+              "frame": "FLU",
+              "minimum": null,
+              "maximum": null
+            },
+            {
+              "name": "specific_force_y_m_s2",
+              "role": "specific_force_y",
+              "semantic": "accelerometer_specific_force_including_gravity",
+              "unit": "m/s^2",
+              "kind": "observation",
+              "frame": "FLU",
+              "minimum": null,
+              "maximum": null
+            },
+            {
+              "name": "specific_force_z_m_s2",
+              "role": "specific_force_z",
+              "semantic": "accelerometer_specific_force_including_gravity",
+              "unit": "m/s^2",
+              "kind": "observation",
+              "frame": "FLU",
+              "minimum": null,
+              "maximum": null
+            }
+          ],
+          "vehicle": {
+            "family": "multirotor",
+            "configuration_id": "idsia_crazyflie_2_1_brushless_flow_v2_ai_deck",
+            "controlled_axes": [
+              "roll",
+              "pitch",
+              "yaw"
+            ],
+            "fixed_states": {
+              "control_transform": "(rotor_speed_rad_s / reference_rad_s)^2",
+              "mass_kg": 0.045,
+              "rotor_layout": "x",
+              "rotor_speed_reference_rad_s": 2500.0
+            },
+            "auxiliary_controls": []
+          }
+        },
+        "labels": {
+          "benchmark": "idsia_nanodrone_sysid",
+          "benchmark_split": "train",
+          "condition": "aggressive_real_flight",
+          "profile": "chirp",
+          "recording_date": "2025-10-17",
+          "replicate": 3,
+          "source_group": "chirp_20251017_run3",
+          "data_role": "scale"
+        },
+        "provenance": {
+          "adapter": {
+            "name": "idsia_nanodrone_benchmark",
+            "schema_version": 2
+          },
+          "benchmark": {
+            "commit": "2d921b57d166fe2debe08a5d39bd07297c5abc39",
+            "doi": "10.1016/j.conengprac.2026.106871",
+            "expected_sha256": "f151f009f23da67551e18b422bc7f2471d9df9dcf0a4e5279b469254bce86f91",
+            "expected_size_bytes": 2352015,
+            "relative_path": "data/train/chirp_20251017_run3.csv",
+            "repository": "https://github.com/idsia-robotics/nanodrone-sysid-benchmark"
+          },
+          "quality": {
+            "maximum_quaternion_norm_error": 3.3306690738754696e-16,
+            "maximum_timing_error_s": 8.881784197001252e-15,
+            "motor_speed_maximum_rad_s": [
+              2354.415182092449,
+              2385.293336238279,
+              2351.922531405624,
+              2340.2452830000484
+            ],
+            "motor_speed_minimum_rad_s": [
+              804.4908000992673,
+              964.0267587224772,
+              1086.6329868370303,
+              1189.4854339870642
+            ],
+            "nominal_dt_s": 0.009999999999999787,
+            "sample_rate_hz": 100.00000000000213
+          },
+          "source": "/Users/ryland/autonomy/dart/artifacts/real-transition/corpus/raw/data/train/chirp_20251017_run3.csv",
+          "source_schema": {
+            "body_frame": "FLU",
+            "columns": [
+              "t",
+              "x",
+              "y",
+              "z",
+              "qx",
+              "qy",
+              "qz",
+              "qw",
+              "vx",
+              "vy",
+              "vz",
+              "wx",
+              "wy",
+              "wz",
+              "m1_rads",
+              "m2_rads",
+              "m3_rads",
+              "m4_rads",
+              "ax_body",
+              "ay_body",
+              "az_body"
+            ],
+            "motor_order": [
+              "front_right",
+              "rear_right",
+              "rear_left",
+              "front_left"
+            ],
+            "state_order": [
+              "position_world_xyz",
+              "quaternion_body_to_world_xyzw",
+              "velocity_world_xyz",
+              "angular_velocity_body_xyz"
+            ],
+            "world_frame": "z_up_right_handed"
+          },
+          "source_sha256": "f151f009f23da67551e18b422bc7f2471d9df9dcf0a4e5279b469254bce86f91",
+          "transformations": [
+            {
+              "target": "position_velocity_quaternion_angular_velocity",
+              "type": "state_column_reorder"
+            },
+            {
+              "source": "xyzw",
+              "target": "wxyz",
+              "type": "quaternion_component_reorder"
+            },
+            {
+              "sign_flips": 0,
+              "type": "quaternion_normalization_and_continuity"
+            },
+            {
+              "source_indices": [
+                3,
+                0,
+                1,
+                2
+              ],
+              "target_order": [
+                "motor_front_left",
+                "motor_front_right",
+                "motor_rear_right",
+                "motor_rear_left"
+              ],
+              "type": "motor_column_reorder"
+            },
+            {
+              "formula": "(rotor_speed_rad_s / reference_rad_s)^2",
+              "reference_rad_s": 2500.0,
+              "type": "motor_speed_to_squared_ratio"
+            },
+            {
+              "discarded_final_control_rows": 1,
+              "rule": "control row i applies from state row i to i+1",
+              "type": "sample_to_interval_alignment"
+            },
+            {
+              "sample_alignment": "state_timestamp",
+              "source_columns": [
+                "ax_body",
+                "ay_body",
+                "az_body"
+              ],
+              "target_roles": [
+                "specific_force_x",
+                "specific_force_y",
+                "specific_force_z"
+              ],
+              "type": "observation_retention"
+            }
+          ],
+          "upstream_preprocessing": {
+            "cutoff_hz": {
+              "linear_and_angular_velocity": 18.0,
+              "motor_speed": 20.0,
+              "position": 10.0,
+              "quaternion_log_map": 12.0
+            },
+            "filter": "zero_phase_fourth_order_butterworth",
+            "motor_acceleration_alignment": "cross_correlation",
+            "sample_rate_hz": 100.0,
+            "time_alignment": "source timestamps aligned and uniformly retimed"
+          },
+          "path": "/Users/ryland/autonomy/dart/artifacts/real-transition/corpus/canonical/train/chirp_20251017_run3.npz"
+        }
+      },
+      {
+        "path": "/Users/ryland/autonomy/dart/artifacts/real-transition/corpus/canonical/train/random_20251017_run3.npz",
+        "content_sha256": "1e86f1a2e6e5fef449f33497c33afa05522f128c7bfba79fed52d930fb5150b4",
+        "duration_s": 59.99,
+        "intervals": 5999,
+        "control_size": 4,
+        "control_names": [
+          "motor_front_left",
+          "motor_front_right",
+          "motor_rear_right",
+          "motor_rear_left"
+        ],
+        "sample_rate_hz": 100.00000000000213,
+        "characteristics": {
+          "path_length_m": 61.84238525292939,
+          "maximum_speed_m_s": 2.6919025289508722
+        },
+        "spec": {
+          "state_schema": "rigid_body_13_nwu_flu_wxyz_v1",
+          "observation_source": "processed_mocap_and_onboard_sensors",
+          "channels": [
+            {
+              "name": "motor_front_left",
+              "role": "motor_front_left",
+              "semantic": "squared_rotor_speed_ratio",
+              "unit": "1",
+              "kind": "control",
+              "frame": "FLU",
+              "minimum": 0.0,
+              "maximum": null
+            },
+            {
+              "name": "motor_front_right",
+              "role": "motor_front_right",
+              "semantic": "squared_rotor_speed_ratio",
+              "unit": "1",
+              "kind": "control",
+              "frame": "FLU",
+              "minimum": 0.0,
+              "maximum": null
+            },
+            {
+              "name": "motor_rear_right",
+              "role": "motor_rear_right",
+              "semantic": "squared_rotor_speed_ratio",
+              "unit": "1",
+              "kind": "control",
+              "frame": "FLU",
+              "minimum": 0.0,
+              "maximum": null
+            },
+            {
+              "name": "motor_rear_left",
+              "role": "motor_rear_left",
+              "semantic": "squared_rotor_speed_ratio",
+              "unit": "1",
+              "kind": "control",
+              "frame": "FLU",
+              "minimum": 0.0,
+              "maximum": null
+            },
+            {
+              "name": "specific_force_x_m_s2",
+              "role": "specific_force_x",
+              "semantic": "accelerometer_specific_force_including_gravity",
+              "unit": "m/s^2",
+              "kind": "observation",
+              "frame": "FLU",
+              "minimum": null,
+              "maximum": null
+            },
+            {
+              "name": "specific_force_y_m_s2",
+              "role": "specific_force_y",
+              "semantic": "accelerometer_specific_force_including_gravity",
+              "unit": "m/s^2",
+              "kind": "observation",
+              "frame": "FLU",
+              "minimum": null,
+              "maximum": null
+            },
+            {
+              "name": "specific_force_z_m_s2",
+              "role": "specific_force_z",
+              "semantic": "accelerometer_specific_force_including_gravity",
+              "unit": "m/s^2",
+              "kind": "observation",
+              "frame": "FLU",
+              "minimum": null,
+              "maximum": null
+            }
+          ],
+          "vehicle": {
+            "family": "multirotor",
+            "configuration_id": "idsia_crazyflie_2_1_brushless_flow_v2_ai_deck",
+            "controlled_axes": [
+              "roll",
+              "pitch",
+              "yaw"
+            ],
+            "fixed_states": {
+              "control_transform": "(rotor_speed_rad_s / reference_rad_s)^2",
+              "mass_kg": 0.045,
+              "rotor_layout": "x",
+              "rotor_speed_reference_rad_s": 2500.0
+            },
+            "auxiliary_controls": []
+          }
+        },
+        "labels": {
+          "benchmark": "idsia_nanodrone_sysid",
+          "benchmark_split": "train",
+          "condition": "aggressive_real_flight",
+          "profile": "random",
+          "recording_date": "2025-10-17",
+          "replicate": 3,
+          "source_group": "random_20251017_run3",
+          "data_role": "scale"
+        },
+        "provenance": {
+          "adapter": {
+            "name": "idsia_nanodrone_benchmark",
+            "schema_version": 2
+          },
+          "benchmark": {
+            "commit": "2d921b57d166fe2debe08a5d39bd07297c5abc39",
+            "doi": "10.1016/j.conengprac.2026.106871",
+            "expected_sha256": "716058325a802ea64c772961fd20f21bcf5c1dac6b6dc3d1591dcdf4e69c4ed6",
+            "expected_size_bytes": 2355450,
+            "relative_path": "data/train/random_20251017_run3.csv",
+            "repository": "https://github.com/idsia-robotics/nanodrone-sysid-benchmark"
+          },
+          "quality": {
+            "maximum_quaternion_norm_error": 3.3306690738754696e-16,
+            "maximum_timing_error_s": 5.329070518200751e-15,
+            "motor_speed_maximum_rad_s": [
+              2223.230083893661,
+              2368.6336186207286,
+              2282.933564370619,
+              2331.6178746964843
+            ],
+            "motor_speed_minimum_rad_s": [
+              1249.1274602888866,
+              999.2887175691716,
+              1132.6837209957166,
+              1064.7727879497106
+            ],
+            "nominal_dt_s": 0.009999999999999787,
+            "sample_rate_hz": 100.00000000000213
+          },
+          "source": "/Users/ryland/autonomy/dart/artifacts/real-transition/corpus/raw/data/train/random_20251017_run3.csv",
+          "source_schema": {
+            "body_frame": "FLU",
+            "columns": [
+              "t",
+              "x",
+              "y",
+              "z",
+              "qx",
+              "qy",
+              "qz",
+              "qw",
+              "vx",
+              "vy",
+              "vz",
+              "wx",
+              "wy",
+              "wz",
+              "m1_rads",
+              "m2_rads",
+              "m3_rads",
+              "m4_rads",
+              "ax_body",
+              "ay_body",
+              "az_body"
+            ],
+            "motor_order": [
+              "front_right",
+              "rear_right",
+              "rear_left",
+              "front_left"
+            ],
+            "state_order": [
+              "position_world_xyz",
+              "quaternion_body_to_world_xyzw",
+              "velocity_world_xyz",
+              "angular_velocity_body_xyz"
+            ],
+            "world_frame": "z_up_right_handed"
+          },
+          "source_sha256": "716058325a802ea64c772961fd20f21bcf5c1dac6b6dc3d1591dcdf4e69c4ed6",
+          "transformations": [
+            {
+              "target": "position_velocity_quaternion_angular_velocity",
+              "type": "state_column_reorder"
+            },
+            {
+              "source": "xyzw",
+              "target": "wxyz",
+              "type": "quaternion_component_reorder"
+            },
+            {
+              "sign_flips": 0,
+              "type": "quaternion_normalization_and_continuity"
+            },
+            {
+              "source_indices": [
+                3,
+                0,
+                1,
+                2
+              ],
+              "target_order": [
+                "motor_front_left",
+                "motor_front_right",
+                "motor_rear_right",
+                "motor_rear_left"
+              ],
+              "type": "motor_column_reorder"
+            },
+            {
+              "formula": "(rotor_speed_rad_s / reference_rad_s)^2",
+              "reference_rad_s": 2500.0,
+              "type": "motor_speed_to_squared_ratio"
+            },
+            {
+              "discarded_final_control_rows": 1,
+              "rule": "control row i applies from state row i to i+1",
+              "type": "sample_to_interval_alignment"
+            },
+            {
+              "sample_alignment": "state_timestamp",
+              "source_columns": [
+                "ax_body",
+                "ay_body",
+                "az_body"
+              ],
+              "target_roles": [
+                "specific_force_x",
+                "specific_force_y",
+                "specific_force_z"
+              ],
+              "type": "observation_retention"
+            }
+          ],
+          "upstream_preprocessing": {
+            "cutoff_hz": {
+              "linear_and_angular_velocity": 18.0,
+              "motor_speed": 20.0,
+              "position": 10.0,
+              "quaternion_log_map": 12.0
+            },
+            "filter": "zero_phase_fourth_order_butterworth",
+            "motor_acceleration_alignment": "cross_correlation",
+            "sample_rate_hz": 100.0,
+            "time_alignment": "source timestamps aligned and uniformly retimed"
+          },
+          "path": "/Users/ryland/autonomy/dart/artifacts/real-transition/corpus/canonical/train/random_20251017_run3.npz"
+        }
+      },
+      {
+        "path": "/Users/ryland/autonomy/dart/artifacts/real-transition/corpus/canonical/train/square_20251017_run3.npz",
+        "content_sha256": "b20babc9b9f7ff89b3683baad40e7e602cff80e42da2d92544637e850f6f13f1",
+        "duration_s": 18.99,
+        "intervals": 1899,
+        "control_size": 4,
+        "control_names": [
+          "motor_front_left",
+          "motor_front_right",
+          "motor_rear_right",
+          "motor_rear_left"
+        ],
+        "sample_rate_hz": 100.00000000000213,
+        "characteristics": {
+          "path_length_m": 15.366699098612303,
+          "maximum_speed_m_s": 2.56876193818519
+        },
+        "spec": {
+          "state_schema": "rigid_body_13_nwu_flu_wxyz_v1",
+          "observation_source": "processed_mocap_and_onboard_sensors",
+          "channels": [
+            {
+              "name": "motor_front_left",
+              "role": "motor_front_left",
+              "semantic": "squared_rotor_speed_ratio",
+              "unit": "1",
+              "kind": "control",
+              "frame": "FLU",
+              "minimum": 0.0,
+              "maximum": null
+            },
+            {
+              "name": "motor_front_right",
+              "role": "motor_front_right",
+              "semantic": "squared_rotor_speed_ratio",
+              "unit": "1",
+              "kind": "control",
+              "frame": "FLU",
+              "minimum": 0.0,
+              "maximum": null
+            },
+            {
+              "name": "motor_rear_right",
+              "role": "motor_rear_right",
+              "semantic": "squared_rotor_speed_ratio",
+              "unit": "1",
+              "kind": "control",
+              "frame": "FLU",
+              "minimum": 0.0,
+              "maximum": null
+            },
+            {
+              "name": "motor_rear_left",
+              "role": "motor_rear_left",
+              "semantic": "squared_rotor_speed_ratio",
+              "unit": "1",
+              "kind": "control",
+              "frame": "FLU",
+              "minimum": 0.0,
+              "maximum": null
+            },
+            {
+              "name": "specific_force_x_m_s2",
+              "role": "specific_force_x",
+              "semantic": "accelerometer_specific_force_including_gravity",
+              "unit": "m/s^2",
+              "kind": "observation",
+              "frame": "FLU",
+              "minimum": null,
+              "maximum": null
+            },
+            {
+              "name": "specific_force_y_m_s2",
+              "role": "specific_force_y",
+              "semantic": "accelerometer_specific_force_including_gravity",
+              "unit": "m/s^2",
+              "kind": "observation",
+              "frame": "FLU",
+              "minimum": null,
+              "maximum": null
+            },
+            {
+              "name": "specific_force_z_m_s2",
+              "role": "specific_force_z",
+              "semantic": "accelerometer_specific_force_including_gravity",
+              "unit": "m/s^2",
+              "kind": "observation",
+              "frame": "FLU",
+              "minimum": null,
+              "maximum": null
+            }
+          ],
+          "vehicle": {
+            "family": "multirotor",
+            "configuration_id": "idsia_crazyflie_2_1_brushless_flow_v2_ai_deck",
+            "controlled_axes": [
+              "roll",
+              "pitch",
+              "yaw"
+            ],
+            "fixed_states": {
+              "control_transform": "(rotor_speed_rad_s / reference_rad_s)^2",
+              "mass_kg": 0.045,
+              "rotor_layout": "x",
+              "rotor_speed_reference_rad_s": 2500.0
+            },
+            "auxiliary_controls": []
+          }
+        },
+        "labels": {
+          "benchmark": "idsia_nanodrone_sysid",
+          "benchmark_split": "train",
+          "condition": "aggressive_real_flight",
+          "profile": "square",
+          "recording_date": "2025-10-17",
+          "replicate": 3,
+          "source_group": "square_20251017_run3",
+          "data_role": "scale"
+        },
+        "provenance": {
+          "adapter": {
+            "name": "idsia_nanodrone_benchmark",
+            "schema_version": 2
+          },
+          "benchmark": {
+            "commit": "2d921b57d166fe2debe08a5d39bd07297c5abc39",
+            "doi": "10.1016/j.conengprac.2026.106871",
+            "expected_sha256": "199f1de08d8da4830d79c4fff4e62f313af5ff54af9cac53c9d8341d4a73a2d8",
+            "expected_size_bytes": 744542,
+            "relative_path": "data/train/square_20251017_run3.csv",
+            "repository": "https://github.com/idsia-robotics/nanodrone-sysid-benchmark"
+          },
+          "quality": {
+            "maximum_quaternion_norm_error": 3.3306690738754696e-16,
+            "maximum_timing_error_s": 5.329070518200751e-15,
+            "motor_speed_maximum_rad_s": [
+              2389.036710538684,
+              2341.551630506184,
+              2349.2089011239595,
+              2340.6431603514
+            ],
+            "motor_speed_minimum_rad_s": [
+              833.6464443638002,
+              772.2592845104473,
+              748.8094555356602,
+              709.7192135999695
+            ],
+            "nominal_dt_s": 0.009999999999999787,
+            "sample_rate_hz": 100.00000000000213
+          },
+          "source": "/Users/ryland/autonomy/dart/artifacts/real-transition/corpus/raw/data/train/square_20251017_run3.csv",
+          "source_schema": {
+            "body_frame": "FLU",
+            "columns": [
+              "t",
+              "x",
+              "y",
+              "z",
+              "qx",
+              "qy",
+              "qz",
+              "qw",
+              "vx",
+              "vy",
+              "vz",
+              "wx",
+              "wy",
+              "wz",
+              "m1_rads",
+              "m2_rads",
+              "m3_rads",
+              "m4_rads",
+              "ax_body",
+              "ay_body",
+              "az_body"
+            ],
+            "motor_order": [
+              "front_right",
+              "rear_right",
+              "rear_left",
+              "front_left"
+            ],
+            "state_order": [
+              "position_world_xyz",
+              "quaternion_body_to_world_xyzw",
+              "velocity_world_xyz",
+              "angular_velocity_body_xyz"
+            ],
+            "world_frame": "z_up_right_handed"
+          },
+          "source_sha256": "199f1de08d8da4830d79c4fff4e62f313af5ff54af9cac53c9d8341d4a73a2d8",
+          "transformations": [
+            {
+              "target": "position_velocity_quaternion_angular_velocity",
+              "type": "state_column_reorder"
+            },
+            {
+              "source": "xyzw",
+              "target": "wxyz",
+              "type": "quaternion_component_reorder"
+            },
+            {
+              "sign_flips": 0,
+              "type": "quaternion_normalization_and_continuity"
+            },
+            {
+              "source_indices": [
+                3,
+                0,
+                1,
+                2
+              ],
+              "target_order": [
+                "motor_front_left",
+                "motor_front_right",
+                "motor_rear_right",
+                "motor_rear_left"
+              ],
+              "type": "motor_column_reorder"
+            },
+            {
+              "formula": "(rotor_speed_rad_s / reference_rad_s)^2",
+              "reference_rad_s": 2500.0,
+              "type": "motor_speed_to_squared_ratio"
+            },
+            {
+              "discarded_final_control_rows": 1,
+              "rule": "control row i applies from state row i to i+1",
+              "type": "sample_to_interval_alignment"
+            },
+            {
+              "sample_alignment": "state_timestamp",
+              "source_columns": [
+                "ax_body",
+                "ay_body",
+                "az_body"
+              ],
+              "target_roles": [
+                "specific_force_x",
+                "specific_force_y",
+                "specific_force_z"
+              ],
+              "type": "observation_retention"
+            }
+          ],
+          "upstream_preprocessing": {
+            "cutoff_hz": {
+              "linear_and_angular_velocity": 18.0,
+              "motor_speed": 20.0,
+              "position": 10.0,
+              "quaternion_log_map": 12.0
+            },
+            "filter": "zero_phase_fourth_order_butterworth",
+            "motor_acceleration_alignment": "cross_correlation",
+            "sample_rate_hz": 100.0,
+            "time_alignment": "source timestamps aligned and uniformly retimed"
+          },
+          "path": "/Users/ryland/autonomy/dart/artifacts/real-transition/corpus/canonical/train/square_20251017_run3.npz"
+        }
+      }
+    ]
+  },
+  "configuration": {
+    "holdout_count": 3,
+    "holdout_source_group_count": 3,
+    "horizon_steps": 50,
+    "training_horizon_steps": [
+      10,
+      25,
+      50
+    ],
+    "training_horizons_s": [
+      0.09999999999999787,
+      0.24999999999999467,
+      0.49999999999998934
+    ],
+    "control_history_duration_s": 0.9999999999999787,
+    "motor_history_duration_s": 0.9999999999999787,
+    "optimization_steps_per_model": 80,
+    "learning_rate": 0.02,
+    "endpoint_weight": 3.0,
+    "stability_regularization": 0.01,
+    "multirotor_thrust_command_offset": "fixed_zero_reference",
+    "angular_control_coupling": "diagonal_mixer_reference",
+    "training_windows": 6705,
+    "training_windows_by_horizon": {
+      "0.1s": 2774,
+      "0.25s": 2621,
+      "0.5s": 1310
+    },
+    "training_window_selection": {
+      "budget_policy": "one_window_budget_v1",
+      "maximum_windows_per_horizon": 8192,
+      "maximum_transitions_per_horizon": 65536,
+      "maximum_windows_by_horizon": {
+        "0.1s": 6553,
+        "0.25s": 2621,
+        "0.5s": 1310
+      },
+      "selected_windows_by_horizon": {
+        "0.1s": 2774,
+        "0.25s": 2621,
+        "0.5s": 1310
+      },
+      "source_group_count": 6,
+      "stratification": "source_group"
+    },
+    "evaluation_horizons_s": [
+      0.1,
+      0.25,
+      0.5
+    ],
+    "fixed_response_time_constant_s": null,
+    "ablations": [],
+    "model_class": "structured",
+    "platform": "multirotor",
+    "model_family": "effective_quadrotor",
+    "training_flight_weighting": "equal_source_group_then_equal_window",
+    "training_windows_per_flight_by_horizon": {
+      "0.1s": {
+        "/Users/ryland/autonomy/dart/artifacts/real-transition/corpus/canonical/train/chirp_20251017_run1.npz": 599,
+        "/Users/ryland/autonomy/dart/artifacts/real-transition/corpus/canonical/train/chirp_20251017_run2.npz": 599,
+        "/Users/ryland/autonomy/dart/artifacts/real-transition/corpus/canonical/train/random_20251017_run1.npz": 599,
+        "/Users/ryland/autonomy/dart/artifacts/real-transition/corpus/canonical/train/random_20251017_run2.npz": 599,
+        "/Users/ryland/autonomy/dart/artifacts/real-transition/corpus/canonical/train/square_20251017_run1.npz": 189,
+        "/Users/ryland/autonomy/dart/artifacts/real-transition/corpus/canonical/train/square_20251017_run2.npz": 189
+      },
+      "0.25s": {
+        "/Users/ryland/autonomy/dart/artifacts/real-transition/corpus/canonical/train/chirp_20251017_run1.npz": 562,
+        "/Users/ryland/autonomy/dart/artifacts/real-transition/corpus/canonical/train/chirp_20251017_run2.npz": 561,
+        "/Users/ryland/autonomy/dart/artifacts/real-transition/corpus/canonical/train/random_20251017_run1.npz": 561,
+        "/Users/ryland/autonomy/dart/artifacts/real-transition/corpus/canonical/train/random_20251017_run2.npz": 561,
+        "/Users/ryland/autonomy/dart/artifacts/real-transition/corpus/canonical/train/square_20251017_run1.npz": 188,
+        "/Users/ryland/autonomy/dart/artifacts/real-transition/corpus/canonical/train/square_20251017_run2.npz": 188
+      },
+      "0.5s": {
+        "/Users/ryland/autonomy/dart/artifacts/real-transition/corpus/canonical/train/chirp_20251017_run1.npz": 235,
+        "/Users/ryland/autonomy/dart/artifacts/real-transition/corpus/canonical/train/chirp_20251017_run2.npz": 235,
+        "/Users/ryland/autonomy/dart/artifacts/real-transition/corpus/canonical/train/random_20251017_run1.npz": 235,
+        "/Users/ryland/autonomy/dart/artifacts/real-transition/corpus/canonical/train/random_20251017_run2.npz": 235,
+        "/Users/ryland/autonomy/dart/artifacts/real-transition/corpus/canonical/train/square_20251017_run1.npz": 185,
+        "/Users/ryland/autonomy/dart/artifacts/real-transition/corpus/canonical/train/square_20251017_run2.npz": 185
+      }
+    },
+    "diagnostics": false,
+    "parameter_evidence": {
+      "requested": false,
+      "method": "training_one_step_information_v1",
+      "maximum_windows": 512,
+      "independence_unit": "source_group",
+      "noise_model": "held_out_one_step_innovation_covariance"
+    }
+  },
+  "models": {
+    "learned_lag": {
+      "fit": {
+        "initial_loss": 0.9999999999999999,
+        "final_loss": 0.8022085626376617,
+        "loss_reduction": 1.2465586215036148,
+        "wall_time_s": 22.143198624951765,
+        "component_losses": {
+          "0.1s": {
+            "initial_loss": 0.7829940225899433,
+            "final_loss": 0.6620042585755976,
+            "loss_reduction": 1.1827628182856005
+          },
+          "0.25s": {
+            "initial_loss": 2.2194713432481077,
+            "final_loss": 1.7574232133734053,
+            "loss_reduction": 1.2629122719892796
+          },
+          "0.5s": {
+            "initial_loss": 5.77208664418493,
+            "final_loss": 4.440622111463055,
+            "loss_reduction": 1.2998373874878528
+          }
+        },
+        "loss_normalizers": {
+          "0.1s": 0.7829940225899424,
+          "0.25s": 2.21947134324811,
+          "0.5s": 5.772086644184931
+        },
+        "rollout_loss": {
+          "state_error_scales": {
+            "position_xyz_m": [
+              0.13892237036277447,
+              0.11900041901385003,
+              0.08541296075948034
+            ],
+            "velocity_xyz_m_s": [
+              0.37631590144456034,
+              0.29935521008182053,
+              0.22736145302736724
+            ],
+            "attitude_rad": 0.205279748828154,
+            "angular_velocity_xyz_rad_s": [
+              0.5082255125895933,
+              0.5332870260185526,
+              0.1
+            ]
+          },
+          "dynamic_envelope": {
+            "body_velocity_center_m_s": [
+              -0.0022959157614494815,
+              -0.0055175800278570945,
+              0.026623822808236344
+            ],
+            "body_velocity_half_width_m_s": [
+              3.2453917285586127,
+              2.6732358923406596,
+              2.024599550830881
+            ],
+            "angular_velocity_center_rad_s": [
+              -0.001015085311294,
+              -0.0064610149750909,
+              -0.0032745510640127
+            ],
+            "angular_velocity_half_width_rad_s": [
+              5.256809664087748,
+              5.132347915003423,
+              1.5210482141644697
+            ]
+          },
+          "endpoint_weight": 3.0,
+          "stability_regularization": 0.01,
+          "state_group_weighting": "equal_semantic_groups",
+          "time_weighting": "linear_from_one_to_endpoint_weight"
+        },
+        "statistics_source": "member_training_windows",
+        "optimization_data_policy": {
+          "policy": "full_batch_v1",
+          "diverged": false,
+          "completed_steps": 80,
+          "automatic_policy": "deterministic_weighted_minibatch_v3",
+          "full_window_initial_and_final_scoring": true
+        }
+      },
+      "parameters": {
+        "initial": {
+          "thrust_accel": 4.500000000000001,
+          "thrust_command_offset": 0.0,
+          "angular_accel": [
+            13.0,
+            13.0,
+            5.5
+          ],
+          "linear_drag": 0.07999999999999999,
+          "angular_drag": [
+            0.10000000000000002,
+            0.10000000000000002,
+            0.07
+          ],
+          "motor_time_constant": 0.020000000000000004,
+          "angular_control_cross_coupling": [
+            [
+              0.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ]
+          ]
+        },
+        "fitted": {
+          "thrust_accel": 5.201165515046545,
+          "thrust_command_offset": 0.0,
+          "angular_accel": [
+            53.73927531433391,
+            22.699066910205126,
+            10.436726258461036
+          ],
+          "linear_drag": 0.5407137605387096,
+          "angular_drag": [
+            0.628833480690049,
+            0.6772791337663917,
+            0.5116125778261454
+          ],
+          "motor_time_constant": 0.004952494532861493,
+          "angular_control_cross_coupling": [
+            [
+              0.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.0
+            ]
+          ]
+        }
+      },
+      "validation": {
+        "aggregate": {
+          "flight_count": 3,
+          "weighting": "equal_flight",
+          "full_rollout": {
+            "position_rmse_m": 298.4842757498018,
+            "velocity_rmse_m_s": 10.830185890027717,
+            "attitude_rmse_deg": 128.89761534871766,
+            "angular_velocity_rmse_rad_s": 1.6061346501845861,
+            "position_rmse_xyz_m": [
+              33.76269544849501,
+              34.826386053326885,
+              514.7094246661586
+            ],
+            "velocity_rmse_xyz_m_s": [
+              4.375311767252437,
+              4.336767699765433,
+              17.718009823207584
+            ],
+            "attitude_rotation_vector_rmse_xyz_deg": [
+              84.87811745851724,
+              64.64672808218856,
+              72.32635043711042
+            ],
+            "angular_velocity_rmse_xyz_rad_s": [
+              2.100302334525572,
+              1.6665816535960085,
+              0.7417824742162136
+            ],
+            "final_position_error_m": 899.7972264415289,
+            "duration_s": 138.97,
+            "sample_count": 13897,
+            "rollout_count": 3,
+            "weighting": "equal",
+            "metric_policy": "rollout_error_excludes_measured_initial_sample_v2"
+          },
+          "horizon_rollouts": {
+            "0.1s": {
+              "position_rmse_m": 0.00791070878972691,
+              "velocity_rmse_m_s": 0.029672097125766277,
+              "attitude_rmse_deg": 1.514470878473547,
+              "angular_velocity_rmse_rad_s": 0.42412374919145457,
+              "position_rmse_xyz_m": [
+                0.006583887514929011,
+                0.008043626515441977,
+                0.008926950114032698
+              ],
+              "velocity_rmse_xyz_m_s": [
+                0.021212973279244318,
+                0.026267796555823408,
+                0.03874677628240393
+              ],
+              "attitude_rotation_vector_rmse_xyz_deg": [
+                1.035831449980728,
+                1.0617942513058085,
+                0.3053984559095739
+              ],
+              "angular_velocity_rmse_xyz_rad_s": [
+                0.4974722238747862,
+                0.5262576534331241,
+                0.12335774220041515
+              ],
+              "final_position_error_m": 0.02060005507760286,
+              "duration_s": 0.2999999999999936,
+              "sample_count": 13870,
+              "rollout_count": 1387,
+              "weighting": "equal",
+              "metric_policy": "rollout_error_excludes_measured_initial_sample_v2"
+            },
+            "0.25s": {
+              "position_rmse_m": 0.015637000593673123,
+              "velocity_rmse_m_s": 0.05472626969348469,
+              "attitude_rmse_deg": 6.33538966056933,
+              "angular_velocity_rmse_rad_s": 0.7190216537049509,
+              "position_rmse_xyz_m": [
+                0.015922505041881203,
+                0.018361255600481463,
+                0.011953471824731754
+              ],
+              "velocity_rmse_xyz_m_s": [
+                0.05623147933312253,
+                0.05727285710665043,
+                0.050425532764085644
+              ],
+              "attitude_rotation_vector_rmse_xyz_deg": [
+                4.4266411215663775,
+                4.448906143043579,
+                0.8655891996196796
+              ],
+              "angular_velocity_rmse_xyz_rad_s": [
+                0.8722820497948385,
+                0.8743959633188769,
+                0.15978779811729996
+              ],
+              "final_position_error_m": 0.04219132935030362,
+              "duration_s": 0.749999999999984,
+              "sample_count": 13825,
+              "rollout_count": 553,
+              "weighting": "equal",
+              "metric_policy": "rollout_error_excludes_measured_initial_sample_v2"
+            },
+            "0.5s": {
+              "position_rmse_m": 0.044802420170684726,
+              "velocity_rmse_m_s": 0.27271485420156455,
+              "attitude_rmse_deg": 16.311579590138013,
+              "angular_velocity_rmse_rad_s": 0.8128127584471507,
+              "position_rmse_xyz_m": [
+                0.052812949001465104,
+                0.051683331012736373,
+                0.023693802410088147
+              ],
+              "velocity_rmse_xyz_m_s": [
+                0.3069563097752446,
+                0.3182875058144932,
+                0.166105576782042
+              ],
+              "attitude_rotation_vector_rmse_xyz_deg": [
+                12.231857791378069,
+                10.527324897700588,
+                2.371647991411616
+              ],
+              "angular_velocity_rmse_xyz_rad_s": [
+                1.037196627788153,
+                0.9299127200725837,
+                0.2036645016577234
+              ],
+              "final_position_error_m": 0.1871370645571281,
+              "duration_s": 1.499999999999968,
+              "sample_count": 13750,
+              "rollout_count": 275,
+              "weighting": "equal",
+              "metric_policy": "rollout_error_excludes_measured_initial_sample_v2"
+            }
+          },
+          "held_out_mean_tangent_error": {
+            "0.1s": [
+              0.00014822198640985807,
+              0.0006275905197328244,
+              0.0004046534534926798,
+              0.0008604913242780264,
+              0.0003945629043699984,
+              -0.0016330362379307361,
+              -0.00138152098604525,
+              0.00042938724762651574,
+              0.000997098895930508,
+              -0.036161083267000405,
+              -0.0008186071301272213,
+              0.003504443619708678
+            ],
+            "0.25s": [
+              0.0008502315569902508,
+              0.0019951267470794086,
+              0.0011919589882326118,
+              0.007961714838583508,
+              0.008454492665124023,
+              0.011215499517255652,
+              -0.008832917516550012,
+              0.005084748411482206,
+              0.003168013798785028,
+              -0.08665277013279277,
+              -0.0050352893006122045,
+              0.007310258199455851
+            ],
+            "0.5s": [
+              0.008683401843753167,
+              0.012632134079773438,
+              -0.006269483169865837,
+              0.0443870054719503,
+              0.07345811130056973,
+              -0.03452524869233401,
+              -0.04041485492904822,
+              0.016329402283209903,
+              0.005378009359202308,
+              -0.1556201152545933,
+              -0.014143903145970933,
+              0.007717311581456832
+            ]
+          }
+        },
+        "per_flight": [
+          {
+            "path": "/Users/ryland/autonomy/dart/artifacts/real-transition/corpus/canonical/train/chirp_20251017_run3.npz",
+            "duration_s": 59.99,
+            "full_rollout": {
+              "position_rmse_m": 365.7418979270652,
+              "position_rmse_xyz_m": [
+                15.472562368201714,
+                37.33045145169994,
+                632.1933603780178
+              ],
+              "velocity_rmse_m_s": 11.591110282369492,
+              "velocity_rmse_xyz_m_s": [
+                4.867091200500072,
+                3.9500687957539022,
+                19.072752619613702
+              ],
+              "attitude_rmse_deg": 135.55231367763673,
+              "angular_velocity_rmse_rad_s": 1.2934600592802388,
+              "angular_velocity_rmse_xyz_rad_s": [
+                1.7409757574755405,
+                1.2760545165707304,
+                0.5998375259031677
+              ],
+              "attitude_rotation_vector_rmse_xyz_deg": [
+                100.79173729866176,
+                48.93628727303759,
+                76.29348087227835
+              ],
+              "final_position_error_m": 1097.7511225767655,
+              "duration_s": 59.99,
+              "sample_count": 5999,
+              "rollout_count": 1,
+              "metric_policy": "rollout_error_excludes_measured_initial_sample_v2"
+            },
+            "horizon_rollouts": {
+              "0.1s": {
+                "position_rmse_m": 0.004544614068011304,
+                "position_rmse_xyz_m": [
+                  0.00435130764046001,
+                  0.004525024783530383,
+                  0.004748770747046962
+                ],
+                "velocity_rmse_m_s": 0.015398297139493986,
+                "velocity_rmse_xyz_m_s": [
+                  0.012160135546737522,
+                  0.01174858163750473,
+                  0.02062582355641352
+                ],
+                "attitude_rmse_deg": 0.8715019978121464,
+                "angular_velocity_rmse_rad_s": 0.20694050673463582,
+                "angular_velocity_rmse_xyz_rad_s": [
+                  0.2578436645496033,
+                  0.2271460525277055,
+                  0.1019531041973521
+                ],
+                "attitude_rotation_vector_rmse_xyz_deg": [
+                  0.6431590771408701,
+                  0.5530720710634303,
+                  0.1999335336911671
+                ],
+                "final_position_error_m": 0.011690203401573316,
+                "duration_s": 0.09999999999999787,
+                "sample_count": 5990,
+                "rollout_count": 599,
+                "metric_policy": "rollout_error_excludes_measured_initial_sample_v2",
+                "requested_horizon_s": 0.1,
+                "horizon_steps": 10
+              },
+              "0.25s": {
+                "position_rmse_m": 0.009829968878107082,
+                "position_rmse_xyz_m": [
+                  0.010921578581588083,
+                  0.011511680234917377,
+                  0.0061713210813301765
+                ],
+                "velocity_rmse_m_s": 0.031693795373743575,
+                "velocity_rmse_xyz_m_s": [
+                  0.03504509601453563,
+                  0.033603162732723846,
+                  0.02561559476702132
+                ],
+                "attitude_rmse_deg": 4.057376371498546,
+                "angular_velocity_rmse_rad_s": 0.3673590927307364,
+                "angular_velocity_rmse_xyz_rad_s": [
+                  0.47247979604333307,
+                  0.403783687613214,
+                  0.1363073181607456
+                ],
+                "attitude_rotation_vector_rmse_xyz_deg": [
+                  2.898973414156807,
+                  2.718273905692761,
+                  0.818072819276691
+                ],
+                "final_position_error_m": 0.029480447764280233,
+                "duration_s": 0.24999999999999467,
+                "sample_count": 5975,
+                "rollout_count": 239,
+                "metric_policy": "rollout_error_excludes_measured_initial_sample_v2",
+                "requested_horizon_s": 0.25,
+                "horizon_steps": 25
+              },
+              "0.5s": {
+                "position_rmse_m": 0.03444452184324289,
+                "position_rmse_xyz_m": [
+                  0.04134353697794151,
+                  0.04032810319045236,
+                  0.014954307013122253
+                ],
+                "velocity_rmse_m_s": 0.1963168932989873,
+                "velocity_rmse_xyz_m_s": [
+                  0.23397546705750968,
+                  0.21996847693025912,
+                  0.11176009017489294
+                ],
+                "attitude_rmse_deg": 13.716523137096775,
+                "angular_velocity_rmse_rad_s": 0.6201344082206592,
+                "angular_velocity_rmse_xyz_rad_s": [
+                  0.8243110640816445,
+                  0.6623837288914728,
+                  0.1883059162904249
+                ],
+                "attitude_rotation_vector_rmse_xyz_deg": [
+                  10.041197627224236,
+                  9.103674310576583,
+                  2.107242565175718
+                ],
+                "final_position_error_m": 0.14590621524054914,
+                "duration_s": 0.49999999999998934,
+                "sample_count": 5950,
+                "rollout_count": 119,
+                "metric_policy": "rollout_error_excludes_measured_initial_sample_v2",
+                "requested_horizon_s": 0.5,
+                "horizon_steps": 50
+              }
+            }
+          },
+          {
+            "path": "/Users/ryland/autonomy/dart/artifacts/real-transition/corpus/canonical/train/random_20251017_run3.npz",
+            "duration_s": 59.99,
+            "full_rollout": {
+              "position_rmse_m": 355.0300934822385,
+              "position_rmse_xyz_m": [
+                48.56049702587329,
+                44.586097967060624,
+                611.3861789660384
+              ],
+              "velocity_rmse_m_s": 11.180326509213344,
+              "velocity_rmse_xyz_m_s": [
+                3.995449949822457,
+                4.0381480994797005,
+                18.512937157106904
+              ],
+              "attitude_rmse_deg": 122.07243424653942,
+              "angular_velocity_rmse_rad_s": 1.7760775516848204,
+              "angular_velocity_rmse_xyz_rad_s": [
+                2.338644136251795,
+                1.73782563655396,
+                0.986944815938141
+              ],
+              "attitude_rotation_vector_rmse_xyz_deg": [
+                81.95240383578883,
+                67.22640917742852,
+                60.54826684159047
+              ],
+              "final_position_error_m": 1072.7603446927444,
+              "duration_s": 59.99,
+              "sample_count": 5999,
+              "rollout_count": 1,
+              "metric_policy": "rollout_error_excludes_measured_initial_sample_v2"
+            },
+            "horizon_rollouts": {
+              "0.1s": {
+                "position_rmse_m": 0.004938940020614861,
+                "position_rmse_xyz_m": [
+                  0.006123699918526249,
+                  0.004997993721133092,
+                  0.0032710462627497695
+                ],
+                "velocity_rmse_m_s": 0.016477818880518167,
+                "velocity_rmse_xyz_m_s": [
+                  0.01602848675733987,
+                  0.015702828979143046,
+                  0.017637015606361814
+                ],
+                "attitude_rmse_deg": 0.9615891713978746,
+                "angular_velocity_rmse_rad_s": 0.21958060125406426,
+                "angular_velocity_rmse_xyz_rad_s": [
+                  0.2843203286286051,
+                  0.24082008289301612,
+                  0.0762532605546262
+                ],
+                "attitude_rotation_vector_rmse_xyz_deg": [
+                  0.6962377019180369,
+                  0.628393602171972,
+                  0.21219867513645987
+                ],
+                "final_position_error_m": 0.012864218289585862,
+                "duration_s": 0.09999999999999787,
+                "sample_count": 5990,
+                "rollout_count": 599,
+                "metric_policy": "rollout_error_excludes_measured_initial_sample_v2",
+                "requested_horizon_s": 0.1,
+                "horizon_steps": 10
+              },
+              "0.25s": {
+                "position_rmse_m": 0.011176124009644574,
+                "position_rmse_xyz_m": [
+                  0.014178140030548262,
+                  0.01147417549183418,
+                  0.006483894330849189
+                ],
+                "velocity_rmse_m_s": 0.03525727916288567,
+                "velocity_rmse_xyz_m_s": [
+                  0.03407878715793594,
+                  0.0375935732695381,
+                  0.03397921006411026
+                ],
+                "attitude_rmse_deg": 4.8400024949899905,
+                "angular_velocity_rmse_rad_s": 0.4522550417715725,
+                "angular_velocity_rmse_xyz_rad_s": [
+                  0.5935879992571093,
+                  0.4919595612336349,
+                  0.13868289610536416
+                ],
+                "attitude_rotation_vector_rmse_xyz_deg": [
+                  3.6363000779249863,
+                  3.064351055469507,
+                  0.9014979221483471
+                ],
+                "final_position_error_m": 0.03415662580261956,
+                "duration_s": 0.24999999999999467,
+                "sample_count": 5975,
+                "rollout_count": 239,
+                "metric_policy": "rollout_error_excludes_measured_initial_sample_v2",
+                "requested_horizon_s": 0.25,
+                "horizon_steps": 25
+              },
+              "0.5s": {
+                "position_rmse_m": 0.037538288847076155,
+                "position_rmse_xyz_m": [
+                  0.04371824800327142,
+                  0.04374502655125074,
+                  0.02006132678200483
+                ],
+                "velocity_rmse_m_s": 0.2113827485792265,
+                "velocity_rmse_xyz_m_s": [
+                  0.20788554147458232,
+                  0.26682397132940466,
+                  0.14013054328214905
+                ],
+                "attitude_rmse_deg": 16.165781778858456,
+                "angular_velocity_rmse_rad_s": 0.7587190457311175,
+                "angular_velocity_rmse_xyz_rad_s": [
+                  1.0196079790928445,
+                  0.8037307414857303,
+                  0.20342132441415842
+                ],
+                "attitude_rotation_vector_rmse_xyz_deg": [
+                  12.513523915905717,
+                  9.83335397428569,
+                  2.8371410511517348
+                ],
+                "final_position_error_m": 0.15667782951962814,
+                "duration_s": 0.49999999999998934,
+                "sample_count": 5950,
+                "rollout_count": 119,
+                "metric_policy": "rollout_error_excludes_measured_initial_sample_v2",
+                "requested_horizon_s": 0.5,
+                "horizon_steps": 50
+              }
+            }
+          },
+          {
+            "path": "/Users/ryland/autonomy/dart/artifacts/real-transition/corpus/canonical/train/square_20251017_run3.npz",
+            "duration_s": 18.99,
+            "full_rollout": {
+              "position_rmse_m": 86.40072587861907,
+              "position_rmse_xyz_m": [
+                28.674670952004583,
+                16.035858539224854,
+                145.99955747796318
+              ],
+              "velocity_rmse_m_s": 9.619004148403095,
+              "velocity_rmse_xyz_m_s": [
+                4.2163802160682105,
+                4.951058339452899,
+                15.338998716144106
+              ],
+              "attitude_rmse_deg": 128.7154877298059,
+              "angular_velocity_rmse_rad_s": 1.7063162511734757,
+              "angular_velocity_rmse_xyz_rad_s": [
+                2.175673850809966,
+                1.9194088027264236,
+                0.5629019363745147
+              ],
+              "attitude_rotation_vector_rmse_xyz_deg": [
+                68.83105162467653,
+                74.98965296783932,
+                78.78143855963765
+              ],
+              "final_position_error_m": 270.2459285017247,
+              "duration_s": 18.99,
+              "sample_count": 1899,
+              "rollout_count": 1,
+              "metric_policy": "rollout_error_excludes_measured_initial_sample_v2"
+            },
+            "horizon_rollouts": {
+              "0.1s": {
+                "position_rmse_m": 0.011945346169667515,
+                "position_rmse_xyz_m": [
+                  0.0085795772362996,
+                  0.012191964240093297,
+                  0.014346454187506645
+                ],
+                "velocity_rmse_m_s": 0.04618088320579645,
+                "velocity_rmse_xyz_m_s": [
+                  0.030743933089189338,
+                  0.04105342128560123,
+                  0.06137954952552704
+                ],
+                "attitude_rmse_deg": 2.279626429591721,
+                "angular_velocity_rmse_rad_s": 0.6697782096410448,
+                "angular_velocity_rmse_xyz_rad_s": [
+                  0.7714366052767588,
+                  0.8492653954373134,
+                  0.17158788559121652
+                ],
+                "attitude_rotation_vector_rmse_xyz_deg": [
+                  1.5232989996145625,
+                  1.6375145377300102,
+                  0.4413648773882556
+                ],
+                "final_position_error_m": 0.031159875478386348,
+                "duration_s": 0.09999999999999787,
+                "sample_count": 1890,
+                "rollout_count": 189,
+                "metric_policy": "rollout_error_excludes_measured_initial_sample_v2",
+                "requested_horizon_s": 0.1,
+                "horizon_steps": 10
+              },
+              "0.25s": {
+                "position_rmse_m": 0.02262771147677319,
+                "position_rmse_xyz_m": [
+                  0.020982801695354186,
+                  0.027335537979528406,
+                  0.018668968273889138
+                ],
+                "velocity_rmse_m_s": 0.08208118776266386,
+                "velocity_rmse_xyz_m_s": [
+                  0.08424022385505774,
+                  0.08542886623772053,
+                  0.07627226004109516
+                ],
+                "attitude_rmse_deg": 8.973492033887492,
+                "angular_velocity_rmse_rad_s": 1.1006766508244146,
+                "angular_velocity_rmse_xyz_rad_s": [
+                  1.3065389594848091,
+                  1.3742777833223254,
+                  0.1969360064213222
+                ],
+                "attitude_rotation_vector_rmse_xyz_deg": [
+                  6.09579607145138,
+                  6.526793791081913,
+                  0.8750956211852577
+                ],
+                "final_position_error_m": 0.057485240979183026,
+                "duration_s": 0.24999999999999467,
+                "sample_count": 1875,
+                "rollout_count": 75,
+                "metric_policy": "rollout_error_excludes_measured_initial_sample_v2",
+                "requested_horizon_s": 0.25,
+                "horizon_steps": 25
+              },
+              "0.5s": {
+                "position_rmse_m": 0.05853394181904695,
+                "position_rmse_xyz_m": [
+                  0.06889883517427635,
+                  0.06688435436487988,
+                  0.0325284596537831
+                ],
+                "velocity_rmse_m_s": 0.37402832261082497,
+                "velocity_rmse_xyz_m_s": [
+                  0.4297739065992114,
+                  0.4293479318150028,
+                  0.22504733057255774
+                ],
+                "attitude_rmse_deg": 18.674243724553822,
+                "angular_velocity_rmse_rad_s": 1.0108276145164783,
+                "angular_velocity_rmse_xyz_rad_s": [
+                  1.2281047889688168,
+                  1.2286080301499744,
+                  0.21817042505820924
+                ],
+                "attitude_rotation_vector_rmse_xyz_deg": [
+                  13.83622435863813,
+                  12.365353701717874,
+                  2.0938724920303886
+                ],
+                "final_position_error_m": 0.24336038478843078,
+                "duration_s": 0.49999999999998934,
+                "sample_count": 1850,
+                "rollout_count": 37,
+                "metric_policy": "rollout_error_excludes_measured_initial_sample_v2",
+                "requested_horizon_s": 0.5,
+                "horizon_steps": 50
+              }
+            }
+          }
+        ],
+        "forecast_error": {
+          "format_version": 4,
+          "kind": "held_out_horizon_tangent_second_moments",
+          "posterior": false,
+          "calibrated_distribution": false,
+          "centered": false,
+          "source": "held_out_rollout_endpoints",
+          "weighting": "equal_source_group_then_trajectory_then_endpoint",
+          "tangent_state_order": [
+            "position_x",
+            "position_y",
+            "position_z",
+            "velocity_x",
+            "velocity_y",
+            "velocity_z",
+            "attitude_x",
+            "attitude_y",
+            "attitude_z",
+            "angular_velocity_x",
+            "angular_velocity_y",
+            "angular_velocity_z"
+          ],
+          "state_group_order": [
+            "position",
+            "velocity",
+            "attitude",
+            "angular_velocity"
+          ],
+          "horizons_s": [
+            0.1,
+            0.25,
+            0.5
+          ],
+          "tangent_covariance": [
+            [
+              [
+                9.997513457898389e-05,
+                1.5092767367275797e-05,
+                -1.73040069810703e-05,
+                0.00014166544617235093,
+                7.549629453570218e-06,
+                -4.9589761568025496e-05,
+                -5.2924844151975484e-05,
+                4.828628969705647e-05,
+                -2.0565866132408484e-05,
+                -0.0006773360318898038,
+                -0.0001564241158940646,
+                6.457887556701977e-05
+              ],
+              [
+                1.5092767367275797e-05,
+                0.00014183488583449386,
+                -1.43873430246785e-05,
+                8.875101254952638e-06,
+                0.00031222449056544384,
+                -4.64537004726607e-05,
+                -5.3397826208964976e-05,
+                2.3011051786750327e-05,
+                -6.228928171425648e-07,
+                0.0008093978336756477,
+                0.0001280049079739119,
+                5.9337118069976205e-05
+              ],
+              [
+                -1.73040069810703e-05,
+                -1.4387343024678501e-05,
+                0.000182552248786979,
+                -9.288768456575241e-05,
+                -6.778700709168292e-05,
+                0.0006096602835610675,
+                1.8094918356323604e-05,
+                3.140433193707195e-05,
+                4.037951755139207e-07,
+                0.0001531352162598455,
+                -0.0009006419321691,
+                -0.0004548720779927951
+              ],
+              [
+                0.00014166544617235093,
+                8.87510125495264e-06,
+                -9.288768456575241e-05,
+                0.0008344649666679804,
+                7.738269343036375e-05,
+                -0.0003006407209160647,
+                -3.393059678105516e-05,
+                -8.07842359766437e-05,
+                -2.8907726062011603e-05,
+                -0.00048801930777217446,
+                -0.0025581643549454545,
+                0.0009012295586245684
+              ],
+              [
+                7.549629453570218e-06,
+                0.0003122244905654439,
+                -6.778700709168292e-05,
+                7.738269343036375e-05,
+                0.0014028012146049336,
+                -0.00019865804607638272,
+                0.00018348356360517283,
+                -7.269407501243453e-05,
+                2.1395164644240798e-06,
+                0.008818738104920074,
+                -0.001946607768755226,
+                0.00014831972972020156
+              ],
+              [
+                -4.9589761568025496e-05,
+                -4.64537004726607e-05,
+                0.0006096602835610676,
+                -0.0003006407209160647,
+                -0.00019865804607638275,
+                0.0027980508743786145,
+                -5.5040142608124875e-05,
+                3.098963001182394e-05,
+                -6.915955412078121e-05,
+                -0.0012504432953339998,
+                -0.004641206593864638,
+                -0.0022228003970737645
+              ],
+              [
+                -5.2924844151975484e-05,
+                -5.339782620896498e-05,
+                1.8094918356323608e-05,
+                -3.393059678105516e-05,
+                0.00018348356360517283,
+                -5.504014260812489e-05,
+                0.0012295582286070952,
+                -5.201319255622413e-05,
+                2.5660799428064997e-05,
+                0.023969504719747167,
+                -0.0005672317848052548,
+                0.0003931848446124897
+              ],
+              [
+                4.828628969705646e-05,
+                2.3011051786750327e-05,
+                3.140433193707195e-05,
+                -8.078423597664371e-05,
+                -7.269407501243454e-05,
+                3.0989630011823924e-05,
+                -5.201319255622415e-05,
+                0.0013339228834481557,
+                9.486976188908076e-05,
+                -0.001057202869744008,
+                0.026480797731532515,
+                0.0010751072542358414
+              ],
+              [
+                -2.0565866132408484e-05,
+                -6.228928171425655e-07,
+                4.0379517551392075e-07,
+                -2.8907726062011603e-05,
+                2.1395164644240827e-06,
+                -6.91595541207812e-05,
+                2.5660799428064997e-05,
+                9.486976188908077e-05,
+                8.20080610516829e-05,
+                0.0004555114753340512,
+                0.0021902449843262005,
+                0.0010826034191909028
+              ],
+              [
+                -0.0006773360318898038,
+                0.0008093978336756477,
+                0.0001531352162598455,
+                -0.00048801930777217446,
+                0.008818738104920074,
+                -0.0012504432953339998,
+                0.023969504719747164,
+                -0.0010572028697440079,
+                0.0004555114753340512,
+                0.568363943899309,
+                -0.0348195887687973,
+                0.0003396877522083858
+              ],
+              [
+                -0.0001564241158940646,
+                0.0001280049079739119,
+                -0.0009006419321691,
+                -0.0025581643549454545,
+                -0.0019466077687552259,
+                -0.004641206593864639,
+                -0.0005672317848052553,
+                0.026480797731532515,
+                0.0021902449843262005,
+                -0.03481958876879728,
+                0.640484407187768,
+                0.034013647655528674
+              ],
+              [
+                6.457887556701978e-05,
+                5.9337118069976205e-05,
+                -0.0004548720779927951,
+                0.0009012295586245684,
+                0.00014831972972020153,
+                -0.0022228003970737645,
+                0.00039318484461248963,
+                0.0010751072542358414,
+                0.0010826034191909028,
+                0.0003396877522083869,
+                0.034013647655528674,
+                0.0316833606126879
+              ]
+            ],
+            [
+              [
+                0.0006755385131146617,
+                0.0001069714594581679,
+                -7.529767056137587e-05,
+                0.002009439394452472,
+                0.00040067429594698296,
+                -0.00017989444094378718,
+                -0.0006493935460310187,
+                0.0010335694851554438,
+                2.570683785423954e-05,
+                -0.005320476083252655,
+                0.005755113660380675,
+                -0.00030844394066197153
+              ],
+              [
+                0.00010697145945816793,
+                0.000808812324906948,
+                8.46618443121036e-05,
+                0.0003341946401558703,
+                0.0021620864433176392,
+                0.00015187388663555598,
+                -0.0005384677778872526,
+                0.00038238655559811685,
+                3.988792543523217e-05,
+                0.002987589922510265,
+                0.0018079359953594625,
+                0.0004939282019133764
+              ],
+              [
+                -7.529767056137587e-05,
+                8.466184431210358e-05,
+                0.0002957574343238348,
+                -0.0004793250643408555,
+                0.00019940367825225743,
+                0.0008689615255520145,
+                9.134239932668042e-06,
+                -6.375514727300986e-05,
+                -3.0778204357778125e-05,
+                0.00026521972953063075,
+                0.00012012991271309221,
+                -0.00024506566283988686
+              ],
+              [
+                0.002009439394452472,
+                0.0003341946401558703,
+                -0.0004793250643408555,
+                0.014774400337998293,
+                0.001911161213678351,
+                -0.0004831400256998767,
+                -0.00262983399328253,
+                0.01409472561638579,
+                0.00020733926897860503,
+                -0.01849328244046245,
+                0.08516766415343337,
+                -0.0010286373818042755
+              ],
+              [
+                0.000400674295946983,
+                0.0021620864433176392,
+                0.0001994036782522575,
+                0.0019111612136783508,
+                0.012929552994430913,
+                0.0005753790104878698,
+                -0.012131637751225,
+                0.0017206610961976166,
+                0.0001652810629760337,
+                -0.06860646379082301,
+                0.006630184224310367,
+                0.0012144847286390888
+              ],
+              [
+                -0.00017989444094378715,
+                0.000151873886635556,
+                0.0008689615255520146,
+                -0.0004831400256998767,
+                0.0005753790104878699,
+                0.007846634234276345,
+                -0.00017710563025549823,
+                0.001135235140499981,
+                5.732894535004258e-05,
+                -0.001628900301618002,
+                0.003909271557483823,
+                -0.00023623653085032102
+              ],
+              [
+                -0.0006493935460310187,
+                -0.0005384677778872525,
+                9.134239932668025e-06,
+                -0.002629833993282529,
+                -0.012131637751225,
+                -0.0001771056302554982,
+                0.026275872356555634,
+                -0.00310673936549089,
+                -3.901046733801696e-05,
+                0.21401335584652645,
+                -0.018883989740159604,
+                0.0002512450089836395
+              ],
+              [
+                0.001033569485155444,
+                0.0003823865555981168,
+                -6.375514727300986e-05,
+                0.01409472561638579,
+                0.0017206610961976166,
+                0.001135235140499981,
+                -0.00310673936549089,
+                0.026281432255462214,
+                0.0004043171838767477,
+                -0.021826968521029597,
+                0.19946257593430788,
+                0.0026652850406479675
+              ],
+              [
+                2.5706837854239535e-05,
+                3.988792543523216e-05,
+                -3.0778204357778125e-05,
+                0.00020733926897860498,
+                0.00016528106297603376,
+                5.7328945350042595e-05,
+                -3.901046733801696e-05,
+                0.0004043171838767477,
+                0.0007621453860106639,
+                -0.0004919489060496588,
+                0.0050718752577354476,
+                0.004294993709596065
+              ],
+              [
+                -0.005320476083252656,
+                0.002987589922510265,
+                0.00026521972953063075,
+                -0.018493282440462454,
+                -0.068606463790823,
+                -0.001628900301618002,
+                0.21401335584652645,
+                -0.021826968521029607,
+                -0.0004919489060496592,
+                2.037111383883569,
+                -0.15723423099067463,
+                0.004013500516991366
+              ],
+              [
+                0.005755113660380675,
+                0.0018079359953594625,
+                0.00012012991271309223,
+                0.08516766415343337,
+                0.0066301842243103645,
+                0.003909271557483822,
+                -0.018883989740159614,
+                0.19946257593430786,
+                0.005071875257735447,
+                -0.15723423099067457,
+                1.9416414254044876,
+                0.05043366339060251
+              ],
+              [
+                -0.00030844394066197164,
+                0.0004939282019133764,
+                -0.00024506566283988686,
+                -0.0010286373818042766,
+                0.0012144847286390888,
+                -0.00023623653085032108,
+                0.0002512450089836396,
+                0.0026652850406479675,
+                0.004294993709596065,
+                0.004013500516991366,
+                0.05043366339060251,
+                0.035339530388290144
+              ]
+            ],
+            [
+              [
+                0.01586816923207206,
+                0.003606986740378699,
+                -0.00036493335903793346,
+                0.08043169958512751,
+                0.02093551686023381,
+                0.001489483434350024,
+                -0.011515134568725553,
+                0.03157320712536388,
+                0.0005331350254025759,
+                -0.03204405793541098,
+                -0.036530074001221775,
+                0.0001284604348167449
+              ],
+              [
+                0.0036069867403786984,
+                0.016124930067507832,
+                0.0006317621346706774,
+                0.017947088431995693,
+                0.08882590745269317,
+                0.002773791091631729,
+                -0.041858918188962084,
+                0.00952083535495061,
+                0.0006085480929093565,
+                -0.00820523838651459,
+                0.023213653053897648,
+                0.0025853127865336934
+              ],
+              [
+                -0.00036493335903793346,
+                0.0006317621346706774,
+                0.0030271816314782116,
+                -0.0012171677031930725,
+                0.003474481853620589,
+                0.019127000229707324,
+                -0.0025164089101802813,
+                0.0002872148735338643,
+                0.00015952107788863676,
+                -0.008313630684159693,
+                0.010238450395523372,
+                -0.0012030026951628026
+              ],
+              [
+                0.08043169958512751,
+                0.017947088431995693,
+                -0.0012171677031930725,
+                0.42944739330720927,
+                0.10597231475038707,
+                0.010617422277398049,
+                -0.06028493737809125,
+                0.17696748445994837,
+                0.006202484058163471,
+                -0.17544750481336155,
+                -0.13106974281381673,
+                0.010861010849770916
+              ],
+              [
+                0.02093551686023381,
+                0.08882590745269317,
+                0.003474481853620589,
+                0.10597231475038711,
+                0.5115822004358436,
+                0.015677698298748256,
+                -0.25261544078734194,
+                0.05478486853113684,
+                0.002602118834684066,
+                -0.14428194414023562,
+                0.1159861657390738,
+                0.013495117395773977
+              ],
+              [
+                0.001489483434350024,
+                0.0027737910916317294,
+                0.019127000229707328,
+                0.010617422277398049,
+                0.015677698298748256,
+                0.14335674070022483,
+                -0.013841530023936212,
+                0.006882873890279439,
+                0.0016494930669017785,
+                -0.06672515706754485,
+                0.06040620634219481,
+                -0.007934749742418548
+              ],
+              [
+                -0.011515134568725554,
+                -0.04185891818896209,
+                -0.0025164089101802813,
+                -0.06028493737809125,
+                -0.25261544078734194,
+                -0.013841530023936212,
+                0.15353071068765464,
+                -0.03598164010248397,
+                -0.001647178043424523,
+                0.3094305832842155,
+                -0.0888566678303367,
+                -0.009060843770113833
+              ],
+              [
+                0.03157320712536388,
+                0.00952083535495061,
+                0.00028721487353386405,
+                0.17696748445994837,
+                0.054784868531136836,
+                0.006882873890279439,
+                -0.03598164010248397,
+                0.09977463304361711,
+                0.0051140184050411965,
+                -0.12110931267738097,
+                0.15696678502636713,
+                0.01323954958301199
+              ],
+              [
+                0.0005331350254025759,
+                0.0006085480929093565,
+                0.00015952107788863682,
+                0.006202484058163468,
+                0.002602118834684066,
+                0.001649493066901779,
+                -0.001647178043424523,
+                0.0051140184050411965,
+                0.006558906672110941,
+                -0.003963650585093758,
+                0.027995809248292796,
+                0.017099954199243032
+              ],
+              [
+                -0.032044057935410986,
+                -0.00820523838651459,
+                -0.008313630684159693,
+                -0.17544750481336158,
+                -0.14428194414023568,
+                -0.06672515706754487,
+                0.3094305832842156,
+                -0.12110931267738097,
+                -0.00396365058509376,
+                2.5305994051807845,
+                -0.3894953285231274,
+                -0.018618148986738733
+              ],
+              [
+                -0.036530074001221775,
+                0.023213653053897648,
+                0.01023845039552337,
+                -0.13106974281381673,
+                0.1159861657390738,
+                0.06040620634219481,
+                -0.08885666783033673,
+                0.15696678502636713,
+                0.027995809248292796,
+                -0.3894953285231274,
+                2.3766186798593916,
+                0.13890004808071635
+              ],
+              [
+                0.00012846043481674506,
+                0.0025853127865336934,
+                -0.0012030026951628026,
+                0.010861010849770916,
+                0.013495117395773975,
+                -0.007934749742418545,
+                -0.009060843770113833,
+                0.013239549583011987,
+                0.017099954199243032,
+                -0.018618148986738726,
+                0.13890004808071635,
+                0.06810520798651877
+              ]
+            ]
+          ],
+          "raw_sample_count": [
+            1387,
+            553,
+            275
+          ],
+          "effective_sample_count": [
+            1042.885363357216,
+            414.71722365038545,
+            205.32124352331604
+          ],
+          "independent_group_count": [
+            3,
+            3,
+            3
+          ]
+        },
+        "innovation_noise": [
+          1.410877355042039e-06,
+          2.0784187000204206e-06,
+          2.2536593786539225e-06,
+          3.233744114255969e-05,
+          4.5615164248596165e-05,
+          7.234556149659088e-05,
+          1.194712777815149e-06,
+          8.479515517225174e-07,
+          5.888016457412722e-07,
+          0.012038082240584419,
+          0.012709421922462648,
+          0.0012920590447795342
+        ]
+      },
+      "parameter_evidence": {
+        "format_version": 2,
+        "kind": "structured_parameter_information",
+        "coordinate_system": "unconstrained_structured_parameter_vector",
+        "parameter_scale_semantics": "one_transformed_unit_or_same_axis_effective_authority",
+        "names": [
+          "log_thrust_accel",
+          "thrust_command_offset_unconstrained",
+          "log_angular_accel[0]",
+          "log_angular_accel[1]",
+          "log_angular_accel[2]",
+          "log_linear_drag",
+          "log_angular_drag[0]",
+          "log_angular_drag[1]",
+          "log_angular_drag[2]",
+          "log_motor_time_constant",
+          "angular_control_cross_coupling_unconstrained[0,0]",
+          "angular_control_cross_coupling_unconstrained[0,1]",
+          "angular_control_cross_coupling_unconstrained[0,2]",
+          "angular_control_cross_coupling_unconstrained[1,0]",
+          "angular_control_cross_coupling_unconstrained[1,1]",
+          "angular_control_cross_coupling_unconstrained[1,2]",
+          "angular_control_cross_coupling_unconstrained[2,0]",
+          "angular_control_cross_coupling_unconstrained[2,1]",
+          "angular_control_cross_coupling_unconstrained[2,2]"
+        ],
+        "precision": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "estimable": [
+          true,
+          false,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ],
+        "innovation_noise": [
+          1.410877355042039e-06,
+          2.0784187000204206e-06,
+          2.2536593786539225e-06,
+          3.233744114255969e-05,
+          4.5615164248596165e-05,
+          7.234556149659088e-05,
+          1.194712777815149e-06,
+          8.479515517225174e-07,
+          5.888016457412722e-07,
+          0.012038082240584419,
+          0.012709421922462648,
+          0.0012920590447795342
+        ],
+        "noise_floor": [
+          1e-08,
+          1e-08,
+          1e-08,
+          1e-06,
+          1e-06,
+          1e-06,
+          1e-08,
+          1e-08,
+          1e-08,
+          1e-06,
+          1e-06,
+          1e-06
+        ],
+        "effective_count": 0.0,
+        "rank_relative_tolerance": 2.2649765014648438e-06,
+        "rank_threshold": null,
+        "parameter_uncertainty_complete": false,
+        "resolved_rank": 0,
+        "estimable_count": 9,
+        "source": "held_out_one_step_noise_only"
+      }
+    }
+  },
+  "comparison": null
+}

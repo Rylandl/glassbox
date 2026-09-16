@@ -1,0 +1,11 @@
+{
+  "models_replayed": 840,
+  "direct_heads_checked": 2160,
+  "numerical_checks": 16117,
+  "maximum_absolute_difference": 3.498712430882733e-11,
+  "official_decoder_rows_checked": 160452,
+  "baseline_predictions_reproduced": true,
+  "frozen_artifacts_verified": true,
+  "expanded_training_origins_checked": 320,
+  "interpretation": "Independent saved-prediction and direct normal-equation replay; PCA training covariance checks; official decoder comparison and as-of row checks. No independent physical ground truth or uncertainty calibration."
+}

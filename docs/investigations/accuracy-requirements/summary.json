@@ -1,0 +1,309 @@
+[
+  {
+    "case": "arp-fold0",
+    "latest": "updated",
+    "horizon_s": 0.24,
+    "recordings": 1,
+    "windows": 271,
+    "metrics": [
+      "velocity_m_s",
+      "body_rate_rad_s"
+    ],
+    "arms": {
+      "initial": {
+        "final_required_marginal_tolerance": {
+          "velocity_m_s": 0.5411502527259803,
+          "body_rate_rad_s": 1.8921045110217687
+        },
+        "final_minimum_recording_joint_fraction": 0.5313653136531366,
+        "observed_95pct_horizon_s": 0.14
+      },
+      "updated": {
+        "final_required_marginal_tolerance": {
+          "velocity_m_s": 0.5831055329994602,
+          "body_rate_rad_s": 1.1466333714111454
+        },
+        "final_minimum_recording_joint_fraction": 0.9003690036900369,
+        "observed_95pct_horizon_s": 0.18
+      },
+      "initialization": {
+        "final_required_marginal_tolerance": {
+          "velocity_m_s": 0.5547742806365847,
+          "body_rate_rad_s": 2.4310806274833716
+        },
+        "final_minimum_recording_joint_fraction": 0.5166051660516605,
+        "observed_95pct_horizon_s": 0.12
+      },
+      "hold": {
+        "final_required_marginal_tolerance": {
+          "velocity_m_s": 1.5829365883116546,
+          "body_rate_rad_s": 1.0146377136771856
+        },
+        "final_minimum_recording_joint_fraction": 0.6678966789667896,
+        "observed_95pct_horizon_s": 0.06
+      }
+    }
+  },
+  {
+    "case": "arp-fold1",
+    "latest": "updated",
+    "horizon_s": 0.24,
+    "recordings": 1,
+    "windows": 490,
+    "metrics": [
+      "velocity_m_s",
+      "body_rate_rad_s"
+    ],
+    "arms": {
+      "initial": {
+        "final_required_marginal_tolerance": {
+          "velocity_m_s": 0.7597085351925872,
+          "body_rate_rad_s": 2.8857872803522775
+        },
+        "final_minimum_recording_joint_fraction": 0.5122448979591837,
+        "observed_95pct_horizon_s": 0.06
+      },
+      "updated": {
+        "final_required_marginal_tolerance": {
+          "velocity_m_s": 0.8460632715185904,
+          "body_rate_rad_s": 2.3287783216371265
+        },
+        "final_minimum_recording_joint_fraction": 0.5836734693877551,
+        "observed_95pct_horizon_s": 0.08
+      },
+      "initialization": {
+        "final_required_marginal_tolerance": {
+          "velocity_m_s": 0.836689189206628,
+          "body_rate_rad_s": 3.6697484325793055
+        },
+        "final_minimum_recording_joint_fraction": 0.46122448979591835,
+        "observed_95pct_horizon_s": 0.06
+      },
+      "hold": {
+        "final_required_marginal_tolerance": {
+          "velocity_m_s": 1.3818684071977805,
+          "body_rate_rad_s": 3.388305873775073
+        },
+        "final_minimum_recording_joint_fraction": 0.45510204081632655,
+        "observed_95pct_horizon_s": 0.04
+      }
+    }
+  },
+  {
+    "case": "arp-fold2",
+    "latest": "updated",
+    "horizon_s": 0.24,
+    "recordings": 1,
+    "windows": 488,
+    "metrics": [
+      "velocity_m_s",
+      "body_rate_rad_s"
+    ],
+    "arms": {
+      "initial": {
+        "final_required_marginal_tolerance": {
+          "velocity_m_s": 2.3748204445872947,
+          "body_rate_rad_s": 6.721627213944812
+        },
+        "final_minimum_recording_joint_fraction": 0.0,
+        "observed_95pct_horizon_s": 0.04
+      },
+      "updated": {
+        "final_required_marginal_tolerance": {
+          "velocity_m_s": 0.6543628172820506,
+          "body_rate_rad_s": 1.6237353136700905
+        },
+        "final_minimum_recording_joint_fraction": 0.7868852459016393,
+        "observed_95pct_horizon_s": 0.12
+      },
+      "initialization": {
+        "final_required_marginal_tolerance": {
+          "velocity_m_s": 2.3748204445872947,
+          "body_rate_rad_s": 6.721627213944812
+        },
+        "final_minimum_recording_joint_fraction": 0.0,
+        "observed_95pct_horizon_s": 0.04
+      },
+      "hold": {
+        "final_required_marginal_tolerance": {
+          "velocity_m_s": 1.2784041924458107,
+          "body_rate_rad_s": 3.609577150545898
+        },
+        "final_minimum_recording_joint_fraction": 0.5491803278688525,
+        "observed_95pct_horizon_s": 0.04
+      }
+    }
+  },
+  {
+    "case": "arp-fold3",
+    "latest": "updated",
+    "horizon_s": 0.24,
+    "recordings": 1,
+    "windows": 704,
+    "metrics": [
+      "velocity_m_s",
+      "body_rate_rad_s"
+    ],
+    "arms": {
+      "initial": {
+        "final_required_marginal_tolerance": {
+          "velocity_m_s": 3.456437471130034,
+          "body_rate_rad_s": 9.043204361218853
+        },
+        "final_minimum_recording_joint_fraction": 0.009943181818181818,
+        "observed_95pct_horizon_s": 0.04
+      },
+      "updated": {
+        "final_required_marginal_tolerance": {
+          "velocity_m_s": 0.708949347465472,
+          "body_rate_rad_s": 2.864141566340648
+        },
+        "final_minimum_recording_joint_fraction": 0.6747159090909091,
+        "observed_95pct_horizon_s": 0.08
+      },
+      "initialization": {
+        "final_required_marginal_tolerance": {
+          "velocity_m_s": 3.456437471130034,
+          "body_rate_rad_s": 9.043204361218853
+        },
+        "final_minimum_recording_joint_fraction": 0.009943181818181818,
+        "observed_95pct_horizon_s": 0.04
+      },
+      "hold": {
+        "final_required_marginal_tolerance": {
+          "velocity_m_s": 0.5555923201066286,
+          "body_rate_rad_s": 1.4529661825854043
+        },
+        "final_minimum_recording_joint_fraction": 0.796875,
+        "observed_95pct_horizon_s": 0.12
+      }
+    }
+  },
+  {
+    "case": "crazyflie-sensor",
+    "latest": "initial",
+    "horizon_s": 0.24,
+    "recordings": 1,
+    "windows": 29,
+    "metrics": [
+      "acceleration_g",
+      "gyro_rad_s"
+    ],
+    "arms": {
+      "initial": {
+        "final_required_marginal_tolerance": {
+          "acceleration_g": 0.5353338398198292,
+          "gyro_rad_s": 4.355186836553807
+        },
+        "final_minimum_recording_joint_fraction": 0.4827586206896552,
+        "observed_95pct_horizon_s": null
+      },
+      "initialization": {
+        "final_required_marginal_tolerance": {
+          "acceleration_g": 0.5881026763801586,
+          "gyro_rad_s": 6.771369779547584
+        },
+        "final_minimum_recording_joint_fraction": 0.3793103448275862,
+        "observed_95pct_horizon_s": null
+      },
+      "hold": {
+        "final_required_marginal_tolerance": {
+          "acceleration_g": 0.39596122871103945,
+          "gyro_rad_s": 4.818245755150875
+        },
+        "final_minimum_recording_joint_fraction": 0.7241379310344828,
+        "observed_95pct_horizon_s": 0.06
+      }
+    }
+  },
+  {
+    "case": "nano",
+    "latest": "updated",
+    "horizon_s": 0.25,
+    "recordings": 3,
+    "windows": 1381,
+    "metrics": [
+      "velocity_m_s",
+      "body_rate_rad_s"
+    ],
+    "arms": {
+      "initial": {
+        "final_required_marginal_tolerance": {
+          "velocity_m_s": 0.7335375846198953,
+          "body_rate_rad_s": 4.142567162805138
+        },
+        "final_minimum_recording_joint_fraction": 0.42245989304812837,
+        "observed_95pct_horizon_s": 0.02
+      },
+      "updated": {
+        "final_required_marginal_tolerance": {
+          "velocity_m_s": 0.6955089225589334,
+          "body_rate_rad_s": 3.7057198783095493
+        },
+        "final_minimum_recording_joint_fraction": 0.42780748663101603,
+        "observed_95pct_horizon_s": 0.02
+      },
+      "initialization": {
+        "final_required_marginal_tolerance": {
+          "velocity_m_s": 0.7335375846198953,
+          "body_rate_rad_s": 4.142567162805138
+        },
+        "final_minimum_recording_joint_fraction": 0.42245989304812837,
+        "observed_95pct_horizon_s": 0.02
+      },
+      "hold": {
+        "final_required_marginal_tolerance": {
+          "velocity_m_s": 2.023261702285385,
+          "body_rate_rad_s": 8.493456795080334
+        },
+        "final_minimum_recording_joint_fraction": 0.10695187165775401,
+        "observed_95pct_horizon_s": 0.01
+      }
+    }
+  },
+  {
+    "case": "x8",
+    "latest": "updated",
+    "horizon_s": 0.25,
+    "recordings": 4,
+    "windows": 394,
+    "metrics": [
+      "velocity_m_s",
+      "body_rate_rad_s"
+    ],
+    "arms": {
+      "initial": {
+        "final_required_marginal_tolerance": {
+          "velocity_m_s": 1.5995773504110422,
+          "body_rate_rad_s": 0.8202155176821878
+        },
+        "final_minimum_recording_joint_fraction": 0.7608695652173914,
+        "observed_95pct_horizon_s": 0.05
+      },
+      "updated": {
+        "final_required_marginal_tolerance": {
+          "velocity_m_s": 1.6006856079819964,
+          "body_rate_rad_s": 0.7643356051475093
+        },
+        "final_minimum_recording_joint_fraction": 0.7934782608695652,
+        "observed_95pct_horizon_s": 0.05
+      },
+      "initialization": {
+        "final_required_marginal_tolerance": {
+          "velocity_m_s": 1.2965600267101254,
+          "body_rate_rad_s": 0.8399785690582273
+        },
+        "final_minimum_recording_joint_fraction": 0.7717391304347826,
+        "observed_95pct_horizon_s": 0.05
+      },
+      "hold": {
+        "final_required_marginal_tolerance": {
+          "velocity_m_s": 3.3218771248401473,
+          "body_rate_rad_s": 3.162333977902941
+        },
+        "final_minimum_recording_joint_fraction": 0.5643564356435643,
+        "observed_95pct_horizon_s": null
+      }
+    }
+  }
+]

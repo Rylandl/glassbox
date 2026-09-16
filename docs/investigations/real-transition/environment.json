@@ -1,0 +1,7 @@
+{
+  "python": "3.12.12 (main, Jan 27 2026, 23:41:44) [Clang 21.1.4 ]",
+  "jax": "0.11.1",
+  "numpy": "2.5.3",
+  "x64": true,
+  "platform": "macOS-26.6.2-arm64-arm-64bit"
+}

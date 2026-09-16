@@ -1,0 +1,60 @@
+{
+  "passed": true,
+  "checks": [
+    "training and evaluation rows disjoint",
+    "all model round trips reproduce predictions",
+    "hidden-change training labels exactly equal to smooth labels outside bump",
+    "identical inputs and labels produce identical fitted predictions"
+  ],
+  "identical_evidence_pairs": [
+    {
+      "layout": "gap-035",
+      "seed": 0,
+      "prediction_max_difference": {
+        "rbf": 0.0,
+        "matern52": 0.0
+      }
+    },
+    {
+      "layout": "gap-070",
+      "seed": 0,
+      "prediction_max_difference": {
+        "rbf": 0.0,
+        "matern52": 0.0
+      }
+    },
+    {
+      "layout": "gap-035",
+      "seed": 1,
+      "prediction_max_difference": {
+        "rbf": 0.0,
+        "matern52": 0.0
+      }
+    },
+    {
+      "layout": "gap-070",
+      "seed": 1,
+      "prediction_max_difference": {
+        "rbf": 0.0,
+        "matern52": 0.0
+      }
+    },
+    {
+      "layout": "gap-035",
+      "seed": 2,
+      "prediction_max_difference": {
+        "rbf": 0.0,
+        "matern52": 0.0
+      }
+    },
+    {
+      "layout": "gap-070",
+      "seed": 2,
+      "prediction_max_difference": {
+        "rbf": 0.0,
+        "matern52": 0.0
+      }
+    }
+  ],
+  "interval_claim": "conditional on selected kernel/hyperparameters; measured coverage only"
+}

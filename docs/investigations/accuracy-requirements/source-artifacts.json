@@ -1,0 +1,23 @@
+{
+  "/Users/ryland/autonomy/dart/artifacts/default-recipe/comparison-01/arp-fold0/report.json": "9adc5083d1d81f155a3afb4dafd0576b08b8666b5aeb464621dedd96524a3888",
+  "/Users/ryland/autonomy/dart/artifacts/default-recipe/comparison-01/arp-fold0/evaluation.npz": "c62ea5ed8023d22ac96226cd801ddc9f8470d3e5e3fe7c96c68d99333a52826b",
+  "/Users/ryland/autonomy/dart/artifacts/default-recipe/comparison-01/arp-fold0/evaluation-usage.json": "b0a3fee92581ec876541f841628df474152ed1b7380d2b8e97f8627747892b30",
+  "/Users/ryland/autonomy/dart/artifacts/default-recipe/comparison-01/arp-fold1/report.json": "37e48701c92f3d0f9add2ecbed0d0cadee971a3c0ca739a26345f61c969fe1d5",
+  "/Users/ryland/autonomy/dart/artifacts/default-recipe/comparison-01/arp-fold1/evaluation.npz": "b05a04bfc7868b3f918848d466c70b72c23e84e15a5d5c2a3ff26a33292649d5",
+  "/Users/ryland/autonomy/dart/artifacts/default-recipe/comparison-01/arp-fold1/evaluation-usage.json": "98bfd0ce9a7758373c108d8ac6a4f5bcb27c6340a812e40859021233a68391d0",
+  "/Users/ryland/autonomy/dart/artifacts/default-recipe/comparison-01/arp-fold2/report.json": "7c923fb2701daa8018c14408d9a680dd9b862ee16e5631a437a4378b932edad5",
+  "/Users/ryland/autonomy/dart/artifacts/default-recipe/comparison-01/arp-fold2/evaluation.npz": "424149d2a0b1c70701cdc6c3caf50ea73bd3cc177d192208cae992fbc9b92906",
+  "/Users/ryland/autonomy/dart/artifacts/default-recipe/comparison-01/arp-fold2/evaluation-usage.json": "fe004201ce654dd674a753cf95c3cc5af4707610215b07943dafa92f9c5f6e82",
+  "/Users/ryland/autonomy/dart/artifacts/default-recipe/comparison-01/arp-fold3/report.json": "056c55eee74a2d8d6bcbc23ebfa58d854314e0a6e7f539d5255bf610cefaefea",
+  "/Users/ryland/autonomy/dart/artifacts/default-recipe/comparison-01/arp-fold3/evaluation.npz": "a6b0da9f6cccdc98e1a3f113194cac691563f10f5750f9fb5abe3d3d14eb0ec9",
+  "/Users/ryland/autonomy/dart/artifacts/default-recipe/comparison-01/arp-fold3/evaluation-usage.json": "95efdaaf9772ee4c917a523afc02321bfd4728c4db9b1dfb5fccdbd9c78e9fde",
+  "/Users/ryland/autonomy/dart/artifacts/default-recipe/comparison-01/crazyflie-sensor/report.json": "3910ca801ac0d130d4679b61fdaba31cd6af23fa70b6367ee246d2d44a2ce4a4",
+  "/Users/ryland/autonomy/dart/artifacts/default-recipe/comparison-01/crazyflie-sensor/evaluation.npz": "b0fc9cce590f6fa40fd9d410ae3d3321a20fadba3ea98d0ced248db587870cee",
+  "/Users/ryland/autonomy/dart/artifacts/default-recipe/comparison-01/crazyflie-sensor/evaluation-usage.json": "f473385e135d7000f3fef5876db384ad3174fe338d5714f8fc8c73517a5c6e31",
+  "/Users/ryland/autonomy/dart/artifacts/default-recipe/comparison-01/nano/report.json": "1690215a878ddfead509920a78f8403479e73eaefd0c39f35fbf17673b2882d9",
+  "/Users/ryland/autonomy/dart/artifacts/default-recipe/comparison-01/nano/evaluation.npz": "fc2f017208a7b45c558cfbd97161bf07a3afd96a86e5d08c391667222bb47d72",
+  "/Users/ryland/autonomy/dart/artifacts/default-recipe/comparison-01/nano/evaluation-usage.json": "571abc0b1e7b3233468c199ef276d172acfba44c72cecd0ae2912e34c8a2870c",
+  "/Users/ryland/autonomy/dart/artifacts/default-recipe/comparison-01/x8/report.json": "592011093785cab3a47eeedea202d4ef6bdbb401c839feb91c444d784da918e9",
+  "/Users/ryland/autonomy/dart/artifacts/default-recipe/comparison-01/x8/evaluation.npz": "70ef15d88b368327eaa4e853c502c8f2424f1767c81d1df3e4bad045b024a36f",
+  "/Users/ryland/autonomy/dart/artifacts/default-recipe/comparison-01/x8/evaluation-usage.json": "7b3964fc3c858685ca1dba1c7a83c2b0eef23e9fdeeb2b8ca3eaa147f83a333c"
+}

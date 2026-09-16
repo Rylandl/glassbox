@@ -1,0 +1,246 @@
+{
+  "arp-fold0/evaluation-usage.json": {
+    "bytes": 33965,
+    "sha256": "b0a3fee92581ec876541f841628df474152ed1b7380d2b8e97f8627747892b30"
+  },
+  "arp-fold0/evaluation.npz": {
+    "bytes": 1461550,
+    "sha256": "c62ea5ed8023d22ac96226cd801ddc9f8470d3e5e3fe7c96c68d99333a52826b"
+  },
+  "arp-fold0/initial.npz": {
+    "bytes": 1219949,
+    "sha256": "066b848b27fb98749c37aa212e13f67603db403a57c1cf22ebacfacee0a61e0d"
+  },
+  "arp-fold0/initialization.npz": {
+    "bytes": 45114,
+    "sha256": "29124ac57cad26aa12bf1f5f44b7d848d8185f7eccd69e8fdd7fc3cea18a6b2e"
+  },
+  "arp-fold0/records.json": {
+    "bytes": 1241,
+    "sha256": "02eb0968094e424e11c3a128ca17f5d406551cf7f443d4d165513ec70ff0f836"
+  },
+  "arp-fold0/records.npz": {
+    "bytes": 1119315,
+    "sha256": "0c82a0443560f21d22fc1a01d1cbf0487e2c892eb5a3e0c0c0dd86e624e3a99e"
+  },
+  "arp-fold0/report.json": {
+    "bytes": 65792,
+    "sha256": "9adc5083d1d81f155a3afb4dafd0576b08b8666b5aeb464621dedd96524a3888"
+  },
+  "arp-fold0/updated.npz": {
+    "bytes": 1275212,
+    "sha256": "8b2991363a88547e6781958abede32cd9c2ac5b28c33a312b448d6610f3ca1f7"
+  },
+  "arp-fold1/evaluation-usage.json": {
+    "bytes": 61559,
+    "sha256": "98bfd0ce9a7758373c108d8ac6a4f5bcb27c6340a812e40859021233a68391d0"
+  },
+  "arp-fold1/evaluation.npz": {
+    "bytes": 2647689,
+    "sha256": "b05a04bfc7868b3f918848d466c70b72c23e84e15a5d5c2a3ff26a33292649d5"
+  },
+  "arp-fold1/initial.npz": {
+    "bytes": 1189945,
+    "sha256": "7fd52cd784d6e6e77e8f8640b25836744867245e0107602facb4ca1dcb5aafcf"
+  },
+  "arp-fold1/initialization.npz": {
+    "bytes": 45114,
+    "sha256": "29124ac57cad26aa12bf1f5f44b7d848d8185f7eccd69e8fdd7fc3cea18a6b2e"
+  },
+  "arp-fold1/records.json": {
+    "bytes": 1241,
+    "sha256": "853b20a8434c7807555fb9c6277a6cb27e344fbd24ac0e5cbddd946b6f837840"
+  },
+  "arp-fold1/records.npz": {
+    "bytes": 1119315,
+    "sha256": "0c82a0443560f21d22fc1a01d1cbf0487e2c892eb5a3e0c0c0dd86e624e3a99e"
+  },
+  "arp-fold1/report.json": {
+    "bytes": 65914,
+    "sha256": "37e48701c92f3d0f9add2ecbed0d0cadee971a3c0ca739a26345f61c969fe1d5"
+  },
+  "arp-fold1/updated.npz": {
+    "bytes": 1245229,
+    "sha256": "f094b0c6742dfd1abd3a94105df0dd4d25ef554688de0ef763e6dba17dee4812"
+  },
+  "arp-fold2/evaluation-usage.json": {
+    "bytes": 61307,
+    "sha256": "fe004201ce654dd674a753cf95c3cc5af4707610215b07943dafa92f9c5f6e82"
+  },
+  "arp-fold2/evaluation.npz": {
+    "bytes": 2639712,
+    "sha256": "424149d2a0b1c70701cdc6c3caf50ea73bd3cc177d192208cae992fbc9b92906"
+  },
+  "arp-fold2/initial.npz": {
+    "bytes": 1192445,
+    "sha256": "064a9221b2fd050756721340b476e6986931173f8a585ff54194ccc3033850ad"
+  },
+  "arp-fold2/initialization.npz": {
+    "bytes": 45130,
+    "sha256": "a9435a824f945d1e7f4b8edf974393278033fbdf393158e913ec84bdc1dc8a57"
+  },
+  "arp-fold2/records.json": {
+    "bytes": 1241,
+    "sha256": "4eb568a6208dfd6a586fed115ddc539c18105a0ef84a36eb52db5e4bda8437e6"
+  },
+  "arp-fold2/records.npz": {
+    "bytes": 1119315,
+    "sha256": "0c82a0443560f21d22fc1a01d1cbf0487e2c892eb5a3e0c0c0dd86e624e3a99e"
+  },
+  "arp-fold2/report.json": {
+    "bytes": 65928,
+    "sha256": "7c923fb2701daa8018c14408d9a680dd9b862ee16e5631a437a4378b932edad5"
+  },
+  "arp-fold2/updated.npz": {
+    "bytes": 1247599,
+    "sha256": "bae1f4363c4f1fd3031747b9817be71ddc0c0ba19c1bf3d31d366cc369db1605"
+  },
+  "arp-fold3/evaluation-usage.json": {
+    "bytes": 88523,
+    "sha256": "95efdaaf9772ee4c917a523afc02321bfd4728c4db9b1dfb5fccdbd9c78e9fde"
+  },
+  "arp-fold3/evaluation.npz": {
+    "bytes": 3809881,
+    "sha256": "a6b0da9f6cccdc98e1a3f113194cac691563f10f5750f9fb5abe3d3d14eb0ec9"
+  },
+  "arp-fold3/initial.npz": {
+    "bytes": 1192445,
+    "sha256": "064a9221b2fd050756721340b476e6986931173f8a585ff54194ccc3033850ad"
+  },
+  "arp-fold3/initialization.npz": {
+    "bytes": 45130,
+    "sha256": "a9435a824f945d1e7f4b8edf974393278033fbdf393158e913ec84bdc1dc8a57"
+  },
+  "arp-fold3/records.json": {
+    "bytes": 1241,
+    "sha256": "31c85d16eff99f877eb05ebd689e264163aa3efec2b89a449110de078d78cf16"
+  },
+  "arp-fold3/records.npz": {
+    "bytes": 1119315,
+    "sha256": "0c82a0443560f21d22fc1a01d1cbf0487e2c892eb5a3e0c0c0dd86e624e3a99e"
+  },
+  "arp-fold3/report.json": {
+    "bytes": 65956,
+    "sha256": "056c55eee74a2d8d6bcbc23ebfa58d854314e0a6e7f539d5255bf610cefaefea"
+  },
+  "arp-fold3/updated.npz": {
+    "bytes": 1240167,
+    "sha256": "bc97f16627f74fa6933c4da34f964f454165cba959b6dff05c7fcca2ba944e40"
+  },
+  "crazyflie-sensor/evaluation-usage.json": {
+    "bytes": 3239,
+    "sha256": "f473385e135d7000f3fef5876db384ad3174fe338d5714f8fc8c73517a5c6e31"
+  },
+  "crazyflie-sensor/evaluation.npz": {
+    "bytes": 50161,
+    "sha256": "b0fc9cce590f6fa40fd9d410ae3d3321a20fadba3ea98d0ced248db587870cee"
+  },
+  "crazyflie-sensor/initial.npz": {
+    "bytes": 274229,
+    "sha256": "5f654497334116cceb62688231075c6c85ca4c92a547668f9765669d125bb0b7"
+  },
+  "crazyflie-sensor/initialization.npz": {
+    "bytes": 20859,
+    "sha256": "56db7221313f4ab31d58632a6edd88b0deddf6fa86007c13d92e0e2b5c71f264"
+  },
+  "crazyflie-sensor/records.json": {
+    "bytes": 816,
+    "sha256": "ed76f3a8311b7a9139234d02f3502f7b4f2b9ba12c214bf32b2980d0b0476d8c"
+  },
+  "crazyflie-sensor/records.npz": {
+    "bytes": 130895,
+    "sha256": "f526fa3a46e920390b7da5e48e7f93382678c15f6bb0f013d3e831726d4a743a"
+  },
+  "crazyflie-sensor/report.json": {
+    "bytes": 18656,
+    "sha256": "3910ca801ac0d130d4679b61fdaba31cd6af23fa70b6367ee246d2d44a2ce4a4"
+  },
+  "environment.json": {
+    "bytes": 176,
+    "sha256": "33d0f9dc7b3cc2d6c63a03a63c02fd3bef929fdd221da4e9a2c47eed09e595bb"
+  },
+  "executed-sources.zip": {
+    "bytes": 574191,
+    "sha256": "147e3e1f5dc9bd0c72c91461e228757ddacb7a13fa19add59e89d84511023316"
+  },
+  "nano/evaluation-usage.json": {
+    "bytes": 167865,
+    "sha256": "571abc0b1e7b3233468c199ef276d172acfba44c72cecd0ae2912e34c8a2870c"
+  },
+  "nano/evaluation.npz": {
+    "bytes": 16051955,
+    "sha256": "fc2f017208a7b45c558cfbd97161bf07a3afd96a86e5d08c391667222bb47d72"
+  },
+  "nano/initial.npz": {
+    "bytes": 3307129,
+    "sha256": "4edfd13bfe4e4c31b7e928cb3dd60214fc95c6ced73ccf675a86504b447e5ca1"
+  },
+  "nano/initialization.npz": {
+    "bytes": 80117,
+    "sha256": "90ba3ca4712651c44524b9fbb05a1aca6cfcb237c4c15faac9dbb2565c35368e"
+  },
+  "nano/records.json": {
+    "bytes": 3683,
+    "sha256": "a443102740f9cf5b20ae1c33bf22732f2f3629ab21b793c5a9753dc8bda8652c"
+  },
+  "nano/records.npz": {
+    "bytes": 7975698,
+    "sha256": "8dc15488143da79f664ec4e6072f662267bd5bb3b71c277bddb75a45c5d6ce05"
+  },
+  "nano/report.json": {
+    "bytes": 206758,
+    "sha256": "1690215a878ddfead509920a78f8403479e73eaefd0c39f35fbf17673b2882d9"
+  },
+  "nano/updated.npz": {
+    "bytes": 3306418,
+    "sha256": "400cb6ab795b6a42ad5f4d1d83bfe3b779ebe858a150f21a551ad81a7119c9c1"
+  },
+  "plan.json": {
+    "bytes": 2275,
+    "sha256": "81a15d00350868f6c04f3dacfc2d7182e3198a90a16454a5918a34dc6fff949d"
+  },
+  "recipe.json": {
+    "bytes": 331,
+    "sha256": "5f937e3191c203827bc02a4ca3627d3e31dd681cf40cf5046f9e1e1bb0e69c1c"
+  },
+  "sources.json": {
+    "bytes": 14297,
+    "sha256": "eceaac16ff46ea676db259aab3501cc5f6a760293e66a267cb15df93120cd14d"
+  },
+  "summary.json": {
+    "bytes": 654483,
+    "sha256": "622767c49c81affe1b5497e0a8d3048e49d16443ac70b051509c2c41f792eb2b"
+  },
+  "x8/evaluation-usage.json": {
+    "bytes": 47119,
+    "sha256": "7b3964fc3c858685ca1dba1c7a83c2b0eef23e9fdeeb2b8ca3eaa147f83a333c"
+  },
+  "x8/evaluation.npz": {
+    "bytes": 1837103,
+    "sha256": "70ef15d88b368327eaa4e853c502c8f2424f1767c81d1df3e4bad045b024a36f"
+  },
+  "x8/initial.npz": {
+    "bytes": 1172397,
+    "sha256": "ec9e19009191339387a637cfec40fff76a66bdf8d462238c8cc3c108be40faff"
+  },
+  "x8/initialization.npz": {
+    "bytes": 36295,
+    "sha256": "cbf6871d8f78b73655fcf8cba006e819eff76d86d01b82ae2db097418b6be0a9"
+  },
+  "x8/records.json": {
+    "bytes": 5054,
+    "sha256": "49d1daf986d750de5fd97a0b5168a39be7e5ec000abbd031e8da3c1fbb9dbca5"
+  },
+  "x8/records.npz": {
+    "bytes": 921272,
+    "sha256": "3338d773e16b5fbc774792f9b49cfb3c59140b58697094f19652f319dbf5080f"
+  },
+  "x8/report.json": {
+    "bytes": 124383,
+    "sha256": "592011093785cab3a47eeedea202d4ef6bdbb401c839feb91c444d784da918e9"
+  },
+  "x8/updated.npz": {
+    "bytes": 1180819,
+    "sha256": "55133fd5ea4f702976142ce679eefbbacb5979f2cdc427d8a0e5c5c2ab32dc7c"
+  }
+}

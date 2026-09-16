@@ -1,0 +1,93 @@
+{
+  "phase": "confirmation",
+  "seeds": [
+    40,
+    41,
+    42
+  ],
+  "horizon_steps": [
+    1,
+    10,
+    25,
+    50
+  ],
+  "sample_period_s": 0.01,
+  "modes": {
+    "absolute": [
+      "absolute",
+      []
+    ],
+    "increment": [
+      "increment",
+      []
+    ],
+    "history": [
+      "increment",
+      [
+        5,
+        10
+      ]
+    ]
+  },
+  "allocations": {
+    "more-evidence": {
+      "train": 192,
+      "scale": 192,
+      "calibration": 192
+    },
+    "more-model": {
+      "train": 384,
+      "scale": 96,
+      "calibration": 96
+    }
+  },
+  "kernel": "rq",
+  "fit_steps": 160,
+  "restarts": 2,
+  "control_bins": "min(10, horizon_steps)",
+  "ridge_reference": "linear state increment, unit ridge penalty, same input features and mean-fit windows as its GP",
+  "test_stride_s": 0.1,
+  "split": {
+    "train": [
+      "chirp_20251017_run1",
+      "chirp_20251017_run2",
+      "random_20251017_run1",
+      "random_20251017_run2",
+      "square_20251017_run1",
+      "square_20251017_run2"
+    ],
+    "scale": [
+      "chirp_20251017_run3",
+      "random_20251017_run3",
+      "square_20251017_run3"
+    ],
+    "calibration": [
+      "chirp_20251017_run4",
+      "random_20251017_run4",
+      "square_20251017_run4"
+    ],
+    "test": [
+      "melon_20251017_run1",
+      "melon_20251017_run2",
+      "melon_20251017_run3"
+    ]
+  },
+  "source_commit": "2d921b57d166fe2debe08a5d39bd07297c5abc39",
+  "outputs": [
+    "velocity_x [m/s]",
+    "velocity_y [m/s]",
+    "velocity_z [m/s]",
+    "rate_x [rad/s]",
+    "rate_y [rad/s]",
+    "rate_z [rad/s]"
+  ],
+  "prediction_task": "direct horizon forecasts of velocity and body rate conditional on observed future actuation; no future state or attitude input",
+  "control_encoding": "current measured speeds plus 10 sequential means over the supplied future actuation window; no squared-speed prior",
+  "history": "state and control differences from 50 and 100 ms before the origin",
+  "model_scope": "six Euclidean outputs, not a complete recursively executable rigid-body model",
+  "coverage": "empirical six-output joint coverage; correlated samples, only three calibration flights, and maneuver shift invalidate an IID 95% guarantee",
+  "physical_bounds": "no hard bounds inferred from finite telemetry",
+  "upstream_processing": "100 Hz offline retiming, cross-correlation alignment, zero-phase Butterworth filtering; not causal raw sensor data",
+  "budget_unit": "selected windows, not independent samples or flight seconds; unique supporting rows and input interval unions reported",
+  "structured_reference": "same six mean-fit flights; existing full-state multi-step objective with its own larger window budget and full actuation sequence; contextual reference, not a matched label-budget comparison"
+}

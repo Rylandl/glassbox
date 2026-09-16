@@ -1,0 +1,8 @@
+{
+  "cases": 9,
+  "evaluation_windows": 4272,
+  "numeric_comparisons": 189,
+  "max_absolute_difference": 1.7763568394002505e-15,
+  "checks": "Regenerated evaluation histories/targets/provenance, paired NumPy model replay, all horizon/channel scores, train-only pooled scales, preserved model normalization, baseline hashes, candidate fingerprints, development loss and checkpoint selection.",
+  "limits": "Shares frozen generators and prior NumPy rollout. Does not independently repeat the optimizer; the experiment uses identical saved calibration caches and changes only error scaling."
+}

@@ -1,0 +1,11 @@
+{
+  "cases": 24,
+  "checkpoint_models_checked": 528,
+  "cached_windows": 15360,
+  "evaluation_windows": 5952,
+  "numeric_comparisons": 18000,
+  "max_absolute_difference": 1.2212453270876722e-15,
+  "atol": 1e-09,
+  "rtol": 1e-08,
+  "method": "Archived sources, independent recording split/window selection and time indexing; train-only loss scales; NumPy replay of every saved checkpoint on development and evaluation data; every horizon/channel/recording score, crossed and leave-one-recording-out selectors, and attribution identities. Shared frozen generator and artifact loader; no optimizer rerun."
+}

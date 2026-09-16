@@ -1,0 +1,47 @@
+{
+  "recorded_utc": "2026-09-14T14:37:18.113193+00:00",
+  "source_float64": {
+    "passed": 53,
+    "seconds": 3.32
+  },
+  "isolated_wheel_float32": {
+    "passed": 53,
+    "seconds": 3.345
+  },
+  "wheel_sha256": "be62959ed774e38f5d4430cc8f7a5ba43858fa33918bb6cbbbe0ce65be865ad2",
+  "wheel_bytes": 358153,
+  "packaged_python_files_checked": 81,
+  "wheel_matches_source": true,
+  "test_modules": [
+    "forecast_accuracy",
+    "default_model",
+    "sequence_collection",
+    "public_api"
+  ],
+  "full_suite_run": false,
+  "ruff_check": true,
+  "ruff_format": true,
+  "git_diff_check": true,
+  "preexisting_files_checked": 1322,
+  "preexisting_files_changed": [
+    "docs/README.md",
+    "docs/platform-onboarding.md"
+  ],
+  "figures_visually_inspected": [
+    "forecast-allowance.png"
+  ],
+  "audit": {
+    "cases": 7,
+    "forecast_arms": 27,
+    "scored_window_arm_pairs": 14999,
+    "numerical_comparisons": 782,
+    "maximum_absolute_difference": 2.0816681711721685e-17,
+    "original_forecast_hashes_verified": true,
+    "executed_sources_verified": true,
+    "scalar_recurrence_replayed_by_convolution": true,
+    "independent_trial_counts_verified": true,
+    "limitation": "Checks calculations from frozen arrays, not forecast accuracy against independent physical truth or control performance."
+  },
+  "numeric_replay_identical_after_contract_validation_changes": true,
+  "local_document_links_checked": 65
+}

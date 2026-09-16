@@ -1,0 +1,40 @@
+{
+  "tests": {
+    "source-pytest.xml": {
+      "name": "pytest",
+      "errors": "0",
+      "failures": "0",
+      "skipped": "0",
+      "tests": "50",
+      "time": "4.843",
+      "timestamp": "2026-09-14T13:29:17.007688-04:00",
+      "hostname": "Rylands-MacBook-Air.local"
+    },
+    "wheel-pytest.xml": {
+      "name": "pytest",
+      "errors": "0",
+      "failures": "0",
+      "skipped": "0",
+      "tests": "50",
+      "time": "4.791",
+      "timestamp": "2026-09-14T13:36:01.459424-04:00",
+      "hostname": "Rylands-MacBook-Air.local"
+    }
+  },
+  "source_x64": true,
+  "wheel_x64": false,
+  "ruff_check": "passed",
+  "ruff_format": "5 files already formatted",
+  "git_diff_check": "passed",
+  "existing_files_changed": [
+    "src/glassbox/experimental/default_model.py",
+    "docs/README.md"
+  ],
+  "new_library_module": "src/glassbox/experimental/sequence_diagnostics.py",
+  "preexisting_library_change": "Only the diagnose method was added; removing it reproduces the starting default_model.py byte for byte. Other 80 preexisting library files unchanged.",
+  "changed_since_execution": [
+    "tests/test_sequence_diagnostics.py"
+  ],
+  "test_source_changes": "Replace removed NumPy row_stack alias with vstack, exercise both ridge solve branches, and add segment-gap coverage. No experiment or numerical library change.",
+  "coverage_limit": "Focused tests, small synthetic examples, no full repository suite or real-system diagnostic validation."
+}

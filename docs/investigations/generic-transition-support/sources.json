@@ -1,0 +1,6 @@
+{
+  "scripts/experiment_transition_support.py": "d84902c127337a19c559e8dbcebd3a0096ac3af07121c88479f8ae6843b5f2c9",
+  "src/glassbox/experimental/transition_gp.py": "6654a6215b9e8d971fa94982ea355238d2f19af590e17b837b0b6e6e822d0a9e",
+  "src/glassbox/experimental/__init__.py": "51f463d0d49c41f3ba362d1622626453a03b1ed04d28f873865a22f525a4602e",
+  "tests/test_transition_gp.py": "054a24de2eaa18e37ddc8be492a712dfcc698c0a61f493ae8fb78a32c0bcf00e"
+}

@@ -1,0 +1,85 @@
+{
+  "created_utc": "2026-09-14T16:25:29.074175+00:00",
+  "purpose": "Platform-neutral synthetic falsification of command-response identification, observation-history sufficiency, and equivalent encodings. No vehicle or controller trials.",
+  "recipe": {
+    "id": "generic-history-v1-prototype",
+    "kind": "delay_mlp",
+    "width": 32,
+    "history_s": 0.1,
+    "horizon_s": 0.25,
+    "training_windows": 384,
+    "development_windows": 256,
+    "steps": 1000,
+    "batch_size": 64,
+    "learning_rate": 0.002,
+    "ridge_fraction": 0.01,
+    "seed": 0,
+    "check_every": 100,
+    "hold_scale_floor": 0.01
+  },
+  "dataset_seeds": [
+    101,
+    202,
+    303
+  ],
+  "calibration_recordings": 8,
+  "steps_per_recording": 160,
+  "dt_s": 0.05,
+  "evaluation_recordings": 4,
+  "evaluation_origin_stride": 5,
+  "experiments": {
+    "command_response": {
+      "a": 1.08,
+      "b": 0.2,
+      "feedback_gain": -0.5,
+      "excitation_uniform_half_widths": [
+        0.0,
+        0.02,
+        0.25
+      ],
+      "query_first_command_offsets": [
+        -0.05,
+        0.05
+      ],
+      "common_histories": "reserved unexcited feedback recordings",
+      "alternative_b_witnesses": [
+        0.05,
+        0.2,
+        0.5
+      ]
+    },
+    "hidden_memory": {
+      "output_decay": 0.8,
+      "input_gain": 0.2,
+      "input_delay_steps": 3,
+      "input_distribution": "independent uniform[-1,1]",
+      "indistinguishable_probe": "opposite inputs three intervals before origin; supplied last two commands and three observations equal"
+    },
+    "encoding": {
+      "system": "two-dimensional smooth nonlinear driven recurrence, specified in source before fitting",
+      "variants": [
+        "identity",
+        "units_offset",
+        "orthogonal",
+        "permuted",
+        "duplicate_first"
+      ],
+      "state_unit_scales": [
+        1000.0,
+        0.001
+      ],
+      "state_offsets": [
+        100.0,
+        -3.0
+      ],
+      "input_unit_scales": [
+        0.1,
+        100.0
+      ],
+      "rotation_rad": 0.73,
+      "extra_first_channel_copies": 6
+    }
+  },
+  "selection": "No recipe changes, no hyperparameter search, all 27 planned fits reported, including failures.",
+  "interpretation": "Three synthetic data replications are not platform validation, confidence bounds, or proof of a unique cause of the previous Cascade failure. The history counterexample is constructed; encoding results are measured after decoding to the same coordinates."
+}

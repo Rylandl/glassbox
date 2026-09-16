@@ -45,7 +45,7 @@ class PredictiveTrajectory:
     latent_states: Array
     commands: Array
     forecast_error_covariance: Array
-    parameter_covariance: Array
+    parameter_covariance: Array | None
     validity_utilization: Array
     forecast_error_available: bool
     forecast_error_horizon_supported: bool
@@ -55,7 +55,10 @@ class PredictiveTrajectory:
 
     @property
     def uncertainty_available(self) -> bool:
-        return self.forecast_error_available or self.parameter_information_rank > 0
+        return self.forecast_error_available or (
+            self.parameter_covariance is not None
+            and self.parameter_information_rank > 0
+        )
 
 
 @dataclass(frozen=True)
@@ -251,12 +254,20 @@ class DynamicsBelief:
         command_history: Array | None = None,
         initial_latent_state: Array | None = None,
         exogenous: Array | None = None,
+        propagate_parameter_covariance: bool = True,
     ) -> PredictiveTrajectory:
         """Roll out the model and attach the covariances the belief supports.
 
         Concrete commands and command history must lie within the declared
         channel bounds; see ``commands_within_declared_bounds``.
+        Set ``propagate_parameter_covariance=False`` for mean-only scoring. The
+        returned parameter covariance is then explicitly ``None``; parameter
+        rank and completeness still describe the belief's information. Empirical
+        forecast error is retained. The default propagates both evidence sources.
         """
+
+        if not isinstance(propagate_parameter_covariance, bool):
+            raise TypeError("propagate_parameter_covariance must be a bool")
 
         commands = jnp.asarray(commands)
         if commands.ndim != 2 or commands.shape[1] != self.model.command_size:
@@ -305,14 +316,18 @@ class DynamicsBelief:
             1, len(commands) + 1
         )
         forecast_covariance = jax.vmap(self.error_covariance)(horizons)
-        parameter_covariance = self._parameter_covariance(
-            selected_parameters,
-            initial_state,
-            commands,
-            history,
-            provided_latent,
-            exogenous,
-            future_states,
+        parameter_covariance = (
+            self._parameter_covariance(
+                selected_parameters,
+                initial_state,
+                commands,
+                history,
+                provided_latent,
+                exogenous,
+                future_states,
+            )
+            if propagate_parameter_covariance
+            else None
         )
         zero = jnp.zeros((1, TANGENT_STATE_SIZE, TANGENT_STATE_SIZE))
         initial_context = exogenous[0]
@@ -331,7 +346,11 @@ class DynamicsBelief:
             latent_states=latent_states,
             commands=commands,
             forecast_error_covariance=jnp.concatenate((zero, forecast_covariance)),
-            parameter_covariance=jnp.concatenate((zero, parameter_covariance)),
+            parameter_covariance=(
+                None
+                if parameter_covariance is None
+                else jnp.concatenate((zero, parameter_covariance))
+            ),
             validity_utilization=validity,
             forecast_error_available=self.forecast_error is not None,
             forecast_error_horizon_supported=(

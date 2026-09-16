@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import jax
 import jax.numpy as jnp
@@ -331,14 +331,75 @@ def test_runtime_rebinds_only_compatible_finite_parameter_numerics(
         runtime.rebind_parameters(params._replace(log_linear_drag=jnp.asarray(np.nan)))
 
 
-def test_direct_actuation_requires_complete_command_bounds() -> None:
+@pytest.mark.parametrize("semantic", ["normalized_command", "surface_angle_command"])
+def test_direct_actuation_requires_complete_command_bounds(semantic) -> None:
     channel = Channel(
         name="command",
         role="command",
-        semantic="normalized_command",
+        semantic=semantic,
         unit="1",
         kind="control",
     )
 
     with pytest.raises(NonActionableModelError, match="finite bounds"):
         DirectActuationMap((channel,))
+
+
+@pytest.mark.parametrize("requested", [True, False])
+def test_surface_angles_keep_requested_and_measured_semantics_distinct(
+    requested, fixedwing_flight, tmp_path
+):
+    from glassbox.core.fixedwing_synthetic import true_fixed_wing_parameters
+    from glassbox.workflows.refinement import ModelRefiner
+
+    flight = fixedwing_flight(17, 0.2)
+    channels = tuple(
+        channel
+        if channel.role == "throttle"
+        else replace(
+            channel,
+            semantic="surface_angle_command"
+            if requested
+            else "generalized_surface_angle",
+            unit="rad",
+            minimum=-0.35,
+            maximum=0.35,
+        )
+        for channel in flight.spec.controls
+    )
+    model = ExecutableModel(
+        true_fixed_wing_parameters(),
+        replace(flight.spec, channels=channels),
+        runtime_spec_from_trajectory(flight),
+    )
+    belief = DynamicsBelief(model)
+    path = tmp_path / "angles.json"
+    belief.save(path)
+    restored = DynamicsBelief.load(path)
+    assert restored.input_spec.controls == channels
+    if not requested:
+        assert restored.model.actuation is None
+        with pytest.raises(NonActionableModelError, match="no command space"):
+            restored.model.initial_latent_state(flight.controls[:1])
+        with pytest.raises(ValueError, match="direct command model"):
+            ModelRefiner(restored)
+        return
+    assert isinstance(restored.model.actuation, DirectActuationMap)
+    ModelRefiner(restored)
+    commands = np.array([[0.4, 0.12, -0.08, 0.04]] * 3)
+    prediction = restored.rollout(
+        flight.states[0],
+        commands,
+        command_history=commands[:1],
+        propagate_parameter_covariance=False,
+    )
+    np.testing.assert_allclose(prediction.commands, commands, rtol=1e-7)
+    original = belief.rollout(
+        flight.states[0],
+        commands,
+        command_history=commands[:1],
+        propagate_parameter_covariance=False,
+    )
+    # Physical coefficients round-trip through exp/log in the JSON codec.
+    np.testing.assert_allclose(prediction.states, original.states, rtol=1e-6, atol=1e-9)
+    assert np.isfinite(prediction.states).all()

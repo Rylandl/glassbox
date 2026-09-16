@@ -1,0 +1,50 @@
+{
+  "source_suite": {
+    "name": "pytest",
+    "errors": "0",
+    "failures": "0",
+    "skipped": "0",
+    "tests": "58",
+    "time": "16.162",
+    "timestamp": "2026-09-14T13:56:16.693963-04:00",
+    "hostname": "Rylands-MacBook-Air.local"
+  },
+  "x64": true,
+  "ruff_check": "passed",
+  "ruff_format": "4 files already formatted",
+  "git_diff_check": "passed",
+  "unchanged_library_python_files": 82,
+  "changed_preexisting_files": [
+    "docs/README.md",
+    "docs/sequence-diagnostics.md"
+  ],
+  "changes_since_executed_snapshots": {
+    "comparison-01": [
+      "tests/test_history_confounding.py"
+    ],
+    "objective-comparison-01": []
+  },
+  "test_only_change": "Two additive tests for pooled horizon scale and unit invariance were added after diagnostic execution and before ablation execution.",
+  "diagnostic_audit": {
+    "cases": 12,
+    "windows": 5280,
+    "auxiliary_refits": 432,
+    "markov_transition_witness_checks": 2304,
+    "numeric_comparisons": 5964,
+    "max_absolute_difference": 2.365108109358971e-12,
+    "relative_tolerance": 1e-07,
+    "absolute_tolerance": 1e-09,
+    "method": "Source/model hashes; regenerated and independently indexed windows; analytic Markov identities; independent NumPy prediction replay; whole-recording folds/donor exclusions; train-only normalization and additive powers; augmented least-squares fits and per-channel/per-recording scoring.",
+    "limits": "Shares data generators, artifact loader, and the prior independent NumPy replay/least-squares code. Audits the new residual-basis comparisons; v1 input-predictability regressions are unchanged and were audited in the earlier investigation."
+  },
+  "ablation_audit": {
+    "cases": 9,
+    "evaluation_windows": 4272,
+    "numeric_comparisons": 189,
+    "max_absolute_difference": 1.7763568394002505e-15,
+    "checks": "Regenerated evaluation histories/targets/provenance, paired NumPy model replay, all horizon/channel scores, train-only pooled scales, preserved model normalization, baseline hashes, candidate fingerprints, development loss and checkpoint selection.",
+    "limits": "Shares frozen generators and prior NumPy rollout. Does not independently repeat the optimizer; the experiment uses identical saved calibration caches and changes only error scaling."
+  },
+  "checks_not_run": "No full repository suite or new wheel build; library sources are unchanged.",
+  "publication_state": "Research candidate only. Default learner and diagnostic recipes unchanged."
+}

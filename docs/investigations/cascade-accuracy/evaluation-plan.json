@@ -1,0 +1,116 @@
+{
+  "frozen_utc": "2026-09-14T15:45:00.263855+00:00",
+  "controller": {
+    "horizon_steps": 5,
+    "lookahead_s": 1.5,
+    "position_scale_m": 0.5,
+    "forward_speed_scale_m_s": 2.0,
+    "rate_weight": 0.1,
+    "rotation_weight": 0.2,
+    "command_weight": 0.03,
+    "command_change_weight": 0.05,
+    "damping": 0.001,
+    "iterations": 3,
+    "line_search": [
+      1.0,
+      0.5,
+      0.25,
+      0.0
+    ]
+  },
+  "arms": [
+    {
+      "name": "oracle",
+      "mix": 0.0,
+      "bias": 0.0,
+      "alternating": false
+    },
+    {
+      "name": "mix-025",
+      "mix": 0.25,
+      "bias": 0.0,
+      "alternating": false
+    },
+    {
+      "name": "mix-050",
+      "mix": 0.5,
+      "bias": 0.0,
+      "alternating": false
+    },
+    {
+      "name": "mix-075",
+      "mix": 0.75,
+      "bias": 0.0,
+      "alternating": false
+    },
+    {
+      "name": "learned",
+      "mix": 1.0,
+      "bias": 0.0,
+      "alternating": false
+    },
+    {
+      "name": "bias-0.1",
+      "mix": 0.0,
+      "bias": 0.1,
+      "alternating": false
+    },
+    {
+      "name": "alternating-0.1",
+      "mix": 0.0,
+      "bias": 0.1,
+      "alternating": true
+    },
+    {
+      "name": "bias-0.3",
+      "mix": 0.0,
+      "bias": 0.3,
+      "alternating": false
+    },
+    {
+      "name": "alternating-0.3",
+      "mix": 0.0,
+      "bias": 0.3,
+      "alternating": true
+    },
+    {
+      "name": "bias-0.6",
+      "mix": 0.0,
+      "bias": 0.6,
+      "alternating": false
+    },
+    {
+      "name": "alternating-0.6",
+      "mix": 0.0,
+      "bias": 0.6,
+      "alternating": true
+    }
+  ],
+  "learner_recipe": {
+    "id": "generic-history-v1-prototype",
+    "kind": "delay_mlp",
+    "width": 32,
+    "history_s": 0.1,
+    "horizon_s": 0.25,
+    "training_windows": 384,
+    "development_windows": 256,
+    "steps": 1000,
+    "batch_size": 64,
+    "learning_rate": 0.002,
+    "ridge_fraction": 0.01,
+    "seed": 0,
+    "check_every": 100,
+    "hold_scale_floor": 0.01
+  },
+  "initial_condition_seeds": [
+    101,
+    102,
+    103
+  ],
+  "development_seed": 0,
+  "controller_development_report_sha256": "3ba3243e777bf5e5108f5b7ed4359e55d942e4498ddb79b14c219d2732942f95",
+  "design_plan_sha256": "56859550cf72a230237ec939b74e0b88f2005be921fd7a964bde738a6a34cf9f",
+  "measurement": "Joint cross-track and altitude absolute errors <=0.5m for >=95% post-settling (t>=2s) 20Hz samples of each 16s trial. All truncated future intervals fail.",
+  "accuracy": "Common reserved-recording 50..250ms velocity/rate forecast RMSE and actual on-policy one-step residuals. Artificial perturbations are not physical models.",
+  "limits": "Known equilibrium reset, truth rigid-body observations, zero wind, observed initial perturbations only; offline fixed-time simulation. Forecast positions use the same trapezoid velocity integration in all controller arms, without changing either dynamics predictor. Generic rotation predictions are not projected onto SO(3)."
+}

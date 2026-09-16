@@ -5,9 +5,25 @@ It provides rollout prediction, evaluation against declared baselines, and
 incremental parameter updates, with PX4 ingestion and adapters for public
 flight datasets.
 
+The platform-level goal is to reduce the calibration and engineering effort
+needed to bring a new airframe or hardware revision into a shared control and
+autonomy workflow. Glassbox delivers the model and its evidence; downstream
+applications supply behaviors. This is an onboarding objective, with the
+current evidence recorded in the validation results below.
+
 A `DynamicsBelief` combines the executable model, local parameter information,
 and measured forecast error. Start with the workflow below; [scope](docs/scope.md)
 describes the design and [validation](docs/validation.md) records the results.
+The [platform onboarding proposal](docs/platform-onboarding.md) describes the
+next interface improvements and how to evaluate them.
+
+The intended experience is an opinionated fit, predict, and update workflow.
+Start with `fit(telemetry)` and its defaults. Model architecture, feature
+representations, regularization, and model-selection policies belong to the
+maintained learning recipe. The research investigations explore those choices;
+they are not a configuration guide for onboarding a platform. The
+[design contract](docs/scope.md#opinionated-onboarding) distinguishes this target
+from the current structured models and experimental generic learners.
 
 ## Install
 
@@ -43,22 +59,24 @@ uv run glassbox fit flights/*.npz \
   --model artifacts/belief.json --report artifacts/report.json
 ```
 
-The same fit in Python, where the belief is the return value rather than a
-file. `parameter_evidence` additionally accumulates the fit's own one-step
-information, so the belief starts with a resolved rank instead of at zero:
+The same fit in Python returns a belief directly. The defaults include
+accumulating parameter information from the fitted data:
 
 ```python
 from pathlib import Path
 
-from glassbox import FitSpec, fit
+from glassbox import fit
 
-outcome = fit(
-    sorted(Path("flights").glob("*.npz")),
-    FitSpec(parameter_evidence=True),
-)
+outcome = fit(sorted(Path("flights").glob("*.npz")))
 belief = outcome.belief
 belief.save("artifacts/belief.json")
 ```
+
+`fit` also accepts `Trajectory` objects directly, or a mixture of trajectories
+and paths. Arrays use the same coordinator, holdout rules, and evidence
+calculation as files. The [onboarding walkthrough](docs/guides/platform-onboarding.md)
+runs fit, independent evaluation, prediction, and an update for both families
+without writing calibration trajectories to disk.
 
 Evaluate on a separate set of flights reserved for this comparison:
 
@@ -82,10 +100,18 @@ print(update.absorbed, update.window_count, update.information_gain_nats)
 
 See [dynamics beliefs](docs/concepts/dynamics-beliefs.md) for the evidence and
 update API, and [NMPC](docs/concepts/nmpc.md) for using a belief in control.
+The experimental [streaming replay](docs/guides/platform-onboarding.md#streaming-refinement)
+scores each fresh telemetry block before learning, keeps the active model pinned,
+and lets the application adopt a previously evaluated revision explicitly.
+The [live refinement experiment](docs/streaming-refinement.md) runs that learner
+beside simulated tracking with bounded telemetry queues and prepared controller
+handoffs, comparing frozen and adopting models for both families.
+The [Cascade follow-up](docs/cascade-refinement.md) tests the same workflow on
+independently implemented Skywalker X8 dynamics.
 
 ## The `glassbox` command
 
-Every workflow lives behind one console command. `glassbox --help` lists the
+The command-line workflows share one console command. `glassbox --help` lists the
 whole tree, and every leaf prints its own flags with `--help`.
 
 ```text

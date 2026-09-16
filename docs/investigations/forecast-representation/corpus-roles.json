@@ -1,0 +1,9 @@
+{
+  "recordings": {
+    "log10": "train",
+    "log15": "development",
+    "log16": "evaluation"
+  },
+  "selection": "Roles selected by ascending recording filename before decoding; evaluation predictions remain reserved until representation recipe and selector are frozen.",
+  "source_commit": "2d267dd07b4262f579ee223d20b26a6dc9d17147"
+}

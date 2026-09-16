@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -996,6 +997,78 @@ def load_trajectory_npz(path: str | Path) -> Trajectory:
                 archive["control_prefix"] if "control_prefix" in archive else None
             ),
         )
+
+
+def resolve_trajectory_sources(
+    sources: Sequence[Trajectory | str | Path],
+) -> tuple[list[str], list[Trajectory]]:
+    """Resolve arrays and files, retaining caller-facing source labels.
+
+    File labels preserve the supplied path, without resolving symlinks.
+    In-memory labels use provenance's path or a positional display name.
+    Neither kind of label establishes content identity or independence.
+    Disambiguate in-memory labels so report dictionaries cannot lose a flight.
+    """
+
+    if not sources:
+        raise ValueError("at least one trajectory is required")
+    file_labels = {str(Path(item)) for item in sources if isinstance(item, (str, Path))}
+    labels: list[str] = []
+    trajectories: list[Trajectory] = []
+    for index, item in enumerate(sources):
+        if isinstance(item, Trajectory):
+            label = str(Path(str(item.provenance.get("path", f"trajectory_{index}"))))
+            base = label
+            suffix = index
+            while label in file_labels or label in labels:
+                label = f"{base} [source {suffix}]"
+                suffix += 1
+            trajectory = item
+        elif isinstance(item, (str, Path)):
+            label = str(Path(item))
+            trajectory = load_trajectory_npz(item)
+        else:
+            raise TypeError(f"source {index} must be a Trajectory, str, or Path")
+        labels.append(label)
+        trajectories.append(trajectory)
+    return labels, trajectories
+
+
+def trajectory_content_digest(trajectory: Trajectory) -> str:
+    """SHA-256 of canonical arrays and signal contract (trajectory_sha256_v1).
+
+    Labels, provenance, storage paths, and NPZ compression are excluded.
+    Include prior commands because they affect actuator initialization.
+    Matching hashes detect exact content reuse; different hashes do not prove
+    that flights or segments are independent.
+    """
+
+    digest = hashlib.sha256(b"glassbox.trajectory_sha256_v1\0")
+    # Apply the same scalar normalization as artifact loading (for example,
+    # Channel(minimum=0) and a loaded minimum=0.0 have the same contract).
+    canonical_spec = TrajectorySpec.from_dict(trajectory.spec.to_dict())
+    digest.update(
+        json.dumps(
+            canonical_spec.to_dict(), sort_keys=True, separators=(",", ":")
+        ).encode("utf-8")
+    )
+    for name in (
+        "time_s",
+        "states",
+        "controls",
+        "exogenous",
+        "observations",
+        "control_prefix",
+    ):
+        digest.update(b"\0" + name.encode("ascii") + b"\0")
+        value = getattr(trajectory, name)
+        if value is None:
+            digest.update(b"none")
+        else:
+            array = np.asarray(value, dtype="<f8", order="C")
+            digest.update(json.dumps(array.shape).encode("ascii") + b"\0")
+            digest.update(array.tobytes(order="C"))
+    return digest.hexdigest()
 
 
 def trajectory_segment(

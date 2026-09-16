@@ -1,0 +1,480 @@
+{
+  "command-0.0": {
+    "input_affine_remaining_rms_fraction": {
+      "minimum": [
+        0.00019996000799799284
+      ],
+      "maximum": [
+        0.00019996000799870508
+      ]
+    },
+    "input_quadratic_remaining_rms_fraction": {
+      "minimum": [
+        0.0003053887805060163
+      ],
+      "maximum": [
+        0.0007656552069068352
+      ]
+    },
+    "extended_history_mse_reduction": {
+      "minimum": [
+        -5.866199394932714e-05
+      ],
+      "maximum": [
+        1.5629962003438358e-05
+      ]
+    },
+    "replacement_history_mse_reduction": {
+      "minimum": [
+        -0.04782601907653383
+      ],
+      "maximum": [
+        -0.00046914952966292667
+      ]
+    },
+    "model_rms": {
+      "minimum": [
+        2.1179403543740972e-08
+      ],
+      "maximum": [
+        2.965997412566172e-07
+      ]
+    },
+    "after_short_rms": {
+      "minimum": [
+        1.920916663668079e-08
+      ],
+      "maximum": [
+        1.5559983826085244e-07
+      ]
+    },
+    "after_extended_rms": {
+      "minimum": [
+        1.920901651682187e-08
+      ],
+      "maximum": [
+        1.555998674182239e-07
+      ]
+    }
+  },
+  "command-0.02": {
+    "input_affine_remaining_rms_fraction": {
+      "minimum": [
+        0.056195694552742016
+      ],
+      "maximum": [
+        0.0900318736415165
+      ]
+    },
+    "input_quadratic_remaining_rms_fraction": {
+      "minimum": [
+        0.0563039376600382
+      ],
+      "maximum": [
+        0.08963577160788853
+      ]
+    },
+    "extended_history_mse_reduction": {
+      "minimum": [
+        -0.006077236967007016
+      ],
+      "maximum": [
+        -0.0008843201648915944
+      ]
+    },
+    "replacement_history_mse_reduction": {
+      "minimum": [
+        -0.013357307234695748
+      ],
+      "maximum": [
+        -0.005480802484737923
+      ]
+    },
+    "model_rms": {
+      "minimum": [
+        3.679362820043923e-06
+      ],
+      "maximum": [
+        6.7938407184904395e-06
+      ]
+    },
+    "after_short_rms": {
+      "minimum": [
+        2.5557131556072383e-06
+      ],
+      "maximum": [
+        5.710664079771486e-06
+      ]
+    },
+    "after_extended_rms": {
+      "minimum": [
+        2.563467229848296e-06
+      ],
+      "maximum": [
+        5.713188549485283e-06
+      ]
+    }
+  },
+  "command-0.25": {
+    "input_affine_remaining_rms_fraction": {
+      "minimum": [
+        0.5577049105927875
+      ],
+      "maximum": [
+        0.7390988933012479
+      ]
+    },
+    "input_quadratic_remaining_rms_fraction": {
+      "minimum": [
+        0.5640516145346091
+      ],
+      "maximum": [
+        0.7438877445974094
+      ]
+    },
+    "extended_history_mse_reduction": {
+      "minimum": [
+        -0.0019249867954360678
+      ],
+      "maximum": [
+        -0.0012704583271696546
+      ]
+    },
+    "replacement_history_mse_reduction": {
+      "minimum": [
+        -0.019900992724267486
+      ],
+      "maximum": [
+        -0.0015311470982359854
+      ]
+    },
+    "model_rms": {
+      "minimum": [
+        4.4324114227434885e-06
+      ],
+      "maximum": [
+        1.0388531397980103e-05
+      ]
+    },
+    "after_short_rms": {
+      "minimum": [
+        2.2394914122371757e-06
+      ],
+      "maximum": [
+        6.023912319225266e-06
+      ]
+    },
+    "after_extended_rms": {
+      "minimum": [
+        2.241158917283858e-06
+      ],
+      "maximum": [
+        6.029707507486599e-06
+      ]
+    }
+  },
+  "cubic_policy": {
+    "input_affine_remaining_rms_fraction": {
+      "minimum": [
+        0.3801492060922393
+      ],
+      "maximum": [
+        0.41698565824165146
+      ]
+    },
+    "input_quadratic_remaining_rms_fraction": {
+      "minimum": [
+        0.386702837716132
+      ],
+      "maximum": [
+        0.42141572412113704
+      ]
+    },
+    "extended_history_mse_reduction": {
+      "minimum": [
+        -0.018815793897049904
+      ],
+      "maximum": [
+        -0.0008639789619364624
+      ]
+    },
+    "replacement_history_mse_reduction": {
+      "minimum": [
+        -0.025342566798239874
+      ],
+      "maximum": [
+        -0.006394419041728883
+      ]
+    },
+    "model_rms": {
+      "minimum": [
+        0.580414042968476
+      ],
+      "maximum": [
+        0.5937650282871655
+      ]
+    },
+    "after_short_rms": {
+      "minimum": [
+        0.5870329001407979
+      ],
+      "maximum": [
+        0.6024432757460386
+      ]
+    },
+    "after_extended_rms": {
+      "minimum": [
+        0.5905243591507066
+      ],
+      "maximum": [
+        0.6056073274732091
+      ]
+    }
+  },
+  "encoding-identity": {
+    "input_affine_remaining_rms_fraction": {
+      "minimum": [
+        0.7104420593189289,
+        0.7171739055840953
+      ],
+      "maximum": [
+        0.7354914321335274,
+        0.7568403893317196
+      ]
+    },
+    "input_quadratic_remaining_rms_fraction": {
+      "minimum": [
+        0.7305886388142615,
+        0.7567728926668139
+      ],
+      "maximum": [
+        0.7467767096326867,
+        0.7855658616320099
+      ]
+    },
+    "extended_history_mse_reduction": {
+      "minimum": [
+        -0.023728529473227455,
+        -0.04994799813424633
+      ],
+      "maximum": [
+        -0.004595770575757108,
+        -0.00504585565675697
+      ]
+    },
+    "replacement_history_mse_reduction": {
+      "minimum": [
+        -0.017243809931347664,
+        -0.025147194951915086
+      ],
+      "maximum": [
+        0.008080370604102272,
+        -0.012932069273516644
+      ]
+    },
+    "model_rms": {
+      "minimum": [
+        0.0015503602795726064,
+        0.00011428378184485603
+      ],
+      "maximum": [
+        0.0017119276532393886,
+        0.00019756027328962926
+      ]
+    },
+    "after_short_rms": {
+      "minimum": [
+        0.001531444817228698,
+        0.00010139667408727896
+      ],
+      "maximum": [
+        0.0017193742973791483,
+        0.00015606682859204202
+      ]
+    },
+    "after_extended_rms": {
+      "minimum": [
+        0.0015349598677814082,
+        0.00010186595470377205
+      ],
+      "maximum": [
+        0.0017284424844379572,
+        0.00015876539777001143
+      ]
+    }
+  },
+  "memory-hidden": {
+    "input_affine_remaining_rms_fraction": {
+      "minimum": [
+        1.0048642573948552
+      ],
+      "maximum": [
+        1.0109167198857643
+      ]
+    },
+    "input_quadratic_remaining_rms_fraction": {
+      "minimum": [
+        1.0084667177134539
+      ],
+      "maximum": [
+        1.0591568377095066
+      ]
+    },
+    "extended_history_mse_reduction": {
+      "minimum": [
+        0.9534712441210816
+      ],
+      "maximum": [
+        0.9610023423563269
+      ]
+    },
+    "replacement_history_mse_reduction": {
+      "minimum": [
+        -0.012819293991594316
+      ],
+      "maximum": [
+        -0.002071406656797059
+      ]
+    },
+    "model_rms": {
+      "minimum": [
+        0.1269271763836598
+      ],
+      "maximum": [
+        0.14116672493405946
+      ]
+    },
+    "after_short_rms": {
+      "minimum": [
+        0.11872851538690762
+      ],
+      "maximum": [
+        0.1245612619917358
+      ]
+    },
+    "after_extended_rms": {
+      "minimum": [
+        0.023907463313076065
+      ],
+      "maximum": [
+        0.025610364369244985
+      ]
+    }
+  },
+  "process_noise": {
+    "input_affine_remaining_rms_fraction": {
+      "minimum": [
+        1.0038482305404388
+      ],
+      "maximum": [
+        1.0110513083137418
+      ]
+    },
+    "input_quadratic_remaining_rms_fraction": {
+      "minimum": [
+        1.0219178799471618
+      ],
+      "maximum": [
+        1.0269226926768666
+      ]
+    },
+    "extended_history_mse_reduction": {
+      "minimum": [
+        -0.017521858012754965
+      ],
+      "maximum": [
+        -0.00017577474268337667
+      ]
+    },
+    "replacement_history_mse_reduction": {
+      "minimum": [
+        -0.009682636113455212
+      ],
+      "maximum": [
+        -0.002250834364496912
+      ]
+    },
+    "model_rms": {
+      "minimum": [
+        0.10110357686344812
+      ],
+      "maximum": [
+        0.1045895063356572
+      ]
+    },
+    "after_short_rms": {
+      "minimum": [
+        0.10174355740749953
+      ],
+      "maximum": [
+        0.10515919710710846
+      ]
+    },
+    "after_extended_rms": {
+      "minimum": [
+        0.10263105472245103
+      ],
+      "maximum": [
+        0.10559204425641561
+      ]
+    }
+  },
+  "quadratic_policy": {
+    "input_affine_remaining_rms_fraction": {
+      "minimum": [
+        1.0025251629515097
+      ],
+      "maximum": [
+        1.0094733216353236
+      ]
+    },
+    "input_quadratic_remaining_rms_fraction": {
+      "minimum": [
+        0.001063108517419287
+      ],
+      "maximum": [
+        0.0010855735903435666
+      ]
+    },
+    "extended_history_mse_reduction": {
+      "minimum": [
+        -0.01872593513676768
+      ],
+      "maximum": [
+        0.005471518056962332
+      ]
+    },
+    "replacement_history_mse_reduction": {
+      "minimum": [
+        -0.013614313422970481
+      ],
+      "maximum": [
+        -0.009084785335730539
+      ]
+    },
+    "model_rms": {
+      "minimum": [
+        0.5807270412174663
+      ],
+      "maximum": [
+        0.5945843685515951
+      ]
+    },
+    "after_short_rms": {
+      "minimum": [
+        0.5856960209791293
+      ],
+      "maximum": [
+        0.598072828653524
+      ]
+    },
+    "after_extended_rms": {
+      "minimum": [
+        0.5840914999999609
+      ],
+      "maximum": [
+        0.6036465926914775
+      ]
+    }
+  }
+}

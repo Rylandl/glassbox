@@ -1,0 +1,2702 @@
+{
+  "nano/initial_balanced/development/1/velocity_rmse": {
+    "mean": 0.002371398844290476,
+    "minimum": 0.002292253808944065,
+    "maximum": 0.0024753312971089615
+  },
+  "nano/initial_balanced/development/1/rate_rmse": {
+    "mean": 0.012675812813521065,
+    "minimum": 0.012031000011187286,
+    "maximum": 0.013019217077767707
+  },
+  "nano/initial_balanced/development/1/rotation_rmse": {
+    "mean": 0.0004655400630448449,
+    "minimum": 0.00044289084821048317,
+    "maximum": 0.0004960612203952936
+  },
+  "nano/initial_balanced/development/10/velocity_rmse": {
+    "mean": 0.0641136490913622,
+    "minimum": 0.061553735375599244,
+    "maximum": 0.06638508807507781
+  },
+  "nano/initial_balanced/development/10/rate_rmse": {
+    "mean": 0.39410696108993504,
+    "minimum": 0.3800974225752326,
+    "maximum": 0.4080311637587643
+  },
+  "nano/initial_balanced/development/10/rotation_rmse": {
+    "mean": 0.040825054131135324,
+    "minimum": 0.03886336724299683,
+    "maximum": 0.04309096817973113
+  },
+  "nano/initial_balanced/development/25/velocity_rmse": {
+    "mean": 0.14905846563530586,
+    "minimum": 0.14332101140280598,
+    "maximum": 0.15221458049694556
+  },
+  "nano/initial_balanced/development/25/rate_rmse": {
+    "mean": 0.8528408776166847,
+    "minimum": 0.8361852736630287,
+    "maximum": 0.8795100809559194
+  },
+  "nano/initial_balanced/development/25/rotation_rmse": {
+    "mean": 0.1550291827323526,
+    "minimum": 0.15057198745768552,
+    "maximum": 0.1613939370185708
+  },
+  "nano/initial_balanced/evaluation/1/velocity_rmse": {
+    "mean": 0.0026021125975827157,
+    "minimum": 0.002257264813905385,
+    "maximum": 0.0029539117994901868
+  },
+  "nano/initial_balanced/evaluation/1/rate_rmse": {
+    "mean": 0.020800651778029738,
+    "minimum": 0.02022913140211321,
+    "maximum": 0.02134641701201739
+  },
+  "nano/initial_balanced/evaluation/1/rotation_rmse": {
+    "mean": 0.0006240103663220487,
+    "minimum": 0.0005984119505489986,
+    "maximum": 0.0006704234658077404
+  },
+  "nano/initial_balanced/evaluation/10/velocity_rmse": {
+    "mean": 0.07987443950450308,
+    "minimum": 0.07002510830925278,
+    "maximum": 0.08751092579871717
+  },
+  "nano/initial_balanced/evaluation/10/rate_rmse": {
+    "mean": 0.5288598437561326,
+    "minimum": 0.5194513510134801,
+    "maximum": 0.5343451225713333
+  },
+  "nano/initial_balanced/evaluation/10/rotation_rmse": {
+    "mean": 0.05915064020934322,
+    "minimum": 0.05239428712823967,
+    "maximum": 0.06737085974844013
+  },
+  "nano/initial_balanced/evaluation/25/velocity_rmse": {
+    "mean": 0.1975395733405582,
+    "minimum": 0.17747784537253003,
+    "maximum": 0.21514047323719065
+  },
+  "nano/initial_balanced/evaluation/25/rate_rmse": {
+    "mean": 0.9714700452924041,
+    "minimum": 0.9559307601042603,
+    "maximum": 0.999787751272799
+  },
+  "nano/initial_balanced/evaluation/25/rotation_rmse": {
+    "mean": 0.1809103700842066,
+    "minimum": 0.17500473298015928,
+    "maximum": 0.1900814497335847
+  },
+  "nano/initial_guarded/development/1/velocity_rmse": {
+    "mean": 0.002371398844290476,
+    "minimum": 0.002292253808944065,
+    "maximum": 0.0024753312971089615
+  },
+  "nano/initial_guarded/development/1/rate_rmse": {
+    "mean": 0.012675812813521065,
+    "minimum": 0.012031000011187286,
+    "maximum": 0.013019217077767707
+  },
+  "nano/initial_guarded/development/1/rotation_rmse": {
+    "mean": 0.0004655400630448449,
+    "minimum": 0.00044289084821048317,
+    "maximum": 0.0004960612203952936
+  },
+  "nano/initial_guarded/development/10/velocity_rmse": {
+    "mean": 0.0641136490913622,
+    "minimum": 0.061553735375599244,
+    "maximum": 0.06638508807507781
+  },
+  "nano/initial_guarded/development/10/rate_rmse": {
+    "mean": 0.39410696108993504,
+    "minimum": 0.3800974225752326,
+    "maximum": 0.4080311637587643
+  },
+  "nano/initial_guarded/development/10/rotation_rmse": {
+    "mean": 0.040825054131135324,
+    "minimum": 0.03886336724299683,
+    "maximum": 0.04309096817973113
+  },
+  "nano/initial_guarded/development/25/velocity_rmse": {
+    "mean": 0.14905846563530586,
+    "minimum": 0.14332101140280598,
+    "maximum": 0.15221458049694556
+  },
+  "nano/initial_guarded/development/25/rate_rmse": {
+    "mean": 0.8528408776166847,
+    "minimum": 0.8361852736630287,
+    "maximum": 0.8795100809559194
+  },
+  "nano/initial_guarded/development/25/rotation_rmse": {
+    "mean": 0.1550291827323526,
+    "minimum": 0.15057198745768552,
+    "maximum": 0.1613939370185708
+  },
+  "nano/initial_guarded/evaluation/1/velocity_rmse": {
+    "mean": 0.0026021125975827157,
+    "minimum": 0.002257264813905385,
+    "maximum": 0.0029539117994901868
+  },
+  "nano/initial_guarded/evaluation/1/rate_rmse": {
+    "mean": 0.020800651778029738,
+    "minimum": 0.02022913140211321,
+    "maximum": 0.02134641701201739
+  },
+  "nano/initial_guarded/evaluation/1/rotation_rmse": {
+    "mean": 0.0006240103663220487,
+    "minimum": 0.0005984119505489986,
+    "maximum": 0.0006704234658077404
+  },
+  "nano/initial_guarded/evaluation/10/velocity_rmse": {
+    "mean": 0.07987443950450308,
+    "minimum": 0.07002510830925278,
+    "maximum": 0.08751092579871717
+  },
+  "nano/initial_guarded/evaluation/10/rate_rmse": {
+    "mean": 0.5288598437561326,
+    "minimum": 0.5194513510134801,
+    "maximum": 0.5343451225713333
+  },
+  "nano/initial_guarded/evaluation/10/rotation_rmse": {
+    "mean": 0.05915064020934322,
+    "minimum": 0.05239428712823967,
+    "maximum": 0.06737085974844013
+  },
+  "nano/initial_guarded/evaluation/25/velocity_rmse": {
+    "mean": 0.1975395733405582,
+    "minimum": 0.17747784537253003,
+    "maximum": 0.21514047323719065
+  },
+  "nano/initial_guarded/evaluation/25/rate_rmse": {
+    "mean": 0.9714700452924041,
+    "minimum": 0.9559307601042603,
+    "maximum": 0.999787751272799
+  },
+  "nano/initial_guarded/evaluation/25/rotation_rmse": {
+    "mean": 0.1809103700842066,
+    "minimum": 0.17500473298015928,
+    "maximum": 0.1900814497335847
+  },
+  "nano/initial_linear_history/development/1/velocity_rmse": {
+    "mean": 0.002371398844290476,
+    "minimum": 0.002292253808944065,
+    "maximum": 0.0024753312971089615
+  },
+  "nano/initial_linear_history/development/1/rate_rmse": {
+    "mean": 0.012675812813521065,
+    "minimum": 0.012031000011187286,
+    "maximum": 0.013019217077767707
+  },
+  "nano/initial_linear_history/development/1/rotation_rmse": {
+    "mean": 0.0004655400630448449,
+    "minimum": 0.00044289084821048317,
+    "maximum": 0.0004960612203952936
+  },
+  "nano/initial_linear_history/development/10/velocity_rmse": {
+    "mean": 0.0641136490913622,
+    "minimum": 0.061553735375599244,
+    "maximum": 0.06638508807507781
+  },
+  "nano/initial_linear_history/development/10/rate_rmse": {
+    "mean": 0.39410696108993504,
+    "minimum": 0.3800974225752326,
+    "maximum": 0.4080311637587643
+  },
+  "nano/initial_linear_history/development/10/rotation_rmse": {
+    "mean": 0.040825054131135324,
+    "minimum": 0.03886336724299683,
+    "maximum": 0.04309096817973113
+  },
+  "nano/initial_linear_history/development/25/velocity_rmse": {
+    "mean": 0.14905846563530586,
+    "minimum": 0.14332101140280598,
+    "maximum": 0.15221458049694556
+  },
+  "nano/initial_linear_history/development/25/rate_rmse": {
+    "mean": 0.8528408776166847,
+    "minimum": 0.8361852736630287,
+    "maximum": 0.8795100809559194
+  },
+  "nano/initial_linear_history/development/25/rotation_rmse": {
+    "mean": 0.1550291827323526,
+    "minimum": 0.15057198745768552,
+    "maximum": 0.1613939370185708
+  },
+  "nano/initial_linear_history/evaluation/1/velocity_rmse": {
+    "mean": 0.0026021125975827157,
+    "minimum": 0.002257264813905385,
+    "maximum": 0.0029539117994901868
+  },
+  "nano/initial_linear_history/evaluation/1/rate_rmse": {
+    "mean": 0.020800651778029738,
+    "minimum": 0.02022913140211321,
+    "maximum": 0.02134641701201739
+  },
+  "nano/initial_linear_history/evaluation/1/rotation_rmse": {
+    "mean": 0.0006240103663220487,
+    "minimum": 0.0005984119505489986,
+    "maximum": 0.0006704234658077404
+  },
+  "nano/initial_linear_history/evaluation/10/velocity_rmse": {
+    "mean": 0.07987443950450308,
+    "minimum": 0.07002510830925278,
+    "maximum": 0.08751092579871717
+  },
+  "nano/initial_linear_history/evaluation/10/rate_rmse": {
+    "mean": 0.5288598437561326,
+    "minimum": 0.5194513510134801,
+    "maximum": 0.5343451225713333
+  },
+  "nano/initial_linear_history/evaluation/10/rotation_rmse": {
+    "mean": 0.05915064020934322,
+    "minimum": 0.05239428712823967,
+    "maximum": 0.06737085974844013
+  },
+  "nano/initial_linear_history/evaluation/25/velocity_rmse": {
+    "mean": 0.1975395733405582,
+    "minimum": 0.17747784537253003,
+    "maximum": 0.21514047323719065
+  },
+  "nano/initial_linear_history/evaluation/25/rate_rmse": {
+    "mean": 0.9714700452924041,
+    "minimum": 0.9559307601042603,
+    "maximum": 0.999787751272799
+  },
+  "nano/initial_linear_history/evaluation/25/rotation_rmse": {
+    "mean": 0.1809103700842066,
+    "minimum": 0.17500473298015928,
+    "maximum": 0.1900814497335847
+  },
+  "nano/initial_standard/development/1/velocity_rmse": {
+    "mean": 0.004709366771053816,
+    "minimum": 0.004331967898287681,
+    "maximum": 0.004979411572765096
+  },
+  "nano/initial_standard/development/1/rate_rmse": {
+    "mean": 0.020269615118049977,
+    "minimum": 0.01929077000248775,
+    "maximum": 0.021848973646859508
+  },
+  "nano/initial_standard/development/1/rotation_rmse": {
+    "mean": 0.001859175500589738,
+    "minimum": 0.0015567746352215409,
+    "maximum": 0.002048740690035252
+  },
+  "nano/initial_standard/development/10/velocity_rmse": {
+    "mean": 0.0832445545960339,
+    "minimum": 0.0761793586563222,
+    "maximum": 0.08932360592647087
+  },
+  "nano/initial_standard/development/10/rate_rmse": {
+    "mean": 0.390023391043594,
+    "minimum": 0.3804153400702976,
+    "maximum": 0.40431500454632696
+  },
+  "nano/initial_standard/development/10/rotation_rmse": {
+    "mean": 0.041871474121157,
+    "minimum": 0.03893845525362013,
+    "maximum": 0.04506722981468491
+  },
+  "nano/initial_standard/development/25/velocity_rmse": {
+    "mean": 0.1696553748528089,
+    "minimum": 0.15036055779103843,
+    "maximum": 0.1827152352326982
+  },
+  "nano/initial_standard/development/25/rate_rmse": {
+    "mean": 0.590153699569708,
+    "minimum": 0.5594111028295531,
+    "maximum": 0.6225517666782527
+  },
+  "nano/initial_standard/development/25/rotation_rmse": {
+    "mean": 0.11807694519973815,
+    "minimum": 0.10662041630560781,
+    "maximum": 0.12916193507802698
+  },
+  "nano/initial_standard/evaluation/1/velocity_rmse": {
+    "mean": 0.006269739495671418,
+    "minimum": 0.005307124241673497,
+    "maximum": 0.0069929400516040375
+  },
+  "nano/initial_standard/evaluation/1/rate_rmse": {
+    "mean": 0.029425461279045415,
+    "minimum": 0.029032232545101424,
+    "maximum": 0.029645789318890742
+  },
+  "nano/initial_standard/evaluation/1/rotation_rmse": {
+    "mean": 0.00249634673935251,
+    "minimum": 0.0019512771990388162,
+    "maximum": 0.0030627454114980465
+  },
+  "nano/initial_standard/evaluation/10/velocity_rmse": {
+    "mean": 0.09903106762358443,
+    "minimum": 0.08673791668966882,
+    "maximum": 0.1063165581425193
+  },
+  "nano/initial_standard/evaluation/10/rate_rmse": {
+    "mean": 0.501474905756809,
+    "minimum": 0.4690270802064575,
+    "maximum": 0.5210568468932202
+  },
+  "nano/initial_standard/evaluation/10/rotation_rmse": {
+    "mean": 0.0550578722953185,
+    "minimum": 0.05037555188912048,
+    "maximum": 0.06076347133892731
+  },
+  "nano/initial_standard/evaluation/25/velocity_rmse": {
+    "mean": 0.2076804237463661,
+    "minimum": 0.18386290672850258,
+    "maximum": 0.22041741486533586
+  },
+  "nano/initial_standard/evaluation/25/rate_rmse": {
+    "mean": 0.6852244028148986,
+    "minimum": 0.6648111530472843,
+    "maximum": 0.7081348142157181
+  },
+  "nano/initial_standard/evaluation/25/rotation_rmse": {
+    "mean": 0.13837250081516958,
+    "minimum": 0.13174219341158477,
+    "maximum": 0.14241748852215683
+  },
+  "nano/refined_guarded/development/1/velocity_rmse": {
+    "mean": 0.0031539884330441434,
+    "minimum": 0.0024753312971089615,
+    "maximum": 0.003528422248035542
+  },
+  "nano/refined_guarded/development/1/rate_rmse": {
+    "mean": 0.01665443317462499,
+    "minimum": 0.012977221351608201,
+    "maximum": 0.019141199485879164
+  },
+  "nano/refined_guarded/development/1/rotation_rmse": {
+    "mean": 0.0006597345620119533,
+    "minimum": 0.0004576681205287578,
+    "maximum": 0.0007850054822974089
+  },
+  "nano/refined_guarded/development/10/velocity_rmse": {
+    "mean": 0.06434649600956878,
+    "minimum": 0.06323235504050119,
+    "maximum": 0.06638508807507781
+  },
+  "nano/refined_guarded/development/10/rate_rmse": {
+    "mean": 0.3922041933779344,
+    "minimum": 0.37908307939969116,
+    "maximum": 0.40333720379830407
+  },
+  "nano/refined_guarded/development/10/rotation_rmse": {
+    "mean": 0.04070032111290836,
+    "minimum": 0.03906407838443877,
+    "maximum": 0.0425160579836083
+  },
+  "nano/refined_guarded/development/25/velocity_rmse": {
+    "mean": 0.14828877384875735,
+    "minimum": 0.14268978102619048,
+    "maximum": 0.15163980500616606
+  },
+  "nano/refined_guarded/development/25/rate_rmse": {
+    "mean": 0.8344939118283392,
+    "minimum": 0.8167607721948115,
+    "maximum": 0.8438936850591001
+  },
+  "nano/refined_guarded/development/25/rotation_rmse": {
+    "mean": 0.1536295098902219,
+    "minimum": 0.1498337155444573,
+    "maximum": 0.15793319040540688
+  },
+  "nano/refined_guarded/evaluation/1/velocity_rmse": {
+    "mean": 0.0032990818299196718,
+    "minimum": 0.0029539117994901868,
+    "maximum": 0.0036460137066167578
+  },
+  "nano/refined_guarded/evaluation/1/rate_rmse": {
+    "mean": 0.027823786990747557,
+    "minimum": 0.02134641701201739,
+    "maximum": 0.0312287504246777
+  },
+  "nano/refined_guarded/evaluation/1/rotation_rmse": {
+    "mean": 0.0009014435940664796,
+    "minimum": 0.0006031956826094073,
+    "maximum": 0.001091704675362371
+  },
+  "nano/refined_guarded/evaluation/10/velocity_rmse": {
+    "mean": 0.08017739148859919,
+    "minimum": 0.07130399325105252,
+    "maximum": 0.08714089680920573
+  },
+  "nano/refined_guarded/evaluation/10/rate_rmse": {
+    "mean": 0.5412056566775122,
+    "minimum": 0.5327830576835844,
+    "maximum": 0.5526737156693198
+  },
+  "nano/refined_guarded/evaluation/10/rotation_rmse": {
+    "mean": 0.059079101525655174,
+    "minimum": 0.05381182281705919,
+    "maximum": 0.06573870800855645
+  },
+  "nano/refined_guarded/evaluation/25/velocity_rmse": {
+    "mean": 0.2042107028340779,
+    "minimum": 0.18142821145559834,
+    "maximum": 0.23120349563468148
+  },
+  "nano/refined_guarded/evaluation/25/rate_rmse": {
+    "mean": 0.9593597396980199,
+    "minimum": 0.9300720693165102,
+    "maximum": 0.9893155252773963
+  },
+  "nano/refined_guarded/evaluation/25/rotation_rmse": {
+    "mean": 0.17976745356770366,
+    "minimum": 0.17764492753887576,
+    "maximum": 0.18118433666890457
+  },
+  "nano/refined_standard/development/1/velocity_rmse": {
+    "mean": 0.005746532552300465,
+    "minimum": 0.004979411572765096,
+    "maximum": 0.006566662614502278
+  },
+  "nano/refined_standard/development/1/rate_rmse": {
+    "mean": 0.024139780721506663,
+    "minimum": 0.021848973646859508,
+    "maximum": 0.026149399329084073
+  },
+  "nano/refined_standard/development/1/rotation_rmse": {
+    "mean": 0.002297571857072297,
+    "minimum": 0.0019720111765124215,
+    "maximum": 0.002631413104928462
+  },
+  "nano/refined_standard/development/10/velocity_rmse": {
+    "mean": 0.0826344474421925,
+    "minimum": 0.07484525091742453,
+    "maximum": 0.08932360592647087
+  },
+  "nano/refined_standard/development/10/rate_rmse": {
+    "mean": 0.37335986974788477,
+    "minimum": 0.36875192058438355,
+    "maximum": 0.3804153400702976
+  },
+  "nano/refined_standard/development/10/rotation_rmse": {
+    "mean": 0.04016238100908914,
+    "minimum": 0.03848602503343211,
+    "maximum": 0.04160873729516597
+  },
+  "nano/refined_standard/development/25/velocity_rmse": {
+    "mean": 0.168450049767758,
+    "minimum": 0.15191218024824577,
+    "maximum": 0.1827152352326982
+  },
+  "nano/refined_standard/development/25/rate_rmse": {
+    "mean": 0.5777162851247462,
+    "minimum": 0.5557369257869692,
+    "maximum": 0.5889137003859511
+  },
+  "nano/refined_standard/development/25/rotation_rmse": {
+    "mean": 0.11296578498900935,
+    "minimum": 0.10594663955488327,
+    "maximum": 0.11844848421557963
+  },
+  "nano/refined_standard/evaluation/1/velocity_rmse": {
+    "mean": 0.007023393173006195,
+    "minimum": 0.006509154193736719,
+    "maximum": 0.007782605936610709
+  },
+  "nano/refined_standard/evaluation/1/rate_rmse": {
+    "mean": 0.03430497900597375,
+    "minimum": 0.02959836197314408,
+    "maximum": 0.03746355184298945
+  },
+  "nano/refined_standard/evaluation/1/rotation_rmse": {
+    "mean": 0.0030490161177852398,
+    "minimum": 0.0024750176075206682,
+    "maximum": 0.0038592672032209136
+  },
+  "nano/refined_standard/evaluation/10/velocity_rmse": {
+    "mean": 0.09963480552912506,
+    "minimum": 0.08366950268784877,
+    "maximum": 0.1111961858609612
+  },
+  "nano/refined_standard/evaluation/10/rate_rmse": {
+    "mean": 0.4812194578454989,
+    "minimum": 0.45486562349283144,
+    "maximum": 0.5210568468932202
+  },
+  "nano/refined_standard/evaluation/10/rotation_rmse": {
+    "mean": 0.055689467829792776,
+    "minimum": 0.050052476930854795,
+    "maximum": 0.06298133290061583
+  },
+  "nano/refined_standard/evaluation/25/velocity_rmse": {
+    "mean": 0.20110330843553267,
+    "minimum": 0.17106419593956304,
+    "maximum": 0.22041741486533586
+  },
+  "nano/refined_standard/evaluation/25/rate_rmse": {
+    "mean": 0.7007508923471777,
+    "minimum": 0.6828142622894063,
+    "maximum": 0.7113036005364088
+  },
+  "nano/refined_standard/evaluation/25/rotation_rmse": {
+    "mean": 0.13579080814172786,
+    "minimum": 0.12824106651362407,
+    "maximum": 0.14095782051176714
+  },
+  "nano/selected/development/1/velocity_rmse": {
+    "mean": 0.0031539884330441434,
+    "minimum": 0.0024753312971089615,
+    "maximum": 0.003528422248035542
+  },
+  "nano/selected/development/1/rate_rmse": {
+    "mean": 0.01665443317462499,
+    "minimum": 0.012977221351608201,
+    "maximum": 0.019141199485879164
+  },
+  "nano/selected/development/1/rotation_rmse": {
+    "mean": 0.0006597345620119533,
+    "minimum": 0.0004576681205287578,
+    "maximum": 0.0007850054822974089
+  },
+  "nano/selected/development/10/velocity_rmse": {
+    "mean": 0.06434649600956878,
+    "minimum": 0.06323235504050119,
+    "maximum": 0.06638508807507781
+  },
+  "nano/selected/development/10/rate_rmse": {
+    "mean": 0.3922041933779344,
+    "minimum": 0.37908307939969116,
+    "maximum": 0.40333720379830407
+  },
+  "nano/selected/development/10/rotation_rmse": {
+    "mean": 0.04070032111290836,
+    "minimum": 0.03906407838443877,
+    "maximum": 0.0425160579836083
+  },
+  "nano/selected/development/25/velocity_rmse": {
+    "mean": 0.14828877384875735,
+    "minimum": 0.14268978102619048,
+    "maximum": 0.15163980500616606
+  },
+  "nano/selected/development/25/rate_rmse": {
+    "mean": 0.8344939118283392,
+    "minimum": 0.8167607721948115,
+    "maximum": 0.8438936850591001
+  },
+  "nano/selected/development/25/rotation_rmse": {
+    "mean": 0.1536295098902219,
+    "minimum": 0.1498337155444573,
+    "maximum": 0.15793319040540688
+  },
+  "nano/hold/development/1/velocity_rmse": {
+    "mean": 0.032174356713729126,
+    "minimum": 0.032174356713729126,
+    "maximum": 0.032174356713729126
+  },
+  "nano/hold/development/1/rate_rmse": {
+    "mean": 0.12206734976209055,
+    "minimum": 0.12206734976209055,
+    "maximum": 0.12206734976209055
+  },
+  "nano/hold/development/1/rotation_rmse": {
+    "mean": 0.01612262482504712,
+    "minimum": 0.01612262482504712,
+    "maximum": 0.01612262482504712
+  },
+  "nano/hold/development/10/velocity_rmse": {
+    "mean": 0.3061218717938722,
+    "minimum": 0.3061218717938722,
+    "maximum": 0.3061218717938722
+  },
+  "nano/hold/development/10/rate_rmse": {
+    "mean": 0.8807573759637809,
+    "minimum": 0.8807573759637809,
+    "maximum": 0.8807573759637809
+  },
+  "nano/hold/development/10/rotation_rmse": {
+    "mean": 0.15450984405871465,
+    "minimum": 0.15450984405871465,
+    "maximum": 0.15450984405871465
+  },
+  "nano/hold/development/25/velocity_rmse": {
+    "mean": 0.7112572056356911,
+    "minimum": 0.7112572056356911,
+    "maximum": 0.7112572056356911
+  },
+  "nano/hold/development/25/rate_rmse": {
+    "mean": 1.5490987327006511,
+    "minimum": 1.5490987327006511,
+    "maximum": 1.5490987327006511
+  },
+  "nano/hold/development/25/rotation_rmse": {
+    "mean": 0.34307208528646477,
+    "minimum": 0.34307208528646477,
+    "maximum": 0.34307208528646477
+  },
+  "nano/teacher/development/1/velocity_rmse": {
+    "mean": 0.0031539884330441404,
+    "minimum": 0.002475331297108951,
+    "maximum": 0.0035284222480355463
+  },
+  "nano/teacher/development/1/rate_rmse": {
+    "mean": 0.01665443317462499,
+    "minimum": 0.012977221351608182,
+    "maximum": 0.019141199485879185
+  },
+  "nano/teacher/development/1/rotation_rmse": {
+    "mean": 0.0006597345620119551,
+    "minimum": 0.0004576681205287607,
+    "maximum": 0.0007850054822974094
+  },
+  "nano/teacher/development/10/velocity_rmse": {
+    "mean": 0.0029853207383461894,
+    "minimum": 0.002373986532790659,
+    "maximum": 0.0033923940232097488
+  },
+  "nano/teacher/development/10/rate_rmse": {
+    "mean": 0.01561039496908326,
+    "minimum": 0.01228071051128469,
+    "maximum": 0.017569768966953003
+  },
+  "nano/teacher/development/10/rotation_rmse": {
+    "mean": 0.0006578751852546102,
+    "minimum": 0.000461821720412708,
+    "maximum": 0.0007876001339997017
+  },
+  "nano/teacher/development/25/velocity_rmse": {
+    "mean": 0.002868335984996783,
+    "minimum": 0.0023485387744132764,
+    "maximum": 0.0031728153698381218
+  },
+  "nano/teacher/development/25/rate_rmse": {
+    "mean": 0.016650526837094417,
+    "minimum": 0.012733480745285396,
+    "maximum": 0.01886634371091609
+  },
+  "nano/teacher/development/25/rotation_rmse": {
+    "mean": 0.0006404294554559198,
+    "minimum": 0.00043816514119246084,
+    "maximum": 0.0007416271475204433
+  },
+  "nano/original_teacher/development/1/velocity_rmse": {
+    "mean": 0.002371398844290469,
+    "minimum": 0.0022922538089440534,
+    "maximum": 0.002475331297108951
+  },
+  "nano/original_teacher/development/1/rate_rmse": {
+    "mean": 0.012675812813521065,
+    "minimum": 0.012031000011187275,
+    "maximum": 0.013019217077767733
+  },
+  "nano/original_teacher/development/1/rotation_rmse": {
+    "mean": 0.00046554006304484736,
+    "minimum": 0.0004428908482104861,
+    "maximum": 0.0004960612203952952
+  },
+  "nano/original_teacher/development/10/velocity_rmse": {
+    "mean": 0.0022968298576297647,
+    "minimum": 0.0022278848811136303,
+    "maximum": 0.002373986532790659
+  },
+  "nano/original_teacher/development/10/rate_rmse": {
+    "mean": 0.011976943156716746,
+    "minimum": 0.011630396102534865,
+    "maximum": 0.01228071051128469
+  },
+  "nano/original_teacher/development/10/rotation_rmse": {
+    "mean": 0.0004677027782539018,
+    "minimum": 0.0004453741814751161,
+    "maximum": 0.0004959124328738812
+  },
+  "nano/original_teacher/development/25/velocity_rmse": {
+    "mean": 0.002198696766152015,
+    "minimum": 0.002088488481209344,
+    "maximum": 0.0023485387744132764
+  },
+  "nano/original_teacher/development/25/rate_rmse": {
+    "mean": 0.012412023880325598,
+    "minimum": 0.01213666918000712,
+    "maximum": 0.012733480745285396
+  },
+  "nano/original_teacher/development/25/rotation_rmse": {
+    "mean": 0.0004543521045977706,
+    "minimum": 0.00043816514119246084,
+    "maximum": 0.0004679890112427155
+  },
+  "nano/selected/evaluation/1/velocity_rmse": {
+    "mean": 0.0032990818299196718,
+    "minimum": 0.0029539117994901868,
+    "maximum": 0.0036460137066167578
+  },
+  "nano/selected/evaluation/1/rate_rmse": {
+    "mean": 0.027823786990747557,
+    "minimum": 0.02134641701201739,
+    "maximum": 0.0312287504246777
+  },
+  "nano/selected/evaluation/1/rotation_rmse": {
+    "mean": 0.0009014435940664796,
+    "minimum": 0.0006031956826094073,
+    "maximum": 0.001091704675362371
+  },
+  "nano/selected/evaluation/10/velocity_rmse": {
+    "mean": 0.08017739148859919,
+    "minimum": 0.07130399325105252,
+    "maximum": 0.08714089680920573
+  },
+  "nano/selected/evaluation/10/rate_rmse": {
+    "mean": 0.5412056566775122,
+    "minimum": 0.5327830576835844,
+    "maximum": 0.5526737156693198
+  },
+  "nano/selected/evaluation/10/rotation_rmse": {
+    "mean": 0.059079101525655174,
+    "minimum": 0.05381182281705919,
+    "maximum": 0.06573870800855645
+  },
+  "nano/selected/evaluation/25/velocity_rmse": {
+    "mean": 0.2042107028340779,
+    "minimum": 0.18142821145559834,
+    "maximum": 0.23120349563468148
+  },
+  "nano/selected/evaluation/25/rate_rmse": {
+    "mean": 0.9593597396980199,
+    "minimum": 0.9300720693165102,
+    "maximum": 0.9893155252773963
+  },
+  "nano/selected/evaluation/25/rotation_rmse": {
+    "mean": 0.17976745356770366,
+    "minimum": 0.17764492753887576,
+    "maximum": 0.18118433666890457
+  },
+  "nano/hold/evaluation/1/velocity_rmse": {
+    "mean": 0.03166962872670902,
+    "minimum": 0.03166962872670902,
+    "maximum": 0.03166962872670902
+  },
+  "nano/hold/evaluation/1/rate_rmse": {
+    "mean": 0.12639839597147579,
+    "minimum": 0.12639839597147579,
+    "maximum": 0.12639839597147579
+  },
+  "nano/hold/evaluation/1/rotation_rmse": {
+    "mean": 0.01672195498924486,
+    "minimum": 0.01672195498924486,
+    "maximum": 0.01672195498924486
+  },
+  "nano/hold/evaluation/10/velocity_rmse": {
+    "mean": 0.30425899141053175,
+    "minimum": 0.30425899141053175,
+    "maximum": 0.30425899141053175
+  },
+  "nano/hold/evaluation/10/rate_rmse": {
+    "mean": 0.9050602272895437,
+    "minimum": 0.9050602272895436,
+    "maximum": 0.9050602272895436
+  },
+  "nano/hold/evaluation/10/rotation_rmse": {
+    "mean": 0.1576031057341328,
+    "minimum": 0.1576031057341328,
+    "maximum": 0.1576031057341328
+  },
+  "nano/hold/evaluation/25/velocity_rmse": {
+    "mean": 0.7072703413271694,
+    "minimum": 0.7072703413271694,
+    "maximum": 0.7072703413271694
+  },
+  "nano/hold/evaluation/25/rate_rmse": {
+    "mean": 1.571173723416199,
+    "minimum": 1.571173723416199,
+    "maximum": 1.571173723416199
+  },
+  "nano/hold/evaluation/25/rotation_rmse": {
+    "mean": 0.34744894957381706,
+    "minimum": 0.34744894957381706,
+    "maximum": 0.34744894957381706
+  },
+  "nano/teacher/evaluation/1/velocity_rmse": {
+    "mean": 0.0032990818299196713,
+    "minimum": 0.002953911799490186,
+    "maximum": 0.003646013706616753
+  },
+  "nano/teacher/evaluation/1/rate_rmse": {
+    "mean": 0.027823786990747567,
+    "minimum": 0.02134641701201738,
+    "maximum": 0.03122875042467773
+  },
+  "nano/teacher/evaluation/1/rotation_rmse": {
+    "mean": 0.0009014435940664821,
+    "minimum": 0.0006031956826094128,
+    "maximum": 0.0010917046753623704
+  },
+  "nano/teacher/evaluation/10/velocity_rmse": {
+    "mean": 0.00323242375515488,
+    "minimum": 0.002876705817301513,
+    "maximum": 0.0035996473663709493
+  },
+  "nano/teacher/evaluation/10/rate_rmse": {
+    "mean": 0.02623312642685836,
+    "minimum": 0.0207357553355501,
+    "maximum": 0.02928415514887789
+  },
+  "nano/teacher/evaluation/10/rotation_rmse": {
+    "mean": 0.0009358603872044177,
+    "minimum": 0.0006264493830556468,
+    "maximum": 0.0011217421685992643
+  },
+  "nano/teacher/evaluation/25/velocity_rmse": {
+    "mean": 0.0035197164210249237,
+    "minimum": 0.0028545899713970264,
+    "maximum": 0.004069502285377982
+  },
+  "nano/teacher/evaluation/25/rate_rmse": {
+    "mean": 0.02719593240668765,
+    "minimum": 0.020488639837807163,
+    "maximum": 0.03126882516732504
+  },
+  "nano/teacher/evaluation/25/rotation_rmse": {
+    "mean": 0.0009134455078748143,
+    "minimum": 0.0006235527139705029,
+    "maximum": 0.0011437207031801664
+  },
+  "nano/original_teacher/evaluation/1/velocity_rmse": {
+    "mean": 0.002602112597582715,
+    "minimum": 0.0022572648139053885,
+    "maximum": 0.002953911799490186
+  },
+  "nano/original_teacher/evaluation/1/rate_rmse": {
+    "mean": 0.020800651778029738,
+    "minimum": 0.02022913140211321,
+    "maximum": 0.02134641701201738
+  },
+  "nano/original_teacher/evaluation/1/rotation_rmse": {
+    "mean": 0.0006240103663220499,
+    "minimum": 0.0005984119505489986,
+    "maximum": 0.000670423465807738
+  },
+  "nano/original_teacher/evaluation/10/velocity_rmse": {
+    "mean": 0.0025212922516540254,
+    "minimum": 0.002205509564123036,
+    "maximum": 0.002876705817301513
+  },
+  "nano/original_teacher/evaluation/10/rate_rmse": {
+    "mean": 0.020044918246523744,
+    "minimum": 0.01946655229156874,
+    "maximum": 0.0207357553355501
+  },
+  "nano/original_teacher/evaluation/10/rotation_rmse": {
+    "mean": 0.0006450131986140193,
+    "minimum": 0.0006264493830556468,
+    "maximum": 0.0006769667761251646
+  },
+  "nano/original_teacher/evaluation/25/velocity_rmse": {
+    "mean": 0.0026576181823634876,
+    "minimum": 0.002434018772419488,
+    "maximum": 0.0028545899713970264
+  },
+  "nano/original_teacher/evaluation/25/rate_rmse": {
+    "mean": 0.020144955655654193,
+    "minimum": 0.019619506635571812,
+    "maximum": 0.020488639837807163
+  },
+  "nano/original_teacher/evaluation/25/rotation_rmse": {
+    "mean": 0.0006350714548972221,
+    "minimum": 0.0005836728363212134,
+    "maximum": 0.0006979888143999497
+  },
+  "x8/initial_balanced/development/1/velocity_rmse": {
+    "mean": 0.16069423460899887,
+    "minimum": 0.15118185721254382,
+    "maximum": 0.16967102954813643
+  },
+  "x8/initial_balanced/development/1/rate_rmse": {
+    "mean": 0.10880883335173099,
+    "minimum": 0.10507841946032974,
+    "maximum": 0.11077156072039226
+  },
+  "x8/initial_balanced/development/1/rotation_rmse": {
+    "mean": 0.010291917164769652,
+    "minimum": 0.010275011482348174,
+    "maximum": 0.010306671967964117
+  },
+  "x8/initial_balanced/development/4/velocity_rmse": {
+    "mean": 0.21189457945728948,
+    "minimum": 0.20407576898652777,
+    "maximum": 0.22065730746828413
+  },
+  "x8/initial_balanced/development/4/rate_rmse": {
+    "mean": 0.1981498686732558,
+    "minimum": 0.19454717272021219,
+    "maximum": 0.20131545529510908
+  },
+  "x8/initial_balanced/development/4/rotation_rmse": {
+    "mean": 0.030938282868673797,
+    "minimum": 0.029973707374851805,
+    "maximum": 0.03147025094234815
+  },
+  "x8/initial_balanced/development/10/velocity_rmse": {
+    "mean": 0.3984894991251378,
+    "minimum": 0.391863371233913,
+    "maximum": 0.40523627586028294
+  },
+  "x8/initial_balanced/development/10/rate_rmse": {
+    "mean": 0.2353120337718404,
+    "minimum": 0.21850262539644208,
+    "maximum": 0.24485078596486043
+  },
+  "x8/initial_balanced/development/10/rotation_rmse": {
+    "mean": 0.07312370943458184,
+    "minimum": 0.06981387759517511,
+    "maximum": 0.07701089147886939
+  },
+  "x8/initial_balanced/evaluation/1/velocity_rmse": {
+    "mean": 0.1310016459914297,
+    "minimum": 0.12646758354297855,
+    "maximum": 0.13334155318057986
+  },
+  "x8/initial_balanced/evaluation/1/rate_rmse": {
+    "mean": 0.10260720724081779,
+    "minimum": 0.0996957879014027,
+    "maximum": 0.10575206752376222
+  },
+  "x8/initial_balanced/evaluation/1/rotation_rmse": {
+    "mean": 0.012092395427607358,
+    "minimum": 0.011978180327505734,
+    "maximum": 0.012163181113342893
+  },
+  "x8/initial_balanced/evaluation/4/velocity_rmse": {
+    "mean": 0.21541467012153162,
+    "minimum": 0.20535384260354683,
+    "maximum": 0.2245770473787776
+  },
+  "x8/initial_balanced/evaluation/4/rate_rmse": {
+    "mean": 0.20531602377762606,
+    "minimum": 0.19999087041160257,
+    "maximum": 0.2118968916021689
+  },
+  "x8/initial_balanced/evaluation/4/rotation_rmse": {
+    "mean": 0.03845159180962109,
+    "minimum": 0.037154431182485285,
+    "maximum": 0.03963310004008378
+  },
+  "x8/initial_balanced/evaluation/10/velocity_rmse": {
+    "mean": 0.334202713830861,
+    "minimum": 0.30331148249299655,
+    "maximum": 0.35325669823658734
+  },
+  "x8/initial_balanced/evaluation/10/rate_rmse": {
+    "mean": 0.24101745062787727,
+    "minimum": 0.23601006694274373,
+    "maximum": 0.2491258350904958
+  },
+  "x8/initial_balanced/evaluation/10/rotation_rmse": {
+    "mean": 0.10035975566191253,
+    "minimum": 0.08995510343850555,
+    "maximum": 0.10563914563453812
+  },
+  "x8/initial_guarded/development/1/velocity_rmse": {
+    "mean": 0.1581445171213116,
+    "minimum": 0.14963847064479663,
+    "maximum": 0.1688733814548751
+  },
+  "x8/initial_guarded/development/1/rate_rmse": {
+    "mean": 0.10615862210897663,
+    "minimum": 0.10513049232400838,
+    "maximum": 0.1067554128623897
+  },
+  "x8/initial_guarded/development/1/rotation_rmse": {
+    "mean": 0.009666362957764919,
+    "minimum": 0.009334807010695684,
+    "maximum": 0.010100936750310846
+  },
+  "x8/initial_guarded/development/4/velocity_rmse": {
+    "mean": 0.21409189467282222,
+    "minimum": 0.2036971312495611,
+    "maximum": 0.22229379225073198
+  },
+  "x8/initial_guarded/development/4/rate_rmse": {
+    "mean": 0.2119214915751021,
+    "minimum": 0.20208320370464256,
+    "maximum": 0.22627999492025927
+  },
+  "x8/initial_guarded/development/4/rotation_rmse": {
+    "mean": 0.030658724939628578,
+    "minimum": 0.02969143321258858,
+    "maximum": 0.031383683339471995
+  },
+  "x8/initial_guarded/development/10/velocity_rmse": {
+    "mean": 0.4291019500180752,
+    "minimum": 0.415573874589476,
+    "maximum": 0.4472619229905772
+  },
+  "x8/initial_guarded/development/10/rate_rmse": {
+    "mean": 0.2542475609040579,
+    "minimum": 0.23500743514184616,
+    "maximum": 0.2754188300175537
+  },
+  "x8/initial_guarded/development/10/rotation_rmse": {
+    "mean": 0.08132253790387867,
+    "minimum": 0.07199829044594451,
+    "maximum": 0.08824718087700575
+  },
+  "x8/initial_guarded/evaluation/1/velocity_rmse": {
+    "mean": 0.12719345282413325,
+    "minimum": 0.12132252254278945,
+    "maximum": 0.13224099962096095
+  },
+  "x8/initial_guarded/evaluation/1/rate_rmse": {
+    "mean": 0.0987237510401449,
+    "minimum": 0.0976198067715038,
+    "maximum": 0.10040402891401283
+  },
+  "x8/initial_guarded/evaluation/1/rotation_rmse": {
+    "mean": 0.011952532296107822,
+    "minimum": 0.011531398196743066,
+    "maximum": 0.01230658456504549
+  },
+  "x8/initial_guarded/evaluation/4/velocity_rmse": {
+    "mean": 0.20740080471921793,
+    "minimum": 0.19901262597986036,
+    "maximum": 0.22110372742522832
+  },
+  "x8/initial_guarded/evaluation/4/rate_rmse": {
+    "mean": 0.20267543874059823,
+    "minimum": 0.20079822503460712,
+    "maximum": 0.20547253356718836
+  },
+  "x8/initial_guarded/evaluation/4/rotation_rmse": {
+    "mean": 0.038097013207116726,
+    "minimum": 0.036977159209258786,
+    "maximum": 0.03868623255585024
+  },
+  "x8/initial_guarded/evaluation/10/velocity_rmse": {
+    "mean": 0.3249919364903009,
+    "minimum": 0.3104573141396983,
+    "maximum": 0.3522331670830294
+  },
+  "x8/initial_guarded/evaluation/10/rate_rmse": {
+    "mean": 0.23377960909752127,
+    "minimum": 0.22684601622456477,
+    "maximum": 0.2392159126160708
+  },
+  "x8/initial_guarded/evaluation/10/rotation_rmse": {
+    "mean": 0.10018979559042589,
+    "minimum": 0.09887691187046554,
+    "maximum": 0.10214351657836544
+  },
+  "x8/initial_linear_history/development/1/velocity_rmse": {
+    "mean": 0.15605280690064416,
+    "minimum": 0.14871142645334864,
+    "maximum": 0.16352529498432067
+  },
+  "x8/initial_linear_history/development/1/rate_rmse": {
+    "mean": 0.10632302338313038,
+    "minimum": 0.1045150407917285,
+    "maximum": 0.10769861649527292
+  },
+  "x8/initial_linear_history/development/1/rotation_rmse": {
+    "mean": 0.009396830402871576,
+    "minimum": 0.009205996057035567,
+    "maximum": 0.009649688140883477
+  },
+  "x8/initial_linear_history/development/4/velocity_rmse": {
+    "mean": 0.2193477633749511,
+    "minimum": 0.21628476051817355,
+    "maximum": 0.22491079939707012
+  },
+  "x8/initial_linear_history/development/4/rate_rmse": {
+    "mean": 0.22895182648218634,
+    "minimum": 0.22627999492025927,
+    "maximum": 0.2334297994936825
+  },
+  "x8/initial_linear_history/development/4/rotation_rmse": {
+    "mean": 0.03122350452842283,
+    "minimum": 0.03099950102404496,
+    "maximum": 0.031383683339471995
+  },
+  "x8/initial_linear_history/development/10/velocity_rmse": {
+    "mean": 0.45592575795228524,
+    "minimum": 0.44606636727691157,
+    "maximum": 0.47444898358936677
+  },
+  "x8/initial_linear_history/development/10/rate_rmse": {
+    "mean": 0.2793589329842335,
+    "minimum": 0.27113915521293835,
+    "maximum": 0.2915188137222084
+  },
+  "x8/initial_linear_history/development/10/rotation_rmse": {
+    "mean": 0.0878005567417095,
+    "minimum": 0.08581513624092056,
+    "maximum": 0.08933935310720223
+  },
+  "x8/initial_linear_history/evaluation/1/velocity_rmse": {
+    "mean": 0.1252285386492352,
+    "minimum": 0.12132252254278945,
+    "maximum": 0.1296006334872624
+  },
+  "x8/initial_linear_history/evaluation/1/rate_rmse": {
+    "mean": 0.09839700721457627,
+    "minimum": 0.09740514654596656,
+    "maximum": 0.10016606832625845
+  },
+  "x8/initial_linear_history/evaluation/1/rotation_rmse": {
+    "mean": 0.012000790362199662,
+    "minimum": 0.011531398196743066,
+    "maximum": 0.012398710177858952
+  },
+  "x8/initial_linear_history/evaluation/4/velocity_rmse": {
+    "mean": 0.20683434630335704,
+    "minimum": 0.2020860607525651,
+    "maximum": 0.21608209599903178
+  },
+  "x8/initial_linear_history/evaluation/4/rate_rmse": {
+    "mean": 0.20888177174541633,
+    "minimum": 0.20079822503460712,
+    "maximum": 0.2197805506776764
+  },
+  "x8/initial_linear_history/evaluation/4/rotation_rmse": {
+    "mean": 0.0395923282249187,
+    "minimum": 0.036977159209258786,
+    "maximum": 0.04355087330276967
+  },
+  "x8/initial_linear_history/evaluation/10/velocity_rmse": {
+    "mean": 0.32506181259845207,
+    "minimum": 0.31228532824817506,
+    "maximum": 0.3484426768274227
+  },
+  "x8/initial_linear_history/evaluation/10/rate_rmse": {
+    "mean": 0.24135720825363768,
+    "minimum": 0.22828213101656572,
+    "maximum": 0.2565735811282765
+  },
+  "x8/initial_linear_history/evaluation/10/rotation_rmse": {
+    "mean": 0.10621438453874756,
+    "minimum": 0.09887691187046554,
+    "maximum": 0.11940723662397519
+  },
+  "x8/initial_standard/development/1/velocity_rmse": {
+    "mean": 0.1616947419421759,
+    "minimum": 0.15459492150523643,
+    "maximum": 0.16787325401029274
+  },
+  "x8/initial_standard/development/1/rate_rmse": {
+    "mean": 0.1082424826140392,
+    "minimum": 0.1063181226063822,
+    "maximum": 0.11067447496411387
+  },
+  "x8/initial_standard/development/1/rotation_rmse": {
+    "mean": 0.010357306504623666,
+    "minimum": 0.010147534733687895,
+    "maximum": 0.010638721864966293
+  },
+  "x8/initial_standard/development/4/velocity_rmse": {
+    "mean": 0.22719599763623555,
+    "minimum": 0.22410199946396303,
+    "maximum": 0.23076120386698412
+  },
+  "x8/initial_standard/development/4/rate_rmse": {
+    "mean": 0.20317685055101178,
+    "minimum": 0.19856149206988305,
+    "maximum": 0.20665717396217487
+  },
+  "x8/initial_standard/development/4/rotation_rmse": {
+    "mean": 0.0315996003893145,
+    "minimum": 0.03140087587744362,
+    "maximum": 0.03191850433742106
+  },
+  "x8/initial_standard/development/10/velocity_rmse": {
+    "mean": 0.43828555038846245,
+    "minimum": 0.41991017334342473,
+    "maximum": 0.44878777027185146
+  },
+  "x8/initial_standard/development/10/rate_rmse": {
+    "mean": 0.22378668512795083,
+    "minimum": 0.21653001458830948,
+    "maximum": 0.22745200378965832
+  },
+  "x8/initial_standard/development/10/rotation_rmse": {
+    "mean": 0.07834019399514545,
+    "minimum": 0.07758567489027693,
+    "maximum": 0.07886113543061475
+  },
+  "x8/initial_standard/evaluation/1/velocity_rmse": {
+    "mean": 0.13174092814927083,
+    "minimum": 0.126824903541467,
+    "maximum": 0.1355407330358702
+  },
+  "x8/initial_standard/evaluation/1/rate_rmse": {
+    "mean": 0.10101937165856835,
+    "minimum": 0.09982812324361517,
+    "maximum": 0.1025327763674584
+  },
+  "x8/initial_standard/evaluation/1/rotation_rmse": {
+    "mean": 0.012556195700543997,
+    "minimum": 0.01223163454606258,
+    "maximum": 0.012745624077046304
+  },
+  "x8/initial_standard/evaluation/4/velocity_rmse": {
+    "mean": 0.22522277529061493,
+    "minimum": 0.2230653905007378,
+    "maximum": 0.2287263510737687
+  },
+  "x8/initial_standard/evaluation/4/rate_rmse": {
+    "mean": 0.2014696875049795,
+    "minimum": 0.19445944317001387,
+    "maximum": 0.20721024441983435
+  },
+  "x8/initial_standard/evaluation/4/rotation_rmse": {
+    "mean": 0.040775094294739786,
+    "minimum": 0.03925433881741815,
+    "maximum": 0.04208198900038633
+  },
+  "x8/initial_standard/evaluation/10/velocity_rmse": {
+    "mean": 0.38631653314705533,
+    "minimum": 0.37836999031584445,
+    "maximum": 0.39467503709514856
+  },
+  "x8/initial_standard/evaluation/10/rate_rmse": {
+    "mean": 0.24118917178543128,
+    "minimum": 0.23741480817931357,
+    "maximum": 0.2451774771889152
+  },
+  "x8/initial_standard/evaluation/10/rotation_rmse": {
+    "mean": 0.10433907699176316,
+    "minimum": 0.09651479545782957,
+    "maximum": 0.11444518906096056
+  },
+  "x8/refined_guarded/development/1/velocity_rmse": {
+    "mean": 0.15707022449730393,
+    "minimum": 0.14855525340296374,
+    "maximum": 0.16673372082468488
+  },
+  "x8/refined_guarded/development/1/rate_rmse": {
+    "mean": 0.10298131042347465,
+    "minimum": 0.09656532321946709,
+    "maximum": 0.1067554128623897
+  },
+  "x8/refined_guarded/development/1/rotation_rmse": {
+    "mean": 0.00944717279827612,
+    "minimum": 0.009186459923010103,
+    "maximum": 0.009820251461122573
+  },
+  "x8/refined_guarded/development/4/velocity_rmse": {
+    "mean": 0.2134399101081376,
+    "minimum": 0.21017016705631253,
+    "maximum": 0.21628476051817355
+  },
+  "x8/refined_guarded/development/4/rate_rmse": {
+    "mean": 0.21316312517155198,
+    "minimum": 0.19244984157923894,
+    "maximum": 0.22627999492025927
+  },
+  "x8/refined_guarded/development/4/rotation_rmse": {
+    "mean": 0.030479760068875126,
+    "minimum": 0.02938408119826654,
+    "maximum": 0.031383683339471995
+  },
+  "x8/refined_guarded/development/10/velocity_rmse": {
+    "mean": 0.42933407151437947,
+    "minimum": 0.40646815924181595,
+    "maximum": 0.4472619229905772
+  },
+  "x8/refined_guarded/development/10/rate_rmse": {
+    "mean": 0.2626379425322953,
+    "minimum": 0.25132017608825,
+    "maximum": 0.2754188300175537
+  },
+  "x8/refined_guarded/development/10/rotation_rmse": {
+    "mean": 0.08288203486035434,
+    "minimum": 0.07475816196875598,
+    "maximum": 0.08824718087700575
+  },
+  "x8/refined_guarded/evaluation/1/velocity_rmse": {
+    "mean": 0.12467180476076119,
+    "minimum": 0.12132252254278945,
+    "maximum": 0.1299892495969057
+  },
+  "x8/refined_guarded/evaluation/1/rate_rmse": {
+    "mean": 0.09761371794809626,
+    "minimum": 0.09713146593764296,
+    "maximum": 0.09808988113514204
+  },
+  "x8/refined_guarded/evaluation/1/rotation_rmse": {
+    "mean": 0.01180687326747038,
+    "minimum": 0.011531398196743066,
+    "maximum": 0.011980952523293151
+  },
+  "x8/refined_guarded/evaluation/4/velocity_rmse": {
+    "mean": 0.2179759120421825,
+    "minimum": 0.2020860607525651,
+    "maximum": 0.2393497715701018
+  },
+  "x8/refined_guarded/evaluation/4/rate_rmse": {
+    "mean": 0.20896654655372549,
+    "minimum": 0.20079822503460712,
+    "maximum": 0.21590247458868736
+  },
+  "x8/refined_guarded/evaluation/4/rotation_rmse": {
+    "mean": 0.039144264051504125,
+    "minimum": 0.036977159209258786,
+    "maximum": 0.040254045773176615
+  },
+  "x8/refined_guarded/evaluation/10/velocity_rmse": {
+    "mean": 0.3366727060145749,
+    "minimum": 0.31228532824817506,
+    "maximum": 0.3596968156286364
+  },
+  "x8/refined_guarded/evaluation/10/rate_rmse": {
+    "mean": 0.24268241495171392,
+    "minimum": 0.2392159126160708,
+    "maximum": 0.24662909336695363
+  },
+  "x8/refined_guarded/evaluation/10/rotation_rmse": {
+    "mean": 0.10366708826054079,
+    "minimum": 0.09887691187046554,
+    "maximum": 0.10610508652906613
+  },
+  "x8/refined_standard/development/1/velocity_rmse": {
+    "mean": 0.16249791206470135,
+    "minimum": 0.15707490179344136,
+    "maximum": 0.16780278408966418
+  },
+  "x8/refined_standard/development/1/rate_rmse": {
+    "mean": 0.10495263544963292,
+    "minimum": 0.0992126802478875,
+    "maximum": 0.10791037582938974
+  },
+  "x8/refined_standard/development/1/rotation_rmse": {
+    "mean": 0.010162904479179497,
+    "minimum": 0.009997290473214404,
+    "maximum": 0.01034388823063619
+  },
+  "x8/refined_standard/development/4/velocity_rmse": {
+    "mean": 0.22843669129738162,
+    "minimum": 0.22410199946396303,
+    "maximum": 0.23422133469436332
+  },
+  "x8/refined_standard/development/4/rate_rmse": {
+    "mean": 0.2035512885869082,
+    "minimum": 0.20136418042848933,
+    "maximum": 0.20665717396217487
+  },
+  "x8/refined_standard/development/4/rotation_rmse": {
+    "mean": 0.032195785270923476,
+    "minimum": 0.03116964285154873,
+    "maximum": 0.03349920862380064
+  },
+  "x8/refined_standard/development/10/velocity_rmse": {
+    "mean": 0.4619604880552959,
+    "minimum": 0.44615870755011117,
+    "maximum": 0.4702654602041544
+  },
+  "x8/refined_standard/development/10/rate_rmse": {
+    "mean": 0.23304334766485246,
+    "minimum": 0.2126315726926615,
+    "maximum": 0.2590464665122375
+  },
+  "x8/refined_standard/development/10/rotation_rmse": {
+    "mean": 0.08124070052057943,
+    "minimum": 0.07857377166454466,
+    "maximum": 0.08425932790109321
+  },
+  "x8/refined_standard/evaluation/1/velocity_rmse": {
+    "mean": 0.13059768179596473,
+    "minimum": 0.126824903541467,
+    "maximum": 0.13531942070524747
+  },
+  "x8/refined_standard/evaluation/1/rate_rmse": {
+    "mean": 0.10115326047460611,
+    "minimum": 0.09995799844782824,
+    "maximum": 0.1025327763674584
+  },
+  "x8/refined_standard/evaluation/1/rotation_rmse": {
+    "mean": 0.01239981487919904,
+    "minimum": 0.01223163454606258,
+    "maximum": 0.012626408502539906
+  },
+  "x8/refined_standard/evaluation/4/velocity_rmse": {
+    "mean": 0.23647301507728605,
+    "minimum": 0.2230653905007378,
+    "maximum": 0.2495908433326858
+  },
+  "x8/refined_standard/evaluation/4/rate_rmse": {
+    "mean": 0.20010552920516392,
+    "minimum": 0.19625323033657235,
+    "maximum": 0.20273937492509028
+  },
+  "x8/refined_standard/evaluation/4/rotation_rmse": {
+    "mean": 0.040848195047393926,
+    "minimum": 0.03867856822251826,
+    "maximum": 0.04208198900038633
+  },
+  "x8/refined_standard/evaluation/10/velocity_rmse": {
+    "mean": 0.4042608962370113,
+    "minimum": 0.37836999031584445,
+    "maximum": 0.42644158095816165
+  },
+  "x8/refined_standard/evaluation/10/rate_rmse": {
+    "mean": 0.23862535773236637,
+    "minimum": 0.22962812987004494,
+    "maximum": 0.24527271333898906
+  },
+  "x8/refined_standard/evaluation/10/rotation_rmse": {
+    "mean": 0.10438662616691709,
+    "minimum": 0.0957458569842923,
+    "maximum": 0.11444518906096056
+  },
+  "x8/selected/development/1/velocity_rmse": {
+    "mean": 0.15554842250528403,
+    "minimum": 0.14837673634443763,
+    "maximum": 0.16234683190715132
+  },
+  "x8/selected/development/1/rate_rmse": {
+    "mean": 0.10317812117452492,
+    "minimum": 0.0975072714445392,
+    "maximum": 0.1067554128623897
+  },
+  "x8/selected/development/1/rotation_rmse": {
+    "mean": 0.009248753277487434,
+    "minimum": 0.009022617860027652,
+    "maximum": 0.009388834961738967
+  },
+  "x8/selected/development/4/velocity_rmse": {
+    "mean": 0.21687154843404252,
+    "minimum": 0.21628476051817355,
+    "maximum": 0.21730145659061875
+  },
+  "x8/selected/development/4/rate_rmse": {
+    "mean": 0.22218404571211114,
+    "minimum": 0.21696255014976176,
+    "maximum": 0.22627999492025927
+  },
+  "x8/selected/development/4/rotation_rmse": {
+    "mean": 0.031395564200034386,
+    "minimum": 0.031357994946636956,
+    "maximum": 0.03144501431399419
+  },
+  "x8/selected/development/10/velocity_rmse": {
+    "mean": 0.4455914499296585,
+    "minimum": 0.4409719436662169,
+    "maximum": 0.4485404831321813
+  },
+  "x8/selected/development/10/rate_rmse": {
+    "mean": 0.2759705790085636,
+    "minimum": 0.27064992101665747,
+    "maximum": 0.2818429859914796
+  },
+  "x8/selected/development/10/rotation_rmse": {
+    "mean": 0.0882136917609791,
+    "minimum": 0.08651430842418811,
+    "maximum": 0.08987958598174342
+  },
+  "x8/hold/development/1/velocity_rmse": {
+    "mean": 0.20823933878129483,
+    "minimum": 0.20823933878129483,
+    "maximum": 0.20823933878129483
+  },
+  "x8/hold/development/1/rate_rmse": {
+    "mean": 0.17170259169944666,
+    "minimum": 0.17170259169944663,
+    "maximum": 0.17170259169944663
+  },
+  "x8/hold/development/1/rotation_rmse": {
+    "mean": 0.02375815745289968,
+    "minimum": 0.02375815745289968,
+    "maximum": 0.02375815745289968
+  },
+  "x8/hold/development/4/velocity_rmse": {
+    "mean": 0.5019527895418888,
+    "minimum": 0.5019527895418888,
+    "maximum": 0.5019527895418888
+  },
+  "x8/hold/development/4/rate_rmse": {
+    "mean": 0.6143038665807206,
+    "minimum": 0.6143038665807206,
+    "maximum": 0.6143038665807206
+  },
+  "x8/hold/development/4/rotation_rmse": {
+    "mean": 0.09705787012843099,
+    "minimum": 0.097057870128431,
+    "maximum": 0.097057870128431
+  },
+  "x8/hold/development/10/velocity_rmse": {
+    "mean": 1.0667219433893393,
+    "minimum": 1.0667219433893393,
+    "maximum": 1.0667219433893393
+  },
+  "x8/hold/development/10/rate_rmse": {
+    "mean": 1.136601477001716,
+    "minimum": 1.136601477001716,
+    "maximum": 1.136601477001716
+  },
+  "x8/hold/development/10/rotation_rmse": {
+    "mean": 0.20280600506009963,
+    "minimum": 0.20280600506009963,
+    "maximum": 0.20280600506009963
+  },
+  "x8/teacher/development/1/velocity_rmse": {
+    "mean": 0.15554842250528406,
+    "minimum": 0.14837673634443768,
+    "maximum": 0.16234683190715135
+  },
+  "x8/teacher/development/1/rate_rmse": {
+    "mean": 0.10317812117452492,
+    "minimum": 0.09750727144453919,
+    "maximum": 0.1067554128623897
+  },
+  "x8/teacher/development/1/rotation_rmse": {
+    "mean": 0.009248753277487433,
+    "minimum": 0.009022617860027653,
+    "maximum": 0.009388834961738963
+  },
+  "x8/teacher/development/4/velocity_rmse": {
+    "mean": 0.1431879939455818,
+    "minimum": 0.14272216273610563,
+    "maximum": 0.14359183916660997
+  },
+  "x8/teacher/development/4/rate_rmse": {
+    "mean": 0.10424900402365868,
+    "minimum": 0.10202753673234445,
+    "maximum": 0.10712036318043502
+  },
+  "x8/teacher/development/4/rotation_rmse": {
+    "mean": 0.010595482674347595,
+    "minimum": 0.010507662197652465,
+    "maximum": 0.010682812920519119
+  },
+  "x8/teacher/development/10/velocity_rmse": {
+    "mean": 0.1181981602290705,
+    "minimum": 0.11745103409305195,
+    "maximum": 0.11875291587801104
+  },
+  "x8/teacher/development/10/rate_rmse": {
+    "mean": 0.09411050999419797,
+    "minimum": 0.09066395721105165,
+    "maximum": 0.09701316029013632
+  },
+  "x8/teacher/development/10/rotation_rmse": {
+    "mean": 0.010998914964459212,
+    "minimum": 0.01081885052577187,
+    "maximum": 0.011109688105969592
+  },
+  "x8/original_teacher/development/1/velocity_rmse": {
+    "mean": 0.1560528069006442,
+    "minimum": 0.14871142645334864,
+    "maximum": 0.16352529498432075
+  },
+  "x8/original_teacher/development/1/rate_rmse": {
+    "mean": 0.10632302338313038,
+    "minimum": 0.1045150407917285,
+    "maximum": 0.10769861649527293
+  },
+  "x8/original_teacher/development/1/rotation_rmse": {
+    "mean": 0.009396830402871573,
+    "minimum": 0.009205996057035565,
+    "maximum": 0.009649688140883473
+  },
+  "x8/original_teacher/development/4/velocity_rmse": {
+    "mean": 0.1426811620240258,
+    "minimum": 0.14216989663604773,
+    "maximum": 0.14359183916660997
+  },
+  "x8/original_teacher/development/4/rate_rmse": {
+    "mean": 0.10513424390265302,
+    "minimum": 0.10359911215819657,
+    "maximum": 0.10794466591038963
+  },
+  "x8/original_teacher/development/4/rotation_rmse": {
+    "mean": 0.010473591851502916,
+    "minimum": 0.010327115803876321,
+    "maximum": 0.010585997552979965
+  },
+  "x8/original_teacher/development/10/velocity_rmse": {
+    "mean": 0.11885453844221684,
+    "minimum": 0.11817210458730681,
+    "maximum": 0.12000098002319522
+  },
+  "x8/original_teacher/development/10/rate_rmse": {
+    "mean": 0.09718685560653496,
+    "minimum": 0.09465441248140594,
+    "maximum": 0.09937864519931586
+  },
+  "x8/original_teacher/development/10/rotation_rmse": {
+    "mean": 0.011032046757723644,
+    "minimum": 0.010847808458992168,
+    "maximum": 0.011180125552542589
+  },
+  "x8/selected/evaluation/1/velocity_rmse": {
+    "mean": 0.12381452985212092,
+    "minimum": 0.12132252254278945,
+    "maximum": 0.12524002019092773
+  },
+  "x8/selected/evaluation/1/rate_rmse": {
+    "mean": 0.0960966764625419,
+    "minimum": 0.09514276509330023,
+    "maximum": 0.0976198067715038
+  },
+  "x8/selected/evaluation/1/rotation_rmse": {
+    "mean": 0.011830834707208271,
+    "minimum": 0.011531398196743066,
+    "maximum": 0.012258525201703802
+  },
+  "x8/selected/evaluation/4/velocity_rmse": {
+    "mean": 0.2123219141362281,
+    "minimum": 0.2020860607525651,
+    "maximum": 0.22649976569427505
+  },
+  "x8/selected/evaluation/4/rate_rmse": {
+    "mean": 0.2052852038373262,
+    "minimum": 0.20079822503460712,
+    "maximum": 0.20956527789670573
+  },
+  "x8/selected/evaluation/4/rotation_rmse": {
+    "mean": 0.0394304714610986,
+    "minimum": 0.036977159209258786,
+    "maximum": 0.043462602337290414
+  },
+  "x8/selected/evaluation/10/velocity_rmse": {
+    "mean": 0.3245816057561326,
+    "minimum": 0.31228532824817506,
+    "maximum": 0.343019357543232
+  },
+  "x8/selected/evaluation/10/rate_rmse": {
+    "mean": 0.23770076783653224,
+    "minimum": 0.22835845764654453,
+    "maximum": 0.24552793324698136
+  },
+  "x8/selected/evaluation/10/rotation_rmse": {
+    "mean": 0.10705744813933471,
+    "minimum": 0.09887691187046554,
+    "maximum": 0.1224730524737756
+  },
+  "x8/hold/evaluation/1/velocity_rmse": {
+    "mean": 0.17577061732813368,
+    "minimum": 0.17577061732813368,
+    "maximum": 0.17577061732813368
+  },
+  "x8/hold/evaluation/1/rate_rmse": {
+    "mean": 0.17650730103143128,
+    "minimum": 0.17650730103143128,
+    "maximum": 0.17650730103143128
+  },
+  "x8/hold/evaluation/1/rotation_rmse": {
+    "mean": 0.025235205396790954,
+    "minimum": 0.02523520539679095,
+    "maximum": 0.02523520539679095
+  },
+  "x8/hold/evaluation/4/velocity_rmse": {
+    "mean": 0.4878650251626657,
+    "minimum": 0.4878650251626657,
+    "maximum": 0.4878650251626657
+  },
+  "x8/hold/evaluation/4/rate_rmse": {
+    "mean": 0.606222436088536,
+    "minimum": 0.606222436088536,
+    "maximum": 0.606222436088536
+  },
+  "x8/hold/evaluation/4/rotation_rmse": {
+    "mean": 0.09376271642245111,
+    "minimum": 0.09376271642245111,
+    "maximum": 0.09376271642245111
+  },
+  "x8/hold/evaluation/10/velocity_rmse": {
+    "mean": 1.0050259409070228,
+    "minimum": 1.0050259409070228,
+    "maximum": 1.0050259409070228
+  },
+  "x8/hold/evaluation/10/rate_rmse": {
+    "mean": 1.113415254906598,
+    "minimum": 1.113415254906598,
+    "maximum": 1.113415254906598
+  },
+  "x8/hold/evaluation/10/rotation_rmse": {
+    "mean": 0.19500368305077487,
+    "minimum": 0.19500368305077487,
+    "maximum": 0.19500368305077487
+  },
+  "x8/teacher/evaluation/1/velocity_rmse": {
+    "mean": 0.1238145298521209,
+    "minimum": 0.12132252254278952,
+    "maximum": 0.12524002019092773
+  },
+  "x8/teacher/evaluation/1/rate_rmse": {
+    "mean": 0.0960966764625419,
+    "minimum": 0.09514276509330025,
+    "maximum": 0.09761980677150375
+  },
+  "x8/teacher/evaluation/1/rotation_rmse": {
+    "mean": 0.011830834707208271,
+    "minimum": 0.011531398196743068,
+    "maximum": 0.012258525201703802
+  },
+  "x8/teacher/evaluation/4/velocity_rmse": {
+    "mean": 0.12108865275880398,
+    "minimum": 0.11722671286362556,
+    "maximum": 0.12526125317108455
+  },
+  "x8/teacher/evaluation/4/rate_rmse": {
+    "mean": 0.11118816944694565,
+    "minimum": 0.11100694809906338,
+    "maximum": 0.11130031303577406
+  },
+  "x8/teacher/evaluation/4/rotation_rmse": {
+    "mean": 0.012244434497318582,
+    "minimum": 0.01198863761852383,
+    "maximum": 0.012411972254100446
+  },
+  "x8/teacher/evaluation/10/velocity_rmse": {
+    "mean": 0.0972895663270903,
+    "minimum": 0.09655832096815092,
+    "maximum": 0.09865923255459941
+  },
+  "x8/teacher/evaluation/10/rate_rmse": {
+    "mean": 0.10409531750151559,
+    "minimum": 0.10022968889580776,
+    "maximum": 0.10779804882156345
+  },
+  "x8/teacher/evaluation/10/rotation_rmse": {
+    "mean": 0.010952717049224936,
+    "minimum": 0.010875128929836827,
+    "maximum": 0.011031209241269654
+  },
+  "x8/original_teacher/evaluation/1/velocity_rmse": {
+    "mean": 0.12522853864923514,
+    "minimum": 0.12132252254278952,
+    "maximum": 0.12960063348726236
+  },
+  "x8/original_teacher/evaluation/1/rate_rmse": {
+    "mean": 0.09839700721457627,
+    "minimum": 0.0974051465459666,
+    "maximum": 0.10016606832625842
+  },
+  "x8/original_teacher/evaluation/1/rotation_rmse": {
+    "mean": 0.012000790362199662,
+    "minimum": 0.011531398196743068,
+    "maximum": 0.012398710177858952
+  },
+  "x8/original_teacher/evaluation/4/velocity_rmse": {
+    "mean": 0.12573345803265282,
+    "minimum": 0.12077799224170183,
+    "maximum": 0.13526729628507772
+  },
+  "x8/original_teacher/evaluation/4/rate_rmse": {
+    "mean": 0.1144998557386292,
+    "minimum": 0.11100694809906338,
+    "maximum": 0.11893234924061902
+  },
+  "x8/original_teacher/evaluation/4/rotation_rmse": {
+    "mean": 0.012648950183477581,
+    "minimum": 0.01233269361933147,
+    "maximum": 0.013025889726290986
+  },
+  "x8/original_teacher/evaluation/10/velocity_rmse": {
+    "mean": 0.10026947399690193,
+    "minimum": 0.09655832096815092,
+    "maximum": 0.10619230155625559
+  },
+  "x8/original_teacher/evaluation/10/rate_rmse": {
+    "mean": 0.1071444428046705,
+    "minimum": 0.10425821478717558,
+    "maximum": 0.11073878366664835
+  },
+  "x8/original_teacher/evaluation/10/rotation_rmse": {
+    "mean": 0.01143087020554811,
+    "minimum": 0.010875128929836827,
+    "maximum": 0.01202196538297817
+  },
+  "arp/initial_balanced/development/1/velocity_rmse": {
+    "mean": 0.1924750657481202,
+    "minimum": 0.12407041147404026,
+    "maximum": 0.2928194062251932
+  },
+  "arp/initial_balanced/development/1/rate_rmse": {
+    "mean": 0.6505952318826156,
+    "minimum": 0.5098042785354719,
+    "maximum": 0.9077260647333207
+  },
+  "arp/initial_balanced/development/1/rotation_rmse": {
+    "mean": 0.028484104207677215,
+    "minimum": 0.026276078092545306,
+    "maximum": 0.029837540738379045
+  },
+  "arp/initial_balanced/development/5/velocity_rmse": {
+    "mean": 0.876812080870715,
+    "minimum": 0.313560915931969,
+    "maximum": 1.3962405554435235
+  },
+  "arp/initial_balanced/development/5/rate_rmse": {
+    "mean": 2.360245721163452,
+    "minimum": 1.5135946686324016,
+    "maximum": 3.8664009166985585
+  },
+  "arp/initial_balanced/development/5/rotation_rmse": {
+    "mean": 0.23994994922117752,
+    "minimum": 0.19362489521954526,
+    "maximum": 0.3042883466316874
+  },
+  "arp/initial_balanced/development/12/velocity_rmse": {
+    "mean": 2.4367094496462864,
+    "minimum": 0.7927003736079169,
+    "maximum": 3.70425128729066
+  },
+  "arp/initial_balanced/development/12/rate_rmse": {
+    "mean": 6.191765956758055,
+    "minimum": 3.21130361170471,
+    "maximum": 11.561134838891855
+  },
+  "arp/initial_balanced/development/12/rotation_rmse": {
+    "mean": 1.0839299394161543,
+    "minimum": 0.7415043816062268,
+    "maximum": 1.6525153973165834
+  },
+  "arp/initial_balanced/evaluation/1/velocity_rmse": {
+    "mean": 0.3216218632464642,
+    "minimum": 0.2005792901376853,
+    "maximum": 0.48447547534864155
+  },
+  "arp/initial_balanced/evaluation/1/rate_rmse": {
+    "mean": 0.9842445424999067,
+    "minimum": 0.713495530727083,
+    "maximum": 1.4126155024522902
+  },
+  "arp/initial_balanced/evaluation/1/rotation_rmse": {
+    "mean": 0.04110770754822227,
+    "minimum": 0.038011122193932045,
+    "maximum": 0.0427685784932791
+  },
+  "arp/initial_balanced/evaluation/5/velocity_rmse": {
+    "mean": 1.414774511098444,
+    "minimum": 0.4442242538735645,
+    "maximum": 2.2429525802351256
+  },
+  "arp/initial_balanced/evaluation/5/rate_rmse": {
+    "mean": 3.1607997509642622,
+    "minimum": 1.8209649964358539,
+    "maximum": 5.408629828199136
+  },
+  "arp/initial_balanced/evaluation/5/rotation_rmse": {
+    "mean": 0.32515355039684307,
+    "minimum": 0.2612606210723584,
+    "maximum": 0.42596039100092814
+  },
+  "arp/initial_balanced/evaluation/12/velocity_rmse": {
+    "mean": 3.7415480008076956,
+    "minimum": 1.0183264360213895,
+    "maximum": 5.716644695456073
+  },
+  "arp/initial_balanced/evaluation/12/rate_rmse": {
+    "mean": 8.266765386444726,
+    "minimum": 3.2240518067716386,
+    "maximum": 16.58488652826411
+  },
+  "arp/initial_balanced/evaluation/12/rotation_rmse": {
+    "mean": 1.4606600354490682,
+    "minimum": 0.9534652513589148,
+    "maximum": 2.3365525519502293
+  },
+  "arp/initial_guarded/development/1/velocity_rmse": {
+    "mean": 0.19415370470792062,
+    "minimum": 0.1247264749619572,
+    "maximum": 0.29719925961667754
+  },
+  "arp/initial_guarded/development/1/rate_rmse": {
+    "mean": 0.6633261870655088,
+    "minimum": 0.5098042785354719,
+    "maximum": 0.89641946045141
+  },
+  "arp/initial_guarded/development/1/rotation_rmse": {
+    "mean": 0.02636071530335082,
+    "minimum": 0.023050120750799718,
+    "maximum": 0.029837540738379045
+  },
+  "arp/initial_guarded/development/5/velocity_rmse": {
+    "mean": 0.9916352878367545,
+    "minimum": 0.4191947005468363,
+    "maximum": 1.6350763917267752
+  },
+  "arp/initial_guarded/development/5/rate_rmse": {
+    "mean": 2.4614526562565953,
+    "minimum": 1.7007415781593964,
+    "maximum": 3.8657709218305025
+  },
+  "arp/initial_guarded/development/5/rotation_rmse": {
+    "mean": 0.2367255465156345,
+    "minimum": 0.19015272245693227,
+    "maximum": 0.29808731127767135
+  },
+  "arp/initial_guarded/development/12/velocity_rmse": {
+    "mean": 2.964441972968064,
+    "minimum": 1.1408876092420013,
+    "maximum": 4.939261621621908
+  },
+  "arp/initial_guarded/development/12/rate_rmse": {
+    "mean": 6.544956554942875,
+    "minimum": 3.79269550724302,
+    "maximum": 12.039314737908004
+  },
+  "arp/initial_guarded/development/12/rotation_rmse": {
+    "mean": 1.1472786687560148,
+    "minimum": 0.8087975047815501,
+    "maximum": 1.7752684621608406
+  },
+  "arp/initial_guarded/evaluation/1/velocity_rmse": {
+    "mean": 0.32353986364320814,
+    "minimum": 0.20152965416747806,
+    "maximum": 0.4892791125090807
+  },
+  "arp/initial_guarded/evaluation/1/rate_rmse": {
+    "mean": 0.9937728053155436,
+    "minimum": 0.713495530727083,
+    "maximum": 1.3803432491107472
+  },
+  "arp/initial_guarded/evaluation/1/rotation_rmse": {
+    "mean": 0.039492537734178386,
+    "minimum": 0.036372305749564016,
+    "maximum": 0.0427685784932791
+  },
+  "arp/initial_guarded/evaluation/5/velocity_rmse": {
+    "mean": 1.6294864696444558,
+    "minimum": 0.718834479784676,
+    "maximum": 2.6124782299620497
+  },
+  "arp/initial_guarded/evaluation/5/rate_rmse": {
+    "mean": 3.28996095499725,
+    "minimum": 1.8209649964358539,
+    "maximum": 5.660455157685585
+  },
+  "arp/initial_guarded/evaluation/5/rotation_rmse": {
+    "mean": 0.33674968376924913,
+    "minimum": 0.27642762741068855,
+    "maximum": 0.4455817847798161
+  },
+  "arp/initial_guarded/evaluation/12/velocity_rmse": {
+    "mean": 4.674242637861361,
+    "minimum": 1.96566465113999,
+    "maximum": 7.567390391498468
+  },
+  "arp/initial_guarded/evaluation/12/rate_rmse": {
+    "mean": 8.562564402218003,
+    "minimum": 3.2240518067716386,
+    "maximum": 17.740061704103738
+  },
+  "arp/initial_guarded/evaluation/12/rotation_rmse": {
+    "mean": 1.558886694216338,
+    "minimum": 0.9534652513589148,
+    "maximum": 2.6137707659807012
+  },
+  "arp/initial_linear_history/development/1/velocity_rmse": {
+    "mean": 0.19764557115507264,
+    "minimum": 0.12452734285369764,
+    "maximum": 0.2988569548440131
+  },
+  "arp/initial_linear_history/development/1/rate_rmse": {
+    "mean": 0.6632725960389241,
+    "minimum": 0.5142836401897249,
+    "maximum": 0.8852289390658735
+  },
+  "arp/initial_linear_history/development/1/rotation_rmse": {
+    "mean": 0.025977271951276207,
+    "minimum": 0.02241245445210797,
+    "maximum": 0.028884091270928815
+  },
+  "arp/initial_linear_history/development/5/velocity_rmse": {
+    "mean": 1.2729270224003566,
+    "minimum": 0.5207396375440458,
+    "maximum": 1.8182021249996405
+  },
+  "arp/initial_linear_history/development/5/rate_rmse": {
+    "mean": 3.1352839102375722,
+    "minimum": 1.8645767295978763,
+    "maximum": 4.581972176319068
+  },
+  "arp/initial_linear_history/development/5/rotation_rmse": {
+    "mean": 0.26095369031695576,
+    "minimum": 0.21499793527482502,
+    "maximum": 0.34186748177219095
+  },
+  "arp/initial_linear_history/development/12/velocity_rmse": {
+    "mean": 4.67393977088244,
+    "minimum": 2.051411904586161,
+    "maximum": 6.066291136069296
+  },
+  "arp/initial_linear_history/development/12/rate_rmse": {
+    "mean": 10.510441995588891,
+    "minimum": 4.591162007402581,
+    "maximum": 17.093930206510798
+  },
+  "arp/initial_linear_history/development/12/rotation_rmse": {
+    "mean": 1.5411766740441,
+    "minimum": 0.9258573540009505,
+    "maximum": 2.3723707479392004
+  },
+  "arp/initial_linear_history/evaluation/1/velocity_rmse": {
+    "mean": 0.3293065306055782,
+    "minimum": 0.20300482018664648,
+    "maximum": 0.4907494129634203
+  },
+  "arp/initial_linear_history/evaluation/1/rate_rmse": {
+    "mean": 0.9942322588854017,
+    "minimum": 0.720380256211825,
+    "maximum": 1.3715918623401377
+  },
+  "arp/initial_linear_history/evaluation/1/rotation_rmse": {
+    "mean": 0.03858085356478884,
+    "minimum": 0.035470814982364374,
+    "maximum": 0.041361360277076216
+  },
+  "arp/initial_linear_history/evaluation/5/velocity_rmse": {
+    "mean": 2.137623413676762,
+    "minimum": 0.9471173882569158,
+    "maximum": 2.98596434831233
+  },
+  "arp/initial_linear_history/evaluation/5/rate_rmse": {
+    "mean": 4.488288275705764,
+    "minimum": 2.286417310874192,
+    "maximum": 6.86348647416322
+  },
+  "arp/initial_linear_history/evaluation/5/rotation_rmse": {
+    "mean": 0.38848176107409066,
+    "minimum": 0.30742136534853104,
+    "maximum": 0.5189434823760024
+  },
+  "arp/initial_linear_history/evaluation/12/velocity_rmse": {
+    "mean": 7.722232875312894,
+    "minimum": 3.614610021683393,
+    "maximum": 9.897180703414032
+  },
+  "arp/initial_linear_history/evaluation/12/rate_rmse": {
+    "mean": 15.428631865711898,
+    "minimum": 5.521786499590966,
+    "maximum": 26.225340517025014
+  },
+  "arp/initial_linear_history/evaluation/12/rotation_rmse": {
+    "mean": 2.2322201289822616,
+    "minimum": 1.1175508259543945,
+    "maximum": 3.6202853811172546
+  },
+  "arp/initial_standard/development/1/velocity_rmse": {
+    "mean": 0.20104914652135297,
+    "minimum": 0.1282146838000656,
+    "maximum": 0.2962946760362677
+  },
+  "arp/initial_standard/development/1/rate_rmse": {
+    "mean": 0.6599255153965625,
+    "minimum": 0.5066698186807375,
+    "maximum": 0.9064671800134029
+  },
+  "arp/initial_standard/development/1/rotation_rmse": {
+    "mean": 0.02648652807201224,
+    "minimum": 0.02292031349894439,
+    "maximum": 0.02932159831936188
+  },
+  "arp/initial_standard/development/5/velocity_rmse": {
+    "mean": 1.1718239460521014,
+    "minimum": 0.4456156053365767,
+    "maximum": 1.799301062688245
+  },
+  "arp/initial_standard/development/5/rate_rmse": {
+    "mean": 1.9476345827542858,
+    "minimum": 1.3188782710493965,
+    "maximum": 3.0973076897157306
+  },
+  "arp/initial_standard/development/5/rotation_rmse": {
+    "mean": 0.22828043390655206,
+    "minimum": 0.18136803038052507,
+    "maximum": 0.28624970020521123
+  },
+  "arp/initial_standard/development/12/velocity_rmse": {
+    "mean": 3.2922623636861914,
+    "minimum": 1.3709363816007045,
+    "maximum": 5.0345267215067055
+  },
+  "arp/initial_standard/development/12/rate_rmse": {
+    "mean": 4.147340062065909,
+    "minimum": 2.626208737507664,
+    "maximum": 7.1373972819965275
+  },
+  "arp/initial_standard/development/12/rotation_rmse": {
+    "mean": 0.8669129056262929,
+    "minimum": 0.5781200954350255,
+    "maximum": 1.2920712409722148
+  },
+  "arp/initial_standard/evaluation/1/velocity_rmse": {
+    "mean": 0.3379231094331805,
+    "minimum": 0.21398454065196618,
+    "maximum": 0.4889015187822083
+  },
+  "arp/initial_standard/evaluation/1/rate_rmse": {
+    "mean": 0.9845678025489305,
+    "minimum": 0.7023556504280014,
+    "maximum": 1.38694347673501
+  },
+  "arp/initial_standard/evaluation/1/rotation_rmse": {
+    "mean": 0.03956510687202966,
+    "minimum": 0.03694258119608404,
+    "maximum": 0.041873719503120015
+  },
+  "arp/initial_standard/evaluation/5/velocity_rmse": {
+    "mean": 1.8574704634317172,
+    "minimum": 0.7180788980304642,
+    "maximum": 2.8282916036056927
+  },
+  "arp/initial_standard/evaluation/5/rate_rmse": {
+    "mean": 2.5566270447883856,
+    "minimum": 1.499520267880489,
+    "maximum": 4.19293507558079
+  },
+  "arp/initial_standard/evaluation/5/rotation_rmse": {
+    "mean": 0.3177030505207488,
+    "minimum": 0.2650992074156672,
+    "maximum": 0.40373006006077516
+  },
+  "arp/initial_standard/evaluation/12/velocity_rmse": {
+    "mean": 4.962144601436695,
+    "minimum": 2.405532021914378,
+    "maximum": 7.566193052043958
+  },
+  "arp/initial_standard/evaluation/12/rate_rmse": {
+    "mean": 5.794576385016558,
+    "minimum": 3.9380844980231227,
+    "maximum": 9.498623789725698
+  },
+  "arp/initial_standard/evaluation/12/rotation_rmse": {
+    "mean": 1.1577455904593548,
+    "minimum": 0.8487174040910237,
+    "maximum": 1.739926468102522
+  },
+  "arp/refined_guarded/development/1/velocity_rmse": {
+    "mean": 0.03572495761080393,
+    "minimum": 0.035079423724517854,
+    "maximum": 0.03656911642091475
+  },
+  "arp/refined_guarded/development/1/rate_rmse": {
+    "mean": 0.12446094951885321,
+    "minimum": 0.12139855906541497,
+    "maximum": 0.12884281421456067
+  },
+  "arp/refined_guarded/development/1/rotation_rmse": {
+    "mean": 0.01932889166737768,
+    "minimum": 0.019277576033750722,
+    "maximum": 0.01937898482392857
+  },
+  "arp/refined_guarded/development/5/velocity_rmse": {
+    "mean": 0.14321202845367217,
+    "minimum": 0.13971687356593768,
+    "maximum": 0.1482486600545007
+  },
+  "arp/refined_guarded/development/5/rate_rmse": {
+    "mean": 0.4766904691862786,
+    "minimum": 0.4494388666732802,
+    "maximum": 0.49219093049395324
+  },
+  "arp/refined_guarded/development/5/rotation_rmse": {
+    "mean": 0.09623921173415124,
+    "minimum": 0.09456726746306994,
+    "maximum": 0.0972389794444494
+  },
+  "arp/refined_guarded/development/12/velocity_rmse": {
+    "mean": 0.42713841661085167,
+    "minimum": 0.4126492892847582,
+    "maximum": 0.4455576134948298
+  },
+  "arp/refined_guarded/development/12/rate_rmse": {
+    "mean": 1.0627564825386249,
+    "minimum": 1.0262358980128747,
+    "maximum": 1.1325977914171148
+  },
+  "arp/refined_guarded/development/12/rotation_rmse": {
+    "mean": 0.26234273672898883,
+    "minimum": 0.2518100240444591,
+    "maximum": 0.271703758507439
+  },
+  "arp/refined_guarded/evaluation/1/velocity_rmse": {
+    "mean": 0.0323002682939024,
+    "minimum": 0.03147207341271006,
+    "maximum": 0.032918927939874595
+  },
+  "arp/refined_guarded/evaluation/1/rate_rmse": {
+    "mean": 0.13430509940259636,
+    "minimum": 0.12007465622657769,
+    "maximum": 0.14157331968572465
+  },
+  "arp/refined_guarded/evaluation/1/rotation_rmse": {
+    "mean": 0.015686714978162323,
+    "minimum": 0.015439761163927361,
+    "maximum": 0.015988872803458516
+  },
+  "arp/refined_guarded/evaluation/5/velocity_rmse": {
+    "mean": 0.17022015114882297,
+    "minimum": 0.16654920745987217,
+    "maximum": 0.17306453796570337
+  },
+  "arp/refined_guarded/evaluation/5/rate_rmse": {
+    "mean": 0.5148858409422262,
+    "minimum": 0.44487753828144366,
+    "maximum": 0.5711174089571556
+  },
+  "arp/refined_guarded/evaluation/5/rotation_rmse": {
+    "mean": 0.08902450138681177,
+    "minimum": 0.08479004963969398,
+    "maximum": 0.09376694086426805
+  },
+  "arp/refined_guarded/evaluation/12/velocity_rmse": {
+    "mean": 0.5288340958207646,
+    "minimum": 0.5113289303491471,
+    "maximum": 0.5432691520898622
+  },
+  "arp/refined_guarded/evaluation/12/rate_rmse": {
+    "mean": 1.3774053233637888,
+    "minimum": 1.2472492971891105,
+    "maximum": 1.5710427829749372
+  },
+  "arp/refined_guarded/evaluation/12/rotation_rmse": {
+    "mean": 0.29645454905908536,
+    "minimum": 0.26695438172273633,
+    "maximum": 0.33273587304482527
+  },
+  "arp/refined_standard/development/1/velocity_rmse": {
+    "mean": 0.03572495761080393,
+    "minimum": 0.035079423724517854,
+    "maximum": 0.03656911642091475
+  },
+  "arp/refined_standard/development/1/rate_rmse": {
+    "mean": 0.12446094951885321,
+    "minimum": 0.12139855906541497,
+    "maximum": 0.12884281421456067
+  },
+  "arp/refined_standard/development/1/rotation_rmse": {
+    "mean": 0.01932889166737768,
+    "minimum": 0.019277576033750722,
+    "maximum": 0.01937898482392857
+  },
+  "arp/refined_standard/development/5/velocity_rmse": {
+    "mean": 0.14321202845367217,
+    "minimum": 0.13971687356593768,
+    "maximum": 0.1482486600545007
+  },
+  "arp/refined_standard/development/5/rate_rmse": {
+    "mean": 0.4766904691862786,
+    "minimum": 0.4494388666732802,
+    "maximum": 0.49219093049395324
+  },
+  "arp/refined_standard/development/5/rotation_rmse": {
+    "mean": 0.09623921173415124,
+    "minimum": 0.09456726746306994,
+    "maximum": 0.0972389794444494
+  },
+  "arp/refined_standard/development/12/velocity_rmse": {
+    "mean": 0.42713841661085167,
+    "minimum": 0.4126492892847582,
+    "maximum": 0.4455576134948298
+  },
+  "arp/refined_standard/development/12/rate_rmse": {
+    "mean": 1.0627564825386249,
+    "minimum": 1.0262358980128747,
+    "maximum": 1.1325977914171148
+  },
+  "arp/refined_standard/development/12/rotation_rmse": {
+    "mean": 0.26234273672898883,
+    "minimum": 0.2518100240444591,
+    "maximum": 0.271703758507439
+  },
+  "arp/refined_standard/evaluation/1/velocity_rmse": {
+    "mean": 0.0323002682939024,
+    "minimum": 0.03147207341271006,
+    "maximum": 0.032918927939874595
+  },
+  "arp/refined_standard/evaluation/1/rate_rmse": {
+    "mean": 0.13430509940259636,
+    "minimum": 0.12007465622657769,
+    "maximum": 0.14157331968572465
+  },
+  "arp/refined_standard/evaluation/1/rotation_rmse": {
+    "mean": 0.015686714978162323,
+    "minimum": 0.015439761163927361,
+    "maximum": 0.015988872803458516
+  },
+  "arp/refined_standard/evaluation/5/velocity_rmse": {
+    "mean": 0.17022015114882297,
+    "minimum": 0.16654920745987217,
+    "maximum": 0.17306453796570337
+  },
+  "arp/refined_standard/evaluation/5/rate_rmse": {
+    "mean": 0.5148858409422262,
+    "minimum": 0.44487753828144366,
+    "maximum": 0.5711174089571556
+  },
+  "arp/refined_standard/evaluation/5/rotation_rmse": {
+    "mean": 0.08902450138681177,
+    "minimum": 0.08479004963969398,
+    "maximum": 0.09376694086426805
+  },
+  "arp/refined_standard/evaluation/12/velocity_rmse": {
+    "mean": 0.5288340958207646,
+    "minimum": 0.5113289303491471,
+    "maximum": 0.5432691520898622
+  },
+  "arp/refined_standard/evaluation/12/rate_rmse": {
+    "mean": 1.3774053233637888,
+    "minimum": 1.2472492971891105,
+    "maximum": 1.5710427829749372
+  },
+  "arp/refined_standard/evaluation/12/rotation_rmse": {
+    "mean": 0.29645454905908536,
+    "minimum": 0.26695438172273633,
+    "maximum": 0.33273587304482527
+  },
+  "arp/selected/development/1/velocity_rmse": {
+    "mean": 0.03572495761080393,
+    "minimum": 0.035079423724517854,
+    "maximum": 0.03656911642091475
+  },
+  "arp/selected/development/1/rate_rmse": {
+    "mean": 0.12446094951885321,
+    "minimum": 0.12139855906541497,
+    "maximum": 0.12884281421456067
+  },
+  "arp/selected/development/1/rotation_rmse": {
+    "mean": 0.01932889166737768,
+    "minimum": 0.019277576033750722,
+    "maximum": 0.01937898482392857
+  },
+  "arp/selected/development/5/velocity_rmse": {
+    "mean": 0.14321202845367217,
+    "minimum": 0.13971687356593768,
+    "maximum": 0.1482486600545007
+  },
+  "arp/selected/development/5/rate_rmse": {
+    "mean": 0.4766904691862786,
+    "minimum": 0.4494388666732802,
+    "maximum": 0.49219093049395324
+  },
+  "arp/selected/development/5/rotation_rmse": {
+    "mean": 0.09623921173415124,
+    "minimum": 0.09456726746306994,
+    "maximum": 0.0972389794444494
+  },
+  "arp/selected/development/12/velocity_rmse": {
+    "mean": 0.42713841661085167,
+    "minimum": 0.4126492892847582,
+    "maximum": 0.4455576134948298
+  },
+  "arp/selected/development/12/rate_rmse": {
+    "mean": 1.0627564825386249,
+    "minimum": 1.0262358980128747,
+    "maximum": 1.1325977914171148
+  },
+  "arp/selected/development/12/rotation_rmse": {
+    "mean": 0.26234273672898883,
+    "minimum": 0.2518100240444591,
+    "maximum": 0.271703758507439
+  },
+  "arp/hold/development/1/velocity_rmse": {
+    "mean": 0.05674008943344563,
+    "minimum": 0.05674008943344562,
+    "maximum": 0.05674008943344562
+  },
+  "arp/hold/development/1/rate_rmse": {
+    "mean": 0.21023543661865948,
+    "minimum": 0.21023543661865945,
+    "maximum": 0.21023543661865945
+  },
+  "arp/hold/development/1/rotation_rmse": {
+    "mean": 0.03454837736114477,
+    "minimum": 0.03454837736114477,
+    "maximum": 0.03454837736114477
+  },
+  "arp/hold/development/5/velocity_rmse": {
+    "mean": 0.254563205550272,
+    "minimum": 0.254563205550272,
+    "maximum": 0.254563205550272
+  },
+  "arp/hold/development/5/rate_rmse": {
+    "mean": 0.8213015207129826,
+    "minimum": 0.8213015207129826,
+    "maximum": 0.8213015207129826
+  },
+  "arp/hold/development/5/rotation_rmse": {
+    "mean": 0.16173294193233362,
+    "minimum": 0.16173294193233362,
+    "maximum": 0.16173294193233362
+  },
+  "arp/hold/development/12/velocity_rmse": {
+    "mean": 0.5842918025613142,
+    "minimum": 0.5842918025613142,
+    "maximum": 0.5842918025613142
+  },
+  "arp/hold/development/12/rate_rmse": {
+    "mean": 1.512999885428223,
+    "minimum": 1.512999885428223,
+    "maximum": 1.512999885428223
+  },
+  "arp/hold/development/12/rotation_rmse": {
+    "mean": 0.35111896559219674,
+    "minimum": 0.35111896559219674,
+    "maximum": 0.35111896559219674
+  },
+  "arp/teacher/development/1/velocity_rmse": {
+    "mean": 0.03572495761080393,
+    "minimum": 0.03507942372451786,
+    "maximum": 0.03656911642091475
+  },
+  "arp/teacher/development/1/rate_rmse": {
+    "mean": 0.12446094951885321,
+    "minimum": 0.12139855906541497,
+    "maximum": 0.12884281421456067
+  },
+  "arp/teacher/development/1/rotation_rmse": {
+    "mean": 0.019328891667377678,
+    "minimum": 0.019277576033750722,
+    "maximum": 0.01937898482392857
+  },
+  "arp/teacher/development/5/velocity_rmse": {
+    "mean": 0.029368399598672185,
+    "minimum": 0.028736855147997172,
+    "maximum": 0.03062339053416212
+  },
+  "arp/teacher/development/5/rate_rmse": {
+    "mean": 0.11071065404349058,
+    "minimum": 0.10521440055608433,
+    "maximum": 0.11578091835832002
+  },
+  "arp/teacher/development/5/rotation_rmse": {
+    "mean": 0.018982090060027084,
+    "minimum": 0.018913641673033582,
+    "maximum": 0.019077099778670628
+  },
+  "arp/teacher/development/12/velocity_rmse": {
+    "mean": 0.032673427140882685,
+    "minimum": 0.032187180669638056,
+    "maximum": 0.03351818052674667
+  },
+  "arp/teacher/development/12/rate_rmse": {
+    "mean": 0.10196165480414217,
+    "minimum": 0.0961551371758356,
+    "maximum": 0.10850400859294543
+  },
+  "arp/teacher/development/12/rotation_rmse": {
+    "mean": 0.019009007158410852,
+    "minimum": 0.01894089109530226,
+    "maximum": 0.019063233936768426
+  },
+  "arp/original_teacher/development/1/velocity_rmse": {
+    "mean": 0.19764557115507267,
+    "minimum": 0.12452734285369763,
+    "maximum": 0.2988569548440131
+  },
+  "arp/original_teacher/development/1/rate_rmse": {
+    "mean": 0.6632725960389242,
+    "minimum": 0.514283640189725,
+    "maximum": 0.8852289390658735
+  },
+  "arp/original_teacher/development/1/rotation_rmse": {
+    "mean": 0.025977271951276207,
+    "minimum": 0.022412454452107974,
+    "maximum": 0.028884091270928815
+  },
+  "arp/original_teacher/development/5/velocity_rmse": {
+    "mean": 0.19822405004987986,
+    "minimum": 0.12523466337288616,
+    "maximum": 0.29900234124825237
+  },
+  "arp/original_teacher/development/5/rate_rmse": {
+    "mean": 0.6627284981746256,
+    "minimum": 0.508224908702985,
+    "maximum": 0.8892589547534395
+  },
+  "arp/original_teacher/development/5/rotation_rmse": {
+    "mean": 0.02595271553420501,
+    "minimum": 0.0218381274276633,
+    "maximum": 0.029101295765047372
+  },
+  "arp/original_teacher/development/12/velocity_rmse": {
+    "mean": 0.198353196994539,
+    "minimum": 0.12637659532032025,
+    "maximum": 0.29942060012962995
+  },
+  "arp/original_teacher/development/12/rate_rmse": {
+    "mean": 0.665455757431039,
+    "minimum": 0.5092391046324081,
+    "maximum": 0.8912426233857969
+  },
+  "arp/original_teacher/development/12/rotation_rmse": {
+    "mean": 0.02587501878392991,
+    "minimum": 0.022244705706504834,
+    "maximum": 0.028679663998766574
+  },
+  "arp/selected/evaluation/1/velocity_rmse": {
+    "mean": 0.0323002682939024,
+    "minimum": 0.03147207341271006,
+    "maximum": 0.032918927939874595
+  },
+  "arp/selected/evaluation/1/rate_rmse": {
+    "mean": 0.13430509940259636,
+    "minimum": 0.12007465622657769,
+    "maximum": 0.14157331968572465
+  },
+  "arp/selected/evaluation/1/rotation_rmse": {
+    "mean": 0.015686714978162323,
+    "minimum": 0.015439761163927361,
+    "maximum": 0.015988872803458516
+  },
+  "arp/selected/evaluation/5/velocity_rmse": {
+    "mean": 0.17022015114882297,
+    "minimum": 0.16654920745987217,
+    "maximum": 0.17306453796570337
+  },
+  "arp/selected/evaluation/5/rate_rmse": {
+    "mean": 0.5148858409422262,
+    "minimum": 0.44487753828144366,
+    "maximum": 0.5711174089571556
+  },
+  "arp/selected/evaluation/5/rotation_rmse": {
+    "mean": 0.08902450138681177,
+    "minimum": 0.08479004963969398,
+    "maximum": 0.09376694086426805
+  },
+  "arp/selected/evaluation/12/velocity_rmse": {
+    "mean": 0.5288340958207646,
+    "minimum": 0.5113289303491471,
+    "maximum": 0.5432691520898622
+  },
+  "arp/selected/evaluation/12/rate_rmse": {
+    "mean": 1.3774053233637888,
+    "minimum": 1.2472492971891105,
+    "maximum": 1.5710427829749372
+  },
+  "arp/selected/evaluation/12/rotation_rmse": {
+    "mean": 0.29645454905908536,
+    "minimum": 0.26695438172273633,
+    "maximum": 0.33273587304482527
+  },
+  "arp/hold/evaluation/1/velocity_rmse": {
+    "mean": 0.028673399456923005,
+    "minimum": 0.028673399456923005,
+    "maximum": 0.028673399456923005
+  },
+  "arp/hold/evaluation/1/rate_rmse": {
+    "mean": 0.10993582225458547,
+    "minimum": 0.10993582225458547,
+    "maximum": 0.10993582225458547
+  },
+  "arp/hold/evaluation/1/rotation_rmse": {
+    "mean": 0.020848285248609422,
+    "minimum": 0.020848285248609426,
+    "maximum": 0.020848285248609426
+  },
+  "arp/hold/evaluation/5/velocity_rmse": {
+    "mean": 0.12169644999462714,
+    "minimum": 0.12169644999462714,
+    "maximum": 0.12169644999462714
+  },
+  "arp/hold/evaluation/5/rate_rmse": {
+    "mean": 0.3431339377403892,
+    "minimum": 0.3431339377403892,
+    "maximum": 0.3431339377403892
+  },
+  "arp/hold/evaluation/5/rotation_rmse": {
+    "mean": 0.10231367979373003,
+    "minimum": 0.10231367979373003,
+    "maximum": 0.10231367979373003
+  },
+  "arp/hold/evaluation/12/velocity_rmse": {
+    "mean": 0.26591956799270483,
+    "minimum": 0.26591956799270483,
+    "maximum": 0.26591956799270483
+  },
+  "arp/hold/evaluation/12/rate_rmse": {
+    "mean": 0.6482806264010151,
+    "minimum": 0.6482806264010151,
+    "maximum": 0.6482806264010151
+  },
+  "arp/hold/evaluation/12/rotation_rmse": {
+    "mean": 0.23576948985255383,
+    "minimum": 0.23576948985255383,
+    "maximum": 0.23576948985255383
+  },
+  "arp/teacher/evaluation/1/velocity_rmse": {
+    "mean": 0.0323002682939024,
+    "minimum": 0.031472073412710064,
+    "maximum": 0.032918927939874595
+  },
+  "arp/teacher/evaluation/1/rate_rmse": {
+    "mean": 0.13430509940259636,
+    "minimum": 0.12007465622657766,
+    "maximum": 0.14157331968572467
+  },
+  "arp/teacher/evaluation/1/rotation_rmse": {
+    "mean": 0.01568671497816232,
+    "minimum": 0.015439761163927366,
+    "maximum": 0.015988872803458506
+  },
+  "arp/teacher/evaluation/5/velocity_rmse": {
+    "mean": 0.030479019691264087,
+    "minimum": 0.029904136727936906,
+    "maximum": 0.030936404043322315
+  },
+  "arp/teacher/evaluation/5/rate_rmse": {
+    "mean": 0.12351995620984212,
+    "minimum": 0.10807455761468879,
+    "maximum": 0.13129430407076698
+  },
+  "arp/teacher/evaluation/5/rotation_rmse": {
+    "mean": 0.015609148678830303,
+    "minimum": 0.015353097299534229,
+    "maximum": 0.01591729532400382
+  },
+  "arp/teacher/evaluation/12/velocity_rmse": {
+    "mean": 0.03747118718283129,
+    "minimum": 0.03720145640177108,
+    "maximum": 0.037864335158172516
+  },
+  "arp/teacher/evaluation/12/rate_rmse": {
+    "mean": 0.16764310767299828,
+    "minimum": 0.1572526332793233,
+    "maximum": 0.17318225866321546
+  },
+  "arp/teacher/evaluation/12/rotation_rmse": {
+    "mean": 0.015676813953937496,
+    "minimum": 0.015429073692899736,
+    "maximum": 0.015974242058003272
+  },
+  "arp/original_teacher/evaluation/1/velocity_rmse": {
+    "mean": 0.32930653060557824,
+    "minimum": 0.2030048201866465,
+    "maximum": 0.4907494129634203
+  },
+  "arp/original_teacher/evaluation/1/rate_rmse": {
+    "mean": 0.9942322588854017,
+    "minimum": 0.7203802562118249,
+    "maximum": 1.371591862340138
+  },
+  "arp/original_teacher/evaluation/1/rotation_rmse": {
+    "mean": 0.03858085356478883,
+    "minimum": 0.03547081498236437,
+    "maximum": 0.04136136027707621
+  },
+  "arp/original_teacher/evaluation/5/velocity_rmse": {
+    "mean": 0.3295252209584737,
+    "minimum": 0.20355637991871037,
+    "maximum": 0.49112744930099067
+  },
+  "arp/original_teacher/evaluation/5/rate_rmse": {
+    "mean": 0.9944878551521666,
+    "minimum": 0.719072046226832,
+    "maximum": 1.3731682267202794
+  },
+  "arp/original_teacher/evaluation/5/rotation_rmse": {
+    "mean": 0.038614684511885516,
+    "minimum": 0.0354725747098458,
+    "maximum": 0.0413779370689022
+  },
+  "arp/original_teacher/evaluation/12/velocity_rmse": {
+    "mean": 0.3313226027985202,
+    "minimum": 0.20523859709024536,
+    "maximum": 0.4922334623449361
+  },
+  "arp/original_teacher/evaluation/12/rate_rmse": {
+    "mean": 0.991799437084131,
+    "minimum": 0.7184645206698629,
+    "maximum": 1.366195146356529
+  },
+  "arp/original_teacher/evaluation/12/rotation_rmse": {
+    "mean": 0.03856930782972798,
+    "minimum": 0.035581606680916915,
+    "maximum": 0.041266706730793246
+  }
+}

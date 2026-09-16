@@ -1,0 +1,42 @@
+{
+  "phase": "confirmation",
+  "seeds": [
+    20,
+    21,
+    22,
+    23,
+    24
+  ],
+  "kernels": [
+    "rbf",
+    "matern52",
+    "rq"
+  ],
+  "layouts": [
+    "outer",
+    "broad",
+    "random-fill",
+    "coverage-fill"
+  ],
+  "systems": [
+    "smooth",
+    "dead-zone",
+    "saturation",
+    "localized"
+  ],
+  "steps": 200,
+  "restarts": 2,
+  "noise_std": 0.02,
+  "training_budgets": {
+    "outer": 128,
+    "broad": 192,
+    "random-fill": 192,
+    "coverage-fill": 192
+  },
+  "data_selection": "geometry only; new labels counted in the training budget",
+  "acquisition_pool": "independent second half of pool; first half supplies initial rows",
+  "hyperparameter_selection": "training marginal likelihood only",
+  "scope": "synthetic independent resets, full next-state prediction, fixed dt .1",
+  "test_regions": "predeclared using simulator truth for evaluation only",
+  "aggregation": "equal seed mean; descriptive seed range, no population coverage claim"
+}

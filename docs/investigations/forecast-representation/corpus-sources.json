@@ -1,0 +1,37 @@
+[
+  {
+    "path": "../artifacts/representation-study/new-corpus/download_cfusdlog.sh",
+    "url": "https://raw.githubusercontent.com/arplaboratory/data-driven-system-identification/2d267dd07b4262f579ee223d20b26a6dc9d17147/download_cfusdlog.sh",
+    "bytes": 136,
+    "sha256": "f2411b9b8c0e9638e9cb754a739f22329fbcd4b13f7f7d953bce21521db0554e",
+    "git_blob": "b5f5836de99a991c5fec1daa22b77404c34708a9"
+  },
+  {
+    "path": "../artifacts/representation-study/new-corpus/log10",
+    "url": "https://raw.githubusercontent.com/arplaboratory/data-driven-system-identification/2d267dd07b4262f579ee223d20b26a6dc9d17147/logs_crazyflie/log10",
+    "bytes": 2524933,
+    "sha256": "da77c31ecf18a65159b7f973cf3246ec80ea2fc3e60183812416fad47f32b402",
+    "git_blob": "cdd95312ffbf07a5cbc4e379126cde0343a07a4a"
+  },
+  {
+    "path": "../artifacts/representation-study/new-corpus/log15",
+    "url": "https://raw.githubusercontent.com/arplaboratory/data-driven-system-identification/2d267dd07b4262f579ee223d20b26a6dc9d17147/logs_crazyflie/log15",
+    "bytes": 3138833,
+    "sha256": "364dea627205f4eee3e8d54f72b0ba8fd93442dcea9c8cc4a42b59004ecf3a31",
+    "git_blob": "c539eacd572bfa0f1b90ca3bed10b9c7ffab2db3"
+  },
+  {
+    "path": "../artifacts/representation-study/new-corpus/log16",
+    "url": "https://raw.githubusercontent.com/arplaboratory/data-driven-system-identification/2d267dd07b4262f579ee223d20b26a6dc9d17147/logs_crazyflie/log16",
+    "bytes": 2359233,
+    "sha256": "19070dd8462cdffd547a1c2f727b19308341ac79cc852a0ef0f1e796cd71b3a9",
+    "git_blob": "40db093db6d498cd17d6c28ccb73608ae870536e"
+  },
+  {
+    "path": "../artifacts/representation-study/new-corpus/sysid.ipynb",
+    "url": "https://raw.githubusercontent.com/arplaboratory/data-driven-system-identification/2d267dd07b4262f579ee223d20b26a6dc9d17147/sysid.ipynb",
+    "bytes": 1428173,
+    "sha256": "5b510d31dfef5c8ba3cd75669e85d0fe5b0b812b19731f73f150dd5f660b4b36",
+    "git_blob": "355600926d9461c09afacfe0db057bd24d2e0bf3"
+  }
+]

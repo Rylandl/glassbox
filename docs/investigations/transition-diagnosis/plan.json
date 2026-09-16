@@ -1,0 +1,340 @@
+{
+  "seeds": [
+    60,
+    61,
+    62
+  ],
+  "cases": [
+    {
+      "seed": 60,
+      "budget": 384,
+      "history": "none",
+      "horizon_steps": 1
+    },
+    {
+      "seed": 60,
+      "budget": 384,
+      "history": "20ms",
+      "horizon_steps": 1
+    },
+    {
+      "seed": 60,
+      "budget": 192,
+      "history": "100ms",
+      "horizon_steps": 1
+    },
+    {
+      "seed": 60,
+      "budget": 384,
+      "history": "100ms",
+      "horizon_steps": 1
+    },
+    {
+      "seed": 60,
+      "budget": 384,
+      "history": "200ms",
+      "horizon_steps": 1
+    },
+    {
+      "seed": 60,
+      "budget": 384,
+      "history": "none",
+      "horizon_steps": 10
+    },
+    {
+      "seed": 60,
+      "budget": 384,
+      "history": "20ms",
+      "horizon_steps": 10
+    },
+    {
+      "seed": 60,
+      "budget": 192,
+      "history": "100ms",
+      "horizon_steps": 10
+    },
+    {
+      "seed": 60,
+      "budget": 384,
+      "history": "100ms",
+      "horizon_steps": 10
+    },
+    {
+      "seed": 60,
+      "budget": 384,
+      "history": "200ms",
+      "horizon_steps": 10
+    },
+    {
+      "seed": 60,
+      "budget": 384,
+      "history": "none",
+      "horizon_steps": 25
+    },
+    {
+      "seed": 60,
+      "budget": 384,
+      "history": "20ms",
+      "horizon_steps": 25
+    },
+    {
+      "seed": 60,
+      "budget": 192,
+      "history": "100ms",
+      "horizon_steps": 25
+    },
+    {
+      "seed": 60,
+      "budget": 384,
+      "history": "100ms",
+      "horizon_steps": 25
+    },
+    {
+      "seed": 60,
+      "budget": 384,
+      "history": "200ms",
+      "horizon_steps": 25
+    },
+    {
+      "seed": 61,
+      "budget": 384,
+      "history": "none",
+      "horizon_steps": 1
+    },
+    {
+      "seed": 61,
+      "budget": 384,
+      "history": "20ms",
+      "horizon_steps": 1
+    },
+    {
+      "seed": 61,
+      "budget": 192,
+      "history": "100ms",
+      "horizon_steps": 1
+    },
+    {
+      "seed": 61,
+      "budget": 384,
+      "history": "100ms",
+      "horizon_steps": 1
+    },
+    {
+      "seed": 61,
+      "budget": 384,
+      "history": "200ms",
+      "horizon_steps": 1
+    },
+    {
+      "seed": 61,
+      "budget": 384,
+      "history": "none",
+      "horizon_steps": 10
+    },
+    {
+      "seed": 61,
+      "budget": 384,
+      "history": "20ms",
+      "horizon_steps": 10
+    },
+    {
+      "seed": 61,
+      "budget": 192,
+      "history": "100ms",
+      "horizon_steps": 10
+    },
+    {
+      "seed": 61,
+      "budget": 384,
+      "history": "100ms",
+      "horizon_steps": 10
+    },
+    {
+      "seed": 61,
+      "budget": 384,
+      "history": "200ms",
+      "horizon_steps": 10
+    },
+    {
+      "seed": 61,
+      "budget": 384,
+      "history": "none",
+      "horizon_steps": 25
+    },
+    {
+      "seed": 61,
+      "budget": 384,
+      "history": "20ms",
+      "horizon_steps": 25
+    },
+    {
+      "seed": 61,
+      "budget": 192,
+      "history": "100ms",
+      "horizon_steps": 25
+    },
+    {
+      "seed": 61,
+      "budget": 384,
+      "history": "100ms",
+      "horizon_steps": 25
+    },
+    {
+      "seed": 61,
+      "budget": 384,
+      "history": "200ms",
+      "horizon_steps": 25
+    },
+    {
+      "seed": 62,
+      "budget": 384,
+      "history": "none",
+      "horizon_steps": 1
+    },
+    {
+      "seed": 62,
+      "budget": 384,
+      "history": "20ms",
+      "horizon_steps": 1
+    },
+    {
+      "seed": 62,
+      "budget": 192,
+      "history": "100ms",
+      "horizon_steps": 1
+    },
+    {
+      "seed": 62,
+      "budget": 384,
+      "history": "100ms",
+      "horizon_steps": 1
+    },
+    {
+      "seed": 62,
+      "budget": 384,
+      "history": "200ms",
+      "horizon_steps": 1
+    },
+    {
+      "seed": 62,
+      "budget": 384,
+      "history": "none",
+      "horizon_steps": 10
+    },
+    {
+      "seed": 62,
+      "budget": 384,
+      "history": "20ms",
+      "horizon_steps": 10
+    },
+    {
+      "seed": 62,
+      "budget": 192,
+      "history": "100ms",
+      "horizon_steps": 10
+    },
+    {
+      "seed": 62,
+      "budget": 384,
+      "history": "100ms",
+      "horizon_steps": 10
+    },
+    {
+      "seed": 62,
+      "budget": 384,
+      "history": "200ms",
+      "horizon_steps": 10
+    },
+    {
+      "seed": 62,
+      "budget": 384,
+      "history": "none",
+      "horizon_steps": 25
+    },
+    {
+      "seed": 62,
+      "budget": 384,
+      "history": "20ms",
+      "horizon_steps": 25
+    },
+    {
+      "seed": 62,
+      "budget": 192,
+      "history": "100ms",
+      "horizon_steps": 25
+    },
+    {
+      "seed": 62,
+      "budget": 384,
+      "history": "100ms",
+      "horizon_steps": 25
+    },
+    {
+      "seed": 62,
+      "budget": 384,
+      "history": "200ms",
+      "horizon_steps": 25
+    }
+  ],
+  "histories": {
+    "none": [],
+    "20ms": [
+      1,
+      2
+    ],
+    "100ms": [
+      5,
+      10
+    ],
+    "200ms": [
+      10,
+      20
+    ]
+  },
+  "horizons": [
+    1,
+    10,
+    25
+  ],
+  "shared_steps": 160,
+  "shared_long_steps": 480,
+  "outputwise_steps_per_member": 160,
+  "restarts": 2,
+  "kernel": "rq",
+  "mean_mode": "increment",
+  "outputs": [
+    "velocity_x [m/s]",
+    "velocity_y [m/s]",
+    "velocity_z [m/s]",
+    "rate_x [rad/s]",
+    "rate_y [rad/s]",
+    "rate_z [rad/s]"
+  ],
+  "split": {
+    "train": [
+      "chirp_20251017_run1",
+      "chirp_20251017_run2",
+      "random_20251017_run1",
+      "random_20251017_run2",
+      "square_20251017_run1",
+      "square_20251017_run2"
+    ],
+    "development": [
+      "chirp_20251017_run3",
+      "random_20251017_run3",
+      "square_20251017_run3"
+    ],
+    "replication": [
+      "chirp_20251017_run4",
+      "random_20251017_run4",
+      "square_20251017_run4"
+    ]
+  },
+  "source_commit": "2d921b57d166fe2debe08a5d39bd07297c5abc39",
+  "smoke": false,
+  "interpretation": "Factorial diagnostic, not final generalization evidence. No Melon files loaded. Non-Melon recordings were used in prior work.",
+  "comparison": "Identical feature information and vector labels per case. Outputwise fits six independent kernels/noises; shared-long gets 3x updates. Compute is recorded, not equalized.",
+  "history": "Two causal lags of state/input changes for every nonempty history, with equal feature dimension. Current orientation only; no future state features.",
+  "budget": "Selected vector windows, not independent observations or a flight collection time. Smaller training budgets are nested within each flight.",
+  "processing": "Offline filtered/retimed real measurements; supplied future measured motor speeds. History effects do not establish physical memory."
+}

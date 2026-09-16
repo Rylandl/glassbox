@@ -1,0 +1,7 @@
+{
+  "src/glassbox/experimental/outputwise_transition.py": "4ad5f855f80ecf9b48df6fdb4b7b5ce0cf3c2614bb1b70e65b14a989a77dd2fe",
+  "scripts/experiment_transition_diagnosis.py": "f60f2718108bbb491baf7b9407d9ddc76f3e97a053c209b5ab8a579c6827fe94",
+  "scripts/report_transition_diagnosis.py": "bde2185c77c2284686b68986a533daf7f39ca78ba600d73218ecb04b8e3c5c9d",
+  "tests/test_outputwise_transition.py": "d3a7c5f6d2031c1357cd0c986abf2a0883675bb4ef7b0e05b2249ec20ad4d404",
+  "tests/test_diagnosis_sampling.py": "0a25a98f20f5481c6f65740ae0bcef45bb84513aabfc31ad6c26a7d52ba2dda2"
+}

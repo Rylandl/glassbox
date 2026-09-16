@@ -1,0 +1,118 @@
+{
+  "README.md": {
+    "bytes": 6337,
+    "sha256": "d32616697c887c0a68db8553c6432041cc466ea232500345df55809361bd32a2"
+  },
+  "ablation-01-executed-sources.zip": {
+    "bytes": 44613,
+    "sha256": "e0e6e9ec7ad5b251f8b7e0f4f45c55e79cb89b68154609277e240008283d7a2a"
+  },
+  "ablation-01-plan.json": {
+    "bytes": 1842,
+    "sha256": "bef2cf8b64965b07acae8038611a00178992f819b2fd0cecab3528ff04882e34"
+  },
+  "ablation-01-sources.json": {
+    "bytes": 1635,
+    "sha256": "56e7b045d49bf2a3c80a9925483e9c2b298ac2ac673989dcf2d0b55baccd4c2b"
+  },
+  "audit.json": {
+    "bytes": 547,
+    "sha256": "bce4b7acc93c633379075dd59f0d9110b8aff5e08fe51309328ea4ee12c6256f"
+  },
+  "case-metrics.json": {
+    "bytes": 70770,
+    "sha256": "95a2922e2223e6c4434f7b17409b184994c95b8432ec52559a02189f0cbdf5d4"
+  },
+  "case-reports.zip": {
+    "bytes": 259088,
+    "sha256": "903d55c9f1bd8dc78989ecca3854146b50ce03e0b7a4081b09c5bd76c7e17160"
+  },
+  "cf-expanded-01-executed-sources.zip": {
+    "bytes": 45465,
+    "sha256": "e5f9b900e201cb6aeedecdb49b6415efa870b537c54895c9ce7e525a9671924a"
+  },
+  "cf-expanded-01-plan.json": {
+    "bytes": 1885,
+    "sha256": "173cd8ce09e13ee9a9320a8244295c53ea5a0c543d3e92fad96b7c2707c5c34d"
+  },
+  "cf-expanded-01-sources.json": {
+    "bytes": 1635,
+    "sha256": "cfdb47232d395e3e5b866e629a3bee36053bcdc1b900b3efa0b8e191db6c6363"
+  },
+  "cf-frozen-01-executed-sources.zip": {
+    "bytes": 44613,
+    "sha256": "e0e6e9ec7ad5b251f8b7e0f4f45c55e79cb89b68154609277e240008283d7a2a"
+  },
+  "cf-frozen-01-plan.json": {
+    "bytes": 1868,
+    "sha256": "1b14f50bd7de4ed903c04743a5790c1d426515636d0b7bac595314b3edc70e4f"
+  },
+  "cf-frozen-01-sources.json": {
+    "bytes": 1635,
+    "sha256": "56e7b045d49bf2a3c80a9925483e9c2b298ac2ac673989dcf2d0b55baccd4c2b"
+  },
+  "corpus-decoder-source.json": {
+    "bytes": 279,
+    "sha256": "2befe8c10bc586f8cb1813491527b628a6adfdf2178a19a97a7b41bb38bd5ef6"
+  },
+  "corpus-roles.json": {
+    "bytes": 339,
+    "sha256": "04e63f59dc784d965ff50548b0479a70d8bf02848171a8d79d6e17c7b7eb19f0"
+  },
+  "corpus-sources.json": {
+    "bytes": 1991,
+    "sha256": "5cfa5c25bc1d8cf6ab5abf1f587eedd495ff3649c9ba43b14382de67c54b4e5b"
+  },
+  "crazyflie-representation.png": {
+    "bytes": 97892,
+    "sha256": "77a33197c147e149cd1886c3addd1ecba458de68a55edeea478b4b371eddd451"
+  },
+  "crazyflie-representation.svg": {
+    "bytes": 69212,
+    "sha256": "2068b21dc1ab638e596c16a43a541bdc9fe7edfbc393a9b31f14d25efda4b63b"
+  },
+  "final-implementation.zip": {
+    "bytes": 581486,
+    "sha256": "6ea39c15171c2aeb416c0fa63ed54448c87d39d58f4a57f2c70cdb82b02dc052"
+  },
+  "frozen.json": {
+    "bytes": 5239,
+    "sha256": "4d66ed4383cd2a1a009d726b7fb16edabd035f7428ef332e3b970655a4116b6a"
+  },
+  "implementation-sources.json": {
+    "bytes": 15452,
+    "sha256": "9065a096acc263338d9a34fbef92b0a0ce74c348d5b91f39c83a494a31a63bf5"
+  },
+  "plan-errata.json": {
+    "bytes": 1016,
+    "sha256": "3de172fd971dd54bd1256ba946e2c01ea01dbe27f003cef03af3747418e16a90"
+  },
+  "reserved-evaluation.json": {
+    "bytes": 2348,
+    "sha256": "86c7b99958d5f2029609af38d56fcc88c6792748ad2af7d7c3a7b98f8712a807"
+  },
+  "segmentation-diagnostics.json": {
+    "bytes": 1136,
+    "sha256": "f885bdfca59723629494899e43af9125e2d506d356433b75e235bd9b05313510"
+  },
+  "source-pytest.xml": {
+    "bytes": 17475,
+    "sha256": "df96b46f99409cdc4854ce2aa759b2b0b9f1e1306c16a8e68cc0a7f49825c13f"
+  },
+  "starting-hashes.json": {
+    "bytes": 163300,
+    "sha256": "72462fd5e037e32d21ca6c1e9e0e7cda90be4fb564d3d546422e4539147aa74a"
+  },
+  "summary.json": {
+    "bytes": 22330,
+    "sha256": "c8c44df812ccc0fe3dd77d71b0f104d97055e315a7f9a157fbff0fa82ee3dba0"
+  },
+  "validation.json": {
+    "bytes": 2075,
+    "sha256": "e8052511a292a02bcca2177604f6c10c49d28406ff8fa9a5d34ddb3796436400"
+  },
+  "wheel-pytest.xml": {
+    "bytes": 17475,
+    "sha256": "31a2e52bd256bfe6bdeb58f2de40b663550da1a56ea48189396a303ae9384146"
+  }
+}

@@ -39,6 +39,13 @@ channels get an identity map; measured actuation such as rotor speed needs a
 supplied map. Without one, command-based calls raise `NonActionableModelError`.
 The underlying dynamics can still predict from measured actuation.
 
+Requested surface angles use `surface_angle_command` with their actual units
+and finite bounds, for example radians for generalized roll/pitch angles. They
+receive an identity command map in those coordinates. Measured surface angles
+such as `generalized_surface_angle` remain distinct and do not acquire a command
+map automatically. The [Cascade experiment](../cascade-refinement.md) exercises
+this distinction through fit, serialization, prediction and controller handoff.
+
 ## Parameter information
 
 Fitting and absorption accumulate `sum J.T @ inv(R) @ J` over selected one-step
@@ -76,6 +83,27 @@ remain separate. `forecast_error_available` distinguishes absent measurements
 from zero measured error. The [repeated-fit study](../repeated-uncertainty-calibration.md)
 compares both with independent outcomes.
 
+Consumers that need the mean without propagated parameter covariance can skip
+that calculation explicitly:
+
+```python
+mean_forecast = belief.rollout(
+    telemetry.states[0],
+    telemetry.controls[:30],
+    command_history=telemetry.control_prefix,
+    exogenous=telemetry.exogenous[:30],
+    propagate_parameter_covariance=False,
+)
+assert mean_forecast.parameter_covariance is None
+```
+
+The state and actuator predictions, empirical forecast-error covariance, and
+parameter rank/completeness are unchanged. `None` means that parameter covariance
+was not computed, rather than zero uncertainty. `uncertainty_available` requires
+either empirical error data or a computed covariance with resolved parameter
+directions. The default still computes both covariance components. The
+[streaming experiment](../streaming-refinement.md) exercises the optional path.
+
 Concrete commands are checked against declared channel bounds. The velocity/rate
 operating envelope is advisory: utilization above one reports an excursion.
 JAX-traced callers are responsible for command bounds; NMPC projects commands
@@ -94,6 +122,14 @@ The returned `UpdateResult` includes the usable transition count, before/after
 innovation error, information gain and step size. The original belief is
 unchanged. Updates retain the original operating envelope and forecast-error
 measurements; provenance tracks parameter movement since calibration.
+
+For repeated telemetry blocks, the experimental
+[`ModelRefiner` workflow](../guides/platform-onboarding.md#streaming-refinement)
+scores active and candidate revisions before absorption, accounts for recording
+intervals, and separates learning from explicit adoption. It wraps the existing
+update without changing its equations or evidence semantics. Information is
+accumulated without forgetting, so this is not yet a mechanism for tracking
+changing platform parameters.
 
 See [adaptive recovery](../validation.md#adaptive-recovery) for the recorded
 update experiment and [NMPC](nmpc.md) for using a belief in control.

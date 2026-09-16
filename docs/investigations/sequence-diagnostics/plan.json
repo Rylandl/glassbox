@@ -1,0 +1,64 @@
+{
+  "created_utc": "2026-09-14T17:23:15.245579+00:00",
+  "purpose": "Develop generic observational diagnostics against platform-neutral synthetic positive and negative controls. No vehicle/controller trials.",
+  "learner_recipe": {
+    "id": "generic-history-v1-prototype",
+    "kind": "delay_mlp",
+    "width": 32,
+    "history_s": 0.1,
+    "horizon_s": 0.25,
+    "training_windows": 384,
+    "development_windows": 256,
+    "steps": 1000,
+    "batch_size": 64,
+    "learning_rate": 0.002,
+    "ridge_fraction": 0.01,
+    "seed": 0,
+    "check_every": 100,
+    "hold_scale_floor": 0.01
+  },
+  "diagnostic_recipe": {
+    "id": "sequence-evidence-v1-prototype",
+    "history_multiplier": 2,
+    "maximum_windows_per_recording": 256,
+    "ridge_fraction": 0.001,
+    "input_predictors": [
+      "affine",
+      "quadratic"
+    ],
+    "residual_predictor": "affine",
+    "folds": "leave one whole diagnostic recording out",
+    "replacement_control": "older features from other training recordings; held-out donors use training recordings only",
+    "seed": 713
+  },
+  "data_seeds": [
+    101,
+    202,
+    303
+  ],
+  "cases": {
+    "existing": [
+      "command-0.0",
+      "command-0.02",
+      "command-0.25",
+      "memory-hidden",
+      "encoding-identity"
+    ],
+    "fresh": [
+      "quadratic_policy",
+      "cubic_policy",
+      "process_noise"
+    ]
+  },
+  "fresh_data": {
+    "calibration_recordings": 8,
+    "diagnostic_recordings": 4,
+    "steps": 160,
+    "dt_s": 0.05,
+    "policy_controls": "u=x^2 or x^3; next x is independent uniform[-1,1]",
+    "process_noise": "x_next=.8*x+.2*u+.1*normal(0,1), independent uniform[-1,1] input"
+  },
+  "measurement": "Cross-recording remaining input RMS vs training-mean reference; raw model error and errors after short/extended/replacement-history diagnostic regressions. No binary thresholds, causal independence claim, or model update.",
+  "exclusions": "Diagnostic recordings must differ in identity and full content from fit/development data. Old synthetic cases are already inspected and are method-development data, not an untouched final benchmark.",
+  "next_claim": "Do these descriptive signals separate the stipulated examples, and which negative controls expose blind spots?"
+}

@@ -1,0 +1,1089 @@
+{
+  "candidate_key": "first_step_floor",
+  "phase": "confirmation",
+  "families": {
+    "stable_affine": {
+      "matched": {
+        "first_relative_change": {
+          "minimum": -0.4067927898764623,
+          "median": 0.0,
+          "maximum": 0.0
+        },
+        "overall_relative_change": {
+          "minimum": -0.4591834888719485,
+          "median": 0.0,
+          "maximum": 0.0
+        },
+        "first_absolute_scaled_change": {
+          "minimum": -5.602867275645368e-05,
+          "median": 0.0,
+          "maximum": 0.0
+        },
+        "overall_absolute_scaled_change": {
+          "minimum": -0.00010841868322407491,
+          "median": 0.0,
+          "maximum": 0.0
+        },
+        "first_baseline": {
+          "minimum": 8.53641276730715e-05,
+          "median": 0.00012188906789246374,
+          "maximum": 0.00013773270852088815
+        },
+        "first_candidate": {
+          "minimum": 8.170403576443447e-05,
+          "median": 8.53641276730715e-05,
+          "maximum": 0.00012188906789246374
+        },
+        "overall_baseline": {
+          "minimum": 0.00010656816558757563,
+          "median": 0.000180363498434406,
+          "maximum": 0.00023611189394118088
+        },
+        "overall_candidate": {
+          "minimum": 0.00010656816558757563,
+          "median": 0.00012769321071710597,
+          "maximum": 0.000180363498434406
+        },
+        "horizon_relative_change": {
+          "minimum": [
+            -0.4067927898764623,
+            -0.4853403414259154,
+            -0.45678318600941903,
+            -0.47007455197216563,
+            -0.45362828811040956
+          ],
+          "median": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "maximum": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "shifted": {
+        "first_relative_change": {
+          "minimum": -0.7433223246757577,
+          "median": 0.0,
+          "maximum": 0.0
+        },
+        "overall_relative_change": {
+          "minimum": -0.7935018178393867,
+          "median": 0.0,
+          "maximum": 0.0
+        },
+        "first_absolute_scaled_change": {
+          "minimum": -0.0008372867842245974,
+          "median": 0.0,
+          "maximum": 0.0
+        },
+        "overall_absolute_scaled_change": {
+          "minimum": -0.0011928347499953103,
+          "median": 0.0,
+          "maximum": 0.0
+        },
+        "first_baseline": {
+          "minimum": 0.00018855988904324555,
+          "median": 0.0007657669918238253,
+          "maximum": 0.0011264114589721594
+        },
+        "first_candidate": {
+          "minimum": 0.00018855988904324555,
+          "median": 0.000289124674747562,
+          "maximum": 0.0007657669918238253
+        },
+        "overall_baseline": {
+          "minimum": 0.0002990911125522137,
+          "median": 0.0009527540940521456,
+          "maximum": 0.001503253960076942
+        },
+        "overall_candidate": {
+          "minimum": 0.0002990911125522137,
+          "median": 0.00031041921008163165,
+          "maximum": 0.0009527540940521456
+        },
+        "horizon_relative_change": {
+          "minimum": [
+            -0.7433223246757577,
+            -0.7883979314227709,
+            -0.7902249181144608,
+            -0.7996460076275413,
+            -0.8168928456859543
+          ],
+          "median": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "maximum": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        }
+      }
+    },
+    "coupled_nonlinear": {
+      "matched": {
+        "first_relative_change": {
+          "minimum": 0.0,
+          "median": 0.0,
+          "maximum": 0.0
+        },
+        "overall_relative_change": {
+          "minimum": 0.0,
+          "median": 0.0,
+          "maximum": 0.0
+        },
+        "first_absolute_scaled_change": {
+          "minimum": 0.0,
+          "median": 0.0,
+          "maximum": 0.0
+        },
+        "overall_absolute_scaled_change": {
+          "minimum": 0.0,
+          "median": 0.0,
+          "maximum": 0.0
+        },
+        "first_baseline": {
+          "minimum": 0.006892670659571854,
+          "median": 0.007850924522808084,
+          "maximum": 0.008899317049814996
+        },
+        "first_candidate": {
+          "minimum": 0.006892670659571854,
+          "median": 0.007850924522808084,
+          "maximum": 0.008899317049814996
+        },
+        "overall_baseline": {
+          "minimum": 0.01279664470449504,
+          "median": 0.015961559801743283,
+          "maximum": 0.017695194559604513
+        },
+        "overall_candidate": {
+          "minimum": 0.01279664470449504,
+          "median": 0.015961559801743283,
+          "maximum": 0.017695194559604513
+        },
+        "horizon_relative_change": {
+          "minimum": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "median": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "maximum": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "shifted": {
+        "first_relative_change": {
+          "minimum": 0.0,
+          "median": 0.0,
+          "maximum": 0.0
+        },
+        "overall_relative_change": {
+          "minimum": 0.0,
+          "median": 0.0,
+          "maximum": 0.0
+        },
+        "first_absolute_scaled_change": {
+          "minimum": 0.0,
+          "median": 0.0,
+          "maximum": 0.0
+        },
+        "overall_absolute_scaled_change": {
+          "minimum": 0.0,
+          "median": 0.0,
+          "maximum": 0.0
+        },
+        "first_baseline": {
+          "minimum": 0.10344444169421131,
+          "median": 0.105056199933836,
+          "maximum": 0.10830087896327316
+        },
+        "first_candidate": {
+          "minimum": 0.10344444169421131,
+          "median": 0.105056199933836,
+          "maximum": 0.10830087896327316
+        },
+        "overall_baseline": {
+          "minimum": 0.14853573766529743,
+          "median": 0.14941192620009416,
+          "maximum": 0.16154162217604953
+        },
+        "overall_candidate": {
+          "minimum": 0.14853573766529743,
+          "median": 0.14941192620009416,
+          "maximum": 0.16154162217604953
+        },
+        "horizon_relative_change": {
+          "minimum": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "median": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "maximum": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        }
+      }
+    },
+    "deadzone_saturation": {
+      "matched": {
+        "first_relative_change": {
+          "minimum": 0.0,
+          "median": 0.0,
+          "maximum": 0.0
+        },
+        "overall_relative_change": {
+          "minimum": 0.0,
+          "median": 0.0,
+          "maximum": 0.0
+        },
+        "first_absolute_scaled_change": {
+          "minimum": 0.0,
+          "median": 0.0,
+          "maximum": 0.0
+        },
+        "overall_absolute_scaled_change": {
+          "minimum": 0.0,
+          "median": 0.0,
+          "maximum": 0.0
+        },
+        "first_baseline": {
+          "minimum": 0.020594035471079842,
+          "median": 0.02441031437593645,
+          "maximum": 0.026343577317754534
+        },
+        "first_candidate": {
+          "minimum": 0.020594035471079842,
+          "median": 0.02441031437593645,
+          "maximum": 0.026343577317754534
+        },
+        "overall_baseline": {
+          "minimum": 0.03019978022937677,
+          "median": 0.03418402678746701,
+          "maximum": 0.039397287980349194
+        },
+        "overall_candidate": {
+          "minimum": 0.03019978022937677,
+          "median": 0.03418402678746701,
+          "maximum": 0.039397287980349194
+        },
+        "horizon_relative_change": {
+          "minimum": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "median": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "maximum": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "shifted": {
+        "first_relative_change": {
+          "minimum": 0.0,
+          "median": 0.0,
+          "maximum": 0.0
+        },
+        "overall_relative_change": {
+          "minimum": 0.0,
+          "median": 0.0,
+          "maximum": 0.0
+        },
+        "first_absolute_scaled_change": {
+          "minimum": 0.0,
+          "median": 0.0,
+          "maximum": 0.0
+        },
+        "overall_absolute_scaled_change": {
+          "minimum": 0.0,
+          "median": 0.0,
+          "maximum": 0.0
+        },
+        "first_baseline": {
+          "minimum": 0.1756285427717572,
+          "median": 0.1775646681391214,
+          "maximum": 0.2607304382341213
+        },
+        "first_candidate": {
+          "minimum": 0.1756285427717572,
+          "median": 0.1775646681391214,
+          "maximum": 0.2607304382341213
+        },
+        "overall_baseline": {
+          "minimum": 0.258880814488491,
+          "median": 0.3020572799158912,
+          "maximum": 0.41542779016818404
+        },
+        "overall_candidate": {
+          "minimum": 0.258880814488491,
+          "median": 0.3020572799158912,
+          "maximum": 0.41542779016818404
+        },
+        "horizon_relative_change": {
+          "minimum": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "median": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "maximum": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        }
+      }
+    },
+    "hidden_hysteresis": {
+      "matched": {
+        "first_relative_change": {
+          "minimum": 0.0,
+          "median": 0.0,
+          "maximum": 0.0
+        },
+        "overall_relative_change": {
+          "minimum": 0.0,
+          "median": 0.0,
+          "maximum": 0.0
+        },
+        "first_absolute_scaled_change": {
+          "minimum": 0.0,
+          "median": 0.0,
+          "maximum": 0.0
+        },
+        "overall_absolute_scaled_change": {
+          "minimum": 0.0,
+          "median": 0.0,
+          "maximum": 0.0
+        },
+        "first_baseline": {
+          "minimum": 0.003888247675197677,
+          "median": 0.004683804305913797,
+          "maximum": 0.005138122900222931
+        },
+        "first_candidate": {
+          "minimum": 0.003888247675197677,
+          "median": 0.004683804305913797,
+          "maximum": 0.005138122900222931
+        },
+        "overall_baseline": {
+          "minimum": 0.016714247980725874,
+          "median": 0.01819646205372091,
+          "maximum": 0.018914852658102686
+        },
+        "overall_candidate": {
+          "minimum": 0.016714247980725874,
+          "median": 0.01819646205372091,
+          "maximum": 0.018914852658102686
+        },
+        "horizon_relative_change": {
+          "minimum": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "median": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "maximum": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "shifted": {
+        "first_relative_change": {
+          "minimum": 0.0,
+          "median": 0.0,
+          "maximum": 0.0
+        },
+        "overall_relative_change": {
+          "minimum": 0.0,
+          "median": 0.0,
+          "maximum": 0.0
+        },
+        "first_absolute_scaled_change": {
+          "minimum": 0.0,
+          "median": 0.0,
+          "maximum": 0.0
+        },
+        "overall_absolute_scaled_change": {
+          "minimum": 0.0,
+          "median": 0.0,
+          "maximum": 0.0
+        },
+        "first_baseline": {
+          "minimum": 0.011666370447955475,
+          "median": 0.011755957897123512,
+          "maximum": 0.012386238265253148
+        },
+        "first_candidate": {
+          "minimum": 0.011666370447955475,
+          "median": 0.011755957897123512,
+          "maximum": 0.012386238265253148
+        },
+        "overall_baseline": {
+          "minimum": 0.046155313964590265,
+          "median": 0.046299323240503294,
+          "maximum": 0.05196512492340739
+        },
+        "overall_candidate": {
+          "minimum": 0.046155313964590265,
+          "median": 0.046299323240503294,
+          "maximum": 0.05196512492340739
+        },
+        "horizon_relative_change": {
+          "minimum": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "median": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "maximum": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        }
+      }
+    },
+    "delayed_nonlinear": {
+      "matched": {
+        "first_relative_change": {
+          "minimum": 0.0,
+          "median": 0.0,
+          "maximum": 0.0
+        },
+        "overall_relative_change": {
+          "minimum": 0.0,
+          "median": 0.0,
+          "maximum": 0.0
+        },
+        "first_absolute_scaled_change": {
+          "minimum": 0.0,
+          "median": 0.0,
+          "maximum": 0.0
+        },
+        "overall_absolute_scaled_change": {
+          "minimum": 0.0,
+          "median": 0.0,
+          "maximum": 0.0
+        },
+        "first_baseline": {
+          "minimum": 0.30176237540879103,
+          "median": 0.3527562453609069,
+          "maximum": 0.36961147181289483
+        },
+        "first_candidate": {
+          "minimum": 0.30176237540879103,
+          "median": 0.3527562453609069,
+          "maximum": 0.36961147181289483
+        },
+        "overall_baseline": {
+          "minimum": 0.36957643666399037,
+          "median": 0.3846909262914679,
+          "maximum": 0.4620083634088259
+        },
+        "overall_candidate": {
+          "minimum": 0.36957643666399037,
+          "median": 0.3846909262914679,
+          "maximum": 0.4620083634088259
+        },
+        "horizon_relative_change": {
+          "minimum": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "median": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "maximum": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "shifted": {
+        "first_relative_change": {
+          "minimum": 0.0,
+          "median": 0.0,
+          "maximum": 0.0
+        },
+        "overall_relative_change": {
+          "minimum": 0.0,
+          "median": 0.0,
+          "maximum": 0.0
+        },
+        "first_absolute_scaled_change": {
+          "minimum": 0.0,
+          "median": 0.0,
+          "maximum": 0.0
+        },
+        "overall_absolute_scaled_change": {
+          "minimum": 0.0,
+          "median": 0.0,
+          "maximum": 0.0
+        },
+        "first_baseline": {
+          "minimum": 0.7798584590348747,
+          "median": 0.7993505116378027,
+          "maximum": 0.8494110954806784
+        },
+        "first_candidate": {
+          "minimum": 0.7798584590348747,
+          "median": 0.7993505116378027,
+          "maximum": 0.8494110954806784
+        },
+        "overall_baseline": {
+          "minimum": 0.8235957125953068,
+          "median": 0.8336895622324932,
+          "maximum": 0.9075465964316928
+        },
+        "overall_candidate": {
+          "minimum": 0.8235957125953068,
+          "median": 0.8336895622324932,
+          "maximum": 0.9075465964316928
+        },
+        "horizon_relative_change": {
+          "minimum": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "median": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "maximum": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        }
+      }
+    },
+    "near_periodic": {
+      "matched": {
+        "first_relative_change": {
+          "minimum": -0.34819923157528165,
+          "median": -0.24928101487340493,
+          "maximum": 0.09644562643573518
+        },
+        "overall_relative_change": {
+          "minimum": -0.306496904919635,
+          "median": -0.1693143023120025,
+          "maximum": 0.18003020583304097
+        },
+        "first_absolute_scaled_change": {
+          "minimum": -0.0024984875360193953,
+          "median": -0.002191343000388846,
+          "maximum": 0.0006766258854243807
+        },
+        "overall_absolute_scaled_change": {
+          "minimum": -0.002195824945242178,
+          "median": -0.001493920114936361,
+          "maximum": 0.0010423273767761702
+        },
+        "first_baseline": {
+          "minimum": 0.006293359667897692,
+          "median": 0.007015620204149319,
+          "maximum": 0.010022775048826841
+        },
+        "first_candidate": {
+          "minimum": 0.004102016667508846,
+          "median": 0.007524287512807446,
+          "maximum": 0.0076922460895737
+        },
+        "overall_baseline": {
+          "minimum": 0.005789736072083475,
+          "median": 0.007164264663024685,
+          "maximum": 0.00882335452195558
+        },
+        "overall_candidate": {
+          "minimum": 0.004968439717782507,
+          "median": 0.006832063448859645,
+          "maximum": 0.007329434407019219
+        },
+        "horizon_relative_change": {
+          "minimum": [
+            -0.34819923157528165,
+            -0.357658557230517,
+            -0.2535763225943931,
+            -0.2843098607025434,
+            -0.28187601428506437
+          ],
+          "median": [
+            -0.24928101487340493,
+            -0.23394899445465978,
+            -0.13075430161814672,
+            -0.13222349566595148,
+            0.02127392967046915
+          ],
+          "maximum": [
+            0.09644562643573518,
+            0.2568019359122298,
+            0.12643461699271108,
+            0.09908767255351769,
+            0.2405732780636285
+          ]
+        }
+      },
+      "shifted": {
+        "first_relative_change": {
+          "minimum": -0.2259103174883913,
+          "median": -0.1908853692486786,
+          "maximum": -0.045329620736752285
+        },
+        "overall_relative_change": {
+          "minimum": -0.13677312707422773,
+          "median": -0.11962190671902317,
+          "maximum": -0.01374181433907562
+        },
+        "first_absolute_scaled_change": {
+          "minimum": -0.005569464557684683,
+          "median": -0.00525367426432773,
+          "maximum": -0.0018932449914621508
+        },
+        "overall_absolute_scaled_change": {
+          "minimum": -0.0036490548340586994,
+          "median": -0.0027747964793410004,
+          "maximum": -0.0005346699434250063
+        },
+        "first_baseline": {
+          "minimum": 0.024653431590041817,
+          "median": 0.02752266601157594,
+          "maximum": 0.04176617762714151
+        },
+        "first_candidate": {
+          "minimum": 0.019083967032357135,
+          "median": 0.02226899174724821,
+          "maximum": 0.039872932635679356
+        },
+        "overall_baseline": {
+          "minimum": 0.02319639065659309,
+          "median": 0.02667961837326663,
+          "maximum": 0.038908249684660695
+        },
+        "overall_candidate": {
+          "minimum": 0.02042159417725209,
+          "median": 0.023030563539207932,
+          "maximum": 0.03837357974123569
+        },
+        "horizon_relative_change": {
+          "minimum": [
+            -0.2259103174883913,
+            -0.21063545617299761,
+            -0.0975384602453021,
+            -0.027455487487346275,
+            -0.1621443478279504
+          ],
+          "median": [
+            -0.1908853692486786,
+            -0.15318469755368547,
+            -0.030746211314142124,
+            0.001469308975163619,
+            -0.014187418781370198
+          ],
+          "maximum": [
+            -0.045329620736752285,
+            -0.004757787940685154,
+            -0.014416573676869882,
+            0.03458791082273427,
+            0.0018326472882139733
+          ]
+        }
+      }
+    },
+    "off_periodic": {
+      "matched": {
+        "first_relative_change": {
+          "minimum": 0.0,
+          "median": 0.0,
+          "maximum": 0.0
+        },
+        "overall_relative_change": {
+          "minimum": 0.0,
+          "median": 0.0,
+          "maximum": 0.0
+        },
+        "first_absolute_scaled_change": {
+          "minimum": 0.0,
+          "median": 0.0,
+          "maximum": 0.0
+        },
+        "overall_absolute_scaled_change": {
+          "minimum": 0.0,
+          "median": 0.0,
+          "maximum": 0.0
+        },
+        "first_baseline": {
+          "minimum": 0.004769756936970785,
+          "median": 0.005019876242456545,
+          "maximum": 0.013458834392770319
+        },
+        "first_candidate": {
+          "minimum": 0.004769756936970785,
+          "median": 0.005019876242456545,
+          "maximum": 0.013458834392770319
+        },
+        "overall_baseline": {
+          "minimum": 0.00584866043772591,
+          "median": 0.007262285301595142,
+          "maximum": 0.012468771239952693
+        },
+        "overall_candidate": {
+          "minimum": 0.00584866043772591,
+          "median": 0.007262285301595142,
+          "maximum": 0.012468771239952693
+        },
+        "horizon_relative_change": {
+          "minimum": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "median": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "maximum": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "shifted": {
+        "first_relative_change": {
+          "minimum": 0.0,
+          "median": 0.0,
+          "maximum": 0.0
+        },
+        "overall_relative_change": {
+          "minimum": 0.0,
+          "median": 0.0,
+          "maximum": 0.0
+        },
+        "first_absolute_scaled_change": {
+          "minimum": 0.0,
+          "median": 0.0,
+          "maximum": 0.0
+        },
+        "overall_absolute_scaled_change": {
+          "minimum": 0.0,
+          "median": 0.0,
+          "maximum": 0.0
+        },
+        "first_baseline": {
+          "minimum": 0.011973532982758918,
+          "median": 0.022580465768800368,
+          "maximum": 0.023554820792151997
+        },
+        "first_candidate": {
+          "minimum": 0.011973532982758918,
+          "median": 0.022580465768800368,
+          "maximum": 0.023554820792151997
+        },
+        "overall_baseline": {
+          "minimum": 0.021757694413460586,
+          "median": 0.02820973208845415,
+          "maximum": 0.03389380371944645
+        },
+        "overall_candidate": {
+          "minimum": 0.021757694413460586,
+          "median": 0.02820973208845415,
+          "maximum": 0.03389380371944645
+        },
+        "horizon_relative_change": {
+          "minimum": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "median": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "maximum": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        }
+      }
+    },
+    "noisy_observation": {
+      "matched": {
+        "first_relative_change": {
+          "minimum": 0.0,
+          "median": 0.0,
+          "maximum": 0.0
+        },
+        "overall_relative_change": {
+          "minimum": 0.0,
+          "median": 0.0,
+          "maximum": 0.0
+        },
+        "first_absolute_scaled_change": {
+          "minimum": 0.0,
+          "median": 0.0,
+          "maximum": 0.0
+        },
+        "overall_absolute_scaled_change": {
+          "minimum": 0.0,
+          "median": 0.0,
+          "maximum": 0.0
+        },
+        "first_baseline": {
+          "minimum": 0.22712856347542762,
+          "median": 0.23663687747130321,
+          "maximum": 0.2378666605377759
+        },
+        "first_candidate": {
+          "minimum": 0.22712856347542762,
+          "median": 0.23663687747130321,
+          "maximum": 0.2378666605377759
+        },
+        "overall_baseline": {
+          "minimum": 0.2571439528792853,
+          "median": 0.26804161386470127,
+          "maximum": 0.2761990269034527
+        },
+        "overall_candidate": {
+          "minimum": 0.2571439528792853,
+          "median": 0.26804161386470127,
+          "maximum": 0.2761990269034527
+        },
+        "horizon_relative_change": {
+          "minimum": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "median": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "maximum": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "shifted": {
+        "first_relative_change": {
+          "minimum": 0.0,
+          "median": 0.0,
+          "maximum": 0.0
+        },
+        "overall_relative_change": {
+          "minimum": 0.0,
+          "median": 0.0,
+          "maximum": 0.0
+        },
+        "first_absolute_scaled_change": {
+          "minimum": 0.0,
+          "median": 0.0,
+          "maximum": 0.0
+        },
+        "overall_absolute_scaled_change": {
+          "minimum": 0.0,
+          "median": 0.0,
+          "maximum": 0.0
+        },
+        "first_baseline": {
+          "minimum": 0.2443744034460551,
+          "median": 0.2647383663601387,
+          "maximum": 0.28683003718741484
+        },
+        "first_candidate": {
+          "minimum": 0.2443744034460551,
+          "median": 0.2647383663601387,
+          "maximum": 0.28683003718741484
+        },
+        "overall_baseline": {
+          "minimum": 0.2999685328008327,
+          "median": 0.32654596003317354,
+          "maximum": 0.3298398130367495
+        },
+        "overall_candidate": {
+          "minimum": 0.2999685328008327,
+          "median": 0.32654596003317354,
+          "maximum": 0.3298398130367495
+        },
+        "horizon_relative_change": {
+          "minimum": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "median": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "maximum": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        }
+      }
+    }
+  },
+  "counts": {
+    "matched": {
+      "cases": 24,
+      "first_improved": 3,
+      "overall_improved": 3,
+      "first_worse": 1,
+      "overall_worse": 1,
+      "first_unchanged": 20,
+      "overall_unchanged": 20,
+      "first_material_regressions": 0,
+      "overall_material_regressions": 0
+    },
+    "shifted": {
+      "cases": 24,
+      "first_improved": 4,
+      "overall_improved": 4,
+      "first_worse": 0,
+      "overall_worse": 0,
+      "first_unchanged": 20,
+      "overall_unchanged": 20,
+      "first_material_regressions": 0,
+      "overall_material_regressions": 0
+    }
+  },
+  "reused_models": 20,
+  "candidate_refits": 4,
+  "limits": "Three data seeds, not confidence intervals. Relative changes can look large when physical errors are tiny; absolute scaled changes and all per-channel scores are retained. Confirmation shares equation families with development."
+}
