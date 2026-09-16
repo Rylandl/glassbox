@@ -1,7 +1,7 @@
 {
-  "manifest": "control-v4",
-  "manifest_sha256": "a2ec4beaf29525343681c8cff834a31fe60b251b990a72c15aeaddaa92ddcd1f",
-  "source": "The incumbent measurement of control-v4, the first manifest whose trajectory is computed in simulated time. The protocol is control-v3's, constant for constant, with its wall-clock pacing and its solve deadline removed; the recipe, both fits and the calibration are unchanged, and the generic artifact is the same fingerprint 9f7e7b17 control-v3's own incumbent run produced. Every score below reproduces control-v3's reference to every printed digit, because the unloaded runs that measured it applied every solved command anyway. What changed is that this one still does when the host is busy: it was made while four concurrent synthetic-tier runs and the fast test suite loaded the machine, and the run made immediately after it under the same load produced byte-identical tracking arrays on all four trials while its recorded solve times differed. A later run's generic position or attitude RMSE may not exceed these values by more than this manifest's reference allowance, and the rule gates only a trial and metric the generic arm already met it on. It met it on none of them.",
+  "manifest": "control-v5",
+  "manifest_sha256": "c87b40e1835c2dc9725f7a9effd47d5de225c692b06e63ea32141e632161cb40",
+  "source": "The incumbent measurement of control-v5, which is control-v4's protocol constant for constant with the calibration's own known additive command excitation declared to the generic learner as part of its recordings. Every tracking number and every pass statistic below is control-v4's to every printed digit, and so is the measured command excitation, because the recipe reads the commands and ignores what they were made of: the declared excitation changes the fit's report and nothing else. What moved is the generic artifact's fingerprint, from 9f7e7b17 to 4ddb8ddb, because its report now records that the excitation was declared and what fraction of each command's range it moved. That is why this file is rewritten rather than carried forward. A later run's generic position or attitude RMSE may not exceed these values by more than this manifest's reference allowance, and the rule gates only a trial and metric the generic arm already met it on. It met it on none of them.",
   "environment": {
     "python": "3.12.3 (main, Aug 31 2026, 10:18:26) [GCC 13.3.0]",
     "platform": "Linux-6.8.0-139-generic-x86_64-with-glibc2.39",
@@ -9,7 +9,7 @@
     "numpy": "2.5.2",
     "x64": "fits only"
   },
-  "generic_fingerprint": "9f7e7b17adf2d1eba6cd08a56aac0673031893b5e7cb6b4724a9c8521cb01ba6",
+  "generic_fingerprint": "4ddb8ddbc22becc0904275d8dd1df8cd5d009632489ea2cac7863eb293ee640a",
   "command_excitation": {
     "recording-0": [
       0.12124108675585743,
@@ -32,6 +32,11 @@
       0.37802157556587057
     ]
   },
+  "declared_excitation_standard_deviation_fraction": [
+    0.05717101518970573,
+    0.02473777845656334,
+    0.022971167343766988
+  ],
   "tracking_rmse": {
     "0": {
       "structured": {
