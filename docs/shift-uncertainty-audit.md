@@ -139,7 +139,7 @@ The report compares matching retained endpoints and excludes the appended tail.
 multirotor with nonzero parameter and empirical covariance.
 
 Fresh fixture results (baseline `4f5cddb`, unchanged first solved plan) are in
-[the audit report](investigations/shift-uncertainty-audit.json). At shifted stage 15,
+the audit report. At shifted stage 15,
 roll-rate support at the same physical endpoint is:
 
 | Components | Old lead time | Fresh lead time |

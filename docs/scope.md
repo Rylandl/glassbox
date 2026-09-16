@@ -59,7 +59,7 @@ this contract.
 `FitOutcome` containing a `DynamicsBelief`. The shipped model families remain
 structured, and `FitSpec` retains advanced controls. The experimental generic
 learners have not yet established a default that meets this contract. A
-[single fixed generic candidate](default-recipe.md) now implements the small
+[single fixed generic candidate](learner.md) now implements the small
 workflow with automatic data handling and immutable batch updates. Its
 cross-recording prediction failures keep it experimental; it is not promoted
 to the supported workflow.

@@ -55,7 +55,7 @@ active models and never enters fitting, online absorption or the adoption gate.
 It uses another excitation seed with the same pilot and flight condition, so it
 tests a separate recording rather than a new maneuver distribution.
 
-The [initial evaluation](investigations/cascade-refinement/held-out-evaluation.json)
+The initial evaluation
 reports the following back-to-back window metrics, excluding each shared initial
 state. Position RMSE averages squared coordinate errors.
 
@@ -83,7 +83,7 @@ alternates between pairs. The mean-based tracking configuration and the
 shared with the synthetic example, including the explicit allowance for
 unresolved parameters. There is no forecast-error recalibration or forgetting.
 
-The [comparison](investigations/cascade-refinement/comparison.json) records:
+The comparison records:
 
 | Pair | Position RMSE, frozen / adopting (m) | Attitude RMSE, frozen / adopting (degrees) | Whole-tick deadline misses, frozen / adopting | Applied revisions |
 | --- | --- | --- | --- | --- |
@@ -99,7 +99,7 @@ its bounded pending queue.
 The final active models' reserved-recording prediction ratios were 0.41967 and
 0.41969, versus 0.42030 initially. This small aggregate improvement coexists with
 slightly worse 0.4-second attitude errors. Their reports are collected under
-`calibration.final_active_evaluations` in the [audit](investigations/cascade-refinement/audit.json).
+`calibration.final_active_evaluations` in the audit.
 Two paired runs do not separate model effects from scheduling variability.
 The initial learned model's utility is stronger evidence here than the small
 incremental gain from online refinement.
@@ -119,10 +119,10 @@ were identical across this contract correction; no numerical model change was
 needed to enable the handoff. Tests cover this distinction and preserve the
 synthetic plant's original numerical stepping through the shared plant interface.
 
-The [archive](investigations/cascade-refinement/trials.zip) retains the initial
+The archive retains the initial
 refused setup, completed trials, calibration data, revision artifacts, journals,
 and 124 executed source/specification files with hashes. The
-[audit source](investigations/cascade-refinement/audit.source.py) preserves the
+audit source preserves the
 saved-array checks for tracking metrics, command bounds, scored-revision
 handoffs, interval accounting, calibration roles and model identities. It does
 not recompute the held-out forecasts. Later reuse-validation changes are in the

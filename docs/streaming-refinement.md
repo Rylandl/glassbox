@@ -83,12 +83,12 @@ telemetry and Python retention, not compiler caches or process-wide memory.
 ## Recorded experiment
 
 The 12 September 2026 snapshot used the example's default command. The
-[comparison](investigations/live-refinement/comparison.json) contains the original
-reports; the [audit](investigations/live-refinement/audit.json) records successful
-checks for all eight trials. The [trial archive](investigations/live-refinement/trials.zip)
+comparison contains the original
+reports; the audit records successful
+checks for all eight trials. The trial archive
 contains their arrays, journals, beliefs, calibration data and 68 executed source
 files with hashes. It also retains the earlier negative smoke run. The
-[audit source](investigations/live-refinement/audit.source.py) preserves the
+audit source preserves the
 postprocessing used for this snapshot.
 
 Each family has two platforms: thrust/lag scales of 0.90/0.80 and 1.10/1.25

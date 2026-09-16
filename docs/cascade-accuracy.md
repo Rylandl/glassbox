@@ -13,13 +13,12 @@ three trials, whereas **0.6 m/s** fails all three. The same 0.3 m/s RMS error
 with alternating sign produces much smaller tracking error. Error direction,
 time dependence, and response to commands matter alongside average magnitude.
 
-The [evidence bundle](investigations/cascade-accuracy/README.md) contains the
+The evidence bundle contains the
 frozen protocol, all 33 outcomes, diagnostics, source snapshots, and replay
 checks. This extends the earlier [accuracy-budget discussion](accuracy-requirements.md)
 with actual offline simulated control trials. It does not change the
-[opinionated learner](default-recipe.md) or add consumer tuning options.
+[opinionated learner](learner.md) or add consumer tuning options.
 
-![Forecast error and tracking outcomes](investigations/cascade-accuracy/accuracy-vs-tracking.png)
 
 The left panel plots velocity error only; other output errors and command
 derivatives differ between predictor families. Bars span the three trial
@@ -54,7 +53,7 @@ command over five 50 ms steps using three damped Gauss–Newton iterations and
 fixed backtracking. It penalizes lateral/vertical tracking, forward velocity,
 body rates, rotation-matrix deviation from trim, and command magnitude/change.
 The previous command initializes each solve. The full fixed coefficients are
-in the [evaluation plan](investigations/cascade-accuracy/evaluation-plan.json).
+in the evaluation plan.
 
 Positions are reconstructed from predicted world velocities by the same
 trapezoidal integration in all arms. A 1.5 s position/velocity lookahead term
@@ -95,8 +94,8 @@ The fixed `generic-history-v1-prototype` recipe uses 100 ms history, 250 ms
 recursive predictions, and the existing affine-plus-MLP model, training budget,
 normalization, and automatic checkpoint selection. This fit selects step 1000.
 Its recipe and observation provenance are in the
-[fit report](investigations/cascade-accuracy/fit-report.json); the saved model's
-fingerprint is in [model-identity.json](investigations/cascade-accuracy/model-identity.json). No aircraft
+fit report; the saved model's
+fingerprint is in model-identity.json. No aircraft
 equations, new model structures, or recipe settings were added to the learner.
 
 ## Measured accuracy and outcomes
@@ -161,7 +160,7 @@ failures in this experiment.
 
 ## What the failure diagnosis establishes
 
-A separate [post-result diagnostic plan](investigations/cascade-accuracy/diagnostic-plan.json)
+A separate post-result diagnostic plan
 was recorded before inspecting command coverage and local command derivatives.
 These are explanatory checks, not a new model selection or control comparison.
 

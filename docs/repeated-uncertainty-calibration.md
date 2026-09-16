@@ -53,11 +53,11 @@ The library retains local information for diagnostics and updates, and empirical
 forecast errors as measured evidence. The planner's covariance sum remains its
 risk-penalty policy.
 
-[Machine report](investigations/fit-uncertainty/report.json) and
-[evidence archive](investigations/fit-uncertainty/evidence.zip) retain all 64 fits'
+Machine report and
+evidence archive retain all 64 fits'
 arrays and beliefs, optimization controls, the design, environment versions and
 hash-verified executed sources. The earlier
-[six-update pilot](investigations/repeated-uncertainty-calibration/report.json)
+six-update pilot
 remains as historical data; this runner replaces its script.
 
 ```sh
@@ -97,8 +97,8 @@ The candidate is not the default: its better dynamics estimates do not consisten
 improve the existing noisy-start prediction workflow. Initialization during fitting
 and forecasting needs to be evaluated together.
 
-[Comparison report](investigations/initial-state-fitting/report.json) and
-[executed sources and arrays](investigations/initial-state-fitting/evidence.zip).
+Comparison report and
+executed sources and arrays.
 
 ## Local state reconstruction
 
@@ -115,8 +115,8 @@ A separate 400-step fitting probe tested eliminating the local state variables
 before each parameter update. These remain research variants; production
 defaults are unchanged.
 
-[Comparison report](investigations/state-reconstruction/report.json) and
-[prototype, inputs and arrays](investigations/state-reconstruction/evidence.zip).
+Comparison report and
+prototype, inputs and arrays.
 
 ## Observation and transition error
 
@@ -133,5 +133,5 @@ adjacent from longer-lag correlation and preserve timing across missing
 intervals. Full-batch fitting retains its best evaluated iterate after the
 refit probe exposed final-step overshoot.
 
-[Pilot report](investigations/noise-separation/report.json) and
-[executed sources and arrays](investigations/noise-separation/evidence.zip).
+Pilot report and
+executed sources and arrays.

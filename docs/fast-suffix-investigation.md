@@ -5,7 +5,7 @@ One GN-SQP update repairs the known fifth request and returns a checked feasible
 This improves optimization work within the already selected suffix formulation;
 it does not establish a production recovery or deadline qualification.
 
-The [artifact](investigations/fast-suffix.json) uses the verified shared belief
+The artifact uses the verified shared belief
 and tick4 fixture at baseline `e15c088`. Fixture provenance traces the scenario
 to `4f5cddb`; no identification was repeated. Source and fixture SHA-256 hashes,
 the manifest, and the resolved research-checkout import are recorded.
@@ -118,20 +118,20 @@ Two serialized runs of the same two-update configuration are preserved:
 
 | Run | Prewarming | Applied intervals | Outcome |
 | --- | --- | ---: | --- |
-| [Initial](investigations/fast-suffix-runtime.json) | Two successful requests; shift and failure branches omitted | 1 of 36 | Second request exceeded the budget before optimization; its unassessed hold was not applied. |
-| [Corrected](investigations/fast-suffix-runtime-prewarmed.json) | Two requests through the exact shifted-waveform path, plus failure buffers | 36 of 36 | Every returned plan was checked feasible and met both deadline gates. |
+| Initial | Two successful requests; shift and failure branches omitted | 1 of 36 | Second request exceeded the budget before optimization; its unassessed hold was not applied. |
+| Corrected | Two requests through the exact shifted-waveform path, plus failure buffers | 36 of 36 | Every returned plan was checked feasible and met both deadline gates. |
 
 The first run exposed missing prewarming in the harness: waveform shifting first
 ran at continuation tick1, and its eventual failure also constructed the hold
 arrays for the first time. Its recorded duration includes failure assembly;
 there is insufficient phase evidence to assign the miss between those cold paths
-and host scheduling. The [executed initial script](investigations/fast-suffix-runtime-initial-source.py)
+and host scheduling. The executed initial script
 is archived with bytes matching its recorded source hash.
 
 The corrected harness prewarms those branches without advancing the plant or
 improving the initial seed. It additionally records each value, derivative and
 finalization call, seed preparation, and compilation messages. The measured
-request log emitted [no compilation messages](investigations/fast-suffix-runtime-prewarmed-compilation.log).
+request log emitted no compilation messages.
 All calls used three evaluations, two linearizations and one finalizer. The
 maximum complete caller duration used approximately 73% of the prescribed
 budget (`max(requests[*].caller_elapsed_s) / deadline_s`). Its actual support
@@ -168,7 +168,7 @@ commands from being embedded in the kernel. Every new request clears the existin
 SQP seed/checkpoint cache. Two updates, the original objective, full covariance,
 support margins, actuator dynamics and 0.6 s horizon were fixed before testing.
 
-The [feasibility report](investigations/feedback-suffix.json) records one nominal
+The feasibility report records one nominal
 request and two matched initial roll-rate perturbations, followed by one
 36-interval nominal continuation. The perturbations are ±0.02 of the support
 half-width, or ±0.021583667 rad/s. Seed waveform, actuator state, previous command,
@@ -202,15 +202,15 @@ follow-up using the **existing unchanged** SQP work-admission estimates:
 
 | Run | Applied intervals | Returned-plan evidence |
 | --- | ---: | --- |
-| [Full two-update work without admission](investigations/feedback-suffix-runtime.json) | 0 of 36 | The first solve found a feasible plan but exceeded the deadline during prediction diagnostics. Its unassessed hold was not applied. |
-| [Up to two updates with existing admission checks](investigations/feedback-suffix-budget.json) | 36 of 36 | Seven requests returned a checked linearization checkpoint; 29 finalized the latest candidate. Every applied result passed both elapsed deadline gates. |
+| Full two-update work without admission | 0 of 36 | The first solve found a feasible plan but exceeded the deadline during prediction diagnostics. Its unassessed hold was not applied. |
+| Up to two updates with existing admission checks | 36 of 36 | Seven requests returned a checked linearization checkpoint; 29 finalized the latest candidate. Every applied result passed both elapsed deadline gates. |
 
 Both prewarm two identical shifted requests and the failure buffers without
 advancing the plant. Both include shifting, seed preparation, device transfer,
 the complete solve and result assembly within a 20 ms request budget. Independent
 validation and simulated plant steps are outside that budget. Their compilation
-logs ([first](investigations/feedback-suffix-runtime-compilation.log),
-[budgeted](investigations/feedback-suffix-budget-compilation.log)) contain no
+logs (first,
+budgeted) contain no
 messages during measured requests.
 
 Budgeted requests that returned checkpoints used two value calls and two
@@ -266,7 +266,7 @@ formulation question while retaining the unresolved runtime boundary.
 
 ## Cold startup and full recovery
 
-The [full-recovery study](investigations/feedback-recovery/report.json) uses the
+The full-recovery study uses the
 same four-command head, six-command suffix, uncertainty and support limits. It
 starts with thirty repetitions of the actual previous command, without any
 solved waveform. An explicit `SeedRequest` creates that hold or shifts a warm
@@ -294,7 +294,7 @@ The kick adds 0.02 of the roll-rate support half-width at absolute tick60,
 or 1.2 s. It changes only the current physical roll rate; actuator state,
 previous command and incoming waveform remain identical. State, actuator and
 seed histories match the nominal case up to that event. The
-[saved-data audit](investigations/feedback-recovery-audit.json) confirms the
+saved-data audit confirms the
 immediate command changes by up to 0.037419528 of its physical range. This
 establishes an in-flight feedback response in the deterministic known-state
 simulation, with full uncertainty still present in each NMPC forecast.
@@ -307,7 +307,7 @@ every score from the saved trajectories and records the tolerance scale. These
 finite-horizon results do not establish asymptotic stability or robustness to
 larger disturbances, state-estimation error or other plants.
 
-The [serialized runtime study](investigations/feedback-recovery-runtime/report.json)
+The serialized runtime study
 uses the existing admission estimates with a declared 100 ms startup deadline
 and 20 ms thereafter. Compilation is prewarmed before the run; hold creation,
 shifting, validation, transfer, complete solve and synchronized result assembly
@@ -326,7 +326,7 @@ The largest caller durations in the two completed cases consume approximately
 93% and 90% of their respective request budgets. In the stopped run, request10
 consumes approximately 322% of its budget before returning a failure. These are
 `caller_elapsed_s / deadline_s` ratios, not execution-time bounds.
-The [compilation log](investigations/feedback-recovery-compilation.log) contains
+The compilation log contains
 no messages during measured requests.
 
 The audit verifies that failed request10 has **identical** physical state,
@@ -382,7 +382,7 @@ before considering promotion to the maintained runtime.
 
 ## Seed timing and process history
 
-The [fixed replay](investigations/seed-timing/report.json) resets every request
+The fixed replay resets every request
 to the recorded failed tick10 inputs, including the original unshifted incoming
 waveform. Its physical state, actuator state, previous command and shifted seed
 hashes match both the earlier successful and failed requests. It uses the same
@@ -411,7 +411,7 @@ is 1.007954. The original long spike is **not reproduced** by this bounded repla
 The added tracing consumes budget and allocates records, so its median overhead
 is not a bound on its effect on later requests.
 
-The [saved-data audit](investigations/seed-timing-audit.json) separates the two
+The saved-data audit separates the two
 evaluation materializations from the four linearization materializations.
 Their medians consume approximately 1.75% and 23.08% of the warm deadline.
 The post-linearization host gradient calculation consumes a median 0.127% and
@@ -420,7 +420,7 @@ or generation1, with the longest consuming 2.94% of the budget. Neither arm's
 slowest request overlaps GC. These observations do not identify the cause of
 the original outlier.
 
-One separately declared [scenario-order pass](investigations/seed-timing-history/report.json)
+One separately declared scenario-order pass
 then enables the same tracing during the original, small and scheduled-kick
 cases, retaining their prewarming order and original deadlines. Every case still
 stops at its first rejected request. This preserves scenario order, but tracing,
@@ -456,8 +456,8 @@ The audit verifies matching request inputs through tick4 in the original case,
 tick39 in the small case and tick9 in the kick case. Earlier checkpoint selection
 changes small-case inputs from tick40 and kick-case inputs from tick10. Therefore
 neither later failure reproduces the original saved tick10 request. Both
-[replay](investigations/seed-timing-compilation.log) and
-[scenario-order](investigations/seed-timing-history-compilation.log) logs contain
+replay and
+scenario-order logs contain
 no JAX compilation messages during measurement. The replay log also preserves
 two setup warnings about the optional configuration-output formatter.
 
@@ -507,7 +507,7 @@ can have an overflowing squared norm, so checking their entries alone would lose
 a guard previously provided by the standalone evaluation. Caches reset on every
 request. A late linearization still fails at the common solve boundary.
 
-The [fixed comparison](investigations/single-seed-reuse/report.json) first checks
+The fixed comparison first checks
 26 saved requests without deadlines: eight predeclared ticks in each of the
 original, small and perturbed full-recovery histories, plus the two recorded
 runtime failures. All 26 pass **bitwise seed and returned-array parity**, along
@@ -529,7 +529,7 @@ its outputs. Independent waveform checks remain outside each request timer.
 | Small tick68 | 36/64 | 60/64 | 0.992999 | 0.890118 |
 
 Acceptance totals increase from 72/128 to 109/128 in this run. The
-[saved-data audit](investigations/single-seed-reuse-audit.json) verifies input,
+saved-data audit verifies input,
 forecast and source hashes, the paired order, evaluation counts and timing
 summaries. It also identifies one result per variant that remained usable at
 the inner boundary but failed the caller's final elapsed-time check.
@@ -566,7 +566,7 @@ At these six failed requests, measured seed-linearization duration is 2.06 to
 2.83 times the configured linearization admission estimate. This duration includes
 materialization, not just dispatch. The records do not establish why the host
 costs differ from earlier runs, and removing an evaluation does not explain the
-shared slowdown. The [compilation log](investigations/single-seed-reuse-compilation.log)
+shared slowdown. The compilation log
 contains no messages during timed requests. This is one recorded comparison;
 no repetition replaces its negative results.
 
@@ -606,21 +606,15 @@ Deterministic tests use simulated costs at three time scales to check admission,
 feasible checkpoint retention and explicit rejection. They also check request
 reset, invalid measurements, materialization accounting and disabled modes.
 These are scheduling contract tests with no dependency on machine speed.
-The [deadline-free verification](investigations/observed-admission-parity/report.json)
+The deadline-free verification
 replays the preceding comparison's 26 saved requests with the option off and on.
 All pass bitwise returned-array parity and equal objective, feasibility, status
 and work counts. Both outputs receive independent nonlinear waveform checks.
 The floor stays inactive throughout because these solves have no deadline.
 
-The verification archives its executed sources at baseline `7c6e88a`. Reproduce
-it using the existing fitted fixture, without a timing acceptance criterion:
-
-```sh
-uv run python scripts/verify_observed_admission.py \
-  --fixtures /tmp/glassbox-nmpc-fixture \
-  --records docs/investigations \
-  --output /tmp/observed-admission-parity
-```
+The verification ran at baseline `7c6e88a` against the existing fitted fixture,
+without a timing acceptance criterion; its driver and archive have since been
+deleted.
 
 No new host timing study accompanies this option. Earlier deadline outcomes are
 observations under their recorded budgets and host conditions, not portable
@@ -649,7 +643,7 @@ error, parameter directions, physical commands and the horizon retain their
 definitions. The alternate rollout receives each request's model values and
 frozen middle explicitly; it does not reuse an earlier request's trajectory.
 
-The [derivative-only comparison](investigations/fused-linearization/report.json)
+The derivative-only comparison
 passes all 26 saved requests with **bitwise equality** of seed Jacobians, seed
 values and prepared predictions, complete returned arrays, and final objective.
 Optimizer status, nonlinear feasibility and solver work counts also agree.
@@ -673,7 +667,7 @@ measured request costs nor portable speedup claims. The structural saving is
 real but modest in arithmetic terms; further performance work should examine
 command and parameter sensitivity propagation.
 
-An earlier [full-rollout fusion comparison](investigations/fused-covariance/report.json)
+An earlier full-rollout fusion comparison
 also changes trial evaluation and finalization. All 26 seed Jacobians and prepared
 predictions are bitwise equal, all final objectives agree exactly, and all returned
 arrays meet the predeclared numerical tolerance. Only 20 returned-array pairs are
@@ -681,7 +675,7 @@ bitwise equal. One request, `cold_small_39`, takes seven rather than ten value
 evaluations, so that comparison **fails its equal-work-count criterion**. The
 negative result remains recorded; its criterion was not relaxed.
 
-The [separate branch trace](investigations/fused-covariance-branch/report.json)
+The separate branch trace
 reproduces those counts. Both QP rounds have identical variables, gradients,
 steps and multipliers. At the second round's step fraction of 1/32, identical
 candidate commands produce residuals differing by at most 1.49e-8. The merit
@@ -706,20 +700,10 @@ uv run python scripts/investigate_fused_covariance.py \
 ```
 
 Use `--scope full` for the broader diagnostic variant; its recorded comparison
-fails as described above. To reproduce the branch trace against that recording,
-load its archived research imports before the current scripts:
-
-```sh
-PYTHONPATH=docs/investigations/fused-covariance/executed-sources:scripts \
-  uv run python -c 'import runpy; runpy.run_path("scripts/trace_fused_covariance.py", run_name="__main__")' \
-  --fixtures /tmp/glassbox-nmpc-fixture \
-  --output /tmp/fused-covariance-branch
-```
-
-The trace driver now resolves the actual imported source paths for that provenance
-check. Its archived executed source predates this import-resolution improvement;
-the numerical trace was not repeated after it. No new closed-loop recovery or
-timing qualification follows from the saved-request comparisons.
+fails as described above. The branch trace that produced that provenance check
+ran against the recording's archived research imports; its driver and archive
+have since been deleted. No new closed-loop recovery or timing qualification
+follows from the saved-request comparisons.
 
 ## Stopping backtracking at finite precision
 
@@ -751,7 +735,7 @@ Infeasible or nonfinite rejected trials keep backtracking. Either stop returns
 only an already checked feasible candidate; otherwise the solve rejects.
 Neither stop asserts constrained convergence.
 
-The first [pretrial stopping experiment](investigations/precision-stopping/report.json)
+The first pretrial stopping experiment
 fails two of its 26 saved-request checks. It stops before evaluating the full
 step: `cold_small_60` and `cold_small_68` retain objectives within one scalar
 increment, but their maximum returned-array differences are 3.110e-4 and
@@ -759,7 +743,7 @@ increment, but their maximum returned-array differences are 3.110e-4 and
 extension does not run. This result demonstrates why tiny predicted objective
 improvement alone is insufficient to discard a potentially useful trial.
 
-The narrower [backtracking comparison](investigations/precision-backtracking/report.json)
+The narrower backtracking comparison
 passes all 26 fixed requests under the same numerical tolerances. All 20 requests
 without a precision stop retain bitwise outputs, objectives and equal work
 counts. Five stopped requests also return identical outputs and objectives.
@@ -787,7 +771,7 @@ difference is 3.553e-4. Its normalized tracking RMS ratio is 0.999960 relative
 to baseline. Closed-loop checks use support, completion and existing terminal
 tolerances; they do not require identical evolving forecasts. These counts
 establish avoided model calls, without a runtime speedup or stability claim.
-The [saved-data audit](investigations/precision-backtracking-audit.json) checks
+The saved-data audit checks
 source and fixture hashes, request/forecast/seed identities, applied counts,
 recomputed support and recovery scores, and the matched kick histories. It
 retains the rejected pretrial design and performs no solves or refits.

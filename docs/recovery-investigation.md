@@ -17,7 +17,7 @@ penalty still nearly doubles small-disturbance error with a well-converged
 reference. Additional independent telemetry removes most of that gap without
 changing the objective, its weights, or the covariance rank cutoff.
 
-The [recorded investigation](investigations/recovery.json) contains 20 controlled
+The recorded investigation contains 20 controlled
 recoveries, nonlinear uncertainty probes, independent prediction errors, and
 source fingerprints. Rerun the experiment with:
 
@@ -151,7 +151,7 @@ uncertainty regression.
 
 ## Supervised recovery and model support
 
-The [supervised investigation](investigations/supervised-recovery.json) drives
+The supervised investigation drives
 the production `run_control_loop` and `MultirotorFlightSupervisor` against the
 same synthetic target, after the additional identification evidence above.
 It records twelve cases, support exits by feature, counterfactual prediction
@@ -267,7 +267,7 @@ controller.
 
 The formulation has a mismatch: the objective permits trading model-support
 excess against tracking cost, while the supervisor refuses the resulting plan.
-The [constrained investigation](investigations/constrained-recovery.json) tests
+The constrained investigation tests
 whether NMPC alone can find a supported recovery under the original envelope.
 It introduces no secondary controller and makes no production solver change.
 
@@ -361,7 +361,7 @@ the production soft-cost solver and its failure responses remain unchanged.
 
 ## Faster constrained NMPC and correct bound derivatives
 
-The [SQP investigation](investigations/sqp-recovery.json) exposes two library
+The SQP investigation exposes two library
 defects while testing a faster constrained optimizer. Both corrections now
 apply to the maintained solver; the new SQP algorithm remains an offline
 experiment. Reproduce this report without concurrent benchmark processes:
@@ -461,7 +461,7 @@ a negative result.
 
 ## Constraint interface, seed reuse, and deadlines
 
-The [runtime follow-up](investigations/sqp-runtime.json) moves the formulation
+The runtime follow-up moves the formulation
 into the model contract and measures complete solves with and without enforced
 deadlines:
 
@@ -541,7 +541,7 @@ those runtime behaviors are unresolved.
 
 ## Cooperative deadline budgets and fused output
 
-The [deadline-budget report](investigations/sqp-budget.json) measures cooperative
+The deadline-budget report measures cooperative
 stopping inside SQP, with the same model, objective, support and uncertainty:
 
 ```bash
@@ -645,7 +645,7 @@ worst-case execution time nor delayed-actuation performance in flight.
 
 ## Horizon shifts and terminal feasibility
 
-The [horizon-shift report](investigations/horizon-shift.json) separates command
+The horizon-shift report separates command
 projection, the updated plant state, and the appended prediction interval:
 
 ```bash
@@ -763,7 +763,7 @@ closed-loop command authority or the learned covariance's calibration.
 
 All four flown profiles and the canonical state-stream test passed; the
 separate fixed-command shadow test also passed. The
-[recorded flown-profile summaries](investigations/px4-shadow.json) cover 640
+recorded flown-profile summaries cover 640
 shadow solves. Commands remained bounded, actuator/state skew stayed at or
 below 4 ms, and maximum recorded state receive age was 52 ms. One solve missed
 the 20 ms deadline and returned the explicit bounded hold; the other 639

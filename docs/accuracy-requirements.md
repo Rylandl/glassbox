@@ -13,7 +13,7 @@ This iteration quantifies the **forecast allowances the current models need**
 and works out how a task could supply an accuracy requirement. It adds no
 training knobs and performs no new fit or vehicle-control trial. Actual
 closed-loop sufficiency of the generic learner was unmeasured at this stage. The
-[evidence bundle](investigations/accuracy-requirements/README.md) preserves
+evidence bundle preserves
 the protocol, all results, source hashes, tests, and independent replay.
 
 The subsequent [Cascade tracking experiment](cascade-accuracy.md) now measures
@@ -87,7 +87,7 @@ bound, and initial error or other disturbances would consume additional margin.
 ## What the current generic forecasts can support empirically
 
 We replayed the seven cases from the
-[fixed generic recipe](default-recipe.md): 27 forecast arms including initial,
+[fixed generic recipe](learner.md): 27 forecast arms including initial,
 updated where available, affine initialization, and hold-current references.
 No model was refitted or selected. The original evaluation predictions and
 source identities were checked against the earlier artifact hashes.
@@ -123,7 +123,6 @@ For Crazyflie log16, the analogous accelerometer/gyro allowances are
 sensor interval. These are sensor errors, not physical velocity/pose errors.
 No free-flight state-accuracy claim follows from them.
 
-![Required empirical forecast allowances by horizon](investigations/accuracy-requirements/forecast-allowance.png)
 
 Each panel is a separate marginal allowance. Lines join the measured sample
 horizons for readability; the evaluator does not interpolate or extrapolate.
@@ -241,4 +240,4 @@ checks 7 cases, 27 forecast arms, 14,999 window/arm pairs, 782 numerical
 comparisons, all source hashes, the scalar recurrence via convolution, and the
 binomial sample-count calculations. Maximum numerical difference is 2.09e−17.
 This checks implementation arithmetic, not independent physical truth. Full
-records are in the [evidence bundle](investigations/accuracy-requirements/README.md).
+records are in the evidence bundle.

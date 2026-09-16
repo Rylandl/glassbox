@@ -53,7 +53,7 @@ for acceptance. Production code and defaults are untouched.
 
 ## Results and falsification
 
-The [recorded result](investigations/terminal-suffix.json) reproduces initial
+The recorded result reproduces initial
 maximum utilization 1.277238607 and returns a feasible maximum 0.980752945.
 The unchanged objective falls from 44.851501 to 28.630417. The initial repair
 takes 50 SLSQP iterations, 68 distinct value evaluations, and 100 derivative
