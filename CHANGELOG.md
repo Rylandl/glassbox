@@ -5,6 +5,22 @@ All notable changes to Glassbox are recorded here. The format follows
 
 ## Unreleased
 
+- Freeze one gate semantics on the platform and control tiers as
+  `docs/harness/platform-v3.json` and `docs/harness/control-v3.json`, and give
+  the control tier the tracking task of `docs/cascade-accuracy.md`. A run is
+  accepted when no metric regresses past its reference value times 1.05 plus
+  0.005, the rule holds on every case the reference already meets it on, and
+  nothing structural fails; `rule_met` is reported separately from `accepted`,
+  so an enforced rule the incumbent fails no longer blocks every change.
+  `platform-v3` carries `platform-v2`'s protocol byte for byte and its reference
+  forward unchanged. `control-v3` replaces the cruise reference that rewarded
+  claiming nothing with lateral `sin(0.35 t)` m and altitude
+  `100 + 0.75 sin(0.3 t)` m over 16 s trials from declared perturbed initial
+  states, records the page's 0.5 m in 95% pass criterion beside the RMSE rule,
+  and requires every command channel to move at least 10% of its declared range
+  in each calibration recording, measured by the run and failed closed before
+  either fit. `docs/harness/control-reference.json` holds the incumbent
+  measurement. `platform-v2.json` and `control-v2.json` are deleted.
 - Enforce the control tier's decision rule. `docs/harness/control-v2.json`
   carries `control-v1.json`'s protocol constant for constant — the plant hash
   and pinned revision, the calibration recordings and seeds, the reference, the

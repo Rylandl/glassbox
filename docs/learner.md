@@ -147,7 +147,7 @@ not platform readiness, control adequacy, or calibrated uncertainty.
 
 ## The platform tier
 
-[`harness/platform-v2.json`](harness/platform-v2.json) is the second frozen
+[`harness/platform-v3.json`](harness/platform-v3.json) is the second frozen
 manifest, with its own digest constant. It is the accuracy tier: for each of
 the five pinned corpora it declares the directory below a root, which
 recordings are held out by name pattern, how many recordings each side must
@@ -159,7 +159,7 @@ never a fact in the manifest.
 
 ```sh
 uv run python -m glassbox.experimental.harness platform \
-  --manifest docs/harness/platform-v2.json \
+  --manifest docs/harness/platform-v3.json \
   --corpora /path/to/corpora --output /tmp/platform-run
 uv run python -m glassbox.experimental.harness verify /tmp/platform-run
 ```
@@ -207,18 +207,35 @@ The declared rule is that, on every corpus, the generic model's final-step
 velocity and body-rate RMSE are at or below the structured comparator's on the
 same rows and at or below the allowance where one exists; the comparator is the
 better structured arm on those rows, metric by metric, and both arms are
-reported. The manifest carries `"enforced": true`: the rule is a gate, and one
-corpus above its comparator or its allowance rejects the run. Structural
-problems — a corpus missing, duplicated, undeclared or unfinished, a nonfinite
-score, a row count outside the declared budget, an undeclared arm set — always
-fail closed.
+reported. The rule is reported on every corpus and metric, and `rule_met` in the
+decision says whether it holds on all ten of those cases. That is the statement
+the accuracy row of [`status.md`](status.md) is read from, and it is stronger
+than an accepted run.
+
+The decision itself is the one both this tier and the control tier make. A run
+is accepted when three things hold. No metric regressed: no corpus's generic
+final-step RMSE exceeds its reference value by more than 5% plus 0.005 on either
+metric. The rule holds wherever the reference already meets it: a corpus and
+metric whose recorded reference value is itself at or below this run's
+comparator and allowance is a gate, and one this run fails rejects it; a case
+the reference already fails is reported with `"gating": false` and does not.
+And nothing structural failed — a corpus missing, duplicated, undeclared or
+unfinished, a nonfinite score, a row count outside the declared budget, an
+undeclared arm set — which never waits for what the reference says.
+
+That last distinction is the whole of `platform-v3`. The incumbent does not meet
+the rule on arp, so an unconditional gate would reject every candidate for a
+case no candidate had changed, and the Evidence and Live rows could never be
+measured at all. A candidate that gives ground on arp still cannot hide: it is
+rejected by the regression reference, which is arp's own recorded number.
 
 [`harness/platform-reference.json`](harness/platform-reference.json) is the
 regression reference beside it, holding the generic model's final-step velocity
-and body-rate RMSE per corpus from the merged run that first measured them. No
-corpus may exceed its reference value by more than 5% plus 0.005 on either
-metric, and a missing, null or non-numeric reference value fails closed. It is
-anchored exactly the way the synthetic reference is: a run copies the reference
+and body-rate RMSE per corpus from the merged run that first measured them. It
+carries `platform-v2`'s numbers forward unchanged apart from the manifest id it
+names, because the protocol did not change. A missing, null or non-numeric
+reference value fails closed, both as a regression and as a case the rule cannot
+be shown to gate. It is anchored exactly the way the synthetic reference is: a run copies the reference
 it compared into its output and records the sha256 in `decision.json`, and
 `verify` reads the committed file, refuses when the copy differs from it by a
 byte, and refuses when one exists and the other does not. Pass `--reference
@@ -233,53 +250,99 @@ would never measure a change. Every run records the recipe it actually fitted.
 
 ## The control tier
 
-[`harness/control-v2.json`](harness/control-v2.json) is the third frozen
+[`harness/control-v3.json`](harness/control-v3.json) is the third frozen
 manifest, with its own digest constant. It is the control tier: one Cascade X8
 trial set, driven once by the structured belief and once by the generic
 learner, through the same plant and the same NMPC seam.
 
 ```sh
 uv run --group cascade python -m glassbox.experimental.harness control \
-  --manifest docs/harness/control-v2.json --output /tmp/control-run
+  --manifest docs/harness/control-v3.json --output /tmp/control-run
 uv run python -m glassbox.experimental.harness verify /tmp/control-run
 ```
 
 The manifest pins the Cascade X8 specification hash and the pinned source
-revision the run checks its installed simulator against, the cruise reference
-with its small altitude variation, the calibration protocol — three eight-second
-recordings with the published X8 stabilizer, simulator-derived trim feedforward
-and the declared excitation seeds, and a fourth recording reserved and never
-fitted in any role — twelve-second trials repeated twice with alternating arm
-order, the controller policy both arms share, how each arm is fitted, and the
-metrics. The recording protocol is the one
-[`examples/cascade_refinement.py`](../examples/cascade_refinement.py) collects
-the structured belief's calibration with, constant for constant, and a
-Cascade-marked test asserts that the two produce the same arrays byte for byte.
+revision the run checks its installed simulator against, the tracking task, the
+calibration protocol — three eight-second recordings with the published X8
+stabilizer, simulator-derived trim feedforward and the declared excitation
+seeds, and a fourth recording reserved and never fitted in any role —
+sixteen-second trials repeated twice with alternating arm order, the controller
+policy both arms share, how each arm is fitted, and the metrics.
+
+The task is the one [`cascade-accuracy`](cascade-accuracy.md) declares: the trim
+state carried forward at 18 m/s and 100 m, with lateral position `sin(0.35 t)`
+metres and altitude `100 + 0.75 sin(0.3 t)` metres and the world velocities that
+match them. Each repetition starts from its own perturbed state, drawn from a
+declared seed as that page draws it — up to 0.15 m of lateral and vertical
+position, 0.05 m/s of lateral and vertical velocity, 0.01 rad of attitude and
+0.02 rad/s of body rate, applied through the library's retraction so the
+quaternion stays on the unit sphere. It is the only disturbance: wind is zero,
+sensing is simulator truth, and nothing is added during a trial. Both arms of a
+repetition fly from the same perturbed state, and the reference is anchored to
+the unperturbed trim state and does not move with it, which is what `verify`
+rebuilds it from.
+
+`control-v2`'s cruise reference is deleted rather than kept beside it. On that
+reference a model with no command authority at all scored better than either
+arm, because the reference was the trim trajectory the plant was already on: the
+trial certified claiming nothing. Under `control-v3`, holding the trim command
+for the whole trial scores 1.217 m and 0.753 degrees on the first repetition and
+1.728 m and 1.896 degrees on the second, against the structured arm's 1.179 m
+and 1.320 degrees, and meets the page's tolerance on none of the 281 scored
+samples of either trial.
+
+Both arms are fitted on the same calibration, and the manifest now says what
+that calibration has to contain: every command channel's standard deviation, in
+each of the three recordings that fit the arms, is at least 10% of the channel's
+declared range. The run measures it per channel and per recording, records it,
+and fails closed before either fit when a channel falls short. One setpoint
+constant carries it — the pilot's airspeed amplitude, 0.4 m/s under `control-v2`
+and 2.5 m/s here — and a Cascade-marked test puts that one constant back and
+asserts that the tier's recording is byte for byte the one
+[`examples/cascade_refinement.py`](../examples/cascade_refinement.py) collects.
+Excitation is a property of the recordings the caller supplies, applied
+identically to both arms. Nothing about it reaches the learner, which is still
+told the channels and nothing else, and the learner still does not report its
+absence: that is the Evidence row.
 
 The declared rule is that the generic arm's position and attitude tracking RMSE
-are at or below the structured arm's on the same trial, on every trial, with no
-terminated trial. The manifest carries `"enforced": true`: the rule is a gate,
-and one trial whose generic position or attitude RMSE is above the structured
-arm's rejects the run. Structural problems never wait for that. A trial missing,
-duplicated, undeclared, terminated, short of its declared intervals, or
-carrying a metric that is not a finite number fails closed either way.
+are at or below the structured arm's on the same trial, on every trial. It is
+decided exactly as the platform tier's is: a run is accepted when no metric
+regressed past its reference value by more than 5% plus 0.005, the rule holds on
+every trial and metric the reference already meets it on, and nothing structural
+failed. A trial missing, duplicated, undeclared, terminated, short of its
+declared intervals, or carrying a metric that is not a finite number fails
+closed whatever the reference says. `rule_met` is reported beside `accepted`,
+and the control row of [`status.md`](status.md) is read from `rule_met`.
 
-`control-v2` carries `control-v1`'s protocol constant for constant — the plant
-hash and pinned revision, the calibration recordings and their seeds, the
-reference, the trial duration and repetitions, both arms and the controller
-policy they share. Only the rule's standing changed, and it changed before any
-candidate was fitted. `control-v1` is deleted, not kept beside it.
+Beside the rule the run records the page's own pass criterion, per trial and per
+arm, and reports rather than gates it: both absolute lateral and altitude errors
+at most 0.5 m in at least 95% of the 20 Hz samples at `t >= 2 s`, with no
+terminated trial. There are 281 scored samples in a complete trial. Every
+unexecuted interval counts as outside tolerance and a failed trial is not
+discarded; its scored error is unbounded and is serialized as `null`, never as
+zero. It is a provisional application requirement for one task and one
+controller, not a learned or universal flight tolerance, and it does not decide
+this run.
+
+[`harness/control-reference.json`](harness/control-reference.json) is the
+regression reference, both arms' position and attitude RMSE per trial and the
+pass statistic beside them, from the incumbent measurement below. It is anchored
+the way the other two are, and `--reference PATH` says where the committed file
+is when the replay does not run inside a checkout.
 
 `verify` recognizes the tier from the digest of the manifest a run copied. It
 recomputes every metric from the saved per-interval tracking arrays with the
-library's own metric code, rebuilds the reference rows from the saved initial
-state so a run cannot score itself against a reference it invented, recomputes
-the hashes of the tracking arrays, the calibration recordings and both fitted
-artifacts, and replays the decision. It does not rerun the plant or the solver,
-and says so in what it returns: neither is deterministic under a wall clock, so
-rerunning either would be a new measurement rather than a check of this one.
-The tier declares no regression reference, because this is its first
-measurement and there is nothing yet to anchor.
+library's own metric code, rebuilds the reference rows from the saved anchor
+state so a run cannot score itself against a reference it invented, rederives
+each trial's perturbed start from its declared seed so a run cannot invent where
+it started either, remeasures the calibration's command excitation from the
+saved recordings and refuses one that falls short, recomputes the pass criterion
+and the hashes of the tracking arrays, the calibration recordings and both
+fitted artifacts, and replays the decision. It does not rerun the plant or the
+solver, and says so in what it returns: neither is deterministic under a wall
+clock, so rerunning either would be a new measurement rather than a check of
+this one.
 
 ## The plan model
 
@@ -330,39 +393,55 @@ one was checked and found clear.
 
 ### The measurement
 
-The gate was frozen and committed at `367530e` before any trial was run, and
-re-frozen as `control-v2` at `3c149fa`, with the rule enforced, before any
-candidate was fitted. The run below is `control-v2`'s, and it reproduces the
-earlier one digit for digit: the plant, both fits and both arms are
-deterministic, so the same protocol measures the same numbers.
+`control-v3` was frozen and committed before this run, which is its incumbent
+measurement and the file `control-reference.json` is written from. Both arms
+were fitted on the same three calibration recordings, whose measured command
+excitation is 12.1%, 20.3% and 38.1% of declared range on the first, 14.2%,
+13.7% and 37.5% on the second and 12.3%, 16.4% and 37.5% on the third, against
+the declared 10%. Under `control-v2`'s setpoints the same three recordings moved
+throttle 2.7%, 3.1% and 2.3%.
 
-| Repetition | Position RMSE, generic / structured (m) | Attitude RMSE, generic / structured (deg) | Terminated | Deadline misses, generic / structured |
-| --- | --- | --- | --- | --- |
-| 0 | 60.347 / 1.208 | 121.874 / 1.022 | none | 0 / 1 |
-| 1 | 60.347 / 1.208 | 121.874 / 1.022 | none | 0 / 0 |
+| Repetition (seed) | Position RMSE, generic / structured (m) | Attitude RMSE, generic / structured (deg) | 0.5 m pass fraction, generic / structured | Terminated | Deadline misses, generic / structured |
+| --- | --- | --- | --- | --- | --- |
+| 0 (101) | 60.797 / 1.179 | 97.180 / 1.320 | 0.000 / 0.000 | none | 0 / 1 |
+| 1 (102) | 49.308 / 1.179 | 86.514 / 1.283 | 0.007 / 0.000 | none | 0 / 0 |
 
-**The rule is not met and the run is rejected.** No trial terminated: all four
-completed 240 intervals with finite states, bounded commands and no solver
-fallback, so there is no structural breach; the four rule breaches are the
-generic arm's two metrics on each of the two repetitions. The two
-repetitions are identical to every digit because the plant and both arms are
-deterministic and the loop is paced; only the deadline misses, which are
-host-specific and informational, differ between them. The structured arm plans
-a 0.80 s horizon, capped by its own forecast-error evidence; the generic arm
-plans the recipe's fitted 0.25 s.
+**The rule is not met.** All four trials completed their 320 intervals with
+finite states, bounded commands and no solver fallback, so nothing structural
+breached; the four rule breaches are the generic arm's two metrics on each
+repetition. This is the incumbent measurement, so there was no reference to
+compare against and the rule only reported. From `control-reference.json`
+onward it gates every case the incumbent met, which is none of these four.
 
-The generic arm does not diverge numerically — it flies the aircraft into the
-ground. Position error is 0.005 m at 0.5 s, better than the structured arm's
-0.176 m there, and attitude error is 0.59 degrees against 3.41. It then loses
-the aircraft: 9.3 degrees of attitude error at 1 s, 117 at 3 s, and an altitude
-of 100 m at the start, 91 m at 3 s and -26 m at 12 s. Its commands saturate:
-mean applied throttle 0.103 against a trim of 0.437, with roll and pitch resting
-near their +0.35 bounds.
+**Neither arm meets the page's criterion under this controller.** The structured
+arm holds lateral position to 0.27 m but settles about 2 m high, so its altitude
+error leaves the 0.5 m band on every scored sample. The page's own 3-for-3 pass
+was measured with a different controller, developed against an oracle on a
+separate seed; this tier flies the bounded shooting solver both arms share.
+That is why the criterion is recorded and reported rather than gated.
 
-The mechanism is measured, and it is not the fit's forecast quality. On the
-reserved recording the learner's own 0.25 s forecast beats hold-current on every
+**A calibration that moves throttle does not fix the generic arm.** With
+throttle excitation four to six times `control-v2`'s, the generic arm still
+loses the aircraft: mean applied throttle 0.137 against a trim of 0.437, roll
+resting at +0.269 of a +0.35 bound and pitch at -0.236, and an altitude of 100 m
+at the start, 79 m at 8 s and -27 m at 16 s. Its first two seconds are
+comparable to the structured arm's — 0.14 m of lateral error and 0.00 m of
+altitude error at 1 s — and it diverges after. Insufficient throttle excitation
+was the arithmetic behind the unidentified throttle column; it is not by itself
+the reason the arm cannot fly.
+
+### What control-v2 measured, and what survives its calibration
+
+Everything below was measured under `control-v2`: its cruise reference and, in
+particular, its calibration, the one whose throttle excitation `control-v3`
+replaced. The arithmetic of the mechanism is stated against those recordings and
+no longer describes the ones the tier now collects. The outcome it was offered
+to explain does survive them, which is the measurement above.
+
+The mechanism was not the fit's forecast quality. On `control-v2`'s reserved
+recording the learner's own 0.25 s forecast beat hold-current on every
 channel group — world velocity 0.168 against 0.249 m/s, body rate 0.139 against
-0.356 rad/s, rotation entries 0.0149 against 0.0212. What it does not have is a
+0.356 rad/s, rotation entries 0.0149 against 0.0212. What it did not have was a
 usable command Jacobian in the one direction the controller reaches for first.
 Comparing each arm's final-step response to a +0.05 command step against the
 plant's own, averaged over three held-out origins:
@@ -373,22 +452,25 @@ plant's own, averaged over three held-out origins:
 | roll | 0.594 / 0.798 | 0.58 / 0.60 |
 | pitch | 0.969 / 0.951 | 1.12 / 1.03 |
 
-Pitch is as good as the structured model's and roll is comparable, but throttle
-is uncorrelated with the plant's response and 27 times too large. The
-calibration explains the arithmetic: across the three recordings throttle moves
+Pitch was as good as the structured model's and roll comparable, but throttle
+was uncorrelated with the plant's response and 27 times too large. `control-v2`'s
+calibration explained the arithmetic: across its three recordings throttle moved
 with a standard deviation of 0.0225 to 0.0312 over a declared range of 1.0,
-while roll moves 0.1117 to 0.1727 and pitch 0.2598 to 0.2671 over ranges of 0.7.
+while roll moved 0.1117 to 0.1727 and pitch 0.2598 to 0.2671 over ranges of 0.7.
 Because the affine start standardizes each command by that sample standard
-deviation, the recipe's ridge charges the throttle level column 0.0127 per full
-declared-range move where it charges pitch 2.126, 168 times weaker, and the
-throttle difference columns 2.0e-4 and 6.6e-5. Open-loop scoring never charges
-for the result either, because throttle barely moves in the evaluation data. An
-optimizer charges for it immediately: it drives throttle to a bound, on 79% of
-this trial's intervals.
+deviation, the recipe's ridge charged the throttle level column 0.0127 per full
+declared-range move where it charged pitch 2.126, 168 times weaker, and the
+throttle difference columns 2.0e-4 and 6.6e-5. Open-loop scoring never charged
+for the result either, because throttle barely moved in the evaluation data. An
+optimizer charged for it immediately: it drove throttle to a bound, on 79% of
+that trial's intervals. `control-v3`'s calibration moves throttle 12.1% to 14.2%
+of the same range, which is four to six times as much and removes that
+arithmetic; the generic arm still loses the aircraft.
 
-**The horizon is not the difference.** Replanned at the generic arm's own 0.25 s
-horizon, the structured arm still tracks, at 1.738 m and 1.371 degrees: 44% and
-34% worse than at 0.80 s, and 35 and 89 times better than the generic arm. Its
+**The horizon was not the difference.** Replanned at the generic arm's own
+0.25 s horizon on `control-v2`'s reference, the structured arm still tracked, at
+1.738 m and 1.371 degrees: 44% and 34% worse than at 0.80 s, and 35 and 89 times
+better than the generic arm. Its
 applied throttle stays within [0.437, 0.553] and its roll within
 [+0.004, +0.007], never at a bound.
 
@@ -406,8 +488,5 @@ small, and small is its own hazard, because a bounded solver that believes a
 command is weak spends more of it. [`status.md`](status.md) carries the trial
 ladder that measures each of these.
 
-This is a measurement of one cruise trial set on one simulated plant, not
-hardware readiness, a real-time claim, or calibrated uncertainty. On this
-reference a model with no command authority at all scores 0.109 m and 0.000
-degrees, better than either arm, which is worth knowing about what the rule can
-and cannot certify.
+This is a measurement of one tracking trial set on one simulated plant, not
+hardware readiness, a real-time claim, or calibrated uncertainty.

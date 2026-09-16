@@ -2986,8 +2986,9 @@ def main(argv=None):
         default=None,
         help=(
             "the committed reference the run's regression gate is anchored to "
-            f"(default: {COMMITTED_REFERENCE} for a synthetic run and "
-            f"{COMMITTED_PLATFORM_REFERENCE} for a platform run)"
+            f"(default: {COMMITTED_REFERENCE} for a synthetic run, "
+            f"{COMMITTED_PLATFORM_REFERENCE} for a platform run and "
+            f"{COMMITTED_CONTROL_REFERENCE} for a control run)"
         ),
     )
     args = parser.parse_args(argv)
