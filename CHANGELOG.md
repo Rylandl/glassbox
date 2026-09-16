@@ -5,6 +5,20 @@ All notable changes to Glassbox are recorded here. The format follows
 
 ## Unreleased
 
+- Bound the recursion's gain inside the fit. Past the first horizon step an
+  error the size of the process's own one-step motion may not come out of the
+  recursion larger than the process's own motion has grown by that step; both
+  sides are hold-current's own error on the training windows, the ceiling is
+  floored at no amplification so the bound is always reachable, and no target,
+  development row or held-out row enters it. When a step leaves the gain above
+  the ceiling the paths from an observed channel back into the next prediction
+  are scaled by the largest factor that meets it and training continues from
+  there, so the bound is carried by the fit rather than applied to a finished
+  one; the exogenous command rows are never scaled. The recipe is
+  `generic-memory-v4-prototype` and the artifact format `v4`; a `v3` artifact,
+  whose recursion carried no bound, is rejected on load rather than migrated. A
+  fit whose recursion already meets the bound is untouched parameter for
+  parameter.
 - Measure the live improvement row for the first time.
   `docs/harness/live-v2.json` is the fifth frozen gate, with its own digest
   constant and a `live` harness command: `control-v3`'s plant, task,
