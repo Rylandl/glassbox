@@ -57,7 +57,7 @@ from glassbox.experimental.sequence_collection import (
     SequenceSegment,
 )
 
-MANIFEST = Path(__file__).resolve().parents[1] / "docs/harness/control-v2.json"
+MANIFEST = Path(__file__).resolve().parents[1] / "docs/harness/control-v3.json"
 DT_S = 0.05
 MINIMUM = np.array([0.0, -0.35, -0.35])
 MAXIMUM = np.array([1.0, 0.35, 0.35])
@@ -503,7 +503,7 @@ def test_plan_values_carry_history_without_changing_how_a_belief_is_presented():
 
 def test_the_control_manifest_digest_is_the_gate(tmp_path):
     manifest = harness.frozen_control_manifest(MANIFEST)
-    assert manifest["id"] == "control-v2"
+    assert manifest["id"] == "control-v3"
     assert manifest["decision"]["enforced"] is True
     assert "this manifest" in manifest["decision"]["gates_from"]
     assert tuple(manifest["telemetry"]["observed_channels"]) == OBSERVED_CHANNELS
@@ -519,59 +519,46 @@ def test_the_control_manifest_digest_is_the_gate(tmp_path):
     )
     loosened = copy.deepcopy(manifest)
     loosened["decision"]["enforced"] = False
-    path = tmp_path / "control-v2.json"
+    path = tmp_path / "control-v3.json"
     path.write_text(json.dumps(loosened, indent=2) + "\n")
     with pytest.raises(ValueError, match="differs from the frozen harness contract"):
         harness.frozen_control_manifest(path)
 
 
-CONTROL_V1_SHA256 = "d5d13d3d4c2fd3a9d6195b839bbd33bc09ec3abc10f495acbde13e879d2c607a"
-"""The digest of the deleted control-v1.json, which v2 carries the protocol of."""
+CONTROL_V2_SHA256 = "d5f446238a042438eb8c75ba3d432150c27e7ca6b4ecd72eed11fcfaa26e5787"
+"""The digest of the deleted control-v2.json, whose protocol v3 carries."""
 
-CONTROL_V1_EDITS = (
-    ('  "id": "control-v2",\n', '  "id": "control-v1",\n'),
-    (
-        '  "frozen_before_any_candidate_fit": true,\n',
-        '  "frozen_before_any_trial": true,\n',
-    ),
-    ('    "enforced": true,\n', '    "enforced": false,\n'),
-    (
-        '    "gates_from": "this manifest. The protocol is control-v1\'s, constant for'
-        " constant; only the rule's standing changed.\",\n",
-        '    "gates_from": "the first recipe change after this measurement iteration",'
-        "\n",
-    ),
-    (
-        '    "meaning": "A Cascade X8 tracking measurement of this trial set only. Not'
-        " hardware readiness, not a real-time claim, and not calibrated uncertainty."
-        " The rule is a gate: one trial whose generic position or attitude RMSE is"
-        " above the structured arm's, or one terminated trial, rejects the run.\"\n",
-        '    "meaning": "A Cascade X8 tracking measurement of this trial set only. Not'
-        " hardware readiness, not a real-time claim, and not calibrated uncertainty."
-        " This iteration measures both arms and reports; the rule gates merges from"
-        ' the first recipe change that follows."\n',
-    ),
-)
+OLD_DECISION = """  \"decision\": {
+    \"enforced\": true,
+    \"rule\": \"On every trial, the generic arm's position RMSE and attitude RMSE are at or below the structured arm's on that same trial, and no trial is terminated.\",
+    \"gates_from\": \"this manifest. The protocol is control-v1's, constant for constant; only the rule's standing changed.\",
+    \"meaning\": \"A Cascade X8 tracking measurement of this trial set only. Not hardware readiness, not a real-time claim, and not calibrated uncertainty. The rule is a gate: one trial whose generic position or attitude RMSE is above the structured arm's, or one terminated trial, rejects the run.\"
+  }
+}
+"""
 
 
-def test_the_committed_manifest_carries_control_v1s_protocol_byte_for_byte():
-    """Undoing the four edits reproduces the deleted control-v1 exactly.
+def test_the_committed_manifest_carries_control_v2s_protocol_byte_for_byte():
+    """Undoing the id and the decision reproduces the deleted control-v2 exactly.
 
     The plant hash, the calibration, the reference, the duration, the
-    repetitions, the arms and the controller policy cannot have moved, because
-    reversing the id, the freeze note and the decision block recovers v1's own
-    digest from v2's bytes.
+    repetitions, the arms and the controller policy cannot have moved in this
+    change, because reversing the id and the decision block recovers v2's own
+    digest from v3's bytes.
     """
 
     text = MANIFEST.read_text()
-    for new_text, old_text in CONTROL_V1_EDITS:
-        assert text.count(new_text) == 1
-        text = text.replace(new_text, old_text, 1)
-    assert hashlib.sha256(text.encode()).hexdigest() == CONTROL_V1_SHA256
+    assert text.count('  "id": "control-v3",\n') == 1
+    text = text.replace('  "id": "control-v3",\n', '  "id": "control-v2",\n', 1)
+    head, marker, _ = text.partition('  "reference": {\n')
+    assert marker
+    assert (
+        hashlib.sha256((head + OLD_DECISION).encode()).hexdigest() == CONTROL_V2_SHA256
+    )
 
 
 def test_the_committed_manifest_matches_the_module_constant():
-    assert harness.COMMITTED_CONTROL_MANIFEST.name == "control-v2.json"
+    assert harness.COMMITTED_CONTROL_MANIFEST.name == "control-v3.json"
     assert harness.sha256(MANIFEST) == harness.CONTROL_MANIFEST_SHA256
 
 
@@ -624,21 +611,129 @@ def _reporting(manifest):
     return loosened
 
 
+def _reference(rows):
+    """The reference a run of these rows would have been frozen from."""
+
+    tracking = {}
+    for row in rows:
+        tracking.setdefault(str(row["repetition"]), {})[row["arm"]] = {
+            metric: row["tracking_rmse"][metric] for metric in harness.CONTROL_METRICS
+        }
+    return dict(tracking_rmse=tracking)
+
+
+def _failing_reference():
+    """A reference whose generic arm failed the rule on every trial and metric."""
+
+    return _reference(_rows(generic_position=9.0, generic_attitude=9.0))
+
+
 def test_a_generic_arm_at_or_below_the_structured_arm_meets_the_rule(manifest):
     decision = harness.control_decide(manifest, _rows())
     assert decision["rule_met"] is True
     assert decision["rule_enforced"] is True
     assert decision["accepted"] is True
     assert decision["rule_breaches"] == []
+    assert decision["gating_rule_breaches"] == 0
     assert decision["tracking_rmse"]["0"]["position_rmse_m"] == dict(
-        generic=0.4, structured=0.5
+        generic=0.4, structured=0.5, reference=None, reference_meets_rule=None
     )
+    assert decision["reference_compared"] is False
     assert harness.control_decide(_reporting(manifest), _rows())["accepted"] is True
 
 
+def test_the_rule_gates_only_a_trial_the_reference_already_met(manifest):
+    """The whole semantics, isolated: no regression, one case gated, one not."""
+
+    reference = _reference(_rows())
+    reference["tracking_rmse"]["0"]["generic"]["position_rmse_m"] = 0.5
+    reference["tracking_rmse"]["1"]["generic"]["attitude_rmse_deg"] = 0.7
+    rows = _rows()
+    # Repetition 0 position: the reference met the rule at 0.5, equal to the
+    # structured arm, and this run does not, inside its own regression limit
+    # 0.5 * 1.05 + 0.005 = 0.53.
+    rows[0]["tracking_rmse"]["position_rmse_m"] = 0.52
+    # Repetition 1 attitude: the reference already failed at 0.7, above the
+    # structured arm's 0.6, and this run still fails inside its own limit.
+    rows[2]["tracking_rmse"]["attitude_rmse_deg"] = 0.71
+    decision = harness.control_decide(manifest, rows, reference, "b" * 64)
+    assert decision["reference_regressions"] == []
+    assert decision["reference_compared"] is True
+    assert decision["reference_sha256"] == "b" * 64
+    assert decision["rule_met"] is False
+    assert decision["accepted"] is False and decision["decision"] == "reject"
+    assert decision["gating_rule_breaches"] == 1
+    gated = [b for b in decision["rule_breaches"] if b["gating"]]
+    reported = [b for b in decision["rule_breaches"] if not b["gating"]]
+    assert [b["trial"] for b in gated] == ["0-generic"]
+    assert [b["trial"] for b in reported] == ["1-generic"]
+    summary = decision["tracking_rmse"]["1"]["attitude_rmse_deg"]
+    assert summary["reference"] == 0.7 and summary["reference_meets_rule"] is False
+    json.dumps(decision, allow_nan=False)
+
+
+def test_a_trial_the_reference_already_failed_is_reported_and_accepted(manifest):
+    """The defect this manifest fixes: an unmet trial must not block a change."""
+
+    reference = _reference(_rows(generic_position=0.6))
+    rows = _rows(generic_position=0.61)
+    decision = harness.control_decide(manifest, rows, reference)
+    assert decision["accepted"] is True and decision["decision"] == "accept"
+    # Accepted is not met: the status table's row reads rule_met, not accepted.
+    assert decision["rule_met"] is False
+    assert decision["gating_rule_breaches"] == 0
+    assert [b["gating"] for b in decision["rule_breaches"]] == [False, False]
+
+
+def test_a_regression_rejects_a_run_that_meets_the_rule(manifest):
+    """Condition (a) stands on its own: the rule held and the run still fails."""
+
+    reference = _reference(_rows())
+    rows = _rows(generic_position=0.4 * 1.05 + 0.005 + 1e-9)
+    decision = harness.control_decide(manifest, rows, reference)
+    assert decision["rule_met"] is True and decision["accepted"] is False
+    assert decision["rule_breaches"] == []
+    assert [r["trial"] for r in decision["reference_regressions"]] == [
+        "0-generic",
+        "1-generic",
+    ]
+    assert decision["reference_regressions"][0]["gate"] == "reference_tracking_rmse"
+    json.dumps(decision, allow_nan=False)
+
+
+def test_a_reference_without_the_trial_fails_closed(manifest):
+    reference = _reference(_rows())
+    reference["tracking_rmse"].pop("1")
+    decision = harness.control_decide(manifest, _rows(), reference)
+    assert decision["accepted"] is False
+    assert {r["gate"] for r in decision["reference_regressions"]} == {
+        "reference_present"
+    }
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), None, "0.1", True])
+def test_a_reference_value_that_is_not_a_number_fails_closed(manifest, value):
+    reference = _reference(_rows())
+    reference["tracking_rmse"]["0"]["generic"]["position_rmse_m"] = value
+    decision = harness.control_decide(manifest, _rows(), reference)
+    assert decision["accepted"] is False
+    assert decision["reference_regressions"][0] == dict(
+        trial="0-generic", metric="position_rmse_m", gate="reference_present"
+    )
+    json.dumps(decision, allow_nan=False)
+
+
+def test_with_no_reference_the_rule_is_reported_and_gates_nothing(manifest):
+    decision = harness.control_decide(manifest, _rows(generic_position=9.0))
+    assert decision["rule_met"] is False and decision["accepted"] is True
+    assert decision["gating_rule_breaches"] == 0
+    assert all(b["gating"] is False for b in decision["rule_breaches"])
+
+
 def test_a_trial_above_the_structured_arm_now_rejects_the_run(manifest):
+    reference = _reference(_rows())
     rows = _rows(generic_position=0.7)
-    decision = harness.control_decide(manifest, rows)
+    decision = harness.control_decide(manifest, rows, reference)
     assert decision["rule_met"] is False
     assert decision["accepted"] is False
     assert decision["decision"] == "reject"
@@ -648,28 +743,41 @@ def test_a_trial_above_the_structured_arm_now_rejects_the_run(manifest):
     ]
     assert decision["rule_breaches"][0]["value"] == 0.7
     assert decision["rule_breaches"][0]["limit"] == 0.5
-    reporting = harness.control_decide(_reporting(manifest), rows)
+    assert decision["rule_breaches"][0]["gating"] is True
+    reporting = harness.control_decide(_reporting(manifest), rows, reference)
     assert reporting["rule_met"] is False
-    assert reporting["accepted"] is True
+    assert reporting["accepted"] is False
+    assert [r["trial"] for r in reporting["reference_regressions"]] == [
+        "0-generic",
+        "1-generic",
+    ]
 
 
 def test_one_trial_above_the_structured_arm_is_enough_to_reject(manifest):
+    reference = _reference(_rows(generic_attitude=0.58))
     rows = _rows()
-    rows[0] = _row(0, "generic", 0.4, 0.9)
-    decision = harness.control_decide(manifest, rows)
+    rows[0] = _row(0, "generic", 0.4, 0.61)
+    decision = harness.control_decide(manifest, rows, reference)
     assert decision["rule_met"] is False
     assert decision["accepted"] is False
+    assert decision["reference_regressions"] == []
     assert decision["rule_breaches"][0]["metric"] == "attitude_rmse_deg"
-    assert harness.control_decide(_reporting(manifest), rows)["accepted"] is True
+    assert decision["gating_rule_breaches"] == 1
+    assert harness.control_decide(_reporting(manifest), rows, reference)["accepted"]
 
 
 def test_an_equal_metric_meets_the_rule_and_a_hair_above_does_not(manifest):
     """The rule is at-or-below: equality passes, one ulp above rejects."""
 
-    assert harness.control_decide(manifest, _rows(0.5, 0.6))["accepted"] is True
-    above = harness.control_decide(manifest, _rows(math.nextafter(0.5, 1.0), 0.6))
+    reference = _reference(_rows(0.5, 0.6))
+    assert harness.control_decide(manifest, _rows(0.5, 0.6), reference)["accepted"]
+    above = harness.control_decide(
+        manifest, _rows(math.nextafter(0.5, 1.0), 0.6), reference
+    )
     assert above["accepted"] is False
+    assert above["reference_regressions"] == []
     assert above["rule_breaches"][0]["gate"] == "structured_arm_rmse"
+    assert above["rule_breaches"][0]["gating"] is True
 
 
 def test_a_terminated_trial_fails_closed(manifest):
@@ -683,17 +791,20 @@ def test_a_terminated_trial_fails_closed(manifest):
         completed_intervals=117,
         failure="nonfinite plant state",
     )
+    # Structure never waits for the reference: a reference that failed the rule
+    # on every trial cannot excuse a trial that did not finish.
     for candidate in (manifest, _reporting(manifest)):
-        decision = harness.control_decide(candidate, rows)
-        assert decision["accepted"] is False
-        assert decision["rule_met"] is False
-        assert decision["gate_breaches"][0]["gate"] == "trial_complete"
+        for reference in (None, _failing_reference()):
+            decision = harness.control_decide(candidate, rows, reference)
+            assert decision["accepted"] is False
+            assert decision["rule_met"] is False
+            assert decision["gate_breaches"][0]["gate"] == "trial_complete"
 
 
 def test_a_short_trial_fails_closed_even_when_it_does_not_say_so(manifest):
     rows = _rows()
     rows[0] = _row(0, "generic", 0.1, 0.1, completed_intervals=239)
-    decision = harness.control_decide(manifest, rows)
+    decision = harness.control_decide(manifest, rows, _failing_reference())
     assert decision["accepted"] is False
     assert decision["gate_breaches"][0]["gate"] == "declared_intervals"
 
@@ -760,7 +871,13 @@ def _trajectory(seed):
     )
 
 
-def _fabricate_run(directory, manifest, learned, offsets):
+def _anchor(directory):
+    """Where a fabricated run's committed reference lives, beside the run."""
+
+    return Path(directory).parent / "control-reference.json"
+
+
+def _fabricate_run(directory, manifest, learned, offsets, with_reference=True):
     """A control run directory that was never tracked, for the replay to check."""
 
     directory.mkdir(parents=True, exist_ok=True)
@@ -837,7 +954,16 @@ def _fabricate_run(directory, manifest, learned, offsets):
             ),
         ),
     )
-    harness.write(directory / "decision.json", harness.control_decide(manifest, rows))
+    anchor, digest = None, None
+    if with_reference:
+        committed = _anchor(directory)
+        harness.write(committed, _reference(rows))
+        shutil.copyfile(committed, directory / "reference.json")
+        anchor, digest = harness.read(committed), harness.sha256(committed)
+    harness.write(
+        directory / "decision.json",
+        harness.control_decide(manifest, rows, anchor, digest),
+    )
     return rows
 
 
@@ -846,14 +972,14 @@ def test_the_replay_recomputes_every_metric_and_the_decision(
 ):
     directory = tmp_path / "control-run"
     _fabricate_run(directory, manifest, learned, dict(generic=0.4, structured=0.5))
-    result = harness.verify_control(directory, manifest)
+    result = harness.verify_control(directory, manifest, _anchor(directory))
     assert result["tier"] == "control"
     assert result["verified_trials"] == 4
     assert result["decision"]["accepted"] is True
     assert result["decision"]["rule_met"] is True
     assert "not rerun" in result["meaning"]
     # The tier is chosen by the digest of the manifest the run copied.
-    assert harness.verify(directory)["tier"] == "control"
+    assert harness.verify(directory, _anchor(directory))["tier"] == "control"
 
 
 def test_the_replay_rejects_an_altered_tracking_array(tmp_path, manifest, learned):
@@ -865,7 +991,7 @@ def test_the_replay_rejects_an_altered_tracking_array(tmp_path, manifest, learne
     arrays["states"] = arrays["reference_states"].copy()
     np.savez_compressed(case / "tracking.npz", **arrays)
     with pytest.raises(ValueError, match="altered artifact"):
-        harness.verify_control(directory, manifest)
+        harness.verify_control(directory, manifest, _anchor(directory))
 
 
 def test_the_replay_rejects_an_altered_calibration_recording(
@@ -878,7 +1004,7 @@ def test_the_replay_rejects_an_altered_calibration_recording(
     harness.write(directory / "calibration.json", calibration)
     save_trajectory_npz(_trajectory(9), directory / "recording-0.npz")
     with pytest.raises(ValueError, match="altered calibration recording"):
-        harness.verify_control(directory, manifest)
+        harness.verify_control(directory, manifest, _anchor(directory))
 
 
 def test_the_replay_rejects_an_altered_fitted_model(tmp_path, manifest, learned):
@@ -889,7 +1015,7 @@ def test_the_replay_rejects_an_altered_fitted_model(tmp_path, manifest, learned)
     calibration["files"].pop("generic.npz")
     harness.write(directory / "calibration.json", calibration)
     with pytest.raises(ValueError, match="fingerprint mismatch"):
-        harness.verify_control(directory, manifest)
+        harness.verify_control(directory, manifest, _anchor(directory))
 
 
 def test_the_replay_rejects_a_reference_the_run_invented(tmp_path, manifest, learned):
@@ -911,7 +1037,7 @@ def test_the_replay_rejects_a_reference_the_run_invented(tmp_path, manifest, lea
     harness.write(directory / "results.json", rows)
     harness.write(directory / "decision.json", harness.control_decide(manifest, rows))
     with pytest.raises(AssertionError):
-        harness.verify_control(directory, manifest)
+        harness.verify_control(directory, manifest, _anchor(directory))
 
 
 def test_the_replay_rejects_a_decision_that_does_not_follow(
@@ -925,15 +1051,74 @@ def test_the_replay_rejects_a_decision_that_does_not_follow(
     decision["rule_breaches"] = []
     harness.write(directory / "decision.json", decision)
     with pytest.raises(ValueError, match="replayed decision differs"):
-        harness.verify_control(directory, manifest)
+        harness.verify_control(directory, manifest, _anchor(directory))
 
 
-def test_the_control_tier_declares_no_regression_reference(tmp_path, manifest, learned):
+def _loosen(value, factor=10):
+    if isinstance(value, float):
+        return value * factor
+    if isinstance(value, dict):
+        return {key: _loosen(item, factor) for key, item in value.items()}
+    return value
+
+
+def test_a_control_run_cannot_relax_its_own_regression_gate(
+    tmp_path, manifest, learned
+):
+    """The replay must not read the threshold the run saved beside itself."""
+
     directory = tmp_path / "control-run"
     _fabricate_run(directory, manifest, learned, dict(generic=0.4, structured=0.5))
-    harness.write(directory / "reference.json", {"final_step_rmse": {}})
-    with pytest.raises(ValueError, match="declares no regression reference"):
-        harness.verify(directory)
+    copied = directory / "reference.json"
+    harness.write(copied, _loosen(harness.read(copied)))
+    with pytest.raises(ValueError, match="cannot relax its own regression gate"):
+        harness.verify_control(directory, manifest, _anchor(directory))
+
+
+def test_a_control_run_and_its_reference_must_agree_about_existing(
+    tmp_path, manifest, learned
+):
+    compared = tmp_path / "compared"
+    _fabricate_run(compared, manifest, learned, dict(generic=0.4, structured=0.5))
+    with pytest.raises(ValueError, match="cannot be anchored"):
+        harness.verify_control(compared, manifest, tmp_path / "absent.json")
+
+    uncompared = tmp_path / "second" / "control-run"
+    _fabricate_run(
+        uncompared,
+        manifest,
+        learned,
+        dict(generic=0.4, structured=0.5),
+        with_reference=False,
+    )
+    assert not harness.read(uncompared / "decision.json")["reference_compared"]
+    harness.write(_anchor(uncompared), {"tracking_rmse": {}})
+    with pytest.raises(ValueError, match="cannot be anchored"):
+        harness.verify_control(uncompared, manifest, _anchor(uncompared))
+
+
+def test_a_forged_control_reference_digest_in_the_decision_is_rejected(
+    tmp_path, manifest, learned
+):
+    directory = tmp_path / "control-run"
+    _fabricate_run(directory, manifest, learned, dict(generic=0.4, structured=0.5))
+    decision = harness.read(directory / "decision.json")
+    decision["reference_sha256"] = "0" * 64
+    harness.write(directory / "decision.json", decision)
+    with pytest.raises(ValueError, match="reference_sha256"):
+        harness.verify_control(directory, manifest, _anchor(directory))
+
+
+def test_a_control_replay_recomputes_the_reference_regressions(
+    tmp_path, manifest, learned
+):
+    directory = tmp_path / "control-run"
+    _fabricate_run(directory, manifest, learned, dict(generic=0.4, structured=0.5))
+    decision = harness.read(directory / "decision.json")
+    decision["reference_regressions"] = [dict(trial="0-generic", gate="invented")]
+    harness.write(directory / "decision.json", decision)
+    with pytest.raises(ValueError, match="reference_regressions"):
+        harness.verify_control(directory, manifest, _anchor(directory))
 
 
 # --- the tests that drive Cascade itself ------------------------------------

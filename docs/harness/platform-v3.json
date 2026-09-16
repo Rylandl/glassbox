@@ -1,5 +1,5 @@
 {
-  "id": "glassbox-harness-platform-v2",
+  "id": "glassbox-harness-platform-v3",
   "scope": "The accuracy tier. For every pinned platform corpus on disk, whole recordings are held out, the generic recipe is fitted on the rest, the structured model is fitted on exactly the same training recordings, and both forecast the same held-out origins from the same recorded future commands. This tier measures forecast accuracy against the structured model and the task allowance. It is not control adequacy, calibrated uncertainty, or evidence about any corpus not listed here.",
   "frozen": "This file and its digest constant in glassbox.experimental.harness are frozen before a candidate is fitted. A threshold, stride, holdout, corpus, or reference value changed after scores were seen fails review. The corpus root is a command-line argument and never a fact in this file. The recipe block below records the recipe this manifest was frozen against: a candidate recipe may differ from it, and every run records the recipe it actually fitted. What the manifest pins about the recipe is the evaluation plan, the information budget every window is cut to, which each corpus declares and the harness rederives.",
   "recipe": {
@@ -62,14 +62,16 @@
     "comparator": "Per metric, the lowest value any declared structured arm reached on those rows. Both arms are reported in full.",
     "allowance": "The allowances come from docs/accuracy-requirements.md, where they were derived as the worst recording's 95th percentile of the largest vector error anywhere in the forecast prefix. This rule applies them to a pooled final-step RMSE, which is a different readout of the same evidence and not the percentile those numbers bound.",
     "enforced": true,
-    "gates_merges_from": "this manifest. The rule is a gate: a run is accepted only when every declared corpus is present once, fitted, and scored with finite numbers on rows inside the declared budget, and every corpus meets the rule.",
+    "gates_merges_from": "this manifest. A run is accepted only when no metric regresses past its reference value times 1.05 plus 0.005, the rule holds on every case the reference already meets it on, and nothing structural fails. A case the reference already fails is reported, not gated: an enforced rule the incumbent does not meet would block every change rather than measure one.",
+    "rule_met": "Reported separately from the decision, on every run. The accuracy row of docs/status.md is met only when the rule holds on every case, which is a stronger statement than an accepted run.",
     "meaning": "Measured forecast accuracy on the pinned corpora for this manifest only. Not control adequacy, calibrated uncertainty, or readiness."
   },
   "reference": {
     "file": "platform-reference.json",
     "relative_tolerance": 0.05,
     "absolute_tolerance": 0.005,
-    "meaning": "When the reference file exists beside this manifest, no corpus's generic final-step velocity RMSE or body-rate RMSE may exceed its reference value times 1.05 plus 0.005. A run copies the reference it compared into its output directory and records its sha256, and verify anchors that copy to the committed file rather than believing it."
+    "meaning": "When the reference file exists beside this manifest, no corpus's generic final-step velocity RMSE or body-rate RMSE may exceed its reference value times 1.05 plus 0.005. A run copies the reference it compared into its output directory and records its sha256, and verify anchors that copy to the committed file rather than believing it.",
+    "gates_the_rule": "The same recorded value decides which cases the rule gates. A corpus and metric whose reference value is itself at or below this run's comparator and the declared allowance is a case the reference meets, and the rule is a gate there; a case the reference already fails is reported only. With no reference compared there is no case the reference meets, and the rule is reported everywhere."
   },
   "corpora": [
     {

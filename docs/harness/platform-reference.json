@@ -1,6 +1,6 @@
 {
-  "manifest": "glassbox-harness-platform-v2",
-  "manifest_sha256": "f4796e1a1bc2120aa0c00067853f13bf2004cf00ca9c5b34322daf0b7ce2f3ac",
+  "manifest": "glassbox-harness-platform-v3",
+  "manifest_sha256": "74722a9f23eeb3eeacc2d5faefab5bd2c126d60927525eceb306494a6cbf1d79",
   "source": "The merged platform-v1 run of the generic-memory-v2-prototype recipe, the measurement the accuracy row of docs/status.md reports. A later run's generic final-step RMSE may not exceed these values by more than this manifest's reference allowance on either metric.",
   "environment": {
     "python": "3.12.3 (main, Aug 31 2026, 10:18:26) [GCC 13.3.0]",

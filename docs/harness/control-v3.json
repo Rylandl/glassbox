@@ -1,5 +1,5 @@
 {
-  "id": "control-v2",
+  "id": "control-v3",
   "purpose": "The control tier: Cascade X8 reference tracking through the existing plant and NMPC seam, with the generic learner and the structured belief driving the same trials.",
   "frozen_before_any_candidate_fit": true,
   "recipe": {
@@ -168,10 +168,19 @@
     "terminated": "a trial that did not complete every declared interval with finite observed states",
     "meaning": "Deadline misses are host-specific scheduling measurements and inform rather than gate. Wall times are not a real-time claim."
   },
+  "reference": {
+    "file": "control-reference.json",
+    "relative_tolerance": 0.05,
+    "absolute_tolerance": 0.005,
+    "meaning": "When the reference file exists beside this manifest, no trial's generic position or attitude RMSE may exceed its reference value times 1.05 plus 0.005. A run copies the reference it compared into its output directory and records its sha256, and verify anchors that copy to the committed file rather than believing it.",
+    "gates_the_rule": "The same recorded value decides which cases the rule gates. A trial and metric whose reference value is itself at or below this run's structured arm on that trial is a case the reference meets, and the rule is a gate there; a case the reference already fails is reported only. With no reference compared there is no case the reference meets, and the rule is reported everywhere."
+  },
   "decision": {
     "enforced": true,
-    "rule": "On every trial, the generic arm's position RMSE and attitude RMSE are at or below the structured arm's on that same trial, and no trial is terminated.",
-    "gates_from": "this manifest. The protocol is control-v1's, constant for constant; only the rule's standing changed.",
-    "meaning": "A Cascade X8 tracking measurement of this trial set only. Not hardware readiness, not a real-time claim, and not calibrated uncertainty. The rule is a gate: one trial whose generic position or attitude RMSE is above the structured arm's, or one terminated trial, rejects the run."
+    "rule": "On every trial, the generic arm's position RMSE and attitude RMSE are at or below the structured arm's on that same trial.",
+    "rule_met": "Reported separately from the decision, on every run. The control row of docs/status.md is met only when the rule holds on every trial and metric, which is a stronger statement than an accepted run.",
+    "gates_from": "this manifest. A run is accepted only when no metric regresses past its reference value times 1.05 plus 0.005, the rule holds on every trial and metric the reference already meets it on, and nothing structural fails. A case the reference already fails is reported, not gated: an enforced rule the incumbent does not meet would block every change rather than measure one.",
+    "structural": "Always fails closed, whatever the reference says: a trial missing, duplicated, undeclared, terminated, short of its declared intervals, or carrying a metric that is not a finite number.",
+    "meaning": "A Cascade X8 tracking measurement of this trial set only. Not hardware readiness, not a real-time claim, and not calibrated uncertainty."
   }
 }

@@ -4,11 +4,11 @@ The harness has three tiers, each with its own frozen manifest and digest
 constant. ``run`` is the synthetic tier: it fits the consumer recipe end to end
 on each case of ``docs/harness/v1.json``, scores its forecasts on independent
 recordings, and writes a decision. ``platform`` is the accuracy tier: it fits
-the same recipe on each pinned corpus of ``docs/harness/platform-v2.json`` with
+the same recipe on each pinned corpus of ``docs/harness/platform-v3.json`` with
 whole recordings held out, fits the structured model on exactly the same
 training recordings, and scores both on exactly the same held-out rows.
 ``control`` is the control tier: it collects the frozen Cascade X8 calibration
-of ``docs/harness/control-v2.json``, fits both models on it, and tracks the
+of ``docs/harness/control-v3.json``, fits both models on it, and tracks the
 same reference with each of them through the existing NMPC seam.
 ``verify`` replays any tier from its saved artifacts and rejects anything
 that changed. No command takes tuning options.
@@ -16,9 +16,9 @@ that changed. No command takes tuning options.
     python -m glassbox.experimental.harness run \\
         --manifest docs/harness/v1.json --output DIR
     python -m glassbox.experimental.harness platform \\
-        --manifest docs/harness/platform-v2.json --corpora ROOT --output DIR
+        --manifest docs/harness/platform-v3.json --corpora ROOT --output DIR
     python -m glassbox.experimental.harness control \\
-        --manifest docs/harness/control-v2.json --output DIR
+        --manifest docs/harness/control-v3.json --output DIR
     python -m glassbox.experimental.harness verify DIR [--reference PATH]
 
 A run copies the manifest and the reference it compared into its output, but a
@@ -738,13 +738,10 @@ def verify(directory, reference=None):
             reference,
         )
     if digest == CONTROL_MANIFEST_SHA256:
-        if reference is not None or (directory / "reference.json").exists():
-            raise ValueError(
-                "the control tier declares no regression reference; this is its "
-                "first measurement and there is nothing to anchor"
-            )
         return verify_control(
-            directory, frozen_control_manifest(directory / "manifest.json")
+            directory,
+            frozen_control_manifest(directory / "manifest.json"),
+            reference,
         )
     if digest != MANIFEST_SHA256:
         raise ValueError("manifest digest differs from every frozen harness contract")
@@ -849,11 +846,11 @@ def verify(directory, reference=None):
 # --- the platform tier: the corpus adapter ----------------------------------
 
 PLATFORM_MANIFEST_SHA256 = (
-    "f4796e1a1bc2120aa0c00067853f13bf2004cf00ca9c5b34322daf0b7ce2f3ac"
+    "74722a9f23eeb3eeacc2d5faefab5bd2c126d60927525eceb306494a6cbf1d79"
 )
 """Digest of the frozen platform manifest this module is allowed to run."""
 
-COMMITTED_PLATFORM_MANIFEST = COMMITTED_MANIFEST.parent / "platform-v2.json"
+COMMITTED_PLATFORM_MANIFEST = COMMITTED_MANIFEST.parent / "platform-v3.json"
 """The frozen platform manifest in a source checkout."""
 
 COMMITTED_PLATFORM_REFERENCE = COMMITTED_MANIFEST.parent / "platform-reference.json"
@@ -1194,14 +1191,44 @@ def _comparator(arms, metric):
     return best, finite[best], len(finite) == len(values)
 
 
+def _reference_value(reference, section, *keys):
+    """One recorded reference number, or None for anything that is not one."""
+    node = None if reference is None else reference.get(section)
+    for key in keys:
+        if not isinstance(node, dict):
+            return None
+        node = node.get(key)
+    return _number(node)
+
+
+def _reference_meets(value, limits):
+    """Whether the reference's own recorded value meets this case's rule.
+
+    One rule on every tier: the rule is reported on every case, and it gates
+    only the cases the reference already meets. A case the incumbent already
+    fails is measured and reported rather than blocking every change, which is
+    the whole reason an enforced rule can sit beside an unmet row.
+
+    ``limits`` are the rule's own limits on the same rows, measured in this
+    run. A reference value or a limit that cannot be read leaves the answer
+    unknown, and an unknown case does not gate; the regression gate fails
+    closed on the unreadable value separately.
+    """
+    if value is None or any(limit is None for limit in limits):
+        return None
+    return all(value <= limit for limit in limits)
+
+
 def platform_decide(manifest, rows, reference=None, reference_sha256=None):
     """Every gate, evaluated from recorded scores alone. Anything unclear fails.
 
-    Structural problems are gate breaches and always fail closed. The accuracy
-    rule itself is reported separately, and becomes a gate once the manifest
-    says it is enforced. The regression reference, when one was compared, is
-    always a gate: no corpus may exceed its recorded generic final-step RMSE by
-    more than the manifest's allowance on either metric.
+    A run is accepted when no metric regressed past its reference value times
+    one plus the manifest's relative tolerance plus its absolute one, the rule
+    holds on every case the reference already meets it on, and nothing
+    structural failed. Structural problems always fail closed, whatever the
+    reference says. The rule is reported on every case either way, and
+    ``rule_met`` says whether it holds everywhere, which is the stronger
+    statement the status table's row is read from.
 
     ``reference_sha256`` identifies the reference file the scores were compared
     against. It is recorded in the decision so a replay can check that it
@@ -1209,7 +1236,9 @@ def platform_decide(manifest, rows, reference=None, reference_sha256=None):
     """
     declared = {entry["name"]: entry for entry in manifest["corpora"]}
     names = [row.get("corpus") for row in rows]
-    breaches, rule_breaches, summary = [], [], {}
+    breaches, rule_breaches, regressions, summary = [], [], [], {}
+    relative = manifest["reference"]["relative_tolerance"]
+    absolute = manifest["reference"]["absolute_tolerance"]
     for name in sorted(set(declared) - set(names)):
         breaches.append(dict(corpus=name, gate="corpus_present"))
     for name in sorted({name for name in names if names.count(name) > 1}):
@@ -1238,13 +1267,38 @@ def platform_decide(manifest, rows, reference=None, reference_sha256=None):
         for metric in METRICS:
             generic = _score(row.get("generic", {}), metric)
             arm, comparator, complete = _comparator(arms, metric)
+            ceiling = None if allowance is None else allowance[metric]
+            base = _reference_value(reference, "final_step_rmse", name, metric)
+            meets = _reference_meets(
+                base, [comparator] if ceiling is None else [comparator, ceiling]
+            )
             summary.setdefault(name, {})[metric] = dict(
                 generic=generic,
                 comparator=comparator,
                 comparator_arm=arm,
-                allowance=None if allowance is None else allowance[metric],
+                allowance=ceiling,
                 hold_current=_score(row.get("hold_current", {}), metric),
+                reference=base,
+                reference_meets_rule=meets,
             )
+            if reference is not None:
+                if base is None:
+                    regressions.append(
+                        dict(corpus=name, metric=metric, gate="reference_present")
+                    )
+                else:
+                    limit = base * (1 + relative) + absolute
+                    if generic is None or generic > limit:
+                        regressions.append(
+                            dict(
+                                corpus=name,
+                                metric=metric,
+                                gate="reference_final_step_rmse",
+                                value=generic,
+                                reference=base,
+                                limit=limit,
+                            )
+                        )
             if generic is None or comparator is None or not complete:
                 breaches.append(
                     dict(
@@ -1264,53 +1318,32 @@ def platform_decide(manifest, rows, reference=None, reference_sha256=None):
                         value=generic,
                         limit=comparator,
                         arm=arm,
+                        gating=meets is True,
                     )
                 )
-            if allowance is not None and generic > allowance[metric]:
+            if ceiling is not None and generic > ceiling:
                 rule_breaches.append(
                     dict(
                         corpus=name,
                         metric=metric,
                         gate="allowance_final_step_rmse",
                         value=generic,
-                        limit=allowance[metric],
+                        limit=ceiling,
+                        gating=meets is True,
                     )
                 )
-    regressions = []
-    if reference is not None:
-        relative = manifest["reference"]["relative_tolerance"]
-        absolute = manifest["reference"]["absolute_tolerance"]
-        recorded = reference.get("final_step_rmse", {})
-        for name in sorted(summary):
-            for metric in METRICS:
-                base = _number(recorded.get(name, {}).get(metric))
-                value = summary[name][metric]["generic"]
-                if base is None:
-                    regressions.append(
-                        dict(corpus=name, metric=metric, gate="reference_present")
-                    )
-                    continue
-                limit = base * (1 + relative) + absolute
-                if value is None or value > limit:
-                    regressions.append(
-                        dict(
-                            corpus=name,
-                            metric=metric,
-                            gate="reference_final_step_rmse",
-                            value=value,
-                            reference=base,
-                            limit=limit,
-                        )
-                    )
+    regressions.sort(key=lambda entry: (entry["corpus"], entry["metric"]))
     enforced = bool(manifest["decision"]["enforced"])
+    gating = [breach for breach in rule_breaches if breach["gating"]]
     rule_met = not breaches and not rule_breaches
-    accepted = not breaches and not regressions and (rule_met or not enforced)
+    accepted = not breaches and not regressions and (not enforced or not gating)
     return dict(
         manifest=manifest["id"],
         decision="accept" if accepted else "reject",
         accepted=accepted,
         rule_met=rule_met,
         rule_enforced=enforced,
+        gating_rule_breaches=len(gating),
         corpora=len(rows),
         gate_breaches=breaches,
         rule_breaches=rule_breaches,
@@ -1623,6 +1656,7 @@ def verify_platform(directory, manifest, reference=None):
         "decision",
         "accepted",
         "rule_met",
+        "gating_rule_breaches",
         "corpora",
         "reference_compared",
         "reference_sha256",
@@ -1645,12 +1679,15 @@ def verify_platform(directory, manifest, reference=None):
 # --- the control tier: one Cascade trial set, two arms ----------------------
 
 CONTROL_MANIFEST_SHA256 = (
-    "d5f446238a042438eb8c75ba3d432150c27e7ca6b4ecd72eed11fcfaa26e5787"
+    "b2dfefb3deb2acc7b638ed0deb9cf57068188755f4aa14cf108402607dab11db"
 )
 """Digest of the frozen control manifest this module is allowed to run."""
 
-COMMITTED_CONTROL_MANIFEST = COMMITTED_MANIFEST.parent / "control-v2.json"
+COMMITTED_CONTROL_MANIFEST = COMMITTED_MANIFEST.parent / "control-v3.json"
 """The frozen control manifest in a source checkout."""
+
+COMMITTED_CONTROL_REFERENCE = COMMITTED_MANIFEST.parent / "control-reference.json"
+"""Where ``verify`` looks for the committed control reference by default."""
 
 CONTROL_ARMS = ("generic", "structured")
 CONTROL_METRICS = ("position_rmse_m", "attitude_rmse_deg")
@@ -2345,18 +2382,28 @@ def _control_calibrate(manifest, output):
     )
 
 
-def control_decide(manifest, rows):
+def control_decide(manifest, rows, reference=None, reference_sha256=None):
     """Every gate, evaluated from recorded trial metrics alone. Anything unclear fails.
 
-    Structural problems always fail closed: a trial missing, duplicated,
-    undeclared, terminated, or carrying a metric that is not a finite number.
-    The accuracy rule itself is reported separately and becomes a gate only
-    when the manifest says it is enforced.
+    The same semantics the platform tier decides by. A run is accepted when no
+    metric regressed past its reference value times one plus the manifest's
+    relative tolerance plus its absolute one, the rule holds on every case the
+    reference already meets it on, and nothing structural failed: a trial
+    missing, duplicated, undeclared, terminated, short of its declared
+    intervals, or carrying a metric that is not a finite number. The rule is
+    reported on every trial and metric either way, and ``rule_met`` says
+    whether it holds everywhere.
+
+    ``reference_sha256`` identifies the reference file the metrics were
+    compared against. It is recorded in the decision so a replay can check that
+    it compared the same bytes, and it is not otherwise used here.
     """
     repetitions = manifest["trial"]["repetitions"]
     expected = {(index, arm) for index in range(repetitions) for arm in CONTROL_ARMS}
     keys = [(row.get("repetition"), row.get("arm")) for row in rows]
-    breaches, rule_breaches, summary = [], [], {}
+    breaches, rule_breaches, regressions, summary = [], [], [], {}
+    relative = manifest["reference"]["relative_tolerance"]
+    absolute = manifest["reference"]["absolute_tolerance"]
     for index, arm in sorted(expected - set(keys)):
         breaches.append(dict(trial=f"{index}-{arm}", gate="trial_present"))
     for index, arm in sorted({key for key in keys if keys.count(key) > 1}):
@@ -2402,9 +2449,38 @@ def control_decide(manifest, rows):
             continue
         summary[str(index)] = {}
         for metric in CONTROL_METRICS:
-            summary[str(index)][metric] = dict(
-                generic=generic[metric], structured=structured[metric]
+            base = _reference_value(
+                reference, "tracking_rmse", str(index), "generic", metric
             )
+            meets = _reference_meets(base, [structured[metric]])
+            summary[str(index)][metric] = dict(
+                generic=generic[metric],
+                structured=structured[metric],
+                reference=base,
+                reference_meets_rule=meets,
+            )
+            if reference is not None:
+                if base is None:
+                    regressions.append(
+                        dict(
+                            trial=f"{index}-generic",
+                            metric=metric,
+                            gate="reference_present",
+                        )
+                    )
+                else:
+                    limit = base * (1 + relative) + absolute
+                    if generic[metric] is None or generic[metric] > limit:
+                        regressions.append(
+                            dict(
+                                trial=f"{index}-generic",
+                                metric=metric,
+                                gate="reference_tracking_rmse",
+                                value=generic[metric],
+                                reference=base,
+                                limit=limit,
+                            )
+                        )
             if generic[metric] is None or structured[metric] is None:
                 continue
             if generic[metric] > structured[metric]:
@@ -2415,22 +2491,29 @@ def control_decide(manifest, rows):
                         gate="structured_arm_rmse",
                         value=generic[metric],
                         limit=structured[metric],
+                        gating=meets is True,
                     )
                 )
+    regressions.sort(key=lambda entry: (entry["trial"], entry["metric"]))
     enforced = bool(manifest["decision"]["enforced"])
+    gating = [breach for breach in rule_breaches if breach["gating"]]
     rule_met = not breaches and not rule_breaches
-    accepted = not breaches and (rule_met or not enforced)
+    accepted = not breaches and not regressions and (not enforced or not gating)
     return dict(
         manifest=manifest["id"],
         decision="accept" if accepted else "reject",
         accepted=accepted,
         rule_met=rule_met,
         rule_enforced=enforced,
+        gating_rule_breaches=len(gating),
         rule=manifest["decision"]["rule"],
         gates_from=manifest["decision"]["gates_from"],
         trials=len(rows),
         gate_breaches=breaches,
         rule_breaches=rule_breaches,
+        reference_regressions=regressions,
+        reference_compared=reference is not None,
+        reference_sha256=reference_sha256,
         tracking_rmse=summary,
         meaning=manifest["decision"]["meaning"],
     )
@@ -2444,6 +2527,11 @@ def control(manifest_path, output):
     manifest = frozen_control_manifest(manifest_path)
     output.mkdir(parents=True, exist_ok=False)
     shutil.copyfile(manifest_path, output / "manifest.json")
+    reference_path = manifest_path.parent / manifest["reference"]["file"]
+    reference, reference_digest = None, None
+    if reference_path.exists():
+        shutil.copyfile(reference_path, output / "reference.json")
+        reference, reference_digest = read(reference_path), sha256(reference_path)
     write(
         output / "environment.json",
         dict(
@@ -2499,7 +2587,7 @@ def control(manifest_path, output):
                 ),
                 flush=True,
             )
-    decision = control_decide(manifest, rows)
+    decision = control_decide(manifest, rows, reference, reference_digest)
     decision["wall_seconds"] = time.perf_counter() - started
     decision["calibration"] = dict(
         structured_fit_wall_seconds=calibration["structured_fit_wall_seconds"],
@@ -2535,7 +2623,7 @@ def _control_tracking_plant(manifest, initial_state, initial_command):
 # --- the control tier: verifying --------------------------------------------
 
 
-def verify_control(directory, manifest):
+def verify_control(directory, manifest, reference=None):
     """Recompute every control metric and the decision from saved arrays.
 
     This replay never reruns the plant and never reruns the solver: neither one
@@ -2547,7 +2635,9 @@ def verify_control(directory, manifest):
     per-interval tracking arrays with the library's own metric code. The
     reference rows are rebuilt from the saved initial state and the manifest's
     declared reference, so a run cannot score itself against a reference of its
-    own invention. The manifest is anchored to its frozen digest.
+    own invention. The manifest is anchored to its frozen digest, and the
+    regression reference to the committed file, exactly as the other two tiers
+    anchor theirs.
     """
     from glassbox.core.data import load_trajectory_npz, trajectory_content_digest
     from glassbox.core.metrics import state_rmse_metrics
@@ -2630,7 +2720,10 @@ def verify_control(directory, manifest):
         ):
             raise ValueError(f"recomputed completion differs: {row['directory']}")
         checked += 1
-    decision = control_decide(manifest, rows)
+    anchor, digest = anchored_reference(
+        directory, reference, COMMITTED_CONTROL_REFERENCE
+    )
+    decision = control_decide(manifest, rows, anchor, digest)
     saved = read(directory / "decision.json")
     for key in (
         "manifest",
@@ -2638,11 +2731,14 @@ def verify_control(directory, manifest):
         "accepted",
         "rule_met",
         "rule_enforced",
+        "gating_rule_breaches",
         "trials",
+        "reference_compared",
+        "reference_sha256",
     ):
         if decision[key] != saved[key]:
             raise ValueError(f"replayed decision differs: {key}")
-    for key in ("gate_breaches", "rule_breaches"):
+    for key in ("gate_breaches", "rule_breaches", "reference_regressions"):
         if len(decision[key]) != len(saved[key]):
             raise ValueError(f"replayed decision differs: {key}")
     return dict(

@@ -6,6 +6,7 @@ fabricated scores, and the replay on a model that was never fitted.
 """
 
 import copy
+import hashlib
 import json
 import shutil
 from dataclasses import replace
@@ -25,7 +26,7 @@ from glassbox.experimental.sequence_model import (
     sequence_windows,
 )
 
-MANIFEST = Path(__file__).resolve().parents[1] / "docs/harness/platform-v2.json"
+MANIFEST = Path(__file__).resolve().parents[1] / "docs/harness/platform-v3.json"
 REFERENCE = MANIFEST.parent / "platform-reference.json"
 DT_S = 0.02
 TOLERANCE = 0.001
@@ -315,6 +316,19 @@ def gates(decision):
     }
 
 
+def met_reference(manifest, **moved):
+    """A reference that met the rule everywhere, with named cases moved.
+
+    The rule gates a case only where the reference already meets it, so a test
+    of the gate has to say what the reference measured. ``moved`` names a
+    corpus and the reference values to use for it.
+    """
+    reference = reference_from(passing_rows(manifest))
+    for corpus, values in moved.items():
+        reference["final_step_rmse"][corpus].update(values)
+    return reference
+
+
 def test_a_complete_measurement_is_accepted_and_json_serializable(manifest):
     decision = harness.platform_decide(manifest, passing_rows(manifest))
     assert decision["accepted"] and decision["decision"] == "accept"
@@ -325,26 +339,133 @@ def test_a_complete_measurement_is_accepted_and_json_serializable(manifest):
     assert summary["generic"] == 0.1 and summary["comparator"] == 0.2
     assert summary["comparator_arm"] == "structured"
     assert summary["allowance"] == 0.709 and summary["hold_current"] == 0.9
+    # With no reference compared there is no case the reference already meets,
+    # so the rule is reported on every case and gates none of them.
+    assert summary["reference"] is None and summary["reference_meets_rule"] is None
+    assert decision["gating_rule_breaches"] == 0
+    json.dumps(decision, allow_nan=False)
+
+
+def test_the_rule_gates_only_a_case_the_reference_already_met(manifest):
+    """The whole semantics, isolated: no regression, one case gated, one not."""
+
+    reference = met_reference(
+        manifest,
+        x8={"velocity_rmse_m_s": 0.19},
+        arp={"body_rate_rmse_rad_s": 0.25},
+    )
+    rows = passing_rows(manifest)
+    # x8 velocity: the reference met the rule at 0.19 and this run does not.
+    # Its regression limit is 0.19 * 1.05 + 0.005 = 0.2045, so only the rule
+    # can trip.
+    next(r for r in rows if r["corpus"] == "x8")["generic"]["final_step"][
+        "velocity_rmse_m_s"
+    ] = 0.2001
+    # arp body rate: the reference already failed the rule at 0.25, above the
+    # 0.2 comparator, and this run still fails it inside the regression limit.
+    next(r for r in rows if r["corpus"] == "arp")["generic"]["final_step"][
+        "body_rate_rmse_rad_s"
+    ] = 0.26
+    decision = harness.platform_decide(manifest, rows, reference)
+    assert decision["reference_regressions"] == []
+    assert not decision["rule_met"]
+    assert not decision["accepted"] and decision["decision"] == "reject"
+    assert decision["gating_rule_breaches"] == 1
+    gated = {b["corpus"] for b in decision["rule_breaches"] if b["gating"]}
+    reported = {b["corpus"] for b in decision["rule_breaches"] if not b["gating"]}
+    assert gated == {"x8"} and reported == {"arp"}
+    arp = decision["final_step_rmse"]["arp"]["body_rate_rmse_rad_s"]
+    assert arp["reference"] == 0.25 and arp["reference_meets_rule"] is False
+    x8 = decision["final_step_rmse"]["x8"]["velocity_rmse_m_s"]
+    assert x8["reference"] == 0.19 and x8["reference_meets_rule"] is True
+
+
+def test_a_case_the_reference_already_failed_is_reported_and_accepted(manifest):
+    """The defect this manifest fixes: an unmet case must not block a change."""
+
+    reference = met_reference(manifest, arp={"body_rate_rmse_rad_s": 0.25})
+    rows = passing_rows(manifest)
+    next(r for r in rows if r["corpus"] == "arp")["generic"]["final_step"][
+        "body_rate_rmse_rad_s"
+    ] = 0.26
+    decision = harness.platform_decide(manifest, rows, reference)
+    assert decision["accepted"] and decision["decision"] == "accept"
+    # Accepted is not met: the status table's row reads rule_met, not accepted.
+    assert not decision["rule_met"]
+    assert decision["gating_rule_breaches"] == 0
+    assert [b["gating"] for b in decision["rule_breaches"]] == [False]
+    json.dumps(decision, allow_nan=False)
+
+
+def test_a_regression_rejects_a_run_that_meets_the_rule_everywhere(manifest):
+    """Condition (a) stands on its own: the rule held and the run still fails."""
+
+    reference = met_reference(manifest, idf={"velocity_rmse_m_s": 0.1})
+    rows = passing_rows(manifest)
+    next(r for r in rows if r["corpus"] == "idf")["generic"]["final_step"][
+        "velocity_rmse_m_s"
+    ] = 0.1 * 1.05 + 0.005 + 1e-9
+    decision = harness.platform_decide(manifest, rows, reference)
+    assert decision["rule_met"] and not decision["accepted"]
+    assert decision["rule_breaches"] == []
+    assert [r["corpus"] for r in decision["reference_regressions"]] == ["idf"]
+
+
+@pytest.mark.parametrize(
+    "problem", ["missing", "unfinished", "nonfinite", "duplicate", "undeclared"]
+)
+def test_a_structural_failure_rejects_whatever_the_reference_says(manifest, problem):
+    """Condition (c) never waits for the reference: structure always closes."""
+
+    # A reference that fails the rule on every case, so nothing the rule says
+    # can be what rejects the run.
+    reference = reference_from(passing_rows(manifest))
+    for scores in reference["final_step_rmse"].values():
+        for metric in harness.METRICS:
+            scores[metric] = 9.0
+    rows = passing_rows(manifest)
+    expected = {
+        "missing": "corpus_present",
+        "unfinished": "fit_complete",
+        "nonfinite": "finite_final_step_rmse",
+        "duplicate": "corpus_unique",
+        "undeclared": "corpus_declared",
+    }[problem]
+    if problem == "missing":
+        rows = [row for row in rows if row["corpus"] != "idf"]
+    elif problem == "unfinished":
+        rows[0]["status"] = "failed"
+    elif problem == "nonfinite":
+        rows[0]["generic"]["final_step"]["velocity_rmse_m_s"] = float("nan")
+    elif problem == "duplicate":
+        rows.append(copy.deepcopy(rows[0]))
+    else:
+        rows.append({**copy.deepcopy(rows[0]), "corpus": "crazyflie"})
+    decision = harness.platform_decide(manifest, rows, reference)
+    assert not decision["accepted"] and not decision["rule_met"]
+    assert expected in gates(decision)
     json.dumps(decision, allow_nan=False)
 
 
 def test_a_corpus_above_the_comparator_fails(manifest):
+    reference = met_reference(manifest, x8={"velocity_rmse_m_s": 0.19})
     rows = passing_rows(manifest)
     row = next(r for r in rows if r["corpus"] == "x8")
     row["generic"]["final_step"]["velocity_rmse_m_s"] = 0.2001
-    decision = harness.platform_decide(manifest, rows)
+    decision = harness.platform_decide(manifest, rows, reference)
     assert not decision["rule_met"] and gates(decision) == {
         "comparator_final_step_rmse"
     }
     breach = decision["rule_breaches"][0]
     assert breach["corpus"] == "x8" and breach["arm"] == "structured"
     assert breach["limit"] == 0.2 and breach["value"] == 0.2001
-    # The frozen manifest enforces the rule, so one corpus above its
-    # comparator rejects the whole run.
+    assert breach["gating"] is True
+    # The frozen manifest enforces the rule, so one corpus the reference met
+    # and this run does not rejects the whole run.
     assert not decision["accepted"] and decision["decision"] == "reject"
     reporting = copy.deepcopy(manifest)
     reporting["decision"]["enforced"] = False
-    assert harness.platform_decide(reporting, rows)["accepted"]
+    assert harness.platform_decide(reporting, rows, reference)["accepted"]
 
 
 def test_the_comparator_is_the_better_arm_on_those_rows(manifest):
@@ -363,15 +484,17 @@ def test_the_comparator_is_the_better_arm_on_those_rows(manifest):
 def test_the_frozen_manifest_enforces_the_rule_on_every_corpus(manifest):
     """Enforcement is per corpus: four passing corpora do not carry a fifth."""
     assert manifest["decision"]["enforced"] is True
+    reference = reference_from(passing_rows(manifest))
     for entry in manifest["corpora"]:
         rows = passing_rows(manifest)
         row = next(r for r in rows if r["corpus"] == entry["name"])
         # Above every arm on those rows, below every declared allowance, so
         # only the comparator gate can trip and only on this corpus.
         row["generic"]["final_step"]["body_rate_rmse_rad_s"] = 0.5
-        decision = harness.platform_decide(manifest, rows)
+        decision = harness.platform_decide(manifest, rows, reference)
         assert not decision["accepted"] and not decision["rule_met"]
         assert [b["corpus"] for b in decision["rule_breaches"]] == [entry["name"]]
+        assert all(breach["gating"] for breach in decision["rule_breaches"])
         assert gates(decision) == {"comparator_final_step_rmse"}
 
 
@@ -382,10 +505,12 @@ def test_a_corpus_above_the_allowance_fails(manifest):
     # the allowance gate can trip.
     row["generic"]["final_step"]["velocity_rmse_m_s"] = 0.8
     row["structured"]["structured_residual"]["final_step"]["velocity_rmse_m_s"] = 0.9
-    decision = harness.platform_decide(manifest, rows)
+    reference = reference_from(passing_rows(manifest))
+    decision = harness.platform_decide(manifest, rows, reference)
     assert not decision["rule_met"] and gates(decision) == {"allowance_final_step_rmse"}
     breach = decision["rule_breaches"][0]
     assert breach["corpus"] == "nanodrone" and breach["limit"] == 0.696
+    assert breach["gating"] is True and not decision["accepted"]
 
 
 def test_a_corpus_with_no_allowance_is_only_read_against_the_comparator(manifest):
@@ -471,6 +596,19 @@ def reference_from(rows):
     )
 
 
+def test_the_committed_platform_reference_carries_the_merged_numbers(manifest):
+    """The reference is platform-v2's, forward unchanged but for its manifest id."""
+
+    reference = harness.read(REFERENCE)
+    assert reference["manifest"] == manifest["id"] == "glassbox-harness-platform-v3"
+    assert reference["final_step_rmse"]["arp"]["body_rate_rmse_rad_s"] == pytest.approx(
+        0.7154644403799479
+    )
+    assert reference["final_step_rmse"]["x8"]["velocity_rmse_m_s"] == pytest.approx(
+        0.22234692231595657
+    )
+
+
 def test_the_committed_platform_reference_covers_every_corpus(manifest):
     reference = harness.read(REFERENCE)
     assert reference["manifest"] == manifest["id"]
@@ -499,6 +637,7 @@ def test_a_platform_reference_regression_fails_closed(manifest):
     row["generic"]["final_step"]["body_rate_rmse_rad_s"] = limit * 1.000001
     decision = harness.platform_decide(manifest, rows, reference)
     assert not decision["accepted"] and decision["rule_met"]
+    assert decision["gating_rule_breaches"] == 0
     regression = decision["reference_regressions"][0]
     assert regression["corpus"] == "arp" and regression["reference"] == base
     assert regression["gate"] == "reference_final_step_rmse"
@@ -529,11 +668,65 @@ def test_a_platform_reference_value_that_is_not_a_number_fails_closed(manifest, 
     json.dumps(decision, allow_nan=False)
 
 
+PLATFORM_V2_SHA256 = "f4796e1a1bc2120aa0c00067853f13bf2004cf00ca9c5b34322daf0b7ce2f3ac"
+"""The digest of the deleted platform-v2.json, whose protocol v3 carries."""
+
+PLATFORM_V3_EDITS = (
+    (
+        '  "id": "glassbox-harness-platform-v3",\n',
+        '  "id": "glassbox-harness-platform-v2",\n',
+    ),
+    (
+        '    "gates_merges_from": "this manifest. A run is accepted only when no metric'
+        " regresses past its reference value times 1.05 plus 0.005, the rule holds on"
+        " every case the reference already meets it on, and nothing structural fails."
+        " A case the reference already fails is reported, not gated: an enforced rule"
+        " the incumbent does not meet would block every change rather than measure"
+        ' one.",\n'
+        '    "rule_met": "Reported separately from the decision, on every run. The'
+        " accuracy row of docs/status.md is met only when the rule holds on every case,"
+        ' which is a stronger statement than an accepted run.",\n',
+        '    "gates_merges_from": "this manifest. The rule is a gate: a run is accepted'
+        " only when every declared corpus is present once, fitted, and scored with"
+        " finite numbers on rows inside the declared budget, and every corpus meets the"
+        ' rule.",\n',
+    ),
+    (
+        '    "gates_the_rule": "The same recorded value decides which cases the rule'
+        " gates. A corpus and metric whose reference value is itself at or below this"
+        " run's comparator and the declared allowance is a case the reference meets, and"
+        " the rule is a gate there; a case the reference already fails is reported only."
+        " With no reference compared there is no case the reference meets, and the rule"
+        ' is reported everywhere."\n',
+        "",
+    ),
+    (
+        'believing it.",\n',
+        'believing it."\n',
+    ),
+)
+
+
+def test_the_committed_manifest_carries_platform_v2s_protocol_byte_for_byte():
+    """Undoing the decision edits reproduces the deleted platform-v2 exactly.
+
+    The corpora, the holdouts, the strides, the allowances and the arms cannot
+    have moved, because reversing the id and the two decision blocks recovers
+    v2's own digest from v3's bytes.
+    """
+
+    text = MANIFEST.read_text()
+    for new_text, old_text in PLATFORM_V3_EDITS:
+        assert text.count(new_text) == 1, new_text[:60]
+        text = text.replace(new_text, old_text, 1)
+    assert hashlib.sha256(text.encode()).hexdigest() == PLATFORM_V2_SHA256
+
+
 # --- the frozen manifest ----------------------------------------------------
 
 
 def test_the_platform_manifest_carries_the_recipe_and_the_frozen_plan(manifest):
-    assert manifest["id"] == "glassbox-harness-platform-v2"
+    assert manifest["id"] == "glassbox-harness-platform-v3"
     # The manifest records the recipe it was frozen against in full and pins
     # the evaluation plan; it does not pin the candidate under measurement.
     assert set(manifest["recipe"]) == set(RECIPE)
@@ -544,6 +737,7 @@ def test_the_platform_manifest_carries_the_recipe_and_the_frozen_plan(manifest):
         "relative_tolerance": 0.05,
         "absolute_tolerance": 0.005,
         "meaning": manifest["reference"]["meaning"],
+        "gates_the_rule": manifest["reference"]["gates_the_rule"],
     }
     assert manifest["evaluation_rows_maximum"] == 2000
     assert manifest["motor_history_s"] == 1.0
@@ -605,7 +799,7 @@ def test_every_corpus_declares_the_budget_the_recipe_resolves_on_its_grid(manife
 def test_the_manifest_digest_gates_platform_and_verify(tmp_path, manifest):
     assert harness.sha256(MANIFEST) == harness.PLATFORM_MANIFEST_SHA256
     assert MANIFEST == harness.COMMITTED_PLATFORM_MANIFEST
-    altered = tmp_path / "platform-v2.json"
+    altered = tmp_path / "platform-v3.json"
     tampered = copy.deepcopy(manifest)
     tampered["corpora"][0]["allowance"]["velocity_rmse_m_s"] = 99.0
     harness.write(altered, tampered)
