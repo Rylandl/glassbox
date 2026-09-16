@@ -11,6 +11,7 @@ import json
 import math
 from pathlib import Path
 
+import jax
 import numpy as np
 import pytest
 
@@ -484,3 +485,687 @@ def test_the_rule_gates_nothing_a_reference_does_not_already_meet():
     ]
     assert breach and breach[0]["gating"] is False
     assert decision["gating_rule_breaches"] == 0
+
+
+# --- the block rows, the refiner and the replay -----------------------------
+
+DT_S = 0.05
+MINIMUM = np.array([0.0, -0.35, -0.35])
+MAXIMUM = np.array([1.0, 0.35, 0.35])
+LEVEL = np.array([1.0, -2.0, 100.0, 18.0, 0.3, -0.2, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+
+
+def _recording(seed, rows=140):
+    """One synthetic recording whose rotation entries are real rotations."""
+    from glassbox.core.geometry import quaternion_from_euler
+
+    generator = np.random.default_rng(seed)
+    commands = generator.uniform(MINIMUM, MAXIMUM, size=(rows - 1, 3))
+    commands[::2] += np.array([0.25, 0.2, 0.2])
+    commands = np.clip(commands, MINIMUM, MAXIMUM)
+    states = np.zeros((rows, 13))
+    states[0] = LEVEL
+    angles = np.zeros(3)
+    for index, command in enumerate(commands):
+        angles = 0.98 * angles + 0.05 * np.r_[command[1], command[2], 0.01 * index]
+        states[index + 1, 0:3] = states[index, 0:3] + DT_S * states[index, 3:6]
+        states[index + 1, 3:6] = (
+            0.97 * states[index, 3:6]
+            + np.r_[0.4 * command[0], 0.1 * angles[0], 0.1 * angles[1]]
+        )
+        states[index + 1, 6:10] = quaternion_from_euler(*angles)
+        states[index + 1, 10:13] = 0.9 * states[index, 10:13] + 0.2 * angles
+    return states, commands
+
+
+def _trajectory(seed, rows=140):
+    """One fabricated calibration recording on the tier's declared contract."""
+    from glassbox.core.data import Trajectory
+
+    states, commands = _recording(seed, rows)
+    return Trajectory(
+        time_s=np.arange(len(states)) * DT_S,
+        states=states,
+        controls=commands,
+        control_prefix=np.repeat(commands[:1], 20, axis=0),
+        spec=harness.control_telemetry_spec(harness.frozen_live_manifest(MANIFEST)),
+        labels={"source_group": f"cascade-calibration-{seed}"},
+    )
+
+
+@pytest.fixture(scope="module")
+def learned():
+    """One really fitted generic learner on the contract this tier requires."""
+    from glassbox.experimental.default_model import fit
+
+    manifest = harness.frozen_live_manifest(MANIFEST)
+    with jax.enable_x64(True):
+        return fit(
+            harness.control_collection(
+                manifest, [(f"recording-{seed}", _trajectory(seed)) for seed in (0, 1)]
+            )
+        )
+
+
+@pytest.fixture(scope="module")
+def belief():
+    """One really fitted structured belief, the comparator every gate reads."""
+    from glassbox.fitting import FitSpec, Holdout
+    from glassbox.fitting import fit as structured_fit
+
+    with jax.enable_x64(True):
+        return structured_fit(
+            [_trajectory(seed) for seed in (0, 1)],
+            FitSpec(
+                holdout=Holdout.by_group(),
+                steps=2,
+                horizons_s=(0.1, 0.4),
+                evaluation_horizons_s=(0.1, 0.4),
+            ),
+        ).belief
+
+
+def _block(seed, start=20, block_steps=40):
+    """One streamed block, shaped the way the transition buffer emits them."""
+    from glassbox.core.data import Trajectory
+
+    states, commands = _recording(seed)
+    return Trajectory(
+        time_s=np.arange(block_steps + 1) * DT_S,
+        states=states[start : start + block_steps + 1],
+        controls=commands[start : start + block_steps],
+        control_prefix=commands[start - 20 : start],
+        spec=harness.control_telemetry_spec(harness.frozen_live_manifest(MANIFEST)),
+        labels={"source_group": f"block-{seed}-{start}"},
+    )
+
+
+def _rows_for(manifest, block, name="block"):
+    steps = harness.steps_for(manifest["plant"]["sample_interval_s"])
+    return harness.live_block_rows(
+        manifest, block, harness.control_collection(manifest, [(name, block)]), steps
+    )
+
+
+def test_a_block_carries_the_same_origins_for_both_models():
+    manifest = harness.frozen_live_manifest(MANIFEST)
+    steps = harness.steps_for(manifest["plant"]["sample_interval_s"])
+    block = _block(7)
+    arrays = _rows_for(manifest, block)
+    context, horizon = steps["history"], steps["horizon"]
+    expected = 40 + 1 - context - horizon
+    assert len(arrays["targets"]) == expected >= 3
+    assert arrays["past_states"].shape[1] == context + 1
+    assert arrays["future_inputs"].shape[1] == horizon
+    assert arrays["control_histories"].shape[1] == 20
+    # The structured rollout starts at the same origin the generic context ends
+    # at, in the two representations of one state.
+    np.testing.assert_allclose(
+        harness.observed_from_states(arrays["initial_states"]),
+        arrays["past_states"][:, -1],
+        rtol=0,
+        atol=1e-12,
+    )
+    np.testing.assert_allclose(
+        arrays["controls"], arrays["future_inputs"], rtol=0, atol=0
+    )
+
+
+def test_a_block_too_short_for_one_whole_window_is_refused():
+    manifest = harness.frozen_live_manifest(MANIFEST)
+    with pytest.raises(ValueError, match="no origin with a complete context"):
+        _rows_for(manifest, _block(7, block_steps=14))
+
+
+def test_both_models_are_scored_on_the_same_block_rows(learned, belief):
+    manifest = harness.frozen_live_manifest(MANIFEST)
+    arrays = _rows_for(manifest, _block(7))
+    generic, structured, generic_score, structured_score = harness.live_block_scores(
+        manifest, learned, belief, arrays
+    )
+    assert generic.shape == structured.shape == arrays["targets"].shape
+    assert sorted(generic_score) == sorted(harness.METRICS)
+    gate = harness.live_swap_gate(generic_score, structured_score)
+    assert gate["passed"] in (True, False)
+    # The recorded score is a function of the saved arrays alone, which is what
+    # lets a replay recompute it without rerunning anything.
+    np.testing.assert_allclose(
+        harness.platform_measure(generic, arrays["targets"])["final_step"][
+            "velocity_rmse_m_s"
+        ],
+        generic_score["velocity_rmse_m_s"],
+        rtol=0,
+        atol=0,
+    )
+
+
+def _refiner(manifest, learned, belief, session="t"):
+    return harness._LiveRefiner(
+        manifest, learned, belief, recording_id=session, session=session
+    )
+
+
+def test_the_refiner_scores_a_block_before_it_fits_on_it(learned, belief):
+    manifest = harness.frozen_live_manifest(MANIFEST)
+    refiner = _refiner(manifest, learned, belief)
+    assert refiner.active.revision_id == "t:structured"
+    assert refiner.candidate.revision_id == "t:0"
+    result = refiner.observe(_block(7), recording_id="t", start_interval=0)
+    record = result.record
+    # The revision offered is the one the block was held out from, not the one
+    # that has just learned from it.
+    assert result.candidate_score.revision.revision_id == "t:0"
+    assert record["scored_revision"] == "t:0"
+    assert record["revision"] == "t:1" == refiner.candidate.revision_id
+    assert record["rows"] == 26
+    assert record["fit_steps"] == 1000
+    assert refiner.candidate.learned.fingerprint() != learned.fingerprint()
+    assert record["scored_fingerprint"] == learned.fingerprint()
+    assert json.dumps(result.to_dict(), allow_nan=False)
+
+
+def test_the_refiner_requires_blocks_in_order_on_one_recording(learned, belief):
+    manifest = harness.frozen_live_manifest(MANIFEST)
+    refiner = _refiner(manifest, learned, belief)
+    with pytest.raises(ValueError, match="in order"):
+        refiner.observe(_block(7), recording_id="t", start_interval=40)
+    with pytest.raises(ValueError, match="in order"):
+        refiner.observe(_block(7), recording_id="other", start_interval=0)
+    refiner.skip(recording_id="t", start_interval=0, stop_interval=20, reason="history")
+    assert refiner.skipped_interval_count == 20
+    with pytest.raises(ValueError, match="advance this recording's cursor"):
+        refiner.skip(recording_id="t", start_interval=0, stop_interval=5, reason="x")
+
+
+def test_only_a_scored_revision_can_be_held_and_adopted(learned, belief):
+    manifest = harness.frozen_live_manifest(MANIFEST)
+    refiner = _refiner(manifest, learned, belief)
+    with pytest.raises(ValueError, match="evaluated revision"):
+        refiner.hold_for_adoption("t:0")
+    refiner.skip(recording_id="t", start_interval=0, stop_interval=20, reason="history")
+    refiner.observe(_block(7), recording_id="t", start_interval=20)
+    refiner.hold_for_adoption("t:0")
+    with pytest.raises(ValueError, match="already outstanding"):
+        refiner.hold_for_adoption("t:0")
+    with pytest.raises(ValueError, match="active revision changed"):
+        refiner.adopt("t:0", expected_active_revision="t:9", reason="r")
+    with pytest.raises(ValueError, match="scored on a subsequent block"):
+        refiner.adopt("t:1", expected_active_revision="t:structured", reason="r")
+    adoption = refiner.adopt("t:0", expected_active_revision="t:structured", reason="r")
+    assert refiner.active.revision_id == "t:0"
+    assert json.dumps(adoption.to_dict(), allow_nan=False)
+    refiner.release_adoption_hold()
+
+
+# --- the replay -------------------------------------------------------------
+
+
+def _anchor(directory):
+    return Path(directory).parent / "live-reference.json"
+
+
+def _fabricate_run(directory, manifest, learned, belief, offsets):
+    """A live run directory that was never flown, for the replay to check."""
+    import shutil
+
+    from glassbox.core.data import save_trajectory_npz, trajectory_content_digest
+    from glassbox.core.metrics import state_rmse_metrics
+
+    directory.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(MANIFEST, directory / "manifest.json")
+    names, digests = [], {}
+    for seed in manifest["calibration"]["seeds"]:
+        flight = _trajectory(seed)
+        save_trajectory_npz(flight, directory / f"recording-{seed}.npz")
+        names.append(f"recording-{seed}.npz")
+        digests[f"recording-{seed}"] = trajectory_content_digest(flight)
+    learned.save(directory / "generic.npz")
+    belief.save(directory / "structured.json")
+    (directory / "structured_report.json").write_text('{"report": "fabricated"}\n')
+
+    reserved = [f"recording-{s}" for s in manifest["calibration"]["reserved_seeds"]]
+    evidence_arrays = harness.control_evidence_arrays(
+        manifest, [(name, _trajectory(int(name.split("-")[1]))) for name in reserved]
+    )
+    with jax.enable_x64(True):
+        prediction, half_width, coverage = harness.control_evidence(
+            learned, evidence_arrays
+        )
+    np.savez_compressed(
+        directory / "evidence.npz",
+        **evidence_arrays,
+        prediction=prediction,
+        envelope_half_width=half_width,
+    )
+    names.append("evidence.npz")
+
+    anchor_state = LEVEL.copy()
+    declared = manifest["tracking_reference"]
+    intervals = manifest["trial"]["intervals"]
+    times = np.arange(intervals + 1) * DT_S
+    reference = harness.control_reference(anchor_state, times, declared)
+    blocks_by_arm = {}
+    for arm in harness.LIVE_ARMS:
+        records, files = [], []
+        revision = learned
+        for index in range(2):
+            block = _block(30 + index, start=20 + 40 * index)
+            arrays = _rows_for(manifest, block, name=f"{arm}-{index}")
+            generic, structured, generic_score, structured_score = (
+                harness.live_block_scores(manifest, revision, belief, arrays)
+            )
+            np.savez_compressed(
+                directory / f"{arm}-block-{index:03d}.npz",
+                **arrays,
+                generic_prediction=generic,
+                structured_prediction=structured,
+            )
+            revision.save(directory / f"{arm}-block-{index:03d}-scored.npz")
+            records.append(
+                dict(
+                    index=index,
+                    recording_id=f"{arm}-block-{index:03d}",
+                    start_interval=20 + 40 * index,
+                    stop_interval=60 + 40 * index,
+                    rows=len(arrays["targets"]),
+                    scored_revision=f"live-{arm}:{index}",
+                    scored_fingerprint=revision.fingerprint(),
+                    revision=f"live-{arm}:{index + 1}",
+                    generic=generic_score,
+                    structured=structured_score,
+                    gate=harness.live_swap_gate(generic_score, structured_score),
+                    score_wall_seconds=0.5,
+                    refit_wall_seconds=1.0,
+                    fit_steps=1000,
+                    wall_budget_seconds=4.0,
+                    within_budget=True,
+                    training_recordings=2,
+                    training_windows=300,
+                    arrays=f"{arm}-block-{index:03d}.npz",
+                    scored_model=f"{arm}-block-{index:03d}-scored.npz",
+                )
+            )
+            files.extend([records[-1]["arrays"], records[-1]["scored_model"]])
+        blocks_by_arm[arm] = (records, files)
+
+    first = harness.live_first_gate_block(blocks_by_arm["adopting"][0])
+    swap_interval = None if first is None else 100 + 40 * first
+    rows = []
+    for repetition in range(manifest["trial"]["repetitions"]):
+        seed = manifest["trial"]["initial_state_seeds"][repetition]
+        initial_state = harness.control_initial_state(manifest, anchor_state, seed)
+        for arm in harness.LIVE_ARMS:
+            case = directory / f"trial-{repetition}" / arm
+            case.mkdir(parents=True, exist_ok=True)
+            states = reference.copy()
+            states[:, 0] += offsets[arm]
+            states[0] = initial_state
+            swapped = arm == "adopting" and swap_interval is not None
+            actives = np.full(intervals, f"live-{repetition}-{arm}:structured")
+            if swapped:
+                actives[swap_interval:] = f"live-{arm}:{first}"
+            np.savez_compressed(
+                case / "tracking.npz",
+                time_s=times,
+                states=states,
+                reference_states=reference,
+                commands=np.zeros((intervals, 3)),
+                tick_times_s=np.full(intervals, 0.01),
+                source_clock_lags_s=np.zeros(intervals),
+                solve_times_s=np.full(intervals, 0.002),
+                solver_used=np.ones(intervals, dtype=bool),
+                used_fallback=np.zeros(intervals, dtype=bool),
+                active_revisions=actives,
+                initial_state=initial_state,
+                reference_anchor_state=anchor_state,
+            )
+            records, files = blocks_by_arm[arm]
+            for name in files:
+                shutil.copyfile(directory / name, case / name)
+            (case / "events.jsonl").write_text("")
+            row = dict(
+                arm=arm,
+                session=f"live-{repetition}-{arm}",
+                repetition=repetition,
+                initial_state_seed=seed,
+                completed_intervals=intervals,
+                requested_intervals=intervals,
+                terminated=False,
+                failure=None,
+                worker_error=None,
+                swapped=swapped,
+                swap_interval=swap_interval if swapped else None,
+                swap_time_s=swap_interval * DT_S if swapped else None,
+                swap_revision=(records[first]["scored_revision"] if swapped else None),
+                swap_scored_block=first if swapped else None,
+                swap_scored_stop_interval=(
+                    records[first]["stop_interval"] if swapped else None
+                ),
+                swap_offer_age_intervals=(
+                    swap_interval - records[first]["stop_interval"] if swapped else None
+                ),
+                offers=int(swapped),
+                rejected_offers=0,
+                blocks=records,
+                candidate_revisions=len(records),
+                submitted_blocks=len(records),
+                dropped_blocks=0,
+                budget_overruns=0,
+                maximum_refit_wall_seconds=1.0,
+                tracking_rmse=state_rmse_metrics(states[1:], reference[1:]),
+                pass_criterion=harness.control_pass_criterion(
+                    states, anchor_state, manifest
+                ),
+                deadline_misses=0,
+                solve_deadline_misses=0,
+                segment_swap_interval=swap_interval,
+                segments=harness.live_segments(states, reference, swap_interval),
+                directory=f"trial-{repetition}/{arm}",
+                files=harness._files(case, ["tracking.npz", "events.jsonl", *files]),
+            )
+            harness.write(case / "trial.json", row)
+            rows.append(row)
+    harness.write(directory / "results.json", rows)
+    harness.write(
+        directory / "calibration.json",
+        dict(
+            recordings=digests,
+            training=[
+                f"recording-{s}" for s in manifest["calibration"]["training_seeds"]
+            ],
+            reserved=reserved,
+            evidence=coverage,
+            generic_fingerprint=learned.fingerprint(),
+            command_excitation=harness.control_excitation(
+                manifest,
+                [
+                    (f"recording-{seed}", _trajectory(seed))
+                    for seed in manifest["calibration"]["seeds"]
+                ],
+            ),
+            files=harness._files(
+                directory,
+                names + ["structured.json", "structured_report.json", "generic.npz"],
+            ),
+        ),
+    )
+    harness.write(
+        directory / "decision.json", harness.live_decide(manifest, rows, None, None)
+    )
+    return rows
+
+
+@pytest.fixture(scope="module")
+def flown(tmp_path_factory, learned, belief):
+    """One fabricated run directory, built once for every replay test."""
+    manifest = harness.frozen_live_manifest(MANIFEST)
+    directory = tmp_path_factory.mktemp("live") / "live-run"
+    _fabricate_run(directory, manifest, learned, belief, dict(adopting=0.4, frozen=0.5))
+    return directory
+
+
+@pytest.fixture
+def run(flown, tmp_path):
+    """A private copy of it, so a test may alter what it is checking."""
+    import shutil
+
+    directory = tmp_path / "live-run"
+    shutil.copytree(flown, directory)
+    return directory
+
+
+def test_the_replay_recomputes_every_metric_and_the_decision(run):
+    manifest = harness.frozen_live_manifest(MANIFEST)
+    result = harness.verify_live(run, manifest)
+    assert result["tier"] == "live"
+    assert result["verified_trials"] == 4
+    assert result["replays"] == 16
+    assert result["maximum_replay_difference"] < 1e-6
+    assert "not rerun" in result["meaning"]
+    assert result["decision"]["reference_compared"] is False
+    # The tier is chosen by the digest of the manifest the run copied.
+    assert harness.verify(run)["tier"] == "live"
+
+
+def test_the_replay_rejects_an_altered_tracking_array(run):
+    manifest = harness.frozen_live_manifest(MANIFEST)
+    case = run / "trial-0" / "adopting"
+    with np.load(case / "tracking.npz", allow_pickle=False) as data:
+        arrays = {key: data[key] for key in data.files}
+    arrays["states"] = arrays["reference_states"].copy()
+    np.savez_compressed(case / "tracking.npz", **arrays)
+    with pytest.raises(ValueError, match="altered artifact"):
+        harness.verify_live(run, manifest)
+
+
+def test_the_replay_rejects_an_altered_block_array(run):
+    manifest = harness.frozen_live_manifest(MANIFEST)
+    case = run / "trial-0" / "adopting"
+    row = harness.read(case / "trial.json")
+    name = row["blocks"][0]["arrays"]
+    with np.load(case / name, allow_pickle=False) as data:
+        arrays = {key: data[key] for key in data.files}
+    arrays["generic_prediction"] = arrays["targets"].copy()
+    np.savez_compressed(case / name, **arrays)
+    row["files"][name] = harness.sha256(case / name)
+    harness.write(case / "trial.json", row)
+    rows = harness.read(run / "results.json")
+    rows[[r["directory"] for r in rows].index(row["directory"])] = row
+    harness.write(run / "results.json", rows)
+    with pytest.raises(AssertionError):
+        harness.verify_live(run, manifest)
+
+
+def test_the_replay_rejects_a_forged_block_score(run):
+    manifest = harness.frozen_live_manifest(MANIFEST)
+    rows = harness.read(run / "results.json")
+    row = next(r for r in rows if r["directory"] == "trial-0/adopting")
+    row["blocks"][0]["generic"]["velocity_rmse_m_s"] = 0.0
+    harness.write(run / row["directory"] / "trial.json", row)
+    harness.write(run / "results.json", rows)
+    with pytest.raises(AssertionError):
+        harness.verify_live(run, manifest)
+
+
+def test_the_replay_rejects_a_forged_gate_outcome(run):
+    manifest = harness.frozen_live_manifest(MANIFEST)
+    rows = harness.read(run / "results.json")
+    row = next(r for r in rows if r["directory"] == "trial-0/adopting")
+    entry = row["blocks"][0]
+    entry["gate"]["passed"] = not entry["gate"]["passed"]
+    harness.write(run / row["directory"] / "trial.json", row)
+    harness.write(run / "results.json", rows)
+    with pytest.raises(ValueError, match="recomputed swap gate differs"):
+        harness.verify_live(run, manifest)
+
+
+def test_the_replay_rejects_a_swap_the_recorded_gates_do_not_support(run):
+    manifest = harness.frozen_live_manifest(MANIFEST)
+    rows = harness.read(run / "results.json")
+    row = next(r for r in rows if r["directory"] == "trial-0/adopting")
+    if not row["swapped"]:
+        pytest.skip("this fabricated run never swapped")
+    # A swap is only ever allowed to come from the first block whose gate
+    # passed inside its refit budget, and the replay recomputes which that was.
+    row["swap_scored_block"] = row["swap_scored_block"] + 1
+    harness.write(run / row["directory"] / "trial.json", row)
+    harness.write(run / "results.json", rows)
+    with pytest.raises(ValueError, match="first block whose gate passed"):
+        harness.verify_live(run, manifest)
+
+
+def test_the_replay_rejects_a_recorded_active_revision_the_swap_denies(run):
+    manifest = harness.frozen_live_manifest(MANIFEST)
+    case = run / "trial-0" / "frozen"
+    with np.load(case / "tracking.npz", allow_pickle=False) as data:
+        arrays = {key: data[key] for key in data.files}
+    arrays["active_revisions"] = np.full(len(arrays["commands"]), "live-0-frozen:9")
+    np.savez_compressed(case / "tracking.npz", **arrays)
+    row = harness.read(case / "trial.json")
+    row["files"]["tracking.npz"] = harness.sha256(case / "tracking.npz")
+    harness.write(case / "trial.json", row)
+    rows = harness.read(run / "results.json")
+    rows[[r["directory"] for r in rows].index(row["directory"])] = row
+    harness.write(run / "results.json", rows)
+    with pytest.raises(ValueError, match="active revisions"):
+        harness.verify_live(run, manifest)
+
+
+def test_the_replay_rejects_segments_recomputed_from_the_saved_arrays(run):
+    manifest = harness.frozen_live_manifest(MANIFEST)
+    rows = harness.read(run / "results.json")
+    row = next(r for r in rows if r["directory"] == "trial-0/adopting")
+    if row["segments"]["after"] is None:
+        pytest.skip("this fabricated run never swapped, so it has no after segment")
+    row["segments"]["after"]["position_rmse_m"] = 0.0
+    harness.write(run / row["directory"] / "trial.json", row)
+    harness.write(run / "results.json", rows)
+    with pytest.raises(AssertionError):
+        harness.verify_live(run, manifest)
+
+
+def test_the_replay_rejects_a_reference_it_cannot_anchor(run):
+    manifest = harness.frozen_live_manifest(MANIFEST)
+    harness.write(run / "reference.json", {"tracking_rmse": {}})
+    with pytest.raises(ValueError, match="reference mismatch"):
+        harness.verify_live(run, manifest, _anchor(run))
+
+
+# --- the tests that drive Cascade itself ------------------------------------
+
+
+@pytest.mark.cascade
+def test_one_short_live_trial_streams_refits_and_may_swap(tmp_path):
+    """One short paced trial end to end: the transport, the refits, the metrics."""
+    pytest.importorskip("cascade")
+    from glassbox.belief.belief_io import load_dynamics_belief  # noqa: F401
+    from glassbox.experimental.default_model import fit
+    from glassbox.fitting import FitSpec, Holdout
+    from glassbox.fitting import fit as structured_fit
+
+    manifest = copy.deepcopy(harness.frozen_live_manifest(MANIFEST))
+    manifest["calibration"]["duration_s"] = 3.0
+    manifest["arms"]["structured"]["optimization_steps"] = 3
+    manifest["trial"]["intervals"] = 70
+    manifest["trial"]["duration_s"] = 3.5
+    manifest["live"]["transport"]["block_steps"] = 20
+    manifest["live"]["transport"]["block_duration_s"] = 1.0
+    manifest["live"]["transport"]["blocks_per_trial"] = 2
+    manifest["metrics"]["pass_criterion"]["settled_after_s"] = 0.5
+
+    spec, model, trim, state, command = harness.control_fixture(manifest)
+    plant = harness._control_plant(manifest, spec, model)
+    recordings = [
+        (
+            f"recording-{seed}",
+            harness.control_recording(manifest, plant, trim, state, command, seed),
+        )
+        for seed in (0, 1)
+    ]
+    with jax.enable_x64(True):
+        artifacts = dict(
+            generic=fit(harness.control_collection(manifest, recordings)),
+            structured=structured_fit(
+                [flight for _, flight in recordings],
+                FitSpec(
+                    holdout=Holdout.by_group(),
+                    steps=manifest["arms"]["structured"]["optimization_steps"],
+                    horizons_s=(0.1, 0.4),
+                    evaluation_horizons_s=(0.1, 0.4),
+                ),
+            ).belief,
+        )
+
+    def reference_fn(times):
+        return harness.control_reference(state, times, manifest["tracking_reference"])
+
+    start = harness.control_initial_state(manifest, state, 101)
+    row = harness._live_trial(
+        manifest,
+        adopting=True,
+        artifacts=artifacts,
+        plant=harness._control_tracking_plant(manifest, start, command),
+        warmup=recordings[0][1],
+        reference_fn=reference_fn,
+        anchor_state=state,
+        session="live-test",
+        directory=tmp_path / "t",
+    )
+    assert row["terminated"] is False
+    assert row["worker_error"] is None
+    assert row["completed_intervals"] == 70
+    assert row["maximum_command_bound_violation"] == 0.0
+    assert row["arm"] == "adopting"
+    # Twenty intervals fill the command history, then two whole blocks.
+    assert row["submitted_blocks"] == 2
+    assert row["candidate_revisions"] == len(row["blocks"]) >= 1
+    for entry in row["blocks"]:
+        assert entry["rows"] == 20 + 1 - 10 - 5
+        assert sorted(entry["generic"]) == sorted(harness.METRICS)
+        assert entry["gate"] == harness.live_swap_gate(
+            entry["generic"], entry["structured"]
+        )
+    assert math.isfinite(row["tracking_rmse"]["position_rmse_m"])
+    assert json.dumps(row, allow_nan=False)
+    assert (tmp_path / "t" / "block-000.npz").exists()
+    assert (tmp_path / "t" / "block-000-scored.npz").exists()
+
+
+@pytest.mark.cascade
+def test_a_frozen_arm_runs_the_same_learner_and_never_swaps(tmp_path):
+    """The reference arm pays the same compute and is offered nothing."""
+    pytest.importorskip("cascade")
+    from glassbox.experimental.default_model import fit
+    from glassbox.fitting import FitSpec, Holdout
+    from glassbox.fitting import fit as structured_fit
+
+    manifest = copy.deepcopy(harness.frozen_live_manifest(MANIFEST))
+    manifest["calibration"]["duration_s"] = 3.0
+    manifest["arms"]["structured"]["optimization_steps"] = 3
+    manifest["trial"]["intervals"] = 45
+    manifest["trial"]["duration_s"] = 2.25
+    manifest["live"]["transport"]["block_steps"] = 20
+    manifest["live"]["transport"]["block_duration_s"] = 1.0
+    manifest["live"]["transport"]["blocks_per_trial"] = 1
+    manifest["metrics"]["pass_criterion"]["settled_after_s"] = 0.5
+
+    spec, model, trim, state, command = harness.control_fixture(manifest)
+    plant = harness._control_plant(manifest, spec, model)
+    recordings = [
+        (
+            f"recording-{seed}",
+            harness.control_recording(manifest, plant, trim, state, command, seed),
+        )
+        for seed in (0, 1)
+    ]
+    with jax.enable_x64(True):
+        artifacts = dict(
+            generic=fit(harness.control_collection(manifest, recordings)),
+            structured=structured_fit(
+                [flight for _, flight in recordings],
+                FitSpec(holdout=Holdout.by_group(), steps=3, horizons_s=(0.1, 0.4)),
+            ).belief,
+        )
+
+    def reference_fn(times):
+        return harness.control_reference(state, times, manifest["tracking_reference"])
+
+    row = harness._live_trial(
+        manifest,
+        adopting=False,
+        artifacts=artifacts,
+        plant=harness._control_tracking_plant(
+            manifest, harness.control_initial_state(manifest, state, 101), command
+        ),
+        warmup=recordings[0][1],
+        reference_fn=reference_fn,
+        anchor_state=state,
+        session="live-frozen",
+        directory=tmp_path / "f",
+    )
+    assert row["arm"] == "frozen"
+    assert row["swapped"] is False and row["offers"] == 0
+    assert row["terminated"] is False and row["worker_error"] is None
+    # It still scores and refits every block: the two arms differ in the swap.
+    assert len(row["blocks"]) == 1
+    assert row["blocks"][0]["refit_wall_seconds"] > 0.0

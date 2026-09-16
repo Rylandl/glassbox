@@ -1,6 +1,6 @@
 """One harness for the generic learner: fit frozen cases, score, decide, replay.
 
-The harness has three tiers, each with its own frozen manifest and digest
+The harness has four tiers, each with its own frozen manifest and digest
 constant. ``run`` is the synthetic tier: it fits the consumer recipe end to end
 on each case of ``docs/harness/v1.json``, scores its forecasts on independent
 recordings, and writes a decision. ``platform`` is the accuracy tier: it fits
@@ -9,7 +9,12 @@ whole recordings held out, fits the structured model on exactly the same
 training recordings, and scores both on exactly the same held-out rows.
 ``control`` is the control tier: it collects the frozen Cascade X8 calibration
 of ``docs/harness/control-v3.json``, fits both models on it, and tracks the
-same reference with each of them through the existing NMPC seam.
+same reference with each of them through the existing NMPC seam. ``live`` is
+the live improvement tier: it collects the same calibration under
+``docs/harness/live-v1.json``, flies the structured arm from the first
+interval, refits the generic recipe on the trial's own streamed transitions
+through the existing transition buffer and refinement worker, and hands it the
+controller when a predeclared held-out block gate passes.
 ``verify`` replays any tier from its saved artifacts and rejects anything
 that changed. No command takes tuning options.
 
@@ -19,6 +24,8 @@ that changed. No command takes tuning options.
         --manifest docs/harness/platform-v3.json --corpora ROOT --output DIR
     python -m glassbox.experimental.harness control \\
         --manifest docs/harness/control-v3.json --output DIR
+    python -m glassbox.experimental.harness live \\
+        --manifest docs/harness/live-v1.json --output DIR
     python -m glassbox.experimental.harness verify DIR [--reference PATH]
 
 A run copies the manifest and the reference it compared into its output, but a
@@ -789,6 +796,12 @@ def verify(directory, reference=None):
         return verify_control(
             directory,
             frozen_control_manifest(directory / "manifest.json"),
+            reference,
+        )
+    if digest == LIVE_MANIFEST_SHA256:
+        return verify_live(
+            directory,
+            frozen_live_manifest(directory / "manifest.json"),
             reference,
         )
     if digest != MANIFEST_SHA256:
@@ -3428,26 +3441,21 @@ def _control_tracking_plant(manifest, initial_state, initial_command):
 # --- the control tier: verifying --------------------------------------------
 
 
-def verify_control(directory, manifest, reference=None):
-    """Recompute every control metric and the decision from saved arrays.
+def _verify_calibration(directory, manifest):
+    """Recheck a saved calibration: hashes, recordings, excitation, both arms.
 
-    This replay never reruns the plant and never reruns the solver: neither one
-    is deterministic under a wall clock, and rerunning either would be a new
-    measurement rather than a check of this one. What it does check is
-    everything the decision actually read. Every recorded artifact hash is
-    recomputed, including the calibration recordings and both fitted models, so
-    an altered artifact is rejected. Every metric is recomputed from the saved
-    per-interval tracking arrays with the library's own metric code. The
-    reference rows are rebuilt from the saved initial state and the manifest's
-    declared reference, so a run cannot score itself against a reference of its
-    own invention. The manifest is anchored to its frozen digest, and the
-    regression reference to the committed file, exactly as the other two tiers
-    anchor theirs.
+    The control and live tiers collect the same calibration with the same
+    constants and fit the same two arms on it, so they check it the same way.
+    Every recorded artifact hash is recomputed, every recording's content digest
+    is recomputed from the recording itself, the excitation is remeasured and
+    held to the declared minimum, and the generic model's fingerprint is
+    checked. The reserved recording's evidence rows are rebuilt from the
+    recording rather than believed: the saved arrays have to be the declared cut
+    of the trajectory whose content digest was just checked, the prediction has
+    to replay through the independent NumPy recurrence, and the half-widths have
+    to be the model's own envelope.
     """
-    import jax
-
     from glassbox.core.data import load_trajectory_npz, trajectory_content_digest
-    from glassbox.core.metrics import state_rmse_metrics
 
     directory = Path(directory)
     calibration = read(directory / "calibration.json")
@@ -3489,11 +3497,6 @@ def verify_control(directory, manifest, reference=None):
     if learned.fingerprint() != calibration["generic_fingerprint"]:
         raise ValueError("generic model fingerprint mismatch")
 
-    # The reserved recording's evidence rows are rebuilt from the recording
-    # itself, not believed: the saved arrays have to be the declared cut of the
-    # trajectory whose content digest was just checked, the prediction has to
-    # replay through the independent NumPy recurrence, and the half-widths have
-    # to be the model's own envelope.
     reserved_loaded = [
         (name, load_trajectory_npz(directory / f"{name}.npz"))
         for name in calibration["reserved"]
@@ -3518,6 +3521,31 @@ def verify_control(directory, manifest, reference=None):
         coverage = control_coverage(replayed, rebuilt, half_width)
     for name, measured in coverage.items():
         _same_coverage(measured, calibration["evidence"].get(name), name)
+    return calibration, learned, coverage
+
+
+def verify_control(directory, manifest, reference=None):
+    """Recompute every control metric and the decision from saved arrays.
+
+    This replay never reruns the plant and never reruns the solver: neither one
+    is deterministic under a wall clock, and rerunning either would be a new
+    measurement rather than a check of this one. What it does check is
+    everything the decision actually read. Every recorded artifact hash is
+    recomputed, including the calibration recordings and both fitted models, so
+    an altered artifact is rejected. Every metric is recomputed from the saved
+    per-interval tracking arrays with the library's own metric code. The
+    reference rows are rebuilt from the saved initial state and the manifest's
+    declared reference, so a run cannot score itself against a reference of its
+    own invention. The manifest is anchored to its frozen digest, and the
+    regression reference to the committed file, exactly as the other two tiers
+    anchor theirs.
+    """
+    import jax
+
+    from glassbox.core.metrics import state_rmse_metrics
+
+    directory = Path(directory)
+    calibration, _learned, coverage = _verify_calibration(directory, manifest)
 
     trial = manifest["trial"]
     dt_s = trial["sample_interval_s"]
@@ -3986,6 +4014,1144 @@ def live_decide(manifest, rows, reference=None, reference_sha256=None):
     )
 
 
+# --- the live tier: the transport, the refiner and one refit-and-swap trial -
+
+
+class _LiveRevision:
+    """One plan model inside one live session, with a stable identity.
+
+    ``learned`` is ``None`` for the revision the trial starts on, because what
+    is flying then is the frozen structured belief rather than any revision of
+    the generic recipe. That distinction is what lets the very first candidate
+    -- the calibration fit, which has learned nothing from the flight yet -- be
+    offered like any other, instead of being silently skipped for already being
+    active.
+    """
+
+    __slots__ = ("block_index", "fingerprint", "learned", "revision_id")
+
+    def __init__(self, revision_id, learned, block_index):
+        self.revision_id = revision_id
+        self.learned = learned
+        self.block_index = block_index
+        self.fingerprint = None if learned is None else learned.fingerprint()
+
+    def to_dict(self):
+        if self.learned is None:
+            return dict(
+                revision_id=self.revision_id,
+                model="the frozen structured belief the trial starts on",
+            )
+        return dict(
+            revision_id=self.revision_id,
+            fitted_after_block=self.block_index,
+            fingerprint=self.fingerprint,
+            horizon_steps=int(self.learned.horizon_steps),
+            recordings=len(self.learned.report["training"]),
+        )
+
+
+class _LiveScore:
+    """One revision and the block score it earned, in the shape the worker reads."""
+
+    __slots__ = ("revision", "score")
+
+    def __init__(self, revision, score):
+        self.revision, self.score = revision, score
+
+
+class _LiveResult:
+    """One scored and absorbed block, in the shape the worker and journal read."""
+
+    __slots__ = ("candidate_after", "candidate_score", "record")
+
+    def __init__(self, record, candidate_score, candidate_after):
+        self.record = record
+        self.candidate_score = candidate_score
+        self.candidate_after = candidate_after
+
+    def to_dict(self):
+        return dict(self.record)
+
+
+def live_block_rows(manifest, block, collection, steps):
+    """One streamed block's evaluation rows: the same origins for both models.
+
+    Every origin of the block that carries the recipe's whole consumed context
+    and its whole horizon inside the block, with the recorded future commands,
+    and the same origin's full canonical state, command history and exogenous
+    context for the structured rollout. One index, one set of rows, two models --
+    the platform tier's arrangement, cut from a block instead of a corpus.
+    """
+    from glassbox.core.data import control_history_before
+
+    if len(collection.segments) != 1:
+        raise ValueError("a streamed block must adapt to one contiguous segment")
+    segment = collection.segments[0]
+    context, horizon = steps["history"], steps["horizon"]
+    history = manifest["live"]["transport"]["command_history_steps"]
+    columns = {
+        key: []
+        for key in (
+            "past_states",
+            "past_inputs",
+            "future_inputs",
+            "targets",
+            "initial_states",
+            "control_histories",
+            "controls",
+            "initial_exogenous",
+        )
+    }
+    origins = list(range(context, len(segment.states) - horizon))
+    if len(origins) < 1:
+        raise ValueError("a streamed block carries no origin with a complete context")
+    for row in origins:
+        columns["past_states"].append(segment.states[row - context : row + 1])
+        columns["past_inputs"].append(segment.inputs[row - context : row])
+        columns["future_inputs"].append(segment.inputs[row : row + horizon])
+        columns["targets"].append(segment.states[row + 1 : row + horizon + 1])
+        columns["initial_states"].append(block.states[row])
+        columns["control_histories"].append(control_history_before(block, row, history))
+        columns["controls"].append(block.controls[row : row + horizon])
+        columns["initial_exogenous"].append(block.exogenous[row])
+    spec = block.spec
+    return dict(
+        **{key: np.stack(value) for key, value in columns.items()},
+        source_origins=np.array(origins),
+        control_roles=np.array(list(spec.control_roles), dtype="<U64"),
+        exogenous_roles=np.array(list(spec.exogenous_roles), dtype="<U64"),
+    )
+
+
+def live_block_scores(manifest, learned, belief, arrays):
+    """Both models' forecasts and final-step scores on one block's rows.
+
+    The generic candidate through the recipe's own ``predict`` and the frozen
+    structured belief through the library's own rollout, from identical origins
+    with identical commands. Both run in x64, which is the precision every fit
+    and every replay in this harness runs at, so a replay reproduces them.
+    """
+    import jax
+
+    with jax.enable_x64(True):
+        generic = np.asarray(
+            learned.predict(
+                arrays["past_states"], arrays["past_inputs"], arrays["future_inputs"]
+            )
+        )
+        structured = structured_forecast(
+            belief.params, arrays, manifest["plant"]["sample_interval_s"]
+        )
+    if not np.isfinite(generic).all() or not np.isfinite(structured).all():
+        raise ValueError("a nonfinite block forecast cannot decide a swap")
+    return (
+        generic,
+        structured,
+        platform_measure(generic, arrays["targets"])["final_step"],
+        platform_measure(structured, arrays["targets"])["final_step"],
+    )
+
+
+class _LiveRefiner:
+    """Score and refit the generic recipe on whole streamed blocks.
+
+    The refinement contract :class:`~glassbox.workflows.streaming.Refiner`
+    declares, over the generic recipe rather than a structured belief. Each
+    block is scored by the current candidate and by the frozen structured
+    belief before anything is fitted on it, then absorbed with
+    ``update(recordings)`` as one new recording with its own identity. The
+    recipe's holdout and window sampling are the recipe's own and nothing here
+    reaches into them.
+
+    Blocks, their evaluation arrays and every revision are retained in memory
+    for the run to write out after the trial. Nothing is saved from this thread:
+    a refit inside a block period leaves no room for a disk write.
+    """
+
+    def __init__(self, manifest, learned, belief, *, recording_id, session):
+        self._manifest = manifest
+        self._belief = belief
+        self._dt_s = manifest["plant"]["sample_interval_s"]
+        self._steps = steps_for(self._dt_s)
+        self._budget = manifest["live"]["refit"]["budget"]
+        self.history_steps = manifest["live"]["transport"]["command_history_steps"]
+        self.session, self.recording_id = session, recording_id
+        self._structured = _LiveRevision(f"{session}:structured", None, None)
+        base = _LiveRevision(f"{session}:0", learned, None)
+        self._active, self._candidate = self._structured, base
+        self._revisions = {
+            self._structured.revision_id: self._structured,
+            base.revision_id: base,
+        }
+        self._scored = set()
+        self._results = []
+        self.blocks = []
+        self.skipped_interval_count = 0
+        self.offered = False
+        self._next = 1
+        self._cursor = 0
+        self._hold = None
+
+    @property
+    def retained_revision_count(self):
+        return len(self._revisions)
+
+    @property
+    def active(self):
+        return self._active
+
+    @property
+    def candidate(self):
+        return self._candidate
+
+    @property
+    def results(self):
+        return tuple(self._results)
+
+    def hold_for_adoption(self, revision_id):
+        if self._hold is not None:
+            raise ValueError("an adoption decision is already outstanding")
+        if revision_id not in self._scored:
+            raise ValueError("only an evaluated revision can be held for adoption")
+        self._hold = revision_id
+
+    def release_adoption_hold(self):
+        self._hold = None
+
+    def skip(self, *, recording_id, start_interval, stop_interval, reason):
+        if (
+            recording_id != self.recording_id
+            or start_interval != self._cursor
+            or stop_interval <= start_interval
+        ):
+            raise ValueError("a gap must advance this recording's cursor")
+        self._cursor = int(stop_interval)
+        self.skipped_interval_count += int(stop_interval) - int(start_interval)
+        return dict(
+            recording_id=recording_id,
+            start_interval=int(start_interval),
+            stop_interval=int(stop_interval),
+            reason=reason,
+        )
+
+    def adopt(self, revision_id, *, expected_active_revision, reason):
+        if expected_active_revision != self._active.revision_id:
+            raise ValueError(
+                "active revision changed; reconsider the adoption decision"
+            )
+        if revision_id not in self._scored:
+            raise ValueError(
+                "adoption requires a revision scored on a subsequent block"
+            )
+        from glassbox.workflows.refinement import Adoption
+
+        previous = self._active.revision_id
+        self._active = self._revisions[revision_id]
+        return Adoption(previous, revision_id, len(self._results), reason)
+
+    def observe(self, telemetry, *, recording_id, start_interval):
+        import jax
+
+        if recording_id != self.recording_id or start_interval != self._cursor:
+            raise ValueError("blocks must arrive in order on one recording")
+        index = len(self._results)
+        name = f"{recording_id}-block-{index:03d}"
+        collection = control_collection(self._manifest, [(name, telemetry)])
+        arrays = live_block_rows(self._manifest, telemetry, collection, self._steps)
+        scored = self._candidate
+        started = time.monotonic()
+        generic, structured, generic_score, structured_score = live_block_scores(
+            self._manifest, scored.learned, self._belief, arrays
+        )
+        score_wall = time.monotonic() - started
+        gate = live_swap_gate(generic_score, structured_score)
+        started = time.monotonic()
+        with jax.enable_x64(True):
+            updated = scored.learned.update(collection)
+        refit_wall = time.monotonic() - started
+        successor = _LiveRevision(f"{self.session}:{self._next}", updated, index)
+        record = dict(
+            index=index,
+            recording_id=name,
+            start_interval=int(start_interval),
+            stop_interval=int(start_interval) + len(telemetry.controls),
+            rows=len(arrays["targets"]),
+            scored_revision=scored.revision_id,
+            scored_fingerprint=scored.fingerprint,
+            revision=successor.revision_id,
+            generic=generic_score,
+            structured=structured_score,
+            gate=gate,
+            score_wall_seconds=score_wall,
+            refit_wall_seconds=refit_wall,
+            fit_steps=int(self._budget["fit_steps"]),
+            wall_budget_seconds=float(self._budget["wall_seconds"]),
+            within_budget=bool(refit_wall <= float(self._budget["wall_seconds"])),
+            training_recordings=len(updated.report["training"]),
+            training_windows=int(
+                sum(entry["windows"] for entry in updated.report["training"].values())
+            ),
+        )
+        # Every piece of session state advances only after the numerical work.
+        self._scored.add(scored.revision_id)
+        self._revisions[successor.revision_id] = successor
+        self._candidate = successor
+        self._cursor = record["stop_interval"]
+        self._next += 1
+        result = _LiveResult(record, _LiveScore(scored, generic_score), successor)
+        self._results.append(result)
+        self.blocks.append(
+            dict(record=record, arrays=arrays, generic=generic, structured=structured)
+        )
+        return result
+
+    def revision(self, revision_id):
+        """One retained revision of this session, by identity."""
+        return self._revisions[revision_id]
+
+    def summary(self):
+        return dict(
+            session=self.session,
+            blocks=len(self._results),
+            candidate_revisions=self._next - 1,
+            retained_revisions=self.retained_revision_count,
+            skipped_intervals=self.skipped_interval_count,
+            active=self._active.to_dict(),
+            candidate=self._candidate.to_dict(),
+        )
+
+
+def _live_prewarm(manifest, artifacts, warmup, reference_fn):
+    """Compile every kernel a timed trial will use, on the calibration recording.
+
+    The generic plan model's solver, the block scoring and the refit all compile
+    on first use, and none of them may compile while a trial clock is running.
+    Each one is exercised here on recorded calibration data, in the shapes the
+    trial will use, and every result is discarded. The refit chain is walked on
+    a throwaway learner, because the training cache grows by one block's windows
+    until it reaches the recipe's cap and each size is its own compiled shape.
+    """
+    import jax
+
+    transport = manifest["live"]["transport"]
+    dt_s = manifest["plant"]["sample_interval_s"]
+    steps = steps_for(dt_s)
+    block_steps = transport["block_steps"]
+    history = transport["command_history_steps"]
+    _control_prewarm(
+        _GenericArm(manifest, artifacts["generic"]), manifest, warmup, reference_fn
+    )
+    scratch = artifacts["generic"]
+    states = np.asarray(warmup.states, dtype=float)
+    commands = np.asarray(warmup.controls, dtype=float)
+    spec = control_telemetry_spec(manifest)
+    for index in range(transport["blocks_per_trial"]):
+        start = history + index * block_steps
+        if start + block_steps >= len(commands):
+            break
+        block = _live_block_trajectory(
+            spec, dt_s, states, commands, start, block_steps, history
+        )
+        collection = control_collection(manifest, [(f"prewarm-{index}", block)])
+        arrays = live_block_rows(manifest, block, collection, steps)
+        live_block_scores(manifest, scratch, artifacts["structured"], arrays)
+        with jax.enable_x64(True):
+            scratch = scratch.update(collection)
+
+
+def _live_block_trajectory(spec, dt_s, states, commands, start, block_steps, history):
+    """One prewarm block cut from a recording, shaped like a streamed block."""
+    from glassbox.core.data import Trajectory
+
+    return Trajectory(
+        time_s=np.arange(block_steps + 1) * dt_s,
+        states=states[start : start + block_steps + 1],
+        controls=commands[start : start + block_steps],
+        spec=spec,
+        control_prefix=commands[start - history : start],
+        labels={"source_group": f"prewarm-{start}"},
+    )
+
+
+def _live_trial(
+    manifest,
+    *,
+    adopting,
+    artifacts,
+    plant,
+    warmup,
+    reference_fn,
+    anchor_state,
+    session,
+    directory,
+):
+    """One paced tracking trial with a learner behind it, and at most one swap.
+
+    The frozen structured arm flies from the first interval. Every interval's
+    aligned transition -- the observed state it started at, the observed state
+    it ended at, and the command the loop actually applied over it -- goes into
+    the transition buffer, and whole blocks go to the refinement worker. Both
+    arms run the same transport and the same refits, so they differ in the swap
+    and in nothing else; only the adopting arm is given a preparation callback
+    and an adoption policy, which is what makes an offer possible at all.
+    """
+    from glassbox.control.plan import ReferenceTrajectory
+    from glassbox.core.metrics import state_rmse_metrics
+    from glassbox.workflows.streaming import RefinementWorker, TransitionBuffer
+
+    directory.mkdir(parents=True, exist_ok=True)
+    trial = manifest["trial"]
+    transport = manifest["live"]["transport"]
+    dt_s = trial["sample_interval_s"]
+    requested = trial["intervals"]
+    deadline_s = trial["solve_deadline_s"]
+    context = steps_for(manifest["plant"]["sample_interval_s"])["history"]
+    history_steps = transport["command_history_steps"]
+    maximum_age = transport["maximum_offer_age_intervals"]
+
+    arm = _StructuredArm(manifest, artifacts["structured"])
+    _control_prewarm(arm, manifest, warmup, reference_fn)
+    refiner = _LiveRefiner(
+        manifest,
+        artifacts["generic"],
+        artifacts["structured"],
+        recording_id=session,
+        session=session,
+    )
+    buffer = TransitionBuffer(
+        control_telemetry_spec(manifest),
+        dt_s,
+        recording_id=session,
+        block_steps=transport["block_steps"],
+        history_steps=history_steps,
+    )
+    events = []
+
+    def journal(record):
+        events.append(record)
+
+    def should_offer(result):
+        record = result.record
+        return bool(
+            record["gate"]["passed"] and record["within_budget"] and not refiner.offered
+        )
+
+    def prepare(revision, block):
+        # One swap per trial, declared: the first candidate that passes.
+        refiner.offered = True
+        controller = _GenericArm(manifest, revision.learned)
+        states = np.asarray(block.states, dtype=float)
+        commands = np.asarray(block.controls, dtype=float)
+        controller.reset(states[0], commands[0])
+        warm = None
+        for step in range(len(commands)):
+            controller.observe(states[step])
+            if controller.ready:
+                future = (step + np.arange(controller.prediction_steps + 1)) * dt_s
+                outcome = controller.solve(
+                    states[step],
+                    ReferenceTrajectory(reference_fn(future)),
+                    commands[step],
+                    warm_start=warm,
+                )
+                warm = outcome.warm_start
+                np.asarray(outcome.command)
+                np.asarray(outcome.predicted_states)
+            controller.command_applied(commands[step])
+        controller.reset(states[0], commands[0])
+        return controller
+
+    worker = RefinementWorker(
+        refiner=refiner,
+        history_steps=history_steps,
+        block_steps=transport["block_steps"],
+        queue_capacity=transport["queue_capacity"],
+        retained_blocks=transport["retained_blocks"],
+        prepare=prepare if adopting else None,
+        should_offer=should_offer if adopting else None,
+        on_event=journal,
+    )
+
+    state = plant.initial_state.copy()
+    previous = plant.initial_command.copy()
+    arm.reset(state, previous)
+    observed = [state.copy()]
+    applied, tick_times, lags, solve_times = [], [], [], []
+    solver_used, fallbacks, statuses, actives = [], [], [], []
+    recent_states = deque(maxlen=context)
+    recent_commands = deque(maxlen=context)
+    swap = dict(
+        swapped=False,
+        swap_interval=None,
+        swap_time_s=None,
+        swap_revision=None,
+        swap_scored_block=None,
+        swap_scored_stop_interval=None,
+        swap_offer_age_intervals=None,
+        offers=0,
+        rejected_offers=0,
+    )
+    warm_start, failure, rejected_blocks = None, None, 0
+    started = time.monotonic()
+    worker.start()
+    try:
+        for index in range(requested):
+            scheduled = started + index * dt_s
+            remaining = scheduled - time.monotonic()
+            if remaining > 0:
+                time.sleep(remaining)
+            tick = time.monotonic()
+            lags.append(max(0.0, tick - scheduled))
+            offer = worker.poll_offer()
+            if offer is not None:
+                swap["offers"] += 1
+                age = index - offer.scored_stop_interval
+                applicable = bool(
+                    not swap["swapped"]
+                    and offer.expected_active_revision == refiner.active.revision_id
+                    and 0 <= age <= maximum_age
+                    and len(recent_states) == context
+                )
+                if applicable:
+                    # The observed history belongs to the flight, not to the
+                    # revision: the prepared controller is seeded with this
+                    # trial's own retained states and applied commands, and
+                    # nothing is padded.
+                    candidate = offer.controller
+                    candidate.reset(state, previous)
+                    for past_state, past_command in zip(
+                        recent_states, recent_commands, strict=True
+                    ):
+                        candidate.observe(past_state)
+                        candidate.command_applied(past_command)
+                    arm, warm_start = candidate, None
+                    swap.update(
+                        swapped=True,
+                        swap_interval=index,
+                        swap_time_s=index * dt_s,
+                        swap_revision=offer.revision.revision_id,
+                        swap_scored_stop_interval=int(offer.scored_stop_interval),
+                        swap_offer_age_intervals=int(age),
+                    )
+                else:
+                    swap["rejected_offers"] += 1
+                worker.acknowledge(offer, applied=applicable)
+            arm.observe(state)
+            if arm.ready:
+                future = (index + np.arange(arm.prediction_steps + 1)) * dt_s
+                result = arm.solve(
+                    state,
+                    ReferenceTrajectory(reference_fn(future)),
+                    previous,
+                    warm_start=warm_start,
+                    deadline_s=deadline_s,
+                )
+                command = np.asarray(result.command, dtype=float)
+                warm_start = result.warm_start
+                solve_times.append(float(result.diagnostics.solve_time_s))
+                solver_used.append(True)
+                fallbacks.append(bool(result.used_fallback))
+                statuses.append(str(result.status))
+            else:
+                command = previous.copy()
+                solve_times.append(0.0)
+                solver_used.append(False)
+                fallbacks.append(False)
+                statuses.append("model_not_ready")
+            next_state = np.asarray(plant.advance(command), dtype=float)
+            if not np.isfinite(next_state).all():
+                failure = "nonfinite plant state"
+                break
+            arm.command_applied(command)
+            try:
+                block = buffer.push(
+                    interval=index,
+                    source_time_s=index * dt_s,
+                    command=command,
+                    state=state,
+                    next_state=next_state,
+                    received_at_s=time.monotonic(),
+                )
+            except ValueError as error:
+                failure = f"telemetry refused a transition: {error}"
+                break
+            if block is not None and not worker.submit(block):
+                rejected_blocks += 1
+            observed.append(next_state.copy())
+            applied.append(command.copy())
+            actives.append(swap["swap_revision"] or f"{session}:structured")
+            recent_states.append(state.copy())
+            recent_commands.append(command.copy())
+            previous, state = command, next_state
+            tick_times.append(time.monotonic() - tick)
+    finally:
+        elapsed_s = time.monotonic() - started
+        stopped = worker.close(timeout_s=60.0)
+    worker_error = worker.error
+    if not stopped:
+        failure = failure or "the refinement worker did not stop within its budget"
+    transport_summary = worker.summary()
+
+    states_array = np.asarray(observed)
+    commands_array = (
+        np.asarray(applied)
+        if applied
+        else np.zeros((0, len(plant.initial_command)), dtype=float)
+    )
+    times = np.arange(len(states_array)) * dt_s
+    reference_states = reference_fn(times)
+    minimum = np.asarray(manifest["telemetry"]["command_minimum"], dtype=float)
+    maximum = np.asarray(manifest["telemetry"]["command_maximum"], dtype=float)
+    bound_violation = (
+        max(
+            0.0,
+            float(np.max(minimum - commands_array)),
+            float(np.max(commands_array - maximum)),
+        )
+        if len(commands_array)
+        else 0.0
+    )
+    np.savez_compressed(
+        directory / "tracking.npz",
+        time_s=times,
+        states=states_array,
+        reference_states=reference_states,
+        commands=commands_array,
+        tick_times_s=np.asarray(tick_times, dtype=float),
+        source_clock_lags_s=np.asarray(lags, dtype=float),
+        solve_times_s=np.asarray(solve_times, dtype=float),
+        solver_used=np.asarray(solver_used, dtype=bool),
+        used_fallback=np.asarray(fallbacks, dtype=bool),
+        active_revisions=np.asarray(actives, dtype="<U64"),
+        initial_state=np.asarray(plant.initial_state, dtype=float),
+        reference_anchor_state=np.asarray(anchor_state, dtype=float),
+    )
+    names = ["tracking.npz"]
+    blocks = []
+
+    for entry in refiner.blocks:
+        record = dict(entry["record"])
+        index = record["index"]
+        np.savez_compressed(
+            directory / f"block-{index:03d}.npz",
+            **entry["arrays"],
+            generic_prediction=entry["generic"],
+            structured_prediction=entry["structured"],
+        )
+        model = f"block-{index:03d}-scored.npz"
+        refiner.revision(record["scored_revision"]).learned.save(directory / model)
+        record["arrays"] = f"block-{index:03d}.npz"
+        record["scored_model"] = model
+        names.extend([record["arrays"], model])
+        blocks.append(record)
+    # The block whose gate the applied offer came from, named once the worker
+    # has stopped and this thread owns every record again.
+    swap["swap_scored_block"] = next(
+        (
+            entry["index"]
+            for entry in blocks
+            if entry["stop_interval"] == swap["swap_scored_stop_interval"]
+        ),
+        None,
+    )
+    (directory / "events.jsonl").write_text(
+        "".join(json.dumps(event, allow_nan=False) + "\n" for event in events)
+    )
+    names.append("events.jsonl")
+    terminated = failure is not None or len(commands_array) != requested
+    row = dict(
+        arm="adopting" if adopting else "frozen",
+        session=session,
+        completed_intervals=len(commands_array),
+        requested_intervals=requested,
+        terminated=bool(terminated),
+        failure=failure,
+        worker_error=worker_error,
+        tracking_rmse=(
+            state_rmse_metrics(states_array[1:], reference_states[1:])
+            if len(commands_array)
+            else None
+        ),
+        pass_criterion=control_pass_criterion(states_array, anchor_state, manifest),
+        **swap,
+        blocks=blocks,
+        candidate_revisions=len(blocks),
+        submitted_blocks=transport_summary["submitted_blocks"],
+        processed_blocks=transport_summary["processed_blocks"],
+        dropped_blocks=transport_summary["dropped_blocks"],
+        dropped_intervals=transport_summary["dropped_intervals"],
+        rejected_blocks=rejected_blocks,
+        skipped_intervals=transport_summary["skipped_intervals"],
+        buffer_discarded_intervals=buffer.discarded_intervals,
+        partial_intervals_at_shutdown=buffer.partial_intervals,
+        budget_overruns=sum(not entry["within_budget"] for entry in blocks),
+        maximum_refit_wall_seconds=max(
+            (entry["refit_wall_seconds"] for entry in blocks), default=0.0
+        ),
+        maximum_score_wall_seconds=max(
+            (entry["score_wall_seconds"] for entry in blocks), default=0.0
+        ),
+        maximum_queue_age_s=transport_summary["maximum_queue_age_s"],
+        deadline_misses=int(np.sum(np.asarray(tick_times, dtype=float) > dt_s)),
+        solve_deadline_misses=int(
+            np.sum(np.asarray(solve_times, dtype=float) > deadline_s)
+        ),
+        model_not_ready_intervals=int(statuses.count("model_not_ready")),
+        fallback_count=int(sum(fallbacks)),
+        solver_statuses={
+            status: statuses.count(status) for status in sorted(set(statuses))
+        },
+        maximum_command_bound_violation=bound_violation,
+        maximum_source_clock_lag_s=max(lags, default=0.0),
+        maximum_tick_time_s=max(tick_times, default=0.0),
+        control_elapsed_s=elapsed_s,
+        refiner=refiner.summary(),
+        transport=transport_summary,
+        controller=arm.summary(),
+        files=_files(directory, names),
+    )
+    return row
+
+
+def live(manifest_path, output):
+    """Run the frozen live trial set once, both arms, and write the decision."""
+    import jax
+
+    manifest_path, output = Path(manifest_path), Path(output)
+    manifest = frozen_live_manifest(manifest_path)
+    output.mkdir(parents=True, exist_ok=False)
+    shutil.copyfile(manifest_path, output / "manifest.json")
+    reference_path = manifest_path.parent / manifest["reference"]["file"]
+    reference, reference_digest = None, None
+    if reference_path.exists():
+        shutil.copyfile(reference_path, output / "reference.json")
+        reference, reference_digest = read(reference_path), sha256(reference_path)
+    write(
+        output / "environment.json",
+        dict(
+            python=sys.version,
+            platform=platform_module.platform(),
+            jax=jax.__version__,
+            numpy=np.__version__,
+            x64="fits, refits and block scores only",
+        ),
+    )
+    started = time.perf_counter()
+    with jax.enable_x64(True):
+        calibration, artifacts, warmup, initial_state, initial_command = (
+            _control_calibrate(manifest, output)
+        )
+    declared = manifest["tracking_reference"]
+    trial = manifest["trial"]
+    with jax.enable_x64(True):
+        starts = [
+            control_initial_state(manifest, initial_state, seed)
+            for seed in trial["initial_state_seeds"]
+        ]
+
+    def reference_fn(times):
+        return control_reference(initial_state, times, declared)
+
+    prewarm_started = time.perf_counter()
+    _live_prewarm(manifest, artifacts, warmup, reference_fn)
+    prewarm_s = time.perf_counter() - prewarm_started
+
+    rows = []
+    for repetition in range(trial["repetitions"]):
+        order = trial["arm_order"][repetition % len(trial["arm_order"])]
+        start = starts[repetition]
+        flown = {}
+        for name in order:
+            print(json.dumps(dict(tracking=f"{repetition}-{name}")), flush=True)
+            trial_started = time.perf_counter()
+            row = _live_trial(
+                manifest,
+                adopting=name == "adopting",
+                artifacts=artifacts,
+                plant=_control_tracking_plant(manifest, start, initial_command),
+                warmup=warmup,
+                reference_fn=reference_fn,
+                anchor_state=initial_state,
+                session=f"live-{repetition}-{name}",
+                directory=output / f"trial-{repetition}" / name,
+            )
+            row["repetition"] = repetition
+            row["initial_state_seed"] = trial["initial_state_seeds"][repetition]
+            row["trial_wall_seconds"] = time.perf_counter() - trial_started
+            row["directory"] = f"trial-{repetition}/{name}"
+            flown[name] = row
+            print(
+                json.dumps(
+                    dict(
+                        trial=f"{repetition}-{name}",
+                        swapped=row["swapped"],
+                        swap_interval=row["swap_interval"],
+                        tracking_rmse=row["tracking_rmse"],
+                        terminated=row["terminated"],
+                        deadline_misses=row["deadline_misses"],
+                        blocks=[
+                            dict(
+                                index=entry["index"],
+                                generic=entry["generic"],
+                                structured=entry["structured"],
+                                passed=entry["gate"]["passed"],
+                                refit_s=entry["refit_wall_seconds"],
+                            )
+                            for entry in row["blocks"]
+                        ],
+                    ),
+                    allow_nan=False,
+                ),
+                flush=True,
+            )
+        # Both arms of a repetition are segmented at the same interval, because
+        # the frozen arm exists to say what "before" would have kept doing.
+        swap_interval = flown["adopting"]["swap_interval"]
+        for name in ("adopting", "frozen"):
+            row = flown[name]
+            with np.load(
+                output / row["directory"] / "tracking.npz", allow_pickle=False
+            ) as data:
+                # A terminated trial may be shorter than the interval its
+                # repetition swapped at; it has no segments and fails closed.
+                bounded = (
+                    swap_interval
+                    if swap_interval is not None
+                    and swap_interval <= len(data["states"]) - 1
+                    else None
+                )
+                row["segments"] = live_segments(
+                    data["states"], data["reference_states"], bounded
+                )
+            row["segment_swap_interval"] = bounded
+            write(output / row["directory"] / "trial.json", row)
+            rows.append(row)
+        write(output / "results.json", rows)
+    decision = live_decide(manifest, rows, reference, reference_digest)
+    decision["wall_seconds"] = time.perf_counter() - started
+    decision["prewarm_seconds"] = prewarm_s
+    decision["calibration"] = dict(
+        command_excitation=calibration["command_excitation"]["fraction"],
+        structured_fit_wall_seconds=calibration["structured_fit_wall_seconds"],
+        generic_fit_wall_seconds=calibration["generic_fit_wall_seconds"],
+        generic_fingerprint=calibration["generic_fingerprint"],
+        reserved=calibration["reserved"],
+    )
+    write(output / "decision.json", decision)
+    return decision
+
+
+# --- the live tier: verifying -----------------------------------------------
+
+
+def verify_live(directory, manifest, reference=None):
+    """Recompute every live metric and the decision from saved arrays.
+
+    This replay never reruns the plant, the solver or a refit. None of the three
+    is deterministic under a wall clock or worth a second measurement, and
+    rerunning any of them would be a new run rather than a check of this one.
+    What it does check is everything the decision actually read, and it does so
+    from forward passes over saved arrays only. Every recorded artifact hash is
+    recomputed, including the calibration recordings, both fitted arms, every
+    block's evaluation arrays and every scored revision, so an altered artifact
+    is rejected. The tracking reference is rebuilt from the saved anchor state
+    and the perturbed start from its declared seed, so a run cannot score itself
+    against a task it invented. Both models' block forecasts are recomputed --
+    the generic one through the independent NumPy recurrence, the structured one
+    through the library's own rollout -- and every block score and every swap
+    gate is recomputed from them. The swap the run applied is recomputed from
+    the recorded gates, and the before and after segments from the saved
+    per-interval tracking arrays.
+    """
+    import jax
+
+    directory = Path(directory)
+    _calibration, _learned, _coverage = _verify_calibration(directory, manifest)
+
+    from glassbox.belief.belief_io import load_dynamics_belief
+    from glassbox.core.metrics import state_rmse_metrics
+
+    # In x64, because that is the precision the calibration fitted it at and
+    # the precision every block score was computed at. Loaded anywhere else it
+    # would be a single-precision copy of the comparator, and every replayed
+    # block score would miss by a rounding error nobody introduced.
+    with jax.enable_x64(True):
+        belief = load_dynamics_belief(directory / "structured.json")
+    trial = manifest["trial"]
+    transport = manifest["live"]["transport"]
+    dt_s = trial["sample_interval_s"]
+    steps = steps_for(manifest["plant"]["sample_interval_s"])
+    declared = manifest["tracking_reference"]
+    maximum_age = transport["maximum_offer_age_intervals"]
+    rows = read(directory / "results.json")
+    checked, replays, worst = 0, 0, 0.0
+    swaps = {}
+    for row in rows:
+        case = directory / row["directory"]
+        if read(case / "trial.json") != row:
+            raise ValueError(f"trial result mismatch: {row['directory']}")
+        for name, digest in row["files"].items():
+            if sha256(case / name) != digest:
+                raise ValueError(f"altered artifact: {row['directory']}/{name}")
+        with np.load(case / "tracking.npz", allow_pickle=False) as data:
+            states = data["states"]
+            commands = data["commands"]
+            saved_reference = data["reference_states"]
+            tick_times = data["tick_times_s"]
+            solve_times = data["solve_times_s"]
+            initial_state = data["initial_state"]
+            anchor_state = data["reference_anchor_state"]
+            times = data["time_s"]
+            actives = data["active_revisions"]
+            if (
+                len(states) != len(commands) + 1
+                or len(times) != len(states)
+                or len(actives) != len(commands)
+            ):
+                raise ValueError(f"saved tracking arrays disagree: {row['directory']}")
+            np.testing.assert_allclose(
+                times, np.arange(len(states)) * dt_s, rtol=0, atol=1e-12
+            )
+            np.testing.assert_allclose(
+                saved_reference,
+                control_reference(anchor_state, times, declared),
+                rtol=0,
+                atol=1e-12,
+            )
+            with jax.enable_x64(True):
+                np.testing.assert_allclose(
+                    initial_state,
+                    control_initial_state(
+                        manifest, anchor_state, row["initial_state_seed"]
+                    ),
+                    rtol=0,
+                    atol=1e-12,
+                )
+            np.testing.assert_allclose(states[0], initial_state, rtol=0, atol=1e-12)
+            fresh = (
+                state_rmse_metrics(states[1:], saved_reference[1:])
+                if len(commands)
+                else None
+            )
+            segments = live_segments(
+                states, saved_reference, row["segment_swap_interval"]
+            )
+            criterion = control_pass_criterion(states, anchor_state, manifest)
+            misses = int(np.sum(tick_times > dt_s))
+            solve_misses = int(np.sum(solve_times > trial["solve_deadline_s"]))
+            # The recorded active revision per interval has to agree with the
+            # recorded swap: structured before it, the adopted revision after.
+            swapped_at = row["swap_interval"]
+            expected = np.full(len(commands), f"{row['session']}:structured")
+            if swapped_at is not None:
+                expected[swapped_at:] = row["swap_revision"]
+            if not np.array_equal(actives, expected):
+                raise ValueError(
+                    f"the recorded active revisions do not match the recorded "
+                    f"swap: {row['directory']}"
+                )
+        if criterion != row["pass_criterion"]:
+            raise ValueError(f"recomputed pass criterion differs: {row['directory']}")
+        if (fresh is None) != (row["tracking_rmse"] is None):
+            raise ValueError(f"tracking metric shape mismatch: {row['directory']}")
+        if fresh is not None:
+            if sorted(fresh) != sorted(row["tracking_rmse"]):
+                raise ValueError(f"tracking metric set mismatch: {row['directory']}")
+            for metric, value in fresh.items():
+                np.testing.assert_allclose(
+                    value, row["tracking_rmse"][metric], **SCORE_TOLERANCE
+                )
+            row["tracking_rmse"] = fresh
+        _same_segments(segments, row["segments"], row["directory"])
+        row["segments"] = segments
+        if (
+            misses != row["deadline_misses"]
+            or solve_misses != (row["solve_deadline_misses"])
+        ):
+            raise ValueError(f"recomputed deadline misses differ: {row['directory']}")
+        terminated = len(commands) != row["requested_intervals"]
+        if (
+            terminated != bool(row["terminated"])
+            or len(commands) != (row["completed_intervals"])
+        ):
+            raise ValueError(f"recomputed completion differs: {row['directory']}")
+        block_replays, block_worst = _verify_live_blocks(
+            case, row, manifest, belief, steps
+        )
+        replays += block_replays
+        worst = max(worst, block_worst)
+        swaps[(row["repetition"], row["arm"])] = row
+        checked += 1
+    for row in rows:
+        _verify_live_swap(row, maximum_age)
+    for repetition in sorted({key[0] for key in swaps}):
+        adopting = swaps.get((repetition, "adopting"))
+        if adopting is None:
+            continue
+        for arm in LIVE_ARMS:
+            other = swaps.get((repetition, arm))
+            if other is None or other["terminated"] or adopting["terminated"]:
+                continue
+            if other["segment_swap_interval"] != adopting["swap_interval"]:
+                raise ValueError(
+                    f"trial {repetition}-{arm} is segmented at an interval the "
+                    "adopting arm of its repetition never swapped at"
+                )
+    anchor, digest = anchored_reference(directory, reference, COMMITTED_LIVE_REFERENCE)
+    decision = live_decide(manifest, rows, anchor, digest)
+    saved = read(directory / "decision.json")
+    for key in (
+        "manifest",
+        "decision",
+        "accepted",
+        "rule_met",
+        "rule_enforced",
+        "gating_rule_breaches",
+        "trials",
+        "reference_compared",
+        "reference_sha256",
+    ):
+        if decision[key] != saved[key]:
+            raise ValueError(f"replayed decision differs: {key}")
+    for key in ("gate_breaches", "rule_breaches", "reference_regressions"):
+        if len(decision[key]) != len(saved[key]):
+            raise ValueError(f"replayed decision differs: {key}")
+    return dict(
+        tier="live",
+        verified_trials=checked,
+        replays=replays,
+        maximum_replay_difference=worst,
+        decision=decision,
+        meaning=(
+            "A replay of saved evidence: recorded hashes, both models' block "
+            "forecasts recomputed from the saved evaluation arrays and the saved "
+            "revisions, every block score and swap gate recomputed from those "
+            "forecasts, the swap recomputed from the recorded gates, and the "
+            "tracking metrics and segments recomputed from the saved "
+            "per-interval arrays. The plant, the solver and the refits are not "
+            "rerun, because rerunning any of them would be a new measurement "
+            "rather than a check of this one."
+        ),
+    )
+
+
+def _same_segments(fresh, saved, label):
+    """One trial's recomputed before/after/whole metrics against its recorded ones."""
+    if sorted(fresh) != sorted(saved or {}):
+        raise ValueError(f"segment set mismatch: {label}")
+    for segment, measured in fresh.items():
+        recorded = saved[segment]
+        if (measured is None) != (recorded is None):
+            raise ValueError(f"segment shape mismatch: {label}/{segment}")
+        if measured is None:
+            continue
+        if sorted(measured) != sorted(recorded):
+            raise ValueError(f"segment metric set mismatch: {label}/{segment}")
+        for metric, value in measured.items():
+            np.testing.assert_allclose(value, recorded[metric], **SCORE_TOLERANCE)
+
+
+def _verify_live_blocks(case, row, manifest, belief, steps):
+    """Recompute both models' forecasts, scores and gates on every saved block.
+
+    In x64, because that is the precision the run scored these blocks at: a
+    replay at another precision would be comparing two different computations
+    rather than checking one.
+    """
+    import jax
+
+    replays, worst = 0, 0.0
+    with jax.enable_x64(True):
+        return _live_block_replays(case, row, manifest, belief, steps, replays, worst)
+
+
+def _live_block_replays(case, row, manifest, belief, steps, replays, worst):
+    for record in row["blocks"]:
+        label = f"{row['directory']}/{record['arrays']}"
+        learned = LearnedDynamics.load(case / record["scored_model"])
+        if learned.fingerprint() != record["scored_fingerprint"]:
+            raise ValueError(f"scored revision fingerprint mismatch: {label}")
+        with np.load(case / record["arrays"], allow_pickle=False) as data:
+            if data["past_states"].shape[1] != steps["history"] + 1:
+                raise ValueError(f"saved block rows lack the consumed context: {label}")
+            if data["future_inputs"].shape[1] != steps["horizon"]:
+                raise ValueError(f"saved block rows lack the declared horizon: {label}")
+            if len(data["targets"]) != record["rows"]:
+                raise ValueError(f"saved block row count differs: {label}")
+            generic = replay(
+                learned._model,
+                data["past_states"],
+                data["past_inputs"],
+                data["future_inputs"],
+            )
+            worst = max(
+                worst, float(np.max(np.abs(generic - data["generic_prediction"])))
+            )
+            np.testing.assert_allclose(
+                generic, data["generic_prediction"], **REPLAY_TOLERANCE
+            )
+            structured = structured_forecast(
+                belief.params, data, manifest["plant"]["sample_interval_s"]
+            )
+            worst = max(
+                worst,
+                float(np.max(np.abs(structured - data["structured_prediction"]))),
+            )
+            np.testing.assert_allclose(
+                structured, data["structured_prediction"], **REPLAY_TOLERANCE
+            )
+            targets = data["targets"]
+        fresh = dict(
+            generic=platform_measure(generic, targets)["final_step"],
+            structured=platform_measure(structured, targets)["final_step"],
+        )
+        for arm, score in fresh.items():
+            for metric in METRICS:
+                np.testing.assert_allclose(
+                    score[metric], record[arm][metric], **SCORE_TOLERANCE
+                )
+        gate = live_swap_gate(fresh["generic"], fresh["structured"])
+        if gate["passed"] != record["gate"]["passed"]:
+            raise ValueError(f"recomputed swap gate differs: {label}")
+        replays += 2
+    return replays, worst
+
+
+def _verify_live_swap(row, maximum_age):
+    """Recompute, from the recorded gates alone, whether this trial should have swapped."""
+    first = live_first_gate_block(row["blocks"])
+    label = row["directory"]
+    if row["swapped"]:
+        if row["arm"] != "adopting":
+            raise ValueError(f"a frozen arm recorded a swap: {label}")
+        if first is None or row["swap_scored_block"] != first:
+            raise ValueError(
+                f"the recorded swap did not come from the first block whose gate "
+                f"passed inside its budget: {label}"
+            )
+        block = row["blocks"][first]
+        age = row["swap_interval"] - block["stop_interval"]
+        if age != row["swap_offer_age_intervals"] or not 0 <= age <= maximum_age:
+            raise ValueError(f"the recorded swap is outside the declared age: {label}")
+        if row["swap_revision"] != block["scored_revision"]:
+            raise ValueError(
+                f"the recorded swap adopted a revision that block did not score: "
+                f"{label}"
+            )
+    elif first is not None and not row["rejected_offers"] and row["arm"] == "adopting":
+        raise ValueError(
+            f"a block's gate passed and no offer was ever rejected, so this trial "
+            f"should have swapped: {label}"
+        )
+    if row["candidate_revisions"] != len(row["blocks"]):
+        raise ValueError(f"recorded revision count differs from the blocks: {label}")
+    if row["budget_overruns"] != sum(
+        not entry["within_budget"] for entry in row["blocks"]
+    ):
+        raise ValueError(f"recorded budget overruns differ from the blocks: {label}")
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     commands = parser.add_subparsers(dest="command", required=True)
@@ -3999,6 +5165,11 @@ def main(argv=None):
     tracker = commands.add_parser("control", help="track the frozen Cascade trial set")
     tracker.add_argument("--manifest", type=Path, required=True)
     tracker.add_argument("--output", type=Path, required=True)
+    refiner = commands.add_parser(
+        "live", help="refit on the flight and swap on held-out evidence"
+    )
+    refiner.add_argument("--manifest", type=Path, required=True)
+    refiner.add_argument("--output", type=Path, required=True)
     checker = commands.add_parser("verify", help="replay a run directory")
     checker.add_argument("directory", type=Path)
     checker.add_argument(
@@ -4008,8 +5179,9 @@ def main(argv=None):
         help=(
             "the committed reference the run's regression gate is anchored to "
             f"(default: {COMMITTED_REFERENCE} for a synthetic run, "
-            f"{COMMITTED_PLATFORM_REFERENCE} for a platform run and "
-            f"{COMMITTED_CONTROL_REFERENCE} for a control run)"
+            f"{COMMITTED_PLATFORM_REFERENCE} for a platform run, "
+            f"{COMMITTED_CONTROL_REFERENCE} for a control run and "
+            f"{COMMITTED_LIVE_REFERENCE} for a live run)"
         ),
     )
     args = parser.parse_args(argv)
@@ -4021,6 +5193,9 @@ def main(argv=None):
         accepted = result["accepted"]
     elif args.command == "control":
         result = control(args.manifest, args.output)
+        accepted = result["accepted"]
+    elif args.command == "live":
+        result = live(args.manifest, args.output)
         accepted = result["accepted"]
     else:
         result = verify(args.directory, args.reference)

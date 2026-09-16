@@ -13,7 +13,7 @@ import time
 from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Protocol
 
 import numpy as np
 
@@ -221,6 +221,64 @@ class ControllerOffer:
     prepared_at_s: float
 
 
+class Refiner(Protocol):
+    """Everything :class:`RefinementWorker` asks of the thing that learns.
+
+    :class:`~glassbox.workflows.refinement.ModelRefiner` is the implementation
+    for the structured belief, and the worker builds one when it is handed a
+    belief. A caller whose learner is something else supplies its own instead:
+    the worker calls exactly what is listed here, owns none of it, and never
+    reaches past it into a model. The contract is the one ``ModelRefiner``
+    already keeps -- blocks arrive in order on a recording whose gaps are
+    declared by :meth:`skip`, ``observe`` scores the incoming block before
+    absorbing it, and a revision becomes active only through :meth:`adopt`.
+    """
+
+    history_steps: int | None
+    skipped_interval_count: int
+    retained_revision_count: int
+
+    @property
+    def active(self) -> Any:
+        """The revision a consumer is currently using."""
+
+    @property
+    def candidate(self) -> Any:
+        """The revision the most recent block was absorbed into."""
+
+    @property
+    def results(self) -> tuple[Any, ...]:
+        """The retained per-block results, oldest first."""
+
+    def observe(
+        self, telemetry: Trajectory, *, recording_id: str, start_interval: int
+    ) -> Any:
+        """Score this block, absorb it, and return a result carrying both.
+
+        The result must expose ``candidate_score.revision``, the evaluated
+        snapshot a consumer may be offered, and ``to_dict()`` for the journal.
+        """
+
+    def skip(
+        self, *, recording_id: str, start_interval: int, stop_interval: int, reason: str
+    ) -> dict:
+        """Account for intervals that never arrived, without inventing them."""
+
+    def adopt(
+        self, revision_id: str, *, expected_active_revision: str, reason: str
+    ) -> Any:
+        """Make a previously scored revision active.
+
+        The record it returns is journalled through ``to_dict()``.
+        """
+
+    def hold_for_adoption(self, revision_id: str) -> None:
+        """Retain one scored revision while a consumer decides about it."""
+
+    def release_adoption_hold(self) -> None:
+        """Release that retention once the decision is in."""
+
+
 class RefinementWorker:
     """Learn and prepare controllers off the producer/control thread.
 
@@ -229,16 +287,23 @@ class RefinementWorker:
     outstanding; the control owner acknowledges it after applying or rejecting
     it at a solve boundary. Callbacks run only on the worker thread. Events should
     be streamed to a journal rather than retained indefinitely by the caller.
+
+    Supply either a belief, which the worker wraps in a
+    :class:`~glassbox.workflows.refinement.ModelRefiner`, or a ``refiner`` of
+    the caller's own that keeps the :class:`Refiner` contract. The transport,
+    the queue bound, the gap accounting and the acknowledged handoff are the
+    same either way; what learns behind them is the caller's.
     """
 
     def __init__(
         self,
-        belief: DynamicsBelief,
+        belief: DynamicsBelief | None = None,
         *,
         history_steps: int,
         block_steps: int,
         queue_capacity: int = 2,
         retained_blocks: int = 2,
+        refiner: Refiner | None = None,
         prepare: Callable[[ModelRevision, Trajectory], Any] | None = None,
         should_offer: Callable[[RefinementResult], bool] | None = None,
         on_event: Callable[[dict], None] | None = None,
@@ -255,13 +320,22 @@ class RefinementWorker:
             raise ValueError(
                 "controller preparation and adoption policy must be supplied together"
             )
-        self.refiner = ModelRefiner(
-            belief,
-            history_steps=history_steps,
-            retained_blocks=retained_blocks,
-            max_recordings=1,
-            propagate_parameter_covariance=False,
-        )
+        if (belief is None) == (refiner is None):
+            raise ValueError("supply either a belief or a refiner, and not both")
+        if refiner is None:
+            refiner = ModelRefiner(
+                belief,
+                history_steps=history_steps,
+                retained_blocks=retained_blocks,
+                max_recordings=1,
+                propagate_parameter_covariance=False,
+            )
+        elif refiner.history_steps != history_steps:
+            raise ValueError(
+                "the supplied refiner keeps a different command history than the "
+                "blocks this worker accepts"
+            )
+        self.refiner = refiner
         self.block_steps = block_steps
         self._input: queue.Queue[TelemetryBlock] = queue.Queue(queue_capacity)
         self._offers: queue.Queue[ControllerOffer] = queue.Queue(1)
