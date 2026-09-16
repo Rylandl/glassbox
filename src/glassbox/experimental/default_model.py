@@ -19,6 +19,13 @@ in the artifact and the report and read back through
 :meth:`LearnedDynamics.envelope`. There is no caller option and no way to turn
 it off: ``fit``, ``predict`` and ``update`` are unchanged, and ``update``
 recalibrates on the same pinned development cache it refits against.
+
+Recordings may also declare, per applied command, the exogenous component the
+caller injected into it. That is part of the recordings rather than a caller
+option, and this recipe reads none of it: when every recording declares one,
+the report records that it was declared and each command channel's excitation
+standard deviation as a fraction of that channel's own command range, and the
+fit is the same fit either way.
 """
 
 from __future__ import annotations
@@ -147,6 +154,18 @@ def _indices(keys, origins, budget):
     return result
 
 
+def _excitation(windows, indices=None):
+    """The declared excitation of these windows, in the shape ``SequenceWindows`` takes."""
+    if not windows.excitation_declared:
+        return {}
+    return {
+        key: getattr(windows, key)
+        if indices is None
+        else getattr(windows, key)[indices]
+        for key in ("past_excitation", "future_excitation")
+    }
+
+
 def _subset(windows, indices):
     return SequenceWindows(
         SequenceBatch(
@@ -155,6 +174,7 @@ def _subset(windows, indices):
         ),
         tuple(windows.keys[i] for i in indices),
         tuple(windows.source_origins[i] for i in indices),
+        **_excitation(windows, indices),
     )
 
 
@@ -182,6 +202,7 @@ def _extract(recordings, names, budget):
 
 
 def _merge_cache(old, fresh):
+    both = old.excitation_declared and fresh.excitation_declared
     merged = SequenceWindows(
         SequenceBatch(
             **{
@@ -192,6 +213,14 @@ def _merge_cache(old, fresh):
         ),
         old.keys + fresh.keys,
         old.source_origins + fresh.source_origins,
+        **(
+            {
+                key: np.concatenate((getattr(old, key), getattr(fresh, key)))
+                for key in ("past_excitation", "future_excitation")
+            }
+            if both
+            else {}
+        ),
     )
     return _subset(
         merged,
@@ -249,7 +278,32 @@ def _calibrate(model, windows):
     return np.sort(residual, axis=0)[rank - 1], count, rank
 
 
-def _train(train, development, contract, seen, *, previous=None):
+def excitation_fraction(recordings):
+    """What the recordings themselves say was injected into their commands.
+
+    ``None`` unless every recording declares its excitation, which is why an
+    undeclared fit's report is byte for byte the report it was before this
+    existed. When they all do, the answer is one number per command channel:
+    the standard deviation of the declared excitation over every applied
+    command, as a fraction of that channel's own command range in the same
+    recordings. Both quantities are measured from the recordings. There is no
+    caller option, no declared range to be told and no threshold here; a
+    channel whose command never moves has no range to be excited in and its
+    fraction is ``None`` rather than a number over zero.
+    """
+    if not recordings.excitation_declared:
+        return None
+    excitation = np.concatenate([s.excitation for s in recordings.segments])
+    commands = np.concatenate([s.inputs for s in recordings.segments])
+    span = commands.max(axis=0) - commands.min(axis=0)
+    deviation = excitation.std(axis=0)
+    return [
+        None if not width > 0 else float(value / width)
+        for value, width in zip(deviation, span, strict=True)
+    ]
+
+
+def _train(train, development, contract, seen, *, previous=None, excitation=None):
     b = train.batch
     steps = steps_for(b.dt_s)
     memory = dict(memory=RECIPE["memory"], delay_steps=steps["delay"])
@@ -313,6 +367,12 @@ def _train(train, development, contract, seen, *, previous=None):
             "updates refit cached windows and keep the original development evidence source; fresh independent evaluation is still needed",
         ],
     )
+    if excitation is not None:
+        # Only when every recording declared it. Absent, the report is byte for
+        # byte the report an undeclared fit has always written, which is what
+        # keeps every existing artifact, fingerprint and reference standing.
+        report["excitation_declared"] = True
+        report["excitation_standard_deviation_fraction"] = excitation
     return LearnedDynamics(model, train, development, contract, seen, report, envelope)
 
 
@@ -446,6 +506,7 @@ class LearnedDynamics:
             self._contract,
             {**self._seen, **seen},
             previous=self.fingerprint(),
+            excitation=excitation_fraction(recordings),
         )
 
     def _metadata(self):
@@ -551,4 +612,6 @@ def fit(recordings):
     count = min(len(names) - 1, max(1, int(np.ceil(len(names) / 4))))
     development = _extract(recordings, names[:count], RECIPE["development_windows"])
     train = _extract(recordings, names[count:], RECIPE["training_windows"])
-    return _train(train, development, contract, seen)
+    return _train(
+        train, development, contract, seen, excitation=excitation_fraction(recordings)
+    )

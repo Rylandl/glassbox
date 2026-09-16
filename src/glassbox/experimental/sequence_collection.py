@@ -3,6 +3,11 @@
 Row identities refer to a caller's uniformly sampled recording, not raw sensor
 events. Masking and clock alignment happen before learning. Distinct segments
 cannot overlap within a recording; extraction never bridges their boundaries.
+
+A segment may also declare, per applied command, the exogenous component the
+caller injected into it: a data fact about the recording with a declared
+meaning, like a channel's units. It is optional, validated like every other
+array, carried through masking and window extraction, and read by nothing here.
 """
 
 from dataclasses import dataclass
@@ -23,12 +28,23 @@ def _positive_int(value):
 
 @dataclass(frozen=True)
 class SequenceSegment:
+    """One contiguous block of observations and the commands applied across it.
+
+    ``excitation`` is optional and, when supplied, is aligned row for row and
+    column for column with ``inputs``: the exogenous component the caller
+    injected into each applied command, zero where none was injected. It is a
+    data fact about the recording in the same sense as the channel identities,
+    declared by whoever applied it rather than inferred here, and it is
+    validated exactly as the other arrays are.
+    """
+
     recording_id: str
     segment_id: str
     states: np.ndarray
     inputs: np.ndarray
     dt_s: float
     start_row: int = 0
+    excitation: np.ndarray | None = None
 
     def __post_init__(self):
         x, u = (np.array(a, dtype=float, copy=True) for a in (self.states, self.inputs))
@@ -56,13 +72,23 @@ class SequenceSegment:
         u.setflags(write=False)
         object.__setattr__(self, "states", x)
         object.__setattr__(self, "inputs", u)
+        if self.excitation is not None:
+            e = np.array(self.excitation, dtype=float, copy=True)
+            if e.shape != u.shape or not np.isfinite(e).all():
+                raise ValueError(
+                    "declared excitation must be finite and aligned with the inputs"
+                )
+            e.setflags(write=False)
+            object.__setattr__(self, "excitation", e)
 
 
-def segments_from_mask(recording_id, states, inputs, valid, *, dt_s):
+def segments_from_mask(recording_id, states, inputs, valid, *, dt_s, excitation=None):
     """Retain contiguous valid runs of at least two rows; no padding or imputation.
 
     The caller marks state and outgoing-input validity. Excluded rows may contain
     nonfinite observations; each retained segment is independently validated.
+    ``excitation``, when supplied, is aligned with ``inputs`` and is cut the same
+    way, so a retained segment carries the excitation of exactly its own rows.
     """
     x, u, valid = map(np.asarray, (states, inputs, valid))
     if (
@@ -73,12 +99,22 @@ def segments_from_mask(recording_id, states, inputs, valid, *, dt_s):
         or valid.dtype != np.bool_
     ):
         raise ValueError("invalid recording arrays or boolean row mask")
+    if excitation is not None:
+        excitation = np.asarray(excitation, dtype=float)
+        if excitation.shape != u.shape:
+            raise ValueError("declared excitation must be aligned with the inputs")
     runs = np.flatnonzero(np.diff(np.r_[False, valid, False].astype(int))).reshape(
         -1, 2
     )
     return tuple(
         SequenceSegment(
-            recording_id, f"rows-{a}-{b}", x[a:b], u[a : b - 1], dt_s, int(a)
+            recording_id,
+            f"rows-{a}-{b}",
+            x[a:b],
+            u[a : b - 1],
+            dt_s,
+            int(a),
+            None if excitation is None else excitation[a : b - 1],
         )
         for a, b in runs
         if b - a >= 2
@@ -94,9 +130,20 @@ class WindowKey:
 
 @dataclass(frozen=True)
 class SequenceWindows:
+    """Extracted windows, their provenance, and any declared excitation beside them.
+
+    ``past_excitation`` and ``future_excitation`` are optional and, when
+    present, are aligned with ``batch.past_inputs`` and ``batch.future_inputs``:
+    the exogenous component the caller injected into each of those applied
+    commands. They are carried beside the batch rather than inside it, because
+    the current recipe trains on the batch alone and ignores them.
+    """
+
     batch: SequenceBatch
     keys: tuple[WindowKey, ...]
     source_origins: tuple[int, ...]
+    past_excitation: np.ndarray | None = None
+    future_excitation: np.ndarray | None = None
 
     def __post_init__(self):
         keys, origins = tuple(self.keys), tuple(self.source_origins)
@@ -111,6 +158,27 @@ class SequenceWindows:
             raise ValueError("window provenance must match batch rows")
         object.__setattr__(self, "keys", keys)
         object.__setattr__(self, "source_origins", origins)
+        if (self.past_excitation is None) != (self.future_excitation is None):
+            raise ValueError(
+                "window excitation covers the past and future inputs, or neither"
+            )
+        for name in ("past_excitation", "future_excitation"):
+            value = getattr(self, name)
+            if value is None:
+                continue
+            value = np.array(value, dtype=float, copy=True)
+            aligned = getattr(self.batch, name.replace("excitation", "inputs"))
+            if value.shape != aligned.shape or not np.isfinite(value).all():
+                raise ValueError(
+                    "declared excitation must be finite and aligned with the window inputs"
+                )
+            value.setflags(write=False)
+            object.__setattr__(self, name, value)
+
+    @property
+    def excitation_declared(self):
+        """Whether these windows carry the excitation of their own inputs."""
+        return self.past_excitation is not None
 
     def coverage(self):
         """Union of sampled grid rows/edges, so overlapping windows count once."""
@@ -179,6 +247,13 @@ class SequenceCollection:
             raise ValueError(
                 "duplicate segments or inconsistent sample interval/channels"
             )
+        # Excitation is declared for a whole collection or for none of it: a
+        # half-declared collection would leave "what the caller injected"
+        # ambiguous on the segments that said nothing.
+        if len({s.excitation is None for s in segments}) != 1:
+            raise ValueError(
+                "every segment declares its excitation, or none of them does"
+            )
         for recording in {s.recording_id for s in segments}:
             selected = sorted(
                 (s for s in segments if s.recording_id == recording),
@@ -190,6 +265,11 @@ class SequenceCollection:
                 raise ValueError("segments overlap within a recording")
         object.__setattr__(self, "segments", segments)
 
+    @property
+    def excitation_declared(self):
+        """Whether every recording in this collection declares its excitation."""
+        return self.segments[0].excitation is not None
+
     def window_keys(self, *, history_steps, horizon_steps, stride=1):
         if not all(_positive_int(v) for v in (history_steps, horizon_steps, stride)):
             raise ValueError("window lengths and stride must be positive integers")
@@ -200,7 +280,12 @@ class SequenceCollection:
         )
 
     def extract(self, keys, *, history_steps, horizon_steps):
-        """Extract explicitly chosen keys in order, retaining identities and coverage."""
+        """Extract explicitly chosen keys in order, retaining identities and coverage.
+
+        A declared excitation is cut with the inputs it belongs to and returned
+        beside them, so a window says what the caller injected into every
+        command it holds. The current recipe reads the batch and ignores it.
+        """
         keys = tuple(keys)
         if not all(_positive_int(v) for v in (history_steps, horizon_steps)):
             raise ValueError("window lengths must be positive integers")
@@ -215,6 +300,8 @@ class SequenceCollection:
             k: []
             for k in ("past_states", "past_inputs", "future_inputs", "future_states")
         }
+        declared = self.excitation_declared
+        excitation = {k: [] for k in ("past_excitation", "future_excitation")}
         origins = []
         for key in keys:
             s = lookup.get((key.recording_id, key.segment_id))
@@ -230,6 +317,13 @@ class SequenceCollection:
             arrays["past_inputs"].append(s.inputs[a - history_steps : a])
             arrays["future_inputs"].append(s.inputs[a : a + horizon_steps])
             arrays["future_states"].append(s.states[a + 1 : a + horizon_steps + 1])
+            if declared:
+                excitation["past_excitation"].append(
+                    s.excitation[a - history_steps : a]
+                )
+                excitation["future_excitation"].append(
+                    s.excitation[a : a + horizon_steps]
+                )
             origins.append(int(s.start_row + a))
         return SequenceWindows(
             SequenceBatch(
@@ -238,4 +332,5 @@ class SequenceCollection:
             ),
             keys,
             tuple(origins),
+            **({k: np.stack(v) for k, v in excitation.items()} if declared else {}),
         )

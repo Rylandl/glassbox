@@ -321,3 +321,57 @@ def test_an_update_recalibrates_on_the_pinned_development_cache(fitted):
         - batch.future_states
     )
     assert (residual <= revised.envelope()).mean(axis=0).min() >= ENVELOPE_COVERAGE
+
+
+def excited(name, seed, amplitude=0.25):
+    """The same recording, declaring the excitation that was inside its commands."""
+    base = recording(name, seed)
+    rng = np.random.default_rng(seed + 7)
+    e = amplitude * np.sin(rng.uniform(0, 2 * np.pi) + 1.3 * np.arange(79.0))[:, None]
+    return replace(base, inputs=base.inputs + e, excitation=e)
+
+
+def test_the_report_records_a_declared_excitation_as_a_fraction_of_range():
+    declared = fit(collection(excited("a", 1), excited("b", 2)))
+    report = declared.report
+    assert report["excitation_declared"] is True
+    fractions = report["excitation_standard_deviation_fraction"]
+    # One number per command channel: the excitation's own standard deviation
+    # over the range the same recordings' commands actually span.
+    segments = (excited("a", 1), excited("b", 2))
+    excitation = np.concatenate([s.excitation for s in segments])
+    commands = np.concatenate([s.inputs for s in segments])
+    expected = excitation.std(axis=0) / (commands.max(axis=0) - commands.min(axis=0))
+    np.testing.assert_allclose(fractions, expected, rtol=1e-12, atol=0)
+    assert len(fractions) == len(declared.contract["input_channels"])
+
+
+def test_an_undeclared_fit_reports_nothing_about_excitation(fitted):
+    report = fitted.report
+    assert "excitation_declared" not in report
+    assert "excitation_standard_deviation_fraction" not in report
+
+
+def test_a_declared_excitation_does_not_change_the_fit():
+    segments = (recording("a", 1), recording("b", 2))
+    silent = fit(collection(*segments))
+    stated = fit(
+        collection(*(replace(s, excitation=np.zeros_like(s.inputs)) for s in segments))
+    )
+    # The recipe reads the commands and ignores what they were made of, so the
+    # same commands give the same model and only the report grows a key.
+    assert stated._model.fingerprint() == silent._model.fingerprint()
+    assert stated.report["excitation_standard_deviation_fraction"] == [0.0]
+    grown = {"excitation_declared", "excitation_standard_deviation_fraction"}
+    assert set(stated.report) - set(silent.report) == grown
+    assert all(stated.report[k] == silent.report[k] for k in silent.report)
+
+
+def test_an_update_records_the_excitation_of_the_recordings_it_absorbs():
+    model = fit(collection(excited("a", 1), excited("b", 2)))
+    revised = model.update(collection(excited("c", 3, 0.5), excited("d", 4, 0.5)))
+    assert revised.report["excitation_declared"] is True
+    assert (
+        revised.report["excitation_standard_deviation_fraction"]
+        > (model.report["excitation_standard_deviation_fraction"])
+    )
