@@ -8,7 +8,6 @@ bottom of this module.
 """
 
 import copy
-import hashlib
 import importlib
 import json
 import math
@@ -38,6 +37,7 @@ from glassbox.core.geometry import (
     quaternion_from_euler,
     quaternion_to_rotation_matrices,
     rotation_to_quaternion,
+    state_plus_tangent,
 )
 from glassbox.core.metrics import state_rmse_metrics
 from glassbox.experimental import harness
@@ -67,6 +67,8 @@ COMMAND_CHANNELS = (
     "pitch [rad,pitch]",
 )
 LEVEL = np.array([1.0, -2.0, 100.0, 18.0, 0.3, -0.2, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+TRIM = np.array([0.0, 0.0, 100.0, 18.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+"""Level cruise at the plant's own trim, the state the reference is anchored to."""
 
 
 def _recording(name, seed, rows=140):
@@ -525,36 +527,197 @@ def test_the_control_manifest_digest_is_the_gate(tmp_path):
         harness.frozen_control_manifest(path)
 
 
-CONTROL_V2_SHA256 = "d5f446238a042438eb8c75ba3d432150c27e7ca6b4ecd72eed11fcfaa26e5787"
-"""The digest of the deleted control-v2.json, whose protocol v3 carries."""
+def test_the_committed_manifest_carries_control_v2s_plant_and_controller(manifest):
+    """What control-v3 changed, and what it did not.
 
-OLD_DECISION = """  \"decision\": {
-    \"enforced\": true,
-    \"rule\": \"On every trial, the generic arm's position RMSE and attitude RMSE are at or below the structured arm's on that same trial, and no trial is terminated.\",
-    \"gates_from\": \"this manifest. The protocol is control-v1's, constant for constant; only the rule's standing changed.\",
-    \"meaning\": \"A Cascade X8 tracking measurement of this trial set only. Not hardware readiness, not a real-time claim, and not calibrated uncertainty. The rule is a gate: one trial whose generic position or attitude RMSE is above the structured arm's, or one terminated trial, rejects the run.\"
-  }
-}
-"""
-
-
-def test_the_committed_manifest_carries_control_v2s_protocol_byte_for_byte():
-    """Undoing the id and the decision reproduces the deleted control-v2 exactly.
-
-    The plant hash, the calibration, the reference, the duration, the
-    repetitions, the arms and the controller policy cannot have moved in this
-    change, because reversing the id and the decision block recovers v2's own
-    digest from v3's bytes.
+    The plant, the arms, the controller policy, the pilot, the durations and
+    the calibration seeds are control-v2's. The reference, the trial length,
+    the per-trial initial state and the airspeed setpoint amplitude are not.
     """
 
-    text = MANIFEST.read_text()
-    assert text.count('  "id": "control-v3",\n') == 1
-    text = text.replace('  "id": "control-v3",\n', '  "id": "control-v2",\n', 1)
-    head, marker, _ = text.partition('  "reference": {\n')
-    assert marker
+    plant = manifest["plant"]
+    assert plant["source_revision"] == "d6613886f8bbdc514a9ae88ff344c23af994df6a"
     assert (
-        hashlib.sha256((head + OLD_DECISION).encode()).hexdigest() == CONTROL_V2_SHA256
+        plant["spec_hash"]
+        == "fc169f5d036c16cbeff8764d4784f4157327a7f48767e7118a35fbd07efb341e"
     )
+    assert plant["trim"] == {"airspeed_m_s": 18.0, "altitude_m": 100.0}
+    calibration = manifest["calibration"]
+    assert calibration["seeds"] == [0, 1, 2, 3]
+    assert calibration["training_seeds"] == [0, 1, 2]
+    assert calibration["reserved_seeds"] == [3]
+    assert calibration["duration_s"] == 8.0
+    assert calibration["pilot_periods"] == {"rate": 1, "attitude": 1, "guidance": 2}
+    assert calibration["excitation_amplitudes"] == [0.035, 0.025, 0.02]
+    assert calibration["excitation_rates_rad_s"] == [1.3, 2.1, 1.7]
+    assert manifest["controller"]["maximum_iterations"] == 4
+    assert manifest["arms"]["structured"]["optimization_steps"] == 200
+    assert manifest["arms"]["structured"]["evaluation_horizons_s"] == [0.1, 0.4, 0.8]
+    assert sorted(manifest["arms"]) == ["generic", "structured"]
+    # What changed, and only this.
+    assert calibration["setpoint"]["airspeed_amplitude_m_s"] == 2.5
+    assert manifest["tracking_reference"]["kind"] == "lateral_and_altitude_tracking"
+    assert manifest["trial"]["duration_s"] == 16.0
+    assert manifest["trial"]["intervals"] == 320
+    assert manifest["trial"]["initial_state_seeds"] == [101, 102]
+
+
+def test_the_manifest_declares_the_pages_task_and_its_pass_criterion(manifest):
+    reference = manifest["tracking_reference"]
+    assert reference["source"] == "docs/cascade-accuracy.md"
+    assert reference["lateral_amplitude_m"] == 1.0
+    assert reference["lateral_rate_rad_s"] == 0.35
+    assert reference["altitude_amplitude_m"] == 0.75
+    assert reference["altitude_rate_rad_s"] == 0.3
+    criterion = manifest["metrics"]["pass_criterion"]
+    assert criterion["tolerance_m"] == 0.5
+    assert criterion["settled_after_s"] == 2.0
+    assert criterion["minimum_fraction"] == 0.95
+    assert criterion["scored_samples"] == 281
+    assert "pass_criterion" in manifest["metrics"]["informational"]
+    assert "pass_criterion" not in manifest["metrics"]["gating"]
+    assert (
+        manifest["calibration"]["excitation"]["minimum_standard_deviation_fraction"]
+        == 0.1
+    )
+
+
+def test_the_reference_is_the_pages_own_lateral_and_altitude_task(manifest):
+    """sin(0.35 t) laterally, 100 + 0.75 sin(0.3 t) in altitude, 18 m/s forward."""
+
+    times = np.arange(0.0, 16.0 + DT_S, DT_S)
+    rows = harness.control_reference(TRIM, times, manifest["tracking_reference"])
+    np.testing.assert_allclose(rows[:, 0], 18.0 * times, rtol=0, atol=1e-12)
+    np.testing.assert_allclose(rows[:, 1], np.sin(0.35 * times), rtol=0, atol=1e-12)
+    np.testing.assert_allclose(
+        rows[:, 2], 100.0 + 0.75 * np.sin(0.3 * times), rtol=0, atol=1e-12
+    )
+    np.testing.assert_allclose(
+        rows[:, 3], np.full_like(times, 18.0), rtol=0, atol=1e-12
+    )
+    np.testing.assert_allclose(
+        rows[:, 4], 0.35 * np.cos(0.35 * times), rtol=0, atol=1e-12
+    )
+    np.testing.assert_allclose(
+        rows[:, 5], 0.225 * np.cos(0.3 * times), rtol=0, atol=1e-12
+    )
+    # The task does not move with a trial's own perturbed start.
+    moved = harness.control_initial_state(manifest, TRIM, 101)
+    assert not np.allclose(moved[:3], TRIM[:3])
+    np.testing.assert_allclose(
+        harness.control_reference(TRIM, times, manifest["tracking_reference"]),
+        rows,
+        rtol=0,
+        atol=0,
+    )
+
+
+def test_the_initial_state_is_the_pages_own_perturbation(manifest):
+    """The same twelve-vector draw, in the same order, through the retraction."""
+
+    for seed in manifest["trial"]["initial_state_seeds"]:
+        generator = np.random.default_rng(seed)
+        offset = np.zeros(12)
+        offset[1:3] = generator.uniform(-0.15, 0.15, 2)
+        offset[4:6] = generator.uniform(-0.05, 0.05, 2)
+        offset[6:9] = generator.uniform(-0.01, 0.01, 3)
+        offset[9:12] = generator.uniform(-0.02, 0.02, 3)
+        with jax.enable_x64(True):
+            expected = np.asarray(
+                state_plus_tangent(jnp.asarray(LEVEL), jnp.asarray(offset))
+            )
+            measured = harness.control_initial_state(manifest, LEVEL, seed)
+        np.testing.assert_allclose(measured, expected, rtol=0, atol=0)
+        assert abs(measured[0] - LEVEL[0]) < 1e-12
+        assert 0 < abs(measured[1] - LEVEL[1]) <= 0.15
+        assert 0 < abs(measured[2] - LEVEL[2]) <= 0.15
+        np.testing.assert_allclose(
+            np.linalg.norm(measured[6:10]), 1.0, rtol=0, atol=1e-12
+        )
+    first, second = (
+        harness.control_initial_state(manifest, LEVEL, seed)
+        for seed in manifest["trial"]["initial_state_seeds"]
+    )
+    assert not np.allclose(first, second)
+
+
+def _tracked(manifest, lateral, altitude, intervals=None):
+    """One trial's saved states: the reference with a declared offset added."""
+
+    requested = manifest["trial"]["intervals"]
+    times = np.arange(requested + 1) * DT_S
+    states = harness.control_reference(LEVEL, times, manifest["tracking_reference"])
+    states = states.copy()
+    states[:, 1] += lateral
+    states[:, 2] += altitude
+    return states if intervals is None else states[: intervals + 1]
+
+
+def test_the_pass_criterion_is_the_pages_own(manifest):
+    exact = harness.control_pass_criterion(
+        _tracked(manifest, 0.0, 0.0), LEVEL, manifest
+    )
+    assert exact["scored_samples"] == 281
+    assert exact["within_samples"] == 281
+    assert exact["within_tolerance_fraction"] == 1.0
+    assert exact["met"] is True and exact["terminated"] is False
+    assert exact["lateral_rmse_m"] == pytest.approx(0.0)
+
+    inside = harness.control_pass_criterion(
+        _tracked(manifest, 0.49, -0.49), LEVEL, manifest
+    )
+    assert inside["within_tolerance_fraction"] == 1.0 and inside["met"] is True
+    assert inside["altitude_rmse_m"] == pytest.approx(0.49)
+
+    outside = harness.control_pass_criterion(
+        _tracked(manifest, 0.0, 0.51), LEVEL, manifest
+    )
+    assert outside["within_tolerance_fraction"] == 0.0 and outside["met"] is False
+    json.dumps(outside, allow_nan=False)
+
+
+def test_an_unexecuted_interval_counts_as_outside_the_pass_tolerance(manifest):
+    """The page's accounting: a failed trial is not discarded, it is outside."""
+
+    stopped = harness.control_pass_criterion(
+        _tracked(manifest, 0.0, 0.0, intervals=200), LEVEL, manifest
+    )
+    assert stopped["terminated"] is True and stopped["met"] is False
+    assert stopped["scored_samples"] == 281
+    assert stopped["within_samples"] == 200 - 39
+    assert stopped["within_tolerance_fraction"] == pytest.approx(161 / 281)
+    # An unbounded error is serialized as null, never as zero.
+    assert stopped["lateral_rmse_m"] is None
+    json.dumps(stopped, allow_nan=False)
+
+
+def test_command_excitation_is_measured_against_the_declared_range(manifest):
+    steps = np.zeros((200, 3))
+    steps[::2] = [0.2, 0.14, 0.14]
+    measured = harness.control_excitation(manifest, [("recording-0", _sampled(steps))])
+    assert measured["declared_range"] == [1.0, 0.7, 0.7]
+    np.testing.assert_allclose(
+        measured["standard_deviation"]["recording-0"], [0.1, 0.07, 0.07]
+    )
+    np.testing.assert_allclose(measured["fraction"]["recording-0"], [0.1, 0.1, 0.1])
+    assert (
+        harness.control_excitation_shortfall(manifest, measured, ["recording-0"]) == []
+    )
+
+
+def test_a_command_channel_below_the_declared_fraction_falls_short(manifest):
+    steps = np.zeros((200, 3))
+    steps[::2] = [0.2, 0.14, 0.139]
+    measured = harness.control_excitation(manifest, [("recording-0", _sampled(steps))])
+    short = harness.control_excitation_shortfall(manifest, measured, ["recording-0"])
+    assert [entry["channel"] for entry in short] == [2]
+    assert short[0]["minimum"] == 0.1 and short[0]["fraction"] < 0.1
+    # A recording that is not fitted does not have to meet it.
+    assert harness.control_excitation_shortfall(manifest, measured, []) == []
+
+
+def _sampled(controls):
+    return SimpleNamespace(controls=np.asarray(controls, dtype=float))
 
 
 def test_the_committed_manifest_matches_the_module_constant():
@@ -570,8 +733,8 @@ def _row(repetition, arm, position, attitude, **overrides):
         repetition=repetition,
         arm=arm,
         terminated=False,
-        completed_intervals=240,
-        requested_intervals=240,
+        completed_intervals=320,
+        requested_intervals=320,
         failure=None,
         tracking_rmse=dict(
             position_rmse_m=position,
@@ -803,7 +966,7 @@ def test_a_terminated_trial_fails_closed(manifest):
 
 def test_a_short_trial_fails_closed_even_when_it_does_not_say_so(manifest):
     rows = _rows()
-    rows[0] = _row(0, "generic", 0.1, 0.1, completed_intervals=239)
+    rows[0] = _row(0, "generic", 0.1, 0.1, completed_intervals=319)
     decision = harness.control_decide(manifest, rows, _failing_reference())
     assert decision["accepted"] is False
     assert decision["gate_breaches"][0]["gate"] == "declared_intervals"
@@ -860,7 +1023,11 @@ def test_a_negative_metric_fails_closed(manifest):
 
 
 def _trajectory(seed):
+    """One fabricated calibration recording that meets the declared excitation."""
+
     states, commands = _recording(f"r{seed}", 20 + seed)
+    commands = np.asarray(commands, dtype=float).copy()
+    commands[::2] += np.array([0.25, 0.2, 0.2])
     return Trajectory(
         time_s=np.arange(len(states)) * DT_S,
         states=states,
@@ -895,18 +1062,21 @@ def _fabricate_run(directory, manifest, learned, offsets, with_reference=True):
     (directory / "structured.json").write_text('{"belief": "fabricated"}\n')
     (directory / "structured_report.json").write_text('{"report": "fabricated"}\n')
 
-    initial_state = LEVEL.copy()
+    anchor_state = LEVEL.copy()
     declared = manifest["tracking_reference"]
     intervals = manifest["trial"]["intervals"]
     times = np.arange(intervals + 1) * DT_S
-    reference = harness.control_reference(initial_state, times, declared)
+    reference = harness.control_reference(anchor_state, times, declared)
     rows = []
     for repetition in range(manifest["trial"]["repetitions"]):
+        seed = manifest["trial"]["initial_state_seeds"][repetition]
+        initial_state = harness.control_initial_state(manifest, anchor_state, seed)
         for arm in ("generic", "structured"):
             case = directory / f"trial-{repetition}" / arm
             case.mkdir(parents=True, exist_ok=True)
             states = reference.copy()
             states[:, 0] += offsets[arm]
+            states[0] = initial_state
             np.savez_compressed(
                 case / "tracking.npz",
                 time_s=times,
@@ -919,16 +1089,21 @@ def _fabricate_run(directory, manifest, learned, offsets, with_reference=True):
                 solver_used=np.ones(intervals, dtype=bool),
                 used_fallback=np.zeros(intervals, dtype=bool),
                 initial_state=initial_state,
+                reference_anchor_state=anchor_state,
             )
             metrics = state_rmse_metrics(states[1:], reference[1:])
             row = dict(
                 arm=arm,
                 repetition=repetition,
+                initial_state_seed=seed,
                 completed_intervals=intervals,
                 requested_intervals=intervals,
                 terminated=False,
                 failure=None,
                 tracking_rmse=metrics,
+                pass_criterion=harness.control_pass_criterion(
+                    states, anchor_state, manifest
+                ),
                 deadline_misses=0,
                 solve_deadline_misses=0,
                 directory=f"trial-{repetition}/{arm}",
@@ -948,6 +1123,13 @@ def _fabricate_run(directory, manifest, learned, offsets, with_reference=True):
                 f"recording-{s}" for s in manifest["calibration"]["reserved_seeds"]
             ],
             generic_fingerprint=learned.fingerprint(),
+            command_excitation=harness.control_excitation(
+                manifest,
+                [
+                    (f"recording-{seed}", _trajectory(seed))
+                    for seed in manifest["calibration"]["seeds"]
+                ],
+            ),
             files=harness._files(
                 directory,
                 names + ["structured.json", "structured_report.json", "generic.npz"],
@@ -977,6 +1159,7 @@ def test_the_replay_recomputes_every_metric_and_the_decision(
     assert result["verified_trials"] == 4
     assert result["decision"]["accepted"] is True
     assert result["decision"]["rule_met"] is True
+    assert result["decision"]["pass_criterion"]["0-generic"]["scored_samples"] == 281
     assert "not rerun" in result["meaning"]
     # The tier is chosen by the digest of the manifest the run copied.
     assert harness.verify(directory, _anchor(directory))["tier"] == "control"
@@ -1134,6 +1317,11 @@ def test_the_harness_collects_the_examples_own_calibration_recording(monkeypatch
 
     manifest = copy.deepcopy(harness.frozen_control_manifest(MANIFEST))
     manifest["calibration"]["duration_s"] = 0.5
+    # The one constant control-v3 moved. Put it back and the tier's recording is
+    # the example's, byte for byte: the pilot, its periods, the trim
+    # feedforward, the additive excitation and the phases are unchanged.
+    assert manifest["calibration"]["setpoint"]["airspeed_amplitude_m_s"] == 2.5
+    manifest["calibration"]["setpoint"]["airspeed_amplitude_m_s"] = 0.4
     spec, model, trim, state, command = harness.control_fixture(manifest)
     tier_plant = harness._control_plant(manifest, spec, model)
     mine = harness.control_recording(manifest, tier_plant, trim, state, command, 0)
@@ -1149,21 +1337,66 @@ def test_the_harness_collects_the_examples_own_calibration_recording(monkeypatch
 
 
 @pytest.mark.cascade
-def test_the_harness_reference_is_the_examples_cruise_reference(monkeypatch):
+def test_the_harness_reference_is_the_accuracy_pages_own_reference(monkeypatch):
+    """The tier's rows are the page's reference, position and velocity."""
+
     pytest.importorskip("cascade")
     monkeypatch.syspath_prepend(str(Path(__file__).resolve().parents[1] / "examples"))
-    example = importlib.import_module("cascade_refinement")
+    example = importlib.import_module("cascade_accuracy")
 
     manifest = harness.frozen_control_manifest(MANIFEST)
-    _, _, _, state, command = harness.control_fixture(manifest)
-    plant = example.tracking_plant(state, command)
-    times = np.arange(0, 12.0, 0.05)
-    np.testing.assert_allclose(
-        harness.control_reference(state, times, manifest["tracking_reference"]),
-        plant.reference(times),
-        rtol=0,
-        atol=0,
+    with jax.enable_x64(True):
+        _, _, _, state, _ = harness.control_fixture(manifest)
+        times = np.arange(0, manifest["trial"]["duration_s"] + 0.05, 0.05)
+        rows = harness.control_reference(state, times, manifest["tracking_reference"])
+        position, velocity = example.reference(jnp.asarray(times))
+    np.testing.assert_allclose(rows[:, 0:3], np.asarray(position), rtol=0, atol=1e-12)
+    np.testing.assert_allclose(rows[:, 3:6], np.asarray(velocity), rtol=0, atol=1e-12)
+
+
+@pytest.mark.cascade
+def test_the_harness_initial_states_are_the_accuracy_pages_own(monkeypatch):
+    pytest.importorskip("cascade")
+    monkeypatch.syspath_prepend(str(Path(__file__).resolve().parents[1] / "examples"))
+    example = importlib.import_module("cascade_accuracy")
+
+    manifest = harness.frozen_control_manifest(MANIFEST)
+    with jax.enable_x64(True):
+        _, _, _, state, _ = harness.control_fixture(manifest)
+        for seed in manifest["trial"]["initial_state_seeds"]:
+            np.testing.assert_allclose(
+                harness.control_initial_state(manifest, state, seed),
+                example.initial_condition(state, seed),
+                rtol=0,
+                atol=0,
+            )
+
+
+@pytest.mark.cascade
+def test_the_committed_calibration_meets_the_declared_excitation():
+    """Measured, not asserted: the three fitted recordings move every channel."""
+
+    pytest.importorskip("cascade")
+    manifest = harness.frozen_control_manifest(MANIFEST)
+    with jax.enable_x64(True):
+        spec, model, trim, state, command = harness.control_fixture(manifest)
+        plant = harness._control_plant(manifest, spec, model)
+        recordings = [
+            (
+                f"recording-{seed}",
+                harness.control_recording(manifest, plant, trim, state, command, seed),
+            )
+            for seed in manifest["calibration"]["training_seeds"]
+        ]
+    measured = harness.control_excitation(manifest, recordings)
+    assert (
+        harness.control_excitation_shortfall(
+            manifest, measured, [name for name, _ in recordings]
+        )
+        == []
     )
+    for fractions in measured["fraction"].values():
+        assert min(fractions) >= 0.1
 
 
 @pytest.mark.cascade
@@ -1175,6 +1408,7 @@ def test_the_generic_arm_tracks_the_cascade_plant_for_a_short_trial(tmp_path):
     manifest["calibration"]["duration_s"] = 3.0
     manifest["trial"]["intervals"] = 20
     manifest["trial"]["duration_s"] = 1.0
+    manifest["metrics"]["pass_criterion"]["settled_after_s"] = 0.5
 
     spec, model, trim, state, command = harness.control_fixture(manifest)
     plant = harness._control_plant(manifest, spec, model)
@@ -1195,9 +1429,13 @@ def test_the_generic_arm_tracks_the_cascade_plant_for_a_short_trial(tmp_path):
         return harness.control_reference(state, times, manifest["tracking_reference"])
 
     harness._control_prewarm(arm, manifest, recordings[0][1], reference_fn)
-    tracking = harness._control_tracking_plant(manifest, state, command)
-    row = harness._control_trial(manifest, arm, tracking, reference_fn, tmp_path / "t")
+    start = harness.control_initial_state(manifest, state, 101)
+    tracking = harness._control_tracking_plant(manifest, start, command)
+    row = harness._control_trial(
+        manifest, arm, tracking, reference_fn, state, tmp_path / "t"
+    )
     assert row["terminated"] is False
+    assert row["pass_criterion"]["scored_samples"] == 11
     assert row["completed_intervals"] == 20
     assert row["model_not_ready_intervals"] == arm.controller.required_observations - 1
     assert row["maximum_command_bound_violation"] == 0.0

@@ -85,7 +85,7 @@
     "setpoint": {
       "ramp_s": 1.0,
       "airspeed_m_s": 18.0,
-      "airspeed_amplitude_m_s": 0.4,
+      "airspeed_amplitude_m_s": 2.5,
       "airspeed_rate_rad_s": 0.7,
       "altitude_m": 100.0,
       "altitude_amplitude_m": 0.5,
@@ -98,20 +98,39 @@
     "phase_seed_source": "numpy.random.default_rng(seed).uniform(0, 2*pi, size=3)",
     "command_policy": "requested command held for the full sample interval",
     "initial_history_assumption": "reset at constant-command actuator equilibrium",
-    "meaning": "Three eight-second recordings fit both arms and one further recording is reserved and never enters either fit in any role."
+    "excitation": {
+      "minimum_standard_deviation_fraction": 0.1,
+      "range_from": "telemetry.command_maximum minus telemetry.command_minimum",
+      "measured_over": "each training recording, per command channel",
+      "on_shortfall": "the run fails closed before either arm is fitted",
+      "meaning": "Every command channel moves, in each of the three recordings that fit the arms, with a sample standard deviation of at least this fraction of its declared range. control-v2's pilot moved throttle 2.3% to 3.1% of a 1.0 range while it moved pitch 37%, and the throttle column of the learner's design was not identified at any penalty. The airspeed setpoint amplitude is the one constant that changed, from 0.4 to 2.5 m/s; the additive excitation, the pilot, the periods, the seeds and the durations are control-v2's. Excitation is a property of the recordings the caller supplies, applied identically to both arms and measured by the run. It is not platform knowledge, and nothing about it reaches the learner."
+    },
+    "meaning": "Three eight-second recordings fit both arms and one further recording is reserved and never enters either fit in any role. The setpoint variation is chosen so the recordings contain the command directions the controller is asked to use."
   },
   "tracking_reference": {
-    "kind": "cruise_with_altitude_variation",
-    "altitude_amplitude_m": 0.15,
-    "climb_rate_amplitude_m_s": 0.075,
-    "rate_rad_s": 0.5,
-    "meaning": "The trim state carried forward at its own initial world velocity, with a small cosine altitude variation and the matching climb rate."
+    "kind": "lateral_and_altitude_tracking",
+    "source": "docs/cascade-accuracy.md",
+    "lateral_amplitude_m": 1.0,
+    "lateral_rate_rad_s": 0.35,
+    "altitude_amplitude_m": 0.75,
+    "altitude_rate_rad_s": 0.3,
+    "meaning": "The tracking task of docs/cascade-accuracy.md: the trim state carried forward at its own world velocity, 18 m/s at 100 m, with lateral position sin(0.35 t) metres and altitude 100 + 0.75 sin(0.3 t) metres, and the world velocities that match them. control-v2's cruise reference is deleted rather than kept beside it: on that reference a model with no command authority at all scored 0.109 m and 0.000 degrees, better than either arm, so it certified claiming nothing. This one demands authority in two axes."
   },
   "trial": {
-    "duration_s": 12.0,
+    "duration_s": 16.0,
     "sample_interval_s": 0.05,
-    "intervals": 240,
+    "intervals": 320,
     "repetitions": 2,
+    "initial_state_seeds": [101, 102],
+    "initial_state_perturbation": {
+      "source": "docs/cascade-accuracy.md, drawn with numpy.random.default_rng(seed) into a twelve-vector tangent and applied with glassbox.core.geometry.state_plus_tangent",
+      "order": ["lateral_and_vertical_position_m", "lateral_and_vertical_velocity_m_s", "attitude_tangent_rad", "body_rate_rad_s"],
+      "lateral_and_vertical_position_m": 0.15,
+      "lateral_and_vertical_velocity_m_s": 0.05,
+      "attitude_tangent_rad": 0.01,
+      "body_rate_rad_s": 0.02,
+      "meaning": "The only introduced disturbance: wind is zero, sensing is simulator truth, and nothing is added during the trial. Both arms of one repetition start from the same perturbed state, and the reference is the unperturbed task and does not move with it."
+    },
     "arm_order": [
       ["structured", "generic"],
       ["generic", "structured"]
@@ -119,7 +138,7 @@
     "solve_deadline_s": 0.05,
     "pacing": "paced fixed steps; the plant's simulated clock slows when control runs late",
     "plant_prewarm": "one discarded step at the initial command, then a reset, before the trial clock starts",
-    "meaning": "Both arms drive a freshly reset plant from the same initial state and command, over the same reference, for the same number of intervals. Arm order alternates between repetitions."
+    "meaning": "Both arms drive a freshly reset plant from the same perturbed initial state and the same initial command, over the same reference, for the same number of intervals. Arm order alternates between repetitions, and each repetition draws its own initial state from its declared seed."
   },
   "controller": {
     "tolerances_platform": "fixedwing",
@@ -157,6 +176,7 @@
     "definition": "glassbox.core.metrics.state_rmse_metrics over every completed control interval after the shared initial state",
     "gating": ["position_rmse_m", "attitude_rmse_deg", "terminated"],
     "informational": [
+      "pass_criterion",
       "deadline_misses",
       "solve_deadline_misses",
       "velocity_rmse_m_s",
@@ -165,8 +185,18 @@
       "maximum_command_bound_violation",
       "maximum_source_clock_lag_s"
     ],
+    "pass_criterion": {
+      "source": "docs/cascade-accuracy.md",
+      "channels": ["velocity_west position [m,world_nwu]", "altitude [m,world_nwu]"],
+      "tolerance_m": 0.5,
+      "settled_after_s": 2.0,
+      "minimum_fraction": 0.95,
+      "scored_samples": 281,
+      "unexecuted_interval": "counted as outside tolerance; a failed trial is not discarded",
+      "meaning": "The page's own pass criterion, recorded beside the RMSE rule and reported rather than gated: both absolute lateral and altitude errors at most 0.5 m in at least 95% of the 20 Hz samples at t >= 2 s, with no terminated trial. It is a provisional application requirement for this task, not a learned or universal flight tolerance, and it does not decide this run."
+    },
     "terminated": "a trial that did not complete every declared interval with finite observed states",
-    "meaning": "Deadline misses are host-specific scheduling measurements and inform rather than gate. Wall times are not a real-time claim."
+    "meaning": "Deadline misses are host-specific scheduling measurements and inform rather than gate. Wall times are not a real-time claim. The pass criterion is reported on every trial; the decision reads the RMSE rule and the regression reference."
   },
   "reference": {
     "file": "control-reference.json",

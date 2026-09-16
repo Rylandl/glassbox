@@ -1679,7 +1679,7 @@ def verify_platform(directory, manifest, reference=None):
 # --- the control tier: one Cascade trial set, two arms ----------------------
 
 CONTROL_MANIFEST_SHA256 = (
-    "b2dfefb3deb2acc7b638ed0deb9cf57068188755f4aa14cf108402607dab11db"
+    "69cb4d995246af95372bf0a685b8e40aa225174de06f249397d89ea47ad4d28e"
 )
 """Digest of the frozen control manifest this module is allowed to run."""
 
@@ -1719,23 +1719,155 @@ def frozen_control_manifest(path):
     return manifest
 
 
-def control_reference(initial_state, times, declared):
-    """The declared cruise reference, rebuilt from one initial state.
+def control_reference(anchor_state, times, declared):
+    """The declared tracking task, rebuilt from the unperturbed trim state.
 
-    A straight cruise carried forward at the initial state's own world velocity,
-    with a small cosine altitude variation and the climb rate that matches it.
-    ``verify`` rebuilds it from the saved initial state rather than believing
-    the saved reference rows, so a run cannot score itself against a reference
-    it invented.
+    The task of ``docs/cascade-accuracy.md``: cruise carried forward at the trim
+    state's own world velocity, with a lateral position sine and an altitude
+    sine about it and the world velocities that match them. The anchor is the
+    trim state, not a trial's own perturbed start, so every trial is scored
+    against the same task. ``verify`` rebuilds the rows from the saved anchor
+    rather than believing the saved reference, so a run cannot score itself
+    against a reference it invented.
     """
-    initial_state = np.asarray(initial_state, dtype=float)
+    anchor_state = np.asarray(anchor_state, dtype=float)
     times = np.asarray(times, dtype=float)
-    states = np.tile(initial_state, (len(times), 1))
-    rate = declared["rate_rad_s"]
-    states[:, 0:3] += times[:, None] * initial_state[3:6]
-    states[:, 2] += declared["altitude_amplitude_m"] * (1.0 - np.cos(rate * times))
-    states[:, 5] += declared["climb_rate_amplitude_m_s"] * np.sin(rate * times)
+    states = np.tile(anchor_state, (len(times), 1))
+    lateral = declared["lateral_amplitude_m"]
+    lateral_rate = declared["lateral_rate_rad_s"]
+    altitude = declared["altitude_amplitude_m"]
+    altitude_rate = declared["altitude_rate_rad_s"]
+    states[:, 0:3] += times[:, None] * anchor_state[3:6]
+    states[:, 1] += lateral * np.sin(lateral_rate * times)
+    states[:, 2] += altitude * np.sin(altitude_rate * times)
+    states[:, 4] += lateral * lateral_rate * np.cos(lateral_rate * times)
+    states[:, 5] += altitude * altitude_rate * np.cos(altitude_rate * times)
     return states
+
+
+CONTROL_TRACKING_ROWS = slice(1, 3)
+"""The lateral and vertical world-position rows the pass criterion reads."""
+
+
+def control_initial_state(manifest, anchor_state, seed):
+    """The declared per-trial perturbation of the trim state, from one seed.
+
+    The only disturbance the trial set introduces, exactly as
+    ``docs/cascade-accuracy.md`` declares it: a tangent-space offset drawn from
+    this seed and applied with the library's retraction, so the quaternion stays
+    on the unit sphere instead of acquiring a Euclidean displacement. Both arms
+    of one repetition fly from the same perturbed state.
+    """
+    import jax
+    import jax.numpy as jnp
+
+    from glassbox.core.geometry import state_plus_tangent
+
+    declared = manifest["trial"]["initial_state_perturbation"]
+    generator = np.random.default_rng(seed)
+    offset = np.zeros(12)
+    for rows, name in (
+        (slice(1, 3), "lateral_and_vertical_position_m"),
+        (slice(4, 6), "lateral_and_vertical_velocity_m_s"),
+        (slice(6, 9), "attitude_tangent_rad"),
+        (slice(9, 12), "body_rate_rad_s"),
+    ):
+        width = float(declared[name])
+        offset[rows] = generator.uniform(-width, width, offset[rows].size)
+    # The retraction runs in x64 wherever it is called from, so a trial start
+    # is the same bytes in a run and in a replay that did not enable it.
+    with jax.enable_x64(True):
+        moved = state_plus_tangent(
+            jnp.asarray(np.asarray(anchor_state, dtype=float)), jnp.asarray(offset)
+        )
+    return np.asarray(moved, dtype=float)
+
+
+def control_pass_criterion(states, anchor_state, manifest):
+    """The page's own pass criterion, measured from one trial's saved states.
+
+    Both absolute lateral and altitude errors at most the declared tolerance, in
+    at least the declared fraction of the samples after the declared settling
+    time, with no terminated trial. Every unexecuted interval counts as outside
+    tolerance and nothing is discarded, which is how
+    ``docs/cascade-accuracy.md`` accounts for a trial that stopped early. It is
+    reported on every trial and gates nothing: the decision reads the RMSE rule
+    and the regression reference.
+    """
+    declared = manifest["metrics"]["pass_criterion"]
+    trial = manifest["trial"]
+    requested = int(trial["intervals"])
+    times = np.arange(requested + 1) * trial["sample_interval_s"]
+    target = control_reference(anchor_state, times, manifest["tracking_reference"])
+    states = np.asarray(states, dtype=float)
+    executed = max(0, len(states) - 1)
+    error = np.full((requested, 2), np.inf)
+    if executed:
+        rows = slice(1, executed + 1)
+        error[:executed] = np.abs(
+            states[rows, CONTROL_TRACKING_ROWS] - target[rows, CONTROL_TRACKING_ROWS]
+        )
+    scored = times[1:] >= declared["settled_after_s"]
+    within = np.all(error <= declared["tolerance_m"], axis=1)
+    fraction = float(np.mean(within[scored])) if scored.any() else 0.0
+    return dict(
+        scored_samples=int(np.count_nonzero(scored)),
+        within_samples=int(np.count_nonzero(within[scored])),
+        within_tolerance_fraction=fraction,
+        lateral_rmse_m=_finite(np.sqrt(np.mean(error[scored, 0] ** 2))),
+        altitude_rmse_m=_finite(np.sqrt(np.mean(error[scored, 1] ** 2))),
+        terminated=bool(executed != requested),
+        met=bool(fraction >= declared["minimum_fraction"] and executed == requested),
+    )
+
+
+def control_excitation(manifest, recordings):
+    """Every command channel's excitation, per recording, as a fraction of range.
+
+    The calibration must contain the command directions the controller is asked
+    to use. That is a property of the recordings the caller supplies, measured
+    here and applied identically to both arms; nothing about it reaches the
+    learner, which is told the channels and nothing else.
+    """
+    declared = manifest["telemetry"]
+    ranges = np.asarray(declared["command_maximum"], dtype=float) - np.asarray(
+        declared["command_minimum"], dtype=float
+    )
+    if np.any(ranges <= 0):
+        raise ValueError("a declared command channel has no range to be excited in")
+    deviations, fractions = {}, {}
+    for name, flight in recordings:
+        commands = np.asarray(flight.controls, dtype=float)
+        if commands.ndim != 2 or commands.shape[1] != len(ranges):
+            raise ValueError(f"recording {name} does not carry the declared commands")
+        deviation = commands.std(axis=0)
+        deviations[name] = deviation.tolist()
+        fractions[name] = (deviation / ranges).tolist()
+    return dict(
+        declared_range=ranges.tolist(),
+        standard_deviation=deviations,
+        fraction=fractions,
+    )
+
+
+def control_excitation_shortfall(manifest, measured, names):
+    """The channels of these recordings that fall short of the declared fraction."""
+    required = float(
+        manifest["calibration"]["excitation"]["minimum_standard_deviation_fraction"]
+    )
+    short = []
+    for name in names:
+        for channel, value in enumerate(measured["fraction"][name]):
+            if not float(value) >= required:
+                short.append(
+                    dict(
+                        recording=name,
+                        channel=channel,
+                        fraction=float(value),
+                        minimum=required,
+                    )
+                )
+    return short
 
 
 def control_telemetry_spec(manifest):
@@ -2172,8 +2304,13 @@ def _control_prewarm(arm, manifest, warmup, reference_fn):
     arm.reset(states[0], commands[0])
 
 
-def _control_trial(manifest, arm, plant, reference_fn, directory):
-    """One paced tracking trial: one arm, one freshly reset plant, one reference."""
+def _control_trial(manifest, arm, plant, reference_fn, anchor_state, directory):
+    """One paced tracking trial: one arm, one freshly reset plant, one reference.
+
+    ``anchor_state`` is the unperturbed trim state the reference is built from.
+    The plant starts from its own declared perturbation of it, and both are
+    saved, so a replay can rebuild the reference and recheck the perturbation.
+    """
     from glassbox.control.plan import ReferenceTrajectory
     from glassbox.core.metrics import state_rmse_metrics
 
@@ -2270,6 +2407,7 @@ def _control_trial(manifest, arm, plant, reference_fn, directory):
         solver_used=np.asarray(solver_used, dtype=bool),
         used_fallback=np.asarray(fallbacks, dtype=bool),
         initial_state=np.asarray(plant.initial_state, dtype=float),
+        reference_anchor_state=np.asarray(anchor_state, dtype=float),
     )
     terminated = failure is not None or len(commands_array) != requested
     row = dict(
@@ -2279,6 +2417,7 @@ def _control_trial(manifest, arm, plant, reference_fn, directory):
         terminated=bool(terminated),
         failure=failure,
         tracking_rmse=metrics,
+        pass_criterion=control_pass_criterion(states_array, anchor_state, manifest),
         deadline_misses=int(np.sum(np.asarray(tick_times, dtype=float) > dt_s)),
         solve_deadline_misses=int(
             np.sum(np.asarray(solve_times, dtype=float) > deadline_s)
@@ -2328,6 +2467,20 @@ def _control_calibrate(manifest, output):
     training = [(f"recording-{s}", recordings[s]) for s in declared["training_seeds"]]
     reserved = [f"recording-{s}" for s in declared["reserved_seeds"]]
 
+    excitation = control_excitation(
+        manifest, [(f"recording-{s}", flight) for s, flight in recordings.items()]
+    )
+    short = control_excitation_shortfall(
+        manifest, excitation, [name for name, _ in training]
+    )
+    excitation["training_shortfall"] = short
+    print(json.dumps(dict(command_excitation=excitation["fraction"])), flush=True)
+    if short:
+        # The calibration is the evidence both arms are fitted from. A channel
+        # the recordings never move is a channel neither arm can be asked to
+        # use, so this fails before either fit rather than after both.
+        raise ValueError(f"calibration command excitation falls short: {short}")
+
     arm = manifest["arms"]["structured"]
     started = time.perf_counter()
     outcome = structured_fit(
@@ -2364,6 +2517,7 @@ def _control_calibrate(manifest, output):
             source_revision=manifest["plant"]["source_revision"],
             version=manifest["plant"]["version"],
         ),
+        command_excitation=excitation,
         structured_fit_wall_seconds=structured_wall,
         generic_fit_wall_seconds=generic_wall,
         generic_fingerprint=learned.fingerprint(),
@@ -2402,6 +2556,7 @@ def control_decide(manifest, rows, reference=None, reference_sha256=None):
     expected = {(index, arm) for index in range(repetitions) for arm in CONTROL_ARMS}
     keys = [(row.get("repetition"), row.get("arm")) for row in rows]
     breaches, rule_breaches, regressions, summary = [], [], [], {}
+    criteria = {}
     relative = manifest["reference"]["relative_tolerance"]
     absolute = manifest["reference"]["absolute_tolerance"]
     for index, arm in sorted(expected - set(keys)):
@@ -2416,6 +2571,10 @@ def control_decide(manifest, rows, reference=None, reference_sha256=None):
         if key not in expected or keys.count(key) > 1:
             continue
         name = f"{key[0]}-{key[1]}"
+        # Reported on every declared trial, including one that did not finish:
+        # the page counts an unexecuted interval as outside tolerance rather
+        # than discarding the trial.
+        criteria[name] = row.get("pass_criterion")
         if row.get("terminated") is not False:
             breaches.append(
                 dict(
@@ -2515,6 +2674,8 @@ def control_decide(manifest, rows, reference=None, reference_sha256=None):
         reference_compared=reference is not None,
         reference_sha256=reference_sha256,
         tracking_rmse=summary,
+        pass_criterion=criteria,
+        pass_criterion_meaning=manifest["metrics"]["pass_criterion"]["meaning"],
         meaning=manifest["decision"]["meaning"],
     )
 
@@ -2548,29 +2709,36 @@ def control(manifest_path, output):
             _control_calibrate(manifest, output)
         )
     declared = manifest["tracking_reference"]
+    trial = manifest["trial"]
+    with jax.enable_x64(True):
+        starts = [
+            control_initial_state(manifest, initial_state, seed)
+            for seed in trial["initial_state_seeds"]
+        ]
 
     def reference_fn(times):
         return control_reference(initial_state, times, declared)
 
     rows = []
-    for repetition in range(manifest["trial"]["repetitions"]):
-        order = manifest["trial"]["arm_order"][
-            repetition % len(manifest["trial"]["arm_order"])
-        ]
+    for repetition in range(trial["repetitions"]):
+        order = trial["arm_order"][repetition % len(trial["arm_order"])]
+        start = starts[repetition]
         for name in order:
             print(json.dumps(dict(tracking=f"{repetition}-{name}")), flush=True)
             arm = _control_arm(manifest, name, artifacts)
             _control_prewarm(arm, manifest, warmup, reference_fn)
-            plant = _control_tracking_plant(manifest, initial_state, initial_command)
+            plant = _control_tracking_plant(manifest, start, initial_command)
             trial_started = time.perf_counter()
             row = _control_trial(
                 manifest,
                 arm,
                 plant,
                 reference_fn,
+                initial_state,
                 output / f"trial-{repetition}" / name,
             )
             row["repetition"] = repetition
+            row["initial_state_seed"] = trial["initial_state_seeds"][repetition]
             row["trial_wall_seconds"] = time.perf_counter() - trial_started
             row["directory"] = f"trial-{repetition}/{name}"
             write(output / row["directory"] / "trial.json", row)
@@ -2581,6 +2749,7 @@ def control(manifest_path, output):
                     dict(
                         trial=f"{repetition}-{name}",
                         tracking_rmse=row["tracking_rmse"],
+                        pass_criterion=row["pass_criterion"],
                         terminated=row["terminated"],
                         deadline_misses=row["deadline_misses"],
                     )
@@ -2590,6 +2759,7 @@ def control(manifest_path, output):
     decision = control_decide(manifest, rows, reference, reference_digest)
     decision["wall_seconds"] = time.perf_counter() - started
     decision["calibration"] = dict(
+        command_excitation=calibration["command_excitation"]["fraction"],
         structured_fit_wall_seconds=calibration["structured_fit_wall_seconds"],
         generic_fit_wall_seconds=calibration["generic_fit_wall_seconds"],
         generic_fingerprint=calibration["generic_fingerprint"],
@@ -2639,6 +2809,8 @@ def verify_control(directory, manifest, reference=None):
     regression reference to the committed file, exactly as the other two tiers
     anchor theirs.
     """
+    import jax
+
     from glassbox.core.data import load_trajectory_npz, trajectory_content_digest
     from glassbox.core.metrics import state_rmse_metrics
 
@@ -2655,6 +2827,28 @@ def verify_control(directory, manifest, reference=None):
             raise ValueError(f"altered calibration recording: {name}")
     if set(calibration["training"]) & set(calibration["reserved"]):
         raise ValueError("a reserved recording was also used for fitting")
+    fresh = control_excitation(
+        manifest,
+        [
+            (name, load_trajectory_npz(directory / f"{name}.npz"))
+            for name in sorted(calibration["recordings"])
+        ],
+    )
+    saved = calibration["command_excitation"]
+    np.testing.assert_allclose(
+        fresh["declared_range"], saved["declared_range"], rtol=0, atol=0
+    )
+    if sorted(fresh["fraction"]) != sorted(saved["fraction"]):
+        raise ValueError("recorded command excitation covers different recordings")
+    for name, values in fresh["fraction"].items():
+        np.testing.assert_allclose(values, saved["fraction"][name], **SCORE_TOLERANCE)
+        np.testing.assert_allclose(
+            fresh["standard_deviation"][name],
+            saved["standard_deviation"][name],
+            **SCORE_TOLERANCE,
+        )
+    if control_excitation_shortfall(manifest, fresh, calibration["training"]):
+        raise ValueError("the saved calibration does not meet the declared excitation")
 
     learned = LearnedDynamics.load(directory / "generic.npz")
     if learned.fingerprint() != calibration["generic_fingerprint"]:
@@ -2679,6 +2873,7 @@ def verify_control(directory, manifest, reference=None):
             tick_times = data["tick_times_s"]
             solve_times = data["solve_times_s"]
             initial_state = data["initial_state"]
+            anchor_state = data["reference_anchor_state"]
             times = data["time_s"]
             if len(states) != len(commands) + 1 or len(times) != len(states):
                 raise ValueError(f"saved tracking arrays disagree: {row['directory']}")
@@ -2687,17 +2882,32 @@ def verify_control(directory, manifest, reference=None):
             )
             np.testing.assert_allclose(
                 saved_reference,
-                control_reference(initial_state, times, declared),
+                control_reference(anchor_state, times, declared),
                 rtol=0,
                 atol=1e-12,
             )
+            # A run cannot invent where a trial started either: the perturbed
+            # state is the declared draw from the repetition's own seed.
+            with jax.enable_x64(True):
+                np.testing.assert_allclose(
+                    initial_state,
+                    control_initial_state(
+                        manifest, anchor_state, row["initial_state_seed"]
+                    ),
+                    rtol=0,
+                    atol=1e-12,
+                )
+            np.testing.assert_allclose(states[0], initial_state, rtol=0, atol=1e-12)
             fresh = (
                 state_rmse_metrics(states[1:], saved_reference[1:])
                 if len(commands)
                 else None
             )
+            criterion = control_pass_criterion(states, anchor_state, manifest)
             misses = int(np.sum(tick_times > dt_s))
             solve_misses = int(np.sum(solve_times > trial["solve_deadline_s"]))
+        if criterion != row["pass_criterion"]:
+            raise ValueError(f"recomputed pass criterion differs: {row['directory']}")
         if (fresh is None) != (row["tracking_rmse"] is None):
             raise ValueError(f"tracking metric shape mismatch: {row['directory']}")
         if fresh is not None:
