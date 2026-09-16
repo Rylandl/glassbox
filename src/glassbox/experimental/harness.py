@@ -4820,6 +4820,12 @@ def _live_trial(
     and in nothing else; only the adopting arm is given a preparation callback
     and an adoption policy, which is what makes an offer possible at all.
 
+    The declared trial dither is added to whatever command the active controller
+    solved, on both arms and in every trial, and the sum is held in the declared
+    command box. What the learner is told was injected is the applied command
+    minus the solved one, so every streamed block carries the exogenous
+    component that actually reached the aircraft.
+
     Nothing a clock measured may reach the trajectory. The loop is not paced,
     the solver is given no deadline and therefore never falls back for want of
     time, the worker learns synchronously inside the ``submit`` that hands it a
