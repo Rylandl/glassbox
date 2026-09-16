@@ -8,3 +8,4 @@ tasks/
 .ruff_cache/
 dist/
 build/
+.claude/worktrees/
