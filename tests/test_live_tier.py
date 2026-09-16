@@ -1293,3 +1293,103 @@ def test_a_frozen_arm_runs_the_same_learner_and_never_swaps(tmp_path):
     # It still scores and refits every block: the two arms differ in the swap.
     assert len(row["blocks"]) == 1
     assert row["blocks"][0]["refit_wall_seconds"] > 0.0
+
+
+# --- the commands themselves, end to end ------------------------------------
+
+
+def _shortened(path, manifest, monkeypatch, constant):
+    """Write a shortened manifest and let the harness run that one instead.
+
+    The frozen digest is the gate on which manifest a *measurement* may use.
+    The two tests below are not measurements: they run the commands end to end
+    to prove those paths still work, on a trial short enough to belong in a test
+    suite, so they point the digest constant at the manifest they wrote. Every
+    other constant these manifests declare is the frozen one, and no committed
+    file is touched.
+    """
+    path.write_text(json.dumps(manifest, indent=2, allow_nan=False) + "\n")
+    monkeypatch.setattr(harness, constant, harness.sha256(path), raising=True)
+    return path
+
+
+def _smoke_manifest(source, **trial):
+    manifest = copy.deepcopy(source)
+    manifest["arms"]["structured"]["optimization_steps"] = 3
+    manifest["trial"].update(trial)
+    manifest["metrics"]["pass_criterion"]["settled_after_s"] = 0.2
+    return manifest
+
+
+@pytest.mark.cascade
+def test_the_control_command_runs_and_replays_end_to_end(tmp_path, monkeypatch):
+    """The whole `control` command, including the row every trial writes."""
+    pytest.importorskip("cascade")
+
+    source = harness.frozen_control_manifest(
+        Path(__file__).resolve().parents[1] / "docs/harness/control-v3.json"
+    )
+    path = _shortened(
+        tmp_path / "control.json",
+        _smoke_manifest(source, intervals=20, duration_s=1.0),
+        monkeypatch,
+        "CONTROL_MANIFEST_SHA256",
+    )
+    decision = harness.control(path, tmp_path / "run")
+    assert decision["manifest"] == "control-v3"
+    assert decision["trials"] == 4
+    rows = harness.read(tmp_path / "run" / "results.json")
+    assert len(rows) == 4
+    assert {(row["repetition"], row["arm"]) for row in rows} == {
+        (repetition, arm) for repetition in range(2) for arm in harness.CONTROL_ARMS
+    }
+    for row in rows:
+        assert row["completed_intervals"] == 20
+        assert row["terminated"] is False
+        assert math.isfinite(row["trial_wall_seconds"])
+        assert math.isfinite(row["tracking_rmse"]["position_rmse_m"])
+    replay = harness.verify(tmp_path / "run", tmp_path / "control-reference.json")
+    assert replay["tier"] == "control"
+    assert replay["verified_trials"] == 4
+
+
+@pytest.mark.cascade
+def test_the_live_command_runs_and_replays_end_to_end(tmp_path, monkeypatch):
+    """The whole `live` command, including the row every trial writes."""
+    pytest.importorskip("cascade")
+
+    manifest = _smoke_manifest(
+        harness.frozen_live_manifest(MANIFEST), intervals=70, duration_s=3.5
+    )
+    manifest["live"]["transport"].update(
+        block_steps=20,
+        block_duration_s=1.0,
+        blocks_per_trial=2,
+        offer_release_offset_intervals=20,
+    )
+    path = _shortened(
+        tmp_path / "live.json", manifest, monkeypatch, "LIVE_MANIFEST_SHA256"
+    )
+    decision = harness.live(path, tmp_path / "run")
+    assert decision["manifest"] == "live-v2"
+    assert decision["trials"] == 4
+    rows = harness.read(tmp_path / "run" / "results.json")
+    assert len(rows) == 4
+    assert {(row["repetition"], row["arm"]) for row in rows} == {
+        (repetition, arm) for repetition in range(2) for arm in harness.LIVE_ARMS
+    }
+    offset = manifest["live"]["transport"]["offer_release_offset_intervals"]
+    for row in rows:
+        assert row["completed_intervals"] == 70
+        assert row["terminated"] is False and row["worker_error"] is None
+        assert row["dropped_blocks"] == 0
+        assert math.isfinite(row["wall"]["trial_seconds"])
+        assert math.isfinite(row["tracking_rmse"]["position_rmse_m"])
+        # The swap is where the gates and the declared offset put it, or absent.
+        _, expected = harness.live_expected_swap(
+            row["blocks"], offset, manifest["trial"]["intervals"]
+        )
+        assert row["swap_interval"] == (expected if row["arm"] == "adopting" else None)
+    replay = harness.verify(tmp_path / "run", tmp_path / "live-reference.json")
+    assert replay["tier"] == "live"
+    assert replay["verified_trials"] == 4

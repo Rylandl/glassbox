@@ -3376,7 +3376,7 @@ def control(manifest_path, output):
             )
             row["repetition"] = repetition
             row["initial_state_seed"] = trial["initial_state_seeds"][repetition]
-            row["wall"]["trial_seconds"] = time.perf_counter() - trial_started
+            row["trial_wall_seconds"] = time.perf_counter() - trial_started
             row["directory"] = f"trial-{repetition}/{name}"
             write(output / row["directory"] / "trial.json", row)
             rows.append(row)
