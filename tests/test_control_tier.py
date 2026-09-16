@@ -58,7 +58,7 @@ from glassbox.experimental.sequence_collection import (
     SequenceSegment,
 )
 
-MANIFEST = Path(__file__).resolve().parents[1] / "docs/harness/control-v3.json"
+MANIFEST = Path(__file__).resolve().parents[1] / "docs/harness/control-v4.json"
 DT_S = 0.05
 MINIMUM = np.array([0.0, -0.35, -0.35])
 MAXIMUM = np.array([1.0, 0.35, 0.35])
@@ -518,7 +518,7 @@ def test_plan_values_carry_history_without_changing_how_a_belief_is_presented():
 
 def test_the_control_manifest_digest_is_the_gate(tmp_path):
     manifest = harness.frozen_control_manifest(MANIFEST)
-    assert manifest["id"] == "control-v3"
+    assert manifest["id"] == "control-v4"
     assert manifest["decision"]["enforced"] is True
     assert "this manifest" in manifest["decision"]["gates_from"]
     assert tuple(manifest["telemetry"]["observed_channels"]) == OBSERVED_CHANNELS
@@ -534,7 +534,7 @@ def test_the_control_manifest_digest_is_the_gate(tmp_path):
     )
     loosened = copy.deepcopy(manifest)
     loosened["decision"]["enforced"] = False
-    path = tmp_path / "control-v3.json"
+    path = tmp_path / "control-v4.json"
     path.write_text(json.dumps(loosened, indent=2) + "\n")
     with pytest.raises(ValueError, match="differs from the frozen harness contract"):
         harness.frozen_control_manifest(path)
@@ -763,7 +763,7 @@ def test_the_committed_control_reference_covers_every_trial(manifest):
 
 
 def test_the_committed_manifest_matches_the_module_constant():
-    assert harness.COMMITTED_CONTROL_MANIFEST.name == "control-v3.json"
+    assert harness.COMMITTED_CONTROL_MANIFEST.name == "control-v4.json"
     assert harness.sha256(MANIFEST) == harness.CONTROL_MANIFEST_SHA256
 
 
@@ -784,8 +784,6 @@ def _row(repetition, arm, position, attitude, **overrides):
             attitude_rmse_deg=attitude,
             angular_velocity_rmse_rad_s=0.05,
         ),
-        deadline_misses=3,
-        solve_deadline_misses=0,
         directory=f"trial-{repetition}/{arm}",
     )
     row.update(overrides)
@@ -1141,13 +1139,16 @@ def _fabricate_run(directory, manifest, learned, offsets, with_reference=True):
                 states=states,
                 reference_states=reference,
                 commands=np.zeros((intervals, 3)),
-                tick_times_s=np.full(intervals, 0.01),
-                source_clock_lags_s=np.zeros(intervals),
-                solve_times_s=np.full(intervals, 0.002),
                 solver_used=np.ones(intervals, dtype=bool),
                 used_fallback=np.zeros(intervals, dtype=bool),
                 initial_state=initial_state,
                 reference_anchor_state=anchor_state,
+            )
+            np.savez_compressed(
+                case / "timing.npz",
+                tick_times_s=np.full(intervals, 0.01),
+                solve_times_s=np.full(intervals, 0.002),
+                deadline_assessed=np.zeros(intervals, dtype=bool),
             )
             metrics = state_rmse_metrics(states[1:], reference[1:])
             row = dict(
@@ -1162,10 +1163,19 @@ def _fabricate_run(directory, manifest, learned, offsets, with_reference=True):
                 pass_criterion=harness.control_pass_criterion(
                     states, anchor_state, manifest
                 ),
-                deadline_misses=0,
-                solve_deadline_misses=0,
+                solver_statuses={"converged": intervals},
+                wall=harness.simulated_time_wall(
+                    meaning=harness.SIMULATED_TIME_MEANING,
+                    dt_s=DT_S,
+                    deadline_s=manifest["trial"]["solve_deadline_s"],
+                    tick_times=[0.01] * intervals,
+                    solve_times=[0.002] * intervals,
+                    elapsed_s=1.0,
+                    solve_deadline_applied=False,
+                    deadline_assessed_intervals=0,
+                ),
                 directory=f"trial-{repetition}/{arm}",
-                files=harness._files(case, ["tracking.npz"]),
+                files=harness._files(case, ["tracking.npz", "timing.npz"]),
             )
             harness.write(case / "trial.json", row)
             rows.append(row)
@@ -1375,6 +1385,196 @@ def test_a_control_replay_recomputes_the_reference_regressions(
     decision["reference_regressions"] = [dict(trial="0-generic", gate="invented")]
     harness.write(directory / "decision.json", decision)
     with pytest.raises(ValueError, match="reference_regressions"):
+        harness.verify_control(directory, manifest, _anchor(directory))
+
+
+# --- simulated time ---------------------------------------------------------
+
+
+class _RecordingArm:
+    """One arm that answers with a declared command and remembers what it solved.
+
+    It stands in for a fitted model so the loop itself can be measured: every
+    solve is recorded with the keywords the loop passed, so a test can say both
+    what the solver was asked for and what the plant was stepped with.
+    """
+
+    name = "recording"
+    prediction_steps = 5
+
+    def __init__(self, commands):
+        self.commands = np.asarray(commands, dtype=float)
+        self.solved = []
+        self.keywords = []
+        self.applied = []
+        self.observed = 0
+
+    @property
+    def ready(self):
+        # Two intervals of warm-up, so the not-ready branch is exercised too.
+        return self.observed > 2
+
+    def reset(self, initial_state, initial_command):
+        self.observed = 0
+
+    def observe(self, state):
+        self.observed += 1
+
+    def command_applied(self, command):
+        self.applied.append(np.asarray(command, dtype=float).copy())
+
+    def solve(self, state, reference, previous_command, **keywords):
+        self.keywords.append(set(keywords))
+        # Recorded as the array the loop is handed, so a test comparing it
+        # with the applied command compares the solve with what was flown and
+        # not one array with a differently rounded copy of itself.
+        solved = jnp.asarray(self.commands[len(self.solved) % len(self.commands)])
+        self.solved.append(np.asarray(solved, dtype=float))
+        return SimpleNamespace(
+            command=solved,
+            warm_start=None,
+            status="converged",
+            used_fallback=False,
+            deadline_met=None,
+            diagnostics=SimpleNamespace(solve_time_s=0.003),
+        )
+
+    def summary(self):
+        return dict(arm=self.name)
+
+
+def _stationary_plant(state, command):
+    """A plant that holds its state, so the loop is the only thing measured."""
+
+    return SimpleNamespace(
+        initial_state=np.asarray(state, dtype=float).copy(),
+        initial_command=np.asarray(command, dtype=float).copy(),
+        advance=lambda applied: np.asarray(state, dtype=float).copy(),
+        source="stationary",
+    )
+
+
+def test_the_trial_applies_the_solved_command_and_records_its_solve_times(
+    tmp_path, manifest
+):
+    """The solver's command is the plant's command, and the clock decides nothing.
+
+    control-v4 computes the trajectory in simulated time: the solver is given
+    no deadline, so nothing it returns is a fallback for want of time, and the
+    command it solved is the command the plant is stepped with on every
+    interval the model was ready. What a clock measured is still recorded, in
+    timing.npz and in the row's wall block, and the trajectory carries none of
+    it.
+    """
+
+    manifest = copy.deepcopy(manifest)
+    manifest["trial"]["intervals"] = 8
+    manifest["trial"]["duration_s"] = 8 * DT_S
+    manifest["metrics"]["pass_criterion"]["settled_after_s"] = 0.1
+    commands = np.array([[0.44, 0.01, -0.02], [0.46, -0.01, 0.03]])
+    arm = _RecordingArm(commands)
+    plant = _stationary_plant(TRIM, np.array([0.45, 0.0, 0.0]))
+
+    def reference_fn(times):
+        return harness.control_reference(TRIM, times, manifest["tracking_reference"])
+
+    row = harness._control_trial(
+        manifest, arm, plant, reference_fn, TRIM, tmp_path / "t"
+    )
+
+    # No solve was given a deadline, and the row says so from the solver's own
+    # report rather than from the manifest.
+    assert arm.keywords and all(keys == {"warm_start"} for keys in arm.keywords)
+    wall = row["wall"]
+    assert wall["solve_deadline_applied"] is False
+    assert wall["deadline_assessed_intervals"] == 0
+    assert "deadline_exceeded" not in row["solver_statuses"]
+    assert row["fallback_count"] == 0
+
+    # The solve-time statistics exist, are the ones the manifest calls
+    # informational, and are measurements rather than zeroes.
+    assert wall["maximum_solve_seconds"] == pytest.approx(0.003)
+    assert wall["solve_deadline_s"] == manifest["trial"]["solve_deadline_s"]
+    assert wall["solves_over_deadline"] == 0
+    assert wall["intervals_over_sample_interval"] >= 0
+    assert math.isfinite(wall["maximum_interval_seconds"])
+    assert math.isfinite(wall["elapsed_seconds"])
+
+    with np.load(tmp_path / "t" / "timing.npz", allow_pickle=False) as timing:
+        assert len(timing["solve_times_s"]) == 8
+        assert len(timing["tick_times_s"]) == 8
+        assert not timing["deadline_assessed"].any()
+
+    # The applied commands are the solved ones, interval for interval, and the
+    # two warm-up intervals hold the initial command rather than inventing one.
+    with np.load(tmp_path / "t" / "tracking.npz", allow_pickle=False) as tracking:
+        applied = tracking["commands"]
+        used = tracking["solver_used"]
+        # Nothing a clock measured reaches the trajectory's own artifact.
+        assert "solve_times_s" not in tracking
+        assert "tick_times_s" not in tracking
+        assert "source_clock_lags_s" not in tracking
+    assert len(applied) == 8
+    np.testing.assert_array_equal(used, [False, False] + [True] * 6)
+    np.testing.assert_array_equal(applied[:2], np.tile(plant.initial_command, (2, 1)))
+    np.testing.assert_array_equal(applied[2:], np.asarray(arm.solved))
+    np.testing.assert_array_equal(applied, np.asarray(arm.applied))
+    assert row["model_not_ready_intervals"] == 2
+
+
+def test_the_replay_rejects_a_run_whose_solve_times_assessed_a_deadline(
+    tmp_path, manifest, learned
+):
+    """A recorded deadline is a rejected run, not a reported measurement."""
+
+    directory = tmp_path / "control-run"
+    _fabricate_run(directory, manifest, learned, dict(generic=0.4, structured=0.5))
+    harness.verify_control(directory, manifest, _anchor(directory))
+
+    case = directory / "trial-0" / "generic"
+    row = harness.read(case / "trial.json")
+    row["wall"]["deadline_assessed_intervals"] = 1
+    harness.write(case / "trial.json", row)
+    rows = harness.read(directory / "results.json")
+    rows[0] = row
+    harness.write(directory / "results.json", rows)
+    with pytest.raises(ValueError, match="a deadline was assessed"):
+        harness.verify_control(directory, manifest, _anchor(directory))
+
+
+def test_the_replay_rejects_a_run_that_reports_a_deadline_expiring(
+    tmp_path, manifest, learned
+):
+    """A solver status is the other thing that can say a deadline decided."""
+
+    directory = tmp_path / "control-run"
+    _fabricate_run(directory, manifest, learned, dict(generic=0.4, structured=0.5))
+    case = directory / "trial-0" / "generic"
+    row = harness.read(case / "trial.json")
+    row["solver_statuses"] = {"converged": 319, "deadline_exceeded": 1}
+    harness.write(case / "trial.json", row)
+    rows = harness.read(directory / "results.json")
+    rows[0] = row
+    harness.write(directory / "results.json", rows)
+    with pytest.raises(ValueError, match="cut short by a deadline"):
+        harness.verify_control(directory, manifest, _anchor(directory))
+
+
+def test_the_replay_recomputes_the_recorded_solve_time_statistics(
+    tmp_path, manifest, learned
+):
+    """The counts decide nothing, which is why the replay recomputes them."""
+
+    directory = tmp_path / "control-run"
+    _fabricate_run(directory, manifest, learned, dict(generic=0.4, structured=0.5))
+    case = directory / "trial-0" / "generic"
+    row = harness.read(case / "trial.json")
+    row["wall"]["solves_over_deadline"] = 7
+    harness.write(case / "trial.json", row)
+    rows = harness.read(directory / "results.json")
+    rows[0] = row
+    harness.write(directory / "results.json", rows)
+    with pytest.raises(ValueError, match="recomputed host measurements differ"):
         harness.verify_control(directory, manifest, _anchor(directory))
 
 

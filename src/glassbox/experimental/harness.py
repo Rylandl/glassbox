@@ -2221,6 +2221,60 @@ def verify_platform(directory, manifest, reference=None):
     )
 
 
+# --- simulated time: what a clock measured, recorded and read by nothing ----
+
+SIMULATED_TIME_MEANING = (
+    "host measurements of this run only. None of them enters the trajectory, a "
+    "command or any metric, and two runs of this tier differ in all of them."
+)
+"""What a simulated-time tier's ``wall`` block is, stated in the block itself."""
+
+
+def simulated_time_wall(
+    *, meaning, dt_s, deadline_s, tick_times, solve_times, elapsed_s, **extra
+):
+    """The host measurements of one trial computed in simulated time.
+
+    Shared by the live tier and the control tier. Both compute their trajectory
+    from the plant, the models and the reference alone, and both still measure
+    how long the host took to do it. Everything here is a measurement of one
+    run on one machine: it is recorded because it was measured, it is reported,
+    and nothing that decides a run reads it back. ``deadline_s`` is the
+    threshold the solve times are counted against, not a deadline any solve was
+    given.
+    """
+    ticks = np.asarray(tick_times, dtype=float)
+    solves = np.asarray(solve_times, dtype=float)
+    return dict(
+        meaning=meaning,
+        **extra,
+        maximum_interval_seconds=max(tick_times, default=0.0),
+        maximum_solve_seconds=max(solve_times, default=0.0),
+        intervals_over_sample_interval=int(np.sum(ticks > dt_s)),
+        solves_over_deadline=int(np.sum(solves > deadline_s)),
+        solve_deadline_s=deadline_s,
+        elapsed_seconds=elapsed_s,
+    )
+
+
+def verify_simulated_time_wall(
+    wall, *, dt_s, deadline_s, tick_times, solve_times, label
+):
+    """Recompute a recorded ``wall`` block's two counts from the saved times.
+
+    They decide nothing, which is exactly why they are rechecked: the point of
+    the block is that it is a measurement the trajectory did not read, and a
+    replay that recomputes it from the saved per-interval times can say so.
+    """
+    over_interval = int(np.sum(np.asarray(tick_times, dtype=float) > dt_s))
+    over_deadline = int(np.sum(np.asarray(solve_times, dtype=float) > deadline_s))
+    if (
+        over_interval != wall["intervals_over_sample_interval"]
+        or over_deadline != wall["solves_over_deadline"]
+    ):
+        raise ValueError(f"recomputed host measurements differ: {label}")
+
+
 # --- the control tier: one Cascade trial set, two arms ----------------------
 
 CONTROL_MANIFEST_SHA256 = (
@@ -2269,6 +2323,10 @@ def frozen_control_manifest(path):
     trial = manifest["trial"]
     if trial["intervals"] != round(trial["duration_s"] / trial["sample_interval_s"]):
         raise ValueError("manifest trial duration and interval count disagree")
+    # This tier's trajectory is a function of the plant, the models and the
+    # reference alone, which a solve cut short for want of time would break.
+    if trial["solver_deadline_applied"] is not False:
+        raise ValueError("this tier's solver is given no deadline")
     return manifest
 
 
@@ -2872,11 +2930,20 @@ def _control_prewarm(arm, manifest, warmup, reference_fn):
 
 
 def _control_trial(manifest, arm, plant, reference_fn, anchor_state, directory):
-    """One paced tracking trial: one arm, one freshly reset plant, one reference.
+    """One tracking trial in simulated time: one arm, one plant, one reference.
 
     ``anchor_state`` is the unperturbed trim state the reference is built from.
     The plant starts from its own declared perturbation of it, and both are
     saved, so a replay can rebuild the reference and recheck the perturbation.
+
+    Nothing a clock measured may reach the trajectory, which is what the live
+    tier already does and what ``control-v4`` adopts. Interval ``k`` is the
+    state at ``k`` times the sample interval: the loop is not paced, the solver
+    is given no deadline and therefore never falls back for want of time, and
+    the command it solved is the command the plant is stepped with. Solve
+    times, interval times and the count of solves over the sample interval are
+    still measured, and are recorded in a separate artifact and a separate
+    block of the row that nothing reads back.
     """
     from glassbox.control.plan import ReferenceTrajectory
     from glassbox.core.metrics import state_rmse_metrics
@@ -2890,35 +2957,30 @@ def _control_trial(manifest, arm, plant, reference_fn, anchor_state, directory):
     previous = plant.initial_command.copy()
     arm.reset(state, previous)
     observed = [state.copy()]
-    applied, tick_times, lags, solve_times = [], [], [], []
-    solver_used, fallbacks, statuses = [], [], []
+    applied, tick_times, solve_times = [], [], []
+    solver_used, fallbacks, statuses, assessed = [], [], [], []
     warm_start = None
     failure = None
     started = time.monotonic()
     for index in range(requested):
-        scheduled = started + index * dt_s
-        remaining = scheduled - time.monotonic()
-        if remaining > 0:
-            time.sleep(remaining)
         tick = time.monotonic()
-        lags.append(max(0.0, tick - scheduled))
         arm.observe(state)
         if arm.ready:
             future = (index + np.arange(arm.prediction_steps + 1)) * dt_s
             reference = ReferenceTrajectory(reference_fn(future))
-            result = arm.solve(
-                state,
-                reference,
-                previous,
-                warm_start=warm_start,
-                deadline_s=deadline_s,
-            )
+            # No deadline: a solve cut short by a busy host would put the wall
+            # clock into the commands, and this tier's trajectory is a function
+            # of the plant, the models and the reference alone.
+            result = arm.solve(state, reference, previous, warm_start=warm_start)
             command = np.asarray(result.command, dtype=float)
             warm_start = result.warm_start
             solve_times.append(float(result.diagnostics.solve_time_s))
             solver_used.append(True)
             fallbacks.append(bool(result.used_fallback))
             statuses.append(str(result.status))
+            # ``deadline_met`` is None exactly when no deadline was assessed,
+            # so this array is the run's own record of having been given none.
+            assessed.append(result.deadline_met is not None)
         else:
             # No forecast exists yet: the loop holds the command it is already
             # applying rather than fabricating the history one would need.
@@ -2927,6 +2989,7 @@ def _control_trial(manifest, arm, plant, reference_fn, anchor_state, directory):
             solver_used.append(False)
             fallbacks.append(False)
             statuses.append("model_not_ready")
+            assessed.append(False)
         next_state = np.asarray(plant.advance(command), dtype=float)
         if not np.isfinite(next_state).all():
             failure = "nonfinite plant state"
@@ -2962,19 +3025,26 @@ def _control_trial(manifest, arm, plant, reference_fn, anchor_state, directory):
         if len(commands_array)
         else 0.0
     )
+    # The trajectory and the clock live in different files. Everything in
+    # tracking.npz is a function of the plant, the models and the reference, so
+    # two runs of this tier produce it byte for byte; nothing in timing.npz is,
+    # and nothing reads it back.
     np.savez_compressed(
         directory / "tracking.npz",
         time_s=times,
         states=states_array,
         reference_states=reference_states,
         commands=commands_array,
-        tick_times_s=np.asarray(tick_times, dtype=float),
-        source_clock_lags_s=np.asarray(lags, dtype=float),
-        solve_times_s=np.asarray(solve_times, dtype=float),
         solver_used=np.asarray(solver_used, dtype=bool),
         used_fallback=np.asarray(fallbacks, dtype=bool),
         initial_state=np.asarray(plant.initial_state, dtype=float),
         reference_anchor_state=np.asarray(anchor_state, dtype=float),
+    )
+    np.savez_compressed(
+        directory / "timing.npz",
+        tick_times_s=np.asarray(tick_times, dtype=float),
+        solve_times_s=np.asarray(solve_times, dtype=float),
+        deadline_assessed=np.asarray(assessed, dtype=bool),
     )
     terminated = failure is not None or len(commands_array) != requested
     row = dict(
@@ -2985,21 +3055,24 @@ def _control_trial(manifest, arm, plant, reference_fn, anchor_state, directory):
         failure=failure,
         tracking_rmse=metrics,
         pass_criterion=control_pass_criterion(states_array, anchor_state, manifest),
-        deadline_misses=int(np.sum(np.asarray(tick_times, dtype=float) > dt_s)),
-        solve_deadline_misses=int(
-            np.sum(np.asarray(solve_times, dtype=float) > deadline_s)
-        ),
         model_not_ready_intervals=int(statuses.count("model_not_ready")),
         fallback_count=int(sum(fallbacks)),
         solver_statuses={
             status: statuses.count(status) for status in sorted(set(statuses))
         },
         maximum_command_bound_violation=bound_violation,
-        maximum_source_clock_lag_s=max(lags, default=0.0),
-        maximum_tick_time_s=max(tick_times, default=0.0),
-        control_elapsed_s=elapsed_s,
+        wall=simulated_time_wall(
+            meaning=SIMULATED_TIME_MEANING,
+            dt_s=dt_s,
+            deadline_s=deadline_s,
+            tick_times=tick_times,
+            solve_times=solve_times,
+            elapsed_s=elapsed_s,
+            solve_deadline_applied=False,
+            deadline_assessed_intervals=int(sum(assessed)),
+        ),
         controller=arm.summary(),
-        files=_files(directory, ["tracking.npz"]),
+        files=_files(directory, ["tracking.npz", "timing.npz"]),
     )
     write(directory / "trial.json", row)
     return row
@@ -3376,7 +3449,7 @@ def control(manifest_path, output):
             )
             row["repetition"] = repetition
             row["initial_state_seed"] = trial["initial_state_seeds"][repetition]
-            row["trial_wall_seconds"] = time.perf_counter() - trial_started
+            row["wall"]["trial_seconds"] = time.perf_counter() - trial_started
             row["directory"] = f"trial-{repetition}/{name}"
             write(output / row["directory"] / "trial.json", row)
             rows.append(row)
@@ -3388,7 +3461,7 @@ def control(manifest_path, output):
                         tracking_rmse=row["tracking_rmse"],
                         pass_criterion=row["pass_criterion"],
                         terminated=row["terminated"],
-                        deadline_misses=row["deadline_misses"],
+                        wall=row["wall"]["elapsed_seconds"],
                     )
                 ),
                 flush=True,
@@ -3527,10 +3600,14 @@ def _verify_calibration(directory, manifest):
 def verify_control(directory, manifest, reference=None):
     """Recompute every control metric and the decision from saved arrays.
 
-    This replay never reruns the plant and never reruns the solver: neither one
-    is deterministic under a wall clock, and rerunning either would be a new
-    measurement rather than a check of this one. What it does check is
-    everything the decision actually read. Every recorded artifact hash is
+    This replay never reruns the plant and never reruns the solver: rerunning
+    either would be a second measurement rather than a check of this one, and
+    the run whose determinism the tier claims is the one that was saved. What
+    it does check is everything the decision actually read, and that the run
+    was computed in simulated time as far as its own artifacts can say: the
+    recorded solve times are recomputed into the counts the row reports, and a
+    row claiming that a deadline was assessed, or a solver status saying one
+    expired, is rejected. Every recorded artifact hash is
     recomputed, including the calibration recordings and both fitted models, so
     an altered artifact is rejected. Every metric is recomputed from the saved
     per-interval tracking arrays with the library's own metric code. The
@@ -3559,12 +3636,14 @@ def verify_control(directory, manifest, reference=None):
         for name, digest in row["files"].items():
             if sha256(case / name) != digest:
                 raise ValueError(f"altered artifact: {row['directory']}/{name}")
+        with np.load(case / "timing.npz", allow_pickle=False) as data:
+            tick_times = data["tick_times_s"]
+            solve_times = data["solve_times_s"]
+            deadline_assessed = data["deadline_assessed"]
         with np.load(case / "tracking.npz", allow_pickle=False) as data:
             states = data["states"]
             commands = data["commands"]
             saved_reference = data["reference_states"]
-            tick_times = data["tick_times_s"]
-            solve_times = data["solve_times_s"]
             initial_state = data["initial_state"]
             anchor_state = data["reference_anchor_state"]
             times = data["time_s"]
@@ -3597,8 +3676,6 @@ def verify_control(directory, manifest, reference=None):
                 else None
             )
             criterion = control_pass_criterion(states, anchor_state, manifest)
-            misses = int(np.sum(tick_times > dt_s))
-            solve_misses = int(np.sum(solve_times > trial["solve_deadline_s"]))
         if criterion != row["pass_criterion"]:
             raise ValueError(f"recomputed pass criterion differs: {row['directory']}")
         if (fresh is None) != (row["tracking_rmse"] is None):
@@ -3611,11 +3688,33 @@ def verify_control(directory, manifest, reference=None):
                     value, row["tracking_rmse"][metric], **SCORE_TOLERANCE
                 )
             row["tracking_rmse"] = fresh
+        wall = row["wall"]
+        verify_simulated_time_wall(
+            wall,
+            dt_s=dt_s,
+            deadline_s=trial["solve_deadline_s"],
+            tick_times=tick_times,
+            solve_times=solve_times,
+            label=row["directory"],
+        )
+        # The manifest says the solver was given no deadline, and a run that
+        # recorded otherwise is rejected rather than reported. Three saved
+        # facts can say it: the flag the row asserts, the per-interval record
+        # of whether a deadline was assessed at all, and the solver statuses.
+        # None of them can prove a deadline was absent, but each of them
+        # rejects a run that claims one decided something.
         if (
-            misses != row["deadline_misses"]
-            or solve_misses != (row["solve_deadline_misses"])
+            wall.get("solve_deadline_applied") is not False
+            or wall.get("deadline_assessed_intervals") != 0
+            or int(np.sum(deadline_assessed)) != wall.get("deadline_assessed_intervals")
+            or len(deadline_assessed) != len(solve_times)
         ):
-            raise ValueError(f"recomputed deadline misses differ: {row['directory']}")
+            raise ValueError(
+                f"the recorded solve times claim a deadline was assessed: "
+                f"{row['directory']}"
+            )
+        if row.get("solver_statuses", {}).get("deadline_exceeded"):
+            raise ValueError(f"a solve was cut short by a deadline: {row['directory']}")
         terminated = len(commands) != row["requested_intervals"]
         if (
             terminated != bool(row["terminated"])
@@ -3661,10 +3760,12 @@ def verify_control(directory, manifest, reference=None):
         decision=decision,
         meaning=(
             "A replay of saved evidence: recorded hashes, metrics recomputed from "
-            "the saved per-interval tracking arrays, and the reference rebuilt "
-            "from the saved initial state. The plant and the solver are not "
-            "rerun, because rerunning either would be a new measurement rather "
-            "than a check of this one."
+            "the saved per-interval tracking arrays, the reference rebuilt from "
+            "the saved initial state, and the recorded host measurements "
+            "recomputed from the saved solve and interval times so a run cannot "
+            "claim a deadline decided something. The plant and the solver are "
+            "not rerun, because rerunning either would be a second measurement "
+            "rather than a check of this one."
         ),
     )
 
@@ -4766,12 +4867,17 @@ def _live_trial(
             status: statuses.count(status) for status in sorted(set(statuses))
         },
         maximum_command_bound_violation=bound_violation,
-        wall=dict(
+        wall=simulated_time_wall(
             meaning=(
                 "host measurements of this run only. None of them enters the "
                 "trajectory, the block scores, the swap or any metric, and two "
                 "runs of this tier differ in all of them."
             ),
+            dt_s=dt_s,
+            deadline_s=deadline_s,
+            tick_times=tick_times,
+            solve_times=solve_times,
+            elapsed_s=elapsed_s,
             maximum_refit_seconds=max(
                 (entry["refit_wall_seconds"] for entry in blocks), default=0.0
             ),
@@ -4781,17 +4887,7 @@ def _live_trial(
             refit_budget_seconds=float(
                 manifest["live"]["refit"]["budget"]["wall_seconds"]
             ),
-            maximum_interval_seconds=max(tick_times, default=0.0),
-            maximum_solve_seconds=max(solve_times, default=0.0),
             maximum_telemetry_seconds=max(telemetry_times, default=0.0),
-            intervals_over_sample_interval=int(
-                np.sum(np.asarray(tick_times, dtype=float) > dt_s)
-            ),
-            solves_over_deadline=int(
-                np.sum(np.asarray(solve_times, dtype=float) > deadline_s)
-            ),
-            solve_deadline_s=deadline_s,
-            elapsed_seconds=elapsed_s,
         ),
         refiner=refiner.summary(),
         transport=transport_summary,
@@ -5026,11 +5122,6 @@ def verify_live(directory, manifest, reference=None):
                 states, saved_reference, row["segment_swap_interval"]
             )
             criterion = control_pass_criterion(states, anchor_state, manifest)
-            # Host measurements. They are recomputed because they were recorded,
-            # and they decide nothing: the trajectory above was computed without
-            # reading either of them.
-            over_interval = int(np.sum(tick_times > dt_s))
-            over_deadline = int(np.sum(solve_times > trial["solve_deadline_s"]))
             # The recorded active revision per interval has to agree with the
             # recorded swap: structured before it, the adopted revision after.
             swapped_at = row["swap_interval"]
@@ -5056,12 +5147,17 @@ def verify_live(directory, manifest, reference=None):
             row["tracking_rmse"] = fresh
         _same_segments(segments, row["segments"], row["directory"])
         row["segments"] = segments
-        wall = row["wall"]
-        if (
-            over_interval != wall["intervals_over_sample_interval"]
-            or over_deadline != (wall["solves_over_deadline"])
-        ):
-            raise ValueError(f"recomputed host measurements differ: {row['directory']}")
+        # Host measurements. They are recomputed because they were recorded,
+        # and they decide nothing: the trajectory above was computed without
+        # reading either of them.
+        verify_simulated_time_wall(
+            row["wall"],
+            dt_s=dt_s,
+            deadline_s=trial["solve_deadline_s"],
+            tick_times=tick_times,
+            solve_times=solve_times,
+            label=row["directory"],
+        )
         terminated = len(commands) != row["requested_intervals"]
         if (
             terminated != bool(row["terminated"])

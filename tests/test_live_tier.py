@@ -1327,7 +1327,7 @@ def test_the_control_command_runs_and_replays_end_to_end(tmp_path, monkeypatch):
     pytest.importorskip("cascade")
 
     source = harness.frozen_control_manifest(
-        Path(__file__).resolve().parents[1] / "docs/harness/control-v3.json"
+        Path(__file__).resolve().parents[1] / "docs/harness/control-v4.json"
     )
     path = _shortened(
         tmp_path / "control.json",
@@ -1336,7 +1336,7 @@ def test_the_control_command_runs_and_replays_end_to_end(tmp_path, monkeypatch):
         "CONTROL_MANIFEST_SHA256",
     )
     decision = harness.control(path, tmp_path / "run")
-    assert decision["manifest"] == "control-v3"
+    assert decision["manifest"] == "control-v4"
     assert decision["trials"] == 4
     rows = harness.read(tmp_path / "run" / "results.json")
     assert len(rows) == 4
@@ -1346,7 +1346,7 @@ def test_the_control_command_runs_and_replays_end_to_end(tmp_path, monkeypatch):
     for row in rows:
         assert row["completed_intervals"] == 20
         assert row["terminated"] is False
-        assert math.isfinite(row["trial_wall_seconds"])
+        assert math.isfinite(row["wall"]["trial_seconds"])
         assert math.isfinite(row["tracking_rmse"]["position_rmse_m"])
     replay = harness.verify(tmp_path / "run", tmp_path / "control-reference.json")
     assert replay["tier"] == "control"
