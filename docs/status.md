@@ -120,17 +120,30 @@ development windows, gives arp 0.1271/0.3300: velocity below the comparator
 hold-current, but still 16% above the gate, and it leaves x8 at 0.2372 against a
 0.2385 regression limit and nanodrone body at 0.5487. No candidate was fitted.
 
+**Reviewer decision after three attempts.** Accuracy holds on four of five
+corpora and every declared allowance. On arp the remaining lever is
+structural: a recursion whose gain is carried by the fit. That attempt is
+queued, not abandoned. The largest gaps in this table are now the three rows
+with no measurement at all, so the loop rotates to Control, then Evidence,
+then Live improvement, and returns to arp with the structural change after
+each has a first measurement. If arp's body rate proves to be evidence-limited
+by a four-flight corpus, that is a charter question for the owner, not a
+threshold to move.
+
 ## Next iteration
 
-Not the optimizer and not the start: both are measured out above. The arp
-recursion's gain is unconstrained — the learned one-step map has spectral
-radius above 1 at 100% of origins (median 1.023 at the selected checkpoint,
-1.054 at step 1,000) and nothing in the recipe ties it to the data — and a
-gain applied after the fit is bounded at 0.2824 against a 0.285 threshold, so
-the constraint has to be carried by the fit itself. That is a structural
-assumption the charter allows (causality, memory, smoothness) rather than a
-platform one, and it is the only lever left that both beats hold-current and
-survives the shift between flights. It is also the third attempt on one
-corpus: if it is judged exhausted, the Control, Live improvement and Evidence
-rows have no measurement at all, and accuracy already holds on four of five
-corpora.
+Control measurement. Present the generic learner to the existing NMPC seam as
+a `PlanModel` (`glassbox.control.plan`): the learner's 15 observed channels
+map to the controller's rigid-body state by integrating position from
+predicted world velocity and projecting the predicted rotation entries onto a
+quaternion; the memory is carried from the observed history. No covariance is
+claimed: run under the explicit no-evidence path the seam already provides,
+and record that. Freeze `docs/harness/control-v1.json` before any trial: the
+Cascade X8 plant and cruise reference, calibration recordings, duration,
+seeds, controller policy and trial pairs exactly as `examples/cascade_refinement.py`
+runs the structured belief's frozen arm, and the rule that the generic arm's
+position and attitude tracking RMSE are at or below the structured arm's on
+the same trials, with no terminated trial. This iteration measures both arms
+on the same trials and reports; the rule gates merges from the first recipe
+change that follows. Recipe and learner arithmetic unchanged; the synthetic
+and platform tiers must reproduce their references.
