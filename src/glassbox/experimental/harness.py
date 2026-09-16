@@ -2549,6 +2549,26 @@ def _command_fraction(excitation, commands):
     ]
 
 
+def _bounded_intervals(solved, dither, minimum, maximum):
+    """How many intervals the declared command box actually held the sum in.
+
+    The dithered command is the solved one plus the declared dither, clipped to
+    the box; this counts the intervals where that clip bound on any channel, so
+    the difference between what was asked for and what reached the aircraft is
+    a number rather than an assumption. It is not the count of intervals where
+    the recorded excitation differs from the dither: the applied command is
+    recorded and the excitation read back off it, so a rounding difference of
+    one unit in the last place is expected on almost every interval and means
+    nothing.
+    """
+    solved, dither = np.asarray(solved, dtype=float), np.asarray(dither, dtype=float)
+    if not len(solved):
+        return 0
+    requested = solved + dither
+    outside = (requested < minimum) | (requested > maximum)
+    return int(np.count_nonzero(np.any(outside, axis=1)))
+
+
 def _same_fraction(fresh, recorded, label, **tolerance):
     """One per-channel excitation fraction against the one a run recorded.
 
@@ -5142,16 +5162,9 @@ def _live_trial(
             declared=True,
             phase_seed=manifest["trial"]["excitation"]["phase_seed"],
             intervals=len(injected_array),
-            clipped_intervals=int(
-                np.count_nonzero(
-                    np.any(
-                        np.abs(injected_array - dither[: len(injected_array)]) > 0,
-                        axis=1,
-                    )
-                )
-            )
-            if len(injected_array)
-            else 0,
+            bounded_intervals=_bounded_intervals(
+                solved_array, dither[: len(solved_array)], minimum, maximum
+            ),
             standard_deviation_fraction=_command_fraction(
                 injected_array, commands_array
             ),
@@ -5577,15 +5590,10 @@ def _verify_trial_excitation(row, manifest, dither, solved, commands, excitation
         raise ValueError(f"the trial declares another dither seed: {label}")
     if recorded.get("intervals") != executed:
         raise ValueError(f"the declared excitation covers other intervals: {label}")
-    clipped = (
-        int(
-            np.count_nonzero(np.any(np.abs(excitation - dither[:executed]) > 0, axis=1))
-        )
-        if executed
-        else 0
-    )
-    if recorded.get("clipped_intervals") != clipped:
-        raise ValueError(f"the recorded clipped interval count differs: {label}")
+    if recorded.get("bounded_intervals") != _bounded_intervals(
+        solved, dither[:executed], minimum, maximum
+    ):
+        raise ValueError(f"the recorded bounded interval count differs: {label}")
     _same_fraction(
         _command_fraction(excitation, commands),
         recorded.get("standard_deviation_fraction"),

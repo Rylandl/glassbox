@@ -997,10 +997,8 @@ def _fabricate_run(directory, manifest, calibrated, belief, offsets):
                     declared=True,
                     phase_seed=manifest["trial"]["excitation"]["phase_seed"],
                     intervals=intervals,
-                    clipped_intervals=int(
-                        np.count_nonzero(
-                            np.any(np.abs(excitation - dither) > 0, axis=1)
-                        )
+                    bounded_intervals=harness._bounded_intervals(
+                        solved, dither, MINIMUM, MAXIMUM
                     ),
                     standard_deviation_fraction=harness._command_fraction(
                         excitation, commands
