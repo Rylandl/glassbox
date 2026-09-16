@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from glassbox.experimental.default_model import _RECIPE
+from glassbox.experimental.default_model import _HISTORY_RECIPE as _RECIPE
 from glassbox.experimental.sequence_model import SequenceBatch, fit_sequence_model
 
 

@@ -1,5 +1,14 @@
 # One opinionated generic learner
 
+> **Update, 16 September 2026.** The maintained default is now
+> `generic-memory-v2-prototype`, which adds a causal memory over a 500 ms
+> in-recording context to the recipe described here; see the
+> [M2 record](generic-engineering.md#m2-one-causal-memory-contract-for-demonstrated-history-limitations).
+> Everything below describes `generic-history-v1-prototype`, which is retained:
+> its saved artifacts still load, predict, and update with their own recipe, and
+> the consumer workflow is unchanged apart from needing eleven observations of
+> history instead of three.
+
 The experimental generic workflow now accepts recordings through one fixed
 `fit → predict → update` path. It owns window sampling, scaling, model structure,
 optimization, and checkpoint selection. Callers supply signal facts; they do

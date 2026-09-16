@@ -4,6 +4,15 @@ All predicted observation channels advance recursively; future observations are
 never required by rollout(). Optional latent memory is initialized only from
 past observations/inputs. Coordinates are treated as Euclidean: this module does
 not enforce rotation geometry, infer physical bounds, or calibrate uncertainty.
+
+Causal memory contract (``kind="filter_mlp"``): the model consumes a fixed
+number of consecutive observed transitions before the forecast origin. Its
+memory starts at rest at the first consumed observation, advances once per
+observed transition inside one recording segment, and continues from predicted
+observations during the forecast. The consumed context is the information
+budget; nothing before it is implied. A caller may carry the memory within a
+recording through ``memory_state`` and ``rollout(..., memory=...)``, which is
+exactly equivalent to consuming the whole context at once.
 """
 
 from __future__ import annotations
@@ -75,21 +84,62 @@ def sequence_windows(states, inputs, anchors, *, history_steps, horizon_steps, d
     )
 
 
+_DELAY_KINDS = ("delay", "delay_mlp", "filter_mlp")
+_MLP_KINDS = ("mlp", "latent", "delay_mlp", "filter_mlp")
+_MEMORY_KINDS = ("latent", "filter_mlp")
+
+
 def _features(x, u, xpast, upast, hidden, kind, xp=jnp):
     parts = [x, u]
-    if kind in ("delay", "delay_mlp"):
+    if kind in _DELAY_KINDS:
         parts.extend(
             (
                 (xpast - x[:, None]).reshape(len(x), -1),
                 (upast - u[:, None]).reshape(len(x), -1),
             )
         )
-    if kind == "latent":
+    if kind in _MEMORY_KINDS:
         parts.append(hidden)
     return xp.concatenate(parts, axis=-1)
 
 
-def _rollout(params, norms, kind, past, past_u, future_u, truth=None):
+def _filter(params, norms, x, up, delay, memory=None):
+    """Advance the memory over every observed transition in normalized arrays.
+
+    Transition j (from x[:, j] to x[:, j+1]) is consumed for j from ``delay``
+    to the last supplied input, because each update needs ``delay`` earlier
+    observations and inputs. The memory starts at rest unless supplied.
+    """
+    context = up.shape[1]
+    if memory is None:
+        memory = jnp.zeros((len(x), params["memory"].shape[1]), dtype=x.dtype)
+    if context <= delay:
+        return memory
+    observed = (
+        jnp.stack([x[:, j - delay : j + 1] for j in range(delay, context)]),
+        jnp.stack([up[:, j - delay : j + 1] for j in range(delay, context)]),
+    )
+
+    def observe(hidden, data):
+        states, inputs = data
+        z = _features(
+            states[:, -1],
+            inputs[:, -1],
+            states[:, :-1],
+            inputs[:, :-1],
+            hidden,
+            "filter_mlp",
+        )
+        z = z / norms["feature_scale"]
+        return jnp.tanh(z @ params["memory"] + params["memory_bias"]), None
+
+    memory, _ = jax.lax.scan(observe, memory, observed)
+    return memory
+
+
+def _rollout(
+    params, norms, kind, past, past_u, future_u, truth=None, delay=None, memory=None
+):
     x = (past - norms["state_mean"]) / norms["state_scale"]
     up = (past_u - norms["input_mean"]) / norms["input_scale"]
     uf = (future_u - norms["input_mean"]) / norms["input_scale"]
@@ -99,6 +149,9 @@ def _rollout(params, norms, kind, past, past_u, future_u, truth=None):
             (x.reshape(len(x), -1), up.reshape(len(x), -1)), -1
         )
         h = jnp.tanh(encoder_input @ params["encoder"] + params["encoder_bias"])
+    if kind == "filter_mlp":
+        h = _filter(params, norms, x, up, delay, memory)
+        x, up = x[:, -delay - 1 :], up[:, -delay:]
 
     def step(carry, data):
         current, history, inputs, hidden = carry
@@ -106,10 +159,10 @@ def _rollout(params, norms, kind, past, past_u, future_u, truth=None):
         z = _features(current, command, history, inputs, hidden, kind)
         z = z / norms["feature_scale"]
         delta = z @ params["linear"] + params["bias"]
-        if kind in ("mlp", "latent", "delay_mlp"):
+        if kind in _MLP_KINDS:
             delta = delta + jnp.tanh(z @ params["w1"] + params["b1"]) @ params["w2"]
         predicted = current + delta * norms["delta_scale"]
-        if kind == "latent":
+        if kind in _MEMORY_KINDS:
             hidden = jnp.tanh(z @ params["memory"] + params["memory_bias"])
         next_current = predicted if truth is None else target
         return (
@@ -134,32 +187,124 @@ def _rollout(params, norms, kind, past, past_u, future_u, truth=None):
 
 @dataclass(frozen=True)
 class SequenceModel:
+    """A recursive predictor; ``history_steps`` is the context every forecast needs.
+
+    For ``filter_mlp``, ``history_steps`` is the consumed context (the information
+    budget) and ``delay_steps`` the shorter explicit-difference history inside it.
+    Other kinds leave ``delay_steps`` unset, so their artifacts are unchanged.
+    """
+
     kind: str
     dt_s: float
     history_steps: int
     params: dict
     norms: dict
+    delay_steps: int | None = None
 
-    def rollout(self, past_states, past_inputs, future_inputs):
-        """Return future means, excluding the initial observation; JAX compatible."""
-        x, up, uf = map(jnp.asarray, (past_states, past_inputs, future_inputs))
-        single = x.ndim == 2
-        if single:
-            x, up, uf = x[None], up[None], uf[None]
+    def __post_init__(self):
+        filtered = self.kind == "filter_mlp"
+        if filtered != (self.delay_steps is not None) or (
+            filtered
+            and (
+                not isinstance(self.delay_steps, (int, np.integer))
+                or isinstance(self.delay_steps, bool)
+                or not 1 <= self.delay_steps < self.history_steps
+            )
+        ):
+            raise ValueError(
+                "filter_mlp needs 1 <= delay_steps < history_steps; other kinds take none"
+            )
+
+    def _check(self, x, up, uf, memory):
         d, u = len(self.norms["state_mean"]), len(self.norms["input_mean"])
+        if memory is None:
+            required = self.history_steps
+        elif self.kind != "filter_mlp":
+            raise ValueError("only filter_mlp carries memory between calls")
+        else:
+            required = None
         if (
             x.ndim != 3
             or up.ndim != 3
             or uf.ndim != 3
-            or x.shape[1:] != (self.history_steps + 1, d)
-            or up.shape != (len(x), self.history_steps, u)
+            or x.shape[-1] != d
+            or up.shape[:2] != (len(x), x.shape[1] - 1)
+            or up.shape[-1] != u
+            or (required is not None and x.shape[1] != required + 1)
+            or (required is None and x.shape[1] < self.delay_steps + 1)
             or uf.shape[0] != len(x)
             or uf.shape[-1] != u
             or uf.shape[1] < 1
+            or (
+                memory is not None
+                and memory.shape != (len(x), self.params["memory"].shape[1])
+            )
         ):
             raise ValueError("rollout shapes do not match model history/channels")
-        y = _rollout(self.params, self.norms, self.kind, x, up, uf)
+
+    def rollout(self, past_states, past_inputs, future_inputs, *, memory=None):
+        """Return future means, excluding the initial observation; JAX compatible.
+
+        Without ``memory`` the past must hold exactly ``history_steps + 1``
+        observations and the memory starts at rest at the first one. With
+        ``memory`` (filter_mlp only), it is the state after the transition into
+        ``past_states[..., delay_steps, :]``; the past may then be any length of
+        at least ``delay_steps + 1`` observations within the same recording.
+        """
+        x, up, uf = map(jnp.asarray, (past_states, past_inputs, future_inputs))
+        single = x.ndim == 2
+        if memory is not None:
+            memory = jnp.asarray(memory)
+            if single:
+                memory = memory[None]
+        if single:
+            x, up, uf = x[None], up[None], uf[None]
+        self._check(x, up, uf, memory)
+        y = _rollout(
+            self.params,
+            self.norms,
+            self.kind,
+            x,
+            up,
+            uf,
+            delay=self.delay_steps,
+            memory=memory,
+        )
         return y[0] if single else y
+
+    def memory_state(self, past_states, past_inputs, *, memory=None):
+        """Return the memory after consuming every supplied transition (filter_mlp).
+
+        Starting from rest, or from ``memory`` as defined for ``rollout``. The
+        supplied observations must lie inside one recording segment; a recording
+        boundary means starting again from rest.
+        """
+        if self.kind != "filter_mlp":
+            raise ValueError("only filter_mlp has a memory state")
+        x, up = map(jnp.asarray, (past_states, past_inputs))
+        single = x.ndim == 2
+        if memory is not None:
+            memory = jnp.asarray(memory)
+            if single:
+                memory = memory[None]
+        if single:
+            x, up = x[None], up[None]
+        width = self.params["memory"].shape[1]
+        placeholder = jnp.zeros((len(x), 1, len(self.norms["input_mean"])), x.dtype)
+        # Any in-segment context of at least delay_steps + 1 observations is
+        # valid here; the fitted budget applies to forecasts from rest.
+        self._check(
+            x, up, placeholder, jnp.zeros((len(x), width)) if memory is None else memory
+        )
+        h = _filter(
+            self.params,
+            self.norms,
+            (x - self.norms["state_mean"]) / self.norms["state_scale"],
+            (up - self.norms["input_mean"]) / self.norms["input_scale"],
+            self.delay_steps,
+            memory,
+        )
+        return h[0] if single else h
 
     def metadata(self):
         return dict(
@@ -167,6 +312,7 @@ class SequenceModel:
             kind=self.kind,
             dt_s=self.dt_s,
             history_steps=self.history_steps,
+            **({} if self.delay_steps is None else dict(delay_steps=self.delay_steps)),
         )
 
     def arrays(self):
@@ -194,31 +340,49 @@ class SequenceModel:
 
 
 def initialize_sequence_model(
-    batch, *, kind="latent", seed=0, width=32, memory=8, ridge=1.0
+    batch, *, kind="latent", seed=0, width=32, memory=8, ridge=1.0, delay_steps=None
 ):
-    """Initialize from a learned one-step affine model, with zero neural residual."""
-    if kind not in ("linear", "delay", "mlp", "latent", "delay_mlp"):
+    """Initialize from a learned one-step affine model, with zero neural residual.
+
+    The affine fit uses the forecast-phase transitions of every window. For
+    ``filter_mlp`` the window's past holds the whole consumed context and
+    ``delay_steps`` sets the explicit-difference history; the memory starts at
+    rest and reads out as zero, so checkpoint zero is the same affine start.
+    """
+    if kind not in ("linear", "delay", "mlp", "latent", "delay_mlp", "filter_mlp"):
         raise ValueError("unknown sequence model kind")
     if min(width, memory) < 1 or not np.isfinite(ridge) or ridge <= 0:
         raise ValueError("width, memory and ridge must be positive")
-    p = batch.past_inputs.shape[1]
+    context = batch.past_inputs.shape[1]
+    if kind == "filter_mlp":
+        if (
+            not isinstance(delay_steps, (int, np.integer))
+            or isinstance(delay_steps, bool)
+            or not 1 <= delay_steps < context
+        ):
+            raise ValueError("filter_mlp needs 1 <= delay_steps < the window context")
+        p = int(delay_steps)
+    elif delay_steps is not None:
+        raise ValueError("delay_steps applies only to filter_mlp")
+    else:
+        p = context
     complete_x = np.concatenate((batch.past_states, batch.future_states), 1)
     complete_u = np.concatenate((batch.past_inputs, batch.future_inputs), 1)
-    current = complete_x[:, p:-1]
+    current = complete_x[:, context:-1]
     xm, xs = current.mean((0, 1)), current.std((0, 1))
     um, us = batch.future_inputs.mean((0, 1)), batch.future_inputs.std((0, 1))
     xs, us = np.where(xs > 1e-8, xs, 1), np.where(us > 1e-8, us, 1)
     xall, uall = (complete_x - xm) / xs, (complete_u - um) / us
     delta = (batch.future_states - current) / xs
     ds = np.maximum(delta.std((0, 1)), 1e-4)
-    hidden = np.zeros((len(current), memory if kind == "latent" else 0))
+    hidden = np.zeros((len(current), memory if kind in _MEMORY_KINDS else 0))
     features = np.stack(
         [
             _features(
-                xall[:, p + t],
-                uall[:, p + t],
-                xall[:, t : p + t],
-                uall[:, t : p + t],
+                xall[:, context + t],
+                uall[:, context + t],
+                xall[:, context + t - p : context + t],
+                uall[:, context + t - p : context + t],
                 hidden,
                 kind,
                 xp=np,
@@ -232,10 +396,10 @@ def initialize_sequence_model(
         + batch.future_inputs.shape[-1]
         + (
             p * (current.shape[-1] + batch.future_inputs.shape[-1])
-            if kind in ("delay", "delay_mlp")
+            if kind in _DELAY_KINDS
             else 0
         )
-        + (memory if kind == "latent" else 0),
+        + (memory if kind in _MEMORY_KINDS else 0),
     )
     fs = features.std(0)
     fs = np.where(fs > 1e-8, fs, 1.0)
@@ -247,7 +411,7 @@ def initialize_sequence_model(
     params = dict(linear=coefficients[:-1], bias=coefficients[-1])
     rng = np.random.default_rng(seed)
     f, d = coefficients.shape[0] - 1, coefficients.shape[1]
-    if kind in ("mlp", "latent", "delay_mlp"):
+    if kind in _MLP_KINDS:
         params.update(
             w1=rng.normal(size=(f, width)) / np.sqrt(f),
             b1=np.zeros(width),
@@ -258,6 +422,9 @@ def initialize_sequence_model(
         params.update(
             encoder=rng.normal(size=(encoder_width, memory)) / np.sqrt(encoder_width),
             encoder_bias=np.zeros(memory),
+        )
+    if kind in _MEMORY_KINDS:
+        params.update(
             memory=rng.normal(size=(f, memory)) / np.sqrt(f),
             memory_bias=np.zeros(memory),
         )
@@ -269,7 +436,14 @@ def initialize_sequence_model(
         feature_scale=fs,
         delta_scale=ds,
     )
-    return SequenceModel(kind, batch.dt_s, p, params, norms)
+    return SequenceModel(
+        kind,
+        batch.dt_s,
+        context,
+        params,
+        norms,
+        delay_steps=p if kind == "filter_mlp" else None,
+    )
 
 
 def fit_sequence_model(
@@ -288,6 +462,7 @@ def fit_sequence_model(
     check_every=100,
     error_scale=None,
     selection_guard: SequenceGuard | None = None,
+    delay_steps=None,
 ):
     """Adam with gradient clipping and development-rollout checkpoint selection.
 
@@ -295,6 +470,7 @@ def fit_sequence_model(
     recursively. By default all future channels have equal weight after train-only
     state scaling. error_scale may instead supply positive [horizon,channel] loss
     scales. A selection_guard rejects development regressions vs initialization.
+    ``delay_steps`` is required by, and only by, ``kind="filter_mlp"``.
     """
     if objective not in ("rollout", "teacher") or steps < 0 or check_every < 1:
         raise ValueError("invalid objective or training steps")
@@ -306,8 +482,15 @@ def fit_sequence_model(
     ):
         raise ValueError("train and validation contracts differ")
     model = initialize_sequence_model(
-        train, kind=kind, seed=seed, width=width, memory=memory, ridge=ridge
+        train,
+        kind=kind,
+        seed=seed,
+        width=width,
+        memory=memory,
+        ridge=ridge,
+        delay_steps=delay_steps,
     )
+    delay = model.delay_steps
     params, norms = jax.tree.map(jnp.asarray, (model.params, model.norms))
     if error_scale is None:
         normalization = norms["state_scale"]
@@ -328,7 +511,9 @@ def fit_sequence_model(
 
     def loss(par, data, teacher):
         x, up, uf, target = data
-        prediction = _rollout(par, norms, kind, x, up, uf, target if teacher else None)
+        prediction = _rollout(
+            par, norms, kind, x, up, uf, target if teacher else None, delay=delay
+        )
         return jnp.mean(((prediction - target) / normalization) ** 2)
 
     @jax.jit
@@ -338,7 +523,7 @@ def fit_sequence_model(
     @jax.jit
     def guard_errors(par):
         x, up, uf, target = development
-        predicted = _rollout(par, norms, kind, x, up, uf)
+        predicted = _rollout(par, norms, kind, x, up, uf, delay=delay)
         return selection_guard.errors(predicted, target)
 
     @jax.jit
@@ -407,6 +592,7 @@ def fit_sequence_model(
         model.history_steps,
         jax.tree.map(np.asarray, best),
         jax.tree.map(np.asarray, norms),
+        delay_steps=delay,
     )
     return result, dict(
         kind=kind,
@@ -422,4 +608,9 @@ def fit_sequence_model(
         else "explicit_horizon_channel",
         error_scale=np.asarray(normalization).tolist(),
         selection_guard=None if selection_guard is None else selection_guard.metadata(),
+        **(
+            {}
+            if delay is None
+            else dict(context_steps=model.history_steps, delay_steps=delay)
+        ),
     )

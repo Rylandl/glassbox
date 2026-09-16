@@ -14,7 +14,8 @@ import numpy as np
 from experiment_transition_diagnosis import load_records
 from sequence_transfer_data import load_prepared, write_json
 
-from glassbox.experimental.default_model import _RECIPE, fit
+from glassbox.experimental.default_model import _HISTORY_RECIPE as _RECIPE
+from glassbox.experimental.default_model import _fit_history as fit
 from glassbox.experimental.sequence_collection import (
     SequenceCollection,
     SequenceSegment,

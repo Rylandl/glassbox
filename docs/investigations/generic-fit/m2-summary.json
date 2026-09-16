@@ -1,0 +1,186 @@
+{
+  "id": "generic-fit-m2-v1",
+  "decision": {
+    "manifest": "generic-fit-m2-v1",
+    "decision": "replace",
+    "accepted": true,
+    "hard_gate_breaches": [],
+    "capability_gate_breaches": [],
+    "ordinary_guard": {
+      "ratio": 0.9237124697465284,
+      "maximum_ratio": 1.05,
+      "passed": true
+    },
+    "primary_ratio": 0.48857899609819394,
+    "required_ratio": 0.95,
+    "per_family_ratios": {
+      "stable_affine": 1.0,
+      "coupled_nonlinear": 0.9672260182951409,
+      "deadzone_saturation": 0.8729991497158419,
+      "hidden_hysteresis": 1.0719286538115214,
+      "near_periodic": 0.9217437033406005,
+      "off_periodic": 0.7445656351517527,
+      "delayed_nonlinear": 0.10242991885765518,
+      "hidden_input_delay": 0.05103060004981845
+    },
+    "paired_probe_first_step_rmse": {
+      "101": 0.002493910760017572,
+      "202": 0.0025199119445456796,
+      "303": 0.0037449954664420066
+    },
+    "meaning": "Engineering capability and regression qualification for this manifest only; no platform/control-readiness, general memory-adequacy, or uncertainty claim."
+  },
+  "manifest_sha256": "02ac887c28eae15efa9afc9168ed5d02998596e3e86680644b59382f7ef2b1b7",
+  "benchmark_candidate_fits": 28,
+  "incumbent_reproduction_fits": 3,
+  "benchmark_reruns": 0,
+  "whole_run_reproductions": 1,
+  "reproduction": {
+    "first_run": "m2-run-01 (pre-hardening verifier; same fitter, manifest, and inputs)",
+    "preserved_run": "acceptance-02 (final sources)",
+    "cases": 28,
+    "identical_candidate_fingerprints": 28,
+    "identical_incumbent_fingerprints": 28,
+    "identical_decision": true,
+    "first_run_sources_sha256": "e600adfc1eff99b26a2a92817efa5de770b2e0e758ff802a860eb9b22ec658e0",
+    "meaning": "The whole benchmark was executed twice; the second execution with the final sources reproduced every model and score exactly. Two executions, zero defect reruns."
+  },
+  "windows": {
+    "training_per_benchmark_case": 363,
+    "development_per_benchmark_case": 244,
+    "training_per_witness_case": 362,
+    "development_per_witness_case": 246,
+    "evaluation_rows_per_regime": 116,
+    "dropped_short_context_rows_per_regime": 8
+  },
+  "capability": {
+    "delayed_nonlinear": {
+      "delayed_nonlinear-6101": {
+        "matched": {
+          "incumbent": 0.4067240831693827,
+          "candidate": 0.018066149722494016
+        },
+        "shifted": {
+          "incumbent": 0.920479546016077,
+          "candidate": 0.2322586311054769
+        }
+      },
+      "delayed_nonlinear-6202": {
+        "matched": {
+          "incumbent": 0.38885934121751237,
+          "candidate": 0.014754128752758226
+        },
+        "shifted": {
+          "incumbent": 0.790928082944712,
+          "candidate": 0.18764501650778245
+        }
+      },
+      "delayed_nonlinear-6303": {
+        "matched": {
+          "incumbent": 0.3877821390165931,
+          "candidate": 0.0169396350419564
+        },
+        "shifted": {
+          "incumbent": 0.8461831192064422,
+          "candidate": 0.2217504828442463
+        }
+      }
+    },
+    "hidden_input_delay": {
+      "hidden_input_delay-101": {
+        "matched": {
+          "incumbent": 0.6224407730094071,
+          "candidate": 0.034722050922509
+        },
+        "paired_probe_first_step": {
+          "incumbent": 0.20002748678532525,
+          "candidate": 0.002493910760017572
+        },
+        "incumbent_selected_step": 800,
+        "recorded_fingerprint_reproduced": false
+      },
+      "hidden_input_delay-202": {
+        "matched": {
+          "incumbent": 0.6032015638425979,
+          "candidate": 0.03230460129224265
+        },
+        "paired_probe_first_step": {
+          "incumbent": 0.2001719938243055,
+          "candidate": 0.0025199119445456796
+        },
+        "incumbent_selected_step": 500,
+        "recorded_fingerprint_reproduced": false
+      },
+      "hidden_input_delay-303": {
+        "matched": {
+          "incumbent": 0.6047403774819817,
+          "candidate": 0.026899965878343587
+        },
+        "paired_probe_first_step": {
+          "incumbent": 0.20000173067789884,
+          "candidate": 0.0037449954664420066
+        },
+        "incumbent_selected_step": 800,
+        "recorded_fingerprint_reproduced": false
+      }
+    }
+  },
+  "diagnostics": {
+    "selected_final_checkpoint": 15,
+    "selected_checkpoint_zero": 2,
+    "fit_wall_seconds": {
+      "minimum": 0.39629336999496445,
+      "median": 0.41749866801546887,
+      "maximum": 0.6113229859911371
+    },
+    "regeneration_max_difference": 5.065392549852277e-16,
+    "replay_max_difference": 1.1102230246251565e-15,
+    "resource_usage": {
+      "training_window_gradient_evaluations": 64000,
+      "development_passes": 11,
+      "training_windows": 363,
+      "development_windows": 244,
+      "context_transitions_per_window": 8
+    },
+    "compute_note": "Window accounting equals the incumbent's 64,000 window-gradient evaluations; each candidate window also carries eight memory updates, so arithmetic and wall time are not equal."
+  },
+  "validation": {
+    "focused_tests": {
+      "tests": 134,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "full_non_slow_suite": {
+      "tests": 1102,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 8
+    },
+    "verified_cases": 28,
+    "model_regime_replays": 112,
+    "corruption_checks": {
+      "altered_saved_prediction": "rejected",
+      "altered_training_cache": "rejected",
+      "altered_development_cache": "rejected",
+      "altered_probe_prediction": "rejected",
+      "altered_candidate_model": "rejected",
+      "altered_manifest": "rejected",
+      "altered_decision": "rejected",
+      "altered_result_row": "rejected"
+    },
+    "m1_saved_run_still_verifies": true,
+    "wheel_smoke": {
+      "fit_predict_save_load_update": "passed",
+      "v1_artifact_load_predict_update": "passed",
+      "recipe": "generic-memory-v2-prototype"
+    },
+    "golden_v1_fixture": "tests/fixtures/default-recipe-v1.npz"
+  },
+  "evidence": {
+    "path": "m2-evidence.zip",
+    "bytes": 5898524,
+    "sha256": "ab01bcd57d6fde89edabf72368fd943e3cd2afa6e044bb78bcd91eb745da3c53"
+  },
+  "scope": "Synthetic engineering capability and regression qualification on previously inspected families plus one constructed delay witness; no platform readiness, general memory-adequacy, convergence, or calibrated-uncertainty claim."
+}

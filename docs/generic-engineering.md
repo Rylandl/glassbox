@@ -17,11 +17,14 @@ temporal state, controlled complexity, and observation noise are legitimate
 general modeling structure. Vehicle-specific force laws are not required inputs
 to this generic path.
 
-The engineering baseline is the existing recursive affine-plus-nonlinear
-sequence model and its fixed consumer workflow. It remains experimental, but
-it is the incumbent we improve. A model need not dominate every alternative on
-every recorded metric to become the incumbent. Stable structured `glassbox.fit`
-remains a separate supported path until an explicit, versioned integration.
+The engineering baseline is the recursive affine-plus-nonlinear sequence
+model and its fixed consumer workflow. Since M2 the maintained recipe is
+`generic-memory-v2-prototype`, which adds a causal memory over a 500 ms
+in-recording context to the retained `generic-history-v1-prototype`. It remains
+experimental, but it is the incumbent we improve. A model need not dominate
+every alternative on every recorded metric to become the incumbent. Stable
+structured `glassbox.fit` remains a separate supported path until an explicit,
+versioned integration.
 
 **Process correction:** counting better/worse cells is descriptive, not a
 promotion decision. Requiring universal improvement freezes development.
@@ -179,6 +182,121 @@ cache preservation happened afterward and are recorded separately. These are
 synthetic engineering regressions on previously inspected system families, not
 untouched confirmation, platform validation, or task-accuracy guarantees.
 
+## M2: one causal memory contract for demonstrated history limitations
+
+Status: **closed; replace**. The `generic-memory-v2-prototype` recipe passed
+the frozen M2 contract and is the maintained default. Old
+`generic-history-v1-prototype` artifacts load, predict, and update with their
+own recipe unchanged. This addresses G05 for the declared information budget;
+it is not a general memory-adequacy claim and does not touch G11.
+
+### Contract
+
+`SequenceModel(kind="filter_mlp")` in
+[`sequence_model.py`](../src/glassbox/experimental/sequence_model.py) keeps the
+incumbent's explicit 100 ms difference history and adds an eight-coordinate
+memory. The memory starts at rest at the first consumed observation, advances
+once per observed transition inside one recording segment, continues from
+predicted observations during the forecast, and composes exactly when carried
+within a recording through `memory_state` and `rollout(..., memory=...)`.
+Forecasts from rest consume exactly `history_steps + 1` observations; nothing
+earlier is implied, and windows never bridge a segment boundary. The readout of
+the rest state is zero, so checkpoint zero is the incumbent's affine
+initialization rule on the same forecast rows.
+[`test_causal_memory.py`](../tests/test_causal_memory.py) checks the rest start,
+carried-memory composition at three split points, segment boundaries, causal
+prefix consistency, an independent NumPy replay, initialization parity with the
+delay model, unchanged contracts for other kinds, and that the memory recovers
+the G05 delayed response while explicit history is pinned at its floor.
+
+The consumer `fit`, `predict`, and `update` signatures are unchanged. A saved
+model carries its recipe; `update` refits that recipe, so an older revision's
+lineage never changes silently. A golden v1 artifact produced before the change
+is a fixture: its fingerprint, predictions, and v1 update path are tested.
+Archived research scripts reproduce through the retained v1 entry point.
+
+### Frozen budget and decision, 2026-09-16 UTC
+
+The [M2 manifest](generic-memory-acceptance.json), digest
+`02ac887c28eae15efa9afc9168ed5d02998596e3e86680644b59382f7ef2b1b7`, was frozen
+before any benchmark candidate fit. Information budget: ten 50 ms transitions of
+context, the incumbent's two-step explicit history, eight memory coordinates,
+one fixed choice with a stated rationale and no menu. The candidate uses the
+incumbent's Adam recipe through the maintained sequence fitter, the incumbent's
+frozen M1 window identities whose origin lies at least ten rows into their
+segment (363 of 384 training and 244 of 256 development windows per case, no
+replacements), and the M1 evaluation origins with a complete context (116 of
+124 rows per regime), scored identically for both models with the incumbent's
+M1 state scale. Calibration and evaluation recordings were regenerated from the
+archived generator and reproduced the M1 caches to 5.1e-16.
+
+Gates: M1's absolute caps on every family; both delayed families must at least
+halve the incumbent's aggregate error; the G05 paired probe must reach at most
+0.05 first-step paired RMSE on every seed; ordinary families may lose at most 5%
+in aggregate; the eight-family primary ratio must be at most 0.95. The
+`hidden_input_delay` family is the G05 witness itself, with the incumbent refit
+through the frozen v1 consumer recipe on the recording host.
+
+**Replace.** Primary ratio **0.488579** (limit 0.95); ordinary guard
+**0.923712** (limit 1.05); no hard or capability gate breaches.
+
+| Family | Candidate/incumbent ratio | Note |
+| --- | ---: | --- |
+| Stable affine | 1.000 | Both below the 0.005 floor |
+| Coupled nonlinear | 0.967 | |
+| Dead zone and saturation | 0.873 | The M1 breach case is inside its cap |
+| Hidden hysteresis | 1.072 | Matched error rose on two seeds; worst horizon 0.0905 versus cap 0.12 |
+| Near periodic | 0.922 | |
+| Off periodic | 0.745 | |
+| Delayed nonlinear (capability) | 0.102 | Matched 0.39–0.41 to 0.015–0.018; shifted 0.79–0.92 to 0.19–0.23 |
+| Hidden input delay (capability) | 0.051 | Matched 0.60–0.62 to 0.027–0.035 |
+
+Paired-probe first-step RMSE on the G05 witness: **0.00249, 0.00252, 0.00374**
+versus the incumbent's 0.20003, 0.20017, 0.20000 and the construction floor of
+0.2. The incumbent predicts identical branches; the candidate separates them.
+
+All 28 candidate fits used 64,000 training window-gradient evaluations and 11
+development passes, equal to the incumbent's window accounting; each candidate
+window also carries eight memory updates, so this is not equal arithmetic. Fit
+times were 0.41–0.60 s on the recorded host. Development selected the final
+checkpoint in 16 of 28 fits and checkpoint zero or 100 in four, all in the
+noisy-observation and extra near-periodic cases where the memory could not
+help. The hysteresis tradeoff is accepted and recorded, not hidden: a latent
+accumulating coordinate is not a delayed input, and the memory did not improve
+it. The witness incumbent's macOS qualification fingerprints were not reproduced
+bit-for-bit on this Linux host, but its selected checkpoints, paired-probe
+errors, and physical forecast errors matched the recorded values.
+
+### Implemented and verified
+
+[`check_generic_memory.py`](../scripts/check_generic_memory.py) runs the frozen
+comparison from the preserved M1 evidence or verifies a saved run without
+fitting. The verifier replays both models with independent NumPy recurrences,
+recomputes every score, the selected checkpoint's full-batch training and
+development losses, cache hashes, the probe, and the decision. The run executed
+once with the pre-hardening verifier and once with the final sources; all 28
+candidate and incumbent fingerprints and the decision were identical, so the
+preserved run is a byte-for-byte reproduction. Altered predictions, training
+and development caches, probe predictions, a model, the manifest, a result row,
+and the decision were each rejected.
+
+Validation: the M1 saved run still verifies after the change, so old artifacts
+and fingerprints are untouched. The focused generic suites and the full
+non-slow repository suite pass; counts are in the
+[summary](investigations/generic-fit/m2-summary.json). Machine-readable
+evidence: that summary and the
+[portable saved run](investigations/generic-fit/m2-evidence.zip). From the
+Glassbox repository:
+
+```sh
+python -m zipfile -e docs/investigations/generic-fit/m2-evidence.zip /tmp/glassbox-m2-evidence
+python scripts/check_generic_memory.py --verify /tmp/glassbox-m2-evidence/acceptance-02
+```
+
+These are synthetic engineering regressions and one constructed delay witness,
+not platform validation, calibrated uncertainty, or evidence that a 500 ms
+context suffices for any particular vehicle.
+
 ## Acceptance policy
 
 Separate three kinds of checks:
@@ -222,15 +340,16 @@ not mean the component can never be useful inside a different, justified design.
 | G01 | **Committed:** one causal recursive model with learned affine structure and nonlinear correction is the engineering incumbent. | [Model structures](model-structure-experiments.md), [fixed workflow](default-recipe.md). An architecture change must address a named failure the current representation cannot express, after checking fitting quality. |
 | G02 | **Committed:** coherent recurrence and one consumer recipe. Independent horizon heads and representation menus remain diagnostics. | [Scope](scope.md), [forecast representations](forecast-representation.md). Reopen only with a demonstrated need and a coherent executable prediction contract. |
 | G03 | **Closed as a general replacement:** full, additive, and pairwise kernel corrections were compared. Full RBF helped several direct forecasts; additive/pairwise structure did not establish reliable extrapolation. | [Model structures](model-structure-experiments.md). New kernel names or seeds are not new mechanisms; a materially different information or modeling assumption must be stated. |
-| G04 | **Deferred to M2:** explicit history and latent memory were already compared. The tested eight-coordinate latent model did not uniformly beat observed history. | [Model structures](model-structure-experiments.md). Reopen for a verified information/memory requirement, with an encoder/transition contract and matched budgets; do not claim latent memory is untested. |
-| G05 | **Established limitation:** a fixed 100 ms history cannot identify every delayed system. More fitting of identical supplied histories cannot distinguish different true futures. | [Qualification witness](model-qualification.md). Changing available information is legitimate M2 work; wider networks on the same ambiguous inputs are not a fix. |
+| G04 | **Resolved in M2:** the earlier eight-coordinate latent model encoded only the same 100 ms window and did not beat explicit history. The accepted memory is a causal filter over ten consecutive in-segment transitions with a matched Adam budget, so it carries information the window does not. | [Model structures](model-structure-experiments.md), [M2 decision](#m2-one-causal-memory-contract-for-demonstrated-history-limitations). A new memory design needs a new manifest version and a named information requirement; do not sweep context lengths or memory widths. |
+| G05 | **Addressed for the declared budget:** the witness that a fixed 100 ms history cannot identify is resolved by the 500 ms consumed context. A delay beyond that context remains unidentifiable from the supplied observations; the limitation is now the declared information budget. | [Qualification witness](model-qualification.md), [M2 decision](#m2-one-causal-memory-contract-for-demonstrated-history-limitations). Changing the budget is a new manifest version with a demonstrated requirement, not a tuning knob. |
 | G06 | **Established limitation:** low logged-policy forecast loss and marginal input ranges do not prove identified input response. | [Qualification](model-qualification.md), [diagnostics](sequence-diagnostics.md). Informative variation is a data requirement; unexplained input residuals alone do not prove it. |
 | G07 | **Closed inference:** older-history diagnostic gain is not proof of missing state. Nonlinear short-context features can explain the gain in a fully observed Markov system. | [History confounding](history-confounding.md). Retain alternative explanations; no automatic history-length increase from this diagnostic. |
 | G08 | **Closed as a default:** pooled horizon normalization. Its cycle improvement comes with broader regressions. | [Horizon generalization](horizon-generalization.md). Reopen only when a changed acceptance contract or demonstrated mechanism makes the tradeoff relevant, not to rerun fresh-seed counting. |
 | G09 | **Retained challenger, frozen for M1:** first-step loss-scale floor. It improves several near-periodic cases and preserves many objectives exactly; it also has known regressions. | [Generalization](horizon-generalization.md), [checkpoint attribution](checkpoint-attribution.md). Compare against the engineering acceptance contract when needed; do not rediscover these effects with another sweep. |
 | G10 | **Closed as standalone fixes:** swapping the two tested checkpoint criteria, always taking the final checkpoint, or mandating 16 development recordings. None is a universal remedy. | [Checkpoint attribution](checkpoint-attribution.md). Broader data sometimes helps. Reopen a specific policy only with a named failure and a changed mechanism, not a guarantee inferred from recording count. |
 | G11 | **M1 decision closed; incumbent retained:** the fixed-budget L-BFGS replacement fails the frozen acceptance contract. Optimization and generalization remain distinct unresolved limitations. | [M1 decision](#m1-decision-2026-09-15-utc), [checkpoint attribution](checkpoint-attribution.md). Reopen this solver design only for an identified implementation defect, a materially different optimization mechanism supported by existing traces, or an explicitly changed resource requirement. New seeds, a larger budget alone, or a different checkpoint count are not an unrecorded retry. |
-| G12 | **Committed:** whole-recording provenance, separate data roles, observation-budget accounting, immutable revisions, and evidence tied to its fitted revision. | [Fixed workflow](default-recipe.md), [recording selection](recording-selection.md). Keep these when changing the fitter; do not add another wrapper hierarchy. |
+| G12 | **Committed:** whole-recording provenance, separate data roles, observation-budget accounting, immutable revisions, and evidence tied to its fitted revision. | [Fixed workflow](default-recipe.md), [recording selection](recording-selection.md). Keep these when changing the fitter; do not add another wrapper hierarchy. The v2 recipe keeps all of them. |
+| G13 | **Committed:** `generic-memory-v2-prototype` is the maintained default recipe; recipes are versioned, a saved model carries its own, and v1 artifacts load, predict, and update unchanged. | [M2 decision](#m2-one-causal-memory-contract-for-demonstrated-history-limitations), [golden v1 fixture test](../tests/test_default_model.py). A default change is a new manifest version with regression evidence; it must never alter a serialized model's behavior. |
 
 ## Bound the research and preserve the decisions
 
@@ -252,28 +371,33 @@ action. Link existing evidence instead of producing a new narrative for an
 unchanged finding. Summaries and session handoffs point here. Do not restart
 from historical investigation recommendations.
 
-Later milestones, in order: M2 handles demonstrated memory/observation
-limitations within one model contract; M3 adds independently validated error
-evidence and update acceptance. These are queued responsibilities, not concurrent
-architecture searches. Numerical fitting alone cannot satisfy M2 or M3.
+Later milestones, in order: M2 handled the demonstrated memory limitation
+within one model contract; M3 adds independently validated error evidence and
+update acceptance. These are queued responsibilities, not concurrent
+architecture searches. Numerical fitting alone cannot satisfy M3.
 
 ## Current handoff
 
-- Incumbent: `generic-history-v1-prototype`; experimental, not declared adequate
-  for all intended use cases. Historical artifacts and raw studies are retained.
-- Last completed implementation: M1, its bounded internal fitter and reusable
-  acceptance/replay runner. Exactly 25 benchmark candidate fits; no defect reruns.
-  The frozen decision is **retain**, not an unresolved better/worse tally.
+- Incumbent: `generic-memory-v2-prototype`, the maintained default of
+  `glassbox.experimental.default_model.fit`; experimental, not declared adequate
+  for all intended use cases. `generic-history-v1-prototype` is retained for
+  old artifacts and archived research plans through the private v1 entry point.
+- Last completed implementation: M2, the causal memory contract, its frozen
+  manifest, the acceptance/replay runner, and the versioned consumer recipe.
+  Exactly 28 benchmark candidate fits plus one byte-identical reproduction of
+  the whole run with the hardened verifier; no defect reruns. The frozen
+  decision is **replace**.
 - Do not repeat L-BFGS, pooled scaling, first-step-floor, checkpoint-selection,
-  or development-recording sweeps after a restart. Read G08–G11 first.
-- Next delivery is the M2 causal-memory contract, using the existing G05
-  indistinguishable-history witness. First specify and test how one model
-  consumes consecutive observations, preserves state within a recording, and
-  resets at recording boundaries. Retain the one consumer recipe, revision
-  ownership, and old artifact behavior. A longer context must add actual
-  information; it is not inferred from a residual-history score alone.
-- Before fitting an M2 candidate, freeze its information budget, required
-  delayed-system capability, and regression guards in a new manifest version.
-  Reuse M1's ordinary-system guards and runner structure. Do not relabel M1's
-  optimizer failure as solved by moving to memory, or start a menu of latent
-  dimensions and history lengths. M2 addresses G05, not a promise to solve G11.
+  development-recording, context-length, or memory-width sweeps after a
+  restart. Read G08–G13 first. G11 (optimization) remains open and was not
+  reopened by M2; the candidate used the incumbent's Adam recipe.
+- Known accepted tradeoff: hidden hysteresis worsened 7% in aggregate inside
+  its cap. It is a latent accumulating state, not a delayed input; do not
+  present the memory as a fix for it.
+- Next delivery is M3: independently validated error evidence and update
+  acceptance for the v2 recipe. Start from the existing error-calibration and
+  update evidence, freeze what an acceptable update must demonstrate on
+  reserved recordings before changing `update`, and keep the one consumer
+  recipe, revision ownership, and old artifact behavior. Platform telemetry
+  with block-held-out recordings is the evidence M3 needs; another synthetic
+  family sweep is not.

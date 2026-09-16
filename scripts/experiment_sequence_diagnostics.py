@@ -14,7 +14,9 @@ import jax
 import numpy as np
 from experiment_model_qualification import collection, encoding, recordings
 
-from glassbox.experimental.default_model import _RECIPE, LearnedDynamics, fit
+from glassbox.experimental.default_model import _HISTORY_RECIPE as _RECIPE
+from glassbox.experimental.default_model import LearnedDynamics
+from glassbox.experimental.default_model import _fit_history as fit
 from glassbox.experimental.sequence_collection import SequenceSegment
 from glassbox.experimental.sequence_diagnostics import _DIAGNOSTIC_RECIPE, _run
 

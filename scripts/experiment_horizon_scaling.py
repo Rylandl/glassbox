@@ -17,7 +17,8 @@ from experiment_model_qualification import collection, encoding, recordings
 from experiment_sequence_diagnostics import fresh_recordings
 from report_model_structures import recurrence
 
-from glassbox.experimental.default_model import _RECIPE, LearnedDynamics
+from glassbox.experimental.default_model import _HISTORY_RECIPE as _RECIPE
+from glassbox.experimental.default_model import LearnedDynamics
 from glassbox.experimental.sequence_model import fit_sequence_model
 
 

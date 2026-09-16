@@ -19,7 +19,8 @@ from pathlib import Path
 import jax
 import numpy as np
 
-from glassbox.experimental.default_model import _RECIPE, fit
+from glassbox.experimental.default_model import _HISTORY_RECIPE as _RECIPE
+from glassbox.experimental.default_model import _fit_history as fit
 from glassbox.experimental.sequence_collection import (
     SequenceCollection,
     SequenceSegment,

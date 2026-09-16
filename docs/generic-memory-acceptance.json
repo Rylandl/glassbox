@@ -1,0 +1,290 @@
+{
+  "id": "generic-fit-m2-v1",
+  "created_utc": "2026-09-16T02:08:21.307698+00:00",
+  "ledger_ids": [
+    "G04",
+    "G05",
+    "G11",
+    "G12"
+  ],
+  "scope": "Offline generic Euclidean sequence fitting with one causal memory contract. Synthetic delayed-input capability and regression qualification on previously inspected families; not platform, control-readiness, or calibrated-uncertainty evidence.",
+  "premise": "M1 retained generic-history-v1-prototype. G05 established that a fixed 100 ms supplied history cannot identify delayed systems: identical supplied inputs have different true futures. The candidate consumes a longer in-segment context through a causal memory that starts at rest at the first consumed observation and never bridges a recording boundary. This manifest freezes the information budget, the required delayed-system capability, and M1's ordinary-system guards before any candidate fit. It does not reopen G11: the candidate uses the incumbent's Adam recipe.",
+  "m1_reference": {
+    "manifest_id": "generic-fit-m1-v1",
+    "manifest_sha256": "c2c2f157da0c1b2d973b8d6a38d0ab08e2caeb3f8713138491cf4973738d6ae4",
+    "evidence": "docs/investigations/generic-fit/m1-evidence.zip",
+    "evidence_sha256": "94f2ef8a518779f57feb5fb5993015fd8830f79040031522f7f4db901c803124",
+    "meaning": "Incumbent models, frozen training/development window identities, evaluation origins, state scales, and the incumbent's saved predictions come from the preserved M1 run. Calibration and evaluation recordings are regenerated from the archived generator with the M1 dataset plan and seeds, and must reproduce every cached array; the run fails closed otherwise."
+  },
+  "dataset": {
+    "created_utc": "2026-09-14T18:13:49.583966+00:00",
+    "purpose": "Frozen platform-neutral synthetic comparison of baseline and horizon-pooled normalization. No vehicle/controller experiments or consumer configuration changes.",
+    "recipe": {
+      "id": "generic-history-v1-prototype",
+      "kind": "delay_mlp",
+      "width": 32,
+      "history_s": 0.1,
+      "horizon_s": 0.25,
+      "training_windows": 384,
+      "development_windows": 256,
+      "steps": 1000,
+      "batch_size": 64,
+      "learning_rate": 0.002,
+      "ridge_fraction": 0.01,
+      "seed": 0,
+      "check_every": 100,
+      "hold_scale_floor": 0.01
+    },
+    "candidate": "For each channel, raise each horizon loss scale to at least its first-step scale. This caps later-horizon squared-error weights at the first-step weight, preserving the baseline exactly whenever the first-step scale is already the minimum.",
+    "families": [
+      "stable_affine",
+      "coupled_nonlinear",
+      "deadzone_saturation",
+      "hidden_hysteresis",
+      "delayed_nonlinear",
+      "near_periodic",
+      "off_periodic",
+      "noisy_observation"
+    ],
+    "data_seeds": [
+      5101,
+      5202,
+      5303
+    ],
+    "rng_salt": 1207,
+    "dt_s": 0.05,
+    "intervals": 160,
+    "calibration_recordings": 8,
+    "evaluation_recordings_per_regime": 4,
+    "regimes": {
+      "calibration": {
+        "input_persistence": 0.65,
+        "input_innovation_weight": 0.35,
+        "input_amplitude": 1.0
+      },
+      "matched": {
+        "input_persistence": 0.65,
+        "input_innovation_weight": 0.35,
+        "input_amplitude": 1.0
+      },
+      "shifted": {
+        "input_persistence": 0.25,
+        "input_innovation_weight": 0.75,
+        "input_amplitude": 1.25
+      }
+    },
+    "initial_distribution": "Uniform[-0.4,0.4] for every latent coordinate in all regimes.",
+    "evaluation_stride": 5,
+    "fit_protocol": "Use saved baseline models for development; fit new baselines for confirmation. Candidate shares exact calibration/development caches, architecture, initialization, optimizer, and selection schedule. When the candidate scales equal baseline scales byte-for-byte, reuse the exact baseline parameters instead of repeating an identical fit.",
+    "systems": {
+      "stable_affine": "x_next=A*x+B*u; A=[[.94,.06,0],[0,.70,.05],[.02,0,-.35]], B=[[.10,0],[.03,.18],[0,.15]].",
+      "coupled_nonlinear": "x0_next=.78*x0+.16*tanh(1.5*u0+.7*x1)+.04*x0*x1; x1_next=.65*x1+.20*sin(1.3*u1)+.06*x0^2.",
+      "deadzone_saturation": "x_next=.88*x+.22*clip(sign(u)*max(abs(u)-.2,0),-.45,.45).",
+      "hidden_hysteresis": "h_next=clip(h+.25*u,-.6,.6); x_next=.86*x+.18*h_next+.08*u. Only x is observed; h is latent.",
+      "delayed_nonlinear": "x_next=.72*x+.22*tanh(2*u[k-4]); before k=4 the delayed input is zero.",
+      "near_periodic": "z_next=.98*R(2*pi/5.2)*z+.04*u; observe each coordinate as z+.35*z^3.",
+      "off_periodic": "Same warped observed oscillator with period 8.0 steps.",
+      "noisy_observation": "z_next=.92*z+.14*tanh(1.5*u)+.03*N(0,1); observe x=z+.04*N(0,1). Score observations, not latent state."
+    },
+    "metrics": "Per-channel physical RMS and per-horizon RMS after scaling by common baseline training state standard deviations. Overall score pools squared scaled errors equally across horizons/channels. Per-recording scores, hold reference, and command-range overlap retained.",
+    "screening": {
+      "relative_rmse_increase": 0.1,
+      "absolute_scaled_rmse_increase": 0.01,
+      "meaning": "A descriptive material-regression screen requires both thresholds, applied separately to first-step and overall error. These are research screening constants, not task tolerances or model-admission rules."
+    },
+    "decision": "Report development separately from confirmation. No further candidate tuning after either stage. Candidate confirmation uses fresh seeds on the same chosen equations, not new physical systems.",
+    "limits": "Development recordings were inspected. Confirmation seeds are fresh at freeze time but equations and candidate were selected after prior investigations. Research screening thresholds are not task tolerances or model-admission rules.",
+    "phase": "confirmation",
+    "candidate_key": "first_step_floor",
+    "provenance": "Chosen after inspecting pooled-normalization results. Both this development plan and fresh-seed confirmation plan are frozen before first-step-floor fitting."
+  },
+  "incumbent_recipe": {
+    "id": "generic-history-v1-prototype",
+    "kind": "delay_mlp",
+    "width": 32,
+    "history_s": 0.1,
+    "horizon_s": 0.25,
+    "training_windows": 384,
+    "development_windows": 256,
+    "steps": 1000,
+    "batch_size": 64,
+    "learning_rate": 0.002,
+    "ridge_fraction": 0.01,
+    "seed": 0,
+    "check_every": 100,
+    "hold_scale_floor": 0.01
+  },
+  "candidate_recipe": {
+    "id": "generic-memory-v2-candidate",
+    "kind": "filter_mlp",
+    "width": 32,
+    "memory": 8,
+    "delay_s": 0.1,
+    "context_s": 0.5,
+    "horizon_s": 0.25,
+    "training_windows": 384,
+    "development_windows": 256,
+    "steps": 1000,
+    "batch_size": 64,
+    "learning_rate": 0.002,
+    "ridge_fraction": 0.01,
+    "seed": 0,
+    "check_every": 100,
+    "hold_scale_floor": 0.01,
+    "optimizer": "The incumbent's Adam recipe through the maintained fit_sequence_model, with the incumbent's hold-current loss scales and development checkpoint selection. No bounded L-BFGS.",
+    "precision": "float64 in a scoped JAX context, as for the incumbent fits."
+  },
+  "information_budget": {
+    "context_steps": 10,
+    "delay_steps": 2,
+    "memory_coordinates": 8,
+    "rationale": "Ten 50 ms transitions cover the 150 ms (G05 witness) and 200 ms (delayed_nonlinear) input delays with margin and equal twice the 250 ms forecast horizon. Eight memory coordinates can hold the two withheld delayed inputs per channel of a two-input system with margin. One fixed budget; no menu of context lengths, memory widths, or delay depths.",
+    "contract": "The memory starts at rest at the first consumed observation, advances once per observed transition inside one recording segment, continues from predicted observations during the forecast, and composes exactly when carried within a recording. Forecasts from rest consume exactly context_steps + 1 observations; nothing earlier is implied. The explicit-difference history inside the context keeps the incumbent's 100 ms depth, so checkpoint zero is the incumbent's affine initialization rule on the same forecast rows.",
+    "window_policy": "Candidate training and development windows are the incumbent's frozen M1 window identities whose origin lies at least context_steps rows into their segment, re-extracted with the full context from the regenerated recordings. No replacement windows are drawn: the candidate sees a subset of the incumbent's forecast targets with more preceding observations. Evaluation uses the M1 evaluation origins with at least context_steps preceding rows, and both models are scored on exactly those rows with the incumbent's training state scale from M1."
+  },
+  "data_seeds": [
+    6101,
+    6202,
+    6303
+  ],
+  "required_families": [
+    "stable_affine",
+    "coupled_nonlinear",
+    "deadzone_saturation",
+    "hidden_hysteresis",
+    "near_periodic",
+    "off_periodic"
+  ],
+  "capability_families": [
+    "delayed_nonlinear",
+    "hidden_input_delay"
+  ],
+  "stress_families": [
+    "noisy_observation"
+  ],
+  "extra_regression_cases": [
+    {
+      "family": "near_periodic",
+      "data_seed": 5101,
+      "source_run": "known-01",
+      "fit_seed": 0
+    }
+  ],
+  "hidden_input_delay": {
+    "source": "scripts/experiment_model_qualification.py, memory family (the G05 witness)",
+    "system": "x_next = 0.8 x + 0.2 u[k-3]; independent uniform[-1,1] inputs; 8 calibration and 4 evaluation recordings of 160 intervals at 50 ms; automatic recording split of the frozen consumer recipe.",
+    "data_seeds": [
+      101,
+      202,
+      303
+    ],
+    "incumbent": "generic-history-v1-prototype refit through the frozen consumer fit(recordings) on the recording host. The recorded qualification fingerprints came from another platform and are compared; the recorded paired-probe and forecast errors must be reproduced to the reported precision.",
+    "recorded_qualification_fingerprints": {
+      "101": "5675f102f674cf3f90088acfed381341238e167dab378f932f2e0c4d4a7d584c",
+      "202": "b6ecff3c791c221a6249fbbcfb8fc629f13462d19cc4ead682d09930e9a1381f",
+      "303": "ad0f4fe1b12340c17b386cbb084f01f5767995f885bfcc71500f95a4369bcf6e"
+    },
+    "regimes": [
+      "matched"
+    ],
+    "evaluation": "Independent evaluation recordings with the calibration input distribution; origins every five rows with at least context_steps preceding rows.",
+    "paired_probe": "From rest, opposite unit inputs three intervals before the origin and zero inputs otherwise. The supplied contexts are identical except that one input. The incumbent's supplied 100 ms history cannot contain it, so any common prediction has first-step paired RMSE of at least 0.2; the candidate's context does contain it.",
+    "incumbent_reference": {
+      "state_scale_range": [
+        0.1796,
+        0.2016
+      ],
+      "overall_scaled_rmse_range_on_qualifying_origins": [
+        0.603,
+        0.623
+      ],
+      "maximum_horizon_scaled_rmse_on_qualifying_origins": 0.716,
+      "paired_probe_first_step_rmse_range": [
+        0.2,
+        0.20018
+      ],
+      "source": "Local reproduction of the three recorded qualification fits before this manifest was frozen; recorded physical forecast errors and paired-probe errors matched the qualification summary to reported precision."
+    }
+  },
+  "error_caps": {
+    "stable_affine": {
+      "matched": 0.005,
+      "shifted": 0.01
+    },
+    "coupled_nonlinear": {
+      "matched": 0.04,
+      "shifted": 0.25
+    },
+    "deadzone_saturation": {
+      "matched": 0.08,
+      "shifted": 0.55
+    },
+    "hidden_hysteresis": {
+      "matched": 0.05,
+      "shifted": 0.12
+    },
+    "near_periodic": {
+      "matched": 0.04,
+      "shifted": 0.08
+    },
+    "off_periodic": {
+      "matched": 0.03,
+      "shifted": 0.08
+    },
+    "delayed_nonlinear": {
+      "matched": 0.6,
+      "shifted": 1.5
+    },
+    "noisy_observation": {
+      "matched": 0.45,
+      "shifted": 0.5
+    },
+    "hidden_input_delay": {
+      "matched": 0.9
+    }
+  },
+  "cap_definition": "Every horizon scaled RMSE in each case/regime must be below its family absolute cap, including stresses, capability families, and the extra regression. Scale is the incumbent's common training state standard deviation. M1 caps are reused unchanged on the qualifying evaluation rows; the hidden_input_delay cap is a rounded envelope above the reproduced incumbent's worst horizon. Caps prevent gross regressions; they are engineering targets, not application tolerances.",
+  "capability": {
+    "delayed_nonlinear_maximum_ratio": 0.5,
+    "hidden_input_delay_maximum_ratio": 0.5,
+    "ratio_aggregation": "Geometric mean of max(candidate,0.005)/max(incumbent,0.005) overall_scaled_rmse over the family's seeds and regimes.",
+    "paired_probe_first_step_rmse_maximum": 0.05,
+    "paired_probe_meaning": "Required on every hidden_input_delay seed. The incumbent's floor is 0.2 by construction; 0.05 requires resolving at least three quarters of the withheld response on each seed. This is the named G05 capability; passing it does not establish general memory adequacy.",
+    "meaning": "Both delayed families must at least halve the incumbent's aggregate error. A candidate that merely matches the incumbent on delayed systems has not demonstrated the capability that motivates the change."
+  },
+  "guards": {
+    "ordinary_maximum_ratio": 1.05,
+    "ordinary_aggregation": "The M1 primary aggregation over the six required families: equal weights over 3 seeds x 2 regimes per family, then over families, with the 0.005 floor.",
+    "meaning": "Adding memory may cost at most 5% aggregate scaled error on ordinary systems, inside the per-case caps. Capability gains cannot hide ordinary regressions beyond this limit."
+  },
+  "primary": {
+    "metric": "overall_scaled_rmse",
+    "floor": 0.005,
+    "aggregation": "For each of the six required families and delayed_nonlinear, average log(max(candidate,.005)/max(incumbent,.005)) equally over 3 seeds and 2 regimes; for hidden_input_delay over 3 seeds and 1 regime; average equally over the eight families; exponentiate.",
+    "maximum_ratio": 0.95,
+    "tie": "Retain the incumbent unless every gate passes; the stress family and the extra regression case are hard guards, not primary votes."
+  },
+  "compute": {
+    "max_training_window_gradient_evaluations": 64000,
+    "max_development_passes": 12,
+    "incumbent_training_window_gradient_evaluations": 64000,
+    "meaning": "1000 Adam steps times 64 sampled windows, equal to the incumbent. Each candidate window also carries eight memory updates over observed transitions, so equal window accounting is not equal arithmetic or wall time; record wall time and compilation effects."
+  },
+  "correctness": [
+    "Memory starts at rest, composes exactly when carried within a recording, and is checked on benchmark development windows",
+    "Context windows never bridge a segment boundary; window identities and origins are preserved",
+    "Regenerated calibration and evaluation arrays reproduce the M1 caches; the incumbent's saved predictions are reproduced from its saved model",
+    "Training/development/evaluation recording separation and immutable input caches",
+    "Finite chosen predictions and finite derivatives on benchmark inputs; JAX causal-prefix consistency",
+    "Independent NumPy replay of both models' predictions",
+    "Old artifact fingerprint/prediction/save/load/update semantics preserved; the M1 saved run must still verify; the new recipe receives a consumer identity only after acceptance",
+    "Fit and update consumer signatures unchanged"
+  ],
+  "decision": "Replace only if every hard error/resource/correctness gate, both capability gates, the paired-probe gate, the ordinary guard, and the primary ratio pass. Otherwise retain the incumbent and state the exact failed gate. Never adjust this manifest after candidate scores are observed.",
+  "work_budget": {
+    "candidate_benchmark_fits": 28,
+    "incumbent_reproduction_fits": 3,
+    "additional_fits": "Only focused unit fixtures and reruns justified by an identified implementation defect; no context, memory, optimizer, or normalizer sweep."
+  },
+  "design_freeze": "Frozen before any candidate fitting on the benchmark. Existing inspected seeds are regression tests; the hidden_input_delay seeds were inspected in the qualification study. This is engineering acceptance, not a claim of untouched statistical confirmation."
+}

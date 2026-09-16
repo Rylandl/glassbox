@@ -5,6 +5,17 @@ All notable changes to Glassbox are recorded here. The format follows
 
 ## Unreleased
 
+- Adopt `generic-memory-v2-prototype` as the maintained recipe of the
+  experimental generic learner: the retained 100 ms explicit history plus a
+  causal eight-coordinate memory over a 500 ms in-recording context that starts
+  at rest, never bridges a segment boundary, and composes exactly when carried
+  within a recording. The frozen M2 acceptance replaced the incumbent with a
+  0.49 primary error ratio and a 0.92 ordinary-family ratio, resolving the
+  delayed-input witness that explicit history cannot identify. Recipes are
+  versioned: saved models carry their own recipe, `update` refits it, and
+  `generic-history-v1-prototype` artifacts load, predict, and update unchanged.
+  `fit`, `predict`, and `update` signatures are unchanged; forecasts from the
+  v2 recipe need eleven observations of history instead of three.
 - Freeze the generic learner's first engineering acceptance contract and add
   an internal bounded L-BFGS fitter with explicit budget, termination, and
   checkpoint evidence. The 25-case comparison rejects this default replacement;

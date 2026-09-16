@@ -229,6 +229,7 @@ def _fit_bounded_sequence_model(
     ):
         raise ValueError("development recording identities must match windows")
     # Fitting precision is local; callers' JAX precision configuration is preserved.
+    delay = initial.delay_steps
     with jax.enable_x64(True):
         vector, unravel = ravel_pytree(jax.tree.map(jnp.asarray, initial.params))
         norms = jax.tree.map(jnp.asarray, initial.norms)
@@ -247,7 +248,9 @@ def _fit_bounded_sequence_model(
 
         def loss(parameters):
             x, up, uf, target = batches[0]
-            prediction = _rollout(unravel(parameters), norms, initial.kind, x, up, uf)
+            prediction = _rollout(
+                unravel(parameters), norms, initial.kind, x, up, uf, delay=delay
+            )
             return jnp.mean(((prediction - target) / scale) ** 2)
 
         value_gradient = jax.jit(jax.value_and_grad(loss))
@@ -255,7 +258,9 @@ def _fit_bounded_sequence_model(
         @jax.jit
         def development_errors(parameters):
             x, up, uf, target = batches[1]
-            prediction = _rollout(unravel(parameters), norms, initial.kind, x, up, uf)
+            prediction = _rollout(
+                unravel(parameters), norms, initial.kind, x, up, uf, delay=delay
+            )
             return jnp.mean(((prediction - target) / scale) ** 2, axis=(1, 2))
 
         def scores(parameters):
@@ -276,6 +281,7 @@ def _fit_bounded_sequence_model(
             initial.history_steps,
             jax.tree.map(np.asarray, unravel(selected)),
             jax.tree.map(np.asarray, norms),
+            delay_steps=delay,
         )
     report.update(
         kind=initial.kind,

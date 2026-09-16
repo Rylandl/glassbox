@@ -1,5 +1,10 @@
 # Observational diagnostics for the generic learner
 
+> **Note, 16 September 2026.** The extended diagnostic history is twice the
+> fitted model's consumed context. The figures below use the retained
+> `generic-history-v1-prototype` (two steps, four extended); the maintained
+> `generic-memory-v2-prototype` consumes ten steps and is diagnosed with twenty.
+
 The experimental learner now offers `model.diagnose(recordings)`: a fixed,
 read-only report of input predictability and whether older observations explain
 forecast errors. It adds no model-selection or tuning arguments. The fitted

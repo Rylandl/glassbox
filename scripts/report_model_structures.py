@@ -9,10 +9,6 @@ import zipfile
 from collections import defaultdict
 from pathlib import Path
 
-import matplotlib
-
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 import numpy as np
 from experiment_model_structures import sequence_batches
 from experiment_transition_diagnosis import load_records
@@ -105,6 +101,13 @@ def stats(values):
 
 
 def main():
+    # Plotting is only needed for the report; importing the audited helpers
+    # such as recurrence() must not require Matplotlib.
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run", type=Path, required=True)
     parser.add_argument("--followup", type=Path, required=True)

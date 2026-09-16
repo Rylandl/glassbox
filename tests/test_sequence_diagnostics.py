@@ -6,7 +6,8 @@ from dataclasses import replace
 import numpy as np
 import pytest
 
-from glassbox.experimental.default_model import fit
+from glassbox.experimental.default_model import _fit_history as fit
+from glassbox.experimental.default_model import fit as fit_default
 from glassbox.experimental.sequence_collection import (
     SequenceCollection,
     SequenceSegment,
@@ -156,3 +157,15 @@ def test_diagnostic_histories_do_not_cross_segment_gaps(fitted):
     _, arrays = _run(fitted, collection(segments))
     assert set(arrays["source_origins"]) == {4, 5, 6, 24, 25, 26}
     np.testing.assert_allclose(np.diff(arrays["past_states"], axis=1), 0.1)
+
+
+def test_diagnostics_extend_past_the_memory_recipe_context():
+    """The maintained recipe consumes ten transitions; diagnostics look twice as far."""
+    model = fit_default(collection([recording("train-a", 1), recording("train-b", 2)]))
+    report = model.diagnose(
+        collection([recording(f"reserved-{i}", i + 10) for i in range(3)])
+    )
+    assert report["model_history_steps"] == 10
+    assert report["extended_history_steps"] == 20
+    assert report["windows"] == 3 * 59
+    assert report["model_fingerprint"] == model.fingerprint()

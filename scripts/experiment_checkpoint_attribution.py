@@ -20,8 +20,8 @@ import numpy as np
 from experiment_first_step_floor import first_step_floor
 from experiment_horizon_generalization import evaluate_arrays, generate, measure, write
 
+from glassbox.experimental.default_model import _HISTORY_RECIPE as _RECIPE
 from glassbox.experimental.default_model import (
-    _RECIPE,
     LearnedDynamics,
     _extract,
     _priority,
@@ -42,8 +42,8 @@ def prepare(recordings):
     names = sorted(_recording_content(recordings), key=_priority)
     count = min(len(names) - 1, max(1, int(np.ceil(len(names) / 4))))
     return (
-        _extract(recordings, names[count:], _RECIPE["training_windows"]),
-        _extract(recordings, names[:count], _RECIPE["development_windows"]),
+        _extract(recordings, names[count:], _RECIPE["training_windows"], _RECIPE),
+        _extract(recordings, names[:count], _RECIPE["development_windows"], _RECIPE),
     )
 
 
