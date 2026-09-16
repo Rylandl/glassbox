@@ -1,14 +1,19 @@
 """One harness for the generic learner: fit frozen cases, score, decide, replay.
 
-``run`` fits the consumer recipe end to end on each case of a frozen manifest,
-scores its forecasts on independent recordings, and writes a decision.
-``verify`` replays every saved prediction with an independent NumPy recurrence,
-recomputes the scores and the decision from the saved arrays, and rejects any
-artifact that differs from what the run recorded. Neither command takes tuning
-options: the manifest is frozen and its digest is a constant below.
+The harness has two tiers, each with its own frozen manifest and digest
+constant. ``run`` is the synthetic tier: it fits the consumer recipe end to end
+on each case of ``docs/harness/v1.json``, scores its forecasts on independent
+recordings, and writes a decision. ``platform`` is the accuracy tier: it fits
+the same recipe on each pinned corpus of ``docs/harness/platform-v1.json`` with
+whole recordings held out, fits the structured model on exactly the same
+training recordings, and scores both on exactly the same held-out rows.
+``verify`` replays either tier from its saved artifacts and rejects anything
+that changed. No command takes tuning options.
 
     python -m glassbox.experimental.harness run \\
         --manifest docs/harness/v1.json --output DIR
+    python -m glassbox.experimental.harness platform \\
+        --manifest docs/harness/platform-v1.json --corpora ROOT --output DIR
     python -m glassbox.experimental.harness verify DIR [--reference PATH]
 
 A run copies the manifest and the reference it compared into its output, but a
@@ -28,12 +33,18 @@ import platform as platform_module
 import shutil
 import sys
 import time
+from fnmatch import fnmatch
+from itertools import pairwise
 from pathlib import Path
 
 import numpy as np
 
 from .default_model import RECIPE, LearnedDynamics, fit, steps_for
-from .sequence_collection import SequenceCollection, SequenceSegment
+from .sequence_collection import (
+    SequenceCollection,
+    SequenceSegment,
+    segments_from_mask,
+)
 
 MANIFEST_SHA256 = "1ba15b3f466e91edf548f1d459a52eb0896310e7fbbb6c1c98544ec10513d781"
 """Digest of the frozen manifest this module is allowed to run and verify."""
@@ -684,8 +695,20 @@ def anchored_reference(directory, reference=None):
 
 
 def verify(directory, reference=None):
-    """Recompute every score and the decision from saved arrays; never fit."""
+    """Recompute every score and the decision from saved arrays; never fit.
+
+    Which tier a directory holds is decided by the digest of the manifest it
+    copied, not by anything the copy says about itself. A manifest that matches
+    neither frozen contract is refused before anything is read.
+    """
     directory = Path(directory)
+    digest = sha256(directory / "manifest.json")
+    if digest == PLATFORM_MANIFEST_SHA256:
+        return verify_platform(
+            directory, frozen_platform_manifest(directory / "manifest.json")
+        )
+    if digest != MANIFEST_SHA256:
+        raise ValueError("manifest digest differs from every frozen harness contract")
     manifest = frozen_manifest(directory / "manifest.json")
     plan = manifest["dataset"]
     steps = steps_for(plan["dt_s"])
@@ -784,12 +807,745 @@ def verify(directory, reference=None):
     )
 
 
+# --- the platform tier: the corpus adapter ----------------------------------
+
+PLATFORM_MANIFEST_SHA256 = (
+    "8d4705d866990a4682a344cdcfab39dec4ccee893db62b46742330ed2dce1a3d"
+)
+"""Digest of the frozen platform manifest this module is allowed to run."""
+
+COMMITTED_PLATFORM_MANIFEST = COMMITTED_MANIFEST.parent / "platform-v1.json"
+"""The frozen platform manifest in a source checkout."""
+
+VELOCITY_ROWS = slice(3, 6)
+QUATERNION_ROWS = slice(6, 10)
+BODY_RATE_ROWS = slice(10, 13)
+"""Where ``rigid_body_13_nwu_flu_wxyz_v1`` keeps each modeled state group.
+
+Position, rows 0 to 2, is not modeled: the recipe forecasts rates and attitude,
+and a position channel would only integrate them.
+"""
+
+OBSERVED_CHANNELS = (
+    "velocity_north [m/s,world_nwu]",
+    "velocity_west [m/s,world_nwu]",
+    "velocity_up [m/s,world_nwu]",
+    "body_rate_x [rad/s,body_flu]",
+    "body_rate_y [rad/s,body_flu]",
+    "body_rate_z [rad/s,body_flu]",
+) + tuple(
+    f"rotation_{row}{column} [unitless,body_flu_to_world_nwu]"
+    for row in range(3)
+    for column in range(3)
+)
+"""The one observed contract every corpus adapts to, in this order."""
+
+VELOCITY_CHANNELS = (0, 1, 2)
+BODY_RATE_CHANNELS = (3, 4, 5)
+METRICS = ("velocity_rmse_m_s", "body_rate_rmse_rad_s")
+
+
+def frozen_platform_manifest(path):
+    """Load the platform manifest only when its bytes match the frozen digest."""
+    if sha256(path) != PLATFORM_MANIFEST_SHA256:
+        raise ValueError("manifest digest differs from the frozen harness contract")
+    manifest = read(path)
+    if manifest["recipe"] != RECIPE:
+        raise ValueError("manifest recipe differs from the maintained recipe")
+    for entry in manifest["corpora"]:
+        steps = steps_for(entry["sample_interval_s"])
+        budget = entry["information_budget"]
+        if (steps["history"], steps["delay"], steps["horizon"]) != (
+            budget["context_steps"],
+            budget["delay_steps"],
+            budget["horizon_steps"],
+        ):
+            raise ValueError("manifest information budget differs from the recipe")
+    return manifest
+
+
+def observed_from_states(states):
+    """The 15 observed channels of a canonical rigid-body state array.
+
+    World-frame velocity, body rates, then the nine body-to-world rotation
+    entries in row-major order. Trailing axes only, so one state, a rollout, or
+    a batch of rollouts all map the same way.
+    """
+    from glassbox.core.geometry import quaternion_to_rotation_matrices
+
+    states = np.asarray(states, dtype=float)
+    rotation = quaternion_to_rotation_matrices(states[..., QUATERNION_ROWS])
+    return np.concatenate(
+        (
+            states[..., VELOCITY_ROWS],
+            states[..., BODY_RATE_ROWS],
+            rotation.reshape(*states.shape[:-1], 9),
+        ),
+        axis=-1,
+    )
+
+
+def observed_rows(trajectory):
+    """One canonical trajectory's observed channels, checked against its spec."""
+    from glassbox.core.data import RIGID_BODY_STATE_SCHEMA
+
+    schema = trajectory.spec.state_schema
+    if schema != RIGID_BODY_STATE_SCHEMA:
+        raise ValueError(f"unsupported canonical state schema: {schema}")
+    if trajectory.states.shape[1] != 13:
+        raise ValueError("a canonical rigid-body state has thirteen rows")
+    return observed_from_states(trajectory.states)
+
+
+def command_channels(spec):
+    """Ordered input identities from the trajectory's own spec, with units."""
+    return tuple(
+        f"{channel.name} [{channel.unit},{channel.role}]" for channel in spec.controls
+    )
+
+
+def trajectory_segments(recording_id, trajectory, *, dt_s, tolerance_fraction):
+    """One canonical trajectory as generic segments, on one uniform time grid.
+
+    A sample interval that departs from ``dt_s`` ends a segment, and so does a
+    nonfinite observed row or outgoing command. Nothing is padded or imputed:
+    the split runs through ``segments_from_mask`` one uniformly sampled block at
+    a time, so every retained row keeps its source row index. ``dt_s`` is the
+    corpus's declared sample period; every interval is checked against it here,
+    and it is what the whole corpus shares so one collection can hold it.
+    """
+    rows = observed_rows(trajectory)
+    inputs = np.asarray(trajectory.controls, dtype=float)
+    time_s = np.asarray(trajectory.time_s, dtype=float)
+    if not np.isfinite(dt_s) or dt_s <= 0:
+        raise ValueError("the declared sample interval must be finite and positive")
+    uniform = np.abs(np.diff(time_s) - dt_s) <= tolerance_fraction * dt_s
+    valid = np.isfinite(rows).all(axis=1)
+    valid[:-1] &= np.isfinite(inputs).all(axis=1)
+    bounds = np.r_[0, np.flatnonzero(~uniform) + 1, len(time_s)]
+    segments = []
+    for start, stop in pairwise(bounds):
+        block = np.zeros(len(time_s), dtype=bool)
+        block[start:stop] = True
+        segments.extend(
+            segments_from_mask(recording_id, rows, inputs, valid & block, dt_s=dt_s)
+        )
+    return tuple(segments)
+
+
+def corpus_paths(entry, root):
+    """One corpus's recordings on disk, split by the declared held-out patterns.
+
+    The root is a command-line argument, never a manifest fact. What the
+    manifest freezes is the corpus's directory below it, the held-out name
+    patterns, and how many recordings each side must hold; a tree that differs
+    fails closed rather than quietly measuring a different corpus.
+    """
+    directory = Path(root) / entry["directory"]
+    paths = sorted(directory.glob(entry["file_pattern"]))
+    held_out, training = [], []
+    for path in paths:
+        relative = path.relative_to(directory).as_posix()
+        matched = any(fnmatch(relative, p) for p in entry["held_out_patterns"])
+        (held_out if matched else training).append(path)
+    declared = entry["recordings"]
+    found = (len(paths), len(held_out), len(training))
+    if found != (declared["total"], declared["held_out"], declared["training"]):
+        raise ValueError(
+            f"{entry['name']} under {directory} holds {found} total/held-out/"
+            "training recordings, not what the frozen manifest declares"
+        )
+    if len({path.stem for path in paths}) != len(paths):
+        raise ValueError(f"{entry['name']} recording identities are not unique stems")
+    return training, held_out
+
+
+def corpus_recordings(entry, loaded):
+    """Adapt one corpus's loaded trajectories into a generic collection."""
+    channels = command_channels(loaded[0][1].spec)
+    segments = []
+    for name, trajectory in loaded:
+        if command_channels(trajectory.spec) != channels:
+            raise ValueError(f"{entry['name']} recordings declare different commands")
+        segments.extend(
+            trajectory_segments(
+                name,
+                trajectory,
+                dt_s=entry["sample_interval_s"],
+                tolerance_fraction=entry["sample_interval_tolerance_fraction"],
+            )
+        )
+    return SequenceCollection(
+        tuple(segments),
+        configuration_id=f"platform-{entry['name']}",
+        state_channels=OBSERVED_CHANNELS,
+        input_channels=channels,
+    )
+
+
+# --- the platform tier: the same rows for both models -----------------------
+
+
+def platform_origins(segments, steps, stride):
+    """Every origin at the declared stride with a full context and horizon."""
+    context, horizon = steps["history"], steps["horizon"]
+    return [
+        (segment, row)
+        for segment in segments
+        for row in range(context, len(segment.states) - horizon, stride)
+    ]
+
+
+def platform_rows(held_out, entry, steps, motor_history_steps):
+    """The evaluation arrays both models forecast from, origin for origin.
+
+    Every origin carries the generic model's consumed context and the recorded
+    future commands, and the same origin's full canonical state, command
+    history and exogenous context for the structured rollout. One index, one
+    set of rows, two models.
+    """
+    from glassbox.core.data import control_history_before
+
+    context, horizon = steps["history"], steps["horizon"]
+    stride = entry["evaluation_origin_stride_rows"]
+    columns = {
+        key: []
+        for key in (
+            "past_states",
+            "past_inputs",
+            "future_inputs",
+            "targets",
+            "initial_states",
+            "control_histories",
+            "controls",
+            "initial_exogenous",
+        )
+    }
+    identities, origins = [], []
+    for name, trajectory, segments in held_out:
+        for segment, row in platform_origins(segments, steps, stride):
+            source = segment.start_row + row
+            columns["past_states"].append(segment.states[row - context : row + 1])
+            columns["past_inputs"].append(segment.inputs[row - context : row])
+            columns["future_inputs"].append(segment.inputs[row : row + horizon])
+            columns["targets"].append(segment.states[row + 1 : row + horizon + 1])
+            columns["initial_states"].append(trajectory.states[source])
+            columns["control_histories"].append(
+                control_history_before(trajectory, source, motor_history_steps)
+            )
+            columns["controls"].append(trajectory.controls[source : source + horizon])
+            columns["initial_exogenous"].append(trajectory.exogenous[source])
+            identities.append(name)
+            origins.append(source)
+    if not identities:
+        raise ValueError(f"{entry['name']} has no origin with a complete context")
+    spec = held_out[0][1].spec
+    return dict(
+        **{key: np.stack(value) for key, value in columns.items()},
+        recording_ids=np.array(identities),
+        source_origins=np.array(origins),
+        control_roles=np.array(list(spec.control_roles), dtype="<U64"),
+        exogenous_roles=np.array(list(spec.exogenous_roles), dtype="<U64"),
+    )
+
+
+def structured_forecast(params, arrays, dt_s):
+    """Roll the structured model from each origin's full canonical state.
+
+    This is the library's own rollout, initialized the way ``predict_windows``
+    initializes a fixed-horizon window: the applied-actuator state inferred
+    from the real command history before the origin, and the exogenous context
+    recorded at the origin held across the horizon.
+    """
+    import jax
+    import jax.numpy as jnp
+
+    from glassbox.core.dynamics import control_state_after_history, rollout_with_latent
+
+    roles = tuple(str(role) for role in arrays["control_roles"])
+    exogenous_roles = tuple(str(role) for role in arrays["exogenous_roles"])
+    latent = jax.vmap(
+        lambda history: control_state_after_history(params, history, dt_s, roles)
+    )(jnp.asarray(arrays["control_histories"]))
+    predicted, _ = jax.vmap(
+        lambda state, controls, applied, context: rollout_with_latent(
+            params, state, controls, dt_s, applied, roles, context, exogenous_roles
+        )
+    )(
+        jnp.asarray(arrays["initial_states"]),
+        jnp.asarray(arrays["controls"]),
+        latent,
+        jnp.asarray(arrays["initial_exogenous"]),
+    )
+    return observed_from_states(np.asarray(predicted, dtype=float)[:, 1:])
+
+
+def hold_current(past_states, horizon):
+    """The reference every corpus is read against: nothing changes."""
+    return np.repeat(np.asarray(past_states)[:, -1:], horizon, axis=1)
+
+
+# --- the platform tier: scoring and the decision ----------------------------
+
+
+def vector_rmse(error):
+    """One scalar over rows and the three components, as ``core.metrics`` does."""
+    return float(np.sqrt(np.mean(np.square(np.asarray(error, dtype=float)))))
+
+
+def platform_measure(prediction, targets):
+    """Final-step and horizon-prefix velocity and body-rate RMSE."""
+    error = np.asarray(prediction, dtype=float) - np.asarray(targets, dtype=float)
+    return dict(
+        final_step={
+            METRICS[0]: vector_rmse(error[:, -1, VELOCITY_CHANNELS]),
+            METRICS[1]: vector_rmse(error[:, -1, BODY_RATE_CHANNELS]),
+        },
+        horizon_prefix={
+            METRICS[0]: vector_rmse(error[..., VELOCITY_CHANNELS]),
+            METRICS[1]: vector_rmse(error[..., BODY_RATE_CHANNELS]),
+        },
+    )
+
+
+def platform_score(prediction, targets, ids):
+    """One model on one corpus, pooled and per recording."""
+    ids = np.asarray(ids)
+    return dict(
+        rows=len(targets),
+        **platform_measure(prediction, targets),
+        recordings={
+            str(name): platform_measure(prediction[ids == name], targets[ids == name])
+            for name in sorted(set(ids.tolist()))
+        },
+    )
+
+
+def _comparator(arms, metric):
+    """The better arm on these rows, metric by metric, and its value.
+
+    Taking the lowest value any declared arm reached is the strictest reading
+    of "the better arm": the generic model has to beat whichever structured arm
+    did best on that metric, not an arm chosen for it. Both arms are reported.
+    """
+    values = {
+        arm: _finite(score.get("final_step", {}).get(metric, float("nan")))
+        for arm, score in arms.items()
+    }
+    finite = {arm: value for arm, value in values.items() if value is not None}
+    if not finite:
+        return None, None, False
+    best = min(finite, key=lambda arm: finite[arm])
+    return best, finite[best], len(finite) == len(values)
+
+
+def platform_decide(manifest, rows):
+    """Every gate, evaluated from recorded scores alone. Anything unclear fails.
+
+    Structural problems are gate breaches and always fail closed. The accuracy
+    rule itself is reported separately, and only becomes a gate once the
+    manifest says it is enforced.
+    """
+    declared = {entry["name"]: entry for entry in manifest["corpora"]}
+    names = [row.get("corpus") for row in rows]
+    breaches, rule_breaches, summary = [], [], {}
+    for name in sorted(set(declared) - set(names)):
+        breaches.append(dict(corpus=name, gate="corpus_present"))
+    for name in sorted({name for name in names if names.count(name) > 1}):
+        breaches.append(dict(corpus=name, gate="corpus_unique"))
+    for name in sorted(set(names) - set(declared)):
+        breaches.append(dict(corpus=str(name), gate="corpus_declared"))
+    for row in rows:
+        name = row.get("corpus")
+        entry = declared.get(name)
+        if entry is None:
+            continue
+        if row.get("status") != "complete":
+            breaches.append(dict(corpus=name, gate="fit_complete"))
+            continue
+        scored = row.get("evaluation_rows")
+        limit = manifest["evaluation_rows_maximum"]
+        if not isinstance(scored, int) or not 0 < scored <= limit:
+            breaches.append(
+                dict(corpus=name, gate="evaluation_rows", value=scored, limit=limit)
+            )
+        arms = row.get("structured", {})
+        if sorted(arms) != sorted(entry["structured"]["arms"]):
+            breaches.append(dict(corpus=name, gate="arms_declared"))
+            continue
+        allowance = entry["allowance"]
+        for metric in METRICS:
+            generic = _finite(
+                row.get("generic", {}).get("final_step", {}).get(metric, float("nan"))
+            )
+            arm, comparator, complete = _comparator(arms, metric)
+            summary.setdefault(name, {})[metric] = dict(
+                generic=generic,
+                comparator=comparator,
+                comparator_arm=arm,
+                allowance=None if allowance is None else allowance[metric],
+                hold_current=_finite(
+                    row.get("hold_current", {})
+                    .get("final_step", {})
+                    .get(metric, float("nan"))
+                ),
+            )
+            if generic is None or comparator is None or not complete:
+                breaches.append(
+                    dict(
+                        corpus=name,
+                        metric=metric,
+                        gate="finite_final_step_rmse",
+                        value=generic,
+                    )
+                )
+                continue
+            if generic > comparator:
+                rule_breaches.append(
+                    dict(
+                        corpus=name,
+                        metric=metric,
+                        gate="comparator_final_step_rmse",
+                        value=generic,
+                        limit=comparator,
+                        arm=arm,
+                    )
+                )
+            if allowance is not None and generic > allowance[metric]:
+                rule_breaches.append(
+                    dict(
+                        corpus=name,
+                        metric=metric,
+                        gate="allowance_final_step_rmse",
+                        value=generic,
+                        limit=allowance[metric],
+                    )
+                )
+    enforced = bool(manifest["decision"]["enforced"])
+    rule_met = not breaches and not rule_breaches
+    accepted = not breaches and (rule_met or not enforced)
+    return dict(
+        manifest=manifest["id"],
+        decision="accept" if accepted else "reject",
+        accepted=accepted,
+        rule_met=rule_met,
+        rule_enforced=enforced,
+        corpora=len(rows),
+        gate_breaches=breaches,
+        rule_breaches=rule_breaches,
+        final_step_rmse=summary,
+        meaning=manifest["decision"]["meaning"],
+    )
+
+
+# --- the platform tier: running ---------------------------------------------
+
+
+def _structured_spec(entry, arm):
+    """The FitSpec one corpus's recorded validation chain fits this arm with."""
+    from glassbox.fitting import FitSpec, Holdout, LossPolicy
+
+    declared = entry["structured"]
+    horizons = declared["training_horizons_s"]
+    return FitSpec(
+        holdout=Holdout.by_group(declared["holdout_count"]),
+        horizons_s=None if horizons is None else tuple(horizons),
+        horizon_steps=declared["training_horizon_steps"],
+        steps=declared["optimization_steps"],
+        learning_rate=declared["learning_rate"],
+        evaluation_horizons_s=tuple(declared["evaluation_horizons_s"]),
+        model_class=arm,
+        loss=LossPolicy(
+            endpoint_weight=declared["endpoint_weight"],
+            stability_regularization=declared["stability_regularization"],
+        ),
+    )
+
+
+def _structured_arm(entry, arm, training_paths, arrays, directory):
+    """Fit one structured arm on exactly the training recordings, then forecast."""
+    from glassbox.belief.belief_io import save_dynamics_belief
+    from glassbox.fitting import fit as structured_fit
+
+    started = time.perf_counter()
+    outcome = structured_fit(
+        [str(path) for path in training_paths], _structured_spec(entry, arm)
+    )
+    wall = time.perf_counter() - started
+    split = outcome.report["split"]
+    trained = [item["path"] for item in split["training_flights"]]
+    reserved = [item["path"] for item in split["validation_flights"]]
+    if sorted(trained + reserved) != sorted(str(path) for path in training_paths):
+        raise ValueError(f"{entry['name']} {arm} fit did not read the training set")
+    save_dynamics_belief(outcome.belief, directory / f"structured_{arm}.json")
+    write(directory / f"structured_{arm}_report.json", outcome.report)
+    prediction = structured_forecast(
+        outcome.belief.params, arrays, entry["sample_interval_s"]
+    )
+    if not np.isfinite(prediction).all():
+        raise ValueError(f"nonfinite structured forecast in {entry['name']} {arm}")
+    learned = outcome.report["models"]["learned_lag"]["fit"]
+    return prediction, dict(
+        wall_seconds=wall,
+        initial_loss=float(learned["initial_loss"]),
+        final_loss=float(learned["final_loss"]),
+        training_recordings=[Path(path).stem for path in trained],
+        reserved_recordings=[Path(path).stem for path in reserved],
+        report=f"structured_{arm}_report.json",
+    )
+
+
+def _platform_corpus(manifest, entry, root, output):
+    """One corpus end to end: adapt, fit both models, score the same rows."""
+    from glassbox.core.data import load_trajectory_npz
+
+    name = entry["name"]
+    directory = output / name
+    directory.mkdir()
+    dt_s = entry["sample_interval_s"]
+    steps = steps_for(dt_s)
+    training_paths, held_paths = corpus_paths(entry, root)
+    training = [(path.stem, load_trajectory_npz(path)) for path in training_paths]
+    held = [(path.stem, load_trajectory_npz(path)) for path in held_paths]
+
+    started = time.perf_counter()
+    learned = fit(corpus_recordings(entry, training))
+    generic_wall = time.perf_counter() - started
+    learned.save(directory / "generic.npz")
+    if set(learned.report["training"]) | set(learned.report["development"]) != {
+        stem for stem, _ in training
+    }:
+        raise ValueError(f"{name} generic fit did not read the training set")
+
+    held_out = [
+        (
+            stem,
+            trajectory,
+            trajectory_segments(
+                stem,
+                trajectory,
+                dt_s=dt_s,
+                tolerance_fraction=entry["sample_interval_tolerance_fraction"],
+            ),
+        )
+        for stem, trajectory in held
+    ]
+    motor_history_steps = max(1, int(np.rint(manifest["motor_history_s"] / dt_s)))
+    arrays = platform_rows(held_out, entry, steps, motor_history_steps)
+    if set(arrays["recording_ids"].tolist()) & {stem for stem, _ in training}:
+        raise ValueError(f"{name} held-out identities overlap the training set")
+
+    generic = np.asarray(
+        learned.predict(
+            arrays["past_states"], arrays["past_inputs"], arrays["future_inputs"]
+        )
+    )
+    if not np.isfinite(generic).all():
+        raise ValueError(f"nonfinite generic forecast in {name}")
+    hold = hold_current(arrays["past_states"], steps["horizon"])
+    predictions, fits = {}, {}
+    for arm in entry["structured"]["arms"]:
+        print(json.dumps(dict(fitting=f"{name}/{arm}")), flush=True)
+        predictions[arm], fits[arm] = _structured_arm(
+            entry, arm, training_paths, arrays, directory
+        )
+    np.savez_compressed(
+        directory / "evaluation.npz",
+        **arrays,
+        generic_prediction=generic,
+        hold_prediction=hold,
+        **{f"structured_{arm}_prediction": p for arm, p in predictions.items()},
+    )
+    targets, ids = arrays["targets"], arrays["recording_ids"]
+    files = ["generic.npz", "evaluation.npz"]
+    for arm in predictions:
+        files += [f"structured_{arm}.json", f"structured_{arm}_report.json"]
+    row = dict(
+        corpus=name,
+        status="complete",
+        sample_interval_s=dt_s,
+        context_steps=steps["history"],
+        horizon_steps=steps["horizon"],
+        horizon_s=steps["horizon"] * dt_s,
+        evaluation_origin_stride_rows=entry["evaluation_origin_stride_rows"],
+        evaluation_rows=len(targets),
+        motor_history_steps=motor_history_steps,
+        recordings=dict(
+            training=[stem for stem, _ in training],
+            held_out=[stem for stem, _ in held],
+        ),
+        generic_fingerprint=learned.fingerprint(),
+        generic_fit_wall_seconds=generic_wall,
+        generic_report=learned.report,
+        generic=platform_score(generic, targets, ids),
+        hold_current=platform_score(hold, targets, ids),
+        structured={
+            arm: platform_score(prediction, targets, ids)
+            for arm, prediction in predictions.items()
+        },
+        structured_fits=fits,
+        files=_files(directory, files),
+    )
+    write(directory / "result.json", row)
+    return row
+
+
+def platform(manifest_path, corpora_root, output):
+    """Measure every pinned corpus against the structured model and decide."""
+    import jax
+
+    manifest_path, output = Path(manifest_path), Path(output)
+    manifest = frozen_platform_manifest(manifest_path)
+    output.mkdir(parents=True, exist_ok=False)
+    shutil.copyfile(manifest_path, output / "manifest.json")
+    write(
+        output / "environment.json",
+        dict(
+            python=sys.version,
+            platform=platform_module.platform(),
+            jax=jax.__version__,
+            numpy=np.__version__,
+            x64=True,
+            corpora_root=str(Path(corpora_root)),
+        ),
+    )
+    rows = []
+    started = time.perf_counter()
+    with jax.enable_x64(True):
+        for entry in manifest["corpora"]:
+            print(json.dumps(dict(starting=entry["name"])), flush=True)
+            rows.append(_platform_corpus(manifest, entry, corpora_root, output))
+            write(output / "results.json", rows)
+    decision = platform_decide(manifest, rows)
+    decision["wall_seconds"] = time.perf_counter() - started
+    write(output / "decision.json", decision)
+    return decision
+
+
+# --- the platform tier: verifying -------------------------------------------
+
+
+def _same_scores(fresh, saved, label):
+    if sorted(fresh) != sorted(saved) or fresh["rows"] != saved["rows"]:
+        raise ValueError(f"score shape mismatch: {label}")
+    for horizon in ("final_step", "horizon_prefix"):
+        for metric in METRICS:
+            np.testing.assert_allclose(
+                fresh[horizon][metric], saved[horizon][metric], **SCORE_TOLERANCE
+            )
+    if sorted(fresh["recordings"]) != sorted(saved["recordings"]):
+        raise ValueError(f"recording set mismatch: {label}")
+    for recording, metrics in fresh["recordings"].items():
+        for horizon in ("final_step", "horizon_prefix"):
+            for metric in METRICS:
+                np.testing.assert_allclose(
+                    metrics[horizon][metric],
+                    saved["recordings"][recording][horizon][metric],
+                    **SCORE_TOLERANCE,
+                )
+
+
+def verify_platform(directory, manifest):
+    """Recompute every platform score and the decision from saved arrays."""
+    import jax
+
+    from glassbox.belief.belief_io import load_dynamics_belief
+
+    directory = Path(directory)
+    declared = {entry["name"]: entry for entry in manifest["corpora"]}
+    rows = read(directory / "results.json")
+    replays, worst = 0, 0.0
+    with jax.enable_x64(True):
+        for row in rows:
+            case = directory / row["corpus"]
+            if read(case / "result.json") != row:
+                raise ValueError(f"case result mismatch: {row['corpus']}")
+            for name, digest in row["files"].items():
+                if sha256(case / name) != digest:
+                    raise ValueError(f"altered artifact: {row['corpus']}/{name}")
+            entry = declared[row["corpus"]]
+            steps = steps_for(entry["sample_interval_s"])
+            learned = LearnedDynamics.load(case / "generic.npz")
+            if learned.fingerprint() != row["generic_fingerprint"]:
+                raise ValueError(f"model fingerprint mismatch: {row['corpus']}")
+            with np.load(case / "evaluation.npz", allow_pickle=False) as data:
+                if data["past_states"].shape[1] != steps["history"] + 1:
+                    raise ValueError("saved evaluation rows lack the consumed context")
+                if data["future_inputs"].shape[1] != steps["horizon"]:
+                    raise ValueError("saved evaluation rows lack the declared horizon")
+                if len(data["targets"]) != row["evaluation_rows"]:
+                    raise ValueError(f"evaluation row count differs: {row['corpus']}")
+                generic = replay(
+                    learned._model,
+                    data["past_states"],
+                    data["past_inputs"],
+                    data["future_inputs"],
+                )
+                worst = max(
+                    worst,
+                    float(np.max(np.abs(generic - data["generic_prediction"]))),
+                )
+                np.testing.assert_allclose(
+                    generic, data["generic_prediction"], **REPLAY_TOLERANCE
+                )
+                hold = hold_current(data["past_states"], steps["horizon"])
+                np.testing.assert_array_equal(hold, data["hold_prediction"])
+                targets, ids = data["targets"], data["recording_ids"]
+                fresh = dict(
+                    generic=platform_score(generic, targets, ids),
+                    hold_current=platform_score(hold, targets, ids),
+                    structured={},
+                )
+                replays += 2
+                for arm in entry["structured"]["arms"]:
+                    belief = load_dynamics_belief(case / f"structured_{arm}.json")
+                    prediction = structured_forecast(
+                        belief.params, data, entry["sample_interval_s"]
+                    )
+                    saved = data[f"structured_{arm}_prediction"]
+                    worst = max(worst, float(np.max(np.abs(prediction - saved))))
+                    np.testing.assert_allclose(prediction, saved, **REPLAY_TOLERANCE)
+                    fresh["structured"][arm] = platform_score(prediction, targets, ids)
+                    replays += 1
+            _same_scores(fresh["generic"], row["generic"], f"{row['corpus']}/generic")
+            _same_scores(
+                fresh["hold_current"], row["hold_current"], f"{row['corpus']}/hold"
+            )
+            if sorted(fresh["structured"]) != sorted(row["structured"]):
+                raise ValueError(f"structured arm mismatch: {row['corpus']}")
+            for arm, score in fresh["structured"].items():
+                _same_scores(score, row["structured"][arm], f"{row['corpus']}/{arm}")
+            row["generic"] = fresh["generic"]
+            row["hold_current"] = fresh["hold_current"]
+            row["structured"] = fresh["structured"]
+    decision = platform_decide(manifest, rows)
+    saved = read(directory / "decision.json")
+    for key in ("manifest", "decision", "accepted", "rule_met", "corpora"):
+        if decision[key] != saved[key]:
+            raise ValueError(f"replayed decision differs: {key}")
+    for key in ("gate_breaches", "rule_breaches"):
+        if len(decision[key]) != len(saved[key]):
+            raise ValueError(f"replayed decision differs: {key}")
+    return dict(
+        tier="platform",
+        verified_corpora=len(rows),
+        replays=replays,
+        maximum_replay_difference=worst,
+        decision=decision,
+        meaning="A replay of saved evidence, not a new fit or independent confirmation.",
+    )
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     commands = parser.add_subparsers(dest="command", required=True)
     runner = commands.add_parser("run", help="fit every frozen case and decide")
     runner.add_argument("--manifest", type=Path, required=True)
     runner.add_argument("--output", type=Path, required=True)
+    measurer = commands.add_parser("platform", help="measure every pinned corpus")
+    measurer.add_argument("--manifest", type=Path, required=True)
+    measurer.add_argument("--corpora", type=Path, required=True)
+    measurer.add_argument("--output", type=Path, required=True)
     checker = commands.add_parser("verify", help="replay a run directory")
     checker.add_argument("directory", type=Path)
     checker.add_argument(
@@ -804,6 +1560,9 @@ def main(argv=None):
     args = parser.parse_args(argv)
     if args.command == "run":
         result = run(args.manifest, args.output)
+        accepted = result["accepted"]
+    elif args.command == "platform":
+        result = platform(args.manifest, args.corpora, args.output)
         accepted = result["accepted"]
     else:
         result = verify(args.directory, args.reference)
