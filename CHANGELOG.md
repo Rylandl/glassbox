@@ -5,6 +5,22 @@ All notable changes to Glassbox are recorded here. The format follows
 
 ## Unreleased
 
+- Measure the live improvement row for the first time. `docs/harness/live-v1.json`
+  is the fifth frozen gate, with its own digest constant and a `live` harness
+  command: `control-v3`'s plant, task, calibration, seeds and both fitted arms,
+  with the structured belief flying from the first interval while the generic
+  learner receives the trial's own aligned transitions through the existing
+  `TransitionBuffer` and `RefinementWorker` seam, refits with
+  `update(recordings)` on whole 40-interval blocks inside a declared budget, and
+  is handed the controller through the acknowledged handoff when its final-step
+  forecast error on the most recent block it did not fit on is at or below the
+  structured belief's on the same rows. `RefinementWorker` now takes either a
+  belief or a caller's own refiner keeping the new `Refiner` protocol; the
+  recipe, the learner modules and all eight earlier gate files are byte
+  identical. Measured, not enforced: the swap happened in both trials and
+  tracking after it was 17.7 m and 26.3 m against 0.85 m and 0.90 m before it,
+  because a held-out forecast comparison in a regime the structured arm holds
+  almost still reads no command authority.
 - Every generic forecast carries a measured error envelope, and the controller
   consumes it. The recipe already reserves a quarter of the supplied recordings
   as its development role; the windows cut from them now calibrate a
