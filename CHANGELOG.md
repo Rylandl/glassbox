@@ -5,6 +5,29 @@ All notable changes to Glassbox are recorded here. The format follows
 
 ## Unreleased
 
+- Let a recording declare the excitation the caller injected, and make the
+  control and live tiers declare theirs. `SequenceSegment` takes an optional
+  `excitation` array aligned with its `inputs` — the exogenous component of each
+  applied command — validated like the other arrays, carried through
+  `segments_from_mask`, `SequenceCollection` and window extraction, and read by
+  no part of the recipe; when every recording declares one, `fit` and `update`
+  record `excitation_declared` and each command channel's excitation standard
+  deviation as a fraction of its own command range, and when none does the
+  report is byte identical, so every existing artifact, fingerprint and
+  reference stands. `docs/harness/control-v5.json` replaces
+  `docs/harness/control-v4.json`, which is deleted, with that manifest's
+  constants unchanged and the calibration pilot's own known additive excitation
+  recorded per recording and supplied to the generic learner;
+  `docs/harness/live-v3.json` replaces `docs/harness/live-v2.json`, which is
+  deleted, adding a seeded declared dither to the active controller's applied
+  command on both arms of every trial and recording it as the excitation of the
+  streamed transitions the learner refits on. Both replays rebuild the declared
+  excitation from the manifest and its seed rather than believing the saved
+  arrays. `docs/harness/control-reference.json` is rewritten as the v5
+  incumbent, every number of it `control-v4`'s to the printed digit, and
+  `docs/harness/live-reference.json` is the live tier's first reference,
+  measured under the dither.
+
 - Compute the control tier's trajectory in simulated time.
   `docs/harness/control-v4.json` replaces `docs/harness/control-v3.json`, which
   is deleted: the same plant hash, task, calibration and excitation

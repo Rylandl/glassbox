@@ -48,6 +48,40 @@ The report carries the recipe, the window coverage of each role, the
 optimization trace, per-recording development errors against a hold-current
 reference, the envelope, and the evidence limits that apply to all of it.
 
+## Declared excitation
+
+A recording may say what the caller injected into its commands. `SequenceSegment`
+takes an optional `excitation` array aligned row for row and column for column
+with its `inputs` — the exogenous component of each applied command, zero where
+none was injected — and it is validated exactly as the other arrays are: finite,
+the shape of the inputs, or absent. It is not a caller option. It is part of the
+recordings, the way units, frames and recording boundaries are, and the charter
+already has the caller supply those.
+
+```python
+SequenceSegment(name, "whole", states, inputs, dt_s=0.05, excitation=dither)
+```
+
+A collection declares it for every recording or for none of them; a half-declared
+collection would leave "what the caller injected" ambiguous on the segments that
+said nothing. `segments_from_mask` cuts the excitation with the inputs it belongs
+to, so a retained segment carries the excitation of exactly its own rows, and
+`extract` returns it beside the batch as `past_excitation` and `future_excitation`,
+aligned with `past_inputs` and `future_inputs`.
+
+**This recipe reads none of it.** When every recording declares one, the report
+records two facts — `excitation_declared`, and
+`excitation_standard_deviation_fraction`, one number per command channel: the
+standard deviation of the declared excitation over every applied command, as a
+fraction of that channel's own command range in the same recordings. Both are
+measured from the recordings; there is no threshold and no declared range to be
+told, and a channel whose command never moves has no range to be excited in and
+reports `None` rather than a number over zero. When no recording declares one,
+the report is byte for byte the report it was before this existed, which is why
+every artifact, fingerprint and reference the harness already holds still stands.
+Making the fit accountable for the response those recordings show is the next
+iteration, not this one.
+
 ## The envelope
 
 Every forecast carries a measured error envelope. There is no caller option
@@ -279,7 +313,7 @@ would never measure a change. Every run records the recipe it actually fitted.
 
 ## The control tier
 
-[`harness/control-v4.json`](harness/control-v4.json) is the third frozen
+[`harness/control-v5.json`](harness/control-v5.json) is the third frozen
 manifest, with its own digest constant. It is the control tier: one Cascade X8
 trial set, driven once by the structured belief and once by the generic
 learner, through the same plant and the same NMPC seam, computed in simulated
@@ -287,7 +321,7 @@ time.
 
 ```sh
 uv run --group cascade python -m glassbox.experimental.harness control \
-  --manifest docs/harness/control-v4.json --output /tmp/control-run
+  --manifest docs/harness/control-v5.json --output /tmp/control-run
 uv run python -m glassbox.experimental.harness verify /tmp/control-run
 ```
 
@@ -338,8 +372,8 @@ first repetition against its reference's 1.179 m, and the same run made alone
 reproduced the reference to every digit. A 5% regression allowance on a number
 that moves with machine load gates on scheduling noise.
 
-`control-v4` adopts what `live-v2` already does, and
-[says it the same way](#nothing-a-clock-measured-reaches-the-trajectory).
+`control-v4` adopted what the live tier already did, and `control-v5` keeps it;
+the live tier [says it the same way](#nothing-a-clock-measured-reaches-the-trajectory).
 Interval `k` is the state at `k` times the sample interval: the loop is not
 paced and reads no clock to decide anything, and the solver is given no
 deadline, so it never returns a fallback command for want of time and the
@@ -373,9 +407,33 @@ and 2.5 m/s here — and a Cascade-marked test puts that one constant back and
 asserts that the tier's recording is byte for byte the one
 [`examples/cascade_refinement.py`](../examples/cascade_refinement.py) collects.
 Excitation is a property of the recordings the caller supplies, applied
-identically to both arms. Nothing about it reaches the learner, which is still
-told the channels and nothing else, and the learner still does not report its
-absence: that is the Evidence row.
+identically to both arms.
+
+### The calibration declares what it injected
+
+`control-v5` replaces `control-v4`, which is deleted, and changes no constant of
+it: the same plant hash and pinned revision, the same task, the same calibration
+seeds, durations, pilot, setpoint plan, excitation amplitudes and rates, the same
+trials, the same controller policy, the same metrics, the same rule and the same
+allowance. What it adds is one declaration. The known additive component the
+calibration pilot already injects — `ramp * amplitudes * sin(rates * elapsed +
+phases)`, with the phases drawn from each recording's own seed — is recorded per
+recording in `calibration-excitation.npz` and supplied as the
+[declared excitation](#declared-excitation) of the generic learner's recordings.
+
+The structured fit is unchanged and is never given it. The recipe is not given a
+choice about it either: it reads the commands and ignores what they were made of,
+and records only that the excitation was declared and what fraction of each
+command's range it moved. Under this calibration that is 5.72%, 2.47% and 2.30%
+of each channel's own measured range, against the 12.1% to 38.1% the whole
+command moves.
+
+`verify` rebuilds each recording's excitation from the manifest and that
+recording's seed rather than believing the saved array, remeasures the fraction
+from the saved recordings, and rejects a run whose fit does not declare one, whose
+saved arrays are not the declared ones, or whose recorded fraction is not what
+those recordings give. The measured excitation requirement above is untouched and
+still fails closed before either fit.
 
 The declared rule is that the generic arm's position and attitude tracking RMSE
 are at or below the structured arm's on the same trial, on every trial. It is
@@ -409,9 +467,12 @@ library's own metric code, rebuilds the reference rows from the saved anchor
 state so a run cannot score itself against a reference it invented, rederives
 each trial's perturbed start from its declared seed so a run cannot invent where
 it started either, remeasures the calibration's command excitation from the
-saved recordings and refuses one that falls short, recomputes the pass criterion
-and the hashes of the tracking arrays, the calibration recordings and both
-fitted artifacts, and replays the decision. It also checks that the run was
+saved recordings and refuses one that falls short, rebuilds each recording's
+declared excitation from the manifest and that recording's own seed and checks
+the fraction the fit reported against what those recordings give, recomputes the
+pass criterion and the hashes of the tracking arrays, the calibration
+recordings, their excitation and both fitted artifacts, and replays the
+decision. It also checks that the run was
 computed in simulated time as far as the run's own artifacts can say: it
 recomputes the two recorded counts from the saved solve and interval times, and
 rejects a run whose row claims a deadline was applied, whose recorded count of
@@ -482,19 +543,20 @@ recording covers, and not control adequacy.
 
 ## The live improvement tier
 
-[`harness/live-v2.json`](harness/live-v2.json) is the fifth frozen manifest,
+[`harness/live-v3.json`](harness/live-v3.json) is the fifth frozen manifest,
 with its own digest constant and the harness's fourth command. It is the live
 improvement tier: the same Cascade X8 trial set, flown from the first interval
-by the frozen structured belief, while the generic learner refits on the
-trial's own streamed transitions and is allowed to take the controller when a
-predeclared held-out gate passes. The evidence tier is not folded into it:
+by the frozen structured belief under a declared command dither, while the
+generic learner refits on the trial's own streamed transitions — which carry
+that dither as their declared excitation — and is allowed to take the controller
+when a predeclared held-out gate passes. The evidence tier is not folded into it:
 coverage is measured on the rows the synthetic, platform and control runs
 already score, and this tier measures the live improvement row and nothing
 else.
 
 ```sh
 uv run --group cascade python -m glassbox.experimental.harness live \
-  --manifest docs/harness/live-v2.json --output /tmp/live-run
+  --manifest docs/harness/live-v3.json --output /tmp/live-run
 uv run python -m glassbox.experimental.harness verify /tmp/live-run
 ```
 
@@ -507,7 +569,45 @@ be handed the generic plan model once. Both run the same transport and the same
 refits, so they pay the same compute and differ in the swap and in nothing else,
 and the frozen arm is what says where "before" would have gone. Two repetitions,
 arm order alternating as [`examples/live_refinement.py`](../examples/live_refinement.py)
-alternates its own.
+alternates its own. The calibration is `control-v5`'s, so both arms are fitted on
+recordings that
+[declare what was injected into them](#the-calibration-declares-what-it-injected).
+
+### The trials excite
+
+`live-v3` replaces `live-v2`, which is deleted, and changes one thing about it.
+`live-v2`'s trials flew unexcited: the streamed recordings the swap gate reads
+were closed loop, the command was almost entirely explained by the state, and a
+held-out forecast comparison in that regime measures no command response at all.
+That is the reviewer's second recorded decision in [`status.md`](status.md), and
+this manifest is it.
+
+A small dither is added to whatever command the active controller solved, before
+the plant is stepped with it. It has the calibration's own per-channel amplitudes
+and rates and a ramp, with the phases drawn from one declared trial seed, so it
+is the same sequence in every trial and on both arms — which is what keeps the
+frozen and the adopting arm differing in the swap and in nothing else. The sum is
+held in the declared command box, because a command outside it is not one this
+vehicle accepts, and what is recorded as injected is the applied command minus
+the solved one: the exogenous component that actually reached the aircraft, not
+the one that was asked for.
+
+Every streamed transition carries it. `tracking.npz` gains the solved commands
+and the excitation beside the applied ones, each whole block reaches the
+learner's `update` as a recording that declares it, and every refit's report
+records the fraction of each command's range that block's dither moved. The swap
+gate, the block size, the release offset, the transport, the budget and every
+metric are unchanged, and the gate still reads forecast error alone.
+
+Nothing about the dither is measured. It is a declared function of the manifest's
+constants and its declared seed, so it does not weaken the determinism claim
+below, and `verify` rebuilds it and rejects a trial whose applied command is not
+its solved command plus that dither, whose recorded excitation is not the
+difference between the two, or whose streamed block declares no excitation.
+
+Because the dither changes where the aircraft flies, `live-v2`'s numbers are not
+this tier's incumbent. `live-reference.json` is written from the first run of
+this manifest and the regression allowance applies from the next candidate.
 
 ### Nothing a clock measured reaches the trajectory
 
@@ -523,7 +623,8 @@ worker, reproduced digit for digit on an idle host, which is what isolated the
 cause; it did not reproduce under load either, and `control-v4` is the same fix
 applied to it.
 
-`live-v2` computes the trajectory in simulated time. Interval `k` is the state
+`live-v2` computed the trajectory in simulated time and `live-v3` keeps every
+part of that. Interval `k` is the state
 at `k` times the sample interval, and four things make that true. The loop is
 not paced and reads no clock to decide anything. The solver is given no
 deadline, so it never returns a fallback command for want of time and its
@@ -607,11 +708,13 @@ other's rows; the frozen arm of the same repetition is segmented at the same
 interval and reported beside them. A trial missing, duplicated, undeclared,
 terminated, short of its intervals, reporting a refinement-worker error,
 dropping a streamed block, recording a swap the gates and the declared offset do
-not require, or carrying a whole-trial metric that is not a finite number fails
-closed whatever the reference says.
+not require, applying a command that is not the solved one plus the declared
+dither, streaming the learner a block that declares no excitation, or carrying a
+whole-trial metric that is not a finite number fails closed whatever the
+reference says.
 
 The rule is not enforced for this first measurement. Nothing has measured this
-row under this manifest, so this run measures it and the gate binds from the
+row under a dither, so this run measures it and the gate binds from the
 next candidate, under the semantics the platform, control and evidence tiers
 already use. Every number and every breach is measured, recorded and printed
 exactly as it would be enforced; only `accepted` ignores them.
@@ -628,97 +731,125 @@ independent NumPy recurrence the synthetic tier replays with and the structured
 one through the library's own rollout; recomputes every block score and every
 swap gate from those forecasts; recomputes the swap interval from the recorded
 gates and the declared offset and checks the per-interval active revision
-against it; and recomputes the whole-trial, before and after metrics from the
-saved per-interval arrays.
+against it; rebuilds the declared trial dither and checks that the applied
+command is the solved one plus it and that the recorded excitation is the
+difference between the two, on every trial and both arms; and recomputes the
+whole-trial, before and after metrics from the saved per-interval arrays.
 
 ### The measurement
 
-`live-v2` was frozen and committed at 15:12:17Z; the run below started
-collecting its calibration at 15:12:23Z, so the gate is older than every number
-under it. Both arms are the two `control-v3` fits, on the same calibration,
-whose measured command excitation is unchanged: the generic arm's fingerprint is
-`9f7e7b17`, the same artifact `control-v3`'s own run produced, so this tier
-starts from that measurement rather than beside it.
+`live-v3` was frozen and committed at 22:22:49Z, and the one reporting fix under
+it -- a count of bounded intervals that was measuring floating-point rounding --
+at 22:33:18Z, changing no manifest byte and no digest; the two runs below started
+at 22:33:21Z, so the gate is older than every number under it. Both arms are the
+two `control-v5` fits, on the calibration that now declares its own excitation:
+the generic arm's fingerprint is `4ddb8ddb`, the same artifact the control tier's
+own incumbent run produced, so this tier starts from that measurement rather than
+beside it.
 
 **It reproduces.** Two consecutive runs of this manifest produced byte-identical
-`tracking.npz` in all four trials -- `a40f9b00`, `5a3e6b14`, `f99e79ea` and
-`64c52e1e` -- byte-identical block evaluation arrays and forecasts, and
-byte-identical scored revisions: 64 of 72 artifacts match to the byte, and the
-eight that differ are the four `timing.npz` and the four worker event journals,
-which carry nothing but host measurements. Every trial and block field the
-decision reads -- 196 of them, including all four swap intervals, every block
-score and gate, every tracking metric and every segment -- is identical.
+`tracking.npz` in all four trials -- `bf1971eb`, `9c16891d`, `b0a4154b` and
+`ede8cabe` -- byte-identical block evaluation arrays and forecasts, and
+byte-identical scored revisions: 70 of 86 artifacts match to the byte, and every
+one of the sixteen that differ is a wall clock or a file that quotes one. Every
+trial and block field the decision reads -- including both swap intervals, every
+block score and gate, every tracking metric and every segment -- is identical,
+and both runs replayed with 56 forecast replays each and a worst difference of
+3.6e-14. A third run made after this reference was committed reproduced the same
+four `tracking.npz` and replayed against it with no regression, which is the
+regression gate working rather than a fourth measurement.
+
+`live-v2`'s numbers are beside each row below, in brackets. They were measured
+without a dither, so they are not this tier's incumbent; the tier's regression
+allowance applies from the next candidate.
 
 | Repetition (seed) | Arm | Swap | Position RMSE before / after (m) | Attitude RMSE before / after (deg) | Whole trial (m / deg) | Terminated |
 | --- | --- | --- | --- | --- | --- | --- |
-| 0 (101) | adopting | interval 140, 7.00 s | 0.868 / **19.355** | 1.676 / **86.309** | 14.528 / 64.742 | none |
-| 0 (101) | frozen | none | 0.868 / 1.373 | 1.676 / 0.956 | 1.179 / 1.320 | none |
-| 1 (102) | adopting | interval 140, 7.00 s | 0.896 / **5.697** | 1.620 / **14.885** | 4.314 / 11.215 | none |
-| 1 (102) | frozen | none | 0.896 / 1.358 | 1.620 / 0.941 | 1.179 / 1.283 | none |
+| 0 (101) | adopting | interval 140, 7.00 s [140] | 0.804 [0.868] / **36.091** [19.355] | 2.105 [1.676] / **81.554** [86.309] | 27.073 / 61.181 | none |
+| 0 (101) | frozen | none | 0.804 [0.868] / 1.314 [1.373] | 2.105 [1.676] / 1.599 [0.956] | 1.120 [1.179] / 1.838 [1.320] | none |
+| 1 (102) | adopting | interval 220, 11.00 s [140] | 0.979 [0.896] / **11.796** [5.697] | 1.918 [1.620] / **85.846** [14.885] | 6.644 / 48.016 | none |
+| 1 (102) | frozen | none | 0.979 [0.896] / 1.404 [1.358] | 1.918 [1.620] / 1.570 [0.941] | 1.129 [1.179] / 1.816 [1.283] | none |
 
-Both frozen arms are segmented at the adopting arm's own swap interval, which is
-what they are flown for, and both arms of a repetition agree to every printed
-digit before the swap, because up to interval 140 they are the same flight.
-Under `live-v1` they did not, and the difference was the clock.
+The dither costs the frozen arm about half a degree of attitude and buys it about
+0.05 m of position, and it moves the second repetition's swap from interval 140
+to 220. The two arms of a repetition still agree to every printed digit before
+the swap, because up to it they are the same flight and the dither is the same
+sequence on both.
+
+The dither is 2.07%, 2.19% and 1.68% of the first adopting arm's own command
+range and 2.32%, 2.31% and 1.81% of the second's. On the frozen arms, whose
+commands barely move, the same dither is 10.4%, 54.7% and 21.3% of their range —
+which is the point of stating it as a fraction of the range the commands
+actually span. The declared command box held the sum on 131 and 64 of the
+adopting arms' 320 intervals, every one of them after the swap, and on none of
+either frozen arm's.
 
 Every held-out block, final-step forecast error as generic / structured, in m/s
 of world velocity and rad/s of body rate. Each block is 26 rows neither model
 had fitted on; a bold pair is one where the gate passed. The swap was decided on
-block 1 of each adopting trial, and released at interval 100 plus the declared
-40.
+block 1 of the first adopting trial and block 3 of the second, and released a
+declared 40 intervals after each of those blocks ended.
 
 | Block (intervals) | 0-adopting | 0-frozen | 1-adopting | 1-frozen |
 | --- | --- | --- | --- | --- |
-| 0 (20-60) | 0.284/0.184 vs 0.161/0.085 | 0.284/0.184 vs 0.161/0.085 | 0.309/0.208 vs 0.161/0.085 | 0.309/0.208 vs 0.161/0.085 |
-| 1 (60-100) | **0.032/0.024** vs 0.158/0.080 | **0.053/0.029** vs 0.158/0.080 | **0.046/0.023** vs 0.158/0.080 | **0.059/0.037** vs 0.158/0.080 |
-| 2 (100-140) | **0.014/0.023** vs 0.153/0.077 | 0.060/0.078 vs 0.153/0.077 | **0.045/0.071** vs 0.153/0.077 | **0.039/0.067** vs 0.153/0.077 |
-| 3 (140-180) | 0.172/0.192 vs 0.173/0.089 | **0.021/0.073** vs 0.154/0.077 | 0.253/0.286 vs 0.161/0.075 | 0.027/0.132 vs 0.154/0.077 |
-| 4 (180-220) | 5.162/12.962 vs 1.394/0.594 | **0.021/0.023** vs 0.156/0.078 | 0.156/0.167 vs 0.124/0.078 | **0.017/0.016** vs 0.156/0.078 |
-| 5 (220-260) | 3.774/1.282 vs 1.075/0.625 | **0.015/0.028** vs 0.160/0.081 | 0.386/0.328 vs 0.179/0.101 | **0.025/0.039** vs 0.160/0.081 |
-| 6 (260-300) | **1.295/0.473** vs 1.918/0.598 | **0.042/0.058** vs 0.164/0.083 | 0.140/0.135 vs 0.196/0.106 | **0.035/0.043** vs 0.164/0.083 |
+| 0 (20-60) | 0.329/0.198 vs 0.176/0.093 | 0.329/0.198 vs 0.176/0.093 | 0.344/0.206 vs 0.177/0.094 | 0.344/0.206 vs 0.177/0.094 |
+| 1 (60-100) | **0.056/0.073** vs 0.144/0.073 | 0.092/0.102 vs 0.144/0.073 | 0.109/0.103 vs 0.144/0.073 | 0.104/0.105 vs 0.144/0.073 |
+| 2 (100-140) | 0.162/0.165 vs 0.168/0.082 | 0.227/0.137 vs 0.168/0.082 | 0.115/0.169 vs 0.168/0.082 | 0.224/0.142 vs 0.168/0.082 |
+| 3 (140-180) | 6.269/3.679 vs 1.408/0.627 | **0.054/0.056** vs 0.144/0.074 | **0.112/0.063** vs 0.144/0.075 | 0.109/0.082 vs 0.144/0.075 |
+| 4 (180-220) | 4.544/3.182 vs 0.799/0.603 | 0.128/0.088 vs 0.171/0.085 | **0.128/0.079** vs 0.171/0.085 | 0.137/0.115 vs 0.171/0.085 |
+| 5 (220-260) | **1.211/0.788** vs 1.693/0.806 | **0.026/0.046** vs 0.155/0.081 | 4.713/1.453 vs 0.841/0.462 | **0.038/0.029** vs 0.155/0.081 |
+| 6 (260-300) | **0.865/0.426** vs 1.883/0.714 | **0.054/0.035** vs 0.171/0.085 | 14.259/7.015 vs 1.263/0.699 | **0.065/0.058** vs 0.171/0.085 |
 
-Blocks 0, 1 and 2 of an adopting arm are the same rows as its frozen twin's up
-to the swap; from block 3 the adopting arm is scoring a flight the generic model
-is already losing, which is why both models' errors grow there.
+An adopting arm's blocks are the same rows as its frozen twin's up to the swap;
+after it the adopting arm is scoring a flight the generic model is already
+losing, which is why both models' errors grow there.
 
 **The swap happens, and tracking after it is not no worse.** The rule's first
-half holds: both adopting trials swapped, at the same interval in both, and no
-trial terminated. Its second half fails on all four metrics, by a factor of 22
-and 51 on the first repetition and 6.4 and 9.2 on the second, against an
-allowance of 5% plus 0.005. Nothing structural breached: every trial completed
-its 320 intervals with finite states, commands inside the declared box, no
-dropped block and, now that no deadline is applied, no solver fallback at all.
-The rule is not enforced for this measurement, so the run is accepted and
-`rule_met` is false.
+half holds: both adopting trials swapped and no trial terminated. Its second
+half fails on all four metrics, by a factor of 43 and 37 on the first repetition
+and 11 and 43 on the second, against an allowance of 5% plus 0.005. Nothing
+structural breached: every trial completed its 320 intervals with finite states,
+commands inside the declared box, no dropped block, no budget overrun, no solver
+fallback and no applied command that was not its solved command plus the
+declared dither. The rule is not enforced for this first measurement, so the run
+is accepted and `rule_met` is false.
 
-**The gate passed on evidence, and the evidence was real.** Each trial produced
-seven candidate revisions -- the recipe's 1000 fit steps at 0.855 s to 0.896 s
-of wall time against the declared 4.0 s, with block scoring another 0.52 s to
-0.91 s -- with no budget overrun and no block dropped. On the block the swap was
-decided on, intervals 60 to 100 of each trial, the candidate's final-step
-forecast error was 0.032 m/s and 0.024 rad/s against the structured belief's
-0.158 and 0.080 on the first repetition, and 0.046 and 0.023 against the same
-0.158 and 0.080 on the second: three to five times better, on 26 rows it had
-never fitted on, one refit after a block it lost on 0.284 against 0.161. The
-frozen arms show it was not a fluke of one block. Left flying the structured
-belief for the whole trial, their refits pass the same gate on five of seven
-blocks each and hold forecast errors of 0.015 to 0.060 m/s across the trial
-while the structured belief stays at 0.15 to 0.17. **The generic learner does
-learn the regime it is flying in, quickly, from two seconds of it.**
+**The gate passed on evidence, and the dither did not change that.** Each trial
+produced seven candidate revisions -- the recipe's 1000 fit steps at 0.86 s to
+1.16 s of wall time against the declared 4.0 s, with block scoring another
+0.51 s to 0.97 s -- with no budget overrun and no block dropped. On the block the
+first trial swapped on, intervals 60 to 100, the candidate's final-step forecast
+error was 0.056 m/s and 0.073 rad/s against the structured belief's 0.144 and
+0.073; on the block the second swapped on, intervals 140 to 180, it was 0.112
+and 0.063 against 0.144 and 0.075. Under `live-v2` the same gate passed on block
+1 of both trials at 0.032/0.024 and 0.046/0.023 against 0.158/0.080. The dither
+roughly doubles the candidate's own error on those blocks and leaves the
+comparator about where it was, so the margin the gate passes on narrows from
+three-to-five times to a factor of about 2.6 on velocity and a tie on body rate,
+and on the second repetition the gate needs one more block to pass at all --
+which is what an excited regime should do to a comparison that was reading a
+quiet one. **The generic learner still learns the regime it is flying in,
+quickly, from two seconds of it, and the margin it does so by is now much
+smaller.**
 
 **What it does not learn is command authority, and the gate cannot see that.**
-Hold-current -- predicting that nothing changes -- scores 0.021 m/s and
-0.0014 rad/s on that same block. The comparator the gate is written against is
-seven times worse than claiming nothing there, and the candidate that beat it is
-still 1.5 times worse than claiming nothing on velocity and seventeen times
-worse on body rate. A held-out forecast comparison in a regime the structured
-arm is holding almost still certifies a model that has learned that almost
-nothing happens. The solver then spends commands on it: mean applied throttle
-moves from 0.494 before the swap to 0.791 after it on the first repetition and
-0.492 to 0.770 on the second, mean roll from +0.006 to +0.222 on the first
-against a +0.35 bound, and altitude from 102.6 m at the swap to 64.9 m at 16 s.
-The second repetition is the milder of the two and still loses the task: it ends
-110.6 m high against a reference of about 100 m.
+The numbers in this paragraph were measured under `live-v2`, on its own
+unexcited blocks, and are kept because the outcome they explain is the one
+`live-v3` measured again above. Hold-current -- predicting that nothing changes
+-- scored 0.021 m/s and 0.0014 rad/s on the block both trials swapped on there.
+The comparator the gate is written against was seven times worse than claiming
+nothing, and the candidate that beat it was still 1.5 times worse than claiming
+nothing on velocity and seventeen times worse on body rate. A held-out forecast
+comparison in a regime the structured arm is holding almost still certifies a
+model that has learned that almost nothing happens. The solver then spends
+commands on it: mean applied throttle moved from 0.494 before the swap to 0.791
+after it on the first repetition and 0.492 to 0.770 on the second, mean roll
+from +0.006 to +0.222 on the first against a +0.35 bound, and altitude from
+102.6 m at the swap to 64.9 m at 16 s. The second repetition was the milder of
+the two and still lost the task: it ended 110.6 m high against a reference of
+about 100 m. `live-v3`'s declared dither narrows the margin the gate passes on
+without closing it, and the arm after the swap is no better for it: 36.091 m and
+11.796 m, against `live-v2`'s 19.355 m and 5.697 m.
 
 The swap changes the planning horizon too, from the structured belief's 0.80 s
 to the recipe's own fitted 0.25 s, because each model plans exactly as far as
@@ -730,19 +861,21 @@ That is Control attempt 2's finding arriving from the other side. There the
 calibration excited the plant an order of magnitude harder than the task flew
 it, so the fit's error floor exceeded the motion the controller had to resolve.
 Here the learner is given exactly the regime being flown and closes that floor --
-and the arm still cannot fly, because forecast error on a quiet block is not a
-measurement of the command response, which is what
-[`status.md`](status.md)'s ladder measured directly: the ceiling of a perfect
-command response on this task is 9.04 m and the ceiling of claiming nothing is
-1.22 m. Nothing in this tier's gate reads a command Jacobian, and the swap it
-authorizes is the first thing that has ever needed one.
+and the arm still cannot fly, because forecast error is not a measurement of the
+command response, which is what [`status.md`](status.md)'s ladder measured
+directly: the ceiling of a perfect command response on this task is 9.04 m and
+the ceiling of claiming nothing is 1.22 m. Nothing in this tier's gate reads a
+command Jacobian, and the swap it authorizes is the first thing that has ever
+needed one. `live-v3` removes the one remaining excuse for that gate — the
+regime it reads is now excited, and the recordings it refits on say by how much —
+and the outcome is unchanged. What is missing is not identifying variation in
+the data; it is a fit that is accountable for the response to it, which is the
+next iteration.
 
 Host measurements inform and gate nothing, and now that none of them reaches a
-command they are only that: each trial's interval work exceeded the 50 ms sample
-interval on 0 to 2 of its 320 intervals, no solve exceeded the recorded 50 ms
-threshold, and a whole trial costs 16 s to 26 s of wall time against 16 s of
-simulated time. Two runs differ in every one of those numbers and in none of the
-others.
+command they are only that: a whole run costs about 118 s of wall time, of which
+6.7 s is prewarm, against 64 s of simulated flight. Two runs differ in every one
+of those numbers and in none of the others.
 
 This is a measurement of one live-refinement trial set on one simulated plant,
 not hardware readiness, a real-time claim, or calibrated uncertainty.
@@ -827,32 +960,40 @@ validity-side robustness term has nothing to widen.
 
 ### The measurement
 
-`control-v4` was frozen and committed before this run, which is its incumbent
-measurement and the file `control-reference.json` is written from. Every number
-below is `control-v3`'s to every printed digit, along with the pass statistics,
-the command excitation and the generic fingerprint `9f7e7b17`: the runs that
-measured `control-v3` were made on an idle host where every solve finished
-inside its deadline, so every solved command was applied there too. Both arms
-were fitted on the same three calibration recordings, whose measured command
-excitation is 12.1%, 20.3% and 38.1% of declared range on the first, 14.2%,
-13.7% and 37.5% on the second and 12.3%, 16.4% and 37.5% on the third, against
-the declared 10%. Under `control-v2`'s setpoints the same three recordings moved
-throttle 2.7%, 3.1% and 2.3%.
+`control-v5` was frozen and committed at 22:22:49Z before this run, which began
+collecting its calibration at 22:23:00Z; it is the incumbent measurement and the
+file `control-reference.json` is written from. Every number below is
+`control-v4`'s to every printed digit, along with the pass statistics and the
+command excitation, and `control-v4`'s were `control-v3`'s: the recipe reads the
+commands and ignores what they were made of, so declaring the calibration's
+excitation changes the fit's report and nothing else. Only the generic artifact's
+fingerprint moved, from `9f7e7b17` to `4ddb8ddb`, because its report now records
+that the excitation was declared and what fraction of each command's range it
+moved. Both arms were fitted on the same three calibration recordings, whose
+measured command excitation is 12.1%, 20.3% and 38.1% of declared range on the
+first, 14.2%, 13.7% and 37.5% on the second and 12.3%, 16.4% and 37.5% on the
+third, against the declared 10%; the declared additive component inside those
+commands is 5.72%, 2.47% and 2.30% of each channel's own measured range. Under
+`control-v2`'s setpoints the same three recordings moved throttle 2.7%, 3.1% and
+2.3%.
 
 | Repetition (seed) | Position RMSE, generic / structured (m) | Attitude RMSE, generic / structured (deg) | 0.5 m pass fraction, generic / structured | Terminated | Solves over 50 ms, generic / structured |
 | --- | --- | --- | --- | --- | --- |
-| 0 (101) | 60.797 / 1.179 | 97.180 / 1.320 | 0.000 / 0.000 | none | 0 / 1 |
-| 1 (102) | 49.308 / 1.179 | 86.514 / 1.283 | 0.007 / 0.000 | none | 0 / 3 |
+| 0 (101) | 60.797 / 1.179 | 97.180 / 1.320 | 0.000 / 0.000 | none | 0 / 0 |
+| 1 (102) | 49.308 / 1.179 | 86.514 / 1.283 | 0.007 / 0.000 | none | 0 / 0 |
 
-The last column is reported and decides nothing; it differed between the two
-runs that produced identical trajectories.
+The last column is reported and decides nothing; it was 0/1 and 0/3 on the
+`control-v4` run that produced exactly these trajectories, which is what it
+means for a host measurement not to reach a command.
 
 **The rule is not met.** All four trials completed their 320 intervals with
 finite states, bounded commands and no solver fallback, so nothing structural
 breached; the four rule breaches are the generic arm's two metrics on each
-repetition. This is the incumbent measurement, so there was no reference to
-compare against and the rule only reported. From `control-reference.json`
-onward it gates every case the incumbent met, which is none of these four.
+repetition. The run compared against `control-v4`'s reference, which it
+reproduced exactly, so nothing regressed; the rule gates every case that
+reference met, which is none of these four. `control-reference.json` was then
+rewritten from this run, with the same numbers under this manifest's id and the
+new fingerprint.
 
 **Neither arm meets the page's criterion under this controller.** The structured
 arm holds lateral position to 0.27 m but settles about 2 m high, so its altitude
@@ -870,6 +1011,13 @@ comparable to the structured arm's — 0.14 m of lateral error and 0.00 m of
 altitude error at 1 s — and it diverges after. Insufficient throttle excitation
 was the arithmetic behind the unidentified throttle column; it is not by itself
 the reason the arm cannot fly.
+
+**Nor does telling the learner what was injected.** `control-v5` hands the
+generic fit the calibration's own excitation as a declared signal and the
+trajectory is unchanged to every digit, because the recipe reads it and does
+nothing with it. That is the point of freezing this gate now: the data fact is
+in the contract, measured and replayed, before any candidate that is accountable
+for the response to it. Making the fit accountable is the next iteration.
 
 ### What control-v2 measured, and what survives its calibration
 
