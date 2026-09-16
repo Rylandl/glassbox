@@ -5,6 +5,13 @@ All notable changes to Glassbox are recorded here. The format follows
 
 ## Unreleased
 
+- Enforce the control tier's decision rule. `docs/harness/control-v2.json`
+  carries `control-v1.json`'s protocol constant for constant — the plant hash
+  and pinned revision, the calibration recordings and seeds, the reference, the
+  trial duration and repetitions, both arms and the controller policy — with
+  `"enforced": true`, so one trial whose generic position or attitude RMSE is
+  above the structured arm's, or one terminated trial, rejects the run.
+  `control-v1.json` is deleted. Frozen before any candidate fit.
 - Add a control tier to the experimental harness and present the generic
   learner to the NMPC seam as a `PlanModel`. `docs/harness/control-v1.json` is
   frozen before any trial and `harness control` tracks one Cascade X8 trial set

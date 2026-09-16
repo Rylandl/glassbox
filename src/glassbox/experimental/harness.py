@@ -8,7 +8,7 @@ the same recipe on each pinned corpus of ``docs/harness/platform-v2.json`` with
 whole recordings held out, fits the structured model on exactly the same
 training recordings, and scores both on exactly the same held-out rows.
 ``control`` is the control tier: it collects the frozen Cascade X8 calibration
-of ``docs/harness/control-v1.json``, fits both models on it, and tracks the
+of ``docs/harness/control-v2.json``, fits both models on it, and tracks the
 same reference with each of them through the existing NMPC seam.
 ``verify`` replays any tier from its saved artifacts and rejects anything
 that changed. No command takes tuning options.
@@ -18,7 +18,7 @@ that changed. No command takes tuning options.
     python -m glassbox.experimental.harness platform \\
         --manifest docs/harness/platform-v2.json --corpora ROOT --output DIR
     python -m glassbox.experimental.harness control \\
-        --manifest docs/harness/control-v1.json --output DIR
+        --manifest docs/harness/control-v2.json --output DIR
     python -m glassbox.experimental.harness verify DIR [--reference PATH]
 
 A run copies the manifest and the reference it compared into its output, but a
@@ -1645,11 +1645,11 @@ def verify_platform(directory, manifest, reference=None):
 # --- the control tier: one Cascade trial set, two arms ----------------------
 
 CONTROL_MANIFEST_SHA256 = (
-    "d5d13d3d4c2fd3a9d6195b839bbd33bc09ec3abc10f495acbde13e879d2c607a"
+    "d5f446238a042438eb8c75ba3d432150c27e7ca6b4ecd72eed11fcfaa26e5787"
 )
 """Digest of the frozen control manifest this module is allowed to run."""
 
-COMMITTED_CONTROL_MANIFEST = COMMITTED_MANIFEST.parent / "control-v1.json"
+COMMITTED_CONTROL_MANIFEST = COMMITTED_MANIFEST.parent / "control-v2.json"
 """The frozen control manifest in a source checkout."""
 
 CONTROL_ARMS = ("generic", "structured")

@@ -1,7 +1,7 @@
 {
-  "id": "control-v1",
+  "id": "control-v2",
   "purpose": "The control tier: Cascade X8 reference tracking through the existing plant and NMPC seam, with the generic learner and the structured belief driving the same trials.",
-  "frozen_before_any_trial": true,
+  "frozen_before_any_candidate_fit": true,
   "recipe": {
     "id": "generic-memory-v2-prototype",
     "kind": "filter_mlp",
@@ -169,9 +169,9 @@
     "meaning": "Deadline misses are host-specific scheduling measurements and inform rather than gate. Wall times are not a real-time claim."
   },
   "decision": {
-    "enforced": false,
+    "enforced": true,
     "rule": "On every trial, the generic arm's position RMSE and attitude RMSE are at or below the structured arm's on that same trial, and no trial is terminated.",
-    "gates_from": "the first recipe change after this measurement iteration",
-    "meaning": "A Cascade X8 tracking measurement of this trial set only. Not hardware readiness, not a real-time claim, and not calibrated uncertainty. This iteration measures both arms and reports; the rule gates merges from the first recipe change that follows."
+    "gates_from": "this manifest. The protocol is control-v1's, constant for constant; only the rule's standing changed.",
+    "meaning": "A Cascade X8 tracking measurement of this trial set only. Not hardware readiness, not a real-time claim, and not calibrated uncertainty. The rule is a gate: one trial whose generic position or attitude RMSE is above the structured arm's, or one terminated trial, rejects the run."
   }
 }

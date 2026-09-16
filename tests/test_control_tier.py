@@ -8,6 +8,7 @@ bottom of this module.
 """
 
 import copy
+import hashlib
 import importlib
 import json
 import math
@@ -56,7 +57,7 @@ from glassbox.experimental.sequence_collection import (
     SequenceSegment,
 )
 
-MANIFEST = Path(__file__).resolve().parents[1] / "docs/harness/control-v1.json"
+MANIFEST = Path(__file__).resolve().parents[1] / "docs/harness/control-v2.json"
 DT_S = 0.05
 MINIMUM = np.array([0.0, -0.35, -0.35])
 MAXIMUM = np.array([1.0, 0.35, 0.35])
@@ -502,9 +503,9 @@ def test_plan_values_carry_history_without_changing_how_a_belief_is_presented():
 
 def test_the_control_manifest_digest_is_the_gate(tmp_path):
     manifest = harness.frozen_control_manifest(MANIFEST)
-    assert manifest["id"] == "control-v1"
-    assert manifest["decision"]["enforced"] is False
-    assert "first recipe change" in manifest["decision"]["gates_from"]
+    assert manifest["id"] == "control-v2"
+    assert manifest["decision"]["enforced"] is True
+    assert "this manifest" in manifest["decision"]["gates_from"]
     assert tuple(manifest["telemetry"]["observed_channels"]) == OBSERVED_CHANNELS
     budget = manifest["information_budget"]
     assert (
@@ -517,15 +518,60 @@ def test_the_control_manifest_digest_is_the_gate(tmp_path):
         steps_for(DT_S)["horizon"],
     )
     loosened = copy.deepcopy(manifest)
-    loosened["decision"]["enforced"] = True
-    path = tmp_path / "control-v1.json"
+    loosened["decision"]["enforced"] = False
+    path = tmp_path / "control-v2.json"
     path.write_text(json.dumps(loosened, indent=2) + "\n")
     with pytest.raises(ValueError, match="differs from the frozen harness contract"):
         harness.frozen_control_manifest(path)
 
 
+CONTROL_V1_SHA256 = "d5d13d3d4c2fd3a9d6195b839bbd33bc09ec3abc10f495acbde13e879d2c607a"
+"""The digest of the deleted control-v1.json, which v2 carries the protocol of."""
+
+CONTROL_V1_EDITS = (
+    ('  "id": "control-v2",\n', '  "id": "control-v1",\n'),
+    (
+        '  "frozen_before_any_candidate_fit": true,\n',
+        '  "frozen_before_any_trial": true,\n',
+    ),
+    ('    "enforced": true,\n', '    "enforced": false,\n'),
+    (
+        '    "gates_from": "this manifest. The protocol is control-v1\'s, constant for'
+        " constant; only the rule's standing changed.\",\n",
+        '    "gates_from": "the first recipe change after this measurement iteration",'
+        "\n",
+    ),
+    (
+        '    "meaning": "A Cascade X8 tracking measurement of this trial set only. Not'
+        " hardware readiness, not a real-time claim, and not calibrated uncertainty."
+        " The rule is a gate: one trial whose generic position or attitude RMSE is"
+        " above the structured arm's, or one terminated trial, rejects the run.\"\n",
+        '    "meaning": "A Cascade X8 tracking measurement of this trial set only. Not'
+        " hardware readiness, not a real-time claim, and not calibrated uncertainty."
+        " This iteration measures both arms and reports; the rule gates merges from"
+        ' the first recipe change that follows."\n',
+    ),
+)
+
+
+def test_the_committed_manifest_carries_control_v1s_protocol_byte_for_byte():
+    """Undoing the four edits reproduces the deleted control-v1 exactly.
+
+    The plant hash, the calibration, the reference, the duration, the
+    repetitions, the arms and the controller policy cannot have moved, because
+    reversing the id, the freeze note and the decision block recovers v1's own
+    digest from v2's bytes.
+    """
+
+    text = MANIFEST.read_text()
+    for new_text, old_text in CONTROL_V1_EDITS:
+        assert text.count(new_text) == 1
+        text = text.replace(new_text, old_text, 1)
+    assert hashlib.sha256(text.encode()).hexdigest() == CONTROL_V1_SHA256
+
+
 def test_the_committed_manifest_matches_the_module_constant():
-    assert harness.COMMITTED_CONTROL_MANIFEST.name == "control-v1.json"
+    assert harness.COMMITTED_CONTROL_MANIFEST.name == "control-v2.json"
     assert harness.sha256(MANIFEST) == harness.CONTROL_MANIFEST_SHA256
 
 
@@ -570,48 +616,60 @@ def manifest():
     return harness.frozen_control_manifest(MANIFEST)
 
 
-def _enforced(manifest):
+def _reporting(manifest):
+    """The same manifest with the rule reporting rather than gating."""
+
     loosened = copy.deepcopy(manifest)
-    loosened["decision"]["enforced"] = True
+    loosened["decision"]["enforced"] = False
     return loosened
 
 
 def test_a_generic_arm_at_or_below_the_structured_arm_meets_the_rule(manifest):
     decision = harness.control_decide(manifest, _rows())
     assert decision["rule_met"] is True
+    assert decision["rule_enforced"] is True
     assert decision["accepted"] is True
     assert decision["rule_breaches"] == []
     assert decision["tracking_rmse"]["0"]["position_rmse_m"] == dict(
         generic=0.4, structured=0.5
     )
-    assert harness.control_decide(_enforced(manifest), _rows())["accepted"] is True
+    assert harness.control_decide(_reporting(manifest), _rows())["accepted"] is True
 
 
-def test_a_trial_above_the_structured_arm_only_reports_until_the_rule_is_enforced(
-    manifest,
-):
+def test_a_trial_above_the_structured_arm_now_rejects_the_run(manifest):
     rows = _rows(generic_position=0.7)
-    reported = harness.control_decide(manifest, rows)
-    assert reported["rule_met"] is False
-    assert reported["accepted"] is True
-    assert reported["decision"] == "accept"
-    assert [breach["metric"] for breach in reported["rule_breaches"]] == [
+    decision = harness.control_decide(manifest, rows)
+    assert decision["rule_met"] is False
+    assert decision["accepted"] is False
+    assert decision["decision"] == "reject"
+    assert [breach["metric"] for breach in decision["rule_breaches"]] == [
         "position_rmse_m",
         "position_rmse_m",
     ]
-    enforced = harness.control_decide(_enforced(manifest), rows)
-    assert enforced["rule_met"] is False
-    assert enforced["accepted"] is False
-    assert enforced["decision"] == "reject"
+    assert decision["rule_breaches"][0]["value"] == 0.7
+    assert decision["rule_breaches"][0]["limit"] == 0.5
+    reporting = harness.control_decide(_reporting(manifest), rows)
+    assert reporting["rule_met"] is False
+    assert reporting["accepted"] is True
 
 
-def test_one_trial_above_the_structured_arm_is_enough_to_miss_the_rule(manifest):
+def test_one_trial_above_the_structured_arm_is_enough_to_reject(manifest):
     rows = _rows()
     rows[0] = _row(0, "generic", 0.4, 0.9)
     decision = harness.control_decide(manifest, rows)
     assert decision["rule_met"] is False
+    assert decision["accepted"] is False
     assert decision["rule_breaches"][0]["metric"] == "attitude_rmse_deg"
-    assert harness.control_decide(_enforced(manifest), rows)["accepted"] is False
+    assert harness.control_decide(_reporting(manifest), rows)["accepted"] is True
+
+
+def test_an_equal_metric_meets_the_rule_and_a_hair_above_does_not(manifest):
+    """The rule is at-or-below: equality passes, one ulp above rejects."""
+
+    assert harness.control_decide(manifest, _rows(0.5, 0.6))["accepted"] is True
+    above = harness.control_decide(manifest, _rows(math.nextafter(0.5, 1.0), 0.6))
+    assert above["accepted"] is False
+    assert above["rule_breaches"][0]["gate"] == "structured_arm_rmse"
 
 
 def test_a_terminated_trial_fails_closed(manifest):
@@ -625,7 +683,7 @@ def test_a_terminated_trial_fails_closed(manifest):
         completed_intervals=117,
         failure="nonfinite plant state",
     )
-    for candidate in (manifest, _enforced(manifest)):
+    for candidate in (manifest, _reporting(manifest)):
         decision = harness.control_decide(candidate, rows)
         assert decision["accepted"] is False
         assert decision["rule_met"] is False

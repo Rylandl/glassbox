@@ -233,14 +233,14 @@ would never measure a change. Every run records the recipe it actually fitted.
 
 ## The control tier
 
-[`harness/control-v1.json`](harness/control-v1.json) is the third frozen
+[`harness/control-v2.json`](harness/control-v2.json) is the third frozen
 manifest, with its own digest constant. It is the control tier: one Cascade X8
 trial set, driven once by the structured belief and once by the generic
 learner, through the same plant and the same NMPC seam.
 
 ```sh
 uv run --group cascade python -m glassbox.experimental.harness control \
-  --manifest docs/harness/control-v1.json --output /tmp/control-run
+  --manifest docs/harness/control-v2.json --output /tmp/control-run
 uv run python -m glassbox.experimental.harness verify /tmp/control-run
 ```
 
@@ -258,11 +258,17 @@ Cascade-marked test asserts that the two produce the same arrays byte for byte.
 
 The declared rule is that the generic arm's position and attitude tracking RMSE
 are at or below the structured arm's on the same trial, on every trial, with no
-terminated trial. The manifest carries `"enforced": false`: this first
-measurement reports the rule, and it gates merges from the first recipe change
-that follows. Structural problems never wait for that. A trial missing,
+terminated trial. The manifest carries `"enforced": true`: the rule is a gate,
+and one trial whose generic position or attitude RMSE is above the structured
+arm's rejects the run. Structural problems never wait for that. A trial missing,
 duplicated, undeclared, terminated, short of its declared intervals, or
 carrying a metric that is not a finite number fails closed either way.
+
+`control-v2` carries `control-v1`'s protocol constant for constant — the plant
+hash and pinned revision, the calibration recordings and their seeds, the
+reference, the trial duration and repetitions, both arms and the controller
+policy they share. Only the rule's standing changed, and it changed before any
+candidate was fitted. `control-v1` is deleted, not kept beside it.
 
 `verify` recognizes the tier from the digest of the manifest a run copied. It
 recomputes every metric from the saved per-interval tracking arrays with the
