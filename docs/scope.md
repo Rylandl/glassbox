@@ -57,12 +57,12 @@ this contract.
 
 **Current status:** `fit(sources)` already supplies defaults and returns a
 `FitOutcome` containing a `DynamicsBelief`. The shipped model families remain
-structured, and `FitSpec` retains advanced controls. The experimental generic
-learners have not yet established a default that meets this contract. A
-[single fixed generic candidate](learner.md) now implements the small
-workflow with automatic data handling and immutable batch updates. Its
-cross-recording prediction failures keep it experimental; it is not promoted
-to the supported workflow.
+structured, and `FitSpec` retains advanced controls. The experimental
+[generic learner](learner.md) is one recipe behind `fit`, `predict` and
+`update`, with automatic data handling and immutable batch updates, guarded by
+one frozen harness. It has not been measured against the structured model on
+any platform corpus and has never run in control, so it stays experimental and
+is not promoted to the supported workflow; [status](status.md) holds the gap.
 
 ## Product boundary
 

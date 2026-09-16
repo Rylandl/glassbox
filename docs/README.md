@@ -5,6 +5,8 @@ Start with the repository [README](../README.md) for the identification workflow
 - [Scope](scope.md): the core workflow and design decisions.
 - [Charter](charter.md) and [status](status.md): the one generic learner we
   are building, its definition of done, the rules, and the current gap.
+- [The generic learner](learner.md): the consumer workflow, the recipe
+  constants, the memory contract, and how to run and verify the harness.
 - [Platform onboarding interfaces](platform-onboarding.md): the proposed
   consumer workflow, current API friction, and acceptance criteria for changes.
 - [Validation](validation.md): recorded prediction and control comparisons.

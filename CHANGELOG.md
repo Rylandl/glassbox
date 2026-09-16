@@ -5,6 +5,14 @@ All notable changes to Glassbox are recorded here. The format follows
 
 ## Unreleased
 
+- Reduce the experimental generic learner to one recipe, one module and one
+  harness. `generic-memory-v2-prototype` is the only recipe and the only saved
+  format; `fit(recordings)`, `predict` and `update(recordings)` are unchanged
+  and still take no options. `filter_mlp` is the only sequence model. The
+  dead experimental modules, the research scripts, their tests, the 85 MB of
+  investigation archives and the research pages they reported are deleted, and
+  `glassbox.experimental.harness` replaces the two acceptance runners with one
+  frozen manifest, `run` and `verify`.
 - Adopt `generic-memory-v2-prototype` as the maintained recipe of the
   experimental generic learner: the retained 100 ms explicit history plus a
   causal eight-coordinate memory over a 500 ms in-recording context that starts
