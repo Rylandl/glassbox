@@ -125,15 +125,22 @@ A case is accepted when every horizon scaled RMSE is below its family's cap
 and, for the witness, the paired-probe first step is below 0.05. When
 [`harness/reference.json`](harness/reference.json) exists beside the manifest,
 no case's overall scaled RMSE may exceed its reference value by more than 5%
-plus 0.005 in either regime; the run copies the reference it used into its
-output so the replay compares the same thing. Missing, duplicated, undeclared
-or nonfinite scores fail closed.
+plus 0.005 in either regime. Missing, duplicated, undeclared or nonfinite
+scores fail closed.
 
 `verify` refits nothing. It checks the manifest digest, the recorded artifact
 hashes and every model fingerprint, replays every saved prediction with an
 independent NumPy recurrence that shares no code with the fitted rollout,
 recomputes the scores and the decision from the saved arrays, and rejects any
 artifact that has changed.
+
+A run copies the manifest and the reference it compared into its output, and
+records the reference's sha256 in `decision.json`. Those copies are artifacts,
+not authority: `verify` anchors both to the committed files, so a saved run
+cannot loosen its own thresholds after the fact. It reads the committed
+reference, refuses when the copy differs from it by a byte, and refuses when
+one exists and the other does not. Pass `--reference PATH` to say where the
+committed reference is when the replay does not run inside a checkout.
 
 Synthetic results are a fast regression guard, not a place to win. They are
 not platform readiness, control adequacy, or calibrated uncertainty.

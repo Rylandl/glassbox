@@ -9,7 +9,11 @@ options: the manifest is frozen and its digest is a constant below.
 
     python -m glassbox.experimental.harness run \\
         --manifest docs/harness/v1.json --output DIR
-    python -m glassbox.experimental.harness verify DIR
+    python -m glassbox.experimental.harness verify DIR [--reference PATH]
+
+A run copies the manifest and the reference it compared into its output, but a
+replay never takes a saved copy's word for a threshold: it anchors both to the
+committed files, so a run cannot relax its own gates after the fact.
 
 Synthetic results are a fast regression guard. They are not platform readiness,
 control adequacy, or calibrated uncertainty.
@@ -33,6 +37,19 @@ from .sequence_collection import SequenceCollection, SequenceSegment
 
 MANIFEST_SHA256 = "1ba15b3f466e91edf548f1d459a52eb0896310e7fbbb6c1c98544ec10513d781"
 """Digest of the frozen manifest this module is allowed to run and verify."""
+
+COMMITTED_MANIFEST = Path(__file__).resolve().parents[3] / "docs/harness/v1.json"
+"""The frozen manifest in a source checkout, and the anchor for the reference.
+
+A run copies the manifest and the reference it compared into its output, but a
+copy is an artifact like any other: ``verify`` anchors both to the committed
+files rather than believing the copies. Outside a checkout these paths do not
+exist, and ``verify`` then needs ``--reference`` to say where the committed
+reference is; it refuses rather than trusting the copy.
+"""
+
+COMMITTED_REFERENCE = COMMITTED_MANIFEST.parent / "reference.json"
+"""Where ``verify`` looks for the committed reference unless told otherwise."""
 
 FAMILIES = (
     "stable_affine",
@@ -369,8 +386,13 @@ def case_regimes(manifest, family):
     return list(manifest["evaluation_regimes"])
 
 
-def decide(manifest, rows, reference=None):
-    """Every gate, evaluated from recorded scores alone. Anything unclear fails."""
+def decide(manifest, rows, reference=None, reference_sha256=None):
+    """Every gate, evaluated from recorded scores alone. Anything unclear fails.
+
+    ``reference_sha256`` identifies the reference file the scores were compared
+    against. It is recorded in the decision so a replay can check that it
+    compared the same bytes, and it is not otherwise used here.
+    """
     expected = expected_cases(manifest)
     keys = [(r.get("family"), r.get("data_seed")) for r in rows]
     breaches = []
@@ -472,6 +494,7 @@ def decide(manifest, rows, reference=None):
         gate_breaches=breaches,
         reference_regressions=regressions,
         reference_compared=reference is not None,
+        reference_sha256=reference_sha256,
         overall_scaled_rmse=overall,
         paired_probe_first_step_rmse=probes,
         meaning="A synthetic regression guard for this manifest only. Not platform readiness, control adequacy, or calibrated uncertainty.",
@@ -576,10 +599,10 @@ def run(manifest_path, output):
     output.mkdir(parents=True, exist_ok=False)
     shutil.copyfile(manifest_path, output / "manifest.json")
     reference_path = manifest_path.parent / manifest["reference"]["file"]
-    reference = None
+    reference, reference_digest = None, None
     if reference_path.exists():
         shutil.copyfile(reference_path, output / "reference.json")
-        reference = read(output / "reference.json")
+        reference, reference_digest = read(reference_path), sha256(reference_path)
     write(
         output / "environment.json",
         dict(
@@ -603,7 +626,7 @@ def run(manifest_path, output):
                 print(json.dumps(dict(starting=f"{family}-{seed}")), flush=True)
                 rows.append(_case(manifest, family, seed, output))
                 write(output / "results.json", rows)
-    decision = decide(manifest, rows, reference)
+    decision = decide(manifest, rows, reference, reference_digest)
     decision["wall_seconds"] = time.perf_counter() - started
     write(output / "decision.json", decision)
     return decision
@@ -630,7 +653,37 @@ def _check_probe(data, steps):
         raise ValueError("probe contexts must differ in exactly one input")
 
 
-def verify(directory):
+def anchored_reference(directory, reference=None):
+    """The committed reference a replay must compare against, never the copy.
+
+    A run copies the reference it compared into its output. That copy is an
+    artifact: loosening it would loosen the regression gate on replay. So the
+    copy is only ever checked against the committed file, and the committed
+    file is what the replay reads. The two must agree about existing and about
+    every byte, or the replay refuses.
+    """
+    committed = Path(reference) if reference is not None else COMMITTED_REFERENCE
+    copied = Path(directory) / "reference.json"
+    if copied.exists() != committed.exists():
+        present, absent = (
+            (copied, committed) if copied.exists() else (committed, copied)
+        )
+        raise ValueError(
+            f"reference mismatch: {present} exists but {absent} does not, so the "
+            "run's regression gate cannot be anchored"
+        )
+    if not committed.exists():
+        return None, None
+    digest = sha256(committed)
+    if sha256(copied) != digest:
+        raise ValueError(
+            f"the reference copied into the run differs from {committed}; a saved "
+            "run cannot relax its own regression gate"
+        )
+    return read(committed), digest
+
+
+def verify(directory, reference=None):
     """Recompute every score and the decision from saved arrays; never fit."""
     directory = Path(directory)
     manifest = frozen_manifest(directory / "manifest.json")
@@ -706,11 +759,17 @@ def verify(directory):
             )
             row["probe"]["paired_rmse"] = paired.tolist()
             replays += 1
-    reference_path = directory / "reference.json"
-    reference = read(reference_path) if reference_path.exists() else None
-    decision = decide(manifest, rows, reference)
+    anchor, digest = anchored_reference(directory, reference)
+    decision = decide(manifest, rows, anchor, digest)
     saved = read(directory / "decision.json")
-    for key in ("manifest", "decision", "accepted", "cases", "reference_compared"):
+    for key in (
+        "manifest",
+        "decision",
+        "accepted",
+        "cases",
+        "reference_compared",
+        "reference_sha256",
+    ):
         if decision[key] != saved[key]:
             raise ValueError(f"replayed decision differs: {key}")
     for key in ("gate_breaches", "reference_regressions"):
@@ -733,12 +792,21 @@ def main(argv=None):
     runner.add_argument("--output", type=Path, required=True)
     checker = commands.add_parser("verify", help="replay a run directory")
     checker.add_argument("directory", type=Path)
+    checker.add_argument(
+        "--reference",
+        type=Path,
+        default=None,
+        help=(
+            "the committed reference the run's regression gate is anchored to "
+            f"(default: {COMMITTED_REFERENCE})"
+        ),
+    )
     args = parser.parse_args(argv)
     if args.command == "run":
         result = run(args.manifest, args.output)
         accepted = result["accepted"]
     else:
-        result = verify(args.directory)
+        result = verify(args.directory, args.reference)
         accepted = result["decision"]["accepted"]
     print(json.dumps(result, indent=2, allow_nan=False))
     return 0 if accepted else 1

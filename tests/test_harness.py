@@ -338,3 +338,84 @@ def test_verify_rejects_an_altered_run(tmp_path, manifest, problem):
         expected = "case result mismatch"
     with pytest.raises(ValueError, match=expected):
         harness.verify(directory)
+
+
+REFERENCE = MANIFEST.parent / "reference.json"
+
+
+def scored_run(tmp_path, manifest, *, reference=REFERENCE):
+    """A run directory with no cases, so a replay is only the anchoring check.
+
+    Every gate that needs a fit is already covered above on synthetic rows.
+    What this exercises is the part a saved run can lie about: the reference
+    its own regression gate was measured against.
+    """
+    directory = tmp_path / "run"
+    directory.mkdir(parents=True)
+    shutil.copyfile(MANIFEST, directory / "manifest.json")
+    harness.write(directory / "results.json", [])
+    anchor, digest = None, None
+    if reference is not None:
+        shutil.copyfile(reference, directory / "reference.json")
+        anchor, digest = harness.read(reference), harness.sha256(reference)
+    harness.write(
+        directory / "decision.json", harness.decide(manifest, [], anchor, digest)
+    )
+    return directory
+
+
+def loosen(value, factor=10):
+    if isinstance(value, float):
+        return value * factor
+    if isinstance(value, dict):
+        return {k: loosen(v, factor) for k, v in value.items()}
+    if isinstance(value, list):
+        return [loosen(v, factor) for v in value]
+    return value
+
+
+def test_the_committed_reference_anchors_an_honest_replay(tmp_path, manifest):
+    directory = scored_run(tmp_path, manifest)
+    result = harness.verify(directory)
+    assert result["decision"]["reference_compared"]
+    assert result["decision"]["reference_sha256"] == harness.sha256(REFERENCE)
+    assert harness.COMMITTED_REFERENCE == REFERENCE
+
+
+def test_a_run_cannot_relax_its_own_regression_gate(tmp_path, manifest):
+    """The defect: a replay must not read the threshold the run saved itself."""
+    directory = scored_run(tmp_path, manifest)
+    copied = directory / "reference.json"
+    harness.write(copied, loosen(harness.read(copied)))
+    assert harness.sha256(copied) != harness.sha256(REFERENCE)
+    with pytest.raises(ValueError, match="cannot relax its own regression gate"):
+        harness.verify(directory)
+
+
+def test_a_mismatched_committed_reference_is_rejected(tmp_path, manifest):
+    directory = scored_run(tmp_path, manifest)
+    other = tmp_path / "other-reference.json"
+    harness.write(other, loosen(harness.read(REFERENCE)))
+    with pytest.raises(ValueError, match="cannot relax its own regression gate"):
+        harness.verify(directory, other)
+
+
+def test_a_run_and_a_committed_reference_must_agree_about_existing(tmp_path, manifest):
+    compared = scored_run(tmp_path, manifest)
+    missing = tmp_path / "absent-reference.json"
+    with pytest.raises(ValueError, match="cannot be anchored"):
+        harness.verify(compared, missing)
+    uncompared = scored_run(tmp_path / "second", manifest, reference=None)
+    assert not harness.read(uncompared / "decision.json")["reference_compared"]
+    with pytest.raises(ValueError, match="cannot be anchored"):
+        harness.verify(uncompared)
+    assert harness.verify(uncompared, missing)["decision"]["reference_sha256"] is None
+
+
+def test_a_forged_reference_digest_in_the_decision_is_rejected(tmp_path, manifest):
+    directory = scored_run(tmp_path, manifest)
+    decision = harness.read(directory / "decision.json")
+    decision["reference_sha256"] = "0" * 64
+    harness.write(directory / "decision.json", decision)
+    with pytest.raises(ValueError, match="reference_sha256"):
+        harness.verify(directory)
