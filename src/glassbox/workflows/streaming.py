@@ -293,6 +293,13 @@ class RefinementWorker:
     the caller's own that keeps the :class:`Refiner` contract. The transport,
     the queue bound, the gap accounting and the acknowledged handoff are the
     same either way; what learns behind them is the caller's.
+
+    ``synchronous`` runs the same learning on the producer's own thread inside
+    :meth:`submit`, and carries out an acknowledged decision inside
+    :meth:`acknowledge`. Nothing is queued, dropped or waited for, and no result
+    arrives at an interval the producer did not choose. It is for a caller whose
+    measurement must not depend on when a thread happened to be scheduled. It is
+    not a lower-latency mode: the producer pays the learning inline.
     """
 
     def __init__(
@@ -304,6 +311,7 @@ class RefinementWorker:
         queue_capacity: int = 2,
         retained_blocks: int = 2,
         refiner: Refiner | None = None,
+        synchronous: bool = False,
         prepare: Callable[[ModelRevision, Trajectory], Any] | None = None,
         should_offer: Callable[[RefinementResult], bool] | None = None,
         on_event: Callable[[dict], None] | None = None,
@@ -346,6 +354,8 @@ class RefinementWorker:
         self._delay = delay_s or (lambda index: 0.0)
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
+        self.synchronous = bool(synchronous)
+        self._started = False
         self.error: str | None = None
         self.submitted_blocks = self.dropped_blocks = self.dropped_intervals = 0
         self.processed_blocks = self.peak_queue_blocks = 0
@@ -354,23 +364,34 @@ class RefinementWorker:
 
     @property
     def initial_revision(self) -> ModelRevision:
-        if self._thread is not None:
+        if self._started:
             raise RuntimeError(
                 "capture the initial revision before starting the worker"
             )
         return self.refiner.active
 
     def start(self) -> None:
-        if self._thread is not None or self._stop.is_set():
+        if self._started or self._stop.is_set():
             raise RuntimeError("worker has already started")
+        self._started = True
+        if self.synchronous:
+            return
         self._thread = threading.Thread(
             target=self._run, name="glassbox-refinement", daemon=True
         )
         self._thread.start()
 
     def submit(self, block: TelemetryBlock) -> bool:
-        """Enqueue without waiting for learning or free queue capacity."""
-        if self._thread is None or self._stop.is_set() or self.error is not None:
+        """Hand over one block: enqueued for the worker thread, or learned inline.
+
+        Asynchronously this enqueues without waiting for learning or for free
+        queue capacity, and the oldest pending block is discarded when the queue
+        is full. Synchronously the producer's own thread runs the learning
+        before this returns, so nothing is ever pending and nothing is ever
+        dropped: the queue bound does not apply, and no offer can arrive at an
+        interval other than the one that handed the block over.
+        """
+        if not self._started or self._stop.is_set() or self.error is not None:
             return False
         if (
             len(block.trajectory.controls) != self.block_steps
@@ -379,6 +400,14 @@ class RefinementWorker:
         ):
             raise ValueError("worker requires fixed block and command-history sizes")
         self.submitted_blocks += 1
+        if self.synchronous:
+            try:
+                self._acknowledgements()
+                self._process(block)
+            except Exception as error:
+                self._fail(error)
+                return False
+            return True
         try:
             self._input.put_nowait(block)
         except queue.Full:
@@ -399,15 +428,40 @@ class RefinementWorker:
             return None
 
     def acknowledge(self, offer: ControllerOffer, *, applied: bool) -> None:
-        """The control owner reports its completed boundary decision."""
+        """The control owner reports its completed boundary decision.
+
+        Synchronously the decision is carried out before this returns, so an
+        adopted revision is active for the caller's very next interval rather
+        than whenever a worker thread next looks at its queue.
+        """
         self._acks.put_nowait((offer, applied))
+        if self.synchronous:
+            try:
+                self._acknowledgements()
+            except Exception as error:
+                self._fail(error)
 
     def close(self, *, timeout_s: float = 30.0) -> bool:
-        """Request shutdown, drain accepted telemetry, and wait up to the timeout."""
+        """Request shutdown, drain accepted telemetry, and wait up to the timeout.
+
+        Synchronously there is nothing to drain and nothing to wait for: every
+        block was learned inside the ``submit`` that handed it over.
+        """
         self._stop.set()
+        if self.synchronous:
+            return True
         if self._thread is not None:
             self._thread.join(timeout_s)
         return self._thread is None or not self._thread.is_alive()
+
+    def _fail(self, error: Exception) -> None:
+        self.error = f"{type(error).__name__}: {error}"
+        self._stop.set()
+        # A failed journal callback must not hide the original worker error.
+        try:
+            self._on_event({"kind": "worker_error", "error": self.error})
+        except Exception:
+            pass
 
     def _acknowledgements(self) -> None:
         try:
@@ -430,6 +484,78 @@ class RefinementWorker:
         self._pending = None
         self.refiner.release_adoption_hold()
 
+    def _process(self, block: TelemetryBlock) -> None:
+        """Learn from one block and, if the policy says so, prepare an offer.
+
+        The same body either way: on the worker thread when one is running, and
+        on the producer's own thread when the worker is synchronous.
+        """
+        delay = float(self._delay(self.processed_blocks))
+        if not np.isfinite(delay) or delay < 0:
+            raise ValueError("worker delay must be finite and nonnegative")
+        self._stop.wait(delay)
+        if block.start_interval > self.next_interval:
+            gap = self.refiner.skip(
+                recording_id=block.recording_id,
+                start_interval=self.next_interval,
+                stop_interval=block.start_interval,
+                reason="unavailable telemetry or queue overflow",
+            )
+            self._on_event({"kind": "gap", **gap})
+        started = time.monotonic()
+        age = started - block.received_at_s
+        if age < 0:
+            raise ValueError(
+                "reception timestamp is ahead of the worker monotonic clock"
+            )
+        result = self.refiner.observe(
+            block.trajectory,
+            recording_id=block.recording_id,
+            start_interval=block.start_interval,
+        )
+        elapsed = time.monotonic() - started
+        self.next_interval = block.stop_interval
+        self.processed_blocks += 1
+        self.maximum_queue_age_s = max(self.maximum_queue_age_s, age)
+        self.maximum_update_time_s = max(self.maximum_update_time_s, elapsed)
+        self._on_event(
+            {
+                "kind": "block",
+                "queue_age_s": age,
+                "update_time_s": elapsed,
+                **result.to_dict(),
+            }
+        )
+        if (
+            not self._stop.is_set()
+            and self._pending is None
+            and self._prepare is not None
+            and self._should_offer(result)
+        ):
+            revision = result.candidate_score.revision
+            if revision.revision_id != self.refiner.active.revision_id:
+                started = time.monotonic()
+                controller = self._prepare(revision, block.trajectory)
+                offer = ControllerOffer(
+                    revision,
+                    self.refiner.active.revision_id,
+                    controller,
+                    block.recording_id,
+                    block.stop_interval,
+                    time.monotonic(),
+                )
+                self._pending = offer
+                self.refiner.hold_for_adoption(revision.revision_id)
+                self._offers.put_nowait(offer)
+                self._on_event(
+                    {
+                        "kind": "offer",
+                        "revision": revision.to_dict(),
+                        "scored_stop_interval": block.stop_interval,
+                        "preparation_time_s": time.monotonic() - started,
+                    }
+                )
+
     def _run(self) -> None:
         try:
             while True:
@@ -440,80 +566,10 @@ class RefinementWorker:
                     block = self._input.get(timeout=0.02)
                 except queue.Empty:
                     continue
-                delay = float(self._delay(self.processed_blocks))
-                if not np.isfinite(delay) or delay < 0:
-                    raise ValueError("worker delay must be finite and nonnegative")
-                self._stop.wait(delay)
-                if block.start_interval > self.next_interval:
-                    gap = self.refiner.skip(
-                        recording_id=block.recording_id,
-                        start_interval=self.next_interval,
-                        stop_interval=block.start_interval,
-                        reason="unavailable telemetry or queue overflow",
-                    )
-                    self._on_event({"kind": "gap", **gap})
-                started = time.monotonic()
-                age = started - block.received_at_s
-                if age < 0:
-                    raise ValueError(
-                        "reception timestamp is ahead of the worker monotonic clock"
-                    )
-                result = self.refiner.observe(
-                    block.trajectory,
-                    recording_id=block.recording_id,
-                    start_interval=block.start_interval,
-                )
-                elapsed = time.monotonic() - started
-                self.next_interval = block.stop_interval
-                self.processed_blocks += 1
-                self.maximum_queue_age_s = max(self.maximum_queue_age_s, age)
-                self.maximum_update_time_s = max(self.maximum_update_time_s, elapsed)
-                self._on_event(
-                    {
-                        "kind": "block",
-                        "queue_age_s": age,
-                        "update_time_s": elapsed,
-                        **result.to_dict(),
-                    }
-                )
-                if (
-                    not self._stop.is_set()
-                    and self._pending is None
-                    and self._prepare is not None
-                    and self._should_offer(result)
-                ):
-                    revision = result.candidate_score.revision
-                    if revision.revision_id != self.refiner.active.revision_id:
-                        started = time.monotonic()
-                        controller = self._prepare(revision, block.trajectory)
-                        offer = ControllerOffer(
-                            revision,
-                            self.refiner.active.revision_id,
-                            controller,
-                            block.recording_id,
-                            block.stop_interval,
-                            time.monotonic(),
-                        )
-                        self._pending = offer
-                        self.refiner.hold_for_adoption(revision.revision_id)
-                        self._offers.put_nowait(offer)
-                        self._on_event(
-                            {
-                                "kind": "offer",
-                                "revision": revision.to_dict(),
-                                "scored_stop_interval": block.stop_interval,
-                                "preparation_time_s": time.monotonic() - started,
-                            }
-                        )
+                self._process(block)
             self._acknowledgements()
         except Exception as error:
-            self.error = f"{type(error).__name__}: {error}"
-            self._stop.set()
-            # A failed journal callback must not hide the original worker error.
-            try:
-                self._on_event({"kind": "worker_error", "error": self.error})
-            except Exception:
-                pass
+            self._fail(error)
 
     def summary(self) -> dict:
         """Call after close, or treat concurrent values as approximate counters."""

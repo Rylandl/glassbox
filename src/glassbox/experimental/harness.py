@@ -25,7 +25,7 @@ that changed. No command takes tuning options.
     python -m glassbox.experimental.harness control \\
         --manifest docs/harness/control-v3.json --output DIR
     python -m glassbox.experimental.harness live \\
-        --manifest docs/harness/live-v1.json --output DIR
+        --manifest docs/harness/live-v2.json --output DIR
     python -m glassbox.experimental.harness verify DIR [--reference PATH]
 
 A run copies the manifest and the reference it compared into its output, but a
@@ -3376,7 +3376,7 @@ def control(manifest_path, output):
             )
             row["repetition"] = repetition
             row["initial_state_seed"] = trial["initial_state_seeds"][repetition]
-            row["trial_wall_seconds"] = time.perf_counter() - trial_started
+            row["wall"]["trial_seconds"] = time.perf_counter() - trial_started
             row["directory"] = f"trial-{repetition}/{name}"
             write(output / row["directory"] / "trial.json", row)
             rows.append(row)
@@ -3559,12 +3559,13 @@ def verify_control(directory, manifest, reference=None):
         for name, digest in row["files"].items():
             if sha256(case / name) != digest:
                 raise ValueError(f"altered artifact: {row['directory']}/{name}")
+        with np.load(case / "timing.npz", allow_pickle=False) as data:
+            tick_times = data["tick_times_s"]
+            solve_times = data["solve_times_s"]
         with np.load(case / "tracking.npz", allow_pickle=False) as data:
             states = data["states"]
             commands = data["commands"]
             saved_reference = data["reference_states"]
-            tick_times = data["tick_times_s"]
-            solve_times = data["solve_times_s"]
             initial_state = data["initial_state"]
             anchor_state = data["reference_anchor_state"]
             times = data["time_s"]
@@ -3672,11 +3673,11 @@ def verify_control(directory, manifest, reference=None):
 # --- the live improvement tier: refit on the flight, swap on held-out evidence
 
 LIVE_MANIFEST_SHA256 = (
-    "815ce47b886d566be12fe9c2e24966160a6489c2fa6aa6424ed494436c0d7a8f"
+    "393946754050bd3250275bea35fd672bdb953999c06127fb31821918e7a6ace0"
 )
 """Digest of the frozen live manifest this module is allowed to run."""
 
-COMMITTED_LIVE_MANIFEST = COMMITTED_MANIFEST.parent / "live-v1.json"
+COMMITTED_LIVE_MANIFEST = COMMITTED_MANIFEST.parent / "live-v2.json"
 """The frozen live manifest in a source checkout."""
 
 COMMITTED_LIVE_REFERENCE = COMMITTED_MANIFEST.parent / "live-reference.json"
@@ -3730,7 +3731,35 @@ def frozen_live_manifest(path):
     # The recipe refuses a new recording that cannot supply three whole windows.
     if block + 1 - steps["history"] - steps["horizon"] < 3:
         raise ValueError("a declared block cannot carry three complete recipe windows")
+    # The offset is what makes the swap interval a declared constant rather than
+    # a measurement of how busy the host was, so it has to be one.
+    offset = transport["offer_release_offset_intervals"]
+    if isinstance(offset, bool) or not isinstance(offset, int) or offset < 1:
+        raise ValueError("the offer release offset must be a positive interval count")
+    if transport["drive"] != "synchronous":
+        raise ValueError("this tier's worker is driven synchronously, or not at all")
+    if manifest["trial"]["solver_deadline_applied"] is not False:
+        raise ValueError("this tier's solver is given no deadline")
     return manifest
+
+
+def live_expected_swap(blocks, offset, intervals):
+    """Where a trial's swap must have happened, from the recorded gates alone.
+
+    The first block whose gate passed decides it and the declared offset places
+    it: the swap interval is that block's stop interval plus the offset, and
+    there is no swap at all when no gate passed or when that interval lies past
+    the end of the trial. Nothing here reads a clock, which is the point --
+    a replay recomputes the interval rather than believing the one a run wrote.
+    """
+    first = live_first_gate_block(blocks)
+    if first is None:
+        return None, None
+    stop = blocks[first]["stop_interval"]
+    release = stop + int(offset)
+    if release >= int(intervals):
+        return first, None
+    return first, release
 
 
 def live_swap_gate(candidate, comparator):
@@ -3762,18 +3791,19 @@ def live_swap_gate(candidate, comparator):
 
 
 def live_first_gate_block(blocks):
-    """The index of the first block whose gate passed inside its refit budget.
+    """The index of the first block whose gate passed.
 
     The offer the loop is allowed to apply comes from this block and no other,
     so a replay recomputes it from the recorded per-block gates rather than
-    believing what the run says it swapped on.
+    believing what the run says it swapped on. The refit budget is measured and
+    reported and deliberately does not appear here: a candidate withheld because
+    the host was busy would put the host's scheduling into the trajectory.
     """
     for entry in blocks if isinstance(blocks, list) else ():
         if not isinstance(entry, dict):
             continue
         gate = entry.get("gate")
-        passed = gate.get("passed") if isinstance(gate, dict) else None
-        if passed is True and entry.get("within_budget") is True:
+        if (gate.get("passed") if isinstance(gate, dict) else None) is True:
             return entry.get("index")
     return None
 
@@ -3837,6 +3867,7 @@ def live_decide(manifest, rows, reference=None, reference_sha256=None):
     expected = {(index, arm) for index in range(repetitions) for arm in LIVE_ARMS}
     keys = [(row.get("repetition"), row.get("arm")) for row in rows]
     breaches, rule_breaches, regressions, summary = [], [], [], {}
+    budget_breaches = []
     criteria, live = {}, {}
     relative = manifest["reference"]["relative_tolerance"]
     absolute = manifest["reference"]["absolute_tolerance"]
@@ -3853,19 +3884,33 @@ def live_decide(manifest, rows, reference=None, reference_sha256=None):
             continue
         name = f"{key[0]}-{key[1]}"
         criteria[name] = row.get("pass_criterion")
+        # A refit that ran over its declared wall budget is a measurement of
+        # this host, reported beside the rest and gating nothing: it changed no
+        # command, because the candidate was offered either way.
+        for entry in row.get("blocks") or ():
+            if isinstance(entry, dict) and entry.get("within_budget") is not True:
+                budget_breaches.append(
+                    dict(
+                        trial=name,
+                        block=entry.get("index"),
+                        gate="refit_wall_budget",
+                        value=entry.get("refit_wall_seconds"),
+                        limit=entry.get("wall_budget_seconds"),
+                    )
+                )
         live[name] = dict(
             swapped=row.get("swapped"),
             swap_interval=row.get("swap_interval"),
             swap_time_s=row.get("swap_time_s"),
             swap_revision=row.get("swap_revision"),
             swap_scored_block=row.get("swap_scored_block"),
+            swap_release_interval=row.get("swap_release_interval"),
+            offer_deferred_past_trial=row.get("offer_deferred_past_trial"),
             candidate_revisions=row.get("candidate_revisions"),
             submitted_blocks=row.get("submitted_blocks"),
             dropped_blocks=row.get("dropped_blocks"),
-            deadline_misses=row.get("deadline_misses"),
-            solve_deadline_misses=row.get("solve_deadline_misses"),
             budget_overruns=row.get("budget_overruns"),
-            maximum_refit_wall_seconds=row.get("maximum_refit_wall_seconds"),
+            wall=row.get("wall"),
             blocks=row.get("blocks"),
         )
         if row.get("terminated") is not False:
@@ -4002,6 +4047,8 @@ def live_decide(manifest, rows, reference=None, reference_sha256=None):
         trials=len(rows),
         gate_breaches=breaches,
         rule_breaches=rule_breaches,
+        budget_breaches=budget_breaches,
+        budget_breaches_meaning=manifest["live"]["refit"]["on_budget_overrun"],
         reference_regressions=regressions,
         reference_compared=reference is not None,
         reference_sha256=reference_sha256,
@@ -4386,7 +4433,7 @@ def _live_trial(
     session,
     directory,
 ):
-    """One paced tracking trial with a learner behind it, and at most one swap.
+    """One tracking trial with a learner behind it, computed in simulated time.
 
     The frozen structured arm flies from the first interval. Every interval's
     aligned transition -- the observed state it started at, the observed state
@@ -4395,6 +4442,14 @@ def _live_trial(
     arms run the same transport and the same refits, so they differ in the swap
     and in nothing else; only the adopting arm is given a preparation callback
     and an adoption policy, which is what makes an offer possible at all.
+
+    Nothing a clock measured may reach the trajectory. The loop is not paced,
+    the solver is given no deadline and therefore never falls back for want of
+    time, the worker learns synchronously inside the ``submit`` that hands it a
+    block, and an offer is released at a declared interval offset after the
+    block it was scored on rather than whenever a refit happened to finish.
+    Solve times, interval times and refit wall times are all still measured, and
+    are recorded in a separate artifact that nothing reads back.
     """
     from glassbox.control.plan import ReferenceTrajectory
     from glassbox.core.metrics import state_rmse_metrics
@@ -4408,7 +4463,7 @@ def _live_trial(
     deadline_s = trial["solve_deadline_s"]
     context = steps_for(manifest["plant"]["sample_interval_s"])["history"]
     history_steps = transport["command_history_steps"]
-    maximum_age = transport["maximum_offer_age_intervals"]
+    release_offset = transport["offer_release_offset_intervals"]
 
     arm = _StructuredArm(manifest, artifacts["structured"])
     _control_prewarm(arm, manifest, warmup, reference_fn)
@@ -4432,10 +4487,10 @@ def _live_trial(
         events.append(record)
 
     def should_offer(result):
-        record = result.record
-        return bool(
-            record["gate"]["passed"] and record["within_budget"] and not refiner.offered
-        )
+        # The budget is measured, not obeyed: a refit that ran long is recorded
+        # and reported, and suppressing its candidate here would let the host's
+        # scheduling decide where the aircraft flew.
+        return bool(result.record["gate"]["passed"] and not refiner.offered)
 
     def prepare(revision, block):
         # One swap per trial, declared: the first candidate that passes.
@@ -4468,6 +4523,7 @@ def _live_trial(
         block_steps=transport["block_steps"],
         queue_capacity=transport["queue_capacity"],
         retained_blocks=transport["retained_blocks"],
+        synchronous=True,
         prepare=prepare if adopting else None,
         should_offer=should_offer if adopting else None,
         on_event=journal,
@@ -4477,7 +4533,7 @@ def _live_trial(
     previous = plant.initial_command.copy()
     arm.reset(state, previous)
     observed = [state.copy()]
-    applied, tick_times, lags, solve_times = [], [], [], []
+    applied, tick_times, solve_times, telemetry_times = [], [], [], []
     solver_used, fallbacks, statuses, actives = [], [], [], []
     recent_states = deque(maxlen=context)
     recent_commands = deque(maxlen=context)
@@ -4488,29 +4544,23 @@ def _live_trial(
         swap_revision=None,
         swap_scored_block=None,
         swap_scored_stop_interval=None,
-        swap_offer_age_intervals=None,
+        swap_release_interval=None,
         offers=0,
         rejected_offers=0,
+        offer_deferred_past_trial=False,
     )
-    warm_start, failure, rejected_blocks = None, None, 0
+    warm_start, failure = None, None
+    held, held_release = None, None
     started = time.monotonic()
     worker.start()
     try:
         for index in range(requested):
-            scheduled = started + index * dt_s
-            remaining = scheduled - time.monotonic()
-            if remaining > 0:
-                time.sleep(remaining)
-            tick = time.monotonic()
-            lags.append(max(0.0, tick - scheduled))
-            offer = worker.poll_offer()
-            if offer is not None:
-                swap["offers"] += 1
-                age = index - offer.scored_stop_interval
+            if held is not None and index >= held_release:
+                # The declared offset has elapsed in the trial's own interval
+                # count, which is the only clock this trajectory reads.
                 applicable = bool(
                     not swap["swapped"]
-                    and offer.expected_active_revision == refiner.active.revision_id
-                    and 0 <= age <= maximum_age
+                    and held.expected_active_revision == refiner.active.revision_id
                     and len(recent_states) == context
                 )
                 if applicable:
@@ -4518,7 +4568,7 @@ def _live_trial(
                     # revision: the prepared controller is seeded with this
                     # trial's own retained states and applied commands, and
                     # nothing is padded.
-                    candidate = offer.controller
+                    candidate = held.controller
                     candidate.reset(state, previous)
                     for past_state, past_command in zip(
                         recent_states, recent_commands, strict=True
@@ -4530,22 +4580,24 @@ def _live_trial(
                         swapped=True,
                         swap_interval=index,
                         swap_time_s=index * dt_s,
-                        swap_revision=offer.revision.revision_id,
-                        swap_scored_stop_interval=int(offer.scored_stop_interval),
-                        swap_offer_age_intervals=int(age),
+                        swap_revision=held.revision.revision_id,
                     )
                 else:
                     swap["rejected_offers"] += 1
-                worker.acknowledge(offer, applied=applicable)
+                worker.acknowledge(held, applied=applicable)
+                held = None
+            tick = time.monotonic()
             arm.observe(state)
             if arm.ready:
                 future = (index + np.arange(arm.prediction_steps + 1)) * dt_s
+                # No deadline: a solve cut short by a busy host would put the
+                # wall clock into the commands, and this tier's trajectory is a
+                # function of the plant, the models and the reference alone.
                 result = arm.solve(
                     state,
                     ReferenceTrajectory(reference_fn(future)),
                     previous,
                     warm_start=warm_start,
-                    deadline_s=deadline_s,
                 )
                 command = np.asarray(result.command, dtype=float)
                 warm_start = result.warm_start
@@ -4564,20 +4616,6 @@ def _live_trial(
                 failure = "nonfinite plant state"
                 break
             arm.command_applied(command)
-            try:
-                block = buffer.push(
-                    interval=index,
-                    source_time_s=index * dt_s,
-                    command=command,
-                    state=state,
-                    next_state=next_state,
-                    received_at_s=time.monotonic(),
-                )
-            except ValueError as error:
-                failure = f"telemetry refused a transition: {error}"
-                break
-            if block is not None and not worker.submit(block):
-                rejected_blocks += 1
             observed.append(next_state.copy())
             applied.append(command.copy())
             actives.append(swap["swap_revision"] or f"{session}:structured")
@@ -4585,8 +4623,42 @@ def _live_trial(
             recent_commands.append(command.copy())
             previous, state = command, next_state
             tick_times.append(time.monotonic() - tick)
+            telemetry = time.monotonic()
+            try:
+                block = buffer.push(
+                    interval=index,
+                    source_time_s=index * dt_s,
+                    command=command,
+                    state=observed[-2],
+                    next_state=next_state,
+                    received_at_s=time.monotonic(),
+                )
+            except ValueError as error:
+                failure = f"telemetry refused a transition: {error}"
+                break
+            if block is not None:
+                # Synchronous: the learning happens here, and any offer it
+                # produces exists before this call returns.
+                if not worker.submit(block):
+                    failure = f"the refinement worker refused a block: {worker.error}"
+                    break
+                offer = worker.poll_offer()
+                if offer is not None:
+                    swap["offers"] += 1
+                    held = offer
+                    held_release = offer.scored_stop_interval + release_offset
+                    swap.update(
+                        swap_scored_stop_interval=int(offer.scored_stop_interval),
+                        swap_release_interval=int(held_release),
+                    )
+            telemetry_times.append(time.monotonic() - telemetry)
     finally:
         elapsed_s = time.monotonic() - started
+        if held is not None:
+            # Released past the end of the trial: recorded, never applied.
+            swap["offer_deferred_past_trial"] = True
+            swap["rejected_offers"] += 1
+            worker.acknowledge(held, applied=False)
         stopped = worker.close(timeout_s=60.0)
     worker_error = worker.error
     if not stopped:
@@ -4612,24 +4684,30 @@ def _live_trial(
         if len(commands_array)
         else 0.0
     )
+    # The trajectory and the clock live in different files. Everything in
+    # tracking.npz is a function of the plant, the models and the reference, so
+    # two runs of this tier produce it byte for byte; nothing in timing.npz is,
+    # and nothing reads it back.
     np.savez_compressed(
         directory / "tracking.npz",
         time_s=times,
         states=states_array,
         reference_states=reference_states,
         commands=commands_array,
-        tick_times_s=np.asarray(tick_times, dtype=float),
-        source_clock_lags_s=np.asarray(lags, dtype=float),
-        solve_times_s=np.asarray(solve_times, dtype=float),
         solver_used=np.asarray(solver_used, dtype=bool),
         used_fallback=np.asarray(fallbacks, dtype=bool),
         active_revisions=np.asarray(actives, dtype="<U64"),
         initial_state=np.asarray(plant.initial_state, dtype=float),
         reference_anchor_state=np.asarray(anchor_state, dtype=float),
     )
-    names = ["tracking.npz"]
+    np.savez_compressed(
+        directory / "timing.npz",
+        tick_times_s=np.asarray(tick_times, dtype=float),
+        solve_times_s=np.asarray(solve_times, dtype=float),
+        telemetry_times_s=np.asarray(telemetry_times, dtype=float),
+    )
+    names = ["tracking.npz", "timing.npz"]
     blocks = []
-
     for entry in refiner.blocks:
         record = dict(entry["record"])
         index = record["index"]
@@ -4645,8 +4723,6 @@ def _live_trial(
         record["scored_model"] = model
         names.extend([record["arrays"], model])
         blocks.append(record)
-    # The block whose gate the applied offer came from, named once the worker
-    # has stopped and this thread owns every record again.
     swap["swap_scored_block"] = next(
         (
             entry["index"]
@@ -4681,31 +4757,43 @@ def _live_trial(
         processed_blocks=transport_summary["processed_blocks"],
         dropped_blocks=transport_summary["dropped_blocks"],
         dropped_intervals=transport_summary["dropped_intervals"],
-        rejected_blocks=rejected_blocks,
         skipped_intervals=transport_summary["skipped_intervals"],
         buffer_discarded_intervals=buffer.discarded_intervals,
         partial_intervals_at_shutdown=buffer.partial_intervals,
         budget_overruns=sum(not entry["within_budget"] for entry in blocks),
-        maximum_refit_wall_seconds=max(
-            (entry["refit_wall_seconds"] for entry in blocks), default=0.0
-        ),
-        maximum_score_wall_seconds=max(
-            (entry["score_wall_seconds"] for entry in blocks), default=0.0
-        ),
-        maximum_queue_age_s=transport_summary["maximum_queue_age_s"],
-        deadline_misses=int(np.sum(np.asarray(tick_times, dtype=float) > dt_s)),
-        solve_deadline_misses=int(
-            np.sum(np.asarray(solve_times, dtype=float) > deadline_s)
-        ),
         model_not_ready_intervals=int(statuses.count("model_not_ready")),
         fallback_count=int(sum(fallbacks)),
         solver_statuses={
             status: statuses.count(status) for status in sorted(set(statuses))
         },
         maximum_command_bound_violation=bound_violation,
-        maximum_source_clock_lag_s=max(lags, default=0.0),
-        maximum_tick_time_s=max(tick_times, default=0.0),
-        control_elapsed_s=elapsed_s,
+        wall=dict(
+            meaning=(
+                "host measurements of this run only. None of them enters the "
+                "trajectory, the block scores, the swap or any metric, and two "
+                "runs of this tier differ in all of them."
+            ),
+            maximum_refit_seconds=max(
+                (entry["refit_wall_seconds"] for entry in blocks), default=0.0
+            ),
+            maximum_score_seconds=max(
+                (entry["score_wall_seconds"] for entry in blocks), default=0.0
+            ),
+            refit_budget_seconds=float(
+                manifest["live"]["refit"]["budget"]["wall_seconds"]
+            ),
+            maximum_interval_seconds=max(tick_times, default=0.0),
+            maximum_solve_seconds=max(solve_times, default=0.0),
+            maximum_telemetry_seconds=max(telemetry_times, default=0.0),
+            intervals_over_sample_interval=int(
+                np.sum(np.asarray(tick_times, dtype=float) > dt_s)
+            ),
+            solves_over_deadline=int(
+                np.sum(np.asarray(solve_times, dtype=float) > deadline_s)
+            ),
+            solve_deadline_s=deadline_s,
+            elapsed_seconds=elapsed_s,
+        ),
         refiner=refiner.summary(),
         transport=transport_summary,
         controller=arm.summary(),
@@ -4778,7 +4866,7 @@ def live(manifest_path, output):
             )
             row["repetition"] = repetition
             row["initial_state_seed"] = trial["initial_state_seeds"][repetition]
-            row["trial_wall_seconds"] = time.perf_counter() - trial_started
+            row["wall"]["trial_seconds"] = time.perf_counter() - trial_started
             row["directory"] = f"trial-{repetition}/{name}"
             flown[name] = row
             print(
@@ -4789,7 +4877,7 @@ def live(manifest_path, output):
                         swap_interval=row["swap_interval"],
                         tracking_rmse=row["tracking_rmse"],
                         terminated=row["terminated"],
-                        deadline_misses=row["deadline_misses"],
+                        budget_overruns=row["budget_overruns"],
                         blocks=[
                             dict(
                                 index=entry["index"],
@@ -4883,7 +4971,7 @@ def verify_live(directory, manifest, reference=None):
     dt_s = trial["sample_interval_s"]
     steps = steps_for(manifest["plant"]["sample_interval_s"])
     declared = manifest["tracking_reference"]
-    maximum_age = transport["maximum_offer_age_intervals"]
+    release_offset = transport["offer_release_offset_intervals"]
     rows = read(directory / "results.json")
     checked, replays, worst = 0, 0, 0.0
     swaps = {}
@@ -4894,12 +4982,13 @@ def verify_live(directory, manifest, reference=None):
         for name, digest in row["files"].items():
             if sha256(case / name) != digest:
                 raise ValueError(f"altered artifact: {row['directory']}/{name}")
+        with np.load(case / "timing.npz", allow_pickle=False) as data:
+            tick_times = data["tick_times_s"]
+            solve_times = data["solve_times_s"]
         with np.load(case / "tracking.npz", allow_pickle=False) as data:
             states = data["states"]
             commands = data["commands"]
             saved_reference = data["reference_states"]
-            tick_times = data["tick_times_s"]
-            solve_times = data["solve_times_s"]
             initial_state = data["initial_state"]
             anchor_state = data["reference_anchor_state"]
             times = data["time_s"]
@@ -4938,8 +5027,11 @@ def verify_live(directory, manifest, reference=None):
                 states, saved_reference, row["segment_swap_interval"]
             )
             criterion = control_pass_criterion(states, anchor_state, manifest)
-            misses = int(np.sum(tick_times > dt_s))
-            solve_misses = int(np.sum(solve_times > trial["solve_deadline_s"]))
+            # Host measurements. They are recomputed because they were recorded,
+            # and they decide nothing: the trajectory above was computed without
+            # reading either of them.
+            over_interval = int(np.sum(tick_times > dt_s))
+            over_deadline = int(np.sum(solve_times > trial["solve_deadline_s"]))
             # The recorded active revision per interval has to agree with the
             # recorded swap: structured before it, the adopted revision after.
             swapped_at = row["swap_interval"]
@@ -4965,11 +5057,12 @@ def verify_live(directory, manifest, reference=None):
             row["tracking_rmse"] = fresh
         _same_segments(segments, row["segments"], row["directory"])
         row["segments"] = segments
+        wall = row["wall"]
         if (
-            misses != row["deadline_misses"]
-            or solve_misses != (row["solve_deadline_misses"])
+            over_interval != wall["intervals_over_sample_interval"]
+            or over_deadline != (wall["solves_over_deadline"])
         ):
-            raise ValueError(f"recomputed deadline misses differ: {row['directory']}")
+            raise ValueError(f"recomputed host measurements differ: {row['directory']}")
         terminated = len(commands) != row["requested_intervals"]
         if (
             terminated != bool(row["terminated"])
@@ -4984,7 +5077,7 @@ def verify_live(directory, manifest, reference=None):
         swaps[(row["repetition"], row["arm"])] = row
         checked += 1
     for row in rows:
-        _verify_live_swap(row, maximum_age)
+        _verify_live_swap(row, release_offset, trial["intervals"])
     for repetition in sorted({key[0] for key in swaps}):
         adopting = swaps.get((repetition, "adopting"))
         if adopting is None:
@@ -5029,9 +5122,13 @@ def verify_live(directory, manifest, reference=None):
             "revisions, every block score and swap gate recomputed from those "
             "forecasts, the swap recomputed from the recorded gates, and the "
             "tracking metrics and segments recomputed from the saved "
-            "per-interval arrays. The plant, the solver and the refits are not "
-            "rerun, because rerunning any of them would be a new measurement "
-            "rather than a check of this one."
+            "per-interval arrays, and the swap recomputed from the recorded "
+            "gates and the declared release offset. The plant, the solver and "
+            "the refits are not rerun, because rerunning any of them would be a "
+            "new measurement rather than a check of this one. The host "
+            "measurements in timing.npz are recomputed because they were "
+            "recorded; nothing in the trajectory, the scores or the decision "
+            "reads them."
         ),
     )
 
@@ -5118,38 +5215,57 @@ def _live_block_replays(case, row, manifest, belief, steps, replays, worst):
     return replays, worst
 
 
-def _verify_live_swap(row, maximum_age):
-    """Recompute, from the recorded gates alone, whether this trial should have swapped."""
-    first = live_first_gate_block(row["blocks"])
+def _verify_live_swap(row, release_offset, intervals):
+    """Recompute the swap from the recorded gates and the declared offset alone.
+
+    Under this tier there is exactly one answer and no clock in it: the first
+    block whose gate passed, released the declared number of intervals after
+    that block ended, unless that lands past the end of the trial. A run that
+    recorded any other swap -- or none where one was due -- is rejected.
+    """
     label = row["directory"]
-    if row["swapped"]:
-        if row["arm"] != "adopting":
+    if row["arm"] == "frozen":
+        expected_block, expected_interval = None, None
+        if row["swapped"]:
             raise ValueError(f"a frozen arm recorded a swap: {label}")
-        if first is None or row["swap_scored_block"] != first:
+    else:
+        expected_block, expected_interval = live_expected_swap(
+            row["blocks"], release_offset, intervals
+        )
+    if bool(row["swapped"]) != (expected_interval is not None):
+        raise ValueError(
+            f"the recorded swap does not match the one the gates and the declared "
+            f"offset require: {label}"
+        )
+    if row["swapped"]:
+        if row["swap_interval"] != expected_interval:
+            raise ValueError(
+                f"the recorded swap interval is not the block's stop interval plus "
+                f"the declared offset: {label}"
+            )
+        if row["swap_scored_block"] != expected_block:
             raise ValueError(
                 f"the recorded swap did not come from the first block whose gate "
-                f"passed inside its budget: {label}"
+                f"passed: {label}"
             )
-        block = row["blocks"][first]
-        age = row["swap_interval"] - block["stop_interval"]
-        if age != row["swap_offer_age_intervals"] or not 0 <= age <= maximum_age:
-            raise ValueError(f"the recorded swap is outside the declared age: {label}")
+        block = row["blocks"][expected_block]
+        if row["swap_scored_stop_interval"] != block["stop_interval"]:
+            raise ValueError(f"the recorded swap names another block: {label}")
         if row["swap_revision"] != block["scored_revision"]:
             raise ValueError(
                 f"the recorded swap adopted a revision that block did not score: "
                 f"{label}"
             )
-    elif first is not None and not row["rejected_offers"] and row["arm"] == "adopting":
-        raise ValueError(
-            f"a block's gate passed and no offer was ever rejected, so this trial "
-            f"should have swapped: {label}"
-        )
     if row["candidate_revisions"] != len(row["blocks"]):
         raise ValueError(f"recorded revision count differs from the blocks: {label}")
     if row["budget_overruns"] != sum(
         not entry["within_budget"] for entry in row["blocks"]
     ):
         raise ValueError(f"recorded budget overruns differ from the blocks: {label}")
+    # The queue bound cannot bite a synchronous drive, so a dropped block would
+    # mean the run was not the one this manifest declares.
+    if row["dropped_blocks"]:
+        raise ValueError(f"a synchronously driven worker dropped a block: {label}")
 
 
 def main(argv=None):

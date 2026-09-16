@@ -1,6 +1,6 @@
 {
-  "id": "live-v1",
-  "purpose": "The live improvement tier: one Cascade X8 tracking trial set flown from the start by the frozen structured arm, while the generic learner refits on the trial's own streamed transitions through the existing transition buffer and refinement worker, and replaces the active plan model when a predeclared held-out block gate passes.",
+  "id": "live-v2",
+  "purpose": "The live improvement tier: one Cascade X8 tracking trial set flown from the start by the frozen structured arm, while the generic learner refits on the trial's own streamed transitions through the existing transition buffer and refinement worker, and replaces the active plan model when a predeclared held-out block gate passes. The trajectory is a function of the plant, the models and the reference alone: no clock this run reads enters it.",
   "frozen_before_any_trial": true,
   "recipe": {
     "id": "generic-memory-v3-prototype",
@@ -185,9 +185,10 @@
       ]
     ],
     "solve_deadline_s": 0.05,
-    "pacing": "paced fixed steps; the plant's simulated clock slows when control runs late",
+    "pacing": "none. The loop runs in simulated time: interval k is the state at k times the sample interval, and no wall-clock measurement reaches a command.",
     "plant_prewarm": "one discarded step at the initial command, then a reset, before the trial clock starts",
-    "meaning": "control-v3's trial set, constant for constant, with control-v3's two model arms replaced by two live arms. Both arms of one repetition fly the same freshly reset plant from the same perturbed initial state over the same reference for the same number of intervals, both run the same transport and the same refits, and only the adopting arm may be offered a replacement plan model. Arm order alternates between repetitions, as examples/live_refinement.py alternates its own, and each repetition draws its own initial state from its declared seed."
+    "meaning": "control-v3's trial set, constant for constant, with control-v3's two model arms replaced by two live arms and its wall-clock pacing and solve deadline removed. Both arms of one repetition fly the same freshly reset plant from the same perturbed initial state over the same reference for the same number of intervals, both run the same transport and the same refits, and only the adopting arm may be offered a replacement plan model. Arm order alternates between repetitions, as examples/live_refinement.py alternates its own, and each repetition draws its own initial state from its declared seed.",
+    "solver_deadline_applied": false
   },
   "controller": {
     "tolerances_platform": "fixedwing",
@@ -253,9 +254,10 @@
       "command_history_steps": 20,
       "queue_capacity": 2,
       "retained_blocks": 2,
-      "handoff": "one outstanding ControllerOffer at a time, acknowledged by the control owner at a solve boundary, applied or rejected",
-      "maximum_offer_age_intervals": 100,
-      "meaning": "Forty intervals is two seconds at this cadence. It is the smallest block that comfortably clears the recipe's own requirement of at least three complete windows per new recording -- a ten-step consumed context and a five-step horizon leave twenty-six origins in a forty-step block -- and it is long enough that one score, one refit and one controller preparation fit inside the interval that produces the next block. The buffer emits nothing until it holds the declared twenty intervals of known commands, so the first block covers intervals twenty to fifty-nine and seven whole blocks fit in a three-hundred-and-twenty-interval trial; the last twenty intervals are a partial block and are never submitted. The offer age bound is the constant examples/live_refinement.py uses; an older offer is rejected rather than applied."
+      "handoff": "one outstanding ControllerOffer at a time, held by the control owner until the declared release offset has elapsed in the trial's own interval count, then acknowledged at a solve boundary, applied or rejected",
+      "meaning": "Forty intervals is two seconds at this cadence. It is the smallest block that comfortably clears the recipe's own requirement of at least three complete windows per new recording -- a ten-step consumed context and a five-step horizon leave twenty-six origins in a forty-step block -- and it is long enough that one score, one refit and one controller preparation fit inside the interval that produces the next block. The buffer emits nothing until it holds the declared twenty intervals of known commands, so the first block covers intervals twenty to fifty-nine and seven whole blocks fit in a three-hundred-and-twenty-interval trial; the last twenty intervals are a partial block and are never submitted. The worker is driven synchronously: the producer's own thread runs the score, the refit and any controller preparation inside the submit that hands a block over, so nothing is queued, nothing is dropped, and no result can arrive at an interval the loop did not choose. The queue capacity below is the worker's declared bound and cannot bite under that drive; a dropped block would mean the run was not this one, and the replay refuses it. A candidate is then released one block period after the block it was scored on, which is about what an asynchronous worker took to score, refit and prepare, and which is a declared constant rather than a measurement of how busy the host was.",
+      "drive": "synchronous",
+      "offer_release_offset_intervals": 40
     },
     "refit": {
       "call": "glassbox.experimental.default_model.LearnedDynamics.update",
@@ -265,9 +267,9 @@
       "budget": {
         "fit_steps": 1000,
         "wall_seconds": 4.0,
-        "meaning": "Fit steps are the recipe's own and are not a live choice. The wall bound is two block periods: the worker queue holds two blocks, so a refit slower than that cannot drain the stream it is fed. Every refit's measured wall time is recorded whether or not it is inside the bound."
+        "meaning": "Fit steps are the recipe's own and are not a live choice. The wall bound is two block periods: it is the rate a stream of this block size has to be kept up with. Every refit's measured wall time is recorded whether or not it is inside the bound, and the trajectory is the same either way."
       },
-      "on_budget_overrun": "recorded as a budget overrun and the resulting revision is not offered; the stream continues"
+      "on_budget_overrun": "recorded and reported as a budget breach. It does not suppress the candidate and cannot change the trajectory: a refit withheld because the host was busy would put the host's scheduling into the commands. The breach gates nothing, for the same reason deadline misses gate nothing."
     },
     "swap_gate": {
       "scored_on": "the most recent streamed block, scored before it is fitted on",
@@ -288,7 +290,24 @@
       "apply": "at the next solve boundary the control owner seeds the prepared controller with the trial's own retained observed states and applied commands, installs it as the active controller, and acknowledges the offer",
       "history": "carried from the trial, never padded: the observed history is a property of the flight rather than of the revision"
     },
-    "meaning": "Control attempt 2 measured that this calibration flies the plant an order of magnitude harder than the task flies it, so the generic arm's error floor exceeds the motion the controller must resolve. This tier is the charter's own mechanism for that: the learner is given the regime it is asked to control, while it is being controlled, and is allowed to take over only on held-out evidence from that regime."
+    "meaning": "Control attempt 2 measured that this calibration flies the plant an order of magnitude harder than the task flies it, so the generic arm's error floor exceeds the motion the controller must resolve. This tier is the charter's own mechanism for that: the learner is given the regime it is asked to control, while it is being controlled, and is allowed to take over only on held-out evidence from that regime. live-v1 measured it once and was replaced rather than kept beside this: its loop was paced against a wall clock and its solver carried a deadline, so a busy host changed which commands were applied and when the swap happened, and its numbers could not be reproduced. Nothing else about the measurement moved.",
+    "determinism": {
+      "claim": "Two runs of this manifest on the same checkout produce identical tracking arrays, identical block evaluation arrays and forecasts, identical block scores and gate outcomes, identical swap intervals and identical metrics, to every digit.",
+      "how": [
+        "the loop is not paced and reads no wall clock to decide anything",
+        "the solver is given no deadline, so it never returns a fallback command for want of time and its commands depend on the model and the state alone",
+        "the refinement worker is driven synchronously inside submit, so no thread schedule can decide when a block was learned from",
+        "a candidate is released at a declared interval offset after the block it was scored on, not when a refit happened to finish",
+        "a refit over its wall budget is reported and still offered"
+      ],
+      "recorded_but_not_read": "Interval times, solve times, telemetry times and refit and scoring wall times are measured and saved in timing.npz and in each trial's wall block. Nothing in the trajectory, the block scores, the swap or any metric reads them, and they differ between two runs.",
+      "artifacts": {
+        "tracking.npz": "the deterministic trajectory: times, observed states, reference rows, applied commands, the active revision per interval, the perturbed start and the reference anchor",
+        "block-NNN.npz": "one block's evaluation rows and both models' forecasts on them",
+        "block-NNN-scored.npz": "the revision that block was scored with",
+        "timing.npz": "host measurements only; nothing reads them back"
+      }
+    }
   },
   "metrics": {
     "definition": "glassbox.core.metrics.state_rmse_metrics over a declared range of completed control intervals, after the shared initial state",
@@ -310,15 +329,12 @@
       "held_out_block_scores",
       "candidate_revisions",
       "dropped_blocks",
-      "deadline_misses",
-      "solve_deadline_misses",
-      "refit_wall_seconds",
       "budget_overruns",
+      "wall",
       "velocity_rmse_m_s",
       "angular_velocity_rmse_rad_s",
       "fallback_count",
       "maximum_command_bound_violation",
-      "maximum_source_clock_lag_s",
       "pass_criterion"
     ],
     "pass_criterion": {
@@ -335,7 +351,7 @@
       "meaning": "The page's own pass criterion, recorded beside the RMSE rule and reported rather than gated: both absolute lateral and altitude errors at most 0.5 m in at least 95% of the 20 Hz samples at t >= 2 s, with no terminated trial. It is a provisional application requirement for this task, not a learned or universal flight tolerance, and it does not decide this run."
     },
     "terminated": "a trial that did not complete every declared interval with finite observed states, or whose refinement worker reported an error",
-    "meaning": "Deadline misses and wall times are host-specific scheduling measurements and inform rather than gate. A tracking RMSE over a segment is compared only with the same segment of the same repetition."
+    "meaning": "Wall times, interval times over the sample interval and solves over the deadline are host-specific measurements of this run. They are recorded in timing.npz and in each trial's wall block, they inform rather than gate, and nothing that decides this run reads them. A tracking RMSE over a segment is compared only with the same segment of the same repetition."
   },
   "reference": {
     "file": "live-reference.json",
@@ -348,8 +364,8 @@
     "enforced": false,
     "rule": "In every adopting trial the swap happens, no trial terminates, and the adopting arm's position RMSE and attitude RMSE over the intervals after the swap are at or below its own values over the intervals before it, times 1.05 plus 0.005.",
     "rule_met": "Reported separately from the decision, on every run. The live improvement row of docs/status.md is met only when the rule holds on every trial and metric, which is a stronger statement than an accepted run.",
-    "gates_from": "the next candidate, under the same semantics as the other tiers. This manifest is frozen before any trial and its rule is measured rather than enforced, because nothing has measured this row before; from the next candidate a run is accepted only when no metric regresses past its reference value times 1.05 plus 0.005, the rule holds on every trial and metric the reference already meets it on, and nothing structural fails.",
-    "structural": "Always fails closed, whatever the reference says and whether or not the rule is enforced: a trial missing, duplicated, undeclared, terminated, short of its declared intervals, reporting a worker error, or carrying a metric that is not a finite number.",
+    "gates_from": "the next candidate, under the same semantics as the other tiers. This manifest is frozen before any trial and its rule is measured rather than enforced, because nothing has measured this row under it; from the next candidate a run is accepted only when no metric regresses past its reference value times 1.05 plus 0.005, the rule holds on every trial and metric the reference already meets it on, and nothing structural fails.",
+    "structural": "Always fails closed, whatever the reference says and whether or not the rule is enforced: a trial missing, duplicated, undeclared, terminated, short of its declared intervals, reporting a refinement-worker error, dropping a streamed block, recording a swap the gates and the declared offset do not require, or carrying a metric that is not a finite number.",
     "meaning": "A Cascade X8 live-refinement measurement of this trial set only. Not hardware readiness, not a real-time claim, and not calibrated uncertainty. The evidence tier measures envelope coverage on the synthetic, platform and control runs; this tier measures the live improvement row and nothing else."
   }
 }

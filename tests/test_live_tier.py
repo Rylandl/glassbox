@@ -17,7 +17,7 @@ import pytest
 
 from glassbox.experimental import harness
 
-MANIFEST = Path(__file__).resolve().parents[1] / "docs/harness/live-v1.json"
+MANIFEST = Path(__file__).resolve().parents[1] / "docs/harness/live-v2.json"
 RMSE_KEYS = (
     "position_rmse_m",
     "velocity_rmse_m_s",
@@ -89,13 +89,14 @@ def _row(
         "swap_time_s": None if not swapped else swap_interval * 0.05,
         "swap_revision": "live-0:3" if swapped else None,
         "swap_scored_block": 2 if swapped else None,
+        "swap_scored_stop_interval": 140 if swapped else None,
+        "swap_release_interval": swap_interval if swapped else None,
+        "offer_deferred_past_trial": False,
         "candidate_revisions": 7,
         "submitted_blocks": 7,
         "dropped_blocks": 0,
-        "deadline_misses": 0,
-        "solve_deadline_misses": 0,
         "budget_overruns": 0,
-        "maximum_refit_wall_seconds": 1.2,
+        "wall": {"intervals_over_sample_interval": 0, "solves_over_deadline": 0},
         "blocks": _blocks(),
         "segments": {
             "before": None if before is None else _tracking(*before),
@@ -135,7 +136,7 @@ def _reference():
 
 def test_the_live_manifest_digest_is_the_gate(tmp_path):
     manifest = harness.frozen_live_manifest(MANIFEST)
-    assert manifest["id"] == "live-v1"
+    assert manifest["id"] == "live-v2"
     assert harness.sha256(MANIFEST) == harness.LIVE_MANIFEST_SHA256
     altered = tmp_path / "live.json"
     edited = copy.deepcopy(manifest)
@@ -168,6 +169,41 @@ def test_the_live_manifest_declares_a_plan_the_recipe_can_be_cut_to():
         <= manifest["trial"]["intervals"]
     )
     assert manifest["decision"]["enforced"] is False
+
+
+def test_the_live_manifest_declares_what_makes_the_trajectory_deterministic():
+    manifest = harness.frozen_live_manifest(MANIFEST)
+    assert manifest["trial"]["solver_deadline_applied"] is False
+    assert manifest["live"]["transport"]["drive"] == "synchronous"
+    assert manifest["live"]["transport"]["offer_release_offset_intervals"] == 40
+    assert "maximum_offer_age_intervals" not in manifest["live"]["transport"]
+    assert manifest["live"]["determinism"]["claim"]
+
+
+@pytest.mark.parametrize(
+    "edit",
+    [
+        lambda m: m["live"]["transport"].__setitem__("drive", "threaded"),
+        lambda m: m["trial"].__setitem__("solver_deadline_applied", True),
+        lambda m: m["live"]["transport"].__setitem__(
+            "offer_release_offset_intervals", 0
+        ),
+        lambda m: m["live"]["transport"].__setitem__(
+            "offer_release_offset_intervals", True
+        ),
+    ],
+)
+def test_a_manifest_that_lets_a_clock_in_is_refused(tmp_path, edit, monkeypatch):
+    manifest = copy.deepcopy(harness.frozen_live_manifest(MANIFEST))
+    edit(manifest)
+    altered = tmp_path / "live.json"
+    altered.write_text(json.dumps(manifest, indent=2) + "\n")
+    # The digest gate fires first, so check the structural refusal on its own.
+    monkeypatch.setattr(
+        harness, "LIVE_MANIFEST_SHA256", harness.sha256(altered), raising=True
+    )
+    with pytest.raises(ValueError):
+        harness.frozen_live_manifest(altered)
 
 
 # --- the swap gate ----------------------------------------------------------
@@ -225,14 +261,31 @@ def test_an_unreadable_comparator_score_never_swaps():
     assert not gate["passed"]
 
 
-def test_the_first_passing_block_inside_its_budget_is_the_one_offered():
+def test_the_first_passing_block_is_the_one_offered():
     blocks = _blocks(passing_index=3)
     assert harness.live_first_gate_block(blocks) == 3
+    # A refit that ran over its wall budget is reported and still offered: the
+    # host's scheduling must not decide where the aircraft flew.
     blocks[3]["within_budget"] = False
-    assert harness.live_first_gate_block(blocks) is None
+    assert harness.live_first_gate_block(blocks) == 3
     assert harness.live_first_gate_block(_blocks(passing_index=99)) is None
     assert harness.live_first_gate_block([]) is None
     assert harness.live_first_gate_block(None) is None
+
+
+def test_the_swap_interval_is_the_gate_block_plus_the_declared_offset():
+    blocks = [
+        dict(entry, start_interval=20 + 40 * i, stop_interval=60 + 40 * i)
+        for i, entry in enumerate(_blocks(passing_index=2))
+    ]
+    assert harness.live_expected_swap(blocks, 40, 320) == (2, 180)
+    assert harness.live_expected_swap(blocks, 10, 320) == (2, 150)
+    # A gate that passes too late to be released inside the trial never swaps.
+    assert harness.live_expected_swap(blocks, 40, 180) == (2, None)
+    assert harness.live_expected_swap(_blocks(passing_index=99), 40, 320) == (
+        None,
+        None,
+    )
 
 
 # --- the before/after segmentation -----------------------------------------
@@ -290,6 +343,21 @@ def test_a_swap_outside_the_completed_trial_is_refused():
 
 
 # --- the decision -----------------------------------------------------------
+
+
+def test_a_refit_over_its_budget_is_reported_and_gates_nothing():
+    rows = _rows()
+    for row in rows:
+        if (row["repetition"], row["arm"]) == (0, "adopting"):
+            row["blocks"][0]["within_budget"] = False
+            row["blocks"][0]["refit_wall_seconds"] = 9.0
+            row["blocks"][0]["wall_budget_seconds"] = 4.0
+            row["budget_overruns"] = 1
+    decision = harness.live_decide(_manifest(decision=dict(enforced=True)), rows)
+    assert decision["accepted"] and decision["rule_met"]
+    assert [b["gate"] for b in decision["budget_breaches"]] == ["refit_wall_budget"]
+    assert decision["budget_breaches"][0]["trial"] == "0-adopting"
+    assert decision["gating_rule_breaches"] == 0
 
 
 def test_a_clean_run_is_accepted_and_meets_the_rule():
@@ -788,8 +856,10 @@ def _fabricate_run(directory, manifest, learned, belief, offsets):
             files.extend([records[-1]["arrays"], records[-1]["scored_model"]])
         blocks_by_arm[arm] = (records, files)
 
-    first = harness.live_first_gate_block(blocks_by_arm["adopting"][0])
-    swap_interval = None if first is None else 100 + 40 * first
+    offset = manifest["live"]["transport"]["offer_release_offset_intervals"]
+    first, swap_interval = harness.live_expected_swap(
+        blocks_by_arm["adopting"][0], offset, manifest["trial"]["intervals"]
+    )
     rows = []
     for repetition in range(manifest["trial"]["repetitions"]):
         seed = manifest["trial"]["initial_state_seeds"][repetition]
@@ -810,14 +880,17 @@ def _fabricate_run(directory, manifest, learned, belief, offsets):
                 states=states,
                 reference_states=reference,
                 commands=np.zeros((intervals, 3)),
-                tick_times_s=np.full(intervals, 0.01),
-                source_clock_lags_s=np.zeros(intervals),
-                solve_times_s=np.full(intervals, 0.002),
                 solver_used=np.ones(intervals, dtype=bool),
                 used_fallback=np.zeros(intervals, dtype=bool),
                 active_revisions=actives,
                 initial_state=initial_state,
                 reference_anchor_state=anchor_state,
+            )
+            np.savez_compressed(
+                case / "timing.npz",
+                tick_times_s=np.full(intervals, 0.01),
+                solve_times_s=np.full(intervals, 0.002),
+                telemetry_times_s=np.zeros(intervals),
             )
             records, files = blocks_by_arm[arm]
             for name in files:
@@ -841,9 +914,8 @@ def _fabricate_run(directory, manifest, learned, belief, offsets):
                 swap_scored_stop_interval=(
                     records[first]["stop_interval"] if swapped else None
                 ),
-                swap_offer_age_intervals=(
-                    swap_interval - records[first]["stop_interval"] if swapped else None
-                ),
+                swap_release_interval=swap_interval if swapped else None,
+                offer_deferred_past_trial=False,
                 offers=int(swapped),
                 rejected_offers=0,
                 blocks=records,
@@ -851,17 +923,21 @@ def _fabricate_run(directory, manifest, learned, belief, offsets):
                 submitted_blocks=len(records),
                 dropped_blocks=0,
                 budget_overruns=0,
-                maximum_refit_wall_seconds=1.0,
+                wall={
+                    "intervals_over_sample_interval": 0,
+                    "solves_over_deadline": 0,
+                    "maximum_refit_seconds": 1.0,
+                },
                 tracking_rmse=state_rmse_metrics(states[1:], reference[1:]),
                 pass_criterion=harness.control_pass_criterion(
                     states, anchor_state, manifest
                 ),
-                deadline_misses=0,
-                solve_deadline_misses=0,
                 segment_swap_interval=swap_interval,
                 segments=harness.live_segments(states, reference, swap_interval),
                 directory=f"trial-{repetition}/{arm}",
-                files=harness._files(case, ["tracking.npz", "events.jsonl", *files]),
+                files=harness._files(
+                    case, ["tracking.npz", "timing.npz", "events.jsonl", *files]
+                ),
             )
             harness.write(case / "trial.json", row)
             rows.append(row)
@@ -979,18 +1055,50 @@ def test_the_replay_rejects_a_forged_gate_outcome(run):
         harness.verify_live(run, manifest)
 
 
-def test_the_replay_rejects_a_swap_the_recorded_gates_do_not_support(run):
+def test_the_replay_rejects_a_swap_at_an_interval_the_offset_does_not_give(run):
     manifest = harness.frozen_live_manifest(MANIFEST)
     rows = harness.read(run / "results.json")
     row = next(r for r in rows if r["directory"] == "trial-0/adopting")
     if not row["swapped"]:
         pytest.skip("this fabricated run never swapped")
-    # A swap is only ever allowed to come from the first block whose gate
-    # passed inside its refit budget, and the replay recomputes which that was.
-    row["swap_scored_block"] = row["swap_scored_block"] + 1
+    # The swap interval is the gate block's stop interval plus the declared
+    # offset. Move it by one and move the recorded active revisions with it, so
+    # the run is internally consistent and still disagrees with the manifest.
+    case = run / row["directory"]
+    with np.load(case / "tracking.npz", allow_pickle=False) as data:
+        arrays = {key: data[key] for key in data.files}
+    moved = row["swap_interval"] + 1
+    arrays["active_revisions"][row["swap_interval"]] = f"{row['session']}:structured"
+    np.savez_compressed(case / "tracking.npz", **arrays)
+    row["swap_interval"] = moved
+    row["files"]["tracking.npz"] = harness.sha256(case / "tracking.npz")
+    harness.write(case / "trial.json", row)
+    harness.write(run / "results.json", rows)
+    with pytest.raises(ValueError, match=r"plus\s+the declared offset"):
+        harness.verify_live(run, manifest)
+
+
+def test_the_replay_rejects_a_trial_that_should_have_swapped_and_did_not(run):
+    manifest = harness.frozen_live_manifest(MANIFEST)
+    rows = harness.read(run / "results.json")
+    row = next(r for r in rows if r["directory"] == "trial-0/adopting")
+    if not row["swapped"]:
+        pytest.skip("this fabricated run never swapped")
+    row.update(swapped=False, swap_interval=None, swap_revision=None)
     harness.write(run / row["directory"] / "trial.json", row)
     harness.write(run / "results.json", rows)
-    with pytest.raises(ValueError, match="first block whose gate passed"):
+    with pytest.raises(ValueError, match=r"the declared|active revisions"):
+        harness.verify_live(run, manifest)
+
+
+def test_the_replay_rejects_a_dropped_block_under_a_synchronous_drive(run):
+    manifest = harness.frozen_live_manifest(MANIFEST)
+    rows = harness.read(run / "results.json")
+    row = next(r for r in rows if r["directory"] == "trial-0/frozen")
+    row["dropped_blocks"] = 1
+    harness.write(run / row["directory"] / "trial.json", row)
+    harness.write(run / "results.json", rows)
+    with pytest.raises(ValueError, match="dropped a block"):
         harness.verify_live(run, manifest)
 
 
@@ -1096,6 +1204,14 @@ def test_one_short_live_trial_streams_refits_and_may_swap(tmp_path):
     assert row["completed_intervals"] == 70
     assert row["maximum_command_bound_violation"] == 0.0
     assert row["arm"] == "adopting"
+    assert row["dropped_blocks"] == 0
+    # The wall measurements exist and decide nothing.
+    assert row["wall"]["maximum_refit_seconds"] > 0.0
+    assert set(row["wall"]) >= {
+        "intervals_over_sample_interval",
+        "solves_over_deadline",
+        "maximum_refit_seconds",
+    }
     # Twenty intervals fill the command history, then two whole blocks.
     assert row["submitted_blocks"] == 2
     assert row["candidate_revisions"] == len(row["blocks"]) >= 1
@@ -1109,6 +1225,14 @@ def test_one_short_live_trial_streams_refits_and_may_swap(tmp_path):
     assert json.dumps(row, allow_nan=False)
     assert (tmp_path / "t" / "block-000.npz").exists()
     assert (tmp_path / "t" / "block-000-scored.npz").exists()
+    assert (tmp_path / "t" / "timing.npz").exists()
+    # The swap, if there was one, is exactly where the manifest puts it.
+    _, expected = harness.live_expected_swap(
+        row["blocks"],
+        manifest["live"]["transport"]["offer_release_offset_intervals"],
+        manifest["trial"]["intervals"],
+    )
+    assert row["swap_interval"] == expected
 
 
 @pytest.mark.cascade

@@ -259,3 +259,76 @@ def test_worker_failure_is_reported_and_does_not_replace_active_model(setup):
     assert worker.refiner.active is original
     assert worker.poll_offer() is None
     assert not worker.submit(emitted[-1])
+
+
+def test_a_synchronous_worker_learns_on_the_producers_own_thread(setup):
+    """No queue, no thread, and every result before ``submit`` returns."""
+
+    belief, flight = setup
+    _, emitted = blocks(flight)
+    owner = threading.get_ident()
+    learned_on, prepared_on, events = [], [], []
+
+    def prepare(revision, trajectory):
+        prepared_on.append(threading.get_ident())
+        return object()
+
+    def event(record):
+        learned_on.append(threading.get_ident())
+        events.append(record)
+
+    worker = RefinementWorker(
+        belief,
+        history_steps=2,
+        block_steps=2,
+        synchronous=True,
+        prepare=prepare,
+        should_offer=lambda result: True,
+        on_event=event,
+    )
+    original = worker.initial_revision
+    worker.start()
+    assert worker.submit(emitted[0])
+    # Learned already, with no waiting and nothing pending.
+    assert worker.processed_blocks == 1
+    assert worker.submit(emitted[1])
+    offer = worker.poll_offer()
+    assert offer is not None
+    assert set(learned_on) == {owner} and prepared_on == [owner]
+    worker.acknowledge(offer, applied=True)
+    # Carried out inside acknowledge, not whenever a thread next looked.
+    assert worker.refiner.active.revision_id == offer.revision.revision_id
+    assert worker.refiner.active is not original
+    for block in emitted[2:]:
+        assert worker.submit(block)
+    assert worker.close()
+    assert worker.error is None
+    assert worker.dropped_blocks == 0
+    assert worker.processed_blocks == len(emitted)
+    assert worker.peak_queue_blocks == 0
+    assert any(record["kind"] == "adoption" for record in events)
+
+
+def test_a_synchronous_worker_reports_a_failure_without_a_thread(setup):
+    belief, flight = setup
+    _, emitted = blocks(flight)
+
+    def prepare(revision, trajectory):
+        raise RuntimeError("injected controller preparation failure")
+
+    worker = RefinementWorker(
+        belief,
+        history_steps=2,
+        block_steps=2,
+        synchronous=True,
+        prepare=prepare,
+        should_offer=lambda result: True,
+    )
+    original = worker.initial_revision
+    worker.start()
+    assert worker.submit(emitted[0])
+    assert not worker.submit(emitted[1])
+    assert "injected" in worker.error
+    assert worker.refiner.active is original
+    assert worker.poll_offer() is None
+    assert worker.close()
