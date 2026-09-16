@@ -15,7 +15,7 @@ measure; current results are recorded in [validation](validation.md).
 
 ## Opinionated onboarding
 
-The [generic engineering record](generic-engineering.md) governs current work:
+The [charter](charter.md) and [status](status.md) govern current work:
 one incumbent, a fixed acceptance contract, bounded implementation milestones,
 and explicit decisions that survive new sessions. Research investigations remain
 evidence; their historical next-step proposals are not an open-ended work queue.

@@ -3,7 +3,7 @@
 > **Update, 16 September 2026.** The maintained default is now
 > `generic-memory-v2-prototype`, which adds a causal memory over a 500 ms
 > in-recording context to the recipe described here; see the
-> [M2 record](generic-engineering.md#m2-one-causal-memory-contract-for-demonstrated-history-limitations).
+> [charter](charter.md) and [status](status.md).
 > Everything below describes `generic-history-v1-prototype`, which is retained:
 > its saved artifacts still load, predict, and update with their own recipe, and
 > the consumer workflow is unchanged apart from needing eleven observations of
