@@ -552,6 +552,40 @@ def test_verify_detects_which_tier_a_directory_holds(tmp_path, manifest):
 # --- the replay -------------------------------------------------------------
 
 
+def saved_platform_run(tmp_path, manifest):
+    """A run directory whose one corpus holds one recorded artifact."""
+
+    directory = tmp_path / "run"
+    case = directory / "nanodrone"
+    case.mkdir(parents=True)
+    (case / "generic.npz").write_bytes(b"the bytes the run recorded")
+    row = dict(
+        corpus="nanodrone",
+        status="complete",
+        evaluation_rows=100,
+        files={"generic.npz": harness.sha256(case / "generic.npz")},
+    )
+    harness.write(case / "result.json", row)
+    harness.write(directory / "results.json", [row])
+    shutil.copyfile(harness.COMMITTED_PLATFORM_MANIFEST, directory / "manifest.json")
+    harness.write(directory / "decision.json", harness.platform_decide(manifest, [row]))
+    return directory, case, row
+
+
+def test_verify_rejects_an_altered_platform_artifact(tmp_path, manifest):
+    directory, case, _ = saved_platform_run(tmp_path, manifest)
+    (case / "generic.npz").write_bytes(b"not the bytes the run recorded")
+    with pytest.raises(ValueError, match="altered artifact"):
+        harness.verify(directory)
+
+
+def test_verify_rejects_a_case_result_edited_in_only_one_place(tmp_path, manifest):
+    directory, case, row = saved_platform_run(tmp_path, manifest)
+    harness.write(case / "result.json", {**row, "evaluation_rows": 99})
+    with pytest.raises(ValueError, match="case result mismatch"):
+        harness.verify(directory)
+
+
 def test_numpy_replay_matches_the_jax_rollout_on_adapted_rows(flight):
     context, horizon, delay = 6, 3, 2
     adapted = adapt(flight)[0]
