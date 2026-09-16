@@ -10,7 +10,7 @@ artifacts actually measured; "not measured" means exactly that.
 | Accuracy | **Measured, not met.** Platform tier v3 (`docs/harness/platform-v3.json`; the rule gates only where the reference meets it, no metric may regress past its reference), whole recordings held out, both models scored on identical rows at the recipe's horizon; final-step velocity m/s / body rate rad/s, generic versus best structured arm: nanodrone 0.136/0.543 vs 0.179/0.597; x8 0.222/0.132 vs 0.287/0.187; idf 0.158/0.122 vs 0.554/0.174; epfl 0.146/0.070 vs 0.526/0.217; **arp 0.176/0.715 vs 0.174/0.285**, and hold-current 0.149/0.362. Rule met on four of five corpora; inside every declared allowance. The arp failure is roll and pitch rate: worse than hold-current from the first 20 ms step on the development recording, growing linearly to 0.85/0.89 rad/s at 240 ms with a -0.2 rad/s roll-rate bias, while yaw rate beats the structured model (0.154 vs 0.323).. Re-measured at `3c149fa` under the enforced manifest: every corpus reproduces the regression reference to every digit, no reference regression, and the run is rejected on arp for both metrics (0.17586 against the comparator's 0.17437, 0.71546 against 0.28497). | Every pinned corpus, whole recordings held out: generic error at or below the structured model on the same rows, and inside the allowance (nano 0.696/3.706, X8 1.601/0.764, ARP log66 0.709/2.864). | Gate enforced at `783922e` (`platform-v2.json`, digest `f4796e1a`, regression reference `platform-reference.json`). Three attempts below, none accepted. |
 | Capability | **Met.** Harness v1 (manifest digest `1ba15b3f`) accepts 27 of 27 cases end to end through `fit(recordings)`: every M2 cap holds, witness paired-probe first step 0.0029/0.0028/0.0040 against a 0.05 limit and a 0.2 blind floor, tightest cap margin 0.74 of cap. Reference scores frozen in `docs/harness/reference.json`. | Pass the harness caps on every run. | Lean-down merged at `c5e84ab`. |
 | Control | **Measured, not met.** Control tier v3 (`docs/harness/control-v3.json`, digest `69cb4d99`): the tracking task of `docs/cascade-accuracy.md` (lateral sin(0.35 t) m, altitude 100 + 0.75 sin(0.3 t) m, 16 s, seeds 101 and 102), calibration whose setpoint variation moves every command at least 10% of its range (throttle now 12 to 14%, was 2 to 3%), both arms through the same bounded solver under the no-evidence override. Generic arm 60.80 m / 97.2 deg and 49.31 m / 86.5 deg; structured arm 1.18 m / 1.32 deg and 1.18 m / 1.28 deg; no terminated trial. The structured arm holds lateral position to 0.27 m but settles about 2 m high, so it does not pass the page's 0.5 m criterion either (reported, not gated). Holding trim scores 1.22 m / 0.75 deg and 1.73 m / 1.90 deg, so the task now demands authority on position and mostly on attitude. Excitation did not fix the generic arm: it still drives throttle far below trim and rests roll near its bound; the seam prices none of the learner's ignorance because the learner declares none. Attempt 2 diagnosed it and fitted no candidate: the ceiling of a perfect command response is 9.04 m, of perfect command confinement 26.96 m, and of claiming nothing 1.22 m, because the model predicts a 0.172 m/s sink out of a plant resting exactly at trim. | Meet or beat the structured model on the matched Cascade trial set. | control-v3 reference merged at `35b85ec`; the envelope (`7224ace`) left tracking identical. Attempt 2 below, no candidate. |
-| Live improvement | Streaming transport and the background refinement worker exist for the structured belief only. No generic refit-and-swap. | Bounded refit on streamed recordings and a threshold swap during a Cascade run; tracking after the swap no worse. | None. |
+| Live improvement | **Measured, not met.** Live tier v2 (`docs/harness/live-v2.json`, digest `39394675`): control-v3's plant, task, calibration and arms; the structured belief flies from the start; the generic learner refits on the trial's own 40-interval blocks through the existing transition buffer and refinement worker, and is offered when its held-out forecast error on the newest block beats the structured belief's. The trajectory is computed in simulated time (no wall-clock fallbacks, refits released a declared 40 intervals after their block, worker driven synchronously); two runs are byte-identical. Every refit took 0.86 to 0.91 s inside a 4.0 s budget with no overrun or dropped block. The swap happened at interval 140 (7.0 s) in both adopting trials because the candidate's forecast error (0.032 / 0.024 m/s, rad/s) beat the structured belief's (0.158 / 0.080), and tracking then went from 0.87 m / 1.7 deg to 19.4 m / 86 deg and from 0.90 m / 1.6 deg to 5.7 m / 14.9 deg. Hold-current scores 0.021 m/s / 0.0014 rad/s on the decision block, better than both models: a held-out forecast comparison in a quiet regime reads no command authority. | Bounded refit on streamed recordings and a threshold swap during a Cascade run; tracking after the swap no worse. | Live tier merged at `94ea90e`; mechanics met, rule not met. |
 | Evidence | **Measured, not met.** Evidence tier v1 (`docs/harness/evidence-v1.json`): every forecast now carries a split-conformal 90% half-width per horizon step and channel, calibrated only on the recipe's own development windows, stored in the artifact and read through `envelope()`; the plan model maps it into the controller's diagonal tangent covariance and `uncertainty_available` is true. Held-out coverage against the 85 to 95% band at the recipe's horizon, world velocity / body rate / rotation entries: nanodrone 0.906 / 0.858 / 0.886, x8 0.918 / 0.929 / 0.906, idf 0.890 / 0.872 / 0.897, epfl 0.894 / 0.856 / 0.873, **arp 0.755 / 0.689 / 0.717**, control reserved recording 0.833 / 0.797 / 0.799; synthetic matched regimes 0.88 to 0.94, **shifted regimes 0.13 to 0.82**. The development windows of one set of recordings are not exchangeable with a different flight or command regime, and nothing was widened. The seam charges the envelope, but with no resolved parameter direction the charge is the same for every plan and cannot move a command: the generic arm's tracking is identical to the incumbent's. | Every forecast carries an envelope whose held-out coverage lands in the declared band, and the controller's robustness terms consume it. | Evidence tier and `generic-memory-v3-prototype` merged at `7224ace`. |
 | Lean | Generic track done: 48 research scripts, 24 test modules, 11 experimental modules, 85 MB of archives and 18 research pages deleted. Structured core still present (dynamics, identification, fitting, five belief modules); 25 scripts and three structured-evidence pages remain for it. | Learner, harness, telemetry adapters, controller. | Lean-down merged at `c5e84ab`. |
 
@@ -354,46 +354,43 @@ the development windows of a recording are not exchangeable with a different
 flight, a different command distribution, or even a fourth recording of the same
 pilot.
 
+## One root cause across Control, Live and Evidence
+
+Every measured failure of the generic learner in the loop traces to one fact:
+its calibration and its streamed recordings are closed-loop, so commands are
+98.9% to 99.3% explained by the state, and open-loop forecast error under the
+flown policy is blind to command response. Excitation identifies roll and
+pitch at one step (0.997 / 0.981 against the plant) but training and
+development selection read only forecast error and degrade that response
+(roll's sign inverts); the envelope is calibrated on the same recordings and
+cannot price a command direction they never varied; the seam's charge is the
+same for every plan; and the live swap gate, a forecast comparison, admits a
+model that has learned the regime and not the commands. The structured model
+escapes because its physics fixes how commands enter. A generic learner needs
+the identifying variation to be declared: either the caller supplies the
+exogenous excitation it injected as a signal (a data fact, like units), or the
+calibration protocol is required to contain it and the learner is made
+accountable for the response it shows. Both are charter decisions for the
+owner, listed below; neither is a threshold to move.
+
 ## Next iteration
 
-## Reviewer decision after Control attempt 2
+The one queued candidate that needs no owner decision: arp's structural
+attempt on the Accuracy row. From the current tip, freeze nothing new (the
+platform-v3 gate and reference stand), diagnose with the artifacts in the
+record (error growth 1.282 per step against the process's 1.194; one-step map
+spectral radius above 1 at every origin; an oracle post-fit gain reaching only
+0.2824 against the 0.285 comparator), and make one change that carries a
+bound on the recursion's gain inside the fit (a contractive or
+stability-regularized one-step map, a rollout-consistency term, or an
+equivalent structural assumption), with no caller option and no platform
+branch. Gate on all five tiers under the current semantics; report every
+number. If arp still misses the comparator with the gain bounded, record the
+corpus as evidence-limited for the owner and stop attempting it.
 
-Accepted as a measurement. The calibration that identifies roll and pitch
-flies the plant an order of magnitude harder than the task, and the fit's
-error floor (0.15 to 0.22 m/s of velocity across every motion bucket of the
-reserved recording) exceeds the motion the controller must resolve (0.030 at
-the median). No learner change closes that from these recordings. The
-charter's mechanism for a regime the calibration did not cover is the Live
-improvement row, which is also unmeasured, so it is next.
-
-## Next iteration
-
-Live improvement, measured for the first time. Freeze `docs/harness/live-v1.json`
-before any candidate: the control-v3 plant, task, calibration and seeds; the
-structured arm flies from the start as the active controller; the generic
-learner receives the trial's own aligned transitions through the existing
-`TransitionBuffer` and `RefinementWorker` seam within a declared compute
-budget per block, refits with `update(recordings)` on whole streamed blocks,
-and is offered as the active plan model when a predeclared held-out gate
-passes: its final-step forecast error on the most recent block it did not fit
-on is at or below the structured belief's on the same block, for velocity and
-body rate. On acceptance the loop swaps to the generic plan model through the
-acknowledged handoff. Metrics: whether and when the swap happened, forecast
-error of both models on each held-out block, and tracking position and
-attitude RMSE after the swap against before it on the same reference segment
-and against the frozen structured arm over the same interval. Rule: the swap
-happens, no trial terminates, and tracking after the swap is no worse than
-before within the reference allowance. `enforced: false` for this
-measurement; gates from the next candidate. Both arms, two repetitions; report
-every number. Recipe and learner arithmetic unchanged; synthetic, platform,
-control and evidence tiers must reproduce their references.
-
-Three questions are for the owner. Whether the Evidence band should be declared
-on matched command regimes only, since a development-calibrated envelope cannot
-cover a shifted regime by construction — attempt 2 measured that from the other
-side, with a phantom 0.172 m/s sink sitting comfortably inside a 0.383 m/s
-half-width. Whether arp's four-flight corpus is evidence-limited. And whether
-`control-v3`'s calibration should be required to contain the regime its trial
-flies, not only the command excitation that identifies the commands: those two
-requirements are in tension, the manifest declares only the second, and
-changing it is a manifest decision rather than a threshold to move.
+Questions for the owner, in order of consequence: whether the caller may
+declare exogenous excitation as a signal so command response can be identified
+from closed-loop recordings; whether the calibration protocol must contain the
+regime a trial flies as well as command excitation; whether the Evidence band
+should be declared on matched command regimes only; and whether arp's
+four-flight corpus is evidence-limited.
