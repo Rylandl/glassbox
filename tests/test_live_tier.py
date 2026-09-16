@@ -1073,7 +1073,7 @@ def run(flown, tmp_path):
 
 def test_the_replay_recomputes_every_metric_and_the_decision(run):
     manifest = harness.frozen_live_manifest(MANIFEST)
-    result = harness.verify_live(run, manifest)
+    result = harness.verify_live(run, manifest, _anchor(run))
     assert result["tier"] == "live"
     assert result["verified_trials"] == 4
     assert result["replays"] == 16
@@ -1081,7 +1081,7 @@ def test_the_replay_recomputes_every_metric_and_the_decision(run):
     assert "not rerun" in result["meaning"]
     assert result["decision"]["reference_compared"] is False
     # The tier is chosen by the digest of the manifest the run copied.
-    assert harness.verify(run)["tier"] == "live"
+    assert harness.verify(run, _anchor(run))["tier"] == "live"
 
 
 def test_the_replay_rejects_an_altered_tracking_array(run):
@@ -1092,7 +1092,7 @@ def test_the_replay_rejects_an_altered_tracking_array(run):
     arrays["states"] = arrays["reference_states"].copy()
     np.savez_compressed(case / "tracking.npz", **arrays)
     with pytest.raises(ValueError, match="altered artifact"):
-        harness.verify_live(run, manifest)
+        harness.verify_live(run, manifest, _anchor(run))
 
 
 def test_the_declared_dither_is_the_same_sequence_on_both_arms(run):
@@ -1135,7 +1135,7 @@ def test_the_replay_rejects_a_command_that_is_not_the_dithered_solved_one(run):
     rows[[r["directory"] for r in rows].index(row["directory"])] = row
     harness.write(run / "results.json", rows)
     with pytest.raises(ValueError, match="solved ones plus the declared dither"):
-        harness.verify_live(run, manifest)
+        harness.verify_live(run, manifest, _anchor(run))
 
 
 def test_the_replay_rejects_a_block_the_learner_was_told_nothing_about(run):
@@ -1146,7 +1146,7 @@ def test_the_replay_rejects_a_block_the_learner_was_told_nothing_about(run):
     harness.write(run / row["directory"] / "trial.json", row)
     harness.write(run / "results.json", rows)
     with pytest.raises(ValueError, match="carried no excitation"):
-        harness.verify_live(run, manifest)
+        harness.verify_live(run, manifest, _anchor(run))
 
 
 def test_the_replay_rejects_a_forged_block_excitation_fraction(run):
@@ -1159,7 +1159,7 @@ def test_the_replay_rejects_a_forged_block_excitation_fraction(run):
     harness.write(run / row["directory"] / "trial.json", row)
     harness.write(run / "results.json", rows)
     with pytest.raises(AssertionError):
-        harness.verify_live(run, manifest)
+        harness.verify_live(run, manifest, _anchor(run))
 
 
 def test_the_replay_rejects_an_altered_block_array(run):
@@ -1177,7 +1177,7 @@ def test_the_replay_rejects_an_altered_block_array(run):
     rows[[r["directory"] for r in rows].index(row["directory"])] = row
     harness.write(run / "results.json", rows)
     with pytest.raises(AssertionError):
-        harness.verify_live(run, manifest)
+        harness.verify_live(run, manifest, _anchor(run))
 
 
 def test_the_replay_rejects_a_forged_block_score(run):
@@ -1188,7 +1188,7 @@ def test_the_replay_rejects_a_forged_block_score(run):
     harness.write(run / row["directory"] / "trial.json", row)
     harness.write(run / "results.json", rows)
     with pytest.raises(AssertionError):
-        harness.verify_live(run, manifest)
+        harness.verify_live(run, manifest, _anchor(run))
 
 
 def test_the_replay_rejects_a_forged_gate_outcome(run):
@@ -1200,7 +1200,7 @@ def test_the_replay_rejects_a_forged_gate_outcome(run):
     harness.write(run / row["directory"] / "trial.json", row)
     harness.write(run / "results.json", rows)
     with pytest.raises(ValueError, match="recomputed swap gate differs"):
-        harness.verify_live(run, manifest)
+        harness.verify_live(run, manifest, _anchor(run))
 
 
 def test_the_replay_rejects_a_swap_at_an_interval_the_offset_does_not_give(run):
@@ -1223,7 +1223,7 @@ def test_the_replay_rejects_a_swap_at_an_interval_the_offset_does_not_give(run):
     harness.write(case / "trial.json", row)
     harness.write(run / "results.json", rows)
     with pytest.raises(ValueError, match=r"plus\s+the declared offset"):
-        harness.verify_live(run, manifest)
+        harness.verify_live(run, manifest, _anchor(run))
 
 
 def test_the_replay_rejects_a_trial_that_should_have_swapped_and_did_not(run):
@@ -1236,7 +1236,7 @@ def test_the_replay_rejects_a_trial_that_should_have_swapped_and_did_not(run):
     harness.write(run / row["directory"] / "trial.json", row)
     harness.write(run / "results.json", rows)
     with pytest.raises(ValueError, match=r"the declared|active revisions"):
-        harness.verify_live(run, manifest)
+        harness.verify_live(run, manifest, _anchor(run))
 
 
 def test_the_replay_rejects_a_dropped_block_under_a_synchronous_drive(run):
@@ -1247,7 +1247,7 @@ def test_the_replay_rejects_a_dropped_block_under_a_synchronous_drive(run):
     harness.write(run / row["directory"] / "trial.json", row)
     harness.write(run / "results.json", rows)
     with pytest.raises(ValueError, match="dropped a block"):
-        harness.verify_live(run, manifest)
+        harness.verify_live(run, manifest, _anchor(run))
 
 
 def test_the_replay_rejects_a_recorded_active_revision_the_swap_denies(run):
@@ -1264,7 +1264,7 @@ def test_the_replay_rejects_a_recorded_active_revision_the_swap_denies(run):
     rows[[r["directory"] for r in rows].index(row["directory"])] = row
     harness.write(run / "results.json", rows)
     with pytest.raises(ValueError, match="active revisions"):
-        harness.verify_live(run, manifest)
+        harness.verify_live(run, manifest, _anchor(run))
 
 
 def test_the_replay_rejects_segments_recomputed_from_the_saved_arrays(run):
@@ -1277,7 +1277,7 @@ def test_the_replay_rejects_segments_recomputed_from_the_saved_arrays(run):
     harness.write(run / row["directory"] / "trial.json", row)
     harness.write(run / "results.json", rows)
     with pytest.raises(AssertionError):
-        harness.verify_live(run, manifest)
+        harness.verify_live(run, manifest, _anchor(run))
 
 
 def test_the_replay_rejects_a_reference_it_cannot_anchor(run):
