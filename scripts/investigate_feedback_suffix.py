@@ -73,7 +73,7 @@ class FeedbackSuffixSolver(FastSuffixSolver):
             safety_envelope=plan.safety_envelope,
             policy=policy,
             values=SuffixValues(
-                *plan.values, self.seed_commands[HEAD_STEPS:-TAIL_STEPS]
+                *plan.values[:3], self.seed_commands[HEAD_STEPS:-TAIL_STEPS]
             ),
             compile_signature=plan.compile_signature + self.plan_signature,
         )

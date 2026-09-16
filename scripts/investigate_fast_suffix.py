@@ -57,7 +57,9 @@ class FastSuffixSolver(GaussNewtonReference):
             tolerances=plan.tolerances,
             safety_envelope=plan.safety_envelope,
             policy=policy,
-            values=SuffixValues(*plan.values, self.seed_commands[:-SUFFIX_STEPS]),
+            # These three are the belief values this experiment rolls out through;
+            # a plan model that declares no observed history has none to carry.
+            values=SuffixValues(*plan.values[:3], self.seed_commands[:-SUFFIX_STEPS]),
             compile_signature=plan.compile_signature + ":six-command-suffix-v1",
         )
         super().__init__(

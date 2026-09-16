@@ -277,3 +277,73 @@ def world_up_body(unit_quaternion_wxyz: np.ndarray) -> np.ndarray:
             1.0 - 2.0 * (x * x + y * y),
         )
     )
+
+
+def nearest_rotation(matrix: Array, *, iterations: int = 4) -> Array:
+    """Return the rotation closest to one nearly-orthogonal 3x3 matrix.
+
+    The orthogonal polar factor of ``matrix`` is the rotation that minimizes
+    the Frobenius distance to it, and Higham's Newton iteration
+    ``R <- (R + R^-T) / 2`` converges to that factor quadratically from
+    ``R = matrix``. A fixed, unrolled iteration count keeps the traced graph
+    static and the derivative well conditioned at a rotation, where the map is
+    locally the identity; a singular-value decomposition would compute the same
+    projection but differentiate badly exactly there, because a rotation's
+    singular values are all one.
+
+    A model that predicts rotation entries as free Euclidean channels lands
+    near, not on, ``SO(3)``; four iterations take a matrix within a few percent
+    of a rotation to one at double precision. The caller owns the determinant:
+    a matrix with a negative determinant has its nearest *orthogonal* matrix
+    outside ``SO(3)`` and this iteration converges to that reflection instead.
+    """
+
+    if iterations < 1:
+        raise ValueError("the polar iteration needs at least one step")
+    rotation = jnp.asarray(matrix)
+    if rotation.shape[-2:] != (3, 3):
+        raise ValueError("a rotation projection needs a trailing 3x3 matrix")
+    for _ in range(iterations):
+        rotation = 0.5 * (rotation + jnp.swapaxes(jnp.linalg.inv(rotation), -1, -2))
+    return rotation
+
+
+def rotation_to_quaternion(rotation: Array) -> Array:
+    """Return a unit WXYZ quaternion for one body-to-world rotation matrix.
+
+    Shepperd's method: each of the four expressions below is proportional to
+    the quaternion, and the one whose leading term is largest is the numerically
+    best conditioned, so it is the branch taken. Sign is not fixed, because a
+    quaternion and its negation are the same rotation and every consumer here
+    resolves that through :func:`quaternion_log_error`.
+    """
+
+    matrix = jnp.asarray(rotation)
+    if matrix.shape != (3, 3):
+        raise ValueError("a quaternion recovery needs one 3x3 rotation matrix")
+    xx, yy, zz = matrix[0, 0], matrix[1, 1], matrix[2, 2]
+    leading = jnp.stack(
+        (1.0 + xx + yy + zz, 1.0 + xx - yy - zz, 1.0 - xx + yy - zz, 1.0 - xx - yy + zz)
+    )
+    symmetric = (
+        matrix[1, 0] + matrix[0, 1],
+        matrix[0, 2] + matrix[2, 0],
+        matrix[2, 1] + matrix[1, 2],
+    )
+    antisymmetric = (
+        matrix[2, 1] - matrix[1, 2],
+        matrix[0, 2] - matrix[2, 0],
+        matrix[1, 0] - matrix[0, 1],
+    )
+    candidates = jnp.stack(
+        (
+            jnp.stack(
+                (leading[0], antisymmetric[0], antisymmetric[1], antisymmetric[2])
+            ),
+            jnp.stack((antisymmetric[0], leading[1], symmetric[0], symmetric[1])),
+            jnp.stack((antisymmetric[1], symmetric[0], leading[2], symmetric[2])),
+            jnp.stack((antisymmetric[2], symmetric[1], symmetric[2], leading[3])),
+        )
+    )
+    quaternion = jnp.take(candidates, jnp.argmax(leading), axis=0)
+    return quaternion / jnp.maximum(jnp.linalg.norm(quaternion), 1e-12)

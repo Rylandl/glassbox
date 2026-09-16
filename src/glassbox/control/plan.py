@@ -470,11 +470,22 @@ class PlanValues(NamedTuple):
     direction. That is a different traced structure rather than a different
     set of values, because such a belief really is priced by the point
     objective, and the signature records it as such.
+
+    ``observed_history`` is the recent observed signals and applied commands a
+    model with its own memory needs before a horizon starting now means
+    anything. It travels here, with the rest of what the model believes,
+    because a loop that observes one more interval moves it every interval and
+    must not pay a recompile for that. It is ``None`` for a model whose horizon
+    starts from the supplied state alone, which is every dynamics belief:
+    nothing about how a belief is presented changes. What it holds, how long it
+    is, and what a recording boundary does to it belong to the model that
+    declares it.
     """
 
     parameters: object
     covariance_factor: Array | None
     forecast_error_covariance: Array
+    observed_history: object = None
 
 
 @runtime_checkable
