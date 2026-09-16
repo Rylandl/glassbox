@@ -395,7 +395,10 @@ trials -- `58e0aa06`, `aab97c7d`, `77df70f1` and `13736903` -- and identical
 metrics, pass statistics and solver-status counts, while their recorded clocks
 differed: the structured arm's solves over the 50 ms threshold were 1 and 3 in
 the first run against 1 and 1 in the second. Under `control-v3` each of those
-would have been a deadline the solve was cut short by.
+would have been a deadline the solve was cut short by. `control-v5`'s two runs
+produce those same four files, byte for byte, on an idle host and on a loaded
+one: declaring the calibration's excitation to the learner does not reach a
+command, and neither does the clock.
 
 Both arms are fitted on the same calibration, and the manifest now says what
 that calibration has to contain: every command channel's standard deviation, in
@@ -755,9 +758,9 @@ one of the sixteen that differ is a wall clock or a file that quotes one. Every
 trial and block field the decision reads -- including both swap intervals, every
 block score and gate, every tracking metric and every segment -- is identical,
 and both runs replayed with 56 forecast replays each and a worst difference of
-3.6e-14. A third run made after this reference was committed reproduced the same
-four `tracking.npz` and replayed against it with no regression, which is the
-regression gate working rather than a fourth measurement.
+3.6e-14. Two further runs made after this reference was committed reproduced the
+same four `tracking.npz` and replayed against it with no regression, which is
+the regression gate working rather than a further measurement.
 
 `live-v2`'s numbers are beside each row below, in brackets. They were measured
 without a dither, so they are not this tier's incumbent; the tier's regression
