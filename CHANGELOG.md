@@ -5,6 +5,23 @@ All notable changes to Glassbox are recorded here. The format follows
 
 ## Unreleased
 
+- Compute the control tier's trajectory in simulated time.
+  `docs/harness/control-v4.json` replaces `docs/harness/control-v3.json`, which
+  is deleted: the same plant hash, task, calibration and excitation
+  requirement, seeds, controller policy, arms, metric definitions, RMSE rule
+  and pass criterion, with the wall-clock pacing and the solve deadline
+  removed, so the solver's command is always the applied command and interval
+  `k` is the state at `k` times the sample interval. Solve times, interval
+  times and the counts over the sample interval move to a `timing.npz` and a
+  `wall` block that decide nothing, built by a `simulated_time_wall` the live
+  tier now shares; `verify` recomputes those counts and rejects a run whose own
+  record says a deadline was applied, assessed or expired, and keeps every
+  check it had. `docs/harness/control-reference.json` is rewritten as the v4
+  incumbent from one of two consecutive runs made under load whose four
+  `tracking.npz` files are byte identical; every score in it reproduces
+  `control-v3`'s to the printed digit. The recipe, the learner modules and the
+  synthetic, platform, evidence and live gate files are byte identical.
+
 - Enforce the evidence band. `docs/harness/evidence-v2.json` replaces
   `docs/harness/evidence-v1.json`, which is deleted: the same envelope, channel
   groups, 85% to 95% band, coverage definition, reference and semantics, with

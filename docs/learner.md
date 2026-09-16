@@ -279,14 +279,15 @@ would never measure a change. Every run records the recipe it actually fitted.
 
 ## The control tier
 
-[`harness/control-v3.json`](harness/control-v3.json) is the third frozen
+[`harness/control-v4.json`](harness/control-v4.json) is the third frozen
 manifest, with its own digest constant. It is the control tier: one Cascade X8
 trial set, driven once by the structured belief and once by the generic
-learner, through the same plant and the same NMPC seam.
+learner, through the same plant and the same NMPC seam, computed in simulated
+time.
 
 ```sh
 uv run --group cascade python -m glassbox.experimental.harness control \
-  --manifest docs/harness/control-v3.json --output /tmp/control-run
+  --manifest docs/harness/control-v4.json --output /tmp/control-run
 uv run python -m glassbox.experimental.harness verify /tmp/control-run
 ```
 
@@ -319,6 +320,48 @@ for the whole trial scores 1.217 m and 0.753 degrees on the first repetition and
 1.728 m and 1.896 degrees on the second, against the structured arm's 1.179 m
 and 1.320 degrees, and meets the page's tolerance on none of the 281 scored
 samples of either trial.
+
+### The trajectory is computed in simulated time
+
+`control-v4` replaces `control-v3`, which is deleted, and changes nothing about
+the protocol: the same plant hash and pinned source revision, the same task, the
+same calibration and its excitation requirement, the same seeds, the same
+controller policy, the same two arms, the same metric definitions, the same RMSE
+rule and the same pass criterion. What it changes is the clock the trajectory is
+computed on.
+
+`control-v3` paced its loop against a wall clock and held the solver to a 50 ms
+deadline, which meant a busy host could change where the aircraft flew. Reviewing
+the rejected evidence candidate, a `control-v3` run made while the platform tier
+and the test suite loaded the machine put the structured arm at 1.155 m on the
+first repetition against its reference's 1.179 m, and the same run made alone
+reproduced the reference to every digit. A 5% regression allowance on a number
+that moves with machine load gates on scheduling noise.
+
+`control-v4` adopts what `live-v2` already does, and
+[says it the same way](#nothing-a-clock-measured-reaches-the-trajectory).
+Interval `k` is the state at `k` times the sample interval: the loop is not
+paced and reads no clock to decide anything, and the solver is given no
+deadline, so it never returns a fallback command for want of time and the
+command it solved is the command the plant is stepped with. `solve_deadline_s`
+survives in the manifest only as the threshold solve times are reported against,
+and it is the sample interval.
+
+The wall measurements are all still taken, in the two files the live tier splits
+them into. `tracking.npz` carries the trajectory alone -- times, observed states,
+reference rows, applied commands, the solver-used and fallback flags, the
+perturbed start and the anchor -- and `timing.npz` and each trial's `wall` block
+carry interval times, solve times, the two counts over the sample interval, and
+whether a deadline was assessed on each interval. Nothing reads the second group
+back.
+
+Two consecutive runs made while four concurrent synthetic-tier runs and the fast
+test suite loaded the machine produced byte-identical `tracking.npz` on all four
+trials -- `58e0aa06`, `aab97c7d`, `77df70f1` and `13736903` -- and identical
+metrics, pass statistics and solver-status counts, while their recorded clocks
+differed: the structured arm's solves over the 50 ms threshold were 1 and 3 in
+the first run against 1 and 1 in the second. Under `control-v3` each of those
+would have been a deadline the solve was cut short by.
 
 Both arms are fitted on the same calibration, and the manifest now says what
 that calibration has to contain: every command channel's standard deviation, in
@@ -368,10 +411,17 @@ each trial's perturbed start from its declared seed so a run cannot invent where
 it started either, remeasures the calibration's command excitation from the
 saved recordings and refuses one that falls short, recomputes the pass criterion
 and the hashes of the tracking arrays, the calibration recordings and both
-fitted artifacts, and replays the decision. It does not rerun the plant or the
-solver, and says so in what it returns: neither is deterministic under a wall
-clock, so rerunning either would be a new measurement rather than a check of
-this one.
+fitted artifacts, and replays the decision. It also checks that the run was
+computed in simulated time as far as the run's own artifacts can say: it
+recomputes the two recorded counts from the saved solve and interval times, and
+rejects a run whose row claims a deadline was applied, whose recorded count of
+deadline-assessed intervals is not zero or disagrees with the per-interval array
+it came from, or whose solver statuses report a deadline expiring. None of that
+proves a deadline was absent; each of them rejects a run whose own record says
+one decided something. It does not rerun the plant or the solver, and says so in
+what it returns: rerunning either would be a second measurement rather than a
+check of this one, and the run whose determinism the tier claims is the one that
+was saved.
 
 ## The evidence tier
 
@@ -468,8 +518,10 @@ checkout, every tracking number moved: deadlines were missed nondeterministicall
 fallback commands changed the flight, and refit completion times moved the swap
 by an interval or two. A regression reference and a 5% allowance on that would
 have gated on scheduling noise, and the frozen arm would have failed its own
-reference. `control-v3`, which flies the same plant and the same solver without
-a worker, reproduces digit for digit, which is what isolated the cause.
+reference. `control-v3`, which flew the same plant and the same solver without a
+worker, reproduced digit for digit on an idle host, which is what isolated the
+cause; it did not reproduce under load either, and `control-v4` is the same fix
+applied to it.
 
 `live-v2` computes the trajectory in simulated time. Interval `k` is the state
 at `k` times the sample interval, and four things make that true. The loop is
@@ -775,18 +827,25 @@ validity-side robustness term has nothing to widen.
 
 ### The measurement
 
-`control-v3` was frozen and committed before this run, which is its incumbent
-measurement and the file `control-reference.json` is written from. Both arms
+`control-v4` was frozen and committed before this run, which is its incumbent
+measurement and the file `control-reference.json` is written from. Every number
+below is `control-v3`'s to every printed digit, along with the pass statistics,
+the command excitation and the generic fingerprint `9f7e7b17`: the runs that
+measured `control-v3` were made on an idle host where every solve finished
+inside its deadline, so every solved command was applied there too. Both arms
 were fitted on the same three calibration recordings, whose measured command
 excitation is 12.1%, 20.3% and 38.1% of declared range on the first, 14.2%,
 13.7% and 37.5% on the second and 12.3%, 16.4% and 37.5% on the third, against
 the declared 10%. Under `control-v2`'s setpoints the same three recordings moved
 throttle 2.7%, 3.1% and 2.3%.
 
-| Repetition (seed) | Position RMSE, generic / structured (m) | Attitude RMSE, generic / structured (deg) | 0.5 m pass fraction, generic / structured | Terminated | Deadline misses, generic / structured |
+| Repetition (seed) | Position RMSE, generic / structured (m) | Attitude RMSE, generic / structured (deg) | 0.5 m pass fraction, generic / structured | Terminated | Solves over 50 ms, generic / structured |
 | --- | --- | --- | --- | --- | --- |
 | 0 (101) | 60.797 / 1.179 | 97.180 / 1.320 | 0.000 / 0.000 | none | 0 / 1 |
-| 1 (102) | 49.308 / 1.179 | 86.514 / 1.283 | 0.007 / 0.000 | none | 0 / 0 |
+| 1 (102) | 49.308 / 1.179 | 86.514 / 1.283 | 0.007 / 0.000 | none | 0 / 3 |
+
+The last column is reported and decides nothing; it differed between the two
+runs that produced identical trajectories.
 
 **The rule is not met.** All four trials completed their 320 intervals with
 finite states, bounded commands and no solver fallback, so nothing structural
