@@ -230,3 +230,151 @@ evaluation plan that recipe is cut from: the `context_s`, `delay_s` and
 `horizon_s` the information budget of every window comes from. It does not pin
 the rest of the recipe, because a gate only the recipe that froze it could pass
 would never measure a change. Every run records the recipe it actually fitted.
+
+## The control tier
+
+[`harness/control-v1.json`](harness/control-v1.json) is the third frozen
+manifest, with its own digest constant. It is the control tier: one Cascade X8
+trial set, driven once by the structured belief and once by the generic
+learner, through the same plant and the same NMPC seam.
+
+```sh
+uv run --group cascade python -m glassbox.experimental.harness control \
+  --manifest docs/harness/control-v1.json --output /tmp/control-run
+uv run python -m glassbox.experimental.harness verify /tmp/control-run
+```
+
+The manifest pins the Cascade X8 specification hash and the pinned source
+revision the run checks its installed simulator against, the cruise reference
+with its small altitude variation, the calibration protocol — three eight-second
+recordings with the published X8 stabilizer, simulator-derived trim feedforward
+and the declared excitation seeds, and a fourth recording reserved and never
+fitted in any role — twelve-second trials repeated twice with alternating arm
+order, the controller policy both arms share, how each arm is fitted, and the
+metrics. The recording protocol is the one
+[`examples/cascade_refinement.py`](../examples/cascade_refinement.py) collects
+the structured belief's calibration with, constant for constant, and a
+Cascade-marked test asserts that the two produce the same arrays byte for byte.
+
+The declared rule is that the generic arm's position and attitude tracking RMSE
+are at or below the structured arm's on the same trial, on every trial, with no
+terminated trial. The manifest carries `"enforced": false`: this first
+measurement reports the rule, and it gates merges from the first recipe change
+that follows. Structural problems never wait for that. A trial missing,
+duplicated, undeclared, terminated, short of its declared intervals, or
+carrying a metric that is not a finite number fails closed either way.
+
+`verify` recognizes the tier from the digest of the manifest a run copied. It
+recomputes every metric from the saved per-interval tracking arrays with the
+library's own metric code, rebuilds the reference rows from the saved initial
+state so a run cannot score itself against a reference it invented, recomputes
+the hashes of the tracking arrays, the calibration recordings and both fitted
+artifacts, and replays the decision. It does not rerun the plant or the solver,
+and says so in what it returns: neither is deterministic under a wall clock, so
+rerunning either would be a new measurement rather than a check of this one.
+The tier declares no regression reference, because this is its first
+measurement and there is nothing yet to anchor.
+
+## The plan model
+
+`glassbox.experimental.learned_plan` presents a fitted `LearnedDynamics` to
+`glassbox.control.plan.PlanModel`, the seam a bounded shooting solver plans
+over. It is the control boundary for the learner exactly as
+`glassbox.control.fitted` is for a dynamics belief, and nothing on the solver's
+side learns which one it is driving.
+
+Coordinates are bridged both ways. The controller's rigid-body state becomes the
+learner's fifteen observed channels — world velocity, body rates and the
+rotation entries from the quaternion, exactly as the platform tier's adapter
+builds them. Coming back, velocity and body rates are predicted channels,
+position is integrated trapezoidally from the predicted world velocity starting
+at the supplied state's own position, and the predicted rotation entries are
+projected onto the nearest rotation and read back as a quaternion. The
+projection is Higham's Newton iteration for the orthogonal polar factor, whose
+derivative is well conditioned at a rotation, where a singular-value
+decomposition's is not; both it and the quaternion recovery live with the
+library's other geometry helpers.
+
+History is the other half. A recursive learner's forecast means nothing without
+the observed transitions before its origin, and a control loop has them:
+`LearnedPlanController` carries them interval by interval from the states it
+observes and the commands it applies, and resets them at a trial start, which
+is a recording boundary and where the memory starts again at rest. Nothing is
+padded. Until the loop has observed the explicit-difference window there is no
+forecast, `ready` is false, and the trial holds the command it is already
+applying; on this 50 ms grid that is the first two intervals of a trial, and
+they are scored like every other. Once the consumed context is full the carried
+history reproduces what `predict` would compute from the same rows. Carrying it
+needs one small, general extension to the seam: `PlanValues` gains an optional
+`observed_history` slot, defaulted to `None`, so a model with its own memory
+moves it every control interval without paying a recompile. Nothing about how a
+belief is presented changes.
+
+Command bounds are the caller's declared telemetry contract, required as
+arguments. The learner observed commands; it was never told what the actuators
+accept, and it is not asked. The horizon is the recipe's own fitted `horizon_s`
+and a longer one is refused rather than rolled past, because `predict` refuses
+it: a plan model that extrapolated where `predict` will not would be claiming
+evidence the fit never produced. No uncertainty is claimed either.
+`uncertainty_available` and `uncertainty_complete` are both false, both
+robustness terms are exactly zero, and a solve runs only under the seam's
+explicit no-evidence override, which the run records. Validity utilization is
+reported as zero because the learner declares no support envelope, not because
+one was checked and found clear.
+
+### First measurement
+
+The gate was frozen and committed at `367530e` before any trial was run. The
+run below reproduces an earlier one digit for digit: the plant, both fits and
+both arms are deterministic, so the same manifest measures the same numbers.
+
+| Repetition | Position RMSE, generic / structured (m) | Attitude RMSE, generic / structured (deg) | Terminated | Deadline misses, generic / structured |
+| --- | --- | --- | --- | --- |
+| 0 | 60.347 / 1.208 | 121.874 / 1.022 | none | 0 / 1 |
+| 1 | 60.347 / 1.208 | 121.874 / 1.022 | none | 0 / 0 |
+
+**The rule is not met.** No trial terminated: all four completed 240 intervals
+with finite states, bounded commands and no solver fallback. The two
+repetitions are identical to every digit because the plant and both arms are
+deterministic and the loop is paced; only the deadline misses, which are
+host-specific and informational, differ between them. The structured arm plans
+a 0.80 s horizon, capped by its own forecast-error evidence; the generic arm
+plans the recipe's fitted 0.25 s.
+
+The generic arm does not diverge numerically — it flies the aircraft into the
+ground. Position error is 0.005 m at 0.5 s, better than the structured arm's
+0.176 m there, and attitude error is 0.59 degrees against 3.41. It then loses
+the aircraft: 9.3 degrees of attitude error at 1 s, 117 at 3 s, and an altitude
+of 100 m at the start, 91 m at 3 s and -26 m at 12 s. Its commands saturate:
+mean applied throttle 0.103 against a trim of 0.437, with roll and pitch resting
+near their +0.35 bounds.
+
+The mechanism is measured, and it is not the fit's forecast quality. On the
+reserved recording the learner's own 0.25 s forecast beats hold-current on every
+channel group — world velocity 0.168 against 0.249 m/s, body rate 0.139 against
+0.356 rad/s, rotation entries 0.0149 against 0.0212. What it does not have is a
+usable command Jacobian in the one direction the controller reaches for first.
+Comparing each arm's final-step response to a +0.05 command step against the
+plant's own, averaged over three held-out origins:
+
+| Command | Direction cosine, generic / structured | Magnitude ratio, generic / structured |
+| --- | --- | --- |
+| throttle | -0.056 / 0.968 | 26.9 / 1.39 |
+| roll | 0.594 / 0.798 | 0.58 / 0.60 |
+| pitch | 0.969 / 0.951 | 1.12 / 1.03 |
+
+Pitch is as good as the structured model's and roll is comparable, but throttle
+is uncorrelated with the plant's response and 27 times too large. The
+calibration explains it: across the three recordings throttle moves with a
+standard deviation of 0.022 to 0.031 over a command range of 1.0, while roll
+moves 0.11 to 0.17 and pitch 0.26 over ranges of 0.7. The pilot holds throttle
+near trim, so the fit has almost nothing to identify that column from, and an
+almost unregularized ridge is free to put a large wrong coefficient on it.
+Open-loop scoring never charges for that, because throttle barely moves in the
+evaluation data either. An optimizer charges for it immediately: it drives
+throttle to its bound to buy attitude authority the aircraft does not have
+there. The shorter horizon is a second, unseparated difference between the arms.
+
+This is a first measurement of a row that had none. It is one cruise trial set
+on one simulated plant, not hardware readiness, a real-time claim, or calibrated
+uncertainty.

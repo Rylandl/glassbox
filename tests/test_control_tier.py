@@ -249,6 +249,12 @@ def test_history_is_carried_interval_by_interval_and_reset(learned):
     np.testing.assert_allclose(history.commands, commands[40 - delay : 40], atol=1e-12)
     assert float(np.max(np.abs(history.memory))) > 0.0
 
+    # Asked for after the command it computed, the history would shift the
+    # commands one interval past the observations they belong to.
+    controller.command_applied(commands[40])
+    with pytest.raises(ValueError, match="newest observed state"):
+        controller.history()
+
     controller.reset()
     assert not controller.ready
     assert controller.observed_states == 0

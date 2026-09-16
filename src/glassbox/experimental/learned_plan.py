@@ -655,12 +655,23 @@ class LearnedPlanController:
         return self._observed >= self.required_observations
 
     def history(self) -> ObservedHistory:
-        """The observed history a horizon starting now continues from."""
+        """The observed history a horizon starting now continues from.
+
+        The origin is the newest observed state, so this is only meaningful
+        between observing it and applying the command computed from it. Asked
+        for after that command has been recorded, it would shift the commands
+        one interval past the observations they belong to, so it refuses.
+        """
 
         if not self.ready:
             raise ValueError(
                 f"the learner needs {self.required_observations} observed states "
                 f"and {self.plan.delay_steps} applied commands; nothing is padded"
+            )
+        if self._applied != self._observed - 1:
+            raise ValueError(
+                "a horizon starts at the newest observed state; ask for the "
+                "history between observing it and applying its command"
             )
         delay = self.plan.delay_steps
         states = np.asarray(self._states)

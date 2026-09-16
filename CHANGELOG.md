@@ -5,6 +5,15 @@ All notable changes to Glassbox are recorded here. The format follows
 
 ## Unreleased
 
+- Add a control tier to the experimental harness and present the generic
+  learner to the NMPC seam as a `PlanModel`. `docs/harness/control-v1.json` is
+  frozen before any trial and `harness control` tracks one Cascade X8 trial set
+  with each arm, which `harness verify` replays from the saved per-interval
+  arrays without rerunning the plant or the solver; `PlanValues` gains an
+  optional `observed_history` slot so a model with its own memory can carry it
+  through the seam, and how a belief is presented is unchanged. First
+  measurement: the rule is not met, with the generic arm at 60.35 m and 121.9
+  degrees against the structured arm's 1.21 m and 1.02 degrees on every trial.
 - Freeze `docs/harness/platform-v2.json` as the experimental accuracy gate.
   The decision rule is enforced, so one corpus above its structured comparator
   or its task allowance rejects the run, and `docs/harness/platform-reference.json`

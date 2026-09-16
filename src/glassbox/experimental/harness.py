@@ -1953,7 +1953,6 @@ class _StructuredArm:
         from glassbox.control.fitted import NMPCController, default_solver_policy
 
         declared = manifest["controller"]
-        self.history_steps = manifest["trial"]["intervals"]
         self.belief = belief
         self.controller = NMPCController(
             belief.model,
