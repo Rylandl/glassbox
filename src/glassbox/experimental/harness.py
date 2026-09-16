@@ -690,7 +690,9 @@ def _check_probe(data, steps):
         raise ValueError("probe contexts must differ in exactly one input")
 
 
-def anchored_reference(directory, reference=None, committed=COMMITTED_REFERENCE):
+def anchored_reference(
+    directory, reference=None, committed=COMMITTED_REFERENCE, name="reference.json"
+):
     """The committed reference a replay must compare against, never the copy.
 
     A run copies the reference it compared into its output. That copy is an
@@ -699,10 +701,11 @@ def anchored_reference(directory, reference=None, committed=COMMITTED_REFERENCE)
     file is what the replay reads. The two must agree about existing and about
     every byte, or the replay refuses. ``committed`` is the tier's own frozen
     reference; ``reference`` overrides it when the replay does not run inside a
-    checkout.
+    checkout. ``name`` is what the run called its copy, which differs only for
+    the evidence reference, whose copy sits beside the tier's own.
     """
     committed = Path(reference) if reference is not None else Path(committed)
-    copied = Path(directory) / "reference.json"
+    copied = Path(directory) / name
     if copied.exists() != committed.exists():
         present, absent = (
             (copied, committed) if copied.exists() else (committed, copied)
@@ -840,6 +843,300 @@ def verify(directory, reference=None):
         maximum_replay_difference=worst,
         decision=decision,
         meaning="A replay of saved evidence with an independent NumPy recurrence, not a new fit or independent confirmation.",
+    )
+
+
+# --- the evidence tier: one envelope, one band ------------------------------
+
+EVIDENCE_MANIFEST_SHA256 = (
+    "2c2d2f0dd7d9c27d89b468f662991fe1639db1d053c4f5ca2d3e058de9a39431"
+)
+"""Digest of the frozen evidence manifest every tier measures coverage under."""
+
+COMMITTED_EVIDENCE_MANIFEST = COMMITTED_MANIFEST.parent / "evidence-v1.json"
+"""The frozen evidence manifest in a source checkout.
+
+Unlike the three tier manifests this one is not a command-line argument. It is
+not a tier of its own: coverage is measured inside the synthetic, platform and
+control runs, on exactly the rows those tiers already score, so each run reads
+this file from the checkout, copies it into its output as
+``evidence-manifest.json``, and ``verify`` checks that copy against the digest
+constant above rather than against the file. A copy whose bytes differ is
+refused, which is the same authority the tier manifests are held to.
+"""
+
+COMMITTED_EVIDENCE_REFERENCE = COMMITTED_MANIFEST.parent / "evidence-reference.json"
+"""Where ``verify`` looks for the committed evidence reference by default."""
+
+EVIDENCE_MANIFEST_NAME = "evidence-manifest.json"
+EVIDENCE_REFERENCE_NAME = "evidence-reference.json"
+
+RIGID_BODY_GROUPS = {
+    "world_velocity": (0, 1, 2),
+    "body_rate": (3, 4, 5),
+    "rotation_entries": (6, 7, 8, 9, 10, 11, 12, 13, 14),
+}
+"""The declared channel groups of the fifteen-channel observed contract."""
+
+
+def frozen_evidence_manifest(path):
+    """Load the evidence manifest only when its bytes match the frozen digest."""
+    if sha256(path) != EVIDENCE_MANIFEST_SHA256:
+        raise ValueError("evidence manifest digest differs from the frozen contract")
+    manifest = read(path)
+    declared_plan(manifest)
+    band = manifest["band"]
+    if not 0.0 < band["minimum"] <= band["maximum"] < 1.0:
+        raise ValueError("the declared coverage band is not an interval in (0, 1)")
+    return manifest
+
+
+def evidence_groups(kind, channels):
+    """The declared channel groups for one observed contract.
+
+    ``rigid_body_15`` is the fifteen-channel contract both the platform and the
+    control tier build, grouped as the manifest declares. ``per_channel`` is the
+    synthetic families, whose channels are coordinates of unrelated systems and
+    are each their own group.
+    """
+    if kind == "rigid_body_15":
+        if channels != 15:
+            raise ValueError("the rigid-body contract has fifteen observed channels")
+        return {name: tuple(index) for name, index in RIGID_BODY_GROUPS.items()}
+    if kind == "per_channel":
+        if channels < 1:
+            raise ValueError("an observed contract needs at least one channel")
+        return {f"channel_{index}": (index,) for index in range(channels)}
+    raise ValueError(f"undeclared channel grouping: {kind}")
+
+
+def envelope_coverage(prediction, targets, half_widths, groups):
+    """Measured coverage per channel group and horizon step, and pooled.
+
+    One scored ``(row, channel)`` pair is covered when its absolute forecast
+    error at that horizon step is at or below the envelope half-width for that
+    step and channel. Nothing here knows how the half-widths were calibrated;
+    it reads the arrays the run saved beside the predictions.
+    """
+    error = np.abs(
+        np.asarray(prediction, dtype=float) - np.asarray(targets, dtype=float)
+    )
+    width = np.asarray(half_widths, dtype=float)
+    if error.ndim != 3 or width.shape != error.shape:
+        raise ValueError("envelope half-widths must be shaped like the predictions")
+    if not np.isfinite(width).all() or np.any(width < 0):
+        raise ValueError("envelope half-widths must be finite and nonnegative")
+    covered = error <= width
+    horizons, pooled = {}, {}
+    for name, index in groups.items():
+        block = covered[:, :, list(index)]
+        horizons[name] = np.mean(block, axis=(0, 2)).tolist()
+        pooled[name] = float(np.mean(block))
+    return dict(
+        scored_rows=int(error.shape[0]),
+        horizon_steps=int(error.shape[1]),
+        channels=int(error.shape[2]),
+        coverage=horizons,
+        pooled_coverage=pooled,
+    )
+
+
+def _band_excess(coverage, band):
+    """How far one measured coverage lies outside the declared band.
+
+    Zero inside it. This is the smaller-is-better quantity the reference
+    allowance is stated on, exactly as the other tiers state theirs on an RMSE.
+    """
+    if coverage is None:
+        return None
+    return max(0.0, band["minimum"] - coverage, coverage - band["maximum"])
+
+
+def _coverage_number(value):
+    """A coverage that is a finite number in ``[0, 1]``, or None for anything else."""
+    number = _number(value)
+    return None if number is None or not 0.0 <= number <= 1.0 else number
+
+
+def _evidence_reference(reference, tier, case, regime, group):
+    """One recorded reference coverage list, or None for anything that is not one."""
+    node = None if reference is None else reference.get("coverage")
+    for key in (tier, case, regime, group):
+        if not isinstance(node, dict):
+            return None
+        node = node.get(key)
+    return node if isinstance(node, list) else None
+
+
+def evidence_decide(
+    manifest, tier, rows, expected, reference=None, reference_sha256=None
+):
+    """The band, evaluated from recorded coverage alone. Anything unclear fails.
+
+    ``expected`` is the ``(case, regime)`` set the tier's own manifest declares,
+    and its case names must be exactly the ones this manifest froze; a tier that
+    measures a different set of corpora than the evidence manifest declares
+    fails closed here rather than reporting a shorter table.
+
+    The semantics are the platform and control tiers': a case is a gate only
+    where the reference already meets the band, a case the reference already
+    fails is reported with ``gating`` false, and structural problems always fail
+    closed. ``enforced`` decides only whether the result is folded into the
+    tier's own acceptance; every number and every breach is computed either way.
+    """
+    band = manifest["band"]
+    declared_cases = set(manifest["tiers"][tier]["cases"])
+    grouping = manifest["tiers"][tier]["channel_groups"]
+    relative = manifest["reference"]["relative_tolerance"]
+    absolute = manifest["reference"]["absolute_tolerance"]
+    expected = {(str(case), str(regime)) for case, regime in expected}
+    breaches, band_breaches, regressions, summary = [], [], [], {}
+    if {case for case, _ in expected} != declared_cases:
+        breaches.append(
+            dict(
+                gate="cases_declared",
+                measured=sorted({case for case, _ in expected}),
+                declared=sorted(declared_cases),
+            )
+        )
+    keys = [(str(row.get("case")), str(row.get("regime"))) for row in rows]
+    for case, regime in sorted(expected - set(keys)):
+        breaches.append(dict(case=case, regime=regime, gate="case_present"))
+    for case, regime in sorted({key for key in keys if keys.count(key) > 1}):
+        breaches.append(dict(case=case, regime=regime, gate="case_unique"))
+    for case, regime in sorted(set(keys) - expected):
+        breaches.append(dict(case=case, regime=regime, gate="case_declared"))
+    for row, key in zip(rows, keys, strict=True):
+        case, regime = key
+        if key not in expected or keys.count(key) > 1:
+            continue
+        name = f"{case}/{regime}"
+        scored = row.get("scored_rows")
+        if not isinstance(scored, int) or isinstance(scored, bool) or scored < 1:
+            breaches.append(dict(case=case, regime=regime, gate="scored_rows"))
+            continue
+        steps = row.get("horizon_steps")
+        if not isinstance(steps, int) or isinstance(steps, bool) or steps < 1:
+            breaches.append(dict(case=case, regime=regime, gate="horizon_steps"))
+            continue
+        try:
+            groups = evidence_groups(grouping, row.get("channels"))
+        except (TypeError, ValueError):
+            breaches.append(dict(case=case, regime=regime, gate="channels_declared"))
+            continue
+        measured = row.get("coverage")
+        if not isinstance(measured, dict) or sorted(measured) != sorted(groups):
+            breaches.append(dict(case=case, regime=regime, gate="groups_declared"))
+            continue
+        for group in sorted(groups):
+            values = measured[group]
+            if not isinstance(values, list) or len(values) != steps:
+                breaches.append(
+                    dict(case=case, regime=regime, group=group, gate="group_horizons")
+                )
+                continue
+            recorded = _evidence_reference(reference, tier, case, regime, group)
+            for horizon, value in enumerate(values):
+                coverage = _coverage_number(value)
+                base = (
+                    None
+                    if recorded is None or len(recorded) != steps
+                    else _coverage_number(recorded[horizon])
+                )
+                excess = _band_excess(coverage, band)
+                reference_excess = _band_excess(base, band)
+                meets = None if base is None else reference_excess <= 0.0
+                summary.setdefault(name, {}).setdefault(group, []).append(
+                    dict(
+                        horizon=horizon,
+                        coverage=coverage,
+                        band_excess=excess,
+                        reference=base,
+                        reference_band_excess=reference_excess,
+                        reference_meets_band=meets,
+                    )
+                )
+                if coverage is None:
+                    breaches.append(
+                        dict(
+                            case=case,
+                            regime=regime,
+                            group=group,
+                            horizon=horizon,
+                            gate="finite_coverage",
+                            value=_number(value),
+                        )
+                    )
+                    continue
+                if reference is not None:
+                    if reference_excess is None:
+                        regressions.append(
+                            dict(
+                                case=case,
+                                regime=regime,
+                                group=group,
+                                horizon=horizon,
+                                gate="reference_present",
+                            )
+                        )
+                    else:
+                        limit = reference_excess * (1 + relative) + absolute
+                        if excess > limit:
+                            regressions.append(
+                                dict(
+                                    case=case,
+                                    regime=regime,
+                                    group=group,
+                                    horizon=horizon,
+                                    gate="reference_band_excess",
+                                    value=excess,
+                                    coverage=coverage,
+                                    reference=reference_excess,
+                                    limit=limit,
+                                )
+                            )
+                if excess > 0.0:
+                    band_breaches.append(
+                        dict(
+                            case=case,
+                            regime=regime,
+                            group=group,
+                            horizon=horizon,
+                            gate="coverage_band",
+                            value=coverage,
+                            minimum=band["minimum"],
+                            maximum=band["maximum"],
+                            below=coverage < band["minimum"],
+                            gating=meets is True,
+                        )
+                    )
+    regressions.sort(key=lambda entry: (entry.get("case", ""), repr(sorted(entry))))
+    enforced = bool(manifest["decision"]["enforced"])
+    gating = [breach for breach in band_breaches if breach["gating"]]
+    band_met = not breaches and not band_breaches
+    # Unenforced, every number and every breach above is still measured,
+    # recorded and printed; what the manifest withholds until the next
+    # candidate is only the power to reject a run.
+    accepted = not enforced or not (breaches or regressions or gating)
+    return dict(
+        manifest=manifest["id"],
+        tier=tier,
+        decision="accept" if accepted else "reject",
+        accepted=accepted,
+        band_met=band_met,
+        band_enforced=enforced,
+        band=dict(minimum=band["minimum"], maximum=band["maximum"]),
+        nominal_coverage=manifest["envelope"]["nominal_coverage"],
+        gating_band_breaches=len(gating),
+        cases=len(rows),
+        gate_breaches=breaches,
+        band_breaches=band_breaches,
+        reference_regressions=regressions,
+        reference_compared=reference is not None,
+        reference_sha256=reference_sha256,
+        coverage=summary,
+        gates_from=manifest["decision"]["gates_from"],
+        meaning=manifest["decision"]["meaning"],
     )
 
 
