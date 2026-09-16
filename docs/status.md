@@ -7,7 +7,7 @@ artifacts actually measured; "not measured" means exactly that.
 | Criterion | Current | Target | Last change |
 | --- | --- | --- | --- |
 | One recipe | **Met.** One recipe (`generic-memory-v3-prototype`) in `experimental/default_model.py`, one model kind, one harness in `experimental/harness.py`; `fit`, `predict`, `update` with no options, and `envelope(horizon_steps)` beside them reporting what every forecast already carries. Seven experimental modules; the harness has synthetic, platform, and control tiers, and `experimental/learned_plan.py` presents the learner to the NMPC seam. | One recipe, one module, one harness; `fit`, `predict`, `update` only. | Lean-down merged at `c5e84ab`. |
-| Accuracy | **Measured, not met.** Platform tier v3 (`docs/harness/platform-v3.json`; the rule gates only where the reference meets it, no metric may regress past its reference), whole recordings held out, both models scored on identical rows at the recipe's horizon; final-step velocity m/s / body rate rad/s, generic versus best structured arm: nanodrone 0.136/0.543 vs 0.179/0.597; x8 0.222/0.132 vs 0.287/0.187; idf 0.158/0.122 vs 0.554/0.174; epfl 0.146/0.070 vs 0.526/0.217; **arp 0.176/0.715 vs 0.174/0.285**, and hold-current 0.149/0.362. Rule met on four of five corpora; inside every declared allowance. The arp failure is roll and pitch rate: worse than hold-current from the first 20 ms step on the development recording, growing linearly to 0.85/0.89 rad/s at 240 ms with a -0.2 rad/s roll-rate bias, while yaw rate beats the structured model (0.154 vs 0.323).. Re-measured at `3c149fa` under the enforced manifest: every corpus reproduces the regression reference to every digit, no reference regression, and the run is rejected on arp for both metrics (0.17586 against the comparator's 0.17437, 0.71546 against 0.28497). | Every pinned corpus, whole recordings held out: generic error at or below the structured model on the same rows, and inside the allowance (nano 0.696/3.706, X8 1.601/0.764, ARP log66 0.709/2.864). | Gate enforced at `783922e` (`platform-v2.json`, digest `f4796e1a`, regression reference `platform-reference.json`). Three attempts below, none accepted. |
+| Accuracy | **Measured, not met.** Platform tier v3 (`docs/harness/platform-v3.json`; the rule gates only where the reference meets it, no metric may regress past its reference), whole recordings held out, both models scored on identical rows at the recipe's horizon; final-step velocity m/s / body rate rad/s, generic versus best structured arm: nanodrone 0.136/0.543 vs 0.179/0.597; x8 0.222/0.132 vs 0.287/0.187; idf 0.158/0.122 vs 0.554/0.174; epfl 0.146/0.070 vs 0.526/0.217; **arp 0.176/0.715 vs 0.174/0.285**, and hold-current 0.149/0.362. Rule met on four of five corpora; inside every declared allowance. The arp failure is roll and pitch rate: worse than hold-current from the first 20 ms step on the development recording, growing linearly to 0.85/0.89 rad/s at 240 ms with a -0.2 rad/s roll-rate bias, while yaw rate beats the structured model (0.154 vs 0.323).. Re-measured at `3c149fa` under the enforced manifest: every corpus reproduces the regression reference to every digit, no reference regression, and the run is rejected on arp for both metrics (0.17586 against the comparator's 0.17437, 0.71546 against 0.28497). | Every pinned corpus, whole recordings held out: generic error at or below the structured model on the same rows, and inside the allowance (nano 0.696/3.706, X8 1.601/0.764, ARP log66 0.709/2.864). | Gate enforced at `783922e` (`platform-v2.json`, digest `f4796e1a`, regression reference `platform-reference.json`). Four attempts below, none accepted; the fourth bounded the recursion's gain inside the fit and the synthetic gate rejected it. arp is recorded as evidence-limited. |
 | Capability | **Met.** Harness v1 (manifest digest `1ba15b3f`) accepts 27 of 27 cases end to end through `fit(recordings)`: every M2 cap holds, witness paired-probe first step 0.0029/0.0028/0.0040 against a 0.05 limit and a 0.2 blind floor, tightest cap margin 0.74 of cap. Reference scores frozen in `docs/harness/reference.json`. | Pass the harness caps on every run. | Lean-down merged at `c5e84ab`. |
 | Control | **Measured, not met.** Control tier v3 (`docs/harness/control-v3.json`, digest `69cb4d99`): the tracking task of `docs/cascade-accuracy.md` (lateral sin(0.35 t) m, altitude 100 + 0.75 sin(0.3 t) m, 16 s, seeds 101 and 102), calibration whose setpoint variation moves every command at least 10% of its range (throttle now 12 to 14%, was 2 to 3%), both arms through the same bounded solver under the no-evidence override. Generic arm 60.80 m / 97.2 deg and 49.31 m / 86.5 deg; structured arm 1.18 m / 1.32 deg and 1.18 m / 1.28 deg; no terminated trial. The structured arm holds lateral position to 0.27 m but settles about 2 m high, so it does not pass the page's 0.5 m criterion either (reported, not gated). Holding trim scores 1.22 m / 0.75 deg and 1.73 m / 1.90 deg, so the task now demands authority on position and mostly on attitude. Excitation did not fix the generic arm: it still drives throttle far below trim and rests roll near its bound; the seam prices none of the learner's ignorance because the learner declares none. Attempt 2 diagnosed it and fitted no candidate: the ceiling of a perfect command response is 9.04 m, of perfect command confinement 26.96 m, and of claiming nothing 1.22 m, because the model predicts a 0.172 m/s sink out of a plant resting exactly at trim. | Meet or beat the structured model on the matched Cascade trial set. | control-v3 reference merged at `35b85ec`; the envelope (`7224ace`) left tracking identical. Attempt 2 below, no candidate. |
 | Live improvement | **Measured, not met.** Live tier v2 (`docs/harness/live-v2.json`, digest `39394675`): control-v3's plant, task, calibration and arms; the structured belief flies from the start; the generic learner refits on the trial's own 40-interval blocks through the existing transition buffer and refinement worker, and is offered when its held-out forecast error on the newest block beats the structured belief's. The trajectory is computed in simulated time (no wall-clock fallbacks, refits released a declared 40 intervals after their block, worker driven synchronously); two runs are byte-identical. Every refit took 0.86 to 0.91 s inside a 4.0 s budget with no overrun or dropped block. The swap happened at interval 140 (7.0 s) in both adopting trials because the candidate's forecast error (0.032 / 0.024 m/s, rad/s) beat the structured belief's (0.158 / 0.080), and tracking then went from 0.87 m / 1.7 deg to 19.4 m / 86 deg and from 0.90 m / 1.6 deg to 5.7 m / 14.9 deg. Hold-current scores 0.021 m/s / 0.0014 rad/s on the decision block, better than both models: a held-out forecast comparison in a quiet regime reads no command authority. | Bounded refit on streamed recordings and a threshold swap during a Cascade run; tracking after the swap no worse. | Live tier merged at `94ea90e`; mechanics met, rule not met. |
@@ -120,16 +120,117 @@ development windows, gives arp 0.1271/0.3300: velocity below the comparator
 hold-current, but still 16% above the gate, and it leaves x8 at 0.2372 against a
 0.2385 regression limit and nanodrone body at 0.5487. No candidate was fitted.
 
-**Reviewer decision after three attempts.** Accuracy holds on four of five
-corpora and every declared allowance. On arp the remaining lever is
-structural: a recursion whose gain is carried by the fit. That attempt is
-queued, not abandoned. The largest gaps in this table are now the three rows
-with no measurement at all, so the loop rotates to Control first; Live improvement needs a flyable
-controller, so Control's named mechanism is attempted before Evidence and Live,
-and the loop returns to arp with the structural change after
-each has a first measurement. If arp's body rate proves to be evidence-limited
-by a four-flight corpus, that is a charter question for the owner, not a
-threshold to move.
+**Attempt 4, rejected: the recursion's gain is bounded, and it is not arp's.**
+The queued structural attempt, fitted as `generic-memory-v4-prototype` at
+`8a31c72` 18:05:00Z and reverted at `880bdeb`. The change carried a bound on the
+recursion's gain inside the fit: past the first horizon step, an error the size
+of the process's own one-step motion may not come out of the recursion larger
+than the process's own motion has grown by that step, both sides read off
+hold-current on the training windows, the ceiling floored at no amplification so
+a factor of zero — the plant's own hold-and-shift, gain one at every step —
+always meets it, and the paths from an observed channel back into the next
+prediction scaled by the largest factor that does, by bisection, before the
+first step and after every step. No target, development row or held-out row
+enters it, and no constant. The synthetic gate rejected it and the run stopped
+there; the platform, control and live tiers were not run.
+
+*Where the gain lives, on arp's own training origins.* The learned one-step map
+on the augmented state has spectral radius above 1 at 100% of origins, median
+1.0264 and maximum 1.0331, the largest median of the five corpora. It is a
+transient, not an instability: 78.4% of the leading eigenvector's mass sits on
+the explicit history-difference block, and removing that block's feature rows
+collapses the 12-step gain by 5.4 times, from 0.745 to 0.138, while leaving the
+radius at 1.0236. Removing the current-state rows moves the radius to 1.0126 and
+raises the gain to 0.800; removing the memory rows gives 1.0193 and 0.726; and
+removing either command block changes nothing at all — 1.0259 and 1.0264, gain
+0.745 and 0.744 — because the command rows never enter the map's Jacobian with
+respect to the state. By channel, holding the rotation entries cuts the gain to
+0.363 and holding roll and pitch rate to 0.684, against 0.742 for yaw alone.
+
+*The plant's own gain on the same origins, and what it says.* Hold-current's
+motion grows 7.664 times over arp's 12 steps, a per-step 1.204 that matches the
+1.194 the record names for roll and pitch; the other corpora are 12.145 over 25
+steps, 5.505 over 10, 5.580 over 12 and, on epfl, 1.000 because its 0.2 s
+horizon is one step and no recursion runs at all. A least-squares one-step
+linearization of the plant on the same augmented rows is ill-conditioned and
+gives radii of 5.08, 1.59, 3.58, 2.24 and 1.04; reported, not used. Perturbing
+the forecast origin by hold-current's own first-step error, arp's recursion
+returns 1.581 after one step and 6.740 after twelve — **0.879 of the plant's own
+7.664**. Measured on everything the fit can read, arp's recursion amplifies less
+than the plant's own motion grows. The excess is one step wide: 1.144 at the
+second step and below one from the fourth on.
+
+*And it is not arp's alone.* The same maximum past the first step, over the
+process's own growth: nanodrone 1.055, x8 0.982, **arp 1.144**, idf 2.017,
+control's calibration 2.680, epfl not applicable. Every one of the five corpora
+has a map whose radius is above 1 at every origin — median 1.0117, 1.0080,
+1.0264, 1.0014, 1.0218, and 1.0963 on the control calibration — while eight of
+the nine synthetic families are inside the bound, at 0.30 to 0.81, and every one
+of the nine is at or below radius 1 at the median, 0.70 to 0.99. hidden_hysteresis
+is the one family above the bound, at 1.32 to 1.38, and the only other family
+with any origin above radius 1 is near_periodic, 9% of them on one seed. No gain
+quantity measurable on the fit's own data singles arp out.
+
+*Two other forms of the bound are refuted by measurement.* An error-growth
+bound — the model's error at the last horizon step at most its error at the
+first, in hold-current's own per-step scale — is infeasible on arp: at a
+recursion factor of zero the ratio is still 1.0362, the bisection returns zero,
+and the fitted candidate scores 0.1969/0.5256 on log 66, a velocity regression
+past the 0.1897 limit. A spectral-radius bound is degenerate: the radius is one
+plus the factor times a positive quantity, so arp's 1.0304 falls to 1.0255 at
+factor 0.98, 1.0050 at 0.2 and reaches 1.0000 only at 0, on every corpus.
+
+*What the gate said.* 45 of the 51 synthetic case-and-regime scores reproduce
+`reference.json` to every digit, because the bound never bound there: zero
+bounded steps, factor one, parameters untouched. hidden_hysteresis bound on 990
+to 1,001 of its 1,001 steps at factors down to 0.730 and breached both gates on
+all three seeds — overall scaled RMSE 0.0451/0.0476/0.0373 matched against
+limits 0.0253/0.0223/0.0276 and 0.0940/0.1061/0.0998 shifted against
+0.0632/0.0547/0.0621, and horizon scaled RMSE 0.0714/0.0751/0.0588 against the
+0.05 cap and 0.1464/0.1639/0.1543 against the 0.12 cap. The witness paired probe
+was unchanged at 0.0029/0.0028/0.0040. Verify replayed all 27 cases in 54
+replays to a maximum difference of 7.8e-16 and reproduced the same rejection.
+The evidence measurement folded into that run accepted, with the band still
+unenforced, 253 band breaches none of them gating, and its three reference
+regressions all hidden_hysteresis. The whole run took 54.3 s.
+
+*What the platform tier would have said, measured before the commit and not a
+gate run.* Fitting the candidate corpus by corpus through the platform tier's
+own split and scoring the manifest's own held-out rows: x8 and epfl reproduce
+their references to every digit (0.2223/0.1325 and 0.1456/0.0698), because the
+bound never binds on x8 and epfl's one-step horizon has no recursion; nanodrone
+0.1432/0.5608 against a reference of 0.1360/0.5432 and limits of 0.1478/0.5753,
+inside; **arp 0.1699/0.6194** against 0.1759/0.7155, both improving, with arp's
+velocity below the structured comparator's 0.1744 for the first time and its
+body rate still 2.2 times the comparator's 0.2850 and above hold-current's
+0.3623; and **idf 0.1818/0.1270** against 0.1575/0.1221 and limits of
+0.1704/0.1332, a velocity regression that would have rejected the tier
+independently of hidden_hysteresis.
+
+**arp should be recorded as evidence-limited.** The gain is now measured, and
+bounding it is not the lever. arp's recursion is within the plant's own growth
+on every row the fit can read: its development recording, log 63, has the
+model's error *shrinking* over the horizon, 0.611 of its first-step error, while
+the held-out log 66 has it growing 1.282 per step against the process's 1.194.
+The training windows show 1.473. There is no quantity on logs 63, 64 and 65 that
+the log 66 failure is visible in, which is the same finding attempt 3 reached
+from the optimizer side and the record's own ceilings state from the outcome
+side: an oracle scalar gain reaches 0.2824 against the 0.285 comparator only by
+reading log 66, the best rule that reads no held-out row reaches 0.3300, and the
+same recipe fitted on log 66 itself reaches 0.105. Two flights of rate RMS 0.65
+and 0.59 do not determine a third of 0.41. That is a charter question for the
+owner, not a threshold to move and not a fifth attempt.
+
+**Reviewer decision after four attempts.** Accuracy holds on four of five
+corpora and every declared allowance. The structural lever the first three
+attempts left is now measured and spent: the recursion's gain is bounded above
+by the plant's own growth on every row arp's fit can read, the one attempt that
+carried that bound inside the fit was rejected by the synthetic gate, and the
+one thing the bound did move on arp -- velocity below the structured comparator
+for the first time -- it moved while idf's velocity regressed. arp is
+evidence-limited by its four flights, which is a charter question for the owner
+and not a threshold to move; no fifth attempt is queued. The remaining named
+mechanisms all belong to the questions below.
 
 ## Control attempt 2, no candidate: the regime, not the commands
 
@@ -375,22 +476,18 @@ owner, listed below; neither is a threshold to move.
 
 ## Next iteration
 
-The one queued candidate that needs no owner decision: arp's structural
-attempt on the Accuracy row. From the current tip, freeze nothing new (the
-platform-v3 gate and reference stand), diagnose with the artifacts in the
-record (error growth 1.282 per step against the process's 1.194; one-step map
-spectral radius above 1 at every origin; an oracle post-fit gain reaching only
-0.2824 against the 0.285 comparator), and make one change that carries a
-bound on the recursion's gain inside the fit (a contractive or
-stability-regularized one-step map, a rollout-consistency term, or an
-equivalent structural assumption), with no caller option and no platform
-branch. Gate on all five tiers under the current semantics; report every
-number. If arp still misses the comparator with the gain bounded, record the
-corpus as evidence-limited for the owner and stop attempting it.
+Nothing on the Accuracy row. arp's structural attempt has been made and
+measured; the corpus is recorded as evidence-limited above, and the charter
+question that follows is the owner's. Every other unmet row -- Control, Live
+improvement, Evidence -- traces to the one root cause named above, and none of
+them can be moved without one of the owner decisions below, because the
+identifying variation the generic learner needs is not in the recordings it is
+given and no change to the learner can put it there.
 
 Questions for the owner, in order of consequence: whether the caller may
 declare exogenous excitation as a signal so command response can be identified
 from closed-loop recordings; whether the calibration protocol must contain the
 regime a trial flies as well as command excitation; whether the Evidence band
 should be declared on matched command regimes only; and whether arp's
-four-flight corpus is evidence-limited.
+four-flight corpus, now measured as evidence-limited, is accepted as such or
+re-collected.
