@@ -1,15 +1,15 @@
 # Status: gap against the charter
 
-Measured on 2026-09-16 at commit `783922e`. One row per criterion in
+Measured on 2026-09-16 at commit `785b7bd`. One row per criterion in
 [`charter.md`](charter.md). "Current" is what the harness or the recorded
 artifacts actually measured; "not measured" means exactly that.
 
 | Criterion | Current | Target | Last change |
 | --- | --- | --- | --- |
-| One recipe | **Met.** One recipe (`generic-memory-v2-prototype`) in `experimental/default_model.py`, one model kind, one harness in `experimental/harness.py`; `fit`, `predict`, `update` with no options. Seven experimental modules; the harness now has a synthetic and a platform tier. | One recipe, one module, one harness; `fit`, `predict`, `update` only. | Lean-down merged at `c5e84ab`. |
+| One recipe | **Met.** One recipe (`generic-memory-v2-prototype`) in `experimental/default_model.py`, one model kind, one harness in `experimental/harness.py`; `fit`, `predict`, `update` with no options. Seven experimental modules; the harness has synthetic, platform, and control tiers, and `experimental/learned_plan.py` presents the learner to the NMPC seam. | One recipe, one module, one harness; `fit`, `predict`, `update` only. | Lean-down merged at `c5e84ab`. |
 | Accuracy | **Measured, not met.** Platform tier v1 (`docs/harness/platform-v1.json`, digest `8d4705d8`), whole recordings held out, both models scored on identical rows at the recipe's horizon; final-step velocity m/s / body rate rad/s, generic versus best structured arm: nanodrone 0.136/0.543 vs 0.179/0.597; x8 0.222/0.132 vs 0.287/0.187; idf 0.158/0.122 vs 0.554/0.174; epfl 0.146/0.070 vs 0.526/0.217; **arp 0.176/0.715 vs 0.174/0.285**, and hold-current 0.149/0.362. Rule met on four of five corpora; inside every declared allowance. The arp failure is roll and pitch rate: worse than hold-current from the first 20 ms step on the development recording, growing linearly to 0.85/0.89 rad/s at 240 ms with a -0.2 rad/s roll-rate bias, while yaw rate beats the structured model (0.154 vs 0.323). | Every pinned corpus, whole recordings held out: generic error at or below the structured model on the same rows, and inside the allowance (nano 0.696/3.706, X8 1.601/0.764, ARP log66 0.709/2.864). | Gate enforced at `783922e` (`platform-v2.json`, digest `f4796e1a`, regression reference `platform-reference.json`). Three attempts below, none accepted. |
 | Capability | **Met.** Harness v1 (manifest digest `1ba15b3f`) accepts 27 of 27 cases end to end through `fit(recordings)`: every M2 cap holds, witness paired-probe first step 0.0029/0.0028/0.0040 against a 0.05 limit and a 0.2 blind floor, tightest cap margin 0.74 of cap. Reference scores frozen in `docs/harness/reference.json`. | Pass the harness caps on every run. | Lean-down merged at `c5e84ab`. |
-| Control | No generic model has run in Cascade tracking. The last learned predictor tried there diverged in 3 of 3 trials; the simulator-equation predictor passed 3 of 3. | Meet or beat the structured model on the matched Cascade trial set. | None. |
+| Control | **Measured, not met.** Control tier v1 (`docs/harness/control-v1.json`, digest `d5d13d3d`): Cascade X8 cruise reference, three 8 s calibration recordings, 12 s trials, two repetitions, both arms through the same bounded solver under the seam's no-evidence override. Generic arm position 60.35 m / attitude 121.9 deg RMSE on both trials; structured arm 1.21 m / 1.02 deg; no terminated trial. The generic arm tracks better for the first half second (0.005 m / 0.59 deg against 0.176 m / 3.41 deg) and then loses the aircraft (9.3 deg at 1 s, 117 deg at 3 s, altitude 100 m to -26 m). Its 0.25 s forecast on the reserved recording beats hold-current on every channel group, so the mechanism is the command Jacobian: against the plant's step response the generic throttle column has direction cosine -0.056 and magnitude ratio 26.9 where the structured model has 0.968 and 1.39, while pitch and roll match. The calibration pilot holds throttle within a standard deviation of 0.02 to 0.03 of a 1.0 range, an almost unregularized ridge puts a large wrong coefficient on that column, open-loop scoring never charges for it, and the solver drives throttle to its bound. Horizons differ: generic 0.25 s (the fitted horizon), structured 0.80 s. | Meet or beat the structured model on the matched Cascade trial set. | Control tier merged at `785b7bd`; no recipe change yet. |
 | Live improvement | Streaming transport and the background refinement worker exist for the structured belief only. No generic refit-and-swap. | Bounded refit on streamed recordings and a threshold swap during a Cascade run; tracking after the swap no worse. | None. |
 | Evidence | The learner reports development errors per recording against a hold-current reference, and the harness reports per-horizon and per-recording scaled errors. No forecast carries an envelope, and nothing calibrates one. | Every forecast carries an envelope with held-out coverage in a declared band, consumed by the controller's robustness terms. | None. |
 | Lean | Generic track done: 48 research scripts, 24 test modules, 11 experimental modules, 85 MB of archives and 18 research pages deleted. Structured core still present (dynamics, identification, fitting, five belief modules); 25 scripts and three structured-evidence pages remain for it. | Learner, harness, telemetry adapters, controller. | Lean-down merged at `c5e84ab`. |
@@ -124,26 +124,26 @@ hold-current, but still 16% above the gate, and it leaves x8 at 0.2372 against a
 corpora and every declared allowance. On arp the remaining lever is
 structural: a recursion whose gain is carried by the fit. That attempt is
 queued, not abandoned. The largest gaps in this table are now the three rows
-with no measurement at all, so the loop rotates to Control, then Evidence,
-then Live improvement, and returns to arp with the structural change after
+with no measurement at all, so the loop rotates to Control first; Live improvement needs a flyable
+controller, so Control's named mechanism is attempted before Evidence and Live,
+and the loop returns to arp with the structural change after
 each has a first measurement. If arp's body rate proves to be evidence-limited
 by a four-flight corpus, that is a charter question for the owner, not a
 threshold to move.
 
 ## Next iteration
 
-Control measurement. Present the generic learner to the existing NMPC seam as
-a `PlanModel` (`glassbox.control.plan`): the learner's 15 observed channels
-map to the controller's rigid-body state by integrating position from
-predicted world velocity and projecting the predicted rotation entries onto a
-quaternion; the memory is carried from the observed history. No covariance is
-claimed: run under the explicit no-evidence path the seam already provides,
-and record that. Freeze `docs/harness/control-v1.json` before any trial: the
-Cascade X8 plant and cruise reference, calibration recordings, duration,
-seeds, controller policy and trial pairs exactly as `examples/cascade_refinement.py`
-runs the structured belief's frozen arm, and the rule that the generic arm's
-position and attitude tracking RMSE are at or below the structured arm's on
-the same trials, with no terminated trial. This iteration measures both arms
-on the same trials and reports; the rule gates merges from the first recipe
-change that follows. Recipe and learner arithmetic unchanged; the synthetic
-and platform tiers must reproduce their references.
+Control attempt 1 on the named mechanism, gated. Before any fit, freeze
+`docs/harness/control-v2.json` with the same protocol and the rule enforced,
+and commit it. Diagnose first: confirm that standardizing the almost-constant
+throttle input by its sample standard deviation makes the ridge penalty
+negligible in physical units and inflates the learned physical sensitivity by
+the measured 26.9; and measure, as a diagnostic, whether the structured arm at
+a 0.25 s horizon still tracks, so the horizon asymmetry is either ruled out or
+named. Then one change to the learner that stops it from extrapolating in
+command directions the recordings never excite, using only declared facts or
+the data itself (for example the caller's declared command range as the input
+scale, or a penalty stated in physical units), with no caller option and no
+platform branch. Bump the recipe id and format. Gate it on the synthetic and
+platform references and on control-v2; report every number whether or not it
+passes; thresholds do not move.
