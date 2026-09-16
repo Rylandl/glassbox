@@ -5,6 +5,20 @@ All notable changes to Glassbox are recorded here. The format follows
 
 ## Unreleased
 
+- Enforce the evidence band. `docs/harness/evidence-v2.json` replaces
+  `docs/harness/evidence-v1.json`, which is deleted: the same envelope, channel
+  groups, 85% to 95% band, coverage definition, reference and semantics, with
+  `enforced` true and the id changed, and the digest constant in
+  `glassbox.experimental.harness` updated to match. `evidence-v1` left the flag
+  false for its own first measurement and said the band would gate from the
+  first candidate after it; this manifest is that rule, stated before the next
+  candidate is fitted. A coverage above the band breaches it exactly as one
+  below it does, so no candidate may trade a case that holds the band for one
+  that does not. The four committed references are unchanged, and so is the
+  learner: the first candidate measured under this rule, a half-width widened
+  by the support of its query, is recorded in `docs/status.md` as Evidence
+  attempt 1 and rejected there.
+
 - Measure the live improvement row for the first time.
   `docs/harness/live-v2.json` is the fifth frozen gate, with its own digest
   constant and a `live` harness command: `control-v3`'s plant, task,

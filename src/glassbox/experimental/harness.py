@@ -924,11 +924,11 @@ def verify(directory, reference=None):
 # --- the evidence tier: one envelope, one band ------------------------------
 
 EVIDENCE_MANIFEST_SHA256 = (
-    "2c2d2f0dd7d9c27d89b468f662991fe1639db1d053c4f5ca2d3e058de9a39431"
+    "c669b2ccfd6a11272f32839120fb1a33bdf3ae4bbc6120f444467c784d4dbe29"
 )
 """Digest of the frozen evidence manifest every tier measures coverage under."""
 
-COMMITTED_EVIDENCE_MANIFEST = COMMITTED_MANIFEST.parent / "evidence-v1.json"
+COMMITTED_EVIDENCE_MANIFEST = COMMITTED_MANIFEST.parent / "evidence-v2.json"
 """The frozen evidence manifest in a source checkout.
 
 Unlike the three tier manifests this one is not a command-line argument. It is

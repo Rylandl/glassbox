@@ -11,7 +11,7 @@ artifacts actually measured; "not measured" means exactly that.
 | Capability | **Met.** Harness v1 (manifest digest `1ba15b3f`) accepts 27 of 27 cases end to end through `fit(recordings)`: every M2 cap holds, witness paired-probe first step 0.0029/0.0028/0.0040 against a 0.05 limit and a 0.2 blind floor, tightest cap margin 0.74 of cap. Reference scores frozen in `docs/harness/reference.json`. | Pass the harness caps on every run. | Lean-down merged at `c5e84ab`. |
 | Control | **Measured, not met.** Control tier v3 (`docs/harness/control-v3.json`, digest `69cb4d99`): the tracking task of `docs/cascade-accuracy.md` (lateral sin(0.35 t) m, altitude 100 + 0.75 sin(0.3 t) m, 16 s, seeds 101 and 102), calibration whose setpoint variation moves every command at least 10% of its range (throttle now 12 to 14%, was 2 to 3%), both arms through the same bounded solver under the no-evidence override. Generic arm 60.80 m / 97.2 deg and 49.31 m / 86.5 deg; structured arm 1.18 m / 1.32 deg and 1.18 m / 1.28 deg; no terminated trial. The structured arm holds lateral position to 0.27 m but settles about 2 m high, so it does not pass the page's 0.5 m criterion either (reported, not gated). Holding trim scores 1.22 m / 0.75 deg and 1.73 m / 1.90 deg, so the task now demands authority on position and mostly on attitude. Excitation did not fix the generic arm: it still drives throttle far below trim and rests roll near its bound; the seam prices none of the learner's ignorance because the learner declares none. Attempt 2 diagnosed it and fitted no candidate: the ceiling of a perfect command response is 9.04 m, of perfect command confinement 26.96 m, and of claiming nothing 1.22 m, because the model predicts a 0.172 m/s sink out of a plant resting exactly at trim. | Meet or beat the structured model on the matched Cascade trial set. | control-v3 reference merged at `35b85ec`; the envelope (`7224ace`) left tracking identical. Attempt 2 below, no candidate. |
 | Live improvement | **Measured, not met.** Live tier v2 (`docs/harness/live-v2.json`, digest `39394675`): control-v3's plant, task, calibration and arms; the structured belief flies from the start; the generic learner refits on the trial's own 40-interval blocks through the existing transition buffer and refinement worker, and is offered when its held-out forecast error on the newest block beats the structured belief's. The trajectory is computed in simulated time (no wall-clock fallbacks, refits released a declared 40 intervals after their block, worker driven synchronously); two runs are byte-identical. Every refit took 0.86 to 0.91 s inside a 4.0 s budget with no overrun or dropped block. The swap happened at interval 140 (7.0 s) in both adopting trials because the candidate's forecast error (0.032 / 0.024 m/s, rad/s) beat the structured belief's (0.158 / 0.080), and tracking then went from 0.87 m / 1.7 deg to 19.4 m / 86 deg and from 0.90 m / 1.6 deg to 5.7 m / 14.9 deg. Hold-current scores 0.021 m/s / 0.0014 rad/s on the decision block, better than both models: a held-out forecast comparison in a quiet regime reads no command authority. | Bounded refit on streamed recordings and a threshold swap during a Cascade run; tracking after the swap no worse. | Live tier merged at `94ea90e`; mechanics met, rule not met. |
-| Evidence | **Measured, not met.** Evidence tier v1 (`docs/harness/evidence-v1.json`): every forecast now carries a split-conformal 90% half-width per horizon step and channel, calibrated only on the recipe's own development windows, stored in the artifact and read through `envelope()`; the plan model maps it into the controller's diagonal tangent covariance and `uncertainty_available` is true. Held-out coverage against the 85 to 95% band at the recipe's horizon, world velocity / body rate / rotation entries: nanodrone 0.906 / 0.858 / 0.886, x8 0.918 / 0.929 / 0.906, idf 0.890 / 0.872 / 0.897, epfl 0.894 / 0.856 / 0.873, **arp 0.755 / 0.689 / 0.717**, control reserved recording 0.833 / 0.797 / 0.799; synthetic matched regimes 0.88 to 0.94, **shifted regimes 0.13 to 0.82**. The development windows of one set of recordings are not exchangeable with a different flight or command regime, and nothing was widened. The seam charges the envelope, but with no resolved parameter direction the charge is the same for every plan and cannot move a command: the generic arm's tracking is identical to the incumbent's. | Every forecast carries an envelope whose held-out coverage lands in the declared band, and the controller's robustness terms consume it. | Evidence tier and `generic-memory-v3-prototype` merged at `7224ace`. |
+| Evidence | **Measured, not met.** Evidence tier v2 (`docs/harness/evidence-v2.json`, band 85 to 95% and now `enforced: true`; `evidence-v1` was the same contract with the flag false for its own first measurement and is deleted): every forecast carries a split-conformal 90% half-width per horizon step and channel, calibrated only on the recipe's own development windows, stored in the artifact and read through `envelope()`; the plan model maps it into the controller's diagonal tangent covariance and `uncertainty_available` is true. Held-out coverage against the band at the recipe's horizon, world velocity / body rate / rotation entries: nanodrone 0.906 / 0.858 / 0.886, x8 0.918 / 0.929 / 0.906, idf 0.890 / 0.872 / 0.897, epfl 0.894 / 0.856 / 0.873, **arp 0.755 / 0.689 / 0.717**, control reserved recording 0.833 / 0.797 / 0.799; synthetic matched regimes 0.88 to 0.94, **shifted regimes 0.13 to 0.82**. The development windows of one set of recordings are not exchangeable with a different flight or command regime, and nothing is widened. The seam charges the envelope, but with no resolved parameter direction the charge is the same for every plan and cannot move a command: the generic arm's tracking is identical to the incumbent's. One attempt below, rejected: widening every half-width by the support of its query repaired arp and the control tier's reserved recording and pushed x8 from 30 of 30 band cells inside the band to 0 of 30 above it. | Every forecast carries an envelope whose held-out coverage lands in the declared band, and the controller's robustness terms consume it. | Evidence tier and `generic-memory-v3-prototype` merged at `7224ace`; the band enforced as `evidence-v2` after attempt 1. |
 | Lean | Generic track done: 48 research scripts, 24 test modules, 11 experimental modules, 85 MB of archives and 18 research pages deleted. Structured core still present (dynamics, identification, fitting, five belief modules); 25 scripts and three structured-evidence pages remain for it. | Learner, harness, telemetry adapters, controller. | Lean-down merged at `c5e84ab`. |
 
 ## Diagnosis on record
@@ -474,25 +474,98 @@ calibration protocol is required to contain it and the learner is made
 accountable for the response it shows. Both are charter decisions for the
 owner, listed below; neither is a threshold to move.
 
+## Evidence attempt 1, rejected: widening by distance is not widening by need
+
+The queued candidate, fitted as `generic-memory-v4-prototype` at `21eb664`
+19:02:10Z with the first gate fit at 19:02:17Z, and reverted. It carried one
+change to the learner's evidence: every half-width was the calibrated table
+times `max(1, d / m)`, where `d` is the standardized distance of the query's own
+origin features from the training windows -- the current observation, the two
+earlier observations as differences from it, and the two commands applied before
+it as differences from the last of them, each in the model's own normalized
+units, standardized by the training windows' mean and spread and pooled as a
+root mean square -- and `m` is the median of that same distance over the
+development windows the table is calibrated on. No new constant, no caller
+option, no platform branch. What it measured is recorded here; the candidate
+itself is not kept, the learner is unchanged at `generic-memory-v3-prototype`,
+and the four references are the ones it was measured against. The band is
+enforced from `evidence-v2` so that the rule this was judged by is the rule the
+manifest states.
+
+*The support statistic separates three of the four named cases.* Median query
+distance over the development median: every shifted synthetic regime 1.9 to 3.4
+against its own matched regime's 1.00 to 1.15, with no matched case above 1.15
+and no shifted case below 1.9; arp 1.74 against nanodrone 1.00, idf 1.00, epfl
+1.00 and x8 1.25; the control tier's reserved recording 1.17. Within a case the
+distance orders the error too: the Spearman correlation of the distance against
+the row's mean absolute error over its half-width is 0.83 on arp, 0.87 on x8,
+0.84 on nanodrone, 0.90 on epfl, 0.66 on idf and 0.36 on the reserved recording,
+and coverage in the closest fifth of each corpus's rows against the farthest
+fifth is 0.965 against 0.377 on arp, 0.998 against 0.625 on x8, 0.991 against
+0.728 on nanodrone, 1.000 against 0.548 on epfl, 0.975 against 0.772 on idf and
+0.841 against 0.669 on the reserved recording.
+
+*The fourth case it does not reach.* The held-at-trim origin whose forecast
+drifts 0.172 m/s of vertical velocity out of a stationary aircraft sits at 0.39
+of the development median distance, and the structured arm's own flown
+trajectory -- the regime the control trial actually flies -- at 0.44, with a
+maximum widening of 1.20 over 612 origins. That phantom sink is inside the
+data, not outside it, and no support statistic reaches it.
+
+*What the five tiers measured.* All five ran and each `verify` replayed its own
+run: synthetic 25.0 s, platform 1,119.8 s, control 101.8 s, live 112.4 s. The
+mean fit is untouched by construction and the runs said so -- all 51 synthetic
+case-and-regime overall scaled RMSEs and all ten platform final-step RMSEs
+reproduced their references to every digit, the witness paired probe was
+unchanged, and the live tier swapped at interval 140 in both adopting trials on
+identical block scores. The one metric that moved at all was the control tier's
+second generic trial, 49.2902 m / 86.5264 deg against 49.3076 / 86.5140, 0.04%
+and 0.01%, because the seam's spread term is a larger constant at some origins
+and the solver's relative-improvement test reads a constant.
+
+Coverage at the recipe's horizon, world velocity / body rate / rotation entries,
+incumbent -> candidate:
+
+| Case | Incumbent | Candidate | Band cells inside 85 to 95% |
+| --- | --- | --- | --- |
+| nanodrone | 0.905 / 0.858 / 0.886 | 0.936 / 0.888 / 0.913 | 75 of 75 -> 71 of 75 |
+| x8 | 0.918 / 0.929 / 0.906 | **0.998 / 0.995 / 0.990** | **30 of 30 -> 0 of 30** |
+| idf | 0.890 / 0.872 / 0.897 | 0.937 / 0.923 / 0.947 | 32 of 36 -> 28 of 36 |
+| epfl | 0.894 / 0.856 / 0.873 | 0.950 / 0.919 / 0.943 | 3 of 3 -> 2 of 3 |
+| arp | 0.755 / 0.689 / 0.717 | **0.939 / 0.921 / 0.933** | **0 of 36 -> 28 of 36** |
+| control reserved | 0.833 / 0.797 / 0.799 | **0.893 / 0.890 / 0.874** | **1 of 15 -> 15 of 15** |
+| synthetic matched, pooled over families | 0.826 to 0.981 | 0.890 to 1.000 | 145 of 210 -> 120 of 210 |
+| synthetic shifted, pooled over families | 0.105 to 0.869 | 0.209 to 0.972 | 7 of 195 -> 19 of 195 |
+
+*Why it is rejected.* Under the band the tier declares, a candidate may not
+trade a case that holds it for one that does not. The platform tier would have
+41 gating breaches, every one of them above the band and 30 of them x8's, and
+the synthetic tier 47, every one above the band and 41 of them matched regimes
+that were inside it. The run recorded them as `gating` and the flag in the
+manifest, not the rule, is why nothing rejected it at the time.
+
+*What the numbers say the shape is wrong.* The widening is applied by distance
+and the band is a statement about need. x8's development recording happens to
+sit unusually close to its training recordings -- median distance 0.418, against
+nanodrone's 0.730, idf's 0.781 and epfl's 1.344 -- so its held-out queries are
+far in those units and the rule widened them by a median of 1.25 and a mean of
+2.05 although its envelope already covered them. arp's development recording
+sits at 0.493 and its held-out flight genuinely is elsewhere, so the same rule
+widened it by a median of 1.74 and repaired it. One reference, measured from
+whichever recording the fit happened to hold out, cannot separate those two.
+And the shifted regimes are improved rather than repaired for the complementary
+reason: the widening the statistic asks for there is 2 to 3 times while the
+error at those origins is 3 to 8 times the half-width. A support statistic
+states how far a query is from the calibration; what the band needs is how
+fast this model's error grows with that distance, which is a quantity no
+attempt has yet measured. That is the next mechanism if the owner wants one,
+and it is not a threshold to move.
+
+The rejected candidate is `21eb664` and its measurement record is this section.
+
 ## Next iteration
 
-The last candidate that needs no owner decision: a support-aware envelope
-for the Evidence row. The measured gap is that a split-conformal half-width
-calibrated on development windows covers the matched regime (0.88 to 0.94)
-and collapses under a shifted command regime (0.13 to 0.82), on arp's held-out
-flight (0.69 to 0.78) and on the control tier's reserved recording (0.80 to
-0.83), while a phantom 0.172 m/s sink at trim sat inside a 0.383 m/s
-half-width. One change to the learner's evidence, no caller option: widen the
-half-width with a support statistic the learner already has, such as the
-distance of the query's normalized features and commands from the training
-windows relative to the development windows' own distances, stated as a rule
-without a new tunable, and report the same coverage table. Gate on all five
-tiers under the current semantics; the evidence band gates only where the
-reference meets it. If matched-regime coverage overshoots 95% wherever shifted
-coverage is repaired, report both and stop; that would make the band question
-below concrete.
-
-After this, every remaining row waits on the owner. In order of consequence:
+Every remaining row waits on the owner. In order of consequence:
 
 1. **Declared excitation.** Closed-loop recordings do not identify command
    response, and every instrument that reads open-loop forecast error is
@@ -504,8 +577,14 @@ After this, every remaining row waits on the owner. In order of consequence:
 2. **Calibration regime.** Must a calibration contain the regime a trial flies
    as well as the excitation that identifies its commands? The two are in
    tension and control-v3 declares only the second.
-3. **Evidence band.** Should the 85 to 95% band be declared on matched command
-   regimes only, or must the envelope carry support (the candidate above)?
+3. **Evidence band.** The band is now enforced as `evidence-v2`, and the
+   attempt above is what a support-aware envelope buys and costs under it:
+   arp 0 of 36 band cells to 28 and the control tier's reserved recording 1 of
+   15 to 15, against x8 30 of 30 to 0 by overshooting. Should the 85 to 95%
+   band be declared on matched command regimes only, with something else
+   declared for queries outside the calibration, or must an envelope that
+   covers them overshoot where it was already adequate? Either answer is a
+   manifest change, which is the owner's.
 4. **arp.** Its four flights are evidence-limited for body rate at 240 ms;
    four attempts and every ceiling measurement agree. Accept it as such, add
    recordings, or keep the row open.

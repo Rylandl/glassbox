@@ -16,7 +16,7 @@ import pytest
 
 from glassbox.experimental import harness
 
-MANIFEST = Path(__file__).resolve().parents[1] / "docs/harness/evidence-v1.json"
+MANIFEST = Path(__file__).resolve().parents[1] / "docs/harness/evidence-v2.json"
 GROUPS = ("world_velocity", "body_rate", "rotation_entries")
 HORIZONS = 3
 
@@ -63,14 +63,14 @@ def decide(
     reference=None,
     enforced=False,
 ):
-    """Decide these rows, optionally under the band this manifest enforces later.
+    """Decide these rows under either reading of the band.
 
-    ``enforced`` is the one thing the next candidate changes, so every failure
-    below is measured against both readings of the same manifest.
+    ``enforced`` is the one thing that separates the committed manifest, which
+    gates, from the reported-only reading it replaced, so every failure below
+    is measured against both.
     """
-    if enforced:
-        manifest = copy.deepcopy(manifest)
-        manifest["decision"]["enforced"] = True
+    manifest = copy.deepcopy(manifest)
+    manifest["decision"]["enforced"] = enforced
     return harness.evidence_decide(
         manifest, tier, rows, expected_for(manifest, tier, regime), reference
     )
@@ -88,7 +88,7 @@ def gates(decision):
 def test_the_manifest_digest_gates_the_evidence_contract(tmp_path, manifest):
     assert harness.sha256(MANIFEST) == harness.EVIDENCE_MANIFEST_SHA256
     assert harness.COMMITTED_EVIDENCE_MANIFEST == MANIFEST
-    altered = tmp_path / "evidence-v1.json"
+    altered = tmp_path / "evidence-v2.json"
     widened = copy.deepcopy(manifest)
     widened["band"]["minimum"] = 0.5
     harness.write(altered, widened)
@@ -102,7 +102,7 @@ def test_the_manifest_declares_the_band_the_nominal_level_and_the_plan(manifest)
     assert manifest["band"] == {"minimum": 0.85, "maximum": 0.95, **manifest["band"]}
     assert (manifest["band"]["minimum"], manifest["band"]["maximum"]) == (0.85, 0.95)
     assert manifest["envelope"]["nominal_coverage"] == 0.9
-    assert manifest["decision"]["enforced"] is False
+    assert manifest["decision"]["enforced"] is True
     assert set(manifest["recipe"]) == set(RECIPE)
     # The plan is pinned even though the rest of the recipe is not, exactly as
     # the other three manifests pin theirs.

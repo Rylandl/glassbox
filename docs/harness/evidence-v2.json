@@ -1,5 +1,5 @@
 {
-  "id": "evidence-v1",
+  "id": "evidence-v2",
   "scope": "The evidence tier. Every forecast the generic learner makes carries a measured error envelope, and this manifest declares what that envelope has to be, where its coverage is measured, and the band that coverage has to land in. It does not measure forecast accuracy, control adequacy, or support outside observed conditions; it measures only whether the declared envelope covers the held-out error it claims to cover.",
   "frozen": "This file and its digest constant in glassbox.experimental.harness are frozen and committed before any candidate that reports an envelope is fitted. A band, a nominal level, a channel group, a measurement set, or a reference value changed after coverage was seen fails review. The recipe block below records the recipe this manifest was frozen against; a candidate recipe may differ from it, and every run records the recipe it actually fitted. What this manifest pins about the recipe is the evaluation plan, the information budget every window is cut to, which the harness rederives.",
   "recipe": {
@@ -106,7 +106,7 @@
     }
   },
   "decision": {
-    "enforced": false,
+    "enforced": true,
     "rule": "For every declared case of the tier, every declared channel group and every horizon step: the measured coverage lies inside the declared band.",
     "metric": "band_excess, the distance the measured coverage lies outside the band: max(0, minimum - coverage, coverage - maximum), and zero for a coverage inside it. It is the smaller-is-better quantity the reference allowance is stated on, exactly as the other tiers state theirs on an RMSE.",
     "gates_from": "the first candidate after the one this manifest was frozen for. This first measurement reports coverage and does not decide any run. From the next candidate the band is enforced under the same semantics the platform and control tiers already use: a run is accepted only when no case's band_excess regresses past its reference value times 1.05 plus 0.005, the rule holds on every case the reference already meets it on, and nothing structural fails. A case the reference already fails is reported with gating false, not gated.",

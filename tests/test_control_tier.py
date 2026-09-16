@@ -1221,8 +1221,18 @@ def test_the_replay_recomputes_every_metric_and_the_decision(
     result = harness.verify_control(directory, manifest, _anchor(directory))
     assert result["tier"] == "control"
     assert result["verified_trials"] == 4
-    assert result["decision"]["accepted"] is True
     assert result["decision"]["rule_met"] is True
+    # The control side of the decision holds: nothing structural failed and
+    # nothing regressed against this run's own fabricated reference. What
+    # rejects it is the evidence band, which `evidence-v2` enforces: a
+    # fabricated reserved recording forecast by a toy learner does not cover
+    # the way the committed evidence reference records, and an enforced band
+    # says so rather than reporting it.
+    assert not result["decision"]["gate_breaches"]
+    assert not result["decision"]["reference_regressions"]
+    assert result["decision"]["evidence"]["band_enforced"] is True
+    assert result["decision"]["evidence"]["accepted"] is False
+    assert result["decision"]["accepted"] is False
     assert result["decision"]["pass_criterion"]["0-generic"]["scored_samples"] == 281
     assert "not rerun" in result["meaning"]
     # The tier is chosen by the digest of the manifest the run copied.

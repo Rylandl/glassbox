@@ -375,7 +375,7 @@ this one.
 
 ## The evidence tier
 
-[`harness/evidence-v1.json`](harness/evidence-v1.json) is the fourth frozen
+[`harness/evidence-v2.json`](harness/evidence-v2.json) is the fourth frozen
 manifest, with its own digest constant. It is not a fourth command. Coverage is
 measured inside the synthetic, platform and control runs, on exactly the rows
 those tiers already score, so each of the three copies this manifest into its
@@ -402,15 +402,23 @@ array it already saves, and `verify` rebuilds those half-widths from the saved
 model artifact, refuses an array that is not the model's own, and recomputes
 every coverage number from the replayed prediction and the saved targets.
 
-The band is not enforced for its first measurement. The manifest says it gates
-from the first candidate after the one it was frozen for, under the semantics
-the platform and control tiers already use: the metric is `band_excess`, the
-distance a coverage lies outside the band and zero inside it; a run is accepted
-only when no case's `band_excess` regresses past its reference value times 1.05
-plus 0.005, the band holds on every case the reference already meets it on, and
-nothing structural fails. Unenforced, every number and every breach is measured,
-recorded and printed exactly as it would be enforced; only the tier's `accepted`
-flag ignores it.
+The band is enforced, under the semantics the platform and control tiers
+already use: the metric is `band_excess`, the distance a coverage lies outside
+the band and zero inside it; a run is accepted only when no case's
+`band_excess` regresses past its reference value times 1.05 plus 0.005, the
+band holds on every case the reference already meets it on, and nothing
+structural fails. A coverage above the band breaches it exactly as one below it
+does: an envelope wider than the errors it carries is as far from the declared
+level as one narrower than them, and a candidate may not trade a case that
+holds the band for one that does not.
+
+`evidence-v1` is deleted rather than kept beside it. It declared the same
+envelope, groups, band and decision and differed in one field, `enforced`,
+which it left false for its own first measurement and said would gate from the
+first candidate after it. That candidate was
+[`status.md`](status.md)'s Evidence attempt 1, and the flag was still false when
+it was measured, so this manifest states the rule that was always meant to
+apply to it.
 
 Structural problems always fail closed once the band is enforced: a declared
 case missing, duplicated or undeclared, a tier measuring a different case set
