@@ -79,8 +79,23 @@ told, and a channel whose command never moves has no range to be excited in and
 reports `None` rather than a number over zero. When no recording declares one,
 the report is byte for byte the report it was before this existed, which is why
 every artifact, fingerprint and reference the harness already holds still stands.
-Making the fit accountable for the response those recordings show is the next
-iteration, not this one.
+
+**Reading it is measured, and at this amplitude there is nothing in it to read.**
+The applied command is the non-excitation part plus the excitation identically,
+so a design holding the two of them apart spans every command column this
+recipe's design already spans; the partial slope on the declared component is
+therefore the coefficient on the command plus a mixing with that component's own
+earlier rows. On the control tier's calibration that mixing is nearly
+singular — the dither's lag-1 autocorrelation is 0.992 to 0.994 — and the
+response it identifies is 1.43, 3.60 and 0.67 times
+its own standard error between the three recordings, against 2.68, 7.05 and 4.94
+for the whole command; a dither of the same form that was never injected
+produces a slope as large and a better direction on two of the three channels.
+A two-second streamed block holds less than one period of it. The measurement,
+the amplitudes that would identify each channel, and the candidate flown at
+88.189 m against a 63.842 m regression ceiling are in
+[`status.md`](status.md#excitation-attempt-1-no-candidate-the-declaration-carries-no-information).
+The recipe therefore still reads none of it.
 
 ## The envelope
 
@@ -873,9 +888,15 @@ the ceiling of claiming nothing is 1.22 m. Nothing in this tier's gate reads a
 command Jacobian, and the swap it authorizes is the first thing that has ever
 needed one. `live-v3` removes the one remaining excuse for that gate — the
 regime it reads is now excited, and the recordings it refits on say by how much —
-and the outcome is unchanged. What is missing is not identifying variation in
-the data; it is a fit that is accountable for the response to it, which is the
-next iteration.
+and the outcome is unchanged. What is missing was then measured, and it is the
+identifying variation after all: a two-second block holds 0.41, 0.67 and 0.54 of
+a cycle of each channel's declared dither, so no block resolves a gain and a
+phase, and over a frozen arm's seven blocks the response the blocks identify is
+0.15 to 1.28 times its own standard error at direction cosines of -0.911 to
++0.028 against the plant. A fit made accountable for that would be accountable
+for noise. [`status.md`](status.md#excitation-attempt-1-no-candidate-the-declaration-carries-no-information)
+carries the measurement and the block length or the dither rate is what would
+have to change.
 
 Host measurements inform and gate nothing, and now that none of them reaches a
 command they are only that: a whole run costs about 118 s of wall time, of which
@@ -1022,7 +1043,17 @@ generic fit the calibration's own excitation as a declared signal and the
 trajectory is unchanged to every digit, because the recipe reads it and does
 nothing with it. That is the point of freezing this gate now: the data fact is
 in the contract, measured and replayed, before any candidate that is accountable
-for the response to it. Making the fit accountable is the next iteration.
+for the response to it. Making the fit accountable was then attempted and
+measured, and no candidate was fitted: at 5.72%, 2.47% and 2.30% of each
+command's range the declared component identifies no channel's one-step
+response, because the applied command is the non-declared part plus it
+identically and its own lag-1 autocorrelation is 0.992 to 0.994. Holding the
+affine block's command columns to what it does identify flies this trial at
+88.189 m against a 63.842 m regression ceiling, where holding them to what the
+whole command identifies flies at 9.577 m and to the plant's own one-step
+Jacobian at 16.148 m. The amplitudes that would identify each channel, and why
+two of the three are larger than everything those commands already do, are in
+[`status.md`](status.md#excitation-attempt-1-no-candidate-the-declaration-carries-no-information).
 
 ### What control-v2 measured, and what survives its calibration
 
