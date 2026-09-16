@@ -19,6 +19,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import pytest
+from conftest import seal_evidence
 
 from glassbox.control.plan import (
     PlanModel,
@@ -122,6 +123,7 @@ def fabricated(learned):
         recipe=learned.recipe,
         history_steps=learned.history_steps,
         horizon_steps=learned.horizon_steps,
+        envelope=learned.envelope,
     )
 
 
@@ -329,7 +331,9 @@ def test_the_plan_model_satisfies_the_seam_with_a_fabricated_learner(fabricated)
     assert plan.command_size == 3
     assert plan.exogenous_size == 0
     assert plan.latent_size == 0
-    assert plan.uncertainty_available is False
+    # The learner measures a forecast-error envelope and resolves no parameter
+    # direction, so it declares the first and not the second.
+    assert plan.uncertainty_available is True
     assert plan.uncertainty_complete is False
     np.testing.assert_allclose(np.asarray(plan.command_minimum), MINIMUM)
     np.testing.assert_allclose(np.asarray(plan.command_maximum), MAXIMUM)
@@ -354,7 +358,13 @@ def test_the_plan_model_satisfies_the_seam_with_a_fabricated_learner(fabricated)
     assert prediction.tangent_covariance.shape == (horizon, 12, 12)
     assert prediction.commands.shape == (horizon, 3)
     assert prediction.latent_states.shape == (horizon + 1, 0)
-    assert float(jnp.max(jnp.abs(prediction.tangent_covariance))) == 0.0
+    # The measured envelope reaches the plan, and it is the one the model's own
+    # values carry rather than anything the rollout invented.
+    assert float(jnp.max(jnp.abs(prediction.tangent_covariance))) > 0.0
+    np.testing.assert_array_equal(
+        np.asarray(prediction.tangent_covariance),
+        np.asarray(ready.values.forecast_error_covariance),
+    )
     assert bool(np.isfinite(np.asarray(prediction.mean_states)).all())
     np.testing.assert_allclose(np.asarray(prediction.mean_states[0]), LEVEL, atol=1e-6)
 
@@ -364,8 +374,11 @@ def test_the_plan_model_satisfies_the_seam_with_a_fabricated_learner(fabricated)
     assert math.isfinite(float(cost))
 
     measurements = ready.measure(prediction)
+    # Validity utilization stays zero because no support envelope is declared;
+    # normalized uncertainty is now the envelope's own widest marginal.
     assert float(measurements.maximum_validity_utilization) == 0.0
-    assert float(measurements.maximum_normalized_uncertainty) == 0.0
+    assert float(measurements.maximum_normalized_uncertainty) > 0.0
+    assert math.isfinite(float(measurements.maximum_normalized_uncertainty))
     assert math.isfinite(float(measurements.maximum_normalized_safety_violation))
 
 
@@ -1091,6 +1104,22 @@ def _fabricate_run(directory, manifest, learned, offsets, with_reference=True):
     (directory / "structured.json").write_text('{"belief": "fabricated"}\n')
     (directory / "structured_report.json").write_text('{"report": "fabricated"}\n')
 
+    reserved = [f"recording-{s}" for s in manifest["calibration"]["reserved_seeds"]]
+    evidence_arrays = harness.control_evidence_arrays(
+        manifest, [(name, _trajectory(int(name.split("-")[1]))) for name in reserved]
+    )
+    with jax.enable_x64(True):
+        prediction, half_width, coverage = harness.control_evidence(
+            learned, evidence_arrays
+        )
+    np.savez_compressed(
+        directory / "evidence.npz",
+        **evidence_arrays,
+        prediction=prediction,
+        envelope_half_width=half_width,
+    )
+    names.append("evidence.npz")
+
     anchor_state = LEVEL.copy()
     declared = manifest["tracking_reference"]
     intervals = manifest["trial"]["intervals"]
@@ -1148,9 +1177,8 @@ def _fabricate_run(directory, manifest, learned, offsets, with_reference=True):
             training=[
                 f"recording-{s}" for s in manifest["calibration"]["training_seeds"]
             ],
-            reserved=[
-                f"recording-{s}" for s in manifest["calibration"]["reserved_seeds"]
-            ],
+            reserved=reserved,
+            evidence=coverage,
             generic_fingerprint=learned.fingerprint(),
             command_excitation=harness.control_excitation(
                 manifest,
@@ -1173,7 +1201,14 @@ def _fabricate_run(directory, manifest, learned, offsets, with_reference=True):
         anchor, digest = harness.read(committed), harness.sha256(committed)
     harness.write(
         directory / "decision.json",
-        harness.control_decide(manifest, rows, anchor, digest),
+        seal_evidence(
+            directory,
+            harness.control_decide(manifest, rows, anchor, digest),
+            "control",
+            manifest,
+            rows=harness.control_evidence_table(coverage),
+            reserved=reserved,
+        ),
     )
     return rows
 
@@ -1451,7 +1486,10 @@ def test_the_generic_arm_tracks_the_cascade_plant_for_a_short_trial(tmp_path):
     with jax.enable_x64(True):
         model = fit(harness.control_collection(manifest, recordings))
     arm = harness._GenericArm(manifest, model)
-    assert arm.summary()["uncertainty_available"] is False
+    assert arm.summary()["uncertainty_available"] is True
+    assert arm.summary()["uncertainty_complete"] is False
+    assert arm.summary()["envelope_nominal_coverage"] == 0.9
+    assert arm.summary()["maximum_tangent_standard_deviation"] > 0.0
     assert arm.summary()["horizon_s"] == pytest.approx(0.25)
 
     def reference_fn(times):

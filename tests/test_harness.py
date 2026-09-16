@@ -13,6 +13,7 @@ from pathlib import Path
 import jax
 import numpy as np
 import pytest
+from conftest import seal_evidence
 
 from glassbox.experimental import harness
 from glassbox.experimental.sequence_model import (
@@ -377,7 +378,13 @@ def scored_run(tmp_path, manifest, *, reference=REFERENCE):
         shutil.copyfile(reference, directory / "reference.json")
         anchor, digest = harness.read(reference), harness.sha256(reference)
     harness.write(
-        directory / "decision.json", harness.decide(manifest, [], anchor, digest)
+        directory / "decision.json",
+        seal_evidence(
+            directory,
+            harness.decide(manifest, [], anchor, digest),
+            "synthetic",
+            manifest,
+        ),
     )
     return directory
 

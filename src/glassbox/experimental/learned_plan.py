@@ -28,13 +28,18 @@ at rest there, and nothing before the first observation is implied. Until the
 loop has observed enough transitions to fill the explicit-difference window the
 model is not usable at all, and this module says so rather than padding.
 
-No uncertainty is claimed. The learner carries no error envelope and resolves
-no parameter direction, so ``uncertainty_available`` and
-``uncertainty_complete`` are both false, both robustness terms are exactly
-zero, and a solve runs only under the seam's explicit no-evidence override
+*Uncertainty.* The learner now reports a measured forecast-error envelope with
+every forecast, so ``uncertainty_available`` is true and the seam's two
+robustness terms — the predicted spread charged at every tracking stage and
+again at the terminal stage — consume it exactly as they consume a belief's
+forecast-error covariance. :func:`tangent_error_covariance` is the whole of the
+mapping and states its own approximations. What the learner still does not
+resolve is any parameter direction, so ``uncertainty_complete`` stays false and
+a solve still runs only under the seam's explicit no-evidence override
 (``SolverPolicy.allow_unresolved_parameters``). The learner also establishes no
 support envelope, so validity utilization is reported as zero, meaning *no
-envelope was declared*, not *the envelope was checked and is clear*.
+envelope was declared*, not *the envelope was checked and is clear*, and the
+seam's third, validity-side robustness term has nothing to widen.
 """
 
 from __future__ import annotations
@@ -68,7 +73,7 @@ from glassbox.core.geometry import (
     rotation_to_quaternion,
 )
 
-from .default_model import LearnedDynamics, steps_for
+from .default_model import ENVELOPE_COVERAGE, LearnedDynamics, steps_for
 from .sequence_model import KIND, SequenceModel
 
 VELOCITY_ROWS = slice(3, 6)
@@ -162,6 +167,98 @@ def states_from_observed(initial_state: Array, observed: Array, dt_s: float) -> 
     return jnp.concatenate((initial_state[None, :], future), axis=0)
 
 
+ENVELOPE_STANDARD_DEVIATIONS = 1.6448536269514722
+"""Standard deviations spanned by the envelope's half-width, if errors were normal.
+
+``Phi^-1((1 + ENVELOPE_COVERAGE) / 2)`` for the learner's nominal 0.90. The
+envelope is a distribution-free half-width that covers a declared fraction of
+held-out absolute errors; the seam's robustness terms are quadratic and want a
+variance. Reading the half-width as the central interval of a Gaussian at the
+envelope's own nominal level is the one number that converts between them, and
+it is an assumption about the shape of the error distribution, not a measured
+quantity. A test ties this constant to
+:data:`~glassbox.experimental.default_model.ENVELOPE_COVERAGE`, so the two
+cannot drift apart.
+"""
+
+
+def tangent_error_covariance(half_widths, dt_s: float) -> np.ndarray:
+    """The learner's envelope as the controller's tangent forecast-error covariance.
+
+    ``half_widths`` is ``LearnedDynamics.envelope(horizon_steps)``: one 90%
+    half-width per horizon step and per observed channel, in physical units.
+    The result is ``(horizon_steps, 12, 12)`` in the tangent coordinates
+    :func:`~glassbox.core.geometry.rigid_body_local_error` returns — position,
+    velocity, attitude, body rate — which is what the seam's terms are written
+    against.
+
+    Four statements, and four approximations, one per block.
+
+    *Scale.* Each half-width becomes a standard deviation by dividing by
+    :data:`ENVELOPE_STANDARD_DEVIATIONS`. The envelope is distribution-free and
+    the seam is quadratic; this reads the half-width as a Gaussian central
+    interval at the envelope's nominal level.
+
+    *Velocity and body rates* are predicted channels, so their half-widths are
+    already stated in the tangent's own coordinates and pass straight through.
+
+    *Position* is not a predicted channel. The mean integrates the predicted
+    world velocity trapezoidally from the supplied state's own position, so the
+    half-widths are integrated on the same grid by the same rule, starting from
+    a zero half-width at the observed origin, whose velocity is observed rather
+    than predicted. Integrating half-widths rather than variances treats the
+    per-step velocity errors of one rollout as moving together, which is the
+    conservative reading and the one a recursive forecast's compounding error
+    argues for; independent steps would give a smaller number.
+
+    *Attitude* is not a predicted channel either. The mean projects the nine
+    predicted rotation entries onto the nearest rotation and reads back a
+    quaternion, and the derivative of that projection at a rotation ``R`` sends
+    an entry perturbation ``dR`` to the body-frame tangent
+    ``vee(skew(R.T @ dR))``. Take the nine entry errors to be independent with
+    one common scale ``s``, the root mean square of their nine half-widths:
+    then ``R.T @ dR`` has the same independent entries whatever ``R`` is, each
+    tangent axis is ``(A_jk - A_kj) / 2`` for a cyclic ``(i, j, k)``, and every
+    axis has standard deviation ``s / sqrt(2)`` with no correlation between
+    axes. That is exact under the isotropy assumption and independent of the
+    attitude, which is what lets one covariance stand for the whole horizon,
+    exactly as a belief's does. What it approximates is the isotropy: a rotation
+    whose entry errors are concentrated in one column is described by the same
+    number as one whose errors are spread evenly.
+
+    Only the diagonal is filled. The position and velocity blocks are genuinely
+    correlated, because one is the integral of the other, but the seam reads the
+    diagonal of this matrix and nothing else, so an off-diagonal term would be
+    an unmeasured claim that changes no number.
+    """
+
+    half = np.asarray(half_widths, dtype=float)
+    if half.ndim != 2 or half.shape[1] != OBSERVED_SIZE:
+        raise ValueError(
+            "the envelope must hold one half-width per horizon step and per "
+            f"one of the {OBSERVED_SIZE} declared observation channels"
+        )
+    if not np.isfinite(half).all() or np.any(half < 0.0):
+        raise ValueError("envelope half-widths must be finite and nonnegative")
+    if not np.isfinite(dt_s) or dt_s <= 0.0:
+        raise ValueError("the sample interval must be finite and positive")
+    sigma = half / ENVELOPE_STANDARD_DEVIATIONS
+    velocity = sigma[:, VELOCITY_CHANNELS]
+    body_rate = sigma[:, BODY_RATE_CHANNELS]
+    entries = sigma[:, ROTATION_CHANNELS]
+    speeds = np.concatenate((np.zeros((1, 3)), velocity), axis=0)
+    position = dt_s * np.cumsum(0.5 * (speeds[:-1] + speeds[1:]), axis=0)
+    isotropic = np.sqrt(np.mean(np.square(entries), axis=1)) / np.sqrt(2.0)
+    attitude = np.repeat(isotropic[:, None], 3, axis=1)
+    variance = np.square(
+        np.concatenate((position, velocity, attitude, body_rate), axis=1)
+    )
+    covariance = np.zeros((len(variance), 12, 12))
+    rows = np.arange(12)
+    covariance[:, rows, rows] = variance
+    return covariance
+
+
 def _command_bounds(name: str, values) -> np.ndarray:
     bounds = np.asarray(values, dtype=float)
     if bounds.ndim != 1 or not bounds.size or not np.all(np.isfinite(bounds)):
@@ -173,9 +270,11 @@ def _command_bounds(name: str, values) -> np.ndarray:
 class LearnedPlanModel:
     """One fitted generic learner seen as a bounded solver's dynamics.
 
-    Both robustness terms are exactly zero: the learner carries no covariance,
-    so the plan is priced by the point objective and the caller must accept
-    that explicitly through the solver policy.
+    The learner's measured forecast-error envelope, mapped into the tangent by
+    :func:`tangent_error_covariance`, is the spread the plan is charged for, and
+    it is charged exactly where a belief's is. What the learner still does not
+    have is a resolved parameter direction, so ``uncertainty_complete`` is false
+    and the caller must still accept that explicitly through the solver policy.
     """
 
     learned: LearnedDynamics
@@ -187,7 +286,7 @@ class LearnedPlanModel:
     command_minimum_array: np.ndarray
     command_maximum_array: np.ndarray
 
-    uncertainty_available: bool = False
+    uncertainty_available: bool = True
     uncertainty_complete: bool = False
     exogenous_size: int = 0
     latent_size: int = 0
@@ -219,6 +318,12 @@ class LearnedPlanModel:
     @property
     def memory_size(self) -> int:
         return int(self.learned._model.params["memory"].shape[1])
+
+    @property
+    def nominal_coverage(self) -> float:
+        """The level the consumed envelope claims, before anything measures it."""
+
+        return float(ENVELOPE_COVERAGE)
 
     @property
     def command_size(self) -> int:
@@ -291,7 +396,7 @@ class LearnedPlanModel:
         exogenous: Array,
         values: PlanValues,
     ) -> Prediction:
-        """Predict the horizon this plan drives, with a zero tangent covariance."""
+        """Predict the horizon this plan drives, with its tangent covariance."""
 
         commands = self._commands_from_normalized(
             self._expand_normalized_blocks(blocks)
@@ -332,7 +437,11 @@ class LearnedPlanModel:
         states = states_from_observed(initial_state, observed, self.sample_period_s)
         return Prediction(
             mean_states=states,
-            tangent_covariance=jnp.zeros((self.horizon_steps, 12, 12)),
+            # The measured envelope, mapped into the tangent once and carried
+            # through every kernel as a value, exactly as a belief's own
+            # forecast-error covariance is. The learner resolves no parameter
+            # direction, so there is no plan-dependent ``J C J.T`` to add to it.
+            tangent_covariance=values.forecast_error_covariance,
             commands=commands,
             latent_states=jnp.zeros((self.horizon_steps + 1, self.latent_size)),
             exogenous=exogenous,
@@ -381,18 +490,25 @@ class LearnedPlanModel:
         previous_command: Array,
         policy: SolverPolicy,
     ) -> Array:
-        """Price one plan by the same objective a belief is priced by, minus spread.
+        """Price one plan by the same objective a belief is priced by.
 
         Tracking, terminal, smoothness and safety terms are written exactly as
-        :class:`~glassbox.control.fitted.BeliefPlanModel` writes them. The two
-        robustness terms are absent because the evidence they charge for is
-        absent: there is no predicted spread to charge and no declared support
+        :class:`~glassbox.control.fitted.BeliefPlanModel` writes them, and so
+        are the two robustness terms: tracking charges
+        ``E[l] = l(mean) + trace(W Sigma)`` at every predicted stage, and the
+        terminal term charges the last stage's spread again, for the same
+        diagonal tracking weight built from the declared tolerances. The
+        validity term is still absent, because the learner declares no support
         envelope to be near the edge of.
         """
 
         states = prediction.mean_states
         local_error = jax.vmap(rigid_body_local_error)(reference_states[1:], states[1:])
         error = local_error / self.tolerances.local_state_scale
+        variance = jnp.diagonal(prediction.tangent_covariance, axis1=-2, axis2=-1)
+        spread = jnp.sum(
+            variance / jnp.square(self.tolerances.local_state_scale), axis=1
+        )
         delta = jnp.diff(
             jnp.concatenate((previous_command[None, :], prediction.commands), axis=0),
             axis=0,
@@ -401,8 +517,10 @@ class LearnedPlanModel:
             * (self.command_maximum - self.command_minimum)
         )
         safety = jax.vmap(self._safety_violation)(states[1:])
-        tracking_cost = jnp.mean(jnp.sum(jnp.square(error), axis=1))
-        terminal_cost = policy.terminal_weight * jnp.sum(jnp.square(error[-1]))
+        tracking_cost = jnp.mean(jnp.sum(jnp.square(error), axis=1) + spread)
+        terminal_cost = policy.terminal_weight * (
+            jnp.sum(jnp.square(error[-1])) + spread[-1]
+        )
         smoothness_cost = policy.command_change_weight * jnp.mean(jnp.square(delta))
         safety_cost = policy.safety_weight * jnp.mean(jnp.square(safety))
         return tracking_cost + terminal_cost + smoothness_cost + safety_cost
@@ -410,17 +528,26 @@ class LearnedPlanModel:
     def measure(self, prediction: Prediction) -> PlanMeasurements:
         """Measure the margins the result reports for one finished plan.
 
-        Validity utilization is zero because this model declares no support
-        envelope, not because a support check passed. Normalized uncertainty is
-        zero because no spread is claimed.
+        Normalized uncertainty is the widest marginal standard deviation of the
+        predicted tangent covariance in units of the declared tolerances, which
+        is the same readout a belief reports. Validity utilization is still zero
+        because this model declares no support envelope, not because a support
+        check passed.
         """
 
+        variance = jnp.diagonal(prediction.tangent_covariance, axis1=-2, axis2=-1)
+        positive = variance > 0.0
+        deviation = jnp.where(
+            positive, jnp.sqrt(jnp.where(positive, variance, 1.0)), 0.0
+        )
         return PlanMeasurements(
             maximum_validity_utilization=jnp.zeros(()),
             maximum_normalized_safety_violation=jnp.max(
                 jax.vmap(self._safety_violation)(prediction.mean_states[1:])
             ),
-            maximum_normalized_uncertainty=jnp.zeros(()),
+            maximum_normalized_uncertainty=jnp.max(
+                deviation / self.tolerances.local_state_scale[None, :]
+            ),
         )
 
 
@@ -431,6 +558,7 @@ def _compile_signature(
     policy: SolverPolicy,
     command_minimum: np.ndarray,
     command_maximum: np.ndarray,
+    values: PlanValues,
 ) -> str:
     """Digest the static structure a kernel compiled for this plan model traces.
 
@@ -457,6 +585,9 @@ def _compile_signature(
     add(safety_envelope)
     add(policy)
     add((tuple(command_minimum.tolist()), tuple(command_maximum.tolist())))
+    # The stage forecast-error covariance travels as a value like everything
+    # else, so only its shape is traced, exactly as a belief's is.
+    add(values.forecast_error_covariance.shape)
     add("no_parameter_covariance")
     return digest.hexdigest()
 
@@ -523,7 +654,17 @@ def learned_plan_model(
     values = PlanValues(
         parameters=dict(params=model.params, norms=model.norms),
         covariance_factor=None,
-        forecast_error_covariance=jnp.zeros((resolved.horizon_steps, 12, 12)),
+        # The learner's own measured envelope, read once here and mapped into
+        # the tangent, exactly as a belief's forecast-error envelope is read at
+        # the horizon's stage times. It never enters a compiled kernel as a
+        # constant, so a recalibrated envelope of the same length costs no
+        # recompile.
+        forecast_error_covariance=jnp.asarray(
+            tangent_error_covariance(
+                learned.envelope(resolved.horizon_steps),
+                float(contract["dt_s"]),
+            )
+        ),
         observed_history=None,
     )
     return LearnedPlanModel(
@@ -533,7 +674,7 @@ def learned_plan_model(
         policy=resolved,
         values=values,
         compile_signature=_compile_signature(
-            learned, tolerances, safety_envelope, resolved, minimum, maximum
+            learned, tolerances, safety_envelope, resolved, minimum, maximum, values
         ),
         command_minimum_array=minimum,
         command_maximum_array=maximum,

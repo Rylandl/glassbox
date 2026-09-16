@@ -16,6 +16,7 @@ from types import SimpleNamespace
 import jax
 import numpy as np
 import pytest
+from conftest import seal_evidence
 
 from glassbox.core.data import Trajectory
 from glassbox.experimental import harness
@@ -823,11 +824,16 @@ def test_verify_detects_which_tier_a_directory_holds(tmp_path, manifest):
     harness.write(platform / "results.json", [])
     harness.write(
         platform / "decision.json",
-        harness.platform_decide(
+        seal_evidence(
+            platform,
+            harness.platform_decide(
+                manifest,
+                [],
+                harness.read(REFERENCE),
+                harness.sha256(REFERENCE),
+            ),
+            "platform",
             manifest,
-            [],
-            harness.read(REFERENCE),
-            harness.sha256(REFERENCE),
         ),
     )
     replayed = harness.verify(platform)
@@ -842,11 +848,16 @@ def test_verify_detects_which_tier_a_directory_holds(tmp_path, manifest):
     harness.write(synthetic / "results.json", [])
     harness.write(
         synthetic / "decision.json",
-        harness.decide(
+        seal_evidence(
+            synthetic,
+            harness.decide(
+                plan,
+                [],
+                harness.read(harness.COMMITTED_REFERENCE),
+                harness.sha256(harness.COMMITTED_REFERENCE),
+            ),
+            "synthetic",
             plan,
-            [],
-            harness.read(harness.COMMITTED_REFERENCE),
-            harness.sha256(harness.COMMITTED_REFERENCE),
         ),
     )
     replayed = harness.verify(synthetic)
@@ -946,7 +957,12 @@ def scored_platform_run(tmp_path, manifest, *, reference=REFERENCE):
         anchor, digest = harness.read(reference), harness.sha256(reference)
     harness.write(
         directory / "decision.json",
-        harness.platform_decide(manifest, [], anchor, digest),
+        seal_evidence(
+            directory,
+            harness.platform_decide(manifest, [], anchor, digest),
+            "platform",
+            manifest,
+        ),
     )
     return directory
 

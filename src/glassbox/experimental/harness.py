@@ -545,7 +545,21 @@ def _files(directory, names):
     return {name: sha256(directory / name) for name in sorted(names)}
 
 
-def _evaluate(learned, supplied, plan, steps, scale, directory, regime):
+def envelope_rows(learned, prediction):
+    """The envelope this forecast carries, one half-width beside every predicted row.
+
+    ``predict`` returns a ``[row, horizon, channel]`` block and ``envelope``
+    returns the ``[horizon, channel]`` half-widths that go with it, the same for
+    every row because the calibration is a quantile over the development
+    windows rather than a function of the origin. The run saves the full block
+    anyway, so a replay reads coverage out of arrays that stand on their own.
+    """
+    prediction = np.asarray(prediction, dtype=float)
+    half = np.asarray(learned.envelope(prediction.shape[1]), dtype=float)
+    return np.broadcast_to(half, prediction.shape).copy()
+
+
+def _evaluate(learned, supplied, plan, steps, scale, directory, regime, groups):
     arrays = evaluation_rows(supplied, plan, steps)
     prediction = np.asarray(
         learned.predict(
@@ -554,10 +568,18 @@ def _evaluate(learned, supplied, plan, steps, scale, directory, regime):
     )
     if not np.isfinite(prediction).all():
         raise ValueError(f"nonfinite forecast in {regime}")
+    half_width = envelope_rows(learned, prediction)
     np.savez_compressed(
-        directory / f"{regime}.npz", **arrays, prediction=prediction, state_scale=scale
+        directory / f"{regime}.npz",
+        **arrays,
+        prediction=prediction,
+        envelope_half_width=half_width,
+        state_scale=scale,
     )
-    return score(prediction, arrays["targets"], arrays["recording_ids"], scale)
+    return (
+        score(prediction, arrays["targets"], arrays["recording_ids"], scale),
+        envelope_coverage(prediction, arrays["targets"], half_width, groups),
+    )
 
 
 def _case(manifest, family, seed, output):
@@ -577,8 +599,9 @@ def _case(manifest, family, seed, output):
     wall = time.perf_counter() - started
     learned.save(directory / "model.npz")
     scale = np.asarray(learned._model.norms["state_scale"])
+    groups = evidence_groups("per_channel", len(scale))
     fitted = set(learned.report["training"]) | set(learned.report["development"])
-    regimes = {}
+    regimes, evidence = {}, {}
     for regime in case_regimes(manifest, family):
         supplied = (
             witness_recordings(plan, seed, evaluation=True)
@@ -587,8 +610,8 @@ def _case(manifest, family, seed, output):
         )
         if {s.recording_id for s in supplied.segments} & fitted:
             raise ValueError("evaluation recording identities overlap the fit data")
-        regimes[regime] = _evaluate(
-            learned, supplied, plan, steps, scale, directory, regime
+        regimes[regime], evidence[regime] = _evaluate(
+            learned, supplied, plan, steps, scale, directory, regime, groups
         )
     names = ["model.npz", *(f"{r}.npz" for r in regimes)]
     row = dict(
@@ -601,6 +624,7 @@ def _case(manifest, family, seed, output):
         state_scale=scale.tolist(),
         report=learned.report,
         regimes=regimes,
+        evidence=evidence,
     )
     if witness:
         px, pu, uf, target = witness_probe(steps["history"], steps["horizon"])
@@ -635,6 +659,7 @@ def run(manifest_path, output):
     manifest = frozen_manifest(manifest_path)
     output.mkdir(parents=True, exist_ok=False)
     shutil.copyfile(manifest_path, output / "manifest.json")
+    evidence_manifest, evidence_reference, evidence_digest = evidence_setup(output)
     reference_path = manifest_path.parent / manifest["reference"]["file"]
     reference, reference_digest = None, None
     if reference_path.exists():
@@ -664,9 +689,29 @@ def run(manifest_path, output):
                 rows.append(_case(manifest, family, seed, output))
                 write(output / "results.json", rows)
     decision = decide(manifest, rows, reference, reference_digest)
+    with_evidence(
+        decision,
+        evidence_decide(
+            evidence_manifest,
+            "synthetic",
+            evidence_table(rows, "name"),
+            synthetic_evidence_cases(manifest),
+            evidence_reference,
+            evidence_digest,
+        ),
+    )
     decision["wall_seconds"] = time.perf_counter() - started
     write(output / "decision.json", decision)
     return decision
+
+
+def synthetic_evidence_cases(manifest):
+    """The case and regime pairs the synthetic manifest declares coverage for."""
+    return {
+        (f"{family}-{seed}", regime)
+        for family, seed in expected_cases(manifest)
+        for regime in case_regimes(manifest, family)
+    }
 
 
 # --- verifying --------------------------------------------------------------
@@ -766,6 +811,7 @@ def verify(directory, reference=None):
         model = learned._model
         scale = np.asarray(row["state_scale"])
         np.testing.assert_array_equal(scale, model.norms["state_scale"])
+        groups = evidence_groups("per_channel", len(scale))
         for regime in case_regimes(manifest, row["family"]):
             with np.load(case / f"{regime}.npz", allow_pickle=False) as data:
                 if data["past_states"].shape[1] != steps["history"] + 1:
@@ -788,6 +834,11 @@ def verify(directory, reference=None):
                     data["recording_ids"],
                     data["state_scale"],
                 )
+                coverage = _replayed_coverage(
+                    learned, prediction, data, groups, f"{row['name']}/{regime}"
+                )
+            _same_coverage(coverage, row["evidence"][regime], f"{row['name']}/{regime}")
+            row["evidence"][regime] = coverage
             saved = row["regimes"][regime]
             if sorted(fresh) != sorted(saved) or fresh["windows"] != saved["windows"]:
                 raise ValueError(f"score shape mismatch: {row['name']}/{regime}")
@@ -823,7 +874,18 @@ def verify(directory, reference=None):
             replays += 1
     anchor, digest = anchored_reference(directory, reference)
     decision = decide(manifest, rows, anchor, digest)
+    evidence_manifest, evidence_anchored, evidence_digest = evidence_anchor(directory)
+    evidence = evidence_decide(
+        evidence_manifest,
+        "synthetic",
+        evidence_table(rows, "name"),
+        synthetic_evidence_cases(manifest),
+        evidence_anchored,
+        evidence_digest,
+    )
     saved = read(directory / "decision.json")
+    _same_evidence(evidence, saved.get("evidence"), "synthetic")
+    with_evidence(decision, evidence)
     for key in (
         "manifest",
         "decision",
@@ -939,6 +1001,134 @@ def envelope_coverage(prediction, targets, half_widths, groups):
         coverage=horizons,
         pooled_coverage=pooled,
     )
+
+
+def evidence_table(rows, key, regime=None):
+    """One tier's recorded coverage, as the rows the evidence decision reads.
+
+    ``key`` is what that tier calls a case. A row that recorded no coverage at
+    all contributes nothing and is missing from the table, which is exactly how
+    the decision is told that a case was not measured.
+    """
+    table = []
+    for row in rows:
+        measured = row.get("evidence")
+        if not isinstance(measured, dict):
+            continue
+        if regime is not None:
+            table.append(dict(case=row.get(key), regime=regime, **measured))
+            continue
+        for name in sorted(measured):
+            if isinstance(measured[name], dict):
+                table.append(dict(case=row.get(key), regime=name, **measured[name]))
+    return table
+
+
+def evidence_setup(output):
+    """Freeze the evidence contract into one run and read the reference it compares.
+
+    Every tier does this the same way: the committed manifest is checked
+    against the digest constant and copied into the run, and the committed
+    reference, when one exists, is copied beside it. A checkout that does not
+    hold the evidence manifest cannot measure the evidence it declares, so the
+    run refuses rather than skipping it.
+    """
+    if not COMMITTED_EVIDENCE_MANIFEST.exists():
+        raise ValueError(
+            f"the frozen evidence manifest is not at {COMMITTED_EVIDENCE_MANIFEST}; "
+            "a run cannot measure coverage against a contract it cannot read"
+        )
+    manifest = frozen_evidence_manifest(COMMITTED_EVIDENCE_MANIFEST)
+    shutil.copyfile(COMMITTED_EVIDENCE_MANIFEST, Path(output) / EVIDENCE_MANIFEST_NAME)
+    reference, digest = None, None
+    if COMMITTED_EVIDENCE_REFERENCE.exists():
+        shutil.copyfile(
+            COMMITTED_EVIDENCE_REFERENCE, Path(output) / EVIDENCE_REFERENCE_NAME
+        )
+        reference = read(COMMITTED_EVIDENCE_REFERENCE)
+        digest = sha256(COMMITTED_EVIDENCE_REFERENCE)
+    return manifest, reference, digest
+
+
+def evidence_anchor(directory):
+    """The frozen evidence contract and reference a replay must decide under.
+
+    The manifest is anchored to the digest constant in this module rather than
+    to a file, which is how the three tier manifests are anchored too. The
+    reference is anchored to the committed file the way every other reference
+    is.
+    """
+    manifest = frozen_evidence_manifest(Path(directory) / EVIDENCE_MANIFEST_NAME)
+    reference, digest = anchored_reference(
+        directory, None, COMMITTED_EVIDENCE_REFERENCE, EVIDENCE_REFERENCE_NAME
+    )
+    return manifest, reference, digest
+
+
+def with_evidence(decision, evidence):
+    """Fold one tier's evidence decision into the decision it is measured beside.
+
+    Unenforced, the evidence decision always accepts, so this records the whole
+    coverage table and changes nothing. Enforced, a rejected band rejects the
+    run that measured it.
+    """
+    decision["evidence"] = evidence
+    if not evidence["accepted"]:
+        decision["accepted"] = False
+        decision["decision"] = "reject"
+    return decision
+
+
+def _replayed_coverage(learned, prediction, data, groups, label):
+    """Rebuild the saved envelope from the model and remeasure its coverage.
+
+    A run saves the half-widths beside its predictions, but a replay never
+    takes that array's word for anything: it asks the saved model artifact for
+    its own envelope and refuses an array that is not it, byte for byte, then
+    recomputes coverage from the replayed prediction and the saved targets.
+    """
+    saved = data["envelope_half_width"]
+    fresh = envelope_rows(learned, prediction)
+    if saved.shape != fresh.shape or not np.array_equal(saved, fresh):
+        raise ValueError(f"saved envelope is not the model's own: {label}")
+    return envelope_coverage(prediction, data["targets"], fresh, groups)
+
+
+def _same_coverage(fresh, saved, label):
+    """A replayed coverage table must match the one the run recorded."""
+    if not isinstance(saved, dict) or sorted(fresh) != sorted(saved):
+        raise ValueError(f"coverage shape mismatch: {label}")
+    for key in ("scored_rows", "horizon_steps", "channels"):
+        if fresh[key] != saved[key]:
+            raise ValueError(f"coverage shape mismatch: {label}/{key}")
+    for key in ("coverage", "pooled_coverage"):
+        if sorted(fresh[key]) != sorted(saved[key]):
+            raise ValueError(f"coverage group mismatch: {label}/{key}")
+        for group, value in fresh[key].items():
+            np.testing.assert_allclose(value, saved[key][group], **SCORE_TOLERANCE)
+
+
+def _same_evidence(fresh, saved, label):
+    """A replayed evidence decision must match the one the run wrote."""
+    if saved is None:
+        raise ValueError(f"{label} recorded no evidence decision")
+    for key in (
+        "manifest",
+        "tier",
+        "decision",
+        "accepted",
+        "band_met",
+        "band_enforced",
+        "gating_band_breaches",
+        "cases",
+        "reference_compared",
+        "reference_sha256",
+    ):
+        if fresh[key] != saved.get(key):
+            raise ValueError(f"replayed evidence decision differs: {label}/{key}")
+    for key in ("gate_breaches", "band_breaches", "reference_regressions"):
+        if len(fresh[key]) != len(saved.get(key, [])):
+            raise ValueError(f"replayed evidence decision differs: {label}/{key}")
 
 
 def _band_excess(coverage, band):
@@ -1179,6 +1369,8 @@ OBSERVED_CHANNELS = (
 VELOCITY_CHANNELS = (0, 1, 2)
 BODY_RATE_CHANNELS = (3, 4, 5)
 METRICS = ("velocity_rmse_m_s", "body_rate_rmse_rad_s")
+PLATFORM_EVIDENCE_REGIME = "held_out"
+"""What this tier calls the rows the evidence manifest measures coverage on."""
 
 
 def frozen_platform_manifest(path):
@@ -1756,6 +1948,7 @@ def _platform_corpus(manifest, entry, root, output):
     )
     if not np.isfinite(generic).all():
         raise ValueError(f"nonfinite generic forecast in {name}")
+    half_width = envelope_rows(learned, generic)
     hold = hold_current(arrays["past_states"], steps["horizon"])
     predictions, fits = {}, {}
     for arm in entry["structured"]["arms"]:
@@ -1767,6 +1960,7 @@ def _platform_corpus(manifest, entry, root, output):
         directory / "evaluation.npz",
         **arrays,
         generic_prediction=generic,
+        generic_envelope_half_width=half_width,
         hold_prediction=hold,
         **{f"structured_{arm}_prediction": p for arm, p in predictions.items()},
     )
@@ -1798,6 +1992,9 @@ def _platform_corpus(manifest, entry, root, output):
             for arm, prediction in predictions.items()
         },
         structured_fits=fits,
+        evidence=envelope_coverage(
+            generic, targets, half_width, evidence_groups("rigid_body_15", 15)
+        ),
         files=_files(directory, files),
     )
     write(directory / "result.json", row)
@@ -1812,6 +2009,7 @@ def platform(manifest_path, corpora_root, output):
     manifest = frozen_platform_manifest(manifest_path)
     output.mkdir(parents=True, exist_ok=False)
     shutil.copyfile(manifest_path, output / "manifest.json")
+    evidence_manifest, evidence_reference, evidence_digest = evidence_setup(output)
     reference_path = manifest_path.parent / manifest["reference"]["file"]
     reference, reference_digest = None, None
     if reference_path.exists():
@@ -1836,6 +2034,20 @@ def platform(manifest_path, corpora_root, output):
             rows.append(_platform_corpus(manifest, entry, corpora_root, output))
             write(output / "results.json", rows)
     decision = platform_decide(manifest, rows, reference, reference_digest)
+    with_evidence(
+        decision,
+        evidence_decide(
+            evidence_manifest,
+            "platform",
+            evidence_table(rows, "corpus", regime=PLATFORM_EVIDENCE_REGIME),
+            {
+                (entry["name"], PLATFORM_EVIDENCE_REGIME)
+                for entry in manifest["corpora"]
+            },
+            evidence_reference,
+            evidence_digest,
+        ),
+    )
     decision["wall_seconds"] = time.perf_counter() - started
     write(output / "decision.json", decision)
     return decision
@@ -1921,6 +2133,16 @@ def verify_platform(directory, manifest, reference=None):
                     hold_current=platform_score(hold, targets, ids),
                     structured={},
                 )
+                coverage = _replayed_coverage(
+                    learned,
+                    generic,
+                    dict(
+                        envelope_half_width=data["generic_envelope_half_width"],
+                        targets=targets,
+                    ),
+                    evidence_groups("rigid_body_15", 15),
+                    row["corpus"],
+                )
                 replays += 2
                 for arm in entry["structured"]["arms"]:
                     belief = load_dynamics_belief(case / f"structured_{arm}.json")
@@ -1940,14 +2162,27 @@ def verify_platform(directory, manifest, reference=None):
                 raise ValueError(f"structured arm mismatch: {row['corpus']}")
             for arm, score in fresh["structured"].items():
                 _same_scores(score, row["structured"][arm], f"{row['corpus']}/{arm}")
+            _same_coverage(coverage, row["evidence"], row["corpus"])
             row["generic"] = fresh["generic"]
             row["hold_current"] = fresh["hold_current"]
             row["structured"] = fresh["structured"]
+            row["evidence"] = coverage
     anchor, digest = anchored_reference(
         directory, reference, COMMITTED_PLATFORM_REFERENCE
     )
     decision = platform_decide(manifest, rows, anchor, digest)
+    evidence_manifest, evidence_anchored, evidence_digest = evidence_anchor(directory)
+    evidence = evidence_decide(
+        evidence_manifest,
+        "platform",
+        evidence_table(rows, "corpus", regime=PLATFORM_EVIDENCE_REGIME),
+        {(entry["name"], PLATFORM_EVIDENCE_REGIME) for entry in manifest["corpora"]},
+        evidence_anchored,
+        evidence_digest,
+    )
     saved = read(directory / "decision.json")
+    _same_evidence(evidence, saved.get("evidence"), "platform")
+    with_evidence(decision, evidence)
     for key in (
         "manifest",
         "decision",
@@ -1985,6 +2220,14 @@ COMMITTED_CONTROL_MANIFEST = COMMITTED_MANIFEST.parent / "control-v3.json"
 
 COMMITTED_CONTROL_REFERENCE = COMMITTED_MANIFEST.parent / "control-reference.json"
 """Where ``verify`` looks for the committed control reference by default."""
+
+CONTROL_EVIDENCE_REGIME = "reserved"
+CONTROL_EVIDENCE_PLAN = dict(evaluation_origin_start=0, evaluation_stride=1)
+"""Every origin of the reserved recording with a whole context and horizon.
+
+The evidence manifest declares that scope, and the reserved recording is the
+one this tier never fits in any role, so nothing has to be held back for it.
+"""
 
 CONTROL_ARMS = ("generic", "structured")
 CONTROL_METRICS = ("position_rmse_m", "attitude_rmse_deg")
@@ -2544,12 +2787,26 @@ class _GenericArm:
             delay_steps=plan.delay_steps,
             memory_size=plan.memory_size,
             required_observations=self.controller.required_observations,
+            envelope_nominal_coverage=plan.nominal_coverage,
+            maximum_tangent_standard_deviation=float(
+                np.max(
+                    np.sqrt(
+                        np.diagonal(
+                            np.asarray(plan.values.forecast_error_covariance),
+                            axis1=-2,
+                            axis2=-1,
+                        )
+                    )
+                )
+            ),
             compile_signature=plan.compile_signature,
             meaning=(
-                "the generic learner at its own fitted horizon, claiming no "
-                "covariance and running under the seam's explicit no-evidence "
-                "override; validity utilization is zero because no support "
-                "envelope is declared, not because one was checked"
+                "the generic learner at its own fitted horizon, charging the "
+                "seam's two robustness terms with its own measured forecast-error "
+                "envelope and still running under the explicit no-evidence "
+                "override because it resolves no parameter direction; validity "
+                "utilization is zero because no support envelope is declared, "
+                "not because one was checked"
             ),
         )
 
@@ -2735,6 +2992,55 @@ def _control_trial(manifest, arm, plant, reference_fn, anchor_state, directory):
     return row
 
 
+def control_evidence_arrays(manifest, reserved):
+    """The reserved recording's forecast origins, cut the way the evidence tier reads.
+
+    The same fifteen-channel adapter the arms are fitted through, then every
+    origin that carries the recipe's whole consumed context inside one segment
+    and the whole horizon after it. The reserved recording is never fitted in
+    any role, so this holds nothing further back.
+    """
+    collection = control_collection(manifest, reserved)
+    steps = steps_for(manifest["plant"]["sample_interval_s"])
+    return evaluation_rows(collection, CONTROL_EVIDENCE_PLAN, steps)
+
+
+def control_evidence(learned, arrays):
+    """Forecast the reserved recording and measure the envelope's coverage on it."""
+    prediction = np.asarray(
+        learned.predict(
+            arrays["past_states"], arrays["past_inputs"], arrays["future_inputs"]
+        )
+    )
+    if not np.isfinite(prediction).all():
+        raise ValueError("nonfinite forecast on the reserved recording")
+    half_width = envelope_rows(learned, prediction)
+    return prediction, half_width, control_coverage(prediction, arrays, half_width)
+
+
+def control_coverage(prediction, arrays, half_width):
+    """Coverage on the reserved rows, one entry per reserved recording."""
+    groups = evidence_groups("rigid_body_15", 15)
+    ids = np.asarray(arrays["recording_ids"])
+    return {
+        str(name): envelope_coverage(
+            np.asarray(prediction)[ids == name],
+            np.asarray(arrays["targets"])[ids == name],
+            np.asarray(half_width)[ids == name],
+            groups,
+        )
+        for name in sorted(set(ids.tolist()))
+    }
+
+
+def control_evidence_table(coverage):
+    """One reserved recording per declared evidence case, in that decision's shape."""
+    return [
+        dict(case=name, regime=CONTROL_EVIDENCE_REGIME, **measured)
+        for name, measured in sorted(coverage.items())
+    ]
+
+
 def _control_calibrate(manifest, output):
     """Collect the frozen calibration recordings and fit both arms on them."""
     from glassbox.belief.belief_io import save_dynamics_belief
@@ -2802,10 +3108,23 @@ def _control_calibrate(manifest, output):
     }:
         raise ValueError("the generic fit did not read the calibration recordings")
 
+    reserved_loaded = [(name, recordings[int(name.split("-")[1])]) for name in reserved]
+    evidence_arrays = control_evidence_arrays(manifest, reserved_loaded)
+    if set(evidence_arrays["recording_ids"].tolist()) & {name for name, _ in training}:
+        raise ValueError("the reserved evidence rows overlap the fitted recordings")
+    prediction, half_width, coverage = control_evidence(learned, evidence_arrays)
+    np.savez_compressed(
+        output / "evidence.npz",
+        **evidence_arrays,
+        prediction=prediction,
+        envelope_half_width=half_width,
+    )
+
     calibration = dict(
         recordings=digests,
         training=[name for name, _ in training],
         reserved=reserved,
+        evidence=coverage,
         initial_state=initial_state.tolist(),
         initial_command=initial_command.tolist(),
         trim_balance_residual=np.asarray(trim.residual).tolist(),
@@ -2820,7 +3139,14 @@ def _control_calibrate(manifest, output):
         generic_fingerprint=learned.fingerprint(),
         generic_report=learned.report,
         files=_files(
-            output, names + ["structured.json", "structured_report.json", "generic.npz"]
+            output,
+            names
+            + [
+                "structured.json",
+                "structured_report.json",
+                "generic.npz",
+                "evidence.npz",
+            ],
         ),
     )
     write(output / "calibration.json", calibration)
@@ -2985,6 +3311,7 @@ def control(manifest_path, output):
     manifest = frozen_control_manifest(manifest_path)
     output.mkdir(parents=True, exist_ok=False)
     shutil.copyfile(manifest_path, output / "manifest.json")
+    evidence_manifest, evidence_reference, evidence_digest = evidence_setup(output)
     reference_path = manifest_path.parent / manifest["reference"]["file"]
     reference, reference_digest = None, None
     if reference_path.exists():
@@ -3054,6 +3381,17 @@ def control(manifest_path, output):
                 flush=True,
             )
     decision = control_decide(manifest, rows, reference, reference_digest)
+    with_evidence(
+        decision,
+        evidence_decide(
+            evidence_manifest,
+            "control",
+            control_evidence_table(calibration["evidence"]),
+            {(name, CONTROL_EVIDENCE_REGIME) for name in calibration["reserved"]},
+            evidence_reference,
+            evidence_digest,
+        ),
+    )
     decision["wall_seconds"] = time.perf_counter() - started
     decision["calibration"] = dict(
         command_excitation=calibration["command_excitation"]["fraction"],
@@ -3151,6 +3489,36 @@ def verify_control(directory, manifest, reference=None):
     if learned.fingerprint() != calibration["generic_fingerprint"]:
         raise ValueError("generic model fingerprint mismatch")
 
+    # The reserved recording's evidence rows are rebuilt from the recording
+    # itself, not believed: the saved arrays have to be the declared cut of the
+    # trajectory whose content digest was just checked, the prediction has to
+    # replay through the independent NumPy recurrence, and the half-widths have
+    # to be the model's own envelope.
+    reserved_loaded = [
+        (name, load_trajectory_npz(directory / f"{name}.npz"))
+        for name in calibration["reserved"]
+    ]
+    rebuilt = control_evidence_arrays(manifest, reserved_loaded)
+    with np.load(directory / "evidence.npz", allow_pickle=False) as data:
+        for key, expected in rebuilt.items():
+            if data[key].shape != np.shape(expected) or not np.array_equal(
+                data[key], expected
+            ):
+                raise ValueError(f"saved reserved evidence rows differ: {key}")
+        replayed = replay(
+            learned._model,
+            data["past_states"],
+            data["past_inputs"],
+            data["future_inputs"],
+        )
+        np.testing.assert_allclose(replayed, data["prediction"], **REPLAY_TOLERANCE)
+        half_width = envelope_rows(learned, replayed)
+        if not np.array_equal(half_width, data["envelope_half_width"]):
+            raise ValueError("the saved reserved envelope is not the model's own")
+        coverage = control_coverage(replayed, rebuilt, half_width)
+    for name, measured in coverage.items():
+        _same_coverage(measured, calibration["evidence"].get(name), name)
+
     trial = manifest["trial"]
     dt_s = trial["sample_interval_s"]
     declared = manifest["tracking_reference"]
@@ -3231,7 +3599,18 @@ def verify_control(directory, manifest, reference=None):
         directory, reference, COMMITTED_CONTROL_REFERENCE
     )
     decision = control_decide(manifest, rows, anchor, digest)
+    evidence_manifest, evidence_anchored, evidence_digest = evidence_anchor(directory)
+    evidence = evidence_decide(
+        evidence_manifest,
+        "control",
+        control_evidence_table(coverage),
+        {(name, CONTROL_EVIDENCE_REGIME) for name in calibration["reserved"]},
+        evidence_anchored,
+        evidence_digest,
+    )
     saved = read(directory / "decision.json")
+    _same_evidence(evidence, saved.get("evidence"), "control")
+    with_evidence(decision, evidence)
     for key in (
         "manifest",
         "decision",

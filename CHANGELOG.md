@@ -5,6 +5,33 @@ All notable changes to Glassbox are recorded here. The format follows
 
 ## Unreleased
 
+- Every generic forecast carries a measured error envelope, and the controller
+  consumes it. The recipe already reserves a quarter of the supplied recordings
+  as its development role; the windows cut from them now calibrate a
+  split-conformal half-width per horizon step and per channel, at a nominal 90%,
+  in the channel's own physical units, stored in the artifact and the report and
+  read back through `LearnedDynamics.envelope(horizon_steps)`. There is no caller
+  option: `fit`, `predict` and `update` are unchanged, and `update` recalibrates
+  on the same pinned development cache it refits against. The recipe is
+  `generic-memory-v3-prototype` and the artifact format `v3`; a `v2` artifact,
+  which carried no envelope, is rejected on load rather than migrated.
+  `glassbox.experimental.learned_plan` maps that envelope into the controller's
+  tangent coordinates — velocity and body rates straight through, position by
+  integrating the velocity half-widths the way the mean integrates the
+  velocities, attitude through the derivative of the same polar projection the
+  mean uses — declares `uncertainty_available`, and lets the seam's two
+  robustness terms charge it exactly as they charge a belief's forecast-error
+  covariance. `uncertainty_complete` stays false: no parameter direction is
+  resolved.
+- Freeze the evidence gate as `docs/harness/evidence-v1.json`, with its own
+  digest constant. It declares the envelope, the channel groups coverage is
+  reported over, and the 85% to 95% band held-out coverage has to land in.
+  Coverage is measured inside the synthetic, platform and control runs, on the
+  rows they already score, per horizon step and per channel group; every run
+  saves an envelope half-width array beside every prediction and `verify`
+  rebuilds it from the saved model and recomputes every number. The band is not
+  enforced for its first measurement and gates from the first candidate after it,
+  under the semantics the platform and control tiers already use.
 - Freeze one gate semantics on the platform and control tiers as
   `docs/harness/platform-v3.json` and `docs/harness/control-v3.json`, and give
   the control tier the tracking task of `docs/cascade-accuracy.md`. A run is

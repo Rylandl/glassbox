@@ -28,6 +28,7 @@ recordings = SequenceCollection(
 
 model = fit(recordings)                       # no options
 future = model.predict(past_states, past_inputs, future_inputs)
+envelope = model.envelope(len(future))        # half-widths beside those means
 model.save(path)
 revision = LearnedDynamics.load(path).update(more_recordings)
 ```
@@ -45,13 +46,39 @@ model and never admits it for control.
 
 The report carries the recipe, the window coverage of each role, the
 optimization trace, per-recording development errors against a hold-current
-reference, and the evidence limits that apply to all of it. Development
-targets select checkpoints; they are not independent error calibration.
+reference, the envelope, and the evidence limits that apply to all of it.
+
+## The envelope
+
+Every forecast carries a measured error envelope. There is no caller option
+and no way to turn it off. `envelope(horizon_steps)` returns one half-width
+per horizon step and per declared observation channel, in that channel's own
+physical units, aligned row for row and column for column with what `predict`
+returns over the same horizon; a longer horizon is rejected exactly as
+`predict` rejects it, and the returned array is a copy.
+
+It is a split-conformal quantile at a nominal 90%: for each horizon step and
+channel, the `ceil((n + 1) * 0.9)`-smallest of the `n` absolute forecast errors
+on the development windows, and the largest of them when that rank exceeds `n`.
+The calibration data is exactly the windows the recipe already holds out. No
+training window, no scored row and no held-out recording of any tier enters it
+in any role, and `update` recalibrates on the same pinned development cache it
+refits against, so a revision never carries its predecessor's envelope forward.
+
+Two things it is not. The development windows also select the training
+checkpoint, so they are held out of every gradient step but not of model
+selection: exchangeability is a stated approximation rather than an
+independent calibration set. And the nominal level holds on those windows by
+construction; whether it holds anywhere else is measured, not claimed. The
+[evidence tier](#the-evidence-tier) is where it is measured.
 
 ## The recipe
 
-`generic-memory-v2-prototype` is the only recipe, and a saved model that
-carries anything else is rejected rather than migrated.
+`generic-memory-v3-prototype` is the only recipe, and a saved model that
+carries anything else is rejected rather than migrated. A `v2` artifact, which
+carried no envelope, is refused on load rather than migrated: a forecast
+without a measured envelope is not a forecast this recipe makes, and inventing
+one on load would be the opposite of measuring it.
 
 | Constant | Value |
 | --- | --- |
@@ -96,8 +123,10 @@ aligned inputs on the fitted time grid; a longer past is truncated to the most
 recent context and a shorter one is rejected, never padded. Horizons beyond
 the fitted range are rejected, not extrapolated.
 
-Forecasts are Euclidean. They do not enforce manifold constraints, establish
-support outside observed conditions, or carry a calibrated error envelope.
+Forecasts are Euclidean. They do not enforce manifold constraints and they do
+not establish support outside observed conditions. They do carry the measured
+error envelope above, whose coverage is a measurement on the rows it was
+measured on rather than a guarantee.
 
 ## The harness
 
@@ -344,6 +373,55 @@ solver, and says so in what it returns: neither is deterministic under a wall
 clock, so rerunning either would be a new measurement rather than a check of
 this one.
 
+## The evidence tier
+
+[`harness/evidence-v1.json`](harness/evidence-v1.json) is the fourth frozen
+manifest, with its own digest constant. It is not a fourth command. Coverage is
+measured inside the synthetic, platform and control runs, on exactly the rows
+those tiers already score, so each of the three copies this manifest into its
+output as `evidence-manifest.json` and folds one band decision into its own.
+`verify` checks that copy against the digest constant rather than against the
+file, which is the authority the three tier manifests are held to.
+
+What it declares is the envelope above — a nominal 90% half-width per horizon
+step and per channel, calibrated only on the development windows the fit
+already holds out — the channel groups coverage is reported over, and the band
+that coverage has to land in, 85% to 95%. The groups are world velocity, body
+rates and the nine rotation entries for the fifteen-channel contract the
+platform and control tiers share, and one group per channel for the synthetic
+families, whose channels are coordinates of unrelated systems.
+
+Coverage is the fraction of scored `(row, channel)` pairs in a group whose
+absolute forecast error at that horizon step is at or below the envelope's
+half-width for that step and channel. It is measured on every platform corpus's
+held-out rows at the recipe's horizon, on every synthetic case's evaluation
+rows in every declared regime, and on the control tier's reserved recording, at
+every origin there that carries the whole consumed context and the whole
+horizon. Every run saves an envelope half-width array beside every prediction
+array it already saves, and `verify` rebuilds those half-widths from the saved
+model artifact, refuses an array that is not the model's own, and recomputes
+every coverage number from the replayed prediction and the saved targets.
+
+The band is not enforced for its first measurement. The manifest says it gates
+from the first candidate after the one it was frozen for, under the semantics
+the platform and control tiers already use: the metric is `band_excess`, the
+distance a coverage lies outside the band and zero inside it; a run is accepted
+only when no case's `band_excess` regresses past its reference value times 1.05
+plus 0.005, the band holds on every case the reference already meets it on, and
+nothing structural fails. Unenforced, every number and every breach is measured,
+recorded and printed exactly as it would be enforced; only the tier's `accepted`
+flag ignores it.
+
+Structural problems always fail closed once the band is enforced: a declared
+case missing, duplicated or undeclared, a tier measuring a different case set
+than the manifest declares, a declared channel group missing, a horizon-step
+count that differs from the tier's own, a coverage that is not a finite number
+in `[0, 1]`, or a scored-row count of zero.
+
+Coverage is a measurement on the rows it was measured on. It is not a
+probabilistic guarantee, not a support envelope, not a claim about conditions no
+recording covers, and not control adequacy.
+
 ## The plan model
 
 `glassbox.experimental.learned_plan` presents a fitted `LearnedDynamics` to
@@ -384,12 +462,43 @@ arguments. The learner observed commands; it was never told what the actuators
 accept, and it is not asked. The horizon is the recipe's own fitted `horizon_s`
 and a longer one is refused rather than rolled past, because `predict` refuses
 it: a plan model that extrapolated where `predict` will not would be claiming
-evidence the fit never produced. No uncertainty is claimed either.
-`uncertainty_available` and `uncertainty_complete` are both false, both
-robustness terms are exactly zero, and a solve runs only under the seam's
-explicit no-evidence override, which the run records. Validity utilization is
-reported as zero because the learner declares no support envelope, not because
-one was checked and found clear.
+evidence the fit never produced.
+
+Uncertainty is the third thing bridged. `uncertainty_available` is true and the
+seam's two robustness terms — the predicted spread charged at every tracking
+stage, and the terminal stage's spread charged again — consume the learner's
+envelope exactly as they consume a belief's forecast-error covariance.
+`tangent_error_covariance` is the whole mapping, read once when the plan model
+is built and carried through every kernel as a value, so a recalibrated
+envelope of the same length costs no recompile. Each half-width becomes a
+standard deviation by dividing by `Phi^-1(0.95)`, which reads a
+distribution-free half-width as a Gaussian central interval at the envelope's
+own nominal level; that is the first approximation. Velocity and body rates are
+predicted channels and pass straight through. Position is integrated from the
+velocity half-widths on the same grid, by the same trapezoidal rule the mean
+uses, from a zero half-width at the observed origin: integrating half-widths
+rather than variances treats one rollout's per-step velocity errors as moving
+together, which is the conservative reading and the one a recursive forecast's
+compounding error argues for. Attitude comes through the derivative of the same
+polar projection the mean uses, which sends an entry perturbation `dR` to the
+body-frame tangent `vee(skew(R.T @ dR))`; taking the nine entry errors to be
+independent with one common scale — the root mean square of their nine
+half-widths — makes each tangent axis's standard deviation that scale over
+`sqrt(2)`, uncorrelated between axes and independent of the attitude, which is
+what lets one covariance stand for the whole horizon as a belief's does. The
+isotropy is the second approximation. Only the diagonal is filled: position and
+velocity are genuinely correlated, but the seam reads the diagonal and nothing
+else, so an off-diagonal term would be an unmeasured claim that changes no
+number.
+
+What the learner still does not have is a resolved parameter direction. There
+is no covariance factor and therefore no plan-dependent `J C J.T`, so the
+spread it charges is the same at every plan and shifts the objective without
+moving its minimizer; `uncertainty_complete` stays false and a solve still runs
+only under the seam's explicit no-evidence override, which the run records.
+Validity utilization is still reported as zero because the learner declares no
+support envelope, not because one was checked and found clear, so the seam's
+validity-side robustness term has nothing to widen.
 
 ### The measurement
 

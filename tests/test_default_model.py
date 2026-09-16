@@ -11,7 +11,12 @@ import numpy as np
 import pytest
 
 from glassbox.experimental.arrays import array_fingerprint
-from glassbox.experimental.default_model import RECIPE, LearnedDynamics, fit
+from glassbox.experimental.default_model import (
+    ENVELOPE_COVERAGE,
+    RECIPE,
+    LearnedDynamics,
+    fit,
+)
 from glassbox.experimental.sequence_collection import (
     SequenceCollection,
     SequenceSegment,
@@ -168,7 +173,7 @@ def test_report_and_contract_are_defensive_copies(fitted):
 
 def test_default_is_the_versioned_memory_recipe(fitted):
     assert fitted.recipe == RECIPE
-    assert fitted.report["recipe"]["id"] == "generic-memory-v2-prototype"
+    assert fitted.report["recipe"]["id"] == "generic-memory-v3-prototype"
     assert fitted._model.kind == "filter_mlp"
     assert (
         fitted.history_steps,
@@ -179,7 +184,7 @@ def test_default_is_the_versioned_memory_recipe(fitted):
         2,
         5,
     )
-    assert fitted._metadata()["format"] == "glassbox-default-recipe-v2"
+    assert fitted._metadata()["format"] == "glassbox-default-recipe-v3"
     assert fitted._train.batch.past_states.shape[1] == 11
 
 
@@ -225,4 +230,94 @@ def test_altered_recipes_are_rejected(fitted):
             fitted.contract,
             fitted._seen,
             report,
+            fitted.envelope(),
         )
+
+
+def test_a_v2_artifact_carrying_no_envelope_is_rejected(fitted, tmp_path):
+    """The format bump is what rejects it; the missing array is the reason for it."""
+    path = tmp_path / "saved.npz"
+    fitted.save(path)
+    with np.load(path, allow_pickle=False) as archive:
+        arrays = {k: archive[k] for k in archive.files if k != "metadata"}
+        meta = json.loads(str(archive["metadata"]))
+    meta.pop("fingerprint")
+    v2 = copy.deepcopy(meta)
+    v2["format"] = "glassbox-default-recipe-v2"
+    v2["recipe"]["id"] = "generic-memory-v2-prototype"
+    del v2["report"]["envelope"]
+    without = {k: v for k, v in arrays.items() if k != "envelope_half_width"}
+    v2["fingerprint"] = array_fingerprint(v2, without)
+    other = tmp_path / "v2.npz"
+    np.savez_compressed(other, metadata=json.dumps(v2), **without)
+    with pytest.raises(ValueError, match="unsupported default recipe version"):
+        LearnedDynamics.load(other)
+    # And a re-signed current-format archive with the array removed is refused
+    # for the reason the bump exists rather than for its version string.
+    stripped = copy.deepcopy(meta)
+    del stripped["report"]["envelope"]
+    stripped["fingerprint"] = array_fingerprint(stripped, without)
+    bare = tmp_path / "bare.npz"
+    np.savez_compressed(bare, metadata=json.dumps(stripped), **without)
+    with pytest.raises(ValueError, match="carries an envelope"):
+        LearnedDynamics.load(bare)
+
+
+def test_the_envelope_is_calibrated_on_the_held_out_development_windows(fitted):
+    """Nominal coverage holds on the calibration windows by construction."""
+    envelope = fitted.envelope()
+    assert envelope.shape == (fitted.horizon_steps, 2)
+    assert np.isfinite(envelope).all() and np.all(envelope >= 0)
+    np.testing.assert_allclose(envelope, fitted.report["envelope"]["half_width"])
+    assert fitted.report["envelope"]["nominal_coverage"] == ENVELOPE_COVERAGE
+    assert fitted.report["envelope"]["calibrated_on"] == "development"
+
+    batch = fitted._development.batch
+    residual = np.abs(
+        np.asarray(
+            fitted.predict(batch.past_states, batch.past_inputs, batch.future_inputs)
+        )
+        - batch.future_states
+    )
+    covered = (residual <= envelope).mean(axis=0)
+    assert covered.min() >= ENVELOPE_COVERAGE
+    assert fitted.report["envelope"]["calibration_windows"] == len(residual)
+    # The half-width is the conformal rank's own residual, not an interpolation.
+    rank = fitted.report["envelope"]["quantile_rank"]
+    np.testing.assert_array_equal(envelope, np.sort(residual, axis=0)[rank - 1])
+
+
+def test_a_shorter_horizon_is_the_prefix_and_a_longer_one_is_refused(fitted):
+    full = fitted.envelope()
+    np.testing.assert_array_equal(fitted.envelope(2), full[:2])
+    assert fitted.envelope(fitted.horizon_steps).shape == full.shape
+    for bad in (0, -1, fitted.horizon_steps + 1):
+        with pytest.raises(ValueError, match="unsupported forecast horizon"):
+            fitted.envelope(bad)
+    # It is a copy, so a caller cannot edit the model's own evidence.
+    taken = fitted.envelope()
+    taken[0, 0] = 1e9
+    assert fitted.envelope()[0, 0] != 1e9
+
+
+def test_an_update_recalibrates_on_the_pinned_development_cache(fitted):
+    revised = fitted.update(collection(recording("c", 3), recording("d", 4)))
+    assert (
+        revised.report["envelope"]["calibration_windows"]
+        == (fitted.report["envelope"]["calibration_windows"])
+    )
+    np.testing.assert_array_equal(
+        revised._development.batch.future_states,
+        fitted._development.batch.future_states,
+    )
+    # Same held-out windows, a different fit: a different envelope measured the
+    # same way, never the predecessor's carried forward.
+    assert not np.array_equal(revised.envelope(), fitted.envelope())
+    batch = revised._development.batch
+    residual = np.abs(
+        np.asarray(
+            revised.predict(batch.past_states, batch.past_inputs, batch.future_inputs)
+        )
+        - batch.future_states
+    )
+    assert (residual <= revised.envelope()).mean(axis=0).min() >= ENVELOPE_COVERAGE

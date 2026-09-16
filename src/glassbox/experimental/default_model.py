@@ -6,10 +6,19 @@ There are no caller-selected representations, optimizers or selection policies.
 Configuration identity and ordered channel identities are required data facts;
 adapters must include units, frame and command/measurement meaning in them.
 
-There is one recipe, ``generic-memory-v2-prototype``. It reads an explicit
+There is one recipe, ``generic-memory-v3-prototype``. It reads an explicit
 100 ms history and a causal memory over a 500 ms in-recording context. A saved
 model carries that recipe and ``update`` refits it; any other saved format is
 rejected rather than migrated.
+
+Every forecast carries a measured error envelope. The recipe already reserves a
+quarter of the supplied recordings as its development role, and the windows cut
+from them calibrate a split-conformal half-width per horizon step and per
+channel, in that channel's own physical units, at a nominal 90%. It is stored
+in the artifact and the report and read back through
+:meth:`LearnedDynamics.envelope`. There is no caller option and no way to turn
+it off: ``fit``, ``predict`` and ``update`` are unchanged, and ``update``
+recalibrates on the same pinned development cache it refits against.
 """
 
 from __future__ import annotations
@@ -31,8 +40,16 @@ from .sequence_model import (
 )
 
 _ARRAYS = ("past_states", "past_inputs", "future_inputs", "future_states")
+ENVELOPE_COVERAGE = 0.9
+"""The nominal coverage of the envelope every forecast carries.
+
+Not a recipe constant: it is the level the envelope claims, which the evidence
+manifest declares and measures, rather than a fitting choice. A saved model
+records the level it was calibrated at.
+"""
+
 RECIPE = {
-    "id": "generic-memory-v2-prototype",
+    "id": "generic-memory-v3-prototype",
     "kind": "filter_mlp",
     "width": 32,
     "memory": 8,
@@ -49,7 +66,7 @@ RECIPE = {
     "check_every": 100,
     "hold_scale_floor": 0.01,
 }
-_FORMAT = "glassbox-default-recipe-v2"
+_FORMAT = "glassbox-default-recipe-v3"
 
 
 def _priority(value):
@@ -203,6 +220,35 @@ def _measure(model, windows):
     return result
 
 
+def _calibrate(model, windows):
+    """Split-conformal half-widths from the windows the fit already holds out.
+
+    For each horizon step and channel, the finite-sample conformal quantile of
+    the absolute development-window forecast error: the ``ceil((n+1) * level)``
+    smallest of the ``n`` residuals, and the largest of them when that rank
+    exceeds ``n``. The result is in the channel's own physical units and covers
+    at least the nominal fraction of those residuals by construction.
+
+    The development windows are held out of every gradient step, and they are
+    also what selects the training checkpoint. That is a stated approximation of
+    exchangeability rather than an independent calibration set, and it is one
+    reason measured coverage on a further held-out recording can sit outside the
+    envelope's nominal level.
+    """
+    b = windows.batch
+    prediction = np.asarray(
+        model.rollout(b.past_states, b.past_inputs, b.future_inputs)
+    )
+    residual = np.abs(prediction - b.future_states)
+    if not np.isfinite(residual).all():
+        raise ValueError(
+            "a nonfinite development residual cannot calibrate an envelope"
+        )
+    count = len(residual)
+    rank = min(int(np.ceil((count + 1) * ENVELOPE_COVERAGE)), count)
+    return np.sort(residual, axis=0)[rank - 1], count, rank
+
+
 def _train(train, development, contract, seen, *, previous=None):
     b = train.batch
     steps = steps_for(b.dt_s)
@@ -233,6 +279,7 @@ def _train(train, development, contract, seen, *, previous=None):
         error_scale=loss_scale,
         **memory,
     )
+    envelope, calibration_windows, rank = _calibrate(model, development)
     train_u = b.future_inputs.reshape(-1, b.future_inputs.shape[-1])
     report = dict(
         recipe=copy.deepcopy(RECIPE),
@@ -248,15 +295,25 @@ def _train(train, development, contract, seen, *, previous=None):
             contract["input_channels"][i]
             for i in np.flatnonzero(train_u.std(0) <= 1e-8)
         ],
+        envelope=dict(
+            nominal_coverage=ENVELOPE_COVERAGE,
+            method="split_conformal_absolute_error",
+            calibrated_on="development",
+            calibration_windows=calibration_windows,
+            quantile_rank=rank,
+            units="physical, per horizon step and per channel, aligned with predict",
+            half_width=envelope.tolist(),
+        ),
         evidence_limits=[
-            "development targets select checkpoints and are not independent error calibration",
+            "the development windows both select the checkpoint and calibrate the envelope, so the envelope's exchangeability is approximate rather than independent",
+            "the envelope's coverage is nominal on those windows and measured elsewhere; the harness's evidence tier is where it is measured",
             "worse_than_hold describes measured channel error, not a probability or control-admission rule",
             "support outside observed conditions is not established",
             "Euclidean forecasts do not enforce manifold constraints",
             "updates refit cached windows and keep the original development evidence source; fresh independent evaluation is still needed",
         ],
     )
-    return LearnedDynamics(model, train, development, contract, seen, report)
+    return LearnedDynamics(model, train, development, contract, seen, report, envelope)
 
 
 class LearnedDynamics:
@@ -269,7 +326,7 @@ class LearnedDynamics:
     or an active controller.
     """
 
-    def __init__(self, model, train, development, contract, seen, report):
+    def __init__(self, model, train, development, contract, seen, report, envelope):
         self._model = model
         self._train, self._development = train, development
         self._contract, self._seen, self._report = map(
@@ -277,6 +334,21 @@ class LearnedDynamics:
         )
         if self._report["recipe"] != RECIPE:
             raise ValueError("unsupported default recipe version")
+        self._envelope = np.array(envelope, dtype=float, copy=True)
+        if (
+            self._envelope.shape
+            != (
+                self.horizon_steps,
+                len(self._contract["state_channels"]),
+            )
+            or not np.isfinite(self._envelope).all()
+        ):
+            raise ValueError(
+                "the envelope must hold one finite half-width per horizon step and channel"
+            )
+        if np.any(self._envelope < 0):
+            raise ValueError("an envelope half-width cannot be negative")
+        self._envelope.setflags(write=False)
 
     @property
     def report(self):
@@ -326,6 +398,24 @@ class LearnedDynamics:
         return self._model.rollout(
             x[..., -self.history_steps - 1 :, :], up[..., -self.history_steps :, :], uf
         )
+
+    def envelope(self, horizon_steps=None):
+        """The measured error envelope this forecast carries, in physical units.
+
+        One half-width per horizon step and per declared observation channel,
+        aligned row for row and column for column with what :meth:`predict`
+        returns over the same horizon. It is a split-conformal quantile of the
+        absolute forecast error on the development windows the fit already
+        holds out, at the nominal level in :data:`ENVELOPE_COVERAGE`, and it is
+        reported with every forecast rather than requested. Horizons beyond the
+        fitted range are rejected exactly as ``predict`` rejects them.
+        """
+        steps = self.horizon_steps if horizon_steps is None else int(horizon_steps)
+        if not 1 <= steps <= self.horizon_steps:
+            raise ValueError(
+                f"unsupported forecast horizon: expected 1..{self.horizon_steps} steps"
+            )
+        return np.array(self._envelope[:steps], dtype=float)
 
     def diagnose(self, recordings):
         """Inspect out-of-fit input predictability and extra-history error evidence.
@@ -380,6 +470,7 @@ class LearnedDynamics:
 
     def _arrays(self):
         return {
+            "envelope_half_width": self._envelope,
             **self._model.arrays(),
             **{
                 f"{role}_{k}": getattr(windows.batch, k)
@@ -400,9 +491,18 @@ class LearnedDynamics:
 
     @classmethod
     def load(cls, path):
+        """Load a saved revision of this recipe, or refuse it.
+
+        A ``v2`` artifact, which carried no envelope, is rejected rather than
+        migrated: a forecast without a measured envelope is not a forecast this
+        recipe makes, and inventing one on load would be the opposite of
+        measuring it.
+        """
         meta, arrays = load_arrays(path)
         if meta.get("recipe") != RECIPE or meta.get("format") != _FORMAT:
             raise ValueError("unsupported default recipe version")
+        if "envelope_half_width" not in arrays:
+            raise ValueError("a saved revision of this recipe carries an envelope")
         model_meta = dict(meta["model"])
         if model_meta.pop("format") != "glassbox-sequence-v1":
             raise ValueError("unsupported sequence format")
@@ -430,6 +530,7 @@ class LearnedDynamics:
             meta["contract"],
             meta["seen"],
             meta["report"],
+            arrays["envelope_half_width"],
         )
 
 

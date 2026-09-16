@@ -32,6 +32,37 @@ from glassbox.core.data import Trajectory
 from glassbox.core.fixedwing_synthetic import generate_fixed_wing_trajectory
 from glassbox.core.synthetic import generate_trajectory
 
+
+def seal_evidence(directory, decision, tier, tier_manifest, rows=(), reserved=()):
+    """Give a hand-built run directory the evidence contract a real run writes.
+
+    Every tier's run copies the frozen evidence manifest into its output and
+    folds the band decision into its own, and every replay redoes both. A test
+    that builds a run directory by hand has to do the same, or the replay is
+    checking a run no command would ever produce. ``rows`` is that run's
+    recorded coverage, which is empty for the anchoring fixtures that hold no
+    cases at all.
+    """
+    from glassbox.experimental import harness
+
+    manifest, reference, digest = harness.evidence_setup(directory)
+    if tier == "synthetic":
+        expected = harness.synthetic_evidence_cases(tier_manifest)
+    elif tier == "platform":
+        expected = {
+            (entry["name"], harness.PLATFORM_EVIDENCE_REGIME)
+            for entry in tier_manifest["corpora"]
+        }
+    else:
+        expected = {(name, harness.CONTROL_EVIDENCE_REGIME) for name in reserved}
+    return harness.with_evidence(
+        decision,
+        harness.evidence_decide(
+            manifest, tier, list(rows), expected, reference, digest
+        ),
+    )
+
+
 _OPTIONAL_SIMULATOR_MARKERS = {
     "cascade": ("cascade", "cascade"),
 }
