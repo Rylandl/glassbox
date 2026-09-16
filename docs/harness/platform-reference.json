@@ -1,0 +1,41 @@
+{
+  "manifest": "glassbox-harness-platform-v2",
+  "manifest_sha256": "f4796e1a1bc2120aa0c00067853f13bf2004cf00ca9c5b34322daf0b7ce2f3ac",
+  "source": "The merged platform-v1 run of the generic-memory-v2-prototype recipe, the measurement the accuracy row of docs/status.md reports. A later run's generic final-step RMSE may not exceed these values by more than this manifest's reference allowance on either metric.",
+  "environment": {
+    "python": "3.12.3 (main, Aug 31 2026, 10:18:26) [GCC 13.3.0]",
+    "platform": "Linux-6.8.0-139-generic-x86_64-with-glibc2.39",
+    "jax": "0.11.1",
+    "numpy": "2.5.2",
+    "x64": true
+  },
+  "generic_fingerprints": {
+    "nanodrone": "5f82ccb6dc58229acdc0f4290c1df6094e953435294105bb154255baa5009428",
+    "x8": "1ca268fd5284756c45433b7d3487fcd8c34d4f75d7d9b282945870f62ade2827",
+    "arp": "10a97d2045ed7c96a25b57f0024c77d25ddf85577f4f1236bd6d0c5b481a386c",
+    "idf": "dd07b2dbb9d926b0fb11b1c2f3723fba9b3cf5771ed8e3825fde2f84bcc5c3bf",
+    "epfl": "f65c74f8df8bf082c5ca69a3b4df137d3593ce71dc544eee7a1febcb3e09f201"
+  },
+  "final_step_rmse": {
+    "nanodrone": {
+      "velocity_rmse_m_s": 0.1359741208622299,
+      "body_rate_rmse_rad_s": 0.5431501047441326
+    },
+    "x8": {
+      "velocity_rmse_m_s": 0.22234692231595657,
+      "body_rate_rmse_rad_s": 0.13249641509053267
+    },
+    "arp": {
+      "velocity_rmse_m_s": 0.17586287804942863,
+      "body_rate_rmse_rad_s": 0.7154644403799479
+    },
+    "idf": {
+      "velocity_rmse_m_s": 0.15751525431642358,
+      "body_rate_rmse_rad_s": 0.12211079974675469
+    },
+    "epfl": {
+      "velocity_rmse_m_s": 0.1456237585082109,
+      "body_rate_rmse_rad_s": 0.0698418291618658
+    }
+  }
+}

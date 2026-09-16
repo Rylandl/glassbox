@@ -25,7 +25,8 @@ from glassbox.experimental.sequence_model import (
     sequence_windows,
 )
 
-MANIFEST = Path(__file__).resolve().parents[1] / "docs/harness/platform-v1.json"
+MANIFEST = Path(__file__).resolve().parents[1] / "docs/harness/platform-v2.json"
+REFERENCE = MANIFEST.parent / "platform-reference.json"
 DT_S = 0.02
 TOLERANCE = 0.001
 
@@ -317,8 +318,9 @@ def gates(decision):
 def test_a_complete_measurement_is_accepted_and_json_serializable(manifest):
     decision = harness.platform_decide(manifest, passing_rows(manifest))
     assert decision["accepted"] and decision["decision"] == "accept"
-    assert decision["rule_met"] and decision["rule_enforced"] is False
+    assert decision["rule_met"] and decision["rule_enforced"] is True
     assert decision["corpora"] == 5 and not gates(decision)
+    assert not decision["reference_compared"] and not decision["reference_regressions"]
     summary = decision["final_step_rmse"]["arp"]["velocity_rmse_m_s"]
     assert summary["generic"] == 0.1 and summary["comparator"] == 0.2
     assert summary["comparator_arm"] == "structured"
@@ -337,11 +339,12 @@ def test_a_corpus_above_the_comparator_fails(manifest):
     breach = decision["rule_breaches"][0]
     assert breach["corpus"] == "x8" and breach["arm"] == "structured"
     assert breach["limit"] == 0.2 and breach["value"] == 0.2001
-    # Reported, not gating, until the manifest says the rule is enforced.
-    assert decision["accepted"]
-    enforcing = copy.deepcopy(manifest)
-    enforcing["decision"]["enforced"] = True
-    assert not harness.platform_decide(enforcing, rows)["accepted"]
+    # The frozen manifest enforces the rule, so one corpus above its
+    # comparator rejects the whole run.
+    assert not decision["accepted"] and decision["decision"] == "reject"
+    reporting = copy.deepcopy(manifest)
+    reporting["decision"]["enforced"] = False
+    assert harness.platform_decide(reporting, rows)["accepted"]
 
 
 def test_the_comparator_is_the_better_arm_on_those_rows(manifest):
@@ -355,6 +358,21 @@ def test_the_comparator_is_the_better_arm_on_those_rows(manifest):
     assert breach["limit"] == 0.05
     summary = decision["final_step_rmse"]["epfl"]
     assert summary["body_rate_rmse_rad_s"]["comparator_arm"] == "structured"
+
+
+def test_the_frozen_manifest_enforces_the_rule_on_every_corpus(manifest):
+    """Enforcement is per corpus: four passing corpora do not carry a fifth."""
+    assert manifest["decision"]["enforced"] is True
+    for entry in manifest["corpora"]:
+        rows = passing_rows(manifest)
+        row = next(r for r in rows if r["corpus"] == entry["name"])
+        # Above every arm on those rows, below every declared allowance, so
+        # only the comparator gate can trip and only on this corpus.
+        row["generic"]["final_step"]["body_rate_rmse_rad_s"] = 0.5
+        decision = harness.platform_decide(manifest, rows)
+        assert not decision["accepted"] and not decision["rule_met"]
+        assert [b["corpus"] for b in decision["rule_breaches"]] == [entry["name"]]
+        assert gates(decision) == {"comparator_final_step_rmse"}
 
 
 def test_a_corpus_above_the_allowance_fails(manifest):
@@ -437,13 +455,96 @@ def test_an_undeclared_structured_arm_set_fails_closed(manifest):
     assert gates(harness.platform_decide(manifest, rows)) == {"arms_declared"}
 
 
+# --- the regression reference -----------------------------------------------
+
+
+def reference_from(rows):
+    """The reference a run of these rows would have been frozen from."""
+    return dict(
+        final_step_rmse={
+            row["corpus"]: {
+                metric: row["generic"]["final_step"][metric]
+                for metric in harness.METRICS
+            }
+            for row in rows
+        }
+    )
+
+
+def test_the_committed_platform_reference_covers_every_corpus(manifest):
+    reference = harness.read(REFERENCE)
+    assert reference["manifest"] == manifest["id"]
+    assert reference["manifest_sha256"] == harness.sha256(MANIFEST)
+    recorded = reference["final_step_rmse"]
+    assert sorted(recorded) == sorted(entry["name"] for entry in manifest["corpora"])
+    for scores in recorded.values():
+        assert sorted(scores) == sorted(harness.METRICS)
+        assert all(harness._number(value) is not None for value in scores.values())
+
+
+def test_a_platform_reference_regression_fails_closed(manifest):
+    rows = passing_rows(manifest)
+    reference = reference_from(copy.deepcopy(rows))
+    allowance = manifest["reference"]
+    base = reference["final_step_rmse"]["arp"]["body_rate_rmse_rad_s"]
+    limit = (
+        base * (1 + allowance["relative_tolerance"]) + allowance["absolute_tolerance"]
+    )
+    row = next(r for r in rows if r["corpus"] == "arp")
+    row["generic"]["final_step"]["body_rate_rmse_rad_s"] = limit
+    decision = harness.platform_decide(manifest, rows, reference, "a" * 64)
+    assert decision["accepted"] and decision["reference_compared"]
+    assert decision["reference_sha256"] == "a" * 64
+
+    row["generic"]["final_step"]["body_rate_rmse_rad_s"] = limit * 1.000001
+    decision = harness.platform_decide(manifest, rows, reference)
+    assert not decision["accepted"] and decision["rule_met"]
+    regression = decision["reference_regressions"][0]
+    assert regression["corpus"] == "arp" and regression["reference"] == base
+    assert regression["gate"] == "reference_final_step_rmse"
+    json.dumps(decision, allow_nan=False)
+
+
+def test_a_platform_reference_without_the_corpus_fails_closed(manifest):
+    rows = passing_rows(manifest)
+    reference = reference_from(copy.deepcopy(rows))
+    reference["final_step_rmse"].pop("idf")
+    decision = harness.platform_decide(manifest, rows, reference)
+    assert not decision["accepted"]
+    assert {r["gate"] for r in decision["reference_regressions"]} == {
+        "reference_present"
+    }
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), None, "0.1", True])
+def test_a_platform_reference_value_that_is_not_a_number_fails_closed(manifest, value):
+    rows = passing_rows(manifest)
+    reference = reference_from(copy.deepcopy(rows))
+    reference["final_step_rmse"]["x8"]["velocity_rmse_m_s"] = value
+    decision = harness.platform_decide(manifest, rows, reference)
+    assert not decision["accepted"]
+    assert decision["reference_regressions"][0] == dict(
+        corpus="x8", metric="velocity_rmse_m_s", gate="reference_present"
+    )
+    json.dumps(decision, allow_nan=False)
+
+
 # --- the frozen manifest ----------------------------------------------------
 
 
 def test_the_platform_manifest_carries_the_recipe_and_the_frozen_plan(manifest):
-    assert manifest["id"] == "glassbox-harness-platform-v1"
-    assert manifest["recipe"] == RECIPE
-    assert manifest["decision"]["enforced"] is False
+    assert manifest["id"] == "glassbox-harness-platform-v2"
+    # The manifest records the recipe it was frozen against in full and pins
+    # the evaluation plan; it does not pin the candidate under measurement.
+    assert set(manifest["recipe"]) == set(RECIPE)
+    assert harness.declared_plan(manifest) == manifest["recipe"]
+    assert manifest["decision"]["enforced"] is True
+    assert manifest["reference"] == {
+        "file": "platform-reference.json",
+        "relative_tolerance": 0.05,
+        "absolute_tolerance": 0.005,
+        "meaning": manifest["reference"]["meaning"],
+    }
     assert manifest["evaluation_rows_maximum"] == 2000
     assert manifest["motor_history_s"] == 1.0
     contract = manifest["observed_contract"]
@@ -504,7 +605,7 @@ def test_every_corpus_declares_the_budget_the_recipe_resolves_on_its_grid(manife
 def test_the_manifest_digest_gates_platform_and_verify(tmp_path, manifest):
     assert harness.sha256(MANIFEST) == harness.PLATFORM_MANIFEST_SHA256
     assert MANIFEST == harness.COMMITTED_PLATFORM_MANIFEST
-    altered = tmp_path / "platform-v1.json"
+    altered = tmp_path / "platform-v2.json"
     tampered = copy.deepcopy(manifest)
     tampered["corpora"][0]["allowance"]["velocity_rmse_m_s"] = 99.0
     harness.write(altered, tampered)
@@ -524,8 +625,17 @@ def test_verify_detects_which_tier_a_directory_holds(tmp_path, manifest):
     platform = tmp_path / "platform"
     platform.mkdir()
     shutil.copyfile(harness.COMMITTED_PLATFORM_MANIFEST, platform / "manifest.json")
+    shutil.copyfile(harness.COMMITTED_PLATFORM_REFERENCE, platform / "reference.json")
     harness.write(platform / "results.json", [])
-    harness.write(platform / "decision.json", harness.platform_decide(manifest, []))
+    harness.write(
+        platform / "decision.json",
+        harness.platform_decide(
+            manifest,
+            [],
+            harness.read(REFERENCE),
+            harness.sha256(REFERENCE),
+        ),
+    )
     replayed = harness.verify(platform)
     assert replayed["tier"] == "platform" and replayed["verified_corpora"] == 0
     assert not replayed["decision"]["accepted"]
@@ -568,7 +678,13 @@ def saved_platform_run(tmp_path, manifest):
     harness.write(case / "result.json", row)
     harness.write(directory / "results.json", [row])
     shutil.copyfile(harness.COMMITTED_PLATFORM_MANIFEST, directory / "manifest.json")
-    harness.write(directory / "decision.json", harness.platform_decide(manifest, [row]))
+    shutil.copyfile(REFERENCE, directory / "reference.json")
+    harness.write(
+        directory / "decision.json",
+        harness.platform_decide(
+            manifest, [row], harness.read(REFERENCE), harness.sha256(REFERENCE)
+        ),
+    )
     return directory, case, row
 
 
@@ -614,3 +730,98 @@ def test_numpy_replay_matches_the_jax_rollout_on_adapted_rows(flight):
     moved[:, context - delay - 1] += 5.0
     difference = np.abs(harness.replay(model, x, moved, uf) - replayed)
     assert difference.max() > 1e-6
+
+
+# --- anchoring the platform reference ---------------------------------------
+
+
+def scored_platform_run(tmp_path, manifest, *, reference=REFERENCE):
+    """A run directory with no corpora, so a replay is only the anchoring check.
+
+    Every gate that needs a fit is covered above on recorded rows. What this
+    exercises is the part a saved run can lie about: the reference its own
+    regression gate was measured against.
+    """
+    directory = tmp_path / "run"
+    directory.mkdir(parents=True)
+    shutil.copyfile(MANIFEST, directory / "manifest.json")
+    harness.write(directory / "results.json", [])
+    anchor, digest = None, None
+    if reference is not None:
+        shutil.copyfile(reference, directory / "reference.json")
+        anchor, digest = harness.read(reference), harness.sha256(reference)
+    harness.write(
+        directory / "decision.json",
+        harness.platform_decide(manifest, [], anchor, digest),
+    )
+    return directory
+
+
+def loosen(value, factor=10):
+    if isinstance(value, float):
+        return value * factor
+    if isinstance(value, dict):
+        return {k: loosen(v, factor) for k, v in value.items()}
+    if isinstance(value, list):
+        return [loosen(v, factor) for v in value]
+    return value
+
+
+def test_the_committed_platform_reference_anchors_an_honest_replay(tmp_path, manifest):
+    directory = scored_platform_run(tmp_path, manifest)
+    result = harness.verify(directory)
+    assert result["tier"] == "platform"
+    assert result["decision"]["reference_compared"]
+    assert result["decision"]["reference_sha256"] == harness.sha256(REFERENCE)
+    assert harness.COMMITTED_PLATFORM_REFERENCE == REFERENCE
+
+
+def test_a_platform_run_cannot_relax_its_own_regression_gate(tmp_path, manifest):
+    """The defect: a replay must not read the threshold the run saved itself."""
+    directory = scored_platform_run(tmp_path, manifest)
+    copied = directory / "reference.json"
+    harness.write(copied, loosen(harness.read(copied)))
+    assert harness.sha256(copied) != harness.sha256(REFERENCE)
+    with pytest.raises(ValueError, match="cannot relax its own regression gate"):
+        harness.verify(directory)
+
+
+def test_a_mismatched_committed_platform_reference_is_rejected(tmp_path, manifest):
+    directory = scored_platform_run(tmp_path, manifest)
+    other = tmp_path / "other-platform-reference.json"
+    harness.write(other, loosen(harness.read(REFERENCE)))
+    with pytest.raises(ValueError, match="cannot relax its own regression gate"):
+        harness.verify(directory, other)
+
+
+def test_a_platform_run_and_its_reference_must_agree_about_existing(tmp_path, manifest):
+    compared = scored_platform_run(tmp_path, manifest)
+    missing = tmp_path / "absent-platform-reference.json"
+    with pytest.raises(ValueError, match="cannot be anchored"):
+        harness.verify(compared, missing)
+    uncompared = scored_platform_run(tmp_path / "second", manifest, reference=None)
+    assert not harness.read(uncompared / "decision.json")["reference_compared"]
+    with pytest.raises(ValueError, match="cannot be anchored"):
+        harness.verify(uncompared)
+    assert harness.verify(uncompared, missing)["decision"]["reference_sha256"] is None
+
+
+def test_a_forged_platform_reference_digest_in_the_decision_is_rejected(
+    tmp_path, manifest
+):
+    directory = scored_platform_run(tmp_path, manifest)
+    decision = harness.read(directory / "decision.json")
+    decision["reference_sha256"] = "0" * 64
+    harness.write(directory / "decision.json", decision)
+    with pytest.raises(ValueError, match="reference_sha256"):
+        harness.verify(directory)
+
+
+def test_a_platform_replay_recomputes_the_reference_regressions(tmp_path, manifest):
+    """A saved decision that hid a regression does not survive the replay."""
+    directory = scored_platform_run(tmp_path, manifest)
+    decision = harness.read(directory / "decision.json")
+    decision["reference_regressions"] = [dict(corpus="arp", gate="invented")]
+    harness.write(directory / "decision.json", decision)
+    with pytest.raises(ValueError, match="reference_regressions"):
+        harness.verify(directory)

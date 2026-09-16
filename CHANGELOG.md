@@ -5,6 +5,14 @@ All notable changes to Glassbox are recorded here. The format follows
 
 ## Unreleased
 
+- Freeze `docs/harness/platform-v2.json` as the experimental accuracy gate.
+  The decision rule is enforced, so one corpus above its structured comparator
+  or its task allowance rejects the run, and `docs/harness/platform-reference.json`
+  adds a per-corpus regression gate on the generic model's final-step velocity
+  and body-rate RMSE, anchored to the committed file the way the synthetic
+  reference already is. `platform-v1.json` is deleted; nothing is kept for old
+  runs. Each manifest now pins the evaluation plan it is cut from rather than
+  the whole recipe, so a changed recipe can be measured against a frozen gate.
 - Add a platform tier to the experimental harness that measures the generic
   recipe against the structured model on the five pinned corpora. One corpus
   adapter, a frozen `docs/harness/platform-v1.json`, and

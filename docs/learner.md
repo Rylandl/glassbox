@@ -147,7 +147,7 @@ not platform readiness, control adequacy, or calibrated uncertainty.
 
 ## The platform tier
 
-[`harness/platform-v1.json`](harness/platform-v1.json) is the second frozen
+[`harness/platform-v2.json`](harness/platform-v2.json) is the second frozen
 manifest, with its own digest constant. It is the accuracy tier: for each of
 the five pinned corpora it declares the directory below a root, which
 recordings are held out by name pattern, how many recordings each side must
@@ -159,7 +159,7 @@ never a fact in the manifest.
 
 ```sh
 uv run python -m glassbox.experimental.harness platform \
-  --manifest docs/harness/platform-v1.json \
+  --manifest docs/harness/platform-v2.json \
   --corpora /path/to/corpora --output /tmp/platform-run
 uv run python -m glassbox.experimental.harness verify /tmp/platform-run
 ```
@@ -207,9 +207,26 @@ The declared rule is that, on every corpus, the generic model's final-step
 velocity and body-rate RMSE are at or below the structured comparator's on the
 same rows and at or below the allowance where one exists; the comparator is the
 better structured arm on those rows, metric by metric, and both arms are
-reported. The manifest currently carries `"enforced": false`: the rule is
-measured and reported, a run is accepted when the measurement itself is
-complete, and the rule gates merges from the first iteration that changes the
-recipe. Structural problems — a corpus missing, duplicated, undeclared or
-unfinished, a nonfinite score, a row count outside the declared budget, an
-undeclared arm set — always fail closed.
+reported. The manifest carries `"enforced": true`: the rule is a gate, and one
+corpus above its comparator or its allowance rejects the run. Structural
+problems — a corpus missing, duplicated, undeclared or unfinished, a nonfinite
+score, a row count outside the declared budget, an undeclared arm set — always
+fail closed.
+
+[`harness/platform-reference.json`](harness/platform-reference.json) is the
+regression reference beside it, holding the generic model's final-step velocity
+and body-rate RMSE per corpus from the merged run that first measured them. No
+corpus may exceed its reference value by more than 5% plus 0.005 on either
+metric, and a missing, null or non-numeric reference value fails closed. It is
+anchored exactly the way the synthetic reference is: a run copies the reference
+it compared into its output and records the sha256 in `decision.json`, and
+`verify` reads the committed file, refuses when the copy differs from it by a
+byte, and refuses when one exists and the other does not. Pass `--reference
+PATH` to say where the committed platform reference is when the replay does not
+run inside a checkout.
+
+Each manifest records, in full, the recipe it was frozen against, and pins the
+evaluation plan that recipe is cut from: the `context_s`, `delay_s` and
+`horizon_s` the information budget of every window comes from. It does not pin
+the rest of the recipe, because a gate only the recipe that froze it could pass
+would never measure a change. Every run records the recipe it actually fitted.

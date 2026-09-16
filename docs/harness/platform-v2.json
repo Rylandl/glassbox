@@ -1,7 +1,7 @@
 {
-  "id": "glassbox-harness-platform-v1",
+  "id": "glassbox-harness-platform-v2",
   "scope": "The accuracy tier. For every pinned platform corpus on disk, whole recordings are held out, the generic recipe is fitted on the rest, the structured model is fitted on exactly the same training recordings, and both forecast the same held-out origins from the same recorded future commands. This tier measures forecast accuracy against the structured model and the task allowance. It is not control adequacy, calibrated uncertainty, or evidence about any corpus not listed here.",
-  "frozen": "This file and its digest constant in glassbox.experimental.harness are frozen before a candidate is fitted. A threshold, stride, holdout, or corpus changed after scores were seen fails review. The corpus root is a command-line argument and never a fact in this file.",
+  "frozen": "This file and its digest constant in glassbox.experimental.harness are frozen before a candidate is fitted. A threshold, stride, holdout, corpus, or reference value changed after scores were seen fails review. The corpus root is a command-line argument and never a fact in this file. The recipe block below records the recipe this manifest was frozen against: a candidate recipe may differ from it, and every run records the recipe it actually fitted. What the manifest pins about the recipe is the evaluation plan, the information budget every window is cut to, which each corpus declares and the harness rederives.",
   "recipe": {
     "id": "generic-memory-v2-prototype",
     "kind": "filter_mlp",
@@ -61,9 +61,15 @@
     "rule": "For every declared corpus: the generic model's final-step velocity RMSE and body-rate RMSE on the held-out rows are at or below the structured comparator's on the same rows, and at or below the task allowance where one is declared.",
     "comparator": "Per metric, the lowest value any declared structured arm reached on those rows. Both arms are reported in full.",
     "allowance": "The allowances come from docs/accuracy-requirements.md, where they were derived as the worst recording's 95th percentile of the largest vector error anywhere in the forecast prefix. This rule applies them to a pooled final-step RMSE, which is a different readout of the same evidence and not the percentile those numbers bound.",
-    "enforced": false,
-    "gates_merges_from": "the first iteration that changes the recipe. Until then the rule is measured and reported, and a run is accepted when the measurement itself is complete: every declared corpus present once, fitted, and scored with finite numbers on rows inside the declared budget.",
+    "enforced": true,
+    "gates_merges_from": "this manifest. The rule is a gate: a run is accepted only when every declared corpus is present once, fitted, and scored with finite numbers on rows inside the declared budget, and every corpus meets the rule.",
     "meaning": "Measured forecast accuracy on the pinned corpora for this manifest only. Not control adequacy, calibrated uncertainty, or readiness."
+  },
+  "reference": {
+    "file": "platform-reference.json",
+    "relative_tolerance": 0.05,
+    "absolute_tolerance": 0.005,
+    "meaning": "When the reference file exists beside this manifest, no corpus's generic final-step velocity RMSE or body-rate RMSE may exceed its reference value times 1.05 plus 0.005. A run copies the reference it compared into its output directory and records its sha256, and verify anchors that copy to the committed file rather than believing it."
   },
   "corpora": [
     {

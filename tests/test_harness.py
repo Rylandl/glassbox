@@ -214,7 +214,12 @@ def test_the_manifest_digest_gates_run_and_verify(tmp_path, manifest):
 def test_the_manifest_carries_the_recipe_and_the_frozen_plan(manifest):
     from glassbox.experimental.default_model import RECIPE
 
-    assert manifest["recipe"] == RECIPE
+    # The manifest records the recipe it was frozen against in full, and pins
+    # the evaluation plan that recipe is cut from. It does not pin the
+    # candidate: a frozen gate that only its own recipe could pass would never
+    # measure a change.
+    assert set(manifest["recipe"]) == set(RECIPE)
+    assert harness.declared_plan(manifest) == manifest["recipe"]
     plan = manifest["dataset"]
     assert (plan["dt_s"], plan["intervals"], plan["rng_salt"]) == (0.05, 160, 1207)
     assert plan["calibration_recordings"] == 8
@@ -226,6 +231,19 @@ def test_the_manifest_carries_the_recipe_and_the_frozen_plan(manifest):
     assert manifest["witness"]["paired_probe_first_step_rmse_maximum"] == 0.05
     assert tuple(manifest["families"]) == harness.FAMILIES
     assert manifest["error_caps"]["hidden_input_delay"] == {"matched": 0.9}
+
+
+def test_a_manifest_declaring_another_evaluation_plan_is_refused(manifest):
+    """The plan is pinned even though the rest of the recipe is not."""
+    for name in harness.PLAN_CONSTANTS:
+        other = copy.deepcopy(manifest)
+        other["recipe"][name] = manifest["recipe"][name] * 2
+        with pytest.raises(ValueError, match="evaluation plan"):
+            harness.declared_plan(other)
+    missing = copy.deepcopy(manifest)
+    del missing["recipe"]["context_s"]
+    with pytest.raises(ValueError, match="evaluation plan"):
+        harness.declared_plan(missing)
 
 
 def witness_batch(seeds):

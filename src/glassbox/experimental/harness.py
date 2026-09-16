@@ -4,7 +4,7 @@ The harness has two tiers, each with its own frozen manifest and digest
 constant. ``run`` is the synthetic tier: it fits the consumer recipe end to end
 on each case of ``docs/harness/v1.json``, scores its forecasts on independent
 recordings, and writes a decision. ``platform`` is the accuracy tier: it fits
-the same recipe on each pinned corpus of ``docs/harness/platform-v1.json`` with
+the same recipe on each pinned corpus of ``docs/harness/platform-v2.json`` with
 whole recordings held out, fits the structured model on exactly the same
 training recordings, and scores both on exactly the same held-out rows.
 ``verify`` replays either tier from its saved artifacts and rejects anything
@@ -13,7 +13,7 @@ that changed. No command takes tuning options.
     python -m glassbox.experimental.harness run \\
         --manifest docs/harness/v1.json --output DIR
     python -m glassbox.experimental.harness platform \\
-        --manifest docs/harness/platform-v1.json --corpora ROOT --output DIR
+        --manifest docs/harness/platform-v2.json --corpora ROOT --output DIR
     python -m glassbox.experimental.harness verify DIR [--reference PATH]
 
 A run copies the manifest and the reference it compared into its output, but a
@@ -60,7 +60,28 @@ reference is; it refuses rather than trusting the copy.
 """
 
 COMMITTED_REFERENCE = COMMITTED_MANIFEST.parent / "reference.json"
-"""Where ``verify`` looks for the committed reference unless told otherwise."""
+"""Where ``verify`` looks for the committed synthetic reference by default."""
+
+PLAN_CONSTANTS = ("context_s", "delay_s", "horizon_s")
+"""The recipe constants a manifest's evaluation plan is cut from.
+
+A frozen manifest freezes the evaluation, not the candidate: pinning the whole
+recipe would make it impossible to measure a changed recipe against a frozen
+gate, which is the one thing the gate exists for. What a manifest does pin is
+the information budget every window is cut to, so a recipe that reads a
+different context, explicit delay or horizon cannot be scored on a plan built
+for another one. Each manifest also records the recipe it was frozen against,
+in full, as provenance, and every run records the recipe it actually fitted.
+"""
+
+
+def declared_plan(manifest):
+    """Refuse a manifest whose evaluation plan differs from the recipe's."""
+    declared = manifest["recipe"]
+    if any(declared.get(name) != RECIPE[name] for name in PLAN_CONSTANTS):
+        raise ValueError("manifest evaluation plan differs from the maintained recipe")
+    return declared
+
 
 FAMILIES = (
     "stable_affine",
@@ -96,8 +117,7 @@ def frozen_manifest(path):
     if sha256(path) != MANIFEST_SHA256:
         raise ValueError("manifest digest differs from the frozen harness contract")
     manifest = read(path)
-    if manifest["recipe"] != RECIPE:
-        raise ValueError("manifest recipe differs from the maintained recipe")
+    declared_plan(manifest)
     steps = steps_for(manifest["dataset"]["dt_s"])
     budget = manifest["information_budget"]
     if (steps["history"], steps["delay"], steps["horizon"]) != (
@@ -664,16 +684,18 @@ def _check_probe(data, steps):
         raise ValueError("probe contexts must differ in exactly one input")
 
 
-def anchored_reference(directory, reference=None):
+def anchored_reference(directory, reference=None, committed=COMMITTED_REFERENCE):
     """The committed reference a replay must compare against, never the copy.
 
     A run copies the reference it compared into its output. That copy is an
     artifact: loosening it would loosen the regression gate on replay. So the
     copy is only ever checked against the committed file, and the committed
     file is what the replay reads. The two must agree about existing and about
-    every byte, or the replay refuses.
+    every byte, or the replay refuses. ``committed`` is the tier's own frozen
+    reference; ``reference`` overrides it when the replay does not run inside a
+    checkout.
     """
-    committed = Path(reference) if reference is not None else COMMITTED_REFERENCE
+    committed = Path(reference) if reference is not None else Path(committed)
     copied = Path(directory) / "reference.json"
     if copied.exists() != committed.exists():
         present, absent = (
@@ -705,7 +727,9 @@ def verify(directory, reference=None):
     digest = sha256(directory / "manifest.json")
     if digest == PLATFORM_MANIFEST_SHA256:
         return verify_platform(
-            directory, frozen_platform_manifest(directory / "manifest.json")
+            directory,
+            frozen_platform_manifest(directory / "manifest.json"),
+            reference,
         )
     if digest != MANIFEST_SHA256:
         raise ValueError("manifest digest differs from every frozen harness contract")
@@ -810,12 +834,15 @@ def verify(directory, reference=None):
 # --- the platform tier: the corpus adapter ----------------------------------
 
 PLATFORM_MANIFEST_SHA256 = (
-    "8d4705d866990a4682a344cdcfab39dec4ccee893db62b46742330ed2dce1a3d"
+    "f4796e1a1bc2120aa0c00067853f13bf2004cf00ca9c5b34322daf0b7ce2f3ac"
 )
 """Digest of the frozen platform manifest this module is allowed to run."""
 
-COMMITTED_PLATFORM_MANIFEST = COMMITTED_MANIFEST.parent / "platform-v1.json"
+COMMITTED_PLATFORM_MANIFEST = COMMITTED_MANIFEST.parent / "platform-v2.json"
 """The frozen platform manifest in a source checkout."""
+
+COMMITTED_PLATFORM_REFERENCE = COMMITTED_MANIFEST.parent / "platform-reference.json"
+"""Where ``verify`` looks for the committed platform reference by default."""
 
 VELOCITY_ROWS = slice(3, 6)
 QUATERNION_ROWS = slice(6, 10)
@@ -850,8 +877,7 @@ def frozen_platform_manifest(path):
     if sha256(path) != PLATFORM_MANIFEST_SHA256:
         raise ValueError("manifest digest differs from the frozen harness contract")
     manifest = read(path)
-    if manifest["recipe"] != RECIPE:
-        raise ValueError("manifest recipe differs from the maintained recipe")
+    declared_plan(manifest)
     for entry in manifest["corpora"]:
         steps = steps_for(entry["sample_interval_s"])
         budget = entry["information_budget"]
@@ -1121,17 +1147,21 @@ def platform_score(prediction, targets, ids):
     )
 
 
-def _score(recorded, metric):
-    """One recorded final-step score as a finite float, or None for anything else.
+def _number(value):
+    """A finite float, or None for anything that is not a JSON number.
 
-    Missing, null, nonfinite, or not a JSON number at all: a gate that cannot
-    read a number fails closed rather than raising or parsing a string into one.
+    Missing, null, nonfinite, or not a number at all: a gate that cannot read a
+    number fails closed rather than raising or parsing a string into one.
     """
-    final = recorded.get("final_step") if isinstance(recorded, dict) else None
-    value = final.get(metric) if isinstance(final, dict) else None
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return None
     return float(value) if np.isfinite(value) else None
+
+
+def _score(recorded, metric):
+    """One recorded final-step score as a finite float, or None for anything else."""
+    final = recorded.get("final_step") if isinstance(recorded, dict) else None
+    return _number(final.get(metric) if isinstance(final, dict) else None)
 
 
 def _comparator(arms, metric):
@@ -1149,12 +1179,18 @@ def _comparator(arms, metric):
     return best, finite[best], len(finite) == len(values)
 
 
-def platform_decide(manifest, rows):
+def platform_decide(manifest, rows, reference=None, reference_sha256=None):
     """Every gate, evaluated from recorded scores alone. Anything unclear fails.
 
     Structural problems are gate breaches and always fail closed. The accuracy
-    rule itself is reported separately, and only becomes a gate once the
-    manifest says it is enforced.
+    rule itself is reported separately, and becomes a gate once the manifest
+    says it is enforced. The regression reference, when one was compared, is
+    always a gate: no corpus may exceed its recorded generic final-step RMSE by
+    more than the manifest's allowance on either metric.
+
+    ``reference_sha256`` identifies the reference file the scores were compared
+    against. It is recorded in the decision so a replay can check that it
+    compared the same bytes, and it is not otherwise used here.
     """
     declared = {entry["name"]: entry for entry in manifest["corpora"]}
     names = [row.get("corpus") for row in rows]
@@ -1225,9 +1261,35 @@ def platform_decide(manifest, rows):
                         limit=allowance[metric],
                     )
                 )
+    regressions = []
+    if reference is not None:
+        relative = manifest["reference"]["relative_tolerance"]
+        absolute = manifest["reference"]["absolute_tolerance"]
+        recorded = reference.get("final_step_rmse", {})
+        for name in sorted(summary):
+            for metric in METRICS:
+                base = _number(recorded.get(name, {}).get(metric))
+                value = summary[name][metric]["generic"]
+                if base is None:
+                    regressions.append(
+                        dict(corpus=name, metric=metric, gate="reference_present")
+                    )
+                    continue
+                limit = base * (1 + relative) + absolute
+                if value is None or value > limit:
+                    regressions.append(
+                        dict(
+                            corpus=name,
+                            metric=metric,
+                            gate="reference_final_step_rmse",
+                            value=value,
+                            reference=base,
+                            limit=limit,
+                        )
+                    )
     enforced = bool(manifest["decision"]["enforced"])
     rule_met = not breaches and not rule_breaches
-    accepted = not breaches and (rule_met or not enforced)
+    accepted = not breaches and not regressions and (rule_met or not enforced)
     return dict(
         manifest=manifest["id"],
         decision="accept" if accepted else "reject",
@@ -1237,6 +1299,9 @@ def platform_decide(manifest, rows):
         corpora=len(rows),
         gate_breaches=breaches,
         rule_breaches=rule_breaches,
+        reference_regressions=regressions,
+        reference_compared=reference is not None,
+        reference_sha256=reference_sha256,
         final_step_rmse=summary,
         meaning=manifest["decision"]["meaning"],
     )
@@ -1402,6 +1467,11 @@ def platform(manifest_path, corpora_root, output):
     manifest = frozen_platform_manifest(manifest_path)
     output.mkdir(parents=True, exist_ok=False)
     shutil.copyfile(manifest_path, output / "manifest.json")
+    reference_path = manifest_path.parent / manifest["reference"]["file"]
+    reference, reference_digest = None, None
+    if reference_path.exists():
+        shutil.copyfile(reference_path, output / "reference.json")
+        reference, reference_digest = read(reference_path), sha256(reference_path)
     write(
         output / "environment.json",
         dict(
@@ -1420,7 +1490,7 @@ def platform(manifest_path, corpora_root, output):
             print(json.dumps(dict(starting=entry["name"])), flush=True)
             rows.append(_platform_corpus(manifest, entry, corpora_root, output))
             write(output / "results.json", rows)
-    decision = platform_decide(manifest, rows)
+    decision = platform_decide(manifest, rows, reference, reference_digest)
     decision["wall_seconds"] = time.perf_counter() - started
     write(output / "decision.json", decision)
     return decision
@@ -1449,8 +1519,14 @@ def _same_scores(fresh, saved, label):
                 )
 
 
-def verify_platform(directory, manifest):
-    """Recompute every platform score and the decision from saved arrays."""
+def verify_platform(directory, manifest, reference=None):
+    """Recompute every platform score and the decision from saved arrays.
+
+    The regression reference is anchored to the committed file exactly as the
+    synthetic tier anchors its own: the copy inside the run is only ever checked
+    against it, and a run that saved a different reference, or none, than the
+    committed one cannot be replayed.
+    """
     import jax
 
     from glassbox.belief.belief_io import load_dynamics_belief
@@ -1522,12 +1598,23 @@ def verify_platform(directory, manifest):
             row["generic"] = fresh["generic"]
             row["hold_current"] = fresh["hold_current"]
             row["structured"] = fresh["structured"]
-    decision = platform_decide(manifest, rows)
+    anchor, digest = anchored_reference(
+        directory, reference, COMMITTED_PLATFORM_REFERENCE
+    )
+    decision = platform_decide(manifest, rows, anchor, digest)
     saved = read(directory / "decision.json")
-    for key in ("manifest", "decision", "accepted", "rule_met", "corpora"):
+    for key in (
+        "manifest",
+        "decision",
+        "accepted",
+        "rule_met",
+        "corpora",
+        "reference_compared",
+        "reference_sha256",
+    ):
         if decision[key] != saved[key]:
             raise ValueError(f"replayed decision differs: {key}")
-    for key in ("gate_breaches", "rule_breaches"):
+    for key in ("gate_breaches", "rule_breaches", "reference_regressions"):
         if len(decision[key]) != len(saved[key]):
             raise ValueError(f"replayed decision differs: {key}")
     return dict(
@@ -1558,7 +1645,8 @@ def main(argv=None):
         default=None,
         help=(
             "the committed reference the run's regression gate is anchored to "
-            f"(default: {COMMITTED_REFERENCE})"
+            f"(default: {COMMITTED_REFERENCE} for a synthetic run and "
+            f"{COMMITTED_PLATFORM_REFERENCE} for a platform run)"
         ),
     )
     args = parser.parse_args(argv)
