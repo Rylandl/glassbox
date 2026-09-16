@@ -6,8 +6,7 @@ from dataclasses import replace
 import numpy as np
 import pytest
 
-from glassbox.experimental.default_model import _fit_history as fit
-from glassbox.experimental.default_model import fit as fit_default
+from glassbox.experimental.default_model import fit
 from glassbox.experimental.sequence_collection import (
     SequenceCollection,
     SequenceSegment,
@@ -58,15 +57,19 @@ def test_diagnose_is_read_only_and_has_no_tuning_parameters(fitted, evidence):
 
 
 def test_window_indexing_and_foreign_donors_do_not_leak(evidence):
+    """The recipe consumes ten transitions; diagnostics look twice as far back."""
     rows, report, arrays = evidence
-    assert report["model_history_steps"] == 2 and report["extended_history_steps"] == 4
-    np.testing.assert_array_equal(arrays["past_states"][0], rows[0].states[2:5])
-    np.testing.assert_array_equal(arrays["past_inputs"][0], rows[0].inputs[2:4])
+    assert report["model_history_steps"] == 10
+    assert report["extended_history_steps"] == 20
+    assert report["windows"] == 3 * 59
+    np.testing.assert_array_equal(arrays["past_states"][0], rows[0].states[10:21])
+    np.testing.assert_array_equal(arrays["past_inputs"][0], rows[0].inputs[10:20])
     np.testing.assert_array_equal(
-        arrays["older_features"][0], np.r_[rows[0].states[:2, 0], rows[0].inputs[:2, 0]]
+        arrays["older_features"][0],
+        np.r_[rows[0].states[:10, 0], rows[0].inputs[:10, 0]],
     )
-    np.testing.assert_array_equal(arrays["current_inputs"][0], rows[0].inputs[4])
-    np.testing.assert_array_equal(arrays["targets"][0], rows[0].states[5])
+    np.testing.assert_array_equal(arrays["current_inputs"][0], rows[0].inputs[20])
+    np.testing.assert_array_equal(arrays["targets"][0], rows[0].states[21])
     for held in range(3):
         prefix = f"fold_{held}_"
         train, test = arrays[prefix + "train"], arrays[prefix + "test"]
@@ -147,25 +150,13 @@ def test_zero_input_reference_is_unavailable_not_zero_uncertainty(fitted):
 def test_diagnostic_histories_do_not_cross_segment_gaps(fitted):
     segments = []
     for i in range(3):
-        for start in (0, 20):
-            x = np.arange(8, dtype=float)[:, None] / 10 + i + start
+        for start in (0, 40):
+            x = np.arange(26, dtype=float)[:, None] / 10 + i + start
             segments.append(
                 SequenceSegment(
-                    f"gapped-{i}", f"part-{start}", x, np.zeros((7, 1)), 0.05, start
+                    f"gapped-{i}", f"part-{start}", x, np.zeros((25, 1)), 0.05, start
                 )
             )
     _, arrays = _run(fitted, collection(segments))
-    assert set(arrays["source_origins"]) == {4, 5, 6, 24, 25, 26}
+    assert set(arrays["source_origins"]) == {20, 21, 22, 23, 24, 60, 61, 62, 63, 64}
     np.testing.assert_allclose(np.diff(arrays["past_states"], axis=1), 0.1)
-
-
-def test_diagnostics_extend_past_the_memory_recipe_context():
-    """The maintained recipe consumes ten transitions; diagnostics look twice as far."""
-    model = fit_default(collection([recording("train-a", 1), recording("train-b", 2)]))
-    report = model.diagnose(
-        collection([recording(f"reserved-{i}", i + 10) for i in range(3)])
-    )
-    assert report["model_history_steps"] == 10
-    assert report["extended_history_steps"] == 20
-    assert report["windows"] == 3 * 59
-    assert report["model_fingerprint"] == model.fingerprint()

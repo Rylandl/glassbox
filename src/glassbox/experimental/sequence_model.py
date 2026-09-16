@@ -1,18 +1,19 @@
-"""Small generic recurrent predictors trained on observed trajectory segments.
+"""One generic recurrent predictor trained on observed trajectory segments.
 
-All predicted observation channels advance recursively; future observations are
-never required by rollout(). Optional latent memory is initialized only from
-past observations/inputs. Coordinates are treated as Euclidean: this module does
-not enforce rotation geometry, infer physical bounds, or calibrate uncertainty.
+Every predicted observation channel advances recursively; future observations
+are never required by rollout(). The latent memory is initialized only from
+past observations/inputs. Coordinates are treated as Euclidean: this module
+does not enforce rotation geometry, infer physical bounds, or calibrate
+uncertainty.
 
-Causal memory contract (``kind="filter_mlp"``): the model consumes a fixed
-number of consecutive observed transitions before the forecast origin. Its
-memory starts at rest at the first consumed observation, advances once per
-observed transition inside one recording segment, and continues from predicted
-observations during the forecast. The consumed context is the information
-budget; nothing before it is implied. A caller may carry the memory within a
-recording through ``memory_state`` and ``rollout(..., memory=...)``, which is
-exactly equivalent to consuming the whole context at once.
+Causal memory contract: the model consumes a fixed number of consecutive
+observed transitions before the forecast origin. Its memory starts at rest at
+the first consumed observation, advances once per observed transition inside
+one recording segment, and continues from predicted observations during the
+forecast. The consumed context is the information budget; nothing before it is
+implied. A caller may carry the memory within a recording through
+``memory_state`` and ``rollout(..., memory=...)``, which is exactly equivalent
+to consuming the whole context at once.
 """
 
 from __future__ import annotations
@@ -23,8 +24,9 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
-from .sequence_objective import SequenceGuard
-from .structured_regression import array_fingerprint, load_arrays, save_arrays
+from .arrays import array_fingerprint, load_arrays, save_arrays
+
+KIND = "filter_mlp"
 
 
 @dataclass(frozen=True)
@@ -84,23 +86,17 @@ def sequence_windows(states, inputs, anchors, *, history_steps, horizon_steps, d
     )
 
 
-_DELAY_KINDS = ("delay", "delay_mlp", "filter_mlp")
-_MLP_KINDS = ("mlp", "latent", "delay_mlp", "filter_mlp")
-_MEMORY_KINDS = ("latent", "filter_mlp")
-
-
-def _features(x, u, xpast, upast, hidden, kind, xp=jnp):
-    parts = [x, u]
-    if kind in _DELAY_KINDS:
-        parts.extend(
-            (
-                (xpast - x[:, None]).reshape(len(x), -1),
-                (upast - u[:, None]).reshape(len(x), -1),
-            )
-        )
-    if kind in _MEMORY_KINDS:
-        parts.append(hidden)
-    return xp.concatenate(parts, axis=-1)
+def _features(x, u, xpast, upast, hidden, xp=jnp):
+    return xp.concatenate(
+        [
+            x,
+            u,
+            (xpast - x[:, None]).reshape(len(x), -1),
+            (upast - u[:, None]).reshape(len(x), -1),
+            hidden,
+        ],
+        axis=-1,
+    )
 
 
 def _filter(params, norms, x, up, delay, memory=None):
@@ -128,7 +124,6 @@ def _filter(params, norms, x, up, delay, memory=None):
             states[:, :-1],
             inputs[:, :-1],
             hidden,
-            "filter_mlp",
         )
         z = z / norms["feature_scale"]
         return jnp.tanh(z @ params["memory"] + params["memory_bias"]), None
@@ -137,51 +132,29 @@ def _filter(params, norms, x, up, delay, memory=None):
     return memory
 
 
-def _rollout(
-    params, norms, kind, past, past_u, future_u, truth=None, delay=None, memory=None
-):
+def _rollout(params, norms, past, past_u, future_u, delay, memory=None):
     x = (past - norms["state_mean"]) / norms["state_scale"]
     up = (past_u - norms["input_mean"]) / norms["input_scale"]
     uf = (future_u - norms["input_mean"]) / norms["input_scale"]
-    h = jnp.zeros((len(x), 0), dtype=x.dtype)
-    if kind == "latent":
-        encoder_input = jnp.concatenate(
-            (x.reshape(len(x), -1), up.reshape(len(x), -1)), -1
-        )
-        h = jnp.tanh(encoder_input @ params["encoder"] + params["encoder_bias"])
-    if kind == "filter_mlp":
-        h = _filter(params, norms, x, up, delay, memory)
-        x, up = x[:, -delay - 1 :], up[:, -delay:]
+    h = _filter(params, norms, x, up, delay, memory)
+    x, up = x[:, -delay - 1 :], up[:, -delay:]
 
-    def step(carry, data):
+    def step(carry, command):
         current, history, inputs, hidden = carry
-        command, target = data
-        z = _features(current, command, history, inputs, hidden, kind)
+        z = _features(current, command, history, inputs, hidden)
         z = z / norms["feature_scale"]
         delta = z @ params["linear"] + params["bias"]
-        if kind in _MLP_KINDS:
-            delta = delta + jnp.tanh(z @ params["w1"] + params["b1"]) @ params["w2"]
+        delta = delta + jnp.tanh(z @ params["w1"] + params["b1"]) @ params["w2"]
         predicted = current + delta * norms["delta_scale"]
-        if kind in _MEMORY_KINDS:
-            hidden = jnp.tanh(z @ params["memory"] + params["memory_bias"])
-        next_current = predicted if truth is None else target
+        hidden = jnp.tanh(z @ params["memory"] + params["memory_bias"])
         return (
-            next_current,
+            predicted,
             jnp.concatenate((history[:, 1:], current[:, None]), axis=1),
             jnp.concatenate((inputs[:, 1:], command[:, None]), axis=1),
             hidden,
         ), predicted
 
-    targets = (
-        jnp.zeros((*uf.shape[:2], x.shape[-1]), dtype=x.dtype)
-        if truth is None
-        else (truth - norms["state_mean"]) / norms["state_scale"]
-    )
-    _, predicted = jax.lax.scan(
-        step,
-        (x[:, -1], x[:, :-1], up, h),
-        (uf.swapaxes(0, 1), targets.swapaxes(0, 1)),
-    )
+    _, predicted = jax.lax.scan(step, (x[:, -1], x[:, :-1], up, h), uf.swapaxes(0, 1))
     return predicted.swapaxes(0, 1) * norms["state_scale"] + norms["state_mean"]
 
 
@@ -189,9 +162,8 @@ def _rollout(
 class SequenceModel:
     """A recursive predictor; ``history_steps`` is the context every forecast needs.
 
-    For ``filter_mlp``, ``history_steps`` is the consumed context (the information
-    budget) and ``delay_steps`` the shorter explicit-difference history inside it.
-    Other kinds leave ``delay_steps`` unset, so their artifacts are unchanged.
+    ``history_steps`` is the consumed context (the information budget) and
+    ``delay_steps`` the shorter explicit-difference history inside it.
     """
 
     kind: str
@@ -199,30 +171,22 @@ class SequenceModel:
     history_steps: int
     params: dict
     norms: dict
-    delay_steps: int | None = None
+    delay_steps: int
 
     def __post_init__(self):
-        filtered = self.kind == "filter_mlp"
-        if filtered != (self.delay_steps is not None) or (
-            filtered
-            and (
-                not isinstance(self.delay_steps, (int, np.integer))
-                or isinstance(self.delay_steps, bool)
-                or not 1 <= self.delay_steps < self.history_steps
-            )
+        if (
+            self.kind != KIND
+            or not isinstance(self.delay_steps, (int, np.integer))
+            or isinstance(self.delay_steps, bool)
+            or not 1 <= self.delay_steps < self.history_steps
         ):
             raise ValueError(
-                "filter_mlp needs 1 <= delay_steps < history_steps; other kinds take none"
+                f"{KIND} is the only kind and needs 1 <= delay_steps < history_steps"
             )
 
     def _check(self, x, up, uf, memory):
         d, u = len(self.norms["state_mean"]), len(self.norms["input_mean"])
-        if memory is None:
-            required = self.history_steps
-        elif self.kind != "filter_mlp":
-            raise ValueError("only filter_mlp carries memory between calls")
-        else:
-            required = None
+        required = self.history_steps if memory is None else None
         if (
             x.ndim != 3
             or up.ndim != 3
@@ -247,7 +211,7 @@ class SequenceModel:
 
         Without ``memory`` the past must hold exactly ``history_steps + 1``
         observations and the memory starts at rest at the first one. With
-        ``memory`` (filter_mlp only), it is the state after the transition into
+        ``memory`` it is the state after the transition into
         ``past_states[..., delay_steps, :]``; the past may then be any length of
         at least ``delay_steps + 1`` observations within the same recording.
         """
@@ -260,27 +224,16 @@ class SequenceModel:
         if single:
             x, up, uf = x[None], up[None], uf[None]
         self._check(x, up, uf, memory)
-        y = _rollout(
-            self.params,
-            self.norms,
-            self.kind,
-            x,
-            up,
-            uf,
-            delay=self.delay_steps,
-            memory=memory,
-        )
+        y = _rollout(self.params, self.norms, x, up, uf, self.delay_steps, memory)
         return y[0] if single else y
 
     def memory_state(self, past_states, past_inputs, *, memory=None):
-        """Return the memory after consuming every supplied transition (filter_mlp).
+        """Return the memory after consuming every supplied transition.
 
         Starting from rest, or from ``memory`` as defined for ``rollout``. The
         supplied observations must lie inside one recording segment; a recording
         boundary means starting again from rest.
         """
-        if self.kind != "filter_mlp":
-            raise ValueError("only filter_mlp has a memory state")
         x, up = map(jnp.asarray, (past_states, past_inputs))
         single = x.ndim == 2
         if memory is not None:
@@ -312,7 +265,7 @@ class SequenceModel:
             kind=self.kind,
             dt_s=self.dt_s,
             history_steps=self.history_steps,
-            **({} if self.delay_steps is None else dict(delay_steps=self.delay_steps)),
+            delay_steps=self.delay_steps,
         )
 
     def arrays(self):
@@ -340,32 +293,25 @@ class SequenceModel:
 
 
 def initialize_sequence_model(
-    batch, *, kind="latent", seed=0, width=32, memory=8, ridge=1.0, delay_steps=None
+    batch, *, seed=0, width=32, memory=8, ridge=1.0, delay_steps=None
 ):
     """Initialize from a learned one-step affine model, with zero neural residual.
 
-    The affine fit uses the forecast-phase transitions of every window. For
-    ``filter_mlp`` the window's past holds the whole consumed context and
-    ``delay_steps`` sets the explicit-difference history; the memory starts at
-    rest and reads out as zero, so checkpoint zero is the same affine start.
+    The affine fit uses the forecast-phase transitions of every window. The
+    window's past holds the whole consumed context and ``delay_steps`` sets the
+    explicit-difference history; the memory starts at rest and reads out as
+    zero, so checkpoint zero is the affine start.
     """
-    if kind not in ("linear", "delay", "mlp", "latent", "delay_mlp", "filter_mlp"):
-        raise ValueError("unknown sequence model kind")
     if min(width, memory) < 1 or not np.isfinite(ridge) or ridge <= 0:
         raise ValueError("width, memory and ridge must be positive")
     context = batch.past_inputs.shape[1]
-    if kind == "filter_mlp":
-        if (
-            not isinstance(delay_steps, (int, np.integer))
-            or isinstance(delay_steps, bool)
-            or not 1 <= delay_steps < context
-        ):
-            raise ValueError("filter_mlp needs 1 <= delay_steps < the window context")
-        p = int(delay_steps)
-    elif delay_steps is not None:
-        raise ValueError("delay_steps applies only to filter_mlp")
-    else:
-        p = context
+    if (
+        not isinstance(delay_steps, (int, np.integer))
+        or isinstance(delay_steps, bool)
+        or not 1 <= delay_steps < context
+    ):
+        raise ValueError("this model needs 1 <= delay_steps < the window context")
+    p = int(delay_steps)
     complete_x = np.concatenate((batch.past_states, batch.future_states), 1)
     complete_u = np.concatenate((batch.past_inputs, batch.future_inputs), 1)
     current = complete_x[:, context:-1]
@@ -375,7 +321,7 @@ def initialize_sequence_model(
     xall, uall = (complete_x - xm) / xs, (complete_u - um) / us
     delta = (batch.future_states - current) / xs
     ds = np.maximum(delta.std((0, 1)), 1e-4)
-    hidden = np.zeros((len(current), memory if kind in _MEMORY_KINDS else 0))
+    hidden = np.zeros((len(current), memory))
     features = np.stack(
         [
             _features(
@@ -384,7 +330,6 @@ def initialize_sequence_model(
                 xall[:, context + t - p : context + t],
                 uall[:, context + t - p : context + t],
                 hidden,
-                kind,
                 xp=np,
             )
             for t in range(current.shape[1])
@@ -392,14 +337,7 @@ def initialize_sequence_model(
         1,
     ).reshape(
         -1,
-        current.shape[-1]
-        + batch.future_inputs.shape[-1]
-        + (
-            p * (current.shape[-1] + batch.future_inputs.shape[-1])
-            if kind in _DELAY_KINDS
-            else 0
-        )
-        + (memory if kind in _MEMORY_KINDS else 0),
+        (p + 1) * (current.shape[-1] + batch.future_inputs.shape[-1]) + memory,
     )
     fs = features.std(0)
     fs = np.where(fs > 1e-8, fs, 1.0)
@@ -411,23 +349,13 @@ def initialize_sequence_model(
     params = dict(linear=coefficients[:-1], bias=coefficients[-1])
     rng = np.random.default_rng(seed)
     f, d = coefficients.shape[0] - 1, coefficients.shape[1]
-    if kind in _MLP_KINDS:
-        params.update(
-            w1=rng.normal(size=(f, width)) / np.sqrt(f),
-            b1=np.zeros(width),
-            w2=np.zeros((width, d)),
-        )
-    if kind == "latent":
-        encoder_width = (p + 1) * d + p * batch.future_inputs.shape[-1]
-        params.update(
-            encoder=rng.normal(size=(encoder_width, memory)) / np.sqrt(encoder_width),
-            encoder_bias=np.zeros(memory),
-        )
-    if kind in _MEMORY_KINDS:
-        params.update(
-            memory=rng.normal(size=(f, memory)) / np.sqrt(f),
-            memory_bias=np.zeros(memory),
-        )
+    params.update(
+        w1=rng.normal(size=(f, width)) / np.sqrt(f),
+        b1=np.zeros(width),
+        w2=np.zeros((width, d)),
+        memory=rng.normal(size=(f, memory)) / np.sqrt(f),
+        memory_bias=np.zeros(memory),
+    )
     norms = dict(
         state_mean=xm,
         state_scale=xs,
@@ -436,22 +364,13 @@ def initialize_sequence_model(
         feature_scale=fs,
         delta_scale=ds,
     )
-    return SequenceModel(
-        kind,
-        batch.dt_s,
-        context,
-        params,
-        norms,
-        delay_steps=p if kind == "filter_mlp" else None,
-    )
+    return SequenceModel(KIND, batch.dt_s, context, params, norms, p)
 
 
 def fit_sequence_model(
     train,
     validation,
     *,
-    kind="latent",
-    objective="rollout",
     seed=0,
     steps=1000,
     batch_size=64,
@@ -461,19 +380,16 @@ def fit_sequence_model(
     ridge=1.0,
     check_every=100,
     error_scale=None,
-    selection_guard: SequenceGuard | None = None,
     delay_steps=None,
 ):
     """Adam with gradient clipping and development-rollout checkpoint selection.
 
-    Teacher forcing is a training-only ablation. Every checkpoint is evaluated
-    recursively. By default all future channels have equal weight after train-only
-    state scaling. error_scale may instead supply positive [horizon,channel] loss
-    scales. A selection_guard rejects development regressions vs initialization.
-    ``delay_steps`` is required by, and only by, ``kind="filter_mlp"``.
+    Every checkpoint is evaluated recursively. By default all future channels
+    have equal weight after train-only state scaling. error_scale may instead
+    supply positive [horizon,channel] loss scales.
     """
-    if objective not in ("rollout", "teacher") or steps < 0 or check_every < 1:
-        raise ValueError("invalid objective or training steps")
+    if steps < 0 or check_every < 1:
+        raise ValueError("invalid training steps")
     if batch_size < 1 or not np.isfinite(learning_rate) or learning_rate <= 0:
         raise ValueError("batch_size and learning_rate must be positive")
     if train.dt_s != validation.dt_s or any(
@@ -483,7 +399,6 @@ def fit_sequence_model(
         raise ValueError("train and validation contracts differ")
     model = initialize_sequence_model(
         train,
-        kind=kind,
         seed=seed,
         width=width,
         memory=memory,
@@ -503,33 +418,23 @@ def fit_sequence_model(
         ):
             raise ValueError("error_scale must be positive [horizon,channel] values")
         normalization = jnp.asarray(error_scale)
-    if selection_guard is not None:
-        selection_guard.validate_shape(*train.future_states.shape[1:])
     names = ("past_states", "past_inputs", "future_inputs", "future_states")
     training = tuple(jnp.asarray(getattr(train, key)) for key in names)
     development = tuple(jnp.asarray(getattr(validation, key)) for key in names)
 
-    def loss(par, data, teacher):
+    def loss(par, data):
         x, up, uf, target = data
-        prediction = _rollout(
-            par, norms, kind, x, up, uf, target if teacher else None, delay=delay
-        )
+        prediction = _rollout(par, norms, x, up, uf, delay)
         return jnp.mean(((prediction - target) / normalization) ** 2)
 
     @jax.jit
     def evaluate(par):
-        return loss(par, development, False)
-
-    @jax.jit
-    def guard_errors(par):
-        x, up, uf, target = development
-        predicted = _rollout(par, norms, kind, x, up, uf, delay=delay)
-        return selection_guard.errors(predicted, target)
+        return loss(par, development)
 
     @jax.jit
     def update(par, first, second, index, indices):
         data = tuple(value[indices] for value in training)
-        value, grad = jax.value_and_grad(loss)(par, data, objective == "teacher")
+        value, grad = jax.value_and_grad(loss)(par, data)
         norm = jnp.sqrt(sum(jnp.sum(g * g) for g in jax.tree.leaves(grad)))
         grad = jax.tree.map(lambda g: g * jnp.minimum(1.0, 5.0 / (norm + 1e-12)), grad)
         first = jax.tree.map(lambda m, g: 0.9 * m + 0.1 * g, first, grad)
@@ -552,10 +457,6 @@ def fit_sequence_model(
     if not np.isfinite(best_loss):
         raise ValueError("initial recursive validation loss is nonfinite")
     trace = [dict(step=0, validation_rollout_mse=best_loss)]
-    reference_errors = None
-    if selection_guard is not None:
-        reference_errors = np.asarray(guard_errors(params))
-        trace[0].update(guard_errors=reference_errors.tolist(), guard_accepted=True)
     first, second = (jax.tree.map(jnp.zeros_like, params) for _ in range(2))
     rng = np.random.default_rng(seed + 10000)
     best_step = 0
@@ -568,35 +469,25 @@ def fit_sequence_model(
             train_loss, val_loss = float(value), float(evaluate(params))
             if not np.isfinite([train_loss, val_loss]).all():
                 raise ValueError(f"nonfinite sequence training at step {i}")
-            accepted = True
-            guard_report = {}
-            if selection_guard is not None:
-                candidate_errors = np.asarray(guard_errors(params))
-                accepted = selection_guard.accepts(candidate_errors, reference_errors)
-                guard_report = dict(
-                    guard_errors=candidate_errors.tolist(), guard_accepted=accepted
-                )
             trace.append(
                 dict(
                     step=i,
                     training_batch_mse=train_loss,
                     validation_rollout_mse=val_loss,
-                    **guard_report,
                 )
             )
-            if accepted and val_loss < best_loss:
+            if val_loss < best_loss:
                 best, best_loss, best_step = params, val_loss, i
     result = SequenceModel(
-        kind,
+        KIND,
         train.dt_s,
         model.history_steps,
         jax.tree.map(np.asarray, best),
         jax.tree.map(np.asarray, norms),
-        delay_steps=delay,
+        delay,
     )
     return result, dict(
-        kind=kind,
-        objective=objective,
+        kind=KIND,
         steps=steps,
         selected_step=best_step,
         validation_rollout_mse=best_loss,
@@ -607,10 +498,6 @@ def fit_sequence_model(
         if error_scale is None
         else "explicit_horizon_channel",
         error_scale=np.asarray(normalization).tolist(),
-        selection_guard=None if selection_guard is None else selection_guard.metadata(),
-        **(
-            {}
-            if delay is None
-            else dict(context_steps=model.history_steps, delay_steps=delay)
-        ),
+        context_steps=model.history_steps,
+        delay_steps=delay,
     )

@@ -1,4 +1,4 @@
-"""Causal memory contract: rest start, in-recording carry, boundaries, old kinds."""
+"""Causal memory contract: rest start, in-recording carry, and segment boundaries."""
 
 import jax
 import jax.numpy as jnp
@@ -93,9 +93,7 @@ def batch():
 
 @pytest.fixture(scope="module")
 def model(batch):
-    m = initialize_sequence_model(
-        batch, kind="filter_mlp", width=4, memory=3, delay_steps=DELAY
-    )
+    m = initialize_sequence_model(batch, width=4, memory=3, delay_steps=DELAY)
     # Give the memory a nonzero readout so that carrying it matters.
     m.params["linear"][-3:] = 0.1
     m.params["w2"][:] = 0.04
@@ -233,32 +231,34 @@ def test_forecast_is_causal_prefix_consistent_and_matches_independent_replay(
     assert np.abs(older[:, : CONTEXT - DELAY]).max() > 0
 
 
-def test_rest_start_reproduces_the_delay_model_affine_initialization(batch):
-    short = shorten(batch, DELAY)
-    filtered = initialize_sequence_model(
-        batch, kind="filter_mlp", width=4, memory=3, delay_steps=DELAY
-    )
-    delayed = initialize_sequence_model(short, kind="delay_mlp", width=4)
-    for key in delayed.norms:
-        np.testing.assert_allclose(
-            filtered.norms[key][: len(delayed.norms[key])], delayed.norms[key]
-        )
-    np.testing.assert_allclose(
-        filtered.params["linear"][:-3], delayed.params["linear"], atol=1e-12
-    )
+def test_checkpoint_zero_is_the_affine_start_with_a_silent_memory(batch):
+    """The memory reads out as zero at initialization, so it cannot move a forecast."""
+    filtered = initialize_sequence_model(batch, width=4, memory=3, delay_steps=DELAY)
     np.testing.assert_array_equal(filtered.params["linear"][-3:], 0)
-    np.testing.assert_allclose(
-        filtered.params["bias"], delayed.params["bias"], atol=1e-12
-    )
     np.testing.assert_array_equal(filtered.params["w2"], 0)
-    np.testing.assert_allclose(
-        filtered.rollout(batch.past_states, batch.past_inputs, batch.future_inputs),
-        delayed.rollout(short.past_states, short.past_inputs, short.future_inputs),
-        rtol=1e-10,
-        atol=1e-12,
-    )
     assert filtered.history_steps == CONTEXT and filtered.delay_steps == DELAY
-    assert delayed.history_steps == DELAY and delayed.delay_steps is None
+    x, up, uf = batch.past_states, batch.past_inputs, batch.future_inputs
+    reference = np.asarray(filtered.rollout(x, up, uf))
+    rng = np.random.default_rng(3)
+    perturbed = SequenceModel(
+        filtered.kind,
+        filtered.dt_s,
+        filtered.history_steps,
+        {
+            **filtered.params,
+            "memory": rng.normal(size=filtered.params["memory"].shape),
+            "memory_bias": rng.normal(size=filtered.params["memory_bias"].shape),
+        },
+        filtered.norms,
+        filtered.delay_steps,
+    )
+    assert not np.allclose(perturbed.memory_state(x, up), filtered.memory_state(x, up))
+    np.testing.assert_allclose(
+        perturbed.rollout(x, up, uf), reference, rtol=1e-12, atol=1e-14
+    )
+    # Only the explicit-delay features carry weight at the affine start.
+    weighted = filtered.params["linear"][: -filtered.params["memory"].shape[1]]
+    assert weighted.shape[0] == (DELAY + 1) * (x.shape[-1] + uf.shape[-1])
 
 
 def test_memory_recovers_a_delayed_input_response_that_explicit_history_cannot():
@@ -278,21 +278,23 @@ def test_memory_recovers_a_delayed_input_response_that_explicit_history_cannot()
     np.testing.assert_array_equal(px[0], px[1])
     assert np.count_nonzero(pu[0] != pu[1]) == 1
     with jax.enable_x64(True):
-        incumbent, _ = fit_sequence_model(
-            shorten(train, DELAY),
-            shorten(development, DELAY),
-            kind="delay_mlp",
-            **settings,
-        )
         candidate, report = fit_sequence_model(
             train,
             development,
-            kind="filter_mlp",
             memory=4,
             delay_steps=DELAY,
             **settings,
         )
-        blind = np.asarray(incumbent.rollout(px[:, -DELAY - 1 :], pu[:, -DELAY:], uf))
+        # The same model denied the context: an at-rest memory over the explicit
+        # 100 ms history, which cannot contain the withheld input.
+        blind = np.asarray(
+            candidate.rollout(
+                px[:, -DELAY - 1 :],
+                pu[:, -DELAY:],
+                uf,
+                memory=np.zeros((2, 4)),
+            )
+        )
         informed = np.asarray(candidate.rollout(px, pu, uf))
     paired = lambda y: np.sqrt(np.mean((y - target) ** 2, axis=(0, 2)))  # noqa: E731
     np.testing.assert_array_equal(blind[0], blind[1])
@@ -301,40 +303,18 @@ def test_memory_recovers_a_delayed_input_response_that_explicit_history_cannot()
     assert report["context_steps"] == CONTEXT and report["delay_steps"] == DELAY
 
 
-def test_round_trip_and_unchanged_contracts_for_other_kinds(model, batch, tmp_path):
+def test_round_trip_and_the_only_supported_kind(model, batch, tmp_path):
     path = tmp_path / "memory.npz"
     model.save(path)
     loaded = SequenceModel.load(path)
     assert loaded.fingerprint() == model.fingerprint()
+    assert loaded.kind == "filter_mlp"
     assert loaded.delay_steps == DELAY and loaded.metadata()["delay_steps"] == DELAY
     x, up, uf = batch.past_states[:2], batch.past_inputs[:2], batch.future_inputs[:2]
     np.testing.assert_array_equal(loaded.rollout(x, up, uf), model.rollout(x, up, uf))
-    short = shorten(batch, DELAY)
-    plain = initialize_sequence_model(short, kind="delay_mlp", width=4)
-    assert "delay_steps" not in plain.metadata()
-    assert (
-        SequenceModel(
-            *(
-                getattr(plain, f)
-                for f in ("kind", "dt_s", "history_steps", "params", "norms")
-            )
-        ).fingerprint()
-        == plain.fingerprint()
-    )
-    with pytest.raises(ValueError, match="memory"):
-        plain.rollout(
-            short.past_states[:2], short.past_inputs[:2], uf, memory=np.zeros((2, 3))
-        )
-    with pytest.raises(ValueError, match="memory state"):
-        plain.memory_state(short.past_states[:2], short.past_inputs[:2])
-    for bad in (
-        dict(kind="delay_mlp", delay_steps=2),
-        dict(kind="filter_mlp"),
-        dict(kind="filter_mlp", delay_steps=CONTEXT),
-    ):
+    for bad in (dict(), dict(delay_steps=CONTEXT), dict(delay_steps=0)):
         with pytest.raises(ValueError):
-            initialize_sequence_model(batch, width=4, **bad)
-    with pytest.raises(ValueError, match="delay_steps"):
-        SequenceModel("delay_mlp", 0.05, 2, plain.params, plain.norms, delay_steps=1)
-    with pytest.raises(ValueError, match="delay_steps"):
-        SequenceModel("filter_mlp", 0.05, 2, model.params, model.norms, delay_steps=2)
+            initialize_sequence_model(batch, width=4, memory=3, **bad)
+    for kind, delay in (("delay_mlp", 2), ("latent", 2), ("filter_mlp", CONTEXT)):
+        with pytest.raises(ValueError):
+            SequenceModel(kind, 0.05, CONTEXT, model.params, model.norms, delay)
