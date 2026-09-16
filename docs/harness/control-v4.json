@@ -1,6 +1,6 @@
 {
-  "id": "control-v3",
-  "purpose": "The control tier: Cascade X8 reference tracking through the existing plant and NMPC seam, with the generic learner and the structured belief driving the same trials.",
+  "id": "control-v4",
+  "purpose": "The control tier: Cascade X8 reference tracking through the existing plant and NMPC seam, with the generic learner and the structured belief driving the same trials, computed in simulated time.",
   "frozen_before_any_candidate_fit": true,
   "recipe": {
     "id": "generic-memory-v2-prototype",
@@ -41,16 +41,32 @@
       "altitude_m": 100.0
     },
     "environment": "cascade.standard_environment",
-    "wind_world_m_s": [0.0, 0.0, 0.0],
+    "wind_world_m_s": [
+      0.0,
+      0.0,
+      0.0
+    ],
     "state_source": "simulator_truth",
     "plant_internals_visible_to_glassbox": false
   },
   "telemetry": {
     "configuration_id": "cascade_published_x8_cruise",
     "state_schema": "rigid_body_13_nwu_flu_wxyz_v1",
-    "command_minimum": [0.0, -0.35, -0.35],
-    "command_maximum": [1.0, 0.35, 0.35],
-    "command_semantics": ["normalized_command", "surface_angle_command", "surface_angle_command"],
+    "command_minimum": [
+      0.0,
+      -0.35,
+      -0.35
+    ],
+    "command_maximum": [
+      1.0,
+      0.35,
+      0.35
+    ],
+    "command_semantics": [
+      "normalized_command",
+      "surface_angle_command",
+      "surface_angle_command"
+    ],
     "observed_channels": [
       "velocity_north [m/s,world_nwu]",
       "velocity_west [m/s,world_nwu]",
@@ -72,9 +88,20 @@
   },
   "calibration": {
     "recordings": 4,
-    "seeds": [0, 1, 2, 3],
-    "training_seeds": [0, 1, 2],
-    "reserved_seeds": [3],
+    "seeds": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "training_seeds": [
+      0,
+      1,
+      2
+    ],
+    "reserved_seeds": [
+      3
+    ],
     "duration_s": 8.0,
     "pilot": "cascade.control.skywalker_x8_controller with simulator-derived trim feedforward",
     "pilot_periods": {
@@ -93,8 +120,16 @@
       "heading_amplitude_rad": 0.025,
       "heading_rate_rad_s": 0.6
     },
-    "excitation_amplitudes": [0.035, 0.025, 0.02],
-    "excitation_rates_rad_s": [1.3, 2.1, 1.7],
+    "excitation_amplitudes": [
+      0.035,
+      0.025,
+      0.02
+    ],
+    "excitation_rates_rad_s": [
+      1.3,
+      2.1,
+      1.7
+    ],
     "phase_seed_source": "numpy.random.default_rng(seed).uniform(0, 2*pi, size=3)",
     "command_policy": "requested command held for the full sample interval",
     "initial_history_assumption": "reset at constant-command actuator equilibrium",
@@ -121,10 +156,18 @@
     "sample_interval_s": 0.05,
     "intervals": 320,
     "repetitions": 2,
-    "initial_state_seeds": [101, 102],
+    "initial_state_seeds": [
+      101,
+      102
+    ],
     "initial_state_perturbation": {
       "source": "docs/cascade-accuracy.md, drawn with numpy.random.default_rng(seed) into a twelve-vector tangent and applied with glassbox.core.geometry.state_plus_tangent",
-      "order": ["lateral_and_vertical_position_m", "lateral_and_vertical_velocity_m_s", "attitude_tangent_rad", "body_rate_rad_s"],
+      "order": [
+        "lateral_and_vertical_position_m",
+        "lateral_and_vertical_velocity_m_s",
+        "attitude_tangent_rad",
+        "body_rate_rad_s"
+      ],
       "lateral_and_vertical_position_m": 0.15,
       "lateral_and_vertical_velocity_m_s": 0.05,
       "attitude_tangent_rad": 0.01,
@@ -132,13 +175,21 @@
       "meaning": "The only introduced disturbance: wind is zero, sensing is simulator truth, and nothing is added during the trial. Both arms of one repetition start from the same perturbed state, and the reference is the unperturbed task and does not move with it."
     },
     "arm_order": [
-      ["structured", "generic"],
-      ["generic", "structured"]
+      [
+        "structured",
+        "generic"
+      ],
+      [
+        "generic",
+        "structured"
+      ]
     ],
     "solve_deadline_s": 0.05,
-    "pacing": "paced fixed steps; the plant's simulated clock slows when control runs late",
+    "solver_deadline_applied": false,
+    "solve_deadline_meaning": "Not applied to any solve. The solver is given no deadline, so it never returns a fallback for want of time and its solved command is always the command applied. This constant survives only as the reporting threshold the run counts solves against, and it is the sample interval.",
+    "pacing": "none. The loop runs in simulated time: interval k is the state at k times the sample interval, and no wall-clock measurement reaches a command.",
     "plant_prewarm": "one discarded step at the initial command, then a reset, before the trial clock starts",
-    "meaning": "Both arms drive a freshly reset plant from the same perturbed initial state and the same initial command, over the same reference, for the same number of intervals. Arm order alternates between repetitions, and each repetition draws its own initial state from its declared seed."
+    "meaning": "control-v3's trial set, constant for constant, with its wall-clock pacing and its solve deadline removed. Both arms drive a freshly reset plant from the same perturbed initial state and the same initial command, over the same reference, for the same number of intervals. Arm order alternates between repetitions, and each repetition draws its own initial state from its declared seed. Nothing a clock measured reaches the trajectory: the loop is not paced, the solver is given no deadline and therefore never falls back for want of time, and the command it solved is the command the plant is stepped with on every interval. Solve times, interval times and the count of solves over the sample interval are still measured, and are recorded in a separate artifact and a separate block of each trial row that nothing reads back. Under control-v3 a run made while the host was loaded produced a different structured-arm trajectory from the same run made alone, which is what this retires."
   },
   "controller": {
     "tolerances_platform": "fixedwing",
@@ -154,8 +205,15 @@
       "fit": "glassbox.fitting.fit on the three calibration recordings",
       "holdout": "by_group",
       "optimization_steps": 200,
-      "training_horizons_s": [0.1, 0.4],
-      "evaluation_horizons_s": [0.1, 0.4, 0.8],
+      "training_horizons_s": [
+        0.1,
+        0.4
+      ],
+      "evaluation_horizons_s": [
+        0.1,
+        0.4,
+        0.8
+      ],
       "presented_by": "glassbox.control.fitted.plan_model",
       "horizon_policy": "glassbox.control.fitted.default_solver_policy, capped by the belief's own forecast-error evidence",
       "uncertainty_available": false,
@@ -174,20 +232,25 @@
   },
   "metrics": {
     "definition": "glassbox.core.metrics.state_rmse_metrics over every completed control interval after the shared initial state",
-    "gating": ["position_rmse_m", "attitude_rmse_deg", "terminated"],
+    "gating": [
+      "position_rmse_m",
+      "attitude_rmse_deg",
+      "terminated"
+    ],
     "informational": [
       "pass_criterion",
-      "deadline_misses",
-      "solve_deadline_misses",
+      "wall",
       "velocity_rmse_m_s",
       "angular_velocity_rmse_rad_s",
       "fallback_count",
-      "maximum_command_bound_violation",
-      "maximum_source_clock_lag_s"
+      "maximum_command_bound_violation"
     ],
     "pass_criterion": {
       "source": "docs/cascade-accuracy.md",
-      "channels": ["velocity_west position [m,world_nwu]", "altitude [m,world_nwu]"],
+      "channels": [
+        "velocity_west position [m,world_nwu]",
+        "altitude [m,world_nwu]"
+      ],
       "tolerance_m": 0.5,
       "settled_after_s": 2.0,
       "minimum_fraction": 0.95,
@@ -196,13 +259,13 @@
       "meaning": "The page's own pass criterion, recorded beside the RMSE rule and reported rather than gated: both absolute lateral and altitude errors at most 0.5 m in at least 95% of the 20 Hz samples at t >= 2 s, with no terminated trial. It is a provisional application requirement for this task, not a learned or universal flight tolerance, and it does not decide this run."
     },
     "terminated": "a trial that did not complete every declared interval with finite observed states",
-    "meaning": "Deadline misses are host-specific scheduling measurements and inform rather than gate. Wall times are not a real-time claim. The pass criterion is reported on every trial; the decision reads the RMSE rule and the regression reference."
+    "meaning": "Wall times, interval times over the sample interval and solves over that same interval are host-specific measurements of this run. They are recorded in timing.npz and in each trial's wall block, they inform rather than gate, and nothing that decides this run reads them. Wall times are not a real-time claim. The pass criterion is reported on every trial; the decision reads the RMSE rule and the regression reference."
   },
   "reference": {
     "file": "control-reference.json",
     "relative_tolerance": 0.05,
     "absolute_tolerance": 0.005,
-    "meaning": "When the reference file exists beside this manifest, no trial's generic position or attitude RMSE may exceed its reference value times 1.05 plus 0.005. A run copies the reference it compared into its output directory and records its sha256, and verify anchors that copy to the committed file rather than believing it.",
+    "meaning": "When the reference file exists beside this manifest, no trial's generic position or attitude RMSE may exceed its reference value times 1.05 plus 0.005. A run copies the reference it compared into its output directory and records its sha256, and verify anchors that copy to the committed file rather than believing it. control-reference.json is rewritten from the first accepted run of this manifest, because control-v3's incumbent was measured under a paced loop and a solve deadline.",
     "gates_the_rule": "The same recorded value decides which cases the rule gates. A trial and metric whose reference value is itself at or below this run's structured arm on that trial is a case the reference meets, and the rule is a gate there; a case the reference already fails is reported only. With no reference compared there is no case the reference meets, and the rule is reported everywhere."
   },
   "decision": {
@@ -211,6 +274,6 @@
     "rule_met": "Reported separately from the decision, on every run. The control row of docs/status.md is met only when the rule holds on every trial and metric, which is a stronger statement than an accepted run.",
     "gates_from": "this manifest. A run is accepted only when no metric regresses past its reference value times 1.05 plus 0.005, the rule holds on every trial and metric the reference already meets it on, and nothing structural fails. A case the reference already fails is reported, not gated: an enforced rule the incumbent does not meet would block every change rather than measure one.",
     "structural": "Always fails closed, whatever the reference says: a trial missing, duplicated, undeclared, terminated, short of its declared intervals, or carrying a metric that is not a finite number.",
-    "meaning": "A Cascade X8 tracking measurement of this trial set only. Not hardware readiness, not a real-time claim, and not calibrated uncertainty."
+    "meaning": "A Cascade X8 tracking measurement of this trial set only, computed in simulated time. Not hardware readiness, not a real-time claim, and not calibrated uncertainty."
   }
 }

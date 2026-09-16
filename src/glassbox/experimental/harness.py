@@ -8,7 +8,7 @@ the same recipe on each pinned corpus of ``docs/harness/platform-v3.json`` with
 whole recordings held out, fits the structured model on exactly the same
 training recordings, and scores both on exactly the same held-out rows.
 ``control`` is the control tier: it collects the frozen Cascade X8 calibration
-of ``docs/harness/control-v3.json``, fits both models on it, and tracks the
+of ``docs/harness/control-v4.json``, fits both models on it, and tracks the
 same reference with each of them through the existing NMPC seam. ``live`` is
 the live improvement tier: it collects the same calibration under
 ``docs/harness/live-v1.json``, flies the structured arm from the first
@@ -23,7 +23,7 @@ that changed. No command takes tuning options.
     python -m glassbox.experimental.harness platform \\
         --manifest docs/harness/platform-v3.json --corpora ROOT --output DIR
     python -m glassbox.experimental.harness control \\
-        --manifest docs/harness/control-v3.json --output DIR
+        --manifest docs/harness/control-v4.json --output DIR
     python -m glassbox.experimental.harness live \\
         --manifest docs/harness/live-v2.json --output DIR
     python -m glassbox.experimental.harness verify DIR [--reference PATH]
@@ -2224,11 +2224,11 @@ def verify_platform(directory, manifest, reference=None):
 # --- the control tier: one Cascade trial set, two arms ----------------------
 
 CONTROL_MANIFEST_SHA256 = (
-    "69cb4d995246af95372bf0a685b8e40aa225174de06f249397d89ea47ad4d28e"
+    "a2ec4beaf29525343681c8cff834a31fe60b251b990a72c15aeaddaa92ddcd1f"
 )
 """Digest of the frozen control manifest this module is allowed to run."""
 
-COMMITTED_CONTROL_MANIFEST = COMMITTED_MANIFEST.parent / "control-v3.json"
+COMMITTED_CONTROL_MANIFEST = COMMITTED_MANIFEST.parent / "control-v4.json"
 """The frozen control manifest in a source checkout."""
 
 COMMITTED_CONTROL_REFERENCE = COMMITTED_MANIFEST.parent / "control-reference.json"
