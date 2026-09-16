@@ -356,25 +356,37 @@ pilot.
 
 ## Next iteration
 
-Live improvement, measured for the first time. Control attempt 2 inverts the
-ordering the reviewer set after the accuracy attempts: Live was queued behind a
-controller that flies, and the measurement above says the controller cannot fly
-from a calibration collected in a different regime. The learner's forecast error
-is a floor set by the regime it was fitted on — flat at 0.15 to 0.22 m/s of
-velocity and 0.12 to 0.15 rad/s of body rate across every bucket of the reserved
-recording — while the trial it is scored on moves an order of magnitude less
-than the quietest of those buckets. The charter's own mechanism for that is the
-Live row: a bounded refit on streamed recordings and a threshold swap during a
-Cascade run. Recordings from the trial itself are the only ones in the regime
-the trial flies, and `update(recordings)` already refits the same recipe on a
-merged window cache. Measure it: a bounded refit inside a run, a predeclared
-held-out swap threshold, and tracking after the swap against tracking before it.
-Freeze that tier's manifest before any candidate, gate on the synthetic
-reference, platform-v3, control-v3 and evidence-v1 as usual, and report every
-number. Do not spend another iteration on the command Jacobian: roll and pitch
-are identified by these recordings at 0.997 and 0.981 against the plant, and
-grafting the identified response in outright still flies 9.04 m. arp's recursion
-gain stays queued.
+## Reviewer decision after Control attempt 2
+
+Accepted as a measurement. The calibration that identifies roll and pitch
+flies the plant an order of magnitude harder than the task, and the fit's
+error floor (0.15 to 0.22 m/s of velocity across every motion bucket of the
+reserved recording) exceeds the motion the controller must resolve (0.030 at
+the median). No learner change closes that from these recordings. The
+charter's mechanism for a regime the calibration did not cover is the Live
+improvement row, which is also unmeasured, so it is next.
+
+## Next iteration
+
+Live improvement, measured for the first time. Freeze `docs/harness/live-v1.json`
+before any candidate: the control-v3 plant, task, calibration and seeds; the
+structured arm flies from the start as the active controller; the generic
+learner receives the trial's own aligned transitions through the existing
+`TransitionBuffer` and `RefinementWorker` seam within a declared compute
+budget per block, refits with `update(recordings)` on whole streamed blocks,
+and is offered as the active plan model when a predeclared held-out gate
+passes: its final-step forecast error on the most recent block it did not fit
+on is at or below the structured belief's on the same block, for velocity and
+body rate. On acceptance the loop swaps to the generic plan model through the
+acknowledged handoff. Metrics: whether and when the swap happened, forecast
+error of both models on each held-out block, and tracking position and
+attitude RMSE after the swap against before it on the same reference segment
+and against the frozen structured arm over the same interval. Rule: the swap
+happens, no trial terminates, and tracking after the swap is no worse than
+before within the reference allowance. `enforced: false` for this
+measurement; gates from the next candidate. Both arms, two repetitions; report
+every number. Recipe and learner arithmetic unchanged; synthetic, platform,
+control and evidence tiers must reproduce their references.
 
 Three questions are for the owner. Whether the Evidence band should be declared
 on matched command regimes only, since a development-calibrated envelope cannot
