@@ -1,19 +1,24 @@
 """One harness for the generic learner: fit frozen cases, score, decide, replay.
 
-The harness has two tiers, each with its own frozen manifest and digest
+The harness has three tiers, each with its own frozen manifest and digest
 constant. ``run`` is the synthetic tier: it fits the consumer recipe end to end
 on each case of ``docs/harness/v1.json``, scores its forecasts on independent
 recordings, and writes a decision. ``platform`` is the accuracy tier: it fits
 the same recipe on each pinned corpus of ``docs/harness/platform-v2.json`` with
 whole recordings held out, fits the structured model on exactly the same
 training recordings, and scores both on exactly the same held-out rows.
-``verify`` replays either tier from its saved artifacts and rejects anything
+``control`` is the control tier: it collects the frozen Cascade X8 calibration
+of ``docs/harness/control-v1.json``, fits both models on it, and tracks the
+same reference with each of them through the existing NMPC seam.
+``verify`` replays any tier from its saved artifacts and rejects anything
 that changed. No command takes tuning options.
 
     python -m glassbox.experimental.harness run \\
         --manifest docs/harness/v1.json --output DIR
     python -m glassbox.experimental.harness platform \\
         --manifest docs/harness/platform-v2.json --corpora ROOT --output DIR
+    python -m glassbox.experimental.harness control \\
+        --manifest docs/harness/control-v1.json --output DIR
     python -m glassbox.experimental.harness verify DIR [--reference PATH]
 
 A run copies the manifest and the reference it compared into its output, but a
@@ -33,6 +38,7 @@ import platform as platform_module
 import shutil
 import sys
 import time
+from collections import deque
 from fnmatch import fnmatch
 from itertools import pairwise
 from pathlib import Path
@@ -730,6 +736,15 @@ def verify(directory, reference=None):
             directory,
             frozen_platform_manifest(directory / "manifest.json"),
             reference,
+        )
+    if digest == CONTROL_MANIFEST_SHA256:
+        if reference is not None or (directory / "reference.json").exists():
+            raise ValueError(
+                "the control tier declares no regression reference; this is its "
+                "first measurement and there is nothing to anchor"
+            )
+        return verify_control(
+            directory, frozen_control_manifest(directory / "manifest.json")
         )
     if digest != MANIFEST_SHA256:
         raise ValueError("manifest digest differs from every frozen harness contract")
@@ -1627,6 +1642,1024 @@ def verify_platform(directory, manifest, reference=None):
     )
 
 
+# --- the control tier: one Cascade trial set, two arms ----------------------
+
+CONTROL_MANIFEST_SHA256 = (
+    "d5d13d3d4c2fd3a9d6195b839bbd33bc09ec3abc10f495acbde13e879d2c607a"
+)
+"""Digest of the frozen control manifest this module is allowed to run."""
+
+COMMITTED_CONTROL_MANIFEST = COMMITTED_MANIFEST.parent / "control-v1.json"
+"""The frozen control manifest in a source checkout."""
+
+CONTROL_ARMS = ("generic", "structured")
+CONTROL_METRICS = ("position_rmse_m", "attitude_rmse_deg")
+"""The two tracking metrics the declared rule compares, arm against arm."""
+
+CONTROL_REPORTED_METRICS = CONTROL_METRICS + (
+    "velocity_rmse_m_s",
+    "angular_velocity_rmse_rad_s",
+)
+
+
+def frozen_control_manifest(path):
+    """Load the control manifest only when its bytes match the frozen digest."""
+    if sha256(path) != CONTROL_MANIFEST_SHA256:
+        raise ValueError("manifest digest differs from the frozen harness contract")
+    manifest = read(path)
+    declared_plan(manifest)
+    steps = steps_for(manifest["information_budget"]["sample_interval_s"])
+    budget = manifest["information_budget"]
+    if (steps["history"], steps["delay"], steps["horizon"]) != (
+        budget["context_steps"],
+        budget["delay_steps"],
+        budget["horizon_steps"],
+    ):
+        raise ValueError("manifest information budget differs from the recipe")
+    trial = manifest["trial"]
+    if trial["intervals"] != round(trial["duration_s"] / trial["sample_interval_s"]):
+        raise ValueError("manifest trial duration and interval count disagree")
+    return manifest
+
+
+def control_reference(initial_state, times, declared):
+    """The declared cruise reference, rebuilt from one initial state.
+
+    A straight cruise carried forward at the initial state's own world velocity,
+    with a small cosine altitude variation and the climb rate that matches it.
+    ``verify`` rebuilds it from the saved initial state rather than believing
+    the saved reference rows, so a run cannot score itself against a reference
+    it invented.
+    """
+    initial_state = np.asarray(initial_state, dtype=float)
+    times = np.asarray(times, dtype=float)
+    states = np.tile(initial_state, (len(times), 1))
+    rate = declared["rate_rad_s"]
+    states[:, 0:3] += times[:, None] * initial_state[3:6]
+    states[:, 2] += declared["altitude_amplitude_m"] * (1.0 - np.cos(rate * times))
+    states[:, 5] += declared["climb_rate_amplitude_m_s"] * np.sin(rate * times)
+    return states
+
+
+def control_telemetry_spec(manifest):
+    """The declared telemetry contract every calibration recording carries."""
+    from dataclasses import replace as dataclass_replace
+
+    from glassbox.io.x8_reference import x8_trajectory_spec
+
+    declared = manifest["telemetry"]
+    minimum = declared["command_minimum"]
+    maximum = declared["command_maximum"]
+    base = x8_trajectory_spec(trusted_wind=False)
+    return dataclass_replace(
+        base,
+        observation_source=manifest["plant"]["state_source"],
+        channels=tuple(
+            dataclass_replace(
+                channel,
+                minimum=float(low),
+                maximum=float(high),
+                semantic=semantic,
+            )
+            for channel, low, high, semantic in zip(
+                base.controls, minimum, maximum, declared["command_semantics"]
+            )
+        ),
+        vehicle=dataclass_replace(
+            base.vehicle,
+            configuration_id=declared["configuration_id"],
+            fixed_states={
+                **base.vehicle.fixed_states,
+                "wind_world_m_s": list(manifest["plant"]["wind_world_m_s"]),
+            },
+        ),
+    )
+
+
+def control_fixture(manifest):
+    """The pinned Cascade plant, its trim, and the state and command it rests at.
+
+    The aircraft specification hash and the installed source revision are
+    checked against the frozen manifest before anything is collected, so a
+    changed simulator fails closed instead of quietly measuring another plant.
+    """
+    from importlib import metadata as importlib_metadata
+
+    import cascade
+    from cascade.canonical import rigid_body_to_canonical
+
+    declared = manifest["plant"]
+    distribution = importlib_metadata.distribution(declared["package"])
+    if distribution.version != declared["version"]:
+        raise ValueError(
+            f"installed {declared['package']} {distribution.version} is not the "
+            f"frozen {declared['version']}"
+        )
+    direct_url = distribution.read_text("direct_url.json")
+    revision = json.loads(direct_url)["vcs_info"]["commit_id"] if direct_url else None
+    if revision != declared["source_revision"]:
+        raise ValueError(
+            f"installed {declared['package']} source revision {revision} is not "
+            f"the frozen {declared['source_revision']}"
+        )
+    spec = cascade.skywalker_x8_spec()
+    if cascade.spec_hash(spec) != declared["spec_hash"]:
+        raise ValueError("Cascade aircraft specification differs from the frozen one")
+    model = spec.to_model()
+    trim = cascade.trim_straight_flight(
+        model,
+        cascade.StraightFlightCondition(
+            airspeed_m_s=declared["trim"]["airspeed_m_s"],
+            altitude_m=declared["trim"]["altitude_m"],
+        ),
+    )
+    if not trim.success:
+        raise RuntimeError(f"Cascade calibration trim failed: {trim.message}")
+    state = np.asarray(rigid_body_to_canonical(trim.state.rigid_body), dtype=float)
+    command = np.asarray(cascade.control_to_array(trim.control), dtype=float)
+    minimum = np.asarray(manifest["telemetry"]["command_minimum"], dtype=float)
+    maximum = np.asarray(manifest["telemetry"]["command_maximum"], dtype=float)
+    if np.any(command < minimum) or np.any(command > maximum):
+        raise ValueError("trim lies outside the declared command box")
+    return spec, model, trim, state, command
+
+
+def _control_plant(manifest, spec=None, model=None):
+    from glassbox.integrations.cascade import CascadePlant, CascadePlantConfig
+
+    configuration = CascadePlantConfig(
+        control_frequency_hz=manifest["plant"]["control_frequency_hz"]
+    )
+    if spec is None:
+        return CascadePlant(configuration)
+    return CascadePlant(configuration, spec=spec, model=model)
+
+
+def control_recording(manifest, plant, trim, initial_state, initial_command, seed):
+    """One calibration recording under the declared pilot, trim and excitation.
+
+    The same protocol ``examples/cascade_refinement.py`` collects the structured
+    belief's calibration with: the published X8 stabilizer at this command
+    cadence, simulator-derived trim feedforward, and small setpoint and command
+    perturbations from one seed. Every constant is read from the frozen
+    manifest rather than written here.
+    """
+    import cascade
+    import jax
+    import jax.numpy as jnp
+    from cascade.canonical import rigid_body_from_canonical
+    from cascade.control import (
+        GuidanceSetpoint,
+        cascade_step,
+        initial_cascade_state,
+        skywalker_x8_controller,
+    )
+
+    from glassbox.core.data import Trajectory
+
+    declared = manifest["calibration"]
+    dt_s = manifest["plant"]["sample_interval_s"]
+    setpoint_plan = declared["setpoint"]
+    periods = declared["pilot_periods"]
+    tuned = skywalker_x8_controller()
+    pilot = tuned._replace(
+        guidance=tuned.guidance._replace(
+            pitch_trim=trim.decision[1], throttle_trim=trim.control.propeller[0]
+        ),
+        rate_period=periods["rate"],
+        attitude_period=periods["attitude"],
+        guidance_period=periods["guidance"],
+    )
+    environment = cascade.standard_environment()
+    pilot_state = initial_cascade_state(pilot, trim.state, trim.control)
+
+    @jax.jit
+    def command_for(observed, pilot_state, setpoint):
+        # The pilot reads only the rigid-body observation. Other fields are
+        # unused by cascade_step; they are not sampled from the running plant.
+        observed_aircraft = trim.state._replace(
+            rigid_body=rigid_body_from_canonical(observed)
+        )
+        command, updated = cascade_step(
+            pilot, pilot_state, setpoint, observed_aircraft, environment, dt_s
+        )
+        return cascade.control_to_array(command), updated
+
+    minimum = np.asarray(manifest["telemetry"]["command_minimum"], dtype=float)
+    maximum = np.asarray(manifest["telemetry"]["command_maximum"], dtype=float)
+    amplitudes = np.asarray(declared["excitation_amplitudes"], dtype=float)
+    rates = np.asarray(declared["excitation_rates_rad_s"], dtype=float)
+    phases = np.random.default_rng(seed).uniform(0, 2 * np.pi, size=3)
+    sample = plant.reset(initial_state, applied_control=initial_command)
+    states, commands = [sample.state.copy()], []
+    for index in range(round(declared["duration_s"] / dt_s)):
+        elapsed = index * dt_s
+        ramp = min(1.0, elapsed / setpoint_plan["ramp_s"])
+        setpoint = GuidanceSetpoint(
+            airspeed_m_s=jnp.asarray(
+                setpoint_plan["airspeed_m_s"]
+                + ramp
+                * setpoint_plan["airspeed_amplitude_m_s"]
+                * np.sin(setpoint_plan["airspeed_rate_rad_s"] * elapsed + phases[0])
+            ),
+            altitude_m=jnp.asarray(
+                setpoint_plan["altitude_m"]
+                + ramp
+                * setpoint_plan["altitude_amplitude_m"]
+                * np.sin(setpoint_plan["altitude_rate_rad_s"] * elapsed + phases[1])
+            ),
+            heading_rad=jnp.asarray(
+                ramp
+                * setpoint_plan["heading_amplitude_rad"]
+                * np.sin(setpoint_plan["heading_rate_rad_s"] * elapsed + phases[2])
+            ),
+        )
+        raw, pilot_state = command_for(sample.state, pilot_state, setpoint)
+        excitation = ramp * amplitudes * np.sin(rates * elapsed + phases)
+        command = np.clip(
+            np.asarray(raw) + np.r_[0.0, initial_command[1:]] + excitation,
+            minimum,
+            maximum,
+        )
+        sample = plant.step(command)
+        if not np.isfinite(sample.state).all():
+            raise RuntimeError(
+                f"nonfinite calibration observation at seed {seed}, interval {index}"
+            )
+        states.append(sample.state.copy())
+        commands.append(command.copy())
+    return Trajectory(
+        time_s=np.arange(len(states)) * dt_s,
+        states=np.asarray(states),
+        controls=np.asarray(commands),
+        control_prefix=initial_command[None],
+        spec=control_telemetry_spec(manifest),
+        labels={"source_group": f"cascade-calibration-{seed}"},
+        provenance={
+            "plant": "cascade.skywalker_x8",
+            "seed": seed,
+            "calibration_pilot": declared["pilot"],
+            "command_policy": declared["command_policy"],
+            "initial_history_assumption": declared["initial_history_assumption"],
+        },
+    )
+
+
+def control_collection(manifest, loaded):
+    """Adapt the calibration recordings into the learner's own channels.
+
+    The same fifteen-channel contract and the same segment adapter the platform
+    tier uses. The control manifest declares the channels, and a recording that
+    adapts to anything else fails closed here rather than later.
+    """
+    from .learned_plan import OBSERVED_CHANNELS as PLAN_CHANNELS
+
+    declared = tuple(manifest["telemetry"]["observed_channels"])
+    if declared != OBSERVED_CHANNELS or declared != PLAN_CHANNELS:
+        raise ValueError("the manifest's observed channels are not the one contract")
+    dt_s = manifest["plant"]["sample_interval_s"]
+    channels = command_channels(loaded[0][1].spec)
+    segments = []
+    for name, trajectory in loaded:
+        if command_channels(trajectory.spec) != channels:
+            raise ValueError("calibration recordings declare different commands")
+        segments.extend(
+            trajectory_segments(name, trajectory, dt_s=dt_s, tolerance_fraction=1e-6)
+        )
+    return SequenceCollection(
+        tuple(segments),
+        configuration_id=manifest["telemetry"]["configuration_id"],
+        state_channels=OBSERVED_CHANNELS,
+        input_channels=channels,
+    )
+
+
+# --- the control tier: the two arms behind one loop -------------------------
+
+
+class _StructuredArm:
+    """The frozen structured belief, driving the loop exactly as the example does.
+
+    Its actuator state is reconstructed every interval from the commands the
+    loop actually applied, which is the command history the example keeps, and
+    the horizon is whatever the belief's own forecast-error evidence supports.
+    """
+
+    name = "structured"
+
+    def __init__(self, manifest, belief):
+        from dataclasses import replace as dataclass_replace
+
+        from glassbox.control.fitted import NMPCController, default_solver_policy
+
+        declared = manifest["controller"]
+        self.history_steps = manifest["trial"]["intervals"]
+        self.belief = belief
+        self.controller = NMPCController(
+            belief.model,
+            policy=dataclass_replace(
+                default_solver_policy(belief),
+                maximum_iterations=declared["maximum_iterations"],
+                allow_unresolved_parameters=declared["allow_unresolved_parameters"],
+            ),
+        )
+        self.policy = self.controller.plan.policy
+        self._history = None
+
+    @property
+    def prediction_steps(self):
+        return self.controller.prediction_steps
+
+    @property
+    def ready(self):
+        return True
+
+    def reset(self, initial_state, initial_command):
+        # The plant is reset at a constant-command actuator equilibrium and the
+        # manifest declares that; this is the example's own initial history.
+        self._history = deque(
+            [np.asarray(initial_command, dtype=float).copy()] * _CONTROL_HISTORY_STEPS,
+            maxlen=_CONTROL_HISTORY_STEPS,
+        )
+
+    def observe(self, state):
+        return None
+
+    def command_applied(self, command):
+        self._history.append(np.asarray(command, dtype=float).copy())
+
+    def solve(self, state, reference, previous_command, **keywords):
+        latent = self.controller.model.initial_latent_state(np.asarray(self._history))
+        return self.controller.solve(
+            state, reference, previous_command, latent_state=latent, **keywords
+        )
+
+    def summary(self):
+        policy = self.policy
+        return dict(
+            arm=self.name,
+            horizon_steps=policy.horizon_steps,
+            horizon_s=self.controller.prediction_horizon_s,
+            block_count=policy.block_count,
+            maximum_iterations=policy.maximum_iterations,
+            allow_unresolved_parameters=policy.allow_unresolved_parameters,
+            uncertainty_available=bool(self.controller.plan.uncertainty_available),
+            uncertainty_complete=bool(self.controller.plan.uncertainty_complete),
+            command_history_steps=_CONTROL_HISTORY_STEPS,
+            compile_signature=self.controller.plan.compile_signature,
+            meaning=(
+                "the frozen structured arm, planning over the fitted mean under "
+                "the seam's explicit no-evidence override"
+            ),
+        )
+
+
+class _GenericArm:
+    """The generic learner behind the same loop, carrying its own history."""
+
+    name = "generic"
+
+    def __init__(self, manifest, learned):
+        from dataclasses import replace as dataclass_replace
+
+        from glassbox.control.plan import SafetyEnvelope, TrackingTolerances
+
+        from .learned_plan import LearnedPlanController, fitted_solver_policy
+
+        declared = manifest["controller"]
+        telemetry = manifest["telemetry"]
+        self.learned = learned
+        self.controller = LearnedPlanController(
+            learned,
+            TrackingTolerances.for_platform(declared["tolerances_platform"]),
+            SafetyEnvelope(),
+            command_minimum=telemetry["command_minimum"],
+            command_maximum=telemetry["command_maximum"],
+            policy=dataclass_replace(
+                fitted_solver_policy(learned),
+                maximum_iterations=declared["maximum_iterations"],
+                allow_unresolved_parameters=declared["allow_unresolved_parameters"],
+            ),
+        )
+        self.policy = self.controller.policy
+
+    @property
+    def prediction_steps(self):
+        return self.controller.prediction_steps
+
+    @property
+    def ready(self):
+        return self.controller.ready
+
+    def reset(self, initial_state, initial_command):
+        self.controller.reset()
+
+    def observe(self, state):
+        self.controller.observe(state)
+
+    def command_applied(self, command):
+        self.controller.command_applied(command)
+
+    def solve(self, state, reference, previous_command, **keywords):
+        return self.controller.solve(state, reference, previous_command, **keywords)
+
+    def summary(self):
+        policy = self.policy
+        plan = self.controller.plan
+        return dict(
+            arm=self.name,
+            horizon_steps=policy.horizon_steps,
+            horizon_s=self.controller.prediction_horizon_s,
+            block_count=policy.block_count,
+            maximum_iterations=policy.maximum_iterations,
+            allow_unresolved_parameters=policy.allow_unresolved_parameters,
+            uncertainty_available=bool(plan.uncertainty_available),
+            uncertainty_complete=bool(plan.uncertainty_complete),
+            context_steps=plan.context_steps,
+            delay_steps=plan.delay_steps,
+            memory_size=plan.memory_size,
+            required_observations=self.controller.required_observations,
+            compile_signature=plan.compile_signature,
+            meaning=(
+                "the generic learner at its own fitted horizon, claiming no "
+                "covariance and running under the seam's explicit no-evidence "
+                "override; validity utilization is zero because no support "
+                "envelope is declared, not because one was checked"
+            ),
+        )
+
+
+_CONTROL_HISTORY_STEPS = 20
+"""Applied commands the structured arm reconstructs its actuator state from.
+
+The example's own ``HISTORY_STEPS``. It is a property of that arm's actuator
+model rather than of the trial, so it is not a manifest fact.
+"""
+
+
+def _control_arm(manifest, name, artifacts):
+    if name == "structured":
+        return _StructuredArm(manifest, artifacts["structured"])
+    if name == "generic":
+        return _GenericArm(manifest, artifacts["generic"])
+    raise ValueError(f"undeclared control arm: {name}")
+
+
+def _control_prewarm(arm, manifest, warmup, reference_fn):
+    """Compile every kernel the timed loop will use, on real recorded data.
+
+    Compilation must never happen after the clock starts, and both arms pay it
+    the same way the example does: on a calibration recording, with the results
+    discarded. The generic arm also walks that recording one observation at a
+    time, because its consumed context grows by one until it is full and each
+    length is its own compiled shape.
+    """
+    from glassbox.control.plan import ReferenceTrajectory
+
+    dt_s = manifest["trial"]["sample_interval_s"]
+    states = np.asarray(warmup.states, dtype=float)
+    commands = np.asarray(warmup.controls, dtype=float)
+    arm.reset(states[0], commands[0])
+    warm_start = None
+    for index in range(min(len(commands), _CONTROL_HISTORY_STEPS + 2)):
+        arm.observe(states[index])
+        if arm.ready:
+            future = (index + np.arange(arm.prediction_steps + 1)) * dt_s
+            reference = ReferenceTrajectory(reference_fn(future))
+            result = arm.solve(
+                states[index], reference, commands[index], warm_start=warm_start
+            )
+            warm_start = result.warm_start
+            np.asarray(result.predicted_states)
+            np.asarray(result.command)
+        arm.command_applied(commands[index])
+    arm.reset(states[0], commands[0])
+
+
+def _control_trial(manifest, arm, plant, reference_fn, directory):
+    """One paced tracking trial: one arm, one freshly reset plant, one reference."""
+    from glassbox.control.plan import ReferenceTrajectory
+    from glassbox.core.metrics import state_rmse_metrics
+
+    directory.mkdir(parents=True, exist_ok=True)
+    trial = manifest["trial"]
+    dt_s = trial["sample_interval_s"]
+    requested = trial["intervals"]
+    deadline_s = trial["solve_deadline_s"]
+    state = plant.initial_state.copy()
+    previous = plant.initial_command.copy()
+    arm.reset(state, previous)
+    observed = [state.copy()]
+    applied, tick_times, lags, solve_times = [], [], [], []
+    solver_used, fallbacks, statuses = [], [], []
+    warm_start = None
+    failure = None
+    started = time.monotonic()
+    for index in range(requested):
+        scheduled = started + index * dt_s
+        remaining = scheduled - time.monotonic()
+        if remaining > 0:
+            time.sleep(remaining)
+        tick = time.monotonic()
+        lags.append(max(0.0, tick - scheduled))
+        arm.observe(state)
+        if arm.ready:
+            future = (index + np.arange(arm.prediction_steps + 1)) * dt_s
+            reference = ReferenceTrajectory(reference_fn(future))
+            result = arm.solve(
+                state,
+                reference,
+                previous,
+                warm_start=warm_start,
+                deadline_s=deadline_s,
+            )
+            command = np.asarray(result.command, dtype=float)
+            warm_start = result.warm_start
+            solve_times.append(float(result.diagnostics.solve_time_s))
+            solver_used.append(True)
+            fallbacks.append(bool(result.used_fallback))
+            statuses.append(str(result.status))
+        else:
+            # No forecast exists yet: the loop holds the command it is already
+            # applying rather than fabricating the history one would need.
+            command = previous.copy()
+            solve_times.append(0.0)
+            solver_used.append(False)
+            fallbacks.append(False)
+            statuses.append("model_not_ready")
+        next_state = np.asarray(plant.advance(command), dtype=float)
+        if not np.isfinite(next_state).all():
+            failure = "nonfinite plant state"
+            break
+        arm.command_applied(command)
+        observed.append(next_state.copy())
+        applied.append(command.copy())
+        previous, state = command, next_state
+        tick_times.append(time.monotonic() - tick)
+    elapsed_s = time.monotonic() - started
+
+    states_array = np.asarray(observed)
+    commands_array = (
+        np.asarray(applied)
+        if applied
+        else np.zeros((0, len(plant.initial_command)), dtype=float)
+    )
+    times = np.arange(len(states_array)) * dt_s
+    reference_states = reference_fn(times)
+    metrics = (
+        state_rmse_metrics(states_array[1:], reference_states[1:])
+        if len(commands_array)
+        else None
+    )
+    minimum = np.asarray(manifest["telemetry"]["command_minimum"], dtype=float)
+    maximum = np.asarray(manifest["telemetry"]["command_maximum"], dtype=float)
+    bound_violation = (
+        max(
+            0.0,
+            float(np.max(minimum - commands_array)),
+            float(np.max(commands_array - maximum)),
+        )
+        if len(commands_array)
+        else 0.0
+    )
+    np.savez_compressed(
+        directory / "tracking.npz",
+        time_s=times,
+        states=states_array,
+        reference_states=reference_states,
+        commands=commands_array,
+        tick_times_s=np.asarray(tick_times, dtype=float),
+        source_clock_lags_s=np.asarray(lags, dtype=float),
+        solve_times_s=np.asarray(solve_times, dtype=float),
+        solver_used=np.asarray(solver_used, dtype=bool),
+        used_fallback=np.asarray(fallbacks, dtype=bool),
+        initial_state=np.asarray(plant.initial_state, dtype=float),
+    )
+    terminated = failure is not None or len(commands_array) != requested
+    row = dict(
+        arm=arm.name,
+        completed_intervals=len(commands_array),
+        requested_intervals=requested,
+        terminated=bool(terminated),
+        failure=failure,
+        tracking_rmse=metrics,
+        deadline_misses=int(np.sum(np.asarray(tick_times, dtype=float) > dt_s)),
+        solve_deadline_misses=int(
+            np.sum(np.asarray(solve_times, dtype=float) > deadline_s)
+        ),
+        model_not_ready_intervals=int(statuses.count("model_not_ready")),
+        fallback_count=int(sum(fallbacks)),
+        solver_statuses={
+            status: statuses.count(status) for status in sorted(set(statuses))
+        },
+        maximum_command_bound_violation=bound_violation,
+        maximum_source_clock_lag_s=max(lags, default=0.0),
+        maximum_tick_time_s=max(tick_times, default=0.0),
+        control_elapsed_s=elapsed_s,
+        controller=arm.summary(),
+        files=_files(directory, ["tracking.npz"]),
+    )
+    write(directory / "trial.json", row)
+    return row
+
+
+def _control_calibrate(manifest, output):
+    """Collect the frozen calibration recordings and fit both arms on them."""
+    from glassbox.belief.belief_io import save_dynamics_belief
+    from glassbox.core.data import save_trajectory_npz, trajectory_content_digest
+    from glassbox.fitting import FitSpec, Holdout
+    from glassbox.fitting import fit as structured_fit
+
+    declared = manifest["calibration"]
+    spec, model, trim, initial_state, initial_command = control_fixture(manifest)
+    plant = _control_plant(manifest, spec, model)
+    recordings, names = {}, []
+    for seed in declared["seeds"]:
+        print(json.dumps(dict(collecting=f"recording-{seed}")), flush=True)
+        flight = control_recording(
+            manifest, plant, trim, initial_state, initial_command, seed
+        )
+        name = f"recording-{seed}"
+        save_trajectory_npz(flight, output / f"{name}.npz")
+        recordings[seed] = flight
+        names.append(f"{name}.npz")
+    digests = {
+        f"recording-{seed}": trajectory_content_digest(flight)
+        for seed, flight in recordings.items()
+    }
+    if len(set(digests.values())) != len(digests):
+        raise ValueError("calibration recordings are not distinct")
+    training = [(f"recording-{s}", recordings[s]) for s in declared["training_seeds"]]
+    reserved = [f"recording-{s}" for s in declared["reserved_seeds"]]
+
+    arm = manifest["arms"]["structured"]
+    started = time.perf_counter()
+    outcome = structured_fit(
+        [flight for _, flight in training],
+        FitSpec(
+            holdout=Holdout.by_group(),
+            steps=arm["optimization_steps"],
+            horizons_s=tuple(arm["training_horizons_s"]),
+            evaluation_horizons_s=tuple(arm["evaluation_horizons_s"]),
+        ),
+    )
+    structured_wall = time.perf_counter() - started
+    save_dynamics_belief(outcome.belief, output / "structured.json")
+    write(output / "structured_report.json", outcome.report)
+
+    started = time.perf_counter()
+    learned = fit(control_collection(manifest, training))
+    generic_wall = time.perf_counter() - started
+    learned.save(output / "generic.npz")
+    if set(learned.report["training"]) | set(learned.report["development"]) != {
+        name for name, _ in training
+    }:
+        raise ValueError("the generic fit did not read the calibration recordings")
+
+    calibration = dict(
+        recordings=digests,
+        training=[name for name, _ in training],
+        reserved=reserved,
+        initial_state=initial_state.tolist(),
+        initial_command=initial_command.tolist(),
+        trim_balance_residual=np.asarray(trim.residual).tolist(),
+        cascade=dict(
+            spec_hash=manifest["plant"]["spec_hash"],
+            source_revision=manifest["plant"]["source_revision"],
+            version=manifest["plant"]["version"],
+        ),
+        structured_fit_wall_seconds=structured_wall,
+        generic_fit_wall_seconds=generic_wall,
+        generic_fingerprint=learned.fingerprint(),
+        generic_report=learned.report,
+        files=_files(
+            output, names + ["structured.json", "structured_report.json", "generic.npz"]
+        ),
+    )
+    write(output / "calibration.json", calibration)
+    return (
+        calibration,
+        dict(structured=outcome.belief, generic=learned),
+        recordings[declared["training_seeds"][0]],
+        initial_state,
+        initial_command,
+    )
+
+
+def control_decide(manifest, rows):
+    """Every gate, evaluated from recorded trial metrics alone. Anything unclear fails.
+
+    Structural problems always fail closed: a trial missing, duplicated,
+    undeclared, terminated, or carrying a metric that is not a finite number.
+    The accuracy rule itself is reported separately and becomes a gate only
+    when the manifest says it is enforced.
+    """
+    repetitions = manifest["trial"]["repetitions"]
+    expected = {(index, arm) for index in range(repetitions) for arm in CONTROL_ARMS}
+    keys = [(row.get("repetition"), row.get("arm")) for row in rows]
+    breaches, rule_breaches, summary = [], [], {}
+    for index, arm in sorted(expected - set(keys)):
+        breaches.append(dict(trial=f"{index}-{arm}", gate="trial_present"))
+    for index, arm in sorted({key for key in keys if keys.count(key) > 1}):
+        breaches.append(dict(trial=f"{index}-{arm}", gate="trial_unique"))
+    for key in sorted(set(keys) - expected, key=repr):
+        breaches.append(dict(trial=f"{key[0]}-{key[1]}", gate="trial_declared"))
+    measured = {}
+    for row in rows:
+        key = (row.get("repetition"), row.get("arm"))
+        if key not in expected or keys.count(key) > 1:
+            continue
+        name = f"{key[0]}-{key[1]}"
+        if row.get("terminated") is not False:
+            breaches.append(
+                dict(
+                    trial=name,
+                    gate="trial_complete",
+                    completed=row.get("completed_intervals"),
+                    requested=row.get("requested_intervals"),
+                    failure=row.get("failure"),
+                )
+            )
+            continue
+        if row.get("completed_intervals") != manifest["trial"]["intervals"]:
+            breaches.append(dict(trial=name, gate="declared_intervals"))
+            continue
+        recorded = row.get("tracking_rmse")
+        values = {}
+        for metric in CONTROL_METRICS:
+            value = _number(
+                recorded.get(metric) if isinstance(recorded, dict) else None
+            )
+            if value is None or value < 0:
+                breaches.append(
+                    dict(trial=name, metric=metric, gate="finite_rmse", value=value)
+                )
+            values[metric] = value
+        measured[key] = values
+    for index in sorted({key[0] for key in measured}):
+        generic = measured.get((index, "generic"))
+        structured = measured.get((index, "structured"))
+        if generic is None or structured is None:
+            continue
+        summary[str(index)] = {}
+        for metric in CONTROL_METRICS:
+            summary[str(index)][metric] = dict(
+                generic=generic[metric], structured=structured[metric]
+            )
+            if generic[metric] is None or structured[metric] is None:
+                continue
+            if generic[metric] > structured[metric]:
+                rule_breaches.append(
+                    dict(
+                        trial=f"{index}-generic",
+                        metric=metric,
+                        gate="structured_arm_rmse",
+                        value=generic[metric],
+                        limit=structured[metric],
+                    )
+                )
+    enforced = bool(manifest["decision"]["enforced"])
+    rule_met = not breaches and not rule_breaches
+    accepted = not breaches and (rule_met or not enforced)
+    return dict(
+        manifest=manifest["id"],
+        decision="accept" if accepted else "reject",
+        accepted=accepted,
+        rule_met=rule_met,
+        rule_enforced=enforced,
+        rule=manifest["decision"]["rule"],
+        gates_from=manifest["decision"]["gates_from"],
+        trials=len(rows),
+        gate_breaches=breaches,
+        rule_breaches=rule_breaches,
+        tracking_rmse=summary,
+        meaning=manifest["decision"]["meaning"],
+    )
+
+
+def control(manifest_path, output):
+    """Run the frozen control trial set once, both arms, and write the decision."""
+    import jax
+
+    manifest_path, output = Path(manifest_path), Path(output)
+    manifest = frozen_control_manifest(manifest_path)
+    output.mkdir(parents=True, exist_ok=False)
+    shutil.copyfile(manifest_path, output / "manifest.json")
+    write(
+        output / "environment.json",
+        dict(
+            python=sys.version,
+            platform=platform_module.platform(),
+            jax=jax.__version__,
+            numpy=np.__version__,
+            x64="fits only",
+        ),
+    )
+    started = time.perf_counter()
+    with jax.enable_x64(True):
+        calibration, artifacts, warmup, initial_state, initial_command = (
+            _control_calibrate(manifest, output)
+        )
+    declared = manifest["tracking_reference"]
+
+    def reference_fn(times):
+        return control_reference(initial_state, times, declared)
+
+    rows = []
+    for repetition in range(manifest["trial"]["repetitions"]):
+        order = manifest["trial"]["arm_order"][
+            repetition % len(manifest["trial"]["arm_order"])
+        ]
+        for name in order:
+            print(json.dumps(dict(tracking=f"{repetition}-{name}")), flush=True)
+            arm = _control_arm(manifest, name, artifacts)
+            _control_prewarm(arm, manifest, warmup, reference_fn)
+            plant = _control_tracking_plant(manifest, initial_state, initial_command)
+            trial_started = time.perf_counter()
+            row = _control_trial(
+                manifest,
+                arm,
+                plant,
+                reference_fn,
+                output / f"trial-{repetition}" / name,
+            )
+            row["repetition"] = repetition
+            row["trial_wall_seconds"] = time.perf_counter() - trial_started
+            row["directory"] = f"trial-{repetition}/{name}"
+            write(output / row["directory"] / "trial.json", row)
+            rows.append(row)
+            write(output / "results.json", rows)
+            print(
+                json.dumps(
+                    dict(
+                        trial=f"{repetition}-{name}",
+                        tracking_rmse=row["tracking_rmse"],
+                        terminated=row["terminated"],
+                        deadline_misses=row["deadline_misses"],
+                    )
+                ),
+                flush=True,
+            )
+    decision = control_decide(manifest, rows)
+    decision["wall_seconds"] = time.perf_counter() - started
+    decision["calibration"] = dict(
+        structured_fit_wall_seconds=calibration["structured_fit_wall_seconds"],
+        generic_fit_wall_seconds=calibration["generic_fit_wall_seconds"],
+        generic_fingerprint=calibration["generic_fingerprint"],
+        reserved=calibration["reserved"],
+    )
+    write(output / "decision.json", decision)
+    return decision
+
+
+def _control_tracking_plant(manifest, initial_state, initial_command):
+    """A freshly reset, prewarmed Cascade plant behind the consumer-side seam.
+
+    The plant is stepped once at the initial command and reset again before the
+    trial clock starts, so no compilation lands inside a timed interval. Only
+    this callback holds simulator internals.
+    """
+    from types import SimpleNamespace
+
+    plant = _control_plant(manifest)
+    plant.reset(initial_state, applied_control=initial_command)
+    plant.step(initial_command)
+    plant.reset(initial_state, applied_control=initial_command)
+    return SimpleNamespace(
+        initial_state=np.asarray(initial_state, dtype=float).copy(),
+        initial_command=np.asarray(initial_command, dtype=float).copy(),
+        advance=lambda command: plant.step(command).state,
+        source="cascade.skywalker_x8",
+    )
+
+
+# --- the control tier: verifying --------------------------------------------
+
+
+def verify_control(directory, manifest):
+    """Recompute every control metric and the decision from saved arrays.
+
+    This replay never reruns the plant and never reruns the solver: neither one
+    is deterministic under a wall clock, and rerunning either would be a new
+    measurement rather than a check of this one. What it does check is
+    everything the decision actually read. Every recorded artifact hash is
+    recomputed, including the calibration recordings and both fitted models, so
+    an altered artifact is rejected. Every metric is recomputed from the saved
+    per-interval tracking arrays with the library's own metric code. The
+    reference rows are rebuilt from the saved initial state and the manifest's
+    declared reference, so a run cannot score itself against a reference of its
+    own invention. The manifest is anchored to its frozen digest.
+    """
+    from glassbox.core.data import load_trajectory_npz, trajectory_content_digest
+    from glassbox.core.metrics import state_rmse_metrics
+
+    directory = Path(directory)
+    calibration = read(directory / "calibration.json")
+    for name, digest in calibration["files"].items():
+        if sha256(directory / name) != digest:
+            raise ValueError(f"altered artifact: {name}")
+    for name, digest in calibration["recordings"].items():
+        fresh = trajectory_content_digest(
+            load_trajectory_npz(directory / f"{name}.npz")
+        )
+        if fresh != digest:
+            raise ValueError(f"altered calibration recording: {name}")
+    if set(calibration["training"]) & set(calibration["reserved"]):
+        raise ValueError("a reserved recording was also used for fitting")
+
+    learned = LearnedDynamics.load(directory / "generic.npz")
+    if learned.fingerprint() != calibration["generic_fingerprint"]:
+        raise ValueError("generic model fingerprint mismatch")
+
+    trial = manifest["trial"]
+    dt_s = trial["sample_interval_s"]
+    declared = manifest["tracking_reference"]
+    rows = read(directory / "results.json")
+    checked = 0
+    for row in rows:
+        case = directory / row["directory"]
+        if read(case / "trial.json") != row:
+            raise ValueError(f"trial result mismatch: {row['directory']}")
+        for name, digest in row["files"].items():
+            if sha256(case / name) != digest:
+                raise ValueError(f"altered artifact: {row['directory']}/{name}")
+        with np.load(case / "tracking.npz", allow_pickle=False) as data:
+            states = data["states"]
+            commands = data["commands"]
+            saved_reference = data["reference_states"]
+            tick_times = data["tick_times_s"]
+            solve_times = data["solve_times_s"]
+            initial_state = data["initial_state"]
+            times = data["time_s"]
+            if len(states) != len(commands) + 1 or len(times) != len(states):
+                raise ValueError(f"saved tracking arrays disagree: {row['directory']}")
+            np.testing.assert_allclose(
+                times, np.arange(len(states)) * dt_s, rtol=0, atol=1e-12
+            )
+            np.testing.assert_allclose(
+                saved_reference,
+                control_reference(initial_state, times, declared),
+                rtol=0,
+                atol=1e-12,
+            )
+            fresh = (
+                state_rmse_metrics(states[1:], saved_reference[1:])
+                if len(commands)
+                else None
+            )
+            misses = int(np.sum(tick_times > dt_s))
+            solve_misses = int(np.sum(solve_times > trial["solve_deadline_s"]))
+        if (fresh is None) != (row["tracking_rmse"] is None):
+            raise ValueError(f"tracking metric shape mismatch: {row['directory']}")
+        if fresh is not None:
+            if sorted(fresh) != sorted(row["tracking_rmse"]):
+                raise ValueError(f"tracking metric set mismatch: {row['directory']}")
+            for metric, value in fresh.items():
+                np.testing.assert_allclose(
+                    value, row["tracking_rmse"][metric], **SCORE_TOLERANCE
+                )
+            row["tracking_rmse"] = fresh
+        if (
+            misses != row["deadline_misses"]
+            or solve_misses != (row["solve_deadline_misses"])
+        ):
+            raise ValueError(f"recomputed deadline misses differ: {row['directory']}")
+        terminated = len(commands) != row["requested_intervals"]
+        if (
+            terminated != bool(row["terminated"])
+            or len(commands) != (row["completed_intervals"])
+        ):
+            raise ValueError(f"recomputed completion differs: {row['directory']}")
+        checked += 1
+    decision = control_decide(manifest, rows)
+    saved = read(directory / "decision.json")
+    for key in (
+        "manifest",
+        "decision",
+        "accepted",
+        "rule_met",
+        "rule_enforced",
+        "trials",
+    ):
+        if decision[key] != saved[key]:
+            raise ValueError(f"replayed decision differs: {key}")
+    for key in ("gate_breaches", "rule_breaches"):
+        if len(decision[key]) != len(saved[key]):
+            raise ValueError(f"replayed decision differs: {key}")
+    return dict(
+        tier="control",
+        verified_trials=checked,
+        decision=decision,
+        meaning=(
+            "A replay of saved evidence: recorded hashes, metrics recomputed from "
+            "the saved per-interval tracking arrays, and the reference rebuilt "
+            "from the saved initial state. The plant and the solver are not "
+            "rerun, because rerunning either would be a new measurement rather "
+            "than a check of this one."
+        ),
+    )
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     commands = parser.add_subparsers(dest="command", required=True)
@@ -1637,6 +2670,9 @@ def main(argv=None):
     measurer.add_argument("--manifest", type=Path, required=True)
     measurer.add_argument("--corpora", type=Path, required=True)
     measurer.add_argument("--output", type=Path, required=True)
+    tracker = commands.add_parser("control", help="track the frozen Cascade trial set")
+    tracker.add_argument("--manifest", type=Path, required=True)
+    tracker.add_argument("--output", type=Path, required=True)
     checker = commands.add_parser("verify", help="replay a run directory")
     checker.add_argument("directory", type=Path)
     checker.add_argument(
@@ -1655,6 +2691,9 @@ def main(argv=None):
         accepted = result["accepted"]
     elif args.command == "platform":
         result = platform(args.manifest, args.corpora, args.output)
+        accepted = result["accepted"]
+    elif args.command == "control":
+        result = control(args.manifest, args.output)
         accepted = result["accepted"]
     else:
         result = verify(args.directory, args.reference)
