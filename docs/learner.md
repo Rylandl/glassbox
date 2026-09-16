@@ -328,19 +328,23 @@ explicit no-evidence override, which the run records. Validity utilization is
 reported as zero because the learner declares no support envelope, not because
 one was checked and found clear.
 
-### First measurement
+### The measurement
 
-The gate was frozen and committed at `367530e` before any trial was run. The
-run below reproduces an earlier one digit for digit: the plant, both fits and
-both arms are deterministic, so the same manifest measures the same numbers.
+The gate was frozen and committed at `367530e` before any trial was run, and
+re-frozen as `control-v2` at `3c149fa`, with the rule enforced, before any
+candidate was fitted. The run below is `control-v2`'s, and it reproduces the
+earlier one digit for digit: the plant, both fits and both arms are
+deterministic, so the same protocol measures the same numbers.
 
 | Repetition | Position RMSE, generic / structured (m) | Attitude RMSE, generic / structured (deg) | Terminated | Deadline misses, generic / structured |
 | --- | --- | --- | --- | --- |
 | 0 | 60.347 / 1.208 | 121.874 / 1.022 | none | 0 / 1 |
 | 1 | 60.347 / 1.208 | 121.874 / 1.022 | none | 0 / 0 |
 
-**The rule is not met.** No trial terminated: all four completed 240 intervals
-with finite states, bounded commands and no solver fallback. The two
+**The rule is not met and the run is rejected.** No trial terminated: all four
+completed 240 intervals with finite states, bounded commands and no solver
+fallback, so there is no structural breach; the four rule breaches are the
+generic arm's two metrics on each of the two repetitions. The two
 repetitions are identical to every digit because the plant and both arms are
 deterministic and the loop is paced; only the deadline misses, which are
 host-specific and informational, differ between them. The structured arm plans
@@ -371,16 +375,39 @@ plant's own, averaged over three held-out origins:
 
 Pitch is as good as the structured model's and roll is comparable, but throttle
 is uncorrelated with the plant's response and 27 times too large. The
-calibration explains it: across the three recordings throttle moves with a
-standard deviation of 0.022 to 0.031 over a command range of 1.0, while roll
-moves 0.11 to 0.17 and pitch 0.26 over ranges of 0.7. The pilot holds throttle
-near trim, so the fit has almost nothing to identify that column from, and an
-almost unregularized ridge is free to put a large wrong coefficient on it.
-Open-loop scoring never charges for that, because throttle barely moves in the
-evaluation data either. An optimizer charges for it immediately: it drives
-throttle to its bound to buy attitude authority the aircraft does not have
-there. The shorter horizon is a second, unseparated difference between the arms.
+calibration explains the arithmetic: across the three recordings throttle moves
+with a standard deviation of 0.0225 to 0.0312 over a declared range of 1.0,
+while roll moves 0.1117 to 0.1727 and pitch 0.2598 to 0.2671 over ranges of 0.7.
+Because the affine start standardizes each command by that sample standard
+deviation, the recipe's ridge charges the throttle level column 0.0127 per full
+declared-range move where it charges pitch 2.126, 168 times weaker, and the
+throttle difference columns 2.0e-4 and 6.6e-5. Open-loop scoring never charges
+for the result either, because throttle barely moves in the evaluation data. An
+optimizer charges for it immediately: it drives throttle to a bound, on 79% of
+this trial's intervals.
 
-This is a first measurement of a row that had none. It is one cruise trial set
-on one simulated plant, not hardware readiness, a real-time claim, or calibrated
-uncertainty.
+**The horizon is not the difference.** Replanned at the generic arm's own 0.25 s
+horizon, the structured arm still tracks, at 1.738 m and 1.371 degrees: 44% and
+34% worse than at 0.80 s, and 35 and 89 times better than the generic arm. Its
+applied throttle stays within [0.437, 0.553] and its roll within
+[+0.004, +0.007], never at a bound.
+
+**Restating the scale or the penalty in physical units does not fix it.** Both
+of those changes are the same solve, and both do to the affine start what the
+arithmetic predicts, moving the throttle column from -0.048 / 25.17 to
+0.259 / 0.127; neither survives the fit, because the ridge lives only in the
+initializer and the training objective never charges for the command Jacobian.
+Nor would carrying it into the objective help. Sweeping the throttle columns'
+ridge over twelve decades drives the magnitude ratio from 25.42 to zero and
+never lifts the direction cosine above -0.044, while roll's best, 0.764, and
+pitch's, 0.965, are already reached at the recipe's own ridge. The throttle
+column is not identified by these recordings at any penalty; it can only be made
+small, and small is its own hazard, because a bounded solver that believes a
+command is weak spends more of it. [`status.md`](status.md) carries the trial
+ladder that measures each of these.
+
+This is a measurement of one cruise trial set on one simulated plant, not
+hardware readiness, a real-time claim, or calibrated uncertainty. On this
+reference a model with no command authority at all scores 0.109 m and 0.000
+degrees, better than either arm, which is worth knowing about what the rule can
+and cannot certify.

@@ -11,7 +11,9 @@ All notable changes to Glassbox are recorded here. The format follows
   trial duration and repetitions, both arms and the controller policy — with
   `"enforced": true`, so one trial whose generic position or attitude RMSE is
   above the structured arm's, or one terminated trial, rejects the run.
-  `control-v1.json` is deleted. Frozen before any candidate fit.
+  `control-v1.json` is deleted. Frozen before any candidate fit; the run it
+  gates rejects the current recipe, and the iteration that froze it fitted no
+  candidate, because the named mechanism's remedy is refuted by measurement.
 - Add a control tier to the experimental harness and present the generic
   learner to the NMPC seam as a `PlanModel`. `docs/harness/control-v1.json` is
   frozen before any trial and `harness control` tracks one Cascade X8 trial set

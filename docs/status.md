@@ -1,15 +1,15 @@
 # Status: gap against the charter
 
-Measured on 2026-09-16 at commit `785b7bd`. One row per criterion in
+Measured on 2026-09-16 at commit `3c149fa`. One row per criterion in
 [`charter.md`](charter.md). "Current" is what the harness or the recorded
 artifacts actually measured; "not measured" means exactly that.
 
 | Criterion | Current | Target | Last change |
 | --- | --- | --- | --- |
 | One recipe | **Met.** One recipe (`generic-memory-v2-prototype`) in `experimental/default_model.py`, one model kind, one harness in `experimental/harness.py`; `fit`, `predict`, `update` with no options. Seven experimental modules; the harness has synthetic, platform, and control tiers, and `experimental/learned_plan.py` presents the learner to the NMPC seam. | One recipe, one module, one harness; `fit`, `predict`, `update` only. | Lean-down merged at `c5e84ab`. |
-| Accuracy | **Measured, not met.** Platform tier v1 (`docs/harness/platform-v1.json`, digest `8d4705d8`), whole recordings held out, both models scored on identical rows at the recipe's horizon; final-step velocity m/s / body rate rad/s, generic versus best structured arm: nanodrone 0.136/0.543 vs 0.179/0.597; x8 0.222/0.132 vs 0.287/0.187; idf 0.158/0.122 vs 0.554/0.174; epfl 0.146/0.070 vs 0.526/0.217; **arp 0.176/0.715 vs 0.174/0.285**, and hold-current 0.149/0.362. Rule met on four of five corpora; inside every declared allowance. The arp failure is roll and pitch rate: worse than hold-current from the first 20 ms step on the development recording, growing linearly to 0.85/0.89 rad/s at 240 ms with a -0.2 rad/s roll-rate bias, while yaw rate beats the structured model (0.154 vs 0.323). | Every pinned corpus, whole recordings held out: generic error at or below the structured model on the same rows, and inside the allowance (nano 0.696/3.706, X8 1.601/0.764, ARP log66 0.709/2.864). | Gate enforced at `783922e` (`platform-v2.json`, digest `f4796e1a`, regression reference `platform-reference.json`). Three attempts below, none accepted. |
+| Accuracy | **Measured, not met.** Platform tier v2 (`docs/harness/platform-v2.json`, digest `f4796e1a`, the rule enforced), whole recordings held out, both models scored on identical rows at the recipe's horizon; final-step velocity m/s / body rate rad/s, generic versus best structured arm: nanodrone 0.136/0.543 vs 0.179/0.597; x8 0.222/0.132 vs 0.287/0.187; idf 0.158/0.122 vs 0.554/0.174; epfl 0.146/0.070 vs 0.526/0.217; **arp 0.176/0.715 vs 0.174/0.285**, and hold-current 0.149/0.362. Rule met on four of five corpora; inside every declared allowance. The arp failure is roll and pitch rate: worse than hold-current from the first 20 ms step on the development recording, growing linearly to 0.85/0.89 rad/s at 240 ms with a -0.2 rad/s roll-rate bias, while yaw rate beats the structured model (0.154 vs 0.323).. Re-measured at `3c149fa` under the enforced manifest: every corpus reproduces the regression reference to every digit, no reference regression, and the run is rejected on arp for both metrics (0.17586 against the comparator's 0.17437, 0.71546 against 0.28497). | Every pinned corpus, whole recordings held out: generic error at or below the structured model on the same rows, and inside the allowance (nano 0.696/3.706, X8 1.601/0.764, ARP log66 0.709/2.864). | Gate enforced at `783922e` (`platform-v2.json`, digest `f4796e1a`, regression reference `platform-reference.json`). Three attempts below, none accepted. |
 | Capability | **Met.** Harness v1 (manifest digest `1ba15b3f`) accepts 27 of 27 cases end to end through `fit(recordings)`: every M2 cap holds, witness paired-probe first step 0.0029/0.0028/0.0040 against a 0.05 limit and a 0.2 blind floor, tightest cap margin 0.74 of cap. Reference scores frozen in `docs/harness/reference.json`. | Pass the harness caps on every run. | Lean-down merged at `c5e84ab`. |
-| Control | **Measured, not met.** Control tier v1 (`docs/harness/control-v1.json`, digest `d5d13d3d`): Cascade X8 cruise reference, three 8 s calibration recordings, 12 s trials, two repetitions, both arms through the same bounded solver under the seam's no-evidence override. Generic arm position 60.35 m / attitude 121.9 deg RMSE on both trials; structured arm 1.21 m / 1.02 deg; no terminated trial. The generic arm tracks better for the first half second (0.005 m / 0.59 deg against 0.176 m / 3.41 deg) and then loses the aircraft (9.3 deg at 1 s, 117 deg at 3 s, altitude 100 m to -26 m). Its 0.25 s forecast on the reserved recording beats hold-current on every channel group, so the mechanism is the command Jacobian: against the plant's step response the generic throttle column has direction cosine -0.056 and magnitude ratio 26.9 where the structured model has 0.968 and 1.39, while pitch and roll match. The calibration pilot holds throttle within a standard deviation of 0.02 to 0.03 of a 1.0 range, an almost unregularized ridge puts a large wrong coefficient on that column, open-loop scoring never charges for it, and the solver drives throttle to its bound. Horizons differ: generic 0.25 s (the fitted horizon), structured 0.80 s. | Meet or beat the structured model on the matched Cascade trial set. | Control tier merged at `785b7bd`, measured under `control-v1.json`. Gate enforced as `control-v2.json`, digest `d5f44623`, the same protocol constant for constant; `control-v1.json` is deleted. |
+| Control | **Measured, not met; the named mechanism is confirmed and its remedy is refuted.** Control tier v2 (`docs/harness/control-v2.json`, digest `d5f44623`, the rule enforced): generic arm position 60.347 m / attitude 121.874 deg RMSE on both trials, structured arm 1.208 m / 1.022 deg, no terminated trial, no fallback, no bound violation; the run is rejected. The horizon asymmetry is ruled out: the structured arm at the generic arm's own 0.25 s horizon still tracks, 1.738 m / 1.371 deg. The arithmetic of the mechanism holds — throttle moves 2.3% to 3.1% of its declared 1.0 range against roll's 16% to 25% and pitch's 37%, so the uniform ridge charges the throttle column 0.0127 per full declared-range move against pitch's 2.126, 168 times weaker, and the learned final-step throttle response is 26.9 times the plant's with direction cosine -0.056 — but no restatement of that scale or penalty fixes it. Sweeping the throttle columns' ridge over twelve decades never lifts the direction cosine above -0.044; it only drives the magnitude from 25.4 to zero. Muting the throttle column exactly still loses the aircraft at 51.041 m / 109.790 deg. | Meet or beat the structured model on the matched Cascade trial set. | Gate enforced at `3c149fa` (`control-v2.json`, the same protocol constant for constant). Attempt 1 below, no candidate. |
 | Live improvement | Streaming transport and the background refinement worker exist for the structured belief only. No generic refit-and-swap. | Bounded refit on streamed recordings and a threshold swap during a Cascade run; tracking after the swap no worse. | None. |
 | Evidence | The learner reports development errors per recording against a hold-current reference, and the harness reports per-horizon and per-recording scaled errors. No forecast carries an envelope, and nothing calibrates one. | Every forecast carries an envelope with held-out coverage in a declared band, consumed by the controller's robustness terms. | None. |
 | Lean | Generic track done: 48 research scripts, 24 test modules, 11 experimental modules, 85 MB of archives and 18 research pages deleted. Structured core still present (dynamics, identification, fitting, five belief modules); 25 scripts and three structured-evidence pages remain for it. | Learner, harness, telemetry adapters, controller. | Lean-down merged at `c5e84ab`. |
@@ -131,19 +131,99 @@ each has a first measurement. If arp's body rate proves to be evidence-limited
 by a four-flight corpus, that is a charter question for the owner, not a
 threshold to move.
 
+## Control: the named mechanism, confirmed and refuted
+
+Gate frozen at `3c149fa` 09:45Z as `control-v2.json`, the protocol of
+`control-v1` constant for constant with the rule enforced. Everything below is a
+labelled diagnostic solve or an edited model flown through the same seam, not a
+candidate; no candidate was fitted, so the recipe and the artifact format are
+unchanged.
+
+*The arithmetic is confirmed.* Across the three calibration recordings the pilot
+moves throttle with a standard deviation of 0.0225 to 0.0312 of a declared 1.0
+range, roll 0.1117 to 0.1727 of 0.7, and pitch 0.2598 to 0.2671 of 0.7. The
+affine start standardizes each command by that sample standard deviation and
+then by the design's own column scale, so the recipe's ridge of 14.6 charges,
+per full declared-range move, 0.0127 on the throttle level column against 0.4845
+on roll and 2.126 on pitch, and 2.0e-4 and 6.6e-5 on the throttle difference
+columns. The throttle column's penalty in physical units is 168 times weaker
+than pitch's. Against the plant's own final-step response to a +0.05 step,
+averaged over three origins of the reserved recording, the throttle column is
+-0.048 / 25.17 at the affine start and -0.056 / 26.90 at the selected
+checkpoint, against the structured arm's 0.968 / 1.394; roll is 0.764 / 1.178
+then 0.594 / 0.576 against 0.798 / 0.598, and pitch 0.946 / 1.025 then
+0.969 / 1.124 against 0.951 / 1.030. Stated as a full declared-range move on the
+training windows, in hold-current error units, the selected checkpoint's forecast
+moves 22.2 for throttle, 2.0 for roll and 4.6 for pitch, and the affine block
+carries all of it: with the tanh residual zeroed the same numbers are 24.6, 2.2
+and 5.3.
+
+*The remedy is refuted, twice.* Restating the throttle column's scale as the
+declared command range and restating its penalty per that range are the same
+solve to every printed digit, and both do to the affine start exactly what the
+diagnosis predicted: throttle -0.048 / 25.17 becomes 0.259 / 0.127. Neither
+survives the fit. The ridge lives only in the initializer; the training
+objective never charges for the command Jacobian, so Adam rebuilds it, and the
+trained models are worse than the recipe's, at -0.062 / 52.80 with the penalty
+on the command levels and 0.036 / 33.30 with it on every command column. Nor
+would carrying the penalty into the objective help, because shrinkage is all any
+penalty can buy: sweeping the throttle columns' ridge from 1e-4 to 1e+8 times the
+recipe's moves the magnitude ratio from 25.42 to 0.0000 and never lifts the
+direction cosine above **-0.044**. Roll's best is 0.764 at ratio 1.178 and
+pitch's 0.965 at 1.298, both at or below the recipe's own ridge: those two
+columns are already as identified as this design can make them, and the throttle
+column is not identified at all.
+
+*And small is not safe.* A bounded shooting solver that believes a command is
+weak spends more of it. Flown through the same seam on the same trial, one
+repetition each: the recipe 60.347 m / 121.874 deg; its affine start alone
+10.557 / 66.433; the penalty per declared range on the command levels 53.686 /
+117.814 and on every command column 56.417 / 121.104, the latter resting roll at
+-0.294 against its -0.35 bound; the penalized affine start 45.275 / 103.335. The
+solver confined to the command box the recordings actually covered is unchanged
+at 60.097 / 121.448, because that box is the declared one for roll and pitch and
+only narrows throttle to [0.376, 0.488]; narrowing throttle alone gives 54.583 /
+117.453.
+
+*What would fly, and what that says.* Editing the trained model's command
+columns by hand: throttle muted, 51.041 / 109.790 — still lost. Throttle and
+roll muted, 2.030 / 2.300. Every command muted, **0.109 / 0.000**, because this
+trial's reference is the trim trajectory the plant is already on, so a model with
+no command authority outscores both arms. The generic arm does not fail in one
+column; at flight amplitude it misuses two, and the gate it has to clear is
+cleared by claiming nothing.
+
+*The horizon is ruled out.* The structured arm replanned at the generic arm's own
+0.25 s horizon tracks at 1.738 m / 1.371 deg, 44% and 34% worse than at 0.80 s
+and 35 and 89 times better than the generic arm. Its applied throttle stays in
+[0.437, 0.553] and its roll in [+0.004, +0.007], never at a bound, where the
+generic arm's throttle sits at a bound on 79% of intervals.
+
 ## Next iteration
 
-Control attempt 1 on the named mechanism, gated. Before any fit, freeze
-`docs/harness/control-v2.json` with the same protocol and the rule enforced,
-and commit it. Diagnose first: confirm that standardizing the almost-constant
-throttle input by its sample standard deviation makes the ridge penalty
-negligible in physical units and inflates the learned physical sensitivity by
-the measured 26.9; and measure, as a diagnostic, whether the structured arm at
-a 0.25 s horizon still tracks, so the horizon asymmetry is either ruled out or
-named. Then one change to the learner that stops it from extrapolating in
-command directions the recordings never excite, using only declared facts or
-the data itself (for example the caller's declared command range as the input
-scale, or a penalty stated in physical units), with no caller option and no
-platform branch. Bump the recipe id and format. Gate it on the synthetic and
-platform references and on control-v2; report every number whether or not it
-passes; thresholds do not move.
+**Evidence first, then Control again.** The control failure is now the named
+motivation for the Evidence row: give every forecast a measured error envelope
+whose held-out coverage lands in a declared band, and let the plan model report
+it so the solver's robustness and validity terms stop being exactly zero. Until
+the seam can price a command direction the recordings never excited, a solver
+that believes the learner spends that direction, and the control tier rejects.
+
+Freeze the evidence gate before any candidate, as always: a declared coverage
+band, measured on held-out rows the fit never saw, on the platform corpora and
+on the control tier's reserved recording. Then one change, no options.
+
+Two gaps are named and queued behind it. The learner's command Jacobian is
+degraded by training, not only by the start: roll's direction cosine falls from
+0.764 at checkpoint zero to 0.594 at the selected checkpoint, and checkpoint
+zero flies the same trial at 10.557 m against the selected checkpoint's 60.347 m,
+because development-rollout selection reads forecast error and is blind to the
+command Jacobian. And arp's structural attempt — a recursion whose gain is
+carried by the fit — is still queued.
+
+One question is for the owner, not for a threshold. `control-v2`'s calibration
+protocol collects three eight-second recordings under a closed-loop stabilizer
+whose pilot holds throttle within 2.3% to 3.1% of its declared range, and the
+sweep shows that column's direction is wrong at every penalty. No learner change
+identifies a column the recordings do not contain. Whether the protocol should
+excite every command channel over a declared fraction of its range is the same
+kind of charter question as arp's four-flight corpus.
