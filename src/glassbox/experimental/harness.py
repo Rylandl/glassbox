@@ -3559,13 +3559,12 @@ def verify_control(directory, manifest, reference=None):
         for name, digest in row["files"].items():
             if sha256(case / name) != digest:
                 raise ValueError(f"altered artifact: {row['directory']}/{name}")
-        with np.load(case / "timing.npz", allow_pickle=False) as data:
-            tick_times = data["tick_times_s"]
-            solve_times = data["solve_times_s"]
         with np.load(case / "tracking.npz", allow_pickle=False) as data:
             states = data["states"]
             commands = data["commands"]
             saved_reference = data["reference_states"]
+            tick_times = data["tick_times_s"]
+            solve_times = data["solve_times_s"]
             initial_state = data["initial_state"]
             anchor_state = data["reference_anchor_state"]
             times = data["time_s"]

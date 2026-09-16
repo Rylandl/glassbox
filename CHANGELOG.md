@@ -5,22 +5,29 @@ All notable changes to Glassbox are recorded here. The format follows
 
 ## Unreleased
 
-- Measure the live improvement row for the first time. `docs/harness/live-v1.json`
-  is the fifth frozen gate, with its own digest constant and a `live` harness
-  command: `control-v3`'s plant, task, calibration, seeds and both fitted arms,
-  with the structured belief flying from the first interval while the generic
-  learner receives the trial's own aligned transitions through the existing
-  `TransitionBuffer` and `RefinementWorker` seam, refits with
-  `update(recordings)` on whole 40-interval blocks inside a declared budget, and
-  is handed the controller through the acknowledged handoff when its final-step
-  forecast error on the most recent block it did not fit on is at or below the
-  structured belief's on the same rows. `RefinementWorker` now takes either a
-  belief or a caller's own refiner keeping the new `Refiner` protocol; the
-  recipe, the learner modules and all eight earlier gate files are byte
-  identical. Measured, not enforced: the swap happened in both trials and
-  tracking after it was 17.7 m and 26.3 m against 0.85 m and 0.90 m before it,
-  because a held-out forecast comparison in a regime the structured arm holds
-  almost still reads no command authority.
+- Measure the live improvement row for the first time.
+  `docs/harness/live-v2.json` is the fifth frozen gate, with its own digest
+  constant and a `live` harness command: `control-v3`'s plant, task,
+  calibration, seeds and both fitted arms, with the structured belief flying
+  from the first interval while the generic learner receives the trial's own
+  aligned transitions through the existing `TransitionBuffer` and
+  `RefinementWorker` seam, refits with `update(recordings)` on whole
+  40-interval blocks inside a declared budget, and is handed the controller
+  through the acknowledged handoff when its final-step forecast error on the
+  most recent block it did not fit on is at or below the structured belief's on
+  the same rows. The trajectory is computed in simulated time and reproduces:
+  the loop is unpaced, the solver is given no deadline, the worker is driven
+  synchronously, and a candidate is released a declared block period after the
+  block it was scored on, so two runs produce byte-identical tracking arrays,
+  block forecasts, scores, swap intervals and metrics, and every wall
+  measurement is recorded in artifacts nothing reads back. `RefinementWorker`
+  now takes either a belief or a caller's own refiner keeping the new `Refiner`
+  protocol, and a `synchronous` option; the structured path and both examples
+  are unchanged, and the recipe, the learner modules and all eight earlier gate
+  files are byte identical. Measured, not enforced: the swap happened in both
+  trials at interval 140, and tracking after it was 19.4 m and 5.7 m against
+  0.87 m and 0.90 m before it, because a held-out forecast comparison in a
+  regime the structured arm holds almost still reads no command authority.
 - Every generic forecast carries a measured error envelope, and the controller
   consumes it. The recipe already reserves a quarter of the supplied recordings
   as its development role; the windows cut from them now calibrate a

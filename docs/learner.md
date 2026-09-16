@@ -424,7 +424,7 @@ recording covers, and not control adequacy.
 
 ## The live improvement tier
 
-[`harness/live-v1.json`](harness/live-v1.json) is the fifth frozen manifest,
+[`harness/live-v2.json`](harness/live-v2.json) is the fifth frozen manifest,
 with its own digest constant and the harness's fourth command. It is the live
 improvement tier: the same Cascade X8 trial set, flown from the first interval
 by the frozen structured belief, while the generic learner refits on the
@@ -436,7 +436,7 @@ else.
 
 ```sh
 uv run --group cascade python -m glassbox.experimental.harness live \
-  --manifest docs/harness/live-v1.json --output /tmp/live-run
+  --manifest docs/harness/live-v2.json --output /tmp/live-run
 uv run python -m glassbox.experimental.harness verify /tmp/live-run
 ```
 
@@ -451,54 +451,92 @@ and the frozen arm is what says where "before" would have gone. Two repetitions,
 arm order alternating as [`examples/live_refinement.py`](../examples/live_refinement.py)
 alternates its own.
 
-The transport is the existing one. `TransitionBuffer` takes each interval's
-aligned transition — the observed state it started at, the observed state it
-ended at, and the command the loop actually applied over it — and emits whole
-40-interval blocks; `RefinementWorker` carries them to a background thread with
-a two-block queue, declares every interval a queue overflow loses, and offers a
-prepared controller across one acknowledged handoff. Forty intervals is two
-seconds at this cadence: the smallest block that clears the recipe's demand of
-at least three complete windows in any new recording — a ten-step consumed
-context and a five-step horizon leave 26 origins in a 40-step block — and long
-enough that one score, one refit and one controller preparation fit inside the
-interval that produces the next block. The buffer emits nothing until it holds
-the declared 20 intervals of known commands, so the first block covers intervals
-20 to 59 and seven whole blocks fit in a trial; the last 20 intervals are a
-partial block and are never submitted.
+### Nothing a clock measured reaches the trajectory
 
-That worker now accepts either a belief, which it wraps in a `ModelRefiner` as
-it always did, or a refiner of the caller's own keeping the `Refiner` protocol
-the module declares. This tier supplies one over the generic recipe. Each block
-is scored before anything is fitted on it, by the current candidate and by the
-frozen structured belief, on identical rows: every origin of the block carrying
-the whole consumed context and the whole horizon, with the recorded commands,
-the same canonical state and the same 20-command actuator history. Then the
-block is absorbed with `update(recordings)` as one new recording with its own
-identity. The recipe's holdout and window sampling are untouched — the
-development windows the calibration fit reserved stay reserved and keep
-selecting every checkpoint, and the fresh block's windows enter the training
-cache under the recipe's own round-robin, which caps it at 384 windows.
+This is the one thing `live-v1` got wrong and the only reason it was replaced.
+That manifest paced its loop against a wall clock and gave the solver a 50 ms
+deadline while a background worker loaded the same CPU. Rerun on the same
+checkout, every tracking number moved: deadlines were missed nondeterministically,
+fallback commands changed the flight, and refit completion times moved the swap
+by an interval or two. A regression reference and a 5% allowance on that would
+have gated on scheduling noise, and the frozen arm would have failed its own
+reference. `control-v3`, which flies the same plant and the same solver without
+a worker, reproduces digit for digit, which is what isolated the cause.
 
-The compute budget is declared and recorded per refit: the recipe's own 1000 fit
-steps, which are not a live choice, and two block periods of wall time, because
-the queue holds two blocks and a refit slower than that cannot drain the stream
-it is fed. Every refit's measured wall time is recorded either way, and a refit
-that runs over is recorded as an overrun and its revision is not offered.
+`live-v2` computes the trajectory in simulated time. Interval `k` is the state
+at `k` times the sample interval, and four things make that true. The loop is
+not paced and reads no clock to decide anything. The solver is given no
+deadline, so it never returns a fallback command for want of time and its
+commands are a function of the model and the state alone; the measured solve
+times and the count of solves over 50 ms are still recorded, and decide
+nothing. The refinement worker is driven synchronously -- the producer's own
+thread runs the score, the refit and any controller preparation inside the
+`submit` that hands a block over -- so no thread schedule can decide when a
+block was learned from, nothing queues and nothing drops. And a candidate is
+released at a declared offset of one block period after the block it was scored
+on, rather than whenever a refit happened to finish, which makes the swap
+interval a manifest constant.
 
-**The swap gate is the whole point and it reads no tracking error.** The
-candidate is offered as the active plan model when its final-step forecast error
-on the most recent block it did not fit on is at or below the structured
-belief's on the same rows, for world velocity and for body rate, both. A score
-that cannot be read leaves that metric unknown and an unknown metric never
-passes. The first candidate that passes is prepared — the worker builds and
-warms a bounded solver over it off the control thread, on the block it was
-scored on, so no compilation lands in a timed interval — and at the next solve
-boundary the control owner seeds that controller with the trial's own retained
-observed states and applied commands and installs it. The observed history is a
-property of the flight, not of the revision, so it is carried across and nothing
-is padded. One swap per trial; after it the worker keeps scoring and refitting
+A refit that runs over its wall budget is reported as a budget breach and
+offered anyway. Withholding it would put the host's scheduling back into the
+commands, which is the thing this manifest exists to prevent, so the breach
+gates nothing for the same reason a deadline miss gates nothing.
+
+The wall measurements are all still taken. `tracking.npz` carries the
+trajectory alone -- times, observed states, reference rows, applied commands,
+the active revision per interval, the perturbed start and the anchor -- and
+`timing.npz` and each trial's `wall` block carry interval times, solve times,
+telemetry times and every refit's and every score's wall seconds. Nothing reads
+the second group back.
+
+### The transport and the gate
+
+`TransitionBuffer` takes each interval's aligned transition -- the observed
+state it started at, the observed state it ended at, and the command the loop
+actually applied over it -- and emits whole 40-interval blocks. Forty intervals
+is two seconds at this cadence: the smallest block that clears the recipe's
+demand of at least three complete windows in any new recording -- a ten-step
+consumed context and a five-step horizon leave 26 origins in a 40-step block --
+and long enough that one score, one refit and one controller preparation fit
+inside the interval that produces the next block. The buffer emits nothing until
+it holds the declared 20 intervals of known commands, so the first block covers
+intervals 20 to 59 and seven whole blocks fit in a trial; the last 20 intervals
+are a partial block and are never submitted.
+
+`RefinementWorker` now accepts either a belief, which it wraps in a
+`ModelRefiner` as it always did, or a refiner of the caller's own keeping the
+`Refiner` protocol the module declares, and it takes a `synchronous` option that
+runs the same learning on the producer's thread and carries out an acknowledged
+decision inside `acknowledge`. The structured path and both examples are
+untouched and still run the worker thread; this tier supplies its own refiner
+over the generic recipe and drives it synchronously. Each block is scored before
+anything is fitted on it, by the current candidate and by the frozen structured
+belief, on identical rows: every origin of the block carrying the whole consumed
+context and the whole horizon, with the recorded commands, the same canonical
+state and the same 20-command actuator history. Then the block is absorbed with
+`update(recordings)` as one new recording with its own identity. The recipe's
+holdout and window sampling are untouched -- the development windows the
+calibration fit reserved stay reserved and keep selecting every checkpoint, and
+the fresh block's windows enter the training cache under the recipe's own
+round-robin, which caps it at 384 windows. The declared budget is the recipe's
+own 1000 fit steps and two block periods of wall time, which is the rate a
+stream of this block size has to be kept up with.
+
+**The swap gate reads no tracking error.** The candidate is offered as the
+active plan model when its final-step forecast error on the most recent block it
+did not fit on is at or below the structured belief's on the same rows, for
+world velocity and for body rate, both. A score that cannot be read leaves that
+metric unknown and an unknown metric never passes. The first candidate that
+passes is prepared -- the worker builds and warms a bounded solver over it, so
+no compilation lands in a timed interval -- and one block period later the
+control owner seeds that controller with the trial's own retained observed
+states and applied commands and installs it. The observed history is a property
+of the flight, not of the revision, so it is carried across and nothing is
+padded. One swap per trial; after it the worker keeps scoring and refitting
 every block, so every block's forecast errors are recorded, and offers nothing
 further.
+
+### The rule and the replay
 
 The declared rule is that the swap happens in every adopting trial, no trial
 terminates, and the trial's position and attitude RMSE over the intervals after
@@ -507,110 +545,120 @@ same 5% plus 0.005 allowance the other tiers use. Interval `i` is scored at the
 state it ends on, so the two segments partition the trial and neither counts the
 other's rows; the frozen arm of the same repetition is segmented at the same
 interval and reported beside them. A trial missing, duplicated, undeclared,
-terminated, short of its intervals, reporting a refinement-worker error, or
-carrying a whole-trial metric that is not a finite number fails closed whatever
-the reference says.
+terminated, short of its intervals, reporting a refinement-worker error,
+dropping a streamed block, recording a swap the gates and the declared offset do
+not require, or carrying a whole-trial metric that is not a finite number fails
+closed whatever the reference says.
 
 The rule is not enforced for this first measurement. Nothing has measured this
-row before, so this run measures it and the gate binds from the next candidate,
-under the semantics the platform, control and evidence tiers already use. Every
-number and every breach is measured, recorded and printed exactly as it would be
-enforced; only `accepted` ignores them.
+row under this manifest, so this run measures it and the gate binds from the
+next candidate, under the semantics the platform, control and evidence tiers
+already use. Every number and every breach is measured, recorded and printed
+exactly as it would be enforced; only `accepted` ignores them.
 
 `verify` recognizes the tier from the digest of the manifest a run copied. It
-reruns neither the plant, nor the solver, nor a refit — none of the three is
-deterministic under a wall clock, and rerunning any of them would be a new run
-rather than a check of this one — and everything else it recomputes. It
-rechecks every artifact hash, including every block's evaluation arrays and
-every scored revision; rebuilds the tracking reference from the saved anchor and
-each trial's perturbed start from its declared seed; remeasures the
+reruns neither the plant, nor the solver, nor a refit -- rerunning any of them
+would be a new run rather than a check of this one -- and everything else it
+recomputes. It rechecks every artifact hash, including every block's evaluation
+arrays and every scored revision; rebuilds the tracking reference from the saved
+anchor and each trial's perturbed start from its declared seed; remeasures the
 calibration's command excitation; recomputes both models' block forecasts from
 the saved arrays and the saved revisions, the generic one through the same
 independent NumPy recurrence the synthetic tier replays with and the structured
 one through the library's own rollout; recomputes every block score and every
-swap gate from those forecasts; recomputes which block a swap was allowed to
-come from and checks the recorded per-interval active revision against it; and
-recomputes the whole-trial, before and after metrics from the saved per-interval
-arrays.
+swap gate from those forecasts; recomputes the swap interval from the recorded
+gates and the declared offset and checks the per-interval active revision
+against it; and recomputes the whole-trial, before and after metrics from the
+saved per-interval arrays.
 
 ### The measurement
 
-`live-v1` was frozen and committed at 14:11:19Z. The run below started
-collecting its calibration at 14:30:17Z and had fitted both arms by 14:30:44Z,
-so the gate is older than every number under it. Both arms are the two
-`control-v3` fits, on the same calibration, whose measured command excitation is
-unchanged: the generic arm's fingerprint is `9f7e7b17`, the same artifact
-`control-v3`'s own run produced, so this tier starts from that measurement
-rather than beside it.
+`live-v2` was frozen and committed at 15:12:17Z; the run below started
+collecting its calibration at 15:12:23Z, so the gate is older than every number
+under it. Both arms are the two `control-v3` fits, on the same calibration,
+whose measured command excitation is unchanged: the generic arm's fingerprint is
+`9f7e7b17`, the same artifact `control-v3`'s own run produced, so this tier
+starts from that measurement rather than beside it.
+
+**It reproduces.** Two consecutive runs of this manifest produced byte-identical
+`tracking.npz` in all four trials -- `a40f9b00`, `5a3e6b14`, `f99e79ea` and
+`64c52e1e` -- byte-identical block evaluation arrays and forecasts, and
+byte-identical scored revisions: 64 of 72 artifacts match to the byte, and the
+eight that differ are the four `timing.npz` and the four worker event journals,
+which carry nothing but host measurements. Every trial and block field the
+decision reads -- 196 of them, including all four swap intervals, every block
+score and gate, every tracking metric and every segment -- is identical.
 
 | Repetition (seed) | Arm | Swap | Position RMSE before / after (m) | Attitude RMSE before / after (deg) | Whole trial (m / deg) | Terminated |
 | --- | --- | --- | --- | --- | --- | --- |
-| 0 (101) | adopting | interval 141, 7.05 s | 0.852 / **17.743** | 1.692 / **74.085** | 13.282 / 55.420 | none |
-| 0 (101) | frozen | none | 0.841 / 1.299 | 1.700 / 0.934 | 1.120 / 1.327 | none |
-| 1 (102) | adopting | interval 141, 7.05 s | 0.899 / **26.283** | 1.616 / **78.711** | 19.666 / 58.879 | none |
-| 1 (102) | frozen | none | 0.892 / 1.344 | 1.627 / 0.971 | 1.167 / 1.301 | none |
+| 0 (101) | adopting | interval 140, 7.00 s | 0.868 / **19.355** | 1.676 / **86.309** | 14.528 / 64.742 | none |
+| 0 (101) | frozen | none | 0.868 / 1.373 | 1.676 / 0.956 | 1.179 / 1.320 | none |
+| 1 (102) | adopting | interval 140, 7.00 s | 0.896 / **5.697** | 1.620 / **14.885** | 4.314 / 11.215 | none |
+| 1 (102) | frozen | none | 0.896 / 1.358 | 1.620 / 0.941 | 1.179 / 1.283 | none |
 
 Both frozen arms are segmented at the adopting arm's own swap interval, which is
-what they are flown for.
+what they are flown for, and both arms of a repetition agree to every printed
+digit before the swap, because up to interval 140 they are the same flight.
+Under `live-v1` they did not, and the difference was the clock.
 
 Every held-out block, final-step forecast error as generic / structured, in m/s
 of world velocity and rad/s of body rate. Each block is 26 rows neither model
 had fitted on; a bold pair is one where the gate passed. The swap was decided on
-block 1 of each adopting trial.
+block 1 of each adopting trial, and released at interval 100 plus the declared
+40.
 
 | Block (intervals) | 0-adopting | 0-frozen | 1-adopting | 1-frozen |
 | --- | --- | --- | --- | --- |
 | 0 (20-60) | 0.284/0.184 vs 0.161/0.085 | 0.284/0.184 vs 0.161/0.085 | 0.309/0.208 vs 0.161/0.085 | 0.309/0.208 vs 0.161/0.085 |
-| 1 (60-100) | **0.032/0.024** vs 0.158/0.080 | **0.051/0.030** vs 0.164/0.082 | **0.046/0.023** vs 0.158/0.080 | **0.061/0.042** vs 0.162/0.082 |
-| 2 (100-140) | **0.033/0.027** vs 0.149/0.076 | **0.054/0.062** vs 0.149/0.075 | **0.045/0.071** vs 0.153/0.077 | **0.031/0.053** vs 0.153/0.076 |
-| 3 (140-180) | 0.287/0.318 vs 0.179/0.092 | **0.044/0.034** vs 0.149/0.076 | 0.700/0.874 vs 0.238/0.127 | **0.020/0.075** vs 0.154/0.077 |
-| 4 (180-220) | 5.117/4.914 vs 0.728/0.481 | **0.047/0.040** vs 0.159/0.080 | 16.025/17.824 vs 1.553/0.655 | **0.009/0.018** vs 0.156/0.078 |
-| 5 (220-260) | 1.906/2.901 vs 0.722/0.468 | **0.035/0.049** vs 0.161/0.081 | 1.074/0.783 vs 1.405/0.728 | **0.023/0.039** vs 0.160/0.081 |
-| 6 (260-300) | 3.428/1.131 vs 1.638/0.862 | **0.033/0.059** vs 0.164/0.083 | **1.571/0.366** vs 1.763/0.815 | **0.031/0.038** vs 0.167/0.084 |
+| 1 (60-100) | **0.032/0.024** vs 0.158/0.080 | **0.053/0.029** vs 0.158/0.080 | **0.046/0.023** vs 0.158/0.080 | **0.059/0.037** vs 0.158/0.080 |
+| 2 (100-140) | **0.014/0.023** vs 0.153/0.077 | 0.060/0.078 vs 0.153/0.077 | **0.045/0.071** vs 0.153/0.077 | **0.039/0.067** vs 0.153/0.077 |
+| 3 (140-180) | 0.172/0.192 vs 0.173/0.089 | **0.021/0.073** vs 0.154/0.077 | 0.253/0.286 vs 0.161/0.075 | 0.027/0.132 vs 0.154/0.077 |
+| 4 (180-220) | 5.162/12.962 vs 1.394/0.594 | **0.021/0.023** vs 0.156/0.078 | 0.156/0.167 vs 0.124/0.078 | **0.017/0.016** vs 0.156/0.078 |
+| 5 (220-260) | 3.774/1.282 vs 1.075/0.625 | **0.015/0.028** vs 0.160/0.081 | 0.386/0.328 vs 0.179/0.101 | **0.025/0.039** vs 0.160/0.081 |
+| 6 (260-300) | **1.295/0.473** vs 1.918/0.598 | **0.042/0.058** vs 0.164/0.083 | 0.140/0.135 vs 0.196/0.106 | **0.035/0.043** vs 0.164/0.083 |
 
-Block 0 is the same rows in both arms of a repetition, because both are flying
-the same belief over the same plant from the same start; they part company after
-that, first from the solver's own wall-clock deadline and then, at interval 141,
-from the swap. The adopting arms' blocks from 3 onward are scored on a flight
-the generic model is already losing, which is why both models' errors grow
-there; the frozen arms' are scored on a flight that stays on the task.
+Blocks 0, 1 and 2 of an adopting arm are the same rows as its frozen twin's up
+to the swap; from block 3 the adopting arm is scoring a flight the generic model
+is already losing, which is why both models' errors grow there.
 
 **The swap happens, and tracking after it is not no worse.** The rule's first
 half holds: both adopting trials swapped, at the same interval in both, and no
-trial terminated. Its second half fails on all four metrics, by a factor of 21
-and 44 on the first repetition and 29 and 49 on the second, against an allowance
-of 5% plus 0.005. Nothing structural breached: every trial completed its 320
-intervals with finite states, commands inside the declared box, one to three
-solver fallbacks and no dropped block. The rule is not enforced for this
-measurement, so the run is accepted and `rule_met` is false; from
-`live-reference.json` onward it gates every case the incumbent met.
+trial terminated. Its second half fails on all four metrics, by a factor of 22
+and 51 on the first repetition and 6.4 and 9.2 on the second, against an
+allowance of 5% plus 0.005. Nothing structural breached: every trial completed
+its 320 intervals with finite states, commands inside the declared box, no
+dropped block and, now that no deadline is applied, no solver fallback at all.
+The rule is not enforced for this measurement, so the run is accepted and
+`rule_met` is false.
 
 **The gate passed on evidence, and the evidence was real.** Each trial produced
-seven candidate revisions inside budget — the recipe's 1000 fit steps at 0.876 s
-to 0.968 s of wall time against the declared 4.0 s, with block scoring another
-0.51 s to 0.99 s — and no block was dropped. On the block the swap was decided
-on, intervals 60 to 100 of each trial, the candidate's final-step forecast error
-was 0.032 m/s and 0.024 rad/s against the structured belief's 0.158 and 0.080 on
-the first repetition, and 0.046 and 0.023 against 0.158 and 0.080 on the second:
-three to five times better, on 26 rows it had never fitted on, one refit after a
-block it lost on 0.284 against 0.161. The frozen arms show it was not a fluke of
-one block. Left flying the structured belief for the whole trial, their refits
-pass the same gate on six of seven blocks and hold forecast errors of 0.009 to
-0.061 m/s across the trial while the structured belief stays at 0.15 to 0.17.
-**The generic learner does learn the regime it is flying in, quickly, from two
-seconds of it.**
+seven candidate revisions -- the recipe's 1000 fit steps at 0.855 s to 0.896 s
+of wall time against the declared 4.0 s, with block scoring another 0.52 s to
+0.91 s -- with no budget overrun and no block dropped. On the block the swap was
+decided on, intervals 60 to 100 of each trial, the candidate's final-step
+forecast error was 0.032 m/s and 0.024 rad/s against the structured belief's
+0.158 and 0.080 on the first repetition, and 0.046 and 0.023 against the same
+0.158 and 0.080 on the second: three to five times better, on 26 rows it had
+never fitted on, one refit after a block it lost on 0.284 against 0.161. The
+frozen arms show it was not a fluke of one block. Left flying the structured
+belief for the whole trial, their refits pass the same gate on five of seven
+blocks each and hold forecast errors of 0.015 to 0.060 m/s across the trial
+while the structured belief stays at 0.15 to 0.17. **The generic learner does
+learn the regime it is flying in, quickly, from two seconds of it.**
 
 **What it does not learn is command authority, and the gate cannot see that.**
-Hold-current — predicting that nothing changes — scores 0.021 m/s and 0.0014
-rad/s on that same block. The comparator the gate is written against is seven
-times worse than claiming nothing there, and the candidate that beat it is still
-1.5 times worse than claiming nothing on velocity and seventeen times worse on
-body rate. A held-out forecast comparison in a regime the structured arm is
-holding almost still certifies a model that has learned that almost nothing
-happens. The solver then spends commands on it: mean applied throttle moves from
-0.490 before the swap to 0.775 after it on the first repetition and to 0.188 on
-the second, mean roll from +0.006 to +0.199 and +0.237 against a +0.35 bound,
-and altitude from 102 m at the swap to 80 m and 55 m at 16 s.
+Hold-current -- predicting that nothing changes -- scores 0.021 m/s and
+0.0014 rad/s on that same block. The comparator the gate is written against is
+seven times worse than claiming nothing there, and the candidate that beat it is
+still 1.5 times worse than claiming nothing on velocity and seventeen times
+worse on body rate. A held-out forecast comparison in a regime the structured
+arm is holding almost still certifies a model that has learned that almost
+nothing happens. The solver then spends commands on it: mean applied throttle
+moves from 0.494 before the swap to 0.791 after it on the first repetition and
+0.492 to 0.770 on the second, mean roll from +0.006 to +0.222 on the first
+against a +0.35 bound, and altitude from 102.6 m at the swap to 64.9 m at 16 s.
+The second repetition is the milder of the two and still loses the task: it ends
+110.6 m high against a reference of about 100 m.
 
 The swap changes the planning horizon too, from the structured belief's 0.80 s
 to the recipe's own fitted 0.25 s, because each model plans exactly as far as
@@ -621,7 +669,7 @@ better than the generic arm did.
 That is Control attempt 2's finding arriving from the other side. There the
 calibration excited the plant an order of magnitude harder than the task flew
 it, so the fit's error floor exceeded the motion the controller had to resolve.
-Here the learner is given exactly the regime being flown and closes that floor —
+Here the learner is given exactly the regime being flown and closes that floor --
 and the arm still cannot fly, because forecast error on a quiet block is not a
 measurement of the command response, which is what
 [`status.md`](status.md)'s ladder measured directly: the ceiling of a perfect
@@ -629,10 +677,12 @@ command response on this task is 9.04 m and the ceiling of claiming nothing is
 1.22 m. Nothing in this tier's gate reads a command Jacobian, and the swap it
 authorizes is the first thing that has ever needed one.
 
-Deadline misses are host-specific and inform rather than gate: 11 and 12 of 320
-intervals on the adopting arms, 26 and 27 on the frozen ones, with one to three
-solve-deadline misses each. Both arms run the same refits on the same thread
-topology, so the difference is scheduling noise, not a property of the swap.
+Host measurements inform and gate nothing, and now that none of them reaches a
+command they are only that: each trial's interval work exceeded the 50 ms sample
+interval on 0 to 2 of its 320 intervals, no solve exceeded the recorded 50 ms
+threshold, and a whole trial costs 16 s to 26 s of wall time against 16 s of
+simulated time. Two runs differ in every one of those numbers and in none of the
+others.
 
 This is a measurement of one live-refinement trial set on one simulated plant,
 not hardware readiness, a real-time claim, or calibrated uncertainty.
