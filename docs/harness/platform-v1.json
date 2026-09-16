@@ -1,0 +1,341 @@
+{
+  "id": "glassbox-harness-platform-v1",
+  "scope": "The accuracy tier. For every pinned platform corpus on disk, whole recordings are held out, the generic recipe is fitted on the rest, the structured model is fitted on exactly the same training recordings, and both forecast the same held-out origins from the same recorded future commands. This tier measures forecast accuracy against the structured model and the task allowance. It is not control adequacy, calibrated uncertainty, or evidence about any corpus not listed here.",
+  "frozen": "This file and its digest constant in glassbox.experimental.harness are frozen before a candidate is fitted. A threshold, stride, holdout, or corpus changed after scores were seen fails review. The corpus root is a command-line argument and never a fact in this file.",
+  "recipe": {
+    "id": "generic-memory-v2-prototype",
+    "kind": "filter_mlp",
+    "width": 32,
+    "memory": 8,
+    "delay_s": 0.1,
+    "context_s": 0.5,
+    "horizon_s": 0.25,
+    "training_windows": 384,
+    "development_windows": 256,
+    "steps": 1000,
+    "batch_size": 64,
+    "learning_rate": 0.002,
+    "ridge_fraction": 0.01,
+    "seed": 0,
+    "check_every": 100,
+    "hold_scale_floor": 0.01
+  },
+  "observed_contract": {
+    "channels": [
+      "velocity_north [m/s,world_nwu]",
+      "velocity_west [m/s,world_nwu]",
+      "velocity_up [m/s,world_nwu]",
+      "body_rate_x [rad/s,body_flu]",
+      "body_rate_y [rad/s,body_flu]",
+      "body_rate_z [rad/s,body_flu]",
+      "rotation_00 [unitless,body_flu_to_world_nwu]",
+      "rotation_01 [unitless,body_flu_to_world_nwu]",
+      "rotation_02 [unitless,body_flu_to_world_nwu]",
+      "rotation_10 [unitless,body_flu_to_world_nwu]",
+      "rotation_11 [unitless,body_flu_to_world_nwu]",
+      "rotation_12 [unitless,body_flu_to_world_nwu]",
+      "rotation_20 [unitless,body_flu_to_world_nwu]",
+      "rotation_21 [unitless,body_flu_to_world_nwu]",
+      "rotation_22 [unitless,body_flu_to_world_nwu]"
+    ],
+    "source": "One adapter, no per-corpus branch: world-frame velocity and body rates are read from the canonical rigid-body state, and the nine rotation entries come from its quaternion through glassbox.core.geometry.quaternion_to_rotation_matrices, row-major. Inputs are the recorded controls, named from the trajectory's own spec. Position is not modeled. Recording identity is the file stem. A gap or a nonfinite row splits the recording into segments through sequence_collection's mask helper; nothing is padded.",
+    "velocity_channels": [
+      0,
+      1,
+      2
+    ],
+    "body_rate_channels": [
+      3,
+      4,
+      5
+    ]
+  },
+  "scoring": {
+    "origins": "Every origin at the corpus's declared stride that carries the recipe's whole consumed context inside one segment and the whole forecast horizon after it. Both models forecast from the same origins with the same recorded future commands: the generic model through predict, the structured model through the library's rollout from that origin's full canonical state.",
+    "metric": "One scalar over the scored rows and the three components, as glassbox.core.metrics computes velocity_rmse_m_s. Reported at the final horizon row and over the whole horizon prefix, pooled per corpus and per recording, for the generic model, every structured arm, and a hold-current baseline.",
+    "horizon": "The recipe's 0.25 s horizon resolved on each corpus's own sample grid, so the realized horizon is 0.24 s where 0.25 s is not a whole number of steps and 0.2 s on the 5 Hz corpus."
+  },
+  "motor_history_s": 1.0,
+  "evaluation_rows_maximum": 2000,
+  "decision": {
+    "rule": "For every declared corpus: the generic model's final-step velocity RMSE and body-rate RMSE on the held-out rows are at or below the structured comparator's on the same rows, and at or below the task allowance where one is declared.",
+    "comparator": "Per metric, the lowest value any declared structured arm reached on those rows. Both arms are reported in full.",
+    "allowance": "The allowances come from docs/accuracy-requirements.md, where they were derived as the worst recording's 95th percentile of the largest vector error anywhere in the forecast prefix. This rule applies them to a pooled final-step RMSE, which is a different readout of the same evidence and not the percentile those numbers bound.",
+    "enforced": false,
+    "gates_merges_from": "the first iteration that changes the recipe. Until then the rule is measured and reported, and a run is accepted when the measurement itself is complete: every declared corpus present once, fitted, and scored with finite numbers on rows inside the declared budget.",
+    "meaning": "Measured forecast accuracy on the pinned corpora for this manifest only. Not control adequacy, calibrated uncertainty, or readiness."
+  },
+  "corpora": [
+    {
+      "name": "nanodrone",
+      "summary": "IDSIA nano-quadrotor system identification, aggressive real flight.",
+      "directory": "nanodrone/canonical",
+      "file_pattern": "**/*.npz",
+      "sample_interval_s": 0.01,
+      "sample_interval_tolerance_fraction": 0.001,
+      "held_out_patterns": [
+        "test/*.npz"
+      ],
+      "held_out": "every recording under test/, the three Melon runs.",
+      "training": "every recording in the corpus that no held-out pattern matches.",
+      "recordings": {
+        "total": 15,
+        "held_out": 3,
+        "training": 12
+      },
+      "forecast_horizon_s": 0.25,
+      "realized_forecast_horizon_s": 0.25,
+      "information_budget": {
+        "context_steps": 50,
+        "delay_steps": 10,
+        "horizon_steps": 25
+      },
+      "evaluation_origin_stride_rows": 10,
+      "allowance": {
+        "velocity_rmse_m_s": 0.696,
+        "body_rate_rmse_rad_s": 3.706
+      },
+      "allowance_source": "docs/accuracy-requirements.md, Nano worst of 3 at 250 ms.",
+      "structured": {
+        "arms": [
+          "structured_residual"
+        ],
+        "chain": "validation-nanodrone-results: fit --holdout-profile melon --training-horizons 0.1,0.5,1.0 --evaluation-horizons 0.1,0.5,1.0 --model-class structured_residual",
+        "training_horizons_s": [
+          0.1,
+          0.5,
+          1.0
+        ],
+        "evaluation_horizons_s": [
+          0.1,
+          0.5,
+          1.0
+        ],
+        "holdout_count": 1,
+        "holdout_meaning": "The fit is given exactly the training recordings and reserves the final source group of them for its own forecast-error calibration. The chain's own holdout rule selected the corpus's held-out recordings, which this manifest declares instead and never passes to the fit, so the structured model never sees a held-out row in any role.",
+        "training_horizon_steps": 25,
+        "optimization_steps": 400,
+        "learning_rate": 0.02,
+        "endpoint_weight": 3.0,
+        "stability_regularization": 0.01
+      }
+    },
+    {
+      "name": "x8",
+      "summary": "NTNU Skywalker X8 flying wing, strong-wind real flight maneuvers.",
+      "directory": "x8/canonical",
+      "file_pattern": "**/*.npz",
+      "sample_interval_s": 0.025,
+      "sample_interval_tolerance_fraction": 0.001,
+      "held_out_patterns": [
+        "validation/*.npz"
+      ],
+      "held_out": "every recording under validation/, the four upstream validation maneuvers.",
+      "training": "every recording in the corpus that no held-out pattern matches.",
+      "recordings": {
+        "total": 17,
+        "held_out": 4,
+        "training": 13
+      },
+      "forecast_horizon_s": 0.25,
+      "realized_forecast_horizon_s": 0.25,
+      "information_budget": {
+        "context_steps": 20,
+        "delay_steps": 4,
+        "horizon_steps": 10
+      },
+      "evaluation_origin_stride_rows": 1,
+      "allowance": {
+        "velocity_rmse_m_s": 1.601,
+        "body_rate_rmse_rad_s": 0.764
+      },
+      "allowance_source": "docs/accuracy-requirements.md, X8 worst of 4 at 250 ms.",
+      "structured": {
+        "arms": [
+          "structured",
+          "structured_residual"
+        ],
+        "chain": "validation-x8-results: fit --holdout-label benchmark_split=validation --training-horizons 0.1,0.5,2.0, one arm per model class",
+        "training_horizons_s": [
+          0.1,
+          0.5,
+          2.0
+        ],
+        "evaluation_horizons_s": [
+          0.1,
+          0.5,
+          1.0,
+          2.0
+        ],
+        "holdout_count": 1,
+        "holdout_meaning": "The fit is given exactly the training recordings and reserves the final source group of them for its own forecast-error calibration. The chain's own holdout rule selected the corpus's held-out recordings, which this manifest declares instead and never passes to the fit, so the structured model never sees a held-out row in any role.",
+        "training_horizon_steps": 25,
+        "optimization_steps": 400,
+        "learning_rate": 0.02,
+        "endpoint_weight": 3.0,
+        "stability_regularization": 0.01
+      }
+    },
+    {
+      "name": "arp",
+      "summary": "ARP data-driven system identification quadrotor, four logs.",
+      "directory": "arp/canonical",
+      "file_pattern": "**/*.npz",
+      "sample_interval_s": 0.02,
+      "sample_interval_tolerance_fraction": 0.001,
+      "held_out_patterns": [
+        "log_66*.npz"
+      ],
+      "held_out": "log 66, the log the recorded chain scores.",
+      "training": "every recording in the corpus that no held-out pattern matches.",
+      "recordings": {
+        "total": 4,
+        "held_out": 1,
+        "training": 3
+      },
+      "forecast_horizon_s": 0.25,
+      "realized_forecast_horizon_s": 0.24,
+      "information_budget": {
+        "context_steps": 25,
+        "delay_steps": 5,
+        "horizon_steps": 12
+      },
+      "evaluation_origin_stride_rows": 2,
+      "allowance": {
+        "velocity_rmse_m_s": 0.709,
+        "body_rate_rmse_rad_s": 2.864
+      },
+      "allowance_source": "docs/accuracy-requirements.md, ARP log66 at 240 ms.",
+      "structured": {
+        "arms": [
+          "structured"
+        ],
+        "chain": "validation-arp-results: fit --holdout-count 1 --training-horizons 0.1,0.5,2.0",
+        "training_horizons_s": [
+          0.1,
+          0.5,
+          2.0
+        ],
+        "evaluation_horizons_s": [
+          0.1,
+          0.5,
+          1.0,
+          2.0
+        ],
+        "holdout_count": 1,
+        "holdout_meaning": "The fit is given exactly the training recordings and reserves the final source group of them for its own forecast-error calibration. The chain's own holdout rule selected the corpus's held-out recordings, which this manifest declares instead and never passes to the fit, so the structured model never sees a held-out row in any role.",
+        "training_horizon_steps": 25,
+        "optimization_steps": 400,
+        "learning_rate": 0.02,
+        "endpoint_weight": 3.0,
+        "stability_regularization": 0.01
+      }
+    },
+    {
+      "name": "idf",
+      "summary": "IDF-DS fixed-wing telemetry, 119 segments over 13 sessions.",
+      "directory": "idf/canonical",
+      "file_pattern": "**/*.npz",
+      "sample_interval_s": 0.02,
+      "sample_interval_tolerance_fraction": 0.001,
+      "held_out_patterns": [
+        "idf_session_13_*.npz"
+      ],
+      "held_out": "every segment of session 13, one whole source group.",
+      "training": "every recording in the corpus that no held-out pattern matches.",
+      "recordings": {
+        "total": 119,
+        "held_out": 8,
+        "training": 111
+      },
+      "forecast_horizon_s": 0.25,
+      "realized_forecast_horizon_s": 0.24,
+      "information_budget": {
+        "context_steps": 25,
+        "delay_steps": 5,
+        "horizon_steps": 12
+      },
+      "evaluation_origin_stride_rows": 80,
+      "allowance": null,
+      "allowance_source": "No allowance was derived for this corpus.",
+      "structured": {
+        "arms": [
+          "structured_residual"
+        ],
+        "chain": "validation-idf-results: evaluate --hold-out source_group --model-class structured_residual, whose session 13 fold trains on exactly these recordings",
+        "training_horizons_s": [
+          0.1,
+          0.5,
+          2.0
+        ],
+        "evaluation_horizons_s": [
+          0.1,
+          0.5,
+          1.0,
+          2.0
+        ],
+        "holdout_count": 1,
+        "holdout_meaning": "The fit is given exactly the training recordings and reserves the final source group of them for its own forecast-error calibration. The chain's own holdout rule selected the corpus's held-out recordings, which this manifest declares instead and never passes to the fit, so the structured model never sees a held-out row in any role.",
+        "training_horizon_steps": 25,
+        "optimization_steps": 400,
+        "learning_rate": 0.02,
+        "endpoint_weight": 3.0,
+        "stability_regularization": 0.01
+      }
+    },
+    {
+      "name": "epfl",
+      "summary": "EPFL TOPOPlane2 navigation flight, seven characterization segments.",
+      "directory": "epfl/canonical",
+      "file_pattern": "**/*.npz",
+      "sample_interval_s": 0.2,
+      "sample_interval_tolerance_fraction": 0.001,
+      "held_out_patterns": [
+        "topoplane2_segment_06.npz",
+        "topoplane2_segment_07.npz"
+      ],
+      "held_out": "segments 06 and 07.",
+      "training": "every recording in the corpus that no held-out pattern matches.",
+      "recordings": {
+        "total": 7,
+        "held_out": 2,
+        "training": 5
+      },
+      "forecast_horizon_s": 0.25,
+      "realized_forecast_horizon_s": 0.2,
+      "information_budget": {
+        "context_steps": 2,
+        "delay_steps": 1,
+        "horizon_steps": 1
+      },
+      "evaluation_origin_stride_rows": 1,
+      "allowance": null,
+      "allowance_source": "No allowance was derived for this corpus.",
+      "structured": {
+        "arms": [
+          "structured",
+          "structured_residual"
+        ],
+        "chain": "validation-epfl-results: fit --evaluation-horizons 0.2,0.5,1,2 --training-horizons 0.2,1,2 --holdout-count 2, one arm per model class",
+        "training_horizons_s": [
+          0.2,
+          1.0,
+          2.0
+        ],
+        "evaluation_horizons_s": [
+          0.2,
+          0.5,
+          1.0,
+          2.0
+        ],
+        "holdout_count": 1,
+        "holdout_meaning": "The fit is given exactly the training recordings and reserves the final source group of them for its own forecast-error calibration. The chain's own holdout rule selected the corpus's held-out recordings, which this manifest declares instead and never passes to the fit, so the structured model never sees a held-out row in any role.",
+        "training_horizon_steps": 25,
+        "optimization_steps": 400,
+        "learning_rate": 0.02,
+        "endpoint_weight": 3.0,
+        "stability_regularization": 0.01
+      }
+    }
+  ]
+}
