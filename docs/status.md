@@ -41,15 +41,41 @@ limit (0.0805 against 0.0783) because its few development windows chose more
 shrinkage. Global shrinkage chosen by sparse development evidence is the wrong
 lever: it over-shrinks channels that were fine.
 
+**Attempt 2, no candidate.** Both start-side directions were refuted before a
+gate run. A start re-solved without the explicit difference columns gives arp
+log 66 body rate 0.684 at checkpoint zero and 0.670 trained, against 0.780 and
+0.647 with them: the variance is not localized in that block, because the
+current-state and command columns rebuild the same amplification once it is
+removed (the same solve with those coefficients merely zeroed gives 0.367, so
+attempt 1's ablation was not predictive of a refit). No design-derived quantity
+orders the corpora the way the needed shrinkage does: nanodrone's difference
+block is the most collinear of the five (median variance inflation 5.9e6
+against arp's 6.8e3) and needs none, and penalties proportional to column gain,
+inflation, or block width leave arp unchanged or cost idf, nanodrone, and the
+synthetic families 30% to 880% of development error. Sweeping the global ridge
+shows the best body rate any affine start reaches on log 66 is **0.323**,
+against hold-current 0.366 and the structured 0.285.
+
+**The gap is the optimizer, not the start.** From any start, Adam (1,000 steps,
+batch 64, learning rate 0.002, gradient clipping at 5) moves arp held-out body
+rate by at most 17%, development MSE 0.493 to 0.451, and in attempt 1 the
+selected checkpoint was step 0. On the synthetic families the same optimizer
+learns delayed responses to within a few percent, so the failure is specific
+to this data: 15 channels at 50 Hz, a 12-step recursive rollout, two training
+recordings. The old ledger (git, `330ab76:docs/generic-engineering.md`) records
+that a bounded full-batch L-BFGS did not beat this Adam recipe on the synthetic
+families; that is not evidence about arp, but it is a reason not to repeat that
+exact swap without a mechanism.
+
 ## Next iteration
 
-Attempt 2 on the same named gap, from `783922e`. One change to the affine
-start that targets the history-difference variance specifically and does not
-rest on a discrete choice made from a handful of development windows: for
-example a structural rule that shrinks the difference block relative to the
-current-state and command columns, or an affine start without explicit
-difference columns, leaving history to the memory and the correction. Both
-tiers gate it; thresholds do not move. If the start is fixed and arp roll and
-pitch rate still sit at hold-current at 240 ms, the remaining gap is the
-optimizer barely improving on the start, which is the next named gap, not
-this iteration's.
+The optimizer on arp, from `783922e`. Diagnose why training barely improves
+the start on this data: trace training and development loss per checkpoint,
+gradient norms and how often the clip at 5 binds over the 12-step rollout,
+per-channel loss shares under the hold-scaled weighting (nine near-constant
+rotation entries versus two rate channels), and whether more steps or a
+different step size would move body rate as a diagnostic. Name the mechanism
+with numbers, then make one change to the training procedure that follows
+from it and does not add a caller option or a sample-rate branch. Both tiers
+gate it against the committed references; thresholds do not move; report
+whether or not it passes.
