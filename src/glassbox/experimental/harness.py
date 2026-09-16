@@ -3641,6 +3641,351 @@ def verify_control(directory, manifest, reference=None):
     )
 
 
+# --- the live improvement tier: refit on the flight, swap on held-out evidence
+
+LIVE_MANIFEST_SHA256 = (
+    "815ce47b886d566be12fe9c2e24966160a6489c2fa6aa6424ed494436c0d7a8f"
+)
+"""Digest of the frozen live manifest this module is allowed to run."""
+
+COMMITTED_LIVE_MANIFEST = COMMITTED_MANIFEST.parent / "live-v1.json"
+"""The frozen live manifest in a source checkout."""
+
+COMMITTED_LIVE_REFERENCE = COMMITTED_MANIFEST.parent / "live-reference.json"
+"""Where ``verify`` looks for the committed live reference by default."""
+
+LIVE_ARMS = ("adopting", "frozen")
+"""The two arms of one repetition: one that may swap and one that never does."""
+
+LIVE_METRICS = ("position_rmse_m", "attitude_rmse_deg")
+"""The two tracking metrics the declared rule compares, segment against segment."""
+
+LIVE_SEGMENTS = ("before", "after", "whole")
+"""The interval ranges a trial's tracking arrays are scored over."""
+
+LIVE_REPORTED_METRICS = LIVE_METRICS + (
+    "velocity_rmse_m_s",
+    "angular_velocity_rmse_rad_s",
+)
+
+
+def frozen_live_manifest(path):
+    """Load the live manifest only when its bytes match the frozen digest."""
+    if sha256(path) != LIVE_MANIFEST_SHA256:
+        raise ValueError("manifest digest differs from the frozen harness contract")
+    manifest = read(path)
+    declared_plan(manifest)
+    steps = steps_for(manifest["information_budget"]["sample_interval_s"])
+    budget = manifest["information_budget"]
+    if (steps["history"], steps["delay"], steps["horizon"]) != (
+        budget["context_steps"],
+        budget["delay_steps"],
+        budget["horizon_steps"],
+    ):
+        raise ValueError("manifest information budget differs from the recipe")
+    trial = manifest["trial"]
+    if trial["intervals"] != round(trial["duration_s"] / trial["sample_interval_s"]):
+        raise ValueError("manifest trial duration and interval count disagree")
+    transport = manifest["live"]["transport"]
+    block = transport["block_steps"]
+    if block * trial["sample_interval_s"] != transport["block_duration_s"]:
+        raise ValueError("manifest block size and block duration disagree")
+    # The buffer emits nothing until it holds the declared command history, so
+    # the first block starts there and the declared count has to fit after it.
+    if transport["first_block_start_interval"] != transport["command_history_steps"]:
+        raise ValueError("the first block does not start where the history fills")
+    if (
+        transport["first_block_start_interval"] + block * transport["blocks_per_trial"]
+        > trial["intervals"]
+    ):
+        raise ValueError("the manifest declares more whole blocks than the trial has")
+    # The recipe refuses a new recording that cannot supply three whole windows.
+    if block + 1 - steps["history"] - steps["horizon"] < 3:
+        raise ValueError("a declared block cannot carry three complete recipe windows")
+    return manifest
+
+
+def live_swap_gate(candidate, comparator):
+    """The predeclared held-out swap gate, from two block scores and nothing else.
+
+    ``candidate`` and ``comparator`` are one block's final-step forecast errors
+    for the generic candidate revision and for the structured belief, measured
+    on identical rows of a block neither has fitted on. The gate passes when the
+    candidate is at or below the comparator on world velocity and on body rate,
+    both. A score that is missing, null, nonfinite or not a number at all leaves
+    that metric unknown, and an unknown metric never passes: the swap fails
+    closed rather than on a number nobody can read.
+    """
+    metrics, passed = {}, True
+    for metric in METRICS:
+        mine = _number(candidate.get(metric) if isinstance(candidate, dict) else None)
+        theirs = _number(
+            comparator.get(metric) if isinstance(comparator, dict) else None
+        )
+        met = None if mine is None or theirs is None else bool(mine <= theirs)
+        metrics[metric] = dict(
+            candidate=mine,
+            structured=theirs,
+            met=met,
+            margin=None if met is None else theirs - mine,
+        )
+        passed = passed and met is True
+    return dict(passed=bool(passed), metrics=metrics)
+
+
+def live_first_gate_block(blocks):
+    """The index of the first block whose gate passed inside its refit budget.
+
+    The offer the loop is allowed to apply comes from this block and no other,
+    so a replay recomputes it from the recorded per-block gates rather than
+    believing what the run says it swapped on.
+    """
+    for entry in blocks if isinstance(blocks, list) else ():
+        if not isinstance(entry, dict):
+            continue
+        gate = entry.get("gate")
+        passed = gate.get("passed") if isinstance(gate, dict) else None
+        if passed is True and entry.get("within_budget") is True:
+            return entry.get("index")
+    return None
+
+
+def live_segments(states, reference_states, swap_interval):
+    """Tracking RMSE before a swap, after it, and over the whole trial.
+
+    Interval ``i`` is scored at the state it ends on, ``states[i + 1]``, exactly
+    as the whole-trial metric scores every interval after the shared initial
+    state. ``before`` is intervals ``0`` to ``swap_interval`` exclusive and
+    ``after`` is ``swap_interval`` to the last completed interval inclusive, so
+    the two partition the trial and neither counts the other's rows. A segment
+    with no interval in it is ``None`` rather than a number over nothing, and
+    ``swap_interval`` of ``None`` leaves both segments empty: a trial that never
+    swapped has no before and no after.
+    """
+    from glassbox.core.metrics import state_rmse_metrics
+
+    states = np.asarray(states, dtype=float)
+    reference_states = np.asarray(reference_states, dtype=float)
+    if states.shape != reference_states.shape or len(states) < 1:
+        raise ValueError("tracking states and reference rows must be paired")
+    completed = len(states) - 1
+
+    def over(start, stop):
+        if stop <= start:
+            return None
+        return state_rmse_metrics(
+            states[start + 1 : stop + 1], reference_states[start + 1 : stop + 1]
+        )
+
+    if swap_interval is None:
+        before = after = None
+    else:
+        swap = int(swap_interval)
+        if not 0 <= swap <= completed:
+            raise ValueError("the swap interval lies outside the completed trial")
+        before, after = over(0, swap), over(swap, completed)
+    return dict(before=before, after=after, whole=over(0, completed))
+
+
+def live_decide(manifest, rows, reference=None, reference_sha256=None):
+    """Every gate, evaluated from recorded trial metrics alone. Anything unclear fails.
+
+    The semantics the platform and control tiers decide by, with this tier's own
+    rule. A run is accepted when no metric regressed past its reference value
+    times one plus the manifest's relative tolerance plus its absolute one, the
+    rule holds on every case the reference already meets it on, and nothing
+    structural failed: a trial missing, duplicated, undeclared, terminated,
+    short of its declared intervals, reporting a refinement-worker error, or
+    carrying a whole-trial metric that is not a finite number.
+
+    The rule itself has two parts and both are reported on every adopting trial
+    either way: the swap happened, and the trial's position and attitude RMSE
+    over the intervals after the swap are at or below its own values over the
+    intervals before it within the declared allowance. The frozen arm's numbers
+    over the same two interval ranges are reported beside them and gate nothing;
+    they are what "before" would have been if nothing had been swapped in.
+    """
+    repetitions = manifest["trial"]["repetitions"]
+    expected = {(index, arm) for index in range(repetitions) for arm in LIVE_ARMS}
+    keys = [(row.get("repetition"), row.get("arm")) for row in rows]
+    breaches, rule_breaches, regressions, summary = [], [], [], {}
+    criteria, live = {}, {}
+    relative = manifest["reference"]["relative_tolerance"]
+    absolute = manifest["reference"]["absolute_tolerance"]
+    for index, arm in sorted(expected - set(keys)):
+        breaches.append(dict(trial=f"{index}-{arm}", gate="trial_present"))
+    for index, arm in sorted({key for key in keys if keys.count(key) > 1}):
+        breaches.append(dict(trial=f"{index}-{arm}", gate="trial_unique"))
+    for key in sorted(set(keys) - expected, key=repr):
+        breaches.append(dict(trial=f"{key[0]}-{key[1]}", gate="trial_declared"))
+    measured = {}
+    for row in rows:
+        key = (row.get("repetition"), row.get("arm"))
+        if key not in expected or keys.count(key) > 1:
+            continue
+        name = f"{key[0]}-{key[1]}"
+        criteria[name] = row.get("pass_criterion")
+        live[name] = dict(
+            swapped=row.get("swapped"),
+            swap_interval=row.get("swap_interval"),
+            swap_time_s=row.get("swap_time_s"),
+            swap_revision=row.get("swap_revision"),
+            swap_scored_block=row.get("swap_scored_block"),
+            candidate_revisions=row.get("candidate_revisions"),
+            submitted_blocks=row.get("submitted_blocks"),
+            dropped_blocks=row.get("dropped_blocks"),
+            deadline_misses=row.get("deadline_misses"),
+            solve_deadline_misses=row.get("solve_deadline_misses"),
+            budget_overruns=row.get("budget_overruns"),
+            maximum_refit_wall_seconds=row.get("maximum_refit_wall_seconds"),
+            blocks=row.get("blocks"),
+        )
+        if row.get("terminated") is not False:
+            breaches.append(
+                dict(
+                    trial=name,
+                    gate="trial_complete",
+                    completed=row.get("completed_intervals"),
+                    requested=row.get("requested_intervals"),
+                    failure=row.get("failure"),
+                )
+            )
+            continue
+        if row.get("completed_intervals") != manifest["trial"]["intervals"]:
+            breaches.append(dict(trial=name, gate="declared_intervals"))
+            continue
+        if row.get("worker_error") is not None:
+            breaches.append(
+                dict(trial=name, gate="worker_error", error=row.get("worker_error"))
+            )
+            continue
+        recorded = row.get("segments")
+        values = {}
+        for segment in LIVE_SEGMENTS:
+            scored = recorded.get(segment) if isinstance(recorded, dict) else None
+            entry = {}
+            for metric in LIVE_METRICS:
+                value = _number(
+                    scored.get(metric) if isinstance(scored, dict) else None
+                )
+                if value is not None and value < 0:
+                    value = None
+                # Only the whole trial is required to carry a number: a trial
+                # that never swapped has no before and no after, and that is a
+                # rule breach rather than an unreadable metric.
+                if segment == "whole" and value is None:
+                    breaches.append(
+                        dict(trial=name, metric=metric, gate="finite_rmse", value=value)
+                    )
+                entry[metric] = value
+            values[segment] = entry
+        measured[key] = values
+    for index in sorted({key[0] for key in measured}):
+        adopting = measured.get((index, "adopting"))
+        frozen = measured.get((index, "frozen"))
+        if adopting is None:
+            continue
+        name = f"{index}-adopting"
+        swapped = live[name]["swapped"] is True
+        swap_gates = (
+            reference is not None
+            and isinstance(reference.get("swapped"), dict)
+            and reference["swapped"].get(str(index)) is True
+        )
+        if not swapped:
+            rule_breaches.append(
+                dict(trial=name, gate="swap_occurred", gating=swap_gates)
+            )
+        summary[str(index)] = {}
+        for metric in LIVE_METRICS:
+            before = adopting["before"][metric]
+            after = adopting["after"][metric]
+            limit = None if before is None else before * (1 + relative) + absolute
+            base = _reference_value(
+                reference, "tracking_rmse", str(index), "adopting", "after", metric
+            )
+            meets = _reference_meets(base, [limit])
+            summary[str(index)][metric] = dict(
+                adopting_before=before,
+                adopting_after=after,
+                adopting_whole=adopting["whole"][metric],
+                frozen_before=None if frozen is None else frozen["before"][metric],
+                frozen_after=None if frozen is None else frozen["after"][metric],
+                frozen_whole=None if frozen is None else frozen["whole"][metric],
+                limit=limit,
+                reference=base,
+                reference_meets_rule=meets,
+            )
+            if reference is not None:
+                if base is None:
+                    regressions.append(
+                        dict(trial=name, metric=metric, gate="reference_present")
+                    )
+                else:
+                    ceiling = base * (1 + relative) + absolute
+                    if after is None or after > ceiling:
+                        regressions.append(
+                            dict(
+                                trial=name,
+                                metric=metric,
+                                gate="reference_tracking_rmse",
+                                value=after,
+                                reference=base,
+                                limit=ceiling,
+                            )
+                        )
+            if not swapped:
+                continue
+            if before is None or after is None:
+                rule_breaches.append(
+                    dict(
+                        trial=name,
+                        metric=metric,
+                        gate="segments_present",
+                        gating=meets is True,
+                    )
+                )
+                continue
+            if after > limit:
+                rule_breaches.append(
+                    dict(
+                        trial=name,
+                        metric=metric,
+                        gate="tracking_after_swap",
+                        value=after,
+                        limit=limit,
+                        gating=meets is True,
+                    )
+                )
+    regressions.sort(key=lambda entry: (entry["trial"], entry.get("metric", "")))
+    enforced = bool(manifest["decision"]["enforced"])
+    gating = [breach for breach in rule_breaches if breach["gating"]]
+    rule_met = not breaches and not rule_breaches
+    accepted = not breaches and not regressions and (not enforced or not gating)
+    return dict(
+        manifest=manifest["id"],
+        decision="accept" if accepted else "reject",
+        accepted=accepted,
+        rule_met=rule_met,
+        rule_enforced=enforced,
+        gating_rule_breaches=len(gating),
+        rule=manifest["decision"]["rule"],
+        gates_from=manifest["decision"]["gates_from"],
+        trials=len(rows),
+        gate_breaches=breaches,
+        rule_breaches=rule_breaches,
+        reference_regressions=regressions,
+        reference_compared=reference is not None,
+        reference_sha256=reference_sha256,
+        tracking_rmse=summary,
+        live=live,
+        pass_criterion=criteria,
+        pass_criterion_meaning=manifest["metrics"]["pass_criterion"]["meaning"],
+        swap_gate=manifest["live"]["swap_gate"]["rule"],
+        meaning=manifest["decision"]["meaning"],
+    )
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     commands = parser.add_subparsers(dest="command", required=True)
