@@ -576,7 +576,45 @@ recipe, Capability. Not met: Accuracy (arp only), Control, Live improvement,
 Evidence, Lean (structured side). Every harness measurement is reproducible
 run to run and every saved run replays and rejects tampering.
 
+## Reviewer decisions, pending owner reversal
+
+The loop cannot stop with five rows unmet, and the charter forbids moving a
+threshold, so the reviewer takes the two decisions the charter already
+permits and records them here for the owner to reverse:
+
+1. **Declared excitation is a signal.** The charter has the caller supply
+   signals, units, timing and recording boundaries. An excitation the caller
+   injected into its commands is such a signal: platform-agnostic, a data fact
+   with a declared meaning like "command" or "measurement". Recordings may
+   therefore carry, per applied command, the exogenous component the caller
+   injected, and the learner may be made accountable for the response those
+   recordings show to it. This is a structural assumption (an exogenous
+   component of the command), not a platform one.
+2. **Trials excite.** A protocol is the reviewer's to define when it is frozen
+   before any candidate and both arms receive the same data. The control and
+   live tiers' calibration already inject a known command dither; the live
+   tier's active controller will inject a small declared dither during the
+   trial too, so streamed recordings carry identifying variation in the regime
+   being flown. Both arms, both trials, the same seeded sequence.
+
+Not decided by the reviewer: the Evidence band stays as declared (85 to 95%
+on every measured case) and arp stays recorded as evidence-limited.
+
 ## Next iteration
 
-None in scope. The next change on any unmet row is a charter decision.
+Declared excitation, harness first, no learner change. Extend the recording
+contract so a segment may carry an `excitation` array aligned with its inputs
+(the exogenous component of each applied command, zero where none was
+injected), validated like the other arrays and recorded in the fit report as
+declared or absent; the current recipe ignores it, so every existing artifact,
+fingerprint and reference stands. Freeze `control-v5.json` and `live-v3.json`
+before any trial: control-v4's and live-v2's protocols with the calibration
+pilot's known dither recorded as the excitation channel, and, for the live
+tier, a seeded declared dither added to the active controller's applied
+commands on both arms during the trial, at an amplitude stated as a fraction
+of each command's range, with the same swap gate. Measure both arms once under
+each and write their incumbent references (the structured arm's numbers will
+move slightly under the dither; that is the new incumbent). Then the learner
+iteration follows: one change that makes the fit accountable for the response
+to the declared excitation, gated on every tier.
 
