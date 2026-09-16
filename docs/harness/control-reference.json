@@ -1,0 +1,99 @@
+{
+  "manifest": "control-v3",
+  "manifest_sha256": "69cb4d995246af95372bf0a685b8e40aa225174de06f249397d89ea47ad4d28e",
+  "source": "The incumbent measurement of control-v3: the generic-memory-v2-prototype recipe and the frozen structured belief, both fitted on the same three calibration recordings and flown through the same seam over the tracking task of docs/cascade-accuracy.md. A later run's generic position or attitude RMSE may not exceed these values by more than this manifest's reference allowance, and the rule gates only a trial and metric the generic arm already met it on. It met it on none of them.",
+  "environment": {
+    "python": "3.12.3 (main, Aug 31 2026, 10:18:26) [GCC 13.3.0]",
+    "platform": "Linux-6.8.0-139-generic-x86_64-with-glibc2.39",
+    "jax": "0.11.1",
+    "numpy": "2.5.2",
+    "x64": "fits only"
+  },
+  "generic_fingerprint": "ad704f5603a02e7657259cbd7cda87175b18b38b7a527d181cab03e7f2e00317",
+  "command_excitation": {
+    "recording-0": [
+      0.12124108675585743,
+      0.20309479154557297,
+      0.38118739814387376
+    ],
+    "recording-1": [
+      0.1420971524684682,
+      0.1369409876298344,
+      0.37536300302695713
+    ],
+    "recording-2": [
+      0.12308976203728095,
+      0.1642769633134171,
+      0.3750113664546935
+    ],
+    "recording-3": [
+      0.1591320494600455,
+      0.21476967169478997,
+      0.37802157556587057
+    ]
+  },
+  "tracking_rmse": {
+    "0": {
+      "structured": {
+        "position_rmse_m": 1.178980184906899,
+        "attitude_rmse_deg": 1.3203428477937917
+      },
+      "generic": {
+        "position_rmse_m": 60.796650883828235,
+        "attitude_rmse_deg": 97.18048171549724
+      }
+    },
+    "1": {
+      "generic": {
+        "position_rmse_m": 49.30764560460926,
+        "attitude_rmse_deg": 86.51396558640748
+      },
+      "structured": {
+        "position_rmse_m": 1.1785933357773661,
+        "attitude_rmse_deg": 1.2830836853457508
+      }
+    }
+  },
+  "pass_criterion": {
+    "0": {
+      "structured": {
+        "scored_samples": 281,
+        "within_samples": 0,
+        "within_tolerance_fraction": 0.0,
+        "lateral_rmse_m": 0.26865590186139154,
+        "altitude_rmse_m": 1.8052320525274894,
+        "terminated": false,
+        "met": false
+      },
+      "generic": {
+        "scored_samples": 281,
+        "within_samples": 0,
+        "within_tolerance_fraction": 0.0,
+        "lateral_rmse_m": 3.5839004981986635,
+        "altitude_rmse_m": 59.92363348271363,
+        "terminated": false,
+        "met": false
+      }
+    },
+    "1": {
+      "generic": {
+        "scored_samples": 281,
+        "within_samples": 2,
+        "within_tolerance_fraction": 0.0071174377224199285,
+        "lateral_rmse_m": 3.074509201211828,
+        "altitude_rmse_m": 45.618202262927696,
+        "terminated": false,
+        "met": false
+      },
+      "structured": {
+        "scored_samples": 281,
+        "within_samples": 0,
+        "within_tolerance_fraction": 0.0,
+        "lateral_rmse_m": 0.2731560884331166,
+        "altitude_rmse_m": 1.8053991893100585,
+        "terminated": false,
+        "met": false
+      }
+    }
+  }
+}

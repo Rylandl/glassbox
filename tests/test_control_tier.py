@@ -720,6 +720,35 @@ def _sampled(controls):
     return SimpleNamespace(controls=np.asarray(controls, dtype=float))
 
 
+def test_the_committed_control_reference_covers_every_trial(manifest):
+    """The incumbent measurement, one entry per repetition, arm and metric."""
+
+    assert harness.COMMITTED_CONTROL_REFERENCE.name == "control-reference.json"
+    reference = harness.read(harness.COMMITTED_CONTROL_REFERENCE)
+    assert reference["manifest"] == manifest["id"]
+    assert reference["manifest_sha256"] == harness.sha256(MANIFEST)
+    repetitions = [str(index) for index in range(manifest["trial"]["repetitions"])]
+    assert sorted(reference["tracking_rmse"]) == repetitions
+    assert sorted(reference["pass_criterion"]) == repetitions
+    for index in repetitions:
+        assert sorted(reference["tracking_rmse"][index]) == sorted(harness.CONTROL_ARMS)
+        for metrics in reference["tracking_rmse"][index].values():
+            assert sorted(metrics) == sorted(harness.CONTROL_METRICS)
+            assert all(harness._number(value) is not None for value in metrics.values())
+        for criterion in reference["pass_criterion"][index].values():
+            assert criterion["scored_samples"] == 281
+    for fractions in reference["command_excitation"].values():
+        assert min(fractions) >= 0.1
+    # The incumbent meets the rule on no trial and no metric, so the rule gates
+    # none of them and a candidate is held to the regression reference instead.
+    decision = harness.control_decide(manifest, _rows(), reference)
+    assert decision["gating_rule_breaches"] == 0
+    for index in repetitions:
+        for metric in harness.CONTROL_METRICS:
+            recorded = reference["tracking_rmse"][index]
+            assert recorded["generic"][metric] > recorded["structured"][metric]
+
+
 def test_the_committed_manifest_matches_the_module_constant():
     assert harness.COMMITTED_CONTROL_MANIFEST.name == "control-v3.json"
     assert harness.sha256(MANIFEST) == harness.CONTROL_MANIFEST_SHA256
