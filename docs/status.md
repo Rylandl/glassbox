@@ -842,19 +842,25 @@ nothing, which is recorded.
 
 ## Next iteration
 
-The two facts attempt 3 measured are in tension and the next change has to
-answer both, so it is a reviewer decision rather than a queued candidate.
-Holding only the affine block does not hold the model's command response --
-roll's sign still inverts, at -0.86 against the plant out of columns that are
-the identified response to the last digit -- so the direction that flies is
-holding *every* path the command takes, the residual's and the memory's rows
-with the affine block's, which is what the 9.58 m and 13.58 m diagnostics did.
-And that is the direction the synthetic tier is already charging: the nineteen
-regressions it rejected attempt 3 for are all shifted regimes of families whose
-command response is genuinely state-dependent, and holding more of the command
-would make a single linear response more binding there, not less. Whether the
-Capability row's absolute caps should be met by a learner that states one
-identified command response is the question, and it belongs to the owner
-beside the two decisions already recorded above. No fifth mechanism is queued
-against the current caps.
+None in scope. Every direction left changes a frozen gate's meaning or the
+charter's identification assumption, so the reviewer stops spawning
+iterations and hands the record back. In order of consequence:
+
+1. **Control-affine structure.** The only edit that flies (9.6 m against
+   60.8 m) holds every command path, which is the assumption that commands
+   enter the dynamics linearly. The synthetic suite is built to charge exactly
+   that on dead zones, saturation and coupled responses, and rejects it. The
+   owner decides whether "commands enter affinely" is a structural assumption
+   this learner makes, in which case the synthetic caps for those families
+   are reissued as a new manifest version with that assumption declared, or
+   whether the learner must keep a state-dependent command response and
+   identify it, which no closed-loop recording measured so far supports.
+2. **Declared excitation.** The reviewer's interim decision stands but is
+   measured to buy nothing at 2 to 6% of range; identifying throttle and
+   pitch by dither would need 40% and 34% of range, which is a different
+   calibration, and the live tier's two-second blocks hold less than one
+   cycle. Whether the calibration protocol should demand that is the owner's.
+3. **Evidence band** on matched regimes only, or an envelope that carries
+   support without overshooting where coverage was already inside the band.
+4. **arp** as evidence-limited, or more recordings.
 
