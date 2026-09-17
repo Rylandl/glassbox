@@ -229,15 +229,26 @@ not platform readiness, control adequacy, or calibrated uncertainty.
 
 ## The platform tier
 
+This section describes the frozen benchmark's historical semantics.
+Development adoption follows the [charter](charter.md): the generic learner
+is adopted despite its known ARP deficit. Future iterations declare their
+promotion criteria before fitting; the old all-case rule remains a readout.
+
 [`harness/platform-v4.json`](harness/platform-v4.json) is the current frozen
 manifest, with its own digest constant. It is the accuracy tier: for each of
 the five pinned corpora it declares the directory below a root, which
 recordings are held out by name pattern, how many recordings each side must
-hold, the evaluation origin stride, the task allowance from
+hold, the evaluation origin stride, the historical model-error ceiling from
 [accuracy-requirements](accuracy-requirements.md) where one was derived, and
 the structured comparator's arm set and fit options as that corpus's recorded
 validation chain uses them. The corpus root is a command-line argument and
 never a fact in the manifest.
+
+The manifest calls that ceiling a task allowance, but it is descriptive and
+uses a different statistic from this tier's endpoint component RMSE. It does
+not establish application sufficiency; [status](status.md) records the
+corrected prefix-percentile comparison.
+
 The companion [`platform-recordings-v1.json`](harness/platform-recordings-v1.json)
 pins every canonical recording's relative filename, semantic content digest and
 labels. Content includes timing, signal contracts and prior commands; labels
@@ -298,9 +309,9 @@ velocity and body-rate RMSE are at or below the structured comparator's on the
 same rows and at or below the allowance where one exists; the comparator is the
 better structured arm on those rows, metric by metric, and both arms are
 reported. The rule is reported on every corpus and metric, and `rule_met` in the
-decision says whether it holds on all ten of those cases. That is the statement
-the accuracy row of [`status.md`](status.md) is read from, and it is stronger
-than an accepted run.
+decision says whether it holds on all ten of those cases. This remains the
+historical benchmark rule, not the development-adoption criterion in
+[`status.md`](status.md).
 
 The decision itself is the one both this tier and the control tier make. A run
 is accepted when three things hold. No metric regressed: no corpus's generic
@@ -473,7 +484,9 @@ every trial and metric the reference already meets it on, and nothing structural
 failed. A trial missing, duplicated, undeclared, terminated, short of its
 declared intervals, or carrying a metric that is not a finite number fails
 closed whatever the reference says. `rule_met` is reported beside `accepted`,
-and the control row of [`status.md`](status.md) is read from `rule_met`.
+as a historical comparison. The control target in [`status.md`](status.md)
+now follows the application pass criterion below; beating the structured
+arm alone does not establish task success.
 
 Beside the rule the run records the page's own pass criterion, per trial and per
 arm, and reports rather than gates it: both absolute lateral and altitude errors

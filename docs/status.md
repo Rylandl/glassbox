@@ -1,7 +1,12 @@
 # Status: gap against the charter
 
-Updated 2026-09-17. The accepted learner remains the code from `98f77d3` on
-`experiment/generic-transition-support`; this iteration adds evaluation only.
+Updated 2026-09-17. **The generic approach is adopted as the development
+baseline.** The user prioritizes generality over superiority on every corpus;
+the four-corpus advantage justifies accepting the known ARP deficit. This is
+an explicit policy decision on existing evidence, not a new experimental
+pass. The adopted learner is `generic-memory-v3-prototype`, code from
+`98f77d3` on `experiment/generic-transition-support`. Public API migration
+from the structured stack remains to be done.
 The latest rejected learner remains isolated on `codex/full-response-identification`
 at `5467943`, with same-data comparator `codex/independent-calibration` at `7c82db9`.
 Read [the charter](charter.md) first. Git holds the experiment history;
@@ -9,10 +14,10 @@ this page records the current evidence, limitations and next named gap.
 
 | Criterion | Current | Target |
 | --- | --- | --- |
-| One recipe | **Met.** One fixed `generic-memory-v3-prototype` recipe; option-free `fit`, `predict`, `update`, with saved forecast envelopes. The public structured stack remains necessary. | One generic learner and consumer contract. |
-| Accuracy | **Broad progress; replacement across all pinned cases not met.** Four of five corpora beat the structured comparator on both metrics, including under the corrected prefix-percentile readout. ARP loses both. | Beat the structured comparator on every pinned corpus; establish task sufficiency separately. |
+| One recipe | **Recipe met; public migration pending.** One fixed `generic-memory-v3-prototype` recipe; option-free `fit`, `predict`, `update`, with saved forecast envelopes. It lives under `experimental`; the public API still exposes the structured stack. | One generic learner and consumer contract. |
+| Accuracy | **Adopted with a known tradeoff.** Four of five corpora beat the structured comparator on both metrics, including under the corrected prefix-percentile readout. ARP loses both; this does not block adoption. | Broad competitive performance from one recipe; improve weak cases and establish task sufficiency separately. |
 | Capability | **Met.** All 27 frozen synthetic cases pass; saved models replay and reject alteration. This is a regression guard, not platform readiness. | Every synthetic absolute cap passes. |
-| Control | **Not met.** Generic position RMSE 60.80/49.31 m versus structured 1.179/1.179 m. This compares complete pipelines: generic plans 250 ms, structured 800 ms. Both structured trials also fail the separate application tracking criterion. | Meet or beat the structured arm on every trial; report actual task success separately. |
+| Control | **Not met.** Generic position RMSE 60.80/49.31 m versus structured 1.179/1.179 m. This compares complete pipelines: generic plans 250 ms, structured 800 ms. Both structured trials also fail the application tracking criterion. | Meet the declared application tracking requirement; use structured and oracle arms diagnostically. |
 | Live improvement | **Not met.** Last live-v3 evidence swaps at intervals 140/220; position error rises from 0.80/0.98 m before the swap to 36.1/11.8 m afterward. Not rerun today. | Bounded refits and swaps that do not worsen tracking. |
 | Evidence | **Not met.** The 85–95% coverage band still fails on ARP, the reserved control recording and shifted synthetic regimes. Constant spread cannot rank command plans, but can affect finite-iteration stopping through the absolute objective. | Measured coverage in the declared band, useful to control. |
 | Lean | **Not met.** Generic research code was reduced; structured dynamics, fitting, belief code and their supporting scripts remain. | Learner, harness, telemetry adapters and controller only. |
@@ -43,11 +48,19 @@ ceiling. No task sufficiency follows from these comparisons. ARP also loses to
 hold-current (endpoint 0.149 m/s, 0.362 rad/s).
 
 The generic recipe wins both metrics on four corpora and the structured
-comparators win on ARP; neither dominates everywhere. Reversing the incumbent
-does not change this tradeoff. Historical acceptance is a no-regression check,
-while the charter's all-corpus target is replacement across all pinned cases.
-No aggregate tradeoff weights have been chosen from these known scores. The active model
-protocols remain [synthetic v1](harness/v1.json),
+comparators win on ARP; neither dominates everywhere. Generality and breadth
+of measured advantage justify adopting the generic recipe with that known
+loss. ARP body-rate endpoint RMSE is about 2.5 times the structured value;
+the loss remains visible rather than disappearing into a win count. These
+five corpora do not establish performance on arbitrary systems. Future
+comparisons start from the adopted generic baseline. The next iteration
+must freeze its own promotion criteria; this decision does not create a
+permanent four-of-five rule or invent aggregate weights from known scores.
+
+The existing protocols retain their original historical acceptance meaning
+and scores, including their per-case no-regression checks; they no longer
+decide whether to adopt the generic approach. The frozen protocols are
+[synthetic v1](harness/v1.json),
 [platform v4](harness/platform-v4.json), [control v5](harness/control-v5.json),
 [live v3](harness/live-v3.json) and [evidence v2](harness/evidence-v2.json).
 
@@ -76,7 +89,7 @@ repair correctness without improving the unresolved model-adequacy metrics.
 Validation after the repairs: 1,183 tests passed, three skipped and 24
 slow/Cascade/PX4-SITL tests deselected; lint and formatting passed.
 
-## Latest iteration: evaluation qualification
+## Latest measured iteration: evaluation qualification
 
 The no-fit protocol was frozen at `f844d2f`. It pins 32 existing input files
 and the historical source contracts, preserves every old gate, and separates
@@ -183,11 +196,19 @@ PYTHONPATH=src python -m glassbox.experimental.qualification verify /absolute/pa
 
 ## Next named gap
 
-**Control evaluation: establish task success with accurate dynamics through
-the generic controller before treating task failure as a learner-only
-readiness verdict.** Audit the objective and task relationship with the oracle
-before another learner loss change. Horizon, finite optimization, objective
-tradeoffs, state mapping and stopping behavior remain possible contributors;
-this iteration does not select a remedy. The large generic-to-oracle gap
-remains a separate reason to improve the learner. Comparative progress across
-corpora remains visible independently of the all-pinned-cases target.
+**Public API adoption: make the adopted generic learner the primary
+`fit` / `predict` / `update` consumer path.** The current public exports still
+serve structured fitting while the chosen learner lives in `experimental`.
+Freeze a migration contract before changing that surface: preserve the
+generic recipe's predictions, updates and artifact replay, migrate its
+consumers, and remove replaced APIs rather than adding a model selector.
+The structured implementations remain only where an unmigrated consumer or
+benchmark still requires them. Winning ARP and qualifying control are not
+prerequisites for beginning this migration.
+
+Control remains a separate measured gap in the adopted approach. Before
+another learner loss change, qualify the objective and task relationship
+with accurate dynamics through the generic controller. Horizon, finite
+optimization, objective tradeoffs, state mapping and stopping behavior remain
+possible contributors. The large generic-to-oracle gap separately motivates
+improving the learner. Neither gap blocks adopting the generic approach.
