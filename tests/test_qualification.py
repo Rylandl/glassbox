@@ -75,3 +75,48 @@ def test_runner_never_calls_fit_or_update():
         or (isinstance(f, ast.Attribute) and f.attr in {"fit", "update_recordings"})
         for f in calls
     )
+
+
+def test_context_builds_equations_at_plant_precision(monkeypatch):
+    """A cast x64 inertia inverse differs from a directly built float32 one."""
+    from types import SimpleNamespace
+
+    import jax
+    import numpy as np
+
+    from glassbox.belief import belief_io
+    from glassbox.experimental import default_model, harness
+
+    construction = []
+    spec = SimpleNamespace(to_model=lambda: construction.append(jax.config.x64_enabled))
+
+    def fixture(_manifest):
+        assert jax.config.x64_enabled
+        return spec, "trim_model_only", None, np.zeros(13), np.zeros(3)
+
+    monkeypatch.setattr(harness, "control_fixture", fixture)
+    monkeypatch.setattr(
+        default_model.LearnedDynamics,
+        "load",
+        lambda _data: SimpleNamespace(fingerprint=lambda: "pinned"),
+    )
+    monkeypatch.setattr(
+        belief_io, "dynamics_belief_from_payload", lambda _payload: None
+    )
+    inputs = {
+        "control/manifest.json": b"{}",
+        "control/calibration.json": json.dumps(
+            {
+                "initial_state": [0.0] * 13,
+                "initial_command": [0.0] * 3,
+                "generic_fingerprint": "pinned",
+            }
+        ).encode(),
+        "control/generic.npz": b"unused",
+        "control/structured.json": b"{}",
+    }
+    with jax.enable_x64(False):
+        q._context(inputs)
+    assert construction == [False]
+    with jax.enable_x64(True), pytest.raises(ValueError, match="float32"):
+        q._context(inputs)

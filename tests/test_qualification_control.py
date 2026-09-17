@@ -219,6 +219,32 @@ def test_oracle_replay_rejects_altered_diagnostics(learned, array):
         )
 
 
+@pytest.mark.parametrize(
+    "alteration", ["extra_array", "missing_array", "float_indices"]
+)
+def test_oracle_replay_requires_exact_array_set_and_integer_origins(
+    learned, alteration
+):
+    arm, tracking = short_trial(learned)
+    diagnostics = arm.diagnostic_arrays()
+    if alteration == "extra_array":
+        diagnostics["unknown"] = np.zeros(1)
+    elif alteration == "missing_array":
+        del diagnostics["causal_states"]
+    else:
+        diagnostics["solve_indices"] = diagnostics["solve_indices"].astype(float)
+    with pytest.raises(ValueError):
+        qualification.verify_oracle_diagnostics(
+            CONTROL,
+            learned,
+            None,
+            tracking,
+            diagnostics,
+            FROZEN["control_qualification"]["replay"],
+            _equations=arm.equations,
+        )
+
+
 def test_matched_structured_retains_adapter_and_matches_only_frozen_changes(
     monkeypatch,
 ):
@@ -251,14 +277,14 @@ def test_matched_structured_retains_adapter_and_matches_only_frozen_changes(
 
 @pytest.mark.cascade
 def test_public_cascade_replay_forecast_and_command_gradient(learned):
-    pytest.importorskip("cascade")
+    cascade = pytest.importorskip("cascade")
     from glassbox.experimental.harness import control_fixture
     from glassbox.integrations.cascade import CascadePlant, CascadePlantConfig
 
-    spec, model, _trim, initial_state, initial_command = control_fixture(CONTROL)
-    plant = CascadePlant(
-        CascadePlantConfig(control_frequency_hz=20), spec=spec, model=model
-    )
+    with jax.enable_x64(True):
+        _, _, _trim, initial_state, initial_command = control_fixture(CONTROL)
+    model = cascade.skywalker_x8_spec().to_model()
+    plant = CascadePlant(CascadePlantConfig(control_frequency_hz=20))
     sample = plant.reset(initial_state, applied_control=initial_command)
     arm = qualification.OracleArm(CONTROL, learned, model)
     arm.reset(sample.state, initial_command)
@@ -306,3 +332,41 @@ def test_public_cascade_replay_forecast_and_command_gradient(learned):
         0.05,
     )
     np.testing.assert_allclose(predict(candidate), expected, rtol=1e-5, atol=1e-5)
+
+
+@pytest.mark.cascade
+def test_float32_causal_replay_matches_independent_public_plant_for_full_trial():
+    cascade = pytest.importorskip("cascade")
+    from glassbox.experimental.harness import control_fixture
+    from glassbox.integrations.cascade import CascadePlant, CascadePlantConfig
+
+    with jax.enable_x64(True):
+        _, _, _, initial_state, initial_command = control_fixture(CONTROL)
+    assert not jax.config.x64_enabled
+    # Independent model construction catches precision-dependent derived values,
+    # notably inversion of the inertia matrix before any float32 conversion.
+    model = cascade.skywalker_x8_spec().to_model()
+    plant = CascadePlant(CascadePlantConfig(control_frequency_hz=20))
+    np.testing.assert_array_equal(model.inertia_inverse, plant.model.inertia_inverse)
+    equations = qualification.CascadeEquations(model)
+    current = equations.reset(jnp.asarray(initial_state), jnp.asarray(initial_command))
+    sample = plant.reset(initial_state, applied_control=initial_command)
+    tolerance = FROZEN["control_qualification"]["replay"]
+    for index in range(321):
+        np.testing.assert_allclose(
+            equations.canonical(current),
+            sample.state,
+            rtol=tolerance["state_rtol"],
+            atol=tolerance["state_atol"],
+        )
+        if index == 320:
+            break
+        command = initial_command + np.array(
+            [
+                0.01 * np.sin(0.2 * index),
+                0.001 * np.sin(0.3 * index),
+                0.001 * np.cos(0.25 * index),
+            ]
+        )
+        current = equations.advance(current, jnp.asarray(command))
+        sample = plant.step(command)

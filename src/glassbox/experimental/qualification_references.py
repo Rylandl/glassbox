@@ -95,6 +95,48 @@ def _legacy_decision(decision):
     }
 
 
+def comparative_progress(pairs):
+    """Describe both directions symmetrically; do not invent a promotion score.
+
+    Each pair contains generic and best-structured errors in the same two
+    physical metrics. A corpus win count is descriptive and ignores magnitude;
+    it is not a probability of generalizing to a new system.
+    """
+    generic_better, structured_better, mixed = [], [], []
+    generic_dominates = structured_dominates = True
+    for name, (generic, structured) in sorted(pairs.items()):
+        generic, structured = np.asarray(generic), np.asarray(structured)
+        if generic.shape != (2,) or structured.shape != (2,):
+            raise ValueError("each corpus comparison requires both physical metrics")
+        if not np.isfinite(generic).all() or not np.isfinite(structured).all():
+            raise ValueError("comparison errors must be finite")
+        generic_dominates &= bool(np.all(generic <= structured))
+        structured_dominates &= bool(np.all(structured <= generic))
+        if np.all(generic < structured):
+            generic_better.append(name)
+        elif np.all(structured < generic):
+            structured_better.append(name)
+        else:
+            mixed.append(name)
+    return dict(
+        corpora=len(pairs),
+        generic_better_on_both_metrics=generic_better,
+        structured_better_on_both_metrics=structured_better,
+        mixed_or_tied=mixed,
+        generic_no_worse_on_every_metric=bool(pairs) and generic_dominates,
+        structured_no_worse_on_every_metric=bool(pairs) and structured_dominates,
+        promotion_decided=False,
+        meaning=(
+            "Progress and universal replacement are separate. If each predictor "
+            "loses somewhere, neither dominates; reversing the incumbent does not "
+            "turn a one-corpus win into an all-case no-regression pass. No tradeoff "
+            "weights or new promotion threshold are chosen from these known scores. "
+            "The generic recipe is shared, with separately fitted parameters per "
+            "system; structured comparators are fitted per corpus too."
+        ),
+    )
+
+
 def _platform_report(plan, inputs):
     manifest = _json(inputs, "platform/manifest.json")
     rows = _json(inputs, "platform/results.json")
@@ -102,7 +144,7 @@ def _platform_report(plan, inputs):
     entries = {entry["name"]: entry for entry in manifest["corpora"]}
     if sorted(row["corpus"] for row in rows) != sorted(entries):
         raise ValueError("saved platform results differ from declared corpora")
-    corpora = {}
+    corpora, pairs = {}, {}
     for row in rows:
         name = row["corpus"]
         entry = entries[name]
@@ -168,10 +210,21 @@ def _platform_report(plan, inputs):
             "predictors": measured,
             "informational_comparisons": comparisons,
         }
+        pairs[name] = (
+            [
+                measured["generic"][metric]["worst_recording_prefix_vector_p95"]
+                for metric in _CHANNELS
+            ],
+            [
+                comparisons[metric]["best_structured_prefix_vector_p95"]
+                for metric in _CHANNELS
+            ],
+        )
     return {
         "readout": plan["platform_readout"],
         "legacy_decision_unchanged": _legacy_decision(decision),
         "task_sufficiency_established": False,
+        "comparative_progress": comparative_progress(pairs),
         "meaning": (
             "Historical ceilings describe older model errors. They are not task-derived "
             "requirements; IDF and EPFL declare none. The old gate applies them to "

@@ -91,6 +91,10 @@ def _context(inputs):
     from .default_model import LearnedDynamics
     from .harness import control_fixture
 
+    if jax.config.x64_enabled:
+        raise ValueError(
+            "qualification trials require the pinned default float32 precision"
+        )
     manifest = json.loads(inputs["control/manifest.json"])
     calibration = json.loads(inputs["control/calibration.json"])
     with jax.enable_x64(True):
@@ -98,7 +102,11 @@ def _context(inputs):
         belief = dynamics_belief_from_payload(
             json.loads(inputs["control/structured.json"])
         )
-        _, model, _, state, command = control_fixture(manifest)
+        spec, _, _, state, command = control_fixture(manifest)
+    # Match the actual tracking plant's construction, not a cast of the x64
+    # trim model. Inverting inertia in float64 then casting changes coefficients
+    # relative to constructing the public plant in float32.
+    model = spec.to_model()
     if learned.fingerprint() != calibration["generic_fingerprint"]:
         raise ValueError("qualification generic fingerprint differs")
     np.testing.assert_allclose(
@@ -306,6 +314,7 @@ def run(artifacts, output, *, prospective):
 def _replay_trial(plan, context, row, saved):
     import jax
 
+    from glassbox.control.plan import SolveStatus
     from glassbox.core.metrics import state_rmse_metrics
 
     from .harness import (
@@ -375,6 +384,8 @@ def _replay_trial(plan, context, row, saved):
     same(row["failure"], None)
     used = np.arange(requested) >= plan["control_qualification"]["warmup_intervals"]
     np.testing.assert_array_equal(tracking["solver_used"], used)
+    if tracking["solver_used"].dtype != bool:
+        raise ValueError("qualification solver flags must be boolean")
     np.testing.assert_array_equal(
         commands[:2], np.tile(context.initial_command, (2, 1))
     )
@@ -407,6 +418,12 @@ def _replay_trial(plan, context, row, saved):
     np.testing.assert_array_equal(
         timing["deadline_assessed"], np.zeros(requested, dtype=bool)
     )
+    if timing["deadline_assessed"].dtype != bool:
+        raise ValueError("qualification deadline flags must be boolean")
+    np.testing.assert_array_equal(timing["solve_times_s"][:2], np.zeros(2))
+    np.testing.assert_array_equal(
+        tracking["used_fallback"][:2], np.zeros(2, dtype=bool)
+    )
     elapsed = row["wall"]["elapsed_seconds"]
     if not np.isfinite(elapsed) or elapsed < 0:
         raise ValueError("invalid qualification elapsed time")
@@ -424,14 +441,21 @@ def _replay_trial(plan, context, row, saved):
         ),
     )
     statuses = row["solver_statuses"]
+    permitted = {str(status) for status in SolveStatus} | {"model_not_ready"}
+    usable = {"converged", "iteration_limit", "stalled", "model_not_ready"}
     if (
         not isinstance(statuses, dict)
+        or not set(statuses) <= permitted
         or any(type(count) is not int or count < 1 for count in statuses.values())
         or sum(statuses.values()) != requested
         or statuses.get("model_not_ready") != 2
         or statuses.get("deadline_exceeded", 0)
     ):
         raise ValueError("qualification solver status counts differ")
+    same(
+        sum(count for name, count in statuses.items() if name not in usable),
+        row["fallback_count"],
+    )
     if row["arm"] == "oracle_generic_seam":
         from .qualification_control import verify_oracle_diagnostics
 

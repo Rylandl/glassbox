@@ -8,9 +8,29 @@ import numpy as np
 import pytest
 
 from glassbox.experimental.qualification_references import (
+    comparative_progress,
     prefix_vector_p95,
     reference_report,
 )
+
+
+def test_comparison_is_symmetric_when_each_predictor_wins_somewhere():
+    pairs = {f"case-{index}": ([1.0, 2.0], [2.0, 3.0]) for index in range(4)}
+    pairs["remaining"] = ([3.0, 4.0], [1.0, 2.0])
+    forward = comparative_progress(pairs)
+    reverse = comparative_progress(
+        {name: (right, left) for name, (left, right) in pairs.items()}
+    )
+    assert len(forward["generic_better_on_both_metrics"]) == 4
+    assert len(reverse["generic_better_on_both_metrics"]) == 1
+    assert (
+        forward["generic_better_on_both_metrics"]
+        == reverse["structured_better_on_both_metrics"]
+    )
+    for report in (forward, reverse):
+        assert report["generic_no_worse_on_every_metric"] is False
+        assert report["structured_no_worse_on_every_metric"] is False
+        assert report["promotion_decided"] is False
 
 
 def test_prefix_vector_p95_preserves_short_recording_and_intermediate_error():

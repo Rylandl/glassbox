@@ -38,7 +38,7 @@ class CascadeEquations:
             equilibrate_internal_state,
             zero_state,
         )
-        from cascade.integration import repeat_control, rollout
+        from cascade.integration import repeat_control, rk4_step, rollout
 
         from .learned_plan import observed_from_state
 
@@ -50,14 +50,25 @@ class CascadeEquations:
             digest.update(array.tobytes())
         self.compile_signature = digest.hexdigest()
 
-        def advance(state, command):
+        def advance_core(state, control, environment):
             return rollout(
                 model,
                 state,
-                repeat_control(control_from_array(model, command), 20),
+                repeat_control(control, 20),
                 environment,
                 1 / 400,
+                step=rk4_step,
             )[0]
+
+        # Match the public Plant's causal numerical boundary: control conversion
+        # and equilibrium reset are eager, while the interval integrator takes
+        # control and environment as dynamic arguments. Folding those operations
+        # into a larger JIT changes float32 rounding over a complete trajectory.
+        advance_kernel = jax.jit(advance_core)
+
+        def advance(state, command):
+            control = control_from_array(model, jnp.asarray(command))
+            return advance_kernel(state, control, environment)
 
         def reset(state, command):
             base = zero_state(model)._replace(
@@ -77,9 +88,9 @@ class CascadeEquations:
 
             return jax.lax.scan(step, state, commands)[1]
 
-        self.reset = jax.jit(reset)
-        self.advance = jax.jit(advance)
-        self.canonical = jax.jit(canonical)
+        self.reset = reset
+        self.advance = advance
+        self.canonical = canonical
         self.predict = jax.jit(predict)
 
 
@@ -146,7 +157,7 @@ class OracleArm:
         signature = hashlib.sha256(
             (
                 base.compile_signature
-                + ":qualification-oracle-public-equations-v1:"
+                + ":qualification-oracle-public-equations-v2:"
                 + self.equations.compile_signature
             ).encode()
         ).hexdigest()
@@ -307,8 +318,21 @@ def verify_oracle_diagnostics(
     commands = np.asarray(tracking["commands"])
     if len(states) != len(commands) + 1:
         raise ValueError("saved command and state counts differ")
+    expected_keys = {
+        "causal_states",
+        "observed_max_abs_error",
+        "solve_indices",
+        "candidate_commands",
+        "forecast_states",
+        "final_objectives",
+    }
+    if set(diagnostics) != expected_keys:
+        raise ValueError("oracle diagnostic arrays differ from the declared set")
     expected_indices = np.arange(WARMUP_INTERVALS, len(commands))
-    if not np.array_equal(diagnostics["solve_indices"], expected_indices):
+    indices = np.asarray(diagnostics["solve_indices"])
+    if not np.issubdtype(indices.dtype, np.integer) or not np.array_equal(
+        indices, expected_indices
+    ):
         raise ValueError("oracle solve origins differ from the frozen warmup")
     expected_shapes = {
         "causal_states": states.shape,
