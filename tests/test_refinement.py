@@ -8,7 +8,8 @@ from dataclasses import replace
 import numpy as np
 import pytest
 
-from glassbox import DynamicsBelief, ForecastErrorEnvelope
+from glassbox.belief.belief import DynamicsBelief
+from glassbox.belief.forecast_error import ForecastErrorEnvelope
 from glassbox.core.data import trajectory_content_digest, trajectory_segment
 from glassbox.core.fixedwing_synthetic import true_fixed_wing_parameters
 from glassbox.core.metrics import state_rmse_metrics

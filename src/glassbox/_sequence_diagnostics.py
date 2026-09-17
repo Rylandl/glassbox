@@ -127,7 +127,7 @@ def _measure(arrays, mask):
 
 
 def _run(model, recordings):
-    from .default_model import _contract, _recording_content
+    from .learner import _contract, _recording_content
 
     if _contract(recordings) != model.contract:
         raise ValueError(

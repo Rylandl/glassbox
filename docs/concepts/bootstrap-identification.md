@@ -1,5 +1,8 @@
 # No-prior multirotor bootstrap identification
 
+This identifier belongs to the structured control experiments. Ordinary model
+learning uses the [generic learner](../learner.md).
+
 `RecursiveBootstrapIdentifier` is how Glassbox obtains a belief for a vehicle
 with no prior. It produces the same `DynamicsBelief` a fit produces, over a
 deliberately incomplete model family, `BootstrapMultirotorParams`, that
@@ -33,7 +36,7 @@ samples leave the belief unchanged and produce a `last_sample_report` refusal.
 ```python
 import numpy as np
 
-from glassbox import RecursiveBootstrapConfig, RecursiveBootstrapIdentifier
+from glassbox.control.identifier import RecursiveBootstrapConfig, RecursiveBootstrapIdentifier
 
 identifier = RecursiveBootstrapIdentifier(RecursiveBootstrapConfig())
 
@@ -58,8 +61,9 @@ Because the model is a `DynamicsBelief`, the plan-model seam takes it
 unchanged:
 
 ```python
-import glassbox
-from glassbox import ReferenceTrajectory, SafetyEnvelope, TrackingTolerances
+from glassbox.control.fitted import plan_model
+from glassbox.control.plan import ReferenceTrajectory, SafetyEnvelope, SolverPolicy, TrackingTolerances
+from glassbox.control.solver import BoundedShootingSolver
 
 tolerances = TrackingTolerances.for_platform("multirotor")
 envelope = SafetyEnvelope(
@@ -67,9 +71,9 @@ envelope = SafetyEnvelope(
     maximum_position_m=(100.0, 100.0, 100.0),
 )
 
-plan = glassbox.plan_model(belief, tolerances, envelope)
-solver = glassbox.BoundedShootingSolver(
-    plan, glassbox.SolverPolicy(plan.horizon_steps, plan.block_count)
+plan = plan_model(belief, tolerances, envelope)
+solver = BoundedShootingSolver(
+    plan, SolverPolicy(plan.horizon_steps, plan.block_count)
 )
 reference = ReferenceTrajectory(
     np.repeat(state[None, :], plan.horizon_steps + 1, axis=0)

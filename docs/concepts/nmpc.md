@@ -1,5 +1,9 @@
 # Nonlinear model-predictive control
 
+The solver and adapters remain experimental control interfaces. The examples
+on this page use the structured belief adapter; the primary model API is the
+[generic learner](../learner.md).
+
 Glassbox NMPC turns one belief into a finite-horizon rigid-body tracker. The
 interface is intentionally small: a belief, a state estimate, a state
 reference, the previous command, optional applied control or latent actuator
@@ -64,12 +68,9 @@ module.
 ```python
 import jax.numpy as jnp
 
-from glassbox import (
-    DynamicsBelief,
-    NMPCController,
-    SafetyEnvelope,
-    TrackingTolerances,
-)
+from glassbox.belief.belief import DynamicsBelief
+from glassbox.control.fitted import NMPCController
+from glassbox.control.plan import SafetyEnvelope, TrackingTolerances
 from glassbox.core.dynamics import hover_control
 
 belief = DynamicsBelief.load("artifacts/belief.json")
@@ -528,7 +529,7 @@ import time
 
 import numpy as np
 
-from glassbox import MultirotorFlightSupervisor, MultirotorSupervisorConfig
+from glassbox.control.supervisor import MultirotorFlightSupervisor, MultirotorSupervisorConfig
 from glassbox.core.dynamics import MOTOR_MIXER
 
 supervisor = MultirotorFlightSupervisor(

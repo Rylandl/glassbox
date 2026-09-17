@@ -1,7 +1,7 @@
 """One maintained generic learner: fit(recordings), predict, update.
 
-This prototype is not the stable structured ``glassbox.fit``. It predicts
-Euclidean observation channels with a single recursive affine-plus-neural model.
+This is the learner exposed by ``glassbox.fit``. It predicts Euclidean
+observation channels with a single recursive affine-plus-neural model.
 There are no caller-selected representations, optimizers or selection policies.
 Configuration identity and ordered channel identities are required data facts;
 adapters must include units, frame and command/measurement meaning in them.
@@ -40,14 +40,14 @@ from dataclasses import asdict
 
 import numpy as np
 
-from .arrays import array_fingerprint, load_arrays, save_arrays
-from .sequence_collection import SequenceCollection, SequenceWindows, WindowKey
-from .sequence_model import (
+from ._learner_arrays import array_fingerprint, load_arrays, save_arrays
+from ._sequence_model import (
     SequenceBatch,
     SequenceModel,
     fit_sequence_model,
     initialize_sequence_model,
 )
+from .recordings import SequenceCollection, SequenceWindows, WindowKey
 
 _ARRAYS = ("past_states", "past_inputs", "future_inputs", "future_states")
 ENVELOPE_COVERAGE = 0.9
@@ -487,7 +487,7 @@ class LearnedDynamics:
         This offline report does not update the model or qualify it for control.
         At least three distinct, contract-matching diagnostic recordings are needed.
         """
-        from .sequence_diagnostics import diagnose
+        from ._sequence_diagnostics import diagnose
 
         return diagnose(self, recordings)
 

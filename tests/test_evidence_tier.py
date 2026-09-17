@@ -97,7 +97,7 @@ def test_the_manifest_digest_gates_the_evidence_contract(tmp_path, manifest):
 
 
 def test_the_manifest_declares_the_band_the_nominal_level_and_the_plan(manifest):
-    from glassbox.experimental.default_model import RECIPE
+    from glassbox.learner import RECIPE
 
     assert manifest["band"] == {"minimum": 0.85, "maximum": 0.95, **manifest["band"]}
     assert (manifest["band"]["minimum"], manifest["band"]["maximum"]) == (0.85, 0.95)

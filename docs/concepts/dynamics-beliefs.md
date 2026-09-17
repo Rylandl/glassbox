@@ -1,5 +1,8 @@
 # Dynamics beliefs
 
+This is the structured benchmark and control-adapter contract. The primary
+consumer API is the [generic learner](../learner.md).
+
 A `DynamicsBelief` contains:
 
 | Field | Meaning |
@@ -16,13 +19,14 @@ A `DynamicsBelief` contains:
 ```python
 from pathlib import Path
 
-import glassbox
+from glassbox.belief.belief import DynamicsBelief
+from glassbox.fitting import FitSpec, fit
 from glassbox.core.data import load_trajectory_npz
 
-outcome = glassbox.fit(sorted(Path("flights").glob("*.npz")), glassbox.FitSpec())
+outcome = fit(sorted(Path("flights").glob("*.npz")), FitSpec())
 belief = outcome.belief
 belief.save("artifacts/belief.json")
-belief = glassbox.DynamicsBelief.load("artifacts/belief.json")
+belief = DynamicsBelief.load("artifacts/belief.json")
 
 telemetry = load_trajectory_npz("new-flight.npz")
 forecast = belief.rollout(telemetry.states[0], telemetry.controls[:30])
@@ -124,7 +128,7 @@ unchanged. Updates retain the original operating envelope and forecast-error
 measurements; provenance tracks parameter movement since calibration.
 
 For repeated telemetry blocks, the experimental
-[`ModelRefiner` workflow](../guides/platform-onboarding.md#streaming-refinement)
+[`ModelRefiner` workflow](../streaming-refinement.md)
 scores active and candidate revisions before absorption, accounts for recording
 intervals, and separates learning from explicit adoption. It wraps the existing
 update without changing its equations or evidence semantics. Information is

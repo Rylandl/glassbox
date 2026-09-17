@@ -17,7 +17,7 @@ from typing import Any, Protocol
 
 import numpy as np
 
-from glassbox import DynamicsBelief
+from glassbox.belief.belief import DynamicsBelief
 from glassbox.core.data import Trajectory, TrajectorySpec
 from glassbox.workflows.refinement import ModelRefiner, ModelRevision, RefinementResult
 

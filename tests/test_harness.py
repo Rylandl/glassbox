@@ -15,11 +15,11 @@ import numpy as np
 import pytest
 from conftest import seal_evidence
 
-from glassbox.experimental import harness
-from glassbox.experimental.sequence_model import (
+from glassbox._sequence_model import (
     initialize_sequence_model,
     sequence_windows,
 )
+from glassbox.experimental import harness
 
 MANIFEST = Path(__file__).resolve().parents[1] / "docs/harness/v1.json"
 CONTEXT, DELAY, HORIZON = 10, 2, 5
@@ -213,7 +213,7 @@ def test_the_manifest_digest_gates_run_and_verify(tmp_path, manifest):
 
 
 def test_the_manifest_carries_the_recipe_and_the_frozen_plan(manifest):
-    from glassbox.experimental.default_model import RECIPE
+    from glassbox.learner import RECIPE
 
     # The manifest records the recipe it was frozen against in full, and pins
     # the evaluation plan that recipe is cut from. It does not pin the

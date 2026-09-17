@@ -27,13 +27,14 @@ from cascade.control import (
 )
 from live_refinement import SCORE_SCALES, TrackingPlant, run_trial
 
-from glassbox import DynamicsBelief, FitSpec, Holdout, fit
+from glassbox.belief.belief import DynamicsBelief
 from glassbox.core.data import (
     Trajectory,
     load_trajectory_npz,
     save_trajectory_npz,
     trajectory_content_digest,
 )
+from glassbox.fitting import FitSpec, Holdout, fit
 from glassbox.integrations.cascade import CascadePlant, CascadePlantConfig
 from glassbox.io.x8_reference import x8_trajectory_spec
 from glassbox.workflows.evaluate import evaluate, save_report

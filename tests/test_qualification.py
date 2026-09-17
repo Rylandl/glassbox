@@ -84,8 +84,9 @@ def test_context_builds_equations_at_plant_precision(monkeypatch):
     import jax
     import numpy as np
 
+    from glassbox import learner as default_model
     from glassbox.belief import belief_io
-    from glassbox.experimental import default_model, harness
+    from glassbox.experimental import harness
 
     construction = []
     spec = SimpleNamespace(to_model=lambda: construction.append(jax.config.x64_enabled))

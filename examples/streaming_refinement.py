@@ -14,7 +14,7 @@ from pathlib import Path
 
 import numpy as np
 
-from glassbox import DynamicsBelief, FitSpec, Holdout, fit
+from glassbox.belief.belief import DynamicsBelief
 from glassbox.core.data import (
     load_trajectory_npz,
     save_trajectory_npz,
@@ -23,6 +23,7 @@ from glassbox.core.data import (
 )
 from glassbox.core.fixedwing_synthetic import generate_fixed_wing_trajectory
 from glassbox.core.synthetic import generate_trajectory
+from glassbox.fitting import FitSpec, Holdout, fit
 from glassbox.workflows.evaluate import save_report
 from glassbox.workflows.refinement import ModelRefiner, ModelRevision
 

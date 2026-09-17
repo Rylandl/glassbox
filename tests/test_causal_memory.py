@@ -5,16 +5,16 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
-from glassbox.experimental.sequence_collection import (
-    SequenceCollection,
-    segments_from_mask,
-)
-from glassbox.experimental.sequence_model import (
+from glassbox._sequence_model import (
     SequenceBatch,
     SequenceModel,
     fit_sequence_model,
     initialize_sequence_model,
     sequence_windows,
+)
+from glassbox.recordings import (
+    SequenceCollection,
+    segments_from_mask,
 )
 
 CONTEXT, DELAY, HORIZON = 10, 2, 5

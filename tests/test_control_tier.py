@@ -42,7 +42,6 @@ from glassbox.core.geometry import (
 )
 from glassbox.core.metrics import state_rmse_metrics
 from glassbox.experimental import harness
-from glassbox.experimental.default_model import fit, steps_for
 from glassbox.experimental.learned_plan import (
     OBSERVED_CHANNELS,
     LearnedPlanController,
@@ -53,7 +52,8 @@ from glassbox.experimental.learned_plan import (
     observed_from_state,
     states_from_observed,
 )
-from glassbox.experimental.sequence_collection import (
+from glassbox.learner import fit, steps_for
+from glassbox.recordings import (
     SequenceCollection,
     SequenceSegment,
 )

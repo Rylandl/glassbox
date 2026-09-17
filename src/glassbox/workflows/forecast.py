@@ -1,0 +1,103 @@
+"""Read-only generic forecasts on complete, previously unseen recordings."""
+
+from __future__ import annotations
+
+import numpy as np
+
+from glassbox.learner import LearnedDynamics, _contract, _recording_content
+from glassbox.recordings import SequenceCollection
+
+_BATCH_SIZE = 256
+
+
+def evaluate(model: LearnedDynamics, recordings: SequenceCollection) -> dict:
+    """Measure each complete context/horizon window without fitting or updating.
+
+    Every reported array is [horizon step, observation channel], in the order
+    declared by the model. Errors are in each channel's own units. Coverage
+    counts observations inside the saved envelope; it is not an acceptance rule.
+    Exact recording identities/content are checked against both training and
+    development. Different segmentation is not proof of recording independence.
+    """
+    if not isinstance(model, LearnedDynamics):
+        raise TypeError("forecast evaluation requires a LearnedDynamics model")
+    if _contract(recordings) != model.contract:
+        raise ValueError("evaluation configuration, channels or sample interval differ")
+    content = _recording_content(recordings)
+    if set(content) & set(model._seen) or set(content.values()) & set(
+        model._seen.values()
+    ):
+        raise ValueError(
+            "evaluation requires recording identities and content outside fitting"
+        )
+    history, horizon = model.history_steps, model.horizon_steps
+    shape = (horizon, len(model.contract["state_channels"]))
+    envelope = model.envelope()
+
+    def empty():
+        return dict(
+            windows=0,
+            squared=np.zeros(shape),
+            hold=np.zeros(shape),
+            covered=np.zeros(shape),
+        )
+
+    totals = empty()
+    by_recording = {name: empty() for name in sorted(content)}
+    for segment in recordings.segments:
+        origins = range(history, len(segment.states) - horizon)
+        for offset in range(0, len(origins), _BATCH_SIZE):
+            selected = origins[offset : offset + _BATCH_SIZE]
+            past_states = np.stack(
+                [segment.states[t - history : t + 1] for t in selected]
+            )
+            past_inputs = np.stack([segment.inputs[t - history : t] for t in selected])
+            future_inputs = np.stack(
+                [segment.inputs[t : t + horizon] for t in selected]
+            )
+            truth = np.stack(
+                [segment.states[t + 1 : t + horizon + 1] for t in selected]
+            )
+            prediction = np.asarray(
+                model.predict(past_states, past_inputs, future_inputs)
+            )
+            if prediction.shape != truth.shape or not np.isfinite(prediction).all():
+                raise ValueError(
+                    "model produced a nonfinite or misaligned evaluation forecast"
+                )
+            error = prediction - truth
+            hold_error = past_states[:, -1:, :] - truth
+            for target in (totals, by_recording[segment.recording_id]):
+                target["windows"] += len(selected)
+                target["squared"] += np.sum(error**2, axis=0)
+                target["hold"] += np.sum(hold_error**2, axis=0)
+                target["covered"] += np.sum(np.abs(error) <= envelope, axis=0)
+    missing = [name for name, value in by_recording.items() if value["windows"] == 0]
+    if missing:
+        raise ValueError(
+            f"recordings have no complete model context/horizon window: {missing}"
+        )
+
+    def metrics(value):
+        count = value["windows"]
+        return dict(
+            windows=count,
+            rmse=np.sqrt(value["squared"] / count).tolist(),
+            hold_current_rmse=np.sqrt(value["hold"] / count).tolist(),
+            coverage=(value["covered"] / count).tolist(),
+        )
+
+    return dict(
+        format="glassbox-forecast-evaluation-v1",
+        model_fingerprint=model.fingerprint(),
+        contract=model.contract,
+        history_steps=history,
+        horizon_steps=horizon,
+        horizons_s=(np.arange(1, horizon + 1) * model.contract["dt_s"]).tolist(),
+        nominal_coverage=model.report["envelope"]["nominal_coverage"],
+        known_recording_reuse_detected=False,
+        independence_check="recording IDs and exact content; caller owns recording boundaries",
+        weighting="every_complete_window",
+        aggregate=metrics(totals),
+        per_recording={name: metrics(value) for name, value in by_recording.items()},
+    )

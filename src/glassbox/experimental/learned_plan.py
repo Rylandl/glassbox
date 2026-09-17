@@ -73,8 +73,8 @@ from glassbox.core.geometry import (
     rotation_to_quaternion,
 )
 
-from .default_model import ENVELOPE_COVERAGE, LearnedDynamics, steps_for
-from .sequence_model import KIND, SequenceModel
+from .._sequence_model import KIND, SequenceModel
+from ..learner import ENVELOPE_COVERAGE, LearnedDynamics, steps_for
 
 VELOCITY_ROWS = slice(3, 6)
 QUATERNION_ROWS = slice(6, 10)
@@ -177,7 +177,7 @@ variance. Reading the half-width as the central interval of a Gaussian at the
 envelope's own nominal level is the one number that converts between them, and
 it is an assumption about the shape of the error distribution, not a measured
 quantity. A test ties this constant to
-:data:`~glassbox.experimental.default_model.ENVELOPE_COVERAGE`, so the two
+:data:`~glassbox.learner.ENVELOPE_COVERAGE`, so the two
 cannot drift apart.
 """
 

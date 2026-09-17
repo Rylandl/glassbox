@@ -639,7 +639,7 @@ def evaluate(
 ) -> dict[str, Any]:
     """Score one model on held-out flight under a named scoring policy.
 
-    ``belief_or_params`` is a :class:`~glassbox.DynamicsBelief`, bare model
+    ``belief_or_params`` is a :class:`~glassbox.belief.belief.DynamicsBelief`, bare model
     parameters, or a path to a saved belief, in which case the report records
     which artifact produced its numbers. ``trajectories`` are canonical
     trajectories or paths to them. A belief's declared control and exogenous

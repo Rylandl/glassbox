@@ -18,14 +18,14 @@ import numpy as np
 import pytest
 from conftest import seal_evidence
 
-from glassbox.core.data import Trajectory
-from glassbox.experimental import harness
-from glassbox.experimental.default_model import RECIPE, steps_for
-from glassbox.experimental.sequence_collection import SequenceSegment
-from glassbox.experimental.sequence_model import (
+from glassbox._sequence_model import (
     initialize_sequence_model,
     sequence_windows,
 )
+from glassbox.core.data import Trajectory
+from glassbox.experimental import harness
+from glassbox.learner import RECIPE, steps_for
+from glassbox.recordings import SequenceSegment
 
 MANIFEST = Path(__file__).resolve().parents[1] / "docs/harness/platform-v4.json"
 REFERENCE = MANIFEST.parent / "platform-reference.json"

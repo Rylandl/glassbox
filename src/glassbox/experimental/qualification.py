@@ -38,12 +38,16 @@ def arrays(data):
 
 def frozen_plan():
     """Hash and parse the same bytes; check every inherited source contract."""
+    from .api_migration import qualification_source_matches
+
     raw = PLAN_PATH.read_bytes()
     if digest(raw) != PLAN_SHA256:
         raise ValueError("qualification plan differs from the frozen source")
     plan = json.loads(raw)
     for name, expected in plan["source_sha256"].items():
-        if digest((ROOT / name).read_bytes()) != expected:
+        if digest(
+            (ROOT / name).read_bytes()
+        ) != expected and not qualification_source_matches(ROOT, name, expected):
             raise ValueError(f"qualification source changed: {name}")
     return plan, raw
 
@@ -88,7 +92,7 @@ def _context(inputs):
 
     from glassbox.belief.belief_io import dynamics_belief_from_payload
 
-    from .default_model import LearnedDynamics
+    from ..learner import LearnedDynamics
     from .harness import control_fixture
 
     if jax.config.x64_enabled:

@@ -10,7 +10,8 @@ import platform as platform_module
 import shutil
 import sys
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from functools import partial
 from pathlib import Path
 from typing import Any
 
@@ -625,22 +626,10 @@ hashes it either, so a provenance digest and this table agree.
 
 @dataclass(frozen=True)
 class CorpusChain:
-    """What distinguishes one corpus validation chain from the other four.
+    """Pinned structured-comparator recipes retained by the benchmark owner.
 
-    Every chain is the same four steps: prepare the pinned corpus, fit one
-    model per arm, evaluate them, assemble the artifact. The registry already
-    says which corpus this is, which extra its adapter needs, how it is
-    pinned, and which scoring protocol its published evaluation uses, so what
-    is left here is the flights each step reads and the flags the experiment
-    page documents.
-
-    ``arms`` names the model classes fitted, in command order. A one-arm chain
-    writes ``model.json`` and ``report.json``; a several-arm chain prefixes
-    each with its class stem, so the files say which arm wrote them.
-    ``scored`` names the published evaluation flights, relative to the corpus
-    directory, and is all the model-scoring shape needs. The two chains that
-    do not score saved models, the leave-one-session-out run and the
-    two-report characterization, write their whole ``evaluation`` instead.
+    These call the structured implementation directly. They do not pass model
+    selectors or training options through the public generic fit/evaluate CLI.
     """
 
     corpus: str
@@ -648,9 +637,13 @@ class CorpusChain:
     anchor: str
     arms: tuple[str, ...] = ()
     fit_inputs: str = ""
-    fit_options: str = ""
+    horizons_s: tuple[float, ...] = (0.1, 0.5, 2.0)
+    evaluation_horizons_s: tuple[float, ...] = (0.1, 0.5, 1.0, 2.0)
+    holdout_count: int = 1
+    holdout_label: tuple[str, str] | None = None
     scored: str = ""
-    evaluation: str = ""
+    evaluation: str = "models"
+    score_horizons_s: tuple[float, ...] | None = None
     evaluation_report: str = "benchmark_report.json"
 
     @property
@@ -667,10 +660,9 @@ CORPUS_CHAINS = (
         anchor="nano-quadrotor",
         arms=("structured_residual",),
         fit_inputs="canonical/train/*.npz canonical/test/*.npz",
-        fit_options=(
-            "--holdout-profile melon --training-horizons 0.1,0.5,1.0 "
-            "--evaluation-horizons 0.1,0.5,1.0"
-        ),
+        holdout_label=("profile", "melon"),
+        horizons_s=(0.1, 0.5, 1.0),
+        evaluation_horizons_s=(0.1, 0.5, 1.0),
         scored="canonical/test/*.npz",
     ),
     CorpusChain(
@@ -679,19 +671,14 @@ CORPUS_CHAINS = (
         anchor="arp",
         arms=("structured",),
         fit_inputs="canonical/*.npz",
-        fit_options="--holdout-count 1 --training-horizons 0.1,0.5,2.0",
         scored="canonical/log_66*.npz",
     ),
     CorpusChain(
         corpus="idf",
         directory="idf_reference",
         anchor="idf-ds",
-        evaluation=(
-            "--hold-out source_group {work}/canonical/*.npz "
-            "--model-class structured_residual --no-resume "
-            "--output-dir {work}/source_benchmark_structured_residual "
-            "{steps} {folds}"
-        ),
+        fit_inputs="canonical/*.npz",
+        evaluation="holdout",
         evaluation_report="source_benchmark_structured_residual/summary.json",
     ),
     CorpusChain(
@@ -700,9 +687,7 @@ CORPUS_CHAINS = (
         anchor="skywalker-x8",
         arms=("structured", "structured_residual"),
         fit_inputs="canonical/training/*.npz canonical/validation/*.npz",
-        fit_options=(
-            "--holdout-label benchmark_split=validation --training-horizons 0.1,0.5,2.0"
-        ),
+        holdout_label=("benchmark_split", "validation"),
         scored="canonical/validation/*.npz",
     ),
     CorpusChain(
@@ -711,64 +696,149 @@ CORPUS_CHAINS = (
         anchor="epfl-topoplane2",
         arms=("structured", "structured_residual"),
         fit_inputs="canonical/*.npz",
-        fit_options=(
-            "--evaluation-horizons 0.2,0.5,1,2 --training-horizons 0.2,1,2 "
-            "--holdout-count 2"
-        ),
-        evaluation=(
-            "--fit-reports structured={work}/structured_report.json "
-            "structured_residual={work}/residual_report.json "
-            "--horizons 0.2,0.5,1,2 --score-horizons 0.5,1,2 "
-            "--report {work}/characterization_report.json"
-        ),
+        horizons_s=(0.2, 1.0, 2.0),
+        evaluation_horizons_s=(0.2, 0.5, 1.0, 2.0),
+        holdout_count=2,
+        evaluation="fit_reports",
+        score_horizons_s=(0.5, 1.0, 2.0),
         evaluation_report="characterization_report.json",
     ),
 )
-"""The five corpus validation chains, one entry each."""
+"""The five historical structured corpus validation chains."""
 
 
 def _arm_prefix(chain: CorpusChain, arm: str) -> str:
-    """The filename prefix one arm's model and report carry."""
-
     return "" if len(chain.arms) == 1 else f"{_ARM_STEM[arm]}_"
 
 
-def _fit_and_evaluate(plan: RecordingPlan, chain: CorpusChain) -> tuple[Step, ...]:
-    """The chain's fit steps, one per arm, and the evaluation that scores them."""
+def _chain_paths(plan: RecordingPlan, chain: CorpusChain, patterns: str) -> list[Path]:
+    # Expand each pattern separately, preserving the historical argument order.
+    paths = []
+    for pattern in patterns.split():
+        source = plan.work(chain.directory) / pattern
+        matched = sorted(glob.glob(str(source)))
+        if not matched:
+            raise StepFailed(f"no files matched {str(source)!r}")
+        paths.extend(Path(path) for path in matched)
+    return paths
+
+
+def _structured_spec(plan: RecordingPlan, chain: CorpusChain, arm: str):
+    from glassbox.fitting import FitSpec, Holdout
+
+    holdout = (
+        Holdout.by_label(chain.holdout_label[0], (chain.holdout_label[1],))
+        if chain.holdout_label is not None
+        else Holdout.by_group(chain.holdout_count)
+    )
+    return FitSpec(
+        holdout=holdout,
+        horizons_s=chain.horizons_s,
+        evaluation_horizons_s=chain.evaluation_horizons_s,
+        steps=400 if plan.fit_steps is None else plan.fit_steps,
+        model_class=arm,
+    )
+
+
+def _fit_structured_arm(plan: RecordingPlan, chain: CorpusChain, arm: str) -> None:
+    from glassbox.belief.belief_io import save_dynamics_belief
+    from glassbox.fitting import fit
 
     work = plan.work(chain.directory)
-    corpus = REFERENCE_CORPORA[chain.corpus]
-    inputs = " ".join(f"{work}/{item}" for item in chain.fit_inputs.split())
+    prefix = _arm_prefix(chain, arm)
+    report_path = work / f"{prefix}report.json"
+    outcome = fit(
+        _chain_paths(plan, chain, chain.fit_inputs), _structured_spec(plan, chain, arm)
+    )
+    belief = replace(
+        outcome.belief,
+        provenance={**outcome.belief.provenance, "fit_report": str(report_path)},
+    )
+    work.mkdir(parents=True, exist_ok=True)
+    save_dynamics_belief(belief, work / f"{prefix}model.json")
+    report_path.write_text(json.dumps(outcome.report, indent=2) + "\n")
+
+
+def _evaluate_structured_chain(plan: RecordingPlan, chain: CorpusChain) -> None:
+    from glassbox.workflows.evaluate import (
+        evaluate,
+        evaluate_fit_reports,
+        evaluate_models,
+    )
+    from glassbox.workflows.holdout import evaluate_holdout
+
+    work = plan.work(chain.directory)
+    if chain.evaluation == "holdout":
+        evaluate_holdout(
+            _chain_paths(plan, chain, chain.fit_inputs),
+            hold_out="source_group",
+            spec=_structured_spec(plan, chain, "structured_residual"),
+            output_dir=work / Path(chain.evaluation_report).parent,
+            resume=False,
+            fold_limit=plan.fold_limit,
+        )
+        return
+    if chain.evaluation == "fit_reports":
+        report = evaluate_fit_reports(
+            {arm: work / f"{_arm_prefix(chain, arm)}report.json" for arm in chain.arms},
+            protocol="windowed",
+            horizons_s=chain.evaluation_horizons_s,
+            score_horizons_s=chain.score_horizons_s,
+        )
+    else:
+        corpus = REFERENCE_CORPORA[chain.corpus]
+        _, trajectories = corpus.load_evaluation_trajectories(
+            _chain_paths(plan, chain, chain.scored)
+        )
+        if len(chain.arms) == 1:
+            report = evaluate(
+                work / "model.json",
+                trajectories,
+                protocol=corpus.protocol or "windowed",
+            )
+        else:
+            report = evaluate_models(
+                {
+                    arm: work / f"{_arm_prefix(chain, arm)}model.json"
+                    for arm in chain.arms
+                },
+                trajectories,
+                protocol=corpus.protocol or "windowed",
+                expected_spec=trajectories[0].spec.to_dict(),
+            )
+        report["corpus"] = dict(
+            name=corpus.name,
+            doi_or_url=corpus.citation.doi_or_url,
+            license=corpus.citation.license,
+            pinned_version=corpus.citation.pinned_version,
+            evaluation_split=corpus.validation_split,
+        )
+    output = work / chain.evaluation_report
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(json.dumps(report, indent=2) + "\n")
+
+
+def _fit_and_evaluate(plan: RecordingPlan, chain: CorpusChain) -> tuple[Step, ...]:
+    work = plan.work(chain.directory)
+    budget = 400 if plan.fit_steps is None else plan.fit_steps
     steps = [
-        _cli(
-            f"fit {inputs} {chain.fit_options} "
-            f"{'' if arm == 'structured' else f'--model-class {arm}'} "
-            f"--model {work}/{_arm_prefix(chain, arm)}model.json "
-            f"--report {work}/{_arm_prefix(chain, arm)}report.json {plan.steps()}"
+        PythonStep(
+            f"structured benchmark fit {arm} under {work} (steps={budget})",
+            partial(_fit_structured_arm, plan, chain, arm),
         )
         for arm in chain.arms
     ]
-    if chain.evaluation:
-        evaluation = chain.evaluation.format(
-            work=work, steps=plan.steps(), folds=plan.folds()
+    detail = (
+        f"steps={budget}, fold_limit={plan.fold_limit}"
+        if chain.evaluation == "holdout"
+        else chain.evaluation
+    )
+    steps.append(
+        PythonStep(
+            f"structured benchmark evaluation under {work} ({detail})",
+            partial(_evaluate_structured_chain, plan, chain),
         )
-    else:
-        one_arm = len(chain.arms) == 1
-        scored = " ".join(f"{work}/{item}" for item in chain.scored.split())
-        named = (
-            ""
-            if one_arm
-            else "".join(
-                f" --model {arm}={work}/{_arm_prefix(chain, arm)}model.json"
-                for arm in chain.arms
-            )
-        )
-        evaluation = (
-            f"{f'{work}/model.json ' if one_arm else ''}{scored} "
-            f"--protocol {corpus.protocol or 'windowed'} --corpus {corpus.name}"
-            f"{named} --report {work}/benchmark_report.json"
-        )
-    steps.append(_cli(f"evaluate {evaluation}"))
+    )
     return tuple(steps)
 
 

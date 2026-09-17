@@ -32,14 +32,14 @@ from cascade_refinement import (
     fixture,
 )
 
+from glassbox import fit
+from glassbox._sequence_model import sequence_windows
 from glassbox.core.data import save_trajectory_npz
 from glassbox.core.geometry import quaternion_to_rotation_batch, state_plus_tangent
-from glassbox.experimental.default_model import fit
-from glassbox.experimental.sequence_collection import (
+from glassbox.recordings import (
     SequenceCollection,
     SequenceSegment,
 )
-from glassbox.experimental.sequence_model import sequence_windows
 
 CONTROLLER = dict(
     horizon_steps=5,

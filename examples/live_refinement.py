@@ -19,7 +19,6 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
-from glassbox import FitSpec, Holdout, fit
 from glassbox.control.fitted import NMPCController, default_solver_policy
 from glassbox.control.plan import ReferenceTrajectory
 from glassbox.core.data import save_trajectory_npz, trajectory_segment
@@ -38,6 +37,7 @@ from glassbox.core.fixedwing_synthetic import (
 )
 from glassbox.core.metrics import state_rmse_metrics
 from glassbox.core.synthetic import generate_trajectory, resting_state, true_parameters
+from glassbox.fitting import FitSpec, Holdout, fit
 from glassbox.workflows.evaluate import save_report
 from glassbox.workflows.refinement import ModelRefiner, ModelRevision
 from glassbox.workflows.streaming import RefinementWorker, TransitionBuffer

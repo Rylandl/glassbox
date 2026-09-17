@@ -1,122 +1,22 @@
-"""The stable API for telemetry-driven differentiable dynamics identification.
+"""One generic dynamics learner for uniformly sampled observations and commands.
 
-Everything here is a name a reader meets in the README or in one of the
-concept pages, or the type of one of their arguments or return values. The
-rest of the library is not hidden, it is simply somewhere more specific:
-corpus adapters in ``glassbox.io``, evaluation and benchmarks in
-``glassbox.workflows``, command-line front ends in ``glassbox.cli``, and live
-vehicle boundaries in ``glassbox.integrations``. Those four subpackages are
-never imported by a bare ``import glassbox``, so the core import stays small
-and needs no optional extra.
-
-Names that left this list did not become private; import them from the module
-that owns them, for example ``from glassbox.core.data import
-load_trajectory_npz``.
+Supply a ``SequenceCollection`` with recording boundaries and channel facts to
+``fit``. The returned ``LearnedDynamics`` predicts future observations, saves its
+evidence, and returns a new revision from ``update``. Telemetry adapters,
+evaluation workflows and control integrations live in their owning modules.
 """
 
-from glassbox.belief.belief import DynamicsBelief
-from glassbox.belief.forecast_error import ForecastErrorEnvelope
-from glassbox.belief.information import ParameterInformation
-from glassbox.belief.update import UpdateResult
-from glassbox.control.fitted import NMPCController, plan_model
-from glassbox.control.identifier import (
-    BootstrapEvidence,
-    RecursiveBootstrapConfig,
-    RecursiveBootstrapIdentifier,
-)
-from glassbox.control.plan import (
-    ConstrainedLeastSquaresPlanModel,
-    NonlinearFeasibility,
-    PlanModel,
-    PlanTerms,
-    PlanValues,
-    Prediction,
-    ReferenceTrajectory,
-    SafetyEnvelope,
-    SolveResult,
-    SolverPolicy,
-    SolveStatus,
-    TrackingTolerances,
-)
-from glassbox.control.solver import BoundedShootingSolver
-from glassbox.control.supervisor import (
-    MultirotorFlightSupervisor,
-    MultirotorSupervisorConfig,
-    SupervisorMode,
-    SupervisorReason,
-)
-from glassbox.core.data import Channel, Trajectory, TrajectorySpec
-from glassbox.core.dynamics import (
-    BootstrapMultirotorParams,
-    DynamicsParams,
-    FixedWingDynamicsParams,
-    ModelParams,
-    rollout,
-    step,
-)
-from glassbox.core.model import ActuationMap, ExecutableModel, NonActionableModelError
-from glassbox.fitting import (
-    FitOutcome,
-    FitSpec,
-    Holdout,
-    LossPolicy,
-    WeightingPolicy,
-    fit,
+from glassbox.learner import LearnedDynamics, fit
+from glassbox.recordings import (
+    SequenceCollection,
+    SequenceSegment,
+    segments_from_mask,
 )
 
-# Grouped in the order a reader meets these names, not alphabetically: the
-# groups are the argument of the surface, and each one carries its reason.
 __all__ = [  # noqa: RUF022
-    # The telemetry a fit consumes, and the typed contract it carries.
-    "Channel",
-    "Trajectory",
-    "TrajectorySpec",
-    # The fit: one call, one spec, one outcome.
-    "FitOutcome",
-    "FitSpec",
-    "Holdout",
-    "LossPolicy",
-    "WeightingPolicy",
     "fit",
-    # The three parameter families and the two functions that execute them.
-    "BootstrapMultirotorParams",
-    "DynamicsParams",
-    "FixedWingDynamicsParams",
-    "ModelParams",
-    "rollout",
-    "step",
-    # The belief: one executable model, what the evidence resolved, and how
-    # wrong the forecasts have been.
-    "ActuationMap",
-    "DynamicsBelief",
-    "ExecutableModel",
-    "ForecastErrorEnvelope",
-    "NonActionableModelError",
-    "ParameterInformation",
-    "UpdateResult",
-    # Control: the plan-model seam, the solver behind it, and the bounded
-    # result every solve returns.
-    "BoundedShootingSolver",
-    "NMPCController",
-    "ConstrainedLeastSquaresPlanModel",
-    "PlanModel",
-    "PlanTerms",
-    "PlanValues",
-    "Prediction",
-    "ReferenceTrajectory",
-    "SafetyEnvelope",
-    "NonlinearFeasibility",
-    "SolveResult",
-    "SolveStatus",
-    "SolverPolicy",
-    "TrackingTolerances",
-    "plan_model",
-    # Learning a model in flight, and bounding the command that comes out.
-    "BootstrapEvidence",
-    "MultirotorFlightSupervisor",
-    "MultirotorSupervisorConfig",
-    "RecursiveBootstrapConfig",
-    "RecursiveBootstrapIdentifier",
-    "SupervisorMode",
-    "SupervisorReason",
+    "LearnedDynamics",
+    "SequenceCollection",
+    "SequenceSegment",
+    "segments_from_mask",
 ]

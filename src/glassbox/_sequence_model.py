@@ -24,7 +24,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
-from .arrays import array_fingerprint, load_arrays, save_arrays
+from ._learner_arrays import array_fingerprint, load_arrays, save_arrays
 
 KIND = "filter_mlp"
 

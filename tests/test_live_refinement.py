@@ -8,10 +8,10 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
-from glassbox import DynamicsBelief, ExecutableModel
+from glassbox.belief.belief import DynamicsBelief
 from glassbox.core.dynamics import control_state_after_history, step_with_latent
 from glassbox.core.fixedwing_synthetic import true_fixed_wing_parameters
-from glassbox.core.model import runtime_spec_from_trajectory
+from glassbox.core.model import ExecutableModel, runtime_spec_from_trajectory
 from glassbox.core.synthetic import true_parameters
 
 

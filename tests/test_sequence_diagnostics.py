@@ -6,12 +6,12 @@ from dataclasses import replace
 import numpy as np
 import pytest
 
-from glassbox.experimental.default_model import fit
-from glassbox.experimental.sequence_collection import (
+from glassbox._sequence_diagnostics import _fit, _run
+from glassbox.learner import fit
+from glassbox.recordings import (
     SequenceCollection,
     SequenceSegment,
 )
-from glassbox.experimental.sequence_diagnostics import _fit, _run
 
 
 def recording(name, seed, *, constant=False):

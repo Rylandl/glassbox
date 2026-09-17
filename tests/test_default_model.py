@@ -10,15 +10,15 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
-from glassbox.experimental.arrays import array_fingerprint
-from glassbox.experimental.default_model import (
+from glassbox._learner_arrays import array_fingerprint
+from glassbox.learner import (
     ENVELOPE_COVERAGE,
     RECIPE,
     LearnedDynamics,
     fit,
     steps_for,
 )
-from glassbox.experimental.sequence_collection import (
+from glassbox.recordings import (
     SequenceCollection,
     SequenceSegment,
 )

@@ -8,10 +8,11 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
-from glassbox import DynamicsBelief, NMPCController, SolverPolicy, SolveStatus
+from glassbox.belief.belief import DynamicsBelief
 from glassbox.belief.information import ParameterInformation
 from glassbox.belief.update import one_step_linearization
-from glassbox.control.fitted import parameter_covariance_factor
+from glassbox.control.fitted import NMPCController, parameter_covariance_factor
+from glassbox.control.plan import SolverPolicy, SolveStatus
 from glassbox.control.solver import _optimize_step
 from glassbox.control.supervisor import (
     MultirotorFlightSupervisor,

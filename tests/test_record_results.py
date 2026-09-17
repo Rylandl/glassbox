@@ -380,14 +380,14 @@ def test_a_smoke_plan_redirects_every_path_and_shortens_the_fit(
     commands = [step.describe() for step in spec.steps]
     assert str(tmp_path / "sources" / "x8_reference" / "raw") in commands[0]
     assert all(str(tmp_path / "work") in command for command in commands[1:])
-    assert sum("--steps 2" in command for command in commands) == 2
+    assert sum("steps=2" in command for command in commands) == 2
 
     folds = next(item for item in manifest if item.name == "validation-idf-results")
     holdout = next(
-        step.describe() for step in folds.steps if "--hold-out" in step.describe()
+        step.describe() for step in folds.steps if "fold_limit=" in step.describe()
     )
-    assert "--limit-folds 2" in holdout
-    assert "--steps 2" in holdout
+    assert "fold_limit=2" in holdout
+    assert "steps=2" in holdout
 
 
 def test_the_default_plan_writes_the_committed_paths() -> None:
@@ -703,3 +703,177 @@ def test_list_reports_a_pending_entry_as_pending(
 
     stdout = capsys.readouterr().out
     assert "pending: the maintainer job has not run yet" in stdout
+
+
+def test_structured_corpus_chains_do_not_dispatch_public_fit_or_evaluate():
+    from glassbox.workflows.record_results import CliStep
+
+    for spec in MANIFEST:
+        if spec.name.startswith("validation-"):
+            assert not any(
+                isinstance(step, CliStep) and step.argv[0] in {"fit", "evaluate"}
+                for step in spec.steps
+            )
+
+
+def test_structured_chain_recipes_keep_the_historical_fit_options():
+    from glassbox.fitting import FitSpec, Holdout
+
+    expected = {
+        "nanodrone": dict(
+            holdout=Holdout.by_label("profile", ("melon",)),
+            horizons_s=(0.1, 0.5, 1.0),
+            evaluation_horizons_s=(0.1, 0.5, 1.0),
+        ),
+        "arp": dict(holdout=Holdout.by_group(1), horizons_s=(0.1, 0.5, 2.0)),
+        "x8": dict(
+            holdout=Holdout.by_label("benchmark_split", ("validation",)),
+            horizons_s=(0.1, 0.5, 2.0),
+        ),
+        "epfl": dict(
+            holdout=Holdout.by_group(2),
+            horizons_s=(0.2, 1.0, 2.0),
+            evaluation_horizons_s=(0.2, 0.5, 1.0, 2.0),
+        ),
+        "idf": dict(horizons_s=(0.1, 0.5, 2.0)),
+    }
+    for chain in manifest_module.CORPUS_CHAINS:
+        for arm in chain.arms or ("structured_residual",):
+            actual = manifest_module._structured_spec(RecordingPlan(), chain, arm)
+            assert actual == FitSpec(model_class=arm, **expected[chain.corpus])
+
+
+def test_structured_benchmark_fit_calls_owned_function_and_stamps_artifact(
+    tmp_path, monkeypatch
+):
+    from dataclasses import dataclass
+    from types import SimpleNamespace
+
+    import glassbox.belief.belief_io as belief_io
+    import glassbox.fitting as fitting
+
+    @dataclass
+    class Belief:
+        provenance: dict
+
+    calls = []
+    plan = RecordingPlan(corpus_root=tmp_path, fit_steps=2)
+    chain = next(item for item in manifest_module.CORPUS_CHAINS if item.corpus == "x8")
+    sources = [tmp_path / "one.npz", tmp_path / "two.npz"]
+    monkeypatch.setattr(manifest_module, "_chain_paths", lambda *args: sources)
+
+    def owned_fit(paths, spec):
+        calls.append((paths, spec))
+        return SimpleNamespace(
+            belief=Belief({"original": True}), report={"source": "structured"}
+        )
+
+    saved = []
+    monkeypatch.setattr(fitting, "fit", owned_fit)
+    monkeypatch.setattr(
+        belief_io,
+        "save_dynamics_belief",
+        lambda belief, path: saved.append((belief, path)),
+    )
+    monkeypatch.setattr(
+        cli,
+        "main",
+        lambda *args: pytest.fail("structured benchmark dispatched public CLI"),
+    )
+    manifest_module._fit_structured_arm(plan, chain, "structured")
+    assert calls == [
+        (sources, manifest_module._structured_spec(plan, chain, "structured"))
+    ]
+    assert saved[0][0].provenance["original"] is True
+    assert saved[0][0].provenance["fit_report"] == str(
+        tmp_path / "x8_reference/structured_report.json"
+    )
+    assert saved[0][1] == tmp_path / "x8_reference/structured_model.json"
+    assert json.loads(
+        (tmp_path / "x8_reference/structured_report.json").read_text()
+    ) == {"source": "structured"}
+
+
+@pytest.mark.parametrize(
+    "corpus,kind",
+    [
+        ("nanodrone", "model"),
+        ("arp", "model"),
+        ("x8", "models"),
+        ("epfl", "reports"),
+        ("idf", "holdout"),
+    ],
+)
+def test_structured_benchmark_evaluation_calls_owned_workflows(
+    tmp_path, monkeypatch, corpus, kind
+):
+    from types import SimpleNamespace
+
+    import glassbox.workflows.evaluate as evaluation
+    import glassbox.workflows.holdout as holdout
+
+    chain = next(
+        item for item in manifest_module.CORPUS_CHAINS if item.corpus == corpus
+    )
+    plan = RecordingPlan(corpus_root=tmp_path, fit_steps=2, fold_limit=2)
+    sources = [tmp_path / "held.npz"]
+    trajectories = [
+        SimpleNamespace(spec=SimpleNamespace(to_dict=lambda: {"canonical": True}))
+    ]
+    actual_corpus = manifest_module.REFERENCE_CORPORA[corpus]
+    registry = {
+        corpus: SimpleNamespace(
+            name=actual_corpus.name,
+            protocol=actual_corpus.protocol,
+            citation=actual_corpus.citation,
+            validation_split=actual_corpus.validation_split,
+            load_evaluation_trajectories=lambda paths: (sources, trajectories),
+        )
+    }
+    calls = []
+
+    def record(label):
+        def operation(*args, **kwargs):
+            calls.append((label, args, kwargs))
+            return {"called": label}
+
+        return operation
+
+    monkeypatch.setattr(evaluation, "evaluate", record("model"))
+    monkeypatch.setattr(evaluation, "evaluate_models", record("models"))
+    monkeypatch.setattr(evaluation, "evaluate_fit_reports", record("reports"))
+    monkeypatch.setattr(holdout, "evaluate_holdout", record("holdout"))
+    monkeypatch.setattr(manifest_module, "REFERENCE_CORPORA", registry)
+    monkeypatch.setattr(manifest_module, "_chain_paths", lambda *args: sources)
+    monkeypatch.setattr(
+        cli,
+        "main",
+        lambda *args: pytest.fail("structured benchmark dispatched public CLI"),
+    )
+    manifest_module._evaluate_structured_chain(plan, chain)
+    assert len(calls) == 1 and calls[0][0] == kind
+    _, args, kwargs = calls[0]
+    if kind == "holdout":
+        assert args == (sources,)
+        assert kwargs["hold_out"] == "source_group"
+        assert kwargs["resume"] is False and kwargs["fold_limit"] == 2
+        assert kwargs["spec"].steps == 2
+    else:
+        report = json.loads(
+            (plan.work(chain.directory) / chain.evaluation_report).read_text()
+        )
+        assert report["called"] == kind
+        if kind == "reports":
+            assert kwargs["horizons_s"] == (0.2, 0.5, 1.0, 2.0)
+            assert kwargs["score_horizons_s"] == (0.5, 1.0, 2.0)
+            assert "corpus" not in report
+        else:
+            assert args[1] is trajectories
+            assert (
+                report["corpus"]["pinned_version"]
+                == actual_corpus.citation.pinned_version
+            )
+            assert (
+                kwargs["protocol"] == actual_corpus.protocol
+                or kwargs["protocol"] == "windowed"
+            )

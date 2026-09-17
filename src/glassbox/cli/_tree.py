@@ -43,12 +43,12 @@ TREE: tuple[Command, ...] = (
     Command(
         name="fit",
         target="glassbox.cli.fit:main",
-        summary="fit a dynamics belief and report from trajectory NPZ files",
+        summary="fit the generic dynamics recipe from recording NPZ archives",
     ),
     Command(
         name="evaluate",
         target="glassbox.cli.evaluate:main",
-        summary="score models on held-out flight under one named protocol",
+        summary="score a generic model on held-out recording NPZ archives",
     ),
     Command(
         name="benchmark",

@@ -1,169 +1,155 @@
-"""Run the same public onboarding workflow for both supported model families.
+"""Run the public generic fit, predict, save/load and update workflow.
 
-The bundled synthetic generators provide interface fixtures, not evidence of
-hardware onboarding performance. Only fixture generation branches on family.
+A synthetic two-signal system supplies distinct recordings. This demonstrates
+the interface and data roles, not performance on an unseen physical system.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
-from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
 
-from glassbox import DynamicsBelief, FitSpec, Holdout, fit
-from glassbox.core.data import trajectory_content_digest, trajectory_segment
-from glassbox.core.fixedwing_synthetic import generate_fixed_wing_trajectory
-from glassbox.core.synthetic import generate_trajectory
-from glassbox.workflows.evaluate import evaluate, save_report
+from glassbox import LearnedDynamics, SequenceCollection, SequenceSegment, fit
+from glassbox.io.recordings import save_recordings
+from glassbox.workflows.forecast import evaluate
 
-GENERATORS = {
-    "multirotor": generate_trajectory,
-    "fixedwing": generate_fixed_wing_trajectory,
-}
-HORIZONS_S = (0.1, 0.4)
+CONFIGURATION_ID = "onboarding-demo-v1"
+STATE_CHANNELS = ("signal_a [unitless]", "signal_b [unitless]")
+INPUT_CHANNELS = ("command [unitless,requested]",)
 
 
-def run_family(family: str, output: Path, *, fit_steps: int = 20) -> dict:
-    output.mkdir(parents=True, exist_ok=True)
-    generate = GENERATORS[family]
-    flights = [
-        replace(
-            generate(seed=seed, duration_s=2.0),
-            labels={"source_group": f"recording-{seed}"},
+def recording(seed: int) -> SequenceSegment:
+    generator = np.random.default_rng(seed)
+    inputs = generator.uniform(-1.0, 1.0, size=(160, 1))
+    states = np.zeros((len(inputs) + 1, 2))
+    states[0] = generator.normal(scale=0.1, size=2)
+    for index, command in enumerate(inputs[:, 0]):
+        a, b = states[index]
+        states[index + 1] = (
+            0.90 * a + 0.08 * command + 0.015 * b,
+            0.85 * b + 0.06 * np.tanh(a) + 0.04 * command,
         )
-        for seed in range(6)
-    ]
-    # Fit reserves recording 2 for error calibration. The remaining flights
-    # are untouched initial evaluation, fresh update, and updated evaluation.
-    calibration = flights[:3]
-    test_flight, fresh_telemetry, updated_test_flight = flights[3:]
-    outcome = fit(
-        calibration,
-        FitSpec(
-            holdout=Holdout.by_group(),
-            horizons_s=HORIZONS_S,
-            evaluation_horizons_s=HORIZONS_S,
-            steps=fit_steps,
-        ),
-    )
-    save_report(outcome.report, output / "fit.json")
-    outcome.belief.save(output / "belief.json")
-    belief = DynamicsBelief.load(output / "belief.json")
-    initial_evaluation = evaluate(
-        belief,
-        [test_flight],
-        horizons_s=HORIZONS_S,
-        report_path=output / "evaluation.json",
+    return SequenceSegment(f"recording-{seed}", "whole", states, inputs, dt_s=0.05)
+
+
+def collection(segments) -> SequenceCollection:
+    return SequenceCollection(
+        tuple(segments),
+        configuration_id=CONFIGURATION_ID,
+        state_channels=STATE_CHANNELS,
+        input_channels=INPUT_CHANNELS,
     )
 
-    # Replay a short observed command sequence for a prediction check. These
-    # are commanded values, not privileged measurements of simulator actuators.
-    segment = trajectory_segment(test_flight, 25, 45)
-    prediction = belief.rollout(
-        segment.states[0],
-        segment.controls,
-        command_history=segment.control_prefix,
-        exogenous=segment.exogenous[:-1],
+
+def write_json(path: Path, value: dict) -> None:
+    path.write_text(json.dumps(value, indent=2, allow_nan=False) + "\n")
+
+
+def run(output: Path) -> dict:
+    output.mkdir(parents=True, exist_ok=True)
+    recordings = [recording(seed) for seed in range(6)]
+    calibration = collection(recordings[:3])
+    initial_evaluation = collection(recordings[3:4])
+    fresh = collection(recordings[4:5])
+    evaluation = collection(recordings[5:6])
+    for name, data in (
+        ("calibration", calibration),
+        ("initial-evaluation", initial_evaluation),
+        ("new-recordings", fresh),
+        ("evaluation", evaluation),
+    ):
+        save_recordings(data, output / f"{name}.npz")
+
+    model = fit(calibration)
+    original_fingerprint = model.fingerprint()
+    model.save(output / "model.npz")
+    write_json(output / "fit.json", model.report)
+    loaded = LearnedDynamics.load(output / "model.npz")
+    if loaded.fingerprint() != original_fingerprint:
+        raise AssertionError("saved model identity changed on load")
+
+    # An untouched recording supplies actual history and a known command query.
+    query = recordings[3]
+    p, h = model.history_steps, model.horizon_steps
+    past_states, past_inputs = query.states[: p + 1], query.inputs[:p]
+    future_inputs = query.inputs[p : p + h]
+    forecast = np.asarray(loaded.predict(past_states, past_inputs, future_inputs))
+    np.testing.assert_array_equal(
+        forecast, model.predict(past_states, past_inputs, future_inputs)
     )
     np.savez_compressed(
         output / "prediction.npz",
-        observed_states=segment.states,
-        predicted_states=np.asarray(prediction.states),
-        predicted_latent_states=np.asarray(prediction.latent_states),
-        commands=segment.controls,
-        preceding_commands=segment.control_prefix,
-        exogenous=segment.exogenous[:-1],
-        time_s=segment.time_s,
+        past_states=past_states,
+        past_inputs=past_inputs,
+        future_inputs=future_inputs,
+        targets=query.states[p + 1 : p + h + 1],
+        prediction=forecast,
+        envelope_half_width=loaded.envelope(h),
     )
+    initial_report = evaluate(loaded, initial_evaluation)
+    write_json(output / "initial-evaluation.json", initial_report)
 
-    updated, update = belief.absorb(fresh_telemetry)
-    updated.save(output / "updated-belief.json")
-    updated_evaluation = evaluate(
-        updated,
-        [updated_test_flight],
-        horizons_s=HORIZONS_S,
-        report_path=output / "updated-evaluation.json",
-    )
-    # Comparing old and updated models on the same fresh flight isolates the
-    # model change. It does not use that flight to choose an update or refit.
-    prior_on_updated_test = evaluate(
-        belief,
-        [updated_test_flight],
-        horizons_s=HORIZONS_S,
-        report_path=output / "prior-on-updated-test.json",
-    )
+    revision = loaded.update(fresh)
+    if loaded.fingerprint() != original_fingerprint:
+        raise AssertionError("update changed the original model")
+    if revision.report["previous_revision"] != original_fingerprint:
+        raise AssertionError("updated model lost its predecessor identity")
+    revision.save(output / "updated-model.npz")
+    write_json(output / "update-fit.json", revision.report)
+
+    # Both models see identical untouched rows; neither learns from this check.
+    before = evaluate(loaded, evaluation)
+    after = evaluate(revision, evaluation)
+    write_json(output / "before-update.json", before)
+    write_json(output / "after-update.json", after)
     summary = {
-        "purpose": "synthetic_interface_walkthrough",
-        "family": family,
-        "configuration_id": belief.input_spec.vehicle.configuration_id,
-        "fit_steps": fit_steps,
+        "purpose": "generic_synthetic_interface_walkthrough",
+        "configuration_id": CONFIGURATION_ID,
+        "recipe": model.recipe["id"],
         "data_roles": {
-            "training": [0, 1],
-            "forecast_error_calibration": [2],
-            "initial_evaluation": [3],
-            "update": [4],
-            "updated_evaluation": [5],
+            "training": sorted(model.report["training"]),
+            "development": sorted(model.report["development"]),
+            "initial_evaluation": ["recording-3"],
+            "update": ["recording-4"],
+            "common_evaluation": ["recording-5"],
         },
-        "recording_content_sha256": [trajectory_content_digest(f) for f in flights],
-        "assumptions": {
-            "state_source": "simulator_truth",
-            "actuator_initialization": "estimated_from_preceding_commands",
-            "hardware_validation": False,
-            "independent_recordings": "separate_synthetic_seeds",
+        "original_fingerprint": original_fingerprint,
+        "updated_fingerprint": revision.fingerprint(),
+        "updated_previous_revision": revision.report["previous_revision"],
+        "original_unchanged": loaded.fingerprint() == original_fingerprint,
+        "prediction_shape": list(forecast.shape),
+        "common_evaluation": {
+            "metric": "final-step RMSE per observation channel over every complete window",
+            "channels": list(STATE_CHANNELS),
+            "before": before["aggregate"]["rmse"][-1],
+            "after": after["aggregate"]["rmse"][-1],
+            "automatic_adoption": False,
         },
-        "prediction": {
-            "horizon_s": len(segment.controls) * belief.sample_period_s,
-            "finite": bool(np.isfinite(prediction.states).all()),
-            "parameter_information_rank": prediction.parameter_information_rank,
-            "parameter_information_complete": prediction.parameter_information_complete,
-            "forecast_error_available": prediction.forecast_error_available,
-            "forecast_error_horizon_supported": prediction.forecast_error_horizon_supported,
-            "maximum_validity_utilization": float(
-                np.max(prediction.validity_utilization)
-            ),
-        },
-        "initial_evaluation": initial_evaluation["model"]["horizon_rollouts"],
-        "update": update.to_dict(),
-        "updated_model": {
-            "update_count": updated.update_count,
-            "parameter_distance_since_measurement": updated.parameter_distance_since_measurement,
-            "forecast_error_recalibrated": False,
-        },
-        "prior_on_updated_test": prior_on_updated_test["model"]["horizon_rollouts"],
-        "updated_evaluation": updated_evaluation["model"]["horizon_rollouts"],
+        "limits": "Synthetic interface fixture, not new-system or control validation.",
     }
-    save_report(summary, output / "summary.json")
+    write_json(output / "summary.json", summary)
     return summary
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--family", choices=["both", *GENERATORS], default="both")
     parser.add_argument("--output", type=Path, default=Path("artifacts/onboarding"))
-    parser.add_argument("--fit-steps", type=int, default=20)
     arguments = parser.parse_args()
-    if arguments.fit_steps < 1:
-        parser.error("--fit-steps must be positive")
-    families = GENERATORS if arguments.family == "both" else [arguments.family]
-    for family in families:
-        print(f"Running {family} onboarding walkthrough...", flush=True)
-        summary = run_family(
-            family, arguments.output / family, fit_steps=arguments.fit_steps
-        )
-        print(
-            json.dumps(
-                {
-                    "family": family,
-                    "finite_prediction": summary["prediction"]["finite"],
-                    "update_absorbed": summary["update"]["absorbed"],
-                    "summary": str(arguments.output / family / "summary.json"),
-                }
-            ),
-            flush=True,
-        )
+    summary = run(arguments.output)
+    print(
+        json.dumps(
+            {
+                "recipe": summary["recipe"],
+                "original_unchanged": summary["original_unchanged"],
+                "common_evaluation": summary["common_evaluation"],
+                "summary": str(arguments.output / "summary.json"),
+            }
+        ),
+        flush=True,
+    )
 
 
 if __name__ == "__main__":

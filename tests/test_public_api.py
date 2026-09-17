@@ -15,58 +15,11 @@ import glassbox
 # and removals are both deliberate edits here, so a name never enters or
 # leaves the public API by accident.
 EXPECTED_PUBLIC_API = (
-    # The telemetry a fit consumes, and the typed contract it carries.
-    "Channel",
-    "Trajectory",
-    "TrajectorySpec",
-    # The fit: one call, one spec, one outcome.
-    "FitOutcome",
-    "FitSpec",
-    "Holdout",
-    "LossPolicy",
-    "WeightingPolicy",
     "fit",
-    # The three parameter families and the two functions that execute them.
-    "BootstrapMultirotorParams",
-    "DynamicsParams",
-    "FixedWingDynamicsParams",
-    "ModelParams",
-    "rollout",
-    "step",
-    # The belief: one executable model, what the evidence resolved, and how
-    # wrong the forecasts have been.
-    "ActuationMap",
-    "DynamicsBelief",
-    "ExecutableModel",
-    "ForecastErrorEnvelope",
-    "NonActionableModelError",
-    "ParameterInformation",
-    "UpdateResult",
-    # Control: the plan-model seam, the solver behind it, and the bounded
-    # result every solve returns.
-    "BoundedShootingSolver",
-    "NMPCController",
-    "ConstrainedLeastSquaresPlanModel",
-    "PlanModel",
-    "PlanTerms",
-    "PlanValues",
-    "Prediction",
-    "ReferenceTrajectory",
-    "SafetyEnvelope",
-    "NonlinearFeasibility",
-    "SolveResult",
-    "SolveStatus",
-    "SolverPolicy",
-    "TrackingTolerances",
-    "plan_model",
-    # Learning a model in flight, and bounding the command that comes out.
-    "BootstrapEvidence",
-    "MultirotorFlightSupervisor",
-    "MultirotorSupervisorConfig",
-    "RecursiveBootstrapConfig",
-    "RecursiveBootstrapIdentifier",
-    "SupervisorMode",
-    "SupervisorReason",
+    "LearnedDynamics",
+    "SequenceCollection",
+    "SequenceSegment",
+    "segments_from_mask",
 )
 
 # Subpackages that a bare ``import glassbox`` must never pull in: workflows and
@@ -77,6 +30,11 @@ DEFERRED_SUBPACKAGES = (
     "integrations",
     "io",
     "workflows",
+    "experimental",
+    "belief",
+    "fitting",
+    "control",
+    "core",
 )
 
 
@@ -115,3 +73,38 @@ print(json.dumps(loaded))
         text=True,
     )
     assert json.loads(result.stdout) == []
+
+
+def test_public_fit_is_the_one_recipe_without_a_selector():
+    import inspect
+
+    from glassbox.learner import LearnedDynamics, fit
+
+    assert glassbox.fit is fit
+    assert glassbox.LearnedDynamics is LearnedDynamics
+    assert list(inspect.signature(glassbox.fit).parameters) == ["recordings"]
+    assert list(inspect.signature(glassbox.LearnedDynamics.update).parameters) == [
+        "self",
+        "recordings",
+    ]
+
+
+def test_replaced_root_names_and_module_paths_are_removed():
+    import importlib.util
+
+    for name in (
+        "FitSpec",
+        "DynamicsBelief",
+        "FitOutcome",
+        "DynamicsParams",
+        "NMPCController",
+    ):
+        assert not hasattr(glassbox, name)
+    for name in (
+        "default_model",
+        "sequence_model",
+        "sequence_collection",
+        "arrays",
+        "sequence_diagnostics",
+    ):
+        assert importlib.util.find_spec(f"glassbox.experimental.{name}") is None

@@ -11,9 +11,9 @@ import pytest
 
 from glassbox.control.plan import ReferenceTrajectory
 from glassbox.experimental import qualification_control as qualification
-from glassbox.experimental.default_model import RECIPE
 from glassbox.experimental.harness import control_reference
 from glassbox.experimental.learned_plan import observed_from_state, states_from_observed
+from glassbox.learner import RECIPE
 
 ROOT = Path(__file__).resolve().parents[1]
 CONTROL = json.loads((ROOT / "docs/harness/control-v5.json").read_text())

@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from glassbox.experimental.sequence_collection import (
+from glassbox.recordings import (
     SequenceCollection,
     SequenceSegment,
     SequenceWindows,

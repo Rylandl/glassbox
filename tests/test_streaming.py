@@ -12,8 +12,9 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from glassbox import DynamicsBelief, ExecutableModel, UpdateResult
-from glassbox.core.model import runtime_spec_from_trajectory
+from glassbox.belief.belief import DynamicsBelief
+from glassbox.belief.update import UpdateResult
+from glassbox.core.model import ExecutableModel, runtime_spec_from_trajectory
 from glassbox.core.synthetic import true_parameters
 from glassbox.workflows import refinement
 from glassbox.workflows.refinement import ForecastScore

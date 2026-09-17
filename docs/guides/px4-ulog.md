@@ -4,7 +4,7 @@ The ULog and SITL tools need the `px4` extra: `uv sync --extra px4`, or
 `pip install 'glassbox[px4]'`. `uv sync --dev` includes it.
 
 This guide covers inspecting and extracting PX4 ULogs into the canonical
-trajectory format, fitting a belief from what comes out, and recording a
+trajectory format, converting recordings for the generic learner, and recording a
 reproducible PX4 SIH simulator flight end to end. The numbers measured on PX4
 SITL corpora are on [validation](../validation.md#px4-sitl-corpora); recording
 one needs a simulator container, so they are prose rather than artifacts.
@@ -130,94 +130,84 @@ split, and `glassbox corpus list` renders with no optional extra installed.
 
 ## Fit from what came out
 
-```bash
-uv run glassbox fit artifacts/flight.npz \
-  --model artifacts/flight_model.json \
-  --report artifacts/flight_fit.json
+Extraction and corpus preparation write canonical flight-trajectory NPZ files.
+The public learner consumes generic recording collections. Convert named
+recordings explicitly, retaining one identity per source flight:
+
+```python
+from glassbox.core.data import load_trajectory_npz
+from glassbox.io.recordings import from_trajectories, save_recordings
+
+recordings = from_trajectories(
+    {
+        "flight-001": load_trajectory_npz("artifacts/flight-001.npz"),
+        "flight-002": load_trajectory_npz("artifacts/flight-002.npz"),
+    },
+    configuration_id="vehicle-revision-c",
+)
+save_recordings(recordings, "artifacts/calibration-recordings.npz")
 ```
 
-There are three holdout rules and one is always chosen. With one trajectory
-the fit is split chronologically, training on the first 70 percent
-(`--train-fraction`) and reserving the rest for a contiguous held-out rollout.
-With multiple trajectories the final complete source group is reserved when
-`source_group` labels separate the flights, and the final input trajectories
-in argument order otherwise (`--holdout-count`). `--holdout-profile` and the
-general `--holdout-label KEY=VALUE` instead reserve every flight whose label
-matches, whatever the argument order:
+The adapter builds 15 observed channels: world velocity, body rates and the
+nine body-to-world rotation entries. Recorded commands remain the inputs;
+position and training-only sensor channels are not predicted. It establishes
+a sample grid and splits invalid rows or timing gaps into segments, preserving
+source offsets. Input-channel identities preserve each command's name, unit,
+frame, semantic and role. These identities must match a loaded model's stored
+contract; do not relabel different signals to force acceptance. It does not
+select a model family.
+
+This adapter requires compatible canonical rigid-body trajectories without
+exogenous prediction inputs. A trajectory declaring wind or other exogenous
+inputs requires an explicit application adapter into the generic signal
+contract. Do not silently discard those inputs. Keep the configuration,
+channel order and sample grid identical across calibration, evaluation and
+updates.
+
+Fit the generic recipe:
 
 ```bash
-uv run glassbox fit artifacts/dataset_50hz/*_ground_truth.npz \
-  --holdout-count 2 \
-  --training-horizons 0.1,0.5,2.0 \
-  --evaluation-horizons 0.1,0.5,1.0,2.0 \
-  --model artifacts/multi_flight_model.json \
-  --report artifacts/multi_flight_report.json
+uv run glassbox fit artifacts/calibration-recordings.npz \
+  --model artifacts/model.npz --report artifacts/fit.json
 ```
 
-Every trajectory extracted from a PX4 ULog carries the source recording as its
-`source_group`. If telemetry gaps produce multiple retained intervals, those
-segments keep the same group, so a flight cannot leak across a source-level
-holdout.
+At least two distinct source recordings are required. The recipe automatically
+reserves development recordings and names them in its report. It does not
+split a single flight into nominally independent training and development
+recordings. Segments from one flight keep the same recording ID.
 
-`--training-horizons` expresses rollout lengths in seconds, so the objective is
-independent of telemetry sample rate. Every horizon is trained on its own
-initial-loss-normalized objective, and several comma-separated values combine
-those objectives with equal weight. Longer horizons directly penalize
-compounding rollout drift, while shorter horizons emphasize fast local
-dynamics. Multi-flight training gives every complete source group equal total
-loss weight and weights windows uniformly inside each group, so a long log
-cannot dominate and splitting one log around dropouts cannot increase its
-influence. `--duration-weighted-training` weights by extracted window count
-instead. One deterministic window budget governs both what the fitter extracts
-and what one gradient step processes; a corpus with fewer windows than the
-budget uses every valid one.
-
-`--holdout-profile` reserves an entire maneuver family rather than the last
-flight, which measures extrapolation to a type of motion absent from training:
+Reserve additional recordings for final evaluation, convert them to the same
+generic contract and save them as a separate collection:
 
 ```bash
-uv run glassbox fit artifacts/sitl/multirotor_v2/*_ground_truth.npz \
-  --holdout-profile combined \
-  --training-horizons 0.1,0.5,2.0 \
-  --model artifacts/sitl/profile_holdout_combined_model.json \
-  --report artifacts/sitl/profile_holdout_combined_report.json
+uv run glassbox evaluate artifacts/model.npz \
+  artifacts/evaluation-recordings.npz --report artifacts/evaluation.json
 ```
 
-When every input has a profile label, training first gives every included
-maneuver family equal total loss weight and then divides each family's weight
-equally among its replicate flights. To run every fold and write a macro
-summary instead of one fit, use the holdout runner:
+Evaluation uses every complete context and fitted-horizon window, reports
+per-channel/per-horizon RMSE against hold-current and measures the saved
+envelope's coverage. It rejects previously fitted recording identities or
+content. The public fit and evaluate commands have no holdout, model-family,
+optimizer or horizon-selection flags.
 
-```bash
-uv run glassbox evaluate --hold-out profile \
-  artifacts/sitl/multirotor_v2/*_ground_truth.npz \
-  --output-dir artifacts/sitl/profile_benchmark
+For a fresh update:
+
+```python
+from glassbox import LearnedDynamics
+from glassbox.io.recordings import load_recordings
+
+model = LearnedDynamics.load("artifacts/model.npz")
+revision = model.update(load_recordings("artifacts/new-recordings.npz"))
+revision.save("artifacts/updated-model.npz")
 ```
 
-The fit report contains aggregate and per-flight metrics for the complete
-rollout and each requested horizon. `--ablation no-lag` also fits an otherwise
-identical near-zero-lag model and reports the learned-lag improvement over it;
-with `--model` that ablation is written beside the belief.
-`--fixed-response-time-constant` pins the applied-control response instead of
-learning it, which is the cleaner baseline when the recorded input is measured
-actuator state rather than a command. `--diagnostics` additionally runs the
-one-step innovation and kinematic compatibility checks on every held-out
-flight and records them in the report; they are opt-in because they are
-telemetry auditing rather than a promotion criterion. Estimator filtering,
-closed-loop feedback and incompatible state channels can raise a correlation
-flag without implying a missing aerodynamic term.
+The original model stays fixed. Evaluate both revisions on the same untouched
+recordings before claiming improvement. See the
+[onboarding guide](platform-onboarding.md) for a runnable example and the
+[learner contract](../learner.md) for history and evidence semantics.
 
-Typed sensor channels such as specific force are recorded in the trajectory
-for telemetry auditing and are not used by the fitter. Model artifacts contain
-effective predictive coefficients, the exact runtime prediction contract, the
-training-only observation schema, fitting provenance, and the parameter
-information the fit resolved. That information records unresolved directions
-rather than turning a rank-deficient inverse into covariance, and the
-artifacts explicitly do not claim that effective coefficients are uniquely
-recovered physical parameters.
-
-Use `--include-ground` only with a model that includes ground-contact
-dynamics.
+`--include-ground` changes which telemetry survives extraction. Include the
+operating conditions you need in calibration and independent evaluation.
 
 ## Record a SITL flight
 
@@ -251,8 +241,8 @@ diluted by full-power takeoff samples.
 `GLASSBOX_PROFILE_CONDITIONS` and `GLASSBOX_PROFILE_INITIAL_YAWS` override the
 matrix, whose default is four profiles by three excitation conditions by two
 replicates. Each extracted artifact stores its maneuver family, excitation
-condition, replicate and initial-yaw variant in trajectory labels, which is
-what `--holdout-profile` and `--hold-out profile` later select on. The script
+condition, replicate and initial-yaw variant in trajectory labels. Preserve
+those source facts when choosing independent recording sets. The script
 refuses to overwrite an existing run directory.
 
 The script uses the same immutable multi-architecture PX4 SIH image digest as

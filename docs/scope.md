@@ -1,186 +1,105 @@
 # Scope
 
-Glassbox turns platform telemetry into differentiable effective dynamics,
-paired with evidence about their prediction quality and operating support.
-It currently supports quadrotor and fixed-wing model families. Its core workflow
-is to ingest telemetry, fit a model, evaluate reserved motion against a
-baseline, and update with new telemetry.
-
-The platform-level goal is to reduce the calibration data and engineering
-effort needed to make a new airframe or hardware revision useful to downstream
-control and autonomy. The model and its evidence are the deliverable. Control
-experiments measure whether that deliverable supports a declared capability.
-Reduced onboarding effort across heterogeneous platforms is an objective to
-measure; current results are recorded in [validation](validation.md).
+Glassbox learns a differentiable dynamics model from observed signals and
+commands using one maintained recipe. The public workflow is
+`fit(recordings)`, `model.predict(...)` and `model.update(recordings)`.
+The generic learner is adopted; current evidence and remaining gaps are in
+[status](status.md).
 
 ## Opinionated onboarding
 
-The [charter](charter.md) and [status](status.md) govern current work:
-one incumbent, a fixed acceptance contract, bounded implementation milestones,
-and explicit decisions that survive new sessions. Research investigations remain
-evidence; their historical next-step proposals are not an open-ended work queue.
+The [charter](charter.md) governs development. Callers supply observed and
+commanded signals, units, frames, a uniform sample interval, source recording
+boundaries and configuration identity. Glassbox owns scaling, context,
+representation, training windows, optimizer, checkpoint selection and
+revision-specific evidence. These are algorithm decisions, not a menu of
+onboarding options.
 
-Design decision, 14 September 2026: the product should provide one maintained
-model and training recipe through a small fit, predict, and update workflow.
-Success includes using that recipe on a new platform without choosing features,
-model families, optimizers, regularization strengths, or selection policies.
-Any internal adaptation is part of the versioned algorithm and is evaluated
-with it. Research variants are tools for settling design decisions, not a menu
-of supported onboarding configurations.
-
-The platform owner supplies facts: observed and commanded signals, their units
-and timing, recording boundaries, and configuration identity. A downstream
-consumer supplies its prediction request and performance requirements. Glassbox
-owns compatible-data checks, segment handling, scaling, temporal representation,
-fitting, validation against simple references, and revision-specific evidence.
-Routine use should not require callers to assemble windows or choose a guard.
-
-The generic learner should use one shared recipe across supported signal
-contracts, without caller-supplied quad or fixed-wing equations. A recipe may
-contain learned components, but its components and update rules are maintained
-as one model design. The target is a coherent executable dynamics model with
-one prediction/update contract. Independent horizon heads and selectors that
-combine incompatible outputs remain research diagnostics.
-
-Evaluate the entire default workflow, frozen before new-platform evaluation,
-under declared calibration budgets. Platform-specific tuning counts as
-additional onboarding work and a failure of the no-tuning target for that case.
-A change to the default is a versioned model change with regression evidence;
-it must not alter an already serialized model's behavior or evidence.
-
-Simple use must preserve honest failure behavior. Missing signal meanings,
-insufficient excitation, unsupported prediction conditions, or an update that
-has not been re-evaluated should be reported as concrete evidence limitations.
-The user should not need to tune the learner to discover them. A single
-confidence number or automatic claim of control readiness would not satisfy
-this contract.
-
-**Current status:** `fit(sources)` already supplies defaults and returns a
-`FitOutcome` containing a `DynamicsBelief`. The shipped model families remain
-structured, and `FitSpec` retains advanced controls. The experimental
-[generic learner](learner.md) is one recipe behind `fit`, `predict` and
-`update`, with automatic data handling and immutable batch updates, guarded by
-one frozen harness. It has not been measured against the structured model on
-any platform corpus and has never run in control, so it stays experimental and
-is not promoted to the supported workflow; [status](status.md) holds the gap.
-
-## Product boundary
-
-Glassbox owns signal and actuation contracts, dynamics identification,
-executable prediction, parameter evidence, forecast-error measurements, and
-updates with provenance. A fitted artifact should let a consumer determine
-what inputs it accepts, how to initialize and execute it, and what evidence
-exists for the requested prediction.
-
-State estimation, mission objectives, trajectory selection, hardware transport,
-and deployment decisions belong to consumers and integrations. The experimental
-control package provides a reference consumer of the same model interface.
-Using another controller should not require reimplementing actuator dynamics
-or interpreting serialized belief internals.
-
-The current structured implementation supports family-specific equations,
-actuator layouts, and feasible behaviors. Adding an airframe within a supported
-family primarily requires its signal contract and calibration data. Extending
-those structured families can require new equations and tests. Record that
-engineering work separately; the generic learning research targets the shared
-recipe described above.
-
-Limited calibration assumes a declared way to obtain informative telemetry.
-An existing stabilizer, pilot, state-estimation system, or test fixture is part
-of that starting point. Bootstrap identification is a separate experimental
-capability with its own assumptions. Neither fitting nor a successful rollout
-establishes that an arbitrary uncalibrated vehicle can be flown.
+One recipe is fitted separately to each system. Current measurements favor it
+over structured comparators on four of five flight corpora, with a known ARP
+deficit. This supports the adopted development direction; it does not establish
+transfer of one set of weights to arbitrary unseen systems.
 
 ## Inputs and models
 
-Inputs are actuator commands or measured actuation, paired with rigid-body
-state. `TrajectorySpec` records their roles, units, frames and timing. The
-canonical state uses NWU position and velocity, a WXYZ body-to-world quaternion,
-and FLU body rates.
+The public data types are `SequenceSegment` and `SequenceCollection`.
+A segment contains a finite observation array, commands aligned to its
+transitions and a sample interval. A collection preserves recording identities,
+contiguous segment boundaries, ordered channel descriptions and configuration
+identity. The [learner contract](learner.md#recording-contract) gives the array
+shapes and validation rules.
 
-The structured models describe thrust, aerodynamic and rotational acceleration,
-with actuator response and optional learned residuals. Fitted coefficients
-belong to an airframe and its signal contract. See [validation](validation.md)
-for the datasets, prediction horizons and comparisons measured so far.
+Observations may be any declared Euclidean signals. The learner does not
+require a vehicle family, rigid-body equations or a physical parameter
+catalog. Clock alignment, sensor validity and the meaning of commands are
+supplied by the caller. Missing intervals form separate segments; they are
+not filled with inferred observations.
 
-Configuration identity distinguishes airframes and revisions even when their
-channel schemas match. Reusing an earlier model can be an explicit starting
-point for identification; it does not transfer that model's validation evidence
-to a changed configuration. A shared workflow does not imply pooling telemetry
-from different configurations into one vehicle fit.
+`LearnedDynamics` carries the fitted recipe, prediction contract, measured
+error envelope and retained update data. Predictions are conditional on the
+provided future commands. Updates return a new revision and preserve the old
+one, with provenance linking the two.
+
+The generic recording NPZ format is owned by `glassbox.io.recordings`.
+Canonical flight trajectories from telemetry adapters remain a separate
+format. `from_trajectories` converts named canonical recordings to the
+established 15 observed channels with an explicit configuration ID.
+
+## Product boundary
+
+Glassbox owns validated recording collections, dynamics learning,
+differentiable forecasts, saved model revisions and forecast-error evaluation.
+Applications own calibration data collection, state estimation, future command
+requests, objectives, execution scheduling and model adoption.
+
+A stabilizer, pilot or test fixture used to gather data is a calibration
+dependency. Learning from those recordings does not establish that an unknown
+vehicle can safely collect its own data.
+
+Forecast error, envelope coverage and control adequacy are separate claims.
+The envelope's development data also select checkpoints; new-recording
+coverage is measured rather than guaranteed. Euclidean forecasts do not enforce
+physical constraints or prove support outside the observed conditions.
 
 ## Design
 
-Three objects carry the identification workflow:
-
-- `Trajectory`: the recorded signals and their meaning.
-- `ExecutableModel`: equations bound to input channels, sample period, actuation
-  mapping and a training-derived velocity/rate operating envelope.
-- `DynamicsBelief`: the model, local structured-parameter information and
-  empirical forecast error.
-
-Construct these objects where the fit or measurement produces them. Reports
-summarize results; serialization belongs at artifact boundaries. Prediction,
-parameter information and forecast error have different meanings and remain
-separate in the [belief API](concepts/dynamics-beliefs.md).
-
 | Responsibility | Owner |
 | --- | --- |
-| Signal contract and flight boundaries | `core.data`; source translation in `io` |
-| Fit orchestration and numerical optimization | `fitting` and `core.identification` |
-| Vehicle/actuator rollout and prediction errors | `core.dynamics` and `core.metrics` |
-| Parameter evidence, updates and forecast-error statistics | `belief` |
-| Scoring protocols and reserved-data evaluation | `workflows.evaluate` and `workflows.holdout` |
-| Planning, bootstrap and supervision | `control`; transport in `integrations` |
+| Public fit, prediction, immutable updates and saved revisions | `glassbox.learner` |
+| Recording/segment contracts and window provenance | `glassbox.recordings` |
+| Generic recording archives and explicit canonical conversion | `glassbox.io.recordings` |
+| Read-only held-out forecast evaluation | `glassbox.workflows.forecast` |
+| Frozen experiments and artifact replay | `glassbox.experimental.harness` and qualification tools |
+| Planning and transport consumers | `glassbox.control` and `glassbox.integrations` |
 
-Reuse these owners before introducing another representation or interface.
-Keep parameter updates and calibration on the same prediction equations used
-by evaluation. Split modules when responsibilities need independent ownership,
-not to distribute line count.
-
-Keep measured prediction error, local parameter information, and observed
-operating support distinguishable. In particular, unresolved parameter
-directions are unknown, an operating-envelope check is not an accuracy bound,
-and the current forecast-error second moments are not calibrated probability
-limits. Evidence belongs to the model revision and conditions at which it was
-measured. Updating parameters does not refresh those measurements.
+Structured dynamics, fitting, belief artifacts and their remaining consumers
+are still present in their owning modules for benchmarks and unmigrated
+integrations. They are outside the package-root consumer API. Their eventual
+removal remains part of the charter's lean criterion.
 
 ## Onboarding as the evaluation unit
 
-Evaluate the time and evidence needed to reach a predeclared downstream
-capability. Record required prior knowledge, calibration duration, engineering
-time, manual interventions, and held-out control performance. Compare an
-inherited or default model, the fitted model, and an expert-tuned reference
-where one is available. The expert reference provides performance context;
-onboarding effort is a separate outcome.
+Measure calibration data, prior knowledge, engineering effort and performance
+on untouched recordings and declared downstream tasks. Compare gains and
+losses against the adopted generic baseline with criteria chosen before
+fitting. A structured comparator is performance context; its failure or
+success does not define application sufficiency.
 
-Keep calibration, model selection, and final evaluation roles explicit. A
-platform benchmark must hold out airframes or revisions as well as flights,
-freeze the workflow before evaluation, and record platform-specific changes.
-Ordinary flight holdout measures performance on new flights of the fitted
-vehicle; it does not demonstrate onboarding a new vehicle.
+Whole-recording holdout measures a fitted system on fresh recordings. Claims
+about onboarding new systems additionally require held-out systems and a
+frozen workflow. Keep repeated model selection separate from final evaluation.
 
-Implemented and proposed ergonomic changes, with their acceptance criteria,
-are described in [platform onboarding interfaces](platform-onboarding.md).
-The [onboarding walkthrough](guides/platform-onboarding.md) exercises the
-current API; further proposals are marked separately.
+The [onboarding contract](platform-onboarding.md) assigns responsibilities, and
+the [runnable guide](guides/platform-onboarding.md) shows the public API.
 
-## Downstream work
+## Downstream work and evidence
 
-NMPC, bootstrap identification and simulator integrations are experimental
-consumers of the belief. The current PX4 link is read-only. Controller results
-are simulation experiments, with no flight-safety or hard real-time guarantee.
-Their interfaces and experiments are described under [NMPC](concepts/nmpc.md)
-and [bootstrap identification](concepts/bootstrap-identification.md).
+Control, bootstrap identification and live model swapping remain experimental
+consumers. The current generic learner and even the accurate-dynamics
+qualification of its retained controller miss the application tracking
+criterion. Adoption of the generic API does not change those results.
 
-Prioritize the identification workflow over additional controller features or
-integration surfaces. Keep research variants tied to their experiments rather
-than extending the production API to accommodate each one.
-
-## Evidence
-
-[Validation](validation.md) owns the recorded comparisons and their artifact
-links. [Contributing](../CONTRIBUTING.md#recorded-results) describes reproduction.
-The [literature review](literature-review.md) and investigation pages retain
-experimental decisions; the [original proposal](history/idea-2026-08.md) is
-historical background.
+[Status](status.md) records current evidence and replay instructions.
+[Validation](validation.md) and the research reports retain historical
+benchmarks. [Contributing](../CONTRIBUTING.md#recorded-results) describes their
+artifact procedures.

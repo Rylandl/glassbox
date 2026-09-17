@@ -176,7 +176,7 @@ def evaluate_holdout(
     """Fit one fold per distinct value of a holdout label and summarize them.
 
     ``hold_out`` names the label the folds are keyed by, either as the key
-    itself or as the :class:`~glassbox.Holdout` rule that carries it; every
+    itself or as the :class:`~glassbox.fitting.Holdout` rule that carries it; every
     distinct value of that label becomes one fold that reserves every flight
     carrying it. ``spec`` shapes each fold's fit, except for its holdout rule,
     which the fold supplies.

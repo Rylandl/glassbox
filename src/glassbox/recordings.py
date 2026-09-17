@@ -15,7 +15,7 @@ from itertools import pairwise
 
 import numpy as np
 
-from .sequence_model import SequenceBatch
+from ._sequence_model import SequenceBatch
 
 
 def _positive_int(value):

@@ -14,7 +14,6 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from glassbox import cli
 from glassbox.belief.belief import DynamicsBelief
 from glassbox.belief.belief_io import save_dynamics_belief
 from glassbox.core.data import (
@@ -41,6 +40,7 @@ from glassbox.io.x8_reference import (
 from glassbox.workflows.evaluate import (
     PROTOCOLS,
     evaluate,
+    evaluate_fit_reports,
 )
 
 PINNED_NANODRONE = {
@@ -335,25 +335,14 @@ def test_x8_policy_reproduces_the_campaign_protocol(tmp_path) -> None:
 
 def test_windowed_policy_reproduces_the_same_flight_characterization(
     tmp_path,
-    capsys,
 ) -> None:
     reports = _epfl_fit_reports(tmp_path)
-    output = tmp_path / "comparison.json"
-    cli.main(
-        [
-            "evaluate",
-            "--fit-reports",
-            *(f"{name}={path}" for name, path in reports.items()),
-            "--horizons",
-            "0.2,0.5,1,2",
-            "--score-horizons",
-            "0.5,1,2",
-            "--report",
-            str(output),
-        ]
+    report = evaluate_fit_reports(
+        reports,
+        protocol="windowed",
+        horizons_s=(0.2, 0.5, 1.0, 2.0),
+        score_horizons_s=(0.5, 1.0, 2.0),
     )
-    report = json.loads(output.read_text())
-    assert f"selected={report['selected_model']}" in capsys.readouterr().out
 
     assert report["protocol"] == "windowed"
     assert report["stride"] == "one_horizon"

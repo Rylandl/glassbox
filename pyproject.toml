@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "glassbox"
 version = "0.3.0rc1"
-description = "Telemetry-driven differentiable vehicle dynamics identification"
+description = "Generic differentiable dynamics learning from observed signals and commands"
 readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE", "NOTICE"]

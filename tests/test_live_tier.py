@@ -608,7 +608,7 @@ def _trajectory(seed, rows=CALIBRATION_ROWS):
 @pytest.fixture(scope="module")
 def learned():
     """One really fitted generic learner on the contract this tier requires."""
-    from glassbox.experimental.default_model import fit
+    from glassbox.learner import fit
 
     manifest = harness.frozen_live_manifest(MANIFEST)
     with jax.enable_x64(True):
@@ -795,7 +795,7 @@ def calibrated():
     The replay ties the fit to the recordings it was fitted on, so a fabricated
     run has to be fitted the way a real one is.
     """
-    from glassbox.experimental.default_model import fit
+    from glassbox.learner import fit
 
     manifest = harness.frozen_live_manifest(MANIFEST)
     training = [f"recording-{s}" for s in manifest["calibration"]["training_seeds"]]
@@ -1295,9 +1295,9 @@ def test_one_short_live_trial_streams_refits_and_may_swap(tmp_path):
     """One short paced trial end to end: the transport, the refits, the metrics."""
     pytest.importorskip("cascade")
     from glassbox.belief.belief_io import load_dynamics_belief  # noqa: F401
-    from glassbox.experimental.default_model import fit
     from glassbox.fitting import FitSpec, Holdout
     from glassbox.fitting import fit as structured_fit
+    from glassbox.learner import fit
 
     manifest = copy.deepcopy(harness.frozen_live_manifest(MANIFEST))
     manifest["calibration"]["duration_s"] = 3.0
@@ -1389,9 +1389,9 @@ def test_one_short_live_trial_streams_refits_and_may_swap(tmp_path):
 def test_a_frozen_arm_runs_the_same_learner_and_never_swaps(tmp_path):
     """The reference arm pays the same compute and is offered nothing."""
     pytest.importorskip("cascade")
-    from glassbox.experimental.default_model import fit
     from glassbox.fitting import FitSpec, Holdout
     from glassbox.fitting import fit as structured_fit
+    from glassbox.learner import fit
 
     manifest = copy.deepcopy(harness.frozen_live_manifest(MANIFEST))
     manifest["calibration"]["duration_s"] = 3.0

@@ -1,4 +1,4 @@
-"""The public coordinator preserves fitting semantics across storage forms."""
+"""The structured benchmark fitter preserves semantics across storage forms."""
 
 from dataclasses import replace
 from pathlib import Path
@@ -6,13 +6,12 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from glassbox import FitSpec, Holdout, fit
 from glassbox.core.data import (
     resolve_trajectory_sources,
     save_trajectory_npz,
     trajectory_content_digest,
 )
-from glassbox.fitting import fit_report_digest
+from glassbox.fitting import FitSpec, Holdout, fit, fit_report_digest
 
 
 @pytest.mark.parametrize("family", ["quadrotor", "fixedwing"])

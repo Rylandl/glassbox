@@ -55,14 +55,14 @@ from pathlib import Path
 
 import numpy as np
 
-from .default_model import (
+from ..learner import (
     RECIPE,
     LearnedDynamics,
     excitation_fraction,
     fit,
     steps_for,
 )
-from .sequence_collection import (
+from ..recordings import (
     SequenceCollection,
     SequenceSegment,
     segments_from_mask,
