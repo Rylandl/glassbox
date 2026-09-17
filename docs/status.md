@@ -4,9 +4,12 @@ Updated 2026-09-17. **The generic approach is adopted as the development
 baseline.** The user prioritizes generality over superiority on every corpus;
 the four-corpus advantage justifies accepting the known ARP deficit. This is
 an explicit policy decision on existing evidence, not a new experimental
-pass. The adopted learner is `generic-memory-v3-prototype`, code from
-`98f77d3` on `experiment/generic-transition-support`. Public API migration
-from the structured stack remains to be done.
+pass. The adopted learner remains `generic-memory-v3-prototype`. Its recipe
+and numerical logic from `98f77d3` now serve the public `glassbox.fit` API;
+the returned `LearnedDynamics` provides `predict` and `update`. Generic
+recording archives also serve the public fit/evaluate commands. Structured
+code remains in its owning modules for benchmarks and unmigrated control
+consumers.
 The latest rejected learner remains isolated on `codex/full-response-identification`
 at `5467943`, with same-data comparator `codex/independent-calibration` at `7c82db9`.
 Read [the charter](charter.md) first. Git holds the experiment history;
@@ -14,7 +17,7 @@ this page records the current evidence, limitations and next named gap.
 
 | Criterion | Current | Target |
 | --- | --- | --- |
-| One recipe | **Recipe met; public migration pending.** One fixed `generic-memory-v3-prototype` recipe; option-free `fit`, `predict`, `update`, with saved forecast envelopes. It lives under `experimental`; the public API still exposes the structured stack. | One generic learner and consumer contract. |
+| One recipe | **Met.** The public API and fit/evaluate commands use the single `generic-memory-v3-prototype` recipe. `fit`, `predict` and `update` have no tuning or model-selection options. Replaced experimental module paths and structured root exports are removed. | One generic learner and consumer contract. |
 | Accuracy | **Adopted with a known tradeoff.** Four of five corpora beat the structured comparator on both metrics, including under the corrected prefix-percentile readout. ARP loses both; this does not block adoption. | Broad competitive performance from one recipe; improve weak cases and establish task sufficiency separately. |
 | Capability | **Met.** All 27 frozen synthetic cases pass; saved models replay and reject alteration. This is a regression guard, not platform readiness. | Every synthetic absolute cap passes. |
 | Control | **Not met.** Generic position RMSE 60.80/49.31 m versus structured 1.179/1.179 m. This compares complete pipelines: generic plans 250 ms, structured 800 ms. Both structured trials also fail the application tracking criterion. | Meet the declared application tracking requirement; use structured and oracle arms diagnostically. |
@@ -89,7 +92,43 @@ repair correctness without improving the unresolved model-adequacy metrics.
 Validation after the repairs: 1,183 tests passed, three skipped and 24
 slow/Cascade/PX4-SITL tests deselected; lint and formatting passed.
 
-## Latest measured iteration: evaluation qualification
+## Latest iteration: public API adoption
+
+The migration contract was frozen at `1f54940`, implementation `12d6df7`.
+The learner now lives in `glassbox.learner`, with recording types in
+`glassbox.recordings` and numerical
+helpers kept private. Its recipe, artifact format and numerical logic are
+unchanged. Python and CLI consumers use the generic path; the CLI reads
+fingerprinted recording archives, and an explicit telemetry adapter preserves
+recording boundaries and channel identities. Evaluation scores untouched
+recordings without fitting. Structured benchmark consumers import their owning
+modules instead of the replaced public API.
+
+The fixed same-host fit/save/load/update experiment produces exactly the same
+models, fingerprints, reports, caches, envelopes and forecasts before and after
+migration. All 33 pinned generic artifacts load with unchanged identity, and
+all 60 public forecast datasets match their saved values exactly. Independent
+historical replay retains the original synthetic and platform decisions:
+27 synthetic cases / 54 replays and five corpora / 17 replays. These checks
+establish API migration parity, not improved accuracy or task readiness.
+
+The telemetry adapter normalizes timestamp roundoff when inferring a sample
+grid and carries command units, frames and semantics in its channel identities.
+Explicit generic sample intervals remain exact. Renamed or resegmented data
+are not proof of independence: the evaluator reports its ID/content checks
+without claiming independent recordings. The walkthrough exercises the same
+public API and CLI, including comparisons on common untouched rows after an
+update.
+
+Validation: **1,287 tests pass**, three skip and 27 slow/Cascade/PX4-SITL tests
+are deselected (756.50 seconds). The runnable onboarding example and public CLI
+fit/evaluate smoke checks pass.
+Saved replay rejects both a forged summary and an altered forecast even when
+their outer hashes are recomputed. Ruff lint and formatting checks pass.
+This iteration does not rerun the slow benchmark fits, Cascade control trials
+or PX4 SITL tests.
+
+## Control qualification evidence
 
 The no-fit protocol was frozen at `f844d2f`. It pins 32 existing input files
 and the historical source contracts, preserves every old gate, and separates
@@ -176,6 +215,13 @@ diagnostics and their scripts are in `calibration-response-diagnostic`,
 `command-moment-diagnostic` and `assignment-objective-diagnostic` under the
 same local artifact root.
 
+Public migration evidence is in `generic-public-api-baseline`,
+`generic-public-api-candidate`, `generic-public-api-replay` and
+`generic-public-onboarding` under the same dated root. Comparison, source-audit
+and verification reports sit beside them. The baseline capture ran on
+`3ab800f`; the public implementation is `12d6df7`. Neither replay requires
+refitting the learner.
+
 From disposable checkouts of the matching source commits, without refitting:
 
 ```sh
@@ -192,23 +238,17 @@ PYTHONPATH=src python -m glassbox.experimental.harness verify /absolute/path/to/
 # No fit; prospective replay also recomputes optimizer outputs.
 PYTHONPATH=src python -m glassbox.experimental.qualification verify /absolute/path/to/evaluation-reference-audit
 PYTHONPATH=src python -m glassbox.experimental.qualification verify /absolute/path/to/evaluation-qualification-fixed
+# Public API migration: checkout 12d6df7 (or this accepted merge); no refit.
+PYTHONPATH=src python -m glassbox.experimental.api_migration compare --baseline /absolute/path/to/generic-public-api-baseline --candidate /absolute/path/to/generic-public-api-candidate
+PYTHONPATH=src python -m glassbox.experimental.api_migration verify /absolute/path/to/generic-public-api-replay --artifacts /absolute/path/to/artifacts/2026-09-17
 ```
 
 ## Next named gap
 
-**Public API adoption: make the adopted generic learner the primary
-`fit` / `predict` / `update` consumer path.** The current public exports still
-serve structured fitting while the chosen learner lives in `experimental`.
-Freeze a migration contract before changing that surface: preserve the
-generic recipe's predictions, updates and artifact replay, migrate its
-consumers, and remove replaced APIs rather than adding a model selector.
-The structured implementations remain only where an unmigrated consumer or
-benchmark still requires them. Winning ARP and qualifying control are not
-prerequisites for beginning this migration.
-
-Control remains a separate measured gap in the adopted approach. Before
-another learner loss change, qualify the objective and task relationship
-with accurate dynamics through the generic controller. Horizon, finite
+**Control qualification: establish task success with accurate dynamics through
+the adopted generic controller.** Audit the objective and task relationship
+with the oracle before another learner loss change. Horizon, finite
 optimization, objective tradeoffs, state mapping and stopping behavior remain
 possible contributors. The large generic-to-oracle gap separately motivates
-improving the learner. Neither gap blocks adopting the generic approach.
+improving the learner. This work develops the adopted approach; it does not
+reimpose superiority on every corpus as an adoption requirement.
