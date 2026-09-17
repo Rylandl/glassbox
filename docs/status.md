@@ -1,27 +1,30 @@
 # Status: gap against the charter
 
-Updated 2026-09-17. Accepted code is `98f77d3` on
-`experiment/generic-transition-support`. The latest rejected model experiment
-remains isolated on `codex/full-response-identification` at `5467943`;
-its same-data comparator is `codex/independent-calibration` at `7c82db9`.
+Updated 2026-09-17. The accepted learner remains the code from `98f77d3` on
+`experiment/generic-transition-support`; this iteration adds evaluation only.
+The latest rejected learner remains isolated on `codex/full-response-identification`
+at `5467943`, with same-data comparator `codex/independent-calibration` at `7c82db9`.
 Read [the charter](charter.md) first. Git holds the experiment history;
 this page records the current evidence, limitations and next named gap.
 
 | Criterion | Current | Target |
 | --- | --- | --- |
 | One recipe | **Met.** One fixed `generic-memory-v3-prototype` recipe; option-free `fit`, `predict`, `update`, with saved forecast envelopes. The public structured stack remains necessary. | One generic learner and consumer contract. |
-| Accuracy | **Not met.** Fresh platform-v4 measurement reproduces all ten reference metrics exactly; four of five corpora beat the structured comparator. ARP fails velocity and body rate. | Beat the structured comparator on every pinned corpus and meet each task allowance. |
+| Accuracy | **Broad progress; replacement across all pinned cases not met.** Four of five corpora beat the structured comparator on both metrics, including under the corrected prefix-percentile readout. ARP loses both. | Beat the structured comparator on every pinned corpus; establish task sufficiency separately. |
 | Capability | **Met.** All 27 frozen synthetic cases pass; saved models replay and reject alteration. This is a regression guard, not platform readiness. | Every synthetic absolute cap passes. |
-| Control | **Not met.** Fresh control-v5 baseline: generic position RMSE 60.80/49.31 m versus structured 1.179/1.179 m; attitude 97.18/86.51° versus 1.32/1.28°. | Meet or beat the matched structured arm on every trial. |
+| Control | **Not met.** Generic position RMSE 60.80/49.31 m versus structured 1.179/1.179 m. This compares complete pipelines: generic plans 250 ms, structured 800 ms. Both structured trials also fail the separate application tracking criterion. | Meet or beat the structured arm on every trial; report actual task success separately. |
 | Live improvement | **Not met.** Last live-v3 evidence swaps at intervals 140/220; position error rises from 0.80/0.98 m before the swap to 36.1/11.8 m afterward. Not rerun today. | Bounded refits and swaps that do not worsen tracking. |
-| Evidence | **Not met.** The 85–95% coverage band still fails on ARP, the reserved control recording and shifted synthetic regimes. The controller consumes the envelope, but its plan-independent cost cannot select a better command. | Measured coverage in the declared band, useful to control. |
+| Evidence | **Not met.** The 85–95% coverage band still fails on ARP, the reserved control recording and shifted synthetic regimes. Constant spread cannot rank command plans, but can affect finite-iteration stopping through the absolute objective. | Measured coverage in the declared band, useful to control. |
 | Lean | **Not met.** Generic research code was reduced; structured dynamics, fitting, belief code and their supporting scripts remain. | Learner, harness, telemetry adapters and controller only. |
 
 ## Current platform evidence
 
 Whole recordings are held out; both arms forecast identical rows and commands.
 Final-step RMSE is at the recipe's approximately 250 ms horizon on each sample
-grid. Values below are generic / best structured comparator.
+grid. Values below are generic / best structured comparator per metric;
+the best structured arm can differ between metrics, so this benchmark envelope
+is not itself one deployable model. One generic recipe is fitted separately to
+each system; these are not shared weights applied unseen to five systems.
 
 | Corpus | Velocity, m/s | Body rate, rad/s |
 | --- | --- | --- |
@@ -31,9 +34,20 @@ grid. Values below are generic / best structured comparator.
 | epfl | 0.146 / 0.526 | 0.070 / 0.217 |
 | arp | **0.176 / 0.174** | **0.715 / 0.285** |
 
-All declared task allowances hold. ARP still loses to hold-current as well
-(0.149 m/s, 0.362 rad/s). Acceptance means no frozen regression, not that the
-charter target is met. The active protocols are [synthetic v1](harness/v1.json),
+These are pooled endpoint component RMSEs. The old platform ceilings came from
+descriptive model-error percentiles, not application requirements, and used a
+different statistic. On the original statistic (worst recording's nearest-rank
+95th percentile of maximum whole-prefix vector error), X8 body rate is
+**0.888 rad/s versus the historical 0.764 ceiling**. IDF and EPFL have no declared
+ceiling. No task sufficiency follows from these comparisons. ARP also loses to
+hold-current (endpoint 0.149 m/s, 0.362 rad/s).
+
+The generic recipe wins both metrics on four corpora and the structured
+comparators win on ARP; neither dominates everywhere. Reversing the incumbent
+does not change this tradeoff. Historical acceptance is a no-regression check,
+while the charter's all-corpus target is replacement across all pinned cases.
+No aggregate tradeoff weights have been chosen from these known scores. The active model
+protocols remain [synthetic v1](harness/v1.json),
 [platform v4](harness/platform-v4.json), [control v5](harness/control-v5.json),
 [live v3](harness/live-v3.json) and [evidence v2](harness/evidence-v2.json).
 
@@ -62,42 +76,52 @@ repair correctness without improving the unresolved model-adequacy metrics.
 Validation after the repairs: 1,183 tests passed, three skipped and 24
 slow/Cascade/PX4-SITL tests deselected; lint and formatting passed.
 
-## Latest iteration: rejected
+## Latest iteration: evaluation qualification
 
-The full-response identification objective was frozen at `10627a1`, with a
-physical-unit clarification at `700d8ab`, before fitting implementation
-`5467943`. It adds one full-model, one-step residual assignment-moment term to
-the existing multistep loss. It uses the raw pre-clipping randomized assignment
-on the existing forecast origins; architecture, optimizer, seeds, data, splits
-and numerical gates are unchanged. Training and development projections are
-separate; the reserved recording never selects the checkpoint. The synthetic
-gate passes all 27 cases with exact numerical parity to the accepted learner
-where assignment metadata is absent. Control rejects: generic position RMSE
-is **89.89/102.62 m** and attitude **107.58/114.73°**, versus the accepted
-baseline's **60.80/49.31 m** and **97.18/86.51°**. The structured arm is
-unchanged from the same-data comparator at **0.819/0.815 m** and **1.20/1.18°**.
-Four control-reference checks, four coverage-excess regression checks and one
-new gating coverage-band check fail; there are no structural breaches. No
-platform or live candidate run followed the rejection. The model is not merged.
+The no-fit protocol was frozen at `f844d2f`. It pins 32 existing input files
+and the historical source contracts, preserves every old gate, and separates
+historical no-regression, comparative progress and application success. Its
+retrospective report recomputes the original per-recording prefix statistic
+for every saved platform predictor. The four-versus-one result is explicitly
+symmetric: neither predictor dominates everywhere, and the win count alone
+ignores the sizes of the gains and losses. This iteration chooses no aggregate
+promotion weights from previously inspected scores.
 
-Matched saved-model diagnostics isolate the objective's effect from the prior
-calibration change. Against `7c82db9` on identical recordings, windows and
-normalizers, assignment-moment energy falls **30.0/2.3/5.4%** on
-training/development/reserved data. One-step normalized MSE improves by less
-than 0.4%, but multistep MSE worsens **0.84/0.64/0.25%**; even the new combined
-objective is slightly worse on every split. Both models select step 100. At
-the identical steady-input query, 250 ms roll/pitch drift improves slightly
-from -0.0802/+0.0843 to -0.0788/+0.0813 rad/s, while vertical-velocity drift
-worsens from -0.0351 to -0.0398 m/s. These are model diagnostics, not measured
-plant derivatives or proof of what caused the tracking failure.
+The prospective test substitutes public Cascade equations for the generic
+observed-channel mean, keeping its 250 ms horizon, five command blocks, four
+solver iterations, two warm-up holds, state reconstruction, task and borrowed
+covariance offset. The oracle's hidden state is initialized at the declared
+actuator equilibrium and advanced only by issued commands. A second arm uses
+the saved structured model at the same horizon and warm-up, retaining its own
+adapter and support penalty; that remains a contextual comparison. All four
+trials complete. Oracle position component RMSE is **0.565/0.457 m**, versus
+**60.80/49.31 m** for the saved generic arm. The oracle meets the actual
+±0.5 m lateral-and-altitude criterion in only **120/281 and 73/281 samples**
+(**42.7/26.0%**, required 95%). Its lateral RMSE is **0.937/0.725 m** and
+altitude RMSE **0.215/0.185 m**. The structured model at 250 ms scores
+**1.816/1.795 m**, with **9/281 and 0/281** qualifying samples.
 
-All 54 synthetic artifact replays and four control trial replays pass. Altered
-model, requested assignment, diagnostic and frozen-plan copies are rejected,
-including forged file hashes. Focused objective, data/archive, harness and
-evidence tests pass; lint and formatting pass. The 1,183-test count above
-belongs to the accepted repairs, not a new full-suite run. The latest candidate
-retains its separate v4 archive format and control-v7/live-v5 contracts only
-in its worktree.
+The learner's mean remains a major measured weakness, but accurate observed
+predictions through the retained state map are insufficient for this
+controller to meet the task. The historical 800 ms structured comparator
+also misses the task (0/281 qualifying samples in both trials). These are two
+previously declared initial conditions in one deterministic simulator, not
+an estimate of performance on arbitrary systems. No learner was fitted or
+selected, and no old acceptance decision changed.
+
+The four trials ran at `0dd094b`; verifier `2500607` checks the same saved
+artifacts without fitting or rerunning trials. All 47 qualification tests pass
+in the pinned Linux environment. Four plant trajectories replay exactly;
+636 oracle forecasts and 636 optimizer solves verify, with exact reproduced
+objectives. Seven altered prospective artifact copies and three altered
+retrospective copies are rejected, including forged outer hashes. The
+verifier corrections preserve every frozen numerical tolerance. All 15
+pinned inherited source files and the original numerical gates are unchanged.
+
+The last learner candidate remains rejected at `5467943`: the one-step
+assignment-moment objective reduced assignment-correlated errors but worsened
+multistep prediction and control. Its source remains isolated. This evaluation
+iteration does not reverse that result or call the generic approach a failure.
 
 ## Constraints established by prior measurements
 
@@ -127,8 +151,11 @@ in its worktree.
 Local runs live under `artifacts/2026-09-17/`: `slow-sampling`, `platform-pins`,
 `control-baseline-fixed`, `independent-calibration-control`,
 `full-response-identification-synthetic` and
-`full-response-identification-control`. Verify/tamper reports sit beside their
-run directories. Platform and control runs also live on ryserv under
+`full-response-identification-control`, `evaluation-reference-audit` and
+`evaluation-qualification-fixed`. Verify/tamper reports sit beside their run
+directories. The earlier `evaluation-qualification` attempt stopped on a
+numerical construction mismatch and supplies no accepted outcome. Platform
+and control runs also live on ryserv under
 `/home/ryland/autonomy/glassbox-evidence/2026-09-17/`.
 Use the original Linux environment for authoritative control replay; existing
 sine regeneration has last-bit libm differences on macOS. Read-only model
@@ -148,15 +175,19 @@ PYTHONPATH=src python -m glassbox.experimental.harness verify /absolute/path/to/
 # Latest rejected experiment: checkout 5467943; its archives use recipe v4.
 PYTHONPATH=src python -m glassbox.experimental.harness verify /absolute/path/to/full-response-identification-synthetic
 PYTHONPATH=src python -m glassbox.experimental.harness verify /absolute/path/to/full-response-identification-control
+# Qualification trials: 0dd094b; use verifier 2500607 (or this accepted merge).
+# No fit; prospective replay also recomputes optimizer outputs.
+PYTHONPATH=src python -m glassbox.experimental.qualification verify /absolute/path/to/evaluation-reference-audit
+PYTHONPATH=src python -m glassbox.experimental.qualification verify /absolute/path/to/evaluation-qualification-fixed
 ```
 
 ## Next named gap
 
-**Control: multistep forecast fidelity beyond unconditional one-step assignment
-moments.** The objective reduced assignment-correlated residuals without
-improving error growth over the controller's horizon. The next iteration must
-address coupled forecast error at steady inputs and under command changes,
-while preserving nonlinear, state-dependent behavior. No further mechanism,
-threshold change or parameter sweep has been selected. This result does not
-establish a need for a platform catalog. Accuracy, live improvement, evidence
-and lean remain open.
+**Control evaluation: establish task success with accurate dynamics through
+the generic controller before treating task failure as a learner-only
+readiness verdict.** Audit the objective and task relationship with the oracle
+before another learner loss change. Horizon, finite optimization, objective
+tradeoffs, state mapping and stopping behavior remain possible contributors;
+this iteration does not select a remedy. The large generic-to-oracle gap
+remains a separate reason to improve the learner. Comparative progress across
+corpora remains visible independently of the all-pinned-cases target.
