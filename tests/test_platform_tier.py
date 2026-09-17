@@ -27,7 +27,7 @@ from glassbox.experimental.sequence_model import (
     sequence_windows,
 )
 
-MANIFEST = Path(__file__).resolve().parents[1] / "docs/harness/platform-v3.json"
+MANIFEST = Path(__file__).resolve().parents[1] / "docs/harness/platform-v4.json"
 REFERENCE = MANIFEST.parent / "platform-reference.json"
 DT_S = 0.02
 TOLERANCE = 0.001
@@ -598,10 +598,10 @@ def reference_from(rows):
 
 
 def test_the_committed_platform_reference_carries_the_merged_numbers(manifest):
-    """The reference is platform-v2's, forward unchanged but for its manifest id."""
+    """The reference scores are unchanged; v4 binds the canonical recording content."""
 
     reference = harness.read(REFERENCE)
-    assert reference["manifest"] == manifest["id"] == "glassbox-harness-platform-v3"
+    assert reference["manifest"] == manifest["id"] == "glassbox-harness-platform-v4"
     assert reference["final_step_rmse"]["arp"]["body_rate_rmse_rad_s"] == pytest.approx(
         0.7154644403799479
     )
@@ -669,65 +669,25 @@ def test_a_platform_reference_value_that_is_not_a_number_fails_closed(manifest, 
     json.dumps(decision, allow_nan=False)
 
 
-PLATFORM_V2_SHA256 = "f4796e1a1bc2120aa0c00067853f13bf2004cf00ca9c5b34322daf0b7ce2f3ac"
-"""The digest of the deleted platform-v2.json, whose protocol v3 carries."""
-
-PLATFORM_V3_EDITS = (
-    (
-        '  "id": "glassbox-harness-platform-v3",\n',
-        '  "id": "glassbox-harness-platform-v2",\n',
-    ),
-    (
-        '    "gates_merges_from": "this manifest. A run is accepted only when no metric'
-        " regresses past its reference value times 1.05 plus 0.005, the rule holds on"
-        " every case the reference already meets it on, and nothing structural fails."
-        " A case the reference already fails is reported, not gated: an enforced rule"
-        " the incumbent does not meet would block every change rather than measure"
-        ' one.",\n'
-        '    "rule_met": "Reported separately from the decision, on every run. The'
-        " accuracy row of docs/status.md is met only when the rule holds on every case,"
-        ' which is a stronger statement than an accepted run.",\n',
-        '    "gates_merges_from": "this manifest. The rule is a gate: a run is accepted'
-        " only when every declared corpus is present once, fitted, and scored with"
-        " finite numbers on rows inside the declared budget, and every corpus meets the"
-        ' rule.",\n',
-    ),
-    (
-        '    "gates_the_rule": "The same recorded value decides which cases the rule'
-        " gates. A corpus and metric whose reference value is itself at or below this"
-        " run's comparator and the declared allowance is a case the reference meets, and"
-        " the rule is a gate there; a case the reference already fails is reported only."
-        " With no reference compared there is no case the reference meets, and the rule"
-        ' is reported everywhere."\n',
-        "",
-    ),
-    (
-        'believing it.",\n',
-        'believing it."\n',
-    ),
-)
+PLATFORM_V3_SHA256 = "74722a9f23eeb3eeacc2d5faefab5bd2c126d60927525eceb306494a6cbf1d79"
+"""The digest of the deleted platform-v3.json, whose protocol v4 carries."""
 
 
-def test_the_committed_manifest_carries_platform_v2s_protocol_byte_for_byte():
-    """Undoing the decision edits reproduces the deleted platform-v2 exactly.
+def test_the_committed_manifest_preserves_every_platform_v3_numerical_gate():
+    """Only the version and content binding change; v3 is otherwise identical."""
 
-    The corpora, the holdouts, the strides, the allowances and the arms cannot
-    have moved, because reversing the id and the two decision blocks recovers
-    v2's own digest from v3's bytes.
-    """
-
-    text = MANIFEST.read_text()
-    for new_text, old_text in PLATFORM_V3_EDITS:
-        assert text.count(new_text) == 1, new_text[:60]
-        text = text.replace(new_text, old_text, 1)
-    assert hashlib.sha256(text.encode()).hexdigest() == PLATFORM_V2_SHA256
+    previous = harness.read(MANIFEST)
+    previous["id"] = "glassbox-harness-platform-v3"
+    previous.pop("recording_content")
+    encoded = (json.dumps(previous, indent=2) + "\n").encode()
+    assert hashlib.sha256(encoded).hexdigest() == PLATFORM_V3_SHA256
 
 
 # --- the frozen manifest ----------------------------------------------------
 
 
 def test_the_platform_manifest_carries_the_recipe_and_the_frozen_plan(manifest):
-    assert manifest["id"] == "glassbox-harness-platform-v3"
+    assert manifest["id"] == "glassbox-harness-platform-v4"
     # The manifest records the recipe it was frozen against in full and pins
     # the evaluation plan; it does not pin the candidate under measurement.
     assert set(manifest["recipe"]) == set(RECIPE)
@@ -800,7 +760,7 @@ def test_every_corpus_declares_the_budget_the_recipe_resolves_on_its_grid(manife
 def test_the_manifest_digest_gates_platform_and_verify(tmp_path, manifest):
     assert harness.sha256(MANIFEST) == harness.PLATFORM_MANIFEST_SHA256
     assert MANIFEST == harness.COMMITTED_PLATFORM_MANIFEST
-    altered = tmp_path / "platform-v3.json"
+    altered = tmp_path / "platform-v4.json"
     tampered = copy.deepcopy(manifest)
     tampered["corpora"][0]["allowance"]["velocity_rmse_m_s"] = 99.0
     harness.write(altered, tampered)
@@ -820,6 +780,7 @@ def test_verify_detects_which_tier_a_directory_holds(tmp_path, manifest):
     platform = tmp_path / "platform"
     platform.mkdir()
     shutil.copyfile(harness.COMMITTED_PLATFORM_MANIFEST, platform / "manifest.json")
+    copy_platform_recordings(platform, manifest)
     shutil.copyfile(harness.COMMITTED_PLATFORM_REFERENCE, platform / "reference.json")
     harness.write(platform / "results.json", [])
     harness.write(
@@ -883,6 +844,7 @@ def saved_platform_run(tmp_path, manifest):
     harness.write(case / "result.json", row)
     harness.write(directory / "results.json", [row])
     shutil.copyfile(harness.COMMITTED_PLATFORM_MANIFEST, directory / "manifest.json")
+    copy_platform_recordings(directory, manifest)
     shutil.copyfile(REFERENCE, directory / "reference.json")
     harness.write(
         directory / "decision.json",
@@ -950,6 +912,7 @@ def scored_platform_run(tmp_path, manifest, *, reference=REFERENCE):
     directory = tmp_path / "run"
     directory.mkdir(parents=True)
     shutil.copyfile(MANIFEST, directory / "manifest.json")
+    copy_platform_recordings(directory, manifest)
     harness.write(directory / "results.json", [])
     anchor, digest = None, None
     if reference is not None:
@@ -1034,4 +997,210 @@ def test_a_platform_replay_recomputes_the_reference_regressions(tmp_path, manife
     decision["reference_regressions"] = [dict(corpus="arp", gate="invented")]
     harness.write(directory / "decision.json", decision)
     with pytest.raises(ValueError, match="reference_regressions"):
+        harness.verify(directory)
+
+
+# --- frozen canonical recording content ------------------------------------
+
+
+def copy_platform_recordings(directory, manifest):
+    filename = manifest["recording_content"]["file"]
+    shutil.copyfile(MANIFEST.parent / filename, directory / filename)
+
+
+def test_the_frozen_inventory_names_and_pins_every_canonical_recording(manifest):
+    pins = harness.frozen_platform_recordings(
+        manifest, MANIFEST.parent / manifest["recording_content"]["file"]
+    )
+    assert pins["content_digest"] == "trajectory_sha256_v1"
+    assert set(pins["corpora"]) == {entry["name"] for entry in manifest["corpora"]}
+    assert sum(map(len, pins["corpora"].values())) == 162
+    for entry in manifest["corpora"]:
+        recordings = pins["corpora"][entry["name"]]
+        assert len(recordings) == entry["recordings"]["total"]
+        assert all(len(item["sha256"]) == 64 for item in recordings.values())
+        assert all(isinstance(item["labels"], dict) for item in recordings.values())
+
+
+@pytest.mark.parametrize("alteration", ["missing", "modified"])
+def test_the_frozen_inventory_cannot_be_omitted_or_replaced(
+    tmp_path, manifest, alteration
+):
+    copied = tmp_path / manifest["recording_content"]["file"]
+    if alteration == "modified":
+        pins = harness.read(MANIFEST.parent / copied.name)
+        first = next(iter(pins["corpora"]["arp"].values()))
+        first["sha256"] = "0" * 64
+        harness.write(copied, pins)
+    with pytest.raises(ValueError, match="recording content"):
+        harness.frozen_platform_recordings(manifest, copied)
+
+
+@pytest.fixture
+def pinned_corpora(tmp_path, manifest, flight):
+    """Two small corpora, with the late corpus able to fail before any fit."""
+    from glassbox.core.data import save_trajectory_npz, trajectory_content_digest
+
+    plan = copy.deepcopy(manifest)
+    template = next(entry for entry in manifest["corpora"] if entry["name"] == "arp")
+    plan["corpora"] = []
+    pins = dict(
+        id="glassbox-platform-recordings-v1",
+        content_digest="trajectory_sha256_v1",
+        corpora={},
+    )
+    root = tmp_path / "corpora"
+    for name in ("first", "last"):
+        entry = copy.deepcopy(template)
+        entry.update(
+            name=name,
+            directory=name,
+            held_out_patterns=["test/*.npz"],
+            recordings=dict(total=2, training=1, held_out=1),
+        )
+        plan["corpora"].append(entry)
+        pins["corpora"][name] = {}
+        for relative in ("train/one.npz", "test/two.npz"):
+            save_trajectory_npz(flight, root / name / relative)
+            pins["corpora"][name][relative] = dict(
+                sha256=trajectory_content_digest(flight), labels=dict(flight.labels)
+            )
+    inventory_path = tmp_path / plan["recording_content"]["file"]
+    harness.write(inventory_path, pins)
+    plan["recording_content"]["sha256"] = harness.sha256(inventory_path)
+    manifest_path = tmp_path / "platform-v4.json"
+    harness.write(manifest_path, plan)
+    return plan, pins, root, manifest_path
+
+
+@pytest.mark.parametrize(
+    "field", ["states", "controls", "time_s", "spec", "control_prefix", "labels"]
+)
+def test_modified_canonical_content_is_rejected(pinned_corpora, field):
+    from glassbox.core.data import load_trajectory_npz, save_trajectory_npz
+
+    plan, pins, root, _ = pinned_corpora
+    path = root / "last/test/two.npz"
+    flight = load_trajectory_npz(path)
+    if field == "spec":
+        changed = replace(
+            flight, spec=replace(flight.spec, observation_source="edited")
+        )
+    elif field == "control_prefix":
+        changed = replace(flight, control_prefix=flight.controls[:2])
+    elif field == "labels":
+        changed = replace(flight, labels={**flight.labels, "source_group": "changed"})
+    else:
+        value = getattr(flight, field).copy()
+        value.flat[-1] += 0.001
+        changed = replace(flight, **{field: value})
+    save_trajectory_npz(changed, path)
+    with pytest.raises(ValueError, match="recording content"):
+        harness.platform_preflight(plan, root, pins)
+
+
+def test_same_count_filename_replacement_is_rejected(pinned_corpora):
+    plan, pins, root, _ = pinned_corpora
+    original = root / "last/test/two.npz"
+    original.rename(original.with_name("different.npz"))
+    with pytest.raises(ValueError, match="recording content"):
+        harness.platform_preflight(plan, root, pins)
+
+
+def test_storage_paths_provenance_and_compression_do_not_change_content(
+    pinned_corpora, tmp_path
+):
+    from glassbox.core.data import load_trajectory_npz, save_trajectory_npz
+
+    plan, pins, root, _ = pinned_corpora
+    elsewhere = tmp_path / "moved"
+    shutil.copytree(root, elsewhere)
+    path = elsewhere / "last/test/two.npz"
+    flight = load_trajectory_npz(path)
+    save_trajectory_npz(replace(flight, provenance={"path": "other-machine"}), path)
+    with np.load(path, allow_pickle=False) as saved:
+        arrays = {name: saved[name] for name in saved.files}
+    np.savez(path, **arrays)
+    verified = harness.platform_preflight(plan, elsewhere, pins)
+    assert set(verified) == {"first", "last"}
+    assert [path.stem for path, _ in verified["last"]["held_out"]] == ["two"]
+
+
+def test_every_corpus_is_verified_before_the_first_candidate_fit(
+    pinned_corpora, monkeypatch, tmp_path
+):
+    from glassbox.core.data import load_trajectory_npz, save_trajectory_npz
+
+    _, _, root, manifest_path = pinned_corpora
+    path = root / "last/test/two.npz"
+    flight = load_trajectory_npz(path)
+    moved = flight.states.copy()
+    moved[-1, 3] += 1
+    save_trajectory_npz(replace(flight, states=moved), path)
+    monkeypatch.setattr(
+        harness, "PLATFORM_MANIFEST_SHA256", harness.sha256(manifest_path)
+    )
+
+    def fitting_must_not_start(*args):
+        pytest.fail("a candidate fit started before the last corpus was verified")
+
+    monkeypatch.setattr(harness, "_platform_corpus", fitting_must_not_start)
+    output = tmp_path / "output"
+    with pytest.raises(ValueError, match="recording content"):
+        harness.platform(manifest_path, root, output)
+    assert not output.exists()
+
+
+def test_structured_fit_uses_the_verified_snapshot_after_source_file_changes(
+    pinned_corpora, monkeypatch, tmp_path
+):
+    from glassbox import fitting
+    from glassbox.core.data import load_trajectory_npz, save_trajectory_npz
+
+    plan, _, root, _ = pinned_corpora
+    entry = plan["corpora"][0]
+    path = root / "first/train/one.npz"
+    verified = load_trajectory_npz(path)
+    changed = verified.states.copy()
+    changed[-1, 3] += 1
+    save_trajectory_npz(replace(verified, states=changed), path)
+
+    class SnapshotRead(Exception):
+        pass
+
+    def inspect(sources, spec):
+        assert len(sources) == 1 and isinstance(sources[0], Trajectory)
+        np.testing.assert_array_equal(sources[0].states, verified.states)
+        assert sources[0].provenance["path"] == str(path)
+        assert not sources[0].states.flags.writeable
+        raise SnapshotRead
+
+    monkeypatch.setattr(fitting, "fit", inspect)
+    with pytest.raises(SnapshotRead):
+        harness._structured_arm(entry, "structured", [(path, verified)], {}, tmp_path)
+
+
+@pytest.mark.parametrize("alteration", ["missing", "modified"])
+def test_replay_rejects_missing_or_modified_recording_inventory(
+    tmp_path, manifest, alteration
+):
+    directory = scored_platform_run(tmp_path, manifest)
+    path = directory / manifest["recording_content"]["file"]
+    if alteration == "missing":
+        path.unlink()
+    else:
+        pins = harness.read(path)
+        first = next(iter(pins["corpora"]["arp"].values()))
+        first["sha256"] = "0" * 64
+        harness.write(path, pins)
+    with pytest.raises(ValueError, match="recording content"):
+        harness.verify(directory)
+
+
+def test_replay_rejects_a_forged_recording_inventory_digest(tmp_path, manifest):
+    directory = scored_platform_run(tmp_path, manifest)
+    decision = harness.read(directory / "decision.json")
+    decision["recording_content_sha256"] = "0" * 64
+    harness.write(directory / "decision.json", decision)
+    with pytest.raises(ValueError, match="recording_content_sha256"):
         harness.verify(directory)

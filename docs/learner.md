@@ -153,7 +153,11 @@ solution of the one-step affine model with a zero memory readout and zero
 residual, then trained with Adam under gradient clipping, with the
 hold-current loss scales and development-rollout checkpoint selection. At
 50 ms sampling the constants mean a 10-step consumed context, a 2-step
-explicit history and a 5-step forecast horizon.
+explicit history and a 5-step forecast horizon. Durations round to the nearest
+sample, with at least one step for the explicit history and forecast and at
+least one memory step beyond the explicit history for the consumed context.
+For example, 500 ms sampling uses a 2-step context, a 1-step explicit history,
+and a 1-step forecast.
 
 ## The memory contract
 
@@ -225,7 +229,7 @@ not platform readiness, control adequacy, or calibrated uncertainty.
 
 ## The platform tier
 
-[`harness/platform-v3.json`](harness/platform-v3.json) is the second frozen
+[`harness/platform-v4.json`](harness/platform-v4.json) is the current frozen
 manifest, with its own digest constant. It is the accuracy tier: for each of
 the five pinned corpora it declares the directory below a root, which
 recordings are held out by name pattern, how many recordings each side must
@@ -234,10 +238,18 @@ hold, the evaluation origin stride, the task allowance from
 the structured comparator's arm set and fit options as that corpus's recorded
 validation chain uses them. The corpus root is a command-line argument and
 never a fact in the manifest.
+The companion [`platform-recordings-v1.json`](harness/platform-recordings-v1.json)
+pins every canonical recording's relative filename, semantic content digest and
+labels. Content includes timing, signal contracts and prior commands; labels
+pin the structured model's source groups and weighting. Paths, provenance and
+NPZ compression do not affect identity. All corpora are loaded and checked
+before the first fit, and both models consume the verified arrays. The run
+copies the inventory and replay checks its frozen digest and recording split.
+Moving the corpus is safe; changing a recording requires a new frozen manifest.
 
 ```sh
 uv run python -m glassbox.experimental.harness platform \
-  --manifest docs/harness/platform-v3.json \
+  --manifest docs/harness/platform-v4.json \
   --corpora /path/to/corpora --output /tmp/platform-run
 uv run python -m glassbox.experimental.harness verify /tmp/platform-run
 ```

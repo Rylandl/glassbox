@@ -1,0 +1,2184 @@
+{
+  "content_digest": "trajectory_sha256_v1",
+  "corpora": {
+    "arp": {
+      "log_63_2024-1-8-16-37-54.npz": {
+        "labels": {
+          "benchmark": "arp_data_driven_system_identification",
+          "condition": "aggressive_real_flight",
+          "profile": "published_sysid",
+          "recording_date": "2024-01-08",
+          "replicate": 1,
+          "segment": 2,
+          "source_group": "arp_data_driven_system_identification:logs_large/log_63_2024-1-8-16-37-54.ulg",
+          "vehicle_id": "arp_iros_2024_large_quadrotor"
+        },
+        "sha256": "16e416e9e3268eb39e691e07783c46a6417d6a38bef08371dae7b5780727703d"
+      },
+      "log_64_2024-1-8-16-39-44.npz": {
+        "labels": {
+          "benchmark": "arp_data_driven_system_identification",
+          "condition": "aggressive_real_flight",
+          "profile": "published_sysid",
+          "recording_date": "2024-01-08",
+          "replicate": 2,
+          "source_group": "arp_data_driven_system_identification:logs_large/log_64_2024-1-8-16-39-44.ulg",
+          "vehicle_id": "arp_iros_2024_large_quadrotor"
+        },
+        "sha256": "c05f112ba47e20422c3049ef69c82d494fff2429e9777326321cc1e74d90bc72"
+      },
+      "log_65_2024-1-8-16-40-52.npz": {
+        "labels": {
+          "benchmark": "arp_data_driven_system_identification",
+          "condition": "aggressive_real_flight",
+          "profile": "published_sysid",
+          "recording_date": "2024-01-08",
+          "replicate": 3,
+          "source_group": "arp_data_driven_system_identification:logs_large/log_65_2024-1-8-16-40-52.ulg",
+          "vehicle_id": "arp_iros_2024_large_quadrotor"
+        },
+        "sha256": "fe49783fc520269ebae00a072c414762d20499a77af62853992841b64fd78a0a"
+      },
+      "log_66_2024-1-8-16-42-48.npz": {
+        "labels": {
+          "benchmark": "arp_data_driven_system_identification",
+          "condition": "aggressive_real_flight",
+          "profile": "published_sysid",
+          "recording_date": "2024-01-08",
+          "replicate": 4,
+          "source_group": "arp_data_driven_system_identification:logs_large/log_66_2024-1-8-16-42-48.ulg",
+          "vehicle_id": "arp_iros_2024_large_quadrotor"
+        },
+        "sha256": "bdb0910c16dc6f6e18351595e69387b6924fc4e30ff2483843713441f0bf4a97"
+      }
+    },
+    "epfl": {
+      "topoplane2_segment_01.npz": {
+        "labels": {
+          "benchmark": "epfl_vdm_navigation_flight_data",
+          "benchmark_split": "characterization_only",
+          "condition": "outdoor_real_flight_navigation_healthy",
+          "profile": "published_navigation_test_flight",
+          "replicate": 1,
+          "source_group": "TOPOPlane2_20221027_STIM14",
+          "vehicle_id": "epfl_topoplane2_conventional_fixedwing"
+        },
+        "sha256": "b369c19dc6b587be4f7b97e579d42c5aa24c70c6baad7231412472c5ebacef88"
+      },
+      "topoplane2_segment_02.npz": {
+        "labels": {
+          "benchmark": "epfl_vdm_navigation_flight_data",
+          "benchmark_split": "characterization_only",
+          "condition": "outdoor_real_flight_navigation_healthy",
+          "profile": "published_navigation_test_flight",
+          "replicate": 2,
+          "source_group": "TOPOPlane2_20221027_STIM14",
+          "vehicle_id": "epfl_topoplane2_conventional_fixedwing"
+        },
+        "sha256": "83fe3a954705bf49f0e1d66bc2a485a8325d17134807e1e3b0be0b8554aca1b8"
+      },
+      "topoplane2_segment_03.npz": {
+        "labels": {
+          "benchmark": "epfl_vdm_navigation_flight_data",
+          "benchmark_split": "characterization_only",
+          "condition": "outdoor_real_flight_navigation_healthy",
+          "profile": "published_navigation_test_flight",
+          "replicate": 3,
+          "source_group": "TOPOPlane2_20221027_STIM14",
+          "vehicle_id": "epfl_topoplane2_conventional_fixedwing"
+        },
+        "sha256": "cd72b55b83be29fcb26a202abb87cac04a1a37d9b92ed1065c9f5c32ee504816"
+      },
+      "topoplane2_segment_04.npz": {
+        "labels": {
+          "benchmark": "epfl_vdm_navigation_flight_data",
+          "benchmark_split": "characterization_only",
+          "condition": "outdoor_real_flight_navigation_healthy",
+          "profile": "published_navigation_test_flight",
+          "replicate": 4,
+          "source_group": "TOPOPlane2_20221027_STIM14",
+          "vehicle_id": "epfl_topoplane2_conventional_fixedwing"
+        },
+        "sha256": "d25e761a3b2ee784b7ff8dd87508000cb0ca3cd4fa0021a0532e79b437b8153d"
+      },
+      "topoplane2_segment_05.npz": {
+        "labels": {
+          "benchmark": "epfl_vdm_navigation_flight_data",
+          "benchmark_split": "characterization_only",
+          "condition": "outdoor_real_flight_navigation_healthy",
+          "profile": "published_navigation_test_flight",
+          "replicate": 5,
+          "source_group": "TOPOPlane2_20221027_STIM14",
+          "vehicle_id": "epfl_topoplane2_conventional_fixedwing"
+        },
+        "sha256": "4d8c753321ef49844c4f57cc331cc4786242e6d57774641696a8556c4a51bb5c"
+      },
+      "topoplane2_segment_06.npz": {
+        "labels": {
+          "benchmark": "epfl_vdm_navigation_flight_data",
+          "benchmark_split": "characterization_only",
+          "condition": "outdoor_real_flight_navigation_healthy",
+          "profile": "published_navigation_test_flight",
+          "replicate": 6,
+          "source_group": "TOPOPlane2_20221027_STIM14",
+          "vehicle_id": "epfl_topoplane2_conventional_fixedwing"
+        },
+        "sha256": "f5ebbca934347bd256d1a6321fd3f11e797ab0e01cb8c0c4bead9af53ad42f2a"
+      },
+      "topoplane2_segment_07.npz": {
+        "labels": {
+          "benchmark": "epfl_vdm_navigation_flight_data",
+          "benchmark_split": "characterization_only",
+          "condition": "outdoor_real_flight_navigation_healthy",
+          "profile": "published_navigation_test_flight",
+          "replicate": 7,
+          "source_group": "TOPOPlane2_20221027_STIM14",
+          "vehicle_id": "epfl_topoplane2_conventional_fixedwing"
+        },
+        "sha256": "84c17c8da40bb296e59c938784b70b71790e16ec7637bec9255fb55b32b1018f"
+      }
+    },
+    "idf": {
+      "idf_session_01_log_67_2025-8-21-14-24-48_segment_01.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-21",
+          "replicate": 1,
+          "segment": 1,
+          "session": 1,
+          "source_group": "idf_session_01",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "e2597cef07a2e8f7bd51673fe18dc380b77d500d29c1a6b37d5d094fc2ab2899"
+      },
+      "idf_session_01_log_67_2025-8-21-14-24-48_segment_02.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-21",
+          "replicate": 1,
+          "segment": 2,
+          "session": 1,
+          "source_group": "idf_session_01",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "7e0e530d3ae82997c9e9157f86e8c4e9f892fadde6d5936dd8545cd0d55a2df3"
+      },
+      "idf_session_01_log_67_2025-8-21-14-24-48_segment_03.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-21",
+          "replicate": 1,
+          "segment": 3,
+          "session": 1,
+          "source_group": "idf_session_01",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "498ee051a4e88a164e8175e0a8dec8272878ff2330bc716fb3b95c79119d341b"
+      },
+      "idf_session_01_log_67_2025-8-21-14-24-48_segment_04.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-21",
+          "replicate": 1,
+          "segment": 4,
+          "session": 1,
+          "source_group": "idf_session_01",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "e1ef3a6279af970fd55265ff118d2c0018c1f89ba75d68ec615ba1a1ebd5811d"
+      },
+      "idf_session_01_log_67_2025-8-21-14-24-48_segment_05.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-21",
+          "replicate": 1,
+          "segment": 5,
+          "session": 1,
+          "source_group": "idf_session_01",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "faa423879a492e31d83f7765aed358b5599bf9a189ec7e7e167eb4a95bc2bffa"
+      },
+      "idf_session_01_log_67_2025-8-21-14-24-48_segment_06.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-21",
+          "replicate": 1,
+          "segment": 6,
+          "session": 1,
+          "source_group": "idf_session_01",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "7f6f9bf68cf3b4d1b2411a67acec459cdf20844adff769926fc0a5eb9d56644e"
+      },
+      "idf_session_01_log_67_2025-8-21-14-24-48_segment_07.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-21",
+          "replicate": 1,
+          "segment": 7,
+          "session": 1,
+          "source_group": "idf_session_01",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "31870ef7913edd963f4ee7aad05821dd6702f9589680c0700169862421975eaa"
+      },
+      "idf_session_01_log_67_2025-8-21-14-24-48_segment_08.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-21",
+          "replicate": 1,
+          "segment": 8,
+          "session": 1,
+          "source_group": "idf_session_01",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "6fd1130945878b4acb00c6a836cdd8650bc0c3dd29f8401bca32947780bae1c6"
+      },
+      "idf_session_01_log_67_2025-8-21-14-24-48_segment_09.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-21",
+          "replicate": 1,
+          "segment": 9,
+          "session": 1,
+          "source_group": "idf_session_01",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "090eb645a704367ea66575784a2a4282d7c35ae6c1a7ef023cc9e92164b80dab"
+      },
+      "idf_session_01_log_67_2025-8-21-14-24-48_segment_10.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-21",
+          "replicate": 1,
+          "segment": 10,
+          "session": 1,
+          "source_group": "idf_session_01",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "521c19dbc042b8a5bfc1b1c04ad6f941e410811286b073d31ac0ee04e3d353e2"
+      },
+      "idf_session_01_log_67_2025-8-21-14-24-48_segment_11.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-21",
+          "replicate": 1,
+          "segment": 11,
+          "session": 1,
+          "source_group": "idf_session_01",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "0c867266c8cb0e9bb1632dda768573279304b7d9ca41be472949a0cee8852b7e"
+      },
+      "idf_session_01_log_67_2025-8-21-14-24-48_segment_12.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-21",
+          "replicate": 1,
+          "segment": 12,
+          "session": 1,
+          "source_group": "idf_session_01",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "a8ca86608a523be9d1e5820769ed54c2753d4b287ba6b869e1a38651367d9cb2"
+      },
+      "idf_session_02_log_70_2025-8-21-15-57-48_segment_01.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-21",
+          "replicate": 2,
+          "segment": 1,
+          "session": 2,
+          "source_group": "idf_session_02",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "ffd04d4fedfe99c74d878de53fd8fa072866d0568d4b6ffca5a52d2e2e0f7a42"
+      },
+      "idf_session_02_log_70_2025-8-21-15-57-48_segment_02.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-21",
+          "replicate": 2,
+          "segment": 2,
+          "session": 2,
+          "source_group": "idf_session_02",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "7623a403feb951e5d694c6e31a1b728fd6db81f587dfb531a7bef996f3019fea"
+      },
+      "idf_session_02_log_70_2025-8-21-15-57-48_segment_03.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-21",
+          "replicate": 2,
+          "segment": 3,
+          "session": 2,
+          "source_group": "idf_session_02",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "4e811dd1c36279615284d96a5390b23f68851e20449f79137067325827cf695d"
+      },
+      "idf_session_02_log_70_2025-8-21-15-57-48_segment_04.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-21",
+          "replicate": 2,
+          "segment": 4,
+          "session": 2,
+          "source_group": "idf_session_02",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "7872316539ce77d97286bf963de927f83065e44109d4a64011e654632a0818d0"
+      },
+      "idf_session_02_log_70_2025-8-21-15-57-48_segment_05.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-21",
+          "replicate": 2,
+          "segment": 5,
+          "session": 2,
+          "source_group": "idf_session_02",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "e8066f01c669f457f988d9b1659c18c7831c54e7acd396884e2eb74927e167c1"
+      },
+      "idf_session_02_log_70_2025-8-21-15-57-48_segment_06.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-21",
+          "replicate": 2,
+          "segment": 6,
+          "session": 2,
+          "source_group": "idf_session_02",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "f4d43d592048dd6dc930cebc3ffb13d334d18b819acc2d8c5f34507a8a8dbdd0"
+      },
+      "idf_session_02_log_70_2025-8-21-15-57-48_segment_07.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-21",
+          "replicate": 2,
+          "segment": 7,
+          "session": 2,
+          "source_group": "idf_session_02",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "38361b461d679342a44e14de8f831919150d18feea5adb3704cebb25ac8b75de"
+      },
+      "idf_session_02_log_70_2025-8-21-15-57-48_segment_08.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-21",
+          "replicate": 2,
+          "segment": 8,
+          "session": 2,
+          "source_group": "idf_session_02",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "562b84ccfd6d63cf3d9e77834bb04235b3a74a6d895616cd8d60bbd5cd0ab658"
+      },
+      "idf_session_02_log_70_2025-8-21-15-57-48_segment_09.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-21",
+          "replicate": 2,
+          "segment": 9,
+          "session": 2,
+          "source_group": "idf_session_02",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "c31b9a2fa0c002e4e0597b17079c45c1f1ad81b0beaac2e1672fa6861edb111b"
+      },
+      "idf_session_02_log_70_2025-8-21-15-57-48_segment_10.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-21",
+          "replicate": 2,
+          "segment": 10,
+          "session": 2,
+          "source_group": "idf_session_02",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "4b241fe7bdb4bc6f1972fd60bbf124d29991489d1538cef57881e5a8b4e8b99d"
+      },
+      "idf_session_02_log_70_2025-8-21-15-57-48_segment_11.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-21",
+          "replicate": 2,
+          "segment": 11,
+          "session": 2,
+          "source_group": "idf_session_02",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "2466b53b358409257b75870003ce8534e412d655f93bc0bd64bf3e0e85f4231b"
+      },
+      "idf_session_02_log_70_2025-8-21-15-57-48_segment_12.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-21",
+          "replicate": 2,
+          "segment": 12,
+          "session": 2,
+          "source_group": "idf_session_02",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "17c25071a48c45ac0725f77a3b350af7257526cad188c736db8b75fd3de408c7"
+      },
+      "idf_session_03_log_74_2025-8-21-17-46-14_segment_01.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-21",
+          "replicate": 3,
+          "segment": 1,
+          "session": 3,
+          "source_group": "idf_session_03",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "a6e38a246816af4d115050eb642b62147e70fbe854cce10f17a3e648b9c08a04"
+      },
+      "idf_session_03_log_74_2025-8-21-17-46-14_segment_02.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-21",
+          "replicate": 3,
+          "segment": 2,
+          "session": 3,
+          "source_group": "idf_session_03",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "38a7158d5700555393cd6ad23addc0efc820cde0fabe30b1b2fee3757b01564b"
+      },
+      "idf_session_03_log_74_2025-8-21-17-46-14_segment_03.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-21",
+          "replicate": 3,
+          "segment": 3,
+          "session": 3,
+          "source_group": "idf_session_03",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "b087d441770cc755d76525c16a7853b7731b3c6a49a1c1f1fdea0a9a7674fe02"
+      },
+      "idf_session_03_log_74_2025-8-21-17-46-14_segment_04.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-21",
+          "replicate": 3,
+          "segment": 4,
+          "session": 3,
+          "source_group": "idf_session_03",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "12f70c39a55c2295aa50ddc818a3fab78e746a43997e234a6642c8a728a6f843"
+      },
+      "idf_session_03_log_74_2025-8-21-17-46-14_segment_05.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-21",
+          "replicate": 3,
+          "segment": 5,
+          "session": 3,
+          "source_group": "idf_session_03",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "5d35573d6e844025d271eb1de9895940030ddc04d8879e252f659aebdccf351b"
+      },
+      "idf_session_03_log_74_2025-8-21-17-46-14_segment_06.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-21",
+          "replicate": 3,
+          "segment": 6,
+          "session": 3,
+          "source_group": "idf_session_03",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "156592f00eafb4748edb352aa6ee942b8b709d0bc8c0fe76c76b4180395dd3a2"
+      },
+      "idf_session_03_log_74_2025-8-21-17-46-14_segment_07.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-21",
+          "replicate": 3,
+          "segment": 7,
+          "session": 3,
+          "source_group": "idf_session_03",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "78c17622122d5e503c3458f39b445f3f141db14e7918d63da52b8a4a362ee3b9"
+      },
+      "idf_session_03_log_74_2025-8-21-17-46-14_segment_08.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-21",
+          "replicate": 3,
+          "segment": 8,
+          "session": 3,
+          "source_group": "idf_session_03",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "412559dfe06d7d94211c137f441842dd9614985675d84a53dce707786b4793b4"
+      },
+      "idf_session_03_log_74_2025-8-21-17-46-14_segment_09.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-21",
+          "replicate": 3,
+          "segment": 9,
+          "session": 3,
+          "source_group": "idf_session_03",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "9d5a79f9f1657d3a08ff1cf623c0b33bdabd2c1cf2c5b88dc8b298be5c47e504"
+      },
+      "idf_session_03_log_74_2025-8-21-17-46-14_segment_10.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-21",
+          "replicate": 3,
+          "segment": 10,
+          "session": 3,
+          "source_group": "idf_session_03",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "0de813012f0c8a122c9d9f15a4329406edbfbf38b398bcb69d3adc2688164449"
+      },
+      "idf_session_04_log_84_2025-8-22-10-27-06_segment_01.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-22",
+          "replicate": 4,
+          "segment": 1,
+          "session": 4,
+          "source_group": "idf_session_04",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "cacbea0d617446e1633f642a6bbd01210f95245fc134d533b03d5581f2b348a7"
+      },
+      "idf_session_04_log_84_2025-8-22-10-27-06_segment_02.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-22",
+          "replicate": 4,
+          "segment": 2,
+          "session": 4,
+          "source_group": "idf_session_04",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "7a096df5aaf66d840c31b4cc6e2da03f2a18dd4f8f5b5d309fa1d5201c089365"
+      },
+      "idf_session_04_log_84_2025-8-22-10-27-06_segment_03.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-22",
+          "replicate": 4,
+          "segment": 3,
+          "session": 4,
+          "source_group": "idf_session_04",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "f2207daf4864520bdf35121281b9e6b339be6ba4a36a68cddb6d9fed364f9115"
+      },
+      "idf_session_04_log_84_2025-8-22-10-27-06_segment_04.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-22",
+          "replicate": 4,
+          "segment": 4,
+          "session": 4,
+          "source_group": "idf_session_04",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "eebe6aa7a68fdf41616217ab676cfb71e5afa3ab90f21ebddf0a4218de3f0533"
+      },
+      "idf_session_04_log_84_2025-8-22-10-27-06_segment_05.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-22",
+          "replicate": 4,
+          "segment": 5,
+          "session": 4,
+          "source_group": "idf_session_04",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "24dcdeef5242c49fadf2e96adba9913403b3aac058115d144ed7cb2db9077e38"
+      },
+      "idf_session_04_log_84_2025-8-22-10-27-06_segment_06.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-22",
+          "replicate": 4,
+          "segment": 6,
+          "session": 4,
+          "source_group": "idf_session_04",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "654a3968aa4634ade21a5e512873493d4a8c6a18d0f538c24ac2f434c08d00ab"
+      },
+      "idf_session_04_log_84_2025-8-22-10-27-06_segment_07.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-22",
+          "replicate": 4,
+          "segment": 7,
+          "session": 4,
+          "source_group": "idf_session_04",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "c60e09e2a22ac0b0f99ba0ec8d67e294928ab2b43d4133b0c74180b62a405c1f"
+      },
+      "idf_session_04_log_84_2025-8-22-10-27-06_segment_08.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-22",
+          "replicate": 4,
+          "segment": 8,
+          "session": 4,
+          "source_group": "idf_session_04",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "539e14b6ae6bad8ff8a3bcba3281f5cadf4ca72027f20512bf75c9ecf1456117"
+      },
+      "idf_session_04_log_84_2025-8-22-10-27-06_segment_09.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-22",
+          "replicate": 4,
+          "segment": 9,
+          "session": 4,
+          "source_group": "idf_session_04",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "29ccfb4d8466851cd43eab576109f30fec8651a0ded4337d51d9c878987ff5f7"
+      },
+      "idf_session_04_log_84_2025-8-22-10-27-06_segment_10.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-22",
+          "replicate": 4,
+          "segment": 10,
+          "session": 4,
+          "source_group": "idf_session_04",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "3612b78fb6c4d5967d3e3bb486bc4826c1e23f623316c6497957c1c3f1228bbd"
+      },
+      "idf_session_05_log_85_2025-8-22-11-19-58_segment_01.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-22",
+          "replicate": 5,
+          "segment": 1,
+          "session": 5,
+          "source_group": "idf_session_05",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "0025f6f2c8a4553550cc81a36957663a74e82cb5c3e453c38d12273b7f80031d"
+      },
+      "idf_session_05_log_85_2025-8-22-11-19-58_segment_02.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-22",
+          "replicate": 5,
+          "segment": 2,
+          "session": 5,
+          "source_group": "idf_session_05",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "0b3f03c9fbf61694c1455ca2215fdf4ed7bb93d590acc2b21cf9eee25ebf3b99"
+      },
+      "idf_session_05_log_85_2025-8-22-11-19-58_segment_03.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-22",
+          "replicate": 5,
+          "segment": 3,
+          "session": 5,
+          "source_group": "idf_session_05",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "a6359df202e5acf7d6243157b4311d076720582553f5346328b95bab8f4a0c15"
+      },
+      "idf_session_05_log_85_2025-8-22-11-19-58_segment_04.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-22",
+          "replicate": 5,
+          "segment": 4,
+          "session": 5,
+          "source_group": "idf_session_05",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "e46cf1838494534fa5d7b009a044b5d4e11b66d17bb1bd6800730cbbd55c7056"
+      },
+      "idf_session_05_log_85_2025-8-22-11-19-58_segment_05.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-22",
+          "replicate": 5,
+          "segment": 5,
+          "session": 5,
+          "source_group": "idf_session_05",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "acb66defb3f0c4c1cc29abb23a08d21c03837a4c5b1277efd2aaeb16b22b1364"
+      },
+      "idf_session_05_log_85_2025-8-22-11-19-58_segment_06.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-22",
+          "replicate": 5,
+          "segment": 6,
+          "session": 5,
+          "source_group": "idf_session_05",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "015393a2e1d2ea6df9a64d7d25c453a4bcf0335109525aabab60e6a1991611b4"
+      },
+      "idf_session_05_log_85_2025-8-22-11-19-58_segment_07.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-22",
+          "replicate": 5,
+          "segment": 7,
+          "session": 5,
+          "source_group": "idf_session_05",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "0332f27a2b1fc6ed50a286a07f74872c68bcd829c597240cd276f20ddc1193fb"
+      },
+      "idf_session_05_log_85_2025-8-22-11-19-58_segment_08.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-22",
+          "replicate": 5,
+          "segment": 8,
+          "session": 5,
+          "source_group": "idf_session_05",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "ca7cc1025812ee861018d19dc74c25dbd45658ac8428aab114363adfd2be519e"
+      },
+      "idf_session_06_log_86_2025-8-22-12-18-38_segment_01.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-22",
+          "replicate": 6,
+          "segment": 1,
+          "session": 6,
+          "source_group": "idf_session_06",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "84887ead10560521b5da36a0f28ec83ef62888d2d393e58aa06e51dabc390bb8"
+      },
+      "idf_session_06_log_86_2025-8-22-12-18-38_segment_02.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-22",
+          "replicate": 6,
+          "segment": 2,
+          "session": 6,
+          "source_group": "idf_session_06",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "a05df801e68d8404eaf0c7af9de144bafb93fd25b70377085b9bccfb5ec37ee5"
+      },
+      "idf_session_06_log_86_2025-8-22-12-18-38_segment_03.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-22",
+          "replicate": 6,
+          "segment": 3,
+          "session": 6,
+          "source_group": "idf_session_06",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "9b59947222d39592530d172893261503f9313ce82e81de23649e7555d0e635f6"
+      },
+      "idf_session_06_log_86_2025-8-22-12-18-38_segment_04.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-22",
+          "replicate": 6,
+          "segment": 4,
+          "session": 6,
+          "source_group": "idf_session_06",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "ebbe7b0658ef82fcbf79f832fa8e0dcb28875884ba295ec0c2de1a19a91c04dd"
+      },
+      "idf_session_06_log_86_2025-8-22-12-18-38_segment_05.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-22",
+          "replicate": 6,
+          "segment": 5,
+          "session": 6,
+          "source_group": "idf_session_06",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "812a7ae0276ee9810af9168254cf1514810cf2cddb58b992787c4b6d0e77b513"
+      },
+      "idf_session_06_log_86_2025-8-22-12-18-38_segment_06.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-22",
+          "replicate": 6,
+          "segment": 6,
+          "session": 6,
+          "source_group": "idf_session_06",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "99c43802c6c489cc34263b1da1aff26b271099df29a058aa04dd6d7da2997613"
+      },
+      "idf_session_06_log_86_2025-8-22-12-18-38_segment_07.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-22",
+          "replicate": 6,
+          "segment": 7,
+          "session": 6,
+          "source_group": "idf_session_06",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "be1d017d83fd0ef34a07026f518449a1149e2697b34194c459eada400665b682"
+      },
+      "idf_session_06_log_86_2025-8-22-12-18-38_segment_08.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-22",
+          "replicate": 6,
+          "segment": 8,
+          "session": 6,
+          "source_group": "idf_session_06",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "840a0fb9cd43276aa73655fced9c2f16ffeca57cf2ecdca55fb21acfb4fb7030"
+      },
+      "idf_session_06_log_86_2025-8-22-12-18-38_segment_09.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-22",
+          "replicate": 6,
+          "segment": 9,
+          "session": 6,
+          "source_group": "idf_session_06",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "f79ce207f383cec411e58d92e72d9a94cb91dd9d386493582a87d6f2f91a8671"
+      },
+      "idf_session_07_log_87_2025-8-22-13-09-40_segment_01.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-22",
+          "replicate": 7,
+          "segment": 1,
+          "session": 7,
+          "source_group": "idf_session_07",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "9facf7160c6e4b02686aeb1becc3a39c43e76858c050d2db6cb54ce0e3ba1f12"
+      },
+      "idf_session_07_log_87_2025-8-22-13-09-40_segment_02.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-22",
+          "replicate": 7,
+          "segment": 2,
+          "session": 7,
+          "source_group": "idf_session_07",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "338e3c515a58cb5a2b713a53cb0d7ffb22497f0b63301a51bec099e553bcc5ba"
+      },
+      "idf_session_07_log_87_2025-8-22-13-09-40_segment_03.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-22",
+          "replicate": 7,
+          "segment": 3,
+          "session": 7,
+          "source_group": "idf_session_07",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "b084deb68ad185497e0a9e1bc192ba7560c9beac53524eb9b7466eb88043e32b"
+      },
+      "idf_session_07_log_87_2025-8-22-13-09-40_segment_04.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-22",
+          "replicate": 7,
+          "segment": 4,
+          "session": 7,
+          "source_group": "idf_session_07",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "762c5117362dc95a5d11af4b5a143cb05aa9f44cb6be4346dc34c592a1ec41f0"
+      },
+      "idf_session_07_log_87_2025-8-22-13-09-40_segment_05.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-22",
+          "replicate": 7,
+          "segment": 5,
+          "session": 7,
+          "source_group": "idf_session_07",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "a895819c340654532ff7c3254c7e6a1aa36f44fa068b949d5420ec55c37c77a1"
+      },
+      "idf_session_07_log_87_2025-8-22-13-09-40_segment_06.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-22",
+          "replicate": 7,
+          "segment": 6,
+          "session": 7,
+          "source_group": "idf_session_07",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "2e4c4fc653b1dc080de8b5fda9965b3ce54d3603f4b04ba5cc92b8ef437b61a9"
+      },
+      "idf_session_07_log_87_2025-8-22-13-09-40_segment_07.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-22",
+          "replicate": 7,
+          "segment": 7,
+          "session": 7,
+          "source_group": "idf_session_07",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "bc46ecc6627834a4c6a20d68917cbc788c98ff5908b13e6d739bb5cdd164882b"
+      },
+      "idf_session_08_log_88_2025-8-22-14-04-34_segment_01.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-22",
+          "replicate": 8,
+          "segment": 1,
+          "session": 8,
+          "source_group": "idf_session_08",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "b7df35b42bd2d5243b9bc428cc7dd97c5176401ba7edcc09f820208fdee71419"
+      },
+      "idf_session_08_log_88_2025-8-22-14-04-34_segment_02.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-22",
+          "replicate": 8,
+          "segment": 2,
+          "session": 8,
+          "source_group": "idf_session_08",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "757a90f9f5f2944e9028eed46fd1bba82db3ccb3c278cafb5d4e635e1dda3810"
+      },
+      "idf_session_08_log_88_2025-8-22-14-04-34_segment_03.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-22",
+          "replicate": 8,
+          "segment": 3,
+          "session": 8,
+          "source_group": "idf_session_08",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "22d341c73653613cd4855a7f4f3d0b9ea37c35a9a77143188846b8e4a93cbd96"
+      },
+      "idf_session_08_log_88_2025-8-22-14-04-34_segment_04.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-22",
+          "replicate": 8,
+          "segment": 4,
+          "session": 8,
+          "source_group": "idf_session_08",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "f253a901ad2af24164625ab74b5b19aa282bf538168518b67ef7dbf8a3d30263"
+      },
+      "idf_session_08_log_88_2025-8-22-14-04-34_segment_05.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-22",
+          "replicate": 8,
+          "segment": 5,
+          "session": 8,
+          "source_group": "idf_session_08",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "0497624834cebcd0f646c417f3d67770c85f79f55031826c1621915877653325"
+      },
+      "idf_session_08_log_88_2025-8-22-14-04-34_segment_06.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-22",
+          "replicate": 8,
+          "segment": 6,
+          "session": 8,
+          "source_group": "idf_session_08",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "0a049433b916c3ce0518636b6bc8003ce6c116af19d8b72678eade7c7218d73e"
+      },
+      "idf_session_08_log_88_2025-8-22-14-04-34_segment_07.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-22",
+          "replicate": 8,
+          "segment": 7,
+          "session": 8,
+          "source_group": "idf_session_08",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "0b0ca02ab7f7d22a292bda2d24de57c02b73de5be3a82b69a7f7ee7dc67a905b"
+      },
+      "idf_session_08_log_88_2025-8-22-14-04-34_segment_08.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-22",
+          "replicate": 8,
+          "segment": 8,
+          "session": 8,
+          "source_group": "idf_session_08",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "a82f96c73681345281200b3878b03e2d4a290a72b0a208533c26da01b00579b4"
+      },
+      "idf_session_08_log_88_2025-8-22-14-04-34_segment_09.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-22",
+          "replicate": 8,
+          "segment": 9,
+          "session": 8,
+          "source_group": "idf_session_08",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "554dbbcad7c3f4fa48b09ab23a4f7e288a155af8a9cb7ebe026c6aca28af3783"
+      },
+      "idf_session_08_log_88_2025-8-22-14-04-34_segment_10.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-22",
+          "replicate": 8,
+          "segment": 10,
+          "session": 8,
+          "source_group": "idf_session_08",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "fe77fdc8052121120682233349214aa80aec810bef9028c5a7c6487118e902a6"
+      },
+      "idf_session_08_log_88_2025-8-22-14-04-34_segment_11.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-22",
+          "replicate": 8,
+          "segment": 11,
+          "session": 8,
+          "source_group": "idf_session_08",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "bf181d9b0f1300f8cb20ec6a51221915c414e047a887adf9b7539894cddd8505"
+      },
+      "idf_session_08_log_88_2025-8-22-14-04-34_segment_12.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-22",
+          "replicate": 8,
+          "segment": 12,
+          "session": 8,
+          "source_group": "idf_session_08",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "be4bf2dbc760e46f4440e872e349928f00a2bfd2615f7c915d802d646031c46c"
+      },
+      "idf_session_08_log_88_2025-8-22-14-04-34_segment_13.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-22",
+          "replicate": 8,
+          "segment": 13,
+          "session": 8,
+          "source_group": "idf_session_08",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "fedbd3177f86f1ec7f1f38c273b4e50a053f554b7cfeefe4916f4b0297d8742c"
+      },
+      "idf_session_09_log_92_2025-8-23-09-54-12_segment_01.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-23",
+          "replicate": 9,
+          "segment": 1,
+          "session": 9,
+          "source_group": "idf_session_09",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "9e5da5db39ceeebab661680c5cfdbb0f8245adbb773d62a564d8c1c4f4491b45"
+      },
+      "idf_session_09_log_92_2025-8-23-09-54-12_segment_02.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-23",
+          "replicate": 9,
+          "segment": 2,
+          "session": 9,
+          "source_group": "idf_session_09",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "dddaae1a177a01fd3e86151a6354cbcc733c0b3fa77070d3fb835f1c386b0a94"
+      },
+      "idf_session_09_log_92_2025-8-23-09-54-12_segment_03.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-23",
+          "replicate": 9,
+          "segment": 3,
+          "session": 9,
+          "source_group": "idf_session_09",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "61cff2804c6975bdf23934f6e283f14769ca54743d8692abd2e1d18c565eeb4b"
+      },
+      "idf_session_09_log_92_2025-8-23-09-54-12_segment_04.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-23",
+          "replicate": 9,
+          "segment": 4,
+          "session": 9,
+          "source_group": "idf_session_09",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "f8ca43399c2f9bee87e1e39c87b056a0932c410b632d0a614a6a3636e0a3c2d3"
+      },
+      "idf_session_09_log_92_2025-8-23-09-54-12_segment_05.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-23",
+          "replicate": 9,
+          "segment": 5,
+          "session": 9,
+          "source_group": "idf_session_09",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "6bbdc4eb0a20fc08657948c9c1d82692fcd0dc0a1c347988ee312b86ba612741"
+      },
+      "idf_session_09_log_92_2025-8-23-09-54-12_segment_06.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-23",
+          "replicate": 9,
+          "segment": 6,
+          "session": 9,
+          "source_group": "idf_session_09",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "b81b2d90617f7e0df2c1877a7502303ac0a4335b30110e26f5bdbf22dd5df6d3"
+      },
+      "idf_session_09_log_92_2025-8-23-09-54-12_segment_07.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-23",
+          "replicate": 9,
+          "segment": 7,
+          "session": 9,
+          "source_group": "idf_session_09",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "ad85e8788693e5e0971a8598141655203c13b2bb6bee054f603beea905cd5940"
+      },
+      "idf_session_10_log_93_2025-8-23-10-43-56_segment_01.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-23",
+          "replicate": 10,
+          "segment": 1,
+          "session": 10,
+          "source_group": "idf_session_10",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "45b25079a886cac3b7605d8ff6f6da638bc028a54d63d4d1a6c110dae39d99e0"
+      },
+      "idf_session_10_log_93_2025-8-23-10-43-56_segment_02.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-23",
+          "replicate": 10,
+          "segment": 2,
+          "session": 10,
+          "source_group": "idf_session_10",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "3478aa0c3f494341cfd97136c7c3e55ff6be150a54f3dbaa8ddbc8b63a51ea23"
+      },
+      "idf_session_10_log_93_2025-8-23-10-43-56_segment_03.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-23",
+          "replicate": 10,
+          "segment": 3,
+          "session": 10,
+          "source_group": "idf_session_10",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "5dbf92af95f9b0e1e4d9b4ff32fd7268a0027bb24c007acb9a28c5d8f6db7f10"
+      },
+      "idf_session_10_log_93_2025-8-23-10-43-56_segment_04.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-23",
+          "replicate": 10,
+          "segment": 4,
+          "session": 10,
+          "source_group": "idf_session_10",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "e8a66d9ea0d812c26da09307aa59a88c5ee3e57615195caa64bdb8485f1bb2a1"
+      },
+      "idf_session_10_log_93_2025-8-23-10-43-56_segment_05.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-23",
+          "replicate": 10,
+          "segment": 5,
+          "session": 10,
+          "source_group": "idf_session_10",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "c5750cc6fe115d89a73ea2922b587d0404f2d6d43d751ac9c92b82eba43b7988"
+      },
+      "idf_session_10_log_93_2025-8-23-10-43-56_segment_06.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-23",
+          "replicate": 10,
+          "segment": 6,
+          "session": 10,
+          "source_group": "idf_session_10",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "a93fea35936371d72e0f3e2de10bb81851d058cef54c91cbbca830a6d3385cf3"
+      },
+      "idf_session_10_log_93_2025-8-23-10-43-56_segment_07.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-23",
+          "replicate": 10,
+          "segment": 7,
+          "session": 10,
+          "source_group": "idf_session_10",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "1fd751a31ebf57c5f5a018c57bf3eb5ed5745f386bdc0d09d99b101f05c0673f"
+      },
+      "idf_session_11_log_112_2025-8-23-12-26-12_segment_01.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-23",
+          "replicate": 11,
+          "segment": 1,
+          "session": 11,
+          "source_group": "idf_session_11",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "9a1f30e52206270a410d2a1b72e5055a076589354945274de93cd80de77226f6"
+      },
+      "idf_session_11_log_112_2025-8-23-12-26-12_segment_02.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-23",
+          "replicate": 11,
+          "segment": 2,
+          "session": 11,
+          "source_group": "idf_session_11",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "761fd93bdaba60af20592e3a3bab7d30927cf183a156e00e2641f9d0f0883ada"
+      },
+      "idf_session_11_log_112_2025-8-23-12-26-12_segment_03.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-23",
+          "replicate": 11,
+          "segment": 3,
+          "session": 11,
+          "source_group": "idf_session_11",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "add95ffd33b3a79108d6f4ee47603623aae363ae67be084fd819ac483c595d1e"
+      },
+      "idf_session_11_log_112_2025-8-23-12-26-12_segment_04.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-23",
+          "replicate": 11,
+          "segment": 4,
+          "session": 11,
+          "source_group": "idf_session_11",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "2f4c0896e52e60251ef4ffa62701bb35f6d5a476803b5008701b28fd31192a7d"
+      },
+      "idf_session_11_log_112_2025-8-23-12-26-12_segment_05.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-23",
+          "replicate": 11,
+          "segment": 5,
+          "session": 11,
+          "source_group": "idf_session_11",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "cf66b9b46504ad7859a18101a0d6486ceb14b39a9b1e1a3b38e3e31f993627c9"
+      },
+      "idf_session_11_log_112_2025-8-23-12-26-12_segment_06.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-23",
+          "replicate": 11,
+          "segment": 6,
+          "session": 11,
+          "source_group": "idf_session_11",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "b20b56f846336ec7daa291dbd3d082bd14a4092eec4912d63fd2d099eb5abe20"
+      },
+      "idf_session_12_log_113_2025-8-23-13-14-28_segment_01.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-23",
+          "replicate": 12,
+          "segment": 1,
+          "session": 12,
+          "source_group": "idf_session_12",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "6c6523e7ef7a48efb528aafba0650c151962c6ce1745073107e36ba1bf9c91ba"
+      },
+      "idf_session_12_log_113_2025-8-23-13-14-28_segment_02.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-23",
+          "replicate": 12,
+          "segment": 2,
+          "session": 12,
+          "source_group": "idf_session_12",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "bde130c3f9f9ea0af935b0d3c4fb61cf383e6108683e3482148ff9a4787077fe"
+      },
+      "idf_session_12_log_113_2025-8-23-13-14-28_segment_03.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-23",
+          "replicate": 12,
+          "segment": 3,
+          "session": 12,
+          "source_group": "idf_session_12",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "cb957f4bdaa640e2dbd3b138a32933ccc92219bca2be11bfdc27e3f18edd05d8"
+      },
+      "idf_session_12_log_113_2025-8-23-13-14-28_segment_04.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-23",
+          "replicate": 12,
+          "segment": 4,
+          "session": 12,
+          "source_group": "idf_session_12",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "926c1f383dd0211635851a4a7037481a66c4f9b79ac695abda7299e3446514d8"
+      },
+      "idf_session_12_log_113_2025-8-23-13-14-28_segment_05.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-23",
+          "replicate": 12,
+          "segment": 5,
+          "session": 12,
+          "source_group": "idf_session_12",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "933a037bdc637fcd2b770732d05f9f3bc8449d3c173126be0b12ce3009080a00"
+      },
+      "idf_session_12_log_113_2025-8-23-13-14-28_segment_06.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-23",
+          "replicate": 12,
+          "segment": 6,
+          "session": 12,
+          "source_group": "idf_session_12",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "081d3e5074db4eb31af10795e4099dce644413f60d1d7f5f36c62116e8523de4"
+      },
+      "idf_session_12_log_113_2025-8-23-13-14-28_segment_07.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-23",
+          "replicate": 12,
+          "segment": 7,
+          "session": 12,
+          "source_group": "idf_session_12",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "9601ff6b17e04debe0f96cf1bcac634d531a48a4628fd6a9b7b0c81d2b92515d"
+      },
+      "idf_session_12_log_113_2025-8-23-13-14-28_segment_08.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-23",
+          "replicate": 12,
+          "segment": 8,
+          "session": 12,
+          "source_group": "idf_session_12",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "a9310d64f46392ed6dab328a4d687a6074d83d90b79c203fda1a7bdd807c99e6"
+      },
+      "idf_session_12_log_113_2025-8-23-13-14-28_segment_09.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-23",
+          "replicate": 12,
+          "segment": 9,
+          "session": 12,
+          "source_group": "idf_session_12",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "ba6a3f6a2edd456e7cf41d7d233c48dd2a0e0b2892a651f441b22b789acf922e"
+      },
+      "idf_session_12_log_113_2025-8-23-13-14-28_segment_10.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-23",
+          "replicate": 12,
+          "segment": 10,
+          "session": 12,
+          "source_group": "idf_session_12",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "d400aabff21da65e6b217b688cbdfdc8d73bfb0158b743846c5ef86672eff8f4"
+      },
+      "idf_session_13_log_115_2025-8-23-14-06-08_segment_01.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-23",
+          "replicate": 13,
+          "segment": 1,
+          "session": 13,
+          "source_group": "idf_session_13",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "16a170f236c667ac71433064156c906977f1caebd9c99807da75bb54301dfc68"
+      },
+      "idf_session_13_log_115_2025-8-23-14-06-08_segment_02.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-23",
+          "replicate": 13,
+          "segment": 2,
+          "session": 13,
+          "source_group": "idf_session_13",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "7e58924f20bab1a8964c400fe7f7cfd84106a47df18766794c7375fe4a6a52f4"
+      },
+      "idf_session_13_log_115_2025-8-23-14-06-08_segment_03.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-23",
+          "replicate": 13,
+          "segment": 3,
+          "session": 13,
+          "source_group": "idf_session_13",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "aeb08fcdd9e322b00b8b3538d5dfdbca742c4af5ea52cbf41e875675397fd911"
+      },
+      "idf_session_13_log_115_2025-8-23-14-06-08_segment_04.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-23",
+          "replicate": 13,
+          "segment": 4,
+          "session": 13,
+          "source_group": "idf_session_13",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "7cbfb962ecca2ea725e9eb59dac74d11659232176f2366305f4d50f3d1605ca3"
+      },
+      "idf_session_13_log_115_2025-8-23-14-06-08_segment_05.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-23",
+          "replicate": 13,
+          "segment": 5,
+          "session": 13,
+          "source_group": "idf_session_13",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "5daaee2f55d70c58cd6b44cc0a11d1d67870d40b04c4bc4772ecffd88fa792a0"
+      },
+      "idf_session_13_log_115_2025-8-23-14-06-08_segment_06.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-23",
+          "replicate": 13,
+          "segment": 6,
+          "session": 13,
+          "source_group": "idf_session_13",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "f5ed905be0b40d8be1d2c03aebdcd118301c79b942dd135a1b1ca9bd3dbf1504"
+      },
+      "idf_session_13_log_115_2025-8-23-14-06-08_segment_07.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-23",
+          "replicate": 13,
+          "segment": 7,
+          "session": 13,
+          "source_group": "idf_session_13",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "34438185e4ed85237130b73fc3327a17ba65ac8fee3ee1c150dc72b69c70e1a6"
+      },
+      "idf_session_13_log_115_2025-8-23-14-06-08_segment_08.npz": {
+        "labels": {
+          "benchmark": "idf_ds_fixedwing_telemetry",
+          "condition": "outdoor_real_flight",
+          "profile": "waypoint_circuit",
+          "recording_date": "2025-08-23",
+          "replicate": 13,
+          "segment": 8,
+          "session": 13,
+          "source_group": "idf_session_13",
+          "vehicle_id": "idf_ds_holybro_pixhawk_fixedwing"
+        },
+        "sha256": "2062950b4bb63845077a717f3dc91e02d52e87495bff47c20d36d4599361dd13"
+      }
+    },
+    "nanodrone": {
+      "test/melon_20251017_run1.npz": {
+        "labels": {
+          "benchmark": "idsia_nanodrone_sysid",
+          "benchmark_split": "test",
+          "condition": "aggressive_real_flight",
+          "profile": "melon",
+          "recording_date": "2025-10-17",
+          "replicate": 1
+        },
+        "sha256": "82d7efc089f5e1a068291db0ee6804f4c61d004aa8e675004fbfe59414de240f"
+      },
+      "test/melon_20251017_run2.npz": {
+        "labels": {
+          "benchmark": "idsia_nanodrone_sysid",
+          "benchmark_split": "test",
+          "condition": "aggressive_real_flight",
+          "profile": "melon",
+          "recording_date": "2025-10-17",
+          "replicate": 2
+        },
+        "sha256": "a4f2ed54d353121b3727ce3dbac6f96733b06f76bf28b4a3377756d7c81b5580"
+      },
+      "test/melon_20251017_run3.npz": {
+        "labels": {
+          "benchmark": "idsia_nanodrone_sysid",
+          "benchmark_split": "test",
+          "condition": "aggressive_real_flight",
+          "profile": "melon",
+          "recording_date": "2025-10-17",
+          "replicate": 3
+        },
+        "sha256": "0b23c1dbe271a918e2d3e355717ac813dd0b9be6838fde6a4375836e161fd77e"
+      },
+      "train/chirp_20251017_run1.npz": {
+        "labels": {
+          "benchmark": "idsia_nanodrone_sysid",
+          "benchmark_split": "train",
+          "condition": "aggressive_real_flight",
+          "profile": "chirp",
+          "recording_date": "2025-10-17",
+          "replicate": 1
+        },
+        "sha256": "a55b315453585e40ca58172f2e0838bdd7902a77d74b6179eae2647292e29fe4"
+      },
+      "train/chirp_20251017_run2.npz": {
+        "labels": {
+          "benchmark": "idsia_nanodrone_sysid",
+          "benchmark_split": "train",
+          "condition": "aggressive_real_flight",
+          "profile": "chirp",
+          "recording_date": "2025-10-17",
+          "replicate": 2
+        },
+        "sha256": "ee763f7339231aeb982962dd48422207d8b61b52ee3479facda1528d2f70c536"
+      },
+      "train/chirp_20251017_run3.npz": {
+        "labels": {
+          "benchmark": "idsia_nanodrone_sysid",
+          "benchmark_split": "train",
+          "condition": "aggressive_real_flight",
+          "profile": "chirp",
+          "recording_date": "2025-10-17",
+          "replicate": 3
+        },
+        "sha256": "52009629ae7c7dadaa1c818e8ac36b2a18a4daf9348f72351606804278cd8a86"
+      },
+      "train/chirp_20251017_run4.npz": {
+        "labels": {
+          "benchmark": "idsia_nanodrone_sysid",
+          "benchmark_split": "train",
+          "condition": "aggressive_real_flight",
+          "profile": "chirp",
+          "recording_date": "2025-10-17",
+          "replicate": 4
+        },
+        "sha256": "b191c18269f2c1131db078de02bca99a185ed07ee3d9320aae76108b507fdae7"
+      },
+      "train/random_20251017_run1.npz": {
+        "labels": {
+          "benchmark": "idsia_nanodrone_sysid",
+          "benchmark_split": "train",
+          "condition": "aggressive_real_flight",
+          "profile": "random",
+          "recording_date": "2025-10-17",
+          "replicate": 1
+        },
+        "sha256": "aaa65183b76dc57b1299fcc486824ae84c546e14a524a8fffbdb795b64b08cb6"
+      },
+      "train/random_20251017_run2.npz": {
+        "labels": {
+          "benchmark": "idsia_nanodrone_sysid",
+          "benchmark_split": "train",
+          "condition": "aggressive_real_flight",
+          "profile": "random",
+          "recording_date": "2025-10-17",
+          "replicate": 2
+        },
+        "sha256": "29f23991960d87d44bf0e8b943d3160b7cf41b1f9b71ad0316de63d3920299b1"
+      },
+      "train/random_20251017_run3.npz": {
+        "labels": {
+          "benchmark": "idsia_nanodrone_sysid",
+          "benchmark_split": "train",
+          "condition": "aggressive_real_flight",
+          "profile": "random",
+          "recording_date": "2025-10-17",
+          "replicate": 3
+        },
+        "sha256": "1e86f1a2e6e5fef449f33497c33afa05522f128c7bfba79fed52d930fb5150b4"
+      },
+      "train/random_20251017_run4.npz": {
+        "labels": {
+          "benchmark": "idsia_nanodrone_sysid",
+          "benchmark_split": "train",
+          "condition": "aggressive_real_flight",
+          "profile": "random",
+          "recording_date": "2025-10-17",
+          "replicate": 4
+        },
+        "sha256": "359c0f8905b7c8e4958ffae0814ce01a07a4aab8da41c622acc09e9a9aa8f750"
+      },
+      "train/square_20251017_run1.npz": {
+        "labels": {
+          "benchmark": "idsia_nanodrone_sysid",
+          "benchmark_split": "train",
+          "condition": "aggressive_real_flight",
+          "profile": "square",
+          "recording_date": "2025-10-17",
+          "replicate": 1
+        },
+        "sha256": "7a582f74940904775d1309da56ffb1c9fc665b966546e300663ebdbacd7c3fed"
+      },
+      "train/square_20251017_run2.npz": {
+        "labels": {
+          "benchmark": "idsia_nanodrone_sysid",
+          "benchmark_split": "train",
+          "condition": "aggressive_real_flight",
+          "profile": "square",
+          "recording_date": "2025-10-17",
+          "replicate": 2
+        },
+        "sha256": "5c1ad8b358bd378b78eca57b9020f0128ef28e33d20ea8e3e87318509030f4fb"
+      },
+      "train/square_20251017_run3.npz": {
+        "labels": {
+          "benchmark": "idsia_nanodrone_sysid",
+          "benchmark_split": "train",
+          "condition": "aggressive_real_flight",
+          "profile": "square",
+          "recording_date": "2025-10-17",
+          "replicate": 3
+        },
+        "sha256": "b20babc9b9f7ff89b3683baad40e7e602cff80e42da2d92544637e850f6f13f1"
+      },
+      "train/square_20251017_run4.npz": {
+        "labels": {
+          "benchmark": "idsia_nanodrone_sysid",
+          "benchmark_split": "train",
+          "condition": "aggressive_real_flight",
+          "profile": "square",
+          "recording_date": "2025-10-17",
+          "replicate": 4
+        },
+        "sha256": "f5af525cc883acf2461ef7d6422b934ffbaa834ecde8086ecafa48c0a5881f0a"
+      }
+    },
+    "x8": {
+      "training/lateral_121_1.npz": {
+        "labels": {
+          "benchmark": "ntnu_skywalker_x8_system_identification",
+          "benchmark_split": "training",
+          "condition": "strong_northwest_wind_real_flight",
+          "profile": "lateral_121",
+          "replicate": 1,
+          "source_group": "lateral_121_1",
+          "vehicle_id": "ntnu_skywalker_x8_flying_wing"
+        },
+        "sha256": "8615e554a1eaf58475cbb029f2553cd999cbbe1d1e47f674b158aa9df25d87bb"
+      },
+      "training/lateral_121_2.npz": {
+        "labels": {
+          "benchmark": "ntnu_skywalker_x8_system_identification",
+          "benchmark_split": "training",
+          "condition": "strong_northwest_wind_real_flight",
+          "profile": "lateral_121",
+          "replicate": 2,
+          "source_group": "lateral_121_2",
+          "vehicle_id": "ntnu_skywalker_x8_flying_wing"
+        },
+        "sha256": "e948321e45e69fb991a39ac65f4fa752b6cc2849ed4fb1a7b0cb299ab9e68ccb"
+      },
+      "training/lateral_121_3.npz": {
+        "labels": {
+          "benchmark": "ntnu_skywalker_x8_system_identification",
+          "benchmark_split": "training",
+          "condition": "strong_northwest_wind_real_flight",
+          "profile": "lateral_121",
+          "replicate": 3,
+          "source_group": "lateral_121_3",
+          "vehicle_id": "ntnu_skywalker_x8_flying_wing"
+        },
+        "sha256": "f62de50657d9187a38b9f1a23124f7eb40a6fe149a86e49932baba2dff4d7a64"
+      },
+      "training/lateral_doublet_1.npz": {
+        "labels": {
+          "benchmark": "ntnu_skywalker_x8_system_identification",
+          "benchmark_split": "training",
+          "condition": "strong_northwest_wind_real_flight",
+          "profile": "lateral_doublet",
+          "replicate": 1,
+          "source_group": "lateral_doublet_1",
+          "vehicle_id": "ntnu_skywalker_x8_flying_wing"
+        },
+        "sha256": "70900d33cbac2a1cad5924f57fee50f199ba8733527cdde14f70ffc54527c75b"
+      },
+      "training/lateral_doublet_2.npz": {
+        "labels": {
+          "benchmark": "ntnu_skywalker_x8_system_identification",
+          "benchmark_split": "training",
+          "condition": "strong_northwest_wind_real_flight",
+          "profile": "lateral_doublet",
+          "replicate": 2,
+          "source_group": "lateral_doublet_2",
+          "vehicle_id": "ntnu_skywalker_x8_flying_wing"
+        },
+        "sha256": "b84bf2a7dc44a01ac459aab231085e871314ecd000a63169b4d737429cdc11db"
+      },
+      "training/lateral_doublet_3.npz": {
+        "labels": {
+          "benchmark": "ntnu_skywalker_x8_system_identification",
+          "benchmark_split": "training",
+          "condition": "strong_northwest_wind_real_flight",
+          "profile": "lateral_doublet",
+          "replicate": 3,
+          "source_group": "lateral_doublet_3",
+          "vehicle_id": "ntnu_skywalker_x8_flying_wing"
+        },
+        "sha256": "ae56f498a6d7242fc61558f95826259c958c3f1110f8d537bd2498feef0c9001"
+      },
+      "training/longitudinal_3211_1.npz": {
+        "labels": {
+          "benchmark": "ntnu_skywalker_x8_system_identification",
+          "benchmark_split": "training",
+          "condition": "strong_northwest_wind_real_flight",
+          "profile": "longitudinal_3211",
+          "replicate": 1,
+          "source_group": "longitudinal_3211_1",
+          "vehicle_id": "ntnu_skywalker_x8_flying_wing"
+        },
+        "sha256": "283aeed9fb20815028e0349c97ce9718360ab95b77aa638fdff9a8bcb12d9765"
+      },
+      "training/longitudinal_3211_2.npz": {
+        "labels": {
+          "benchmark": "ntnu_skywalker_x8_system_identification",
+          "benchmark_split": "training",
+          "condition": "strong_northwest_wind_real_flight",
+          "profile": "longitudinal_3211",
+          "replicate": 2,
+          "source_group": "longitudinal_3211_2",
+          "vehicle_id": "ntnu_skywalker_x8_flying_wing"
+        },
+        "sha256": "df95c32f4de5ef8c9ec76a5a84c1638d414851095eef03a0fda6837c06313c66"
+      },
+      "training/longitudinal_3211_3.npz": {
+        "labels": {
+          "benchmark": "ntnu_skywalker_x8_system_identification",
+          "benchmark_split": "training",
+          "condition": "strong_northwest_wind_real_flight",
+          "profile": "longitudinal_3211",
+          "replicate": 3,
+          "source_group": "longitudinal_3211_3",
+          "vehicle_id": "ntnu_skywalker_x8_flying_wing"
+        },
+        "sha256": "dc914b985fe31cd052dfa29036c0565c317b48a7ffcacea1a6d6c92db060cba4"
+      },
+      "training/longitudinal_3211_4.npz": {
+        "labels": {
+          "benchmark": "ntnu_skywalker_x8_system_identification",
+          "benchmark_split": "training",
+          "condition": "strong_northwest_wind_real_flight",
+          "profile": "longitudinal_3211",
+          "replicate": 4,
+          "source_group": "longitudinal_3211_4",
+          "vehicle_id": "ntnu_skywalker_x8_flying_wing"
+        },
+        "sha256": "13190b6362d89d184416c858a9119fb822ff239610f39fbc5361a135cb3363d8"
+      },
+      "training/longitudinal_doublet_1.npz": {
+        "labels": {
+          "benchmark": "ntnu_skywalker_x8_system_identification",
+          "benchmark_split": "training",
+          "condition": "strong_northwest_wind_real_flight",
+          "profile": "longitudinal_doublet",
+          "replicate": 1,
+          "source_group": "longitudinal_doublet_1",
+          "vehicle_id": "ntnu_skywalker_x8_flying_wing"
+        },
+        "sha256": "153ef41cca80eafcc577682cc2a3635871ee37317d4e5e9876d583b8a57110ff"
+      },
+      "training/longitudinal_doublet_2.npz": {
+        "labels": {
+          "benchmark": "ntnu_skywalker_x8_system_identification",
+          "benchmark_split": "training",
+          "condition": "strong_northwest_wind_real_flight",
+          "profile": "longitudinal_doublet",
+          "replicate": 2,
+          "source_group": "longitudinal_doublet_2",
+          "vehicle_id": "ntnu_skywalker_x8_flying_wing"
+        },
+        "sha256": "c227cd28d3c73d779eb8cdf01377b66d2cd7f65aa871687fdbe8bb2581854c5c"
+      },
+      "training/longitudinal_doublet_3.npz": {
+        "labels": {
+          "benchmark": "ntnu_skywalker_x8_system_identification",
+          "benchmark_split": "training",
+          "condition": "strong_northwest_wind_real_flight",
+          "profile": "longitudinal_doublet",
+          "replicate": 3,
+          "source_group": "longitudinal_doublet_3",
+          "vehicle_id": "ntnu_skywalker_x8_flying_wing"
+        },
+        "sha256": "15ef9df0c1d95128d6ad59c316ce1de4a652aa91ab0dfd4ca07f41f899aa7ac8"
+      },
+      "validation/lateral_121_4.npz": {
+        "labels": {
+          "benchmark": "ntnu_skywalker_x8_system_identification",
+          "benchmark_split": "validation",
+          "condition": "strong_northwest_wind_real_flight",
+          "profile": "lateral_121",
+          "replicate": 4,
+          "source_group": "lateral_121_4",
+          "vehicle_id": "ntnu_skywalker_x8_flying_wing"
+        },
+        "sha256": "c1b9bae65635f4dd214fe77fa116e0ef413ec3c12e278cb63de1e9dd3a58261e"
+      },
+      "validation/lateral_doublet_4.npz": {
+        "labels": {
+          "benchmark": "ntnu_skywalker_x8_system_identification",
+          "benchmark_split": "validation",
+          "condition": "strong_northwest_wind_real_flight",
+          "profile": "lateral_doublet",
+          "replicate": 4,
+          "source_group": "lateral_doublet_4",
+          "vehicle_id": "ntnu_skywalker_x8_flying_wing"
+        },
+        "sha256": "713a869a80a8fcfca231c8da895e20a280ec309712cd3cd6dc7b3c3df0425e8c"
+      },
+      "validation/longitudinal_3211_5.npz": {
+        "labels": {
+          "benchmark": "ntnu_skywalker_x8_system_identification",
+          "benchmark_split": "validation",
+          "condition": "strong_northwest_wind_real_flight",
+          "profile": "longitudinal_3211",
+          "replicate": 5,
+          "source_group": "longitudinal_3211_5",
+          "vehicle_id": "ntnu_skywalker_x8_flying_wing"
+        },
+        "sha256": "fb5722dbec4b677f003416d1b15f82f4f94e68bad4fb1eae65c1c0cc810ef983"
+      },
+      "validation/longitudinal_doublet_4.npz": {
+        "labels": {
+          "benchmark": "ntnu_skywalker_x8_system_identification",
+          "benchmark_split": "validation",
+          "condition": "strong_northwest_wind_real_flight",
+          "profile": "longitudinal_doublet",
+          "replicate": 4,
+          "source_group": "longitudinal_doublet_4",
+          "vehicle_id": "ntnu_skywalker_x8_flying_wing"
+        },
+        "sha256": "eb831e1a83177fd62f8d00068ab30b91f427234c334d703343622433b5ed2843"
+      }
+    }
+  },
+  "id": "glassbox-platform-recordings-v1"
+}

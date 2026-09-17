@@ -4,7 +4,7 @@ The harness has four tiers, each with its own frozen manifest and digest
 constant. ``run`` is the synthetic tier: it fits the consumer recipe end to end
 on each case of ``docs/harness/v1.json``, scores its forecasts on independent
 recordings, and writes a decision. ``platform`` is the accuracy tier: it fits
-the same recipe on each pinned corpus of ``docs/harness/platform-v3.json`` with
+the same recipe on each pinned corpus of ``docs/harness/platform-v4.json`` with
 whole recordings held out, fits the structured model on exactly the same
 training recordings, and scores both on exactly the same held-out rows.
 ``control`` is the control tier: it collects the frozen Cascade X8 calibration
@@ -24,7 +24,7 @@ that changed. No command takes tuning options.
     python -m glassbox.experimental.harness run \\
         --manifest docs/harness/v1.json --output DIR
     python -m glassbox.experimental.harness platform \\
-        --manifest docs/harness/platform-v3.json --corpora ROOT --output DIR
+        --manifest docs/harness/platform-v4.json --corpora ROOT --output DIR
     python -m glassbox.experimental.harness control \\
         --manifest docs/harness/control-v5.json --output DIR
     python -m glassbox.experimental.harness live \\
@@ -1355,11 +1355,11 @@ def evidence_decide(
 # --- the platform tier: the corpus adapter ----------------------------------
 
 PLATFORM_MANIFEST_SHA256 = (
-    "74722a9f23eeb3eeacc2d5faefab5bd2c126d60927525eceb306494a6cbf1d79"
+    "f92f12e20cea05409422f61f784ce0642541372dc5c0b8ad9a8a4cc3a4a8b755"
 )
 """Digest of the frozen platform manifest this module is allowed to run."""
 
-COMMITTED_PLATFORM_MANIFEST = COMMITTED_MANIFEST.parent / "platform-v3.json"
+COMMITTED_PLATFORM_MANIFEST = COMMITTED_MANIFEST.parent / "platform-v4.json"
 """The frozen platform manifest in a source checkout."""
 
 COMMITTED_PLATFORM_REFERENCE = COMMITTED_MANIFEST.parent / "platform-reference.json"

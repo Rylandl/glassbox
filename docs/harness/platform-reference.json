@@ -1,6 +1,6 @@
 {
-  "manifest": "glassbox-harness-platform-v3",
-  "manifest_sha256": "74722a9f23eeb3eeacc2d5faefab5bd2c126d60927525eceb306494a6cbf1d79",
+  "manifest": "glassbox-harness-platform-v4",
+  "manifest_sha256": "f92f12e20cea05409422f61f784ce0642541372dc5c0b8ad9a8a4cc3a4a8b755",
   "source": "The merged platform-v1 run's numbers, carried forward unchanged by the accepted run of the generic-memory-v3-prototype recipe, the first candidate that reports a measured forecast-error envelope with every forecast. The mean fit is unchanged, so every score below reproduces the previous reference to every digit; the fingerprints moved because the artifact now carries the envelope. A later run's generic final-step RMSE may not exceed these values by more than this manifest's reference allowance on either metric.",
   "environment": {
     "python": "3.12.3 (main, Aug 31 2026, 10:18:26) [GCC 13.3.0]",

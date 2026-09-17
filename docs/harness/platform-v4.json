@@ -1,5 +1,5 @@
 {
-  "id": "glassbox-harness-platform-v3",
+  "id": "glassbox-harness-platform-v4",
   "scope": "The accuracy tier. For every pinned platform corpus on disk, whole recordings are held out, the generic recipe is fitted on the rest, the structured model is fitted on exactly the same training recordings, and both forecast the same held-out origins from the same recorded future commands. This tier measures forecast accuracy against the structured model and the task allowance. It is not control adequacy, calibrated uncertainty, or evidence about any corpus not listed here.",
   "frozen": "This file and its digest constant in glassbox.experimental.harness are frozen before a candidate is fitted. A threshold, stride, holdout, corpus, or reference value changed after scores were seen fails review. The corpus root is a command-line argument and never a fact in this file. The recipe block below records the recipe this manifest was frozen against: a candidate recipe may differ from it, and every run records the recipe it actually fitted. What the manifest pins about the recipe is the evaluation plan, the information budget every window is cut to, which each corpus declares and the harness rederives.",
   "recipe": {
@@ -345,5 +345,10 @@
         "stability_regularization": 0.01
       }
     }
-  ]
+  ],
+  "recording_content": {
+    "file": "platform-recordings-v1.json",
+    "sha256": "8cc8b3c0e5bf8d8bb01b4caffc0dd9c320c27fa5ac6dee8a8a5b870bda8cadd0",
+    "meaning": "Every canonical recording is pinned by its corpus-relative filename, trajectory_sha256_v1 content digest, and complete labels. The digest covers all canonical arrays, timing, signal contract, and prior commands; labels additionally pin structured holdout and weighting. Storage roots, provenance, and NPZ compression are excluded. Every corpus is loaded and checked before either model is fitted, and both fits consume those verified in-memory trajectories. Each run copies this inventory; replay verifies its frozen digest and the recorded splits without reading the original corpus."
+  }
 }
