@@ -5,26 +5,6 @@ All notable changes to Glassbox are recorded here. The format follows
 
 ## Unreleased
 
-- Identify the one-step command response from the recordings' own command
-  variation and hold the fit to it. On the training windows the recipe takes
-  the partial regression of the one-step next-state change on the applied
-  command given the observed context — the affine start's own design with that
-  command's level columns taken out and used as the regressor — and the spread
-  of the same slope between the recordings as its standard error. A command
-  channel whose response is larger than its own standard error has the affine
-  block's columns for it held to that response for every step of training: the
-  level column carries the whole response, the difference columns carry zero,
-  and the nonlinear correction and the memory keep their own rows of that
-  command and learn around it. A channel identified no better than that keeps
-  the ridge's estimate, and the report records the response, the standard
-  error, and which channels were held and which were free. The assumption is
-  stated in the module: the command's variation given the observed context is
-  exogenous to unobserved disturbance. There is no caller option, no new
-  constant and no platform branch; `fit`, `predict` and `update` are unchanged,
-  and `update` identifies again on the merged cache it refits against. The
-  recipe is `generic-memory-v4-prototype` and the artifact format `v4`; a `v3`
-  artifact is rejected on load rather than migrated.
-
 - Let a recording declare the excitation the caller injected, and make the
   control and live tiers declare theirs. `SequenceSegment` takes an optional
   `excitation` array aligned with its `inputs` — the exogenous component of each

@@ -86,48 +86,6 @@ def sequence_windows(states, inputs, anchors, *, history_steps, horizon_steps, d
     )
 
 
-def command_feature_rows(state_width, command_width, delay_steps, channel):
-    """The affine block's own columns for one command channel.
-
-    The feature vector ``_features`` builds is
-    ``[x, u, xpast - x, upast - u, hidden]``, so one command channel owns its
-    level column and one difference column per explicit lag, and nothing else
-    in the design carries that command.
-    """
-    d, u, p = int(state_width), int(command_width), int(delay_steps)
-    return [d + channel] + [d + u + p * d + lag * u + channel for lag in range(p)]
-
-
-def held_command_coefficients(norms, response, held, state_width, command_width, delay):
-    """Affine coefficients that express a declared one-step command response.
-
-    ``response`` is physical state change per unit command, one row per command
-    channel. A held channel's level column carries the whole of it, in the
-    design's own normalized units, and its difference columns carry zero, so
-    the affine block's response to that command is exactly ``response`` and
-    nothing else in the block can restate it.
-    """
-    rows, values = [], []
-    for channel in np.flatnonzero(np.asarray(held, bool)):
-        columns = command_feature_rows(state_width, command_width, delay, int(channel))
-        level = columns[0]
-        rows.append(level)
-        values.append(
-            np.asarray(response[channel], dtype=float)
-            * norms["input_scale"][channel]
-            * norms["feature_scale"][level]
-            / (norms["state_scale"] * norms["delta_scale"])
-        )
-        for column in columns[1:]:
-            rows.append(column)
-            values.append(np.zeros(len(norms["state_scale"])))
-    return np.asarray(rows, dtype=int), (
-        np.asarray(values, dtype=float)
-        if values
-        else np.zeros((0, len(norms["state_scale"])))
-    )
-
-
 def _features(x, u, xpast, upast, hidden, xp=jnp):
     return xp.concatenate(
         [
@@ -335,14 +293,7 @@ class SequenceModel:
 
 
 def initialize_sequence_model(
-    batch,
-    *,
-    seed=0,
-    width=32,
-    memory=8,
-    ridge=1.0,
-    delay_steps=None,
-    command_response=None,
+    batch, *, seed=0, width=32, memory=8, ridge=1.0, delay_steps=None
 ):
     """Initialize from a learned one-step affine model, with zero neural residual.
 
@@ -350,14 +301,6 @@ def initialize_sequence_model(
     window's past holds the whole consumed context and ``delay_steps`` sets the
     explicit-difference history; the memory starts at rest and reads out as
     zero, so checkpoint zero is the affine start.
-
-    ``command_response`` is ``(response, held)``: a measured one-step command
-    response, physical state change per unit command and one row per command
-    channel, and which of those channels it is known well enough to state. A
-    held channel's affine columns are set to that response rather than solved,
-    and the rest of the block is solved by the same ridge around them. With no
-    channel held the solve is the unconstrained one, coefficient for
-    coefficient.
     """
     if min(width, memory) < 1 or not np.isfinite(ridge) or ridge <= 0:
         raise ValueError("width, memory and ridge must be positive")
@@ -400,41 +343,9 @@ def initialize_sequence_model(
     fs = np.where(fs > 1e-8, fs, 1.0)
     design = np.column_stack((features / fs, np.ones(len(features))))
     penalty = np.diag(np.r_[np.full(features.shape[-1], ridge), 0.0])
-    target = (delta / ds).reshape(len(features), -1)
-    norms = dict(
-        state_mean=xm,
-        state_scale=xs,
-        input_mean=um,
-        input_scale=us,
-        feature_scale=fs,
-        delta_scale=ds,
+    coefficients = np.linalg.solve(
+        design.T @ design + penalty, design.T @ (delta / ds).reshape(len(features), -1)
     )
-    held_rows, held_values = (
-        held_command_coefficients(
-            norms,
-            *command_response,
-            current.shape[-1],
-            batch.future_inputs.shape[-1],
-            p,
-        )
-        if command_response is not None
-        else (np.zeros(0, dtype=int), np.zeros((0, current.shape[-1])))
-    )
-    if held_rows.size:
-        # Solve the rest of the block around the held columns rather than
-        # beside them: the remaining coefficients are the ridge's best fit
-        # given the command response the recordings identified.
-        free = np.setdiff1d(np.arange(design.shape[1]), held_rows)
-        residual = target - design[:, held_rows] @ held_values
-        solved = np.linalg.solve(
-            design[:, free].T @ design[:, free] + penalty[np.ix_(free, free)],
-            design[:, free].T @ residual,
-        )
-        coefficients = np.zeros((design.shape[1], target.shape[1]))
-        coefficients[free] = solved
-        coefficients[held_rows] = held_values
-    else:
-        coefficients = np.linalg.solve(design.T @ design + penalty, design.T @ target)
     params = dict(linear=coefficients[:-1], bias=coefficients[-1])
     rng = np.random.default_rng(seed)
     f, d = coefficients.shape[0] - 1, coefficients.shape[1]
@@ -444,6 +355,14 @@ def initialize_sequence_model(
         w2=np.zeros((width, d)),
         memory=rng.normal(size=(f, memory)) / np.sqrt(f),
         memory_bias=np.zeros(memory),
+    )
+    norms = dict(
+        state_mean=xm,
+        state_scale=xs,
+        input_mean=um,
+        input_scale=us,
+        feature_scale=fs,
+        delta_scale=ds,
     )
     return SequenceModel(KIND, batch.dt_s, context, params, norms, p)
 
@@ -462,19 +381,12 @@ def fit_sequence_model(
     check_every=100,
     error_scale=None,
     delay_steps=None,
-    command_response=None,
 ):
     """Adam with gradient clipping and development-rollout checkpoint selection.
 
     Every checkpoint is evaluated recursively. By default all future channels
     have equal weight after train-only state scaling. error_scale may instead
     supply positive [horizon,channel] loss scales.
-
-    ``command_response`` is the ``(response, held)`` pair
-    :func:`initialize_sequence_model` takes. A held channel's affine columns
-    are held there for every step of this optimization: they carry no gradient,
-    they are restored after every update, and the nonlinear correction and the
-    memory keep their own rows of that command and learn around them.
     """
     if steps < 0 or check_every < 1:
         raise ValueError("invalid training steps")
@@ -492,28 +404,9 @@ def fit_sequence_model(
         memory=memory,
         ridge=ridge,
         delay_steps=delay_steps,
-        command_response=command_response,
     )
     delay = model.delay_steps
     params, norms = jax.tree.map(jnp.asarray, (model.params, model.norms))
-    held_rows = (
-        held_command_coefficients(
-            model.norms,
-            *command_response,
-            train.future_states.shape[-1],
-            train.future_inputs.shape[-1],
-            delay,
-        )[0]
-        if command_response is not None
-        else np.zeros(0, dtype=int)
-    )
-    if held_rows.size:
-        free = np.ones_like(np.asarray(model.params["linear"]))
-        free[held_rows] = 0.0
-        held_mask = jnp.asarray(free)
-        held_linear = jnp.asarray(np.asarray(model.params["linear"]) * (1.0 - free))
-    else:
-        held_mask = held_linear = None
     if error_scale is None:
         normalization = norms["state_scale"]
     else:
@@ -542,10 +435,6 @@ def fit_sequence_model(
     def update(par, first, second, index, indices):
         data = tuple(value[indices] for value in training)
         value, grad = jax.value_and_grad(loss)(par, data)
-        if held_mask is not None:
-            # A held coefficient carries no gradient at all, so it does not
-            # move and does not enter the clipping norm the others share.
-            grad = dict(grad, linear=grad["linear"] * held_mask)
         norm = jnp.sqrt(sum(jnp.sum(g * g) for g in jax.tree.leaves(grad)))
         grad = jax.tree.map(lambda g: g * jnp.minimum(1.0, 5.0 / (norm + 1e-12)), grad)
         first = jax.tree.map(lambda m, g: 0.9 * m + 0.1 * g, first, grad)
@@ -561,8 +450,6 @@ def fit_sequence_model(
             first,
             second,
         )
-        if held_mask is not None:
-            par = dict(par, linear=par["linear"] * held_mask + held_linear)
         return par, first, second, value
 
     best = params

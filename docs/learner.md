@@ -123,13 +123,11 @@ construction; whether it holds anywhere else is measured, not claimed. The
 
 ## The recipe
 
-`generic-memory-v4-prototype` is the only recipe, and a saved model that
+`generic-memory-v3-prototype` is the only recipe, and a saved model that
 carries anything else is rejected rather than migrated. A `v2` artifact, which
-carried no envelope, and a `v3` artifact, whose command columns state a
-response the fit never identified, are refused on load rather than migrated: a
-forecast without a measured envelope is not a forecast this recipe makes, and
-inventing either that or an identification on load would be the opposite of
-measuring it.
+carried no envelope, is refused on load rather than migrated: a forecast
+without a measured envelope is not a forecast this recipe makes, and inventing
+one on load would be the opposite of measuring it.
 
 | Constant | Value |
 | --- | --- |
@@ -156,62 +154,6 @@ residual, then trained with Adam under gradient clipping, with the
 hold-current loss scales and development-rollout checkpoint selection. At
 50 ms sampling the constants mean a 10-step consumed context, a 2-step
 explicit history and a 5-step forecast horizon.
-
-## The command response the recordings identify
-
-Forecast error under the flown policy is nearly blind to the command response:
-a closed-loop recording explains almost all of each command from its own state,
-so a model can fit the regime it was recorded in and get the commands wrong
-without the objective noticing. The recipe therefore identifies that response
-itself, from the recordings' own command variation, and holds the fit to it.
-
-On the training windows — exactly the transitions the affine start is solved
-on — it takes the partial regression of the one-step next-state change on the
-applied command given the observed context: the same design the affine start
-uses, with that command's own level columns taken out and used as the
-regressor, so what is left conditioning it is the current observation, the
-explicit history differences and the command differences. The result is in
-physical units, one row per command channel and one column per observation
-channel. The least-squares cutoff is numpy's own, referred to the command's
-own variation rather than to what survived the conditioning: a direction of
-command the observed context already accounts for to within floating point
-identifies nothing and is reported as no response.
-
-Its standard error is the spread of the same slope between the recordings the
-windows came from. That is the reading that sees what a row-wise standard
-error cannot: the windows overlap, the residual is a smooth function of time,
-and each recording is a separate run of the system. A recording with fewer rows
-than the conditioning block has columns cannot state a slope of its own and
-contributes none; with fewer than two that can, there is no spread, nothing is
-identified and nothing is held.
-
-A command channel is held when its whole response is larger than its own
-standard error in the same units — that comparison and nothing else, no
-threshold and no constant. A held channel's affine columns are set rather than
-solved: its level column carries the whole response, its difference columns
-carry zero, and the rest of the affine block is solved by the same ridge around
-them, so the block's response to that command is the identified one and
-nothing else in the block restates it. Those columns then carry no gradient for
-any of the recipe's 1000 steps and are restored after every update, while the
-nonlinear correction and the memory keep their own rows of that command and
-learn around it. A channel that is not identified that well keeps the ridge's
-own estimate, exactly as before. `update` identifies again on the merged
-training cache it refits against, so a revision states what its own windows
-show.
-
-The report records it: the response, the standard error, both as sizes and in
-full, the rows and recordings it was read from, and which channels were held
-and which were free, in the caller's own channel names.
-
-**The assumption is structural and stated: the command's variation given the
-observed context is exogenous to unobserved disturbance.** It is an assumption
-about causality, like this recipe's other ones, and not about any platform.
-Where it fails — where what moves a command beyond the observed context is
-itself a response to a disturbance the recordings do not show — the identified
-slope is the response plus that feedback, and the measured standard error does
-not see the difference. Where a channel's command is explained by the context
-well enough that little variation is left, the standard error grows and the
-channel is not held, which is the case the comparison exists for.
 
 ## The memory contract
 

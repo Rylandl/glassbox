@@ -21,7 +21,6 @@ from glassbox.experimental.sequence_collection import (
     SequenceCollection,
     SequenceSegment,
 )
-from glassbox.experimental.sequence_model import command_feature_rows
 
 
 def recording(name, seed):
@@ -32,20 +31,6 @@ def recording(name, seed):
         x[i + 1, 0] = 0.95 * x[i, 0] + 0.08 * np.tanh(command[0])
         x[i + 1, 1] = 0.91 * x[i, 1] + 0.06 * command[0]
     return SequenceSegment(name, "whole", x, u, 0.05)
-
-
-def observed(name, seed):
-    """The same toy under observation noise, so its command is not recoverable.
-
-    Without noise the state determines the command exactly -- x1 inverts the
-    last command and the design already carries the command differences -- so
-    the observed context leaves no command variation to read a response from.
-    """
-    rng = np.random.default_rng(seed + 1000)
-    base = recording(name, seed)
-    return replace(
-        base, states=base.states + rng.normal(scale=0.004, size=base.states.shape)
-    )
 
 
 def collection(*segments):
@@ -188,7 +173,7 @@ def test_report_and_contract_are_defensive_copies(fitted):
 
 def test_default_is_the_versioned_memory_recipe(fitted):
     assert fitted.recipe == RECIPE
-    assert fitted.report["recipe"]["id"] == "generic-memory-v4-prototype"
+    assert fitted.report["recipe"]["id"] == "generic-memory-v3-prototype"
     assert fitted._model.kind == "filter_mlp"
     assert (
         fitted.history_steps,
@@ -199,7 +184,7 @@ def test_default_is_the_versioned_memory_recipe(fitted):
         2,
         5,
     )
-    assert fitted._metadata()["format"] == "glassbox-default-recipe-v4"
+    assert fitted._metadata()["format"] == "glassbox-default-recipe-v3"
     assert fitted._train.batch.past_states.shape[1] == 11
 
 
@@ -267,17 +252,6 @@ def test_a_v2_artifact_carrying_no_envelope_is_rejected(fitted, tmp_path):
     np.savez_compressed(other, metadata=json.dumps(v2), **without)
     with pytest.raises(ValueError, match="unsupported default recipe version"):
         LearnedDynamics.load(other)
-    # A v3 artifact carried an envelope and a command response the fit never
-    # identified, so it is refused by the same bump rather than migrated.
-    v3 = copy.deepcopy(meta)
-    v3["format"] = "glassbox-default-recipe-v3"
-    v3["recipe"]["id"] = "generic-memory-v3-prototype"
-    del v3["report"]["command_response"]
-    v3["fingerprint"] = array_fingerprint(v3, arrays)
-    third = tmp_path / "v3.npz"
-    np.savez_compressed(third, metadata=json.dumps(v3), **arrays)
-    with pytest.raises(ValueError, match="unsupported default recipe version"):
-        LearnedDynamics.load(third)
     # And a re-signed current-format archive with the array removed is refused
     # for the reason the bump exists rather than for its version string.
     stripped = copy.deepcopy(meta)
@@ -401,63 +375,3 @@ def test_an_update_records_the_excitation_of_the_recordings_it_absorbs():
         revised.report["excitation_standard_deviation_fraction"]
         > (model.report["excitation_standard_deviation_fraction"])
     )
-
-
-def _held_columns(model, channel):
-    d = len(model.norms["state_mean"])
-    u = len(model.norms["input_mean"])
-    return command_feature_rows(d, u, model.delay_steps, channel)
-
-
-def test_the_fit_holds_the_command_response_the_recordings_identify():
-    """Two training recordings state a spread, so the identified column is held."""
-    identified = fit(collection(observed("a", 1), observed("b", 2), observed("c", 3)))
-    block = identified.report["command_response"]
-    assert block["channels"] == list(identified.contract["input_channels"])
-    assert block["identifying_recordings"] == 2
-    assert block["held"] == [True]
-    assert block["held_channels"] == list(identified.contract["input_channels"])
-    assert block["free_channels"] == []
-    assert block["response_size"][0] > block["standard_error_size"][0] > 0
-    model = identified._model
-    columns = _held_columns(model, 0)
-    physical = (
-        model.params["linear"][columns[0]]
-        * model.norms["state_scale"]
-        * model.norms["delta_scale"]
-        / (model.norms["input_scale"][0] * model.norms["feature_scale"][columns[0]])
-    )
-    # The level column carries the identified response and nothing else in the
-    # affine block carries that command, before training and after it. The
-    # trained parameters are single precision unless the caller enables x64,
-    # which is the only difference between the held value and the identified one.
-    np.testing.assert_allclose(
-        physical, np.asarray(block["response"])[0], rtol=1e-6, atol=1e-9
-    )
-    np.testing.assert_array_equal(
-        model.params["linear"][columns[1:]],
-        np.zeros((len(columns) - 1, len(model.norms["state_mean"]))),
-    )
-
-
-def test_a_response_no_larger_than_its_own_standard_error_is_not_held(fitted):
-    """One training recording states no spread, so the ridge's estimate stands."""
-    block = fitted.report["command_response"]
-    assert block["identifying_recordings"] == 1
-    assert block["held"] == [False]
-    assert block["free_channels"] == list(fitted.contract["input_channels"])
-    assert block["standard_error_value"] is None
-    assert block["standard_error_size"] == [None]
-    columns = _held_columns(fitted._model, 0)
-    assert np.abs(fitted._model.params["linear"][columns[1:]]).max() > 0.0
-
-
-def test_a_command_the_context_already_explains_identifies_no_response():
-    """The noiseless toy inverts its own command, so no channel is held."""
-    exact = fit(collection(recording("a", 1), recording("b", 2), recording("c", 3)))
-    block = exact.report["command_response"]
-    assert block["identifying_recordings"] == 2
-    assert block["held"] == [False]
-    assert block["response_size"] == [0.0]
-    columns = _held_columns(exact._model, 0)
-    assert np.abs(exact._model.params["linear"][columns[1:]]).max() > 0.0
