@@ -717,41 +717,38 @@ permits and records them here for the owner to reverse:
 Not decided by the reviewer: the Evidence band stays as declared (85 to 95%
 on every measured case) and arp stays recorded as evidence-limited.
 
+## Reviewer reading of excitation attempt 1
+
+The declaration carries no information at this amplitude, and the reviewer's
+second decision (trials excite) bought nothing: a 2 to 6% dither at these
+rates is collinear with the command's own variation (lag-1 autocorrelation
+0.99, half a percent of it survives the design), a placebo dither identifies
+as well, and a two-second block holds less than one cycle. The identifying
+variation was already in the whole command: its partial response given the
+state context identifies roll and pitch at 0.997 / 0.981 against the plant on
+every calibration recording, and holding the affine block's command columns to
+that response flew repetition 0 at 9.58 m / 8.36 deg against the incumbent's
+60.80 m / 97.18 deg, a diagnostic flight that the control gate's no-regression
+semantics would accept. That is the candidate. live-v3's dither stays in place
+because its reference exists and removing it is churn until a candidate needs
+it; it costs the structured arm about 0.4 deg of attitude and identifies
+nothing, which is recorded.
+
 ## Next iteration
 
-**The protocol amplitude, which is a harness decision, not a learner change.**
-The previous iteration's own escape clause is the one the measurement takes:
-the declared excitation at 5.72%, 2.47% and 2.30% of each command's range does
-not identify the one-step command response on any channel, and the section
-above says so with the standard error, with a placebo that does as well, and
-with the candidate itself flown at 88.189 m against a 63.842 m ceiling. Nothing
-in the learner can be made accountable for a response these recordings do not
-resolve.
+Control attempt 3, one change, gated everywhere: identify the command
+response from the recordings' own command variation and hold the fit to it.
+The rule: on the training windows, regress the one-step next-state residual
+on the command given the state context (the partial slope the diagnostics
+already compute, with the recording-wise spread as its standard error), and
+hold the affine block's command columns to that response through training so
+the nonlinear correction and the memory learn around a command response the
+recordings identify rather than one the objective is blind to. The assumption
+is structural and stated: the command's variation given the observed context
+is exogenous to unobserved disturbance. No new tunable, no caller option, no
+platform branch; when a channel's response is smaller than its own standard
+error the column holds the ridge's estimate and the report says so. Bump the
+recipe id and format. Gate on synthetic, platform-v3 (undeclared corpora are
+affected too, so their references guard it), control-v5, live-v3 and
+evidence-v2; report the trained Jacobian per channel and every number.
 
-Two things follow and both belong to whoever freezes the next manifest.
-
-1. **A dither large enough to identify a channel is no longer a dither.** For a
-   ten-sigma reading at the present 8-second duration, roll needs 6.9% of its
-   declared range -- reachable, about 2.8 times what is injected now, and a
-   third to a half of what the roll command already moves. Throttle needs 40.0%
-   and
-   pitch 34.3%, which are as large as or larger than everything those commands
-   do in these recordings. At the present amplitude the same reading needs
-   1,174, 185 and 5,346 seconds of calibration against the 24 seconds collected.
-   A control tier whose calibration identified all three channels would be a
-   different protocol -- swept or stepped open-loop segments rather than a known
-   additive component of a closed-loop flight -- and freezing one is a decision
-   about what a caller may be asked for, not a threshold to move.
-2. **A streamed block probes one phase, not a cycle.** Two seconds holds 0.41,
-   0.67 and 0.54 of a cycle of each channel's dither, and the seven blocks of a
-   frozen arm disagree accordingly: a mean over a between-block standard error
-   of 0.15 to 1.28, at direction cosines of -0.911 to +0.028. Amplitude is one
-   lever on that and the block length and the dither rates are the other, and
-   all three are live-tier constants.
-
-Until one of those is decided, the honest reading of the Control and Live rows
-is the one the sections above already carry: the ladder's ceilings are 9.577 m
-for the best command response these recordings identify and 16.148 m for the
-plant's own, against a structured arm at 1.179 m, so command response is
-necessary and is not sufficient, and no learner change reaches either row from
-this calibration.
