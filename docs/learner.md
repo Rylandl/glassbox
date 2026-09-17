@@ -1055,6 +1055,17 @@ Jacobian at 16.148 m. The amplitudes that would identify each channel, and why
 two of the three are larger than everything those commands already do, are in
 [`status.md`](status.md#excitation-attempt-1-no-candidate-the-declaration-carries-no-information).
 
+**Holding the fit to what the whole command identifies was then fitted as a
+candidate, and the synthetic tier rejected it before this tier ran.** The recipe
+is unchanged and the measurement is in
+[`status.md`](status.md#control-attempt-3-rejected-the-affine-block-is-not-the-command-response).
+Its rule holds roll and pitch on this calibration and leaves throttle to the
+ridge; flown here as a diagnostic rather than a gate run it tracks at 14.306 m
+and 63.492 degrees, four times better than the incumbent and twelve times worse
+than the structured arm; and its trained one-step command Jacobian is not the
+response its own affine columns are held to, because the nonlinear correction
+and the memory keep their own rows of the command and rebuild one around them.
+
 ### What control-v2 measured, and what survives its calibration
 
 Everything below was measured under `control-v2`: its cruise reference and, in

@@ -8,8 +8,8 @@ artifacts actually measured; "not measured" means exactly that.
 | --- | --- | --- | --- |
 | One recipe | **Met.** One recipe (`generic-memory-v3-prototype`) in `experimental/default_model.py`, one model kind, one harness in `experimental/harness.py`; `fit`, `predict`, `update` with no options; recordings may declare the excitation the caller injected; and `envelope(horizon_steps)` beside them reporting what every forecast already carries. Seven experimental modules; the harness has synthetic, platform, and control tiers, and `experimental/learned_plan.py` presents the learner to the NMPC seam. | One recipe, one module, one harness; `fit`, `predict`, `update` only. | Lean-down merged at `c5e84ab`. |
 | Accuracy | **Measured, not met.** Platform tier v3 (`docs/harness/platform-v3.json`; the rule gates only where the reference meets it, no metric may regress past its reference), whole recordings held out, both models scored on identical rows at the recipe's horizon; final-step velocity m/s / body rate rad/s, generic versus best structured arm: nanodrone 0.136/0.543 vs 0.179/0.597; x8 0.222/0.132 vs 0.287/0.187; idf 0.158/0.122 vs 0.554/0.174; epfl 0.146/0.070 vs 0.526/0.217; **arp 0.176/0.715 vs 0.174/0.285**, and hold-current 0.149/0.362. Rule met on four of five corpora; inside every declared allowance. The arp failure is roll and pitch rate: worse than hold-current from the first 20 ms step on the development recording, growing linearly to 0.85/0.89 rad/s at 240 ms with a -0.2 rad/s roll-rate bias, while yaw rate beats the structured model (0.154 vs 0.323).. Re-measured at `3c149fa` under the enforced manifest: every corpus reproduces the regression reference to every digit, no reference regression, and the run is rejected on arp for both metrics (0.17586 against the comparator's 0.17437, 0.71546 against 0.28497). | Every pinned corpus, whole recordings held out: generic error at or below the structured model on the same rows, and inside the allowance (nano 0.696/3.706, X8 1.601/0.764, ARP log66 0.709/2.864). | Gate enforced at `783922e` (`platform-v2.json`, digest `f4796e1a`, regression reference `platform-reference.json`). Four attempts below, none accepted; the fourth bounded the recursion's gain inside the fit and the synthetic gate rejected it. arp is recorded as evidence-limited. |
-| Capability | **Met.** Harness v1 (manifest digest `1ba15b3f`) accepts 27 of 27 cases end to end through `fit(recordings)`: every M2 cap holds, witness paired-probe first step 0.0029/0.0028/0.0040 against a 0.05 limit and a 0.2 blind floor, tightest cap margin 0.74 of cap. Reference scores frozen in `docs/harness/reference.json`. | Pass the harness caps on every run. | Lean-down merged at `c5e84ab`. |
-| Control | **Measured, not met.** Control tier v4 (`docs/harness/control-v4.json`, digest `a2ec4bea`, the same protocol as v3 computed in simulated time; two runs under a load average of 17 are byte-identical and the incumbent numbers are v3's to every digit): the tracking task of `docs/cascade-accuracy.md` (lateral sin(0.35 t) m, altitude 100 + 0.75 sin(0.3 t) m, 16 s, seeds 101 and 102), calibration whose setpoint variation moves every command at least 10% of its range (throttle now 12 to 14%, was 2 to 3%), both arms through the same bounded solver under the no-evidence override. Generic arm 60.80 m / 97.2 deg and 49.31 m / 86.5 deg; structured arm 1.18 m / 1.32 deg and 1.18 m / 1.28 deg; no terminated trial. The structured arm holds lateral position to 0.27 m but settles about 2 m high, so it does not pass the page's 0.5 m criterion either (reported, not gated). Holding trim scores 1.22 m / 0.75 deg and 1.73 m / 1.90 deg, so the task now demands authority on position and mostly on attitude. Excitation did not fix the generic arm: it still drives throttle far below trim and rests roll near its bound; the seam prices none of the learner's ignorance because the learner declares none. Attempt 2 diagnosed it and fitted no candidate: the ceiling of a perfect command response is 9.04 m, of perfect command confinement 26.96 m, and of claiming nothing 1.22 m, because the model predicts a 0.172 m/s sink out of a plant resting exactly at trim.  Control-v5 (`control-v5.json`, digest `c87b40e1`) now supplies the calibration pilot's known additive dither to the learner's recordings as declared excitation, 5.7 / 2.5 / 2.3% of each command's range against the 12 to 38% the whole command moves; the recipe ignores it, so the numbers are v4's to every digit. Excitation attempt 1 then diagnosed that dither and fitted no candidate: it identifies no channel's one-step response (mean over its own standard error 1.43 / 3.60 / 0.67 between the three recordings, against 2.68 / 7.05 / 4.94 for the whole command), and holding the affine block's command columns to what it does identify flies at 88.19 m against a 63.84 m regression ceiling. | Meet or beat the structured model on the matched Cascade trial set. | control-v3 reference merged at `35b85ec`; the envelope (`7224ace`) left tracking identical. Attempts 2 and excitation attempt 1 below, no candidate from either. |
+| Capability | **Met.** Harness v1 (manifest digest `1ba15b3f`) accepts 27 of 27 cases end to end through `fit(recordings)`: every M2 cap holds, witness paired-probe first step 0.0029/0.0028/0.0040 against a 0.05 limit and a 0.2 blind floor, tightest cap margin 0.74 of cap. Reference scores frozen in `docs/harness/reference.json`. It is the tier that has rejected the last two candidates: the recursion bound on hidden_hysteresis, and Control attempt 3 on hidden_hysteresis's caps and nineteen shifted-regime references. | Pass the harness caps on every run. | Lean-down merged at `c5e84ab`. |
+| Control | **Measured, not met.** Control tier v4 (`docs/harness/control-v4.json`, digest `a2ec4bea`, the same protocol as v3 computed in simulated time; two runs under a load average of 17 are byte-identical and the incumbent numbers are v3's to every digit): the tracking task of `docs/cascade-accuracy.md` (lateral sin(0.35 t) m, altitude 100 + 0.75 sin(0.3 t) m, 16 s, seeds 101 and 102), calibration whose setpoint variation moves every command at least 10% of its range (throttle now 12 to 14%, was 2 to 3%), both arms through the same bounded solver under the no-evidence override. Generic arm 60.80 m / 97.2 deg and 49.31 m / 86.5 deg; structured arm 1.18 m / 1.32 deg and 1.18 m / 1.28 deg; no terminated trial. The structured arm holds lateral position to 0.27 m but settles about 2 m high, so it does not pass the page's 0.5 m criterion either (reported, not gated). Holding trim scores 1.22 m / 0.75 deg and 1.73 m / 1.90 deg, so the task now demands authority on position and mostly on attitude. Excitation did not fix the generic arm: it still drives throttle far below trim and rests roll near its bound; the seam prices none of the learner's ignorance because the learner declares none. Attempt 2 diagnosed it and fitted no candidate: the ceiling of a perfect command response is 9.04 m, of perfect command confinement 26.96 m, and of claiming nothing 1.22 m, because the model predicts a 0.172 m/s sink out of a plant resting exactly at trim.  Control-v5 (`control-v5.json`, digest `c87b40e1`) now supplies the calibration pilot's known additive dither to the learner's recordings as declared excitation, 5.7 / 2.5 / 2.3% of each command's range against the 12 to 38% the whole command moves; the recipe ignores it, so the numbers are v4's to every digit. Excitation attempt 1 then diagnosed that dither and fitted no candidate: it identifies no channel's one-step response (mean over its own standard error 1.43 / 3.60 / 0.67 between the three recordings, against 2.68 / 7.05 / 4.94 for the whole command), and holding the affine block's command columns to what it does identify flies at 88.19 m against a 63.84 m regression ceiling. Control attempt 3 then held the affine block to what the *whole* command identifies -- roll and pitch at 0.997 / 0.981 against the plant, throttle not identified and left to the ridge -- and was rejected by the synthetic gate before the control tier ran; measured as a diagnostic rather than a gate run, that candidate flies repetition 0 at **14.306 m / 63.492 deg** against the 60.797 / 97.180 reference, still 12 times the structured arm, and its trained one-step command Jacobian is not the response its own affine columns are held to (roll -0.86 against the plant, -0.89 against the held response). | Meet or beat the structured model on the matched Cascade trial set. | control-v3 reference merged at `35b85ec`; the envelope (`7224ace`) left tracking identical. Attempt 2 and excitation attempt 1 below, no candidate from either; attempt 3 rejected at `0b57954`. |
 | Live improvement | **Measured, not met.** Live tier v2 (`docs/harness/live-v2.json`, digest `39394675`): control-v3's plant, task, calibration and arms; the structured belief flies from the start; the generic learner refits on the trial's own 40-interval blocks through the existing transition buffer and refinement worker, and is offered when its held-out forecast error on the newest block beats the structured belief's. The trajectory is computed in simulated time (no wall-clock fallbacks, refits released a declared 40 intervals after their block, worker driven synchronously); two runs are byte-identical. Every refit took 0.86 to 0.91 s inside a 4.0 s budget with no overrun or dropped block. The swap happened at interval 140 (7.0 s) in both adopting trials because the candidate's forecast error (0.032 / 0.024 m/s, rad/s) beat the structured belief's (0.158 / 0.080), and tracking then went from 0.87 m / 1.7 deg to 19.4 m / 86 deg and from 0.90 m / 1.6 deg to 5.7 m / 14.9 deg. Hold-current scores 0.021 m/s / 0.0014 rad/s on the decision block, better than both models: a held-out forecast comparison in a quiet regime reads no command authority.  Live-v3 (`live-v3.json`, digest `4d39b495`) adds a seeded declared dither to the active controller's command on both arms; two runs are byte-identical; the structured arm before the swap moves to 0.80 m / 2.11 deg and 0.98 m / 1.92 deg; the swap comes at interval 140 and 220; tracking after it is 36.1 m / 81.6 deg and 11.8 m / 85.8 deg, because the recipe still ignores the excitation. A block cannot be made to carry the command response either: two seconds holds 0.41 / 0.67 / 0.54 of a cycle of each channel's dither, and over a frozen arm's seven blocks the identified response is 0.15 to 1.28 times its own standard error at direction cosines of -0.911 to +0.028. | Bounded refit on streamed recordings and a threshold swap during a Cascade run; tracking after the swap no worse. | Live tier merged at `94ea90e`; mechanics met, rule not met. Excitation attempt 1 below, no candidate. |
 | Evidence | **Measured, not met.** Evidence tier v2 (`docs/harness/evidence-v2.json`, band 85 to 95% and now `enforced: true`; `evidence-v1` was the same contract with the flag false for its own first measurement and is deleted): every forecast carries a split-conformal 90% half-width per horizon step and channel, calibrated only on the recipe's own development windows, stored in the artifact and read through `envelope()`; the plan model maps it into the controller's diagonal tangent covariance and `uncertainty_available` is true. Held-out coverage against the band at the recipe's horizon, world velocity / body rate / rotation entries: nanodrone 0.906 / 0.858 / 0.886, x8 0.918 / 0.929 / 0.906, idf 0.890 / 0.872 / 0.897, epfl 0.894 / 0.856 / 0.873, **arp 0.755 / 0.689 / 0.717**, control reserved recording 0.833 / 0.797 / 0.799; synthetic matched regimes 0.88 to 0.94, **shifted regimes 0.13 to 0.82**. The development windows of one set of recordings are not exchangeable with a different flight or command regime, and nothing is widened. The seam charges the envelope, but with no resolved parameter direction the charge is the same for every plan and cannot move a command: the generic arm's tracking is identical to the incumbent's. One attempt below, rejected: widening every half-width by the support of its query repaired arp and the control tier's reserved recording and pushed x8 from 30 of 30 band cells inside the band to 0 of 30 above it. | Every forecast carries an envelope whose held-out coverage lands in the declared band, and the controller's robustness terms consume it. | Evidence tier and `generic-memory-v3-prototype` merged at `7224ace`; the band enforced as `evidence-v2` after attempt 1. |
 | Lean | Generic track done: 48 research scripts, 24 test modules, 11 experimental modules, 85 MB of archives and 18 research pages deleted. Structured core still present (dynamics, identification, fitting, five belief modules); 25 scripts and three structured-evidence pages remain for it. | Learner, harness, telemetry adapters, controller. | Lean-down merged at `c5e84ab`. |
@@ -686,7 +686,9 @@ gates, the memory recipe (v2) and the envelope (v3), simulated-time control
 and live tiers, and the recording contract that carries a declared excitation.
 Rejected by their own gates: four arp attempts (start, start again, optimizer,
 recursion gain), two control attempts (unexcited then excited calibration),
-one evidence attempt (support widening). Diagnosed to no candidate: control
+control attempt 3 (holding the affine block to the identified command
+response, rejected by the synthetic tier), one evidence attempt (support
+widening). Diagnosed to no candidate: control
 attempt 2 (the regime, not the commands) and excitation attempt 1 (the
 declaration carries no information at this amplitude). Met: One recipe,
 Capability. Not met: Accuracy (arp only), Control, Live improvement, Evidence,
@@ -717,6 +719,110 @@ permits and records them here for the owner to reverse:
 Not decided by the reviewer: the Evidence band stays as declared (85 to 95%
 on every measured case) and arp stays recorded as evidence-limited.
 
+## Control attempt 3, rejected: the affine block is not the command response
+
+The queued candidate, fitted as `generic-memory-v4-prototype` at `d774042`
+00:23:06Z with the first gate fit at 00:23:21Z, and reverted at `0b57954`. It
+carried one change to the learner. On the training windows the recipe took the
+partial regression of the one-step next-state change on the applied command
+given the observed context -- the affine start's own design with that command's
+level columns taken out and used as the regressor, so what conditions it is the
+current observation, the explicit history differences and the command
+differences -- with the spread of the same slope between the training
+recordings as its standard error. A command channel whose whole response was
+larger than its own standard error had the affine block's columns for it held
+for every one of the recipe's 1000 steps: the level column the whole response,
+the difference columns zero, the rest of the block solved by the same ridge
+around them, no gradient and restored after every update, while the nonlinear
+correction and the memory kept their own rows of that command. A channel
+identified no better than that kept the ridge's estimate. No new constant: the
+least-squares cutoff is numpy's own, referred to the command's own variation
+rather than to what survived the conditioning, so a command the observed
+context already accounts for to within floating point identifies nothing rather
+than dividing by nothing. The assumption was stated in the module docstring:
+the command's variation given the observed context is exogenous to unobserved
+disturbance. What it measured is recorded here; the candidate is not kept, the
+learner is unchanged at `generic-memory-v3-prototype`, and the five references
+are the ones it was measured against.
+
+*The instrument reproduces this page.* On `control-v5`'s own training windows
+-- the recipe reserves one of the three calibration recordings for development,
+so two identify -- the partial slope is throttle **-0.1192** at 32.79 times the
+plant's one-step magnitude, roll **+0.9974** at 0.813 and pitch **+0.9810** at
+0.682, the numbers this page already carries. Response over its own standard
+error is 0.86, 2.24 and 2.84, so roll and pitch are held and throttle is not.
+Recording by recording the direction says the same: throttle -0.008 and -0.159,
+roll 0.931 and 0.911, pitch 0.950 and 0.982.
+
+*What it holds everywhere else, measured before the gate ran.* Platform, as
+response over standard error: nanodrone 1.47 / 1.04 / 2.06 / 1.38, all four
+motors held; arp 2.23 / 5.62 / 2.29 / 12.53, all four; epfl 1.18 / 1.60 /
+2.94 / 1.15, all four; x8 0.58 / 0.86 / 0.64, none; and idf none, because its
+83 training recordings each get too few of the 384 windows to state a slope of
+their own and fewer than two can, so there is no spread. Synthetic: every case
+of seven families holds every channel, at 2.9 to 24.0 times its standard error;
+`stable_affine` holds none, because a noiseless linear plant whose command is
+recoverable from the observed state and the design's own command differences
+leaves no command variation to read; and the delayed-input witness holds none,
+at 0.29 to 0.44.
+
+*What the gate said.* The synthetic run took 25.1 s and rejected. Two absolute
+cap breaches, both hidden_hysteresis shifted horizon scaled RMSE: **0.1476** on
+seed 6101 and **0.1591** on 6303 against the 0.12 cap. Nineteen reference
+regressions, every one of them a shifted regime -- hidden_hysteresis
+0.1079 / 0.0801 / 0.1163 against limits 0.0632 / 0.0547 / 0.0621, near_periodic
+0.0522 / 0.0490 / 0.0405 against 0.0380 / 0.0336 / 0.0190, off_periodic
+0.0458 / 0.0350 / 0.0364 against 0.0277 / 0.0332 / 0.0333, deadzone_saturation
+0.3759 / 0.3312 / 0.3285 against 0.3556 / 0.3175 / 0.3163, noisy_observation
+0.3332 / 0.3684 / 0.3426 against 0.3084 / 0.3544 / 0.3254, delayed_nonlinear
+0.2211 and 0.2470 against 0.2089 and 0.2314, and coupled_nonlinear 0.1701 and
+0.1546 against 0.1601 and 0.1435. Nine of the 51 case-and-regime scores
+reproduce `reference.json` to every digit and they are exactly the nine where
+nothing was identified: `stable_affine`'s six and the witness's three. The
+witness paired probe was unchanged at 0.0029 / 0.0028 / 0.0040.
+
+**The matched regimes are not the failure.** Of the 27 matched scores, 6 are
+identical, 7 better and 14 worse, at a median 1.005 and a maximum 1.199 of
+their reference, inside the allowance on every case. Of the 24 shifted scores,
+3 are identical, 1 better and 20 worse, at a median 1.152 and a maximum 3.046.
+The evidence measurement folded into the run rejected as well: 241 band
+breaches, every one of them below the band, 20 of them gating, and 125
+reference regressions. `verify` replayed all 27 cases in 54 replays to a
+maximum difference of 8.3e-16 and reproduced the rejection. The run stopped
+there, so the platform, control and live tiers were not run.
+
+*What the control tier would have said, measured as a labelled diagnostic and
+not a gate run.* Fitting the same candidate on `control-v5`'s own three
+calibration recordings takes 6.2 s and holds roll and pitch and not throttle,
+as above. Flown through the tier's own trial code on repetition 0 it tracks at
+**14.306 m and 63.492 degrees**, against the incumbent's 60.797 / 97.180 and a
+regression ceiling of 63.842 / 102.044: a 4.2 times improvement the control
+tier's no-regression semantics would have accepted, and still 12 times the
+structured arm's 1.179 m. Mean applied throttle is 0.442 against a trim of
+0.437, where the incumbent's is 0.137.
+
+**And the mechanism it exposes is that holding the affine block does not hold
+the command response.** The trained model's own one-step command Jacobian at
+trim, against the plant: throttle +0.0365 at 33.07, roll **-0.8625** at 0.548,
+pitch +0.9923 at 0.368. Against the response its own affine columns are held
+to: throttle +0.2924, roll **-0.8873**, pitch +0.9502. Roll's sign inverts
+exactly as it did with the columns free. The affine columns are the identified
+response to the last digit at checkpoint zero and at every step after it, and
+the nonlinear correction and the memory -- which keep their own rows of the
+command -- rebuild a different response around them. The two edits that did fly
+held every path the command takes, the residual's and the memory's rows
+included: 9.577 m holding all three channels and 13.584 m holding the two this
+rule selects.
+
+**What the numbers say the trade is.** A single held linear command response
+costs nothing where the response is linear, costs nothing at all where nothing
+is identified, and is charged on the shifted regimes of the families whose
+command response is genuinely state-dependent -- a hysteresis, a deadzone, a
+saturation -- because it is identified on one command distribution and applied
+to another. That is the Capability row's absolute caps and the Control row's
+command authority asking for opposite things out of the same columns, and this
+candidate is the measurement of it rather than an argument about it.
+
 ## Reviewer reading of excitation attempt 1
 
 The declaration carries no information at this amplitude, and the reviewer's
@@ -736,19 +842,19 @@ nothing, which is recorded.
 
 ## Next iteration
 
-Control attempt 3, one change, gated everywhere: identify the command
-response from the recordings' own command variation and hold the fit to it.
-The rule: on the training windows, regress the one-step next-state residual
-on the command given the state context (the partial slope the diagnostics
-already compute, with the recording-wise spread as its standard error), and
-hold the affine block's command columns to that response through training so
-the nonlinear correction and the memory learn around a command response the
-recordings identify rather than one the objective is blind to. The assumption
-is structural and stated: the command's variation given the observed context
-is exogenous to unobserved disturbance. No new tunable, no caller option, no
-platform branch; when a channel's response is smaller than its own standard
-error the column holds the ridge's estimate and the report says so. Bump the
-recipe id and format. Gate on synthetic, platform-v3 (undeclared corpora are
-affected too, so their references guard it), control-v5, live-v3 and
-evidence-v2; report the trained Jacobian per channel and every number.
+The two facts attempt 3 measured are in tension and the next change has to
+answer both, so it is a reviewer decision rather than a queued candidate.
+Holding only the affine block does not hold the model's command response --
+roll's sign still inverts, at -0.86 against the plant out of columns that are
+the identified response to the last digit -- so the direction that flies is
+holding *every* path the command takes, the residual's and the memory's rows
+with the affine block's, which is what the 9.58 m and 13.58 m diagnostics did.
+And that is the direction the synthetic tier is already charging: the nineteen
+regressions it rejected attempt 3 for are all shifted regimes of families whose
+command response is genuinely state-dependent, and holding more of the command
+would make a single linear response more binding there, not less. Whether the
+Capability row's absolute caps should be met by a learner that states one
+identified command response is the question, and it belongs to the owner
+beside the two decisions already recorded above. No fifth mechanism is queued
+against the current caps.
 
