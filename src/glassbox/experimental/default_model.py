@@ -6,7 +6,7 @@ There are no caller-selected representations, optimizers or selection policies.
 Configuration identity and ordered channel identities are required data facts;
 adapters must include units, frame and command/measurement meaning in them.
 
-There is one recipe, ``generic-memory-v3-prototype``. It reads an explicit
+There is one recipe, ``generic-memory-v4-prototype``. It reads an explicit
 100 ms history and a causal memory over a 500 ms in-recording context. A saved
 model carries that recipe and ``update`` refits it; any other saved format is
 rejected rather than migrated.
@@ -26,6 +26,32 @@ option, and this recipe reads none of it: when every recording declares one,
 the report records that it was declared and each command channel's excitation
 standard deviation as a fraction of that channel's own command range, and the
 fit is the same fit either way.
+
+The recipe identifies its own command response from the recordings' own command
+variation and holds the fit to it. On the training windows it takes the partial
+regression of the one-step next-state change on the applied command given the
+observed context -- the same features the affine start is solved on, with that
+command's own level columns taken out and used as the regressor -- and the
+spread of that slope between the recordings as its standard error. Every
+command channel whose response is larger than its own standard error has the
+affine block's columns for that channel held to it for every step of training:
+its level column carries the whole response and its difference columns carry
+zero, so the block's response to that command is the identified one, while the
+nonlinear correction and the memory keep their own rows of it and learn around
+it. A channel that is not identified that well keeps the ridge's own estimate,
+and the report says which channels were held and which were not. ``update``
+re-identifies on the merged training cache it refits against.
+
+**The assumption this rests on is structural and stated: the command's
+variation given the observed context is exogenous to unobserved disturbance.**
+It is an assumption about causality, like the recipe's other ones, not about
+any platform: what it asserts is that whatever moves the command beyond what
+the observed context explains is not itself a response to a disturbance the
+recordings do not show. Where it fails the identified slope is the response
+plus that feedback, and the measured standard error does not see the
+difference; where a channel's command is explained by the context well enough
+that no variation is left, the standard error grows and the channel is not
+held.
 """
 
 from __future__ import annotations
@@ -56,7 +82,7 @@ records the level it was calibrated at.
 """
 
 RECIPE = {
-    "id": "generic-memory-v3-prototype",
+    "id": "generic-memory-v4-prototype",
     "kind": "filter_mlp",
     "width": 32,
     "memory": 8,
@@ -73,7 +99,7 @@ RECIPE = {
     "check_every": 100,
     "hold_scale_floor": 0.01,
 }
-_FORMAT = "glassbox-default-recipe-v3"
+_FORMAT = "glassbox-default-recipe-v4"
 
 
 def _priority(value):
@@ -303,16 +329,172 @@ def excitation_fraction(recordings):
     ]
 
 
+def _command_design(windows):
+    """The affine start's design with the command's level columns taken out.
+
+    One row per (window, horizon step) -- exactly the transitions the affine
+    start is solved on. Returns the observed context the slope is taken given:
+    the current observation, the explicit history differences, and the command
+    differences, in the design's own normalized units; the applied command and
+    the observed one-step state change, both in physical units; and the
+    recording each row came from.
+    """
+    b = windows.batch
+    p = steps_for(b.dt_s)["delay"]
+    context = b.past_inputs.shape[1]
+    horizon = b.future_inputs.shape[1]
+    x = np.concatenate((b.past_states, b.future_states), 1)
+    u = np.concatenate((b.past_inputs, b.future_inputs), 1)
+    current = x[:, context:-1]
+    xm, xs = current.mean((0, 1)), current.std((0, 1))
+    um, us = b.future_inputs.mean((0, 1)), b.future_inputs.std((0, 1))
+    xs, us = np.where(xs > 1e-8, xs, 1), np.where(us > 1e-8, us, 1)
+    xall, uall = (x - xm) / xs, (u - um) / us
+    ids = np.array([k.recording_id for k in windows.keys])
+    blocks, commands, changes, sources = [], [], [], []
+    for t in range(horizon):
+        j = context + t
+        state = xall[:, j]
+        state_difference = (xall[:, j - p : j] - state[:, None]).reshape(len(state), -1)
+        command_difference = (uall[:, j - p : j] - uall[:, j][:, None]).reshape(
+            len(state), -1
+        )
+        blocks.append(np.column_stack((state, state_difference, command_difference)))
+        commands.append(u[:, j])
+        changes.append(b.future_states[:, t] - current[:, t])
+        sources.append(ids)
+    return (
+        np.concatenate(blocks),
+        np.concatenate(commands),
+        np.concatenate(changes),
+        np.concatenate(sources),
+    )
+
+
+def _partial_slope(block, command, change):
+    """Frisch-Waugh: both sides residualized on the context and a constant.
+
+    The result is physical state change per unit command, one row per command
+    channel. The least-squares cutoff is numpy's own, referred to the command's
+    own variation rather than to what survived the context: a direction of
+    command the observed context already accounts for to within floating point
+    identifies nothing at all, and is reported as no response rather than
+    divided by.
+    """
+    design = np.column_stack((block, np.ones(len(block))))
+    both = np.column_stack((command, change))
+    projection, *_ = np.linalg.lstsq(design, both, rcond=None)
+    residual = both - design @ projection
+    width = command.shape[1]
+    left, right = residual[:, :width], residual[:, width:]
+    factors, spectrum, directions = np.linalg.svd(left, full_matrices=False)
+    scale = np.linalg.svd(command - command.mean(0), compute_uv=False).max()
+    surviving = spectrum > np.finfo(float).eps * max(left.shape) * scale
+    return directions[surviving].T @ (
+        (factors[:, surviving].T @ right) / spectrum[surviving, None]
+    )
+
+
+def _command_response(windows):
+    """The one-step command response these windows identify, and how well.
+
+    The estimate is the partial slope above over every training row. Its
+    standard error is the spread of the same slope between the recordings the
+    windows came from, which is the reading that sees the serial correlation a
+    row-wise standard error does not: each recording is a separate run of the
+    system. A recording with fewer rows than the context has columns cannot
+    state a slope of its own and contributes none; with fewer than two that
+    can, there is no spread, nothing is identified and nothing is held.
+
+    A channel is held when its whole response is larger than its own standard
+    error in the same units. There is no threshold here beyond that comparison,
+    and no constant.
+    """
+    block, command, change, sources = _command_design(windows)
+    response = _partial_slope(block, command, change)
+    names = sorted(set(sources.tolist()))
+    minimum = block.shape[1] + command.shape[1] + 1
+    per_recording = [
+        _partial_slope(block[rows], command[rows], change[rows])
+        for rows in (sources == name for name in names)
+        if rows.sum() > minimum
+    ]
+    if len(per_recording) < 2:
+        spread = None
+    else:
+        stack = np.stack(per_recording)
+        spread = stack.std(0, ddof=1) / np.sqrt(len(stack))
+    size = np.linalg.norm(response, axis=1)
+    error = (
+        np.full(len(size), np.inf) if spread is None else np.linalg.norm(spread, axis=1)
+    )
+    held = np.isfinite(response).all(1) & (size > error) & (size > 0)
+    return dict(
+        response=response,
+        standard_error=spread,
+        held=held,
+        size=size,
+        error=error,
+        recordings=names,
+        identifying_recordings=len(per_recording),
+        per_recording=per_recording,
+        rows=len(block),
+    )
+
+
+def _command_report(identification, contract):
+    """What the fit says about the response it held, in the caller's own names."""
+    held = identification["held"]
+    spread = identification["standard_error"]
+    return dict(
+        method="partial_regression_of_the_one_step_state_change_on_the_command_given_the_observed_context",
+        standard_error="the spread of the same slope between the training recordings",
+        assumption="the command's variation given the observed context is exogenous to unobserved disturbance",
+        units="physical state change per unit command, per command channel and observation channel",
+        rows=identification["rows"],
+        recordings=list(identification["recordings"]),
+        identifying_recordings=identification["identifying_recordings"],
+        channels=list(contract["input_channels"]),
+        held=[bool(value) for value in held],
+        held_channels=[
+            name
+            for name, value in zip(contract["input_channels"], held, strict=True)
+            if value
+        ],
+        free_channels=[
+            name
+            for name, value in zip(contract["input_channels"], held, strict=True)
+            if not value
+        ],
+        response=identification["response"].tolist(),
+        standard_error_value=None if spread is None else spread.tolist(),
+        response_size=identification["size"].tolist(),
+        standard_error_size=[
+            None if not np.isfinite(value) else float(value)
+            for value in identification["error"]
+        ],
+    )
+
+
 def _train(train, development, contract, seen, *, previous=None, excitation=None):
     b = train.batch
     steps = steps_for(b.dt_s)
     memory = dict(memory=RECIPE["memory"], delay_steps=steps["delay"])
     ridge = RECIPE["ridge_fraction"] * len(b.past_states) * b.future_states.shape[1]
+    identification = _command_response(train)
+    # The pair the model takes is the response and which channels it may be
+    # stated for; with no channel identified the fit is the unconstrained one.
+    identified = (
+        (identification["response"], identification["held"])
+        if identification["held"].any()
+        else None
+    )
     initial = initialize_sequence_model(
         b,
         width=RECIPE["width"],
         seed=RECIPE["seed"],
         ridge=ridge,
+        command_response=identified,
         **memory,
     )
     hold = np.repeat(b.past_states[:, -1:], b.future_states.shape[1], 1)
@@ -331,6 +513,7 @@ def _train(train, development, contract, seen, *, previous=None, excitation=None
         learning_rate=RECIPE["learning_rate"],
         check_every=RECIPE["check_every"],
         error_scale=loss_scale,
+        command_response=identified,
         **memory,
     )
     envelope, calibration_windows, rank = _calibrate(model, development)
@@ -344,6 +527,7 @@ def _train(train, development, contract, seen, *, previous=None, excitation=None
         training=train.coverage(),
         development=development.coverage(),
         optimization=optimization,
+        command_response=_command_report(identification, contract),
         development_errors=_measure(model, development),
         constant_input_channels=[
             contract["input_channels"][i]
@@ -359,6 +543,7 @@ def _train(train, development, contract, seen, *, previous=None, excitation=None
             half_width=envelope.tolist(),
         ),
         evidence_limits=[
+            "the held command response assumes the command's variation given the observed context is exogenous to unobserved disturbance; where it is not, the identified slope carries that feedback and the standard error does not see it",
             "the development windows both select the checkpoint and calibrate the envelope, so the envelope's exchangeability is approximate rather than independent",
             "the envelope's coverage is nominal on those windows and measured elsewhere; the harness's evidence tier is where it is measured",
             "worse_than_hold describes measured channel error, not a probability or control-admission rule",
@@ -488,7 +673,12 @@ class LearnedDynamics:
         return diagnose(self, recordings)
 
     def update(self, recordings):
-        """Refit the recipe with fresh recordings; the current revision stays fixed."""
+        """Refit the recipe with fresh recordings; the current revision stays fixed.
+
+        The command response is identified again on the merged training cache
+        this refit is solved on, so a revision states the response its own
+        windows show rather than carrying its predecessor's forward.
+        """
         if _contract(recordings) != self._contract:
             raise ValueError(
                 "update configuration, channels or sample interval differ from this model"
