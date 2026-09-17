@@ -144,17 +144,24 @@ def test_oracle_requires_real_history_and_causal_observations(learned):
         arm.observe(np.asarray(state) + 1)
 
 
-def short_trial(learned):
-    arm = arm_for(learned)
-    arm.reset(INITIAL, COMMAND)
-    states, commands = [INITIAL], []
-    previous, state, warm_start = COMMAND, INITIAL, None
+def short_trial(
+    learned, *, equations=None, initial_state=INITIAL, initial_command=COMMAND
+):
+    arm = qualification.OracleArm(
+        CONTROL,
+        learned,
+        None,
+        _equations=Equations() if equations is None else equations,
+    )
+    arm.reset(initial_state, initial_command)
+    states, commands = [initial_state], []
+    previous, state, warm_start = initial_command, initial_state, None
     for index in range(4):
         arm.observe(state)
         if arm.ready:
             reference = ReferenceTrajectory(
                 control_reference(
-                    INITIAL,
+                    initial_state,
                     (index + np.arange(6)) * 0.05,
                     CONTROL["tracking_reference"],
                 )
@@ -174,8 +181,8 @@ def short_trial(learned):
     return arm, dict(
         states=np.asarray(states),
         commands=np.asarray(commands),
-        initial_command=COMMAND,
-        reference_anchor_state=INITIAL,
+        initial_command=initial_command,
+        reference_anchor_state=initial_state,
     )
 
 
@@ -192,6 +199,11 @@ def test_saved_oracle_forecasts_and_causal_replay_verify(learned):
     )
     assert report["checked_forecasts"] == 2
     assert report["checked_causal_states"] == 5
+    assert report["replayed_solver_calls"] == 2
+    assert sum(report["replayed_solver_statuses"].values()) == 4
+    assert report["replayed_solver_statuses"]["model_not_ready"] == 2
+    assert report["maximum_solver_forecast_difference"] == 0
+    assert report["maximum_objective_difference"] == 0
     assert (
         report["maximum_forecast_difference"]
         < FROZEN["control_qualification"]["replay"]["state_atol"]
@@ -370,3 +382,31 @@ def test_float32_causal_replay_matches_independent_public_plant_for_full_trial()
         )
         current = equations.advance(current, jnp.asarray(command))
         sample = plant.step(command)
+
+
+@pytest.mark.cascade
+def test_public_cascade_saved_solver_sequence_replays_without_refitting(learned):
+    cascade = pytest.importorskip("cascade")
+    from glassbox.experimental.harness import control_fixture
+
+    with jax.enable_x64(True):
+        _, _, _, initial_state, initial_command = control_fixture(CONTROL)
+    equations = qualification.CascadeEquations(cascade.skywalker_x8_spec().to_model())
+    arm, tracking = short_trial(
+        learned,
+        equations=equations,
+        initial_state=initial_state,
+        initial_command=initial_command,
+    )
+    report = qualification.verify_oracle_diagnostics(
+        CONTROL,
+        learned,
+        None,
+        tracking,
+        arm.diagnostic_arrays(),
+        FROZEN["control_qualification"]["replay"],
+        _equations=equations,
+    )
+    assert report["replayed_solver_calls"] == 2
+    assert report["maximum_solver_forecast_difference"] == 0
+    assert report["maximum_objective_difference"] == 0

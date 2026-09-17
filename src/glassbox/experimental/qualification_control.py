@@ -15,7 +15,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
-from glassbox.control.plan import PlanValues, Prediction
+from glassbox.control.plan import PlanValues, Prediction, ReferenceTrajectory
 from glassbox.control.solver import BoundedShootingSolver
 
 from .harness import _GenericArm, _StructuredArm, control_reference
@@ -310,7 +310,11 @@ def verify_oracle_diagnostics(
     ``tracking`` and ``diagnostics`` are mappings loaded from the saved NPZs.
     ``replay_tolerance`` is the frozen plan's control_qualification.replay block.
     Input/source integrity and independent physical-plant replay belong to the
-    qualification runner. This check does not rerun command optimization.
+    qualification runner. Optimization is deterministically replayed against
+    the sealed observed states and issued commands, with the original warm-start
+    sequence. This recreates the optimizer's normalized blocks and compiled
+    objective without inverting its rounded physical commands. No plant trial
+    or fitting is performed, and no recorded score is replaced.
     """
     arm = OracleArm(manifest, learned, cascade_model, _equations=_equations)
     equations = arm.equations
@@ -364,6 +368,9 @@ def verify_oracle_diagnostics(
     )
     current = equations.reset(jnp.asarray(states[0]), jnp.asarray(initial_command))
     causal, errors, maximum_forecast_difference = [], [], 0.0
+    maximum_solver_forecast_difference = maximum_objective_difference = 0.0
+    warm_start = None
+    statuses = {"model_not_ready": WARMUP_INTERVALS}
     anchor = np.asarray(tracking["reference_anchor_state"])
     for index in range(len(states)):
         canonical = np.asarray(equations.canonical(current))
@@ -403,16 +410,37 @@ def verify_oracle_diagnostics(
             reference = control_reference(
                 anchor, future, manifest["tracking_reference"]
             )
-            objective = float(
-                plan.stage_cost(
-                    prediction,
-                    jnp.asarray(reference),
-                    jnp.asarray(commands[index - 1]),
-                    plan.policy,
-                )
+            result = BoundedShootingSolver(plan, plan.policy).solve(
+                states[index],
+                ReferenceTrajectory(reference),
+                commands[index - 1],
+                warm_start=warm_start,
             )
+            if result.used_fallback:
+                raise ValueError("replayed oracle solve unexpectedly used fallback")
+            warm_start = result.warm_start
+            status = str(result.status)
+            statuses[status] = statuses.get(status, 0) + 1
+            np.testing.assert_array_equal(
+                result.predicted_commands, diagnostics["candidate_commands"][row]
+            )
+            np.testing.assert_array_equal(result.command, commands[index])
+            np.testing.assert_allclose(
+                result.predicted_states, saved_forecast, **state_tolerance
+            )
+            maximum_solver_forecast_difference = max(
+                maximum_solver_forecast_difference,
+                float(
+                    np.max(np.abs(np.asarray(result.predicted_states) - saved_forecast))
+                ),
+            )
+            objective = result.diagnostics.final_objective
             np.testing.assert_allclose(
                 objective, diagnostics["final_objectives"][row], **score_tolerance
+            )
+            maximum_objective_difference = max(
+                maximum_objective_difference,
+                float(abs(objective - diagnostics["final_objectives"][row])),
             )
         current = equations.advance(current, jnp.asarray(commands[index]))
     np.testing.assert_allclose(causal, diagnostics["causal_states"], **state_tolerance)
@@ -426,4 +454,8 @@ def verify_oracle_diagnostics(
             np.max(np.abs(np.asarray(causal) - states))
         ),
         maximum_forecast_difference=maximum_forecast_difference,
+        replayed_solver_statuses=statuses,
+        replayed_solver_calls=len(expected_indices),
+        maximum_solver_forecast_difference=maximum_solver_forecast_difference,
+        maximum_objective_difference=maximum_objective_difference,
     )

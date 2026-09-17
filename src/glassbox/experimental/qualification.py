@@ -456,11 +456,12 @@ def _replay_trial(plan, context, row, saved):
         sum(count for name, count in statuses.items() if name not in usable),
         row["fallback_count"],
     )
+    oracle_check = None
     if row["arm"] == "oracle_generic_seam":
         from .qualification_control import verify_oracle_diagnostics
 
         same(row["fallback_count"], 0)
-        verify_oracle_diagnostics(
+        oracle_check = verify_oracle_diagnostics(
             manifest,
             context.learned,
             context.model,
@@ -468,7 +469,11 @@ def _replay_trial(plan, context, row, saved):
             arrays(saved[row["directory"] + "/oracle.npz"]),
             tolerance,
         )
-    return float(np.max(np.abs(replayed - states)))
+        same(oracle_check["replayed_solver_statuses"], row["solver_statuses"])
+        same(oracle_check["replayed_solver_calls"], requested - 2)
+    return dict(
+        state_difference=float(np.max(np.abs(replayed - states))), oracle=oracle_check
+    )
 
 
 def verify(directory):
@@ -543,7 +548,27 @@ def verify(directory):
         verified=True,
         no_fit=True,
         verified_trials=len(errors),
-        maximum_state_replay_difference=max(errors, default=0.0),
+        maximum_state_replay_difference=max(
+            (error["state_difference"] for error in errors), default=0.0
+        ),
+        verified_oracle_forecasts=sum(
+            error["oracle"]["checked_forecasts"]
+            for error in errors
+            if error["oracle"] is not None
+        ),
+        verified_optimizer_solves=sum(
+            error["oracle"]["replayed_solver_calls"]
+            for error in errors
+            if error["oracle"] is not None
+        ),
+        maximum_objective_replay_difference=max(
+            (
+                error["oracle"]["maximum_objective_difference"]
+                for error in errors
+                if error["oracle"] is not None
+            ),
+            default=0.0,
+        ),
         report=report,
     )
 
