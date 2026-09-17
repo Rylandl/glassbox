@@ -1,8 +1,9 @@
 # Status: gap against the charter
 
 Updated 2026-09-17. Accepted code is `98f77d3` on
-`experiment/generic-transition-support`. The rejected calibration experiment
-remains isolated on `codex/independent-calibration` at `7c82db9`.
+`experiment/generic-transition-support`. The latest rejected model experiment
+remains isolated on `codex/full-response-identification` at `5467943`;
+its same-data comparator is `codex/independent-calibration` at `7c82db9`.
 Read [the charter](charter.md) first. Git holds the experiment history;
 this page records the current evidence, limitations and next named gap.
 
@@ -63,36 +64,40 @@ slow/Cascade/PX4-SITL tests deselected; lint and formatting passed.
 
 ## Latest iteration: rejected
 
-The independent-calibration protocol was frozen at `da93181` and implemented
-at `7c82db9`. It replaced only calibration sine perturbations with independent
-signs at each old waveform's requested RMS, preserved the learner and live
-trial waveform, recorded requested versus realized clipped injection, and
-added safeguards against degrading the structured comparator. Generic position
-RMSE worsened to **105.05/101.91 m** and attitude to **117.56/115.51°**; the
-structured arm improved to **0.819/0.815 m** and **1.20/1.18°**. The run failed
-four control-reference checks, four coverage-excess regression checks and one
-new gating coverage-band check. All four trials replayed; altered model,
-audit and comparator-summary copies were rejected. The implementation is not
-accepted. No live or synthetic candidate run followed the control rejection;
-no new platform improvement is claimed. Candidate unit validation passed
-328 tests, with nine optional Cascade tests deselected.
+The full-response identification objective was frozen at `10627a1`, with a
+physical-unit clarification at `700d8ab`, before fitting implementation
+`5467943`. It adds one full-model, one-step residual assignment-moment term to
+the existing multistep loss. It uses the raw pre-clipping randomized assignment
+on the existing forecast origins; architecture, optimizer, seeds, data, splits
+and numerical gates are unchanged. Training and development projections are
+separate; the reserved recording never selects the checkpoint. The synthetic
+gate passes all 27 cases with exact numerical parity to the accepted learner
+where assignment metadata is absent. Control rejects: generic position RMSE
+is **89.89/102.62 m** and attitude **107.58/114.73°**, versus the accepted
+baseline's **60.80/49.31 m** and **97.18/86.51°**. The structured arm is
+unchanged from the same-data comparator at **0.819/0.815 m** and **1.20/1.18°**.
+Four control-reference checks, four coverage-excess regression checks and one
+new gating coverage-band check fail; there are no structural breaches. No
+platform or live candidate run followed the rejection. The model is not merged.
 
-Artifact diagnostics confirm that the intervention changed the learned response.
-Command innovation after conditioning on pre-command history rose from
-0.034/0.033/0.389 to 0.195/0.168/0.405 for throttle/roll/pitch; the trim roll
-derivative changed from -0.985 to +0.168. On identical saved trim inputs,
-250 ms vertical-velocity drift improved from -0.172 to -0.035 m/s, while
-roll-rate drift changed from +0.039 to -0.080 rad/s and pitch-rate drift from
--0.064 to +0.084 rad/s. The larger angular drift is a prediction defect,
-not proof of the tracking failure's cause. Conditional data associations
-use only two training recordings and are not oracle sensitivities.
+Matched saved-model diagnostics isolate the objective's effect from the prior
+calibration change. Against `7c82db9` on identical recordings, windows and
+normalizers, assignment-moment energy falls **30.0/2.3/5.4%** on
+training/development/reserved data. One-step normalized MSE improves by less
+than 0.4%, but multistep MSE worsens **0.84/0.64/0.25%**; even the new combined
+objective is slightly worse on every split. Both models select step 100. At
+the identical steady-input query, 250 ms roll/pitch drift improves slightly
+from -0.0802/+0.0843 to -0.0788/+0.0813 rad/s, while vertical-velocity drift
+worsens from -0.0351 to -0.0398 m/s. These are model diagnostics, not measured
+plant derivatives or proof of what caused the tracking failure.
 
-Requested RMS matched within `1.4e-15`; realized pitch RMS was only 70.7–72.9%
-of requested RMS because 45.6–48.1% of intervals clipped, mostly from the base
-command. Randomized requested signs do not make the clipped injection
-unconditionally exogenous. The old sine's standard deviations as fractions of
-declared command ranges were 2.35/2.42/1.93%; the previously reported
-5.7/2.5/2.3% used observed spans.
+All 54 synthetic artifact replays and four control trial replays pass. Altered
+model, requested assignment, diagnostic and frozen-plan copies are rejected,
+including forged file hashes. Focused objective, data/archive, harness and
+evidence tests pass; lint and formatting pass. The 1,183-test count above
+belongs to the accepted repairs, not a new full-suite run. The latest candidate
+retains its separate v4 archive format and control-v7/live-v5 contracts only
+in its worktree.
 
 ## Constraints established by prior measurements
 
@@ -106,20 +111,30 @@ declared command ranges were 2.35/2.42/1.93%; the previously reported
   command derivatives.
 - Smooth dither in short live blocks supplied weak identifying variation.
   Independent signs increased useful command variation but failed the control
-  gate; calibration and state-dependent identification are not exhausted.
+  gate (105.05/101.91 m position RMSE at `7c82db9`). Realized pitch injection
+  retained only 70.7–72.9% of requested RMS because 45.6–48.1% of intervals
+  clipped. Preserve raw assignment separately from applied commands.
+- The full-response moment assumes sequentially zero-mean assignment and an
+  adequate conditional state/mean model. Three unconditional assignment
+  directions and two training recordings do not establish state-dependent
+  causal response. Reducing these moments alone did not repair multistep
+  prediction. Calibration and state-dependent identification are not exhausted.
 - Widening envelopes solely by distance repaired some unsupported cases while
   over-covering others. Neither the coverage band nor any reference is relaxed.
 
 ## Evidence and replay
 
 Local runs live under `artifacts/2026-09-17/`: `slow-sampling`, `platform-pins`,
-`control-baseline-fixed`, and `independent-calibration-control`. Verify/tamper
-reports sit beside their run directories. The latter three also live on
-ryserv under `/home/ryland/autonomy/glassbox-evidence/2026-09-17/`.
+`control-baseline-fixed`, `independent-calibration-control`,
+`full-response-identification-synthetic` and
+`full-response-identification-control`. Verify/tamper reports sit beside their
+run directories. Platform and control runs also live on ryserv under
+`/home/ryland/autonomy/glassbox-evidence/2026-09-17/`.
 Use the original Linux environment for authoritative control replay; existing
 sine regeneration has last-bit libm differences on macOS. Read-only model
-diagnostics and their scripts are in `calibration-response-diagnostic` and
-`command-moment-diagnostic` under the same local artifact root.
+diagnostics and their scripts are in `calibration-response-diagnostic`,
+`command-moment-diagnostic` and `assignment-objective-diagnostic` under the
+same local artifact root.
 
 From disposable checkouts of the matching source commits, without refitting:
 
@@ -130,14 +145,18 @@ PYTHONPATH=src python -m glassbox.experimental.harness verify /absolute/path/to/
 PYTHONPATH=src python -m glassbox.experimental.harness verify /absolute/path/to/control-baseline-fixed
 # Rejected experiment: checkout 7c82db9; its control-v6 contract differs.
 PYTHONPATH=src python -m glassbox.experimental.harness verify /absolute/path/to/independent-calibration-control
+# Latest rejected experiment: checkout 5467943; its archives use recipe v4.
+PYTHONPATH=src python -m glassbox.experimental.harness verify /absolute/path/to/full-response-identification-synthetic
+PYTHONPATH=src python -m glassbox.experimental.harness verify /absolute/path/to/full-response-identification-control
 ```
 
 ## Next named gap
 
-**Control: coupled forecast accuracy at steady inputs and under command
-changes.** Local command-response sign recovery was insufficient. Measure
-angular drift and error growth over the controller's forecast horizon, together
-with residual command-response error, before freezing one generic mechanism.
-Preserve nonlinear, state-dependent behavior; no further mechanism, threshold
-change or parameter sweep has been selected. Accuracy, live improvement,
-evidence and lean remain open.
+**Control: multistep forecast fidelity beyond unconditional one-step assignment
+moments.** The objective reduced assignment-correlated residuals without
+improving error growth over the controller's horizon. The next iteration must
+address coupled forecast error at steady inputs and under command changes,
+while preserving nonlinear, state-dependent behavior. No further mechanism,
+threshold change or parameter sweep has been selected. This result does not
+establish a need for a platform catalog. Accuracy, live improvement, evidence
+and lean remain open.
