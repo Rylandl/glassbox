@@ -11,6 +11,9 @@ There is one recipe, ``generic-memory-v3-prototype``. It reads an explicit
 model carries that recipe and ``update`` refits it; any other saved format is
 rejected rather than migrated.
 
+Durations round to the nearest sample, with at least one step for the delay
+and forecast and at least one memory step beyond the delay for the context.
+
 Every forecast carries a measured error envelope. The recipe already reserves a
 quarter of the supplied recordings as its development role, and the windows cut
 from them calibrate a split-conformal half-width per horizon step and per
@@ -126,10 +129,11 @@ def steps_for(dt_s):
     def count(seconds):
         return max(1, int(np.rint(seconds / dt_s)))
 
+    delay = count(RECIPE["delay_s"])
     return dict(
-        history=count(RECIPE["context_s"]),
+        history=max(count(RECIPE["context_s"]), delay + 1),
         horizon=count(RECIPE["horizon_s"]),
-        delay=count(RECIPE["delay_s"]),
+        delay=delay,
     )
 
 

@@ -840,17 +840,30 @@ because its reference exists and removing it is churn until a candidate needs
 it; it costs the structured arm about 0.4 deg of attitude and identifies
 nothing, which is recorded.
 
+## Slow sample-grid correction
+
+Accepted on 2026-09-17 after the regression freeze at `52e707a`. The consumed
+context now retains at least one memory step beyond the explicit delay, so
+rounding no longer rejects valid recordings with `dt_s > 1/3`. All 40 default
+model tests pass, including both sides of the rounding boundary and an actual
+500 ms fit, prediction, artifact replay, altered-artifact rejection, and
+update. The frozen synthetic harness accepts 27 of 27 cases; every model
+fingerprint, fit report, forecast score, coverage measurement, and witness
+probe is exactly identical to the review run before the correction. Saved
+artifacts replay in 54 checks with maximum difference `8.9e-16`, and modifying
+a saved model is rejected. Every previously valid grid follows the same
+numerical path, so the recipe and archive remain v3. The existing 253 coverage
+band breaches remain, with no reference regression; platform, control, and
+live tiers were not rerun and their adequacy gaps remain open. Local artifacts:
+`/private/tmp/glassbox-slow-sampling-run`; replay with
+`PYTHONPATH=src python -m glassbox.experimental.harness verify <run-directory>`.
+
 ## Next iteration
 
-**One recipe: valid slow sample grids fail to fit.** Independently rounding
-the 500 ms context and 100 ms explicit delay gives one step for both when
-`dt_s > 1/3`, violating the model's requirement that the context exceed the
-delay. Freeze the regression cases in `tests/test_default_model.py` before
-changing the recipe: preserve all supported sample-grid counts, include both
-sides of the rounding boundary and slower grids, and fit, predict, save,
-replay, reject an altered artifact, and update at `dt_s=0.5`. The correction
-must preserve a memory step beyond the explicit delay without changing any
-previously valid grid, recipe constants, consumer options, or frozen numerical
-gate. Keep the recipe and archive versions if those existing numerical paths
-and their saved artifacts remain unchanged. This iteration fixes the input
-contract; it does not establish platform accuracy, control, or live adequacy.
+**Evidence: pin the platform recordings by content.** The platform manifest
+currently constrains filenames and split membership without establishing that
+their bytes match the corpus used for its references. Freeze canonical content
+hashes and regression cases before changing ingestion; reject a changed,
+missing, or substituted recording before fitting while preserving the current
+splits, references, and numerical gates. This closes the evidence-identity gap
+before the next general-model experiment.
