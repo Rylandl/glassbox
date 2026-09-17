@@ -16,6 +16,7 @@ from glassbox.experimental.default_model import (
     RECIPE,
     LearnedDynamics,
     fit,
+    steps_for,
 )
 from glassbox.experimental.sequence_collection import (
     SequenceCollection,
@@ -53,6 +54,78 @@ def test_fit_and_update_have_no_tuning_parameters():
         "self",
         "recordings",
     ]
+
+
+@pytest.mark.parametrize(
+    "dt_s,expected",
+    [
+        (0.01, (50, 25, 10)),
+        (0.02, (25, 12, 5)),
+        (0.025, (20, 10, 4)),
+        (0.05, (10, 5, 2)),
+        (0.1, (5, 2, 1)),
+        (0.2, (2, 1, 1)),
+        (0.25, (2, 1, 1)),
+        (np.nextafter(1 / 3, 0), (2, 1, 1)),
+        (1 / 3, (2, 1, 1)),
+        (np.nextafter(1 / 3, 1), (2, 1, 1)),
+        (0.4, (2, 1, 1)),
+        (0.5, (2, 1, 1)),
+        (1.0, (2, 1, 1)),
+        (2.0, (2, 1, 1)),
+    ],
+)
+def test_recipe_windows_preserve_delay_and_memory_on_every_sample_grid(dt_s, expected):
+    steps = steps_for(dt_s)
+    assert (steps["history"], steps["horizon"], steps["delay"]) == expected
+    assert steps["history"] > steps["delay"] >= 1
+
+
+def test_slow_sampled_recordings_fit_predict_replay_and_update(tmp_path):
+    def slow_recording(name, seed):
+        segment = recording(name, seed)
+        return replace(
+            segment, states=segment.states[:12], inputs=segment.inputs[:11], dt_s=0.5
+        )
+
+    model = fit(collection(slow_recording("slow-a", 1), slow_recording("slow-b", 2)))
+    assert model.history_steps == 2
+    assert model.horizon_steps == 1
+    assert model.report["delay_steps"] == 1
+    assert model.contract["dt_s"] == 0.5
+    batch = model._development.batch
+    prediction = model.predict(
+        batch.past_states, batch.past_inputs, batch.future_inputs
+    )
+    assert prediction.shape == batch.future_states.shape
+    assert np.isfinite(prediction).all()
+    assert np.isfinite(model.envelope()).all()
+
+    path = tmp_path / "slow.npz"
+    model.save(path)
+    restored = LearnedDynamics.load(path)
+    assert restored.fingerprint() == model.fingerprint()
+    assert restored.report == model.report
+    np.testing.assert_array_equal(
+        restored.predict(batch.past_states, batch.past_inputs, batch.future_inputs),
+        prediction,
+    )
+    updated = restored.update(collection(slow_recording("slow-fresh", 3)))
+    assert updated.report["previous_revision"] == model.fingerprint()
+    assert "slow-fresh" in updated.report["training"]
+    assert updated._development.keys == model._development.keys
+    assert np.isfinite(
+        updated.predict(batch.past_states, batch.past_inputs, batch.future_inputs)
+    ).all()
+    assert restored.fingerprint() == model.fingerprint()
+
+    with np.load(path, allow_pickle=False) as archive:
+        arrays = {key: archive[key] for key in archive.files}
+    arrays["train_future_states"][0, 0, 0] += 1.0
+    altered = tmp_path / "altered-slow.npz"
+    np.savez_compressed(altered, **arrays)
+    with pytest.raises(ValueError, match="fingerprint"):
+        LearnedDynamics.load(altered)
 
 
 def test_one_recursive_model_and_prefix_causality(fitted):
