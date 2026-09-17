@@ -1204,3 +1204,23 @@ def test_replay_rejects_a_forged_recording_inventory_digest(tmp_path, manifest):
     harness.write(directory / "decision.json", decision)
     with pytest.raises(ValueError, match="recording_content_sha256"):
         harness.verify(directory)
+
+
+def test_replay_rejects_forged_recording_split_even_when_both_results_agree(
+    tmp_path, manifest
+):
+    directory, case, row = saved_platform_run(tmp_path, manifest)
+    row["recordings"] = {"training": ["invented"], "held_out": []}
+    harness.write(case / "result.json", row)
+    harness.write(directory / "results.json", [row])
+    with pytest.raises(ValueError, match="recording split"):
+        harness.verify(directory)
+
+
+def test_replay_requires_the_recorded_inventory_digest(tmp_path, manifest):
+    directory = scored_platform_run(tmp_path, manifest)
+    decision = harness.read(directory / "decision.json")
+    decision.pop("recording_content_sha256")
+    harness.write(directory / "decision.json", decision)
+    with pytest.raises(ValueError, match="recording_content_sha256"):
+        harness.verify(directory)

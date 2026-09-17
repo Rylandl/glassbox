@@ -1413,6 +1413,108 @@ def frozen_platform_manifest(path):
     return manifest
 
 
+def frozen_platform_recordings(manifest, path):
+    """Read the canonical content inventory anchored by the frozen manifest."""
+    path = Path(path)
+    if not path.is_file():
+        raise ValueError("recording content inventory is missing")
+    if sha256(path) != manifest["recording_content"]["sha256"]:
+        raise ValueError("recording content inventory differs from the frozen contract")
+    pins = read(path)
+    if pins.get("content_digest") != "trajectory_sha256_v1":
+        raise ValueError("recording content digest scheme is unsupported")
+    declared = {entry["name"] for entry in manifest["corpora"]}
+    if set(pins.get("corpora", {})) != declared:
+        raise ValueError(
+            "recording content inventory differs from the declared corpora"
+        )
+    for entry in manifest["corpora"]:
+        recordings = pins["corpora"][entry["name"]]
+        split = _pinned_recording_split(entry, recordings)
+        counts = entry["recordings"]
+        if (len(recordings), len(split["training"]), len(split["held_out"])) != (
+            counts["total"],
+            counts["training"],
+            counts["held_out"],
+        ):
+            raise ValueError("recording content inventory differs from declared counts")
+        for name, item in recordings.items():
+            path = Path(name)
+            if path.is_absolute() or ".." in path.parts or path.as_posix() != name:
+                raise ValueError(
+                    "recording content inventory has an invalid relative path"
+                )
+            digest = item.get("sha256", "")
+            if (
+                len(digest) != 64
+                or any(c not in "0123456789abcdef" for c in digest)
+                or not isinstance(item.get("labels"), dict)
+            ):
+                raise ValueError(
+                    "recording content inventory has an invalid content pin"
+                )
+    return pins
+
+
+def _pinned_recording_split(entry, recordings):
+    """Recording identities implied by the frozen relative paths and split."""
+    split = dict(training=[], held_out=[])
+    for name in sorted(recordings):
+        held = any(fnmatch(name, pattern) for pattern in entry["held_out_patterns"])
+        split["held_out" if held else "training"].append(Path(name).stem)
+    identities = split["training"] + split["held_out"]
+    if len(set(identities)) != len(identities):
+        raise ValueError(
+            "recording content inventory has duplicate recording identities"
+        )
+    return split
+
+
+def platform_preflight(manifest, root, pins):
+    """Verify every corpus before fitting and retain exactly the loaded arrays.
+
+    Both fitting arms consume these immutable trajectory snapshots, so a source
+    file changed after preflight cannot change the measured recording content.
+    Labels are checked separately because source groups and profiles affect the
+    structured fit's holdout and weighting but are not part of content identity.
+    """
+    from glassbox.core.data import load_trajectory_npz, trajectory_content_digest
+
+    verified = {}
+    for entry in manifest["corpora"]:
+        name = entry["name"]
+        directory = Path(root) / entry["directory"]
+        training, held_out = corpus_paths(entry, root)
+        expected = pins["corpora"][name]
+        found = {path.relative_to(directory).as_posix() for path in training + held_out}
+        if found != set(expected):
+            raise ValueError(
+                f"{name} recording content filenames differ from the frozen inventory"
+            )
+        loaded = {}
+        for split, paths in (("training", training), ("held_out", held_out)):
+            loaded[split] = []
+            for path in paths:
+                relative = path.relative_to(directory).as_posix()
+                try:
+                    trajectory = load_trajectory_npz(path)
+                except (ValueError, OSError, KeyError, EOFError) as error:
+                    raise ValueError(
+                        f"{name}/{relative} recording content cannot be loaded"
+                    ) from error
+                pin = expected[relative]
+                if (
+                    trajectory_content_digest(trajectory) != pin["sha256"]
+                    or trajectory.labels != pin["labels"]
+                ):
+                    raise ValueError(
+                        f"{name}/{relative} recording content differs from the frozen inventory"
+                    )
+                loaded[split].append((path, trajectory))
+        verified[name] = loaded
+    return verified
+
+
 def observed_from_states(states):
     """The 15 observed channels of a canonical rigid-body state array.
 
@@ -1507,7 +1609,8 @@ def corpus_paths(entry, root):
     The root is a command-line argument, never a manifest fact. What the
     manifest freezes is the corpus's directory below it, the held-out name
     patterns, and how many recordings each side must hold; a tree that differs
-    fails closed rather than quietly measuring a different corpus.
+    fails closed rather than quietly measuring a different corpus. Content
+    preflight additionally checks exact filenames, canonical arrays and labels.
     """
     directory = Path(root) / entry["directory"]
     paths = sorted(directory.glob(entry["file_pattern"]))
@@ -1875,6 +1978,7 @@ def platform_decide(manifest, rows, reference=None, reference_sha256=None):
         rule_enforced=enforced,
         gating_rule_breaches=len(gating),
         corpora=len(rows),
+        recording_content_sha256=manifest["recording_content"]["sha256"],
         gate_breaches=breaches,
         rule_breaches=rule_breaches,
         reference_regressions=regressions,
@@ -1909,20 +2013,24 @@ def _structured_spec(entry, arm):
     )
 
 
-def _structured_arm(entry, arm, training_paths, arrays, directory):
+def _structured_arm(entry, arm, training, arrays, directory):
     """Fit one structured arm on exactly the training recordings, then forecast."""
+    from dataclasses import replace
+
     from glassbox.belief.belief_io import save_dynamics_belief
     from glassbox.fitting import fit as structured_fit
 
+    sources = [
+        replace(trajectory, provenance={**trajectory.provenance, "path": str(path)})
+        for path, trajectory in training
+    ]
     started = time.perf_counter()
-    outcome = structured_fit(
-        [str(path) for path in training_paths], _structured_spec(entry, arm)
-    )
+    outcome = structured_fit(sources, _structured_spec(entry, arm))
     wall = time.perf_counter() - started
     split = outcome.report["split"]
     trained = [item["path"] for item in split["training_flights"]]
     reserved = [item["path"] for item in split["validation_flights"]]
-    if sorted(trained + reserved) != sorted(str(path) for path in training_paths):
+    if sorted(trained + reserved) != sorted(str(path) for path, _ in training):
         raise ValueError(f"{entry['name']} {arm} fit did not read the training set")
     save_dynamics_belief(outcome.belief, directory / f"structured_{arm}.json")
     write(directory / f"structured_{arm}_report.json", outcome.report)
@@ -1942,18 +2050,16 @@ def _structured_arm(entry, arm, training_paths, arrays, directory):
     )
 
 
-def _platform_corpus(manifest, entry, root, output):
-    """One corpus end to end: adapt, fit both models, score the same rows."""
-    from glassbox.core.data import load_trajectory_npz
+def _platform_corpus(manifest, entry, verified, output):
+    """Fit and score one corpus from the fully verified in-memory recordings."""
 
     name = entry["name"]
     directory = output / name
     directory.mkdir()
     dt_s = entry["sample_interval_s"]
     steps = steps_for(dt_s)
-    training_paths, held_paths = corpus_paths(entry, root)
-    training = [(path.stem, load_trajectory_npz(path)) for path in training_paths]
-    held = [(path.stem, load_trajectory_npz(path)) for path in held_paths]
+    training = [(path.stem, trajectory) for path, trajectory in verified["training"]]
+    held = [(path.stem, trajectory) for path, trajectory in verified["held_out"]]
 
     started = time.perf_counter()
     learned = fit(corpus_recordings(entry, training))
@@ -1995,7 +2101,7 @@ def _platform_corpus(manifest, entry, root, output):
     for arm in entry["structured"]["arms"]:
         print(json.dumps(dict(fitting=f"{name}/{arm}")), flush=True)
         predictions[arm], fits[arm] = _structured_arm(
-            entry, arm, training_paths, arrays, directory
+            entry, arm, verified["training"], arrays, directory
         )
     np.savez_compressed(
         directory / "evaluation.npz",
@@ -2048,8 +2154,14 @@ def platform(manifest_path, corpora_root, output):
 
     manifest_path, output = Path(manifest_path), Path(output)
     manifest = frozen_platform_manifest(manifest_path)
+    inventory_path = manifest_path.parent / manifest["recording_content"]["file"]
+    pins = frozen_platform_recordings(manifest, inventory_path)
+    verified = platform_preflight(manifest, corpora_root, pins)
     output.mkdir(parents=True, exist_ok=False)
     shutil.copyfile(manifest_path, output / "manifest.json")
+    copied_inventory = output / manifest["recording_content"]["file"]
+    shutil.copyfile(inventory_path, copied_inventory)
+    frozen_platform_recordings(manifest, copied_inventory)
     evidence_manifest, evidence_reference, evidence_digest = evidence_setup(output)
     reference_path = manifest_path.parent / manifest["reference"]["file"]
     reference, reference_digest = None, None
@@ -2072,7 +2184,9 @@ def platform(manifest_path, corpora_root, output):
     with jax.enable_x64(True):
         for entry in manifest["corpora"]:
             print(json.dumps(dict(starting=entry["name"])), flush=True)
-            rows.append(_platform_corpus(manifest, entry, corpora_root, output))
+            rows.append(
+                _platform_corpus(manifest, entry, verified[entry["name"]], output)
+            )
             write(output / "results.json", rows)
     decision = platform_decide(manifest, rows, reference, reference_digest)
     with_evidence(
@@ -2123,13 +2237,18 @@ def verify_platform(directory, manifest, reference=None):
     The regression reference is anchored to the committed file exactly as the
     synthetic tier anchors its own: the copy inside the run is only ever checked
     against it, and a run that saved a different reference, or none, than the
-    committed one cannot be replayed.
+    committed one cannot be replayed. The copied recording inventory is anchored
+    to the frozen manifest, and the result's training and held-out identities
+    must agree with it. Replay needs no access to the original corpus files.
     """
     import jax
 
     from glassbox.belief.belief_io import load_dynamics_belief
 
     directory = Path(directory)
+    pins = frozen_platform_recordings(
+        manifest, directory / manifest["recording_content"]["file"]
+    )
     declared = {entry["name"]: entry for entry in manifest["corpora"]}
     rows = read(directory / "results.json")
     replays, worst = 0, 0.0
@@ -2142,6 +2261,13 @@ def verify_platform(directory, manifest, reference=None):
                 if sha256(case / name) != digest:
                     raise ValueError(f"altered artifact: {row['corpus']}/{name}")
             entry = declared[row["corpus"]]
+            expected_split = _pinned_recording_split(
+                entry, pins["corpora"][entry["name"]]
+            )
+            if row.get("recordings") != expected_split:
+                raise ValueError(
+                    f"recording split differs from the frozen inventory: {row['corpus']}"
+                )
             steps = steps_for(entry["sample_interval_s"])
             learned = LearnedDynamics.load(case / "generic.npz")
             if learned.fingerprint() != row["generic_fingerprint"]:
@@ -2169,6 +2295,10 @@ def verify_platform(directory, manifest, reference=None):
                 hold = hold_current(data["past_states"], steps["horizon"])
                 np.testing.assert_array_equal(hold, data["hold_prediction"])
                 targets, ids = data["targets"], data["recording_ids"]
+                if not set(ids.tolist()) <= set(expected_split["held_out"]):
+                    raise ValueError(
+                        f"evaluation recording split differs: {row['corpus']}"
+                    )
                 fresh = dict(
                     generic=platform_score(generic, targets, ids),
                     hold_current=platform_score(hold, targets, ids),
@@ -2231,10 +2361,11 @@ def verify_platform(directory, manifest, reference=None):
         "rule_met",
         "gating_rule_breaches",
         "corpora",
+        "recording_content_sha256",
         "reference_compared",
         "reference_sha256",
     ):
-        if decision[key] != saved[key]:
+        if decision[key] != saved.get(key):
             raise ValueError(f"replayed decision differs: {key}")
     for key in ("gate_breaches", "rule_breaches", "reference_regressions"):
         if len(decision[key]) != len(saved[key]):
