@@ -154,6 +154,9 @@ def short_trial(
         _equations=Equations() if equations is None else equations,
     )
     arm.reset(initial_state, initial_command)
+    plant_state = arm.equations.reset(
+        jnp.asarray(initial_state), jnp.asarray(initial_command)
+    )
     states, commands = [initial_state], []
     previous, state, warm_start = initial_command, initial_state, None
     for index in range(4):
@@ -171,9 +174,8 @@ def short_trial(
             warm_start = result.warm_start
         else:
             command = previous
-        state = np.asarray(
-            arm.equations.advance(jnp.asarray(state), jnp.asarray(command))
-        )
+        plant_state = arm.equations.advance(plant_state, jnp.asarray(command))
+        state = np.asarray(arm.equations.canonical(plant_state))
         arm.command_applied(command)
         commands.append(command)
         states.append(state)
