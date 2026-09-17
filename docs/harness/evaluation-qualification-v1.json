@@ -1,0 +1,134 @@
+{
+  "id": "evaluation-qualification-v1",
+  "named_gap": "Evaluation: distinguish historical regression, model comparison, and actual task success before another learner change.",
+  "classification": {
+    "reference_audit": "Retrospective: existing scores have been inspected. This adds descriptive readouts and corrects interpretation; it does not change old gates or accept/reject any fitted model.",
+    "control_qualification": "Prospective no-fit experiment, frozen before any new trial. No learner, controller, or threshold tuning in response to these scores."
+  },
+  "accepted_executable_source": "98f77d3",
+  "baseline_runs": {
+    "control": "control-baseline-fixed",
+    "platform": "platform-pins"
+  },
+  "source_sha256": {
+    "docs/harness/v1.json": "1ba15b3f466e91edf548f1d459a52eb0896310e7fbbb6c1c98544ec10513d781",
+    "docs/harness/reference.json": "ee2aaeeaed0d4b102d519926cadf7209c9c6878d0916a64cc6d586311c7ad213",
+    "docs/harness/platform-v4.json": "f92f12e20cea05409422f61f784ce0642541372dc5c0b8ad9a8a4cc3a4a8b755",
+    "docs/harness/platform-reference.json": "08a2c88f1f32ccfd94ac4b38aee5a23f04ef9b9ad78097bd23583d638087cf2e",
+    "docs/harness/control-v5.json": "c87b40e1835c2dc9725f7a9effd47d5de225c692b06e63ea32141e632161cb40",
+    "docs/harness/control-reference.json": "d6bb57b8c525d6d57bbbd7272fcbac7863c4584eaf7827669803bc3cf1039ee2",
+    "docs/harness/live-v3.json": "4d39b49536f7fee4fced8702ba9f931894497d4a48f97bdb83de1986efed5fd0",
+    "docs/harness/live-reference.json": "d40d8f8aea6c41888e1214d94019ddea87121dd7d0785ad076b4da8cce451051",
+    "docs/harness/evidence-v2.json": "c669b2ccfd6a11272f32839120fb1a33bdf3ae4bbc6120f444467c784d4dbe29",
+    "docs/harness/evidence-reference.json": "c61b2aa290f7eef4d27cf7d2c28196815ce0aa5142d43a35c51161041ffc4749",
+    "docs/accuracy-requirements.md": "8503a0821a112f57aa62cfaee6b76caeda5595bf630d5b5cf02f28e7c9fc8221",
+    "examples/cascade_accuracy.py": "9190ac0c8d1bea9dc961ceb3bf44ec8241236d05368b20f64992b4cc26998798",
+    "src/glassbox/control/solver.py": "ea88fdcd7d737a7d0d86b113a9d9ccea3ffb7ce738a5a6c65096d5e4990231fc",
+    "src/glassbox/experimental/learned_plan.py": "9fec86bc4b99ba12da27d9e944b162029533904f836550301b5913d2b2d595ea",
+    "src/glassbox/experimental/harness.py": "4d41b61043e0b7b58ac7ff03609622d97cb01301c927e48522ca9fa99ba8e517"
+  },
+  "input_sha256": {
+    "control/calibration-excitation.npz": "b304ba83f6b0cdb04b8cb918afff09152b175028136105d51f69babe919d55aa",
+    "control/calibration.json": "1cc3881efdf6d3fc542359beae0eb371e94c306f7bb2847de1feedaf0319cc22",
+    "control/decision.json": "af271b51447deb4c07e914687875013cf913a1de93df7caf68fbf6df4376f79f",
+    "control/evidence-manifest.json": "c669b2ccfd6a11272f32839120fb1a33bdf3ae4bbc6120f444467c784d4dbe29",
+    "control/evidence-reference.json": "c61b2aa290f7eef4d27cf7d2c28196815ce0aa5142d43a35c51161041ffc4749",
+    "control/evidence.npz": "b9d7e9dd08f26cb7dfb9f93266e89112c7588b533c05412b1c4d6168592ffb5b",
+    "control/generic.npz": "576de1bbef1294db73ede3f5523eb18a9b3357e0a2c451c7323e3f9df0a50860",
+    "control/manifest.json": "c87b40e1835c2dc9725f7a9effd47d5de225c692b06e63ea32141e632161cb40",
+    "control/recording-0.npz": "114b43d1f1e19fd61555a85ae2e0dacaec19304a02b17637518e7ffd0031e24e",
+    "control/recording-1.npz": "d5f89f31f6ba26d4cb94ddac2838df2a7829d2f9ffc75f86656f918046067913",
+    "control/recording-2.npz": "59a8de0d3dca285c64b38c6207033bcdb00f6ef23b1ffb62d05adc2eb7d74613",
+    "control/recording-3.npz": "60aaaca76a686baabe4970990bf5bcd28b134e0feaa3101b1cdc4aae1a373c40",
+    "control/reference.json": "d6bb57b8c525d6d57bbbd7272fcbac7863c4584eaf7827669803bc3cf1039ee2",
+    "control/results.json": "0938f97625b335a6b6a285fd60c8ebfc12d240b6191860f1c287f97021669bec",
+    "control/structured.json": "f7c78313e55ba1adeb74e1a366918204e6793c228ac47ce4d5fcd6456ce1762f",
+    "control/structured_report.json": "eb9a761e50f39dfea0407d7b7256b68094f7fc0510db27376d5b76573082ad62",
+    "control/trial-0/generic/tracking.npz": "aab97c7d1fbd2b8b7e2999e4fd7b2deaf288f5f27d5cf277364a60b3b5c24cd6",
+    "control/trial-0/generic/trial.json": "c3bd98224917b255530eb0586ed8f9dd6ee609c9843b709f8cf7eae7b0b6cbbd",
+    "control/trial-0/structured/tracking.npz": "58e0aa0635a61e603eaef172f1a22eed2291e271ab296018affd7138e7752e7b",
+    "control/trial-0/structured/trial.json": "e5e4dcaf60adf9e8e3973cbeec18d5e1bb470c8e69c11e7d19b1a2316d3ecfec",
+    "control/trial-1/generic/tracking.npz": "77df70f15d09d58cce922939ef638cb4bddfec9824401517b1f63418fc7d9543",
+    "control/trial-1/generic/trial.json": "f42fe2ef05e082695d2b594c6968dddbcec7c76e271d72837b82017a291a729d",
+    "control/trial-1/structured/tracking.npz": "13736903f458d86a43c1baeb873cce913e416b2d3b756f2f6e022a58d25e4c68",
+    "control/trial-1/structured/trial.json": "e769e0300b1954373148cd2fc311325f50ac8522ea31b7e6eeb241d681caff40",
+    "platform/manifest.json": "f92f12e20cea05409422f61f784ce0642541372dc5c0b8ad9a8a4cc3a4a8b755",
+    "platform/results.json": "50fb1be6c1cf4ce527492fe84b4b2433d89cd7d451874d0942878e9307dd0870",
+    "platform/decision.json": "8c35b0faa6cce0b20b4a0201469c9b0bcce5899e345d0edac208495f5e80dc6d",
+    "platform/nanodrone/evaluation.npz": "121e1862d0532c261abee57191f4572b74877d5dc7d10029e90f15962f1b8752",
+    "platform/x8/evaluation.npz": "7bd4641e1ce1cfbbb7bc60d6cc3c30cc78550286bac37e2a1554f2eb8f9a4043",
+    "platform/arp/evaluation.npz": "782a92a276e0bab8ca7357a63863ff28920eb1b6f9bc0df55a201d2b6378b31a",
+    "platform/idf/evaluation.npz": "7a94796bfbfcde83ed4be3c78e717e374dc4e470b4a9bc36643df6ef947e3ec1",
+    "platform/epfl/evaluation.npz": "a96e146822de672788fe8610d2ae7b8f8f9d69dadf0ac028890bfdd810e9f3fb"
+  },
+  "no_fit": true,
+  "platform_readout": {
+    "scope": "saved common forecast windows from platform-v4",
+    "percentile": 0.95,
+    "quantile_method": "nearest rank: sorted[ceil(0.95*N)-1] within each recording",
+    "per_window": "maximum over the full sampled horizon prefix of Euclidean vector error, separately velocity channels 0:3 and body-rate channels 3:6",
+    "aggregate": "maximum recording percentile for each predictor and metric",
+    "historical_ceiling": "the unchanged numbers called task_allowance in platform-v4 are descriptive old-model prefix percentiles, not task-derived requirements; legacy pooled final-step component-RMSE comparisons are retained as historical gates only",
+    "inference": "Descriptive on previously inspected overlapping windows; no confidence bound, future coverage, or control sufficiency claim."
+  },
+  "control_qualification": {
+    "manifest": "docs/harness/control-v5.json",
+    "new_arms": [
+      "oracle_generic_seam",
+      "structured_matched_horizon"
+    ],
+    "context_arms": [
+      "saved_generic_250ms",
+      "saved_structured_800ms"
+    ],
+    "seeds": [
+      101,
+      102
+    ],
+    "arm_order": [
+      [
+        "oracle_generic_seam",
+        "structured_matched_horizon"
+      ],
+      [
+        "structured_matched_horizon",
+        "oracle_generic_seam"
+      ]
+    ],
+    "horizon_steps": 5,
+    "block_count": 5,
+    "maximum_iterations": 4,
+    "warmup_intervals": 2,
+    "unchanged": "All task, plant, sample timing, initial states, command bounds, tolerances, solver constants and scoring come from the pinned control-v5 and existing solver; no wall deadline or live swaps.",
+    "oracle": {
+      "dynamics": "Public Cascade equations from the pinned version/revision, same 400 Hz integration and 20 substeps per 50 ms interval as plant.",
+      "state": "Reset from public initial state and initial applied command at declared actuator equilibrium; advance private predictor state only with actually issued commands. Never read live plant internal state.",
+      "mean_map": "Exact 15 observed channels mapped by existing states_from_observed: trapezoidal position, projected rotations. Existing generic stage_cost, measure and BoundedShootingSolver unchanged.",
+      "covariance": "Retain saved generic mapped covariance identically as a fixed numerical objective offset, because relative-improvement stopping depends on absolute objective. It is not asserted to be oracle uncertainty.",
+      "history": "Both new arms hold initial command for first 2 intervals as saved generic does; all intervals still scored."
+    },
+    "structured": "Load accepted saved belief, replace only horizon/block count with 5/5 and use first 2 interval holds. Retain its own propagation, support penalty and covariance; this remains contextual, not a pure mean-model substitution.",
+    "qualification_rule": "Oracle must meet the unchanged control-v5 application criterion on both trials: both absolute lateral and altitude error <= 0.5 m for >= 95% of 281 samples at t >= 2 s, no termination. Report separately from historical acceptance and matched-structured RMSE.",
+    "limits": "Two previously declared seeds on one deterministic simulator; diagnoses this pipeline only. Oracle information exceeds learned model. Failure does not prove no inaccurate model could pass or identify a unique controller defect.",
+    "replay": {
+      "state_atol": 1e-05,
+      "state_rtol": 1e-05,
+      "score_atol": 1e-09,
+      "score_rtol": 1e-07,
+      "requirements": [
+        "Reconstruct every plant trajectory from initial state and saved issued commands.",
+        "Independently recompute canonical scores and task sample counts.",
+        "Check oracle causal predictor state against plant observations at every observed interval.",
+        "Reconstruct oracle forecasts from causal state and saved candidate commands at every solve.",
+        "Reject altered source plan, input bytes, trial commands, forecasts or summaries even if outer file hashes are changed."
+      ]
+    }
+  },
+  "validation": [
+    "Targeted metric fixtures expose component-RMSE/vector-percentile and pooled/per-recording differences.",
+    "Oracle forecast/gradient and causal replay against public Cascade on declared histories.",
+    "Common solver policies and fixed covariance checked; no fitter reachable from qualification runner.",
+    "Replay and tamper tests; old learner and numerical references unchanged."
+  ],
+  "stop_rule": "Complete this no-fit qualification and report the next named gap. Do not change model/controller or run a search after seeing scores."
+}
