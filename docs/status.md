@@ -858,12 +858,33 @@ live tiers were not rerun and their adequacy gaps remain open. Local artifacts:
 `artifacts/2026-09-17/slow-sampling`; replay with
 `PYTHONPATH=src python -m glassbox.experimental.harness verify <run-directory>`.
 
+## Platform recording identity correction
+
+Accepted on 2026-09-17 after the harness freeze at `5e06325` and implementation
+at `56a9f98`. Platform v4 pins the canonical content and labels of all 162
+recordings, validates every corpus before any fit, and passes immutable loaded
+trajectories to both fitters so a later file replacement cannot change either
+arm's evidence. The full five-corpus run accepts with every one of its ten
+generic forecast metrics exactly equal to the committed reference and no
+regression; arp's two comparator failures and the existing coverage failures
+remain reported. Seventeen saved-artifact replays pass with maximum difference
+`5.0e-14`; modified inventory and model copies are both rejected. The 254
+platform, evidence, control and live contract tests pass (nine optional
+simulator tests skipped), including semantic/label mutations, corruption in
+the last corpus before the first fit, and replacement of a file after loading.
+Artifacts are retained at `artifacts/2026-09-17/platform-pins` locally and
+`/home/ryland/autonomy/glassbox-evidence/2026-09-17/platform-pins` on ryserv;
+the replay and tamper-check reports are alongside them. This repairs evidence
+identity, not model adequacy.
+
 ## Next iteration
 
-**Evidence: pin the platform recordings by content.** The platform manifest
-currently constrains filenames and split membership without establishing that
-their canonical content matches the frozen corpus inventory. Freeze canonical content
-hashes and regression cases before changing ingestion; reject a changed,
-missing, or substituted recording before fitting while preserving the current
-splits, references, and numerical gates. This closes the evidence-identity gap
-before the next general-model experiment.
+**Control: identify command response through temporally independent calibration
+excitation.** Freeze one seeded independent-sign waveform at the old sine's
+per-recording, per-channel requested RMS, with unchanged peak ceilings, ramp,
+recording roles, learner and tracking task. Record requested and realized
+perturbations separately when commands clip. Keep the active live-trial sine
+unchanged, retain the historical numerical references and gates, and add
+comparator regression safeguards before either model is fitted. Test this one
+protocol change without an amplitude, seed or timing sweep; retain it only if
+every frozen gate passes.
