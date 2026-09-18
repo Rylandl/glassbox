@@ -18,9 +18,9 @@ this page records the current evidence, limitations and next named gap.
 | Criterion | Current | Target |
 | --- | --- | --- |
 | One recipe | **Met.** The public API and fit/evaluate commands use the single `generic-memory-v3-prototype` recipe. `fit`, `predict` and `update` have no tuning or model-selection options. Replaced experimental module paths and structured root exports are removed. | One generic learner and consumer contract. |
-| Accuracy | **Adopted with a known tradeoff.** Four of five corpora beat the structured comparator on both metrics, including under the corrected prefix-percentile readout. ARP loses both; this does not block adoption. | Broad competitive performance from one recipe; improve weak cases and establish task sufficiency separately. |
+| Accuracy | **Adopted with a known tradeoff.** Four of five corpora beat the structured comparator on both metrics; ARP loses both. A new shared-history diagnostic finds wrong early command-response signs in the unchanged learner: all 248 aileron probes reverse the first-step body-rate response. | Broad competitive performance from one recipe; improve weak cases and establish task sufficiency separately. |
 | Capability | **Met.** All 27 frozen synthetic cases pass; saved models replay and reject alteration. This is a regression guard, not platform readiness. | Every synthetic absolute cap passes. |
-| Control | **Not met.** In twelve new oracle tracking trials, pooled samples within the ±0.5 m lateral/altitude tolerance are 32.12% for the four-step solver, 39.59% for float32 L-BFGS-B and 40.04% for float64 L-BFGS-B; 95% is required. All 1,272 float64 solves meet the gradient threshold without backend failure, but no trial meets the application criterion. Generic model accuracy was not changed or remeasured. | Meet the declared application tracking requirement; use structured and oracle arms diagnostically. |
+| Control | **Not met.** In twelve new oracle tracking trials, pooled samples within the ±0.5 m lateral/altitude tolerance are 32.12% for the four-step solver, 39.59% for float32 L-BFGS-B and 40.04% for float64 L-BFGS-B; 95% is required. All 1,272 float64 solves meet the gradient threshold without backend failure, but no trial meets the application criterion. Generic controller tracking was not remeasured; the learner is unchanged. | Meet the declared application tracking requirement; use structured and oracle arms diagnostically. |
 | Live improvement | **Not met.** Last live-v3 evidence swaps at intervals 140/220; position error rises from 0.80/0.98 m before the swap to 36.1/11.8 m afterward. Not rerun today. | Bounded refits and swaps that do not worsen tracking. |
 | Evidence | **Not met.** The 85–95% coverage band still fails on ARP, the reserved control recording and shifted synthetic regimes. Constant spread cannot rank command plans, but can affect finite-iteration stopping through the absolute objective. | Measured coverage in the declared band, useful to control. |
 | Lean | **Not met.** Generic research code was reduced; structured dynamics, fitting, belief code and their supporting scripts remain. | Learner, harness, telemetry adapters and controller only. |
@@ -78,23 +78,29 @@ meets the tracking application criterion. These comparisons establish both a
 large learned-mean weakness and an inadequate controller even with accurate
 dynamics; they do not establish performance on arbitrary systems.
 
+The **95% within ±0.5 m** target was chosen internally as a provisional
+application requirement, not taken from an external standard. It has historical
+feasibility evidence: the earlier [research controller](cascade-accuracy.md)
+reached **281/281 qualifying samples on each of three seeds**, using the same
+Cascade equations and aircraft specification. Its constant-command Gauss–Newton
+solver, 1.5 s anticipatory cost term, float64 runtime and pretrial history holds
+differ from the current controller. Today's provenance audit matches all three
+saved trajectory hashes to `bf97de3` and independently recomputes **843/843**
+qualifying samples. It does not rerun those historical optimizers. This supports
+feasibility for the declared calm, truth-sensed simulator task; it proves neither
+current-controller adequacy nor real-time or arbitrary-system performance.
+The user explicitly retains this target as a driver for further improvement.
+
 The public API, slow-sampling correction and content-pinned recording loader
 retain the adopted v3 numerical recipe. The last broad API/regression check
 passed 1,287 tests. This iteration changes neither the learner nor maintained
 consumer behavior; the latest validation below is focused on the diagnostic.
 Git and the saved protocols hold the implementation and experiment history.
 
-## Latest iteration: task relevance of solver accuracy
-
-Freeze **`69c9d4d`**, implementation **`29cf9df`**, harness preflight correction
-**`ae8df61`**, protocol [tracking v1](harness/solver-tracking-v1.json). Four
-prospectively chosen initial-state seeds, **106–109**, each run all three arms
-for 320 intervals on the same task-scaled oracle seam. The horizon remains
-250 ms, the objective and command limits stay fixed, and each arm uses its
-own trajectory and preceding returned plan. Float64 selects its seed in
-float32 without a shadow optimizer, then lifts the exact selected blocks and
-runtime values. Plant and causal reconstruction remain float32. No model is
-fitted or updated; no wall-clock deadline influences commands.
+The latest frozen controller comparison, [tracking v1](harness/solver-tracking-v1.json),
+uses seeds 106–109 and each solver's own trajectory/warm starts on the 250 ms
+task-scaled oracle seam. All twelve trials complete without fallback or bound
+violations; every scored altitude sample passes, so all tolerance misses are lateral.
 
 | Measure across four trials per arm | Four-step projected gradient | Float32 L-BFGS-B | Float64 L-BFGS-B |
 | --- | --- | --- | --- |
@@ -103,59 +109,85 @@ fitted or updated; no wall-clock deadline influences commands.
 | Converged returned solves without failure / 1,272 | 0 | 1,022 | 1,272 |
 | Backend failures | 0 | 26 | 0 |
 | Median instrumented decision time | 73.7 ms | 197.7 ms | 230.7 ms |
-| 95th-percentile decision time | 76.4 ms | 479.4 ms | 322.1 ms |
 
-All twelve trajectories complete without fallback, nonfinite evaluations or
-command-bound violations. Every scored altitude sample is within tolerance;
-all task misses are lateral. Float64 adds **five** qualifying samples over
-float32, a pooled **0.445 percentage-point** gain. Its lateral RMSE is only
-**0.6–2.4 mm** better per trial, and altitude RMSE is slightly worse in three
-of four trials (at most 0.221 mm). Against the four-step solver, both L-BFGS-B
-arms lower lateral RMSE on every seed; float64's reduction is 26–30%.
-These are useful partial gains, but **first-order convergence with accurate
-dynamics is still insufficient for the declared tracking task**. It does not
-establish global optimality or identify a single remaining controller cause.
+Float64 adds five qualifying samples over float32, only 0.445 percentage points,
+and removes its 26 backend failures. The old precision gate remains failed
+(residual ratio 0.803 versus 0.5 required); the prospective tracking diagnostic
+was explicitly authorized without rewriting that result. None of these solvers
+is promoted. These are different trajectories from the old fixed-seed 70/128
+precision population. Neither native optimizer-score comparisons across
+different states nor instrumented timings establish controller quality or
+real-time readiness. All 12 trajectories and 3,816 solves/forecasts replayed
+exactly, four rehashed challenges were rejected, and 266 focused remote checks
+passed. Git and saved protocols hold the detailed tracking experiment history.
 
-The earlier precision comparison's **70/128** and this run's **1,272/1,272**
-are different populations: old saved states and fixed historical warm starts
-versus new seeds and each solver's own evolving closed loop. They are not an
-improvement measured on one unchanged test set. Native objectives and residuals
-are descriptive within each arm, not paired quality comparisons across its
-different states. Four initial perturbations of one deterministic simulator
-do not establish arbitrary-system readiness.
+## Latest iteration: action-conditioned multistep learner accuracy
 
-Float64 uses **23,828** new objective/gradient evaluations versus **29,875**
-for float32 (20.2% fewer), with all preprocessing and audit work recorded
-separately. Its timed wrapper includes 2,540 float32 seed-selection calls,
-1,272 float64 seed evaluations, 1,272 final audits and 2,544 extra float64
-diagnostic audits. The four-step solver's internal evaluation count is
-unavailable. Every L-BFGS-B decision exceeds the 50 ms sample interval on this
-host; timings include diagnostic overhead and do not establish deployment
-latency. The simulated-time loop never feeds timing back into commands.
+Protocol [action response v1](harness/action-response-v1.json), frozen at
+**`6a6ace7`**, with source initial-state precision clarified before measurement
+at **`bfb6fc8`**; implementation **`5293929`**. No learner is fitted or changed.
+The saved adopted v3 model consumes exactly ten past command intervals and
+eleven observations at **124 origins** from all four float64-oracle trajectories.
+These trajectories were excluded from its fit, but were already used for
+controller evaluation; this is new model-response evidence on a known simulator
+population, not an untouched controller benchmark.
 
-The old precision gate remains **failed** (paired residual ratio 0.803 versus
-0.5 required). This protocol explicitly authorized diagnostic tracking before
-measurement without converting that failure into a pass. **No maintained
-solver is promoted**, and generic-model adoption is unchanged. The remaining
-controller objective/horizon/seam question is separately scoped: Glassbox owns
-control qualification, while `~/autonomy/dart` owns mission references,
-objectives and execution. No Dart code changes belong to this iteration.
+At every origin, the factual five-command tape and six channel-isolated
+alternatives are shared between the learner and public-equation reference.
+Each alternative moves one channel 5% of the remaining distance toward its
+lower or upper command bound. The reference reconstructs its internal state
+only from equilibrium reset and issued-command replay; the learner receives
+no hidden simulator state or future observations. Both predictions run in float32.
+All **868 forecast sequences** complete and all **744 paired command changes**
+are nonzero, with no invalid or weak-response exclusions in any output group.
+Every factual reference forecast exactly matches the saved physical future.
+These errors describe this controller-generated population; earlier platform
+and calibration scores cover different rows.
 
-Validation: **259** focused local tests pass, with seven Cascade tests skipped
-locally; **266** pass in the pinned Linux environment across the preflight and
-its environment-metadata repair. That repair was tested before any full trial
-started and changes no numerical protocol. All 90 inherited Python sources and
-five input files remain byte-identical. The 72-file artifact inventory, saved
-hashes and locally recomputed report match.
+| Factual forecast component RMSE | 50 ms | 250 ms |
+| --- | --- | --- |
+| World velocity, m/s | 0.00816 | 0.32438 |
+| Body rate, rad/s | 0.05345 | 0.25984 |
+| Rotation-matrix entries, unitless | 0.00112 | 0.03074 |
 
-Fresh verification reproduces all **12 trajectories**, **3,816 optimizer
-solves** and **3,816 oracle forecasts**, with exactly zero state replay
-difference. Four rehashed challenges—an issued command, a full float64 gradient,
-a work counter and the qualification result—are all rejected. After the full
-fresh replay, those challenges reuse copies of its solver outputs only after
-exact plan/input and per-trial manifest/trajectory checks. Physical replay
-remains enabled; integrity checks can reject earlier. The public verifier
-always reruns every optimizer solve.
+Paired response subtracts each predictor's own factual forecast. Negative
+projected gain means that its response has a component against the true
+response, not that every output coordinate has the wrong sign. All counts
+below are over **248 aileron probes** (two signs at every origin):
+
+| Aileron response group | Negative at 50 ms | Negative at 250 ms | Negative over flattened five-step response | Median full-response cosine |
+| --- | --- | --- | --- | --- |
+| World velocity | 248/248 | 248/248 | 248/248 | −0.434 |
+| Body rate | 248/248 | 0/248 | 0/248 | +0.881 |
+| Rotation entries | 248/248 | 219/248 | 248/248 | −0.465 |
+
+The velocity response opposes the reference at every measured horizon for all
+248 probes. Body rate is almost exactly reversed at 50 ms (median cosine
+−0.994), then aligned at later steps but weak: median full-response projected
+gain is 0.341. Rotation response is reversed in every probe through 200 ms.
+These patterns occur on each of the four trajectories; an endpoint-only or
+pooled-horizon body-rate score would hide the immediate reversal.
+
+Elevator responses are strongly aligned over the full horizon (median cosine
+roughly 0.99), but attenuated: projected gains are about 0.58 for velocity,
+0.73 for body rate and 0.62 for rotation entries. Throttle probes produce large
+relative errors where the true rate/rotation effects are small; the report
+retains their physical response magnitudes and absolute errors, so those ratios
+are not treated as the dominant failure merely because they are large.
+
+This identifies a concrete **early command-response sign and timing** weakness,
+plus compounding factual forecast error. It does not uniquely identify whether
+calibration/feedback confounding, representation, memory or fitting caused it.
+No physics-specific correction, model promotion or task pass follows from this
+diagnostic; the separate controller insufficiency remains visible.
+
+Validation: **109 local tests pass**, with three Cascade tests skipped locally;
+**112 pass on ryserv**, including those three. All 92 inherited Python sources
+and 15 inputs are unchanged. The complete 28-file inventory and locally
+recomputed report match. Fresh verification reproduces every physical source
+trajectory and all 868 learner/reference forecast pairs exactly. Four coherently
+rehashed alterations—history, command, forecast and response summary—are
+rejected; the three numeric-array challenges each receive a full fresh replay.
 
 ## Constraints established by prior measurements
 
@@ -182,48 +214,47 @@ always reruns every optimizer solve.
 
 ## Evidence and replay
 
-Current artifacts are in
-`artifacts/2026-09-18/solver-tracking-v1` locally and
-`/home/ryland/autonomy/glassbox-evidence/2026-09-18/solver-tracking-v1` on
+The latest evidence is in `artifacts/2026-09-18/action-response-v1` locally and
+`/home/ryland/autonomy/glassbox-evidence/2026-09-18/action-response-v1` on
 `ryserv`. Protocol SHA256:
-`ed0d9429e85cb9bfdeb9263eae868625fc1624033b63689369fa27fe9654c8f0`.
-`tracking-readout.json`, test/run logs, `solver-tracking-verification.py`
-and verification/tamper reports sit beside the run. Each trial retains its
-trajectory, forecasts, task metrics, timing arrays and full solver records.
-Precision records include exact seed captures, full gradients and dtype audits.
-Timing summaries are checked against saved arrays; timing authenticity cannot
-be established by deterministic replay.
+`4b40ee76aa5e0e7b1b5a2eafdbce90b95566ba45dcc769e5c3c04453df52dba6`.
+The verification script/reports, test/run logs and `action-response-readout.json`
+sit beside it. Each trial retains exact histories, future commands, responses,
+forecasts and failure slots. `tracking-target-provenance-audit.json` and its
+script independently document the earlier 843/843 target-feasibility result.
 
-The prior precision artifacts remain in
-`artifacts/2026-09-18/solver-precision-v1`; source-fixed termination evidence is
-in `solver-termination-v1` beside it. Adopted learner/API, platform, control,
-live and uncertainty evidence remains under `artifacts/2026-09-17` and its
-corresponding `ryserv` evidence directory. The latest rejected learner remains
-isolated at `5467943`; reduced assignment moments did not repair multistep
-prediction and control. Prior outcomes and protocols are not rewritten.
+The control comparison remains in `artifacts/2026-09-18/solver-tracking-v1`,
+with precision and termination evidence beside it. Adopted learner/API,
+platform, control, live and uncertainty evidence remains under
+`artifacts/2026-09-17` and the corresponding `ryserv` evidence directory.
+The rejected learner remains isolated at `5467943`; earlier outcomes and
+protocols are not rewritten. Git holds their replay commands and explanations.
 
 ```sh
-# Current tracking diagnostic; use ae8df61 or this accepted result commit.
+# Latest diagnostic; use 5293929 or this accepted result commit.
+PYTHONPATH=src python -m glassbox.experimental.action_response verify /absolute/path/to/action-response-v1
+# Latest frozen controller comparison; same code remains available.
 PYTHONPATH=src python -m glassbox.experimental.solver_tracking verify /absolute/path/to/solver-tracking-v1
-# Previous fixed-seed precision comparison; use b11fb23 or this commit.
-PYTHONPATH=src python -m glassbox.experimental.solver_precision verify /absolute/path/to/solver-precision-v1
-# Original API/benchmark evidence and older diagnostic replay commands are in git.
 ```
 
 ## Next named gap
 
-**Action-conditioned multistep learner accuracy.** Freeze a diagnostic using
-identical held-out observed histories, state origins and feasible future
-command sequences for the adopted generic model and a public-equation
-reference. Separate absolute forecast error from the predicted response to
-command changes over the full horizon; measure response direction and
-magnitude as well as endpoint error. The learner receives only its existing
-observed-signal/command contract, never oracle hidden state. Pin the population
-and perturbations before measurement, preserve all failures, and choose one
-learner mechanism only after this diagnostic identifies a specific weakness.
+**State-conditioned early command-response identification.** Correct the
+measured first-step response reversal while retaining full-prefix validation;
+endpoint body-rate alignment is insufficient. The proposed next mechanism is
+a conditional response loss on the complete predictor: independently assigned
+excitation interacted with fixed, platform-neutral observed-history features.
+This extends beyond the prior three unconditional moments or constraints on
+affine columns alone. This is a hypothesis to test, not a diagnosed unique cause
+or an implemented learner change.
 
-Do not resume controller residual, horizon or objective tuning in that
-iteration. Accurate-dynamics tracking remains inadequate and needs a separate
-controller investigation; it does not erase the much larger generic-to-oracle
-prediction/control gap. Repair historical replay's Python-dependent AST
-fingerprint in a separate correctness iteration with unchanged numerical gates.
+Freeze one concrete mechanism, independent training/development evidence,
+realized-excitation checks and gain/loss criteria before fitting. Do not reuse
+these 124 observed histories or their oracle responses as training targets.
+Use platform-independent signals, commands and recording facts; preserve the
+one `fit`/`predict`/`update` contract. Require paired full-response and factual
+forecast readouts across every horizon, including 50 ms, and retain broad
+benchmark/synthetic regression checks. No controller residual, horizon or
+objective tuning belongs to that learner iteration. The inadequate current
+oracle controller and historical Python-dependent AST replay fingerprint
+remain separately scoped work.
