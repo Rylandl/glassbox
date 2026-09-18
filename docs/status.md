@@ -20,7 +20,7 @@ this page records the current evidence, limitations and next named gap.
 | One recipe | **Met.** The public API and fit/evaluate commands use the single `generic-memory-v3-prototype` recipe. `fit`, `predict` and `update` have no tuning or model-selection options. Replaced experimental module paths and structured root exports are removed. | One generic learner and consumer contract. |
 | Accuracy | **Adopted with a known tradeoff.** Four of five corpora beat the structured comparator on both metrics, including under the corrected prefix-percentile readout. ARP loses both; this does not block adoption. | Broad competitive performance from one recipe; improve weak cases and establish task sufficiency separately. |
 | Capability | **Met.** All 27 frozen synthetic cases pass; saved models replay and reject alteration. This is a regression guard, not platform readiness. | Every synthetic absolute cap passes. |
-| Control | **Not met.** Generic position RMSE 60.80/49.31 m versus structured 1.179/1.179 m. This compares complete pipelines: generic plans 250 ms, structured 800 ms. Both structured trials also fail the application tracking criterion. The task-scaled oracle still reaches only 29–42% of samples within tolerance (95% required), with every solve above its convergence threshold. | Meet the declared application tracking requirement; use structured and oracle arms diagnostically. |
+| Control | **Not met.** Generic position RMSE 60.80/49.31 m versus structured 1.179/1.179 m. This compares complete pipelines: generic plans 250 ms, structured 800 ms. Both structured trials also fail the application tracking criterion. The task-scaled oracle reaches only 29–42% of samples within tolerance (95% required). Raising the solver cap from 4 to 64 iterations converges on 0/128 fixed sampled problems; 123 stall early. | Meet the declared application tracking requirement; use structured and oracle arms diagnostically. |
 | Live improvement | **Not met.** Last live-v3 evidence swaps at intervals 140/220; position error rises from 0.80/0.98 m before the swap to 36.1/11.8 m afterward. Not rerun today. | Bounded refits and swaps that do not worsen tracking. |
 | Evidence | **Not met.** The 85–95% coverage band still fails on ARP, the reserved control recording and shifted synthetic regimes. Constant spread cannot rank command plans, but can affect finite-iteration stopping through the absolute objective. | Measured coverage in the declared band, useful to control. |
 | Lean | **Not met.** Generic research code was reduced; structured dynamics, fitting, belief code and their supporting scripts remain. | Learner, harness, telemetry adapters and controller only. |
@@ -128,7 +128,63 @@ their outer hashes are recomputed. Ruff lint and formatting checks pass.
 This iteration does not rerun the slow benchmark fits, Cascade control trials
 or PX4 SITL tests.
 
-## Latest iteration: task-aligned controller qualification
+## Latest iteration: bounded solver-budget qualification
+
+Freeze `5d5563c`, implementation `b50151c`, protocol
+[solver budget v1](harness/solver-budget-v1.json). One change raises the existing
+projected-gradient solver's iteration cap from 4 to 64. The task-scaled oracle,
+objective, stopping rules, 250 ms horizon and bounds remain identical. Both
+arms start from the same causal state, reference and preceding original command
+plan. The 32 uniformly spaced origins per seed were declared before expanded
+solves; probes never advance the plant or seed subsequent probes. These are
+128 related optimization problems from four saved trajectories, not 128
+independent trials. No model was fitted and no new flight trial was run.
+
+| Measure, across 128 paired origins | Four iterations | Up to 64 iterations |
+| --- | --- | --- |
+| At or below the inherited 0.002 gradient threshold | 0 | 0 |
+| Stalled / iteration limit | 32 / 96 | 123 / 5 |
+| Median projected-gradient residual | 0.11770 | 0.10472 |
+| Total iterations actually used | 485 | 2,034 |
+| Fallbacks or command-bound violations | 0 | 0 |
+
+The larger budget improves objective value on 96 origins and leaves the 32
+previously stalled origins unchanged. Median paired reduction is **0.0107%**,
+maximum 3.21%. The first command changes by a median **0.493%** of its channel's
+allowed range, maximum 6.28%. Residuals decrease on 57 origins, stay identical
+on 32 and increase on 39; lower objective does not imply a smaller gradient at
+every step. All four seeds have zero converged origins. More iterations alone
+do not resolve this solver's unfinished optimization. Neither objective
+adequacy nor better closed-loop tracking follows from this result. The cap
+change is not promoted to maintained consumers, and generic-model adoption is
+unchanged.
+
+This diagnostic belongs in Glassbox's explicit control-qualification scope.
+The separate `~/autonomy/dart` application owns mission references, objectives
+and execution. Its compiled projected-BFGS controller is useful design context,
+but depends on an older structured-model interface and application-specific
+costs; adopting it wholesale would change more than the optimizer. Future Dart
+integration should migrate its non-contact inspection consumer separately.
+
+The saved status `stalled` covers both insufficient relative improvement and
+line-search exhaustion. This experiment does not identify which mechanism
+dominates or establish ill-conditioning as the cause.
+
+Validation: 26 new tests plus 35 task-harness tests pass locally; 77 focused
+tests pass in the pinned Linux environment, including Cascade forecast and
+gradient checks. All 128 pairs replay successfully, including original
+baseline parity. Four actual saved copies with forged report, command,
+gradient residual or iteration count are rejected after rewriting outer hashes
+and, for array changes, their derived summaries. All 82 inherited source files
+remain byte-identical. Ruff lint and formatting pass. The old qualification
+suite also exposed two
+**pre-existing Python-version portability failures**, reproduced on parent
+`ae71bcb`: API-migration recognition hashes Python 3.13's `ast.dump` format,
+which differs under pinned Python 3.12. This is a historical-verifier repair,
+separate from the current byte-pinned study; do not change historical source
+pins or numerical gates to hide it.
+
+## Task-aligned controller qualification
 
 Freeze `a264ca4`, implementation `80bc458`, protocol
 [`controller-task-v1`](harness/controller-task-v1.json). Saved oracle evidence
@@ -167,8 +223,8 @@ All 2,544 optimizer calls finish above the declared projected-gradient
 threshold of 0.002. Baseline median residuals are 0.031–0.032; candidate medians
 are 0.109–0.122. Candidate solves hit the four-iteration limit in 964/1,272 calls
 and stall in the remaining 308. This establishes incomplete optimization, not
-that solving the current objective more accurately would meet the task. The
-next experiment must separate those possibilities before changing the learner.
+that solving the current objective more accurately would meet the task. It
+motivates the bounded budget comparison above before another learner change.
 Cross-arm gradient magnitudes are not a common-scale quality score because the
 objective scales differ. The constant covariance cost increases only from
 0.359372 to 0.361977, while candidate mean total objectives are 8.55–11.37.
@@ -284,6 +340,11 @@ and on ryserv. Its verification and diagnostic reports sit beside the run;
 `controller-task-diagnostics` contains reproducible tracking figures and saved
 solver analysis. Use the pinned Linux environment for physical/optimizer replay.
 
+Solver-budget evidence is in `solver-budget-v1` under the same dated root,
+locally and on ryserv. Its verification, tamper script/results and test logs
+sit beside the run. This study uses the already saved task-scaled oracle
+trajectories and performs no new policy trials.
+
 From disposable checkouts of the matching source commits, without refitting:
 
 ```sh
@@ -305,17 +366,21 @@ PYTHONPATH=src python -m glassbox.experimental.api_migration compare --baseline 
 PYTHONPATH=src python -m glassbox.experimental.api_migration verify /absolute/path/to/generic-public-api-replay --artifacts /absolute/path/to/artifacts/2026-09-17
 # Task-scale controller experiment: checkout 80bc458 (or this accepted merge).
 PYTHONPATH=src python -m glassbox.experimental.task_qualification verify /absolute/path/to/controller-task-v1
+# Solver-budget comparison: checkout b50151c (or this accepted merge).
+PYTHONPATH=src python -m glassbox.experimental.solver_budget verify /absolute/path/to/solver-budget-v1
 ```
 
 ## Next named gap
 
-**Control optimization adequacy: separate unfinished optimization from an
-inadequate tracking objective.** The task-scale correction alone fails and every
-saved solve remains above its first-order threshold. Freeze a bounded-solve
-comparison on the saved oracle origins before any further controller trial:
-measure attainable objective reduction, command changes and projected-gradient
-residuals on identical states, references and warm starts. Use that evidence to
-choose one controller change; do not bundle horizon, damping, solver and learner
-changes. Accurate optimization may still expose an inadequate objective. The
-large generic-to-oracle gap remains separate learner work, and the adopted
-generic approach is not contingent on beating every structured benchmark.
+**Control optimization progress: test one curvature-aware bounded search on
+the same saved oracle problems.** Increasing the cap alone leaves all 128
+sampled problems above the existing threshold; most stop early. Freeze one
+projected quasi-Newton candidate against the current solver, preserving the
+objective, horizon, bounds and common original warm starts. Treat better
+conditioning as a hypothesis, not an established cause. Measure objective
+reduction, residuals, work and failures before another controller trial; do not
+bundle task-cost, horizon or learner changes. Accurate optimization may still
+expose an inadequate objective. The large generic-to-oracle gap remains
+separate learner work, and adoption is not contingent on beating every
+structured benchmark. Repair historical replay's Python-dependent AST
+fingerprint in a separate correctness iteration with unchanged numerical gates.
