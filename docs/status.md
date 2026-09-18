@@ -10,15 +10,16 @@ the returned `LearnedDynamics` provides `predict` and `update`. Generic
 recording archives also serve the public fit/evaluate commands. Structured
 code remains in its owning modules for benchmarks and unmigrated control
 consumers.
-The latest unqualified candidate remains isolated on `codex/conditional-response`
-at `8070d4f`; none of its implementation enters the adopted learner.
+The latest paired-response mechanism qualifies in a larger simulator study,
+with implementation isolated on `codex/intervention-response` at `7ea4674`.
+The adopted learner and consumer data contract remain unchanged.
 Read [the charter](charter.md) first. Git holds the experiment history;
 this page records the current evidence, limitations and next named gap.
 
 | Criterion | Current | Target |
 | --- | --- | --- |
 | One recipe | **Met.** The public API and fit/evaluate commands use the single `generic-memory-v3-prototype` recipe. `fit`, `predict` and `update` have no tuning or model-selection options. Replaced experimental module paths and structured root exports are removed. | One generic learner and consumer contract. |
-| Accuracy | **Adopted with a known tradeoff.** Four of five corpora beat the structured comparator on both metrics; ARP loses both. The latest conditional loss improves aggregate command-response error 3.65%, but initial aileron velocity/rotation responses remain reversed in all 248 probes; the candidate is not promoted. | Broad competitive performance from one recipe; improve weak cases and establish task sufficiency separately. |
+| Accuracy | **Adopted with a known tradeoff.** Four of five corpora beat the structured comparator on both metrics; ARP loses both. Paired-response training improves aggregate held-out command-response error 65.1% and factual forecast error 31.4% versus the same-data, same-budget forecast-only learner. This qualifies a simulator research mechanism; public integration and arbitrary-system transfer remain unproved. | Broad competitive performance from one recipe; improve weak cases and establish task sufficiency separately. |
 | Capability | **Met.** All 27 frozen synthetic cases pass; saved models replay and reject alteration. This is a regression guard, not platform readiness. | Every synthetic absolute cap passes. |
 | Control | **Not met.** In twelve new oracle tracking trials, pooled samples within the ±0.5 m lateral/altitude tolerance are 32.12% for the four-step solver, 39.59% for float32 L-BFGS-B and 40.04% for float64 L-BFGS-B; 95% is required. All 1,272 float64 solves meet the gradient threshold without backend failure, but no trial meets the application criterion. Generic controller tracking was not remeasured; the learner is unchanged. | Meet the declared application tracking requirement; use structured and oracle arms diagnostically. |
 | Live improvement | **Not met.** Last live-v3 evidence swaps at intervals 140/220; position error rises from 0.80/0.98 m before the swap to 36.1/11.8 m afterward. Not rerun today. | Bounded refits and swaps that do not worsen tracking. |
@@ -121,75 +122,79 @@ real-time readiness. All 12 trajectories and 3,816 solves/forecasts replayed
 exactly, four rehashed challenges were rejected, and 266 focused remote checks
 passed. Git and saved protocols hold the detailed tracking experiment history.
 
-## Latest iteration: conditional command-response learning
+## Latest iteration: direct command-intervention learning
 
-[Conditional response v1](harness/conditional-response-v1.json) was frozen at
-**`60b1726`**, implemented at **`919aafc`**, and tested for replay integrity at
-**`22aff6c`**. A pre-fit check incorrectly required exact equality between the
-reset quaternion and its normalized canonical observation, differing by
-2.22e-16. Correction **`8070d4f`** applies the already frozen physical tolerance;
-no fitting occurred before the correction and no thresholds changed.
-The [committed result record](harness/conditional-response-v1-result.json)
-anchors the complete evidence inventory and supporting audits.
+[Intervention response v1](harness/intervention-response-v1.json) was frozen at
+**`2b069e4`**, implemented at **`b9b3f71`**, and independently audited at
+**`7ea4674`**. The [result record](harness/intervention-response-v1-result.json)
+anchors all 174 evidence files and supporting replay/audit records.
 
-One candidate adds a first-step conditional assignment-moment loss to the
-complete predictor, retaining the adopted architecture, multistep forecast
-loss and optimizer budget. Nine fixed observed-history features interact with
-three independently randomized requested commands; all 27 instrument directions
-pass the input-only support screens in both fitting roles. Requested assignment
-remains separate from clipped applied commands and realized injection.
-The four calibration trajectories replay in float64 within 2.22e-16.
+The experiment generated **80 independent parent trajectories** and **3,920
+matched-history command branches**, with all branches of a parent kept together.
+Forty parents train, twelve select checkpoints, twelve form the ordinary test
+population, and sixteen form a prescribed larger-setpoint shift. Hidden plant
+state is used only to generate the physical branches; the unchanged architecture
+receives observed signals and applied commands. This is one aircraft and two
+operating populations, not evidence from arbitrary systems. Matching physical
+branches is a simulator capability, not an assumed consumer capability.
 
-**The comparison isolates the loss, not the calibration data.** Both arms use
-exactly 292 training windows from recordings 0–1 and 146 development windows
-from recording 2; recording 3 remains reserved. The one fresh unchanged-v3 fit
-is byte-identical to the pinned randomized-calibration baseline. The candidate
-also selects step 100, using development scores alone. It lowers the training
-conditional moment from 0.00733 to 0.00543, but the development moment rises from
-0.03005 to 0.03047. Better training identification does not transfer reliably.
+Exactly three optimization trajectories produce four fresh models; a historical
+saved model supplies context. The primary comparison holds architecture, all
+data, initialization, minibatch draws and 6,000-step budget fixed. The candidate
+adds direct alternative-minus-baseline response supervision to the forecast
+loss, and selects its checkpoint using the corresponding development objective.
 
-Both arms forecast the same 124 known diagnostic origins, seven command tapes
-per origin, and all 146 reserved windows: **1,014 finite sequences per arm**.
-These origins were excluded from fitting and checkpoint selection, but were
-already inspected during prior diagnostics. They are correlated simulator
-histories, not independent systems or an untouched controller benchmark.
+| Prospective comparison | Aggregate response-error change | Aggregate factual-error change |
+| --- | --- | --- |
+| Capped v3 to full-data 1,000-step fit | −2.3% | −7.0% |
+| Full-data 1,000 to 6,000 steps | −38.8% | −28.1% |
+| Full-data forecast loss to paired-response loss, both 6,000 steps | **−65.1%** | **−31.4%** |
 
-| Paired response RMS vector error | Same-data v3 | Conditional candidate | Change |
-| --- | --- | --- | --- |
-| Velocity, 50 ms | 0.001006 m/s | 0.000896 m/s | −10.93% |
-| Velocity, flattened 250 ms prefix | 0.079413 m/s | 0.077994 m/s | −1.79% |
-| Body rate, 50 ms | 0.017584 rad/s | 0.017419 rad/s | −0.94% |
-| Body rate, flattened 250 ms prefix | 0.054279 rad/s | 0.054690 rad/s | +0.76% |
-| Rotation entries, 50 ms | 0.001102 | 0.001032 | −6.42% |
-| Rotation entries, flattened 250 ms prefix | 0.018216 | 0.017838 | −2.08% |
+The first contrast bundles evidence use, weighting, minibatching and development
+budget; it cannot identify those effects individually. The second is a retained
+milestone of one trajectory. The third isolates the paired objective and its
+checkpoint criterion. Historical-to-fresh changes data population and is context
+only. More fitting compute and stronger supervision both help in this study.
 
-Five of six response scores improve. Their equal-weight geometric mean ratio
-is **0.96352**, a **3.65% improvement**, versus the prospectively frozen **0.80**
-requirement. The worst ratio is only 1.00757, within the 1.25 regression limit:
-**the failure is insufficient aggregate progress, not a veto for one loss**.
-All six factual forecast scores regress slightly, by 0.25–1.40%; the aggregate
-ratio is **1.00831**, within its 1.05 limit. The mechanism does not qualify, and
-the frozen stop rule skips broader, control and live trials. No recipe,
-controller, uncertainty envelope or tracking result is promoted.
+**The primary mechanism passes.** All twelve response scores and all six factual
+scores improve. Response geometric-mean ratio is **0.34899**, with worst ratio
+0.57638; factual ratio is **0.68608**, with worst ratio 0.75047. The equal-weight
+scores span both populations and velocity, body rate and rotation entries.
+Paired parent-bootstrap 95% intervals are **[0.33116, 0.36895]** and
+**[0.66703, 0.70556]**, respectively. These intervals describe parent sampling
+within this aircraft population, not uncertainty across systems.
 
-The candidate still reverses the first aileron velocity and rotation responses
-in **248/248 probes**. Later sign improvements are real: velocity reversals at
-250 ms fall from 169 to 110, and rotation reversals at 150 ms fall from 84 to 2.
-The unchanged same-data baseline already has **0/248 first-step body-rate
-reversals**, versus 248/248 for the historical model trained on different
-calibration recordings. The conditional loss cannot take credit for that data
-change. Its first-step body-rate gain remains weak, around 0.15 of the physical
-reference, compared with around 0.14 for the same-data baseline.
+The forecast-only model selects step 5,700; the paired model selects step 5,900.
+Normalized development response loss falls from 0.37793 to 0.05732; development
+factual loss falls from 0.05660 to 0.02938. The gain transfers beyond training
+parents and persists under the prescribed shift. This does not prove that this
+architecture can identify every hidden state or extrapolate to arbitrary dynamics.
 
-Validation: **225 unique focused local tests pass**, with three Cascade tests
-skipped locally; **228 pass on ryserv**. Ruff passes. All 68 evidence files
-match their inventory. Replay reconstructs calibration data, physical source
-trajectories, selected-model objectives and every held-out forecast without
-refitting. An independent NumPy audit reproduces all twelve qualification
-scores exactly. Four coherently rehashed alterations—raw assignment, candidate
-parameter, held-out forecast with updated metrics, and qualification flag—are
-rejected. Checkpoint structure and selected scores are verified; historical
-intermediate optimization steps are not independently re-solved.
+Early aileron response signs improve substantially: pooled first-step velocity
+reversals fall **64→9**, and rotation reversals **170→27**, among 390 nonweak
+probes; two weak probes remain separately counted. All signs are not repaired.
+Throttle body-rate reversals at 150 ms rise 55→163/392, and throttle rotation
+reversals at 250 ms rise 25→176/392, even though absolute response errors fall.
+The remaining errors on these small cross-responses exceed their physical response magnitudes.
+
+All **40,040 forecasts are finite and replay exactly without refitting**.
+Physical replay reconstructs every parent and branch; data roles, initialization,
+selected objectives, metrics and all 2,000 bootstrap draws are verified. An
+independent NumPy audit reproduces all eighteen point scores. Five coherently
+rehashed changes to physical data, lineage, model parameters, predictions with
+updated reports, and qualification decisions are rejected. Intermediate optimizer
+updates are not independently re-solved.
+
+Validation: **190 focused local tests pass**, six skip; **186 remote tests pass**,
+nine skip and one inherited migration source-check test fails. The failure is a
+Python 3.12/3.13 AST serialization difference on byte-identical sources, confirmed
+with complete AST comparison; the experiment's 93 raw-byte source pins pass.
+Ruff passes. The original remote suite is not described as fully green. The
+separate compatibility correction `b4e8126` preserves every historical protocol/hash;
+53 focused local checks pass, and 45 remote checks pass with eight artifact skips.
+Historical experiment replay still uses its original isolated checkout.
+No public recipe, uncertainty envelope, controller or live-update result is
+promoted by this research qualification.
 
 ## Constraints established by prior measurements
 
@@ -216,46 +221,38 @@ intermediate optimization steps are not independently re-solved.
 
 ## Evidence and replay
 
-Latest evidence: `artifacts/2026-09-18/conditional-response-v1` locally and
-`/home/ryland/autonomy/glassbox-evidence/2026-09-18/conditional-response-v1` on
-`ryserv`. The [result record](harness/conditional-response-v1-result.json) pins
-its run manifest and the independent audit, replay logs and challenge script
-beside it. Candidate implementation stays on `codex/conditional-response` at
-`8070d4f`; the working tree is `/private/tmp/glassbox-conditional-response`
-locally and `/tmp/glassbox-conditional-response-test` on `ryserv`.
+Latest evidence: `artifacts/2026-09-18/intervention-response-v1` locally and
+`/home/ryland/autonomy/glassbox-evidence/2026-09-18/intervention-response-v1` on
+`ryserv`. The [result record](harness/intervention-response-v1-result.json) pins
+its run manifest and separate audit/replay records. The isolated implementation
+is `codex/intervention-response` at `7ea4674`, in
+`/private/tmp/glassbox-intervention-response` locally and
+`/tmp/glassbox-intervention-response-test` on `ryserv`.
 
-Action-response and solver-tracking evidence remains under
-`artifacts/2026-09-18`. `tracking-target-provenance-audit.json` documents the
-earlier 843/843 target-feasibility result. Adopted API, platform, control, live
-and uncertainty evidence remains under `artifacts/2026-09-17`. Historical
-protocols and outcomes are not rewritten; git holds their implementation.
+Historical platform, control, live and uncertainty results remain unchanged.
+`tracking-target-provenance-audit.json` documents the earlier 843/843 tracking
+result. Git and each experiment's frozen protocol retain prior outcomes.
 
 ```sh
-# Isolated candidate checkout at 8070d4f; no refitting.
-PYTHONPATH=src python -m glassbox.experimental.conditional_response verify /absolute/path/to/conditional-response-v1
-# Maintained no-fit diagnostics.
-PYTHONPATH=src python -m glassbox.experimental.action_response verify /absolute/path/to/action-response-v1
-PYTHONPATH=src python -m glassbox.experimental.solver_tracking verify /absolute/path/to/solver-tracking-v1
+# Isolated experiment checkout at 7ea4674; no refitting.
+PYTHONPATH=src python -m glassbox.experimental.intervention_response verify /absolute/path/to/intervention-response-v1
 ```
 
 ## Next named gap
 
-**Generalization of command-response identification across independent observed
-histories.** The conditional moment improves on training data but not on
-independent development data; small response gains leave immediate velocity
-and rotation signs wrong. Before another loss or architecture change, freeze
-one experiment that strengthens independent command-response evidence and
-measures whether that evidence transfers. Use the unchanged v3 learner on
-identical data as the comparator so any data benefit remains separate from a
-learning-mechanism benefit.
+**Anticipatory position tracking in the oracle controller at the existing
+250 ms forecast horizon.** Better response learning now has stronger evidence,
+but even exact equations achieve only 40.04% on the latest tracking population.
+Freeze a separate no-fit comparison replacing only the position residual with
+position error plus 1.5 seconds times velocity error. This coefficient is drawn
+from the historical successful controller before new measurements; it is not
+a longer prediction horizon or a promise of 95% success. Retain the existing
+solver, other costs, bounds and causal sequencing, use fresh matched trials,
+and distinguish material progress from the unchanged 95% application criterion.
 
-Prospectively chosen matched-history command interventions can help diagnose
-this gap in the simulator; they are a harness capability, not an assumed
-capability of arbitrary real systems. Keep parent histories and all their
-branches together when separating training, development and evaluation.
-Never use these 124 inspected diagnostic origins or their oracle responses as
-training targets. Preserve the platform-independent signal/command contract,
-actual applied-command accounting and separate factual/response metrics at
-every horizon. No post-result moment-weight sweep or controller tuning belongs
-to this iteration. The insufficient current oracle controller remains a
-separate gap against the retained 95% tracking requirement.
+Then test whether the qualified learned response transfers into an adequate
+controller under its own trajectories. Public integration still needs a generic
+way to exploit informative recordings without assuming simulator state cloning.
+An explicit history encoder and latent transition remain a researched alternative
+if a named representation or transfer failure warrants them; today’s evidence
+does not require an architecture replacement to explain the response gains.
