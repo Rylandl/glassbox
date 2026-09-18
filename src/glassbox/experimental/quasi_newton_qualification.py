@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from functools import partial
 from pathlib import Path
 
@@ -365,13 +366,14 @@ def artifact_names(plan):
     return base.artifact_names(plan) | {"work.json"}
 
 
-def run(artifacts, output):
-    plan, raw = frozen_plan()
-    environment = check_environment(plan)
+def run(artifacts, output, *, _experiment=None):
+    experiment = _experiment or sys.modules[__name__]
+    plan, raw = experiment.frozen_plan()
+    environment = experiment.check_environment(plan)
     inputs = base.input_snapshot(plan, artifacts)
     output = Path(output)
     _write_snapshot(output, raw, inputs)
-    trials, work, result = probe(plan, inputs)
+    trials, work, result = experiment.probe(plan, inputs)
     write_json(output / "run.json", dict(no_fit=True, new_policy_trials=False))
     write_json(output / "environment.json", environment)
     write_json(output / "report.json", result)
@@ -390,9 +392,10 @@ def run(artifacts, output):
     return result
 
 
-def verify(directory):
-    plan, raw = frozen_plan()
-    environment = check_environment(plan)
+def verify(directory, *, _experiment=None):
+    experiment = _experiment or sys.modules[__name__]
+    plan, raw = experiment.frozen_plan()
+    environment = experiment.check_environment(plan)
     directory = Path(directory)
     if (directory / "manifest.json").read_bytes() != raw:
         raise ValueError("saved quasi-Newton plan differs")
@@ -417,8 +420,8 @@ def verify(directory):
         for i in range(len(plan["selection"]["seeds"]))
     ]
     work, summary = json.loads(saved["work.json"]), json.loads(saved["report.json"])
-    same(summary, report_from_inputs(plan, trials, inputs, work))
-    fresh, fresh_work, result = probe(plan, inputs)
+    same(summary, experiment.report_from_inputs(plan, trials, inputs, work))
+    fresh, fresh_work, result = experiment.probe(plan, inputs)
     for actual, expected in zip(trials, fresh, strict=True):
         compare_arrays(actual, expected)
     same(work, fresh_work)

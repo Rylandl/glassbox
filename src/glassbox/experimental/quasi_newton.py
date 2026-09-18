@@ -55,7 +55,7 @@ def _empty_work():
 
 
 def bounded_minimize(
-    objective_gradient, seed_blocks, seed_value, seed_gradient, policy
+    objective_gradient, seed_blocks, seed_value, seed_gradient, policy, *, _ftol=None
 ):
     """Return an audited best finite point and exact optimizer work counters.
 
@@ -64,6 +64,10 @@ def bounded_minimize(
     the objective and consumes the hard budget, even if it repeats a point.
     """
     seed = np.asarray(seed_blocks)
+    if _ftol is not None and (type(_ftol) is not float or _ftol != 0.0):
+        raise ValueError(
+            "only the frozen zero relative-improvement override is allowed"
+        )
     initial_value = float(np.asarray(seed_value))
     initial_gradient = np.asarray(seed_gradient)
     if (
@@ -128,7 +132,7 @@ def bounded_minimize(
                 maxiter=MAXIMUM_ITERATIONS,
                 maxls=LINE_SEARCH_STEPS,
                 maxcor=CORRECTION_PAIRS,
-                ftol=policy.relative_improvement_tolerance,
+                ftol=policy.relative_improvement_tolerance if _ftol is None else _ftol,
                 gtol=policy.gradient_tolerance,
                 maxfun=MAXIMUM_EVALUATIONS,
             ),
@@ -207,6 +211,8 @@ def bounded_minimize(
 class QuasiNewtonSolver(BoundedShootingSolver):
     """Replace only optimization; inherit seeds, dynamics and result checks."""
 
+    _ftol = None
+
     def __init__(self, model, policy):
         super().__init__(model, policy)
         self.last_work = _empty_work()
@@ -256,7 +262,7 @@ class QuasiNewtonSolver(BoundedShootingSolver):
             )
 
         outcome, self.last_work = bounded_minimize(
-            objective_gradient, blocks, value, gradient, self.policy
+            objective_gradient, blocks, value, gradient, self.policy, _ftol=self._ftol
         )
         self.last_work["seed_objective_evaluations"] = self._seed_evaluations
         return outcome
