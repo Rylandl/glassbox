@@ -192,7 +192,7 @@ for `run.json`. Its 14,074 sealed payloads contain data, models and evaluations.
 Fresh replay reproduces all 55,860 physical/data/query arrays, saved prediction
 arrays and 257,040 metric rows exactly, without refitting. A separate NumPy
 implementation verifies all 180 score groups at 250 ms endpoints, roles, rosters, branch
-associations and coverage. Nine tamper cases pass, including coherently
+associations and achieved-condition coverage. Nine tamper cases pass, including coherently
 rewritten physics and prediction/metric artifacts that fresh execution rejects.
 Optimizer trajectories are not independently replayed.
 
