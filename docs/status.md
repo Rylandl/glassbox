@@ -6,18 +6,18 @@ ARP deficit; this policy decision does not rewrite historical gates. The
 adopted learner remains `generic-memory-v3-prototype`: `glassbox.fit` returns
 `LearnedDynamics` with `predict` and `update`, without consumer tuning options.
 The paired-response learner and anticipatory controller remain isolated
-research implementations. **Both saved research learners now meet the declared
-tracking requirement: each scores 2,248/2,248 qualifying samples and passes all
-eight fresh trials. All sixteen trajectories and 4,960 optimizer decisions/forecasts
-replay exactly, and five rehashed alterations are rejected.**
+research implementations. The fresh Crazyflow/Cascade baseline now measures
+the unchanged public learner over broader flight conditions: Cascade's primary
+250 ms velocity/rate forecasts modestly beat the structured reference, Crazyflow's
+lose, and command-response accuracy remains worse in both simulators.
 
-**Current evaluation priority, 2026-09-18:** the user has requested Crazyflow
-and Cascade environments spanning a broader variety of flight conditions.
-Dart reports severe direct forecast deficits for the generic learner on its
-quad recordings and fixed-wing turn. Reproduce and investigate those failures,
-then establish a fresh controlled comparison before changing the learner.
-Further JSBSim setup/breadth work is deferred. Frozen results and qualification
-flags retain their original meaning.
+**Current evaluation priority, 2026-09-18:** controlled Crazyflow and Cascade
+environments are running, with 42 condition cells per simulator, 360 parent
+recordings and a verified frozen prediction/response baseline. The next gap is
+state-dependent command response. Dart's earlier forecast failures remain
+valid evidence; broader data and changed Cascade physics do not retrospectively
+fix that study. Further JSBSim breadth work is deferred. Frozen results and
+qualification flags retain their original meaning.
 
 Read [the charter](charter.md) first. This page records the current gaps and
 next iteration; git and frozen result records retain experiment history.
@@ -25,15 +25,82 @@ next iteration; git and frozen result records retain experiment history.
 | Criterion | Current | Target |
 | --- | --- | --- |
 | One recipe | **Met.** The public API and fit/evaluate commands use the single adopted generic recipe, with no model-selection options. | One generic learner and consumer contract. |
-| Accuracy | **Adopted with a known tradeoff.** Four of five corpora beat structured comparators on both metrics; ARP loses both. In a separate simulator study, paired-response supervision improves aggregate response error 65.1% and factual error 31.4% against the same-data, same-budget forecast-only learner. JSBSim breadth and arbitrary-system transfer remain unmeasured. | Broad competitive forecasts and command responses from one platform-independent recipe; direct model errors and downstream task sufficiency measured separately. |
+| Accuracy | **Adopted; command response remains a gap.** At 250 ms in the new two-simulator baseline, the generic learner modestly wins Cascade's primary velocity/rate forecasts, loses Crazyflow's, and loses command-response accuracy in both. Crazyflow scores are conditional on valid truth prefixes. The earlier four-of-five corpus advantage and isolated paired-supervision gains retain their original scope. Arbitrary-system transfer remains unmeasured. | Broad competitive forecasts and command responses from one platform-independent recipe; direct model errors and downstream task sufficiency measured separately. |
 | Model usability | **Partly met.** The public model has a saved signal/time contract, batched JAX-compatible forecasts, immutable revisions and error envelopes. Independent controller integration and broader runtime/export portability have not been demonstrated. | A documented model artifact and public interface usable independently of the Glassbox controller, with explicit scope and evidence. |
 | Capability | **Met.** All 27 frozen synthetic cases pass; saved models replay and reject alteration. These are regression guards, not platform readiness. | Every synthetic absolute cap passes. |
 | Reference control | **Demonstrated by both isolated research learners; adopted public model not yet tested with the new controller.** Forecast-only and paired-response means each score 2,248/2,248 and pass all eight trials. Exact replay and integrity checks pass. | Separately qualified downstream demonstrations; one universal controller is optional for the model product. |
 | Live improvement | **Not met.** No new model-update forecast/response qualification has been run under the clarified priorities. Last live-v3 swaps at intervals 140/220 increase position error from 0.80/0.98 m to 36.1/11.8 m; those failures remain unresolved. | Bounded immutable revisions with held-out model improvement/regression checks; consumer adoption and any live-control claim qualified separately. |
-| Evidence | **Not met.** The 85–95% coverage band still fails on ARP, the reserved control recording and shifted synthetic regimes. Borrowed constant spread is not calibrated uncertainty for a new predictor. | Measured prediction coverage in the declared band, exposed with calibration provenance independently of a controller. |
+| Evidence | **Not met.** New primary 250 ms velocity/rate coverage is 85.8–89.7%, but extreme-maneuver coverage falls to 47.4–68.3%. Crazyflow additionally has missing truth after altitude failures. Earlier ARP, reserved-control and shifted-synthetic failures remain. Borrowed constant spread is not calibrated uncertainty for a new predictor. | Measured prediction coverage in the declared band, exposed with calibration provenance independently of a controller. |
 | Lean | **Not met.** Structured dynamics, fitting, belief code and research scripts remain. | Learner, model artifacts/interfaces, harness, telemetry adapters and optional downstream consumers. |
 
-## Current forecast evidence
+## Current Crazyflow and Cascade evidence
+
+The [frozen two-simulator baseline](harness/two-simulator-flight-v1-result.json)
+compares the unchanged public generic learner, freshly fitted structured models
+and hold-current. Each simulator has 24 primary cells spanning four headings,
+three speeds and two maneuver strengths, plus 18 cells covering held-out initial
+heading/speed settings, stronger maneuvers and wind. Achieved state ranges can
+overlap; initial speed is not maintained throughout a trajectory. Each has 72
+training, 24 development and 84 test parents; paired interventions are reserved
+for evaluation. Forecasts
+and response queries share physical targets and issued commands, with each
+model's actual history contract retained. Structured models retain observed
+positions; the generic model uses the 15 velocity, rotation and body-rate
+channels. Neither receives hidden simulator state.
+
+Primary 250 ms endpoint component RMSE, **generic / structured**:
+
+| Simulator | Factual velocity, m/s | Factual body rate, rad/s | Command-response velocity, m/s | Command-response body rate, rad/s |
+| --- | --- | --- | --- | --- |
+| Crazyflow, available truth | 0.1606 / 0.0313 | 0.2734 / 0.2343 | 0.1815 / 0.0166 | 0.3322 / 0.1959 |
+| Cascade | 0.1753 / 0.1873 | 0.1186 / 0.1249 | 0.1398 / 0.0451 | 0.0606 / 0.0316 |
+
+Cascade's factual velocity/rate gains are 6.4%/5.0%; its rotation-entry error
+still loses (0.0191/0.0161). Crazyflow loses all three factual groups at 250 ms,
+but wins primary body-rate forecasts at 10/50/150 ms and wind-shift velocity at
+250 ms. Both generic models beat hold-current on the primary 250 ms factual
+scores, but their velocity response errors exceed even the zero-response
+reference (0.1191 m/s Crazyflow,
+0.0898 m/s Cascade). Response RMSE includes weak probes; direction diagnostics
+separately apply the frozen physical response thresholds. No all-case win rule
+is imposed, and this iteration promotes no learner or controller.
+
+Crazyflow's collection pilot completes 136/180 parents; 44 cross the 0.5 m
+altitude boundary. These are collection outcomes, not learned-controller trials.
+This includes eight primary test parents and all four extreme-maneuver test
+parents. Valid prefixes yield 447/480 primary factual and 720/768 response
+queries at 250 ms; missing slots remain in the report. These are conditional
+errors, not complete-cohort Crazyflow scores. Cascade completes all 180 parents
+and all 480 factual/576 response primary queries. Every eligible prediction is
+finite. Requested conditions, achieved valid-prefix motion and invalid tails
+are reported separately. Full requested breadth is not established by finite
+prefixes alone.
+
+Each generic fit uses 384 training windows, 256 development windows, 1,000
+updates and batch size 64. Structured fits use 600 full-batch steps over 6,077
+Crazyflow or 6,624 Cascade training windows across three horizons, with
+different priors, objectives and history handling. This compares the current
+fitting workflows, not architectures at equal data consumption or compute.
+Crazyflow selects step zero; every measured later checkpoint has worse
+development loss. Cascade selects step 1,000. The saved Crazyflow nonlinear
+output and hidden-memory readout weights are exactly zero: its forecast is
+affine, with 100 ms effective explicit history despite a 500 ms public context
+requirement. Identical additive command changes have history-independent
+predicted responses. This is a demonstrated limitation and a plausible
+contributor to world-velocity response error, not a causal ablation.
+
+All **55,860 physical/data/query arrays**, saved prediction arrays and **257,040
+metric rows** reproduce exactly. Independent NumPy reductions verify all 180
+score groups at 250 ms endpoints; other horizons and whole-prefix metrics pass
+the production replay. Nine alteration tests pass, including coherent physics
+and prediction rewrites that only fresh execution rejects. All 52 pinned-runtime
+focused tests and Ruff pass. A Cascade requested-angle semantic correction was
+committed before the repeated evaluation; the failed attempt is preserved,
+all physical arrays/roles/query inputs are unchanged and completed Crazyflow
+scores repeat exactly. The [experiment guide](two-simulator-flight.md) records
+the sources, budgets, shifts, coverage, limits and reproduction procedure.
+
+## Earlier five-corpus and intervention evidence
 
 Whole recordings are held out and both arms forecast identical rows and
 commands. The table gives generic / best structured endpoint component RMSE
@@ -226,32 +293,25 @@ does not change that recipe or consumer behavior.
 
 ## Next named gap
 
-**Generic prediction performance across controlled Crazyflow and Cascade flight conditions.**
-The user has redirected the next iteration to these two simulators. Start from
-Dart's concrete saved-data comparison, identify its exact predictors, data roles,
-signal/timing contracts and simulator versions, and get isolated, pinned runtime
-environments working. The generic learner remains the adopted baseline; reported
-losses are improvement work, not a reason to return to a model catalog.
+**State-dependent command response from the generic learner.** The two-simulator
+baseline shows that good ordinary forecasts can coexist with poor predictions
+of command effects. The selected Crazyflow predictor is affine, so identical
+additive command changes cannot have different effects at different attitudes
+or histories. Cascade also loses response accuracy despite competitive factual
+velocity/rate forecasts. Investigate one platform-independent learned
+state–input interaction mechanism against the unchanged generic baseline.
 
-Freeze one bounded evaluation before fresh flight trials or fitting. It must
-cover materially different headings, speeds and maneuvers, with wind/condition
-shifts where the simulator interface supports them. Declare simulation reset,
-trim, stabilization and hidden-state assumptions. Keep failed or unsupported
-conditions visible. Separate training coverage from held-out seeds, recordings
-and conditions; a previously inspected Dart failure is a regression diagnostic,
-not untouched confirmation evidence.
+Freeze the candidate, matched generic data/optimizer budgets, development
+selection rule, response metrics, factual-regression limits and aggregate
+weights before fitting. Use fresh held-out parent seeds; the present test set
+is now diagnostic evidence. Keep structured and zero-response references for
+scale, without making superiority on every cell an adoption veto. Preserve
+failed conditions and separate incomplete truth from model failures. Do not
+silently repair the Crazyflow flight envelope while attributing gains to a
+learner change.
 
-Compare forecasts on identical observed histories, commands and physical targets,
-with clear treatment of each model's actual history contract. Report errors in
-physical units across supported horizons, per condition and per simulator;
-include structured and hold-current references, command-response measurements,
-error-envelope coverage and computation/data budgets. Freeze aggregate weights
-and improvement/regression decisions before fitting. No controller success claim
-substitutes for model accuracy, and the truth simulator must not supply hidden
-state or equations to the generic learner.
-
-Use the current public learner through its recording and prediction contract.
-No aircraft branches, model-selection menu or consumer tuning options are added.
-The initial iteration establishes a trustworthy broader baseline and diagnoses
-whether data coverage, representation, optimization or response learning is the
-next mechanism to change. No fresh two-simulator benchmark has run yet.
+No aircraft equations, platform branches, consumer options or paired simulator
+truth enter the public recording contract. First establish improved finite
+command-response accuracy without unacceptable forecast loss; derivative,
+error-envelope and downstream controller qualification remain separate. The
+public recipe is unchanged by the completed baseline iteration.
