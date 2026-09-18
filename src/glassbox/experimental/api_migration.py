@@ -46,6 +46,29 @@ def frozen_plan():
     return json.loads(raw), raw
 
 
+def _frozen_ast_dump(node):
+    """Serialize parsed source in the compact Python 3.13 format of the pins.
+
+    Python 3.12's ``ast.dump`` includes empty list fields; Python 3.13 omits
+    them by default. Walk the AST fields instead of rewriting dump text, which
+    could also change string constants containing text such as ``args=[]``.
+    Empty source containers still retain their List/Tuple/Dict node, and all
+    nonempty fields and required None constants remain represented.
+    """
+    if isinstance(node, ast.AST):
+        fields = []
+        for name, value in ast.iter_fields(node):
+            if value is None and getattr(type(node), name, ...) is None:
+                continue
+            if isinstance(value, list) and not value:
+                continue
+            fields.append(f"{name}={_frozen_ast_dump(value)}")
+        return f"{type(node).__name__}({', '.join(fields)})"
+    if isinstance(node, list):
+        return f"[{', '.join(_frozen_ast_dump(value) for value in node)}]"
+    return repr(node)
+
+
 def normalized_source(source, contract):
     """Reverse only frozen import/doc-reference moves, preserving the rest of AST."""
 
@@ -88,13 +111,13 @@ def normalized_source(source, contract):
                         end += 1
                     value[start:end] = sorted(
                         value[start:end],
-                        key=lambda item: ast.dump(item, include_attributes=False),
+                        key=_frozen_ast_dump,
                     )
                     start = end
             return node
 
     tree = Normalize().visit(ast.parse(source))
-    return sha256(ast.dump(tree, include_attributes=False).encode())
+    return sha256(_frozen_ast_dump(tree).encode())
 
 
 def qualification_source_matches(root, name, expected):
