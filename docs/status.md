@@ -20,7 +20,7 @@ this page records the current evidence, limitations and next named gap.
 | One recipe | **Met.** The public API and fit/evaluate commands use the single `generic-memory-v3-prototype` recipe. `fit`, `predict` and `update` have no tuning or model-selection options. Replaced experimental module paths and structured root exports are removed. | One generic learner and consumer contract. |
 | Accuracy | **Adopted with a known tradeoff.** Four of five corpora beat the structured comparator on both metrics, including under the corrected prefix-percentile readout. ARP loses both; this does not block adoption. | Broad competitive performance from one recipe; improve weak cases and establish task sufficiency separately. |
 | Capability | **Met.** All 27 frozen synthetic cases pass; saved models replay and reject alteration. This is a regression guard, not platform readiness. | Every synthetic absolute cap passes. |
-| Control | **Not met.** Generic position RMSE 60.80/49.31 m versus structured 1.179/1.179 m. This compares complete pipelines: generic plans 250 ms, structured 800 ms. Both structured trials also fail the application tracking criterion. The task-scaled oracle reaches only 29–42% of samples within tolerance (95% required). Raising the solver cap from 4 to 64 iterations converges on 0/128 fixed sampled problems; 123 stall early. | Meet the declared application tracking requirement; use structured and oracle arms diagnostically. |
+| Control | **Not met.** Generic position RMSE 60.80/49.31 m versus structured 1.179/1.179 m. This compares complete pipelines: generic plans 250 ms, structured 800 ms. Both structured trials also fail the application tracking criterion. The task-scaled oracle reaches only 29–42% of samples within tolerance (95% required). L-BFGS-B improves all 128 sampled oracle objectives and reduces the median residual from 0.105 to 0.0104, but only 2/128 converge; 125 stop on relative improvement. No new tracking trial was run. | Meet the declared application tracking requirement; use structured and oracle arms diagnostically. |
 | Live improvement | **Not met.** Last live-v3 evidence swaps at intervals 140/220; position error rises from 0.80/0.98 m before the swap to 36.1/11.8 m afterward. Not rerun today. | Bounded refits and swaps that do not worsen tracking. |
 | Evidence | **Not met.** The 85–95% coverage band still fails on ARP, the reserved control recording and shifted synthetic regimes. Constant spread cannot rank command plans, but can affect finite-iteration stopping through the absolute objective. | Measured coverage in the declared band, useful to control. |
 | Lean | **Not met.** Generic research code was reduced; structured dynamics, fitting, belief code and their supporting scripts remain. | Learner, harness, telemetry adapters and controller only. |
@@ -128,7 +128,57 @@ their outer hashes are recomputed. Ruff lint and formatting checks pass.
 This iteration does not rerun the slow benchmark fits, Cascade control trials
 or PX4 SITL tests.
 
-## Latest iteration: bounded solver-budget qualification
+## Latest iteration: curvature-aware optimizer qualification
+
+Freeze `6fad485`, implementation `de81673`, protocol
+[quasi-Newton v1](harness/solver-quasi-newton-v1.json). One change substitutes
+SciPy 1.18.1 L-BFGS-B for projected-gradient search on the same 128 saved
+oracle problems. The primary baseline gets the same 64-iteration cap;
+original four-iteration and prior 64-iteration results are reproduced first.
+Objective, dynamics, float32 evaluation, original warm starts, bounds, horizon,
+relative-improvement tolerance and gradient threshold remain fixed. Search
+curvature is rebuilt independently at each origin.
+
+| Measure | Projected gradient | L-BFGS-B |
+| --- | --- | --- |
+| At or below the inherited 0.002 gradient threshold | 0/128 | 2/128 |
+| Median projected-gradient residual | 0.10472 | 0.01036 |
+| Stalled / iteration limit | 123 / 5 | 125 / 1 |
+| Total outer iterations | 2,034 | 2,278 |
+| Numerical failures or command-bound violations | 0 | 0 |
+
+Every candidate objective is lower, with median paired improvement **0.0705%**
+and maximum 1.67%. Residuals improve on 125 origins and worsen on three;
+the median paired residual ratio is **0.116**. First commands change by a
+median 3.93% of their channel range, maximum 58.1%. These are meaningful
+optimization gains, but do not establish better tracking or global optimality.
+The candidate uses 2,588 new objective/gradient evaluations (maximum 74 per
+origin), plus 252 inherited seed evaluations and 128 independent final audits.
+Equal iteration caps are not a claim of equal compute or real-time feasibility.
+
+The raw backend messages identify the remaining stopping mechanism: **125**
+relative-improvement exits, **two** projected-gradient exits, **one** iteration
+limit. Library success is reported on 127 origins, but the independent residual
+only qualifies two. The frozen criteria require at least 64 converged origins
+for a later tracking experiment; this is the only unmet criterion. The method
+remains a promising experimental candidate. Maintained controller settings and
+the adopted generic learner are unchanged.
+
+Validation: 33 new tests plus 61 inherited focused tests pass locally; 110
+focused tests pass in the pinned Linux environment. The 82 pinned inherited
+source files remain byte-identical; the previous budget harness receives only
+its declared private replay hook and protocol-driven iteration-bound check.
+All 128 historical budget pairs retain their saved results, and all 128 new
+pairs replay, including the original four- and 64-iteration parity checks.
+Four forged copies (qualification, command, full gradient/residual and work
+count) are rejected despite rewritten outer hashes and derived summaries.
+Those four defect checks reuse one freshly recomputed reference only after
+the complete clean replay succeeds and exact frozen input bytes match; the
+public verifier always reruns the numerical solves. Ruff lint and formatting
+pass. The earlier Python-dependent historical AST fingerprint failures remain
+separate correctness work.
+
+## Bounded solver-budget qualification
 
 Freeze `5d5563c`, implementation `b50151c`, protocol
 [solver budget v1](harness/solver-budget-v1.json). One change raises the existing
@@ -345,6 +395,12 @@ locally and on ryserv. Its verification, tamper script/results and test logs
 sit beside the run. This study uses the already saved task-scaled oracle
 trajectories and performs no new policy trials.
 
+Quasi-Newton evidence is in `solver-quasi-newton-v1` under the same dated root,
+locally and on ryserv. `work.json` preserves exact returned normalized blocks,
+full audited gradients, backend reasons and work counters. Verification,
+historical replay and tamper reports sit beside it, with the reproducible
+`quasi-newton-verification.py` script.
+
 From disposable checkouts of the matching source commits, without refitting:
 
 ```sh
@@ -368,19 +424,20 @@ PYTHONPATH=src python -m glassbox.experimental.api_migration verify /absolute/pa
 PYTHONPATH=src python -m glassbox.experimental.task_qualification verify /absolute/path/to/controller-task-v1
 # Solver-budget comparison: checkout b50151c (or this accepted merge).
 PYTHONPATH=src python -m glassbox.experimental.solver_budget verify /absolute/path/to/solver-budget-v1
+# Optimizer comparison: checkout de81673 (or this accepted merge).
+PYTHONPATH=src python -m glassbox.experimental.quasi_newton_qualification verify /absolute/path/to/solver-quasi-newton-v1
 ```
 
 ## Next named gap
 
-**Control optimization progress: test one curvature-aware bounded search on
-the same saved oracle problems.** Increasing the cap alone leaves all 128
-sampled problems above the existing threshold; most stop early. Freeze one
-projected quasi-Newton candidate against the current solver, preserving the
-objective, horizon, bounds and common original warm starts. Treat better
-conditioning as a hypothesis, not an established cause. Measure objective
-reduction, residuals, work and failures before another controller trial; do not
-bundle task-cost, horizon or learner changes. Accurate optimization may still
-expose an inadequate objective. The large generic-to-oracle gap remains
-separate learner work, and adoption is not contingent on beating every
-structured benchmark. Repair historical replay's Python-dependent AST
-fingerprint in a separate correctness iteration with unchanged numerical gates.
+**Premature relative-improvement stopping in the candidate optimizer.** Keep
+L-BFGS-B and freeze one change, `ftol=0`, on the same saved origins, preserving
+all other algorithm settings, work limits, dynamics, objective, horizon and
+original warm starts. This disables the positive relative-improvement cutoff
+that ended 125 solves; it does not prevent termination when float32 can no
+longer represent a decrease or guarantee the 0.002 gradient threshold. Report
+those stopping mechanisms explicitly. No tolerance sweep or simultaneous
+precision, objective, horizon or learner change. Better optimization still
+requires a separate tracking trial, and the large generic-to-oracle gap remains
+learner work. Repair historical replay's Python-dependent AST fingerprint in a
+separate correctness iteration with unchanged numerical gates.
