@@ -75,6 +75,7 @@
   ],
   "replay": {
     "activity": "A channel is detectably active if any signed branch exceeds the threshold for any corresponding observation across5steps. Report all magnitudes and inactive/weak channels. Detectability is descriptive and not successful response learning. Activity is null/unavailable unless the factual parent and both signed branches for that command complete and replay their prefixes. Failed/missing branches never count inactive.",
+    "activity_magnitude": "For each signed branch and horizon, max absolute delta component within each physical observation group. Weak means not detectable in this IC and0.25s probe, not uncontrollable.",
     "activity_thresholds": {
       "altitude_m": 1e-06,
       "body_rate_rad_s": 1e-08,
@@ -82,10 +83,12 @@
       "velocity_m_s": 1e-06
     },
     "audit": "Recreate every model initialization and parent/branch trajectory from pinned files; recompute activity/summary. Verify runtime/source/data hashes. Reject modified protocol, model assets, saved trajectory, command, branch mapping, and summary; include coherently rehashed evidence alterations.",
+    "branch_order": "factual0, then declared command order, lower then upper. Preserve planned/attempted/completed/unattempted counts and failed interval/native substep. Parent failure never removes the planned roster once command count is known.",
     "branch_origin": 20,
     "branches": "For each command independently,+/- probes move that command in the saved intended/written factual future tape10percent toward its upper/lower bound at each of5steps. Each branch uses a fresh instance and replays all20 prior intervals. Require bitwise identical prefix. Branch0 is factual continuation from another fresh instance and must match original. Save branch histories, commands, means and signed deltas; no cloning or learner.",
     "horizon_steps": 5,
-    "parent": "Fresh simulator, same IC and complete command tape. Require bitwise identical all observed states and command readbacks. Mismatch is replay_failure, not silently relaxed."
+    "parent": "Fresh simulator, same IC and complete command tape. Require bitwise identical all observed states and command readbacks. Mismatch is replay_failure, not silently relaxed.",
+    "provenance": "Rediscover all candidate XML roots and selectedICs against pinnedinventory. Enforce exact file roster under aircraft/engine/systems with no unpinned fallback roots. Pin loaded JSBSim native module and package Python files, Python binary+version, NumPy version/native core and adapter/runner source bytes. Root-level template remains outside61directory rollup; LM remains no-config."
   },
   "scope": "No fitting, model scoring, controller trial or model promotion. Complete released configuration inventory and short initialized transient/command-response/replay audit. Numerical completeness is not a valid flight regime or operational envelope.",
   "status": "frozen-before-implementation-and-trials"
