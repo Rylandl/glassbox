@@ -180,7 +180,8 @@ def validate_arrays(plan, trials):
             ):
                 raise ValueError(f"solver budget invalid numeric array: {key}")
         np.testing.assert_array_equal(trial["origins"], plan["selection"]["origins"])
-        if np.any(trial["iterations"] < 0) or np.any(trial["iterations"] > [4, 64]):
+        limits = [plan["comparison"][f"{name}_maximum_iterations"] for name in ARMS]
+        if np.any(trial["iterations"] < 0) or np.any(trial["iterations"] > limits):
             raise ValueError("solver budget iteration bounds differ")
         if np.any(trial["command_bound_violation"] < 0):
             raise ValueError("solver budget negative bound violation")
@@ -329,7 +330,7 @@ def baseline_parity(result, diagnostics, row, command):
             np.testing.assert_allclose(actual, expected, **SCORE_TOLERANCE)
 
 
-def probe(plan, inputs):
+def probe(plan, inputs, *, _solve_pair=None):
     parent = json.loads(inputs["manifest.json"])
     context = _context(
         {
@@ -375,7 +376,7 @@ def probe(plan, inputs):
                         context.manifest["tracking_reference"],
                     )
                 )
-                pair = paired_solve(
+                pair = (paired_solve if _solve_pair is None else _solve_pair)(
                     arm.plan.with_causal_state(arm._state),
                     arm.policy,
                     state,
