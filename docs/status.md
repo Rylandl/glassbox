@@ -20,7 +20,7 @@ this page records the current evidence, limitations and next named gap.
 | One recipe | **Met.** The public API and fit/evaluate commands use the single `generic-memory-v3-prototype` recipe. `fit`, `predict` and `update` have no tuning or model-selection options. Replaced experimental module paths and structured root exports are removed. | One generic learner and consumer contract. |
 | Accuracy | **Adopted with a known tradeoff.** Four of five corpora beat the structured comparator on both metrics, including under the corrected prefix-percentile readout. ARP loses both; this does not block adoption. | Broad competitive performance from one recipe; improve weak cases and establish task sufficiency separately. |
 | Capability | **Met.** All 27 frozen synthetic cases pass; saved models replay and reject alteration. This is a regression guard, not platform readiness. | Every synthetic absolute cap passes. |
-| Control | **Not met.** Generic position RMSE 60.80/49.31 m versus structured 1.179/1.179 m. This compares complete pipelines: generic plans 250 ms, structured 800 ms. Both structured trials also fail the application tracking criterion. The task-scaled oracle reaches only 29–42% of samples within tolerance (95% required). Removing L-BFGS-B's positive relative-improvement cutoff raises convergence from 2/128 to 51/128 sampled oracle problems and reduces the median residual from 0.0104 to 0.00321, but four backend failures and 54 iteration-limit exits remain. No new tracking trial was run. | Meet the declared application tracking requirement; use structured and oracle arms diagnostically. |
+| Control | **Not met.** Generic position RMSE 60.80/49.31 m versus structured 1.179/1.179 m. This compares complete pipelines: generic plans 250 ms, structured 800 ms. Both structured trials also fail the application tracking criterion. The task-scaled oracle reaches only 29–42% of samples within tolerance (95% required). The fixed-seed float64 planning experiment raises convergence from 51/128 to 70/128 sampled oracle problems and removes four backend failures. Its median paired residual ratio is 0.803, missing the frozen 0.5 gate; 58 returned plans remain above the gradient threshold. No new tracking trial was run. | Meet the declared application tracking requirement; use structured and oracle arms diagnostically. |
 | Live improvement | **Not met.** Last live-v3 evidence swaps at intervals 140/220; position error rises from 0.80/0.98 m before the swap to 36.1/11.8 m afterward. Not rerun today. | Bounded refits and swaps that do not worsen tracking. |
 | Evidence | **Not met.** The 85–95% coverage band still fails on ARP, the reserved control recording and shifted synthetic regimes. Constant spread cannot rank command plans, but can affect finite-iteration stopping through the absolute objective. | Measured coverage in the declared band, useful to control. |
 | Lean | **Not met.** Generic research code was reduced; structured dynamics, fitting, belief code and their supporting scripts remain. | Learner, harness, telemetry adapters and controller only. |
@@ -128,48 +128,61 @@ their outer hashes are recomputed. Ruff lint and formatting checks pass.
 This iteration does not rerun the slow benchmark fits, Cascade control trials
 or PX4 SITL tests.
 
-## Latest iteration: termination diagnosis
+## Latest iteration: fixed-seed planning precision
 
-Freeze `a3da131`, implementation `316c838`, protocol
-[termination v1](harness/solver-termination-v1.json). All four saved abnormal
-exits reproduce, with exact traced/untraced plans, scores, full gradients and
-work counts. Original causal states and warm starts are reconstructed from
-issued commands. Tracing changes no solver setting or numerical result.
-All 86 inherited source files and 77 parent artifact files remain unchanged.
+Freeze `96c8a5b` with premeasurement clarification `be9551d`, implementation
+`1bd7c9b` / report completion `b11fb23`, protocol
+[precision v1](harness/solver-precision-v1.json). The only numerical change
+lifts optimization blocks and the complete differentiated planning path to
+float64. Every original float32 seed choice, causal state, cached model
+coefficient, environment, command bound and objective scale is preserved.
+The objective, horizon, zero relative-improvement cutoff and work limits stay
+fixed. All 128 float32 baselines reproduce saved plans and full work records;
+both returned plans are then scored with the same float64 objective. Native
+scores remain descriptive, and nested JAXPR checks find no float32 arithmetic
+inside the candidate objective/gradient. No learner is fitted or changed.
 
-| Seed / origin | Requests after last accepted step | Distinct evaluated float32 points | Additional host proposals rounding to an already evaluated point |
-| --- | --- | --- | --- |
-| 102 / 134 | 32 | 24 | 8 |
-| 102 / 298 | 32 | 14 | 18 |
-| 104 / 186 | 32 | 14 | 18 |
-| 104 / 298 | 32 | 23 | 9 |
+| Measure, same 128 saved problems | Float32 baseline | Float64 candidate |
+| --- | --- | --- |
+| Returned plans meeting the 0.002 gradient threshold without failure | 51 | 70 |
+| Median common-audit residual | 0.0032133 | 0.0019712 |
+| Backend failures | 4 | 0 |
+| Raw gradient / relative-decrease / iteration-limit exits | 52 / 18 / 54 | 66 / 0 / 62 |
+| New objective/gradient evaluations | 8,099 | 7,536 |
 
-The first three searches end by repeatedly evaluating the last accepted
-float32 command blocks; the fourth continues moving between distinct points
-with objective changes of a few representable-value steps, while the gradient
-predicts much smaller changes. Repeated canonical points return identical
-values and gradients. The 32-request terminal segment is not necessarily one
-internal line search: refresh/retry can occur without an accepted callback.
-It does not show that the 16-step line-search limit was ignored.
+All four former abnormal exits disappear; three of those returned plans now
+converge. Across the full set, 24 newly converge and five lose convergence.
+Four candidate iteration-limit exits nevertheless return plans whose
+independent audit passes, so **58**, rather than 62, remain nonconverged.
+Every plan is finite and bounded. Common objective values improve on **77**
+origins and worsen on **51**; median fractional improvement is only
+**0.0000336%**, with worst regression **0.0160%**. Residuals also improve on
+77 and worsen on 51. First commands change by a median **0.627%** of channel
+range, maximum **6.14%**. These are related problems from four trajectories,
+not independent trials or a measured tracking improvement.
 
-The fixed feasible-direction audit adds **659** objective/gradient calls after
-optimization. At the smallest declared step, `2^-24`, **100/110** feasible
-perturbations leave the reported objective unchanged despite changing command
-blocks; every predicted change is below 0.001 of the base objective's nominal
-float32 spacing. Larger steps also contain curvature effects. These findings
-make limited numerical resolution the leading repair hypothesis; they do not
-prove a wrong automatic gradient or that precision alone explains every exit.
-The four cases were selected because they failed and cannot estimate failure
-frequency on new trajectories. No solver promotion or tracking gain follows.
+The **historical qualification remains failed**: median paired residual
+ratio **0.803** exceeds the frozen **0.5** limit. The other four criteria pass,
+including at least 64 converged origins and zero failures. This is useful
+numerical reliability evidence, not broad optimizer superiority; it neither
+promotes the maintained solver nor changes adoption of the generic learner.
+The candidate uses 6,816 accepted iterations and at most 75 new evaluations
+per origin. Its 7,536 new evaluations are 7.0% fewer than the baseline; the
+252 shared float32 seed-selection calls, 128 extra float64 seed evaluations,
+128 per-arm final audits and 256 common audits are reported separately.
+Float64 calls need not have the same cost, and no real-time claim follows.
 
-Validation: **146** focused tests pass locally and **162** in the pinned Linux
-environment. All four traced solves and directional audits replay exactly.
-Four actual saved copies with forged trace proposal, directional gradient,
-work count or report are rejected after rewriting hashes and derived summaries.
-Those defect checks reuse deep copies of one freshly recomputed reference only
-after complete clean replay and exact input-byte equality; the public verifier
-always reruns the solves and directional checks. The 85-file artifact inventory,
-local hashes and recomputed report match. Ruff lint and formatting pass.
+Validation: **181** focused tests pass locally; the added Cascade smoke test
+skips locally. **198** pass in the pinned Linux environment, including that
+real-equation dtype/gradient smoke test. All **128** paired solves and common
+audits replay exactly. Four actual saved copies with forged command, full
+common gradient/residual, work count or qualification are rejected after
+rewriting hashes and derived summaries. Those defect checks reuse deep copies
+of one freshly recomputed reference only after complete clean replay and
+exact input-byte equality; the public verifier always reruns all solves.
+All 88 inherited source files and 77 parent artifact files remain byte-identical; the new
+87-file inventory and locally recomputed report match. Ruff lint and
+formatting pass.
 
 ## First-order stopping qualification
 
@@ -473,6 +486,17 @@ iteration does not reverse that result or call the generic approach a failure.
 
 ## Evidence and replay
 
+Precision evidence is in `artifacts/2026-09-18/solver-precision-v1` and
+`/home/ryland/autonomy/glassbox-evidence/2026-09-18/solver-precision-v1` on
+`ryserv`. The frozen protocol SHA256 is
+`3ebbdd854b56592d2fe33686f80253c6206f2646654201e169d3d776476ee088`.
+`precision-readout.json`, test/run logs, `solver-precision-verification.py`
+and the verification/tamper reports sit beside it. Common audit arrays and
+full gradients are saved for both arms, along with native results, exact seed
+captures, dtype evidence and per-origin work. Historical float32 commands
+are lifted through the common mapping only for scoring; the largest resulting
+physical-command difference is `2.98e-8` and the original arrays stay saved.
+
 Local runs live under `artifacts/2026-09-17/`: `slow-sampling`, `platform-pins`,
 `control-baseline-fixed`, `independent-calibration-control`,
 `full-response-identification-synthetic` and
@@ -553,21 +577,28 @@ PYTHONPATH=src python -m glassbox.experimental.quasi_newton_qualification verify
 PYTHONPATH=src python -m glassbox.experimental.first_order_qualification verify /absolute/path/to/solver-first-order-v1
 # Four-case unchanged-solver diagnostic: checkout 316c838 (or this accepted merge).
 PYTHONPATH=src python -m glassbox.experimental.solver_termination verify /absolute/path/to/solver-termination-v1
+# Common-precision comparison: checkout b11fb23 (or this accepted merge).
+PYTHONPATH=src python -m glassbox.experimental.solver_precision verify /absolute/path/to/solver-precision-v1
 ```
 
 ## Next named gap
 
-**Numerical resolution of the optimization objective and gradient.** Freeze a
-single precision change: use float64 for optimization blocks and throughout
-the differentiated planning rollout and objective, then compare with the
-current float32 path on all 128 original saved problems. The four diagnosed failures motivate the change;
-they must not become the whole evaluation set. Preserve the zero cutoff,
-gradient threshold, work limits, mathematical objective, horizon, original
-causal states and warm-start inputs. Reproduce the old baseline and audit both
-returned plans at one explicitly declared common precision so comparisons do
-not conflate arithmetic with a changed scoring rule. Report failures, residuals,
-objective gains/losses and cost across every case. No tolerance or budget sweep,
-consumer precision option or simultaneous learner change. Better optimization
-still needs a separate tracking trial; the generic-to-oracle gap remains
-learner work. Repair historical replay's Python-dependent AST fingerprint in a
-separate correctness iteration with unchanged numerical gates.
+**Task relevance of solver accuracy.** Stop tuning residuals solely to clear
+a proxy gate. The precision experiment improves numerical reliability, but
+its tiny objective changes and materially different commands do not establish
+whether tracking improves. Freeze one bounded, no-fit tracking diagnostic of
+the existing float32 and float64 solver candidates, with the maintained
+solver as a diagnostic comparator, scoring the actual ±0.5 m / 95% tracking
+requirement and computation cost on identical declared trials.
+
+Before any new trial, the new protocol must explicitly record the prospective
+policy decision: the failed historical 0.5 residual-ratio gate stays failed,
+but it is not an established necessary condition for an informative task
+diagnostic. That iteration authorizes measurement only, with no automatic
+controller promotion. This is a transparent change to future experimental
+eligibility, not a retroactive pass. No tolerance, iteration-budget or
+precision sweep. After that single diagnostic, return to action-conditioned
+multistep learner accuracy regardless of the result: the generic-to-oracle
+control gap remains the dominant measured model weakness. Repair historical
+replay's Python-dependent AST fingerprint in a separate correctness iteration
+with unchanged numerical gates.
