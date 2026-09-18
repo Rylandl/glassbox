@@ -1,0 +1,362 @@
+{
+  "id": "learned-controller-transfer-v1",
+  "named_gap": "Transfer of qualified command-response learning into closed-loop tracking",
+  "base_commit": "4120caa",
+  "no_fit": true,
+  "authorization": "User authorizes substantial research and experiments today. This separate iteration starts only after controller-anticipation-v1 completes its replay and integrity audit.",
+  "input_paths": {
+    "control/manifest.json": "2026-09-17/control-baseline-fixed/manifest.json",
+    "control/calibration.json": "2026-09-17/control-baseline-fixed/calibration.json",
+    "control/generic.npz": "2026-09-17/control-baseline-fixed/generic.npz",
+    "control/structured.json": "2026-09-17/control-baseline-fixed/structured.json",
+    "research/run.json": "2026-09-18/intervention-response-v1/run.json",
+    "research/manifest.json": "2026-09-18/intervention-response-v1/manifest.json",
+    "research/models.json": "2026-09-18/intervention-response-v1/models.json",
+    "research/full_mse_6000.npz": "2026-09-18/intervention-response-v1/full_mse_6000.npz",
+    "research/paired_6000.npz": "2026-09-18/intervention-response-v1/paired_6000.npz",
+    "research/full_mse_6000-fit.json": "2026-09-18/intervention-response-v1/full_mse_6000-fit.json",
+    "research/paired_6000-fit.json": "2026-09-18/intervention-response-v1/paired_6000-fit.json",
+    "development/2040.npz": "2026-09-18/intervention-response-v1/parents/2040.npz",
+    "development/2041.npz": "2026-09-18/intervention-response-v1/parents/2041.npz",
+    "development/2042.npz": "2026-09-18/intervention-response-v1/parents/2042.npz",
+    "development/2043.npz": "2026-09-18/intervention-response-v1/parents/2043.npz",
+    "development/2044.npz": "2026-09-18/intervention-response-v1/parents/2044.npz",
+    "development/2045.npz": "2026-09-18/intervention-response-v1/parents/2045.npz",
+    "development/2046.npz": "2026-09-18/intervention-response-v1/parents/2046.npz",
+    "development/2047.npz": "2026-09-18/intervention-response-v1/parents/2047.npz",
+    "development/2048.npz": "2026-09-18/intervention-response-v1/parents/2048.npz",
+    "development/2049.npz": "2026-09-18/intervention-response-v1/parents/2049.npz",
+    "development/2050.npz": "2026-09-18/intervention-response-v1/parents/2050.npz",
+    "development/2051.npz": "2026-09-18/intervention-response-v1/parents/2051.npz",
+    "controller/run.json": "2026-09-18/controller-anticipation-v1/run.json",
+    "controller/report.json": "2026-09-18/controller-anticipation-v1/report.json",
+    "controller/audit.json": "2026-09-18/controller-anticipation-v1-audit.json"
+  },
+  "input_sha256": {
+    "control/manifest.json": "c87b40e1835c2dc9725f7a9effd47d5de225c692b06e63ea32141e632161cb40",
+    "control/calibration.json": "1cc3881efdf6d3fc542359beae0eb371e94c306f7bb2847de1feedaf0319cc22",
+    "control/generic.npz": "576de1bbef1294db73ede3f5523eb18a9b3357e0a2c451c7323e3f9df0a50860",
+    "control/structured.json": "f7c78313e55ba1adeb74e1a366918204e6793c228ac47ce4d5fcd6456ce1762f",
+    "research/run.json": "241328fae53f885ad3f685a2fdd2741e81a4ebb03b4296144aa1bfa2bd092f93",
+    "research/manifest.json": "d721c1b0e40f4184c1d475ccbfd784f3731cd09b25ef55e2f1cabee26454bb3b",
+    "research/models.json": "d542d7eef4946a6f8c5977e32a72e76bac82f60f7c05215438d4b0552684a667",
+    "research/full_mse_6000.npz": "50066fac57d12b77d2ca6a73c9c3eb80fd6ce0b4bb21fef2347fb03da906c23a",
+    "research/paired_6000.npz": "a82ff1b6461fa6a1ef86ef4a8af5f28268a628a07d53c0b38c8f89256ecf8f95",
+    "research/full_mse_6000-fit.json": "0e990b33a585feda45ac47d7e5af4e6f2ff4a6e57a4bc4d95f1fdbb816200fb2",
+    "research/paired_6000-fit.json": "32132c86fb9a12ed821e0b73f088c096b51618482f11a7dabcc23a03737ba208",
+    "development/2040.npz": "fcaf8c0ddbf317634ca8d4cbd3a89b4984c971f2f66db5835024b8389f187252",
+    "development/2041.npz": "0bec0961efd3aafa6003be3ae81f545b1f1858b3bf6520a8934956cfc791421c",
+    "development/2042.npz": "83f96fff0c314f4ef2f743f6edfcbdac3945be974589da5f6a288deb4581482c",
+    "development/2043.npz": "ecdb5f575a390a9615849238cdfa0f1aa09ae4864159fe2b37c6807364301380",
+    "development/2044.npz": "8ecf4eac5609c845e649482388177c77ad57df9d2af414e49210b097225e042e",
+    "development/2045.npz": "18f95a7e019b6ed6cde6a448b5f58ddc8ddd5d899b79828f8d2392af30711841",
+    "development/2046.npz": "6f14fe5b1a39909d82a09d09981b36aee266c763ffe575e344254c09cd06dc72",
+    "development/2047.npz": "4a07026669627fb7e77449b4dd733608ce4bea2310147c5372cb117bcee3ad8d",
+    "development/2048.npz": "22db32071475534b214c1926de14b2d8061611747037750f19035c1c393c4783",
+    "development/2049.npz": "f6918d4abe66ccbcd2c554b14409a55aa42a046871426f8f7ea9826144299e74",
+    "development/2050.npz": "9fe8c0dc079530fd57202ab50ac3a8bdde2b5e747a37003aa36350f27d91caf8",
+    "development/2051.npz": "ae97bc16aa9505f9f0c24cd3b5d89cfd4517cf794a5207cdab5004278d314deb",
+    "controller/run.json": "a9898a3b4cd873a6d1c220f977b8ff0b9fc2515aaf9e240c02359b7466613907",
+    "controller/report.json": "c050b77168e3df8e0608665e80f7fb14888ab431e011d75d08b16b073ebeaeb6",
+    "controller/audit.json": "ee8fdc698e35648238c2a21f98c48df257219c7b8330a15646fdc1f55f6bbb87"
+  },
+  "source_sha256": {
+    "src/glassbox/__init__.py": "493c711f64ce31fe736978ab89f2b01528f93cf1a533b671f33129754b1892d9",
+    "src/glassbox/_learner_arrays.py": "c7e33df1421b50b49ea24c65230360a231a9b72772536118a876e986a8e0d4c9",
+    "src/glassbox/_sequence_diagnostics.py": "84316c7c00efcac27a8494652c1defc0a9ceb61600cf3e282193c725670ea76b",
+    "src/glassbox/_sequence_model.py": "b6492f196c72e0629d1a2c7da446fa4233a74e0dd7a6fd486bfc46414bfe7d9c",
+    "src/glassbox/belief/__init__.py": "e481c32664c7746248f2862ac5bb21c1ac4b35675e4dd05f63c544a5c5fc203f",
+    "src/glassbox/belief/belief.py": "a091044aef22cf75678c4a76bc089f3957888c681cdec9d19e41202633174272",
+    "src/glassbox/belief/belief_io.py": "4e4f4bdab4fda2a46605f44faa97c447f27bbddc929fee2198406f364f9583e2",
+    "src/glassbox/belief/forecast_error.py": "09602a8a1b8919b5db35a3c84cb477dd8f0cf6d3774eb755ca10ba68696a482b",
+    "src/glassbox/belief/information.py": "f2ee076b8ae32f7319147881f61c3ae0393d5de751d26000f0d28da338d5883f",
+    "src/glassbox/belief/linearization.py": "0d67ab66bf211e67e3a394060cc633e10d56c91df1bf74a08c5a2eaede02fc69",
+    "src/glassbox/belief/parameter_evidence.py": "76b4922356f759b7a8ce076b4e6e369a35c171866a3d0ea0249e72f0bd04e990",
+    "src/glassbox/belief/update.py": "2ed6a99b8003b6cc3fe002c21a618883a8e0f941a880df490676fc57a00db788",
+    "src/glassbox/cli/__init__.py": "933359702d395a8441f6b95eb44e3671981ea91290d23024490e08f64cf08f7d",
+    "src/glassbox/cli/_tree.py": "c9beedc2f713ff566bb952cd7f94044e6d448b1eb94b3a3a9eee38ddd634239b",
+    "src/glassbox/cli/benchmark.py": "2970290de722c4ec5020de282d20bbe94c0dc5afa419bf9cb66f33922931534a",
+    "src/glassbox/cli/corpus.py": "17d918d98fe8aea1f63ac94b7dac596c3daace36bdf71a4c716f4d2b871178be",
+    "src/glassbox/cli/evaluate.py": "b2bee3e4f0f8edb6671edf2da513ce3f2f2471005d362532b19ae4ba85194856",
+    "src/glassbox/cli/extract.py": "7e177b65b0b0d4169b8ba7bf027f72d87cf77cf77c122410c50adbe8baa8a2ec",
+    "src/glassbox/cli/fit.py": "3af229f2b400cc31812fb99ca34a5d33edf4bd3015848f74fcc055ce838387c1",
+    "src/glassbox/cli/px4_shadow.py": "a37a818a97938b60b52bdd24dbefa22ce26aba4dc0056bf135132e2c5221f527",
+    "src/glassbox/cli/record_results.py": "a16ca9cdebbb02566baecbc0d69af41e7d09af1c7b8d0835ba3ec6b06de54d60",
+    "src/glassbox/cli/sitl_profile.py": "4a25be3ce4870228c7e97c7927cad12d78e298989a3aaf4894960693eecd1f36",
+    "src/glassbox/cli/synthetic.py": "05261c3e0faa721f44ef4930d3859b0a7123c6dbe62f4e1329cf65adadb28c8d",
+    "src/glassbox/control/__init__.py": "889d382d68373d63ca38a4af2e5bc72b362a70869ec148811098e8bf8235f262",
+    "src/glassbox/control/_common.py": "da8dcba33515342ee164859cff03ec7bef1349f046b5d9f7e68eafe6ee869414",
+    "src/glassbox/control/fitted.py": "7571ae1f5b50010b30bd52a9d7786834354e45f8c3dbff59de2a0ed0eb4d98af",
+    "src/glassbox/control/identifier.py": "de9a00d842a55da825513a2faabc7c371722c1c8d4aeaa40995d6532cded6fc3",
+    "src/glassbox/control/plan.py": "c4f75e75968c344b323eb4f831d8bbd7bd77e5f03fbf9145f30037e98f142c9a",
+    "src/glassbox/control/solver.py": "ea88fdcd7d737a7d0d86b113a9d9ccea3ffb7ce738a5a6c65096d5e4990231fc",
+    "src/glassbox/control/supervisor.py": "38b0d49f0a61967e7a7ab23a1ad67ab41d5fbfd57d43ed07c66e39ac06fdf55d",
+    "src/glassbox/core/__init__.py": "c210b776f0c52495fd729374e6dcd430de771c7ce995e52f857f75159ae12ad5",
+    "src/glassbox/core/data.py": "115925ff1210abedda08b9a3f2dbe2fa23db747edbd1a42b662add86fdf57000",
+    "src/glassbox/core/diagnostics.py": "927ecaf78ce88a04107181eabad90d4b17bee54d04a8e6b90fcc7bab7bb6d23b",
+    "src/glassbox/core/dynamics.py": "92052d901095e52e1640a9e07f66b98fe638c22acfc5e987da20e3be827f646e",
+    "src/glassbox/core/families.py": "73ccb6b963953f47d767e8d62d4ec3f7cd101705ae327fcfca79cc7edd5309cf",
+    "src/glassbox/core/fixedwing_synthetic.py": "e9eff7392d6b949e7e06ee49eb7c828039f8ae365263cb7a25579769efc0c763",
+    "src/glassbox/core/geometry.py": "eb572d88a931091c020c25ad04effac4f7bbd7311c497bce40f78492ba985715",
+    "src/glassbox/core/identification.py": "f2511fb9156579038d93810754f5deac3b528be44aaba5154d10c45d65080e51",
+    "src/glassbox/core/metrics.py": "bb1f0b8b982fa85f813f70e2da44fe5584cdaa3dafbd66cde3fffcdd44ce6bf1",
+    "src/glassbox/core/model.py": "cd3cc0cd700800a2e6896d6e98b50349a7dfe8e911fc48cc928ae5de72c7684f",
+    "src/glassbox/core/model_io.py": "49a951ef77179041a27c225c03a95bde4ff4953ec4b29c9446605c97a5889fbc",
+    "src/glassbox/core/synthetic.py": "6b9bec538e8e0964ca67ec5d61060ac02bc54bc9428fbae50d5f141f4571f8f1",
+    "src/glassbox/experimental/__init__.py": "51f463d0d49c41f3ba362d1622626453a03b1ed04d28f873865a22f525a4602e",
+    "src/glassbox/experimental/action_response.py": "fd6a782ac4352b246baae666bc0814d7e9c86e643c3bc55af95d5ae21ae8eac2",
+    "src/glassbox/experimental/anticipation_audit.py": "2a5ca6748685cbfd2f07f0645823c92aa4b5fe1752677a9ea590c92f5b453d4a",
+    "src/glassbox/experimental/anticipation_control.py": "3d818987ec0dcff88dd3914689d8490ee4a69bfadba8dec3dd2ddcd653365311",
+    "src/glassbox/experimental/anticipation_metrics.py": "0b321a26bf360d54415e5400dae36d54ff1c6cb825cdd7a760dc7aabf08c9120",
+    "src/glassbox/experimental/anticipation_tracking.py": "d88bc0a3c3c528726679a20c46f392927af55a4a31967484e8ed7f1d8e76bafd",
+    "src/glassbox/experimental/api_migration.py": "e398c248f04181762ba779c25ebee42d211b79b8e67248afb7ff245c91ad6d8e",
+    "src/glassbox/experimental/first_order_qualification.py": "85be36cfe82e4ba9f637de54858171fdebd4b192551d5d57cd0b5f8d4fb3d803",
+    "src/glassbox/experimental/harness.py": "bca74a855c1abc312d35374ec5b4d818011d9fb7c0dae0b2fcb43474a3908f40",
+    "src/glassbox/experimental/learned_plan.py": "5e3a794db1ebb25c11d7641c96994a7efc323c67c759a67123f549cda6b9abdd",
+    "src/glassbox/experimental/precision_solver.py": "a7c6a81d0bbac1d7e0512fde8a68c5431c2d48510f8638fd2a9eeca85a492de1",
+    "src/glassbox/experimental/qualification.py": "79adb44a9fdac44f0f7c74872b22e7576971a046365c58dd568aff983e265964",
+    "src/glassbox/experimental/qualification_control.py": "dfe64622d30d58a2f937a7e5e9ee0aa6d7325ca98857cebf23dfca2654d47696",
+    "src/glassbox/experimental/qualification_references.py": "c0e53e486e23a16cba86903473cb9857ff01a3bf5715b6ebacdbe64fdb248377",
+    "src/glassbox/experimental/quasi_newton.py": "8c40c0361430057c7418c7cb5ef0a51b19dd5b6f4a4a187ab498424138fdd52c",
+    "src/glassbox/experimental/quasi_newton_qualification.py": "4b63f34f0d12430a93cfd1289c9d14e2146b2daf7787b7fc9f9460f9d0dfd910",
+    "src/glassbox/experimental/solver_budget.py": "32d61c8bb3d6b252743e93455737e2cb404bfb10d78c43f5b5ca8f60927a3660",
+    "src/glassbox/experimental/solver_precision.py": "0eac795882990f95b3be74ef987a56cbf89e669a6fbd2f72f68f7f3ace35b829",
+    "src/glassbox/experimental/solver_termination.py": "51f32613e9babc97588daf7009eb601a5ca61bd171b1f38fcd7b448b2b5b5069",
+    "src/glassbox/experimental/solver_trace.py": "b211592fc1f4bff14b72c51aa1be57fe46fcaa1376eb3b1469610099606036d7",
+    "src/glassbox/experimental/solver_tracking.py": "adebf23ed2857f19f1c0a1b6374b9b0087846eae9125254108acb94e7da2362c",
+    "src/glassbox/experimental/task_qualification.py": "a495a774f66f433dde646ea80dbe6d207e81d75c06491cf3f0f4415769d28740",
+    "src/glassbox/experimental/tracking_solver.py": "54aede2a1e78dded44dfa2fc0a73ba5972fd94c8b854fb3ceb05c017002decbd",
+    "src/glassbox/fitting.py": "3c60576f99c8ff99440d522ece3b5f4c284699f0f97e63fec5ae67b8af42616e",
+    "src/glassbox/integrations/__init__.py": "db2d013da7d13034b0954064b176550b3f86e0e6628f203b5a472c10bd5236e4",
+    "src/glassbox/integrations/cascade.py": "df5636b7d58bb64a736728520b23268bc589e4b87e4da23711556fee7bae655d",
+    "src/glassbox/integrations/loop.py": "7bf516214e1b70d0697d5390860b9ff76b0f411152439182f18ea14b830f42d0",
+    "src/glassbox/integrations/px4.py": "a8617e33586c425512356c61c85db268c5cf1fc1bf343dff3649503a85cc7d54",
+    "src/glassbox/integrations/px4_nmpc_shadow.py": "a9c7e14565cb0a7beb4d9d750c85e806136d8b3fe095667373dafdcd11002b1f",
+    "src/glassbox/io/__init__.py": "4e12982cdeb6806e3e5dd89064b8ea20130a804dd70e278aa899dcfa6ffc2bc5",
+    "src/glassbox/io/arp_reference.py": "608f455da04ef2c60bfa53b0ae9601c8dd26e0ce0be41f5f9098c9752c356e0f",
+    "src/glassbox/io/corpus.py": "9057f1502bb97d2d617dcc9367ee595b4beda41c1c9dfa288f3af2dd22a631b2",
+    "src/glassbox/io/epfl_reference.py": "c57371da9ec0162d605182e5a3d6c21f115d081e58a293473492ac1ae72dd375",
+    "src/glassbox/io/idf_reference.py": "abd057c200286040b34b8e5910d2f16cea5877bc8bcabbe85c5c236254327412",
+    "src/glassbox/io/nanodrone_reference.py": "6e615be5a1614bd6206cc2d4f92767e800d854250faf1afd49ecedbae302d599",
+    "src/glassbox/io/pinned_download.py": "214ab6d37e6791d6bf6a89690b0ca3b7653a59c24a245b7b12af5f64a2efbae5",
+    "src/glassbox/io/px4_frames.py": "d8e4a0330804fc4134febcad580a8a330e7874a281d88aca0eea7d5c4554ee75",
+    "src/glassbox/io/px4_ulog.py": "b8741388614fe8cd51dd7301f567529e54d3a6d087f309863f87fa966015dd94",
+    "src/glassbox/io/recordings.py": "287f4f1810e8ce4f65a5e9ca247edef80094d3e9e900c4145ce452477830a2fa",
+    "src/glassbox/io/sitl_profile.py": "f66d88b7509dbdf253f3f17942c05c2c0fb420f2e97730e8804fa543f2c8d57f",
+    "src/glassbox/io/x8_reference.py": "176874ec860e4b7d93132d12ab3792075d9bdf6a723dc4887efda9e7235eeb76",
+    "src/glassbox/learner.py": "960721cdec0ff83b06f488a22005155481fc4b0972ce81b43a25b9560c60f9b8",
+    "src/glassbox/recordings.py": "a6506d79b3947031db40293e411f51750d7e9d36cf5156e13ee81ba6f8d77e4b",
+    "src/glassbox/workflows/__init__.py": "2a42641c071cf9417499e72deea8bea5a4f09e81c0d5bb1da50f157f954ad2aa",
+    "src/glassbox/workflows/benchmarks/__init__.py": "fccee819bbf834694afc5b04d017e0b93a06aa9b695457df2c2e204948471d1f",
+    "src/glassbox/workflows/benchmarks/cascade_x8.py": "0a0cf08e483f8a0111b1a26c6ff4579f65ba545e848010abafb60ffc66297ade",
+    "src/glassbox/workflows/benchmarks/nmpc.py": "8f0b879a2d0b658197c2a905f823b3ba6aee64feafae90c13c08129cf4603f91",
+    "src/glassbox/workflows/benchmarks/recovery.py": "003b71f7b4fd2318483d1b70940f75123ce9ebd14e4c8255b51c2b6752751f0c",
+    "src/glassbox/workflows/evaluate.py": "ecd0bc9ab3b863277e715d87d5658e487dbadd4684b9b97f7446bae5df148071",
+    "src/glassbox/workflows/forecast.py": "f3a4c2afdcdd74452ac9256c02830a4931843429a5a66d5be885c95bbf174a67",
+    "src/glassbox/workflows/holdout.py": "57f55e0484c972fe3bb6fb328ab08529090a0c083fcf1f802e974e5773a62e6d",
+    "src/glassbox/workflows/record_results.py": "a7baf460f9cc16ee1000e529ea5db1b6f8757edd38077ee7756442b62b7bb199",
+    "src/glassbox/workflows/recorded.py": "851827d3f8e911fd7dcbfb3507fa9e9bf89779ec2ed494c822601718484f88ea",
+    "src/glassbox/workflows/refinement.py": "dd1f21a8fdaacf7ece7a95152ba1ac2ffd5ba94d21cc05381f8b3e52cb194841",
+    "src/glassbox/workflows/streaming.py": "13a9ce5c8ce589f1812466ebfbf968216d6595abb0c165a937174ccd674e8f8f"
+  },
+  "reference_source_sha256": {
+    "examples/cascade_accuracy.py": "86bf0132f17267cccb93b6aa5124758ea143e6270904f4d56c0906e6947e3144"
+  },
+  "task_manifest": {
+    "path": "docs/harness/controller-task-v1.json",
+    "sha256": "a825a3fe5d8875b528ad9073c6362b1b8d4d6de6a14f25edec9d533f0b3029e4"
+  },
+  "environment": {
+    "python": "3.12.3",
+    "jax": "0.11.1",
+    "numpy": "2.5.2",
+    "scipy": "1.18.1",
+    "cascade": "Exact package/source/specification pins in control/manifest.json"
+  },
+  "historical_validator_policy": "Verify every current pinned source/input/task-manifest byte independently. Historical whole-checkout validators belong to their historical snapshots. Reuse numeric/data helpers only where their contracts match. The new learned-only constructor consumes exact pinned task settings with the explicitly changed10-transition readiness; it must not construct an OraclePlanModel or use public plant forecast equations.",
+  "mechanism": {
+    "comparison": "Same fixed research architecture, training data, initialization, minibatch draws and6000-step budget. Compare the already selected forecast-only checkpoint5700 with paired-response checkpoint5900. No refit, update, reselection or recalibration. This tests the paired-objective plus checkpoint-selection package in closed loop.",
+    "model_contract": {
+      "kind": "filter_mlp",
+      "sample_interval_s": 0.05,
+      "history_steps": 10,
+      "delay_steps": 2,
+      "horizon_steps": 5,
+      "hidden_width": 32,
+      "memory_width": 8,
+      "parameter_count": 3945
+    },
+    "model_fingerprints": {
+      "full_mse_6000": "cd6d08235ce6402876fc5c9a204d602928d5225a50c4d3ff2ee491e1e7d3df8c",
+      "paired_6000": "e2bcdb6a9c55a1e7993501f9c46b997a4f49a0e9bce422e9cf4ef7fd71076c45"
+    },
+    "adapter": "Harness-only PlanModel over raw SequenceModel with explicit model provenance. Reuse existing observation channels, affine command map, trapezoidal position integration and rotation projection/quaternion conversion. No manufactured LearnedDynamics artifact or adopted-v3 label. Predictor receives only15observed channels and3applied commands; never hidden plant state, positions, reference, future observations or seed identities.",
+    "history": "Both arms hold the initial command for10real trial intervals. First solve only after11observations/10applied commands, index10 at0.5s. Thereafter retain exactly the latest10transitions, recompute memory from rest over that window using existing memory_state, and retain the existing2-step explicit tail. No padding, pretrial oracle history or carried memory beyond the qualified window. Reset all state after prewarm.",
+    "precision": "Physical plant, observation/history computation, original cold/warm seed choice and parameter/normalization snapshot use defaultfloat32. Capture exact actual runtime values, including compressed observed history/memory, and lift those same values to float64 planning; never recover original archive64 coefficients after32 seed selection or recompute memory in64. A learned-only factory must preserve SequenceModel forecasts and must never install or call Cascade forecast equations. Capture the current observed15-vector in the observed-history runtime as well as the previous2states/commands and memory. Lift it verbatim; do not recompute current quaternion-to-rotation observations in64. Canonical state is still used for position integration and cost. Solve must validate correspondence to the newest observed origin. Fixed scalar policy/formula constants retain the existing scoped-precision semantics: the same declared Python values are evaluated in the active dtype. The exact32-to64 capture requirement concerns runtime data/parameters/norms/history/covariance/bounds/scales, not a newly introduced rounding of scalar configuration constants.",
+    "fixed_controller": "Same1.5s anticipatory all-position-axis stage+terminal residual,5step250ms horizon,5blocks, position scales[5,.5,.5], velocity[2,2,2], attitude[.2,.2,.2], body rates[.5,.5,.5], other cost terms, bounds, solver64iterations/1024evaluations, maxls16,maxcor10,gtol.002,ftol0 and causal sequencing as qualified oracle controller. Changes needed to enforce the research history and learned forecast seam apply equally to both arms.",
+    "covariance": {
+      "source": "control/generic.npz",
+      "meaning": "Identical borrowed constant numerical spread coefficients, not measured uncertainty for either research model.",
+      "shape": [
+        5,
+        12,
+        12
+      ],
+      "uncertainty_available": false,
+      "uncertainty_complete": false,
+      "nominal_coverage": null,
+      "allow_unresolved_parameters": true,
+      "stopping_note": "Constant spread cannot rank plans analytically but can affect finite-precision seed selection and optimizer stopping. Preserve its exact same value in both arms; report native constant and variable objective components.",
+      "source_derived_float64_c_order_sha256": "5797173fd50e7cbcf02d916ce0a3234cdac3fb0458a91a88ebe41f43602b421c",
+      "runtime_float32_c_order_sha256": "d0c816e8efa43b22bb1e1a9dfaca46f435d7ca972b42e2d305e8bb1e8085d32a",
+      "captured_runtime32_lifted64_c_order_sha256": "c583a4f1cce6e3d312309ab50810675dfdb24ace789678e3be10d65ee2c34bf2",
+      "precision_identity": "The source-derived64 hash is provenance only. The actual seed path uses runtime32; planning uses exactly runtime32 lifted64. Never rebuild original64 coefficients for planning."
+    }
+  },
+  "preflight": {
+    "population": "All12pinned development parents2040..2051, all7origins20..140step20 and all7saved branch command tapes:588forecasts per arm per precision. No application seeds or new physical rollouts enter this seam check.",
+    "history": "For each pinned development parent, feed canonical observations and actually applied commands chronologically from index0 through all7origins, without solves, retaining only the latest10transitions. Thus later origins exercise window eviction. For each origin, also reset and prime a separate controller with exactly canonical[origin-10:origin+1] and applied[origin-10:origin], proving no prior-parent/prewarm history survives. Compare both native32 compressed-history forecasts to the direct11-observation/10-command SequenceModel forecast on identically mapped observations. Memory is recomputed from rest for the retained window and must not refilter the2explicit tail transitions twice.",
+    "reference": "Use the pinned control sinusoidal reference at times(origin+arange6)*.05 anchored at the pinned control trim state.",
+    "precision": "Check native32 and captured/lifted64 paths. The64 direct reference uses the same captured32 parameters, norms and compressed history/memory lifted to64; it does not re-encode the original64 archive history. Both compressed-history references use the exact captured current observed15-vector; native64 must not recompute that vector from the lifted canonical quaternion.",
+    "checks": {
+      "all_raw_forecasts_states_objectives_gradients_finite": true,
+      "raw_rotation_determinants_positive": true,
+      "maximum_projected_rotation_orthogonality_error": 0.001,
+      "maximum_projected_rotation_determinant_error": 0.001,
+      "forecast_parity_atol": 2e-06,
+      "forecast_parity_rtol": 2e-06,
+      "float32_arithmetic_in64_planning": 0,
+      "zero_nonfinite_witnesses": true
+    },
+    "gradient_witness": "For every saved tape/model, at b=0.99*z64, check all15 flattened block-coordinate directions with centered finite differences epsilon1e-5. Require abs(fd_j-ad_j)<=1e-3*(1+abs(ad_j)) for each coordinate. Save the full AD vector, center cost,30perturbed costs, identities and errors. All center/perturbation costs, raw forecasts, transformed states and gradients must be finite; run the declared rotation checks on these outputs. No epsilon, direction or tape selection sweep. Scored trials remain unchanged.",
+    "diagnostics": "Save every witness identity, forecast parity error, raw rotation minimum singular value/determinant, projected orthogonality/determinant errors, cost/gradient finiteness, finite-difference discrepancy and dtype audit. All witnesses retained.",
+    "gate": "All preflight checks must pass before scored trials. If supported predictions fail this seam, preserve evidence and stop the iteration as a named seam failure; no bundled geometry correction or changed thresholds.",
+    "command_rounding": "Convert each saved physical tape to runtime32. Compute canonical blocks z32=2*(u32-lo32)/(hi32-lo32)-1 in32 arithmetic. Native32 rollout uses z32; captured64 rollout uses its exact lift z64. Each direct parity reference consumes the exact effective physical commands produced by that path own affine command map, avoiding round-trip differences being misreported as history error. Canonical finite-difference witness center is b=0.99*z64; never multiply physical throttle by0.99 before normalization.",
+    "rotation_reductions": "At every saved-tape base forecast and every finite-difference center/perturbation forecast, check raw predicted rotation entries and the native-dtype nearest_rotation output BEFORE quaternion conversion. Convert these finite matrices to hostNumPyfloat64 only for diagnostics: raw determinant must bepositive; report minimum singular value; projected error is max absolute entry of R.T@R-I and absolute det(R)-1. Both projection errors must be<=1e-3. A normalized quaternion round trip is not a substitute for checking polar output.",
+    "failure_evidence": "Predeclare the full ordered witness roster. Save results incrementally. On any exception/nonfinite/failed gate, seal all attempted witnesses plus explicit unattempted identities, exact failure and source/input hashes, scored_trials=0, application_qualified=false, material_progress=false and qualification_unavailable_reason. Do not retry failed witnesses or change numerical thresholds. Harness-only bug corrections preserve originals and cannot change the protocol. This prohibition concerns genuine model/seam failures. A demonstrated harness implementation bug may be corrected and unscored witnesses rerun under identical numerical rules, preserving original evidence and the correction provenance.",
+    "failure_replay": "A preflight/prewarm failure still requires no-fit verification: rerun the ordered attempted witness/hold prefix, reproduce the same failure and unavailable qualification, and reject coherently altered model/history/configuration/gradient-or-availability/summary evidence wherever that record exists. Do not fabricate optimizer trials or count unattempted checks as passed. Preserve the exact attempted/unattempted roster; full-trial replay counts remainzero."
+  },
+  "control_qualification": {
+    "intervals": 320,
+    "sample_interval_s": 0.05,
+    "horizon_steps": 5,
+    "block_count": 5,
+    "warmup_intervals": 10,
+    "position_m": [
+      5.0,
+      0.5,
+      0.5
+    ],
+    "application": {
+      "tolerance_m": 0.5,
+      "minimum_fraction": 0.95,
+      "settled_after_s": 2.0,
+      "scored_samples_per_trial": 281,
+      "rule": "Simultaneous absolute lateral and altitude errors<=0.5m on at least95%of281samples at t>=2s in each candidate trial. Missing suffix counts outside. Qualification requires all8candidate trials complete with finite trajectories, zero fallback, command-bound violation, optimizer backend failure or nonfinite optimizer evaluation. Iteration-limit/nonconverged status alone is not a reliability failure. Individual tolerance fraction passes remain reported separately."
+    },
+    "arms": [
+      "full_mse_6000",
+      "paired_6000"
+    ],
+    "seeds": [
+      118,
+      119,
+      120,
+      121,
+      122,
+      123,
+      124,
+      125
+    ],
+    "arm_order": [
+      [
+        "full_mse_6000",
+        "paired_6000"
+      ],
+      [
+        "paired_6000",
+        "full_mse_6000"
+      ],
+      [
+        "full_mse_6000",
+        "paired_6000"
+      ],
+      [
+        "paired_6000",
+        "full_mse_6000"
+      ],
+      [
+        "full_mse_6000",
+        "paired_6000"
+      ],
+      [
+        "paired_6000",
+        "full_mse_6000"
+      ],
+      [
+        "full_mse_6000",
+        "paired_6000"
+      ],
+      [
+        "paired_6000",
+        "full_mse_6000"
+      ]
+    ],
+    "seed_contract": "Every arm uses only its own issued-command trajectory and own preceding returned plan. For float64: a seed-only SeedCaptureSolver chooses the cold/warm seed in original float32 without performing any float32 optimization, then lifts exact canonical blocks and actual runtime values. Existing float32 warm-block conversion acts on the candidate own returned64 physical plan at the next origin. No seed or warm-start plan is shared across arm trajectories. Failed selection retains inherited fallback and is reported.",
+    "timing": "Run arms serially on one pinned host, prewarm each on discarded equilibrium transitions, reset all per-trial state/records. Synchronized outer solve duration covers seed selection, precision setup, optimization, result materialization and both extra64 audits. Report this instrumented decision latency plus tick/elapsed time, median/p95/max and >50ms counts; no real-time or equal-compute claim. Report accepted iterations for all arms, L-BFGS-B objective/seed/audit counters, float32 seed selection and extra64 audits separately. Wall measurements never influence commands and cannot be authenticated by deterministic replay.",
+    "execution": "After preflight and both one-time prewarms pass, execute exactly16declared trial attempts once, serial alternating arm order. Each arm owns its trajectory,10-transition history and warm starts. Save every completed trial or failure prefix immediately. No excluded/replacement seeds or adaptive budget.310potential decisions per complete trial. A harness crash preserves completed evidence and the explicit remaining roster; never overwrite completed trials.",
+    "material_progress": {
+      "pooled_fraction_gain_minimum": 0.1,
+      "lateral_rmse_geomean_ratio_maximum": 0.8,
+      "altitude_rmse_geomean_ratio_maximum": 1.25,
+      "ratio_floor": 1e-12,
+      "all_candidate_trials_reliable": true
+    },
+    "missing_metric_policy": "Report tolerance_fraction_passed independently from the inherited completed-trial met flag. Preserve all8matchedpairs. Ifeitherarm has a missing/nonfinite settled RMSE in anyrequiredpair, report its ratio andthe correspondingaggregate unavailable(null), neverdropthatpair; material_progress=false. Candidateapplicationqualification is independently basedonall8candidate task/reliabilityresults. Both ratio numeratoranddenominator usefixed1e-12floor.",
+    "acceptance": "Research-only. Application qualification requires all8paired-model trials meet the unchanged95% task criterion and reliability. Material progress is separate: pooled fraction gain>=.10, lateralRMSEgeomean ratio<=.80, altitude<=1.25, allcandidate trials reliable. Missing required pairedRMSE makes the corresponding ratio unavailable and materialprogressfalse; never drop a pair. Report all individual gains/losses. Neither flag automatically promotes a public learner or controller.",
+    "reference_scope": "The prior2-hold oracle study is prerequisite/controller context, not a matched mean-model comparator for these10-hold learned trials. A negative learned result alone does not isolate every remaining model versus startup limitation.",
+    "replay": {
+      "state_atol": 1e-05,
+      "state_rtol": 1e-05,
+      "score_atol": 1e-09,
+      "score_rtol": 1e-07,
+      "requirements": [
+        "Verify exact protocol, input, environment, source and model fingerprints before preflight/trials/replay. Recompute preflight evidence without fitting.",
+        "Replay every full physical trajectory or saved failed prefix from exact initial condition and issued commands.",
+        "Independently reconstruct each10-transition observed history, memory, original32seed choice, lifted64 optimizer decision, own warm starts, forecasts, gradients, work and precision evidence. Require exact deterministic outputs; no timing authenticity claim.",
+        "Recompute task scores, fixed281/2248denominators, completeness, reliability, allpaired comparisons and decision flags. Validate timing schemas and consistency only.",
+        "Five coherently rehashed challenges: model parameters; applied-history/capture evidence; borrowed covariance or anticipation configuration; returned full gradient/plan; task summary. Public verify always reruns. Audit challenges may reuse one freshly recomputed immutable reference only after exact source/input/config/model checks. Original evidence remains unchanged."
+      ]
+    },
+    "population": "Eight fresh matched initial-perturbation seeds118..125, same calm truth-sensed Cascade task. Initial states use the pinned harness.control_initial_state with the pinned trim anchor and manifest perturbation widths. Initial held command is pinned trim command. Every reference uses the unperturbed pinned trim anchor and control_reference, never a perturbed trial start. Both arms own their actual trajectories and warm starts. Experimental units are8paired seeds;2248time samples per arm are correlated trajectory points, not2248independent trials.",
+    "prewarm": "After all development preflight checks pass, prewarm each arm exactly once on10discarded equilibrium hold intervals and one solve, before any scored trial. Save both prewarm results. A prewarm exception, nonfinite result, fallback, bounds or backend failure stops before scoring, with sealed failure evidence and all16trial identities explicitly unattempted; no silent retries. Reset histories, record buffers and warm starts before every scored trial; compiled caches may persist.",
+    "returned_forecast_geometry": "Record each successful returned plan raw15-channel forecast and the same raw/polar rotation diagnostics used in preflight, using captured/lifted64 runtime and one separately counted extra raw forward call. Include its synchronized cost in outer instrumented timing. These returned-plan geometry statistics are diagnostic only; they do not affect commands, solver stopping or the frozen physical task/reliability flags. Preflight support does not establish validity throughout optimizer search. A nonfinite returned forecast remains subject to existing nonfinite/fallback reliability rules. Verification recomputes these diagnostics and reports every finite rotation violation; no post-result reclassification."
+  },
+  "evidence": {
+    "new_modules": [
+      "src/glassbox/experimental/transfer_control.py",
+      "src/glassbox/experimental/transfer_precision.py",
+      "src/glassbox/experimental/transfer_metrics.py",
+      "src/glassbox/experimental/transfer_tracking.py",
+      "src/glassbox/experimental/transfer_preflight.py"
+    ],
+    "save": "Complete frozen inputs, environment, model/adapter/covariance configuration, preflight witnesses, prewarm, all16tracking/timing/diagnostics/optimizer/history records and reports, sealed inventory. Commit run-manifest SHA in result record. Save either a complete trial inventory or a sealed preflight/prewarm failure inventory with explicit unattempted identities and no success flags.",
+    "validation": [
+      "Raw-model/seam history parity through eviction andreset; strict10transition readiness; causal observe/command alternation.",
+      "No Cascade forecast injection into learned path; actual32 capture/exact64 lifting; distinct values survive shared kernel cache; finite and correct gradients.",
+      "Same borrowed constant spread/gradient algebra; model provenance and uncalibrated uncertainty labels.",
+      "Fixed task denominators, failure prefixes, paired missing metrics, independent reliability and95%flags.",
+      "Focused tests, full saved-development seam preflight, discarded real-plant prewarm, complete deterministic replay and five rehashed challenges.",
+      "Captured current observation and all3covariance precision identities; native scalar configuration semantics; returned raw/polar rotation diagnostics do not influence commands.",
+      "Monkeypatch OraclePlanModel and _Cascade64Equations construction/calls to raise; learned forecasts and solve must still work. Confirm only the physical plant uses public dynamics."
+    ]
+  },
+  "stop_rule": "Preceding controller iteration is closed and verified at4120caa. Freeze and commit this protocol before implementation or measurements. Run preflight once; if it passes run the16declared trials once, then replay and challenge. Preserve failures. Harness-only corrections must not change numerical protocol or repeat completed scored trials. Further model, history, geometry, uncertainty or cost changes require a new named-gap protocol.",
+  "provenance_joins": [
+    "research/run.json must be complete with plan_sha256 equal to the SHA of pinned research/manifest.json. Every imported model, fit report and development parent must match its source run.files entry.",
+    "Each archive SHA and loaded model fingerprint must agree with pinned research/models.json and the fit report selected_fingerprint. Selected steps must be5700/5900 for full_mse_6000/paired_6000. Check identical architecture, dt/history/delay and exactly equal normalization arrays before comparison.",
+    "controller/run.json must be complete and link its report to pinned controller/report.json. Preceding controller audit must have clean_replay_performed=true, verified16trials/5088solves/5088forecasts, zero state replay difference, all4declared challenges rejected and source_run_manifest_sha256 equal to the exact controller/run.json hash.",
+    "Adapter configuration records exact OBSERVED_CHANNELS order plus applied command roles throttle/aileron/elevator, source model fingerprints and shared borrowed covariance identities. Refuse channel/time/history mismatches rather than reinterpret arrays."
+  ],
+  "frozen_before_implementation_and_measurements": true
+}
