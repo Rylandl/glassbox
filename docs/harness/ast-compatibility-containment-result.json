@@ -1,0 +1,132 @@
+{
+  "id": "ast-compatibility-containment-result",
+  "date": "2026-09-18",
+  "evidence_sha256": "ad9cce06292c517c4a09f11821055ce961cdc0f6673517b440a136bdde188677",
+  "evidence": {
+    "kind": "historical_harness_compatibility_containment",
+    "date": "2026-09-18",
+    "no_fit": true,
+    "no_trials": true,
+    "before_commit": "548cc6d",
+    "after_commit": "c69b20ca4339093281d5e2ecb50a34920ee0b762",
+    "reverted_commit": "ed813e5",
+    "python": "3.13.11",
+    "source": "src/glassbox/experimental/api_migration.py",
+    "corrected_source_sha256": "e398c248f04181762ba779c25ebee42d211b79b8e67248afb7ff245c91ad6d8e",
+    "restored_source_sha256": "da0e22bf8727abe19b94a773acda6e89b82d76385647769d387a938e6147b80b",
+    "selected_tests": [
+      "tests/test_task_qualification.py::test_plan_pins_every_inherited_source_and_eight_trials",
+      "tests/test_solver_tracking.py::test_frozen_population_sources_inputs_and_measurement_only_decision",
+      "tests/test_solver_budget.py::test_frozen_protocol_pins_complete_parent_and_fixed_origins",
+      "tests/test_solver_precision.py::test_frozen_population_and_backend_options_remain_fixed",
+      "tests/test_solver_termination.py::test_frozen_protocol_is_diagnostic_and_keeps_every_source_and_input",
+      "tests/test_quasi_newton_qualification.py::test_frozen_source_parent_and_protocol_pins"
+    ],
+    "before_selected_result": {
+      "failed": 6,
+      "passed": 0,
+      "reason": "Every selected test rejected the changed api_migration.py raw byte pin."
+    },
+    "after_selected_result": {
+      "failed": 0,
+      "passed": 6,
+      "duration_seconds": 0.26
+    },
+    "frozen_plan_before": {
+      "task_qualification": {
+        "passed": false,
+        "error_type": "ValueError",
+        "message": "task qualification inherited source changed: src/glassbox/experimental/api_migration.py"
+      },
+      "solver_tracking": {
+        "passed": false,
+        "error_type": "ValueError",
+        "message": "tracking inherited source changed: src/glassbox/experimental/api_migration.py"
+      },
+      "solver_budget": {
+        "passed": false,
+        "error_type": "ValueError",
+        "message": "solver budget inherited source changed: src/glassbox/experimental/api_migration.py"
+      },
+      "solver_precision": {
+        "passed": false,
+        "error_type": "ValueError",
+        "message": "precision inherited source differs: src/glassbox/experimental/api_migration.py"
+      },
+      "solver_termination": {
+        "passed": false,
+        "error_type": "ValueError",
+        "message": "termination inherited source differs: src/glassbox/experimental/api_migration.py"
+      },
+      "quasi_newton_qualification": {
+        "passed": false,
+        "error_type": "ValueError",
+        "message": "quasi-Newton inherited source changed: src/glassbox/experimental/api_migration.py"
+      },
+      "first_order_qualification": {
+        "passed": false,
+        "error_type": "ValueError",
+        "message": "first-order inherited source changed: src/glassbox/experimental/api_migration.py"
+      },
+      "action_response": {
+        "passed": false,
+        "error_type": "ValueError",
+        "message": "action-response inherited source differs: src/glassbox/experimental/api_migration.py"
+      },
+      "qualification": {
+        "passed": true,
+        "protocol": "evaluation-qualification-v1"
+      },
+      "api_migration": {
+        "passed": true,
+        "protocol": "generic-public-api-v1"
+      }
+    },
+    "frozen_plan_after": {
+      "task_qualification": {
+        "passed": true,
+        "protocol": "controller-task-v1"
+      },
+      "solver_tracking": {
+        "passed": true,
+        "protocol": "solver-tracking-v1"
+      },
+      "solver_budget": {
+        "passed": true,
+        "protocol": "solver-budget-v1"
+      },
+      "solver_precision": {
+        "passed": true,
+        "protocol": "solver-precision-v1"
+      },
+      "solver_termination": {
+        "passed": true,
+        "protocol": "solver-termination-v1"
+      },
+      "quasi_newton_qualification": {
+        "passed": true,
+        "protocol": "solver-quasi-newton-v1"
+      },
+      "first_order_qualification": {
+        "passed": true,
+        "protocol": "solver-first-order-v1"
+      },
+      "action_response": {
+        "passed": true,
+        "protocol": "action-response-v1"
+      },
+      "qualification": {
+        "passed": true,
+        "protocol": "evaluation-qualification-v1"
+      },
+      "api_migration": {
+        "passed": true,
+        "protocol": "generic-public-api-v1"
+      }
+    },
+    "containment": "Main restores the original byte-pinned normalizer and removes its correction-only tests. The corrected normalizer remains in the isolated controller-anticipation experiment, whose own frozen protocol pins that source and validates its current inputs directly. No historical protocol hashes, source validators, numerical model, or saved evaluation outcomes were changed.",
+    "remaining_limitation": "The original normalized AST pins are Python 3.13-format dependent: the unchanged historical normalizer still fails on Python 3.12 despite identical source bytes. Historical replay must use the compatible interpreter/checkout. The isolated portability correction does not authorize old whole-checkout validators to accept changed sources.",
+    "evidence_scope": "These are minimal historical pin tests and direct frozen_plan checks, not a claim that the entire project test suite or any numerical trial was rerun."
+  },
+  "decision": "Retain correction only in isolated research checkouts. Main source restoration atc69b20c preserves allhistoricalbytepins. OriginalPython3.12normalizedASTlimitation remains; no historical protocols or outcomes rewritten."
+}

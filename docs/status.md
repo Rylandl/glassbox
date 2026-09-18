@@ -190,9 +190,11 @@ nine skip and one inherited migration source-check test fails. The failure is a
 Python 3.12/3.13 AST serialization difference on byte-identical sources, confirmed
 with complete AST comparison; the experiment's 93 raw-byte source pins pass.
 Ruff passes. The original remote suite is not described as fully green. The
-separate compatibility correction `b4e8126` preserves every historical protocol/hash;
-53 focused local checks pass, and 45 remote checks pass with eight artifact skips.
-Historical experiment replay still uses its original isolated checkout.
+separate compatibility correction `b4e8126` passes 53 local and 45 remote
+checks (eight remote artifact skips), but stays isolated: integrating it changed
+byte-pinned historical sources. Main restoration `c69b20c` passes all six affected
+tests and ten source validators; the [containment record](harness/ast-compatibility-containment-result.json)
+anchors the check. Historical replay uses its pinned interpreter and checkout.
 No public recipe, uncertainty envelope, controller or live-update result is
 promoted by this research qualification.
 
