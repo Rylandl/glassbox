@@ -1,0 +1,10 @@
+{
+  "protocol": "two-simulator-flight-v1",
+  "protocol_changes": [],
+  "failed_implementation": "e3faf3e",
+  "failure": "Cascade requested surface-angle channels used generalized_surface_angle, which is not an actionable command semantic. Structured fitting completed, but saved-model prediction refused the absent actuation map before producing a test forecast.",
+  "correction": "Use the existing surface_angle_command semantic with unchanged radian units, channel ordering and bounds. Add a serialization-to-default-actuation regression test.",
+  "reexecution": "Preserve the complete first attempt, regenerate the same fixed recordings, and repeat each fixed fit and evaluation under the corrected committed harness. No new seeds, condition selection, learner change, score change or tuning.",
+  "preserved_attempt": "artifacts/2026-09-18/two-simulator-flight-v1-attempt-1",
+  "incomplete_manifest_sha256": "6a91974577fca8c7021012ac4c4118ac32c7b6322ee51ad083df3918512ca813"
+}

@@ -165,6 +165,36 @@ def test_configuration_and_native_state_layout(fixture):
     identical(np.asarray(_pack(fixture._unpack(jnp.asarray(vector)))), vector)
 
 
+def test_serialized_fixture_spec_has_an_actionable_identity_map(fixture):
+    from glassbox.core.data import TrajectorySpec
+    from glassbox.core.model import DirectActuationMap, default_actuation
+
+    restored = TrajectorySpec.from_dict(fixture.spec.to_dict())
+    actuation = default_actuation(restored)
+    assert isinstance(actuation, DirectActuationMap)
+    assert actuation.model_control_size == 3
+    assert [channel.semantic for channel in actuation.command_channels] == [
+        "normalized_command",
+        "surface_angle_command",
+        "surface_angle_command",
+    ]
+    assert [channel.unit for channel in actuation.command_channels] == [
+        "1",
+        "rad",
+        "rad",
+    ]
+    np.testing.assert_array_equal(
+        [channel.minimum for channel in actuation.command_channels], fixture.lower
+    )
+    np.testing.assert_array_equal(
+        [channel.maximum for channel in actuation.command_channels], fixture.upper
+    )
+    # The executable boundary must accept the same signed radian values saved
+    # in recordings, without scaling, remapping or treating them as observations.
+    for command in (fixture.lower, np.asarray([0.7, 0.11, -0.23]), fixture.upper):
+        identical(np.asarray(actuation.model_control(jnp.asarray(command))), command)
+
+
 @pytest.mark.parametrize("wind", ["calm", "constant", "gust"])
 def test_exact_saved_factual_branch_preserves_all_hidden_state(fixture, protocol, wind):
     cell = condition(protocol, wind=wind, heading=90)

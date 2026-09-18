@@ -148,7 +148,7 @@ class Fixture:
                     maximum=float(self.upper[index]),
                     semantic="normalized_command"
                     if index == 0
-                    else "generalized_surface_angle",
+                    else "surface_angle_command",
                     unit="1" if index == 0 else "rad",
                 )
                 for index, channel in enumerate(self.spec.channels)
