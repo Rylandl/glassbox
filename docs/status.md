@@ -11,18 +11,26 @@ tracking requirement: each scores 2,248/2,248 qualifying samples and passes all
 eight fresh trials. All sixteen trajectories and 4,960 optimizer decisions/forecasts
 replay exactly, and five rehashed alterations are rejected.**
 
+**Product priority, 2026-09-18:** accurate learned dynamics with a clear model
+contract for independently chosen controllers and other consumers. The general
+controller remains a desirable optional reference application. The next priority
+is direct model qualification across JSBSim, followed by consumer demonstrations.
+This user-directed policy change does not modify any frozen experiment, gate or
+result, and does not qualify the existing model for additional systems.
+
 Read [the charter](charter.md) first. This page records the current gaps and
 next iteration; git and frozen result records retain experiment history.
 
 | Criterion | Current | Target |
 | --- | --- | --- |
 | One recipe | **Met.** The public API and fit/evaluate commands use the single adopted generic recipe, with no model-selection options. | One generic learner and consumer contract. |
-| Accuracy | **Adopted with a known tradeoff.** Four of five corpora beat structured comparators on both metrics; ARP loses both. In a separate simulator study, paired-response supervision improves aggregate response error 65.1% and factual error 31.4% against the same-data, same-budget forecast-only learner. Public integration and arbitrary-system transfer remain unproved. | Broad competitive forecasts from one platform-independent recipe; task sufficiency measured separately. |
+| Accuracy | **Adopted with a known tradeoff.** Four of five corpora beat structured comparators on both metrics; ARP loses both. In a separate simulator study, paired-response supervision improves aggregate response error 65.1% and factual error 31.4% against the same-data, same-budget forecast-only learner. JSBSim breadth and arbitrary-system transfer remain unmeasured. | Broad competitive forecasts and command responses from one platform-independent recipe; direct model errors and downstream task sufficiency measured separately. |
+| Model usability | **Partly met.** The public model has a saved signal/time contract, batched JAX-compatible forecasts, immutable revisions and error envelopes. Independent controller integration and broader runtime/export portability have not been demonstrated. | A documented model artifact and public interface usable independently of the Glassbox controller, with explicit scope and evidence. |
 | Capability | **Met.** All 27 frozen synthetic cases pass; saved models replay and reject alteration. These are regression guards, not platform readiness. | Every synthetic absolute cap passes. |
-| Control | **Met by both isolated research learners; adopted public model not yet tested with the new controller.** Forecast-only and paired-response means each score 2,248/2,248 and pass all eight trials under the same anticipatory controller. Exact replay and integrity checks pass. | The adopted generic learner controls Cascade within the declared tracking requirement. |
-| Live improvement | **Not met.** Last live-v3 swaps at intervals 140/220 increase position error from 0.80/0.98 m to 36.1/11.8 m. Not remeasured. | Bounded refits and swaps that do not worsen tracking. |
-| Evidence | **Not met.** The 85–95% coverage band still fails on ARP, the reserved control recording and shifted synthetic regimes. Borrowed constant spread is not calibrated uncertainty for a new predictor. | Measured coverage in the declared band, consumed usefully by control. |
-| Lean | **Not met.** Structured dynamics, fitting, belief code and research scripts remain. | Learner, harness, telemetry adapters and controller only. |
+| Reference control | **Demonstrated by both isolated research learners; adopted public model not yet tested with the new controller.** Forecast-only and paired-response means each score 2,248/2,248 and pass all eight trials. Exact replay and integrity checks pass. | Separately qualified downstream demonstrations; one universal controller is optional for the model product. |
+| Live improvement | **Not met.** No new model-update forecast/response qualification has been run under the clarified priorities. Last live-v3 swaps at intervals 140/220 increase position error from 0.80/0.98 m to 36.1/11.8 m; those failures remain unresolved. | Bounded immutable revisions with held-out model improvement/regression checks; consumer adoption and any live-control claim qualified separately. |
+| Evidence | **Not met.** The 85–95% coverage band still fails on ARP, the reserved control recording and shifted synthetic regimes. Borrowed constant spread is not calibrated uncertainty for a new predictor. | Measured prediction coverage in the declared band, exposed with calibration provenance independently of a controller. |
+| Lean | **Not met.** Structured dynamics, fitting, belief code and research scripts remain. | Learner, model artifacts/interfaces, harness, telemetry adapters and optional downstream consumers. |
 
 ## Current forecast evidence
 
@@ -170,29 +178,39 @@ does not change that recipe or consumer behavior.
 
 ## Next named gap
 
-**Readiness of the saved adopted public v3 learner under the qualified controller.**
-Freeze a no-fit comparison of that exact archive against `full_mse_6000`, on fresh
-matched seeds with the same controller, ten real history-fill holds, solver budget
-and identical covariance coefficients. Check native32 public `predict` parity with
-the compressed adapter, and preserve captured32 memory/current observations in64
-planning. Evaluate the unchanged absolute 95% requirement and reliability; report
-RMSE/work/timing differences without demanding tolerance gain over a saturated
-comparator. The previous qualified results stay immutable.
+**Controller-independent model qualification on JSBSim.** Before fitting, freeze
+one model-evaluation protocol: simulator version and complete model inventory,
+observation/command contracts, valid initial conditions and operating regimes,
+recording generation, per-system data/compute budgets, held-out recordings and
+systems, supported forecast horizons, comparisons and acceptance criteria. The
+same learner is fitted separately to each system; held-out-system evaluation tests
+the frozen recipe, not unseen-system transfer of one set of weights. No JSBSim
+protocol has yet been committed and no JSBSim model has been fitted or evaluated.
 
-The adopted archive has the same 3,945-parameter architecture and timing as the
-research models, but different weights and normalization. It was selected at step
-600 of 1,000 from 292 training windows in two recordings and 146 development windows
-in one recording; research used 40/12 train/development parents and 6,000 steps.
-A difference would implicate this complete training/data package, not establish a
-need for a larger architecture or paired loss. No new forecast measurement of the
-adopted archive has yet been made.
+Measure forecasts and command responses directly, with per-channel/per-horizon
+errors in physical units, declared aggregation across systems, envelope coverage,
+onboarding cost and evaluation latency. Include controlled command interventions
+where the evaluator can support them; derivative correctness in software and
+physical response fidelity are separate checks. The learner uses its declared
+recordings, not JSBSim equations or hidden evaluator state. Freeze the data
+collection assumptions, including whether any simulator-specific facility supplies
+training labels, before claiming applicability to ordinary recordings. Keep setup
+failures, unsupported cases and measured model failures visible in the inventory.
 
-Public integration still needs measured uncertainty and a successful live-update
-gate. Broad arbitrary-system evidence remains separate from this task. Research
-into ordinary-recording response supervision found that exact conditional centering
-adds no causal information, a misspecified command distribution can bias a correct
-response, and one-step targets miss delayed effects. A randomized five-step recording
-experiment is a possible later test; it is not implemented or a new consumer
-requirement. An explicit latent-state architecture remains an option when a named
-representation failure warrants it. Current evidence does not show this architecture
-is exhausted.
+The accompanying usability target is a model another application can load and
+query through the public contract, with units, frames, history, horizon, revision
+identity and measured error evidence. Existing Python/JAX prediction, batching,
+autodifferentiation and save/load provide the starting point. Solver-specific
+exports or a continuous-time/physical-parameter representation are not currently
+promised. A runnable external-consumer example should demonstrate the boundary.
+
+The previously proposed no-fit adopted-v3 controller comparison remains a useful
+downstream diagnostic, but is no longer the next primary model-qualification
+iteration. The adopted archive shares the research architecture but has different
+weights, normalization and a smaller training/data budget. It has not been
+remeasured under the successful controller. Preserve all existing results and
+qualify any future controller or live-swap claim for its own declared task.
+
+Measured uncertainty, reliable updates and broader system coverage remain open.
+An explicit latent-state architecture remains an option when a named representation
+failure warrants it. Current evidence does not show this architecture is exhausted.

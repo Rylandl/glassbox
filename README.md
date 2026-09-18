@@ -5,12 +5,18 @@ and commands. One maintained recipe provides `fit`, `predict` and `update`;
 callers supply signal identities, units, timing, recording boundaries and a
 configuration ID.
 
+The learned model is the product. Use its forecasts, derivatives and saved
+revisions with your own controller, planner, estimator or analysis code.
+Glassbox's experimental controller is an optional reference consumer.
+
 The generic learner is the adopted development baseline. The same recipe is
 fitted separately to each system. Current evidence covers five flight corpora:
-it beats the structured comparators on four and loses on ARP. Control and
-error-envelope coverage remain open problems. [Status](docs/status.md) records
-the measurements; adopting this API does not establish performance on arbitrary
-systems or successful control.
+it beats the structured comparators on four and loses on ARP. Two isolated
+research learners now meet a declared simulator tracking task; the adopted
+public model has not yet been qualified with that improved controller.
+Error-envelope coverage and reliable updates remain open problems.
+[Status](docs/status.md) records the measurements and the proposed JSBSim model
+benchmark. Performance across arbitrary systems remains unproved.
 
 ## Install
 

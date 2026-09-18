@@ -1,14 +1,22 @@
 # Charter: one generic dynamics learner
 
-Glassbox learns a differentiable dynamics model of any uniformly sampled
-system from recordings of its observed signals and commands, and improves that
-model live as new recordings arrive. The caller supplies signals, units,
+Glassbox aims to learn a differentiable dynamics model of any uniformly sampled
+system from recordings of its observed signals and commands, and produce improved
+revisions as new recordings arrive. System coverage and revision improvements
+must be demonstrated by evaluation. The caller supplies signals, units,
 timing, and recording boundaries. Nothing else. One recipe, one module, three
 calls: `fit`, `predict`, `update`. No platform families, no catalog, no
 options, no branches on what the system is.
 
-The goal is to make the structured quadrotor and fixed-wing models
-unnecessary. Generality takes priority over winning every benchmark case.
+The product is an accurate learned dynamics model that other applications can
+inspect, save, differentiate and use through a clear signal and timing contract.
+Applications choose their own controller, planner, estimator or analysis tool.
+A Glassbox controller is an optional reference consumer and a useful demonstration
+of model quality. Using it is not a condition of using the learner.
+
+The goal is to make hand-written system dynamics unnecessary where the learned
+model meets the consumer's accuracy and evidence requirements. Generality takes
+priority over winning every benchmark case.
 The generic learner is the adopted development baseline; documented losses
 on individual systems are improvement work, not an automatic veto on that
 choice. [`status.md`](status.md) holds the current gap against the
@@ -24,12 +32,22 @@ protocols frozen and committed before each implementation change.
 | Criterion | Done means |
 | --- | --- |
 | One recipe | A single versioned recipe in a single module. `fit(recordings)`, `model.predict(...)`, `model.update(recordings)`. The consumer contract has no options. |
-| Accuracy | Broad competitive forecast performance on held-out recordings across systems from one platform-independent recipe. Report per-system gains and losses against structured comparators on identical rows; superiority on every corpus is not required. Task sufficiency uses a separately declared application requirement and its actual metric; historical model-error percentiles are not task requirements. |
+| Accuracy | Broad competitive prediction and command-response accuracy on held-out recordings and declared interventions across systems from one platform-independent recipe. Report errors across supported horizons in physical units, per-system gains and losses, and conditions tested. Superiority on every corpus is not required. Derivatives existing computationally does not establish that they match physical responses. |
+| Model usability | A self-contained saved revision with a documented signal, units, frames, timing, history and horizon contract; reproducible batched predictions and usable derivatives; measured error evidence and explicit limitations. Consumers use public interfaces without importing Glassbox controller internals. A third-party controller or analysis integration demonstrates that boundary. |
 | Capability | The synthetic suite, including delayed inputs and hidden state, passes its absolute caps. It is a fast regression guard, not a place to win. |
-| Control | Cascade tracking through the plant and NMPC seam meets the declared application tracking requirement on held-out trials. Structured and oracle arms provide diagnostic comparisons; outperforming an inadequate comparator does not establish task success. |
-| Live improvement | During a Cascade run the learner refits on streamed recordings within a bounded budget and swaps the active model when a predeclared held-out threshold is met. Tracking after the swap is no worse than before. |
-| Evidence | Every forecast carries a measured error envelope whose held-out coverage lands in a declared band, and the controller's robustness terms consume it. |
-| Lean | The structured models, the belief format, and the research scripts are deleted. What remains is the learner, the harness, the telemetry adapters, and the controller. |
+| Reference control | A separately declared downstream task demonstrates that learned dynamics can support control. Each controller is qualified for its own task; one universal controller is not a requirement for the model product. Control success does not replace direct model-accuracy evidence. |
+| Live improvement | The learner produces immutable revisions within a bounded update budget, with improvement and regression criteria frozen before evaluation on untouched recordings and response queries. Applications decide when to adopt revisions. Any claim of safe live controller swapping additionally requires its own downstream no-regression trial. |
+| Evidence | Predictions expose measured error envelopes and their calibration provenance; coverage on held-out recordings and declared shifts lands in a predeclared band. Any downstream use of that evidence is evaluated separately. |
+| Lean | The structured models, the belief format, and obsolete research scripts are deleted. What remains is the learner, model artifacts and interfaces, the harness, telemetry adapters, and optional downstream consumers. |
+
+## Product priority, 2026-09-18
+
+The user's priority is accurate, usable learned system dynamics. A general
+controller remains desirable as an optional consumer. JSBSim is a proposed
+benchmark for model breadth, with flying demonstrations as additional evidence.
+This is a prospective change in product priorities, not a newly passed experiment.
+All frozen protocols, historical control/update failures and qualification flags
+retain their original meaning.
 
 ## Rules
 
@@ -47,6 +65,11 @@ protocols frozen and committed before each implementation change.
 - Synthetic results never count as platform readiness. Fit quality, error
   calibration, and control adequacy are separate claims with separate
   evidence.
+- Primary model qualification does not require every application to use the
+  reference controller. Evaluate forecast accuracy, command-response fidelity,
+  uncertainty and interface usability directly. Task objectives, scheduling and
+  revision adoption belong to the consumer; task tolerances belong to its
+  separately declared evaluation.
 - Generality and broad empirical advantage can justify adoption despite
   localized losses. The adopted v3 baseline explicitly accepts its measured
   ARP deficit. Future improvements are judged against the generic baseline;

@@ -52,6 +52,19 @@ differentiable forecasts, saved model revisions and forecast-error evaluation.
 Applications own calibration data collection, state estimation, future command
 requests, objectives, execution scheduling and model adoption.
 
+Model accuracy and a usable representation are the primary product goals.
+Controllers may come from Glassbox or another project. A saved model should
+explain what each input/output means, how much history and which forecast
+horizons it supports, what error evidence exists, and which recipe and revision
+produced it. A usable representation does not imply recovered physical
+coefficients or human-readable governing equations.
+
+The current Python/JAX interface provides batched, differentiable forecasts and
+saved revisions. Portable runtimes, solver-specific exports and dedicated
+linearization interfaces are possible integration work, not current guarantees.
+One general controller is a desirable reference application, not a requirement
+that all consumers share objectives, actuation layouts or scheduling.
+
 A stabilizer, pilot or test fixture used to gather data is a calibration
 dependency. Learning from those recordings does not establish that an unknown
 vehicle can safely collect its own data.
@@ -95,9 +108,18 @@ the [runnable guide](guides/platform-onboarding.md) shows the public API.
 ## Downstream work and evidence
 
 Control, bootstrap identification and live model swapping remain experimental
-consumers. The current generic learner and even the accurate-dynamics
-qualification of its retained controller miss the application tracking
-criterion. Adoption of the generic API does not change those results.
+consumers. The qualified anticipatory oracle and both isolated research learners
+now meet the declared simulator tracking task. The adopted public learner has
+not yet been tested with that controller, and earlier live-swap failures remain
+unresolved. These are separate from direct qualification of model accuracy.
+
+The proposed JSBSim benchmark prioritizes held-out prediction and command-response
+accuracy, coverage, computation and onboarding effort under one fitting recipe.
+It must pin the inventory, supplied observations, operating conditions, training
+budgets and evaluation criteria before measuring models. Simulator internals
+belong to the evaluator; the learner receives only its declared recordings.
+Keep every inventoried model and setup failure visible. Control demonstrations
+add application evidence without defining every model's accuracy score.
 
 [Status](status.md) records current evidence and replay instructions.
 [Validation](validation.md) and the research reports retain historical

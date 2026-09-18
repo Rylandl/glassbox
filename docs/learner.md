@@ -23,7 +23,7 @@ recordings = SequenceCollection(
     ),
     configuration_id="system-revision-c",
     state_channels=("signal_a [m/s,world]", "signal_b [rad/s,body]"),
-    input_channels=("command [normalized,requested]",),
+    input_channels=("command [normalized,applied]",),
 )
 
 model = fit(recordings)
@@ -108,6 +108,27 @@ instead of hard-coding those lengths.
 Forecasts are JAX-compatible and differentiable in the future command sequence.
 The output coordinates are Euclidean: the learner does not enforce rotation
 manifolds or other physical constraints.
+
+## Using a model in another application
+
+Consumers need no Glassbox controller. Load a saved `LearnedDynamics`, inspect
+its `contract`, `history_steps` and `horizon_steps`, and query `predict` with
+the declared observation history and candidate commands. Batched queries serve
+candidate comparison; JAX automatic differentiation can form command sensitivities
+for an optimizer or local analysis. Correctly computing a derivative of the
+learned function does not establish physical response accuracy; that requires
+separate held-out response evidence.
+
+This artifact represents dynamics in the supplied observation coordinates,
+conditioned on the required history. It is not necessarily a Markov model of
+the latest observation alone, a continuous-time differential equation, or a set
+of identified physical parameters. Consumers own any coordinate conversion,
+state estimator, objective, constraints and scheduling. Those choices do not
+select a different fitting recipe.
+
+The current artifact/runtime contract is Python/JAX with the supported recipe
+format. `save` and `load` preserve model identity and evidence; they do not
+currently promise an export for every external solver or deployment runtime.
 
 ## Immutable updates and saved revisions
 
@@ -206,7 +227,7 @@ The platform, control and live plans are
 [platform-v4](harness/platform-v4.json),
 [control-v5](harness/control-v5.json) and [live-v3](harness/live-v3.json).
 The [evidence plan](harness/evidence-v2.json) measures coverage.
-[Status](status.md#evidence-and-replay) identifies saved evidence and the source
+[Status](status.md#evidence-and-compatibility) identifies saved evidence and the source
 versions needed for replay. Synthetic passes are regression evidence, not
 readiness for a new system.
 
@@ -215,5 +236,7 @@ rigid-body NMPC seam. It converts world velocities, body rates and rotation
 entries into the controller's state coordinates and carries observed history.
 Its uncertainty cost currently uses a fixed forecast-error offset: that cannot
 rank command plans, but can change finite-iteration stopping. The qualified
-oracle comparison in [status](status.md) shows that even accurate observed
-predictions through this seam do not meet the declared control task.
+anticipatory oracle and isolated research learners in [status](status.md) now
+meet the declared task. Those results do not automatically qualify the public
+model or other controller integrations. Model accuracy remains a directly
+measured product property, and each consumer has its own task requirements.
