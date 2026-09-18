@@ -13,8 +13,11 @@ lose, and command-response accuracy remains worse in both simulators.
 
 **Current evaluation priority, 2026-09-18:** controlled Crazyflow and Cascade
 environments are running, with 42 condition cells per simulator, 360 parent
-recordings and a verified frozen prediction/response baseline. The next gap is
-state-dependent command response. Dart's earlier forecast failures remain
+recordings and a verified frozen prediction/response baseline. The objective is
+to reduce held-out forecast and command-response residuals in physical units;
+structured-model comparisons provide context rather than the finish line.
+The next gap is state-dependent command response. Dart's earlier forecast
+failures remain
 valid evidence; broader data and changed Cascade physics do not retrospectively
 fix that study. Further JSBSim breadth work is deferred. Frozen results and
 qualification flags retain their original meaning.
@@ -25,7 +28,7 @@ next iteration; git and frozen result records retain experiment history.
 | Criterion | Current | Target |
 | --- | --- | --- |
 | One recipe | **Met.** The public API and fit/evaluate commands use the single adopted generic recipe, with no model-selection options. | One generic learner and consumer contract. |
-| Accuracy | **Adopted; command response remains a gap.** At 250 ms in the new two-simulator baseline, the generic learner modestly wins Cascade's primary velocity/rate forecasts, loses Crazyflow's, and loses command-response accuracy in both. Crazyflow scores are conditional on valid truth prefixes. The earlier four-of-five corpus advantage and isolated paired-supervision gains retain their original scope. Arbitrary-system transfer remains unmeasured. | Broad competitive forecasts and command responses from one platform-independent recipe; direct model errors and downstream task sufficiency measured separately. |
+| Accuracy | **Adopted; command response remains a gap.** At 250 ms in the new two-simulator baseline, the generic learner modestly wins Cascade's primary velocity/rate forecasts, loses Crazyflow's, and loses command-response accuracy in both. Crazyflow scores are conditional on valid truth prefixes. The earlier four-of-five corpus advantage and isolated paired-supervision gains retain their original scope. Arbitrary-system transfer remains unmeasured. | Low held-out forecast and command-response residuals in physical units across conditions and horizons, with progress against the adopted generic baseline; application adequacy measured separately. |
 | Model usability | **Partly met.** The public model has a saved signal/time contract, batched JAX-compatible forecasts, immutable revisions and error envelopes. Independent controller integration and broader runtime/export portability have not been demonstrated. | A documented model artifact and public interface usable independently of the Glassbox controller, with explicit scope and evidence. |
 | Capability | **Met.** All 27 frozen synthetic cases pass; saved models replay and reject alteration. These are regression guards, not platform readiness. | Every synthetic absolute cap passes. |
 | Reference control | **Demonstrated by both isolated research learners; adopted public model not yet tested with the new controller.** Forecast-only and paired-response means each score 2,248/2,248 and pass all eight trials. Exact replay and integrity checks pass. | Separately qualified downstream demonstrations; one universal controller is optional for the model product. |
@@ -300,6 +303,17 @@ additive command changes cannot have different effects at different attitudes
 or histories. Cascade also loses response accuracy despite competitive factual
 velocity/rate forecasts. Investigate one platform-independent learned
 state–input interaction mechanism against the unchanged generic baseline.
+This is the next bounded mechanism to investigate within the broader objective
+of improving both forecasts and command responses.
+
+Judge progress by reduced held-out residuals, including their physical
+magnitudes and large-error conditions, rather than a structured-model win
+count. Keep ordinary forecast and command-response errors separate, and retain
+per-simulator, per-horizon and per-condition reporting. A lower training loss
+alone is not evidence of progress. Broad improvement can justify localized
+losses within the predeclared regression limits; neither matching nor beating
+the structured model establishes that the remaining error is adequate for an
+application. No new absolute error tolerance has yet been qualified.
 
 Freeze the candidate, matched generic data/optimizer budgets, development
 selection rule, response metrics, factual-regression limits and aggregate

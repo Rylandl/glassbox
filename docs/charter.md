@@ -32,7 +32,7 @@ protocols frozen and committed before each implementation change.
 | Criterion | Done means |
 | --- | --- |
 | One recipe | A single versioned recipe in a single module. `fit(recordings)`, `model.predict(...)`, `model.update(recordings)`. The consumer contract has no options. |
-| Accuracy | Broad competitive prediction and command-response accuracy on held-out recordings and declared interventions across systems from one platform-independent recipe. Report errors across supported horizons in physical units, per-system gains and losses, and conditions tested. Superiority on every corpus is not required. Derivatives existing computationally does not establish that they match physical responses. |
+| Accuracy | Low held-out prediction and command-response residuals across systems from one platform-independent recipe. Report errors across supported horizons in physical units, per-system gains and losses, and conditions tested. Improvement is measured against the adopted generic baseline; structured and simple models provide context, not an accuracy ceiling or a completion criterion. Application adequacy requires separately declared tolerances. Superiority on every corpus is not required. Derivatives existing computationally does not establish that they match physical responses. |
 | Model usability | A self-contained saved revision with a documented signal, units, frames, timing, history and horizon contract; reproducible batched predictions and usable derivatives; measured error evidence and explicit limitations. Consumers use public interfaces without importing Glassbox controller internals. A third-party controller or analysis integration demonstrates that boundary. |
 | Capability | The synthetic suite, including delayed inputs and hidden state, passes its absolute caps. It is a fast regression guard, not a place to win. |
 | Reference control | A separately declared downstream task demonstrates that learned dynamics can support control. Each controller is qualified for its own task; one universal controller is not a requirement for the model product. Control success does not replace direct model-accuracy evidence. |
@@ -59,6 +59,17 @@ more focused setting for improving the learner than expanding JSBSim setup work.
 JSBSim results remain valid diagnostic evidence; further breadth work is deferred.
 This changes evaluation priority, not the one generic learner or its consumer
 contract, and does not qualify any new model or controller.
+
+The user's subsequent clarification makes reducing held-out residuals the
+primary objective of this benchmark. Track forecast and command-response
+errors in physical units across horizons and conditions, including large-error
+cases. Beating a structured reference does not finish the work, and reducing
+residuals remains useful even while that reference is better. Use matched
+comparisons with the adopted generic learner to establish progress; freeze
+aggregate weights and regression limits before each experiment. Keep missing
+truth and failed conditions visible so a smaller or easier evaluated subset
+cannot masquerade as lower error. No absolute adequacy threshold is inferred
+from comparator performance or introduced retrospectively.
 
 ## Rules
 
