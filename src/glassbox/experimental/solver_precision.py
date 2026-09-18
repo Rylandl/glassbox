@@ -311,6 +311,14 @@ def report_from_records(plan, trials, records):
                 maximum_normalized_block_change=None
                 if b is None
                 else float(np.max(np.abs(np.asarray(b["blocks"]) - a["blocks"]))),
+                common_command_maximum_absolute_change_by_channel=None
+                if b is None
+                else np.max(
+                    np.abs(np.asarray(b["commands"]) - a["commands"]), axis=0
+                ).tolist(),
+                common_first_command_absolute_change_by_channel=None
+                if b is None
+                else np.abs(np.asarray(b["commands"])[0] - a["commands"][0]).tolist(),
             )
         )
 
@@ -343,6 +351,14 @@ def report_from_records(plan, trials, records):
             "maximum_normalized_block_change",
         ):
             result[key] = distribution([r[key] for r in selected])
+        for key in (
+            "common_command_maximum_absolute_change_by_channel",
+            "common_first_command_absolute_change_by_channel",
+        ):
+            result[key] = [
+                distribution([None if r[key] is None else r[key][i] for r in selected])
+                for i in range(3)
+            ]
         result["objective_gains_ties_losses"] = {
             label: sum(
                 r["objective_reduction"] is not None
