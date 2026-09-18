@@ -16,10 +16,11 @@ environments are running, with 42 condition cells per simulator, 360 parent
 recordings and a verified frozen prediction/response baseline. The objective is
 to reduce held-out forecast and command-response residuals in physical units;
 structured-model comparisons provide context rather than the finish line.
-The first state–command interaction experiment improves the weighted response
-score 14.8% and forecast score 3.8%, but fails its Crazyflow rate-response tail
-guard. The public learner is unchanged. Next address the growing angular
-response error during rollout. Dart's earlier forecast failures remain valid evidence; broader data and changed Cascade physics do not retrospectively
+The autonomous quadratic experiment improves weighted forecast/response scores
+15.4%/15.4% against the public learner, but worsens Crazyflow angular responses
+to 3.27 times the public error and fails its frozen criteria. The public learner
+is unchanged. Next test independent command excitation in training recordings
+while holding the quadratic architecture and unperturbed evaluation fixed. Dart's earlier forecast failures remain valid evidence; broader data and changed Cascade physics do not retrospectively
 fix that study. Further JSBSim breadth work is deferred. Frozen results and
 qualification flags retain their original meaning.
 
@@ -37,40 +38,48 @@ next iteration; git and frozen result records retain experiment history.
 | Evidence | **Not met.** New primary 250 ms velocity/rate coverage is 85.8–89.7%, but extreme-maneuver coverage falls to 47.4–68.3%. Crazyflow additionally has missing truth after altitude failures. Earlier ARP, reserved-control and shifted-synthetic failures remain. Borrowed constant spread is not calibrated uncertainty for a new predictor. | Measured prediction coverage in the declared band, exposed with calibration provenance independently of a controller. |
 | Lean | **Not met.** Structured dynamics, fitting, belief code and research scripts remain. | Learner, model artifacts/interfaces, harness, telemetry adapters and optional downstream consumers. |
 
-## Current learned-interaction experiment
+## Current autonomous quadratic experiment
 
-[State-input interaction v1](harness/state-input-interaction-v1-result.json)
-adds a jointly ridge-initialized bilinear state–command output path, keeping the
-existing memory and neural paths unchanged. Calibration data, windows, optimizer
-updates and minibatch draws match the public baseline; test seeds are fresh.
-The weighted response/factual RMSE ratios are **0.85171 / 0.96153**, with paired
-parent-bootstrap 95% intervals **[0.83934, 0.86241] / [0.94970, 0.97334]**.
-These are gains across the declared weighted score, not a pooled physical MSE.
+[Autonomous state quadratic v1](harness/autonomous-state-quadratic-v1-result.json)
+adds learned upper-triangular state–state output products alongside the preceding
+bilinear path. It uses identical calibration windows, optimizer updates and
+checkpoint rules, fresh test seeds and all prior public-baseline limits, plus a
+predeclared 20% angular-response improvement requirement against bilinear.
+Both older comparator refits reproduce their saved revisions exactly.
 
-At primary 250 ms, velocity-response error improves **0.17752→0.13612 m/s** in
-Crazyflow and **0.13391→0.08665 m/s** in Cascade. Crazyflow body-rate response
-worsens **0.31675→0.58325 rad/s**. Its parent-RMSE p95 grows
-**0.45006→0.69747 rad/s (1.549745×)**, exceeding the frozen 1.5 bound. Every
-other residual check passes, but the candidate is **not adopted**. This
-preserves the gains as evidence without retrospectively waiving the one failed
-criterion. No public recipe, envelope or controller is promoted.
-The rate-response regression is not one bad parent: all 24 Crazyflow primary
-cells worsen at 250 ms, with cell RMSE ratios of 1.48–2.15.
+Weighted factual/response ratios against public are **0.84566 / 0.84649**, with
+paired 95% intervals **[0.82051, 0.86916] / [0.83071, 0.86049]**. Against bilinear,
+they are **0.88313 / 0.99742**: forecast gains, essentially unchanged aggregate
+response error. These are weighted geometric RMSE ratios, not pooled physical
+MSEs. At primary 250 ms, Crazyflow velocity forecast/response errors improve
+**0.16834→0.09002 / 0.18166→0.09756 m/s**, but rate forecasts worsen
+**0.25001→0.43706 rad/s** and rate responses **0.33770→1.10416 rad/s**.
+Bilinear rate-response error on this same cohort is **0.60739 rad/s**. Cascade
+forecast velocity/rate errors improve **0.16570→0.12574 m/s / 0.11426→0.09423 rad/s**,
+and rate response **0.06573→0.05532 rad/s**. Its velocity response is better than
+public but worse than bilinear (**0.12533 / 0.08537 / 0.11417 m/s**).
 
-Both baseline refits reproduce their saved fingerprints exactly. The candidate
-adds 900/675 coefficients; matched update counts do not imply equal FLOPs.
-Crazyflow selects step zero in both arms, Cascade step 1,000. Crazyflow's
-collection pilot completes 133/180 parents, with 47 altitude failures;
-426/480 primary factual and 688/768 response queries have valid 250 ms truth.
-Both arms use exactly that same conditional cohort. Cascade completes all
-180 parents. Failures and missing slots remain in the report.
+The candidate is **not adopted**: the targeted angular-response criterion,
+Crazyflow primary response aggregate bound, and its factual/response rate-tail
+bounds fail. All 24 primary Crazyflow cells, four command channels and both
+probe signs have worse rate response than bilinear. This is severe under-response:
+roll/pitch truth RMS **1.843/1.852 rad/s**, predicted **0.379/0.761**. Errors already
+worsen at 10 ms. Development loss rewards a real tradeoff: rotation's contribution
+falls **0.04063→0.00833**, exceeding the rate contribution's increase
+**0.00469→0.01260**. Quadratic selects step 700 for Crazyflow, 1,000 for Cascade;
+its step-zero response is unsaved, so the failure cannot be assigned solely to
+later optimization. Correlations suggest observational ambiguity without proving
+causal confounding.
 
-All 55,788 physical/data/query arrays, saved predictions, 257,040 metric rows,
-decisions and bootstrap draws replay exactly. Independent NumPy checks cover
-180 groups at 250 ms, 60 physical comparisons, 120 tail records and 12 tail
-gates. All 12 tamper tests, 78 focused tests and Ruff pass. The
-[experiment guide](state-input-interaction.md) records physical errors, scope
-tradeoffs, uncertainty, collection failures and reproduction evidence.
+All eligible predictions are finite. Crazyflow completes **129/180** collections;
+51 altitude failures include 24 test parents. Primary 250 ms truth remains
+**420/480 factual / 703/768 response**, identical for all arms. Cascade completes
+all 180 parents. All **55,644 physical/data/query arrays**, predictions on 4,032
+queries, **342,720 metric rows**, decisions and bootstrap draws replay exactly.
+Independent 250 ms reductions, 12 tamper cases, 125 focused tests and the unchanged
+optimizer/source audit pass. The [experiment guide](autonomous-state-quadratic.md)
+records physical errors, rejected criteria, calibration and population limits,
+and reproduction. No public recipe, envelope, update or controller is promoted.
 
 ## Crazyflow and Cascade baseline evidence
 
@@ -332,31 +341,41 @@ does not change that recipe or consumer behavior.
 
 ## Next named gap
 
-**Separate nonlinear state evolution from command effects during rollout.**
-The bilinear path improves velocity responses in both simulators and overall
-Cascade response accuracy, while Crazyflow's rate-response regression grows
-from almost no change at 10 ms to 84% higher error at 250 ms. Its saved model
-is still the ridge initialization. Ordinary rate forecasts change little, so
-lower factual fit loss alone is not enough to select physically useful command
-responses.
+**Command-response learning under strongly correlated collection inputs.**
+More expressive state–command and state–state paths improve several forecast
+quantities without recovering Crazyflow's angular command sensitivity. The
+current factual objective can improve while rate prediction and response both
+worsen. This leaves input information and objective alignment as distinct gaps;
+test input information next rather than adding another output basis.
 
-Investigate one platform-independent autonomous nonlinear state-output path,
-using learned state–state products alongside the state–command products. This
-is a hypothesis about separating effects under correlated observational data,
-not a demonstrated explanation or an excuse to import aircraft equations.
-Compare to both the unchanged adopted generic baseline and the saved bilinear
-mechanism under matched data and optimizer budgets. Freeze the exact candidate,
-metrics, weights, factual and response regression limits before fitting; use
-fresh held-out parent seeds. The current test set is now diagnostic evidence.
+Investigate one explicit data intervention with the quadratic architecture fixed:
+independent command-space block perturbations in the original 72 training parents
+per simulator. Preserve the first 0.75 s, then add independent ±5% command-range
+offsets every 0.10 s to the existing pilot commands and clip to existing bounds.
+Use a separate deterministic random stream, the same normalized rule on both
+simulators, and unchanged physics, pilot, initial states and duration. Leave all
+24 development recordings untouched. Record assigned and realized perturbations,
+clipping, changed state support, admitted windows and every collection failure.
+No paired-branch supervision or hidden state becomes a learner input.
 
-Judge progress by reduced physical-unit forecast and response residuals across
-conditions and horizons, retaining large-error cases, weak probes and failed
-collection conditions. Structured references provide scale rather than an
-accuracy ceiling. Do not silently change the collection pilot or omit missing
-truth while attributing gains to the learner. Broad gains may justify local
-losses inside predeclared limits; do not move those limits after seeing results.
+This is a hypothesis about insufficient independent command variation conditional
+on observations and history, not a claim that both simulators lack command motion.
+Crazyflow motor commands move strongly together; Cascade already has sinusoidal
+dither and substantial surface variation, including saturated elevator commands.
+The intervention also changes visited states and failures, so a gain would support
+this collection recipe without isolating pure causal identification.
 
-Preserve the public recording contract and one platform-independent recipe.
-No platform branches, consumer tuning options or hidden simulator state enter
-fitting. Public promotion additionally needs capability and contract regression
-evidence; derivative, envelope and downstream controller claims remain separate.
+Before any new fitting or trials, freeze the precise random stream, modified data
+roles, budgets, comparator arms, aggregate weights and regression limits. Compare
+quadratic trained on original versus excited recordings, alongside the unchanged
+public learner, on a fresh unperturbed held-out cohort. Keep window counts and
+optimizer budgets fixed; report changed window origins or an unavailable fit when
+valid data are insufficient. Do not adapt excitation or replace failed parents
+after viewing outcomes. Previously inspected tests are now diagnostic evidence.
+
+Judge progress in physical-unit factual and response residuals across horizons,
+conditions and tails, including weak probes and all missing truth. Preserve the
+one generic recipe and public recording contract. Public promotion still requires
+capability and contract evidence; derivative, envelope, update and controller
+claims remain separate. Objective alignment remains a subsequent hypothesis if
+independent excitation does not resolve the response deficit.
