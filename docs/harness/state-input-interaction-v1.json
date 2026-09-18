@@ -743,8 +743,8 @@
     "uncertainty": "1000 paired bootstrap draws, seed20260918: independently resample whole parents with replacement within each cell, sharing each draw across arms, horizons, groups and query kinds. Recompute hierarchical scores and aggregate ratios; report percentile95% intervals descriptively, not an extra acceptance gate. Two simulator configurations do not establish a population of systems."
   },
   "evaluation": {
-    "aggregation": "Report each cell and each parent. At each scope/horizon/group average origin MSE equally within parent, then equally across parents within cell, then equally across cells; take square root last. Primary and each shift family are separate. Do not combine physical units. Optional cross-simulator ratios weight simulators equally, only when both fully reported. Report available-truth conditional means with all planned,truth-eligible,predicted-finite,failed,empty-parent/empty-cell counts; no unqualified headline from an incomplete cohort. Paired generic/structured and generic/hold improvements use identical truth slots. If any eligible prediction is nonfinite, score status failed and unqualified RMSE null; retain finite-subset diagnostics separately. Zero reference RMSE yields null ratio with explicit zero-reference flag, never an epsilon-selected win.",
-    "decision": "Descriptive baseline only; no learner/controller promotion and no posthoc thresholds. Report per-condition gains/losses, aggregate magnitudes, geometry, coverage and work separately. The known Dart recordings are inspected regression context; newCascadephysics and broader data do not reproduce or erase their failure.",
+    "aggregation": "Report each cell and parent. Average branch MSE within origin, origins within parent, parents within cell, cells within scope; sqrt last. Keep physical signal groups separate. Preserve planned, eligible, finite, failed and empty counts. Incomplete truth yields conditional available-truth RMSE, never an unqualified full-cohort score. Baseline/candidate raw response ratios include weak probes, use identical query/truth cohorts, and use the predeclared physical floors and weighting in top-level decision. Any eligible prediction failure invalidates the unqualified arm score; finite subsets remain diagnostics only.",
+    "decision": "Use the top-level decision object for this matched baseline/candidate experiment. Research retention and subsequent public-promotion requirements are distinct; no controller or envelope qualification. Existing Dart failures remain diagnostic context.",
     "factual_origins_s": [
       0.5,
       0.75,
@@ -773,7 +773,7 @@
         2.0
       ],
       "truth": "Branch from exact full origin physical/actuator/separation state and wind clock; no re-equilibrating reset, no branch feedback. Simulator RNG is unused; record that explicitly. Factual continuation must replay the parent and cloned state exactly. Preserve earlier complete horizons after a later branch failure. Truth and predicted response are signed branch minus corresponding factual continuation. These are finite responses, not a derivative qualification.",
-      "weak": "Descriptive endpoint max absolute component threshold; weak channels remain in raw-error and planned-denominator reports. Ratios/sign/cosine summaries only where both signed truth responses exceed declared relevant-group threshold.",
+      "weak": "Weak channels remain in all raw-error, ratio-objective and planned-denominator reports. Apply both-signed physical thresholds only to descriptive sign/cosine diagnostics; never filter the progress objective.",
       "weak_endpoint_thresholds": {
         "body_rate_rad_s": 0.0001,
         "rotation_entries": 1e-05,

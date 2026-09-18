@@ -1,0 +1,17 @@
+{
+  "corrected_sha256": "49320a597f2185e3b48ef3becd846496b503c21632e630b9ef173e4e1fa7d704",
+  "execution": "No flight generation or model fitting has occurred for this iteration.",
+  "original_commit": "ed825c9",
+  "original_sha256": "abf4c6cd6b559f27dece4cebd71a7eaac6d29431e6d4aa36135e43a5fa5e9a3b",
+  "reason": "Inherited baseline-only evaluation prose contradicted the new top-level matched-candidate decision and weak-probe/ratio-floor rules. Align those inherited descriptions with the already-frozen top-level decision.",
+  "status": "pre-fit protocol clarification",
+  "unchanged": [
+    "mechanism",
+    "data and test-seed roster",
+    "physics",
+    "normalization",
+    "fit budgets",
+    "checkpoint rule",
+    "numeric weights, floors and acceptance limits"
+  ]
+}
