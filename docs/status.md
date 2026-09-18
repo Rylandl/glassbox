@@ -91,6 +91,37 @@ Intermediate optimizer updates are not independently re-solved. The
 [result record](harness/intervention-response-v1-result.json) anchors this
 qualification; it promotes no public recipe, envelope or controller.
 
+## Current JSBSim onboarding evidence
+
+The no-fit [JSBSim onboarding audit](harness/jsbsim-onboarding-v1.json), implemented
+at `ef065f5`, covers every candidate in the pinned 1.3.1 release: 64 modern
+configurations, two legacy/template candidates, and 61 directories including
+one documentation-only directory. **37 candidates complete the recording and
+response audit; 25 lack a selected trim-free initialization, three fail to load,
+and `minisgs` produces nonfinite observations after 29 complete intervals.**
+All failures remain in the inventory. There were no timeouts or native crashes.
+
+All 66 saved outcomes and **5,698 arrays** reproduce byte for byte in fresh
+execution. The 37 completed parents each have a full replay and factual
+continuation; all **378 signed command probes** also complete. Independent
+recomputation finds **45 detectably active and 144 weak command channels**;
+115 known channels remain unavailable, with command counts unknown for three
+load failures. **21 of the 37 completed configurations have no detected command
+activity.** A weak response is specific to this initialization and 250 ms probe,
+not evidence of uncontrollability or successful learning.
+
+Eight alteration tests are rejected, including a coherently rewritten trajectory
+that passes internal accounting but fails fresh physics replay. All 80 focused
+tests and Ruff pass. Independent checks also find 26/37 cases initially
+essentially stationary and 25/37 within 10 m of the ground. Only 1/78 tested
+throttles responds detectably within 250 ms; engine-running diagnostics are
+unavailable, so weak throttle response does not establish an engine-off condition.
+The [result record](harness/jsbsim-onboarding-v1-result.json)
+anchors the 204-file sealed bundle, replay and independent checks; the
+[audit guide](jsbsim-onboarding.md) explains the contract. No learner was fitted
+or scored, and no control trial ran. Shipped ground/passive/test conditions and
+unverified engine states are not a qualified operating envelope.
+
 ## Current controller evidence
 
 [Learned controller transfer v1](harness/learned-controller-transfer-v1.json)
@@ -178,14 +209,24 @@ does not change that recipe or consumer behavior.
 
 ## Next named gap
 
-**Controller-independent model qualification on JSBSim.** Before fitting, freeze
-one model-evaluation protocol: simulator version and complete model inventory,
-observation/command contracts, valid initial conditions and operating regimes,
+**Valid operating conditions and excitation for JSBSim model qualification.**
+The onboarding audit establishes reproducible loading/recording for a subset,
+but many shipped initializations provide little command-response evidence.
+Freeze explicit supported operating conditions and command mappings, including
+engine startup, response timescales and any trim/data-collection assumptions.
+Preserve every inventory entry, missing setup and failed case; numerical completion is not admission as a
+useful learning corpus. Check observable context for wind, altitude and engine
+dynamics rather than hiding unsupported conditions in a fitted score.
+
+Before fitting, freeze one model-evaluation protocol: simulator version and
+complete model inventory, observation/command contracts, valid initial conditions
+and operating regimes,
 recording generation, per-system data/compute budgets, held-out recordings and
 systems, supported forecast horizons, comparisons and acceptance criteria. The
 same learner is fitted separately to each system; held-out-system evaluation tests
-the frozen recipe, not unseen-system transfer of one set of weights. No JSBSim
-protocol has yet been committed and no JSBSim model has been fitted or evaluated.
+the frozen recipe, not unseen-system transfer of one set of weights. The no-fit
+onboarding protocol is complete; no JSBSim model-accuracy protocol has been
+committed and no JSBSim model has been fitted or evaluated.
 
 Measure forecasts and command responses directly, with per-channel/per-horizon
 errors in physical units, declared aggregation across systems, envelope coverage,

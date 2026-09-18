@@ -15,9 +15,10 @@ The adapter selects a trim-free `reset00.xml` when available, otherwise the firs
 trim-free initialization file in lexical order. Thirty-nine candidates have a
 selected initialization under this rule. It loads every candidate, including
 those with no initialization. It neither invents a universal flight condition nor
-repairs models after observing results. Shipped ground starts, engine-off starts
-and any engine-running initialization remain exactly that; short finite motion
-does not establish a useful flight regime.
+repairs models after observing results. Shipped ground starts and declared
+engine-running initialization remain exactly as supplied. Missing running-state
+diagnostics do not imply engines are off, and short finite motion does not
+establish a useful flight regime.
 
 Each initialized parent attempts two seconds at 20 Hz, using six JSBSim integration
 steps per recorded interval. Commands comprise aileron, elevator, rudder and each
@@ -65,3 +66,20 @@ The next accuracy iteration must separately freeze operating conditions, data an
 compute budgets, whole-recording and system holdouts, forecast/response metrics,
 comparators and evidence criteria. This audit makes the onboarding gaps explicit;
 it does not select a favorable subset on the basis of fitted model performance.
+
+## Frozen result
+
+The [result record](harness/jsbsim-onboarding-v1-result.json) preserves all 66
+outcomes: 37 complete, 25 missing selected initialization, three load failures,
+and one nonfinite parent trajectory (`minisgs`). Every recorded outcome and all
+5,698 saved arrays reproduce exactly; eight alteration tests are rejected.
+The 415 completed branch runs comprise 37 factual continuations and 378 signed
+probes. Those probes find 45 active and 144 weak channels; 21 completed
+configurations have no detectable channel response. These are setup diagnostics,
+not model scores.
+
+For accounting, the 797 planned-run subtotal applies to 63 cases with known command
+contracts: 515 attempted plus 282 unattempted. Three further parent load attempts
+have unknown branch plans, bringing total attempts to 518. The fraction 518/797
+is therefore not a meaningful execution rate. All 489 completed runs comprise
+37 parents, 37 full replays and 415 branches.
