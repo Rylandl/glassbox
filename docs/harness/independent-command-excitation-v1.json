@@ -1,0 +1,3712 @@
+{
+  "base_commit": "9b93068",
+  "cells": {
+    "cascade": [
+      {
+        "group": "primary",
+        "heading_nwu_deg": 0,
+        "id": "primary-00",
+        "maneuver": "gentle",
+        "speed_m_s": 16,
+        "wind": "calm"
+      },
+      {
+        "group": "primary",
+        "heading_nwu_deg": 0,
+        "id": "primary-01",
+        "maneuver": "strong",
+        "speed_m_s": 16,
+        "wind": "calm"
+      },
+      {
+        "group": "primary",
+        "heading_nwu_deg": 0,
+        "id": "primary-02",
+        "maneuver": "gentle",
+        "speed_m_s": 18,
+        "wind": "calm"
+      },
+      {
+        "group": "primary",
+        "heading_nwu_deg": 0,
+        "id": "primary-03",
+        "maneuver": "strong",
+        "speed_m_s": 18,
+        "wind": "calm"
+      },
+      {
+        "group": "primary",
+        "heading_nwu_deg": 0,
+        "id": "primary-04",
+        "maneuver": "gentle",
+        "speed_m_s": 20,
+        "wind": "calm"
+      },
+      {
+        "group": "primary",
+        "heading_nwu_deg": 0,
+        "id": "primary-05",
+        "maneuver": "strong",
+        "speed_m_s": 20,
+        "wind": "calm"
+      },
+      {
+        "group": "primary",
+        "heading_nwu_deg": 90,
+        "id": "primary-06",
+        "maneuver": "gentle",
+        "speed_m_s": 16,
+        "wind": "calm"
+      },
+      {
+        "group": "primary",
+        "heading_nwu_deg": 90,
+        "id": "primary-07",
+        "maneuver": "strong",
+        "speed_m_s": 16,
+        "wind": "calm"
+      },
+      {
+        "group": "primary",
+        "heading_nwu_deg": 90,
+        "id": "primary-08",
+        "maneuver": "gentle",
+        "speed_m_s": 18,
+        "wind": "calm"
+      },
+      {
+        "group": "primary",
+        "heading_nwu_deg": 90,
+        "id": "primary-09",
+        "maneuver": "strong",
+        "speed_m_s": 18,
+        "wind": "calm"
+      },
+      {
+        "group": "primary",
+        "heading_nwu_deg": 90,
+        "id": "primary-10",
+        "maneuver": "gentle",
+        "speed_m_s": 20,
+        "wind": "calm"
+      },
+      {
+        "group": "primary",
+        "heading_nwu_deg": 90,
+        "id": "primary-11",
+        "maneuver": "strong",
+        "speed_m_s": 20,
+        "wind": "calm"
+      },
+      {
+        "group": "primary",
+        "heading_nwu_deg": -90,
+        "id": "primary-12",
+        "maneuver": "gentle",
+        "speed_m_s": 16,
+        "wind": "calm"
+      },
+      {
+        "group": "primary",
+        "heading_nwu_deg": -90,
+        "id": "primary-13",
+        "maneuver": "strong",
+        "speed_m_s": 16,
+        "wind": "calm"
+      },
+      {
+        "group": "primary",
+        "heading_nwu_deg": -90,
+        "id": "primary-14",
+        "maneuver": "gentle",
+        "speed_m_s": 18,
+        "wind": "calm"
+      },
+      {
+        "group": "primary",
+        "heading_nwu_deg": -90,
+        "id": "primary-15",
+        "maneuver": "strong",
+        "speed_m_s": 18,
+        "wind": "calm"
+      },
+      {
+        "group": "primary",
+        "heading_nwu_deg": -90,
+        "id": "primary-16",
+        "maneuver": "gentle",
+        "speed_m_s": 20,
+        "wind": "calm"
+      },
+      {
+        "group": "primary",
+        "heading_nwu_deg": -90,
+        "id": "primary-17",
+        "maneuver": "strong",
+        "speed_m_s": 20,
+        "wind": "calm"
+      },
+      {
+        "group": "primary",
+        "heading_nwu_deg": 180,
+        "id": "primary-18",
+        "maneuver": "gentle",
+        "speed_m_s": 16,
+        "wind": "calm"
+      },
+      {
+        "group": "primary",
+        "heading_nwu_deg": 180,
+        "id": "primary-19",
+        "maneuver": "strong",
+        "speed_m_s": 16,
+        "wind": "calm"
+      },
+      {
+        "group": "primary",
+        "heading_nwu_deg": 180,
+        "id": "primary-20",
+        "maneuver": "gentle",
+        "speed_m_s": 18,
+        "wind": "calm"
+      },
+      {
+        "group": "primary",
+        "heading_nwu_deg": 180,
+        "id": "primary-21",
+        "maneuver": "strong",
+        "speed_m_s": 18,
+        "wind": "calm"
+      },
+      {
+        "group": "primary",
+        "heading_nwu_deg": 180,
+        "id": "primary-22",
+        "maneuver": "gentle",
+        "speed_m_s": 20,
+        "wind": "calm"
+      },
+      {
+        "group": "primary",
+        "heading_nwu_deg": 180,
+        "id": "primary-23",
+        "maneuver": "strong",
+        "speed_m_s": 20,
+        "wind": "calm"
+      },
+      {
+        "group": "heading_shift",
+        "heading_nwu_deg": 45,
+        "id": "heading_shift-00",
+        "maneuver": "gentle",
+        "speed_m_s": 18,
+        "wind": "calm"
+      },
+      {
+        "group": "heading_shift",
+        "heading_nwu_deg": 45,
+        "id": "heading_shift-01",
+        "maneuver": "strong",
+        "speed_m_s": 18,
+        "wind": "calm"
+      },
+      {
+        "group": "heading_shift",
+        "heading_nwu_deg": 135,
+        "id": "heading_shift-02",
+        "maneuver": "gentle",
+        "speed_m_s": 18,
+        "wind": "calm"
+      },
+      {
+        "group": "heading_shift",
+        "heading_nwu_deg": 135,
+        "id": "heading_shift-03",
+        "maneuver": "strong",
+        "speed_m_s": 18,
+        "wind": "calm"
+      },
+      {
+        "group": "heading_shift",
+        "heading_nwu_deg": -135,
+        "id": "heading_shift-04",
+        "maneuver": "gentle",
+        "speed_m_s": 18,
+        "wind": "calm"
+      },
+      {
+        "group": "heading_shift",
+        "heading_nwu_deg": -135,
+        "id": "heading_shift-05",
+        "maneuver": "strong",
+        "speed_m_s": 18,
+        "wind": "calm"
+      },
+      {
+        "group": "heading_shift",
+        "heading_nwu_deg": -45,
+        "id": "heading_shift-06",
+        "maneuver": "gentle",
+        "speed_m_s": 18,
+        "wind": "calm"
+      },
+      {
+        "group": "heading_shift",
+        "heading_nwu_deg": -45,
+        "id": "heading_shift-07",
+        "maneuver": "strong",
+        "speed_m_s": 18,
+        "wind": "calm"
+      },
+      {
+        "group": "speed_shift",
+        "heading_nwu_deg": 0,
+        "id": "speed_shift-00",
+        "maneuver": "gentle",
+        "speed_m_s": 14,
+        "wind": "calm"
+      },
+      {
+        "group": "speed_shift",
+        "heading_nwu_deg": 0,
+        "id": "speed_shift-01",
+        "maneuver": "gentle",
+        "speed_m_s": 22,
+        "wind": "calm"
+      },
+      {
+        "group": "speed_shift",
+        "heading_nwu_deg": 90,
+        "id": "speed_shift-02",
+        "maneuver": "gentle",
+        "speed_m_s": 14,
+        "wind": "calm"
+      },
+      {
+        "group": "speed_shift",
+        "heading_nwu_deg": 90,
+        "id": "speed_shift-03",
+        "maneuver": "gentle",
+        "speed_m_s": 22,
+        "wind": "calm"
+      },
+      {
+        "group": "maneuver_shift",
+        "heading_nwu_deg": 0,
+        "id": "maneuver_shift-00",
+        "maneuver": "extreme",
+        "speed_m_s": 18,
+        "wind": "calm"
+      },
+      {
+        "group": "maneuver_shift",
+        "heading_nwu_deg": 90,
+        "id": "maneuver_shift-01",
+        "maneuver": "extreme",
+        "speed_m_s": 18,
+        "wind": "calm"
+      },
+      {
+        "group": "wind_shift",
+        "heading_nwu_deg": 0,
+        "id": "wind_shift-00",
+        "maneuver": "gentle",
+        "speed_m_s": 18,
+        "wind": "constant"
+      },
+      {
+        "group": "wind_shift",
+        "heading_nwu_deg": 0,
+        "id": "wind_shift-01",
+        "maneuver": "gentle",
+        "speed_m_s": 18,
+        "wind": "gust"
+      },
+      {
+        "group": "wind_shift",
+        "heading_nwu_deg": 90,
+        "id": "wind_shift-02",
+        "maneuver": "gentle",
+        "speed_m_s": 18,
+        "wind": "constant"
+      },
+      {
+        "group": "wind_shift",
+        "heading_nwu_deg": 90,
+        "id": "wind_shift-03",
+        "maneuver": "gentle",
+        "speed_m_s": 18,
+        "wind": "gust"
+      }
+    ],
+    "crazyflow": [
+      {
+        "group": "primary",
+        "heading_nwu_deg": 0,
+        "id": "primary-00",
+        "maneuver": "gentle",
+        "speed_m_s": 0,
+        "wind": "calm"
+      },
+      {
+        "group": "primary",
+        "heading_nwu_deg": 0,
+        "id": "primary-01",
+        "maneuver": "strong",
+        "speed_m_s": 0,
+        "wind": "calm"
+      },
+      {
+        "group": "primary",
+        "heading_nwu_deg": 0,
+        "id": "primary-02",
+        "maneuver": "gentle",
+        "speed_m_s": 2,
+        "wind": "calm"
+      },
+      {
+        "group": "primary",
+        "heading_nwu_deg": 0,
+        "id": "primary-03",
+        "maneuver": "strong",
+        "speed_m_s": 2,
+        "wind": "calm"
+      },
+      {
+        "group": "primary",
+        "heading_nwu_deg": 0,
+        "id": "primary-04",
+        "maneuver": "gentle",
+        "speed_m_s": 4,
+        "wind": "calm"
+      },
+      {
+        "group": "primary",
+        "heading_nwu_deg": 0,
+        "id": "primary-05",
+        "maneuver": "strong",
+        "speed_m_s": 4,
+        "wind": "calm"
+      },
+      {
+        "group": "primary",
+        "heading_nwu_deg": 90,
+        "id": "primary-06",
+        "maneuver": "gentle",
+        "speed_m_s": 0,
+        "wind": "calm"
+      },
+      {
+        "group": "primary",
+        "heading_nwu_deg": 90,
+        "id": "primary-07",
+        "maneuver": "strong",
+        "speed_m_s": 0,
+        "wind": "calm"
+      },
+      {
+        "group": "primary",
+        "heading_nwu_deg": 90,
+        "id": "primary-08",
+        "maneuver": "gentle",
+        "speed_m_s": 2,
+        "wind": "calm"
+      },
+      {
+        "group": "primary",
+        "heading_nwu_deg": 90,
+        "id": "primary-09",
+        "maneuver": "strong",
+        "speed_m_s": 2,
+        "wind": "calm"
+      },
+      {
+        "group": "primary",
+        "heading_nwu_deg": 90,
+        "id": "primary-10",
+        "maneuver": "gentle",
+        "speed_m_s": 4,
+        "wind": "calm"
+      },
+      {
+        "group": "primary",
+        "heading_nwu_deg": 90,
+        "id": "primary-11",
+        "maneuver": "strong",
+        "speed_m_s": 4,
+        "wind": "calm"
+      },
+      {
+        "group": "primary",
+        "heading_nwu_deg": -90,
+        "id": "primary-12",
+        "maneuver": "gentle",
+        "speed_m_s": 0,
+        "wind": "calm"
+      },
+      {
+        "group": "primary",
+        "heading_nwu_deg": -90,
+        "id": "primary-13",
+        "maneuver": "strong",
+        "speed_m_s": 0,
+        "wind": "calm"
+      },
+      {
+        "group": "primary",
+        "heading_nwu_deg": -90,
+        "id": "primary-14",
+        "maneuver": "gentle",
+        "speed_m_s": 2,
+        "wind": "calm"
+      },
+      {
+        "group": "primary",
+        "heading_nwu_deg": -90,
+        "id": "primary-15",
+        "maneuver": "strong",
+        "speed_m_s": 2,
+        "wind": "calm"
+      },
+      {
+        "group": "primary",
+        "heading_nwu_deg": -90,
+        "id": "primary-16",
+        "maneuver": "gentle",
+        "speed_m_s": 4,
+        "wind": "calm"
+      },
+      {
+        "group": "primary",
+        "heading_nwu_deg": -90,
+        "id": "primary-17",
+        "maneuver": "strong",
+        "speed_m_s": 4,
+        "wind": "calm"
+      },
+      {
+        "group": "primary",
+        "heading_nwu_deg": 180,
+        "id": "primary-18",
+        "maneuver": "gentle",
+        "speed_m_s": 0,
+        "wind": "calm"
+      },
+      {
+        "group": "primary",
+        "heading_nwu_deg": 180,
+        "id": "primary-19",
+        "maneuver": "strong",
+        "speed_m_s": 0,
+        "wind": "calm"
+      },
+      {
+        "group": "primary",
+        "heading_nwu_deg": 180,
+        "id": "primary-20",
+        "maneuver": "gentle",
+        "speed_m_s": 2,
+        "wind": "calm"
+      },
+      {
+        "group": "primary",
+        "heading_nwu_deg": 180,
+        "id": "primary-21",
+        "maneuver": "strong",
+        "speed_m_s": 2,
+        "wind": "calm"
+      },
+      {
+        "group": "primary",
+        "heading_nwu_deg": 180,
+        "id": "primary-22",
+        "maneuver": "gentle",
+        "speed_m_s": 4,
+        "wind": "calm"
+      },
+      {
+        "group": "primary",
+        "heading_nwu_deg": 180,
+        "id": "primary-23",
+        "maneuver": "strong",
+        "speed_m_s": 4,
+        "wind": "calm"
+      },
+      {
+        "group": "heading_shift",
+        "heading_nwu_deg": 45,
+        "id": "heading_shift-00",
+        "maneuver": "gentle",
+        "speed_m_s": 2,
+        "wind": "calm"
+      },
+      {
+        "group": "heading_shift",
+        "heading_nwu_deg": 45,
+        "id": "heading_shift-01",
+        "maneuver": "strong",
+        "speed_m_s": 2,
+        "wind": "calm"
+      },
+      {
+        "group": "heading_shift",
+        "heading_nwu_deg": 135,
+        "id": "heading_shift-02",
+        "maneuver": "gentle",
+        "speed_m_s": 2,
+        "wind": "calm"
+      },
+      {
+        "group": "heading_shift",
+        "heading_nwu_deg": 135,
+        "id": "heading_shift-03",
+        "maneuver": "strong",
+        "speed_m_s": 2,
+        "wind": "calm"
+      },
+      {
+        "group": "heading_shift",
+        "heading_nwu_deg": -135,
+        "id": "heading_shift-04",
+        "maneuver": "gentle",
+        "speed_m_s": 2,
+        "wind": "calm"
+      },
+      {
+        "group": "heading_shift",
+        "heading_nwu_deg": -135,
+        "id": "heading_shift-05",
+        "maneuver": "strong",
+        "speed_m_s": 2,
+        "wind": "calm"
+      },
+      {
+        "group": "heading_shift",
+        "heading_nwu_deg": -45,
+        "id": "heading_shift-06",
+        "maneuver": "gentle",
+        "speed_m_s": 2,
+        "wind": "calm"
+      },
+      {
+        "group": "heading_shift",
+        "heading_nwu_deg": -45,
+        "id": "heading_shift-07",
+        "maneuver": "strong",
+        "speed_m_s": 2,
+        "wind": "calm"
+      },
+      {
+        "group": "speed_shift",
+        "heading_nwu_deg": 0,
+        "id": "speed_shift-00",
+        "maneuver": "gentle",
+        "speed_m_s": 1,
+        "wind": "calm"
+      },
+      {
+        "group": "speed_shift",
+        "heading_nwu_deg": 0,
+        "id": "speed_shift-01",
+        "maneuver": "gentle",
+        "speed_m_s": 6,
+        "wind": "calm"
+      },
+      {
+        "group": "speed_shift",
+        "heading_nwu_deg": 90,
+        "id": "speed_shift-02",
+        "maneuver": "gentle",
+        "speed_m_s": 1,
+        "wind": "calm"
+      },
+      {
+        "group": "speed_shift",
+        "heading_nwu_deg": 90,
+        "id": "speed_shift-03",
+        "maneuver": "gentle",
+        "speed_m_s": 6,
+        "wind": "calm"
+      },
+      {
+        "group": "maneuver_shift",
+        "heading_nwu_deg": 0,
+        "id": "maneuver_shift-00",
+        "maneuver": "extreme",
+        "speed_m_s": 2,
+        "wind": "calm"
+      },
+      {
+        "group": "maneuver_shift",
+        "heading_nwu_deg": 90,
+        "id": "maneuver_shift-01",
+        "maneuver": "extreme",
+        "speed_m_s": 2,
+        "wind": "calm"
+      },
+      {
+        "group": "wind_shift",
+        "heading_nwu_deg": 0,
+        "id": "wind_shift-00",
+        "maneuver": "gentle",
+        "speed_m_s": 2,
+        "wind": "constant"
+      },
+      {
+        "group": "wind_shift",
+        "heading_nwu_deg": 0,
+        "id": "wind_shift-01",
+        "maneuver": "gentle",
+        "speed_m_s": 2,
+        "wind": "gust"
+      },
+      {
+        "group": "wind_shift",
+        "heading_nwu_deg": 90,
+        "id": "wind_shift-02",
+        "maneuver": "gentle",
+        "speed_m_s": 2,
+        "wind": "constant"
+      },
+      {
+        "group": "wind_shift",
+        "heading_nwu_deg": 90,
+        "id": "wind_shift-03",
+        "maneuver": "gentle",
+        "speed_m_s": 2,
+        "wind": "gust"
+      }
+    ]
+  },
+  "collection_intervention": {
+    "arrays": [
+      "excitation_pilot_commands",
+      "excitation_block_index",
+      "excitation_assigned_delta",
+      "excitation_realized_delta",
+      "excitation_clipped",
+      "excitation_clipping_residual"
+    ],
+    "block_s": 0.1,
+    "command": "base is existing final clipped pilot command after all native trim offsets/dither. assigned=.05*(upper-lower)*sign; issued=np.clip(base+assigned,lower,upper). Apply identical normalized rule for both simulators immediately before original integration kernel. No alteration of model equations, initial state, native controller, duration or wind.",
+    "id": "independent-command-excitation-v1",
+    "interpretation": "Assigned signs are independent; realized offsets after clipping/feedback need not be. The intervention also changes visited states, valid windows, training norms and checkpoint loss weights; a gain supports this data-collection workflow, not pure causal identification.",
+    "invariants": "All original development arrays and metadata byte/equality preserved; every training original array prefix through.75s matches (state/fullstate/actuator/time/wind inclusive, interval arrays exclusive; entire initialization metadata/control prefix preserved). Original admitted96and72/24roles unchanged, asserted before fitting. Changed later failures remain in reports; no replacements/retries/adaptive amplitudes.",
+    "learner_input": "Replace recorded commands with actual issued commands. The learner receives only normal15observed channels and issued command tape, never assigned signs, base pilot commands, hidden state, perturbation labels or paired branches.",
+    "metadata": "Save complete block sign table, exact seed material/digest/integer, schedule/bounds, applying training role and frozen intervention ID. Targets, raw pilot commands and pre-existing dither refer to the actual excited feedback trajectory.",
+    "range_fraction": 0.05,
+    "rng": {
+      "algorithm": "numpy.PCG64",
+      "draws": "np.random.Generator(np.random.PCG64(seed)).integers(0,2,size=(23,input_width),dtype=np.int64); signs=2*bits-1, block-major/channel-minor. Preassign once before simulation, independent of existing pilot RNG. Simulator-bearing parent ID separates streams.",
+      "seed": "int.from_bytes(sha256(seed_material).digest(),\"big\",signed=False)",
+      "seed_material": "UTF-8 json.dumps({\"namespace\":\"independent-command-excitation-v1\",\"parent\":entry[\"id\"],\"seed\":entry[\"seed\"]},sort_keys=True,separators=(\",\",\":\"))"
+    },
+    "roles": "Literal planned_automatic_roles lists, validated against anchored original roles. Only72training IDs per simulator are perturbed. Preserve all96calibration IDs/seeds and72/24roles; never infer roles from filenames. Common data remains originalcalibration+freshunperturbedtest. Separate excitation directory contains96calibration parents,24development copied exactly from common data.",
+    "schedule": "Use round(start_s/dt) and round(block_s/dt), require exact integer durations. First active interval75 at100Hz or15 at20Hz. Block index=(interval-start_index)//block_steps;23blocks, last.05s. First.75s commands are byte-preserved without zero addition/reclipping.",
+    "start_s": 0.75
+  },
+  "counts": {
+    "additional_simulated_parent_trajectories": 144,
+    "calibration_pool_per_simulator": 96,
+    "cells_per_simulator": 42,
+    "excited_training_parents_per_simulator": 72,
+    "parent_recordings": 360,
+    "primary_test_per_simulator": 48,
+    "shift_test_per_simulator": 36,
+    "simulators": 2,
+    "unchanged_development_copies_per_simulator": 24
+  },
+  "decision": {
+    "accept_research_candidate": {
+      "all_eligible_predictions_finite_and_models_available": true,
+      "each_simulator_250ms_primary_parent_rmse_p95_ratio_max": 1.5,
+      "each_simulator_primary_factual_and_response_geometric_mean_ratio_max": 1.15,
+      "each_simulator_scope_factual_and_response_geometric_mean_ratio_max": 1.5,
+      "factual_weighted_geometric_mean_ratio_max": 1.05,
+      "identical_truth_and_query_cohorts": true,
+      "integrity_replay_tamper_and_focused_tests_pass": true,
+      "response_weighted_geometric_mean_ratio_max": 0.9,
+      "tail_guard_groups": [
+        "velocity_m_s",
+        "body_rate_rad_s",
+        "rotation_entries"
+      ],
+      "tail_guard_kinds": [
+        "factual",
+        "response"
+      ]
+    },
+    "aggregation": {
+      "floors": {
+        "body_rate_rad_s": 0.001,
+        "rotation_entries": 0.0001,
+        "velocity_m_s": 0.001
+      },
+      "groups": [
+        "velocity_m_s",
+        "body_rate_rad_s",
+        "rotation_entries"
+      ],
+      "horizons_s": [
+        0.05,
+        0.15,
+        0.25
+      ],
+      "scope_weights": {
+        "heading_shift": 0.125,
+        "maneuver_shift": 0.125,
+        "primary": 0.5,
+        "speed_shift": 0.125,
+        "wind_shift": 0.125
+      },
+      "simulator_weights": {
+        "cascade": 0.5,
+        "crazyflow": 0.5
+      },
+      "within_scope": "Equal weight per horizon and signal group. Weighted geometric mean of candidate/baseline RMSE ratios, with common floor in physical units applied to numerator/denominator before division. Report absolute RMSE and changes alongside ratios."
+    },
+    "failure": "Reject or retain research candidate according to these fixed criteria. Do not tune thresholds, conditions, seeds or fit settings after results; diagnose next mechanism in a separate frozen iteration.",
+    "mechanism_comparison": {
+      "crazyflow_primary_250ms_body_rate_response_rmse_ratio_max": 0.8,
+      "factual_weighted_geometric_mean_ratio_max": 1.05,
+      "policy": "Require all inherited candidate/public limits plus these three collection-effect limits, identical truth/query cohorts and finite eligible predictions for all fitted arms. Targeted angular20% improvement is partial repair only unless residuals establish more. Mandatory integrity/replay/tamper/tests separate; no automatic public model/controller/envelope/update qualification.",
+      "reference_arm": "original",
+      "response_weighted_geometric_mean_ratio_max": 0.9
+    },
+    "metrics": "available_truth_rmse from raw endpoint factual/response errors, weak probes included. Reuse existing branch/origin/parent/cell balancing. Compare only identical planned slots and truth eligibility; do not drop candidate nonfinite predictions. Report every missing slot and unavailable model.",
+    "public_promotion": "Requires the fixed synthetic capability suite absolute caps, public contract/save/load/update/JAX tests and coherent artifact-replay rejection under the candidate. If not yet demonstrated, keep candidate isolated and state public recipe unchanged. No envelope/controller qualification follows from residual gains.",
+    "reference": "Fresh public refit for broad progress; original-data quadratic for direct collection intervention; hold for scale. All predictions use the same fresh unperturbed test queries and validity masks.",
+    "tails": "Report parent-RMSE p50,p95,max by simulator, scope, horizon, signal group and query kind, using available-truth parent errors and retaining missing-parent counts. p95 is NumPy linear quantile, ratio floors as above. Tail acceptance concerns primary250ms only; all shifted tails remain visible.",
+    "uncertainty": "1000 paired bootstrap draws, seed20260918: independently resample whole parents with replacement within each cell, sharing each draw across arms, horizons, groups and query kinds. Recompute hierarchical scores and aggregate ratios; report percentile95% intervals descriptively, not an extra acceptance gate. Two simulator configurations do not establish a population of systems. Use identical paired parent draw rosters and indices for candidate/public and candidate/original-quadratic comparisons; save both distributions and verify draw-hash equality. Intervals remain descriptive."
+  },
+  "evaluation": {
+    "aggregation": "Report each cell and parent. Average branch MSE within origin, origins within parent, parents within cell, cells within scope; sqrt last. Keep physical signal groups separate. Preserve planned, eligible, finite, failed and empty counts. Incomplete truth yields conditional available-truth RMSE, never an unqualified full-cohort score. Baseline/candidate raw response ratios include weak probes, use identical query/truth cohorts, and use the predeclared physical floors and weighting in top-level decision. Any eligible prediction failure invalidates the unqualified arm score; finite subsets remain diagnostics only.",
+    "decision": "Use top-level public-baseline criteria plus original-quadratic mechanism comparison. Four predictors baseline,original,candidate,hold; original is quadratic trained on original recordings. Keep all query slots. Data improvement and public promotion are separate.",
+    "factual_origins_s": [
+      0.5,
+      0.75,
+      1.0,
+      1.25,
+      1.5,
+      1.75,
+      2.0,
+      2.25,
+      2.5,
+      2.75
+    ],
+    "first_step": true,
+    "horizons_s": [
+      0.05,
+      0.15,
+      0.25
+    ],
+    "metrics": "For each simulator,cell,seed,origin,horizon: group endpoint mean squared error across velocity3,rate3,raw rotation9 and cumulative-prefix MSE separately; report RMSE only after declared averaging. Save raw predictions/targets/responses. Report first native sample error, finite prediction counts, raw rotation orthogonality/determinant errors; no projection to improve scores. Generic envelope component coverage uses the identical truth-eligible queries; nonfinite predictions count uncovered. No trajectory-level coverage claim.",
+    "population": "Factual/response headline queries only for recordings with role=test:84 parents/simulator. Any calibration/training/development diagnostics are separate and never pooled into test scores.",
+    "responses": {
+      "commands": "Factual stored parent future command tape; for each channel lower and upper separately, sustain u_j+.1*(bound_j-u_j) across the .25s future. Other channels unchanged. This convex bound interpolation needs no clipping. Save intended and actual deltas, including zero at a bound.",
+      "future_duration_s": 0.25,
+      "origins_s": [
+        1.0,
+        2.0
+      ],
+      "truth": "Branch from exact full origin physical/actuator/separation state and wind clock; no re-equilibrating reset, no branch feedback. Simulator RNG is unused; record that explicitly. Factual continuation must replay the parent and cloned state exactly. Preserve earlier complete horizons after a later branch failure. Truth and predicted response are signed branch minus corresponding factual continuation. These are finite responses, not a derivative qualification.",
+      "weak": "Weak channels remain in all raw-error, ratio-objective and planned-denominator reports. Apply both-signed physical thresholds only to descriptive sign/cosine diagnostics; never filter the progress objective.",
+      "weak_endpoint_thresholds": {
+        "body_rate_rad_s": 0.0001,
+        "rotation_entries": 1e-05,
+        "velocity_m_s": 0.0001
+      }
+    }
+  },
+  "fitting": {
+    "arms": [
+      "baseline",
+      "original",
+      "candidate"
+    ],
+    "baseline": "Refit unchanged public learner on common original calibration; require entire saved revision fingerprint/metadata/arrays equal anchored original baseline.",
+    "candidate": "Use the identical quadratic recipe directly on excited ordinary-recording collection. Reuse public _contract/_recording_content, _priority split and _extract selection; assert original72/24roles and exactly384/256windows with every parent represented. Development window keys/origins/dt/all arrays must match original quadratic before fitting. Do not fit an extra public model to create caches. Call unchanged quadratic fit_candidate_sequence once for1000updates, then unchanged calibration/measurement and existing quadratic artifact wrapper.",
+    "candidate_provenance": "Keep quadratic recipe ID/format unchanged; collection intervention ID belongs to report provenance. Record trusted original quadratic fingerprint as unchanged_development_reference, not reused baseline caches; same_training_data=false. Record selected windows, data seal, content/norm/loss-scale fingerprints, RNG/optimizer budget, ridge and parameter counts. No extra optimizer fit.",
+    "checkpoint": "Minimum finite development rollout loss among step0 and every100 updates through1000, strict improvement replaces current best. No response-based selection, restarts, sweeps or hidden test selection. Nonfinite optimization aborts that arm and is a recorded failure, not a seed retry.",
+    "generic_recipe": {
+      "batch_size": 64,
+      "check_every": 100,
+      "context_s": 0.5,
+      "delay_s": 0.1,
+      "development_windows": 256,
+      "hold_scale_floor": 0.01,
+      "horizon_s": 0.25,
+      "id": "generic-memory-v3-prototype",
+      "kind": "filter_mlp",
+      "learning_rate": 0.002,
+      "memory": 8,
+      "ridge_fraction": 0.01,
+      "seed": 0,
+      "steps": 1000,
+      "training_windows": 384,
+      "width": 32
+    },
+    "matching": "Same quadratic architecture/parameter count, seed0,width32,memory8,delay/context/horizon,training/dev window budget384/256,1000updates,batch64,drawseed10000,Adam/lr.002/clipping5,check100andminimum development normalized rollout loss. Actualtraining values/windoworigins/norms and hold-loss weights can change with the fixed data intervention; report these differences. Originaldevelopmentarrays stay exact. No equal-data or equal end-to-end compute claim.",
+    "mechanism": {
+      "initialization": "Joint ridge on [existing normalized z,q_xu/s_xu,q_xx/s_xx,1], lambda=.01*Nwindows*H, bias unpenalized, all other coefficients penalized identically. Preserve physical increment subtraction order, existing random draws, memory and neural initial parameters.",
+      "interpretation": "Tests whether representing autonomous nonlinear evolution improves held-out responses under correlated observational data. It does not prove causal identifiability or the proposed coefficient-allocation explanation.",
+      "parameters": "Adds d*d*(d+1)/2 coefficients and d*(d+1)/2 scales to the bilinear comparator (1800 coefficients and120 scales at d15). No system/channel-name branches or options.",
+      "q_xu": "Unchanged C-order flatten of outer(x_hat,u_hat), state-major/input-minor.",
+      "q_xx": "Upper triangular products x_hat[i]*x_hat[j] for i<=j in lexicographic (i,j) order; include squares once and off-diagonal products once, without sqrt(2), doubling or centering.",
+      "rollout": "x_hat_next=x_hat+delta_scale*(z@L+(q_xu/s_xu)@B+(q_xx/s_xx)@A+bias+tanh(z@W1+b1)@W2). Both products use recursively predicted current observations. Neither product enters memory or MLP. No input-squared products.",
+      "scale": "Separate training forecast-phase standard deviations for q_xu and q_xx; replace scales<=1e-8 by1. Both use original training-only state/input normalization. No development or test moments."
+    },
+    "normalization": "Recompute all base/product norms and hold-current error_scale from excited selected training windows using unchanged recipe. Development targets remain identical, but numeric checkpoint objective weights change mechanically with training-derived scales. Save both old/new scales, window origins/exposure and source content fingerprints. Do not silently freeze original normalization or tune after outcomes.",
+    "original": "Refit unchanged autonomous-state-quadratic-v1 via prior fit_candidate on baseline exact caches; require entire saved revision equal anchored prior quadratic candidate. No architectural/optimizer changes."
+  },
+  "fresh_confirmation": "Every original two-simulator-flight-v1 test seed/ID increases by exactly3000000 (1000000 beyond autonomous-state-quadratic-v1). Common calibration and all conditions/physics/pilot/query/validity rules are unchanged. Generate a separate excited calibration dataset with only original72training parents changed. Previously inspected test cohorts are diagnostic only.",
+  "generation": {
+    "admission": "Supply only calibration parents with at least history_steps+horizon_steps complete valid transitions (75 at100Hz,15 at20Hz). Use their full valid prefix as one recording. Report planned/admitted IDs and conditions. Recompute public automatic dev split on this exact admitted pool; structured uses these same realized roles. If fit prerequisites fail, record fit failure, never replace data or change role/seed.",
+    "cascade": {
+      "aircraft": "skywalker_x8",
+      "commands": "Native X8 control_to_array order is throttle,aileron,elevator. Apply permutation [0,2,1] to expose recorded throttle,elevator,aileron; inverse is the same. Apply trim offsets and dither in recorded order, then inverse-permute before control_from_array/native stepping.",
+      "commit": "e8f6ba6d010f2daaaa143dca6c21a2a29fe5f266",
+      "draws": "Draw phases3 uniform[0,2pi] from each recording seed; no initial-state jitter.",
+      "dt_s": 0.05,
+      "initial": "Full trim state with equilibrated actuator/separation state. Trim already includes wind in ground velocity; do not add it again. Declared speed is initial and commanded airspeed, not guaranteed maintained speed.",
+      "integration_dt_s": 0.0025,
+      "integrator": "Native Cascade rk4_step with full AircraftState,20 held-command400Hz steps per observation. Sample declared wind at each 2.5ms substep start and hold Environment through all four native stages; preserve native state projection.",
+      "pilot": "Pinned public skywalker_x8_controller, with pitch_trim=trim.decision[1], throttle_trim=trim.control.propeller[0], rate_period1,attitude_period1,guidance_period2, initial_cascade_state(trim). At each .05s interval update from the true observed state, using native Environment and DT. Let a=mode_scale,ramp=min(1,t). Setpoints: airspeed=V+ramp*.8*a*sin(.7t+phase0); altitude=100+ramp*2*a*sin(.9t+phase1); NEDheading=-yaw+ramp*.4*a*sin(.7t+phase2). Command=clip(pilot_raw+[0,trim_elevator,trim_aileron]+ramp*a*[.035,.025,.02]*sin([1.3,2.1,1.7]*t+phases),bounds). Save pilot targets and achieved physical ranges.",
+      "source_root": "/private/tmp/glassbox-cascade-e8f6ba6",
+      "substeps": 20,
+      "trim": "One trim_straight_flight per speed/heading/initial-wind combination, altitude100m, flight_path_angle_rad0, native heading=-NWUheading, density1.225kg/m3, gravity9.81m/s2, residual_tolerance1e-4,max_evaluations300; all other defaults/source pinned. Use returned full state and control, no warmup/repair/retry. A failed trim is a setup outcome for affected recordings. Nonfinite full trim state/control, unsuccessful trim, or trim command outside the declared benchmark box is a setup failure; never clip or repair the equilibrium prefix."
+    },
+    "crazyflow": {
+      "draws": "After initial jitter, draw phases3 uniform[0,2pi], frequencies3 uniform[.3,.65]Hz, and amplitudes3 uniform low[.2,.5,.25] high[.55,1.1,.65]rad. Multiply amplitudes by mode_scale.",
+      "drone": "cf2x_L250",
+      "dt_s": 0.01,
+      "initial": "Position[0,0,4]m, hidden RPM at nominal hover. Draw velocity jitter uniform[-.5,.5]^3, attitude tangent[-.2,.2]^3, rates[-.3,.3]^3 in this order. v0=Rz(yaw)@([speed,0,0]+velocity_jitter); q0=qyaw times quaternion_exp(attitude_tangent), body rates remain the drawn body-frame vector. Left-compose desired reference by the same yaw. Speeds are initial ground speeds, not maintained targets.",
+      "integration_dt_s": 0.002,
+      "integrator": "Dart RK4 of public Crazyflow first_principles.dynamics with rotor dynamics; normalize quaternion after each substep. No upstream Sim floor or RPM clipping. This is declared free flight, not contact simulation.",
+      "pilot": "Reuse pinned Dart learning.py attitude/altitude excitation equations: desired rotation is exp(amplitude*sin(2pi*frequency*t+phase)), left-composed by heading; desired rates are the analytic angle-vector derivative. Alpha=-18*quaternion_log_error(desired,actual)-7*(body_rate-desired_rate). Collective=hover-.10*(z-4)-.12*vz+.06*sin(4t). Command=clip(collective+.25*MOTOR_MIXER.T@(alpha/[232,232,30]), motorbounds). No translational speed controller.",
+      "substeps": 5,
+      "wind": "At every RK4 evaluation add the explicit relative-air-drag acceleration -R D R^T wind_nwu/mass, where D is the pinned Crazyflow body drag matrix (negative damping). This is the wind extension in pinned Dart observer_control.py, independent of its controller imports. Save wind/force schedules."
+    },
+    "duration_s": 3.0,
+    "mode_scale": {
+      "extreme": 1.5,
+      "gentle": 0.5,
+      "strong": 1.0
+    },
+    "randomness": "Independent NumPy PCG64 seeded by each fixed recording seed; no redraw, retry, seed selection, adaptive condition tuning or candidate selection. No simulator stochastic disturbances. Exact draw order is fixed below.",
+    "time_arithmetic": "Parent and branch use the same compiled advance kernel and integer global time indices. Crazyflow RK stages use integer1ms ticks (within each2ms substep offsets0,1,1,2). Cascade substep Environment times are integer global400Hz indices divided by400. No accumulated floating time or alternate branch arithmetic.",
+    "validity": "Record the entire generated raw parent including invalid tail if numerically available. Valid prefix ends before first nonfinite full state/command, altitude<.5m, or quaternion norm differing from1 by>1e-6. No speed/rate performance cutoff. Save failure reason/index and all achieved speed/rate/attitude/altitude ranges. Failed setup/runtime and below-ground conditions remain in the360-parent roster, never redraw. Predictions use only truth-valid histories and targets. Apply these validity checks at recorded observation boundaries and outgoing issued commands, not intermediate RK stages; full hidden state is checked at those same boundaries.",
+    "wind": "Primary, heading, speed and maneuver cells are calm. Constant wind=[2,0,0]m/s NWU from t0. Gust=[2*sin(pi*(t-.5)/2)^2,0,0]m/s for .5<t<2.5, otherwise0. Crazyflow evaluates wind at every RK4 stage; Cascade samples at each400Hz substep start and holds it through native RK4 stages. Use identical global wind clock for all counterfactual branches. Cascade native wind=NED[x,-y,-z]. Save the actual integration wind schedules. Report wind shifts separately: unexpected forcing is not pure identification error."
+  },
+  "id": "independent-command-excitation-v1",
+  "inherited_source_sha256": {
+    "src/glassbox/experimental/state_input_decision.py": "45fad38bbd5cead93febd5ca4d2b1ad0bd448354ed9d61dfe1b780a65ee1f717",
+    "src/glassbox/experimental/state_input_experiment.py": "f433f308b6e3e370527dea3e0446ae86f8bc5811de70d443f6871263c4578970",
+    "src/glassbox/experimental/state_input_model.py": "9ee1356e37869fed8a7a647a9253543e3e06416ada5fc873f6d81f8c529f42e3",
+    "src/glassbox/experimental/state_quadratic_decision.py": "33b1f7fbd75e8c00ef149906fa4a4b8b10f073f1e601cb9c2e21b69989330767",
+    "src/glassbox/experimental/state_quadratic_experiment.py": "eb8a14afb09cade3bb9f43a7e4578cba52036ac662a4ae2d6467a77ae77b490b",
+    "src/glassbox/experimental/state_quadratic_model.py": "661779ff16cbc2a92977e460566fffcc590ab49f3ca2847cac4899a9bf4bd969",
+    "tests/test_state_input_decision.py": "1e7565217f21a7eba101458b9ff15908453d3e697ab35d0e228cd949a37015a0",
+    "tests/test_state_input_experiment.py": "bb464ba6bcc229eaa30d11a491e250348a0b9b01beeec180ce27716ba16baba2",
+    "tests/test_state_input_model.py": "0ff98bd8eb20c01c01758476dd2ffaf7326e3e8cbc0f8871f54508cd4edbd368",
+    "tests/test_state_quadratic_decision.py": "5e75a705f9ce0e8bf5d77ef4ea0bf5c6d6ecd602d021a55734850a55cd1b3b68",
+    "tests/test_state_quadratic_experiment.py": "6bcc49546906ac75a8c1625ec462ad99650e2c197daabc5123d064ea150cc0e4",
+    "tests/test_state_quadratic_model.py": "f4f1964d0b17c71ebdc3dc9b4d215161def6e0b553de386ac84d19212e65f231"
+  },
+  "integrity": {
+    "before_fit": "Commit protocol and implementation before any new simulation/fit. Seal common and excited datasets for both simulators before fitting. Verify originalcalibration against anchored prior, unchangeddevelopment and trainingprefixes/admission/roles against common data. Insufficient or changed declared roles/window counts abort the data/fit arm visibly; never drop/reassign parents or relax budgets.",
+    "execution": "Bound generation/fit/replay jobs; log stages and completed records. Preserve native/runtime outcomes; programming bugs abort the harness and require tested committed fixes, not relabeling as a model failure. No implicit retries with new seeds or parameters. Each timeout is retained as an explicit incomplete-stage outcome; no parameter/seed change or automatic retry. Programming fixes can restart the unchanged deterministic stage under a new committed implementation with old failure logs retained.",
+    "historical": "All historical protocols/results and99base +4parent +12inherited source/test files remain pinned unchanged. New command_excitation modules/tests are committed before simulations/fits and captured by byte hashes in every stage/final manifest. Reuse private module instances without mutating canonical globals. Protocols for original baseline, interaction and quadratic remain independently anchored.",
+    "replay": "Regenerate common parents/branches/query arrays and each perturbed training parent exactly, verify development copies/prefixes/roles, issued commands and assigned/realized excitation. Replay savedbaseline/original/candidate/hold predictions, all scores, both pairwise decisions/tails/bootstrap and shared parent draw hashes. Independent NumPy250ms residual reductions plus training excitation/cache audit. Reject raw and coherently resealed histories/commands/randomtapes/model/predictions+metrics/source/decision/physics alterations.",
+    "wall_time_limits_s": {
+      "evaluation_per_simulator": 7200,
+      "fit_per_arm_and_simulator": 7200,
+      "generation_per_simulator": 7200,
+      "replay_per_simulator": 7200
+    }
+  },
+  "named_gap": "Command-response learning under strongly correlated collection inputs",
+  "parent_source_sha256": {
+    "src/glassbox/experimental/two_simulator_cascade.py": "54791ea63be1fc0d65e1dc97dd5949fc4ac654c630fd5a15444889bdb8a08884",
+    "src/glassbox/experimental/two_simulator_crazyflow.py": "aa09e7b5cd749fefaa1159a417526e4cc0a801cd08c9aff3214637ae27141087",
+    "src/glassbox/experimental/two_simulator_flight.py": "188860ec86dd456a37bca052d4e0a4947601deae5973f500bdccefe02505643c",
+    "src/glassbox/experimental/two_simulator_metrics.py": "1304cd3426c2370ca241dedad23685853f633d74f7cd9b83f61be6db1905f797"
+  },
+  "planned_automatic_roles": {
+    "cascade": {
+      "development": [
+        "cascade/primary-10/train-100102",
+        "cascade/primary-14/train-100143",
+        "cascade/primary-13/train-100131",
+        "cascade/primary-08/train-100080",
+        "cascade/primary-06/train-100062",
+        "cascade/primary-15/train-100150",
+        "cascade/primary-03/train-100033",
+        "cascade/primary-01/train-100013",
+        "cascade/primary-04/train-100043",
+        "cascade/primary-18/train-100181",
+        "cascade/primary-10/train-100101",
+        "cascade/primary-04/train-100041",
+        "cascade/primary-07/train-100072",
+        "cascade/primary-04/train-100040",
+        "cascade/primary-22/train-100222",
+        "cascade/primary-15/train-100153",
+        "cascade/primary-16/train-100161",
+        "cascade/primary-16/train-100160",
+        "cascade/primary-17/train-100172",
+        "cascade/primary-12/train-100122",
+        "cascade/primary-11/train-100111",
+        "cascade/primary-09/train-100092",
+        "cascade/primary-23/train-100232",
+        "cascade/primary-06/train-100061"
+      ],
+      "training": [
+        "cascade/primary-09/train-100090",
+        "cascade/primary-06/train-100060",
+        "cascade/primary-00/train-100002",
+        "cascade/primary-13/train-100133",
+        "cascade/primary-01/train-100012",
+        "cascade/primary-17/train-100173",
+        "cascade/primary-05/train-100053",
+        "cascade/primary-19/train-100193",
+        "cascade/primary-17/train-100170",
+        "cascade/primary-18/train-100183",
+        "cascade/primary-02/train-100021",
+        "cascade/primary-11/train-100112",
+        "cascade/primary-20/train-100201",
+        "cascade/primary-12/train-100121",
+        "cascade/primary-09/train-100093",
+        "cascade/primary-03/train-100032",
+        "cascade/primary-01/train-100011",
+        "cascade/primary-03/train-100030",
+        "cascade/primary-20/train-100202",
+        "cascade/primary-16/train-100163",
+        "cascade/primary-12/train-100123",
+        "cascade/primary-22/train-100223",
+        "cascade/primary-11/train-100113",
+        "cascade/primary-15/train-100152",
+        "cascade/primary-16/train-100162",
+        "cascade/primary-19/train-100190",
+        "cascade/primary-05/train-100052",
+        "cascade/primary-03/train-100031",
+        "cascade/primary-17/train-100171",
+        "cascade/primary-04/train-100042",
+        "cascade/primary-02/train-100022",
+        "cascade/primary-21/train-100210",
+        "cascade/primary-19/train-100191",
+        "cascade/primary-14/train-100142",
+        "cascade/primary-18/train-100180",
+        "cascade/primary-12/train-100120",
+        "cascade/primary-22/train-100221",
+        "cascade/primary-07/train-100073",
+        "cascade/primary-14/train-100140",
+        "cascade/primary-11/train-100110",
+        "cascade/primary-20/train-100200",
+        "cascade/primary-21/train-100213",
+        "cascade/primary-02/train-100023",
+        "cascade/primary-07/train-100071",
+        "cascade/primary-18/train-100182",
+        "cascade/primary-14/train-100141",
+        "cascade/primary-07/train-100070",
+        "cascade/primary-05/train-100051",
+        "cascade/primary-19/train-100192",
+        "cascade/primary-08/train-100081",
+        "cascade/primary-21/train-100212",
+        "cascade/primary-08/train-100083",
+        "cascade/primary-23/train-100233",
+        "cascade/primary-00/train-100000",
+        "cascade/primary-10/train-100103",
+        "cascade/primary-15/train-100151",
+        "cascade/primary-20/train-100203",
+        "cascade/primary-02/train-100020",
+        "cascade/primary-10/train-100100",
+        "cascade/primary-13/train-100130",
+        "cascade/primary-23/train-100230",
+        "cascade/primary-06/train-100063",
+        "cascade/primary-22/train-100220",
+        "cascade/primary-00/train-100003",
+        "cascade/primary-01/train-100010",
+        "cascade/primary-21/train-100211",
+        "cascade/primary-13/train-100132",
+        "cascade/primary-23/train-100231",
+        "cascade/primary-08/train-100082",
+        "cascade/primary-00/train-100001",
+        "cascade/primary-05/train-100050",
+        "cascade/primary-09/train-100091"
+      ]
+    },
+    "crazyflow": {
+      "development": [
+        "crazyflow/primary-12/train-100120",
+        "crazyflow/primary-00/train-100003",
+        "crazyflow/primary-07/train-100070",
+        "crazyflow/primary-01/train-100012",
+        "crazyflow/primary-01/train-100010",
+        "crazyflow/primary-02/train-100023",
+        "crazyflow/primary-11/train-100113",
+        "crazyflow/primary-06/train-100063",
+        "crazyflow/primary-02/train-100021",
+        "crazyflow/primary-15/train-100152",
+        "crazyflow/primary-15/train-100153",
+        "crazyflow/primary-20/train-100201",
+        "crazyflow/primary-18/train-100180",
+        "crazyflow/primary-04/train-100040",
+        "crazyflow/primary-00/train-100002",
+        "crazyflow/primary-17/train-100172",
+        "crazyflow/primary-02/train-100020",
+        "crazyflow/primary-12/train-100121",
+        "crazyflow/primary-09/train-100093",
+        "crazyflow/primary-19/train-100191",
+        "crazyflow/primary-08/train-100083",
+        "crazyflow/primary-05/train-100053",
+        "crazyflow/primary-13/train-100132",
+        "crazyflow/primary-06/train-100061"
+      ],
+      "training": [
+        "crazyflow/primary-17/train-100173",
+        "crazyflow/primary-07/train-100073",
+        "crazyflow/primary-03/train-100033",
+        "crazyflow/primary-08/train-100080",
+        "crazyflow/primary-01/train-100013",
+        "crazyflow/primary-14/train-100141",
+        "crazyflow/primary-11/train-100110",
+        "crazyflow/primary-17/train-100170",
+        "crazyflow/primary-20/train-100202",
+        "crazyflow/primary-19/train-100192",
+        "crazyflow/primary-10/train-100102",
+        "crazyflow/primary-18/train-100181",
+        "crazyflow/primary-00/train-100001",
+        "crazyflow/primary-02/train-100022",
+        "crazyflow/primary-13/train-100131",
+        "crazyflow/primary-20/train-100200",
+        "crazyflow/primary-12/train-100122",
+        "crazyflow/primary-00/train-100000",
+        "crazyflow/primary-17/train-100171",
+        "crazyflow/primary-01/train-100011",
+        "crazyflow/primary-08/train-100082",
+        "crazyflow/primary-22/train-100222",
+        "crazyflow/primary-11/train-100111",
+        "crazyflow/primary-23/train-100231",
+        "crazyflow/primary-09/train-100090",
+        "crazyflow/primary-07/train-100071",
+        "crazyflow/primary-21/train-100213",
+        "crazyflow/primary-18/train-100183",
+        "crazyflow/primary-22/train-100221",
+        "crazyflow/primary-19/train-100190",
+        "crazyflow/primary-23/train-100230",
+        "crazyflow/primary-09/train-100092",
+        "crazyflow/primary-03/train-100031",
+        "crazyflow/primary-16/train-100162",
+        "crazyflow/primary-11/train-100112",
+        "crazyflow/primary-03/train-100030",
+        "crazyflow/primary-05/train-100052",
+        "crazyflow/primary-22/train-100223",
+        "crazyflow/primary-04/train-100043",
+        "crazyflow/primary-22/train-100220",
+        "crazyflow/primary-12/train-100123",
+        "crazyflow/primary-15/train-100150",
+        "crazyflow/primary-03/train-100032",
+        "crazyflow/primary-06/train-100060",
+        "crazyflow/primary-05/train-100050",
+        "crazyflow/primary-16/train-100163",
+        "crazyflow/primary-14/train-100140",
+        "crazyflow/primary-10/train-100101",
+        "crazyflow/primary-13/train-100133",
+        "crazyflow/primary-05/train-100051",
+        "crazyflow/primary-18/train-100182",
+        "crazyflow/primary-23/train-100232",
+        "crazyflow/primary-16/train-100161",
+        "crazyflow/primary-06/train-100062",
+        "crazyflow/primary-21/train-100210",
+        "crazyflow/primary-16/train-100160",
+        "crazyflow/primary-19/train-100193",
+        "crazyflow/primary-14/train-100142",
+        "crazyflow/primary-21/train-100211",
+        "crazyflow/primary-15/train-100151",
+        "crazyflow/primary-09/train-100091",
+        "crazyflow/primary-04/train-100042",
+        "crazyflow/primary-10/train-100100",
+        "crazyflow/primary-04/train-100041",
+        "crazyflow/primary-14/train-100143",
+        "crazyflow/primary-07/train-100072",
+        "crazyflow/primary-20/train-100203",
+        "crazyflow/primary-08/train-100081",
+        "crazyflow/primary-21/train-100212",
+        "crazyflow/primary-10/train-100103",
+        "crazyflow/primary-23/train-100233",
+        "crazyflow/primary-13/train-100130"
+      ]
+    }
+  },
+  "previous_bundle": {
+    "manifest_sha256": "5807e9f85454e5edefba6677e973a0e3851f4b60e8d8227c7d3bdc880ae656ad",
+    "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-18/two-simulator-flight-v1"
+  },
+  "previous_protocol": {
+    "path": "docs/harness/two-simulator-flight-v1.json",
+    "sha256": "e16456e0786ae817016a86cfadc99395f8b59cef6122e4a998311ab8d5571248"
+  },
+  "prior_interaction_bundle": {
+    "manifest_sha256": "cd258714842a73f941d04da33ec2cdc11aa82212cc7b69dae0320cda02bd2184",
+    "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-18/state-input-interaction-v1"
+  },
+  "prior_interaction_protocol": {
+    "path": "docs/harness/state-input-interaction-v1.json",
+    "sha256": "49320a597f2185e3b48ef3becd846496b503c21632e630b9ef173e4e1fa7d704"
+  },
+  "prior_quadratic_bundle": {
+    "manifest_sha256": "8792cbb51b2d86a8d9e6aab68c1e394a5a968ec51aa28e3ccae349d9d0f24d55",
+    "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-18/autonomous-state-quadratic-v1"
+  },
+  "prior_quadratic_protocol": {
+    "path": "docs/harness/autonomous-state-quadratic-v1.json",
+    "sha256": "dd7ad816039515183ee5769481d5a642a609c9ee58b39f90aa9c04c843ef233a"
+  },
+  "recordings": [
+    {
+      "cell": "primary-00",
+      "id": "crazyflow/primary-00/train-100000",
+      "role": "calibration_pool",
+      "seed": 100000,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-00",
+      "id": "crazyflow/primary-00/train-100001",
+      "role": "calibration_pool",
+      "seed": 100001,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-00",
+      "id": "crazyflow/primary-00/train-100002",
+      "role": "calibration_pool",
+      "seed": 100002,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-00",
+      "id": "crazyflow/primary-00/train-100003",
+      "role": "calibration_pool",
+      "seed": 100003,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-00",
+      "id": "crazyflow/primary-00/test-3200000",
+      "role": "test",
+      "seed": 3200000,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-00",
+      "id": "crazyflow/primary-00/test-3200001",
+      "role": "test",
+      "seed": 3200001,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-01",
+      "id": "crazyflow/primary-01/train-100010",
+      "role": "calibration_pool",
+      "seed": 100010,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-01",
+      "id": "crazyflow/primary-01/train-100011",
+      "role": "calibration_pool",
+      "seed": 100011,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-01",
+      "id": "crazyflow/primary-01/train-100012",
+      "role": "calibration_pool",
+      "seed": 100012,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-01",
+      "id": "crazyflow/primary-01/train-100013",
+      "role": "calibration_pool",
+      "seed": 100013,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-01",
+      "id": "crazyflow/primary-01/test-3200010",
+      "role": "test",
+      "seed": 3200010,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-01",
+      "id": "crazyflow/primary-01/test-3200011",
+      "role": "test",
+      "seed": 3200011,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-02",
+      "id": "crazyflow/primary-02/train-100020",
+      "role": "calibration_pool",
+      "seed": 100020,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-02",
+      "id": "crazyflow/primary-02/train-100021",
+      "role": "calibration_pool",
+      "seed": 100021,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-02",
+      "id": "crazyflow/primary-02/train-100022",
+      "role": "calibration_pool",
+      "seed": 100022,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-02",
+      "id": "crazyflow/primary-02/train-100023",
+      "role": "calibration_pool",
+      "seed": 100023,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-02",
+      "id": "crazyflow/primary-02/test-3200020",
+      "role": "test",
+      "seed": 3200020,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-02",
+      "id": "crazyflow/primary-02/test-3200021",
+      "role": "test",
+      "seed": 3200021,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-03",
+      "id": "crazyflow/primary-03/train-100030",
+      "role": "calibration_pool",
+      "seed": 100030,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-03",
+      "id": "crazyflow/primary-03/train-100031",
+      "role": "calibration_pool",
+      "seed": 100031,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-03",
+      "id": "crazyflow/primary-03/train-100032",
+      "role": "calibration_pool",
+      "seed": 100032,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-03",
+      "id": "crazyflow/primary-03/train-100033",
+      "role": "calibration_pool",
+      "seed": 100033,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-03",
+      "id": "crazyflow/primary-03/test-3200030",
+      "role": "test",
+      "seed": 3200030,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-03",
+      "id": "crazyflow/primary-03/test-3200031",
+      "role": "test",
+      "seed": 3200031,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-04",
+      "id": "crazyflow/primary-04/train-100040",
+      "role": "calibration_pool",
+      "seed": 100040,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-04",
+      "id": "crazyflow/primary-04/train-100041",
+      "role": "calibration_pool",
+      "seed": 100041,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-04",
+      "id": "crazyflow/primary-04/train-100042",
+      "role": "calibration_pool",
+      "seed": 100042,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-04",
+      "id": "crazyflow/primary-04/train-100043",
+      "role": "calibration_pool",
+      "seed": 100043,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-04",
+      "id": "crazyflow/primary-04/test-3200040",
+      "role": "test",
+      "seed": 3200040,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-04",
+      "id": "crazyflow/primary-04/test-3200041",
+      "role": "test",
+      "seed": 3200041,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-05",
+      "id": "crazyflow/primary-05/train-100050",
+      "role": "calibration_pool",
+      "seed": 100050,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-05",
+      "id": "crazyflow/primary-05/train-100051",
+      "role": "calibration_pool",
+      "seed": 100051,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-05",
+      "id": "crazyflow/primary-05/train-100052",
+      "role": "calibration_pool",
+      "seed": 100052,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-05",
+      "id": "crazyflow/primary-05/train-100053",
+      "role": "calibration_pool",
+      "seed": 100053,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-05",
+      "id": "crazyflow/primary-05/test-3200050",
+      "role": "test",
+      "seed": 3200050,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-05",
+      "id": "crazyflow/primary-05/test-3200051",
+      "role": "test",
+      "seed": 3200051,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-06",
+      "id": "crazyflow/primary-06/train-100060",
+      "role": "calibration_pool",
+      "seed": 100060,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-06",
+      "id": "crazyflow/primary-06/train-100061",
+      "role": "calibration_pool",
+      "seed": 100061,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-06",
+      "id": "crazyflow/primary-06/train-100062",
+      "role": "calibration_pool",
+      "seed": 100062,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-06",
+      "id": "crazyflow/primary-06/train-100063",
+      "role": "calibration_pool",
+      "seed": 100063,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-06",
+      "id": "crazyflow/primary-06/test-3200060",
+      "role": "test",
+      "seed": 3200060,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-06",
+      "id": "crazyflow/primary-06/test-3200061",
+      "role": "test",
+      "seed": 3200061,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-07",
+      "id": "crazyflow/primary-07/train-100070",
+      "role": "calibration_pool",
+      "seed": 100070,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-07",
+      "id": "crazyflow/primary-07/train-100071",
+      "role": "calibration_pool",
+      "seed": 100071,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-07",
+      "id": "crazyflow/primary-07/train-100072",
+      "role": "calibration_pool",
+      "seed": 100072,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-07",
+      "id": "crazyflow/primary-07/train-100073",
+      "role": "calibration_pool",
+      "seed": 100073,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-07",
+      "id": "crazyflow/primary-07/test-3200070",
+      "role": "test",
+      "seed": 3200070,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-07",
+      "id": "crazyflow/primary-07/test-3200071",
+      "role": "test",
+      "seed": 3200071,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-08",
+      "id": "crazyflow/primary-08/train-100080",
+      "role": "calibration_pool",
+      "seed": 100080,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-08",
+      "id": "crazyflow/primary-08/train-100081",
+      "role": "calibration_pool",
+      "seed": 100081,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-08",
+      "id": "crazyflow/primary-08/train-100082",
+      "role": "calibration_pool",
+      "seed": 100082,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-08",
+      "id": "crazyflow/primary-08/train-100083",
+      "role": "calibration_pool",
+      "seed": 100083,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-08",
+      "id": "crazyflow/primary-08/test-3200080",
+      "role": "test",
+      "seed": 3200080,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-08",
+      "id": "crazyflow/primary-08/test-3200081",
+      "role": "test",
+      "seed": 3200081,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-09",
+      "id": "crazyflow/primary-09/train-100090",
+      "role": "calibration_pool",
+      "seed": 100090,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-09",
+      "id": "crazyflow/primary-09/train-100091",
+      "role": "calibration_pool",
+      "seed": 100091,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-09",
+      "id": "crazyflow/primary-09/train-100092",
+      "role": "calibration_pool",
+      "seed": 100092,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-09",
+      "id": "crazyflow/primary-09/train-100093",
+      "role": "calibration_pool",
+      "seed": 100093,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-09",
+      "id": "crazyflow/primary-09/test-3200090",
+      "role": "test",
+      "seed": 3200090,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-09",
+      "id": "crazyflow/primary-09/test-3200091",
+      "role": "test",
+      "seed": 3200091,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-10",
+      "id": "crazyflow/primary-10/train-100100",
+      "role": "calibration_pool",
+      "seed": 100100,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-10",
+      "id": "crazyflow/primary-10/train-100101",
+      "role": "calibration_pool",
+      "seed": 100101,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-10",
+      "id": "crazyflow/primary-10/train-100102",
+      "role": "calibration_pool",
+      "seed": 100102,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-10",
+      "id": "crazyflow/primary-10/train-100103",
+      "role": "calibration_pool",
+      "seed": 100103,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-10",
+      "id": "crazyflow/primary-10/test-3200100",
+      "role": "test",
+      "seed": 3200100,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-10",
+      "id": "crazyflow/primary-10/test-3200101",
+      "role": "test",
+      "seed": 3200101,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-11",
+      "id": "crazyflow/primary-11/train-100110",
+      "role": "calibration_pool",
+      "seed": 100110,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-11",
+      "id": "crazyflow/primary-11/train-100111",
+      "role": "calibration_pool",
+      "seed": 100111,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-11",
+      "id": "crazyflow/primary-11/train-100112",
+      "role": "calibration_pool",
+      "seed": 100112,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-11",
+      "id": "crazyflow/primary-11/train-100113",
+      "role": "calibration_pool",
+      "seed": 100113,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-11",
+      "id": "crazyflow/primary-11/test-3200110",
+      "role": "test",
+      "seed": 3200110,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-11",
+      "id": "crazyflow/primary-11/test-3200111",
+      "role": "test",
+      "seed": 3200111,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-12",
+      "id": "crazyflow/primary-12/train-100120",
+      "role": "calibration_pool",
+      "seed": 100120,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-12",
+      "id": "crazyflow/primary-12/train-100121",
+      "role": "calibration_pool",
+      "seed": 100121,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-12",
+      "id": "crazyflow/primary-12/train-100122",
+      "role": "calibration_pool",
+      "seed": 100122,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-12",
+      "id": "crazyflow/primary-12/train-100123",
+      "role": "calibration_pool",
+      "seed": 100123,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-12",
+      "id": "crazyflow/primary-12/test-3200120",
+      "role": "test",
+      "seed": 3200120,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-12",
+      "id": "crazyflow/primary-12/test-3200121",
+      "role": "test",
+      "seed": 3200121,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-13",
+      "id": "crazyflow/primary-13/train-100130",
+      "role": "calibration_pool",
+      "seed": 100130,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-13",
+      "id": "crazyflow/primary-13/train-100131",
+      "role": "calibration_pool",
+      "seed": 100131,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-13",
+      "id": "crazyflow/primary-13/train-100132",
+      "role": "calibration_pool",
+      "seed": 100132,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-13",
+      "id": "crazyflow/primary-13/train-100133",
+      "role": "calibration_pool",
+      "seed": 100133,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-13",
+      "id": "crazyflow/primary-13/test-3200130",
+      "role": "test",
+      "seed": 3200130,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-13",
+      "id": "crazyflow/primary-13/test-3200131",
+      "role": "test",
+      "seed": 3200131,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-14",
+      "id": "crazyflow/primary-14/train-100140",
+      "role": "calibration_pool",
+      "seed": 100140,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-14",
+      "id": "crazyflow/primary-14/train-100141",
+      "role": "calibration_pool",
+      "seed": 100141,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-14",
+      "id": "crazyflow/primary-14/train-100142",
+      "role": "calibration_pool",
+      "seed": 100142,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-14",
+      "id": "crazyflow/primary-14/train-100143",
+      "role": "calibration_pool",
+      "seed": 100143,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-14",
+      "id": "crazyflow/primary-14/test-3200140",
+      "role": "test",
+      "seed": 3200140,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-14",
+      "id": "crazyflow/primary-14/test-3200141",
+      "role": "test",
+      "seed": 3200141,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-15",
+      "id": "crazyflow/primary-15/train-100150",
+      "role": "calibration_pool",
+      "seed": 100150,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-15",
+      "id": "crazyflow/primary-15/train-100151",
+      "role": "calibration_pool",
+      "seed": 100151,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-15",
+      "id": "crazyflow/primary-15/train-100152",
+      "role": "calibration_pool",
+      "seed": 100152,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-15",
+      "id": "crazyflow/primary-15/train-100153",
+      "role": "calibration_pool",
+      "seed": 100153,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-15",
+      "id": "crazyflow/primary-15/test-3200150",
+      "role": "test",
+      "seed": 3200150,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-15",
+      "id": "crazyflow/primary-15/test-3200151",
+      "role": "test",
+      "seed": 3200151,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-16",
+      "id": "crazyflow/primary-16/train-100160",
+      "role": "calibration_pool",
+      "seed": 100160,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-16",
+      "id": "crazyflow/primary-16/train-100161",
+      "role": "calibration_pool",
+      "seed": 100161,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-16",
+      "id": "crazyflow/primary-16/train-100162",
+      "role": "calibration_pool",
+      "seed": 100162,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-16",
+      "id": "crazyflow/primary-16/train-100163",
+      "role": "calibration_pool",
+      "seed": 100163,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-16",
+      "id": "crazyflow/primary-16/test-3200160",
+      "role": "test",
+      "seed": 3200160,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-16",
+      "id": "crazyflow/primary-16/test-3200161",
+      "role": "test",
+      "seed": 3200161,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-17",
+      "id": "crazyflow/primary-17/train-100170",
+      "role": "calibration_pool",
+      "seed": 100170,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-17",
+      "id": "crazyflow/primary-17/train-100171",
+      "role": "calibration_pool",
+      "seed": 100171,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-17",
+      "id": "crazyflow/primary-17/train-100172",
+      "role": "calibration_pool",
+      "seed": 100172,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-17",
+      "id": "crazyflow/primary-17/train-100173",
+      "role": "calibration_pool",
+      "seed": 100173,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-17",
+      "id": "crazyflow/primary-17/test-3200170",
+      "role": "test",
+      "seed": 3200170,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-17",
+      "id": "crazyflow/primary-17/test-3200171",
+      "role": "test",
+      "seed": 3200171,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-18",
+      "id": "crazyflow/primary-18/train-100180",
+      "role": "calibration_pool",
+      "seed": 100180,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-18",
+      "id": "crazyflow/primary-18/train-100181",
+      "role": "calibration_pool",
+      "seed": 100181,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-18",
+      "id": "crazyflow/primary-18/train-100182",
+      "role": "calibration_pool",
+      "seed": 100182,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-18",
+      "id": "crazyflow/primary-18/train-100183",
+      "role": "calibration_pool",
+      "seed": 100183,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-18",
+      "id": "crazyflow/primary-18/test-3200180",
+      "role": "test",
+      "seed": 3200180,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-18",
+      "id": "crazyflow/primary-18/test-3200181",
+      "role": "test",
+      "seed": 3200181,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-19",
+      "id": "crazyflow/primary-19/train-100190",
+      "role": "calibration_pool",
+      "seed": 100190,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-19",
+      "id": "crazyflow/primary-19/train-100191",
+      "role": "calibration_pool",
+      "seed": 100191,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-19",
+      "id": "crazyflow/primary-19/train-100192",
+      "role": "calibration_pool",
+      "seed": 100192,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-19",
+      "id": "crazyflow/primary-19/train-100193",
+      "role": "calibration_pool",
+      "seed": 100193,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-19",
+      "id": "crazyflow/primary-19/test-3200190",
+      "role": "test",
+      "seed": 3200190,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-19",
+      "id": "crazyflow/primary-19/test-3200191",
+      "role": "test",
+      "seed": 3200191,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-20",
+      "id": "crazyflow/primary-20/train-100200",
+      "role": "calibration_pool",
+      "seed": 100200,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-20",
+      "id": "crazyflow/primary-20/train-100201",
+      "role": "calibration_pool",
+      "seed": 100201,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-20",
+      "id": "crazyflow/primary-20/train-100202",
+      "role": "calibration_pool",
+      "seed": 100202,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-20",
+      "id": "crazyflow/primary-20/train-100203",
+      "role": "calibration_pool",
+      "seed": 100203,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-20",
+      "id": "crazyflow/primary-20/test-3200200",
+      "role": "test",
+      "seed": 3200200,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-20",
+      "id": "crazyflow/primary-20/test-3200201",
+      "role": "test",
+      "seed": 3200201,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-21",
+      "id": "crazyflow/primary-21/train-100210",
+      "role": "calibration_pool",
+      "seed": 100210,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-21",
+      "id": "crazyflow/primary-21/train-100211",
+      "role": "calibration_pool",
+      "seed": 100211,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-21",
+      "id": "crazyflow/primary-21/train-100212",
+      "role": "calibration_pool",
+      "seed": 100212,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-21",
+      "id": "crazyflow/primary-21/train-100213",
+      "role": "calibration_pool",
+      "seed": 100213,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-21",
+      "id": "crazyflow/primary-21/test-3200210",
+      "role": "test",
+      "seed": 3200210,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-21",
+      "id": "crazyflow/primary-21/test-3200211",
+      "role": "test",
+      "seed": 3200211,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-22",
+      "id": "crazyflow/primary-22/train-100220",
+      "role": "calibration_pool",
+      "seed": 100220,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-22",
+      "id": "crazyflow/primary-22/train-100221",
+      "role": "calibration_pool",
+      "seed": 100221,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-22",
+      "id": "crazyflow/primary-22/train-100222",
+      "role": "calibration_pool",
+      "seed": 100222,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-22",
+      "id": "crazyflow/primary-22/train-100223",
+      "role": "calibration_pool",
+      "seed": 100223,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-22",
+      "id": "crazyflow/primary-22/test-3200220",
+      "role": "test",
+      "seed": 3200220,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-22",
+      "id": "crazyflow/primary-22/test-3200221",
+      "role": "test",
+      "seed": 3200221,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-23",
+      "id": "crazyflow/primary-23/train-100230",
+      "role": "calibration_pool",
+      "seed": 100230,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-23",
+      "id": "crazyflow/primary-23/train-100231",
+      "role": "calibration_pool",
+      "seed": 100231,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-23",
+      "id": "crazyflow/primary-23/train-100232",
+      "role": "calibration_pool",
+      "seed": 100232,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-23",
+      "id": "crazyflow/primary-23/train-100233",
+      "role": "calibration_pool",
+      "seed": 100233,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-23",
+      "id": "crazyflow/primary-23/test-3200230",
+      "role": "test",
+      "seed": 3200230,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-23",
+      "id": "crazyflow/primary-23/test-3200231",
+      "role": "test",
+      "seed": 3200231,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "heading_shift-00",
+      "id": "crazyflow/heading_shift-00/test-3300240",
+      "role": "test",
+      "seed": 3300240,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "heading_shift-00",
+      "id": "crazyflow/heading_shift-00/test-3300241",
+      "role": "test",
+      "seed": 3300241,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "heading_shift-01",
+      "id": "crazyflow/heading_shift-01/test-3300250",
+      "role": "test",
+      "seed": 3300250,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "heading_shift-01",
+      "id": "crazyflow/heading_shift-01/test-3300251",
+      "role": "test",
+      "seed": 3300251,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "heading_shift-02",
+      "id": "crazyflow/heading_shift-02/test-3300260",
+      "role": "test",
+      "seed": 3300260,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "heading_shift-02",
+      "id": "crazyflow/heading_shift-02/test-3300261",
+      "role": "test",
+      "seed": 3300261,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "heading_shift-03",
+      "id": "crazyflow/heading_shift-03/test-3300270",
+      "role": "test",
+      "seed": 3300270,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "heading_shift-03",
+      "id": "crazyflow/heading_shift-03/test-3300271",
+      "role": "test",
+      "seed": 3300271,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "heading_shift-04",
+      "id": "crazyflow/heading_shift-04/test-3300280",
+      "role": "test",
+      "seed": 3300280,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "heading_shift-04",
+      "id": "crazyflow/heading_shift-04/test-3300281",
+      "role": "test",
+      "seed": 3300281,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "heading_shift-05",
+      "id": "crazyflow/heading_shift-05/test-3300290",
+      "role": "test",
+      "seed": 3300290,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "heading_shift-05",
+      "id": "crazyflow/heading_shift-05/test-3300291",
+      "role": "test",
+      "seed": 3300291,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "heading_shift-06",
+      "id": "crazyflow/heading_shift-06/test-3300300",
+      "role": "test",
+      "seed": 3300300,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "heading_shift-06",
+      "id": "crazyflow/heading_shift-06/test-3300301",
+      "role": "test",
+      "seed": 3300301,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "heading_shift-07",
+      "id": "crazyflow/heading_shift-07/test-3300310",
+      "role": "test",
+      "seed": 3300310,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "heading_shift-07",
+      "id": "crazyflow/heading_shift-07/test-3300311",
+      "role": "test",
+      "seed": 3300311,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "speed_shift-00",
+      "id": "crazyflow/speed_shift-00/test-3300320",
+      "role": "test",
+      "seed": 3300320,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "speed_shift-00",
+      "id": "crazyflow/speed_shift-00/test-3300321",
+      "role": "test",
+      "seed": 3300321,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "speed_shift-01",
+      "id": "crazyflow/speed_shift-01/test-3300330",
+      "role": "test",
+      "seed": 3300330,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "speed_shift-01",
+      "id": "crazyflow/speed_shift-01/test-3300331",
+      "role": "test",
+      "seed": 3300331,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "speed_shift-02",
+      "id": "crazyflow/speed_shift-02/test-3300340",
+      "role": "test",
+      "seed": 3300340,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "speed_shift-02",
+      "id": "crazyflow/speed_shift-02/test-3300341",
+      "role": "test",
+      "seed": 3300341,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "speed_shift-03",
+      "id": "crazyflow/speed_shift-03/test-3300350",
+      "role": "test",
+      "seed": 3300350,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "speed_shift-03",
+      "id": "crazyflow/speed_shift-03/test-3300351",
+      "role": "test",
+      "seed": 3300351,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "maneuver_shift-00",
+      "id": "crazyflow/maneuver_shift-00/test-3300360",
+      "role": "test",
+      "seed": 3300360,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "maneuver_shift-00",
+      "id": "crazyflow/maneuver_shift-00/test-3300361",
+      "role": "test",
+      "seed": 3300361,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "maneuver_shift-01",
+      "id": "crazyflow/maneuver_shift-01/test-3300370",
+      "role": "test",
+      "seed": 3300370,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "maneuver_shift-01",
+      "id": "crazyflow/maneuver_shift-01/test-3300371",
+      "role": "test",
+      "seed": 3300371,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "wind_shift-00",
+      "id": "crazyflow/wind_shift-00/test-3300380",
+      "role": "test",
+      "seed": 3300380,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "wind_shift-00",
+      "id": "crazyflow/wind_shift-00/test-3300381",
+      "role": "test",
+      "seed": 3300381,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "wind_shift-01",
+      "id": "crazyflow/wind_shift-01/test-3300390",
+      "role": "test",
+      "seed": 3300390,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "wind_shift-01",
+      "id": "crazyflow/wind_shift-01/test-3300391",
+      "role": "test",
+      "seed": 3300391,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "wind_shift-02",
+      "id": "crazyflow/wind_shift-02/test-3300400",
+      "role": "test",
+      "seed": 3300400,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "wind_shift-02",
+      "id": "crazyflow/wind_shift-02/test-3300401",
+      "role": "test",
+      "seed": 3300401,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "wind_shift-03",
+      "id": "crazyflow/wind_shift-03/test-3300410",
+      "role": "test",
+      "seed": 3300410,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "wind_shift-03",
+      "id": "crazyflow/wind_shift-03/test-3300411",
+      "role": "test",
+      "seed": 3300411,
+      "simulator": "crazyflow"
+    },
+    {
+      "cell": "primary-00",
+      "id": "cascade/primary-00/train-100000",
+      "role": "calibration_pool",
+      "seed": 100000,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-00",
+      "id": "cascade/primary-00/train-100001",
+      "role": "calibration_pool",
+      "seed": 100001,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-00",
+      "id": "cascade/primary-00/train-100002",
+      "role": "calibration_pool",
+      "seed": 100002,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-00",
+      "id": "cascade/primary-00/train-100003",
+      "role": "calibration_pool",
+      "seed": 100003,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-00",
+      "id": "cascade/primary-00/test-3200000",
+      "role": "test",
+      "seed": 3200000,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-00",
+      "id": "cascade/primary-00/test-3200001",
+      "role": "test",
+      "seed": 3200001,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-01",
+      "id": "cascade/primary-01/train-100010",
+      "role": "calibration_pool",
+      "seed": 100010,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-01",
+      "id": "cascade/primary-01/train-100011",
+      "role": "calibration_pool",
+      "seed": 100011,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-01",
+      "id": "cascade/primary-01/train-100012",
+      "role": "calibration_pool",
+      "seed": 100012,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-01",
+      "id": "cascade/primary-01/train-100013",
+      "role": "calibration_pool",
+      "seed": 100013,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-01",
+      "id": "cascade/primary-01/test-3200010",
+      "role": "test",
+      "seed": 3200010,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-01",
+      "id": "cascade/primary-01/test-3200011",
+      "role": "test",
+      "seed": 3200011,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-02",
+      "id": "cascade/primary-02/train-100020",
+      "role": "calibration_pool",
+      "seed": 100020,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-02",
+      "id": "cascade/primary-02/train-100021",
+      "role": "calibration_pool",
+      "seed": 100021,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-02",
+      "id": "cascade/primary-02/train-100022",
+      "role": "calibration_pool",
+      "seed": 100022,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-02",
+      "id": "cascade/primary-02/train-100023",
+      "role": "calibration_pool",
+      "seed": 100023,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-02",
+      "id": "cascade/primary-02/test-3200020",
+      "role": "test",
+      "seed": 3200020,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-02",
+      "id": "cascade/primary-02/test-3200021",
+      "role": "test",
+      "seed": 3200021,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-03",
+      "id": "cascade/primary-03/train-100030",
+      "role": "calibration_pool",
+      "seed": 100030,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-03",
+      "id": "cascade/primary-03/train-100031",
+      "role": "calibration_pool",
+      "seed": 100031,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-03",
+      "id": "cascade/primary-03/train-100032",
+      "role": "calibration_pool",
+      "seed": 100032,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-03",
+      "id": "cascade/primary-03/train-100033",
+      "role": "calibration_pool",
+      "seed": 100033,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-03",
+      "id": "cascade/primary-03/test-3200030",
+      "role": "test",
+      "seed": 3200030,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-03",
+      "id": "cascade/primary-03/test-3200031",
+      "role": "test",
+      "seed": 3200031,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-04",
+      "id": "cascade/primary-04/train-100040",
+      "role": "calibration_pool",
+      "seed": 100040,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-04",
+      "id": "cascade/primary-04/train-100041",
+      "role": "calibration_pool",
+      "seed": 100041,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-04",
+      "id": "cascade/primary-04/train-100042",
+      "role": "calibration_pool",
+      "seed": 100042,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-04",
+      "id": "cascade/primary-04/train-100043",
+      "role": "calibration_pool",
+      "seed": 100043,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-04",
+      "id": "cascade/primary-04/test-3200040",
+      "role": "test",
+      "seed": 3200040,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-04",
+      "id": "cascade/primary-04/test-3200041",
+      "role": "test",
+      "seed": 3200041,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-05",
+      "id": "cascade/primary-05/train-100050",
+      "role": "calibration_pool",
+      "seed": 100050,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-05",
+      "id": "cascade/primary-05/train-100051",
+      "role": "calibration_pool",
+      "seed": 100051,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-05",
+      "id": "cascade/primary-05/train-100052",
+      "role": "calibration_pool",
+      "seed": 100052,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-05",
+      "id": "cascade/primary-05/train-100053",
+      "role": "calibration_pool",
+      "seed": 100053,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-05",
+      "id": "cascade/primary-05/test-3200050",
+      "role": "test",
+      "seed": 3200050,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-05",
+      "id": "cascade/primary-05/test-3200051",
+      "role": "test",
+      "seed": 3200051,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-06",
+      "id": "cascade/primary-06/train-100060",
+      "role": "calibration_pool",
+      "seed": 100060,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-06",
+      "id": "cascade/primary-06/train-100061",
+      "role": "calibration_pool",
+      "seed": 100061,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-06",
+      "id": "cascade/primary-06/train-100062",
+      "role": "calibration_pool",
+      "seed": 100062,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-06",
+      "id": "cascade/primary-06/train-100063",
+      "role": "calibration_pool",
+      "seed": 100063,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-06",
+      "id": "cascade/primary-06/test-3200060",
+      "role": "test",
+      "seed": 3200060,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-06",
+      "id": "cascade/primary-06/test-3200061",
+      "role": "test",
+      "seed": 3200061,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-07",
+      "id": "cascade/primary-07/train-100070",
+      "role": "calibration_pool",
+      "seed": 100070,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-07",
+      "id": "cascade/primary-07/train-100071",
+      "role": "calibration_pool",
+      "seed": 100071,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-07",
+      "id": "cascade/primary-07/train-100072",
+      "role": "calibration_pool",
+      "seed": 100072,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-07",
+      "id": "cascade/primary-07/train-100073",
+      "role": "calibration_pool",
+      "seed": 100073,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-07",
+      "id": "cascade/primary-07/test-3200070",
+      "role": "test",
+      "seed": 3200070,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-07",
+      "id": "cascade/primary-07/test-3200071",
+      "role": "test",
+      "seed": 3200071,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-08",
+      "id": "cascade/primary-08/train-100080",
+      "role": "calibration_pool",
+      "seed": 100080,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-08",
+      "id": "cascade/primary-08/train-100081",
+      "role": "calibration_pool",
+      "seed": 100081,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-08",
+      "id": "cascade/primary-08/train-100082",
+      "role": "calibration_pool",
+      "seed": 100082,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-08",
+      "id": "cascade/primary-08/train-100083",
+      "role": "calibration_pool",
+      "seed": 100083,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-08",
+      "id": "cascade/primary-08/test-3200080",
+      "role": "test",
+      "seed": 3200080,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-08",
+      "id": "cascade/primary-08/test-3200081",
+      "role": "test",
+      "seed": 3200081,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-09",
+      "id": "cascade/primary-09/train-100090",
+      "role": "calibration_pool",
+      "seed": 100090,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-09",
+      "id": "cascade/primary-09/train-100091",
+      "role": "calibration_pool",
+      "seed": 100091,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-09",
+      "id": "cascade/primary-09/train-100092",
+      "role": "calibration_pool",
+      "seed": 100092,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-09",
+      "id": "cascade/primary-09/train-100093",
+      "role": "calibration_pool",
+      "seed": 100093,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-09",
+      "id": "cascade/primary-09/test-3200090",
+      "role": "test",
+      "seed": 3200090,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-09",
+      "id": "cascade/primary-09/test-3200091",
+      "role": "test",
+      "seed": 3200091,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-10",
+      "id": "cascade/primary-10/train-100100",
+      "role": "calibration_pool",
+      "seed": 100100,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-10",
+      "id": "cascade/primary-10/train-100101",
+      "role": "calibration_pool",
+      "seed": 100101,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-10",
+      "id": "cascade/primary-10/train-100102",
+      "role": "calibration_pool",
+      "seed": 100102,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-10",
+      "id": "cascade/primary-10/train-100103",
+      "role": "calibration_pool",
+      "seed": 100103,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-10",
+      "id": "cascade/primary-10/test-3200100",
+      "role": "test",
+      "seed": 3200100,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-10",
+      "id": "cascade/primary-10/test-3200101",
+      "role": "test",
+      "seed": 3200101,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-11",
+      "id": "cascade/primary-11/train-100110",
+      "role": "calibration_pool",
+      "seed": 100110,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-11",
+      "id": "cascade/primary-11/train-100111",
+      "role": "calibration_pool",
+      "seed": 100111,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-11",
+      "id": "cascade/primary-11/train-100112",
+      "role": "calibration_pool",
+      "seed": 100112,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-11",
+      "id": "cascade/primary-11/train-100113",
+      "role": "calibration_pool",
+      "seed": 100113,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-11",
+      "id": "cascade/primary-11/test-3200110",
+      "role": "test",
+      "seed": 3200110,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-11",
+      "id": "cascade/primary-11/test-3200111",
+      "role": "test",
+      "seed": 3200111,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-12",
+      "id": "cascade/primary-12/train-100120",
+      "role": "calibration_pool",
+      "seed": 100120,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-12",
+      "id": "cascade/primary-12/train-100121",
+      "role": "calibration_pool",
+      "seed": 100121,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-12",
+      "id": "cascade/primary-12/train-100122",
+      "role": "calibration_pool",
+      "seed": 100122,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-12",
+      "id": "cascade/primary-12/train-100123",
+      "role": "calibration_pool",
+      "seed": 100123,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-12",
+      "id": "cascade/primary-12/test-3200120",
+      "role": "test",
+      "seed": 3200120,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-12",
+      "id": "cascade/primary-12/test-3200121",
+      "role": "test",
+      "seed": 3200121,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-13",
+      "id": "cascade/primary-13/train-100130",
+      "role": "calibration_pool",
+      "seed": 100130,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-13",
+      "id": "cascade/primary-13/train-100131",
+      "role": "calibration_pool",
+      "seed": 100131,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-13",
+      "id": "cascade/primary-13/train-100132",
+      "role": "calibration_pool",
+      "seed": 100132,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-13",
+      "id": "cascade/primary-13/train-100133",
+      "role": "calibration_pool",
+      "seed": 100133,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-13",
+      "id": "cascade/primary-13/test-3200130",
+      "role": "test",
+      "seed": 3200130,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-13",
+      "id": "cascade/primary-13/test-3200131",
+      "role": "test",
+      "seed": 3200131,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-14",
+      "id": "cascade/primary-14/train-100140",
+      "role": "calibration_pool",
+      "seed": 100140,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-14",
+      "id": "cascade/primary-14/train-100141",
+      "role": "calibration_pool",
+      "seed": 100141,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-14",
+      "id": "cascade/primary-14/train-100142",
+      "role": "calibration_pool",
+      "seed": 100142,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-14",
+      "id": "cascade/primary-14/train-100143",
+      "role": "calibration_pool",
+      "seed": 100143,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-14",
+      "id": "cascade/primary-14/test-3200140",
+      "role": "test",
+      "seed": 3200140,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-14",
+      "id": "cascade/primary-14/test-3200141",
+      "role": "test",
+      "seed": 3200141,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-15",
+      "id": "cascade/primary-15/train-100150",
+      "role": "calibration_pool",
+      "seed": 100150,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-15",
+      "id": "cascade/primary-15/train-100151",
+      "role": "calibration_pool",
+      "seed": 100151,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-15",
+      "id": "cascade/primary-15/train-100152",
+      "role": "calibration_pool",
+      "seed": 100152,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-15",
+      "id": "cascade/primary-15/train-100153",
+      "role": "calibration_pool",
+      "seed": 100153,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-15",
+      "id": "cascade/primary-15/test-3200150",
+      "role": "test",
+      "seed": 3200150,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-15",
+      "id": "cascade/primary-15/test-3200151",
+      "role": "test",
+      "seed": 3200151,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-16",
+      "id": "cascade/primary-16/train-100160",
+      "role": "calibration_pool",
+      "seed": 100160,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-16",
+      "id": "cascade/primary-16/train-100161",
+      "role": "calibration_pool",
+      "seed": 100161,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-16",
+      "id": "cascade/primary-16/train-100162",
+      "role": "calibration_pool",
+      "seed": 100162,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-16",
+      "id": "cascade/primary-16/train-100163",
+      "role": "calibration_pool",
+      "seed": 100163,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-16",
+      "id": "cascade/primary-16/test-3200160",
+      "role": "test",
+      "seed": 3200160,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-16",
+      "id": "cascade/primary-16/test-3200161",
+      "role": "test",
+      "seed": 3200161,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-17",
+      "id": "cascade/primary-17/train-100170",
+      "role": "calibration_pool",
+      "seed": 100170,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-17",
+      "id": "cascade/primary-17/train-100171",
+      "role": "calibration_pool",
+      "seed": 100171,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-17",
+      "id": "cascade/primary-17/train-100172",
+      "role": "calibration_pool",
+      "seed": 100172,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-17",
+      "id": "cascade/primary-17/train-100173",
+      "role": "calibration_pool",
+      "seed": 100173,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-17",
+      "id": "cascade/primary-17/test-3200170",
+      "role": "test",
+      "seed": 3200170,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-17",
+      "id": "cascade/primary-17/test-3200171",
+      "role": "test",
+      "seed": 3200171,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-18",
+      "id": "cascade/primary-18/train-100180",
+      "role": "calibration_pool",
+      "seed": 100180,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-18",
+      "id": "cascade/primary-18/train-100181",
+      "role": "calibration_pool",
+      "seed": 100181,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-18",
+      "id": "cascade/primary-18/train-100182",
+      "role": "calibration_pool",
+      "seed": 100182,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-18",
+      "id": "cascade/primary-18/train-100183",
+      "role": "calibration_pool",
+      "seed": 100183,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-18",
+      "id": "cascade/primary-18/test-3200180",
+      "role": "test",
+      "seed": 3200180,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-18",
+      "id": "cascade/primary-18/test-3200181",
+      "role": "test",
+      "seed": 3200181,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-19",
+      "id": "cascade/primary-19/train-100190",
+      "role": "calibration_pool",
+      "seed": 100190,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-19",
+      "id": "cascade/primary-19/train-100191",
+      "role": "calibration_pool",
+      "seed": 100191,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-19",
+      "id": "cascade/primary-19/train-100192",
+      "role": "calibration_pool",
+      "seed": 100192,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-19",
+      "id": "cascade/primary-19/train-100193",
+      "role": "calibration_pool",
+      "seed": 100193,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-19",
+      "id": "cascade/primary-19/test-3200190",
+      "role": "test",
+      "seed": 3200190,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-19",
+      "id": "cascade/primary-19/test-3200191",
+      "role": "test",
+      "seed": 3200191,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-20",
+      "id": "cascade/primary-20/train-100200",
+      "role": "calibration_pool",
+      "seed": 100200,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-20",
+      "id": "cascade/primary-20/train-100201",
+      "role": "calibration_pool",
+      "seed": 100201,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-20",
+      "id": "cascade/primary-20/train-100202",
+      "role": "calibration_pool",
+      "seed": 100202,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-20",
+      "id": "cascade/primary-20/train-100203",
+      "role": "calibration_pool",
+      "seed": 100203,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-20",
+      "id": "cascade/primary-20/test-3200200",
+      "role": "test",
+      "seed": 3200200,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-20",
+      "id": "cascade/primary-20/test-3200201",
+      "role": "test",
+      "seed": 3200201,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-21",
+      "id": "cascade/primary-21/train-100210",
+      "role": "calibration_pool",
+      "seed": 100210,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-21",
+      "id": "cascade/primary-21/train-100211",
+      "role": "calibration_pool",
+      "seed": 100211,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-21",
+      "id": "cascade/primary-21/train-100212",
+      "role": "calibration_pool",
+      "seed": 100212,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-21",
+      "id": "cascade/primary-21/train-100213",
+      "role": "calibration_pool",
+      "seed": 100213,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-21",
+      "id": "cascade/primary-21/test-3200210",
+      "role": "test",
+      "seed": 3200210,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-21",
+      "id": "cascade/primary-21/test-3200211",
+      "role": "test",
+      "seed": 3200211,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-22",
+      "id": "cascade/primary-22/train-100220",
+      "role": "calibration_pool",
+      "seed": 100220,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-22",
+      "id": "cascade/primary-22/train-100221",
+      "role": "calibration_pool",
+      "seed": 100221,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-22",
+      "id": "cascade/primary-22/train-100222",
+      "role": "calibration_pool",
+      "seed": 100222,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-22",
+      "id": "cascade/primary-22/train-100223",
+      "role": "calibration_pool",
+      "seed": 100223,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-22",
+      "id": "cascade/primary-22/test-3200220",
+      "role": "test",
+      "seed": 3200220,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-22",
+      "id": "cascade/primary-22/test-3200221",
+      "role": "test",
+      "seed": 3200221,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-23",
+      "id": "cascade/primary-23/train-100230",
+      "role": "calibration_pool",
+      "seed": 100230,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-23",
+      "id": "cascade/primary-23/train-100231",
+      "role": "calibration_pool",
+      "seed": 100231,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-23",
+      "id": "cascade/primary-23/train-100232",
+      "role": "calibration_pool",
+      "seed": 100232,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-23",
+      "id": "cascade/primary-23/train-100233",
+      "role": "calibration_pool",
+      "seed": 100233,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-23",
+      "id": "cascade/primary-23/test-3200230",
+      "role": "test",
+      "seed": 3200230,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "primary-23",
+      "id": "cascade/primary-23/test-3200231",
+      "role": "test",
+      "seed": 3200231,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "heading_shift-00",
+      "id": "cascade/heading_shift-00/test-3300240",
+      "role": "test",
+      "seed": 3300240,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "heading_shift-00",
+      "id": "cascade/heading_shift-00/test-3300241",
+      "role": "test",
+      "seed": 3300241,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "heading_shift-01",
+      "id": "cascade/heading_shift-01/test-3300250",
+      "role": "test",
+      "seed": 3300250,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "heading_shift-01",
+      "id": "cascade/heading_shift-01/test-3300251",
+      "role": "test",
+      "seed": 3300251,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "heading_shift-02",
+      "id": "cascade/heading_shift-02/test-3300260",
+      "role": "test",
+      "seed": 3300260,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "heading_shift-02",
+      "id": "cascade/heading_shift-02/test-3300261",
+      "role": "test",
+      "seed": 3300261,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "heading_shift-03",
+      "id": "cascade/heading_shift-03/test-3300270",
+      "role": "test",
+      "seed": 3300270,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "heading_shift-03",
+      "id": "cascade/heading_shift-03/test-3300271",
+      "role": "test",
+      "seed": 3300271,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "heading_shift-04",
+      "id": "cascade/heading_shift-04/test-3300280",
+      "role": "test",
+      "seed": 3300280,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "heading_shift-04",
+      "id": "cascade/heading_shift-04/test-3300281",
+      "role": "test",
+      "seed": 3300281,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "heading_shift-05",
+      "id": "cascade/heading_shift-05/test-3300290",
+      "role": "test",
+      "seed": 3300290,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "heading_shift-05",
+      "id": "cascade/heading_shift-05/test-3300291",
+      "role": "test",
+      "seed": 3300291,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "heading_shift-06",
+      "id": "cascade/heading_shift-06/test-3300300",
+      "role": "test",
+      "seed": 3300300,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "heading_shift-06",
+      "id": "cascade/heading_shift-06/test-3300301",
+      "role": "test",
+      "seed": 3300301,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "heading_shift-07",
+      "id": "cascade/heading_shift-07/test-3300310",
+      "role": "test",
+      "seed": 3300310,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "heading_shift-07",
+      "id": "cascade/heading_shift-07/test-3300311",
+      "role": "test",
+      "seed": 3300311,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "speed_shift-00",
+      "id": "cascade/speed_shift-00/test-3300320",
+      "role": "test",
+      "seed": 3300320,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "speed_shift-00",
+      "id": "cascade/speed_shift-00/test-3300321",
+      "role": "test",
+      "seed": 3300321,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "speed_shift-01",
+      "id": "cascade/speed_shift-01/test-3300330",
+      "role": "test",
+      "seed": 3300330,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "speed_shift-01",
+      "id": "cascade/speed_shift-01/test-3300331",
+      "role": "test",
+      "seed": 3300331,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "speed_shift-02",
+      "id": "cascade/speed_shift-02/test-3300340",
+      "role": "test",
+      "seed": 3300340,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "speed_shift-02",
+      "id": "cascade/speed_shift-02/test-3300341",
+      "role": "test",
+      "seed": 3300341,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "speed_shift-03",
+      "id": "cascade/speed_shift-03/test-3300350",
+      "role": "test",
+      "seed": 3300350,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "speed_shift-03",
+      "id": "cascade/speed_shift-03/test-3300351",
+      "role": "test",
+      "seed": 3300351,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "maneuver_shift-00",
+      "id": "cascade/maneuver_shift-00/test-3300360",
+      "role": "test",
+      "seed": 3300360,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "maneuver_shift-00",
+      "id": "cascade/maneuver_shift-00/test-3300361",
+      "role": "test",
+      "seed": 3300361,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "maneuver_shift-01",
+      "id": "cascade/maneuver_shift-01/test-3300370",
+      "role": "test",
+      "seed": 3300370,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "maneuver_shift-01",
+      "id": "cascade/maneuver_shift-01/test-3300371",
+      "role": "test",
+      "seed": 3300371,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "wind_shift-00",
+      "id": "cascade/wind_shift-00/test-3300380",
+      "role": "test",
+      "seed": 3300380,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "wind_shift-00",
+      "id": "cascade/wind_shift-00/test-3300381",
+      "role": "test",
+      "seed": 3300381,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "wind_shift-01",
+      "id": "cascade/wind_shift-01/test-3300390",
+      "role": "test",
+      "seed": 3300390,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "wind_shift-01",
+      "id": "cascade/wind_shift-01/test-3300391",
+      "role": "test",
+      "seed": 3300391,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "wind_shift-02",
+      "id": "cascade/wind_shift-02/test-3300400",
+      "role": "test",
+      "seed": 3300400,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "wind_shift-02",
+      "id": "cascade/wind_shift-02/test-3300401",
+      "role": "test",
+      "seed": 3300401,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "wind_shift-03",
+      "id": "cascade/wind_shift-03/test-3300410",
+      "role": "test",
+      "seed": 3300410,
+      "simulator": "cascade"
+    },
+    {
+      "cell": "wind_shift-03",
+      "id": "cascade/wind_shift-03/test-3300411",
+      "role": "test",
+      "seed": 3300411,
+      "simulator": "cascade"
+    }
+  ],
+  "runtime": {
+    "SCIPY_ARRAY_API": "1",
+    "backend": "cpu",
+    "imports": "Current isolated Glassbox checkout first; Cascade only from clean committed archive e8f6ba6; installed Crazyflow files must match pinned clean1142d284 sources. Never import Dart controller modules. Record actual import roots, loaded source/asset hashes and native package/runtime identities before data and fits.",
+    "jax": "0.11.1",
+    "jax_enable_x64": true,
+    "jaxlib": "0.11.1",
+    "numpy": "2.5.3",
+    "python": "/Users/ryland/autonomy/dart/.venv/bin/python",
+    "python_version": "3.12.12",
+    "scipy": "1.18.1"
+  },
+  "scope": "One explicit collection intervention: independent block-random command offsets in original training parents. Hold quadratic architecture, optimizer update budget and original development recordings fixed. Fresh unperturbed test conditions and queries are identical for public baseline, original-data quadratic, excited-data quadratic and hold. This tests the collection recipe, not isolated causal identification or an architecture change.",
+  "signals": {
+    "commands": "Issued boundary command held throughout each recorded interval. Crazyflow desired thrust/max-thrust in Glassbox FL/FR/RR/RL order, bounds thrust_min/thrust_max through1. Cascade order throttle,elevator,aileron; bounds[0,1],[-.35,.35],[-.35,.35]. Save realized actuator outputs separately; never substitute them for issued commands.",
+    "configuration": "One immutable physical configuration per simulator across all conditions. Declare exact identical ordered channel identity strings and timing for calibration and evaluation; wind remains unobserved in both predictors.",
+    "observed": "All learned arms receive the same15 Euclidean channels: world NWU velocity3 [m/s], body FLU rates3 [rad/s], body-to-world rotation matrix9 row-major, using existing OBSERVED_CHANNELS and observed_from_state. Neither positions, hidden actuators, wind, pilot state, true equations nor future observations enter fitting. Stored canonical/full simulator states serve evaluation only.",
+    "prefix": "All learned arms use the actual required .5s observed context without padding. Historical structured workflow is not rerun or used for acceptance in this iteration.",
+    "truth_state": "Canonical rigid_body_13_nwu_flu_wxyz_v1: position3, world velocity3, WXYZ body-to-world quaternion4, body rates3. Save full simulator internal state separately for replay/branching."
+  },
+  "sources": {
+    "path": "docs/harness/two-simulator-flight-v1-sources.json",
+    "sha256": "5f051cf52baca746c60cf4da9c5d630fac33129429c27180a5240672bb8d2270"
+  },
+  "status": "frozen-before-implementation-trials-and-fitting"
+}
