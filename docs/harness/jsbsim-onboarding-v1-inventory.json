@@ -1,0 +1,1302 @@
+{
+  "archive_sha256": "3ade625a388a1f48f6de7eaaaa8b680e8fed2e29550b669b490735ea88cc81e8",
+  "archive_url": "https://github.com/JSBSim-Team/jsbsim/archive/refs/tags/v1.3.1.tar.gz",
+  "assets": {
+    "aircraft/737/737.xml": "1ac0bde51e3665306ebdc70f7920748aaf1b58a0f5443b63eed400dbf92be338",
+    "aircraft/737/INSTALL": "7c6705756311b445f5665de8459a40c7d151500d65f53073ee3f60836b3f4caf",
+    "aircraft/737/cruise_init.xml": "7f2ebb073c6f29b5274cdb091fbb31f302f1e1381e348850a3d8d4ca2c88da67",
+    "aircraft/737/cruise_steady_turn_init.xml": "9cbc34823ae64a043fdf7801a33600b570cb8b40becadeb16939685fc9a03a1a",
+    "aircraft/737/reset00.xml": "9794e588609b314208d61c7c5cc9fb1ebfe1e497a3bf661358d21dbefaa3b705",
+    "aircraft/737/rudder_kick_init.xml": "79750a266657132ac48d7831e970ab96ea10e2943df5e717a11c27e4321561bf",
+    "aircraft/787-8/787-8.xml": "addb1f90f8175c9e826d5baad7de6289dd6e4404182d3de20487038228d21089",
+    "aircraft/787-8/Authors.txt": "3344f0420f45e8949d3c71caf1e8ac67467c84802b5b8bf740344205139778d6",
+    "aircraft/787-8/README": "d357ac91bfca099fb86b785cd654fbac3163aa8d44f44fa3234d5207f95da17f",
+    "aircraft/A320/A320.xml": "a159391b479bc0adafe0b912647a4d34070dbde4f13cd9408ba6806e60f61d9b",
+    "aircraft/A320/INSTALL": "88b83aa99bff3c2bac235bea0d04272ea9a6dd10424a700b4df6db45a8f53c49",
+    "aircraft/A4/A4.xml": "ff38cca247abecdb8f333849f9eae6835305ad45e333770601070fc652d2e994",
+    "aircraft/A4/INSTALL": "88b83aa99bff3c2bac235bea0d04272ea9a6dd10424a700b4df6db45a8f53c49",
+    "aircraft/B17/B17.xml": "a6d546ec85e5677dae14f3425e67007d2d312c7442c8a9b63a864f61882a15f6",
+    "aircraft/B17/INSTALL": "9056b98055014046d81f6fe7326b8d1ef962e2e4ed04834c55195dc31315faf4",
+    "aircraft/B17/reset00.xml": "4d655a4d634365a47a7009736cf5f1a38ce0e13c843847a951e55dc966a9bff8",
+    "aircraft/B747/B747.xml": "da5c74608dc7a53402270efa150083316d87018726ea25c66a2f30be05e484a9",
+    "aircraft/B747/INSTALL": "54062d040116e0c94ccf374d383a88b8fe338b73d3ae106cf565787e05d4ea23",
+    "aircraft/B747/reset00.xml": "a165eccfdba92a9c99f68c12c87fc7824ffad5c7a3b54abecce6ce15b6ada0ea",
+    "aircraft/Boeing314/Boeing314.xml": "c1a1647b613c4c968d23b950b2534e080118844c754c56b96dbb3835201e120f",
+    "aircraft/Boeing314/INSTALL": "9056b98055014046d81f6fe7326b8d1ef962e2e4ed04834c55195dc31315faf4",
+    "aircraft/C130/C130.xml": "88c2cd5a3da01fdd3390c6337e46ab22d84b10e6c1cbb15166e7a1bfcdedcee1",
+    "aircraft/C130/INSTALL": "9056b98055014046d81f6fe7326b8d1ef962e2e4ed04834c55195dc31315faf4",
+    "aircraft/C130/reset00.xml": "18474576114e38bb080474e045b9ff493466588a6cc653cbe173cffb4bc387d8",
+    "aircraft/Camel/Camel.xml": "5a943180be3bc7305b4fb4c40d562f09a4fc968161f40942c79faa198631bd01",
+    "aircraft/Camel/INSTALL": "849505835a6bc9e12223ce8b7779c65c655dfba9fc6b7645e7c0cc937570422a",
+    "aircraft/Camel/README": "9dec244c1114f956519a228c7d4316e66d50be54258c527caad88a9a7410636d",
+    "aircraft/Camel/Systems/automixture.xml": "9d16cc07cd187976973622d6f96ae332304f57e108a0da328ff4c4d2665ba7c2",
+    "aircraft/Camel/Systems/crash-detect.xml": "1c33528dfc96ab1bb19a5645a978bf853c1d1e52a5e8ed41853c65f4d0508dfe",
+    "aircraft/Concorde/Concorde.xml": "c2475bf0c4a1c69216855d5b7a3c684ea595679ed09dbbbf10f7783ed5e244fb",
+    "aircraft/Concorde/INSTALL": "88b83aa99bff3c2bac235bea0d04272ea9a6dd10424a700b4df6db45a8f53c49",
+    "aircraft/Concorde/reset00.xml": "948c4479d62ce59fe35d064137e0fb4af38c45ae50238b10c5f6944f34491543",
+    "aircraft/DHC6/DHC6.xml": "ea870e4866aef6be46e6ab8e139c26b398a2ebd220f293b8bd97a6c36fb08ec6",
+    "aircraft/DHC6/Engines/PT6A-27.xml": "39c4b130cf25b9422d6cdfb5a6ada06f8aa91cb62034dc55f1876ce3bf5996d4",
+    "aircraft/DHC6/Engines/Propeller.xml": "2b08b408c67d4eca87066d11c02d00a689462c781feed57a0f423b0133a5084d",
+    "aircraft/DHC6/INSTALL": "2a098948b5165f7453c65ff7ae85a4b87dde470f85abce97f56260bcc001afa6",
+    "aircraft/DHC6/Systems/Conventional Controls.xml": "6a358b9c5ca9369005a629fc87d84717f7517c5e2396d81a22964eab51bbb7af",
+    "aircraft/DHC6/Systems/Flaps.xml": "bc2dcc3e287e233547fae6afe780bb48e37d0fa8f6006144bfb9a4ab429862ee",
+    "aircraft/DHC6/Systems/Landing Gear.xml": "9205727931087899de9d3d3ff90e6eaf4fe2746c6abf447c2eab0d452de09adf",
+    "aircraft/DHC6/Systems/Propulsion.xml": "f4524a9ce7ba68f0e9fc908d13478ec391fbc974c5d32e10edea7327a5e85a8b",
+    "aircraft/DHC6/info.txt": "e25a4b7d774b93e96fda647409aad14c674d3eec376b9a19b4125f2adc165bd3",
+    "aircraft/F450/Aero.xml": "eecb12f3d204747b035d9b8c5e5ea2c191a265702a872f787093327cbf4fcf70",
+    "aircraft/F450/Effectors.xml": "156df001f4218ee0108e617feafa1d0c7da04e93f243b23880f74664fe2c9458",
+    "aircraft/F450/F450.xml": "ed23086b7bb872a45ea849961a1871207584cc19c687e771e5a89d5d9834918f",
+    "aircraft/F450/FlightControl.xml": "be8b832f104b098a296e1b138a06f129a483d53e51e4aa060f609592ac0ba093",
+    "aircraft/F450/Gear.xml": "4dd3064bf9f7daf1dd2111ae5e719592354af9b5aedbdab0601d8621baf43c8b",
+    "aircraft/F450/Mass.xml": "31b6b92f30661a05591c3a5a98b48fbd4c5b93aa8dda20d4906235c920134ed4",
+    "aircraft/F450/Metrics.xml": "5a2439f962f3df7ae6562fdc16ec7082421b206fc6e0d97c43379a87e113921e",
+    "aircraft/F450/Propulsion.xml": "2c5401e403cb9dd60a474c5a282ede51216a38f887e5597851bab2c902a4e25a",
+    "aircraft/F450/initGrnd.xml": "bfe66c4645d35af99fa10e7a21d17f02382db72efaa0ce41b22af73ddb4203e6",
+    "aircraft/F4N/Engines/J79-GE-11A.xml": "96a5294da25a7b6b882fd77878c2da73c7802c22850f9ef7e3e4ab582d3bcd22",
+    "aircraft/F4N/Engines/direct.xml": "f116b6f6d25d4b2b46c2f0faa713e85d0064db7a634105bc96e391fb52e4dde5",
+    "aircraft/F4N/F4N-jsbsim.xml": "bddccf8f8ccb7f1bbc43cc0e347ccdb344da3f446ddd0c893bc2571dbb38c7b9",
+    "aircraft/F4N/F4N.xml": "7c90297faa2b8eb6d2e21e646c96aff4dce1f8b7bc2b1fa047d05d834e562a4a",
+    "aircraft/F4N/INSTALL": "9056b98055014046d81f6fe7326b8d1ef962e2e4ed04834c55195dc31315faf4",
+    "aircraft/F4N/reset00.xml": "df3f94621df4d2b986b5d53999aeaafb458fe4ada92fe69ab6d9b394fff94010",
+    "aircraft/F80C/F80C.xml": "8c79d679b446360503a0daa78a291889f6304a8e76b622a452659f0b8eb19390",
+    "aircraft/F80C/INSTALL": "88b83aa99bff3c2bac235bea0d04272ea9a6dd10424a700b4df6db45a8f53c49",
+    "aircraft/J246/INSTALL": "88b83aa99bff3c2bac235bea0d04272ea9a6dd10424a700b4df6db45a8f53c49",
+    "aircraft/J246/J246.xml": "c2b10d89db28d50b94d3c995c5690a75c42c0d30405df9373dac4a72949e47a1",
+    "aircraft/J246/LC39.xml": "ae2cdc25692bc96919391030088f1fb0ee4b9495045794620f2585ce2e094c00",
+    "aircraft/J246/Systems/J246ControlSystem.xml": "3a16eae4a7f2e3121dcb0ee4529d1190acca1be162c2d52c8b85f2df96ddf995",
+    "aircraft/J246/Systems/J246FirstStageEffectors.xml": "ebc333c5e003dc9586f1a0b28efa5afcfb5844ab953d08bec83176dea9a1c5f3",
+    "aircraft/J246/Systems/J246GuidanceExecutive.xml": "77cea44e5b2e5ef00c6107bdb68c0edf19b2957d688441b463cf45dd861881ba",
+    "aircraft/J246/Systems/J246SecondStageEffectors.xml": "cfd53138f382d0ae898acd98c327140a5c285e2141e1c15e652f80300f9bdd31",
+    "aircraft/J3Cub/Engines/CM7445 MCCauley.xml": "d4bfad7117da1a0d9ff1825ca63c0d1fbe8317b78e529433f32785af1ed4ce99",
+    "aircraft/J3Cub/Engines/Continental A-65-8.xml": "9daad23f6bc1fbeef2cd128484469f154ab8fb3d902b6e786825d7f18df1bcdc",
+    "aircraft/J3Cub/J3Cub.xml": "a0a0a59d7f914243ffa7dd84f4399fdc2b98f78175f39faf030489612ddd7ce5",
+    "aircraft/J3Cub/Systems/Conventional Controls.xml": "919ea79044bce091fb4668a655de1bbbffba51a3d0b31262fb15d60fc2f0dcdc",
+    "aircraft/L17/INSTALL": "9056b98055014046d81f6fe7326b8d1ef962e2e4ed04834c55195dc31315faf4",
+    "aircraft/L17/L17.xml": "4472cb86623b4fc6529381a270f09d722d52d352428787d93610d349aa23ccbf",
+    "aircraft/L17/navion.tsf": "b3337aa7b50af8b35702a0382b3909d60b060394e5fdc0394b9b7100e33510b5",
+    "aircraft/L410/INSTALL": "9056b98055014046d81f6fe7326b8d1ef962e2e4ed04834c55195dc31315faf4",
+    "aircraft/L410/L410.xml": "f14615e924609f23c025592f2d1d66ce8c75c13b82e70b61a0ad04fc17c76cee",
+    "aircraft/L410/reset00.xml": "7295bbd1fa1211b7ad419184ef29feb7290e09512c1684336ec6041aa7ee8e38",
+    "aircraft/LM/INSTALL": "37bfc6801e05146a23c5f088b435fa9046721cea2be977797922970a96bdd9fe",
+    "aircraft/MD11/INSTALL": "88b83aa99bff3c2bac235bea0d04272ea9a6dd10424a700b4df6db45a8f53c49",
+    "aircraft/MD11/MD11.xml": "8addf6e948beaa287813107175cbaa31a50cd96cb9f63805c9e225906b8bffc2",
+    "aircraft/OV10/INSTALL": "88b83aa99bff3c2bac235bea0d04272ea9a6dd10424a700b4df6db45a8f53c49",
+    "aircraft/OV10/OV10.xml": "64026c94ac3a953ffcc2d953b13c44c5d250825c1d7b51b2e3f9c780ace72c3a",
+    "aircraft/OV10/reset00.xml": "4134622fa42441de7f4646278fbafc9f63cf902fc80f33c401a4438d372e0778",
+    "aircraft/Pterosaur/Pterosaur.xml": "eda73aa8365d9cff4f3e06885ebca8cef83b52d3ed71d6016f5140531058563e",
+    "aircraft/Pterosaur/Systems/Landing Gear.xml": "2217f6871b90f4bea801f864aafc07b0f70144686b09d55962ecd73f24f5484d",
+    "aircraft/Pterosaur/Systems/Ornithopter Controls.xml": "640cb4b4a2fd1b567661238e95dac8f582a679c8e49b3782df9b5b4aebac4eb1",
+    "aircraft/Pterosaur/Systems/Wing Motion.xml": "d5d5fe9493fde3377192fd545a50028b17261393382f8a599ecc0a61fa9fe590",
+    "aircraft/SGS/INSTALL": "9056b98055014046d81f6fe7326b8d1ef962e2e4ed04834c55195dc31315faf4",
+    "aircraft/SGS/SGS.xml": "374c2b9cfe2d4b570e77512c9dfd5a1d55e46f7ded05e4430d603e919a8395f3",
+    "aircraft/SGS/reset00.xml": "5835b440e63216573edd6bd94954d9640418e11e78a169858a29f3470beff0c3",
+    "aircraft/Short_S23/INSTALL": "9056b98055014046d81f6fe7326b8d1ef962e2e4ed04834c55195dc31315faf4",
+    "aircraft/Short_S23/Short_S23.xml": "b4ba55cceeaca5057bacfb59b510bf3bdc8e9ea19efbd007904700ab2439282f",
+    "aircraft/Short_S23/Systems/Short_S23-hydrodynamics.xml": "2845fa0a83bf61f6179dbeefec81502debd587df412e2707ebaaac9bc53c4837",
+    "aircraft/Short_S23/Systems/datcom_aero.xml": "f115dfe222b379e3cc78090f760e154be8aa5788ab3580311bedca38715001a6",
+    "aircraft/Short_S23/Systems/electrical.xml": "cead2a5443db1ac79caa03c44337edea601c8587807a837e58c05a38e2166d3c",
+    "aircraft/Short_S23/Systems/engines.xml": "5227694bdbf4cfa625dfdd20a88c5edd254e0886d441582309d0f34c3bb6fdc6",
+    "aircraft/Short_S23/Systems/flaps.xml": "c0afff1e69ccbee80e02def96a38e197ba48c4cf2d99a64052d5d87a2eb876ff",
+    "aircraft/Short_S23/Systems/fuel-system.xml": "8b46969e0a1c7cf2247e0f6a920647f7d02ba384fb2e589e37dd73185ce980bd",
+    "aircraft/Short_S23/Systems/take-off-ap.xml": "a59058f68796923db2284f7a2f78b0d746fb09ca860378446432ca734ff72d42",
+    "aircraft/Short_S23/output.xml": "6387ccc53dfffff86c58595e1e61124dad59ca68c1b9020ea06a7de7970ceab0",
+    "aircraft/Short_S23/reset00.xml": "07e364585277fd02e469d253a9d6097cb272d41bdc5f87cb8e552a4a4fff6a36",
+    "aircraft/Short_S23/reset01.xml": "b9ed515c8e742a031e5fb44176bb1975b76d0b2dec2399f82858e5409a8bdf1d",
+    "aircraft/Short_S23/reset02.xml": "510b50f0327ccdff8148126d010626a183ba2d5d4db190df54266b71f9d04edf",
+    "aircraft/Short_S23/reset03.xml": "2c10582c1be84da035ecdb54082e0f89f07ae02b5e52fab75e313cb0e7c74d44",
+    "aircraft/Shuttle/INSTALL": "88b83aa99bff3c2bac235bea0d04272ea9a6dd10424a700b4df6db45a8f53c49",
+    "aircraft/Shuttle/Shuttle.xml": "938d9c6d4bbda5d47087e01ac338a8506b186e29ac639c561f6c10d7e5093b26",
+    "aircraft/Shuttle/reset00.xml": "694ba16c07196536a5bac06c7ce3951b33814cd46972ba65d1bc4dee2838785b",
+    "aircraft/Submarine_Scout/INSTALL": "ee2be046af45c7775edfe1d799ac438a7d8b4a19b66c1f1fd942e58bfb0c9172",
+    "aircraft/Submarine_Scout/Submarine_Scout.xml": "c795c5adddc827b104b0e768410d79dfcfb815a013971c339fd4202cb61401c8",
+    "aircraft/Submarine_Scout/Systems/Submarine_Scout_crew_ap.xml": "c3958cdf2025e67817a18d8d22fca8de125bbb6c0a5c8683f3fc03f25d6efed9",
+    "aircraft/Submarine_Scout/Systems/air-and-gas-control.xml": "7bfb3f11d050f13dbd81c633a1b6665ced79424977285e8e7f57f37c88f93e97",
+    "aircraft/Submarine_Scout/Systems/gerris_aero.xml": "e37615ca4c6362ece0338268f2be6402775954c45928be6554487226da50ff15",
+    "aircraft/Submarine_Scout/reset00.xml": "bdeb373f36666cde7df8c42936e518f114f4ea247bad4816c1c0b39283c7530f",
+    "aircraft/Submarine_Scout/reset01.xml": "906bc41583c2dc248b04f54a0015e54fd57a3165b778c43674159960c9f8e039",
+    "aircraft/Submarine_Scout/takeoff.xml": "27ab802e75940a77cc3884c2b91be1e8eb75628bc0bc7f9a0d3f14c660858947",
+    "aircraft/T37/INSTALL": "88b83aa99bff3c2bac235bea0d04272ea9a6dd10424a700b4df6db45a8f53c49",
+    "aircraft/T37/T37.xml": "24b3ab90063e62a6b5e6ba969e43b9ed9ccc980d32fcb213a765c331025a57e9",
+    "aircraft/T37/reset00.xml": "a1e4e9800f59dac0ce4c2bb0ced5f95feaa834cbd6ea7feecf0b0f9546f4a5d6",
+    "aircraft/T38/INSTALL": "88b83aa99bff3c2bac235bea0d04272ea9a6dd10424a700b4df6db45a8f53c49",
+    "aircraft/T38/T38.xml": "3cb59fc46cef473b8b89c591651faf67f1e05954cb98db297d121fc8e58368b0",
+    "aircraft/T38/reset00.xml": "9563915170f7a9e8cf31f0926a74a9a6363c4f585bf6ce8a7a2c82aee3d69160",
+    "aircraft/X15/INSTALL": "88b83aa99bff3c2bac235bea0d04272ea9a6dd10424a700b4df6db45a8f53c49",
+    "aircraft/X15/X15.xml": "d1b13422428164d19ffa9621821df07b9de7c3844e9d2895f51abbc3108a26d6",
+    "aircraft/X15/X15ap.xml": "8614927864b2d4072c080c3a4013562e3a9e696ddafdd25260ca5a21ccf9aa02",
+    "aircraft/X15/reset00.xml": "79e412248e8d2bbb1e8031cc149025b1d16940ec5f5bcd38878204089e719115",
+    "aircraft/X15/reset01.xml": "fbb4952f3b8b7f566be86041c45f4d028a3d61797bb0cc2bde81148083f713a8",
+    "aircraft/XB-70/INSTALL": "9056b98055014046d81f6fe7326b8d1ef962e2e4ed04834c55195dc31315faf4",
+    "aircraft/XB-70/XB-70.xml": "c82939f0ac7f5c6218802d9d17361312ec0eed07554f19a10ab9110ab2ebeda9",
+    "aircraft/XB-70/reset00.xml": "a165eccfdba92a9c99f68c12c87fc7824ffad5c7a3b54abecce6ce15b6ada0ea",
+    "aircraft/ZLT-NT/INSTALL": "3e14754fd029ec6eb65c406b92096ed4dd6430080866ac540ce4c610e9315fed",
+    "aircraft/ZLT-NT/Systems/air-and-gas-control.xml": "6cccadf460f76539ef768c702e9079f625f2aa68f785e963cafda0ecb33b8172",
+    "aircraft/ZLT-NT/Systems/datcom_aero.xml": "77109f0a5b9aa55460eb4c5ad78d06fba3a531b3bbedee925c26f1b6f1797e27",
+    "aircraft/ZLT-NT/Systems/engine-control.xml": "6118c63d62ed339bf9a09f917a697320ef05fc68b6f4298acc15a2f4195af009",
+    "aircraft/ZLT-NT/Systems/gerris_aero.xml": "905a1b908463a92442ea1f6d0fbd06d002b7ae8d5f8dcd4bf9b57308d6ebc4de",
+    "aircraft/ZLT-NT/Systems/instrumentation.xml": "d075186bbcf6274145cb86bd05fe2fdb31f6e6a0ad165eddd1e60109ba68140b",
+    "aircraft/ZLT-NT/ZLT-NT.xml": "dbf5583ce6ec5914064ea33918d290e86f4c562f32180a57bc9d39815d7ea30d",
+    "aircraft/ZLT-NT/reset00.xml": "a6eedf5332d639c6d8291d90a3c23755d1355c543392c48e482354ab0b7ae538",
+    "aircraft/ah1s/Engines/ah1s_rotor.xml": "b021bfd16612ec8e442b37d969539895f39ec05e21a8e887962275a8c65c7cc6",
+    "aircraft/ah1s/Engines/ah1s_tail_rotor.xml": "b74729e815efa05951da1d119914a9d422a822966274529802157e1d1c50357b",
+    "aircraft/ah1s/Engines/electric_1500hp.xml": "c75c47dbb15510c3e58f192439cb501f7f3d6db82b59f5c89d1028fc9ff58ab0",
+    "aircraft/ah1s/Engines/electric_1hp_dummy.xml": "d011e56fef2699932fa6ca14bee3864292f0fd837b9f32819824dac69d336944",
+    "aircraft/ah1s/INSTALL": "88b83aa99bff3c2bac235bea0d04272ea9a6dd10424a700b4df6db45a8f53c49",
+    "aircraft/ah1s/Systems/rotor_control.xml": "8549b1ba5e431779fad463c769335a6c66ece70cec175dc709f5d49c64bae368",
+    "aircraft/ah1s/Systems/steady_flight_data.xml": "2f4b77c1f7e44760b841534d9c5ce3a15433ec196245bbb1594894ecec4ff768",
+    "aircraft/ah1s/Systems/trim_control.xml": "576e3133f4b148db9c940a76b6262ce0fb696aa6111258a63e45e2afe5444649",
+    "aircraft/ah1s/ah1s.xml": "9534329bfd106230f9bbb4df551b1f3c4bff1f4c8b2e66c865e98dfd108a5448",
+    "aircraft/ah1s/reset00.xml": "b081f678ca2ea2e29bcac4ffe6d06d313140f4997eb7e628511f0fe2d0b61288",
+    "aircraft/aircraft_template.xml": "82c9889cf1c50134f2d739d94aa685098724c722df780cd974f5de4a125406a9",
+    "aircraft/ball/INSTALL": "9056b98055014046d81f6fe7326b8d1ef962e2e4ed04834c55195dc31315faf4",
+    "aircraft/ball/ball.xml": "6e8dc031b5b039d41e0a414f306bfde6edcae9245deeaa2f2914425e1d3509bd",
+    "aircraft/ball/iss_orbit.xml": "0ab7ccdf5e786cbe0a23150fd196cd79015685f53c491585cf2b815720d9a8c1",
+    "aircraft/ball/reset00.xml": "82f0f83e305dc30ed343f3b51409dcc691b1feeb522b56e873407be69f3110bf",
+    "aircraft/ball/reset00_v2.xml": "bb50654d0437b75dee1b658359a53330a1b6d63c93711b400673070781427397",
+    "aircraft/ball/reset01.xml": "dc8a1c75115cb168ea154a39adab2628d92961a4c15e8091d2c656b44ebe6d74",
+    "aircraft/ball/reset01_v2.xml": "1e7177eb5d3a33829037519daa02be3017971b45822984e5d69e6e149d262670",
+    "aircraft/ballx/ballx.xml": "ccbca3a9b378624b4098661e77cb6b8d88f6d0143da19fbbc673eb3a3afa2d3c",
+    "aircraft/ballx/reset00.xml": "82f0f83e305dc30ed343f3b51409dcc691b1feeb522b56e873407be69f3110bf",
+    "aircraft/blank/INSTALL": "9056b98055014046d81f6fe7326b8d1ef962e2e4ed04834c55195dc31315faf4",
+    "aircraft/blank/blank.xml": "88d2a5e7d6ebe08e24bb78eee62fadaada2b11a8635807a22ba155c221403486",
+    "aircraft/blank/reset00.xml": "8f09d8a6c4565182652d581cd298a27f0f35b5de8018a5e2ba8e2f00fd0ed974",
+    "aircraft/c172p/INSTALL": "88b83aa99bff3c2bac235bea0d04272ea9a6dd10424a700b4df6db45a8f53c49",
+    "aircraft/c172p/README.flightmodel.c172p": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "aircraft/c172p/c172p.xml": "0af58c613f7bca7e1d85f4b2e178a4d7b0b14dda6d5f79b38c571d9911187aa4",
+    "aircraft/c172p/reset00.xml": "060e3a7dff91a3a33e482ce03c8cc0878794894bb6d88e8bf6eb6da3c3a87778",
+    "aircraft/c172p/reset01.xml": "03de4e71c51ec9fb60be4d1499a6f0e91068c2f3c7cb6e8a5433016c375a6c7c",
+    "aircraft/c172r/INSTALL": "88b83aa99bff3c2bac235bea0d04272ea9a6dd10424a700b4df6db45a8f53c49",
+    "aircraft/c172r/README.c172r": "0730626f35b17f994efea6912f7919ddafadcc523eeb99877a63476d9e870852",
+    "aircraft/c172r/c172r.xml": "9d6233236fd55b078336f200a556d66d051d9a7f367f3ecfc314f374c5e8a4c9",
+    "aircraft/c172r/reset00.xml": "05478d97fe6412ee9306b6979a5be28db2dc250653ae3272614874ae40146ed2",
+    "aircraft/c172r/reset01.xml": "03de4e71c51ec9fb60be4d1499a6f0e91068c2f3c7cb6e8a5433016c375a6c7c",
+    "aircraft/c172x/INSTALL": "9056b98055014046d81f6fe7326b8d1ef962e2e4ed04834c55195dc31315faf4",
+    "aircraft/c172x/c172ap.xml": "1e83fec37beabf33e1a1bdd7a30fb5d4aeca79ddb52a2dca58a7bcfc1d20e570",
+    "aircraft/c172x/c172x.xml": "b736f4b7560d5aab4d2a69026798be1d369b2b2bb5ddcf627aebfd441ba71840",
+    "aircraft/c172x/elevator_doublet_init.xml": "bb4ac1901302d27df50d2bb249956eea6b34dd19cdb25e9b008be8b19a8109f5",
+    "aircraft/c172x/output.xml": "c2364918e724fdbd0ac9c5f62e99f94b4f4c6418889e76d98560b5bda837016a",
+    "aircraft/c172x/reset00.xml": "f2520031e2a640d8a7e89a39f51b4af08cd2e34d1386fa59b84e42604eee6840",
+    "aircraft/c172x/reset01.xml": "26d4f4ee0f109b854f3d67b90a64725b3f2c5b6cf305bd0c616ca7b98ffdc60b",
+    "aircraft/c172x/reset_at_rest.xml": "89136139c132c9281d607cabe64aa66ab61d4ec85dff7c83252c83d387e843d6",
+    "aircraft/c182/INSTALL": "88b83aa99bff3c2bac235bea0d04272ea9a6dd10424a700b4df6db45a8f53c49",
+    "aircraft/c182/README.c182": "8f350686bd397740db6fd46d43cb83b1d88a782519f3993c974e455ee392a0c5",
+    "aircraft/c182/c182.xml": "59baad3a1bad8c0c889fed5252651296141c3452fce0e0d443923bfc0e8e79c2",
+    "aircraft/c182/reset00.xml": "88a56b788155ea3f0be8ed8b166ea77606978a5ccb063b1b7d3754bddb4f1634",
+    "aircraft/c310/INSTALL": "88b83aa99bff3c2bac235bea0d04272ea9a6dd10424a700b4df6db45a8f53c49",
+    "aircraft/c310/README.c310": "7737a9e68bb282fa5e27acb8932634007059c7ea9641239d4184c5ac97b88737",
+    "aircraft/c310/c310.xml": "9db38b94a1359cf529a3c986e0a7746bf8f89f1019660be032667ea7f6613c69",
+    "aircraft/c310/c310ap.xml": "dd1cffca8524c2a820afcc7e1108fb934ba22d54a7ce013005fdcc2224839c04",
+    "aircraft/c310/ellington.xml": "9986b4429210b1b53929854a5dd667c19221210f64e2ce27e3c4763bb0ab5103",
+    "aircraft/c310/reset00.xml": "851c1f7e235085a4eb9a29e85bec3db4b6457e691b57d76058d79c8d371da77a",
+    "aircraft/dr1/INSTALL": "e10f93645662e907d15b817459a8254fbf100a6aed6327092eef74966790cbb7",
+    "aircraft/dr1/Systems/chocks.xml": "ba1f68a513b6864d27fe4b6090194e059b3975ca2011102badb8dcd60264dd14",
+    "aircraft/dr1/Systems/pushback.xml": "09fd9e3b33d61983b87c5d53500538a0e7e60299fe4e10f0ef437edb9815f2a2",
+    "aircraft/dr1/dr1.xml": "bd394cb162b91e4a11e97e2fbf490e1d5a9ddb0feeed4f5a4c8cf237cedc22f8",
+    "aircraft/f104/INSTALL": "358223169f56a647c158460b9f8eef029070472589faff37a49c67317eae067e",
+    "aircraft/f104/Systems/BLC.xml": "f2856537ec1e706960de7825bb7b2db0fd210a16e4eca72d351e3a7117c311f6",
+    "aircraft/f104/Systems/FCS-pitch.xml": "a50dd3d4ad0d6caf8bad9a2de4a599cc24a8672bcf1bbce91e5f1d57362699cd",
+    "aircraft/f104/Systems/FCS-roll.xml": "ff44844844d8263a7cbeb379606e9879d6ba171971f97b07239e85310ca84b91",
+    "aircraft/f104/Systems/FCS-yaw.xml": "fb65bde570990241e6597205c03ae65ecbc3b89e0561b8fefe834bd20e8f040a",
+    "aircraft/f104/Systems/NWS.xml": "e7d7d6992b947b66a496cee46c1d0e570fcb52ccb0d70ddf90f52a8a48c424fe",
+    "aircraft/f104/Systems/armament.xml": "761bd9caa52818bc5cec62be87df7ad3b513fa908b15d6ae249e1f171a464cc4",
+    "aircraft/f104/Systems/beacon.xml": "a0537387c76fc85f4d39fad0eca2fffc543df02f9193c66f288ad92870063715",
+    "aircraft/f104/Systems/canopy.xml": "dfdaf79dc1ab424495f2d8a0369eef1b5f78d9f81d0691d044747fae9b2d277d",
+    "aircraft/f104/Systems/chute.xml": "ff33f1de2016a31756514341e8b9a2f1b78afe46ba1af47cfc59c7cdb1a99d6e",
+    "aircraft/f104/Systems/crash-detect.xml": "6273e13548173f6dc8c73d1c47fd1d6c38cecd4e172eaa19b83b8a439c50b2a1",
+    "aircraft/f104/Systems/flaps.xml": "3be477e4127a144b6dc6cdca268d68f10d67b77e32d65947d046588fdbe05eb2",
+    "aircraft/f104/Systems/gear.xml": "8475552ee83ec295c08c8d94417d9774d2cb6297aaaf081738b40ae29131fec1",
+    "aircraft/f104/Systems/radar.xml": "4f225c87cefac82df2dfbaddb8e0d3cc5b5b22360f59ca5a961c6eede2eacb77",
+    "aircraft/f104/Systems/speedbrakes.xml": "92456aade49292276219ca3b61e95b83bc27234a56e99093c633ef8a0394c3e8",
+    "aircraft/f104/Systems/tailhook.xml": "06b577cf539f7c24b7fd07c56eebb23add0684ebb5e9dbec723020d87661e2fb",
+    "aircraft/f104/f104.xml": "70e6f07c8db4ac8e5cc7ebb0b9340c2618ababe008ce97a48eb4da70436fd804",
+    "aircraft/f15/INSTALL": "e8fd2ecad5b9550f09e2660bd3160ca9e6ae3c53aae1ff78ed59d25dd3a24a1f",
+    "aircraft/f15/f15.xml": "19c6d2f82705489410a835dacc8d08be88149d321e00822c338f4676046e8c87",
+    "aircraft/f16/INSTALL": "88b83aa99bff3c2bac235bea0d04272ea9a6dd10424a700b4df6db45a8f53c49",
+    "aircraft/f16/README": "be2da94456eff5af260cd9a17a534c24e9deb6ae8ccf456313aff42ebe433b35",
+    "aircraft/f16/Systems/hook.xml": "9067ea104820d9d2d2f438b0361cbfdc9cea28a7969bd46eaa540fd7d9dfdd62",
+    "aircraft/f16/Systems/pushback.xml": "a3c0e2fc8a494b18b7158718cfc96d51fb34aac440965c0c73a1b7f33bb1a64b",
+    "aircraft/f16/f16.xml": "78edd90534338204913c35ed50d7c222eecac1b83c454c73ad70bf6d4907ea2f",
+    "aircraft/f16/reset00.xml": "738c7d0f3495b072bcdb570c203c92cbd7ae5af3c4213f01183a46dd861a0c85",
+    "aircraft/f22/INSTALL": "88b83aa99bff3c2bac235bea0d04272ea9a6dd10424a700b4df6db45a8f53c49",
+    "aircraft/f22/README": "05fbfef6190ce30b615e29ffc1d40da40e3ac66831777a84321e02c91d774c77",
+    "aircraft/f22/f22.xml": "93b85e4364c6cd97bc4d39444b666936b2f97491babf1cac3fffed1cebbdeb22",
+    "aircraft/f22/yf22.xml": "0e6c4c4c14a96e6db4064814e6a1c3d40fc9ba720d3d47e3c9666012ac459004",
+    "aircraft/fokker100/Fokker-F70.html": "9c76cc430aa98bfd906251585e9983027791f335e445761d66ed954044d53bb3",
+    "aircraft/fokker100/INSTALL": "88b83aa99bff3c2bac235bea0d04272ea9a6dd10424a700b4df6db45a8f53c49",
+    "aircraft/fokker100/Systems/pushback.xml": "a6dcf2ca598b2b9f7deb8444ca81d811c06ebf895653240af5483368a38d57e6",
+    "aircraft/fokker100/fokker100.xml": "8f149e025b505305847b2729c7ce51255e3693922d9ebacd2a57aff0ef83acef",
+    "aircraft/fokker100/fokker70.xml": "4107a5e645e00b331b51d9f63ec8041d6119de4e8c43d6d7e21eb009076934fa",
+    "aircraft/fokker100/info.txt": "3ee440f3b2237c184723e46d118f08aaf01db4a86dac4a86e188e83200b9792c",
+    "aircraft/fokker100/xf100.xml": "ac12b830b5b6fbef31bf00eb49d3192cfa2ba153d21ad795421a4d806ee23c3e",
+    "aircraft/fokker50/INSTALL": "88b83aa99bff3c2bac235bea0d04272ea9a6dd10424a700b4df6db45a8f53c49",
+    "aircraft/fokker50/fokker50.xml": "dd6507d48e51e27423c89af29a036ae7e8c797add03df115bdbc2e4132932a89",
+    "aircraft/global5000/airborne.xml": "0cb4f608c8d2f4e0c4f773709af968e53d824b947626657bf5093e465743d349",
+    "aircraft/global5000/global5000.xml": "e5b1e5ed68bc3f132b79f1304ad530e922dcc115fd0c692758c4bafe9ed1f43b",
+    "aircraft/global5000/global5000ap.xml": "ab83c20d79aa9dd31be403813d169e78d9973b201264fddd7c41eb7f814e24b9",
+    "aircraft/global5000/global5000apx.xml": "0c8857cb19dd837b6c7ad28a7af1218697fc7c794e6e3677e89d14b2d688380d",
+    "aircraft/global5000/scripts/trim-cruise.xml": "7228df808916295e80ef96aa43f76a04d79dd12ec71684d089f9e54071518eb0",
+    "aircraft/global5000/scripts/trim-cruise_ap.xml": "4d00fc38a5bf9e64dd7c3de0466878a3cb40c15a33d3a7f8b7f402d79eda9ad7",
+    "aircraft/minisgs/INSTALL": "9056b98055014046d81f6fe7326b8d1ef962e2e4ed04834c55195dc31315faf4",
+    "aircraft/minisgs/minisgs.xml": "78f6fb0c37b2df93e27a7f229f424e88651ecf65ead29604bf2748c8e7edc35c",
+    "aircraft/minisgs/reset00.xml": "32508e12ca567cd926dbf4dc3e13e601c7c8ce92e7804da050da2853d98e537f",
+    "aircraft/mk82/INSTALL": "9056b98055014046d81f6fe7326b8d1ef962e2e4ed04834c55195dc31315faf4",
+    "aircraft/mk82/mk82.xml": "01fa24a9281838529dae30a65b994101d4189234bd9ae19e177b25fabebeb541",
+    "aircraft/mk82/reset00.xml": "e96a7a5fb910fb5d26e6ce66a8f524fc94bd88d179b4456564cf082094cc3d50",
+    "aircraft/mk82/reset01.xml": "03ae89802fa72d5edd43731df8cdffc7d53110dcef3fd1d5ef09377829a02df8",
+    "aircraft/p51d/Engines/P51prop.xml": "e624f63078add2ad28ada562d131e25a17ce513db27f04cb3e16a9db47189a3e",
+    "aircraft/p51d/Engines/Packard-V-1650-7.xml": "155593a64beef584c531cb64b3b2c74e16b6ffa87130f2d67fe48229af0ec593",
+    "aircraft/p51d/INSTALL": "9056b98055014046d81f6fe7326b8d1ef962e2e4ed04834c55195dc31315faf4",
+    "aircraft/p51d/Systems/alpha-buffet.xml": "3f09a8d1742b423e021058ef2c326b3f38719046892837484a69278d78b5eda3",
+    "aircraft/p51d/Systems/autothrottle.xml": "fdbd3e2e0af2bf049e0213467f65b38b994678b59305d8a1892ad976b7f27d99",
+    "aircraft/p51d/Systems/compressability.xml": "80615068b3c2c5208d663742830c6d8abec93b0d11f371e06484bf644d325e92",
+    "aircraft/p51d/Systems/crash-detect.xml": "681e32fb57fa4606b9c382013591e4f65673eef8017880c2dfe5562b55e22c8b",
+    "aircraft/p51d/Systems/electrical.xml": "0629b7baa779a5a9e8e58122ad8685790685138c30054dd85ea7e4c70d58984d",
+    "aircraft/p51d/Systems/mixture-control.xml": "36e151015d7e569ab783d581b26552297523ad89fd4a9e3e2aa2068a51e5d5be",
+    "aircraft/p51d/Systems/propulsion.xml": "4314260fcd8822c892ddc04982697db5e537610d495da48a98397608f659da8b",
+    "aircraft/p51d/Systems/weapons-weight.xml": "d78e40d027a97e18a27259856b44449bbcd02bb888617908027800e439f405a5",
+    "aircraft/p51d/p51d.xml": "cb6835a38fe40db873b2f77d298cbc01700aefc86b19b3c7eda68be726e89da0",
+    "aircraft/p51d/reset00.xml": "7a3ef7a3a17bfb52bbecc9aab662685f453c08d10d7c80b8fca0cf9842b752f4",
+    "aircraft/p51d/reset01.xml": "e299326fc7d2cdab50f6a4506c3c4d7c834d7c8b17decafc697ee6477dd9c497",
+    "aircraft/p51d/reset4-00.xml": "3cb7115e302bf02dd70a63f97b86782c147d07b24e178b2e8bea4f091f07958d",
+    "aircraft/pa28/INSTALL": "9056b98055014046d81f6fe7326b8d1ef962e2e4ed04834c55195dc31315faf4",
+    "aircraft/pa28/pa28.xml": "fe8dc2bf299dba99e14420a0dfe01465ddc10130d8142db720e1df3ceffba88b",
+    "aircraft/pa28/reset00.xml": "88a56b788155ea3f0be8ed8b166ea77606978a5ccb063b1b7d3754bddb4f1634",
+    "aircraft/paraglider/Engines/DT_Propeller.xml": "a1e3b049d44a397d4e889058afd77cc7ca86098a62fde6fbd82f8d8886b725dc",
+    "aircraft/paraglider/Engines/Polini_THOR80.xml": "41493c7c2bea5f6e35cfa01cff4011d30f983057f3bfda8fc2a67af75bfbc658",
+    "aircraft/paraglider/INSTALL": "88b83aa99bff3c2bac235bea0d04272ea9a6dd10424a700b4df6db45a8f53c49",
+    "aircraft/paraglider/Systems/Controls.xml": "e3a8a6557fe113eb90e9b672b52dd8498a463f39dbefc720a98a6e97bc54aada",
+    "aircraft/paraglider/paraglider.xml": "81c0ec3234ebf4ad04f23ec5708a4e2adc1ae12b785a8d0bcf56c2efced55e0a",
+    "aircraft/paraglider/reset00.xml": "9ba4002fe23901174c675388624d26e84ed251264a30931e0874548e3957eb0c",
+    "aircraft/pc7/Engines/PT6A.xml": "830782772d904c8808229f142cc008d931d74d70f40e566bf35201f9b8e9f704",
+    "aircraft/pc7/Engines/Propeller.xml": "9a5f779b006b425309f434c87a3ad8d377ebd24f2b34f056ffff7b5deb49d2d7",
+    "aircraft/pc7/INSTALL": "88b83aa99bff3c2bac235bea0d04272ea9a6dd10424a700b4df6db45a8f53c49",
+    "aircraft/pc7/Systems/Conventional Controls.xml": "d30273a61b7074ac9ce8a21ec1c2c337e130338fb364b53f7389129a8c922599",
+    "aircraft/pc7/Systems/Flaps.xml": "ccd11720533e1f2c284d9f04233976f57ac557b4cca9240915427f58516933b2",
+    "aircraft/pc7/Systems/Landing Gear.xml": "c0f6b7e89b0cff73cc294f96c227a36c36234fa012a0321c31e724da5d4f7b33",
+    "aircraft/pc7/pc7.xml": "3dc90c1be908206d3aef87e706fb2cf053850ffc12b9fc4d83e0f52428755038",
+    "aircraft/pogo-jsbsim/Engines/Pogo_prop.xml": "7ee68669695a6bcf55fb3d85123819fcd566fb939d853899853aa8d38eaf7871",
+    "aircraft/pogo-jsbsim/Engines/YT40-A-16.xml": "ca70ed0a75dda1e545d8fd42303fdb11a045637cce597fffda50286c9044978f",
+    "aircraft/pogo-jsbsim/INSTALL": "88b83aa99bff3c2bac235bea0d04272ea9a6dd10424a700b4df6db45a8f53c49",
+    "aircraft/pogo-jsbsim/pogo-jsbsim.xml": "06af053ebe0dd37aa2fd370d7d4a7a4b5302f58d24dffb585f39e4bf4b7ba04d",
+    "aircraft/pogo-jsbsim/reset00.xml": "9716541b16c9a40dc44ffb1dfb6c51f20f02c867731e5c10b521bc3cefe2db3d",
+    "aircraft/pogo-jsbsim/reset01.xml": "e7b7d069c4a6fd27e6c3b45430f0b835a6c1803c3abd3f9bfc92caa6af64b8b7",
+    "aircraft/sgs126/INSTALL": "9056b98055014046d81f6fe7326b8d1ef962e2e4ed04834c55195dc31315faf4",
+    "aircraft/sgs126/sgs126.xml": "5ed59fe8fdcf0aa980e3c675cdf4b42d76c84a80e5c718a9e3e120dd3f62d108",
+    "aircraft/sgs233/INSTALL": "88b83aa99bff3c2bac235bea0d04272ea9a6dd10424a700b4df6db45a8f53c49",
+    "aircraft/sgs233/sgs233.xml": "37cea20ce0675db6bf30ffa14e934da0bbf83e522d593a94849adc828c041715",
+    "aircraft/t6texan2/INSTALL": "9056b98055014046d81f6fe7326b8d1ef962e2e4ed04834c55195dc31315faf4",
+    "aircraft/t6texan2/t6texan2.xml": "93e66a368324391d6b3c7d7254052772427919e3ddfa57b1defceb978729feae",
+    "aircraft/weather-balloon/INSTALL": "77a34e6246d677ed2ce93feaecc702d68a5139a82e749890dd43de6870517634",
+    "aircraft/weather-balloon/balloon_log.xml": "74b259b3974853283b97555da031e5cf7106e083132880de46a58e442dcaa419",
+    "aircraft/weather-balloon/reset10.xml": "ec8fc13a28eef3bfc85ade13e3971fa3e4b8d1e0cb89777583959687683b859c",
+    "aircraft/weather-balloon/weather-balloon.xml": "d18c047e57a3ba5466e4990fa28d5498931fdf8823fc98f531c4ab770c7a8a4b",
+    "aircraft/wrightFlyer1903/INSTALL": "88b83aa99bff3c2bac235bea0d04272ea9a6dd10424a700b4df6db45a8f53c49",
+    "aircraft/wrightFlyer1903/README.wrightFlyer1903.html": "45189ca14f8c71a383129a15b71b1f46285794c364c40a423effae34fb7f13e3",
+    "aircraft/wrightFlyer1903/wrightFlyer1903.xml": "928035c648d7cd2ef1becd4f6661a384c643abc5ef9b81cb4446412d3a255f64",
+    "aircraft/wrightFlyer1903/wrightFlyer1905.xml": "c6705849685197848f9b7afa5f7160f8a75526332b6d41c537439ecbc3c83cfe",
+    "aircraft/x24b/INSTALL": "88b83aa99bff3c2bac235bea0d04272ea9a6dd10424a700b4df6db45a8f53c49",
+    "aircraft/x24b/reset00.xml": "4d5d73dcd66679504b6ea8591c17896cdcc841fbd1beffa30feb0615a2788ea2",
+    "aircraft/x24b/x24b.xml": "bc23037e654e46972d08766f6f506f39ed81440411a1ba3d2b5348e5296d74eb",
+    "engine/AJ26-33A.xml": "48c0076425e1bf9822694916fd0d6e323d7a7cda7cf71622873061c2b1349917",
+    "engine/AJ26-33_nozzle.xml": "8c6aa8e988370475628d75b613692edda14c188557a743738027edb50c2e45bb",
+    "engine/BR-725.xml": "88fbe99ec4732bed8da2161507dfd4d698e772e8d2abc835a2580d5c0abea688",
+    "engine/BR710.xml": "32d973dfaf579b9051bdaff021deb8d32c3f6cbf2614be10b3191bb0073c7dc2",
+    "engine/CF6-80C2.xml": "b784c040a13da2fa728101588ff51f0bd0d8b349c562d5e98c35695866387a55",
+    "engine/CFM56.xml": "953efe535c5daf7fc7674dd39799b8a600b7d3a730b38b1db4884288c6d2a7d7",
+    "engine/CFM56_5.xml": "a5423c17d9236fd3ceba41736cf60d02cdc150a6afcadf6c7503494504a7055d",
+    "engine/CamelProp.xml": "6ce1ab866defb0a81a51d79428cbb75cffcc5dab842aec36b451391daa74717a",
+    "engine/Clerget9B.xml": "00a4c7b4b63621119ac3171fdb008cfe34a1c90f836e8023ce71cb81155e8969",
+    "engine/DJI_9450.xml": "377252ae1d93146e24277ab3fb00ea2ce15d559293e317ab7fba0db1c70e7eff",
+    "engine/DJI_E305.xml": "25c5488ca17632f0a64c303da485af752e85b8a555d4f840ed870233b1ad5d7a",
+    "engine/Dr1_propeller.xml": "2c3cb038fc78f2628af0e915008c6898be726da4327d98d4ac8ecaf353b257b3",
+    "engine/Estes_E9.xml": "0bc565c7447a66d8283287506b9ee8282a4fca3bce4a9f1664048972b3a3bbb6",
+    "engine/F100-PW-229.xml": "92fd101fdcc60dc8f41f449a297e134419ff062f5293c2e58678fd07d8127e69",
+    "engine/F119-PW-1.xml": "dedbf51904be53523aa191f59f686dd88b956a8fa41ebbbf5706a796f28ec954",
+    "engine/GE-CF6-80C2-B1F.xml": "4b63dde10ba1cccd518068162eb05681ee4ba7b939bf13ed2362dd5a5d596942",
+    "engine/HamiltonStd6243A-3.xml": "7226b65ecbc47e465f2cdb7812f6f202db9ac90bc5474b212f25a96c5d9ef18d",
+    "engine/J33-A-35.xml": "f2177b7912ce407a4ba12af9eee4bc93d5050e3eef589779d2639c8bd4a11a9d",
+    "engine/J52.xml": "9093242207385be275451461ba10f0f8172c97ada3d9e514fb0175657c5aa0b1",
+    "engine/J69-T25.xml": "d24b3e74ede24048874b69f2a7e6536fde58ec014c64bf229011d07bf78830c1",
+    "engine/J79-GE-11A.xml": "22121567e476805b80672fb85f3254f58084ca4c6d41a52b7775e2fe3b3cbbba",
+    "engine/J85-GE-5.xml": "8633e590e3d6313b6186f4517208c83c2afd726fbf448d2009e91347434a233e",
+    "engine/JT9D-3.xml": "f711c9f9204dbeeb14a1ffe2b2f0e4eb30a7dbb4883ec57fdc38defd780fe0e4",
+    "engine/LM_descent_nozzle.xml": "f1714b54e6762170a69eef8086281cc0454ed7f8cf42235c8907c14dd69b4f37",
+    "engine/LMdescent.xml": "c394d0f5656be627855784a29d4155d0c3da1bda6b34cc6ddf572c40aa54d8dd",
+    "engine/MerlinV1650.xml": "a95ac99a481ffd2cb1a80cd5f6aa0e27191e2d8587fa87aa2539bf3f618a783b",
+    "engine/Oberursel-UrII.xml": "ef1c335bd03fad41d94980cb8a53afb9e529d124be21c47ed11a74de67911338",
+    "engine/Olympus593Mrk610.xml": "c2845686b6f3e4833d1c085783e8e9a7b32174971b7256298337de8508dfb798",
+    "engine/P51prop.xml": "ced69be8be39a7a9deeb7b6643cef96c065cd2cbad7bb6b6fb6ec2e859f637ef",
+    "engine/PT6A-27.xml": "62c343ddfd566d48f8d210d228861f64cb4216a189d7d71bab333e40f70e2b7d",
+    "engine/PT6A-68.xml": "033bacf06e3dbd41b2d384c442e614ae70ebbcd3868540266cee7a3ef5bfc400",
+    "engine/PW125B.xml": "3653736c3416a17b4aa930b34698b04651b4a512572ab25882fe8c5cd3a22ed0",
+    "engine/PW125BX.xml": "40353d863a2024cf57ac19897a87ad21bd02ab8d9afb209c9f00576ae1449a58",
+    "engine/R-1820-97.xml": "d607a67e6886637d7789ec0c349be36988bc469dec4bf9ca029a2f518a436801",
+    "engine/RB211-524.xml": "0fa7a8363e76f6fdd01b609a32d4477d31450fd26937f996a22f7891b021cf00",
+    "engine/RL10.xml": "6b4ca7e94ca1e123ceeeb8b6a492cb55f738170c365f97f75ead3818d2d46e27",
+    "engine/RL10_nozzle.xml": "7bf96a5822aff9c2a40b4ee1ccb6077df03f2640892b2a4c382607b41b331138",
+    "engine/RollsRoyce.xml": "5d9be44edb3aebf5204f6881eb08b9da2910aec2e97a9310c14e19c67663f6d2",
+    "engine/SRB.xml": "5ea309751035a3d6dd034340a697cb865f6007286831203b54b4f56d2987d88c",
+    "engine/SRB_nozzle.xml": "bd00636251cb2b1f004f7412223610470ba8b4f376d670e499b45da2db406ae9",
+    "engine/SSME.xml": "0f4bf385e9289816a9bd32a096951a0212c9b2ffca1ef55237d6514aa2ec4d0e",
+    "engine/SSME_nozzle.xml": "f7fc78e75fc11740d7cec7c3c161b84ec92e225176d278c5850e3c25f257f601",
+    "engine/T76.xml": "7e705ef3ad097b977f2e66b17f822768db7b63e9acaab7060bd60e5b0efa62b9",
+    "engine/TRENT-900.xml": "c07f21abeb724c3368472eef3e224c0c3baeefae4989ec93a849778ea7cea0c5",
+    "engine/Tay-620.xml": "cd021e1c0c2f7269b249928acb39d46506275ffcf2ebebf53dfe66821946a8f2",
+    "engine/Tay-651.xml": "5c803e35696ae3e32e5fbdce080cddae87ce9a39284c64a53617abb8dfbe9674",
+    "engine/WrightGR-2600.xml": "95642c7a96614271ba2b768a8ede703bd89d0d4e081d78bb72a9af1d4ffac387",
+    "engine/XLR99.xml": "6a434bad4f1c0d4e5f19d45a6aef5eab1ddd980242c86c63fe8f5b8ac9a6aec3",
+    "engine/YJ93-GE-3.xml": "7ef4549e217f1863efc271c9be735e5edb45fa03da6472ae6b68d5c75d5017c1",
+    "engine/Zenoah_G-26A.xml": "72d265659bcab24ba7b959c98b6cd4da2b04ed134745c6201a0126b44f84d150",
+    "engine/avco_lycoming_t53.xml": "4be5d58e38543bcf345bf98cfbd3fb1e4b0aa1f0bc4ab280117123481f9dd096",
+    "engine/direct.xml": "f116b6f6d25d4b2b46c2f0faa713e85d0064db7a634105bc96e391fb52e4dde5",
+    "engine/dowty-rotol-aero.xml": "d9344eda82a8799bedf3801a4c4879da3fac5c87228c05d936be1600f33b00d8",
+    "engine/dummy.xml": "ded67d439dc1edc1074ed6f1ffa8a3ee94a4ae32b7a37cb296c0d50f798bec9b",
+    "engine/electric147kW.xml": "aa8f38c940badef63a0723eca85e4a80e9fa7ce98907ef7eaf85bc2a3c5487da",
+    "engine/electric_1mw.xml": "00d1f08f67cd9e5c66fae7fb1d3fd9b2dc8c7cc79e458492c76c9fa610fa0e16",
+    "engine/engIO360C.xml": "fb6bb746b2c9ec9851c16957c7db3134e034945cf010834c154756aa18efefef",
+    "engine/engIO470D.xml": "93ea4f9efd5e5ad1b8491615a635836edd7e7e12709157f26faa70df0184d34d",
+    "engine/engIO540AB1A5.xml": "9d417d8e50ec9a3532e6db42d5ea4060dc971c6c3b32f5dd8383f124176ad67f",
+    "engine/engRRMerlin61.xml": "b4b21ed61c3155f86ac8657397870afd1a114e8a2196a7d413af9ff1f6d419d1",
+    "engine/engRRMerlinXII.xml": "2a991655d84c7725daefe3ddebb0b1e589f849d9b10e630ff5af876f0aa97112",
+    "engine/eng_O-200.xml": "9eeca22294b374889a64f589b98dce441fbda162aa3ec7ec0e34bf74b9c70cdc",
+    "engine/eng_PegasusXc.xml": "e040f2dfd96cda4459d23b27c3a592474e0e12a2e2c203a29aba7f44035a5b5a",
+    "engine/eng_RRhawk.xml": "8d72cb0894b2a8ffff167773f132a894e07dc54dcdf68033d6249d043b56e7c4",
+    "engine/eng_io320.xml": "0cedc1e356a7a572a175f351a4abb952ba91081219a37dc7192bce3a2181d8c6",
+    "engine/engtm601.xml": "2aa5375e6c62308fd42ce2f89e8ec4a9e4eb8ffb8a1633605d63a6976e834b52",
+    "engine/prop30FP2B.xml": "0ab15c00740b4dd6a491e4349fa0ad7352b59080acfed85c31e8515d050b9545",
+    "engine/propC10v.xml": "4cbd672edefa5b935deb42ee5578b8bd98fe18b78ca6b400f90c8094f14dc432",
+    "engine/propC6v.xml": "3225c45ca113fce826b6c002d58bde867f348c4cc6d2759d0b5bd063e59b9198",
+    "engine/propC8v.xml": "272ae23ac70c3c0a48923c059e80c182756680adb2806ca2a3ed8fb40781ddab",
+    "engine/propDA-R352_6-123-F_2.xml": "2e1094546cf581593c1a38685f21aafea62d1bf9ea7d7aa4764d59a737be83f1",
+    "engine/propHO-V373-D.xml": "1b46f84d92d3607f104a4d39bb3fc21d8573b524efaaf0cd8d64156d96bb598a",
+    "engine/propHS139v.xml": "a34c5969d652955194959c27b4c14a6cc4cb1aa5babb6a84ebe0d6d28121e464",
+    "engine/prop_75in2f.xml": "6481edf1da940fdea5358913d226c3e25d3e6b8209b4805370258a9a65ca7403",
+    "engine/prop_81in2v.xml": "e7b74fda750529dd04f0a9072699862f18e8d1f1a89881ea6e788de11910e906",
+    "engine/prop_Clark_Y7570.xml": "b8b071294196f5ab66b980aeae088ba0fec5d847506e77a2f0c6216d4a46ffb9",
+    "engine/prop_PT6.xml": "fd788a33fe03735c87a6cd18a8bcb964a4be0fce26c0a6102c173f371b2bd266",
+    "engine/prop_SSZ.xml": "e28322c5acdd83c2829d4b945a109eb054ab2d65d24753361d8959f604c5c106",
+    "engine/prop_deHavilland5000.xml": "ee74179b1bba712ba9bd740ce5b85e4f153d90e7a74e12758ee0dbd4fc5f4c9c",
+    "engine/prop_generic2f.xml": "1c3a61a26d436401ec7956e32d7a53935774d6759df1f79fff1213a088864de0",
+    "engine/s64_rotor.xml": "7869cb3c474dd0f5fe8cdfd43f3932e7f571aca7bb60906223eaaef4bdadbe70",
+    "engine/t56.xml": "ca7796081ab35e5e3d764149a73adb74e3c4b9e0c65ee14a54714e360b0109b1",
+    "engine/t56_prop.xml": "9d9d23f2efbd01c0e58e6d7c7c58ac7697867474ff894139210814d4e0fa29d3",
+    "engine/test_turbine.xml": "1080224e7e931e4bfbbf9e974669d6a7cff9ad82f301dfd188cc33a276ff0b58",
+    "engine/trent_1000.xml": "63fc1ce52b97d2a493bc49bdd269a9370020317d5446db3760ae465871be05a3",
+    "engine/twin_pratt_and_whitney_t73.xml": "369eb181f105937531d2249a5e89225c0a5bd5047b875e51c4d142cae4dcde0b",
+    "engine/vrtule2.xml": "1d76984d3a8cf4074faf9ce184a97119169880dc4f52ef31db81129c7a1cc8af",
+    "engine/wright1903_engine.xml": "bbaeede806135c3c6c1a82f1ecfa57796c0c6461576c1704506fc6a67cd1ee78",
+    "engine/wright1903_propellers.xml": "03dd5fee094187900120a7e5162c94e07e91e274020ae29d2ea11d46f026afd7",
+    "engine/wright1905_engine.xml": "8cb75fda36db35a0925cb50c658b4a25cdef55d1f077e2e270daef8b69a67e69",
+    "engine/xlr99_nozzle.xml": "2e536d56a3684137582e41a482fe4365221e80016bbef85e9a2cb27090b8bf86",
+    "systems/Autopilot.xml": "85e3fa86fff554ad262c1108ddd49a112eb16561a0c349e1f48e26cb0a65c7be",
+    "systems/BLC.xml": "f931ceba6661db7c6b845d88fa098b1253a610d8fcba6c4053d42fa6b2ffe7b7",
+    "systems/FCS-pitch.xml": "e7b5e85b63a83b1cc471e68e71bc4557cc041882cc11b30e5022ea60f25bb735",
+    "systems/FCS-roll.xml": "996723cc0c5e436410bd896973bbaf0b50e4e05d1820bb73a78cfd350942bf9b",
+    "systems/FCS-yaw.xml": "7c3dbcc5bfdc0e95efcb0cb7b6d7cb632048c0da26783d05423f07ed1411d861",
+    "systems/GNCUtilities.xml": "5ca437aa4a21b6d0c41840b2e367818357336dc1eb3e51fa8bd23104223d0d1c",
+    "systems/NWS.xml": "e2c15ba145c4c4fe3aa746af0b9b3ac74cad536f9b44156e9c1f1c037e33d2bb",
+    "systems/SensorBaro.xml": "ae423a2eefa60998fe7f8d0b297ee2154b72b0c0392ffc5e9fd70648e6ef52b6",
+    "systems/SensorGps.xml": "34ef5c0867d59d4d5bc62a955ff89db1c576c826717893a70c4b8265dd184f9a",
+    "systems/SensorImu.xml": "08f74d8235df8a6ee1e5471cc02b504867302fab8c06bc32e44b8e3b68393d13",
+    "systems/accelerometers.xml": "47058250ea2c224d5a7871a2f1ff1e51e42c359c666f65aa67f5072a02120430",
+    "systems/afcs.xml": "c178d474ca9ec3e04884ea793cd25733870ecfd20d76e402830df36e9030f88f",
+    "systems/airship-mooring.xml": "d2eb95fe3ac7b9f55c882ecd3e750692555a565e52bf32221fe8e51c3e98644a",
+    "systems/airship_added_mass.xml": "f406437e5b96752e0c5b0d1ec2579c1ff47f78db4de2941bcfd5143f80ba41e0",
+    "systems/alpha_buffet.xml": "3f551976f9b92e5747fc1bb491e5c293e1fb8beba0ace96f8acad43155601bb4",
+    "systems/catapult.xml": "4e232a08b02f5d487127d5800ade1f275cdea692b8f236154535ed9021bb56e7",
+    "systems/flaps.xml": "fed87b3fda080133f71d3b2b2470d0031a02c74ce0a5539a8b5defaed6c93b76",
+    "systems/gear.xml": "4d21523feda6b4d0c7d3328891887785559064515fd141ea504e54b565e0aed9",
+    "systems/holdback.xml": "1e97f40ef3236fd98143777c99cf7c2b5d8783bee01c00417be30e5e56ac208a",
+    "systems/hook.xml": "9067ea104820d9d2d2f438b0361cbfdc9cea28a7969bd46eaa540fd7d9dfdd62",
+    "systems/hydrodynamic-planing-floats.xml": "2c43a1b22c38e3ced8224671b6c2bf0803c17a0a20fa0f75f6d1a57aec8bebec",
+    "systems/hydrodynamic-planing.xml": "cea6196b0f63c0d585891d99cbca85123f8c800b947b7ad780a309a0bdca8ad8",
+    "systems/hydrodynamics.xml": "0a25a82863cdbd57809fbcf05bb81cca889eb2e1a2bc7fc1c10f90c071eeb002",
+    "systems/jsb_glue.xml": "7d882d648e488a13f1c35520ee41c60b559eca41ee5d9895edba393b7968edca",
+    "systems/refuel.xml": "cc35f13b6593e010aa140dd5a16dbc15d6474725e13c9b57faaf401434e39372",
+    "systems/rpm_governor.xml": "3d1f497089070adbb4a1a02aef8bec34998f00cc555ef25688b521d2edddda30",
+    "systems/speedbrakes.xml": "92456aade49292276219ca3b61e95b83bc27234a56e99093c633ef8a0394c3e8",
+    "systems/sperry-a2-autopilot.xml": "172f030e040b61a515221f37724a2ba3cbaa5aafc2ed898037cd8456d5e8574c",
+    "systems/tail_wheel_lock.xml": "1cb463bb2ae8c3fda084dfa2255934de01d1d3faf34fba05b262c6900904623a",
+    "systems/visual-reference-point-extensions.xml": "3bffcf1350bd50b532fc2e49dd92fdeeaa625f6e1537fd17f98b2a3d0bcc8ee5"
+  },
+  "directories": [
+    "737",
+    "787-8",
+    "A320",
+    "A4",
+    "B17",
+    "B747",
+    "Boeing314",
+    "C130",
+    "Camel",
+    "Concorde",
+    "DHC6",
+    "F450",
+    "F4N",
+    "F80C",
+    "J246",
+    "J3Cub",
+    "L17",
+    "L410",
+    "LM",
+    "MD11",
+    "OV10",
+    "Pterosaur",
+    "SGS",
+    "Short_S23",
+    "Shuttle",
+    "Submarine_Scout",
+    "T37",
+    "T38",
+    "X15",
+    "XB-70",
+    "ZLT-NT",
+    "ah1s",
+    "ball",
+    "ballx",
+    "blank",
+    "c172p",
+    "c172r",
+    "c172x",
+    "c182",
+    "c310",
+    "dr1",
+    "f104",
+    "f15",
+    "f16",
+    "f22",
+    "fokker100",
+    "fokker50",
+    "global5000",
+    "minisgs",
+    "mk82",
+    "p51d",
+    "pa28",
+    "paraglider",
+    "pc7",
+    "pogo-jsbsim",
+    "sgs126",
+    "sgs233",
+    "t6texan2",
+    "weather-balloon",
+    "wrightFlyer1903",
+    "x24b"
+  ],
+  "entries": [
+    {
+      "id": "737/737.xml",
+      "initializations": [
+        {
+          "engine_running_tags": [],
+          "path": "aircraft/737/cruise_init.xml",
+          "requests_trim": false
+        },
+        {
+          "engine_running_tags": [],
+          "path": "aircraft/737/cruise_steady_turn_init.xml",
+          "requests_trim": false
+        },
+        {
+          "engine_running_tags": [],
+          "path": "aircraft/737/reset00.xml",
+          "requests_trim": true
+        },
+        {
+          "engine_running_tags": [
+            "-1"
+          ],
+          "path": "aircraft/737/rudder_kick_init.xml",
+          "requests_trim": false
+        }
+      ],
+      "path": "aircraft/737/737.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": "aircraft/737/cruise_init.xml"
+    },
+    {
+      "id": "787-8/787-8.xml",
+      "initializations": [],
+      "path": "aircraft/787-8/787-8.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": null
+    },
+    {
+      "id": "A320/A320.xml",
+      "initializations": [],
+      "path": "aircraft/A320/A320.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": null
+    },
+    {
+      "id": "A4/A4.xml",
+      "initializations": [],
+      "path": "aircraft/A4/A4.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": null
+    },
+    {
+      "id": "B17/B17.xml",
+      "initializations": [
+        {
+          "engine_running_tags": [],
+          "path": "aircraft/B17/reset00.xml",
+          "requests_trim": false
+        }
+      ],
+      "path": "aircraft/B17/B17.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": "aircraft/B17/reset00.xml"
+    },
+    {
+      "id": "B747/B747.xml",
+      "initializations": [
+        {
+          "engine_running_tags": [],
+          "path": "aircraft/B747/reset00.xml",
+          "requests_trim": false
+        }
+      ],
+      "path": "aircraft/B747/B747.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": "aircraft/B747/reset00.xml"
+    },
+    {
+      "id": "Boeing314/Boeing314.xml",
+      "initializations": [],
+      "path": "aircraft/Boeing314/Boeing314.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": null
+    },
+    {
+      "id": "C130/C130.xml",
+      "initializations": [
+        {
+          "engine_running_tags": [],
+          "path": "aircraft/C130/reset00.xml",
+          "requests_trim": false
+        }
+      ],
+      "path": "aircraft/C130/C130.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": "aircraft/C130/reset00.xml"
+    },
+    {
+      "id": "Camel/Camel.xml",
+      "initializations": [],
+      "path": "aircraft/Camel/Camel.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": null
+    },
+    {
+      "id": "Concorde/Concorde.xml",
+      "initializations": [
+        {
+          "engine_running_tags": [],
+          "path": "aircraft/Concorde/reset00.xml",
+          "requests_trim": false
+        }
+      ],
+      "path": "aircraft/Concorde/Concorde.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": "aircraft/Concorde/reset00.xml"
+    },
+    {
+      "id": "DHC6/DHC6.xml",
+      "initializations": [],
+      "path": "aircraft/DHC6/DHC6.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": null
+    },
+    {
+      "id": "F450/F450.xml",
+      "initializations": [
+        {
+          "engine_running_tags": [],
+          "path": "aircraft/F450/initGrnd.xml",
+          "requests_trim": false
+        }
+      ],
+      "path": "aircraft/F450/F450.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": "aircraft/F450/initGrnd.xml"
+    },
+    {
+      "id": "F4N/F4N-jsbsim.xml",
+      "initializations": [
+        {
+          "engine_running_tags": [],
+          "path": "aircraft/F4N/reset00.xml",
+          "requests_trim": false
+        }
+      ],
+      "path": "aircraft/F4N/F4N-jsbsim.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": "aircraft/F4N/reset00.xml"
+    },
+    {
+      "id": "F4N/F4N.xml",
+      "initializations": [
+        {
+          "engine_running_tags": [],
+          "path": "aircraft/F4N/reset00.xml",
+          "requests_trim": false
+        }
+      ],
+      "path": "aircraft/F4N/F4N.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": "aircraft/F4N/reset00.xml"
+    },
+    {
+      "id": "F80C/F80C.xml",
+      "initializations": [],
+      "path": "aircraft/F80C/F80C.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": null
+    },
+    {
+      "id": "J246/J246.xml",
+      "initializations": [
+        {
+          "engine_running_tags": [],
+          "path": "aircraft/J246/LC39.xml",
+          "requests_trim": false
+        }
+      ],
+      "path": "aircraft/J246/J246.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": "aircraft/J246/LC39.xml"
+    },
+    {
+      "id": "J3Cub/J3Cub.xml",
+      "initializations": [],
+      "path": "aircraft/J3Cub/J3Cub.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": null
+    },
+    {
+      "id": "L17/L17.xml",
+      "initializations": [],
+      "path": "aircraft/L17/L17.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": null
+    },
+    {
+      "id": "L410/L410.xml",
+      "initializations": [
+        {
+          "engine_running_tags": [],
+          "path": "aircraft/L410/reset00.xml",
+          "requests_trim": false
+        }
+      ],
+      "path": "aircraft/L410/L410.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": "aircraft/L410/reset00.xml"
+    },
+    {
+      "id": "MD11/MD11.xml",
+      "initializations": [],
+      "path": "aircraft/MD11/MD11.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": null
+    },
+    {
+      "id": "OV10/OV10.xml",
+      "initializations": [
+        {
+          "engine_running_tags": [],
+          "path": "aircraft/OV10/reset00.xml",
+          "requests_trim": false
+        }
+      ],
+      "path": "aircraft/OV10/OV10.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": "aircraft/OV10/reset00.xml"
+    },
+    {
+      "id": "Pterosaur/Pterosaur.xml",
+      "initializations": [],
+      "path": "aircraft/Pterosaur/Pterosaur.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": null
+    },
+    {
+      "id": "SGS/SGS.xml",
+      "initializations": [
+        {
+          "engine_running_tags": [],
+          "path": "aircraft/SGS/reset00.xml",
+          "requests_trim": false
+        }
+      ],
+      "path": "aircraft/SGS/SGS.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": "aircraft/SGS/reset00.xml"
+    },
+    {
+      "id": "Short_S23/Short_S23.xml",
+      "initializations": [
+        {
+          "engine_running_tags": [],
+          "path": "aircraft/Short_S23/reset00.xml",
+          "requests_trim": false
+        },
+        {
+          "engine_running_tags": [],
+          "path": "aircraft/Short_S23/reset01.xml",
+          "requests_trim": false
+        },
+        {
+          "engine_running_tags": [],
+          "path": "aircraft/Short_S23/reset02.xml",
+          "requests_trim": false
+        },
+        {
+          "engine_running_tags": [],
+          "path": "aircraft/Short_S23/reset03.xml",
+          "requests_trim": false
+        }
+      ],
+      "path": "aircraft/Short_S23/Short_S23.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": "aircraft/Short_S23/reset00.xml"
+    },
+    {
+      "id": "Shuttle/Shuttle.xml",
+      "initializations": [
+        {
+          "engine_running_tags": [],
+          "path": "aircraft/Shuttle/reset00.xml",
+          "requests_trim": false
+        }
+      ],
+      "path": "aircraft/Shuttle/Shuttle.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": "aircraft/Shuttle/reset00.xml"
+    },
+    {
+      "id": "Submarine_Scout/Submarine_Scout.xml",
+      "initializations": [
+        {
+          "engine_running_tags": [],
+          "path": "aircraft/Submarine_Scout/reset00.xml",
+          "requests_trim": false
+        },
+        {
+          "engine_running_tags": [],
+          "path": "aircraft/Submarine_Scout/reset01.xml",
+          "requests_trim": false
+        }
+      ],
+      "path": "aircraft/Submarine_Scout/Submarine_Scout.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": "aircraft/Submarine_Scout/reset00.xml"
+    },
+    {
+      "id": "T37/T37.xml",
+      "initializations": [
+        {
+          "engine_running_tags": [],
+          "path": "aircraft/T37/reset00.xml",
+          "requests_trim": false
+        }
+      ],
+      "path": "aircraft/T37/T37.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": "aircraft/T37/reset00.xml"
+    },
+    {
+      "id": "T38/T38.xml",
+      "initializations": [
+        {
+          "engine_running_tags": [],
+          "path": "aircraft/T38/reset00.xml",
+          "requests_trim": false
+        }
+      ],
+      "path": "aircraft/T38/T38.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": "aircraft/T38/reset00.xml"
+    },
+    {
+      "id": "X15/X15.xml",
+      "initializations": [
+        {
+          "engine_running_tags": [],
+          "path": "aircraft/X15/reset00.xml",
+          "requests_trim": false
+        },
+        {
+          "engine_running_tags": [],
+          "path": "aircraft/X15/reset01.xml",
+          "requests_trim": false
+        }
+      ],
+      "path": "aircraft/X15/X15.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": "aircraft/X15/reset00.xml"
+    },
+    {
+      "id": "XB-70/XB-70.xml",
+      "initializations": [
+        {
+          "engine_running_tags": [],
+          "path": "aircraft/XB-70/reset00.xml",
+          "requests_trim": false
+        }
+      ],
+      "path": "aircraft/XB-70/XB-70.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": "aircraft/XB-70/reset00.xml"
+    },
+    {
+      "id": "ZLT-NT/ZLT-NT.xml",
+      "initializations": [
+        {
+          "engine_running_tags": [],
+          "path": "aircraft/ZLT-NT/reset00.xml",
+          "requests_trim": false
+        }
+      ],
+      "path": "aircraft/ZLT-NT/ZLT-NT.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": "aircraft/ZLT-NT/reset00.xml"
+    },
+    {
+      "id": "ah1s/ah1s.xml",
+      "initializations": [
+        {
+          "engine_running_tags": [],
+          "path": "aircraft/ah1s/reset00.xml",
+          "requests_trim": false
+        }
+      ],
+      "path": "aircraft/ah1s/ah1s.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": "aircraft/ah1s/reset00.xml"
+    },
+    {
+      "id": "aircraft_template.xml",
+      "initializations": [],
+      "path": "aircraft/aircraft_template.xml",
+      "root_tag": "FDM_CONFIG",
+      "selected_initialization": null
+    },
+    {
+      "id": "ball/ball.xml",
+      "initializations": [
+        {
+          "engine_running_tags": [],
+          "path": "aircraft/ball/iss_orbit.xml",
+          "requests_trim": false
+        },
+        {
+          "engine_running_tags": [],
+          "path": "aircraft/ball/reset00.xml",
+          "requests_trim": false
+        },
+        {
+          "engine_running_tags": [],
+          "path": "aircraft/ball/reset00_v2.xml",
+          "requests_trim": false
+        },
+        {
+          "engine_running_tags": [],
+          "path": "aircraft/ball/reset01.xml",
+          "requests_trim": false
+        },
+        {
+          "engine_running_tags": [],
+          "path": "aircraft/ball/reset01_v2.xml",
+          "requests_trim": false
+        }
+      ],
+      "path": "aircraft/ball/ball.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": "aircraft/ball/reset00.xml"
+    },
+    {
+      "id": "ballx/ballx.xml",
+      "initializations": [
+        {
+          "engine_running_tags": [],
+          "path": "aircraft/ballx/reset00.xml",
+          "requests_trim": false
+        }
+      ],
+      "path": "aircraft/ballx/ballx.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": "aircraft/ballx/reset00.xml"
+    },
+    {
+      "id": "blank/blank.xml",
+      "initializations": [
+        {
+          "engine_running_tags": [],
+          "path": "aircraft/blank/reset00.xml",
+          "requests_trim": false
+        }
+      ],
+      "path": "aircraft/blank/blank.xml",
+      "root_tag": "FDM_CONFIG",
+      "selected_initialization": "aircraft/blank/reset00.xml"
+    },
+    {
+      "id": "c172p/c172p.xml",
+      "initializations": [
+        {
+          "engine_running_tags": [],
+          "path": "aircraft/c172p/reset00.xml",
+          "requests_trim": false
+        },
+        {
+          "engine_running_tags": [],
+          "path": "aircraft/c172p/reset01.xml",
+          "requests_trim": false
+        }
+      ],
+      "path": "aircraft/c172p/c172p.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": "aircraft/c172p/reset00.xml"
+    },
+    {
+      "id": "c172r/c172r.xml",
+      "initializations": [
+        {
+          "engine_running_tags": [],
+          "path": "aircraft/c172r/reset00.xml",
+          "requests_trim": false
+        },
+        {
+          "engine_running_tags": [],
+          "path": "aircraft/c172r/reset01.xml",
+          "requests_trim": false
+        }
+      ],
+      "path": "aircraft/c172r/c172r.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": "aircraft/c172r/reset00.xml"
+    },
+    {
+      "id": "c172x/c172x.xml",
+      "initializations": [
+        {
+          "engine_running_tags": [
+            "0"
+          ],
+          "path": "aircraft/c172x/elevator_doublet_init.xml",
+          "requests_trim": false
+        },
+        {
+          "engine_running_tags": [],
+          "path": "aircraft/c172x/reset00.xml",
+          "requests_trim": false
+        },
+        {
+          "engine_running_tags": [
+            "0"
+          ],
+          "path": "aircraft/c172x/reset01.xml",
+          "requests_trim": false
+        },
+        {
+          "engine_running_tags": [],
+          "path": "aircraft/c172x/reset_at_rest.xml",
+          "requests_trim": false
+        }
+      ],
+      "path": "aircraft/c172x/c172x.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": "aircraft/c172x/reset00.xml"
+    },
+    {
+      "id": "c182/c182.xml",
+      "initializations": [
+        {
+          "engine_running_tags": [],
+          "path": "aircraft/c182/reset00.xml",
+          "requests_trim": false
+        }
+      ],
+      "path": "aircraft/c182/c182.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": "aircraft/c182/reset00.xml"
+    },
+    {
+      "id": "c310/c310.xml",
+      "initializations": [
+        {
+          "engine_running_tags": [],
+          "path": "aircraft/c310/ellington.xml",
+          "requests_trim": false
+        },
+        {
+          "engine_running_tags": [],
+          "path": "aircraft/c310/reset00.xml",
+          "requests_trim": false
+        }
+      ],
+      "path": "aircraft/c310/c310.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": "aircraft/c310/reset00.xml"
+    },
+    {
+      "id": "dr1/dr1.xml",
+      "initializations": [],
+      "path": "aircraft/dr1/dr1.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": null
+    },
+    {
+      "id": "f104/f104.xml",
+      "initializations": [],
+      "path": "aircraft/f104/f104.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": null
+    },
+    {
+      "id": "f15/f15.xml",
+      "initializations": [],
+      "path": "aircraft/f15/f15.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": null
+    },
+    {
+      "id": "f16/f16.xml",
+      "initializations": [
+        {
+          "engine_running_tags": [],
+          "path": "aircraft/f16/reset00.xml",
+          "requests_trim": false
+        }
+      ],
+      "path": "aircraft/f16/f16.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": "aircraft/f16/reset00.xml"
+    },
+    {
+      "id": "f22/f22.xml",
+      "initializations": [],
+      "path": "aircraft/f22/f22.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": null
+    },
+    {
+      "id": "f22/yf22.xml",
+      "initializations": [],
+      "path": "aircraft/f22/yf22.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": null
+    },
+    {
+      "id": "fokker100/fokker100.xml",
+      "initializations": [],
+      "path": "aircraft/fokker100/fokker100.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": null
+    },
+    {
+      "id": "fokker100/fokker70.xml",
+      "initializations": [],
+      "path": "aircraft/fokker100/fokker70.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": null
+    },
+    {
+      "id": "fokker100/xf100.xml",
+      "initializations": [],
+      "path": "aircraft/fokker100/xf100.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": null
+    },
+    {
+      "id": "fokker50/fokker50.xml",
+      "initializations": [],
+      "path": "aircraft/fokker50/fokker50.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": null
+    },
+    {
+      "id": "global5000/global5000.xml",
+      "initializations": [
+        {
+          "engine_running_tags": [
+            "-1"
+          ],
+          "path": "aircraft/global5000/airborne.xml",
+          "requests_trim": false
+        }
+      ],
+      "path": "aircraft/global5000/global5000.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": "aircraft/global5000/airborne.xml"
+    },
+    {
+      "id": "minisgs/minisgs.xml",
+      "initializations": [
+        {
+          "engine_running_tags": [],
+          "path": "aircraft/minisgs/reset00.xml",
+          "requests_trim": false
+        }
+      ],
+      "path": "aircraft/minisgs/minisgs.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": "aircraft/minisgs/reset00.xml"
+    },
+    {
+      "id": "mk82/mk82.xml",
+      "initializations": [
+        {
+          "engine_running_tags": [],
+          "path": "aircraft/mk82/reset00.xml",
+          "requests_trim": false
+        },
+        {
+          "engine_running_tags": [],
+          "path": "aircraft/mk82/reset01.xml",
+          "requests_trim": false
+        }
+      ],
+      "path": "aircraft/mk82/mk82.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": "aircraft/mk82/reset00.xml"
+    },
+    {
+      "id": "p51d/p51d.xml",
+      "initializations": [
+        {
+          "engine_running_tags": [],
+          "path": "aircraft/p51d/reset00.xml",
+          "requests_trim": false
+        },
+        {
+          "engine_running_tags": [],
+          "path": "aircraft/p51d/reset01.xml",
+          "requests_trim": false
+        },
+        {
+          "engine_running_tags": [],
+          "path": "aircraft/p51d/reset4-00.xml",
+          "requests_trim": false
+        }
+      ],
+      "path": "aircraft/p51d/p51d.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": "aircraft/p51d/reset00.xml"
+    },
+    {
+      "id": "pa28/pa28.xml",
+      "initializations": [
+        {
+          "engine_running_tags": [],
+          "path": "aircraft/pa28/reset00.xml",
+          "requests_trim": false
+        }
+      ],
+      "path": "aircraft/pa28/pa28.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": "aircraft/pa28/reset00.xml"
+    },
+    {
+      "id": "paraglider/paraglider.xml",
+      "initializations": [
+        {
+          "engine_running_tags": [],
+          "path": "aircraft/paraglider/reset00.xml",
+          "requests_trim": false
+        }
+      ],
+      "path": "aircraft/paraglider/paraglider.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": "aircraft/paraglider/reset00.xml"
+    },
+    {
+      "id": "pc7/pc7.xml",
+      "initializations": [],
+      "path": "aircraft/pc7/pc7.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": null
+    },
+    {
+      "id": "pogo-jsbsim/pogo-jsbsim.xml",
+      "initializations": [
+        {
+          "engine_running_tags": [],
+          "path": "aircraft/pogo-jsbsim/reset00.xml",
+          "requests_trim": false
+        },
+        {
+          "engine_running_tags": [],
+          "path": "aircraft/pogo-jsbsim/reset01.xml",
+          "requests_trim": false
+        }
+      ],
+      "path": "aircraft/pogo-jsbsim/pogo-jsbsim.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": "aircraft/pogo-jsbsim/reset00.xml"
+    },
+    {
+      "id": "sgs126/sgs126.xml",
+      "initializations": [],
+      "path": "aircraft/sgs126/sgs126.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": null
+    },
+    {
+      "id": "sgs233/sgs233.xml",
+      "initializations": [],
+      "path": "aircraft/sgs233/sgs233.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": null
+    },
+    {
+      "id": "t6texan2/t6texan2.xml",
+      "initializations": [],
+      "path": "aircraft/t6texan2/t6texan2.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": null
+    },
+    {
+      "id": "weather-balloon/weather-balloon.xml",
+      "initializations": [
+        {
+          "engine_running_tags": [],
+          "path": "aircraft/weather-balloon/reset10.xml",
+          "requests_trim": false
+        }
+      ],
+      "path": "aircraft/weather-balloon/weather-balloon.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": "aircraft/weather-balloon/reset10.xml"
+    },
+    {
+      "id": "wrightFlyer1903/wrightFlyer1903.xml",
+      "initializations": [],
+      "path": "aircraft/wrightFlyer1903/wrightFlyer1903.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": null
+    },
+    {
+      "id": "wrightFlyer1903/wrightFlyer1905.xml",
+      "initializations": [],
+      "path": "aircraft/wrightFlyer1903/wrightFlyer1905.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": null
+    },
+    {
+      "id": "x24b/x24b.xml",
+      "initializations": [
+        {
+          "engine_running_tags": [],
+          "path": "aircraft/x24b/reset00.xml",
+          "requests_trim": false
+        }
+      ],
+      "path": "aircraft/x24b/x24b.xml",
+      "root_tag": "fdm_config",
+      "selected_initialization": "aircraft/x24b/reset00.xml"
+    }
+  ],
+  "release": "v1.3.1"
+}
