@@ -128,23 +128,50 @@ their outer hashes are recomputed. Ruff lint and formatting checks pass.
 This iteration does not rerun the slow benchmark fits, Cascade control trials
 or PX4 SITL tests.
 
-## Pending iteration: termination diagnosis
+## Latest iteration: termination diagnosis
 
-Protocol [termination v1](harness/solver-termination-v1.json) is frozen at
-`a3da131`. It selects the four recorded abnormal exits, keeps every optimizer
-setting fixed and adds only diagnostic tracing plus fixed feasible-direction
-gradient checks after each solve. The harness requires exact traced/untraced
-plans, scores, gradients and work counts, alongside parity with saved results.
-All 86 inherited source files and 77 parent artifact files are pinned.
+Freeze `a3da131`, implementation `316c838`, protocol
+[termination v1](harness/solver-termination-v1.json). All four saved abnormal
+exits reproduce, with exact traced/untraced plans, scores, full gradients and
+work counts. Original causal states and warm starts are reconstructed from
+issued commands. Tracing changes no solver setting or numerical result.
+All 86 inherited source files and 77 parent artifact files remain unchanged.
 
-Implementation and local validation are complete: 31 new tests and 115
-inherited focused tests pass; Ruff lint and formatting pass. Synthetic tests
-cover evidence alteration even after hashes and summaries are rewritten.
-The four saved-case measurements, pinned-Linux replay and actual-artifact
-tamper checks remain pending remote authentication. There is no new diagnosis,
-solver promotion or tracking result. The last measured result remains below.
+| Seed / origin | Requests after last accepted step | Distinct evaluated float32 points | Additional host proposals rounding to an already evaluated point |
+| --- | --- | --- | --- |
+| 102 / 134 | 32 | 24 | 8 |
+| 102 / 298 | 32 | 14 | 18 |
+| 104 / 186 | 32 | 14 | 18 |
+| 104 / 298 | 32 | 23 | 9 |
 
-## Latest completed iteration: first-order stopping qualification
+The first three searches end by repeatedly evaluating the last accepted
+float32 command blocks; the fourth continues moving between distinct points
+with objective changes of a few representable-value steps, while the gradient
+predicts much smaller changes. Repeated canonical points return identical
+values and gradients. The 32-request terminal segment is not necessarily one
+internal line search: refresh/retry can occur without an accepted callback.
+It does not show that the 16-step line-search limit was ignored.
+
+The fixed feasible-direction audit adds **659** objective/gradient calls after
+optimization. At the smallest declared step, `2^-24`, **100/110** feasible
+perturbations leave the reported objective unchanged despite changing command
+blocks; every predicted change is below 0.001 of the base objective's nominal
+float32 spacing. Larger steps also contain curvature effects. These findings
+make limited numerical resolution the leading repair hypothesis; they do not
+prove a wrong automatic gradient or that precision alone explains every exit.
+The four cases were selected because they failed and cannot estimate failure
+frequency on new trajectories. No solver promotion or tracking gain follows.
+
+Validation: **146** focused tests pass locally and **162** in the pinned Linux
+environment. All four traced solves and directional audits replay exactly.
+Four actual saved copies with forged trace proposal, directional gradient,
+work count or report are rejected after rewriting hashes and derived summaries.
+Those defect checks reuse deep copies of one freshly recomputed reference only
+after complete clean replay and exact input-byte equality; the public verifier
+always reruns the solves and directional checks. The 85-file artifact inventory,
+local hashes and recomputed report match. Ruff lint and formatting pass.
+
+## First-order stopping qualification
 
 Freeze `d2c45e5`, implementation `1b65480`, protocol
 [first-order v1](harness/solver-first-order-v1.json). The sole numerical change
@@ -489,6 +516,14 @@ Stopping-rule evidence is in `solver-first-order-v1` under the same dated root,
 locally and on ryserv, with `first-order-verification.py` and replay/tamper
 reports beside the run. The previous L-BFGS-B run supplies the frozen baseline.
 
+Termination evidence is in `artifacts/2026-09-18/solver-termination-v1` and
+the matching dated directory on ryserv. `records.json` contains every traced
+request, callback, raw backend result and fixed directional probe.
+`solver-termination-verification.py` and the replay/tamper reports sit beside
+the run. `termination-readout.py` derives terminal-step and central-difference
+summaries from these saved observations without further objective evaluations;
+those descriptive reductions introduce no new numerical acceptance gate.
+
 From disposable checkouts of the matching source commits, without refitting:
 
 ```sh
@@ -516,23 +551,23 @@ PYTHONPATH=src python -m glassbox.experimental.solver_budget verify /absolute/pa
 PYTHONPATH=src python -m glassbox.experimental.quasi_newton_qualification verify /absolute/path/to/solver-quasi-newton-v1
 # Zero positive-improvement cutoff: checkout 1b65480 (or this accepted merge).
 PYTHONPATH=src python -m glassbox.experimental.first_order_qualification verify /absolute/path/to/solver-first-order-v1
+# Four-case unchanged-solver diagnostic: checkout 316c838 (or this accepted merge).
+PYTHONPATH=src python -m glassbox.experimental.solver_termination verify /absolute/path/to/solver-termination-v1
 ```
 
 ## Next named gap
 
-**Reliability of bounded optimization near termination.** Freeze a diagnostic
-replay of the four saved abnormal exits before changing another solver setting.
-Record accepted steps and terminal line-search evaluations, and predeclare
-feasible-direction gradient checks at the returned points. Require unchanged
-plans, scores and work counts from tracing alone. Preserve the zero cutoff,
-float32 objective, 64-iteration/16-line-search/1,024-evaluation bounds, original
-warm starts, dynamics and horizon. These four cases support diagnosis of those
-exits; they cannot estimate their frequency on new trajectories. Choose one
-repair only after that evidence distinguishes line-search exhaustion,
-active-bound behavior and numerical resolution or gradient inconsistency. More iterations would
-address the 54 capped solves without explaining the four abnormal exits.
-Do not tune settings to cross the 64-origin qualification threshold. Better
-optimization still requires a separate tracking trial, and the large
-generic-to-oracle gap remains learner work. Repair historical replay's
-Python-dependent AST fingerprint in a separate correctness iteration with
-unchanged numerical gates.
+**Numerical resolution of the optimization objective and gradient.** Freeze a
+single precision change: use float64 for optimization blocks and throughout
+the differentiated planning rollout and objective, then compare with the
+current float32 path on all 128 original saved problems. The four diagnosed failures motivate the change;
+they must not become the whole evaluation set. Preserve the zero cutoff,
+gradient threshold, work limits, mathematical objective, horizon, original
+causal states and warm-start inputs. Reproduce the old baseline and audit both
+returned plans at one explicitly declared common precision so comparisons do
+not conflate arithmetic with a changed scoring rule. Report failures, residuals,
+objective gains/losses and cost across every case. No tolerance or budget sweep,
+consumer precision option or simultaneous learner change. Better optimization
+still needs a separate tracking trial; the generic-to-oracle gap remains
+learner work. Repair historical replay's Python-dependent AST fingerprint in a
+separate correctness iteration with unchanged numerical gates.
