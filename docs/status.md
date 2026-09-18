@@ -128,7 +128,23 @@ their outer hashes are recomputed. Ruff lint and formatting checks pass.
 This iteration does not rerun the slow benchmark fits, Cascade control trials
 or PX4 SITL tests.
 
-## Latest iteration: first-order stopping qualification
+## Pending iteration: termination diagnosis
+
+Protocol [termination v1](harness/solver-termination-v1.json) is frozen at
+`a3da131`. It selects the four recorded abnormal exits, keeps every optimizer
+setting fixed and adds only diagnostic tracing plus fixed feasible-direction
+gradient checks after each solve. The harness requires exact traced/untraced
+plans, scores, gradients and work counts, alongside parity with saved results.
+All 86 inherited source files and 77 parent artifact files are pinned.
+
+Implementation and local validation are complete: 31 new tests and 115
+inherited focused tests pass; Ruff lint and formatting pass. Synthetic tests
+cover evidence alteration even after hashes and summaries are rewritten.
+The four saved-case measurements, pinned-Linux replay and actual-artifact
+tamper checks remain pending remote authentication. There is no new diagnosis,
+solver promotion or tracking result. The last measured result remains below.
+
+## Latest completed iteration: first-order stopping qualification
 
 Freeze `d2c45e5`, implementation `1b65480`, protocol
 [first-order v1](harness/solver-first-order-v1.json). The sole numerical change
