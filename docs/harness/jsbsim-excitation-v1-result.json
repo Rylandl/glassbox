@@ -1,0 +1,1131 @@
+{
+  "archive_sha256": "3ade625a388a1f48f6de7eaaaa8b680e8fed2e29550b669b490735ea88cc81e8",
+  "auxiliary_sha256": {
+    "artifacts/2026-09-18/jsbsim-excitation-v1-audit.json": "1e4b1ffb19c16e1d071873492477398c8a2a18f2bd52221fd9eee83f2dd589c1",
+    "artifacts/2026-09-18/jsbsim-excitation-v1-audit.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "artifacts/2026-09-18/jsbsim-excitation-v1-conditions.json": "ec7dc8aaabb4db6767cb53c69d003dd0668b8c6a7a327c93d5ebdd4c3012b90e",
+    "artifacts/2026-09-18/jsbsim-excitation-v1-conditions.py": "f9cb06a9768e8e80a870e16658f70184767ddc672ab5ef9bcc3b424dfb937b2a",
+    "artifacts/2026-09-18/jsbsim-excitation-v1-independent.json": "bce6614090980257893af0df3f275b9f5a1a17caf49f1077923a58f208bf8005",
+    "artifacts/2026-09-18/jsbsim-excitation-v1-independent.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "artifacts/2026-09-18/jsbsim-excitation-v1-independent.py": "6362e89b8af41cc8d926ee53461ba50b19d07aa9af15ec9762e821e7fbf77d31",
+    "artifacts/2026-09-18/jsbsim-excitation-v1-mechanisms.json": "b9815d2957af3c065ae7a706175e2a8a176f5032ea4069615c79612ce30045b1",
+    "artifacts/2026-09-18/jsbsim-excitation-v1-mechanisms.py": "e5cc56252ec1acae0ac31b9b1369ba03d5488fb642c5fadaf5380f6d8fa962d9",
+    "artifacts/2026-09-18/jsbsim-excitation-v1-ruff.log": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+    "artifacts/2026-09-18/jsbsim-excitation-v1-run.log": "068f694368e25cdd07bb00405c3e62892cb59081706291bef4cb6c2cc6657e3d",
+    "artifacts/2026-09-18/jsbsim-excitation-v1-tamper-physics.log": "8b5a2c4d01ab453605559945662ce9eefb53da3efc8874756232652c88efa3df",
+    "artifacts/2026-09-18/jsbsim-excitation-v1-tamper.json": "358926aa41ac9c2c1b72cdb583b9a2a6e871d1240868332553e79d3d0105a92a",
+    "artifacts/2026-09-18/jsbsim-excitation-v1-tamper.log": "358926aa41ac9c2c1b72cdb583b9a2a6e871d1240868332553e79d3d0105a92a",
+    "artifacts/2026-09-18/jsbsim-excitation-v1-tamper.py": "f8c3c2b75133e55434308bfaab0c178d9f95de0b8a3ccaf9671758b1ac224cc9",
+    "artifacts/2026-09-18/jsbsim-excitation-v1-tests.log": "8e3b5246bbc15524a112af4ebe35f012fef1b6048754a37e2753acd580eb4dfc",
+    "artifacts/2026-09-18/jsbsim-shipped-conditions-static.json": "e3303e447a77c187e1ba5f908f6121e7b10ac9e691719009746948e7287d8610"
+  },
+  "date": "2026-09-18",
+  "descriptive_diagnostics": {
+    "bootstrap_no_response_cases_5s": [
+      "ZLT-NT/ZLT-NT.xml",
+      "J246/J246.xml",
+      "weather-balloon/weather-balloon.xml",
+      "c310/c310.xml",
+      "c182/c182.xml",
+      "ballx/ballx.xml",
+      "ball/ball.xml",
+      "mk82/mk82.xml"
+    ],
+    "fixed_cohort_cases_any_response": {
+      "as_shipped": [
+        16,
+        16,
+        17,
+        17
+      ],
+      "engine_bootstrap": [
+        29,
+        29,
+        29,
+        29
+      ]
+    },
+    "fixed_cohort_command_count": 189,
+    "fixed_cohort_configuration_count": 37,
+    "horizons_s": [
+      0.25,
+      1,
+      2,
+      5
+    ],
+    "startup_core_or_time_changes": [],
+    "telemetry_validity": {
+      "failed_boundary_invalid_values": 34,
+      "failed_boundary_valid_values": 74,
+      "paired_startup_snapshots": 996,
+      "startup_snapshot_error_maps_nonempty": 0,
+      "validated_observation_invalid_values": 0,
+      "validated_observation_valid_values": 4025268
+    },
+    "throttles_active_of_78": {
+      "as_shipped": [
+        1,
+        3,
+        3,
+        3
+      ],
+      "engine_bootstrap": [
+        35,
+        43,
+        45,
+        45
+      ]
+    }
+  },
+  "evidence_directory": "artifacts/2026-09-18/jsbsim-excitation-v1",
+  "freeze_commits": [
+    "f495dd0",
+    "c1ce91d"
+  ],
+  "id": "jsbsim-excitation-v1-result",
+  "implementation_commit": "be994c9",
+  "inherited_source_files_unchanged": 96,
+  "interpretation": [
+    "At the same 250 ms horizon and fixed 189-channel cohort, startup increases cumulative detectable channels from 45 to 115. At 5 s, the comparison is 48 versus 125, with zero matched active-to-weak losses. This measures detectability, not accuracy or useful authority.",
+    "The all-candidate 250 ms denominator adds three minisgs channels before its later numerical failure. Fixed-cohort reporting preserves the original comparison.",
+    "Global5000 already runs its engines and responds after 0.9 s. F450 indexed throttle commands do not change effective actuator positions or thrust. These distinct causes require explicit data-collection contracts.",
+    "Successful startup calls, running flags and finite output do not establish useful conditions. Below-ground, extreme-speed and suspect-thrust trajectories remain visible without retrospective filtering.",
+    "Fresh replay and the adversarial audit qualify the diagnostic evidence. No JSBSim learned model, control task, flight or live-update capability is qualified."
+  ],
+  "next_named_gap": "Useful operating conditions and effective inputs for JSBSim model qualification",
+  "protocol": "docs/harness/jsbsim-excitation-v1.json",
+  "protocol_sha256": "1b63e73d4afb7b09811140f4fc21b84a66beb2aeff3e6e463b567aad07e34786",
+  "qualification": {
+    "controller": false,
+    "diagnostic_evidence": true,
+    "flight": false,
+    "learned_model": false,
+    "learner_promotion": false
+  },
+  "reference_run_sha256": "5e14059aaf7c6bdf8a53027e33c0f8531723ac4e032b8f5c368537e9978afe61",
+  "report": {
+    "all_candidates": {
+      "arms": {
+        "as_shipped": {
+          "branch_counts": {
+            "known_plan": {
+              "attempted": 422,
+              "completed": 415,
+              "planned": 671,
+              "unattempted": 249
+            },
+            "unknown_plan_attempted": 0,
+            "unknown_plan_cases": 3,
+            "unknown_plan_completed": 0
+          },
+          "case_count": 66,
+          "horizons": {
+            "100": {
+              "available": 189,
+              "cumulative_active": 48,
+              "endpoint_active": 47,
+              "unavailable_known": 115,
+              "weak": 141
+            },
+            "20": {
+              "available": 189,
+              "cumulative_active": 47,
+              "endpoint_active": 45,
+              "unavailable_known": 115,
+              "weak": 142
+            },
+            "40": {
+              "available": 189,
+              "cumulative_active": 48,
+              "endpoint_active": 46,
+              "unavailable_known": 115,
+              "weak": 141
+            },
+            "5": {
+              "available": 192,
+              "cumulative_active": 48,
+              "endpoint_active": 46,
+              "unavailable_known": 112,
+              "weak": 144
+            }
+          },
+          "known_commands": 304,
+          "outcome_counts": {
+            "completed": 37,
+            "parent_failure": 1,
+            "setup_failure": 28
+          },
+          "run_counts": {
+            "known_plan": {
+              "attempted": 523,
+              "completed": 489,
+              "planned": 797,
+              "unattempted": 274
+            },
+            "unknown_plan_attempted": 3,
+            "unknown_plan_cases": 3,
+            "unknown_plan_completed": 0
+          },
+          "unknown_command_count_cases": 3
+        },
+        "engine_bootstrap": {
+          "branch_counts": {
+            "known_plan": {
+              "attempted": 422,
+              "completed": 415,
+              "planned": 671,
+              "unattempted": 249
+            },
+            "unknown_plan_attempted": 0,
+            "unknown_plan_cases": 3,
+            "unknown_plan_completed": 0
+          },
+          "case_count": 66,
+          "horizons": {
+            "100": {
+              "available": 189,
+              "cumulative_active": 125,
+              "endpoint_active": 122,
+              "unavailable_known": 115,
+              "weak": 64
+            },
+            "20": {
+              "available": 189,
+              "cumulative_active": 123,
+              "endpoint_active": 122,
+              "unavailable_known": 115,
+              "weak": 66
+            },
+            "40": {
+              "available": 189,
+              "cumulative_active": 125,
+              "endpoint_active": 124,
+              "unavailable_known": 115,
+              "weak": 64
+            },
+            "5": {
+              "available": 192,
+              "cumulative_active": 118,
+              "endpoint_active": 116,
+              "unavailable_known": 112,
+              "weak": 74
+            }
+          },
+          "known_commands": 304,
+          "outcome_counts": {
+            "completed": 37,
+            "parent_failure": 1,
+            "setup_failure": 28
+          },
+          "run_counts": {
+            "known_plan": {
+              "attempted": 523,
+              "completed": 489,
+              "planned": 797,
+              "unattempted": 274
+            },
+            "unknown_plan_attempted": 3,
+            "unknown_plan_cases": 3,
+            "unknown_plan_completed": 0
+          },
+          "unknown_command_count_cases": 3
+        }
+      },
+      "paired_horizons": {
+        "100": {
+          "cumulative_active": {
+            "cases_with_unknown_command_count": 3,
+            "gain": 77,
+            "loss": 0,
+            "matched_available": 189,
+            "transitions": {
+              "active_to_active": 48,
+              "active_to_unavailable": 0,
+              "active_to_weak": 0,
+              "unavailable_to_active": 0,
+              "unavailable_to_unavailable": 115,
+              "unavailable_to_weak": 0,
+              "weak_to_active": 77,
+              "weak_to_unavailable": 0,
+              "weak_to_weak": 64
+            },
+            "unchanged_active": 48,
+            "unchanged_weak": 64,
+            "unpaired_known_slots": 115
+          },
+          "endpoint_active": {
+            "cases_with_unknown_command_count": 3,
+            "gain": 75,
+            "loss": 0,
+            "matched_available": 189,
+            "transitions": {
+              "active_to_active": 47,
+              "active_to_unavailable": 0,
+              "active_to_weak": 0,
+              "unavailable_to_active": 0,
+              "unavailable_to_unavailable": 115,
+              "unavailable_to_weak": 0,
+              "weak_to_active": 75,
+              "weak_to_unavailable": 0,
+              "weak_to_weak": 67
+            },
+            "unchanged_active": 47,
+            "unchanged_weak": 67,
+            "unpaired_known_slots": 115
+          }
+        },
+        "20": {
+          "cumulative_active": {
+            "cases_with_unknown_command_count": 3,
+            "gain": 76,
+            "loss": 0,
+            "matched_available": 189,
+            "transitions": {
+              "active_to_active": 47,
+              "active_to_unavailable": 0,
+              "active_to_weak": 0,
+              "unavailable_to_active": 0,
+              "unavailable_to_unavailable": 115,
+              "unavailable_to_weak": 0,
+              "weak_to_active": 76,
+              "weak_to_unavailable": 0,
+              "weak_to_weak": 66
+            },
+            "unchanged_active": 47,
+            "unchanged_weak": 66,
+            "unpaired_known_slots": 115
+          },
+          "endpoint_active": {
+            "cases_with_unknown_command_count": 3,
+            "gain": 77,
+            "loss": 0,
+            "matched_available": 189,
+            "transitions": {
+              "active_to_active": 45,
+              "active_to_unavailable": 0,
+              "active_to_weak": 0,
+              "unavailable_to_active": 0,
+              "unavailable_to_unavailable": 115,
+              "unavailable_to_weak": 0,
+              "weak_to_active": 77,
+              "weak_to_unavailable": 0,
+              "weak_to_weak": 67
+            },
+            "unchanged_active": 45,
+            "unchanged_weak": 67,
+            "unpaired_known_slots": 115
+          }
+        },
+        "40": {
+          "cumulative_active": {
+            "cases_with_unknown_command_count": 3,
+            "gain": 77,
+            "loss": 0,
+            "matched_available": 189,
+            "transitions": {
+              "active_to_active": 48,
+              "active_to_unavailable": 0,
+              "active_to_weak": 0,
+              "unavailable_to_active": 0,
+              "unavailable_to_unavailable": 115,
+              "unavailable_to_weak": 0,
+              "weak_to_active": 77,
+              "weak_to_unavailable": 0,
+              "weak_to_weak": 64
+            },
+            "unchanged_active": 48,
+            "unchanged_weak": 64,
+            "unpaired_known_slots": 115
+          },
+          "endpoint_active": {
+            "cases_with_unknown_command_count": 3,
+            "gain": 78,
+            "loss": 0,
+            "matched_available": 189,
+            "transitions": {
+              "active_to_active": 46,
+              "active_to_unavailable": 0,
+              "active_to_weak": 0,
+              "unavailable_to_active": 0,
+              "unavailable_to_unavailable": 115,
+              "unavailable_to_weak": 0,
+              "weak_to_active": 78,
+              "weak_to_unavailable": 0,
+              "weak_to_weak": 65
+            },
+            "unchanged_active": 46,
+            "unchanged_weak": 65,
+            "unpaired_known_slots": 115
+          }
+        },
+        "5": {
+          "cumulative_active": {
+            "cases_with_unknown_command_count": 3,
+            "gain": 70,
+            "loss": 0,
+            "matched_available": 192,
+            "transitions": {
+              "active_to_active": 48,
+              "active_to_unavailable": 0,
+              "active_to_weak": 0,
+              "unavailable_to_active": 0,
+              "unavailable_to_unavailable": 112,
+              "unavailable_to_weak": 0,
+              "weak_to_active": 70,
+              "weak_to_unavailable": 0,
+              "weak_to_weak": 74
+            },
+            "unchanged_active": 48,
+            "unchanged_weak": 74,
+            "unpaired_known_slots": 112
+          },
+          "endpoint_active": {
+            "cases_with_unknown_command_count": 3,
+            "gain": 70,
+            "loss": 0,
+            "matched_available": 192,
+            "transitions": {
+              "active_to_active": 46,
+              "active_to_unavailable": 0,
+              "active_to_weak": 0,
+              "unavailable_to_active": 0,
+              "unavailable_to_unavailable": 112,
+              "unavailable_to_weak": 0,
+              "weak_to_active": 70,
+              "weak_to_unavailable": 0,
+              "weak_to_weak": 76
+            },
+            "unchanged_active": 46,
+            "unchanged_weak": 76,
+            "unpaired_known_slots": 112
+          }
+        }
+      }
+    },
+    "arm_case_count": 132,
+    "candidate_count": 66,
+    "directories": [
+      {
+        "candidates": [
+          "737/737.xml"
+        ],
+        "directory": "737"
+      },
+      {
+        "candidates": [
+          "787-8/787-8.xml"
+        ],
+        "directory": "787-8"
+      },
+      {
+        "candidates": [
+          "A320/A320.xml"
+        ],
+        "directory": "A320"
+      },
+      {
+        "candidates": [
+          "A4/A4.xml"
+        ],
+        "directory": "A4"
+      },
+      {
+        "candidates": [
+          "B17/B17.xml"
+        ],
+        "directory": "B17"
+      },
+      {
+        "candidates": [
+          "B747/B747.xml"
+        ],
+        "directory": "B747"
+      },
+      {
+        "candidates": [
+          "Boeing314/Boeing314.xml"
+        ],
+        "directory": "Boeing314"
+      },
+      {
+        "candidates": [
+          "C130/C130.xml"
+        ],
+        "directory": "C130"
+      },
+      {
+        "candidates": [
+          "Camel/Camel.xml"
+        ],
+        "directory": "Camel"
+      },
+      {
+        "candidates": [
+          "Concorde/Concorde.xml"
+        ],
+        "directory": "Concorde"
+      },
+      {
+        "candidates": [
+          "DHC6/DHC6.xml"
+        ],
+        "directory": "DHC6"
+      },
+      {
+        "candidates": [
+          "F450/F450.xml"
+        ],
+        "directory": "F450"
+      },
+      {
+        "candidates": [
+          "F4N/F4N-jsbsim.xml",
+          "F4N/F4N.xml"
+        ],
+        "directory": "F4N"
+      },
+      {
+        "candidates": [
+          "F80C/F80C.xml"
+        ],
+        "directory": "F80C"
+      },
+      {
+        "candidates": [
+          "J246/J246.xml"
+        ],
+        "directory": "J246"
+      },
+      {
+        "candidates": [
+          "J3Cub/J3Cub.xml"
+        ],
+        "directory": "J3Cub"
+      },
+      {
+        "candidates": [
+          "L17/L17.xml"
+        ],
+        "directory": "L17"
+      },
+      {
+        "candidates": [
+          "L410/L410.xml"
+        ],
+        "directory": "L410"
+      },
+      {
+        "candidates": [],
+        "directory": "LM"
+      },
+      {
+        "candidates": [
+          "MD11/MD11.xml"
+        ],
+        "directory": "MD11"
+      },
+      {
+        "candidates": [
+          "OV10/OV10.xml"
+        ],
+        "directory": "OV10"
+      },
+      {
+        "candidates": [
+          "Pterosaur/Pterosaur.xml"
+        ],
+        "directory": "Pterosaur"
+      },
+      {
+        "candidates": [
+          "SGS/SGS.xml"
+        ],
+        "directory": "SGS"
+      },
+      {
+        "candidates": [
+          "Short_S23/Short_S23.xml"
+        ],
+        "directory": "Short_S23"
+      },
+      {
+        "candidates": [
+          "Shuttle/Shuttle.xml"
+        ],
+        "directory": "Shuttle"
+      },
+      {
+        "candidates": [
+          "Submarine_Scout/Submarine_Scout.xml"
+        ],
+        "directory": "Submarine_Scout"
+      },
+      {
+        "candidates": [
+          "T37/T37.xml"
+        ],
+        "directory": "T37"
+      },
+      {
+        "candidates": [
+          "T38/T38.xml"
+        ],
+        "directory": "T38"
+      },
+      {
+        "candidates": [
+          "X15/X15.xml"
+        ],
+        "directory": "X15"
+      },
+      {
+        "candidates": [
+          "XB-70/XB-70.xml"
+        ],
+        "directory": "XB-70"
+      },
+      {
+        "candidates": [
+          "ZLT-NT/ZLT-NT.xml"
+        ],
+        "directory": "ZLT-NT"
+      },
+      {
+        "candidates": [
+          "ah1s/ah1s.xml"
+        ],
+        "directory": "ah1s"
+      },
+      {
+        "candidates": [
+          "ball/ball.xml"
+        ],
+        "directory": "ball"
+      },
+      {
+        "candidates": [
+          "ballx/ballx.xml"
+        ],
+        "directory": "ballx"
+      },
+      {
+        "candidates": [
+          "blank/blank.xml"
+        ],
+        "directory": "blank"
+      },
+      {
+        "candidates": [
+          "c172p/c172p.xml"
+        ],
+        "directory": "c172p"
+      },
+      {
+        "candidates": [
+          "c172r/c172r.xml"
+        ],
+        "directory": "c172r"
+      },
+      {
+        "candidates": [
+          "c172x/c172x.xml"
+        ],
+        "directory": "c172x"
+      },
+      {
+        "candidates": [
+          "c182/c182.xml"
+        ],
+        "directory": "c182"
+      },
+      {
+        "candidates": [
+          "c310/c310.xml"
+        ],
+        "directory": "c310"
+      },
+      {
+        "candidates": [
+          "dr1/dr1.xml"
+        ],
+        "directory": "dr1"
+      },
+      {
+        "candidates": [
+          "f104/f104.xml"
+        ],
+        "directory": "f104"
+      },
+      {
+        "candidates": [
+          "f15/f15.xml"
+        ],
+        "directory": "f15"
+      },
+      {
+        "candidates": [
+          "f16/f16.xml"
+        ],
+        "directory": "f16"
+      },
+      {
+        "candidates": [
+          "f22/f22.xml",
+          "f22/yf22.xml"
+        ],
+        "directory": "f22"
+      },
+      {
+        "candidates": [
+          "fokker100/fokker100.xml",
+          "fokker100/fokker70.xml",
+          "fokker100/xf100.xml"
+        ],
+        "directory": "fokker100"
+      },
+      {
+        "candidates": [
+          "fokker50/fokker50.xml"
+        ],
+        "directory": "fokker50"
+      },
+      {
+        "candidates": [
+          "global5000/global5000.xml"
+        ],
+        "directory": "global5000"
+      },
+      {
+        "candidates": [
+          "minisgs/minisgs.xml"
+        ],
+        "directory": "minisgs"
+      },
+      {
+        "candidates": [
+          "mk82/mk82.xml"
+        ],
+        "directory": "mk82"
+      },
+      {
+        "candidates": [
+          "p51d/p51d.xml"
+        ],
+        "directory": "p51d"
+      },
+      {
+        "candidates": [
+          "pa28/pa28.xml"
+        ],
+        "directory": "pa28"
+      },
+      {
+        "candidates": [
+          "paraglider/paraglider.xml"
+        ],
+        "directory": "paraglider"
+      },
+      {
+        "candidates": [
+          "pc7/pc7.xml"
+        ],
+        "directory": "pc7"
+      },
+      {
+        "candidates": [
+          "pogo-jsbsim/pogo-jsbsim.xml"
+        ],
+        "directory": "pogo-jsbsim"
+      },
+      {
+        "candidates": [
+          "sgs126/sgs126.xml"
+        ],
+        "directory": "sgs126"
+      },
+      {
+        "candidates": [
+          "sgs233/sgs233.xml"
+        ],
+        "directory": "sgs233"
+      },
+      {
+        "candidates": [
+          "t6texan2/t6texan2.xml"
+        ],
+        "directory": "t6texan2"
+      },
+      {
+        "candidates": [
+          "weather-balloon/weather-balloon.xml"
+        ],
+        "directory": "weather-balloon"
+      },
+      {
+        "candidates": [
+          "wrightFlyer1903/wrightFlyer1903.xml",
+          "wrightFlyer1903/wrightFlyer1905.xml"
+        ],
+        "directory": "wrightFlyer1903"
+      },
+      {
+        "candidates": [
+          "x24b/x24b.xml"
+        ],
+        "directory": "x24b"
+      }
+    ],
+    "directory_count": 61,
+    "old_completed": {
+      "arms": {
+        "as_shipped": {
+          "branch_counts": {
+            "known_plan": {
+              "attempted": 415,
+              "completed": 415,
+              "planned": 415,
+              "unattempted": 0
+            },
+            "unknown_plan_attempted": 0,
+            "unknown_plan_cases": 0,
+            "unknown_plan_completed": 0
+          },
+          "case_count": 37,
+          "horizons": {
+            "100": {
+              "available": 189,
+              "cumulative_active": 48,
+              "endpoint_active": 47,
+              "unavailable_known": 0,
+              "weak": 141
+            },
+            "20": {
+              "available": 189,
+              "cumulative_active": 47,
+              "endpoint_active": 45,
+              "unavailable_known": 0,
+              "weak": 142
+            },
+            "40": {
+              "available": 189,
+              "cumulative_active": 48,
+              "endpoint_active": 46,
+              "unavailable_known": 0,
+              "weak": 141
+            },
+            "5": {
+              "available": 189,
+              "cumulative_active": 45,
+              "endpoint_active": 43,
+              "unavailable_known": 0,
+              "weak": 144
+            }
+          },
+          "known_commands": 189,
+          "outcome_counts": {
+            "completed": 37
+          },
+          "run_counts": {
+            "known_plan": {
+              "attempted": 489,
+              "completed": 489,
+              "planned": 489,
+              "unattempted": 0
+            },
+            "unknown_plan_attempted": 0,
+            "unknown_plan_cases": 0,
+            "unknown_plan_completed": 0
+          },
+          "unknown_command_count_cases": 0
+        },
+        "engine_bootstrap": {
+          "branch_counts": {
+            "known_plan": {
+              "attempted": 415,
+              "completed": 415,
+              "planned": 415,
+              "unattempted": 0
+            },
+            "unknown_plan_attempted": 0,
+            "unknown_plan_cases": 0,
+            "unknown_plan_completed": 0
+          },
+          "case_count": 37,
+          "horizons": {
+            "100": {
+              "available": 189,
+              "cumulative_active": 125,
+              "endpoint_active": 122,
+              "unavailable_known": 0,
+              "weak": 64
+            },
+            "20": {
+              "available": 189,
+              "cumulative_active": 123,
+              "endpoint_active": 122,
+              "unavailable_known": 0,
+              "weak": 66
+            },
+            "40": {
+              "available": 189,
+              "cumulative_active": 125,
+              "endpoint_active": 124,
+              "unavailable_known": 0,
+              "weak": 64
+            },
+            "5": {
+              "available": 189,
+              "cumulative_active": 115,
+              "endpoint_active": 113,
+              "unavailable_known": 0,
+              "weak": 74
+            }
+          },
+          "known_commands": 189,
+          "outcome_counts": {
+            "completed": 37
+          },
+          "run_counts": {
+            "known_plan": {
+              "attempted": 489,
+              "completed": 489,
+              "planned": 489,
+              "unattempted": 0
+            },
+            "unknown_plan_attempted": 0,
+            "unknown_plan_cases": 0,
+            "unknown_plan_completed": 0
+          },
+          "unknown_command_count_cases": 0
+        }
+      },
+      "paired_horizons": {
+        "100": {
+          "cumulative_active": {
+            "cases_with_unknown_command_count": 0,
+            "gain": 77,
+            "loss": 0,
+            "matched_available": 189,
+            "transitions": {
+              "active_to_active": 48,
+              "active_to_unavailable": 0,
+              "active_to_weak": 0,
+              "unavailable_to_active": 0,
+              "unavailable_to_unavailable": 0,
+              "unavailable_to_weak": 0,
+              "weak_to_active": 77,
+              "weak_to_unavailable": 0,
+              "weak_to_weak": 64
+            },
+            "unchanged_active": 48,
+            "unchanged_weak": 64,
+            "unpaired_known_slots": 0
+          },
+          "endpoint_active": {
+            "cases_with_unknown_command_count": 0,
+            "gain": 75,
+            "loss": 0,
+            "matched_available": 189,
+            "transitions": {
+              "active_to_active": 47,
+              "active_to_unavailable": 0,
+              "active_to_weak": 0,
+              "unavailable_to_active": 0,
+              "unavailable_to_unavailable": 0,
+              "unavailable_to_weak": 0,
+              "weak_to_active": 75,
+              "weak_to_unavailable": 0,
+              "weak_to_weak": 67
+            },
+            "unchanged_active": 47,
+            "unchanged_weak": 67,
+            "unpaired_known_slots": 0
+          }
+        },
+        "20": {
+          "cumulative_active": {
+            "cases_with_unknown_command_count": 0,
+            "gain": 76,
+            "loss": 0,
+            "matched_available": 189,
+            "transitions": {
+              "active_to_active": 47,
+              "active_to_unavailable": 0,
+              "active_to_weak": 0,
+              "unavailable_to_active": 0,
+              "unavailable_to_unavailable": 0,
+              "unavailable_to_weak": 0,
+              "weak_to_active": 76,
+              "weak_to_unavailable": 0,
+              "weak_to_weak": 66
+            },
+            "unchanged_active": 47,
+            "unchanged_weak": 66,
+            "unpaired_known_slots": 0
+          },
+          "endpoint_active": {
+            "cases_with_unknown_command_count": 0,
+            "gain": 77,
+            "loss": 0,
+            "matched_available": 189,
+            "transitions": {
+              "active_to_active": 45,
+              "active_to_unavailable": 0,
+              "active_to_weak": 0,
+              "unavailable_to_active": 0,
+              "unavailable_to_unavailable": 0,
+              "unavailable_to_weak": 0,
+              "weak_to_active": 77,
+              "weak_to_unavailable": 0,
+              "weak_to_weak": 67
+            },
+            "unchanged_active": 45,
+            "unchanged_weak": 67,
+            "unpaired_known_slots": 0
+          }
+        },
+        "40": {
+          "cumulative_active": {
+            "cases_with_unknown_command_count": 0,
+            "gain": 77,
+            "loss": 0,
+            "matched_available": 189,
+            "transitions": {
+              "active_to_active": 48,
+              "active_to_unavailable": 0,
+              "active_to_weak": 0,
+              "unavailable_to_active": 0,
+              "unavailable_to_unavailable": 0,
+              "unavailable_to_weak": 0,
+              "weak_to_active": 77,
+              "weak_to_unavailable": 0,
+              "weak_to_weak": 64
+            },
+            "unchanged_active": 48,
+            "unchanged_weak": 64,
+            "unpaired_known_slots": 0
+          },
+          "endpoint_active": {
+            "cases_with_unknown_command_count": 0,
+            "gain": 78,
+            "loss": 0,
+            "matched_available": 189,
+            "transitions": {
+              "active_to_active": 46,
+              "active_to_unavailable": 0,
+              "active_to_weak": 0,
+              "unavailable_to_active": 0,
+              "unavailable_to_unavailable": 0,
+              "unavailable_to_weak": 0,
+              "weak_to_active": 78,
+              "weak_to_unavailable": 0,
+              "weak_to_weak": 65
+            },
+            "unchanged_active": 46,
+            "unchanged_weak": 65,
+            "unpaired_known_slots": 0
+          }
+        },
+        "5": {
+          "cumulative_active": {
+            "cases_with_unknown_command_count": 0,
+            "gain": 70,
+            "loss": 0,
+            "matched_available": 189,
+            "transitions": {
+              "active_to_active": 45,
+              "active_to_unavailable": 0,
+              "active_to_weak": 0,
+              "unavailable_to_active": 0,
+              "unavailable_to_unavailable": 0,
+              "unavailable_to_weak": 0,
+              "weak_to_active": 70,
+              "weak_to_unavailable": 0,
+              "weak_to_weak": 74
+            },
+            "unchanged_active": 45,
+            "unchanged_weak": 74,
+            "unpaired_known_slots": 0
+          },
+          "endpoint_active": {
+            "cases_with_unknown_command_count": 0,
+            "gain": 70,
+            "loss": 0,
+            "matched_available": 189,
+            "transitions": {
+              "active_to_active": 43,
+              "active_to_unavailable": 0,
+              "active_to_weak": 0,
+              "unavailable_to_active": 0,
+              "unavailable_to_unavailable": 0,
+              "unavailable_to_weak": 0,
+              "weak_to_active": 70,
+              "weak_to_unavailable": 0,
+              "weak_to_weak": 76
+            },
+            "unchanged_active": 43,
+            "unchanged_weak": 76,
+            "unpaired_known_slots": 0
+          }
+        }
+      }
+    },
+    "old_completed_cohort": [
+      "737/737.xml",
+      "B17/B17.xml",
+      "B747/B747.xml",
+      "C130/C130.xml",
+      "Concorde/Concorde.xml",
+      "F450/F450.xml",
+      "F4N/F4N-jsbsim.xml",
+      "F4N/F4N.xml",
+      "J246/J246.xml",
+      "L410/L410.xml",
+      "OV10/OV10.xml",
+      "SGS/SGS.xml",
+      "Short_S23/Short_S23.xml",
+      "Shuttle/Shuttle.xml",
+      "Submarine_Scout/Submarine_Scout.xml",
+      "T37/T37.xml",
+      "T38/T38.xml",
+      "X15/X15.xml",
+      "XB-70/XB-70.xml",
+      "ZLT-NT/ZLT-NT.xml",
+      "ah1s/ah1s.xml",
+      "ball/ball.xml",
+      "ballx/ballx.xml",
+      "c172p/c172p.xml",
+      "c172r/c172r.xml",
+      "c172x/c172x.xml",
+      "c182/c182.xml",
+      "c310/c310.xml",
+      "f16/f16.xml",
+      "global5000/global5000.xml",
+      "mk82/mk82.xml",
+      "p51d/p51d.xml",
+      "pa28/pa28.xml",
+      "paraglider/paraglider.xml",
+      "pogo-jsbsim/pogo-jsbsim.xml",
+      "weather-balloon/weather-balloon.xml",
+      "x24b/x24b.xml"
+    ],
+    "root_candidates": [
+      "aircraft_template.xml"
+    ]
+  },
+  "run_sha256": "9222bbe6790defaf3d2da164fcbf2b04274d1bf9f4cac5c93fdcdbfcb42bd293",
+  "scope": "No-fit diagnosis of startup-package and response-timescale effects; unchanged public learner, controller and consumer contract.",
+  "sealed_payload_count": 402,
+  "sealed_total_files": 403,
+  "verification": {
+    "exact_arrays": 34716,
+    "exact_outcomes": 132,
+    "focused_tests_passed": 146,
+    "full_fresh_replay": true,
+    "independent_metrics_match": true,
+    "native_crashes": 0,
+    "ruff_passed": true,
+    "tamper_attacks_rejected": 8,
+    "timeouts": 0
+  }
+}

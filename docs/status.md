@@ -91,36 +91,52 @@ Intermediate optimizer updates are not independently re-solved. The
 [result record](harness/intervention-response-v1-result.json) anchors this
 qualification; it promotes no public recipe, envelope or controller.
 
-## Current JSBSim onboarding evidence
+## Current JSBSim benchmark evidence
 
-The no-fit [JSBSim onboarding audit](harness/jsbsim-onboarding-v1.json), implemented
-at `ef065f5`, covers every candidate in the pinned 1.3.1 release: 64 modern
-configurations, two legacy/template candidates, and 61 directories including
-one documentation-only directory. **37 candidates complete the recording and
-response audit; 25 lack a selected trim-free initialization, three fail to load,
-and `minisgs` produces nonfinite observations after 29 complete intervals.**
-All failures remain in the inventory. There were no timeouts or native crashes.
+The frozen [startup and response-timescale diagnosis](harness/jsbsim-excitation-v1.json),
+implemented at `be994c9`, compares all 66 pinned JSBSim 1.3.1 candidates under
+shipped initialization and one explicit engine-startup call. Each arm retains
+37 completed configurations, 25 missing initializations, three load failures
+and the `minisgs` numerical failure. The [original onboarding result](harness/jsbsim-onboarding-v1-result.json)
+and all 96 inherited source pins remain unchanged.
 
-All 66 saved outcomes and **5,698 arrays** reproduce byte for byte in fresh
-execution. The 37 completed parents each have a full replay and factual
-continuation; all **378 signed command probes** also complete. Independent
-recomputation finds **45 detectably active and 144 weak command channels**;
-115 known channels remain unavailable, with command counts unknown for three
-load failures. **21 of the 37 completed configurations have no detected command
-activity.** A weak response is specific to this initialization and 250 ms probe,
-not evidence of uncontrollability or successful learning.
+On the **same 189 commands in the original 37 completed configurations**, detected
+cumulative responses are:
 
-Eight alteration tests are rejected, including a coherently rewritten trajectory
-that passes internal accounting but fails fresh physics replay. All 80 focused
-tests and Ruff pass. Independent checks also find 26/37 cases initially
-essentially stationary and 25/37 within 10 m of the ground. Only 1/78 tested
-throttles responds detectably within 250 ms; engine-running diagnostics are
-unavailable, so weak throttle response does not establish an engine-off condition.
-The [result record](harness/jsbsim-onboarding-v1-result.json)
-anchors the 204-file sealed bundle, replay and independent checks; the
-[audit guide](jsbsim-onboarding.md) explains the contract. No learner was fitted
-or scored, and no control trial ran. Shipped ground/passive/test conditions and
-unverified engine states are not a qualified operating envelope.
+| Horizon | As shipped | Engine startup | Matched gains / losses |
+| --- | ---: | ---: | ---: |
+| 0.25 s | 45/189 | 115/189 | 70 / 0 |
+| 1 s | 47/189 | 123/189 | 76 / 0 |
+| 2 s | 48/189 | 125/189 | 77 / 0 |
+| 5 s | 48/189 | 125/189 | 77 / 0 |
+
+Throttles improve from 1/78 to 35/78 at 0.25 seconds and from 3/78 to 45/78
+at five seconds. These are small-threshold excitation measurements, **not model
+accuracy or useful control-authority scores**. Fixed endpoint activity differs:
+47/189 versus 122/189 at five seconds. Startup increases the number of completed
+configurations with any detected response from 16 to 29 at 0.25 seconds, and
+17 to 29 at five seconds. The remaining eight still have no detected response.
+The all-candidate 0.25-second denominator additionally includes three active
+`minisgs` channels before its later failure: 48/192 versus 118/192. Those finite
+prefixes are not admitted as a useful operating regime.
+
+Saved actuator/engine traces distinguish actual setup and interface problems.
+Global5000 already has running engines but takes about 0.9 seconds to respond;
+F450's indexed throttles change their commands without changing their effective
+motor positions, thrust or motion. Engine-running flags do not universally
+indicate power. Some finite trajectories pass below ground; L410 reaches about
+507 m/s in the startup arm with suspect thrust. A successful startup call and
+finite completion therefore do not establish a valid learning condition.
+
+**All 132 outcomes and 34,716 arrays reproduce byte for byte in fresh execution.**
+Independent NumPy reductions reproduce horizon activity, physical endpoint
+magnitudes and paired counts. Eight rehashed alteration tests are rejected,
+including a coherent trajectory rewrite that passes internal reduction and fails
+fresh physics replay. All 146 focused tests and Ruff pass. There were no timeouts
+or native crashes. The [result record](harness/jsbsim-excitation-v1-result.json)
+anchors the 403-file evidence bundle and independent audits; the
+[experiment guide](jsbsim-excitation.md) documents its scope and reproduction.
+No learner was fitted, model accuracy measured, or controller run.
 
 ## Current controller evidence
 
@@ -209,14 +225,22 @@ does not change that recipe or consumer behavior.
 
 ## Next named gap
 
-**Valid operating conditions and excitation for JSBSim model qualification.**
-The onboarding audit establishes reproducible loading/recording for a subset,
-but many shipped initializations provide little command-response evidence.
-Freeze explicit supported operating conditions and command mappings, including
-engine startup, response timescales and any trim/data-collection assumptions.
-Preserve every inventory entry, missing setup and failed case; numerical completion is not admission as a
-useful learning corpus. Check observable context for wind, altitude and engine
-dynamics rather than hiding unsupported conditions in a fitted score.
+**Useful operating conditions and effective inputs for JSBSim model qualification.**
+The startup/timescale diagnosis is complete. The next bounded iteration must
+freeze condition-admission and data-generation rules before new trials: observed
+above-ground/operating context, sustained engine effects where relevant, actual
+command-to-actuator mappings, and explicit passive or unsupported roles. An IC
+filename, a successful engine-startup call, a running flag, numerical completion
+or tiny detectable response alone is insufficient. Preserve every candidate and
+failed setup in the inventory; do not rewrite the completed excitation protocol
+or silently remove poor cases from a model score.
+
+Declare any trim, initialization repair, control-mode setting or simulator-specific
+label generation as a data-collection assumption. Check useful trajectories and
+response timescales before spending fit budgets. The learner continues to receive
+only its signal, unit, timing and recording contract, without aircraft-specific
+branches or consumer tuning options. No JSBSim model-accuracy protocol has yet
+been committed, and no JSBSim learner has been fitted or evaluated.
 
 Before fitting, freeze one model-evaluation protocol: simulator version and
 complete model inventory, observation/command contracts, valid initial conditions
@@ -224,9 +248,7 @@ and operating regimes,
 recording generation, per-system data/compute budgets, held-out recordings and
 systems, supported forecast horizons, comparisons and acceptance criteria. The
 same learner is fitted separately to each system; held-out-system evaluation tests
-the frozen recipe, not unseen-system transfer of one set of weights. The no-fit
-onboarding protocol is complete; no JSBSim model-accuracy protocol has been
-committed and no JSBSim model has been fitted or evaluated.
+the frozen recipe, not unseen-system transfer of one set of weights.
 
 Measure forecasts and command responses directly, with per-channel/per-horizon
 errors in physical units, declared aggregation across systems, envelope coverage,
