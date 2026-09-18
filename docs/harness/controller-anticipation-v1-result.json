@@ -1,0 +1,649 @@
+{
+  "id": "controller-anticipation-v1-result",
+  "date": "2026-09-18",
+  "status": "qualified_research_controller",
+  "protocol": {
+    "path": "docs/harness/controller-anticipation-v1.json",
+    "sha256": "a09e6030a0dcba6c5344dbca4095435f541eb6e4a7246d983b5396df3b6bff23",
+    "freeze_commit": "f5e9e4a"
+  },
+  "source": {
+    "branch": "codex/controller-anticipation",
+    "implementation_commit": "9cf2874",
+    "audit_commit": "bfb8d24",
+    "new_source_sha256": {
+      "src/glassbox/experimental/anticipation_control.py": "3d818987ec0dcff88dd3914689d8490ee4a69bfadba8dec3dd2ddcd653365311",
+      "src/glassbox/experimental/anticipation_tracking.py": "d88bc0a3c3c528726679a20c46f392927af55a4a31967484e8ed7f1d8e76bafd",
+      "src/glassbox/experimental/anticipation_metrics.py": "0b321a26bf360d54415e5400dae36d54ff1c6cb825cdd7a760dc7aabf08c9120"
+    }
+  },
+  "evidence": {
+    "local": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-18/controller-anticipation-v1",
+    "remote": "/home/ryland/autonomy/glassbox-evidence/2026-09-18/controller-anticipation-v1",
+    "run_manifest_sha256": "a9898a3b4cd873a6d1c220f977b8ff0b9fc2515aaf9e240c02359b7466613907",
+    "report_sha256": "c050b77168e3df8e0608665e80f7fb14888ab431e011d75d08b16b073ebeaeb6",
+    "sealed_files_excluding_manifest": 92,
+    "supporting_artifacts_sha256": {
+      "controller-anticipation-v1-audit.json": "ee8fdc698e35648238c2a21f98c48df257219c7b8330a15646fdc1f55f6bbb87",
+      "controller-anticipation-v1-audit.log": "fb0801664ef6d04bf23f14e48f142fe343ef572b8a87b00aec5756f7d680a3b8",
+      "controller-anticipation-v1-independent.json": "754331b397346716d1e561a53040579ffc94815f2eb05353f644f92324272fd9",
+      "controller-anticipation-v1-comparison.png": "0838c1e84c671591bc2a93f5d2edadb1c783d610aece1460a012feda81acfa34",
+      "controller-anticipation-v1-numpy-check.py": "3b0651865ae76c4eac6e4daa5558b47ee9ca661914151f15b97f732afef2bf2c",
+      "controller-anticipation-v1-run.log": "2d919e8f55ae03673f4b0371f027fee9ad70570855f8282df326889c1f5fe61d",
+      "controller-anticipation-v1-smoke.json": "2d8fe5b7ddcf028393222d661baa750739ef69c7825a45c43e967c877f7ab59c"
+    }
+  },
+  "named_gap": "Anticipatory position tracking with exact forecast equations at the existing250ms horizon",
+  "mechanism": "Replace position residual with position error plus1.5s times inertial velocity error on all3axes, in stage and terminal terms. All other costs, bounds,5step horizon, solver budget and causal sequencing unchanged.",
+  "comparison": "Eight fresh matched seeds110..117; each arm uses its own commands, trajectory and warm starts. Fresh baseline is primary; historical40.04% is context only.",
+  "report": {
+    "plan": "controller-anticipation-v1",
+    "no_fit": true,
+    "new_policy_trials": true,
+    "maintained_solver_promoted": false,
+    "learner_changed": false,
+    "interpretation": "Report allpaired perseed tolerancefractiondifferences and lateral/altitudeRMSE ratios, all-arm pooledfixeddenominator2248fractions, failurecounts, objectivework anddescriptivelatency. Do notcompare nativeobjectives acrossdifferenttrajectories asqualitymetrics.",
+    "timing_meaning": "Run arms serially on one pinned host, prewarm each on discarded equilibrium transitions, reset all per-trial state/records. Synchronized outer solve duration covers seed selection, precision setup, optimization, result materialization and both extra64 audits. Report this instrumented decision latency plus tick/elapsed time, median/p95/max and >50ms counts; no real-time or equal-compute claim. Report accepted iterations for all arms, L-BFGS-B objective/seed/audit counters, float32 seed selection and extra64 audits separately. PG4 objective-evaluation count is unavailable. Wall measurements never influence commands and cannot be authenticated by deterministic replay.",
+    "per_arm": {
+      "oracle_lbfgs64": {
+        "trials": 8,
+        "completed_trials": 8,
+        "scored_samples": 2248,
+        "within_samples": 912,
+        "within_tolerance_fraction": 0.40569395017793597,
+        "task_passed_trials": 0,
+        "tolerance_fraction_passed_trials": 0,
+        "application_adequate": false,
+        "backend_failure_solves": 0,
+        "nonfinite_evaluation_solves": 0,
+        "fallback_count": 0,
+        "maximum_command_bound_violation": 0.0,
+        "solver_reliable": true,
+        "all_trials_reliable": true,
+        "meets_application_and_reliability": false,
+        "cost": {
+          "accepted_iterations": 41887,
+          "new_objective_evaluations": 47319,
+          "seed_objective_evaluations": 2544,
+          "cached_seed_requests": 2544,
+          "audit_objective_evaluations": 2544,
+          "seed_selection_float32_objective_evaluations": 5080,
+          "extra_float64_audit_calls": 5088,
+          "outer_solve_seconds": {
+            "count": 2544,
+            "minimum": 0.08921376604121178,
+            "median": 0.23477302349056117,
+            "p95": 0.32649161269073373,
+            "maximum": 0.6811901109758765
+          },
+          "tick_seconds": {
+            "count": 2560,
+            "minimum": 0.0011418630019761622,
+            "median": 0.23626788100227714,
+            "p95": 0.32824360403174063,
+            "maximum": 0.6833221859997138
+          },
+          "ticks_over_sample_interval": 2544,
+          "solves_over_sample_interval": 2544,
+          "elapsed_seconds": 614.128147073905,
+          "prewarm_seconds": 26.022096553002484,
+          "objective_evaluation_count_available": true
+        },
+        "native_residuals": {
+          "count": 2544,
+          "minimum": 0.0004888712484274194,
+          "median": 0.00162466947769907,
+          "p95": 0.0019617268249544906,
+          "maximum": 0.0019993701467546643
+        },
+        "nonfinite_native_residual_solves": 0,
+        "native_residual_at_threshold_solves": 2544,
+        "native_converged_solves": 2544,
+        "raw_backend_messages": {
+          "CONVERGENCE: NORM OF PROJECTED GRADIENT <= PGTOL": 2544
+        }
+      },
+      "oracle_anticipatory64": {
+        "trials": 8,
+        "completed_trials": 8,
+        "scored_samples": 2248,
+        "within_samples": 2248,
+        "within_tolerance_fraction": 1.0,
+        "task_passed_trials": 8,
+        "tolerance_fraction_passed_trials": 8,
+        "application_adequate": true,
+        "backend_failure_solves": 0,
+        "nonfinite_evaluation_solves": 0,
+        "fallback_count": 0,
+        "maximum_command_bound_violation": 0.0,
+        "solver_reliable": true,
+        "all_trials_reliable": true,
+        "meets_application_and_reliability": true,
+        "cost": {
+          "accepted_iterations": 57644,
+          "new_objective_evaluations": 64792,
+          "seed_objective_evaluations": 2544,
+          "cached_seed_requests": 2544,
+          "audit_objective_evaluations": 2544,
+          "seed_selection_float32_objective_evaluations": 5080,
+          "extra_float64_audit_calls": 5088,
+          "outer_solve_seconds": {
+            "count": 2544,
+            "minimum": 0.12760096200508997,
+            "median": 0.27397113098413683,
+            "p95": 0.5152829767408548,
+            "maximum": 0.8812223469722085
+          },
+          "tick_seconds": {
+            "count": 2560,
+            "minimum": 0.0011902520200237632,
+            "median": 0.27521697702468373,
+            "p95": 0.5165078607184113,
+            "maximum": 0.8830475609865971
+          },
+          "ticks_over_sample_interval": 2544,
+          "solves_over_sample_interval": 2544,
+          "elapsed_seconds": 757.7181705170078,
+          "prewarm_seconds": 23.235753476968966,
+          "objective_evaluation_count_available": true
+        },
+        "native_residuals": {
+          "count": 2544,
+          "minimum": 0.0003970169623427888,
+          "median": 0.0015472233759371203,
+          "p95": 0.0019713038692002693,
+          "maximum": 0.042559900083641855
+        },
+        "nonfinite_native_residual_solves": 0,
+        "native_residual_at_threshold_solves": 2498,
+        "native_converged_solves": 2498,
+        "raw_backend_messages": {
+          "CONVERGENCE: NORM OF PROJECTED GRADIENT <= PGTOL": 2495,
+          "STOP: TOTAL NO. OF ITERATIONS REACHED LIMIT": 49
+        }
+      }
+    },
+    "paired_differences": [
+      {
+        "repetition": 0,
+        "initial_state_seed": 110,
+        "within_tolerance_fraction_difference": 0.5622775800711743,
+        "lateral_rmse_ratio": 0.025549826281047378,
+        "altitude_rmse_ratio": 0.15784149305137038
+      },
+      {
+        "repetition": 1,
+        "initial_state_seed": 111,
+        "within_tolerance_fraction_difference": 0.6583629893238434,
+        "lateral_rmse_ratio": 0.02874762133128795,
+        "altitude_rmse_ratio": 0.26335992053351753
+      },
+      {
+        "repetition": 2,
+        "initial_state_seed": 112,
+        "within_tolerance_fraction_difference": 0.5800711743772242,
+        "lateral_rmse_ratio": 0.0300051764601305,
+        "altitude_rmse_ratio": 0.12756636790939557
+      },
+      {
+        "repetition": 3,
+        "initial_state_seed": 113,
+        "within_tolerance_fraction_difference": 0.6548042704626335,
+        "lateral_rmse_ratio": 0.030747293458264113,
+        "altitude_rmse_ratio": 0.37111749697925545
+      },
+      {
+        "repetition": 4,
+        "initial_state_seed": 114,
+        "within_tolerance_fraction_difference": 0.5800711743772242,
+        "lateral_rmse_ratio": 0.02226673271280058,
+        "altitude_rmse_ratio": 0.378548831891539
+      },
+      {
+        "repetition": 5,
+        "initial_state_seed": 115,
+        "within_tolerance_fraction_difference": 0.5658362989323844,
+        "lateral_rmse_ratio": 0.02409529023169128,
+        "altitude_rmse_ratio": 0.0455798363647935
+      },
+      {
+        "repetition": 6,
+        "initial_state_seed": 116,
+        "within_tolerance_fraction_difference": 0.5907473309608541,
+        "lateral_rmse_ratio": 0.02874634592264695,
+        "altitude_rmse_ratio": 0.1586910102219056
+      },
+      {
+        "repetition": 7,
+        "initial_state_seed": 117,
+        "within_tolerance_fraction_difference": 0.5622775800711743,
+        "lateral_rmse_ratio": 0.02440106461671655,
+        "altitude_rmse_ratio": 0.33575362589170393
+      }
+    ],
+    "comparison": {
+      "pooled_fraction_gain": 0.594306049822064,
+      "lateral_rmse_geomean_ratio": 0.02665763567115993,
+      "altitude_rmse_geomean_ratio": 0.19150749431393452
+    },
+    "material_progress_checks": {
+      "pooled_fraction_gain": true,
+      "all_candidate_trials_reliable": true,
+      "lateral_rmse_geomean_ratio": true,
+      "altitude_rmse_geomean_ratio": true
+    },
+    "material_progress": true,
+    "application_qualified": true
+  },
+  "trials": [
+    {
+      "directory": "trial-0/oracle_lbfgs64",
+      "initial_state_seed": 110,
+      "pass_criterion": {
+        "scored_samples": 281,
+        "within_samples": 123,
+        "within_tolerance_fraction": 0.4377224199288256,
+        "lateral_rmse_m": 0.6085225059999487,
+        "altitude_rmse_m": 0.030704722208037976,
+        "terminated": false,
+        "met": false
+      }
+    },
+    {
+      "directory": "trial-0/oracle_anticipatory64",
+      "initial_state_seed": 110,
+      "pass_criterion": {
+        "scored_samples": 281,
+        "within_samples": 281,
+        "within_tolerance_fraction": 1.0,
+        "lateral_rmse_m": 0.0155476443164063,
+        "altitude_rmse_m": 0.0048464791970442836,
+        "terminated": false,
+        "met": true
+      }
+    },
+    {
+      "directory": "trial-1/oracle_anticipatory64",
+      "initial_state_seed": 111,
+      "pass_criterion": {
+        "scored_samples": 281,
+        "within_samples": 281,
+        "within_tolerance_fraction": 1.0,
+        "lateral_rmse_m": 0.020058669331478356,
+        "altitude_rmse_m": 0.009243855958720805,
+        "terminated": false,
+        "met": true
+      }
+    },
+    {
+      "directory": "trial-1/oracle_lbfgs64",
+      "initial_state_seed": 111,
+      "pass_criterion": {
+        "scored_samples": 281,
+        "within_samples": 96,
+        "within_tolerance_fraction": 0.3416370106761566,
+        "lateral_rmse_m": 0.6977505756153526,
+        "altitude_rmse_m": 0.03509970666756922,
+        "terminated": false,
+        "met": false
+      }
+    },
+    {
+      "directory": "trial-2/oracle_lbfgs64",
+      "initial_state_seed": 112,
+      "pass_criterion": {
+        "scored_samples": 281,
+        "within_samples": 118,
+        "within_tolerance_fraction": 0.4199288256227758,
+        "lateral_rmse_m": 0.6311459395525558,
+        "altitude_rmse_m": 0.03168613496659343,
+        "terminated": false,
+        "met": false
+      }
+    },
+    {
+      "directory": "trial-2/oracle_anticipatory64",
+      "initial_state_seed": 112,
+      "pass_criterion": {
+        "scored_samples": 281,
+        "within_samples": 281,
+        "within_tolerance_fraction": 1.0,
+        "lateral_rmse_m": 0.018937645288369297,
+        "altitude_rmse_m": 0.004042085150775221,
+        "terminated": false,
+        "met": true
+      }
+    },
+    {
+      "directory": "trial-3/oracle_anticipatory64",
+      "initial_state_seed": 113,
+      "pass_criterion": {
+        "scored_samples": 281,
+        "within_samples": 281,
+        "within_tolerance_fraction": 1.0,
+        "lateral_rmse_m": 0.021522629655195746,
+        "altitude_rmse_m": 0.013104916227217333,
+        "terminated": false,
+        "met": true
+      }
+    },
+    {
+      "directory": "trial-3/oracle_lbfgs64",
+      "initial_state_seed": 113,
+      "pass_criterion": {
+        "scored_samples": 281,
+        "within_samples": 97,
+        "within_tolerance_fraction": 0.34519572953736655,
+        "lateral_rmse_m": 0.6999845265863879,
+        "altitude_rmse_m": 0.03531204088701284,
+        "terminated": false,
+        "met": false
+      }
+    },
+    {
+      "directory": "trial-4/oracle_lbfgs64",
+      "initial_state_seed": 114,
+      "pass_criterion": {
+        "scored_samples": 281,
+        "within_samples": 118,
+        "within_tolerance_fraction": 0.4199288256227758,
+        "lateral_rmse_m": 0.6601252184375361,
+        "altitude_rmse_m": 0.03329089524462885,
+        "terminated": false,
+        "met": false
+      }
+    },
+    {
+      "directory": "trial-4/oracle_anticipatory64",
+      "initial_state_seed": 114,
+      "pass_criterion": {
+        "scored_samples": 281,
+        "within_samples": 281,
+        "within_tolerance_fraction": 1.0,
+        "lateral_rmse_m": 0.014698831795927715,
+        "altitude_rmse_m": 0.012602229507477842,
+        "terminated": false,
+        "met": true
+      }
+    },
+    {
+      "directory": "trial-5/oracle_anticipatory64",
+      "initial_state_seed": 115,
+      "pass_criterion": {
+        "scored_samples": 281,
+        "within_samples": 281,
+        "within_tolerance_fraction": 1.0,
+        "lateral_rmse_m": 0.014757898041351853,
+        "altitude_rmse_m": 0.0014102806924790143,
+        "terminated": false,
+        "met": true
+      }
+    },
+    {
+      "directory": "trial-5/oracle_lbfgs64",
+      "initial_state_seed": 115,
+      "pass_criterion": {
+        "scored_samples": 281,
+        "within_samples": 122,
+        "within_tolerance_fraction": 0.43416370106761565,
+        "lateral_rmse_m": 0.6124806092578855,
+        "altitude_rmse_m": 0.030940889765201852,
+        "terminated": false,
+        "met": false
+      }
+    },
+    {
+      "directory": "trial-6/oracle_lbfgs64",
+      "initial_state_seed": 116,
+      "pass_criterion": {
+        "scored_samples": 281,
+        "within_samples": 115,
+        "within_tolerance_fraction": 0.4092526690391459,
+        "lateral_rmse_m": 0.6539580422914125,
+        "altitude_rmse_m": 0.032724969756817615,
+        "terminated": false,
+        "met": false
+      }
+    },
+    {
+      "directory": "trial-6/oracle_anticipatory64",
+      "initial_state_seed": 116,
+      "pass_criterion": {
+        "scored_samples": 281,
+        "within_samples": 281,
+        "within_tolerance_fraction": 1.0,
+        "lateral_rmse_m": 0.01879890410260593,
+        "altitude_rmse_m": 0.005193158510190696,
+        "terminated": false,
+        "met": true
+      }
+    },
+    {
+      "directory": "trial-7/oracle_anticipatory64",
+      "initial_state_seed": 117,
+      "pass_criterion": {
+        "scored_samples": 281,
+        "within_samples": 281,
+        "within_tolerance_fraction": 1.0,
+        "lateral_rmse_m": 0.015197991376664935,
+        "altitude_rmse_m": 0.010532594928945538,
+        "terminated": false,
+        "met": true
+      }
+    },
+    {
+      "directory": "trial-7/oracle_lbfgs64",
+      "initial_state_seed": 117,
+      "pass_criterion": {
+        "scored_samples": 281,
+        "within_samples": 123,
+        "within_tolerance_fraction": 0.4377224199288256,
+        "lateral_rmse_m": 0.6228413233352604,
+        "altitude_rmse_m": 0.03137001097448397,
+        "terminated": false,
+        "met": false
+      }
+    }
+  ],
+  "clean_replay": {
+    "verified": true,
+    "no_fit": true,
+    "verified_trials": 16,
+    "verified_optimizer_solves": 5088,
+    "verified_oracle_forecasts": 5088,
+    "maximum_state_replay_difference": 0.0,
+    "material_progress": true,
+    "application_qualified": true
+  },
+  "integrity_challenges": [
+    {
+      "name": "issued_command",
+      "rejected": true,
+      "outer_inventory_valid": true,
+      "changed": "trial-0/oracle_anticipatory64 issued throttle at interval 2 changed by 0.001; states retained",
+      "coherently_updated": [
+        "trial file hash",
+        "results/trial summaries",
+        "derived report",
+        "outer inventory"
+      ],
+      "exception_type": "AssertionError",
+      "message": "\nArrays are not equal\n\nMismatched elements: 1 / 960 (0.104%)\nMismatch at index:\n [2, 0]: 0.46828642494889283 (ACTUAL), 0.46728642494889283 (DESIRED)\nMax absolute difference among violations: 0.001\nMax relative difference among violations: 0.00214002\n ACTUAL: array([[ 4.369889e-01,  4.171881e-03,  1.317267e-01],\n       [ 4.369889e-01,  4.171881e-03,  1.317267e-01],\n       [ 4.682864e-01, -2.426249e-01, -4.865801e-02],...\n DESIRED: array([[ 4.369889e-01,  4.171881e-03,  1.317267e-01],\n       [ 4.369889e-01,  4.171881e-03,  1.317267e-01],\n       [ 4.672864e-01, -2.426249e-01, -4.865801e-02],..."
+    },
+    {
+      "name": "anticipation_coefficient",
+      "rejected": true,
+      "outer_inventory_valid": true,
+      "changed": "Saved candidate anticipation coefficient 1.5\u21922.0",
+      "coherently_updated": [
+        "outer inventory"
+      ],
+      "exception_type": "ValueError",
+      "message": "diagnostic replay differs"
+    },
+    {
+      "name": "full_gradient",
+      "rejected": true,
+      "outer_inventory_valid": true,
+      "changed": "trial-0/oracle_anticipatory64 solve 0 full audited gradient[0,0]+0.001",
+      "coherently_updated": [
+        "work gradient/residual",
+        "returned64 audit gradient/residual",
+        "diagnostic residual",
+        "derived report",
+        "outer inventory"
+      ],
+      "exception_type": "ValueError",
+      "message": "diagnostic replay differs"
+    },
+    {
+      "name": "task_summary",
+      "rejected": true,
+      "outer_inventory_valid": true,
+      "changed": "trial-0/oracle_anticipatory64 within-tolerance sample count changed by -1, states retained",
+      "coherently_updated": [
+        "matching per-trial fraction/met summaries",
+        "pooled count/fraction",
+        "paired and aggregate gains",
+        "outer inventory"
+      ],
+      "report_note": "Physical criterion intentionally differs; fresh report recomputation must reject it.",
+      "exception_type": "ValueError",
+      "message": "diagnostic replay differs"
+    }
+  ],
+  "challenge_reference_policy": "Exactly one fresh public physics/optimizer replay; attacks reuse only its immutable deterministic artifacts after exact protocol/input/source/configuration checks.",
+  "independent_numpy": {
+    "all_comparisons_passed": true,
+    "comparison": {
+      "pooled_fraction_gain": 0.594306049822064,
+      "lateral_rmse_geomean_ratio": 0.02665763567115995,
+      "altitude_rmse_geomean_ratio": 0.19150749431393443
+    },
+    "optimizer_stopping": {
+      "oracle_lbfgs64": {
+        "solves": 2544,
+        "backend_success_solves": 2544,
+        "iteration_limit_messages": 0,
+        "iteration_limit_but_returned_residual_at_threshold": 0,
+        "returned_residual_at_threshold": 2544,
+        "returned_residual_above_threshold": 0,
+        "returned_residual_maximum": 0.0019993701467546643,
+        "raw_backend_messages": {
+          "CONVERGENCE: NORM OF PROJECTED GRADIENT <= PGTOL": 2544
+        },
+        "independent_saved_gradient_residuals_match": true
+      },
+      "oracle_anticipatory64": {
+        "solves": 2544,
+        "backend_success_solves": 2495,
+        "iteration_limit_messages": 49,
+        "iteration_limit_but_returned_residual_at_threshold": 3,
+        "returned_residual_at_threshold": 2498,
+        "returned_residual_above_threshold": 46,
+        "returned_residual_maximum": 0.042559900083641855,
+        "raw_backend_messages": {
+          "CONVERGENCE: NORM OF PROJECTED GRADIENT <= PGTOL": 2495,
+          "STOP: TOTAL NO. OF ITERATIONS REACHED LIMIT": 49
+        },
+        "independent_saved_gradient_residuals_match": true
+      }
+    },
+    "scope": "Independent saved-state arithmetic and identity checks only. No physics/optimizer replay, no fit, no real-time or uncertainty-calibration claim."
+  },
+  "validation": {
+    "local_focused": {
+      "passed": 107,
+      "skipped": 1
+    },
+    "remote_focused": {
+      "passed": 108,
+      "skipped": 0
+    },
+    "test_modules": [
+      "test_anticipation_control.py",
+      "test_anticipation_metrics.py",
+      "test_anticipation_tracking.py",
+      "test_anticipation_audit.py",
+      "test_precision_solver.py",
+      "test_quasi_newton.py"
+    ],
+    "meaning": "Separate focused executions:79core/solver checks(remote all pass;local78pass+1Cascade skip), plus29audit checks on each runtime. No claim of a new whole-repository run.",
+    "ruff": "passed",
+    "discarded_prewarm": {
+      "discarded_equilibrium_only": true,
+      "scored_trials": 0,
+      "arms": {
+        "oracle_lbfgs64": {
+          "summary": {
+            "arm": "oracle_lbfgs64",
+            "horizon_steps": 5,
+            "horizon_s": 0.25,
+            "block_count": 5,
+            "maximum_iterations": 64,
+            "warmup_intervals": 2,
+            "compile_signature": "f8eb0e4116f4f086c36dc95b0109759924001d11f8e9978f6b2c4cc0d9612fda",
+            "covariance_meaning": "saved generic numerical objective offset; not oracle uncertainty",
+            "meaning": "public equations and causal command replay behind the unchanged generic seam",
+            "position_scales_m": [
+              5.0,
+              0.5,
+              0.5
+            ],
+            "constant_covariance_objective": 0.3619772493839264,
+            "solver": "lbfgs_float64",
+            "anticipation_s": 0.0,
+            "position_objective": "unchanged position error / position scale",
+            "objective_evaluation_counts_available": true,
+            "constant_covariance_objective_meaning": "float32 seed-selection reference; native per-solve offsets are saved in diagnostics",
+            "timing_meaning": "synchronized instrumented outer decision including all diagnostic audits"
+          },
+          "decisions": 1,
+          "float32_planning_arithmetic": 0,
+          "backend_failure": false
+        },
+        "oracle_anticipatory64": {
+          "summary": {
+            "arm": "oracle_anticipatory64",
+            "horizon_steps": 5,
+            "horizon_s": 0.25,
+            "block_count": 5,
+            "maximum_iterations": 64,
+            "warmup_intervals": 2,
+            "compile_signature": "bb4fe990cd5be76d2bdc38b94ee9a4c23244186314b1d1bc81bc7a4379741467",
+            "covariance_meaning": "saved generic numerical objective offset; not oracle uncertainty",
+            "meaning": "public equations and causal command replay behind the unchanged generic seam",
+            "position_scales_m": [
+              5.0,
+              0.5,
+              0.5
+            ],
+            "constant_covariance_objective": 0.3619772493839264,
+            "solver": "lbfgs_float64",
+            "anticipation_s": 1.5,
+            "position_objective": "all axes: (position error + anticipation_s * inertial velocity error) / position scale",
+            "objective_evaluation_counts_available": true,
+            "constant_covariance_objective_meaning": "float32 seed-selection reference; native per-solve offsets are saved in diagnostics",
+            "timing_meaning": "synchronized instrumented outer decision including all diagnostic audits"
+          },
+          "decisions": 1,
+          "float32_planning_arithmetic": 0,
+          "backend_failure": false
+        }
+      }
+    },
+    "prewarm_log_note": "The original file with.json suffix contains a two-line JAX default-float32 warning before its JSON payload; bytes are preserved."
+  },
+  "scope": {
+    "oracle_application_qualified": true,
+    "maintained_controller_promoted": false,
+    "learner_changed": false,
+    "generic_control_charter_complete": false,
+    "public_recipe": "generic-memory-v3-prototype",
+    "limitation": "One calm truth-sensed simulator task, fixed reference and eight initial perturbations. No learned-control, calibrated-uncertainty, live-update, hardware or arbitrary-system claim.",
+    "stopping": "Candidate49raw iteration-limit messages include3returned residuals meeting0.002;46/2544remain above. The frozen application gate requires task/reliability, not every optimizer convergence.",
+    "timing": "Instrumented median candidate decision273.971ms vs234.773ms baseline; all2544candidate decisions exceed50ms. Extra audits included; unpaced simulation. No real-time claim.",
+    "uncertainty": "Same borrowed constant spread coefficients in both arms, not calibrated oracle uncertainty."
+  },
+  "next_named_gap": "No-fit closed-loop transfer of saved full_mse_6000 versus paired_6000 under the fixed anticipatory controller; prospectively qualify the10-transition history and learned-only precision seam first."
+}

@@ -1,39 +1,35 @@
 # Status: gap against the charter
 
 Updated 2026-09-18. **The generic approach is adopted as the development
-baseline.** The user prioritizes generality over superiority on every corpus;
-the four-corpus advantage justifies accepting the known ARP deficit. This is
-an explicit policy decision on existing evidence, not a new experimental
-pass. The adopted learner remains `generic-memory-v3-prototype`. Its recipe
-and numerical logic from `98f77d3` now serve the public `glassbox.fit` API;
-the returned `LearnedDynamics` provides `predict` and `update`. Generic
-recording archives also serve the public fit/evaluate commands. Structured
-code remains in its owning modules for benchmarks and unmigrated control
-consumers.
-The latest paired-response mechanism qualifies in a larger simulator study,
-with implementation isolated on `codex/intervention-response` at `7ea4674`.
-The adopted learner and consumer data contract remain unchanged.
-Read [the charter](charter.md) first. Git holds the experiment history;
-this page records the current evidence, limitations and next named gap.
+baseline.** Generality and its four-corpus advantage justify the documented
+ARP deficit; this policy decision does not rewrite historical gates. The
+adopted learner remains `generic-memory-v3-prototype`: `glassbox.fit` returns
+`LearnedDynamics` with `predict` and `update`, without consumer tuning options.
+The paired-response learner and anticipatory controller remain isolated
+research implementations. **The latest oracle controller qualifies: all sixteen trajectories and
+5,088 optimizer decisions/forecasts replay exactly, and four rehashed
+alterations are rejected.**
+
+Read [the charter](charter.md) first. This page records the current gaps and
+next iteration; git and frozen result records retain experiment history.
 
 | Criterion | Current | Target |
 | --- | --- | --- |
-| One recipe | **Met.** The public API and fit/evaluate commands use the single `generic-memory-v3-prototype` recipe. `fit`, `predict` and `update` have no tuning or model-selection options. Replaced experimental module paths and structured root exports are removed. | One generic learner and consumer contract. |
-| Accuracy | **Adopted with a known tradeoff.** Four of five corpora beat the structured comparator on both metrics; ARP loses both. Paired-response training improves aggregate held-out command-response error 65.1% and factual forecast error 31.4% versus the same-data, same-budget forecast-only learner. This qualifies a simulator research mechanism; public integration and arbitrary-system transfer remain unproved. | Broad competitive performance from one recipe; improve weak cases and establish task sufficiency separately. |
-| Capability | **Met.** All 27 frozen synthetic cases pass; saved models replay and reject alteration. This is a regression guard, not platform readiness. | Every synthetic absolute cap passes. |
-| Control | **Not met.** In twelve new oracle tracking trials, pooled samples within the ±0.5 m lateral/altitude tolerance are 32.12% for the four-step solver, 39.59% for float32 L-BFGS-B and 40.04% for float64 L-BFGS-B; 95% is required. All 1,272 float64 solves meet the gradient threshold without backend failure, but no trial meets the application criterion. Generic controller tracking was not remeasured; the learner is unchanged. | Meet the declared application tracking requirement; use structured and oracle arms diagnostically. |
-| Live improvement | **Not met.** Last live-v3 evidence swaps at intervals 140/220; position error rises from 0.80/0.98 m before the swap to 36.1/11.8 m afterward. Not rerun today. | Bounded refits and swaps that do not worsen tracking. |
-| Evidence | **Not met.** The 85–95% coverage band still fails on ARP, the reserved control recording and shifted synthetic regimes. Constant spread cannot rank command plans, but can affect finite-iteration stopping through the absolute objective. | Measured coverage in the declared band, useful to control. |
-| Lean | **Not met.** Generic research code was reduced; structured dynamics, fitting, belief code and their supporting scripts remain. | Learner, harness, telemetry adapters and controller only. |
+| One recipe | **Met.** The public API and fit/evaluate commands use the single adopted generic recipe, with no model-selection options. | One generic learner and consumer contract. |
+| Accuracy | **Adopted with a known tradeoff.** Four of five corpora beat structured comparators on both metrics; ARP loses both. In a separate simulator study, paired-response supervision improves aggregate response error 65.1% and factual error 31.4% against the same-data, same-budget forecast-only learner. Public integration and arbitrary-system transfer remain unproved. | Broad competitive forecasts from one platform-independent recipe; task sufficiency measured separately. |
+| Capability | **Met.** All 27 frozen synthetic cases pass; saved models replay and reject alteration. These are regression guards, not platform readiness. | Every synthetic absolute cap passes. |
+| Control | **Not met for the generic learner.** The latest anticipatory oracle controller reports 2,248/2,248 qualifying samples and all eight trials passing the 95% requirement, versus 912/2,248 (40.57%) and zero passing trials for its fresh baseline. Independent replay and integrity checks pass. The learned predictor has not yet been tested with this controller. | The generic learner controls Cascade within the declared tracking requirement. |
+| Live improvement | **Not met.** Last live-v3 swaps at intervals 140/220 increase position error from 0.80/0.98 m to 36.1/11.8 m. Not remeasured. | Bounded refits and swaps that do not worsen tracking. |
+| Evidence | **Not met.** The 85–95% coverage band still fails on ARP, the reserved control recording and shifted synthetic regimes. Borrowed constant spread is not calibrated uncertainty for a new predictor. | Measured coverage in the declared band, consumed usefully by control. |
+| Lean | **Not met.** Structured dynamics, fitting, belief code and research scripts remain. | Learner, harness, telemetry adapters and controller only. |
 
-## Current platform evidence
+## Current forecast evidence
 
-Whole recordings are held out; both arms forecast identical rows and commands.
-Final-step RMSE is at the recipe's approximately 250 ms horizon on each sample
-grid. Values below are generic / best structured comparator per metric;
-the best structured arm can differ between metrics, so this benchmark envelope
-is not itself one deployable model. One generic recipe is fitted separately to
-each system; these are not shared weights applied unseen to five systems.
+Whole recordings are held out and both arms forecast identical rows and
+commands. The table gives generic / best structured endpoint component RMSE
+at the recipe's approximately 250 ms horizon. The best structured comparator
+can differ by metric. One generic recipe is fitted separately to each system;
+these are not shared weights transferred unseen to five systems.
 
 | Corpus | Velocity, m/s | Body rate, rad/s |
 | --- | --- | --- |
@@ -43,218 +39,140 @@ each system; these are not shared weights applied unseen to five systems.
 | epfl | 0.146 / 0.526 | 0.070 / 0.217 |
 | arp | **0.176 / 0.174** | **0.715 / 0.285** |
 
-These are pooled endpoint component RMSEs. The old platform ceilings came from
-descriptive model-error percentiles, not application requirements, and used a
-different statistic. On the original statistic (worst recording's nearest-rank
-95th percentile of maximum whole-prefix vector error), X8 body rate is
-**0.888 rad/s versus the historical 0.764 ceiling**. IDF and EPFL have no declared
-ceiling. No task sufficiency follows from these comparisons. ARP also loses to
-hold-current (endpoint 0.149 m/s, 0.362 rad/s).
+ARP also loses to hold-current (0.149 m/s, 0.362 rad/s). Its body-rate error
+is about 2.5 times the structured result. On the historical, different
+whole-prefix percentile statistic, X8 body rate remains **0.888 rad/s versus
+the 0.764 ceiling**. Those ceilings were descriptive forecast statistics, not
+application requirements; IDF and EPFL have no declared ceiling. These results
+support adoption with visible losses, not arbitrary-system readiness or a
+permanent four-of-five promotion rule.
 
-The generic recipe wins both metrics on four corpora and the structured
-comparators win on ARP; neither dominates everywhere. Generality and breadth
-of measured advantage justify adopting the generic recipe with that known
-loss. ARP body-rate endpoint RMSE is about 2.5 times the structured value;
-the loss remains visible rather than disappearing into a win count. These
-five corpora do not establish performance on arbitrary systems. Future
-comparisons start from the adopted generic baseline. The next iteration
-must freeze its own promotion criteria; this decision does not create a
-permanent four-of-five rule or invent aggregate weights from known scores.
+[Intervention response v1](harness/intervention-response-v1.json), isolated at
+`7ea4674`, establishes a stronger simulator response-learning mechanism.
+Eighty independent parents supply 3,920 matched-history branches, split by
+parent: 40 train, 12 development, 12 ordinary test and 16 shifted test.
+The predictor receives observed signals and applied commands; only the
+evaluator/generator accesses hidden simulator state. Physical state cloning
+is not an assumed consumer capability.
 
-The existing protocols retain their original historical acceptance meaning
-and scores, including their per-case no-regression checks; they no longer
-decide whether to adopt the generic approach. The frozen protocols are
-[synthetic v1](harness/v1.json),
-[platform v4](harness/platform-v4.json), [control v5](harness/control-v5.json),
-[live v3](harness/live-v3.json) and [evidence v2](harness/evidence-v2.json).
+With architecture, training data, initialization, batch draws and 6,000-step
+budget fixed, paired supervision improves all twelve response scores and all
+six factual scores. Response geometric-mean ratio is **0.34899**, worst ratio
+0.57638, with parent-bootstrap 95% interval **[0.33116, 0.36895]**. Factual
+ratio is **0.68608**, worst ratio 0.75047, interval **[0.66703, 0.70556]**.
+The selected forecast-only/paired checkpoints are 5,700/5,900; normalized
+development response loss is 0.37793/0.05732 and factual loss 0.05660/0.02938.
+These intervals concern parents within this aircraft population, not systems.
 
-## Current control evidence
+Earlier ablations separate additional computation from the new supervision:
+capped-to-full-data 1,000-step fits improve response/factual error 2.3%/7.0%,
+and extending that trajectory to 6,000 steps improves them 38.8%/28.1%.
+The first comparison bundles data use, weighting, minibatching and development
+budget; it does not isolate those effects. The final 65.1%/31.4% improvement
+comes from paired loss and its checkpoint criterion at the same 6,000-step
+budget.
 
-The earlier same-horizon diagnostic substitutes public Cascade equations for
-only the generic forecast mean while retaining its 250 ms controller seam.
-Oracle position component RMSE is **0.565/0.457 m**, versus **60.80/49.31 m**
-for the saved generic arm. The 250 ms structured arm scores **1.816/1.795 m**;
-the historical 800 ms structured pipeline scores **1.179/1.179 m**. None
-meets the tracking application criterion. These comparisons establish both a
-large learned-mean weakness and an inadequate controller even with accurate
-dynamics; they do not establish performance on arbitrary systems.
+Some response signs remain wrong. First-step aileron velocity reversals fall
+64→9 and rotation reversals 170→27 among 390 nonweak probes. Throttle body-rate
+reversals at 150 ms rise 55→163/392 and rotation reversals at 250 ms rise
+25→176/392, despite lower absolute errors. All **40,040 forecasts are finite
+and replay exactly**; all parents/branches, selected objectives, metrics and
+2,000 bootstrap draws replay, and five rehashed alterations are rejected.
+Intermediate optimizer updates are not independently re-solved. The
+[result record](harness/intervention-response-v1-result.json) anchors this
+qualification; it promotes no public recipe, envelope or controller.
 
-The **95% within ±0.5 m** target was chosen internally as a provisional
-application requirement, not taken from an external standard. It has historical
-feasibility evidence: the earlier [research controller](cascade-accuracy.md)
-reached **281/281 qualifying samples on each of three seeds**, using the same
-Cascade equations and aircraft specification. Its constant-command Gauss–Newton
-solver, 1.5 s anticipatory cost term, float64 runtime and pretrial history holds
-differ from the current controller. Today's provenance audit matches all three
-saved trajectory hashes to `bf97de3` and independently recomputes **843/843**
-qualifying samples. It does not rerun those historical optimizers. This supports
-feasibility for the declared calm, truth-sensed simulator task; it proves neither
-current-controller adequacy nor real-time or arbitrary-system performance.
-The user explicitly retains this target as a driver for further improvement.
+## Current controller evidence
 
-The public API, slow-sampling correction and content-pinned recording loader
-retain the adopted v3 numerical recipe. The last broad API/regression check
-passed 1,287 tests. The latest candidate remains isolated; the adopted learner and maintained
-consumer behavior are unchanged. Validation below is focused on this experiment.
-Git and the saved protocols hold the implementation and experiment history.
+[Controller anticipation v1](harness/controller-anticipation-v1.json) compares
+two oracle arms on eight fresh matched seeds, 110–117. Both forecast only
+five steps/250 ms and use the same float64 L-BFGS-B solver, 64-iteration budget,
+bounds and remaining costs. The candidate replaces each position residual
+with position error plus **1.5 seconds times velocity error** in the stage
+and terminal terms. The coefficient anticipates motion in the cost; it does
+not extend the prediction horizon. Each arm drives its own trajectory and
+warm starts.
 
-The latest frozen controller comparison, [tracking v1](harness/solver-tracking-v1.json),
-uses seeds 106–109 and each solver's own trajectory/warm starts on the 250 ms
-task-scaled oracle seam. All twelve trials complete without fallback or bound
-violations; every scored altitude sample passes, so all tolerance misses are lateral.
-
-| Measure across four trials per arm | Four-step projected gradient | Float32 L-BFGS-B | Float64 L-BFGS-B |
-| --- | --- | --- | --- |
-| Samples within task tolerance / 1,124 | 361 (32.12%) | 445 (39.59%) | 450 (40.04%) |
-| Trials meeting the 95% requirement | 0/4 | 0/4 | 0/4 |
-| Converged returned solves without failure / 1,272 | 0 | 1,022 | 1,272 |
-| Backend failures | 0 | 26 | 0 |
-| Median instrumented decision time | 73.7 ms | 197.7 ms | 230.7 ms |
-
-Float64 adds five qualifying samples over float32, only 0.445 percentage points,
-and removes its 26 backend failures. The old precision gate remains failed
-(residual ratio 0.803 versus 0.5 required); the prospective tracking diagnostic
-was explicitly authorized without rewriting that result. None of these solvers
-is promoted. These are different trajectories from the old fixed-seed 70/128
-precision population. Neither native optimizer-score comparisons across
-different states nor instrumented timings establish controller quality or
-real-time readiness. All 12 trajectories and 3,816 solves/forecasts replayed
-exactly, four rehashed challenges were rejected, and 266 focused remote checks
-passed. Git and saved protocols hold the detailed tracking experiment history.
-
-## Latest iteration: direct command-intervention learning
-
-[Intervention response v1](harness/intervention-response-v1.json) was frozen at
-**`2b069e4`**, implemented at **`b9b3f71`**, and independently audited at
-**`7ea4674`**. The [result record](harness/intervention-response-v1-result.json)
-anchors all 174 evidence files and supporting replay/audit records.
-
-The experiment generated **80 independent parent trajectories** and **3,920
-matched-history command branches**, with all branches of a parent kept together.
-Forty parents train, twelve select checkpoints, twelve form the ordinary test
-population, and sixteen form a prescribed larger-setpoint shift. Hidden plant
-state is used only to generate the physical branches; the unchanged architecture
-receives observed signals and applied commands. This is one aircraft and two
-operating populations, not evidence from arbitrary systems. Matching physical
-branches is a simulator capability, not an assumed consumer capability.
-
-Exactly three optimization trajectories produce four fresh models; a historical
-saved model supplies context. The primary comparison holds architecture, all
-data, initialization, minibatch draws and 6,000-step budget fixed. The candidate
-adds direct alternative-minus-baseline response supervision to the forecast
-loss, and selects its checkpoint using the corresponding development objective.
-
-| Prospective comparison | Aggregate response-error change | Aggregate factual-error change |
+| Verified controller comparison | Baseline oracle | Anticipatory oracle |
 | --- | --- | --- |
-| Capped v3 to full-data 1,000-step fit | −2.3% | −7.0% |
-| Full-data 1,000 to 6,000 steps | −38.8% | −28.1% |
-| Full-data forecast loss to paired-response loss, both 6,000 steps | **−65.1%** | **−31.4%** |
+| Simultaneous lateral/altitude tolerance samples | 912/2,248 (40.57%) | **2,248/2,248 (100%)** |
+| Trials meeting the 95% requirement | 0/8 | **8/8** |
+| Backend failures / fallbacks / bound violations | 0 / 0 / 0 | 0 / 0 / 0 |
+| Returned residuals at or below 0.002 | 2,544/2,544 | 2,498/2,544 |
+| Median instrumented decision time | 235 ms | 274 ms |
 
-The first contrast bundles evidence use, weighting, minibatching and development
-budget; it cannot identify those effects individually. The second is a retained
-milestone of one trajectory. The third isolates the paired objective and its
-checkpoint criterion. Historical-to-fresh changes data population and is context
-only. More fitting compute and stronger supervision both help in this study.
+The verified candidate meets both frozen material-progress and application
+conditions. Pooled fraction improves 59.43 percentage points; paired geometric
+lateral/altitude RMSE ratios are 0.02666/0.19151. The solver reports 49 raw
+iteration-limit messages and 46 returned residuals above 0.002, so task success
+does not mean every solve converged. These limits are distinct from backend
+failure. All candidate decisions exceed the 50 ms sample interval; timings
+include diagnostic audits, the simulation is unpaced, and no deadline affects
+commands. This is not real-time readiness.
 
-**The primary mechanism passes.** All twelve response scores and all six factual
-scores improve. Response geometric-mean ratio is **0.34899**, with worst ratio
-0.57638; factual ratio is **0.68608**, with worst ratio 0.75047. The equal-weight
-scores span both populations and velocity, body rate and rotation entries.
-Paired parent-bootstrap 95% intervals are **[0.33116, 0.36895]** and
-**[0.66703, 0.70556]**, respectively. These intervals describe parent sampling
-within this aircraft population, not uncertainty across systems.
+The application requirement remains simultaneous absolute lateral and altitude
+error at most ±0.5 m for at least 95% of 281 samples at t≥2 s in **each** trial,
+with complete finite trajectories and no declared reliability failure. It is
+an internal provisional target with historical feasibility evidence (843/843
+samples), not an external standard. The new oracle result supports feasibility
+on the current calm, truth-sensed task. It does not establish learned-control,
+hardware, disturbance or arbitrary-system performance. The covariance is a
+borrowed constant objective offset, not oracle uncertainty.
 
-The forecast-only model selects step 5,700; the paired model selects step 5,900.
-Normalized development response loss falls from 0.37793 to 0.05732; development
-factual loss falls from 0.05660 to 0.02938. The gain transfers beyond training
-parents and persists under the prescribed shift. This does not prove that this
-architecture can identify every hidden state or extrapolate to arbitrary dynamics.
+The last saved generic controller remains poor (position component RMSE
+60.80/49.31 m in the earlier two-trial diagnostic). It has not been rerun with
+the better controller or paired-response model. Earlier solver and control
+results remain historical evidence; none is retrospectively changed to pass.
 
-Early aileron response signs improve substantially: pooled first-step velocity
-reversals fall **64→9**, and rotation reversals **170→27**, among 390 nonweak
-probes; two weak probes remain separately counted. All signs are not repaired.
-Throttle body-rate reversals at 150 ms rise 55→163/392, and throttle rotation
-reversals at 250 ms rise 25→176/392, even though absolute response errors fall.
-The remaining errors on these small cross-responses exceed their physical response magnitudes.
+## Evidence and compatibility
 
-All **40,040 forecasts are finite and replay exactly without refitting**.
-Physical replay reconstructs every parent and branch; data roles, initialization,
-selected objectives, metrics and all 2,000 bootstrap draws are verified. An
-independent NumPy audit reproduces all eighteen point scores. Five coherently
-rehashed changes to physical data, lineage, model parameters, predictions with
-updated reports, and qualification decisions are rejected. Intermediate optimizer
-updates are not independently re-solved.
+The current trial report is at
+`artifacts/2026-09-18/controller-anticipation-v1/report.json`, SHA-256
+`c050b77168e3df8e0608665e80f7fb14888ab431e011d75d08b16b073ebeaeb6`.
+All **16 trajectories and 5,088 optimizer decisions/forecasts replay exactly**,
+with zero physical-state difference. Four coherently rehashed changes to commands,
+anticipation configuration, full gradients and task scores are rejected. A separate
+NumPy implementation reproduces every task score and saved-gradient residual.
+The [result record](harness/controller-anticipation-v1-result.json) pins the
+93-file evidence bundle and separate audits. Implementation is isolated at
+`9cf2874`, with audit `bfb8d24`, on `codex/controller-anticipation`.
+Focused validation passes 108 remote checks and 107 local checks with one Cascade
+skip; Ruff passes. Instrumented clocks are checked for consistency, not authenticated.
 
-Validation: **190 focused local tests pass**, six skip; **186 remote tests pass**,
-nine skip and one inherited migration source-check test fails. The failure is a
-Python 3.12/3.13 AST serialization difference on byte-identical sources, confirmed
-with complete AST comparison; the experiment's 93 raw-byte source pins pass.
-Ruff passes. The original remote suite is not described as fully green. The
-separate compatibility correction `b4e8126` passes 53 local and 45 remote
-checks (eight remote artifact skips), but stays isolated: integrating it changed
-byte-pinned historical sources. Main restoration `c69b20c` passes all six affected
-tests and ten source validators; the [containment record](harness/ast-compatibility-containment-result.json)
-anchors the check. Historical replay uses its pinned interpreter and checkout.
-No public recipe, uncertainty envelope, controller or live-update result is
-promoted by this research qualification.
-
-## Constraints established by prior measurements
-
-- ARP's error compounds across the forecast and transfers poorly between
-  recordings. Optimizer changes and pooled shrinkage did not repair it without
-  regressions; more training steps alone are not an established remedy.
-- Closed-loop forecast accuracy does not establish usable command response.
-  Holding affine command columns does not hold the full model's derivative:
-  nonlinear and memory paths can reverse it. The affine-column constraint
-  broke nonlinear synthetic cases while still permitting incorrect full-model
-  command derivatives.
-- Smooth dither in short live blocks supplied weak identifying variation.
-  Independent signs increased useful command variation but failed the control
-  gate (105.05/101.91 m position RMSE at `7c82db9`). Realized pitch injection
-  retained only 70.7–72.9% of requested RMS because 45.6–48.1% of intervals
-  clipped. Preserve raw assignment separately from applied commands.
-- The full-response moment assumes sequentially zero-mean assignment and an
-  adequate conditional state/mean model. Three unconditional assignment
-  directions and two training recordings do not establish state-dependent
-  causal response. Reducing these moments alone did not repair multistep
-  prediction. Calibration and state-dependent identification are not exhausted.
-- Widening envelopes solely by distance repaired some unsupported cases while
-  over-covering others. Neither the coverage band nor any reference is relaxed.
-
-## Evidence and replay
-
-Latest evidence: `artifacts/2026-09-18/intervention-response-v1` locally and
-`/home/ryland/autonomy/glassbox-evidence/2026-09-18/intervention-response-v1` on
-`ryserv`. The [result record](harness/intervention-response-v1-result.json) pins
-its run manifest and separate audit/replay records. The isolated implementation
-is `codex/intervention-response` at `7ea4674`, in
-`/private/tmp/glassbox-intervention-response` locally and
-`/tmp/glassbox-intervention-response-test` on `ryserv`.
-
-Historical platform, control, live and uncertainty results remain unchanged.
-`tracking-target-provenance-audit.json` documents the earlier 843/843 tracking
-result. Git and each experiment's frozen protocol retain prior outcomes.
-
-```sh
-# Isolated experiment checkout at 7ea4674; no refitting.
-PYTHONPATH=src python -m glassbox.experimental.intervention_response verify /absolute/path/to/intervention-response-v1
-```
+The preceding intervention qualification has 190 focused local tests passing
+(six skips), and 186 remote tests passing (nine skips) with one inherited
+migration source-check failure. That failure is a Python 3.12/3.13 AST
+serialization difference on byte-identical sources; complete AST comparison
+and all 93 raw-byte source pins pass. The original remote suite is not claimed
+fully green. Compatibility correction `b4e8126` passed 53 local and 45 remote
+checks (eight remote artifact skips) but remains isolated because integration
+changed pinned historical sources. Main restoration `c69b20c` passed all six
+affected tests and ten source validators; the
+[containment record](harness/ast-compatibility-containment-result.json) anchors
+that result. Historical replay uses its pinned interpreter and checkout.
+The last broad public API/regression check passed 1,287 tests; current research
+does not change that recipe or consumer behavior.
 
 ## Next named gap
 
-**Anticipatory position tracking in the oracle controller at the existing
-250 ms forecast horizon.** Better response learning now has stronger evidence,
-but even exact equations achieve only 40.04% on the latest tracking population.
-Freeze a separate no-fit comparison replacing only the position residual with
-position error plus 1.5 seconds times velocity error. This coefficient is drawn
-from the historical successful controller before new measurements; it is not
-a longer prediction horizon or a promise of 95% success. Retain the existing
-solver, other costs, bounds and causal sequencing, use fresh matched trials,
-and distinguish material progress from the unchanged 95% application criterion.
+**Transfer of qualified command-response learning into closed-loop tracking.**
+Freeze a no-fit comparison of saved
+`full_mse_6000` and `paired_6000` under the same anticipatory controller, using
+fresh matched initial-state seeds and each arm's own observed trajectory.
+Use ten real initial hold intervals to fill the research models' validated
+history, with no padding or hidden oracle state; the first solve is at 0.5 s.
+Both arms retain the same bounds, cost, solver budget and five-step horizon.
+Give both the exact same borrowed covariance coefficients to isolate the
+mean-model change, explicitly without claiming calibrated candidate coverage.
+Keep material tracking improvement and the unchanged per-trial 95% requirement
+separate. No public learner/controller promotion follows automatically.
 
-Then test whether the qualified learned response transfers into an adequate
-controller under its own trajectories. Public integration still needs a generic
-way to exploit informative recordings without assuming simulator state cloning.
-An explicit history encoder and latent transition remain a researched alternative
-if a named representation or transfer failure warrants them; today’s evidence
-does not require an architecture replacement to explain the response gains.
+Public integration still needs a recording-based learning mechanism that does
+not assume simulator state cloning, measured uncertainty, and a successful
+live-update gate. Existing failures constrain that work: affine command-column
+constraints did not control nonlinear/memory response and broke nonlinear
+synthetic cases; weak excitation and unconditional response moments did not
+identify state-dependent response; widening envelopes by distance repaired some
+cases while over-covering others. An explicit latent-state architecture remains
+a researched option if a named representation failure warrants it. Current
+evidence does not establish that the present architecture is exhausted.
