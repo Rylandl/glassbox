@@ -1,0 +1,602 @@
+{
+  "auxiliary_sha256": {
+    "artifacts/2026-09-18/state-input-interaction-v1-analysis.json": "13e801195f61ee5a2c39436aa31789bc08bdeda41890967af809501990fbcf79",
+    "artifacts/2026-09-18/state-input-interaction-v1-analysis.py": "cb240ee1369b03e379277b40f4b372ef4ba1eb6cf875e2f58b4562a2c115f336",
+    "artifacts/2026-09-18/state-input-interaction-v1-implementation-audit.json": "8e8ddd3bc5a1886b2d15fdd5afbb6d74b1490c8d932e9639a223350770c84101",
+    "artifacts/2026-09-18/state-input-interaction-v1-implementation-audit.py": "4cabff0c4403fe550898bfc0b0e18acfefa2ff137743cf227ae4aa958c00467b",
+    "artifacts/2026-09-18/state-input-interaction-v1-independent.json": "36225996a6aa4f4c29804ff9de777a4bdad1327193dd625342bc052ba85b9d2c",
+    "artifacts/2026-09-18/state-input-interaction-v1-independent.log": "571d6196025761ef11b9cec9a51b10ccdfb09ac570bfc23b55bd0688fa32672c",
+    "artifacts/2026-09-18/state-input-interaction-v1-independent.py": "969bf8ec5c3fc1c8e31f4b5355dc7025bb138b5cb710ec4040e2bb6381f5830a",
+    "artifacts/2026-09-18/state-input-interaction-v1-logs/evaluate-cascade.json": "58f1ced81e05f467250a584a2abdf481676c42e0d5a6ee21605d6ed1d80207bd",
+    "artifacts/2026-09-18/state-input-interaction-v1-logs/evaluate-cascade.log": "62770277a120fb3208008a6e6464bfda4c9ec7f7615e5405a68f0d691c6130e6",
+    "artifacts/2026-09-18/state-input-interaction-v1-logs/evaluate-crazyflow.json": "900c48c0b1d86390b6f6141c931c8284aad5445a34488ece26837b75c4d32a10",
+    "artifacts/2026-09-18/state-input-interaction-v1-logs/evaluate-crazyflow.log": "57ddfc545326eabf44d8e410866166f73e501899c8d3686b2a65e81e0b8129c5",
+    "artifacts/2026-09-18/state-input-interaction-v1-logs/finalize-crazyflow.json": "10908159fc13779847fd2e0fb64a12c69073ba0f29cdf8438797f6dd35467a89",
+    "artifacts/2026-09-18/state-input-interaction-v1-logs/finalize-crazyflow.log": "fb39a27409f80cc4e47b691c1e02109ddc2a24de032c11f4653eb3d9784f3834",
+    "artifacts/2026-09-18/state-input-interaction-v1-logs/fit-cascade-baseline.json": "4c65a6e554353163ac8afa8a19321113be941c80a6cad803310c77dc93312f26",
+    "artifacts/2026-09-18/state-input-interaction-v1-logs/fit-cascade-baseline.log": "e6e8bc1e233ff155cbb8a2e6e123f3ce770ec635ec66792b387b93223cdd4b84",
+    "artifacts/2026-09-18/state-input-interaction-v1-logs/fit-cascade-candidate.json": "9eacab6b6451c671cbb203f80dcecaaa54bcf39a896cdd05a36a8ad1b6d7b499",
+    "artifacts/2026-09-18/state-input-interaction-v1-logs/fit-cascade-candidate.log": "01667bce0ba6fb377a41314de961482c8ded79baaef36a8b67aadffd84f351c7",
+    "artifacts/2026-09-18/state-input-interaction-v1-logs/fit-crazyflow-baseline.json": "5110c9bd58fc6a2ee3ff5d1b8d6676faa09b3e877e496d634f01f746084b047a",
+    "artifacts/2026-09-18/state-input-interaction-v1-logs/fit-crazyflow-baseline.log": "81e15c0cd95d106db7feef38b72e767f181f1104b09706399b431086532cd986",
+    "artifacts/2026-09-18/state-input-interaction-v1-logs/fit-crazyflow-candidate.json": "d8cd16c50b73f1511d266b39cc56aa718fc836d153051514354808d5785f6b4b",
+    "artifacts/2026-09-18/state-input-interaction-v1-logs/fit-crazyflow-candidate.log": "6aaa22876671618e0f0c35b94cabdca059c02736dce116950c7851c405210c24",
+    "artifacts/2026-09-18/state-input-interaction-v1-logs/generate-cascade.json": "750065da379547433a3ca19fd3c985ac4ad54a283e06f1819405f9d47ee11f9d",
+    "artifacts/2026-09-18/state-input-interaction-v1-logs/generate-cascade.log": "1737119df000f2009bd170d6b37627481094c6f3d873852232f30ab5bacb575e",
+    "artifacts/2026-09-18/state-input-interaction-v1-logs/generate-crazyflow.json": "98ec26842189defcd570815cebd457d34b9051b9d3804892c92a1391416036f1",
+    "artifacts/2026-09-18/state-input-interaction-v1-logs/generate-crazyflow.log": "4d648900e7f8d3d96f45aa490679ece6f786f6b5e9d40011ff259d2052c1e5f8",
+    "artifacts/2026-09-18/state-input-interaction-v1-logs/replay-cascade-cd258714842a73f941d04da33ec2cdc11aa82212cc7b69dae0320cda02bd2184.json": "3005b834bfef862c5c058d3f3671bdbb7968483afd0e6bb68c66e597167fbdc1",
+    "artifacts/2026-09-18/state-input-interaction-v1-logs/replay-cascade-cd258714842a73f941d04da33ec2cdc11aa82212cc7b69dae0320cda02bd2184.log": "4dcaf7820f3e141e5a16e4a6c3b6a2ff482ee5955509d430e5962a8f7b0935c8",
+    "artifacts/2026-09-18/state-input-interaction-v1-logs/replay-crazyflow-cd258714842a73f941d04da33ec2cdc11aa82212cc7b69dae0320cda02bd2184.json": "996a75a7880afeb7e9a25b476e0cc929f5645b0e4e89a7692b5955fd30456f1c",
+    "artifacts/2026-09-18/state-input-interaction-v1-logs/replay-crazyflow-cd258714842a73f941d04da33ec2cdc11aa82212cc7b69dae0320cda02bd2184.log": "81b8ffacc566353b2f7299c12060d4ff9b8668cfb2c07142b3fac15d3ac7b3e7",
+    "artifacts/2026-09-18/state-input-interaction-v1-performance.png": "d9cebc8000a04d62278350b815fb6c5bb121a8cc34b42ee076609fbb0cd4b67d",
+    "artifacts/2026-09-18/state-input-interaction-v1-performance.svg": "c58d4f9161a0d669d649266786bc52c95aa0d82e55eb479a6881aca339cb17fc",
+    "artifacts/2026-09-18/state-input-interaction-v1-rate-diagnosis.json": "45e303ac0c25d210cfcc361c9e46849dd5162ed441c914e4cae77b671d7ae415",
+    "artifacts/2026-09-18/state-input-interaction-v1-rate-diagnosis.log": "7ace1f716054e35d0ca33ab10c1bbc5ded588a73ef1a8b015bec08c13e105efd",
+    "artifacts/2026-09-18/state-input-interaction-v1-rate-diagnosis.py": "106f89c62318c4816dc3d5d32548d3613d3caa04436f73d828c8416dbe35245e",
+    "artifacts/2026-09-18/state-input-interaction-v1-ruff.log": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+    "artifacts/2026-09-18/state-input-interaction-v1-tamper.json": "c0592c81063b72cafb12bbe6a520210d3f402f1df141d99a59a89dbe60b4dc82",
+    "artifacts/2026-09-18/state-input-interaction-v1-tamper.log": "66e0ddb1ebe17c0f9c3ae7ac76af9b7eabf816f4f7db69234194045accf2484c",
+    "artifacts/2026-09-18/state-input-interaction-v1-tamper.py": "7ab1d63f4beeeabaade5066f7e600f7d2c9164fddee5e4590e711bf73450ccfd",
+    "artifacts/2026-09-18/state-input-interaction-v1-tests.log": "4f286270a0e7bd2329fb91adbc49c8c6eca5037ade6a079d84b90d000363951e"
+  },
+  "baseline_reproduction": {
+    "cascade": {
+      "current_fingerprint": "15821ceaf64a7bb122bc2816895797c5f524ea5878eeed291907b74486a8dba1",
+      "normalization_and_loss_scale_exact": true,
+      "prediction_parameters_exact": true,
+      "previous_fingerprint": "15821ceaf64a7bb122bc2816895797c5f524ea5878eeed291907b74486a8dba1",
+      "training_development_windows_and_arrays_exact": true
+    },
+    "crazyflow": {
+      "current_fingerprint": "ae1daa954ee56e9d2e80eaea6cd9311848fce7f7e690fbaa970d495891a9597d",
+      "normalization_and_loss_scale_exact": true,
+      "prediction_parameters_exact": true,
+      "previous_fingerprint": "ae1daa954ee56e9d2e80eaea6cd9311848fce7f7e690fbaa970d495891a9597d",
+      "training_development_windows_and_arrays_exact": true
+    }
+  },
+  "bootstrap": {
+    "factual": {
+      "available_draws": 1000,
+      "percentile_95_interval": [
+        0.9496971986666084,
+        0.9733382645905777
+      ],
+      "unavailable_draws": 0
+    },
+    "response": {
+      "available_draws": 1000,
+      "percentile_95_interval": [
+        0.839338336362077,
+        0.8624075687511528
+      ],
+      "unavailable_draws": 0
+    }
+  },
+  "bundle": {
+    "manifest": "run.json",
+    "path": "artifacts/2026-09-18/state-input-interaction-v1",
+    "sealed_payload_count": 14063,
+    "sha256": "cd258714842a73f941d04da33ec2cdc11aa82212cc7b69dae0320cda02bd2184"
+  },
+  "calibration": {
+    "cascade": {
+      "arrays": 1056,
+      "calibration_parents": 96,
+      "current_data_seal": "3a569b8b4136fc29c5d5670c034c221f35df5a0e35f5704aa32301fac758ad27",
+      "exact": true,
+      "previous_bundle_sha256": "5807e9f85454e5edefba6677e973a0e3851f4b60e8d8227c7d3bdc880ae656ad",
+      "previous_data_seal": "b18058c30a4699253b13eaccd2e6f8505e95f4960b7b98f1c488bb8aaa27ca28",
+      "roles_and_admission_exact": true
+    },
+    "crazyflow": {
+      "arrays": 960,
+      "calibration_parents": 96,
+      "current_data_seal": "747177df6a30d797d25a8993c84798da0edd47b2fb8ff2e24653853d364b984e",
+      "exact": true,
+      "previous_bundle_sha256": "5807e9f85454e5edefba6677e973a0e3851f4b60e8d8227c7d3bdc880ae656ad",
+      "previous_data_seal": "ce2fc2e656edf908c5e9995ce5b2ff963859867f0367f40fa1595e8ba2e7fc9e",
+      "roles_and_admission_exact": true
+    }
+  },
+  "checks": {
+    "factual_regression": true,
+    "finite_eligible_predictions": true,
+    "matching_planned_queries_and_truth": true,
+    "primary_parent_tail_regressions": false,
+    "primary_simulator_regressions": true,
+    "response_gain": true,
+    "scope_regressions": true
+  },
+  "decision": "Reject adoption under the frozen research rule: Crazyflow primary 250 ms body-rate response parent-RMSE p95 ratio 1.549745 exceeds 1.5. Preserve broad mean gains and artifacts as evidence for the next mechanism. Public recipe unchanged.",
+  "implementation_commit": "04a4f8a",
+  "limits": [
+    "Two fixed simulator configurations, unchanged 192 calibration parents and fresh 168 test parents; no independent physical-system population.",
+    "Crazyflow 133/180 parents complete with 47 altitude failures; conditional primary 250 ms truth 426/480 factual and 688/768 response. Both arms use identical truth cohorts; collection failures are not learned-controller trials.",
+    "Cascade 180/180 parents complete; primary 480/480 factual and 576/576 response.",
+    "384/256 train/dev windows, 1000 updates and minibatch draws matched; candidate adds 900/675 parameters and additional FLOPs.",
+    "Geometric-mean ratio gains are not percentage reductions in pooled physical MSE.",
+    "No paired response supervision, test selection, hidden state or aircraft equations in fitting.",
+    "Exact physics and saved prediction replay, not independently repeated optimizer trajectories.",
+    "No derivative, error-envelope, controller or public update qualification."
+  ],
+  "next_hypothesis": "A complementary learned autonomous state-state quadratic output path may reduce assignment of nonlinear state evolution to state-command terms. Existing correlations and ridge coefficient shifts support investigating this; they do not prove the cause or guarantee improvement.",
+  "primary_endpoint_250ms": [
+    {
+      "absolute_change": -0.008739724740379068,
+      "baseline_rmse": 0.16074054708368177,
+      "candidate_rmse": 0.1520008223433027,
+      "conditional_on_incomplete_truth": false,
+      "group": "velocity_m_s",
+      "horizon_s": 0.25,
+      "kind": "factual",
+      "planned": 480,
+      "ratio": 0.9456283750494568,
+      "scope": "primary",
+      "simulator": "cascade",
+      "truth_eligible": 480
+    },
+    {
+      "absolute_change": 0.003700988030650429,
+      "baseline_rmse": 0.11257944245338766,
+      "candidate_rmse": 0.11628043048403809,
+      "conditional_on_incomplete_truth": false,
+      "group": "body_rate_rad_s",
+      "horizon_s": 0.25,
+      "kind": "factual",
+      "planned": 480,
+      "ratio": 1.0328744569167927,
+      "scope": "primary",
+      "simulator": "cascade",
+      "truth_eligible": 480
+    },
+    {
+      "absolute_change": -0.0007708243486827769,
+      "baseline_rmse": 0.018398372067740008,
+      "candidate_rmse": 0.01762754771905723,
+      "conditional_on_incomplete_truth": false,
+      "group": "rotation_entries",
+      "horizon_s": 0.25,
+      "kind": "factual",
+      "planned": 480,
+      "ratio": 0.9581036655936341,
+      "scope": "primary",
+      "simulator": "cascade",
+      "truth_eligible": 480
+    },
+    {
+      "absolute_change": -0.04725665348839202,
+      "baseline_rmse": 0.13390930294379422,
+      "candidate_rmse": 0.0866526494554022,
+      "conditional_on_incomplete_truth": false,
+      "group": "velocity_m_s",
+      "horizon_s": 0.25,
+      "kind": "response",
+      "planned": 576,
+      "ratio": 0.6470995483545526,
+      "scope": "primary",
+      "simulator": "cascade",
+      "truth_eligible": 576
+    },
+    {
+      "absolute_change": -0.005055576168661001,
+      "baseline_rmse": 0.06233158956830717,
+      "candidate_rmse": 0.05727601339964617,
+      "conditional_on_incomplete_truth": false,
+      "group": "body_rate_rad_s",
+      "horizon_s": 0.25,
+      "kind": "response",
+      "planned": 576,
+      "ratio": 0.9188922309911453,
+      "scope": "primary",
+      "simulator": "cascade",
+      "truth_eligible": 576
+    },
+    {
+      "absolute_change": -0.0009245553710697085,
+      "baseline_rmse": 0.012449001369894783,
+      "candidate_rmse": 0.011524445998825074,
+      "conditional_on_incomplete_truth": false,
+      "group": "rotation_entries",
+      "horizon_s": 0.25,
+      "kind": "response",
+      "planned": 576,
+      "ratio": 0.9257325673282079,
+      "scope": "primary",
+      "simulator": "cascade",
+      "truth_eligible": 576
+    },
+    {
+      "absolute_change": -0.00022111500285146302,
+      "baseline_rmse": 0.16345027405467,
+      "candidate_rmse": 0.16322915905181853,
+      "conditional_on_incomplete_truth": true,
+      "group": "velocity_m_s",
+      "horizon_s": 0.25,
+      "kind": "factual",
+      "planned": 480,
+      "ratio": 0.9986472032296654,
+      "scope": "primary",
+      "simulator": "crazyflow",
+      "truth_eligible": 426
+    },
+    {
+      "absolute_change": 0.0032436176503388425,
+      "baseline_rmse": 0.2432343525948593,
+      "candidate_rmse": 0.24647797024519813,
+      "conditional_on_incomplete_truth": true,
+      "group": "body_rate_rad_s",
+      "horizon_s": 0.25,
+      "kind": "factual",
+      "planned": 480,
+      "ratio": 1.0133353599758235,
+      "scope": "primary",
+      "simulator": "crazyflow",
+      "truth_eligible": 426
+    },
+    {
+      "absolute_change": 0.005479945111209264,
+      "baseline_rmse": 0.10777039921084762,
+      "candidate_rmse": 0.11325034432205688,
+      "conditional_on_incomplete_truth": true,
+      "group": "rotation_entries",
+      "horizon_s": 0.25,
+      "kind": "factual",
+      "planned": 480,
+      "ratio": 1.0508483326714604,
+      "scope": "primary",
+      "simulator": "crazyflow",
+      "truth_eligible": 426
+    },
+    {
+      "absolute_change": -0.04139323544043563,
+      "baseline_rmse": 0.17751614382024578,
+      "candidate_rmse": 0.13612290837981014,
+      "conditional_on_incomplete_truth": true,
+      "group": "velocity_m_s",
+      "horizon_s": 0.25,
+      "kind": "response",
+      "planned": 768,
+      "ratio": 0.766819881563275,
+      "scope": "primary",
+      "simulator": "crazyflow",
+      "truth_eligible": 688
+    },
+    {
+      "absolute_change": 0.2664946679484924,
+      "baseline_rmse": 0.3167506105386495,
+      "candidate_rmse": 0.5832452784871419,
+      "conditional_on_incomplete_truth": true,
+      "group": "body_rate_rad_s",
+      "horizon_s": 0.25,
+      "kind": "response",
+      "planned": 768,
+      "ratio": 1.8413390821735294,
+      "scope": "primary",
+      "simulator": "crazyflow",
+      "truth_eligible": 688
+    },
+    {
+      "absolute_change": -0.016109799492280752,
+      "baseline_rmse": 0.11885318719625888,
+      "candidate_rmse": 0.10274338770397813,
+      "conditional_on_incomplete_truth": true,
+      "group": "rotation_entries",
+      "horizon_s": 0.25,
+      "kind": "response",
+      "planned": 768,
+      "ratio": 0.8644563105768539,
+      "scope": "primary",
+      "simulator": "crazyflow",
+      "truth_eligible": 688
+    }
+  ],
+  "protocol": "state-input-interaction-v1",
+  "protocol_clarification_commit": "a586ac9",
+  "protocol_commit": "ed825c9",
+  "protocol_sha256": "49320a597f2185e3b48ef3becd846496b503c21632e630b9ef173e4e1fa7d704",
+  "public_promotion": false,
+  "replay": {
+    "cascade": {
+      "calibration": {
+        "arrays": 1056,
+        "calibration_parents": 96,
+        "current_data_seal": "3a569b8b4136fc29c5d5670c034c221f35df5a0e35f5704aa32301fac758ad27",
+        "exact": true,
+        "previous_bundle_sha256": "5807e9f85454e5edefba6677e973a0e3851f4b60e8d8227c7d3bdc880ae656ad",
+        "previous_data_seal": "b18058c30a4699253b13eaccd2e6f8505e95f4960b7b98f1c488bb8aaa27ca28",
+        "roles_and_admission_exact": true
+      },
+      "decision_exact": true,
+      "path": "artifacts/2026-09-18/state-input-interaction-v1/cascade/replay.json",
+      "physics": {
+        "arrays": 24996,
+        "exact": true,
+        "parents": 180,
+        "queries": 1848
+      },
+      "predictions": {
+        "exact": true,
+        "metric_rows": 99792,
+        "prediction_queries": 1848
+      },
+      "sha256": "003a5377150e80a836c7631aac757ce560180b9a79e0ac1d40bb9ea53e5dadbf"
+    },
+    "crazyflow": {
+      "calibration": {
+        "arrays": 960,
+        "calibration_parents": 96,
+        "current_data_seal": "747177df6a30d797d25a8993c84798da0edd47b2fb8ff2e24653853d364b984e",
+        "exact": true,
+        "previous_bundle_sha256": "5807e9f85454e5edefba6677e973a0e3851f4b60e8d8227c7d3bdc880ae656ad",
+        "previous_data_seal": "ce2fc2e656edf908c5e9995ce5b2ff963859867f0367f40fa1595e8ba2e7fc9e",
+        "roles_and_admission_exact": true
+      },
+      "decision_exact": true,
+      "path": "artifacts/2026-09-18/state-input-interaction-v1/crazyflow/replay.json",
+      "physics": {
+        "arrays": 30792,
+        "exact": true,
+        "parents": 180,
+        "queries": 2184
+      },
+      "predictions": {
+        "exact": true,
+        "metric_rows": 157248,
+        "prediction_queries": 2184
+      },
+      "sha256": "749fe83d1219258ea8b6aceebecc67464d74d5cf315076fa2262ffcaf2b8584b"
+    }
+  },
+  "residual_criteria_pass": false,
+  "scope_ratios": [
+    {
+      "kind": "factual",
+      "ratio": 0.9946325419283786,
+      "scope": "heading_shift",
+      "simulator": "cascade"
+    },
+    {
+      "kind": "factual",
+      "ratio": 0.9397966777844786,
+      "scope": "maneuver_shift",
+      "simulator": "cascade"
+    },
+    {
+      "kind": "factual",
+      "ratio": 0.9514466875506324,
+      "scope": "primary",
+      "simulator": "cascade"
+    },
+    {
+      "kind": "factual",
+      "ratio": 0.8585251737823617,
+      "scope": "speed_shift",
+      "simulator": "cascade"
+    },
+    {
+      "kind": "factual",
+      "ratio": 1.034409975947886,
+      "scope": "wind_shift",
+      "simulator": "cascade"
+    },
+    {
+      "kind": "factual",
+      "ratio": 0.9455576203580615,
+      "scope": "heading_shift",
+      "simulator": "crazyflow"
+    },
+    {
+      "kind": "factual",
+      "ratio": 1.043735845761753,
+      "scope": "maneuver_shift",
+      "simulator": "crazyflow"
+    },
+    {
+      "kind": "factual",
+      "ratio": 0.978151583361444,
+      "scope": "primary",
+      "simulator": "crazyflow"
+    },
+    {
+      "kind": "factual",
+      "ratio": 0.9345861718295592,
+      "scope": "speed_shift",
+      "simulator": "crazyflow"
+    },
+    {
+      "kind": "factual",
+      "ratio": 0.9293950827286983,
+      "scope": "wind_shift",
+      "simulator": "crazyflow"
+    },
+    {
+      "kind": "response",
+      "ratio": 0.7206606531681052,
+      "scope": "heading_shift",
+      "simulator": "cascade"
+    },
+    {
+      "kind": "response",
+      "ratio": 0.723327463521897,
+      "scope": "maneuver_shift",
+      "simulator": "cascade"
+    },
+    {
+      "kind": "response",
+      "ratio": 0.7058431366978478,
+      "scope": "primary",
+      "simulator": "cascade"
+    },
+    {
+      "kind": "response",
+      "ratio": 0.6130404161418055,
+      "scope": "speed_shift",
+      "simulator": "cascade"
+    },
+    {
+      "kind": "response",
+      "ratio": 0.6888220550141673,
+      "scope": "wind_shift",
+      "simulator": "cascade"
+    },
+    {
+      "kind": "response",
+      "ratio": 1.0447947924930903,
+      "scope": "heading_shift",
+      "simulator": "crazyflow"
+    },
+    {
+      "kind": "response",
+      "ratio": 1.0434459008180212,
+      "scope": "maneuver_shift",
+      "simulator": "crazyflow"
+    },
+    {
+      "kind": "response",
+      "ratio": 1.0452715862071347,
+      "scope": "primary",
+      "simulator": "crazyflow"
+    },
+    {
+      "kind": "response",
+      "ratio": 1.040081989514605,
+      "scope": "speed_shift",
+      "simulator": "crazyflow"
+    },
+    {
+      "kind": "response",
+      "ratio": 1.0366889136456974,
+      "scope": "wind_shift",
+      "simulator": "crazyflow"
+    }
+  ],
+  "tail_checks": [
+    {
+      "baseline_p95": 0.22291163751011794,
+      "candidate_p95": 0.23366664198822407,
+      "group": "velocity_m_s",
+      "kind": "factual",
+      "pass": true,
+      "ratio": 1.0482478375657618,
+      "simulator": "cascade"
+    },
+    {
+      "baseline_p95": 0.16620313900447442,
+      "candidate_p95": 0.16420916665512097,
+      "group": "body_rate_rad_s",
+      "kind": "factual",
+      "pass": true,
+      "ratio": 0.988002799698628,
+      "simulator": "cascade"
+    },
+    {
+      "baseline_p95": 0.025923494257147333,
+      "candidate_p95": 0.024011623831246647,
+      "group": "rotation_entries",
+      "kind": "factual",
+      "pass": true,
+      "ratio": 0.9262495091542852,
+      "simulator": "cascade"
+    },
+    {
+      "baseline_p95": 0.18461624826106882,
+      "candidate_p95": 0.1291135940084056,
+      "group": "velocity_m_s",
+      "kind": "response",
+      "pass": true,
+      "ratio": 0.69936202920679,
+      "simulator": "cascade"
+    },
+    {
+      "baseline_p95": 0.08498718683617493,
+      "candidate_p95": 0.07927107205517804,
+      "group": "body_rate_rad_s",
+      "kind": "response",
+      "pass": true,
+      "ratio": 0.9327414520495245,
+      "simulator": "cascade"
+    },
+    {
+      "baseline_p95": 0.015888700046083136,
+      "candidate_p95": 0.01535807978368282,
+      "group": "rotation_entries",
+      "kind": "response",
+      "pass": true,
+      "ratio": 0.9666039222301812,
+      "simulator": "cascade"
+    },
+    {
+      "baseline_p95": 0.2971982252132574,
+      "candidate_p95": 0.2720898437655669,
+      "group": "velocity_m_s",
+      "kind": "factual",
+      "pass": true,
+      "ratio": 0.9155163816012907,
+      "simulator": "crazyflow"
+    },
+    {
+      "baseline_p95": 0.45731874927072075,
+      "candidate_p95": 0.42148705416293564,
+      "group": "body_rate_rad_s",
+      "kind": "factual",
+      "pass": true,
+      "ratio": 0.9216483138622124,
+      "simulator": "crazyflow"
+    },
+    {
+      "baseline_p95": 0.20180619638887956,
+      "candidate_p95": 0.20459340667619058,
+      "group": "rotation_entries",
+      "kind": "factual",
+      "pass": true,
+      "ratio": 1.0138113216401943,
+      "simulator": "crazyflow"
+    },
+    {
+      "baseline_p95": 0.24394389606392813,
+      "candidate_p95": 0.1985890893422293,
+      "group": "velocity_m_s",
+      "kind": "response",
+      "pass": true,
+      "ratio": 0.8140768945093296,
+      "simulator": "crazyflow"
+    },
+    {
+      "baseline_p95": 0.4500557335916338,
+      "candidate_p95": 0.6974716219203739,
+      "group": "body_rate_rad_s",
+      "kind": "response",
+      "pass": false,
+      "ratio": 1.5497449979233848,
+      "simulator": "crazyflow"
+    },
+    {
+      "baseline_p95": 0.15144261822310423,
+      "candidate_p95": 0.13532202598586013,
+      "group": "rotation_entries",
+      "kind": "response",
+      "pass": true,
+      "ratio": 0.8935531330190333,
+      "simulator": "crazyflow"
+    }
+  ],
+  "verification": {
+    "focused_tests": "78 passed",
+    "implementation_audit": "99 unchanged base and 4 parent source pins; optimizer AST equality, exact shared initial randomness/normalization, added 900/675 coefficients",
+    "independent_numpy": {
+      "passed": true,
+      "scope": "All 180 groups at 250 ms endpoints, 60 physical comparisons, 120 parent tails, 12 tail guards, full planned row roster and sealed payload/data/cache integrity. Other horizons and bootstrap use production replay."
+    },
+    "ruff": "passed",
+    "tamper": {
+      "cases": 12,
+      "passed": true
+    }
+  },
+  "weighted_geometric_mean_ratios": {
+    "factual": 0.9615296795148435,
+    "response": 0.8517051348337267
+  }
+}

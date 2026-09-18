@@ -16,9 +16,10 @@ environments are running, with 42 condition cells per simulator, 360 parent
 recordings and a verified frozen prediction/response baseline. The objective is
 to reduce held-out forecast and command-response residuals in physical units;
 structured-model comparisons provide context rather than the finish line.
-The next gap is state-dependent command response. Dart's earlier forecast
-failures remain
-valid evidence; broader data and changed Cascade physics do not retrospectively
+The first state–command interaction experiment improves the weighted response
+score 14.8% and forecast score 3.8%, but fails its Crazyflow rate-response tail
+guard. The public learner is unchanged. Next address the growing angular
+response error during rollout. Dart's earlier forecast failures remain valid evidence; broader data and changed Cascade physics do not retrospectively
 fix that study. Further JSBSim breadth work is deferred. Frozen results and
 qualification flags retain their original meaning.
 
@@ -36,7 +37,42 @@ next iteration; git and frozen result records retain experiment history.
 | Evidence | **Not met.** New primary 250 ms velocity/rate coverage is 85.8–89.7%, but extreme-maneuver coverage falls to 47.4–68.3%. Crazyflow additionally has missing truth after altitude failures. Earlier ARP, reserved-control and shifted-synthetic failures remain. Borrowed constant spread is not calibrated uncertainty for a new predictor. | Measured prediction coverage in the declared band, exposed with calibration provenance independently of a controller. |
 | Lean | **Not met.** Structured dynamics, fitting, belief code and research scripts remain. | Learner, model artifacts/interfaces, harness, telemetry adapters and optional downstream consumers. |
 
-## Current Crazyflow and Cascade evidence
+## Current learned-interaction experiment
+
+[State-input interaction v1](harness/state-input-interaction-v1-result.json)
+adds a jointly ridge-initialized bilinear state–command output path, keeping the
+existing memory and neural paths unchanged. Calibration data, windows, optimizer
+updates and minibatch draws match the public baseline; test seeds are fresh.
+The weighted response/factual RMSE ratios are **0.85171 / 0.96153**, with paired
+parent-bootstrap 95% intervals **[0.83934, 0.86241] / [0.94970, 0.97334]**.
+These are gains across the declared weighted score, not a pooled physical MSE.
+
+At primary 250 ms, velocity-response error improves **0.17752→0.13612 m/s** in
+Crazyflow and **0.13391→0.08665 m/s** in Cascade. Crazyflow body-rate response
+worsens **0.31675→0.58325 rad/s**. Its parent-RMSE p95 grows
+**0.45006→0.69747 rad/s (1.549745×)**, exceeding the frozen 1.5 bound. Every
+other residual check passes, but the candidate is **not adopted**. This
+preserves the gains as evidence without retrospectively waiving the one failed
+criterion. No public recipe, envelope or controller is promoted.
+The rate-response regression is not one bad parent: all 24 Crazyflow primary
+cells worsen at 250 ms, with cell RMSE ratios of 1.48–2.15.
+
+Both baseline refits reproduce their saved fingerprints exactly. The candidate
+adds 900/675 coefficients; matched update counts do not imply equal FLOPs.
+Crazyflow selects step zero in both arms, Cascade step 1,000. Crazyflow's
+collection pilot completes 133/180 parents, with 47 altitude failures;
+426/480 primary factual and 688/768 response queries have valid 250 ms truth.
+Both arms use exactly that same conditional cohort. Cascade completes all
+180 parents. Failures and missing slots remain in the report.
+
+All 55,788 physical/data/query arrays, saved predictions, 257,040 metric rows,
+decisions and bootstrap draws replay exactly. Independent NumPy checks cover
+180 groups at 250 ms, 60 physical comparisons, 120 tail records and 12 tail
+gates. All 12 tamper tests, 78 focused tests and Ruff pass. The
+[experiment guide](state-input-interaction.md) records physical errors, scope
+tradeoffs, uncertainty, collection failures and reproduction evidence.
+
+## Crazyflow and Cascade baseline evidence
 
 The [frozen two-simulator baseline](harness/two-simulator-flight-v1-result.json)
 compares the unchanged public generic learner, freshly fitted structured models
@@ -296,36 +332,31 @@ does not change that recipe or consumer behavior.
 
 ## Next named gap
 
-**State-dependent command response from the generic learner.** The two-simulator
-baseline shows that good ordinary forecasts can coexist with poor predictions
-of command effects. The selected Crazyflow predictor is affine, so identical
-additive command changes cannot have different effects at different attitudes
-or histories. Cascade also loses response accuracy despite competitive factual
-velocity/rate forecasts. Investigate one platform-independent learned
-state–input interaction mechanism against the unchanged generic baseline.
-This is the next bounded mechanism to investigate within the broader objective
-of improving both forecasts and command responses.
+**Separate nonlinear state evolution from command effects during rollout.**
+The bilinear path improves velocity responses in both simulators and overall
+Cascade response accuracy, while Crazyflow's rate-response regression grows
+from almost no change at 10 ms to 84% higher error at 250 ms. Its saved model
+is still the ridge initialization. Ordinary rate forecasts change little, so
+lower factual fit loss alone is not enough to select physically useful command
+responses.
 
-Judge progress by reduced held-out residuals, including their physical
-magnitudes and large-error conditions, rather than a structured-model win
-count. Keep ordinary forecast and command-response errors separate, and retain
-per-simulator, per-horizon and per-condition reporting. A lower training loss
-alone is not evidence of progress. Broad improvement can justify localized
-losses within the predeclared regression limits; neither matching nor beating
-the structured model establishes that the remaining error is adequate for an
-application. No new absolute error tolerance has yet been qualified.
+Investigate one platform-independent autonomous nonlinear state-output path,
+using learned state–state products alongside the state–command products. This
+is a hypothesis about separating effects under correlated observational data,
+not a demonstrated explanation or an excuse to import aircraft equations.
+Compare to both the unchanged adopted generic baseline and the saved bilinear
+mechanism under matched data and optimizer budgets. Freeze the exact candidate,
+metrics, weights, factual and response regression limits before fitting; use
+fresh held-out parent seeds. The current test set is now diagnostic evidence.
 
-Freeze the candidate, matched generic data/optimizer budgets, development
-selection rule, response metrics, factual-regression limits and aggregate
-weights before fitting. Use fresh held-out parent seeds; the present test set
-is now diagnostic evidence. Keep structured and zero-response references for
-scale, without making superiority on every cell an adoption veto. Preserve
-failed conditions and separate incomplete truth from model failures. Do not
-silently repair the Crazyflow flight envelope while attributing gains to a
-learner change.
+Judge progress by reduced physical-unit forecast and response residuals across
+conditions and horizons, retaining large-error cases, weak probes and failed
+collection conditions. Structured references provide scale rather than an
+accuracy ceiling. Do not silently change the collection pilot or omit missing
+truth while attributing gains to the learner. Broad gains may justify local
+losses inside predeclared limits; do not move those limits after seeing results.
 
-No aircraft equations, platform branches, consumer options or paired simulator
-truth enter the public recording contract. First establish improved finite
-command-response accuracy without unacceptable forecast loss; derivative,
-error-envelope and downstream controller qualification remain separate. The
-public recipe is unchanged by the completed baseline iteration.
+Preserve the public recording contract and one platform-independent recipe.
+No platform branches, consumer tuning options or hidden simulator state enter
+fitting. Public promotion additionally needs capability and contract regression
+evidence; derivative, envelope and downstream controller claims remain separate.
