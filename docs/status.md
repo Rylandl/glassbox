@@ -1,6 +1,6 @@
 # Status: gap against the charter
 
-Updated 2026-09-17. **The generic approach is adopted as the development
+Updated 2026-09-18. **The generic approach is adopted as the development
 baseline.** The user prioritizes generality over superiority on every corpus;
 the four-corpus advantage justifies accepting the known ARP deficit. This is
 an explicit policy decision on existing evidence, not a new experimental
@@ -20,7 +20,7 @@ this page records the current evidence, limitations and next named gap.
 | One recipe | **Met.** The public API and fit/evaluate commands use the single `generic-memory-v3-prototype` recipe. `fit`, `predict` and `update` have no tuning or model-selection options. Replaced experimental module paths and structured root exports are removed. | One generic learner and consumer contract. |
 | Accuracy | **Adopted with a known tradeoff.** Four of five corpora beat the structured comparator on both metrics, including under the corrected prefix-percentile readout. ARP loses both; this does not block adoption. | Broad competitive performance from one recipe; improve weak cases and establish task sufficiency separately. |
 | Capability | **Met.** All 27 frozen synthetic cases pass; saved models replay and reject alteration. This is a regression guard, not platform readiness. | Every synthetic absolute cap passes. |
-| Control | **Not met.** Generic position RMSE 60.80/49.31 m versus structured 1.179/1.179 m. This compares complete pipelines: generic plans 250 ms, structured 800 ms. Both structured trials also fail the application tracking criterion. The task-scaled oracle reaches only 29–42% of samples within tolerance (95% required). L-BFGS-B improves all 128 sampled oracle objectives and reduces the median residual from 0.105 to 0.0104, but only 2/128 converge; 125 stop on relative improvement. No new tracking trial was run. | Meet the declared application tracking requirement; use structured and oracle arms diagnostically. |
+| Control | **Not met.** Generic position RMSE 60.80/49.31 m versus structured 1.179/1.179 m. This compares complete pipelines: generic plans 250 ms, structured 800 ms. Both structured trials also fail the application tracking criterion. The task-scaled oracle reaches only 29–42% of samples within tolerance (95% required). Removing L-BFGS-B's positive relative-improvement cutoff raises convergence from 2/128 to 51/128 sampled oracle problems and reduces the median residual from 0.0104 to 0.00321, but four backend failures and 54 iteration-limit exits remain. No new tracking trial was run. | Meet the declared application tracking requirement; use structured and oracle arms diagnostically. |
 | Live improvement | **Not met.** Last live-v3 evidence swaps at intervals 140/220; position error rises from 0.80/0.98 m before the swap to 36.1/11.8 m afterward. Not rerun today. | Bounded refits and swaps that do not worsen tracking. |
 | Evidence | **Not met.** The 85–95% coverage band still fails on ARP, the reserved control recording and shifted synthetic regimes. Constant spread cannot rank command plans, but can affect finite-iteration stopping through the absolute objective. | Measured coverage in the declared band, useful to control. |
 | Lean | **Not met.** Generic research code was reduced; structured dynamics, fitting, belief code and their supporting scripts remain. | Learner, harness, telemetry adapters and controller only. |
@@ -128,7 +128,75 @@ their outer hashes are recomputed. Ruff lint and formatting checks pass.
 This iteration does not rerun the slow benchmark fits, Cascade control trials
 or PX4 SITL tests.
 
-## Latest iteration: curvature-aware optimizer qualification
+## Latest iteration: first-order stopping qualification
+
+Freeze `d2c45e5`, implementation `1b65480`, protocol
+[first-order v1](harness/solver-first-order-v1.json). The sole numerical change
+sets L-BFGS-B's positive relative-improvement cutoff from `1e-5` to `0`.
+The previous L-BFGS-B candidate is the paired baseline on the same 128 saved
+oracle problems. The 64-iteration/1,024-new-evaluation bounds, line search,
+memory, float32 objective, 0.002 gradient threshold and original warm starts
+remain fixed. Zero cutoff can still terminate on nonpositive relative
+decrease; that message alone does not establish a floating-point plateau.
+The report distinguishes backend termination from independently measured
+stationarity of the retained best point, including objective ties.
+
+| Measure, across the same 128 paired origins | Previous cutoff | Zero cutoff |
+| --- | --- | --- |
+| At or below the inherited 0.002 gradient threshold | 2/128 | 51/128 |
+| Median projected-gradient residual | 0.01036 | 0.00321 |
+| Raw gradient / relative-decrease / iteration-limit exits | 2 / 125 / 1 | 52 / 18 / 54 |
+| Backend failures | 0 | 4 |
+| New objective/gradient evaluations | 2,588 | 8,099 |
+
+Objectives improve on **125** origins and tie on three; none worsens. Median
+paired improvement is **0.0523%**, maximum 0.179%. Residuals improve on 111,
+tie on three and worsen on 14; the median paired residual ratio is **0.346**.
+The four seeds yield 11, 15, 13 and 12 independently converged returned plans.
+First commands change by a median **7.43%** of their channel range, maximum
+43.0%. The added optimization materially changes plans even though objective
+gains are small. These are related saved problems from four trajectories,
+not independent trials or evidence of improved tracking.
+
+The candidate uses 6,707 accepted iterations, with at most 114 new evaluations
+per origin, plus 252 inherited seed evaluations and 128 independent final
+audits. This is **3.13 times** as many new optimizer calls, or **2.86 times**
+the total including seeds and audits; no real-time claim follows. All returned
+plans are finite and bounded, with no fallbacks or nonfinite evaluations.
+Four backend `ABNORMAL` exits still count as failures under the frozen criteria,
+even though each returns an improved plan. They occur at (seed, origin)
+**(102, 134), (102, 298), (104, 186),
+(104, 298)**. Their residuals are 0.00303–0.00724. A raw gradient exit at
+(105, 145) returns the first best point on an objective tie, whose independent
+residual is 0.00226; it does not count as converged. The saved backend message
+does not establish why an abnormal or nonpositive-decrease exit occurred.
+
+The frozen qualification misses **two** criteria: at least 64 independently
+converged origins, and zero candidate failures. Its residual-ratio, objective
+regression and command-bound criteria pass. This is a useful experimental
+improvement, not a maintained-controller promotion or rejection of the generic
+learner. No learner change, new tracking trial or relaxed threshold is implied.
+
+The shared harness reproduces original PG4 and PG64 provenance, then the prior
+L-BFGS-B plans and complete work records before running the candidate. It
+reuses the artifact verifier through a private experiment context. The 83
+pinned source files are unchanged; both permitted edits are checked by exact
+normalization back to their original bytes. No consumer tuning option or
+learner change is introduced.
+
+Validation: **115** focused tests pass locally, including 21 new tests;
+**131** pass in the pinned Linux environment. All 128 previous L-BFGS-B pairs
+replay through the unchanged default path, and all 128 new pairs replay with
+their original PG4/PG64 and prior L-BFGS-B parity checks. Four actual artifact
+copies with altered qualification, command, full gradient/residual or work
+count are rejected despite rewritten outer hashes and derived summaries.
+Those defect checks reuse one freshly recomputed reference only after complete
+clean replay and exact input-byte equality; the public verifier always reruns
+the numerical solves. Local input/output hashes, the 77-file inventory and
+the recomputed report also match. Ruff lint and formatting pass. The existing
+historical AST-fingerprint portability issue remains separate work.
+
+## Curvature-aware optimizer qualification
 
 Freeze `6fad485`, implementation `de81673`, protocol
 [quasi-Newton v1](harness/solver-quasi-newton-v1.json). One change substitutes
@@ -401,6 +469,10 @@ full audited gradients, backend reasons and work counters. Verification,
 historical replay and tamper reports sit beside it, with the reproducible
 `quasi-newton-verification.py` script.
 
+Stopping-rule evidence is in `solver-first-order-v1` under the same dated root,
+locally and on ryserv, with `first-order-verification.py` and replay/tamper
+reports beside the run. The previous L-BFGS-B run supplies the frozen baseline.
+
 From disposable checkouts of the matching source commits, without refitting:
 
 ```sh
@@ -426,18 +498,25 @@ PYTHONPATH=src python -m glassbox.experimental.task_qualification verify /absolu
 PYTHONPATH=src python -m glassbox.experimental.solver_budget verify /absolute/path/to/solver-budget-v1
 # Optimizer comparison: checkout de81673 (or this accepted merge).
 PYTHONPATH=src python -m glassbox.experimental.quasi_newton_qualification verify /absolute/path/to/solver-quasi-newton-v1
+# Zero positive-improvement cutoff: checkout 1b65480 (or this accepted merge).
+PYTHONPATH=src python -m glassbox.experimental.first_order_qualification verify /absolute/path/to/solver-first-order-v1
 ```
 
 ## Next named gap
 
-**Premature relative-improvement stopping in the candidate optimizer.** Keep
-L-BFGS-B and freeze one change, `ftol=0`, on the same saved origins, preserving
-all other algorithm settings, work limits, dynamics, objective, horizon and
-original warm starts. This disables the positive relative-improvement cutoff
-that ended 125 solves; it does not prevent termination when float32 can no
-longer represent a decrease or guarantee the 0.002 gradient threshold. Report
-those stopping mechanisms explicitly. No tolerance sweep or simultaneous
-precision, objective, horizon or learner change. Better optimization still
-requires a separate tracking trial, and the large generic-to-oracle gap remains
-learner work. Repair historical replay's Python-dependent AST fingerprint in a
-separate correctness iteration with unchanged numerical gates.
+**Reliability of bounded optimization near termination.** Freeze a diagnostic
+replay of the four saved abnormal exits before changing another solver setting.
+Record accepted steps and terminal line-search evaluations, and predeclare
+feasible-direction gradient checks at the returned points. Require unchanged
+plans, scores and work counts from tracing alone. Preserve the zero cutoff,
+float32 objective, 64-iteration/16-line-search/1,024-evaluation bounds, original
+warm starts, dynamics and horizon. These four cases support diagnosis of those
+exits; they cannot estimate their frequency on new trajectories. Choose one
+repair only after that evidence distinguishes line-search exhaustion,
+active-bound behavior and numerical resolution or gradient inconsistency. More iterations would
+address the 54 capped solves without explaining the four abnormal exits.
+Do not tune settings to cross the 64-origin qualification threshold. Better
+optimization still requires a separate tracking trial, and the large
+generic-to-oracle gap remains learner work. Repair historical replay's
+Python-dependent AST fingerprint in a separate correctness iteration with
+unchanged numerical gates.
