@@ -11,12 +11,13 @@ tracking requirement: each scores 2,248/2,248 qualifying samples and passes all
 eight fresh trials. All sixteen trajectories and 4,960 optimizer decisions/forecasts
 replay exactly, and five rehashed alterations are rejected.**
 
-**Product priority, 2026-09-18:** accurate learned dynamics with a clear model
-contract for independently chosen controllers and other consumers. The general
-controller remains a desirable optional reference application. The next priority
-is direct model qualification across JSBSim, followed by consumer demonstrations.
-This user-directed policy change does not modify any frozen experiment, gate or
-result, and does not qualify the existing model for additional systems.
+**Current evaluation priority, 2026-09-18:** the user has requested Crazyflow
+and Cascade environments spanning a broader variety of flight conditions.
+Dart reports severe direct forecast deficits for the generic learner on its
+quad recordings and fixed-wing turn. Reproduce and investigate those failures,
+then establish a fresh controlled comparison before changing the learner.
+Further JSBSim setup/breadth work is deferred. Frozen results and qualification
+flags retain their original meaning.
 
 Read [the charter](charter.md) first. This page records the current gaps and
 next iteration; git and frozen result records retain experiment history.
@@ -225,55 +226,32 @@ does not change that recipe or consumer behavior.
 
 ## Next named gap
 
-**Useful operating conditions and effective inputs for JSBSim model qualification.**
-The startup/timescale diagnosis is complete. The next bounded iteration must
-freeze condition-admission and data-generation rules before new trials: observed
-above-ground/operating context, sustained engine effects where relevant, actual
-command-to-actuator mappings, and explicit passive or unsupported roles. An IC
-filename, a successful engine-startup call, a running flag, numerical completion
-or tiny detectable response alone is insufficient. Preserve every candidate and
-failed setup in the inventory; do not rewrite the completed excitation protocol
-or silently remove poor cases from a model score.
+**Generic prediction performance across controlled Crazyflow and Cascade flight conditions.**
+The user has redirected the next iteration to these two simulators. Start from
+Dart's concrete saved-data comparison, identify its exact predictors, data roles,
+signal/timing contracts and simulator versions, and get isolated, pinned runtime
+environments working. The generic learner remains the adopted baseline; reported
+losses are improvement work, not a reason to return to a model catalog.
 
-Declare any trim, initialization repair, control-mode setting or simulator-specific
-label generation as a data-collection assumption. Check useful trajectories and
-response timescales before spending fit budgets. The learner continues to receive
-only its signal, unit, timing and recording contract, without aircraft-specific
-branches or consumer tuning options. No JSBSim model-accuracy protocol has yet
-been committed, and no JSBSim learner has been fitted or evaluated.
+Freeze one bounded evaluation before fresh flight trials or fitting. It must
+cover materially different headings, speeds and maneuvers, with wind/condition
+shifts where the simulator interface supports them. Declare simulation reset,
+trim, stabilization and hidden-state assumptions. Keep failed or unsupported
+conditions visible. Separate training coverage from held-out seeds, recordings
+and conditions; a previously inspected Dart failure is a regression diagnostic,
+not untouched confirmation evidence.
 
-Before fitting, freeze one model-evaluation protocol: simulator version and
-complete model inventory, observation/command contracts, valid initial conditions
-and operating regimes,
-recording generation, per-system data/compute budgets, held-out recordings and
-systems, supported forecast horizons, comparisons and acceptance criteria. The
-same learner is fitted separately to each system; held-out-system evaluation tests
-the frozen recipe, not unseen-system transfer of one set of weights.
+Compare forecasts on identical observed histories, commands and physical targets,
+with clear treatment of each model's actual history contract. Report errors in
+physical units across supported horizons, per condition and per simulator;
+include structured and hold-current references, command-response measurements,
+error-envelope coverage and computation/data budgets. Freeze aggregate weights
+and improvement/regression decisions before fitting. No controller success claim
+substitutes for model accuracy, and the truth simulator must not supply hidden
+state or equations to the generic learner.
 
-Measure forecasts and command responses directly, with per-channel/per-horizon
-errors in physical units, declared aggregation across systems, envelope coverage,
-onboarding cost and evaluation latency. Include controlled command interventions
-where the evaluator can support them; derivative correctness in software and
-physical response fidelity are separate checks. The learner uses its declared
-recordings, not JSBSim equations or hidden evaluator state. Freeze the data
-collection assumptions, including whether any simulator-specific facility supplies
-training labels, before claiming applicability to ordinary recordings. Keep setup
-failures, unsupported cases and measured model failures visible in the inventory.
-
-The accompanying usability target is a model another application can load and
-query through the public contract, with units, frames, history, horizon, revision
-identity and measured error evidence. Existing Python/JAX prediction, batching,
-autodifferentiation and save/load provide the starting point. Solver-specific
-exports or a continuous-time/physical-parameter representation are not currently
-promised. A runnable external-consumer example should demonstrate the boundary.
-
-The previously proposed no-fit adopted-v3 controller comparison remains a useful
-downstream diagnostic, but is no longer the next primary model-qualification
-iteration. The adopted archive shares the research architecture but has different
-weights, normalization and a smaller training/data budget. It has not been
-remeasured under the successful controller. Preserve all existing results and
-qualify any future controller or live-swap claim for its own declared task.
-
-Measured uncertainty, reliable updates and broader system coverage remain open.
-An explicit latent-state architecture remains an option when a named representation
-failure warrants it. Current evidence does not show this architecture is exhausted.
+Use the current public learner through its recording and prediction contract.
+No aircraft branches, model-selection menu or consumer tuning options are added.
+The initial iteration establishes a trustworthy broader baseline and diagnoses
+whether data coverage, representation, optimization or response learning is the
+next mechanism to change. No fresh two-simulator benchmark has run yet.

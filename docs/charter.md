@@ -49,6 +49,17 @@ This is a prospective change in product priorities, not a newly passed experimen
 All frozen protocols, historical control/update failures and qualification flags
 retain their original meaning.
 
+## Evaluation priority, 2026-09-18
+
+The user has redirected the next evaluation work to Crazyflow and Cascade.
+Develop controlled flight-condition environments for these two simulators,
+measure the generic learner against structured and simple references, and retain
+the concrete prediction failures reported by the Dart consumer. This provides a
+more focused setting for improving the learner than expanding JSBSim setup work.
+JSBSim results remain valid diagnostic evidence; further breadth work is deferred.
+This changes evaluation priority, not the one generic learner or its consumer
+contract, and does not qualify any new model or controller.
+
 ## Rules
 
 - Each iteration's measurements and promotion criteria are frozen and
