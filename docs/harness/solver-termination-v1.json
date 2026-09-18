@@ -239,7 +239,8 @@
       "Absolute linearization discrepancy and signed observed/predicted ratio where prediction is nonzero.",
       "All diagnostic function calls counted separately from unchanged optimizer/seed/audit work."
     ],
-    "interpretation": "Equal reported values do not prove a flat mathematical objective. Float32 spacing is not a bound on total rollout error. Small-step disagreement alone is not a gradient bug; use all fixed scales, feasibility and possible nonsmoothness. No automatic gradient correctness, causality, promotion or task-success gate."
+    "interpretation": "Equal reported values do not prove a flat mathematical objective. Float32 spacing is not a bound on total rollout error. Small-step disagreement alone is not a gradient bug; use all fixed scales, feasibility and possible nonsmoothness. No automatic gradient correctness, causality, promotion or task-success gate.",
+    "step_base": 2
   },
   "readout": {
     "per_case": [
