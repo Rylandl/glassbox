@@ -206,7 +206,7 @@
   },
   "reference": {
     "implementation": "Existing CascadeEquations reset and five sequential advance calls; preserve eager control conversion and compiled interval numerical boundary. Reconstruct origin state solely from declared equilibrium reset and exact issued command prefix; do not read running plant internals.",
-    "baseline_check": "Require zero difference between replayed canonical states and all 321 saved states, and exact equality of each five-step factual forecast to its corresponding saved future states.",
+    "baseline_check": "Preserve the source trajectory numerical boundary: row 0 is the exact declared float64 initial state, independently reconstructed from the frozen initial-state seed and control manifest. Equilibrium reset converts it to the default float32 physical runtime. Require exact equality of all 320 subsequent causal canonical states to saved states[1:], and exact equality of each declared origin five-step factual forecast to its corresponding saved future states. No origin before 10 is measured.",
     "learner_contract": "Use LearnedDynamics.predict with existing observed_from_state mapping: velocity[0:3], body rates[3:6], rotation entries[6:15]. No canonical position, simulator hidden state, equation coefficients or future observations enter learner inputs. Load pinned adopted v3 bytes; report actual metadata rather than old manifest recipe label.",
     "precision": "Default float32 learner and physical reference, matching runtime; x64 only within inherited archive/context loading. No optimizer calls or planning precision changes."
   },
