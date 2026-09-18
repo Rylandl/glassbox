@@ -311,6 +311,24 @@ def test_environment_check_rejects_unpinned_runtime():
         q.check_environment(plan)
 
 
+def test_environment_versions_accept_separate_cascade_provenance_note():
+    import platform
+
+    import jax
+    import scipy
+
+    plan = copy.deepcopy(PLAN)
+    actual = dict(
+        python=platform.python_version(),
+        jax=jax.__version__,
+        numpy=np.__version__,
+        scipy=scipy.__version__,
+    )
+    plan["environment"].update(actual)
+    assert "cascade" in plan["environment"]
+    assert q.check_environment(plan) == actual
+
+
 @pytest.mark.parametrize("within,passed", [(266, False), (267, True)])
 def test_application_threshold_is_95_percent_of_fixed281_samples(within, passed):
     control = copy.deepcopy(CONTROL)

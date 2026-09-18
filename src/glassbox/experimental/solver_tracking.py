@@ -59,7 +59,13 @@ def frozen_plan():
     return plan, raw
 
 
-check_environment = work_schema.check_environment
+def check_environment(plan):
+    # Cascade provenance is checked by control_fixture against the pinned
+    # control manifest; it is not a fifth Python package-version string.
+    versions = {k: plan["environment"][k] for k in ("python", "jax", "numpy", "scipy")}
+    return work_schema.check_environment(dict(plan, environment=versions))
+
+
 input_snapshot = task.input_snapshot
 
 
