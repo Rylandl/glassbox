@@ -10,15 +10,15 @@ the returned `LearnedDynamics` provides `predict` and `update`. Generic
 recording archives also serve the public fit/evaluate commands. Structured
 code remains in its owning modules for benchmarks and unmigrated control
 consumers.
-The latest rejected learner remains isolated on `codex/full-response-identification`
-at `5467943`, with same-data comparator `codex/independent-calibration` at `7c82db9`.
+The latest unqualified candidate remains isolated on `codex/conditional-response`
+at `8070d4f`; none of its implementation enters the adopted learner.
 Read [the charter](charter.md) first. Git holds the experiment history;
 this page records the current evidence, limitations and next named gap.
 
 | Criterion | Current | Target |
 | --- | --- | --- |
 | One recipe | **Met.** The public API and fit/evaluate commands use the single `generic-memory-v3-prototype` recipe. `fit`, `predict` and `update` have no tuning or model-selection options. Replaced experimental module paths and structured root exports are removed. | One generic learner and consumer contract. |
-| Accuracy | **Adopted with a known tradeoff.** Four of five corpora beat the structured comparator on both metrics; ARP loses both. A new shared-history diagnostic finds wrong early command-response signs in the unchanged learner: all 248 aileron probes reverse the first-step body-rate response. | Broad competitive performance from one recipe; improve weak cases and establish task sufficiency separately. |
+| Accuracy | **Adopted with a known tradeoff.** Four of five corpora beat the structured comparator on both metrics; ARP loses both. The latest conditional loss improves aggregate command-response error 3.65%, but initial aileron velocity/rotation responses remain reversed in all 248 probes; the candidate is not promoted. | Broad competitive performance from one recipe; improve weak cases and establish task sufficiency separately. |
 | Capability | **Met.** All 27 frozen synthetic cases pass; saved models replay and reject alteration. This is a regression guard, not platform readiness. | Every synthetic absolute cap passes. |
 | Control | **Not met.** In twelve new oracle tracking trials, pooled samples within the ±0.5 m lateral/altitude tolerance are 32.12% for the four-step solver, 39.59% for float32 L-BFGS-B and 40.04% for float64 L-BFGS-B; 95% is required. All 1,272 float64 solves meet the gradient threshold without backend failure, but no trial meets the application criterion. Generic controller tracking was not remeasured; the learner is unchanged. | Meet the declared application tracking requirement; use structured and oracle arms diagnostically. |
 | Live improvement | **Not met.** Last live-v3 evidence swaps at intervals 140/220; position error rises from 0.80/0.98 m before the swap to 36.1/11.8 m afterward. Not rerun today. | Bounded refits and swaps that do not worsen tracking. |
@@ -93,8 +93,8 @@ The user explicitly retains this target as a driver for further improvement.
 
 The public API, slow-sampling correction and content-pinned recording loader
 retain the adopted v3 numerical recipe. The last broad API/regression check
-passed 1,287 tests. This iteration changes neither the learner nor maintained
-consumer behavior; the latest validation below is focused on the diagnostic.
+passed 1,287 tests. The latest candidate remains isolated; the adopted learner and maintained
+consumer behavior are unchanged. Validation below is focused on this experiment.
 Git and the saved protocols hold the implementation and experiment history.
 
 The latest frozen controller comparison, [tracking v1](harness/solver-tracking-v1.json),
@@ -121,73 +121,75 @@ real-time readiness. All 12 trajectories and 3,816 solves/forecasts replayed
 exactly, four rehashed challenges were rejected, and 266 focused remote checks
 passed. Git and saved protocols hold the detailed tracking experiment history.
 
-## Latest iteration: action-conditioned multistep learner accuracy
+## Latest iteration: conditional command-response learning
 
-Protocol [action response v1](harness/action-response-v1.json), frozen at
-**`6a6ace7`**, with source initial-state precision clarified before measurement
-at **`bfb6fc8`**; implementation **`5293929`**. No learner is fitted or changed.
-The saved adopted v3 model consumes exactly ten past command intervals and
-eleven observations at **124 origins** from all four float64-oracle trajectories.
-These trajectories were excluded from its fit, but were already used for
-controller evaluation; this is new model-response evidence on a known simulator
-population, not an untouched controller benchmark.
+[Conditional response v1](harness/conditional-response-v1.json) was frozen at
+**`60b1726`**, implemented at **`919aafc`**, and tested for replay integrity at
+**`22aff6c`**. A pre-fit check incorrectly required exact equality between the
+reset quaternion and its normalized canonical observation, differing by
+2.22e-16. Correction **`8070d4f`** applies the already frozen physical tolerance;
+no fitting occurred before the correction and no thresholds changed.
+The [committed result record](harness/conditional-response-v1-result.json)
+anchors the complete evidence inventory and supporting audits.
 
-At every origin, the factual five-command tape and six channel-isolated
-alternatives are shared between the learner and public-equation reference.
-Each alternative moves one channel 5% of the remaining distance toward its
-lower or upper command bound. The reference reconstructs its internal state
-only from equilibrium reset and issued-command replay; the learner receives
-no hidden simulator state or future observations. Both predictions run in float32.
-All **868 forecast sequences** complete and all **744 paired command changes**
-are nonzero, with no invalid or weak-response exclusions in any output group.
-Every factual reference forecast exactly matches the saved physical future.
-These errors describe this controller-generated population; earlier platform
-and calibration scores cover different rows.
+One candidate adds a first-step conditional assignment-moment loss to the
+complete predictor, retaining the adopted architecture, multistep forecast
+loss and optimizer budget. Nine fixed observed-history features interact with
+three independently randomized requested commands; all 27 instrument directions
+pass the input-only support screens in both fitting roles. Requested assignment
+remains separate from clipped applied commands and realized injection.
+The four calibration trajectories replay in float64 within 2.22e-16.
 
-| Factual forecast component RMSE | 50 ms | 250 ms |
-| --- | --- | --- |
-| World velocity, m/s | 0.00816 | 0.32438 |
-| Body rate, rad/s | 0.05345 | 0.25984 |
-| Rotation-matrix entries, unitless | 0.00112 | 0.03074 |
+**The comparison isolates the loss, not the calibration data.** Both arms use
+exactly 292 training windows from recordings 0–1 and 146 development windows
+from recording 2; recording 3 remains reserved. The one fresh unchanged-v3 fit
+is byte-identical to the pinned randomized-calibration baseline. The candidate
+also selects step 100, using development scores alone. It lowers the training
+conditional moment from 0.00733 to 0.00543, but the development moment rises from
+0.03005 to 0.03047. Better training identification does not transfer reliably.
 
-Paired response subtracts each predictor's own factual forecast. Negative
-projected gain means that its response has a component against the true
-response, not that every output coordinate has the wrong sign. All counts
-below are over **248 aileron probes** (two signs at every origin):
+Both arms forecast the same 124 known diagnostic origins, seven command tapes
+per origin, and all 146 reserved windows: **1,014 finite sequences per arm**.
+These origins were excluded from fitting and checkpoint selection, but were
+already inspected during prior diagnostics. They are correlated simulator
+histories, not independent systems or an untouched controller benchmark.
 
-| Aileron response group | Negative at 50 ms | Negative at 250 ms | Negative over flattened five-step response | Median full-response cosine |
-| --- | --- | --- | --- | --- |
-| World velocity | 248/248 | 248/248 | 248/248 | −0.434 |
-| Body rate | 248/248 | 0/248 | 0/248 | +0.881 |
-| Rotation entries | 248/248 | 219/248 | 248/248 | −0.465 |
+| Paired response RMS vector error | Same-data v3 | Conditional candidate | Change |
+| --- | --- | --- | --- |
+| Velocity, 50 ms | 0.001006 m/s | 0.000896 m/s | −10.93% |
+| Velocity, flattened 250 ms prefix | 0.079413 m/s | 0.077994 m/s | −1.79% |
+| Body rate, 50 ms | 0.017584 rad/s | 0.017419 rad/s | −0.94% |
+| Body rate, flattened 250 ms prefix | 0.054279 rad/s | 0.054690 rad/s | +0.76% |
+| Rotation entries, 50 ms | 0.001102 | 0.001032 | −6.42% |
+| Rotation entries, flattened 250 ms prefix | 0.018216 | 0.017838 | −2.08% |
 
-The velocity response opposes the reference at every measured horizon for all
-248 probes. Body rate is almost exactly reversed at 50 ms (median cosine
-−0.994), then aligned at later steps but weak: median full-response projected
-gain is 0.341. Rotation response is reversed in every probe through 200 ms.
-These patterns occur on each of the four trajectories; an endpoint-only or
-pooled-horizon body-rate score would hide the immediate reversal.
+Five of six response scores improve. Their equal-weight geometric mean ratio
+is **0.96352**, a **3.65% improvement**, versus the prospectively frozen **0.80**
+requirement. The worst ratio is only 1.00757, within the 1.25 regression limit:
+**the failure is insufficient aggregate progress, not a veto for one loss**.
+All six factual forecast scores regress slightly, by 0.25–1.40%; the aggregate
+ratio is **1.00831**, within its 1.05 limit. The mechanism does not qualify, and
+the frozen stop rule skips broader, control and live trials. No recipe,
+controller, uncertainty envelope or tracking result is promoted.
 
-Elevator responses are strongly aligned over the full horizon (median cosine
-roughly 0.99), but attenuated: projected gains are about 0.58 for velocity,
-0.73 for body rate and 0.62 for rotation entries. Throttle probes produce large
-relative errors where the true rate/rotation effects are small; the report
-retains their physical response magnitudes and absolute errors, so those ratios
-are not treated as the dominant failure merely because they are large.
+The candidate still reverses the first aileron velocity and rotation responses
+in **248/248 probes**. Later sign improvements are real: velocity reversals at
+250 ms fall from 169 to 110, and rotation reversals at 150 ms fall from 84 to 2.
+The unchanged same-data baseline already has **0/248 first-step body-rate
+reversals**, versus 248/248 for the historical model trained on different
+calibration recordings. The conditional loss cannot take credit for that data
+change. Its first-step body-rate gain remains weak, around 0.15 of the physical
+reference, compared with around 0.14 for the same-data baseline.
 
-This identifies a concrete **early command-response sign and timing** weakness,
-plus compounding factual forecast error. It does not uniquely identify whether
-calibration/feedback confounding, representation, memory or fitting caused it.
-No physics-specific correction, model promotion or task pass follows from this
-diagnostic; the separate controller insufficiency remains visible.
-
-Validation: **109 local tests pass**, with three Cascade tests skipped locally;
-**112 pass on ryserv**, including those three. All 92 inherited Python sources
-and 15 inputs are unchanged. The complete 28-file inventory and locally
-recomputed report match. Fresh verification reproduces every physical source
-trajectory and all 868 learner/reference forecast pairs exactly. Four coherently
-rehashed alterations—history, command, forecast and response summary—are
-rejected; the three numeric-array challenges each receive a full fresh replay.
+Validation: **225 unique focused local tests pass**, with three Cascade tests
+skipped locally; **228 pass on ryserv**. Ruff passes. All 68 evidence files
+match their inventory. Replay reconstructs calibration data, physical source
+trajectories, selected-model objectives and every held-out forecast without
+refitting. An independent NumPy audit reproduces all twelve qualification
+scores exactly. Four coherently rehashed alterations—raw assignment, candidate
+parameter, held-out forecast with updated metrics, and qualification flag—are
+rejected. Checkpoint structure and selected scores are verified; historical
+intermediate optimization steps are not independently re-solved.
 
 ## Constraints established by prior measurements
 
@@ -214,47 +216,46 @@ rejected; the three numeric-array challenges each receive a full fresh replay.
 
 ## Evidence and replay
 
-The latest evidence is in `artifacts/2026-09-18/action-response-v1` locally and
-`/home/ryland/autonomy/glassbox-evidence/2026-09-18/action-response-v1` on
-`ryserv`. Protocol SHA256:
-`4b40ee76aa5e0e7b1b5a2eafdbce90b95566ba45dcc769e5c3c04453df52dba6`.
-The verification script/reports, test/run logs and `action-response-readout.json`
-sit beside it. Each trial retains exact histories, future commands, responses,
-forecasts and failure slots. `tracking-target-provenance-audit.json` and its
-script independently document the earlier 843/843 target-feasibility result.
+Latest evidence: `artifacts/2026-09-18/conditional-response-v1` locally and
+`/home/ryland/autonomy/glassbox-evidence/2026-09-18/conditional-response-v1` on
+`ryserv`. The [result record](harness/conditional-response-v1-result.json) pins
+its run manifest and the independent audit, replay logs and challenge script
+beside it. Candidate implementation stays on `codex/conditional-response` at
+`8070d4f`; the working tree is `/private/tmp/glassbox-conditional-response`
+locally and `/tmp/glassbox-conditional-response-test` on `ryserv`.
 
-The control comparison remains in `artifacts/2026-09-18/solver-tracking-v1`,
-with precision and termination evidence beside it. Adopted learner/API,
-platform, control, live and uncertainty evidence remains under
-`artifacts/2026-09-17` and the corresponding `ryserv` evidence directory.
-The rejected learner remains isolated at `5467943`; earlier outcomes and
-protocols are not rewritten. Git holds their replay commands and explanations.
+Action-response and solver-tracking evidence remains under
+`artifacts/2026-09-18`. `tracking-target-provenance-audit.json` documents the
+earlier 843/843 target-feasibility result. Adopted API, platform, control, live
+and uncertainty evidence remains under `artifacts/2026-09-17`. Historical
+protocols and outcomes are not rewritten; git holds their implementation.
 
 ```sh
-# Latest diagnostic; use 5293929 or this accepted result commit.
+# Isolated candidate checkout at 8070d4f; no refitting.
+PYTHONPATH=src python -m glassbox.experimental.conditional_response verify /absolute/path/to/conditional-response-v1
+# Maintained no-fit diagnostics.
 PYTHONPATH=src python -m glassbox.experimental.action_response verify /absolute/path/to/action-response-v1
-# Latest frozen controller comparison; same code remains available.
 PYTHONPATH=src python -m glassbox.experimental.solver_tracking verify /absolute/path/to/solver-tracking-v1
 ```
 
 ## Next named gap
 
-**State-conditioned early command-response identification.** Correct the
-measured first-step response reversal while retaining full-prefix validation;
-endpoint body-rate alignment is insufficient. The proposed next mechanism is
-a conditional response loss on the complete predictor: independently assigned
-excitation interacted with fixed, platform-neutral observed-history features.
-This extends beyond the prior three unconditional moments or constraints on
-affine columns alone. This is a hypothesis to test, not a diagnosed unique cause
-or an implemented learner change.
+**Generalization of command-response identification across independent observed
+histories.** The conditional moment improves on training data but not on
+independent development data; small response gains leave immediate velocity
+and rotation signs wrong. Before another loss or architecture change, freeze
+one experiment that strengthens independent command-response evidence and
+measures whether that evidence transfers. Use the unchanged v3 learner on
+identical data as the comparator so any data benefit remains separate from a
+learning-mechanism benefit.
 
-Freeze one concrete mechanism, independent training/development evidence,
-realized-excitation checks and gain/loss criteria before fitting. Do not reuse
-these 124 observed histories or their oracle responses as training targets.
-Use platform-independent signals, commands and recording facts; preserve the
-one `fit`/`predict`/`update` contract. Require paired full-response and factual
-forecast readouts across every horizon, including 50 ms, and retain broad
-benchmark/synthetic regression checks. No controller residual, horizon or
-objective tuning belongs to that learner iteration. The inadequate current
-oracle controller and historical Python-dependent AST replay fingerprint
-remain separately scoped work.
+Prospectively chosen matched-history command interventions can help diagnose
+this gap in the simulator; they are a harness capability, not an assumed
+capability of arbitrary real systems. Keep parent histories and all their
+branches together when separating training, development and evaluation.
+Never use these 124 inspected diagnostic origins or their oracle responses as
+training targets. Preserve the platform-independent signal/command contract,
+actual applied-command accounting and separate factual/response metrics at
+every horizon. No post-result moment-weight sweep or controller tuning belongs
+to this iteration. The insufficient current oracle controller remains a
+separate gap against the retained 95% tracking requirement.

@@ -1,0 +1,197 @@
+{
+  "id": "conditional-response-v1-result",
+  "date": "2026-09-18",
+  "frozen_protocol_commit": "60b1726",
+  "implementation_commit": "919aafc",
+  "replay_tests_commit": "22aff6c",
+  "harness_correction_commit": "8070d4f",
+  "isolated_branch": "codex/conditional-response",
+  "protocol_sha256": "3ec371477aef2fc6113791e5e633d92c18660650cbbfa3d6cc37f0d08bd24efd",
+  "evidence_directory": "artifacts/2026-09-18/conditional-response-v1",
+  "remote_evidence_directory": "/home/ryland/autonomy/glassbox-evidence/2026-09-18/conditional-response-v1",
+  "run_manifest_sha256": "c6602f7e8f08ae3c889ee6ec3da43eb5a7eddb72d45fd434020e4ba4ee3cf07b",
+  "artifact_count": 68,
+  "models": {
+    "baseline": {
+      "sha256": "bf083639145af047d2f34cae8673c78b4444d0f2d9cf91e5a89ae0327f074333",
+      "forecast_sequences": 1014,
+      "all_finite": true
+    },
+    "candidate": {
+      "sha256": "f6d4fbc46abe6c75131a919074b3dbe5fe3a46a39f45b7a2a7805c39712a1649",
+      "forecast_sequences": 1014,
+      "all_finite": true
+    }
+  },
+  "baseline_archive_byte_identical": true,
+  "preflight_passed": true,
+  "instrument_ranks": {
+    "train": 27,
+    "development": 27
+  },
+  "physical_calibration_replay": {
+    "recordings": {
+      "recording-0": {
+        "intervals": 160,
+        "states": 161,
+        "dtype": "float64",
+        "maximum_absolute_difference": 2.220446049250313e-16
+      },
+      "recording-1": {
+        "intervals": 160,
+        "states": 161,
+        "dtype": "float64",
+        "maximum_absolute_difference": 2.220446049250313e-16
+      },
+      "recording-2": {
+        "intervals": 160,
+        "states": 161,
+        "dtype": "float64",
+        "maximum_absolute_difference": 2.220446049250313e-16
+      },
+      "recording-3": {
+        "intervals": 160,
+        "states": 161,
+        "dtype": "float64",
+        "maximum_absolute_difference": 2.220446049250313e-16
+      }
+    },
+    "absolute_tolerance": 1e-10,
+    "relative_tolerance": 1e-12
+  },
+  "candidate_selected_step": 100,
+  "baseline_selected_objectives": {
+    "train": {
+      "rollout_mse": 0.08123489413810339,
+      "conditional_moment": 0.007331629111836955,
+      "objective": 0.08856652324994034
+    },
+    "development": {
+      "rollout_mse": 0.24161055207579402,
+      "conditional_moment": 0.03005093263986531,
+      "objective": 0.2716614847156593
+    }
+  },
+  "candidate_selected_objectives": {
+    "train": {
+      "rollout_mse": 0.07974318783870257,
+      "conditional_moment": 0.005426507373010876,
+      "objective": 0.08516969521171344
+    },
+    "development": {
+      "rollout_mse": 0.24734749619591795,
+      "conditional_moment": 0.030469625653767377,
+      "objective": 0.2778171218496853
+    }
+  },
+  "primary": {
+    "finite": true,
+    "response": {
+      "scores": {
+        "velocity/first_step": {
+          "baseline": 0.0010062468069122895,
+          "candidate": 0.000896269963925532,
+          "ratio": 0.8907058961764798
+        },
+        "velocity/full_horizon": {
+          "baseline": 0.07941294707940373,
+          "candidate": 0.07799397430112937,
+          "ratio": 0.9821317199466787
+        },
+        "body_rate/first_step": {
+          "baseline": 0.017584255667235666,
+          "candidate": 0.017419032086564444,
+          "ratio": 0.9906038911286373
+        },
+        "body_rate/full_horizon": {
+          "baseline": 0.05427899062670895,
+          "candidate": 0.054689827140147126,
+          "ratio": 1.0075689785070545
+        },
+        "rotation_entries/first_step": {
+          "baseline": 0.0011024108319209703,
+          "candidate": 0.0010316775931794484,
+          "ratio": 0.935837678029462
+        },
+        "rotation_entries/full_horizon": {
+          "baseline": 0.018216266557298615,
+          "candidate": 0.01783789359169115,
+          "ratio": 0.9792288411888734
+        }
+      },
+      "geomean_ratio": 0.9635197049170718,
+      "worst_ratio": 1.0075689785070545,
+      "geomean_limit": 0.8,
+      "worst_limit": 1.25,
+      "passed": false
+    },
+    "factual": {
+      "scores": {
+        "reserved/velocity": {
+          "baseline": 0.11476446514727077,
+          "candidate": 0.11505474254285035,
+          "ratio": 1.0025293316638306
+        },
+        "tracking/velocity": {
+          "baseline": 0.049198338858898294,
+          "candidate": 0.0495814484121157,
+          "ratio": 1.007787042451091
+        },
+        "reserved/body_rate": {
+          "baseline": 0.14790281140047787,
+          "candidate": 0.1487621456631218,
+          "ratio": 1.005810127978684
+        },
+        "tracking/body_rate": {
+          "baseline": 0.11211076251460199,
+          "candidate": 0.11288026879740111,
+          "ratio": 1.0068638038448707
+        },
+        "reserved/rotation_entries": {
+          "baseline": 0.010593854324317602,
+          "candidate": 0.010741699063884018,
+          "ratio": 1.0139557081908372
+        },
+        "tracking/rotation_entries": {
+          "baseline": 0.005697709870414132,
+          "candidate": 0.005771613151534786,
+          "ratio": 1.0129706992460958
+        }
+      },
+      "geomean_ratio": 1.0083115526989423,
+      "worst_ratio": 1.0139557081908372,
+      "geomean_limit": 1.05,
+      "worst_limit": 1.25,
+      "passed": true
+    },
+    "passed": false
+  },
+  "mechanism_qualified": false,
+  "public_recipe_promoted": false,
+  "broader_trials": "Not run because the prospectively frozen primary response gain requirement failed.",
+  "replay": {
+    "refitted": false,
+    "fresh_saved_model_predictions_exact": true,
+    "source_action_response_replayed": true,
+    "historical_optimizer_trace_re_solved": false,
+    "independent_numpy_metric_maximum_difference": 0.0,
+    "alteration_checks_rejected": 4,
+    "supporting_artifact_sha256": {
+      "conditional-response-v1-challenges.json": "ac4710d5045be336ec663193b141bd27a86afbb0a1a1bda437534a10c0219e4c",
+      "conditional-response-v1-challenge-script.py": "ba9c67c71710626ee299e2412319201587d09c6054b4b178029d146696892f31",
+      "conditional-response-v1-independent-audit.json": "a16e3d94d9f73735d5cf159ba8e8ccf313c550b354ace1e1a39ea7d9e5146f32",
+      "conditional-response-v1-run.log": "6fb9d026d27830d050ad213de15ec3085f7de6c9eeed779c5afdbd8bbaeb6c75",
+      "conditional-response-v1-verify.log": "3205347205a830f2c381abbd215b4c1858c8509be1026e227367eeb8c033939a",
+      "conditional-response-v1-challenges.log": "a8cbd384a919de47b553f472517b5f531c423c2439bb3684fbd168c1919465e1"
+    }
+  },
+  "validation": {
+    "unique_focused_tests_local_passed": 225,
+    "local_cascade_skips": 3,
+    "unique_focused_tests_remote_passed": 228,
+    "ruff": "passed",
+    "note": "Focused suites plus new replay and reset-roundoff tests; the reset correction was tested before the only baseline/candidate fits."
+  },
+  "interpretation": "Five of six response scores improve, but aggregate improvement is 3.648%; all six factual scores regress slightly. Initial aileron velocity/rotation projected gains remain negative 248/248. The same-data baseline already has 0/248 first-step body-rate reversals, versus 248/248 for the historical differently calibrated model; that improvement is not attributable to the conditional loss. These correlated known-population probes are not independent systems or a control qualification.",
+  "next_named_gap": "Generalization of command-response identification across independent observed histories"
+}
