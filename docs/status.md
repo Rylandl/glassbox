@@ -20,7 +20,7 @@ this page records the current evidence, limitations and next named gap.
 | One recipe | **Met.** The public API and fit/evaluate commands use the single `generic-memory-v3-prototype` recipe. `fit`, `predict` and `update` have no tuning or model-selection options. Replaced experimental module paths and structured root exports are removed. | One generic learner and consumer contract. |
 | Accuracy | **Adopted with a known tradeoff.** Four of five corpora beat the structured comparator on both metrics, including under the corrected prefix-percentile readout. ARP loses both; this does not block adoption. | Broad competitive performance from one recipe; improve weak cases and establish task sufficiency separately. |
 | Capability | **Met.** All 27 frozen synthetic cases pass; saved models replay and reject alteration. This is a regression guard, not platform readiness. | Every synthetic absolute cap passes. |
-| Control | **Not met.** Generic position RMSE 60.80/49.31 m versus structured 1.179/1.179 m. This compares complete pipelines: generic plans 250 ms, structured 800 ms. Both structured trials also fail the application tracking criterion. | Meet the declared application tracking requirement; use structured and oracle arms diagnostically. |
+| Control | **Not met.** Generic position RMSE 60.80/49.31 m versus structured 1.179/1.179 m. This compares complete pipelines: generic plans 250 ms, structured 800 ms. Both structured trials also fail the application tracking criterion. The task-scaled oracle still reaches only 29–42% of samples within tolerance (95% required), with every solve above its convergence threshold. | Meet the declared application tracking requirement; use structured and oracle arms diagnostically. |
 | Live improvement | **Not met.** Last live-v3 evidence swaps at intervals 140/220; position error rises from 0.80/0.98 m before the swap to 36.1/11.8 m afterward. Not rerun today. | Bounded refits and swaps that do not worsen tracking. |
 | Evidence | **Not met.** The 85–95% coverage band still fails on ARP, the reserved control recording and shifted synthetic regimes. Constant spread cannot rank command plans, but can affect finite-iteration stopping through the absolute objective. | Measured coverage in the declared band, useful to control. |
 | Lean | **Not met.** Generic research code was reduced; structured dynamics, fitting, belief code and their supporting scripts remain. | Learner, harness, telemetry adapters and controller only. |
@@ -92,7 +92,7 @@ repair correctness without improving the unresolved model-adequacy metrics.
 Validation after the repairs: 1,183 tests passed, three skipped and 24
 slow/Cascade/PX4-SITL tests deselected; lint and formatting passed.
 
-## Latest iteration: public API adoption
+## Public API adoption evidence
 
 The migration contract was frozen at `1f54940`, implementation `12d6df7`.
 The learner now lives in `glassbox.learner`, with recording types in
@@ -127,6 +127,62 @@ Saved replay rejects both a forged summary and an altered forecast even when
 their outer hashes are recomputed. Ruff lint and formatting checks pass.
 This iteration does not rerun the slow benchmark fits, Cascade control trials
 or PX4 SITL tests.
+
+## Latest iteration: task-aligned controller qualification
+
+Freeze `a264ca4`, implementation `80bc458`, protocol
+[`controller-task-v1`](harness/controller-task-v1.json). Saved oracle evidence
+showed sustained lateral misses rather than an initial settling problem: altitude
+already met the 0.5 m tolerance in every scored sample. The controller normalized
+lateral/altitude error by 5/3 m. This no-fit experiment changed only those two
+position scales to the declared 0.5 m task tolerance. Public oracle dynamics,
+250 ms horizon, five command blocks, four solver iterations, all other weights
+and the physical covariance matrix stayed fixed. The covariance's scalar cost
+changes with the position scales; this is part of the tested cost change, not
+an isolated test of the mean-error penalty.
+
+Four paired seeds give eight completed trials. Seeds 101/102 are the known
+diagnostic conditions; 104/105 are additional prospective conditions in the
+same deterministic simulator. Both historical baseline trajectories, commands,
+forecasts and objectives reproduce exactly. The task remains simultaneous
+lateral and altitude error at most 0.5 m on at least 95% of all 281 samples at
+t >= 2 s. No sample, initial condition or threshold was discarded or revised.
+
+| Seed | Within tolerance, baseline / candidate | Lateral RMSE, baseline / candidate (m) | Altitude RMSE, baseline / candidate (m) |
+| --- | --- | --- | --- |
+| 101 | 42.7% / 42.0% | 0.937 / 0.840 | 0.215 / 0.057 |
+| 102 | 26.0% / 29.2% | 0.725 / 0.971 | 0.185 / 0.062 |
+| 104 | 26.0% / 39.1% | 0.738 / 0.893 | 0.185 / 0.059 |
+| 105 | 30.6% / 29.5% | 0.654 / 0.929 | 0.198 / 0.061 |
+
+The candidate improves altitude RMSE in every pair but worsens lateral RMSE
+in three of four. Neither arm meets the task on any trial; no fallback,
+termination or command-bound breach explains the result. These settings are
+not promoted to maintained consumers. This is a negative result for one
+controller-cost hypothesis, not a rejection of the adopted generic learner.
+Its lateral response peaks earlier but overshoots: positive peaks reach
+1.46–1.66 m and troughs reach -2.35 to -2.50 m for the task's +/-1 m reference.
+
+All 2,544 optimizer calls finish above the declared projected-gradient
+threshold of 0.002. Baseline median residuals are 0.031–0.032; candidate medians
+are 0.109–0.122. Candidate solves hit the four-iteration limit in 964/1,272 calls
+and stall in the remaining 308. This establishes incomplete optimization, not
+that solving the current objective more accurately would meet the task. The
+next experiment must separate those possibilities before changing the learner.
+Cross-arm gradient magnitudes are not a common-scale quality score because the
+objective scales differ. The constant covariance cost increases only from
+0.359372 to 0.361977, while candidate mean total objectives are 8.55–11.37.
+
+Validation: 35 new tests and 107 existing focused tests pass locally; 51 tests
+pass in the pinned Linux environment, including the actual Cascade forecast
+and gradient checks. Eight plant trajectories replay exactly, and all 2,544
+optimizer calls and oracle forecasts verify without fitting; maximum independent
+forecast difference is `3.1e-5`, within the unchanged frozen tolerances. Ruff lint
+and formatting pass. The 81 inherited source files remain byte-identical.
+Four saved-artifact copies with forged qualification, issued command, forecast
+or iteration count are rejected even after their outer hashes are rewritten.
+The harness also tests replayable failures during warm-up and after solving
+begins; incomplete trials cannot qualify by dropping their missing samples.
 
 ## Control qualification evidence
 
@@ -222,6 +278,12 @@ and verification reports sit beside them. The baseline capture ran on
 `3ab800f`; the public implementation is `12d6df7`. Neither replay requires
 refitting the learner.
 
+Controller task evidence is in `controller-task-v1` under the dated root, locally
+and on ryserv. Its verification and diagnostic reports sit beside the run;
+`controller-objective-audit` records the retrospective motivation and
+`controller-task-diagnostics` contains reproducible tracking figures and saved
+solver analysis. Use the pinned Linux environment for physical/optimizer replay.
+
 From disposable checkouts of the matching source commits, without refitting:
 
 ```sh
@@ -241,14 +303,19 @@ PYTHONPATH=src python -m glassbox.experimental.qualification verify /absolute/pa
 # Public API migration: checkout 12d6df7 (or this accepted merge); no refit.
 PYTHONPATH=src python -m glassbox.experimental.api_migration compare --baseline /absolute/path/to/generic-public-api-baseline --candidate /absolute/path/to/generic-public-api-candidate
 PYTHONPATH=src python -m glassbox.experimental.api_migration verify /absolute/path/to/generic-public-api-replay --artifacts /absolute/path/to/artifacts/2026-09-17
+# Task-scale controller experiment: checkout 80bc458 (or this accepted merge).
+PYTHONPATH=src python -m glassbox.experimental.task_qualification verify /absolute/path/to/controller-task-v1
 ```
 
 ## Next named gap
 
-**Control qualification: establish task success with accurate dynamics through
-the adopted generic controller.** Audit the objective and task relationship
-with the oracle before another learner loss change. Horizon, finite
-optimization, objective tradeoffs, state mapping and stopping behavior remain
-possible contributors. The large generic-to-oracle gap separately motivates
-improving the learner. This work develops the adopted approach; it does not
-reimpose superiority on every corpus as an adoption requirement.
+**Control optimization adequacy: separate unfinished optimization from an
+inadequate tracking objective.** The task-scale correction alone fails and every
+saved solve remains above its first-order threshold. Freeze a bounded-solve
+comparison on the saved oracle origins before any further controller trial:
+measure attainable objective reduction, command changes and projected-gradient
+residuals on identical states, references and warm starts. Use that evidence to
+choose one controller change; do not bundle horizon, damping, solver and learner
+changes. Accurate optimization may still expose an inadequate objective. The
+large generic-to-oracle gap remains separate learner work, and the adopted
+generic approach is not contingent on beating every structured benchmark.
