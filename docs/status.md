@@ -35,6 +35,14 @@ modify source-bound workers or repeat completed fits. The new numerical worker
 is `/private/tmp/glassbox-public-mean-fd-assessment`; its policy and implementation
 were committed before selecting the eight inputs. Selector tests pass, including
 target/mask independence, duplicate exclusion and insufficient-support rejection.
+The corrected-source regression is frozen at `4d0821d` in
+`/private/tmp/glassbox-public-mean-corrected-replay`. Its physical and API replay
+processes are running after 38 targeted harness checks passed. They cover the
+complete saved flight cohort, development-envelope reconstruction, the Dart
+consumer, all 27 saved synthetic models and three saved lifecycle revisions.
+Original fit provenance remains separate; no new fitting or collection occurs.
+The early lifecycle source is authenticated from its original Git commit because
+that recorded checkout subsequently advanced. No original binding is rewritten.
 The [continuation record](/private/tmp/glassbox-public-mean-qualification/artifacts/2026-09-19/public-mean-qualification-v1-continuation.json)
 holds the current process handles and artifact anchors.
 
