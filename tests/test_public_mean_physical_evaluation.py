@@ -439,7 +439,7 @@ def test_launcher_retains_timeout_and_does_not_retry(tmp_path, monkeypatch):
     monkeypatch.setattr(subject.subprocess, "Popen", launch)
     monkeypatch.setattr(subject.os, "killpg", lambda *args: None)
     with pytest.raises(subject.EvaluationError, match="no retry"):
-        subject._launch({"role": "public"}, tmp_path / "launch", binding)
+        subject._launch({"role": "public32"}, tmp_path / "launch", binding)
     result = subject.read(tmp_path / "launch/execution.json")
     assert result["hard_timeout"] and result["status"] == "failed"
     assert calls == [14400, None]
@@ -520,7 +520,21 @@ def test_saved_scoring_reconstructs_response_in_float64_and_complete_roster(
     assert any(
         row["zero_prediction"] for row in result["directions"] if row["arm"] == "hold"
     )
-    path = evaluation / "public" / subject.query_path(queries[0])
+    path = evaluation / "public32" / subject.query_path(queries[0])
     path.unlink()
     with pytest.raises(FileNotFoundError):
         subject.score(data, evaluation, "toy", p)
+
+
+@pytest.mark.parametrize("role", ["historical", "public32", "public64"])
+def test_each_precision_has_an_isolated_worker_environment(monkeypatch, role):
+    monkeypatch.setenv("JAX_ENABLE_X64", "1")
+    binding = {"oracle_root": "/old", "public_root": "/new"}
+    environment = subject.worker_environment(binding, role)
+    assert environment["PYTHONPATH"] == (
+        "/old/src" if role == "historical" else "/new/src"
+    )
+    assert environment.get("JAX_ENABLE_X64") == (None if role == "public32" else "1")
+    assert environment["SCIPY_ARRAY_API"] == "1"
+    assert subject.ROLES["public32"] == ("public_v4",)
+    assert subject.ROLES["public64"] == ("public_v4_float64",)

@@ -31,7 +31,8 @@ RELATIVE = "src/glassbox/experimental/public_mean_physical_evaluation.py"
 ARMS = ("public_v3", "research", "public_v4", "public_v4_float64", "hold")
 ROLES = {
     "historical": ("public_v3", "research"),
-    "public": ("public_v4", "public_v4_float64"),
+    "public32": ("public_v4",),
+    "public64": ("public_v4_float64",),
 }
 HARD_TIMEOUT_S = 14400
 OPERATORS = tuple(
@@ -305,7 +306,7 @@ def _source_identity(request):
     )
     require(
         jax.default_backend() == "cpu"
-        and bool(jax.config.x64_enabled) == (role == "historical")
+        and bool(jax.config.x64_enabled) == (role != "public32")
         and os.environ.get("SCIPY_ARRAY_API") == "1",
         "worker_source_identity",
         "ambient precision/backend",
@@ -728,10 +729,12 @@ def _worker(request_path):
 
     emit("envelopes.npz", envelopes)
     calibration = None
-    if role == "public":
-        witness, calibration = calibration_evidence(models["public_v4"])
+    if role == "public64":
+        witness, calibration = calibration_evidence(models["public_v4_float64"])
         emit("calibration.npz", witness)
-    # Separate JIT wrappers are first traced under their specified ambient mode.
+    # Precision modes use separate processes. Distinct jit wrappers around the
+    # same bound method still share a JAX compilation cache; the preserved first
+    # attempt demonstrated an invalid mixed-precision lowering in this runtime.
     functions = {arm: jax.jit(model.predict) for arm, model in models.items()}
     for query in queries:
         values = arrays(under(request["data_root"], query["path"]))
@@ -777,7 +780,7 @@ def _worker(request_path):
         calibration_reconstruction=calibration,
         fits=0,
         simulations=0,
-        ambient_x64_restored=bool(jax.config.x64_enabled) == (role == "historical"),
+        ambient_x64_restored=bool(jax.config.x64_enabled) == (role != "public32"),
     )
     require(
         result["ambient_x64_restored"], "worker_source_identity", "precision leakage"
@@ -1308,20 +1311,26 @@ def _prepare(
     return binding, qualification, p
 
 
-def _launch(request, directory, binding):
-    directory = Path(directory)
-    directory.mkdir(parents=True, exist_ok=False)
-    write(directory / "request.json", request)
+def worker_environment(binding, role):
+    require(role in ROLES, "worker_source_identity", "declared inference role")
     environment = dict(os.environ)
-    historical = request["role"] == "historical"
+    historical = role == "historical"
     environment["PYTHONPATH"] = str(
         Path(binding["oracle_root" if historical else "public_root"]) / "src"
     )
     environment["SCIPY_ARRAY_API"] = "1"
-    if historical:
+    if role != "public32":
         environment["JAX_ENABLE_X64"] = "1"
     else:
         environment.pop("JAX_ENABLE_X64", None)
+    return environment
+
+
+def _launch(request, directory, binding):
+    directory = Path(directory)
+    directory.mkdir(parents=True, exist_ok=False)
+    write(directory / "request.json", request)
+    environment = worker_environment(binding, request["role"])
     command = [
         binding["interpreter"],
         str(Path(__file__).resolve()),
@@ -1376,7 +1385,7 @@ def _launch(request, directory, binding):
 
 
 def run(simulator, output, **inputs):
-    """Two isolated inference processes, then one saved-array metric reduction."""
+    """Three isolated inference processes, then one saved-array metric reduction."""
     binding, _, p = _prepare(simulator, **inputs)
     output = Path(output).resolve()
     output.mkdir(parents=True, exist_ok=False)
