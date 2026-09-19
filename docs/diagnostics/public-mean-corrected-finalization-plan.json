@@ -1,0 +1,33 @@
+{
+  "acceptance": "Authenticate complete sealed prefix and original/new source maps; current public sources must include every prior bound source byte-identically. Recompute complete metrics and unchanged decision from saved new predictions. Require exact original association mapping, every scientific decision field, and unchanged full cohort counts. Then run only the previously unexecuted unchanged Dart consumer with current-source preflight and require all168 original arrays/report semantics exact. No automatic retry.",
+  "correction": "The original decision file wraps the unchanged reducer result with input_stages. Require that map to equal both original evaluation roots and external seals exactly, then compare every remaining scientific decision field without any exclusions or changed threshold.",
+  "driver_relative": "docs/diagnostics/public-mean-corrected-finalization.py",
+  "driver_sha256": "0bd98301682a08a2b2e8aa2b60e0d3fd465018780df64a73b9923d4104772f97",
+  "failed_prefix": {
+    "failure_sha256": "2e28554868eed951b1ed050c3324467995a0457834780d7ebcca356bdb156995",
+    "root": "/private/tmp/glassbox-public-mean-corrected-replay/artifacts/2026-09-19/public-mean-corrected-physical-replay-attempt1",
+    "sha256": "6e5ac9bf7c895381ed88fd4a903b3fed90656dbc93b2882225ffe3400829435b"
+  },
+  "format": "glassbox-corrected-physical-finalization-plan-v1",
+  "independent_array_check": {
+    "byte_exact_arrays": 12778,
+    "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-19/public-mean-corrected-physical-independent-arrays.json",
+    "sha256": "e20f8af088a1b5b89253001c7fb9b2381a8098eae3ada7aa204111100af9fd5f"
+  },
+  "physical_bridge_relative": "docs/diagnostics/public-mean-corrected-physical-replay.py",
+  "physical_bridge_sha256": "dfffb691a41165234ce83c7ed2b00a6c6d956530d7d7f9ad899b50a0e97f6528",
+  "physical_policy_relative": "docs/diagnostics/public-mean-corrected-physical-replay-plan.json",
+  "physical_policy_sha256": "8bf531155693f8578605cd7cf74ef5946dca80dd58689e708ee6feaad41337c9",
+  "prefix_binding": {
+    "path": "/private/tmp/glassbox-public-mean-corrected-replay/artifacts/2026-09-19/public-mean-corrected-replay-implementation-attempt1.json",
+    "sha256": "533d9975fdffc8e4b56d3c8a6c7f782e2fd04855cf4b21709741a91b665a95f6"
+  },
+  "prior_result": "All four corrected public inference workers completed and all per-simulator rows/directions/summaries matched. The first top-level physical attempt failed only at decision-record equality before the consumer was launched; preserve its failed status and complete sealed payloads.",
+  "scope": "Harness schema/association correction only. No fits, initializers, optimizer steps, new physical forecasts, development forecasts, simulation or collection. Current consumer inference/JVP is the only new prediction execution. It preserves the old packet/exporter qualification and records the actual new runtime imports. Original numerical gate and all other qualification scope remain unchanged; no adoption decision.",
+  "source_scope_verification": {
+    "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-19/public-mean-precision-source-scope-verification.json",
+    "sha256": "f0e6eff59a2527223ce3a0c28b05b90e1a6efa31d8d6bff577372766640301e6"
+  },
+  "status": "Prospective fixed saved-only finalization; commit and bind driver/policy before execution.",
+  "supervision": "One exclusive attempt with command/log/exit and failed prefix. Consumer existing launcher 7200seconds, preflight60seconds. No original worker or evidence mutation."
+}
