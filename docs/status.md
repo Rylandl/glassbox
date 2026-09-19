@@ -4,107 +4,106 @@ Updated 2026-09-19. Read [the charter](charter.md) first. The generic approach i
 adopted; the public recipe remains `generic-memory-v3-prototype`. Research
 accuracy, public adoption and application qualification remain separate.
 
-**Current priority:** reduce physical forecast and command-response residuals
-across Crazyflow and Cascade. Retain the balanced research model. Full-cache
-gradients solve the current training objective much better but fail to transfer;
-next investigate unused training-recording support, not further optimizer tuning.
-JSBSim breadth remains deferred.
+**Current priority:** qualify the expanded-cache research mean through the single
+public API so consumers can use the verified gains. Expanded cache is the
+strongest retained research result: matched forecast/response errors are
+38.04%/32.73% lower than balanced, with every frozen physical criterion met.
+Public promotion remains pending. JSBSim breadth remains deferred.
 
 | Criterion | Current | Target |
 | --- | --- | --- |
 | One recipe | **Met.** Public `fit` returns `LearnedDynamics` with `predict` and `update`; no consumer tuning options or platform dispatch. | One generic learner and consumer contract. |
-| Accuracy | **Broad gains verified; full-cache optimizer rejected.** Balanced remains strongest. On the fresh cohort full-cache/balanced forecast/response ratios are 1.09896/1.13337 despite more than 90% lower training loss from initialization. Crazyflow angular harm spans all 24 primary conditions. | Low held-out physical forecast and command-response errors across conditions and horizons, with progress against the adopted generic baseline; application adequacy measured separately. |
+| Accuracy | **Expanded-cache research mean retained.** Forecast/response ratios against balanced are 0.61964/0.67268 and against public-excited are 0.47308/0.45947 on one fresh matched cohort. Crazyflow primary 250 ms factual rate worsens 2.62%, within the frozen limit; both angular tails improve. | Low held-out physical forecast and command-response errors across conditions and horizons, with progress against the adopted generic baseline; application adequacy measured separately. |
 | Model usability | **Partly met.** Public saved revisions expose signal/time contracts, batched JAX-compatible forecasts, derivatives and error envelopes. Independent consumer integration and broader export/runtime portability remain unqualified. | A self-contained model artifact usable independently of the Glassbox controller, with explicit scope and measured evidence. |
-| Capability | **Met for the adopted recipe.** All 27 frozen synthetic cases pass and artifacts replay/reject alteration. The new research mean has not received this public qualification. | Every synthetic absolute cap passes; synthetic results do not establish platform readiness. |
-| Reference control | **Demonstrated for earlier isolated research means.** Forecast-only and paired-response means each achieved 2,248/2,248 tolerance samples across eight trials. The adopted public and latest research means have not been tested with that controller. | Separately qualified downstream demonstrations; a universal controller is optional. |
+| Capability | **Met for the adopted recipe.** All 27 frozen synthetic cases pass and artifacts replay/reject alteration. The expanded-cache research mean has not received this public qualification. | Every synthetic absolute cap passes; synthetic results do not establish platform readiness. |
+| Reference control | **Demonstrated for earlier isolated research means.** Forecast-only and paired-response means each achieved 2,248/2,248 tolerance samples across eight trials. The adopted public and expanded-cache research means have not been tested with that controller. | Separately qualified downstream demonstrations; a universal controller is optional. |
 | Live improvement | **Not met.** No update qualification under the clarified model-first priorities. Historical live-v3 swaps at intervals 140/220 worsened position error from 0.80/0.98 to 36.1/11.8 m. | Bounded immutable revisions with held-out improvement/regression checks; adoption and any live-control claim qualified separately. |
 | Evidence | **Not met.** Original public primary 250 ms velocity/rate coverage is 85.8–89.7%, falling to 47.4–68.3% for extreme maneuvers. Crazyflow truth is incomplete. Development-calibrated research spreads have no new coverage qualification. Earlier ARP, reserved-control and shifted-synthetic failures remain. | Measured coverage in a predeclared band with calibration provenance, independent of the controller. |
 | Lean | **Not met.** Structured dynamics, belief code and research scripts remain. | Learner, model artifacts/interfaces, harness, telemetry adapters and optional consumers. |
 
 ## Latest matched evidence
 
-[Full-cache gradients v1](harness/full-cache-gradient-v1-result.json) changes
-only gradient coverage: all 384 cached training windows once per proposal,
-instead of 64 sampled windows. The objective, actual initialization, weights,
-architecture, safeguards and development selector stay fixed. Two fresh fits
-and six exact imported reference fits predict one fresh common cohort.
-Gradient-window work is six times the safeguarded control; equal compute is
-not claimed.
+[Expanded training cache v1](harness/expanded-training-cache-v1-result.json)
+increases the fixed training cache from 384 to 1,536 windows using the same
+72 admitted training recordings per simulator, with the original 384-window
+prefix and all 256 development windows unchanged. Architecture and fitting
+formulas stay fixed; training-derived norms, initialization and objective weights
+change. Two candidates and six exact imported reference models predict the same
+fresh cohort. Gradient-window work is four times the 384-window control.
 
 | Reference | Candidate forecast ratio | Candidate response ratio |
 | --- | ---: | ---: |
-| Retained balanced model | 1.09896 | 1.13337 |
-| Safeguarded mechanism control | 1.02532 | 0.99877 |
-| Public-excited | 0.83109 | 0.78677 |
+| Retained balanced model | 0.61964 | 0.67268 |
+| Full-cache 384-window control | 0.56914 | 0.59144 |
+| Public-excited | 0.47308 | 0.45947 |
 
-Public-relative physical criteria pass. Balanced, safeguarded-control and
-Crazyflow angular retention criteria fail. The separate optimization diagnostic
-is descriptive and does not veto physical progress. Retain balanced; public
-promotion remains false. See the [guide](full-cache-gradient.md) for tables,
-figures, limitations and reproduction.
+All three comparisons, angular retention, finite predictions and matched-truth
+checks pass. Retain the expanded-cache research mean; public promotion remains
+false. The separate optimization diagnostic passes and cannot veto physical
+progress. See the [guide](expanded-training-cache.md) for intervals, figures,
+computation costs, limitations and reproduction.
 
-Primary 250 ms component RMSE, balanced → full-cache:
+Primary 250 ms component RMSE, balanced → expanded cache:
 
 | Simulator | Forecast velocity, m/s | Forecast rate, rad/s | Response velocity, m/s | Response rate, rad/s |
 | --- | ---: | ---: | ---: | ---: |
-| Crazyflow, available truth | 0.11725 → 0.09474 | 0.14626 → 0.23795 | 0.03938 → 0.03610 | 0.16239 → 0.18974 |
-| Cascade | 0.13485 → 0.15047 | 0.10790 → 0.12828 | 0.03882 → 0.04378 | 0.04255 → 0.05285 |
+| Crazyflow, available truth | 0.11621 → 0.04926 | 0.15653 → 0.16063 | 0.04010 → 0.02335 | 0.16675 → 0.15673 |
+| Cascade | 0.13096 → 0.06895 | 0.10421 → 0.04942 | 0.03669 → 0.02039 | 0.04090 → 0.01865 |
 
-Crazyflow completes 62/84 test parents; 22 fail the altitude condition. Primary
-250 ms truth is 423/480 forecast and 704/768 response queries. Cascade completes
-84/84 with all truth. Every eligible prediction is finite for all five models.
-Comparisons have matched masks; changes in cohort completion are not model gains.
-No quadratic reference was evaluated on this cohort.
+Crazyflow factual angular mean worsens 2.62%, while its parent-p95 improves
+0.27004→0.24830 rad/s. Response angular mean and p95 improve 6.01% and 5.46%.
+Generality and broad gains do not require every metric to win; this localized
+loss satisfies the prospectively declared limit.
 
-Training loss falls 90.54% in Crazyflow and 92.60% in Cascade. Crazyflow's
-training rate RMSE improves 0.128813→0.050295 rad/s, while development rate
-worsens 0.188526→0.256304 rad/s. Other development channels offset this regression
-in the weighted selector. Held-out factual rate worsens in all 24 primary
-conditions and 41/42 conditions overall. Cascade remains worse than balanced
-in all primary 250 ms physical groups. This exposes a generalization gap; further
-training-loss optimization alone is not the next justified mechanism.
+Crazyflow completes 66/84 test parents; 18 fail the altitude condition. Primary
+250 ms truth is 438/480 forecast and 720/768 response queries. Cascade completes
+84/84 with all truth. All five predictors are finite on every eligible query.
+Comparisons share the same truth masks. Cohort-completion changes are not
+learner gains; no new safeguarded or quadratic comparison was run.
 
-The strongest retained research result remains
-[initial-channel balance](harness/initial-channel-balance-v1-result.json): on
-its own cohort forecast/response errors were 24.7%/32.2% below public. Its three
-failed research tail-retention limits and missing public qualification remain.
-Verification is complete: 1,013 focused tests, both full simulator replays,
-independent physical/optimizer reductions and all 36 alteration challenges pass.
+Both fits select checkpoint 1,000. Crazyflow training/development weighted
+losses fall 84.91%/46.65% from its own initialization; Cascade falls
+90.76%/81.12%. These are within-fit reductions, not comparable raw objectives
+across models. The remaining angular gap is concrete: Crazyflow training rate
+RMSE improves 0.14523→0.07347 rad/s while development rate worsens
+0.13647→0.16375 rad/s. Independent-recording support, objective tradeoffs and
+model bias remain competing explanations.
+
+Verification is complete: 1,136 focused tests, both full simulator replays,
+independent physical/preparation/optimizer reductions and all 37 alteration
+challenges pass. Replay reproduces 4,032 prediction queries, 428,400 metric rows,
+88 checkpoint snapshots and 7,375 candidate acceptance-objective calls.
+The first attempt's finalization schema failure is preserved; the correction
+changes no numerical recipe or thresholds, and exact scientific equality with
+the corrected run is independently verified.
 
 ## Next named gap
 
-**Test whether using more admitted training data reduces the generalization gap.**
-The 384-window cache uses only 384/12,426 legal origins in Crazyflow and 384/3,312
-in Cascade. Its forecast targets cover 7,189/14,154 and 1,589/3,600 unique eligible
-native transitions, respectively. Every training parent appears, but each
-contributes only five or six windows. A larger fixed cache is therefore a
-concrete support intervention, not a claim that more optimizer steps will help.
+**Qualify and expose the retained mean through the single public API.** The
+research result should become usable by consumers through ordinary
+`fit`, `predict`, `update`, save/load and JAX interfaces. Freeze one recipe,
+precision policy and qualification protocol before implementation. Reuse the
+fixed synthetic absolute caps and public semantic checks, require saved-mean
+prediction/derivative parity, and confirm fresh public fitting on a common
+held-out physical cohort with predeclared broad improvement and regression
+limits. Demonstrate an independent model consumer without controller internals.
 
-Freeze one cache expansion from 384 to 1,536 windows on the existing admitted
-training recordings, preserving the original 384-window prefix.
-Keep development windows and role boundaries unchanged, retain the model and
-objective formulas, and declare changed data-derived norms, initialization,
-weights and fourfold gradient-window work. Compare physical errors, not raw
-weighted losses across arms whose numerical objective weights differ. Compare
-against the saved 384-window full-cache control, retained balanced model and
-public context on another fresh common
-cohort. Require meaningful physical gains with predeclared regression limits.
-No batch/seed/cache-size sweep and no public option.
+Concrete integration obstacles are the research float64 assumption, public
+loading and rollout tied to the old model, recording-ledger/update semantics,
+and the research fitter's public-precursor dependency. Resolve these in one
+maintained learner rather than exposing model choices or research wrappers.
+Mean adoption remains separate from calibrated uncertainty, update improvement,
+physical derivative fidelity and controller qualification; preserve those gaps
+explicitly rather than treating API semantics as evidence of their performance.
 
-The [expanded-cache protocol](harness/expanded-training-cache-v1.json) is now
-frozen before implementation and fitting. Preparation feasibility and three
-independent scope reviews pass. The implementation passes 1,136 focused tests across 41 files; all 183 source
-pins and 14,758 prior payloads verify. The first numerical attempt completed both fits and evaluations, but finalization
-hit a comparison-helper schema error. That attempt is preserved; the narrow
-[correction](harness/expanded-training-cache-v1-correction.json) changes no
-thresholds or numerical recipe. The identical frozen experiment is ready to rerun
-from the corrected tested harness. No verified accuracy gain or public promotion
-is claimed yet.
-
-Larger caches add no independent recordings. They cannot fill the 18 shifted
-conditions absent from training, repair incomplete Crazyflow recording support,
-or make overlapping windows independent. Use these inspected results only for
-diagnosis; the next confirmation cohort must remain untouched until frozen.
+The next accuracy hypothesis is a separate fixed cohort of independent excited
+training recordings across the existing primary conditions, holding the
+1,536-window cache, fitting budget and development cache fixed. Additional
+independent recordings test a different question from denser overlapping
+windows. The current cache covers 90.38%/93.11% of eligible forecast transitions,
+but adds no independent parents or coverage of the 18 shifted conditions absent
+from training. Do not postpone making the current best mean usable while
+pursuing that later accuracy experiment.
 
 ## Preserved qualification boundaries
 
@@ -117,7 +116,7 @@ diagnosis; the next confirmation cohort must remain untouched until frozen.
 - [Intervention response](harness/intervention-response-v1-result.json) and
   [controller transfer](harness/learned-controller-transfer-v1-result.json):
   earlier isolated research demonstrations, with separate model/controller scopes;
-  neither qualifies the current public or balanced model.
+  neither qualifies the current public or expanded-cache model.
 - [JSBSim startup diagnosis](harness/jsbsim-excitation-v1-result.json): excitation
   and setup evidence only, with missing/invalid configurations; no fitted-model
   accuracy or fleet-wide flying claim.
