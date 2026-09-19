@@ -1,0 +1,319 @@
+{
+  "arms": {
+    "balanced": "Imported selected fixed initial-channel-balanced anchored model; direct optimizer control.",
+    "baseline": "Imported selected public-excited generic model.",
+    "candidate": "One fresh safeguarded-Adam balanced model per simulator.",
+    "hold": "Unchanged observed-state hold reference; physical scale only.",
+    "quadratic": "Imported selected zero-centered full quadratic research model."
+  },
+  "base_commit": "333d9faa7fa4ee7defefffb8ca043459409f39eb",
+  "base_protocol": {
+    "path": "docs/harness/initial-channel-balance-v1.json",
+    "sha256": "822a28d5a20596026851ec9e5f64f9c304e09a68b67045b44bc3ee3633d056dc"
+  },
+  "checkpoint_diagnostics": {
+    "inherit": "Keep the base protocol weight/initializer witness roster, exact initial identity, original and weighted train/development physical/channel/group reductions, coefficient diagnostics, source bindings, partial-failure semantics and11checkpoint roster. Imported historical checkpoints retain their own source/provenance.",
+    "reuse": "Privately rebind the pinned balanced observer to the new model and retain its full weighted/anchored/trajectory evidence layers unchanged in meaning. Extend with one optimizer evidence envelope/sidecar; do not copy the historical observer implementation or mutate its globals.",
+    "selection_scope": "Only the imported selected reference models and originally selected new candidate receive held-out evaluation. No intermediate held-out checkpoint predictions, alternate selection, response-based tuning, second seed or restart."
+  },
+  "cohort": {
+    "collection": "Reuse the same externally anchored excitation calibration collection and public 384/256 cached training/development windows. Preserve original generation physics/pilots, validity/admission/roles/query schedules, missing truth, weak probes and all planned rows. All selected models receive identical fresh test queries; no new or intermediate test-derived training data.",
+    "counts": {
+      "calibration_pool_per_simulator": 96,
+      "cells_per_simulator": 42,
+      "excited_training_parents_per_simulator": 72,
+      "fresh_optimizer_trajectories": 2,
+      "fresh_test_parents": 168,
+      "freshly_simulated_common_parents": 360,
+      "imported_reference_optimizer_trajectories": 6,
+      "new_training_parent_trajectories": 0,
+      "regenerated_original_calibration_parents": 192,
+      "simulators": 2,
+      "unchanged_development_copies_per_simulator": 24
+    },
+    "recording_rule": "Copy every base_protocol recording. Calibration IDs/seeds/roles remain byte-exact. For role test only, add1000000 to seed and replace the terminal test-<oldseed> segment with test-<newseed>; require the old terminal segment to match exactly. This equals original two-simulator-flight-v1 test seed+8000000. Assert new IDs/seeds disjoint every preceding frozen cohort before simulation.",
+    "test_seed_increment_from_base": 1000000,
+    "test_seed_shift_from_original": 8000000
+  },
+  "decision": {
+    "angular_retention": {
+      "denominator": "balanced",
+      "factual_aggregate_rmse_ratio_max": 1.05,
+      "factual_parent_rmse_p95_ratio_max": 1.05,
+      "group": "body_rate_rad_s",
+      "horizon_s": 0.25,
+      "numerator": "candidate",
+      "response_aggregate_rmse_ratio_max": 1.05,
+      "response_parent_rmse_p95_ratio_max": 1.05,
+      "scope": "primary",
+      "simulator": "crazyflow",
+      "statistic": "The identical inherited hierarchical available-truth RMSE and linear-quantile parentRMSEp95, physical floors and shared query/mask rosters."
+    },
+    "comparisons": {
+      "balanced_progress": {
+        "denominator": "balanced",
+        "factual_weighted_geometric_mean_ratio_max": 1.05,
+        "numerator": "candidate",
+        "response_weighted_geometric_mean_ratio_max": 0.95
+      },
+      "quadratic_gain_retention": {
+        "denominator": "quadratic",
+        "factual_weighted_geometric_mean_ratio_max": 1.05,
+        "numerator": "candidate",
+        "response_weighted_geometric_mean_ratio_max": 1.05
+      },
+      "safeguarded_public_progress": {
+        "denominator": "baseline",
+        "factual_weighted_geometric_mean_ratio_max": 1.05,
+        "numerator": "candidate",
+        "response_weighted_geometric_mean_ratio_max": 0.9
+      }
+    },
+    "diagnostic_optimization_progress": {
+      "selected_attempt_strictly_greater_than": 0,
+      "selected_development_weighted_loss_over_initial_max": 0.95,
+      "selected_full_training_weighted_loss_over_initial_max": 0.95,
+      "simulator": "crazyflow",
+      "source": "At the originally development-selected checkpoint, divide the actual canonical cached full-training acceptance loss by its actual canonical initial acceptance loss; divide the actual weighted development selection loss by its actual initial weighted development selection loss. Do not substitute independent NumPy or posthoc diagnostic reductions. Both denominators must be positive and finite; otherwise report this diagnostic unavailable/false. A5%engineering margin, not an application-adequacy cap or test-derived target. No alternate checkpoint selection."
+    },
+    "failure": "Keep all losses, missing truth and failed flags. Reject this specific bounded safeguard if it fails; do not infer all line searches or weighted objectives ineffective. No change to scales, trials, moments, floor, data, seed, selector or tests after results. Another mechanism requires a new frozen iteration.",
+    "guards_for_every_required_comparison": {
+      "all_eligible_predictions_finite_and_models_available": true,
+      "each_simulator_250ms_primary_parent_rmse_p95_ratio_max": 1.5,
+      "each_simulator_primary_factual_and_response_geometric_mean_ratio_max": 1.15,
+      "each_simulator_scope_factual_and_response_geometric_mean_ratio_max": 1.5,
+      "identical_truth_and_query_cohorts": true,
+      "tail_guard_groups": [
+        "velocity_m_s",
+        "body_rate_rad_s",
+        "rotation_entries"
+      ],
+      "tail_guard_kinds": [
+        "factual",
+        "response"
+      ]
+    },
+    "inherited_metrics": "Use the authenticated base aggregation/floors/horizons/scope and simulator weights, paired parent bootstrap1000draws seed20260918, physical groups, truth masks, primary250ms tails, percondition reporting and availability rules verbatim.",
+    "outcomes": "Report every comparison, angular_retention and diagnostic_optimization_progress independently. residual_criteria_pass requires all3required comparisons, angular retention, finite predictions and matched cohorts. Diagnostic optimization progress remains a distinct flag, never substitutes for physical progress, and may be false when residual criteria pass. Completed research-mechanism qualification additionally requires diagnostic optimization progress and separate integrity/replay/tamper/focused-test success. Contextual reference/public ratios are descriptive only and cannot veto a valid candidate pair.",
+    "prospective_policy": "Apply these margins only to this new frozen cohort. Inherited broad guards and public response/forecast margins retain their existing meaning; the new5%balanced response/optimization targets are engineering progress margins. Do not revise the preceding result or retrospectively convert any threshold into application adequacy.",
+    "public_promotion": false,
+    "qualification": "Research success does not alter the public recipe. Fixed synthetic absolute caps and public fit/predict/update/save/load/JAX/interface/replay qualification remain separate, as do derivative fidelity, uncertainty, live updates and downstream control."
+  },
+  "fitting": {
+    "checkpoint_selection": "At attempt0 and every100completed attempts through1000, evaluate the same weighted and original development loss from one shared recursive prediction. Select the first strict minimum finite weighted development loss, exactly as before. Record current parameters even when unchanged after rejection. Rejection counts never replace attempt indices. Original losses and physical diagnostics cannot select another model.",
+    "fresh_optimizer_arms": [
+      "candidate"
+    ],
+    "initialization": "Execute the canonical anchored initializer once, with its existing affine and joint ridge solves once each. Actual candidate initial parameters/norms/original hold scales must equal the trusted balanced checkpoint0 byte-exactly. Do not substitute loading for initializer execution; do not rerun initialization for diagnostics.",
+    "matching": "Exact caches/keys/origins/contracts/norms, parameter roster/shapes, seed0, minibatchseed10000, batch64, width32, memory8, learning_rate0.002,1000proposal attempts, clipping5, Adam beta1=.9 beta2=.999 epsilon1e-8 and the inherited operation order. One identical seeded minibatch draw per proposal attempt, including rejected attempts. No fresh reference fit. Same proposal count is not same accepted update count, FLOPs or wall time.",
+    "objective": "Exactly reuse the fixed initial-training inverse-channel-MSE objective and NumPy float64 construction from the base protocol. Recompute its one initial full-training forecast from the actual initializer once; require forecast/e0/raw weights/normalized weights/floor/normalizer and original scales byte-exactly equal to the imported balanced initial witness. Preserve explicit fixed stop-gradient weights and original hold normalization in optimization and selection.",
+    "optimizer": {
+      "acceptance": "Evaluate scales in the declared descending order. Accept the first finite full-training weighted loss < the cached current full-training weighted loss, with no Armijo term, tolerance, relative margin, development value or physical label. Cache the actually evaluated accepted loss. If all8fail, retain current parameters and cached loss exactly, with accepted_scale=0. Do not evaluate unused smaller scales after acceptance.",
+      "compute_accounting": "Count the initial full-training acceptance-objective evaluation and each attempted scale evaluation separately from the unchanged one weighting forecast,1000minibatch gradient/proposal calls,11development selection calls and all saved train/development diagnostic forecasts. Save actual counts, accepted/rejected attempts, alpha histogram, rejection streaks, wall time and compilation/observer/diagnostic costs when measurable. No equal-compute claim.",
+      "extra_full_training_objective_calls_max": 8001,
+      "fit_wall_time_limit_s": 7200,
+      "full_training_evaluator": "One pinned JIT full-training weighted-loss function, on all384 training windows and full native horizon with fixed norms/weights/scales, evaluates initial current parameters and every trial through the identical compilation/call path. Do not initialize its cached loss using the independent NumPy weighting reduction or a different eager/JIT loss path.",
+      "initial_order": "After actual initialization and fixed weighting, record the finite initial weighted/original development checkpoint0 before evaluating the initial full-training acceptance loss. No proposal attempt is entered until both initial losses are finite. Earlier failures may retain a valid initial weight witness without checkpoint0 or any attempt.",
+      "interpolation": "Use one source-pinned canonical trial_parameters(current,proposal,alpha) helper in fitting and replay. alpha=1 returns the proposal arrays directly with identical bytes. Other scales compute current + alpha*(proposal-current) using the frozen JAX x64 tree arithmetic. Never replace alpha=1 with an algebraically equivalent subtract/add round trip.",
+      "nonfinite": "Nonfinite trial loss rejects that scale and permits the next declared scale; preserve that actual nonfinite observation explicitly. Nonfinite current baseline loss, minibatch loss, gradient/global norm, new moments or proposed parameters is an explicit numerical fit failure, never a rejected finite proposal. Preserve actual completed attempt/checkpoint prefixes and failure stage. Unknown errors or corrupt evidence abort the harness.",
+      "proposal": "Compute the existing clipped minibatch weighted gradient and standard bias-corrected Adam proposal once at the current accepted parameters. Preserve existing update arithmetic. New moments and the bias-correction attempt index advance on every finite proposal even if all trial scales reject; do not roll moments back or redraw a minibatch.",
+      "proposal_attempts": 1000,
+      "scales": [
+        1.0,
+        0.5,
+        0.25,
+        0.125,
+        0.0625,
+        0.03125,
+        0.015625,
+        0.0078125
+      ],
+      "time_limit": "Measure monotonic elapsed wall time from fit_candidate_sequence entry before initialization, including initialization, compilation and observation. Wrapper cache preparation and post-fit calibration/diagnostic serialization are timed separately. Check before each attempt and after its completed acceptance decision; exceeding7200s ends an explicit fit_failure outcome with reason fit_time_limit, actual evidence prefix and no restart. A single in-flight call completes before the boundary check. This internal bound is distinct from the hard stage watchdog."
+    },
+    "recipe": "Inherit the exact generic numeric recipe and full anchored quadratic geometry. Use one private safeguarded-adam-v1 recipe/archive identity; no public API changes or options.",
+    "trusted_initial_snapshots": {
+      "cascade": {
+        "imported_relative_path": "cascade/balanced/checkpoints/anchored/trajectory/step-0000.npz",
+        "snapshot_sha256": "3e813d457279e149c6f0adafab26dbe347cd66325d61ecefa1c2c4cb86d6fa3d",
+        "source_checkpoint_manifest_sha256": "272ddd843273292644df69d8c67b4fe1bf13d70222b4f32c3ad2fbea6a1b4264",
+        "source_inner_checkpoint_manifest_sha256": "1f1a151b5ef1d5ecd52ade784405849aba9514a8ba7b1c91b2c0af3300e8e04f",
+        "source_inner_relative_manifest": "cascade/candidate/checkpoints/anchored/manifest.json",
+        "source_relative_path": "cascade/candidate/checkpoints/anchored/trajectory/step-0000.npz"
+      },
+      "crazyflow": {
+        "imported_relative_path": "crazyflow/balanced/checkpoints/anchored/trajectory/step-0000.npz",
+        "snapshot_sha256": "28e06e8d5cc248183cbe86c556762c29d4b37b1b1e0fe98a30ce0d82ee2ff3f4",
+        "source_checkpoint_manifest_sha256": "a3a45f9eff384489042293c3da92eb8c386d38fc142be8ea394ed6e8d1dd1186",
+        "source_inner_checkpoint_manifest_sha256": "cdc3f0e17dabaddc0033073786a8c7a1d3262d5eb3f3e609ec200bad43915ce7",
+        "source_inner_relative_manifest": "crazyflow/candidate/checkpoints/anchored/manifest.json",
+        "source_relative_path": "crazyflow/candidate/checkpoints/anchored/trajectory/step-0000.npz"
+      }
+    }
+  },
+  "id": "safeguarded-adam-v1",
+  "imported_references": {
+    "rule": "Copy each complete reference arm directory byte-exactly from prior_reference_bundle, including model, report, contract, caches, start/outcome/seal and every nested checkpoint/weight/initializer artifact. Preserve original arm/source/runtime/provenance even when historical candidate maps to balanced. Associate current evaluation roles and current runtime/data/source/import seals in a separate new reference-reuse record; do not mutate the imported directories.",
+    "source_arm_mapping": {
+      "balanced": "candidate",
+      "baseline": "baseline",
+      "quadratic": "quadratic"
+    },
+    "trusted_comparator_revisions": {
+      "cascade": {
+        "balanced": {
+          "file_sha256": "0ef6cb79d81f2461a87fc63aed7f49d5bf7570038d8079fad4d53a3a13950bfb",
+          "revision_fingerprint": "24d02ef11c7ea5cdc21ab34aaf33ef6f858f64383bc042f579d1fd80e2663e6d",
+          "source_arm": "candidate",
+          "source_checkpoint_manifest_sha256": "272ddd843273292644df69d8c67b4fe1bf13d70222b4f32c3ad2fbea6a1b4264",
+          "source_relative_directory": "cascade/candidate",
+          "source_relative_path": "cascade/candidate/model.npz",
+          "source_seal_sha256": "a166a0a63147f11e8b23e59edbfc5be941c39a83f4de1f2e549a872ac9d7f927"
+        },
+        "baseline": {
+          "file_sha256": "840757c24d5727c966e4c2ebdcac685fa5b3d43d6c086714f2e7cae6d3fdba21",
+          "revision_fingerprint": "54c46d33399b3621b4d92700b52246471a1706159daf6a05b1ab636bf6ee2dd9",
+          "source_arm": "baseline",
+          "source_checkpoint_manifest_sha256": "f3f3581cfb52a331bc0e414d0fb0547489f3682bd30de773fdcf77e10ee8e94c",
+          "source_relative_directory": "cascade/baseline",
+          "source_relative_path": "cascade/baseline/model.npz",
+          "source_seal_sha256": "94fb44bb37db04162f00ef362b333b959102595e8ffc709c1aeb6b88d4af57e4"
+        },
+        "quadratic": {
+          "file_sha256": "a73542e029f618624622b9179207fa133b080562359a8356af58c8377a1af700",
+          "revision_fingerprint": "c96d0a4092d626b69f9d8c5bdbfd2b3affe118cdaaa82c106de247f865eb303a",
+          "source_arm": "quadratic",
+          "source_checkpoint_manifest_sha256": "645009a32f9e6e23cbc472120a0eaf37ea8b7734b3f6b1ab038deee507de24cb",
+          "source_relative_directory": "cascade/quadratic",
+          "source_relative_path": "cascade/quadratic/model.npz",
+          "source_seal_sha256": "5f81407f8b503a5be5158948e89446954a41b00b78c96c4029201f20f22c2b5a"
+        }
+      },
+      "crazyflow": {
+        "balanced": {
+          "file_sha256": "30245871d4d58ed3a0cc242313c8a5f6769382c713505cb6497c1a10e0f630d9",
+          "revision_fingerprint": "5bfeeb92b884f3edccd6f55cd6f0333913068cd2b102fa1948c033e073e173f7",
+          "source_arm": "candidate",
+          "source_checkpoint_manifest_sha256": "a3a45f9eff384489042293c3da92eb8c386d38fc142be8ea394ed6e8d1dd1186",
+          "source_relative_directory": "crazyflow/candidate",
+          "source_relative_path": "crazyflow/candidate/model.npz",
+          "source_seal_sha256": "8b157df7f423ca19b75513067c7a8349bc385100615d5a3abd30562c1ae5d63f"
+        },
+        "baseline": {
+          "file_sha256": "7a0e495d26b04a6e3a984ad5b76acb2475d4a49fc2340eaebfd4c996d22a1130",
+          "revision_fingerprint": "d606424a9c5feb376664bc006c74189b17445324c2e11ebea05783e683be07f7",
+          "source_arm": "baseline",
+          "source_checkpoint_manifest_sha256": "818aac71884c073f86a3575e1997e84131aaf27bfc584dd6bbaefb3ef6e6a148",
+          "source_relative_directory": "crazyflow/baseline",
+          "source_relative_path": "crazyflow/baseline/model.npz",
+          "source_seal_sha256": "7e05f29f822cc6873b0006267c0bdc9ccc727f53d509116c0149f29dd09f608a"
+        },
+        "quadratic": {
+          "file_sha256": "970eaad76beaa9acacb645936c404687f03cee21011af2b11bdde0ed78f814be",
+          "revision_fingerprint": "b4b8df281593891ce67a32f6f3aa086814613abe1095d7bd8c255c01f295436a",
+          "source_arm": "quadratic",
+          "source_checkpoint_manifest_sha256": "065b4df8307c38bbf64c9fe3a5bba5f39a4593f8495b2df28da7f1a69c46dded",
+          "source_relative_directory": "crazyflow/quadratic",
+          "source_relative_path": "crazyflow/quadratic/model.npz",
+          "source_seal_sha256": "c6ca715dd08b6175ed69cc54f00b2b8d1895f320b80d2fc0c8a55bf171379170"
+        }
+      }
+    },
+    "verification": "Authenticate the external root SHA first, then complete file rosters, every source/copy hash and bytes, frozen model revisions and model/checkpoint/seal anchors. Each historical checker uses its original protocol/runtime/expectations. Missing or altered references abort the harness; no refit, fallback, re-excitation or replacement optimizer."
+  },
+  "named_gap": "Make progress from the fixed balanced initialization without the observed training-objective deterioration, while retaining angular gains and reducing physical residuals and tails.",
+  "optimizer_evidence": {
+    "attempt_fields": [
+      "attempt",
+      "minibatch_indices",
+      "pre_parameters_fingerprint",
+      "previous_first_moment_fingerprint",
+      "previous_second_moment_fingerprint",
+      "minibatch_loss",
+      "gradient_norm",
+      "clipped_gradient_fingerprint",
+      "proposal_parameter_tree",
+      "new_first_moment_fingerprint",
+      "new_second_moment_fingerprint",
+      "current_full_training_loss",
+      "tested_scales",
+      "trial_losses_with_explicit_finite_status",
+      "accepted_scale",
+      "accepted_trial_index_or_null",
+      "post_parameters_fingerprint",
+      "cached_post_full_training_loss",
+      "completed"
+    ],
+    "numerical_identity": "Same-runtime canonical helper/forecast and stored proposal/cache/init/weights/checkpoint bytes replay exactly. Independent NumPy reductions retain the inherited rtol1e-10,atol1e-12 diagnostic tolerance only; it never changes strict < acceptance, selected steps or the finite trial roster.",
+    "observation": "Scoped read-only source/code-bound observation of the actual fitter at explicit proposal and completed acceptance boundaries; chain and restore any prior tracer finally. Observe no alternate gradients, solves or optimizers. Store one actual full proposed parameter tree for every entered finite proposal, actual minibatch indices and actual initial/after-attempt parameter and Adam-state fingerprints.",
+    "partial_failure": "Retain completed attempts plus any actual incomplete proposal/trial prefix with explicit unavailable fields and reason; never fabricate a full roster. A failure before first acceptance evaluation may have no attempts despite valid initializer/weight/checkpoint evidence. Nonfinite loss values use explicit status/null serialization so JSON never silently emits NaN/Infinity. Completed success and failure prefixes are externally bound to the sealed outcome.",
+    "replay": "Start from the authenticated actual initial weight-witness parameter tree and norms, cross-checking checkpoint0 whenever it was captured and the externally anchored imported balanced initial snapshot. Replay only available completed or partial evidence; an early failure without an acceptance loss or entered attempt has no optimizer chain to replay. Reconstruct every tested trial using its stored actual proposal and the canonical interpolation helper; execute the same pinned full-training evaluator and compare actual trial losses and acceptance decisions. Derive accepted parameter path without new gradients, Adam updates, initializer calls or matrix solves. No new optimization or data randomness is introduced; regenerating the frozen seeded minibatch index roster solely for validation is permitted. Exact-match saved actual pre/post parameter fingerprints and every100attempt checkpoint. Verify the deterministic minibatch roster from the declared seed separately. Moment fingerprint chains establish observed state continuity; they are not independent gradient/Adam recomputation.",
+    "storage": "Use a compact proposal-array archive with stable leaf names/shapes/dtypes and an ordered scalar/index transcript, plus an explicit valid-length/partial-attempt schema. Do not save8full trial trees or predictions per attempt. Complete fits require exactly1000ordered completed attempts, a single initial loss and an exact prefix of the8scale roster at every attempt. Model report, transcript totals, source/cache/weight/init anchors, checkpoint values and outcome must agree."
+  },
+  "prior_reference_bundle": {
+    "manifest_sha256": "2f2b87157fae730e08547f7f4730b71f2c33e94d9aa67bb1fbd33789303435e4",
+    "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-18/initial-channel-balance-v1"
+  },
+  "prior_result": {
+    "path": "docs/harness/initial-channel-balance-v1-result.json",
+    "sha256": "980822ac2b72be89518b339e0871cb80d51d97d8e338c26d88c1903260744b28"
+  },
+  "resolution": {
+    "inherit_historical_anchors": "Retain all prior/previous bundle, protocol and result anchors needed by inherited calibration/source/replay helpers under their original names and meanings. prior_reference_bundle is the current import source; never repurpose prior_anchored_bundle or relabel its historical evidence.",
+    "inherit_numeric_contracts": [
+      "fitting.generic_recipe",
+      "fitting.normalization",
+      "fitting.mechanism.formula",
+      "fitting.mechanism.initial_prediction",
+      "fitting.mechanism.initialization",
+      "fitting.mechanism.numerics",
+      "decision.aggregation",
+      "decision.metrics",
+      "decision.tails",
+      "decision.uncertainty",
+      "decision.availability",
+      "decision.public_promotion",
+      "checkpoint_diagnostics.steps"
+    ],
+    "inherit_unchanged": [
+      "cells",
+      "generation",
+      "evaluation",
+      "signals",
+      "runtime",
+      "sources",
+      "parent_source_sha256",
+      "inherited_source_sha256",
+      "imported_calibration",
+      "planned_automatic_roles"
+    ],
+    "kind": "explicit-pinned-parent-with-declared-replacements-v1",
+    "no_stale_claims": "Resolved current-fit descriptions must say safeguarded proposals and fixed existing weights, not a new weighting intervention or current reference fits. No anchored evaluation arm exists in this iteration. Historical anchored initialization provenance stays visible.",
+    "replace_explicitly": [
+      "id",
+      "status",
+      "base_commit",
+      "named_gap",
+      "scope",
+      "fitting arm descriptions and optimizer mechanism",
+      "decision comparison roster and outcome rules",
+      "checkpoint capture/replay additions",
+      "imported reference roster and association",
+      "fresh confirmation and recordings test IDs/seeds",
+      "source inventory additions"
+    ],
+    "rule": "Authenticate base_protocol and its transitive historical anchors before reading fields. A small explicit resolver constructs the compatibility protocol required by existing generation/metric helpers; no generic recursive merge, implicit defaults or unknown overrides. Save the deterministic resolved protocol and its SHA before generation/fitting, and reconstruct it on every integrity replay."
+  },
+  "scope": "Change only acceptance and damping of existing minibatch Adam parameter proposals, using the same fixed weighted objective evaluated on the entire training cache. Architecture, canonical anchored initialization, fixed objective weights, caches, random minibatches, Adam moments, clipping and development selection remain fixed. This is one optimizer intervention with extra training computation; no general convergence, equal-compute or application-adequacy claim.",
+  "status": "frozen-before-implementation-fitting-and-trials",
+  "verification": {
+    "attempts": "Preserve every production/audit attempt script, log, exit status and scientific outcome. Auxiliary corrections cannot alter the frozen source, evidence, fits, selection, cohort or acceptance gates. All original sealed bundles stay unchanged.",
+    "lean_implementation": "Three new research modules and focused test files: safeguarded_adam_model, safeguarded_adam_checkpoints and safeguarded_adam_experiment. Put small matching/decision adapters in the runner and reuse pinned arithmetic/reducers/helpers. No historical source edits, consumer options or platform branches.",
+    "replay": "Reproduce fresh data/query truth and selected-model predictions on both simulators; authenticate imported references and original evidence under their own source/runtime; replay current initial weighting, all train/development checkpoint diagnostics and the optimizer proposal/loss transcript without refitting. Independent reductions use saved predictions, and altered sources/imports/cache/init/weights/proposals/trial loss/scale/acceptance/state chain/checkpoint/decision evidence must reject, including coherent local resealing.",
+    "source_binding": "Authenticate all transitive base protocol and prior root source inventories, then add every new module and focused test and the frozen delta protocol identity to the current runtime map before fitting. Freeze protocol first; commit and test the full implementation before simulation/fitting. Source-bound observer and canonical helper identities are execution evidence, never unverified placeholders.",
+    "stage_supervision": {
+      "hard_stage_wall_time_limit_s": 14400,
+      "scope": "Every generation, fitting plus evidence serialization, evaluation, finalization and replay command has a14400s process watchdog. This explicitly exceeds the7200s internal fitter boundary and permits in-flight completion and post-fit evidence work. A hard watchdog termination is an incomplete stage, not a serialized fit_time_limit or a completed scientific result; preserve all available on-disk artifacts/logs and identify any unpersisted witness prefix as unavailable. Never fabricate missing observations, claim complete replay or restart the same fit automatically."
+    },
+    "tests": "Meaningful toy tests cover alpha1 proposal byte identity; exact lower-scale interpolation; first acceptable scale; all8rejected with parameters/loss retained and moments advanced; nonfinite trial versus optimizer-state failure; one seeded draw per attempt; unchanged first-strict-minimum selection; fixed-cache/weight/init equality; time limit and incomplete-prefix handling; plain versus observed exact parameters/report/trace/call counts; no extra gradients/initializers/solves during capture/replay."
+  }
+}

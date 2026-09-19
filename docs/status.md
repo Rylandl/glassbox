@@ -96,9 +96,10 @@ loss **0.01978948→0.00590152**, development **0.02894970→0.01949018**, selec
 
 ## Next named gap
 
-**Make useful recursive-loss progress from the retained initializer.** Next
-isolate bounded full-training-loss backtracking around the existing Adam
-proposals. Preserve the model, fixed channel weights, initialization, recordings,
+**Make useful recursive-loss progress from the retained initializer.** The
+[safeguarded Adam protocol](harness/safeguarded-adam-v1.json) is now frozen for
+the next iteration, before implementation or fitting. It isolates bounded
+full-training-loss backtracking around the existing Adam proposals. Preserve the model, fixed channel weights, initialization, recordings,
 cache sizes, minibatch draws, clipped gradients, moment formulas and development
 selection. Test whether a bounded acceptance check on all training windows can
 produce useful progress while retaining angular accuracy and repairing tails.
