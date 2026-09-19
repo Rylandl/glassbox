@@ -96,8 +96,17 @@ holds process handles and anchors. Source-bound workers remain immutable.
 
 **Angular generalization across independent recordings.** The next protocol and
 literal roster are frozen at `681daed` in
-`/private/tmp/glassbox-independent-training-recordings`; implementation is in
-progress and no new collection or fitting has run. In the retained
+`/private/tmp/glassbox-independent-training-recordings`; its complete harness is
+committed and source/runtime-bound at `1f46773`, with 195 focused regression tests
+passing. Both new 72-parent training collections completed and every parent has
+a usable native training prefix. Crazyflow has 24 complete trajectories and 48
+altitude failures (148–300 valid transitions); Cascade completes all 72
+(60 transitions each). Cascade's single public update has completed; Crazyflow's
+is running. Both actual caches use 768 old and 768 new windows, preserve the exact
+256 development windows, and equal full extraction from all 144 training parents.
+No fresh
+confirmation data or accuracy result exists yet; the continuation record holds
+their live process handles. In the retained
 expanded-cache fit, Crazyflow training angular RMSE improved
 0.14523 → 0.07347 rad/s while development angular RMSE worsened
 0.13647 → 0.16375 rad/s. The cache already covers 90.38%/93.11% of eligible
