@@ -6,20 +6,18 @@ ARP deficit; this policy decision does not rewrite historical gates. The
 adopted learner remains `generic-memory-v3-prototype`: `glassbox.fit` returns
 `LearnedDynamics` with `predict` and `update`, without consumer tuning options.
 The matched-data studies verify the value of independent command excitation and
-full quadratic capacity, but the latest bilinear ablation fails to retain the
-quadratic model's broad gains. Removing autonomous products improves Crazyflow
-angular forecast/response errors 33.8%/19.8% against quadratic, while weighted
-forecast/response errors worsen 31.5%/29.3%. The saved checkpoint trajectories
-show that much of the angular deficit already exists at initialization. The
-public recipe remains unchanged.
+full quadratic capacity. The latest affine-centered initialization repairs much
+of Crazyflow's initial angular error, but the unchanged optimizer sacrifices
+that benefit while reducing combined loss. Angular errors worsen on both
+training and development windows, so pure overfitting does not explain the
+regression. The selected anchored model fails held-out gain-retention and
+angular-repair criteria. The public recipe remains unchanged.
 
 **Current evaluation priority, 2026-09-18:** retain verified collection and
-quadratic-capacity gains while reducing remaining physical residuals across
-Crazyflow/Cascade conditions and horizons. Next isolate an affine-centered ridge
-initializer for the full quadratic model: use the existing affine initialization
-as the center of the existing penalty, with unchanged data, feature capacity,
-objective and optimizer budget. Structured comparisons remain context; JSBSim
-breadth work is deferred.
+quadratic-capacity gains while reducing physical residuals across Crazyflow and
+Cascade. Next isolate a generic channel-balanced training objective using fixed
+initial-training-residual scales. Structured comparisons remain context;
+JSBSim breadth work is deferred.
 
 Read [the charter](charter.md) first. This page records the current gaps and
 next iteration; git and frozen result records retain experiment history.
@@ -27,7 +25,7 @@ next iteration; git and frozen result records retain experiment history.
 | Criterion | Current | Target |
 | --- | --- | --- |
 | One recipe | **Met.** The public API and fit/evaluate commands use the single adopted generic recipe, with no model-selection options. | One generic learner and consumer contract. |
-| Accuracy | **Collection and quadratic value verified; fitting tradeoff unresolved.** Public excitation reduces weighted forecast/response error 5.9%/63.7% against original data. Latest matched tests give quadratic/public ratios 0.78445/0.75357, but Crazyflow angular tails still fail. Bilinear repairs angular error (forecast 0.38413→0.25413 rad/s) but loses velocity/rotation gains and fails broad progress/retention. Development captures place much of the angular deficit in initialization. Arbitrary-system transfer remains unmeasured. | Low held-out forecast and command-response residuals in physical units across conditions and horizons, with progress against the adopted generic baseline; application adequacy measured separately. |
+| Accuracy | **Collection/capacity gains verified; training tradeoff unresolved.** On the latest fresh cohort, quadratic/public weighted forecast/response ratios are 0.78751/0.76201. Anchored initialization reduces Crazyflow development angular RMSE 0.31508→0.18853 rad/s, but selected training raises it to 0.31029; held-out angular is 0.34666 versus quadratic's 0.34503. Anchored/quad weighted forecast worsens 6.5%, with angular tails still excessive. Both training and development angular residuals deteriorate while combined loss falls. | Low held-out forecast and command-response residuals in physical units across conditions and horizons, with progress against the adopted generic baseline; application adequacy measured separately. |
 | Model usability | **Partly met.** The public model has a saved signal/time contract, batched JAX-compatible forecasts, immutable revisions and error envelopes. Independent controller integration and broader runtime/export portability have not been demonstrated. | A documented model artifact and public interface usable independently of the Glassbox controller, with explicit scope and evidence. |
 | Capability | **Met.** All 27 frozen synthetic cases pass; saved models replay and reject alteration. These are regression guards, not platform readiness. | Every synthetic absolute cap passes. |
 | Reference control | **Demonstrated by both isolated research learners; adopted public model not yet tested with the new controller.** Forecast-only and paired-response means each score 2,248/2,248 and pass all eight trials. Exact replay and integrity checks pass. | Separately qualified downstream demonstrations; one universal controller is optional for the model product. |
@@ -35,68 +33,67 @@ next iteration; git and frozen result records retain experiment history.
 | Evidence | **Not met.** In the original two-simulator public baseline, primary 250 ms velocity/rate coverage is 85.8–89.7%, but extreme-maneuver coverage falls to 47.4–68.3%. Crazyflow additionally has missing truth after altitude failures. Earlier ARP, reserved-control and shifted-synthetic failures remain. Borrowed constant spread is not calibrated uncertainty for a new predictor. | Measured prediction coverage in the declared band, exposed with calibration provenance independently of a controller. |
 | Lean | **Not met.** Structured dynamics, fitting, belief code and research scripts remain. | Learner, model artifacts/interfaces, harness, telemetry adapters and optional downstream consumers. |
 
-## Current bilinear ablation and initialization diagnosis
+## Current affine-centered initialization evidence
 
-[Excited bilinear ablation v1](harness/excited-bilinear-ablation-v1-result.json)
-compares public-excited, quadratic-excited and bilinear-excited on a fresh common
-cohort. All three share the exact imported excited recordings, 384/256 cached
-training/development windows, six base norms, numerical objective weights and
-1,000-update budgets. This matches data and updates, not FLOPs. Both public and
-quadratic reference refits reproduce their trusted revisions exactly.
+[Affine-centered quadratic v1](harness/affine-anchored-quadratic-v1-result.json)
+changes only the full quadratic initializer's ridge center, using its existing
+affine precursor. It retains the imported recordings, exact 384/256 cached
+windows, all feature scales, loss, random draws and 1,000-update budget. The
+four public/quadratic refits reproduce trusted saved revisions exactly. Both
+quadratic models retain the same capacity. Data and updates match; FLOPs and
+wall time do not.
 
-Removing the autonomous products passes all four targeted angular-repair criteria:
-Crazyflow primary 250 ms rate forecast/response RMSE falls
-**0.38413→0.25413 / 0.31593→0.25330 rad/s**, and parent-error p95 falls
-**0.60502→0.41602 / 0.56264→0.41144 rad/s**. However, bilinear/quadratic weighted
-forecast/response ratios are **1.31502 / 1.29269**, failing gain retention. Crazyflow
-velocity forecast worsens **0.07036→0.15472 m/s**, rotation forecast
-**0.03385→0.11294**, and velocity response **0.03596→0.06105 m/s**. Cascade also
-loses substantial velocity/rotation accuracy against quadratic.
+The anchored/public weighted forecast/response ratios are **0.83833 / 0.79286**,
+but Crazyflow angular forecast parent p95 is **0.59913 versus 0.31697 rad/s**,
+a **1.89018** ratio above the predeclared 1.5 limit. Anchored/quadratic ratios
+are **1.06452 / 1.04048**; forecast fails the 1.05 retained-gain limit. Targeted
+angular repair also fails: held-out primary 250 ms RMSE is **0.34666 versus
+0.34503 rad/s** and p95 is **0.59913 versus 0.54923**. The candidate is not
+promoted. Quadratic/public ratios **0.78751 / 0.76201** retain the strongest
+aggregate research result on this cohort, with its angular tail losses visible.
 
-Bilinear/public ratios are **1.03157 / 0.97414**: less than the required 10%
-response gain, with Cascade primary response ratio **1.17254** above its 1.15
-limit. Bilinear is not promoted. Quadratic/public ratios **0.78445 / 0.75357**
-confirm broad value, but angular tails remain above the predeclared limits.
-The contextual quadratic comparison cannot veto an independently successful
-candidate; this candidate fails its own broad criteria. No criterion changed.
+The initializer itself has a substantial development effect. Crazyflow initial
+velocity/rate/rotation RMSE is **0.09902 / 0.18853 / 0.07234**, versus quadratic's
+**0.06443 / 0.31508 / 0.03787**. Angular parent p95 improves **0.54078→0.27881**.
+At selected step 900, anchored RMSE becomes **0.06489 / 0.31029 / 0.03394** and
+angular p95 **0.48520**. Total development loss falls **0.00931460→0.00467118**,
+but angular contribution rises **0.00052289→0.00168156**, offset by rotation's
+**0.00846811→0.00272587**. Every later recorded angular RMSE exceeds initialization.
+No intermediate checkpoint receives held-out evaluation.
 
-Prospectively captured parameters and physical development diagnostics cover all
-**66 checkpoints**. Crazyflow public and bilinear select step zero; every later
-recorded checkpoint worsens all three 250 ms physical RMSE groups relative to
-its own initialization. Quadratic already has its characteristic tradeoff at
-step zero: development velocity/rate/rotation RMSE is
-**0.06443 / 0.31508 / 0.03787**, versus public's
-**0.15489 / 0.21359 / 0.11204**. At selected step 900, quadratic reaches
-**0.06284 / 0.33368 / 0.02920**. Initialization accounts for much of the angular
-deficit; later training trades additional rate error for lower rotation loss.
-Selecting quadratic's best observed angular checkpoint (step zero, 0.31508)
-could reduce the selected 0.33368 error, but still would not approach public's
-0.21359. In Cascade, quadratic training improves all three groups.
+A separately anchored retrospective diagnosis executes all 66 saved snapshots
+on exact training/development windows. Anchored Crazyflow training angular RMSE
+also worsens, **0.12881→0.28250 rad/s**, while training velocity improves
+**0.08479→0.05940 m/s** and rotation improves **0.05529→0.03055**. Angular
+training loss contribution grows **0.00045248→0.00140551** while total training
+loss falls **0.00785872→0.00372229**. Thus overfitting alone cannot explain the
+tradeoff; the combined objective rewards a trajectory with worse angular
+training and development residuals. This does not establish gradient conflict
+or prove that channel balancing will solve it. A retrospective state-standard-
+deviation rescaling still favors step 900; it is not a new training experiment.
 
-Crazyflow completes **65/84** test parents; 19 fail the altitude condition.
-Primary 250 ms truth includes **416/480 factual / 680/768 response** queries.
-Cascade completes **84/84**, with **480/480 / 576/576** truth. Every eligible
-prediction is finite; all missing slots are shared and retained. Imported
-Crazyflow excited training still completes only **24/72**, and its failed prefixes
-remain in the fits. More completed parents than the prior cohort does not imply
-more eligible queries or improved learner coverage; seeds and valid-prefix
-lengths differ.
+Cascade anchored training improves all three development groups, reaching
+**0.10911 m/s / 0.08879 rad/s / 0.00983 rotation entries** at step 1,000, versus
+quadratic's **0.11405 / 0.08868 / 0.01003**. The next change must retain broad
+benefits with the same generic recipe.
 
-Fresh replay reproduces common and imported simulator data, selected-model
-predictions, checkpoint forecasts and diagnostics, decisions and bootstrap draws.
-Independent numerical audits verify their declared score, tail, cache and
-checkpoint scopes. The [experiment guide](excited-bilinear-ablation.md) and result
-record detail verification and limitations. No optimizer is re-solved in replay;
-no intermediate model is selected using held-out tests. No public recipe,
-derivative, envelope, update or controller qualification changes.
+Crazyflow completes **62/84** test parents; 22 fail altitude validity. Primary
+250 ms available truth is **448/480** factual and **736/768** response queries.
+Cascade completes **84/84**, with **480/480 / 576/576** truth. All eligible
+predictions are finite. Fewer complete Crazyflow parents than the preceding
+cohort coexist with more eligible primary queries; accuracy remains conditional
+on the actual shared truth masks. Imported Crazyflow training still retains its
+24/72 complete parents and all admitted failed prefixes.
 
-The earlier [public-architecture study](harness/excited-public-architecture-v1-result.json)
-retains the accepted collection gain: public-excited/public-original weighted
-forecast/response ratios **0.94118 / 0.36314**, and quadratic/public-excited
-**0.77398 / 0.76232** on that earlier cohort. Those are their own matched results,
-not interchangeable denominators for the latest cohort. See its
-[guide](excited-public-architecture.md) for the physical gains, local losses and
-unchanged public recipe.
+All **554 focused checks**, both fresh full replays and **31 alteration
+challenges** pass. Source-bound witnesses verify the actual candidate solve
+inputs, installed coefficients and exact shared affine precursors. Independent
+analysis passes after two preserved auxiliary serialization/layout corrections;
+no production source, fit, protocol or sealed outcome changed. The separate
+training diagnosis is retrospective and changes no fit or selection. See the
+[guide](affine-anchored-quadratic.md) and result record for scopes, hashes,
+limitations and failed auxiliary attempts. No public recipe, uncertainty,
+derivative, update or controller qualification changes.
 
 ## Crazyflow and Cascade baseline evidence
 
@@ -358,32 +355,29 @@ does not change that recipe or consumer behavior.
 
 ## Next named gap
 
-**Preserve useful affine dynamics while initializing full quadratic capacity.**
-The bilinear ablation shows that removing autonomous products loses broad
-velocity/rotation value. Checkpoint evidence places much of the Crazyflow angular
-regression before gradient optimization, in the expanded joint ridge initializer.
-This supports an initialization ablation before changing the development objective
-or mixing different training collections.
+**Balance output-channel progress during optimization.** The affine-centered
+initializer produces useful angular dynamics that the unchanged combined loss
+trades away on both training and development data. This motivates one generic
+objective intervention before adding capacity or assuming more data is the fix.
 
-Keep the full quadratic architecture and change only the ridge penalty center:
-penalize deviation from the affine initializer already computed by the current
-code, instead of deviation from zero. Keep the existing penalty strength, with
-zero-centered product coefficients and unpenalized bias. This is one generic
-coefficient prior, without channel labels, platform knowledge, another fit,
-additional tuning options or an increased update budget.
+Keep full quadratic capacity, anchored initialization, current recordings,
+cache sizes, horizon weighting, minibatch draws and update budget. Measure each
+output channel's mean squared normalized residual on the exact training cache
+at initialization, using the existing horizon-dependent hold scales. Form fixed
+inverse residual weights, floor the denominator at the existing
+`hold_scale_floor ** 2`, and normalize weights to mean one. Use the same weighted
+objective for training and development checkpoint selection. No signal labels,
+physical groups, platform knowledge, adaptive weight sweep or consumer option
+enters the learner. Constant or already accurate channels require explicit
+finite/floor tests; the numerical floor is not an application accuracy target.
 
-Compare the anchored candidate against unchanged public-excited and quadratic
-references on another fresh cohort. Freeze the same public-progress, retained-gain
-and angular-repair margins before fitting. Preserve exact data roles, cached
-windows, all feature scales, objective, random draws and optimizer/selection
-rules. Save initialization and every existing development checkpoint, including
-coefficient displacement by generic feature block. Only the chosen revision gets
-held-out evaluation.
+Freeze the full experiment before implementation or fitting. Compare the changed
+objective to the unchanged anchored model as the direct mechanism control, and
+retain the adopted public and strongest quadratic references on the same fresh
+cohort. Exact saved references can be reused with their original fit provenance;
+if so, state that explicitly rather than claiming fresh comparator refits. Keep
+absolute physical errors, broad gains, bounded local losses, failed parents and
+all calibration/derivative/update/control qualification limits visible.
 
-If angular repair appears at initialization but disappears during training, that
-would support a separate objective or regularization iteration. If it never
-appears, anchoring is rejected. The present evidence does not establish that this
-mechanism works or that mixing original recordings would solve the problem.
-Collection benefits remain accepted independently. Keep incomplete Crazyflow
-truth and all forecast, response, derivative, envelope, update and controller
-qualification boundaries explicit.
+This is an untested next hypothesis, not an accepted model or proof that loss
+balancing is sufficient. The existing anchored candidate remains unpromoted.
