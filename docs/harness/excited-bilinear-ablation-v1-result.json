@@ -1,0 +1,2479 @@
+{
+  "angular_repair": {
+    "baseline_fields_mean": "quadratic",
+    "bootstrap": {
+      "conditional_on_available_truth": true,
+      "intervals_condition_on_available_draws": true,
+      "parent_draws_sha256": "7d90218f73e06a3ef8cbdc9b6039212a3c628838a49554915db7b131cb794a23",
+      "point_estimates_only_for_acceptance": true,
+      "requested_draws": 1000,
+      "seed": 20260918,
+      "statistics": {
+        "factual_aggregate_rmse": {
+          "available_draws": 1000,
+          "percentile_95_interval": [
+            0.6175740671274561,
+            0.703607149596089
+          ],
+          "unavailable_draws": 0
+        },
+        "factual_parent_rmse_p95": {
+          "available_draws": 1000,
+          "percentile_95_interval": [
+            0.6127288385211652,
+            0.7887055503524393
+          ],
+          "unavailable_draws": 0
+        },
+        "response_aggregate_rmse": {
+          "available_draws": 1000,
+          "percentile_95_interval": [
+            0.7639584804097822,
+            0.8451520879841327
+          ],
+          "unavailable_draws": 0
+        },
+        "response_parent_rmse_p95": {
+          "available_draws": 1000,
+          "percentile_95_interval": [
+            0.6487811864356642,
+            0.8287288227716714
+          ],
+          "unavailable_draws": 0
+        }
+      }
+    },
+    "candidate_fields_mean": "candidate",
+    "checks": {
+      "factual_aggregate_rmse": true,
+      "factual_parent_rmse_p95": true,
+      "finite_eligible_predictions": true,
+      "matching_planned_queries_and_truth": true,
+      "response_aggregate_rmse": true,
+      "response_parent_rmse_p95": true
+    },
+    "denominator_arm": "quadratic",
+    "numerator_arm": "candidate",
+    "parent_tail_comparisons": {
+      "factual": {
+        "baseline": {
+          "arm": "baseline",
+          "available_parents": 48,
+          "failed_parents": 0,
+          "group": "body_rate_rad_s",
+          "horizon_s": 0.25,
+          "kind": "factual",
+          "max": 0.6663147329479917,
+          "missing_parents": 0,
+          "p50": 0.34939787058792515,
+          "p95": 0.6050223694975231,
+          "planned_parents": 48,
+          "scope": "primary",
+          "simulator": "crazyflow",
+          "statistic": "endpoint"
+        },
+        "baseline_p95": 0.6050223694975231,
+        "candidate": {
+          "arm": "candidate",
+          "available_parents": 48,
+          "failed_parents": 0,
+          "group": "body_rate_rad_s",
+          "horizon_s": 0.25,
+          "kind": "factual",
+          "max": 0.5559086277146715,
+          "missing_parents": 0,
+          "p50": 0.2019873653004821,
+          "p95": 0.4160206174464404,
+          "planned_parents": 48,
+          "scope": "primary",
+          "simulator": "crazyflow",
+          "statistic": "endpoint"
+        },
+        "candidate_p95": 0.4160206174464404,
+        "ratio": 0.6876119601857854
+      },
+      "response": {
+        "baseline": {
+          "arm": "baseline",
+          "available_parents": 48,
+          "failed_parents": 0,
+          "group": "body_rate_rad_s",
+          "horizon_s": 0.25,
+          "kind": "response",
+          "max": 0.7540691043617056,
+          "missing_parents": 0,
+          "p50": 0.23560633590752025,
+          "p95": 0.5626374886172635,
+          "planned_parents": 48,
+          "scope": "primary",
+          "simulator": "crazyflow",
+          "statistic": "endpoint"
+        },
+        "baseline_p95": 0.5626374886172635,
+        "candidate": {
+          "arm": "candidate",
+          "available_parents": 48,
+          "failed_parents": 0,
+          "group": "body_rate_rad_s",
+          "horizon_s": 0.25,
+          "kind": "response",
+          "max": 0.4878613741448803,
+          "missing_parents": 0,
+          "p50": 0.20755698332019704,
+          "p95": 0.4114396570590548,
+          "planned_parents": 48,
+          "scope": "primary",
+          "simulator": "crazyflow",
+          "statistic": "endpoint"
+        },
+        "candidate_p95": 0.4114396570590548,
+        "ratio": 0.7312695392377921
+      }
+    },
+    "physical_comparisons": {
+      "factual": {
+        "absolute_change": -0.13000035105849417,
+        "baseline_rmse": 0.3841299390959172,
+        "candidate_rmse": 0.254129588037423,
+        "conditional_on_incomplete_truth": true,
+        "group": "body_rate_rad_s",
+        "horizon_s": 0.25,
+        "kind": "factual",
+        "planned": 480,
+        "ratio": 0.6615719374426758,
+        "scope": "primary",
+        "simulator": "crazyflow",
+        "truth_eligible": 416
+      },
+      "response": {
+        "absolute_change": -0.06262167488915032,
+        "baseline_rmse": 0.3159261393774524,
+        "candidate_rmse": 0.2533044644883021,
+        "conditional_on_incomplete_truth": true,
+        "group": "body_rate_rad_s",
+        "horizon_s": 0.25,
+        "kind": "response",
+        "planned": 768,
+        "ratio": 0.8017838124678467,
+        "scope": "primary",
+        "simulator": "crazyflow",
+        "truth_eligible": 680
+      }
+    },
+    "policy": {
+      "denominator": "quadratic",
+      "factual_aggregate_rmse_ratio_max": 0.8,
+      "factual_parent_rmse_p95_ratio_max": 0.8,
+      "group": "body_rate_rad_s",
+      "horizon_s": 0.25,
+      "interpretation": "Prospective material angular repair and response-retention margins. These are engineering experiment criteria, not application accuracy tolerances or equivalence tests.",
+      "numerator": "candidate",
+      "response_aggregate_rmse_ratio_max": 1.05,
+      "response_parent_rmse_p95_ratio_max": 1.05,
+      "scope": "primary",
+      "simulator": "crazyflow",
+      "statistic": "Use the same hierarchical available_truth_rmse as headline comparisons; parentRMSEp95 uses the existing parent balancing and NumPylinearquantile. Apply the unchanged physical floors. Weak probes remain in raw response scores. Exact same queries and truth masks for both arms."
+    },
+    "residual_criteria_pass": true
+  },
+  "arms": {
+    "baseline": "unchanged public-excited",
+    "candidate": "bilinear-excited; autonomous products removed",
+    "hold": "hold-current, zero response",
+    "quadratic": "unchanged full quadratic-excited"
+  },
+  "auxiliary_sha256": {
+    "artifacts/2026-09-18/excited-bilinear-ablation-v1-analysis-initial-render.log": "9dfe96b30ecd3d70f539eb6d29361633098cc0da476b59e16a2512847f9fc7e5",
+    "artifacts/2026-09-18/excited-bilinear-ablation-v1-analysis.json": "f14a4a7fde31338748edeb066486a89c36b91fc17871b5828be5baf55ae29dce",
+    "artifacts/2026-09-18/excited-bilinear-ablation-v1-analysis.log": "4e5da2736b1f1c86356c5ab224c37526c96c7eb448a670605e237b92052e1e03",
+    "artifacts/2026-09-18/excited-bilinear-ablation-v1-analysis.py": "6b6862c9932773cb62052e38cfffddfbbbae73506f6e81455083c601a7f5c9af",
+    "artifacts/2026-09-18/excited-bilinear-ablation-v1-figures/development-objective-contributions.png": "5d2f6f5201b69ab5514b5296a0021a2a27f0e5ff9e04f39b27de80c6cc339962",
+    "artifacts/2026-09-18/excited-bilinear-ablation-v1-figures/development-objective-contributions.svg": "c66f97010e8e1ea515a4d83f98ead90e798e826a2b449baa4695f065cd625284",
+    "artifacts/2026-09-18/excited-bilinear-ablation-v1-figures/development-physical-trajectories.png": "9758aa38e4425d1f9de684509c8149f3b2daadf108cab12df9f6a26353b22356",
+    "artifacts/2026-09-18/excited-bilinear-ablation-v1-figures/development-physical-trajectories.svg": "5aee496949069a01f5f277e6894dd7bfcfb1b6e508350aa882d2dee679a78fb7",
+    "artifacts/2026-09-18/excited-bilinear-ablation-v1-figures/primary-250ms-heldout.png": "05fb32cd6fbab79811e2c6a8168b1ed68a2b6a52c53e6fb575aff69cf04d74f9",
+    "artifacts/2026-09-18/excited-bilinear-ablation-v1-figures/primary-250ms-heldout.svg": "f671f045131499f2e7e937844712fb3ba7913ede7bb8af5923a4ce1d1c78d4bb",
+    "artifacts/2026-09-18/excited-bilinear-ablation-v1-focused-tests-attempt-1.log": "9063e34cb6743f95ac86ee007b05304d902604e8002c1d89596ab9df9bf59c8a",
+    "artifacts/2026-09-18/excited-bilinear-ablation-v1-independent-attempt-01.log": "2636723950564a49cf1dbe6ba81be993aea1bd4d6fdb33e0644f0b200e005b28",
+    "artifacts/2026-09-18/excited-bilinear-ablation-v1-independent.json": "8287e1c06f094017bac992694832e044bddd1c3b3eaff7ad85eca0cb1432c763",
+    "artifacts/2026-09-18/excited-bilinear-ablation-v1-independent.py": "60b24071de3ee07cb990a2ebca5500d82c0ee35d208461426d07bd2361c9f621",
+    "artifacts/2026-09-18/excited-bilinear-ablation-v1-logs/evaluate-cascade.json": "a6ec06ed08bc04f4e8d69c234cae7bd8bde94249cb9b6f41604122cfee148ac5",
+    "artifacts/2026-09-18/excited-bilinear-ablation-v1-logs/evaluate-cascade.log": "802f2e07c868a37a02885fdda6bb02517b951a315719f99388417bcb2a248d65",
+    "artifacts/2026-09-18/excited-bilinear-ablation-v1-logs/evaluate-crazyflow.json": "4e179cfef5cf3232e4ba17a3f05d0ca1edc2accfd1435b689f38ff477f2afa7b",
+    "artifacts/2026-09-18/excited-bilinear-ablation-v1-logs/evaluate-crazyflow.log": "d9c0e622a07edb5e8d48c184230e3966dbf6ae4b757c97dfb6a98ab126f6e564",
+    "artifacts/2026-09-18/excited-bilinear-ablation-v1-logs/finalize-crazyflow.json": "15fdebff1e8c2fb93139cd83bc72d11b5c7165a1d4fc8d4cc87a92e0757ef817",
+    "artifacts/2026-09-18/excited-bilinear-ablation-v1-logs/finalize-crazyflow.log": "00f668343656958e9cadf6a46238787012dd4e064d85e9c4332edf3f6483524b",
+    "artifacts/2026-09-18/excited-bilinear-ablation-v1-logs/fit-cascade-baseline.json": "7aa2a01aa857f9fab5950c3607e15eaaa08fc1c34ff550e0f90fae90d749cbf2",
+    "artifacts/2026-09-18/excited-bilinear-ablation-v1-logs/fit-cascade-baseline.log": "0a159485ed06015ee9debda9e5962ddfc3461b00facf6ae3ca3371131d3dae33",
+    "artifacts/2026-09-18/excited-bilinear-ablation-v1-logs/fit-cascade-candidate.json": "ad71e400a6e34370581ada0251a64a47d502db2835ad374fedd4189523014b03",
+    "artifacts/2026-09-18/excited-bilinear-ablation-v1-logs/fit-cascade-candidate.log": "bf394fc3cc04a1efc0c89a17bcef87e75265456ba5075be74b42e5a029033abc",
+    "artifacts/2026-09-18/excited-bilinear-ablation-v1-logs/fit-cascade-quadratic.json": "7ae7a8241246e62e057a2cb2ef67dacd93be2a6963179a9bea7cf0e33599c95b",
+    "artifacts/2026-09-18/excited-bilinear-ablation-v1-logs/fit-cascade-quadratic.log": "79f1083627865689eb546c34095cdedd8eac301db0d50d0caf9f529b9851a8bc",
+    "artifacts/2026-09-18/excited-bilinear-ablation-v1-logs/fit-crazyflow-baseline.json": "a095ffd2c3057357f7c74797e543c2e7c021fd411bf0e75289cdb552374ebbf2",
+    "artifacts/2026-09-18/excited-bilinear-ablation-v1-logs/fit-crazyflow-baseline.log": "80b852af94ba1fa86d348cad940cc97363d0aef1c19b5d1a77a34cc73cd8c99e",
+    "artifacts/2026-09-18/excited-bilinear-ablation-v1-logs/fit-crazyflow-candidate.json": "719361f517ba08711f4503aa3268930f04663c5a77b966db86b8774a2e08ab80",
+    "artifacts/2026-09-18/excited-bilinear-ablation-v1-logs/fit-crazyflow-candidate.log": "580018703a3e5ee9bbdd72ef29cde594d9a39511b399b4e5675f3cd4ca2e84a5",
+    "artifacts/2026-09-18/excited-bilinear-ablation-v1-logs/fit-crazyflow-quadratic.json": "47fd12d88f8738547b5edf4241cd7f290c089c42d3bdd6d92dcf78ddf89a61b1",
+    "artifacts/2026-09-18/excited-bilinear-ablation-v1-logs/fit-crazyflow-quadratic.log": "6447cc315f436f055ae48c45a0bbb234a997f133ab4cf1d35dee0ff0c09ccff6",
+    "artifacts/2026-09-18/excited-bilinear-ablation-v1-logs/generate-cascade.json": "e399c772fc4d04d5a9118cedae9e099f28739858d937dffd74efb4782410644f",
+    "artifacts/2026-09-18/excited-bilinear-ablation-v1-logs/generate-cascade.log": "7dda29e3ce56ea8a594e2f8a41d91d9e26a875aff96fa4e91d6ce46b6fd345bb",
+    "artifacts/2026-09-18/excited-bilinear-ablation-v1-logs/generate-crazyflow.json": "74165ba722793acfb0b4c05df616d5dbb6b1d35980cbb7345d4d664f839ab32b",
+    "artifacts/2026-09-18/excited-bilinear-ablation-v1-logs/generate-crazyflow.log": "c8cf5f4b6f6dc8e1af1a7f5527b86511c51802fe18a20902c0663704abbbb856",
+    "artifacts/2026-09-18/excited-bilinear-ablation-v1-logs/replay-cascade-d3b5ffc96e0b4e0a4f39887369973583b781af029162d740870f45fe88e19c88.json": "efe952b4ee53c3a737d60961faced1bf867b716c9027299ed36894c880d621f3",
+    "artifacts/2026-09-18/excited-bilinear-ablation-v1-logs/replay-cascade-d3b5ffc96e0b4e0a4f39887369973583b781af029162d740870f45fe88e19c88.log": "c120e2fd9f4f8dc67a5864c5d27c14c3132c21192a16a4c047eab6e2672066bb",
+    "artifacts/2026-09-18/excited-bilinear-ablation-v1-logs/replay-crazyflow-d3b5ffc96e0b4e0a4f39887369973583b781af029162d740870f45fe88e19c88.json": "5fb7b70cc0f8c709636a8d9272199b72a00dde5c0e914decc5010675cf48a789",
+    "artifacts/2026-09-18/excited-bilinear-ablation-v1-logs/replay-crazyflow-d3b5ffc96e0b4e0a4f39887369973583b781af029162d740870f45fe88e19c88.log": "d7996cf9623430648f48143ba924fab5f8af7d51ca9e8677773f7eb33bb4d269",
+    "artifacts/2026-09-18/excited-bilinear-ablation-v1-preflight-attempt-1.log": "dc3c102ff0eb5ff1abfdba2e987dc13548be1b0932c325e1c8a0fa790eac42b9",
+    "artifacts/2026-09-18/excited-bilinear-ablation-v1-record.py": "fa12c09600f012de5904b6b66c5786c318c5511d29da73ef038d48aa180cb5ef",
+    "artifacts/2026-09-18/excited-bilinear-ablation-v1-ruff.log": "b2a588b384f6be753eae1fb893b49b0d33c4931e8a39c6576453bcf908d6e1ed",
+    "artifacts/2026-09-18/excited-bilinear-ablation-v1-runner-tests-attempt-1.log": "021e305444025655ded9c7f249fc61e8b04fb1da04c8636a3a7bfa42c5cc8350",
+    "artifacts/2026-09-18/excited-bilinear-ablation-v1-runner-tests-attempt-2.log": "fa64b094d463ad9f54683a1a1451d42f1a6f8ba583217a6c9c3c72632bd8fe9f",
+    "artifacts/2026-09-18/excited-bilinear-ablation-v1-tamper-attempt-1.log": "a92d651de3d6fb6ceb6b4c82da70bdc133fbd0f616e773fff25ef4123a3c7833",
+    "artifacts/2026-09-18/excited-bilinear-ablation-v1-tamper.json": "cb72cfbc1b96ebff3d8872eda213ec6cc2a5334e4b696e6e562b87e918c8b352",
+    "artifacts/2026-09-18/excited-bilinear-ablation-v1-tamper.py": "da880962e2db4da6b438bc4a2e4ddcda106356bb42776eac840b16ab2b057d61"
+  },
+  "bundle": {
+    "manifest_sha256": "d3b5ffc96e0b4e0a4f39887369973583b781af029162d740870f45fe88e19c88",
+    "path": "artifacts/2026-09-18/excited-bilinear-ablation-v1",
+    "sealed_payloads": 14557
+  },
+  "comparisons": {
+    "bilinear_public_progress": {
+      "bootstrap": {
+        "aggregates": {
+          "factual": {
+            "available_draws": 1000,
+            "percentile_95_interval": [
+              1.0124794736534843,
+              1.048221847521641
+            ],
+            "unavailable_draws": 0
+          },
+          "response": {
+            "available_draws": 1000,
+            "percentile_95_interval": [
+              0.9565483512469968,
+              0.9904333350860882
+            ],
+            "unavailable_draws": 0
+          }
+        },
+        "conditional_on_available_truth": true,
+        "intervals_condition_on_available_draws": true,
+        "parent_draws_sha256": "7d90218f73e06a3ef8cbdc9b6039212a3c628838a49554915db7b131cb794a23",
+        "requested_draws": 1000,
+        "seed": 20260918
+      },
+      "checks": {
+        "factual_regression": true,
+        "finite_eligible_predictions": true,
+        "matching_planned_queries_and_truth": true,
+        "primary_parent_tail_regressions": true,
+        "primary_simulator_regressions": false,
+        "response_gain": false,
+        "scope_regressions": true
+      },
+      "denominator_arm": "baseline",
+      "limits": {
+        "each_simulator_250ms_primary_parent_rmse_p95_ratio_max": 1.5,
+        "each_simulator_primary_factual_and_response_geometric_mean_ratio_max": 1.15,
+        "each_simulator_scope_factual_and_response_geometric_mean_ratio_max": 1.5,
+        "factual_weighted_geometric_mean_ratio_max": 1.05,
+        "response_weighted_geometric_mean_ratio_max": 0.9
+      },
+      "numerator_arm": "candidate",
+      "residual_criteria_pass": false,
+      "scope_ratios": [
+        {
+          "kind": "factual",
+          "ratio": 1.0098624673812364,
+          "scope": "heading_shift",
+          "simulator": "cascade"
+        },
+        {
+          "kind": "factual",
+          "ratio": 1.1905066678611174,
+          "scope": "maneuver_shift",
+          "simulator": "cascade"
+        },
+        {
+          "kind": "factual",
+          "ratio": 0.9827562936758117,
+          "scope": "primary",
+          "simulator": "cascade"
+        },
+        {
+          "kind": "factual",
+          "ratio": 0.8952665538872716,
+          "scope": "speed_shift",
+          "simulator": "cascade"
+        },
+        {
+          "kind": "factual",
+          "ratio": 1.0471966468955667,
+          "scope": "wind_shift",
+          "simulator": "cascade"
+        },
+        {
+          "kind": "factual",
+          "ratio": 1.072019800909183,
+          "scope": "heading_shift",
+          "simulator": "crazyflow"
+        },
+        {
+          "kind": "factual",
+          "ratio": 1.014837824955056,
+          "scope": "maneuver_shift",
+          "simulator": "crazyflow"
+        },
+        {
+          "kind": "factual",
+          "ratio": 0.9907258216372724,
+          "scope": "primary",
+          "simulator": "crazyflow"
+        },
+        {
+          "kind": "factual",
+          "ratio": 1.183782712942884,
+          "scope": "speed_shift",
+          "simulator": "crazyflow"
+        },
+        {
+          "kind": "factual",
+          "ratio": 1.2604979249589947,
+          "scope": "wind_shift",
+          "simulator": "crazyflow"
+        },
+        {
+          "kind": "response",
+          "ratio": 1.2273650640606022,
+          "scope": "heading_shift",
+          "simulator": "cascade"
+        },
+        {
+          "kind": "response",
+          "ratio": 1.4052218740174756,
+          "scope": "maneuver_shift",
+          "simulator": "cascade"
+        },
+        {
+          "kind": "response",
+          "ratio": 1.1725437469021227,
+          "scope": "primary",
+          "simulator": "cascade"
+        },
+        {
+          "kind": "response",
+          "ratio": 1.135144096091001,
+          "scope": "speed_shift",
+          "simulator": "cascade"
+        },
+        {
+          "kind": "response",
+          "ratio": 1.2622490378869047,
+          "scope": "wind_shift",
+          "simulator": "cascade"
+        },
+        {
+          "kind": "response",
+          "ratio": 0.7372205857705113,
+          "scope": "heading_shift",
+          "simulator": "crazyflow"
+        },
+        {
+          "kind": "response",
+          "ratio": 0.8861524516971492,
+          "scope": "maneuver_shift",
+          "simulator": "crazyflow"
+        },
+        {
+          "kind": "response",
+          "ratio": 0.8260105977514244,
+          "scope": "primary",
+          "simulator": "crazyflow"
+        },
+        {
+          "kind": "response",
+          "ratio": 0.662482085684082,
+          "scope": "speed_shift",
+          "simulator": "crazyflow"
+        },
+        {
+          "kind": "response",
+          "ratio": 0.6986877572713878,
+          "scope": "wind_shift",
+          "simulator": "crazyflow"
+        }
+      ],
+      "weighted_geometric_mean_ratios": {
+        "factual": 1.0315709287106771,
+        "response": 0.9741392348687422
+      }
+    },
+    "quadratic_gain_retention": {
+      "bootstrap": {
+        "aggregates": {
+          "factual": {
+            "available_draws": 1000,
+            "percentile_95_interval": [
+              1.2931463199032542,
+              1.3333719557637516
+            ],
+            "unavailable_draws": 0
+          },
+          "response": {
+            "available_draws": 1000,
+            "percentile_95_interval": [
+              1.2723293916407485,
+              1.3136488113187714
+            ],
+            "unavailable_draws": 0
+          }
+        },
+        "conditional_on_available_truth": true,
+        "intervals_condition_on_available_draws": true,
+        "parent_draws_sha256": "7d90218f73e06a3ef8cbdc9b6039212a3c628838a49554915db7b131cb794a23",
+        "requested_draws": 1000,
+        "seed": 20260918
+      },
+      "checks": {
+        "factual_regression": false,
+        "finite_eligible_predictions": true,
+        "matching_planned_queries_and_truth": true,
+        "primary_parent_tail_regressions": false,
+        "primary_simulator_regressions": false,
+        "response_gain": false,
+        "scope_regressions": false
+      },
+      "denominator_arm": "quadratic",
+      "limits": {
+        "each_simulator_250ms_primary_parent_rmse_p95_ratio_max": 1.5,
+        "each_simulator_primary_factual_and_response_geometric_mean_ratio_max": 1.15,
+        "each_simulator_scope_factual_and_response_geometric_mean_ratio_max": 1.5,
+        "factual_weighted_geometric_mean_ratio_max": 1.05,
+        "response_weighted_geometric_mean_ratio_max": 1.05
+      },
+      "numerator_arm": "candidate",
+      "residual_criteria_pass": false,
+      "scope_ratios": [
+        {
+          "kind": "factual",
+          "ratio": 1.4530086820277661,
+          "scope": "heading_shift",
+          "simulator": "cascade"
+        },
+        {
+          "kind": "factual",
+          "ratio": 1.389183453902614,
+          "scope": "maneuver_shift",
+          "simulator": "cascade"
+        },
+        {
+          "kind": "factual",
+          "ratio": 1.591556011862051,
+          "scope": "primary",
+          "simulator": "cascade"
+        },
+        {
+          "kind": "factual",
+          "ratio": 1.351622618704116,
+          "scope": "speed_shift",
+          "simulator": "cascade"
+        },
+        {
+          "kind": "factual",
+          "ratio": 1.4201971749523976,
+          "scope": "wind_shift",
+          "simulator": "cascade"
+        },
+        {
+          "kind": "factual",
+          "ratio": 1.2677790402126643,
+          "scope": "heading_shift",
+          "simulator": "crazyflow"
+        },
+        {
+          "kind": "factual",
+          "ratio": 1.1332799464053789,
+          "scope": "maneuver_shift",
+          "simulator": "crazyflow"
+        },
+        {
+          "kind": "factual",
+          "ratio": 1.1318936113714693,
+          "scope": "primary",
+          "simulator": "crazyflow"
+        },
+        {
+          "kind": "factual",
+          "ratio": 1.3017689931592866,
+          "scope": "speed_shift",
+          "simulator": "crazyflow"
+        },
+        {
+          "kind": "factual",
+          "ratio": 1.0477733149281399,
+          "scope": "wind_shift",
+          "simulator": "crazyflow"
+        },
+        {
+          "kind": "response",
+          "ratio": 1.4292778206177321,
+          "scope": "heading_shift",
+          "simulator": "cascade"
+        },
+        {
+          "kind": "response",
+          "ratio": 1.582408548644764,
+          "scope": "maneuver_shift",
+          "simulator": "cascade"
+        },
+        {
+          "kind": "response",
+          "ratio": 1.4826155930326015,
+          "scope": "primary",
+          "simulator": "cascade"
+        },
+        {
+          "kind": "response",
+          "ratio": 1.5082437049377357,
+          "scope": "speed_shift",
+          "simulator": "cascade"
+        },
+        {
+          "kind": "response",
+          "ratio": 1.497480258066756,
+          "scope": "wind_shift",
+          "simulator": "cascade"
+        },
+        {
+          "kind": "response",
+          "ratio": 1.1759671103498703,
+          "scope": "heading_shift",
+          "simulator": "crazyflow"
+        },
+        {
+          "kind": "response",
+          "ratio": 1.0155571485975032,
+          "scope": "maneuver_shift",
+          "simulator": "crazyflow"
+        },
+        {
+          "kind": "response",
+          "ratio": 1.0999885634591355,
+          "scope": "primary",
+          "simulator": "crazyflow"
+        },
+        {
+          "kind": "response",
+          "ratio": 1.1657416310783346,
+          "scope": "speed_shift",
+          "simulator": "crazyflow"
+        },
+        {
+          "kind": "response",
+          "ratio": 1.208586558196049,
+          "scope": "wind_shift",
+          "simulator": "crazyflow"
+        }
+      ],
+      "weighted_geometric_mean_ratios": {
+        "factual": 1.3150212017889495,
+        "response": 1.29269078442693
+      }
+    },
+    "quadratic_public_context": {
+      "bootstrap": {
+        "aggregates": {
+          "factual": {
+            "available_draws": 1000,
+            "percentile_95_interval": [
+              0.7692795626816394,
+              0.8009055444969798
+            ],
+            "unavailable_draws": 0
+          },
+          "response": {
+            "available_draws": 1000,
+            "percentile_95_interval": [
+              0.7381833708747553,
+              0.766561970472283
+            ],
+            "unavailable_draws": 0
+          }
+        },
+        "conditional_on_available_truth": true,
+        "intervals_condition_on_available_draws": true,
+        "parent_draws_sha256": "7d90218f73e06a3ef8cbdc9b6039212a3c628838a49554915db7b131cb794a23",
+        "requested_draws": 1000,
+        "seed": 20260918
+      },
+      "checks": {
+        "factual_regression": true,
+        "finite_eligible_predictions": true,
+        "matching_planned_queries_and_truth": true,
+        "primary_parent_tail_regressions": false,
+        "primary_simulator_regressions": true,
+        "response_gain": true,
+        "scope_regressions": true
+      },
+      "denominator_arm": "baseline",
+      "limits": {
+        "each_simulator_250ms_primary_parent_rmse_p95_ratio_max": 1.5,
+        "each_simulator_primary_factual_and_response_geometric_mean_ratio_max": 1.15,
+        "each_simulator_scope_factual_and_response_geometric_mean_ratio_max": 1.5,
+        "factual_weighted_geometric_mean_ratio_max": 1.05,
+        "response_weighted_geometric_mean_ratio_max": 0.9
+      },
+      "numerator_arm": "quadratic",
+      "residual_criteria_pass": false,
+      "scope_ratios": [
+        {
+          "kind": "factual",
+          "ratio": 0.6950147510281282,
+          "scope": "heading_shift",
+          "simulator": "cascade"
+        },
+        {
+          "kind": "factual",
+          "ratio": 0.8569830460596426,
+          "scope": "maneuver_shift",
+          "simulator": "cascade"
+        },
+        {
+          "kind": "factual",
+          "ratio": 0.6174814372546209,
+          "scope": "primary",
+          "simulator": "cascade"
+        },
+        {
+          "kind": "factual",
+          "ratio": 0.6623642882993619,
+          "scope": "speed_shift",
+          "simulator": "cascade"
+        },
+        {
+          "kind": "factual",
+          "ratio": 0.7373600408201535,
+          "scope": "wind_shift",
+          "simulator": "cascade"
+        },
+        {
+          "kind": "factual",
+          "ratio": 0.8455888344149911,
+          "scope": "heading_shift",
+          "simulator": "crazyflow"
+        },
+        {
+          "kind": "factual",
+          "ratio": 0.8954873225931453,
+          "scope": "maneuver_shift",
+          "simulator": "crazyflow"
+        },
+        {
+          "kind": "factual",
+          "ratio": 0.8752817505850664,
+          "scope": "primary",
+          "simulator": "crazyflow"
+        },
+        {
+          "kind": "factual",
+          "ratio": 0.9093646562205636,
+          "scope": "speed_shift",
+          "simulator": "crazyflow"
+        },
+        {
+          "kind": "factual",
+          "ratio": 1.2030254130354945,
+          "scope": "wind_shift",
+          "simulator": "crazyflow"
+        },
+        {
+          "kind": "response",
+          "ratio": 0.8587309243560055,
+          "scope": "heading_shift",
+          "simulator": "cascade"
+        },
+        {
+          "kind": "response",
+          "ratio": 0.8880272261047641,
+          "scope": "maneuver_shift",
+          "simulator": "cascade"
+        },
+        {
+          "kind": "response",
+          "ratio": 0.7908616045941852,
+          "scope": "primary",
+          "simulator": "cascade"
+        },
+        {
+          "kind": "response",
+          "ratio": 0.7526264438397658,
+          "scope": "speed_shift",
+          "simulator": "cascade"
+        },
+        {
+          "kind": "response",
+          "ratio": 0.8429153112952992,
+          "scope": "wind_shift",
+          "simulator": "cascade"
+        },
+        {
+          "kind": "response",
+          "ratio": 0.6269057861245587,
+          "scope": "heading_shift",
+          "simulator": "crazyflow"
+        },
+        {
+          "kind": "response",
+          "ratio": 0.8725776318161281,
+          "scope": "maneuver_shift",
+          "simulator": "crazyflow"
+        },
+        {
+          "kind": "response",
+          "ratio": 0.7509265325030905,
+          "scope": "primary",
+          "simulator": "crazyflow"
+        },
+        {
+          "kind": "response",
+          "ratio": 0.5682923797370714,
+          "scope": "speed_shift",
+          "simulator": "crazyflow"
+        },
+        {
+          "kind": "response",
+          "ratio": 0.5781032004147535,
+          "scope": "wind_shift",
+          "simulator": "crazyflow"
+        }
+      ],
+      "weighted_geometric_mean_ratios": {
+        "factual": 0.7844519368260621,
+        "response": 0.7535748274871421
+      }
+    }
+  },
+  "development_diagnosis": {
+    "checkpoint_count": 66,
+    "crazyflow_public_initial_rate_rmse": 0.21359226373918191,
+    "crazyflow_quadratic_initial_rate_rmse": 0.31507981897186593,
+    "crazyflow_quadratic_selected_rate_rmse": 0.33368181447375006,
+    "finding": "Much angular loss exists at initialization; later training trades additional rate error for rotation gain. Public and bilinear later recorded checkpoints worsen all three 250ms groups against their own initialization.",
+    "limits": "Development only; no intermediate held-out forecasts or hindsight selection. Initial feature/regularization/state-support causes remain unisolated."
+  },
+  "diagnostic_mechanism_success": false,
+  "execution": {
+    "failed_stages": 0,
+    "stage_count": 13,
+    "stages": [
+      {
+        "arguments": [],
+        "command": [
+          "/Users/ryland/autonomy/dart/.venv/bin/python",
+          "-m",
+          "glassbox.experimental.excited_bilinear_experiment",
+          "evaluate",
+          "cascade",
+          "--output",
+          "/private/tmp/glassbox-excited-bilinear-ablation/artifacts/2026-09-18/excited-bilinear-ablation-v1"
+        ],
+        "exit_code": 0,
+        "simulator": "cascade",
+        "stage": "evaluate",
+        "timed_out": false,
+        "wall_time_s": 21.07301791710779
+      },
+      {
+        "arguments": [],
+        "command": [
+          "/Users/ryland/autonomy/dart/.venv/bin/python",
+          "-m",
+          "glassbox.experimental.excited_bilinear_experiment",
+          "evaluate",
+          "crazyflow",
+          "--output",
+          "/private/tmp/glassbox-excited-bilinear-ablation/artifacts/2026-09-18/excited-bilinear-ablation-v1"
+        ],
+        "exit_code": 0,
+        "simulator": "crazyflow",
+        "stage": "evaluate",
+        "timed_out": false,
+        "wall_time_s": 27.954979917034507
+      },
+      {
+        "arguments": [],
+        "command": [
+          "/Users/ryland/autonomy/dart/.venv/bin/python",
+          "-m",
+          "glassbox.experimental.excited_bilinear_experiment",
+          "finalize",
+          "crazyflow",
+          "--output",
+          "/private/tmp/glassbox-excited-bilinear-ablation/artifacts/2026-09-18/excited-bilinear-ablation-v1"
+        ],
+        "exit_code": 0,
+        "simulator": "crazyflow",
+        "stage": "finalize",
+        "timed_out": false,
+        "wall_time_s": 60.5609337920323
+      },
+      {
+        "arguments": [
+          "baseline"
+        ],
+        "command": [
+          "/Users/ryland/autonomy/dart/.venv/bin/python",
+          "-m",
+          "glassbox.experimental.excited_bilinear_experiment",
+          "fit",
+          "cascade",
+          "--output",
+          "/private/tmp/glassbox-excited-bilinear-ablation/artifacts/2026-09-18/excited-bilinear-ablation-v1",
+          "--arm",
+          "baseline"
+        ],
+        "exit_code": 0,
+        "simulator": "cascade",
+        "stage": "fit",
+        "timed_out": false,
+        "wall_time_s": 13.601796249859035
+      },
+      {
+        "arguments": [
+          "candidate"
+        ],
+        "command": [
+          "/Users/ryland/autonomy/dart/.venv/bin/python",
+          "-m",
+          "glassbox.experimental.excited_bilinear_experiment",
+          "fit",
+          "cascade",
+          "--output",
+          "/private/tmp/glassbox-excited-bilinear-ablation/artifacts/2026-09-18/excited-bilinear-ablation-v1",
+          "--arm",
+          "candidate"
+        ],
+        "exit_code": 0,
+        "simulator": "cascade",
+        "stage": "fit",
+        "timed_out": false,
+        "wall_time_s": 18.717856125207618
+      },
+      {
+        "arguments": [
+          "quadratic"
+        ],
+        "command": [
+          "/Users/ryland/autonomy/dart/.venv/bin/python",
+          "-m",
+          "glassbox.experimental.excited_bilinear_experiment",
+          "fit",
+          "cascade",
+          "--output",
+          "/private/tmp/glassbox-excited-bilinear-ablation/artifacts/2026-09-18/excited-bilinear-ablation-v1",
+          "--arm",
+          "quadratic"
+        ],
+        "exit_code": 0,
+        "simulator": "cascade",
+        "stage": "fit",
+        "timed_out": false,
+        "wall_time_s": 19.261168292025104
+      },
+      {
+        "arguments": [
+          "baseline"
+        ],
+        "command": [
+          "/Users/ryland/autonomy/dart/.venv/bin/python",
+          "-m",
+          "glassbox.experimental.excited_bilinear_experiment",
+          "fit",
+          "crazyflow",
+          "--output",
+          "/private/tmp/glassbox-excited-bilinear-ablation/artifacts/2026-09-18/excited-bilinear-ablation-v1",
+          "--arm",
+          "baseline"
+        ],
+        "exit_code": 0,
+        "simulator": "crazyflow",
+        "stage": "fit",
+        "timed_out": false,
+        "wall_time_s": 22.462090624962002
+      },
+      {
+        "arguments": [
+          "candidate"
+        ],
+        "command": [
+          "/Users/ryland/autonomy/dart/.venv/bin/python",
+          "-m",
+          "glassbox.experimental.excited_bilinear_experiment",
+          "fit",
+          "crazyflow",
+          "--output",
+          "/private/tmp/glassbox-excited-bilinear-ablation/artifacts/2026-09-18/excited-bilinear-ablation-v1",
+          "--arm",
+          "candidate"
+        ],
+        "exit_code": 0,
+        "simulator": "crazyflow",
+        "stage": "fit",
+        "timed_out": false,
+        "wall_time_s": 27.140733333071694
+      },
+      {
+        "arguments": [
+          "quadratic"
+        ],
+        "command": [
+          "/Users/ryland/autonomy/dart/.venv/bin/python",
+          "-m",
+          "glassbox.experimental.excited_bilinear_experiment",
+          "fit",
+          "crazyflow",
+          "--output",
+          "/private/tmp/glassbox-excited-bilinear-ablation/artifacts/2026-09-18/excited-bilinear-ablation-v1",
+          "--arm",
+          "quadratic"
+        ],
+        "exit_code": 0,
+        "simulator": "crazyflow",
+        "stage": "fit",
+        "timed_out": false,
+        "wall_time_s": 29.408918333007023
+      },
+      {
+        "arguments": [],
+        "command": [
+          "/Users/ryland/autonomy/dart/.venv/bin/python",
+          "-m",
+          "glassbox.experimental.excited_bilinear_experiment",
+          "generate",
+          "cascade",
+          "--output",
+          "/private/tmp/glassbox-excited-bilinear-ablation/artifacts/2026-09-18/excited-bilinear-ablation-v1"
+        ],
+        "exit_code": 0,
+        "simulator": "cascade",
+        "stage": "generate",
+        "timed_out": false,
+        "wall_time_s": 15.096778749953955
+      },
+      {
+        "arguments": [],
+        "command": [
+          "/Users/ryland/autonomy/dart/.venv/bin/python",
+          "-m",
+          "glassbox.experimental.excited_bilinear_experiment",
+          "generate",
+          "crazyflow",
+          "--output",
+          "/private/tmp/glassbox-excited-bilinear-ablation/artifacts/2026-09-18/excited-bilinear-ablation-v1"
+        ],
+        "exit_code": 0,
+        "simulator": "crazyflow",
+        "stage": "generate",
+        "timed_out": false,
+        "wall_time_s": 20.90519916592166
+      },
+      {
+        "arguments": [
+          "d3b5ffc96e0b4e0a4f39887369973583b781af029162d740870f45fe88e19c88"
+        ],
+        "command": [
+          "/Users/ryland/autonomy/dart/.venv/bin/python",
+          "-m",
+          "glassbox.experimental.excited_bilinear_experiment",
+          "replay",
+          "cascade",
+          "--output",
+          "/private/tmp/glassbox-excited-bilinear-ablation/artifacts/2026-09-18/excited-bilinear-ablation-v1",
+          "--expected-bundle-sha",
+          "d3b5ffc96e0b4e0a4f39887369973583b781af029162d740870f45fe88e19c88"
+        ],
+        "exit_code": 0,
+        "simulator": "cascade",
+        "stage": "replay",
+        "timed_out": false,
+        "wall_time_s": 121.80912570818327
+      },
+      {
+        "arguments": [
+          "d3b5ffc96e0b4e0a4f39887369973583b781af029162d740870f45fe88e19c88"
+        ],
+        "command": [
+          "/Users/ryland/autonomy/dart/.venv/bin/python",
+          "-m",
+          "glassbox.experimental.excited_bilinear_experiment",
+          "replay",
+          "crazyflow",
+          "--output",
+          "/private/tmp/glassbox-excited-bilinear-ablation/artifacts/2026-09-18/excited-bilinear-ablation-v1",
+          "--expected-bundle-sha",
+          "d3b5ffc96e0b4e0a4f39887369973583b781af029162d740870f45fe88e19c88"
+        ],
+        "exit_code": 0,
+        "simulator": "crazyflow",
+        "stage": "replay",
+        "timed_out": false,
+        "wall_time_s": 136.987149334047
+      }
+    ],
+    "timeouts": 0,
+    "timing_limits": "Concurrent unpaced CPU jobs; data/update budgets matched, not FLOPs. General tracing overhead is included in fit wall time."
+  },
+  "fits": {
+    "cascade": {
+      "baseline": {
+        "checkpoint_manifest_sha256": "79480b94ade2230aaba0eaec216fa01a7b625e2a55af0723fce5bb08f518df89",
+        "fit_seal_sha256": "abc4ea1f3a34e3b63645cffb4a536726cdb5cfbda7a7a8e1302648ab9f8158ec",
+        "initial_development_loss": 0.23929162725369818,
+        "matching_sha256": "a1b17af1e1d739a4288e0986e456836fd06edc20535eeb4e33e4971992ae2fc7",
+        "model_file_sha256": "840757c24d5727c966e4c2ebdcac685fa5b3d43d6c086714f2e7cae6d3fdba21",
+        "selected_development_loss": 0.16805727205180931,
+        "selected_step": 1000
+      },
+      "candidate": {
+        "checkpoint_manifest_sha256": "3c2c85d28d98b642f0d1292fcc67f3c05ae59f02d11114adbcdc70ec817e9a2e",
+        "fit_seal_sha256": "10916204c1e3305044458e6ed226381e9984069d624b9016096ffc1037252c24",
+        "initial_development_loss": 0.2175543139595163,
+        "matching_sha256": "a0876ad71b746f7abd092f3af2bd4848b56abddaab73ef3add1a503b7bfa62c8",
+        "model_file_sha256": "ee176c03d924fb755e9c73c56863bf04b0f57b9e1944f8f8afda7e105db979f9",
+        "selected_development_loss": 0.1622285595345656,
+        "selected_step": 800
+      },
+      "quadratic": {
+        "checkpoint_manifest_sha256": "0a9fb47fbdbe7b1fdfe33fc6b9f5189af92f91fb61186aea3ec3445a834bb869",
+        "fit_seal_sha256": "d04a1688c684d8be1cca178fecb9419a2e163ee25c7f4c3321ccf3508b1541ad",
+        "initial_development_loss": 0.08939407853876238,
+        "matching_sha256": "66ed0fc9d1dd9afac45a87f0be5545a377c41da3ffda51593b5ca0ee8595879b",
+        "model_file_sha256": "a73542e029f618624622b9179207fa133b080562359a8356af58c8377a1af700",
+        "selected_development_loss": 0.040617433575577996,
+        "selected_step": 1000
+      }
+    },
+    "crazyflow": {
+      "baseline": {
+        "checkpoint_manifest_sha256": "531ed2b716e741d5941c8dba7477ca8555fdd763facd375faf2fed8f9ebb40c3",
+        "fit_seal_sha256": "f80b5818b6fb9f417c0044c6f4c974f485cc8b87b94ed29b1d9e1cb86ba05982",
+        "initial_development_loss": 0.01917884623707367,
+        "matching_sha256": "0b3872830947adc4caca914fc7fff10e791a169d02de4077e79bbef43fab568b",
+        "model_file_sha256": "7a0e495d26b04a6e3a984ad5b76acb2475d4a49fc2340eaebfd4c996d22a1130",
+        "selected_development_loss": 0.01917884623707367,
+        "selected_step": 0
+      },
+      "candidate": {
+        "checkpoint_manifest_sha256": "d9cd8e9e6c9e01299ce5b6111a8637768500f8aa72d867e792c4dc9bd2aa284b",
+        "fit_seal_sha256": "b7b381a31dcea172d8b594a018a6943e8c797771f6dec996e5cef167b81c4020",
+        "initial_development_loss": 0.020398684790471727,
+        "matching_sha256": "ef132343fb81daf2fe5cfabb1f17f1542b465e058cbf6703eaa2dd0876059657",
+        "model_file_sha256": "50762dd669b77a849119767470b6ceac8d7356904da6759ed556b1e9cce650bd",
+        "selected_development_loss": 0.020398684790471727,
+        "selected_step": 0
+      },
+      "quadratic": {
+        "checkpoint_manifest_sha256": "d82979f853b3fe05bbb4055567b0dcd204faa394b3b6cf00ebd5cf394cfbae54",
+        "fit_seal_sha256": "ac0e5f9e5548f84df3f4299c3bad7faf0c6a3a97a3ce38e5a39443989487cbf0",
+        "initial_development_loss": 0.004835628148393524,
+        "matching_sha256": "787cd3aeeac8facc219c4f3512bd91acadbeff2ad752f2e89d5f626ec1bd0130",
+        "model_file_sha256": "970eaad76beaa9acacb645936c404687f03cee21011af2b11bdde0ed78f814be",
+        "selected_development_loss": 0.003735053634559069,
+        "selected_step": 900
+      }
+    }
+  },
+  "freeze_commit": "d7df690e1b4eb5cb4d6db0d9a153f7c160353667",
+  "frozen_flags": {
+    "angular_repair": true,
+    "bilinear_public_progress": false,
+    "quadratic_gain_retention": false,
+    "quadratic_public_context": false,
+    "residual_criteria_pass": false
+  },
+  "implementation_commit": "60ec112e9d2e6194e736115b2cbb2437579a49e5",
+  "integration": "Integrate diagnostic evidence and replay harness; do not promote bilinear or alter public recipe.",
+  "next_mechanism": "Change only the existing joint ridge penalty center to the already-computed affine initializer; keep product priors zero and bias unpenalized, with identical strength, data, loss and update budget.",
+  "next_named_gap": "Preserve useful affine dynamics while initializing full quadratic capacity.",
+  "primary_250ms_scores": {
+    "cascade": [
+      {
+        "arm": "baseline",
+        "available_parents": 48,
+        "available_truth_rmse": 0.10474672687431659,
+        "complete_cohort_rmse": 0.10474672687431659,
+        "failed_eligible_predictions": 0,
+        "failed_parents": 0,
+        "group": "body_rate_rad_s",
+        "horizon_s": 0.25,
+        "kind": "factual",
+        "missing_truth_parents": 0,
+        "missing_truth_queries": 0,
+        "parent_rmse_max": 0.16839039210922294,
+        "parent_rmse_p50": 0.10498779924960824,
+        "parent_rmse_p95": 0.14687360610543224,
+        "planned_parents": 48,
+        "planned_queries": 480,
+        "scope": "primary",
+        "simulator": "cascade",
+        "statistic": "endpoint",
+        "truth_eligible_queries": 480
+      },
+      {
+        "arm": "baseline",
+        "available_parents": 48,
+        "available_truth_rmse": 0.01749856955920615,
+        "complete_cohort_rmse": 0.01749856955920615,
+        "failed_eligible_predictions": 0,
+        "failed_parents": 0,
+        "group": "rotation_entries",
+        "horizon_s": 0.25,
+        "kind": "factual",
+        "missing_truth_parents": 0,
+        "missing_truth_queries": 0,
+        "parent_rmse_max": 0.024461032438751383,
+        "parent_rmse_p50": 0.016907158018827015,
+        "parent_rmse_p95": 0.02277862108874342,
+        "planned_parents": 48,
+        "planned_queries": 480,
+        "scope": "primary",
+        "simulator": "cascade",
+        "statistic": "endpoint",
+        "truth_eligible_queries": 480
+      },
+      {
+        "arm": "baseline",
+        "available_parents": 48,
+        "available_truth_rmse": 0.1707636141522779,
+        "complete_cohort_rmse": 0.1707636141522779,
+        "failed_eligible_predictions": 0,
+        "failed_parents": 0,
+        "group": "velocity_m_s",
+        "horizon_s": 0.25,
+        "kind": "factual",
+        "missing_truth_parents": 0,
+        "missing_truth_queries": 0,
+        "parent_rmse_max": 0.29465116757354387,
+        "parent_rmse_p50": 0.151963356004912,
+        "parent_rmse_p95": 0.25928247990585257,
+        "planned_parents": 48,
+        "planned_queries": 480,
+        "scope": "primary",
+        "simulator": "cascade",
+        "statistic": "endpoint",
+        "truth_eligible_queries": 480
+      },
+      {
+        "arm": "candidate",
+        "available_parents": 48,
+        "available_truth_rmse": 0.11262628740950273,
+        "complete_cohort_rmse": 0.11262628740950273,
+        "failed_eligible_predictions": 0,
+        "failed_parents": 0,
+        "group": "body_rate_rad_s",
+        "horizon_s": 0.25,
+        "kind": "factual",
+        "missing_truth_parents": 0,
+        "missing_truth_queries": 0,
+        "parent_rmse_max": 0.20366212773272743,
+        "parent_rmse_p50": 0.10599535025231083,
+        "parent_rmse_p95": 0.15947908311794975,
+        "planned_parents": 48,
+        "planned_queries": 480,
+        "scope": "primary",
+        "simulator": "cascade",
+        "statistic": "endpoint",
+        "truth_eligible_queries": 480
+      },
+      {
+        "arm": "candidate",
+        "available_parents": 48,
+        "available_truth_rmse": 0.018002536537784577,
+        "complete_cohort_rmse": 0.018002536537784577,
+        "failed_eligible_predictions": 0,
+        "failed_parents": 0,
+        "group": "rotation_entries",
+        "horizon_s": 0.25,
+        "kind": "factual",
+        "missing_truth_parents": 0,
+        "missing_truth_queries": 0,
+        "parent_rmse_max": 0.027821095837068138,
+        "parent_rmse_p50": 0.01704366624861101,
+        "parent_rmse_p95": 0.02462654199218951,
+        "planned_parents": 48,
+        "planned_queries": 480,
+        "scope": "primary",
+        "simulator": "cascade",
+        "statistic": "endpoint",
+        "truth_eligible_queries": 480
+      },
+      {
+        "arm": "candidate",
+        "available_parents": 48,
+        "available_truth_rmse": 0.16309402926222327,
+        "complete_cohort_rmse": 0.16309402926222327,
+        "failed_eligible_predictions": 0,
+        "failed_parents": 0,
+        "group": "velocity_m_s",
+        "horizon_s": 0.25,
+        "kind": "factual",
+        "missing_truth_parents": 0,
+        "missing_truth_queries": 0,
+        "parent_rmse_max": 0.3079104549531384,
+        "parent_rmse_p50": 0.15263827373118766,
+        "parent_rmse_p95": 0.2503300764408289,
+        "planned_parents": 48,
+        "planned_queries": 480,
+        "scope": "primary",
+        "simulator": "cascade",
+        "statistic": "endpoint",
+        "truth_eligible_queries": 480
+      },
+      {
+        "arm": "hold",
+        "available_parents": 48,
+        "available_truth_rmse": 0.31584284356992187,
+        "complete_cohort_rmse": 0.31584284356992187,
+        "failed_eligible_predictions": 0,
+        "failed_parents": 0,
+        "group": "body_rate_rad_s",
+        "horizon_s": 0.25,
+        "kind": "factual",
+        "missing_truth_parents": 0,
+        "missing_truth_queries": 0,
+        "parent_rmse_max": 0.4466460228256208,
+        "parent_rmse_p50": 0.3005625497685081,
+        "parent_rmse_p95": 0.40429336792799536,
+        "planned_parents": 48,
+        "planned_queries": 480,
+        "scope": "primary",
+        "simulator": "cascade",
+        "statistic": "endpoint",
+        "truth_eligible_queries": 480
+      },
+      {
+        "arm": "hold",
+        "available_parents": 48,
+        "available_truth_rmse": 0.028658331042128234,
+        "complete_cohort_rmse": 0.028658331042128234,
+        "failed_eligible_predictions": 0,
+        "failed_parents": 0,
+        "group": "rotation_entries",
+        "horizon_s": 0.25,
+        "kind": "factual",
+        "missing_truth_parents": 0,
+        "missing_truth_queries": 0,
+        "parent_rmse_max": 0.04073417570029244,
+        "parent_rmse_p50": 0.026905513621680057,
+        "parent_rmse_p95": 0.03641279317381098,
+        "planned_parents": 48,
+        "planned_queries": 480,
+        "scope": "primary",
+        "simulator": "cascade",
+        "statistic": "endpoint",
+        "truth_eligible_queries": 480
+      },
+      {
+        "arm": "hold",
+        "available_parents": 48,
+        "available_truth_rmse": 0.33191582068611797,
+        "complete_cohort_rmse": 0.33191582068611797,
+        "failed_eligible_predictions": 0,
+        "failed_parents": 0,
+        "group": "velocity_m_s",
+        "horizon_s": 0.25,
+        "kind": "factual",
+        "missing_truth_parents": 0,
+        "missing_truth_queries": 0,
+        "parent_rmse_max": 0.5407223683474451,
+        "parent_rmse_p50": 0.3114803209996395,
+        "parent_rmse_p95": 0.4810208553778443,
+        "planned_parents": 48,
+        "planned_queries": 480,
+        "scope": "primary",
+        "simulator": "cascade",
+        "statistic": "endpoint",
+        "truth_eligible_queries": 480
+      },
+      {
+        "arm": "quadratic",
+        "available_parents": 48,
+        "available_truth_rmse": 0.0927269857698118,
+        "complete_cohort_rmse": 0.0927269857698118,
+        "failed_eligible_predictions": 0,
+        "failed_parents": 0,
+        "group": "body_rate_rad_s",
+        "horizon_s": 0.25,
+        "kind": "factual",
+        "missing_truth_parents": 0,
+        "missing_truth_queries": 0,
+        "parent_rmse_max": 0.18174789222087884,
+        "parent_rmse_p50": 0.08580682889867763,
+        "parent_rmse_p95": 0.13314111851062077,
+        "planned_parents": 48,
+        "planned_queries": 480,
+        "scope": "primary",
+        "simulator": "cascade",
+        "statistic": "endpoint",
+        "truth_eligible_queries": 480
+      },
+      {
+        "arm": "quadratic",
+        "available_parents": 48,
+        "available_truth_rmse": 0.010082091518478326,
+        "complete_cohort_rmse": 0.010082091518478326,
+        "failed_eligible_predictions": 0,
+        "failed_parents": 0,
+        "group": "rotation_entries",
+        "horizon_s": 0.25,
+        "kind": "factual",
+        "missing_truth_parents": 0,
+        "missing_truth_queries": 0,
+        "parent_rmse_max": 0.01575134709232667,
+        "parent_rmse_p50": 0.009810177542677028,
+        "parent_rmse_p95": 0.013580201166429594,
+        "planned_parents": 48,
+        "planned_queries": 480,
+        "scope": "primary",
+        "simulator": "cascade",
+        "statistic": "endpoint",
+        "truth_eligible_queries": 480
+      },
+      {
+        "arm": "quadratic",
+        "available_parents": 48,
+        "available_truth_rmse": 0.11777266237177651,
+        "complete_cohort_rmse": 0.11777266237177651,
+        "failed_eligible_predictions": 0,
+        "failed_parents": 0,
+        "group": "velocity_m_s",
+        "horizon_s": 0.25,
+        "kind": "factual",
+        "missing_truth_parents": 0,
+        "missing_truth_queries": 0,
+        "parent_rmse_max": 0.18621707231437604,
+        "parent_rmse_p50": 0.10766301879637624,
+        "parent_rmse_p95": 0.17627028000792028,
+        "planned_parents": 48,
+        "planned_queries": 480,
+        "scope": "primary",
+        "simulator": "cascade",
+        "statistic": "endpoint",
+        "truth_eligible_queries": 480
+      },
+      {
+        "arm": "baseline",
+        "available_parents": 48,
+        "available_truth_rmse": 0.03409740089065891,
+        "complete_cohort_rmse": 0.03409740089065891,
+        "failed_eligible_predictions": 0,
+        "failed_parents": 0,
+        "group": "body_rate_rad_s",
+        "horizon_s": 0.25,
+        "kind": "response",
+        "missing_truth_parents": 0,
+        "missing_truth_queries": 0,
+        "parent_rmse_max": 0.050211880052333374,
+        "parent_rmse_p50": 0.031158790168682924,
+        "parent_rmse_p95": 0.046499150343089435,
+        "planned_parents": 48,
+        "planned_queries": 576,
+        "scope": "primary",
+        "simulator": "cascade",
+        "statistic": "endpoint",
+        "truth_eligible_queries": 576
+      },
+      {
+        "arm": "baseline",
+        "available_parents": 48,
+        "available_truth_rmse": 0.00690304560242246,
+        "complete_cohort_rmse": 0.00690304560242246,
+        "failed_eligible_predictions": 0,
+        "failed_parents": 0,
+        "group": "rotation_entries",
+        "horizon_s": 0.25,
+        "kind": "response",
+        "missing_truth_parents": 0,
+        "missing_truth_queries": 0,
+        "parent_rmse_max": 0.01100375698615903,
+        "parent_rmse_p50": 0.006743703896212127,
+        "parent_rmse_p95": 0.009785497145040558,
+        "planned_parents": 48,
+        "planned_queries": 576,
+        "scope": "primary",
+        "simulator": "cascade",
+        "statistic": "endpoint",
+        "truth_eligible_queries": 576
+      },
+      {
+        "arm": "baseline",
+        "available_parents": 48,
+        "available_truth_rmse": 0.047174005501449845,
+        "complete_cohort_rmse": 0.047174005501449845,
+        "failed_eligible_predictions": 0,
+        "failed_parents": 0,
+        "group": "velocity_m_s",
+        "horizon_s": 0.25,
+        "kind": "response",
+        "missing_truth_parents": 0,
+        "missing_truth_queries": 0,
+        "parent_rmse_max": 0.08207509506657919,
+        "parent_rmse_p50": 0.03999985963096058,
+        "parent_rmse_p95": 0.07786071196514553,
+        "planned_parents": 48,
+        "planned_queries": 576,
+        "scope": "primary",
+        "simulator": "cascade",
+        "statistic": "endpoint",
+        "truth_eligible_queries": 576
+      },
+      {
+        "arm": "candidate",
+        "available_parents": 48,
+        "available_truth_rmse": 0.03725357160056276,
+        "complete_cohort_rmse": 0.03725357160056276,
+        "failed_eligible_predictions": 0,
+        "failed_parents": 0,
+        "group": "body_rate_rad_s",
+        "horizon_s": 0.25,
+        "kind": "response",
+        "missing_truth_parents": 0,
+        "missing_truth_queries": 0,
+        "parent_rmse_max": 0.05609330417714134,
+        "parent_rmse_p50": 0.03747423083329328,
+        "parent_rmse_p95": 0.049133492923859,
+        "planned_parents": 48,
+        "planned_queries": 576,
+        "scope": "primary",
+        "simulator": "cascade",
+        "statistic": "endpoint",
+        "truth_eligible_queries": 576
+      },
+      {
+        "arm": "candidate",
+        "available_parents": 48,
+        "available_truth_rmse": 0.0072054569761527635,
+        "complete_cohort_rmse": 0.0072054569761527635,
+        "failed_eligible_predictions": 0,
+        "failed_parents": 0,
+        "group": "rotation_entries",
+        "horizon_s": 0.25,
+        "kind": "response",
+        "missing_truth_parents": 0,
+        "missing_truth_queries": 0,
+        "parent_rmse_max": 0.01124027412083749,
+        "parent_rmse_p50": 0.006991871989191518,
+        "parent_rmse_p95": 0.009724945197363697,
+        "planned_parents": 48,
+        "planned_queries": 576,
+        "scope": "primary",
+        "simulator": "cascade",
+        "statistic": "endpoint",
+        "truth_eligible_queries": 576
+      },
+      {
+        "arm": "candidate",
+        "available_parents": 48,
+        "available_truth_rmse": 0.04690333678586352,
+        "complete_cohort_rmse": 0.04690333678586352,
+        "failed_eligible_predictions": 0,
+        "failed_parents": 0,
+        "group": "velocity_m_s",
+        "horizon_s": 0.25,
+        "kind": "response",
+        "missing_truth_parents": 0,
+        "missing_truth_queries": 0,
+        "parent_rmse_max": 0.07817786186319398,
+        "parent_rmse_p50": 0.04262915195281812,
+        "parent_rmse_p95": 0.07441824895277746,
+        "planned_parents": 48,
+        "planned_queries": 576,
+        "scope": "primary",
+        "simulator": "cascade",
+        "statistic": "endpoint",
+        "truth_eligible_queries": 576
+      },
+      {
+        "arm": "hold",
+        "available_parents": 48,
+        "available_truth_rmse": 0.09149980338100978,
+        "complete_cohort_rmse": 0.09149980338100978,
+        "failed_eligible_predictions": 0,
+        "failed_parents": 0,
+        "group": "body_rate_rad_s",
+        "horizon_s": 0.25,
+        "kind": "response",
+        "missing_truth_parents": 0,
+        "missing_truth_queries": 0,
+        "parent_rmse_max": 0.11848119758380554,
+        "parent_rmse_p50": 0.08817881195811485,
+        "parent_rmse_p95": 0.11656352063324314,
+        "planned_parents": 48,
+        "planned_queries": 576,
+        "scope": "primary",
+        "simulator": "cascade",
+        "statistic": "endpoint",
+        "truth_eligible_queries": 576
+      },
+      {
+        "arm": "hold",
+        "available_parents": 48,
+        "available_truth_rmse": 0.009365030872518927,
+        "complete_cohort_rmse": 0.009365030872518927,
+        "failed_eligible_predictions": 0,
+        "failed_parents": 0,
+        "group": "rotation_entries",
+        "horizon_s": 0.25,
+        "kind": "response",
+        "missing_truth_parents": 0,
+        "missing_truth_queries": 0,
+        "parent_rmse_max": 0.012537851902249188,
+        "parent_rmse_p50": 0.008905290551497965,
+        "parent_rmse_p95": 0.012432849573236352,
+        "planned_parents": 48,
+        "planned_queries": 576,
+        "scope": "primary",
+        "simulator": "cascade",
+        "statistic": "endpoint",
+        "truth_eligible_queries": 576
+      },
+      {
+        "arm": "hold",
+        "available_parents": 48,
+        "available_truth_rmse": 0.08499272845292205,
+        "complete_cohort_rmse": 0.08499272845292205,
+        "failed_eligible_predictions": 0,
+        "failed_parents": 0,
+        "group": "velocity_m_s",
+        "horizon_s": 0.25,
+        "kind": "response",
+        "missing_truth_parents": 0,
+        "missing_truth_queries": 0,
+        "parent_rmse_max": 0.14457913221094526,
+        "parent_rmse_p50": 0.07835269417347983,
+        "parent_rmse_p95": 0.12572394270099052,
+        "planned_parents": 48,
+        "planned_queries": 576,
+        "scope": "primary",
+        "simulator": "cascade",
+        "statistic": "endpoint",
+        "truth_eligible_queries": 576
+      },
+      {
+        "arm": "quadratic",
+        "available_parents": 48,
+        "available_truth_rmse": 0.03548332009843494,
+        "complete_cohort_rmse": 0.03548332009843494,
+        "failed_eligible_predictions": 0,
+        "failed_parents": 0,
+        "group": "body_rate_rad_s",
+        "horizon_s": 0.25,
+        "kind": "response",
+        "missing_truth_parents": 0,
+        "missing_truth_queries": 0,
+        "parent_rmse_max": 0.07000355331919841,
+        "parent_rmse_p50": 0.03366396277170267,
+        "parent_rmse_p95": 0.05461836692607766,
+        "planned_parents": 48,
+        "planned_queries": 576,
+        "scope": "primary",
+        "simulator": "cascade",
+        "statistic": "endpoint",
+        "truth_eligible_queries": 576
+      },
+      {
+        "arm": "quadratic",
+        "available_parents": 48,
+        "available_truth_rmse": 0.0036031450531074697,
+        "complete_cohort_rmse": 0.0036031450531074697,
+        "failed_eligible_predictions": 0,
+        "failed_parents": 0,
+        "group": "rotation_entries",
+        "horizon_s": 0.25,
+        "kind": "response",
+        "missing_truth_parents": 0,
+        "missing_truth_queries": 0,
+        "parent_rmse_max": 0.005893787270450444,
+        "parent_rmse_p50": 0.0034597057488734697,
+        "parent_rmse_p95": 0.005169500985979636,
+        "planned_parents": 48,
+        "planned_queries": 576,
+        "scope": "primary",
+        "simulator": "cascade",
+        "statistic": "endpoint",
+        "truth_eligible_queries": 576
+      },
+      {
+        "arm": "quadratic",
+        "available_parents": 48,
+        "available_truth_rmse": 0.0360476923595973,
+        "complete_cohort_rmse": 0.0360476923595973,
+        "failed_eligible_predictions": 0,
+        "failed_parents": 0,
+        "group": "velocity_m_s",
+        "horizon_s": 0.25,
+        "kind": "response",
+        "missing_truth_parents": 0,
+        "missing_truth_queries": 0,
+        "parent_rmse_max": 0.06438807512882054,
+        "parent_rmse_p50": 0.03272649847656783,
+        "parent_rmse_p95": 0.056764258086975036,
+        "planned_parents": 48,
+        "planned_queries": 576,
+        "scope": "primary",
+        "simulator": "cascade",
+        "statistic": "endpoint",
+        "truth_eligible_queries": 576
+      }
+    ],
+    "crazyflow": [
+      {
+        "arm": "baseline",
+        "available_parents": 48,
+        "available_truth_rmse": 0.21294296873050128,
+        "complete_cohort_rmse": null,
+        "failed_eligible_predictions": 0,
+        "failed_parents": 0,
+        "group": "body_rate_rad_s",
+        "horizon_s": 0.25,
+        "kind": "factual",
+        "missing_truth_parents": 0,
+        "missing_truth_queries": 64,
+        "parent_rmse_max": 0.4058686695187811,
+        "parent_rmse_p50": 0.16464591558342903,
+        "parent_rmse_p95": 0.3406895993479137,
+        "planned_parents": 48,
+        "planned_queries": 480,
+        "scope": "primary",
+        "simulator": "crazyflow",
+        "statistic": "endpoint",
+        "truth_eligible_queries": 416
+      },
+      {
+        "arm": "baseline",
+        "available_parents": 48,
+        "available_truth_rmse": 0.11189184766571521,
+        "complete_cohort_rmse": null,
+        "failed_eligible_predictions": 0,
+        "failed_parents": 0,
+        "group": "rotation_entries",
+        "horizon_s": 0.25,
+        "kind": "factual",
+        "missing_truth_parents": 0,
+        "missing_truth_queries": 64,
+        "parent_rmse_max": 0.18277363434132315,
+        "parent_rmse_p50": 0.09561724133380631,
+        "parent_rmse_p95": 0.17294526702894195,
+        "planned_parents": 48,
+        "planned_queries": 480,
+        "scope": "primary",
+        "simulator": "crazyflow",
+        "statistic": "endpoint",
+        "truth_eligible_queries": 416
+      },
+      {
+        "arm": "baseline",
+        "available_parents": 48,
+        "available_truth_rmse": 0.1706372788134395,
+        "complete_cohort_rmse": null,
+        "failed_eligible_predictions": 0,
+        "failed_parents": 0,
+        "group": "velocity_m_s",
+        "horizon_s": 0.25,
+        "kind": "factual",
+        "missing_truth_parents": 0,
+        "missing_truth_queries": 64,
+        "parent_rmse_max": 0.3033307537693771,
+        "parent_rmse_p50": 0.11853301500080174,
+        "parent_rmse_p95": 0.2965671764800275,
+        "planned_parents": 48,
+        "planned_queries": 480,
+        "scope": "primary",
+        "simulator": "crazyflow",
+        "statistic": "endpoint",
+        "truth_eligible_queries": 416
+      },
+      {
+        "arm": "candidate",
+        "available_parents": 48,
+        "available_truth_rmse": 0.254129588037423,
+        "complete_cohort_rmse": null,
+        "failed_eligible_predictions": 0,
+        "failed_parents": 0,
+        "group": "body_rate_rad_s",
+        "horizon_s": 0.25,
+        "kind": "factual",
+        "missing_truth_parents": 0,
+        "missing_truth_queries": 64,
+        "parent_rmse_max": 0.5559086277146716,
+        "parent_rmse_p50": 0.2019873653004821,
+        "parent_rmse_p95": 0.4160206174464404,
+        "planned_parents": 48,
+        "planned_queries": 480,
+        "scope": "primary",
+        "simulator": "crazyflow",
+        "statistic": "endpoint",
+        "truth_eligible_queries": 416
+      },
+      {
+        "arm": "candidate",
+        "available_parents": 48,
+        "available_truth_rmse": 0.11293606812943431,
+        "complete_cohort_rmse": null,
+        "failed_eligible_predictions": 0,
+        "failed_parents": 0,
+        "group": "rotation_entries",
+        "horizon_s": 0.25,
+        "kind": "factual",
+        "missing_truth_parents": 0,
+        "missing_truth_queries": 64,
+        "parent_rmse_max": 0.19004273946045086,
+        "parent_rmse_p50": 0.10025291384736845,
+        "parent_rmse_p95": 0.16967824939634996,
+        "planned_parents": 48,
+        "planned_queries": 480,
+        "scope": "primary",
+        "simulator": "crazyflow",
+        "statistic": "endpoint",
+        "truth_eligible_queries": 416
+      },
+      {
+        "arm": "candidate",
+        "available_parents": 48,
+        "available_truth_rmse": 0.15471882656775982,
+        "complete_cohort_rmse": null,
+        "failed_eligible_predictions": 0,
+        "failed_parents": 0,
+        "group": "velocity_m_s",
+        "horizon_s": 0.25,
+        "kind": "factual",
+        "missing_truth_parents": 0,
+        "missing_truth_queries": 64,
+        "parent_rmse_max": 0.2479168160005865,
+        "parent_rmse_p50": 0.14643765609866904,
+        "parent_rmse_p95": 0.22416206572134517,
+        "planned_parents": 48,
+        "planned_queries": 480,
+        "scope": "primary",
+        "simulator": "crazyflow",
+        "statistic": "endpoint",
+        "truth_eligible_queries": 416
+      },
+      {
+        "arm": "hold",
+        "available_parents": 48,
+        "available_truth_rmse": 1.1486648266048807,
+        "complete_cohort_rmse": null,
+        "failed_eligible_predictions": 0,
+        "failed_parents": 0,
+        "group": "body_rate_rad_s",
+        "horizon_s": 0.25,
+        "kind": "factual",
+        "missing_truth_parents": 0,
+        "missing_truth_queries": 64,
+        "parent_rmse_max": 2.002212358041508,
+        "parent_rmse_p50": 1.0725752577681062,
+        "parent_rmse_p95": 1.7910526244185585,
+        "planned_parents": 48,
+        "planned_queries": 480,
+        "scope": "primary",
+        "simulator": "crazyflow",
+        "statistic": "endpoint",
+        "truth_eligible_queries": 416
+      },
+      {
+        "arm": "hold",
+        "available_parents": 48,
+        "available_truth_rmse": 0.2650610367683409,
+        "complete_cohort_rmse": null,
+        "failed_eligible_predictions": 0,
+        "failed_parents": 0,
+        "group": "rotation_entries",
+        "horizon_s": 0.25,
+        "kind": "factual",
+        "missing_truth_parents": 0,
+        "missing_truth_queries": 64,
+        "parent_rmse_max": 0.428166739334072,
+        "parent_rmse_p50": 0.2406319497562278,
+        "parent_rmse_p95": 0.39426103473300145,
+        "planned_parents": 48,
+        "planned_queries": 480,
+        "scope": "primary",
+        "simulator": "crazyflow",
+        "statistic": "endpoint",
+        "truth_eligible_queries": 416
+      },
+      {
+        "arm": "hold",
+        "available_parents": 48,
+        "available_truth_rmse": 1.1048221955819109,
+        "complete_cohort_rmse": null,
+        "failed_eligible_predictions": 0,
+        "failed_parents": 0,
+        "group": "velocity_m_s",
+        "horizon_s": 0.25,
+        "kind": "factual",
+        "missing_truth_parents": 0,
+        "missing_truth_queries": 64,
+        "parent_rmse_max": 1.8551328602145878,
+        "parent_rmse_p50": 0.8633809015700107,
+        "parent_rmse_p95": 1.7363526746775788,
+        "planned_parents": 48,
+        "planned_queries": 480,
+        "scope": "primary",
+        "simulator": "crazyflow",
+        "statistic": "endpoint",
+        "truth_eligible_queries": 416
+      },
+      {
+        "arm": "quadratic",
+        "available_parents": 48,
+        "available_truth_rmse": 0.3841299390959172,
+        "complete_cohort_rmse": null,
+        "failed_eligible_predictions": 0,
+        "failed_parents": 0,
+        "group": "body_rate_rad_s",
+        "horizon_s": 0.25,
+        "kind": "factual",
+        "missing_truth_parents": 0,
+        "missing_truth_queries": 64,
+        "parent_rmse_max": 0.6663147329479916,
+        "parent_rmse_p50": 0.3493978705879251,
+        "parent_rmse_p95": 0.605022369497523,
+        "planned_parents": 48,
+        "planned_queries": 480,
+        "scope": "primary",
+        "simulator": "crazyflow",
+        "statistic": "endpoint",
+        "truth_eligible_queries": 416
+      },
+      {
+        "arm": "quadratic",
+        "available_parents": 48,
+        "available_truth_rmse": 0.03385454200337643,
+        "complete_cohort_rmse": null,
+        "failed_eligible_predictions": 0,
+        "failed_parents": 0,
+        "group": "rotation_entries",
+        "horizon_s": 0.25,
+        "kind": "factual",
+        "missing_truth_parents": 0,
+        "missing_truth_queries": 64,
+        "parent_rmse_max": 0.06538629112834025,
+        "parent_rmse_p50": 0.028772254876879802,
+        "parent_rmse_p95": 0.05442496517557193,
+        "planned_parents": 48,
+        "planned_queries": 480,
+        "scope": "primary",
+        "simulator": "crazyflow",
+        "statistic": "endpoint",
+        "truth_eligible_queries": 416
+      },
+      {
+        "arm": "quadratic",
+        "available_parents": 48,
+        "available_truth_rmse": 0.07035556299898153,
+        "complete_cohort_rmse": null,
+        "failed_eligible_predictions": 0,
+        "failed_parents": 0,
+        "group": "velocity_m_s",
+        "horizon_s": 0.25,
+        "kind": "factual",
+        "missing_truth_parents": 0,
+        "missing_truth_queries": 64,
+        "parent_rmse_max": 0.1378894938739694,
+        "parent_rmse_p50": 0.05645781153478879,
+        "parent_rmse_p95": 0.11100783099425145,
+        "planned_parents": 48,
+        "planned_queries": 480,
+        "scope": "primary",
+        "simulator": "crazyflow",
+        "statistic": "endpoint",
+        "truth_eligible_queries": 416
+      },
+      {
+        "arm": "baseline",
+        "available_parents": 48,
+        "available_truth_rmse": 0.24195382882733762,
+        "complete_cohort_rmse": null,
+        "failed_eligible_predictions": 0,
+        "failed_parents": 0,
+        "group": "body_rate_rad_s",
+        "horizon_s": 0.25,
+        "kind": "response",
+        "missing_truth_parents": 0,
+        "missing_truth_queries": 88,
+        "parent_rmse_max": 0.42216420267448734,
+        "parent_rmse_p50": 0.2191705330029572,
+        "parent_rmse_p95": 0.33272292023328504,
+        "planned_parents": 48,
+        "planned_queries": 768,
+        "scope": "primary",
+        "simulator": "crazyflow",
+        "statistic": "endpoint",
+        "truth_eligible_queries": 680
+      },
+      {
+        "arm": "baseline",
+        "available_parents": 48,
+        "available_truth_rmse": 0.10293653205332966,
+        "complete_cohort_rmse": null,
+        "failed_eligible_predictions": 0,
+        "failed_parents": 0,
+        "group": "rotation_entries",
+        "horizon_s": 0.25,
+        "kind": "response",
+        "missing_truth_parents": 0,
+        "missing_truth_queries": 88,
+        "parent_rmse_max": 0.13387243366866036,
+        "parent_rmse_p50": 0.0984045542035002,
+        "parent_rmse_p95": 0.1308801736923549,
+        "planned_parents": 48,
+        "planned_queries": 768,
+        "scope": "primary",
+        "simulator": "crazyflow",
+        "statistic": "endpoint",
+        "truth_eligible_queries": 680
+      },
+      {
+        "arm": "baseline",
+        "available_parents": 48,
+        "available_truth_rmse": 0.11628672804365271,
+        "complete_cohort_rmse": null,
+        "failed_eligible_predictions": 0,
+        "failed_parents": 0,
+        "group": "velocity_m_s",
+        "horizon_s": 0.25,
+        "kind": "response",
+        "missing_truth_parents": 0,
+        "missing_truth_queries": 88,
+        "parent_rmse_max": 0.17721806407695467,
+        "parent_rmse_p50": 0.10730651516736373,
+        "parent_rmse_p95": 0.17121859509065426,
+        "planned_parents": 48,
+        "planned_queries": 768,
+        "scope": "primary",
+        "simulator": "crazyflow",
+        "statistic": "endpoint",
+        "truth_eligible_queries": 680
+      },
+      {
+        "arm": "candidate",
+        "available_parents": 48,
+        "available_truth_rmse": 0.2533044644883021,
+        "complete_cohort_rmse": null,
+        "failed_eligible_predictions": 0,
+        "failed_parents": 0,
+        "group": "body_rate_rad_s",
+        "horizon_s": 0.25,
+        "kind": "response",
+        "missing_truth_parents": 0,
+        "missing_truth_queries": 88,
+        "parent_rmse_max": 0.4878613741448803,
+        "parent_rmse_p50": 0.20755698332019706,
+        "parent_rmse_p95": 0.41143965705905483,
+        "planned_parents": 48,
+        "planned_queries": 768,
+        "scope": "primary",
+        "simulator": "crazyflow",
+        "statistic": "endpoint",
+        "truth_eligible_queries": 680
+      },
+      {
+        "arm": "candidate",
+        "available_parents": 48,
+        "available_truth_rmse": 0.0677271196309105,
+        "complete_cohort_rmse": null,
+        "failed_eligible_predictions": 0,
+        "failed_parents": 0,
+        "group": "rotation_entries",
+        "horizon_s": 0.25,
+        "kind": "response",
+        "missing_truth_parents": 0,
+        "missing_truth_queries": 88,
+        "parent_rmse_max": 0.1348163457470986,
+        "parent_rmse_p50": 0.057576259977425916,
+        "parent_rmse_p95": 0.10951494952177714,
+        "planned_parents": 48,
+        "planned_queries": 768,
+        "scope": "primary",
+        "simulator": "crazyflow",
+        "statistic": "endpoint",
+        "truth_eligible_queries": 680
+      },
+      {
+        "arm": "candidate",
+        "available_parents": 48,
+        "available_truth_rmse": 0.061054956285058304,
+        "complete_cohort_rmse": null,
+        "failed_eligible_predictions": 0,
+        "failed_parents": 0,
+        "group": "velocity_m_s",
+        "horizon_s": 0.25,
+        "kind": "response",
+        "missing_truth_parents": 0,
+        "missing_truth_queries": 88,
+        "parent_rmse_max": 0.14346419858857604,
+        "parent_rmse_p50": 0.04487467521948413,
+        "parent_rmse_p95": 0.10859202728507056,
+        "planned_parents": 48,
+        "planned_queries": 768,
+        "scope": "primary",
+        "simulator": "crazyflow",
+        "statistic": "endpoint",
+        "truth_eligible_queries": 680
+      },
+      {
+        "arm": "hold",
+        "available_parents": 48,
+        "available_truth_rmse": 1.4856667197064006,
+        "complete_cohort_rmse": null,
+        "failed_eligible_predictions": 0,
+        "failed_parents": 0,
+        "group": "body_rate_rad_s",
+        "horizon_s": 0.25,
+        "kind": "response",
+        "missing_truth_parents": 0,
+        "missing_truth_queries": 88,
+        "parent_rmse_max": 1.9236738325959972,
+        "parent_rmse_p50": 1.4320400921216452,
+        "parent_rmse_p95": 1.847719608301763,
+        "planned_parents": 48,
+        "planned_queries": 768,
+        "scope": "primary",
+        "simulator": "crazyflow",
+        "statistic": "endpoint",
+        "truth_eligible_queries": 680
+      },
+      {
+        "arm": "hold",
+        "available_parents": 48,
+        "available_truth_rmse": 0.11693383839490007,
+        "complete_cohort_rmse": null,
+        "failed_eligible_predictions": 0,
+        "failed_parents": 0,
+        "group": "rotation_entries",
+        "horizon_s": 0.25,
+        "kind": "response",
+        "missing_truth_parents": 0,
+        "missing_truth_queries": 88,
+        "parent_rmse_max": 0.15123256175637476,
+        "parent_rmse_p50": 0.11262148315306078,
+        "parent_rmse_p95": 0.1442607287407889,
+        "planned_parents": 48,
+        "planned_queries": 768,
+        "scope": "primary",
+        "simulator": "crazyflow",
+        "statistic": "endpoint",
+        "truth_eligible_queries": 680
+      },
+      {
+        "arm": "hold",
+        "available_parents": 48,
+        "available_truth_rmse": 0.11772351693892641,
+        "complete_cohort_rmse": null,
+        "failed_eligible_predictions": 0,
+        "failed_parents": 0,
+        "group": "velocity_m_s",
+        "horizon_s": 0.25,
+        "kind": "response",
+        "missing_truth_parents": 0,
+        "missing_truth_queries": 88,
+        "parent_rmse_max": 0.1825857520798273,
+        "parent_rmse_p50": 0.10775709081417559,
+        "parent_rmse_p95": 0.1739361049608772,
+        "planned_parents": 48,
+        "planned_queries": 768,
+        "scope": "primary",
+        "simulator": "crazyflow",
+        "statistic": "endpoint",
+        "truth_eligible_queries": 680
+      },
+      {
+        "arm": "quadratic",
+        "available_parents": 48,
+        "available_truth_rmse": 0.31592613937745234,
+        "complete_cohort_rmse": null,
+        "failed_eligible_predictions": 0,
+        "failed_parents": 0,
+        "group": "body_rate_rad_s",
+        "horizon_s": 0.25,
+        "kind": "response",
+        "missing_truth_parents": 0,
+        "missing_truth_queries": 88,
+        "parent_rmse_max": 0.7540691043617056,
+        "parent_rmse_p50": 0.23560633590752025,
+        "parent_rmse_p95": 0.5626374886172634,
+        "planned_parents": 48,
+        "planned_queries": 768,
+        "scope": "primary",
+        "simulator": "crazyflow",
+        "statistic": "endpoint",
+        "truth_eligible_queries": 680
+      },
+      {
+        "arm": "quadratic",
+        "available_parents": 48,
+        "available_truth_rmse": 0.02750552383153867,
+        "complete_cohort_rmse": null,
+        "failed_eligible_predictions": 0,
+        "failed_parents": 0,
+        "group": "rotation_entries",
+        "horizon_s": 0.25,
+        "kind": "response",
+        "missing_truth_parents": 0,
+        "missing_truth_queries": 88,
+        "parent_rmse_max": 0.06197531647646345,
+        "parent_rmse_p50": 0.02146728036894797,
+        "parent_rmse_p95": 0.0488091487917506,
+        "planned_parents": 48,
+        "planned_queries": 768,
+        "scope": "primary",
+        "simulator": "crazyflow",
+        "statistic": "endpoint",
+        "truth_eligible_queries": 680
+      },
+      {
+        "arm": "quadratic",
+        "available_parents": 48,
+        "available_truth_rmse": 0.035962044193849754,
+        "complete_cohort_rmse": null,
+        "failed_eligible_predictions": 0,
+        "failed_parents": 0,
+        "group": "velocity_m_s",
+        "horizon_s": 0.25,
+        "kind": "response",
+        "missing_truth_parents": 0,
+        "missing_truth_queries": 88,
+        "parent_rmse_max": 0.0840306460433346,
+        "parent_rmse_p50": 0.024649363313297416,
+        "parent_rmse_p95": 0.06886082976528725,
+        "planned_parents": 48,
+        "planned_queries": 768,
+        "scope": "primary",
+        "simulator": "crazyflow",
+        "statistic": "endpoint",
+        "truth_eligible_queries": 680
+      }
+    ]
+  },
+  "protocol": "excited-bilinear-ablation-v1",
+  "protocol_sha256": "20d31d5f1553b8f7f910c5110cb52a4221613df8c6fc078d43481e45325e7a21",
+  "public_promotion": false,
+  "remaining_qualification": "No arbitrary-system, physical derivative, uncertainty, update or controller readiness established. Crazyflow accuracy remains conditional on incomplete truth.",
+  "test_parent_outcomes": {
+    "cascade": {
+      "completed": 84,
+      "failures": [],
+      "planned": 84
+    },
+    "crazyflow": {
+      "completed": 65,
+      "failures": [
+        {
+          "parent": "crazyflow/primary-01/test-5200010",
+          "validity": {
+            "failure_index": 199,
+            "reason": "altitude_below_0.5m",
+            "valid_initial": true,
+            "valid_transitions": 198
+          }
+        },
+        {
+          "parent": "crazyflow/primary-05/test-5200051",
+          "validity": {
+            "failure_index": 220,
+            "reason": "altitude_below_0.5m",
+            "valid_initial": true,
+            "valid_transitions": 219
+          }
+        },
+        {
+          "parent": "crazyflow/primary-07/test-5200070",
+          "validity": {
+            "failure_index": 200,
+            "reason": "altitude_below_0.5m",
+            "valid_initial": true,
+            "valid_transitions": 199
+          }
+        },
+        {
+          "parent": "crazyflow/primary-09/test-5200090",
+          "validity": {
+            "failure_index": 182,
+            "reason": "altitude_below_0.5m",
+            "valid_initial": true,
+            "valid_transitions": 181
+          }
+        },
+        {
+          "parent": "crazyflow/primary-09/test-5200091",
+          "validity": {
+            "failure_index": 250,
+            "reason": "altitude_below_0.5m",
+            "valid_initial": true,
+            "valid_transitions": 249
+          }
+        },
+        {
+          "parent": "crazyflow/primary-11/test-5200110",
+          "validity": {
+            "failure_index": 196,
+            "reason": "altitude_below_0.5m",
+            "valid_initial": true,
+            "valid_transitions": 195
+          }
+        },
+        {
+          "parent": "crazyflow/primary-13/test-5200130",
+          "validity": {
+            "failure_index": 179,
+            "reason": "altitude_below_0.5m",
+            "valid_initial": true,
+            "valid_transitions": 178
+          }
+        },
+        {
+          "parent": "crazyflow/primary-13/test-5200131",
+          "validity": {
+            "failure_index": 179,
+            "reason": "altitude_below_0.5m",
+            "valid_initial": true,
+            "valid_transitions": 178
+          }
+        },
+        {
+          "parent": "crazyflow/primary-15/test-5200151",
+          "validity": {
+            "failure_index": 199,
+            "reason": "altitude_below_0.5m",
+            "valid_initial": true,
+            "valid_transitions": 198
+          }
+        },
+        {
+          "parent": "crazyflow/primary-17/test-5200171",
+          "validity": {
+            "failure_index": 156,
+            "reason": "altitude_below_0.5m",
+            "valid_initial": true,
+            "valid_transitions": 155
+          }
+        },
+        {
+          "parent": "crazyflow/primary-19/test-5200190",
+          "validity": {
+            "failure_index": 219,
+            "reason": "altitude_below_0.5m",
+            "valid_initial": true,
+            "valid_transitions": 218
+          }
+        },
+        {
+          "parent": "crazyflow/primary-19/test-5200191",
+          "validity": {
+            "failure_index": 191,
+            "reason": "altitude_below_0.5m",
+            "valid_initial": true,
+            "valid_transitions": 190
+          }
+        },
+        {
+          "parent": "crazyflow/primary-21/test-5200211",
+          "validity": {
+            "failure_index": 245,
+            "reason": "altitude_below_0.5m",
+            "valid_initial": true,
+            "valid_transitions": 244
+          }
+        },
+        {
+          "parent": "crazyflow/primary-23/test-5200230",
+          "validity": {
+            "failure_index": 270,
+            "reason": "altitude_below_0.5m",
+            "valid_initial": true,
+            "valid_transitions": 269
+          }
+        },
+        {
+          "parent": "crazyflow/primary-23/test-5200231",
+          "validity": {
+            "failure_index": 263,
+            "reason": "altitude_below_0.5m",
+            "valid_initial": true,
+            "valid_transitions": 262
+          }
+        },
+        {
+          "parent": "crazyflow/maneuver_shift-00/test-5300360",
+          "validity": {
+            "failure_index": 242,
+            "reason": "altitude_below_0.5m",
+            "valid_initial": true,
+            "valid_transitions": 241
+          }
+        },
+        {
+          "parent": "crazyflow/maneuver_shift-00/test-5300361",
+          "validity": {
+            "failure_index": 152,
+            "reason": "altitude_below_0.5m",
+            "valid_initial": true,
+            "valid_transitions": 151
+          }
+        },
+        {
+          "parent": "crazyflow/maneuver_shift-01/test-5300370",
+          "validity": {
+            "failure_index": 278,
+            "reason": "altitude_below_0.5m",
+            "valid_initial": true,
+            "valid_transitions": 277
+          }
+        },
+        {
+          "parent": "crazyflow/maneuver_shift-01/test-5300371",
+          "validity": {
+            "failure_index": 177,
+            "reason": "altitude_below_0.5m",
+            "valid_initial": true,
+            "valid_transitions": 176
+          }
+        }
+      ],
+      "planned": 84
+    }
+  },
+  "verification": {
+    "alteration_cases_passed": 21,
+    "analysis_scope": "Independent selected-test scope/cell/horizon reductions from saved predictions and truth, and all development checkpoints; see analysis script and JSON for exact scope.",
+    "focused_tests_passed": 401,
+    "historical_sources_unchanged": true,
+    "independent_scope": "Independent NumPy 250 ms endpoint errors for four predictors, three pairwise physical comparisons/tails, primary tail gates and four angular-repair point gates; complete metric rosters and all-horizon truth/finiteness; exact prior public-excited/quadratic revisions, byte-exact historical excitation imports, hash-selected caches, six base norms, state-input scale and exact loss weights. Every arm checkpoint manifest, including failure or unavailable preparation, is checked against its outcome and trusted public-excited cache; all captured saved checkpoint predictions are independently reduced into channel/group MSE, objective contributions and parent tails with objective atol1e-12/rtol1e-10. Combined logic, reported aggregate gate arithmetic and bootstrap hash equality are checked. No independent other-horizon test scores, full-horizon test aggregates, bootstrap draws, optimizer trajectories, checkpoint capture, model prediction or simulator execution; historical excitation assignment is inherited from externally anchored prior evidence.",
+    "new_native_fixture_tests_claimed": false,
+    "optimizer_recomputed_by_replay": false,
+    "replay": {
+      "cascade": {
+        "checkpoints": {
+          "baseline": {
+            "checkpoints": 11,
+            "exact": true,
+            "fitter_calls": 1,
+            "manifest_sha256": "79480b94ade2230aaba0eaec216fa01a7b625e2a55af0723fce5bb08f518df89",
+            "optimizer_attempted": true,
+            "replayed_arrays": 231,
+            "unavailable_checkpoints": 0
+          },
+          "candidate": {
+            "checkpoints": 11,
+            "exact": true,
+            "fitter_calls": 1,
+            "manifest_sha256": "3c2c85d28d98b642f0d1292fcc67f3c05ae59f02d11114adbcdc70ec817e9a2e",
+            "optimizer_attempted": true,
+            "replayed_arrays": 253,
+            "unavailable_checkpoints": 0
+          },
+          "quadratic": {
+            "checkpoints": 11,
+            "exact": true,
+            "fitter_calls": 1,
+            "manifest_sha256": "0a9fb47fbdbe7b1fdfe33fc6b9f5189af92f91fb61186aea3ec3445a834bb869",
+            "optimizer_attempted": true,
+            "replayed_arrays": 275,
+            "unavailable_checkpoints": 0
+          }
+        },
+        "decision_exact": true,
+        "file_sha256": "7140af729f5cd20c600add440616d37acdb8ca1b9d2bfe54edfb2ca403c2dbc9",
+        "historical_excitation_replay": {
+          "arrays": 1488,
+          "assigned_and_realized_excitation_exact": true,
+          "calibration_parents": 96,
+          "common_data_seal": "6be745d561136e6cfc0ebf2288673d3e200c25a147ea090cef5ab04e5532003f",
+          "copied_development_parents": 24,
+          "development_files_exact": true,
+          "exact": true,
+          "exact_prefix_arrays": 792,
+          "excited_training_parents": 72,
+          "regenerated_training_parents": 72,
+          "replay_arrays": 1488,
+          "roles_and_admission_exact": true
+        },
+        "physics": {
+          "arrays": 24996,
+          "exact": true,
+          "parents": 180,
+          "queries": 1848
+        },
+        "predictions": {
+          "exact": true,
+          "metric_rows": 133056,
+          "prediction_queries": 1848
+        }
+      },
+      "crazyflow": {
+        "checkpoints": {
+          "baseline": {
+            "checkpoints": 11,
+            "exact": true,
+            "fitter_calls": 1,
+            "manifest_sha256": "531ed2b716e741d5941c8dba7477ca8555fdd763facd375faf2fed8f9ebb40c3",
+            "optimizer_attempted": true,
+            "replayed_arrays": 231,
+            "unavailable_checkpoints": 0
+          },
+          "candidate": {
+            "checkpoints": 11,
+            "exact": true,
+            "fitter_calls": 1,
+            "manifest_sha256": "d9cd8e9e6c9e01299ce5b6111a8637768500f8aa72d867e792c4dc9bd2aa284b",
+            "optimizer_attempted": true,
+            "replayed_arrays": 253,
+            "unavailable_checkpoints": 0
+          },
+          "quadratic": {
+            "checkpoints": 11,
+            "exact": true,
+            "fitter_calls": 1,
+            "manifest_sha256": "d82979f853b3fe05bbb4055567b0dcd204faa394b3b6cf00ebd5cf394cfbae54",
+            "optimizer_attempted": true,
+            "replayed_arrays": 275,
+            "unavailable_checkpoints": 0
+          }
+        },
+        "decision_exact": true,
+        "file_sha256": "90b2f9d78f969019a3bb96fd7578869f532553548b12e3a3dd2232d9302adbaf",
+        "historical_excitation_replay": {
+          "arrays": 1392,
+          "assigned_and_realized_excitation_exact": true,
+          "calibration_parents": 96,
+          "common_data_seal": "dc73778f88fe2ee8794f223cda248edacee8695649ba127bb04847f87465d9b8",
+          "copied_development_parents": 24,
+          "development_files_exact": true,
+          "exact": true,
+          "exact_prefix_arrays": 720,
+          "excited_training_parents": 72,
+          "regenerated_training_parents": 72,
+          "replay_arrays": 1392,
+          "roles_and_admission_exact": true
+        },
+        "physics": {
+          "arrays": 30576,
+          "exact": true,
+          "parents": 180,
+          "queries": 2184
+        },
+        "predictions": {
+          "exact": true,
+          "metric_rows": 209664,
+          "prediction_queries": 2184
+        }
+      }
+    },
+    "ruff_passed": true
+  },
+  "verification_passed": true
+}
