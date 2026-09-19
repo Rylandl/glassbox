@@ -1,0 +1,40 @@
+{
+  "actual_cases_each_precision_cycle": 24,
+  "evidence_copy": {
+    "path": "artifacts/2026-09-19/public-mean-precision-correction-v1-evidence/copy-inventory.json",
+    "sha256": "e050bde3405bbfe7a267e69222e938d81255d07bc783d75ef28f2caf9e5ca212"
+  },
+  "exact_full_numerical_arrays": 4653,
+  "exact_transition_forecast_arrays": 432,
+  "fits": 0,
+  "format": "glassbox-public-mean-precision-correction-result-v1",
+  "frozen_plan_commit": "e361712",
+  "implementation_commit": "41e35abee793a2bce0d78af7bbaf09c4b8571d10",
+  "iteration": "public-mean-precision-correction-v1",
+  "mechanism": "Materialize all model parameter and normalization arrays at ambient-canonical dtype inside inference, retaining original NumPy64 model storage.",
+  "milestone": {
+    "path": "artifacts/2026-09-19/public-mean-precision-correction-v1-evidence/runtime/public-mean-precision-correction-v1-milestone.json",
+    "sha256": "c6cb4eb7a9e56db49b51570c7b952040b1ee2df8d263078847582f26a3af9e94"
+  },
+  "original_numerical_qualification_passed": false,
+  "precision_cycles": [
+    "32-64-32",
+    "64-32-64"
+  ],
+  "preserved_first_regression_failures": {
+    "count": 12,
+    "reason": "A test incorrectly required readonly array flags; the existing constructor owns writable arrays. The corrected test verifies unchanged identity, dtype, flags and fingerprint. No learner source change accompanied the test correction."
+  },
+  "public_implementation_merged": false,
+  "public_mean_adopted": false,
+  "regression_tests_passed": 36,
+  "remaining": [
+    "Freeze and execute prospective FD assessment; preserved coarse-step failures do not become passes.",
+    "Freshly replay both corrected public arms over the full saved physical cohort before public adoption.",
+    "Independent excited-recording accuracy experiment follows a usable qualified public mean."
+  ],
+  "runtime_correction_passed": true,
+  "scope": "Runtime correction and arithmetic preservation only. No new model fit or physical accuracy claim; original finite-difference verdict remains failed.",
+  "test_correction_commit": "355fb75cbf3cc88582473bf18c641adfcb0ec79a",
+  "unchanged_required_numerical_failures": 11
+}

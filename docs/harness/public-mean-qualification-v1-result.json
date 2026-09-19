@@ -1,0 +1,146 @@
+{
+  "alteration_audit": {
+    "path": "artifacts/2026-09-19/public-mean-qualification-v1-evidence/audit/result.json",
+    "sha256": "270e844e612af0e6439975a516cfde65288d4ba812e978bfbd10b5cc69273715"
+  },
+  "alteration_layout": {
+    "path": "artifacts/2026-09-19/public-mean-qualification-v1-evidence/layout/layout.json",
+    "sha256": "e61d935ce844e34c281d2fd28c51e6d0f6cd6b1ce3d90a48fa6f43dff5e803d7"
+  },
+  "artifact_alterations": {
+    "all_passed": true,
+    "clean_validators": 12,
+    "coherently_resealed_semantic_rejections": 11,
+    "raw_integrity_rejections": 1
+  },
+  "candidate_recipe": "generic-memory-v4-prototype",
+  "evidence_copy": {
+    "path": "artifacts/2026-09-19/public-mean-qualification-v1-evidence/copy-inventory.json",
+    "sha256": "9d188be982a2996f756ecce0cf92e849297e462940ec5163938500a562b1cdea"
+  },
+  "final_composite": {
+    "path": "artifacts/2026-09-19/public-mean-qualification-v1-evidence/final-composite/final-composite.json",
+    "sha256": "8f0777db976b33633c2882b887a14a9223dbfd3297dd30e3961a2985cfe47b0f"
+  },
+  "final_composite_seal": {
+    "path": "artifacts/2026-09-19/public-mean-qualification-v1-evidence/final-composite/seal.json",
+    "sha256": "0ec8e295031199418e2c0f8d93111c2798e111fc677a3139097d4c68d231747b"
+  },
+  "fitting_operations": {
+    "flight": 2,
+    "lifecycle": 3,
+    "synthetic": 27,
+    "total": 32
+  },
+  "format": "glassbox-public-mean-qualification-result-v1",
+  "iteration": "public-mean-qualification-v1",
+  "limitations": [
+    "Accuracy comparisons with saved public v3 include a larger training cache and fitting work; they do not isolate architecture.",
+    "Fresh Crazyflow truth is incomplete; every comparator uses the same available truth masks.",
+    "The retained research comparison with balanced includes a 2.62 percent Crazyflow primary factual angular mean loss, within its original limit.",
+    "Calibrated uncertainty, physical derivative fidelity, update improvement, safe live swaps and arbitrary-system readiness remain unqualified.",
+    "Subsequent precision correction and numerical reassessment are separate prospective work, not changes to this verdict."
+  ],
+  "numerical_result": {
+    "diagnosis": "Fixed-grid diagnosis attributes these failures primarily to coarse-step truncation; old gate remains failed.",
+    "diagnostic_run_sha256": "6074823469c7baa505eb35225467e366a51d97f26b4b7ca01520b18364f460aa",
+    "exact_replayed_arrays": 4653,
+    "mandatory_failures": 11,
+    "passed": false,
+    "scope": "Cascade float32 state-history fixed-step finite differences; all actual forecast/path/AD/JVP comparisons otherwise pass."
+  },
+  "physical_collection": {
+    "cascade": {
+      "complete": 84,
+      "planned": 84,
+      "queries": 1848
+    },
+    "crazyflow": {
+      "altitude_failures": 22,
+      "complete": 62,
+      "planned": 84,
+      "queries": 2184
+    }
+  },
+  "physical_result": {
+    "all_frozen_physical_checks_pass": true,
+    "candidate_vs_research": {
+      "forecast_ratio": 1.0000000676558802,
+      "response_ratio": 1.0000001916632446
+    },
+    "candidate_vs_saved_public_v3": {
+      "forecast_ratio": 0.47182871942330473,
+      "response_ratio": 0.4473693989920922
+    },
+    "float64_forecast_arrays_exact_to_research": 6384,
+    "primary_250ms": {
+      "cascade": {
+        "forecast_rate_rad_s": [
+          0.10220129433096059,
+          0.04757144463910001
+        ],
+        "forecast_velocity_m_s": [
+          0.170885548681252,
+          0.074483206800082
+        ],
+        "response_rate_rad_s": [
+          0.03609324522916488,
+          0.020126654712945863
+        ],
+        "response_velocity_m_s": [
+          0.05195496564364713,
+          0.020823168527065037
+        ]
+      },
+      "crazyflow": {
+        "forecast_rate_rad_s": [
+          0.19014950349916604,
+          0.17145510913206885
+        ],
+        "forecast_truth": [
+          421,
+          480
+        ],
+        "forecast_velocity_m_s": [
+          0.16468311815909983,
+          0.05059831366517383
+        ],
+        "response_rate_rad_s": [
+          0.24254335432549856,
+          0.15553275139309025
+        ],
+        "response_truth": [
+          695,
+          768
+        ],
+        "response_velocity_m_s": [
+          0.11889416524801383,
+          0.023639207735772612
+        ]
+      }
+    },
+    "replayed_metric_rows": 428400
+  },
+  "protocol": {
+    "path": "artifacts/2026-09-19/public-mean-qualification-v1-evidence/protocol/docs/harness/public-mean-qualification-v1.json",
+    "sha256": "d3a8d0eeeeab2aac923cad7f1f5fe1c8a49fc0ffa765e84b3d7c6bc80cec8f99"
+  },
+  "public_mean_adopted": false,
+  "public_recipe_remains": "generic-memory-v3-prototype",
+  "qualification_checks": {
+    "fixed_reference_absolute_capability_pass": true,
+    "fresh_default32_physical_comparisons_pass": true,
+    "independent_dart_consumer_pass": true,
+    "public_api_lifecycle_persistence_and_ambient_jax_pass": false,
+    "replay_and_evidence_integrity_pass": true,
+    "required_regression_surface_pass": true,
+    "research_to_public_preparation_initialization_selected_mean_parity": true
+  },
+  "reproduction": "Use the pinned original worker/source bindings recorded in the mirrored snapshot and audit; copied evidence preserves original bytes and execution provenance. The mirror is not a claim of rerunning at the main checkout.",
+  "snapshot": {
+    "path": "artifacts/2026-09-19/public-mean-qualification-v1-evidence/snapshot/ROOT.json",
+    "sha256": "baad75345f740f4df6f1852e2ae87b7f526b96a1c5407c78f6f026f457fa4856"
+  },
+  "source_commit": "ab1cdc558231968e820ab08318d9d37540d97875",
+  "status": "complete_with_failed_numerical_qualification"
+}
