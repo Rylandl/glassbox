@@ -246,7 +246,7 @@ def test_report_and_contract_are_defensive_copies(fitted):
 
 def test_default_is_the_versioned_memory_recipe(fitted):
     assert fitted.recipe == RECIPE
-    assert fitted.report["recipe"]["id"] == "generic-memory-v3-prototype"
+    assert fitted.report["recipe"]["id"] == "generic-memory-v4-prototype"
     assert fitted._model.kind == "filter_mlp"
     assert (
         fitted.history_steps,
@@ -257,7 +257,18 @@ def test_default_is_the_versioned_memory_recipe(fitted):
         2,
         5,
     )
-    assert fitted._metadata()["format"] == "glassbox-default-recipe-v3"
+    assert fitted._metadata()["format"] == "glassbox-default-recipe-v4"
+    assert set(fitted._model.params) == {
+        "linear",
+        "interaction",
+        "autonomous",
+        "bias",
+        "w1",
+        "b1",
+        "w2",
+        "memory",
+        "memory_bias",
+    }
     assert fitted._train.batch.past_states.shape[1] == 11
 
 
@@ -346,12 +357,17 @@ def test_the_envelope_is_calibrated_on_the_held_out_development_windows(fitted):
     assert fitted.report["envelope"]["calibrated_on"] == "development"
 
     batch = fitted._development.batch
-    residual = np.abs(
-        np.asarray(
-            fitted.predict(batch.past_states, batch.past_inputs, batch.future_inputs)
+    # Calibration belongs to the fit's float64 context. Ambient32 inference
+    # coverage is measured separately and need not reproduce rank ties exactly.
+    with jax.enable_x64(True):
+        residual = np.abs(
+            np.asarray(
+                fitted.predict(
+                    batch.past_states, batch.past_inputs, batch.future_inputs
+                )
+            )
+            - batch.future_states
         )
-        - batch.future_states
-    )
     covered = (residual <= envelope).mean(axis=0)
     assert covered.min() >= ENVELOPE_COVERAGE
     assert fitted.report["envelope"]["calibration_windows"] == len(residual)
@@ -387,12 +403,15 @@ def test_an_update_recalibrates_on_the_pinned_development_cache(fitted):
     # same way, never the predecessor's carried forward.
     assert not np.array_equal(revised.envelope(), fitted.envelope())
     batch = revised._development.batch
-    residual = np.abs(
-        np.asarray(
-            revised.predict(batch.past_states, batch.past_inputs, batch.future_inputs)
+    with jax.enable_x64(True):
+        residual = np.abs(
+            np.asarray(
+                revised.predict(
+                    batch.past_states, batch.past_inputs, batch.future_inputs
+                )
+            )
+            - batch.future_states
         )
-        - batch.future_states
-    )
     assert (residual <= revised.envelope()).mean(axis=0).min() >= ENVELOPE_COVERAGE
 
 

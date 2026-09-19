@@ -1,0 +1,156 @@
+{
+  "absolute_rmse_regression_cells": {
+    "floored_ratio_greater_than_one": 11,
+    "scope": "Reported 50/150/250 ms endpoint component/scope/horizon comparisons versus saved public v3",
+    "total": 180,
+    "under_floor_regressions": 2,
+    "worse": 13
+  },
+  "accuracy": {
+    "all_frozen_physical_checks_pass": true,
+    "candidate_vs_research": {
+      "forecast_ratio": 1.0000000676558802,
+      "response_ratio": 1.0000001916632446
+    },
+    "candidate_vs_saved_public_v3": {
+      "forecast_ratio": 0.47182871942330473,
+      "response_ratio": 0.4473693989920922
+    },
+    "float64_forecast_arrays_exact_to_research": 6384,
+    "primary_250ms": {
+      "cascade": {
+        "forecast_rate_rad_s": [
+          0.10220129433096059,
+          0.04757144463910001
+        ],
+        "forecast_velocity_m_s": [
+          0.170885548681252,
+          0.074483206800082
+        ],
+        "response_rate_rad_s": [
+          0.03609324522916488,
+          0.020126654712945863
+        ],
+        "response_velocity_m_s": [
+          0.05195496564364713,
+          0.020823168527065037
+        ]
+      },
+      "crazyflow": {
+        "forecast_rate_rad_s": [
+          0.19014950349916604,
+          0.17145510913206885
+        ],
+        "forecast_truth": [
+          421,
+          480
+        ],
+        "forecast_velocity_m_s": [
+          0.16468311815909983,
+          0.05059831366517383
+        ],
+        "response_rate_rad_s": [
+          0.24254335432549856,
+          0.15553275139309025
+        ],
+        "response_truth": [
+          695,
+          768
+        ],
+        "response_velocity_m_s": [
+          0.11889416524801383,
+          0.023639207735772612
+        ]
+      }
+    },
+    "replayed_metric_rows": 428400
+  },
+  "collection": {
+    "cascade": {
+      "complete": 84,
+      "planned": 84,
+      "queries": 1848
+    },
+    "crazyflow": {
+      "altitude_failures": 22,
+      "complete": 62,
+      "planned": 84,
+      "queries": 2184
+    }
+  },
+  "date": "2026-09-19",
+  "decision_kind": "Policy judgment on complete known evidence, not a newly passed frozen experiment",
+  "evidence": {
+    "corrected_source_replay": {
+      "path": "docs/harness/public-mean-corrected-replay-result.json",
+      "sha256": "aa3fcfb4402a6fbe7a4d52b1881a092d2d51b81ea03d14a33c3ebc90e2c5442a"
+    },
+    "fd_assessment": {
+      "path": "docs/harness/public-mean-fd-assessment-v1-result.json",
+      "sha256": "29d072b451763a07c6b8102d09035ef4b3b56bad1b9da58dfc0e36d34ea4f788"
+    },
+    "integration_review": {
+      "path": "artifacts/2026-09-19/public-mean-adoption-v1-evidence/copy-inventory.json",
+      "sha256": "0bc92592f3b09900b36a76067d8beba701a1b880fed8b9a854395a9c6b5c7c59"
+    },
+    "original_qualification": {
+      "path": "docs/harness/public-mean-qualification-v1-result.json",
+      "sha256": "630dae06fc15200d5cc975f04efcadd6499f9a43e9e9f664423d87750c5de40b"
+    },
+    "precision_correction": {
+      "path": "docs/harness/public-mean-precision-correction-v1-result.json",
+      "sha256": "e23642d1c2ce6e18899427ed62ff1c4ca05be00d54d7dcad70f6314b31a7bbde"
+    }
+  },
+  "format": "glassbox-public-mean-adoption-policy-v1",
+  "limitations": [
+    "Physical results are conditional on available Crazyflow truth; 22 of 84 parents failed altitude.",
+    "Gains against public v3 include changes in fitting mechanics and training cache, not architecture alone.",
+    "Thirteen component/horizon cells worsen despite all 20 scope aggregates improving.",
+    "The earlier balanced-reference comparison includes a 2.62 percent primary Crazyflow factual angular loss within the frozen 5 percent limit.",
+    "Numerical confirmation reuses historical parents and does not qualify physical derivatives.",
+    "Calibrated uncertainty, update improvement, safe live swaps, current-mean controller qualification and arbitrary-system readiness remain unqualified.",
+    "The current loader accepts v4 only; older archives require their pinned historical source."
+  ],
+  "next_iteration": {
+    "intervention": "One ordinary public update per simulator with 72 additional independent excited parents; 1,536 training windows, 256 original development windows and 1,000 optimizer attempts fixed",
+    "name": "independent-training-recordings-v1",
+    "protocol_commit": "681daed79bb7e2e6bd780577f68cb37c5161aed1",
+    "scientific_trials_started": false,
+    "worktree": "/private/tmp/glassbox-independent-training-recordings"
+  },
+  "policy_guide": "docs/public-mean-adoption.md",
+  "prerequisites": {
+    "corrected_api_and_lifecycle_replay_pass": true,
+    "corrected_physical_and_consumer_replay_pass": true,
+    "fd_assessment_alterations_passed": 4,
+    "integration_regression_tests_passed": 89,
+    "original_artifact_alterations_passed": 12,
+    "physical_comparisons_pass": true,
+    "runtime_source_identical_to_qualified_candidate": true,
+    "synthetic_absolute_caps_pass": {
+      "float32": true,
+      "float64": true
+    },
+    "unchanged_numerical_replay_exact_arrays": 15990
+  },
+  "preserved_frozen_verdicts": {
+    "additional_confirmation_raw_fd_failures": 3,
+    "adjacent_Richardson_failures": 2,
+    "ordinary_41case_raw_fd_gate": false,
+    "original_public_qualification": false,
+    "original_raw_fd_failures": 11,
+    "prospective_fd_assessment": false
+  },
+  "public_mean_adopted": true,
+  "rationale": "Broad physical residual reductions, preserved synthetic capability, usable unchanged public interfaces and exact corrected-source replays support mean adoption. The two adjacent-Richardson failures are conservative convergence checks; all final derivative-accuracy, endpoint and required non-FD checks pass. No threshold, step selection or old verdict was changed.",
+  "recipe": "generic-memory-v4-prototype",
+  "replaces_recipe": "generic-memory-v3-prototype",
+  "source": {
+    "candidate_commit": "d8fddcc5e2f9c8f56b369a7cf9ebb16d10e69bb4",
+    "integration_changes": "Documentation and evidence records only beyond the candidate source; source/tests/pyproject diff is empty",
+    "learner_sha256": "6f3ea76b240f58b57b9e8514c09fe65141672caf2380f649a4b81a7c8940f2b9",
+    "sequence_model_sha256": "a76ce39b2481808bf340e55b343336d1f56568c9f97e4756791096838916ade3"
+  },
+  "status": "adopted_by_explicit_known_evidence_policy"
+}

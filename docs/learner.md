@@ -105,7 +105,12 @@ history is not implied. At 50 ms sampling the current recipe consumes ten
 transitions and predicts at most five. Always read the fitted properties
 instead of hard-coding those lengths.
 
-Forecasts are JAX-compatible and differentiable in the future command sequence.
+Forecasts support JAX batching, JIT and differentiation with respect to observed
+history, past commands and future commands. Fitting and envelope calibration run
+in a local float64 scope. Prediction follows the caller's ambient JAX precision;
+it does not change global configuration. Inputs must be finite and representable
+in that precision. Large coordinate offsets can erase small variations in
+float32, so measured numerical support matters when choosing application units.
 The output coordinates are Euclidean: the learner does not enforce rotation
 manifolds or other physical constraints.
 
@@ -150,9 +155,10 @@ of model selection.
 
 `model.save(path)` stores the recipe, parameters, normalizers, envelope,
 recording ledger and update caches together. `LearnedDynamics.load(path)`
-checks artifact integrity and the supported recipe/format. Public migration
-retains the existing `glassbox-default-recipe-v3` archives and fingerprints.
-Unsupported older recipe formats are rejected.
+checks artifact integrity and the supported recipe/format. The loader supports
+`glassbox-default-recipe-v4` archives. Earlier recipes are rejected and must be
+replayed with their pinned historical source; loading them does not silently
+convert their model or evidence.
 
 ## The envelope
 
@@ -178,7 +184,7 @@ forecast error does not establish downstream task success.
 A caller may declare the exogenous component it injected into each applied
 command as `SequenceSegment.excitation`. Every segment in a collection must
 declare it, or none may. Masking preserves its alignment with the commands.
-The current v3 recipe records declaration and measured excitation fractions in
+The current recipe records declaration and measured excitation fractions in
 its report but does not use the excitation array in its fitting objective.
 
 `model.diagnose(recordings)` is a separate read-only report on input
@@ -188,22 +194,27 @@ control.
 
 ## The recipe
 
-The adopted recipe ID remains `generic-memory-v3-prototype`. These are
+The recipe ID is `generic-memory-v4-prototype`. These are
 implementation constants, not consumer options.
 
 | Constant | Value |
 | --- | --- |
-| Model | Recursive affine term plus tanh residual and memory readout |
+| Model | Affine, observation-quadratic and observation-command terms plus tanh residual and recurrent memory |
 | Hidden width / memory size | 32 / 8 |
 | Explicit delay / consumed context / forecast | 0.1 s / 0.5 s / 0.25 s |
-| Training / development window budgets | 384 / 256 |
-| Adam steps / batch size / learning rate | 1000 / 64 / 0.002 |
+| Training / development window budgets | 1,536 / 256 |
+| Safeguarded Adam steps / gradient batch / learning rate | 1,000 / complete training cache / 0.002 |
 | Ridge fraction / fixed seed | 0.01 / 0 |
 | Checkpoint interval / hold-scale floor | 100 / 0.01 |
 
-Initialization uses a ridge-fitted one-step affine model with zero residual
-and memory readout. Training uses multistep errors scaled against hold-current,
-gradient clipping, and development-rollout checkpoint selection.
+Initialization fits an affine model, then solves jointly for affine and
+quadratic coefficients with regularization toward that affine solution. The
+neural residual and memory readout begin at zero. Training balances channels using
+fixed weights derived from the initial training errors. Each Adam proposal uses
+the complete training cache and is accepted only when a bounded backtracking
+search finds a finite decrease in that training objective. Development rollouts
+select the saved checkpoint. The larger cache adds computation and does not, by
+itself, add independent recordings.
 
 Durations round to the nearest sample, with at least one delay and forecast
 step and at least one memory step beyond the explicit delay in the consumed
@@ -227,7 +238,7 @@ The platform, control and live plans are
 [platform-v4](harness/platform-v4.json),
 [control-v5](harness/control-v5.json) and [live-v3](harness/live-v3.json).
 The [evidence plan](harness/evidence-v2.json) measures coverage.
-[Status](status.md#evidence-and-compatibility) identifies saved evidence and the source
+[Status](status.md) identifies saved evidence and the source
 versions needed for replay. Synthetic passes are regression evidence, not
 readiness for a new system.
 

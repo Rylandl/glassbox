@@ -1,0 +1,192 @@
+{
+  "assessment": {
+    "path": "artifacts/2026-09-19/public-mean-fd-assessment-v1-evidence/worker-artifacts/public-mean-fd-assessment-v1-attempt1/assessment.json",
+    "sha256": "a488131a5edee397384b5550601c26cb4fa9076c153747ea18aea209c2d64c6c"
+  },
+  "checks": {
+    "fresh_raw_FD_required_failures": 14,
+    "historical_raw_FD_required_failures": 11,
+    "non_stress_non_FD": {
+      "passed": 2526,
+      "total": 2526
+    },
+    "required_adjacent_Richardson_agreement": {
+      "passed": 109,
+      "total": 111
+    },
+    "required_endpoint_grid": {
+      "passed": 444,
+      "total": 444
+    },
+    "required_finest_Richardson_vs_AD": {
+      "passed": 111,
+      "total": 111
+    },
+    "required_original_float64_FD": {
+      "passed": 111,
+      "total": 111
+    },
+    "stress_causality_and_dtype": {
+      "passed": 16,
+      "total": 16
+    }
+  },
+  "confirmation_passed": false,
+  "evidence_copy": {
+    "path": "artifacts/2026-09-19/public-mean-fd-assessment-v1-evidence/copy-inventory.json",
+    "sha256": "b3f95af19de1c71a41ccee9a356cb8268667493c4bbd0884c74e20489fa80529"
+  },
+  "format": "glassbox-public-mean-fd-assessment-result-v1",
+  "frozen_assessment_passed": false,
+  "implementation": {
+    "path": "artifacts/2026-09-19/public-mean-fd-assessment-v1-evidence/worker-artifacts/public-mean-fd-assessment-v1-implementation-attempt1.json",
+    "sha256": "97aa735606b16c4378f0daac0abcc1e45b4343f57e568b8e2f85e638ea803019"
+  },
+  "independent_audit": {
+    "path": "artifacts/2026-09-19/public-mean-fd-assessment-v1-evidence/worker-artifacts/public-mean-fd-assessment-v1-independent-attempt1/result.json",
+    "sha256": "ac155fffcd73fb15246c5714cd0928327ac1e8d8de1ba91d01eb71f3dc38bb44"
+  },
+  "input_manifest": {
+    "path": "artifacts/2026-09-19/public-mean-fd-assessment-v1-evidence/worker-artifacts/public-mean-fd-assessment-v1-input-attempt1/manifest.json",
+    "sha256": "30e30aceffc0b4592e9420728ba56141c5f3e2b3244f7657af0e745d506bc402"
+  },
+  "interpretation": "Both failures concern adjacent Richardson estimates; every required finest estimate agrees with AD. Neither failed frozen verdict is rewritten. Any public adoption is a separate explicit judgment on known evidence.",
+  "iteration": "public-mean-fd-assessment-v1",
+  "limitations": [
+    "The eight confirmation inputs reuse historical simulation recordings and establish no new physical accuracy or physical derivative fidelity.",
+    "Diagnostic stress precision checks remain diagnostic; their causality and dtype checks remain required.",
+    "Mirrored evidence preserves original absolute execution provenance; this copy is not a claim of rerunning under relocated paths.",
+    "Coverage, update improvement, safe live controller swaps and arbitrary-system readiness remain separate requirements."
+  ],
+  "mandatory_failures": [
+    {
+      "AD_absolute_error": 3.284942227087251e-08,
+      "allowance": 2.674990748790108e-07,
+      "central_quotients": [
+        -0.014950883363120115,
+        -0.013025567149669515,
+        -0.01253800544047623,
+        -0.012415741305148664
+      ],
+      "direction": "past_states",
+      "finest_adjacent_absolute_difference": 4.98277372326314e-07,
+      "id": "cascade/cascade/heading_shift-00/test-11300240/response-0020-0-+1/factual",
+      "oracle_AD": -0.012374953743950538,
+      "oracle_AD_link": {
+        "atol": 1e-11,
+        "elements": 1,
+        "maximum_absolute_error": 2.7755575615628914e-17,
+        "maximum_allowance_ratio": 1.2404752176586357e-06,
+        "passed": true,
+        "rtol": 1e-09,
+        "worst_index": []
+      },
+      "passed": false,
+      "required": true,
+      "richardson_estimates": [
+        -0.012383795078519314,
+        -0.012375484870745135,
+        -0.012374986593372808
+      ],
+      "role": "regression",
+      "selected_estimate_index": 2
+    },
+    {
+      "AD_absolute_error": 5.106325137727019e-08,
+      "allowance": 5.748085919833629e-07,
+      "central_quotients": [
+        -0.026942412307728036,
+        -0.027550109176905258,
+        -0.027693454346013224,
+        -0.027728724083317946
+      ],
+      "direction": "past_states",
+      "finest_adjacent_absolute_difference": 7.554066296933115e-07,
+      "id": "cascade/cascade/wind_shift-03/test-11300411/factual-0050/factual-confirmation",
+      "oracle_AD": -0.027740429599168143,
+      "oracle_AD_link": {
+        "atol": 1e-11,
+        "elements": 1,
+        "maximum_absolute_error": 0.0,
+        "maximum_allowance_ratio": 0.0,
+        "passed": true,
+        "rtol": 1e-09,
+        "worst_index": []
+      },
+      "passed": false,
+      "required": true,
+      "richardson_estimates": [
+        -0.027752674799964332,
+        -0.027741236069049213,
+        -0.02774048066241952
+      ],
+      "role": "confirmation",
+      "selected_estimate_index": 2
+    }
+  ],
+  "ordinary_41case_raw_gate_passed": false,
+  "original_v1_qualification_passed": false,
+  "protocol": {
+    "path": "artifacts/2026-09-19/public-mean-fd-assessment-v1-evidence/protocol/public-mean-fd-assessment-plan.md",
+    "sha256": "750f269a1ce5cdddd1bd76cfa11f2a93ff43705ecfbd431903df4b791a74420c"
+  },
+  "public_promotion_by_this_frozen_protocol": false,
+  "regression_passed": false,
+  "replay": {
+    "path": "artifacts/2026-09-19/public-mean-fd-assessment-v1-evidence/worker-artifacts/public-mean-fd-assessment-v1-replay-attempt1/run.json",
+    "sha256": "93d74843598548d1aacce4863d0591b2ab219059d0175c11cf871c9ec7fe4754"
+  },
+  "reproducibility": {
+    "all_stages_first_attempt_exit_zero": true,
+    "assessment_bytes_identical": true,
+    "exact_replayed_arrays": 15990,
+    "fixed_alteration_cases_passed": 4,
+    "independent_reduction_identical": true,
+    "saved_verification_passed": true,
+    "streams": {
+      "numerical/oracle64": {
+        "cases": 41,
+        "exact_arrays": 2911
+      },
+      "numerical/public32": {
+        "cases": 41,
+        "exact_arrays": 1435
+      },
+      "numerical/public64": {
+        "cases": 41,
+        "exact_arrays": 1435
+      },
+      "oracle64": {
+        "cases": 41,
+        "exact_arrays": 6396
+      },
+      "public32": {
+        "cases": 41,
+        "exact_arrays": 3813
+      }
+    }
+  },
+  "request": {
+    "path": "artifacts/2026-09-19/public-mean-fd-assessment-v1-evidence/worker-artifacts/public-mean-fd-assessment-v1-run-request-attempt1.json",
+    "sha256": "7451c510cc8d2fec9624ea39625a7c732818b508195f23abb9257d87ec5973ec"
+  },
+  "run": {
+    "path": "artifacts/2026-09-19/public-mean-fd-assessment-v1-evidence/worker-artifacts/public-mean-fd-assessment-v1-attempt1/run.json",
+    "sha256": "649ae9ba109ce506f075ca6e36192e16bed6f077b54bd838b3d2d7cfa9ab2c4e"
+  },
+  "scope": {
+    "diagnostic_stress_cases": 4,
+    "fits": 0,
+    "input_only_confirmation_cases": 8,
+    "mandatory_cases": 37,
+    "new_physical_recordings": 0,
+    "physical_derivative_fidelity_qualified": false,
+    "regression_cases": 33
+  },
+  "source": {
+    "path": "artifacts/2026-09-19/public-mean-fd-assessment-v1-evidence/sources/public/src/glassbox/experimental/public_mean_fd_assessment.py",
+    "sha256": "2731ff3d82ca6119d3103d07ded5430c97cadff9c5f7cd52c76fb3d2a338615d"
+  },
+  "source_commit": "f4e18880871995bf02a37beb4786747e69e8e820",
+  "status": "complete_with_failed_frozen_assessment"
+}

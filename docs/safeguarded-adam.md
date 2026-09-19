@@ -3,8 +3,9 @@
 The [frozen experiment](harness/safeguarded-adam-v1.json) rejects this specific
 optimizer change. Relative to the retained balanced model, weighted held-out
 forecast errors increase **6.29%** and command-response errors **15.37%**.
-The balanced model remains the strongest aggregate research result. The public
-recipe remains `generic-memory-v3-prototype`.
+At this experiment's conclusion, the balanced model remained the strongest
+aggregate research result and the public recipe was `generic-memory-v3-prototype`.
+See [status](status.md) for subsequent results and the current recipe.
 
 The mechanism makes real training progress from Crazyflow's useful initializer,
 but that does not establish a better dynamics model. No threshold or checkpoint

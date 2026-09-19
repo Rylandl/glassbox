@@ -6,10 +6,10 @@ On the fresh common cohort, forecast and command-response errors fall
 **38.04% and 32.73% against the retained balanced model**. All three frozen
 physical comparisons and Crazyflow angular-retention checks pass.
 
-The expanded-cache candidate is now the strongest verified research mean.
-Integrity, replay and alteration checks pass. The public recipe remains
-`generic-memory-v3-prototype`; public integration qualification is the next
-iteration. Research accuracy and public adoption remain separate claims.
+This experiment retained the expanded-cache candidate as the strongest verified
+research mean; integrity, replay and alteration checks pass. Public adoption
+subsequently followed a separate [qualification and policy decision](public-mean-adoption.md).
+That decision does not change this experiment's results or original scope.
 
 ## What changed
 

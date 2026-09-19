@@ -6,8 +6,9 @@ aggregate forecast errors rise **9.90%** and command-response errors **13.34%**.
 Training loss falls more than 90% in both simulators. Better optimization has
 not produced a better general dynamics model.
 
-The balanced model remains the strongest aggregate research result; the public
-recipe remains `generic-memory-v3-prototype`. The
+At this experiment's conclusion, the balanced model remained the strongest
+aggregate research result and the public recipe was `generic-memory-v3-prototype`.
+See [status](status.md) for subsequent results and the current recipe. The
 [result record](harness/full-cache-gradient-v1-result.json) anchors the evidence.
 
 ## One mechanism, explicit additional compute

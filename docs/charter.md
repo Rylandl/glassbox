@@ -93,7 +93,7 @@ from comparator performance or introduced retrospectively.
   revision adoption belong to the consumer; task tolerances belong to its
   separately declared evaluation.
 - Generality and broad empirical advantage can justify adoption despite
-  localized losses. The adopted v3 baseline explicitly accepts its measured
+  localized losses. The earlier v3 adoption explicitly accepted its measured
   ARP deficit. Future improvements are judged against the generic baseline;
   the structured models are benchmarks, not an incumbent entitled to win.
   Report gain and loss magnitudes, breadth across systems, and task adequacy

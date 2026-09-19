@@ -1,167 +1,125 @@
 # Status: gap against the charter
 
-Updated 2026-09-19. Read [the charter](charter.md) first. The generic approach is
-adopted; the public recipe remains `generic-memory-v3-prototype`. Research
-accuracy, public adoption and application qualification remain separate.
+Updated 2026-09-19. Read [the charter](charter.md) first. The public recipe is
+`generic-memory-v4-prototype`: the retained expanded-cache mean is available
+through ordinary `fit`, `predict`, `update` and save/load. The current loader
+supports this recipe only; historical archives require their pinned source.
 
-**Current priority:** complete numerical qualification of the expanded-cache
-public candidate. Fresh public fits reproduce the retained research mean; their
-held-out forecast/response aggregate errors are 52.82%/55.26% lower than saved
-public v3. Physical comparisons, all 27 synthetic capability cases, independent
-Dart integration and the twelve-case artifact alteration audit pass. Public
-promotion remains false: the original numerical gate has 11 reproducible Cascade
-float32 finite-difference failures. A separate runtime correction passes both
-precision-switching orders on all 24 actual cases, with 432 output arrays exactly
-matching prior fixed-mode predictions, and 36 targeted regression tests. Its
-complete 33-case arithmetic replay reproduces all 4,653 arrays and the original
-failed verdict exactly. The prospective derivative assessment is now frozen at
-`f4e1888` and running on the original 33 cases plus eight deterministically
-selected input-only confirmation queries. It has no verdict yet. JSBSim breadth
-is deferred.
-The [completed original qualification](harness/public-mean-qualification-v1-result.json)
-records the failed numerical verdict and the complete evidence mirror in this
-project's artifact directory; subsequent corrections keep their own results.
-
-The qualification is unmerged. Immutable workers are
-`/private/tmp/glassbox-public-mean-qualification` (original 32 fitting operations,
-all complete), `/private/tmp/glassbox-public-mean-adjudication` (physical/consumer
-results), and `/private/tmp/glassbox-public-mean-integrity` (diagnosis/audit).
-The runtime correction is committed at `41e35ab` in
-`/private/tmp/glassbox-public-mean-precision`; the test-only ownership correction
-is `355fb75` in `/private/tmp/glassbox-public-mean-precision-review`, with identical
-learner source. Its [separate result](harness/public-mean-precision-correction-v1-result.json)
-anchors the complete arithmetic replay and retained runtime correction. Do not
-modify source-bound workers or repeat completed fits. The new numerical worker
-is `/private/tmp/glassbox-public-mean-fd-assessment`; its policy and implementation
-were committed before selecting the eight inputs. Selector tests pass, including
-target/mask independence, duplicate exclusion and insufficient-support rejection.
-The corrected-source regression is frozen at `4d0821d` in
-`/private/tmp/glassbox-public-mean-corrected-replay`. Its physical and API replay
-processes are running after 38 targeted harness checks passed. They cover the
-complete saved flight cohort, development-envelope reconstruction, the Dart
-consumer, all 27 saved synthetic models and three saved lifecycle revisions.
-Original fit provenance remains separate; no new fitting or collection occurs.
-The early lifecycle source is authenticated from its original Git commit because
-that recorded checkout subsequently advanced. No original binding is rewritten.
-The [continuation record](/private/tmp/glassbox-public-mean-qualification/artifacts/2026-09-19/public-mean-qualification-v1-continuation.json)
-holds the current process handles and artifact anchors.
+**Current priority:** reduce the remaining angular generalization error by
+adding independent excited training recordings, with the training-window cache,
+development cache and fitting budget fixed. Public mean adoption is an explicit
+[policy decision on known evidence](public-mean-adoption.md). The original
+qualification and later finite-difference assessment retain their failed frozen
+verdicts. Adoption does not establish calibrated uncertainty, physical derivative
+fidelity, update improvement or controller readiness. JSBSim breadth is deferred.
 
 | Criterion | Current | Target |
 | --- | --- | --- |
-| One recipe | **Met.** Public `fit` returns `LearnedDynamics` with `predict` and `update`; no consumer tuning options or platform dispatch. | One generic learner and consumer contract. |
-| Accuracy | **Expanded-cache research mean retained.** Forecast/response ratios against balanced are 0.61964/0.67268 and against public-excited are 0.47308/0.45947 on one fresh matched cohort. Crazyflow primary 250 ms factual rate worsens 2.62%, within the frozen limit; both angular tails improve. | Low held-out physical forecast and command-response errors across conditions and horizons, with progress against the adopted generic baseline; application adequacy measured separately. |
-| Model usability | **Partly met.** The unmerged candidate passes independent Dart integration and saved-mean parity. Its precision-switching correction passes actual flight cases and complete arithmetic replay. Prospective finite-difference assessment and full corrected-code physical replay remain before adoption. Broader export/runtime portability is unqualified. | A self-contained model artifact usable independently of the Glassbox controller, with explicit scope and measured evidence. |
-| Capability | **Met for the adopted recipe and unmerged public candidate.** Both pass all 27 frozen synthetic absolute-capability cases. Candidate public adoption remains a separate unfinished qualification. | Every synthetic absolute cap passes; synthetic results do not establish platform readiness. |
-| Reference control | **Demonstrated for earlier isolated research means.** Forecast-only and paired-response means each achieved 2,248/2,248 tolerance samples across eight trials. The adopted public and expanded-cache research means have not been tested with that controller. | Separately qualified downstream demonstrations; a universal controller is optional. |
-| Live improvement | **Not met.** No update qualification under the clarified model-first priorities. Historical live-v3 swaps at intervals 140/220 worsened position error from 0.80/0.98 to 36.1/11.8 m. | Bounded immutable revisions with held-out improvement/regression checks; adoption and any live-control claim qualified separately. |
-| Evidence | **Not met.** Original public primary 250 ms velocity/rate coverage is 85.8–89.7%, falling to 47.4–68.3% for extreme maneuvers. Crazyflow truth is incomplete. Development-calibrated research spreads have no new coverage qualification. Earlier ARP, reserved-control and shifted-synthetic failures remain. | Measured coverage in a predeclared band with calibration provenance, independent of the controller. |
-| Lean | **Not met.** Structured dynamics, belief code and research scripts remain. | Learner, model artifacts/interfaces, harness, telemetry adapters and optional consumers. |
+| One recipe | **Met.** One public recipe, with no consumer tuning options or platform dispatch. | One generic learner and consumer contract. |
+| Accuracy | **Improved.** Fresh matched public-v4 forecast/response aggregate errors are 52.82%/55.26% lower than saved public v3. The earlier comparison with the retained balanced research model includes a 2.62% Crazyflow primary factual angular loss, within its frozen limit. | Low held-out physical forecast and command-response errors across conditions and horizons; application adequacy measured separately. |
+| Model usability | **Demonstrated within the Python/JAX contract.** Public fitting, persistence, lifecycle semantics, precision switching, saved-mean replay and independent Dart integration pass. Two frozen derivative gates remain failed; adoption rationale and numerical limits are explicit. Broader runtime/export portability remains unqualified. | Self-contained artifacts usable independently of Glassbox controller internals, with clear scope and measured evidence. |
+| Capability | **Met.** The adopted public recipe passes all 27 frozen synthetic absolute-capability cases. | Every synthetic cap passes; synthetic results do not establish platform readiness. |
+| Reference control | **Demonstrated for earlier isolated research means.** Forecast-only and paired-response means each achieved 2,248/2,248 tolerance samples across eight trials. The adopted public mean has not been tested with that controller. | Separately qualified downstream demonstrations; a universal controller is optional. |
+| Live improvement | **Not met.** Public update semantics pass, but update accuracy is unqualified. Historical live-v3 swaps at intervals 140/220 worsened position error from 0.80/0.98 to 36.1/11.8 m. | Bounded immutable revisions with held-out improvement/regression checks; adoption and live-control claims qualified separately. |
+| Evidence | **Not met.** Development-calibrated spreads have no new coverage qualification. Earlier public primary 250 ms velocity/rate coverage was 85.8–89.7%, falling to 47.4–68.3% for extreme maneuvers; ARP, reserved-control and shifted-synthetic failures remain. | Measured coverage in a predeclared band with calibration provenance. |
+| Lean | **Not met.** Structured dynamics, belief code and research scripts remain. | Learner, artifacts/interfaces, harness, telemetry adapters and optional consumers. |
 
 ## Latest matched evidence
 
-[Expanded training cache v1](harness/expanded-training-cache-v1-result.json)
-increases the fixed training cache from 384 to 1,536 windows using the same
-72 admitted training recordings per simulator, with the original 384-window
-prefix and all 256 development windows unchanged. Architecture and fitting
-formulas stay fixed; training-derived norms, initialization and objective weights
-change. Two candidates and six exact imported reference models predict the same
-fresh cohort. Gradient-window work is four times the 384-window control.
+The [original public qualification](harness/public-mean-qualification-v1-result.json)
+records 32 completed fits: two flight, 27 synthetic and three lifecycle. All
+6,384 float64 flight prediction arrays match the retained research mean exactly.
+No completed fit should be repeated for replay or source bookkeeping.
 
-| Reference | Candidate forecast ratio | Candidate response ratio |
-| --- | ---: | ---: |
-| Retained balanced model | 0.61964 | 0.67268 |
-| Full-cache 384-window control | 0.56914 | 0.59144 |
-| Public-excited | 0.47308 | 0.45947 |
-
-All three comparisons, angular retention, finite predictions and matched-truth
-checks pass. Retain the expanded-cache research mean; public promotion remains
-false. The separate optimization diagnostic passes and cannot veto physical
-progress. See the [guide](expanded-training-cache.md) for intervals, figures,
-computation costs, limitations and reproduction.
-
-Primary 250 ms component RMSE, balanced → expanded cache:
+Primary 250 ms component RMSE, saved public v3 → adopted public v4:
 
 | Simulator | Forecast velocity, m/s | Forecast rate, rad/s | Response velocity, m/s | Response rate, rad/s |
 | --- | ---: | ---: | ---: | ---: |
-| Crazyflow, available truth | 0.11621 → 0.04926 | 0.15653 → 0.16063 | 0.04010 → 0.02335 | 0.16675 → 0.15673 |
-| Cascade | 0.13096 → 0.06895 | 0.10421 → 0.04942 | 0.03669 → 0.02039 | 0.04090 → 0.01865 |
+| Crazyflow, available truth | 0.16468 → 0.05060 | 0.19015 → 0.17146 | 0.11889 → 0.02364 | 0.24254 → 0.15553 |
+| Cascade | 0.17089 → 0.07448 | 0.10220 → 0.04757 | 0.05195 → 0.02082 | 0.03609 → 0.02013 |
 
-Crazyflow factual angular mean worsens 2.62%, while its parent-p95 improves
-0.27004→0.24830 rad/s. Response angular mean and p95 improve 6.01% and 5.46%.
-Generality and broad gains do not require every metric to win; this localized
-loss satisfies the prospectively declared limit.
+All twenty simulator/scope/kind aggregates improve against saved public v3.
+Thirteen of 180 reported 50/150/250 ms endpoint RMSE cells worsen: eleven 50 ms response
+cells and two Crazyflow wind-shift velocity forecasts. For example, Crazyflow
+maneuver-shift 50 ms response velocity rises 0.001414 → 0.001786 m/s. Two tiny
+response regressions fall below the frozen normalization floor, so absolute
+changes rather than floored ratios identify the complete regression count.
+The comparison includes changed fitting mechanics and a larger training cache;
+it does not isolate architecture. All predictors use the same available truth.
+Crazyflow completes 62/84 test parents, with 22 altitude failures; primary 250 ms
+forecast/response truth is 421/480 and 695/768. Cascade completes 84/84 parents,
+with full truth. Incomplete collection remains a benchmark limitation.
 
-Crazyflow completes 66/84 test parents; 18 fail the altitude condition. Primary
-250 ms truth is 438/480 forecast and 720/768 response queries. Cascade completes
-84/84 with all truth. All five predictors are finite on every eligible query.
-Comparisons share the same truth masks. Cohort-completion changes are not
-learner gains; no new safeguarded or quadratic comparison was run.
+The separate [expanded-cache experiment](harness/expanded-training-cache-v1-result.json)
+used 1,536 training windows from the same 72 training recordings per simulator,
+versus a 384-window control. Forecast/response ratios were 0.61964/0.67268 against
+the balanced research mean and 0.56914/0.59144 against the full-cache 384 control.
+It used four times the gradient-window work. Crazyflow primary factual angular
+RMSE increased from 0.15653 to 0.16063 rad/s (2.62%), within the declared limit,
+while forecast/response angular parent-p95 errors improved. That experiment's
+66/84 completed Crazyflow parents belong to a different cohort, not an accuracy
+gain attributable to the learner.
 
-Both fits select checkpoint 1,000. Crazyflow training/development weighted
-losses fall 84.91%/46.65% from its own initialization; Cascade falls
-90.76%/81.12%. These are within-fit reductions, not comparable raw objectives
-across models. The remaining angular gap is concrete: Crazyflow training rate
-RMSE improves 0.14523→0.07347 rad/s while development rate worsens
-0.13647→0.16375 rad/s. Independent-recording support, objective tradeoffs and
-model bias remain competing explanations.
+## Public integration and numerical limits
 
-Verification is complete: 1,136 focused tests, both full simulator replays,
-independent physical/preparation/optimizer reductions and all 37 alteration
-challenges pass. Replay reproduces 4,032 prediction queries, 428,400 metric rows,
-88 checkpoint snapshots and 7,375 candidate acceptance-objective calls.
-The first attempt's finalization schema failure is preserved; the correction
-changes no numerical recipe or thresholds, and exact scientific equality with
-the corrected run is independently verified.
+The [precision correction](harness/public-mean-precision-correction-v1-result.json)
+locally materializes model constants in the caller's ambient inference precision.
+It fixes the observed same-process JIT32-to64 failure without changing saved
+model arrays or fixed-mode outputs. Fitting and calibration own float64 precision;
+there is no consumer precision option.
+
+The [corrected-source regression](harness/public-mean-corrected-replay-result.json)
+reproduces both full physical prediction arms, all 428,400 metric rows, development
+calibration, all 27 saved synthetic models, three lifecycle revisions and Dart's
+168 arrays including JVPs. The physical replay's original finalization schema
+failure is preserved; a separate finalizer authenticates the original provenance
+and completes the scientific comparison without repeating flight forecasts.
+
+The [finite-difference assessment](harness/public-mean-fd-assessment-v1-result.json)
+retains the original 33 numerical cases and eight input-only confirmation cases
+from the same historical cohort. All 111 required final Richardson/AD comparisons,
+111 original small-step float64 derivative checks, 444 float32 endpoint/grid
+checks and 2,542 other required checks pass. Two adjacent-Richardson agreement
+checks fail; the original eleven coarse-step float32 failures also remain.
+The final derivative errors in the two convergence failures consume only 12.3%
+and 8.9% of their allowances. Their adjacent differences behave as expected for
+fourth-order convergence and are conservative estimates of the finest error.
+This supports the explicit adoption judgment; neither frozen verdict is changed.
+The added inputs and corrected-code replays are numerical/regression evidence,
+not a new independent physical-accuracy cohort or physical derivative qualification.
+
+Evidence mirrors retain original execution roots, source bindings and failed
+attempts. The [continuation record](/private/tmp/glassbox-public-mean-qualification/artifacts/2026-09-19/public-mean-qualification-v1-continuation.json)
+holds process handles and anchors. Source-bound workers remain immutable.
 
 ## Next named gap
 
-**Qualify and expose the retained mean through the single public API.** The
-research result should become usable by consumers through ordinary
-`fit`, `predict`, `update`, save/load and JAX interfaces. Freeze one recipe,
-precision policy and qualification protocol before implementation. Reuse the
-fixed synthetic absolute caps and public semantic checks, require saved-mean
-prediction/derivative parity, and confirm fresh public fitting on a common
-held-out physical cohort with predeclared broad improvement and regression
-limits. Demonstrate an independent model consumer without controller internals.
+**Angular generalization across independent recordings.** The next protocol and
+literal roster are frozen at `681daed` in
+`/private/tmp/glassbox-independent-training-recordings`; implementation is in
+progress and no new collection or fitting has run. In the retained
+expanded-cache fit, Crazyflow training angular RMSE improved
+0.14523 → 0.07347 rad/s while development angular RMSE worsened
+0.13647 → 0.16375 rad/s. The cache already covers 90.38%/93.11% of eligible
+forecast transitions but adds no independent parents. Limited independent
+recording support, objective tradeoffs and model bias remain competing causes.
 
-The candidate now reproduces research preparation, initialization and selected
-parameters through ordinary public fitting. Both physical replays reproduce
-428,400 metric rows; all 6,384 float64 forecast arrays match research exactly.
-Crazyflow completes 62/84 fresh test parents, with 22 altitude failures; primary
-forecast/response truth is 421/480 and 695/768. Cascade completes all 84 parents.
-These are a different cohort from the retained research result above, not a
-change in collection success attributable to the model.
+Test one additional fixed cohort of 72 independent excited training recordings
+per simulator across the existing primary conditions. Hold the 1,536 training
+windows, exact original 256 development windows and 1,000-step fitting budget
+fixed. Import the exact saved adopted control instead of refitting it. Declare
+the added recordings as a data intervention, including changes to data-derived
+normalizers, initialization and objective weights. Preserve every collection
+failure and use a fresh, common held-out cohort for confirmation.
 
-Fixed-step diagnosis finds coarse-step truncation dominates all eleven failed
-Cascade numerical checks; float32 arithmetic grows when the step becomes very
-small. The original failed gate is preserved. Separately, explicit model-array
-typing fixes the observed same-process JIT32-to64 failure on the frozen actual
-queries without changing their outputs or any saved arithmetic/derivative array.
-The prospective finite-difference assessment is frozen and its first run is in
-progress. Its input manifest is externally anchored at SHA256
-`30e30aceffc0b4592e9420728ba56141c5f3e2b3244f7657af0e745d506bc402`.
-The original 33 cases are preserved exactly. Eight additional factual inputs
-come from the same physical cohort and parents; they are numerical confirmation,
-not independent physical-accuracy evidence. No already-inspected step is selected
-because it passes. The committed assessment uses a fixed Richardson convergence
-test and the actual achieved float32 endpoints with inherited forecast tolerances.
-All old raw finite-difference flags remain visible under their original policy.
-Freshly replay both corrected public prediction arms over the complete saved
-physical cohort before adoption; this is new-code regression evidence, not new
-physical accuracy evidence. Preserve one maintained learner rather than
-exposing precision options or research wrappers.
-Mean adoption remains separate from calibrated uncertainty, update improvement,
-physical derivative fidelity and controller qualification; preserve those gaps
-explicitly rather than treating API semantics as evidence of their performance.
-
-The next accuracy hypothesis is a separate fixed cohort of independent excited
-training recordings across the existing primary conditions, holding the
-1,536-window cache, fitting budget and development cache fixed. Additional
-independent recordings test a different question from denser overlapping
-windows. The current cache covers 90.38%/93.11% of eligible forecast transitions,
-but adds no independent parents or coverage of the 18 shifted conditions absent
-from training. Do not postpone making the current best mean usable while
-pursuing that later accuracy experiment.
+Use the existing public `model.update(new_recordings)` path, which preserves the
+original development set and bounded cache. Verify that its deterministic cache
+merge equals full extraction from the original and added training recordings;
+do not add a consumer role-selection option. The experiment can measure offline
+update accuracy without implying safe live controller swaps. Freeze the protocol
+and implementation before collection/fitting. Do not expand shifted training
+conditions in the same experiment. Use its result to distinguish whether more
+independent data helps before changing the architecture or objective again.
 
 ## Preserved qualification boundaries
 

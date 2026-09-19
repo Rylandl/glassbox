@@ -43,7 +43,7 @@ def test_generic_cli_fits_saves_and_evaluates_the_public_model(tmp_path):
     assert model_path.exists() and not model_path.with_suffix(".npz").exists()
     model = LearnedDynamics.load(model_path)
     assert model.report == json.loads(report_path.read_text())
-    assert model.recipe["id"] == "generic-memory-v3-prototype"
+    assert model.recipe["id"] == "generic-memory-v4-prototype"
     before = model.fingerprint()
     evaluation_path = tmp_path / "evaluation.json"
     cli.main(["evaluate", str(model_path), paths[2], "--report", str(evaluation_path)])

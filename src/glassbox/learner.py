@@ -1,12 +1,12 @@
 """One maintained generic learner: fit(recordings), predict, update.
 
 This is the learner exposed by ``glassbox.fit``. It predicts Euclidean
-observation channels with a single recursive affine-plus-neural model.
+observation channels with a single recursive quadratic-plus-memory model.
 There are no caller-selected representations, optimizers or selection policies.
 Configuration identity and ordered channel identities are required data facts;
 adapters must include units, frame and command/measurement meaning in them.
 
-There is one recipe, ``generic-memory-v3-prototype``. It reads an explicit
+There is one recipe, ``generic-memory-v4-prototype``. It reads an explicit
 100 ms history and a causal memory over a 500 ms in-recording context. A saved
 model carries that recipe and ``update`` refits it; any other saved format is
 rejected rather than migrated.
@@ -38,6 +38,7 @@ import hashlib
 import json
 from dataclasses import asdict
 
+import jax
 import numpy as np
 
 from ._learner_arrays import array_fingerprint, load_arrays, save_arrays
@@ -45,7 +46,6 @@ from ._sequence_model import (
     SequenceBatch,
     SequenceModel,
     fit_sequence_model,
-    initialize_sequence_model,
 )
 from .recordings import SequenceCollection, SequenceWindows, WindowKey
 
@@ -59,24 +59,28 @@ records the level it was calibrated at.
 """
 
 RECIPE = {
-    "id": "generic-memory-v3-prototype",
+    "id": "generic-memory-v4-prototype",
     "kind": "filter_mlp",
     "width": 32,
     "memory": 8,
     "delay_s": 0.1,
     "context_s": 0.5,
     "horizon_s": 0.25,
-    "training_windows": 384,
+    "training_windows": 1536,
     "development_windows": 256,
     "steps": 1000,
-    "batch_size": 64,
+    "gradient_sampling": "ordered_full_cache",
+    "objective": "fixed_initial_training_channel_balance",
+    "optimizer": "safeguarded_adam",
     "learning_rate": 0.002,
     "ridge_fraction": 0.01,
     "seed": 0,
     "check_every": 100,
     "hold_scale_floor": 0.01,
+    "initial_channel_mse_floor": 0.0001,
+    "fitter_wall_time_limit_s": 7200,
 }
-_FORMAT = "glassbox-default-recipe-v3"
+_FORMAT = "glassbox-default-recipe-v4"
 
 
 def _priority(value):
@@ -125,6 +129,8 @@ def _recording_content(recordings):
 
 def steps_for(dt_s):
     """Window history (the consumed context), forecast horizon, and explicit delay."""
+    if not np.isscalar(dt_s) or not np.isfinite(dt_s) or dt_s <= 0:
+        raise ValueError("dt_s must be finite and positive")
 
     def count(seconds):
         return max(1, int(np.rint(seconds / dt_s)))
@@ -308,22 +314,19 @@ def excitation_fraction(recordings):
 
 
 def _train(train, development, contract, seen, *, previous=None, excitation=None):
+    # Own the complete numerical operation, including calibration and host-array
+    # conversion. Prediction follows the caller's ordinary JAX configuration.
+    with jax.enable_x64(True):
+        return _train_owned(
+            train, development, contract, seen, previous=previous, excitation=excitation
+        )
+
+
+def _train_owned(train, development, contract, seen, *, previous=None, excitation=None):
     b = train.batch
     steps = steps_for(b.dt_s)
     memory = dict(memory=RECIPE["memory"], delay_steps=steps["delay"])
     ridge = RECIPE["ridge_fraction"] * len(b.past_states) * b.future_states.shape[1]
-    initial = initialize_sequence_model(
-        b,
-        width=RECIPE["width"],
-        seed=RECIPE["seed"],
-        ridge=ridge,
-        **memory,
-    )
-    hold = np.repeat(b.past_states[:, -1:], b.future_states.shape[1], 1)
-    loss_scale = np.maximum(
-        np.sqrt(np.mean((hold - b.future_states) ** 2, 0)),
-        RECIPE["hold_scale_floor"] * initial.norms["state_scale"],
-    )
     model, optimization = fit_sequence_model(
         b,
         development.batch,
@@ -331,10 +334,9 @@ def _train(train, development, contract, seen, *, previous=None, excitation=None
         ridge=ridge,
         seed=RECIPE["seed"],
         steps=RECIPE["steps"],
-        batch_size=RECIPE["batch_size"],
+        batch_size=len(b.past_states),
         learning_rate=RECIPE["learning_rate"],
         check_every=RECIPE["check_every"],
-        error_scale=loss_scale,
         **memory,
     )
     envelope, calibration_windows, rank = _calibrate(model, development)
@@ -348,6 +350,9 @@ def _train(train, development, contract, seen, *, previous=None, excitation=None
         training=train.coverage(),
         development=development.coverage(),
         optimization=optimization,
+        precision=dict(
+            fitting="float64", calibration="float64", prediction="ambient_jax"
+        ),
         development_errors=_measure(model, development),
         constant_input_channels=[
             contract["input_channels"][i]
@@ -372,18 +377,110 @@ def _train(train, development, contract, seen, *, previous=None, excitation=None
         ],
     )
     if excitation is not None:
-        # Only when every recording declared it. Absent, the report is byte for
-        # byte the report an undeclared fit has always written, which is what
-        # keeps every existing artifact, fingerprint and reference standing.
+        # Declared excitation is provenance; it never enters the numerical fit.
         report["excitation_declared"] = True
         report["excitation_standard_deviation_fraction"] = excitation
     return LearnedDynamics(model, train, development, contract, seen, report, envelope)
 
 
+def _validate_saved_contract(model, windows, metadata):
+    """Validate relationships that a checksum alone cannot establish."""
+    contract, seen, report = (metadata[k] for k in ("contract", "seen", "report"))
+    if (
+        not isinstance(contract, dict)
+        or set(contract)
+        != {"configuration_id", "state_channels", "input_channels", "dt_s"}
+        or not isinstance(contract["configuration_id"], str)
+        or not contract["configuration_id"].strip()
+        or contract["dt_s"] != model.dt_s
+    ):
+        raise ValueError("saved recording contract differs from model")
+    for key, width in (
+        ("state_channels", len(model.norms["state_mean"])),
+        ("input_channels", len(model.norms["input_mean"])),
+    ):
+        channels = contract[key]
+        if (
+            not isinstance(channels, list)
+            or len(channels) != width
+            or any(not isinstance(v, str) or not v.strip() for v in channels)
+            or len(set(channels)) != len(channels)
+        ):
+            raise ValueError("saved channel contract differs from model")
+    if (
+        not isinstance(seen, dict)
+        or len(seen) < 2
+        or any(not isinstance(k, str) or not k.strip() for k in seen)
+        or any(
+            not isinstance(v, str)
+            or len(v) != 64
+            or any(c not in "0123456789abcdef" for c in v)
+            for v in seen.values()
+        )
+        or len(set(seen.values())) != len(seen)
+    ):
+        raise ValueError("invalid saved recording identity/content ledger")
+    steps = steps_for(model.dt_s)
+    if (
+        model.history_steps != steps["history"]
+        or model.delay_steps != steps["delay"]
+        or model.params["w1"].shape[1] != RECIPE["width"]
+        or model.params["memory"].shape[1] != RECIPE["memory"]
+        or report.get("history_steps") != steps["history"]
+        or report.get("horizon_steps") != steps["horizon"]
+        or report.get("delay_steps") != steps["delay"]
+    ):
+        raise ValueError("saved model dimensions or timing differ from recipe")
+    roles = {}
+    for role, cap in (
+        ("train", RECIPE["training_windows"]),
+        ("development", RECIPE["development_windows"]),
+    ):
+        value = windows[role]
+        n = len(value.keys)
+        if not 3 <= n <= cap:
+            raise ValueError("saved window count exceeds recipe bounds")
+        d, m = len(contract["state_channels"]), len(contract["input_channels"])
+        expected = {
+            "past_states": (n, steps["history"] + 1, d),
+            "past_inputs": (n, steps["history"], m),
+            "future_states": (n, steps["horizon"], d),
+            "future_inputs": (n, steps["horizon"], m),
+        }
+        if any(
+            getattr(value.batch, key).shape != shape for key, shape in expected.items()
+        ):
+            raise ValueError("saved window shapes differ from model contract")
+        segment_starts = {}
+        for key, origin in zip(value.keys, value.source_origins, strict=True):
+            if (
+                not isinstance(key.recording_id, str)
+                or key.recording_id not in seen
+                or not isinstance(key.segment_id, str)
+                or not key.segment_id.strip()
+                or type(key.origin) is not int
+                or key.origin < steps["history"]
+                or type(origin) is not int
+                or origin < key.origin
+            ):
+                raise ValueError("invalid saved window provenance")
+            identity = (key.recording_id, key.segment_id)
+            start = origin - key.origin
+            if identity in segment_starts and segment_starts[identity] != start:
+                raise ValueError("saved segment origins are inconsistent")
+            segment_starts[identity] = start
+        roles[role] = {key.recording_id for key in value.keys}
+        report_role = "training" if role == "train" else role
+        if report.get(report_role) != value.coverage():
+            raise ValueError("saved coverage differs from retained windows")
+    if roles["train"] & roles["development"]:
+        raise ValueError("saved training and development recordings overlap")
+
+
 class LearnedDynamics:
     """One recipe with fixed fit/update mechanics and measured error evidence.
 
-    The retained arrays hold at most 384 training and 256 development windows.
+    The retained arrays hold at most 1,536 training and 256 development windows.
     The recording identity ledger grows with updates. Updates require new whole
     recordings, not overlapping chunks of an existing recording, and perform a
     batch refit of the same recipe. This is not a real-time streaming learner
@@ -443,6 +540,11 @@ class LearnedDynamics:
         beyond this recipe's fitted range are rejected, not silently extrapolated.
         The memory starts at rest at the first consumed observation; earlier
         observations are never implied.
+
+        Inputs must be finite and representable in the caller's JAX precision.
+        Shapes are checked during tracing; value checks do not introduce host
+        callbacks into JIT or differentiation. Accuracy outside measured support
+        is not established, including poorly resolved large coordinate offsets.
         """
         import jax.numpy as jnp
 
@@ -525,6 +627,7 @@ class LearnedDynamics:
                 role: dict(
                     keys=[asdict(k) for k in windows.keys],
                     source_origins=list(windows.source_origins),
+                    excitation_declared=windows.excitation_declared,
                 )
                 for role, windows in (
                     ("train", self._train),
@@ -545,6 +648,14 @@ class LearnedDynamics:
                 )
                 for k in _ARRAYS
             },
+            **{
+                f"{role}_{key}": value
+                for role, windows in (
+                    ("train", self._train),
+                    ("development", self._development),
+                )
+                for key, value in _excitation(windows).items()
+            },
         }
 
     def fingerprint(self):
@@ -558,18 +669,23 @@ class LearnedDynamics:
     def load(cls, path):
         """Load a saved revision of this recipe, or refuse it.
 
-        A ``v2`` artifact, which carried no envelope, is rejected rather than
-        migrated: a forecast without a measured envelope is not a forecast this
-        recipe makes, and inventing one on load would be the opposite of
-        measuring it.
+        Earlier recipes are evaluated under their pinned historical source.
+        This loader supports only the current quadratic-memory recipe.
         """
+        try:
+            return cls._load_current(path)
+        except (KeyError, TypeError, AttributeError, IndexError) as error:
+            raise ValueError("invalid saved revision metadata or arrays") from error
+
+    @classmethod
+    def _load_current(cls, path):
         meta, arrays = load_arrays(path)
         if meta.get("recipe") != RECIPE or meta.get("format") != _FORMAT:
             raise ValueError("unsupported default recipe version")
         if "envelope_half_width" not in arrays:
             raise ValueError("a saved revision of this recipe carries an envelope")
         model_meta = dict(meta["model"])
-        if model_meta.pop("format") != "glassbox-sequence-v1":
+        if model_meta.pop("format") != "glassbox-sequence-v2":
             raise ValueError("unsupported sequence format")
         model = SequenceModel(
             **model_meta,
@@ -579,16 +695,40 @@ class LearnedDynamics:
         if model.kind != RECIPE["kind"]:
             raise ValueError("saved model kind differs from its recipe")
         windows = {}
+        expected_arrays = {"envelope_half_width", *model.arrays()}
         for role in ("train", "development"):
             w = meta["windows"][role]
+            declared = w.get("excitation_declared")
+            if type(declared) is not bool:
+                raise ValueError(
+                    "saved windows need an explicit excitation declaration"
+                )
+            expected_arrays.update(f"{role}_{k}" for k in _ARRAYS)
+            if declared:
+                expected_arrays.update(
+                    f"{role}_{k}" for k in ("past_excitation", "future_excitation")
+                )
             windows[role] = SequenceWindows(
                 SequenceBatch(
                     **{k: arrays[f"{role}_{k}"] for k in _ARRAYS}, dt_s=model.dt_s
                 ),
                 tuple(WindowKey(**k) for k in w["keys"]),
                 tuple(w["source_origins"]),
+                **(
+                    {
+                        key: arrays[f"{role}_{key}"]
+                        for key in ("past_excitation", "future_excitation")
+                    }
+                    if declared
+                    else {}
+                ),
             )
-        return cls(
+        if set(arrays) != expected_arrays:
+            raise ValueError("saved array roster differs from the current recipe")
+        if any(value.dtype != np.dtype("float64") for value in arrays.values()):
+            raise ValueError("saved numerical arrays must be float64")
+        _validate_saved_contract(model, windows, meta)
+        result = cls(
             model,
             windows["train"],
             windows["development"],
@@ -597,6 +737,11 @@ class LearnedDynamics:
             meta["report"],
             arrays["envelope_half_width"],
         )
+        if not np.array_equal(
+            np.asarray(result.report["envelope"]["half_width"]), result._envelope
+        ):
+            raise ValueError("saved envelope differs from its report")
+        return result
 
 
 def fit(recordings):
