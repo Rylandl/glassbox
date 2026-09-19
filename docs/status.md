@@ -6,17 +6,16 @@ has demonstrated better learned means, but public adoption and application
 qualification remain separate steps. Git and frozen result records retain history.
 
 **Current priority:** reduce physical forecast and command-response residuals
-across Crazyflow and Cascade. The latest fixed initial-channel objective preserves
-useful angular initialization and has the lowest aggregate errors among the four
-matched learned models. Its Crazyflow optimizer still fails to improve the
-initialized training objective at every recorded later checkpoint. Repair that
-optimization gap while retaining the angular gains and reducing velocity/rotation
-tails. JSBSim breadth work remains deferred.
+across Crazyflow and Cascade. The balanced model remains the strongest aggregate
+research result. Safeguarded Adam improves Crazyflow training loss but regresses
+held-out forecast/response errors by 6.29%/15.37% relative to that model. Next test
+whether gradients over all cached training windows produce better update directions;
+keep the objective fixed and require physical gains. JSBSim breadth remains deferred.
 
 | Criterion | Current | Target |
 | --- | --- | --- |
 | One recipe | **Met.** Public `fit` returns `LearnedDynamics` with `predict` and `update`; no consumer tuning options or platform dispatch. | One generic learner and consumer contract. |
-| Accuracy | **Broad gains verified; optimization and tails unresolved.** Balanced/public weighted forecast/response ratios are 0.75267/0.67820 on the fresh cohort. Crazyflow primary 250 ms angular forecast RMSE is 0.17044 versus unchanged anchored 0.39761 rad/s. Three research-reference velocity/rotation p95 comparisons fail retention. Crazyflow selects initialization because every later recorded weighted training loss is worse. | Low held-out physical forecast and command-response errors across conditions and horizons, with progress against the adopted generic baseline; application adequacy measured separately. |
+| Accuracy | **Broad gains verified; latest optimizer rejected.** Balanced/public forecast/response ratios were 0.75267/0.67820 on its frozen cohort. On the new cohort, safeguarded/balanced ratios are 1.06289/1.15371. Crazyflow training improves 45.5%, development only 4.58%, and forecast rate error worsens. Cascade loses against the balanced model. | Low held-out physical forecast and command-response errors across conditions and horizons, with progress against the adopted generic baseline; application adequacy measured separately. |
 | Model usability | **Partly met.** Public saved revisions expose signal/time contracts, batched JAX-compatible forecasts, derivatives and error envelopes. Independent consumer integration and broader export/runtime portability remain unqualified. | A self-contained model artifact usable independently of the Glassbox controller, with explicit scope and measured evidence. |
 | Capability | **Met for the adopted recipe.** All 27 frozen synthetic cases pass and artifacts replay/reject alteration. The new research mean has not received this public qualification. | Every synthetic absolute cap passes; synthetic results do not establish platform readiness. |
 | Reference control | **Demonstrated for earlier isolated research means.** Forecast-only and paired-response means each achieved 2,248/2,248 tolerance samples across eight trials. The adopted public and latest research means have not been tested with that controller. | Separately qualified downstream demonstrations; a universal controller is optional. |
@@ -26,101 +25,88 @@ tails. JSBSim breadth work remains deferred.
 
 ## Latest matched evidence
 
-[Initial-channel balance v1](harness/initial-channel-balance-v1-result.json)
-changes only the per-output objective weights used for optimization and checkpoint
-selection. They are fixed inverse initial-training per-channel normalized mean squared
-residuals, floored
-at `hold_scale_floor ** 2` and normalized to mean one. The architecture, canonical
-anchored initializer, original hold scales, exact 384/256 training/development
-windows, minibatches and 1,000 proposal updates are unchanged. Physical labels
-never enter the learner. No floor activates in this experiment.
+[Safeguarded Adam v1](harness/safeguarded-adam-v1-result.json) changes only
+acceptance of the existing Adam proposals: try a fixed halving ladder using the
+full-training weighted objective, accepting the first strict decrease. Preserve
+initialization, weights, caches, architecture, 1,000 proposals and development
+selection. Two new fits and six exact imported reference fits predict the same
+fresh queries. Additional full-cache evaluations are an explicit compute change.
 
-Only two candidates are newly fitted; six exact historical reference fits are
-imported with their original provenance. The four selected models and hold baseline
-predict the same fresh queries. Weighted candidate/reference forecast and response
-ratios are:
-
-| Reference | Forecast | Response |
+| Reference | Candidate forecast ratio | Candidate response ratio |
 | --- | ---: | ---: |
-| Public-excited | 0.75267 | 0.67820 |
-| Unchanged anchored | 0.92277 | 0.87839 |
-| Unchanged quadratic | 0.96260 | 0.89291 |
+| Retained balanced model | 1.06289 | 1.15371 |
+| Public-excited | 0.79796 | 0.78958 |
+| Quadratic | 1.01890 | 1.04030 |
 
-Public progress and targeted angular repair pass. All aggregate, simulator-primary
-and scope limits pass. Combined mechanism qualification fails only these
-Crazyflow primary 250 ms factual parent-RMSE p95 retention limits (cap 1.5):
-rotation/anchored **1.787**, velocity/quadratic **1.783**, rotation/quadratic **2.124**.
-Those losses coexist with strong public-relative gains; they remain improvement
-work rather than evidence against the generic approach. Public recipe promotion
-is false, and no threshold is changed retrospectively.
+All three required comparison gates fail. The balanced comparison loses on
+aggregate and simulator-primary guards. Public-relative aggregate gains pass but
+Cascade rate tails fail. Quadratic-relative aggregates pass but primary, scope
+and tail guards fail. Crazyflow angular forecast mean/p95 retention fails at
+**1.10808/1.19136**; response retention passes. The separate optimization diagnostic
+also fails. This specific optimizer is rejected; public promotion remains false.
 
-Representative primary 250 ms physical RMSE, public → balanced:
+Primary 250 ms physical RMSE, balanced → safeguarded:
 
-| Simulator | Forecast velocity, m/s | Forecast body rate, rad/s | Response velocity, m/s | Response body rate, rad/s |
+| Simulator | Forecast velocity, m/s | Forecast rate, rad/s | Response velocity, m/s | Response rate, rad/s |
 | --- | ---: | ---: | ---: | ---: |
-| Crazyflow, available truth | 0.17871 → 0.12435 | 0.21332 → 0.17044 | 0.11234 → 0.03769 | 0.22608 → 0.15220 |
-| Cascade | 0.16052 → 0.12803 | 0.10427 → 0.10703 | 0.04918 → 0.03735 | 0.03748 → 0.03860 |
+| Crazyflow, available truth | 0.10959 → 0.10989 | 0.15447 → 0.17116 | 0.03886 → 0.03866 | 0.16598 → 0.16801 |
+| Cascade | 0.13334 → 0.15885 | 0.10421 → 0.13498 | 0.03665 → 0.04462 | 0.04182 → 0.06003 |
 
-Crazyflow completes **64/84** test parents; 20 fail the altitude condition.
-Primary 250 ms truth is **413/480** factual and **664/768** response queries.
-Cascade completes **84/84** with all truth. Every eligible prediction is finite.
-All comparisons use matched truth masks. Accuracy is conditional on available
-Crazyflow truth, and cohort-completion differences are not learner gains.
-The incomplete original excited training pool is preserved.
+Crazyflow completes **68/84** test parents; 16 fail the altitude condition.
+Primary 250 ms truth is **442/480** factual and **720/768** response queries.
+Cascade completes **84/84** with all truth. Every eligible prediction is finite
+for all five models. Accuracy is conditional on available truth with matched
+masks. Different cohort completion is not learner progress. The original
+incomplete excited training pool and reference provenance remain unchanged.
 
-Both fresh full replays pass: **4,032** prediction queries and **428,400** metric
-rows reproduce exactly. The source-bound observer captures **22** new snapshots;
-**66** imported snapshots keep their historical meaning. Exact initial arrays,
-weight construction and source/cache/selection identities replay without fitting
-or re-solving initialization. **784** focused checks and Ruff pass. The result
-record contains the independent reductions, alteration challenges, auxiliary
-attempts, hashes and scope. See the [guide](initial-channel-balance.md) for complete
-physical tables, tails, figures and reproduction commands.
+Independent reductions verify all **1,050** endpoint groups, actual initial
+identity, weights, **2,000** observed proposal attempts and **44** new-candidate checkpoint
+diagnostic sets. **896** focused checks and Ruff pass. The
+[result record](harness/safeguarded-adam-v1-result.json) contains final replay,
+alteration challenges, hashes and preserved auxiliary attempts; the
+[guide](safeguarded-adam.md) provides physical tables, figures and reproduction.
 
 ## What the current diagnosis establishes
 
-Crazyflow selects **step zero**, exactly the retained anchored initialization.
-Full-cache weighted training loss is **0.00328876** initially, **0.01138641** at
-100 proposals, **0.00442898** at 900 and **0.00498218** at 1,000. Every recorded
-postinitial value is worse. Weighted development loss likewise favors zero;
-angular development RMSE worsens **0.188526→0.401337 rad/s** by 1,000. Thus its
-held-out gain comes from retaining initialization, not useful optimized progress.
-Development overfitting alone does not explain a worse training objective.
+Crazyflow now selects attempt **1,000**, not initialization. It accepts **717**
+proposals and rejects **283**, using **7,529** full-training objective calls.
+Selected training loss falls **0.00328876→0.00179187**; development falls only
+**0.00400372→0.00382020**, a 4.58% reduction below the frozen 5% diagnostic margin.
+Every training physical group improves, but development 250 ms rate error barely
+moves **0.188526→0.187567 rad/s** and held-out rate error grows. The physical
+regressions are broader than this narrow diagnostic miss.
 
-This does not show that every unrecorded update worsens loss, that step size is
-the sole cause, or that improved training loss guarantees repaired held-out tails.
-The original-loss minimum at step 900 on the weighted trajectory is descriptive
-only; no alternate checkpoint was tested. Cascade does improve: weighted training
-loss **0.01978948→0.00590152**, development **0.02894970→0.01949018**, selected at
-1,000. Initial equal per-coordinate losses still give physical groups 3:3:9 votes.
+Cascade selects attempt **900**, accepting **931** proposals and rejecting **69**
+across the full 1,000 attempts, with **4,427** objective calls. Selected training/
+development losses are **0.010024/0.027485**, both worse than the retained balanced
+model's **0.005902/0.019490**. Development rate error increases from initialization
+**0.143452→0.156553 rad/s** despite a lower weighted objective. Neither simulator
+accepts a full-scale Adam proposal. Tiny scales do not prove minibatch noise;
+curvature and accumulated moments could also explain them.
+
+The prior [initial-channel balance result](harness/initial-channel-balance-v1-result.json)
+remains the strongest aggregate research model: forecast/response errors were
+24.7%/32.2% below public on its own matched cohort. Its three failed research tail
+retention limits and lack of public qualification remain unchanged. Latest
+safeguard evidence is integrated for diagnosis, not as a replacement model.
 
 ## Next named gap
 
-**Make useful recursive-loss progress from the retained initializer.** The
-[safeguarded Adam protocol](harness/safeguarded-adam-v1.json) is now frozen for
-the next iteration, before implementation or fitting. It isolates bounded
-full-training-loss backtracking around the existing Adam proposals. Preserve the model, fixed channel weights, initialization, recordings,
-cache sizes, minibatch draws, clipped gradients, moment formulas and development
-selection. Test whether a bounded acceptance check on all training windows can
-produce useful progress while retaining angular accuracy and repairing tails.
+**Test proposal-direction quality without changing the objective.** Use all
+384 cached training windows for each gradient instead of a 64-window sample.
+Preserve the retained initialization, fixed channel weights, Adam moments and
+clipping, 1,000 attempts, bounded acceptance ladder and development selection.
+Freeze exact arithmetic, compute and time budgets, evidence, comparisons and
+physical progress criteria before implementation or fitting. Do not add a
+learning-rate, seed or batch-size sweep.
 
-The prospective design is 1,000 proposal attempts, each with the existing
-64-window gradient. Try a fixed halving ladder from the existing proposal toward
-the current parameters; accept the first finite strict full-training-loss decrease,
-otherwise retain the current parameters. Advance moments/counter once per attempt,
-including rejection, and disclose this policy. Freeze the exact arithmetic,
-ladder, evaluation budget, safeguards, evidence and physical progress criteria
-before implementation or fitting. No seed or learning-rate sweep is authorized
-by this hypothesis.
-
-Use the saved balanced model as the direct control, retain the public and relevant
-quadratic/anchored references, and evaluate selected revisions on one fresh common
-cohort. Require useful progress beyond preserving initialization. Extra full-cache
-objective evaluations are an explicit compute intervention; equal accepted updates
-or equal FLOPs must not be claimed. Record accepted/rejected attempts and scales.
-Backtracking can still stall if a stochastic Adam direction fails to decrease the
-full objective at every tested scale. That would motivate a separate change to
-how directions are computed, rather than an unplanned restart or parameter sweep.
+Import both the safeguarded model as the mechanism control and the balanced model
+as the performance reference, retaining public context. Use one fresh common
+cohort and the original training/development caches. Full-window gradients cost
+more; same proposal count does not mean equal compute. Require useful held-out
+forecast/response progress, not just monotonic training loss. If stronger training
+progress still does not transfer, move the next named gap toward data support or
+model generalization instead of extending optimization blindly.
 
 ## Preserved qualification boundaries
 

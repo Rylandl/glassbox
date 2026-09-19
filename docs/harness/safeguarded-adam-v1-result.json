@@ -1,0 +1,1248 @@
+{
+  "angular_retention": {
+    "checks": {
+      "factual_aggregate_rmse": false,
+      "factual_parent_rmse_p95": false,
+      "finite_eligible_predictions": true,
+      "matching_planned_queries_and_truth": true,
+      "response_aggregate_rmse": true,
+      "response_parent_rmse_p95": true
+    },
+    "parent_p95_ratios": {
+      "factual": 1.1913572235942564,
+      "response": 0.983939723491864
+    },
+    "physical": {
+      "factual": {
+        "absolute_change": 0.016694409940859883,
+        "baseline_rmse": 0.15446976858294104,
+        "candidate_rmse": 0.17116417852380092,
+        "conditional_on_incomplete_truth": true,
+        "group": "body_rate_rad_s",
+        "horizon_s": 0.25,
+        "kind": "factual",
+        "planned": 480,
+        "ratio": 1.1080755807042981,
+        "scope": "primary",
+        "simulator": "crazyflow",
+        "truth_eligible": 442
+      },
+      "response": {
+        "absolute_change": 0.0020265854250370585,
+        "baseline_rmse": 0.16598182244256854,
+        "candidate_rmse": 0.1680084078676056,
+        "conditional_on_incomplete_truth": true,
+        "group": "body_rate_rad_s",
+        "horizon_s": 0.25,
+        "kind": "response",
+        "planned": 768,
+        "ratio": 1.01220968293524,
+        "scope": "primary",
+        "simulator": "crazyflow",
+        "truth_eligible": 720
+      }
+    }
+  },
+  "auxiliary_artifacts": [
+    {
+      "path": "artifacts/2026-09-18/safeguarded-adam-v1-analysis-attempt1-command.json",
+      "sha256": "b2e7aafcbe898c11d4e3dd548eba2899eb222367c04a6d565285c2b0ae4b5dc7"
+    },
+    {
+      "path": "artifacts/2026-09-18/safeguarded-adam-v1-analysis-attempt1.json",
+      "sha256": "a13072272aba1a54e71a78f4d054acc97a2390651713ae54c4160be3ac0447f9"
+    },
+    {
+      "path": "artifacts/2026-09-18/safeguarded-adam-v1-analysis-attempt1.log",
+      "sha256": "01ec469091b33f05990f008424821307ddcbf7f8f9bee3fb9efd75185b2566c2"
+    },
+    {
+      "path": "artifacts/2026-09-18/safeguarded-adam-v1-analysis-attempt1.py",
+      "sha256": "13215c1ce17b035bdead8136a94bf6e8da89678e1aad717f39a4ca3bab699312"
+    },
+    {
+      "path": "artifacts/2026-09-18/safeguarded-adam-v1-analysis.json",
+      "sha256": "a13072272aba1a54e71a78f4d054acc97a2390651713ae54c4160be3ac0447f9"
+    },
+    {
+      "path": "artifacts/2026-09-18/safeguarded-adam-v1-analysis.py",
+      "sha256": "13215c1ce17b035bdead8136a94bf6e8da89678e1aad717f39a4ca3bab699312"
+    },
+    {
+      "path": "artifacts/2026-09-18/safeguarded-adam-v1-doc-review.json",
+      "sha256": "9c96ef75f6875d33c433918d6b2d4efe2671ad0672946b0e3e3905c72ed0de1b"
+    },
+    {
+      "path": "artifacts/2026-09-18/safeguarded-adam-v1-figure-review.json",
+      "sha256": "26972868be5c714f32bca1129d4530ef68676924250ed96ccf58b94385b29368"
+    },
+    {
+      "path": "artifacts/2026-09-18/safeguarded-adam-v1-figures/heldout-250ms.png",
+      "sha256": "8028e6f93d6251176bda0044783d74d80a5151c475b2aa8763c26f9b48be48f0"
+    },
+    {
+      "path": "artifacts/2026-09-18/safeguarded-adam-v1-figures/heldout-250ms.svg",
+      "sha256": "e25566efb340142fc4bf379878d8e99e65fd2b02aa3dca83b0ad3f44b3023ad1"
+    },
+    {
+      "path": "artifacts/2026-09-18/safeguarded-adam-v1-figures/training-diagnosis.png",
+      "sha256": "315111f0e54ba4b9bed11634d6c035740a976e06b0078d4f87a7362bf59c9db8"
+    },
+    {
+      "path": "artifacts/2026-09-18/safeguarded-adam-v1-figures/training-diagnosis.svg",
+      "sha256": "f4c49e1ecf58e8db890253eef14c15b70bc997f2000a0b66eb73ceb081cc118a"
+    },
+    {
+      "path": "artifacts/2026-09-18/safeguarded-adam-v1-figures-attempt1.log",
+      "sha256": "74dba906261f1f5168ce8193cbc137f25c1c973de23cfbd099f9c91c5c10432f"
+    },
+    {
+      "path": "artifacts/2026-09-18/safeguarded-adam-v1-figures.json",
+      "sha256": "912d5e6b9e73d408606658f857f79b4aa019416abfc843ffd53f026fbdfa0fa1"
+    },
+    {
+      "path": "artifacts/2026-09-18/safeguarded-adam-v1-figures.py",
+      "sha256": "8e55bc8b3009a0c4e433f40692f80d2eff2535ee811dbf80fda812a35c2cc948"
+    },
+    {
+      "path": "artifacts/2026-09-18/safeguarded-adam-v1-focused-tests-attempt-1.log",
+      "sha256": "6f97f3f6e0b8849c8d56ea2b0ca7f7facf010406ab049a56182987b0670fc913"
+    },
+    {
+      "path": "artifacts/2026-09-18/safeguarded-adam-v1-independent-attempt1-status.json",
+      "sha256": "704662042b08951ac98c241a0fa8e870ce6183d9a768b52f47a878c9b286eb4f"
+    },
+    {
+      "path": "artifacts/2026-09-18/safeguarded-adam-v1-independent-attempt1.json",
+      "sha256": "a181156af457d8dc4616b7b0f86faf8aa7508aec016d54db974b9bf9e7a317ec"
+    },
+    {
+      "path": "artifacts/2026-09-18/safeguarded-adam-v1-independent-attempt1.log",
+      "sha256": "1bbfde08459536a0dcc2a320f808a40695210c2f5c5ad9e33d6033cfa9fe58cd"
+    },
+    {
+      "path": "artifacts/2026-09-18/safeguarded-adam-v1-independent-attempt1.py",
+      "sha256": "fcc679eab54c65e3e28b0367bdf6df77971c632d6c9fc96edc6d576f670b429a"
+    },
+    {
+      "path": "artifacts/2026-09-18/safeguarded-adam-v1-independent.py",
+      "sha256": "fcc679eab54c65e3e28b0367bdf6df77971c632d6c9fc96edc6d576f670b429a"
+    },
+    {
+      "path": "artifacts/2026-09-18/safeguarded-adam-v1-logs/evaluate-cascade.json",
+      "sha256": "ef9c292c8cf6bdd656526c06a74aa5b5c25b1df00ac8fcc812fcd2ddecb30407"
+    },
+    {
+      "path": "artifacts/2026-09-18/safeguarded-adam-v1-logs/evaluate-cascade.log",
+      "sha256": "ebd6f92039bcbcf398ded1f56eb0b8165d0a99e270d6f4f7de35a56b60747ce6"
+    },
+    {
+      "path": "artifacts/2026-09-18/safeguarded-adam-v1-logs/evaluate-crazyflow.json",
+      "sha256": "b28cd4cbd0079432251683fb4e08c7d35a3e4cb84c2f3d258e9e30c5bc6d5aba"
+    },
+    {
+      "path": "artifacts/2026-09-18/safeguarded-adam-v1-logs/evaluate-crazyflow.log",
+      "sha256": "6d0e636e464f0f34e7bd3e9fb94496b9e066b0bd4a3809ac79ba3aafd9e4389f"
+    },
+    {
+      "path": "artifacts/2026-09-18/safeguarded-adam-v1-logs/finalize-crazyflow.json",
+      "sha256": "f04b7a6b886721aa97ad30ed8594837c1047634fa64cb622e70ee923e0dcf630"
+    },
+    {
+      "path": "artifacts/2026-09-18/safeguarded-adam-v1-logs/finalize-crazyflow.log",
+      "sha256": "326564a7f34579c8a45f8d77ea15a74836d073cbb33215a35ff24461f627e250"
+    },
+    {
+      "path": "artifacts/2026-09-18/safeguarded-adam-v1-logs/fit-cascade-candidate.json",
+      "sha256": "d7944dff797a5ccba403f55ced53283bee6955e9fbc9fa3321f1ab08f99dfba7"
+    },
+    {
+      "path": "artifacts/2026-09-18/safeguarded-adam-v1-logs/fit-cascade-candidate.log",
+      "sha256": "bf394fc3cc04a1efc0c89a17bcef87e75265456ba5075be74b42e5a029033abc"
+    },
+    {
+      "path": "artifacts/2026-09-18/safeguarded-adam-v1-logs/fit-crazyflow-candidate.json",
+      "sha256": "38f8b8322172c4eaf9106fd3ed67ddeb6f9ce075d8fecb25e773d3d1419845e5"
+    },
+    {
+      "path": "artifacts/2026-09-18/safeguarded-adam-v1-logs/fit-crazyflow-candidate.log",
+      "sha256": "580018703a3e5ee9bbdd72ef29cde594d9a39511b399b4e5675f3cd4ca2e84a5"
+    },
+    {
+      "path": "artifacts/2026-09-18/safeguarded-adam-v1-logs/generate-cascade.json",
+      "sha256": "d84e16861c22df577bcdad0d63b19e1b7cdb40eada4864a0ab38ab978e9fb588"
+    },
+    {
+      "path": "artifacts/2026-09-18/safeguarded-adam-v1-logs/generate-cascade.log",
+      "sha256": "5ed5729f8c85676613d76ef97f96ad6d30664e3413546db62a2a9b58ad0b7ea7"
+    },
+    {
+      "path": "artifacts/2026-09-18/safeguarded-adam-v1-logs/generate-crazyflow.json",
+      "sha256": "2ce8343531efeed72d20970e62d6b9a5e822725d03c6f4aa7681fc235ced21fa"
+    },
+    {
+      "path": "artifacts/2026-09-18/safeguarded-adam-v1-logs/generate-crazyflow.log",
+      "sha256": "cf77efd0f1adabe788c3a327be4ad8191815a1c8334b9682c702c8c46575b962"
+    },
+    {
+      "path": "artifacts/2026-09-18/safeguarded-adam-v1-logs/replay-cascade-0c881cac071540b89c72d6343d7da6394900a0735bc3d2549fd8aea9226f9319.json",
+      "sha256": "dbe4f615b072bfde1e273e7b5ea096719664038689ca0ddd1547d1fa1c25616d"
+    },
+    {
+      "path": "artifacts/2026-09-18/safeguarded-adam-v1-logs/replay-cascade-0c881cac071540b89c72d6343d7da6394900a0735bc3d2549fd8aea9226f9319.log",
+      "sha256": "bddbeea4b90ab32409c2d58a54f9919a485379382514a624e684aa462fcad82a"
+    },
+    {
+      "path": "artifacts/2026-09-18/safeguarded-adam-v1-logs/replay-crazyflow-0c881cac071540b89c72d6343d7da6394900a0735bc3d2549fd8aea9226f9319.json",
+      "sha256": "d8992a0e22bd68dc1237a77b1cbef6b328c55f565ae58ef700647b56923c2a62"
+    },
+    {
+      "path": "artifacts/2026-09-18/safeguarded-adam-v1-logs/replay-crazyflow-0c881cac071540b89c72d6343d7da6394900a0735bc3d2549fd8aea9226f9319.log",
+      "sha256": "96029279b215091dd0ce5e8f6a73d50b34d465d5a4c2d3343445aad65771407b"
+    },
+    {
+      "path": "artifacts/2026-09-18/safeguarded-adam-v1-next-design.md",
+      "sha256": "30d0f7868b1ebeb52fa49a606fefbd5b0fc3396e8f2e8c07f1c5144abfeecf5a"
+    },
+    {
+      "path": "artifacts/2026-09-18/safeguarded-adam-v1-pretrial-checks.json",
+      "sha256": "8d0747c36ef279ceb54dd20af5f2cd71db4eb8c70a74272fa3b209bea1d63f58"
+    },
+    {
+      "path": "artifacts/2026-09-18/safeguarded-adam-v1-result-builder.py",
+      "sha256": "082923e787300a6795a993fa3ceb3e0d7931c19ffc6d59165b313542dc3d51d0"
+    },
+    {
+      "path": "artifacts/2026-09-18/safeguarded-adam-v1-ruff-attempt-1.log",
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "path": "artifacts/2026-09-18/safeguarded-adam-v1-stage.py",
+      "sha256": "074f0bd62353aae8afe83086ad53172722999090f54817fcb04f96e1aaf497e6"
+    },
+    {
+      "path": "artifacts/2026-09-18/safeguarded-adam-v1-tamper-attempt1.log",
+      "sha256": "5faa38f5ce0944a40cfabc5894536ac42d7f531c184263372049f2a2884a6064"
+    },
+    {
+      "path": "artifacts/2026-09-18/safeguarded-adam-v1-tamper-attempt1.py",
+      "sha256": "dc7ecb1935901fe10dd248ae1b52f9f62d2161b7e19ca5631172775bacffeaa7"
+    },
+    {
+      "path": "artifacts/2026-09-18/safeguarded-adam-v1-tamper-attempt1.supervision.json",
+      "sha256": "58c08f23577a21a4b2cf00b75bb5782de8192048e571c8a05442e7e851ab739e"
+    },
+    {
+      "path": "artifacts/2026-09-18/safeguarded-adam-v1-tamper-attempt2.json",
+      "sha256": "4b01ad02378fa7680f31ebc919cc113d604e58029994c5b7b6b84444043ea862"
+    },
+    {
+      "path": "artifacts/2026-09-18/safeguarded-adam-v1-tamper-attempt2.log",
+      "sha256": "dbf6d884c3e75bfb5b372565cfc0c12e349031d54f1c2a92f23b0c3b09bf7760"
+    },
+    {
+      "path": "artifacts/2026-09-18/safeguarded-adam-v1-tamper-attempt2.py",
+      "sha256": "dc7ecb1935901fe10dd248ae1b52f9f62d2161b7e19ca5631172775bacffeaa7"
+    },
+    {
+      "path": "artifacts/2026-09-18/safeguarded-adam-v1-tamper-attempt2.supervision.json",
+      "sha256": "4874e9c548393ed9131be7093cba9a817e747dc07ee121de548aa30c3f56f897"
+    },
+    {
+      "path": "artifacts/2026-09-18/safeguarded-adam-v1-tamper.json",
+      "sha256": "4b01ad02378fa7680f31ebc919cc113d604e58029994c5b7b6b84444043ea862"
+    },
+    {
+      "path": "artifacts/2026-09-18/safeguarded-adam-v1-tamper.py",
+      "sha256": "dc7ecb1935901fe10dd248ae1b52f9f62d2161b7e19ca5631172775bacffeaa7"
+    }
+  ],
+  "comparisons": {
+    "balanced_progress": {
+      "checks": {
+        "factual_regression": false,
+        "finite_eligible_predictions": true,
+        "matching_planned_queries_and_truth": true,
+        "primary_parent_tail_regressions": true,
+        "primary_simulator_regressions": false,
+        "response_gain": false,
+        "scope_regressions": true
+      },
+      "denominator": "balanced",
+      "failed_tail_checks": [],
+      "numerator": "candidate",
+      "percentile_95_intervals": {
+        "factual": [
+          1.0513306718036048,
+          1.074896416361834
+        ],
+        "response": [
+          1.138436095799226,
+          1.1662338210794492
+        ]
+      },
+      "weighted_geometric_mean_ratios": {
+        "factual": 1.0628946244980424,
+        "response": 1.1537132446412246
+      }
+    },
+    "quadratic_gain_retention": {
+      "checks": {
+        "factual_regression": true,
+        "finite_eligible_predictions": true,
+        "matching_planned_queries_and_truth": true,
+        "primary_parent_tail_regressions": false,
+        "primary_simulator_regressions": false,
+        "response_gain": true,
+        "scope_regressions": false
+      },
+      "denominator": "quadratic",
+      "failed_tail_checks": [
+        {
+          "baseline_p95": 0.14162910804910905,
+          "candidate_p95": 0.21372357416862597,
+          "group": "body_rate_rad_s",
+          "kind": "factual",
+          "pass": false,
+          "ratio": 1.5090370695162367,
+          "simulator": "cascade"
+        },
+        {
+          "baseline_p95": 0.04410811090382834,
+          "candidate_p95": 0.07939685301969752,
+          "group": "body_rate_rad_s",
+          "kind": "response",
+          "pass": false,
+          "ratio": 1.8000510879464193,
+          "simulator": "cascade"
+        },
+        {
+          "baseline_p95": 0.12117589180767661,
+          "candidate_p95": 0.22591793035868574,
+          "group": "velocity_m_s",
+          "kind": "factual",
+          "pass": false,
+          "ratio": 1.8643801748721573,
+          "simulator": "crazyflow"
+        },
+        {
+          "baseline_p95": 0.051953615997566295,
+          "candidate_p95": 0.1298517928789694,
+          "group": "rotation_entries",
+          "kind": "factual",
+          "pass": false,
+          "ratio": 2.49937930951817,
+          "simulator": "crazyflow"
+        }
+      ],
+      "numerator": "candidate",
+      "percentile_95_intervals": {
+        "factual": [
+          1.0028059887384815,
+          1.0365203097325517
+        ],
+        "response": [
+          1.0207688195309468,
+          1.0588535970884376
+        ]
+      },
+      "weighted_geometric_mean_ratios": {
+        "factual": 1.018899114201896,
+        "response": 1.040299088815381
+      }
+    },
+    "safeguarded_public_progress": {
+      "checks": {
+        "factual_regression": true,
+        "finite_eligible_predictions": true,
+        "matching_planned_queries_and_truth": true,
+        "primary_parent_tail_regressions": false,
+        "primary_simulator_regressions": true,
+        "response_gain": true,
+        "scope_regressions": true
+      },
+      "denominator": "baseline",
+      "failed_tail_checks": [
+        {
+          "baseline_p95": 0.13650454760511566,
+          "candidate_p95": 0.21372357416862597,
+          "group": "body_rate_rad_s",
+          "kind": "factual",
+          "pass": false,
+          "ratio": 1.5656883079594666,
+          "simulator": "cascade"
+        },
+        {
+          "baseline_p95": 0.051235377843712925,
+          "candidate_p95": 0.07939685301969752,
+          "group": "body_rate_rad_s",
+          "kind": "response",
+          "pass": false,
+          "ratio": 1.5496490191189307,
+          "simulator": "cascade"
+        }
+      ],
+      "numerator": "candidate",
+      "percentile_95_intervals": {
+        "factual": [
+          0.7812866142135559,
+          0.8133765333971423
+        ],
+        "response": [
+          0.7703310889244178,
+          0.8045952469138814
+        ]
+      },
+      "weighted_geometric_mean_ratios": {
+        "factual": 0.7979642936026584,
+        "response": 0.7895773669969727
+      }
+    }
+  },
+  "date": "2026-09-18",
+  "evidence_limits": [
+    "Accuracy is conditional on available Crazyflow truth. Test cohort completeness changes are not model gains.",
+    "Moment and gradient fingerprints establish observed continuity, not independent optimizer recomputation. Canonical replay reexecutes damped trial objectives and accepted parameter/checkpoint chains without gradients or solves.",
+    "NumPy physical analysis checks point comparisons and bootstrap draw identity; intervals are descriptive saved values, not an independent bootstrap implementation.",
+    "Only originally selected models receive fresh held-out evaluation. No intermediate held-out checkpoint evaluation or retrospective criterion change.",
+    "Additional full-training acceptance calls change compute; equal proposal count is not equal FLOPs or wall time.",
+    "No public recipe, synthetic, uncertainty, derivative-fidelity, live-update or controller qualification is implied."
+  ],
+  "flags": {
+    "angular_retention": false,
+    "balanced_progress": false,
+    "diagnostic_optimization_progress": false,
+    "numerical_mechanism_criteria_pass": false,
+    "public_promotion": false,
+    "quadratic_gain_retention": false,
+    "residual_criteria_pass": false,
+    "safeguarded_public_progress": false
+  },
+  "id": "safeguarded-adam-v1",
+  "implementation_committed_before_collection_and_fitting": true,
+  "integrity_verification_passed": true,
+  "next_named_gap": "Test full-cache gradient proposal directions under the unchanged safeguard and fixed objective; if better training again fails to transfer, investigate data support/model generalization.",
+  "optimization": {
+    "cascade": {
+      "actual_development_trace": [
+        {
+          "step": 0,
+          "validation_rollout_mse": 0.028949700809443313
+        },
+        {
+          "step": 100,
+          "training_batch_mse": 0.01710762262385126,
+          "validation_rollout_mse": 0.027932082900106153
+        },
+        {
+          "step": 200,
+          "training_batch_mse": 0.013447146752405551,
+          "validation_rollout_mse": 0.02912221607110318
+        },
+        {
+          "step": 300,
+          "training_batch_mse": 0.012886095003540215,
+          "validation_rollout_mse": 0.028199068389320618
+        },
+        {
+          "step": 400,
+          "training_batch_mse": 0.012491086424386294,
+          "validation_rollout_mse": 0.02856973598733592
+        },
+        {
+          "step": 500,
+          "training_batch_mse": 0.013254578415253323,
+          "validation_rollout_mse": 0.027961446021838633
+        },
+        {
+          "step": 600,
+          "training_batch_mse": 0.010824851813987674,
+          "validation_rollout_mse": 0.02775062812783695
+        },
+        {
+          "step": 700,
+          "training_batch_mse": 0.010717589753655452,
+          "validation_rollout_mse": 0.027546039879598885
+        },
+        {
+          "step": 800,
+          "training_batch_mse": 0.010048478732757396,
+          "validation_rollout_mse": 0.02770758798474056
+        },
+        {
+          "step": 900,
+          "training_batch_mse": 0.010275772500295354,
+          "validation_rollout_mse": 0.027484933041513535
+        },
+        {
+          "step": 1000,
+          "training_batch_mse": 0.008376690607232097,
+          "validation_rollout_mse": 0.027948069343242888
+        }
+      ],
+      "safeguard": {
+        "acceptance": "first_finite_strict_decrease",
+        "accepted_attempts": 931,
+        "accepted_scale_counts": [
+          {
+            "attempts": 0,
+            "scale": 1.0
+          },
+          {
+            "attempts": 33,
+            "scale": 0.5
+          },
+          {
+            "attempts": 226,
+            "scale": 0.25
+          },
+          {
+            "attempts": 367,
+            "scale": 0.125
+          },
+          {
+            "attempts": 211,
+            "scale": 0.0625
+          },
+          {
+            "attempts": 61,
+            "scale": 0.03125
+          },
+          {
+            "attempts": 23,
+            "scale": 0.015625
+          },
+          {
+            "attempts": 10,
+            "scale": 0.0078125
+          }
+        ],
+        "checkpoint_full_training_losses": [
+          {
+            "full_training_loss": 0.01978948320977331,
+            "step": 0
+          },
+          {
+            "full_training_loss": 0.01551306098171421,
+            "step": 100
+          },
+          {
+            "full_training_loss": 0.014074302902653334,
+            "step": 200
+          },
+          {
+            "full_training_loss": 0.013117790867537027,
+            "step": 300
+          },
+          {
+            "full_training_loss": 0.012378629544238991,
+            "step": 400
+          },
+          {
+            "full_training_loss": 0.011780127188752054,
+            "step": 500
+          },
+          {
+            "full_training_loss": 0.011260244986987562,
+            "step": 600
+          },
+          {
+            "full_training_loss": 0.010851774621982582,
+            "step": 700
+          },
+          {
+            "full_training_loss": 0.010413659237462848,
+            "step": 800
+          },
+          {
+            "full_training_loss": 0.010023595829735266,
+            "step": 900
+          },
+          {
+            "full_training_loss": 0.00969243233870111,
+            "step": 1000
+          }
+        ],
+        "completed_attempts": 1000,
+        "final_full_training_loss": 0.00969243233870111,
+        "fit_wall_time_limit_s": 7200,
+        "full_training_objective_calls": 4427,
+        "full_training_objective_calls_max": 8001,
+        "gradient_proposal_calls": 1000,
+        "id": "safeguarded-adam-v1",
+        "initial_full_training_loss": 0.01978948320977331,
+        "maximum_rejection_streak": 2,
+        "moment_policy": "advance_on_every_finite_proposal",
+        "proposal_attempts": 1000,
+        "rejected_attempts": 69,
+        "scales": [
+          1.0,
+          0.5,
+          0.25,
+          0.125,
+          0.0625,
+          0.03125,
+          0.015625,
+          0.0078125
+        ],
+        "selected_full_training_loss": 0.010023595829735266
+      },
+      "selected_step": 900,
+      "timing": {
+        "checkpoint_diagnostics_wall_time_s": 2.4237176249735057,
+        "fit_and_capture_wall_time_s": 11.83643720811233,
+        "wall_time_s": 14.44655133294873
+      }
+    },
+    "crazyflow": {
+      "actual_development_trace": [
+        {
+          "step": 0,
+          "validation_rollout_mse": 0.004003722501715697
+        },
+        {
+          "step": 100,
+          "training_batch_mse": 0.0027691489073974496,
+          "validation_rollout_mse": 0.00404067145789559
+        },
+        {
+          "step": 200,
+          "training_batch_mse": 0.002569970834510243,
+          "validation_rollout_mse": 0.0038403253488052025
+        },
+        {
+          "step": 300,
+          "training_batch_mse": 0.002065775104651107,
+          "validation_rollout_mse": 0.003901709272171677
+        },
+        {
+          "step": 400,
+          "training_batch_mse": 0.0020159228505752017,
+          "validation_rollout_mse": 0.003894134390366723
+        },
+        {
+          "step": 500,
+          "training_batch_mse": 0.001831643338717972,
+          "validation_rollout_mse": 0.0038716322124194708
+        },
+        {
+          "step": 600,
+          "training_batch_mse": 0.002223736533564904,
+          "validation_rollout_mse": 0.0038833948985557572
+        },
+        {
+          "step": 700,
+          "training_batch_mse": 0.0019618753170541066,
+          "validation_rollout_mse": 0.0038749128357859703
+        },
+        {
+          "step": 800,
+          "training_batch_mse": 0.0020391401078911063,
+          "validation_rollout_mse": 0.0038380408369234655
+        },
+        {
+          "step": 900,
+          "training_batch_mse": 0.0017054373457891234,
+          "validation_rollout_mse": 0.003854515615857965
+        },
+        {
+          "step": 1000,
+          "training_batch_mse": 0.001773358960298105,
+          "validation_rollout_mse": 0.003820198722205265
+        }
+      ],
+      "safeguard": {
+        "acceptance": "first_finite_strict_decrease",
+        "accepted_attempts": 717,
+        "accepted_scale_counts": [
+          {
+            "attempts": 0,
+            "scale": 1.0
+          },
+          {
+            "attempts": 0,
+            "scale": 0.5
+          },
+          {
+            "attempts": 0,
+            "scale": 0.25
+          },
+          {
+            "attempts": 0,
+            "scale": 0.125
+          },
+          {
+            "attempts": 3,
+            "scale": 0.0625
+          },
+          {
+            "attempts": 97,
+            "scale": 0.03125
+          },
+          {
+            "attempts": 269,
+            "scale": 0.015625
+          },
+          {
+            "attempts": 348,
+            "scale": 0.0078125
+          }
+        ],
+        "checkpoint_full_training_losses": [
+          {
+            "full_training_loss": 0.0032887585388147187,
+            "step": 0
+          },
+          {
+            "full_training_loss": 0.002640379970106165,
+            "step": 100
+          },
+          {
+            "full_training_loss": 0.002346452621756651,
+            "step": 200
+          },
+          {
+            "full_training_loss": 0.0021905069648977165,
+            "step": 300
+          },
+          {
+            "full_training_loss": 0.002073842518525038,
+            "step": 400
+          },
+          {
+            "full_training_loss": 0.002005650609709676,
+            "step": 500
+          },
+          {
+            "full_training_loss": 0.0019566741186792013,
+            "step": 600
+          },
+          {
+            "full_training_loss": 0.0019139589652782249,
+            "step": 700
+          },
+          {
+            "full_training_loss": 0.0018710611724761864,
+            "step": 800
+          },
+          {
+            "full_training_loss": 0.001833658836415918,
+            "step": 900
+          },
+          {
+            "full_training_loss": 0.0017918676949096014,
+            "step": 1000
+          }
+        ],
+        "completed_attempts": 1000,
+        "final_full_training_loss": 0.0017918676949096014,
+        "fit_wall_time_limit_s": 7200,
+        "full_training_objective_calls": 7529,
+        "full_training_objective_calls_max": 8001,
+        "gradient_proposal_calls": 1000,
+        "id": "safeguarded-adam-v1",
+        "initial_full_training_loss": 0.0032887585388147187,
+        "maximum_rejection_streak": 3,
+        "moment_policy": "advance_on_every_finite_proposal",
+        "proposal_attempts": 1000,
+        "rejected_attempts": 283,
+        "scales": [
+          1.0,
+          0.5,
+          0.25,
+          0.125,
+          0.0625,
+          0.03125,
+          0.015625,
+          0.0078125
+        ],
+        "selected_full_training_loss": 0.0017918676949096014
+      },
+      "selected_step": 1000,
+      "timing": {
+        "checkpoint_diagnostics_wall_time_s": 5.01925104111433,
+        "fit_and_capture_wall_time_s": 114.64741341699846,
+        "wall_time_s": 120.38142108381726
+      }
+    }
+  },
+  "optimization_diagnostic": {
+    "available": true,
+    "canonical_development_ratio": 0.9541617133975225,
+    "canonical_training_ratio": 0.5448462311116941,
+    "checks": {
+      "development_reduction": false,
+      "full_training_reduction": true,
+      "selected_after_initialization": true
+    },
+    "initial_development_loss": 0.004003722501715697,
+    "initial_full_training_loss": 0.0032887585388147187,
+    "passed": false,
+    "policy": {
+      "selected_attempt_strictly_greater_than": 0,
+      "selected_development_weighted_loss_over_initial_max": 0.95,
+      "selected_full_training_weighted_loss_over_initial_max": 0.95,
+      "simulator": "crazyflow",
+      "source": "At the originally development-selected checkpoint, divide the actual canonical cached full-training acceptance loss by its actual canonical initial acceptance loss; divide the actual weighted development selection loss by its actual initial weighted development selection loss. Do not substitute independent NumPy or posthoc diagnostic reductions. Both denominators must be positive and finite; otherwise report this diagnostic unavailable/false. A5%engineering margin, not an application-adequacy cap or test-derived target. No alternate checkpoint selection."
+    },
+    "scope": "Canonical observed acceptance and selected development losses only; independent of physical residual criteria.",
+    "selected_development_loss": 0.003820198722205265,
+    "selected_full_training_loss": 0.0017918676949096014,
+    "selected_step": 1000
+  },
+  "outcome": "Retain the initial-channel-balanced research model. The safeguard improves training but regresses held-out forecast/response aggregate errors by 6.29%/15.37% against balanced. Integrate evidence and diagnosis only.",
+  "populations": {
+    "cascade": {
+      "completion": {
+        "completed": 84,
+        "failure_reasons": {},
+        "planned": 84
+      },
+      "eligible_prediction_rows": {
+        "balanced": 33264,
+        "baseline": 33264,
+        "candidate": 33264,
+        "hold": 33264,
+        "quadratic": 33264
+      },
+      "failed_eligible_prediction_rows": {
+        "balanced": 0,
+        "baseline": 0,
+        "candidate": 0,
+        "hold": 0,
+        "quadratic": 0
+      },
+      "independent_endpoint_reductions": 450,
+      "primary_250ms_truth": [
+        {
+          "available": 480,
+          "kind": "factual",
+          "missing": 0,
+          "planned": 480
+        },
+        {
+          "available": 576,
+          "kind": "response",
+          "missing": 0,
+          "planned": 576
+        }
+      ],
+      "raw_rows_sha256": "edfc54b11038c26b30a0689d63f76007eea53ab6071c2967255f26fc8adcbe53",
+      "row_count": 166320
+    },
+    "crazyflow": {
+      "completion": {
+        "completed": 68,
+        "failure_reasons": {
+          "altitude_below_0.5m": 16
+        },
+        "planned": 84
+      },
+      "eligible_prediction_rows": {
+        "balanced": 49026,
+        "baseline": 49026,
+        "candidate": 49026,
+        "hold": 49026,
+        "quadratic": 49026
+      },
+      "failed_eligible_prediction_rows": {
+        "balanced": 0,
+        "baseline": 0,
+        "candidate": 0,
+        "hold": 0,
+        "quadratic": 0
+      },
+      "independent_endpoint_reductions": 600,
+      "primary_250ms_truth": [
+        {
+          "available": 442,
+          "kind": "factual",
+          "missing": 38,
+          "planned": 480
+        },
+        {
+          "available": 720,
+          "kind": "response",
+          "missing": 48,
+          "planned": 768
+        }
+      ],
+      "raw_rows_sha256": "95ed9c6c2f413440e56592ab0fcb71ae8f21f2652398b44555fb04c5d334f17d",
+      "row_count": 262080
+    }
+  },
+  "preserved_attempts": [
+    "Production generate/fit/evaluate/finalize/replay stages each ran once under the recorded watchdog; both candidates completed all 1,000 attempts.",
+    "Independent physical analysis and NumPy optimizer audit passed on their first attempts.",
+    "Tamper attempt 1 failed during clean source preflight because its PYTHONPATH omitted the pinned Cascade checkout. No challenge or bundle mutation occurred. Attempt 2 changes only the launch environment and passes 27 cases.",
+    "Figures rendered once and both PNGs were visually reviewed. No fit, seed, selection, threshold or protocol retry occurred."
+  ],
+  "primary_250ms": [
+    {
+      "group": "velocity_m_s",
+      "kind": "factual",
+      "parent_p95": {
+        "balanced": 0.21141795905335659,
+        "baseline": 0.2701588323192527,
+        "candidate": 0.22591793035868574,
+        "hold": 1.6636779563008093,
+        "quadratic": 0.12117589180767661
+      },
+      "rmse": {
+        "balanced": 0.10958541065629171,
+        "baseline": 0.15580324624487057,
+        "candidate": 0.10988530348697492,
+        "hold": 1.0081551270879165,
+        "quadratic": 0.07201842851577621
+      },
+      "simulator": "crazyflow"
+    },
+    {
+      "group": "body_rate_rad_s",
+      "kind": "factual",
+      "parent_p95": {
+        "balanced": 0.2468903127109074,
+        "baseline": 0.31623860044581303,
+        "candidate": 0.2941345574835844,
+        "hold": 1.6963702203590594,
+        "quadratic": 0.5774993874849744
+      },
+      "rmse": {
+        "balanced": 0.15446976858294104,
+        "baseline": 0.1980131726285977,
+        "candidate": 0.17116417852380092,
+        "hold": 1.1084232313963402,
+        "quadratic": 0.38472548062024703
+      },
+      "simulator": "crazyflow"
+    },
+    {
+      "group": "rotation_entries",
+      "kind": "factual",
+      "parent_p95": {
+        "balanced": 0.12742682187568227,
+        "baseline": 0.15674540947620413,
+        "candidate": 0.1298517928789694,
+        "hold": 0.3706608532367173,
+        "quadratic": 0.0519536159975663
+      },
+      "rmse": {
+        "balanced": 0.07416545980950535,
+        "baseline": 0.10480624222698189,
+        "candidate": 0.07238347248953086,
+        "hold": 0.2492993244557961,
+        "quadratic": 0.034046242160786895
+      },
+      "simulator": "crazyflow"
+    },
+    {
+      "group": "velocity_m_s",
+      "kind": "response",
+      "parent_p95": {
+        "balanced": 0.06148705607516134,
+        "baseline": 0.15699718323756082,
+        "candidate": 0.056382306402921856,
+        "hold": 0.159520118213818,
+        "quadratic": 0.06282461138181585
+      },
+      "rmse": {
+        "balanced": 0.03885662275039116,
+        "baseline": 0.11598134123787963,
+        "candidate": 0.038659038625598795,
+        "hold": 0.11736188451416889,
+        "quadratic": 0.03474143485741486
+      },
+      "simulator": "crazyflow"
+    },
+    {
+      "group": "body_rate_rad_s",
+      "kind": "response",
+      "parent_p95": {
+        "balanced": 0.2723988039545598,
+        "baseline": 0.3467352057751349,
+        "candidate": 0.26802400384256403,
+        "hold": 1.7385662388477983,
+        "quadratic": 0.5646116639453389
+      },
+      "rmse": {
+        "balanced": 0.16598182244256854,
+        "baseline": 0.24731186251497808,
+        "candidate": 0.1680084078676056,
+        "hold": 1.4835266448404154,
+        "quadratic": 0.3125601961931378
+      },
+      "simulator": "crazyflow"
+    },
+    {
+      "group": "rotation_entries",
+      "kind": "response",
+      "parent_p95": {
+        "balanced": 0.05369394731335622,
+        "baseline": 0.12663231629630378,
+        "candidate": 0.04844508124483289,
+        "hold": 0.13734228073837165,
+        "quadratic": 0.04751621985783896
+      },
+      "rmse": {
+        "balanced": 0.03755906846245297,
+        "baseline": 0.1031833569706635,
+        "candidate": 0.03526942423585646,
+        "hold": 0.11703837807190148,
+        "quadratic": 0.027515720518573913
+      },
+      "simulator": "crazyflow"
+    },
+    {
+      "group": "velocity_m_s",
+      "kind": "factual",
+      "parent_p95": {
+        "balanced": 0.19762815757010171,
+        "baseline": 0.22912000590960152,
+        "candidate": 0.23579645387875112,
+        "hold": 0.47149487103266513,
+        "quadratic": 0.172527428537271
+      },
+      "rmse": {
+        "balanced": 0.1333383717042669,
+        "baseline": 0.16505304581744726,
+        "candidate": 0.15884881775816134,
+        "hold": 0.33193146239345733,
+        "quadratic": 0.11664327080563196
+      },
+      "simulator": "cascade"
+    },
+    {
+      "group": "body_rate_rad_s",
+      "kind": "factual",
+      "parent_p95": {
+        "balanced": 0.1546973005335604,
+        "baseline": 0.13650454760511566,
+        "candidate": 0.21372357416862597,
+        "hold": 0.4201349418131812,
+        "quadratic": 0.14162910804910908
+      },
+      "rmse": {
+        "balanced": 0.10420878460481056,
+        "baseline": 0.10324672432722415,
+        "candidate": 0.13498199735304606,
+        "hold": 0.33031722100228283,
+        "quadratic": 0.09299404012164472
+      },
+      "simulator": "cascade"
+    },
+    {
+      "group": "rotation_entries",
+      "kind": "factual",
+      "parent_p95": {
+        "balanced": 0.0167263178438695,
+        "baseline": 0.022323139657108512,
+        "candidate": 0.02126486155286504,
+        "hold": 0.03660724484415449,
+        "quadratic": 0.014995574510620144
+      },
+      "rmse": {
+        "balanced": 0.011968044414110396,
+        "baseline": 0.017510490194019235,
+        "candidate": 0.01419217123108292,
+        "hold": 0.028791318256215115,
+        "quadratic": 0.010513337858193087
+      },
+      "simulator": "cascade"
+    },
+    {
+      "group": "velocity_m_s",
+      "kind": "response",
+      "parent_p95": {
+        "balanced": 0.05258735671435975,
+        "baseline": 0.0714511365799153,
+        "candidate": 0.06167665040373144,
+        "hold": 0.1179389847230056,
+        "quadratic": 0.05035347432471262
+      },
+      "rmse": {
+        "balanced": 0.03664704567589351,
+        "baseline": 0.04465407813985635,
+        "candidate": 0.04462333207098775,
+        "hold": 0.08187287753853151,
+        "quadratic": 0.034646085042700114
+      },
+      "simulator": "cascade"
+    },
+    {
+      "group": "body_rate_rad_s",
+      "kind": "response",
+      "parent_p95": {
+        "balanced": 0.056852847054372366,
+        "baseline": 0.051235377843712925,
+        "candidate": 0.07939685301969752,
+        "hold": 0.11108386690330148,
+        "quadratic": 0.04410811090382834
+      },
+      "rmse": {
+        "balanced": 0.041823303812459287,
+        "baseline": 0.03591597737892227,
+        "candidate": 0.06003054709170211,
+        "hold": 0.09192563453703745,
+        "quadratic": 0.03337185761264372
+      },
+      "simulator": "cascade"
+    },
+    {
+      "group": "rotation_entries",
+      "kind": "response",
+      "parent_p95": {
+        "balanced": 0.005082635073689061,
+        "baseline": 0.00886552075229552,
+        "candidate": 0.006069711449325529,
+        "hold": 0.01168818389541945,
+        "quadratic": 0.004995960972240194
+      },
+      "rmse": {
+        "balanced": 0.0037900722865332514,
+        "baseline": 0.006776993367925461,
+        "candidate": 0.004470789228751041,
+        "hold": 0.009238650868191643,
+        "quadratic": 0.0034935626943771794
+      },
+      "simulator": "cascade"
+    }
+  ],
+  "protocol": {
+    "path": "docs/harness/safeguarded-adam-v1.json",
+    "sha256": "40252fccb98101143c45775615a3ef33c73018c374daa48470f19154cf4cd1c4"
+  },
+  "protocol_freeze_commit": "6ba6336655e8d7dde86d73cd269dd53274613467",
+  "protocol_frozen_before_implementation": true,
+  "public_recipe": "generic-memory-v3-prototype",
+  "research_mechanism_qualified": false,
+  "result_bundle": {
+    "decision": {
+      "path": "artifacts/2026-09-18/safeguarded-adam-v1/decision.json",
+      "sha256": "9f588b545ec3ced6cda4f36b0cc750a455ae29d6f16906b5a678c7fcd4ccea22"
+    },
+    "manifest_sha256": "0c881cac071540b89c72d6343d7da6394900a0735bc3d2549fd8aea9226f9319",
+    "path": "artifacts/2026-09-18/safeguarded-adam-v1",
+    "sealed_payloads": 14760
+  },
+  "status": "completed_rejected_optimizer_change",
+  "strongest_research_result": {
+    "path": "docs/harness/initial-channel-balance-v1-result.json",
+    "sha256": "980822ac2b72be89518b339e0871cb80d51d97d8e338c26d88c1903260744b28"
+  },
+  "tested_implementation_commit": "c750b2365afe315536fc3a3360f3d24d01cc69c5",
+  "unchanged_controls": {
+    "development_cache_windows_per_simulator": 256,
+    "equal_compute": false,
+    "exact_initial_parameters_normalizations_scales_and_weights": true,
+    "fresh_fits": 2,
+    "fresh_test_parents": 168,
+    "full_training_acceptance_objective_calls": 11956,
+    "imported_reference_fits": 6,
+    "new_training_trajectories": 0,
+    "same_minibatch_draws_adam_formulas_proposal_count_and_selector": true,
+    "training_cache_windows_per_simulator": 384
+  },
+  "verification": {
+    "alteration_challenges": {
+      "coherently_resealed_semantic_cases": 25,
+      "passed": 27,
+      "raw_integrity_cases": 2,
+      "report": {
+        "path": "artifacts/2026-09-18/safeguarded-adam-v1-tamper-attempt2.json",
+        "sha256": "4b01ad02378fa7680f31ebc919cc113d604e58029994c5b7b6b84444043ea862"
+      }
+    },
+    "focused_tests": {
+      "evidence": {
+        "path": "artifacts/2026-09-18/safeguarded-adam-v1-focused-tests-attempt-1.log",
+        "sha256": "6f97f3f6e0b8849c8d56ea2b0ca7f7facf010406ab049a56182987b0670fc913"
+      },
+      "passed": 896,
+      "wall_time_s": 100.23
+    },
+    "imported_historical_snapshots": 66,
+    "independent_endpoint_groups": 1050,
+    "independent_optimizer_evidence": {
+      "path": "artifacts/2026-09-18/safeguarded-adam-v1-independent-attempt1.json",
+      "sha256": "a181156af457d8dc4616b7b0f86faf8aa7508aec016d54db974b9bf9e7a317ec"
+    },
+    "independent_physical_reductions": {
+      "path": "artifacts/2026-09-18/safeguarded-adam-v1-analysis-attempt1.json",
+      "sha256": "a13072272aba1a54e71a78f4d054acc97a2390651713ae54c4160be3ac0447f9"
+    },
+    "replayed_candidate_full_training_losses": 11956,
+    "replayed_metric_rows": 428400,
+    "replayed_prediction_queries": 4032,
+    "replays": {
+      "cascade": {
+        "artifact": {
+          "path": "artifacts/2026-09-18/safeguarded-adam-v1/cascade/replay.json",
+          "sha256": "9a3083365c6f37f2c7c7e8e6c5e226e75bb66824b300f5b95efecd23b89562b5"
+        },
+        "candidate_acceptance": {
+          "accepted_attempts": 931,
+          "attempts": 1000,
+          "checkpoint_chain_bound": 11,
+          "completed_attempts": 1000,
+          "full_training_losses_replayed": 4427,
+          "initial_available": true,
+          "initial_objective_calls": 1,
+          "rejected_attempts": 69,
+          "trial_objective_calls": 4426
+        },
+        "checkpoint_count": 44,
+        "decision_exact": true,
+        "gradient_or_adam_reexecuted": false,
+        "normal_equations_resolved": false,
+        "physics": {
+          "arrays": 24996,
+          "exact": true,
+          "parents": 180,
+          "queries": 1848
+        },
+        "predictions": {
+          "exact": true,
+          "metric_rows": 166320,
+          "prediction_queries": 1848
+        }
+      },
+      "crazyflow": {
+        "artifact": {
+          "path": "artifacts/2026-09-18/safeguarded-adam-v1/crazyflow/replay.json",
+          "sha256": "414e821c923c1190e4bb85b82cda3b4c36cea29903c037598e8ed8a6a77a3bb1"
+        },
+        "candidate_acceptance": {
+          "accepted_attempts": 717,
+          "attempts": 1000,
+          "checkpoint_chain_bound": 11,
+          "completed_attempts": 1000,
+          "full_training_losses_replayed": 7529,
+          "initial_available": true,
+          "initial_objective_calls": 1,
+          "rejected_attempts": 283,
+          "trial_objective_calls": 7528
+        },
+        "checkpoint_count": 44,
+        "decision_exact": true,
+        "gradient_or_adam_reexecuted": false,
+        "normal_equations_resolved": false,
+        "physics": {
+          "arrays": 30792,
+          "exact": true,
+          "parents": 180,
+          "queries": 2184
+        },
+        "predictions": {
+          "exact": true,
+          "metric_rows": 262080,
+          "prediction_queries": 2184
+        }
+      }
+    },
+    "ruff": {
+      "path": "artifacts/2026-09-18/safeguarded-adam-v1-ruff-attempt-1.log",
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    "saved_candidate_diagnostic_sets": 44
+  }
+}
