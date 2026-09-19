@@ -92,12 +92,14 @@ safeguard evidence is integrated for diagnosis, not as a replacement model.
 
 ## Next named gap
 
-**Test proposal-direction quality without changing the objective.** Use all
-384 cached training windows for each gradient instead of a 64-window sample.
+**Test proposal-direction quality without changing the objective.** The
+[full-cache gradient protocol](harness/full-cache-gradient-v1.json) is frozen
+before implementation or fitting. Use all 384 cached training windows once in
+saved order for each gradient instead of a 64-window sample.
 Preserve the retained initialization, fixed channel weights, Adam moments and
 clipping, 1,000 attempts, bounded acceptance ladder and development selection.
 Freeze exact arithmetic, compute and time budgets, evidence, comparisons and
-physical progress criteria before implementation or fitting. Do not add a
+physical progress criteria as declared by the frozen protocol. Do not add a
 learning-rate, seed or batch-size sweep.
 
 Import both the safeguarded model as the mechanism control and the balanced model
