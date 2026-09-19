@@ -5,22 +5,20 @@ baseline.** Generality and its four-corpus advantage justify the documented
 ARP deficit; this policy decision does not rewrite historical gates. The
 adopted learner remains `generic-memory-v3-prototype`: `glassbox.fit` returns
 `LearnedDynamics` with `predict` and `update`, without consumer tuning options.
-The independent-command-excitation study now establishes a strong collection benefit
-for the quadratic research learner: weighted forecast/response error falls
-27.8%/71.8% against public, and 10.5%/67.0% against that same architecture trained
-on original data. Every frozen residual criterion passes. The public recipe is
-unchanged pending the next matched-data comparison; the added quadratic terms
-have not yet been shown necessary once training inputs are independently excited.
+The matched-data architecture study now verifies that independent command excitation
+improves the unchanged public learner: weighted forecast/response error falls
+5.9%/63.7%. Quadratic learning improves those aggregates a further 22.6%/23.8%
+on identical excited recordings, but its Crazyflow angular-error tails exceed the
+predeclared limits against public-excited. Both workflow improvements pass; the
+architecture preference remains an unresolved tradeoff. The public recipe is unchanged.
 
-**Current evaluation priority, 2026-09-18:** reduce held-out Crazyflow/Cascade
-forecast and command-response residuals in physical units. The latest accepted
-collection mechanism applies one generic bounded command perturbation rule to
-both simulators. Crazyflow's angular forecast and tail losses, wind-shift loss and
-incomplete trajectories remain visible. Next fit the existing public learner on
-the exact same excited recordings before deciding whether quadratic complexity
-is justified. Structured comparisons are context, not the finish line. Dart's
-prior failures and earlier qualification flags retain their original meaning;
-JSBSim breadth work remains deferred.
+**Current evaluation priority, 2026-09-18:** retain the verified collection gains
+and reduce remaining physical residuals across Crazyflow/Cascade conditions and
+horizons. Next test bilinear-only learning on the same excited data, removing the
+autonomous state-product path to investigate Crazyflow angular forecast/tail losses
+while measuring retained velocity and rotation gains. This is an attribution
+experiment, not a platform branch or an all-case win requirement. Structured
+comparisons are context; JSBSim breadth work remains deferred.
 
 Read [the charter](charter.md) first. This page records the current gaps and
 next iteration; git and frozen result records retain experiment history.
@@ -28,7 +26,7 @@ next iteration; git and frozen result records retain experiment history.
 | Criterion | Current | Target |
 | --- | --- | --- |
 | One recipe | **Met.** The public API and fit/evaluate commands use the single adopted generic recipe, with no model-selection options. | One generic learner and consumer contract. |
-| Accuracy | **Adopted; strong collection gain verified in research.** The quadratic model trained on independently excited recordings has 71.8% lower weighted response error than public on fresh matched tests; the isolated within-quadratic collection gain is 67.0%. Crazyflow primary 250 ms velocity response improves 0.17590→0.03527 m/s; Cascade 0.13221→0.03919 m/s. Crazyflow rate forecasts remain 28.3% worse than public and its errors condition on available truth. Public-excited performance and arbitrary-system transfer remain unmeasured. | Low held-out forecast and command-response residuals in physical units across conditions and horizons, with progress against the adopted generic baseline; application adequacy measured separately. |
+| Accuracy | **Adopted; collection gain verified in the public recipe.** Excited training lowers public weighted forecast/response errors 5.9%/63.7%. Primary 250 ms velocity response improves 0.18829→0.12468 m/s in Crazyflow and 0.12761→0.04767 m/s in Cascade. Quadratic reduces these further to 0.03967/0.03747, but Crazyflow rate forecast/response p95 worsens 0.30015/0.36559→0.58434/0.60416 rad/s against public-excited. Architecture preference remains unresolved; arbitrary-system transfer is unmeasured. | Low held-out forecast and command-response residuals in physical units across conditions and horizons, with progress against the adopted generic baseline; application adequacy measured separately. |
 | Model usability | **Partly met.** The public model has a saved signal/time contract, batched JAX-compatible forecasts, immutable revisions and error envelopes. Independent controller integration and broader runtime/export portability have not been demonstrated. | A documented model artifact and public interface usable independently of the Glassbox controller, with explicit scope and evidence. |
 | Capability | **Met.** All 27 frozen synthetic cases pass; saved models replay and reject alteration. These are regression guards, not platform readiness. | Every synthetic absolute cap passes. |
 | Reference control | **Demonstrated by both isolated research learners; adopted public model not yet tested with the new controller.** Forecast-only and paired-response means each score 2,248/2,248 and pass all eight trials. Exact replay and integrity checks pass. | Separately qualified downstream demonstrations; one universal controller is optional for the model product. |
@@ -36,50 +34,60 @@ next iteration; git and frozen result records retain experiment history.
 | Evidence | **Not met.** In the original two-simulator public baseline, primary 250 ms velocity/rate coverage is 85.8–89.7%, but extreme-maneuver coverage falls to 47.4–68.3%. Crazyflow additionally has missing truth after altitude failures. Earlier ARP, reserved-control and shifted-synthetic failures remain. Borrowed constant spread is not calibrated uncertainty for a new predictor. | Measured prediction coverage in the declared band, exposed with calibration provenance independently of a controller. |
 | Lean | **Not met.** Structured dynamics, fitting, belief code and research scripts remain. | Learner, model artifacts/interfaces, harness, telemetry adapters and optional downstream consumers. |
 
-## Current independent-command-excitation experiment
+## Current matched-data architecture experiment
 
-[Independent command excitation v1](harness/independent-command-excitation-v1-result.json)
-retains the quadratic architecture, 384/256 training/development windows and
-1,000-update budget. It changes only training collection: preserve 0.75 s, then
-add independent ±5% command-range offsets every 0.10 s and clip to existing bounds.
-All development recordings remain byte-identical. Both original-data comparator
-refits exactly reproduce their trusted saved revisions.
+[Excited public architecture v1](harness/excited-public-architecture-v1-result.json)
+compares public-original, public-excited and quadratic-excited on a fresh common
+cohort. Accepted excited recordings, including failed prefixes and unchanged
+development files, are copied byte for byte. The two excited fits have identical
+384/256 windows, six base normalization arrays, numerical loss weights and
+1,000-update budgets. This matches data and updates, not FLOPs. Both trusted
+comparator refits reproduce every saved array and metadata field exactly.
 
-Weighted factual/response ratios against public are **0.72197 / 0.28220**, with
-paired 95% intervals **[0.70267, 0.74617] / [0.27536, 0.28744]**. Against original-data
-quadratic, ratios are **0.89498 / 0.33043**. These are weighted geometric RMSE ratios,
-not pooled physical errors. Primary 250 ms public→candidate velocity forecast/
-response errors are **0.16416→0.06346 / 0.17590→0.03527 m/s** in Crazyflow and
-**0.16124→0.12252 / 0.13221→0.03919 m/s** in Cascade. Crazyflow angular response
-improves **1.07374→0.30831 rad/s** against original-data quadratic, slightly below
-public's **0.31712**. Cascade angular response improves **0.06316→0.03675 rad/s**
-against public.
+Public-excited/public-original weighted factual/response ratios are
+**0.94118 / 0.36314**, with paired 95% intervals **[0.92629, 0.96173] /
+[0.35526, 0.36934]**; every frozen collection criterion passes. Primary 250 ms
+Crazyflow rate forecast/response improves **0.24609→0.19334 / 0.34000→0.25343 rad/s**.
+Velocity response improves **0.18829→0.12468 m/s** in Crazyflow and
+**0.12761→0.04767 m/s** in Cascade. Remaining public losses include primary velocity
+forecasts (+2.9%/+1.1%), Crazyflow rotation forecasts (+6.8%), 50/150 ms rate responses
+(+1.7%/+7.3%) and speed-shift factual aggregates (+9.3%/+6.7%). Crazyflow
+public-excited velocity response at 250 ms remains only 0.74% below the zero-response
+reference (0.12468 versus 0.12561 m/s); broad collection gains do not finish the work.
 
-The collection mechanism **passes every frozen residual criterion**. Remaining
-losses matter: Crazyflow angular forecasts worsen **0.25568→0.32796 rad/s** against
-public, including 23/24 primary cells. Its angular forecast/response parent p95
-errors rise **0.42752→0.47976 / 0.42756→0.54544 rad/s**, within the predeclared limits.
-Its 10–150 ms angular responses are 46–59% worse than public despite 250 ms
-near-parity. Its wind-shift factual aggregate worsens 23.3%. Cascade's angular forecast remains
-better than public but is 5.2% worse than original-data quadratic. Broad gains
-justify retaining the mechanism; they do not imply improvement in every channel.
+Quadratic-excited/public-original ratios are **0.72846 / 0.27683**, and its workflow
+also passes every criterion. Against public-excited on identical data, ratios are
+**0.77398 / 0.76232**. Crazyflow primary 250 ms velocity forecast/response improves
+**0.16025→0.07033 / 0.12468→0.03967 m/s**, with velocity and rotation gains in every
+primary cell. However, angular forecasts worsen in all 24 cells, **0.19334→0.35358
+rad/s**, and responses worsen **0.25343→0.34742 rad/s** overall. Angular forecast/
+response parent p95 ratios are **1.947 / 1.653**, above the frozen 1.5 limits.
+The public model conversely loses substantially on velocity and rotation tails;
+neither architecture direction passes its preference criteria. This retains both
+verified workflow gains and identifies a concrete architecture tradeoff.
 
-Training-only Crazyflow completion falls **49/72→24/72**, and valid duration
-**199.18→177.54 s**; all parents remain admitted, with 61/384 window origins changed.
-Cascade completes all 72 and retains all window origins. Command covariance
-conditioning improves **389→37 / 144→46**. Crazyflow's improvement persists on
-identical valid time prefixes, but its visited states change substantially too.
-The result supports practical collection, not isolated causal identification.
-Training-derived normalization and loss scales change; development data do not.
+Crazyflow public-excited still selects step zero with exactly zero nonlinear output
+and hidden-memory readout; its improved selected response remains affine.
+Quadratic selects step 900. On the identical development objective, rotation's
+loss contribution falls **0.017694→0.001500**, but rates worsen
+**0.000763→0.001976**. This supports investigating the product-path and objective
+tradeoff without establishing whether initialization or optimization causes it.
+Cascade selects step 1,000 and all development groups improve with quadratic.
 
-The common fresh test cohort completes **64/84 Crazyflow** parents and **84/84
-Cascade** parents. Crazyflow primary truth is **437/480 factual / 712/768 response**
-at 250 ms; Cascade retains **480/480 / 576/576**. All eligible predictions are finite.
-All 58,596 data/query arrays, saved predictions, 342,720 metric rows and both
-decisions/bootstrap draws replay exactly; independent reductions, 14 alteration
-tests and 204 focused tests pass. The [experiment guide](independent-command-excitation.md) records full physical
-comparisons, collection and fitting effects, verification and reproduction.
-No public recipe, update or controller is promoted by this collection experiment.
+The common test cohort completes **59/84 Crazyflow** and **84/84 Cascade** parents.
+Crazyflow primary 250 ms truth includes **426/480 factual / 728/768 response**
+queries; Cascade has **480/480 / 576/576**. Every eligible prediction is finite.
+Imported Crazyflow excited training still completes only **24/72**, versus **49/72**
+for original training. Changed state support, failure prefixes, normalization and
+loss weights are part of the collection intervention; this is not isolated causal
+identification. The matched excited-architecture comparison holds those inputs fixed.
+
+All **58,668 common/excited data and query arrays**, predictions on 4,032 queries,
+342,720 metric rows and all four decisions/bootstrap draws replay exactly.
+Independent 250 ms reductions, 14 alteration challenges and **278 focused tests**
+pass. The [experiment guide](excited-public-architecture.md) records full physical
+errors, tails, development diagnosis, limitations and reproduction. No public
+recipe, derivative, envelope, update or controller qualification is promoted.
 
 ## Crazyflow and Cascade baseline evidence
 
@@ -341,27 +349,28 @@ does not change that recipe or consumer behavior.
 
 ## Next named gap
 
-**Architecture necessity after improved command excitation.** The successful
-collection intervention was measured within the quadratic learner. Its public
-comparator still used original recordings, so the study cannot establish that
-quadratic terms are needed once commands supply better training information.
+**Retain quadratic velocity/rotation gains while repairing Crazyflow angular
+forecasts and tails.** The matched-data comparison establishes that the complex
+learner has substantial value, but it does not isolate the state-command product
+path from the autonomous state-product path. Its angular forecast and tail losses
+are widespread; the public learner on the same excited recordings is stronger there.
 
-Compare three arms on the exact sealed original and excited calibration data:
-public-original, public-excited and quadratic-excited. Keep recording roles,
-development data, window budgets, optimizer update budgets and candidate
-selection rules fixed; use a fresh unperturbed held-out cohort. The public learner
-must consume the excited recordings through its ordinary `fit` contract, without
-excitation labels or simulator state. Refit trusted comparator revisions exactly.
+Test the existing bilinear-only architecture on those exact excited recordings,
+removing the autonomous quadratic output path. Keep data roles, cached windows,
+normalization, numerical objective, initialization draws, optimizer budget and
+checkpoint selection rule fixed. Compare public-excited, quadratic-excited and
+bilinear-excited on a fresh unperturbed held-out cohort; reproduce trusted comparator
+revisions. This tests the end-to-end architectural removal, including joint ridge
+initialization, not an inference-time parameter-zeroing trick.
 
-Freeze the metrics, public-baseline improvement requirements and acceptable
-matched-data differences before fitting. Public-original→public-excited measures
-the collection benefit in the adopted recipe; public-excited→quadratic-excited
-measures the added architecture's benefit at matched data/update budgets, without
-claiming equal FLOPs. Prefer the existing simpler public recipe if physical errors
-and tails are comparable under those frozen criteria; otherwise retain the
-quadratic mechanism for a separately declared public capability/contract
-qualification. Do not redesign the collection after inspecting these test results.
+Freeze angular forecast/tail repair and retained aggregate forecast/response value
+before fitting, with bounded disclosed losses and the existing public-baseline
+progress criteria. Save initial and existing-checkpoint physical development
+diagnostics prospectively to distinguish initialization from later training
+tradeoffs. Do not change the objective in this iteration or mix model outputs by
+channel. Objective allocation is a subsequent hypothesis if the evidence supports it.
 
-Retain Crazyflow's widespread angular-forecast loss, wind-shift loss, missing
-truth and increased training failures as explicit improvement targets. Forecast,
-response, derivative, envelope, update and controller claims remain separate.
+The collection benefit in the unchanged public learner remains accepted regardless
+of this architecture outcome. Keep incomplete Crazyflow trajectories, short-horizon
+losses and all qualification boundaries visible. Forecast, response, derivative,
+envelope, update and controller claims remain separate.
