@@ -1,0 +1,66 @@
+{
+  "acceptance": "All saved prediction/calibration/consumer arrays byte-identical including dtype and NaN payloads, all metric rows/directions/summaries/decision exactly equal, all source/data/model associations valid. Any difference fails this bounded regression; no tolerance adjustment or fallback.",
+  "allowed_common_source_differences": {
+    "src/glassbox/_sequence_model.py": {
+      "current": "a76ce39b2481808bf340e55b343336d1f56568c9f97e4756791096838916ade3",
+      "old": "c129a8fa3581bd1a52c659c388005ba1abd97e22e5e0974c2cbb701802b1d65a"
+    },
+    "src/glassbox/experimental/public_mean_consumer_qualification.py": {
+      "current": "0965fb4245238a84f1c7ae3d7e08490abc69a92d0c50fa7397a645b0e95d71b1",
+      "old": "99a0b4419f57767ea94dcd3b9641131e662333ea46774a59e88bbfeb033ddb66"
+    }
+  },
+  "consumer": {
+    "manifest": "/private/tmp/glassbox-public-mean-qualification/artifacts/2026-09-19/public-mean-qualification-v1-consumer-input-attempt1/INPUT.json",
+    "manifest_sha256": "bb5d9622345010891e73d8e3fd0c10fd760913ff825fd0076b358bf484b62816",
+    "original_directory": "/private/tmp/glassbox-public-mean-qualification/artifacts/2026-09-19/public-mean-qualification-v1-consumer-flight-attempt1",
+    "result_sha256": "ad875a6afce3920a73b4b6a2004ec8d47dd2a9a762c39cb576f1258305d57806"
+  },
+  "corrected_core_sha256": "a76ce39b2481808bf340e55b343336d1f56568c9f97e4756791096838916ade3",
+  "corrected_core_source_commit": "355fb75cbf3cc88582473bf18c641adfcb0ec79a",
+  "driver_relative": "docs/diagnostics/public-mean-corrected-physical-replay.py",
+  "driver_sha256": "dfffb691a41165234ce83c7ed2b00a6c6d956530d7d7f9ad899b50a0e97f6528",
+  "evaluator_sha256": "ae8651c0037489b490863ca707f67d4e76d984114b13f3dd28057ed9d511b18c",
+  "expected_counts": {
+    "consumer_arrays": 168,
+    "consumer_means": 24,
+    "consumer_responses": 8,
+    "inferred_prefixes_per_precision": 6170,
+    "metric_rows": 428400,
+    "new_fits": 0,
+    "new_initializers": 0,
+    "new_simulations": 0,
+    "original_fitting_operations": 32,
+    "prediction_arrays_per_precision": 6384,
+    "query_slots_per_precision": 4032
+  },
+  "format": "glassbox-corrected-physical-replay-plan-v1",
+  "integrity_assertions": "Driver refuses optimized Python before authentication or execution. Frozen expected cohort/array/work counts are checked in addition to exact evidence identities.",
+  "old_binding": {
+    "path": "/private/tmp/glassbox-public-mean-adjudication/artifacts/2026-09-19/public-mean-qualification-v1-implementation-attempt5.json",
+    "sha256": "044f6e989f987dc9a68c531f1c735d7a500b292997bb3224252227a945ad1a67"
+  },
+  "old_decision": {
+    "path": "/private/tmp/glassbox-public-mean-adjudication/artifacts/2026-09-19/public-mean-qualification-v1-physical-decision-attempt2.json",
+    "sha256": "f8b6d8d41c27c33fdd8b090b46c28c3271f5a79cf3ee5404f4ce46bcc34d422e"
+  },
+  "original_fit_binding_sha256": "9347bc7aeea30c40315feb551f89d683e14a227b42076feb3ca946ecee0fdd0a",
+  "processes": "Two old-source read-only validation processes, four corrected public inference processes, one fresh consumer preflight and one fresh consumer execution; no new historical inference. Each inference/validation child has a 14400-second hard timeout; consumer execution uses unchanged 7200-second launcher and preflight 60 seconds. One exclusive attempt, preserve failed prefix; no automatic retry.",
+  "scope": "Regression of corrected inference on existing saved models, full original physical cohort, development envelope and independent consumer; no new fit, truth, physics, adoption decision or adequacy claim.",
+  "simulators": {
+    "cascade": {
+      "data_sha256": "7e2a18844412724bb38f861f24eee364de6d3c5b6d710bc718fd52e25dbe43ff",
+      "evaluation_root": "/private/tmp/glassbox-public-mean-adjudication/artifacts/2026-09-19/public-mean-qualification-v1-physical-evaluation-cascade-attempt2",
+      "evaluation_sha256": "68603ff638c9821d392f472369228c5e993afad3ffb919b6e262cc7da0eb3d19",
+      "flight_fit_sha256": "b042741fe28cc7e34cd37bd3b2ade298fa65612a0fdebdd7c13e8f3bd109faea"
+    },
+    "crazyflow": {
+      "data_sha256": "f1acf0d0e305e48e08dc39fa5b9881577279e9947bc8b480bb6ddcdedc9093a2",
+      "evaluation_root": "/private/tmp/glassbox-public-mean-adjudication/artifacts/2026-09-19/public-mean-qualification-v1-physical-evaluation-crazyflow-attempt2",
+      "evaluation_sha256": "97da342fc3e8ad78c3912021a6b1ef5bbb4090870ce902a2227c2b377e3c7933",
+      "flight_fit_sha256": "6508fa49498e4ad5ca007b5155ab7390109e94f9c025b8ae4752a451dbeabcd9"
+    }
+  },
+  "source_association": "Original data/fit binding3 and evaluation binding5 retain their original commits/roots. New inference binds new committed worker with corrected core bytes. All old bound src/glassbox sources must match except the two explicit old/current pairs: core correction; already-preserved consumer adjudication diagnostic-only change. Test/additional source files remain bound by new complete source inventory. No old verify call receives a replacement new binding.",
+  "status": "Prospective frozen policy; execute only after driver, policy and control-flow tests are committed and the clean worker has an externally anchored implementation binding."
+}
