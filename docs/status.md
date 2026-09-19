@@ -14,7 +14,10 @@ float32 finite-difference failures. A separate runtime correction passes both
 precision-switching orders on all 24 actual cases, with 432 output arrays exactly
 matching prior fixed-mode predictions, and 36 targeted regression tests. Its
 complete 33-case arithmetic replay reproduces all 4,653 arrays and the original
-failed verdict exactly. JSBSim breadth is deferred.
+failed verdict exactly. The prospective derivative assessment is now frozen at
+`f4e1888` and running on the original 33 cases plus eight deterministically
+selected input-only confirmation queries. It has no verdict yet. JSBSim breadth
+is deferred.
 The [completed original qualification](harness/public-mean-qualification-v1-result.json)
 records the failed numerical verdict and the complete evidence mirror in this
 project's artifact directory; subsequent corrections keep their own results.
@@ -28,7 +31,10 @@ The runtime correction is committed at `41e35ab` in
 is `355fb75` in `/private/tmp/glassbox-public-mean-precision-review`, with identical
 learner source. Its [separate result](harness/public-mean-precision-correction-v1-result.json)
 anchors the complete arithmetic replay and retained runtime correction. Do not
-modify source-bound workers or repeat completed fits.
+modify source-bound workers or repeat completed fits. The new numerical worker
+is `/private/tmp/glassbox-public-mean-fd-assessment`; its policy and implementation
+were committed before selecting the eight inputs. Selector tests pass, including
+target/mask independence, duplicate exclusion and insufficient-support rejection.
 The [continuation record](/private/tmp/glassbox-public-mean-qualification/artifacts/2026-09-19/public-mean-qualification-v1-continuation.json)
 holds the current process handles and artifact anchors.
 
@@ -123,11 +129,15 @@ Cascade numerical checks; float32 arithmetic grows when the step becomes very
 small. The original failed gate is preserved. Separately, explicit model-array
 typing fixes the observed same-process JIT32-to64 failure on the frozen actual
 queries without changing their outputs or any saved arithmetic/derivative array.
-Next, review and freeze the prospective finite-difference assessment before
-selecting or evaluating its eight additional input-only confirmation queries.
-The existing 33 cases remain regression evidence; no already-inspected step is
-selected because it passes. The draft uses a fixed Richardson convergence test
-and the actual achieved float32 endpoints with inherited forecast tolerances.
+The prospective finite-difference assessment is frozen and its first run is in
+progress. Its input manifest is externally anchored at SHA256
+`30e30aceffc0b4592e9420728ba56141c5f3e2b3244f7657af0e745d506bc402`.
+The original 33 cases are preserved exactly. Eight additional factual inputs
+come from the same physical cohort and parents; they are numerical confirmation,
+not independent physical-accuracy evidence. No already-inspected step is selected
+because it passes. The committed assessment uses a fixed Richardson convergence
+test and the actual achieved float32 endpoints with inherited forecast tolerances.
+All old raw finite-difference flags remain visible under their original policy.
 Freshly replay both corrected public prediction arms over the complete saved
 physical cohort before adoption; this is new-code regression evidence, not new
 physical accuracy evidence. Preserve one maintained learner rather than
