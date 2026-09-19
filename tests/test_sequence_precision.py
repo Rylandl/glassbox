@@ -35,6 +35,8 @@ def fixture(spec):
 def test_same_model_survives_compiled_precision_transitions(spec, order, wrappers):
     model, values = fixture(spec)
     fingerprint = model.fingerprint()
+    owned = tuple((*model.params.values(), *model.norms.values()))
+    writable = tuple(a.flags.writeable for a in owned)
     ambient = bool(jax.config.x64_enabled)
     predict, memory = jax.jit(model.rollout), jax.jit(model.memory_state)
     separate = {
@@ -60,10 +62,12 @@ def test_same_model_survives_compiled_precision_transitions(spec, order, wrapper
             repeated[enabled] = y, h
         assert bool(jax.config.x64_enabled) == ambient
     assert model.fingerprint() == fingerprint
-    assert all(
-        isinstance(a, np.ndarray) and a.dtype == np.float64 and not a.flags.writeable
-        for a in (*model.params.values(), *model.norms.values())
-    )
+    for actual, before, flag in zip(
+        (*model.params.values(), *model.norms.values()), owned, writable, strict=True
+    ):
+        assert actual is before
+        assert isinstance(actual, np.ndarray) and actual.dtype == np.float64
+        assert actual.flags.writeable == flag
 
 
 @pytest.mark.parametrize("spec", FIXTURES, ids=lambda s: s[0])
