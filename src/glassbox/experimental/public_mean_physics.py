@@ -77,10 +77,11 @@ def fresh_test_roster(original, *, shift=11000000):
 
 
 def _inventory(directory):
+    directory = Path(directory)
     return {
         str(p.relative_to(directory)): digest(p)
-        for p in sorted(Path(directory).rglob("*"))
-        if p.is_file() and p.name != "seal.json"
+        for p in sorted(directory.rglob("*"))
+        if p.is_file() and p != directory / "seal.json"
     }
 
 

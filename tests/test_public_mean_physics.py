@@ -69,6 +69,11 @@ def test_physical_seal_detects_payload_and_extra_file_changes(tmp_path):
     with pytest.raises(ValueError, match="physical payload inventory"):
         physics.verify_data(tmp_path, expected)
     (tmp_path / "unplanned.txt").unlink()
+    (tmp_path / "nested").mkdir()
+    (tmp_path / "nested/seal.json").write_text("{}")
+    with pytest.raises(ValueError, match="physical payload inventory"):
+        physics.verify_data(tmp_path, expected)
+    (tmp_path / "nested/seal.json").unlink()
     (tmp_path / "records.json").write_text("[]")
     with pytest.raises(ValueError, match="physical payload inventory"):
         physics.verify_data(tmp_path, expected)
