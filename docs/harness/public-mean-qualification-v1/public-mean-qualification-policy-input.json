@@ -1,0 +1,550 @@
+{
+  "cautions": [
+    "Legacy API migration was deliberately numerical-no-change; its protocol is a source of interface fixtures and rejection contracts, not authority to assert unchanged old public predictions for a new mean.",
+    "Historical synthetic NumPy replay only supports old linear+MLP/filter model; a new full quadratic recurrence requires a prospectively pinned replay implementation, with old historical source immutable.",
+    "Synthetic normalized scores use the fitted model training state_scale by established definition; expanded cache can change that scale. Retain physical channel error reporting alongside cap scores; do not reinterpret the caps as physical/application tolerances.",
+    "Do not import source-layout/API assertions tied to obsolete recipe keys as scientific caps; maintain the frozen information-budget constants and accuracy thresholds while qualifying deliberately versioned new recipe/format."
+  ],
+  "precision": "Freeze before implementation. Current saved benchmark exactness requires pinned CPU float64 JAX runtime; public default-process behavior must be explicit and tested. Do not silently downcast saved float64 means or claim cross-runtime bit identity.",
+  "public_fixture": {
+    "configuration_id": "toy-v1",
+    "dt_s": 0.05,
+    "equations": [
+      "x[k+1,0] = 0.95*x[k,0] + 0.08*tanh(u[k,0])",
+      "x[k+1,1] = 0.91*x[k,1] + 0.06*u[k,0]"
+    ],
+    "equivalence": "Exact semantic fingerprints, metadata, reports, contracts, recipe, parameter/norm arrays, train/development arrays and window identities, ledger, half-widths, predictions, and updated previous_revision. The original revision stays unchanged. No wall-clock fields enter comparison.",
+    "fit_recordings": [
+      {
+        "recording_id": "a",
+        "seed": 1,
+        "segment_id": "whole"
+      },
+      {
+        "recording_id": "b",
+        "seed": 2,
+        "segment_id": "whole"
+      }
+    ],
+    "initial_state": [
+      0.0,
+      0.0
+    ],
+    "input_channels": [
+      "u [command,unitless]"
+    ],
+    "precision": "Run baseline commit and migrated source in separate processes on the same host/interpreter/JAX/NumPy environment, with JAX x64 enabled for every fit/update/predict. Record versions. No cross-host exact-fit claim.",
+    "rng": "numpy.random.default_rng(seed).normal(size=(79,1))",
+    "sequence": "fit(a,b); save/load; predict original development windows; update(fresh); save/load; predict the same original development windows. Exercise scalar and batched predictions, shorter prefix, and save/load before update.",
+    "source": "tests/test_default_model.py:27-48; fixture construction frozen here, not dynamically selected from tests.",
+    "source_sha256": "2b4e60d68b816134c41bf2eb0f554777f5bb2086a064c3f7ebf4367fb7044f89",
+    "state_channels": [
+      "x0 [unitless]",
+      "x1 [unitless]"
+    ],
+    "state_shape": [
+      80,
+      2
+    ],
+    "update_recording": {
+      "recording_id": "fresh",
+      "seed": 3,
+      "segment_id": "whole"
+    }
+  },
+  "recommended_roster": [
+    {
+      "id": "saved_revision_public_parity",
+      "scope": "Two authenticated expanded-cache candidate revisions, their full train1536/dev256 cache provenance and all saved final held-out factual/response tapes; expose through public load/predict; exact mean parameters/norms/cache/selector/weights and same-runtime predictions; new wrapper identity may legitimately differ. No fitting."
+    },
+    {
+      "id": "fresh_public_fit",
+      "scope": "Exactly one public fit(recordings) per simulator from the same authenticated excitation collection, without imported public-fit precursor. Match automatic roles, cache1536/256, data-derived quantities, actual initialization, selected mean and predictions to saved research reference. Same fixed1000 proposals and full actualN gradient/acceptance algorithm; no seed or budget search."
+    },
+    {
+      "id": "synthetic_capability",
+      "scope": "Exactly27 fresh public fits, unchanged v1 data/roles and five horizons; all255 horizon caps plus3 first-step witness checks, complete finite roster. Preserve the committed relative reference report. One fixed recipe, maximum1536/256 cache, full actualN gradients,1000 proposals; no lengthened/duplicated synthetic data."
+    },
+    {
+      "id": "public_semantics_fixture",
+      "scope": "Use frozen generic-public-api-v1 two-recording fixture(a seed1,b seed2), saved/load/JIT/scalar/batch/prefix forecasts; one immutable update fresh seed3; keep reserved development and ledger; malformed/history/horizon/channel contracts, duplicate ID/content, artifact fingerprint/recipe/format rejection; existing IO/CLI/causal-memory tests. Numerical parity target is new research mean, not obsolete public mean."
+    },
+    {
+      "id": "external_forecast_consumer",
+      "scope": "One bounded Dart forecast-only adapter/command in a separate consumer process, importing only public glassbox and generic recording IO; read both saved qualified simulator means and a fixed declared set of factual/response inputs, validate output and contract against saved arrays. No controller, planner, private model/cache access or experimental imports. Current Dart glassbox_impact uses removed experimental modules and is not evidence of current public consumption."
+    },
+    {
+      "id": "replay_and_integrity",
+      "scope": "Seal source/runtime/recipe/input/model/report/forecast artifacts; replay selected means and synthetic scoring without fits/solves/gradients; bounded meaningful archive/source/contract/cache/selection/tape tamper checks; preserve every failure. No uncertainty or controller veto."
+    }
+  ],
+  "scope": "Read-only policy input; no fitting, forecasts, simulator trials or tracked changes.",
+  "scope_separation": {
+    "accuracy": "Frozen v1 synthetic scaled RMSE caps and delayed-input probe; optional/declared historical reference guard. Exact flight mean/cache parity preserves already measured gains, not new untouched confirmation.",
+    "api": "Public fit/predict/update signatures, contract/causality, serialization, recipe/format rejection, immutable revisions, ledger/dedup and bounded actual-N cache. Update mechanics are distinct from update improvement.",
+    "control": "control-v5 and learned-controller-transfer qualify separate controller tasks. Neither is a mean-adoption prerequisite under model-first charter.",
+    "derivatives": "JAX execution, causal Jacobian structure and numerical derivative checks establish software behavior, not physical derivative fidelity.",
+    "uncertainty": "evidence-v2 measures coverage; report separately without vetoing new mean-adoption protocol. Keep calibration provenance truthful. historical harness.run/verify call with_evidence and cannot be used as an unlabeled mean-only acceptance flag.",
+    "updates": "live-v3 tracks controller swapping and live improvement. Do not infer update improvement or real-time streaming safety from API semantics."
+  },
+  "source_sha256": {
+    "docs/harness/control-v5.json": "c87b40e1835c2dc9725f7a9effd47d5de225c692b06e63ea32141e632161cb40",
+    "docs/harness/evidence-v2.json": "c669b2ccfd6a11272f32839120fb1a33bdf3ae4bbc6120f444467c784d4dbe29",
+    "docs/harness/generic-public-api-v1.json": "a6c966dbc5940121b187aaf7552660f1e0293a9bcaec0f12ddfcc098ea49c77f",
+    "docs/harness/live-v3.json": "4d39b49536f7fee4fced8702ba9f931894497d4a48f97bdb83de1986efed5fd0",
+    "docs/harness/platform-v4.json": "f92f12e20cea05409422f61f784ce0642541372dc5c0b8ad9a8a4cc3a4a8b755",
+    "docs/harness/reference.json": "ee2aaeeaed0d4b102d519926cadf7209c9c6878d0916a64cc6d586311c7ad213",
+    "docs/harness/v1.json": "1ba15b3f466e91edf548f1d459a52eb0896310e7fbbb6c1c98544ec10513d781",
+    "src/glassbox/experimental/api_migration.py": "da0e22bf8727abe19b94a773acda6e89b82d76385647769d387a938e6147b80b",
+    "src/glassbox/experimental/harness.py": "bca74a855c1abc312d35374ec5b4d818011d9fb7c0dae0b2fcb43474a3908f40",
+    "src/glassbox/io/recordings.py": "287f4f1810e8ce4f65a5e9ca247edef80094d3e9e900c4145ce452477830a2fa",
+    "src/glassbox/learner.py": "960721cdec0ff83b06f488a22005155481fc4b0972ce81b43a25b9560c60f9b8",
+    "src/glassbox/recordings.py": "a6506d79b3947031db40293e411f51750d7e9d36cf5156e13ee81ba6f8d77e4b",
+    "src/glassbox/workflows/forecast.py": "f3a4c2afdcdd74452ac9256c02830a4931843429a5a66d5be885c95bbf174a67",
+    "tests/test_api_migration.py": "4ecd6ded507aad1cc1b14ca75e7ac895a841988231ee274d6ff089bfc9b27dd8",
+    "tests/test_causal_memory.py": "0040f024ab26749464aa61e4e735a4c7c7f8b23c4ad0e3fbf808640de18d56ee",
+    "tests/test_default_model.py": "d2834cb169c059cc2a8aa7139fa07abf8c7d46b56ba1880818b9135d3e2f42e1",
+    "tests/test_forecast.py": "2ca7ae4979a9d49114ad9ae7a16ff5069d91f3012965cc25bf3d3b1dce88e112",
+    "tests/test_harness.py": "4192b904bba6300443027013e1321de39be6ed845b5732e44852c7f2f68a2d0c",
+    "tests/test_public_api.py": "fa116461f69ab81edfd9318af0f813599b1ab949f06064ce5990a011fe3cbb63",
+    "tests/test_recordings_io.py": "a909c887684ac90991608f0f11bee843a5373de5659741f301ace40f098e0dfc",
+    "tests/test_sequence_collection.py": "be026fe3c367752d34edee6657dc423218000c9f853669d6d5581acf50894c84"
+  },
+  "status": "planning_only_not_frozen",
+  "synthetic": {
+    "case_count": 27,
+    "cases": [
+      {
+        "caps": {
+          "matched": 0.005,
+          "shifted": 0.01
+        },
+        "data_seed": 6101,
+        "family": "stable_affine",
+        "name": "stable_affine-6101",
+        "regimes": [
+          "matched",
+          "shifted"
+        ]
+      },
+      {
+        "caps": {
+          "matched": 0.005,
+          "shifted": 0.01
+        },
+        "data_seed": 6202,
+        "family": "stable_affine",
+        "name": "stable_affine-6202",
+        "regimes": [
+          "matched",
+          "shifted"
+        ]
+      },
+      {
+        "caps": {
+          "matched": 0.005,
+          "shifted": 0.01
+        },
+        "data_seed": 6303,
+        "family": "stable_affine",
+        "name": "stable_affine-6303",
+        "regimes": [
+          "matched",
+          "shifted"
+        ]
+      },
+      {
+        "caps": {
+          "matched": 0.04,
+          "shifted": 0.25
+        },
+        "data_seed": 6101,
+        "family": "coupled_nonlinear",
+        "name": "coupled_nonlinear-6101",
+        "regimes": [
+          "matched",
+          "shifted"
+        ]
+      },
+      {
+        "caps": {
+          "matched": 0.04,
+          "shifted": 0.25
+        },
+        "data_seed": 6202,
+        "family": "coupled_nonlinear",
+        "name": "coupled_nonlinear-6202",
+        "regimes": [
+          "matched",
+          "shifted"
+        ]
+      },
+      {
+        "caps": {
+          "matched": 0.04,
+          "shifted": 0.25
+        },
+        "data_seed": 6303,
+        "family": "coupled_nonlinear",
+        "name": "coupled_nonlinear-6303",
+        "regimes": [
+          "matched",
+          "shifted"
+        ]
+      },
+      {
+        "caps": {
+          "matched": 0.08,
+          "shifted": 0.55
+        },
+        "data_seed": 6101,
+        "family": "deadzone_saturation",
+        "name": "deadzone_saturation-6101",
+        "regimes": [
+          "matched",
+          "shifted"
+        ]
+      },
+      {
+        "caps": {
+          "matched": 0.08,
+          "shifted": 0.55
+        },
+        "data_seed": 6202,
+        "family": "deadzone_saturation",
+        "name": "deadzone_saturation-6202",
+        "regimes": [
+          "matched",
+          "shifted"
+        ]
+      },
+      {
+        "caps": {
+          "matched": 0.08,
+          "shifted": 0.55
+        },
+        "data_seed": 6303,
+        "family": "deadzone_saturation",
+        "name": "deadzone_saturation-6303",
+        "regimes": [
+          "matched",
+          "shifted"
+        ]
+      },
+      {
+        "caps": {
+          "matched": 0.05,
+          "shifted": 0.12
+        },
+        "data_seed": 6101,
+        "family": "hidden_hysteresis",
+        "name": "hidden_hysteresis-6101",
+        "regimes": [
+          "matched",
+          "shifted"
+        ]
+      },
+      {
+        "caps": {
+          "matched": 0.05,
+          "shifted": 0.12
+        },
+        "data_seed": 6202,
+        "family": "hidden_hysteresis",
+        "name": "hidden_hysteresis-6202",
+        "regimes": [
+          "matched",
+          "shifted"
+        ]
+      },
+      {
+        "caps": {
+          "matched": 0.05,
+          "shifted": 0.12
+        },
+        "data_seed": 6303,
+        "family": "hidden_hysteresis",
+        "name": "hidden_hysteresis-6303",
+        "regimes": [
+          "matched",
+          "shifted"
+        ]
+      },
+      {
+        "caps": {
+          "matched": 0.6,
+          "shifted": 1.5
+        },
+        "data_seed": 6101,
+        "family": "delayed_nonlinear",
+        "name": "delayed_nonlinear-6101",
+        "regimes": [
+          "matched",
+          "shifted"
+        ]
+      },
+      {
+        "caps": {
+          "matched": 0.6,
+          "shifted": 1.5
+        },
+        "data_seed": 6202,
+        "family": "delayed_nonlinear",
+        "name": "delayed_nonlinear-6202",
+        "regimes": [
+          "matched",
+          "shifted"
+        ]
+      },
+      {
+        "caps": {
+          "matched": 0.6,
+          "shifted": 1.5
+        },
+        "data_seed": 6303,
+        "family": "delayed_nonlinear",
+        "name": "delayed_nonlinear-6303",
+        "regimes": [
+          "matched",
+          "shifted"
+        ]
+      },
+      {
+        "caps": {
+          "matched": 0.04,
+          "shifted": 0.08
+        },
+        "data_seed": 6101,
+        "family": "near_periodic",
+        "name": "near_periodic-6101",
+        "regimes": [
+          "matched",
+          "shifted"
+        ]
+      },
+      {
+        "caps": {
+          "matched": 0.04,
+          "shifted": 0.08
+        },
+        "data_seed": 6202,
+        "family": "near_periodic",
+        "name": "near_periodic-6202",
+        "regimes": [
+          "matched",
+          "shifted"
+        ]
+      },
+      {
+        "caps": {
+          "matched": 0.04,
+          "shifted": 0.08
+        },
+        "data_seed": 6303,
+        "family": "near_periodic",
+        "name": "near_periodic-6303",
+        "regimes": [
+          "matched",
+          "shifted"
+        ]
+      },
+      {
+        "caps": {
+          "matched": 0.03,
+          "shifted": 0.08
+        },
+        "data_seed": 6101,
+        "family": "off_periodic",
+        "name": "off_periodic-6101",
+        "regimes": [
+          "matched",
+          "shifted"
+        ]
+      },
+      {
+        "caps": {
+          "matched": 0.03,
+          "shifted": 0.08
+        },
+        "data_seed": 6202,
+        "family": "off_periodic",
+        "name": "off_periodic-6202",
+        "regimes": [
+          "matched",
+          "shifted"
+        ]
+      },
+      {
+        "caps": {
+          "matched": 0.03,
+          "shifted": 0.08
+        },
+        "data_seed": 6303,
+        "family": "off_periodic",
+        "name": "off_periodic-6303",
+        "regimes": [
+          "matched",
+          "shifted"
+        ]
+      },
+      {
+        "caps": {
+          "matched": 0.45,
+          "shifted": 0.5
+        },
+        "data_seed": 6101,
+        "family": "noisy_observation",
+        "name": "noisy_observation-6101",
+        "regimes": [
+          "matched",
+          "shifted"
+        ]
+      },
+      {
+        "caps": {
+          "matched": 0.45,
+          "shifted": 0.5
+        },
+        "data_seed": 6202,
+        "family": "noisy_observation",
+        "name": "noisy_observation-6202",
+        "regimes": [
+          "matched",
+          "shifted"
+        ]
+      },
+      {
+        "caps": {
+          "matched": 0.45,
+          "shifted": 0.5
+        },
+        "data_seed": 6303,
+        "family": "noisy_observation",
+        "name": "noisy_observation-6303",
+        "regimes": [
+          "matched",
+          "shifted"
+        ]
+      },
+      {
+        "caps": {
+          "matched": 0.9
+        },
+        "data_seed": 101,
+        "family": "hidden_input_delay",
+        "name": "hidden_input_delay-101",
+        "regimes": [
+          "matched"
+        ]
+      },
+      {
+        "caps": {
+          "matched": 0.9
+        },
+        "data_seed": 202,
+        "family": "hidden_input_delay",
+        "name": "hidden_input_delay-202",
+        "regimes": [
+          "matched"
+        ]
+      },
+      {
+        "caps": {
+          "matched": 0.9
+        },
+        "data_seed": 303,
+        "family": "hidden_input_delay",
+        "name": "hidden_input_delay-303",
+        "regimes": [
+          "matched"
+        ]
+      }
+    ],
+    "dataset": {
+      "calibration_recordings": 8,
+      "dt_s": 0.05,
+      "evaluation_origin_start": 2,
+      "evaluation_origins": "Every fifth row from row 2, keeping the origins that carry a complete consumed context and a complete forecast horizon.",
+      "evaluation_recordings_per_regime": 4,
+      "evaluation_stride": 5,
+      "initial_distribution": "Uniform[-0.4,0.4] for every latent coordinate of the eight families in all regimes; Uniform[-1.5,1.5] for the witness.",
+      "intervals": 160,
+      "purpose": "Platform-neutral synthetic systems with known equations, carried forward verbatim from the M2 acceptance plan.",
+      "regimes": {
+        "calibration": {
+          "input_amplitude": 1.0,
+          "input_innovation_weight": 0.35,
+          "input_persistence": 0.65
+        },
+        "matched": {
+          "input_amplitude": 1.0,
+          "input_innovation_weight": 0.35,
+          "input_persistence": 0.65
+        },
+        "shifted": {
+          "input_amplitude": 1.25,
+          "input_innovation_weight": 0.75,
+          "input_persistence": 0.25
+        }
+      },
+      "rng_salt": 1207,
+      "systems": {
+        "coupled_nonlinear": "x0_next=.78*x0+.16*tanh(1.5*u0+.7*x1)+.04*x0*x1; x1_next=.65*x1+.20*sin(1.3*u1)+.06*x0^2.",
+        "deadzone_saturation": "x_next=.88*x+.22*clip(sign(u)*max(abs(u)-.2,0),-.45,.45).",
+        "delayed_nonlinear": "x_next=.72*x+.22*tanh(2*u[k-4]); before k=4 the delayed input is zero.",
+        "hidden_hysteresis": "h_next=clip(h+.25*u,-.6,.6); x_next=.86*x+.18*h_next+.08*u. Only x is observed; h is latent.",
+        "hidden_input_delay": "x_next=.8*x+.2*u[k-3]; independent Uniform[-1,1] commands; before k=3 the delayed input is zero. Only x is observed.",
+        "near_periodic": "z_next=.98*R(2*pi/5.2)*z+.04*u; observe each coordinate as z+.35*z^3.",
+        "noisy_observation": "z_next=.92*z+.14*tanh(1.5*u)+.03*N(0,1); observe x=z+.04*N(0,1). Score observations, not latent state.",
+        "off_periodic": "Same warped observed oscillator with period 8.0 steps.",
+        "stable_affine": "x_next=A*x+B*u; A=[[.94,.06,0],[0,.70,.05],[.02,0,-.35]], B=[[.10,0],[.03,.18],[0,.15]]."
+      }
+    },
+    "dynamic_cache_requirement": "1536 is a public maximum, not a required count. Fixed synthetic records provide146 legal origins each; automatic6 training parents provide876 unique windows,2 development parents292 capped256. Keep data and timing exact; use actualN for full-cache gradients and ridge. Existing public input contract requires at least3 complete windows per role.",
+    "frozen_recipe_provenance": {
+      "batch_size": 64,
+      "check_every": 100,
+      "context_s": 0.5,
+      "delay_s": 0.1,
+      "development_windows": 256,
+      "hold_scale_floor": 0.01,
+      "horizon_s": 0.25,
+      "id": "generic-memory-v2-prototype",
+      "kind": "filter_mlp",
+      "learning_rate": 0.002,
+      "memory": 8,
+      "ridge_fraction": 0.01,
+      "seed": 0,
+      "steps": 1000,
+      "training_windows": 384,
+      "width": 32
+    },
+    "historical_reference": {
+      "absolute_tolerance": 0.005,
+      "file": "reference.json",
+      "meaning": "When the reference file exists beside this manifest, no case's overall scaled RMSE may exceed its reference value times 1.05 plus 0.005 in either regime. A run copies the reference it used into its output directory, so verify replays the same comparison.",
+      "relative_tolerance": 0.05
+    },
+    "historical_replay_tolerance": {
+      "atol": 1e-09,
+      "rtol": 1e-08
+    },
+    "historical_score_tolerance": {
+      "atol": 1e-10,
+      "rtol": 1e-08
+    },
+    "information_budget": {
+      "context_steps": 10,
+      "contract": "The memory starts at rest at the first consumed observation, advances once per observed transition inside one recording segment, continues from predicted observations during the forecast, and composes exactly when carried within a recording. A forecast from rest consumes exactly context_steps + 1 observations; nothing earlier is implied.",
+      "delay_steps": 2,
+      "horizon_steps": 5,
+      "memory_coordinates": 8
+    },
+    "manifest_sha256": "1ba15b3f466e91edf548f1d459a52eb0896310e7fbbb6c1c98544ec10513d781",
+    "paired_probe_first_step_checks": 3,
+    "paired_probe_first_step_rmse_maximum": 0.05,
+    "per_horizon_caps": 255,
+    "reference_scope": "Historical accuracy regression allowance is additional to absolute caps. Preserve and report it explicitly; any prospective mean-adoption separation must be stated before new fits.",
+    "regime_count": 51
+  }
+}
