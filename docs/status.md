@@ -91,6 +91,11 @@ public context on another fresh common
 cohort. Require meaningful physical gains with predeclared regression limits.
 No batch/seed/cache-size sweep and no public option.
 
+The [expanded-cache protocol](harness/expanded-training-cache-v1.json) is now
+frozen before implementation and fitting. Preparation feasibility and three
+independent scope reviews pass. Implementation and numerical evaluation remain
+pending; no accuracy gain or public promotion is claimed.
+
 Larger caches add no independent recordings. They cannot fill the 18 shifted
 conditions absent from training, repair incomplete Crazyflow recording support,
 or make overlapping windows independent. Use these inspected results only for
