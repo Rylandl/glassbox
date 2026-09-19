@@ -93,9 +93,13 @@ No batch/seed/cache-size sweep and no public option.
 
 The [expanded-cache protocol](harness/expanded-training-cache-v1.json) is now
 frozen before implementation and fitting. Preparation feasibility and three
-independent scope reviews pass. The implementation passes 1,135 focused tests across 41 files; all 183 source
-pins and 14,758 prior payloads verify. Fresh numerical evaluation remains pending;
-no accuracy gain or public promotion is claimed.
+independent scope reviews pass. The implementation passes 1,136 focused tests across 41 files; all 183 source
+pins and 14,758 prior payloads verify. The first numerical attempt completed both fits and evaluations, but finalization
+hit a comparison-helper schema error. That attempt is preserved; the narrow
+[correction](harness/expanded-training-cache-v1-correction.json) changes no
+thresholds or numerical recipe. The identical frozen experiment is ready to rerun
+from the corrected tested harness. No verified accuracy gain or public promotion
+is claimed yet.
 
 Larger caches add no independent recordings. They cannot fill the 18 shifted
 conditions absent from training, repair incomplete Crazyflow recording support,

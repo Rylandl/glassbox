@@ -171,7 +171,9 @@ def protocol():
         for key in ("aggregation", "metrics", "tails", "uncertainty", "availability")
     }
     value["decision"].update(deepcopy(delta["decision"]))
-    value["decision"]["accept_research_candidate"] = delta["decision"]["outcomes"]
+    value["decision"]["accept_research_candidate"] = deepcopy(
+        delta["decision"]["guards_for_every_required_comparison"]
+    )
     value["decision"]["comparisons"] = {
         name: {
             **deepcopy(delta["decision"]["guards_for_every_required_comparison"]),

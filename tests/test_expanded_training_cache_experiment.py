@@ -118,6 +118,33 @@ def test_three_real_directions_angular_reference_and_no_historical_mutation():
     json.dumps(value, allow_nan=False)
 
 
+def test_actual_resolved_decision_dispatch_preserves_frozen_guards_and_pair_limits():
+    protocol = experiment.protocol()
+    decision = protocol["decision"]
+    guards = DELTA["decision"]["guards_for_every_required_comparison"]
+    assert decision["accept_research_candidate"] == guards
+    assert decision["outcomes"] == DELTA["decision"]["outcomes"]
+    fixture, rows = resolved_fixture()
+    # Bound only the synthetic population and aggregation grid. The entire
+    # actual resolved decision policy, including all numerical limits, remains.
+    protocol["cells"] = fixture["cells"]
+    protocol["recordings"] = fixture["recordings"]
+    decision["aggregation"] = fixture["decision"]["aggregation"]
+    before = copy.deepcopy(protocol)
+    value = reduce(protocol, rows, optimization())
+    for name, policy in DELTA["decision"]["comparisons"].items():
+        comparison = value["comparisons"][name]
+        assert comparison["limits"] == {
+            **{key: guards[key] for key in guards if key.endswith("ratio_max")},
+            **{key: policy[key] for key in policy if key.endswith("ratio_max")},
+        }
+        assert comparison["denominator_arm"] == policy["denominator"]
+        assert len(comparison["tail_checks"]) == 12
+        assert comparison["residual_criteria_pass"]
+    assert value["residual_criteria_pass"]
+    assert protocol == before
+
+
 @pytest.mark.parametrize("kind,limit", [("factual", 1.05), ("response", 0.95)])
 @pytest.mark.parametrize("offset,expected", [(-1e-6, True), (1e-6, False)])
 @pytest.mark.parametrize(

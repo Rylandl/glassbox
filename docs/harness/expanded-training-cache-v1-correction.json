@@ -1,0 +1,13 @@
+{
+  "correction": "Populate the resolved comparison-helper guard mapping from frozen decision.guards_for_every_required_comparison; retain outcomes prose under its existing separate key. Each pair still overwrites the five numeric limits from its unchanged frozen policy.",
+  "failed_implementation": "f14cfadee2ad528383b9d352ae8e65322f35c8a9",
+  "failure": "AttributeError: accept_research_candidate was prose, inherited comparison requires a dictionary.",
+  "incomplete_manifest_sha256": "ead0db4ac064803dad4806ba6a21f68c78fa3e0bfd305c2a336726344e1e957f",
+  "preserved_attempt": "artifacts/2026-09-19/expanded-training-cache-v1-attempt-1",
+  "preserved_logs": "artifacts/2026-09-19/expanded-training-cache-v1-attempt-1-logs",
+  "preserved_stage_script": "artifacts/2026-09-19/expanded-training-cache-v1-stage-attempt1.py",
+  "protocol": "expanded-training-cache-v1",
+  "protocol_changes": [],
+  "reexecution": "Preserve the complete first attempt and logs; regenerate the same frozen recordings, refit the same two recipes once, and evaluate the same queries under the corrected committed harness. Compare saved mean arrays/selected steps and predictions between attempts without refitting again.",
+  "scope": "Harness schema only; no data roles, recordings, seeds, fitting budgets, initialization, optimizer, checkpoint selection, physical metrics, aggregate weights or promotion thresholds change."
+}
