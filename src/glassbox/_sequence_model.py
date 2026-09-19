@@ -346,7 +346,12 @@ class SequenceModel:
         if single:
             x, up, uf = x[None], up[None], uf[None]
         self._check(x, up, uf, memory)
-        y = _rollout(self.params, self.norms, x, up, uf, self.delay_steps, memory)
+        # Explicit constant dtypes remain valid when this model is traced in
+        # different ambient precision contexts; owned arrays stay NumPy64.
+        dtype = jnp.result_type(self.norms["state_scale"])
+        params = {k: jnp.asarray(v, dtype=dtype) for k, v in self.params.items()}
+        norms = {k: jnp.asarray(v, dtype=dtype) for k, v in self.norms.items()}
+        y = _rollout(params, norms, x, up, uf, self.delay_steps, memory)
         return y[0] if single else y
 
     def memory_state(self, past_states, past_inputs, *, memory=None):
@@ -371,11 +376,14 @@ class SequenceModel:
         self._check(
             x, up, placeholder, jnp.zeros((len(x), width)) if memory is None else memory
         )
+        dtype = jnp.result_type(self.norms["state_scale"])
+        params = {k: jnp.asarray(v, dtype=dtype) for k, v in self.params.items()}
+        norms = {k: jnp.asarray(v, dtype=dtype) for k, v in self.norms.items()}
         h = _filter(
-            self.params,
-            self.norms,
-            (x - self.norms["state_mean"]) / self.norms["state_scale"],
-            (up - self.norms["input_mean"]) / self.norms["input_scale"],
+            params,
+            norms,
+            (x - norms["state_mean"]) / norms["state_scale"],
+            (up - norms["input_mean"]) / norms["input_scale"],
             self.delay_steps,
             memory,
         )
