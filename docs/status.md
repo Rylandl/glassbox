@@ -4,18 +4,33 @@ Updated 2026-09-19. Read [the charter](charter.md) first. The generic approach i
 adopted; the public recipe remains `generic-memory-v3-prototype`. Research
 accuracy, public adoption and application qualification remain separate.
 
-**Current priority:** qualify the expanded-cache research mean through the single
-public API so consumers can use the verified gains. Expanded cache is the
-strongest retained research result: matched forecast/response errors are
-38.04%/32.73% lower than balanced, with every frozen physical criterion met.
-Public promotion remains pending. JSBSim breadth remains deferred.
+**Current priority:** finish public qualification of the retained expanded-cache
+mean. The unmerged public candidate confirms the research gains on a fresh cohort:
+forecast/response aggregate errors are 52.82%/55.26% lower than saved public v3,
+with every frozen physical criterion met. Its 27 synthetic capability cases and
+independent Dart consumer pass. Public promotion remains pending: 11 Cascade
+float32 state-history finite-difference checks fail reproducibly, a mixed-precision
+JIT runtime limitation is preserved, and the 12-case integrity audit remains.
+JSBSim breadth remains deferred.
+
+The active worktree is `/private/tmp/glassbox-public-mean-integrity` on
+`codex/public-mean-integrity`. All 32 qualification fitting operations are complete;
+do not refit them. Immutable source-bound predecessors are
+`/private/tmp/glassbox-public-mean-qualification` (`d12145e`),
+`/private/tmp/glassbox-public-mean-physical-evaluation` (`65a6813`, failed first
+physical attempt), and `/private/tmp/glassbox-public-mean-adjudication`
+(`1740944`, completed physical/consumer evidence). Do not edit these workers.
+The [physical and consumer milestone](/private/tmp/glassbox-public-mean-adjudication/artifacts/2026-09-19/public-mean-qualification-v1-physical-and-consumer-milestone.json)
+and [numerical milestone](/private/tmp/glassbox-public-mean-qualification/artifacts/2026-09-19/public-mean-qualification-v1-actual-numeric-milestone-attempt1.json)
+anchor this unfinished qualification. The fixed-step numerical diagnosis is
+prospective diagnostic work; it cannot rewrite the failed gate.
 
 | Criterion | Current | Target |
 | --- | --- | --- |
 | One recipe | **Met.** Public `fit` returns `LearnedDynamics` with `predict` and `update`; no consumer tuning options or platform dispatch. | One generic learner and consumer contract. |
 | Accuracy | **Expanded-cache research mean retained.** Forecast/response ratios against balanced are 0.61964/0.67268 and against public-excited are 0.47308/0.45947 on one fresh matched cohort. Crazyflow primary 250 ms factual rate worsens 2.62%, within the frozen limit; both angular tails improve. | Low held-out physical forecast and command-response errors across conditions and horizons, with progress against the adopted generic baseline; application adequacy measured separately. |
-| Model usability | **Partly met.** Public saved revisions expose signal/time contracts, batched JAX-compatible forecasts, derivatives and error envelopes. Independent consumer integration and broader export/runtime portability remain unqualified. | A self-contained model artifact usable independently of the Glassbox controller, with explicit scope and measured evidence. |
-| Capability | **Met for the adopted recipe.** All 27 frozen synthetic cases pass and artifacts replay/reject alteration. The expanded-cache research mean has not received this public qualification. | Every synthetic absolute cap passes; synthetic results do not establish platform readiness. |
+| Model usability | **Partly met.** Public saved revisions expose signal/time contracts, batched JAX-compatible forecasts, derivatives and error envelopes. The unmerged candidate passes independent Dart forecast integration; its numerical qualification and broader runtime portability remain incomplete. | A self-contained model artifact usable independently of the Glassbox controller, with explicit scope and measured evidence. |
+| Capability | **Met for the adopted recipe.** All 27 frozen synthetic cases pass and artifacts replay/reject alteration. The unmerged expanded-cache public candidate also passes all 27 absolute-capability cases; other public qualification requirements remain incomplete. | Every synthetic absolute cap passes; synthetic results do not establish platform readiness. |
 | Reference control | **Demonstrated for earlier isolated research means.** Forecast-only and paired-response means each achieved 2,248/2,248 tolerance samples across eight trials. The adopted public and expanded-cache research means have not been tested with that controller. | Separately qualified downstream demonstrations; a universal controller is optional. |
 | Live improvement | **Not met.** No update qualification under the clarified model-first priorities. Historical live-v3 swaps at intervals 140/220 worsened position error from 0.80/0.98 to 36.1/11.8 m. | Bounded immutable revisions with held-out improvement/regression checks; adoption and any live-control claim qualified separately. |
 | Evidence | **Not met.** Original public primary 250 ms velocity/rate coverage is 85.8–89.7%, falling to 47.4–68.3% for extreme maneuvers. Crazyflow truth is incomplete. Development-calibrated research spreads have no new coverage qualification. Earlier ARP, reserved-control and shifted-synthetic failures remain. | Measured coverage in a predeclared band with calibration provenance, independent of the controller. |
@@ -88,10 +103,17 @@ prediction/derivative parity, and confirm fresh public fitting on a common
 held-out physical cohort with predeclared broad improvement and regression
 limits. Demonstrate an independent model consumer without controller internals.
 
-Concrete integration obstacles are the research float64 assumption, public
-loading and rollout tied to the old model, recording-ledger/update semantics,
-and the research fitter's public-precursor dependency. Resolve these in one
-maintained learner rather than exposing model choices or research wrappers.
+The implementation has removed the public-precursor dependency and demonstrated
+exact preparation, initialization and selected-mean parity in fresh public fits.
+Both physical replays reproduce 428,400 metric rows; public float64 forecasts are
+byte-identical to the research mean on all 6,384 forecast arrays. The remaining
+numerical diagnosis separates fixed-step approximation error from arithmetic,
+without choosing a passing step or changing the frozen tolerances. Compiling
+float32 then float64 prediction in one process fails on the pinned JAX runtime;
+separate fixed-precision workers complete, but this does not qualify that missing
+mixed-context behavior. Finish these investigations and the remaining integrity
+checks before any public-adoption decision. Preserve one maintained learner
+rather than exposing model choices or research wrappers.
 Mean adoption remains separate from calibrated uncertainty, update improvement,
 physical derivative fidelity and controller qualification; preserve those gaps
 explicitly rather than treating API semantics as evidence of their performance.

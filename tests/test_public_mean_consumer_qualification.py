@@ -309,6 +309,34 @@ def test_packet_anchor_rejected_before_reading_archive_or_forecast(tmp_path):
         qualification.packet_manifest(tmp_path / "INPUT.json", "0" * 64)
 
 
+def test_paired_oracle_diagnostic_does_not_add_a_veto_to_exact_response_subtraction():
+    query = dict(model_id="model", parent="parent", id="response")
+    intervened = {
+        name: np.full((2, 1), 0.5, dtype=np.float32) for name in ("eager", "compiled")
+    }
+    factual = {
+        name: np.full((2, 1), 0.25, dtype=np.float32) for name in ("eager", "compiled")
+    }
+    tape = {"future_inputs": np.ones((2, 1)), "factual_inputs": np.zeros((2, 1))}
+    actual = {name: intervened[name] - factual[name] for name in ("eager", "compiled")}
+    actual["command_delta"] = tape["future_inputs"] - tape["factual_inputs"]
+    oracle = {name: np.full((2, 1), 100.0) for name in ("eager", "compiled")}
+    record = qualification._response_record(
+        query, actual, intervened, factual, tape, oracle, np.ones(1)
+    )
+    assert record["exact_subtraction_pass"]
+    assert all(
+        not check["passed"] for check in record["diagnostic_oracle_checks"].values()
+    )
+    assert qualification._adjudication_pass([{"passed": True}], [record])
+    assert not qualification._adjudication_pass([{"passed": False}], [record])
+    actual["eager"][0, 0] += np.float32(0.125)
+    with pytest.raises(ValueError, match="exact subtraction"):
+        qualification._response_record(
+            query, actual, intervened, factual, tape, oracle, np.ones(1)
+        )
+
+
 def test_consumer_qualification_refuses_output_inside_original_evidence(tmp_path):
     with pytest.raises(ValueError, match="separate"):
         qualification.run(

@@ -258,6 +258,36 @@ def mean_checks(actual, public, oracle, mean, scale):
     return checks
 
 
+def _response_record(query, actual, intervened, factual, tape, oracle, scale):
+    """Exact same-path subtraction is required; paired-oracle bounds are not."""
+    checks = {}
+    for name in ("eager", "compiled", "command_delta"):
+        expected = (
+            tape["future_inputs"] - tape["factual_inputs"]
+            if name == "command_delta"
+            else intervened[name] - factual[name]
+        )
+        _same(actual[name], expected, "consumer response exact subtraction " + name)
+        if name != "command_delta":
+            checks[name + "_oracle"] = numerics.element_check(
+                actual[name] / scale,
+                oracle[name] / scale,
+                numerics.TOLERANCES["forecast32"],
+            )
+    return {
+        "query": list(_query_key(query, "")[:3]),
+        "exact_subtraction_pass": True,
+        "diagnostic_oracle_checks": checks,
+        "oracle_checks_are_diagnostic": True,
+    }
+
+
+def _adjudication_pass(means, responses):
+    return all(r["passed"] for r in means) and all(
+        r["exact_subtraction_pass"] for r in responses
+    )
+
+
 def adjudicate(
     packet_path, packet, consumer_directory, numeric_manifest, numeric_directory, mapped
 ):
@@ -437,38 +467,25 @@ def adjudicate(
             "consumer branch tape hash links",
         )
         tape = _arrays(Path(packet_path).parent / query["path"])
-        checks = {}
+        actual = {}
         for name in ("eager", "compiled", "command_delta"):
             key = row["arrays"][name]
             _require(key not in used, "consumer response array alias")
             used.add(key)
-            expected = (
-                tape["future_inputs"] - tape["factual_inputs"]
-                if name == "command_delta"
-                else a[1][name] - b[1][name]
-            )
-            _same(values[key], expected, "consumer response exact subtraction " + name)
-            if name != "command_delta":
-                path = "singles" if name == "eager" else "jit_singles"
-                oracle = (
-                    a[2]["oracle64"]["quantized_inputs__" + path][0]
-                    - b[2]["oracle64"]["quantized_inputs__" + path][0]
-                )
-                checks[name + "_oracle"] = numerics.element_check(
-                    values[key] / a[3]["norm_state_scale"],
-                    oracle / a[3]["norm_state_scale"],
-                    numerics.TOLERANCES["forecast32"],
-                )
+            actual[name] = values[key]
+        oracle = {
+            name: a[2]["oracle64"]["quantized_inputs__" + path][0]
+            - b[2]["oracle64"]["quantized_inputs__" + path][0]
+            for name, path in (("eager", "singles"), ("compiled", "jit_singles"))
+        }
         responses.append(
-            {
-                "query": list(_query_key(query, "")[:3]),
-                "checks": checks,
-                "passed": all(c["passed"] for c in checks.values()),
-            }
+            _response_record(
+                query, actual, a[1], b[1], tape, oracle, a[3]["norm_state_scale"]
+            )
         )
     _require(used == set(values), "complete consumer output array roster")
     return {
-        "passed": all(r["passed"] for r in means + responses),
+        "passed": _adjudication_pass(means, responses),
         "means": means,
         "responses": responses,
         "forecasts_executed": 0,
