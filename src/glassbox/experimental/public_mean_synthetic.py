@@ -832,6 +832,15 @@ def run_case(
     return result
 
 
+def _configuration_valid(row):
+    before = row.get("configuration_before")
+    return (
+        isinstance(before, dict)
+        and before.get("jax_enable_x64") is False
+        and before == row.get("configuration_after")
+    )
+
+
 def aggregate(repository, cases, results):
     """Keep the full case roster; missing/failed evidence cannot shrink a gate."""
     expected = [c["name"] for c in cases]
@@ -844,12 +853,19 @@ def aggregate(repository, cases, results):
         "explicit synthetic fit completion status",
     )
     completed = [r["case"] for r in results if r.get("fit_complete")]
+    eligible = [
+        r["case"]
+        for r in results
+        if r.get("fit_complete")
+        and r["status"] in ("complete", "prediction_failed")
+        and _configuration_valid(r)
+    ]
     legacy, decisions = {}, {}
     for precision in ("float32", "float64"):
         rows, probes, legacy_rows, unavailable = [], [], [], []
         for case, result in zip(cases, results, strict=True):
             scored = result.get("precisions", {}).get(precision, {})
-            if scored.get("status") == "complete":
+            if result["case"] in eligible and scored.get("status") == "complete":
                 rows.extend(scored["rows"])
                 probes.extend(scored["probes"])
                 legacy_rows.append(scored["legacy"])
@@ -864,11 +880,12 @@ def aggregate(repository, cases, results):
                     }
                 )
         try:
-            decision = scoring.capability_decision(repository, completed, rows, probes)
+            decision = scoring.capability_decision(repository, eligible, rows, probes)
         except ValueError as error:
             decision = {
                 "fixed_reference_absolute_capability_pass": False,
                 "incomplete_or_invalid_roster": str(error),
+                "eligible_fits": len(eligible),
                 "completed_fits": len(completed),
                 "regime_count": len(rows),
                 "probe_count": len(probes),
@@ -883,6 +900,8 @@ def aggregate(repository, cases, results):
         "required_precision": "float32",
         "decisions": decisions,
         "completed_fits": completed,
+        "eligible_fits": eligible,
+        "ineligible_cases": [r["case"] for r in results if r["case"] not in eligible],
         "failed_cases": [r["case"] for r in results if r["status"] != "complete"],
         "legacy_flags_diagnostic_only": True,
         "float64_is_a_diagnostic_not_a_fallback": True,
@@ -1056,6 +1075,8 @@ def _verify_case(
         row["files"] == _payloads(original, exclude=("result.json",)),
         "case payload hashes",
     )
+    if row["status"] in ("complete", "prediction_failed"):
+        _require(_configuration_valid(row), "eligible case configuration integrity")
     if not (original / "preparation.json").exists():
         _require(
             not row.get("fit_complete") and row.get("fit_calls") == 0,
@@ -1128,7 +1149,13 @@ def _verify_case(
         comparisons.append(
             {"precision": precision, "status": "exact_saved_prediction_replay"}
         )
-    return {"case": case["name"], "comparisons": comparisons}
+    return {
+        "case": case["name"],
+        "comparisons": comparisons,
+        "eligible": row["status"] in ("complete", "prediction_failed")
+        and _configuration_valid(row),
+        "failed_case_evidence_is_diagnostic_only": row["status"] == "failed",
+    }
 
 
 def replay(

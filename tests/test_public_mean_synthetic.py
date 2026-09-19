@@ -53,6 +53,14 @@ def _passing_results():
                 "case": case["name"],
                 "status": "complete",
                 "fit_complete": True,
+                "configuration_before": {
+                    "jax_enable_x64": False,
+                    "environment_sha256": "fixed",
+                },
+                "configuration_after": {
+                    "jax_enable_x64": False,
+                    "environment_sha256": "fixed",
+                },
                 "precisions": {
                     "float32": copy.deepcopy(measured),
                     "float64": copy.deepcopy(measured),
@@ -91,6 +99,50 @@ def test_failed_fit_retained_even_if_some_scores_are_present():
     assert not decision["fixed_reference_absolute_capability_pass"]
     assert len(decision["completed_fits"]) == 26
     assert decision["failed_cases"] == [cases[0]["name"]]
+
+
+@pytest.mark.parametrize("failure", ["final_source_check", "configuration"])
+def test_post_forecast_integrity_failure_keeps_actual_fit_but_cannot_qualify(failure):
+    cases, results = _passing_results()
+    if failure == "final_source_check":
+        results[0]["status"] = "failed"
+        results[0]["error"] = "final bound source differs"
+    else:
+        results[0]["configuration_after"]["jax_enable_x64"] = True
+    before = copy.deepcopy(results)
+    decision, legacy = synthetic.aggregate(ROOT, cases, results)
+    assert results == before
+    assert len(decision["completed_fits"]) == 27
+    assert len(decision["eligible_fits"]) == 26
+    assert decision["ineligible_cases"] == [cases[0]["name"]]
+    assert not decision["fixed_reference_absolute_capability_pass"]
+    assert legacy["float32"][0]["status"] == "failed"
+
+
+def test_float64_only_failure_does_not_veto_valid_default32():
+    cases, results = _passing_results()
+    results[0]["status"] = "prediction_failed"
+    results[0]["precisions"]["float64"] = {"status": "failed"}
+    decision, _ = synthetic.aggregate(ROOT, cases, results)
+    assert decision["fixed_reference_absolute_capability_pass"]
+    assert len(decision["eligible_fits"]) == 27
+    assert not decision["decisions"]["float64"][
+        "fixed_reference_absolute_capability_pass"
+    ]
+
+
+def test_replay_rejects_success_claim_with_changed_configuration_before_loading(
+    tmp_path,
+):
+    cases, rows = _passing_results()
+    row = rows[0]
+    row["configuration_after"]["jax_enable_x64"] = True
+    row["files"] = {}
+    synthetic._json(tmp_path / "result.json", row)
+    with pytest.raises(ValueError, match="configuration integrity"):
+        synthetic._verify_case(
+            tmp_path, tmp_path / "unused", cases[0], tmp_path, tmp_path, [1.0], row
+        )
 
 
 @pytest.mark.parametrize(
