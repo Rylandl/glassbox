@@ -1,0 +1,1142 @@
+{
+  "cache_diagnosis": {
+    "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-19/independent-training-recordings-v1-evidence/provenance/independent-training-cache-diagnosis-v1.json",
+    "sha256": "f39d5df847990914d86c287f0bf6e21afd912ae0940cf3bace761227fb014e78"
+  },
+  "collection": {
+    "cascade": {
+      "added_training_altitude_failures": 0,
+      "added_training_complete": 72,
+      "added_training_planned": 72,
+      "added_training_usable": 72,
+      "confirmation_altitude_failures": 0,
+      "confirmation_complete": 84,
+      "confirmation_planned": 84,
+      "primary_250ms_forecast_truth": [
+        480,
+        480
+      ],
+      "primary_250ms_response_truth": [
+        576,
+        576
+      ],
+      "queries": 1848,
+      "valid_transitions_range": [
+        60,
+        60
+      ]
+    },
+    "comparison_scope": "Both arms use the same fresh confirmation cohort and available truth. Differences from earlier cohort completion counts are not learner progress.",
+    "crazyflow": {
+      "added_training_altitude_failures": 48,
+      "added_training_complete": 24,
+      "added_training_planned": 72,
+      "added_training_usable": 72,
+      "confirmation_altitude_failures": 25,
+      "confirmation_complete": 59,
+      "confirmation_planned": 84,
+      "primary_250ms_forecast_truth": [
+        422,
+        480
+      ],
+      "primary_250ms_response_truth": [
+        712,
+        768
+      ],
+      "queries": 2184,
+      "valid_transitions_range": [
+        148,
+        300
+      ]
+    }
+  },
+  "decision": {
+    "accepted_as_bounded_offline_update_evidence": true,
+    "offline_update_improvement_qualified": true,
+    "public_recipe_changed": false,
+    "raw_frozen_public_promotion": false,
+    "residual_criteria_pass": true,
+    "scope": "One fixed addition of72 independently seeded excited training recordings per simulator through the unchanged public v4 update API. Applications choose revision adoption. No universal update, safe live swapping, calibration or controller qualification."
+  },
+  "evidence": {
+    "alterations": {
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-19/independent-training-recordings-v1-evidence/alterations/run.json",
+      "sha256": "95779903d7a9bbed6b331647ede66bb51bfd4ee0d5ec557e8ea5ba37df10cc96"
+    },
+    "experiment": {
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-19/independent-training-recordings-v1-evidence/experiment/run.json",
+      "sha256": "d469294215b6c219f87145f8c74c594c308072181886a5a282b38896baf91ce1"
+    },
+    "independent_reduction": {
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-19/independent-training-recordings-v1-evidence/independent-reduction/run.json",
+      "sha256": "ac9fe8601214fa90892efa3127b438be4946318dd052b749b80add4443d39c04"
+    },
+    "replay_cascade": {
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-19/independent-training-recordings-v1-evidence/replay-cascade/run.json",
+      "sha256": "ac6da2a5c04e971767522d5cb03d625aee11c9c1da29e02639ae666a90ef0b7f"
+    },
+    "replay_crazyflow": {
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-19/independent-training-recordings-v1-evidence/replay-crazyflow/run.json",
+      "sha256": "2e5a1780ca53c2599500b640c35fc9790f89a7b56546277c5646e0256c07ec35"
+    }
+  },
+  "evidence_copy": {
+    "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-19/independent-training-recordings-v1-evidence/copy-inventory.json",
+    "sha256": "7ebecfc8bf221422834df6bee4d90f75ff3e6bed77e95c4a71a6d25f72c76d1e"
+  },
+  "execution_commit": "1f467736b2b0fdc1604fa9b2af442a95d9e2f0ed",
+  "format": "glassbox-independent-training-recordings-v1-result",
+  "integration_commit": "2568dd077254b045949e78102155a083d1f8ae33",
+  "intervention": {
+    "baseline": "Exact saved adopted public v4 control, reused without refitting",
+    "candidate": "One control.update(new72recordings) per simulator",
+    "data_consequences": "Training normalizers, anchored initialization and fixed channel weights are recomputed from the changed training cache. This is a data-support intervention, not an architecture-only or equal-FLOP comparison.",
+    "development_windows": 256,
+    "full_pool_equals_actual_merge": true,
+    "new_training_parents": 72,
+    "old_revision_immutable": true,
+    "old_training_parents": 72,
+    "original_development_parents": 24,
+    "recipe": "generic-memory-v4-prototype",
+    "selected_new_windows": 768,
+    "selected_old_windows": 768,
+    "total_training_parents": 144,
+    "training_windows": 1536
+  },
+  "named_gap": "Angular generalization across independent recordings",
+  "next_gap": "Forecast generalization during fitting: Crazyflow training angular error falls while all25 development angular horizons worsen from initialization, despite the updated model improving against the old model. Test one fixed generic prediction-space prior toward the initialized mean, on unchanged data/cache/work with fresh confirmation; no next experiment frozen or fitted yet.",
+  "physical": {
+    "all_eligible_predictions_finite": true,
+    "angular_retention_checks": {
+      "factual_aggregate_rmse": true,
+      "factual_parent_rmse_p95": true,
+      "finite_eligible_predictions": true,
+      "matching_planned_queries_and_truth": true,
+      "response_aggregate_rmse": true,
+      "response_parent_rmse_p95": true
+    },
+    "angular_tail_ratios": {
+      "factual": 0.7297028930031053,
+      "response": 0.8818586174654927
+    },
+    "bootstrap": "1000 paired parent draws, seed20260918; descriptive intervals retained in immutable decision.json, no significance veto.",
+    "endpoint_cell_count": 180,
+    "floored_ratio_regressions": 37,
+    "identical_truth_masks": true,
+    "improved_scope_aggregates": 18,
+    "primary_250ms": [
+      {
+        "absolute_change": -0.0008932307641063147,
+        "baseline_rmse": 0.0680176322878335,
+        "candidate_rmse": 0.06712440152372719,
+        "conditional_on_incomplete_truth": false,
+        "group": "velocity_m_s",
+        "horizon_s": 0.25,
+        "kind": "factual",
+        "planned": 480,
+        "ratio": 0.9868676586634715,
+        "scope": "primary",
+        "simulator": "cascade",
+        "truth_eligible": 480
+      },
+      {
+        "absolute_change": -0.001661618706784558,
+        "baseline_rmse": 0.047911551889288646,
+        "candidate_rmse": 0.04624993318250409,
+        "conditional_on_incomplete_truth": false,
+        "group": "body_rate_rad_s",
+        "horizon_s": 0.25,
+        "kind": "factual",
+        "planned": 480,
+        "ratio": 0.9653190380761588,
+        "scope": "primary",
+        "simulator": "cascade",
+        "truth_eligible": 480
+      },
+      {
+        "absolute_change": -0.00011894202698425112,
+        "baseline_rmse": 0.005627284590215797,
+        "candidate_rmse": 0.005508342563231546,
+        "conditional_on_incomplete_truth": false,
+        "group": "rotation_entries",
+        "horizon_s": 0.25,
+        "kind": "factual",
+        "planned": 480,
+        "ratio": 0.9788633354014018,
+        "scope": "primary",
+        "simulator": "cascade",
+        "truth_eligible": 480
+      },
+      {
+        "absolute_change": 0.001383237937080433,
+        "baseline_rmse": 0.018759344998493462,
+        "candidate_rmse": 0.020142582935573895,
+        "conditional_on_incomplete_truth": false,
+        "group": "velocity_m_s",
+        "horizon_s": 0.25,
+        "kind": "response",
+        "planned": 576,
+        "ratio": 1.0737359399910562,
+        "scope": "primary",
+        "simulator": "cascade",
+        "truth_eligible": 576
+      },
+      {
+        "absolute_change": 0.0003103003157192523,
+        "baseline_rmse": 0.017574080070548646,
+        "candidate_rmse": 0.017884380386267898,
+        "conditional_on_incomplete_truth": false,
+        "group": "body_rate_rad_s",
+        "horizon_s": 0.25,
+        "kind": "response",
+        "planned": 576,
+        "ratio": 1.0176567031943404,
+        "scope": "primary",
+        "simulator": "cascade",
+        "truth_eligible": 576
+      },
+      {
+        "absolute_change": 2.4050335027517734e-05,
+        "baseline_rmse": 0.0016336431656516074,
+        "candidate_rmse": 0.0016576935006791251,
+        "conditional_on_incomplete_truth": false,
+        "group": "rotation_entries",
+        "horizon_s": 0.25,
+        "kind": "response",
+        "planned": 576,
+        "ratio": 1.0147219022692295,
+        "scope": "primary",
+        "simulator": "cascade",
+        "truth_eligible": 576
+      },
+      {
+        "absolute_change": -0.011264286682189636,
+        "baseline_rmse": 0.04756639937930905,
+        "candidate_rmse": 0.036302112697119415,
+        "conditional_on_incomplete_truth": true,
+        "group": "velocity_m_s",
+        "horizon_s": 0.25,
+        "kind": "factual",
+        "planned": 480,
+        "ratio": 0.7631881574141284,
+        "scope": "primary",
+        "simulator": "crazyflow",
+        "truth_eligible": 422
+      },
+      {
+        "absolute_change": -0.028874267689201982,
+        "baseline_rmse": 0.15216023708145918,
+        "candidate_rmse": 0.1232859693922572,
+        "conditional_on_incomplete_truth": true,
+        "group": "body_rate_rad_s",
+        "horizon_s": 0.25,
+        "kind": "factual",
+        "planned": 480,
+        "ratio": 0.8102377582801471,
+        "scope": "primary",
+        "simulator": "crazyflow",
+        "truth_eligible": 422
+      },
+      {
+        "absolute_change": -0.009051136179690281,
+        "baseline_rmse": 0.03242180776787679,
+        "candidate_rmse": 0.023370671588186506,
+        "conditional_on_incomplete_truth": true,
+        "group": "rotation_entries",
+        "horizon_s": 0.25,
+        "kind": "factual",
+        "planned": 480,
+        "ratio": 0.7208318473636113,
+        "scope": "primary",
+        "simulator": "crazyflow",
+        "truth_eligible": 422
+      },
+      {
+        "absolute_change": -0.005386029748942631,
+        "baseline_rmse": 0.02613387809805737,
+        "candidate_rmse": 0.02074784834911474,
+        "conditional_on_incomplete_truth": true,
+        "group": "velocity_m_s",
+        "horizon_s": 0.25,
+        "kind": "response",
+        "planned": 768,
+        "ratio": 0.7939062190183326,
+        "scope": "primary",
+        "simulator": "crazyflow",
+        "truth_eligible": 712
+      },
+      {
+        "absolute_change": -0.02176958502646653,
+        "baseline_rmse": 0.16336233913618844,
+        "candidate_rmse": 0.1415927541097219,
+        "conditional_on_incomplete_truth": true,
+        "group": "body_rate_rad_s",
+        "horizon_s": 0.25,
+        "kind": "response",
+        "planned": 768,
+        "ratio": 0.8667404914646936,
+        "scope": "primary",
+        "simulator": "crazyflow",
+        "truth_eligible": 712
+      },
+      {
+        "absolute_change": -0.003082871180383768,
+        "baseline_rmse": 0.0225833732575726,
+        "candidate_rmse": 0.01950050207718883,
+        "conditional_on_incomplete_truth": true,
+        "group": "rotation_entries",
+        "horizon_s": 0.25,
+        "kind": "response",
+        "planned": 768,
+        "ratio": 0.8634893403557403,
+        "scope": "primary",
+        "simulator": "crazyflow",
+        "truth_eligible": 712
+      }
+    ],
+    "primary_tail_checks": [
+      {
+        "baseline_p95": 0.11583416156924602,
+        "candidate_p95": 0.11756532599297738,
+        "group": "velocity_m_s",
+        "kind": "factual",
+        "pass": true,
+        "ratio": 1.0149451975158164,
+        "simulator": "cascade"
+      },
+      {
+        "baseline_p95": 0.07178449614508738,
+        "candidate_p95": 0.06297035703158202,
+        "group": "body_rate_rad_s",
+        "kind": "factual",
+        "pass": true,
+        "ratio": 0.8772138889755436,
+        "simulator": "cascade"
+      },
+      {
+        "baseline_p95": 0.008422574390441046,
+        "candidate_p95": 0.008468947729977087,
+        "group": "rotation_entries",
+        "kind": "factual",
+        "pass": true,
+        "ratio": 1.005505839115968,
+        "simulator": "cascade"
+      },
+      {
+        "baseline_p95": 0.025463077468075572,
+        "candidate_p95": 0.03221888470296615,
+        "group": "velocity_m_s",
+        "kind": "response",
+        "pass": true,
+        "ratio": 1.2653177819279973,
+        "simulator": "cascade"
+      },
+      {
+        "baseline_p95": 0.023899567788391377,
+        "candidate_p95": 0.025334627720477017,
+        "group": "body_rate_rad_s",
+        "kind": "response",
+        "pass": true,
+        "ratio": 1.0600454344945387,
+        "simulator": "cascade"
+      },
+      {
+        "baseline_p95": 0.002241286956949638,
+        "candidate_p95": 0.002395662419775523,
+        "group": "rotation_entries",
+        "kind": "response",
+        "pass": true,
+        "ratio": 1.0688780445302677,
+        "simulator": "cascade"
+      },
+      {
+        "baseline_p95": 0.08559594508737972,
+        "candidate_p95": 0.06116774157029993,
+        "group": "velocity_m_s",
+        "kind": "factual",
+        "pass": true,
+        "ratio": 0.7146102716414602,
+        "simulator": "crazyflow"
+      },
+      {
+        "baseline_p95": 0.2638469618809541,
+        "candidate_p95": 0.19252989139461224,
+        "group": "body_rate_rad_s",
+        "kind": "factual",
+        "pass": true,
+        "ratio": 0.7297028930031053,
+        "simulator": "crazyflow"
+      },
+      {
+        "baseline_p95": 0.05281716806329511,
+        "candidate_p95": 0.03753508368966892,
+        "group": "rotation_entries",
+        "kind": "factual",
+        "pass": true,
+        "ratio": 0.7106606633034088,
+        "simulator": "crazyflow"
+      },
+      {
+        "baseline_p95": 0.044475301422418664,
+        "candidate_p95": 0.03393643546699556,
+        "group": "velocity_m_s",
+        "kind": "response",
+        "pass": true,
+        "ratio": 0.7630400330438059,
+        "simulator": "crazyflow"
+      },
+      {
+        "baseline_p95": 0.2626598657431377,
+        "candidate_p95": 0.23162886606791533,
+        "group": "body_rate_rad_s",
+        "kind": "response",
+        "pass": true,
+        "ratio": 0.8818586174654927,
+        "simulator": "crazyflow"
+      },
+      {
+        "baseline_p95": 0.03631894765959278,
+        "candidate_p95": 0.029506636979805316,
+        "group": "rotation_entries",
+        "kind": "response",
+        "pass": true,
+        "ratio": 0.8124309453115953,
+        "simulator": "crazyflow"
+      }
+    ],
+    "raw_endpoint_regressions": 38,
+    "raw_regressions": [
+      {
+        "absolute_change": 1.8913055786133484e-05,
+        "baseline_rmse": 0.0011202566606859157,
+        "candidate_rmse": 0.0011391697164720492,
+        "conditional_on_incomplete_truth": false,
+        "group": "velocity_m_s",
+        "horizon_s": 0.05,
+        "kind": "response",
+        "planned": 192,
+        "ratio": 1.0168827880697922,
+        "scope": "heading_shift",
+        "simulator": "cascade",
+        "truth_eligible": 192
+      },
+      {
+        "absolute_change": 0.0005062818145898217,
+        "baseline_rmse": 0.008277670069474405,
+        "candidate_rmse": 0.008783951884064226,
+        "conditional_on_incomplete_truth": false,
+        "group": "velocity_m_s",
+        "horizon_s": 0.05,
+        "kind": "factual",
+        "planned": 40,
+        "ratio": 1.0611623573228461,
+        "scope": "maneuver_shift",
+        "simulator": "cascade",
+        "truth_eligible": 40
+      },
+      {
+        "absolute_change": 6.786934610660683e-05,
+        "baseline_rmse": 0.001244262307901545,
+        "candidate_rmse": 0.001312131654008152,
+        "conditional_on_incomplete_truth": false,
+        "group": "rotation_entries",
+        "horizon_s": 0.05,
+        "kind": "factual",
+        "planned": 40,
+        "ratio": 1.0545458507226413,
+        "scope": "maneuver_shift",
+        "simulator": "cascade",
+        "truth_eligible": 40
+      },
+      {
+        "absolute_change": 0.01005336535237554,
+        "baseline_rmse": 0.039021041680444866,
+        "candidate_rmse": 0.04907440703282041,
+        "conditional_on_incomplete_truth": false,
+        "group": "velocity_m_s",
+        "horizon_s": 0.15,
+        "kind": "factual",
+        "planned": 40,
+        "ratio": 1.2576395944194825,
+        "scope": "maneuver_shift",
+        "simulator": "cascade",
+        "truth_eligible": 40
+      },
+      {
+        "absolute_change": 0.0005785963770756426,
+        "baseline_rmse": 0.0011049591597178112,
+        "candidate_rmse": 0.0016835555367934539,
+        "conditional_on_incomplete_truth": false,
+        "group": "velocity_m_s",
+        "horizon_s": 0.05,
+        "kind": "response",
+        "planned": 48,
+        "ratio": 1.5236359841782812,
+        "scope": "maneuver_shift",
+        "simulator": "cascade",
+        "truth_eligible": 48
+      },
+      {
+        "absolute_change": 7.592829895725902e-06,
+        "baseline_rmse": 0.00019194859763055068,
+        "candidate_rmse": 0.00019954142752627658,
+        "conditional_on_incomplete_truth": false,
+        "group": "rotation_entries",
+        "horizon_s": 0.05,
+        "kind": "response",
+        "planned": 48,
+        "ratio": 1.03955657915428,
+        "scope": "maneuver_shift",
+        "simulator": "cascade",
+        "truth_eligible": 48
+      },
+      {
+        "absolute_change": 0.0002686819629774007,
+        "baseline_rmse": 0.009206936592744219,
+        "candidate_rmse": 0.00947561855572162,
+        "conditional_on_incomplete_truth": false,
+        "group": "velocity_m_s",
+        "horizon_s": 0.15,
+        "kind": "response",
+        "planned": 48,
+        "ratio": 1.0291825582017304,
+        "scope": "maneuver_shift",
+        "simulator": "cascade",
+        "truth_eligible": 48
+      },
+      {
+        "absolute_change": 0.0025206763158775528,
+        "baseline_rmse": 0.023248506654031446,
+        "candidate_rmse": 0.025769182969909,
+        "conditional_on_incomplete_truth": false,
+        "group": "body_rate_rad_s",
+        "horizon_s": 0.25,
+        "kind": "response",
+        "planned": 48,
+        "ratio": 1.1084231496409018,
+        "scope": "maneuver_shift",
+        "simulator": "cascade",
+        "truth_eligible": 48
+      },
+      {
+        "absolute_change": 0.0001904710730323833,
+        "baseline_rmse": 0.0064661852199979115,
+        "candidate_rmse": 0.006656656293030295,
+        "conditional_on_incomplete_truth": false,
+        "group": "velocity_m_s",
+        "horizon_s": 0.05,
+        "kind": "factual",
+        "planned": 480,
+        "ratio": 1.029456482694513,
+        "scope": "primary",
+        "simulator": "cascade",
+        "truth_eligible": 480
+      },
+      {
+        "absolute_change": 0.00041872018624089513,
+        "baseline_rmse": 0.017241412091665888,
+        "candidate_rmse": 0.017660132277906783,
+        "conditional_on_incomplete_truth": false,
+        "group": "body_rate_rad_s",
+        "horizon_s": 0.05,
+        "kind": "factual",
+        "planned": 480,
+        "ratio": 1.02428572462712,
+        "scope": "primary",
+        "simulator": "cascade",
+        "truth_eligible": 480
+      },
+      {
+        "absolute_change": 0.0010735206177509178,
+        "baseline_rmse": 0.02560222154873816,
+        "candidate_rmse": 0.02667574216648908,
+        "conditional_on_incomplete_truth": false,
+        "group": "velocity_m_s",
+        "horizon_s": 0.15,
+        "kind": "factual",
+        "planned": 480,
+        "ratio": 1.0419307604110561,
+        "scope": "primary",
+        "simulator": "cascade",
+        "truth_eligible": 480
+      },
+      {
+        "absolute_change": 0.00011094217702630653,
+        "baseline_rmse": 0.0011779032363709561,
+        "candidate_rmse": 0.0012888454133972627,
+        "conditional_on_incomplete_truth": false,
+        "group": "velocity_m_s",
+        "horizon_s": 0.05,
+        "kind": "response",
+        "planned": 576,
+        "ratio": 1.0941861551956613,
+        "scope": "primary",
+        "simulator": "cascade",
+        "truth_eligible": 576
+      },
+      {
+        "absolute_change": 9.164602069164623e-05,
+        "baseline_rmse": 0.0038370156788869294,
+        "candidate_rmse": 0.003928661699578576,
+        "conditional_on_incomplete_truth": false,
+        "group": "body_rate_rad_s",
+        "horizon_s": 0.05,
+        "kind": "response",
+        "planned": 576,
+        "ratio": 1.0238847136319837,
+        "scope": "primary",
+        "simulator": "cascade",
+        "truth_eligible": 576
+      },
+      {
+        "absolute_change": 0.0005042769534002872,
+        "baseline_rmse": 0.005740120195109224,
+        "candidate_rmse": 0.006244397148509512,
+        "conditional_on_incomplete_truth": false,
+        "group": "velocity_m_s",
+        "horizon_s": 0.15,
+        "kind": "response",
+        "planned": 576,
+        "ratio": 1.087851288171622,
+        "scope": "primary",
+        "simulator": "cascade",
+        "truth_eligible": 576
+      },
+      {
+        "absolute_change": 0.00015344007893406536,
+        "baseline_rmse": 0.011666399549533824,
+        "candidate_rmse": 0.01181983962846789,
+        "conditional_on_incomplete_truth": false,
+        "group": "body_rate_rad_s",
+        "horizon_s": 0.15,
+        "kind": "response",
+        "planned": 576,
+        "ratio": 1.0131523078977864,
+        "scope": "primary",
+        "simulator": "cascade",
+        "truth_eligible": 576
+      },
+      {
+        "absolute_change": 2.2237011794510827e-05,
+        "baseline_rmse": 0.0006957393160616317,
+        "candidate_rmse": 0.0007179763278561426,
+        "conditional_on_incomplete_truth": false,
+        "group": "rotation_entries",
+        "horizon_s": 0.15,
+        "kind": "response",
+        "planned": 576,
+        "ratio": 1.0319617007134048,
+        "scope": "primary",
+        "simulator": "cascade",
+        "truth_eligible": 576
+      },
+      {
+        "absolute_change": 0.001383237937080433,
+        "baseline_rmse": 0.018759344998493462,
+        "candidate_rmse": 0.020142582935573895,
+        "conditional_on_incomplete_truth": false,
+        "group": "velocity_m_s",
+        "horizon_s": 0.25,
+        "kind": "response",
+        "planned": 576,
+        "ratio": 1.0737359399910562,
+        "scope": "primary",
+        "simulator": "cascade",
+        "truth_eligible": 576
+      },
+      {
+        "absolute_change": 0.0003103003157192523,
+        "baseline_rmse": 0.017574080070548646,
+        "candidate_rmse": 0.017884380386267898,
+        "conditional_on_incomplete_truth": false,
+        "group": "body_rate_rad_s",
+        "horizon_s": 0.25,
+        "kind": "response",
+        "planned": 576,
+        "ratio": 1.0176567031943404,
+        "scope": "primary",
+        "simulator": "cascade",
+        "truth_eligible": 576
+      },
+      {
+        "absolute_change": 2.4050335027517734e-05,
+        "baseline_rmse": 0.0016336431656516074,
+        "candidate_rmse": 0.0016576935006791251,
+        "conditional_on_incomplete_truth": false,
+        "group": "rotation_entries",
+        "horizon_s": 0.25,
+        "kind": "response",
+        "planned": 576,
+        "ratio": 1.0147219022692295,
+        "scope": "primary",
+        "simulator": "cascade",
+        "truth_eligible": 576
+      },
+      {
+        "absolute_change": 0.00010831132805260053,
+        "baseline_rmse": 0.01236292033002432,
+        "candidate_rmse": 0.01247123165807692,
+        "conditional_on_incomplete_truth": false,
+        "group": "velocity_m_s",
+        "horizon_s": 0.05,
+        "kind": "factual",
+        "planned": 80,
+        "ratio": 1.00876098245085,
+        "scope": "speed_shift",
+        "simulator": "cascade",
+        "truth_eligible": 80
+      },
+      {
+        "absolute_change": 6.3952348402292625e-06,
+        "baseline_rmse": 0.0010231128901255068,
+        "candidate_rmse": 0.001029508124965736,
+        "conditional_on_incomplete_truth": false,
+        "group": "rotation_entries",
+        "horizon_s": 0.05,
+        "kind": "factual",
+        "planned": 80,
+        "ratio": 1.0062507616724923,
+        "scope": "speed_shift",
+        "simulator": "cascade",
+        "truth_eligible": 80
+      },
+      {
+        "absolute_change": 6.914114500459903e-05,
+        "baseline_rmse": 0.0013541473292158302,
+        "candidate_rmse": 0.0014232884742204292,
+        "conditional_on_incomplete_truth": false,
+        "group": "velocity_m_s",
+        "horizon_s": 0.05,
+        "kind": "response",
+        "planned": 96,
+        "ratio": 1.0510588054289762,
+        "scope": "speed_shift",
+        "simulator": "cascade",
+        "truth_eligible": 96
+      },
+      {
+        "absolute_change": 1.161855229254397e-05,
+        "baseline_rmse": 0.00016183565022489794,
+        "candidate_rmse": 0.0001734542025174419,
+        "conditional_on_incomplete_truth": false,
+        "group": "rotation_entries",
+        "horizon_s": 0.05,
+        "kind": "response",
+        "planned": 96,
+        "ratio": 1.0717922922199035,
+        "scope": "speed_shift",
+        "simulator": "cascade",
+        "truth_eligible": 96
+      },
+      {
+        "absolute_change": 0.00020098965680234206,
+        "baseline_rmse": 0.010217203418914472,
+        "candidate_rmse": 0.010418193075716814,
+        "conditional_on_incomplete_truth": false,
+        "group": "velocity_m_s",
+        "horizon_s": 0.15,
+        "kind": "response",
+        "planned": 96,
+        "ratio": 1.019671689851086,
+        "scope": "speed_shift",
+        "simulator": "cascade",
+        "truth_eligible": 96
+      },
+      {
+        "absolute_change": 0.0004639834087009215,
+        "baseline_rmse": 0.012457565045966706,
+        "candidate_rmse": 0.012921548454667628,
+        "conditional_on_incomplete_truth": false,
+        "group": "body_rate_rad_s",
+        "horizon_s": 0.15,
+        "kind": "response",
+        "planned": 96,
+        "ratio": 1.0372451122662323,
+        "scope": "speed_shift",
+        "simulator": "cascade",
+        "truth_eligible": 96
+      },
+      {
+        "absolute_change": 0.000585444412426625,
+        "baseline_rmse": 0.024137184788586084,
+        "candidate_rmse": 0.02472262920101271,
+        "conditional_on_incomplete_truth": false,
+        "group": "velocity_m_s",
+        "horizon_s": 0.25,
+        "kind": "response",
+        "planned": 96,
+        "ratio": 1.0242548755190153,
+        "scope": "speed_shift",
+        "simulator": "cascade",
+        "truth_eligible": 96
+      },
+      {
+        "absolute_change": 0.0057462799590376895,
+        "baseline_rmse": 0.10703326295725439,
+        "candidate_rmse": 0.11277954291629208,
+        "conditional_on_incomplete_truth": false,
+        "group": "velocity_m_s",
+        "horizon_s": 0.25,
+        "kind": "factual",
+        "planned": 80,
+        "ratio": 1.053686861451029,
+        "scope": "wind_shift",
+        "simulator": "cascade",
+        "truth_eligible": 80
+      },
+      {
+        "absolute_change": 0.00010939393958287261,
+        "baseline_rmse": 0.0011410731792777763,
+        "candidate_rmse": 0.0012504671188606489,
+        "conditional_on_incomplete_truth": false,
+        "group": "velocity_m_s",
+        "horizon_s": 0.05,
+        "kind": "response",
+        "planned": 96,
+        "ratio": 1.0958693461291515,
+        "scope": "wind_shift",
+        "simulator": "cascade",
+        "truth_eligible": 96
+      },
+      {
+        "absolute_change": 0.00015523444000194089,
+        "baseline_rmse": 0.004326974358805615,
+        "candidate_rmse": 0.004482208798807556,
+        "conditional_on_incomplete_truth": false,
+        "group": "body_rate_rad_s",
+        "horizon_s": 0.05,
+        "kind": "response",
+        "planned": 96,
+        "ratio": 1.035875978716174,
+        "scope": "wind_shift",
+        "simulator": "cascade",
+        "truth_eligible": 96
+      },
+      {
+        "absolute_change": 0.00018778164386179866,
+        "baseline_rmse": 0.006895880136722176,
+        "candidate_rmse": 0.007083661780583975,
+        "conditional_on_incomplete_truth": false,
+        "group": "velocity_m_s",
+        "horizon_s": 0.15,
+        "kind": "response",
+        "planned": 96,
+        "ratio": 1.0272309901185517,
+        "scope": "wind_shift",
+        "simulator": "cascade",
+        "truth_eligible": 96
+      },
+      {
+        "absolute_change": 0.002431762758188429,
+        "baseline_rmse": 0.01178791490469821,
+        "candidate_rmse": 0.01421967766288664,
+        "conditional_on_incomplete_truth": false,
+        "group": "body_rate_rad_s",
+        "horizon_s": 0.15,
+        "kind": "response",
+        "planned": 96,
+        "ratio": 1.2062928667070054,
+        "scope": "wind_shift",
+        "simulator": "cascade",
+        "truth_eligible": 96
+      },
+      {
+        "absolute_change": 7.979179500293063e-05,
+        "baseline_rmse": 0.000798885380553651,
+        "candidate_rmse": 0.0008786771755565817,
+        "conditional_on_incomplete_truth": false,
+        "group": "rotation_entries",
+        "horizon_s": 0.15,
+        "kind": "response",
+        "planned": 96,
+        "ratio": 1.099878902462369,
+        "scope": "wind_shift",
+        "simulator": "cascade",
+        "truth_eligible": 96
+      },
+      {
+        "absolute_change": 0.0032491686387428505,
+        "baseline_rmse": 0.02057829937578774,
+        "candidate_rmse": 0.02382746801453059,
+        "conditional_on_incomplete_truth": false,
+        "group": "velocity_m_s",
+        "horizon_s": 0.25,
+        "kind": "response",
+        "planned": 96,
+        "ratio": 1.1578929618725344,
+        "scope": "wind_shift",
+        "simulator": "cascade",
+        "truth_eligible": 96
+      },
+      {
+        "absolute_change": 0.0017323885532609697,
+        "baseline_rmse": 0.019663706302263814,
+        "candidate_rmse": 0.021396094855524784,
+        "conditional_on_incomplete_truth": false,
+        "group": "body_rate_rad_s",
+        "horizon_s": 0.25,
+        "kind": "response",
+        "planned": 96,
+        "ratio": 1.0881008151073497,
+        "scope": "wind_shift",
+        "simulator": "cascade",
+        "truth_eligible": 96
+      },
+      {
+        "absolute_change": 0.00031201543557369594,
+        "baseline_rmse": 0.0017607184447952378,
+        "candidate_rmse": 0.002072733880368934,
+        "conditional_on_incomplete_truth": false,
+        "group": "rotation_entries",
+        "horizon_s": 0.25,
+        "kind": "response",
+        "planned": 96,
+        "ratio": 1.1772091594178657,
+        "scope": "wind_shift",
+        "simulator": "cascade",
+        "truth_eligible": 96
+      },
+      {
+        "absolute_change": 0.00016826928495149163,
+        "baseline_rmse": 0.11448551615224169,
+        "candidate_rmse": 0.11465378543719318,
+        "conditional_on_incomplete_truth": true,
+        "group": "body_rate_rad_s",
+        "horizon_s": 0.25,
+        "kind": "response",
+        "planned": 256,
+        "ratio": 1.0014697866647841,
+        "scope": "heading_shift",
+        "simulator": "crazyflow",
+        "truth_eligible": 222
+      },
+      {
+        "absolute_change": 0.0027523246830183368,
+        "baseline_rmse": 0.09001945063757247,
+        "candidate_rmse": 0.0927717753205908,
+        "conditional_on_incomplete_truth": false,
+        "group": "body_rate_rad_s",
+        "horizon_s": 0.25,
+        "kind": "factual",
+        "planned": 80,
+        "ratio": 1.0305747776011152,
+        "scope": "wind_shift",
+        "simulator": "crazyflow",
+        "truth_eligible": 80
+      },
+      {
+        "absolute_change": 3.35869034178021e-05,
+        "baseline_rmse": 0.0008373477652387163,
+        "candidate_rmse": 0.0008709346686565184,
+        "conditional_on_incomplete_truth": false,
+        "group": "velocity_m_s",
+        "horizon_s": 0.05,
+        "kind": "response",
+        "planned": 128,
+        "ratio": 1.0,
+        "scope": "wind_shift",
+        "simulator": "crazyflow",
+        "truth_eligible": 128
+      }
+    ],
+    "reduction_percent": {
+      "factual": 13.88351981825845,
+      "response": 5.814478856795324
+    },
+    "scope_aggregate_count": 20,
+    "scope_ratios": [
+      {
+        "kind": "factual",
+        "ratio": 0.852040069580819,
+        "scope": "heading_shift",
+        "simulator": "cascade"
+      },
+      {
+        "kind": "factual",
+        "ratio": 0.8873206640360933,
+        "scope": "maneuver_shift",
+        "simulator": "cascade"
+      },
+      {
+        "kind": "factual",
+        "ratio": 0.991725493474022,
+        "scope": "primary",
+        "simulator": "cascade"
+      },
+      {
+        "kind": "factual",
+        "ratio": 0.9343810980593291,
+        "scope": "speed_shift",
+        "simulator": "cascade"
+      },
+      {
+        "kind": "factual",
+        "ratio": 0.9589091152953909,
+        "scope": "wind_shift",
+        "simulator": "cascade"
+      },
+      {
+        "kind": "factual",
+        "ratio": 0.8377729170917455,
+        "scope": "heading_shift",
+        "simulator": "crazyflow"
+      },
+      {
+        "kind": "factual",
+        "ratio": 0.7371630933063952,
+        "scope": "maneuver_shift",
+        "simulator": "crazyflow"
+      },
+      {
+        "kind": "factual",
+        "ratio": 0.7746864438226947,
+        "scope": "primary",
+        "simulator": "crazyflow"
+      },
+      {
+        "kind": "factual",
+        "ratio": 0.7400456320906832,
+        "scope": "speed_shift",
+        "simulator": "crazyflow"
+      },
+      {
+        "kind": "factual",
+        "ratio": 0.8482426201137099,
+        "scope": "wind_shift",
+        "simulator": "crazyflow"
+      },
+      {
+        "kind": "response",
+        "ratio": 0.9340480992555628,
+        "scope": "heading_shift",
+        "simulator": "cascade"
+      },
+      {
+        "kind": "response",
+        "ratio": 0.9588891523431009,
+        "scope": "maneuver_shift",
+        "simulator": "cascade"
+      },
+      {
+        "kind": "response",
+        "ratio": 1.03723928720091,
+        "scope": "primary",
+        "simulator": "cascade"
+      },
+      {
+        "kind": "response",
+        "ratio": 0.9809354737454112,
+        "scope": "speed_shift",
+        "simulator": "cascade"
+      },
+      {
+        "kind": "response",
+        "ratio": 1.0960649000552785,
+        "scope": "wind_shift",
+        "simulator": "cascade"
+      },
+      {
+        "kind": "response",
+        "ratio": 0.8843319336327539,
+        "scope": "heading_shift",
+        "simulator": "crazyflow"
+      },
+      {
+        "kind": "response",
+        "ratio": 0.905155252571159,
+        "scope": "maneuver_shift",
+        "simulator": "crazyflow"
+      },
+      {
+        "kind": "response",
+        "ratio": 0.8662562434689258,
+        "scope": "primary",
+        "simulator": "crazyflow"
+      },
+      {
+        "kind": "response",
+        "ratio": 0.8842195590816941,
+        "scope": "speed_shift",
+        "simulator": "crazyflow"
+      },
+      {
+        "kind": "response",
+        "ratio": 0.8632411220981179,
+        "scope": "wind_shift",
+        "simulator": "crazyflow"
+      }
+    ],
+    "weighted_geometric_mean_ratios": {
+      "factual": 0.8611648018174155,
+      "response": 0.9418552114320468
+    }
+  },
+  "protocol": {
+    "frozen_commit": "681daed79bb7e2e6bd780577f68cb37c5161aed1",
+    "path": "docs/harness/independent-training-recordings-v1.json",
+    "sha256": "b5fae12bf2b25c88d7a1758214d1faf11749e7a88d8ce4d4e397b04265272adf"
+  },
+  "source_binding": {
+    "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-19/independent-training-recordings-v1-evidence/provenance/independent-training-recordings-v1-implementation-attempt1.json",
+    "sha256": "380f1d6eab8fcf7752c0fe0f8a0eea105c05a5a72b3a01cb0115e275715e9452"
+  },
+  "verification": {
+    "alterations_passed": 8,
+    "alterations_required": 8,
+    "distinct_copy_inodes_verified": true,
+    "exact_prediction_and_envelope_arrays": 12772,
+    "focused_tests_passed": 195,
+    "independent_reduction_counts": {
+      "cells": 10584,
+      "parents": 21168,
+      "raw_rows": 257040,
+      "summaries": 1260,
+      "tails": 840
+    },
+    "integrated_protocol_authentication_passed": true,
+    "integrated_public_archive_imports": {
+      "cascade": {
+        "development_windows": 256,
+        "fingerprint": "101d13032eb90d4d2d7763dc33d7d8ebb18f5115235d72864a551632219c060f",
+        "parents": 168,
+        "recipe": "generic-memory-v4-prototype",
+        "training_windows": 1536
+      },
+      "crazyflow": {
+        "development_windows": 256,
+        "fingerprint": "edc1f936e03ca83e9fe5c6ef5c44b5cafc95e4445db1239bdb25b055cebe36e0",
+        "parents": 168,
+        "recipe": "generic-memory-v4-prototype",
+        "training_windows": 1536
+      }
+    },
+    "integrated_source_bytes_equal_bound_worker": true,
+    "new_training_and_confirmation_parents_replayed": 312,
+    "raw_native_arrays_replayed": 56148,
+    "root_verified_mirror_bytes": 819950253,
+    "root_verified_mirror_files": 18279,
+    "ruff_and_format_passed": true
+  },
+  "work": {
+    "actual_initializers": 2,
+    "automatic_scientific_retries": 0,
+    "control_refits": 0,
+    "full_training_objective_calls_returned": {
+      "cascade": 2520,
+      "crazyflow": 5035
+    },
+    "gradient_window_visits_per_fit": 1536000,
+    "new_public_updates": 2,
+    "proposal_attempts_per_fit": 1000,
+    "replay_fits": 0,
+    "replay_initializers": 0,
+    "selected_steps": {
+      "cascade": 1000,
+      "crazyflow": 1000
+    },
+    "supervised_update_elapsed_s": {
+      "cascade": 46.92328645801172,
+      "crazyflow": 347.3554090419784
+    }
+  }
+}
