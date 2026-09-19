@@ -95,9 +95,12 @@ def batch():
 def model(batch):
     m = initialize_sequence_model(batch, width=4, memory=3, delay_steps=DELAY)
     # Give the memory a nonzero readout so that carrying it matters.
-    m.params["linear"][-3:] = 0.1
-    m.params["w2"][:] = 0.04
-    return m
+    params = {k: np.array(v, copy=True) for k, v in m.params.items()}
+    params["linear"][-3:] = 0.1
+    params["w2"][:] = 0.04
+    return SequenceModel(
+        m.kind, m.dt_s, m.history_steps, params, m.norms, m.delay_steps
+    )
 
 
 def numpy_rollout(model, x, up, uf):
@@ -130,7 +133,13 @@ def numpy_rollout(model, x, up, uf):
     for command in future:
         current = history[-1]
         z = features(current, command, history[:-1], commands, hidden)
-        delta = z @ p["linear"] + p["bias"] + np.tanh(z @ p["w1"] + p["b1"]) @ p["w2"]
+        interaction = np.outer(current, command).ravel() / n["interaction_scale"]
+        rows, columns = np.triu_indices(len(current))
+        autonomous = current[rows] * current[columns] / n["autonomous_scale"]
+        # Preserve the maintained full-quadratic operation order independently.
+        delta = z @ p["linear"] + interaction @ p["interaction"]
+        delta = delta + autonomous @ p["autonomous"] + p["bias"]
+        delta = delta + np.tanh(z @ p["w1"] + p["b1"]) @ p["w2"]
         predicted = current + n["delta_scale"] * delta
         hidden = np.tanh(z @ p["memory"] + p["memory_bias"])
         output.append(predicted * n["state_scale"] + n["state_mean"])
@@ -231,7 +240,7 @@ def test_forecast_is_causal_prefix_consistent_and_matches_independent_replay(
     assert np.abs(older[:, : CONTEXT - DELAY]).max() > 0
 
 
-def test_checkpoint_zero_is_the_affine_start_with_a_silent_memory(batch):
+def test_checkpoint_zero_is_the_anchored_quadratic_start_with_a_silent_memory(batch):
     """The memory reads out as zero at initialization, so it cannot move a forecast."""
     filtered = initialize_sequence_model(batch, width=4, memory=3, delay_steps=DELAY)
     np.testing.assert_array_equal(filtered.params["linear"][-3:], 0)
@@ -256,7 +265,8 @@ def test_checkpoint_zero_is_the_affine_start_with_a_silent_memory(batch):
     np.testing.assert_allclose(
         perturbed.rollout(x, up, uf), reference, rtol=1e-12, atol=1e-14
     )
-    # Only the explicit-delay features carry weight at the affine start.
+    # The base linear block keeps explicit-delay features plus silent memory;
+    # interaction and autonomous output blocks are separate quadratic terms.
     weighted = filtered.params["linear"][: -filtered.params["memory"].shape[1]]
     assert weighted.shape[0] == (DELAY + 1) * (x.shape[-1] + uf.shape[-1])
 
@@ -267,7 +277,7 @@ def test_memory_recovers_a_delayed_input_response_that_explicit_history_cannot()
         width=8,
         ridge=0.01 * len(train.past_states) * HORIZON,
         steps=400,
-        batch_size=64,
+        batch_size=len(train.past_states),
         learning_rate=0.002,
         check_every=100,
     )
