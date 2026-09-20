@@ -1,5 +1,7 @@
 """Bounded analytic/mocked Dart seams; no physical trial or scientific fit."""
 
+import ast
+import copy
 import hashlib
 import json
 import subprocess
@@ -12,6 +14,196 @@ import numpy as np
 import pytest
 
 from glassbox.experimental import shared_vehicle_dart as dart
+
+
+@pytest.fixture
+def inherited_supervisor_inputs(monkeypatch):
+    monkeypatch.setattr(
+        dart,
+        "verify_fit_stage",
+        lambda entry, stage, context: {"status": "complete", "stage": stage},
+    )
+    return {key: {"path": key, "sha256": key} for key in ("v4", "candidate")}
+
+
+@pytest.fixture
+def correction_context(monkeypatch):
+    """Real pinned predecessor, mocked not-yet-committed successor binding only."""
+    common = dart.common()
+    manifest = common.read(common.ROOT / dart.CORRECTION_MANIFEST)
+    previous = common.read(common.anchor(manifest["predecessor_binding"]))
+    current = copy.deepcopy(previous)
+    current["current"]["root"] = str(common.ROOT)
+    current["current"]["commit"] = current["implementation_commit"] = "successor-test"
+    for name in dart.CORRECTION_FILES:
+        current["current"]["files"][name] = common.digest(common.ROOT / name)
+    context = {
+        "binding_sha256": "successor-test",
+        "protocol_sha256": manifest["protocol_sha256"],
+    }
+    monkeypatch.setattr(dart, "authenticate", lambda ctx: ({}, current))
+    return context, manifest, current
+
+
+def test_exact_predecessor_pair_loads_without_refitting(correction_context):
+    context, manifest, _ = correction_context
+    entries = {
+        "v4": manifest["fits"]["fit-v4"],
+        "candidate": manifest["fits"]["fit-shared"],
+    }
+    dart.check_pair(entries, context)
+    for arm, key in (
+        ("v4_research_extrapolation", "v4"),
+        ("shared_vehicle", "candidate"),
+    ):
+        model = dart.load_model(entries[key], arm, context)
+        assert model is not None and callable(model.predict)
+
+
+@pytest.mark.parametrize(
+    "mutation", ["numerical_source", "runtime", "unbound_manifest"]
+)
+def test_inheritance_rejects_numerical_or_environment_changes(
+    correction_context, mutation
+):
+    context, manifest, current = correction_context
+    if mutation == "numerical_source":
+        current["current"]["files"][
+            "src/glassbox/experimental/shared_vehicle_core.py"
+        ] = "changed"
+    elif mutation == "runtime":
+        current["runtime"] = {"changed": True}
+    else:
+        current["current"]["files"][dart.CORRECTION_MANIFEST] = "changed"
+    with pytest.raises(ValueError):
+        dart.verify_fit_stage(manifest["fits"]["fit-v4"], "fit-v4", context)
+
+
+def test_inheritance_rejects_other_stage_anchor_and_request(
+    correction_context, monkeypatch
+):
+    context, manifest, _ = correction_context
+    source = manifest["fits"]["fit-v4"]
+    with pytest.raises(ValueError, match="restricted to fits"):
+        dart.verify_fit_stage(source, "control", context)
+    with pytest.raises(ValueError, match="external"):
+        dart.verify_fit_stage({**source, "sha256": "0" * 64}, "fit-v4", context)
+    actual_verify = dart.verify_stage
+    monkeypatch.setattr(
+        dart,
+        "verify_stage",
+        lambda *a, **k: actual_verify(source["path"], source["sha256"], stage="fit-v4"),
+    )
+    with pytest.raises(ValueError, match="not the pinned"):
+        dart.verify_fit_stage({**source, "path": "other-fit"}, "fit-v4", context)
+    monkeypatch.setattr(dart, "verify_stage", actual_verify)
+    actual_read = dart.common().read
+    request_path = Path(source["path"]) / "request.json"
+
+    def changed_request(path):
+        value = actual_read(path)
+        if Path(path) == request_path:
+            value["binding_path"] = "different predecessor binding"
+        return value
+
+    monkeypatch.setattr(dart.common(), "read", changed_request)
+    with pytest.raises(ValueError, match="request provenance"):
+        dart.verify_fit_stage(source, "fit-v4", context)
+
+
+def test_correction_forbids_fit_dispatch_before_authentication(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        dart, "authenticate", lambda *a: pytest.fail("fit authenticated")
+    )
+    for stage in ("fit-v4", "fit-shared"):
+        with pytest.raises(ValueError, match="forbids new fits"):
+            dart.worker({"stage": stage})
+        with pytest.raises(ValueError, match="forbids new fits"):
+            dart.run_stage(
+                stage,
+                tmp_path / stage,
+                protocol_path="p",
+                protocol_sha256="p",
+                binding_path="b",
+                binding_sha256="b",
+            )
+        assert not (tmp_path / stage).exists()
+
+
+def test_correction_keeps_numerical_dart_functions_identical():
+    common = dart.common()
+    manifest = common.read(common.ROOT / dart.CORRECTION_MANIFEST)
+    previous = common.read(common.anchor(manifest["predecessor_binding"]))
+    name = "src/glassbox/experimental/shared_vehicle_dart.py"
+
+    def functions(path):
+        return {
+            node.name: ast.dump(node)
+            for node in ast.parse(path.read_text()).body
+            if isinstance(node, ast.FunctionDef)
+        }
+
+    before = functions(Path(previous["current"]["root"]) / name)
+    after = functions(common.ROOT / name)
+    for key in (
+        "read_recording",
+        "observed",
+        "prepare",
+        "fit_worker",
+        "physical_rollout",
+        "structured_rollout",
+        "target_from_protocol",
+        "prelude",
+        "live_initial",
+        "diagnostic_queries",
+        "forecast_worker",
+    ):
+        assert before[key] == after[key], key
+
+
+def test_actual_controller_dependency_chain_and_saved_loaders_without_execution(
+    monkeypatch,
+):
+    from glassbox.belief.belief import DynamicsBelief
+    from glassbox.experimental.shared_vehicle import SharedVehicleDynamics
+    from glassbox.learner import LearnedDynamics
+
+    common = dart.common()
+    manifest = common.read(common.ROOT / dart.CORRECTION_MANIFEST)
+    binding = common.read(common.anchor(manifest["predecessor_binding"]))
+    protocol = common.read_protocol()
+    assert binding["runtime"] == common._runtime()
+    mission, planning, plants = dart.dart_modules(protocol, binding)
+
+    def forbidden(*a, **k):
+        raise AssertionError("smoke must not execute numerical work")
+
+    monkeypatch.setattr(plants.CrazyflowPlant, "_step", forbidden)
+    monkeypatch.setattr(plants.CrazyflowPlant, "step_at_interval", forbidden)
+    monkeypatch.setattr(plants.CrazyflowPlant, "_rollout", forbidden)
+    monkeypatch.setattr(planning.DirectPlanner, "solve", forbidden)
+    models = {
+        "structured_causal_history": DynamicsBelief.load(
+            protocol["dart"]["files"]["artifacts/demo/fit/belief.json"]["path"]
+        ).model,
+        "v4_research_extrapolation": LearnedDynamics.load(
+            Path(manifest["fits"]["fit-v4"]["path"]) / "model.npz"
+        ),
+        "shared_vehicle": SharedVehicleDynamics.load(
+            Path(manifest["fits"]["fit-shared"]["path"]) / "model.npz"
+        ),
+    }
+    target = dart.target_from_protocol(protocol, mission)
+    plant = plants.CrazyflowPlant()
+    assert callable(plant.step)
+    for arm, model in models.items():
+        if arm == "structured_causal_history":
+            assert callable(model.transition) and callable(model.initial_latent_state)
+            rollout = dart.structured_rollout(model)
+        else:
+            rollout = dart.physical_rollout(model, intrinsic=arm == "shared_vehicle")
+        planner = planning.DirectPlanner(rollout, target, steps=120, block_steps=3)
+        assert callable(planner.value_gradient)
 
 
 def test_queries_retain_each_supported_horizon_without_future_history():
@@ -183,7 +375,9 @@ def test_actual_tiny_v4_fit_capture_and_fingerprint_api(tmp_path, monkeypatch):
         lambda *a, **k: original_candidate(*a, **k, _steps=0),
     )
     monkeypatch.setattr(dart, "load_model", lambda *a, **k: loaded)
-    monkeypatch.setattr(dart, "verify_stage", lambda *a, **k: {"status": "complete"})
+    monkeypatch.setattr(
+        dart, "verify_fit_stage", lambda *a, **k: {"status": "complete"}
+    )
     original_verify = exp.verify_capture
     monkeypatch.setattr(
         exp,
@@ -230,7 +424,9 @@ def fake_common(tmp_path):
     )
 
 
-def test_supervisor_retains_timeout_prefix_without_retry(tmp_path, monkeypatch):
+def test_supervisor_retains_timeout_prefix_without_retry(
+    tmp_path, monkeypatch, inherited_supervisor_inputs
+):
     c = fake_common(tmp_path)
     monkeypatch.setattr(dart, "common", lambda: c)
     protocol = {"dart": {"root": str(tmp_path)}}
@@ -246,28 +442,32 @@ def test_supervisor_retains_timeout_prefix_without_retry(tmp_path, monkeypatch):
 
     monkeypatch.setattr(dart.subprocess, "run", timed_out)
     result = dart.run_stage(
-        "fit-v4",
+        "control",
         tmp_path / "stage",
         protocol_path=tmp_path / "p",
         protocol_sha256="p",
         binding_path=tmp_path / "b",
         binding_sha256="b",
+        inputs=inherited_supervisor_inputs,
     )
     assert result["status"] == "hard_timeout_incomplete" and len(calls) == 1
     assert "actual-prefix.txt" in result["files"]
     assert c.read(tmp_path / "stage/exit.json")["timed_out"]
     with pytest.raises(FileExistsError):
         dart.run_stage(
-            "fit-v4",
+            "control",
             tmp_path / "stage",
             protocol_path=tmp_path / "p",
             protocol_sha256="p",
             binding_path=tmp_path / "b",
             binding_sha256="b",
+            inputs=inherited_supervisor_inputs,
         )
 
 
-def test_final_integrity_failure_cannot_qualify_completed_work(tmp_path, monkeypatch):
+def test_final_integrity_failure_cannot_qualify_completed_work(
+    tmp_path, monkeypatch, inherited_supervisor_inputs
+):
     c = fake_common(tmp_path)
     monkeypatch.setattr(dart, "common", lambda: c)
     count = 0
@@ -292,12 +492,13 @@ def test_final_integrity_failure_cannot_qualify_completed_work(tmp_path, monkeyp
 
     monkeypatch.setattr(dart.subprocess, "run", done)
     result = dart.run_stage(
-        "fit-v4",
+        "control",
         tmp_path / "stage",
         protocol_path=tmp_path / "p",
         protocol_sha256="p",
         binding_path=tmp_path / "b",
         binding_sha256="b",
+        inputs=inherited_supervisor_inputs,
     )
     assert result["status"] == "failed"
     assert c.read(tmp_path / "stage/outcome.json")["fits"] == 1
@@ -423,7 +624,9 @@ def test_pair_rejects_different_valid_weighting_control(tmp_path, monkeypatch):
         current / "request.json",
         {"inputs": {"v4": {"path": "old-v4", "sha256": "old"}}},
     )
-    monkeypatch.setattr(dart, "verify_stage", lambda *a, **k: {"status": "complete"})
+    monkeypatch.setattr(
+        dart, "verify_fit_stage", lambda *a, **k: {"status": "complete"}
+    )
     with pytest.raises(ValueError, match="different Dart v4"):
         dart.check_pair(
             {
@@ -450,7 +653,9 @@ def test_pair_rejects_coherently_saved_different_objective_weights(
             normalization=np.ones((25, 15)),
             channel_weights=np.full(15, 1.0 if key == "v4" else 2.0),
         )
-    monkeypatch.setattr(dart, "verify_stage", lambda *a, **k: {"status": "complete"})
+    monkeypatch.setattr(
+        dart, "verify_fit_stage", lambda *a, **k: {"status": "complete"}
+    )
     with pytest.raises(ValueError, match="shared objective weights"):
         dart.check_pair(anchors, {"binding_sha256": "bound"})
 
@@ -509,7 +714,9 @@ def failed_weighting_control(tmp_path, monkeypatch, *, with_weights):
             }
         )
     capture.finish(None)
-    monkeypatch.setattr(dart, "verify_stage", lambda *a, **k: {"status": "fit_failed"})
+    monkeypatch.setattr(
+        dart, "verify_fit_stage", lambda *a, **k: {"status": "fit_failed"}
+    )
     monkeypatch.setattr(dart, "load_model", lambda *a, **k: None)
     monkeypatch.setattr(dart, "prepare", lambda p: prepared)
     request = {
@@ -574,11 +781,13 @@ def test_weighting_control_rejects_timeout_or_changed_preparation(
         tmp_path, monkeypatch, with_weights=True
     )
     monkeypatch.setattr(
-        dart, "verify_stage", lambda *a, **k: {"status": "hard_timeout_incomplete"}
+        dart, "verify_fit_stage", lambda *a, **k: {"status": "hard_timeout_incomplete"}
     )
     with pytest.raises(ValueError, match="incomplete or corrupt"):
         dart.weighting_control(request["inputs"]["v4"], prepared, request)
-    monkeypatch.setattr(dart, "verify_stage", lambda *a, **k: {"status": "fit_failed"})
+    monkeypatch.setattr(
+        dart, "verify_fit_stage", lambda *a, **k: {"status": "fit_failed"}
+    )
     arrays = dart._arrays(source / "preparation.npz")
     key = next(
         k
@@ -604,7 +813,9 @@ def test_worker_request_sha_checked_before_any_worker_code(tmp_path, monkeypatch
         dart.main(["--worker", str(path), "--request-sha256", "0" * 64])
 
 
-def test_supervisor_preserves_dispatch_hash_when_request_changes(tmp_path, monkeypatch):
+def test_supervisor_preserves_dispatch_hash_when_request_changes(
+    tmp_path, monkeypatch, inherited_supervisor_inputs
+):
     c = fake_common(tmp_path)
     monkeypatch.setattr(dart, "common", lambda: c)
     monkeypatch.setattr(
@@ -626,12 +837,13 @@ def test_supervisor_preserves_dispatch_hash_when_request_changes(tmp_path, monke
 
     monkeypatch.setattr(dart.subprocess, "run", changed)
     result = dart.run_stage(
-        "fit-v4",
+        "control",
         tmp_path / "stage",
         protocol_path=tmp_path / "p",
         protocol_sha256="p",
         binding_path=tmp_path / "b",
         binding_sha256="b",
+        inputs=inherited_supervisor_inputs,
     )
     command = c.read(tmp_path / "stage/command.json")["command"]
     assert result["status"] == "failed"

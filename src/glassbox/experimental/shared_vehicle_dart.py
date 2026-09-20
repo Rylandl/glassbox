@@ -22,6 +22,12 @@ MODULE = "glassbox.experimental.shared_vehicle_dart"
 FORMAT = "glassbox-shared-vehicle-dart-stage-v1"
 ARMS = ("shared_vehicle", "v4_research_extrapolation", "structured_causal_history")
 STAGES = ("fit-v4", "fit-shared", "forecast", "control", "replay")
+CORRECTION_MANIFEST = "docs/harness/shared-vehicle-dart-runtime-correction-v1.json"
+CORRECTION_FILES = {
+    "src/glassbox/experimental/shared_vehicle_dart.py",
+    "tests/test_shared_vehicle_dart.py",
+    CORRECTION_MANIFEST,
+}
 TRAIN = tuple(f"train-{i:02d}" for i in range(8))
 DEVELOPMENT = ("calibration-08", "calibration-09")
 TEST = ("test-10", "test-11")
@@ -107,6 +113,86 @@ def authenticate(context):
             "Dart source differs: " + name,
         )
     return p, binding
+
+
+def inherited_fit_manifest(context):
+    """Authenticate the single pinned fit pair without broadening stage trust."""
+    _, current = authenticate(context)
+    manifest_path = common().ROOT / CORRECTION_MANIFEST
+    require(
+        current["current"]["files"].get(CORRECTION_MANIFEST)
+        == common().digest(manifest_path),
+        "correction manifest is not source-bound",
+    )
+    manifest = common().read(manifest_path)
+    require(
+        manifest["format"] == "glassbox-shared-vehicle-dart-runtime-correction-v1"
+        and manifest["protocol_sha256"] == context["protocol_sha256"]
+        and set(manifest["fits"]) == {"fit-v4", "fit-shared"}
+        and set(manifest["allowed_changed_files"]) == CORRECTION_FILES,
+        "correction manifest identity differs",
+    )
+    predecessor = common().read(common().anchor(manifest["predecessor_binding"]))
+    require(
+        predecessor["format"] == current["format"]
+        and predecessor["implementation_commit"] == manifest["predecessor_commit"]
+        and predecessor["current"]["commit"] == manifest["predecessor_commit"],
+        "predecessor source identity differs",
+    )
+    for key in (
+        "protocol_sha256",
+        "runtime",
+        "simulator_sources",
+        "dart_source_sha256",
+        "dart_root",
+        "baseline",
+        "oracle",
+        "prior_binding",
+        "interpreter",
+        "oracle_root",
+    ):
+        require(
+            predecessor[key] == current[key], "predecessor environment differs: " + key
+        )
+    source = predecessor["current"]
+    require(
+        common()._source_identity(source["root"], source["commit"], source["files"])
+        == source,
+        "predecessor checkout differs",
+    )
+    before, after = source["files"], current["current"]["files"]
+    changed = {
+        name
+        for name in before.keys() | after.keys()
+        if before.get(name) != after.get(name)
+    }
+    require(changed <= CORRECTION_FILES, "correction changes numerical source")
+    return manifest, predecessor
+
+
+def verify_fit_stage(entry, stage, context):
+    """Accept the exact authenticated predecessor pair; this worker cannot fit."""
+    require(stage in ("fit-v4", "fit-shared"), "inheritance is restricted to fits")
+    run = verify_stage(entry["path"], entry["sha256"], stage=stage)
+    manifest, predecessor = inherited_fit_manifest(context)
+    require(entry == manifest["fits"][stage], "fit is not the pinned predecessor stage")
+    require(
+        run.get("status") == "complete"
+        and run.get("binding_sha256") == manifest["predecessor_binding"]["sha256"]
+        and run.get("protocol_sha256") == context["protocol_sha256"]
+        and run.get("implementation_commit") == manifest["predecessor_commit"],
+        "inherited fit provenance differs",
+    )
+    request = common().read(Path(entry["path"]) / "request.json")
+    require(
+        request["stage"] == stage
+        and request["binding_path"] == manifest["predecessor_binding"]["path"]
+        and request["binding_sha256"] == manifest["predecessor_binding"]["sha256"]
+        and request["protocol_path"] == predecessor["inputs"]["protocol"]["path"]
+        and request["protocol_sha256"] == context["protocol_sha256"],
+        "inherited fit request provenance differs",
+    )
+    return run
 
 
 def dart_modules(protocol, binding):
@@ -274,11 +360,10 @@ def check_preparation(model, prepared):
 
 
 def load_model(entry, arm, context):
-    run = verify_stage(
-        entry["path"],
-        entry["sha256"],
-        stage="fit-v4" if arm == "v4_research_extrapolation" else "fit-shared",
-        binding_sha256=context["binding_sha256"],
+    run = verify_fit_stage(
+        entry,
+        "fit-v4" if arm == "v4_research_extrapolation" else "fit-shared",
+        context,
     )
     if run["status"] != "complete":
         require(
@@ -304,12 +389,7 @@ def weighting_control(source, prepared, context):
     from .shared_vehicle_experiment import verify_capture
 
     root = Path(source["path"])
-    run = verify_stage(
-        root,
-        source["sha256"],
-        stage="fit-v4",
-        binding_sha256=context["binding_sha256"],
-    )
+    run = verify_fit_stage(source, "fit-v4", context)
     require(
         run["status"] in ("complete", "fit_failed"),
         "weighting control is incomplete or corrupt",
@@ -349,18 +429,8 @@ def weighting_control(source, prepared, context):
 def check_pair(inputs, context):
     """The architecture candidate must use this exact newly fitted v4 control."""
     candidate, v4 = inputs["candidate"], inputs["v4"]
-    candidate_run = verify_stage(
-        candidate["path"],
-        candidate["sha256"],
-        stage="fit-shared",
-        binding_sha256=context["binding_sha256"],
-    )
-    verify_stage(
-        v4["path"],
-        v4["sha256"],
-        stage="fit-v4",
-        binding_sha256=context["binding_sha256"],
-    )
+    candidate_run = verify_fit_stage(candidate, "fit-shared", context)
+    verify_fit_stage(v4, "fit-v4", context)
     request = common().read(Path(candidate["path"]) / "request.json")
     require(
         request["inputs"]["v4"] == v4,
@@ -596,7 +666,7 @@ def control_worker(output, protocol, binding, request):
     import jax.numpy as jnp
     import numpy as np
 
-    from glassbox import DynamicsBelief
+    from glassbox.belief.belief import DynamicsBelief
 
     check_pair(request["inputs"], request)
     mission, planning, plants = dart_modules(protocol, binding)
@@ -985,7 +1055,7 @@ def replay_control(output, source, context, protocol, binding):
     import jax.numpy as jnp
     import numpy as np
 
-    from glassbox import DynamicsBelief
+    from glassbox.belief.belief import DynamicsBelief
 
     original = Path(source["path"])
     saved = common().read(original / "request.json")
@@ -1133,6 +1203,7 @@ def replay_control(output, source, context, protocol, binding):
 
 
 def worker(request):
+    require(not request["stage"].startswith("fit-"), "correction forbids new fits")
     output = Path(request["output"])
     p, b = authenticate(request)
     import jax
@@ -1184,6 +1255,7 @@ def run_stage(
 ):
     """Supervise exactly one stage; retain a bounded failed prefix without retry."""
     require(stage in STAGES, "unknown Dart stage")
+    require(not stage.startswith("fit-"), "correction forbids new fits")
     context = dict(
         protocol_path=str(Path(protocol_path).resolve()),
         protocol_sha256=protocol_sha256,
@@ -1204,11 +1276,14 @@ def run_stage(
         expected = (
             None if key == "source" else "fit-v4" if key == "v4" else "fit-shared"
         )
-        run = verify_stage(
-            entry["path"],
-            entry["sha256"],
-            stage=expected,
-            binding_sha256=binding_sha256,
+        run = (
+            verify_fit_stage(entry, expected, context)
+            if expected is not None
+            else verify_stage(
+                entry["path"],
+                entry["sha256"],
+                binding_sha256=binding_sha256,
+            )
         )
         require(
             run["status"] in ("complete", "fit_failed")

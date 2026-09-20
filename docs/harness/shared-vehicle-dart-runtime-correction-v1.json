@@ -1,0 +1,32 @@
+{
+  "allowed_changed_files": [
+    "src/glassbox/experimental/shared_vehicle_dart.py",
+    "tests/test_shared_vehicle_dart.py",
+    "docs/harness/shared-vehicle-dart-runtime-correction-v1.json"
+  ],
+  "fits": {
+    "fit-shared": {
+      "path": "/private/tmp/glassbox-shared-vehicle-physics-runtime/artifacts/2026-09-20/shared-vehicle-physics-v1/dart/candidate",
+      "sha256": "3c9f5d8d9c6a946efd55e665e53f9e93c6c90ab61e409d0e30b98aa838b148ec"
+    },
+    "fit-v4": {
+      "path": "/private/tmp/glassbox-shared-vehicle-physics-runtime/artifacts/2026-09-20/shared-vehicle-physics-v1/dart/v4",
+      "sha256": "81ca88004280b70367e2127fb8c1da6a651c796b7db7da6d66c0257a51c2694e"
+    }
+  },
+  "format": "glassbox-shared-vehicle-dart-runtime-correction-v1",
+  "predecessor_binding": {
+    "path": "/private/tmp/glassbox-shared-vehicle-physics-runtime/artifacts/2026-09-20/shared-vehicle-physics-v1/implementation-binding.json",
+    "sha256": "22d0594a2d98f05c12d5cfa2765ec13c931a85073660d397cd8d4a387526bbd9"
+  },
+  "predecessor_commit": "431d6a9412546a9066de9511344d5bf188ca9e84",
+  "protocol_sha256": "90f0c418379c62a6fc1b9a4f1ae094f74de8868a6e77f7370138cc6533dd0053",
+  "required_evidence": [
+    "Actual dependency import and saved model loading smoke without numerical execution",
+    "Pinned predecessor source, runtime, artifact and request authentication",
+    "Unchanged numerical sources and Dart numerical function bodies",
+    "Tampered inheritance or numerical source rejected",
+    "One corrected control trial per available arm and exact command replay after commit and binding"
+  ],
+  "scope": "Repair legacy structured comparator import after a failed control dispatch with zero prelude, model or optimizer calls. Import only the exact two completed predecessor fits; no new fitting, altered numerical model, planner, task, data or settings. Original fits, forecast and failures stay immutable."
+}
