@@ -5,6 +5,21 @@ physical knowledge and no catalog. Dart's precise pose/contact task is the
 immediate product milestone. This plan records that direction; it freezes no
 experiment, changes no fitted model and claims no new task result.
 
+The deployment contract is recordings in, fitted dynamics out. The user does
+not select quad/fixed-wing or provide propeller count/layout, surface roles,
+mass, inertia, geometry, mixing, actuator constants or hyperparameters. Fit a
+different parameter set for each platform/configuration using the same model
+form and fitting procedure. Infer input dimensions from the supplied commands;
+do not assume that a command channel corresponds to one physical actuator.
+Learn effective control coupling rather than requiring reconstruction of the
+vehicle's physical layout.
+
+Telemetry adapters should extract timestamps, channel semantics, units and
+frames from existing recording formats. Those adapters may translate data but
+must not select vehicle physics or inject manufacturer/simulator coefficients.
+Interpretable measurements remain necessary; missing semantics cannot be
+silently guessed or hidden behind a claim of zero configuration.
+
 ## Established differences
 
 The current generic rollout in `src/glassbox/_sequence_model.py` learns additive
@@ -90,13 +105,15 @@ Command dimension comes from the recording contract. The learner receives no
 vehicle-family selector, prescribed thrust axis, fixed rotor count, mixer,
 aerodynamic coefficient table or simulator hidden state. Actuator lag and other
 history effects remain learned. Frames, orientation and physical signal meanings
-are required semantics, not vehicle tuning options. Body coordinates must not
+come through telemetry interpretation, not manual vehicle tuning. Body coordinates must not
 erase relevant gravity direction, measured wind or environmental context.
 
 This is a coherent candidate mechanism, not an established explanation of all
 remaining errors. Derive its actual parameterization and freeze one comparison
 after the Dart diagnostic. Use both Crazyflow and Cascade to detect a disguised
-quadrotor assumption. More complicated contacts, articulation or flexible-body
+quadrotor assumption, and include configuration changes in later breadth tests:
+success on one quad and one fixed wing alone would not establish generality
+over different command couplings or layouts. More complicated contacts, articulation or flexible-body
 effects need their own coverage evidence; shared rigid-body mechanics alone
 does not establish support for every possible configuration.
 

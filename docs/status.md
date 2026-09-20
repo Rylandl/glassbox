@@ -8,7 +8,9 @@ supports this recipe only; historical archives require their pinned source.
 **Current priority:** run Dart with one general vehicle learner, using shared
 physical structure where it improves learning across vehicle types and
 configurations. The user has clarified that generality permits common mechanics;
-it excludes a vehicle-family catalog. First establish current v4 performance
+it excludes a vehicle-family catalog or user-supplied vehicle parameters/layout.
+A separate fit is expected; the recipe and automatic fitting procedure stay
+shared across configurations. First establish current v4 performance
 and the planning-interface gap on Dart's ordinary recordings and fixed task.
 The independent-recording update passed its frozen criteria: forecast/response
 aggregate errors fell 13.88%/5.81% at fixed cache and fitting work, with documented

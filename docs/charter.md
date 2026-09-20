@@ -5,9 +5,10 @@ configurations from recordings, and produce improved revisions as new recordings
 arrive. The immediate product milestone is running Dart's precise pose/contact
 task with that general learner. One learning procedure fits each configuration;
 one set of fitted weights need not describe every vehicle. System coverage and
-revision improvements must be demonstrated by evaluation. The caller supplies
-observed signals and commands, their meanings, units and coordinate frames,
-timing, and recording boundaries. One recipe, one module, three calls: `fit`,
+revision improvements must be demonstrated by evaluation. The user supplies
+recordings, without a vehicle description or physical parameter guesses.
+Telemetry adapters interpret available signal meanings, units, coordinate frames,
+timing and recording boundaries. One recipe, one module, three calls: `fit`,
 `predict`, `update`. No vehicle-family selector, model catalog, consumer tuning
 options or branches selecting a vehicle's equations. Shared physical structure
 is allowed; learning known mechanics from scratch is not a product requirement.
@@ -92,6 +93,23 @@ hypothesis. Ordinary-recording evidence and the Dart task take priority over
 collecting privileged simulator response pairs. Crazyflow and Cascade retain
 their role as cross-vehicle forecast and response benchmarks. Historical protocols,
 results and qualification boundaries keep their original meaning.
+
+The user explicitly expects a separate fit per platform or configuration but
+no system-specific setup: no vehicle type, mass, inertia, propeller count or
+placement, control-surface assignment, mixer, geometry, aerodynamic coefficients,
+actuator constants, dynamics code or tuning choices. The single learning
+procedure derives its observed input/output dimensions from the recordings and
+learns the effective command-to-motion behavior. It need not recover a physical
+layout or uniquely identify every physical parameter to predict accurately.
+Input-channel count is not assumed to equal propeller or actuator count.
+
+Reading a telemetry format is data interpretation, not a model catalog. Adapters
+must not hide vehicle equations or physical parameters behind that boundary.
+Recordings still need interpretable timing and signal semantics for known
+physics to apply; use available metadata automatically rather than a manual
+airframe-configuration workflow, and do not silently invent missing semantics.
+The rigid-body vehicle formulation is the first shared-physics hypothesis for
+the current applications, not a claim of proven accuracy on every system.
 
 ## Rules
 
