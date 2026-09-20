@@ -1,0 +1,850 @@
+{
+  "format": "glassbox-initialized-mean-prior-v1-result",
+  "date": "2026-09-20",
+  "outcome": {
+    "research_candidate_accepted": false,
+    "frozen_residual_criteria_pass": false,
+    "failed_leaf_checks": [
+      "joint_progress"
+    ],
+    "public_promotion": false,
+    "public_recipe_unchanged": "generic-memory-v4-prototype",
+    "interpretation": "Reject this fixed initialized-mean penalty. Crazyflow improvements do not offset Cascade response losses under the prospectively frozen symmetric aggregate rule. Passing verification preserves, and does not reverse, the failed scientific verdict.",
+    "scope": "Prepared-cache research residual comparison. No public lifecycle, universal improvement, calibration, derivative or controller qualification."
+  },
+  "identity": {
+    "protocol": {
+      "path": "docs/harness/initialized-mean-prior-v1.json",
+      "sha256": "ee0491128205554f6038f5bb6a5d7e5849dd19908476440c61eddd7744bb7715"
+    },
+    "protocol_commit": "d567d9b8cbc05088af1f21d1a16d6fab2fbd98fa",
+    "implementation_commit": "0d5f3b1acb5fbace503646b9379f46af5cf45aab",
+    "implementation_binding": {
+      "path": "artifacts/2026-09-20/initialized-mean-prior-v1-evidence/provenance/initialized-mean-prior-v1-implementation-attempt1.json",
+      "sha256": "19b07dec58480d8a1107867e27df056c437b882ac94cc7c6f2ce282fe6bd2c50"
+    },
+    "experiment": {
+      "path": "artifacts/2026-09-20/initialized-mean-prior-v1-evidence/experiment/run.json",
+      "sha256": "7ffed1788d03b407ffad70c82336f2f86fa38bd9fad0df66a87137e311305ae5"
+    },
+    "decision": {
+      "path": "artifacts/2026-09-20/initialized-mean-prior-v1-evidence/experiment/decision.json",
+      "sha256": "8a8b4f36364660e91803b133030c32728cea7effdebda3ae11671b5de3ff7415"
+    },
+    "unchanged_public_source_sha256": {
+      "src/glassbox/_sequence_model.py": "a76ce39b2481808bf340e55b343336d1f56568c9f97e4756791096838916ade3",
+      "src/glassbox/learner.py": "6f3ea76b240f58b57b9e8514c09fe65141672caf2380f649a4b81a7c8940f2b9"
+    },
+    "baseline_prediction_source_commit": "1f467736b2b0fdc1604fa9b2af442a95d9e2f0ed",
+    "baseline_prior_experiment_run_sha256": "d469294215b6c219f87145f8c74c594c308072181886a5a282b38896baf91ce1"
+  },
+  "intervention": {
+    "candidate_recipe": "generic-memory-initialized-mean-prior-research-v1",
+    "entry": "Private research fit on exact imported preparation; no public fit/update or consumer API change.",
+    "training_windows": 1536,
+    "training_parents": 144,
+    "development_windows": 256,
+    "development_parents": 24,
+    "matching": "Exact retained caches, roles and order; initial parameter/norm arrays, hold scales and fixed initial channel weights. No fresh training collection or baseline refit.",
+    "reference": "Z is the saved actual initial training prediction already used to construct weights, held constant by stop_gradient; no additional initializer or initial forecast.",
+    "formula": {
+      "data": "mean(w * ((F - Y) / s)^2)",
+      "prior": "mean(w * ((F - stop_gradient(Z)) / s)^2)",
+      "optimized_and_acceptance": "J = data + 0.25 * prior",
+      "strength": 0.25,
+      "one_shared_forward": true
+    },
+    "development_selection": "First strict minimum weighted data-only development loss at steps 0,100,...,1000; both selected step1000.",
+    "gradient_attempts_per_fit": 1000,
+    "ordered_gradient_window_visits_per_fit": 1536000,
+    "fitter_wall_limit_s": 7200,
+    "stage_wall_limit_s": 14400,
+    "fresh_confirmation_seed_shift": 13000000,
+    "confirmation_prerequisite": "Both candidate outcomes sealed before collection; fresh seeds exclude prior0..12M cohorts and all training/development recordings."
+  },
+  "frozen_criteria": {
+    "accept_research_candidate": {
+      "all_eligible_predictions_finite_and_models_available": true,
+      "each_simulator_250ms_primary_parent_rmse_p95_ratio_max": 1.5,
+      "each_simulator_primary_factual_and_response_geometric_mean_ratio_max": 1.15,
+      "each_simulator_scope_factual_and_response_geometric_mean_ratio_max": 1.5,
+      "factual_weighted_geometric_mean_ratio_max": 1.05,
+      "identical_truth_and_query_cohorts": true,
+      "joint_definition": "sqrt(factual_weighted_geometric_mean_ratio * response_weighted_geometric_mean_ratio)",
+      "joint_equal_kind_geometric_mean_ratio_max": 0.97,
+      "response_weighted_geometric_mean_ratio_max": 1.05,
+      "tail_guard_groups": [
+        "velocity_m_s",
+        "body_rate_rad_s",
+        "rotation_entries"
+      ],
+      "tail_guard_kinds": [
+        "factual",
+        "response"
+      ]
+    },
+    "aggregation": {
+      "floors": {
+        "body_rate_rad_s": 0.001,
+        "rotation_entries": 0.0001,
+        "velocity_m_s": 0.001
+      },
+      "groups": [
+        "velocity_m_s",
+        "body_rate_rad_s",
+        "rotation_entries"
+      ],
+      "horizons_s": [
+        0.05,
+        0.15,
+        0.25
+      ],
+      "scope_weights": {
+        "heading_shift": 0.125,
+        "maneuver_shift": 0.125,
+        "primary": 0.5,
+        "speed_shift": 0.125,
+        "wind_shift": 0.125
+      },
+      "simulator_weights": {
+        "cascade": 0.5,
+        "crazyflow": 0.5
+      },
+      "within_scope": "Equal weight per horizon and signal group. Weighted geometric mean of candidate/baseline RMSE ratios, with common floor in physical units applied to numerator/denominator before division. Report absolute RMSE and changes alongside ratios."
+    },
+    "angular_retention": {
+      "denominator": "baseline",
+      "factual_aggregate_rmse_ratio_max": 1.05,
+      "factual_parent_rmse_p95_ratio_max": 1.05,
+      "group": "body_rate_rad_s",
+      "horizon_s": 0.25,
+      "numerator": "candidate",
+      "response_aggregate_rmse_ratio_max": 1.05,
+      "response_parent_rmse_p95_ratio_max": 1.05,
+      "scope": "primary",
+      "simulator": "crazyflow",
+      "statistic": "The identical inherited hierarchical available-truth RMSE and linear-quantile parentRMSEp95, physical floors and shared query/mask rosters."
+    },
+    "uncertainty": {
+      "draws": 1000,
+      "seed": 20260918,
+      "sharing": "Identical draws for both arms, all horizons/groups/kinds and angular retention; save draw hash and descriptive percentile95% intervals. No confidence-interval significance veto.",
+      "unit": "whole parent resampled within each fixed cell"
+    }
+  },
+  "result": {
+    "weighted_geometric_mean_ratios": {
+      "factual": 0.9846582691632743,
+      "response": 1.0445223476718557
+    },
+    "joint_equal_kind_geometric_mean_ratio": 1.0141486907554185,
+    "checks": {
+      "factual_regression": true,
+      "finite_eligible_predictions": true,
+      "joint_progress": false,
+      "matching_planned_queries_and_truth": true,
+      "primary_parent_tail_regressions": true,
+      "primary_simulator_regressions": true,
+      "response_regression": true,
+      "scope_regressions": true
+    },
+    "angular_retention_checks": {
+      "factual_aggregate_rmse": true,
+      "factual_parent_rmse_p95": true,
+      "finite_eligible_predictions": true,
+      "matching_planned_queries_and_truth": true,
+      "response_aggregate_rmse": true,
+      "response_parent_rmse_p95": true
+    },
+    "all_input_eligible_predictions_finite": true,
+    "all_models_available": true,
+    "bootstrap_descriptive_only": {
+      "aggregates": {
+        "factual": {
+          "available_draws": 1000,
+          "percentile_95_interval": [
+            0.9680106766444753,
+            1.0009791060938835
+          ],
+          "unavailable_draws": 0
+        },
+        "response": {
+          "available_draws": 1000,
+          "percentile_95_interval": [
+            1.032193812921907,
+            1.0562513322494826
+          ],
+          "unavailable_draws": 0
+        }
+      },
+      "conditional_on_available_truth": true,
+      "intervals_condition_on_available_draws": true,
+      "parent_draws_sha256": "bb412ec4e1452ad87df32e54fc072860177ccac343951bc664aa117b9dcf3ef2",
+      "requested_draws": 1000,
+      "seed": 20260918
+    },
+    "simulator_kind_diagnostic": [
+      {"cells": 45, "kind": "factual", "percent_change": -6.33890056495493, "ratio": 0.9366109943504507, "raw_worse": 8, "simulator": "crazyflow"},
+      {"cells": 45, "kind": "factual", "percent_change": 3.517032458497815, "ratio": 1.0351703245849782, "raw_worse": 30, "simulator": "cascade"},
+      {"cells": 45, "kind": "response", "percent_change": -2.289035152361374, "ratio": 0.9771096484763863, "raw_worse": 17, "simulator": "crazyflow"},
+      {"cells": 45, "kind": "response", "percent_change": 11.658598038323609, "ratio": 1.116585980383236, "raw_worse": 38, "simulator": "cascade"}
+    ],
+    "endpoint_cells": 180,
+    "raw_worse_cells": 93,
+    "floored_ratio_above_one_cells": 93,
+    "regression_count_rule": "Raw worsening uses absolute_change > 0, regardless of ratio floors.",
+    "scope_kind_aggregates": 20,
+    "improving_scope_kind_aggregates": 12,
+    "primary_250ms_parent_p95_checks": 12,
+    "worsening_primary_250ms_parent_p95": 10,
+    "all_primary_tail_limits_pass": true,
+    "primary_250ms": [
+      {"absolute_change": 0.005004904678395261, "baseline_rmse": 0.06629648162198133, "candidate_rmse": 0.07130138630037659, "conditional_on_incomplete_truth": false, "group": "velocity_m_s", "horizon_s": 0.25, "kind": "factual", "planned": 480, "ratio": 1.0754927645622725, "scope": "primary", "simulator": "cascade", "truth_eligible": 480},
+      {"absolute_change": 0.0009859923336363388, "baseline_rmse": 0.043122018363446764, "candidate_rmse": 0.0441080106970831, "conditional_on_incomplete_truth": false, "group": "body_rate_rad_s", "horizon_s": 0.25, "kind": "factual", "planned": 480, "ratio": 1.0228651712293721, "scope": "primary", "simulator": "cascade", "truth_eligible": 480},
+      {"absolute_change": 0.0005517493456845225, "baseline_rmse": 0.0054671173787278005, "candidate_rmse": 0.006018866724412323, "conditional_on_incomplete_truth": false, "group": "rotation_entries", "horizon_s": 0.25, "kind": "factual", "planned": 480, "ratio": 1.1009214376540264, "scope": "primary", "simulator": "cascade", "truth_eligible": 480},
+      {"absolute_change": 0.0029417458366541235, "baseline_rmse": 0.019774716966859448, "candidate_rmse": 0.02271646280351357, "conditional_on_incomplete_truth": false, "group": "velocity_m_s", "horizon_s": 0.25, "kind": "response", "planned": 576, "ratio": 1.1487629806072173, "scope": "primary", "simulator": "cascade", "truth_eligible": 576},
+      {"absolute_change": 0.0019037065973705747, "baseline_rmse": 0.01845042916176643, "candidate_rmse": 0.020354135759137006, "conditional_on_incomplete_truth": false, "group": "body_rate_rad_s", "horizon_s": 0.25, "kind": "response", "planned": 576, "ratio": 1.1031795293583466, "scope": "primary", "simulator": "cascade", "truth_eligible": 576},
+      {"absolute_change": 0.00034341415775810996, "baseline_rmse": 0.0016784786688474995, "candidate_rmse": 0.0020218928266056094, "conditional_on_incomplete_truth": false, "group": "rotation_entries", "horizon_s": 0.25, "kind": "response", "planned": 576, "ratio": 1.2045984641520109, "scope": "primary", "simulator": "cascade", "truth_eligible": 576},
+      {"absolute_change": 0.002342123425790342, "baseline_rmse": 0.03643907697624873, "candidate_rmse": 0.03878120040203907, "conditional_on_incomplete_truth": true, "group": "velocity_m_s", "horizon_s": 0.25, "kind": "factual", "planned": 480, "ratio": 1.0642750481115906, "scope": "primary", "simulator": "crazyflow", "truth_eligible": 434},
+      {"absolute_change": -0.01781695729272889, "baseline_rmse": 0.12377283748192303, "candidate_rmse": 0.10595588018919413, "conditional_on_incomplete_truth": true, "group": "body_rate_rad_s", "horizon_s": 0.25, "kind": "factual", "planned": 480, "ratio": 0.8560511526179477, "scope": "primary", "simulator": "crazyflow", "truth_eligible": 434},
+      {"absolute_change": 0.0002336113060336896, "baseline_rmse": 0.023440590212140858, "candidate_rmse": 0.023674201518174547, "conditional_on_incomplete_truth": true, "group": "rotation_entries", "horizon_s": 0.25, "kind": "factual", "planned": 480, "ratio": 1.009966101703049, "scope": "primary", "simulator": "crazyflow", "truth_eligible": 434},
+      {"absolute_change": 0.0009010314626583769, "baseline_rmse": 0.020152822561622093, "candidate_rmse": 0.02105385402428047, "conditional_on_incomplete_truth": true, "group": "velocity_m_s", "horizon_s": 0.25, "kind": "response", "planned": 768, "ratio": 1.0447099387643224, "scope": "primary", "simulator": "crazyflow", "truth_eligible": 712},
+      {"absolute_change": 0.0008877905499532768, "baseline_rmse": 0.13865291913646102, "candidate_rmse": 0.1395407096864143, "conditional_on_incomplete_truth": true, "group": "body_rate_rad_s", "horizon_s": 0.25, "kind": "response", "planned": 768, "ratio": 1.0064029704926698, "scope": "primary", "simulator": "crazyflow", "truth_eligible": 712},
+      {"absolute_change": 0.0016828645984587748, "baseline_rmse": 0.01724637621230838, "candidate_rmse": 0.018929240810767155, "conditional_on_incomplete_truth": true, "group": "rotation_entries", "horizon_s": 0.25, "kind": "response", "planned": 768, "ratio": 1.0975778666626643, "scope": "primary", "simulator": "crazyflow", "truth_eligible": 712}
+    ],
+    "scope_ratios": [
+      {"kind": "factual", "ratio": 1.1240092811993767, "scope": "heading_shift", "simulator": "cascade"},
+      {"kind": "factual", "ratio": 0.9257470632115371, "scope": "maneuver_shift", "simulator": "cascade"},
+      {"kind": "factual", "ratio": 1.0458255211755818, "scope": "primary", "simulator": "cascade"},
+      {"kind": "factual", "ratio": 1.069683537571841, "scope": "speed_shift", "simulator": "cascade"},
+      {"kind": "factual", "ratio": 0.9902389685802213, "scope": "wind_shift", "simulator": "cascade"},
+      {"kind": "factual", "ratio": 0.9583173004329784, "scope": "heading_shift", "simulator": "crazyflow"},
+      {"kind": "factual", "ratio": 0.8979469789831354, "scope": "maneuver_shift", "simulator": "crazyflow"},
+      {"kind": "factual", "ratio": 0.9487942667647775, "scope": "primary", "simulator": "crazyflow"},
+      {"kind": "factual", "ratio": 0.9452218883822857, "scope": "speed_shift", "simulator": "crazyflow"},
+      {"kind": "factual", "ratio": 0.8984460677136875, "scope": "wind_shift", "simulator": "crazyflow"},
+      {"kind": "response", "ratio": 1.1293508444475935, "scope": "heading_shift", "simulator": "cascade"},
+      {"kind": "response", "ratio": 1.1482175056004404, "scope": "maneuver_shift", "simulator": "cascade"},
+      {"kind": "response", "ratio": 1.1040336688704322, "scope": "primary", "simulator": "cascade"},
+      {"kind": "response", "ratio": 1.1257185698754133, "scope": "speed_shift", "simulator": "cascade"},
+      {"kind": "response", "ratio": 1.1141026784910804, "scope": "wind_shift", "simulator": "cascade"},
+      {"kind": "response", "ratio": 0.9956063129546003, "scope": "heading_shift", "simulator": "crazyflow"},
+      {"kind": "response", "ratio": 0.9162783587002433, "scope": "maneuver_shift", "simulator": "crazyflow"},
+      {"kind": "response", "ratio": 0.9805232459988981, "scope": "primary", "simulator": "crazyflow"},
+      {"kind": "response", "ratio": 0.9934327338174082, "scope": "speed_shift", "simulator": "crazyflow"},
+      {"kind": "response", "ratio": 0.9918849483544855, "scope": "wind_shift", "simulator": "crazyflow"}
+    ],
+    "primary_250ms_parent_p95": [
+      {"baseline_p95": 0.09883638420302639, "candidate_p95": 0.10700845870118333, "group": "velocity_m_s", "kind": "factual", "pass": true, "ratio": 1.0826828557524943, "simulator": "cascade"},
+      {"baseline_p95": 0.06385578956437322, "candidate_p95": 0.06675799412308898, "group": "body_rate_rad_s", "kind": "factual", "pass": true, "ratio": 1.0454493567226202, "simulator": "cascade"},
+      {"baseline_p95": 0.007952624409217495, "candidate_p95": 0.009444292977395944, "group": "rotation_entries", "kind": "factual", "pass": true, "ratio": 1.1875693471012574, "simulator": "cascade"},
+      {"baseline_p95": 0.030787429825327197, "candidate_p95": 0.031203735525850304, "group": "velocity_m_s", "kind": "response", "pass": true, "ratio": 1.0135219374558064, "simulator": "cascade"},
+      {"baseline_p95": 0.026713688903830742, "candidate_p95": 0.029548661159477498, "group": "body_rate_rad_s", "kind": "response", "pass": true, "ratio": 1.1061243269640764, "simulator": "cascade"},
+      {"baseline_p95": 0.0022938881848498325, "candidate_p95": 0.00277047860855963, "group": "rotation_entries", "kind": "response", "pass": true, "ratio": 1.2077653247693052, "simulator": "cascade"},
+      {"baseline_p95": 0.06232755435178746, "candidate_p95": 0.06575164290891135, "group": "velocity_m_s", "kind": "factual", "pass": true, "ratio": 1.0549369952460792, "simulator": "crazyflow"},
+      {"baseline_p95": 0.2237529820119968, "candidate_p95": 0.19677873651480532, "group": "body_rate_rad_s", "kind": "factual", "pass": true, "ratio": 0.8794463195322008, "simulator": "crazyflow"},
+      {"baseline_p95": 0.03722132746798399, "candidate_p95": 0.03981523103963853, "group": "rotation_entries", "kind": "factual", "pass": true, "ratio": 1.069688636814087, "simulator": "crazyflow"},
+      {"baseline_p95": 0.03539356692328386, "candidate_p95": 0.03812252569748094, "group": "velocity_m_s", "kind": "response", "pass": true, "ratio": 1.0771032425217877, "simulator": "crazyflow"},
+      {"baseline_p95": 0.23352845619786766, "candidate_p95": 0.23021094149404375, "group": "body_rate_rad_s", "kind": "response", "pass": true, "ratio": 0.985793959512099, "simulator": "crazyflow"},
+      {"baseline_p95": 0.027768201813253613, "candidate_p95": 0.03160125409424643, "group": "rotation_entries", "kind": "response", "pass": true, "ratio": 1.1380374684241643, "simulator": "crazyflow"}
+    ],
+    "full_physical_rows_and_all_shifted_tails": {
+      "path": "artifacts/2026-09-20/initialized-mean-prior-v1-evidence/experiment/decision.json",
+      "sha256": "8a8b4f36364660e91803b133030c32728cea7effdebda3ae11671b5de3ff7415"
+    },
+    "units": {
+      "velocity_m_s": "m/s",
+      "body_rate_rad_s": "rad/s",
+      "rotation_entries": "dimensionless rotation-matrix entry RMSE"
+    }
+  },
+  "simulators": {
+    "crazyflow": {
+      "retained_baseline": {
+        "fingerprint": "edc1f936e03ca83e9fe5c6ef5c44b5cafc95e4445db1239bdb25b055cebe36e0",
+        "model_sha256": "d031b9e626385c38419846e2dacb172cf4b5560a37f8a2e95113a1d5f6f69686",
+        "imported_copy": {
+          "path": "artifacts/2026-09-20/initialized-mean-prior-v1-evidence/experiment/crazyflow/candidate/imported-control.npz",
+          "sha256": "d031b9e626385c38419846e2dacb172cf4b5560a37f8a2e95113a1d5f6f69686"
+        },
+        "prior_selected_model": {
+          "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-19/independent-training-recordings-v1-evidence/experiment/crazyflow/candidate/model.npz",
+          "sha256": "d031b9e626385c38419846e2dacb172cf4b5560a37f8a2e95113a1d5f6f69686"
+        },
+        "prior_candidate_run_sha256": "d226cb271639ce1139b7a7f60fcb67fdf93e68623d63c6993a9e6391814ece3f"
+      },
+      "candidate": {
+        "model": {
+          "path": "artifacts/2026-09-20/initialized-mean-prior-v1-evidence/experiment/crazyflow/candidate/model.npz",
+          "sha256": "cc8546b1461d6312f16661162a6ed06fde16d02aa9feb02f2bd5d0f04f8fd7f5"
+        },
+        "fingerprint": "8eb7f47074fb10e55accda933d5bfbbfdb304577dba98e7f2bd475a0c63da0d4",
+        "selected_step": 1000
+      },
+      "confirmation": {
+        "all_arm_masks_failures_and_finiteness_equal": true,
+        "complete": 63,
+        "failure_reasons": {
+          "altitude_below_0.5m": 21
+        },
+        "parents": 84,
+        "queries": 2184,
+        "raw_rows": 157248,
+        "unique_slots_per_arm": 52416,
+        "seal": {
+          "path": "artifacts/2026-09-20/initialized-mean-prior-v1-evidence/experiment/crazyflow/confirmation/data/seal.json",
+          "sha256": "7082ae2293cbd0c06150bc4136729715328b6bca04d3b1c4c8b1a33eaab1689d"
+        },
+        "new_training_parents": 0,
+        "test_seed_shift_from_original": 13000000
+      }
+    },
+    "cascade": {
+      "retained_baseline": {
+        "fingerprint": "101d13032eb90d4d2d7763dc33d7d8ebb18f5115235d72864a551632219c060f",
+        "model_sha256": "4b00d2f381d2fb95abc0bf549bbbf35ab6c88a50bf9b159751b06306ea90f0fe",
+        "imported_copy": {
+          "path": "artifacts/2026-09-20/initialized-mean-prior-v1-evidence/experiment/cascade/candidate/imported-control.npz",
+          "sha256": "4b00d2f381d2fb95abc0bf549bbbf35ab6c88a50bf9b159751b06306ea90f0fe"
+        },
+        "prior_selected_model": {
+          "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-19/independent-training-recordings-v1-evidence/experiment/cascade/candidate/model.npz",
+          "sha256": "4b00d2f381d2fb95abc0bf549bbbf35ab6c88a50bf9b159751b06306ea90f0fe"
+        },
+        "prior_candidate_run_sha256": "d535304327e6ed8729223747e612beab8bfbd2b4aea480c0811ced3c44c0e390"
+      },
+      "candidate": {
+        "model": {
+          "path": "artifacts/2026-09-20/initialized-mean-prior-v1-evidence/experiment/cascade/candidate/model.npz",
+          "sha256": "07608d650ef2bb8614678715938d2b01b6c0fcc4f9c502e1e947cb00297dbcd9"
+        },
+        "fingerprint": "c298c7495cbe8a17b7c98b421332b96393f1ee0767ece37d5529f7ddab68bf53",
+        "selected_step": 1000
+      },
+      "confirmation": {
+        "all_arm_masks_failures_and_finiteness_equal": true,
+        "complete": 84,
+        "failure_reasons": {},
+        "parents": 84,
+        "queries": 1848,
+        "raw_rows": 99792,
+        "unique_slots_per_arm": 33264,
+        "seal": {
+          "path": "artifacts/2026-09-20/initialized-mean-prior-v1-evidence/experiment/cascade/confirmation/data/seal.json",
+          "sha256": "3167ce95bcd55d1e0f620737c3f5e5a0d8243a068b91d0c3be8ce0ddd8684c2e"
+        },
+        "new_training_parents": 0,
+        "test_seed_shift_from_original": 13000000
+      }
+    }
+  },
+  "actual_work": {
+    "fresh_private_fits": 2,
+    "baseline_refits": 0,
+    "fit_retries": 0,
+    "scientific_stages_complete_first_attempt": 10,
+    "root_finalization_complete_first_attempt": true,
+    "comparison_scope": "Same gradient-window and attempt budgets as retained controls; not equal FLOPs or elapsed time. No prior-only second rollout. Timings include source-bound capture and are not pure-kernel benchmarks.",
+    "by_simulator": {
+      "crazyflow": {
+        "candidate_stage_wall_s": 323.4457377088256,
+        "total_fit_function_wall_s": 321.7392860830296,
+        "original_revision_unchanged": true,
+        "ambient_configuration_restored": true,
+        "selected_step": 1000,
+        "work": {
+          "accepted_attempts": 988,
+          "attempts_started": 1000,
+          "calibration_calls": 1,
+          "calibration_wall_s": 0.43532041599974036,
+          "completed_acceptance_attempts": 1000,
+          "fitter_calls": 1,
+          "fitter_including_capture_wall_s": 318.90729150013067,
+          "full_training_objective_calls": 5318,
+          "full_training_objective_calls_max": 8001,
+          "gradient_proposal_calls_returned": 1000,
+          "incomplete_gradient_work_unknown": false,
+          "index_dtype": "int64",
+          "initial_training_forecast_calls": 1,
+          "initializer_calls": 1,
+          "known_gradient_window_visits": 1536000,
+          "loss_scope": "full_training_cache_pre_proposal",
+          "policy": "ordered_full_cache",
+          "rejected_attempts": 12,
+          "ridge_solve_calls": 2,
+          "sampling_seed": null,
+          "training_windows": 1536
+        },
+        "prior_reference_bytes": 4608000,
+        "candidate_run": {
+          "path": "artifacts/2026-09-20/initialized-mean-prior-v1-evidence/experiment/crazyflow/candidate/run.json",
+          "sha256": "b55ebc2e499f98dcd0091863c48935c20acdf0148926c357c75aa0858023e5d4"
+        },
+        "timing": {
+          "path": "artifacts/2026-09-20/initialized-mean-prior-v1-evidence/experiment/crazyflow/candidate/timing.json",
+          "sha256": "5b389a9bd46759a733a57a60697fd8f349fa95722bed8451b7103833bdebfcda"
+        }
+      },
+      "cascade": {
+        "candidate_stage_wall_s": 47.261832957854494,
+        "total_fit_function_wall_s": 45.59081166703254,
+        "original_revision_unchanged": true,
+        "ambient_configuration_restored": true,
+        "selected_step": 1000,
+        "work": {
+          "accepted_attempts": 997,
+          "attempts_started": 1000,
+          "calibration_calls": 1,
+          "calibration_wall_s": 0.8108885411638767,
+          "completed_acceptance_attempts": 1000,
+          "fitter_calls": 1,
+          "fitter_including_capture_wall_s": 42.79760904214345,
+          "full_training_objective_calls": 2567,
+          "full_training_objective_calls_max": 8001,
+          "gradient_proposal_calls_returned": 1000,
+          "incomplete_gradient_work_unknown": false,
+          "index_dtype": "int64",
+          "initial_training_forecast_calls": 1,
+          "initializer_calls": 1,
+          "known_gradient_window_visits": 1536000,
+          "loss_scope": "full_training_cache_pre_proposal",
+          "policy": "ordered_full_cache",
+          "rejected_attempts": 3,
+          "ridge_solve_calls": 2,
+          "sampling_seed": null,
+          "training_windows": 1536
+        },
+        "prior_reference_bytes": 921600,
+        "candidate_run": {
+          "path": "artifacts/2026-09-20/initialized-mean-prior-v1-evidence/experiment/cascade/candidate/run.json",
+          "sha256": "66c8255d957ed5531578ab24767a44a854b6ae37b799f16b9b89c96009f665ad"
+        },
+        "timing": {
+          "path": "artifacts/2026-09-20/initialized-mean-prior-v1-evidence/experiment/cascade/candidate/timing.json",
+          "sha256": "b05fb2313783d7bedbc7b780d46a4e98e24e1aa40b9a2bd55f1dc528f3fdf5ab"
+        }
+      }
+    }
+  },
+  "saved_cache_hypothesis_diagnosis": {
+    "interpretation": "The penalty reduces Crazyflow development angular drift versus the selected control but all25 angular horizons remain worse than initialization; it also worsens Cascade development losses. This supports a local regularization tradeoff, not a general forecast/response improvement or a causal explanation of every held-out loss.",
+    "by_simulator": {
+      "crazyflow": {
+        "source": {
+          "path": "artifacts/2026-09-20/initialized-mean-prior-v1-evidence/provenance/initialized-mean-prior-crazyflow-cache-diagnosis-v1.json",
+          "sha256": "34c95868e36ada62817ec4ddb1d2b77076810438703030e6a5bfb9192565c748"
+        },
+        "scope": "Saved training/development diagnostics only; no fresh physical accuracy, candidate selection, promotion, or gate claim.",
+        "selection": "First strict minimum weighted data-only development loss; fixed by the original fit, never altered by this diagnosis.",
+        "objective": {
+          "comparability": "Retained control has identical caches, hold scales and channel weights. Its weighted data loss is comparable; its optimizer had no prior and its scalar is not J.",
+          "data_ratio": 0.2247302118415902,
+          "initial": {
+            "data": 0.004300661919066486,
+            "prior": 6.787314189734805e-31,
+            "prior_contribution": 1.6968285474337013e-31,
+            "step": 0,
+            "total": 0.004300661919066486
+          },
+          "selected": {
+            "data": 0.0009664886641308712,
+            "prior": 0.001951313323309548,
+            "prior_contribution": 0.000487828330827387,
+            "step": 1000,
+            "total": 0.0014543169949582583
+          },
+          "selected_prior_fraction_of_total": 0.3354346628132394,
+          "strength": 0.25,
+          "total_ratio": 0.3381611999098819
+        },
+        "verification": {
+          "all_initial_diagnostics_equal_retained_control": true,
+          "exact_imported_cache_initializer_weights_verified": true,
+          "fits": 0,
+          "full_payload_inventory_verified": true,
+          "gradients": 0,
+          "initializers": 0,
+          "new_forecasts": 0,
+          "saved_candidate_verification_passed": true,
+          "solves": 0
+        },
+        "development_250ms": {
+          "body_rate_rad_s": {
+            "candidate_250ms": 0.11502467322210203,
+            "candidate_over_initial": 1.1756784761907682,
+            "candidate_over_retained_control": 0.8817522340341667,
+            "initial_250ms": 0.09783684532082722,
+            "native_horizons": 25,
+            "retained_control_250ms": 0.1304501069374608,
+            "worse_horizons_vs_initial": 25,
+            "worse_horizons_vs_retained_control": 0
+          },
+          "rotation_entries": {
+            "candidate_250ms": 0.020083255116375362,
+            "candidate_over_initial": 0.41886891065746745,
+            "candidate_over_retained_control": 0.9600818405188918,
+            "initial_250ms": 0.04794639708364167,
+            "native_horizons": 25,
+            "retained_control_250ms": 0.020918274118715798,
+            "worse_horizons_vs_initial": 0,
+            "worse_horizons_vs_retained_control": 0
+          },
+          "velocity_m_s": {
+            "candidate_250ms": 0.0343028857620674,
+            "candidate_over_initial": 0.4756683994538869,
+            "candidate_over_retained_control": 1.0245871791964039,
+            "initial_250ms": 0.07211512432074617,
+            "native_horizons": 25,
+            "retained_control_250ms": 0.03347971403367703,
+            "worse_horizons_vs_initial": 0,
+            "worse_horizons_vs_retained_control": 16
+          }
+        },
+        "development_weighted_data_loss": {
+          "candidate": 0.0007476452976479679,
+          "candidate_over_initial": 0.3997668759817184,
+          "candidate_over_retained_control": 0.8830392902733927,
+          "initial": 0.001870203217342495,
+          "retained_control": 0.0008466727425191848
+        },
+        "training_weighted_data_loss": {
+          "candidate": 0.0009664886641308712,
+          "candidate_over_initial": 0.22473021184159014,
+          "candidate_over_retained_control": 1.2677312564682757,
+          "initial": 0.004300661919066487,
+          "retained_control": 0.0007623766150748506
+        }
+      },
+      "cascade": {
+        "source": {
+          "path": "artifacts/2026-09-20/initialized-mean-prior-v1-evidence/provenance/initialized-mean-prior-cascade-cache-diagnosis-v1.json",
+          "sha256": "5ff3d3ef4755881d60e41537dca3591a85fe681af37d63444be184ae8e688945"
+        },
+        "scope": "Saved training/development diagnostics only; no fresh physical accuracy, candidate selection, promotion, or gate claim.",
+        "selection": "First strict minimum weighted data-only development loss; fixed by the original fit, never altered by this diagnosis.",
+        "objective": {
+          "comparability": "Retained control has identical caches, hold scales and channel weights. Its weighted data loss is comparable; its optimizer had no prior and its scalar is not J.",
+          "data_ratio": 0.1380078830318628,
+          "initial": {
+            "data": 0.024029753334160162,
+            "prior": 3.364624417053607e-29,
+            "prior_contribution": 8.411561042634018e-30,
+            "step": 0,
+            "total": 0.024029753334160162
+          },
+          "selected": {
+            "data": 0.0033162953874252906,
+            "prior": 0.013543288345171373,
+            "prior_contribution": 0.0033858220862928432,
+            "step": 1000,
+            "total": 0.006702117473718134
+          },
+          "selected_prior_fraction_of_total": 0.5051869203382511,
+          "strength": 0.25,
+          "total_ratio": 0.2789091248885419
+        },
+        "verification": {
+          "all_initial_diagnostics_equal_retained_control": true,
+          "exact_imported_cache_initializer_weights_verified": true,
+          "fits": 0,
+          "full_payload_inventory_verified": true,
+          "gradients": 0,
+          "initializers": 0,
+          "new_forecasts": 0,
+          "saved_candidate_verification_passed": true,
+          "solves": 0
+        },
+        "development_250ms": {
+          "body_rate_rad_s": {
+            "candidate_250ms": 0.05093500199111228,
+            "candidate_over_initial": 0.39895025458297256,
+            "candidate_over_retained_control": 1.0630297279056458,
+            "initial_250ms": 0.12767256420065515,
+            "native_horizons": 5,
+            "retained_control_250ms": 0.04791493657610416,
+            "worse_horizons_vs_initial": 0,
+            "worse_horizons_vs_retained_control": 5
+          },
+          "rotation_entries": {
+            "candidate_250ms": 0.006240102036692973,
+            "candidate_over_initial": 0.41357370573730234,
+            "candidate_over_retained_control": 1.0657191913624544,
+            "initial_250ms": 0.015088246544998246,
+            "native_horizons": 5,
+            "retained_control_250ms": 0.005855296674084848,
+            "worse_horizons_vs_initial": 0,
+            "worse_horizons_vs_retained_control": 5
+          },
+          "velocity_m_s": {
+            "candidate_250ms": 0.07351615532215024,
+            "candidate_over_initial": 0.40954764583107545,
+            "candidate_over_retained_control": 1.0778388419455527,
+            "initial_250ms": 0.17950574510803846,
+            "native_horizons": 5,
+            "retained_control_250ms": 0.06820700132632994,
+            "worse_horizons_vs_initial": 0,
+            "worse_horizons_vs_retained_control": 3
+          }
+        },
+        "development_weighted_data_loss": {
+          "candidate": 0.0062145755231162005,
+          "candidate_over_initial": 0.24711332622817014,
+          "candidate_over_retained_control": 1.1360361835308868,
+          "initial": 0.025148686305076162,
+          "retained_control": 0.0054704028033691916
+        },
+        "training_weighted_data_loss": {
+          "candidate": 0.00331629538742529,
+          "candidate_over_initial": 0.13800788303186276,
+          "candidate_over_retained_control": 1.4707954192814565,
+          "initial": 0.024029753334160166,
+          "retained_control": 0.0022547632008844817
+        }
+      }
+    }
+  },
+  "verification": {
+    "both_replays_pass": true,
+    "replays": {
+      "crazyflow": {
+        "run": {
+          "path": "artifacts/2026-09-20/initialized-mean-prior-v1-evidence/replay-crazyflow/run.json",
+          "sha256": "311fde70f89e14c71ac97e497c7caf000f0b3db8a1fed8903a0888511a0e6280"
+        },
+        "exact": true,
+        "fits": 0,
+        "initializers": 0,
+        "native_arrays": 30048,
+        "parents": 84,
+        "queries": 2184,
+        "prediction_and_envelope_arrays": 7058,
+        "saved_checkpoint_snapshots": 11,
+        "scope": "Fresh native collection replay and both selected prediction arms; saved checkpoint/cache predictions, calibration, prior components and scalar chain. No refitting, initializer, gradient or solve."
+      },
+      "cascade": {
+        "run": {
+          "path": "artifacts/2026-09-20/initialized-mean-prior-v1-evidence/replay-cascade/run.json",
+          "sha256": "60a015ded8fcb23973c4a699c6698820b2c131a5167479f25c66afc68701f41c"
+        },
+        "exact": true,
+        "fits": 0,
+        "initializers": 0,
+        "native_arrays": 23940,
+        "parents": 84,
+        "queries": 1848,
+        "prediction_and_envelope_arrays": 5714,
+        "saved_checkpoint_snapshots": 11,
+        "scope": "Fresh native collection replay and both selected prediction arms; saved checkpoint/cache predictions, calibration, prior components and scalar chain. No refitting, initializer, gradient or solve."
+      }
+    },
+    "independent_reduction": {
+      "run": {
+        "path": "artifacts/2026-09-20/initialized-mean-prior-v1-evidence/independent-reduction/run.json",
+        "sha256": "d404cdc45517fc94bc1590ec237dad4a25275a036a4ddc380e47168145f124cd"
+      },
+      "passed": true,
+      "counts": {
+        "cells": 10584,
+        "parents": 21168,
+        "raw_rows": 257040,
+        "summaries": 1260,
+        "tails": 840
+      },
+      "count_scope": "parents/cells/tails are reduction rows, not distinct physical recording counts. There are168 planned confirmation parents.",
+      "scope": "Independent NumPy raw MSE, matched masks, hierarchy, parent quantiles and aggregate ratios. Frozen canonical validators separately check directions, bootstrap and policy.",
+      "fits": 0,
+      "initializers": 0,
+      "predictions": 0
+    },
+    "alterations": {
+      "run": {
+        "path": "artifacts/2026-09-20/initialized-mean-prior-v1-evidence/alterations/run.json",
+        "sha256": "19a2e1b6f4da5f764e02991650ba1efebc4558e4658fa20f236879e97269f487"
+      },
+      "source_sha256": "b824485bee80bc070bfb62e87aba36005f3dd0591947b203c08774855ac6bd1c",
+      "passed": true,
+      "required_cases": 8,
+      "cases": [
+        {
+          "case": "IMP-A01",
+          "status": "detected",
+          "passed": true,
+          "clean_semantic_precheck_passed": true,
+          "external_rejection": "external stage SHA differs",
+          "semantic_rejection": "exact imported actual-preparation.npz"
+        },
+        {
+          "case": "IMP-A02",
+          "status": "detected",
+          "passed": true,
+          "clean_semantic_precheck_passed": true,
+          "external_rejection": "external stage SHA differs",
+          "semantic_rejection": "actual prior reference:reference is not byte-identical"
+        },
+        {
+          "case": "IMP-A03",
+          "status": "detected",
+          "passed": true,
+          "clean_semantic_precheck_passed": true,
+          "external_rejection": "external stage SHA differs",
+          "semantic_rejection": "accepted objective components differ from accepted trial"
+        },
+        {
+          "case": "IMP-A04",
+          "status": "detected",
+          "passed": true,
+          "clean_semantic_precheck_passed": true,
+          "external_rejection": "external stage SHA differs",
+          "semantic_rejection": "immutable imported control differs"
+        },
+        {
+          "case": "IMP-A05",
+          "status": "detected",
+          "passed": true,
+          "clean_semantic_precheck_passed": true,
+          "external_rejection": "external stage SHA differs",
+          "semantic_rejection": "literal confirmation roster"
+        },
+        {
+          "case": "IMP-A06",
+          "status": "detected",
+          "passed": true,
+          "clean_semantic_precheck_passed": true,
+          "external_rejection": "external stage SHA differs",
+          "semantic_rejection": "native issued-command replay rejected"
+        },
+        {
+          "case": "IMP-A07",
+          "status": "detected",
+          "passed": true,
+          "clean_semantic_precheck_passed": true,
+          "external_rejection": "external stage SHA differs",
+          "semantic_rejection": "selected query prediction replay differs"
+        },
+        {
+          "case": "IMP-A08",
+          "status": "detected",
+          "passed": true,
+          "clean_semantic_precheck_passed": true,
+          "external_rejection": "external stage SHA differs",
+          "semantic_rejection": "frozen decision raw reduction differs"
+        }
+      ],
+      "scope": "Eight frozen actual-bundle alterations; saved evidence except one native replay and one selected-candidate query. Paired-bootstrap RNG is reused in frozen decision validation; no optimizer RNG, gradients, initialization or fitting."
+    },
+    "tests": {
+      "initial_combined": {
+        "passed": 238,
+        "elapsed_s": 36.56,
+        "scope": "Initial combined regression suite, before final evidence-validation fixes.",
+        "log": {
+          "path": "artifacts/2026-09-20/initialized-mean-prior-v1-evidence/provenance/initialized-mean-prior-v1-prefreeze-tests-attempt1.log",
+          "sha256": "cad911b75ac1c87ed533affdfd15f3cb2dd3421352274a926dba5bc5cab6cc57"
+        }
+      },
+      "final_experiment_suite": {
+        "passed": 101,
+        "elapsed_s": 14.27,
+        "scope": "Final experiment tests after evidence-validation fixes and before scientific trials.",
+        "log": {
+          "path": "artifacts/2026-09-20/initialized-mean-prior-v1-evidence/provenance/initialized-mean-prior-v1-prefreeze-tests-final.log",
+          "sha256": "c3997b4317d9c97fb32e568e0eedfa6c6126f3fc0c0b74d7333bf6d33d71355c"
+        }
+      },
+      "ruff_format_and_diff_checks_pass": true,
+      "pretrial_validation": {
+        "path": "artifacts/2026-09-20/initialized-mean-prior-v1-evidence/provenance/initialized-mean-prior-v1-prefreeze-validation.json",
+        "sha256": "de0c49d286f073c4c89a9a36af78d55f96c672d1d3f585d071a45f24901e88ba"
+      }
+    }
+  },
+  "evidence": {
+    "path_policy": "Paths are durable main-workspace mirrors; immutable payloads retain their original absolute execution references. Source archive is the rejected research implementation, not integrated public code.",
+    "roots": {
+      "experiment": {
+        "path": "artifacts/2026-09-20/initialized-mean-prior-v1-evidence/experiment/run.json",
+        "sha256": "7ffed1788d03b407ffad70c82336f2f86fa38bd9fad0df66a87137e311305ae5"
+      },
+      "replay-crazyflow": {
+        "path": "artifacts/2026-09-20/initialized-mean-prior-v1-evidence/replay-crazyflow/run.json",
+        "sha256": "311fde70f89e14c71ac97e497c7caf000f0b3db8a1fed8903a0888511a0e6280"
+      },
+      "replay-cascade": {
+        "path": "artifacts/2026-09-20/initialized-mean-prior-v1-evidence/replay-cascade/run.json",
+        "sha256": "60a015ded8fcb23973c4a699c6698820b2c131a5167479f25c66afc68701f41c"
+      },
+      "independent-reduction": {
+        "path": "artifacts/2026-09-20/initialized-mean-prior-v1-evidence/independent-reduction/run.json",
+        "sha256": "d404cdc45517fc94bc1590ec237dad4a25275a036a4ddc380e47168145f124cd"
+      },
+      "alterations": {
+        "path": "artifacts/2026-09-20/initialized-mean-prior-v1-evidence/alterations/run.json",
+        "sha256": "19a2e1b6f4da5f764e02991650ba1efebc4558e4658fa20f236879e97269f487"
+      }
+    },
+    "copy_inventory": {
+      "path": "artifacts/2026-09-20/initialized-mean-prior-v1-evidence/copy-inventory.json",
+      "sha256": "ac81599169e80b9b846a9d7edca4d571df5a31e3b7cc6565a76b8a9a719d2ed1",
+      "files": 21996,
+      "bytes": 525253357,
+      "copy_verification": "Every file SHA and distinct source/copy inode verified; each stage run inventory verified separately."
+    },
+    "provenance": {
+      "initialized-mean-prior-cache-diagnosis-v1.py": {
+        "path": "artifacts/2026-09-20/initialized-mean-prior-v1-evidence/provenance/initialized-mean-prior-cache-diagnosis-v1.py",
+        "sha256": "297eb3c0d7502e79894fd01126c55641a1f74073404ae0006c01fcc044c4257e"
+      },
+      "initialized-mean-prior-cascade-cache-diagnosis-v1.json": {
+        "path": "artifacts/2026-09-20/initialized-mean-prior-v1-evidence/provenance/initialized-mean-prior-cascade-cache-diagnosis-v1.json",
+        "sha256": "5ff3d3ef4755881d60e41537dca3591a85fe681af37d63444be184ae8e688945"
+      },
+      "initialized-mean-prior-crazyflow-cache-diagnosis-v1.json": {
+        "path": "artifacts/2026-09-20/initialized-mean-prior-v1-evidence/provenance/initialized-mean-prior-crazyflow-cache-diagnosis-v1.json",
+        "sha256": "34c95868e36ada62817ec4ddb1d2b77076810438703030e6a5bfb9192565c748"
+      },
+      "initialized-mean-prior-plan.md": {
+        "path": "artifacts/2026-09-20/initialized-mean-prior-v1-evidence/provenance/initialized-mean-prior-plan.md",
+        "sha256": "4a9cad269133795b5b2b5571c16c7de84393b79ad1c1ec09881674ff6e24f6b0"
+      },
+      "initialized-mean-prior-v1-implementation-attempt1.json": {
+        "path": "artifacts/2026-09-20/initialized-mean-prior-v1-evidence/provenance/initialized-mean-prior-v1-implementation-attempt1.json",
+        "sha256": "19b07dec58480d8a1107867e27df056c437b882ac94cc7c6f2ce282fe6bd2c50"
+      },
+      "initialized-mean-prior-v1-independent-report-review.json": {
+        "path": "artifacts/2026-09-20/initialized-mean-prior-v1-evidence/provenance/initialized-mean-prior-v1-independent-report-review.json",
+        "sha256": "5004c86499206683f7441b6325882479a3631ad9e754d918763742ec3d769325"
+      },
+      "initialized-mean-prior-v1-prefreeze-tests-attempt1.log": {
+        "path": "artifacts/2026-09-20/initialized-mean-prior-v1-evidence/provenance/initialized-mean-prior-v1-prefreeze-tests-attempt1.log",
+        "sha256": "cad911b75ac1c87ed533affdfd15f3cb2dd3421352274a926dba5bc5cab6cc57"
+      },
+      "initialized-mean-prior-v1-prefreeze-tests-final.log": {
+        "path": "artifacts/2026-09-20/initialized-mean-prior-v1-evidence/provenance/initialized-mean-prior-v1-prefreeze-tests-final.log",
+        "sha256": "c3997b4317d9c97fb32e568e0eedfa6c6126f3fc0c0b74d7333bf6d33d71355c"
+      },
+      "initialized-mean-prior-v1-prefreeze-validation.json": {
+        "path": "artifacts/2026-09-20/initialized-mean-prior-v1-evidence/provenance/initialized-mean-prior-v1-prefreeze-validation.json",
+        "sha256": "de0c49d286f073c4c89a9a36af78d55f96c672d1d3f585d071a45f24901e88ba"
+      },
+      "initialized-mean-prior-v1-roster.json": {
+        "path": "artifacts/2026-09-20/initialized-mean-prior-v1-evidence/provenance/initialized-mean-prior-v1-roster.json",
+        "sha256": "dc2b3bf2572e2658c26868e2da5550b8063e9b0c2fcb49f5530a2470a7f12adf"
+      },
+      "initialized-mean-prior-v1.json": {
+        "path": "artifacts/2026-09-20/initialized-mean-prior-v1-evidence/provenance/initialized-mean-prior-v1.json",
+        "sha256": "ee0491128205554f6038f5bb6a5d7e5849dd19908476440c61eddd7744bb7715"
+      },
+      "source-0d5f3b1.tar": {
+        "path": "artifacts/2026-09-20/initialized-mean-prior-v1-evidence/provenance/source-0d5f3b1.tar",
+        "sha256": "0aac27fa5f02c7ff1d4498ef459f9bc4373ff75d2faf6ec53b8fe885eb304996"
+      }
+    }
+  },
+  "limitations": [
+    "No public promotion, new public lifecycle qualification, safe live controller swap, uncertainty-coverage qualification, physical derivative qualification or universal-system claim.",
+    "Crazyflow available-truth errors are conditional:63/84 complete parents;21 altitude failures remain visible. All predictor masks and planned query cohorts match.",
+    "Fresh confirmation cohort differs from preceding experiments; cross-cohort completion counts are not learner improvements.",
+    "Fixed penalty0.25 was tested once. Failure rejects this iteration, not all forms of regularization.",
+    "The independently recomputed bootstrap-free NumPy scope is explicit; shared bootstrap and frozen policy are verified by canonical saved reduction."
+  ]
+}

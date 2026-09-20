@@ -1,18 +1,22 @@
 # Status: gap against the charter
 
-Updated 2026-09-19. Read [the charter](charter.md) first. The public recipe is
+Updated 2026-09-20. Read [the charter](charter.md) first. The public recipe is
 `generic-memory-v4-prototype`: the retained expanded-cache mean is available
 through ordinary `fit`, `predict`, `update` and save/load. The current loader
 supports this recipe only; historical archives require their pinned source.
 
-**Current priority:** reduce forecast generalization losses during fitting.
+**Current priority:** improve command-response identification during fitting.
 The independent-recording update passed its frozen criteria: forecast/response
 aggregate errors fell 13.88%/5.81% at fixed cache and fitting work, with documented
-localized regressions. The next proposed mechanism is a fixed generic prior
-toward the initialized mean; no next protocol or fit has run. Public mean adoption is an explicit
+localized regressions. The initialized-mean prior has now been tested and rejected:
+forecast error fell 1.53%, response error rose 4.45%, and their joint ratio was
+1.01415 against the frozen limit of 0.97. The retained v4 revisions stay in place.
+The next proposed mechanism is direct paired-response supervision with an
+identical-data factual-only control; its protocol and fits have not run.
+Public mean adoption is an explicit
 [policy decision on known evidence](public-mean-adoption.md). The original
 qualification and later finite-difference assessment retain their failed frozen
-verdicts. The new result qualifies one bounded offline update intervention;
+verdicts. The independent-recording result qualifies one bounded offline update intervention;
 calibrated uncertainty, physical derivative fidelity and controller readiness
 remain unqualified. JSBSim breadth is deferred.
 
@@ -28,6 +32,19 @@ remain unqualified. JSBSim breadth is deferred.
 | Lean | **Not met.** Structured dynamics, belief code and research scripts remain. | Learner, artifacts/interfaces, harness, telemetry adapters and optional consumers. |
 
 ## Latest matched evidence
+
+The [initialized-mean prior](initialized-mean-prior.md) tested one fixed prediction
+penalty on the unchanged 144-parent, 1,536-window training cache and original
+development cache. It improved Crazyflow forecast/response aggregates by
+6.34%/2.29%, but worsened Cascade by 3.52%/11.66%. Twelve of twenty scope
+aggregates improved and 93/180 endpoint cells regressed. Only the frozen joint
+progress criterion failed; all regression and evidence-integrity checks passed.
+Both exact replays, an independent 257,040-row reduction and all eight alteration
+checks confirmed the result without refitting. Fresh collection completed 63/84
+Crazyflow and 84/84 Cascade parents; all arms used identical available truth.
+This rejected research loss is absent from the public learner. The
+[result](harness/initialized-mean-prior-v1-result.json) preserves the physical
+errors, actual work, failed verdict and immutable source/evidence anchors.
 
 The [independent-recording update](independent-training-recordings.md) qualifies
 one fixed addition of 72 excited training recordings per simulator through public
@@ -111,31 +128,30 @@ holds process handles and anchors. Source-bound workers remain immutable.
 
 ## Next named gap
 
-**Forecast generalization during fitting.** More independent recordings improved
-the retained model, but Crazyflow training 250 ms angular RMSE still falls
-0.15617 → 0.08900 while development rises 0.09784 → 0.13045 from initialization.
-All 25 development angular horizons worsen. The scalar development objective
-falls 54.7% because velocity and rotation improve; this is not stalled training
-or proof that the initializer would outperform the selected model on fresh tests.
-The selected update nevertheless improves development angular error by 20.3%
-against the previous model. Cascade's selected development velocity/rate errors
-are about 7% worse than its previous model, consistent with a remaining tradeoff.
+**Command-response identification from training data.** The retained learner
+optimizes absolute trajectory error. It does not directly fit the difference
+between two command continuations from the same history. The rejected prior
+reduced Crazyflow development angular drift by 47.3%, but suppressed useful
+Cascade learning: its development loss was 13.6% worse than the retained control
+and all five fresh response
+scope aggregates worsened. This demonstrates a tradeoff in this penalty, not
+insufficient model capacity or stalled optimization.
 
-Test one fixed generic prediction-space prior toward the initialized mean during
-fitting. Hold the 144 training parents, 1,536-window cache, original development
-cache, initialization and training budget fixed; reuse the already required
-initial training predictions. Keep development selection based on prediction
-error. Freeze one penalty strength and its complete implementation/criteria
-before fitting, with no sweep or consumer option. Compare against the exact
-retained updated revisions on fresh shared confirmation data. The inspected
-12-million-offset confirmation cohort is now diagnostic evidence.
+The [next research plan](paired-response-learning-plan.md) tests direct finite
+response supervision without changing the generic model. Compare a factual-only
+fit and a factual-plus-response fit on the exact same training branch pool,
+initialization and fitting budget; retain saved v4 as the adoption comparator.
+This separates the loss mechanism from the value of new training data. The older
+intervention-response experiment supports testing this idea, but cannot establish
+its value for the present recipe or simulators.
 
-This is a proposed regularization test, not an established solution or proof of
-excess model capacity. Distribution differences and objective tradeoffs remain
-alternative explanations. Require broad held-out forecast/response progress
-under declared regression limits; improving development angular error alone is
-insufficient. No next experiment has been frozen or fitted yet. The completed
-worker at `1f46773` and its artifacts remain immutable.
+Exact hidden-state branching is privileged simulator evidence. It must remain
+inside the research harness; a successful experiment does not establish that
+ordinary recordings provide equivalent pairs or justify a new consumer option.
+Freeze pair construction, parent-level splits, loss normalization, work limits
+and criteria before collecting or fitting. No next protocol or fit has run.
+Both inspected +12M and +13M confirmation cohorts are diagnostic only. Completed
+workers at `1f46773` and `0d5f3b1` and their evidence remain immutable.
 
 ## Preserved qualification boundaries
 
