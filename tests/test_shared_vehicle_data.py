@@ -1,10 +1,58 @@
 """Input/source boundaries and deterministic roster; no native physics."""
 
+import json
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 
 from glassbox.experimental import shared_vehicle_data as subject
+
+
+@pytest.mark.parametrize("worker", ["candidate", "baseline", "native", "dart"])
+def test_actual_runtime_roundtrip_preserves_venv_launch_path(worker):
+    """The real child imports metadata only: no models, initialization or physics."""
+    runtime = subject._runtime()
+    assert runtime["interpreter"] == os.path.abspath(sys.executable)
+    assert runtime["executable_realpath"] == str(Path(sys.executable).resolve())
+    assert runtime["interpreter_sha256"] == subject.digest(
+        runtime["executable_realpath"]
+    )
+    assert runtime["prefix"] == os.path.abspath(sys.prefix)
+    protocol = subject.read(subject.PROTOCOL_PATH)
+    old = subject.read(subject.anchor(protocol["imported_evidence"]["updated_binding"]))
+    paths = {
+        "candidate": str(subject.ROOT / "src"),
+        "baseline": str(Path(old["public_root"]) / "src"),
+        "native": os.pathsep.join(
+            (
+                str(Path(old["oracle_root"]) / "src"),
+                "/private/tmp/glassbox-cascade-e8f6ba6/src",
+            )
+        ),
+        "dart": os.pathsep.join(
+            (str(subject.ROOT / "src"), "/Users/ryland/autonomy/dart/src")
+        ),
+    }
+    environment = dict(os.environ, PYTHONPATH=paths[worker], SCIPY_ARRAY_API="1")
+    code = (
+        "import importlib.util,json; "
+        f"s=importlib.util.spec_from_file_location('runtime_probe',{str(Path(subject.__file__).resolve())!r}); "
+        "m=importlib.util.module_from_spec(s); s.loader.exec_module(m); "
+        "print(json.dumps(m._runtime(),sort_keys=True))"
+    )
+    child = subprocess.run(
+        [runtime["interpreter"], "-c", code],
+        env=environment,
+        cwd=subject.ROOT,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=True,
+    )
+    assert json.loads(child.stdout) == runtime
 
 
 def test_frozen_roster_exact_plus_14m_and_exclusions():

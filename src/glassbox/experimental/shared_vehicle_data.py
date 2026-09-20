@@ -208,13 +208,33 @@ def resolved(protocol):
 
 
 def _runtime():
+    # Executing the resolved symlink bypasses pyvenv.cfg discovery and loses the
+    # venv's site-packages. Keep launch identity distinct from binary identity.
+    interpreter = Path(os.path.abspath(sys.executable))
+    executable = interpreter.resolve()
+    prefix = Path(os.path.abspath(sys.prefix))
+    venv_config = prefix / "pyvenv.cfg"
     return dict(
         python=platform.python_version(),
         machine=platform.machine(),
-        interpreter=str(Path(sys.executable).resolve()),
-        interpreter_sha256=digest(Path(sys.executable).resolve()),
+        interpreter=str(interpreter),
+        executable_realpath=str(executable),
+        interpreter_sha256=digest(executable),
+        prefix=str(prefix),
+        exec_prefix=os.path.abspath(sys.exec_prefix),
+        base_prefix=str(Path(sys.base_prefix).resolve()),
+        base_exec_prefix=str(Path(sys.base_exec_prefix).resolve()),
+        venv_config=(
+            dict(path=str(venv_config), sha256=digest(venv_config))
+            if venv_config.is_file()
+            else None
+        ),
         versions={
             name: importlib.metadata.version(name)
+            for name in ("numpy", "scipy", "jax", "jaxlib")
+        },
+        package_roots={
+            name: str(importlib.metadata.distribution(name).locate_file("").resolve())
             for name in ("numpy", "scipy", "jax", "jaxlib")
         },
     )
@@ -295,6 +315,7 @@ def create_binding(
         and source["commit"] == old["implementation_commit"],
         "retained binding source",
     )
+    runtime = _runtime()
     result = dict(
         format="glassbox-shared-vehicle-binding-v1",
         protocol_sha256=protocol_sha256,
@@ -305,14 +326,14 @@ def create_binding(
         oracle=_source_identity(
             old["oracle_root"], old["oracle_commit"], old["oracle_source_sha256"]
         ),
-        runtime=_runtime(),
+        runtime=runtime,
         prior_binding=p["imported_evidence"]["updated_binding"],
         inputs={
             "protocol": dict(
                 path=str(Path(protocol_path).resolve()), sha256=protocol_sha256
             )
         },
-        interpreter=str(Path(sys.executable).resolve()),
+        interpreter=runtime["interpreter"],
         implementation_commit=_git(ROOT, "rev-parse", "HEAD"),
         oracle_root=old["oracle_root"],
     )
