@@ -5,14 +5,19 @@ Updated 2026-09-20. Read [the charter](charter.md) first. The public recipe is
 through ordinary `fit`, `predict`, `update` and save/load. The current loader
 supports this recipe only; historical archives require their pinned source.
 
-**Current priority:** improve command-response identification during fitting.
+**Current priority:** run Dart with one general vehicle learner, using shared
+physical structure where it improves learning across vehicle types and
+configurations. The user has clarified that generality permits common mechanics;
+it excludes a vehicle-family catalog. First establish current v4 performance
+and the planning-interface gap on Dart's ordinary recordings and fixed task.
 The independent-recording update passed its frozen criteria: forecast/response
 aggregate errors fell 13.88%/5.81% at fixed cache and fitting work, with documented
 localized regressions. The initialized-mean prior has now been tested and rejected:
 forecast error fell 1.53%, response error rose 4.45%, and their joint ratio was
 1.01415 against the frozen limit of 0.97. The retained v4 revisions stay in place.
-The next proposed mechanism is direct paired-response supervision with an
-identical-data factual-only control; its protocol and fits have not run.
+The earlier proposed paired-response experiment was not frozen or run. It is
+superseded as the immediate next step by the
+[Dart general-vehicle plan](dart-general-vehicle-plan.md).
 Public mean adoption is an explicit
 [policy decision on known evidence](public-mean-adoption.md). The original
 qualification and later finite-difference assessment retain their failed frozen
@@ -26,7 +31,7 @@ remain unqualified. JSBSim breadth is deferred.
 | Accuracy | **Improved.** Fixed-budget public updates reduce fresh matched forecast/response errors 13.88%/5.81% versus saved v4. Eighteen of twenty scope aggregates improve; 38/180 endpoint cells worsen within the frozen aggregate limits. Earlier matched public-v4 errors were 52.82%/55.26% below saved v3 on a different cohort. | Low held-out physical forecast and command-response errors across conditions and horizons; application adequacy measured separately. |
 | Model usability | **Demonstrated within the Python/JAX contract.** Public fitting, persistence, lifecycle semantics, precision switching, saved-mean replay and independent Dart integration pass. Two frozen derivative gates remain failed; adoption rationale and numerical limits are explicit. Broader runtime/export portability remains unqualified. | Self-contained artifacts usable independently of Glassbox controller internals, with clear scope and measured evidence. |
 | Capability | **Met.** The adopted public recipe passes all 27 frozen synthetic absolute-capability cases. | Every synthetic cap passes; synthetic results do not establish platform readiness. |
-| Reference control | **Demonstrated for earlier isolated research means.** Forecast-only and paired-response means each achieved 2,248/2,248 tolerance samples across eight trials. The adopted public mean has not been tested with that controller. | Separately qualified downstream demonstrations; a universal controller is optional. |
+| Reference control | **Dart integration remains open.** Dart's structured mean achieves its nominal contact task. Current v4 has short-horizon forecast/JVP consumer evidence, but has not run the original Dart terminal MPC. Earlier isolated research means passed eight Cascade tracking trials. | The general learner meets Dart's declared pose/contact task through Dart's controller; a universal controller is optional. |
 | Live improvement | **Demonstrated for one bounded offline intervention.** Two ordinary public updates add 72 recordings each at fixed cache/work, preserve original revisions, and pass fresh held-out residual/regression checks and replay. Safe live swaps remain unqualified; historical live-v3 swaps worsened position error from 0.80/0.98 to 36.1/11.8 m. | Bounded immutable revisions with held-out improvement/regression checks; adoption and live-control claims qualified separately. |
 | Evidence | **Not met.** Development-calibrated spreads have no new coverage qualification. Earlier public primary 250 ms velocity/rate coverage was 85.8–89.7%, falling to 47.4–68.3% for extreme maneuvers; ARP, reserved-control and shifted-synthetic failures remain. | Measured coverage in a predeclared band with calibration provenance. |
 | Lean | **Not met.** Structured dynamics, belief code and research scripts remain. | Learner, artifacts/interfaces, harness, telemetry adapters and optional consumers. |
@@ -128,30 +133,31 @@ holds process handles and anchors. Source-bound workers remain immutable.
 
 ## Next named gap
 
-**Command-response identification from training data.** The retained learner
-optimizes absolute trajectory error. It does not directly fit the difference
-between two command continuations from the same history. The rejected prior
-reduced Crazyflow development angular drift by 47.3%, but suppressed useful
-Cascade learning: its development loss was 13.6% worse than the retained control
-and all five fresh response
-scope aggregates worsened. This demonstrates a tradeoff in this penalty, not
-insufficient model capacity or stalled optimization.
+**Dart task compatibility and useful vehicle generalization.** The current
+learner predicts Euclidean changes to velocity, angular rate and nine rotation
+entries. It has learned memory but no built-in gravity, rotation integration or
+body-frame acceleration factorization. The structured comparator supplies that
+mechanical structure alongside vehicle-specific force/actuator assumptions.
+Their contributions to the performance difference have not been isolated.
 
-The [next research plan](paired-response-learning-plan.md) tests direct finite
-response supervision without changing the generic model. Compare a factual-only
-fit and a factual-plus-response fit on the exact same training branch pool,
-initialization and fitting budget; retain saved v4 as the adoption comparator.
-This separates the loss mechanism from the value of new training data. The older
-intervention-response experiment supports testing this idea, but cannot establish
-its value for the present recipe or simulators.
+The documented Dart generic comparison used v3, not current v4. Current v4's
+public forecast requires 500 ms of observed history and supports 250 ms ahead;
+the original contact planner optimizes a roughly 1.2 s trajectory from a
+physical state and simulator-provided applied actuator state. A direct import replacement cannot
+establish an apples-to-apples task result. Fix data roles, command/frame mapping,
+history initialization, differentiable pose reconstruction, long-rollout policy
+and controller settings before measuring the deficit. Do not silently shorten
+the task horizon or treat chained forecasts as qualified beyond 250 ms.
 
-Exact hidden-state branching is privileged simulator evidence. It must remain
-inside the research harness; a successful experiment does not establish that
-ordinary recordings provide equivalent pairs or justify a new consumer option.
-Freeze pair construction, parent-level splits, loss normalization, work limits
-and criteria before collecting or fitting. No next protocol or fit has run.
-Both inspected +12M and +13M confirmation cohorts are diagnostic only. Completed
-workers at `1f46773` and `0d5f3b1` and their evidence remain immutable.
+The [next plan](dart-general-vehicle-plan.md) makes this diagnostic the first
+iteration, then tests one shared mechanical factorization with learned effective
+accelerations and hidden response if the evidence supports it. Keep simulator
+equations, mixers and family dispatch out of that learner. Physical signal
+semantics and frames are legitimate input contracts. Measure both forecast
+and command-response errors and the fixed Dart task; one does not replace the
+other. No next protocol, fit or controller trial has run. The inspected +12M
+and +13M cohorts remain diagnostic, and completed workers at `1f46773` and
+`0d5f3b1` remain immutable.
 
 ## Preserved qualification boundaries
 

@@ -1,12 +1,16 @@
 # Charter: one generic dynamics learner
 
-Glassbox aims to learn a differentiable dynamics model of any uniformly sampled
-system from recordings of its observed signals and commands, and produce improved
-revisions as new recordings arrive. System coverage and revision improvements
-must be demonstrated by evaluation. The caller supplies signals, units,
-timing, and recording boundaries. Nothing else. One recipe, one module, three
-calls: `fit`, `predict`, `update`. No platform families, no catalog, no
-options, no branches on what the system is.
+Glassbox aims to learn accurate, differentiable dynamics across vehicle types and
+configurations from recordings, and produce improved revisions as new recordings
+arrive. The immediate product milestone is running Dart's precise pose/contact
+task with that general learner. One learning procedure fits each configuration;
+one set of fitted weights need not describe every vehicle. System coverage and
+revision improvements must be demonstrated by evaluation. The caller supplies
+observed signals and commands, their meanings, units and coordinate frames,
+timing, and recording boundaries. One recipe, one module, three calls: `fit`,
+`predict`, `update`. No vehicle-family selector, model catalog, consumer tuning
+options or branches selecting a vehicle's equations. Shared physical structure
+is allowed; learning known mechanics from scratch is not a product requirement.
 
 The product is an accurate learned dynamics model that other applications can
 inspect, save, differentiate and use through a clear signal and timing contract.
@@ -35,7 +39,7 @@ protocols frozen and committed before each implementation change.
 | Accuracy | Low held-out prediction and command-response residuals across systems from one platform-independent recipe. Report errors across supported horizons in physical units, per-system gains and losses, and conditions tested. Improvement is measured against the adopted generic baseline; structured and simple models provide context, not an accuracy ceiling or a completion criterion. Application adequacy requires separately declared tolerances. Superiority on every corpus is not required. Derivatives existing computationally does not establish that they match physical responses. |
 | Model usability | A self-contained saved revision with a documented signal, units, frames, timing, history and horizon contract; reproducible batched predictions and usable derivatives; measured error evidence and explicit limitations. Consumers use public interfaces without importing Glassbox controller internals. A third-party controller or analysis integration demonstrates that boundary. |
 | Capability | The synthetic suite, including delayed inputs and hidden state, passes its absolute caps. It is a fast regression guard, not a place to win. |
-| Reference control | A separately declared downstream task demonstrates that learned dynamics can support control. Each controller is qualified for its own task; one universal controller is not a requirement for the model product. Control success does not replace direct model-accuracy evidence. |
+| Reference control | The general learner powers Dart's pose/contact task through Dart's controller under a separately declared evaluation. Each controller is qualified for its own task; one universal controller is not a requirement for the model product. Control success does not replace direct model-accuracy evidence. |
 | Live improvement | The learner produces immutable revisions within a bounded update budget, with improvement and regression criteria frozen before evaluation on untouched recordings and response queries. Applications decide when to adopt revisions. Any claim of safe live controller swapping additionally requires its own downstream no-regression trial. |
 | Evidence | Predictions expose measured error envelopes and their calibration provenance; coverage on held-out recordings and declared shifts lands in a predeclared band. Any downstream use of that evidence is evaluated separately. |
 | Lean | The structured models, the belief format, and obsolete research scripts are deleted. What remains is the learner, model artifacts and interfaces, the harness, telemetry adapters, and optional downstream consumers. |
@@ -71,6 +75,24 @@ truth and failed conditions visible so a smaller or easier evaluated subset
 cannot masquerade as lower error. No absolute adequacy threshold is inferred
 from comparator performance or introduced retrospectively.
 
+## Vehicle generality and Dart milestone, 2026-09-20
+
+The user clarifies that the broad goal is running Dart with the general model
+across vehicle types and configurations. Shared physical knowledge is welcome;
+a catalog of vehicle-specific models is not. This supersedes interpreting
+generality as an obligation to learn arbitrary signal dynamics without mechanical
+structure. The present v4 recipe remains the adopted baseline until a successor
+is evaluated; this policy change does not qualify a new model or controller.
+
+Dart's structured-model success establishes a useful task/data reference.
+The next work measures current v4 in that setting and accounts explicitly for
+its history, state representation and shorter supported horizon. Shared mechanics
+with learned configuration-dependent dynamics is the leading architecture
+hypothesis. Ordinary-recording evidence and the Dart task take priority over
+collecting privileged simulator response pairs. Crazyflow and Cascade retain
+their role as cross-vehicle forecast and response benchmarks. Historical protocols,
+results and qualification boundaries keep their original meaning.
+
 ## Rules
 
 - Each iteration's measurements and promotion criteria are frozen and
@@ -82,8 +104,14 @@ from comparator performance or introduced retrospectively.
   mechanism needs a named failure it addresses.
 - Nothing is deprecated; it is deleted. Nothing is preserved for its own sake.
   Old results are not evidence for new code.
-- Assumptions about structure are fine: causality, memory, smoothness,
-  observation noise. Assumptions about the platform are not.
+- Use shared structure: causality, memory, smoothness, observation noise,
+  coordinate transformations, gravity and rigid-body kinematics. Learn the
+  configuration-dependent command response, forces or effective accelerations,
+  and hidden dynamics from recordings. Do not select hand-written multirotor,
+  fixed-wing or other vehicle-family dynamics, assume a fixed mixer/actuator
+  layout, or import simulator parameters into the learner. More general
+  mechanical configurations require demonstrated coverage, not an assertion
+  that a rigid-body approximation already represents all vehicles.
 - Synthetic results never count as platform readiness. Fit quality, error
   calibration, and control adequacy are separate claims with separate
   evidence.

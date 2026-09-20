@@ -83,6 +83,6 @@ and all external SHA anchors are in the result record and
 
 This rejected prepared-cache research fit adds no public lifecycle,
 uncertainty-coverage, derivative or controller qualification. The retained
-baseline remains the accuracy reference. The proposed
-[paired-response follow-up](paired-response-learning-plan.md) has not been
-frozen or run.
+baseline remains the accuracy reference. The initial paired-response proposal
+was not frozen or run. The user's subsequent clarification makes the
+[Dart general-vehicle plan](dart-general-vehicle-plan.md) the next priority.
