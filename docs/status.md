@@ -10,8 +10,11 @@ physical structure where it improves learning across vehicle types and
 configurations. The user has clarified that generality permits common mechanics;
 it excludes a vehicle-family catalog or user-supplied vehicle parameters/layout.
 A separate fit is expected; the recipe and automatic fitting procedure stay
-shared across configurations. First establish current v4 performance
-and the planning-interface gap on Dart's ordinary recordings and fixed task.
+shared across configurations. The user has now requested implementation. The frozen
+[shared-vehicle iteration](shared-vehicle-physics.md) builds the shared-mechanics
+learner and measures current v4 alongside it on Dart's ordinary recordings and
+fixed task. The implementation and regression checks are complete; frozen
+physical and Dart evaluation is next. No candidate result is claimed yet.
 The independent-recording update passed its frozen criteria: forecast/response
 aggregate errors fell 13.88%/5.81% at fixed cache and fitting work, with documented
 localized regressions. The initialized-mean prior has now been tested and rejected:
