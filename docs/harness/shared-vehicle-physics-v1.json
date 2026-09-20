@@ -1,0 +1,507 @@
+{
+  "architecture": {
+    "causality": "At history boundary j use x_j,u_j,a_j reconstructed from prior issued commands. Hidden starts zero and advances after enough prior feature rows exist. Update hidden once per forecast sample using start feature. Hold hidden and sampled feature history fixed across substeps. Never use future observations in prediction.",
+    "command_memory": "One learned filter per command: da/dt=(u-a)/tau, tau=.001+softplus(raw_tau), initial tau=.05s, a=first supplied past command. Include both raw and filtered commands.",
+    "current_features": "R.T@v, omega, R.T@g/abs(g), normalized issued u, normalized filtered a. Training-only normalization; append .1s sampled prior-feature differences and8 causal hidden coordinates.",
+    "delay_s": 0.1,
+    "gravity_world_m_s2": [
+      0,
+      0,
+      -9.80665
+    ],
+    "head": "Six accelerations: non-gravitational body specific acceleration3 plus body angular acceleration3. Affine all features, upper triangular quadratic products of current physical/input features only, width32 tanh residual with zero initial neural output.",
+    "initialization": "Teacher-forced training secants: y_f=R_t.T@((v_next-v)/dt-g), y_alpha=(omega_next-omega)/dt. Actual filter/history, zero hidden for ridge. Training-only output scales. Affine ridge then quadratic ridge centered on affine;lambda=.01*N*H,bias unpenalized,seed0.",
+    "integrator": "ceil(dt/.025) explicit-midpoint substeps. First head at current state/filter. R_half=R Exp(.5h omega), a_half=u+(a-u)exp(-.5h/tau); v_half and omega_half use first acceleration. Evaluate midpoint head; v_next=v+h(g+R_half*f_half), omega_next=omega+h*alpha_half, R_next=R Exp(h omega_half); filter exact fullstep exponential. Stable differentiable SO3 exponential at zero.",
+    "max_substep_s": 0.025,
+    "memory": 8,
+    "ridge_fraction": 0.01,
+    "seed": 0,
+    "width": 32
+  },
+  "base_commit": "ca923ebc18596f9b58d34a019f5d4508179ccde2",
+  "contract": {
+    "calibrated_horizon_s": 0.25,
+    "dt": "Fixed per revision from recordings",
+    "history_s": 0.5,
+    "inputs": "Arbitrary ordered command channels with meanings/units; channel count is not actuator count.",
+    "long_horizon": "Recursive means only. Reject envelope requests beyond .25s;1.2s means are separately tested extrapolation.",
+    "metadata": "Signal semantics/units/frames/timing; configuration identity for ledger compatibility only. No vehicle family, mass, inertia, geometry, mixer or actuator roles used numerically.",
+    "observations": "canonical15: world velocity3 m/s NWU, body rates3 rad/s FLU, row-major body-to-world rotation9. Position is an integrable consumer output, not a learned feature.",
+    "research_prediction_limit_s": 1.2
+  },
+  "dart": {
+    "arms": [
+      "shared_vehicle",
+      "v4_research_extrapolation",
+      "structured_causal_history"
+    ],
+    "candidate_pose": "Trapezoidal position from canonical15 velocity; quaternion from intrinsicSO3. Return initial plus120states; no second dynamics formulation.",
+    "controller": "Unchanged original Dart DirectPlanner/strike_cost:120 intervals dt.01,blocks3,replan3,maxiter100,shared original learned_prediction commands and controller bounds. Rollout accepts observation plus arbitrary history pytree; optimizer trial states never alter live history.",
+    "diagnostics": "Untouchedtest10/11 forecasts at50/150/250ms and1.2s wherever actual history/truth permits, same inputs for both fittedarms. Report physical errors, gradients, optimizer convergence/failure, task metrics and time; no tuning from test results.",
+    "files": {
+      "artifacts/demo/fit/belief.json": {
+        "path": "/Users/ryland/autonomy/dart/artifacts/demo/fit/belief.json",
+        "sha256": "0c0a36dbba84d1b0b29c6d05261e56313be9633c6862049688abdce1922a0754"
+      },
+      "artifacts/demo/learned_prediction.npz": {
+        "path": "/Users/ryland/autonomy/dart/artifacts/demo/learned_prediction.npz",
+        "sha256": "d714efe18da89b3ee4d723ed4fd8bc492393edea9a2d87fa5e63c33dd38f133c"
+      },
+      "artifacts/demo/report.json": {
+        "path": "/Users/ryland/autonomy/dart/artifacts/demo/report.json",
+        "sha256": "0ce12bea2fd1920401eb395295e8fb65012351e5d8fa22250d322a218b3c9ba7"
+      },
+      "artifacts/demo/telemetry/calibration-08.npz": {
+        "path": "/Users/ryland/autonomy/dart/artifacts/demo/telemetry/calibration-08.npz",
+        "sha256": "237c756a4b63483c2b529b7c99ec0d2d52a012bd32baff277c1ce454374591f7"
+      },
+      "artifacts/demo/telemetry/calibration-09.npz": {
+        "path": "/Users/ryland/autonomy/dart/artifacts/demo/telemetry/calibration-09.npz",
+        "sha256": "ed7d82853bebf302c91ea56e7149a03764c36f99c9b928cad5a2de8d6e4d66b1"
+      },
+      "artifacts/demo/telemetry/manifest.json": {
+        "path": "/Users/ryland/autonomy/dart/artifacts/demo/telemetry/manifest.json",
+        "sha256": "52b53c690e838b050a9b827f2ef7a1f3cc3543205b7c5606e22a68d1b0c5a53a"
+      },
+      "artifacts/demo/telemetry/test-10.npz": {
+        "path": "/Users/ryland/autonomy/dart/artifacts/demo/telemetry/test-10.npz",
+        "sha256": "decc8ebbd86b551108c12b0c6bd42f6e7eebc94d6c4569659c08c37354f1915a"
+      },
+      "artifacts/demo/telemetry/test-11.npz": {
+        "path": "/Users/ryland/autonomy/dart/artifacts/demo/telemetry/test-11.npz",
+        "sha256": "62d2e47d6a0540caa7b7969500ce7ad5eeebff74e390b344f26d908cbd1ece18"
+      },
+      "artifacts/demo/telemetry/train-00.npz": {
+        "path": "/Users/ryland/autonomy/dart/artifacts/demo/telemetry/train-00.npz",
+        "sha256": "bfef8d509410c6c5cde0dcd825e57af7395f63f6b5698b3f61089f94a11bc971"
+      },
+      "artifacts/demo/telemetry/train-01.npz": {
+        "path": "/Users/ryland/autonomy/dart/artifacts/demo/telemetry/train-01.npz",
+        "sha256": "d7063c71efaad5ee1c76f672d8fb5a55a53833e53e2b806eebdb09fb402d00b2"
+      },
+      "artifacts/demo/telemetry/train-02.npz": {
+        "path": "/Users/ryland/autonomy/dart/artifacts/demo/telemetry/train-02.npz",
+        "sha256": "57c7e5f54e7b9a6280d4552b8089265beee4b09ce27353865d2ca56169a6dd63"
+      },
+      "artifacts/demo/telemetry/train-03.npz": {
+        "path": "/Users/ryland/autonomy/dart/artifacts/demo/telemetry/train-03.npz",
+        "sha256": "31c7eec611d0c8f889bc7585759d9ae170f96f78ee941231daa0c8d1fa85f1a1"
+      },
+      "artifacts/demo/telemetry/train-04.npz": {
+        "path": "/Users/ryland/autonomy/dart/artifacts/demo/telemetry/train-04.npz",
+        "sha256": "2ea043deb3c0f7c5514a649717c90b5f47eccc1fe180c74a998edb5497defd98"
+      },
+      "artifacts/demo/telemetry/train-05.npz": {
+        "path": "/Users/ryland/autonomy/dart/artifacts/demo/telemetry/train-05.npz",
+        "sha256": "11adc5cfd01d7614041d6fd4449bed6b0e1ba0aba729a7beee5b6b4f40d90468"
+      },
+      "artifacts/demo/telemetry/train-06.npz": {
+        "path": "/Users/ryland/autonomy/dart/artifacts/demo/telemetry/train-06.npz",
+        "sha256": "35e14358f9d4aa0ff09a38c2ec3f23bc9b63e4affb68b2cd61aa602381fedd41"
+      },
+      "artifacts/demo/telemetry/train-07.npz": {
+        "path": "/Users/ryland/autonomy/dart/artifacts/demo/telemetry/train-07.npz",
+        "sha256": "c3da9ef6930368509b49502c03153377ea4a5f201c8af008ecc7a8d6f5c2eb81"
+      }
+    },
+    "initial_observation": [
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "prelude": "Actual50steps of train00 command prefix hover .65195631980896 per channel. Save51 observations/50 issuedcommands; fork same resulting plant state without reset/padding. Structured latent from issued history only, never simulator applied thrust.",
+    "qualification": "Nominal task success separate from residual acceptance/evidence integrity/promotion. One success does not establish allvehicles or calibrated longhorizon evidence.",
+    "root": "/Users/ryland/autonomy/dart",
+    "source_policy": "Dart root has no git repository; bind exact relevant source files and runtime before science, alongside the new Glassbox commit.",
+    "target": {
+      "axis_error_deg_max": 5,
+      "body_contact_offset_m": [
+        0,
+        0,
+        0.04
+      ],
+      "center_m": [
+        0.65,
+        0,
+        1
+      ],
+      "contact": "first front-to-back crossing",
+      "deadline_s": 1.2,
+      "normal": [
+        -1,
+        0,
+        0
+      ],
+      "normal_speed_m_s_range": [
+        0.2,
+        2.5
+      ],
+      "radius_m_max": 0.02,
+      "tangential_speed_m_s_max": 0.2
+    },
+    "trials": "Exactly one matched nominal trial perarm; no perturbation or planner sweep. Historical1.47mm used simulator-applied thrust and remains context only.",
+    "v4_horizon": "Unchanged underlying SequenceModel.rollout120 steps; existing trapezoidal position/rotation-quaternion bridge. Singular/improper/nonfinite rotations are visible failures. This is research extrapolation, not new public v4 support."
+  },
+  "decision": {
+    "accept_research_candidate": {
+      "all_eligible_predictions_finite_and_models_available": true,
+      "each_simulator_250ms_primary_parent_rmse_p95_ratio_max": 1.5,
+      "each_simulator_primary_factual_and_response_geometric_mean_ratio_max": 1.15,
+      "each_simulator_scope_factual_and_response_geometric_mean_ratio_max": 1.5,
+      "factual_weighted_geometric_mean_ratio_max": 1.05,
+      "identical_truth_and_query_cohorts": true,
+      "joint_definition": "sqrt(factual_weighted_geometric_mean_ratio * response_weighted_geometric_mean_ratio)",
+      "joint_equal_kind_geometric_mean_ratio_max": 0.97,
+      "response_weighted_geometric_mean_ratio_max": 1.05,
+      "tail_guard_groups": [
+        "velocity_m_s",
+        "body_rate_rad_s",
+        "rotation_entries"
+      ],
+      "tail_guard_kinds": [
+        "factual",
+        "response"
+      ]
+    },
+    "aggregation": {
+      "floors": {
+        "body_rate_rad_s": 0.001,
+        "rotation_entries": 0.0001,
+        "velocity_m_s": 0.001
+      },
+      "groups": [
+        "velocity_m_s",
+        "body_rate_rad_s",
+        "rotation_entries"
+      ],
+      "horizons_s": [
+        0.05,
+        0.15,
+        0.25
+      ],
+      "scope_weights": {
+        "heading_shift": 0.125,
+        "maneuver_shift": 0.125,
+        "primary": 0.5,
+        "speed_shift": 0.125,
+        "wind_shift": 0.125
+      },
+      "simulator_weights": {
+        "cascade": 0.5,
+        "crazyflow": 0.5
+      },
+      "within_scope": "Equal weight per horizon and signal group. Weighted geometric mean of candidate/baseline RMSE ratios, with common floor in physical units applied to numerator/denominator before division. Report absolute RMSE and changes alongside ratios."
+    },
+    "angular_rationale": "Preserve the named Crazyflow angular gap: primary250ms factual/response mean and parentp95 may worsen by at most5% versus the retained corrected public mean. This is four targeted aggregate/tail limits, not every-cell superiority or an angular improvement target. All other cell-level changes remain visible under existing broad guards.",
+    "angular_retention": {
+      "denominator": "baseline",
+      "factual_aggregate_rmse_ratio_max": 1.05,
+      "factual_parent_rmse_p95_ratio_max": 1.05,
+      "group": "body_rate_rad_s",
+      "horizon_s": 0.25,
+      "numerator": "candidate",
+      "response_aggregate_rmse_ratio_max": 1.05,
+      "response_parent_rmse_p95_ratio_max": 1.05,
+      "scope": "primary",
+      "simulator": "crazyflow",
+      "statistic": "The identical inherited hierarchical available-truth RMSE and linear-quantile parentRMSEp95, physical floors and shared query/mask rosters."
+    },
+    "comparison": {
+      "denominator": "baseline",
+      "name": "shared_vehicle_physics_progress",
+      "numerator": "candidate"
+    },
+    "interpretation": "Prospective symmetric residual criterion for forecast generalization: joint<=.97, each kind<=1.05, all inherited guards. No all-cell win, significance veto, universal accuracy threshold or change to historical criteria.",
+    "outcomes": "Residual acceptance, evidence integrity, Dart task andpublicpromotion are separateverdicts. No publicpromotion inthisprotocol.",
+    "tails": "Report parent-RMSE p50,p95,max by simulator, scope, horizon, signal group and query kind, using available-truth parent errors and retaining missing-parent counts. p95 is NumPy linear quantile, ratio floors as above. Tail acceptance concerns primary250ms only; all shifted tails remain visible.",
+    "uncertainty": {
+      "draws": 1000,
+      "seed": 20260918,
+      "sharing": "Identical draws for both arms, all horizons/groups/kinds and angular retention; save draw hash and descriptive percentile95% intervals. No confidence-interval significance veto.",
+      "unit": "whole parent resampled within each fixed cell"
+    }
+  },
+  "dependencies": {
+    "implementation_map": {
+      "path": "docs/initialized-mean-prior-plan.md",
+      "sha256": "4a9cad269133795b5b2b5571c16c7de84393b79ad1c1ec09881674ff6e24f6b0"
+    },
+    "inherited_protocol": {
+      "path": "docs/harness/independent-training-recordings-v1.json",
+      "sha256": "b5fae12bf2b25c88d7a1758214d1faf11749e7a88d8ce4d4e397b04265272adf"
+    },
+    "original_flight": {
+      "path": "docs/harness/two-simulator-flight-v1.json",
+      "sha256": "e16456e0786ae817016a86cfadc99395f8b59cef6122e4a998311ab8d5571248"
+    },
+    "roster": {
+      "path": "docs/harness/initialized-mean-prior-v1-roster.json",
+      "sha256": "dc2b3bf2572e2658c26868e2da5550b8063e9b0c2fcb49f5530a2470a7f12adf"
+    },
+    "simulator_sources": {
+      "path": "docs/harness/two-simulator-flight-v1-sources.json",
+      "sha256": "5f051cf52baca746c60cf4da9c5d630fac33129429c27180a5240672bb8d2270"
+    }
+  },
+  "evaluation": {
+    "aggregation": "Unchanged two_simulator_metrics: branch MSE within origin, origins within parent, parents within cell, cells within scope; sqrt last. Report endpoint and cumulative-prefix physical RMSE for velocity3/rate3/rotation9, all missing/nonfinite counts, every condition and horizon. Acceptance uses raw endpoint errors including weak probes, not a finite-only subset.",
+    "diagnostics": "Actualinitial andselectedsnapshots only; cache train/development groupRMSE; no testcheckpointselection.",
+    "factual_origins_s": [
+      0.5,
+      0.75,
+      1.0,
+      1.25,
+      1.5,
+      1.75,
+      2.0,
+      2.25,
+      2.5,
+      2.75
+    ],
+    "first_step": true,
+    "horizons_s": [
+      0.05,
+      0.15,
+      0.25
+    ],
+    "precision": "Pinned1f467736 retainedv4worker andnewsource-bound candidateworker,ambientfloat32. Fit/calibration/truth/reductions ownfloat64.",
+    "predictors": [
+      "baseline",
+      "candidate",
+      "hold"
+    ],
+    "query_rules": "Copy original factual origins, first-native-sample reports,50/150/250ms horizons,1s/2s response origins, bound-interpolation command branches, native history requirements, weak-probe treatment and validity exactly. Save every planned query, inputs, targets, eligibility mask, selected-model prediction and paired response.",
+    "regression_reporting": "Count worsening component/scope/horizon cells from absolute_change>0 in raw physical RMSE, separately from floored ratio>1 and weighted scope aggregates. A ratio of1 when both errors are below the physical floor does not mean unchanged physical error. Preserve frozen floors/weights; report tiny and substantial losses without rewriting aggregation.",
+    "responses": {
+      "commands": "Factual stored parent future command tape; for each channel lower and upper separately, sustain u_j+.1*(bound_j-u_j) across the .25s future. Other channels unchanged. This convex bound interpolation needs no clipping. Save intended and actual deltas, including zero at a bound.",
+      "future_duration_s": 0.25,
+      "origins_s": [
+        1.0,
+        2.0
+      ],
+      "truth": "Branch from exact full origin physical/actuator/separation state and wind clock; no re-equilibrating reset, no branch feedback. Simulator RNG is unused; record that explicitly. Factual continuation must replay the parent and cloned state exactly. Preserve earlier complete horizons after a later branch failure. Truth and predicted response are signed branch minus corresponding factual continuation. These are finite responses, not a derivative qualification.",
+      "weak": "Weak channels remain in all raw-error, ratio-objective and planned-denominator reports. Apply both-signed physical thresholds only to descriptive sign/cosine diagnostics; never filter the progress objective.",
+      "weak_endpoint_thresholds": {
+        "body_rate_rad_s": 0.0001,
+        "rotation_entries": 1e-05,
+        "velocity_m_s": 0.0001
+      }
+    },
+    "uncertainty": "Use existing development-calibrated envelope and report measured coverage descriptively if emitted by reused scorer. No calibration-band, derivative, update, control or application-adequacy qualification is inferred."
+  },
+  "fitting": {
+    "core_api": "VehicleSequenceModel(dt_s,history_steps,delay_steps,params,norms) exposes rollout(anyH),arrays,metadata,fingerprint. fit_sequence(train,development,error_scale=None,channel_weights=None,observer=None)->(model,report). Observer receives one event dict with actual initialization/weight/checkpoint/work evidence.",
+    "development_windows": 256,
+    "fits": [
+      "Crazyflow candidate from saved cache",
+      "Cascade candidate from saved cache",
+      "Dart v4 from original8train/2dev",
+      "Dart candidate from identical cache and v4 weighting"
+    ],
+    "fitter_wall_time_limit_s": 7200,
+    "fresh_scientific_fits": 4,
+    "learning_rate": 0.002,
+    "objective": "mean(channel_weights*((prediction-truth)/error_scale)**2). Physical candidates import exact retained weights.npz normalization/channel_weights. Dart candidate imports actual Dart v4 weights/scales. Initializations may differ. Ordinary lifecycle derives training-only initial-channel balance with existing floor/mean-one rule. No prior or response labels.",
+    "optimizer": "Safeguarded Adam beta=.9/.999 eps1e-8 global gradclip5; scales1,1/2,...1/128; first finite strict decrease accepted, moments advance even on rejection; fullcache each attempt.",
+    "precision": "Host float64; local float64 fit/calibration; ambient default32 inference with freshly materialized constants.",
+    "selection": "Checkpoint0 and every100 completed attempts; first strict minimum finite weighted development loss. No confirmation selection.",
+    "steps": 1000,
+    "supervised_stage_limit_s": 14400,
+    "training_windows": 1536,
+    "unit_tests": "Small analytic fixtures/private step override only; no consumer tuning or scientific smoke fit."
+  },
+  "generation": {
+    "confirmation": {
+      "commands": "Unperturbed inherited test pilot; inherited paired open-loop counterfactual command probes from exact hidden state/wind clock. Training excitation is never applied to confirmation.",
+      "exclusions": "Exclude alltrain/dev and every inspectedtest offset0..13000000; literal+14M,84parents/sim,no replacement.",
+      "failure": "Retain all84 outcomes per simulator. Available-truth scoring and missing/failed counts follow the inherited rules; identical planned slots and truth masks for both arms. No condition/weak-probe filtering.",
+      "parents_per_simulator": 84,
+      "primary_parents_per_simulator": 48,
+      "seed_shift_from_original": 14000000,
+      "sequence": "Freeze this roster before collection. Require both exact externally sealed terminal candidate outcomes before confirmation. Only complete or fit_failed permits confirmation; hard_timeout_incomplete, preparation errors, integrity errors or other failed stages abort confirmation. A fit_failed arm remains unavailable with its work prefix and all planned truth/control results retained; residual success is false. No intermediate-checkpoint confirmation forecasts or selection.",
+      "shifted_parents_per_simulator": 36
+    },
+    "source_policy": "Same original physical fixtures, cells, timing, pilots and intervention queries. Source-bound historical worker only; no current learner imports. Baseline and candidate prediction workers have explicit separate source identities."
+  },
+  "hypothesis": "Learning effective body accelerations with shared gravity and rigid-body geometry improves ordinary-recording generalization and coherent long-horizon planning without configuration-specific equations.",
+  "id": "shared-vehicle-physics-v1",
+  "imported_evidence": {
+    "controls": {
+      "cascade": {
+        "files": {
+          "actual-preparation.npz": {
+            "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-19/independent-training-recordings-v1-evidence/experiment/cascade/candidate/actual-preparation.npz",
+            "sha256": "3724ede7b56d100f2f3ca2ea8291c9a4282f5fecfe3a0af247ca18263dfc63ae"
+          },
+          "cache-diagnostics.json": {
+            "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-19/independent-training-recordings-v1-evidence/experiment/cascade/candidate/cache-diagnostics.json",
+            "sha256": "179cfe38cdca903fe30ba23efcc7e4d47549df862531d41b6073e2c546b27bbd"
+          },
+          "cache-diagnostics.npz": {
+            "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-19/independent-training-recordings-v1-evidence/experiment/cascade/candidate/cache-diagnostics.npz",
+            "sha256": "f6c9d6974d91e476e86d5816ac926cff4e3f8d6f8355bd2db780c1e1c25b8e34"
+          },
+          "checkpoint-0000.npz": {
+            "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-19/independent-training-recordings-v1-evidence/experiment/cascade/candidate/checkpoint-0000.npz",
+            "sha256": "3d7af8cac893e5d07dc99ae348607a847e7d65269b93b31ef9d33026f83dd6eb"
+          },
+          "initializer-return.npz": {
+            "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-19/independent-training-recordings-v1-evidence/experiment/cascade/candidate/initializer-return.npz",
+            "sha256": "3f1fa622eea9c87611aa37f810a9f779a4c743c4df85fc14881cc032a2af2cdd"
+          },
+          "model.npz": {
+            "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-19/independent-training-recordings-v1-evidence/experiment/cascade/candidate/model.npz",
+            "sha256": "4b00d2f381d2fb95abc0bf549bbbf35ab6c88a50bf9b159751b06306ea90f0fe"
+          },
+          "preparation.json": {
+            "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-19/independent-training-recordings-v1-evidence/experiment/cascade/candidate/preparation.json",
+            "sha256": "dd844318a1db6d05d6160239aa559d767227aecb4f029ae241d39dee257ce932"
+          },
+          "report.json": {
+            "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-19/independent-training-recordings-v1-evidence/experiment/cascade/candidate/report.json",
+            "sha256": "228d3bb688099a70da6f4413e7d07fe7ba1e13485cde448005c16a931c9f1881"
+          },
+          "weight-initial.npz": {
+            "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-19/independent-training-recordings-v1-evidence/experiment/cascade/candidate/weight-initial.npz",
+            "sha256": "3d7af8cac893e5d07dc99ae348607a847e7d65269b93b31ef9d33026f83dd6eb"
+          },
+          "weights.npz": {
+            "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-19/independent-training-recordings-v1-evidence/experiment/cascade/candidate/weights.npz",
+            "sha256": "f8b08bf343d96f16c9d59e60216b8c99fe04073e4378ab90f787d5ec3ed3896a"
+          },
+          "work-verification.json": {
+            "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-19/independent-training-recordings-v1-evidence/experiment/cascade/candidate/work-verification.json",
+            "sha256": "72cb50c43cd7e687ad9a41f5b5d9e4f158674a5223b26d8d326b7913948c58e6"
+          }
+        },
+        "model": {
+          "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-19/independent-training-recordings-v1-evidence/experiment/cascade/candidate/model.npz",
+          "sha256": "4b00d2f381d2fb95abc0bf549bbbf35ab6c88a50bf9b159751b06306ea90f0fe"
+        },
+        "root": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-19/independent-training-recordings-v1-evidence/experiment/cascade/candidate",
+        "run_sha256": "d535304327e6ed8729223747e612beab8bfbd2b4aea480c0811ced3c44c0e390"
+      },
+      "crazyflow": {
+        "files": {
+          "actual-preparation.npz": {
+            "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-19/independent-training-recordings-v1-evidence/experiment/crazyflow/candidate/actual-preparation.npz",
+            "sha256": "891a5a1d565241d85b8154c87ff19139bc70e72146089b5ff28d337c90496691"
+          },
+          "cache-diagnostics.json": {
+            "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-19/independent-training-recordings-v1-evidence/experiment/crazyflow/candidate/cache-diagnostics.json",
+            "sha256": "f7999373d9ae84bf8178440cf87ebfd2c52b173ebd7d98204eb4dfaa8a15e3c1"
+          },
+          "cache-diagnostics.npz": {
+            "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-19/independent-training-recordings-v1-evidence/experiment/crazyflow/candidate/cache-diagnostics.npz",
+            "sha256": "7c21da4aece02751ae19107954f082404b1b83d6bd3f483a447ca5f4ee0c044d"
+          },
+          "checkpoint-0000.npz": {
+            "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-19/independent-training-recordings-v1-evidence/experiment/crazyflow/candidate/checkpoint-0000.npz",
+            "sha256": "c12acb4325a1d6a6a82bfe29b0da9d9f98e49b58591573d14f822b672ad87f52"
+          },
+          "initializer-return.npz": {
+            "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-19/independent-training-recordings-v1-evidence/experiment/crazyflow/candidate/initializer-return.npz",
+            "sha256": "a50c6c51f19e1f81aefc736116df375012d624069f44965c8bfb40838495047d"
+          },
+          "model.npz": {
+            "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-19/independent-training-recordings-v1-evidence/experiment/crazyflow/candidate/model.npz",
+            "sha256": "d031b9e626385c38419846e2dacb172cf4b5560a37f8a2e95113a1d5f6f69686"
+          },
+          "preparation.json": {
+            "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-19/independent-training-recordings-v1-evidence/experiment/crazyflow/candidate/preparation.json",
+            "sha256": "264ec473426ca41e6c7d26f3089d9a5989876cf28fedc25437c9b1a95c8faea0"
+          },
+          "report.json": {
+            "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-19/independent-training-recordings-v1-evidence/experiment/crazyflow/candidate/report.json",
+            "sha256": "9449d3758dfad286cb73c729e6e1c5f9f45c17d25f746c64797cdca2ada21c65"
+          },
+          "weight-initial.npz": {
+            "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-19/independent-training-recordings-v1-evidence/experiment/crazyflow/candidate/weight-initial.npz",
+            "sha256": "c12acb4325a1d6a6a82bfe29b0da9d9f98e49b58591573d14f822b672ad87f52"
+          },
+          "weights.npz": {
+            "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-19/independent-training-recordings-v1-evidence/experiment/crazyflow/candidate/weights.npz",
+            "sha256": "5360270c6c136de102907cc06d5adf97c3f7a48ec6d99779da665a44d44a9d1e"
+          },
+          "work-verification.json": {
+            "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-19/independent-training-recordings-v1-evidence/experiment/crazyflow/candidate/work-verification.json",
+            "sha256": "b13e5511a4d9df3d9d410857437f76b3d564732f6afec763cb72ec82767dc46f"
+          }
+        },
+        "model": {
+          "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-19/independent-training-recordings-v1-evidence/experiment/crazyflow/candidate/model.npz",
+          "sha256": "d031b9e626385c38419846e2dacb172cf4b5560a37f8a2e95113a1d5f6f69686"
+        },
+        "root": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-19/independent-training-recordings-v1-evidence/experiment/crazyflow/candidate",
+        "run_sha256": "d226cb271639ce1139b7a7f60fcb67fdf93e68623d63c6993a9e6391814ece3f"
+      }
+    },
+    "diagnosis": {
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-19/independent-training-recordings-v1-evidence/provenance/independent-training-cache-diagnosis-v1.json",
+      "sha256": "f39d5df847990914d86c287f0bf6e21afd912ae0940cf3bace761227fb014e78"
+    },
+    "retained_result": {
+      "path": "/private/tmp/glassbox-initialized-mean-prior/docs/harness/independent-training-recordings-v1-result.json",
+      "sha256": "bfc083593ce11088c0e2e33c9a2747319a2a9836ff06e9e115f658db2822d85b"
+    },
+    "updated_binding": {
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-19/independent-training-recordings-v1-evidence/provenance/independent-training-recordings-v1-implementation-attempt1.json",
+      "sha256": "380f1d6eab8fcf7752c0fe0f8a0eea105c05a5a72b3a01cb0115e275715e9452"
+    },
+    "updated_experiment": {
+      "root": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-19/independent-training-recordings-v1-evidence/experiment",
+      "run_sha256": "d469294215b6c219f87145f8c74c594c308072181886a5a282b38896baf91ce1"
+    },
+    "updated_source": {
+      "commit": "1f467736b2b0fdc1604fa9b2af442a95d9e2f0ed",
+      "root": "/private/tmp/glassbox-independent-training-recordings"
+    }
+  },
+  "named_gap": "Vehicle mechanics and recursive planning horizon",
+  "preparation": {
+    "dart": "Original8train/2calibration roles; learner._extract budgets1536/256, actual .5s observed history within recording only. Test10/11 heldout. Command-only prefixes cannot fabricate observations.",
+    "physical": "Authenticate actual-preparation.npz and weights.npz. Preserve exact144-parent1536 train windows and24-parent256 development windows; no resampling/recollection/refitting controls."
+  },
+  "scope": "One research vehicle recipe with fit/predict/update/save/load and no vehicle-family options. Public v4 remains intact pending separate qualification. Not a proof for arbitrary mechanical systems.",
+  "status": "frozen_on_commit_before_implementation_and_science",
+  "verification": {
+    "alterations": [
+      {
+        "change": "Selectedmodel altered withlocalhash repaired",
+        "id": "SVP-A01",
+        "validator": "Externalmodelseal and nofit predictionreplay"
+      },
+      {
+        "change": "Cache values/roles changed",
+        "id": "SVP-A02",
+        "validator": "External exactcache/ledger anchors"
+      },
+      {
+        "change": "Native truth/command changed withlocalhash repaired",
+        "id": "SVP-A03",
+        "validator": "Nativephysicalreplay andliteralroster"
+      },
+      {
+        "change": "Saveddecision Boolean changed",
+        "id": "SVP-A04",
+        "validator": "Freshfrozen reduction fromsavedrawrows"
+      }
+    ],
+    "failure": "Exclusiveoutputs andexternallysealed terminaloutcomes; preserve failedcommands/workprefixes. No automatic scientificretry ordiscardedconditions. Harnessfix requires newcommittedsource binding andusescompletedfits.",
+    "implementation_gate": "Commit protocol beforecode. Complete core,lifecycle,data,experiment,Dart and tests; commit/bind clean source/runtime/inputhashes before any scientific initialization,fit,simulation,prediction. Historical workers immutable.",
+    "invariants": "SO3 zero-angle derivatives/norms; gravity/freefall/constantacceleration; arbitrary1/3/4/6commands; hiddenhistory causality; no family metadata in numericalpath; train-onlynorms; midpoint/substeps;float32/64,JIT,reversegradients; safe archivecorruption rejection and immutableupdate ledger. Analytic fixtures do not inherit27case capability qualification.",
+    "public_promotion": false,
+    "replay": "No refits. Native84parent collection/complete selected prediction replay; savedcheckpoint/cacheforecast/calibration verification. IndependentNumPy raw/hierarchical reduction. Dart savedcommands replay and savedmean/optimizerinputs reconstructed withoutfit.",
+    "work": "Four boundedfreshfits; actualinitializers,ridgesolves,gradientwindowvisits,acceptancecalls,checkpointforecasts,time,bytes. Savedphysicalcontrols nofit. No equalFLOPclaim."
+  }
+}
