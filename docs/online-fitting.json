@@ -1,0 +1,296 @@
+{
+  "id": "online-fit-v2",
+  "source_commit": "a43d2dc",
+  "protocol": "harness/online-fit-v2.json",
+  "artifacts": "/Users/ryland/autonomy/glassbox/artifacts/online-fit-v2/evaluation",
+  "collection_manifest_sha256": "276ba8d5c49250bf0cc8c242884f50e42c2566b660619958c53ca285651486c4",
+  "v1_evaluation_manifest_sha256": "fe73ba21c7b2eba6e77f237931d6528317d2d64f278e69f8be2eaeb12f8e532d",
+  "v2_evaluation_manifest_sha256": "baeea488c90eeffa9864756ca94e5f5725fe55c82dec9260b09c905421378319",
+  "accuracy_passed": true,
+  "real_time_target_passed": false,
+  "candidate_closed_loop_trials": 0,
+  "aggregate_vs_frozen": 0.4565713012198592,
+  "aggregate_vs_v1": 0.16615617879479633,
+  "families": {
+    "fixedwing": {
+      "aggregate": 0.6575595758997815,
+      "metric_ratios": {
+        "body_rate_rmse_rad_s": 0.6399838115914529,
+        "velocity_rmse_m_s": 0.6756180203719314
+      }
+    },
+    "quad": {
+      "aggregate": 0.3170166791538998,
+      "metric_ratios": {
+        "body_rate_rmse_rad_s": 0.20287247986720067,
+        "velocity_rmse_m_s": 0.4953829860390782
+      }
+    }
+  },
+  "paired_arrays_bitwise_equal": [
+    "source_rows",
+    "timestamps",
+    "truth",
+    "frozen_predictions",
+    "kinematic_predictions"
+  ],
+  "verified_observations": 3137,
+  "no_fit_verification": {
+    "verified": true,
+    "fits": 0,
+    "model_calls": 0
+  },
+  "validation": {
+    "tests_passed": 138,
+    "test_elapsed_s": 79.86,
+    "ruff": "passed",
+    "wheel_built": true,
+    "wheel_import_outside_checkout": true,
+    "wheel_sha256": "e2a73ff4c9ead272d8a40fc0c58aa42f6bdccb32880cc50b364d7f8fb2941088",
+    "baseline_preservation": "Original 12,768 flight arrays, 40 Dart trajectories and 4,144 gradients reproduced exactly during this iteration; underlying dynamics and offline learner unchanged."
+  },
+  "cases": [
+    {
+      "id": "quad-arm-115",
+      "observations": 875,
+      "v2_to_v1": {
+        "body_rate_rmse_rad_s": 0.20130582444999107,
+        "orientation_rmse_rad": 0.15155148084304518,
+        "velocity_rmse_m_s": 0.0730917303300554
+      },
+      "metrics": {
+        "candidate": {
+          "body_rate_rmse_rad_s": 0.2741662265526682,
+          "orientation_rmse_rad": 0.0013194619260374298,
+          "velocity_rmse_m_s": 0.02995855670773178
+        },
+        "frozen": {
+          "body_rate_rmse_rad_s": 2.309220533573504,
+          "orientation_rmse_rad": 0.010736290465443166,
+          "velocity_rmse_m_s": 0.1347157166217019
+        },
+        "kinematic": {
+          "body_rate_rmse_rad_s": 0.11165536483611523,
+          "orientation_rmse_rad": 0.0004474429063217157,
+          "velocity_rmse_m_s": 0.03967146360153428
+        }
+      },
+      "candidate_to_frozen": {
+        "body_rate_rmse_rad_s": 0.118726740285995,
+        "orientation_rmse_rad": 0.12289737598702029,
+        "velocity_rmse_m_s": 0.22238353073427244
+      },
+      "candidate_to_kinematic": {
+        "body_rate_rmse_rad_s": 2.4554684582785797,
+        "orientation_rmse_rad": 2.9488945011650807,
+        "velocity_rmse_m_s": 0.7551664089996706
+      },
+      "warm_update_p95_s": 0.02724278477253392,
+      "warm_update_median_s": 0.02652183303143829,
+      "truncated": false
+    },
+    {
+      "id": "quad-arm-125",
+      "observations": 875,
+      "v2_to_v1": {
+        "body_rate_rmse_rad_s": 0.21251315318079914,
+        "orientation_rmse_rad": 0.1449293599398597,
+        "velocity_rmse_m_s": 0.32530514964310997
+      },
+      "metrics": {
+        "candidate": {
+          "body_rate_rmse_rad_s": 0.13205685894700137,
+          "orientation_rmse_rad": 0.0006090004675840088,
+          "velocity_rmse_m_s": 0.020033228921904768
+        },
+        "frozen": {
+          "body_rate_rmse_rad_s": 0.6803210393280901,
+          "orientation_rmse_rad": 0.003144297400383177,
+          "velocity_rmse_m_s": 0.03760597789486961
+        },
+        "kinematic": {
+          "body_rate_rmse_rad_s": 0.12057851919904918,
+          "orientation_rmse_rad": 0.00048633078200594794,
+          "velocity_rmse_m_s": 0.029419028657145834
+        }
+      },
+      "candidate_to_frozen": {
+        "body_rate_rmse_rad_s": 0.194109620771725,
+        "orientation_rmse_rad": 0.1936841176377888,
+        "velocity_rmse_m_s": 0.5327139471790681
+      },
+      "candidate_to_kinematic": {
+        "body_rate_rmse_rad_s": 1.0951939020664527,
+        "orientation_rmse_rad": 1.2522350838499063,
+        "velocity_rmse_m_s": 0.6809616033002072
+      },
+      "warm_update_p95_s": 0.027918689942453053,
+      "warm_update_median_s": 0.026524083106778562,
+      "truncated": false
+    },
+    {
+      "id": "quad-arm-135",
+      "observations": 62,
+      "v2_to_v1": {
+        "body_rate_rmse_rad_s": 0.052165167773819306,
+        "orientation_rmse_rad": 0.03978651915218858,
+        "velocity_rmse_m_s": 0.30801135100472576
+      },
+      "metrics": {
+        "candidate": {
+          "body_rate_rmse_rad_s": 1.7133277407275986,
+          "orientation_rmse_rad": 0.007511907955393586,
+          "velocity_rmse_m_s": 1.273409567652261
+        },
+        "frozen": {
+          "body_rate_rmse_rad_s": 4.525367984737336,
+          "orientation_rmse_rad": 0.01966458484088863,
+          "velocity_rmse_m_s": 1.3364842312514198
+        },
+        "kinematic": {
+          "body_rate_rmse_rad_s": 1.120879084472137,
+          "orientation_rmse_rad": 0.004489489900028987,
+          "velocity_rmse_m_s": 1.1738888059918617
+        }
+      },
+      "candidate_to_frozen": {
+        "body_rate_rmse_rad_s": 0.37860517564673685,
+        "orientation_rmse_rad": 0.3820018584767706,
+        "velocity_rmse_m_s": 0.9528055310161806
+      },
+      "candidate_to_kinematic": {
+        "body_rate_rmse_rad_s": 1.5285571516703493,
+        "orientation_rmse_rad": 1.67322081632149,
+        "velocity_rmse_m_s": 1.0847786955224523
+      },
+      "warm_update_p95_s": 0.026859167031943798,
+      "warm_update_median_s": 0.026457207975909114,
+      "truncated": true
+    },
+    {
+      "id": "quad-change",
+      "observations": 875,
+      "v2_to_v1": {
+        "body_rate_rmse_rad_s": 0.212544703963494,
+        "orientation_rmse_rad": 0.14501628091118796,
+        "velocity_rmse_m_s": 0.325810932967934
+      },
+      "metrics": {
+        "candidate": {
+          "body_rate_rmse_rad_s": 0.13207864163146518,
+          "orientation_rmse_rad": 0.0006090661167439254,
+          "velocity_rmse_m_s": 0.020064222864730794
+        },
+        "frozen": {
+          "body_rate_rmse_rad_s": 0.6803340285962546,
+          "orientation_rmse_rad": 0.0031443546281355677,
+          "velocity_rmse_m_s": 0.03760615698506135
+        },
+        "kinematic": {
+          "body_rate_rmse_rad_s": 0.1205799069870141,
+          "orientation_rmse_rad": 0.00048633629351900936,
+          "velocity_rmse_m_s": 0.02941859906068214
+        }
+      },
+      "candidate_to_frozen": {
+        "body_rate_rmse_rad_s": 0.19413793236828888,
+        "orientation_rmse_rad": 0.19370147097723156,
+        "velocity_rmse_m_s": 0.5335355822904504
+      },
+      "candidate_to_kinematic": {
+        "body_rate_rmse_rad_s": 1.0953619465446216,
+        "orientation_rmse_rad": 1.252355879790244,
+        "velocity_rmse_m_s": 0.6820250965501128
+      },
+      "warm_update_p95_s": 0.027479498309548944,
+      "warm_update_median_s": 0.026516708079725504,
+      "truncated": false
+    },
+    {
+      "id": "fixedwing-80",
+      "observations": 225,
+      "v2_to_v1": {
+        "body_rate_rmse_rad_s": 0.12930535387777736,
+        "orientation_rmse_rad": 0.2615902923749514,
+        "velocity_rmse_m_s": 0.12053748336175982
+      },
+      "metrics": {
+        "candidate": {
+          "body_rate_rmse_rad_s": 2.9534610462840183,
+          "orientation_rmse_rad": 0.06781498510653382,
+          "velocity_rmse_m_s": 1.1625283519871212
+        },
+        "frozen": {
+          "body_rate_rmse_rad_s": 2.856183243399267,
+          "orientation_rmse_rad": 0.06837837890672713,
+          "velocity_rmse_m_s": 1.302684177243834
+        },
+        "kinematic": {
+          "body_rate_rmse_rad_s": 0.3761761016867941,
+          "orientation_rmse_rad": 0.009524647033371436,
+          "velocity_rmse_m_s": 0.16863034175627478
+        }
+      },
+      "candidate_to_frozen": {
+        "body_rate_rmse_rad_s": 1.0340586701184398,
+        "orientation_rmse_rad": 0.9917606440924577,
+        "velocity_rmse_m_s": 0.8924099734186925
+      },
+      "candidate_to_kinematic": {
+        "body_rate_rmse_rad_s": 7.851272404175965,
+        "orientation_rmse_rad": 7.119947318670282,
+        "velocity_rmse_m_s": 6.8939452999944075
+      },
+      "warm_update_p95_s": 0.00374845159240067,
+      "warm_update_median_s": 0.0034426874481141567,
+      "truncated": false
+    },
+    {
+      "id": "fixedwing-81",
+      "observations": 225,
+      "v2_to_v1": {
+        "body_rate_rmse_rad_s": 0.13818250649331193,
+        "orientation_rmse_rad": 0.5209202575997286,
+        "velocity_rmse_m_s": 0.25354670408634244
+      },
+      "metrics": {
+        "candidate": {
+          "body_rate_rmse_rad_s": 4.8978591765271595,
+          "orientation_rmse_rad": 0.13698230308811007,
+          "velocity_rmse_m_s": 3.6851700437400585
+        },
+        "frozen": {
+          "body_rate_rmse_rad_s": 12.365551689155017,
+          "orientation_rmse_rad": 0.2879333853339188,
+          "velocity_rmse_m_s": 7.204759659359133
+        },
+        "kinematic": {
+          "body_rate_rmse_rad_s": 0.37919534694939155,
+          "orientation_rmse_rad": 0.009584423405099306,
+          "velocity_rmse_m_s": 0.17023272979733872
+        }
+      },
+      "candidate_to_frozen": {
+        "body_rate_rmse_rad_s": 0.3960890140326483,
+        "orientation_rmse_rad": 0.47574303663762546,
+        "velocity_rmse_m_s": 0.5114910445281746
+      },
+      "candidate_to_kinematic": {
+        "body_rate_rmse_rad_s": 12.916453790718169,
+        "orientation_rmse_rad": 14.292179852491687,
+        "velocity_rmse_m_s": 21.64783498524189
+      },
+      "warm_update_p95_s": 0.0037012456450611353,
+      "warm_update_median_s": 0.0034269370371475816,
+      "truncated": false
+    }
+  ],
+  "remaining_gaps": [
+    "Fixed-wing errors exceed the no-fit kinematic baseline substantially.",
+    "Quad update latency exceeds the 10 ms sample period.",
+    "Known replay tapes and weakly excited post-change hover do not qualify unseen control authority.",
+    "No current-learner Throw control or fixed-wing recovery trial."
+  ],
+  "decision": "Retain bounded Gauss-Newton as the single streaming fitter; it improves known causal predictions. Do not substitute it into a live controller yet.",
+  "comparator": "The same generic learner frozen at its startup fit; not the old Throw identifier, which observed different actuator telemetry."
+}

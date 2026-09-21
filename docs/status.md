@@ -14,14 +14,14 @@ does not rewrite prior frozen failures or establish arbitrary-system readiness.
 | Accuracy | Original shared physics reduced matched aggregate forecast/response errors 43.95%/22.12% versus v4. The supported map preserves original local response on both inspected Crazyflow/Cascade cohorts. Cascade wind forecast velocity RMSE remains 0.426–0.434 m/s at 250 ms; known Dart 1.2 s response errors remain 3.942 m/s and 9.601 rad/s. Original wind/tail acceptance failures remain historical facts. |
 | Dart | The unchanged supported model now reaches **0.720 mm** nominal miss through a radius-aware lateral objective and 10 ms feedback: 0.93° axis error, 0.126 m/s tangent speed, contact at 1.192093 s. All 9,874 gradients, 120 selected means and 120 native steps are finite; 103/120 solves converged. Finer float64 replays reach 0.756 / 0.755 mm and converge within 0.152 micrometers / 0.228 microseconds. The original float32 fine-grid convergence failure remains recorded. One known task with an existing seed; neighborhood reliability remains open. |
 | Runtime | The precision trial took 59.24 s for 1.2 simulated seconds, including durable callback recording. It uses 120 solves versus the baseline’s 40, with the same 100-iteration cap per solve. Real-time execution is not qualified. |
-| Updates | Fixed-budget refitting produces immutable revisions and retains development roles. Accuracy improvement and live adoption require new evaluation. |
+| Updates | Offline updates preserve immutable revisions and development roles. The new causal streaming fitter improves equal-family error 54.34% versus frozen startup on six known tapes, with no family-specific model. Fixed-wing absolute accuracy and quad update latency remain insufficient for live adoption. |
 | Calibration | Fresh fits estimate envelopes on development data also used for checkpoint selection. Independent coverage remains open. Adopted migrated revisions carry no transferred old-map envelope. |
 | System scope | Canonical rigid-body velocity, angular rate and orientation with arbitrary ordered command dimensions. Articulated/flexible systems and broad JSBSim coverage remain unproved. |
 
 ## Completed iteration
 
-**Single implementation and repository cleanup.** The package is now 14 Python
-modules / 2,216 lines with one dynamics implementation. All 12,768 saved flight
+**Single implementation and repository cleanup.** At cleanup, the package had
+14 Python modules / 2,216 lines with one dynamics implementation. All 12,768 saved flight
 arrays, 40 selected Dart means and 4,144 actual objective/gradient callbacks
 reproduce exactly. The installed wheel passes 76 tests on Python 3.12 and 3.13.
 Five obsolete artifact roots and 60 retired experiment worktrees were deleted
@@ -50,26 +50,30 @@ The winning objective and four regression tests are applied in Dart; 10 ms
 feedback is specified by this benchmark, not changed in Dart launcher defaults.
 See [the result](dart-precision.md). The full suite passes 105 tests.
 
-## Active scientific gap
+## Completed online-fitting iteration
 
-**Stable causal online fitting for Throw and fixed wings.** The first bounded
-streaming implementation and six-case evaluation are complete. It failed:
-physical prediction error is **2.748 times** the frozen-prefix baseline under
-equal family weighting (quad1.755, fixed-wing4.302), and every case loses to the
-no-fit kinematic diagnostic on velocity and rate error. All3,137 predictions
-and updates completed with finite values; finite descent was insufficient.
-See [the complete v1 evidence](online-fit-v1.json). These are identification
-replays, not candidate-controlled flights. The old collection controller hit
-the floor at1.87s on the1.35-arm case; all other quad tapes span10s.
+The same shared dynamics engine now supports bounded causal streaming fits on
+four-command quads and three-command fixed wings. The first Adam candidate failed;
+its result is preserved. Full-cache damped Gauss-Newton improves the equal-family
+velocity/rate aggregate 54.34% versus identical frozen startup models and 83.38%
+versus that first candidate. Eleven of twelve primary case/metric comparisons
+improve over frozen; `fixedwing-80` rate error regresses 3.41% and remains included.
+All 3,137 observations are scored before assimilation. Inputs and frozen predictions
+match bitwise across candidates; both packs verify without fitting. All 138 tests
+pass. The offline learner, original baseline and Dart model are unchanged.
 
-Saved-data checks rule out float32 inference as the main cause. Small-batch
-acceptance can worsen the full recent buffer. Prefix scales are highly uneven;
-later commands reach102 startup standard deviations and motion reaches88 times
-startup support. The settled hidden-change tape has little command excitation,
-so it does not strongly establish changed control-authority identification.
+This passes the frozen relative-improvement gate, not broad readiness. Fixed-wing
+errors remain 6.9–21.6 times kinematic velocity error and 7.9–12.9 times rate error.
+Quad update p95 is 26.9–27.9 ms against 10 ms sampling; fixed-wing p95 is 3.70–3.75 ms
+against 50 ms. One quad tape is floor-truncated, and the in-flight geometry change
+occurs in weakly excited hover. No current-learner closed-loop trial has run.
+See [the complete result](online-fitting.md) and [evidence identities](online-fitting.json).
 
-The frozen [online-fit-v2 protocol](harness/online-fit-v2.json) tests a damped
-Gauss-Newton update with acceptance over the full bounded replay cache. It keeps
-the same dynamics, initialization, normalization and objective, isolating the
-optimizer change on the same now-known tapes. V1 remains failed. No v2 fit has
-started. The offline learner, saved baseline and Dart model are unchanged.
+## Following scientific gap
+
+**Cold-start conditioning and motion support.** Address tiny startup scales and
+information compressed outside initially observed motion without a platform
+branch or user tuning. Freeze the coordinate/conditioning change and its physical
+accuracy comparison before fitting; preserve prediction meaning if parameters
+are re-expressed. The kinematic baseline remains essential. Fit latency and
+future controller integration are separate gaps. No next protocol has run.
