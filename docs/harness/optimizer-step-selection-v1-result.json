@@ -1,0 +1,280 @@
+{
+  "archive": {
+    "bytes": 5108946452,
+    "files": 60173
+  },
+  "artifacts": {
+    "closure": {
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/iteration-closure.json",
+      "sha256": "5eaffd40d79a4ba94235a48f4f79443492fda32138becc5617c672dfcc2a20b0"
+    },
+    "completed_summary": {
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/completed-summary.json",
+      "sha256": "e1ad21e842de1d1e9211b651922fbece82d046e02c95a295a70e026912f176ce"
+    },
+    "development_gap_diagnosis": {
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/diagnostics/dart-development-gap.json",
+      "sha256": "6d23b9aff72a2714443438255e82786290634b1206d26ac1f9e9364b9039040c"
+    },
+    "evaluation_binding": {
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/binding.json",
+      "sha256": "1104e4efc89f293eb0cc2007e1e86561436011f92761219a5f854942311b951e"
+    },
+    "evaluation_source_bundle": {
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/source.bundle",
+      "sha256": "a904035d95b7df6a8157d61f71d06f5b6b79d2c062f3a930b0211f8c26da47e1"
+    },
+    "first20_diagnosis": {
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/diagnostics/dart-first20.json",
+      "sha256": "6be70c5dd4194ca02f2133b5ebe75cd4565afd30bf72d00325271ebbc649a5a5"
+    },
+    "manifest": {
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/manifest.json",
+      "sha256": "ddc9154ccd91247ae319c376e023a755633653badc8f8ac2363273dd44d1e40d"
+    },
+    "qualification": {
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/qualification.json",
+      "sha256": "aa12b339cd6be866e10a2af2572f60eb7229874fcf47d0546b28610ab2bd5663"
+    },
+    "recurrence_source_diagnosis": {
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/diagnostics/recurrence-source-diagnosis.json",
+      "sha256": "7b609f2ba4f1b1a4e2a0cf0dbce1ff1a45a3f0016f372839e3f173f8309ed928"
+    },
+    "response_failure_diagnosis": {
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/diagnostics/dart-response-nonfinite.json",
+      "sha256": "e92cd54c9e8a73567e67d47c7c0d92f00047b3fac2ca8889dfd1db649a1b8fa5"
+    },
+    "training_binding": {
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/binding.json",
+      "sha256": "703356b4bd380343490a2318bcfd5c29b033eebf16765703b6d70a42be0efb32"
+    },
+    "training_source_bundle": {
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/source.bundle",
+      "sha256": "d1d057dbdd9558745ebe685288c7a6b879f10ef3dc0ad7e2dea7baeae465c425"
+    }
+  },
+  "closed_at_utc": "2026-09-21T05:37:35.949823+00:00",
+  "dart": {
+    "candidate_failed_commands_inside_training_coordinate_ranges": true,
+    "contact": {
+      "contact": {
+        "contact": false,
+        "hit": false,
+        "minimum_plane_distance_m": 0.3905075192451477,
+        "reason": "no_plane_crossing"
+      },
+      "converged_solves": 0,
+      "error": {
+        "message": "nonfinite initial objective or gradient",
+        "type": "RuntimeError"
+      },
+      "executed_intervals": 78,
+      "gradient_calls": 191,
+      "hit": false,
+      "optimizer_attempts": 27,
+      "solves": 26
+    },
+    "fresh_long_forecast_ratio": 0.9395022724008744,
+    "fresh_long_response_ratio": null,
+    "fresh_response_branches": 96,
+    "native_truth_finite_for_failures": true,
+    "nonfinite_prediction_counts": {
+      "candidate": 8,
+      "public_v4": 1,
+      "shared_v1": 9
+    },
+    "nonfinite_scored_horizon_s": 1.2,
+    "residual_checks_pass": false
+  },
+  "evaluation_correction_protocol": {
+    "path": "/Users/ryland/autonomy/glassbox/docs/harness/optimizer-step-selection-evaluation-correction-v1.json",
+    "sha256": "05269bc3ddebc145f64269176042cf99b4e3eb45faafc87c124cf0a23df22462"
+  },
+  "evaluation_source_commit": "67764ce80a2d1cfd79c97321de440b3b5f9fd1a3",
+  "fitting": {
+    "accepted_updates": 3000,
+    "completed_refinements": 3,
+    "development_loss_reductions": {
+      "cascade": 0.7383812080352807,
+      "crazyflow": 0.35185517624141804,
+      "dart": 0.03676804728574001
+    },
+    "gradient_calls": 3000,
+    "initializers": 0,
+    "prior_fits_repeated": 0,
+    "ridge_solves": 0,
+    "selected_attempts": {
+      "cascade": 1000,
+      "crazyflow": 900,
+      "dart": 1000
+    },
+    "trial_objective_calls": 6023
+  },
+  "format": "glassbox-optimizer-step-selection-result-v1",
+  "id": "optimizer-step-selection-v1",
+  "integration": "Documentation and frozen protocols only; research implementations remain outside main. Public generic-memory-v4-prototype unchanged.",
+  "mechanism": "Persistent bounded Armijo step selection around existing Adam; same model, objective, exact preparation and saved starting weights.",
+  "named_gap": "Dart task-horizon command-response fidelity: diagnose and resolve rejected optimizer steps",
+  "next_iteration_frozen": false,
+  "next_named_gap": "Dart recursive command-response stability: attribute learned state-feedback runaway versus integration instability before further fitting",
+  "optimizer_progress": {
+    "configurations": {
+      "cascade": {
+        "complete": true,
+        "feasibility_passed": true,
+        "initial_fingerprint": "4ec0ceb86cc7120c126267f6d4f874d1d63601bfb533c2f11fc71449e93599bd",
+        "selected_fingerprint": "3f2c30080cefeba7b6cabcc44b9d10d57c90ebef3b33a6be45a39cfb5e63c647",
+        "termination_reason": "gradient_budget"
+      },
+      "crazyflow": {
+        "complete": true,
+        "feasibility_passed": true,
+        "initial_fingerprint": "3ff64437e68e2e20dcd14f7aebfb4c6fc21523656c9fe00ebd8a24bc906d77ee",
+        "selected_fingerprint": "99af34731639b68f8ddb8a77d00f52df14d95dde28a60a1bfee58697ece63889",
+        "termination_reason": "gradient_budget"
+      },
+      "dart": {
+        "complete": true,
+        "feasibility_passed": true,
+        "initial_fingerprint": "7c0519da34f52912bc7267ae2764788f033485965b7bbcae85660b5f56afc795",
+        "selected_fingerprint": "5dac7837a7f90be3d80055f0254dafd4e663e14d266d2422119c943f4a1ad2d5",
+        "termination_reason": "gradient_budget"
+      }
+    },
+    "dart_selected_weights_changed": true
+  },
+  "physical": {
+    "fresh": {
+      "aggregate_ratios": {
+        "factual": 0.9940405837311311,
+        "response": 0.9681728266277607
+      },
+      "endpoint_comparisons": {
+        "improved": 101,
+        "regressed": 79,
+        "total": 180,
+        "unchanged": 0,
+        "undefined": 0
+      },
+      "failed_angular_guards": [
+        "response_aggregate_rmse",
+        "response_parent_rmse_p95"
+      ],
+      "failed_parent_p95_guards": [
+        {
+          "baseline_p95": 0.013309594611493187,
+          "candidate_p95": 0.025816635632126606,
+          "group": "velocity_m_s",
+          "kind": "factual",
+          "pass": false,
+          "ratio": 1.9397011243177353,
+          "simulator": "crazyflow"
+        }
+      ],
+      "failed_primary_guards": [
+        {
+          "kind": "factual",
+          "limit": 1.15,
+          "ratio": 1.2004616761655589,
+          "scope": "primary",
+          "simulator": "crazyflow"
+        },
+        {
+          "kind": "response",
+          "limit": 1.15,
+          "ratio": 1.156027480797403,
+          "scope": "primary",
+          "simulator": "crazyflow"
+        }
+      ],
+      "inherited_v4_guards_pass": false,
+      "per_simulator_ratios": {
+        "cascade": {
+          "factual": 0.888977367156132,
+          "response": 0.8008885215410189
+        },
+        "crazyflow": {
+          "factual": 1.1115206287709505,
+          "response": 1.1703983725684843
+        }
+      },
+      "retention_pass": false
+    },
+    "known": {
+      "aggregate_ratios": {
+        "factual": 0.9901983369709466,
+        "response": 0.9772075729783931
+      },
+      "endpoint_comparisons": {
+        "improved": 100,
+        "regressed": 80,
+        "total": 180,
+        "unchanged": 0,
+        "undefined": 0
+      },
+      "failed_angular_guards": [
+        "response_aggregate_rmse",
+        "response_parent_rmse_p95"
+      ],
+      "failed_parent_p95_guards": [
+        {
+          "baseline_p95": 0.014270020676193283,
+          "candidate_p95": 0.023889612793535495,
+          "group": "velocity_m_s",
+          "kind": "factual",
+          "pass": false,
+          "ratio": 1.6741119957443793,
+          "simulator": "crazyflow"
+        }
+      ],
+      "failed_primary_guards": [
+        {
+          "kind": "response",
+          "limit": 1.15,
+          "ratio": 1.1905261020627698,
+          "scope": "primary",
+          "simulator": "crazyflow"
+        }
+      ],
+      "inherited_v4_guards_pass": false,
+      "per_simulator_ratios": {
+        "cascade": {
+          "factual": 0.8924805220023705,
+          "response": 0.8059726558945246
+        },
+        "crazyflow": {
+          "factual": 1.0986152889255145,
+          "response": 1.184822628537526
+        }
+      },
+      "retention_pass": false
+    }
+  },
+  "protocol": {
+    "path": "/Users/ryland/autonomy/glassbox/docs/harness/optimizer-step-selection-v1.json",
+    "sha256": "fa1e105f81619e75c5d73140ddcdd7177ddd36ee68ba84f9d7f6226b98789b7c"
+  },
+  "qualification": {
+    "actual_alteration_classes": [
+      "candidate_model_external_anchor",
+      "decision_raw_row_reduction",
+      "native_command_repaired_local_seal",
+      "saved_optimizer_proposal",
+      "training_step_metadata"
+    ],
+    "dart_contact_hit": false,
+    "integrity_pass": true,
+    "public_promotion": false,
+    "required_stage_receipts_verified": 39,
+    "research_acceptance": false
+  },
+  "status": "complete_not_accepted",
+  "training_source_commit": "717bcf55c950c50165658276d8b4e46b5bb7eb37",
+  "validation": {
+    "corrected_affected_tests_passed": 137,
+    "corrected_report_tests_passed": 25,
+    "corrected_runner_tests_passed": 5,
+    "corrected_source_files_unchanged": 163,
+    "original_prefit_tests_passed": 179
+  }
+}
