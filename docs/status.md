@@ -71,10 +71,13 @@ See [the complete result](online-fitting.md) and [evidence identities](online-fi
 
 ## Active scientific gap
 
-**Cold-start conditioning and motion support.** The frozen
-[v3 protocol](harness/online-fit-v3.json) isolates prediction-preserving adaptive
-feature, quadratic and output scaling. It changes the optimization coordinates
-from the causal replay cache while keeping initialization, dynamics, support and
-loss weighting fixed. Acceptance requires improvement against the saved v2
-online model, not merely the frozen startup model. No v3 fit has started.
-Motion-support expansion, fit latency and controller integration remain separate.
+**Physical-vector loss conditioning.** The v3 coordinate correction failed its
+frozen gate: equal-family error was 1.41% worse than adopted v2 (quad 17.26% better,
+fixed-wing 24.28% worse). Fixedwing-81 rate error increased 6.51 times. All cases
+remain included in [the v3 result](online-fit-v3.json).
+
+The frozen [v4 protocol](harness/online-fit-v4.json) now tests a fixed scale for
+each physical vector and radial Huber loss, keeping v3's other changes. It removes
+startup-axis imbalance and weights velocity, rate and orientation equally.
+Acceptance remains against adopted v2, with v3 attribution reported separately.
+No v4 fit has started. Motion support, latency and control integration remain open.
