@@ -36,46 +36,47 @@ success or live model replacement. Public v4 remains the adopted public recipe.
 
 ## Latest iteration
 
-The [conditioning attribution diagnostic](conditioning-attribution.md) is
-**complete and its evidence is qualified**. Four saved revisions are compared
-on all 189 previously inspected Dart queries, with no fitting, gradients,
-simulator collection or controller trials. Conditioning alone removes the
-original model's nine nonfinite and four extreme finite response trajectories;
-both bounded revisions have none. It also reduces 1.2-second pilot forecast
-prefix body-rate RMSE from 3.320 to 1.536 rad/s. This is a measured repair of
-observed runaway on known evidence, not a stability or fresh-accuracy guarantee.
-At 250 ms, conditioned pilot response prefix body-rate error worsens 27.06%;
-further fitting adds another 18.84% rate and 33.92% velocity error relative to
-the conditioned start. Full 1.2-second response endpoint errors remain
-3.992 m/s and 8.920 rad/s. The [result record](harness/conditioning-attribution-v1-result.json)
-preserves every query, metric, failure and comparison: all 378 historical
-reference predictions reproduce exactly, all 756 predictions replay exactly,
-the independent reduction and four actual alteration checks pass, and 80
-preflight tests pass. There are no pending fits or prediction calls. The
-previous bounded-fit prerequisite remains failed; no model is promoted and
-all earlier fresh physical/control verdicts remain unchanged.
+The [support-preserving saturation experiment](supported-motion-saturation.md)
+is **complete and passes its frozen known-data hypothesis**. The new feature
+map is exactly the identity inside each training-derived motion envelope and
+smoothly approaches the same bound outside it. All weights, normalizations,
+filters and mechanics are preserved; no fit or new simulation occurs.
+All 1,075,248 observed training motion coordinates are bitwise unchanged in
+float32 and float64. On all 189 known Dart queries, the map retains zero
+nonfinite or extreme-growth trajectories and largely recovers original local
+response accuracy: the separate pilot/task short-response ratios versus the
+previous tanh bound are 0.91647/0.98765, and versus shared-v1 are
+1.00172/1.00000018. This is a tradeoff: every 1.2-second forecast prefix group
+worsens versus tanh, including rate errors by 27.91%/14.63%/36.78% on
+pilot/task/test. Long pilot response endpoint errors remain 3.942 m/s and
+9.601 rad/s. The [result record](harness/supported-motion-saturation-v1-result.json)
+anchors all evidence: 124 tests pass, all 567 historical reference predictions
+reproduce exactly on both passes, all 756 predictions replay exactly, the
+independent reductions and four distinct alteration checks pass. The final
+hypothesis is independently verified after qualification. No calls or fits
+remain pending, no public model is promoted, and earlier frozen verdicts
+remain unchanged.
 
 ## Next named gap
 
-**Preserve local command-response fidelity while bounding recursive growth.**
-The leading hypothesis is a smooth bounded motion representation that is
-exactly the identity inside the recorded training envelope. The current tanh
-map perturbs supported features, increases the starting training objective
-about 177-fold, and worsens short response accuracy despite fixing runaway.
-Freeze one replacement function and derive its support solely from the existing
-training cache. Test exact feature/derivative identity within that support,
-then compare saved-weight predictions on the same complete 189 known queries
-before any further fitting. Keep filters, learned weights, existing norms,
-mechanics and timing unchanged. This is a representation hypothesis: recursive
-states may leave support, and preserving local features need not restore full
-rollout accuracy. No next protocol has been frozen or run yet.
+**Cross-vehicle preservation of local response under bounded recurrence.**
+Keep the exact supported map fixed and compare saved-weight original, tanh and
+supported revisions on the complete Crazyflow and Cascade condition rosters.
+Use each configuration's existing training cache to derive its support; change
+no weights, filters, mechanics, timing or consumer contract. Freeze matched
+horizons, precision, physical forecast/response errors, tail metrics, full
+population/failure accounting and decision rules before execution. This tests
+transfer of the Dart tradeoff before more Dart-specific tuning or expensive
+fitting. Existing inspected flight evidence stays known evidence, and any
+later fresh evaluation must be declared separately. No next protocol has
+been frozen or run yet.
 
-The [completed bounded fits](bounded-motion-features.md) also establish a
-separate generalization problem: Dart's large training decrease worsens the
-development objective and much of the measured command response. Do not repeat
-those fits. After the representation tradeoff is resolved, fresh accuracy work
-must retain Crazyflow response/tail regressions and Cascade crosswind
-performance, and qualify Dart control separately.
+The [completed bounded fits](bounded-motion-features.md) still establish a
+separate long-horizon training-generalization problem: Dart's training decrease
+worsens development and much of its measured response. Do not repeat those
+fits. The supported map's remaining long errors, Crazyflow response/tail
+regressions and Cascade crosswind performance need direct measurement; Dart
+control, physical derivatives and calibration retain their own obligations.
 
 ## Preserved boundaries
 

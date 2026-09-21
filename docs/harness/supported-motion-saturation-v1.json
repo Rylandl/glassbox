@@ -1,0 +1,273 @@
+{
+  "artifact_root": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-21/supported-motion-saturation-v1-evidence",
+  "base_commit": "1b2b219a299228522c19e149112223278d587c30",
+  "date": "2026-09-21",
+  "dependencies": {
+    "bounded_core": {
+      "commit": "d855535943b15d6a4970de3315363bb9f939c47f",
+      "path": "/Users/ryland/.codex/worktrees/bounded-motion-features/glassbox/src/glassbox/experimental/shared_vehicle_core.py",
+      "root": "/Users/ryland/.codex/worktrees/bounded-motion-features/glassbox",
+      "sha256": "e613b61c39ad3cc90608dbb5258f01998069e4dc767ea7ff455d43e44f98f909"
+    },
+    "data_stage": {
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-data/run.json",
+      "sha256": "17774fce14efef92b96b3c4e98dbdc2f59055c5b376a85b930c461d79610c391"
+    },
+    "historical_evaluation_stage": {
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-21/conditioning-attribution-v1-evidence/predict/run.json",
+      "sha256": "0a985c814cb00ad8ac302e57acecad48470b80e6997872d8a36481be06d6e5e3"
+    },
+    "prior_failed_protocol": {
+      "path": "/Users/ryland/autonomy/glassbox/docs/harness/bounded-motion-features-v1.json",
+      "sha256": "2d9b10ee80c933da6d70a153013d9e942bd2b59b8d22e18ed2f75351b9824725"
+    },
+    "prior_qualification": {
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-21/conditioning-attribution-v1-evidence/qualification/qualification.json",
+      "sha256": "b6ec2aa853e7ece9a300a5ac578bfba089fe15b86caea3552d1bfd83d1ec0a1d"
+    },
+    "prior_result": {
+      "path": "/Users/ryland/autonomy/glassbox/docs/harness/conditioning-attribution-v1-result.json",
+      "sha256": "6e56f816a687885c36597fd62ed2ed0abf54b90536f102e6c55b0eb2a41adc29"
+    },
+    "unbounded_core": {
+      "commit": "67764ce80a2d1cfd79c97321de440b3b5f9fd1a3",
+      "path": "/Users/ryland/.codex/worktrees/optimizer-evaluation-correction/glassbox/src/glassbox/experimental/shared_vehicle_core.py",
+      "root": "/Users/ryland/.codex/worktrees/optimizer-evaluation-correction/glassbox",
+      "sha256": "bc52b8304d1cbe8a76fc9f282dd60729ec5f695e33a7c24858e0e73828e04b53"
+    }
+  },
+  "design": {
+    "arms": [
+      "shared_v1",
+      "bounded_initial",
+      "supported_initial",
+      "unbounded_refined"
+    ],
+    "calls": {
+      "controller_calls": 0,
+      "fits": 0,
+      "gradients": 0,
+      "initial_predictions": 756,
+      "native_rollouts": 0,
+      "old_exact_reproduction_checks": 567,
+      "replay_predictions": 756,
+      "total_predictions": 1512
+    },
+    "canonical_state": 15,
+    "commands": 4,
+    "dt_s": 0.01,
+    "forecast_queries": 85,
+    "history_inputs": 50,
+    "history_states": 51,
+    "horizons": [
+      5,
+      15,
+      25,
+      60,
+      120
+    ],
+    "inference": "Exact historical application boundary: per-query jax.jit(model.rollout), inputs jnp.asarray with ambient x64 disabled, float32 output. No batching change, clipping, substep change, parameter update, fitting, gradients, native rollout, controller or seed sweep.",
+    "model_correspondence": "All shared-v1 parameters and existing norms bitwise equal bounded_initial and supported_initial; both have the same six motion_bound_scale values. Every supported_initial array equals bounded_initial; only core format and feature function differ. Verify parameter/norm key sets, dtype/bytes, fingerprints and time contract. Unbounded_refined retains shared norms.",
+    "queries": 189,
+    "query_horizon_pairs": 657,
+    "raw_rows": 15768,
+    "response_queries": 104,
+    "scope": "All189queries are previously inspected. The archived fresh label is remapped to known-pilot; no fresh generalization claim."
+  },
+  "format": "glassbox-supported-motion-saturation-v1",
+  "kind": "Single no-fit representation intervention on previously inspected Dart evidence; no promotion",
+  "local_response_hypothesis": {
+    "aggregation": "Separate18-cell geometric mean per scope for each contrast: equal-weight log ratios over3groups,2statistics,3short horizons, with existing group floors. Exactly36cells total across2scopes. Require exact roster, all planned truth eligible, zero candidate/reference failures, common count==planned in every cell; otherwise that scope ratio is undefined. Never pool scopes.",
+    "cells": 36,
+    "direction": "local_response_tradeoff_improved iff qualified evidence, complete local-response coverage, both scope ratios supported_initial/bounded_initial<1, and no observed catastrophic growth. One scope improving is a mixed tradeoff, neither is unsupported. Report supported_initial/shared_v1 ratios explicitly; improvement versus tanh is not restoration to original accuracy. This hypothesis readout is not an adoption or adequacy criterion.",
+    "groups": [
+      "velocity_m_s",
+      "body_rate_rad_s",
+      "rotation_entries"
+    ],
+    "growth": "All189 supported_initial trajectories must be full-state finite and have both maximum velocity/rate norms<1000, as previously defined.",
+    "horizons": [
+      5,
+      15,
+      25
+    ],
+    "independent": "Audit the36-cell membership/counts and geometric means independently, alongside unchanged independent raw-array reduction.",
+    "kind": "response",
+    "scopes": [
+      "known-pilot",
+      "known-task"
+    ],
+    "statistics": [
+      "endpoint",
+      "prefix"
+    ]
+  },
+  "measurements": {
+    "contrasts": [
+      [
+        "supported_initial",
+        "shared_v1"
+      ],
+      [
+        "supported_initial",
+        "bounded_initial"
+      ],
+      [
+        "bounded_initial",
+        "shared_v1"
+      ],
+      [
+        "unbounded_refined",
+        "shared_v1"
+      ],
+      [
+        "supported_initial",
+        "unbounded_refined"
+      ]
+    ],
+    "groups": {
+      "body_rate_rad_s": [
+        3,
+        6
+      ],
+      "rotation_entries": [
+        6,
+        15
+      ],
+      "velocity_m_s": [
+        0,
+        3
+      ]
+    },
+    "growth_interpretation": "1000m/s or1000rad/s is a catastrophic-growth diagnostic only, not stability or application adequacy. All-time full-state finiteness plus both maxima<1000 describes absence of observed catastrophic growth in this known set only.",
+    "growth_thresholds": [
+      10,
+      100,
+      1000,
+      1000000
+    ],
+    "paired": "For every contrast and scope/kind/horizon/statistic/group, retain all planned and truth-eligible counts and both failure counts; report common-finite count/fraction and balanced common-finite physical RMSE/ratio. Undefined empty subsets remain null. Never interpret conditional ratios as full-population accuracy.",
+    "ratio_floors": {
+      "body_rate_rad_s": 0.001,
+      "rotation_entries": 0.0001,
+      "velocity_m_s": 0.001
+    },
+    "response": "Signed branch prediction minus same-model factual prediction, compared with signed branch truth minus factual truth; intersect truth validity. Require exact parent/origin/scope/history/factual association.",
+    "scoring": "Float64 physical component MSE in each horizon/group/statistic; equal branches within origin, origins within parent, then parents within each scope/kind cell. No pooling the scopes. Full eligible-cohort RMSE undefined if any eligible prediction fails; preserve planned/eligible/failure/parent counts.",
+    "statistics": [
+      "endpoint",
+      "prefix"
+    ],
+    "trajectory": "Full canonical-state finite flag and first nonfinite step/time, full finite-prefix length; velocity/rate norms computed after float64 cast, per-group max over finite norms and first finite norm>=10,100,1000,1000000. Preserve failures and extreme finite outputs independently of response subtraction."
+  },
+  "models": {
+    "bounded_initial": {
+      "archive": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-21/bounded-motion-features-v1-evidence/experiment/fits/dart/payload/capture/initial.npz",
+        "sha256": "41e07a9c053c2a2ae1ebef3f63bdad195497f7b128740741c6a4312a4c46c679"
+      },
+      "core": "bounded_core"
+    },
+    "shared_v1": {
+      "archive": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/experiment/dart/candidate/model.npz",
+        "sha256": "24bb47d01cc6677d248a51e9602563368fef6eea17c3e4d97cd8efd75df0e73b"
+      },
+      "core": "unbounded_core"
+    },
+    "supported_initial": {
+      "construction": "Copy every parameter and normalization array from authenticated bounded_initial bitwise; replace only core format with glassbox-shared-vehicle-sequence-supported-motion-v1. Save a new strict archive before binding/predictions. Existing motion_bound_scale remains4S; no new fitted array.",
+      "core": "supported_core"
+    },
+    "unbounded_refined": {
+      "archive": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/refinements/dart/model.npz",
+        "sha256": "e1878b2aa015c15a304581025e01e731ba975222f7d3cc946ee19fb5d275cf6a"
+      },
+      "core": "unbounded_core"
+    }
+  },
+  "named_gap": "Preserve local command-response fidelity while bounding recursive growth",
+  "proof": {
+    "alterations": [
+      "numeric query alteration rejected against external frozen input anchor",
+      "numeric bounded model array alteration rejected by original embedded fingerprint and external frozen model anchor",
+      "numeric saved prediction alteration rejected against original completed-stage anchor even with repaired local seal",
+      "numeric summary alteration rejected by independent raw-array reduction"
+    ],
+    "binding": "Commit complete source/tests before feature preparation, real model prediction or objective. Bind clean current source, pinned old cores/reducers, runtime, all inputs/models. During binding, derive support and create the candidate archive once, preserving arrays; seal feature-only preparation and candidate hash. No actual model or objective call before completed binding.",
+    "fixtures": [
+      "input-only rollout boundary",
+      "missing/duplicate queries or metric slots",
+      "wrong factual linkage/history",
+      "signed-response cancellation",
+      "truth eligibility versus prediction failure",
+      "finite earlier horizon with later failure",
+      "empty common-finite subset",
+      "unequal parent/origin/branch weighting",
+      "huge finite state norms in float64",
+      "NaN-preserving exact replay",
+      "all four actual alteration rejection paths",
+      "exact coordinate map identity and derivatives at interior/joins in float32/64",
+      "same asymptotic bounds and huge-finite input behavior",
+      "unchanged physics/filter/integrator source",
+      "strict candidate format and all-array correspondence",
+      "training support provenance excludes development",
+      "isolated reducer policy injection and immutable source hashes",
+      "complete36-cell local-response aggregation with independent audit"
+    ],
+    "historical": "All567shared_v1/bounded_initial/unbounded_refined predictions must reproduce the immediately prior archived arrays exactly including shape/dtype/equal_nan. Keep mismatches and do not repair/repeat completed calls.",
+    "independent": "Separately implemented NumPy reduction of raw saved predictions/truth. Require exact identities/counts/finite flags and floats within rtol1e-12/atol1e-15.",
+    "replay": "One exact756prediction replay from unchanged saved inputs/models, plus exact metric/diagnostic reduction equality. No refitting."
+  },
+  "qualification": {
+    "acceptance": false,
+    "completion": "All756initial predictions durably recorded,567historical checks exact on each pass,756replay predictions and reductions exact, independent raw-array/local-response audit and4alterations pass. Any mismatch retains inconclusive attribution; no refitting or repeated completed call to repair it.",
+    "interpretation": "Known evidence only. Report the predefined local tradeoff direction alongside all physical gains/losses and full coverage. No public promotion, fresh accuracy, controller, calibration or physical derivative qualification. A next mechanism needs its own frozen iteration.",
+    "no_automatic_best_model_selection": true,
+    "prior_failed_gate_unchanged": true,
+    "public_promotion": false
+  },
+  "reduction_source": {
+    "audit": {
+      "path": "/Users/ryland/.codex/worktrees/conditioning-attribution/glassbox/src/glassbox/experimental/conditioning_audit.py",
+      "sha256": "26e26eb2525274bdce632dd59c1a201304f20cc4408e6516a6c8092ddf9ccd73"
+    },
+    "commit": "6ad0549d0dadd2f9690efe3664f0b35e5966b41c",
+    "metrics": {
+      "path": "/Users/ryland/.codex/worktrees/conditioning-attribution/glassbox/src/glassbox/experimental/conditioning_metrics.py",
+      "sha256": "5c50480c92c34580ddf6bc220f5d65994ae357541599becdcbf6f9e8f54ce7f1"
+    },
+    "policy": "Load isolated module instances after SHA checks. Configure only primary ARMS/CONTRASTS and independent audit protocol loader/PROTOCOL_SHA from this frozen policy. Computational functions unchanged; no model aliases. Audit record names this new protocol; full immutable reduction source is bound.",
+    "root": "/Users/ryland/.codex/worktrees/conditioning-attribution/glassbox"
+  },
+  "representation": {
+    "application": "Replace tanh map only in current_features, preserving all history/difference/quadratic/hidden paths. Copy prior bounded core byte-for-byte except FORMAT/RECIPE_ID and coordinate-map/current_features code. No dynamics/filters/integration/timing/weights/normalization/data changes.",
+    "core_format": "glassbox-shared-vehicle-sequence-supported-motion-v1",
+    "numeric_implementation": "Return z directly through where for abs(z)<=S, preserving dtype and signed zero. Compute the other branch from nonnegative excess=max(abs(z)-S,0), never squaring unbounded coordinates. Float64 support derivation; float32 application casts bounds exactly as historical model inference.",
+    "properties": "Odd, monotonically increasing, C2 but not C3 at joins, derivative1 and second derivative0 inside and at joins. First derivative between0and1; asymptotic coordinate bound4S (finite precision may equal it). Synthetic float32/64 value/Jacobian/second-derivative tests includingzero,joins,tail,maximumfinite. No physical derivative or stability qualification.",
+    "recipe_id": "shared-vehicle-supported-motion-v1",
+    "rule": "Coordinatewise: phi(z)=z if abs(z)<=S; otherwise sign(z)*(S+3*S*tanh((abs(z)-S)/(3*S))). S=motion_bound_scale/4. One fixed function and tail width; no alternatives or tuning."
+  },
+  "roster": {
+    "path": "docs/harness/supported-motion-saturation-v1-roster.json",
+    "sha256": "b9d9fc7aaed9773a590152d5a0e1c8bd7382f9b89f0e936a241202ead50cdf8f"
+  },
+  "training_support": {
+    "cache": {
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/task-horizon-supervision-v1-evidence/experiment/refinements/dart/preparation.npz",
+      "sha256": "19d653b9ff4906b4f12427262ba2f1abec0964bb31b323cf3a4b9711ea3d28ba"
+    },
+    "checks": "Record maxima/support/bounds, exact old-array correspondence, finite values and all observed training feature identity in float64 and float32 application arithmetic. Feature transformations only; no training rollout, objective or gradient.",
+    "derivation": "For each of6coordinates, z=[R.T@world_velocity,body_rate], normalized with saved body_mean/body_scale; S=max(1,max(abs(z))) over all training windows/times. Float64 NumPy derivation. Require4*S bitwise equal existing bounded_initial norm_motion_bound_scale.",
+    "initial": {
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/task-horizon-supervision-v1-evidence/experiment/refinements/dart/capture/initial.npz",
+      "sha256": "3d07f5c3b1628dc021e159c0b87ce5c4f394d10a95ba8549137ea950353f1ccd"
+    },
+    "metadata": {
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/task-horizon-supervision-v1-evidence/experiment/refinements/dart/preparation.json",
+      "sha256": "fbad452cf623c2e5d27bcb059b11c2b07a42f3fe7c857f6eb00a47e9df2017f6"
+    },
+    "role": "Only train_past_states and train_future_states;1048windows,51paststates and120futurestates each. Include final targets; exclude development arrays. Use saved original norm_body_mean/body_scale, never the cache loss normalization."
+  }
+}
