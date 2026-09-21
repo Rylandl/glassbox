@@ -103,8 +103,11 @@ def test_same_public_api_initializes_and_learns_arbitrary_command_count(commands
         session.observe(session.cursor, issued[15], states[16])
     assert session.cursor == 73 + 16
     assert session.report["observations"] == 1
-    assert session.report["gradient_calls"] == 4
-    assert session.report["optimizer_steps"] == 4
+    assert session.report["gradient_calls"] == 1
+    assert session.report["optimizer_steps"] == 1
+    assert session.report["cg_iterations"] == 4
+    assert session.report["curvature_calls"] == 4
+    assert session.report["objective_calls"] == 2
     assert jax.config.x64_enabled == before_precision
     for name, value in initial.norms.items():
         np.testing.assert_array_equal(session.model.norms[name], value)
@@ -152,24 +155,26 @@ def test_duplicate_observation_cannot_train_twice():
     assert snapshot(session) == before
 
 
-def test_nonfinite_optimizer_proposal_is_transactional(monkeypatch):
+def test_nonfinite_proposal_preserves_parameters_and_ingests_once(monkeypatch):
     states, issued = stream()
     session = OnlineFit(prefix(states, issued))
-    before = snapshot(session)
+    initial = session.model.fingerprint
 
-    def nonfinite(params, first, second, index, norms, data, scale, **kwargs):
+    def nonfinite(params, norms, data, scale, weights, damping, **kwargs):
         proposal = dict(params)
         proposal["bias"] = jnp.full_like(params["bias"], jnp.nan)
-        return proposal, first, second, jnp.asarray(np.nan), jnp.asarray(np.inf), False
+        return proposal, jnp.asarray(1.0), jnp.nan, jnp.nan, False
 
     with monkeypatch.context() as patch:
         patch.setattr(online, "_proposal", nonfinite)
-        with pytest.raises(ValueError, match="nonfinite"):
-            session.observe(session.cursor, issued[15], states[16])
-    assert snapshot(session) == before
-    session.observe(session.cursor, issued[15], states[16])
-    assert session.cursor == before[-1] + 1
+        session.observe(session.cursor, issued[15], states[16])
+    assert session.model.fingerprint == initial
+    assert session.cursor == 73 + 16
     assert session.report["observations"] == 1
+    assert session.report["accepted_proposals"] == 0
+    assert session.report["damping"] == 4.0
+    session.observe(session.cursor, issued[16], states[17])
+    assert session.report["observations"] == 2
 
 
 def test_saved_resume_preserves_optimizer_history_and_future_revisions(tmp_path):
@@ -190,6 +195,25 @@ def test_saved_resume_preserves_optimizer_history_and_future_revisions(tmp_path)
     assert session.report["accepted_proposals"] > 0
 
 
+def retained_loss(model, session):
+    """Independent equal-role Huber score over actual, unpadded observations."""
+    values = []
+    with jax.enable_x64(True):
+        for windows in (session._bootstrap, session._recent):
+            prediction = np.asarray(
+                model.rollout(
+                    windows["past_states"],
+                    windows["past_inputs"],
+                    windows["future_inputs"],
+                )
+            )
+            residual = np.abs((prediction - windows["future_states"]) / session._scale)
+            values.append(
+                np.where(residual <= 1, 0.5 * residual**2, residual - 0.5).mean()
+            )
+    return float(np.mean(values))
+
+
 def test_delayed_motion_adaptation_is_causal_and_retention_stays_bounded(tmp_path):
     states, issued = stream()
     session = OnlineFit(prefix(states, issued))
@@ -198,6 +222,7 @@ def test_delayed_motion_adaptation_is_causal_and_retention_stays_bounded(tmp_pat
     initial_fingerprint = frozen.fingerprint
     errors, frozen_errors, archive_sizes = [], [], []
     for row in range(15, 79):
+        previous = session.model if row in (15, 46, 78) else None
         args = predict_args(session, states, issued, row)
         before = session.fingerprint()
         prediction = np.asarray(session.predict(*args))
@@ -207,6 +232,11 @@ def test_delayed_motion_adaptation_is_causal_and_retention_stays_bounded(tmp_pat
         frozen_errors.append(np.linalg.norm(reference[0, :3] - states[row + 1, :3]))
         session.observe(session.cursor, issued[row], states[row + 1])
         report = session.report
+        if previous is not None:
+            # Score both revisions on exactly the same now-completed full cache.
+            old_loss = retained_loss(previous, session)
+            new_loss = retained_loss(session.model, session)
+            assert new_loss <= old_loss + 1e-9 * max(1.0, old_loss)
         assert report["bootstrap_windows"] <= 32 and report["recent_windows"] <= 32
         assert (
             report["tail_rows"]
@@ -224,7 +254,7 @@ def test_delayed_motion_adaptation_is_causal_and_retention_stays_bounded(tmp_pat
             )
     assert archive_sizes[0] == archive_sizes[1]
     assert session.report["observations"] == 64
-    assert session.report["gradient_calls"] == 64 * 4
+    assert session.report["gradient_calls"] == 64
     assert session.report["accepted_proposals"] > 0
     assert session.model.fingerprint != initial_fingerprint
     assert frozen.fingerprint == initial_fingerprint
@@ -312,33 +342,75 @@ def test_prediction_gradients_causality_and_validation(commands):
             session.predict(x, up, np.zeros((1, commands + 1)))
 
 
-def test_rejected_finite_proposals_preserve_parameters_but_advance_moments(
+def test_rejection_preserves_parameters_and_damping_survives_resume(
     tmp_path, monkeypatch
 ):
     states, issued = stream()
     session = OnlineFit(prefix(states, issued))
-    before = session.model.fingerprint
-    # Real gradients are still computed; only candidate acceptance is forced off.
-    monkeypatch.setattr(online, "_objective", lambda *args, **kwargs: jnp.inf)
-    session.observe(session.cursor, issued[15], states[16])
-    assert session.model.fingerprint == before
-    assert session.report["optimizer_steps"] == 4
+    initial = session.model.fingerprint
+    actual_proposal = online._proposal
+    calls = []
+
+    def rejected(*args, **kwargs):
+        proposal, current, trial, predicted, finite = actual_proposal(*args, **kwargs)
+        assert bool(finite)
+        assert np.isfinite([current, trial, predicted]).all()
+        calls.append(float(predicted))
+        # Exercise the real CG solve but reject a finite, non-improving forecast.
+        return proposal, current, current, predicted, finite
+
+    with monkeypatch.context() as patch:
+        patch.setattr(online, "_proposal", rejected)
+        session.observe(session.cursor, issued[15], states[16])
+    assert len(calls) == 1
+    assert session.model.fingerprint == initial
+    assert session.report["optimizer_steps"] == 1
+    assert session.report["objective_calls"] == 2
+    assert session.report["cg_iterations"] == 4
+    assert session.report["curvature_calls"] == 4
     assert session.report["accepted_proposals"] == 0
-    assert session.report["objective_calls"] == 4 * 8
+    assert session.report["damping"] == 4.0
     path = tmp_path / "rejected.npz"
     session.save(path)
-    _metadata, arrays = load_arrays(path)
-    assert any(
-        np.any(value != 0)
-        for name, value in arrays.items()
-        if name.startswith("first_")
-    )
-    assert any(
-        np.any(value > 0)
-        for name, value in arrays.items()
-        if name.startswith("second_")
-    )
-    assert OnlineFit.load(path).fingerprint() == session.fingerprint()
+    metadata, arrays = load_arrays(path)
+    assert metadata["damping"] == 4.0
+    assert not any(name.startswith(("first_", "second_")) for name in arrays)
+    resumed = OnlineFit.load(path)
+    assert snapshot(resumed) == snapshot(session)
+    for row in (16, 17):
+        session.observe(session.cursor, issued[row], states[row + 1])
+        resumed.observe(resumed.cursor, issued[row], states[row + 1])
+        assert snapshot(resumed) == snapshot(session)
+
+
+@pytest.mark.parametrize(
+    "gain,expected_damping,accepted",
+    [
+        (0.05, 4.0, False),
+        (0.2, 4.0, True),
+        (0.5, 1.0, True),
+        (0.9, 0.5, True),
+    ],
+)
+def test_damping_tracks_actual_to_predicted_decrease(
+    monkeypatch, gain, expected_damping, accepted
+):
+    states, issued = stream()
+    session = OnlineFit(prefix(states, issued))
+    initial = session.model.fingerprint
+
+    def controlled(params, norms, data, scale, weights, damping, **kwargs):
+        proposal = dict(params)
+        proposal["bias"] = params["bias"] + 1e-9
+        predicted = 0.25
+        return proposal, 1.0, 1.0 - gain * predicted, predicted, True
+
+    monkeypatch.setattr(online, "_proposal", controlled)
+    session.observe(session.cursor, issued[15], states[16])
+    assert session.report["damping"] == expected_damping
+    assert session.report["accepted_proposals"] == int(accepted)
+    assert (session.model.fingerprint != initial) == accepted
+    assert session.cursor == 73 + 16
 
 
 def test_repaired_archive_cannot_break_causal_or_optimizer_consistency(tmp_path):
@@ -348,8 +420,8 @@ def test_repaired_archive_cannot_break_causal_or_optimizer_consistency(tmp_path)
     session.save(path)
     mutations = [
         lambda m, a: m.update(cursor=m["cursor"] + 1),
-        lambda m, a: a.update(first_bias=np.zeros(5)),
-        lambda m, a: a["second_bias"].__setitem__(0, -1.0),
+        lambda m, a: m.update(damping=-1.0),
+        lambda m, a: m["counts"].update(cg_iterations=3),
         lambda m, a: a["tail_states"].__setitem__(
             (-1, 0), a["tail_states"][-1, 0] + 0.1
         ),
@@ -383,3 +455,65 @@ def test_10ms_stream_uses_only_completed_50ms_training_targets(tmp_path):
     np.testing.assert_array_equal(arrays["recent_past_states"], states[21:72][None])
     assert session.report["tail_rows"] == 56
     assert OnlineFit.load(path).fingerprint() == session.fingerprint()
+
+
+def test_gauss_newton_matches_linear_solve_and_handles_zero_and_large_residuals(
+    monkeypatch,
+):
+    """Check CG/IRLS/trust arithmetic against an independent two-parameter problem."""
+    matrix = np.zeros((15, 2))
+    matrix[:3] = [[1.0, 0.2], [-0.3, 0.7], [0.2, -0.1]]
+    start = np.array([0.1, -0.05])
+    weights = np.zeros(64)
+    weights[:5] = 0.1
+    weights[32] = 0.5
+    history = np.zeros((64, 2, 15))
+    inputs = np.zeros((64, 1, 3))
+    scale = np.ones((1, 15))
+
+    def linear_rollout(params, norms, past, past_inputs, future, delay, dt_s):
+        values = jnp.asarray(matrix) @ params["coefficients"]
+        return jnp.broadcast_to(values, (64, 1, 15))
+
+    monkeypatch.setattr(online, "_rollout", linear_rollout)
+    # Bypass the JIT cache so this deliberately independent residual map is traced.
+    solve = online._proposal.__wrapped__
+    with jax.enable_x64(True):
+        for target, damping in (
+            (np.array([0.3, 0.2]), 0.7),
+            (start.copy(), 0.7),
+            (np.array([30.0, 20.0]), 1e-8),
+        ):
+            truth = np.broadcast_to(matrix @ target, (64, 1, 15))
+            proposal, current, trial, predicted, finite = solve(
+                {"coefficients": jnp.asarray(start)},
+                {},
+                tuple(jnp.asarray(v) for v in (history, inputs, inputs, truth)),
+                jnp.asarray(scale),
+                jnp.asarray(weights),
+                jnp.asarray(damping),
+                delay=1,
+                dt_s=0.05,
+            )
+            assert bool(finite) and np.isfinite([current, trial, predicted]).all()
+            delta = np.asarray(proposal["coefficients"]) - start
+            residual = matrix @ (start - target)
+            radius = max(1.0, 0.5 * np.linalg.norm(residual) / np.sqrt(15))
+            prediction_change = np.linalg.norm(matrix @ delta) / np.sqrt(15)
+            assert prediction_change <= radius * (1 + 1e-10)
+            if np.array_equal(target, start):
+                np.testing.assert_array_equal(delta, np.zeros(2))
+                assert current == trial == predicted == 0
+            elif np.max(np.abs(residual)) < 1:
+                curvature = matrix.T @ matrix / 15
+                gradient = matrix.T @ residual / 15
+                expected = np.linalg.solve(curvature + damping * np.eye(2), -gradient)
+                np.testing.assert_allclose(delta, expected, atol=1e-12, rtol=1e-10)
+                expected_reduction = -gradient @ delta - 0.5 * delta @ curvature @ delta
+                assert float(predicted) == pytest.approx(expected_reduction, rel=1e-10)
+                assert float(current - trial) == pytest.approx(
+                    float(predicted), rel=1e-10
+                )
+            else:
+                assert float(predicted) > 0 and float(trial) < float(current)
+                assert prediction_change == pytest.approx(radius, rel=1e-10)

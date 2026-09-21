@@ -157,15 +157,18 @@ snapshots. Saves include the optimizer state, bounded replay data and cursor
 needed to continue deterministically.
 
 Startup initializes the existing model from one-step ridge windows. Thereafter
-each observation permits four safeguarded Adam proposals on 50 ms recursive
-prediction windows, using a bounded mix of startup and recent observations.
-Normalization stays fixed. Rejected proposals retain the previous parameters.
+each observation permits one damped Gauss-Newton proposal on 50 ms recursive
+prediction windows. Four conjugate-gradient iterations use matrix-free curvature
+products; acceptance checks the complete bounded startup and recent replay
+caches, with equal weight to each role. A fixed prediction-change bound and an
+actual-versus-predicted improvement check control the step. Normalization stays
+fixed. Rejected proposals retain the previous parameters and increase damping.
 There is no controller, actuator-telemetry input, simulator coefficient access,
 platform dispatch or user-selected learning budget.
 
 This procedure has no development split or calibrated error envelope. Training
 loss is not an independent accuracy measure. The active
-[online-fitting protocol](harness/online-fit-v1.json) measures predictions before
+[online-fitting protocol](harness/online-fit-v2.json) measures predictions before
 assimilating their targets, against an identical session frozen after startup.
 It separately measures update latency; a bounded proposal count alone does not
 establish real-time fitting. Initial evidence and remaining limits belong in

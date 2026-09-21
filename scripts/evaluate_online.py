@@ -9,7 +9,6 @@ from pathlib import Path
 
 import numpy as np
 from collect_throw import (
-    PROTOCOL,
     authenticate,
     binding,
     check_source,
@@ -20,12 +19,16 @@ from run_dart import ROOT, Journal, write
 from scipy.spatial.transform import Rotation
 from verify_baseline import arrays, digest, exact, observed, read, require
 
+PROTOCOL = ROOT / "docs/harness/online-fit-v2.json"
+
 COUNTERS = (
     "observations",
     "optimizer_steps",
     "gradient_calls",
     "objective_calls",
     "accepted_proposals",
+    "cg_iterations",
+    "curvature_calls",
 )
 
 
@@ -457,6 +460,10 @@ def run(collection, authority, output, protocol=PROTOCOL):
     )
     try:
         p = read(protocol)
+        require(
+            p["id"] == "online-fit-v2",
+            "unsupported candidate protocol for current learner",
+        )
         shutil.copyfile(protocol, output / "protocol.json")
         bound = binding(protocol)
         require(
@@ -465,10 +472,7 @@ def run(collection, authority, output, protocol=PROTOCOL):
             "evaluate with the current bound Glassbox checkout",
         )
         authenticate(collection, authority)
-        require(
-            read(collection / "binding.json")["protocol_sha256"] == digest(protocol),
-            "collection protocol differs",
-        )
+        collection_contract(collection, authority, p, digest(protocol))
         bound["collection_manifest_sha256"] = authority
         write(output / "binding.json", bound)
         inputs = output / "inputs"
@@ -545,7 +549,75 @@ def run(collection, authority, output, protocol=PROTOCOL):
         )
 
 
-def verify_journal(case, data, stream, info):
+def collection_contract(collection, authority, protocol, protocol_sha256):
+    require(
+        authority == protocol.get("collection_manifest_sha256", authority),
+        "collection manifest differs from frozen protocol",
+    )
+    require(
+        read(collection / "binding.json")["protocol_sha256"]
+        == protocol.get("collection_protocol_sha256", protocol_sha256),
+        "collection protocol differs",
+    )
+
+
+def accounting(report, count, protocol):
+    proposals = protocol["candidate"]["proposals_per_observation"]
+    require(
+        report["observations"] == count
+        and report["optimizer_steps"] == report["gradient_calls"] == proposals * count,
+        "proposal accounting differs",
+    )
+    if protocol["id"] == "online-fit-v2":
+        require(
+            report["cg_iterations"] == report["curvature_calls"] == 4 * count
+            and report["objective_calls"] == 2 * count
+            and 1e-8 <= report["damping"] <= 1e8,
+            "curvature accounting differs",
+        )
+
+
+def session_arrays(path, info, count, endpoint, protocol, report=None):
+    # Archive evidence is independent of the current optimizer/session loader.
+    from glassbox._learner_arrays import array_fingerprint, load_arrays
+
+    meta, values = load_arrays(path)
+    core = {k: v for k, v in values.items() if k.startswith(("param_", "norm_"))}
+    require(
+        meta["format"] == "glassbox-" + protocol["id"]
+        and meta["initial_cursor"] == info["first"]
+        and meta["cursor"] == info["first"] + count
+        and meta["recipe"]["proposals"]
+        == protocol["candidate"]["proposals_per_observation"]
+        and array_fingerprint(meta["model"], core) == endpoint,
+        "session endpoint differs",
+    )
+    accounting(
+        dict(meta["counts"], observations=count, damping=meta.get("damping")),
+        count,
+        protocol,
+    )
+    require(
+        all(np.isfinite(value).all() for value in values.values()),
+        "nonfinite saved session",
+    )
+    require(
+        0 <= meta["counts"]["accepted_proposals"] <= meta["counts"]["optimizer_steps"],
+        "accepted proposal count differs",
+    )
+    if report is not None:
+        require(
+            all(report[key] == value for key, value in meta["counts"].items()),
+            "saved report counters differ",
+        )
+        if "damping" in meta:
+            require(report["damping"] == meta["damping"], "saved damping differs")
+    return values
+
+
+def verify_journal(case, data, stream, info, protocol=None):
+    protocol = read(PROTOCOL) if protocol is None else protocol
+    counters = COUNTERS if protocol["id"] == "online-fit-v2" else COUNTERS[:5]
     position, phase, offset = 0, "predicted", 0
     with (
         (case / "arrays.bin").open("rb") as binary,
@@ -586,19 +658,16 @@ def verify_journal(case, data, stream, info):
                     ),
                     "model revision chain differs",
                 )
-                for key in COUNTERS:
+                for key in counters:
                     require(
                         event["report"][key] == data[key + "_before"][position],
                         "before counter differs",
                     )
                 require(
-                    event["report"]["cursor"] == event["index"]
-                    and event["report"]["observations"] == position
-                    and event["report"]["optimizer_steps"]
-                    == event["report"]["gradient_calls"]
-                    == 4 * position,
+                    event["report"]["cursor"] == event["index"],
                     "before cursor/counters differ",
                 )
+                accounting(event["report"], position, protocol)
                 phase = "revealed"
             elif phase == "revealed":
                 exact(
@@ -615,19 +684,16 @@ def verify_journal(case, data, stream, info):
                     event["model"] == data["model_after"][position],
                     "updated fingerprint differs",
                 )
-                for key in COUNTERS:
+                for key in counters:
                     require(
                         event["report"][key] == data[key + "_after"][position],
                         "after counter differs",
                     )
                 require(
-                    event["report"]["cursor"] == event["index"] + 1
-                    and event["report"]["observations"] == position + 1
-                    and event["report"]["optimizer_steps"]
-                    == event["report"]["gradient_calls"]
-                    == 4 * (position + 1),
+                    event["report"]["cursor"] == event["index"] + 1,
                     "assimilation accounting differs",
                 )
+                accounting(event["report"], position + 1, protocol)
                 phase, position = "predicted", position + 1
         require(
             offset == (case / "arrays.bin").stat().st_size, "unreferenced journal bytes"
@@ -643,8 +709,6 @@ def verify_journal(case, data, stream, info):
 
 
 def verify(output, authority):
-    from glassbox import OnlineFit
-
     authenticate(output, authority)
     protocol = read(output / "protocol.json")
     require(
@@ -679,19 +743,17 @@ def verify(output, authority):
                 kinematic(observed(stream["states"][k : k + 1])[0], info["dt_s"]),
                 "kinematic diagnostic",
             )
-        verify_journal(case, data, stream, info)
+        verify_journal(case, data, stream, info, protocol)
         if (case / "initial-online.npz").exists():
-            initial_session = OnlineFit.load(case / "initial-online.npz")
-            require(
-                initial_session.cursor == info["first"]
-                and initial_session.report["observations"] == 0
-                and fingerprint(initial_session.model)
-                == info["initial_model_fingerprint"],
-                "initial session endpoint differs",
-            )
             initial, frozen = (
-                arrays(case / "initial-online.npz"),
-                arrays(case / "initial-frozen.npz"),
+                session_arrays(
+                    case / ("initial-" + name + ".npz"),
+                    info,
+                    0,
+                    info["initial_model_fingerprint"],
+                    protocol,
+                )
+                for name in ("online", "frozen")
             )
             for key in initial:
                 if key != "metadata":
@@ -703,20 +765,15 @@ def verify(output, authority):
                         info["status"] == "failed", "missing final successful session"
                     )
                     continue
-                session = OnlineFit.load(path)
                 count = int(data["assimilated"].sum()) if name == "online" else 0
                 endpoint = (
                     data["model_after"][count - 1]
                     if count
                     else info["initial_model_fingerprint"]
                 )
-                require(
-                    session.cursor == info["first"] + count
-                    and session.report["observations"] == count
-                    and fingerprint(session.model) == endpoint,
-                    "final session endpoint differs",
+                final = session_arrays(
+                    path, info, count, endpoint, protocol, info[name + "_final_report"]
                 )
-                final = arrays(case / ("final-" + name + ".npz"))
                 for key in final:
                     if key != "metadata":
                         require(

@@ -8,29 +8,30 @@ from functools import partial
 import jax
 import jax.numpy as jnp
 import numpy as np
+from jax.flatten_util import ravel_pytree
 
-from ._dynamics import SCALES, VehicleSequenceModel, _rollout, initialize
+from ._dynamics import VehicleSequenceModel, _rollout, initialize
 from ._learner_arrays import array_fingerprint, load_arrays, save_arrays
-from ._training import (
-    SequenceBatch,
-    SequenceFitError,
-    trial_parameters,
-    validate_window_consistency,
-)
+from ._training import SequenceBatch, validate_window_consistency
 from .learner import _contract, _validate_rotations, steps_for
 from .recordings import WindowKey
 
-_FORMAT = "glassbox-online-fit-v1"
+_FORMAT = "glassbox-online-fit-v2"
 _FIELDS = ("past_states", "past_inputs", "future_inputs", "future_states")
 _RECIPE = dict(
     bootstrap_s=0.25,
     horizon_s=0.05,
     bootstrap_windows=32,
     recent_windows=32,
-    batch_size=4,
-    proposals=4,
-    learning_rate=0.002,
+    batch_size=64,
+    proposals=1,
+    cg_iterations=4,
     huber_delta=1.0,
+    initial_damping=1.0,
+    damping_bounds=[1e-8, 1e8],
+    minimum_gain_ratio=0.1,
+    trust_fraction=0.5,
+    minimum_trust_radius=1.0,
 )
 
 
@@ -39,40 +40,106 @@ def _predict(params, norms, past, inputs, future, *, delay, dt_s):
     return _rollout(params, norms, past, inputs, future, delay, dt_s)
 
 
-def _loss(params, norms, data, scale, delay, dt_s):
-    prediction = _rollout(params, norms, *data[:3], delay, dt_s)
-    residual = jnp.abs((prediction - data[3]) / scale)
-    return jnp.mean(jnp.where(residual <= 1, 0.5 * residual**2, residual - 0.5))
+def _residual(params, norms, data, scale, delay, dt_s):
+    return (_rollout(params, norms, *data[:3], delay, dt_s) - data[3]) / scale
 
 
-_objective = jax.jit(_loss, static_argnames=("delay", "dt_s"))
+def _huber(residual):
+    magnitude = jnp.abs(residual)
+    return jnp.where(magnitude <= 1, 0.5 * residual**2, magnitude - 0.5)
 
 
 @partial(jax.jit, static_argnames=("delay", "dt_s"))
-def _proposal(params, first, second, index, norms, data, scale, *, delay, dt_s):
-    value, grad = jax.value_and_grad(_loss)(params, norms, data, scale, delay, dt_s)
-    norm = jnp.sqrt(sum(jnp.sum(g * g) for g in jax.tree.leaves(grad)))
-    grad = jax.tree.map(lambda g: g * jnp.minimum(1.0, 5.0 / (norm + 1e-12)), grad)
-    first = jax.tree.map(lambda a, g: 0.9 * a + 0.1 * g, first, grad)
-    second = jax.tree.map(lambda a, g: 0.999 * a + 0.001 * g * g, second, grad)
-    proposal = jax.tree.map(
-        lambda p, a, b: (
-            p
-            - 0.002 * (a / (1 - 0.9**index)) / (jnp.sqrt(b / (1 - 0.999**index)) + 1e-8)
-        ),
-        params,
-        first,
-        second,
+def _proposal(params, norms, data, scale, weights, damping, *, delay, dt_s):
+    """Four matrix-free CG iterations; all parameters remain differentiable.
+
+    Raw normalized residuals set the Huber threshold. The Jacobian's residual
+    weights include the window role weight and 1/(horizon*15), so its L2 norm
+    is the role-balanced RMS. IRLS weights stay fixed throughout this proposal.
+    """
+    flat, unpack = ravel_pytree(params)
+    raw, push = jax.linearize(
+        lambda value: _residual(unpack(value), norms, data, scale, delay, dt_s), flat
     )
-    finite = jnp.all(
+    pull = jax.linear_transpose(push, jnp.zeros_like(flat))
+    weight = weights[:, None, None] / (raw.shape[1] * raw.shape[2])
+    root_weight = jnp.sqrt(weight)
+    irls = 1 / jnp.maximum(1.0, jnp.abs(raw))
+    gradient = pull(weight * jnp.clip(raw, -1.0, 1.0))[0]
+
+    def cg_step(_, carry):
+        delta, residual, direction, squared, finite = carry
+        projected = push(direction)
+        curvature = pull(weight * irls * projected)[0] + damping * direction
+        denominator = jnp.vdot(direction, curvature)
+        valid = jnp.all(jnp.isfinite(curvature)) & jnp.all(jnp.isfinite(projected))
+        valid &= jnp.isfinite(squared) & jnp.isfinite(denominator)
+        valid &= (squared == 0) | (denominator > 0)
+        active = valid & (squared > 0)
+        alpha = jnp.where(active, squared / jnp.where(active, denominator, 1.0), 0.0)
+        delta = jnp.where(active, delta + alpha * direction, delta)
+        following = jnp.where(active, residual - alpha * curvature, residual)
+        next_squared = jnp.vdot(following, following)
+        beta = jnp.where(active, next_squared / jnp.where(active, squared, 1.0), 0.0)
+        direction = jnp.where(
+            active, following + beta * direction, jnp.zeros_like(direction)
+        )
+        return delta, following, direction, next_squared, finite & valid
+
+    delta, _, _, _, finite = jax.lax.fori_loop(
+        0,
+        4,
+        cg_step,
+        (
+            jnp.zeros_like(flat),
+            -gradient,
+            -gradient,
+            jnp.vdot(gradient, gradient),
+            jnp.asarray(True),
+        ),
+    )
+    linearized = root_weight * push(delta)
+    radius = jnp.maximum(1.0, 0.5 * jnp.linalg.norm(root_weight * raw))
+    shrink = jnp.minimum(1.0, radius / jnp.maximum(jnp.linalg.norm(linearized), 1e-30))
+    delta, linearized = delta * shrink, linearized * shrink
+    predicted = -jnp.vdot(gradient, delta) - 0.5 * jnp.sum(irls * linearized**2)
+    proposal = unpack(flat + delta)
+    trial_raw = _residual(proposal, norms, data, scale, delay, dt_s)
+    current_loss = jnp.sum(weight * _huber(raw))
+    trial_loss = jnp.sum(weight * _huber(trial_raw))
+    finite &= jnp.all(
         jnp.stack(
             [
                 jnp.all(jnp.isfinite(v))
-                for v in jax.tree.leaves((proposal, first, second, grad, value, norm))
+                for v in (
+                    flat + delta,
+                    raw,
+                    trial_raw,
+                    gradient,
+                    predicted,
+                    current_loss,
+                    trial_loss,
+                )
             ]
         )
     )
-    return proposal, first, second, value, norm, finite
+    return proposal, current_loss, trial_loss, predicted, finite
+
+
+def _full_cache(bootstrap, recent):
+    """Fixed slots duplicate actual rows; zero weights exclude unfilled slots."""
+    blocks, role_weights = [], []
+    for windows in (bootstrap, recent):
+        count = len(windows["past_states"])
+        if not count:
+            raise ValueError("a proposal requires a real window in each role")
+        indices = np.arange(32) % count
+        blocks.append({k: windows[k][indices] for k in _FIELDS})
+        role_weights.append(np.where(np.arange(32) < count, 0.5 / count, 0.0))
+    return (
+        tuple(np.concatenate((blocks[0][k], blocks[1][k])) for k in _FIELDS),
+        np.concatenate(role_weights),
+    )
 
 
 def _windows(states, inputs, origins, history, horizon):
@@ -141,10 +208,14 @@ class OnlineFit:
         self._initial_cursor = segment.start_row + len(segment.inputs)
         self._cursor = self._initial_cursor
         self._initial_count, self._horizon = count, horizon
-        self._first = {k: np.zeros_like(v) for k, v in self._model.params.items()}
-        self._second = {k: np.zeros_like(v) for k, v in self._model.params.items()}
+        self._damping = 1.0
         self._counts = dict(
-            optimizer_steps=0, gradient_calls=0, objective_calls=0, accepted_proposals=0
+            optimizer_steps=0,
+            gradient_calls=0,
+            objective_calls=0,
+            accepted_proposals=0,
+            cg_iterations=0,
+            curvature_calls=0,
         )
 
     @property
@@ -174,6 +245,7 @@ class OnlineFit:
             history_steps=self._model.history_steps,
             training_horizon_steps=self._horizon,
             **self._counts,
+            damping=self._damping,
             envelope=dict(available=False),
         )
 
@@ -231,7 +303,11 @@ class OnlineFit:
         return result[0] if single else result
 
     def observe(self, index, command, next_observation):
-        """Assimilate one completed transition atomically, with four proposals."""
+        """Assimilate one valid transition with one bounded curvature proposal.
+
+        Invalid inputs leave the session untouched. Numerical proposal rejection
+        preserves parameters, increases damping and still consumes the transition.
+        """
         if (
             isinstance(index, (bool, np.bool_))
             or not isinstance(index, (int, np.integer))
@@ -263,70 +339,51 @@ class OnlineFit:
         recent = {k: np.concatenate((self._recent[k], new[k]))[-32:] for k in _FIELDS}
         counts = self._counts.copy()
         with jax.enable_x64(True):
-            params, first, second, norms = jax.tree.map(
-                jnp.asarray,
-                (
-                    self._model.params,
-                    self._first,
-                    self._second,
-                    self._model.norms,
-                ),
+            params, norms = jax.tree.map(
+                jnp.asarray, (self._model.params, self._model.norms)
             )
-            scale = jnp.asarray(self._scale)
-            for _ in range(4):
-                index = counts["optimizer_steps"]
-                b = (2 * index + np.arange(2)) % len(self._bootstrap["past_states"])
-                r = (2 * index + np.arange(2)) % len(recent["past_states"])
-                data = tuple(
-                    jnp.asarray(np.concatenate((self._bootstrap[k][b], recent[k][r])))
-                    for k in _FIELDS
-                )
-                proposal, first, second, value, norm, finite = _proposal(
-                    params,
-                    first,
-                    second,
-                    jnp.asarray(index + 1),
-                    norms,
-                    data,
-                    scale,
-                    delay=self._model.delay_steps,
-                    dt_s=self._model.dt_s,
-                )
-                if not bool(finite) or not all(
-                    np.isfinite(np.asarray(v)).all()
-                    for v in jax.tree.leaves((proposal, first, second, value, norm))
-                ):
-                    raise SequenceFitError(
-                        f"nonfinite online Adam proposal at attempt {index + 1}"
-                    )
-                counts["optimizer_steps"] += 1
-                counts["gradient_calls"] += 1
-                for alpha in SCALES:
-                    trial = trial_parameters(params, proposal, alpha)
-                    loss = float(
-                        _objective(
-                            trial,
-                            norms,
-                            data,
-                            scale,
-                            self._model.delay_steps,
-                            self._model.dt_s,
-                        )
-                    )
-                    counts["objective_calls"] += 1
-                    if np.isfinite(loss) and loss < float(value):
-                        params = trial
-                        counts["accepted_proposals"] += 1
-                        break
-            model = VehicleSequenceModel(
-                self._model.dt_s,
-                self._model.history_steps,
-                self._model.delay_steps,
-                jax.tree.map(np.asarray, params),
-                self._model.norms,
+            data, weights = _full_cache(self._bootstrap, recent)
+            proposal, current, trial, predicted, finite = _proposal(
+                params,
+                norms,
+                tuple(jnp.asarray(v) for v in data),
+                jnp.asarray(self._scale),
+                jnp.asarray(weights),
+                jnp.asarray(self._damping),
+                delay=self._model.delay_steps,
+                dt_s=self._model.dt_s,
             )
-            first, second = jax.tree.map(np.asarray, (first, second))
-        self._model, self._first, self._second = model, first, second
+            finite = bool(finite) and all(
+                np.isfinite(np.asarray(v)).all()
+                for v in jax.tree.leaves((proposal, current, trial, predicted))
+            )
+            current, trial, predicted = map(float, (current, trial, predicted))
+            gain = (
+                (current - trial) / predicted if finite and predicted > 0 else -np.inf
+            )
+            accepted = bool(finite and trial < current and gain >= 0.1)
+            damping = self._damping
+            if not accepted or gain < 0.25:
+                damping *= 4.0
+            elif gain > 0.75:
+                damping *= 0.5
+            damping = float(np.clip(damping, 1e-8, 1e8))
+            model = self._model
+            if accepted:
+                model = VehicleSequenceModel(
+                    model.dt_s,
+                    model.history_steps,
+                    model.delay_steps,
+                    jax.tree.map(np.asarray, proposal),
+                    model.norms,
+                )
+        counts["optimizer_steps"] += 1
+        counts["gradient_calls"] += 1
+        counts["objective_calls"] += 2
+        counts["cg_iterations"] += 4
+        counts["curvature_calls"] += 4
+        counts["accepted_proposals"] += int(accepted)
+        self._model, self._damping = model, damping
         self._states, self._inputs, self._recent = states, inputs, recent
         self._counts, self._cursor = counts, self.cursor + 1
 
@@ -341,6 +398,7 @@ class OnlineFit:
             initial_count=self._initial_count,
             horizon=self._horizon,
             counts=self._counts.copy(),
+            damping=self._damping,
         )
 
     def _arrays(self):
@@ -351,8 +409,6 @@ class OnlineFit:
             "tail_inputs": self._inputs,
             **{f"bootstrap_{k}": v for k, v in self._bootstrap.items()},
             **{f"recent_{k}": v for k, v in self._recent.items()},
-            **{f"first_{k}": v for k, v in self._first.items()},
-            **{f"second_{k}": v for k, v in self._second.items()},
         }
 
     def fingerprint(self):
@@ -378,6 +434,7 @@ class OnlineFit:
                     "initial_count",
                     "horizon",
                     "counts",
+                    "damping",
                 }
                 or meta["format"] != _FORMAT
                 or meta["recipe"] != _RECIPE
@@ -395,6 +452,7 @@ class OnlineFit:
                 "initial_count",
                 "horizon",
                 "counts",
+                "damping",
             ):
                 setattr(obj, "_" + key, copy.deepcopy(meta[key]))
             obj._scale, obj._states, obj._inputs = (
@@ -403,12 +461,6 @@ class OnlineFit:
             for role in ("bootstrap", "recent"):
                 setattr(
                     obj, "_" + role, {k: arrays[f"{role}_{k}"].copy() for k in _FIELDS}
-                )
-            for role in ("first", "second"):
-                setattr(
-                    obj,
-                    "_" + role,
-                    {k: arrays[f"{role}_{k}"].copy() for k in obj._model.params},
                 )
             if set(arrays) != set(obj._arrays()):
                 raise ValueError("unexpected online session arrays")
@@ -455,33 +507,29 @@ class OnlineFit:
             raise ValueError("invalid online timing or signal contract")
         observations = self.cursor - self._initial_cursor
         expected = dict(
-            optimizer_steps=4 * observations, gradient_calls=4 * observations
+            optimizer_steps=observations,
+            gradient_calls=observations,
+            objective_calls=2 * observations,
+            cg_iterations=4 * observations,
+            curvature_calls=4 * observations,
         )
         if (
             not isinstance(self._counts, dict)
-            or set(self._counts) != {*expected, "objective_calls", "accepted_proposals"}
+            or set(self._counts) != {*expected, "accepted_proposals"}
             or any(type(v) is not int or v < 0 for v in self._counts.values())
             or any(self._counts[k] != v for k, v in expected.items())
-            or not expected["optimizer_steps"]
-            <= self._counts["objective_calls"]
-            <= 8 * expected["optimizer_steps"]
-            or self._counts["accepted_proposals"] > expected["optimizer_steps"]
+            or self._counts["accepted_proposals"] > observations
+            or type(self._damping) is not float
+            or not np.isfinite(self._damping)
+            or not 1e-8 <= self._damping <= 1e8
+            or (not observations and self._damping != 1.0)
         ):
-            raise ValueError("invalid online optimizer accounting")
+            raise ValueError("invalid online optimizer accounting or damping")
         if any(
             v.dtype != np.dtype("float64") or not np.isfinite(v).all()
             for v in self._arrays().values()
         ):
             raise ValueError("online arrays must be finite float64")
-        for role in (self._first, self._second):
-            if any(role[k].shape != v.shape for k, v in model.params.items()):
-                raise ValueError("optimizer moment shape differs")
-        if any(np.any(v < 0) for v in self._second.values()):
-            raise ValueError("negative optimizer second moment")
-        if not observations and any(
-            np.any(v) for v in (*self._first.values(), *self._second.values())
-        ):
-            raise ValueError("unobserved session has nonzero optimizer moments")
         shapes = dict(
             past_states=(p + 1, 15),
             past_inputs=(p, m),

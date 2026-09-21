@@ -114,10 +114,13 @@ class FakeOnline:
         return dict(
             cursor=self.cursor,
             observations=self.count,
-            optimizer_steps=4 * self.count,
-            gradient_calls=4 * self.count,
-            objective_calls=8 * self.count,
-            accepted_proposals=4 * self.count,
+            optimizer_steps=self.count,
+            gradient_calls=self.count,
+            objective_calls=2 * self.count,
+            accepted_proposals=self.count,
+            cg_iterations=4 * self.count,
+            curvature_calls=4 * self.count,
+            damping=1.0,
         )
 
     def predict(self, past, inputs, future):
@@ -232,3 +235,76 @@ def test_output_is_exclusive(tmp_path):
     with pytest.raises(FileExistsError):
         evaluate.run(tmp_path, "unused", tmp_path)
     assert not list(tmp_path.iterdir())
+
+
+def test_collection_reuse_is_bound_to_original_manifest_and_protocol(tmp_path):
+    (tmp_path / "binding.json").write_text(json.dumps(dict(protocol_sha256="v1")))
+    protocol = dict(
+        collection_protocol_sha256="v1", collection_manifest_sha256="sealed"
+    )
+    evaluate.collection_contract(tmp_path, "sealed", protocol, "v2")
+    with pytest.raises(ValueError, match="manifest differs"):
+        evaluate.collection_contract(tmp_path, "wrong", protocol, "v2")
+    with pytest.raises(ValueError, match="protocol differs"):
+        evaluate.collection_contract(tmp_path, "sealed", {}, "v2")
+
+
+@pytest.mark.parametrize("version,proposals", [(1, 4), (2, 1)])
+def test_generic_session_archive_verification_without_optimizer_loader(
+    tmp_path, monkeypatch, version, proposals
+):
+    from glassbox import OnlineFit
+    from glassbox._learner_arrays import array_fingerprint, save_arrays
+
+    def forbidden(*args):
+        raise AssertionError("must not load a legacy optimizer")
+
+    monkeypatch.setattr(OnlineFit, "load", forbidden)
+    protocol = dict(
+        id=f"online-fit-v{version}", candidate=dict(proposals_per_observation=proposals)
+    )
+    core = dict(param_w=np.arange(3.0), norm_scale=np.ones(3))
+    model = dict(format="fixture", dt_s=0.01)
+    counts = dict(
+        optimizer_steps=proposals,
+        gradient_calls=proposals,
+        objective_calls=2 if version == 2 else 8,
+        accepted_proposals=1,
+    )
+    if version == 2:
+        counts.update(cg_iterations=4, curvature_calls=4)
+    meta = dict(
+        format=f"glassbox-online-fit-v{version}",
+        model=model,
+        initial_cursor=75,
+        cursor=76,
+        recipe=dict(proposals=proposals),
+        counts=counts,
+        damping=1.0,
+    )
+    path = tmp_path / "session.npz"
+    save_arrays(path, meta, core)
+    identity = array_fingerprint(model, core)
+    result = evaluate.session_arrays(path, dict(first=75), 1, identity, protocol)
+    np.testing.assert_array_equal(result["param_w"], core["param_w"])
+    with pytest.raises(ValueError, match="endpoint differs"):
+        evaluate.session_arrays(path, dict(first=75), 1, "wrong", protocol)
+    if version == 2:
+        meta["counts"]["curvature_calls"] = 3
+        save_arrays(path, meta, core)
+        with pytest.raises(ValueError, match="curvature accounting"):
+            evaluate.session_arrays(path, dict(first=75), 1, identity, protocol)
+
+
+def test_old_protocol_cannot_run_new_candidate(tmp_path, monkeypatch):
+    protocol = tmp_path / "protocol.json"
+    protocol.write_text(json.dumps(dict(id="online-fit-v1")))
+
+    def forbidden(*args):
+        raise AssertionError("no source or learner work before protocol rejection")
+
+    monkeypatch.setattr(evaluate, "binding", forbidden)
+    with pytest.raises(ValueError, match="unsupported candidate protocol"):
+        evaluate.run(tmp_path, "unused", tmp_path / "out", protocol)
+    assert (tmp_path / "out/failure.json").exists()
+    assert (tmp_path / "out/manifest.json").exists()
