@@ -52,15 +52,24 @@ See [the result](dart-precision.md). The full suite passes 105 tests.
 
 ## Active scientific gap
 
-**Causal online fitting for Throw, then fixed-wing support.** The user redirected
-work from Dart neighborhood trials to the older glassbox-throw project. Its
-original controller uses an older, quad-specific identifier; the maintained
-learner currently starts a full batch fit from scratch on each update.
+**Stable causal online fitting for Throw and fixed wings.** The first bounded
+streaming implementation and six-case evaluation are complete. It failed:
+physical prediction error is **2.748 times** the frozen-prefix baseline under
+equal family weighting (quad1.755, fixed-wing4.302), and every case loses to the
+no-fit kinematic diagnostic on velocity and rate error. All3,137 predictions
+and updates completed with finite values; finite descent was insufficient.
+See [the complete v1 evidence](online-fit-v1.json). These are identification
+replays, not candidate-controlled flights. The old collection controller hit
+the floor at1.87s on the1.35-arm case; all other quad tapes span10s.
 
-The frozen [online-fit-v1 protocol](harness/online-fit-v1.json) tests bounded,
-persistent optimization of the same shared-physics model. Four newly collected
-quad streams and two known Cascade fixed-wing streams compare pre-assimilation
-predictions against an identical learner frozen after the startup prefix. The
-candidate sees observed motion and issued commands, with no platform data.
-This is identification evidence; candidate-controlled recovery and fresh
-fixed-wing generalization remain separate work. No scientific run has started.
+Saved-data checks rule out float32 inference as the main cause. Small-batch
+acceptance can worsen the full recent buffer. Prefix scales are highly uneven;
+later commands reach102 startup standard deviations and motion reaches88 times
+startup support. The settled hidden-change tape has little command excitation,
+so it does not strongly establish changed control-authority identification.
+
+The frozen [online-fit-v2 protocol](harness/online-fit-v2.json) tests a damped
+Gauss-Newton update with acceptance over the full bounded replay cache. It keeps
+the same dynamics, initialization, normalization and objective, isolating the
+optimizer change on the same now-known tapes. V1 remains failed. No v2 fit has
+started. The offline learner, saved baseline and Dart model are unchanged.

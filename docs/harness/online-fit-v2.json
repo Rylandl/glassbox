@@ -1,0 +1,103 @@
+{
+  "id": "online-fit-v2",
+  "gap": "Small-batch Adam descent does not protect the retained operating region, and scaled feature sensitivity can produce destructive forecast changes.",
+  "scope": "Controlled optimizer comparison on the same now-known six tapes; no new native collection, blind generalization or live controller claim.",
+  "candidate": {
+    "engine": "Unchanged VehicleSequenceModel shared rigid-body formulation; arbitrary ordered command dimension.",
+    "interface": "OnlineFit(prefix), predict(past_states,past_inputs,future_inputs), observe(index,issued_command,next_observation), save/load. index is the absolute source row of the issued command, equal to the current cursor; no gaps/replay.",
+    "prefix": "One contiguous segment; retain 0.5 s observed context and the last 0.25 s completed transitions. Initialize using each of those transitions as a one-step ridge window; at least three windows. No padded history.",
+    "bootstrap": "Existing initialize(), including its two ridge solves and zero neural readout. All normalization/support arrays are then fixed.",
+    "training_horizon_s": 0.05,
+    "bootstrap_windows_max": 32,
+    "recent_windows_max": 32,
+    "batch_size": 64,
+    "batch_allocation": "Entire bounded bootstrap and recent caches, equal weight to each role and equal weight to each actual window within each role. Fixed32 slots per role duplicate real windows under zero masks when unfilled; no synthetic observations or targets.",
+    "proposals_per_observation": 1,
+    "optimizer": "Damped matrix-free Gauss-Newton with four conjugate-gradient iterations on (J^T W J + lambda I) delta=-J^T psi(r). J maps parameters to role-weighted normalized recursive residuals. Huber IRLS weights W=min(1,1/abs(raw normalized residual)), held fixed during the proposal. All parameters remain trainable. Damping starts1.0 and stays in[1e-8,1e8].",
+    "objective": "UNCHANGED: Mean Huber(delta=1) recursive residual over all15 normalized channels; fixed startup RMS hold-change scales and .01*state_scale floor. Full role-balanced cache defines current/trial acceptance. Existing orientation weighting and support saturation remain explicit limits.",
+    "parameters": "All existing parameters, including command filter and memory. No new feature family or platform branch.",
+    "precision": "float64 initialization and optimizer; float32 ambient prediction matching maintained default inference. Record actual runtime.",
+    "trust_rule": "Scale delta if necessary so the L2 change of role-weighted normalized linearized predictions is <=max(1,0.5*L2(current role-weighted normalized residual)). Predicted reduction is -g^T delta-0.5*(Jdelta)^T W (Jdelta), excluding damping. Accept only finite parameters/forecasts, strict decrease of the full role-balanced Huber objective and actual/predicted decrease ratio>=0.1. On rejection multiply damping by4; on accepted ratio<0.25 multiply by4, >0.75 multiply by0.5, otherwise preserve it. Clamp damping to its fixed bounds."
+  },
+  "streams": {
+    "quad": {
+      "source": "New Crazyflow Throw recordings using the pinned original pass6 behavior policy, not the candidate.",
+      "source_repository": "/Users/ryland/projects/glassbox-throw",
+      "source_commit": "9bd74c1",
+      "behavior_glassbox_commit": "d10bb24e4d30f3be212d0101d1f433c0004ecedb",
+      "runtime": "existing glassbox-throw .venv, Crazyflow0.3.2, default32 inference",
+      "cases": [
+        {
+          "id": "quad-arm-115",
+          "arm_ratio": 1.15
+        },
+        {
+          "id": "quad-arm-125",
+          "arm_ratio": 1.25
+        },
+        {
+          "id": "quad-arm-135",
+          "arm_ratio": 1.35
+        },
+        {
+          "id": "quad-change",
+          "arm_ratio": 1.25,
+          "change_at_s": 4.0,
+          "changed_arm_ratio": 1.0
+        }
+      ],
+      "release": "Canonical release for all cases; only arm ratio varies. Change affects mixing and inertia, not mass/motors.",
+      "plant": "CrazyflowPlantConfig(control_frequency_hz=100), default cf21B_500, rng_seed0. Ten-second limit, original first-second no actuation, first-floor termination; retain failures/truncation.",
+      "candidate_prefix_start_s": 0.5,
+      "candidate_first_prediction_s": 1.25
+    },
+    "fixedwing": {
+      "source": "Known reserved Cascade Skywalker-X8 recordings; cold prefix-only fitting. Not a blind benchmark.",
+      "recordings": [
+        {
+          "path": "/Users/ryland/autonomy/dart/artifacts/cascade-accuracy/comparison-01/recording-80.npz",
+          "sha256": "f3fd3ea993cb31c2eed6695a2531360d73e0b75e54716e0ae18815f1aba33bdc"
+        },
+        {
+          "path": "/Users/ryland/autonomy/dart/artifacts/cascade-accuracy/comparison-01/recording-81.npz",
+          "sha256": "6cbb9750a454714f654f27dc5e18459c5152feb3b08a702f12326e55d863e4a6"
+        }
+      ],
+      "dt_s": 0.05,
+      "candidate_prefix_start_s": 0.0,
+      "candidate_first_prediction_s": 0.75,
+      "ordered_commands": [
+        "throttle [1]",
+        "aileron [rad]",
+        "elevator [rad]"
+      ]
+    }
+  },
+  "learner_visibility": "Canonical15 motion from observed NWU/FLU rigid-body states, timestamps, ordered issued commands and their units, opaque configuration identity. Exclude actuator telemetry, plant coefficients, layout, wind and simulator hidden state. Old collection controller may use applied motor telemetry; this is a behavior-policy limitation, not candidate input.",
+  "comparison": {
+    "baseline": "Independent identical cold-prefix initialization, frozen for the rest of each stream. Verify initial parameter/normalizer identity.",
+    "order": "For command at row k, save candidate and frozen predictions and candidate model fingerprint before revealing state[k+1]. Score target, then assimilate it exactly once. No fitting on full-stream arrays.",
+    "primary": "One-step velocity vector RMSE (m/s) and body-rate vector RMSE (rad/s), over every scored transition in each stream. Save all component residuals.",
+    "secondary": "SO(3) geodesic RMSE (rad); post-change windows0-1s and1s-end separately; prefix command span/rank and fixed-scale support excursions.",
+    "aggregation": "Geometric mean candidate/frozen RMSE ratios for velocity and body-rate with1e-9 denominator floor, equal case weights within each family; then equal quad/fixed-wing family weights. Report every case and metric. No single-cell veto.",
+    "long_horizon": "Not a primary claim in this iteration; no use of unknown future behavior-policy commands as online forecasts.",
+    "kinematic_diagnostic": "Also score a no-fit baseline holding current world velocity and body-rate while integrating orientation with that body-rate over the sample interval. Report its physical errors and candidate/kinematic ratios. This is a declared absolute-accuracy sanity check, not a change to the frozen primary acceptance gate.",
+    "incumbent_limit": "The old Throw identifier uses measured applied rotor telemetry and is not a matched-input baseline. This experiment does not establish superiority over that identifier or a controller recovery result.",
+    "previous_candidate": "Report descriptive ratios to saved v1 predictions on exactly the same source rows, alongside unchanged primary comparison with frozen-prefix initializer and kinematic diagnostic. No hidden retuning or data exclusion."
+  },
+  "acceptance": {
+    "accuracy": "Aggregate ratio<=0.8 and each family aggregate<1.0; all declared cases represented. Report every regression even if aggregate passes. Any nonfinite candidate prediction/parameter fails accuracy acceptance, with missing samples retained as failure.",
+    "causality": "Same causal cursor, bounded retained arrays, fixed normalization, deterministic save/resume and failed-proposal preservation tests; curvature/proposal accounting replaces Adam moment accounting.",
+    "preservation": "Existing suite and saved baseline inference must pass; no change to existing model archive contract.",
+    "runtime": "Record complete synchronized cold startup and first update, then warmed median/p95/max predict and observe latency. p95 observe<=sample interval is a separate real-time target, not inferred from four proposals or accuracy success.",
+    "recovery": "Out of scope: replay success is not successful candidate-controlled recovery."
+  },
+  "evidence": "Commit this protocol before implementation and source before fitting. Reuse the exact authenticated v1 collection and fixed-wing sources in a fresh exclusive evaluation directory. Preserve all failed v1 evidence and verdict. Save all predictions, targets, states and counters; verify from archives without fitting. No native recollection or extra fit before this evaluation.",
+  "predecessor": {
+    "protocol_sha256": "dd65f57ceb01638642663b8cc1aa156e89e39f97e0183680b9c6b3a0a78d4be3",
+    "failed_evaluation_manifest_sha256": "fe73ba21c7b2eba6e77f237931d6528317d2d64f278e69f8be2eaeb12f8e532d",
+    "source_commit": "ecf488e"
+  },
+  "collection_protocol_sha256": "dd65f57ceb01638642663b8cc1aa156e89e39f97e0183680b9c6b3a0a78d4be3",
+  "collection_manifest_sha256": "276ba8d5c49250bf0cc8c242884f50e42c2566b660619958c53ca285651486c4"
+}

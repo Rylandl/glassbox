@@ -137,7 +137,7 @@ Verify the resulting physical errors and causal journal without fitting, using
 the manifest hash printed by evaluation:
 
 ```bash
-PYTHONPATH=scripts python scripts/evaluate_online.py verify \
+PYTHONPATH=src:scripts python scripts/evaluate_online.py verify \
   artifacts/online-fit-reproduction/evaluation \
   --manifest-sha256 EVALUATION_MANIFEST_SHA256
 ```
