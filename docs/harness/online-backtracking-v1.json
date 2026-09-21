@@ -1,0 +1,49 @@
+{
+  "id": "online-backtracking-v1",
+  "gap": "Nonlinear step control at bounded solve cost: determine whether shortening already recorded reference directions makes their predicted decrease useful in the exact retained objective.",
+  "scope": "Read-only residual evaluations on the same 46 selected fixed-wing snapshots. No new solve, differentiation, reconditioning, initialization, observe, applied update, changed learner, new data or counterfactual trajectory. V6 remains the sole maintained learner.",
+  "parent": {
+    "path": "/Users/ryland/autonomy/glassbox/artifacts/online-proposal-audit-v1/diagnosis",
+    "manifest_sha256": "2287c318048a65f997db2a6a92f725e9a93ef8e0ee5cb5a932215f3bfb0bb7c0",
+    "protocol_id": "online-proposal-audit-v1"
+  },
+  "cohort": "Every version/case/origin in the authenticated parent protocol, exactly 46 points and its ten causal predecessor links. Retain the same known-outcome selection and each reference status; 42 parent directions are capped, not converged.",
+  "ladder": [
+    1.0,
+    0.5,
+    0.25,
+    0.125,
+    0.0625
+  ],
+  "direction": "Use the parent reference_trusted delta and Jdelta exactly. Keep conditioned theta, normalizers, completed cache, loss scales, role weights, prior A, gradient g, IRLS, delay and timestep fixed. No new forecast-trust calculation is needed because alpha is in (0,1] and the parent direction is already trusted.",
+  "prediction": "predicted(alpha) = -alpha*g.dot(delta) - 0.5*alpha^2*(sum(W*IRLS*(Jdelta)^2)+delta.dot(A*delta)); damping is excluded, as in the original acceptance rule.",
+  "loss": "For theta+alpha*delta, evaluate the pinned original residual equations under float64. Data loss is the original radial Huber loss over groups 3/3/9 with W=role weight/(horizon*3); prior is 0.5*(theta+alpha*delta).dot(A*(theta+alpha*delta)). Preserve exact data, prior and combined losses, changes from start, prediction, gain and finite flags.",
+  "acceptance": "A step is eligible only when parent reference direction/conditioning and candidate parameters/residuals/scalars are finite. Gain=(current-trial)/predicted only if predicted>0. Accept iff finite, trial<current and gain>=0.1. These are the original rules, without a new threshold.",
+  "selection": "Choose the first accepted alpha in the declared descending ladder. Evaluate and retain all five entries even after a pass. If none passes, report no selection and descriptively retain the original four-step production result as fallback. A selected step is compared with four separately and may be worse; do not silently choose the lower loss or the best ladder entry. This is a diagnostic selection rule, not an adopted online fallback policy.",
+  "comparison": "The primary comparison total is the authenticated original production_trial scalar, not the tolerance-equivalent instrumented four total. Report selected wins/equalities/losses by strict floating comparison with no tie band. Report no-selection separately; descriptive fallback total equals production_trial exactly. Parent instrumented four data/prior components are labeled as such. Lower training loss is not a held-out forecast gain.",
+  "budget": "Run makes exactly four new residual evaluations per snapshot (184 total), one for each alpha below 1; alpha1 residual is copied byte-for-byte from the parent reference_trusted probe. Recompute verification separately evaluates all five residuals (230 total), including alpha1, with no JVP/VJP or PCG. Report actual diagnostic work separately from hypothetical first-pass evaluation cost, which includes alpha1 and is first-passing index+1 or 5 for no pass. No wall-time or real-time qualification is inferred.",
+  "provenance": "Freeze and commit this protocol before implementation; commit complete scientific source before measurement. Add separate tools without editing the parent-bound source inventory. Authenticate the full parent pack and run its existing NumPy verifier unchanged; require all 15 maintained package files to match adopted v6 and the exact archived runtime. Load only its authenticated historical online module for residual evaluation. Preserve the parent as a required artifact dependency, copy its manifest into this pack, and bind its authority. Do not duplicate the large parent solver traces or alter/relabel them.",
+  "evidence": "Save protocol, source/runtime binding, copied parent authority manifest, every new/reused trial residual, per-alpha data/prior/combined loss and acceptance, first-pass selection and original-four comparison, point identity and reference status, complete summary and explicit work counts. Seal every payload and record the external authority. Keep all failures; no output overwrite.",
+  "verification": {
+    "numpy": "A separate pure NumPy implementation reconstructs alpha-scaled directions/projections, exact Huber/prior losses, undamped prediction, acceptance, first-pass selection, original-four comparison and aggregate summaries. Check alpha1 residual exact against parent and its summary against the parent reference probe. Authenticate both packs and scientific source. Zero model/optimizer calls; arithmetic replay is counted.",
+    "recompute": "Mandatory separate source-bound path recomputes all five residuals from authenticated parent conditioned inputs, compares each to saved data, then runs the independent NumPy checks. No conditioning, derivative action, solve, initialization or session application.",
+    "absolute_tolerance": 1e-10,
+    "relative_tolerance": 1e-08,
+    "nonfinite": "Keep nonfinite residuals and failed eligibility explicit. Recomputed nonfinite masks/signs must match. Do not omit a failing alpha, extend the ladder, relax tolerances or rerun with different settings."
+  },
+  "qualification": "All 46 snapshots and ten causal links are present; reused alpha1 evidence, mathematical verification and mandatory residual recomputation pass frozen tolerances. Analytic nonlinear and loss/selection/tamper fixtures pass. This is diagnostic completion, with no accuracy-adoption gate and no automatic learner selection.",
+  "fixtures": [
+    "Explicit independent nonlinear residual whose full direction fails and shortened direction passes.",
+    "Nonzero prior and predicted reduction excluding damping.",
+    "First accepted differs from minimum loss and can be worse than original four.",
+    "All accepted, all rejected, nonfinite alpha, exact acceptance thresholds and zero/nonpositive predicted reduction.",
+    "Residual-only evaluation with PCG, derivatives, conditioning, observe and initialization forbidden.",
+    "Parent/source/alpha1/summary/selection tamper rejection and preserved input arrays."
+  ],
+  "limits": [
+    "Selected fixed-wing fitting caches, not blind or quad evidence.",
+    "No future prediction or counterfactual trajectory evaluated.",
+    "References can be capped; this is not a converged optimizer comparison.",
+    "A 128-step parent direction plus backtracking is not yet a practical online budget."
+  ]
+}
