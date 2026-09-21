@@ -121,12 +121,43 @@ def test_initial_uses_only_observed13_and_issued_history():
         np.testing.assert_array_equal(actual, expected)
 
 
-def test_shift_seed_keeps_exact_command_dtype_and_repeats_final_command():
+@pytest.mark.parametrize("steps", [1, 3])
+def test_shift_seed_keeps_exact_command_dtype_and_repeats_final_command(steps):
     commands = np.arange(120 * 4, dtype=np.float64).reshape(120, 4)
-    shifted = trial.shift_seed(commands)
+    shifted = trial.shift_seed(commands, steps)
     assert shifted.dtype == commands.dtype and shifted.shape == commands.shape
-    np.testing.assert_array_equal(shifted[:-3], commands[3:])
-    np.testing.assert_array_equal(shifted[-3:], np.repeat(commands[-1:], 3, axis=0))
+    np.testing.assert_array_equal(shifted[:-steps], commands[steps:])
+    np.testing.assert_array_equal(
+        shifted[-steps:], np.repeat(commands[-1:], steps, axis=0)
+    )
+
+
+def test_prefix_scores_exclude_commands_replaced_by_later_replans():
+    states = np.zeros((4, 17), dtype=np.float32)
+    states[:, 6] = 1
+    commands = np.zeros((3, 4), dtype=np.float64)
+    commands[1:] = 1
+    prediction = states[:, :13].copy()
+    prediction[1, 1] = 0.0005
+    prediction[2:, 1] = 100
+    selected = [
+        dict(origin=0, inputs_commands=np.zeros((3, 4)), result_states=prediction)
+    ]
+    target = dict(
+        normal=[-1, 0, 0], center_m=[0.65, 0, 1], body_contact_offset_m=[0, 0, 0.04]
+    )
+    result = trial.matched_prefixes(
+        selected, dict(states=states, commands=commands), 1, target
+    )
+    assert len(result["rows"]) == 1
+    assert set(result["summary"]) == {"10ms"}
+    assert result["summary"]["10ms"]["contact_position_m"][
+        "rmse_norm"
+    ] == pytest.approx(0.0005)
+    with pytest.raises(ValueError, match="prefixes differ"):
+        trial.matched_prefixes(
+            selected, dict(states=states, commands=commands), 3, target
+        )
 
 
 def test_existing_output_is_untouched(tmp_path):

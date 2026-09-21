@@ -111,8 +111,8 @@ def initial_arrays(value):
     return dict(zip(("state", "past_states", "past_inputs"), value))
 
 
-def shift_seed(plan):
-    return np.concatenate((plan[3:], np.repeat(plan[-1:], 3, axis=0)))
+def shift_seed(plan, steps=3):
+    return np.concatenate((plan[steps:], np.repeat(plan[-1:], steps, axis=0)))
 
 
 def bind(baseline, dart, protocol, output):
@@ -127,11 +127,14 @@ def bind(baseline, dart, protocol, output):
     require(
         all(
             p["controller"][k] == v
-            for k, v in dict(
-                steps=120, block_steps=3, replan_steps=3, maxiter=100, dt_s=0.01
-            ).items()
+            for k, v in dict(steps=120, block_steps=3, maxiter=100, dt_s=0.01).items()
         ),
         "unexpected controller work contract",
+    )
+    replan = p["controller"]["replan_steps"]
+    require(
+        type(replan) is int and 1 <= replan <= 120 and 120 % replan == 0,
+        "replanning must use an integer number of native observation intervals",
     )
 
     def git(*args):
@@ -192,6 +195,47 @@ def array_comparison(actual, expected):
     )
 
 
+def matched_prefixes(selected, trajectory, replan_steps, target):
+    from evaluate_dart import prefix_error
+
+    rows = []
+    for item in selected:
+        origin = item["origin"]
+        available = min(replan_steps, len(trajectory["commands"]) - origin)
+        require(
+            np.array_equal(
+                item["inputs_commands"][:available],
+                trajectory["commands"][origin : origin + available].astype(np.float32),
+            ),
+            "selected and executed prefixes differ",
+        )
+        for step in range(1, available + 1):
+            rows.append(
+                dict(
+                    origin=origin,
+                    horizon_steps=step,
+                    errors=prefix_error(
+                        item["result_states"][step],
+                        trajectory["states"][origin + step],
+                        target,
+                    ),
+                )
+            )
+    summary = {}
+    for step in sorted({r["horizon_steps"] for r in rows}):
+        sample = [r for r in rows if r["horizon_steps"] == step]
+        summary[str(step * 10) + "ms"] = {}
+        for metric in sample[0]["errors"]:
+            errors = np.array([r["errors"][metric]["norm"] for r in sample])
+            summary[str(step * 10) + "ms"][metric] = dict(
+                count=len(errors),
+                rmse_norm=float(np.sqrt(np.mean(errors**2))),
+                p95_norm=float(np.quantile(errors, 0.95)),
+                maximum_norm=float(errors.max()),
+            )
+    return dict(rows=rows, summary=summary)
+
+
 def run(baseline, dart, output, protocol):
     output.mkdir(parents=True, exist_ok=False)
     write(
@@ -250,7 +294,7 @@ def _run(baseline, dart, output, protocol):
     previous = signal.signal(signal.SIGALRM, timeout)
     signal.alarm(p["execution"]["timeout_s"])
     try:
-        for origin in range(0, 120, 3):
+        for origin in range(0, 120, c["replan_steps"]):
             start = initial(full, issued)
             planner.value_gradient = lambda flat, x, active, origin=origin: (
                 journal.call(
@@ -298,7 +342,7 @@ def _run(baseline, dart, output, protocol):
             journal.event(
                 dict(phase="diagnostic", origin=origin, diagnostic=diagnostic), {}
             )
-            for command in plan[:3]:
+            for command in plan[: c["replan_steps"]]:
                 state = journal.call(
                     "native",
                     origin,
@@ -317,7 +361,7 @@ def _run(baseline, dart, output, protocol):
                     break
             if stop == "contact":
                 break
-            seed = shift_seed(plan)
+            seed = shift_seed(plan, c["replan_steps"])
     except Exception as exc:
         error, stop = repr(exc), "exception"
     finally:
@@ -390,7 +434,9 @@ def _run(baseline, dart, output, protocol):
             initial_objective_difference=current["initial_objective"]
             - previous["initial_objective"],
         )
-        for current, previous in zip(diagnostics, reference["diagnostics"])
+        for current in diagnostics
+        for previous in reference["diagnostics"]
+        if current["origin"] == previous["step"]
     ]
     comparison["solve_count_difference"] = len(diagnostics) - len(
         reference["diagnostics"]
@@ -408,6 +454,9 @@ def _run(baseline, dart, output, protocol):
         solves=diagnostics,
         contact=canonical,
         independent_contact=independent,
+        matched_prefixes=matched_prefixes(
+            selected, trajectory, c["replan_steps"], audit_target
+        ),
         all_finite=finite,
         task_success=bool(error is None and finite and canonical["hit"]),
         coarse_submillimeter=bool(
