@@ -50,10 +50,17 @@ The winning objective and four regression tests are applied in Dart; 10 ms
 feedback is specified by this benchmark, not changed in Dart launcher defaults.
 See [the result](dart-precision.md). The full suite passes 105 tests.
 
-## Following scientific gap
+## Active scientific gap
 
-Freeze neighborhood reliability and prediction accuracy around the successful
-Dart task, keeping the learner and controller fixed and reporting every attempted
-condition. Measure direct model residuals alongside control outcomes. One nominal
-case and seventeen nonconverged solves do not establish robust control.
-No neighborhood protocol has been run.
+**Causal online fitting for Throw, then fixed-wing support.** The user redirected
+work from Dart neighborhood trials to the older glassbox-throw project. Its
+original controller uses an older, quad-specific identifier; the maintained
+learner currently starts a full batch fit from scratch on each update.
+
+The frozen [online-fit-v1 protocol](harness/online-fit-v1.json) tests bounded,
+persistent optimization of the same shared-physics model. Four newly collected
+quad streams and two known Cascade fixed-wing streams compare pre-assimilation
+predictions against an identical learner frozen after the startup prefix. The
+candidate sees observed motion and issued commands, with no platform data.
+This is identification evidence; candidate-controlled recovery and fresh
+fixed-wing generalization remain separate work. No scientific run has started.
